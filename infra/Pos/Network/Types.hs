@@ -59,6 +59,7 @@ import qualified Network.Transport.TCP as TCP
 import           Node.Internal (NodeId (..))
 import qualified Prelude
 import qualified System.Metrics as Monitoring
+import           System.Wlog (LoggerName)
 
 import           Pos.Network.DnsDomains (DnsDomains (..), NodeAddr)
 import qualified Pos.Network.DnsDomains as DnsDomains
@@ -430,12 +431,18 @@ data Bucket =
 -- For behind NAT nodes and Kademlia nodes (P2P or traditional) we start
 -- (elsewhere) specialized workers that add peers to the queue and subscribe
 -- to (some of) those peers.
+--
+-- This will use the log-warper trace for logging from the outbound queue.
+-- You can choose what name to give it.
 initQueue :: (MonadIO m, FormatMsg msg)
           => NetworkConfig kademlia
+          -> LoggerName
           -> Maybe Monitoring.Store -- ^ EKG store (if used)
           -> m (OutboundQ msg NodeId Bucket)
-initQueue NetworkConfig{..} mStore = liftIO $ do
-    oq <- OQ.new (maybe "self" toString ncSelfName)
+initQueue NetworkConfig{..} loggerName mStore = liftIO $ do
+    let selfName = maybe "self" toString ncSelfName
+        oqTrace  = OQ.wlogTrace loggerName selfName
+    oq <- OQ.new oqTrace
                  ncEnqueuePolicy
                  ncDequeuePolicy
                  ncFailurePolicy

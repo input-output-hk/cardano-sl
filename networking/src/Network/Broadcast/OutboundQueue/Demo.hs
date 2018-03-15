@@ -137,7 +137,7 @@ instance Eq Node where
 -- | Create a new node, and spawn dequeue worker and forwarding listener
 newNode :: NodeId_ -> NodeType -> CommsDelay -> IO Node
 newNode nodeId_ nodeType commsDelay = do
-    nodeOutQ     <- OutQ.new (show nodeId_)
+    nodeOutQ     <- OutQ.new (OutQ.wlogTrace "demo" (show nodeId_))
                              demoEnqueuePolicy
                              demoDequeuePolicy
                              demoFailurePolicy

@@ -79,6 +79,11 @@ module Network.Broadcast.OutboundQueue (
   , registerQueueMetrics
   , dumpState
   , currentlyInFlight
+
+  , Trace (..)
+  , trace
+  , noTrace
+  , wlogTrace
   ) where
 
 import           Control.Concurrent
@@ -90,6 +95,7 @@ import           Control.Lens
 import           Control.Monad
 import           Data.Either (rights)
 import           Data.Foldable (fold)
+import           Data.Functor.Contravariant (Contravariant (..), Op (..))
 import           Data.List (intercalate, sortBy)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -98,18 +104,16 @@ import           Data.Monoid ((<>))
 import           Data.Ord (comparing)
 import           Data.Set (Set)
 import qualified Data.Set as Set
-import           Data.String (fromString)
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Time
 import           Data.Typeable (typeOf)
-import           Formatting (Format, sformat, shown, string, (%))
+import           Formatting (Format, sformat, shown, string, stext, (%))
 import qualified System.Metrics as Monitoring
 import           System.Metrics.Counter (Counter)
 import qualified System.Metrics.Counter as Counter
-import           System.Wlog (usingLoggerName, logDebug)
-import qualified System.Wlog.CanLog as Log
 import           System.Wlog.Severity (Severity (..))
+import qualified System.Wlog as Wlog
 
 import           Network.Broadcast.OutboundQueue.ConcurrentMultiQueue (MultiQueue)
 import qualified Network.Broadcast.OutboundQueue.ConcurrentMultiQueue as MQ
@@ -357,6 +361,28 @@ setInFlightFor Packet{..} f var = modifyMVar_ var (return . update)
     updateInnerMap :: Map Precedence Int -> Map Precedence Int
     updateInnerMap = Map.adjust f packetPrec
 
+-- | Abstracts logging.
+newtype Trace m s = Trace
+    { runTrace :: Op (m ()) s
+    }
+
+instance Contravariant (Trace m) where
+    contramap f = Trace . contramap f . runTrace
+
+trace :: Trace m s -> s -> m ()
+trace = getOp . runTrace
+
+-- | A 'Trace' that ignores everything. NB this actually turns off logging: it
+-- doesn't force the logged messages.
+noTrace :: Applicative m => Trace m a
+noTrace = Trace $ Op $ const (pure ())
+
+-- | A 'Trace' that uses log-warper.
+wlogTrace :: Wlog.LoggerName -> String -> Trace IO (Severity, Text)
+wlogTrace loggerName selfName = Trace $ Op $ \(severity, txt) ->
+  let txtWithName = sformat (string%": "%stext) selfName txt
+  in  Wlog.usingLoggerName loggerName $ Wlog.logMessage severity txtWithName
+
 -- | The outbound queue (opaque data structure)
 --
 -- NOTE: The 'Ord' instance on the type of the buckets @buck@ determines the
@@ -368,7 +394,7 @@ data OutboundQ msg nid buck = ( FormatMsg msg
                               , Show buck
                               ) => OutQ {
       -- | Node ID of the current node (primarily for debugging purposes)
-      qSelf            :: String
+      qTrace           :: Trace IO (Severity, Text)
 
       -- | Enqueuing policy
     , qEnqueuePolicy   :: EnqueuePolicy nid
@@ -453,14 +479,14 @@ new :: forall msg nid buck.
        , Ord buck
        , Show buck
        )
-    => String                  -- ^ Identifier of this node (for logging)
+    => Trace IO (Severity, Text)
     -> EnqueuePolicy nid
     -> DequeuePolicy
     -> FailurePolicy nid
     -> (buck -> MaxBucketSize)
     -> UnknownNodeType nid
     -> IO (OutboundQ msg nid buck)
-new qSelf
+new qTrace
     qEnqueuePolicy
     qDequeuePolicy
     qFailurePolicy
@@ -590,57 +616,51 @@ failureCounterName FailedSend           = ["FailedSend"]
 failureCounterName (FailedBucketFull b) = ["FailedBucketFull", show b]
 
 failureFormat :: (FormatMsg msg, Show nid, Show buck)
-              => Failure msg nid buck fmt -> String -> fmt -> Text
-failureFormat FailedEnqueueAll self (enq, Some msg, fwdSets) =
-    sformat ( string
-            % ": enqueue instruction " % shown
+              => Failure msg nid buck fmt -> fmt -> Text
+failureFormat FailedEnqueueAll (enq, Some msg, fwdSets) =
+    sformat ( "enqueue instruction " % shown
             % " failed to enqueue message " % formatMsg
             % " to forwarding sets " % shown
             )
-            self enq msg fwdSets
-failureFormat FailedEnqueueOne self (enq, Some msg, fwdSets) =
-    sformat ( string
-            % ": enqueue instruction " % shown
+            enq msg fwdSets
+failureFormat FailedEnqueueOne (enq, Some msg, fwdSets) =
+    sformat ( "enqueue instruction " % shown
             % " failed to enqueue message " % formatMsg
             % " to forwarding sets " % shown
             )
-            self enq msg fwdSets
-failureFormat FailedAllSends self (Some msg, nids) =
-    sformat ( string % ": message " % formatMsg
+            enq msg fwdSets
+failureFormat FailedAllSends (Some msg, nids) =
+    sformat ( "message " % formatMsg
             % " got enqueued to " % shown
             % " but all sends failed"
             )
-            self msg nids
-failureFormat FailedCherishLoop self () =
-    sformat ( string % ": enqueueCherished loop? This a policy failure." )
-            self
-failureFormat FailedChooseAlt self alts =
-    sformat ( string % ": could not choose suitable alternative from " % shown )
-            self alts
-failureFormat FailedSend self (Some Packet{..}, err) =
-    sformat ( string % ": sending " % formatMsg % " to " % shown
+            msg nids
+failureFormat FailedCherishLoop () =
+    sformat ( "enqueueCherished loop? This a policy failure." )
+failureFormat FailedChooseAlt alts =
+    sformat ( "could not choose suitable alternative from " % shown )
+            alts
+failureFormat FailedSend (Some Packet{..}, err) =
+    sformat ( "sending " % formatMsg % " to " % shown
             % " failed with " % string % " :: " % shown)
-            self
             packetPayload
             packetDestId
             (displayException err)
             (typeOf err)
-failureFormat (FailedBucketFull b) self () =
-    sformat ( string % ": maximum bucket size of bucket " % shown % " exceeded" )
-            self b
+failureFormat (FailedBucketFull b) () =
+    sformat ( "maximum bucket size of bucket " % shown % " exceeded" )
+            b
 
 logFailure :: OutboundQ msg nid buck
            -> Failure msg nid buck fmt
            -> fmt
            -> IO ()
 logFailure OutQ{..} failure fmt = do
-    usingLoggerName (fromString ("outboundqueue." <> qSelf)) $
-      Log.logMessage (failureSeverity failure)
-                     (failureFormat failure qSelf fmt)
+    trace qTrace (failureSeverity failure, failureFormat failure fmt)
     Counter.inc $ failureCounter failure qHealth
 
 logDebugOQ :: OutboundQ msg nid buck -> Text -> IO ()
-logDebugOQ OutQ{..} = usingLoggerName (fromString ("outboundqueue." <> qSelf)) . logDebug
+logDebugOQ OutQ{..} txt = trace qTrace (Debug, txt)
 
 {-------------------------------------------------------------------------------
   EKG metrics
@@ -828,23 +848,21 @@ intEnqueue outQ@OutQ{..} msgType msg peers = fmap concat $
 
     debugNotEnqueued :: NodeType -> Text
     debugNotEnqueued nodeType = sformat
-      ( string
-      % ": message "
+      ( "message "
       % formatMsg
       % " not enqueued to any nodes of type "
       % shown
       % " since no such (relevant) peers listed in "
       % shown
       )
-      qSelf
       msg
       nodeType
       peers
 
     debugEnqueued :: [Packet msg nid a] -> Text
     debugEnqueued enqueued =
-      sformat (string % ": message " % formatMsg % " enqueued to " % shown)
-              qSelf msg (map packetDestId enqueued)
+      sformat ("message " % formatMsg % " enqueued to " % shown)
+              msg (map packetDestId enqueued)
 
 -- | Node ID with current stats needed to pick a node from a list of alts
 data NodeWithStats nid = NodeWithStats {
@@ -920,7 +938,7 @@ countAhead outQ@OutQ{..} nid prec = do
     return $ (sum inQueue, sum inFlight)
   where
     debugInFlight :: InFlight nid -> Text
-    debugInFlight = sformat (string % ": inFlight = " % shown) qSelf
+    debugInFlight = sformat ("inFlight = " % shown)
 
 
 {-------------------------------------------------------------------------------
@@ -1045,23 +1063,23 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
 
     debugImpossible :: Packet msg nid a -> Text
     debugImpossible Packet{..} =
-      sformat (string % ": packet " % formatMsg % " to " % shown % " sent twice. This is a bug!")
-              qSelf packetPayload packetDestId
+      sformat ("packet " % formatMsg % " to " % shown % " sent twice. This is a bug!")
+              packetPayload packetDestId
 
     debugAborted :: Packet msg nid a -> Text
     debugAborted Packet{..} =
-      sformat (string % ": aborted " % formatMsg % " to " % shown)
-              qSelf packetPayload packetDestId
+      sformat ("aborted " % formatMsg % " to " % shown)
+              packetPayload packetDestId
 
     debugSending :: Packet msg nid a -> Text
     debugSending Packet{..} =
-      sformat (string % ": sending " % formatMsg % " to " % shown)
-              qSelf packetPayload packetDestId
+      sformat ("sending " % formatMsg % " to " % shown)
+              packetPayload packetDestId
 
     debugSent :: Packet msg nid a -> Text
     debugSent Packet{..} =
-      sformat (string % ": sent " % formatMsg % " to " % shown)
-              qSelf packetPayload packetDestId
+      sformat ("sent " % formatMsg % " to " % shown)
+              packetPayload packetDestId
 
 finallyWithException :: IO a -> (Maybe SomeException -> IO x) -> IO a
 finallyWithException it handler = do

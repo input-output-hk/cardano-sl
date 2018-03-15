@@ -2,6 +2,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings   #-}
 
 module Pos.Diffusion.Full
     ( diffusionLayerFull
@@ -96,8 +97,12 @@ diffusionLayerFull runIO networkConfig lastKnownBlockVersion transport mEkgNodeM
     bracket acquire release $ \_ -> expectLogic $ \logic -> do
 
         -- Make the outbound queue using network policies.
+        -- NB: the <> is under 'LoggerName', which is representationally equal
+        -- to 'Text' but its semigroup instance adds a '.' in-between.
+        -- The result: the outbound queue will log under the
+        -- ["diffusion", "outboundqueue"] hierarchy via log-warper.
         oq :: OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket <-
-            initQueue networkConfig (enmStore <$> mEkgNodeMetrics)
+            initQueue networkConfig ("diffusion" <> "outboundqueue") (enmStore <$> mEkgNodeMetrics)
 
         -- Timer is in microseconds.
         keepaliveTimer :: Timer <- newTimer $ convertUnit (20 :: Second)

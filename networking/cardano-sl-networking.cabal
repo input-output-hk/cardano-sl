@@ -66,6 +66,7 @@ Library
                       , attoparsec
                       , base
                       , containers
+                      , contravariant
                       , cryptonite
                       , binary >= 0.8
                       , bytestring

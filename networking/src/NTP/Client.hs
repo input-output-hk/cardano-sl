@@ -47,13 +47,14 @@ data NtpStatus =
     deriving (Eq, Show)
 
 data NtpClientSettings = NtpClientSettings
-    { ntpServers         :: [String]
+    { ntpServers                     :: [String]
       -- ^ list of servers addresses
-    , ntpResponseTimeout :: Microsecond
+    , ntpResponseTimeout             :: Microsecond
       -- ^ delay between making requests and response collection
-    , ntpPollDelay       :: Microsecond
-      -- ^ how often to send responses to server
-    , ntpMeanSelection   :: [(Microsecond, Microsecond)] -> (Microsecond, Microsecond)
+    , ntpPollDelay                   :: Microsecond
+      -- ^ how often to send requests to the servers
+    , ntpMeanSelection               :: [(Microsecond, Microsecond)]
+                                     -> (Microsecond, Microsecond)
       -- ^ way to sumarize results received from different servers.
       -- this may accept list of lesser size than @length ntpServers@ in case
       -- some servers failed to respond in time, but never an empty list
@@ -100,13 +101,20 @@ logInfo = usingNtpLogger . Wlog.logInfo
 logDebug :: Text -> IO ()
 logDebug = usingNtpLogger . Wlog.logDebug
 
+-- |
+-- Handle results.  It is either when all ntp servers responded or when
+-- `ntpResponseTimeout` has passed since the request where send.  If none of the servers responded `ncState`
 handleCollectedResponses :: NtpClient -> IO ()
 handleCollectedResponses cli = do
     mres <- readTVarIO (ncState cli)
     let selection = ntpMeanSelection (ncSettings cli)
     case mres of
-        Nothing        -> logError "Protocol error: responses are not awaited"
-        Just []        -> logWarning "No servers responded"
+        Nothing        -> do
+            atomically $ writeTVar (ncStatus cli) NtpSyncUnavailable
+            logError "Protocol error: responses are not awaited"
+        Just []        -> do
+            atomically $ writeTVar (ncStatus cli) NtpSyncUnavailable
+            logWarning "No servers responded"
         Just responses -> handleE `handleAny` do
             let time = selection responses
             logInfo $ sformat ("Evaluated clock offset "%shown%
@@ -139,8 +147,10 @@ allResponsesGathered cli = do
         Nothing        -> False
         Just responses -> length responses >= length servers
 
-doSend :: SockAddr -> NtpClient -> IO ()
-doSend addr cli = do
+-- |
+-- Low level primitive which sends a request to a single ntp server.
+doSend :: NtpClient -> SockAddr -> IO ()
+doSend cli addr = do
     sock   <- readTVarIO $ ncSockets cli
     packet <- encode <$> mkCliNtpPacket
     handleAny handleE . void $ sendDo addr sock (LBS.toStrict packet)
@@ -157,15 +167,20 @@ doSend addr cli = do
     handleE =
         logWarning . sformat ("Failed to send to "%shown%": "%shown) addr
 
-startSend :: [SockAddr] -> NtpClient -> IO ()
-startSend addrs cli = do
+-- |
+-- Every `ntpPollDelay` send request to the list of `ntpServers`.  After
+-- sending requests wait until either all servers respond or
+-- `ntpResponseTimeout` passes.  If at least one server responded
+-- `handleCollectedResponses` will update `ncStatus` in `NtpClient`.
+startSend :: NtpClient -> [SockAddr] -> IO ()
+startSend cli addrs = do
     let respTimeout = ntpResponseTimeout (ncSettings cli)
-    let poll    = ntpPollDelay (ncSettings cli)
+    let poll = ntpPollDelay (ncSettings cli)
 
     _ <- concurrently (threadDelay poll) $ do
         logDebug "Sending requests"
         atomically . modifyTVarS (ncState cli) $ identity .= Just []
-        let sendRequests = forConcurrently addrs (flip doSend cli)
+        let sendRequests = forConcurrently addrs (doSend cli)
         let waitTimeout = void $ timeout respTimeout
                     (atomically $ check =<< allResponsesGathered cli)
         withAsync sendRequests $ \_ -> waitTimeout
@@ -174,7 +189,7 @@ startSend addrs cli = do
         handleCollectedResponses cli
         atomically . modifyTVarS (ncState cli) $ identity .= Nothing
 
-    startSend addrs cli
+    startSend cli addrs
 
 -- Try to create IPv4 and IPv6 socket.
 mkSockets :: NtpClientSettings -> IO Sockets
@@ -233,9 +248,11 @@ doReceive sock cli = forever $ do
   where
     handleE = logWarning . sformat ("Error while handle packet: "%shown)
 
+-- |
+-- Start listening for responses on the socket `ncSockets
 startReceive :: NtpClient -> IO ()
 startReceive cli = do
-    sockets <- atomically . readTVar $ ncSockets cli
+    sockets <- readTVarIO $ ncSockets cli
     case sockets of
         BothSock sIPv4 sIPv6 ->
             () <$ runDoReceive True sIPv4 `concurrently` runDoReceive False sIPv6
@@ -249,8 +266,8 @@ startReceive cli = do
                             ", reason: "%shown%
                             ", recreate socket in 5 sec") sock e
         threadDelay (5 :: Second)
-        serveraddrs <- liftIO udpLocalAddresses
-        newSockMB <- liftIO $
+        serveraddrs <- udpLocalAddresses
+        newSockMB <-
             if isIPv4 then
                 traverse (overwriteSocket IPv4Sock . fst) =<< createAndBindSock selectIPv4 serveraddrs
             else
@@ -264,24 +281,29 @@ startReceive cli = do
          flip mergeSockets .
          constr $ sock)
 
+-- |
+-- Spawn ntp client which will send request to ntp servers every ntpPollDelay
+-- and will lisent for responses.  The `ncStatus` will be updated every
+-- `ntpPollDelay` with the most recent value.  It should be run in a seprate
+-- thread, since it will block infinitelly.
 spawnNtpClient :: NtpClientSettings -> TVar NtpStatus -> IO ()
-spawnNtpClient settings ntpStatus =
+spawnNtpClient settings ncStatus =
     withSocketsDoLifted $
     bracket (mkSockets settings) closeSockets $ \sock -> do
-        cli <- mkNtpClient settings ntpStatus sock
+        cli <- mkNtpClient settings ncStatus sock
 
         addrs <- catMaybes <$> mapM (resolveHost $ socketsToBoolDescr sock)
                                     (ntpServers settings)
         when (null addrs) $ throwM NoHostResolved
         () <$ startReceive cli `concurrently`
-              startSend addrs cli `concurrently`
+              startSend cli addrs `concurrently`
               logInfo "Launched NTP client"
   where
     closeSockets sockets = do
         logInfo "NTP client is stopped"
-        forM_ (socketsToList sockets) (liftIO . close)
+        forM_ (socketsToList sockets) close
     resolveHost sockDescr host = do
-        maddr <- liftIO $ resolveNtpHost host sockDescr
+        maddr <- resolveNtpHost host sockDescr
         case maddr of
             Nothing   -> do
                 logWarning $ sformat ("Host "%shown%" is not resolved") host
@@ -296,8 +318,8 @@ ntpSingleShot
     :: NtpClientSettings
     -> TVar NtpStatus
     -> IO ()
-ntpSingleShot ntpSettings ntpStatus =
-    () <$ timeout (ntpResponseTimeout ntpSettings) (spawnNtpClient ntpSettings ntpStatus)
+ntpSingleShot ntpSettings ncStatus =
+    () <$ timeout (ntpResponseTimeout ntpSettings) (spawnNtpClient ntpSettings ncStatus)
 
 -- Store created sockets.
 -- If system supports IPv6 and IPv4 we create socket for IPv4 and IPv6.

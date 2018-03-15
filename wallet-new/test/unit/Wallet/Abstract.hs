@@ -3,6 +3,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE UndecidableInstances       #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Abstract definition of a wallet
 module Wallet.Abstract (
@@ -224,32 +225,39 @@ type Invariant h a = Inductive h a -> Validated (InvariantViolation h a) ()
 
 -- | Lift a property of flat wallet values to an invariant over the wallet ops
 invariant :: (IsWallet w h a, Buildable a)
-          => Text                        -- ^ Error msg if property violated
+          => Text                        -- ^ Name of the invariant
           -> (Transaction h a -> w h a)  -- ^ Construct empty wallet
-          -> (w h a -> Bool)             -- ^ Property to verify
+          -> (w h a -> Maybe InvariantViolationEvidence) -- ^ Property to verify
           -> Invariant h a
-invariant err e p fullInd = void $
+invariant name e p fullInd = void $
     interpret notChecked (One . e) p' fullInd
   where
     notChecked ind reason = InvariantNotChecked {
-          invariantNotCheckedReason    = reason
+          invariantNotCheckedName      = name
+        , invariantNotCheckedReason    = reason
         , invariantNotCheckedInductive = ind
         , invariantNotCheckedContext   = fullInd
         }
-    violation ind = InvariantViolation {
-          invariantViolationError     = err
+    violation ind ev = InvariantViolation {
+          invariantViolationName      = name
+        , invariantViolationEvidence  = ev
         , invariantViolationInductive = ind
         , invariantViolationContext   = fullInd
         }
 
-    p' ind (One w) = unless (p w) $ throwError (violation ind)
+    p' ind (One w) = case p w of
+                       Nothing -> return ()
+                       Just ev -> throwError (violation ind ev)
 
 -- | Invariant violation
 data InvariantViolation h a =
     -- | Invariance violation
     InvariantViolation {
-        -- | Free-form error message
-        invariantViolationError :: Text
+        -- | Name of the invariant
+        invariantViolationName :: Text
+
+        -- | Evidence that the invariant was violated
+      , invariantViolationEvidence :: InvariantViolationEvidence
 
         -- | The 'Inductive' value at the point of the error
       , invariantViolationInductive :: Inductive h a
@@ -260,8 +268,11 @@ data InvariantViolation h a =
 
     -- | The invariant was not checked because the input was invalid
   | InvariantNotChecked {
+        -- | Name of the invariant
+        invariantNotCheckedName :: Text
+
         -- | Why did we not check the invariant
-        invariantNotCheckedReason :: InvalidInput h a
+      , invariantNotCheckedReason :: InvalidInput h a
 
         -- | The 'Inductive' value at the point of the error
       , invariantNotCheckedInductive :: Inductive h a
@@ -290,6 +301,53 @@ data InvalidInput h a =
       }
 
 {-------------------------------------------------------------------------------
+  Evidence that an invariant was violated
+
+  Rather than just whether or not that the invariant is maintained, we try
+  to produce an informative error message when the invariant is /not/
+  maintained so that we can debug what's going on.
+-------------------------------------------------------------------------------}
+
+-- | Evidence that the invariance was violated
+data InvariantViolationEvidence =
+    forall a. Buildable a =>
+      NotEqual (Text, a) (Text, a)
+  | forall a. (Buildable a, Ord a) =>
+      NotSubsetOf (Text, Set a) (Text, Set a)
+  | forall a. (Buildable a) =>
+      NotAllSatisfy (Text, a -> Bool) (Text, [a])
+  | forall a. (Buildable a, Ord a) =>
+      NotDisjoint (Text, Set a) (Text, Set a)
+
+checkEqual :: (Buildable a, Eq a)
+           => (Text, a) -> (Text, a) -> Maybe InvariantViolationEvidence
+checkEqual (labelX, x) (labelY, y) =
+    if x == y
+      then Nothing
+      else Just $ NotEqual (labelX, x) (labelY, y)
+
+checkSubsetOf :: (Buildable a, Ord a)
+              => (Text, Set a) -> (Text, Set a) -> Maybe InvariantViolationEvidence
+checkSubsetOf (labelXs, xs) (labelYs, ys) =
+    if xs `Set.isSubsetOf` ys
+      then Nothing
+      else Just $ NotSubsetOf (labelXs, xs) (labelYs, ys)
+
+checkAllSatisfy :: Buildable a
+                => (Text, a -> Bool) -> (Text, [a]) -> Maybe InvariantViolationEvidence
+checkAllSatisfy (labelP, p) (labelXs, xs) =
+    if all p xs
+      then Nothing
+      else Just $ NotAllSatisfy (labelP, p) (labelXs, xs)
+
+checkDisjoint :: (Buildable a, Ord a)
+              => (Text, Set a) -> (Text, Set a) -> Maybe InvariantViolationEvidence
+checkDisjoint (labelXs, xs) (labelYs, ys) =
+    if disjoint xs ys
+      then Nothing
+      else Just $ NotDisjoint (labelXs, xs) (labelYs, ys)
+
+{-------------------------------------------------------------------------------
   Specific invariants
 -------------------------------------------------------------------------------}
 
@@ -309,27 +367,45 @@ walletInvariants e w = sequence_ [
 
 pendingInUtxo :: WalletInv w h a
 pendingInUtxo e = invariant "pendingInUtxo" e $ \w ->
-    txIns (pending w) `Set.isSubsetOf` utxoDomain (utxo w)
+    checkSubsetOf ("txIns (pending w)",
+                    txIns (pending w))
+                  ("utxoDomain (utxo w)",
+                    utxoDomain (utxo w))
 
 utxoIsOurs :: WalletInv w h a
 utxoIsOurs e = invariant "utxoIsOurs" e $ \w ->
-    all (isJust . ours w . outAddr) (utxoRange (utxo w))
+    checkAllSatisfy ("isOurs",
+                      isJust . ours w . outAddr)
+                    ("utxoRange (utxo w)",
+                      utxoRange (utxo w))
 
 changeNotAvailable :: WalletInv w h a
 changeNotAvailable e = invariant "changeNotAvailable" e $ \w ->
-    utxoDomain (change w) `disjoint` utxoDomain (available w)
+    checkDisjoint ("utxoDomain (change w)",
+                    utxoDomain (change w))
+                  ("utxoDomain (available w)",
+                    utxoDomain (available w))
 
 changeNotInUtxo :: WalletInv w h a
 changeNotInUtxo e = invariant "changeNotInUtxo" e $ \w ->
-    utxoDomain (change w) `disjoint` utxoDomain (utxo w)
+    checkDisjoint ("utxoDomain (change w)",
+                    utxoDomain (change w))
+                  ("utxoDomain (utxo w)",
+                    utxoDomain (utxo w))
 
 changeAvailable :: WalletInv w h a
 changeAvailable e = invariant "changeAvailable" e $ \w ->
-    change w `utxoUnion` available w == total w
+    checkEqual ("change w `utxoUnion` available w" ,
+                 change w `utxoUnion` available w)
+               ("total w",
+                 total w)
 
 balanceChangeAvailable :: WalletInv w h a
 balanceChangeAvailable e = invariant "balanceChangeAvailable" e $ \w ->
-    balance (change w) + balance (available w) == balance (total w)
+    checkEqual ("balance (change w) + balance (available w)",
+                 balance (change w) + balance (available w))
+               ("balance (total w)",
+                 balance (total w))
 
 {-------------------------------------------------------------------------------
   Compare different wallet implementations
@@ -347,12 +423,14 @@ walletEquivalent e e' fullInd = void $
     interpret notChecked (\boot -> Two (e boot) (e' boot)) p fullInd
   where
     notChecked ind reason = InvariantNotChecked {
-          invariantNotCheckedReason    = reason
+          invariantNotCheckedName      = "wallet equivalence"
+        , invariantNotCheckedReason    = reason
         , invariantNotCheckedInductive = ind
         , invariantNotCheckedContext   = fullInd
         }
-    violation ind err = InvariantViolation {
-          invariantViolationError     = err
+    violation ind ev = InvariantViolation {
+          invariantViolationName      = "wallet equivalence"
+        , invariantViolationEvidence  = ev
         , invariantViolationInductive = ind
         , invariantViolationContext   = fullInd
         }
@@ -370,11 +448,14 @@ walletEquivalent e e' fullInd = void $
         , cmp "total"            total
         ]
       where
-        cmp :: Eq b
+        cmp :: (Eq b, Buildable b)
             => Text
             -> (forall w''. IsWallet w'' h a => w'' h a -> b)
             -> Validated (InvariantViolation h a) ()
-        cmp err f = unless (f w == f w') $ throwError (violation ind err)
+        cmp fld f =
+          case checkEqual (fld <> " w", f w) (fld <> " w'", f w') of
+            Nothing -> return ()
+            Just ev -> throwError $ violation ind ev
 
 {-------------------------------------------------------------------------------
   Auxiliary operations
@@ -782,12 +863,15 @@ the first block.
   Pretty-printing
 -------------------------------------------------------------------------------}
 
+instance (Hash h a, Buildable a) => Buildable (Pending h a) where
+  build = bprint listJson . Set.toList
+
 instance (Hash h a, Buildable a) => Buildable (InvalidInput h a) where
   build InvalidPending{..} = bprint
     ( "InvalidPending "
     % "{ transaction:   " % build
     % ", walletUtxo:    " % build
-    % ", walletPending: " % listJson
+    % ", walletPending: " % build
     % ", ledger:        " % build
     % "}"
     )
@@ -799,24 +883,79 @@ instance (Hash h a, Buildable a) => Buildable (InvalidInput h a) where
 instance (Hash h a, Buildable a) => Buildable (InvariantViolation h a) where
   build InvariantViolation{..} = bprint
     ( "InvariantViolation "
-    % "{ error:     " % build
+    % "{ name:      " % build
+    % ", evidence:  " % build
     % ", inductive: " % build
     % ", context:   " % build
     % "}"
     )
-    invariantViolationError
+    invariantViolationName
+    invariantViolationEvidence
     invariantViolationInductive
     invariantViolationContext
   build (InvariantNotChecked{..}) = bprint
     ( "InvariantNotChecked "
-    % "{ reason:    " % build
+    % "{ name:      " % build
+    % ", reason:    " % build
     % ", inductive: " % build
     % ", context:   " % build
     % "}"
     )
+    invariantNotCheckedName
     invariantNotCheckedReason
     invariantNotCheckedInductive
     invariantNotCheckedContext
+
+instance Buildable InvariantViolationEvidence where
+  build (NotEqual (labelX, x) (labelY, y)) = bprint
+    ( "NotEqual "
+    % "{ " % build % ": " % build
+    % ", " % build % ": " % build
+    % "}"
+    )
+    labelX
+      x
+    labelY
+      y
+  build (NotSubsetOf (labelXs, xs) (labelYs, ys)) = bprint
+    ( "NotSubsetOf "
+    % "{ " % build % ": " % listJson
+    % ", " % build % ": " % listJson
+    % ", " % build % ": " % listJson
+    % "}"
+    )
+    labelXs
+      (Set.toList xs)
+    labelYs
+      (Set.toList ys)
+    (labelXs <> " \\\\ " <> labelYs)
+      (Set.toList $ xs Set.\\ ys)
+  build (NotAllSatisfy (labelP, p) (labelXs, xs)) = bprint
+    ( "NotAllSatisfy "
+    % "{ " % build % ": " % build
+    % ", " % build % ": " % listJson
+    % ", " % build % ": " % listJson
+    % "}"
+    )
+    ("pred" :: Text)
+      labelP
+    labelXs
+      xs
+    ("filter (not . " <> labelP <> ")")
+      (filter (not . p) xs)
+  build (NotDisjoint (labelXs, xs) (labelYs, ys)) = bprint
+    ( "NotSubsetOf "
+    % "{ " % build % ": " % listJson
+    % ", " % build % ": " % listJson
+    % ", " % build % ": " % listJson
+    % "}"
+    )
+    labelXs
+      (Set.toList xs)
+    labelYs
+      (Set.toList ys)
+    (labelXs <> " `intersection` " <> labelYs)
+      (Set.toList $ xs `Set.intersection` ys)
 
 -- | We output the inductive in the order that things are applied; something like
 --

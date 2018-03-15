@@ -273,15 +273,16 @@ streamBlocks
        , DiffusionWorkMode d
        )
     => Logic d
+    -> Word32
     -> EnqueueMsg d
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]
     -> (Conc.TBQueue StreamEntry -> d t)
     -> d t
-streamBlocks logic enqueue nodeId tipHeader checkpoints k = do
+streamBlocks logic streamWindow enqueue nodeId tipHeader checkpoints k = do
 
-    blockChan <- atomically $ Conc.newTBQueue $ fromIntegral windowSize
+    blockChan <- atomically $ Conc.newTBQueue $ fromIntegral streamWindow
     -- XXX Is this the third or forth thread needed to read and write to a socket?
     threadId <- async (requestBlocks blockChan)
     x <- k blockChan
@@ -294,7 +295,7 @@ streamBlocks logic enqueue nodeId tipHeader checkpoints k = do
         MsgStart $ MsgStreamStart
         { mssFrom = chain
         , mssTo = wantedBlock
-        , mssWindow = 8 -- XXX
+        , mssWindow = streamWindow
         }
 
     requestBlocks :: Conc.TBQueue StreamEntry -> d ()
@@ -302,8 +303,6 @@ streamBlocks logic enqueue nodeId tipHeader checkpoints k = do
         enqueue
         (MsgRequestBlocks (S.singleton nodeId))
         (Conversation $ requestBlocksConversation blockChan)
-
-    windowSize = 8 :: Word32 -- XXX
 
     requestBlocksConversation
         :: Conc.TBQueue StreamEntry
@@ -317,7 +316,7 @@ streamBlocks logic enqueue nodeId tipHeader checkpoints k = do
                            newestHash
         send conv $ mkStreamStart checkpoints newestHash
         bvd <- getAdoptedBVData logic
-        retrieveBlocks bvd blockChan conv windowSize
+        retrieveBlocks bvd blockChan conv streamWindow
 
         return ()
 
@@ -330,9 +329,9 @@ streamBlocks logic enqueue nodeId tipHeader checkpoints k = do
         -> Word32
         -> d ()
     retrieveBlocks bvd blockChan conv window = do
-        window' <- if window < windowSize `div` 2
+        window' <- if window < streamWindow `div` 2
                           then do
-                              let w' = windowSize
+                              let w' = streamWindow
                               logDebug $ sformat ("Updating Window: "%int%" to "%int) window w'
                               send conv $ MsgUpdate $ MsgStreamUpdate $ w'
                               return (w' - 1)

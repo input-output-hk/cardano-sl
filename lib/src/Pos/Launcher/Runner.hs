@@ -25,7 +25,7 @@ import           Mockable.Production (Production (..))
 import           System.Exit (ExitCode (..))
 
 import           Pos.Binary ()
-import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
+import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage, streamWindow)
 import           Pos.Communication (ActionSpec (..), OutSpecs (..))
 import           Pos.Configuration (HasNodeConfiguration, networkConnectionTimeout)
 import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
@@ -152,6 +152,7 @@ runServer runIO NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
         , fdcRecoveryHeadersMessage = recoveryHeadersMessage
         , fdcLastKnownBlockVersion = lastKnownBlockVersion
         , fdcConvEstablishTimeout = networkConnectionTimeout
+        , fdcStreamWindow = streamWindow
         }
     exitOnShutdown action = do
         _ <- race waitForShutdown action

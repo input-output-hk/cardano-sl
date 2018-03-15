@@ -8,6 +8,7 @@ module Cardano.Wallet.Client
       WalletClient(..)
     , getWalletIndex
     , getAddressIndex
+    , getWalletIndexFilterSorts
     , Resp
     , hoistClient
     , liftClient

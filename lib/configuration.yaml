@@ -61,13 +61,9 @@ dev: &dev
     dbSerializeVersion: 0
 
   ntp: &dev_ntp
-
-    # NTP slotting
-    responseTimeout: 7000000 # 7 sec
-    pollDelay: 300000000 # 300 sec
-    maxError: 120000000 # 2 mins
-
-    # NTP checking
+    # NTP
+    responseTimeout: 30000000 # 30 sec
+    pollDelay:  1800000000 # 30 min
     timeDifferenceWarnInterval: 14400000000 # 4 hours
     timeDifferenceWarnThreshold: 5000000 # 5 sec
     servers:
@@ -245,13 +241,8 @@ mainnet_base: &mainnet_base
     dbSerializeVersion: 0
 
   ntp:
-
-    # NTP slotting
-    responseTimeout: 10000000           # 10 sec
-    pollDelay: 60000000                 # 1 min
-    maxError: 120000000 # 2 mins
-
-    # NTP checking
+    responseTimeout: 30000000 # 30 sec
+    pollDelay:  1800000000 # 30 min
     timeDifferenceWarnInterval: 14400000000 # 4 hours
     timeDifferenceWarnThreshold: 5000000 # 5 sec
     servers:

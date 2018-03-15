@@ -17,7 +17,6 @@ module Pos.Slotting.Impl.Simple
 import           Universum
 
 import           Mockable (CurrentTime, Mockable, currentTime)
-import           NTP.Example ()
 
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Slotting (SlotId (..), Timestamp (..), unflattenSlotId)

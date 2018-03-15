@@ -2,6 +2,7 @@
 module Pos.Ntp.Configuration
        ( NtpConfiguration (..)
        , HasNtpConfiguration
+       , ntpClientSettings
        , ntpConfiguration
        , withNtpConfiguration
        ) where
@@ -9,19 +10,25 @@ module Pos.Ntp.Configuration
 import           Universum
 
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
+import           Data.List.NonEmpty as NE
+import           Data.Time.Units (fromMicroseconds)
 import           Data.Reflection (Given, give, given)
+import           Ntp.Client (NtpClientSettings (..))
 import           Serokell.Aeson.Options (defaultOptions)
+import           Pos.Util.Util (median)
 
 data NtpConfiguration = NtpConfiguration
     {
-    --------------------------------------------------------------------------
-    -- -- NTP checking
-    --------------------------------------------------------------------------
-      ntpcTimeDifferenceWarnInterval  :: !Integer
-      -- ^ NTP checking interval, microseconds
-    , nptcTimeDifferenceWarnThreshold :: !Integer
-      -- ^ Maximum tolerable difference between NTP time
-      -- and local time, microseconds
+      ntpcResponseTimeout             :: !Integer
+      -- ^ how long to await for responses from ntp servers (in microseconds)
+    , ntpcPollDelay                   :: !Integer
+      -- ^ how long to wait between to send requests to the servers (in
+      -- microseconds)
+    , ntpcTimeDifferenceWarnInterval  :: !Integer
+      -- ^ NTP checking interval (in microseconds)
+    , ntpcTimeDifferenceWarnThreshold :: !Integer
+      -- ^ Maximum tolerable difference between NTP time and local time (in
+      -- microseconds)
     , ntpcServers                     :: [String]
       -- ^ List of ntp servers
     } deriving (Show, Generic)
@@ -31,6 +38,17 @@ instance FromJSON NtpConfiguration where
 
 instance ToJSON NtpConfiguration where
     toJSON = genericToJSON defaultOptions
+
+ntpClientSettings :: NtpConfiguration -> NtpClientSettings
+ntpClientSettings NtpConfiguration {..} = NtpClientSettings
+    { ntpServers         = ntpcServers
+    , ntpResponseTimeout = fromMicroseconds $ ntpcResponseTimeout
+    , ntpPollDelay       = fromMicroseconds $ ntpcPollDelay
+    , ntpMeanSelection   = median . NE.fromList
+    , ntpTimeDifferenceWarnInterval  = fromMicroseconds $ ntpcTimeDifferenceWarnInterval
+    , ntpTimeDifferenceWarnThreshold = fromMicroseconds $ ntpcTimeDifferenceWarnThreshold
+    }
+
 
 type HasNtpConfiguration = Given NtpConfiguration
 

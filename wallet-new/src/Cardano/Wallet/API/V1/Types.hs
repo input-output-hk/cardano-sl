@@ -66,6 +66,7 @@ module Cardano.Wallet.API.V1.Types (
   -- * Some types for the API
   , type (?=)(..)
   , LookupParam(..)
+  , DecomposeToQueryParams
   -- * Core re-exports
   , Core.Address
   ) where
@@ -94,6 +95,7 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Gen (Gen (..))
 import           Test.QuickCheck.Random (mkQCGen)
 import           Web.HttpApiData
+import Servant
 
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
 import           Cardano.Wallet.Orphans.Aeson ()
@@ -1108,8 +1110,20 @@ instance
 instance (KnownSymbol pname, x ~ ptype) => LookupParam x '[pname ?= ptype] where
     reifyParam _ _ = Text.pack (symbolVal (Proxy @pname))
 
-instance (Typeable x, Typeable ptype, KnownSymbol pname, LookupParam x rest) => LookupParam x ((pname ?= ptype) ': rest) where
+instance
+    (Typeable x, Typeable ptype, KnownSymbol pname, LookupParam x rest)
+    => LookupParam x ((pname ?= ptype) ': rest) where
     reifyParam px _ =
         fromMaybe (reifyParam px (Proxy @rest)) (eqT @x @ptype $> pname)
       where
         pname = Text.pack (symbolVal (Proxy @pname))
+
+type family DecomposeToQueryParams mkCon res syms types next where
+    DecomposeToQueryParams _ _ '[] '[] next =
+        next
+    DecomposeToQueryParams mkCon res (sym ': syms) (ty ': tys) next =
+        QueryParam sym (mkCon ty res) :> DecomposeToQueryParams mkCon res syms tys next
+    DecomposeToQueryParams mkCon res (x ': xs) '[] next =
+        TypeError ('Text "There were too many keys for the parameters, which means there's likely a bug in the instance of either FilterParams/SortParams for " ':<>: 'ShowType res)
+    DecomposeToQueryParams mkCon res '[] (x ': xs) next =
+        TypeError ('Text "There were too many types for the parameters, which means there's likely a bug in the instance of FilterParams/SortParams for " ':<>: 'ShowType res)

@@ -3,7 +3,9 @@
 {-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE TypeFamilyDependencies    #-}
 {-# OPTIONS_GHC -fno-warn-orphans      #-}
+
 module Cardano.Wallet.API.Indices where
 
 import           Universum
@@ -38,6 +40,12 @@ type family IndicesOf a :: [*] where
     IndicesOf Wallet      = WalletIxs
     IndicesOf Transaction = TransactionIxs
     IndicesOf Account     = AccountIxs
+
+-- | This type family imposes a bidirectional mapping between symbols and
+-- their index types. This allows you to go from a symbol to the type:
+type family StringToIndex sym = r | r -> sym  where
+    StringToIndex "balance" = Core.Coin
+    StringToIndex "wallet_id" = WalletId
 
 -- | A variant of an 'IxSet' where the indexes are determined statically by the resource type.
 type IxSet' a        = IxSet (IndicesOf a) a

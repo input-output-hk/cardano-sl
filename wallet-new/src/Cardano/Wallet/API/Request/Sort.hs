@@ -10,9 +10,9 @@ import           Universum
 
 import qualified Data.List as List
 import qualified Data.Text as T
-import           Data.Typeable (Typeable)
+import           Data.Typeable
 import qualified Generics.SOP as SOP
-import           GHC.TypeLits (Symbol)
+import           GHC.TypeLits (Symbol, KnownSymbol, symbolVal)
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (Request, rawQueryString)
 import           Servant
@@ -30,15 +30,36 @@ import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 data SortBy (sym :: [Symbol]) (r :: *) deriving Typeable
 
 -- | The direction for the sort operation.
-data SortDirection =
-      SortAscending
+data SortDirection
+    = SortAscending
     | SortDescending
     deriving Show
+
+renderSortDir :: SortDirection -> Text
+renderSortDir sd = case sd of
+    SortAscending -> "ASC"
+    SortDescending -> "DESC"
 
 -- | A sort operation on an index @ix@ for a resource 'a'.
 data SortOperation ix a =
       SortByIndex SortDirection (Proxy ix)
     -- ^ Standard sort by index (e.g. sort_on=balance).
+
+instance
+    ( StringToIndex sym ~ ix
+    , KnownSymbol sym
+    ) => ToHttpApiData (SortOperation ix a) where
+    toQueryParam sop =
+        case sop of
+            SortByIndex sortDir _ ->
+                mconcat
+                    [ renderSortDir sortDir
+                    , "["
+                    , key
+                    , "]"
+                    ]
+      where
+        key = toText (symbolVal (Proxy @sym))
 
 instance Show (SortOperations a) where
     show = show . flattenSortOperations
@@ -47,10 +68,21 @@ instance Show (SortOperations a) where
 -- the inner closure of 'SortOp'.
 data SortOperations a where
     NoSorts  :: SortOperations a
-    SortOp   :: (Indexable' a, IsIndexOf' a ix, ToIndex a ix)
+    SortOp   :: (Indexable' a, IsIndexOf' a ix, ToIndex a ix, Typeable ix)
              => SortOperation ix a
              -> SortOperations a
              -> SortOperations a
+
+findMatchingSortOp
+    :: forall needle a
+    . Typeable needle
+    => SortOperations a
+    -> Maybe (SortOperation needle a)
+findMatchingSortOp NoSorts = Nothing
+findMatchingSortOp (SortOp (sop :: SortOperation ix a) rest) =
+    case eqT @needle @ix of
+        Just Refl -> pure sop
+        Nothing -> findMatchingSortOp rest
 
 instance Show (SortOperation ix a) where
     show (SortByIndex dir _) = "SortByIndex[" <> show dir <> "]"
@@ -85,6 +117,7 @@ instance ( Indexable' a
          , IsIndexOf' a ix
          , ToIndex a ix
          , ToSortOperations ixs a
+         , Typeable ix
          )
          => ToSortOperations (ix ': ixs) a where
     toSortOperations _ [] _     =
@@ -135,12 +168,18 @@ parseSortOperation _ ix@Proxy (key,value) = case parseQuery of
                (_, _, True)        -> Just $ SortByIndex SortDescending ix -- default sorting.
                _                   -> Nothing
 
-instance (HasClient m next) => HasClient m (SortBy syms res :> next) where
-    type Client m (SortBy syms res :> next) = SortOperations res -> Client m next
-    clientWithRoute pm _ req sortOperations =
-        clientWithRoute pm (Proxy @next) (incorporate sortOperations)
-      where
-        -- TODO: implement this
-        incorporate _ = req
+instance
+    ( HasClient m next
+    , HasClient m (DecomposeSortBy res syms ixs next)
+    , KnownSymbols syms
+    , SOP.All (ToIndex res) ixs
+    , SortParams syms res ~ ixs
+    )
+    => HasClient m (SortBy syms res :> next) where
+    type Client m (SortBy syms res :> next) =
+        Client m (DecomposeSortBy res syms (SortParams syms res) next)
+    clientWithRoute pm _ =
+        clientWithRoute pm (Proxy @(DecomposeSortBy res syms (SortParams syms res) next))
 
-
+type DecomposeSortBy res syms types next =
+    DecomposeToQueryParams SortOperation res syms types next

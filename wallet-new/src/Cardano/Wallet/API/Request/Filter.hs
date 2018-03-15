@@ -210,10 +210,10 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
 
 instance
     ( FilterParams syms res ~ ixs
-    , KnownSymbols syms
-    , SOP.All (ToIndex res) ixs
     , HasClient m (DecomposeFilterBy res syms ixs next)
     , HasClient m next
+    , KnownSymbols syms
+    , SOP.All (ToIndex res) ixs
     )
     => HasClient m (FilterBy syms res :> next) where
     type Client m (FilterBy syms res :> next) =
@@ -221,12 +221,5 @@ instance
     clientWithRoute pm _ =
         clientWithRoute pm (Proxy @(DecomposeFilterBy res syms (FilterParams syms res) next))
 
-type family DecomposeFilterBy res syms types next where
-    DecomposeFilterBy _ '[] '[] next =
-        next
-    DecomposeFilterBy res (sym ': syms) (ty ': tys) next =
-        QueryParam sym (FilterOperation ty res) :> DecomposeFilterBy res syms tys next
-    DecomposeFilterBy res (x ': xs) '[] next =
-        TypeError ('Text "There were too many keys for the parameters, which means there's likely a bug in the instance of FilterParams for " ':<>: 'ShowType res)
-    DecomposeFilterBy res '[] (x ': xs) next =
-        TypeError ('Text "There were too many types for the parameters, which means there's likely a bug in the instance of FilterParams for " ':<>: 'ShowType res)
+type DecomposeFilterBy res syms types next =
+    DecomposeToQueryParams FilterOperation res syms types next

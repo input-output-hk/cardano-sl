@@ -23,14 +23,13 @@ handlers :: ( HasConfigurations
             , HasCompileInfo
             )
          => ServerT Wallets.API MonadV1
-handlers = newWallet
+handlers = (newWallet
     :<|> listWallets
-    :<|> ( updatePassword
-        :<|> deleteWallet
-        :<|> getWallet
-        :<|> updateWallet
-        :<|> Accounts.handlers
-    )
+    :<|> updatePassword
+    :<|> deleteWallet
+    :<|> getWallet
+    :<|> updateWallet
+    ) :<|> Accounts.handlers
 
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored

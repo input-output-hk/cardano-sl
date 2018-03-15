@@ -67,6 +67,7 @@ module Cardano.Wallet.API.V1.Types (
   , type (?=)(..)
   , LookupParam(..)
   , DecomposeToQueryParams
+  , CaptureWalletId
   -- * Core re-exports
   , Core.Address
   ) where
@@ -1127,3 +1128,5 @@ type family DecomposeToQueryParams mkCon res syms types next where
         TypeError ('Text "There were too many keys for the parameters, which means there's likely a bug in the instance of either FilterParams/SortParams for " ':<>: 'ShowType res)
     DecomposeToQueryParams mkCon res '[] (x ': xs) next =
         TypeError ('Text "There were too many types for the parameters, which means there's likely a bug in the instance of FilterParams/SortParams for " ':<>: 'ShowType res)
+
+type CaptureWalletId = Capture "walletId" WalletId

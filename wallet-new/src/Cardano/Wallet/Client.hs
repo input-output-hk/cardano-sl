@@ -100,11 +100,6 @@ data WalletClient m
          -> Resp m [Transaction]
     , getTransactionFee
          :: Payment -> Resp m EstimatedFees
-    -- updates
-    , getNextUpdate
-         :: Resp m WalletUpdate
-    , postWalletUpdate
-         :: Resp m WalletUpdate
     -- settings
     , getNodeSettings
          :: Resp m NodeSettings
@@ -170,10 +165,6 @@ hoistClient phi wc = WalletClient
          \wid maid maddr mp -> phi . getTransactionIndex wc wid maid maddr mp
     , getTransactionFee =
          phi . getTransactionFee wc
-    , getNextUpdate =
-         phi (getNextUpdate wc)
-    , postWalletUpdate =
-         phi (postWalletUpdate wc)
     , getNodeSettings =
          phi (getNodeSettings wc)
     , getNodeInfo =

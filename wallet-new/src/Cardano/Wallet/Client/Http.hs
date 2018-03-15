@@ -61,11 +61,6 @@ mkHttpClient baseUrl manager = WalletClient
              run . getTransactionIndexR walletId mAccountIndex mAddress mPage
     , getTransactionFee
         = run . getTransactionFeeR
-    -- updates
-    , getNextUpdate
-        = run getNextUpdateR
-    , postWalletUpdate
-        = run postWalletUpdateR
     -- settings
     , getNodeSettings
         = run getNodeSettingsR
@@ -78,23 +73,30 @@ mkHttpClient baseUrl manager = WalletClient
     unNoContent = map void
     clientEnv = ClientEnv manager baseUrl
     run       = fmap (over _Left ClientHttpError) . (`runClientM` clientEnv)
-    (getAddressIndexR :<|> postAddressR :<|> getAddressValidityR)
-        :<|> (postWalletR
-            :<|> getWalletIndexExplicitFilterSortsR
-            :<|> updateWalletPasswordR
-            :<|> deleteWalletR
-            :<|> getWalletR
-            :<|> updateWalletR
-            :<|> deleteAccountR
-            :<|> getAccountR
-            :<|> getAccountIndexPagedR
-            :<|> postAccountR
-            :<|> updateAccountR)
-        :<|> (postTransactionR
-            :<|> getTransactionIndexR
-            :<|> getTransactionFeeR)
-        :<|> (getNextUpdateR
-            :<|> postWalletUpdateR)
+    (getAddressIndexR :<|> postAddressR :<|> getAddressValidityR) =
+        addressesAPI
+
+    postWalletR
+        :<|> getWalletIndexExplicitFilterSortsR
+        :<|> updateWalletPasswordR
+        :<|> deleteWalletR
+        :<|> getWalletR
+        :<|> updateWalletR
+        = walletsAPI
+    deleteAccountR
+        :<|> getAccountR
+        :<|> getAccountIndexPagedR
+        :<|> postAccountR
+        :<|> updateAccountR
+        = accountsAPI
+    postTransactionR
+        :<|> getTransactionIndexR
+        :<|> getTransactionFeeR
+        = transactionsAPI
+
+    addressesAPI
+        :<|> (walletsAPI :<|> accountsAPI)
+        :<|> transactionsAPI
         :<|> getNodeSettingsR
         :<|> getNodeInfoR
         = client (Proxy @("api" :> "v1" :> V1.API))

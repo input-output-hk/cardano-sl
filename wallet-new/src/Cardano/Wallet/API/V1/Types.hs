@@ -1106,3 +1106,5 @@ type DecomposeErr res =
     )
 
 type CaptureWalletId = Capture "walletId" WalletId
+
+type CaptureAccountId = Capture "accountId" AccountIndex

@@ -147,7 +147,7 @@ verifyConsistency inputs witnesses
 
 verifyOutputs :: VTxContext -> TxAux -> Either ToilVerFailure ()
 verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _) =
-    mapM_ verifyOutput (enumerate $ toList _txOutputs)
+    mapM_ verifyOutput . enumerate $ toList _txOutputs
   where
     verifyOutput :: (Word32, TxOut) -> Either ToilVerFailure ()
     verifyOutput (i, (TxOut {txOutAddress = addr@Address {..}, ..})) = do

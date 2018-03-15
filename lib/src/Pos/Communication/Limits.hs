@@ -30,6 +30,7 @@ import           Pos.Core (BlockVersionData (..), EpochIndex, VssCertificate, co
 import           Pos.Core.Block (Block, BlockHeader (..), GenesisBlock, GenesisBlockHeader,
                                  MainBlock, MainBlockHeader)
 import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam)
+import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening (..), SignedCommitment)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
@@ -106,6 +107,12 @@ instance Applicative m => MessageLimited EpochIndex m where
 -----------------------------------------------------------------
 -- Delegation
 -----------------------------------------------------------------
+
+instance Applicative m => MessageLimited HeavyDlgIndex m where
+    getMsgLenLimit _ = fmap HeavyDlgIndex <$> getMsgLenLimit Proxy
+
+instance Applicative m => MessageLimited LightDlgIndices m where
+    getMsgLenLimit _ = fmap LightDlgIndices <$> getMsgLenLimit Proxy
 
 instance Applicative m => MessageLimited (ProxyCert w) m where
     getMsgLenLimit _ = fmap ProxyCert <$> getMsgLenLimit Proxy

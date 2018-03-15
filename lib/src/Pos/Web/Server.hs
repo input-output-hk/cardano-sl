@@ -20,7 +20,7 @@ import           Data.Aeson.TH (defaultOptions, deriveToJSON)
 import           Data.Default (Default)
 import           Mockable (Async, Mockable, Production (runProduction), withAsync)
 import           Network.Wai (Application)
-import           Network.Wai.Handler.Warp (defaultSettings, runSettings, setHost, setPort)
+import           Network.Wai.Handler.Warp (Settings, defaultSettings, runSettings, setHost, setPort)
 import           Network.Wai.Handler.WarpTLS (TLSSettings, runTLS, tlsSettingsChain)
 import           Servant.API ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server (Handler, HasServer, ServantErr (errBody), Server, ServerT, err404,
@@ -69,7 +69,7 @@ withRoute53HealthCheckApplication
     -> m x
 withRoute53HealthCheckApplication mStatus host port act = withAsync go (const act)
   where
-    go = serveImpl (pure app) host port Nothing
+    go = serveImpl (pure app) host port Nothing Nothing
     app = route53HealthCheckApplication mStatus
 
 route53HealthCheckApplication :: IO HealthStatus -> Application
@@ -77,7 +77,7 @@ route53HealthCheckApplication mStatus =
     serve healthCheckApi (servantServerHealthCheck mStatus)
 
 serveWeb :: MyWorkMode ctx m => Word16 -> Maybe TlsParams -> m ()
-serveWeb = serveImpl application "127.0.0.1"
+serveWeb port mTlsParams = serveImpl application "127.0.0.1" port mTlsParams Nothing
 
 application :: MyWorkMode ctx m => m Application
 application = do
@@ -86,13 +86,19 @@ application = do
 
 serveImpl
     :: (HasConfiguration, MonadIO m)
-    => m Application -> String -> Word16 -> Maybe TlsParams -> m ()
-serveImpl app host port walletTLSParams =
+    => m Application
+    -> String
+    -> Word16
+    -> Maybe TlsParams
+    -> Maybe Settings
+    -> m ()
+serveImpl app host port mWalletTLSParams mSettings =
     liftIO . maybe runSettings runTLS mTlsConfig mySettings =<< app
   where
     mySettings = setHost (fromString host) $
-                 setPort (fromIntegral port) defaultSettings
-    mTlsConfig = tlsParamsToWai <$> walletTLSParams
+                 setPort (fromIntegral port) $
+                 fromMaybe defaultSettings mSettings
+    mTlsConfig = tlsParamsToWai <$> mWalletTLSParams
 
 tlsParamsToWai :: TlsParams -> TLSSettings
 tlsParamsToWai TlsParams{..} = tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath

@@ -30,6 +30,7 @@ import           Pos.Binary.Core.Address ()
 import           Pos.Core.Common (Address, Coeff (..), Coin (..), CoinPortion (..), SharedSeed (..),
                                   StakeholderId, TxFeePolicy (..), TxSizeLinear (..), addressF,
                                   decodeTextAddress, getCoinPortion, unsafeGetCoin)
+import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
 import           Pos.Core.Genesis.Helpers (recreateGenesisDelegation)
 import           Pos.Core.Genesis.Types (GenesisAvvmBalances (..), GenesisData (..),
                                          GenesisDelegation (..), GenesisNonAvvmBalances (..),
@@ -158,12 +159,12 @@ instance Monad m => ToObjectKey m Address where
 instance Monad m => ToJSON m Address where
     toJSON = fmap JSString . toObjectKey
 
-instance Monad m => ToJSON m (ProxySecretKey EpochIndex) where
+instance Monad m => ToJSON m ProxySKHeavy where
     toJSON psk =
         -- omega is encoded as a number, because in genesis we always
         -- set it to 0.
         mkObject
-            [ ("omega", pure (JSNum . fromIntegral $ pskOmega psk))
+            [ ("omega", pure (JSNum . fromIntegral . getHeavyDlgIndex $ pskOmega psk))
             , ("issuerPk", toJSON $ pskIssuerPk psk)
             , ("delegatePk", toJSON $ pskDelegatePk psk)
             , ("cert", toJSON $ pskCert psk)
@@ -392,9 +393,9 @@ instance ReportSchemaErrors m => FromObjectKey m Address where
 instance ReportSchemaErrors m => FromJSON m Address where
     fromJSON = tryParseString decodeTextAddress
 
-instance ReportSchemaErrors m => FromJSON m (ProxySecretKey EpochIndex) where
+instance ReportSchemaErrors m => FromJSON m ProxySKHeavy where
     fromJSON obj = do
-        pskOmega <- fromIntegral @Int54 <$> fromJSField obj "omega"
+        pskOmega <- HeavyDlgIndex . fromIntegral @Int54 <$> fromJSField obj "omega"
         pskIssuerPk <- fromJSField obj "issuerPk"
         pskDelegatePk <- fromJSField obj "delegatePk"
         pskCert <- fromJSField obj "cert"

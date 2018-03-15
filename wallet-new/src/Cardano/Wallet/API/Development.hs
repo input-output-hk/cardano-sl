@@ -31,4 +31,6 @@ type API
                               :> Get '[OctetStream] (WalletResponse (V1 WalletStateSnapshot))
     :<|> "secret-keys"        :> Summary "Clear wallet state and delete all the secret keys."
                               :> DeleteNoContent '[ValidJSON] NoContent
+    :<|> "fail"               :> Summary "Throw a generic error"
+                              :> GetNoContent '[ValidJSON] NoContent
     )

@@ -45,7 +45,7 @@ import           Pos.Aeson.Core ()
 import           Pos.Aeson.Crypto ()
 import           Pos.Binary.Core.Address ()
 import           Pos.Core.Common (Address, Coin, StakeholderId, unsafeGetCoin)
-import           Pos.Core.Delegation.Types (ProxySKHeavy)
+import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Genesis.Helpers (convertNonAvvmDataToBalances, recreateGenesisDelegation)
 import           Pos.Core.Genesis.Types (FakeAvvmOptions, GenesisAvvmBalances (..),
                                          GenesisDelegation, GenesisInitializer,

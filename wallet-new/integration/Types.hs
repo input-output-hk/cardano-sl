@@ -54,6 +54,7 @@ data Action
     | GetWallets
     | GetWallet
     | DeleteWallet
+    | UpdateWallet
 
     | CreateAccount
     | GetAccounts

@@ -14,17 +14,18 @@ import           Control.Lens ((+~))
 import           Test.QuickCheck (Gen, arbitrary, elements, frequency, generate)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
-import           Cardano.Wallet.API.V1.Types (Account (..), AddressValidity (..), AccountIndex, NewAccount (..),
-                                              NewAddress (..), Payment (..),
+import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, AddressValidity (..),
+                                              AssuranceLevel (..), EstimatedFees (..),
+                                              NewAccount (..), NewAddress (..), Payment (..),
                                               PaymentDistribution (..), PaymentSource (..),
                                               Transaction (..), V1 (..), Wallet (..),
-                                              WalletAddress (..), EstimatedFees (..), WalletId)
+                                              WalletAddress (..), WalletId, WalletUpdate (..))
 
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
 
-import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import           Pos.Core (mkCoin)
+import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import           Error
 import           Types
@@ -112,6 +113,31 @@ runAction wc ws DeleteWallet = do
     -- Modify wallet state accordingly.
     pure $ ws
         & wallets    .~ delete wallet localWallets
+        & actionsNum +~ 1
+
+runAction wc ws UpdateWallet = do
+
+    let localWallets = ws ^. wallets
+
+    -- The precondition is that we need to have wallets.
+    guard (not (null localWallets))
+
+    -- We choose from the existing wallets.
+    wallet  <-  pickRandomElement localWallets
+
+    let walletId = walId wallet
+
+    let newWallet =
+            WalletUpdate
+                { uwalAssuranceLevel = NormalAssurance
+                , uwalName           = "Wallet name " <> (show walletId)
+                }
+
+    result  <-  respToRes $ updateWallet wc walletId newWallet
+
+    -- Modify wallet state accordingly.
+    pure $ ws
+        & wallets    .~ (delete wallet localWallets <> [result])
         & actionsNum +~ 1
 
 -- Accounts
@@ -440,4 +466,5 @@ checkInvariant False walletTestErr = throwM walletTestErr
 -- | Output for @Text@.
 printT :: Text -> IO ()
 printT = putStrLn
+
 

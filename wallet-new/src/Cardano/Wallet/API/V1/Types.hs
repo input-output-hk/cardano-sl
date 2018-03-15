@@ -1,12 +1,12 @@
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE ExplicitNamespaces         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ExplicitNamespaces #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE PolyKinds                  #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
 -- The hlint parser fails on the `pattern` function, so we disable the
@@ -64,8 +64,6 @@ module Cardano.Wallet.API.V1.Types (
   , mkSyncProgress
   , NodeInfo (..)
   -- * Some types for the API
-  , type (?=)(..)
-  , LookupParam(..)
   , DecomposeToQueryParams
   , CaptureWalletId
   -- * Core re-exports
@@ -83,8 +81,6 @@ import           Data.Swagger as S hiding (constructorTagModifier)
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Text (Text, dropEnd, toLower)
-import qualified Data.Text as Text
-import           Data.Typeable
 import           Data.Version (Version)
 import           Formatting (build, int, sformat, (%))
 import           GHC.Generics (Generic, Rep)
@@ -92,11 +88,10 @@ import           GHC.TypeLits
 import qualified Prelude
 import qualified Serokell.Aeson.Options as Serokell
 import qualified Serokell.Util.Base16 as Base16
+import           Servant
 import           Test.QuickCheck
 import           Test.QuickCheck.Gen (Gen (..))
 import           Test.QuickCheck.Random (mkQCGen)
-import           Web.HttpApiData
-import Servant
 
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
 import           Cardano.Wallet.Orphans.Aeson ()
@@ -1093,40 +1088,21 @@ type family New (original :: *) :: * where
   New Account = NewAccount
   New WalletAddress = NewAddress
 
---
--- Filter and sort operations
---
-
-data (s :: Symbol) ?= (a :: *) = QParam a
-
-class LookupParam (x :: *) xs where
-    reifyParam :: Proxy x -> Proxy xs -> Text
-
-instance
-    TypeError
-    ( 'Text "The type " ':<>: 'ShowType x ':<>: 'Text "was not in the list of types that this accepts.")
-    => LookupParam x '[] where
-    reifyParam _ _ = error "can't happen"
-
-instance (KnownSymbol pname, x ~ ptype) => LookupParam x '[pname ?= ptype] where
-    reifyParam _ _ = Text.pack (symbolVal (Proxy @pname))
-
-instance
-    (Typeable x, Typeable ptype, KnownSymbol pname, LookupParam x rest)
-    => LookupParam x ((pname ?= ptype) ': rest) where
-    reifyParam px _ =
-        fromMaybe (reifyParam px (Proxy @rest)) (eqT @x @ptype $> pname)
-      where
-        pname = Text.pack (symbolVal (Proxy @pname))
-
 type family DecomposeToQueryParams mkCon res syms types next where
     DecomposeToQueryParams _ _ '[] '[] next =
         next
     DecomposeToQueryParams mkCon res (sym ': syms) (ty ': tys) next =
-        QueryParam sym (mkCon ty res) :> DecomposeToQueryParams mkCon res syms tys next
+        QueryParam sym (mkCon ty res)
+        :> DecomposeToQueryParams mkCon res syms tys next
     DecomposeToQueryParams mkCon res (x ': xs) '[] next =
-        TypeError ('Text "There were too many keys for the parameters, which means there's likely a bug in the instance of either FilterParams/SortParams for " ':<>: 'ShowType res)
+        TypeError (DecomposeErr res)
     DecomposeToQueryParams mkCon res '[] (x ': xs) next =
-        TypeError ('Text "There were too many types for the parameters, which means there's likely a bug in the instance of FilterParams/SortParams for " ':<>: 'ShowType res)
+        TypeError (DecomposeErr res)
+
+type DecomposeErr res =
+    (     'Text "There were too many types for the parameters, which means "
+    ':<>: 'Text "there's likely a bug in the instance of "
+    ':<>: 'Text "FilterParams/SortParams for " ':<>: 'ShowType res
+    )
 
 type CaptureWalletId = Capture "walletId" WalletId

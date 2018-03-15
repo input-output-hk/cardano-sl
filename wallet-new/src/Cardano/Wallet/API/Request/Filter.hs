@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds           #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE GADTs                     #-}
@@ -12,16 +13,14 @@ import           Universum
 
 import qualified Data.List as List
 import qualified Data.Text as T
-import           Data.Typeable (Typeable)
+import           Data.Typeable
 import qualified Generics.SOP as SOP
-import           GHC.TypeLits (Symbol)
+import           GHC.TypeLits
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (Request, rawQueryString)
 import           Servant
 import           Servant.Client
-import           Servant.Client.Core.Internal.Request (appendToQueryString)
 import           Servant.Server.Internal
-import           Web.HttpApiData
 
 import           Cardano.Wallet.API.Indices
 import           Cardano.Wallet.API.V1.Types
@@ -35,7 +34,7 @@ import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 -- the inner closure of 'FilterOp'.
 data FilterOperations a where
     NoFilters  :: FilterOperations a
-    FilterOp   :: (Indexable' a, IsIndexOf' a ix, ToIndex a ix, FromHttpApiData ix, ToHttpApiData ix)
+    FilterOp   :: (Indexable' a, IsIndexOf' a ix, ToIndex a ix, FromHttpApiData ix, ToHttpApiData ix, Typeable ix)
                => FilterOperation ix a
                -> FilterOperations a
                -> FilterOperations a
@@ -76,6 +75,9 @@ data FilterOperation ix a =
     | FilterByRange ix ix
     -- ^ Filter by range, in the form [from,to]
 
+instance ToHttpApiData ix => ToHttpApiData (FilterOperation ix a) where
+    toQueryParam = renderFilterOperation
+
 renderFilterOperation :: ToHttpApiData ix => FilterOperation ix a -> Text
 renderFilterOperation = \case
     FilterByIndex ix ->
@@ -84,6 +86,22 @@ renderFilterOperation = \case
         mconcat [renderFilterOrdering p, "[", toQueryParam ix, "]"]
     FilterByRange lo hi  ->
         mconcat ["RANGE", "[", toQueryParam lo, ",", toQueryParam hi, "]"]
+
+findMatchingFilterOp
+    :: forall needle a
+    . Typeable needle
+    => FilterOperations a
+    -> Maybe (FilterOperation needle a)
+findMatchingFilterOp filters =
+    case filters of
+        NoFilters ->
+            Nothing
+        FilterOp (fop :: FilterOperation ix a) rest ->
+            case eqT @ix @needle of
+                Just Refl ->
+                    pure fop
+                Nothing ->
+                    findMatchingFilterOp rest
 
 instance Show (FilterOperation ix a) where
     show (FilterByIndex _)            = "FilterByIndex"
@@ -111,6 +129,7 @@ instance Indexable' a => ToFilterOperations ('[]) a where
 instance ( Indexable' a
          , IsIndexOf' a ix
          , ToIndex a ix
+         , Typeable ix
          , ToFilterOperations ixs a
          , ToHttpApiData ix
          , FromHttpApiData ix
@@ -192,22 +211,22 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
 instance
     ( FilterParams syms res ~ ixs
     , KnownSymbols syms
-    , ToFilterOperations ixs res
     , SOP.All (ToIndex res) ixs
+    , HasClient m (DecomposeFilterBy res syms ixs next)
     , HasClient m next
     )
     => HasClient m (FilterBy syms res :> next) where
-    type Client m (FilterBy syms res :> next) = FilterOperations res -> Client m next
-    clientWithRoute pm _ req filterOperations =
-        clientWithRoute pm (Proxy @next) (incorporate filterOperations req)
-      where
-        incorporate NoFilters r = r
-        incorporate (FilterOp fop rest) r =
-            incorporate rest $ case fop of
-                FilterByIndex (ix :: ix) ->
-                    let pname = reifyParam (Proxy @ix) (Proxy @syms)
-                     in appendToQueryString pname (Just (toQueryParam ix)) r
-                FilterByPredicate fop ix ->
-                    r
-                FilterByRange ix _ ->
-                    r
+    type Client m (FilterBy syms res :> next) =
+        Client m (DecomposeFilterBy res syms (FilterParams syms res) next)
+    clientWithRoute pm _ =
+        clientWithRoute pm (Proxy @(DecomposeFilterBy res syms (FilterParams syms res) next))
+
+type family DecomposeFilterBy res syms types next where
+    DecomposeFilterBy _ '[] '[] next =
+        next
+    DecomposeFilterBy res (sym ': syms) (ty ': tys) next =
+        QueryParam sym (FilterOperation ty res) :> DecomposeFilterBy res syms tys next
+    DecomposeFilterBy res (x ': xs) '[] next =
+        TypeError ('Text "There were too many keys for the parameters, which means there's likely a bug in the instance of FilterParams for " ':<>: 'ShowType res)
+    DecomposeFilterBy res '[] (x ': xs) next =
+        TypeError ('Text "There were too many types for the parameters, which means there's likely a bug in the instance of FilterParams for " ':<>: 'ShowType res)

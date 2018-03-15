@@ -1101,7 +1101,7 @@ class LookupParam (x :: *) xs where
 
 instance
     TypeError
-    ( 'Text "The type " :<>: ShowType x :<>: 'Text "was not in the list of types that this accepts.")
+    ( 'Text "The type " ':<>: 'ShowType x ':<>: 'Text "was not in the list of types that this accepts.")
     => LookupParam x '[] where
     reifyParam _ _ = error "can't happen"
 

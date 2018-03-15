@@ -62,8 +62,13 @@ data WalletClient m
     -- wallets endpoints
     , postWallet
          :: New Wallet -> Resp m Wallet
-    , getWalletIndexFilterSorts
-         :: Maybe Page -> Maybe PerPage -> FilterOperations Wallet -> SortOperations Wallet -> Resp m [Wallet]
+    , getWalletIndexExplicitFilterSorts
+         :: Maybe Page
+         -> Maybe PerPage
+         -> Maybe (FilterOperation WalletId Wallet)
+         -> Maybe (FilterOperation Core.Coin Wallet)
+         -> SortOperations Wallet
+         -> Resp m [Wallet]
     , updateWalletPassword
          :: WalletId -> PasswordUpdate -> Resp m Wallet
     , deleteWallet
@@ -108,6 +113,21 @@ data WalletClient m
          :: Resp m NodeInfo
     } deriving Generic
 
+getWalletIndexFilterSorts
+    :: WalletClient m
+    -> Maybe Page
+    -> Maybe PerPage
+    -> FilterOperations Wallet
+   -- -> Maybe (FilterOperation WalletId)
+   -- -> Maybe (FilterOperation Core.Coin)
+    -> SortOperations Wallet
+    -> Resp m [Wallet]
+getWalletIndexFilterSorts wc mp mpp fops sops =
+    getWalletIndexExplicitFilterSorts wc mp mpp mwalletid mcoin sops
+  where
+    mwalletid = findMatchingFilterOp fops
+    mcoin = findMatchingFilterOp fops
+
 getAddressIndex :: WalletClient m -> Resp m [Address]
 getAddressIndex wc = getAddressIndexPaginated wc Nothing Nothing
 
@@ -117,27 +137,48 @@ getWalletIndexPaged wc mp mpp = getWalletIndexFilterSorts wc mp mpp NoFilters No
 -- | Run the given natural transformation over the 'WalletClient'.
 hoistClient :: (forall x. m x -> n x) -> WalletClient m -> WalletClient n
 hoistClient phi wc = WalletClient
-    { getAddressIndexPaginated  = \x -> phi . getAddressIndexPaginated wc x
-    , postAddress               = phi . postAddress wc
-    , getAddressValidity        = phi . getAddressValidity wc
-    , postWallet                = phi . postWallet wc
-    , getWalletIndexFilterSorts = \x y p -> phi . getWalletIndexFilterSorts wc x y p
-    , updateWalletPassword      = \x -> phi . updateWalletPassword wc x
-    , deleteWallet              = phi . deleteWallet wc
-    , getWallet                 = phi . getWallet wc
-    , updateWallet              = \x -> phi . updateWallet wc x
-    , deleteAccount             = \x -> phi . deleteAccount wc x
-    , getAccount                = \x -> phi . getAccount wc x
-    , getAccountIndexPaged      = \x mp -> phi . getAccountIndexPaged wc x mp
-    , postAccount               = \x -> phi . postAccount wc x
-    , updateAccount             = \x y -> phi . updateAccount wc x y
-    , postTransaction           = phi . postTransaction wc
-    , getTransactionIndex       = \wid maid maddr mp -> phi . getTransactionIndex wc wid maid maddr mp
-    , getTransactionFee         = phi . getTransactionFee wc
-    , getNextUpdate             = phi (getNextUpdate wc)
-    , postWalletUpdate          = phi (postWalletUpdate wc)
-    , getNodeSettings           = phi (getNodeSettings wc)
-    , getNodeInfo               = phi (getNodeInfo wc)
+    { getAddressIndexPaginated =
+         \x -> phi . getAddressIndexPaginated wc x
+    , postAddress =
+         phi . postAddress wc
+    , getAddressValidity =
+         phi . getAddressValidity wc
+    , postWallet =
+         phi . postWallet wc
+    , getWalletIndexExplicitFilterSorts =
+         \x y p z -> phi . getWalletIndexExplicitFilterSorts wc x y p z
+    , updateWalletPassword =
+         \x -> phi . updateWalletPassword wc x
+    , deleteWallet =
+         phi . deleteWallet wc
+    , getWallet =
+         phi . getWallet wc
+    , updateWallet =
+         \x -> phi . updateWallet wc x
+    , deleteAccount =
+         \x -> phi . deleteAccount wc x
+    , getAccount =
+         \x -> phi . getAccount wc x
+    , getAccountIndexPaged =
+         \x mp -> phi . getAccountIndexPaged wc x mp
+    , postAccount =
+         \x -> phi . postAccount wc x
+    , updateAccount =
+         \x y -> phi . updateAccount wc x y
+    , postTransaction =
+         phi . postTransaction wc
+    , getTransactionIndex =
+         \wid maid maddr mp -> phi . getTransactionIndex wc wid maid maddr mp
+    , getTransactionFee =
+         phi . getTransactionFee wc
+    , getNextUpdate =
+         phi (getNextUpdate wc)
+    , postWalletUpdate =
+         phi (postWalletUpdate wc)
+    , getNodeSettings =
+         phi (getNodeSettings wc)
+    , getNodeInfo =
+         phi (getNodeInfo wc)
     }
 
 -- | Generalize a @'WalletClient' 'IO'@ into a @('MonadIO' m) =>

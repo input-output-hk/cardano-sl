@@ -32,8 +32,8 @@ mkHttpClient baseUrl manager = WalletClient
     -- wallets endpoints
     , postWallet
         = run . postWalletR
-    , getWalletIndexFilterSorts
-        = \fil so mp -> run . getWalletIndexFilterSortsR fil so mp
+    , getWalletIndexExplicitFilterSorts
+        = \filw filc so mp -> run . getWalletIndexExplicitFilterSortsR filw filc so mp
     , updateWalletPassword
         = \x -> run . updateWalletPasswordR x
     , deleteWallet
@@ -80,7 +80,7 @@ mkHttpClient baseUrl manager = WalletClient
     run       = fmap (over _Left ClientHttpError) . (`runClientM` clientEnv)
     (getAddressIndexR :<|> postAddressR :<|> getAddressValidityR)
         :<|> (postWalletR
-            :<|> getWalletIndexFilterSortsR
+            :<|> getWalletIndexExplicitFilterSortsR
             :<|> updateWalletPasswordR
             :<|> deleteWalletR
             :<|> getWalletR

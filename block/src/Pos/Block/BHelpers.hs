@@ -25,21 +25,20 @@ import           Pos.Binary.Core ()
 import           Pos.Core.Block (Block)
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
                                             GenericBlockHeader (..), gbExtra)
-import           Pos.Core.Block.Main (Body (..), ConsensusData (..), MainBlockHeader,
-                                      MainBlockchain, MainToSign (..), mainBlockEBDataProof,
-                                      MainExtraHeaderData (..))
 import           Pos.Core.Block.Genesis (GenesisBlockchain)
+import           Pos.Core.Block.Main (Body (..), ConsensusData (..), MainBlockHeader,
+                                      MainBlockchain, MainExtraHeaderData (..), MainToSign (..),
+                                      mainBlockEBDataProof)
 import           Pos.Core.Block.Union (BlockHeader (..), BlockSignature (..))
-import           Pos.Core.Class (IsMainHeader (..), epochIndexL)
+import           Pos.Core.Class (IsMainHeader (..))
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Delegation (checkDlgPayload)
+import           Pos.Core.Delegation (LightDlgIndices (..), checkDlgPayload)
 import           Pos.Core.Slotting (SlotId (..))
 import           Pos.Core.Ssc (checkSscPayload)
 import           Pos.Core.Txp (checkTxPayload)
-import           Pos.Core.Update (checkUpdatePayload, checkSoftwareVersion)
+import           Pos.Core.Update (checkSoftwareVersion, checkUpdatePayload)
 import           Pos.Crypto (ProxySignature (..), SignTag (..), checkSig, hash, isSelfSignedPsk,
                              proxyVerify)
-import           Pos.Delegation.Helpers (dlgVerifyPayload)
 import           Pos.Ssc.Functions (verifySscPayload)
 import           Pos.Util.Some (Some (Some))
 
@@ -50,7 +49,7 @@ verifyBlockHeader
     => BlockHeader
     -> m ()
 verifyBlockHeader (BlockHeaderGenesis _) = pure ()
-verifyBlockHeader (BlockHeaderMain bhm)    = verifyMainBlockHeader bhm
+verifyBlockHeader (BlockHeaderMain bhm)  = verifyMainBlockHeader bhm
 
 -- | Verify a Block in isolation.
 verifyBlock
@@ -69,7 +68,7 @@ verifyGenesisBlock
     :: ( MonadError Text m )
     => GenericBlock GenesisBlockchain
     -> m ()
-verifyGenesisBlock UnsafeGenericBlock {..} = 
+verifyGenesisBlock UnsafeGenericBlock {..} =
     checkBodyProof _gbBody (_gbhBodyProof _gbHeader)
 
 verifyMainBlock
@@ -99,7 +98,6 @@ verifyMainBlock block@UnsafeGenericBlock {..} = do
         verifySscPayload
             (Right (Some _gbHeader))
             (_mbSscPayload _gbBody)
-    dlgVerifyPayload (_gbHeader ^. epochIndexL) (_mbDlgPayload _gbBody)
 
 -- | Verify the body of a block. There are no internal consistency checks,
 -- it's just a verification of its sub-components (payloads).
@@ -138,12 +136,12 @@ verifyMainBlockHeader UnsafeGenericBlockHeader {..} = do
         proxyVerify
             SignMainBlockLight
             proxySig
-            (\(epochLow, epochHigh) ->
+            (\(LightDlgIndices (epochLow, epochHigh)) ->
                  epochLow <= epochId && epochId <= epochHigh)
             signature
     verifyBlockSignature (BlockPSignatureHeavy proxySig) =
         proxyVerify SignMainBlockHeavy proxySig (const True) signature
-    signature = MainToSign _gbhPrevBlock _gbhBodyProof slotId difficulty _gbhExtra 
+    signature = MainToSign _gbhPrevBlock _gbhBodyProof slotId difficulty _gbhExtra
     epochId = siEpoch slotId
     MainConsensusData
         { _mcdLeaderKey = leaderPk

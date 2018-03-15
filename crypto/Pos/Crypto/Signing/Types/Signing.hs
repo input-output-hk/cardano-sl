@@ -36,7 +36,6 @@ import           Formatting (Format, bprint, build, fitLeft, later, (%), (%.))
 import           Prelude (show)
 import qualified Serokell.Util.Base16 as B16
 import qualified Serokell.Util.Base64 as Base64 (decode, formatBase64)
-import           Serokell.Util.Text (pairF)
 import           Universum hiding (show)
 
 import           Pos.Binary.Class (Bi)
@@ -141,9 +140,6 @@ instance B.Buildable (ProxyCert w) where
 
 -- | Convenient wrapper for secret key, that's basically ω plus
 -- certificate.
---
--- The invariant is that the certificate is valid (as checked by
--- 'validateProxySecretKey').
 data ProxySecretKey w = UnsafeProxySecretKey
     { pskOmega      :: w
     , pskIssuerPk   :: PublicKey
@@ -154,14 +150,9 @@ data ProxySecretKey w = UnsafeProxySecretKey
 instance NFData w => NFData (ProxySecretKey w)
 instance Hashable w => Hashable (ProxySecretKey w)
 
-instance {-# OVERLAPPABLE #-}
-         (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey w) where
+instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey w) where
     build (UnsafeProxySecretKey w iPk dPk _) =
         bprint ("ProxySk { w = "%build%", iPk = "%build%", dPk = "%build%" }") w iPk dPk
-
-instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey (w,w)) where
-    build (UnsafeProxySecretKey w iPk dPk _) =
-        bprint ("ProxySk { w = "%pairF%", iPk = "%build%", dPk = "%build%" }") w iPk dPk
 
 -- | Delegate signature made with certificate-based permission. @w@
 -- stays for message type used in proxy (ω in the implementation
@@ -178,11 +169,7 @@ data ProxySignature w a = ProxySignature
 instance NFData w => NFData (ProxySignature w a)
 instance Hashable w => Hashable (ProxySignature w a)
 
-instance {-# OVERLAPPABLE #-}
-         (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature w a) where
-    build ProxySignature{..} = bprint ("Proxy signature { psk = "%build%" }") psigPsk
-
-instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature (w,w) a) where
+instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature w a) where
     build ProxySignature{..} = bprint ("Proxy signature { psk = "%build%" }") psigPsk
 
 -- | Checks if delegate and issuer fields of proxy secret key are

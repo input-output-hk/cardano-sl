@@ -189,7 +189,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams _ conc delay_ sendMode tpsS
         -- we'll be CPU bound and will not achieve high transaction
         -- rates. If we pre construct all the transactions, the
         -- startup time will be quite long.
-        --forM_  firstBatch addTx
+        forM_  firstBatch addTx
         -- Send transactions while concurrently writing the TPS numbers every
         -- slot duration. The 'writeTPS' action takes care to *always* write
         -- after every slot duration, even if it is killed, so as to
@@ -198,12 +198,11 @@ sendToAllGenesis sendActions (SendToAllGenesisParams _ conc delay_ sendMode tpsS
         -- While we're sending, we're constructing the second batch of
         -- transactions.
         void $
-            concurrently (forM_ firstBatch addTx)  $
             concurrently (forM_ secondBatch addTx) $
             concurrently writeTPS (sendTxsConcurrently (nTrans))
         logInfo "First iteration finished"
+        forM_  firstBatch addTx
         void $
-            concurrently (forM_ firstBatch addTx)  $
             concurrently (forM_ secondBatch addTx) $
             concurrently writeTPS (sendTxsConcurrently (nTrans))
         logInfo "Second iteration finished"

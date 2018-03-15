@@ -176,6 +176,7 @@ extra-deps:
 - yaml-0.8.28
 - lzma-0.0.0.3
 - lzma-clib-5.2.2
+- lzma-conduit-1.2.1 # https://github.com/alphaHeavy/lzma-conduit/pull/18
 - wai-extra-3.0.22.0
 - typed-process-0.2.1.0
 - unliftio-0.2.4.0

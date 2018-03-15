@@ -15,7 +15,6 @@ module Pos.Reporting.Methods
        , reportOrLog
        , reportOrLogE
        , reportOrLogW
-       , tryReport
 
        -- * Internals, exported for custom usages.
        -- E. g. to report crash from launcher.
@@ -34,9 +33,11 @@ import           Control.Exception.Safe (Exception (..), try)
 import           Control.Lens (each, to)
 import           Data.Aeson (encode)
 import           Data.Bits (Bits (..))
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
-import           Codec.Compression.Lzma (compressWith, defaultCompressParams,
-                                         compressLevel, CompressionLevel(..))
+import           Data.Conduit (runConduitRes, yield, (.|))
+import           Data.Conduit.List (consume)
+import qualified Data.Conduit.Lzma as Lzma
 import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
 import qualified Data.List.NonEmpty as NE
@@ -147,6 +148,11 @@ retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
 -- | Pass a list of absolute paths to log files. This function will
 -- archive and compress these files and put resulting file into log
 -- directory (returning filepath is absolute).
+--
+-- It will throw a PackingError in case:
+--   - Any of the file paths given does not point to an existing file.
+--   - Any of the file paths could not be converted to a tar path, for instance
+--     because it is too long.
 compressLogs :: (MonadIO m) => [FilePath] -> m FilePath
 compressLogs files = liftIO $ do
     tar <- tarPackIndependently files
@@ -159,7 +165,7 @@ compressLogs files = liftIO $ do
         hFlush handle
     pure aName
   where
-    tarPackIndependently :: [FilePath] -> IO BSL.ByteString
+    tarPackIndependently :: [FilePath] -> IO ByteString
     tarPackIndependently paths = do
         entries <- forM paths $ \p -> do
             unlessM (doesFileExist p) $ throwM $
@@ -170,7 +176,7 @@ compressLogs files = liftIO $ do
                             (Tar.toTarPath False $ takeFileName p)
             pabs <- canonicalizePath p
             Tar.packFileEntry pabs tPath
-        pure $ Tar.write entries
+        pure $ BSL.toStrict $ Tar.write entries
     getArchiveName = liftIO $ do
         curTime <- formatTime defaultTimeLocale "%q" <$> getCurrentTime
         tempDir <- getTemporaryDirectory
@@ -372,36 +378,25 @@ reportError = reportNode True True . RError
 
 -- | Exception handler which reports (and logs) an exception or just
 -- logs it. It reports only few types of exceptions which definitely
--- deserve attention. Other types are ignored. Function returns whether
--- exception was reported. It's suitable for long-running workers which
--- want to catch all exceptions and restart after delay. If you are
--- catching all exceptions somewhere, you most likely want to use this
--- handler (and maybe do something else).
+-- deserve attention. Other types are simply logged. It's suitable for
+-- long-running workers which want to catch all exceptions and restart
+-- after delay. If you are catching all exceptions somewhere, you most
+-- likely want to use this handler (and maybe do something else).
 --
 -- NOTE: it doesn't rethrow an exception. If you are sure you need it,
 -- you can rethrow it by yourself.
-tryReport
+reportOrLog
     :: forall ctx m . (MonadReporting ctx m)
-    => Text -> SomeException -> m Bool
-tryReport prefix exc =
+    => Severity -> Text -> SomeException -> m ()
+reportOrLog severity prefix exc =
     case tryCast @CardanoFatalError <|> tryCast @ErrorCall <|> tryCast @DBError of
-        Just msg -> True <$ reportError (prefix <> msg)
-        Nothing  -> pure False
+        Just msg -> reportError $ prefix <> msg
+        Nothing  -> logMessage severity $ prefix <> pretty exc
   where
     tryCast ::
            forall e. Exception e
         => Maybe Text
     tryCast = toText . displayException <$> fromException @e exc
-
--- | Similar to 'tryReport', performs simple logging if exception is
--- not suitable for being reported.
-reportOrLog
-    :: forall ctx m . (MonadReporting ctx m)
-    => Severity -> Text -> SomeException -> m ()
-reportOrLog severity prefix exc = do
-    success <- tryReport prefix exc
-    unless success $ do
-        logMessage severity $ prefix <> pretty exc
 
 -- | A version of 'reportOrLog' which uses 'Error' severity.
 reportOrLogE

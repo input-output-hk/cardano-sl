@@ -267,15 +267,16 @@ streamBlocks
        ( Monoid t )
     => Trace IO (Severity, Text)
     -> Logic IO
+    -> Word32
     -> EnqueueMsg
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]
     -> (Conc.TBQueue StreamEntry -> IO t)
     -> IO t
-streamBlocks logTrace logic enqueue nodeId tipHeader checkpoints k = do
+streamBlocks logTrace logic streamWindow enqueue nodeId tipHeader checkpoints k = do
 
-    blockChan <- atomically $ Conc.newTBQueue $ fromIntegral windowSize
+    blockChan <- atomically $ Conc.newTBQueue $ fromIntegral streamWindow
     -- XXX Is this the third or forth thread needed to read and write to a socket?
     threadId <- async (requestBlocks blockChan)
     x <- k blockChan
@@ -288,7 +289,7 @@ streamBlocks logTrace logic enqueue nodeId tipHeader checkpoints k = do
         MsgStart $ MsgStreamStart
         { mssFrom = chain
         , mssTo = wantedBlock
-        , mssWindow = 8 -- XXX
+        , mssWindow = streamWindow
         }
 
     requestBlocks :: Conc.TBQueue StreamEntry -> IO ()
@@ -296,8 +297,6 @@ streamBlocks logTrace logic enqueue nodeId tipHeader checkpoints k = do
         enqueue
         (MsgRequestBlocks (S.singleton nodeId))
         (Conversation $ requestBlocksConversation blockChan)
-
-    windowSize = 8 :: Word32 -- XXX
 
     requestBlocksConversation
         :: Conc.TBQueue StreamEntry
@@ -312,7 +311,7 @@ streamBlocks logTrace logic enqueue nodeId tipHeader checkpoints k = do
                      newestHash)
         send conv $ mkStreamStart checkpoints newestHash
         bvd <- getAdoptedBVData logic
-        retrieveBlocks bvd blockChan conv windowSize
+        retrieveBlocks bvd blockChan conv streamWindow
 
         return ()
 
@@ -325,9 +324,9 @@ streamBlocks logTrace logic enqueue nodeId tipHeader checkpoints k = do
         -> Word32
         -> IO ()
     retrieveBlocks bvd blockChan conv window = do
-        window' <- if window < windowSize `div` 2
+        window' <- if window < streamWindow `div` 2
                           then do
-                              let w' = windowSize
+                              let w' = streamWindow
                               traceWith logTrace (Debug, sformat ("Updating Window: "%int%" to "%int) window w')
                               send conv $ MsgUpdate $ MsgStreamUpdate $ w'
                               return (w' - 1)

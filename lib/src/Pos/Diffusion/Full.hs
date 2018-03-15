@@ -81,6 +81,7 @@ data FullDiffusionConfiguration = FullDiffusionConfiguration
     , fdcRecoveryHeadersMessage :: !Word
     , fdcLastKnownBlockVersion  :: !BlockVersion
     , fdcConvEstablishTimeout   :: !Microsecond
+    , fdcStreamWindow           :: !Word32
     , fdcTrace                  :: !(Trace IO (Severity, Text))
     }
 
@@ -174,6 +175,7 @@ diffusionLayerFullExposeInternals fdconf
         protocolConstants = fdcProtocolConstants fdconf
         lastKnownBlockVersion = fdcLastKnownBlockVersion fdconf
         recoveryHeadersMessage = fdcRecoveryHeadersMessage fdconf
+        streamWindow = fdcStreamWindow fdconf
         logTrace = fdcTrace fdconf
 
     -- Subscription status.
@@ -348,7 +350,7 @@ diffusionLayerFullExposeInternals fdconf
                      -> [HeaderHash]
                      -> (STM.TBQueue StreamEntry -> IO t)
                      -> IO t
-        streamBlocks = Diffusion.Block.streamBlocks logTrace logic enqueue
+        streamBlocks = Diffusion.Block.streamBlocks logTrace logic streamWindow enqueue
 
         announceBlockHeader :: MainBlockHeader -> IO ()
         announceBlockHeader = void . Diffusion.Block.announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqueue

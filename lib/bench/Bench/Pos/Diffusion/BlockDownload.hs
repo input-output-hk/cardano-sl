@@ -10,6 +10,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE BangPatterns #-}
 
+
+import           Control.Concurrent.STM (readTBQueue, atomically)
 import           Control.DeepSeq (NFData, force)
 import           Control.Monad (forM_)
 import           Control.Monad.Trans.Class (lift)
@@ -48,7 +50,7 @@ import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                                      RunFullDiffusionInternals (..),
                                      diffusionLayerFullExposeInternals)
 import qualified Pos.Diffusion.Transport.TCP as Diffusion (bracketTransportTCP)
-import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
+import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..), StreamEntry (..))
 import           Pos.Logic.Types (Logic (..), LogicLayer (..))
 import           Pos.Logic.Pure (pureLogic)
 import           Pos.Reporting.Health.Types (HealthStatus (..))
@@ -157,6 +159,7 @@ withServer transport logic k = do
         , fdcRecoveryHeadersMessage = 2200
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
+        , fdcStreamWindow = 2048
         }
 
 -- Like 'withServer' but we must set up the outbound queue so that it will
@@ -199,6 +202,7 @@ withClient transport logic serverAddress@(Node.NodeId serverEndPointAddress) k =
         , fdcRecoveryHeadersMessage = 2200
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
+        , fdcStreamWindow = 2048
         }
 
 
@@ -222,9 +226,17 @@ blockDownloadBatch serverAddress client ~(blockHeader, checkpoints) batches = ru
 -- 'blockDownloadBatch', which will do 2200 at a time.
 blockDownloadStream :: NodeId -> Diffusion Production -> (HeaderHash, [HeaderHash]) -> Int -> IO ()
 blockDownloadStream serverAddress client ~(blockHeader, checkpoints) batches = runProduction $
-    pure () -- streamBlocks client serverAddress blockHeader checkpoints
+    streamBlocks client serverAddress blockHeader checkpoints loop
   where
     numBlocks = batches * 2200
+
+    loop blockChan = do
+        streamEntry <- liftIO $ atomically $ readTBQueue blockChan
+        case streamEntry of
+          StreamEnd         -> return ()
+          StreamBlock _ -> do
+            loop blockChan
+
 
 blockDownloadBenchmarks :: NodeId -> Diffusion Production -> [Criterion.Benchmark]
 blockDownloadBenchmarks serverAddress client =

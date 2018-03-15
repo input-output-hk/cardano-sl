@@ -26,7 +26,6 @@ library
                        Pos.Binary.Class.TH
 
   build-depends:       QuickCheck
-                     , autoexporter
                      , base
                      , binary
                      , bytestring
@@ -38,23 +37,14 @@ library
                      , hashable
                      , lens
                      , mtl
-                     , parsec
-                     , process
-                     , quickcheck-instances
                      , safe-exceptions
-                     , semigroups
                      , serokell-util
-                     , stm
                      , tagged
                      , template-haskell
                      , text
-                     , th-lift-instances
                      , th-utilities
-                     , time
                      , time-units
                      , transformers
-                     , transformers-base
-                     , transformers-lift
                      , universum
                      , unordered-containers
                      , vector

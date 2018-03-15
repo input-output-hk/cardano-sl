@@ -318,7 +318,6 @@ executable cardano-launcher
                      , process
                      , safe-exceptions
                      , serokell-util
-                     , silently
                      , text
                      , time-units
                      , universum

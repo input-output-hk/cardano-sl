@@ -7486,9 +7486,9 @@ inherit (pkgs) mesa;};
          , network-transport-tcp, optparse-applicative, optparse-generic
          , parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe
          , process, QuickCheck, random, random-shuffle, safe-exceptions
-         , serokell-util, stdenv, stm, string-conv, tabl, tar, text, time
-         , time-units, universum, unix, unix-compat, unordered-containers
-         , vector, yaml
+         , serokell-util, silently, stdenv, stm, string-conv, tabl, tar
+         , text, time, time-units, universum, unix, unix-compat
+         , unordered-containers, vector, yaml
          }:
          mkDerivation {
            pname = "cardano-sl-tools";
@@ -7509,8 +7509,9 @@ inherit (pkgs) mesa;};
              neat-interpolation network-transport-tcp optparse-applicative
              optparse-generic parsec pipes pipes-bytestring pipes-interleave
              pipes-safe process QuickCheck random random-shuffle safe-exceptions
-             serokell-util stm string-conv tabl tar text time time-units
-             universum unix unix-compat unordered-containers vector yaml
+             serokell-util silently stm string-conv tabl tar text time
+             time-units universum unix unix-compat unordered-containers vector
+             yaml
            ];
            executableToolDepends = [ cpphs ];
            doHaddock = false;

@@ -35,6 +35,7 @@ import           Network.Wai (Application, Middleware, Response, responseLBS)
 import           Network.Wai.Handler.Warp (defaultSettings, setOnExceptionResponse)
 import           Network.Wai.Middleware.Cors (cors, corsMethods, corsRequestHeaders,
                                               simpleCorsResourcePolicy, simpleMethods)
+import           Ntp.Client (NtpStatus)
 import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.Web (cleanupAcidStatePeriodically)
 import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)
@@ -84,8 +85,9 @@ conversation wArgs = (, mempty) $ map (ActionSpec . const) (pluginsMonitoringApi
 -- | A @Plugin@ to start the wallet backend API.
 legacyWalletBackend :: (HasConfigurations, HasCompileInfo)
                     => WalletBackendParams
+                    -> TVar NtpStatus
                     -> Plugin WalletWebMode
-legacyWalletBackend WalletBackendParams {..} =
+legacyWalletBackend WalletBackendParams {..} ntpStatus =
     first one $ worker walletServerOuts $ \diffusion -> do
       logInfo $ sformat ("Production mode for API: "%build)
         walletProductionApi
@@ -107,9 +109,9 @@ legacyWalletBackend WalletBackendParams {..} =
       ctx <- V0.walletWebModeContext
       let app = upgradeApplicationWS wsConn $
             if isDebugMode walletRunMode then
-              Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer (V0.convertHandler ctx) diffusion walletRunMode
+              Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer (V0.convertHandler ctx) diffusion ntpStatus walletRunMode
             else
-              Servant.serve API.walletAPI $ LegacyServer.walletServer (V0.convertHandler ctx) diffusion
+              Servant.serve API.walletAPI $ LegacyServer.walletServer (V0.convertHandler ctx) diffusion ntpStatus
       return $ withMiddleware walletRunMode app
 
     exceptionHandler :: SomeException -> Response

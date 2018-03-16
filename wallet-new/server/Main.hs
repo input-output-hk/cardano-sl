@@ -10,6 +10,7 @@ import           Universum
 
 import           Data.Maybe (fromJust)
 import           Mockable (Production (..), runProduction)
+import           Ntp.Client (NtpStatus, runNtpClient)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (ActionSpec (..))
 import           Pos.DB.DB (initNodeDBs)
@@ -17,7 +18,7 @@ import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingPar
                                bracketNodeResources, loggerBracket, lpDefaultName, runNode,
                                withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions, HasConfigurations)
-import           Pos.Ntp.Configuration (ntpConfiguration)
+import           Pos.Ntp.Configuration (ntpConfiguration, ntpClientSettings)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
@@ -61,17 +62,18 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
                 txpGlobalSettings
                 initNodeDBs $ \nr@NodeResources {..} -> do
                     ref <- newIORef mempty
-                    runWRealMode db conn (AddrCIdHashes ref) nr (mainAction nr)
+                    ntpStatus <- runNtpClient (ntpClientSettings ntpConfiguration)
+                    runWRealMode db conn (AddrCIdHashes ref) nr (mainAction ntpStatus nr)
   where
-    mainAction = runNodeWithInit $ do
+    mainAction ntpStatus = runNodeWithInit ntpStatus $ do
         when (walletFlushDb walletDbOptions) $ do
             logInfo "Flushing wallet db..."
             askWalletDB >>= flushWalletStorage
             logInfo "Resyncing wallets with blockchain..."
             syncWallets
 
-    runNodeWithInit init nr =
-        let (ActionSpec f, outs) = runNode nr plugins
+    runNodeWithInit ntpStatus init nr =
+        let (ActionSpec f, outs) = runNode nr (plugins ntpStatus)
          in (ActionSpec $ \s -> init >> f s, outs)
 
     syncWallets :: WalletWebMode ()
@@ -80,13 +82,14 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
         sks <- mapM getSKById addrs
         syncWalletsWithGState sks
 
-    plugins :: (HasConfigurations, HasCompileInfo) => Plugins.Plugin WalletWebMode
-    plugins = mconcat [ Plugins.conversation wArgs
-                      , Plugins.legacyWalletBackend wArgs
-                      , Plugins.acidCleanupWorker wArgs
-                      , Plugins.resubmitterPlugin
-                      , Plugins.notifierPlugin
-                      ]
+    plugins :: (HasConfigurations, HasCompileInfo) => TVar NtpStatus -> Plugins.Plugin WalletWebMode
+    plugins ntpStatus =
+        mconcat [ Plugins.conversation wArgs
+                , Plugins.legacyWalletBackend wArgs ntpStatus
+                , Plugins.acidCleanupWorker wArgs
+                , Plugins.resubmitterPlugin
+                , Plugins.notifierPlugin
+                ]
 
 actionWithNewWallet :: (HasConfigurations, HasCompileInfo)
                     => SscParams

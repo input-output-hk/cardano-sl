@@ -45,6 +45,7 @@ library
 
   build-depends:       QuickCheck
                      , aeson
+                     , autoexporter
                      , base
                      , bytestring
                      , cardano-sl-networking

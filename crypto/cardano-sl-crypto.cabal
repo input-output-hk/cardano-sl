@@ -47,6 +47,7 @@ library
 
   build-depends:       QuickCheck
                      , aeson
+                     , autoexporter
                      , base
                      , binary
                      , bytestring

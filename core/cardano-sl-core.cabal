@@ -125,6 +125,7 @@ library
 
   build-depends:       aeson
                      , ansi-terminal
+                     , autoexporter
                      , base
                      , base58-bytestring
                      , binary

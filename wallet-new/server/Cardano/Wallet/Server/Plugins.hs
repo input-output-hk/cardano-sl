@@ -16,6 +16,7 @@ module Cardano.Wallet.Server.Plugins (
 import           Universum
 
 import           Cardano.Wallet.API as API
+import           Cardano.Wallet.API.V1.Errors (WalletError (..))
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel
@@ -25,12 +26,16 @@ import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode
                                             WalletBackendParams (..), isDebugMode,
                                             walletAcidInterval, walletDbOptions)
 
+import           Data.Aeson
 import           Formatting (build, sformat, (%))
 import           Mockable
-import           Network.Wai (Application, Middleware)
+import           Network.HTTP.Types.Status (badRequest400)
+import           Network.HTTP.Types (hContentType)
+import           Network.Wai (Application, Middleware, Response, responseLBS)
 import           Network.Wai.Middleware.Cors (cors, corsMethods, corsRequestHeaders,
                                               simpleCorsResourcePolicy, simpleMethods)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
+import           Network.Wai.Handler.Warp (defaultSettings, setOnExceptionResponse)
 import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.Web (cleanupAcidStatePeriodically)
 import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)
@@ -48,9 +53,11 @@ import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.Server.Launcher (walletServeImpl, walletServerOuts)
+import           Pos.Wallet.Web.State (askWalletDB)
 import           Pos.Web (serveWeb)
 import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (WorkMode)
+
 
 -- A @Plugin@ running in the monad @m@.
 type Plugin m = ([WorkerSpec m], OutSpecs)
@@ -62,11 +69,11 @@ acidCleanupWorker :: HasConfigurations
 acidCleanupWorker WalletBackendParams{..} =
     first one $ worker mempty $ const $
     modifyLoggerName (const "acidcleanup") $
-    cleanupAcidStatePeriodically (walletAcidInterval walletDbOptions)
+    askWalletDB >>= \db -> cleanupAcidStatePeriodically db (walletAcidInterval walletDbOptions)
 
 -- | The @Plugin@ which defines part of the conversation protocol for this node.
 conversation :: (HasConfigurations, HasCompileInfo) => WalletBackendParams -> Plugin WalletWebMode
-conversation wArgs = (, mempty) $ map (\act -> ActionSpec $ \__diffusion -> act) (pluginsMonitoringApi wArgs)
+conversation wArgs = (, mempty) $ map (ActionSpec . const) (pluginsMonitoringApi wArgs)
   where
     pluginsMonitoringApi :: (WorkMode ctx m , HasNodeContext ctx , HasConfigurations, HasCompileInfo)
                          => WalletBackendParams
@@ -90,7 +97,8 @@ legacyWalletBackend WalletBackendParams {..} =
         (getApplication diffusion)
         walletAddress
         -- Disable TLS if in debug mode.
-        (if (isDebugMode walletRunMode) then Nothing else walletTLSParams)
+        (if isDebugMode walletRunMode then Nothing else walletTLSParams)
+        (Just $ setOnExceptionResponse exceptionHandler defaultSettings)
   where
     -- Gets the Wai `Application` to run.
     getApplication :: Diffusion WalletWebMode -> WalletWebMode Application
@@ -99,14 +107,21 @@ legacyWalletBackend WalletBackendParams {..} =
       wsConn <- getWalletWebSockets
       ctx <- V0.walletWebModeContext
       let app = upgradeApplicationWS wsConn $
-            Servant.serve API.walletAPI $
-              LegacyServer.walletServer (V0.convertHandler ctx) diffusion walletRunMode
+            if isDebugMode walletRunMode then
+              Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer (V0.convertHandler ctx) diffusion walletRunMode
+            else
+              Servant.serve API.walletAPI $ LegacyServer.walletServer (V0.convertHandler ctx) diffusion
       return $ withMiddleware walletRunMode app
+
+    exceptionHandler :: SomeException -> Response
+    exceptionHandler _ =
+        responseLBS badRequest400 [(hContentType, "application/json")] .
+            encode $ UnkownError "Something went wrong."
 
 -- | A 'Plugin' to start the wallet REST server
 --
 -- TODO: no web socket support in the new wallet for now
-walletBackend :: (HasConfigurations)
+walletBackend :: (HasConfigurations, HasCompileInfo)
               => NewWalletBackendParams
               -> Kernel.PassiveWallet
               -> Plugin Kernel.WalletMode
@@ -119,24 +134,29 @@ walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
           (getApplication active)
           walletAddress
           -- Disable TLS if in debug modeit .
-          (if (isDebugMode walletRunMode) then Nothing else walletTLSParams)
+          (if isDebugMode walletRunMode then Nothing else walletTLSParams)
+          Nothing
   where
     getApplication :: Kernel.ActiveWallet -> Kernel.WalletMode Application
     getApplication active = do
       logInfo "New wallet API has STARTED!"
       return $ withMiddleware walletRunMode $
-        Servant.serve API.walletAPI $ Server.walletServer active walletRunMode
+        if isDebugMode walletRunMode then
+          Servant.serve API.walletDevAPI $ Server.walletDevServer active walletRunMode
+        else
+          Servant.serve API.walletAPI $ Server.walletServer active
 
     lower :: env -> ReaderT env Production a -> IO a
     lower env = runProduction . (`runReaderT` env)
 
 -- | A @Plugin@ to resubmit pending transactions.
 resubmitterPlugin :: (HasConfigurations, HasCompileInfo) => Plugin WalletWebMode
-resubmitterPlugin = ([ActionSpec $ \diffusion -> startPendingTxsResubmitter (sendTx diffusion)], mempty)
+resubmitterPlugin = ([ActionSpec $ \diffusion -> askWalletDB >>= \db ->
+                         startPendingTxsResubmitter db (sendTx diffusion)], mempty)
 
 -- | A @Plugin@ to notify frontend via websockets.
 notifierPlugin :: (HasConfigurations, HasCompileInfo) => Plugin WalletWebMode
-notifierPlugin = ([ActionSpec $ \_ -> V0.notifierPlugin], mempty)
+notifierPlugin = ([ActionSpec $ const V0.notifierPlugin], mempty)
 
 -- | "Attaches" the middleware to this 'Application', if any.
 -- When running in debug mode, chances are we want to at least allow CORS to test the API

@@ -35,7 +35,7 @@ import           Pos.Wallet.Web.Mode (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending (PendingTx (..), TxSubmissionMode, allPendingAddresses,
                                          isPtxInBlocks, ptxFirstSubmissionHandler, sortPtxsChrono)
 import           Pos.Wallet.Web.Pending.Submission (submitAndSavePtx)
-import           Pos.Wallet.Web.State (MonadWalletDBRead, getPendingTxs)
+import           Pos.Wallet.Web.State (WalletDB, WalletSnapshot, askWalletSnapshot, getPendingTxs)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
 
 
@@ -71,17 +71,18 @@ coinDistrToOutputs distr = do
 -- by the time of resubmission.
 submitAndSaveNewPtx
     :: TxSubmissionMode ctx m
-    => (TxAux -> m Bool)
+    => WalletDB
+    -> (TxAux -> m Bool)
     -> PendingTx
     -> m ()
-submitAndSaveNewPtx submit = submitAndSavePtx submit ptxFirstSubmissionHandler
+submitAndSaveNewPtx db submit = submitAndSavePtx db submit ptxFirstSubmissionHandler
 
 gatherPendingTxsSummary :: MonadWalletWebMode ctx m => m [PendingTxsSummary]
 gatherPendingTxsSummary =
     map mkInfo .
     getNewestFirst . toNewestFirst . sortPtxsChrono .
-    filter unconfirmedPtx <$>
-    getPendingTxs
+    filter unconfirmedPtx .
+    getPendingTxs <$> askWalletSnapshot
   where
     unconfirmedPtx = not . isPtxInBlocks . _ptxCond
     mkInfo PendingTx{..} =
@@ -96,12 +97,12 @@ gatherPendingTxsSummary =
 
 -- | With regard to tx creation policy which is going to be used,
 -- get addresses which are refered by some yet unconfirmed transaction outputs.
-getPendingAddresses :: MonadWalletDBRead ctx m => InputSelectionPolicy -> m PendingAddresses
-getPendingAddresses = \case
+getPendingAddresses :: WalletSnapshot -> InputSelectionPolicy -> PendingAddresses
+getPendingAddresses ws = \case
     OptimizeForSecurity ->
         -- NOTE (int-index) The pending transactions are ignored when we optimize
         -- for security, so it is faster to not get them. In case they start being
         -- used for other purposes, this shortcut must be removed.
-        return mempty
+        mempty
     OptimizeForHighThroughput ->
-        allPendingAddresses <$> getPendingTxs
+        allPendingAddresses (getPendingTxs ws)

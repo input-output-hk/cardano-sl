@@ -10,7 +10,7 @@ module Pos.Generator.Block.Payload
 
 import           Universum
 
-import           Control.Lens (at, uses, (%=), (.=))
+import           Control.Lens (at, uses, (%=))
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Random.Class (MonadRandom (..))
 import qualified Data.HashMap.Strict as HM
@@ -23,11 +23,10 @@ import           System.Random (RandomGen (..))
 
 import           Pos.AllSecrets (asSecretKeys, asSpendingData, unInvAddrSpendingData,
                                  unInvSecretsMap)
-import           Pos.Client.Txp.Util (InputSelectionPolicy (..), createGenericTx,
-                                      makeMPubKeyTxAddrs, TxError (..))
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..), createGenericTx,
+                                      makeMPubKeyTxAddrs)
 import           Pos.Core (AddrSpendingData (..), Address (..), Coin, SlotId (..), addressHash,
                            coinToInteger, makePubKeyAddressBoot, unsafeIntegerToCoin)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (SecretKey, WithHash (..), fakeSigner, hash, toPublic)
 import           Pos.Generator.Block.Error (BlockGenError (..))
@@ -35,9 +34,9 @@ import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode, Monad
 import           Pos.Generator.Block.Param (HasBlockGenParams (..), HasTxGenParams (..))
 import qualified Pos.GState as DB
 import           Pos.Txp.MemState.Class (MonadTxpLocal (..))
-import           Pos.Txp.Toil.Class (MonadUtxo (..), MonadUtxoRead (..))
-import           Pos.Txp.Toil.Types (Utxo)
+import           Pos.Txp.Toil (Utxo, execUtxoM, utxoToLookup)
 import qualified Pos.Txp.Toil.Utxo as Utxo
+import qualified Pos.Util.Modifier as Modifier
 
 ----------------------------------------------------------------------------
 -- Tx payload generation
@@ -110,13 +109,6 @@ data GenTxData = GenTxData
     }
 
 makeLenses ''GenTxData
-
-instance (HasConfiguration, Monad m) => MonadUtxoRead (StateT GenTxData m) where
-    utxoGet txIn = uses gtdUtxo $ M.lookup txIn
-
-instance (HasConfiguration, Monad m) => MonadUtxo (StateT GenTxData m) where
-    utxoPutUnchecked id aux = gtdUtxo . at id .= Just aux
-    utxoDelUnchecked id     = gtdUtxo . at id .= Nothing
 
 -- TODO: move to txp, think how to unite it with 'Pos.Arbitrary.Txp'.
 -- | Generate valid 'TxPayload' using current global state.
@@ -230,7 +222,10 @@ genTxPayload = do
         case res of
             Left e  -> error $ "genTransaction@txProcessTransaction: got left: " <> pretty e
             Right _ -> do
-                Utxo.applyTxToUtxo (WithHash tx txId)
+                utxoLookup <- utxoToLookup <$> use gtdUtxo
+                let utxoModifier = execUtxoM mempty utxoLookup $
+                        Utxo.applyTxToUtxo (WithHash tx txId)
+                gtdUtxo %= Modifier.modifyMap utxoModifier
                 gtdUtxoKeys %= V.filter (`notElem` txIns)
                 let outsAsIns =
                         map (TxInUtxo txId) [0..(fromIntegral $ length txOuts)-1]
@@ -241,7 +236,7 @@ genTxPayload = do
 -- Payload generation
 ----------------------------------------------------------------------------
 
--- Generate random payload which is valid with respect to the current
+-- | Generate random payload which is valid with respect to the current
 -- global state and mempool and add it to mempool.  Currently we are
 -- concerned only about tx payload, later we can add more stuff.
 genPayload ::

@@ -8,9 +8,16 @@
             "url": "http://mit.com",
             "name": "MIT"
         },
-        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\nGit revision: **938a4faca8a15e77ece01c03bdee82a89adb74b2**\nSoftware version: **cardano-sl:0**\n\n\n## Request format (all versions)\n\nIssuing requests against this API is conceptually not very different from any other web service out there. The API\nis **versioned**, meaning that is possible to access different versions of the API by adding the _version number_\nin the URL.\n\n**For the sake of backward compatibility, we expose the legacy version of the API, available simply as\nunversioned endpoints.**\n\nThis means that _omitting_ the version number would call the old version of the API. Examples:\n\n```\n/api/version\n```\n\nCompatibility between major versions is not _guaranteed_, i.e. the request & response formats might differ.\n\n## Response format (V1 onwards)\n\n**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is\nthe best way of ensuring the performance of GET requests is not affected by the size of the data storage.\n\nVersion `V1` introduced a different way of requesting information to the API. In particular, GET requests\nwhich returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be\nused to modify the shape of the response. In particular, those are:\n\n* `page`: (Default value: **1**).\n* `per_page`: (Default value: **10**)\n\nFor a more accurate description, see the section `Parameters` of each GET request, but as a brief overview\nthe first two control how many results and which results to access in a paginated request.\n\nThis is an example of a typical (successful) response from the API:\n\n``` json\n{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"amount\": 29208924123228353,\n            \"addresses\": [\n                \"5FCjkr138i9qs2EEjvmXF37aSLiZdwQsALPMmvVDgx8PQ31nJTh9p35ZfnDFn6hfWdyY6XuFQXY23kfUjSuwBSEd4912knFgJSSZSBCt2yo\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"index\": 1\n        },\n        {\n            \"amount\": 28089727180413548,\n            \"addresses\": [\n                \"7J1MaQmKydNUyekmvgR3VNZLeLYkTNpDTKz4Z5SHfnJxDVgCN3tjixySxMNKNULKaV5XBBngc1e5BNzrePahs1Tuo7xcnKUyvkUm8HNcHuufC5q\",\n                \"7fiTbReGezWKbx8zhrjdMekrd8kziXqofdzzGPHWKgRXd24pDM7TZSFfnarpCsHy67ZW3AgFRAfFEGuRSd1VSYP5dDyNJJLwKB29vxsFnGq9GPB8x2RittGrrjNXPpgB8b4Y3yBFbpcXeDF7FG13u5gFHrcXwU86MN2CaCpLaaynjRvnitwGnd\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"index\": 0\n        }\n    ],\n    \"meta\": {\n        \"pagination\": {\n            \"page\": 1,\n            \"perPage\": 46,\n            \"totalPages\": 1,\n            \"totalEntries\": 2\n        }\n    }\n}\n```\n\n## Filtering and sorting\n\n`GET` endpoints which list collection of resources supports filters & sort operations, which are clearly marked\nin the swagger docs with the `FILTER` or `SORT` labels. The query format is quite simple, and it goes this way:\n\n### Filter operators\n\n| Operator | Description                                                               | Example                |\n|----------|---------------------------------------------------------------------------|------------------------|\n| -        | If **no operator** is passed, this is equivalent to `EQ` (see below).     | `balance=10`           |\n| `EQ`     | Retrieves the resources with index _equal to the one provided.            | `balance=EQ[10]`       |\n| `LT`     | Retrieves the resources with index _less than_ the one provided.          | `balance=LT[10]`       |\n| `LTE`    | Retrieves the resources with index _less than equal_ the one provided.    | `balance=LTE[10]`      |\n| `GT`     | Retrieves the resources with index _greater than_ the one provided.       | `balance=GT[10]`       |\n| `GTE`    | Retrieves the resources with index _greater than equal_ the one provided. | `balance=GTE[10]`      |\n| `RANGE`  | Retrieves the resources with index _within the inclusive range_ [k,k].    | `balance=RANGE[10,20]` |\n\n### Sort operators\n\n| Operator | Description                                                               | Example                |\n|----------|---------------------------------------------------------------------------|------------------------|\n| `ASC`    | Sorts the resources with the given index in _ascending_ order.            | `sort_by=ASC[balance]` |\n| `DES`    | Sorts the resources with the given index in _descending_ order.           | `sort_by=DES[balance]` |\n| -        | If **no operator** is passed, this is equivalent to `DES` (see above).    | `sort_by=balance`      |\n\n## Dealing with errors (V1 onwards)\n\nIn case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a\n[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together\nwith a numeric error code which can be used by API consumers to implement proper error handling in their\napplication. For example, here's a typical error which might be issued:\n\n``` json\n{\n    \"status\": \"error\",\n    \"diagnostic\": {},\n    \"message\": \"WalletNotFound\"\n}\n```\n\n### Existing wallet errors\n\nError Name|HTTP Error code|Example\n---|---|---\n`NotEnoughMoney`|-|-\n`OutputIsRedeem`|-|-\n`SomeOtherError`|-|-\n`MigrationFailed`|-|-\n`JSONValidationFailed`|-|-\n`WalletNotFound`|-|-\n"
+        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\nGit revision: **6f69e2e0033d51ff803630469b5749f85a3e2228**\nSoftware version: **cardano-sl:0**\n\n\n## Request format (all versions)\n\nIssuing requests against this API is conceptually not very different from any other web service out there. The API\nis **versioned**, meaning that is possible to access different versions of the API by adding the _version number_\nin the URL.\n\n**For the sake of backward compatibility, we expose the legacy version of the API, available simply as\nunversioned endpoints.**\n\nThis means that _omitting_ the version number would call the old version of the API. Examples:\n\n```\n/api/version\n```\n\nCompatibility between major versions is not _guaranteed_, i.e. the request & response formats might differ.\n\n## Response format (V1 onwards)\n\n**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is\nthe best way of ensuring the performance of GET requests is not affected by the size of the data storage.\n\nVersion `V1` introduced a different way of requesting information to the API. In particular, GET requests\nwhich returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be\nused to modify the shape of the response. In particular, those are:\n\n* `page`: (Default value: **1**).\n* `per_page`: (Default value: **10**)\n\nFor a more accurate description, see the section `Parameters` of each GET request, but as a brief overview\nthe first two control how many results and which results to access in a paginated request.\n\nThis is an example of a typical (successful) response from the API:\n\n``` json\n{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"amount\": 29208924123228353,\n            \"addresses\": [\n                \"5FCjkr138i9qs2EEjvmXF37aSLiZdwQsALPMmvVDgx8PQ31nJTh9p35ZfnDFn6hfWdyY6XuFQXY23kfUjSuwBSEd4912knFgJSSZSBCt2yo\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"index\": 1\n        },\n        {\n            \"amount\": 28089727180413548,\n            \"addresses\": [\n                \"7J1MaQmKydNUyekmvgR3VNZLeLYkTNpDTKz4Z5SHfnJxDVgCN3tjixySxMNKNULKaV5XBBngc1e5BNzrePahs1Tuo7xcnKUyvkUm8HNcHuufC5q\",\n                \"7fiTbReGezWKbx8zhrjdMekrd8kziXqofdzzGPHWKgRXd24pDM7TZSFfnarpCsHy67ZW3AgFRAfFEGuRSd1VSYP5dDyNJJLwKB29vxsFnGq9GPB8x2RittGrrjNXPpgB8b4Y3yBFbpcXeDF7FG13u5gFHrcXwU86MN2CaCpLaaynjRvnitwGnd\"\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"index\": 0\n        }\n    ],\n    \"meta\": {\n        \"pagination\": {\n            \"page\": 1,\n            \"perPage\": 46,\n            \"totalPages\": 1,\n            \"totalEntries\": 2\n        }\n    }\n}\n```\n\n## Filtering and sorting\n\n`GET` endpoints which list collection of resources supports filters & sort operations, which are clearly marked\nin the swagger docs with the `FILTER` or `SORT` labels. The query format is quite simple, and it goes this way:\n\n### Filter operators\n\n| Operator | Description                                                               | Example                |\n|----------|---------------------------------------------------------------------------|------------------------|\n| -        | If **no operator** is passed, this is equivalent to `EQ` (see below).     | `balance=10`           |\n| `EQ`     | Retrieves the resources with index _equal to the one provided.            | `balance=EQ[10]`       |\n| `LT`     | Retrieves the resources with index _less than_ the one provided.          | `balance=LT[10]`       |\n| `LTE`    | Retrieves the resources with index _less than equal_ the one provided.    | `balance=LTE[10]`      |\n| `GT`     | Retrieves the resources with index _greater than_ the one provided.       | `balance=GT[10]`       |\n| `GTE`    | Retrieves the resources with index _greater than equal_ the one provided. | `balance=GTE[10]`      |\n| `RANGE`  | Retrieves the resources with index _within the inclusive range_ [k,k].    | `balance=RANGE[10,20]` |\n\n### Sort operators\n\n| Operator | Description                                                               | Example                |\n|----------|---------------------------------------------------------------------------|------------------------|\n| `ASC`    | Sorts the resources with the given index in _ascending_ order.            | `sort_by=ASC[balance]` |\n| `DES`    | Sorts the resources with the given index in _descending_ order.           | `sort_by=DES[balance]` |\n| -        | If **no operator** is passed, this is equivalent to `DES` (see above).    | `sort_by=balance`      |\n\n## Dealing with errors (V1 onwards)\n\nIn case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a\n[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together\nwith a numeric error code which can be used by API consumers to implement proper error handling in their\napplication. For example, here's a typical error which might be issued:\n\n``` json\n{\n    \"status\": \"error\",\n    \"diagnostic\": {},\n    \"message\": \"WalletNotFound\"\n}\n```\n\n### Existing wallet errors\n\nError Name|HTTP Error code|Example\n---|---|---\n`NotEnoughMoney`|-|-\n`OutputIsRedeem`|-|-\n`SomeOtherError`|-|-\n`MigrationFailed`|-|-\n`JSONValidationFailed`|-|-\n`UnkownError`|-|-\n`WalletNotFound`|-|-\n"
     },
     "definitions": {
+        "TransactionType": {
+            "type": "string",
+            "enum": [
+                "local",
+                "foreign"
+            ]
+        },
         "CPtxCondition": {
             "type": "string",
             "enum": [
@@ -20,6 +27,49 @@
                 "CPtxWontApply",
                 "CPtxNotTracked"
             ]
+        },
+        "WalletResponse<[Transaction]>": {
+            "required": [
+                "data",
+                "status",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "$ref": "#/definitions/ResponseStatus"
+                },
+                "data": {
+                    "items": {
+                        "$ref": "#/definitions/Transaction"
+                    },
+                    "type": "array"
+                },
+                "meta": {
+                    "$ref": "#/definitions/Metadata"
+                }
+            }
+        },
+        "V1Coin": {
+            "maximum": 45000000000000000,
+            "type": "number"
+        },
+        "AddressValidity": {
+            "required": [
+                "valid"
+            ],
+            "type": "object",
+            "properties": {
+                "valid": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "V1BackupPhrase": {
+            "items": {
+                "type": "string"
+            },
+            "type": "array"
         },
         "PendingTxsSummary": {
             "type": "string"
@@ -69,147 +119,90 @@
                 }
             }
         },
-        "WalletResponse NodeInfo": {
-            "example": {
-                "status": "success",
-                "data": {
-                    "blockchainHeight": {
-                        "quantity": 9631745999145585284,
-                        "unit": "blocks"
-                    },
-                    "localTimeDifference": {
-                        "quantity": 1.2988764939106870466e19,
-                        "unit": "microseconds"
-                    },
-                    "syncProgress": {
-                        "quantity": 77,
-                        "unit": "percent"
-                    },
-                    "localBlockchainHeight": {
-                        "quantity": 1.2513853667654321111e19,
-                        "unit": "blocks"
-                    }
-                },
-                "meta": {
-                    "pagination": {
-                        "page": 1,
-                        "perPage": 46,
-                        "totalPages": 1,
-                        "totalEntries": 2
-                    }
-                }
-            },
+        "ResponseStatus": {
+            "type": "string",
+            "enum": [
+                "success",
+                "fail",
+                "error"
+            ]
+        },
+        "WalletResponse<WalletAddress>": {
             "required": [
-                "status",
                 "data",
+                "status",
                 "meta"
             ],
             "type": "object",
             "properties": {
                 "status": {
-                    "type": "string"
+                    "$ref": "#/definitions/ResponseStatus"
                 },
                 "data": {
-                    "required": [
-                        "blockchainHeight",
-                        "localTimeDifference",
-                        "syncProgress",
-                        "localBlockchainHeight"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "blockchainHeight": {
-                            "required": [
-                                "quantity",
-                                "unit"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "quantity": {
-                                    "type": "number"
-                                },
-                                "unit": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "localTimeDifference": {
-                            "required": [
-                                "quantity",
-                                "unit"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "quantity": {
-                                    "type": "number"
-                                },
-                                "unit": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "syncProgress": {
-                            "required": [
-                                "quantity",
-                                "unit"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "quantity": {
-                                    "type": "number"
-                                },
-                                "unit": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "localBlockchainHeight": {
-                            "required": [
-                                "quantity",
-                                "unit"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "quantity": {
-                                    "type": "number"
-                                },
-                                "unit": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
+                    "$ref": "#/definitions/WalletAddress"
                 },
                 "meta": {
-                    "required": [
-                        "pagination"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "pagination": {
-                            "required": [
-                                "page",
-                                "perPage",
-                                "totalPages",
-                                "totalEntries"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "page": {
-                                    "type": "number"
-                                },
-                                "perPage": {
-                                    "type": "number"
-                                },
-                                "totalPages": {
-                                    "type": "number"
-                                },
-                                "totalEntries": {
-                                    "type": "number"
-                                }
-                            }
-                        }
-                    }
+                    "$ref": "#/definitions/Metadata"
+                }
+            }
+        },
+        "Wallet": {
+            "required": [
+                "id",
+                "name",
+                "balance"
+            ],
+            "type": "object",
+            "properties": {
+                "balance": {
+                    "$ref": "#/definitions/V1Coin"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "id": {
+                    "$ref": "#/definitions/WalletId"
+                }
+            }
+        },
+        "WalletResponse<[Wallet]>": {
+            "required": [
+                "data",
+                "status",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "$ref": "#/definitions/ResponseStatus"
+                },
+                "data": {
+                    "items": {
+                        "$ref": "#/definitions/Wallet"
+                    },
+                    "type": "array"
+                },
+                "meta": {
+                    "$ref": "#/definitions/Metadata"
+                }
+            }
+        },
+        "WalletResponse<Account>": {
+            "required": [
+                "data",
+                "status",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "$ref": "#/definitions/ResponseStatus"
+                },
+                "data": {
+                    "$ref": "#/definitions/Account"
+                },
+                "meta": {
+                    "$ref": "#/definitions/Metadata"
                 }
             }
         },
@@ -239,28 +232,42 @@
                 }
             }
         },
-        "NewAddress": {
-            "example": {
-                "accountIndex": 2,
-                "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
-                "spendingPassword": "0001010001010101010200020001010201000200010201020202000200010000"
-            },
+        "WalletResponse<Transaction>": {
             "required": [
-                "accountIndex",
-                "walletId",
-                "spendingPassword"
+                "data",
+                "status",
+                "meta"
             ],
             "type": "object",
-            "description": "A type represending an request for creating a(n) WalletAddress.",
+            "properties": {
+                "status": {
+                    "$ref": "#/definitions/ResponseStatus"
+                },
+                "data": {
+                    "$ref": "#/definitions/Transaction"
+                },
+                "meta": {
+                    "$ref": "#/definitions/Metadata"
+                }
+            }
+        },
+        "NewAddress": {
+            "required": [
+                "accountIndex",
+                "walletId"
+            ],
+            "type": "object",
             "properties": {
                 "accountIndex": {
-                    "type": "number"
+                    "maximum": 4294967295,
+                    "minimum": 0,
+                    "type": "integer"
                 },
                 "walletId": {
-                    "type": "string"
+                    "$ref": "#/definitions/WalletId"
                 },
                 "spendingPassword": {
-                    "type": "string"
+                    "$ref": "#/definitions/V1PassPhrase"
                 }
             }
         },
@@ -275,6 +282,23 @@
                 }
             }
         },
+        "V1SoftwareVersion": {
+            "required": [
+                "applicationName",
+                "version"
+            ],
+            "type": "object",
+            "properties": {
+                "version": {
+                    "maximum": 4294967295,
+                    "minimum": 0,
+                    "type": "integer"
+                },
+                "applicationName": {
+                    "type": "string"
+                }
+            }
+        },
         "ApiVersion": {
             "type": "string",
             "enum": [
@@ -282,342 +306,68 @@
             ]
         },
         "Payment": {
-            "example": {
-                "groupingPolicy": "OptimizeForHighThroughput",
-                "destinations": [
-                    {
-                        "amount": 27889372662178400,
-                        "address": "7J1MaQmKydNdKZ8ASMptqTpSiq6k8QwjD5w8hsnMF6iGQSFLZNbjgVjDhKtAa2vWYNCXvRixXTeuxKAfSHUBcjoieTUHcDaFPMgUtnhVnwk2rbz"
-                    },
-                    {
-                        "amount": 33829516096667581,
-                        "address": "2cWKMJemoBamMBMBYJWe5aQR3xitBLbjVbt4yxQUWUWC8KGGHvYF8BfUQwmAs5je5fSii"
-                    }
-                ],
-                "source": {
-                    "accountIndex": 2,
-                    "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
-                },
-                "spendingPassword": "0000010001010101000001000202010200010202000102000000000100000100"
-            },
             "required": [
-                "groupingPolicy",
-                "destinations",
                 "source",
-                "spendingPassword"
+                "destinations"
             ],
             "type": "object",
-            "description": "A transfer of `Coin`(s) from one source to one or more destinations.",
             "properties": {
                 "groupingPolicy": {
-                    "type": "string"
+                    "$ref": "#/definitions/V1InputSelectionPolicy"
                 },
                 "destinations": {
+                    "minItems": 1,
                     "items": {
-                        "required": [
-                            "amount",
-                            "address"
-                        ],
-                        "type": "object",
-                        "properties": {
-                            "amount": {
-                                "type": "number"
-                            },
-                            "address": {
-                                "type": "string"
-                            }
-                        }
+                        "$ref": "#/definitions/PaymentDistribution"
                     },
                     "type": "array"
                 },
                 "source": {
-                    "required": [
-                        "accountIndex",
-                        "walletId"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "accountIndex": {
-                            "type": "number"
-                        },
-                        "walletId": {
-                            "type": "string"
-                        }
-                    }
+                    "$ref": "#/definitions/PaymentSource"
                 },
                 "spendingPassword": {
-                    "type": "string"
+                    "$ref": "#/definitions/V1PassPhrase"
                 }
             }
         },
         "CTxId": {
             "type": "string"
         },
-        "WalletResponse Account": {
-            "example": {
-                "status": "success",
-                "data": {
-                    "amount": 7328081618979461,
-                    "addresses": [
-                        "NBimUZYpm3G6AbNtqWY4PEvRQCLjErwu3hj1DfmZSgUJXtrnyYHCcFGDnT1rr7mPWmx",
-                        "Ae2tdPwUPEZJfGVFz1ugT1kJs2mbWp9692jB8BTzt7ZJRoHjrUQ2rEuBmLP"
-                    ],
-                    "name": "My account",
-                    "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
-                    "index": 1
-                },
-                "meta": {
-                    "pagination": {
-                        "page": 1,
-                        "perPage": 46,
-                        "totalPages": 1,
-                        "totalEntries": 2
-                    }
-                }
-            },
+        "NodeSettings": {
             "required": [
-                "status",
-                "data",
-                "meta"
+                "slotDuration",
+                "softwareInfo",
+                "projectVersion",
+                "gitRevision"
             ],
             "type": "object",
             "properties": {
-                "status": {
+                "projectVersion": {
+                    "$ref": "#/definitions/Version"
+                },
+                "gitRevision": {
                     "type": "string"
                 },
-                "data": {
-                    "required": [
-                        "amount",
-                        "addresses",
-                        "name",
-                        "walletId",
-                        "index"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "amount": {
-                            "type": "number"
-                        },
-                        "addresses": {
-                            "items": {
-                                "type": "string"
-                            },
-                            "type": "array"
-                        },
-                        "name": {
-                            "type": "string"
-                        },
-                        "walletId": {
-                            "type": "string"
-                        },
-                        "index": {
-                            "type": "number"
-                        }
-                    }
+                "slotDuration": {
+                    "$ref": "#/definitions/SlotDuration"
                 },
-                "meta": {
-                    "required": [
-                        "pagination"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "pagination": {
-                            "required": [
-                                "page",
-                                "perPage",
-                                "totalPages",
-                                "totalEntries"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "page": {
-                                    "type": "number"
-                                },
-                                "perPage": {
-                                    "type": "number"
-                                },
-                                "totalPages": {
-                                    "type": "number"
-                                },
-                                "totalEntries": {
-                                    "type": "number"
-                                }
-                            }
-                        }
-                    }
+                "softwareInfo": {
+                    "$ref": "#/definitions/V1SoftwareVersion"
                 }
             }
         },
-        "WalletResponse [Wallet]": {
-            "example": {
-                "status": "success",
-                "data": [
-                    {
-                        "balance": 7893389421760074,
-                        "name": "My wallet",
-                        "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
-                    },
-                    {
-                        "balance": 18464205877436744,
-                        "name": "My wallet",
-                        "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
-                    }
-                ],
-                "meta": {
-                    "pagination": {
-                        "page": 1,
-                        "perPage": 46,
-                        "totalPages": 1,
-                        "totalEntries": 2
-                    }
-                }
-            },
+        "PaymentDistribution": {
             "required": [
-                "status",
-                "data",
-                "meta"
+                "address",
+                "amount"
             ],
             "type": "object",
             "properties": {
-                "status": {
-                    "type": "string"
+                "amount": {
+                    "$ref": "#/definitions/V1Coin"
                 },
-                "data": {
-                    "items": {
-                        "required": [
-                            "balance",
-                            "name",
-                            "id"
-                        ],
-                        "type": "object",
-                        "properties": {
-                            "balance": {
-                                "type": "number"
-                            },
-                            "name": {
-                                "type": "string"
-                            },
-                            "id": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "type": "array"
-                },
-                "meta": {
-                    "required": [
-                        "pagination"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "pagination": {
-                            "required": [
-                                "page",
-                                "perPage",
-                                "totalPages",
-                                "totalEntries"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "page": {
-                                    "type": "number"
-                                },
-                                "perPage": {
-                                    "type": "number"
-                                },
-                                "totalPages": {
-                                    "type": "number"
-                                },
-                                "totalEntries": {
-                                    "type": "number"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "WalletResponse WalletAddress": {
-            "example": {
-                "status": "success",
-                "data": {
-                    "used": true,
-                    "changeAddress": true,
-                    "balance": 7328081618979461,
-                    "id": "7J1MaQmKydNVpjPB6LXvNnF933LckE2va7s53RGzRFX891nLfEcN5fGWjq9XU7JwSphzf6GAZ75WPkqEfFWJm4fktedfuzG2cVbMWKxJcvRkKjD"
-                },
-                "meta": {
-                    "pagination": {
-                        "page": 1,
-                        "perPage": 46,
-                        "totalPages": 1,
-                        "totalEntries": 2
-                    }
-                }
-            },
-            "required": [
-                "status",
-                "data",
-                "meta"
-            ],
-            "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string"
-                },
-                "data": {
-                    "required": [
-                        "used",
-                        "changeAddress",
-                        "balance",
-                        "id"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "used": {
-                            "type": "boolean"
-                        },
-                        "changeAddress": {
-                            "type": "boolean"
-                        },
-                        "balance": {
-                            "type": "number"
-                        },
-                        "id": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "meta": {
-                    "required": [
-                        "pagination"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "pagination": {
-                            "required": [
-                                "page",
-                                "perPage",
-                                "totalPages",
-                                "totalEntries"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "page": {
-                                    "type": "number"
-                                },
-                                "perPage": {
-                                    "type": "number"
-                                },
-                                "totalPages": {
-                                    "type": "number"
-                                },
-                                "totalEntries": {
-                                    "type": "number"
-                                }
-                            }
-                        }
-                    }
+                "address": {
+                    "$ref": "#/definitions/V1Address"
                 }
             }
         },
@@ -636,75 +386,6 @@
                 }
             }
         },
-        "WalletResponse AddressValidity": {
-            "example": {
-                "status": "success",
-                "data": {
-                    "valid": false
-                },
-                "meta": {
-                    "pagination": {
-                        "page": 1,
-                        "perPage": 46,
-                        "totalPages": 1,
-                        "totalEntries": 2
-                    }
-                }
-            },
-            "required": [
-                "status",
-                "data",
-                "meta"
-            ],
-            "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string"
-                },
-                "data": {
-                    "required": [
-                        "valid"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "valid": {
-                            "type": "boolean"
-                        }
-                    }
-                },
-                "meta": {
-                    "required": [
-                        "pagination"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "pagination": {
-                            "required": [
-                                "page",
-                                "perPage",
-                                "totalPages",
-                                "totalEntries"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "page": {
-                                    "type": "number"
-                                },
-                                "perPage": {
-                                    "type": "number"
-                                },
-                                "totalPages": {
-                                    "type": "number"
-                                },
-                                "totalEntries": {
-                                    "type": "number"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "CProfile": {
             "required": [
                 "cpLocale"
@@ -716,10 +397,65 @@
                 }
             }
         },
+        "WalletResponse<WalletUpdate>": {
+            "required": [
+                "data",
+                "status",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "$ref": "#/definitions/ResponseStatus"
+                },
+                "data": {
+                    "$ref": "#/definitions/WalletUpdate"
+                },
+                "meta": {
+                    "$ref": "#/definitions/Metadata"
+                }
+            }
+        },
         "FilePath": {
             "example": "keys/1.key",
             "type": "string",
             "description": "Path to file.\n Note that it is represented as JSON-string, one may need to properly escape content. For instance:\n curl ... -X \"\\\\\"1.key\"\\\\\".\nAlso, when on Windows, don't forget to double-escape  backslashes, e.g.  \"C:\\\\\\\\\\\\\\\\keys\\\\\\\\1.key\""
+        },
+        "BlockchainHeight": {
+            "required": [
+                "quantity"
+            ],
+            "type": "object",
+            "properties": {
+                "quantity": {
+                    "maximum": 1.8446744073709551615e19,
+                    "minimum": 0,
+                    "type": "number"
+                },
+                "unit": {
+                    "pattern": "blocks",
+                    "type": "string"
+                }
+            }
+        },
+        "WalletResponse<NodeSettings>": {
+            "required": [
+                "data",
+                "status",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "$ref": "#/definitions/ResponseStatus"
+                },
+                "data": {
+                    "$ref": "#/definitions/NodeSettings"
+                },
+                "meta": {
+                    "$ref": "#/definitions/Metadata"
+                }
+            }
         },
         "CWalletAssurance": {
             "type": "string",
@@ -728,84 +464,14 @@
                 "CWANormal"
             ]
         },
-        "WalletResponse Wallet": {
-            "example": {
-                "status": "success",
-                "data": {
-                    "balance": 11091176260625603,
-                    "name": "My wallet",
-                    "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
-                },
-                "meta": {
-                    "pagination": {
-                        "page": 1,
-                        "perPage": 46,
-                        "totalPages": 1,
-                        "totalEntries": 2
-                    }
-                }
-            },
-            "required": [
-                "status",
-                "data",
-                "meta"
-            ],
-            "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string"
-                },
-                "data": {
-                    "required": [
-                        "balance",
-                        "name",
-                        "id"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "balance": {
-                            "type": "number"
-                        },
-                        "name": {
-                            "type": "string"
-                        },
-                        "id": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "meta": {
-                    "required": [
-                        "pagination"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "pagination": {
-                            "required": [
-                                "page",
-                                "perPage",
-                                "totalPages",
-                                "totalEntries"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "page": {
-                                    "type": "number"
-                                },
-                                "perPage": {
-                                    "type": "number"
-                                },
-                                "totalPages": {
-                                    "type": "number"
-                                },
-                                "totalEntries": {
-                                    "type": "number"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        "V1PassPhrase": {
+            "pattern": "abcd",
+            "type": "string"
+        },
+        "Page": {
+            "default": 1,
+            "minimum": 1,
+            "type": "integer"
         },
         "BackupPhrase": {
             "required": [
@@ -846,196 +512,8 @@
                 }
             }
         },
-        "WalletResponse [Transaction]": {
-            "example": {
-                "status": "success",
-                "data": [
-                    {
-                        "amount": 19321208996093113,
-                        "inputs": [
-                            {
-                                "amount": 12068145532878000,
-                                "address": "NBimUZYpm3GTGLq6w1Pc99wieJXwEWLJcGEhiQELFbvcDEzwohgssz8Zu5Lk3J82jrA"
-                            },
-                            {
-                                "amount": 1825893375695764,
-                                "address": "37btjrVyb4KBmXJFEfFDEj6fbs7oKaekei9eWBxWmZ3t5xw6Yup5tuceqJnF9zT8hpJHWNmuSWoqRRzrRFzgap3nXYKVTpRb7Pr8ihbT2GP4UCwafo"
-                            },
-                            {
-                                "amount": 13134164389923293,
-                                "address": "AL91N9VXRTCv6vVsbxTwceaCTzGS1Q393kVjyorVcgMQpKBUxsDcXw4rTvwBXgNkomv1R6vF3jYgendY3Z6YS2Z6yE7p74Anm77NhxzSbgVavLVhDAg"
-                            }
-                        ],
-                        "direction": "outgoing",
-                        "outputs": [
-                            {
-                                "amount": 18810694513310357,
-                                "address": "2reD6PLk2vQ6SgGfupzB3MpyjmzfnfCnQyujonnorUR2k5PppWqTV4Tsb9yVpYrghCGyrfVEpJ2AaFnpmqQc5JN7mDk5b8kRc3aj2HWtXyNJmmawyDgws4GMzvdEDoPArwVGoeGaiZ8534juXyYEgFkwhJFpfqua3yiiSQvM5pNYJFDXRQr9aDiRtkyDPSt9VR3yXKRNkFsVY5x5YpGcb4sEUVCXBvy2wexfzXsEMuzUmaCJVsj7czfPvRzTQvEJC12mTv8ZXDE3yRCnRKTQPWeGGN6c7sZ3YrnyaeGgxg4jkjVWeXUwUv4VMSggVuDkD78AAxZP7fuei2Mzih"
-                            },
-                            {
-                                "amount": 6214896163653048,
-                                "address": "5oP9ib6ym3XZZWYoC4YVU4UXrw1AfVDhNMrHhCcK6HPbXKFx9Up9jBrmTrdDdvyHeH"
-                            }
-                        ],
-                        "confirmations": 0,
-                        "id": "d827de094565984c09b06ac4953a2666c6385ed2b88635936d3d78bd28ed93b8",
-                        "type": "foreign"
-                    },
-                    {
-                        "amount": 34638161102038470,
-                        "inputs": [
-                            {
-                                "amount": 37567904243452455,
-                                "address": "42wmHXYSz61HK9W9Tj5fi9MbQQ8LCoaMDzQS1nt1n8gda3shKejNrjJGoud6Ttp4goj2VncciNsBUY8F7c6eY1Ny7EpLpSg6axJtPTKieQRKAC8bFabqUMqn1s8nfhaPQDiFFxPyV6J3c8AUxtcJcGmreBk11HMPLiZuDL8asqAhvY"
-                            },
-                            {
-                                "amount": 11070649850752079,
-                                "address": "2Fc9FhbWKyhDXPvLTSFAmwqPQst4arNECkBkfkkVyS7ZAf1MLJe1aZtsKZuspuD7pq4Bmv53yyTt9ZmgvbMmjsW6765BhALUKJ2wEz5pShXi3i7aYuscZtzcDsi7ZnTo4fpdfDX3jNG4AwhLWDFNNNZQSx9EKFYFxqfk7REfaCE4ebXYpEakkdnqx6NVXB8ULcE6sMiVeGWVXC7kHHuxFdvyoKCRm2J9Su7PzED8HH5R7HBnZuMkCwJ4L9XkVf9VWAe8aTzS9jdAexR8jRR7JhZXksyfEzDwFstMAfiBfX7VEaVJGUSmPNpBt5Kg9oaP4gUQFbsdKQhYac"
-                            }
-                        ],
-                        "direction": "outgoing",
-                        "outputs": [
-                            {
-                                "amount": 22593715837565850,
-                                "address": "2Tp1cYozcWTniexFcd7XUHE1yZm6SXU99fxmKByYS9FW3EwQLwtcoYCoakitfGVfuVnDp5eng8a7UiLr2C7yMN41LtNYXsm7RAqsD15iMPwBShTL3zx1hQxBY8N4U6i3z2LhuTaPyjFKFAzVnuc7FGA6rwvnxZDqfbbCXg5yP5vSmCemyLcjBh7gdfSBnE87idrBDxrDwtmpd1owvW4n9Fs7uSYwk2UzHA58WAxRTwh51"
-                            },
-                            {
-                                "amount": 118816001855782,
-                                "address": "5FCjkr138i9v69ZJ5xnkLkmrnqL4TbBju6PbiYn6onnCSnjoq5hSc7b1Q31S1hYeCtd87wNAS42K1px6x2zybb9P6vNesVL4euu6PMx9s7k"
-                            },
-                            {
-                                "amount": 10816341180192159,
-                                "address": "5MVkCEKjiviVcj4o7aFLZfu4jXeZ3YcYg7WoydzH7tb9MRGeDPrwd5gGfyNGxYy7kYQ2YNt7UHAabDFs24b8rmKDgyKVoCqfz37N4qm3hNhjJybVLxP7doKU6UtWyFpbTNsdMwgz6KrDAWLfdcVrTC3VdoKJuSRkpri7YSnrdzMBANJSc3qRh2D1efmLU9TMp7CdZjBaFFdRFkEK4FfND6KDejiMbQTH64TwHMc1Yb"
-                            },
-                            {
-                                "amount": 34537982561642603,
-                                "address": "5oP9ib6ym3XkBSbZuy7Xhs1GTPwZ2xmUwiQHJuoPQmuyACkeEjS8YZvqErTFWt7tRh"
-                            }
-                        ],
-                        "confirmations": 1,
-                        "id": "f5c79aba1f0102dce829e331574141be10d3db93e6b13f8a70d463124dc0bd8f",
-                        "type": "local"
-                    }
-                ],
-                "meta": {
-                    "pagination": {
-                        "page": 1,
-                        "perPage": 46,
-                        "totalPages": 1,
-                        "totalEntries": 2
-                    }
-                }
-            },
-            "required": [
-                "status",
-                "data",
-                "meta"
-            ],
-            "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string"
-                },
-                "data": {
-                    "items": {
-                        "required": [
-                            "amount",
-                            "inputs",
-                            "direction",
-                            "outputs",
-                            "confirmations",
-                            "id",
-                            "type"
-                        ],
-                        "type": "object",
-                        "properties": {
-                            "amount": {
-                                "type": "number"
-                            },
-                            "inputs": {
-                                "items": {
-                                    "required": [
-                                        "amount",
-                                        "address"
-                                    ],
-                                    "type": "object",
-                                    "properties": {
-                                        "amount": {
-                                            "type": "number"
-                                        },
-                                        "address": {
-                                            "type": "string"
-                                        }
-                                    }
-                                },
-                                "type": "array"
-                            },
-                            "direction": {
-                                "type": "string"
-                            },
-                            "outputs": {
-                                "items": {
-                                    "required": [
-                                        "amount",
-                                        "address"
-                                    ],
-                                    "type": "object",
-                                    "properties": {
-                                        "amount": {
-                                            "type": "number"
-                                        },
-                                        "address": {
-                                            "type": "string"
-                                        }
-                                    }
-                                },
-                                "type": "array"
-                            },
-                            "confirmations": {
-                                "type": "number"
-                            },
-                            "id": {
-                                "type": "string"
-                            },
-                            "type": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "type": "array"
-                },
-                "meta": {
-                    "required": [
-                        "pagination"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "pagination": {
-                            "required": [
-                                "page",
-                                "perPage",
-                                "totalPages",
-                                "totalEntries"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "page": {
-                                    "type": "number"
-                                },
-                                "perPage": {
-                                    "type": "number"
-                                },
-                                "totalPages": {
-                                    "type": "number"
-                                },
-                                "totalEntries": {
-                                    "type": "number"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        "Address": {
+            "type": "string"
         },
         "CWalletInit": {
             "required": [
@@ -1053,19 +531,14 @@
             }
         },
         "WalletUpdate": {
-            "example": {
-                "assuranceLevel": "normal",
-                "name": "My Wallet"
-            },
             "required": [
                 "assuranceLevel",
                 "name"
             ],
             "type": "object",
-            "description": "A type represending an update for an existing Wallet.",
             "properties": {
                 "assuranceLevel": {
-                    "type": "string"
+                    "$ref": "#/definitions/AssuranceLevel"
                 },
                 "name": {
                     "type": "string"
@@ -1081,6 +554,29 @@
                 "OptimizeForSecurity",
                 "OptimizeForHighThroughput"
             ]
+        },
+        "WalletAddress": {
+            "required": [
+                "id",
+                "balance",
+                "used",
+                "changeAddress"
+            ],
+            "type": "object",
+            "properties": {
+                "used": {
+                    "type": "boolean"
+                },
+                "changeAddress": {
+                    "type": "boolean"
+                },
+                "balance": {
+                    "$ref": "#/definitions/V1Coin"
+                },
+                "id": {
+                    "$ref": "#/definitions/V1Address"
+                }
+            }
         },
         "CWalletMeta": {
             "required": [
@@ -1103,182 +599,64 @@
                 }
             }
         },
-        "WalletResponse NodeSettings": {
-            "example": {
-                "status": "success",
-                "data": {
-                    "projectVersion": "1.1",
-                    "gitRevision": "0e1c9322a",
-                    "slotDuration": {
-                        "quantity": 77,
-                        "unit": "milliseconds"
-                    },
-                    "softwareInfo": {
-                        "version": 2,
-                        "applicationName": ""
-                    }
-                },
-                "meta": {
-                    "pagination": {
-                        "page": 1,
-                        "perPage": 46,
-                        "totalPages": 1,
-                        "totalEntries": 2
-                    }
-                }
-            },
-            "required": [
-                "status",
-                "data",
-                "meta"
-            ],
-            "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string"
-                },
-                "data": {
-                    "required": [
-                        "projectVersion",
-                        "gitRevision",
-                        "slotDuration",
-                        "softwareInfo"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "projectVersion": {
-                            "type": "string"
-                        },
-                        "gitRevision": {
-                            "type": "string"
-                        },
-                        "slotDuration": {
-                            "required": [
-                                "quantity",
-                                "unit"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "quantity": {
-                                    "type": "number"
-                                },
-                                "unit": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "softwareInfo": {
-                            "required": [
-                                "version",
-                                "applicationName"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "version": {
-                                    "type": "number"
-                                },
-                                "applicationName": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                },
-                "meta": {
-                    "required": [
-                        "pagination"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "pagination": {
-                            "required": [
-                                "page",
-                                "perPage",
-                                "totalPages",
-                                "totalEntries"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "page": {
-                                    "type": "number"
-                                },
-                                "perPage": {
-                                    "type": "number"
-                                },
-                                "totalPages": {
-                                    "type": "number"
-                                },
-                                "totalEntries": {
-                                    "type": "number"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        "AssuranceLevel": {
+            "type": "string",
+            "enum": [
+                "normal",
+                "strict"
+            ]
         },
-        "WalletResponse [Address]": {
-            "example": {
-                "status": "success",
-                "data": [
-                    "7J1MaQmKydNjjDZjGJbyjnSLtj6H6irfYqx3sxUd4a8L5umQi4UNa3Z88QECYEkCd4eShHE9Sd5fGR5xkz8sn6of5nrjEvS11WjiGSw37XV45v2",
-                    "AL91N9VXRTCdEAuNHNij1dpotEjcotTHaAavVpXoR1ckgokd1g4owdYN2WCjyRs1u4ChP4fezGK5oviUge4nSaJUdiCFesqnSHcR8vPTepYsscTtgqm"
-                ],
-                "meta": {
-                    "pagination": {
-                        "page": 1,
-                        "perPage": 46,
-                        "totalPages": 1,
-                        "totalEntries": 2
-                    }
-                }
-            },
+        "Account": {
             "required": [
-                "status",
-                "data",
-                "meta"
+                "index",
+                "addresses",
+                "amount",
+                "name",
+                "walletId"
             ],
             "type": "object",
             "properties": {
-                "status": {
-                    "type": "string"
+                "amount": {
+                    "$ref": "#/definitions/V1Coin"
                 },
-                "data": {
+                "addresses": {
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/V1Address"
                     },
                     "type": "array"
                 },
+                "name": {
+                    "type": "string"
+                },
+                "walletId": {
+                    "$ref": "#/definitions/WalletId"
+                },
+                "index": {
+                    "maximum": 4294967295,
+                    "minimum": 0,
+                    "type": "integer"
+                }
+            }
+        },
+        "V1Address": {
+            "type": "string"
+        },
+        "WalletResponse<Wallet>": {
+            "required": [
+                "data",
+                "status",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "$ref": "#/definitions/ResponseStatus"
+                },
+                "data": {
+                    "$ref": "#/definitions/Wallet"
+                },
                 "meta": {
-                    "required": [
-                        "pagination"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "pagination": {
-                            "required": [
-                                "page",
-                                "perPage",
-                                "totalPages",
-                                "totalEntries"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "page": {
-                                    "type": "number"
-                                },
-                                "perPage": {
-                                    "type": "number"
-                                },
-                                "totalPages": {
-                                    "type": "number"
-                                },
-                                "totalEntries": {
-                                    "type": "number"
-                                }
-                            }
-                        }
-                    }
+                    "$ref": "#/definitions/Metadata"
                 }
             }
         },
@@ -1315,6 +693,57 @@
                 }
             }
         },
+        "Transaction": {
+            "required": [
+                "id",
+                "confirmations",
+                "amount",
+                "inputs",
+                "outputs",
+                "type",
+                "direction"
+            ],
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "$ref": "#/definitions/V1Coin"
+                },
+                "inputs": {
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/PaymentDistribution"
+                    },
+                    "type": "array"
+                },
+                "direction": {
+                    "$ref": "#/definitions/TransactionDirection"
+                },
+                "outputs": {
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/PaymentDistribution"
+                    },
+                    "type": "array"
+                },
+                "confirmations": {
+                    "maximum": 1.8446744073709551615e19,
+                    "minimum": 0,
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/TransactionType"
+                }
+            }
+        },
+        "PerPage": {
+            "maximum": 50,
+            "default": 10,
+            "minimum": 1,
+            "type": "integer"
+        },
         "WalletStateSnapshot": {
             "type": "string"
         },
@@ -1331,6 +760,21 @@
         },
         "CAccountId": {
             "type": "string"
+        },
+        "LocalTimeDifference": {
+            "required": [
+                "quantity"
+            ],
+            "type": "object",
+            "properties": {
+                "quantity": {
+                    "type": "number"
+                },
+                "unit": {
+                    "pattern": "microseconds",
+                    "type": "string"
+                }
+            }
         },
         "CTx": {
             "required": [
@@ -1403,6 +847,23 @@
                 }
             }
         },
+        "PaymentSource": {
+            "required": [
+                "walletId",
+                "accountIndex"
+            ],
+            "type": "object",
+            "properties": {
+                "accountIndex": {
+                    "maximum": 4294967295,
+                    "minimum": 0,
+                    "type": "integer"
+                },
+                "walletId": {
+                    "$ref": "#/definitions/WalletId"
+                }
+            }
+        },
         "ClientInfo": {
             "required": [
                 "ciApiVersion",
@@ -1426,6 +887,17 @@
                 }
             }
         },
+        "EstimatedFees": {
+            "required": [
+                "estimatedAmount"
+            ],
+            "type": "object",
+            "properties": {
+                "estimatedAmount": {
+                    "$ref": "#/definitions/V1Coin"
+                }
+            }
+        },
         "CInitialized": {
             "required": [
                 "cTotalTime",
@@ -1445,6 +917,13 @@
                 }
             }
         },
+        "WalletOperation": {
+            "type": "string",
+            "enum": [
+                "create",
+                "restore"
+            ]
+        },
         "BlockCount": {
             "required": [
                 "getBlockCount"
@@ -1455,6 +934,21 @@
                     "maximum": 1.8446744073709551615e19,
                     "minimum": 0,
                     "type": "integer"
+                }
+            }
+        },
+        "SlotDuration": {
+            "required": [
+                "quantity"
+            ],
+            "type": "object",
+            "properties": {
+                "quantity": {
+                    "type": "number"
+                },
+                "unit": {
+                    "pattern": "milliseconds",
+                    "type": "string"
                 }
             }
         },
@@ -1516,102 +1010,30 @@
                 }
             }
         },
-        "Version": {
+        "WalletResponse<AddressValidity>": {
             "required": [
-                "versionBranch",
-                "versionTags"
-            ],
-            "type": "object",
-            "properties": {
-                "versionTags": {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
-                },
-                "versionBranch": {
-                    "items": {
-                        "maximum": 9223372036854775807,
-                        "minimum": -9223372036854775808,
-                        "type": "integer"
-                    },
-                    "type": "array"
-                }
-            }
-        },
-        "WalletResponse WalletUpdate": {
-            "example": {
-                "status": "success",
-                "data": {
-                    "assuranceLevel": "normal",
-                    "name": "My Wallet"
-                },
-                "meta": {
-                    "pagination": {
-                        "page": 1,
-                        "perPage": 46,
-                        "totalPages": 1,
-                        "totalEntries": 2
-                    }
-                }
-            },
-            "required": [
-                "status",
                 "data",
+                "status",
                 "meta"
             ],
             "type": "object",
             "properties": {
                 "status": {
-                    "type": "string"
+                    "$ref": "#/definitions/ResponseStatus"
                 },
                 "data": {
-                    "required": [
-                        "assuranceLevel",
-                        "name"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "assuranceLevel": {
-                            "type": "string"
-                        },
-                        "name": {
-                            "type": "string"
-                        }
-                    }
+                    "$ref": "#/definitions/AddressValidity"
                 },
                 "meta": {
-                    "required": [
-                        "pagination"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "pagination": {
-                            "required": [
-                                "page",
-                                "perPage",
-                                "totalPages",
-                                "totalEntries"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "page": {
-                                    "type": "number"
-                                },
-                                "perPage": {
-                                    "type": "number"
-                                },
-                                "totalPages": {
-                                    "type": "number"
-                                },
-                                "totalEntries": {
-                                    "type": "number"
-                                }
-                            }
-                        }
-                    }
+                    "$ref": "#/definitions/Metadata"
                 }
             }
+        },
+        "Version": {
+            "type": "string"
+        },
+        "WalletId": {
+            "type": "string"
         },
         "CWalletRedeem": {
             "required": [
@@ -1630,21 +1052,37 @@
         },
         "SyncProgress": {
             "required": [
-                "_spLocalCD",
-                "_spPeers"
+                "quantity"
             ],
             "type": "object",
             "properties": {
-                "_spPeers": {
-                    "maximum": 1.8446744073709551615e19,
+                "quantity": {
+                    "maximum": 100,
                     "minimum": 0,
-                    "type": "integer"
+                    "type": "number"
                 },
-                "_spNetworkCD": {
-                    "$ref": "#/definitions/ChainDifficulty"
+                "unit": {
+                    "pattern": "percent",
+                    "type": "string"
+                }
+            }
+        },
+        "WalletResponse<V1 WalletStateSnapshot>": {
+            "required": [
+                "data",
+                "status",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "$ref": "#/definitions/ResponseStatus"
                 },
-                "_spLocalCD": {
-                    "$ref": "#/definitions/ChainDifficulty"
+                "data": {
+                    "$ref": "#/definitions/V1 WalletStateSnapshot"
+                },
+                "meta": {
+                    "$ref": "#/definitions/Metadata"
                 }
             }
         },
@@ -1699,6 +1137,17 @@
                 }
             }
         },
+        "Metadata": {
+            "required": [
+                "pagination"
+            ],
+            "type": "object",
+            "properties": {
+                "pagination": {
+                    "$ref": "#/definitions/PaginationMetadata"
+                }
+            }
+        },
         "CPaperVendWalletRedeem": {
             "required": [
                 "pvWalletId",
@@ -1719,319 +1168,46 @@
             }
         },
         "NewAccount": {
-            "example": {
-                "name": "¯",
-                "spendingPassword": ""
-            },
             "required": [
-                "name",
-                "spendingPassword"
+                "name"
             ],
             "type": "object",
-            "description": "A type represending an request for creating a(n) Account.",
             "properties": {
                 "name": {
                     "type": "string"
                 },
                 "spendingPassword": {
-                    "type": "string"
-                }
-            }
-        },
-        "WalletResponse WalletStateSnapshot": {
-            "example": {
-                "status": "success",
-                "data": {
-                    "wssWalletStorage": {
-                        "_wsReadyUpdates": [],
-                        "_wsTxHistory": {},
-                        "_wsUtxo": {},
-                        "_wsHistoryCache": {},
-                        "_wsProfile": {
-                            "cpLocale": ""
-                        },
-                        "_wsBalances": {},
-                        "_wsWalletInfos": {},
-                        "_wsUsedAddresses": {},
-                        "_wsAccountInfos": {},
-                        "_wsChangeAddresses": {}
-                    }
-                },
-                "meta": {
-                    "pagination": {
-                        "page": 1,
-                        "perPage": 46,
-                        "totalPages": 1,
-                        "totalEntries": 2
-                    }
-                }
-            },
-            "required": [
-                "status",
-                "data",
-                "meta"
-            ],
-            "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string"
-                },
-                "data": {
-                    "required": [
-                        "wssWalletStorage"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "wssWalletStorage": {
-                            "required": [
-                                "_wsReadyUpdates",
-                                "_wsTxHistory",
-                                "_wsUtxo",
-                                "_wsHistoryCache",
-                                "_wsProfile",
-                                "_wsBalances",
-                                "_wsWalletInfos",
-                                "_wsUsedAddresses",
-                                "_wsAccountInfos",
-                                "_wsChangeAddresses"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "_wsReadyUpdates": {
-                                    "items": [],
-                                    "type": "array"
-                                },
-                                "_wsTxHistory": {
-                                    "type": "object"
-                                },
-                                "_wsUtxo": {
-                                    "type": "object"
-                                },
-                                "_wsHistoryCache": {
-                                    "type": "object"
-                                },
-                                "_wsProfile": {
-                                    "required": [
-                                        "cpLocale"
-                                    ],
-                                    "type": "object",
-                                    "properties": {
-                                        "cpLocale": {
-                                            "type": "string"
-                                        }
-                                    }
-                                },
-                                "_wsBalances": {
-                                    "type": "object"
-                                },
-                                "_wsWalletInfos": {
-                                    "type": "object"
-                                },
-                                "_wsUsedAddresses": {
-                                    "type": "object"
-                                },
-                                "_wsAccountInfos": {
-                                    "type": "object"
-                                },
-                                "_wsChangeAddresses": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    }
-                },
-                "meta": {
-                    "required": [
-                        "pagination"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "pagination": {
-                            "required": [
-                                "page",
-                                "perPage",
-                                "totalPages",
-                                "totalEntries"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "page": {
-                                    "type": "number"
-                                },
-                                "perPage": {
-                                    "type": "number"
-                                },
-                                "totalPages": {
-                                    "type": "number"
-                                },
-                                "totalEntries": {
-                                    "type": "number"
-                                }
-                            }
-                        }
-                    }
+                    "$ref": "#/definitions/V1PassPhrase"
                 }
             }
         },
         "AccountUpdate": {
-            "example": {
-                "name": "myAccount"
-            },
             "required": [
                 "name"
             ],
             "type": "object",
-            "description": "A type represending an update for an existing Account.",
             "properties": {
                 "name": {
                     "type": "string"
                 }
             }
         },
-        "WalletResponse Transaction": {
-            "example": {
-                "status": "success",
-                "data": {
-                    "amount": 28311699119270855,
-                    "inputs": [
-                        {
-                            "amount": 13019322832706804,
-                            "address": "AL91N9VXRTCwikvJJVEQeGTH4wwxtSY8d7m26bFyWD7PmfqUpdYgCV1jigD5ivbzh88BR8FFvdpkU8P3uuispBsdZNXCurGREicGjMW74F7GitSX4oc"
-                        }
-                    ],
-                    "direction": "outgoing",
-                    "outputs": [
-                        {
-                            "amount": 14984536053034711,
-                            "address": "2657WMsDfac6JxtEAjpN9KnwE9kfc6jUzhYXRyY3FFPwEyM5nNjPUBHDbFUwndGNx"
-                        },
-                        {
-                            "amount": 13290197696443539,
-                            "address": "2657WMsDfac6VJfxAHRezMNbBhvYzrDVf5F2W7s7LGAgtp6m9B5Df8EQkwktLsEee"
-                        },
-                        {
-                            "amount": 21095182977599617,
-                            "address": "Un4ZpTvXtoL29niUxfBPFJN3eR135cu799S3t8Pq1Vv48GwBuSEzUPHLDz6SwpewGafkin1iF6itRkKBK4VUiEDZeEH5EKBPg9agUUr9NNKKTsRm"
-                        }
-                    ],
-                    "confirmations": 4,
-                    "id": "848d6fadc04dcd9af1bc462df5938ecfbe810c5ecb50971db1cf7ae224bb5955",
-                    "type": "foreign"
-                },
-                "meta": {
-                    "pagination": {
-                        "page": 1,
-                        "perPage": 46,
-                        "totalPages": 1,
-                        "totalEntries": 2
-                    }
-                }
-            },
+        "WalletResponse<NodeInfo>": {
             "required": [
-                "status",
                 "data",
+                "status",
                 "meta"
             ],
             "type": "object",
             "properties": {
                 "status": {
-                    "type": "string"
+                    "$ref": "#/definitions/ResponseStatus"
                 },
                 "data": {
-                    "required": [
-                        "amount",
-                        "inputs",
-                        "direction",
-                        "outputs",
-                        "confirmations",
-                        "id",
-                        "type"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "amount": {
-                            "type": "number"
-                        },
-                        "inputs": {
-                            "items": {
-                                "required": [
-                                    "amount",
-                                    "address"
-                                ],
-                                "type": "object",
-                                "properties": {
-                                    "amount": {
-                                        "type": "number"
-                                    },
-                                    "address": {
-                                        "type": "string"
-                                    }
-                                }
-                            },
-                            "type": "array"
-                        },
-                        "direction": {
-                            "type": "string"
-                        },
-                        "outputs": {
-                            "items": {
-                                "required": [
-                                    "amount",
-                                    "address"
-                                ],
-                                "type": "object",
-                                "properties": {
-                                    "amount": {
-                                        "type": "number"
-                                    },
-                                    "address": {
-                                        "type": "string"
-                                    }
-                                }
-                            },
-                            "type": "array"
-                        },
-                        "confirmations": {
-                            "type": "number"
-                        },
-                        "id": {
-                            "type": "string"
-                        },
-                        "type": {
-                            "type": "string"
-                        }
-                    }
+                    "$ref": "#/definitions/NodeInfo"
                 },
                 "meta": {
-                    "required": [
-                        "pagination"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "pagination": {
-                            "required": [
-                                "page",
-                                "perPage",
-                                "totalPages",
-                                "totalEntries"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "page": {
-                                    "type": "number"
-                                },
-                                "perPage": {
-                                    "type": "number"
-                                },
-                                "totalPages": {
-                                    "type": "number"
-                                },
-                                "totalEntries": {
-                                    "type": "number"
-                                }
-                            }
-                        }
-                    }
+                    "$ref": "#/definitions/Metadata"
                 }
             }
         },
@@ -2046,252 +1222,47 @@
                 }
             }
         },
+        "V1 WalletStateSnapshot": {
+            "type": "string"
+        },
         "NewWallet": {
-            "example": {
-                "operation": "restore",
-                "backupPhrase": [
-                    "shell",
-                    "also",
-                    "throw",
-                    "ramp",
-                    "grape",
-                    "chest",
-                    "setup",
-                    "mandate",
-                    "spare",
-                    "verb",
-                    "lemon",
-                    "test"
-                ],
-                "assuranceLevel": "strict",
-                "name": "My Wallet",
-                "spendingPassword": "0202020100010202000000020201010100020202000202000002010201020201"
-            },
             "required": [
-                "operation",
                 "backupPhrase",
                 "assuranceLevel",
                 "name",
-                "spendingPassword"
+                "operation"
             ],
             "type": "object",
-            "description": "A type represending an request for creating a(n) Wallet.",
             "properties": {
                 "operation": {
-                    "type": "string"
+                    "$ref": "#/definitions/WalletOperation"
                 },
                 "backupPhrase": {
-                    "items": {
-                        "type": "string"
-                    },
-                    "type": "array"
+                    "$ref": "#/definitions/V1BackupPhrase"
                 },
                 "assuranceLevel": {
-                    "type": "string"
+                    "$ref": "#/definitions/AssuranceLevel"
                 },
                 "name": {
                     "type": "string"
                 },
                 "spendingPassword": {
-                    "type": "string"
-                }
-            }
-        },
-        "WalletResponse EstimatedFees": {
-            "example": {
-                "status": "success",
-                "data": {
-                    "estimatedAmount": 25132995790248024
-                },
-                "meta": {
-                    "pagination": {
-                        "page": 1,
-                        "perPage": 46,
-                        "totalPages": 1,
-                        "totalEntries": 2
-                    }
-                }
-            },
-            "required": [
-                "status",
-                "data",
-                "meta"
-            ],
-            "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string"
-                },
-                "data": {
-                    "required": [
-                        "estimatedAmount"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "estimatedAmount": {
-                            "type": "number"
-                        }
-                    }
-                },
-                "meta": {
-                    "required": [
-                        "pagination"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "pagination": {
-                            "required": [
-                                "page",
-                                "perPage",
-                                "totalPages",
-                                "totalEntries"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "page": {
-                                    "type": "number"
-                                },
-                                "perPage": {
-                                    "type": "number"
-                                },
-                                "totalPages": {
-                                    "type": "number"
-                                },
-                                "totalEntries": {
-                                    "type": "number"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "WalletResponse [Account]": {
-            "example": {
-                "status": "success",
-                "data": [
-                    {
-                        "amount": 29208924123228353,
-                        "addresses": [
-                            "5FCjkr138i9qs2EEjvmXF37aSLiZdwQsALPMmvVDgx8PQ31nJTh9p35ZfnDFn6hfWdyY6XuFQXY23kfUjSuwBSEd4912knFgJSSZSBCt2yo"
-                        ],
-                        "name": "My account",
-                        "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
-                        "index": 1
-                    },
-                    {
-                        "amount": 28089727180413548,
-                        "addresses": [
-                            "7J1MaQmKydNUyekmvgR3VNZLeLYkTNpDTKz4Z5SHfnJxDVgCN3tjixySxMNKNULKaV5XBBngc1e5BNzrePahs1Tuo7xcnKUyvkUm8HNcHuufC5q",
-                            "7fiTbReGezWKbx8zhrjdMekrd8kziXqofdzzGPHWKgRXd24pDM7TZSFfnarpCsHy67ZW3AgFRAfFEGuRSd1VSYP5dDyNJJLwKB29vxsFnGq9GPB8x2RittGrrjNXPpgB8b4Y3yBFbpcXeDF7FG13u5gFHrcXwU86MN2CaCpLaaynjRvnitwGnd"
-                        ],
-                        "name": "My account",
-                        "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
-                        "index": 0
-                    }
-                ],
-                "meta": {
-                    "pagination": {
-                        "page": 1,
-                        "perPage": 46,
-                        "totalPages": 1,
-                        "totalEntries": 2
-                    }
-                }
-            },
-            "required": [
-                "status",
-                "data",
-                "meta"
-            ],
-            "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string"
-                },
-                "data": {
-                    "items": {
-                        "required": [
-                            "amount",
-                            "addresses",
-                            "name",
-                            "walletId",
-                            "index"
-                        ],
-                        "type": "object",
-                        "properties": {
-                            "amount": {
-                                "type": "number"
-                            },
-                            "addresses": {
-                                "items": {
-                                    "type": "string"
-                                },
-                                "type": "array"
-                            },
-                            "name": {
-                                "type": "string"
-                            },
-                            "walletId": {
-                                "type": "string"
-                            },
-                            "index": {
-                                "type": "number"
-                            }
-                        }
-                    },
-                    "type": "array"
-                },
-                "meta": {
-                    "required": [
-                        "pagination"
-                    ],
-                    "type": "object",
-                    "properties": {
-                        "pagination": {
-                            "required": [
-                                "page",
-                                "perPage",
-                                "totalPages",
-                                "totalEntries"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "page": {
-                                    "type": "number"
-                                },
-                                "perPage": {
-                                    "type": "number"
-                                },
-                                "totalPages": {
-                                    "type": "number"
-                                },
-                                "totalEntries": {
-                                    "type": "number"
-                                }
-                            }
-                        }
-                    }
+                    "$ref": "#/definitions/V1PassPhrase"
                 }
             }
         },
         "PasswordUpdate": {
-            "example": {
-                "old": "",
-                "new": "0000010001010101000001000202010200010202000102000000000100000100"
-            },
             "required": [
                 "old",
                 "new"
             ],
             "type": "object",
-            "description": "A PasswordUpdate incapsulate a request for changing a Wallet's password.",
             "properties": {
                 "old": {
-                    "type": "string"
+                    "$ref": "#/definitions/V1PassPhrase"
                 },
                 "new": {
-                    "type": "string"
+                    "$ref": "#/definitions/V1PassPhrase"
                 }
             }
         },
@@ -2308,6 +1279,132 @@
         },
         "CId": {
             "type": "string"
+        },
+        "NodeInfo": {
+            "required": [
+                "syncProgress",
+                "localBlockchainHeight",
+                "localTimeDifference"
+            ],
+            "type": "object",
+            "properties": {
+                "blockchainHeight": {
+                    "$ref": "#/definitions/BlockchainHeight"
+                },
+                "localTimeDifference": {
+                    "$ref": "#/definitions/LocalTimeDifference"
+                },
+                "syncProgress": {
+                    "$ref": "#/definitions/SyncProgress"
+                },
+                "localBlockchainHeight": {
+                    "$ref": "#/definitions/BlockchainHeight"
+                }
+            }
+        },
+        "WalletResponse<[Address]>": {
+            "required": [
+                "data",
+                "status",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "$ref": "#/definitions/ResponseStatus"
+                },
+                "data": {
+                    "items": {
+                        "$ref": "#/definitions/Address"
+                    },
+                    "type": "array"
+                },
+                "meta": {
+                    "$ref": "#/definitions/Metadata"
+                }
+            }
+        },
+        "WalletResponse<[Account]>": {
+            "required": [
+                "data",
+                "status",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "$ref": "#/definitions/ResponseStatus"
+                },
+                "data": {
+                    "items": {
+                        "$ref": "#/definitions/Account"
+                    },
+                    "type": "array"
+                },
+                "meta": {
+                    "$ref": "#/definitions/Metadata"
+                }
+            }
+        },
+        "V1InputSelectionPolicy": {
+            "type": "string",
+            "enum": [
+                "OptimizeForSecurity",
+                "OptimizeForHighThroughput"
+            ]
+        },
+        "PaginationMetadata": {
+            "required": [
+                "totalPages",
+                "page",
+                "perPage",
+                "totalEntries"
+            ],
+            "type": "object",
+            "properties": {
+                "page": {
+                    "$ref": "#/definitions/Page"
+                },
+                "perPage": {
+                    "$ref": "#/definitions/PerPage"
+                },
+                "totalPages": {
+                    "maximum": 9223372036854775807,
+                    "minimum": -9223372036854775808,
+                    "type": "integer"
+                },
+                "totalEntries": {
+                    "maximum": 9223372036854775807,
+                    "minimum": -9223372036854775808,
+                    "type": "integer"
+                }
+            }
+        },
+        "TransactionDirection": {
+            "type": "string",
+            "enum": [
+                "outgoing",
+                "incoming"
+            ]
+        },
+        "WalletResponse<EstimatedFees>": {
+            "required": [
+                "data",
+                "status",
+                "meta"
+            ],
+            "type": "object",
+            "properties": {
+                "status": {
+                    "$ref": "#/definitions/ResponseStatus"
+                },
+                "data": {
+                    "$ref": "#/definitions/EstimatedFees"
+                },
+                "meta": {
+                    "$ref": "#/definitions/Metadata"
+                }
+            }
         }
     },
     "paths": {
@@ -2320,7 +1417,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse Account"
+                            "$ref": "#/definitions/WalletResponse<Account>"
                         },
                         "description": ""
                     }
@@ -2399,7 +1496,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse Account"
+                            "$ref": "#/definitions/WalletResponse<Account>"
                         },
                         "description": ""
                     }
@@ -2774,7 +1871,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse Wallet"
+                            "$ref": "#/definitions/WalletResponse<Wallet>"
                         },
                         "description": ""
                     }
@@ -2835,7 +1932,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse Wallet"
+                            "$ref": "#/definitions/WalletResponse<Wallet>"
                         },
                         "description": ""
                     }
@@ -2867,12 +1964,10 @@
         },
         "/api/settings/time/difference": {
             "get": {
-                "summary": "Get local time difference in milliseconds.",
+                "summary": "Get local time difference in microseconds.",
                 "responses": {
                     "200": {
                         "schema": {
-                            "maximum": 1.8446744073709551615e19,
-                            "minimum": 0,
                             "type": "integer"
                         },
                         "description": ""
@@ -2998,7 +2093,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse Account"
+                            "$ref": "#/definitions/WalletResponse<Account>"
                         },
                         "description": ""
                     }
@@ -3039,7 +2134,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse [Account]"
+                            "$ref": "#/definitions/WalletResponse<[Account]>"
                         },
                         "description": ""
                     }
@@ -3085,7 +2180,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse WalletUpdate"
+                            "$ref": "#/definitions/WalletResponse<WalletUpdate>"
                         },
                         "description": ""
                     }
@@ -3141,7 +2236,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse WalletStateSnapshot"
+                            "$ref": "#/definitions/WalletResponse<V1 WalletStateSnapshot>"
                         },
                         "description": ""
                     }
@@ -3471,7 +2566,7 @@
                     },
                     "201": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse Wallet"
+                            "$ref": "#/definitions/WalletResponse<Wallet>"
                         },
                         "description": ""
                     }
@@ -3502,7 +2597,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse [Wallet]"
+                            "$ref": "#/definitions/WalletResponse<[Wallet]>"
                         },
                         "description": ""
                     }
@@ -3583,7 +2678,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse [Transaction]"
+                            "$ref": "#/definitions/WalletResponse<[Transaction]>"
                         },
                         "description": ""
                     }
@@ -3692,7 +2787,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse Wallet"
+                            "$ref": "#/definitions/WalletResponse<Wallet>"
                         },
                         "description": ""
                     }
@@ -3774,7 +2869,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse Transaction"
+                            "$ref": "#/definitions/WalletResponse<Transaction>"
                         },
                         "description": ""
                     }
@@ -3863,7 +2958,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse AddressValidity"
+                            "$ref": "#/definitions/WalletResponse<AddressValidity>"
                         },
                         "description": ""
                     }
@@ -3931,7 +3026,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse WalletUpdate"
+                            "$ref": "#/definitions/WalletResponse<WalletUpdate>"
                         },
                         "description": ""
                     }
@@ -4059,7 +3154,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse EstimatedFees"
+                            "$ref": "#/definitions/WalletResponse<EstimatedFees>"
                         },
                         "description": ""
                     }
@@ -4121,7 +3216,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse NodeSettings"
+                            "$ref": "#/definitions/WalletResponse<NodeSettings>"
                         },
                         "description": ""
                     }
@@ -4147,7 +3242,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse WalletAddress"
+                            "$ref": "#/definitions/WalletResponse<WalletAddress>"
                         },
                         "description": ""
                     }
@@ -4178,7 +3273,7 @@
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse [Address]"
+                            "$ref": "#/definitions/WalletResponse<[Address]>"
                         },
                         "description": ""
                     }
@@ -4297,7 +3392,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/WalletResponse NodeInfo"
+                            "$ref": "#/definitions/WalletResponse<NodeInfo>"
                         },
                         "description": ""
                     }
@@ -4360,6 +3455,22 @@
                 ],
                 "tags": [
                     "V0 (Deprecated)"
+                ]
+            }
+        },
+        "/api/development/fail": {
+            "get": {
+                "summary": "Throw a generic error",
+                "responses": {
+                    "204": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "Development"
                 ]
             }
         },

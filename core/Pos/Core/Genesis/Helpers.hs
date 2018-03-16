@@ -17,7 +17,7 @@ import           Serokell.Util (allDistinct)
 import           Pos.Binary.Class (Bi)
 import           Pos.Core.Common (Address, Coin, StakeholderId, addressHash, decodeTextAddress,
                                   unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Core.Delegation.Types (ProxySKHeavy)
+import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Genesis.Types (GenesisDelegation (..), GenesisNonAvvmBalances (..))
 import           Pos.Crypto.Signing (ProxySecretKey (..), isSelfSignedPsk)
 

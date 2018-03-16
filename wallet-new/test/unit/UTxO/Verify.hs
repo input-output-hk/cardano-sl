@@ -13,14 +13,12 @@ module UTxO.Verify
 
 import           Universum
 
-import           Control.Lens ((%=), _Wrapped)
+import           Control.Lens ((%=), (.=), _Wrapped)
 import           Control.Monad.Except
-import           Data.Default
-import qualified Data.HashMap.Strict as HM
+import           Control.Monad.State.Strict (mapStateT)
+import           Data.Default (def)
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map.Strict as Map
-import qualified Ether
 import           System.Wlog
 
 import           Pos.Block.Error
@@ -33,7 +31,7 @@ import           Pos.DB.Class (MonadGState (..))
 import           Pos.Delegation (DlgUndo (..))
 import           Pos.Txp hiding (tgsVerifyBlocks)
 import           Pos.Update.Poll
-import           Pos.Util (ether, neZipWith4)
+import           Pos.Util (neZipWith4)
 import           Pos.Util.Chrono
 import           Pos.Util.Lens
 import qualified Pos.Util.Modifier as MM
@@ -90,13 +88,6 @@ newtype WithVerifyEnv a = WithVerifyEnv {
 withVerifyEnv :: VerifyEnv -> WithVerifyEnv a -> a
 withVerifyEnv env a = runReader (unWithVerifyEnv a) env
 
-instance HasConfiguration => MonadUtxoRead WithVerifyEnv where
-  utxoGet id = WithVerifyEnv $ (Map.lookup id . venvInitUtxo) <$> ask
-
-instance MonadStakesRead WithVerifyEnv where
-  getStake id   = WithVerifyEnv $ (HM.lookup id . venvInitStakes) <$> ask
-  getTotalStake = WithVerifyEnv $ venvInitTotal <$> ask
-
 instance MonadGState WithVerifyEnv where
   gsAdoptedBVData = WithVerifyEnv $ venvBlockVersionData <$> ask
 
@@ -121,7 +112,7 @@ instance HasLoggerName WithVerifyEnv where
 newtype Verify e a = Verify {
       --    StateT st (ErrorT e (Reader env)) a
       -- == st -> env -> Either e (a, st)
-      unVerify :: ToilT [LogEvent] (ExceptT e WithVerifyEnv) a
+      unVerify :: StateT (GlobalToilState, [LogEvent]) (ExceptT e WithVerifyEnv) a
     }
   deriving (Functor, Applicative, Monad)
 
@@ -129,24 +120,21 @@ newtype Verify e a = Verify {
 --
 -- Returns the result of verification as well as the final UTxO.
 verify :: HasConfiguration => Utxo -> Verify e a -> Either e (a, Utxo)
-verify utxo ma = second finalUtxo <$> verify' def (verifyEnv utxo) ma
+verify utxo ma =
+    second finalUtxo <$>
+    verify' (defGlobalToilState, []) (verifyEnv utxo) ma
   where
-    finalUtxo :: GenericToilModifier ext -> Utxo
-    finalUtxo gmt = MM.modifyMap (gmt ^. tmUtxo) utxo
+    finalUtxo :: (GlobalToilState, [LogEvent]) -> Utxo
+    finalUtxo (gts, _) = MM.modifyMap (gts ^. gtsUtxoModifier) utxo
 
-verify' :: GenericToilModifier [LogEvent]
+verify' :: (GlobalToilState, [LogEvent])
         -> VerifyEnv
         -> Verify e a
-        -> Either e (a, GenericToilModifier [LogEvent])
+        -> Either e (a, (GlobalToilState, [LogEvent]))
 verify' st env ma = withVerifyEnv env
                   $ runExceptT
-                  $ Ether.runStateT' (unVerify ma) st
+                  $ runStateT (unVerify ma) st
 
-deriving instance HasConfiguration => MonadUtxoRead (Verify e)
-deriving instance HasConfiguration => MonadUtxo     (Verify e)
-deriving instance MonadStakesRead (Verify e)
-deriving instance MonadStakes     (Verify e)
-deriving instance MonadTxPool     (Verify e)
 deriving instance MonadGState     (Verify e)
 deriving instance (MonadError e)  (Verify e)
 
@@ -155,13 +143,13 @@ deriving instance HasLoggerName (Verify e)
 
 instance CanLog (Verify e) where
   dispatchMessage lname sev txt = Verify $
-      ether $ tmExtra %= (logEvent :)
+      _2 %= (logEvent :)
     where
       logEvent :: LogEvent
       logEvent = LogEvent lname sev txt
 
 mapVerifyErrors :: (e -> e') -> Verify e a -> Verify e' a
-mapVerifyErrors f (Verify ma) = Verify $ mapStateT' (withExceptT f) ma
+mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma
 
 {-------------------------------------------------------------------------------
   Block verification
@@ -360,20 +348,32 @@ slogVerifyBlocks curSlot leaders lastSlots blocks = do
 -- Differences from original:
 --
 -- * 'verifyAllIsKnown' hardcoded ('dataMustBeKnown')
--- * Doesn't use 'runToilAction', but just runs 'verifyToil' directly.
+-- * Does everything in a pure monad.
 --   I don't fully grasp the consequences of this.
 tgsVerifyBlocks
     :: HasConfiguration
     => OldestFirst NE TxpBlock
     -> Verify ToilVerFailure (OldestFirst NE TxpUndo)
 tgsVerifyBlocks newChain = do
+    bvd <- gsAdoptedBVData
     let epoch = NE.last (getOldestFirst newChain) ^. epochIndexL
-    mapM (verifyDo epoch) newChain
+    let verifyPure :: [TxAux] -> Verify ToilVerFailure TxpUndo
+        verifyPure = nat . verifyToil bvd epoch dataMustBeKnown
+    mapM (verifyPure . convertPayload) newChain
   where
-    verifyDo epoch = verifyToil epoch dataMustBeKnown . convertPayload
     convertPayload :: TxpBlock -> [TxAux]
     convertPayload (ComponentBlockMain _ payload) = flattenTxPayload payload
-    convertPayload (ComponentBlockGenesis _ )     = []
+    convertPayload (ComponentBlockGenesis _)      = []
+    nat :: forall e a. ExceptT e UtxoM a -> Verify e a
+    nat action =
+        Verify $ do
+            baseUtxo <- lift . lift $ venvInitUtxo <$> WithVerifyEnv ask
+            utxoModifier <- use (_1 . gtsUtxoModifier)
+            case runUtxoM utxoModifier (utxoToLookup baseUtxo) $
+                 runExceptT action of
+                (Left err, _) -> throwError err
+                (Right res, newModifier) ->
+                    res <$ (_1 . gtsUtxoModifier .= newModifier)
 
 -- | Check all data
 --
@@ -383,10 +383,3 @@ tgsVerifyBlocks newChain = do
 -- relevant here.
 dataMustBeKnown :: Bool
 dataMustBeKnown = True
-
-{-------------------------------------------------------------------------------
-  Auxiliary
--------------------------------------------------------------------------------}
-
-mapStateT' :: (m (a, s) -> n (b, s)) -> Ether.StateT' s m a -> Ether.StateT' s n b
-mapStateT' f m = Ether.stateT $ f . Ether.runStateT m

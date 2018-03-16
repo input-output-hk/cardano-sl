@@ -8,8 +8,6 @@ module Main where
 
 import           Universum
 
-import           Data.Aeson.Encode.Pretty (encodePretty)
-import qualified Data.ByteString.Lazy.Char8 as BL8
 import           Data.Maybe (fromJust)
 import           Mockable (Production (..), runProduction)
 import qualified Pos.Client.CLI as CLI
@@ -21,28 +19,23 @@ import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingPar
 import           Pos.Launcher.Configuration (ConfigurationOptions, HasConfigurations)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web (AddrCIdHashes (..), bracketWalletWS, bracketWalletWebDB, getSKById,
                                  getWalletAddresses, runWRealMode, syncWalletsWithGState)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
-import           Pos.Wallet.Web.State (flushWalletStorage)
-import           Servant.Swagger (HasSwagger)
+import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, flushWalletStorage)
 import           System.Wlog (LoggerName, Severity, logInfo, logMessage, usingLoggerName)
 
-import           Cardano.Wallet.API (walletAPI)
-import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletBackendParams (..),
                                             WalletBackendParams (..), WalletStartupOptions (..),
-                                            getWalletNodeOptions, isDebugMode, walletDbPath,
-                                            walletFlushDb, walletRebuildDb)
+                                            getWalletNodeOptions, walletDbPath, walletFlushDb,
+                                            walletRebuildDb)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
 
-import           Cardano.Wallet.API.V1.Swagger ()
 
 -- | Default logger name when one is not provided on the command line
 defaultLoggerName :: LoggerName
@@ -72,7 +65,7 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
     mainAction = runNodeWithInit $ do
         when (walletFlushDb walletDbOptions) $ do
             logInfo "Flushing wallet db..."
-            flushWalletStorage
+            askWalletDB >>= flushWalletStorage
             logInfo "Resyncing wallets with blockchain..."
             syncWallets
 
@@ -82,10 +75,11 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
 
     syncWallets :: WalletWebMode ()
     syncWallets = do
-        sks <- getWalletAddresses >>= mapM getSKById
+        addrs <- getWalletAddresses <$> askWalletSnapshot
+        sks <- mapM getSKById addrs
         syncWalletsWithGState sks
 
-    plugins :: HasConfigurations => Plugins.Plugin WalletWebMode
+    plugins :: (HasConfigurations, HasCompileInfo) => Plugins.Plugin WalletWebMode
     plugins = mconcat [ Plugins.conversation wArgs
                       , Plugins.legacyWalletBackend wArgs
                       , Plugins.acidCleanupWorker wArgs
@@ -140,9 +134,7 @@ startEdgeNode WalletStartupOptions{..} =
   withConfigurations conf $ do
       (sscParams, nodeParams) <- getParameters
       case wsoWalletBackendParams of
-        WalletLegacy legacyParams -> do
-          when (isDebugMode $ walletRunMode legacyParams) $
-              generateSwaggerDocumentation walletAPI
+        WalletLegacy legacyParams ->
           actionWithWallet sscParams nodeParams legacyParams
         WalletNew newParams ->
           actionWithNewWallet sscParams nodeParams newParams
@@ -165,20 +157,6 @@ startEdgeNode WalletStartupOptions{..} =
     nodeArgs :: CLI.NodeArgs
     nodeArgs = CLI.NodeArgs { CLI.behaviorConfigPath = Nothing }
 
--- | Generates the updated spec and store it in the appropriate folder.
--- the reason why we don't generate a yaml file is because for swagger-ui is actually
--- much better to start with the JSON input, as the tool is capable of generating
--- better-looking YAMLs.
-generateSwaggerDocumentation :: ( MonadIO m
-                                , HasCompileInfo
-                                , HasUpdateConfiguration
-                                , HasSwagger a
-                                )
-                             => Proxy a
-                             -> m ()
-generateSwaggerDocumentation api = liftIO $ do
-    BL8.writeFile "wallet-new/spec/swagger.json" (encodePretty $ Swagger.api api)
-    putText "Swagger API written on disk."
 
 -- | The main entrypoint for the Wallet.
 main :: IO ()

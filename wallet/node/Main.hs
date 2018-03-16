@@ -19,9 +19,9 @@ import           System.Wlog (LoggerName, logInfo, modifyLoggerName)
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..))
+import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
 import           Pos.Context (HasNodeContext)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Diffusion.Types (Diffusion (..))
@@ -33,12 +33,12 @@ import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (WalletWebMode, bracketWalletWS, bracketWalletWebDB, getSKById,
-                                 notifierPlugin, runWRealMode, syncWalletsWithGState,
-                                 walletServeWebFull, walletServerOuts, AddrCIdHashes (..),
-                                 startPendingTxsResubmitter)
-import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage,
-                                       getWalletAddresses)
+import           Pos.Wallet.Web (AddrCIdHashes (..), WalletWebMode, bracketWalletWS,
+                                 bracketWalletWebDB, getSKById, notifierPlugin, runWRealMode,
+                                 startPendingTxsResubmitter, syncWalletsWithGState,
+                                 walletServeWebFull, walletServerOuts)
+import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, cleanupAcidStatePeriodically,
+                                       flushWalletStorage, getWalletAddresses)
 import           Pos.Web (serveWeb)
 import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (WorkMode)
@@ -77,9 +77,9 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} = do
   where
     mainAction = runNodeWithInit $ do
         when (walletFlushDb) $ do
-            logInfo "Flushing wallet db..."
-            flushWalletStorage
-            logInfo "Resyncing wallets with blockchain..."
+            putText "Flushing wallet db..."
+            askWalletDB >>= flushWalletStorage
+            putText "Resyncing wallets with blockchain..."
             syncWallets
     runNodeWithInit init nr =
         let (ActionSpec f, outs) = runNode nr allPlugins
@@ -87,9 +87,11 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} = do
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \_ -> act)
     syncWallets :: WalletWebMode ()
     syncWallets = do
-        sks <- getWalletAddresses >>= mapM getSKById
+        ws  <- askWalletSnapshot
+        sks <- mapM getSKById (getWalletAddresses ws)
         syncWalletsWithGState sks
-    resubmitterPlugins = ([ActionSpec $ \diffusion -> startPendingTxsResubmitter (sendTx diffusion)], mempty)
+    resubmitterPlugins = ([ActionSpec $ \diffusion -> askWalletDB >>=
+                            \db -> startPendingTxsResubmitter db (sendTx diffusion)], mempty)
     notifierPlugins = ([ActionSpec $ \_ -> notifierPlugin], mempty)
     allPlugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
     allPlugins = mconcat [ convPlugins (plugins wArgs)
@@ -103,7 +105,7 @@ acidCleanupWorker :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMo
 acidCleanupWorker WalletArgs{..} =
     first one $ worker mempty $ const $
     modifyLoggerName (const "acidcleanup") $
-    cleanupAcidStatePeriodically walletAcidInterval
+    (askWalletDB >>= \db -> cleanupAcidStatePeriodically db walletAcidInterval)
 
 walletProd ::
        ( HasConfigurations

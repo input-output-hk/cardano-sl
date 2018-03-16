@@ -81,6 +81,7 @@ library
                       Pos.Wallet.Web.State.Acidic
                       Pos.Wallet.Web.State.State
                       Pos.Wallet.Web.State.Storage
+                      Pos.Wallet.Web.State.Transactions
                       Pos.Wallet.Web.State.Util
 
                       Pos.Wallet.Web.Swagger
@@ -167,6 +168,7 @@ library
                       , unordered-containers
                       , wai
                       , wai-websockets
+                      , warp
                       , websockets
   if !os(windows)
     build-depends:      unix

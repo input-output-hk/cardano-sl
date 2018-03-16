@@ -10,8 +10,8 @@ import           Cardano.Wallet.API.V1.Types
 
 import           Servant
 
-type API =
-         "wallets" :> Summary "Creates a new or restores an existing Wallet."
+type API = Tags '["Wallets"] :>
+    (    "wallets" :> Summary "Creates a new or restores an existing Wallet."
                    :> ReqBody '[ValidJSON] (New Wallet)
                    :> PostCreated '[ValidJSON] (WalletResponse Wallet)
     :<|> "wallets" :> Summary "Returns all the available wallets."
@@ -30,6 +30,7 @@ type API =
                    :<|> Summary "Update the Wallet identified by the given walletId."
                         :> ReqBody '[ValidJSON] (Update Wallet)
                         :> Put '[ValidJSON] (WalletResponse Wallet)
-                   -- Nest the Accounts API
-                   :<|> Tags '["Accounts"] :> Accounts.API
                    )
+    )
+    -- Nest the Accounts API, note that it is left out of the "Wallets" tag purposedly
+    :<|> "wallets" :> Capture "walletId" WalletId :> Accounts.API

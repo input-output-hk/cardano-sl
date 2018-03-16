@@ -40,7 +40,7 @@ import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
                                       WalletWebModeContextTag, walletWebModeToRealMode)
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Sockets (ConnectionsVar, launchNotifier)
-import           Pos.Wallet.Web.State (WalletState)
+import           Pos.Wallet.Web.State (WalletDB)
 import           Pos.Web (TlsParams)
 import           Pos.WorkMode (RealMode)
 
@@ -50,7 +50,7 @@ runWRealMode
        ( HasConfigurations
        , HasCompileInfo
        )
-    => WalletState
+    => WalletDB
     -> ConnectionsVar
     -> AddrCIdHashes
     -> NodeResources WalletMempoolExt
@@ -64,7 +64,12 @@ runWRealMode db conn ref res (action, outSpecs) =
         (nrEkgStore res)
         (runProduction . elimRealMode res . walletWebModeToRealMode db conn ref)
     serverWalletWebMode :: WalletWebMode a
-    serverWalletWebMode = runServer ncNodeParams ekgNodeMetrics outSpecs action
+    serverWalletWebMode = runServer
+        (runProduction . elimRealMode res . walletWebModeToRealMode db conn ref)
+        ncNodeParams
+        ekgNodeMetrics
+        outSpecs
+        action
     serverRealMode :: RealMode WalletMempoolExt a
     serverRealMode = walletWebModeToRealMode db conn ref serverWalletWebMode
 
@@ -77,7 +82,8 @@ walletServeWebFull
     -> NetworkAddress          -- ^ IP and Port to listen
     -> Maybe TlsParams
     -> WalletWebMode ()
-walletServeWebFull diffusion debug = walletServeImpl action
+walletServeWebFull diffusion debug address mTlsParams =
+    walletServeImpl action address mTlsParams Nothing
   where
     action :: WalletWebMode Application
     action = do

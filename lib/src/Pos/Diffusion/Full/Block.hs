@@ -14,6 +14,7 @@ module Pos.Diffusion.Full.Block
 import           Universum
 
 import qualified Control.Concurrent.STM as Conc
+import           Control.Exception (throwIO)
 import           Control.Exception.Safe (Exception (..))
 import           Control.Lens (to)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
@@ -86,7 +87,7 @@ instance Exception BlockNetLogicException where
 -- | Expects sending message to exactly one node. Receives result or
 -- fails if no result was obtained (no nodes available, timeout, etc).
 enqueueMsgSingle ::
-       ( MonadThrow m, MonadIO m )
+       ( MonadIO m )
     => (t2 -> (t1 -> t -> NonEmpty x) -> m (Map NodeId (Conc.TVar (OQ.PacketStatus b))))
     -> t2
     -> x
@@ -94,9 +95,9 @@ enqueueMsgSingle ::
 enqueueMsgSingle enqueue msg conv = do
     results <- enqueue msg (\_ _ -> one conv) >>= waitForConversations . waitForDequeues
     case toList results of
-        [] ->      throwM $ DialogUnexpected $
+        [] ->      liftIO $ throwIO $ DialogUnexpected $
             "enqueueMsgSingle: contacted no peers"
-        (_:_:_) -> throwM $ DialogUnexpected $
+        (_:_:_) -> liftIO $ throwIO $ DialogUnexpected $
             "enqueueMsgSingle: contacted more than one peers, probably internal error"
         [x] -> pure x
 

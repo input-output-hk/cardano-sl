@@ -16,8 +16,7 @@ module Ntp.Util
 import           Control.Exception.Safe (catchAny)
 import           Control.Monad.Trans (MonadIO (..))
 import           Control.Monad.Trans.Control (MonadBaseControl (..))
-import           Data.List (sortOn)
-import           Data.List (find)
+import           Data.List (find, sortOn)
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Data.Time.Units (Microsecond, fromMicroseconds)
 import           Network.Socket (AddrInfo, AddrInfoFlag (AI_ADDRCONFIG, AI_PASSIVE),

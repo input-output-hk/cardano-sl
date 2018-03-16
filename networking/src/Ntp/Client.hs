@@ -154,10 +154,10 @@ doSend cli addr = do
     packet <- encode <$> mkCliNtpPacket
     handleAny handleE . void $ sendDo addr sock (LBS.toStrict packet)
   where
-    sendDo a@(SockAddrInet _ _) (IPv4Sock sock)      = sendTo' sock a
-    sendDo a@(SockAddrInet _ _) (BothSock sock _)    = sendTo' sock a
-    sendDo a@(SockAddrInet6 _ _ _ _) (IPv6Sock sock) = sendTo' sock a
-    sendDo a@(SockAddrInet6 _ _ _ _) (BothSock _ sock)  = sendTo' sock a
+    sendDo a@(SockAddrInet{}) (IPv4Sock sock)      = sendTo' sock a
+    sendDo a@(SockAddrInet{}) (BothSock sock _)    = sendTo' sock a
+    sendDo a@(SockAddrInet6{}) (IPv6Sock sock) = sendTo' sock a
+    sendDo a@(SockAddrInet6{}) (BothSock _ sock)  = sendTo' sock a
     sendDo a sks                                           =
         error $ "SockAddr is " <> show a <> ", but sockets: " <> show sks
     sendTo' sock = flip (sendTo sock)

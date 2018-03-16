@@ -44,7 +44,7 @@ for trgt in $targets; do
 done
 
 #if [[ "$OS_NAME" == "linux" && "$BUILDKITE_BRANCH" == "master" && "$BUILDKITE_PULL_REQUEST" == "false" ]]; then
-  # XXX: this won't work, unless `GITHUB_CARDANO_DOCS_ACCESS_2` and `GITHUB_CARDANO_DOCS_ACCESS` vars are supplied
+  # XXX: DEVOPS-728 this won't work, unless `GITHUB_CARDANO_DOCS_ACCESS_2` and `GITHUB_CARDANO_DOCS_ACCESS` vars are supplied
   #
   #./update-wallet-web-api-docs.sh
   #./update-explorer-web-api-docs.sh

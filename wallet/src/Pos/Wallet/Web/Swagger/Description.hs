@@ -138,6 +138,10 @@ instance HasCustomSwagger NewPaymentBatch where
     swaggerModifier = modifyDescription
         "Create a new payment transaction (can send to multiple recipients)."
 
+instance HasCustomSwagger GetUnsignedTx where
+    swaggerModifier = modifyDescription
+        "Get a new unsigned transaction for further payment."
+
 instance HasCustomSwagger TxFee where
     swaggerModifier = modifyDescription
         "Estimate fees for performing given transaction. \

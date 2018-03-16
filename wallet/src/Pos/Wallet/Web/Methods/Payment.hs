@@ -6,6 +6,7 @@
 module Pos.Wallet.Web.Methods.Payment
        ( newPayment
        , newPaymentBatch
+       , getUnsignedTx
        , getTxFee
        ) where
 
@@ -41,7 +42,7 @@ import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                          (TxFee (..), Utxo, UtxoModifier,
                                                    getUtxoModifier, withTxpLocalData,
                                                    _txOutputs)
-import           Pos.Txp.Core                     (TxAux (..), TxOut (..))
+import           Pos.Txp.Core                     ({-Tx (..), -}TxAux (..), TxOut (..))
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util                         (eitherToThrow, maybeThrow)
 import           Pos.Util.LogSafe                 (logInfoS)
@@ -108,6 +109,17 @@ newPaymentBatch sa passphrase NewBatchPayment {..} = do
         (AccountMoneySource src)
         npbTo
         npbPolicy
+
+getUnsignedTx
+    :: MonadWalletWebMode m
+    => SendActions m
+    -> CId Addr
+    -> CId Addr
+    -> Coin
+    -> InputSelectionPolicy
+    -> m CTx
+--getUnsignedTx sa srcAccount dstAccount coin policy =
+getUnsignedTx = error "Not implemented" -- FIXME: Code
 
 getTxFee
      :: MonadWalletWebMode m

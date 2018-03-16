@@ -47,6 +47,7 @@ module Pos.Wallet.Web.Api
        , UpdateTx
        , GetHistory
        , GetPendingTxsSummary
+       , GetUnsignedTx
 
        , NextUpdate
        , PostponeUpdate
@@ -85,6 +86,7 @@ import           Universum
 -------
 import           Pos.Client.Txp.Util        (InputSelectionPolicy)
 import           Pos.Types                  (Coin, SoftwareVersion)
+--import           Pos.Txp.Core.Types         (Tx (..))
 import           Pos.Util.Servant           (ApiLoggingConfig, CCapture, CQueryParam,
                                              CReqBody, DCQueryParam, DReqBody,
                                              HasLoggingServer (..), LoggingApi,
@@ -295,6 +297,15 @@ type NewPaymentBatch =
     :> ReqBody '[JSON] NewBatchPayment
     :> WRes Post CTx
 
+type GetUnsignedTx =
+       "txs"
+    :> "unsigned"
+    :> Capture "from" (CId Addr)
+    :> Capture "to" (CId Addr)
+    :> Capture "amount" Coin
+    :> DReqBody '[JSON] (Maybe InputSelectionPolicy)
+    :> WRes Get CTx
+
 type TxFee =
        "txs"
     :> "fee"
@@ -501,6 +512,8 @@ type WalletApi = ApiPrefix :> (
      NewPayment
     :<|>
      NewPaymentBatch
+    :<|>
+     GetUnsignedTx
     :<|>
      TxFee
     :<|>

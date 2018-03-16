@@ -10,7 +10,7 @@ import           Data.Coerce (coerce)
 import           Data.Default (def)
 import           Data.List.NonEmpty (fromList)
 
-import           Control.Lens ((+~), (?~))
+import           Control.Lens ((+~), (<>~), (?~))
 import           Test.QuickCheck (Gen, arbitrary, elements, frequency, generate)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
@@ -348,7 +348,7 @@ runAction wc ws ImportPoorWallet = do
 
         -- Modify wallet state accordingly.
         pure $ ws
-            & wallets    .~ ws ^. wallets <> [poorWallet]
+            & wallets <>~ [poorWallet]
             & actionsNum +~ 1
   where
     unsafePoorSecrets = usingLoggerName "integration-test" $ withConfigurations def $ pure $ fromMaybe (error "GeneratedSecrets are unknown") genesisSecretsPoor

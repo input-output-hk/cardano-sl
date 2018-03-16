@@ -16,6 +16,7 @@ import           Universum
 
 import           Formatting (build, sformat, (%))
 
+import           Pos.Core (HasConfiguration)
 import           Pos.Client.Txp.History (SaveTxException (..), TxHistoryEntry)
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Slotting.Class (MonadSlots (..))
@@ -25,7 +26,7 @@ import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import           Pos.Wallet.Web.Error (WalletError (RequestError))
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), PtxPoolInfo)
 import           Pos.Wallet.Web.Pending.Util (mkPtxSubmitTiming)
-import           Pos.Wallet.Web.State (MonadWalletDBRead, getWalletMeta)
+import           Pos.Wallet.Web.State (WalletSnapshot, getWalletMeta)
 
 ptxPoolInfo :: PtxCondition -> Maybe PtxPoolInfo
 ptxPoolInfo (PtxCreating i)     = Just i
@@ -43,10 +44,11 @@ isPtxInBlocks :: PtxCondition -> Bool
 isPtxInBlocks = isNothing . ptxPoolInfo
 
 mkPendingTx
-    :: (MonadThrow m, MonadIO m, MonadWalletDBRead ctx m, MonadSlots ctx m)
-    => CId Wal -> TxId -> TxAux -> TxHistoryEntry -> m PendingTx
-mkPendingTx wid _ptxTxId _ptxTxAux th = do
-    void $ maybeThrow noWallet =<< getWalletMeta wid
+    :: (HasConfiguration, MonadThrow m, MonadIO m, MonadSlots ctx m)
+    => WalletSnapshot
+    -> CId Wal -> TxId -> TxAux -> TxHistoryEntry -> m PendingTx
+mkPendingTx ws wid _ptxTxId _ptxTxAux th = do
+    void $ maybeThrow noWallet $ getWalletMeta ws wid
 
     _ptxCreationSlot <- getCurrentSlotInaccurate
     return PendingTx

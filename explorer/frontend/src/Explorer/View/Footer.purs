@@ -6,11 +6,13 @@ import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Data.String (take)
 import Explorer.I18n.Lang (Language, langCode, translate)
-import Explorer.I18n.Lenses (footer, fooCardanoOpenSource, fooCardanoHub, fooCardanoSlack
-  , fooDisclaimerPt1, fooDisclaimerPt2, fooCardanoFoundation, fooEmail, fooGithub, fooIohkSupportP, fooCardanoDocumentation
-  , fooCardanoTestnet, fooCardanoSource, fooCardanoFoundationYoutube, fooCardanoFoundationTwitter
+import Explorer.I18n.Lenses (footer, fooCardanoOpenSource, fooCardanoHub
+  , fooCardanoChat, fooCardanoForum, fooDisclaimerPt1, fooDisclaimerPt2, fooCardanoFoundation
+  , fooEmail, fooGithub, fooIohkSupportP, fooCardanoDocumentation, fooCardanoTestnet
+  , fooCardanoSource, fooCardanoFoundationYoutube, fooCardanoFoundationTwitter
   , fooDaedalusPlatform, fooWhyCardano, fooCardanoRoadmap, fooCardanoReddit, fooCardanoCommunity
-  , fooIOHK, fooIOHKBlog, fooIOHKYoutube, fooTwitter, fooProject, fooFoundation, fooLearnMore, fooProtocol) as I18nL
+  , fooIOHK, fooIOHKBlog, fooIOHKYoutube, fooTwitter, fooProject, fooFoundation
+  , fooLearnMore, fooProtocol) as I18nL
 import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
@@ -163,8 +165,11 @@ navItemsLeft lang =
 
 navItemsRight :: Language -> Array NavItem
 navItemsRight lang =
-    [ { label: translate (I18nL.footer <<< I18nL.fooCardanoSlack) lang
-      , link: "https://cardano.herokuapp.com"
+    [ { label: translate (I18nL.footer <<< I18nL.fooCardanoChat) lang
+      , link: "https://chat.cardanohub.org/"
+      }
+    , { label: translate (I18nL.footer <<< I18nL.fooCardanoForum) lang
+      , link: "https://forum.cardanohub.org/"
       }
     , { label: translate (I18nL.footer <<< I18nL.fooCardanoReddit) lang
       , link: "https://www.reddit.com/r/cardano/"

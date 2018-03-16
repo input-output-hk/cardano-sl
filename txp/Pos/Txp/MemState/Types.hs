@@ -4,9 +4,7 @@
 
 module Pos.Txp.MemState.Types
        ( GenericTxpLocalData (..)
-       , GenericTxpLocalDataPure
        , TxpLocalData
-       , TxpLocalDataPure
        , TransactionProvenance (..)
        , MemPoolModifyReason (..)
        , JLTxR (..)
@@ -39,14 +37,8 @@ data GenericTxpLocalData extra = TxpLocalData
     , txpExtra        :: !(TVar extra)
     }
 
--- | Pure version of GenericTxpLocalData.
-type GenericTxpLocalDataPure extra = (UtxoModifier, MemPool, UndoMap, HeaderHash, extra)
-
 -- | Memory state of Txp. This version is used by actual Txp implementation.
 type TxpLocalData = GenericTxpLocalData ()
-
--- | Pure version of TxpLocalData.
-type TxpLocalDataPure = GenericTxpLocalDataPure ()
 
 -- TODO COMMENT
 data TransactionProvenance

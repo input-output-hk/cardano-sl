@@ -48,7 +48,7 @@ import           Pos.Ssc.Toss (SscTag (..), TossModifier, tmCertificates, tmComm
                                tmShares)
 import           Pos.Ssc.Types (ldModifier)
 import           Pos.Txp (MemPool (..))
-import           Pos.Txp.MemState (JLTxR, getMemPool)
+import           Pos.Txp.MemState (JLTxR, getMemPool, withTxpLocalData)
 import           Pos.Txp.Network.Listeners (TxpMode)
 import qualified Pos.Txp.Network.Listeners as Txp (handleTxDo)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
@@ -141,8 +141,8 @@ logicLayerFull jsonLogTx k = do
 
         postTx = KeyVal
             { toKey = pure . Tagged . hash . taTx . getTxMsgContents
-            , handleInv = \(Tagged txId) -> not . HM.member txId . _mpLocalTxs <$> getMemPool
-            , handleReq = \(Tagged txId) -> fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> getMemPool
+            , handleInv = \(Tagged txId) -> not . HM.member txId . _mpLocalTxs <$> withTxpLocalData getMemPool
+            , handleReq = \(Tagged txId) -> fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> withTxpLocalData getMemPool
             , handleData = \(TxMsgContents txAux) -> Txp.handleTxDo jsonLogTx txAux
             }
 

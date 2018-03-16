@@ -53,6 +53,7 @@ import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.Server.Launcher (walletServeImpl, walletServerOuts)
+import           Pos.Wallet.Web.State (askWalletDB)
 import           Pos.Web (serveWeb)
 import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (WorkMode)
@@ -68,7 +69,7 @@ acidCleanupWorker :: HasConfigurations
 acidCleanupWorker WalletBackendParams{..} =
     first one $ worker mempty $ const $
     modifyLoggerName (const "acidcleanup") $
-    cleanupAcidStatePeriodically (walletAcidInterval walletDbOptions)
+    askWalletDB >>= \db -> cleanupAcidStatePeriodically db (walletAcidInterval walletDbOptions)
 
 -- | The @Plugin@ which defines part of the conversation protocol for this node.
 conversation :: (HasConfigurations, HasCompileInfo) => WalletBackendParams -> Plugin WalletWebMode
@@ -150,7 +151,8 @@ walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
 
 -- | A @Plugin@ to resubmit pending transactions.
 resubmitterPlugin :: (HasConfigurations, HasCompileInfo) => Plugin WalletWebMode
-resubmitterPlugin = ([ActionSpec $ \diffusion -> startPendingTxsResubmitter (sendTx diffusion)], mempty)
+resubmitterPlugin = ([ActionSpec $ \diffusion -> askWalletDB >>= \db ->
+                         startPendingTxsResubmitter db (sendTx diffusion)], mempty)
 
 -- | A @Plugin@ to notify frontend via websockets.
 notifierPlugin :: (HasConfigurations, HasCompileInfo) => Plugin WalletWebMode

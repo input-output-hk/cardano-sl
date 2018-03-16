@@ -38,7 +38,7 @@ import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Ssc (scParticipateSsc)
 import           Pos.Txp (TxOut (..), toaOut)
-import           Pos.Txp.MemState (GenericTxpLocalData, MempoolExt, askTxpMem, getLocalTxs)
+import           Pos.Txp.MemState (GenericTxpLocalData, MempoolExt, getLocalTxs, withTxpLocalData)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Web.Mode (WebMode, WebModeContext (..))
 import           Pos.WorkMode.Class (WorkMode)
@@ -132,7 +132,7 @@ withNat
 withNat apiP handlers = do
     nc <- view nodeContext
     nodeDBs <- DB.getNodeDBs
-    txpLocalData <- askTxpMem
+    txpLocalData <- withTxpLocalData return
     return $ hoistServer apiP (convertHandler nc nodeDBs txpLocalData) handlers
 
 servantServer
@@ -178,7 +178,7 @@ getUtxo :: HasConfiguration => WebMode ext [TxOut]
 getUtxo = map toaOut . toList <$> GS.getAllPotentiallyHugeUtxo
 
 getLocalTxsNum :: Default ext => WebMode ext Word
-getLocalTxsNum = fromIntegral . length <$> getLocalTxs
+getLocalTxsNum = fromIntegral . length <$> withTxpLocalData getLocalTxs
 
 -- | Get info on all confirmed proposals
 confirmedProposals

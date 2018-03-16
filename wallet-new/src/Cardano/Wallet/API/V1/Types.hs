@@ -76,7 +76,7 @@ import qualified Data.Char as C
 import           Data.Swagger as S hiding (constructorTagModifier)
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
-import           Data.Text (Text, dropEnd, toLower, unpack)
+import           Data.Text (Text, dropEnd, toLower)
 import           Data.Version (Version)
 import           Formatting (build, int, sformat, (%))
 import           GHC.Generics (Generic, Rep)
@@ -331,7 +331,7 @@ instance ToJSON (V1 Core.Timestamp) where
 instance FromJSON (V1 Core.Timestamp) where
     parseJSON = withText "Timestamp" $ \t ->
         maybe
-            (fail ("Couldn't parse timestamp or datetime out of: " <> unpack t))
+            (fail ("Couldn't parse timestamp or datetime out of: " <> toString t))
             (pure . V1)
             (Core.parseTimestamp t)
 

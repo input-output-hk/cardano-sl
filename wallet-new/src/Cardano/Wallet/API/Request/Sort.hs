@@ -27,14 +27,31 @@ import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 import           Pos.Core as Core
 
 -- | Represents a sort operation on the data model.
--- Examples:
---   *    `sort_by=balance`.
-data SortBy sym (r :: *)
+--
+-- The first type parameter is a type level list that pairs the query
+-- parameter string with the expected parsed type. The second type
+-- parameter describes the resource that is being sorted.
+--
+-- @
+-- 'SortBy' '[ "id" ?= WalletId, "balance" ?= Coin ] Wallet
+-- @
+--
+-- The above combinator would permit query parameters that look like these
+-- examples:
+--
+-- * @sort_by=ASC[id]@.
+-- * @sort_by=DESC[balance]@
+--
+-- In order for this to work, you need to ensure that the type family
+-- 'IndexToQueryParam' has an entry for each @'[symbol ?= typ] resource@.
+-- Otherwise, the client and server won't know how to associate the data
+-- and construct requests.
+data SortBy (params :: [*]) (resource :: *)
     deriving Typeable
 
 -- | The direction for the sort operation.
-data SortDirection
-    = SortAscending
+data SortDirection =
+      SortAscending
     | SortDescending
     deriving Show
 
@@ -192,13 +209,9 @@ instance
     clientWithRoute pm _ r s =
         clientWithRoute pm (Proxy @next) (incorporate s r)
       where
-        incorporate sops req =
-            case sops of
-                NoSorts ->
-                    req
-                SortOp (sop :: SortOperation ix res) rest ->
-                    incorporate rest $
-                        appendToQueryString
-                            (toText (symbolVal (Proxy @(IndexToQueryParam res ix))))
-                            (Just (toQueryParam sop))
-                            req
+        incorporate NoSorts = identity
+        incorporate (SortOp (sop :: SortOperation ix res) rest) =
+            incorporate rest .
+                appendToQueryString
+                    (toText (symbolVal (Proxy @(IndexToQueryParam res ix))))
+                    (Just (toQueryParam sop))

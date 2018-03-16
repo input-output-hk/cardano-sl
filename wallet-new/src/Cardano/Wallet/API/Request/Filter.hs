@@ -116,15 +116,20 @@ instance Show (FilterOperation ix a) where
 -- parameter describes the resource that is being filtered.
 --
 -- @
--- 'FilterBy' '[ "wallet_id" ?= WalletId, "balance" ?= Coin ] Wallet
+-- 'FilterBy' '[ "id" ?= WalletId, "balance" ?= Coin ] Wallet
 -- @
 --
 -- The above combinator would permit query parameters that look like these
 -- examples:
 --
--- * @wallet_id=DEADBEEF@.
+-- * @id=DEADBEEF@.
 -- * @balance=GT[10]@
 -- * @balance=RANGE[0,10]@
+--
+-- In order for this to work, you need to ensure that the type family
+-- 'IndexToQueryParam' has an entry for each @'[symbol ?= typ] resource@.
+-- Otherwise, the client and server won't know how to associate the data
+-- and construct requests.
 data FilterBy (params :: [*]) (resource :: *)
     deriving Typeable
 

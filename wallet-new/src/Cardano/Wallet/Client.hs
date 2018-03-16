@@ -21,6 +21,8 @@ module Cardano.Wallet.Client
     , module Cardano.Wallet.API.Request.Pagination
     , FilterOperations(..)
     , SortOperations(..)
+    , FilterOperation(..)
+    , SortOperation(..)
     ) where
 
 import           Universum

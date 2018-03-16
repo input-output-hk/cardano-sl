@@ -3,7 +3,7 @@
 {-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE RankNTypes                #-}
-{-# LANGUAGE TypeFamilyDependencies    #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans      #-}
 
 module Cardano.Wallet.API.Indices where

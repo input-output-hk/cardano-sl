@@ -39,6 +39,7 @@ import           Pos.Worker.Types (Worker, WorkerSpec, worker)
 
 type SubscriptionMode m =
     ( MonadIO m
+    , MonadCatch m
     , WithLogger m
     , MonadMask m
     , Message MsgSubscribe
@@ -67,26 +68,27 @@ subscribeTo
     -> SendActions m
     -> NodeId
     -> m SubscriptionTerminationReason
-subscribeTo keepAliveTimer subStatus subDuration sendActions peer = do
-    -- Change subscription status as we begin a new subscription
-    alterPeerSubStatus (Just Subscribing)
-    logNotice $ msgSubscribingTo peer
-    subStarted <- liftIO $ getTime Monotonic
-    -- 'try' is from safe-exceptions, so it won't catch asyncs.
-    outcome <- try $ withConnectionTo sendActions peer $ \_peerData -> NE.fromList
-        -- Sort conversations in descending order based on their version so that
-        -- the highest available version of the conversation is picked.
-        [ Conversation convMsgSubscribe
-        , Conversation convMsgSubscribe1
-        ]
+subscribeTo keepAliveTimer subStatus subDuration sendActions peer =
+    do
+        -- Change subscription status as we begin a new subscription
+        alterPeerSubStatus (Just Subscribing)
+        logNotice $ msgSubscribingTo peer
+        subStarted <- liftIO $ getTime Monotonic
+        -- 'try' is from safe-exceptions, so it won't catch asyncs.
+        outcome <- try $ withConnectionTo sendActions peer $ \_peerData -> NE.fromList
+            -- Sort conversations in descending order based on their version so that
+            -- the highest available version of the conversation is picked.
+            [ Conversation convMsgSubscribe
+            , Conversation convMsgSubscribe1
+            ]
+        subEnded <- liftIO $ getTime Monotonic
+        liftIO $ modifyMVar_ subDuration
+            (\x -> return $! max x (timeSpecToMilliseconds $ subEnded - subStarted))
+        let reason = either Exceptional (maybe Normal absurd) outcome
+        logNotice $ msgSubscriptionTerminated peer reason
+        return reason
     -- Change subscription state
-    alterPeerSubStatus Nothing
-    subEnded <- liftIO $ getTime Monotonic
-    liftIO $ modifyMVar_ subDuration
-        (\x -> return $! max x (timeSpecToMilliseconds $ subEnded - subStarted))
-    let reason = either Exceptional (maybe Normal absurd) outcome
-    logNotice $ msgSubscriptionTerminated peer reason
-    return reason
+    `finally` alterPeerSubStatus Nothing
   where
     convMsgSubscribe :: ConversationActions MsgSubscribe Void m -> m t
     convMsgSubscribe conv = do

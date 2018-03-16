@@ -58,7 +58,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     -- fallbacks (for a given outer list element) is the length of the inner
     -- list (disjuncts).
     logNotice $ sformat ("dnsSubscriptionWorker: valency "%int) (length allOf)
-    void $ forConcurrently allOf (subscribeAlts dnsPeersVar Nothing)
+    void $ forConcurrently allOf (\anyOf -> newMVar (0 :: Millisecond) >>= subscribeAlts dnsPeersVar anyOf)
     logNotice $ sformat ("dnsSubscriptionWorker: all "%int%" threads finished") (length allOf)
   where
 
@@ -72,20 +72,17 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     -- (see 'retryInterval').
     subscribeAlts
         :: SharedAtomicT m (Map Int (Alts NodeId))
-        -> Maybe (MVar Millisecond)
         -> (Int, Alts (NodeAddr DNS.Domain))
+        -> MVar Millisecond
         -> m ()
-    subscribeAlts _ _ (index, []) =
+    subscribeAlts _ (index, []) _ =
         logWarning $ sformat ("dnsSubscriptionWorker: no alternatives given for index "%int) index
-    subscribeAlts dnsPeersVar mSubDuration (index, alts) = do
+    subscribeAlts dnsPeersVar (index, alts) subDuration = do
         -- Any DNSError is squelched. So are IOExceptions, for good measure.
         -- This does not include async exceptions.
         -- It does handle the case in which there's no internet connection, or
         -- a bad configuration, so that the subscription thread will keep on
         -- retrying.
-        subDuration <- case mSubDuration of
-            Just sd -> return sd
-            Nothing -> newMVar (0 :: Millisecond)
         findAndSubscribe dnsPeersVar subDuration index alts
             `catch` logDNSError
             `catch` logIOException
@@ -93,7 +90,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
         logNotice $ sformat ("dnsSubscriptionWorker: waiting "%int%"ms before trying again")
             (toMicroseconds d `div` 1000)
         delay d
-        subscribeAlts dnsPeersVar (Just subDuration) (index, alts)
+        subscribeAlts dnsPeersVar (index, alts) subDuration
 
     -- Subscribe to all alternatives, one-at-a-time, until the list is
     -- exhausted.

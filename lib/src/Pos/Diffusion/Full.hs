@@ -11,9 +11,7 @@ module Pos.Diffusion.Full
 import           Nub (ordNub)
 import           Universum
 
-import qualified Control.Concurrent.Async as Async
 import qualified Control.Concurrent.STM as STM
-import           Control.Exception (Exception, throwIO)
 import           Control.Monad.Fix (MonadFix)
 import qualified Data.Map as M
 import           Data.Time.Units (Millisecond, Second, convertUnit)
@@ -251,22 +249,7 @@ diffusionLayerFull runIO networkConfig lastKnownBlockVersion transport mEkgNodeM
             enqueue :: EnqueueMsg d
             enqueue = makeEnqueueMsg ourVerInfo $ \msgType k -> liftIO $ do
                 itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
-                let itMap = M.fromList itList
-                    -- FIXME this is duplicated.
-                    -- Define once, perhaps in cardano-sl-infra near the
-                    -- definition of EnqueueMsg.
-                    waitOnIt :: STM.TVar (OQ.PacketStatus a) -> d a
-                    waitOnIt tvar = liftIO $ do
-                        it <- STM.atomically $ do
-                                  status <- STM.readTVar tvar
-                                  case status of
-                                      OQ.PacketEnqueued        -> STM.retry
-                                      OQ.PacketAborted         -> return Nothing
-                                      OQ.PacketDequeued thread -> return (Just thread)
-                        case it of
-                            Nothing -> throwIO Aborted
-                            Just thread -> Async.wait thread
-                return (waitOnIt <$> itMap)
+                pure (M.fromList itList)
 
             getBlocks :: NodeId
                       -> BlockHeader
@@ -362,38 +345,16 @@ runDiffusionLayerFull runIO networkConfig transport ourVerInfo mEkgNodeMetrics o
                     joinKademlia networkConfig'
                     action
   where
-    oqEnqueue :: Msg -> (NodeId -> VerInfo -> Conversation PackingType d t) -> d (Map NodeId (d t))
-    oqEnqueue msgType k = do
-        itList <- liftIO $ OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
-        let itMap = M.fromList itList
-            -- Wait on the TVar until it's either aborted or dequeued.
-            -- If it's aborted, throw an exception (TBD consider giving
-            -- Nothing instead?) and if it's dequeued, wait on the thread.
-            -- FIXME we'll want to refine this a bit. Callers should be able
-            -- to get a hold of the Async instead.
-            waitOnIt :: STM.TVar (OQ.PacketStatus a) -> d a
-            waitOnIt tvar = liftIO $ do
-                it <- STM.atomically $ do
-                          status <- STM.readTVar tvar
-                          case status of
-                              OQ.PacketEnqueued        -> STM.retry
-                              OQ.PacketAborted         -> return Nothing
-                              OQ.PacketDequeued thread -> return (Just thread)
-                case it of
-                    Nothing -> throwIO Aborted
-                    Just thread -> Async.wait thread
-        return (waitOnIt <$> itMap)
+    oqEnqueue :: Msg -> (NodeId -> VerInfo -> Conversation PackingType d t) -> d (Map NodeId (STM.TVar (OQ.PacketStatus t)))
+    oqEnqueue msgType l = do
+        itList <- liftIO $ OQ.enqueue oq msgType (EnqueuedConversation (msgType, l))
+        return (M.fromList itList)
     subscriptionThread nc sactions = case topologySubscriptionWorker (ncTopology nc) of
         Just (SubscriptionWorkerBehindNAT dnsDomains) ->
             dnsSubscriptionWorker oq networkConfig dnsDomains keepaliveTimer slotDuration sactions
         Just (SubscriptionWorkerKademlia kinst nodeType valency fallbacks) ->
             dhtSubscriptionWorker oq kinst nodeType valency fallbacks sactions
         Nothing -> pure ()
-
-data Aborted = Aborted
-  deriving (Show)
-
-instance Exception Aborted
 
 sendMsgFromConverse
     :: (forall x . d x -> IO x)

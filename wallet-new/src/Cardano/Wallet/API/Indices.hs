@@ -10,8 +10,9 @@ import qualified Control.Lens as Lens
 import           Universum
 
 import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.Util (parseApiUtcTime)
+import           Cardano.Wallet.Util (apiTimeFormat)
 import           Data.String.Conv (toS)
+import           Data.Time (defaultTimeLocale, parseTimeM, ParseTime)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash)
 
@@ -43,8 +44,13 @@ instance ToIndex Transaction Core.TxId where
 instance ToIndex Transaction Core.Timestamp where
     toIndex _ x = utcTimeParser x <|> timePosixParser x
       where
+        parseFmt :: ParseTime t => Text -> String -> Maybe t
+        parseFmt t fmt = parseTimeM True defaultTimeLocale fmt (toS t)
         utcTimeParser t = do
-            utcTime <- either (fail . show) pure $ parseApiUtcTime t
+            utcTime <- asum $ map (parseFmt t)
+                [ "%Y-%m-%d"    -- support YYYY-MM-DD
+                , apiTimeFormat -- ISO8601 format
+                ]
             return $ utcTime ^. Lens.from Core.timestampToUTCTimeL
         timePosixParser t =
             view (Lens.from Core.timestampSeconds) <$> readMaybe @Double (toS t)

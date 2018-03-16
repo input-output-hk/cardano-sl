@@ -88,10 +88,22 @@ spec = describe "Marshalling & Unmarshalling" $ do
                         Just (UTCTime (fromGregorian 1999 10 12) 0
                             ^. from Core.timestampToUTCTimeL
                             )
-            it "can parse an ISO8601 UTC formatted datetime" $ do
-                toIndex' "1999-10-12"
+            it "can parse an ISO8601 UTC formatted datetime (seconds)" $ do
+                toIndex' "1999-10-12T22:15:31.123"
                     `shouldBe`
-                        Just (UTCTime (fromGregorian 1999 10 12) 0
+                        Just (
+                            UTCTime
+                                (fromGregorian 1999 10 12)
+                                ((22 * 60 * 60) + (15 * 60) + 31.123)
+                            ^. from Core.timestampToUTCTimeL
+                            )
+            it "can parse an ISO8601 UTC formatted datetime (fractional)" $ do
+                toIndex' "1999-10-12T22:15:37"
+                    `shouldBe`
+                        Just (
+                            UTCTime
+                                (fromGregorian 1999 10 12)
+                                ((22 * 60 * 60) + (15 * 60) + 37)
                             ^. from Core.timestampToUTCTimeL
                             )
             it "can parse an integral timestamp" $ do

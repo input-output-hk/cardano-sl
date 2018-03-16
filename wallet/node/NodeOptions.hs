@@ -12,6 +12,7 @@ module NodeOptions
 
 import           Universum
 
+import           Data.List (drop, span)
 import           Data.Time.Units (Minute)
 import           Data.Version (showVersion)
 import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc, header, help,
@@ -114,4 +115,26 @@ tlsParamsOption = do
                 "FILEPATH"
                 "Path to file with TLS certificate authority"
                 <> Opt.value "./scripts/tls-files/ca.crt"
+    tpClients <-
+      Opt.option strList $
+        CLI.templateParser
+          "tlsclients"
+          "LIST"
+          "A comma-separated list of accepted clients"
+          <> Opt.value ["Daedalus Wallet"]
     return TlsParams{..}
+
+
+strList :: Opt.ReadM [String]
+strList =
+    Opt.str >>= failIfEmpty . splitOn ','
+  where
+    splitOn c str =
+      case span (/= c) str of
+        (h, []) -> [h]
+        (h, q)  -> h : splitOn c (drop 1 q)
+
+    failIfEmpty xs =
+      case xs of
+        [] -> empty
+        _  -> pure xs

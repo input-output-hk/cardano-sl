@@ -5,11 +5,12 @@ module Cardano.Wallet.Server.CLI where
 
 import           Universum
 
+import           Data.List (drop, span)
 import           Data.Time.Units (Minute)
 import           Data.Version (showVersion)
-import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc, header, help,
-                                      helper, info, infoOption, long, metavar, option, progDesc,
-                                      strOption, switch, value)
+import           Options.Applicative (Parser, ReadM, auto, execParser, footerDoc, fullDesc, header,
+                                      help, helper, info, infoOption, long, metavar, option,
+                                      progDesc, str, strOption, switch, value)
 import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (CommonNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
@@ -151,9 +152,10 @@ tlsParamsParser :: Parser (Maybe TlsParams)
 tlsParamsParser = constructTlsParams <$> certPathParser
                                      <*> keyPathParser
                                      <*> caPathParser
+                                     <*> clientsParser
                                      <*> disabledParser
   where
-    constructTlsParams tpCertPath tpKeyPath tpCaPath disabled =
+    constructTlsParams tpCertPath tpKeyPath tpCaPath tpClients disabled =
         guard (not disabled) $> TlsParams{..}
 
     certPathParser :: Parser FilePath
@@ -180,11 +182,34 @@ tlsParamsParser = constructTlsParams <$> certPathParser
                               <> value "scripts/tls-files/ca.crt"
                              )
 
+    clientsParser :: Parser [String]
+    clientsParser = option strList (CLI.templateParser
+                                    "tlsclients"
+                                    "LIST"
+                                    "A comma-separated list of accepted clients"
+                                    <> value ["Daedalus Wallet"]
+                                   )
+
     disabledParser :: Parser Bool
     disabledParser = switch $
                      long "no-tls" <>
                      help "Disable tls. If set, 'tlscert', 'tlskey' \
                           \and 'tlsca' options are ignored"
+
+    strList :: ReadM [String]
+    strList =
+        str >>= failIfEmpty . splitOn ','
+      where
+        splitOn c s =
+          case span (/= c) s of
+            (h, []) -> [h]
+            (h, q)  -> h : splitOn c (drop 1 q)
+
+        failIfEmpty xs =
+          case xs of
+            [] -> empty
+            _  -> pure xs
+
 
 -- | The parser for the @WalletDBOptions@.
 dbOptionsParser :: Parser WalletDBOptions

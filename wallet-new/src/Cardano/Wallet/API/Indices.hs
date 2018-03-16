@@ -6,13 +6,10 @@
 {-# OPTIONS_GHC -fno-warn-orphans      #-}
 module Cardano.Wallet.API.Indices where
 
-import qualified Control.Lens as Lens
 import           Universum
 
 import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.Util (apiTimeFormat)
 import           Data.String.Conv (toS)
-import           Data.Time (defaultTimeLocale, parseTimeM, ParseTime)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash)
 
@@ -42,18 +39,7 @@ instance ToIndex Transaction Core.TxId where
     accessIx Transaction{..} = let V1 ti = txId in ti
 
 instance ToIndex Transaction Core.Timestamp where
-    toIndex _ x = utcTimeParser x <|> timePosixParser x
-      where
-        parseFmt :: ParseTime t => Text -> String -> Maybe t
-        parseFmt t fmt = parseTimeM True defaultTimeLocale fmt (toS t)
-        utcTimeParser t = do
-            utcTime <- asum $ map (parseFmt t)
-                [ "%Y-%m-%d"    -- support YYYY-MM-DD
-                , apiTimeFormat -- ISO8601 format
-                ]
-            return $ utcTime ^. Lens.from Core.timestampToUTCTimeL
-        timePosixParser t =
-            view (Lens.from Core.timestampSeconds) <$> readMaybe @Double (toS t)
+    toIndex _ = Core.parseTimestamp
     accessIx Transaction{..} = let V1 time = txCreationTime in time
 
 -- | A type family mapping a resource 'a' to all its indices.

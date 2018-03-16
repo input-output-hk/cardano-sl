@@ -4,6 +4,7 @@ module Pos.Core.Slotting.Timestamp
        ( Timestamp (..)
        , _Timestamp
        , timestampF
+       , parseTimestamp
        , getCurrentTimestamp
        , diffTimestamp
        , addMicrosecondsToTimestamp
@@ -18,9 +19,10 @@ module Pos.Core.Slotting.Timestamp
 
 import           Universum
 
-import           Control.Lens (Iso', iso, makePrisms)
+import           Control.Lens (Iso', iso, makePrisms, from)
 import qualified Data.Text.Buildable as Buildable
-import           Data.Time (UTCTime)
+import qualified Data.Text as Text
+import           Data.Time (UTCTime, defaultTimeLocale, iso8601DateFormat, parseTimeM)
 import           Data.Time.Clock.POSIX (POSIXTime, posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import           Data.Time.Units (Microsecond)
 import           Formatting (Format, build)
@@ -57,6 +59,28 @@ instance NFData Timestamp where
 -- | Specialized formatter for 'Timestamp' data type.
 timestampF :: Format r (Timestamp -> r)
 timestampF = build
+
+-- | Attempt to parse a 'Timestamp' out of a 'Text' value. Formats include:
+--
+-- * Fractional timestamps: @123456789.1234@
+-- * ISO8601 Datetime: @1999-10-12T08:09:10@
+-- * ISO8601 Date: @1999-10-12@
+parseTimestamp :: Text -> Maybe Timestamp
+parseTimestamp t = utcTimeParser <|> timePosixParser
+  where
+    str = Text.unpack t
+    parseFmt :: String -> Maybe UTCTime
+    parseFmt fmt =
+        parseTimeM True defaultTimeLocale fmt str
+    utcTimeParser =
+        view (from timestampToUTCTimeL)
+        <$> asum
+            [ parseFmt (iso8601DateFormat (Just "%H:%M:%S%Q"))
+            , parseFmt (iso8601DateFormat Nothing)
+            ]
+    timePosixParser =
+        view (from timestampSeconds)
+        <$> readMaybe @Double str
 
 -- Get the current time as a timestamp
 getCurrentTimestamp :: Mockable CurrentTime m => m Timestamp

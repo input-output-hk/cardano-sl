@@ -68,7 +68,7 @@ module Cardano.Wallet.API.V1.Types (
 
 import           Universum
 
-import           Control.Lens (at, from, ix, makePrisms, (?~), IxValue, Index, At)
+import           Control.Lens (at, ix, makePrisms, (?~), IxValue, Index, At)
 import           Data.Aeson
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (typeMismatch)
@@ -76,7 +76,7 @@ import qualified Data.Char as C
 import           Data.Swagger as S hiding (constructorTagModifier)
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
-import           Data.Text (Text, dropEnd, toLower)
+import           Data.Text (Text, dropEnd, toLower, unpack)
 import           Data.Version (Version)
 import           Formatting (build, int, sformat, (%))
 import           GHC.Generics (Generic, Rep)
@@ -95,7 +95,7 @@ import           Cardano.Wallet.Orphans.Aeson ()
 import           Pos.Util.BackupPhrase (BackupPhrase (..))
 
 
-import           Cardano.Wallet.Util (parseApiUtcTime, showApiUtcTime)
+import           Cardano.Wallet.Util (showApiUtcTime)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import           Pos.Aeson.Core ()
@@ -326,11 +326,14 @@ instance ToJSON (V1 Core.Timestamp) where
         let utcTime = timestamp ^. _V1 . Core.timestampToUTCTimeL
         in  String $ showApiUtcTime utcTime
 
--- | Parses from both UTC time in 'apiTimeFormat' format.
+-- | Parses from both UTC time in 'apiTimeFormat' format and a fractional
+-- timestamp format.
 instance FromJSON (V1 Core.Timestamp) where
-    parseJSON = withText "UTC time" $ \t -> do
-        utcTime <- either (fail . show) pure $ parseApiUtcTime t
-        pure . V1 $ utcTime ^. from Core.timestampToUTCTimeL
+    parseJSON = withText "Timestamp" $ \t ->
+        maybe
+            (fail ("Couldn't parse timestamp or datetime out of: " <> unpack t))
+            (pure . V1)
+            (Core.parseTimestamp t)
 
 instance Arbitrary (V1 Core.Timestamp) where
     arbitrary = fmap V1 arbitrary

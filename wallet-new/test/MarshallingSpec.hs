@@ -2,12 +2,10 @@ module MarshallingSpec where
 
 import           Universum
 
-import           Cardano.Wallet.API.V1.Errors (WalletError)
-import           Cardano.Wallet.API.V1.Migration.Types (Migrate (..))
-import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.Orphans ()
-import qualified Cardano.Wallet.Util as Util
+import           Control.Lens (from)
 import           Data.Aeson
+import           Data.Time (UTCTime(..), fromGregorian)
+import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable (typeRep)
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import qualified Pos.Crypto as Crypto
@@ -22,6 +20,13 @@ import qualified Test.QuickCheck.Property as Property
 import           Pos.Util.BackupPhrase (BackupPhrase)
 
 import qualified Pos.Core as Core
+
+import           Cardano.Wallet.API.Indices
+import           Cardano.Wallet.API.V1.Errors (WalletError)
+import           Cardano.Wallet.API.V1.Migration.Types (Migrate (..))
+import           Cardano.Wallet.API.V1.Types
+import           Cardano.Wallet.Orphans ()
+import qualified Cardano.Wallet.Util as Util
 
 -- | Tests whether or not some instances (JSON, Bi, etc) roundtrips.
 spec :: Spec
@@ -72,6 +77,36 @@ spec = describe "Marshalling & Unmarshalling" $ do
             it "invalid length password decoding fails" $
                 -- currently passphrase should be either empty or of length 32
                 decodingFails @(V1 Crypto.PassPhrase) "aabbcc" Proxy
+
+    describe "Timestamp Parsing" $ do
+        describe "ToIndex" $ do
+            let toIndex' :: Text -> Maybe Core.Timestamp
+                toIndex' = toIndex (Proxy @Transaction)
+            it "can parse an ISO8601 UTC formatted date" $ do
+                toIndex' "1999-10-12"
+                    `shouldBe`
+                        Just (UTCTime (fromGregorian 1999 10 12) 0
+                            ^. from Core.timestampToUTCTimeL
+                            )
+            it "can parse an ISO8601 UTC formatted datetime" $ do
+                toIndex' "1999-10-12"
+                    `shouldBe`
+                        Just (UTCTime (fromGregorian 1999 10 12) 0
+                            ^. from Core.timestampToUTCTimeL
+                            )
+            it "can parse an integral timestamp" $ do
+                toIndex' "123456789"
+                    `shouldBe`
+                        Just ((123456789 :: POSIXTime)
+                            ^. from Core.timestampSeconds
+                            )
+            it "can parse an fractional timestamp" $ do
+                toIndex' "123456789.123"
+                    `shouldBe`
+                        Just ((123456789.123 :: POSIXTime)
+                            ^. from Core.timestampSeconds
+                            )
+
 
 migrateRoundtrip :: (Arbitrary from, Migrate from to, Migrate to from, Eq from, Show from) => proxy from -> proxy to -> Property
 migrateRoundtrip (_ :: proxy from) (_ :: proxy to) = forAll arbitrary $ \(arbitraryFrom :: from) -> do

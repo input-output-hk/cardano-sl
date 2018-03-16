@@ -387,6 +387,7 @@ test-suite wallet-new-specs
                     , stm
                     , swagger2
                     , text
+                    , time
                     , time-units
                     , universum
                     , unordered-containers

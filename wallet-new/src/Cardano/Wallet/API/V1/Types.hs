@@ -15,6 +15,7 @@
 
 module Cardano.Wallet.API.V1.Types (
     V1 (..)
+  , unV1
   -- * Swagger & REST-related types
   , PasswordUpdate (..)
   , AccountUpdate (..)
@@ -130,6 +131,10 @@ genericSchemaDroppingPrefix prfx = genericDeclareNamedSchema defaultSchemaOption
 --
 -- 1. Never define an instance on the inner type 'a'. Do it only on 'V1 a'.
 newtype V1 a = V1 a deriving (Eq, Ord)
+
+-- | Unwrap the 'V1' newtype to give the underlying type.
+unV1 :: V1 a -> a
+unV1 (V1 a) = a
 
 makePrisms ''V1
 

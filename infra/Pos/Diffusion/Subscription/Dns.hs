@@ -104,7 +104,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
         dnsPeersList <- findDnsPeers index alts
         modifySharedAtomic dnsPeersVar $ \dnsPeers -> do
             let dnsPeers' = M.insert index dnsPeersList dnsPeers
-            void $ OQ.updatePeersBucket oq BucketBehindNatWorker $ \_ ->
+            void $ liftIO $ OQ.updatePeersBucket oq BucketBehindNatWorker $ \_ ->
                 peersFromList mempty ((,) NodeRelay <$> M.elems dnsPeers')
             pure (dnsPeers', ())
         -- Try to subscribe to some peer.

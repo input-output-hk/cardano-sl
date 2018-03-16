@@ -8,6 +8,7 @@ import           System.IO (hSetEncoding, stdout, utf8)
 import           CLI
 import           Functions
 import           Types
+import           Error
 
 -- | Here we want to run main when the (local) nodes
 -- have started.
@@ -27,21 +28,28 @@ main = do
         printT "The wallet test node is running in stateless mode."
         printT "Stateless mode not implemented currently!"
 
-    let actionDistribution = [ (CreateWallet, createProbability 50)
-                             , (GetWallet, createProbability 50)
-                             ]
-
     let walletClient :: forall m. WalletClient m
         walletClient = error "Missing implementation for client!"
 
     let walletState = WalletState mempty mempty mempty mempty 0
 
+    -- We throw exception if the value is invalid.
+    actionDistr <- either throwM pure actionDistribution
+
     -- some monadic fold or smth similar
     _ <- runActionCheck
         walletClient
         walletState
-        actionDistribution
+        actionDistr
 
     pure ()
+  where
+    actionDistribution :: Either WalletTestError ActionProbabilities
+    actionDistribution = do
+        postWalletProb <- createProbability 50
+        getWalletProb  <- createProbability 50
 
+        pure $  [ (PostWallet, postWalletProb)
+                , (GetWallet,  getWalletProb)
+                ]
 

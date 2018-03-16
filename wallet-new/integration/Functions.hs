@@ -10,16 +10,17 @@ import           Data.Coerce (coerce)
 import           Data.List (delete)
 import           Data.List.NonEmpty (fromList)
 
-import           Control.Lens ((+~))
+import           Control.Lens (each, filtered, (+~), (<>~))
 import           Test.QuickCheck (Gen, arbitrary, elements, frequency, generate)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
 import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, AccountUpdate (..),
                                               AddressValidity (..), AssuranceLevel (..),
                                               EstimatedFees (..), NewAccount (..), NewAddress (..),
-                                              Payment (..), PaymentDistribution (..),
-                                              PaymentSource (..), Transaction (..), V1 (..),
-                                              Wallet (..), WalletAddress (..), WalletId,
+                                              NewWallet (..), Payment (..),
+                                              PaymentDistribution (..), PaymentSource (..),
+                                              Transaction (..), V1 (..), Wallet (..),
+                                              WalletAddress (..), WalletId, WalletOperation (..),
                                               WalletUpdate (..))
 
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
@@ -54,8 +55,8 @@ runAction
     -> Action
     -> m WalletState
 -- Wallets
-runAction wc ws  CreateWallet = do
-    newWall <-  liftIO $ generate arbitrary
+runAction wc ws  PostWallet = do
+    newWall <-  liftIO $ generate generateNewWallet
     result  <-  respToRes $ postWallet wc newWall
 
     checkInvariant
@@ -64,8 +65,16 @@ runAction wc ws  CreateWallet = do
 
     -- Modify wallet state accordingly.
     pure $ ws
-        & wallets    .~ ws ^. wallets <> [result]
+        & wallets    <>~ [result]
         & actionsNum +~ 1
+  where
+    generateNewWallet =
+        NewWallet
+            <$> arbitrary
+            <*> pure Nothing
+            <*> arbitrary
+            <*> pure "Wallet"
+            <*> pure CreateWallet
 
 runAction wc ws GetWallets   = do
     -- We choose from the existing wallets.
@@ -139,11 +148,11 @@ runAction wc ws UpdateWallet = do
 
     -- Modify wallet state accordingly.
     pure $ ws
-        & wallets    .~ update wallet result localWallets
+        & wallets . each . filtered (== wallet) .~ result
         & actionsNum +~ 1
 
 -- Accounts
-runAction wc ws  CreateAccount = do
+runAction wc ws  PostAccount = do
 
     -- TODO(ks): Don't we need to know the wallet we want to add the account to?
     -- wallet     <- pickRandomElement localWallets
@@ -162,7 +171,7 @@ runAction wc ws  CreateAccount = do
 
     -- Modify wallet state accordingly.
     pure $ ws
-        & accounts   .~ ws ^. accounts <> [result]
+        & accounts   <>~ [result]
         & actionsNum +~ 1
   where
     -- | We don't want to memorize the passwords for now.
@@ -250,11 +259,11 @@ runAction wc ws UpdateAccount = do
 
     -- Modify wallet state accordingly.
     pure $ ws
-        & accounts   .~ update account result localAccounts
+        & accounts . each . filtered (== account) .~ result
         & actionsNum +~ 1
 
 -- Addresses
-runAction wc ws CreateAddress = do
+runAction wc ws PostAddress = do
 
     -- The precondition is that we must have accounts.
     -- If we have accounts, that presupposes that we have wallets,
@@ -292,7 +301,7 @@ runAction wc ws GetAddresses   = do
     -- Also, remove the `V1` type since we don't need it now.
     address <-  coerce . addrId <$> pickRandomElement (ws ^. addresses)
     -- We get all the accounts.
-    result  <-  respToRes $ getAddresses wc
+    result  <-  respToRes $ getAddressIndex wc
 
     checkInvariant
         (elem address result)
@@ -327,7 +336,7 @@ runAction wc ws GetAddress     = do
         & actionsNum +~ 1
 
 -- Transactions
-runAction wc ws CreateTransaction = do
+runAction wc ws PostTransaction = do
 
     let localAccounts  = ws ^. accounts
     let localAddresses = ws ^. addresses
@@ -387,7 +396,7 @@ runAction wc ws CreateTransaction = do
 
     -- Modify wallet state accordingly.
     pure $ ws
-        & transactions  .~ ws ^. transactions <> [(accountSource, result)]
+        & transactions  <>~ [(accountSource, result)]
         & actionsNum    +~ 1
 
   where
@@ -422,7 +431,7 @@ runAction wc ws GetTransaction  = do
     let accountIndex :: AccountIndex
         accountIndex = accIndex txsAccount
 
-    result  <-  respToRes $ getTransactionHistory
+    result  <-  respToRes $ getTransactionIndex
                                 wc
                                 walletId
                                 (Just accountIndex)
@@ -489,11 +498,6 @@ checkInvariant
     -> m ()
 checkInvariant True  _             = pure ()
 checkInvariant False walletTestErr = throwM walletTestErr
-
-
--- | Update the list element.
-update :: Eq a => a -> a -> [a] -> [a]
-update x y xs = map (\x' -> if (x == x') then y else x') xs
 
 
 -- | Output for @Text@.

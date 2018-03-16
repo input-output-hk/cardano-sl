@@ -51,7 +51,7 @@ import qualified Pos.Core as Core
 data WalletClient m
     = WalletClient
     { -- address endpoints
-      getAddresses
+      getAddressIndex
          :: Resp m [Address]
     , postAddress
          :: NewAddress -> Resp m WalletAddress
@@ -88,7 +88,7 @@ data WalletClient m
     -- transactions endpoints
     , postTransaction
          :: Payment -> Resp m Transaction
-    , getTransactionHistory
+    , getTransactionIndex
          :: WalletId
          -> Maybe AccountIndex
          -> Maybe (V1 Core.Address)
@@ -113,7 +113,7 @@ data WalletClient m
 -- | Run the given natural transformation over the 'WalletClient'.
 hoistClient :: (forall x. m x -> n x) -> WalletClient m -> WalletClient n
 hoistClient phi wc = WalletClient
-    { getAddresses          = phi (getAddresses wc)
+    { getAddressIndex       = phi (getAddressIndex wc)
     , postAddress           = phi . postAddress wc
     , getAddressValidity    = phi . getAddressValidity wc
     , postWallet            = phi . postWallet wc
@@ -130,7 +130,7 @@ hoistClient phi wc = WalletClient
     , getAccountIndexPaged  = \x mp -> phi . getAccountIndexPaged wc x mp
     , updateAccount         = \x y -> phi . updateAccount wc x y
     , postTransaction       = phi . postTransaction wc
-    , getTransactionHistory = \wid maid maddr mp -> phi . getTransactionHistory wc wid maid maddr mp
+    , getTransactionIndex   = \wid maid maddr mp -> phi . getTransactionIndex wc wid maid maddr mp
     , getTransactionFee     = phi . getTransactionFee wc
     , getNextUpdate         = phi (getNextUpdate wc)
     , postWalletUpdate      = phi (postWalletUpdate wc)

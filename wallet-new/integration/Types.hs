@@ -25,6 +25,8 @@ import           Control.Lens (makeLenses)
 
 import           Cardano.Wallet.API.V1.Types (Account, Wallet, WalletAddress,Transaction)
 
+import           Error
+
 
 -- | Ideally, we would put @MonadGen@ here and remove @MonadIO@,
 -- but it's better to see how the client fits in the end.
@@ -42,31 +44,31 @@ data Probability = Probability { getProbability :: Int }
 
 
 -- | Safe constructor that checks the values.
-createProbability :: Int -> Probability
+createProbability :: Int -> Either WalletTestError Probability
 createProbability prob
-    | prob <= 0 || prob > 100 = error "Invalid range. 0 - 100."
-    | otherwise               = Probability prob
+    | prob <= 0 || prob > 100 = Left InvalidProbabilityDistr
+    | otherwise               = Right $ Probability prob
 
 
 -- | Actions that can be called from the test.
 data Action
-    = CreateWallet
+    = PostWallet
     | GetWallets
     | GetWallet
     | DeleteWallet
     | UpdateWallet
 
-    | CreateAccount
+    | PostAccount
     | GetAccounts
     | GetAccount
     | DeleteAccount
     | UpdateAccount
 
-    | CreateAddress
+    | PostAddress
     | GetAddresses
     | GetAddress
 
-    | CreateTransaction
+    | PostTransaction
     | GetTransaction
 
     deriving (Show, Eq)

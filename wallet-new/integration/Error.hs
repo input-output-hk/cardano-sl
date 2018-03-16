@@ -21,6 +21,8 @@ import           Cardano.Wallet.Client (ClientError)
 data WalletTestError
     = HttpClientError ClientError
 
+    | InvalidProbabilityDistr
+
     | WalletBalanceNotZero Wallet
     | LocalWalletDiffers Wallet
     | LocalWalletsDiffers [Wallet]
@@ -47,6 +49,7 @@ instance Exception WalletTestError
 instance Buildable WalletTestError where
     build (HttpClientError _        )     = bprint "Http client error"
     -- ^ TODO (ks): A proper instance
+    build InvalidProbabilityDistr         = bprint "The probability distribution should be between 1 - 100."
     build (WalletBalanceNotZero    w)     = bprint ("Wallet balance is not zero - ("%stext%")") (show w)
     build (LocalWalletDiffers      w)     = bprint ("Local wallet differs - ("%stext%")") (show w)
     build (LocalWalletsDiffers     w)     = bprint ("Local wallets differs - ("%stext%")") (show w)
@@ -63,5 +66,4 @@ instance Buildable WalletTestError where
     build (InvalidTransactionFee   f)     = bprint ("Transaction fees are invalid - ("%stext%")") (show f)
     build (LocalTransactionsDiffer t)     = bprint ("Local transactions differs - ("%stext%")") (show t)
     build (LocalTransactionMissing t ts)  = bprint ("Local transaction ("%stext%") missing from txs history ("%stext%")") (show t) (show ts)
-
 

@@ -68,8 +68,7 @@ module Cardano.Wallet.API.V1.Types (
 
 import           Universum
 
-import           Control.Lens (at, from, ix, makePrisms, (?~))
-import           Control.Lens (At, Index, IxValue, at, ix, (?~))
+import           Control.Lens (at, from, ix, makePrisms, (?~), IxValue, Index, At)
 import           Data.Aeson
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (typeMismatch)

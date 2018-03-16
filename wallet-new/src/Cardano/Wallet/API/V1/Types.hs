@@ -64,7 +64,6 @@ module Cardano.Wallet.API.V1.Types (
   , mkSyncProgress
   , NodeInfo (..)
   -- * Some types for the API
-  , DecomposeToQueryParams
   , CaptureWalletId
   , CaptureAccountId
   , type (?=)
@@ -1091,23 +1090,6 @@ type family New (original :: *) :: * where
   New Wallet  = NewWallet
   New Account = NewAccount
   New WalletAddress = NewAddress
-
-type family DecomposeToQueryParams mkCon res syms types next where
-    DecomposeToQueryParams _ _ '[] '[] next =
-        next
-    DecomposeToQueryParams mkCon res (sym ': syms) (ty ': tys) next =
-        QueryParam sym (mkCon ty res)
-        :> DecomposeToQueryParams mkCon res syms tys next
-    DecomposeToQueryParams mkCon res (x ': xs) '[] next =
-        TypeError (DecomposeErr res)
-    DecomposeToQueryParams mkCon res '[] (x ': xs) next =
-        TypeError (DecomposeErr res)
-
-type DecomposeErr res =
-    (     'Text "There were too many types for the parameters, which means "
-    ':<>: 'Text "there's likely a bug in the instance of "
-    ':<>: 'Text "FilterParams/SortParams for " ':<>: 'ShowType res
-    )
 
 type CaptureWalletId = Capture "walletId" WalletId
 

@@ -63,11 +63,10 @@ data WalletClient m
     -- wallets endpoints
     , postWallet
          :: New Wallet -> Resp m Wallet
-    , getWalletIndexExplicitFilterSorts
+    , getWalletIndexFilterSorts
          :: Maybe Page
          -> Maybe PerPage
-         -> Maybe (FilterOperation WalletId Wallet)
-         -> Maybe (FilterOperation Core.Coin Wallet)
+         -> FilterOperations Wallet
          -> SortOperations Wallet
          -> Resp m [Wallet]
     , updateWalletPassword
@@ -109,19 +108,6 @@ data WalletClient m
          :: Resp m NodeInfo
     } deriving Generic
 
-getWalletIndexFilterSorts
-    :: WalletClient m
-    -> Maybe Page
-    -> Maybe PerPage
-    -> FilterOperations Wallet
-    -> SortOperations Wallet
-    -> Resp m [Wallet]
-getWalletIndexFilterSorts wc mp mpp fops sops =
-    getWalletIndexExplicitFilterSorts wc mp mpp mwalletid mcoin sops
-  where
-    mwalletid = findMatchingFilterOp fops
-    mcoin = findMatchingFilterOp fops
-
 getAddressIndex :: WalletClient m -> Resp m [Address]
 getAddressIndex wc = getAddressIndexPaginated wc Nothing Nothing
 
@@ -139,8 +125,8 @@ hoistClient phi wc = WalletClient
          phi . getAddressValidity wc
     , postWallet =
          phi . postWallet wc
-    , getWalletIndexExplicitFilterSorts =
-         \x y p z -> phi . getWalletIndexExplicitFilterSorts wc x y p z
+    , getWalletIndexFilterSorts =
+         \x y p -> phi . getWalletIndexFilterSorts wc x y p
     , updateWalletPassword =
          \x -> phi . updateWalletPassword wc x
     , deleteWallet =

@@ -32,9 +32,9 @@ mkHttpClient baseUrl manager = WalletClient
     -- wallets endpoints
     , postWallet
         = run . postWalletR
-    , getWalletIndexExplicitFilterSorts
-        = \mp mpp mfwid mfbalance sorts -> run $
-            getWalletIndexExplicitFilterSortsR mp mpp mfwid mfbalance sorts
+    , getWalletIndexFilterSorts
+        = \mp mpp filters sorts -> run $
+            getWalletIndexFilterSortsR mp mpp filters sorts
     , updateWalletPassword
         = \x -> run . updateWalletPasswordR x
     , deleteWallet
@@ -78,7 +78,7 @@ mkHttpClient baseUrl manager = WalletClient
         addressesAPI
 
     postWalletR
-        :<|> getWalletIndexExplicitFilterSortsR
+        :<|> getWalletIndexFilterSortsR
         :<|> updateWalletPasswordR
         :<|> deleteWalletR
         :<|> getWalletR

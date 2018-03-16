@@ -1,9 +1,9 @@
 {-# LANGUAGE ConstraintKinds           #-}
-{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE LambdaCase                #-}
+{-# LANGUAGE PolyKinds                 #-}
 {-# LANGUAGE RankNTypes                #-}
 
 module Cardano.Wallet.API.Request.Filter where
@@ -20,6 +20,7 @@ import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (Request, rawQueryString)
 import           Servant
 import           Servant.Client
+import           Servant.Client.Core (appendToQueryString)
 import           Servant.Server.Internal
 
 import           Cardano.Wallet.API.Indices
@@ -34,7 +35,7 @@ import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 -- the inner closure of 'FilterOp'.
 data FilterOperations a where
     NoFilters  :: FilterOperations a
-    FilterOp   :: (Indexable' a, IsIndexOf' a ix, ToIndex a ix, FromHttpApiData ix, ToHttpApiData ix, Typeable ix)
+    FilterOp   :: (Indexable' a, IsIndexOf' a ix, ToIndex a ix, FromHttpApiData ix, ToHttpApiData ix, Typeable ix, KnownSymbol (IndexToQueryParam a ix))
                => FilterOperation ix a
                -> FilterOperations a
                -> FilterOperations a
@@ -144,6 +145,7 @@ instance ( Indexable' a
          , Typeable ix
          , ToFilterOperations ixs a
          , ToHttpApiData ix
+         , KnownSymbol (IndexToQueryParam a ix)
          , FromHttpApiData ix
          )
          => ToFilterOperations (ix ': ixs) a where
@@ -222,8 +224,7 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
             (from, to) -> FilterByRange <$> toIndex p from <*> toIndex p to
 
 instance
-    ( HasClient m (DecomposeFilterBy res params next)
-    , HasClient m next
+    ( HasClient m next
     , KnownSymbols syms
     , SOP.All (ToIndex res) ixs
     , ixs ~ ParamTypes params
@@ -231,14 +232,13 @@ instance
     )
     => HasClient m (FilterBy params res :> next) where
     type Client m (FilterBy params res :> next) =
-        Client m (DecomposeFilterBy res params next)
-    clientWithRoute pm _ =
-        clientWithRoute pm (Proxy @(DecomposeFilterBy res params next))
-
-type DecomposeFilterBy res params next =
-    DecomposeToQueryParams
-        FilterOperation
-        res
-        (ParamNames params)
-        (ParamTypes params)
-        next
+        FilterOperations res -> Client m next
+    clientWithRoute pm _ req fs =
+        clientWithRoute pm (Proxy @next) (incorporate fs req)
+      where
+        incorporate NoFilters = identity
+        incorporate (FilterOp (fop :: FilterOperation ix res) next) =
+            incorporate next .
+                appendToQueryString
+                    (toText (symbolVal (Proxy @(IndexToQueryParam res ix))))
+                    (Just (toQueryParam fop))

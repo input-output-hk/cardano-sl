@@ -28,12 +28,13 @@ traverseCanonicalBits
     => (UInt -> m Term)                         -- ^ positive int
     -> (UInt -> m Term)                         -- ^ negative int
     -> ((Word8, Integer) -> m (Word8, Integer)) -- ^ big integer
+    -> (UInt -> m UInt)                         -- ^ length of a string/collection
     -> (UInt -> m UInt)                         -- ^ tag
     -> (forall term. [term] -> m [term])        -- ^ map/set
     -> (Half -> m Half)                         -- ^ 16-bit NaN
     -> Term
     -> m Term
-traverseCanonicalBits tuint tnint tbigint ttag tmapset tnan16 = go
+traverseCanonicalBits tuint tnint tbigint tlength ttag tmapset tnan16 = go
   where
     go = \case
         -- Representation can be widened or changed to TBigInt.
@@ -46,19 +47,24 @@ traverseCanonicalBits tuint tnint tbigint ttag tmapset tnan16 = go
             0 -> uncurry TBigInt <$> tbigint (zs, n)
             k -> error $ "Unexpected TBigInt with " <> show k
                       <> " leading zeroes: " <> show n
-        -- Order of term pairs can be changed or duplicates added.
-        TMap terms -> mapM (\(k, v) -> (,) <$> go k <*> go v) terms
-            >>= fmap TMap . tmapset
+        -- Representation of length can be widened.
+        TBytes  len ws -> TBytes  <$> tlength len <*> pure ws
+        TString len ws -> TString <$> tlength len <*> pure ws
+        -- Representation of length can be widened, order of term pairs can be
+        -- changed or duplicates added.
+        TMap len terms -> mapM (\(k, v) -> (,) <$> go k <*> go v) terms
+            >>= \terms' -> TMap <$> tlength len <*> tmapset terms'
         -- Order of terms can be changed or duplicates added.
-        TTagged tag@(UInt16 258) (TArray terms) -> do
+        TTagged tag@(UInt16 258) (TArray len terms) -> do
             newTag <- ttag tag
-            mapM go terms >>= fmap (TTagged newTag . TArray) . tmapset
+            terms' <- mapM go terms
+            TTagged newTag <$> (TArray <$> tlength len <*> tmapset terms')
         -- Representation of a NaN can be changed.
         TFloat16 f
             | not $ isNaN f -> pure $ TFloat16 f
             | getHalf f == getHalf canonicalNaN -> TFloat16 <$> tnan16 f
             | otherwise -> error "Unexpected 16bit representation of NaN"
-        -- Tag representation can be widen.
+        -- Tag representation can be widened.
         TTagged tag t -> if tag == UInt8 24 -- cbor-in-cbor
                          then TTagged <$> ttag tag <*> pure t
                          else error "Unexpected TTagged"
@@ -72,9 +78,11 @@ traverseCanonicalBits tuint tnint tbigint ttag tmapset tnan16 = go
                        else error "Unexpected 64bit representation of NaN"
         TMapI _     -> error "Unexpected TMapI"
 
+        -- Representation of length can be widened.
+        TArray len terms -> TArray <$> tlength len <*> mapM go terms
+
         -- Do not change anything, just go deeper.
-        TArray terms  -> TArray  <$> mapM go terms
-        TArrayI terms -> TArrayI <$> mapM go terms
+        TArrayI terms    -> TArrayI <$> mapM go terms
 
         -- All other terms remain unchanged.
         t -> pure t
@@ -93,6 +101,7 @@ countCanonicalBits =
             dummyAdd
             dummyAdd
             dummyAdd
+            dummyAdd
   where
     add :: State Int ()
     add = S.modify' (+1)
@@ -107,7 +116,8 @@ perturbCanonicity term = sized $ \sz -> do
     n <- choose (1, sz)
     toChange <- shuffle . take (countCanonicalBits term) $
         replicate n True ++ repeat False
-    evalStateT (traverseCanonicalBits tuint tnint tbigint ttag tmapset tnan16 term)
+    evalStateT (traverseCanonicalBits tuint tnint tbigint tlength
+                                      ttag tmapset tnan16 term)
                toChange
   where
       tuint n = shouldBeChanged >>= \case
@@ -124,26 +134,13 @@ perturbCanonicity term = sized $ \sz -> do
               zs <- choose (1, sz)
               pure (fromIntegral zs, n)
 
+      tlength len = shouldBeChanged >>= \case
+          False -> pure             len
+          True  -> lift $ widenUInt len
+
       ttag n = shouldBeChanged >>= \case
-          False -> pure n
-          True  -> lift $ case n of
-              UIntSmall w -> elements
-                  [ UInt8  $ fromIntegral w
-                  , UInt16 $ fromIntegral w
-                  , UInt32 $ fromIntegral w
-                  , UInt64 $ fromIntegral w
-                  ]
-              UInt8 w -> elements
-                  [ UInt16 $ fromIntegral w
-                  , UInt32 $ fromIntegral w
-                  , UInt64 $ fromIntegral w
-                  ]
-              UInt16 w -> elements
-                  [ UInt32 $ fromIntegral w
-                  , UInt64 $ fromIntegral w
-                  ]
-              UInt32 w -> pure . UInt64 $ fromIntegral w
-              UInt64 w -> pure $ UInt64 w
+          False -> pure             n
+          True  -> lift $ widenUInt n
 
       tmapset terms = shouldBeChanged >>= \case
           False -> pure terms
@@ -165,6 +162,26 @@ perturbCanonicity term = sized $ \sz -> do
       tnan16 f = shouldBeChanged >>= \case
           False -> pure f
           True  -> lift (elements nans)
+
+      widenUInt :: UInt -> Gen UInt
+      widenUInt = \case
+        UIntSmall w -> elements
+            [ UInt8  $ fromIntegral w
+            , UInt16 $ fromIntegral w
+            , UInt32 $ fromIntegral w
+            , UInt64 $ fromIntegral w
+            ]
+        UInt8 w -> elements
+            [ UInt16 $ fromIntegral w
+            , UInt32 $ fromIntegral w
+            , UInt64 $ fromIntegral w
+            ]
+        UInt16 w -> elements
+            [ UInt32 $ fromIntegral w
+            , UInt64 $ fromIntegral w
+            ]
+        UInt32 w -> pure . UInt64 $ fromIntegral w
+        UInt64 w -> pure $ UInt64 w
 
       changeUInt :: (UInt -> Term) -> (Integer -> Integer) -> UInt -> Gen Term
       changeUInt tint f (UIntSmall w) = elements

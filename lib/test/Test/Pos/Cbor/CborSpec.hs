@@ -400,6 +400,8 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
                 binaryTest @(HashMap Int Int)
                 binaryTest @(Set Int)
                 binaryTest @(HashSet Int)
+                binaryTest @ByteString
+                binaryTest @Text
 
         describe "Types" $ do
           -- 100 is not enough to catch some bugs (e.g. there was a bug with

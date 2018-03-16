@@ -10,6 +10,7 @@ module Types
     , Action (..)
     , WalletState (..)
     , wallets
+    , walletsPass
     , accounts
     , addresses
     , transactions
@@ -23,7 +24,8 @@ import           Universum
 
 import           Control.Lens (makeLenses)
 
-import           Cardano.Wallet.API.V1.Types (Account, Wallet, WalletAddress,Transaction)
+import           Cardano.Wallet.API.V1.Types (Account, SpendingPassword, Transaction, Wallet,
+                                              WalletAddress)
 
 import           Error
 
@@ -57,6 +59,7 @@ data Action
     | GetWallet
     | DeleteWallet
     | UpdateWallet
+    | UpdateWalletPass
 
     | PostAccount
     | GetAccounts
@@ -86,6 +89,7 @@ type ActionProbabilities = [(Action, Probability)]
 -- keep track of some interesting information.
 data WalletState = WalletState
     { _wallets      :: [Wallet]
+    , _walletsPass  :: Map Wallet SpendingPassword
     , _accounts     :: [Account]
     , _addresses    :: [WalletAddress]
     , _transactions :: [(Account, Transaction)]

@@ -10,23 +10,24 @@ import           Data.Coerce (coerce)
 import           Data.List (delete)
 import           Data.List.NonEmpty (fromList)
 
-import           Control.Lens (each, filtered, (+~), (<>~))
+import           Control.Lens ((+~), (<>~), (?~), each, filtered, at)
 import           Test.QuickCheck (Gen, arbitrary, elements, frequency, generate)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
 import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, AccountUpdate (..),
                                               AddressValidity (..), AssuranceLevel (..),
                                               EstimatedFees (..), NewAccount (..), NewAddress (..),
-                                              NewWallet (..), Payment (..),
+                                              NewWallet (..), PasswordUpdate (..), Payment (..),
                                               PaymentDistribution (..), PaymentSource (..),
-                                              Transaction (..), V1 (..), Wallet (..),
-                                              WalletAddress (..), WalletId, WalletOperation (..),
-                                              WalletUpdate (..))
+                                              SpendingPassword, Transaction (..), V1 (..),
+                                              Wallet (..), WalletAddress (..), WalletId,
+                                              WalletOperation (..), WalletUpdate (..))
 
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
 
 import           Pos.Core (mkCoin)
+import           Pos.Util (maybeThrow)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import           Error
@@ -56,8 +57,9 @@ runAction
     -> m WalletState
 -- Wallets
 runAction wc ws  PostWallet = do
-    newWall <-  liftIO $ generate generateNewWallet
-    result  <-  respToRes $ postWallet wc newWall
+    newPassword <- liftIO $ generate arbitrary
+    newWall     <- liftIO $ generate $ generateNewWallet newPassword
+    result      <- respToRes $ postWallet wc newWall
 
     checkInvariant
         (walBalance result == minBound)
@@ -66,12 +68,13 @@ runAction wc ws  PostWallet = do
     -- Modify wallet state accordingly.
     pure $ ws
         & wallets    <>~ [result]
+        & walletsPass . at result ?~ newPassword
         & actionsNum +~ 1
   where
-    generateNewWallet =
+    generateNewWallet spendPass =
         NewWallet
             <$> arbitrary
-            <*> pure Nothing
+            <*> pure (Just spendPass)
             <*> arbitrary
             <*> pure "Wallet"
             <*> pure CreateWallet
@@ -149,6 +152,40 @@ runAction wc ws UpdateWallet = do
     -- Modify wallet state accordingly.
     pure $ ws
         & wallets . each . filtered (== wallet) .~ result
+        & actionsNum +~ 1
+
+runAction wc ws UpdateWalletPass = do
+
+    let localWallets = ws ^. wallets
+
+    -- The precondition is that we need to have wallets.
+    guard (not (null localWallets))
+
+    -- We choose from the existing wallets.
+    wallet  <-  pickRandomElement localWallets
+
+    let walletId = walId wallet
+
+    -- Get the old wallet password.
+    let oldWalletPass :: Maybe SpendingPassword
+        oldWalletPass = ws ^. walletsPass . at wallet
+
+    walletPass  <- maybeThrow (WalletPassMissing wallet) oldWalletPass
+    newPassword <- liftIO $ generate arbitrary
+
+    -- Create a password update.
+    let newPasswordUpdate =
+            PasswordUpdate
+                { pwdOld = walletPass
+                , pwdNew = newPassword
+                }
+
+    result  <-  respToRes $ updateWalletPassword wc walletId newPasswordUpdate
+
+    -- Modify wallet state accordingly.
+    pure $ ws
+        & wallets . each . filtered (== wallet) .~ result
+        & walletsPass . at wallet ?~ newPassword
         & actionsNum +~ 1
 
 -- Accounts

@@ -24,6 +24,7 @@ data WalletTestError
     | InvalidProbabilityDistr
 
     | WalletBalanceNotZero Wallet
+    | WalletPassMissing Wallet
     | LocalWalletDiffers Wallet
     | LocalWalletsDiffers [Wallet]
 
@@ -51,6 +52,7 @@ instance Buildable WalletTestError where
     -- ^ TODO (ks): A proper instance
     build InvalidProbabilityDistr         = bprint "The probability distribution should be between 1 - 100."
     build (WalletBalanceNotZero    w)     = bprint ("Wallet balance is not zero - ("%stext%")") (show w)
+    build (WalletPassMissing       w)     = bprint ("Missing wallet pass - ("%stext%")") (show w)
     build (LocalWalletDiffers      w)     = bprint ("Local wallet differs - ("%stext%")") (show w)
     build (LocalWalletsDiffers     w)     = bprint ("Local wallets differs - ("%stext%")") (show w)
 

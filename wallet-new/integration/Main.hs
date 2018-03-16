@@ -31,7 +31,7 @@ main = do
     let walletClient :: forall m. WalletClient m
         walletClient = error "Missing implementation for client!"
 
-    let walletState = WalletState mempty mempty mempty mempty 0
+    let walletState = WalletState mempty mempty mempty mempty mempty 0
 
     -- We throw exception if the value is invalid.
     actionDistr <- either throwM pure actionDistribution

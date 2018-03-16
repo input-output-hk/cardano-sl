@@ -13,6 +13,7 @@ module Pos.Diffusion.Full.Block
 
 import           Universum
 
+import qualified Control.Concurrent.STM as Conc
 import           Control.Exception.Safe (Exception (..))
 import           Control.Lens (to)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
@@ -36,7 +37,8 @@ import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              EnqueueMsg, ListenerSpec, MkListeners (..),
                                              MsgType (..), NodeId, Origin (..), OutSpecs,
-                                             constantListeners, waitForConversations)
+                                             constantListeners, waitForConversations,
+                                             waitForDequeues)
 import           Pos.Core (HeaderHash, bvdSlotDuration, headerHash, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
@@ -84,13 +86,13 @@ instance Exception BlockNetLogicException where
 -- | Expects sending message to exactly one node. Receives result or
 -- fails if no result was obtained (no nodes available, timeout, etc).
 enqueueMsgSingle ::
-       ( MonadThrow m )
-    => (t2 -> (t1 -> t -> NonEmpty x) -> m (Map NodeId (m b)))
+       ( MonadThrow m, MonadIO m )
+    => (t2 -> (t1 -> t -> NonEmpty x) -> m (Map NodeId (Conc.TVar (OQ.PacketStatus b))))
     -> t2
     -> x
     -> m b
 enqueueMsgSingle enqueue msg conv = do
-    results <- enqueue msg (\_ _ -> one conv) >>= waitForConversations
+    results <- enqueue msg (\_ _ -> one conv) >>= waitForConversations . waitForDequeues
     case toList results of
         [] ->      throwM $ DialogUnexpected $
             "enqueueMsgSingle: contacted no peers"
@@ -282,14 +284,15 @@ requestTip
     => EnqueueMsg d
     -> (BlockHeader -> NodeId -> d t)
     -> d (Map NodeId (d t))
-requestTip enqueue k = enqueue (MsgRequestBlockHeaders Nothing) $ \nodeId _ -> pure . Conversation $
-    \(conv :: ConversationActions MsgGetHeaders MsgHeaders m) -> do
-        logDebug "Requesting tip..."
-        send conv (MsgGetHeaders [] Nothing)
-        received <- recvLimited conv
-        case received of
-            Just headers -> handleTip nodeId headers
-            Nothing      -> throwM $ DialogUnexpected "peer didnt' respond with tips"
+requestTip enqueue k = fmap waitForDequeues $
+    enqueue (MsgRequestBlockHeaders Nothing) $ \nodeId _ -> pure . Conversation $
+        \(conv :: ConversationActions MsgGetHeaders MsgHeaders m) -> do
+            logDebug "Requesting tip..."
+            send conv (MsgGetHeaders [] Nothing)
+            received <- recvLimited conv
+            case received of
+                Just headers -> handleTip nodeId headers
+                Nothing      -> throwM $ DialogUnexpected "peer didnt' respond with tips"
   where
     handleTip nodeId (MsgHeaders (NewestFirst (tip:|[]))) = do
         logDebug $ sformat ("Got tip "%shortHashF%", processing") (headerHash tip)
@@ -309,7 +312,7 @@ announceBlockHeader
     -> d (Map NodeId (d ()))
 announceBlockHeader logic enqueue header =  do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
-    enqueue (MsgAnnounceBlockHeader OriginSender) (\addr _ -> announceBlockDo addr)
+    waitForDequeues <$> enqueue (MsgAnnounceBlockHeader OriginSender) (\addr _ -> announceBlockDo addr)
   where
     announceBlockDo nodeId = pure $ Conversation $ \cA -> do
         -- TODO figure out what this security stuff is doing and judge whether
@@ -463,8 +466,8 @@ handleGetBlocks logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
             Right hashes -> do
                 logDebug $ sformat
                     ("handleGetBlocks: started sending "%int%
-                     " blocks to "%build%" one-by-one: "%listJson)
-                    (length hashes) nodeId hashes
+                     " blocks to "%build%" one-by-one")
+                    (length hashes) nodeId 
                 for_ hashes $ \hHash ->
                     getBlock logic hHash >>= \case
                         Just b -> send conv $ MsgBlock b

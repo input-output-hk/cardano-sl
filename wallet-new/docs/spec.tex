@@ -217,7 +217,7 @@ restriction $f \restrictrange a$.
 
 \subsubsection{Domain Exclusion}
 
-It is convenient to use an operator $f \restrictdom s$, that restricts the
+It is convenient to use an operator $f \subtractdom s$, that restricts the
 domain of the function to \emph{exclude} elements of a given set. This is a
 normal function domain restriction but with the membership condition inverted.
 So we can use either of the following definitions.
@@ -677,7 +677,7 @@ Putting everything back together, and defining $utxo^-$ for symmetry, we get
 \end{split}
 \end{equation*}
 
-\section{Prefiltering}
+\section{Database implementation considerations}
 \label{sec:prefiltering}
 
 The $\mathsf{applyBlock} ~ b$ operation is problematic in a setting where it is
@@ -1011,6 +1011,9 @@ Since rollbacks are relatively rare (especially having to roll back far), it
 would be fine to store this information on disk rather than in memory, and hence
 these memory requirements are no big deal at all. Probably the best engineering
 trade-off will be to store a few checkpoints in memory and the rest on disk.
+
+\todo[inline]{Check storage requirements with persistent data structures and sharing,
+should be something like a log cost for each change}
 
 \subsection{Incremental balance computation and prefiltering}
 

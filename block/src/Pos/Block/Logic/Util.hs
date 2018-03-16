@@ -76,7 +76,7 @@ lcaWithMainChainSuffix headers = OldestFirst <$> go (getOldestFirst headers)
     go (bh:rest) = do
         inMain <- isBlockInMainChain (headerHash bh)
         case inMain of
-          False -> pure rest
+          False -> pure (bh : rest)
           True  -> go rest
 
 -- | Calculate chain quality using slot of the block which has depth =

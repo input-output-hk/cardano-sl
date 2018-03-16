@@ -271,7 +271,7 @@ blockDownloadStreamBenchmarks serverAddress client =
 
   where
     streamParams :: IO (HeaderHash, [HeaderHash])
-    streamParams = pure (someHash, [])
+    streamParams = pure (someHash, [someHash])
 
 runBlockDownloadBenchmark :: Criterion.Mode -> NodeId -> Diffusion Production -> IO ()
 runBlockDownloadBenchmark mode serverAddress client =

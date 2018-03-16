@@ -50,7 +50,7 @@ import           System.Wlog (HasLoggerName, WithLogger, logInfo, logWarning, mo
 
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core (ChainDifficulty, HasConfiguration, HasDifficulty (..),
+import           Pos.Core (Address, ChainDifficulty, HasConfiguration, HasDifficulty (..),
                            HasProtocolConstants, HeaderHash, Timestamp, blkSecurityParam,
                            genesisHash, headerHash, headerSlotL, timestampToPosix)
 import           Pos.Core.Block (BlockHeader (..), getBlockHeader, mainBlockTxPayload)
@@ -72,22 +72,21 @@ import           Pos.Util.LogSafe (buildSafe, logErrorSP, logInfoSP, logWarningS
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens (..), getKeys)
-import           Pos.Wallet.Web.ClientTypes (Addr, CId, CTxMeta (..), CWAddressMeta (..), Wal,
-                                             addrMetaToAccount, encToCId)
+import           Pos.Wallet.Web.ClientTypes (CId, CTxMeta (..), Wal, encToCId)
 import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo,
                                                PtxCondition (PtxApplying, PtxInNewestBlocks))
-import           Pos.Wallet.Web.State (CustomAddressType (..), WalletDB, WalletDbReader,
-                                       WalletSnapshot, WalletTip (..))
+import           Pos.Wallet.Web.State (CustomAddressType (..), WAddressMeta (..), WalletDB,
+                                       WalletDbReader, WalletSnapshot, WalletTip (..))
 import qualified Pos.Wallet.Web.State as WS
 import qualified Pos.Wallet.Web.State.State as WS
 import           Pos.Wallet.Web.Tracking.Decrypt (THEntryExtra (..), buildTHEntryExtra,
                                                   eskToWalletDecrCredentials, isTxEntryInteresting,
                                                   selectOwnAddresses)
-import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..),
-                                                   VoidModifier, deleteAndInsertIMM,
-                                                   deleteAndInsertMM, deleteAndInsertVM,
-                                                   indexedDeletions, sortedInsertions)
+import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), VoidModifier,
+                                                   deleteAndInsertIMM, deleteAndInsertMM,
+                                                   deleteAndInsertVM, indexedDeletions,
+                                                   sortedInsertions)
 
 type BlockLockMode ctx m =
      ( WithLogger m
@@ -232,14 +231,14 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
         -- assuming that transactions are not created until syncing is complete
         ptxBlkInfo = const Nothing
 
-        rollbackBlock :: [(CId Addr, HeaderHash)] -> Blund -> CAccModifier
-        rollbackBlock dbUsed (b, u) =
-            trackingRollbackTxs encSK dbUsed mDiff blkHeaderTs $
+        rollbackBlock :: [(Address, HeaderHash)] -> Blund -> CAccModifier
+        rollbackBlock allAddresses (b, u) =
+            trackingRollbackTxs encSK allAddresses mDiff blkHeaderTs $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
-        applyBlock :: [(CId Addr, HeaderHash)] -> Blund -> m CAccModifier
-        applyBlock dbUsed (b, u) = pure $
-            trackingApplyTxs encSK dbUsed mDiff blkHeaderTs ptxBlkInfo $
+        applyBlock :: [(Address, HeaderHash)] -> Blund -> m CAccModifier
+        applyBlock allAddresses (b, u) = pure $
+            trackingApplyTxs encSK allAddresses mDiff blkHeaderTs ptxBlkInfo $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
         computeAccModifier :: BlockHeader -> m CAccModifier
@@ -301,9 +300,9 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
             (maybe (error "No genesis block corresponding to header hash") pure <=< DB.getHeader)
 
 constructAllUsed
-    :: [(CId Addr, HeaderHash)]
-    -> VoidModifier (CId Addr, HeaderHash)
-    -> HashSet (CId Addr)
+    :: [(Address, HeaderHash)]
+    -> VoidModifier (Address, HeaderHash)
+    -> HashSet Address
 constructAllUsed dbUsed modif =
     HS.map fst $
     getKeys $
@@ -318,7 +317,7 @@ constructAllUsed dbUsed modif =
 trackingApplyTxs
     :: HasConfiguration
     => EncryptedSecretKey                     -- ^ Wallet's secret key
-    -> [(CId Addr, HeaderHash)]               -- ^ All used addresses from db along with their HeaderHashes
+    -> [(Address, HeaderHash)]               -- ^ All used addresses from db along with their HeaderHashes
     -> (BlockHeader -> Maybe ChainDifficulty) -- ^ Function to determine tx chain difficulty
     -> (BlockHeader -> Maybe Timestamp)       -- ^ Function to determine tx timestamp in history
     -> (BlockHeader -> Maybe PtxBlockInfo)    -- ^ Function to determine pending tx's block info
@@ -340,7 +339,7 @@ trackingApplyTxs (eskToWalletDecrCredentials -> wdc) dbUsed getDiff getTs getPtx
 
             addedHistory = maybe camAddedHistory (flip DL.cons camAddedHistory) (isTxEntryInteresting thee)
 
-            usedAddrs = map (cwamId . snd) theeOutputs
+            usedAddrs = map (WS._wamAddress . snd) theeOutputs
             changeAddrs = evalChange
                               (constructAllUsed dbUsed camUsed)
                               (map snd theeInputs)
@@ -368,7 +367,7 @@ trackingApplyTxs (eskToWalletDecrCredentials -> wdc) dbUsed getDiff getTs getPtx
 trackingRollbackTxs
     :: HasConfiguration
     => EncryptedSecretKey                      -- ^ Wallet's secret key
-    -> [(CId Addr, HeaderHash)]                -- ^ All used addresses from db along with their HeaderHashes
+    -> [(Address, HeaderHash)]                -- ^ All used addresses from db along with their HeaderHashes
     -> (BlockHeader -> Maybe ChainDifficulty)  -- ^ Function to determine tx chain difficulty
     -> (BlockHeader -> Maybe Timestamp)        -- ^ Function to determine tx timestamp in history
     -> [(TxAux, TxUndo, BlockHeader)]          -- ^ Txs of blocks and corresponding header hash
@@ -390,7 +389,7 @@ trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) dbUsed getDiff getTs txs
 
         -- Rollback isn't needed, because we don't use @utxoGet@
         -- (undo contains all required information)
-        let usedAddrs = map (cwamId . snd) theeOutputs
+        let usedAddrs = map (WS._wamAddress . snd) theeOutputs
             changeAddrs =
                 evalChange
                     (constructAllUsed dbUsed camUsed)
@@ -484,21 +483,22 @@ rollbackModifierFromWallet db wid newTip CAccModifier{..} = do
 -- which of them is really "change".
 -- There is an option to treat both of them as "change", but it seems to be more puzzling.
 evalChange
-    :: HashSet (CId Addr)
-    -> [CWAddressMeta] -- ^ Own input addresses of tx
-    -> [CWAddressMeta] -- ^ Own outputs addresses of tx
+    :: HashSet Address
+    -> [WAddressMeta] -- ^ Own input addresses of tx
+    -> [WAddressMeta] -- ^ Own outputs addresses of tx
     -> Bool            -- ^ Whether all tx's outputs are our own
-    -> [CId Addr]
+    -> [Address]
 evalChange allUsed inputs outputs allOutputsOur
     | [] <- inputs = [] -- It means this transaction isn't our outgoing transaction.
     | inp : _ <- inputs =
-        let srcAccount = addrMetaToAccount inp in
+        let srcAccount = inp ^. WS.wamAccount in
         -- Apply the first point.
-        let addrFromSrcAccount = HS.fromList $ map cwamId $ filter ((== srcAccount) . addrMetaToAccount) outputs in
+        let addrFromSrcAccount = HS.fromList $ map WS._wamAddress
+              $ filter ((== srcAccount) . view WS.wamAccount) outputs in
         -- Apply the second point.
         let potentialChange = addrFromSrcAccount `HS.difference` allUsed in
         -- Apply the third point.
-        if allOutputsOur && potentialChange == HS.fromList (map cwamId outputs) then []
+        if allOutputsOur && potentialChange == HS.fromList (map WS._wamAddress outputs) then []
         else HS.toList potentialChange
 
 setLogger :: HasLoggerName m => m a -> m a

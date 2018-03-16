@@ -1,6 +1,10 @@
-import           Spec (spec)
-import           Test.Hspec (hspec)
+import qualified Migrations
+import           Test.Tasty
 import           Universum
 
 main :: IO ()
-main = hspec spec
+main = defaultMain tests
+
+tests :: TestTree
+tests = testGroup "Unit Tests"
+  [ Migrations.tests ]

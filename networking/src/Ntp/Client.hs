@@ -9,15 +9,15 @@
 -- | This module implements functionality of NTP client.
 
 module Ntp.Client
-    ( spawnNtpClient
-    , NtpClientSettings (..)
+    ( NtpClientSettings (..)
     , NtpStatus (..)
+    , runNtpClient
     , ntpSingleShot
     ) where
 
 import           Universum
 
-import           Control.Concurrent.Async (withAsync, concurrently, forConcurrently, race)
+import           Control.Concurrent.Async (withAsync, async, concurrently, forConcurrently, race)
 import           Control.Concurrent.STM (TVar, check, modifyTVar')
 import           Control.Exception.Safe (Exception, catchAny, handleAny)
 import           Control.Lens ((%=), (.=), _Just)
@@ -310,6 +310,15 @@ spawnNtpClient settings ncStatus =
             Just addr -> do
                 logInfo $ sformat ("Host "%shown%" is resolved: "%shown) host addr
                 pure $ Just addr
+
+
+-- | Run Ntp client in a seprate thread, return a mutable cell which holds
+-- `NtpStatus`.
+runNtpClient :: MonadIO m => NtpClientSettings -> m (TVar NtpStatus)
+runNtpClient ntpSettings = do
+    ntpStatus <- newTVarIO NtpSyncUnavailable
+    _ <- liftIO $ async (spawnNtpClient ntpSettings ntpStatus)
+    return ntpStatus
 
 -- | Start client, wait for a while so that most likely it ticks once
 -- and stop it.

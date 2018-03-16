@@ -33,7 +33,8 @@ mkHttpClient baseUrl manager = WalletClient
     , postWallet
         = run . postWalletR
     , getWalletIndexExplicitFilterSorts
-        = \filw filc so mp -> run . getWalletIndexExplicitFilterSortsR filw filc so mp
+        = \mp mpp mfwid mfbalance sorts -> run $
+            getWalletIndexExplicitFilterSortsR mp mpp mfwid mfbalance sorts
     , updateWalletPassword
         = \x -> run . updateWalletPasswordR x
     , deleteWallet

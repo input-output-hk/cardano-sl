@@ -1151,4 +1151,3 @@ type family ParamTypes xs where
             ':<>: 'ShowType ty
             ':<>: 'Text " are incompatible with this function."
         )
-

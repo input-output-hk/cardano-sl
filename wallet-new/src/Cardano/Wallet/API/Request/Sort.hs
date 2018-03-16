@@ -2,8 +2,8 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE GADTs                     #-}
-{-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE PolyKinds                 #-}
+{-# LANGUAGE RankNTypes                #-}
 
 module Cardano.Wallet.API.Request.Sort where
 
@@ -13,17 +13,18 @@ import           Universum
 import qualified Data.Text as T
 import           Data.Typeable
 import qualified Generics.SOP as SOP
-import           GHC.TypeLits (Symbol, KnownSymbol, symbolVal)
+import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (Request, rawQueryString)
 import           Servant
 import           Servant.Client
+import           Servant.Client.Core (appendToQueryString)
 import           Servant.Server.Internal
 
-import           Pos.Core as Core
 import           Cardano.Wallet.API.Indices
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
+import           Pos.Core as Core
 
 -- | Represents a sort operation on the data model.
 -- Examples:
@@ -39,16 +40,16 @@ data SortDirection
 
 renderSortDir :: SortDirection -> Text
 renderSortDir sd = case sd of
-    SortAscending -> "ASC"
+    SortAscending  -> "ASC"
     SortDescending -> "DESC"
 
 -- | A sort operation on an index @ix@ for a resource 'a'.
 data SortOperation ix a =
       SortByIndex SortDirection (Proxy ix)
-    -- ^ Standard sort by index (e.g. sort_on=balance).
+    -- ^ Standard sort by index (e.g. sort_by=balance).
 
 instance
-    ( StringToIndex sym ~ ix
+    ( IndexToQueryParam a ix ~ sym
     , KnownSymbol sym
     ) => ToHttpApiData (SortOperation ix a) where
     toQueryParam sop =
@@ -57,11 +58,9 @@ instance
                 mconcat
                     [ renderSortDir sortDir
                     , "["
-                    , key
+                    , toText (symbolVal (Proxy @sym))
                     , "]"
                     ]
-      where
-        key = toText (symbolVal (Proxy @sym))
 
 instance Show (SortOperations a) where
     show = show . flattenSortOperations
@@ -70,7 +69,7 @@ instance Show (SortOperations a) where
 -- the inner closure of 'SortOp'.
 data SortOperations a where
     NoSorts  :: SortOperations a
-    SortOp   :: (Indexable' a, IsIndexOf' a ix, ToIndex a ix, Typeable ix)
+    SortOp   :: (Indexable' a, IsIndexOf' a ix, ToIndex a ix, Typeable ix, KnownSymbol (IndexToQueryParam a ix))
              => SortOperation ix a
              -> SortOperations a
              -> SortOperations a
@@ -84,7 +83,7 @@ findMatchingSortOp NoSorts = Nothing
 findMatchingSortOp (SortOp (sop :: SortOperation ix a) rest) =
     case eqT @needle @ix of
         Just Refl -> pure sop
-        Nothing -> findMatchingSortOp rest
+        Nothing   -> findMatchingSortOp rest
 
 instance Show (SortOperation ix a) where
     show (SortByIndex dir _) = "SortByIndex[" <> show dir <> "]"
@@ -120,6 +119,8 @@ instance ( Indexable' a
          , ToIndex a ix
          , ToSortOperations ixs a
          , Typeable ix
+         , KnownSymbol sym
+         , IndexToQueryParam a ix ~ sym
          )
          => ToSortOperations (ix ': ixs) a where
     toSortOperations _ [] _     =
@@ -154,11 +155,16 @@ instance ( HasServer subApi ctx
         in route (Proxy :: Proxy subApi) context delayed
 
 -- | Parse the incoming HTTP query param into a 'SortOperation', failing if the input is not a valid operation.
-parseSortOperation :: forall a ix. (ToIndex a ix)
-                   => Proxy a
-                   -> Proxy ix
-                   -> (Text, Text)
-                   -> Either Text (SortOperation ix a)
+parseSortOperation
+    :: forall a ix sym
+    . ( ToIndex a ix
+      , IndexToQueryParam a ix ~ sym
+      , KnownSymbol sym
+      )
+    => Proxy a
+    -> Proxy ix
+    -> (Text, Text)
+    -> Either Text (SortOperation ix a)
 parseSortOperation _ ix@Proxy (key,value) = case parseQuery of
     Nothing -> Left "Not a valid sort."
     Just f  -> Right f
@@ -175,7 +181,6 @@ parseSortOperation _ ix@Proxy (key,value) = case parseQuery of
 
 instance
     ( HasClient m next
-    , HasClient m (DecomposeSortBy res params next)
     , KnownSymbols syms
     , SOP.All (ToIndex res) ixs
     , syms ~ ParamNames params
@@ -183,10 +188,17 @@ instance
     )
     => HasClient m (SortBy params res :> next) where
     type Client m (SortBy params res :> next) =
-        Client m (DecomposeSortBy res params next)
-    clientWithRoute pm _ =
-        clientWithRoute pm (Proxy @(DecomposeSortBy res params next))
-
-type DecomposeSortBy res params next =
-    DecomposeToQueryParams
-        SortOperation res (ParamNames params) (ParamTypes params) next
+        SortOperations res -> Client m next
+    clientWithRoute pm _ r s =
+        clientWithRoute pm (Proxy @next) (incorporate s r)
+      where
+        incorporate sops req =
+            case sops of
+                NoSorts ->
+                    req
+                SortOp (sop :: SortOperation ix res) rest ->
+                    incorporate rest $
+                        appendToQueryString
+                            (toText (symbolVal (Proxy @(IndexToQueryParam res ix))))
+                            (Just (toQueryParam sop))
+                            req

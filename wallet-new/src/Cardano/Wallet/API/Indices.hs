@@ -12,6 +12,7 @@ import           Universum
 
 import           Cardano.Wallet.API.V1.Types
 import           Data.String.Conv (toS)
+import           GHC.TypeLits
 import qualified Pos.Core as Core
 
 import           Data.IxSet.Typed (Indexable (..), IsIndexOf, IxSet, ixFun, ixList)
@@ -41,11 +42,26 @@ type family IndicesOf a :: [*] where
     IndicesOf Transaction = TransactionIxs
     IndicesOf Account     = AccountIxs
 
--- | This type family imposes a bidirectional mapping between symbols and
--- their index types. This allows you to go from a symbol to the type:
-type family StringToIndex sym = r | r -> sym  where
-    StringToIndex "balance" = Core.Coin
-    StringToIndex "wallet_id" = WalletId
+-- | This type family allows you to recover the query parameter if you know
+-- the resource and index into that resource.
+type family IndexToQueryParam resource ix where
+    IndexToQueryParam Wallet  Core.Coin    = "balance"
+    IndexToQueryParam Wallet  WalletId     = "id"
+    IndexToQueryParam Account AccountIndex = "id"
+
+    -- | This is the fallback case. It will trigger a type error if you use
+    -- 'IndexToQueryParam' with a pairing that is invalid. We want this to
+    -- trigger early, so that we don't get Weird Errors later on with stuck
+    -- types.
+    IndexToQueryParam res ix = TypeError (
+        'Text "You used `IndextoQueryParam' with the following resource:"
+        ':$$: 'Text "    " ':<>: 'ShowType res
+        ':$$: 'Text "and index type:"
+        ':$$: 'Text "    " ':<>: 'ShowType ix
+        ':$$: 'Text "But no instance for that type was defined."
+        ':$$: 'Text "Perhaps you mismatched a resource and an index?"
+        ':$$: 'Text "Or, maybe you need to add a type instance to `IndexToQueryParam'."
+        )
 
 -- | A variant of an 'IxSet' where the indexes are determined statically by the resource type.
 type IxSet' a        = IxSet (IndicesOf a) a

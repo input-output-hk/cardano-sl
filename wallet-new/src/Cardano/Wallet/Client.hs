@@ -68,7 +68,7 @@ data WalletClient m
          -> Maybe PerPage
          -> Maybe (FilterOperation WalletId Wallet)
          -> Maybe (FilterOperation Core.Coin Wallet)
-         -> Maybe (SortOperation Core.Coin Wallet)
+         -> SortOperations Wallet
          -> Resp m [Wallet]
     , updateWalletPassword
          :: WalletId -> PasswordUpdate -> Resp m Wallet
@@ -117,11 +117,10 @@ getWalletIndexFilterSorts
     -> SortOperations Wallet
     -> Resp m [Wallet]
 getWalletIndexFilterSorts wc mp mpp fops sops =
-    getWalletIndexExplicitFilterSorts wc mp mpp mwalletid mcoin mbalance
+    getWalletIndexExplicitFilterSorts wc mp mpp mwalletid mcoin sops
   where
     mwalletid = findMatchingFilterOp fops
     mcoin = findMatchingFilterOp fops
-    mbalance = findMatchingSortOp sops
 
 getAddressIndex :: WalletClient m -> Resp m [Address]
 getAddressIndex wc = getAddressIndexPaginated wc Nothing Nothing

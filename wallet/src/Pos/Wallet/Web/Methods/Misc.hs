@@ -176,16 +176,16 @@ syncProgress = do
 -- NTP (Network Time Protocol) based time difference
 ----------------------------------------------------------------------------
 
-localTimeDifference :: MonadIO m => TVar NtpStatus -> m (Maybe Integer)
+localTimeDifference :: MonadIO m => TVar NtpStatus -> m Integer
 localTimeDifference ntpStatus = diff <$> readTVarIO ntpStatus
   where
-    diff :: NtpStatus -> Maybe Integer
+    diff :: NtpStatus -> Integer
     diff = \case
-        NtpSyncOk -> Just 0
+        NtpSyncOk -> 0
         -- `NtpSyncOk` considered already a `timeDifferenceWarnThreshold`
         -- so that we can return 0 here to show there is no difference in time
-        NtpDesync diff' -> Just $ toMicroseconds diff'
-        NtpSyncUnavailable -> Nothing
+        NtpDesync diff' -> toMicroseconds diff'
+        NtpSyncUnavailable -> 0
 
 ----------------------------------------------------------------------------
 -- Reset

@@ -85,7 +85,6 @@ library
                      , ether
                      , ekg-core
                      , exceptions
-                     , safe-exceptions
                      , formatting
                      , generic-arbitrary
                      , lens

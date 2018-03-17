@@ -247,6 +247,7 @@ executable cardano-keygen
                      , random >= 1.1
                      , safe-exceptions
                      , serokell-util >= 0.1
+                     , silently
                      , text
                      , universum >= 0.1
                      , unordered-containers

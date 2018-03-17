@@ -16,12 +16,12 @@ module UTxO.Crypto (
   , DelegatedTo(..)
   ) where
 
-import Universum
-import Formatting (bprint, build, (%))
 import qualified Data.Text.Buildable
+import           Formatting (bprint, build, (%))
+import           Universum
 
-import Pos.Core
-import Pos.Crypto
+import           Pos.Core
+import           Pos.Crypto
 
 {-------------------------------------------------------------------------------
   Keypairs

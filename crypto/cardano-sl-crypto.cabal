@@ -55,7 +55,6 @@ library
                      , cardano-sl-binary
                      , cardano-sl-util
                      , cborg
-                     , containers
                      , cryptonite
                      , cryptonite-openssl
                      , data-default
@@ -72,13 +71,10 @@ library
                      , safe-exceptions
                      , scrypt
                      , serokell-util
-                     , stm
                      , text
                      , text-format
-                     , transformers
                      , universum
                      , unordered-containers
-                     , vector
 
   default-language:    Haskell2010
 

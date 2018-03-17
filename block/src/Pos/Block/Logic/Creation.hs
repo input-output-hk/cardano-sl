@@ -41,8 +41,8 @@ import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Crypto (SecretKey)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.Delegation (DelegationVar, DlgPayload (..), ProxySKBlockInfo,
-                                 clearDlgMemPool, getDlgMempool)
+import           Pos.Delegation (DelegationVar, DlgPayload (..), ProxySKBlockInfo, clearDlgMemPool,
+                                 getDlgMempool)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Lrc (HasLrcContext, LrcModeFull, lrcSingleShot)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
@@ -54,7 +54,7 @@ import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.Ssc.State (sscResetLocal)
 import           Pos.StateLock (Priority (..), StateLock, StateLockMetrics, modifyStateLock)
 import           Pos.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem, clearTxpMemPool,
-                          txGetPayload)
+                          txGetPayload, withTxpLocalData)
 import           Pos.Txp.Base (emptyTxPayload)
 import           Pos.Update (UpdateContext)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
@@ -357,7 +357,7 @@ applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
                 pure blockToApply
     clearMempools :: m ()
     clearMempools = do
-        clearTxpMemPool
+        withTxpLocalData clearTxpMemPool
         sscResetLocal
         clearUSMemPool
         clearDlgMemPool

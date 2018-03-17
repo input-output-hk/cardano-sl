@@ -13,10 +13,10 @@ import           Data.Default (def)
 import           Data.Reflection (give)
 
 import           Pos.Core (ApplicationName (..), Block, BlockHeader (..), BlockVersion (..),
-                           BlockVersionData (..), ExtraBodyData, ExtraHeaderData,
-                           GenericBlock (..), GenericBlockHeader (..), HeaderHash,
-                           SoftforkRule (..), SoftwareVersion (..), StakeholderId,
-                           TxFeePolicy (..), unsafeCoinPortionFromDouble)
+                           BlockVersionData (..), ExtraBodyData, ExtraHeaderData, GenericBlock (..),
+                           GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
+                           SoftwareVersion (..), StakeholderId, TxFeePolicy (..),
+                           unsafeCoinPortionFromDouble)
 import           Pos.Core.Block.Main
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
 import           Pos.Core.Delegation (DlgPayload (..))
@@ -150,7 +150,7 @@ emptySscPayload = CertificatesPayload
 
 emptyDlgPayload :: DlgPayload
 emptyDlgPayload = UnsafeDlgPayload
-    { getDlgPayload = []
+    { getDlgPayload = mempty
     }
 
 emptyUpdatePayload :: UpdatePayload

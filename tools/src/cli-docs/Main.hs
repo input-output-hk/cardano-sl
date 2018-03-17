@@ -39,7 +39,7 @@ getCLIDocsOptions pathToMarkdownFile = execParser programInfo
     programInfo = info (helper <*> versionOption <*> optionsParser) $
         fullDesc <> progDesc "Generate Markdown chapter for cardanodocs.com."
                  <> header "Tool to generate CLI-docs for Cardano SL executable files."
-                 <> footer ("Assumed that this program will run on Travis CI. " <>
+                 <> footer ("Assumed that this program will run on CI. " <>
                             "Produced file '" <> pathToMarkdownFile <> "' will be " <>
                             "renamed in a chapter and pushed in cardanodocs.com repository.")
 

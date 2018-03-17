@@ -71,10 +71,12 @@ type ReverseTrans = HashMap StakeholderId (HashSet StakeholderId, HashSet Stakeh
 -- Takes a set of dlg edge actions to apply and returns compensations
 -- to dlgTrans and dlgTransRev parts of delegation db. Should be
 -- executed under shared Gstate DB lock.
+--
+-- eActions list passed must be effectively a set.
 calculateTransCorrections
     :: forall m.
        (MonadUnliftIO m, MonadDBRead m, WithLogger m)
-    => HashSet DlgEdgeAction -> m SomeBatchOp
+    => [DlgEdgeAction] -> m SomeBatchOp
 calculateTransCorrections eActions = do
     -- Get the changeset and convert it to transitive ops.
     changeset <- transChangeset
@@ -173,7 +175,7 @@ calculateTransCorrections eActions = do
     transChangeset :: m TransChangeset
     transChangeset = do
         let xPoints :: [StakeholderId]
-            xPoints = map dlgEdgeActionIssuer $ HS.toList eActions
+            xPoints = map dlgEdgeActionIssuer eActions
 
         -- Step 1.
         affected <- mconcat <$> mapM calculateLocalAf xPoints
@@ -258,8 +260,7 @@ calculateTransCorrections eActions = do
             eActionsHM =
                 emptyCedeModifier &
                     cmPskMods .~
-                        (HM.fromList $ map (\x -> (dlgEdgeActionIssuer x, x))
-                                           (HS.toList eActions))
+                        (HM.fromList $ map (\x -> (dlgEdgeActionIssuer x, x)) eActions)
 
         in void $ StateT $ \s -> evalMapCede eActionsHM $ runStateT (loop iSId) s
 
@@ -435,7 +436,7 @@ dlgApplyBlocks dlgBlunds = do
         -- So we delete all these guys.
         let edgeActions = map (DlgEdgeDel . addressHash . pskIssuerPk) duPsks
         let edgeOp = SomeBatchOp $ map GS.PskFromEdgeAction edgeActions
-        transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
+        transCorrections <- calculateTransCorrections edgeActions
         -- we also should delete all people who posted previous epoch
         let postedOp =
                 SomeBatchOp $ map GS.DelPostedThisEpoch $
@@ -449,7 +450,7 @@ dlgApplyBlocks dlgBlunds = do
             let issuers = map pskIssuerPk proxySKs
                 edgeActions = map pskToDlgEdgeAction proxySKs
                 postedThisEpoch = SomeBatchOp $ map (GS.AddPostedThisEpoch . addressHash) issuers
-            transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
+            transCorrections <- calculateTransCorrections edgeActions
             let batchOps =
                     SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <>
                     transCorrections <>
@@ -482,12 +483,12 @@ dlgRollbackBlocks dlgBlunds = do
         let proxySKs = getDlgPayload payload
             issuers = map pskIssuerPk proxySKs
             backDeleted = issuers \\ map pskIssuerPk duPsks
-            edgeActions = map (DlgEdgeDel . addressHash) backDeleted
-                       <> map DlgEdgeAdd duPsks
-        transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
-        let pskOp = SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections
+            edgeActions =
+                map (DlgEdgeDel . addressHash) backDeleted <> map DlgEdgeAdd duPsks
+        transCorrections <- calculateTransCorrections $ edgeActions
+        let pskOp = SomeBatchOp (map GS.PskFromEdgeAction $ edgeActions) <> transCorrections
         -- we should also delete issuers from "posted this epoch already"
-        let postedOp = SomeBatchOp $ map (GS.DelPostedThisEpoch . addressHash) issuers
+        let postedOp = SomeBatchOp $ map (GS.DelPostedThisEpoch . addressHash) $ toList issuers
         pure $ pskOp <> postedOp
 
 -- | Normalizes the memory state after the rollback. Must be called

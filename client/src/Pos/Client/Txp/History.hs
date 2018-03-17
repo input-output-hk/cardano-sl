@@ -57,7 +57,8 @@ import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure
                           TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..),
                           UtxoLookup, UtxoM, UtxoModifier, applyTxToUtxo, buildUtxo, evalUtxoM,
                           flattenTxPayload, genesisUtxo, getLocalTxs, runUtxoM, topsortTxs,
-                          txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet, utxoToLookup)
+                          txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet, utxoToLookup,
+                          withTxpLocalData)
 import           Pos.Util (eitherToThrow, maybeThrow)
 import           Pos.Util.Util (HasLens')
 
@@ -240,7 +241,7 @@ getLocalHistoryDefault addrs = do
         topsortErr =
             TxpInternalError
                 "getLocalHistory: transactions couldn't be topsorted!"
-    localTxs <- getLocalTxs
+    localTxs <- withTxpLocalData getLocalTxs
     let ltxs = map mapper localTxs
     topsorted <- maybeThrow topsortErr (topsortTxs (view _1) ltxs)
     utxoLookup <- utxoToLookup <$> buildUtxo mempty (map snd localTxs)

@@ -26,7 +26,7 @@ showProgramInfoIfRequired generatedJSON = void $ execParser programInfo
     programInfo = Opt.info (helper <*> versionOption) $
         fullDesc <> progDesc "Generate Swagger specification for Wallet web API."
                  <> header   "Cardano SL Wallet web API docs generator."
-                 <> footer   ("This program runs during 'cardano-sl' building on Travis CI. " <>
+                 <> footer   ("This program runs during 'cardano-sl' building on CI. " <>
                               "Generated file '" <> generatedJSON <> "' will be used to produce HTML documentation. " <>
                               "This documentation will be published at cardanodocs.com using 'update_wallet_web_api_docs.sh'.")
 

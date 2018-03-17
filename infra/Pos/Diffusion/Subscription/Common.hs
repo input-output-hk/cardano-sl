@@ -110,9 +110,9 @@ subscriptionListener oq nodeType = listenerConv @Void oq $ \__ourVerInfo nodeId 
         Just MsgSubscribe -> do
             let peers = simplePeers [(nodeType, nodeId)]
             bracket
-              (OQ.updatePeersBucket oq BucketSubscriptionListener (<> peers))
+              (liftIO $ OQ.updatePeersBucket oq BucketSubscriptionListener (<> peers))
               (\added -> when added $ do
-                void $ OQ.updatePeersBucket oq BucketSubscriptionListener (removePeer nodeId)
+                void $ liftIO $ OQ.updatePeersBucket oq BucketSubscriptionListener (removePeer nodeId)
                 logDebug $ sformat ("subscriptionListener: removed "%shown) nodeId)
               (\added -> when added $ do -- if not added, close the conversation
                   logDebug $ sformat ("subscriptionListener: added "%shown) nodeId
@@ -142,9 +142,9 @@ subscriptionListener1 oq nodeType = listenerConv @Void oq $ \_ourVerInfo nodeId 
     whenJust mbMsg $ \MsgSubscribe1 -> do
       let peers = simplePeers [(nodeType, nodeId)]
       bracket
-          (OQ.updatePeersBucket oq BucketSubscriptionListener (<> peers))
+          (liftIO $ OQ.updatePeersBucket oq BucketSubscriptionListener (<> peers))
           (\added -> when added $ do
-              void $ OQ.updatePeersBucket oq BucketSubscriptionListener (removePeer nodeId)
+              void $ liftIO $ OQ.updatePeersBucket oq BucketSubscriptionListener (removePeer nodeId)
               logDebug $ sformat ("subscriptionListener1: removed "%shown) nodeId)
           (\added -> when added $ do -- if not added, close the conversation
               logDebug $ sformat ("subscriptionListener1: added "%shown) nodeId

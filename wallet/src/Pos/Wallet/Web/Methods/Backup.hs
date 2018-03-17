@@ -18,6 +18,7 @@ import qualified Data.HashMap.Strict as HM
 import           Formatting (sformat, stext, (%))
 
 import           Pos.Client.KeyStorage (addSecretKey)
+import           Pos.Crypto (emptyPassphrase, firstHardened)
 import           Pos.Wallet.Web.Account (GenSeed (..), genUniqueAccountId)
 import           Pos.Wallet.Web.Backup (AccountMetaBackup (..), TotalBackup (..), WalletBackup (..),
                                         WalletMetaBackup (..), getWalletBackup)
@@ -25,22 +26,22 @@ import           Pos.Wallet.Web.ClientTypes (CAccountInit (..), CAccountMeta (..
                                              CId, CWallet, Wal, encToCId)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import qualified Pos.Wallet.Web.Methods.Logic as L
-import           Pos.Wallet.Web.State (AddressLookupMode (Ever), createAccount,
-                                       getAccountWAddresses, getWalletMeta)
+import           Pos.Wallet.Web.State (AddressLookupMode (Ever), askWalletDB, askWalletSnapshot,
+                                       createAccount, getAccountWAddresses, getWalletMeta,
+                                       getWalletSnapshot)
 import           Pos.Wallet.Web.Tracking (syncWalletOnImport)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
 import           Servant.API.ContentTypes (NoContent (..))
-
-import           Pos.Crypto (emptyPassphrase, firstHardened)
 
 
 type MonadWalletBackup ctx m = L.MonadWalletLogic ctx m
 
 restoreWalletFromBackup :: MonadWalletBackup ctx m => WalletBackup -> m CWallet
 restoreWalletFromBackup WalletBackup {..} = do
+    db <- askWalletDB
     let wId = encToCId wbSecretKey
-    wExists <- isJust <$> getWalletMeta wId
 
+    wExists <- isJust . flip getWalletMeta wId <$> askWalletSnapshot
     if wExists
         then do
             throwM $ RequestError "Wallet with id already exists"
@@ -52,18 +53,18 @@ restoreWalletFromBackup WalletBackup {..} = do
                 defaultAccAddrIdx = DeterminedSeed firstHardened
 
             addSecretKey wbSecretKey
-            -- If there are no existing accounts, then create one
             if null accList
                 then do
                     let accMeta = CAccountMeta { caName = "Initial account" }
                         accInit = CAccountInit { caInitWId = wId, caInitMeta = accMeta }
                     () <$ L.newAccountIncludeUnready True defaultAccAddrIdx emptyPassphrase accInit
-                else for_ accList $ \(idx, meta) -> do
-                    let aIdx = fromInteger $ fromIntegral idx
-                        seedGen = DeterminedSeed aIdx
-                    accId <- genUniqueAccountId seedGen wId
-                    createAccount accId meta
-
+                else do
+                    for_ accList $ \(idx, meta) -> do
+                        ws <- getWalletSnapshot db
+                        let aIdx = fromInteger $ fromIntegral idx
+                            seedGen = DeterminedSeed aIdx
+                        accId <- genUniqueAccountId ws seedGen wId
+                        createAccount db accId meta
             -- Restoring a wallet from backup may take a long time.
             -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
             void $ L.createWalletSafe wId wMeta False
@@ -72,8 +73,9 @@ restoreWalletFromBackup WalletBackup {..} = do
 
             -- Get wallet accounts and create default address for each account
             -- without any existing address
-            wAccIds <- getWalletAccountIds wId
-            for_ wAccIds $ \accId -> getAccountWAddresses Ever accId >>= \case
+            ws <- getWalletSnapshot db
+            let wAccIds = getWalletAccountIds ws wId
+            for_ wAccIds $ \accId -> case getAccountWAddresses ws Ever accId of
                 Nothing -> throwM $ InternalError "restoreWalletFromBackup: fatal: cannot find \
                                                   \an existing account of newly imported wallet"
                 Just [] -> void $ L.newAddress defaultAccAddrIdx emptyPassphrase accId
@@ -94,6 +96,7 @@ importWalletJSON (CFilePath (toString -> fp)) = do
 
 exportWalletJSON :: MonadWalletBackup ctx m => CId Wal -> CFilePath -> m NoContent
 exportWalletJSON wid (CFilePath (toString -> fp)) = do
-    wBackup <- TotalBackup <$> getWalletBackup wid
+    ws <- askWalletSnapshot
+    wBackup <- TotalBackup <$> getWalletBackup ws wid
     liftIO $ BSL.writeFile fp $ A.encode wBackup
     return NoContent

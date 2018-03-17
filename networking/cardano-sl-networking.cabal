@@ -66,6 +66,7 @@ Library
                       , attoparsec
                       , base
                       , containers
+                      , contravariant
                       , cryptonite
                       , binary >= 0.8
                       , bytestring
@@ -99,7 +100,6 @@ Library
                       , transformers
                       , transformers-base
                       , ekg-core
-                      , statistics
 
   hs-source-dirs:       src
   default-language:     Haskell2010
@@ -210,8 +210,8 @@ executable bench-receiver
 executable bench-log-reader
   main-is:             Main.hs
   other-modules:       LogReaderOptions
-  build-depends:       attoparsec
-                     , base == 4.*
+  build-depends:       base == 4.*
+                     , attoparsec
                      , cardano-sl-networking
                      , conduit
                      , conduit-extra

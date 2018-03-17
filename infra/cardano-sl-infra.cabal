@@ -165,7 +165,6 @@ library
                       , kademlia
                       , lens
                       , log-warper >= 1.0.3
-                      , monad-control
                       , mtl
                       , network-info
                       , network-transport

@@ -38,8 +38,8 @@ import qualified Pos.DB.GState.Common as GS
 import           Pos.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Slotting (MonadSlots (..), getNextEpochSlotDuration)
 import           Pos.Txp (MempoolExt, MonadTxpLocal (..), ToilVerFailure, TxpLocalWorkMode,
-                          TxpProcessTransactionMode, getLocalTxsNUndo, txNormalize,
-                          txProcessTransaction)
+                          TxpProcessTransactionMode, getLocalUndos, txNormalize,
+                          txProcessTransaction, withTxpLocalData)
 import           Pos.Update.Context (UpdateContext (ucDownloadedUpdate))
 import           Pos.Update.Poll.Types (ConfirmedProposalState)
 import           Pos.Util.Util (HasLens (..))
@@ -129,23 +129,26 @@ txpProcessTxWebWallet
     :: forall ctx m .
     ( TxpProcessTransactionMode ctx m
     , AccountMode ctx m
-    , WS.MonadWalletDB ctx m
+    , WS.WalletDbReader ctx m
     )
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
-txpProcessTxWebWallet tx@(txId, txAux) = txProcessTransaction tx >>= traverse (const addTxToWallets)
+txpProcessTxWebWallet tx@(txId, txAux) = do
+    db <- WS.askWalletDB
+    txProcessTransaction tx >>= traverse (const $ addTxToWallets db)
   where
-    addTxToWallets :: m ()
-    addTxToWallets = do
-        (_, txUndos) <- getLocalTxsNUndo
+    addTxToWallets :: WS.WalletDB -> m ()
+    addTxToWallets db = do
+        txUndos <- withTxpLocalData getLocalUndos
         case HM.lookup txId txUndos of
             Nothing ->
                 logWarning "Node processed a tx but corresponding tx undo not found"
             Just txUndo -> do
+                ws <- WS.getWalletSnapshot db
                 ts <- getCurrentTimestamp
                 let txWithUndo = (WithHash (taTx txAux) txId, txUndo)
-                thees <- mapM (toThee txWithUndo ts) =<< WS.getWalletAddresses
+                thees <- mapM (toThee txWithUndo ts) $ WS.getWalletAddresses ws
                 let interestingThees = mapMaybe (\ (id, t) -> (id,) <$> isTxEntryInteresting t) thees
-                mapM_ (uncurry addHistoryTxMeta) interestingThees
+                mapM_ (uncurry $ addHistoryTxMeta db) interestingThees
 
     toThee :: (WithHash Tx, TxUndo) -> Timestamp -> CId Wal -> m (CId Wal, THEntryExtra)
     toThee txWithUndo ts wId = do

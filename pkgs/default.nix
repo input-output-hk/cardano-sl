@@ -6922,7 +6922,7 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.bsd3;
          }) {};
       "cardano-sl" = callPackage
-        ({ mkDerivation, aeson, ansi-terminal, ansi-wl-pprint, base
+        ({ mkDerivation, aeson, ansi-terminal, ansi-wl-pprint, async, base
          , bytestring, canonical-json, cardano-crypto, cardano-sl-binary
          , cardano-sl-block, cardano-sl-core, cardano-sl-crypto
          , cardano-sl-db, cardano-sl-delegation, cardano-sl-infra
@@ -6945,15 +6945,15 @@ inherit (pkgs) mesa;};
            version = "1.1.0";
            src = ./../lib;
            libraryHaskellDepends = [
-             aeson ansi-terminal ansi-wl-pprint base bytestring canonical-json
-             cardano-crypto cardano-sl-binary cardano-sl-block cardano-sl-core
-             cardano-sl-crypto cardano-sl-db cardano-sl-delegation
-             cardano-sl-infra cardano-sl-lrc cardano-sl-networking
-             cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
-             cborg cereal conduit constraints containers cpphs cryptonite
-             data-default directory ed25519 ekg-core ether exceptions filelock
-             filepath formatting generic-arbitrary hashable hspec lens
-             log-warper monad-control mtl neat-interpolation
+             aeson ansi-terminal ansi-wl-pprint async base bytestring
+             canonical-json cardano-crypto cardano-sl-binary cardano-sl-block
+             cardano-sl-core cardano-sl-crypto cardano-sl-db
+             cardano-sl-delegation cardano-sl-infra cardano-sl-lrc
+             cardano-sl-networking cardano-sl-ssc cardano-sl-txp
+             cardano-sl-update cardano-sl-util cborg cereal conduit constraints
+             containers cpphs cryptonite data-default directory ed25519 ekg-core
+             ether exceptions filelock filepath formatting generic-arbitrary
+             hashable hspec lens log-warper monad-control mtl neat-interpolation
              optparse-applicative parsec plutus-prototype pvss QuickCheck random
              reflection safe-exceptions safecopy serokell-util servant
              servant-client servant-client-core servant-server servant-swagger
@@ -7384,10 +7384,10 @@ inherit (pkgs) mesa;};
          }) {};
       "cardano-sl-networking" = callPackage
         ({ mkDerivation, aeson, async, attoparsec, base, binary, bytestring
-         , conduit, conduit-extra, containers, cryptonite, data-default
-         , ekg-core, exceptions, formatting, hashable, hspec, kademlia, lens
-         , log-warper, mmorph, monad-control, MonadRandom, mtl, network
-         , network-transport, network-transport-inmemory
+         , conduit, conduit-extra, containers, contravariant, cryptonite
+         , data-default, ekg-core, exceptions, formatting, hashable, hspec
+         , kademlia, lens, log-warper, mmorph, monad-control, MonadRandom
+         , mtl, network, network-transport, network-transport-inmemory
          , network-transport-tcp, optparse-simple, QuickCheck, random
          , resourcet, safe-exceptions, serokell-util, stdenv, stm, text
          , text-format, time, time-units, transformers, transformers-base
@@ -7400,12 +7400,13 @@ inherit (pkgs) mesa;};
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [
-             aeson async attoparsec base binary bytestring containers cryptonite
-             data-default ekg-core exceptions formatting hashable kademlia lens
-             log-warper mmorph monad-control mtl network network-transport
-             network-transport-tcp QuickCheck random resourcet safe-exceptions
-             serokell-util stm text text-format time time-units transformers
-             transformers-base transformers-lift universum unliftio-core
+             aeson async attoparsec base binary bytestring containers
+             contravariant cryptonite data-default ekg-core exceptions
+             formatting hashable kademlia lens log-warper mmorph monad-control
+             mtl network network-transport network-transport-tcp QuickCheck
+             random resourcet safe-exceptions serokell-util stm text text-format
+             time time-units transformers transformers-base transformers-lift
+             universum unliftio-core
            ];
            executableHaskellDepends = [
              attoparsec base binary bytestring conduit conduit-extra containers

@@ -67,7 +67,8 @@ import           Pos.Ssc (HasSscConfiguration)
 import           Pos.Ssc.Types (HasSscContext (..))
 import           Pos.StateLock (StateLock)
 import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..), MonadTxpMem, Utxo,
-                          addrBelongsToSet, applyUtxoModToAddrCoinMap, getUtxoModifier)
+                          addrBelongsToSet, applyUtxoModToAddrCoinMap, getUtxoModifier,
+                          withTxpLocalData)
 import qualified Pos.Txp.DB as DB
 import           Pos.Util (postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo)
@@ -93,13 +94,13 @@ import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, newAddress_)
 import           Pos.Wallet.Web.Methods.Misc (AddrCIdHashes, MonadConvertToAddr)
 import           Pos.Wallet.Web.Sockets.Connection (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
-import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, WalletState,
-                                       getWalletBalancesAndUtxo, getWalletUtxo)
+import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, getWalletBalancesAndUtxo,
+                                       getWalletUtxo, askWalletSnapshot)
 import           Pos.Wallet.Web.Tracking (MonadBListener (..), onApplyBlocksWebWallet,
                                           onRollbackBlocksWebWallet)
 
 data WalletWebModeContext = WalletWebModeContext
-    { wwmcWalletState        :: !WalletState
+    { wwmcWalletState        :: !WalletDB
     , wwmcConnectionsVar     :: !ConnectionsVar
     , wwmcHashes             :: !AddrCIdHashes
     , wwmcWalletSyncRequests :: !SyncQueue
@@ -110,7 +111,7 @@ data WalletWebModeContext = WalletWebModeContext
 type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
 
 walletWebModeToRealMode
-    :: WalletState
+    :: WalletDB
     -> ConnectionsVar
     -> AddrCIdHashes
     -> SyncQueue
@@ -150,13 +151,11 @@ instance HasSlottingVar WalletWebModeContext where
     slottingTimestamp = wwmcRealModeContext_L . slottingTimestamp
     slottingVar = wwmcRealModeContext_L . slottingVar
 
-instance HasLens WalletState WalletWebModeContext WalletState where
+instance HasLens WalletDB WalletWebModeContext WalletDB where
     lensOf = wwmcWalletState_L
 
 instance HasLens ConnectionsVar WalletWebModeContext ConnectionsVar where
     lensOf = wwmcConnectionsVar_L
-
-instance HasConfiguration => MonadWalletDB WalletWebModeContext WalletWebMode
 
 instance {-# OVERLAPPABLE #-}
     HasLens tag (RealModeContext WalletMempoolExt) r =>
@@ -211,7 +210,7 @@ type MonadWalletWebMode ctx m =
     , MonadBalances m
     , MonadUpdates m
     , MonadTxHistory m
-    , MonadWalletDB ctx m
+    , WalletDbReader ctx m
     , MonadKeys m
     , MonadAddresses m
     , MonadRandom m
@@ -283,18 +282,19 @@ type BalancesEnv ext ctx m =
     ( MonadDBRead m
     , MonadUnliftIO m
     , MonadGState m
-    , MonadWalletDBRead ctx m
+    , WalletDbReader ctx m
     , MonadMask m
     , MonadTxpMem ext ctx m
     )
 
 getOwnUtxosDefault :: BalancesEnv ext ctx m => [Address] -> m Utxo
 getOwnUtxosDefault addrs = do
+    ws <- askWalletSnapshot
     let (redeemAddrs, commonAddrs) = partition isRedeemAddress addrs
 
-    updates <- getUtxoModifier
-    commonUtxo <- if null commonAddrs then pure mempty
-                  else getWalletUtxo
+    updates <- withTxpLocalData getUtxoModifier
+    let commonUtxo = if null commonAddrs then mempty
+                     else getWalletUtxo ws
     redeemUtxo <- if null redeemAddrs then pure mempty
                   else DB.getFilteredUtxo redeemAddrs
 
@@ -308,10 +308,12 @@ getOwnUtxosDefault addrs = do
 --    so bad for performance now
 getBalanceDefault :: BalancesEnv ext ctx m => Address -> m Coin
 getBalanceDefault addr = do
-    balancesAndUtxo <- getWalletBalancesAndUtxo
-    fromMaybe (mkCoin 0) .
-        HM.lookup addr .
-        flip applyUtxoModToAddrCoinMap balancesAndUtxo <$> getUtxoModifier
+    ws <- askWalletSnapshot
+    updates <- withTxpLocalData getUtxoModifier
+    let balancesAndUtxo = getWalletBalancesAndUtxo ws
+    return $ fromMaybe (mkCoin 0) .
+        HM.lookup addr $
+        applyUtxoModToAddrCoinMap updates balancesAndUtxo
 
 instance HasConfiguration => MonadBalances WalletWebMode where
     getOwnUtxos = getOwnUtxosDefault
@@ -344,7 +346,8 @@ getNewAddressWebWallet
     :: MonadWalletLogic ctx m
     => (AccountId, PassPhrase) -> m Address
 getNewAddressWebWallet (accId, passphrase) = do
-    cAddrMeta <- newAddress_ RandomSeed passphrase accId
+    ws <- askWalletSnapshot
+    cAddrMeta <- newAddress_ ws RandomSeed passphrase accId
     decodeCTypeOrFail (cwamId cAddrMeta)
 
 instance (HasConfigurations, HasCompileInfo)

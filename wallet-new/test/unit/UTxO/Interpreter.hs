@@ -1,6 +1,8 @@
--- | Interpreter from the DSL to Cardano types
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE ImplicitParams #-}
+{-# LANGUAGE ImplicitParams             #-}
+{-# LANGUAGE InstanceSigs               #-}
+
+-- | Interpreter from the DSL to Cardano types
 module UTxO.Interpreter (
     -- * Interpretation errors
     IntException(..)
@@ -14,26 +16,28 @@ module UTxO.Interpreter (
   , Interpret(..)
   ) where
 
-import Universum
-import Data.Default (def)
-import Prelude (Show(..))
+import           Data.Default (def)
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map.Strict    as Map
+import qualified Data.Map.Strict as Map
+import qualified Data.Text.Buildable
+import           Formatting (bprint, shown)
+import           Prelude (Show (..))
+import           Universum
 
-import Pos.Block.Logic
-import Pos.Client.Txp
-import Pos.Core
-import Pos.Crypto
-import Pos.Ssc (defaultSscPayload)
-import Pos.Txp.Toil
-import Pos.Update
-import Pos.Util.Chrono
+import           Pos.Block.Logic
+import           Pos.Client.Txp
+import           Pos.Core
+import           Pos.Crypto
+import           Pos.Ssc (defaultSscPayload)
+import           Pos.Txp.Toil
+import           Pos.Update
+import           Pos.Util.Chrono
 
-import UTxO.Bootstrap
-import UTxO.Context
-import UTxO.Crypto
-import UTxO.Translate
+import           UTxO.Bootstrap
+import           UTxO.Context
+import           UTxO.Crypto
 import qualified UTxO.DSL as DSL
+import           UTxO.Translate
 
 {-------------------------------------------------------------------------------
   Errors that may occur during interpretation
@@ -51,6 +55,9 @@ data IntException =
   deriving (Show)
 
 instance Exception IntException
+
+instance Buildable IntException where
+  build = bprint shown
 
 {-------------------------------------------------------------------------------
   Interpretation context

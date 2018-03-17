@@ -14,7 +14,7 @@ module Cardano.Wallet.API.Request.Pagination (
 
 import           Universum
 
-import           Control.Lens (ix, (?~))
+import           Control.Lens (at, ix, (?~))
 import           Data.Aeson (Value (Number))
 import           Data.Aeson.TH
 import qualified Data.Char as Char
@@ -119,10 +119,20 @@ instance Arbitrary PaginationMetadata where
                                  <*> fmap getPositive arbitrary
 
 instance ToSchema PaginationMetadata where
-    declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
+  declareNamedSchema proxy = do
+      schm <- genericDeclareNamedSchema defaultSchemaOptions
         { S.fieldLabelModifier =
             over (ix 0) Char.toLower . drop 4 -- length "meta"
-        }
+        } proxy
+      pure $ over schema (over properties adjustPropsSchema) schm
+    where
+      totalSchema = Inline $ mempty
+        & type_ .~ SwaggerNumber
+        & minimum_ ?~ 0
+        & maximum_ ?~ fromIntegral (maxBound :: Int)
+      adjustPropsSchema s = s
+        & at "totalPages" ?~ totalSchema
+        & at "totalEntries" ?~ totalSchema
 
 -- | `PaginationParams` is datatype which combines request params related
 -- to pagination together.

@@ -39,11 +39,9 @@ library
                      , cardano-sl-util
                      , containers
                      , data-default
-                     , ether
                      , formatting
                      , lens
                      , log-warper
-                     , monad-control
                      , mtl
                      , safe-exceptions
                      , serokell-util
@@ -100,9 +98,8 @@ test-suite cardano-client-test
 
   type:                exitcode-stdio-1.0
 
-  build-depends:       MonadRandom
-                     , QuickCheck
-                     , base
+  build-depends:       
+                       base
                      , bytestring
                      , cardano-sl
                      , cardano-sl-client
@@ -117,7 +114,7 @@ test-suite cardano-client-test
                      , containers
                      , formatting
                      , hspec
-                     , safe-exceptions
+                     , QuickCheck
                      , universum >= 0.1.11
                      , unordered-containers
 

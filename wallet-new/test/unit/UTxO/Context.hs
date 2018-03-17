@@ -16,6 +16,7 @@ module UTxO.Context (
   , ActorIx(..)
   , AddrIx
   , Addr(..)
+  , isAvvmAddr
   , AddrMap(..)
   , initAddrMap
     -- * Our custom context
@@ -362,6 +363,13 @@ data Addr = Addr {
     , addrIx      :: AddrIx
     }
   deriving (Show, Eq, Ord)
+
+-- | Returns true if the 'addrActorIx' is the 'IxAvvm' constructor.
+isAvvmAddr :: Addr -> Bool
+isAvvmAddr addr =
+    case addrActorIx addr of
+        IxAvvm _ -> True
+        _        -> False
 
 -- | Mapping between our addresses and Cardano addresses
 data AddrMap = AddrMap {

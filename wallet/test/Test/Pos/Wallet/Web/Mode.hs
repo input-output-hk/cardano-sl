@@ -90,10 +90,10 @@ import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (
 import           Pos.Wallet.Web.ClientTypes (AccountId)
 import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
 import           Pos.Wallet.Web.Mode (getBalanceDefault, getNewAddressWebWallet, getOwnUtxosDefault)
-import           Pos.Wallet.Web.State (MonadWalletDB, WalletState, openMemState)
+import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, openMemState)
 import           Pos.Wallet.Web.Tracking.BListener (onApplyBlocksWebWallet,
                                                     onRollbackBlocksWebWallet)
-import           Pos.Wallet.Web.Tracking.Sync (SyncQueue)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext (..), BlockTestContextTag,
@@ -137,7 +137,7 @@ instance Show WalletTestParams where
 
 data WalletTestContext = WalletTestContext
     { wtcBlockTestContext :: !BlockTestContext
-    , wtcWalletState      :: !WalletState
+    , wtcWalletState      :: !WalletDB
     , wtcUserSecret       :: !(TVar UserSecret)
     -- ^ Secret keys which are used to send transactions
     , wtcRecoveryHeader   :: !RecoveryHeader
@@ -336,7 +336,7 @@ instance MonadKnownPeers WalletTestMode where
 -- Wallet instances
 ----------------------------------------------------------------------------
 
-instance HasLens WalletState WalletTestContext WalletState where
+instance HasLens WalletDB WalletTestContext WalletDB where
     lensOf = wtcWalletState_L
 
 -- For MonadUpdates
@@ -372,7 +372,7 @@ instance HasLens StateLockMetrics WalletTestContext StateLockMetrics where
             , slmRelease = const $ const $ pure ()
             }
 
-instance HasConfigurations => MonadWalletDB WalletTestContext WalletTestMode
+instance HasConfigurations => WalletDbReader WalletTestContext WalletTestMode
 
 -- TODO remove HasCompileInfo here
 -- when getNewAddressWebWallet won't require MonadWalletWebMode

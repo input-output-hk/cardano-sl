@@ -39,7 +39,7 @@ updatePeersBucketReader
     -> m Bool
 updatePeersBucketReader pick buck f = asks pick >>= updateBucket
   where
-    updateBucket oq = OQ.updatePeersBucket oq buck f
+    updateBucket oq = liftIO $ OQ.updatePeersBucket oq buck f
 
 formatKnownPeersReader
     :: ( MonadReader r m, MonadIO m )
@@ -48,4 +48,4 @@ formatKnownPeersReader
     -> m (Maybe t)
 formatKnownPeersReader pick formatter = asks pick >>= dumpFormattedState
   where
-    dumpFormattedState oq = fmap Just (OQ.dumpState oq formatter)
+    dumpFormattedState oq = fmap Just (liftIO $ OQ.dumpState oq formatter)

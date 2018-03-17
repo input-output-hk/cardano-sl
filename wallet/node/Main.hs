@@ -37,8 +37,8 @@ import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web (AddrCIdHashes (..), WalletWebMode, bracketWalletWS,
                                  bracketWalletWebDB, getSKById, notifierPlugin, runWRealMode,
                                  startPendingTxsResubmitter, walletServeWebFull, walletServerOuts)
-import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage,
-                                       getWalletAddresses)
+import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, cleanupAcidStatePeriodically,
+                                       flushWalletStorage, getWalletAddresses)
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import           Pos.Wallet.Web.Tracking.Sync (processSyncRequest, syncWallet)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
@@ -82,17 +82,21 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} = do
   where
     mainAction = runNodeWithInit $ do
         when (walletFlushDb) $ do
-            logInfo "Flushing wallet db..."
-            flushWalletStorage
-            logInfo "Resyncing wallets with blockchain..."
+            putText "Flushing wallet db..."
+            askWalletDB >>= flushWalletStorage
+            putText "Resyncing wallets with blockchain..."
             syncWallets
     runNodeWithInit init nr =
         let (ActionSpec f, outs) = runNode nr allPlugins
          in (ActionSpec $ \s -> init >> f s, outs)
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \_ -> act)
     syncWallets :: WalletWebMode ()
-    syncWallets = getWalletAddresses >>= mapM_ (getSKById >=> syncWallet . eskToWalletDecrCredentials)
-    resubmitterPlugins = ([ActionSpec $ \diffusion -> startPendingTxsResubmitter (sendTx diffusion)], mempty)
+    syncWallets = do
+      ws  <- askWalletSnapshot
+      sks <- mapM getSKById (getWalletAddresses ws)
+      forM_ sks (syncWallet . eskToWalletDecrCredentials)
+    resubmitterPlugins = ([ActionSpec $ \diffusion -> askWalletDB >>=
+                            \db -> startPendingTxsResubmitter db (sendTx diffusion)], mempty)
     notifierPlugins = ([ActionSpec $ \_ -> notifierPlugin], mempty)
     allPlugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
     allPlugins = mconcat [ convPlugins (plugins wArgs)
@@ -113,7 +117,7 @@ acidCleanupWorker :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMo
 acidCleanupWorker WalletArgs{..} =
     first one $ worker mempty $ const $
     modifyLoggerName (const "acidcleanup") $
-    cleanupAcidStatePeriodically walletAcidInterval
+    (askWalletDB >>= \db -> cleanupAcidStatePeriodically db walletAcidInterval)
 
 walletProd ::
        ( HasConfigurations

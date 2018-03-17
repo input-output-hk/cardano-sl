@@ -4,13 +4,13 @@ module UTxO.Bootstrap (
   , isBootstrapTransaction
   ) where
 
-import Universum
-import Data.Bifunctor (bimap)
+import           Data.Bifunctor (bimap)
 import qualified Data.Set as Set
+import           Universum
 
-import Pos.Core
+import           Pos.Core
 
-import UTxO.Context
+import           UTxO.Context
 import qualified UTxO.DSL as DSL
 
 -- | Construct the bootstrap transaction
@@ -71,6 +71,7 @@ bootstrapTransaction ctxt@TransCtxt{..} = DSL.Transaction {
     , trOuts  = map (uncurry DSL.Output) balances
     , trFee   = 0
     , trHash  = 0
+    , trExtra = ["Bootstrap transaction"]
     }
   where
     CardanoContext{..} = tcCardano

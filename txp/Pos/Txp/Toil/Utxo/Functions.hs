@@ -14,11 +14,10 @@ import           Control.Lens (_Left)
 import           Control.Monad.Except (throwError)
 import qualified Data.List.NonEmpty as NE
 import           Formatting (int, sformat, (%))
-import           Serokell.Util (VerificationRes, allDistinct, enumerate, formatFirstError,
-                                verResToMonadError, verifyGeneric)
+import           Serokell.Util (allDistinct, enumerate)
 
 import           Pos.Binary.Core ()
-import           Pos.Core (AddrType (..), Address (..), HasConfiguration, addressF, integerToCoin,
+import           Pos.Core (AddrType (..), Address (..), HasConfiguration, integerToCoin,
                            isRedeemAddress, isUnknownAddressType, sumCoins)
 import           Pos.Core.Common (checkPubKeyAddress, checkRedeemAddress, checkScriptAddress)
 import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..), TxInWitness (..),
@@ -28,7 +27,7 @@ import           Pos.Crypto (SignTag (SignRedeemTx, SignTx), WithHash (..), chec
                              redeemCheckSig)
 import           Pos.Data.Attributes (Attributes (attrRemain), areAttributesKnown)
 import           Pos.Script (Script (..), isKnownScriptVersion, txScriptCheck)
-import           Pos.Txp.Toil.Failure (ToilVerFailure (..), WitnessVerFailure (..))
+import           Pos.Txp.Toil.Failure (ToilVerFailure (..), TxOutVerFailure (..), WitnessVerFailure (..))
 import           Pos.Txp.Toil.Monad (UtxoM, utxoDel, utxoGet, utxoPut)
 import           Pos.Txp.Toil.Types (TxFee (..))
 import           Pos.Util (liftEither)
@@ -113,8 +112,7 @@ verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses) = do
     minimalReasonableChecks :: ExceptT ToilVerFailure UtxoM ()
     minimalReasonableChecks = liftEither $ do
         verifyConsistency _txInputs witnesses
-        verResToMonadError (ToilInvalidOutputs . formatFirstError) $
-            verifyOutputs ctx ta
+        verifyOutputs ctx ta
 
 resolveInput :: TxIn -> ExceptT ToilVerFailure UtxoM (TxIn, TxOutAux)
 resolveInput txIn =
@@ -147,28 +145,18 @@ verifyConsistency inputs witnesses
     errFmt = ("length of inputs != length of witnesses "%"("%int%" != "%int%")")
     errMsg = sformat errFmt (length inputs) (length witnesses)
 
-verifyOutputs :: VTxContext -> TxAux -> VerificationRes
+verifyOutputs :: VTxContext -> TxAux -> Either ToilVerFailure ()
 verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _) =
-    verifyGeneric $
-    concatMap verifyOutput (enumerate $ toList _txOutputs)
+    mapM_ verifyOutput . enumerate $ toList _txOutputs
   where
-    verifyOutput :: (Int, TxOut) -> [(Bool, Text)]
-    verifyOutput (i, (TxOut {txOutAddress = addr@Address {..}, ..})) =
-        [ ( not vtcVerifyAllIsKnown || areAttributesKnown addrAttributes
-          , sformat
-                ("output #"%int%" with address "%addressF%
-                 " has unknown attributes")
-                i addr
-          )
-        , ( not $ vtcVerifyAllIsKnown && isUnknownAddressType addr
-          , sformat ("output #"%int%" sends money to an address with unknown "
-                    %"type ("%addressF%"), this is prohibited") i addr
-          )
-        , ( not (isRedeemAddress addr)
-          , sformat ("output #"%int%" sends money to a redeem address ("
-                    %addressF%"), this is prohibited") i addr
-          )
-        ]
+    verifyOutput :: (Word32, TxOut) -> Either ToilVerFailure ()
+    verifyOutput (i, (TxOut {txOutAddress = addr@Address {..}, ..})) = do
+        when (vtcVerifyAllIsKnown && not (areAttributesKnown addrAttributes)) $
+            throwError $ ToilInvalidOutput i (TxOutUnknownAttributes addr)
+        when (vtcVerifyAllIsKnown && isUnknownAddressType addr) $
+            throwError $ ToilInvalidOutput i (TxOutUnknownAddressType addr)
+        when (isRedeemAddress addr) $
+            throwError $ ToilInvalidOutput i (TxOutRedeemAddressProhibited addr)
 
 -- Verify inputs of a transaction after they have been resolved
 -- (implies that they are known).

@@ -41,15 +41,14 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountInit (..), 
 import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.State as WS
-import           Pos.Wallet.Web.State (AddressLookupMode (Ever), createAccount,
-                                       getAccountWAddresses, getWalletMeta, removeHistoryCache,
-                                       setWalletSyncTip)
+import           Pos.Wallet.Web.State (AddressLookupMode (Ever), askWalletDB, askWalletSnapshot,
+                                       createAccount, getAccountWAddresses, getWalletMeta,
+                                       removeHistoryCache, setWalletSyncTip)
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import qualified Pos.Wallet.Web.Tracking.Restore as Restore
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
 import           UnliftIO (MonadUnliftIO)
-
 
 -- | Which index to use to create initial account and address on new wallet
 -- creation
@@ -76,12 +75,13 @@ newWallet passphrase CWalletInit {..} isReady = do
 
 newWalletHandler :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
 newWalletHandler passphrase cwInit = do
+    db <- askWalletDB
     -- A brand new wallet doesn't need any syncing, so we mark isReady=True
     (_, wId) <- newWallet passphrase cwInit True
-    removeHistoryCache wId
+    removeHistoryCache db wId
     -- BListener checks current syncTip before applying update,
     -- thus setting it up to date manually here
-    withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip wId tip
+    withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip db wId tip
     L.getWallet wId
 
 {- | Restores a wallet from a seed. The process is conceptually divided into
@@ -102,9 +102,10 @@ restoreWallet :: ( L.MonadWalletLogic ctx m
                  , HasLens SyncQueue ctx SyncQueue
                  ) => EncryptedSecretKey -> m CWallet
 restoreWallet sk = do
+    db <- WS.askWalletDB
     let credentials@(_, wId) = eskToWalletDecrCredentials sk
     Restore.restoreWallet credentials
-    WS.setWalletReady wId True
+    WS.setWalletReady db wId True
     L.getWallet wId
 
 restoreWalletFromBackup :: ( L.MonadWalletLogic ctx m
@@ -112,8 +113,10 @@ restoreWalletFromBackup :: ( L.MonadWalletLogic ctx m
                            , HasLens SyncQueue ctx SyncQueue
                            ) => WalletBackup -> m CWallet
 restoreWalletFromBackup WalletBackup {..} = do
+    db <- askWalletDB
+    ws <- getWalletSnapshot db
     let wId = encToCId wbSecretKey
-    wExists <- isJust <$> getWalletMeta wId
+    let wExists = isJust (getWalletMeta ws wId)
 
     if wExists
         then do
@@ -135,20 +138,23 @@ restoreWalletFromBackup WalletBackup {..} = do
                 else for_ accList $ \(idx, meta) -> do
                     let aIdx = fromInteger $ fromIntegral idx
                         seedGen = DeterminedSeed aIdx
-                    accId <- genUniqueAccountId seedGen wId
-                    createAccount accId meta
+                    accId <- genUniqueAccountId ws seedGen wId
+                    createAccount db accId meta
 
             -- TODO(adn): Review the readyness story.
             void $ L.createWalletSafe wId wMeta False
 
+            ws' <- askWalletSnapshot
+
             -- Get wallet accounts and create default address for each account
             -- without any existing address
-            wAccIds <- getWalletAccountIds wId
-            for_ wAccIds $ \accId -> getAccountWAddresses Ever accId >>= \case
-                Nothing -> throwM $ InternalError "restoreWalletFromBackup: fatal: cannot find \
-                                                  \an existing account of newly imported wallet"
-                Just [] -> void $ L.newAddress defaultAccAddrIdx emptyPassphrase accId
-                Just _  -> pure ()
+            let wAccIds = getWalletAccountIds ws' wId
+            for_ wAccIds $ \accId ->
+                case getAccountWAddresses ws' Ever accId of
+                    Nothing -> throwM $ InternalError "restoreWalletFromBackup: fatal: cannot find \
+                                                      \an existing account of newly imported wallet"
+                    Just [] -> void $ L.newAddress defaultAccAddrIdx emptyPassphrase accId
+                    Just _  -> pure ()
 
             restoreWallet wbSecretKey
 
@@ -202,11 +208,13 @@ importWalletSecret passphrase WalletUserSecret{..} = do
     -- TODO(adinapoli): Review the readiness story.
     void $ L.createWalletSafe wid wMeta False
 
+    db <- askWalletDB
     for_ _wusAccounts $ \(walletIndex, walletName) -> do
         let accMeta = def{ caName = walletName }
             seedGen = DeterminedSeed walletIndex
-        cAddr <- genUniqueAccountId seedGen wid
-        createAccount cAddr accMeta
+        ws <- askWalletSnapshot
+        cAddr <- genUniqueAccountId ws seedGen wid
+        createAccount db cAddr accMeta
 
     for_ _wusAddrs $ \(walletIndex, accountIndex) -> do
         let accId = AccountId wid walletIndex

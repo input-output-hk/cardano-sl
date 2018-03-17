@@ -19,6 +19,7 @@ import           Pos.Wallet.Web.ClientTypes (CFilePath (..), CId, CWallet, Wal)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.Methods.Restore (restoreWalletFromBackup)
+import           Pos.Wallet.Web.State.State (askWalletSnapshot)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Servant.API.ContentTypes (NoContent (..))
 import           UnliftIO (MonadUnliftIO)
@@ -40,6 +41,7 @@ importWalletJSON (CFilePath (toString -> fp)) = do
 
 exportWalletJSON :: MonadWalletBackup ctx m => CId Wal -> CFilePath -> m NoContent
 exportWalletJSON wid (CFilePath (toString -> fp)) = do
-    wBackup <- TotalBackup <$> getWalletBackup wid
+    ws <- askWalletSnapshot
+    wBackup <- TotalBackup <$> getWalletBackup ws wid
     liftIO $ BSL.writeFile fp $ A.encode wBackup
     return NoContent

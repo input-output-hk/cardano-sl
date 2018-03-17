@@ -16,7 +16,8 @@ import           Pos.Txp (genesisUtxo, unGenesisUtxo, utxoToModifier)
 import           Pos.Txp.DB.Utxo (filterUtxo)
 import           Pos.Util (HasLens (..))
 
-import           Pos.Wallet.Web.State (MonadWalletDB, updateWalletBalancesAndUtxo)
+import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, askWalletDB,
+                                       updateWalletBalancesAndUtxo)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials, decryptAddress,
                                                   selectOwnAddresses)
@@ -25,7 +26,7 @@ import           Pos.Wallet.Web.Tracking.Types (SyncQueue, newRestoreRequest, su
 
 -- | Restores a wallet from seed, by synchronously restoring its balance (and the initial address
 -- set) from the global UTXO, and then asynchronously restoring this wallet transaction history.
-restoreWallet :: ( MonadWalletDB ctx m
+restoreWallet :: ( WalletDbReader ctx m
                  , MonadDBRead m
                  , WithLogger m
                  , HasLens StateLock ctx StateLock
@@ -35,21 +36,22 @@ restoreWallet :: ( MonadWalletDB ctx m
                  , MonadUnliftIO m
                  ) => WalletDecrCredentials -> m ()
 restoreWallet credentials = do
+    db <- askWalletDB
     modifyLoggerName (const "syncWalletWorker") $ do
         logInfo "New Restoration request for a wallet..."
-        restoreGenesisAddresses credentials
-        restoreWalletBalance credentials
+        restoreGenesisAddresses db credentials
+        restoreWalletBalance db credentials
         submitSyncRequest (newRestoreRequest credentials)
 
 -- | Restores the wallet balance by looking at the global Utxo and trying to decrypt
 -- each unspent output address. If we get a match, it means it belongs to us.
-restoreWalletBalance :: ( MonadWalletDB ctx m
+restoreWalletBalance :: ( WalletDbReader ctx m
                         , HasLoggerName m
                         , CanLog m
                         , MonadDBRead m
                         , MonadUnliftIO m
-                        ) => WalletDecrCredentials -> m ()
-restoreWalletBalance credentials = do
+                        ) => WalletDB -> WalletDecrCredentials -> m ()
+restoreWalletBalance db credentials = do
     utxo <- filterUtxo walletUtxo
     -- FIXME(adn): Quite inefficient for now.
     -- NOTE: Due to the fact that in the current implementation of the wallet the balance
@@ -57,8 +59,8 @@ restoreWalletBalance credentials = do
     -- the wallet, we also need to add these addresses to the wallet for the balance
     -- computation to consider them.
     forM_ (M.elems utxo) $ \txOutAux -> do
-        whenJust (decryptAddress credentials . getAddress $ txOutAux) WS.addWAddress
-    updateWalletBalancesAndUtxo (utxoToModifier utxo)
+        whenJust (decryptAddress credentials . getAddress $ txOutAux) (WS.addWAddress db)
+    updateWalletBalancesAndUtxo db (utxoToModifier utxo)
     where
       getAddress :: TxOutAux -> Address
       getAddress (TxOutAux (TxOut addr _)) = addr
@@ -71,10 +73,10 @@ restoreWalletBalance credentials = do
 -- NOTE: This doesn't have any effect on the balance as if these addresses still have
 -- coins on them, this will be captured by the call to 'restoreWalletBalance', but yet
 -- we want to add them to the pool of known addresses for history-rebuilding purposes.
-restoreGenesisAddresses :: (HasConfiguration, MonadWalletDB ctx m, Monad m) => WalletDecrCredentials -> m ()
-restoreGenesisAddresses credentials =
+restoreGenesisAddresses :: (HasConfiguration, MonadIO m) => WalletDB -> WalletDecrCredentials -> m ()
+restoreGenesisAddresses db credentials =
     let ownGenesisData =
             selectOwnAddresses credentials (txOutAddress . toaOut . snd) $
             M.toList $ unGenesisUtxo genesisUtxo
         ownGenesisAddrs = map snd ownGenesisData
-    in mapM_ WS.addWAddress ownGenesisAddrs
+    in mapM_ (WS.addWAddress db) ownGenesisAddrs

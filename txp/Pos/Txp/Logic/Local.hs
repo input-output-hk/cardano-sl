@@ -18,8 +18,9 @@ module Pos.Txp.Logic.Local
 
 import           Universum
 
+import qualified Control.Concurrent.STM as STM
 import           Control.Monad.Except (mapExceptT, runExceptT, throwError)
-import           Control.Monad.Morph (generalize)
+import           Control.Monad.Morph (generalize, hoist)
 import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
@@ -35,12 +36,13 @@ import           Pos.Reporting (reportError)
 import           Pos.Slotting (MonadSlots (..))
 import           Pos.StateLock (Priority (..), StateLock, StateLockMetrics, withStateLock)
 import           Pos.Txp.Logic.Common (buildUtxo)
-import           Pos.Txp.MemState (GenericTxpLocalData (..), GenericTxpLocalDataPure, MempoolExt,
-                                   MonadTxpMem, TxpLocalWorkMode, askTxpMem, getLocalTxsMap,
-                                   getUtxoModifier, modifyTxpLocalData, setTxpLocalData)
-import           Pos.Txp.Toil (ExtendedLocalToilM, LocalToilState (..), ToilVerFailure (..), Utxo,
-                               UtxoLookup, extendLocalToilM, mpLocalTxs, normalizeToil, processTx,
-                               utxoToLookup)
+import           Pos.Txp.MemState (GenericTxpLocalData (..), MempoolExt, MonadTxpMem,
+                                   TxpLocalWorkMode, getLocalTxsMap, getLocalUndos, getMemPool,
+                                   getTxpExtra, getUtxoModifier, setTxpLocalData, withTxpLocalData,
+                                   withTxpLocalDataLog)
+import           Pos.Txp.Toil (ExtendedLocalToilM, LocalToilState (..), MemPool,
+                               ToilVerFailure (..), UndoMap, Utxo, UtxoLookup, UtxoModifier,
+                               extendLocalToilM, mpLocalTxs, normalizeToil, processTx, utxoToLookup)
 import           Pos.Txp.Topsort (topsortTxs)
 import           Pos.Util.Util (HasLens')
 
@@ -103,15 +105,19 @@ txProcessTransactionAbstract buildEnv txAction itw@(txId, txAux) = reportTipMism
     -- 'StateLock' which we own inside this function.
     tipDB <- lift GS.getTip
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
-    utxoModifier <- getUtxoModifier
+    utxoModifier <- withTxpLocalData getUtxoModifier
     utxo <- buildUtxo utxoModifier [txAux]
     extraEnv <- lift $ buildEnv utxo txAux
     bvd <- gsAdoptedBVData
     let env = (utxoToLookup utxo, extraEnv)
-    pRes <-
-        lift $
-        modifyTxpLocalData $
-        processTransactionPure bvd epoch env tipDB itw
+
+    pRes <- lift . withTxpLocalDataLog $ \txpData -> do
+        mp <- lift $ getMemPool txpData
+        undo <- lift $ getLocalUndos txpData
+        tip <- lift $ STM.readTVar (txpTip txpData)
+        extra <- lift $ getTxpExtra txpData
+        tm <- hoist generalize $ processTransactionPure bvd epoch env tipDB itw (utxoModifier, mp, undo, tip, extra)
+        forM tm $ lift . setTxpLocalData txpData
     -- We report 'ToilTipsMismatch' as an error, because usually it
     -- should't happen. If it happens, it's better to look at logs.
     case pRes of
@@ -128,10 +134,10 @@ txProcessTransactionAbstract buildEnv txAction itw@(txId, txAux) = reportTipMism
         -> (UtxoLookup, extraEnv)
         -> HeaderHash
         -> (TxId, TxAux)
-        -> GenericTxpLocalDataPure extraState
-        -> NamedPureLogger Identity (Either ToilVerFailure (), GenericTxpLocalDataPure extraState)
-    processTransactionPure bvd curEpoch env tipDB tx txld@(um, mp, undo, tip, extraState)
-        | tipDB /= tip = pure (Left $ ToilTipsMismatch tipDB tip, txld)
+        -> (UtxoModifier, MemPool, UndoMap, HeaderHash, extraState)
+        -> NamedPureLogger Identity (Either ToilVerFailure (UtxoModifier, MemPool, UndoMap, HeaderHash, extraState))
+    processTransactionPure bvd curEpoch env tipDB tx (um, mp, undo, tip, extraState)
+        | tipDB /= tip = pure . Left $ ToilTipsMismatch tipDB tip
         | otherwise = do
             let initialState = LocalToilState { _ltsMemPool = mp
                                               , _ltsUtxoModifier = um
@@ -143,10 +149,9 @@ txProcessTransactionAbstract buildEnv txAction itw@(txId, txAux) = reportTipMism
                     runExceptT $
                     txAction bvd curEpoch tx
             case res of
-                (Left er, _) -> pure (Left er, txld)
-                (Right _, (LocalToilState {..}, newExtraState)) -> pure
-                    ( Right ()
-                    , (_ltsUtxoModifier, _ltsMemPool, _ltsUndos, tip, newExtraState))
+                (Left er, _) -> pure $ Left er
+                (Right _, (LocalToilState {..}, newExtraState)) -> pure $ Right
+                    (_ltsUtxoModifier, _ltsMemPool, _ltsUndos, tip, newExtraState)
     -- REPORT:ERROR Tips mismatch in txp.
     reportTipMismatch action = do
         res <- action
@@ -184,10 +189,10 @@ txNormalizeAbstract buildEnv normalizeAction =
         Nothing -> do
             tip <- GS.getTip
             -- Clear and update tip
-            setTxpLocalData (mempty, def, mempty, tip, def)
+            withTxpLocalData $ flip setTxpLocalData (mempty, def, mempty, tip, def)
         Just (siEpoch -> epoch) -> do
             globalTip <- GS.getTip
-            localTxs <- getLocalTxsMap
+            localTxs <- withTxpLocalData getLocalTxsMap
             let txAuxes = toList localTxs
             utxo <- buildUtxo mempty txAuxes
             extraEnv <- buildEnv utxo txAuxes
@@ -205,7 +210,7 @@ txNormalizeAbstract buildEnv normalizeAction =
                          (normalizeAction bvd epoch localTxs)
                          (utxoToLookup utxo, extraEnv))
                     (initialState, def)
-            setTxpLocalData
+            withTxpLocalData $ flip setTxpLocalData
                 ( _ltsUtxoModifier
                 , _ltsMemPool
                 , _ltsUndos
@@ -223,9 +228,8 @@ txNormalizeAbstract buildEnv normalizeAction =
 -- that either none or both of them will be done.
 txGetPayload :: (MonadIO m, MonadTxpMem ext ctx m, WithLogger m) => HeaderHash -> m [TxAux]
 txGetPayload neededTip = do
-    TxpLocalData {..} <- askTxpMem
-    (view mpLocalTxs -> memPool, memPoolTip) <-
-        atomically $ (,) <$> readTVar txpMemPool <*> readTVar txpTip
+    (view mpLocalTxs -> memPool, memPoolTip) <- withTxpLocalData $ \(TxpLocalData{..}) ->
+        (,) <$> readTVar txpMemPool <*> readTVar txpTip
     let tipMismatchMsg =
             sformat
                 ("txGetPayload: tip mismatch (in DB: )"%build%

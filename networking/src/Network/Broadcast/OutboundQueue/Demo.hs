@@ -11,65 +11,29 @@ module Network.Broadcast.OutboundQueue.Demo where
 
 
 import           Control.Concurrent
-import           Control.Exception.Safe (Exception, MonadCatch, MonadMask, MonadThrow, throwM)
+import           Control.Exception (Exception, throwIO)
 import           Control.Monad
-import           Control.Monad.IO.Class
 import           Data.Function
 import           Data.Set (Set)
 import qualified Data.Set as Set
+import           Data.String (fromString)
 import           Data.Text (Text)
 import           Formatting (sformat, shown, (%))
 import           System.Wlog
 
-import qualified Mockable as M
 import           Network.Broadcast.OutboundQueue (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue as OutQ
 import           Network.Broadcast.OutboundQueue.Types hiding (simplePeers)
 
-{-------------------------------------------------------------------------------
-  Demo monads
+type Enqueue = IO
 
-  In order to show that it's possible, we use different monads for enqueueing
-  and dequeueing.
--------------------------------------------------------------------------------}
-
-newtype Dequeue a = Dequeue { unDequeue :: M.Production a }
-  deriving ( Functor
-           , Applicative
-           , Monad
-           , MonadIO
-           , MonadThrow
-           , MonadCatch
-           , MonadMask
-           , CanLog
-           , HasLoggerName
-           )
-
-type instance M.ThreadId Dequeue = M.ThreadId M.Production
-type instance M.Promise  Dequeue = M.Promise  M.Production
-
-instance M.Mockable M.Async Dequeue where
-    liftMockable = Dequeue . M.liftMockable . M.hoist' unDequeue
-instance M.Mockable M.LowLevelAsync Dequeue where
-    liftMockable = Dequeue . M.liftMockable . M.hoist' unDequeue
-instance M.Mockable M.MyThreadId  Dequeue where
-    liftMockable = Dequeue . M.liftMockable . M.hoist' unDequeue
-
-newtype Enqueue a = Enqueue { unEnqueue :: M.Production a }
-  deriving ( Functor
-           , Applicative
-           , Monad
-           , MonadIO
-           , MonadThrow
-           , CanLog
-           , HasLoggerName
-           )
+type Dequeue = IO
 
 runDequeue :: Dequeue a -> IO a
-runDequeue = M.runProduction . unDequeue
+runDequeue = id
 
 runEnqueue :: Enqueue a -> IO a
-runEnqueue = M.runProduction . unEnqueue
+runEnqueue = id
 
 {-------------------------------------------------------------------------------
   Relay demo
@@ -81,13 +45,13 @@ relayDemo = do
 
     let block :: Text -> [Node] -> Enqueue () -> Enqueue ()
         block label nodes act = do
-          logNotice label
+          usingLoggerName (fromString "outboundqueue-production") $ logNotice label
           act
           mapM_ (OutQ.flush . nodeOutQ) nodes
-          liftIO $ threadDelay 500000
+          threadDelay 500000
 
     -- Set up some test nodes
-    (nodeC1, nodeC2, nodeR, nodeEs, nodeC3) <- M.runProduction $ do
+    (nodeC1, nodeC2, nodeR, nodeEs, nodeC3) <- do
       nodeC1 <- newNode (C 1) NodeCore  (CommsDelay 0)
       nodeC2 <- newNode (C 2) NodeCore  (CommsDelay 0)
       nodeR  <- newNode (R 1) NodeRelay (CommsDelay 0)
@@ -135,7 +99,7 @@ relayDemo = do
           send Asynchronous nodeR (MsgTransaction OriginSender)         (MsgId n)
           send Asynchronous nodeR (MsgTransaction OriginSender)         (MsgId (n + 1))
           send Asynchronous nodeR (MsgAnnounceBlockHeader OriginSender) (MsgId (n + 2))
-          liftIO $ threadDelay 2500000
+          threadDelay 2500000
 
       block "* Latency masking (and sync API)" [nodeC2] $ do
         -- Core to core communication is allowed higher concurrency
@@ -151,7 +115,7 @@ relayDemo = do
         -- Edge nodes can never send to core nodes
         send Asynchronous (nodeEs !! 0) (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC1]))) (MsgId 501)
 
-      logNotice "End of demo"
+      usingLoggerName (fromString "outboundqueue-demo") $ logNotice "End of demo"
 
 {-------------------------------------------------------------------------------
   Model of a node
@@ -171,9 +135,9 @@ instance Eq Node where
     n1 == n2 = nodeId n1 == nodeId n2
 
 -- | Create a new node, and spawn dequeue worker and forwarding listener
-newNode :: MonadIO m => NodeId_ -> NodeType -> CommsDelay -> m Node
-newNode nodeId_ nodeType commsDelay = liftIO $ do
-    nodeOutQ     <- OutQ.new (show nodeId_)
+newNode :: NodeId_ -> NodeType -> CommsDelay -> IO Node
+newNode nodeId_ nodeType commsDelay = do
+    nodeOutQ     <- OutQ.new (OutQ.wlogTrace "demo" (show nodeId_))
                              demoEnqueuePolicy
                              demoDequeuePolicy
                              demoFailurePolicy
@@ -191,8 +155,8 @@ nodeDequeueWorker :: Node -> Dequeue ()
 nodeDequeueWorker node =
     OutQ.dequeueThread (nodeOutQ node) sendMsg
   where
-    sendMsg :: OutQ.SendMsg Dequeue MsgObj_ NodeId
-    sendMsg msg nodeId = liftIO $ msgSend msg nodeId
+    sendMsg :: OutQ.SendMsg MsgObj_ NodeId
+    sendMsg msg nodeId = msgSend msg nodeId
 
 -- | Listener that forwards any new messages that arrive at the node
 nodeForwardListener :: Node -> Enqueue ()
@@ -201,9 +165,9 @@ nodeForwardListener node = forever $ do
     added   <- addToMsgPool (nodeMsgPool node) msgData
     let msgObj = mkMsgObj msgData
     if not added then
-      logDebug $ discarded msgObj
+      usingLoggerName (fromString "outboundqueue-demo") $ logDebug $ discarded msgObj
     else do
-      logNotice $ received msgObj
+      usingLoggerName (fromString "outboundqueue-demo") $ logNotice $ received msgObj
       let sender = msgSender msgData
           forwardMsgType = case msgType msgData of
             MsgAnnounceBlockHeader _ -> Just (MsgAnnounceBlockHeader (OriginForward sender))
@@ -223,7 +187,7 @@ nodeForwardListener node = forever $ do
     discarded = sformat (shown % ": discarded " % formatMsg) (nodeId node)
 
 -- | Set the peers of a node
-setPeers :: (MonadIO m, WithLogger m) => Node -> [Node] -> m ()
+setPeers :: Node -> [Node] -> IO ()
 setPeers peersOf peers =
     void $ OutQ.updatePeersBucket (nodeOutQ peersOf) () (\_ -> simplePeers peers)
 
@@ -244,9 +208,9 @@ instance Exception SendFailed
 -- | Send a message from the specified node
 send :: Sync -> Node -> MsgType NodeId -> MsgId -> Enqueue ()
 send sync from msgType msgId = do
-    logNotice $ sformat (shown % ": send " % formatMsg) (nodeId from) msgObj
+    usingLoggerName (fromString "outboundqueue-demo") $ logNotice $ sformat (shown % ": send " % formatMsg) (nodeId from) msgObj
     added <- addToMsgPool (nodeMsgPool from) msgData
-    unless added $ throwM SendFailedAddToPool
+    unless added $ throwIO SendFailedAddToPool
     enqueue (nodeOutQ from) msgType msgObj
   where
     msgData = MsgData (nodeId from) msgType msgId
@@ -262,14 +226,14 @@ send sync from msgType msgId = do
 -- | Message pool allows us to detect whether an incoming message is new or not
 type MsgPool = MVar (Set MsgId)
 
-newMsgPool :: MonadIO m => m MsgPool
-newMsgPool = liftIO $ newMVar Set.empty
+newMsgPool :: IO MsgPool
+newMsgPool = newMVar Set.empty
 
 -- | Add a message to the pool
 --
 -- Returns whether the message was new.
-addToMsgPool :: MonadIO m => MsgPool -> MsgData -> m Bool
-addToMsgPool pool MsgData{msgId} = liftIO $ modifyMVar pool $ \msgs ->
+addToMsgPool :: MsgPool -> MsgData -> IO Bool
+addToMsgPool pool MsgData{msgId} = modifyMVar pool $ \msgs ->
     return $! if Set.member msgId msgs
                 then (msgs, False)
                 else (Set.insert msgId msgs, True)
@@ -327,10 +291,10 @@ instance Eq   NodeId where (==) = (==) `on` nodeId_
 instance Ord  NodeId where (<=) = (<=) `on` nodeId_
 instance Show NodeId where show = show .    nodeId_
 
-sendNodeId :: MonadIO m => NodeId -> MsgData -> m ()
+sendNodeId :: NodeId -> MsgData -> IO ()
 sendNodeId NodeId{..} = sendSyncVar nodeSyncVar
 
-recvNodeId :: MonadIO m => NodeId -> m MsgData
+recvNodeId :: NodeId -> IO MsgData
 recvNodeId NodeId{..} = recvSyncVar nodeSyncVar nodeDelay
 
 {-------------------------------------------------------------------------------
@@ -342,17 +306,17 @@ data SyncVar a = SyncVar (MVar (a, MVar ()))
 -- | Delay models slow communication networks
 newtype CommsDelay = CommsDelay Int
 
-newSyncVar :: MonadIO m => m (SyncVar a)
-newSyncVar = liftIO $ SyncVar <$> newEmptyMVar
+newSyncVar :: IO (SyncVar a)
+newSyncVar = SyncVar <$> newEmptyMVar
 
-sendSyncVar :: MonadIO m => SyncVar a -> a -> m ()
-sendSyncVar (SyncVar v) a = liftIO $ do
+sendSyncVar :: SyncVar a -> a -> IO ()
+sendSyncVar (SyncVar v) a = do
     ack <- newEmptyMVar
     putMVar v (a, ack)
     takeMVar ack
 
-recvSyncVar :: MonadIO m => SyncVar a -> CommsDelay -> m a
-recvSyncVar (SyncVar v) (CommsDelay delay) = liftIO $ do
+recvSyncVar :: SyncVar a -> CommsDelay -> IO a
+recvSyncVar (SyncVar v) (CommsDelay delay) = do
     (a, ack) <- takeMVar v
     -- We run the acknowledgement in a separate thread, to model a node
     -- spawning a listener for each incoming request

@@ -5,10 +5,12 @@
 module Pos.Wallet.Web.State.Storage
        (
          WalletStorage (..)
+       , HasWalletStorage (..)
        , WalletInfo (..)
        , AccountInfo (..)
        , AddressInfo (..)
        , AddressLookupMode (..)
+       , CAddresses
        , CustomAddressType (..)
        , CurrentAndRemoved (..)
        , WalletBalances
@@ -31,6 +33,7 @@ module Pos.Wallet.Web.State.Storage
        , getWalletSyncTip
        , getWalletAddresses
        , getAccountWAddresses
+       , getWAddresses
        , doesWAddressExist
        , getTxMeta
        , getNextUpdate
@@ -104,7 +107,7 @@ import qualified Pos.Util.Modifier as MM
 import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CCoin, CHash, CId,
                                              CProfile, CTxId, CTxMeta, CUpdateInfo,
                                              CWAddressMeta (..), CWalletAssurance, CWalletMeta,
-                                             PassPhraseLU, Wal, addrMetaToAccount)
+                                             PassPhraseLU, Wal, addrMetaToAccount, aiWId)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition, PtxSubmitTiming (..),
                                                ptxCond, ptxSubmitTiming, _PtxCreating)
 import           Pos.Wallet.Web.Pending.Util (cancelApplyingPtx, incPtxSubmitTimingPure,
@@ -335,6 +338,17 @@ getAccountWAddresses mode accId =
   where
     fetch :: MonadReader WalletStorage m => Lens' AccountInfo CAddresses -> m (Maybe [AddressInfo])
     fetch which = fmap HM.elems <$> preview (wsAccountInfos . ix accId . which)
+
+getWAddresses :: AddressLookupMode
+              -> CId Wal
+              -> Query [AddressInfo]
+getWAddresses mode wid =
+    withAccLookupMode mode (fetch aiAddresses) (fetch aiRemovedAddresses)
+  where
+    fetch :: MonadReader WalletStorage m => Lens' AccountInfo CAddresses -> m [AddressInfo]
+    fetch which = do
+      accs <- HM.filterWithKey (\k _ -> aiWId k == wid) <$> view wsAccountInfos
+      return $ HM.elems =<< accs ^.. traverse . which
 
 -- | Check if given address exists.
 doesWAddressExist ::

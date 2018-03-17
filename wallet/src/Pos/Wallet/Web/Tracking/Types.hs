@@ -5,7 +5,6 @@ module Pos.Wallet.Web.Tracking.Types
        , SyncError (..)
        , BlockLockMode
        , WalletTrackingEnv
-       , WalletTrackingEnvRead
 
        -- * Combinators & smart constructors
        , newRestoreRequest
@@ -22,13 +21,10 @@ import           Pos.Core (HasConfiguration)
 import           Pos.DB.Class (MonadDBRead (..))
 import           Pos.Slotting (MonadSlotsData)
 import           Pos.StateLock (StateLock)
-import           Pos.Txp (MonadTxpMem)
 import           Pos.Util (HasLens (..))
 
-import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import           Pos.Wallet.Web.Error.Types (WalletError (..))
-import           Pos.Wallet.Web.State (MonadWalletDB)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials)
 
@@ -40,18 +36,14 @@ type BlockLockMode ctx m =
      , MonadMask m
      )
 
-type WalletTrackingEnvRead ctx m =
-     ( BlockLockMode ctx m
-     , MonadTxpMem WalletMempoolExt ctx m
-     , WS.MonadWalletDBRead ctx m
+type WalletTrackingEnv ctx m =
+     ( WS.WalletDbReader ctx m
      , MonadSlotsData ctx m
      , WithLogger m
      , HasConfiguration
-     )
-
-type WalletTrackingEnv ctx m =
-     ( WalletTrackingEnvRead ctx m
-     , MonadWalletDB ctx m
+     , MonadThrow m
+     , MonadDBRead m
+     , BlockLockMode ctx m
      )
 
 -- | A 'SyncQueue' is a bounded queue where we store incoming 'SyncRequest', and

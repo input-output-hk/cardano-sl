@@ -2,6 +2,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings   #-}
 
 module Pos.Diffusion.Full
     ( diffusionLayerFull
@@ -10,6 +11,9 @@ module Pos.Diffusion.Full
 import           Nub (ordNub)
 import           Universum
 
+import qualified Control.Concurrent.Async as Async
+import qualified Control.Concurrent.STM as STM
+import           Control.Exception (Exception, throwIO)
 import           Control.Monad.Fix (MonadFix)
 import qualified Data.Map as M
 import           Data.Time.Units (Millisecond, Second, convertUnit)
@@ -82,18 +86,23 @@ diffusionLayerFull
        , MonadMask m
        , WithLogger m
        )
-    => NetworkConfig KademliaParams
+    => (forall y . d y -> IO y)
+    -> NetworkConfig KademliaParams
     -> BlockVersion -- For making the VerInfo.
     -> Transport d
     -> Maybe (EkgNodeMetrics d)
     -> ((Logic d -> m (DiffusionLayer d)) -> m x)
     -> m x
-diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics expectLogic =
+diffusionLayerFull runIO networkConfig lastKnownBlockVersion transport mEkgNodeMetrics expectLogic =
     bracket acquire release $ \_ -> expectLogic $ \logic -> do
 
         -- Make the outbound queue using network policies.
+        -- NB: the <> is under 'LoggerName', which is representationally equal
+        -- to 'Text' but its semigroup instance adds a '.' in-between.
+        -- The result: the outbound queue will log under the
+        -- ["diffusion", "outboundqueue"] hierarchy via log-warper.
         oq :: OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket <-
-            initQueue networkConfig (enmStore <$> mEkgNodeMetrics)
+            initQueue networkConfig ("diffusion" <> "outboundqueue") (enmStore <$> mEkgNodeMetrics)
 
         -- Timer is in microseconds.
         keepaliveTimer :: Timer <- newTimer $ convertUnit (20 :: Second)
@@ -229,6 +238,7 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
             -- will be very involved. Should make it top-level I think.
             runDiffusionLayer :: forall y . d y -> d y
             runDiffusionLayer = runDiffusionLayerFull
+                runIO
                 networkConfig
                 transport
                 ourVerInfo
@@ -239,10 +249,24 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
                 listeners
 
             enqueue :: EnqueueMsg d
-            enqueue = makeEnqueueMsg ourVerInfo $ \msgType k -> do
+            enqueue = makeEnqueueMsg ourVerInfo $ \msgType k -> liftIO $ do
                 itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
                 let itMap = M.fromList itList
-                return ((>>= either throwM return) <$> itMap)
+                    -- FIXME this is duplicated.
+                    -- Define once, perhaps in cardano-sl-infra near the
+                    -- definition of EnqueueMsg.
+                    waitOnIt :: STM.TVar (OQ.PacketStatus a) -> d a
+                    waitOnIt tvar = liftIO $ do
+                        it <- STM.atomically $ do
+                                  status <- STM.readTVar tvar
+                                  case status of
+                                      OQ.PacketEnqueued        -> STM.retry
+                                      OQ.PacketAborted         -> return Nothing
+                                      OQ.PacketDequeued thread -> return (Just thread)
+                        case it of
+                            Nothing -> throwIO Aborted
+                            Just thread -> Async.wait thread
+                return (waitOnIt <$> itMap)
 
             getBlocks :: NodeId
                       -> BlockHeader
@@ -293,7 +317,7 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
             healthStatus = topologyHealthStatus (ncTopology networkConfig) oq
 
             formatPeers :: forall r . (forall a . Format r a -> a) -> d (Maybe r)
-            formatPeers formatter = Just <$> OQ.dumpState oq formatter
+            formatPeers formatter = liftIO $ (Just <$> OQ.dumpState oq formatter)
 
             diffusion :: Diffusion d
             diffusion = Diffusion {..}
@@ -310,7 +334,8 @@ diffusionLayerFull networkConfig lastKnownBlockVersion transport mEkgNodeMetrics
 runDiffusionLayerFull
     :: forall d x .
        ( DiffusionWorkMode d, MonadFix d )
-    => NetworkConfig KademliaParams
+    => (forall y . d y -> IO y)
+    -> NetworkConfig KademliaParams
     -> Transport d
     -> VerInfo
     -> Maybe (EkgNodeMetrics d)
@@ -320,10 +345,10 @@ runDiffusionLayerFull
     -> (VerInfo -> [Listener d])
     -> d x
     -> d x
-runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq keepaliveTimer slotDuration listeners action =
+runDiffusionLayerFull runIO networkConfig transport ourVerInfo mEkgNodeMetrics oq keepaliveTimer slotDuration listeners action =
     bracketKademlia networkConfig $ \networkConfig' ->
         timeWarpNode transport ourVerInfo listeners $ \nd converse ->
-            withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \dthread -> do
+            withAsync (liftIO $ OQ.dequeueThread oq (sendMsgFromConverse runIO converse)) $ \dthread -> do
                 link dthread
                 case mEkgNodeMetrics of
                     Just ekgNodeMetrics -> registerEkgNodeMetrics ekgNodeMetrics nd
@@ -339,9 +364,25 @@ runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq keep
   where
     oqEnqueue :: Msg -> (NodeId -> VerInfo -> Conversation PackingType d t) -> d (Map NodeId (d t))
     oqEnqueue msgType k = do
-        itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
+        itList <- liftIO $ OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
         let itMap = M.fromList itList
-        return ((>>= either throwM return) <$> itMap)
+            -- Wait on the TVar until it's either aborted or dequeued.
+            -- If it's aborted, throw an exception (TBD consider giving
+            -- Nothing instead?) and if it's dequeued, wait on the thread.
+            -- FIXME we'll want to refine this a bit. Callers should be able
+            -- to get a hold of the Async instead.
+            waitOnIt :: STM.TVar (OQ.PacketStatus a) -> d a
+            waitOnIt tvar = liftIO $ do
+                it <- STM.atomically $ do
+                          status <- STM.readTVar tvar
+                          case status of
+                              OQ.PacketEnqueued        -> STM.retry
+                              OQ.PacketAborted         -> return Nothing
+                              OQ.PacketDequeued thread -> return (Just thread)
+                case it of
+                    Nothing -> throwIO Aborted
+                    Just thread -> Async.wait thread
+        return (waitOnIt <$> itMap)
     subscriptionThread nc sactions = case topologySubscriptionWorker (ncTopology nc) of
         Just (SubscriptionWorkerBehindNAT dnsDomains) ->
             dnsSubscriptionWorker oq networkConfig dnsDomains keepaliveTimer slotDuration sactions
@@ -349,11 +390,17 @@ runDiffusionLayerFull networkConfig transport ourVerInfo mEkgNodeMetrics oq keep
             dhtSubscriptionWorker oq kinst nodeType valency fallbacks sactions
         Nothing -> pure ()
 
+data Aborted = Aborted
+  deriving (Show)
+
+instance Exception Aborted
+
 sendMsgFromConverse
-    :: Converse PackingType PeerData d
-    -> OQ.SendMsg d (EnqueuedConversation d) NodeId
-sendMsgFromConverse converse (EnqueuedConversation (_, k)) nodeId =
-    converseWith converse nodeId (k nodeId)
+    :: (forall x . d x -> IO x)
+    -> Converse PackingType PeerData d
+    -> OQ.SendMsg (EnqueuedConversation d) NodeId
+sendMsgFromConverse runIO converse (EnqueuedConversation (_, k)) nodeId =
+    runIO $ converseWith converse nodeId (k nodeId)
 
 -- | Bring up a time-warp node. It will come down when the continuation ends.
 timeWarpNode

@@ -5,6 +5,8 @@
 
 module UTxO.BlockGen
     ( genValidBlockchain
+    , divvyUp
+    , selectDestinations'
     ) where
 
 import           Universum hiding (use)
@@ -13,9 +15,10 @@ import           Control.Lens hiding (elements)
 import           Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import           Pos.Util.Chrono (OldestFirst (..))
+import           Pos.Util.Chrono
 import           Test.QuickCheck
 
+import           Util.DepIndep
 import           UTxO.Context
 import           UTxO.DSL
 import           UTxO.PreChain
@@ -37,8 +40,6 @@ data BlockGenCtx h
     -- ^ The mapping of current addresses and their current account values.
     , _bgcFreshHash              :: !Int
     -- ^ A fresh hash value for each new transaction.
-    , _bgcCurrentBlockchain      :: !(Ledger h Addr)
-    -- ^ The accumulated blockchain thus far.
     , _bgcInputPartiesUpperLimit :: !Int
     -- ^ The upper limit on the number of parties that may be selected as
     -- inputs to a transaction
@@ -46,26 +47,25 @@ data BlockGenCtx h
 
 makeLenses ''BlockGenCtx
 
-genValidBlockchain :: Hash h Addr => PreChain h Gen
+genValidBlockchain :: Hash h Addr => PreChain h Gen ()
 genValidBlockchain = toPreChain newChain
 
 toPreChain
     :: Hash h Addr
     => BlockGen h [[Value -> Transaction h Addr]]
-    -> PreChain h Gen
+    -> PreChain h Gen ()
 toPreChain = toPreChainWith identity
 
 toPreChainWith
     :: Hash h Addr
     => (BlockGenCtx h -> BlockGenCtx h)
     -> BlockGen h [[Value -> Transaction h Addr]]
-    -> PreChain h Gen
-toPreChainWith settings bg = PreChain $ \boot -> do
+    -> PreChain h Gen ()
+toPreChainWith settings bg = DepIndep $ \boot -> do
     ks <- runBlockGenWith settings boot bg
-    return
-        $ OldestFirst
-        . fmap OldestFirst
-        . zipFees ks
+    return $ \fees -> (markOldestFirst (zipFees ks fees), ())
+  where
+   markOldestFirst = OldestFirst . fmap OldestFirst
 
 -- | Given an initial bootstrap 'Transaction' and a function to customize
 -- the other settings in the 'BlockGenCtx', this function will initialize
@@ -81,11 +81,10 @@ runBlockGenWith settings boot m =
 
 -- | Create an initial context from the boot transaction.
 initializeCtx :: Hash h Addr => Transaction h Addr -> BlockGenCtx h
-initializeCtx boot@Transaction{..} = BlockGenCtx {..}
+initializeCtx boot = BlockGenCtx {..}
   where
-    _bgcCurrentUtxo = ledgerUtxo _bgcCurrentBlockchain
+    _bgcCurrentUtxo = trUtxo boot
     _bgcFreshHash = 1
-    _bgcCurrentBlockchain = ledgerSingleton boot
     _bgcInputPartiesUpperLimit = 1
 
 -- | Lift a 'Gen' action into the 'BlockGen' monad.
@@ -98,13 +97,6 @@ freshHash = do
     i <- use bgcFreshHash
     bgcFreshHash += 1
     pure i
-
--- | Returns true if the 'addrActorIx' is the 'IxAvvm' constructor.
-isAvvmAddr :: Addr -> Bool
-isAvvmAddr addr =
-    case addrActorIx addr of
-        IxAvvm _ -> True
-        _        -> False
 
 bgcNonAvvmUtxo :: Getter (BlockGenCtx h) (Utxo h Addr)
 bgcNonAvvmUtxo =
@@ -131,48 +123,63 @@ selectSomeInputs = do
             pure (inp : rest)
 
 selectDestinations :: Hash h Addr => Set (Input h Addr) -> BlockGen h (NonEmpty Addr)
-selectDestinations notThese = do
-    utxo <- uses bgcNonAvvmUtxo (utxoRemoveInputs notThese)
-    addr1 <- liftGen $ elements (map (outAddr . snd) (utxoToList utxo))
-    pure (addr1 :| [])
+selectDestinations notThese =
+    liftGen . selectDestinations' notThese =<< use bgcCurrentUtxo
+
+selectDestinations'
+    :: Hash h Addr
+    => Set (Input h Addr)
+    -> Utxo h Addr
+    -> Gen (NonEmpty Addr)
+selectDestinations' notThese =
+    fmap pure . elements
+        . map (outAddr . snd) . utxoToList
+        . utxoRestrictToAddr (not . isAvvmAddr)
+        . utxoRemoveInputs notThese
 
 -- | Create a fresh transaction that depends on the fee provided to it.
-newTransaction :: Hash h Addr => BlockGen h (Value -> Transaction h Addr)
+newTransaction :: (HasCallStack, Hash h Addr)
+               => BlockGen h (Value -> Transaction h Addr)
 newTransaction = do
     inputs'outputs <- selectSomeInputs
     destinations <- selectDestinations (foldMap Set.singleton (map fst inputs'outputs))
     hash' <- freshHash
 
-    let txn fee =
-            let (inputs, outputs) = divvyUp inputs'outputs destinations fee
-             in Transaction
-                { trFresh = 0
-                , trFee = fee
-                , trHash = hash'
-                , trIns = inputs
-                , trOuts = outputs
-                }
+    let txn = divvyUp hash' inputs'outputs destinations
 
-    -- we assume that the fee is 0 for initializing these transactions
-    bgcCurrentBlockchain %= ledgerAdd (txn 0)
-    ledger <- use bgcCurrentBlockchain
-    bgcCurrentUtxo .= ledgerUtxo ledger
+    -- We don't know the fee yet, but /do/ need to make it possible to
+    -- generate different kinds of transactions (i.e., different kinds of
+    -- monadic effects) depending on the UTxO. This means that we must be
+    -- conversative here.
+    bgcCurrentUtxo %= utxoApply (withEstimatedFee txn)
     pure txn
 
+-- | Given a set of inputs, tagged with their output values, and a set of output
+-- addresses, construct a transaction by dividing the sum total of the inputs
+-- evenly over the output addresses.
 divvyUp
-    :: Hash h Addr
-    => NonEmpty (Input h Addr, Output Addr)
+    :: (HasCallStack, Hash h Addr)
+    => Int
+    -> NonEmpty (Input h Addr, Output Addr)
     -> NonEmpty Addr
     -> Value
-    -> (Set (Input h Addr), [Output Addr])
-divvyUp inputs'outputs destinations fee = (inputs, outputs)
+    -> Transaction h Addr
+divvyUp h inputs'outputs destinations fee = tx
   where
+    tx = Transaction {
+             trFresh = 0
+           , trFee   = fee
+           , trHash  = h
+           , trIns   = inputs
+           , trOuts  = outputs
+           , trExtra = []
+           }
     inputs = foldMap (Set.singleton . fst) inputs'outputs
     destLen = fromIntegral (length destinations)
     -- if we don't know what the fee is yet (eg a 0), then we want to use
     -- the max fee for safety's sake
     totalValue = sum (map (outVal . snd) inputs'outputs)
-        `safeSubtract` if fee == 0 then maxFee else fee
+        `safeSubtract` if fee == 0 then estimateFee tx else fee
     valPerOutput = totalValue `div` destLen
     outputs = toList (map (\addr -> Output addr valPerOutput) destinations)
 
@@ -185,8 +192,18 @@ safeSubtract x y
   where
     z = x - y
 
-maxFee :: Num a => a
-maxFee = 180000
+-- | Conversatively estimate the fee for this transaction
+--
+-- Result may be larger than the minimum fee, but not smaller.
+-- TODO: Right now this does not take the transaction structure into account.
+-- We should come up with a more precise model here.
+estimateFee :: Transaction h a -> Value
+estimateFee _ = maxFee
+  where
+    maxFee = 180000
+
+withEstimatedFee :: (Value -> Transaction h a) -> Transaction h a
+withEstimatedFee tx = let tx0 = tx 0 in tx0 { trFee = estimateFee tx0 }
 
 newBlock :: Hash h Addr => BlockGen h [Value -> Transaction h Addr]
 newBlock = do
@@ -195,7 +212,7 @@ newBlock = do
 
 newChain :: Hash h Addr => BlockGen h [[Value -> Transaction h Addr]]
 newChain = do
-    blockCount <- liftGen $ choose (1, 10)
+    blockCount <- liftGen $ choose (10, 50)
     replicateM blockCount newBlock
 
 zipFees

@@ -139,12 +139,9 @@ library
                      , cborg
                      , containers
                      , cryptonite
-                     , cryptonite-openssl >= 0.5
                      , data-default
                      , deepseq
                      , deriving-compat
-                     , digest
-                     , directory
                      , exceptions
                      , extra
                      , filepath
@@ -156,15 +153,12 @@ library
                      , log-warper >= 1.0.3
                      , memory
                      , mtl
-                     , parsec
                      , plutus-prototype
                      , quickcheck-instances
                      , random
                      , reflection
                      , safe-exceptions
-                     , scrypt >= 0.5
                      , serokell-util
-                     , tagged
                      , template-haskell
                      , text
                      , text-format

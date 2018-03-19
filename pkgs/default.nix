@@ -7249,14 +7249,14 @@ inherit (pkgs) mesa;};
          , cardano-sl-ssc, cardano-sl-txp, cardano-sl-wallet, Chart
          , Chart-diagrams, containers, cpphs, cryptonite, data-default
          , directory, ed25519, ether, fgl, filepath, foldl, formatting, Glob
-         , graphviz, kademlia, lens, lifted-async, log-warper, MonadRandom
-         , mtl, neat-interpolation, node-sketch, optparse-applicative
-         , optparse-generic, parsec, pipes, pipes-bytestring
-         , pipes-interleave, pipes-safe, process, QuickCheck, random
-         , random-shuffle, safe-exceptions, serokell-util, silently, stdenv
-         , stm, string-conv, system-filepath, tar, text, text-format, time
-         , time-units, universum, unix, unix-compat, unordered-containers
-         , vector, yaml
+         , graphviz, hashmap, kademlia, lens, lifted-async, log-warper
+         , MonadRandom, mtl, neat-interpolation, node-sketch
+         , optparse-applicative, optparse-generic, parsec, pipes
+         , pipes-bytestring, pipes-interleave, pipes-safe, process
+         , QuickCheck, random, random-shuffle, safe-exceptions
+         , serokell-util, silently, stdenv, stm, string-conv
+         , system-filepath, tar, text, text-format, time, time-units
+         , universum, unix, unix-compat, unordered-containers, vector, yaml
          }:
          mkDerivation {
            pname = "cardano-sl-tools";
@@ -7271,8 +7271,8 @@ inherit (pkgs) mesa;};
              cardano-sl-infra cardano-sl-lrc cardano-sl-ssc cardano-sl-txp
              cardano-sl-wallet Chart Chart-diagrams containers cryptonite
              data-default directory ed25519 ether fgl filepath foldl formatting
-             Glob graphviz kademlia lens lifted-async log-warper MonadRandom mtl
-             neat-interpolation node-sketch optparse-applicative
+             Glob graphviz hashmap kademlia lens lifted-async log-warper
+             MonadRandom mtl neat-interpolation node-sketch optparse-applicative
              optparse-generic parsec pipes pipes-bytestring pipes-interleave
              pipes-safe process QuickCheck random random-shuffle safe-exceptions
              serokell-util silently stm string-conv system-filepath tar text

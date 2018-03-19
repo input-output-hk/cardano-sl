@@ -10,57 +10,55 @@ module Lib where
 
 import           Universum
 
-import           Data.Aeson                           (FromJSON (..), ToJSON,
-                                                       eitherDecodeStrict, withObject,
-                                                       (.:))
-import qualified Data.ByteString                      as B
-import           Data.Function                        (id)
-import qualified Data.List.NonEmpty                   as NE
-import           Data.Map                             (fromList, union)
-import           Data.String.Conv                     (toS)
-import           Data.Time                            (diffUTCTime, getCurrentTime)
-import           GHC.Generics                         (Generic)
+import           Control.Lens (both)
+import           Data.Aeson (FromJSON (..), ToJSON, eitherDecodeStrict, withObject, (.:))
+import qualified Data.ByteString as B
+import           Data.Function (id)
+import qualified Data.List.NonEmpty as NE
+import           Data.Map (fromList, union)
+import           Data.String.Conv (toS)
+import           Data.Time (diffUTCTime, getCurrentTime)
+import           GHC.Generics (Generic)
 
-import           Crypto.Random.Entropy                (getEntropy)
-import           Pos.Client.Txp.History               (TxHistoryEntry (..))
-import           Pos.Core.Types                       (Address, Coin, mkCoin)
-import           Pos.Data.Attributes                  (mkAttributes)
-import           Pos.DB.GState.Common                 (getTip)
-import           Pos.StateLock                        (StateLock (..))
-import           Pos.Txp                              (getLocalTxs, getLocalUndos,
-                                                       withTxpLocalData)
-import           Pos.Txp.Core.Types                   (Tx (..), TxId, TxIn (..),
-                                                       TxOut (..), TxOutAux (..))
-import           Pos.Txp.Toil.Types                   (utxoToModifier)
-import           Pos.Util.BackupPhrase                (BackupPhrase, mkBackupPhrase12)
-import           Pos.Util.Mnemonics                   (toMnemonic)
-import           Pos.Util.Servant                     (decodeCType)
-import           Pos.Util.Util                        (lensOf)
-import           Pos.Wallet.Web.Account               (GenSeed (..))
-import           Pos.Wallet.Web.ClientTypes           (AccountId (..), CAccount (..),
-                                                       CAccountInit (..),
-                                                       CAccountMeta (..), CAddress (..),
-                                                       CId (..), CWallet (..),
-                                                       CWalletAssurance (..),
-                                                       CWalletInit (..), CWalletMeta (..),
-                                                       Wal)
+import           Crypto.Random.Entropy (getEntropy)
+import           Pos.Client.Txp.History (TxHistoryEntry (..))
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
+import           Pos.Communication (SendActions (..))
+import           Pos.Core.Types (Address, Coin, mkCoin)
+import           Pos.Crypto (PassPhrase, emptyPassphrase)
+import           Pos.Data.Attributes (mkAttributes)
+import           Pos.DB.GState.Common (getTip)
+import           Pos.StateLock (StateLock (..))
+import           Pos.Txp (getLocalTxs, getLocalUndos, withTxpLocalData)
+import           Pos.Txp.Core.Types (Tx (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
+import           Pos.Txp.Toil.Types (utxoToModifier)
+import           Pos.Util.BackupPhrase (BackupPhrase, mkBackupPhrase12)
+import           Pos.Util.Mnemonics (toMnemonic)
+import           Pos.Util.Servant (decodeCType)
+import           Pos.Util.Util (lensOf)
+import           Pos.Wallet.Web.Account (GenSeed (..))
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccount (..), CAccountInit (..),
+                                             CAccountMeta (..), CAddress (..), CId (..),
+                                             CWAddressMeta (..), CWallet (..),
+                                             CWalletAssurance (..), CWalletInit (..),
+                                             CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.ClientTypes.Instances ()
-import           Pos.Wallet.Web.Methods.Logic         (getAccounts,
-                                                       newAccountIncludeUnready,
-                                                       newAddress)
-import           Pos.Wallet.Web.Methods.Restore       (newWallet)
-import           Pos.Wallet.Web.State.State           (askWalletDB, askWalletSnapshot,
-                                                       getWalletSnapshot, getWalletUtxo,
-                                                       insertIntoHistoryCache,
-                                                       setWalletUtxo,
-                                                       updateWalletBalancesAndUtxo)
-import           Test.QuickCheck                      (Gen, arbitrary, choose, frequency,
-                                                       generate, vectorOf)
-import           Text.Printf                          (printf)
+import           Pos.Wallet.Web.Methods.Logic (getAccounts, newAccountIncludeUnready, newAddress)
+import           Pos.Wallet.Web.Methods.Payment (unsafeNewPayment)
+import           Pos.Wallet.Web.Methods.Restore (newWallet)
+import           Pos.Wallet.Web.Mode (convertCIdTOAddrs)
+import           Pos.Wallet.Web.State.State (AddressInfo (..), AddressLookupMode (..), askWalletDB,
+                                             askWalletSnapshot, doesAccountExist, getWalletSnapshot,
+                                             getWalletUtxo, insertIntoHistoryCache, setWalletUtxo,
+                                             updateWalletBalancesAndUtxo)
+import           Pos.Wallet.Web.Util (getAccountAddrsOrThrow)
+import           Test.QuickCheck (Gen, arbitrary, choose, frequency, generate, vectorOf)
+import           Text.Printf (printf)
 
-import           CLI                                  (CLI (..))
-import           Rendering                            (green, renderAccountId, say)
-import           Types                                (UberMonad)
+import           CLI (CLI (..))
+import           Error (DbGenError (..))
+import           Rendering (green, renderAccountId, say)
+import           Types (UberMonad)
 
 --
 -- Types
@@ -214,10 +212,6 @@ fakeSync = do
 -- | The main entry point.
 generateWalletDB :: CLI -> GenSpec -> UberMonad ()
 generateWalletDB CLI{..} spec@GenSpec{..} = do
-    fakeSync
-    -- If `addTo` is not mempty, skip the generation
-    -- but append the requested addresses to the input
-    -- CAccountId.
 
     -- TODO(ks): Simplify this?
     let fakeUtxoSpec = fakeUtxoCoinDistr walletSpec
@@ -225,21 +219,114 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
 
     case addTo of
         Just accId ->
-            if (checkIfAddTo fakeUtxoSpec fakeTxs) then
-                addAddressesTo spec accId
-            else do
-                timed $ generateFakeUtxo fakeUtxoSpec accId
-                timed $ generateFakeTxs fakeTxs accId
+            if realWallet then
+                generateRealWallet fakeUtxoSpec fakeTxs accId
+            else
+                if (checkIfAddTo fakeUtxoSpec fakeTxs) then
+                    addAddressesTo spec accId
+                else do
+                    timed $ generateFakeUtxo fakeUtxoSpec accId
+                    timed $ generateFakeTxs fakeTxs accId
 
         Nothing -> do
             say $ printf "Generating %d wallets..." wallets
             wallets' <- timed (forM [1..wallets] genWallet)
             forM_ (zip [1..] wallets') (genAccounts spec)
+
     say $ green "OK."
   where
     checkIfAddTo :: FakeUtxoCoinDistribution -> FakeTxsHistory -> Bool
     checkIfAddTo NoDistribution NoHistory = True
     checkIfAddTo _              _         = False
+
+
+generateRealWallet
+    :: FakeUtxoCoinDistribution
+    -> FakeTxsHistory
+    -> AccountId
+    -> UberMonad ()
+generateRealWallet RangeDistribution{..} SimpleTxsHistory{..} aId = do
+
+    say "Generating real wallet..."
+
+    db <- askWalletDB
+    ws <- getWalletSnapshot db
+
+    say $ printf "Current source account - %s" (show aId :: Text)
+
+    -- First the soundness checks.
+    when (not $ doesAccountExist ws aId) $
+        throwM $ Internal "The passed account does not exist in the current wallet."
+
+    -- We get the addresses from which we should send the money from.
+    addrsMetas' <- map adiCWAddressMeta <$> getAccountAddrsOrThrow ws Existing aId
+    addrsMetas  <- nonEmpty addrsMetas' `whenNothing`
+        throwM (Internal "Given money source has no addresses!")
+
+    srcAddrs <- convertCIdTOAddrs $ map cwamId addrsMetas
+
+    when (length srcAddrs /= 1) $
+        throwM $ Internal "The account should contain a single address."
+
+    let fromAddr  = range
+    let txsNumber = txsCount
+
+    let (batches, remainder) = over both fromIntegral $ txsNumber `divMod` fromAddr
+
+    -- We need to gain exclusive access.
+    fakeSync
+
+    -- First let's generate another wallet where we will send the money.
+    recWallet  <- genWallet 42
+    recAccount <- genAccount recWallet 42
+
+    let recAccountId = toAccountId recAccount
+
+    say $ printf "Generating %d addresses..." fromAddr
+
+   -- First let's generate the initial addresses where we will send money money to/from.
+    genCAddresses <- timed $ forM [1..fromAddr] (const $ genAddress recAccountId)
+
+    -- Coin amount to send.
+    let coinAmount :: Coin
+        coinAmount = mkCoin $ fromIntegral amount
+
+    let emptySendActions = SendActions
+            { withConnectionTo = error "Unused"
+            , enqueueMsg = (\_ _ -> return mempty)
+            }
+
+    let dstAccounts :: [CId Addr]
+        dstAccounts = map cadId genCAddresses
+
+    -- The total number of destinations is replicated until txNum is met.
+    let dstAccountsTotal =
+          replicate batches =<< dstAccounts ++ take remainder dstAccounts
+
+    let passphrase :: PassPhrase
+        passphrase = emptyPassphrase
+
+    let srcAccount = aId
+
+    let coin       = coinAmount
+    let policy     = OptimizeForSecurity
+
+    -- You provide the account, I send the money.
+    let newPayment dstAccount = unsafeNewPayment
+                                    emptySendActions
+                                    passphrase
+                                    srcAccount
+                                    dstAccount
+                                    coin
+                                    policy
+
+    say $ printf "Generating %d transactions..." txsNumber
+
+    _ <- timed $ forM dstAccountsTotal newPayment
+
+    pure ()
+-- Do nothing.
+generateRealWallet _ _ _ = pure ()
 
 
 -- | Here we generate fake txs. For now it's a simple arbitrary generation.
@@ -354,6 +441,10 @@ generateFakeUtxo RangeDistribution{..} aId = do
     db <- askWalletDB
     ws <- getWalletSnapshot db
 
+    -- First the soundness checks.
+    when (not $ doesAccountExist ws aId) $
+        throwM $ Internal "The passed account does not exist in the current wallet."
+
     let fromAddr = range
     -- First let's generate the initial addesses where we will fake money from.
     genCAddresses <- timed $ forM [1..fromAddr] (const $ genAddress aId)
@@ -399,6 +490,7 @@ genAccounts spec@(walletSpec -> wspec) (idx, wallet) = do
 
 toAccountId :: CAccount -> AccountId
 toAccountId CAccount{..} = either (error . toS) id (decodeCType caId)
+
 
 
 genAddresses :: GenSpec -> AccountId -> UberMonad ()

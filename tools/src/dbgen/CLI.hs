@@ -36,6 +36,8 @@ data CLI = CLI
     , addTo             :: Maybe AccountId
     -- ^ If specified, only append addresses to the
     -- given <wallet_id@account_id>
+    , realWallet        :: Bool
+    -- ^ If specified, we use real account (with money) to generate
     }
 
 
@@ -67,6 +69,7 @@ instance ParseRecord CLI where
                             (long "add-to" <> metavar "walletId@accountId"
                                            <> help "Append to an existing wallet & account."
               )))
+              <*> switch (long "real" <> help "Generate real wallet.")
 
 
 readAccountId :: String -> Either String AccountId

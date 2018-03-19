@@ -27,6 +27,7 @@ executable dbgen
   main-is:             Main.hs
   other-modules:       CLI
                      , Lib
+                     , Error
                      , Rendering
                      , Stats
                      , Types
@@ -37,10 +38,13 @@ executable dbgen
                      , aeson
                      , ansi-terminal
                      , unordered-containers
+                     , hashmap
                      , containers
                      , cryptonite
                      , serokell-util
                      , text
+                     , text-format
+                     , formatting
                      , time
                      , QuickCheck
                      , bytestring

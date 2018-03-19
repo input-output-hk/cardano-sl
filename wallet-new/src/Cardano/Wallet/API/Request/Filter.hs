@@ -26,7 +26,7 @@ import           Servant.Server.Internal
 import           Cardano.Wallet.API.Indices
 import qualified Cardano.Wallet.API.Request.Parameters as Param
 import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
+import           Cardano.Wallet.TypeLits (KnownSymbols)
 
 --
 -- Filtering data
@@ -70,7 +70,7 @@ data FilterOrdering =
     | GreaterThanEqual
     | LesserThan
     | LesserThanEqual
-    deriving (Show, Eq)
+    deriving (Show, Eq, Enum, Bounded)
 
 renderFilterOrdering :: FilterOrdering -> Text
 renderFilterOrdering = \case
@@ -154,34 +154,29 @@ type family FilterParams (syms :: [Symbol]) (r :: *) :: [*] where
     FilterParams '[Param.Id, Param.CreatedAt] Transaction = IndicesOf Transaction
 
 class ToFilterOperations (ixs :: [*]) a where
-  toFilterOperations :: Request -> [Text] -> proxy ixs -> FilterOperations a
+  toFilterOperations :: Request -> proxy ixs -> FilterOperations a
 
 instance Indexable' a => ToFilterOperations ('[]) a where
-  toFilterOperations _ _ _ = NoFilters
+  toFilterOperations _ _ = NoFilters
 
-instance ( Indexable' a
-         , IsIndexOf' a ix
-         , ToIndex a ix
-         , Typeable ix
-         , ToFilterOperations ixs a
+instance ( IndexRelation a ix
          , ToHttpApiData ix
-         , KnownSymbol (IndexToQueryParam a ix)
          , FromHttpApiData ix
+         , ToFilterOperations ixs a
+         , sym ~ IndexToQueryParam a ix
+         , KnownSymbol sym
          )
          => ToFilterOperations (ix ': ixs) a where
-    toFilterOperations _ [] _     =
-        NoFilters
-    toFilterOperations req (x:xs) _ =
+    toFilterOperations req _ =
         fromMaybe rest $ do
             v <- join . List.lookup x . parseQueryText $ rawQueryString req
             op <- rightToMaybe $ parseFilterOperation (Proxy @a) (Proxy @ix) v
             pure (FilterOp op rest)
       where
-        rest = toFilterOperations req xs (Proxy @ ixs)
+        rest = toFilterOperations req (Proxy @ ixs)
+        x = toText $ symbolVal (Proxy @sym)
 
 instance ( HasServer subApi ctx
-         , syms ~ ParamNames res params
-         , KnownSymbols syms
          , ToFilterOperations params res
          , SOP.All (ToIndex res) params
          ) => HasServer (FilterBy params res :> subApi) ctx where
@@ -190,30 +185,20 @@ instance ( HasServer subApi ctx
     hoistServerWithContext _ ct hoist' s = hoistServerWithContext (Proxy @subApi) ct hoist' . s
 
     route Proxy context subserver =
-        let allParams = map toText $ symbolVals (Proxy @syms)
-            delayed = addParameterCheck subserver . withRequest $ \req ->
-                          return $ toFilterOperations req allParams (Proxy @params)
-
+        let delayed = addParameterCheck subserver . withRequest $ \req ->
+                          return $ toFilterOperations req (Proxy @params)
         in route (Proxy :: Proxy subApi) context delayed
-
-parseFilterParams :: forall a ixs. (
-                     SOP.All (ToIndex a) ixs
-                  ,  ToFilterOperations ixs a
-                  )
-                  => Request
-                  -> [Text]
-                  -> Proxy ixs
-                  -> DelayedIO (FilterOperations a)
-parseFilterParams req params p = return $ toFilterOperations req params p
 
 -- | Parse the filter operations, failing silently if the query is malformed.
 -- TODO(adinapoli): we need to improve error handling (and the parsers, for
 -- what is worth).
-parseFilterOperation :: forall a ix. ToIndex a ix
-                     => Proxy a
-                     -> Proxy ix
-                     -> Text
-                     -> Either Text (FilterOperation ix a)
+parseFilterOperation
+    :: forall a ix
+    . ToIndex a ix
+    => Proxy a
+    -> Proxy ix
+    -> Text
+    -> Either Text (FilterOperation ix a)
 parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery of
     Nothing -> Left "Not a valid filter."
     Just f  -> Right f

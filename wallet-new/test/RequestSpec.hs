@@ -8,7 +8,7 @@ import           Test.Hspec
 -- import           Test.Hspec.QuickCheck
 import           Test.QuickCheck
 
-import           Cardano.Wallet.API.Request.Filter ()
+import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Sort
 import           Cardano.Wallet.API.V1.Types
 import qualified Pos.Core as Core
@@ -45,13 +45,41 @@ sortSpec =
                     `shouldSatisfy`
                         isLeft
 
-        it "works with other thing" pending
-
 filterSpec :: Spec
-filterSpec =
-    describe "thing" $ do
-        it "works" pending
+filterSpec = do
+    describe "parseFilterOperation" $ do
+        describe "Wallet" $ do
+            let pw = Proxy @Wallet
+                pwid = Proxy @WalletId
+                pcoin = Proxy @Core.Coin
+                parse = parseFilterOperation pw pwid
 
+            it "supports index" $ do
+                parseFilterOperation pw pwid "asdf"
+                    `shouldBe`
+                        Right (FilterByIndex (WalletId "asdf"))
+
+            forM_ [minBound .. maxBound] $ \pred ->
+                it ("supports predicate: " <> show pred) $ do
+                    parseFilterOperation pw pwid
+                        (renderFilterOrdering pred <> "[asdf]")
+                        `shouldBe`
+                            Right (FilterByPredicate pred (WalletId "asdf"))
+
+            it "supports range" $ do
+                parse "RANGE[hello,world]"
+                    `shouldBe`
+                        Right
+                            (FilterByRange (WalletId "hello")
+                                           (WalletId "world"))
+
+            it "fails if the thing can't be parsed" $ do
+                parseFilterOperation pw pcoin "nope"
+                    `shouldSatisfy`
+                        isLeft
+  where
+    text'preds =
+        map (\x -> (renderFilterOrdering x, x)) [minBound .. maxBound]
 -- Vendored from quickcheck. Can discard when QuickCheck 2.10 is in use.
 
 --------------------------------------------------------------------------

@@ -7,6 +7,7 @@ stdenv.mkDerivation {
 
                       # libraries
                       unicode-math lm-math amsmath
+                      enumitem
                       # libraries for marginal notes
                       xargs todonotes
 

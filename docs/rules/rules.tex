@@ -4,10 +4,12 @@
 
 %% packages %%
 
-\usepackage{amssymb}
 \usepackage{amsmath}
-\usepackage{hyperref}
+\usepackage{amssymb}
+\usepackage{enumitem}
 \usepackage{unicode-math}
+
+\usepackage{hyperref}
 
 %% /packages %%
 
@@ -27,7 +29,7 @@
 
 %% macros %%
 
-\newenvironment{record}{\begin{description}}{\end{description}}
+\newenvironment{record}{\begin{description}[font=\it]}{\end{description}}
 
 \newcommand{\idsof}[1]{\mathcal{I}\!_#1}
 \newcommand{\id}{\mathsf{id}}
@@ -111,7 +113,7 @@ as it is.\improvement{We may want to add something about protocol
   consists of\improvement{I'm ignoring epoch boundary blocks, and the
     genesis block. Genesis block is not really important, but epoch
     boundary blocks may become relevant for this specification}
-  \begin{description}
+  \begin{record}
   \item[predecessor] A block identifier
   \item[slot number] The slot at which the block has been issued
   \item[issuer] The identifier of the agent who issued this block. In
@@ -120,7 +122,7 @@ as it is.\improvement{We may want to add something about protocol
   \item[transactions] A list of transactions\improvement{Ignored:
       secret-sharing, updates, delegation. Eventually we need at least
     delegation}
-  \end{description}
+  \end{record}
 
 \item[Chain] A chain is a sequence of blocks $b₁,…,b_n$ such that the
   predecessor of $b₁$ is the genesis block, and for every $i$, the

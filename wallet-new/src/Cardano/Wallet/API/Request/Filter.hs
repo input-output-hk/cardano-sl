@@ -26,7 +26,6 @@ import           Servant.Server.Internal
 import           Cardano.Wallet.API.Indices
 import qualified Cardano.Wallet.API.Request.Parameters as Param
 import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.TypeLits (KnownSymbols)
 
 --
 -- Filtering data
@@ -40,6 +39,8 @@ data FilterOperations a where
                => FilterOperation ix a
                -> FilterOperations a
                -> FilterOperations a
+
+infixr 6 `FilterOp`
 
 instance Show (FilterOperations a) where
     show = show . flattenOperations
@@ -154,7 +155,7 @@ type family FilterParams (syms :: [Symbol]) (r :: *) :: [*] where
     FilterParams '[Param.Id, Param.CreatedAt] Transaction = IndicesOf Transaction
 
 class ToFilterOperations (ixs :: [*]) a where
-  toFilterOperations :: Request -> proxy ixs -> FilterOperations a
+  toFilterOperations :: [(Text, Maybe Text)] -> proxy ixs -> FilterOperations a
 
 instance Indexable' a => ToFilterOperations ('[]) a where
   toFilterOperations _ _ = NoFilters
@@ -167,13 +168,13 @@ instance ( IndexRelation a ix
          , KnownSymbol sym
          )
          => ToFilterOperations (ix ': ixs) a where
-    toFilterOperations req _ =
+    toFilterOperations params _ =
         fromMaybe rest $ do
-            v <- join . List.lookup x . parseQueryText $ rawQueryString req
+            v <- join $ List.lookup x params
             op <- rightToMaybe $ parseFilterOperation (Proxy @a) (Proxy @ix) v
             pure (FilterOp op rest)
       where
-        rest = toFilterOperations req (Proxy @ ixs)
+        rest = toFilterOperations params (Proxy @ ixs)
         x = toText $ symbolVal (Proxy @sym)
 
 instance ( HasServer subApi ctx
@@ -186,7 +187,7 @@ instance ( HasServer subApi ctx
 
     route Proxy context subserver =
         let delayed = addParameterCheck subserver . withRequest $ \req ->
-                          return $ toFilterOperations req (Proxy @params)
+                          return $ toFilterOperations (parseQueryText $ rawQueryString req) (Proxy @params)
         in route (Proxy :: Proxy subApi) context delayed
 
 -- | Parse the filter operations, failing silently if the query is malformed.
@@ -229,19 +230,20 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
 
 instance
     ( HasClient m next
-    , KnownSymbols syms
     , SOP.All (ToIndex res) params
-    , syms ~ ParamNames res params
     )
     => HasClient m (FilterBy params res :> next) where
     type Client m (FilterBy params res :> next) =
         FilterOperations res -> Client m next
     clientWithRoute pm _ req fs =
-        clientWithRoute pm (Proxy @next) (incorporate fs req)
+        clientWithRoute pm (Proxy @next) (incorporate fs)
       where
-        incorporate NoFilters = identity
-        incorporate (FilterOp (fop :: FilterOperation ix res) next) =
-            incorporate next .
-                appendToQueryString
-                    (toText (symbolVal (Proxy @(IndexToQueryParam res ix))))
-                    (Just (toQueryParam fop))
+        incorporate =
+            foldr (uncurry appendToQueryString) req . toQueryString
+
+toQueryString :: FilterOperations a -> [(Text, Maybe Text)]
+toQueryString NoFilters = []
+toQueryString (FilterOp (fop :: FilterOperation ix a) rest) =
+    ( toText (symbolVal (Proxy @(IndexToQueryParam a ix)))
+    , Just (toQueryParam fop)
+    ) : toQueryString rest

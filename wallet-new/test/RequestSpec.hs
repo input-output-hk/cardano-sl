@@ -2,11 +2,8 @@ module RequestSpec where
 
 import           Universum
 
-import           Data.Char (isPrint)
 import           Data.Either (isLeft)
 import           Test.Hspec
--- import           Test.Hspec.QuickCheck
-import           Test.QuickCheck
 
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Sort
@@ -52,46 +49,57 @@ filterSpec = do
             let pw = Proxy @Wallet
                 pwid = Proxy @WalletId
                 pcoin = Proxy @Core.Coin
-                parse = parseFilterOperation pw pwid
 
             it "supports index" $ do
                 parseFilterOperation pw pwid "asdf"
                     `shouldBe`
                         Right (FilterByIndex (WalletId "asdf"))
 
-            forM_ [minBound .. maxBound] $ \pred ->
-                it ("supports predicate: " <> show pred) $ do
+            forM_ [minBound .. maxBound] $ \p ->
+                it ("supports predicate: " <> show p) $ do
                     parseFilterOperation pw pwid
-                        (renderFilterOrdering pred <> "[asdf]")
+                        (renderFilterOrdering p <> "[asdf]")
                         `shouldBe`
-                            Right (FilterByPredicate pred (WalletId "asdf"))
+                            Right (FilterByPredicate p (WalletId "asdf"))
 
             it "supports range" $ do
-                parse "RANGE[hello,world]"
+                parseFilterOperation pw pcoin "RANGE[123,456]"
                     `shouldBe`
                         Right
-                            (FilterByRange (WalletId "hello")
-                                           (WalletId "world"))
+                            (FilterByRange (Core.mkCoin 123)
+                                           (Core.mkCoin 456))
 
             it "fails if the thing can't be parsed" $ do
                 parseFilterOperation pw pcoin "nope"
                     `shouldSatisfy`
                         isLeft
-  where
-    text'preds =
-        map (\x -> (renderFilterOrdering x, x)) [minBound .. maxBound]
--- Vendored from quickcheck. Can discard when QuickCheck 2.10 is in use.
 
---------------------------------------------------------------------------
--- | @PrintableString@: generates a printable unicode String.
--- The string will not contain surrogate pairs.
-newtype PrintableString = PrintableString {getPrintableString :: String}
-  deriving ( Eq, Ord, Show, Read )
+    describe "toQueryString" $ do
+        let ops = FilterByRange (Core.mkCoin 2345) (Core.mkCoin 2348)
+                `FilterOp` FilterByIndex (WalletId "hello")
+                `FilterOp` NoFilters
+                :: FilterOperations Wallet
+        it "does what you'd want it to do" $ do
+            toQueryString ops
+                `shouldBe`
+                    [ ("balance", Just "RANGE[2345,2348]")
+                    , ("id",      Just "hello")
+                    ]
 
-instance Arbitrary PrintableString where
-  arbitrary = PrintableString `fmap` listOf arbitraryPrintableChar
-  shrink (PrintableString xs) = PrintableString `fmap` shrink xs
+    describe "toFilterOperations" $ do
+        let params :: [(Text, Maybe Text)]
+            params =
+                [ ("id",      Just "3")
+                , ("balance", Just "RANGE[10,50]")
+                ]
+            fops :: FilterOperations Wallet
+            fops = FilterByIndex (WalletId "3")
+                `FilterOp` FilterByRange (Core.mkCoin 10) (Core.mkCoin 50)
+                `FilterOp` NoFilters
+            prxy :: Proxy '[WalletId, Core.Coin]
+            prxy = Proxy
 
--- | Generates a printable Unicode character.
-arbitraryPrintableChar :: Gen Char
-arbitraryPrintableChar = arbitrary `suchThat` isPrint
+        it "can parse the thing" $ do
+            toFilterOperations params prxy
+                `shouldBe`
+                    fops

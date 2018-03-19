@@ -20,7 +20,6 @@ import           Data.Default (def)
 import qualified Data.HashMap.Strict as HM
 import           Data.List ((!!))
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Time.Units (toMicroseconds)
@@ -37,7 +36,7 @@ import           Pos.Binary (decodeFull)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
-import           Pos.Client.Txp.Util (createTx, PendingAddresses (..) )
+import           Pos.Client.Txp.Util (createTx)
 import           Pos.Communication (SendActions, immediateConcurrentConversations)
 import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAddr (..),
                            Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
@@ -93,7 +92,7 @@ sendToAllGenesis
     => SendActions m
     -> SendToAllGenesisParams
     -> m ()
-sendToAllGenesis sendActions (SendToAllGenesisParams _ conc delay_ sendMode tpsSentFile) = do
+sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMode tpsSentFile) = do
     CmdCtx {ccPeers} <- getCmdCtx
     let nNeighbours = length ccPeers
     let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration genesisBlockVersionData) `div` 1000000 :: Int
@@ -132,20 +131,39 @@ sendToAllGenesis sendActions (SendToAllGenesisParams _ conc delay_ sendMode tpsS
                         return [ccPeers !! i]
                 utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
         -- every genesis secret key sends to itself
-                me <- makePubKeyAddressAuxx (toPublic  secretKey )
+                me <- makePubKeyAddressAuxx (toPublic  secretKey)
                 let val2 = mkCoin 1
                     txOut2 = TxOut {
                         txOutAddress = me,
                         txOutValue   = val2
                     }
                     txOuts2 = TxOutAux txOut2 :| []
-                let meset = PendingAddresses $ Set.singleton me
-                etx <- createTx meset utxo (fakeSigner secretKey) txOuts2 (toPublic secretKey)
+                etx <- createTx mempty utxo (fakeSigner secretKey) txOuts2 (toPublic secretKey)
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
                     Right (tx, _) -> atomically $ writeTQueue txQueue (tx, neighbours)
-        --let nTrans = conc * duration -- number of transactions we'll send
-        let nTrans = 1000
+
+        let addRedeemTx (secretKey, n) = do
+            neighbours <- case sendMode of
+                SendNeighbours -> return ccPeers
+                SendRoundRobin -> return [ccPeers !! (n `mod` nNeighbours)]
+                SendRandom -> do
+                    i <- liftIO $ randomRIO (0, nNeighbours - 1)
+                    return [ccPeers !! i]
+            utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
+                -- every genesis secret key sends to itself
+            me <- makePubKeyAddressAuxx (toPublic  secretKey)
+            let val2 = mkCoin 1
+                txOut2 = TxOut {
+                    txOutAddress = me,
+                    txOutValue   = val2
+                }
+                txOuts2 = TxOutAux txOut2 :| []
+            etx <- createRedemptionTx utxo (fakeSigner secretKey) txOuts2 --(toPublic secretKey)
+            case etx of
+                Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
+                Right (tx, _) -> atomically $ writeTQueue txQueue (tx, neighbours)
+        let nTrans = duration
             allTrans = (zip (drop startAt keysToSend) [0.. nTrans])
             (firstBatch, secondBatch) = splitAt ((2 * nTrans) `div` 3) allTrans
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
@@ -198,13 +216,14 @@ sendToAllGenesis sendActions (SendToAllGenesisParams _ conc delay_ sendMode tpsS
         -- While we're sending, we're constructing the second batch of
         -- transactions.
         void $
-            concurrently (forM_ secondBatch addTx) $
-            concurrently writeTPS (sendTxsConcurrently (nTrans))
+            concurrently (forM_ firstBatch addRedeemTx)  $
+            concurrently (forM_ secondBatch addRedeemTx) $
+            concurrently writeTPS (sendTxsConcurrently (duration))
         logInfo "First iteration finished"
-        forM_  firstBatch addTx
         void $
+            concurrently (forM_ firstBatch addTx)  $
             concurrently (forM_ secondBatch addTx) $
-            concurrently writeTPS (sendTxsConcurrently (nTrans))
+            concurrently writeTPS (sendTxsConcurrently (duration))
         logInfo "Second iteration finished"
 
 ----------------------------------------------------------------------------

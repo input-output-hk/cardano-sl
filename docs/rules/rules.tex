@@ -33,6 +33,7 @@
 
 \newcommand{\idsof}[1]{\mathcal{I}\!_#1}
 \newcommand{\id}{\mathsf{id}}
+\newcommand{\txids}{\idsof{\mathcal{T}}}
 \newcommand{\blockids}{\idsof{\mathcal{B}}}
 \newcommand{\agentids}{\idsof{\mathcal{A}}}
 \newcommand{\slotleader}{\mathsf{sl}}
@@ -90,7 +91,7 @@ as it is.\improvement{We may want to add something about protocol
     being}
 
 \item[Slot leader] We assume known a function
-  $\slotleader ∈ \mathbb{N} ⟶ \agentids$ mapping each slot to an agent
+  $\slotleader ∈ ℕ ⟶ \agentids$ mapping each slot to an agent
   id.\improvement{This function is actually also parametrised by a valid
     blockchain. And doesn't look arbitrarily far into the future.}
 
@@ -103,7 +104,25 @@ as it is.\improvement{We may want to add something about protocol
   issue a block without acknowledging the block issued by the slot
   leader at slot $i$.
 
-\item[Transaction] \improvement{Todo}
+\item[Transaction] Transactions have a system of identifiers
+  $\txids$.
+
+  A transaction consists of\improvement{Consider using record notation
+  for inputs and outputs.}
+  \begin{record}
+  \item[Inputs] A non-empty list of pairs in $\txids ×
+    ℕ$.\improvement{Explain that it represents an output identified by
+      its index in the transaction output list}
+  \item[Outputs] A non-empty list of pairs in $\agentids ×
+    ℕ$.\improvement{This only embodies pay-to-public-key schemes. For
+      pay-to-script and such, we will need further
+      refinements.}\improvement{Explain that the natural number is an
+      amount of currency.}
+  \item[Witnesses] A non-empty list of agent ids.\improvement{This
+      whole section could be improved with a notation for the set of
+      lists over a given type} In an implementation these ids would be
+    realised by cryptographic signatures.
+  \end{record}
 
 \item[Block] Blocks have a system of identifier $\blockids$. There is
   a distinguished $b_0∈ \blockids$, called the genesis identifier,
@@ -151,7 +170,27 @@ $b_1,…,b_n$ if all of the following hold
   slot.
 \item[Issuer] The issuer is the slot leader at the block's slot
   number\improvement{This ignores delegation}.
-\item[TODO]
+\item[Transactions]\improvement{Explain how to validate each
+    transaction on top of the others}\hfill
+  \begin{description}
+  \item[Stateless]\hfill
+    \begin{description}
+    \item[Valid outputs] All the outputs of the transaction must have
+      amount $a > 0$.
+    \item[No double-spending] The list of inputs contains no duplicate.
+    \end{description}
+  \item[Stateful]\improvement{Make this section more precise}\hfill
+    \begin{description}
+    \item[Unspent inputs] Each input of the transaction is unspent.
+    \item[Conservation of value] The total amount of input must equal
+      the total amount of outputs.\critical{This ignores transaction
+        fees and asset creation. How are they represented, what are
+        their rules?}
+    \item[Authorised] The list of witnesses has the same length as the
+      list of input, and for each input, the corresponding witness is
+      the agent id of the input.
+    \end{description}
+  \end{description}
 \end{description}
 
 \section{Extending the blockchain}

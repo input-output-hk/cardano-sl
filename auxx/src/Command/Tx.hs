@@ -220,15 +220,15 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         -- While we're sending, we're constructing the second batch of
         -- transactions.
         void $
-            concurrently (forM_ firstBatch addTx)  $
             concurrently (forM_ secondBatch addTx) $
             concurrently writeTPS (sendTxsConcurrently (duration))
         logInfo "First iteration finished"
-        void $
+        {-void $
             concurrently (forM_ firstBatch addTx)  $
             concurrently (forM_ secondBatch addTx) $
             concurrently writeTPS (sendTxsConcurrently (duration))
         logInfo "Second iteration finished"
+        -}
 
 ----------------------------------------------------------------------------
 -- Casual sending

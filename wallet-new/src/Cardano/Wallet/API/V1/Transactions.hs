@@ -18,10 +18,10 @@ type API = Tags '["Transactions"] :>
                         :> QueryParam "account_index" AccountIndex
                         :> QueryParam "address" (V1 Core.Address)
                         :> WalletRequestParams
-                        :> FilterBy '[ "id"         ?= V1 Core.TxId
-                                     , "created_at" ?= V1 Core.Timestamp
+                        :> FilterBy '[ V1 Core.TxId
+                                     , V1 Core.Timestamp
                                      ] Transaction
-                        :> SortBy   '[ "created_at" ?= V1 Core.Timestamp
+                        :> SortBy   '[ V1 Core.Timestamp
                                      ] Transaction
                         :> Get '[ValidJSON] (WalletResponse [Transaction])
     :<|> "transactions" :> "fees"

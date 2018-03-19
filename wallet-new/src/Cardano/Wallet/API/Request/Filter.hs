@@ -23,8 +23,8 @@ import           Servant.Client
 import           Servant.Client.Core (appendToQueryString)
 import           Servant.Server.Internal
 
-import qualified Cardano.Wallet.API.Request.Parameters as Param
 import           Cardano.Wallet.API.Indices
+import qualified Cardano.Wallet.API.Request.Parameters as Param
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 
@@ -36,13 +36,25 @@ import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 -- the inner closure of 'FilterOp'.
 data FilterOperations a where
     NoFilters  :: FilterOperations a
-    FilterOp   :: (Indexable' a, IsIndexOf' a ix, ToIndex a ix, FromHttpApiData ix, ToHttpApiData ix, Typeable ix, KnownSymbol (IndexToQueryParam a ix))
+    FilterOp   :: (IndexRelation a ix, FromHttpApiData ix, ToHttpApiData ix, Eq ix)
                => FilterOperation ix a
                -> FilterOperations a
                -> FilterOperations a
 
 instance Show (FilterOperations a) where
     show = show . flattenOperations
+
+instance Eq (FilterOperations a) where
+    NoFilters == NoFilters =
+        True
+    FilterOp (f0 :: FilterOperation ix0 a) rest0 == FilterOp (f1 :: FilterOperation ix1 a) rest1 =
+        case eqT @ix0 @ix1 of
+            Nothing ->
+                False
+            Just Refl ->
+                f0 == f1 && rest0 == rest1
+    _ == _ =
+        False
 
 -- | Handy helper function to show opaque 'FilterOperation'(s), mostly for
 -- debug purposes.
@@ -76,6 +88,7 @@ data FilterOperation ix a =
     -- ^ Filter by predicate (e.g. lesser than, greater than, etc.)
     | FilterByRange ix ix
     -- ^ Filter by range, in the form [from,to]
+    deriving Eq
 
 instance ToHttpApiData ix => ToHttpApiData (FilterOperation ix a) where
     toQueryParam = renderFilterOperation
@@ -167,11 +180,10 @@ instance ( Indexable' a
         rest = toFilterOperations req xs (Proxy @ ixs)
 
 instance ( HasServer subApi ctx
-         , syms ~ ParamNames params
-         , ixs ~ ParamTypes params
+         , syms ~ ParamNames res params
          , KnownSymbols syms
-         , ToFilterOperations ixs res
-         , SOP.All (ToIndex res) ixs
+         , ToFilterOperations params res
+         , SOP.All (ToIndex res) params
          ) => HasServer (FilterBy params res :> subApi) ctx where
 
     type ServerT (FilterBy params res :> subApi) m = FilterOperations res -> ServerT subApi m
@@ -180,7 +192,7 @@ instance ( HasServer subApi ctx
     route Proxy context subserver =
         let allParams = map toText $ symbolVals (Proxy @syms)
             delayed = addParameterCheck subserver . withRequest $ \req ->
-                          return $ toFilterOperations req allParams (Proxy @ixs)
+                          return $ toFilterOperations req allParams (Proxy @params)
 
         in route (Proxy :: Proxy subApi) context delayed
 
@@ -233,9 +245,8 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
 instance
     ( HasClient m next
     , KnownSymbols syms
-    , SOP.All (ToIndex res) ixs
-    , ixs ~ ParamTypes params
-    , syms ~ ParamNames params
+    , SOP.All (ToIndex res) params
+    , syms ~ ParamNames res params
     )
     => HasClient m (FilterBy params res :> next) where
     type Client m (FilterBy params res :> next) =

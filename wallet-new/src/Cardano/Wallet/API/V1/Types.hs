@@ -67,16 +67,13 @@ module Cardano.Wallet.API.V1.Types (
   -- * Some types for the API
   , CaptureWalletId
   , CaptureAccountId
-  , type (?=)
-  , ParamNames
-  , ParamTypes
   -- * Core re-exports
   , Core.Address
   ) where
 
 import           Universum
 
-import           Control.Lens (at, ix, makePrisms, (?~), IxValue, Index, At, to)
+import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (typeMismatch)
@@ -88,7 +85,6 @@ import           Data.Text (Text, dropEnd, toLower)
 import           Data.Version (Version)
 import           Formatting (build, int, sformat, (%))
 import           GHC.Generics (Generic, Rep)
-import           GHC.TypeLits
 import qualified Prelude
 import qualified Serokell.Aeson.Options as Serokell
 import qualified Serokell.Util.Base16 as Base16
@@ -1142,42 +1138,3 @@ type family New (original :: *) :: * where
 type CaptureWalletId = Capture "walletId" WalletId
 
 type CaptureAccountId = Capture "accountId" AccountIndex
-
--- | This type is used to pair a symbol (representing the query parameter
--- name) along with the expected type of the query parameter. It is
--- primarily to be used with the 'FilterBy' and 'SortBy' Servant route
--- combinators.
-data (paramName :: Symbol) ?= (paramType :: *)
-
--- | Extract the parameter names from a type leve list with the shape
-type family ParamNames xs where
-    ParamNames '[]            = '[]
-    ParamNames (s ?= _ ': xs) = s ': ParamNames xs
-    ParamNames (ty ': _)      = TypeError (
-        'Text "ParamNames must be called on a type-level list containing types"
-        ':$$: 'Text "that use the `"
-            ':<>: 'ShowType (?=)
-            ':<>: 'Text "' type constructor."
-        ':$$: 'Text "An example would be: "
-        ':$$: 'Text "    "
-            ':<>: 'ShowType '["hello" ?= Int, "world" ?= String]
-        ':$$: 'Text "Other types, like "
-            ':<>: 'ShowType ty
-            ':<>: 'Text " are incompatible with this function."
-        )
-
-type family ParamTypes xs where
-    ParamTypes '[]            = '[]
-    ParamTypes (_ ?= t ': xs) = t ': ParamTypes xs
-    ParamTypes (ty ': _)      = TypeError (
-        'Text "ParamTypes must be called on a type-level list containing types"
-        ':$$: 'Text "that use the `"
-            ':<>: 'ShowType (?=)
-            ':<>: 'Text "' type constructor."
-        ':$$: 'Text "An example would be: "
-        ':$$: 'Text "    "
-            ':<>: 'ShowType '["hello" ?= Int, "world" ?= String]
-        ':$$: 'Text "Other types, like "
-            ':<>: 'ShowType ty
-            ':<>: 'Text " are incompatible with this function."
-        )

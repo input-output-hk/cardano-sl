@@ -1,3 +1,4 @@
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ConstraintKinds           #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FunctionalDependencies    #-}
@@ -12,9 +13,9 @@ import           Universum
 
 import           Cardano.Wallet.API.V1.Types
 import           Data.String.Conv (toS)
-import           GHC.TypeLits
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash)
+import           GHC.TypeLits
 
 import           Data.IxSet.Typed (Indexable (..), IsIndexOf, IxSet, ixFun, ixList)
 
@@ -51,30 +52,6 @@ type family IndicesOf a :: [*] where
     IndicesOf Transaction = TransactionIxs
     IndicesOf Account     = AccountIxs
 
--- | This type family allows you to recover the query parameter if you know
--- the resource and index into that resource.
-type family IndexToQueryParam resource ix where
-    IndexToQueryParam Account AccountIndex = "id"
-
-    IndexToQueryParam Wallet  Core.Coin    = "balance"
-    IndexToQueryParam Wallet  WalletId     = "id"
-
-    IndexToQueryParam Transaction (V1 Core.TxId)      = "id"
-    IndexToQueryParam Transaction (V1 Core.Timestamp) = "created_at"
-
-    -- | This is the fallback case. It will trigger a type error if you use
-    -- 'IndexToQueryParam' with a pairing that is invalid. We want this to
-    -- trigger early, so that we don't get Weird Errors later on with stuck
-    -- types.
-    IndexToQueryParam res ix = TypeError (
-        'Text "You used `IndextoQueryParam' with the following resource:"
-        ':$$: 'Text "    " ':<>: 'ShowType res
-        ':$$: 'Text "and index type:"
-        ':$$: 'Text "    " ':<>: 'ShowType ix
-        ':$$: 'Text "But no instance for that type was defined."
-        ':$$: 'Text "Perhaps you mismatched a resource and an index?"
-        ':$$: 'Text "Or, maybe you need to add a type instance to `IndexToQueryParam'."
-        )
 
 -- | A variant of an 'IxSet' where the indexes are determined statically by the resource type.
 type IxSet' a        = IxSet (IndicesOf a) a
@@ -84,6 +61,15 @@ type Indexable' a    = Indexable (IndicesOf a) a
 
 -- | A variant of the 'IsIndexOf' constraint where the indexes are determined statically by the resource type.
 type IsIndexOf' a ix = IsIndexOf ix (IndicesOf a)
+
+-- | This constraint expresses that @ix@ is a valid index of @a@.
+type IndexRelation a ix =
+    ( Indexable' a
+    , IsIndexOf' a ix
+    , ToIndex a ix
+    , Typeable ix
+    , KnownSymbol (IndexToQueryParam a ix)
+    )
 
 --
 -- Indices for all the major resources
@@ -104,3 +90,36 @@ instance Indexable TransactionIxs Transaction where
 
 instance Indexable AccountIxs Account where
   indices = ixList (ixFun (\Account{..} -> [accIndex]))
+
+-- | Extract the parameter names from a type leve list with the shape
+type family ParamNames res xs where
+    ParamNames res '[] =
+        '[]
+    ParamNames res (ty ': xs) =
+        IndexToQueryParam res ty ': ParamNames res xs
+
+-- | This type family allows you to recover the query parameter if you know
+-- the resource and index into that resource.
+type family IndexToQueryParam resource ix where
+    IndexToQueryParam Account AccountIndex = "id"
+
+    IndexToQueryParam Wallet  Core.Coin    = "balance"
+    IndexToQueryParam Wallet  WalletId     = "id"
+
+    IndexToQueryParam Transaction (V1 Core.TxId)      = "id"
+    IndexToQueryParam Transaction (V1 Core.Timestamp) = "created_at"
+
+    -- | This is the fallback case. It will trigger a type error if you use
+    -- 'IndexToQueryParam'' with a pairing that is invalid. We want this to
+    -- trigger early, so that we don't get Weird Errors later on with stuck
+    -- types.
+    IndexToQueryParam res ix = TypeError (
+        'Text "You used `IndextoQueryParam' with the following resource:"
+        ':$$: 'Text "    " ':<>: 'ShowType res
+        ':$$: 'Text "and index type:"
+        ':$$: 'Text "    " ':<>: 'ShowType ix
+        ':$$: 'Text "But no instance for that type was defined."
+        ':$$: 'Text "Perhaps you mismatched a resource and an index?"
+        ':$$: 'Text "Or, maybe you need to add a type instance to `IndexToQueryParam'."
+        )
+

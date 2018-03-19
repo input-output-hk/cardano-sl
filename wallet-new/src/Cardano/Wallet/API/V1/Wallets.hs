@@ -16,10 +16,10 @@ type API = Tags '["Wallets"] :>
                    :> PostCreated '[ValidJSON] (WalletResponse Wallet)
     :<|> "wallets" :> Summary "Returns all the available wallets."
                    :> WalletRequestParams
-                   :> FilterBy '[ "id"      ?= WalletId
-                                , "balance" ?= Core.Coin
+                   :> FilterBy '[ WalletId
+                                , Core.Coin
                                 ] Wallet
-                   :> SortBy   '[ "balance" ?= Core.Coin
+                   :> SortBy   '[ Core.Coin
                                 ] Wallet
                    :> Get '[ValidJSON] (WalletResponse [Wallet])
     :<|> "wallets" :> CaptureWalletId

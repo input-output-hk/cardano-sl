@@ -24,17 +24,17 @@ import           Servant.Server.Internal
 import           Cardano.Wallet.API.Indices
 import qualified Cardano.Wallet.API.Request.Parameters as Param
 import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
+import           Cardano.Wallet.TypeLits (KnownSymbols)
 import           Pos.Core as Core
 
 -- | Represents a sort operation on the data model.
 --
--- The first type parameter is a type level list that pairs the query
--- parameter string with the expected parsed type. The second type
--- parameter describes the resource that is being sorted.
+-- The first type parameter is a type level list that describes the
+-- available types for sorting on. The name of the index is given by the
+-- 'IndexToQueryParam' type family for the resource and type.
 --
 -- @
--- 'SortBy' '[ "id" ?= WalletId, "balance" ?= Coin ] Wallet
+-- 'SortBy' '[ WalletId, Coin ] Wallet
 -- @
 --
 -- The above combinator would permit query parameters that look like these
@@ -44,9 +44,14 @@ import           Pos.Core as Core
 -- * @sort_by=DESC[balance]@
 --
 -- In order for this to work, you need to ensure that the type family
--- 'IndexToQueryParam' has an entry for each @'[symbol ?= typ] resource@.
--- Otherwise, the client and server won't know how to associate the data
--- and construct requests.
+-- 'IndexToQueryParam' has an entry for each type for the resource.
+--
+-- The instances that enable the above lines are:
+--
+-- @
+--     'IndexToQueryParam' 'Wallet' 'WalletId' = "id"
+--     'IndexToQueryParam' 'Wallet' 'Coin'     = "balance"
+-- @
 data SortBy (params :: [*]) (resource :: *)
     deriving Typeable
 
@@ -54,7 +59,7 @@ data SortBy (params :: [*]) (resource :: *)
 data SortDirection =
       SortAscending
     | SortDescending
-    deriving Show
+    deriving (Eq, Show)
 
 renderSortDir :: SortDirection -> Text
 renderSortDir sd = case sd of
@@ -62,9 +67,10 @@ renderSortDir sd = case sd of
     SortDescending -> "DESC"
 
 -- | A sort operation on an index @ix@ for a resource 'a'.
-data SortOperation ix a =
-      SortByIndex SortDirection (Proxy ix)
+data SortOperation ix a
+    = SortByIndex SortDirection (Proxy ix)
     -- ^ Standard sort by index (e.g. sort_by=balance).
+    deriving Eq
 
 instance
     ( IndexToQueryParam a ix ~ sym
@@ -87,10 +93,22 @@ instance Show (SortOperations a) where
 -- the inner closure of 'SortOp'.
 data SortOperations a where
     NoSorts  :: SortOperations a
-    SortOp   :: (Indexable' a, IsIndexOf' a ix, ToIndex a ix, Typeable ix, KnownSymbol (IndexToQueryParam a ix))
+    SortOp   :: IndexRelation a ix
              => SortOperation ix a
              -> SortOperations a
              -> SortOperations a
+
+instance Eq (SortOperations a) where
+    NoSorts == NoSorts =
+       True
+    SortOp (sop0 :: SortOperation ix0 a) rest0 == SortOp (sop1 :: SortOperation ix1 a) rest1 =
+        case eqT @ix0 @ix1 of
+            Nothing ->
+                False
+            Just Refl ->
+                sop0 == sop1 && rest0 == rest1
+    _ == _ =
+        False
 
 findMatchingSortOp
     :: forall (needle :: *) (a :: *)
@@ -128,48 +146,40 @@ type family SortParams (syms :: [Symbol]) (r :: *) :: [*] where
 -- | Handy typeclass to reconcile type and value levels by building a list of 'SortOperation' out of
 -- a type level list.
 class ToSortOperations (ixs :: [*]) a where
-  toSortOperations :: Request -> [Text] -> proxy ixs -> SortOperations a
+  toSortOperations :: Request -> proxy ixs -> SortOperations a
 
 instance Indexable' a => ToSortOperations ('[]) a where
-  toSortOperations _ _ _ = NoSorts
+  toSortOperations _ _ = NoSorts
 
-instance ( Indexable' a
-         , IsIndexOf' a ix
-         , ToIndex a ix
+instance ( IndexRelation a ix
          , ToSortOperations ixs a
-         , Typeable ix
-         , KnownSymbol sym
          , IndexToQueryParam a ix ~ sym
          )
          => ToSortOperations (ix ': ixs) a where
-    toSortOperations _ [] _     =
-        NoSorts
-    toSortOperations req (key:xs) _ =
+    toSortOperations req _ =
         foldr (either (flip const) SortOp) rest
-            . map (parseSortOperation (Proxy @a) (Proxy @ix) . (,) key)
+            . map (parseSortOperation (Proxy @a) (Proxy @ix))
             . mapMaybe snd
             . filter (("sort_by" ==) . fst)
             . parseQueryText
             $ rawQueryString req
       where
-        rest = toSortOperations req xs (Proxy @ ixs)
+        rest = toSortOperations req (Proxy @ ixs)
 
 -- | Servant's 'HasServer' instance telling us what to do with a type-level specification of a sort operation.
 instance ( HasServer subApi ctx
-         , ixs ~ ParamTypes params
-         , syms ~ ParamNames params
+         , syms ~ ParamNames res params
          , KnownSymbols syms
-         , ToSortOperations ixs res
-         , SOP.All (ToIndex res) ixs
+         , ToSortOperations params res
+         , SOP.All (ToIndex res) params
          ) => HasServer (SortBy params res :> subApi) ctx where
 
     type ServerT (SortBy params res :> subApi) m = SortOperations res -> ServerT subApi m
     hoistServerWithContext _ ct hoist' s = hoistServerWithContext (Proxy @subApi) ct hoist' . s
 
     route Proxy context subserver =
-        let allParams = map toText $ symbolVals (Proxy @syms)
-            delayed = addParameterCheck subserver . withRequest $ \req ->
-                        return $ toSortOperations req allParams (Proxy @ixs)
+        let delayed = addParameterCheck subserver . withRequest $ \req ->
+                        return $ toSortOperations req (Proxy @params)
 
         in route (Proxy :: Proxy subApi) context delayed
 
@@ -182,28 +192,32 @@ parseSortOperation
       )
     => Proxy a
     -> Proxy ix
-    -> (Text, Text)
+    -> Text
     -> Either Text (SortOperation ix a)
-parseSortOperation _ ix@Proxy (key,value) = case parseQuery of
-    Nothing -> Left "Not a valid sort."
-    Just f  -> Right f
+parseSortOperation _ ix@Proxy value =
+    case (predicate, closing, ixTxt == key) of
+        ("ASC", "]", True) ->
+            Right $ SortByIndex SortAscending  ix
+        ("DES", "]", True) ->
+            Right $ SortByIndex SortDescending ix
+        (mk, "", _) | mk == key ->
+            Right $ SortByIndex SortDescending ix -- default sorting.
+        _ ->
+            Left $ mconcat
+                [ "Failed to parse sort operation: '"
+                , value
+                , "'."
+                ]
   where
-    parseQuery :: Maybe (SortOperation ix a)
-    parseQuery =
-        let (predicate, rest1) = (T.take 4 value, T.drop 4 value)
-            (ixTxt, closing)   = T.breakOn "]" rest1
-            in case (predicate, closing, ixTxt == key) of
-               ("ASC[", "]", True) -> Just $ SortByIndex SortAscending  ix
-               ("DES[", "]", True) -> Just $ SortByIndex SortDescending ix
-               (_, _, True)        -> Just $ SortByIndex SortDescending ix -- default sorting.
-               _                   -> Nothing
+    key                = toText $ symbolVal (Proxy @sym)
+    (predicate, rest1) = T.breakOn "[" value
+    (ixTxt, closing)   = T.breakOn "]" (T.drop 1 rest1)
 
 instance
     ( HasClient m next
     , KnownSymbols syms
-    , SOP.All (ToIndex res) ixs
-    , syms ~ ParamNames params
-    , ixs ~ ParamTypes params
+    , SOP.All (ToIndex res) params
+    , syms ~ ParamNames res params
     )
     => HasClient m (SortBy params res :> next) where
     type Client m (SortBy params res :> next) =

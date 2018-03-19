@@ -10,6 +10,7 @@ module Cardano.Wallet.API.V1.Swagger where
 
 import           Universum
 
+import           Cardano.Wallet.API.Indices (ParamNames)
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination
 import           Cardano.Wallet.API.Request.Sort
@@ -91,7 +92,7 @@ instance
     ( Typeable res
     , KnownSymbols syms
     , HasSwagger subApi
-    , syms ~ ParamNames params
+    , syms ~ ParamNames res params
     ) => HasSwagger (FilterBy params res :> subApi) where
     toSwagger _ =
         let swgr       = toSwagger (Proxy @subApi)
@@ -118,7 +119,7 @@ instance
 instance
     ( Typeable res
     , KnownSymbols syms
-    , syms ~ ParamNames params
+    , syms ~ ParamNames res params
     , HasSwagger subApi
     ) => HasSwagger (SortBy params res :> subApi) where
     toSwagger _ =

@@ -15,6 +15,7 @@ module Pos.GState.BlockExtra
        , loadHeadersUpWhile
        , loadBlocksUpWhile
        , initGStateBlockExtra
+       , streamBlocks
        ) where
 
 import           Universum
@@ -22,6 +23,7 @@ import           Universum
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, (%))
+import           Pipes (Producer, yield)
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (serialize')
@@ -110,6 +112,23 @@ instance HasCoreConfiguration => RocksBatchOp BlockExtraOp where
 ----------------------------------------------------------------------------
 -- Loops on forward links
 ----------------------------------------------------------------------------
+
+streamBlocks
+    :: ( Monad m )
+    => (HeaderHash -> m (Maybe Block))
+    -> (HeaderHash -> m (Maybe HeaderHash))
+    -> HeaderHash
+    -> Producer Block m ()
+streamBlocks loadBlock forwardLink hhash = do
+    mb <- lift $ loadBlock hhash
+    case mb of
+        Nothing -> pure ()
+        Just block -> do
+            yield block
+            mNext <- lift $ forwardLink hhash
+            case mNext of
+                Nothing -> pure ()
+                Just hhash' -> streamBlocks loadBlock forwardLink hhash'
 
 foldlUpWhileM
     :: forall a b m r .

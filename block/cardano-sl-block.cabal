@@ -108,6 +108,7 @@ library
                       , random
                       , reflection
                       , rocksdb-haskell-ng
+                      , pipes
                       , safe-exceptions
                       , serokell-util
                       , stm

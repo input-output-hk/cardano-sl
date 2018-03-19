@@ -175,6 +175,7 @@ library
                       , network-transport
                       , optparse-applicative
                       , parsec
+                      , pipes
                       , plutus-prototype
                       , pvss
                       , random

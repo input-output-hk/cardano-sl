@@ -47,7 +47,6 @@ data ApplyBlocksException
         HeaderHash -- stored tip
         HeaderHash -- attempted tip
     | ApplyBlocksVerifyFailure VerifyBlocksException
-    | ApplyBlocksError Text -- other error (not covered by constructors above)
     deriving (Show)
 
 renderApplyBlocksException :: ApplyBlocksException -> Builder
@@ -55,7 +54,6 @@ renderApplyBlocksException = \case
     ApplyBlocksTipMismatch s tip attemptedTip ->
         tipMismatchMsg s tip attemptedTip
     ApplyBlocksVerifyFailure e -> renderVerifyBlocksException e
-    ApplyBlocksError e -> fromText e
 
 instance Exception ApplyBlocksException where
     displayException = toString . pretty

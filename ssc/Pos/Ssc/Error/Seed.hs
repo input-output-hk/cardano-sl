@@ -39,8 +39,6 @@ data SscSeedError
     -- | Share can't be deserialized
     | BrokenShare !StakeholderId
 
-    -- | Some errors during computation of commitment distribution
-    | CommitmentDistrError !Text
     deriving (Eq, Show)
 
 instance Buildable SscSeedError where
@@ -64,5 +62,3 @@ instance Buildable SscSeedError where
         "BrokenVssKey " <> build k
     build (BrokenShare k) =
         "BrokenShare " <> build k
-    build (CommitmentDistrError reason) =
-        build ("CommitmentDistrError " <> reason)

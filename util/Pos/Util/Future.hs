@@ -1,5 +1,6 @@
 module Pos.Util.Future
        ( FutureError(..)
+       , FutureName(..)
        , newInitFuture
        ) where
 
@@ -7,7 +8,10 @@ import           Universum
 
 import           System.IO.Unsafe (unsafeInterleaveIO)
 
-data FutureError = FutureAlreadyFilled Text
+newtype FutureName = FutureName Text
+    deriving (Show, IsString)
+
+data FutureError = FutureAlreadyFilled FutureName
     deriving Show
 
 instance Exception FutureError
@@ -27,7 +31,7 @@ instance Exception FutureError
 newInitFuture
     :: forall m m' a.
        (MonadIO m, MonadIO m')
-    => Text -> m (a, a -> m' ())
+    => FutureName -> m (a, a -> m' ())
 newInitFuture name = do
     mvar <- newEmptyMVar
     thunk <- liftIO $ unsafeInterleaveIO (readMVar mvar)

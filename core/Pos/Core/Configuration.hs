@@ -200,8 +200,6 @@ data ConfigurationError =
       -- | The GenesisData canonical JSON hash is different than expected.
     | GenesisHashMismatch !Text !Text
 
-    | ConfigurationInternalError !Text
-
       -- | Custom seed was provided, but it doesn't make sense.
     | MeaninglessSeed !Text
     deriving (Show)

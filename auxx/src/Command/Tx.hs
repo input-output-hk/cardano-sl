@@ -124,7 +124,6 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         -}
         -- construct a transaction, and add it to the queue
         --let gutxo = view _GenesisUtxo genesisUtxo
-        --let gutxo = getOwnUtxosGenesis keysToSend 
         let addTx (secretKey, n) = do
                 neighbours <- case sendMode of
                     SendNeighbours -> return ccPeers
@@ -132,10 +131,10 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                     SendRandom -> do
                         i <- liftIO $ randomRIO (0, nNeighbours - 1)
                         return [ccPeers !! i]
-                _ <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
+                utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
         -- every genesis secret key sends to itself
                 me <- makePubKeyAddressAuxx (toPublic secretKey)
-                utxo <- getOwnUtxosGenesis [me] 
+                _ <- getOwnUtxosGenesis [me] 
                 let val2 = mkCoin 1
                     txOut2 = TxOut {
                         txOutAddress = me,
@@ -145,29 +144,9 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                 etx <- createTx mempty utxo (fakeSigner secretKey) txOuts2 (toPublic secretKey)
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
-                    Right (tx, _) -> atomically $ writeTQueue txQueue (tx, neighbours)
+                    Right (tx, _) -> do 
+                                atomically $ writeTQueue txQueue (tx, neighbours)
 
-        {-let addRedeemTx (secretKey, n) = do
-                neighbours <- case sendMode of
-                    SendNeighbours -> return ccPeers
-                    SendRoundRobin -> return [ccPeers !! (n `mod` nNeighbours)]
-                    SendRandom -> do
-                        i <- liftIO $ randomRIO (0, nNeighbours - 1)
-                        return [ccPeers !! i]
-                utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
-                -- every genesis secret key sends to itself
-                me <- makePubKeyAddressAuxx (toPublic  secretKey)
-                let val2 = mkCoin 1
-                    txOut2 = TxOut {
-                        txOutAddress = me,
-                        txOutValue   = val2
-                    }
-                    txOuts2 = TxOutAux txOut2 :| []
-                --etx <- createRedemptionTx utxo (RedeemSecretKey secretKey) txOuts2 --(toPublic secretKey)
-                case etx of
-                    Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
-                    Right tx -> atomically $ writeTQueue txQueue (tx, neighbours)
-        -}
         let nTrans = duration
             allTrans = (zip (drop startAt keysToSend) [0.. nTrans])
             (firstBatch, secondBatch) = splitAt ((2 * nTrans) `div` 3) allTrans
@@ -224,12 +203,12 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
             concurrently (forM_ secondBatch addTx) $
             concurrently writeTPS (sendTxsConcurrently (duration))
         logInfo "First iteration finished"
-        {-void $
-            concurrently (forM_ firstBatch addTx)  $
+        forM_  firstBatch addTx
+        void $
             concurrently (forM_ secondBatch addTx) $
             concurrently writeTPS (sendTxsConcurrently (duration))
         logInfo "Second iteration finished"
-        -}
+        
 
 ----------------------------------------------------------------------------
 -- Casual sending

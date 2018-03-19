@@ -31,12 +31,23 @@
 
 \newenvironment{record}{\begin{description}[font=\it]}{\end{description}}
 
+\newcommand{\pos}[2]{{#2}_{#1}}
+\newcommand{\length}[1]{|#1|}
+
 \newcommand{\idsof}[1]{\mathcal{I}\!_#1}
 \newcommand{\id}{\mathsf{id}}
 \newcommand{\txids}{\idsof{\mathcal{T}}}
 \newcommand{\blockids}{\idsof{\mathcal{B}}}
 \newcommand{\agentids}{\idsof{\mathcal{A}}}
 \newcommand{\slotleader}{\mathsf{sl}}
+\newcommand{\recipient}[1]{\mathsf{recipient}(#1)}
+\newcommand{\amount}[1]{\mathsf{amount}(#1)}
+\newcommand{\transactions}[1]{\mathsf{transactions}(#1)}
+\newcommand{\inputs}[1]{\mathsf{inputs}(#1)}
+\newcommand{\outputs}[1]{\mathsf{outputs}(#1)}
+\newcommand{\intrans}[1]{\mathsf{trans}(#1)}
+\newcommand{\inindex}[1]{\mathsf{index}(#1)}
+\newcommand{\witnesses}[1]{\mathsf{witnesses}(#1)}
 
 %% /macros %%
 
@@ -107,17 +118,32 @@ as it is.\improvement{We may want to add something about protocol
 \item[Transaction] Transactions have a system of identifiers
   $\txids$.
 
-  A transaction consists of\improvement{Consider using record notation
+  A transaction consists of\unsure{Consider using record notation
   for inputs and outputs.}
   \begin{record}
   \item[Inputs] A non-empty list of pairs in $\txids ×
     ℕ$.\improvement{Explain that it represents an output identified by
       its index in the transaction output list}
+
+    For an input $in = (tx, ix) ∈ \txids × ℕ$ we write
+    \begin{itemize}
+    \item $\intrans{in} = tx$
+    \item $\inindex{in} = ix$
+    \end{itemize}
+
+
   \item[Outputs] A non-empty list of pairs in $\agentids ×
     ℕ$.\improvement{This only embodies pay-to-public-key schemes. For
       pay-to-script and such, we will need further
       refinements.}\improvement{Explain that the natural number is an
       amount of currency.}
+
+    For an output $out = (id, q)$, we write
+    \begin{itemize}
+    \item $\recipient{out} = id$
+    \item $\amount{out} = q$.
+    \end{itemize}
+
   \item[Witnesses] A non-empty list of agent ids.\improvement{This
       whole section could be improved with a notation for the set of
       lists over a given type} In an implementation these ids would be
@@ -170,8 +196,8 @@ $b_1,…,b_n$ if all of the following hold
   slot.
 \item[Issuer] The issuer is the slot leader at the block's slot
   number\improvement{This ignores delegation}.
-\item[Transactions]\improvement{Explain how to validate each
-    transaction on top of the others}\hfill
+\item[Transactions] Each transaction in the block's transactions is
+  validated according to the following rules.
   \begin{description}
   \item[Stateless]\hfill
     \begin{description}
@@ -179,16 +205,52 @@ $b_1,…,b_n$ if all of the following hold
       amount $a > 0$.
     \item[No double-spending] The list of inputs contains no duplicate.
     \end{description}
-  \item[Stateful]\improvement{Make this section more precise}\hfill
+  \item[Stateful] Stateful transaction validation rules are
+    parametrised by a list of transaction $τ_1,…,τ_m$ which we will
+    abridge as $\overline{τ}$.
+
+    Given a chain $b₁,…,b_n$ and $b$, the block being validated, such
+    that $\transactions{b}=t₁,…,t_k$. Then, for the purpose of
+    stateful validation of the transaction $t_i$,
+    $\overline{τ} =
+    \transactions{b₁},…,\transactions{b_n},t₁,…,t_{i-1}$.
     \begin{description}
-    \item[Unspent inputs] Each input of the transaction is unspent.
-    \item[Conservation of value] The total amount of input must equal
+    \item[Unspent inputs] \improvement{Add some spacing for
+        readability} Each input of the transaction $τ$ is
+      unspent. That is, for each $i ∈ \inputs{τ}$,
+      $\overline{τ} = \overline{τ₀},\intrans{i}, \overline{τ_1}$,
+      $\outputs{\intrans{i}}=t₁,…t_k$, $\inindex{i} ⩽ k$, and for each
+      $t ∈ \overline{τ₁}$, $i ∉ \inputs{t}$.
+
+      In these condition, we can extend the function $\recipient{⋅}$
+      and $\amount{⋅}$ on the $i$ as
+      \begin{itemize}
+      \item $\recipient{i} = \recipient{\pos{\inindex{i}}{\outputs{\intrans{i}}}}$
+      \item $\amount{i} = \amount{\pos{\inindex{i}}{\outputs{\intrans{i}}}}$
+      \end{itemize}
+      \info{Remark: in all this rule, we use implicitly
+        $\overline{τ}$, to cast $\intrans{i}∈\txids$ to an actual
+        transaction. }
+
+    \item[Conservation of value] The total amount of inputs must equal
       the total amount of outputs.\critical{This ignores transaction
         fees and asset creation. How are they represented, what are
         their rules?}
+
+      $$
+      ∑_{i∈\inputs{τ}} \amount{i} = ∑_{o∈\outputs{τ}} \amount{o}
+      $$
     \item[Authorised] The list of witnesses has the same length as the
-      list of input, and for each input, the corresponding witness is
-      the agent id of the input.
+      list of input
+      $$
+      \length{\witnesses{τ}} = \length{\inputs{τ}}
+      $$
+      and for each input, the corresponding witness is the agent id of
+      the input
+      $$
+      ∀ 0<k≤\length{\inputs{τ}}. \recipient{\pos{k}{\inputs{τ}}} =
+      \pos{k}{\witnesses{τ}}
+      $$
     \end{description}
   \end{description}
 \end{description}

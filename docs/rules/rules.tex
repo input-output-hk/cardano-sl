@@ -52,14 +52,14 @@ structure of Cardano's settlement layer. These rules are described
 independently of any network or communication mechanism: it is assumed
 that some mechanism provides us with, \emph{e.g.}, blocks, and that
 our task is to assume that they are accepted or not. Notably, we make
-no difference between rejecting a block and storing it for later use.
+no distinction between rejecting a block and storing it for later use.
 
 A direct consequence of ignoring the communication mechanisms, is that
 we do not have to serialise data, hence data is represented in
 abstract syntax, with no reference to a binary representation.
 
 As a further simplification, we ignore any unknown data, unparsed
-parameters, and versioning issue. This document specifies the system
+parameters, and versioning issues. This document specifies the system
 as it is.\improvement{We may want to add something about protocol
   updates, though.}
 

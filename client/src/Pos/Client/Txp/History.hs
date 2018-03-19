@@ -47,6 +47,7 @@ import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPay
 import           Pos.Crypto (WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
 import           Pos.DB.Block (getBlock)
+import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 import qualified Pos.GState as GS
 import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Network.Types (HasNodeType)
@@ -54,7 +55,7 @@ import           Pos.Reporting (HasReportingContext)
 import           Pos.Slotting (MonadSlots, getSlotStartPure, getSystemStartM)
 import           Pos.StateLock (StateLock, StateLockMetrics)
 import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure, Tx (..),
-                          TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..),
+                          TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness,
                           UtxoLookup, UtxoM, UtxoModifier, applyTxToUtxo, buildUtxo, evalUtxoM,
                           flattenTxPayload, genesisUtxo, getLocalTxs, runUtxoM, topsortTxs,
                           txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet, utxoToLookup)
@@ -237,9 +238,7 @@ getLocalHistoryDefault
     => [Address] -> m (Map TxId TxHistoryEntry)
 getLocalHistoryDefault addrs = do
     let mapper (txid, TxAux {..}) = (WithHash taTx txid, taWitness)
-        topsortErr =
-            TxpInternalError
-                "getLocalHistory: transactions couldn't be topsorted!"
+        topsortErr = GetHistoryTopsortFailed
     localTxs <- getLocalTxs
     let ltxs = map mapper localTxs
     topsorted <- maybeThrow topsortErr (topsortTxs (view _1) ltxs)
@@ -264,3 +263,16 @@ saveTxDefault txw = do
 
 txHistoryListToMap :: [TxHistoryEntry] -> Map TxId TxHistoryEntry
 txHistoryListToMap = M.fromList . map (\tx -> (_thTxId tx, tx))
+
+data GetHistoryError
+    = GetHistoryTopsortFailed
+    deriving (Show)
+
+instance Exception GetHistoryError where
+    toException = cardanoExceptionToException
+    fromException = cardanoExceptionFromException
+    displayException = toString . pretty
+
+instance Buildable GetHistoryError where
+    build GetHistoryTopsortFailed =
+        bprint "getLocalHistory: transactions couldn't be topsorted!"

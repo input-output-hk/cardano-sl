@@ -52,7 +52,6 @@ library
     Pos.Txp.Settings.Global
 
     Pos.Txp.Base
-    Pos.Txp.Error
     Pos.Txp.Topsort
 
     Pos.Script

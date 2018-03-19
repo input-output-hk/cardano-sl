@@ -57,9 +57,9 @@ mkHttpClient baseUrl manager = WalletClient
     -- transactions endpoints
     , postTransaction
         = run . postTransactionR
-    , getTransactionIndex
-        = \walletId mAccountIndex mAddress mPage ->
-             run . getTransactionIndexR walletId mAccountIndex mAddress mPage
+    , getTransactionIndexFilterSorts
+        = \walletId mAccountIndex mAddress mPage mpp filters ->
+             run . getTransactionIndexFilterSortsR walletId mAccountIndex mAddress mPage mpp filters
     , getTransactionFee
         = run . getTransactionFeeR
     -- settings
@@ -91,7 +91,7 @@ mkHttpClient baseUrl manager = WalletClient
         :<|> updateAccountR
         = accountsAPI
     postTransactionR
-        :<|> getTransactionIndexR
+        :<|> getTransactionIndexFilterSortsR
         :<|> getTransactionFeeR
         = transactionsAPI
 

@@ -8,6 +8,7 @@ module Cardano.Wallet.Client
       WalletClient(..)
     , getWalletIndex
     , getAddressIndex
+    , getTransactionIndex
     , Resp
     , hoistClient
     , liftClient
@@ -92,12 +93,14 @@ data WalletClient m
     -- transactions endpoints
     , postTransaction
          :: Payment -> Resp m Transaction
-    , getTransactionIndex
+    , getTransactionIndexFilterSorts
          :: WalletId
          -> Maybe AccountIndex
          -> Maybe (V1 Core.Address)
          -> Maybe Page
          -> Maybe PerPage
+         -> FilterOperations Transaction
+         -> SortOperations Transaction
          -> Resp m [Transaction]
     , getTransactionFee
          :: Payment -> Resp m EstimatedFees
@@ -111,6 +114,17 @@ data WalletClient m
 
 getAddressIndex :: WalletClient m -> Resp m [Address]
 getAddressIndex wc = getAddressIndexPaginated wc Nothing Nothing
+
+getTransactionIndex
+    :: WalletClient m
+    -> WalletId
+    -> Maybe AccountIndex
+    -> Maybe (V1 Core.Address)
+    -> Maybe Page
+    -> Maybe PerPage
+    -> Resp m [Transaction]
+getTransactionIndex wc wid maid maddr mp mpp =
+    getTransactionIndexFilterSorts wc wid maid maddr mp mpp NoFilters NoSorts
 
 getWalletIndexPaged :: WalletClient m -> Maybe Page -> Maybe PerPage -> Resp m [Wallet]
 getWalletIndexPaged wc mp mpp = getWalletIndexFilterSorts wc mp mpp NoFilters NoSorts
@@ -148,8 +162,9 @@ hoistClient phi wc = WalletClient
          \x y -> phi . updateAccount wc x y
     , postTransaction =
          phi . postTransaction wc
-    , getTransactionIndex =
-         \wid maid maddr mp -> phi . getTransactionIndex wc wid maid maddr mp
+    , getTransactionIndexFilterSorts =
+         \wid maid maddr mp mpp f ->
+             phi . getTransactionIndexFilterSorts wc wid maid maddr mp mpp f
     , getTransactionFee =
          phi . getTransactionFee wc
     , getNodeSettings =

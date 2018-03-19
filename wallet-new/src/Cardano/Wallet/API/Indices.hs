@@ -37,13 +37,13 @@ instance ToIndex Wallet Core.Coin where
         Just c  -> Just (Core.mkCoin c)
     accessIx Wallet{..} = let (V1 balance) = walBalance in balance
 
-instance ToIndex Transaction Core.TxId where
-    toIndex _ = rightToMaybe . decodeHash
-    accessIx Transaction{..} = let V1 ti = txId in ti
+instance ToIndex Transaction (V1 Core.TxId) where
+    toIndex _ = fmap V1 . rightToMaybe . decodeHash
+    accessIx Transaction{..} = txId
 
-instance ToIndex Transaction Core.Timestamp where
-    toIndex _ = Core.parseTimestamp
-    accessIx Transaction{..} = let V1 time = txCreationTime in time
+instance ToIndex Transaction (V1 Core.Timestamp) where
+    toIndex _ = fmap V1 . Core.parseTimestamp
+    accessIx Transaction{..} = txCreationTime
 
 -- | A type family mapping a resource 'a' to all its indices.
 type family IndicesOf a :: [*] where
@@ -54,9 +54,13 @@ type family IndicesOf a :: [*] where
 -- | This type family allows you to recover the query parameter if you know
 -- the resource and index into that resource.
 type family IndexToQueryParam resource ix where
+    IndexToQueryParam Account AccountIndex = "id"
+
     IndexToQueryParam Wallet  Core.Coin    = "balance"
     IndexToQueryParam Wallet  WalletId     = "id"
-    IndexToQueryParam Account AccountIndex = "id"
+
+    IndexToQueryParam Transaction (V1 Core.TxId)      = "id"
+    IndexToQueryParam Transaction (V1 Core.Timestamp) = "created_at"
 
     -- | This is the fallback case. It will trigger a type error if you use
     -- 'IndexToQueryParam' with a pairing that is invalid. We want this to
@@ -87,7 +91,7 @@ type IsIndexOf' a ix = IsIndexOf ix (IndicesOf a)
 
 -- | The indices for each major resource.
 type WalletIxs      = '[WalletId, Core.Coin]
-type TransactionIxs = '[Core.TxId, Core.Timestamp]
+type TransactionIxs = '[V1 Core.TxId, V1 Core.Timestamp]
 type AccountIxs     = '[AccountIndex]
 
 instance Indexable WalletIxs Wallet where
@@ -95,8 +99,8 @@ instance Indexable WalletIxs Wallet where
                    (ixFun (\Wallet{..} -> let (V1 balance) = walBalance in [balance]))
 
 instance Indexable TransactionIxs Transaction where
-  indices = ixList (ixFun (\Transaction{..} -> let (V1 tid) = txId in [tid]))
-                   (ixFun (\Transaction{..} -> let (V1 time) = txCreationTime in [time]))
+  indices = ixList (ixFun (\Transaction{..} -> [txId]))
+                   (ixFun (\Transaction{..} -> [txCreationTime]))
 
 instance Indexable AccountIxs Account where
   indices = ixList (ixFun (\Account{..} -> [accIndex]))

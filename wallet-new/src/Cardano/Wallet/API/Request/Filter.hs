@@ -11,9 +11,6 @@ module Cardano.Wallet.API.Request.Filter where
 import qualified Prelude
 import           Universum
 
-import qualified Cardano.Wallet.API.Request.Parameters as Param
-import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 import qualified Data.List as List
 import qualified Data.Text as T
 import           Data.Typeable
@@ -26,6 +23,7 @@ import           Servant.Client
 import           Servant.Client.Core (appendToQueryString)
 import           Servant.Server.Internal
 
+import qualified Cardano.Wallet.API.Request.Parameters as Param
 import           Cardano.Wallet.API.Indices
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)

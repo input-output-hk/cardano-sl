@@ -76,7 +76,7 @@ module Cardano.Wallet.API.V1.Types (
 
 import           Universum
 
-import           Control.Lens (at, ix, makePrisms, (?~), IxValue, Index, At)
+import           Control.Lens (at, ix, makePrisms, (?~), IxValue, Index, At, to)
 import           Data.Aeson
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (typeMismatch)
@@ -339,6 +339,16 @@ instance ToJSON (V1 Core.Timestamp) where
     toJSON timestamp =
         let utcTime = timestamp ^. _V1 . Core.timestampToUTCTimeL
         in  String $ showApiUtcTime utcTime
+
+instance ToHttpApiData (V1 Core.Timestamp) where
+    toQueryParam = view (_V1 . Core.timestampToUTCTimeL . to showApiUtcTime)
+
+instance FromHttpApiData (V1 Core.Timestamp) where
+    parseQueryParam t =
+        maybe
+            (Left ("Couldn't parse timestamp or datetime out of: " <> t))
+            (Right . V1)
+            (Core.parseTimestamp t)
 
 -- | Parses from both UTC time in 'apiTimeFormat' format and a fractional
 -- timestamp format.

@@ -10,11 +10,6 @@ module Cardano.Wallet.API.Request.Sort where
 import qualified Prelude
 import           Universum
 
-import           Cardano.Wallet.API.Indices
-import qualified Cardano.Wallet.API.Request.Parameters as Param
-import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
-import qualified Data.List as List
 import qualified Data.Text as T
 import           Data.Typeable
 import qualified Generics.SOP as SOP
@@ -27,6 +22,7 @@ import           Servant.Client.Core (appendToQueryString)
 import           Servant.Server.Internal
 
 import           Cardano.Wallet.API.Indices
+import qualified Cardano.Wallet.API.Request.Parameters as Param
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 import           Pos.Core as Core

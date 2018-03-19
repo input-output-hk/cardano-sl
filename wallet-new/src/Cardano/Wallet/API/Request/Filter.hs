@@ -11,6 +11,9 @@ module Cardano.Wallet.API.Request.Filter where
 import qualified Prelude
 import           Universum
 
+import qualified Cardano.Wallet.API.Request.Parameters as Param
+import           Cardano.Wallet.API.V1.Types
+import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 import qualified Data.List as List
 import qualified Data.Text as T
 import           Data.Typeable
@@ -136,7 +139,8 @@ data FilterBy (params :: [*]) (resource :: *)
 -- | This is a slighly boilerplat-y type family which maps symbols to
 -- indices, so that we can later on reify them into a list of valid indices.
 type family FilterParams (syms :: [Symbol]) (r :: *) :: [*] where
-    FilterParams '["wallet_id", "balance"] Wallet = IndicesOf Wallet
+    FilterParams '[Param.WalletId, Param.Balance] Wallet = IndicesOf Wallet
+    FilterParams '[Param.Id, Param.CreatedAt] Transaction = IndicesOf Transaction
 
 class ToFilterOperations (ixs :: [*]) a where
   toFilterOperations :: Request -> [Text] -> proxy ixs -> FilterOperations a

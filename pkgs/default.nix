@@ -7699,8 +7699,9 @@ inherit (pkgs) mesa;};
              http-api-data http-client http-types ixset-typed json-sop lens
              log-warper memory mtl QuickCheck safe-exceptions serokell-util
              servant servant-client servant-client-core servant-quickcheck
-             servant-server servant-swagger-ui string-conv swagger2 text time
-             transformers universum unordered-containers vector wai
+             servant-server servant-swagger-ui string-conv swagger2 text
+             text-format time time-units transformers universum
+             unordered-containers vector wai
            ];
            executableHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-client
@@ -7723,7 +7724,8 @@ inherit (pkgs) mesa;};
              mmorph mtl neat-interpolation optparse-applicative QuickCheck
              quickcheck-instances safe-exceptions serokell-util servant
              servant-quickcheck servant-server servant-swagger stm string-conv
-             swagger2 text text-format time-units universum unordered-containers
+             swagger2 text text-format time time-units universum
+             unordered-containers
            ];
            doHaddock = false;
            homepage = "https://github.com/input-output-hk/cardano-sl/#readme";

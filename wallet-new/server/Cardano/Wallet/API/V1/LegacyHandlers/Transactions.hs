@@ -55,8 +55,10 @@ allTransactions
     -> Maybe AccountIndex
     -> Maybe (V1 Core.Address)
     -> RequestParams
+    -> FilterOperations Transaction
+    -> SortOperations Transaction
     -> m (WalletResponse [Transaction])
-allTransactions walletId mAccIdx mAddr requestParams = do
+allTransactions walletId mAccIdx mAddr requestParams fops sops = do
     cIdWallet <- migrate walletId
     ws <- V0.askWalletSnapshot
 
@@ -77,9 +79,7 @@ allTransactions walletId mAccIdx mAddr requestParams = do
             migrate wh
 
     -- Paginate result
-    respondWith requestParams (NoFilters :: FilterOperations Transaction)
-                              (NoSorts :: SortOperations Transaction)
-                              (IxSet.fromList <$> transactions)
+    respondWith requestParams fops sops (IxSet.fromList <$> transactions)
 
 
 estimateFees :: (MonadThrow m, V0.MonadFees ctx m)

@@ -217,7 +217,7 @@ restriction $f \restrictrange a$.
 
 \subsubsection{Domain Exclusion}
 
-It is convenient to use an operator $f \restrictdom s$, that restricts the
+It is convenient to use an operator $f \subtractdom s$, that restricts the
 domain of the function to \emph{exclude} elements of a given set. This is a
 normal function domain restriction but with the membership condition inverted.
 So we can use either of the following definitions.
@@ -677,7 +677,7 @@ Putting everything back together, and defining $utxo^-$ for symmetry, we get
 \end{split}
 \end{equation*}
 
-\section{Prefiltering}
+\section{Database implementation considerations}
 \label{sec:prefiltering}
 
 The $\mathsf{applyBlock} ~ b$ operation is problematic in a setting where it is
@@ -1012,6 +1012,9 @@ would be fine to store this information on disk rather than in memory, and hence
 these memory requirements are no big deal at all. Probably the best engineering
 trade-off will be to store a few checkpoints in memory and the rest on disk.
 
+\todo[inline]{Check storage requirements with persistent data structures and sharing,
+should be something like a log cost for each change}
+
 \subsection{Incremental balance computation and prefiltering}
 
 Neither the incremental balance computation nor the prefiltering in any way make
@@ -1050,25 +1053,225 @@ should extend to this modified definition without difficulty.
 
 Let us start by identifying the problems.
 
-Selecting transaction inputs is non-trivial because of fees and because there
-are multiple competing goals.
+Selecting transaction inputs is non-trivial because of transaction fees and
+because there are multiple competing goals. In a myopic view of input
+selection, the distribution of coins across available inputs is assumed to be
+fixed, or to be out of our control, whereas in reality we can -- at some cost
+-- actively adjust the distribution.
 
-Given that there are transaction fees, and transactions have a limited number
-of inputs, then depending on the distribution of coins in a wallet UTxO, it
-may become impossible or expensive (in terms of fees) to make transactions
-for certain output values, or to support the other goals of transaction input
-selection.
+In general the problem should be considered as optimising for certain goals
+over long sequences of incoming and outgoing transactions. In this setting
+the input selection and active UTxO maintenance are parts of a single policy.
+To evaluate a policy we should consider scenarios, such as: steady states with
+assumed distributions of values of incoming transactions and outgoing
+transactions; very large payments; or emptying a wallet.
 
 \subsection{Input selection}
 
-The problem with fees is that the fee depends on the ``size'' of the
-transaction, but paying a fee may require selecting more transaction inputs
-which increases the size. Thus fee calculation and input
-selection are interdependent. There are situations where it is not obvious that
-selecting inputs and fees optimally is a terminating algorithm.
+The problem with fees is that the minimum fee depends on the size of the transaction
+-- currently the size in bytes of the serialised representation -- but paying a
+fee may require selecting more transaction inputs which increases the size.
+
+\begin{equation}
+\begin{split}
+\mathsf{minfee} & \in \mathsf{Tx} \to \mathsf{Coin} \\
+\mathsf{minfee} & = f \circ \mathsf{size} \circ \mathsf{serialise} \\
+             & \text{where } f \text{ is some linear function}
+\end{split}
+\end{equation}
+
+The actual fee for a specific transaction must be at least the minimum fee of
+course. There is no fee upper bound but a ``good'' input selection
+implementation will produce a relatively tight bound. We may wish to make that
+tight bound precise such as constraining it to be within a certain factor of
+the minimum fee.
+
+\begin{equation}
+\begin{split}
+\mathsf{fee} ~ utxo ~ tx \geq \mathsf{minfee} ~ tx
+\end{split}
+\end{equation}
+
+The fee itself is not represented explicitly in the transaction, it is a
+function of the current UTxO.
+
+\begin{equation}
+\begin{split}
+\mathsf{fee} & \in \mathsf{UTxO} \to \mathsf{Tx} \to \mathsf{Coin} \\
+\mathsf{fee} ~ utxo ~ tx & = \mathsf{totalin} ~ utxo ~ tx - \mathsf{totalout} ~ tx
+\end{split}
+\end{equation}
+%
+\begin{equation}
+\begin{split}
+\mathsf{totalin} ~ utxo ~ (inputs, ~ \_) & = \mathsf{balance} ~ (inputs \restrictdom utxo) \\
+                 & \text{if } inputs \subseteq \dom utxo \\
+\mathsf{totalout} ~ (\_, ~ outputs) & = \sum_{(\_, c) \in outputs} c \\
+\end{split}
+\end{equation}
+
+Thus fee calculation and input selection are interdependent. There are
+situations where it is not immediately obvious that there is a terminating
+algorithm for selecting inputs and fees optimally.
+
+Input selection can also have multiple goals, including: minimising fees,
+cryptographic security, maximising privacy and allowing high throughput. Of
+course there is always the issue of acceptable time and space complexity.
+
+The goal of minimising fees is obvious, but it is immediately plausible to see
+that other goals may be in conflict since they may require picking other or
+additional inputs. The goal of minimising fees highlights the fact that input
+selection is not a single-shot problem. Minimising the fee of a single
+transaction is not the same as minimising fees in the long term over a
+sequence of transactions drawn from a distribution of transaction sizes.
+
+The cryptographic security goal comes from the observation that once an input
+at an address has been spent from, its public key is publicly known and is
+arguably no longer suitable for very long term storage of funds due to the
+evolution of cryptography. The standard solution with input selection is to add
+a constraint that if we pick one input then we must pick all other inputs that
+were output to the same address. This results in no more funds remaining at the
+address (assuming an address non-reuse strategy such that there are no later
+payments to that address).
+
+The privacy goal is to make it impractical for other people observing the
+transactions in the ledger to tie an identity to all the funds belonging to
+that identity. In UTxO style accounting, this is typically done by an identity
+holding multiple unspent transaction outputs and avoiding using them in such a
+way that they can be easily associated with each other. For example, an obvious
+thing to avoid is having different unspent transaction outputs at the same
+address. One particular issue is the problem of the ``change address'' in a
+transaction being easily identifiable. For example, if a very large input is
+selected and a small amount is sent to one output and the remaining large
+amount to another output then all observers will reasonably conclude that the
+large output is the change address. Tracing transaction graphs with lots of
+easy signs like this makes it much easier to 
+
+Achieving a high rate of transactions in a UTxO style ledger involves having
+multiple unconfirmed transactions in-flight at once. There are hazards with
+dependent in-flight transactions so to avoid them it is preferable to construct
+independent transactions. For input selection this means not picking change
+addresses of unconfirmed transactions. For UTxO maintenance this implies that
+we must maintain a large enough supply of suitable unspent outputs. This is in
+contrast to UTxO distributions that concentrate most funds in a small number of
+unspent outputs.
 
 \subsection{UTxO maintenance}
 
+We will consider two basic use cases: exchanges and individual users. We will
+see that the two use cases need policies that aim for different goals, so we
+will look to design a policy for each use case.
+
+We assume that exchanges have high rates of incoming and outgoing transactions,
+large overall balances and will tend to have large UTxOs. For this use case we
+are concerned with asymptotic complexity (due to the large UTxO) and have a
+goal of high throughput, but we are not overly concerned with the goals of
+achieving privacy or minimising fees. Exchanges tend to follow deposit policies
+which are incompatible with the cryptographic security goal as described above,
+so this is not a goal of the policy.
+
+For individual users we assume a low rate of incoming and outgoing transactions
+and a comparatively small UTxO. For this use case we are not too concerned with
+asymptotic complexity as the UTxO is assumed to be small, nor with a goal of
+high throughput. We are concerned with the privacy goal, as individual users
+are able to use their wallets in a way that preserves a degree of privacy. We
+are somewhat concerned with keeping fees reasonably low.
+
+There is another goal we may wish to consider for the individual user use case:
+preserving the ability to spend all or a large fraction of the total balance in
+a wallet. A similar property for an exchange wallet would be maintaining the
+ability to make payments up to a certain size (or fraction of the overall
+balance).
+
+\subsection{Basic specification of input selection}
+
+Ignoring the issues of optimising for various goals, we start with the basic
+problem definition and conditions on a valid solution.
+
+Given a wallet's available UTxO and a bunch of output addresses and corresponding
+amounts, pick a set of inputs and outputs to form the transaction.
+
+\begin{equation}
+\begin{split}
+\mathsf{selectInputs} \in \mathsf{UTxO} \to (\mathsf{Ix} \mapsto \mathsf{TxOut})
+                      \to (\powerset{\mathsf{TxId}} \times (\mathsf{Ix} \mapsto \mathsf{TxOut}))
+\end{split}
+\end{equation}
+Obviously the inputs selected must be ones that are available in the UTxO and
+the outputs requested have to be included in the outputs chosen. Additionally,
+the outputs may contain change outputs and of course these must be our own
+addresses so the change goes back to our wallet. And of course we must pay
+transaction fees.
+\begin{equation}
+\begin{split}
+(inputs, outputs^\prime) & = \mathsf{selectInputs} ~ utxo ~ outputs \\
+outputs_{change} & = outputs^\prime \setminus outputs \\
+ \Longrightarrow \quad & inputs ~ \subseteq \dom utxo \\
+\wedge & ~ outputs \subseteq outputs^\prime \\
+\wedge & ~ outputs_{change} \subseteq \mathsf{TxOut_{ours}} \\
+\wedge & ~ \mathsf{minfee} ~ tx \leq \mathsf{fee} ~ utxo ~ (inputs, output^\prime) \leq \mathsf{minfee} ~ tx \times C\\
+\end{split}
+\end{equation}
+
+\subsection{A plausible approach}
+
+Suppose we take a UTxO relation set and arrange it into buckets based on the
+coin value. We declare buckets based on powers of two, so that bucket $j$
+contains inputs with coin values $c$ in the range $2^j \leq c < 2^{j+1}$. This
+gives us a logarithmic number of buckets. The intuition is that if we are able
+to be indifferent between unspent outputs within each bucket, then we can
+select an input of any size in log time.
+
+For basic input selection, suppose initially that there are enough unspent
+outputs in each bucket, and we are trying to spend a total output (including
+fees) of $2^j \leq c < 2^{j+1}$. We pick \emph{two} inputs from bucket $j$,
+giving us a total output value of $2^{j+1} \leq v < 2^{j+2}$. Thus $c \leq v$.
+
+For fees, we can derive a worst case fee formula based only on the number of
+inputs and outputs. So in a typical case we can compute the worst case fee up
+front and include it in the total output we are trying to spend. As a later
+step we should be able to minimise the fee (computed using the actual inputs
+and outputs) and shift the excess into the change address(es). It is not
+essential to achieve the minimum fee, provided we can achieve a reasonable
+bound in a reasonable time.
+
+If there are not enough available inputs in the target bucket we need to have
+a worst-case algorithm. This may be as follows: look for one input in higher
+buckets in ascending order. If there are none, iterate over the list of buckets
+from highest value to smallest, taking the total balance and size of each bucket
+and accumulating a running total. And outcome is obviously possible if the total
+balance (plus worst case fees) goes over the target output before the number of
+inputs makes the transaction size bigger than the maximum. If both limits are
+breached by adding a single bucket then it becomes necessary to sort the bucket
+and do the same linear search within the bucket. In a typical case this takes
+log time, but in the worst case it is n log n in the size of the offending
+bucket, which in the worst case contains the entire UTxO.
+
+In the typical case that there were enough available inputs in the target
+bucket then we have not used many inputs and we should take the opportunity
+to do some UTxO maintenance.
+
+We assume we can define a policy target function which gives the ideal number
+of entries in each UTxO bucket. This may be a function of the total UTxO
+balance and it is likely sensible to have a parameters for lower and upper
+limits on bucket size (very small inputs are not very useful, while very big
+ones take up too much balance).
+
+UTxO maintenance then consists of evaluating the function on each bucket and
+seeing which buckets are above or below the ideal. The ideal function may be
+real valued but of course buckets contain an integer number of entries. We
+should use a threshold to avoid unnecessary movement, and at a minimum 1. Once
+we know which buckets are too full or not full enough, we move entries from
+buckets that are too full towards ones that are not full enough. There are of
+course many ways to do this so one plausible approach is to establish some
+order on how desirable each one is, and then pick in order, up to some limit
+(again ultimately limited by the transaction size).
+
+To avoid excessive UTxO rearrangement we should evaluate the use of the
+threshold of how much a bucket is above or below the ideal, and/or use some
+measure of how far the UTxO deviates from the ideal distribution to decide
+how aggressively we should rearrange. Then this should be evaluated in
+simulations over time.
 
 
 \section{Next steps}

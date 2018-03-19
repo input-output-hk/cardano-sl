@@ -56,7 +56,7 @@ import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (getCommitmentsMa
 import           Pos.Crypto (DecShare, verifyDecShare, verifyEncShares)
 import           Pos.Lrc.Types (RichmenSet, RichmenStakes)
 import           Pos.Ssc.Base (verifyOpening, vssThreshold)
-import           Pos.Ssc.Error (SscVerifyError (..))
+import           Pos.Ssc.Error (SscVerifyError (..), TossInternalFailure (..))
 import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..), MonadTossRead (..))
 import           Pos.Util.Util (getKeys)
 
@@ -227,11 +227,11 @@ computeSharesDistrPure richmen threshold
     | null richmen = pure mempty
     | otherwise = do
         when (totalCoins == 0) $
-            throwError $ TossInternalError "Richmen total stake equals zero"
+            throwError $ TossInternalError ZeroTotalStake
 
         let mpcThreshold = toRational (getCoinPortion threshold) / toRational coinPortionDenominator
         unless (all ((>= mpcThreshold) . toRational) portions) $
-            throwError $ TossInternalError "Richmen stakes less than threshsold"
+            throwError $ TossInternalError StakesLessThanThreshold
 
         let fromX = ceiling $ 1 / minimum portions
         let toX = sharesDistrMaxSumDistr mpcThreshold

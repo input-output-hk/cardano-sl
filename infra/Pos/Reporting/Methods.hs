@@ -67,7 +67,7 @@ import           Pos.DB.Error (DBError (..))
 import           Pos.Exception (CardanoFatalError)
 import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Reporting.Exceptions (ReportingError (..))
+import           Pos.Reporting.Exceptions (ReportingError (..), PackingFailure (..))
 import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers (..),
                                          HasReportingContext (..))
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
@@ -164,9 +164,8 @@ withCompressedLogs files action = do
     tarPackIndependently paths = do
         entries <- forM paths $ \p -> do
             unlessM (doesFileExist p) $ throwM $
-                PackingError $ "can't pack log file " <> fromString p <>
-                               " because it doesn't exist or it's not a file"
-            tPath <- either (throwM . PackingError . fromString)
+                PackingError . LogFileNotFound $ fromString p
+            tPath <- either (throwM . PackingError . TarPathError . fromString)
                             pure
                             (Tar.toTarPath False $ takeFileName p)
             pabs <- canonicalizePath p

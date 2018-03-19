@@ -11,6 +11,7 @@ import           Universum
 import           Cardano.Wallet.API.V1.Types
 import           Data.String.Conv (toS)
 import qualified Pos.Core as Core
+import           Pos.Crypto (decodeHash)
 
 import           Data.IxSet.Typed (Indexable (..), IsIndexOf, IxSet, ixFun, ixList)
 
@@ -33,6 +34,14 @@ instance ToIndex Wallet Core.Coin where
         Just c  -> Just (Core.mkCoin c)
     accessIx Wallet{..} = let (V1 balance) = walBalance in balance
 
+instance ToIndex Transaction Core.TxId where
+    toIndex _ = rightToMaybe . decodeHash
+    accessIx Transaction{..} = let V1 ti = txId in ti
+
+instance ToIndex Transaction Core.Timestamp where
+    toIndex _ = Core.parseTimestamp
+    accessIx Transaction{..} = let V1 time = txCreationTime in time
+
 -- | A type family mapping a resource 'a' to all its indices.
 type family IndicesOf a :: [*] where
     IndicesOf Wallet      = WalletIxs
@@ -54,7 +63,7 @@ type IsIndexOf' a ix = IsIndexOf ix (IndicesOf a)
 
 -- | The indices for each major resource.
 type WalletIxs      = '[WalletId, Core.Coin]
-type TransactionIxs = '[Core.TxId]
+type TransactionIxs = '[Core.TxId, Core.Timestamp]
 type AccountIxs     = '[AccountIndex]
 
 instance Indexable WalletIxs Wallet where
@@ -63,6 +72,7 @@ instance Indexable WalletIxs Wallet where
 
 instance Indexable TransactionIxs Transaction where
   indices = ixList (ixFun (\Transaction{..} -> let (V1 tid) = txId in [tid]))
+                   (ixFun (\Transaction{..} -> let (V1 time) = txCreationTime in [time]))
 
 instance Indexable AccountIxs Account where
   indices = ixList (ixFun (\Account{..} -> [accIndex]))

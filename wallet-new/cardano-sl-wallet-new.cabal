@@ -29,6 +29,7 @@ library
                        Cardano.Wallet.API.Request
                        Cardano.Wallet.API.Request.Pagination
                        Cardano.Wallet.API.Request.Filter
+                       Cardano.Wallet.API.Request.Parameters
                        Cardano.Wallet.API.Request.Sort
                        Cardano.Wallet.API.Response
                        Cardano.Wallet.API.Response.Filter.IxSet
@@ -88,7 +89,9 @@ library
                      , string-conv
                      , swagger2
                      , time
+                     , time-units
                      , text
+                     , text-format
                      , transformers
                      , universum
                      , unordered-containers
@@ -374,6 +377,7 @@ test-suite wallet-new-specs
                     , stm
                     , swagger2
                     , text
+                    , time
                     , time-units
                     , universum
 

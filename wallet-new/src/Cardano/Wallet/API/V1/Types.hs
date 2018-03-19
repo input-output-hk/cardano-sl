@@ -17,6 +17,7 @@
 
 module Cardano.Wallet.API.V1.Types (
     V1 (..)
+  , unV1
   -- * Swagger & REST-related types
   , PasswordUpdate (..)
   , AccountUpdate (..)
@@ -67,7 +68,7 @@ module Cardano.Wallet.API.V1.Types (
 
 import           Universum
 
-import           Control.Lens (At, Index, IxValue, at, ix, (?~))
+import           Control.Lens (at, ix, makePrisms, (?~), IxValue, Index, At)
 import           Data.Aeson
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (typeMismatch)
@@ -94,6 +95,7 @@ import           Cardano.Wallet.Orphans.Aeson ()
 import           Pos.Util.BackupPhrase (BackupPhrase (..))
 
 
+import           Cardano.Wallet.Util (showApiUtcTime)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import           Pos.Aeson.Core ()
@@ -181,6 +183,12 @@ genericSchemaDroppingPrefix prfx extraDoc proxy = do
 --
 -- 1. Never define an instance on the inner type 'a'. Do it only on 'V1 a'.
 newtype V1 a = V1 a deriving (Eq, Ord)
+
+-- | Unwrap the 'V1' newtype to give the underlying type.
+unV1 :: V1 a -> a
+unV1 (V1 a) = a
+
+makePrisms ''V1
 
 instance Show a => Show (V1 a) where
     show (V1 a) = Prelude.show a
@@ -311,6 +319,30 @@ instance FromHttpApiData (V1 Core.Address) where
 
 instance ToHttpApiData (V1 Core.Address) where
     toQueryParam (V1 a) = sformat build a
+
+-- | Represents according to 'apiTimeFormat' format.
+instance ToJSON (V1 Core.Timestamp) where
+    toJSON timestamp =
+        let utcTime = timestamp ^. _V1 . Core.timestampToUTCTimeL
+        in  String $ showApiUtcTime utcTime
+
+-- | Parses from both UTC time in 'apiTimeFormat' format and a fractional
+-- timestamp format.
+instance FromJSON (V1 Core.Timestamp) where
+    parseJSON = withText "Timestamp" $ \t ->
+        maybe
+            (fail ("Couldn't parse timestamp or datetime out of: " <> toString t))
+            (pure . V1)
+            (Core.parseTimestamp t)
+
+instance Arbitrary (V1 Core.Timestamp) where
+    arbitrary = fmap V1 arbitrary
+
+instance ToSchema (V1 Core.Timestamp) where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "Timestamp") $ mempty
+            & type_ .~ SwaggerString
+            & description ?~ "Time in ISO 8601 format"
 
 --
 -- Domain-specific types, mostly placeholders.
@@ -771,8 +803,13 @@ data Transaction = Transaction
   , txAmount        :: !(V1 Core.Coin)
   , txInputs        :: !(NonEmpty PaymentDistribution)
   , txOutputs       :: !(NonEmpty PaymentDistribution)
-  , txType          :: TransactionType
-  , txDirection     :: TransactionDirection
+    -- ^ The output money distribution.
+  , txType          :: !TransactionType
+    -- ^ The type for this transaction (e.g local, foreign, etc).
+  , txDirection     :: !TransactionDirection
+    -- ^ The direction for this transaction (e.g incoming, outgoing).
+  , txCreationTime  :: !(V1 Core.Timestamp)
+    -- ^ The time when transaction was created.
   } deriving (Show, Ord, Eq, Generic)
 
 deriveToJSON Serokell.defaultOptions ''Transaction
@@ -791,6 +828,7 @@ instance ToSchema Transaction where
 
 instance Arbitrary Transaction where
   arbitrary = Transaction <$> arbitrary
+                          <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary

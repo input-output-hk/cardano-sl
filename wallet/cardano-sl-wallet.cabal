@@ -79,6 +79,7 @@ library
 
                       Pos.Wallet.Web.State
                       Pos.Wallet.Web.State.Acidic
+                      Pos.Wallet.Web.State.Migrations
                       Pos.Wallet.Web.State.State
                       Pos.Wallet.Web.State.Storage
                       Pos.Wallet.Web.State.Transactions

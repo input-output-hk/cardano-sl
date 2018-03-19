@@ -5,7 +5,8 @@
 module Pos.Wallet.Web.State.State
        ( WalletDB
        , WalletDbReader
-       , WalletTip (..)
+       , WalletSyncState (..)
+       , RestorationHeaderHash (..)
        , PtxMetaUpdate (..)
        , AddressInfo (..)
        , askWalletDB
@@ -31,7 +32,7 @@ module Pos.Wallet.Web.State.State
        , getWalletMeta
        , getWalletMetaIncludeUnready
        , getWalletPassLU
-       , getWalletSyncTip
+       , getWalletSyncState
        , getWalletAddresses
        , doesWAddressExist
        , getTxMeta
@@ -61,6 +62,7 @@ module Pos.Wallet.Web.State.State
        , setWalletReady
        , setWalletPassLU
        , setWalletSyncTip
+       , setWalletRestorationSyncTip
        , addOnlyNewTxMetas
        , addOnlyNewTxMeta
        , removeWallet
@@ -103,8 +105,8 @@ import           Pos.Wallet.Web.State.Acidic (WalletDB, closeState, openMemState
 import           Pos.Wallet.Web.State.Acidic as A
 import           Pos.Wallet.Web.State.Storage (AddressInfo (..), AddressLookupMode (..), CAddresses,
                                                CurrentAndRemoved (..), CustomAddressType (..),
-                                               PtxMetaUpdate (..), WalletBalances, WalletStorage,
-                                               WalletTip (..))
+                                               PtxMetaUpdate (..), RestorationHeaderHash (..),
+                                               WalletBalances, WalletStorage, WalletSyncState (..))
 import qualified Pos.Wallet.Web.State.Storage as S
 import           Universum
 
@@ -178,8 +180,10 @@ getWalletMetaIncludeUnready ws includeReady wid =
 getWalletPassLU :: WalletSnapshot -> CId Wal -> Maybe PassPhraseLU
 getWalletPassLU ws wid = queryValue ws (S.getWalletPassLU wid)
 
-getWalletSyncTip :: WalletSnapshot -> CId Wal -> Maybe WalletTip
-getWalletSyncTip ws wid = queryValue ws (S.getWalletSyncTip wid)
+-- TODO(adn):  Is it necessary to preserve 'getWalletSyncTip' in case it's
+-- present in some acid-state transaction log?
+getWalletSyncState :: WalletSnapshot -> CId Wal -> Maybe WalletSyncState
+getWalletSyncState ws wid = queryValue ws (S.getWalletSyncState wid)
 
 getAccountWAddresses
     :: WalletSnapshot -> AddressLookupMode -> AccountId -> Maybe [AddressInfo]
@@ -306,6 +310,11 @@ setWalletSyncTip :: (MonadIO m, HasConfiguration)
                  => WalletDB -> CId Wal -> HeaderHash  -> m ()
 setWalletSyncTip db cWalId headerHash =
     updateDisk (A.SetWalletSyncTip cWalId headerHash) db
+
+setWalletRestorationSyncTip :: (MonadIO m, HasConfiguration)
+                            => WalletDB -> CId Wal -> RestorationHeaderHash -> HeaderHash  -> m ()
+setWalletRestorationSyncTip db cWalId rhh headerHash =
+    updateDisk (A.SetWalletRestorationSyncTip cWalId rhh headerHash) db
 
 setProfile :: (MonadIO m, HasConfiguration)
            => WalletDB -> CProfile  -> m ()

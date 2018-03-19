@@ -7,8 +7,9 @@ import           UnliftIO (MonadUnliftIO)
 import qualified Data.Map as M
 import           System.Wlog (CanLog, HasLoggerName, WithLogger, logInfo, modifyLoggerName)
 
-import           Pos.Core (Address, HasConfiguration)
+import           Pos.Core (Address, HasConfiguration, headerHash)
 import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
+import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead (..))
 import           Pos.Slotting (MonadSlotsData)
 import           Pos.StateLock (StateLock)
@@ -17,10 +18,11 @@ import           Pos.Txp.DB.Utxo (filterUtxo)
 import           Pos.Util (HasLens (..))
 
 import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, askWalletDB,
-                                       updateWalletBalancesAndUtxo)
+                                       setWalletRestorationSyncTip, updateWalletBalancesAndUtxo)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials, decryptAddress,
                                                   selectOwnAddresses)
+import           Pos.Wallet.Web.Tracking.Sync (firstGenesisHeader, processSyncError)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue, newRestoreRequest, submitSyncRequest)
 
 
@@ -37,11 +39,30 @@ restoreWallet :: ( WalletDbReader ctx m
                  ) => WalletDecrCredentials -> m ()
 restoreWallet credentials = do
     db <- askWalletDB
+    let (_, walletId) = credentials
     modifyLoggerName (const "syncWalletWorker") $ do
         logInfo "New Restoration request for a wallet..."
-        restoreGenesisAddresses db credentials
-        restoreWalletBalance db credentials
-        submitSyncRequest (newRestoreRequest credentials)
+        genesisBlockHeaderE <- firstGenesisHeader
+        case genesisBlockHeaderE of
+            Left syncError -> processSyncError syncError
+            Right genesisBlock -> do
+                restoreGenesisAddresses db credentials
+                restoreWalletBalance db credentials
+                -- At this point, we consider ourselves synced with the UTXO up-to the
+                -- 'RestorationHeaderHash' we compute now. During 'syncWalletWithBlockchain',
+                -- we will restore the wallet history from the beginning of the chain by ignoring
+                -- any Utxo changes, but we will always add transactions to the pool of known ones.
+                -- By doing so, the BListener is free to track new blocks (both in terms of balance update
+                -- & tx tracking), allowing the user to use the wallet even if is technically restoring.
+                restorationHeaderHash <- WS.RestorationHeaderHash . headerHash <$> DB.getTipHeader
+
+                -- Mark this wallet as officially in restore. As soon as we will pass the point where
+                -- the 'RestorationHeaderHash' is greater than the current store one, we would flip the
+                -- state of this wallet to a "normal" sync, and the two paths will be reunited once for all.
+                setWalletRestorationSyncTip db walletId restorationHeaderHash (headerHash genesisBlock)
+
+                -- Once we have a consistent update of the model, we submit the request to the worker.
+                submitSyncRequest (newRestoreRequest credentials restorationHeaderHash)
 
 -- | Restores the wallet balance by looking at the global Utxo and trying to decrypt
 -- each unspent output address. If we get a match, it means it belongs to us.

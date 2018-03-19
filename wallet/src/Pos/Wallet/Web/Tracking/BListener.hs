@@ -52,15 +52,18 @@ walletGuard ::
     -> CId Wal
     -> m ()
     -> m ()
-walletGuard ws curTip wAddr action = case WS.getWalletSyncTip ws wAddr of
+walletGuard ws curTip wAddr action = case WS.getWalletSyncState ws wAddr of
     Nothing -> logWarningSP $ \sl -> sformat ("There is no syncTip corresponding to wallet #"%secretOnlyF sl build) wAddr
     Just WS.NotSynced    -> logInfoSP $ \sl -> sformat ("Wallet #"%secretOnlyF sl build%" hasn't been synced yet") wAddr
-    Just (WS.SyncedWith wTip)
-        | wTip /= curTip ->
-            logWarningSP $ \sl ->
-                sformat ("Skip wallet #"%secretOnlyF sl build%", because of wallet's tip "%build
-                         %" mismatched with current tip") wAddr wTip
-        | otherwise -> action
+    Just (WS.SyncedWith wTip)      -> tipGuard wTip
+    Just (WS.RestoringFrom _ wTip) -> tipGuard wTip
+    where
+        tipGuard wTip
+            | wTip /= curTip =
+                logWarningSP $ \sl ->
+                    sformat ("Skip wallet #"%secretOnlyF sl build%", because of wallet's tip "%build
+                             %" mismatched with current tip") wAddr wTip
+            | otherwise = action
 
 -- Perform this action under block lock.
 onApplyBlocksWebWallet

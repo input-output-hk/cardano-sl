@@ -34,7 +34,7 @@ import           System.Wlog (logError, logInfo)
 
 import           Pos.Binary (decodeFull)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
-import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
+import           Pos.Client.Txp.Balances (getOwnUtxoForPk, getOwnUtxosGenesis)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
 import           Pos.Client.Txp.Util (createTx)
 import           Pos.Communication (SendActions, immediateConcurrentConversations)
@@ -44,8 +44,7 @@ import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretK
 import           Pos.Core.Txp (TxAux, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase, encToPublic, fakeSigner,
                              safeToPublic, toPublic, withSafeSigners)
-import           Pos.Txp (topsortTxAuxes, _GenesisUtxo)
-import           Pos.Txp.GenesisUtxo (genesisUtxo)
+import           Pos.Txp (topsortTxAuxes)
 
 import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util (maybeThrow)
@@ -124,7 +123,8 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
             txOuts = TxOutAux txOut1 :| []
         -}
         -- construct a transaction, and add it to the queue
-        let gutxo = view _GenesisUtxo genesisUtxo
+        --let gutxo = view _GenesisUtxo genesisUtxo
+        --let gutxo = getOwnUtxosGenesis keysToSend 
         let addTx (secretKey, n) = do
                 neighbours <- case sendMode of
                     SendNeighbours -> return ccPeers
@@ -134,14 +134,15 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                         return [ccPeers !! i]
                 _ <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
         -- every genesis secret key sends to itself
-                me <- makePubKeyAddressAuxx (toPublic  secretKey)
+                me <- makePubKeyAddressAuxx (toPublic secretKey)
+                utxo <- getOwnUtxosGenesis [me] 
                 let val2 = mkCoin 1
                     txOut2 = TxOut {
                         txOutAddress = me,
                         txOutValue   = val2
                     }
                     txOuts2 = TxOutAux txOut2 :| []
-                etx <- createTx mempty gutxo (fakeSigner secretKey) txOuts2 (toPublic secretKey)
+                etx <- createTx mempty utxo (fakeSigner secretKey) txOuts2 (toPublic secretKey)
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
                     Right (tx, _) -> atomically $ writeTQueue txQueue (tx, neighbours)

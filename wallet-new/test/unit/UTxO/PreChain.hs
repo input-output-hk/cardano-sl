@@ -146,7 +146,9 @@ calcFees boot f = do
                        . txToLinearFee policy
 
     (txs, _) <- runIntBoot boot $ fst (f (repeat (repeat 0)))
-    fees     <- mapM (mapM txToLinearFee') txs
+    fees     <- mapM (mapM $ txToLinearFee' . fst) txs
+    --(txs, _) <- runIntBoot boot $ f (repeat (repeat 0))
+    --fees     <- mapM (mapM (txToLinearFee' . fst)) txs
     return $ f (unmarkOldestFirst fees)
   where
     unmarkOldestFirst :: OldestFirst [] (OldestFirst [] a) -> [[a]]

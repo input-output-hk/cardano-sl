@@ -11,19 +11,84 @@ module Cardano.Wallet.Kernel (
     PassiveWallet -- opaque
   , bracketPassiveWallet
   , init
+  , getWalletUtxo
     -- * Active wallet
   , ActiveWallet -- opaque
   , bracketActiveWallet
   , newPending
   , hasPending
+  , updateUtxo
+  , applyBlock
+  , applyBlocks
   ) where
 
 import Universum
+import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
+--import Control.Concurrent.MVar
 import System.Wlog (Severity(..))
 
 import Cardano.Wallet.Kernel.Diffusion (WalletDiffusion(..))
+import Cardano.Wallet.Kernel.PrefilterTx (prefilterTxs)
 
-import Pos.Core (TxAux)
+import Pos.Core (TxAux, HasConfiguration)
+import Pos.Core.Txp (TxIn (..))
+import Cardano.Wallet.Kernel.Types (ResolvedBlock(..),
+                                    ResolvedTx(..),
+                                    ResolvedTxPair)
+
+import Pos.Crypto (EncryptedSecretKey)
+import Pos.Txp.Toil.Types (Utxo)
+import Pos.Util.Chrono (OldestFirst, NE)
+{-------------------------------------------------------------------------------
+  Apply Block/Blocks
+-------------------------------------------------------------------------------}
+
+applyBlock :: HasConfiguration
+              => PassiveWallet
+              -> ResolvedBlock
+              -> IO ()
+applyBlock _w _b = do
+    utxo <- getWalletUtxo _w
+
+    let resolvedTxs :: [ResolvedTx]
+        resolvedTxs = rbTxs _b
+        prefilteredTxs = prefilterTxs (walletESK _w) resolvedTxs
+
+        utxo' = updateUtxo prefilteredTxs utxo
+
+    updateWalletUtxo _w utxo'
+    return ()
+
+applyBlocks :: HasConfiguration
+              => PassiveWallet
+              -> OldestFirst NE ResolvedBlock
+              -> IO ()
+applyBlocks w bs = do
+    mapM_ (applyBlock w) bs
+    return ()
+
+updateUtxo :: [ResolvedTx]  -- ^ Prefiltered [(inputs, outputsUtxo)]
+            -> Utxo -> Utxo
+updateUtxo prefilteredTxs = remSpent . addNew
+  where
+    txIns = unionTxIns $ map rtxInputs prefilteredTxs
+    txOuts = unionTxOuts $ map rtxOutputs prefilteredTxs
+
+    addNew :: Utxo -> Utxo
+    addNew = Map.union txOuts
+
+    remSpent :: Utxo -> Utxo
+    remSpent = (`withoutKeys_` txIns)
+
+withoutKeys_ :: Ord k => Map k a -> Set k -> Map k a
+m `withoutKeys_` s = m `Map.difference` Map.fromSet (const ()) s
+
+unionTxIns :: [[ResolvedTxPair]] -> Set TxIn
+unionTxIns allTxIns = Set.fromList $ map fst $ concatMap toList allTxIns
+
+unionTxOuts :: [Utxo] -> Utxo
+unionTxOuts allUtxo = Map.unions allUtxo
 
 {-------------------------------------------------------------------------------
   Passive wallet
@@ -33,13 +98,18 @@ import Pos.Core (TxAux)
 --
 -- A passive wallet can receive and process blocks, keeping track of state,
 -- but cannot send new transactions.
---
--- TODO: This is just a placeholder for now, we'll want all kinds of state
--- in here.
 data PassiveWallet = PassiveWallet {
       -- | Send log message
       walletLogMessage :: Severity -> Text -> IO ()
+    , walletESK :: EncryptedSecretKey
+    , walletDb :: MVar Utxo -- temporary DB -> to come... AcidState
     }
+
+getWalletUtxo :: PassiveWallet -> IO Utxo
+getWalletUtxo w = takeMVar (walletDb w)
+
+updateWalletUtxo :: PassiveWallet -> Utxo -> IO ()
+updateWalletUtxo w utxo = putMVar (walletDb w) utxo
 
 -- | Allocate wallet resources
 --
@@ -47,13 +117,18 @@ data PassiveWallet = PassiveWallet {
 --
 -- TODO: Here and elsewhere we'll want some constraints on this monad here, but
 -- it shouldn't be too specific.
-bracketPassiveWallet :: MonadMask m
+bracketPassiveWallet :: (MonadMask m, MonadIO m)
                      => (Severity -> Text -> IO ())
+                     -> EncryptedSecretKey
+                     -> Utxo
                      -> (PassiveWallet -> m a) -> m a
-bracketPassiveWallet walletLogMessage =
+bracketPassiveWallet walletLogMessage walletESK utxo =
     bracket
-      (return PassiveWallet{..})
+      (do
+          walletDb <- Universum.newMVar utxo
+          return PassiveWallet{..})
       (\_ -> return ())
+
 
 -- | Initialize the wallet
 --

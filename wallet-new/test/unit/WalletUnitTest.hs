@@ -11,13 +11,24 @@ import           Formatting (bprint, build, sformat, shown, (%))
 import           Serokell.Util (mapJson)
 import           Test.Hspec.QuickCheck
 import           Universum
+import Data.Maybe (fromJust)
+import qualified Data.Map.Strict as Map
+import qualified Data.List.NonEmpty as NE
 
 import qualified Pos.Block.Error as Cardano
 import qualified Pos.Txp.Toil as Cardano
 import           Pos.Util.Chrono
+import           Pos.Core
+import qualified Pos.Crypto as C
+
+import           Pos.Txp.Toil.Types (GenesisUtxo (..))
+import           Pos.Txp.GenesisUtxo (genesisUtxo)
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
+import           Cardano.Wallet.Kernel.Types (ResolvedBlock(..))
+import           Cardano.Wallet.Kernel.PrefilterTx (ourUtxo)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 
 import           UTxO.BlockGen
 import           UTxO.Bootstrap
@@ -37,6 +48,9 @@ import qualified Wallet.Prefiltered    as Pref
 import qualified Wallet.Rollback.Basic as Roll
 import qualified Wallet.Rollback.Full  as Full
 
+import           UTxO.Crypto
+import qualified Wallet.Spec as Spec
+
 {-------------------------------------------------------------------------------
   Main test driver
 -------------------------------------------------------------------------------}
@@ -44,7 +58,8 @@ import qualified Wallet.Rollback.Full  as Full
 main :: IO ()
 main = do
 --    _showContext
-    hspec tests
+    runTranslateNoErrors $ withConfig $
+        return $ hspec tests
 
 -- | Debugging: show the translation context
 _showContext :: IO ()
@@ -60,12 +75,45 @@ _showContext = do
   Tests proper
 -------------------------------------------------------------------------------}
 
-tests :: Spec
+tests :: HasConfiguration => Spec
 tests = describe "Wallet unit tests" $ do
     testTranslation
     testPureWallet
     testPassiveWallet
     testActiveWallet
+
+{-------------------------------------------------------------------------------
+  Utils
+-------------------------------------------------------------------------------}
+
+toCardano :: PreChain GivenHash Identity ()
+          -> (OldestFirst NE ResolvedBlock, Chain GivenHash Addr, Utxo GivenHash Addr,
+              TransCtxt, IntCtxt GivenHash)
+toCardano chain = runTranslate $ do
+        FromPreChain{..} <- fromPreChain chain
+        (cardanoBlocks, intCtxt) <- runIntBoot fpcBoot fpcChain
+        transCtxt <- ask
+        let dslGenesisUtxo = trUtxo fpcBoot
+        return (toResolvedBlocks cardanoBlocks, fpcChain, dslGenesisUtxo, transCtxt, intCtxt)
+        where
+            toResolvedBlocks cardanoBs = OldestFirst . NE.fromList . getOldestFirst $ cardanoBs
+
+dslToCardanoUtxo :: IntCtxt GivenHash -> Utxo GivenHash Addr -> Cardano.Utxo
+dslToCardanoUtxo intCtxt dslUtxo = runTranslate $ do
+        (utxo', _) <- runIntT intCtxt dslUtxo
+        return utxo'
+
+getFirstPoorActorESK :: C.EncryptedSecretKey
+getFirstPoorActorESK
+    = runTranslateNoErrors $ asks getFirstPoorActorESK_
+    where
+        getFirstPoorActorESK_ :: TransCtxt -> C.EncryptedSecretKey
+        getFirstPoorActorESK_ TransCtxt{..}
+            =  encKpEnc . poorKey . fromJust . head $ poorActors
+            where poorActors = Map.elems . actorsPoor $ tcActors
+
+print' :: (Show a) => a -> IO ()
+print' = putText . Universum.show
 
 {-------------------------------------------------------------------------------
   UTxO->Cardano translation tests
@@ -180,18 +228,64 @@ testPureWallet = do
   Passive wallet tests
 -------------------------------------------------------------------------------}
 
-testPassiveWallet  :: Spec
-testPassiveWallet = around bracketPassiveWallet $
+applyBlocks :: Spec.Wallet GivenHash Addr -> [UTxO.DSL.Block GivenHash Addr] -> Spec.Wallet GivenHash Addr
+applyBlocks wallet bs = foldl (flip Spec.applyBlock) wallet bs
+
+testPassiveWallet  :: HasConfiguration => Spec
+testPassiveWallet = around (bracketPassiveWallet firstPoorActorESK genesisUtxoOurs) $
     describe "Passive wallet sanity checks" $ do
-      it "can be initialized" $ \w ->
+      it "can compute same Utxo using DSL and Cardano - Actor p0, example1b" $ \w -> do
         Kernel.init w
 
+        -- translate example PreChain
+        let (resolvedBlocks, chain, dslGenesisUtxo, transCtxt, intCtxt) = toCardano example1b
+
+        -- Cardano applyBlocks
+        Kernel.applyBlocks w resolvedBlocks
+        cardanoUtxo <- Kernel.getWalletUtxo w
+
+        -- DSL applyBlocks
+        let dslGenesisUtxoOurs = utxoRestrictToOurs (isOurs transCtxt) dslGenesisUtxo
+            dslWallet = Spec.initWallet (isOurs transCtxt) dslGenesisUtxoOurs
+
+            dslWallet' = applyBlocks dslWallet (toList . chainBlocks $ chain)
+            dslUtxo = Spec.getWalletUtxo dslWallet'
+
+            dslUtxoAsCardano = dslToCardanoUtxo intCtxt dslUtxo
+
+        putText "@@@@@@@@@@@@@@@@@@@@@@@@"
+        print' cardanoUtxo
+        putText "@@@@@@@@@@@@@@@@@@@@@@@@"
+        print' dslUtxoAsCardano
+
+        -- TODO cardanoUtxo `shouldBe` dslUtxoAsCardano
+        True `shouldBe` True
+
+    where
+        firstPoorActorESK = getFirstPoorActorESK
+        genesisUtxoOurs = ourUtxo (eskToWalletDecrCredentials firstPoorActorESK)
+                                  (unGenesisUtxo genesisUtxo)
+
+        isOurs :: TransCtxt -> Ours Addr
+        isOurs transCtxt addr = do
+            guard (isOurs' addr)
+            return $ fst (resolveAddr addr transCtxt)
+
+        -- wallet tracking poor actor 'p1'
+        isOurs' :: Addr -> Bool
+        isOurs' (Addr (IxPoor 0) 0) = True
+        isOurs' _otherwise          = False
+
+
 -- | Initialize passive wallet in a manner suitable for the unit tests
-bracketPassiveWallet :: (Kernel.PassiveWallet -> IO a) -> IO a
-bracketPassiveWallet = Kernel.bracketPassiveWallet logMessage
+bracketPassiveWallet :: C.EncryptedSecretKey -> Cardano.Utxo -> (Kernel.PassiveWallet -> IO a) -> IO a
+bracketPassiveWallet esk utxo' = Kernel.bracketPassiveWallet logMessage esk utxo'
   where
    -- TODO: Decide what to do with logging
-    logMessage _sev _txt = return ()
+    logMessage _sev _txt = do
+      print _txt
+
+      return ()
 
 {-------------------------------------------------------------------------------
   Active wallet tests
@@ -206,7 +300,7 @@ testActiveWallet = around bracketWallet $
 -- | Initialize active wallet in a manner suitable for unit testing
 bracketWallet :: (Kernel.ActiveWallet -> IO a) -> IO a
 bracketWallet test =
-    bracketPassiveWallet $ \passive ->
+    (bracketPassiveWallet undefined Map.empty) $ \passive ->        -- TODO: esk, utxo
       Kernel.bracketActiveWallet passive diffusion $ \active ->
         test active
   where
@@ -316,6 +410,37 @@ example1 = preChain $ \boot -> return $ \((fee3 : fee4 : _) : _) ->
                }
     in OldestFirst [OldestFirst [t3, t4]]
 
+
+example1b :: Hash h Addr => PreChain h Identity ()
+example1b = preChain $ \boot -> return $ \((fee3 : fee4 : fee5 : _) : _) ->
+    let t3 = Transaction {
+                 trFresh = 0
+               , trFee   = fee3
+               , trHash  = 3
+               , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
+               , trOuts  = [ Output p0 1000
+                           , Output p1 (initR0 - 1000 - fee3)
+                           ]
+               , trExtra = ["t3"]
+               }
+        t4 = Transaction {
+                 trFresh = 0
+               , trFee   = fee4
+               , trHash  = 4
+               , trIns   = Set.fromList [ Input (hash t3) 1 ]
+               , trOuts  = [ Output p0 (initR0 - 1000 - fee3 - fee4) ]
+               , trExtra = ["t4"]
+               }
+        t5 = Transaction {
+                trFresh = 0
+              , trFee   = fee5
+              , trHash  = 5
+              , trIns   = Set.fromList [ Input (hash t4) 0 ]
+              , trOuts  = [ Output p1 (initR0 - 1000 - fee3 - fee4 - fee5) ]
+              , trExtra = ["t5"]
+              }
+    in OldestFirst [OldestFirst [t3, t4, t5]]
+
 {-------------------------------------------------------------------------------
   Some initial values
 
@@ -330,6 +455,10 @@ r0, r1, r2 :: Addr
 r0 = Addr (IxRich 0) 0
 r1 = Addr (IxRich 1) 0
 r2 = Addr (IxRich 2) 0
+
+p0, p1 :: Addr
+p0 = Addr (IxPoor 0) 0
+p1 = Addr (IxPoor 1) 0
 
 {-------------------------------------------------------------------------------
   Verify chain
@@ -358,7 +487,9 @@ intAndVerifyChain pc = runTranslateT $ do
     FromPreChain{..} <- fromPreChain pc
     let dslIsValid = ledgerIsValid fpcLedger
         dslUtxo    = ledgerUtxo    fpcLedger
-    intResult <- catchTranslateErrors $ runIntBoot fpcBoot fpcChain
+
+    let f (resolvedBs, ctx) = (map rbBlock resolvedBs, ctx)
+    intResult <- catchTranslateErrors $ f <$> runIntBoot fpcBoot fpcChain
     case intResult of
       Left e ->
         case dslIsValid of

@@ -9,6 +9,7 @@ module Main where
 import           Universum
 
 import           Data.Maybe (fromJust)
+import qualified Data.Map as Map
 import           Mockable (Production (..), runProduction)
 import           Ntp.Client (NtpStatus, withNtpClient)
 import qualified Pos.Client.CLI as CLI
@@ -110,6 +111,7 @@ actionWithNewWallet sscParams nodeParams params =
       bracketKernelPassiveWallet logMessage' $ \wallet -> do
         liftIO $ logMessage' Info "Wallet kernel initialized"
         Kernel.Mode.runWalletMode nr wallet (mainAction wallet nr)
+
   where
     mainAction
         :: PassiveWalletLayer Production

@@ -1,6 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE ImplicitParams             #-}
 {-# LANGUAGE InstanceSigs               #-}
+{-# LANGUAGE TupleSections              #-}
 
 -- | Interpreter from the DSL to Cardano types
 module UTxO.Interpreter (
@@ -38,6 +39,7 @@ import           UTxO.Context
 import           UTxO.Crypto
 import qualified UTxO.DSL as DSL
 import           UTxO.Translate
+import           Cardano.Wallet.Kernel.Types (ResolvedBlock(..), RawResolvedTx, mkResolvedBlock)
 
 {-------------------------------------------------------------------------------
   Errors that may occur during interpretation
@@ -188,36 +190,37 @@ instance Interpret h Addr where
   int = asks . resolveAddr
 
 instance DSL.Hash h Addr => Interpret h (DSL.Input h Addr) where
-  type Interpreted (DSL.Input h Addr) = TxOwnedInput SomeKeyPair
+  type Interpreted (DSL.Input h Addr) = (TxOwnedInput SomeKeyPair, TxOutAux)
 
   int :: (HasCallStack, Monad m)
-      => DSL.Input h Addr -> IntT h m (TxOwnedInput SomeKeyPair)
+      => DSL.Input h Addr -> IntT h m (TxOwnedInput SomeKeyPair, TxOutAux)
   int inp@DSL.Input{..} = do
       -- We figure out who must sign the input by looking at the output
       spentOutput <- inpSpentOutput' inp
+      spentOutput' <- int spentOutput
       isBootstrap <- isBootstrapTransaction <$> findHash' inpTrans
 
       if isBootstrap
         then do
           (ownerKey, ownerAddr) <- int $ DSL.outAddr spentOutput
           -- See explanation at 'bootstrapTransaction'
-          return (
+          return ((
                 ownerKey
               , TxInUtxo {
                     txInHash  = unsafeHash ownerAddr
                   , txInIndex = 0
                   }
-              )
+              ), spentOutput')
         else do
           (ownerKey, _) <- int     $ DSL.outAddr spentOutput
-          inpTrans'     <- intHash $ inpTrans
-          return (
+          inpTrans'     <- intHash inpTrans
+          return ((
                 ownerKey
               , TxInUtxo {
                     txInHash  = inpTrans'
                   , txInIndex = inpIndex
                   }
-              )
+              ), spentOutput')
 
 instance Interpret h (DSL.Output Addr) where
   type Interpreted (DSL.Output Addr) = TxOutAux
@@ -235,27 +238,30 @@ instance Interpret h (DSL.Output Addr) where
 
 -- | Interpretation of transactions
 instance DSL.Hash h Addr => Interpret h (DSL.Transaction h Addr) where
-  type Interpreted (DSL.Transaction h Addr) = TxAux
+  type Interpreted (DSL.Transaction h Addr) = RawResolvedTx
 
   int :: (HasCallStack, Monad m)
-      => DSL.Transaction h Addr -> IntT h m TxAux
+      => DSL.Transaction h Addr -> IntT h m RawResolvedTx
   int t = do
       trIns'  <- mapM int $ DSL.trIns' t
       trOuts' <- mapM int $ DSL.trOuts t
-      liftTranslate IntExClassifyInputs $ case classifyInputs trIns' of
+      let ownedInputs       = map fst trIns'
+          inputSpentOutputs = map snd trIns'
+      liftTranslate IntExClassifyInputs $ case classifyInputs ownedInputs of
         Left err ->
           throwError err
         Right (InputsRegular trIns'') -> withConfig $
-          return . either absurd identity $
+          return . either absurd (,inputSpentOutputs) $
           makeMPubKeyTx
             (Right . FakeSigner . regKpSec)
             (NE.fromList trIns'')
             (NE.fromList trOuts')
         Right (InputsRedeem (kp, inp)) -> withConfig $ return $
-          makeRedemptionTx
+          (makeRedemptionTx
             (redKpSec kp)
             (NE.fromList [inp])
             (NE.fromList trOuts')
+          , inputSpentOutputs)
 
 {-------------------------------------------------------------------------------
   Instances that change the state
@@ -269,44 +275,53 @@ instance DSL.Hash h Addr => Interpret h (DSL.Transaction h Addr) where
 --
 -- Each transaction becomes part of the context for the next.
 instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
-  type Interpreted (DSL.Block h Addr) = OldestFirst [] TxAux
+  type Interpreted (DSL.Block h Addr) = OldestFirst [] RawResolvedTx
 
   int :: forall m. (HasCallStack, Monad m)
-      => DSL.Block h Addr -> IntT h m (OldestFirst [] TxAux)
+      => DSL.Block h Addr -> IntT h m (OldestFirst [] RawResolvedTx)
   int = fmap OldestFirst . go . toList
     where
-      go :: [DSL.Transaction h Addr] -> IntT h m [TxAux]
+      go :: [DSL.Transaction h Addr] -> IntT h m [RawResolvedTx]
       go [] = return []
       go (t:ts) = do
-          t' <- int t
+          (t', inputSpentOutputs) <- int t
           push (t, hash (taTx t'))
-          (t' :) <$> go ts
+          ((t', inputSpentOutputs) :) <$> go ts
 
 -- | Interpretation of a list of list of transactions (basically a chain)
 instance DSL.Hash h Addr => Interpret h (DSL.Blocks h Addr) where
-  type Interpreted (DSL.Blocks h Addr) = OldestFirst [] (OldestFirst [] TxAux)
+  type Interpreted (DSL.Blocks h Addr) = OldestFirst [] (OldestFirst [] RawResolvedTx)
 
   int :: (HasCallStack, Monad m)
-      => DSL.Blocks h Addr -> IntT h m (OldestFirst [] (OldestFirst [] TxAux))
+      => DSL.Blocks h Addr -> IntT h m (OldestFirst [] (OldestFirst [] RawResolvedTx))
   int = mapM int
 
 -- TODO: Here and elsewhere we assume we stay within a single epoch
 instance DSL.Hash h Addr => Interpret h (DSL.Chain h Addr) where
-  type Interpreted (DSL.Chain h Addr) = OldestFirst [] Block
+  type Interpreted (DSL.Chain h Addr) = OldestFirst [] ResolvedBlock
 
   int :: forall m. (HasCallStack, Monad m)
-      => DSL.Chain h Addr -> IntT h m (OldestFirst [] Block)
+      => DSL.Chain h Addr -> IntT h m (OldestFirst [] ResolvedBlock)
   int DSL.Chain{..} = do
       tss <- int chainBlocks
       OldestFirst <$> mkBlocks Nothing 0 (toList (map toList tss))
     where
-      mkBlocks :: Maybe MainBlock -> Word16 -> [[TxAux]] -> IntT h m [Block]
+      mkBlocks :: Maybe MainBlock -> Word16 -> [[RawResolvedTx]] -> IntT h m [ResolvedBlock]
       mkBlocks _    _    []       = return []
       mkBlocks prev slot (ts:tss) = do
           lsi <- liftTranslate IntExMkSlot $ mkLocalSlotIndex slot
           let slotId = SlotId (EpochIndex 0) lsi
-          block <- mkBlock prev slotId ts
-          (Right block :) <$> mkBlocks (Just block) (slot + 1) tss
+          block <- mkResolvedBlock' prev slotId ts
+          let block' = fromRight (error "unexpected genesis block") (rbBlock block)
+          (block :) <$> mkBlocks (Just block') (slot + 1) tss
+
+      mkResolvedBlock' :: Maybe MainBlock -> SlotId -> [RawResolvedTx] -> IntT h m ResolvedBlock
+      mkResolvedBlock' mPrev slotId ts = do
+                                           b <- mkBlock mPrev slotId txs
+                                           return $ mkResolvedBlock (Right b) spentOutputs
+                                       where
+                                         spentOutputs = map snd ts
+                                         txs          = map fst ts
 
       mkBlock :: Maybe MainBlock -> SlotId -> [TxAux] -> IntT h m MainBlock
       mkBlock mPrev slotId ts = do
@@ -334,7 +349,7 @@ instance DSL.Hash h Addr => Interpret h (DSL.Chain h Addr) where
             slotId
             bsiKey
             (RawPayload
-                (toList ts)
+                ts
                 (defaultSscPayload (siSlot slotId)) -- TODO
                 dlgPayload
                 updPayload
@@ -353,6 +368,6 @@ instance DSL.Hash h Addr => Interpret h (DSL.Utxo h Addr) where
       aux :: (DSL.Input h Addr, DSL.Output Addr)
           -> IntT h m (TxIn, TxOutAux)
       aux (inp, out) = do
-          (_key, inp') <- int inp
+          ((_key, inp'), _) <- int inp
           out'         <- int out
           return (inp', out')

@@ -209,7 +209,7 @@ library
   ghc-options: -pgmP cpphs -optP --cpp
 
 test-suite cardano-wallet-test
-  main-is:             Test2.hs
+  main-is:             Test.hs
   other-modules:
                        -- Standard module with some magic
                        Spec
@@ -226,6 +226,8 @@ test-suite cardano-wallet-test
                        Test.Pos.Wallet.Web.Methods.BackupDefaultAddressesSpec
 
                        Test.Pos.Wallet.Web.Tracking.SyncSpec
+
+                       Test.Pos.Wallet.MigrationSpec
 
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom
@@ -254,13 +256,13 @@ test-suite cardano-wallet-test
                      , hspec
                      , lens
                      , log-warper
-                     , MonadRandom
                      , mtl
+                     , safecopy
                      , serokell-util >= 0.1.3.4
                      , stm
-                     , unordered-containers
                      , text-format
                      , universum >= 0.1.11
+                     , unordered-containers
 
   hs-source-dirs:      test
   default-language:    Haskell2010
@@ -300,27 +302,3 @@ test-suite cardano-wallet-test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-
-Test-suite unit-tests
-  type:               exitcode-stdio-1.0
-  default-language:   Haskell2010
-  default-extensions: NoImplicitPrelude
-  hs-source-dirs:     test
-  main-is:            Test.hs
-  other-modules:      Migrations
-  ghc-options:        -Wall -threaded -pgmP cpphs -optP --cpp
-  buildable:          False
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-  build-depends:      base
-                    , cardano-sl
-                    , cardano-sl-core
-                    , cardano-sl-txp
-                    , cardano-sl-wallet
-                    , safecopy
-                    , tasty
-                    , tasty-quickcheck
-                    , QuickCheck
-                    , unordered-containers
-                    , universum >= 0.1.11

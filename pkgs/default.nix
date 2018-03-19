@@ -7648,10 +7648,9 @@ inherit (pkgs) mesa;};
          , quickcheck-instances, random, reflection, safe-exceptions
          , safecopy, semver, serokell-util, servant, servant-generic
          , servant-multipart, servant-server, servant-swagger
-         , servant-swagger-ui, stdenv, stm, swagger2, tasty
-         , tasty-quickcheck, text, text-format, time, time-units
-         , transformers, universum, unix, unliftio, unordered-containers
-         , wai, wai-websockets, warp, websockets
+         , servant-swagger-ui, stdenv, stm, swagger2, text, text-format
+         , time, time-units, transformers, universum, unix, unliftio
+         , unordered-containers, wai, wai-websockets, warp, websockets
          }:
          mkDerivation {
            pname = "cardano-sl-wallet";
@@ -7680,8 +7679,8 @@ inherit (pkgs) mesa;};
              cardano-sl-networking cardano-sl-ssc cardano-sl-txp
              cardano-sl-update cardano-sl-util containers data-default ether
              formatting hspec lens log-warper MonadRandom mtl QuickCheck
-             safecopy serokell-util stm tasty tasty-quickcheck text-format
-             universum unordered-containers
+             safecopy serokell-util stm text-format universum
+             unordered-containers
            ];
            testToolDepends = [ cpphs ];
            doHaddock = false;

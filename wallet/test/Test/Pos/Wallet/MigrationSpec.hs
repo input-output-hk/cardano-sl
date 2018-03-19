@@ -4,25 +4,24 @@
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeFamilies               #-}
-module Migrations (tests) where
+module Test.Pos.Wallet.MigrationSpec (spec) where
 
-import           Control.Arrow                        ((***))
-import qualified Data.HashMap.Strict                  as HM
+import           Control.Arrow ((***))
+import           Data.Default (def)
+import qualified Data.HashMap.Strict as HM
 import           Data.SafeCopy
-import           Pos.Arbitrary.Core                   ()
-import           Pos.Wallet.Web.ClientTypes           (AccountId (..), Addr,
-                                                       CAccountMeta (..), CCoin (..),
-                                                       CHash (..), CId (..),
-                                                       CProfile (..), CTxId (..),
-                                                       CTxMeta (..), CUpdateInfo (..),
-                                                       CWAddressMeta (..),
-                                                       CWalletAssurance (..),
-                                                       CWalletMeta (..), Wal)
+import           Pos.Arbitrary.Core ()
+import           Pos.Core (HasConfiguration)
+import           Pos.Util.CompileInfo (withCompileInfo)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccountMeta (..), CCoin (..),
+                                             CHash (..), CId (..), CProfile (..), CTxId (..),
+                                             CTxMeta (..), CUpdateInfo (..), CWAddressMeta (..),
+                                             CWalletAssurance (..), CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId)
 import           Pos.Wallet.Web.State.Storage
+import           Test.Hspec (Spec, describe, it)
+import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.QuickCheck
-import           Test.Tasty
-import           Test.Tasty.QuickCheck
 import           Universum
 
 --------------------------------------------------------------------------------
@@ -147,7 +146,7 @@ instance Arbitrary AccountId where
     <$> arbitrary
     <*> arbitrary
 
-instance Arbitrary WalletTip where
+instance HasConfiguration => Arbitrary WalletTip where
   arbitrary = oneof
     [ pure NotSynced
     , SyncedWith <$> arbitrary
@@ -176,7 +175,7 @@ instance Arbitrary AccountInfo_v0 where
     <*> arbitrary
     <*> arbitrary
 
-instance Arbitrary WalletInfo where
+instance HasConfiguration => Arbitrary WalletInfo where
   arbitrary = WalletInfo
     <$> arbitrary
     <*> arbitrary
@@ -185,7 +184,7 @@ instance Arbitrary WalletInfo where
     <*> pure HM.empty
     <*> arbitrary
 
-instance Arbitrary WalletStorage_v2 where
+instance HasConfiguration => Arbitrary WalletStorage_v2 where
   arbitrary = WalletStorage_v2
     <$> arbitrary
     <*> arbitrary
@@ -198,10 +197,10 @@ instance Arbitrary WalletStorage_v2 where
     <*> arbitrary
     <*> arbitrary
 
-tests :: TestTree
-tests = testGroup "Migration"
-    [ testProperty "migration to latest version can be reversed" $ prop_backMigrate
-    ]
+spec :: Spec
+spec = withCompileInfo def $ withDefConfigurations
+    $ describe "Migration to latest version can be reversed" $ do
+      it "migrating back results in the original" $ property prop_backMigrate
   where
     -- This test verifies that the migration to version 2 of the wallet storage is
     -- reversible, and as such that we don't accidentally cause any data loss in

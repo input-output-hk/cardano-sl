@@ -37,11 +37,12 @@ import           Pos.Logic.Types (KeyVal (..), Logic (..))
 -- | Serves up a single (invalid but well-formed) block and block header for
 -- any request.
 pureLogic
-    :: ( Applicative m )
+    :: ( Monad m )
     => Logic m
 pureLogic = Logic
     { ourStakeholderId   = stakeholderId
     , getBlock           = \_ -> pure (Just block)
+    , streamBlocks       = \_ -> pure ()
     , getBlockHeader     = \_ -> pure (Just blockHeader)
     , getHashesRange     = \_ _ _ -> pure (Right (OldestFirst (pure mainBlockHeaderHash)))
     , getBlockHeaders    = \_ _ _ -> pure (Right (NewestFirst (pure blockHeader)))

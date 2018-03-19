@@ -20,6 +20,9 @@ import qualified Criterion as Criterion
 import qualified Criterion.Main as Criterion
 import qualified Criterion.Main.Options as Criterion
 import qualified Data.ByteString.Lazy as LBS
+import           Data.IORef (IORef, newIORef, writeIORef, readIORef)
+import           Data.Semigroup ((<>))
+import           Formatting (sformat, shown, (%))
 import qualified Options.Applicative as Opt (execParser)
 
 import           Data.List.NonEmpty (NonEmpty ((:|)))
@@ -32,6 +35,7 @@ import qualified Network.Transport.TCP as TCP
 import           Node (NodeId)
 import qualified Node
 import           Mockable.Production (Production, runProduction)
+import           Pipes (Producer, each)
 import           System.Wlog (usingLoggerName)
 import qualified System.Wlog as Wlog
 
@@ -50,8 +54,8 @@ import           Pos.Diffusion.Full (FullDiffusionConfiguration (..),
                                      RunFullDiffusionInternals (..),
                                      diffusionLayerFullExposeInternals)
 import qualified Pos.Diffusion.Transport.TCP as Diffusion (bracketTransportTCP)
-import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..), StreamEntry (..))
-import           Pos.Logic.Types (Logic (..), LogicLayer (..))
+import           Pos.Diffusion.Types as Diffusion (Diffusion (..), DiffusionLayer (..), StreamEntry (..))
+import           Pos.Logic.Types as Logic (Logic (..), LogicLayer (..))
 import           Pos.Logic.Pure (pureLogic)
 import           Pos.Reporting.Health.Types (HealthStatus (..))
 
@@ -88,6 +92,9 @@ blockVersion = BlockVersion
 someHash :: forall a . Hash a
 someHash = unsafeMkAbstractHash LBS.empty
 
+someOtherHash :: forall a . Hash a
+someOtherHash = unsafeMkAbstractHash (LBS.pack [0x00])
+
 -- | Grab a TCP transport at 127.0.0.1:0 with 15s timeout.
 -- Uses the stock parameters from 'Pos.Diffusion.Transport.bracketTransportTCP'
 -- which are also used in production (fair QDisc etc.).
@@ -107,17 +114,21 @@ withTransport k = usingLoggerName "" $
         }
 
 serverLogic
-    :: Block
+    :: IORef [Block] -- ^ For streaming, so we can control how many are given.
+    -> Block
     -> NonEmpty HeaderHash
     -> NonEmpty BlockHeader
     -> Logic Production
-serverLogic arbitraryBlock arbitraryHashes arbitraryHeaders = pureLogic
+serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLogic
     { getBlock = const (pure (Just arbitraryBlock))
     , getBlockHeader = const (pure (Just (Core.getBlockHeader arbitraryBlock)))
     , getHashesRange = \_ _ _ -> pure (Right (OldestFirst arbitraryHashes))
     , getBlockHeaders = \_ _ _ -> pure (Right (NewestFirst arbitraryHeaders))
     , getTip = pure arbitraryBlock
     , getTipHeader = pure (Core.getBlockHeader arbitraryBlock)
+    , Logic.streamBlocks = \_ -> do
+          blocks <- liftIO $ readIORef streamIORef
+          each blocks
     }
 
 -- Modify a pure logic layer so that the LCA computation (suffix not in the
@@ -132,7 +143,8 @@ withServer :: Transport Production -> Logic Production -> (NodeId -> Production 
 withServer transport logic k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
-    oq <- liftIO $ OQ.new "server"
+    oq <- liftIO $ OQ.new
+                 (OQ.wlogTrace ("server" <> "outboundqueue") "server")
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -160,7 +172,7 @@ withServer transport logic k = do
         , fdcRecoveryHeadersMessage = 2200
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
-        , fdcStreamWindow = 2048
+        , fdcStreamWindow = 65536
         }
 
 -- Like 'withServer' but we must set up the outbound queue so that it will
@@ -174,7 +186,8 @@ withClient
 withClient transport logic serverAddress@(Node.NodeId serverEndPointAddress) k = do
     -- Morally, the server shouldn't need an outbound queue, but we have to
     -- give one.
-    oq <- liftIO $ OQ.new "client"
+    oq <- liftIO $ OQ.new
+                 (OQ.wlogTrace ("client" <> "outboundqueue") "client")
                  Policy.defaultEnqueuePolicyRelay
                  --Policy.defaultDequeuePolicyRelay
                  (const (OQ.Dequeue OQ.NoRateLimiting (OQ.MaxInFlight maxBound)))
@@ -204,7 +217,7 @@ withClient transport logic serverAddress@(Node.NodeId serverEndPointAddress) k =
         , fdcRecoveryHeadersMessage = 2200
         , fdcLastKnownBlockVersion = blockVersion
         , fdcConvEstablishTimeout = 15000000 -- us
-        , fdcStreamWindow = 2048
+        , fdcStreamWindow = 65536
         }
 
 
@@ -219,53 +232,53 @@ blockDownloadBatch serverAddress client ~(blockHeader, checkpoints) batches = ru
     -- We won't do any work in-between, so we'll get better performance than
     -- we would see in production (if streaming is faster, our results will be
     -- a lower bound on the real speedup).
-    forM_ [1..batches] $ \n -> do
+    forM_ [1..batches] $ \n ->
         getBlocks client serverAddress blockHeader checkpoints
     pure ()
 
 -- Final parameter, like for 'blockDownloadBatch', is the number of batches to
 -- do. Here, in streaming, we multiply by 2200 to make a fair comparison with
 -- 'blockDownloadBatch', which will do 2200 at a time.
-blockDownloadStream :: NodeId -> Diffusion Production -> (HeaderHash, [HeaderHash]) -> Int -> IO ()
-blockDownloadStream serverAddress client ~(blockHeader, checkpoints) batches = runProduction $
-    streamBlocks client serverAddress blockHeader checkpoints loop
+blockDownloadStream :: NodeId -> (Int -> IO ()) -> Diffusion Production -> (HeaderHash, [HeaderHash]) -> Int -> IO ()
+blockDownloadStream serverAddress setStreamIORef client ~(blockHeader, checkpoints) batches = do
+    setStreamIORef numBlocks
+    runProduction $ Diffusion.streamBlocks client serverAddress blockHeader checkpoints (loop 0)
   where
     numBlocks = batches * 2200
 
-    loop blockChan = do
+    loop !n blockChan = do
         streamEntry <- liftIO $ atomically $ readTBQueue blockChan
         case streamEntry of
-          StreamEnd         -> return ()
-          StreamBlock _ -> do
-            loop blockChan
+          StreamEnd      -> liftIO $ print $ sformat ("Got stream end with "%shown) n
+          StreamBlock !_ -> loop (n+1) blockChan
 
 
-blockDownloadBenchmarks :: NodeId -> Diffusion Production -> [Criterion.Benchmark]
-blockDownloadBenchmarks serverAddress client =
+blockDownloadBenchmarks :: NodeId -> (Int -> IO ()) -> Diffusion Production -> [Criterion.Benchmark]
+blockDownloadBenchmarks serverAddress setStreamIORef client =
     [ Criterion.bgroup "batch"  $ blockDownloadBatchBenchmarks serverAddress client
-    , Criterion.bgroup "stream" $ blockDownloadStreamBenchmarks serverAddress client
+    , Criterion.bgroup "stream" $ blockDownloadStreamBenchmarks serverAddress setStreamIORef client
     ]
 
 blockDownloadBatchBenchmarks :: NodeId -> Diffusion Production -> [Criterion.Benchmark]
 blockDownloadBatchBenchmarks serverAddress client =
     [ Criterion.env batchParams $ \batchParams -> Criterion.bgroup "download"
           [ Criterion.bench "1" $ Criterion.whnfIO (blockDownloadBatch serverAddress client batchParams 1)
-          , Criterion.bench "10" $ Criterion.whnfIO (blockDownloadBatch serverAddress client batchParams 10)
-          , Criterion.bench "100" $ Criterion.whnfIO (blockDownloadBatch serverAddress client batchParams 100)
-          , Criterion.bench "1000" $ Criterion.whnfIO (blockDownloadBatch serverAddress client batchParams 1000)
+          , Criterion.bench "2" $ Criterion.whnfIO (blockDownloadBatch serverAddress client batchParams 2)
+          , Criterion.bench "4" $ Criterion.whnfIO (blockDownloadBatch serverAddress client batchParams 4)
           ]
     ]
   where
     batchParams :: IO (HeaderHash, [HeaderHash])
-    batchParams = pure (someHash, [])
+    -- Checkpoint must not be the same as the tip, or else the batch downloader
+    -- will take a different path and request only one block.
+    batchParams = pure (someHash, [someOtherHash])
 
-blockDownloadStreamBenchmarks :: NodeId -> Diffusion Production -> [Criterion.Benchmark]
-blockDownloadStreamBenchmarks serverAddress client =
+blockDownloadStreamBenchmarks :: NodeId -> (Int -> IO ()) -> Diffusion Production -> [Criterion.Benchmark]
+blockDownloadStreamBenchmarks serverAddress setStreamIORef client =
     [ Criterion.env streamParams $ \batchParams -> Criterion.bgroup "download"
-          [ Criterion.bench "1" $ Criterion.whnfIO (blockDownloadStream serverAddress client batchParams 1)
-          , Criterion.bench "10" $ Criterion.whnfIO (blockDownloadStream serverAddress client batchParams 10)
-          , Criterion.bench "100" $ Criterion.whnfIO (blockDownloadStream serverAddress client batchParams 100)
-          , Criterion.bench "1000" $ Criterion.whnfIO (blockDownloadStream serverAddress client batchParams 1000)
+          [ Criterion.bench "1" $ Criterion.whnfIO (blockDownloadStream serverAddress setStreamIORef client batchParams 1)
+          , Criterion.bench "2" $ Criterion.whnfIO (blockDownloadStream serverAddress setStreamIORef client batchParams 2)
+          , Criterion.bench "4" $ Criterion.whnfIO (blockDownloadStream serverAddress setStreamIORef client batchParams 4)
           ]
     ]
 
@@ -273,9 +286,9 @@ blockDownloadStreamBenchmarks serverAddress client =
     streamParams :: IO (HeaderHash, [HeaderHash])
     streamParams = pure (someHash, [someHash])
 
-runBlockDownloadBenchmark :: Criterion.Mode -> NodeId -> Diffusion Production -> IO ()
-runBlockDownloadBenchmark mode serverAddress client =
-    Criterion.runMode mode $ blockDownloadBenchmarks serverAddress client
+runBlockDownloadBenchmark :: Criterion.Mode -> NodeId -> (Int -> IO ()) -> Diffusion Production -> IO ()
+runBlockDownloadBenchmark mode serverAddress setStreamIORef client =
+    Criterion.runMode mode $ blockDownloadBenchmarks serverAddress setStreamIORef client
 
 -- It's surprisingly cumbersome to give a non-orphan 'NFData' instance on
 -- 'BlockHeader', since we have that 'Blockchain' typeclass with a bunch of
@@ -296,6 +309,7 @@ main = do
     -- bring up a transport if the arguments don't parse.
     criterionMode <- Opt.execParser (Criterion.describe Criterion.defaultConfig)
     putStrLn "Generating and forcing the necessary blockchain data ..."
+    streamIORef <- newIORef []
     let seed = 0
         size = 4
         !arbitraryBlock = force $ Right (generateMainBlock protocolMagic protocolConstants seed size)
@@ -304,11 +318,12 @@ main = do
         !arbitraryHeaders = force $ arbitraryHeader :| replicate 2199 arbitraryHeader
         !arbitraryHeaderHash = force someHash
         blockSize = LBS.length $ serialize arbitraryBlock
+        setStreamIORef = \n -> writeIORef streamIORef (replicate n arbitraryBlock)
     putStrLn $ "Using block of size " ++ show blockSize ++ " bytes"
     putStrLn "Bringing up client and server infrastructure ..."
     runProduction $ withTransport $ \transport ->
-        withServer transport (serverLogic arbitraryBlock arbitraryHashes arbitraryHeaders) $ \serverAddress ->
+        withServer transport (serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders) $ \serverAddress ->
         -- client needs the serverAddress so that it can put it into its
         -- outbound queue.
         withClient transport clientLogic serverAddress $
-            liftIO . runBlockDownloadBenchmark criterionMode serverAddress
+            liftIO . runBlockDownloadBenchmark criterionMode serverAddress setStreamIORef

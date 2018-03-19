@@ -17,7 +17,7 @@ import           Data.Typeable
 import qualified Generics.SOP as SOP
 import           GHC.TypeLits
 import           Network.HTTP.Types (parseQueryText)
-import           Network.Wai (Request, rawQueryString)
+import           Network.Wai (rawQueryString)
 import           Servant
 import           Servant.Client
 import           Servant.Client.Core (appendToQueryString)

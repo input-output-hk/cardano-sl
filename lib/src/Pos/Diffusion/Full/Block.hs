@@ -13,6 +13,8 @@ module Pos.Diffusion.Full.Block
 
 import           Universum
 
+import qualified Control.Concurrent.STM as Conc
+import           Control.Exception (throwIO)
 import           Control.Exception.Safe (Exception (..))
 import           Control.Lens (to)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
@@ -36,7 +38,8 @@ import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              EnqueueMsg, ListenerSpec, MkListeners (..),
                                              MsgType (..), NodeId, Origin (..), OutSpecs,
-                                             constantListeners, waitForConversations)
+                                             constantListeners, waitForConversations,
+                                             waitForDequeues)
 import           Pos.Core (HeaderHash, bvdSlotDuration, headerHash, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
@@ -84,17 +87,17 @@ instance Exception BlockNetLogicException where
 -- | Expects sending message to exactly one node. Receives result or
 -- fails if no result was obtained (no nodes available, timeout, etc).
 enqueueMsgSingle ::
-       ( MonadThrow m )
-    => (t2 -> (t1 -> t -> NonEmpty x) -> m (Map NodeId (m b)))
+       ( MonadIO m )
+    => (t2 -> (t1 -> t -> NonEmpty x) -> m (Map NodeId (Conc.TVar (OQ.PacketStatus b))))
     -> t2
     -> x
     -> m b
 enqueueMsgSingle enqueue msg conv = do
-    results <- enqueue msg (\_ _ -> one conv) >>= waitForConversations
+    results <- enqueue msg (\_ _ -> one conv) >>= waitForConversations . waitForDequeues
     case toList results of
-        [] ->      throwM $ DialogUnexpected $
+        [] ->      liftIO $ throwIO $ DialogUnexpected $
             "enqueueMsgSingle: contacted no peers"
-        (_:_:_) -> throwM $ DialogUnexpected $
+        (_:_:_) -> liftIO $ throwIO $ DialogUnexpected $
             "enqueueMsgSingle: contacted more than one peers, probably internal error"
         [x] -> pure x
 
@@ -282,7 +285,7 @@ requestTip
     => EnqueueMsg d
     -> (BlockHeader -> NodeId -> d t)
     -> d (Map NodeId (d t))
-requestTip enqueue k = enqueue (MsgRequestBlockHeaders Nothing) $ \nodeId _ -> pure . Conversation $
+requestTip enqueue k = fmap waitForDequeues $ enqueue (MsgRequestBlockHeaders Nothing) $ \nodeId _ -> pure . Conversation $
     \(conv :: ConversationActions MsgGetHeaders MsgHeaders m) -> do
         logDebug "Requesting tip..."
         send conv (MsgGetHeaders [] Nothing)
@@ -309,7 +312,7 @@ announceBlockHeader
     -> d (Map NodeId (d ()))
 announceBlockHeader logic enqueue header =  do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
-    enqueue (MsgAnnounceBlockHeader OriginSender) (\addr _ -> announceBlockDo addr)
+    waitForDequeues <$> enqueue (MsgAnnounceBlockHeader OriginSender) (\addr _ -> announceBlockDo addr)
   where
     announceBlockDo nodeId = pure $ Conversation $ \cA -> do
         -- TODO figure out what this security stuff is doing and judge whether
@@ -463,8 +466,8 @@ handleGetBlocks logic oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
             Right hashes -> do
                 logDebug $ sformat
                     ("handleGetBlocks: started sending "%int%
-                     " blocks to "%build%" one-by-one: "%listJson)
-                    (length hashes) nodeId hashes
+                     " blocks to "%build%" one-by-one")
+                    (length hashes) nodeId 
                 for_ hashes $ \hHash ->
                     getBlock logic hHash >>= \case
                         Just b -> send conv $ MsgBlock b

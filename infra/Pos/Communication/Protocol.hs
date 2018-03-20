@@ -25,11 +25,13 @@ module Pos.Communication.Protocol
 
 import           Universum
 
+import qualified Control.Concurrent.STM as STM
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, sformat, (%))
 import           Mockable (Async, Delay, Mockable, Mockables, SharedAtomic)
+import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Node as N
 import           Node.Message.Class (Message (..), MessageCode, messageCode)
 import           Serokell.Util.Text (listJson)
@@ -98,7 +100,7 @@ makeEnqueueMsg
        , MonadThrow m
        )
     => VerInfo
-    -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType m t) -> m (Map NodeId (m t)))
+    -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType m t) -> m (Map NodeId (STM.TVar (OQ.PacketStatus t))))
     -> EnqueueMsg m
 makeEnqueueMsg ourVerInfo enqueue = \msg mkConv -> enqueue msg $ \nodeId pVI ->
     alternativeConversations nodeId ourVerInfo pVI (mkConv nodeId pVI)
@@ -164,17 +166,22 @@ alternativeConversations nid ourVerInfo theirVerInfo convs
 makeSendActions
     :: forall m .
        ( WithLogger m
+       -- XXX it's MonadIO and MonadThrow... is there any sensible case in
+       -- which throwM /= throwIO ?
+       , MonadIO m
        , MonadThrow m
        )
     => VerInfo
-    -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType m t) -> m (Map NodeId (m t)))
+    -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType m t) -> m (Map NodeId (STM.TVar (OQ.PacketStatus t))))
     -> Converse PackingType PeerData m
     -> SendActions m
 makeSendActions ourVerInfo enqueue converse = SendActions
     { withConnectionTo = \nodeId mkConv -> N.converseWith converse nodeId $ \pVI ->
           alternativeConversations nodeId ourVerInfo pVI (mkConv pVI)
-    , enqueueMsg = makeEnqueueMsg ourVerInfo enqueue
-    }
+      -- NB: here we don't use 'converse'; that's ultimately used by the
+      -- outbound queue's dequeue thread. We just enqueue here.
+    , enqueueMsg = \msg mkConv -> waitForDequeues <$> (makeEnqueueMsg ourVerInfo enqueue msg mkConv)
+    } 
 
 data SpecError
     = OutSpecNotReported HandlerSpecs (MessageCode, HandlerSpec)

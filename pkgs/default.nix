@@ -7325,7 +7325,7 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-infra" = callPackage
-        ({ mkDerivation, aeson, base, base64-bytestring, bytestring
+        ({ mkDerivation, aeson, async, base, base64-bytestring, bytestring
          , cardano-report-server, cardano-sl-binary, cardano-sl-core
          , cardano-sl-crypto, cardano-sl-db, cardano-sl-networking
          , cardano-sl-util, containers, cpphs, directory, dns, ekg-core
@@ -7342,7 +7342,7 @@ inherit (pkgs) mesa;};
            version = "1.1.0";
            src = ./../infra;
            libraryHaskellDepends = [
-             aeson base base64-bytestring bytestring cardano-report-server
+             aeson async base base64-bytestring bytestring cardano-report-server
              cardano-sl-binary cardano-sl-core cardano-sl-crypto cardano-sl-db
              cardano-sl-networking cardano-sl-util containers directory dns
              ekg-core ekg-statsd ekg-wai ether exceptions filepath formatting

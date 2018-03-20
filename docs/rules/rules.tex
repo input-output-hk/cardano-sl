@@ -36,7 +36,8 @@
 
 \newcommand{\idsof}[1]{\mathcal{I}\!_#1}
 \newcommand{\id}{\mathsf{id}}
-\newcommand{\txids}{\idsof{\mathcal{T}}}
+\newcommand{\txs}{\mathcal{T}}
+\newcommand{\txids}{\idsof{\transactions}}
 \newcommand{\blockids}{\idsof{\mathcal{B}}}
 \newcommand{\agentids}{\idsof{\mathcal{A}}}
 \newcommand{\slotleader}{\mathsf{sl}}
@@ -48,6 +49,7 @@
 \newcommand{\intrans}[1]{\mathsf{trans}(#1)}
 \newcommand{\inindex}[1]{\mathsf{index}(#1)}
 \newcommand{\witnesses}[1]{\mathsf{witnesses}(#1)}
+\newcommand{\minimumfee}[1]{\mathsf{minfee}(#1)}
 
 %% /macros %%
 
@@ -131,7 +133,6 @@ as it is.\improvement{We may want to add something about protocol
     \item $\inindex{in} = ix$
     \end{itemize}
 
-
   \item[Outputs] A non-empty list of pairs in $\agentids ×
     ℕ$.\improvement{This only embodies pay-to-public-key schemes. For
       pay-to-script and such, we will need further
@@ -148,6 +149,12 @@ as it is.\improvement{We may want to add something about protocol
       lists over a given type} In an implementation these ids would be
     realised by cryptographic signatures.
   \end{record}
+
+  We assume given a function $\minimumfee{⋅} ∈ \txs ⟶ ℕ$,
+  called the minimum fee function.\info{It's not clear that the
+    minimum fee, as is currently implemented, is indeed a function of
+    the (abstract represention of) the transaction. This may create
+    mismatches in tests.}
 
 \item[Block] Blocks have a system of identifier $\blockids$. There is
   a distinguished $b_0∈ \blockids$, called the genesis identifier,
@@ -233,13 +240,9 @@ $b_1,…,b_n$ if all of the following hold
         transaction. }
 
     \item[Conservation of value] The total amount of inputs must equal
-      the total amount of outputs.\critical{This ignores the minimal
-        transaction fee, but given that it depends ont the size of the
-        binary encoding of a transaction, I don't know yet how to fix
-        this.}
-
+      the total amount of outputs.
       $$
-      ∑_{i∈\inputs{τ}} \amount{i} ⩽ ∑_{o∈\outputs{τ}} \amount{o}
+      \minimumfee{τ} + ∑_{i∈\inputs{τ}} \amount{i}⩽ ∑_{o∈\outputs{τ}} \amount{o}
       $$
     \item[Authorised] The list of witnesses has the same length as the
       list of input

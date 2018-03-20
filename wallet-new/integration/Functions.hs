@@ -259,7 +259,7 @@ runAction wc ws DeleteAccount = do
     let walletId = accWalletId account
 
     -- If we don't have any http client errors, the delete was a success.
-    _       <-  either throwM pure =<< deleteAccount wc walletId (accIndex account)
+    _ <- either throwM pure =<< deleteAccount wc walletId (accIndex account)
 
     -- Just in case, let's check if it's still there.
     result  <-  respToRes $ getAccounts wc walletId

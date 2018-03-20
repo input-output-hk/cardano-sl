@@ -165,8 +165,10 @@ spec = withCompileInfo def $ do
     withDefConfigurations $ do
       xdescribe "Servant API Properties" $ do
         it "V0 API follows best practices & is RESTful abiding" $ do
-          withServantServer (Proxy @V0.API) (v0Server (D.diffusion D.dummyDiffusionLayer)) $ \burl ->
+          ddl <- D.dummyDiffusionLayer
+          withServantServer (Proxy @V0.API) (v0Server (D.diffusion ddl)) $ \burl ->
             serverSatisfies (Proxy @V0.API) burl stdArgs predicates
         it "V1 API follows best practices & is RESTful abiding" $ do
-          withServantServer (Proxy @V1.API) (v1Server (D.diffusion D.dummyDiffusionLayer)) $ \burl ->
+          ddl <- D.dummyDiffusionLayer
+          withServantServer (Proxy @V1.API) (v1Server (D.diffusion ddl)) $ \burl ->
             serverSatisfies (Proxy @V1.API) burl stdArgs predicates

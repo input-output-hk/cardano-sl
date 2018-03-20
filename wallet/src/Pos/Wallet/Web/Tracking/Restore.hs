@@ -7,7 +7,7 @@ import           UnliftIO (MonadUnliftIO)
 import qualified Data.Map as M
 import           System.Wlog (CanLog, HasLoggerName, WithLogger, logInfo, modifyLoggerName)
 
-import           Pos.Core (Address, HasConfiguration, headerHash)
+import           Pos.Core (Address, HasConfiguration, HasDifficulty (..), headerHash)
 import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead (..))
@@ -49,15 +49,15 @@ restoreWallet credentials = do
                 restoreGenesisAddresses db credentials
                 restoreWalletBalance db credentials
                 -- At this point, we consider ourselves synced with the UTXO up-to the
-                -- 'RestorationHeaderHash' we compute now. During 'syncWalletWithBlockchain',
+                -- 'RestorationBlockDepth' we compute now. During 'syncWalletWithBlockchain',
                 -- we will restore the wallet history from the beginning of the chain by ignoring
                 -- any Utxo changes, but we will always add transactions to the pool of known ones.
                 -- By doing so, the BListener is free to track new blocks (both in terms of balance update
                 -- & tx tracking), allowing the user to use the wallet even if is technically restoring.
-                restorationHeaderHash <- WS.RestorationHeaderHash . headerHash <$> DB.getTipHeader
+                restorationHeaderHash <- WS.RestorationBlockDepth . view difficultyL <$> DB.getTipHeader
 
                 -- Mark this wallet as officially in restore. As soon as we will pass the point where
-                -- the 'RestorationHeaderHash' is greater than the current store one, we would flip the
+                -- the 'RestorationBlockDepth' is greater than the current store one, we would flip the
                 -- state of this wallet to a "normal" sync, and the two paths will be reunited once for all.
                 setWalletRestorationSyncTip db walletId restorationHeaderHash (headerHash genesisBlock)
 

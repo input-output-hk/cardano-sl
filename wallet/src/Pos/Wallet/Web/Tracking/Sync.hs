@@ -166,11 +166,11 @@ processSyncError sr = case sr of
                                                    % ". An exception was raised during the sync process: "
                                                    % build
         logErrorSP $ \sl -> sformat (errMsg sl) walletId exception
-    RestorationInvariantViolated walletId expectedRhh actualRhh -> do
+    RestorationInvariantViolated walletId expectedRbd actualRbd -> do
         let errMsg sl = "Restoration invariant violated for Wallet #" % secretOnlyF sl build
                       % ". Expected restoration header hash was " % build % " , but this one was passed: " % build
-        logErrorSP $ \sl -> sformat (errMsg sl) walletId (WS.getRestorationHeaderHash expectedRhh)
-                                                         (WS.getRestorationHeaderHash actualRhh)
+        logErrorSP $ \sl -> sformat (errMsg sl) walletId (WS.getRestorationBlockDepth expectedRbd)
+                                                         (WS.getRestorationBlockDepth actualRbd)
     StateTransitionNotAllowed walletId _ _ -> do
         let errMsg sl = "SyncState transition for Wallet #" % secretOnlyF sl build % " is not allowed."
         logErrorSP $ \sl -> sformat (errMsg sl) walletId
@@ -178,7 +178,7 @@ processSyncError sr = case sr of
 
 -- | Iterates over blocks (using forward links) and reconstructs the transaction
 -- history and the balance for the given wallet. In case of a restore, we deliberately ignore changes in the
--- balance happened _before_ the 'RestorationHeaderHash', so that the control can be yielded immediately to the
+-- balance happened _before_ the 'RestorationBlockDepth', so that the control can be yielded immediately to the
 -- @BListener@ and transactions submitted whilst a wallet is restoring can be processed regularly.
 syncWalletWithBlockchain
     :: forall ctx m.
@@ -207,20 +207,20 @@ syncWalletWithBlockchain syncRequest@SyncRequest{..} = setLogger $ do
                 -- We compare the syncRequest's 'TrackingOperation' expecting it to be a 'SyncRequest',
                 -- and we abort if that's not the case.
                 case srOperation of
-                    RestoreWallet rhh -> pure $ Left (StateTransitionNotAllowed walletId SyncWallet rhh)
+                    RestoreWallet rbd -> pure $ Left (StateTransitionNotAllowed walletId SyncWallet rbd)
                     SyncWallet -> maybe (pure . Left . NotSyncable walletId $ internalError wTip) (syncDo srOperation) wHeaderMb
-            Just (RestoringFrom expectedRhh wTip) -> do
+            Just (RestoringFrom expectedRbd wTip) -> do
                 wHeaderMb <- DB.getHeader wTip
                 -- If we are trying to restore this wallet, we first check our internal model state is
                 -- consistent.
                 case srOperation of
                     -- A "double restore" is unnecessary and generally a violation of some internal invariant,
                     -- as the backend will automatically resume syncing upon restart. We try to separate "benign"
-                    -- requests by checking if the 'RestorationHeaderHash' we got as input matches the one stored
+                    -- requests by checking if the 'RestorationBlockDepth' we got as input matches the one stored
                     -- in the model. If so, wo continue normally, otherwise we call out the mistake.
-                    RestoreWallet actualRhh ->
-                        if expectedRhh /= actualRhh
-                            then pure $ Left $ RestorationInvariantViolated walletId expectedRhh actualRhh
+                    RestoreWallet actualRbd ->
+                        if expectedRbd /= actualRbd
+                            then pure $ Left $ RestorationInvariantViolated walletId expectedRbd actualRbd
                             else maybe (pure . Left . NotSyncable walletId $ internalError wTip) (syncDo srOperation) wHeaderMb
                     SyncWallet -> do
                         -- If we are requesting to sync the wallet, this happens when we restart the backend and
@@ -307,8 +307,19 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                 sformat ("Wallet "%secretOnlyF sl build%" has been synced with tip "
                         %shortHashF%", "%buildSafe sl)
                         walletId (headerHash newSyncTip) mapModifier
-            pure $ Right newSyncTip
-        False -> syncWalletWithBlockchainUnsafe syncRequest newSyncTip blockchainTip
+            pure $ Right ()
+        False -> do
+            -- TODO(adn) rewrite this crappy check.
+            -- Read the old wallet state, by the virtue of the fact a 'RestorationBlockDepth' is, in fact,
+            -- immutable by contract.
+            case WS.getWalletSyncState ws walletId of
+                Just (RestoringFrom (WS.RestorationBlockDepth rbd) _) | depthOf newSyncTip > rbd -> do
+                    -- If we have surpassed the original 'RestorationBlockDepth', it means this wallet has caught up
+                    -- fully with the blockchain, at which point we can forget about the distinction @restoration vs sync@.
+                    WS.setWalletSyncTip db walletId (headerHash newSyncTip)
+                    syncWalletWithBlockchainUnsafe (syncRequest { srOperation = SyncWallet }) newSyncTip blockchainTip
+                _ -> syncWalletWithBlockchainUnsafe (syncRequest { srOperation = SyncWallet }) newSyncTip blockchainTip
+
 
     where
         -- | Main workhorse which iterates over the blockchain and reconstruct the transaction
@@ -520,16 +531,18 @@ applyModifierToWallet
     -> HeaderHash
     -> CAccModifier
     -> m ()
-applyModifierToWallet db _trackingOperation wid newTip CAccModifier{..} = do
+applyModifierToWallet db trackingOperation wid newTip CAccModifier{..} = do
+
+    let newSyncState = case trackingOperation of
+            SyncWallet        -> SyncedWith newTip
+            RestoreWallet rbd -> RestoringFrom rbd newTip
 
     let cMetas = mapMaybe (\THEntry {..} -> (\mts -> (encodeCType _thTxId
                                                      , CTxMeta . timestampToPosix $ mts)
                                             ) <$> _thTimestamp)
                $ DL.toList camAddedHistory
 
-    -- FIXME(adn) If this is a sync operation we do want the balance to be influenced, if this is
-    -- a restore we don't.
-    WS.applyModifierToWallet
+    WS.applyModifierToWallet2
       db
       wid
       (sortedInsertions camAddresses)
@@ -540,7 +553,7 @@ applyModifierToWallet db _trackingOperation wid newTip CAccModifier{..} = do
       cMetas
       (txHistoryListToMap $ DL.toList camAddedHistory)
       (DL.toList $ second PtxInNewestBlocks <$> camAddedPtxCandidates)
-      newTip
+      newSyncState
 
 rollbackModifierFromWallet
     :: ( MonadSlots ctx m

@@ -18,7 +18,7 @@ import           Universum
 import           Control.Concurrent.STM (TBQueue, writeTBQueue)
 import           System.Wlog (WithLogger)
 
-import           Pos.Core (BlockHeader, HasConfiguration)
+import           Pos.Core (HasConfiguration)
 import           Pos.DB.Class (MonadDBRead (..))
 import           Pos.Slotting (MonadSlotsData)
 import           Pos.StateLock (StateLock)
@@ -27,7 +27,7 @@ import           Pos.Util (HasLens (..))
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import qualified Pos.Wallet.Web.State as WS
-import           Pos.Wallet.Web.State.State (RestorationHeaderHash (..))
+import           Pos.Wallet.Web.State.State (RestorationBlockDepth (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials)
 
 type BlockLockMode ctx m =
@@ -64,13 +64,13 @@ data TrackingOperation = SyncWallet
                        -- in "what have I missed while offline". Start from the latest 'HeaderHash'
                        -- the given wallet is synced with, but do not process more than 'BlockBatchSize'
                        -- block.
-                       | RestoreWallet RestorationHeaderHash
+                       | RestoreWallet RestorationBlockDepth
                        -- ^ Restore the full wallet @history@ as in "restoring a wallet
                        -- from seed." for the whole blockchain (starting from the genesis block),
-                       -- but track UTXO changes for blocks coming _after_ the 'RestorationHeaderHash'.
+                       -- but track UTXO changes for blocks coming _after_ the 'RestorationBlockDepth'.
                        deriving Eq
 
-newRestoreRequest :: WalletDecrCredentials -> RestorationHeaderHash -> SyncRequest
+newRestoreRequest :: WalletDecrCredentials -> RestorationBlockDepth -> SyncRequest
 newRestoreRequest creds rhh = SyncRequest (RestoreWallet rhh) creds
 
 newSyncRequest :: WalletDecrCredentials -> SyncRequest
@@ -86,10 +86,10 @@ data SyncError = GenesisBlockHeaderNotFound
                -- ^ Fetching the genesis header hash failed.
                | NoSyncStateAvailable (CId Wal)
                -- ^ There was no sync state available for this wallet.
-               | RestorationInvariantViolated (CId Wal) RestorationHeaderHash RestorationHeaderHash
+               | RestorationInvariantViolated (CId Wal) RestorationBlockDepth RestorationBlockDepth
                -- ^ When processing a 'SyncState' inside 'syncWalletWithBlockchain', the externally-provided
-               -- 'RestorationHeaderHash' was different from the one stored in the model.
-               | StateTransitionNotAllowed (CId Wal) TrackingOperation RestorationHeaderHash
+               -- 'RestorationBlockDepth' was different from the one stored in the model.
+               | StateTransitionNotAllowed (CId Wal) TrackingOperation RestorationBlockDepth
                -- ^ When processing a 'SyncState' inside 'syncWalletWithBlockchain', the external request was
                -- a restore, but the internal state of the wallet represented an already-restored wallet.
                | NotSyncable (CId Wal) WalletError
@@ -100,7 +100,7 @@ data SyncError = GenesisBlockHeaderNotFound
 
 -- | A 'SyncResult' represents the possible outcomes of a syncing operation: it can either
 -- fail with a 'SyncError', or succeed by actualising the source wallet up to a particular 'BlockHeader'.
-type SyncResult = Either SyncError BlockHeader
+type SyncResult = Either SyncError ()
 
 -- | Submit a 'SyncRequest' to the asynchronous worker.
 submitSyncRequest :: ( MonadIO m

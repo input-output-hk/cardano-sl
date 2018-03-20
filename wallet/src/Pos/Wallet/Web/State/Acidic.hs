@@ -61,6 +61,7 @@ module Pos.Wallet.Web.State.Acidic
        , CreateAccountWithAddress (..)
        , RemoveWallet2 (..)
        , ApplyModifierToWallet (..)
+       , ApplyModifierToWallet2 (..)
        , RollbackModifierFromWallet (..)
        ) where
 
@@ -154,5 +155,6 @@ makeAcidic ''WalletStorage
     , 'WST.createAccountWithAddress
     , 'WST.removeWallet2
     , 'WST.applyModifierToWallet
+    , 'WST.applyModifierToWallet2
     , 'WST.rollbackModifierFromWallet
     ]

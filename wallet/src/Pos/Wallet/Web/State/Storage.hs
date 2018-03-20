@@ -16,7 +16,7 @@ module Pos.Wallet.Web.State.Storage
        , WalletBalances
        , WalBalancesAndUtxo
        , WalletSyncState (..)
-       , RestorationHeaderHash (..)
+       , RestorationBlockDepth (..)
        , PtxMetaUpdate (..)
        , Query
        , Update
@@ -98,7 +98,7 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Serokell.Util (zoom')
 
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
-import           Pos.Core (HeaderHash, SlotId, Timestamp)
+import           Pos.Core (ChainDifficulty, HeaderHash, SlotId, Timestamp)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.SafeCopy ()
@@ -150,12 +150,11 @@ data AccountInfo = AccountInfo
 
 makeLenses ''AccountInfo
 
--- | A 'RestorationHeaderHash' is simply a @newtype@ wrapper over a 'HeaderHash',
--- used to cure parameter's "blindness" in the @RestoringFrom@ constructor of 'WalletSyncState'.
+-- | A 'RestorationBlockDepth' is simply a @newtype@ wrapper over a 'ChainDifficulty',
 -- More specifically, it stores the simple but crucial information of when, relative to the blockchain,
 -- a certain wallet was restored.
-newtype RestorationHeaderHash =
-    RestorationHeaderHash { getRestorationHeaderHash :: HeaderHash }
+newtype RestorationBlockDepth =
+    RestorationBlockDepth { getRestorationBlockDepth :: ChainDifficulty }
     deriving (Eq)
 
 -- | Datatype which stores information about the sync state
@@ -165,10 +164,10 @@ data WalletSyncState
     = NotSynced
     -- ^ A sync state associated with a brand-new, prestine wallet,
     -- created by the user (or programmatically) to be later used.
-    | RestoringFrom !RestorationHeaderHash !HeaderHash
-    -- ^ This wallet has been restored from 'RestorationHeaderHash',
+    | RestoringFrom !RestorationBlockDepth !HeaderHash
+    -- ^ This wallet has been restored from 'RestorationBlockDepth',
     -- and is now tracking the blockchain up to 'HeaderHash'.
-    -- Whilst it might seem that storing the 'RestorationHeaderHash' is
+    -- Whilst it might seem that storing the 'RestorationBlockDepth' is
     -- redundant, it's a necessary evil to cover the case when the user
     -- closes the wallet whilst the restoration is in progress. When the
     -- wallet resumes its activity, this distinction (restoration vs normal
@@ -516,7 +515,7 @@ setWalletSyncTip cWalId hh = wsWalletInfos . ix cWalId . wiSyncState .= SyncedWi
 
 -- | Deliberately-verbose transaction to update the 'SyncState' for this wallet during a
 -- restoration.
-setWalletRestorationSyncTip :: CId Wal -> RestorationHeaderHash -> HeaderHash -> Update ()
+setWalletRestorationSyncTip :: CId Wal -> RestorationBlockDepth -> HeaderHash -> Update ()
 setWalletRestorationSyncTip cWalId rhh hh = wsWalletInfos . ix cWalId . wiSyncState .= RestoringFrom rhh hh
 
 -- | Set meta data for transaction only if it hasn't been set already.
@@ -715,7 +714,7 @@ deriveSafeCopySimple 0 'base ''PendingTx
 deriveSafeCopySimple 0 'base ''AddressInfo
 deriveSafeCopySimple 0 'base ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletInfo
-deriveSafeCopySimple 0 'base ''RestorationHeaderHash
+deriveSafeCopySimple 0 'base ''RestorationBlockDepth
 
 -- Legacy versions, for migrations
 

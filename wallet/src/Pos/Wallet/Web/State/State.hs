@@ -6,7 +6,7 @@ module Pos.Wallet.Web.State.State
        ( WalletDB
        , WalletDbReader
        , WalletSyncState (..)
-       , RestorationHeaderHash (..)
+       , RestorationBlockDepth (..)
        , PtxMetaUpdate (..)
        , AddressInfo (..)
        , askWalletDB
@@ -86,6 +86,7 @@ module Pos.Wallet.Web.State.State
        , resetFailedPtxs
        , flushWalletStorage
        , applyModifierToWallet
+       , applyModifierToWallet2
        , rollbackModifierFromWallet
        ) where
 
@@ -105,7 +106,7 @@ import           Pos.Wallet.Web.State.Acidic (WalletDB, closeState, openMemState
 import           Pos.Wallet.Web.State.Acidic as A
 import           Pos.Wallet.Web.State.Storage (AddressInfo (..), AddressLookupMode (..), CAddresses,
                                                CurrentAndRemoved (..), CustomAddressType (..),
-                                               PtxMetaUpdate (..), RestorationHeaderHash (..),
+                                               PtxMetaUpdate (..), RestorationBlockDepth (..),
                                                WalletBalances, WalletStorage, WalletSyncState (..))
 import qualified Pos.Wallet.Web.State.Storage as S
 import           Universum
@@ -312,9 +313,9 @@ setWalletSyncTip db cWalId headerHash =
     updateDisk (A.SetWalletSyncTip cWalId headerHash) db
 
 setWalletRestorationSyncTip :: (MonadIO m, HasConfiguration)
-                            => WalletDB -> CId Wal -> RestorationHeaderHash -> HeaderHash  -> m ()
-setWalletRestorationSyncTip db cWalId rhh headerHash =
-    updateDisk (A.SetWalletRestorationSyncTip cWalId rhh headerHash) db
+                            => WalletDB -> CId Wal -> RestorationBlockDepth -> HeaderHash  -> m ()
+setWalletRestorationSyncTip db cWalId rbd headerHash =
+    updateDisk (A.SetWalletRestorationSyncTip cWalId rbd headerHash) db
 
 setProfile :: (MonadIO m, HasConfiguration)
            => WalletDB -> CProfile  -> m ()
@@ -489,6 +490,28 @@ flushWalletStorage :: (MonadIO m, HasConfiguration)
                    => WalletDB
                    -> m ()
 flushWalletStorage = updateDisk A.FlushWalletStorage
+
+applyModifierToWallet2
+  :: (MonadIO m, HasConfiguration)
+  => WalletDB
+  -> CId Wal
+  -> [CWAddressMeta] -- ^ Wallet addresses to add
+  -> [(S.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to add
+  -> UtxoModifier
+  -> [(CTxId, CTxMeta)] -- ^ Transaction metadata to add
+  -> Map TxId TxHistoryEntry -- ^ Entries for the history cache
+  -> [(TxId, PtxCondition)] -- ^ PTX Conditions
+  -> WalletSyncState -- ^ New 'WalletSyncState'
+  -> m ()
+applyModifierToWallet2 db walId wAddrs custAddrs utxoMod
+                      txMetas historyEntries ptxConditions
+                      syncState =
+    updateDisk
+      ( A.ApplyModifierToWallet2
+          walId wAddrs custAddrs utxoMod
+          txMetas historyEntries ptxConditions syncState
+      )
+      db
 
 applyModifierToWallet
   :: (MonadIO m, HasConfiguration)

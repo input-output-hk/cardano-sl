@@ -7,6 +7,7 @@ module Pos.Wallet.Web.State.Transactions
     ( createAccountWithAddress
     , removeWallet2
     , applyModifierToWallet
+    , applyModifierToWallet2
     , rollbackModifierFromWallet
     )
     where
@@ -51,6 +52,35 @@ removeWallet2 walId = do
     WS.removeWallet walId
     WS.removeTxMetas walId
     WS.removeHistoryCache walId
+
+-- | Unlike 'applyModifierToWallet', this function doesn't assume we want to blindly
+-- update the 'WalletStorage' with all the information passed, but only with the ones
+-- relevant to the 'WalletSyncState'.
+applyModifierToWallet2
+    :: CId Wal
+    -> [CWAddressMeta] -- ^ Wallet addresses to add
+    -> [(WS.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to add
+    -> UtxoModifier
+    -> [(CTxId, CTxMeta)] -- ^ Transaction metadata to add
+    -> Map TxId TxHistoryEntry -- ^ Entries for the history cache
+    -> [(TxId, PtxCondition)] -- ^ PTX Conditions
+    -> WS.WalletSyncState -- ^ New 'WalletSyncState'
+    -> Update ()
+applyModifierToWallet2 walId wAddrs custAddrs utxoMod
+                      txMetas historyEntries ptxConditions
+                      syncState = do
+    case syncState of
+        (WS.RestoringFrom rhh newSyncTip) -> do
+            for_ wAddrs WS.addWAddress
+            for_ custAddrs $ \(cat, addrs) ->
+                for_ addrs $ WS.addCustomAddress cat
+            for_ txMetas $ uncurry $ WS.addOnlyNewTxMeta walId
+            WS.insertIntoHistoryCache walId historyEntries
+            for_ ptxConditions $ uncurry $ WS.setPtxCondition walId
+            WS.setWalletRestorationSyncTip walId rhh newSyncTip
+        (WS.SyncedWith newSyncTip) ->
+            applyModifierToWallet walId wAddrs custAddrs utxoMod txMetas historyEntries ptxConditions newSyncTip
+        WS.NotSynced -> return ()
 
 -- | Apply some set of modifiers to a wallet.
 --   TODO Find out the significance of this set of modifiers and document.

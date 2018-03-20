@@ -43,7 +43,7 @@ import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..))
 import           Pos.Wallet.Web.Tracking.Sync (applyModifierToWallet, rollbackModifierFromWallet,
                                                trackingApplyTxs, trackingRollbackTxs)
-import           Pos.Wallet.Web.Tracking.Types (TrackingOperation (SyncWallet))
+import           Pos.Wallet.Web.Tracking.Types (TrackingOperation (..))
 
 walletGuard ::
        (WithLogger m, MonadIO m)
@@ -104,9 +104,14 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
         blkHeaderTs <- blkHeaderTsGetter
         let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
         encSK <- getSKById wAddr
+        let trackingOperation = case WS.getWalletSyncState ws wAddr of
+                Just (WS.RestoringFrom rbd _) -> RestoreWallet rbd
+                Just WS.NotSynced             -> SyncWallet
+                Just (WS.SyncedWith _)        -> SyncWallet
+                Nothing                       -> SyncWallet
         let mapModifier =
                 trackingApplyTxs (eskToWalletDecrCredentials encSK) dbUsed gbDiff blkHeaderTs ptxBlkInfo blkTxsWUndo
-        applyModifierToWallet db SyncWallet wAddr (headerHash newTipH) mapModifier
+        applyModifierToWallet db trackingOperation wAddr (headerHash newTipH) mapModifier
         logMsg "Applied" (getOldestFirst blunds) wAddr mapModifier
 
     gbDiff = Just . view difficultyL

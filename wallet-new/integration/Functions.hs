@@ -24,7 +24,7 @@ import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, Accoun
                                               WalletOperation (..), WalletUpdate (..))
 
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
-import           Cardano.Wallet.Client (ClientError (..), WalletClient (..))
+import           Cardano.Wallet.Client (ClientError (..), WalletClient (..), getTransactionIndex, getAddressIndex, getAccounts, getWallets)
 
 import           Pos.Core (mkCoin)
 import           Pos.Util (maybeThrow)
@@ -115,7 +115,7 @@ runAction wc ws DeleteWallet = do
     wallet  <-  pickRandomElement localWallets
 
     -- If we don't have any http client errors, the delete was a success.
-    _       <-  respToRes $ deleteWallet wc (walId wallet)
+    _       <-  either throwM pure =<< deleteWallet wc (walId wallet)
 
     -- Just in case, let's check if it's still there.
     result  <-  respToRes $ getWallets wc
@@ -191,16 +191,15 @@ runAction wc ws UpdateWalletPass = do
 -- Accounts
 runAction wc ws  PostAccount = do
 
-    -- TODO(ks): Don't we need to know the wallet we want to add the account to?
-    -- wallet     <- pickRandomElement localWallets
     let localWallets = ws ^. wallets
 
     -- Precondition, we need to have wallet in order
     -- to create an account.
     guard (not (null localWallets))
 
+    wallet     <- pickRandomElement localWallets
     newAcc  <-  liftIO $ generate generateNewAccount
-    result  <-  respToRes $ postAccount wc newAcc
+    result  <-  respToRes $ postAccount wc (walId wallet) newAcc
 
     checkInvariant
         (accAmount result == minBound)
@@ -260,7 +259,7 @@ runAction wc ws DeleteAccount = do
     let walletId = accWalletId account
 
     -- If we don't have any http client errors, the delete was a success.
-    _       <-  respToRes $ deleteAccount wc walletId (accIndex account)
+    _ <- either throwM pure =<< deleteAccount wc walletId (accIndex account)
 
     -- Just in case, let's check if it's still there.
     result  <-  respToRes $ getAccounts wc walletId

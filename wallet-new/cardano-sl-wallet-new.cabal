@@ -84,6 +84,7 @@ library
                      , servant
                      , servant-client
                      , servant-client-core
+                     , servant-quickcheck
                      , servant-server
                      , servant-swagger-ui
                      , string-conv
@@ -384,6 +385,7 @@ test-suite wallet-new-specs
                     DevelopmentSpec
                     MarshallingSpec
                     SwaggerSpec
+                    RequestSpec
 
                     Cardano.Wallet.API.Development.Helpers
                     Cardano.Wallet.API.Development.LegacyHandlers

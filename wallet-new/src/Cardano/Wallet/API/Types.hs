@@ -20,6 +20,7 @@ import qualified Servant.Server.Internal as SI
 
 import           Servant
 import           Servant.API.Sub ((:>))
+import           Servant.Client
 
 --
 -- Utilities
@@ -105,3 +106,7 @@ instance (HasServer subApi context) => HasServer (Tags tags :> subApi) context w
   type ServerT (Tags tags :> subApi) m = ServerT subApi m
   route _ = route (Proxy @subApi)
   hoistServerWithContext _ = hoistServerWithContext (Proxy @subApi)
+
+instance (HasClient m subApi) => HasClient m (Tags tags :> subApi) where
+    type Client m (Tags tags :> subApi) = Client m subApi
+    clientWithRoute pm _ = clientWithRoute pm (Proxy @subApi)

@@ -22,7 +22,6 @@ applyFilter fltr inputData =
             F.LesserThanEqual  -> inputData @<= (i :: ix)
             F.GreaterThanEqual -> inputData @>= (i :: ix)
     in case fltr of
-           F.FilterIdentity             -> inputData
            F.FilterByIndex idx          -> byPredicate F.Equal idx
            F.FilterByPredicate ordr idx -> byPredicate ordr idx
            F.FilterByRange from to      -> inputData @>=<= (from, to)

@@ -140,7 +140,7 @@ as it is.\improvement{We may want to add something about protocol
     For an output $out = (id, q)$, we write
     \begin{itemize}
     \item $\recipient{out} = id$
-    \item $\amount{out} = q$.
+    \item $\amount{out} = q$
     \end{itemize}
 
   \item[Witnesses] A non-empty list of agent ids.\improvement{This
@@ -205,7 +205,7 @@ $b_1,…,b_n$ if all of the following hold
     \item[No double-spending] The list of inputs contains no duplicate.
     \end{description}
   \item[Stateful] Stateful transaction validation rules are
-    parametrised by a list of transaction $τ_1,…,τ_m$ which we will
+    parametrised by a list of transactions $τ_1,…,τ_m$ which we will
     abridge as $\overline{τ}$.
 
     Given a chain $b₁,…,b_n$ and $b$, the block being validated, such
@@ -222,7 +222,7 @@ $b_1,…,b_n$ if all of the following hold
       \item for each $t ∈ \overline{τ₁}$, $i ∉ \inputs{t}$.
       \end{itemize}
 
-      In these condition, we can extend the function $\recipient{⋅}$
+      In these conditions, we can extend the function $\recipient{⋅}$
       and $\amount{⋅}$ on the $i$ as
       \begin{itemize}
       \item $\recipient{i} = \recipient{\pos{\inindex{i}}{\outputs{\intrans{i}}}}$

@@ -6931,14 +6931,15 @@ inherit (pkgs) mesa;};
          , conduit, constraints, containers, cpphs, cryptonite, data-default
          , directory, ed25519, ekg-core, ether, exceptions, extra, filelock
          , filepath, fmt, formatting, generic-arbitrary, half, hashable
-         , hspec, lens, log-warper, monad-control, MonadRandom, mtl
+         , hspec, lens, log-warper, mmorph, monad-control, MonadRandom, mtl
          , neat-interpolation, optparse-applicative, parsec
-         , plutus-prototype, pvss, QuickCheck, random, reflection
+         , plutus-prototype, pvss, QuickCheck, random, reflection, resourcet
          , safe-exceptions, safecopy, serokell-util, servant, servant-client
          , servant-client-core, servant-server, servant-swagger, stdenv, stm
          , systemd, tagged, template-haskell, text, text-format, time
-         , time-units, transformers, universum, unix, unliftio
-         , unordered-containers, vector, wai, warp, warp-tls, yaml
+         , time-units, transformers, transformers-base, transformers-lift
+         , universum, unix, unliftio, unordered-containers, vector, wai
+         , warp, warp-tls, yaml
          }:
          mkDerivation {
            pname = "cardano-sl";
@@ -6953,13 +6954,14 @@ inherit (pkgs) mesa;};
              cardano-sl-update cardano-sl-util cborg cereal conduit constraints
              containers cpphs cryptonite data-default directory ed25519 ekg-core
              ether exceptions filelock filepath formatting generic-arbitrary
-             hashable hspec lens log-warper monad-control mtl neat-interpolation
-             optparse-applicative parsec plutus-prototype pvss QuickCheck random
-             reflection safe-exceptions safecopy serokell-util servant
-             servant-client servant-client-core servant-server servant-swagger
-             stm systemd tagged template-haskell text text-format time
-             time-units transformers universum unix unliftio
-             unordered-containers wai warp warp-tls yaml
+             hashable hspec lens log-warper mmorph monad-control mtl
+             neat-interpolation optparse-applicative parsec plutus-prototype
+             pvss QuickCheck random reflection resourcet safe-exceptions
+             safecopy serokell-util servant servant-client servant-client-core
+             servant-server servant-swagger stm systemd tagged template-haskell
+             text text-format time time-units transformers transformers-base
+             transformers-lift universum unix unliftio unordered-containers wai
+             warp warp-tls yaml
            ];
            testHaskellDepends = [
              base bytestring canonical-json cardano-crypto cardano-sl-binary
@@ -7384,14 +7386,15 @@ inherit (pkgs) mesa;};
          }) {};
       "cardano-sl-networking" = callPackage
         ({ mkDerivation, aeson, async, attoparsec, base, binary, bytestring
-         , conduit, conduit-extra, containers, contravariant, cryptonite
-         , data-default, ekg-core, exceptions, formatting, hashable, hspec
-         , kademlia, lens, log-warper, mmorph, monad-control, MonadRandom
-         , mtl, network, network-transport, network-transport-inmemory
-         , network-transport-tcp, optparse-simple, QuickCheck, random
-         , resourcet, safe-exceptions, serokell-util, stdenv, stm, text
-         , text-format, time, time-units, transformers, transformers-base
-         , transformers-lift, universum, unliftio-core
+         , cardano-sl-util, conduit, conduit-extra, containers
+         , contravariant, cryptonite, data-default, ekg-core, exceptions
+         , formatting, hashable, hspec, kademlia, lens, log-warper, mmorph
+         , monad-control, MonadRandom, mtl, network, network-transport
+         , network-transport-inmemory, network-transport-tcp
+         , optparse-simple, QuickCheck, random, resourcet, safe-exceptions
+         , serokell-util, stdenv, stm, text, text-format, time, time-units
+         , transformers, transformers-base, transformers-lift, universum
+         , unliftio-core
          }:
          mkDerivation {
            pname = "cardano-sl-networking";
@@ -7400,13 +7403,13 @@ inherit (pkgs) mesa;};
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [
-             aeson async attoparsec base binary bytestring containers
-             contravariant cryptonite data-default ekg-core exceptions
-             formatting hashable kademlia lens log-warper mmorph monad-control
-             mtl network network-transport network-transport-tcp QuickCheck
-             random resourcet safe-exceptions serokell-util stm text text-format
-             time time-units transformers transformers-base transformers-lift
-             universum unliftio-core
+             aeson async attoparsec base binary bytestring cardano-sl-util
+             containers contravariant cryptonite data-default ekg-core
+             exceptions formatting hashable kademlia lens log-warper mmorph
+             monad-control mtl network network-transport network-transport-tcp
+             QuickCheck random resourcet safe-exceptions serokell-util stm text
+             text-format time time-units transformers transformers-base
+             transformers-lift universum unliftio-core
            ];
            executableHaskellDepends = [
              attoparsec base binary bytestring conduit conduit-extra containers
@@ -7584,28 +7587,27 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-util" = callPackage
-        ({ mkDerivation, aeson, autoexporter, base, bytestring
-         , cardano-sl-networking, cborg, cereal, concurrent-extra
-         , containers, cpphs, cryptonite, data-default, deepseq, directory
-         , ether, exceptions, filepath, formatting, hashable, hspec, lens
-         , log-warper, lrucache, megaparsec, mmorph, mtl
-         , optparse-applicative, parsec, process, QuickCheck
-         , quickcheck-instances, reflection, resourcet, safe-exceptions
-         , serokell-util, stdenv, stm, tagged, template-haskell, text
-         , text-format, th-lift-instances, time, time-units, transformers
-         , transformers-base, transformers-lift, universum, unliftio-core
-         , unordered-containers
+        ({ mkDerivation, aeson, autoexporter, base, bytestring, cborg
+         , cereal, concurrent-extra, containers, contravariant, cpphs
+         , cryptonite, data-default, deepseq, directory, ether, exceptions
+         , filepath, formatting, hashable, hspec, lens, log-warper, lrucache
+         , megaparsec, mtl, optparse-applicative, parsec, process
+         , QuickCheck, quickcheck-instances, reflection, resourcet
+         , safe-exceptions, serokell-util, stdenv, stm, tagged
+         , template-haskell, text, text-format, th-lift-instances, time
+         , time-units, transformers, transformers-base, transformers-lift
+         , universum, unliftio-core, unordered-containers
          }:
          mkDerivation {
            pname = "cardano-sl-util";
            version = "1.1.0";
            src = ./../util;
            libraryHaskellDepends = [
-             aeson autoexporter base bytestring cardano-sl-networking cborg
-             cereal concurrent-extra containers cryptonite data-default deepseq
-             directory ether exceptions filepath formatting hashable hspec lens
-             log-warper lrucache megaparsec mmorph mtl optparse-applicative
-             parsec process QuickCheck quickcheck-instances reflection resourcet
+             aeson autoexporter base bytestring cborg cereal concurrent-extra
+             containers contravariant cryptonite data-default deepseq directory
+             ether exceptions filepath formatting hashable hspec lens log-warper
+             lrucache megaparsec mtl optparse-applicative parsec process
+             QuickCheck quickcheck-instances reflection resourcet
              safe-exceptions serokell-util stm tagged template-haskell text
              text-format th-lift-instances time time-units transformers
              transformers-base transformers-lift universum unliftio-core

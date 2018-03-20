@@ -1,12 +1,23 @@
+{-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
+
+-- The hlint parser fails on the `pattern` function, so we disable the
+-- language extension here.
+{-# LANGUAGE NoPatternSynonyms          #-}
+
+-- TODO: Banish NonEmpty orphan when https://github.com/GetShopTV/swagger2/pull/141
+-- is merged
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Cardano.Wallet.API.V1.Types (
     V1 (..)
+  , unV1
   -- * Swagger & REST-related types
   , PasswordUpdate (..)
   , AccountUpdate (..)
@@ -57,18 +68,24 @@ module Cardano.Wallet.API.V1.Types (
 
 import           Universum
 
+import           Control.Lens (at, ix, makePrisms, (?~), IxValue, Index, At)
 import           Data.Aeson
-import           Data.Aeson.TH
+import           Data.Aeson.TH as A
 import           Data.Aeson.Types (typeMismatch)
 import qualified Data.Char as C
+import           Data.Swagger as S hiding (constructorTagModifier)
+import           Data.Swagger.Declare (Declare, look)
+import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Text (Text, dropEnd, toLower)
 import           Data.Version (Version)
 import           Formatting (build, int, sformat, (%))
-import           GHC.Generics (Generic)
+import           GHC.Generics (Generic, Rep)
 import qualified Prelude
 import qualified Serokell.Aeson.Options as Serokell
 import qualified Serokell.Util.Base16 as Base16
 import           Test.QuickCheck
+import           Test.QuickCheck.Gen (Gen (..))
+import           Test.QuickCheck.Random (mkQCGen)
 import           Web.HttpApiData
 
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
@@ -78,6 +95,7 @@ import           Cardano.Wallet.Orphans.Aeson ()
 import           Pos.Util.BackupPhrase (BackupPhrase (..))
 
 
+import           Cardano.Wallet.Util (showApiUtcTime)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import           Pos.Aeson.Core ()
@@ -87,6 +105,63 @@ import           Pos.Core (addressF)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
+
+
+-- | Declare generic schema, while documenting properties
+--   For instance:
+--
+--    data MyData = MyData
+--      { myDataField1 :: String
+--      , myDataField2 :: String
+--      } deriving (Generic)
+--
+--   instance ToSchema MyData where
+--     declareNamedSchema =
+--       genericSchemaDroppingPrefix "myData" (\(--^) props -> props
+--         & ("field1" --^ "Description 1")
+--         & ("field2" --^ "Description 2")
+--       )
+--
+--   -- or, if no descriptions are added to the underlying properties
+--
+--   instance ToSchema MyData where
+--     declareNamedSchema =
+--       genericSchemaDroppingPrefix "myData" (\_ -> id)
+--
+type IsPropertiesMap m =
+  (IxValue m ~ Referenced Schema, Index m ~ Text, At m, HasProperties Schema m)
+
+genericSchemaDroppingPrefix
+    :: forall a m proxy. (Generic a, ToJSON a, Arbitrary a, GToSchema (Rep a), IsPropertiesMap m)
+    => String -- ^ Prefix to drop on each constructor tag
+    -> ((Index m -> Text -> m -> m) -> m -> m) -- ^ Callback update to attach descriptions to underlying properties
+    -> proxy a -- ^ Underlying data-type proxy
+    -> Declare (Definitions Schema) NamedSchema
+genericSchemaDroppingPrefix prfx extraDoc proxy = do
+    let opts = defaultSchemaOptions
+          { S.fieldLabelModifier = over (ix 0) C.toLower . drop (length prfx) }
+    s <- genericDeclareNamedSchema opts proxy
+    defs <- look
+    pure $ s
+      & over schema (over properties (extraDoc (addFieldDescription defs)))
+      & schema . example ?~ toJSON (genExample :: a)
+  where
+    genExample =
+      (unGen (resize 3 arbitrary)) (mkQCGen 42) 42
+
+    addFieldDescription defs field desc =
+      over (at field) (addDescription defs field desc)
+
+    addDescription defs field desc ms =
+      let
+        rewrap s = Just (Inline (s & description ?~ desc))
+        err = error ("Unknown field in schema: " <> field <> " " <> desc)
+      in
+        case ms of
+          Just (Inline s) -> rewrap s
+          Just (Ref ref)  -> maybe err rewrap (defs ^. at (getReference ref))
+          _               -> err
+
 
 --
 -- Versioning
@@ -108,6 +183,12 @@ import qualified Pos.Crypto.Signing as Core
 --
 -- 1. Never define an instance on the inner type 'a'. Do it only on 'V1 a'.
 newtype V1 a = V1 a deriving (Eq, Ord)
+
+-- | Unwrap the 'V1' newtype to give the underlying type.
+unV1 :: V1 a -> a
+unV1 (V1 a) = a
+
+makePrisms ''V1
 
 instance Show a => Show (V1 a) where
     show (V1 a) = Prelude.show a
@@ -152,6 +233,12 @@ instance FromJSON (V1 BackupPhrase) where
     parseJSON (Array wrds) = V1 . BackupPhrase . toList <$> traverse parseJSON wrds
     parseJSON x            = typeMismatch "parseJSON failed for BackupPhrase" x
 
+instance ToSchema (V1 BackupPhrase) where
+    declareNamedSchema _ = do
+        return $ NamedSchema (Just "V1BackupPhrase") $ mempty
+            & type_ .~ SwaggerArray
+            & items .~ Just (SwaggerItemsObject (toSchemaRef (Proxy @Text)))
+
 mkPassPhrase :: Text -> Either Text Core.PassPhrase
 mkPassPhrase text =
     case Base16.decode text of
@@ -178,6 +265,12 @@ instance FromJSON (V1 Core.PassPhrase) where
 instance Arbitrary (V1 Core.PassPhrase) where
     arbitrary = fmap V1 arbitrary
 
+instance ToSchema (V1 Core.PassPhrase) where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "V1PassPhrase") $ mempty
+            & type_ .~ SwaggerString
+            & format ?~ "hex|base16"
+
 instance ToJSON (V1 Core.Coin) where
     toJSON (V1 c) = toJSON . Core.unsafeGetCoin $ c
 
@@ -186,6 +279,22 @@ instance FromJSON (V1 Core.Coin) where
 
 instance Arbitrary (V1 Core.Coin) where
     arbitrary = fmap V1 arbitrary
+
+instance ToSchema (V1 Core.Coin) where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "V1Coin") $ mempty
+            & type_ .~ SwaggerNumber
+            & maximum_ .~ Just (fromIntegral Core.maxCoinVal)
+
+-- Orphan instance copied from a PR.
+--
+-- TODO: remove and use upstream when this PR is merged
+-- <https://github.com/GetShopTV/swagger2/pull/141>
+instance ToSchema a => ToSchema (NonEmpty a) where
+     declareNamedSchema _ = do
+        listSchema <- declareSchema (Proxy :: Proxy [a])
+        pure $ NamedSchema Nothing $ listSchema
+            & minItems .~ Just 1
 
 instance ToJSON (V1 Core.Address) where
     toJSON (V1 c) = String $ sformat addressF c
@@ -199,11 +308,41 @@ instance FromJSON (V1 Core.Address) where
 instance Arbitrary (V1 Core.Address) where
     arbitrary = fmap V1 arbitrary
 
+instance ToSchema (V1 Core.Address) where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "V1Address") $ mempty
+            & type_ .~ SwaggerString
+            -- TODO: any other constraints we can have here?
+
 instance FromHttpApiData (V1 Core.Address) where
     parseQueryParam = fmap (fmap V1) Core.decodeTextAddress
 
 instance ToHttpApiData (V1 Core.Address) where
     toQueryParam (V1 a) = sformat build a
+
+-- | Represents according to 'apiTimeFormat' format.
+instance ToJSON (V1 Core.Timestamp) where
+    toJSON timestamp =
+        let utcTime = timestamp ^. _V1 . Core.timestampToUTCTimeL
+        in  String $ showApiUtcTime utcTime
+
+-- | Parses from both UTC time in 'apiTimeFormat' format and a fractional
+-- timestamp format.
+instance FromJSON (V1 Core.Timestamp) where
+    parseJSON = withText "Timestamp" $ \t ->
+        maybe
+            (fail ("Couldn't parse timestamp or datetime out of: " <> toString t))
+            (pure . V1)
+            (Core.parseTimestamp t)
+
+instance Arbitrary (V1 Core.Timestamp) where
+    arbitrary = fmap V1 arbitrary
+
+instance ToSchema (V1 Core.Timestamp) where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "Timestamp") $ mempty
+            & type_ .~ SwaggerString
+            & description ?~ "Time in ISO 8601 format"
 
 --
 -- Domain-specific types, mostly placeholders.
@@ -230,10 +369,19 @@ instance Arbitrary AssuranceLevel where
 deriveJSON Serokell.defaultOptions { constructorTagModifier = toString . toLower . dropEnd 9 . fromString
                                    } ''AssuranceLevel
 
+instance ToSchema AssuranceLevel where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "AssuranceLevel") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ ?~ ["normal", "strict"]
+
 -- | A Wallet ID.
 newtype WalletId = WalletId Text deriving (Show, Eq, Ord, Generic)
 
 deriveJSON Serokell.defaultOptions ''WalletId
+
+instance ToSchema WalletId where
+  declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
 
 instance Arbitrary WalletId where
   arbitrary =
@@ -258,17 +406,19 @@ instance Arbitrary WalletOperation where
 deriveJSON Serokell.defaultOptions  { constructorTagModifier = reverse . drop 6 . reverse . map C.toLower
                                     } ''WalletOperation
 
+instance ToSchema WalletOperation where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "WalletOperation") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ ?~ ["create", "restore"]
 
 -- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {
       newwalBackupPhrase     :: !(V1 BackupPhrase)
-    -- ^ The backup phrase to restore the wallet.
     , newwalSpendingPassword :: !(Maybe SpendingPassword)
-    -- ^ The spending password to encrypt the private keys.
     , newwalAssuranceLevel   :: !AssuranceLevel
     , newwalName             :: !WalletName
     , newwalOperation        :: !WalletOperation
-    -- ^ Operation to create or to restore a wallet
     } deriving (Eq, Show, Generic)
 
 deriveJSON Serokell.defaultOptions  ''NewWallet
@@ -280,6 +430,17 @@ instance Arbitrary NewWallet where
                         <*> pure "My Wallet"
                         <*> arbitrary
 
+instance ToSchema NewWallet where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "newwal" (\(--^) props -> props
+      & ("backupPhrase"     --^ "Backup phrase to restore the wallet")
+      & ("spendingPassword" --^ "Optional spending password to encrypt / decrypt private keys")
+      & ("assuranceLevel"   --^ "Desired assurance level based on the number of confirmations counter of each transaction.")
+      & ("name"             --^ "Wallet's name")
+      & ("operation"        --^ "Create a new wallet or Restore an existing one")
+    )
+
+
 -- | A type modelling the update of an existing wallet.
 data WalletUpdate = WalletUpdate {
       uwalAssuranceLevel :: !AssuranceLevel
@@ -287,6 +448,13 @@ data WalletUpdate = WalletUpdate {
     } deriving (Eq, Show, Generic)
 
 deriveJSON Serokell.defaultOptions  ''WalletUpdate
+
+instance ToSchema WalletUpdate where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "uwal" (\(--^) props -> props
+      & ("assuranceLevel" --^ "New assurance level")
+      & ("name"           --^ "New wallet's name")
+    )
 
 instance Arbitrary WalletUpdate where
   arbitrary = WalletUpdate <$> arbitrary
@@ -300,6 +468,14 @@ data Wallet = Wallet {
     } deriving (Eq, Ord, Show, Generic)
 
 deriveJSON Serokell.defaultOptions ''Wallet
+
+instance ToSchema Wallet where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "wal" (\(--^) props -> props
+      & ("id"      --^ "Unique wallet identifier")
+      & ("name"    --^ "Wallet's name")
+      & ("balance" --^ "Current balance, in ADA")
+    )
 
 instance Arbitrary Wallet where
   arbitrary = Wallet <$> arbitrary
@@ -316,6 +492,9 @@ newtype AddressValidity = AddressValidity { isValid :: Bool }
 
 deriveJSON Serokell.defaultOptions ''AddressValidity
 
+instance ToSchema AddressValidity where
+    declareNamedSchema = genericSchemaDroppingPrefix "is" (\_ -> identity)
+
 instance Arbitrary AddressValidity where
   arbitrary = AddressValidity <$> arbitrary
 
@@ -331,12 +510,20 @@ data Account = Account
   , accAddresses :: [V1 Core.Address]  -- should be WalletAddress
   , accAmount    :: !(V1 Core.Coin)
   , accName      :: !Text
-  -- ^ The Account name.
   , accWalletId  :: WalletId
-  -- ^ The 'WalletId' this 'Account' belongs to.
   } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Account
+
+instance ToSchema Account where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "acc" (\(--^) props -> props
+      & ("index"     --^ "Account's index in the wallet, starting at 0")
+      & ("addresses" --^ "Public addresses pointing to this account")
+      & ("amount"    --^ "Available funds, in ADA")
+      & ("name"      --^ "Account's name")
+      & ("walletId"  --^ "Id of the wallet this account belongs to")
+    )
 
 instance Arbitrary Account where
   arbitrary = Account <$> arbitrary
@@ -350,6 +537,12 @@ data AccountUpdate = AccountUpdate {
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''AccountUpdate
+
+instance ToSchema AccountUpdate where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "uacc" (\(--^) props -> props
+      & ("name" --^ "New account's name")
+    )
 
 instance Arbitrary AccountUpdate where
   arbitrary = AccountUpdate <$> pure "myAccount"
@@ -365,6 +558,13 @@ instance Arbitrary NewAccount where
   arbitrary = NewAccount <$> arbitrary
                          <*> arbitrary
 
+instance ToSchema NewAccount where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "nacc" (\(--^) props -> props
+      & ("spendingPassword" --^ "Optional spending password to unlock funds")
+      & ("name"             --^ "Account's name")
+    )
+
 -- | Summary about single address.
 data WalletAddress = WalletAddress
   { addrId            :: !(V1 Core.Address)
@@ -374,6 +574,15 @@ data WalletAddress = WalletAddress
   } deriving (Show, Generic)
 
 deriveJSON Serokell.defaultOptions ''WalletAddress
+
+instance ToSchema WalletAddress where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "addr" (\(--^) props -> props
+      & ("id"            --^ "Actual address")
+      & ("balance"       --^ "Associated balance, in ADA")
+      & ("used"          --^ "True if this address has been used")
+      & ("changeAddress" --^ "True if this address stores change from a previous transaction")
+    )
 
 instance Arbitrary WalletAddress where
   arbitrary = WalletAddress <$> arbitrary
@@ -389,6 +598,14 @@ data NewAddress = NewAddress
 
 deriveJSON Serokell.defaultOptions ''NewAddress
 
+instance ToSchema NewAddress where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "newaddr" (\(--^) props -> props
+      & ("spendingPassword" --^ "Optional spending password to unlock funds")
+      & ("accountIndex"     --^ "Target account's index to store this address in")
+      & ("walletId"         --^ "Corresponding wallet identifier")
+    )
+
 instance Arbitrary NewAddress where
   arbitrary = NewAddress <$> arbitrary
                          <*> arbitrary
@@ -397,12 +614,17 @@ instance Arbitrary NewAddress where
 -- | A type incapsulating a password update request.
 data PasswordUpdate = PasswordUpdate {
     pwdOld :: !SpendingPassword
-    -- ^ The old 'SpendingPassword'.
   , pwdNew :: !SpendingPassword
-    -- ^ The new 'SpendingPassword'.
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''PasswordUpdate
+
+instance ToSchema PasswordUpdate where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "pwd" (\(--^) props -> props
+      & ("old" --^ "Old password")
+      & ("new" --^ "New passowrd")
+    )
 
 instance Arbitrary PasswordUpdate where
   arbitrary = PasswordUpdate <$> arbitrary
@@ -412,10 +634,15 @@ instance Arbitrary PasswordUpdate where
 -- for a 'Payment' in case the latter would actually be performed.
 data EstimatedFees = EstimatedFees {
     feeEstimatedAmount :: !(V1 Core.Coin)
-    -- ^ The estimated fees, as coins.
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''EstimatedFees
+
+instance ToSchema EstimatedFees where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "fee" (\(--^) props -> props
+      & ("estimatedAmount" --^ "Estimated fees, in ADA")
+    )
 
 instance Arbitrary EstimatedFees where
   arbitrary = EstimatedFees <$> arbitrary
@@ -425,9 +652,16 @@ instance Arbitrary EstimatedFees where
 data PaymentDistribution = PaymentDistribution {
       pdAddress :: V1 (Core.Address)
     , pdAmount  :: V1 (Core.Coin)
-    } deriving (Show, Ord, Eq)
+    } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''PaymentDistribution
+
+instance ToSchema PaymentDistribution where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "pd" (\(--^) props -> props
+      & ("address" --^ "Address to map coins to")
+      & ("amount"  --^ "Amount of coin to bind, in ADA")
+    )
 
 instance Arbitrary PaymentDistribution where
   arbitrary = PaymentDistribution <$> arbitrary
@@ -442,6 +676,13 @@ data PaymentSource = PaymentSource
 
 deriveJSON Serokell.defaultOptions ''PaymentSource
 
+instance ToSchema PaymentSource where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "ps" (\(--^) props -> props
+      & ("walletId"     --^ "Target wallet identifier to reach")
+      & ("accountIndex" --^ "Corresponding account's index on the wallet")
+    )
+
 instance Arbitrary PaymentSource where
   arbitrary = PaymentSource <$> arbitrary
                             <*> arbitrary
@@ -449,13 +690,9 @@ instance Arbitrary PaymentSource where
 -- | A 'Payment' from one source account to one or more 'PaymentDistribution'(s).
 data Payment = Payment
   { pmtSource           :: !PaymentSource
-    -- ^ The source for the payment.
   , pmtDestinations     :: !(NonEmpty PaymentDistribution)
-    -- ^ The destinations for this payment.
   , pmtGroupingPolicy   :: !(Maybe (V1 Core.InputSelectionPolicy))
-    -- ^ Which strategy to use for selecting the transaction inputs.
   , pmtSpendingPassword :: !(Maybe SpendingPassword)
-    -- ^ spending password to access the funds.
   } deriving (Show, Eq, Generic)
 
 instance ToJSON (V1 Core.InputSelectionPolicy) where
@@ -467,6 +704,12 @@ instance FromJSON (V1 Core.InputSelectionPolicy) where
     parseJSON (String "OptimizeForHighThroughput") = pure (V1 Core.OptimizeForHighThroughput)
     parseJSON x = typeMismatch "Not a valid InputSelectionPolicy" x
 
+instance ToSchema (V1 Core.InputSelectionPolicy) where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "V1InputSelectionPolicy") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ ?~ ["OptimizeForSecurity", "OptimizeForHighThroughput"]
+
 instance Arbitrary (V1 Core.InputSelectionPolicy) where
     arbitrary = fmap V1 arbitrary
 
@@ -477,6 +720,15 @@ instance Arbitrary Payment where
                       <*> arbitrary
                       <*> arbitrary
                       <*> arbitrary
+
+instance ToSchema Payment where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "pmt" (\(--^) props -> props
+      & ("source"           --^ "Source for the payment")
+      & ("destinations"     --^ "One or more destinations for the payment")
+      & ("groupingPolicy"   --^ "Optional strategy to use for selecting the transaction inputs")
+      & ("spendingPassword" --^ "Optional spending password to access funds")
+    )
 
 ----------------------------------------------------------------------------
 -- TxId
@@ -492,6 +744,9 @@ instance FromHttpApiData (V1 Core.TxId) where
 
 instance ToHttpApiData (V1 Core.TxId) where
     toQueryParam (V1 txId) = sformat hashHexF txId
+
+instance ToSchema (V1 Core.TxId) where
+    declareNamedSchema _ = declareNamedSchema (Proxy @Text)
 
 ----------------------------------------------------------------------------
   -- Transaction types
@@ -514,6 +769,12 @@ instance Arbitrary TransactionType where
 deriveJSON defaultOptions { constructorTagModifier = reverse . drop 11 . reverse . map C.toLower
                           } ''TransactionType
 
+instance ToSchema TransactionType where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "TransactionType") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ ?~ ["local", "foreign"]
+
 -- | The 'Transaction' @direction@
 data TransactionDirection =
     IncomingTransaction
@@ -529,28 +790,45 @@ instance Arbitrary TransactionDirection where
 deriveJSON defaultOptions { constructorTagModifier = reverse . drop 11 . reverse . map C.toLower
                           } ''TransactionDirection
 
+instance ToSchema TransactionDirection where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "TransactionDirection") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ ?~ ["outgoing", "incoming"]
+
 -- | A 'Wallet''s 'Transaction'.
 data Transaction = Transaction
   { txId            :: !(V1 Core.TxId)
-    -- ^ The Tx Id.
   , txConfirmations :: !Word
-    -- ^ The number of confirmations.
   , txAmount        :: !(V1 Core.Coin)
-    -- ^ The 'Coin' moved as part of this transaction.
   , txInputs        :: !(NonEmpty PaymentDistribution)
-    -- ^ The input money distribution.
   , txOutputs       :: !(NonEmpty PaymentDistribution)
     -- ^ The output money distribution.
-  , txType          :: TransactionType
+  , txType          :: !TransactionType
     -- ^ The type for this transaction (e.g local, foreign, etc).
-  , txDirection     :: TransactionDirection
+  , txDirection     :: !TransactionDirection
     -- ^ The direction for this transaction (e.g incoming, outgoing).
+  , txCreationTime  :: !(V1 Core.Timestamp)
+    -- ^ The time when transaction was created.
   } deriving (Show, Ord, Eq, Generic)
 
 deriveToJSON Serokell.defaultOptions ''Transaction
 
+instance ToSchema Transaction where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "tx" (\(--^) props -> props
+      & ("id"            --^ "Transaction's id")
+      & ("confirmations" --^ "Number of confirmations")
+      & ("amount"        --^ "Coins moved as part of the transaction, in ADA")
+      & ("inputs"        --^ "One or more input money distributions")
+      & ("outputs"       --^ "One or more ouputs money distributions")
+      & ("type"          --^ "Type of transaction")
+      & ("direction"     --^ "Direction for this transaction")
+    )
+
 instance Arbitrary Transaction where
   arbitrary = Transaction <$> arbitrary
+                          <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary
@@ -567,6 +845,14 @@ data WalletSoftwareUpdate = WalletSoftwareUpdate
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''WalletSoftwareUpdate
+
+instance ToSchema WalletSoftwareUpdate where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "upd" (\(--^) props -> props
+      & ("softwareVersion"   --^ "Current software (wallet) version")
+      & ("blockchainVersion" --^ "Version of the underlying blockchain")
+      & ("scriptVersion"     --^ "Update script version")
+    )
 
 instance Arbitrary WalletSoftwareUpdate where
   arbitrary = WalletSoftwareUpdate <$> arbitrary
@@ -592,6 +878,21 @@ instance ToJSON SlotDuration where
 instance FromJSON SlotDuration where
     parseJSON = withObject "SlotDuration" $ \sl -> mkSlotDuration <$> sl .: "quantity"
 
+instance ToSchema SlotDuration where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "SlotDuration") $ mempty
+            & type_ .~ SwaggerObject
+            & required .~ ["quantity"]
+            & properties .~ (mempty
+                & at "quantity" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerNumber
+                    )
+                & at "unit" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerString
+                    & enum_ ?~ ["milliseconds"]
+                    )
+                )
+
 -- | The @static@ settings for this wallet node. In particular, we could group
 -- here protocol-related settings like the slot duration, the transaction max size,
 -- the current software version running on the node, etc.
@@ -600,7 +901,13 @@ data NodeSettings = NodeSettings {
    , setSoftwareInfo   :: !(V1 Core.SoftwareVersion)
    , setProjectVersion :: !Version
    , setGitRevision    :: !Text
-   } deriving (Show, Eq)
+   } deriving (Show, Eq, Generic)
+
+-- ORPHAN! TODO: Newtype this?
+instance ToSchema Version where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "Version") $ mempty
+            & type_ .~ SwaggerString
 
 
 instance ToJSON (V1 Core.ApplicationName) where
@@ -608,7 +915,7 @@ instance ToJSON (V1 Core.ApplicationName) where
 
 instance FromJSON (V1 Core.ApplicationName) where
     parseJSON (String svAppName) = pure (V1 (Core.ApplicationName svAppName))
-    parseJSON x = typeMismatch "Not a valid ApplicationName" x
+    parseJSON x                  = typeMismatch "Not a valid ApplicationName" x
 
 instance ToJSON (V1 Core.SoftwareVersion) where
     toJSON (V1 Core.SoftwareVersion{..}) =
@@ -618,10 +925,29 @@ instance ToJSON (V1 Core.SoftwareVersion) where
                , "version" .=  toJSON svNumber
                ]
 
+instance ToSchema (V1 Core.SoftwareVersion) where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "V1SoftwareVersion") $ mempty
+            & type_ .~ SwaggerObject
+            & properties .~ (mempty
+                & at "applicationName" ?~ Inline (toSchema (Proxy @Text))
+                & at "version" ?~ Inline (toSchema (Proxy @Word32))
+            )
+            & required .~ ["applicationName", "version"]
+
 instance Arbitrary (V1 Core.SoftwareVersion) where
     arbitrary = fmap V1 arbitrary
 
 deriveToJSON Serokell.defaultOptions ''NodeSettings
+
+instance ToSchema NodeSettings where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "set" (\(--^) props -> props
+      & ("slotDuration"   --^ "Duration of a slot")
+      & ("softwareInfo"   --^ "Various pieces of information about the current software")
+      & ("projectVersion" --^ "Current project's version")
+      & ("gitRevision"    --^ "Git revision of this deployment")
+    )
 
 instance Arbitrary NodeSettings where
     arbitrary = NodeSettings <$> arbitrary
@@ -630,14 +956,14 @@ instance Arbitrary NodeSettings where
                              <*> pure "0e1c9322a"
 
 -- | The different between the local time and the remote NTP server.
-newtype LocalTimeDifference = LocalTimeDifference (MeasuredIn 'Microseconds Word)
+newtype LocalTimeDifference = LocalTimeDifference (MeasuredIn 'Microseconds Integer)
                             deriving (Show, Eq)
 
-mkLocalTimeDifference :: Word -> LocalTimeDifference
+mkLocalTimeDifference :: Integer -> LocalTimeDifference
 mkLocalTimeDifference = LocalTimeDifference . MeasuredIn
 
 instance Arbitrary LocalTimeDifference where
-    arbitrary = mkLocalTimeDifference <$> choose (minBound, maxBound)
+    arbitrary = mkLocalTimeDifference <$> arbitrary
 
 instance ToJSON LocalTimeDifference where
     toJSON (LocalTimeDifference (MeasuredIn w)) =
@@ -647,6 +973,22 @@ instance ToJSON LocalTimeDifference where
 
 instance FromJSON LocalTimeDifference where
     parseJSON = withObject "LocalTimeDifference" $ \sl -> mkLocalTimeDifference <$> sl .: "quantity"
+
+instance ToSchema LocalTimeDifference where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "LocalTimeDifference") $ mempty
+            & type_ .~ SwaggerObject
+            & required .~ ["quantity"]
+            & properties .~ (mempty
+                & at "quantity" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerNumber
+                    )
+                & at "unit" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerString
+                    & enum_ ?~ ["microseconds"]
+                    )
+                )
+
 
 -- | The sync progress with the blockchain.
 newtype SyncProgress = SyncProgress (MeasuredIn 'Percentage100 Word8)
@@ -666,6 +1008,23 @@ instance ToJSON SyncProgress where
 
 instance FromJSON SyncProgress where
     parseJSON = withObject "SyncProgress" $ \sl -> mkSyncProgress <$> sl .: "quantity"
+
+instance ToSchema SyncProgress where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "SyncProgress") $ mempty
+            & type_ .~ SwaggerObject
+            & required .~ ["quantity"]
+            & properties .~ (mempty
+                & at "quantity" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerNumber
+                    & maximum_ .~ Just 100
+                    & minimum_ .~ Just 0
+                    )
+                & at "unit" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerString
+                    & enum_ ?~ ["percent"]
+                    )
+                )
 
 -- | The absolute or relative height of the blockchain, measured in number
 -- of blocks.
@@ -687,21 +1046,47 @@ instance FromJSON BlockchainHeight where
     parseJSON = withObject "BlockchainHeight" $ \sl ->
         mkBlockchainHeight . Core.BlockCount <$> sl .: "quantity"
 
+instance ToSchema BlockchainHeight where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "BlockchainHeight") $ mempty
+            & type_ .~ SwaggerObject
+            & required .~ ["quantity"]
+            & properties .~ (mempty
+                & at "quantity" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerNumber
+                    & maximum_ .~ Just (fromIntegral (maxBound :: Word64))
+                    & minimum_ .~ Just (fromIntegral (minBound :: Word64))
+                    )
+                & at "unit" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerString
+                    & enum_ ?~ ["blocks"]
+                    )
+                )
+
 -- | The @dynamic@ information for this node.
 data NodeInfo = NodeInfo {
      nfoSyncProgress          :: !SyncProgress
    , nfoBlockchainHeight      :: !(Maybe BlockchainHeight)
-   -- ^ The current blockchain "height", in blocks, if we know it.
    , nfoLocalBlockchainHeight :: !BlockchainHeight
-   -- ^ The local blockchain "height", in blocks.
    , nfoLocalTimeDifference   :: !LocalTimeDifference
-   } deriving (Show, Eq)
+   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''NodeInfo
 
+instance ToSchema NodeInfo where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "nfo" (\(--^) props -> props
+      & ("syncProgress"          --^ "Syncing progression, in percentage")
+      & ("blockchainHeight"      --^ "If known, the current blockchain height, in number of blocks")
+      & ("localBlockchainHeight" --^ "Local blockchain height, in number of blocks")
+      & ("localTimeDifference"   --^ "Local time difference, in number of blocks")
+    )
+
 instance Arbitrary NodeInfo where
     arbitrary = NodeInfo <$> arbitrary
-                         <*> arbitrary
+                         -- TODO: The JSON validation stuff is currently
+    -- failing because
+                         <*> map Just arbitrary
                          <*> arbitrary
                          <*> arbitrary
 

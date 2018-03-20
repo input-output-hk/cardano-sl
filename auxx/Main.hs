@@ -89,7 +89,7 @@ runNodeWithSinglePlugin nr (plugin, plOuts) =
 action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> Production ()
 action opts@AuxxOptions {..} command = do
     let runWithoutNode = rawExec Nothing opts Nothing command
-    printAction <- either getPrintAction (const $ return putText) command
+    printAction <- return $ either printAction (const putText) command
 
     let configToDict :: HasConfigurations => Production (Maybe (Dict HasConfigurations))
         configToDict = return (Just Dict)
@@ -126,7 +126,7 @@ action opts@AuxxOptions {..} command = do
               elimRealMode nr $ toRealMode $
                   logicLayerFull jsonLog $ \logicLayer ->
                       bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->
-                          diffusionLayerFull (npNetworkConfig nodeParams) lastKnownBlockVersion transport Nothing $ \withLogic -> do
+                          diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) (npNetworkConfig nodeParams) lastKnownBlockVersion transport Nothing $ \withLogic -> do
                               diffusionLayer <- withLogic (logic logicLayer)
                               let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
                                   (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)

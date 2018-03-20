@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds      #-}
 {-# LANGUAGE DeriveAnyClass #-}
 
 -- | Toil failures.
@@ -5,20 +6,24 @@
 module Pos.Txp.Toil.Failure
        ( ToilVerFailure (..)
        , WitnessVerFailure (..)
+       , TxOutVerFailure (..)
        ) where
 
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, int, shown, stext, (%))
+import           Formatting (bprint, build, int, ords, shown, stext, (%))
+import           GHC.TypeLits (TypeError)
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util (listJson)
 
-import           Pos.Core (Address, HeaderHash, ScriptVersion, TxFeePolicy, addressDetailedF)
+import           Pos.Core (Address, HeaderHash, ScriptVersion, TxFeePolicy, addressF, 
+                           addressDetailedF)
 import           Pos.Core.Txp (TxIn, TxInWitness, TxOut (..))
 import           Pos.Data.Attributes (UnparsedFields)
 import           Pos.Script (PlutusError)
 import           Pos.Txp.Toil.Types (TxFee)
+import           Pos.Util (DisallowException)
 
 ----------------------------------------------------------------------------
 -- ToilVerFailure
@@ -36,7 +41,7 @@ data ToilVerFailure
     | ToilOutGreaterThanIn { tInputSum  :: !Integer
                            , tOutputSum :: !Integer}
     | ToilInconsistentTxAux !Text
-    | ToilInvalidOutputs !Text  -- [CSL-1628] TODO: make it more informative
+    | ToilInvalidOutput !Word32 !TxOutVerFailure
     | ToilUnknownInput !Word32 !TxIn
 
     -- | The witness can't be used to justify spending an output – either
@@ -69,7 +74,8 @@ data ToilVerFailure
     | ToilRepeatedInput
     deriving (Show, Eq)
 
-instance Exception ToilVerFailure
+instance TypeError (DisallowException ToilVerFailure) =>
+         Exception ToilVerFailure
 
 instance Buildable ToilVerFailure where
     build ToilKnown =
@@ -89,8 +95,10 @@ instance Buildable ToilVerFailure where
         tInputSum tOutputSum
     build (ToilInconsistentTxAux msg) =
         bprint ("TxAux is inconsistent: "%stext) msg
-    build (ToilInvalidOutputs msg) =
-        bprint ("outputs are invalid: "%stext) msg
+    build (ToilInvalidOutput n reason) =
+        bprint (ords%" output is invalid:\n'"%
+                " reason: "%build)
+            n reason
     build (ToilWitnessDoesntMatch i txIn txOut@TxOut {..} witness) =
         bprint ("input #"%int%"'s witness doesn't match address "%
                 "of corresponding output:\n"%
@@ -161,3 +169,27 @@ instance Buildable WitnessVerFailure where
         bprint ("error when executing scripts: "%build) err
     build (WitnessUnknownType t) =
         bprint ("unknown witness type: "%build) t
+
+----------------------------------------------------------------------------
+-- TxOutVerFailure
+----------------------------------------------------------------------------
+
+-- | Result of checking transaction output.
+data TxOutVerFailure
+    -- | Not all attributes for the output are known
+    = TxOutUnknownAttributes Address
+    -- | Can't send to an address with unknown type
+    | TxOutUnknownAddressType Address
+    -- | Can't send to a redeem address
+    | TxOutRedeemAddressProhibited Address
+    deriving (Show, Eq, Generic, NFData)
+
+instance Buildable TxOutVerFailure where
+    build (TxOutUnknownAttributes addr) =
+        bprint ("address "%addressF%" has unknown attributes") addr
+    build (TxOutUnknownAddressType addr) =
+        bprint ("sends money to an addresss with unknown type ("
+                %addressF%"), this is prohibited") addr
+    build (TxOutRedeemAddressProhibited addr) =
+        bprint ("sends money to a redeem address ("
+                %addressF%"), this is prohibited") addr

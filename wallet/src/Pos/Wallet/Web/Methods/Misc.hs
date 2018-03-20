@@ -40,6 +40,7 @@ import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.Foldable as Foldable
 import qualified Data.Map.Strict as M
 import qualified Data.Text.Buildable
+import           Data.Time.Units (toMicroseconds)
 import           Formatting (bprint, build, sformat, (%))
 import           Mockable (Delay, LowLevelAsync, Mockables, MonadMockable, async, delay)
 import           Serokell.Util (listJson, sec)
@@ -48,7 +49,7 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Client.KeyStorage (MonadKeys (..), deleteAllSecretKeys)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (Address, SlotId, SoftwareVersion (..))
+import           Pos.Core (Address, HasConfiguration, SlotId, SoftwareVersion (..))
 import           Pos.Crypto (hashHexF)
 import           Pos.NtpCheck (NtpCheckMonad, NtpStatus (..), getNtpStatusOnce)
 import           Pos.Shutdown (HasShutdownContext, triggerShutdown)
@@ -67,22 +68,27 @@ import           Pos.Wallet.Web.ClientTypes (Addr, CHash, CId (..), CProfile (..
                                              CTxId (..), CUpdateInfo (..), SyncProgress (..),
                                              cIdToAddress)
 import           Pos.Wallet.Web.Error (WalletError (..))
-import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, cancelApplyingPtxs,
+import           Pos.Wallet.Web.State (WalletDbReader, WalletSnapshot, askWalletDB,
+                                       askWalletSnapshot, cancelApplyingPtxs,
                                        cancelSpecificApplyingPtx, getNextUpdate, getProfile,
-                                       getWalletStorage, removeNextUpdate, resetFailedPtxs,
+                                       removeNextUpdate, resetFailedPtxs,
                                        setProfile, testReset)
-import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, testOnlyEndpoint)
 
 ----------------------------------------------------------------------------
 -- Profile
 ----------------------------------------------------------------------------
 
-getUserProfile :: MonadWalletDBRead ctx m => m CProfile
-getUserProfile = getProfile
+getUserProfile :: (WalletDbReader ctx m, MonadIO m) => m CProfile
+getUserProfile = getProfile <$> askWalletSnapshot
 
-updateUserProfile :: MonadWalletDB ctx m => CProfile -> m CProfile
-updateUserProfile profile = setProfile profile >> getUserProfile
+updateUserProfile :: (HasConfiguration, WalletDbReader ctx m, MonadIO m)
+                  => CProfile
+                  -> m CProfile
+updateUserProfile profile = do
+    db <- askWalletDB
+    setProfile db profile
+    getUserProfile
 
 ----------------------------------------------------------------------------
 -- Address
@@ -97,13 +103,20 @@ isValidAddress = pure . isRight . cIdToAddress
 
 -- | Get last update info
 nextUpdate
-    :: (MonadThrow m, MonadWalletDB ctx m, HasUpdateConfiguration)
+    :: ( MonadIO m
+       , HasConfiguration
+       , MonadThrow m
+       , WalletDbReader ctx m
+       , HasUpdateConfiguration
+       )
     => m CUpdateInfo
 nextUpdate = do
-    updateInfo <- getNextUpdate >>= maybeThrow noUpdates
+    ws <- askWalletSnapshot
+    updateInfo <- maybeThrow noUpdates (getNextUpdate ws)
     if isUpdateActual (cuiSoftwareVersion updateInfo)
         then pure updateInfo
-        else removeNextUpdate >> nextUpdate
+        else askWalletDB >>= removeNextUpdate >> nextUpdate
+        --TODO: this should be a single transaction
   where
     isUpdateActual :: SoftwareVersion -> Bool
     isUpdateActual ver = svAppName ver == svAppName curSoftwareVersion
@@ -111,12 +124,18 @@ nextUpdate = do
     noUpdates = RequestError "No updates available"
 
 -- | Postpone next update after restart
-postponeUpdate :: MonadWalletDB ctx m => m NoContent
-postponeUpdate = removeNextUpdate >> return NoContent
+postponeUpdate :: (MonadIO m, HasConfiguration, WalletDbReader ctx m) => m NoContent
+postponeUpdate = askWalletDB >>= removeNextUpdate >> return NoContent
 
 -- | Delete next update info and restart immediately
-applyUpdate :: (MonadWalletDB ctx m, MonadUpdates m) => m NoContent
-applyUpdate = removeNextUpdate >> applyLastUpdate >> return NoContent
+applyUpdate :: ( MonadIO m
+               , HasConfiguration
+               , WalletDbReader ctx m
+               , MonadUpdates m
+               )
+            => m NoContent
+applyUpdate = askWalletDB >>= removeNextUpdate
+              >> applyLastUpdate >> return NoContent
 
 ----------------------------------------------------------------------------
 -- System
@@ -125,7 +144,8 @@ applyUpdate = removeNextUpdate >> applyLastUpdate >> return NoContent
 -- | Triggers shutdown in a short interval after called. Delay is
 -- needed in order for http request to succeed.
 requestShutdown ::
-       ( MonadIO m
+       ( HasConfiguration
+       , MonadIO m
        , MonadReader ctx m
        , WithLogger m
        , HasShutdownContext ctx
@@ -155,33 +175,35 @@ syncProgress = do
 -- NTP (Network Time Protocol) based time difference
 ----------------------------------------------------------------------------
 
-localTimeDifference :: (NtpCheckMonad m, MonadMockable m) => m Word
+localTimeDifference :: (NtpCheckMonad m, MonadMockable m) => m Integer
 localTimeDifference =
     diff <$> getNtpStatusOnce
   where
-    diff :: NtpStatus -> Word
+    diff :: NtpStatus -> Integer
     diff = \case
         NtpSyncOk -> 0
         -- `NtpSyncOk` considered already a `timeDifferenceWarnThreshold`
         -- so that we can return 0 here to show there is no difference in time
-        NtpDesync diff' -> fromIntegral diff'
+        NtpDesync diff' -> toMicroseconds diff'
 
 ----------------------------------------------------------------------------
 -- Reset
 ----------------------------------------------------------------------------
 
 testResetAll ::
-       (HasNodeConfiguration, MonadThrow m, MonadWalletDB ctx m, MonadKeys m)
+       ( HasConfiguration, HasNodeConfiguration, MonadIO m
+       , MonadThrow m, WalletDbReader ctx m, MonadKeys m)
     => m NoContent
-testResetAll =
-    testOnlyEndpoint $ deleteAllSecretKeys >> testReset >> return NoContent
+testResetAll = do
+    db <- askWalletDB
+    testOnlyEndpoint $ deleteAllSecretKeys >> testReset db >> return NoContent
 
 ----------------------------------------------------------------------------
 -- Print wallet state
 ----------------------------------------------------------------------------
 
 data WalletStateSnapshot = WalletStateSnapshot
-    { wssWalletStorage :: WalletStorage
+    { wssWalletStorage :: WalletSnapshot
     } deriving (Generic)
 
 deriveJSON defaultOptions ''WalletStateSnapshot
@@ -192,16 +214,18 @@ instance MimeRender OctetStream WalletStateSnapshot where
 instance Buildable WalletStateSnapshot where
     build _ = "<wallet-state-snapshot>"
 
-dumpState :: MonadWalletDBRead ctx m => m WalletStateSnapshot
-dumpState = WalletStateSnapshot <$> getWalletStorage
+dumpState :: (MonadIO m, WalletDbReader ctx m)
+          => m WalletStateSnapshot
+dumpState = WalletStateSnapshot <$> askWalletSnapshot
 
 ----------------------------------------------------------------------------
 -- Tx resubmitting
 ----------------------------------------------------------------------------
 
-resetAllFailedPtxs :: (MonadSlots ctx m, MonadWalletDB ctx m) => m NoContent
+resetAllFailedPtxs :: (HasConfiguration, MonadSlots ctx m, WalletDbReader ctx m) => m NoContent
 resetAllFailedPtxs = do
-    getCurrentSlotBlocking >>= resetFailedPtxs
+    db <- askWalletDB
+    getCurrentSlotBlocking >>= resetFailedPtxs db
     return NoContent
 
 ----------------------------------------------------------------------------
@@ -277,14 +301,28 @@ instance HasTruncateLogPolicy PendingTxsSummary where
     -- called rarely, and we are very interested in the output
     truncateLogPolicy = identity
 
-cancelAllApplyingPtxs ::
-       (HasNodeConfiguration, MonadThrow m, MonadWalletDB ctx m) => m NoContent
-cancelAllApplyingPtxs = testOnlyEndpoint $ NoContent <$ cancelApplyingPtxs
+cancelAllApplyingPtxs
+    :: ( HasConfiguration
+       , HasNodeConfiguration
+       , MonadIO m
+       , MonadThrow m
+       , WalletDbReader ctx m
+       )
+    => m NoContent
+cancelAllApplyingPtxs = do
+  db <- askWalletDB
+  testOnlyEndpoint $ NoContent <$ cancelApplyingPtxs db
 
 cancelOneApplyingPtx ::
-       (HasNodeConfiguration, MonadThrow m, MonadWalletDB ctx m)
+       ( HasConfiguration
+       , HasNodeConfiguration
+       , MonadThrow m
+       , WalletDbReader ctx m
+       , MonadIO m
+       )
     => CTxId
     -> m NoContent
 cancelOneApplyingPtx cTxId = testOnlyEndpoint $ NoContent <$ do
+    db <- askWalletDB
     txId <- decodeCTypeOrFail cTxId
-    cancelSpecificApplyingPtx txId
+    cancelSpecificApplyingPtx db txId

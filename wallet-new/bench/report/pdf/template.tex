@@ -1,0 +1,122 @@
+\documentclass[11pt,oneside]{book}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{fontspec}
+\usepackage{polyglossia}
+\usepackage{fancyhdr}
+\usepackage[parfill]{parskip}
+\usepackage{hyperref}
+\usepackage{csquotes}
+\usepackage{setspace}
+\usepackage{listings}
+\usepackage{courier}
+\usepackage{color}
+\usepackage{titlesec}
+\usepackage[margin=0.8in,headsep=0.5in,paper=a4paper]{geometry}
+\usepackage{textcomp}
+\usepackage{tikz}
+\usepackage{tikz-cd}
+\usepackage{pgfplots}
+\usepackage{booktabs}
+\usepackage[
+singlelinecheck=false % <-- important
+]{caption}
+\usepackage{longtable}\setlength{\LTleft}{1em}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\def\tightlist{}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\defaultfontfeatures{Ligatures=TeX}
+
+\setmainfont{PT Serif}
+\setsansfont{PT Sans}
+\setmonofont[Scale=1.0]{PT Mono}
+
+\setdefaultlanguage[]{english}
+\setotherlanguage[]{english}
+\newfontfamily\cyrillicfont{PT Serif}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\PassOptionsToPackage{usenames,dvipsnames}{color} % color is loaded by hyperref
+
+\hypersetup{
+    unicode=true,
+    pdftitle={Cardano Wallet Web API v0 Benchmarking},
+    pdfauthor={Middleware Team},
+    pdfsubject={Cardano Wallet Web API v0 Benchmarking},
+    pdfborder={0 0 0},
+    breaklinks=true
+}
+
+\urlstyle{same}
+
+\renewcommand{\href}[2]{#2\footnote{\url{#1}}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries}{}{0pt}{\huge}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usetikzlibrary{arrows,chains,matrix,positioning,scopes,babel}
+\tikzstyle{every node}=[font=\LARGE]
+\tikzcdset{every label/.append style = {font = \large}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\tweetbegin}{\begin{displayquote}}
+\newcommand{\tweetend}{\end{displayquote}}
+\newcommand{\betweentables}{\vspace{8mm}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand*{\mtweetsltitlepage}{\begingroup
+\newlength{\drop} % Command for generating a specific amount of whitespace
+\drop=0.1\textheight % Define the command as 10% of the total text height
+
+\vspace{\drop}
+\centering
+{\Huge Cardano SL Wallet}\\[0.5\baselineskip]
+\vspace{15pt}
+{\Large Web API Benchmarking}\par
+\vspace{15pt}
+{\large \texttt{API v0}}
+
+\vspace{0.25\drop}
+\rule{0.3\textwidth}{0.4pt}\par
+\vspace{\drop}
+
+{\large \textsc{Middleware Team}}\par
+\endgroup}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\pagestyle{empty}
+\mtweetsltitlepage
+\newpage
+\pagestyle{empty}
+
+\hypersetup{linkcolor=black}
+\setcounter{secnumdepth}{0}
+\setcounter{tocdepth}{1}
+\pagestyle{empty}
+
+\doublespacing
+\tableofcontents
+\singlespacing
+
+\thispagestyle{empty}
+\clearpage
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\fontsize{10}{12} \selectfont \rmfamily{\nouppercase\leftmark}}
+\fancyhead[R]{\fontsize{10}{12} \selectfont \rmfamily{\thepage}}
+
+$body$
+
+\end{document}

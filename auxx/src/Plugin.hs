@@ -14,7 +14,8 @@ import           Universum
 import           System.Exit (ExitCode (ExitSuccess))
 import           System.Posix.Process (exitImmediately)
 #endif
-import           Data.Constraint (Dict(..))
+import           Control.Monad.Except (ExceptT (..), withExceptT)
+import           Data.Constraint (Dict (..))
 import           Formatting (float, int, sformat, (%))
 import           Mockable (Delay, Mockable, delay)
 import           Serokell.Util (sec)
@@ -65,7 +66,6 @@ rawExec ::
     -> m ()
 rawExec mHasAuxxMode AuxxOptions{..} mDiffusion = \case
     Left WithCommandAction{..} -> do
-        printAction <- getPrintAction
         printAction "... the auxx plugin is ready"
         forever $ withCommand $ runCmd mHasAuxxMode mDiffusion printAction
     Right cmd -> runWalletCmd mHasAuxxMode mDiffusion cmd
@@ -109,11 +109,15 @@ runCmd ::
     -> m ()
 runCmd mHasAuxxMode mDiffusion printAction line = do
     let commandProcs = createCommandProcs mHasAuxxMode printAction mDiffusion
-    case Lang.parse line of
-        Left parseError -> printAction (Lang.renderAuxxDoc . Lang.ppParseError $ parseError)
-        Right expr -> Lang.evaluate commandProcs expr >>= \case
-            Left evalError -> printAction (Lang.renderAuxxDoc . Lang.ppEvalError $ evalError)
-            Right value -> withValueText printAction value
+        parse = withExceptT Lang.ppParseError . ExceptT . return . Lang.parse
+        resolveCommandProcs =
+            withExceptT Lang.ppResolveErrors . ExceptT . return .
+            Lang.resolveCommandProcs commandProcs
+        evaluate = withExceptT Lang.ppEvalError . ExceptT . Lang.evaluate
+        pipeline = parse >=> resolveCommandProcs >=> evaluate
+    runExceptT (pipeline line) >>= \case
+        Left errDoc -> printAction (Lang.renderAuxxDoc errDoc)
+        Right value -> withValueText printAction value
 
 withValueText :: Monad m => (Text -> m ()) -> Lang.Value -> m ()
 withValueText cont = \case

@@ -27,7 +27,7 @@ import           Pos.Core (HasConfiguration, epochSlots)
 import qualified Pos.Core as Core
 import qualified Pos.Core.Block as T
 import           Pos.Core.Ssc (SscPayload, SscProof)
-import           Pos.Crypto (ProxySecretKey, PublicKey, SecretKey, createPsk, hash, toPublic)
+import           Pos.Crypto (PublicKey, SecretKey, createPsk, hash, toPublic)
 import           Pos.Data.Attributes (areAttributesKnown)
 
 newtype BodyDependsOnSlot b = BodyDependsOnSlot
@@ -257,9 +257,8 @@ recursiveHeaderGen genesis
                 Left sk -> (sk, Nothing)
                 Right (issuerSK, delegateSK) ->
                     let delegatePK = toPublic delegateSK
-                        toPsk :: Bi w => w -> ProxySecretKey w
-                        toPsk = createPsk issuerSK delegatePK
-                        proxy = (toPsk siEpoch, toPublic issuerSK)
+                        proxy = ( createPsk issuerSK delegatePK (Core.HeavyDlgIndex siEpoch)
+                                , toPublic issuerSK)
                     in (delegateSK, Just proxy)
         pure $ T.BlockHeaderMain $
             T.mkMainHeader prevHeader slotId leader proxySK body extraHData

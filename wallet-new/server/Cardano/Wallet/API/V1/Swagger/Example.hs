@@ -4,13 +4,18 @@ import           Universum
 
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
+import           Cardano.Wallet.Orphans.Arbitrary()
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import qualified Pos.Core.Common as Core
 import qualified Pos.Crypto.Signing as Core
 import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
+import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
+import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
 
 import           Test.QuickCheck (Arbitrary (..), Gen, listOf1)
+
 
 class Arbitrary a => Example a where
     example :: Gen a
@@ -61,6 +66,7 @@ instance Example WalletAddress
 instance Example NewAccount
 instance Example AddressValidity
 instance Example NewAddress
+instance Example CUpdateInfo
 
 instance Example InputSelectionPolicy where
     example = pure OptimizeForHighThroughput
@@ -97,6 +103,10 @@ instance Example Payment where
                       <*> example
                       <*> example -- TODO: will produce `Just groupingPolicy`
                       <*> example
+
+instance Example WalletStateSnapshot
+
+
 
 -- IMPORTANT: if executing `grep "[]\|null" wallet-new/spec/swagger.json` returns any element - then we have to add Example instances for those objects because we don't want to see [] or null examples in our docs.
 --

@@ -20,15 +20,15 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Formatting (build, sformat, (%))
 
-import           Pos.Core (EpochIndex, ProxySKHeavy, StakeholderId, addressHash, gbhConsensus)
+import           Pos.Core (EpochIndex, HeavyDlgIndex (..), ProxySKHeavy, StakeholderId, addressHash,
+                           gbhConsensus)
 import           Pos.Core.Block (BlockSignature (..), MainBlockHeader, mainHeaderLeaderKey,
                                  mcdSignature)
 import           Pos.Crypto (HasCryptoConfiguration, ProxySecretKey (..), PublicKey, psigPsk,
                              validateProxySecretKey)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Delegation.Cede.Class (MonadCedeRead (..), getPskPk)
-import           Pos.Delegation.Helpers (isRevokePsk)
-import           Pos.Delegation.Types (DlgMemPool)
+import           Pos.Delegation.Types (DlgMemPool, isRevokePsk)
 import           Pos.Lrc.Types (RichmenSet)
 
 -- | Given an issuer, retrieves all certificate chains starting in
@@ -157,7 +157,7 @@ dlgVerifyPskHeavy ::
     -> EpochIndex
     -> ProxySKHeavy
     -> ExceptT Text m ()
-dlgVerifyPskHeavy richmen (CheckForCycle checkCycle) tipEpoch psk = do
+dlgVerifyPskHeavy richmen (CheckForCycle checkCycle) curEpoch psk = do
 
     -- First: internal validation of the proxy secret key.
     validateProxySecretKey psk
@@ -205,10 +205,10 @@ dlgVerifyPskHeavy richmen (CheckForCycle checkCycle) tipEpoch psk = do
             psk
 
     -- Internal PSK epoch should match current tip epoch.
-    unless (tipEpoch == pskOmega psk) $
+    unless (curEpoch == getHeavyDlgIndex (pskOmega psk)) $
         throwError $ sformat
-            ("PSK "%build%" has epoch which is different from tip epoch "%build)
-            psk tipEpoch
+            ("PSK "%build%" has epoch which is different from the related epoch "%build)
+            psk curEpoch
 
     -- No cycle is created. This check is optional because when
     -- applying blocks we want to check for cycles after bulk

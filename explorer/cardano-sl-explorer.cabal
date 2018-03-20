@@ -43,11 +43,12 @@ library
 
                         Pos.Binary.Explorer
                         Pos.Explorer.Core.Types
+                        Pos.Explorer.Txp.Common
                         Pos.Explorer.Txp.Global
                         Pos.Explorer.Txp.Local
                         Pos.Explorer.Txp.Toil
-                        Pos.Explorer.Txp.Toil.Class
                         Pos.Explorer.Txp.Toil.Logic
+                        Pos.Explorer.Txp.Toil.Monad
                         Pos.Explorer.Txp.Toil.Types
                         Pos.Explorer.BListener
 
@@ -61,10 +62,12 @@ library
                       , ether >= 0.5.1
                       , exceptions
                       , formatting
+                      , free
                       , generic-arbitrary
                       , lens
                       , log-warper
                       , memory
+                      , mmorph
                       , resourcet
                       , rocksdb-haskell-ng
                       , safe-exceptions

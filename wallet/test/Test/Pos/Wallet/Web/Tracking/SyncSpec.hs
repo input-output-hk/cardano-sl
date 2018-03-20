@@ -48,20 +48,20 @@ twoApplyTwoRollbacksSpec :: (HasCompileInfo, HasConfigurations) => Spec
 twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     let k = fromIntegral blkSecurityParam :: Word64
     void $ importSomeWallets (pure emptyPassphrase)
-    genesisWalletDB <- lift WS.getWalletStorage
+    genesisWalletDB <- lift WS.askWalletSnapshot
     applyBlocksCnt1 <- pick $ choose (1, k `div` 2)
     applyBlocksCnt2 <- pick $ choose (1, k `div` 2)
     blunds1 <- wpGenBlocks (Just $ BlockCount applyBlocksCnt1) (EnableTxPayload True) (InplaceDB True)
-    after1ApplyDB <- lift WS.getWalletStorage
+    after1ApplyDB <- lift WS.askWalletSnapshot
     blunds2 <- wpGenBlocks (Just $ BlockCount applyBlocksCnt2) (EnableTxPayload True) (InplaceDB True)
-    after2ApplyDB <- lift WS.getWalletStorage
+    after2ApplyDB <- lift WS.askWalletSnapshot
     let toNE = fromMaybe (error "sequence of blocks are empty") . nonEmptyOldestFirst
     let to1Rollback = toNewestFirst $ toNE blunds2
     let to2Rollback = toNewestFirst $ toNE blunds1
     lift $ rollbackBlocks to1Rollback
-    after1RollbackDB <- lift WS.getWalletStorage
+    after1RollbackDB <- lift WS.askWalletSnapshot
     lift $ rollbackBlocks to2Rollback
-    after2RollbackDB <- lift WS.getWalletStorage
+    after2RollbackDB <- lift WS.askWalletSnapshot
     assertProperty (after1RollbackDB == after1ApplyDB)
         "wallet-db after first apply doesn't equal to wallet-db after first rollback"
     assertProperty (after2RollbackDB == genesisWalletDB)

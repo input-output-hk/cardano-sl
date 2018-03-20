@@ -16,13 +16,12 @@ import           System.Directory (getModificationTime, listDirectory, removeFil
 import           System.FilePath ((</>))
 import           System.Wlog (WithLogger, logDebug, logError)
 
-import           Pos.Wallet.Web.State.State (MonadWalletDBAccess, getWalletWebState)
+import           Pos.Wallet.Web.State.State (WalletDB)
 
 type MonadAcidCleanup ctx m =
     ( MonadIO m
     , MonadMask m
     , WithLogger m
-    , MonadWalletDBAccess ctx m
     , Mockable Delay m
     )
 
@@ -34,23 +33,23 @@ type MonadAcidCleanup ctx m =
 -- * Delete all files in /Archive except for newest one.
 cleanupAcidStatePeriodically ::
        forall m ctx t. (MonadAcidCleanup ctx m, TimeUnit t)
-    => t
+    => WalletDB
+    -> t
     -> m ()
-cleanupAcidStatePeriodically interval = perform
+cleanupAcidStatePeriodically db interval = perform
   where
     perform = cleanupAction `catchAny` handler
 
     cleanupAction = forever $ do
         logDebug "Starting cleanup"
-        est <- getWalletWebState
-        let st = extendedStateToAcid est
+        let st = extendedStateToAcid db
 
         -- checkpoint/archive
         liftIO $ createCheckpoint st >> createArchive st
         logDebug "Created checkpoint/archived"
 
         -- cleanup old archive data
-        let dbPathM = case est of
+        let dbPathM = case db of
                          ESLocal _ p -> Just p
                          _           -> Nothing
         void $ flip catchAny (\e -> logError $ "Got error while cleaning up archive: " <> show e) $

@@ -67,7 +67,8 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     srcAccount <- maybeStopProperty noOneAccount =<< (lift $ head <$> getAccounts (Just walId))
     srcAccId <- lift $ decodeCTypeOrFail (caId srcAccount)
 
-    srcAddr <- getAddress srcAccId
+    ws <- WS.askWalletSnapshot
+    srcAddr <- getAddress ws srcAccId
     -- Dunno how to get account's balances without CAccModifier
     initBalance <- getBalance srcAddr
     -- `div` 2 to leave money for tx fee
@@ -102,9 +103,10 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     assertProperty (changeBalance <= initBalance `unsafeSubCoin` fee) $
         "Minimal tx fee isn't satisfied"
 
+    ws' <- WS.askWalletSnapshot
     -- Validate that tx meta was added when transaction was processed
     forM_ (ordNub $ walId:dstWalIds) $ \wId -> do
-        txMetas <- maybeStopProperty "Wallet doesn't exist" =<< lift (WS.getWalletTxHistory wId)
+        txMetas <- maybeStopProperty "Wallet doesn't exist" (WS.getWalletTxHistory ws' wId)
         void $ expectedOne "TxMeta for wallet" txMetas
 
     -- Validate change and used address
@@ -113,10 +115,10 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     -- expectedUserAddresses
     -- expectedChangeAddresses
   where
-    getAddress srcAccId =
+    getAddress ws srcAccId =
         lift . decodeCTypeOrFail . cwamId . adiCWAddressMeta =<<
         expectedOne "address" =<<
-        lift (getAccountAddrsOrThrow WS.Existing srcAccId)
+        lift (getAccountAddrsOrThrow ws WS.Existing srcAccId)
     oneNewPaymentBatchDesc =
         "Send money from one own address to multiple own addresses; " <>
         "check balances validity for destination addresses, source address and change address; " <>

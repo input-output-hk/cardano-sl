@@ -19,7 +19,7 @@ import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
 import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
 import           Pos.Wallet.Web.Sockets (ConnectionsVar)
-import           Pos.Wallet.Web.State (WalletState)
+import           Pos.Wallet.Web.State (WalletDB)
 import           Pos.WorkMode (RealModeContext (..))
 import           Serokell.AcidState.ExtendedState
 import           Servant
@@ -143,7 +143,7 @@ testV1Context =
                          <*> testAddrCIdHashes
                          <*> testRealModeContext
   where
-    testStorage :: IO WalletState
+    testStorage :: IO WalletDB
     testStorage = openMemoryExtendedState def
 
     testConnectionsVar :: IO ConnectionsVar

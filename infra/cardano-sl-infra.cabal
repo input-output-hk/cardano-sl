@@ -9,6 +9,7 @@ maintainer:          hi@serokell.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
@@ -52,7 +53,7 @@ library
 
                         -- Pos.DHT
                         Pos.DHT
-                        Pos.DHT.Configuration
+                        Pos.DHT.Constants
                         Pos.DHT.Model
                         Pos.DHT.Model.Types
                         Pos.DHT.Real
@@ -62,7 +63,7 @@ library
                         Pos.DHT.Real.CLI
 
                         -- Pos.Communication
-                        Pos.Communication.Configuration
+                        Pos.Communication.Constants
                         Pos.Communication.Types.Protocol
                         Pos.Communication.Types.Relay
                         Pos.Communication.BiP
@@ -145,7 +146,6 @@ library
                       , cardano-sl-networking
                       , cardano-sl-util
                       , cardano-report-server >= 0.4.5
-                      , conduit
                       , containers
                       , directory
                       , dns
@@ -157,7 +157,7 @@ library
                       , filepath
                       , formatting
                       , generic-arbitrary
-                      , lzma-conduit
+                      , lzma
                       , hashable
                       , http-client
                       , http-client-tls
@@ -165,7 +165,6 @@ library
                       , kademlia
                       , lens
                       , log-warper >= 1.0.3
-                      , monad-control
                       , mtl
                       , network-info
                       , network-transport

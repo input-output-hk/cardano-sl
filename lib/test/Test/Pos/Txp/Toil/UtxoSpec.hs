@@ -32,9 +32,11 @@ import           Pos.Script.Examples (alwaysSuccessValidator, badIntRedeemer, go
                                       intValidator, intValidatorWithBlah, multisigRedeemer,
                                       multisigValidator, shaStressRedeemer, sigStressRedeemer,
                                       stdlibValidator)
-import           Pos.Txp (MonadUtxoRead (utxoGet), ToilVerFailure (..), Utxo, VTxContext (..),
-                          WitnessVerFailure (..), applyTxToUtxoPure, verifyTxUtxo, verifyTxUtxoPure)
+import           Pos.Txp (ToilVerFailure (..), Utxo, VTxContext (..), VerifyTxUtxoRes,
+                          WitnessVerFailure (..), applyTxToUtxo, evalUtxoM, execUtxoM, utxoGet,
+                          utxoToLookup, verifyTxUtxo)
 import           Pos.Util (SmallGenerator (..), nonrepeating, runGen)
+import qualified Pos.Util.Modifier as MM
 import           Pos.Util.QuickCheck.Property (qcIsLeft, qcIsRight)
 
 import           Test.Pos.Configuration (withDefConfiguration)
@@ -45,20 +47,20 @@ import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Txp.Toil.Utxo" $ do
-    describe "utxoGet @((->) Utxo)" $ do
+    describe "utxoGet (no modifier)" $ do
         it "returns Nothing when given empty Utxo" $
-            isNothing (utxoGet myTx (mempty @Utxo))
+            isNothing (utxoGetSimple mempty myTxIn)
         prop description_findTxInUtxo findTxInUtxo
     describe "verifyTxUtxo" $ do
         prop description_verifyTxInUtxo verifyTxInUtxo
         prop description_validateGoodTx validateGoodTx
         prop description_badSigsTx badSigsTx
         prop description_doubleInputTx doubleInputTx
-    describe "applyTxToUtxoPure" $ do
+    describe "applyTxToUtxo" $ do
         prop description_applyTxToUtxoGood applyTxToUtxoGood
     scriptTxSpec
   where
-    myTx = TxInUtxo myHash 0
+    myTxIn = TxInUtxo myHash 0
     myHash = unsafeHash @Int32 0
     description_findTxInUtxo =
         "correctly finds the TxOut corresponding to (txHash, txIndex) when the key is in\
@@ -84,7 +86,8 @@ findTxInUtxo :: HasConfiguration => TxIn -> TxOutAux -> Utxo -> Bool
 findTxInUtxo key txO utxo =
     let utxo' = M.delete key utxo
         newUtxo = M.insert key txO utxo
-    in (isJust $ utxoGet key newUtxo) && (isNothing $ utxoGet key utxo')
+     in (isJust $ utxoGetSimple newUtxo key) &&
+        (isNothing $ utxoGetSimple utxo' key)
 
 verifyTxInUtxo :: HasConfiguration => SmallGenerator GoodTx -> Property
 verifyTxInUtxo (SmallGenerator (GoodTx ls)) =
@@ -101,7 +104,7 @@ verifyTxInUtxo (SmallGenerator (GoodTx ls)) =
         txAux = TxAux newTx witness
     in counterexample ("\n"+|nameF "txs" (blockListF' "-" genericF txs)|+""
                            +|nameF "transaction" (B.build txAux)|+"") $
-       qcIsRight $ verifyTxUtxoPure vtxContext utxo txAux
+       qcIsRight $ verifyTxUtxoSimple vtxContext utxo txAux
 
 badSigsTx :: HasConfiguration => SmallGenerator BadSigsTx -> Property
 badSigsTx (SmallGenerator (getBadSigsTx -> ls)) =
@@ -109,7 +112,7 @@ badSigsTx (SmallGenerator (getBadSigsTx -> ls)) =
             getTxFromGoodTx ls
         ctx = VTxContext False
         transactionVerRes =
-            verifyTxUtxoPure ctx utxo $ TxAux tx txWits
+            verifyTxUtxoSimple ctx utxo $ TxAux tx txWits
         notAllSignaturesAreValid =
             any (signatureIsNotValid tx)
                 (NE.zip (NE.fromList (toList txWits))
@@ -122,7 +125,7 @@ doubleInputTx (SmallGenerator (getDoubleInputTx -> ls)) =
             getTxFromGoodTx ls
         ctx = VTxContext False
         transactionVerRes =
-            verifyTxUtxoPure ctx utxo $ TxAux tx txWits
+            verifyTxUtxoSimple ctx utxo $ TxAux tx txWits
         someInputsAreDuplicated =
             not $ allDistinct (toList _txInputs)
     in someInputsAreDuplicated ==> qcIsLeft transactionVerRes
@@ -132,13 +135,26 @@ validateGoodTx (SmallGenerator (getGoodTx -> ls)) =
     let quadruple@(tx, utxo, _, txWits) = getTxFromGoodTx ls
         ctx = VTxContext False
         transactionVerRes =
-            verifyTxUtxoPure ctx utxo $ TxAux tx txWits
+            verifyTxUtxoSimple ctx utxo $ TxAux tx txWits
         transactionReallyIsGood = individualTxPropertyVerifier quadruple
     in transactionReallyIsGood ==> qcIsRight transactionVerRes
 
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
+
+utxoGetSimple :: Utxo -> TxIn -> Maybe TxOutAux
+utxoGetSimple utxo txIn = evalUtxoM mempty (utxoToLookup utxo) (utxoGet txIn)
+
+verifyTxUtxoSimple ::
+       HasConfiguration
+    => VTxContext
+    -> Utxo
+    -> TxAux
+    -> Either ToilVerFailure VerifyTxUtxoRes
+verifyTxUtxoSimple ctx utxo txAux =
+    evalUtxoM mempty (utxoToLookup utxo) . runExceptT $
+    verifyTxUtxo ctx txAux
 
 type TxVerifyingTools =
     (Tx, Utxo, NonEmpty (Maybe (TxIn, TxOutAux)), TxWitness)
@@ -224,7 +240,10 @@ applyTxToUtxoGood (txIn0, txOut0) txMap txOuts =
         tx = UnsafeTx inpList (map toaOut txOuts) (mkAttributes ())
         -- Initial utxo
         initUtxo = M.fromList $ toList $ NE.zip inpList (txOut0 :| M.elems txMap)
-        resultUtxo = applyTxToUtxoPure (withHash tx) initUtxo
+        resultModifier =
+            execUtxoM mempty (utxoToLookup initUtxo)
+            (applyTxToUtxo (withHash tx))
+        resultUtxo = MM.modifyMap resultModifier initUtxo
 
         -- Inserted tx outputs
         newUtxosInputs =
@@ -412,7 +431,9 @@ scriptTxSpec = describe "script transactions" $ do
     -- Try to apply a transaction (with given utxo as context) and say
     -- whether it applied successfully
     tryApplyTx :: HasConfiguration => Utxo -> TxAux -> Either ToilVerFailure ()
-    tryApplyTx utxo txa = runExceptT (() <$ verifyTxUtxo vtxContext txa) utxo
+    tryApplyTx utxo txa =
+        evalUtxoM mempty (utxoToLookup utxo) . runExceptT $
+        () <$ verifyTxUtxo vtxContext txa
 
     -- Test tx1 against tx0. Tx0 will be a script transaction with given
     -- validator. Tx1 will be a P2PK transaction spending tx0 (with given

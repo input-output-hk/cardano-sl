@@ -18,6 +18,7 @@ module Pos.Wallet.Web.Server.Launcher
 import           Universum
 
 import           Network.Wai (Application)
+import           Network.Wai.Handler.Warp (Settings)
 import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Servant.Server (Handler, Server, serve)
 import           System.Wlog (WithLogger, logInfo)
@@ -50,6 +51,7 @@ walletServeImpl
     => m Application     -- ^ Application getter
     -> NetworkAddress    -- ^ IP and port to listen
     -> Maybe TlsParams
+    -> Maybe Settings
     -> m ()
 walletServeImpl app (ip, port) = serveImpl app (BS8.unpack ip) port
 

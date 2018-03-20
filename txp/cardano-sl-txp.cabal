@@ -9,6 +9,7 @@ maintainer:          hi@serokell.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
@@ -23,19 +24,17 @@ library
 
     Pos.Txp.GenesisUtxo
     Pos.Txp.Toil
-    Pos.Txp.Toil.Stakes
-    Pos.Txp.Toil.Class
-    Pos.Txp.Toil.DBToil
     Pos.Txp.Toil.Failure
     Pos.Txp.Toil.Logic
-    Pos.Txp.Toil.Trans
+    Pos.Txp.Toil.Monad
+    Pos.Txp.Toil.Stakes
     Pos.Txp.Toil.Types
     Pos.Txp.Toil.Utxo
     Pos.Txp.Toil.Utxo.Functions
-    Pos.Txp.Toil.Utxo.Pure
     Pos.Txp.Toil.Utxo.Util
 
     Pos.Txp.Logic
+    Pos.Txp.Logic.Common
     Pos.Txp.Logic.Global
     Pos.Txp.Logic.Local
 
@@ -87,6 +86,7 @@ library
                      , exceptions
                      , fmt >= 0.4
                      , formatting
+                     , free
                      , generic-arbitrary
                      , hashable
                      , lens

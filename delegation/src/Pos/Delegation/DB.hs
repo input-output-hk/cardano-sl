@@ -63,7 +63,7 @@ import           Pos.DB (RocksBatchOp (..), dbSerializeValue, encodeWithKeyPrefi
 import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), MonadDB, MonadDBRead (..))
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
 import           Pos.Delegation.Cede.Types (DlgEdgeAction (..))
-import           Pos.Delegation.Helpers (isRevokePsk)
+import           Pos.Delegation.Types (isRevokePsk)
 
 ----------------------------------------------------------------------------
 -- Getters/direct accessors

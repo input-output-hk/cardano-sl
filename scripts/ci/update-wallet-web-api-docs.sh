@@ -21,7 +21,7 @@ nix-shell -p nodejs-7_x --run "bootprint openapi ${SWAGGER_WALLET_API_JSON_SPEC}
 nix-shell -p nodejs-7_x --run "html-inline ${WALLET_API_PRODUCED_ROOT}/${WALLET_API_HTML} > ${WALLET_API_HTML}"
 
 echo "**** 3. Cloning cardanodocs.com repository ****"
-# Variable ${GITHUB_CARDANO_DOCS_ACCESS} already stored in Travis CI settings for 'cardano-sl' repository.
+# Variable ${GITHUB_CARDANO_DOCS_ACCESS} must be set by the CI system.
 # This token gives us an ability to push into docs repository.
 
 rm -rf "${CARDANO_DOCS_REPO}"

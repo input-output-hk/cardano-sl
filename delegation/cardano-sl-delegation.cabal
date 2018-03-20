@@ -9,6 +9,7 @@ maintainer:          hi@serokell.io
 copyright:           2017 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
@@ -18,7 +19,6 @@ library
                        Pos.Delegation.Class
                        Pos.Delegation.Configuration
                        Pos.Delegation.DB
-                       Pos.Delegation.Helpers
                        Pos.Delegation.Listeners
                        Pos.Delegation.Logic
                        Pos.Delegation.Lrc

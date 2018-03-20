@@ -14,7 +14,7 @@ stack exec --nix -- "${DOCUMENTER}" --bin-dir "${PATH_TO_DIR_WITH_EXECUTABLES}"
 # Done, 'RAW_CHAPTER_NAME' file is already here.
 
 echo "**** 2. Cloning cardanodocs.com repository ****"
-# Variable ${GITHUB_CARDANO_DOCS_ACCESS_2} already stored in Travis CI settings for 'cardano-sl' repository.
+# Variable ${GITHUB_CARDANO_DOCS_ACCESS_2} must be set by the CI system.
 # This token gives us an ability to push into docs repository.
 
 rm -rf "${CARDANO_DOCS_REPO}"

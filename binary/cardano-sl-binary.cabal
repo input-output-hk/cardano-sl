@@ -10,6 +10,7 @@ maintainer:          hi@serokell.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
@@ -37,23 +38,14 @@ library
                      , hashable
                      , lens
                      , mtl
-                     , parsec
-                     , process
-                     , quickcheck-instances
                      , safe-exceptions
-                     , semigroups
                      , serokell-util
-                     , stm
                      , tagged
                      , template-haskell
                      , text
-                     , th-lift-instances
                      , th-utilities
-                     , time
                      , time-units
                      , transformers
-                     , transformers-base
-                     , transformers-lift
                      , universum
                      , unordered-containers
                      , vector

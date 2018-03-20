@@ -40,7 +40,7 @@ import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import qualified Options.Applicative as Opt
 import           Serokell.Util.OptParse (fromParsec)
-import           System.Wlog (HasLoggerName, LoggerNameBox, WithLogger, askLoggerName, logError,
+import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName, logError,
                               logNotice, usingLoggerName)
 
 import qualified Pos.DHT.Real.Param as DHT (KademliaParams (..), MalformedDHTKey (..),
@@ -178,7 +178,7 @@ defaultDnsDomains = DnsDomains [
 ----------------------------------------------------------------------------
 
 data MonitorEvent
-    = MonitorRegister (Peers NodeId -> LoggerNameBox IO ())
+    = MonitorRegister (Peers NodeId -> IO ())
     | MonitorSIGHUP
 
 -- | Monitor for changes to the static config
@@ -188,6 +188,7 @@ monitorStaticConfig ::
     -> Peers NodeId -- ^ Initial value
     -> LoggerNameBox IO T.StaticPeers
 monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
+    lname <- askLoggerName
     events :: Chan MonitorEvent <- liftIO newChan
 
 #ifdef POSIX
@@ -196,12 +197,12 @@ monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
 
     return T.StaticPeers {
         T.staticPeersOnChange = writeChan events . MonitorRegister
-      , T.staticPeersMonitoring = loop events initPeers []
+      , T.staticPeersMonitoring = usingLoggerName lname $ loop events initPeers []
       }
   where
     loop :: Chan MonitorEvent
          -> Peers NodeId
-         -> [Peers NodeId -> LoggerNameBox IO ()]
+         -> [Peers NodeId -> IO ()]
          -> LoggerNameBox IO ()
     loop events peers handlers = liftIO (readChan events) >>= \case
         MonitorRegister handler -> do
@@ -232,9 +233,9 @@ monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
                 logError $ readFailed fp ex
                 loop events peers handlers
 
-    runHandler :: forall t . t -> (t -> LoggerNameBox IO ()) -> LoggerNameBox IO ()
+    runHandler :: forall t . t -> (t -> IO ()) -> LoggerNameBox IO ()
     runHandler it handler = do
-        mu <- try (handler it)
+        mu <- liftIO $ try (handler it)
         case mu of
           Left  ex -> logError $ handlerError ex
           Right () -> return ()
@@ -253,10 +254,8 @@ monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
         "Exception thrown by staticPeersOnChange handler: " % shown % ". Ignored."
 
 launchStaticConfigMonitoring ::
-       (HasLoggerName m, MonadIO m) => T.Topology k -> m ()
-launchStaticConfigMonitoring topology = do
-    loggerName <- askLoggerName
-    liftIO . usingLoggerName loggerName $ action
+       (MonadIO m) => T.Topology k -> m ()
+launchStaticConfigMonitoring topology = liftIO action
   where
     action =
         case topology of

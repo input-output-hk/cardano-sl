@@ -17,8 +17,9 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
-import           Pos.Core (AddrStakeDistribution (..), Address, SoftwareVersion (..), StakeholderId,
-                           addressHash, mkMultiKeyDistr, unsafeGetCoin)
+import           Pos.Core (AddrStakeDistribution (..), Address, HeavyDlgIndex (..),
+                           SoftwareVersion (..), StakeholderId, addressHash, mkMultiKeyDistr,
+                           unsafeGetCoin)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..), makeAddress)
 import           Pos.Core.Configuration (genesisSecretKeys)
 import           Pos.Core.Txp (TxOut (..))
@@ -41,8 +42,8 @@ import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddr
                                        tyBool, tyByte, tyCoin, tyCoinPortion, tyEither,
                                        tyEpochIndex, tyFilePath, tyHash, tyInt,
                                        tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
-                                       tySecond, tySoftwareVersion, tyStakeholderId,
-                                       tySystemTag, tyTxOut, tyValue, tyWord, tyWord32)
+                                       tySecond, tySoftwareVersion, tyStakeholderId, tySystemTag,
+                                       tyTxOut, tyValue, tyWord, tyWord32)
 import qualified Command.Update as Update
 import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
 import           Lang.Command (CommandProc (..), UnavailableCommand (..))
@@ -369,7 +370,7 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
         withSafeSigner issuerSk (pure emptyPassphrase) $ \case
             Nothing -> logError "Invalid passphrase"
             Just ss -> do
-                let psk = safeCreatePsk ss delegatePk curEpoch
+                let psk = safeCreatePsk ss delegatePk (HeavyDlgIndex curEpoch)
                 if dry
                 then do
                     printAction $

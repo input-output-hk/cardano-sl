@@ -51,15 +51,19 @@ import           Data.Constraint ((\\))
 import           Data.Constraint.Forall (Forall, inst)
 import           Data.Default (Default (..))
 import           Data.Reflection (Reifies (..), reflect)
+import qualified Data.Text as T
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Formatting (bprint, build, builder, fconst, formatToString, sformat, shown, stext,
                              string, (%))
+import           GHC.IO.Unsafe (unsafePerformIO)
 import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
 import           Servant.API ((:<|>) (..), (:>), Capture, Description, QueryParam,
                               ReflectMethod (..), ReqBody, Summary, Verb)
+import           Servant.Client (Client, HasClient (..))
+import           Servant.Client.Core (RunClient)
 import           Servant.Server (Handler (..), HasServer (..), ServantErr (..), Server)
 import qualified Servant.Server.Internal as SI
 import           Servant.Swagger (HasSwagger (toSwagger))
@@ -281,6 +285,25 @@ instance HasSwagger (apiType a :> res) =>
     toSwagger _ = toSwagger (Proxy @(apiType a :> res))
 
 -------------------------------------------------------------------------
+-- HasClient instances we need for benchmarking.
+-------------------------------------------------------------------------
+
+instance HasClient m (apiType a :> res) => HasClient m (CDecodeApiArg apiType a :> res) where
+    type Client m (CDecodeApiArg apiType a :> res) = Client m (apiType a :> res)
+    clientWithRoute p _ req = clientWithRoute p (Proxy @(apiType a :> res)) req
+
+instance HasClient m (apiType a :> res) =>
+         HasClient m (WithDefaultApiArg apiType a :> res) where
+    type Client m (WithDefaultApiArg apiType a :> res) = Client m (apiType a :> res)
+    clientWithRoute p _ req = clientWithRoute p (Proxy @(apiType a :> res)) req
+
+instance (RunClient m, HasClient m (Verb mt st ct $ ApiModifiedRes mod a)) =>
+         HasClient m (VerbMod mod (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
+    type Client m (VerbMod mod (Verb mt st ct a)) = Client m (Verb mt st ct $ ApiModifiedRes mod a)
+    clientWithRoute p _ req =
+        clientWithRoute p (Proxy @(Verb mt st ct $ ApiModifiedRes mod a)) req
+
+-------------------------------------------------------------------------
 -- Logging
 -------------------------------------------------------------------------
 
@@ -466,6 +489,24 @@ instance HasLoggingServer config res ctx =>
          HasLoggingServer config (Description d :> res) ctx where
     routeWithLog = inRouteServer @(Description d :> LoggingApiRec config res) route identity
 
+
+-- | Unique identifier for request-response pair.
+newtype RequestId = RequestId Integer
+
+instance Buildable RequestId where
+    build (RequestId id) = bprint ("#"%build) id
+
+-- | We want all servant servers to have non-overlapping ids,
+-- so using singleton counter here.
+requestsCounter :: TVar Integer
+requestsCounter = unsafePerformIO $ newTVarIO 0
+{-# NOINLINE requestsCounter #-}
+
+nextRequestId :: MonadIO m => m RequestId
+nextRequestId = atomically $ do
+    modifyTVar' requestsCounter (+1)
+    RequestId <$> readTVar requestsCounter
+
 -- | Modify an action so that it performs all the required logging.
 applyServantLogging
     :: ( MonadIO m
@@ -482,9 +523,11 @@ applyServantLogging
     -> m a
 applyServantLogging configP methodP paramsInfo showResponse action = do
     timer <- mkTimer
-    catchErrors timer $ do
+    reqId <- nextRequestId
+    catchErrors reqId timer $ do
+        reportRequest reqId
         res <- action
-        reportResponse timer res
+        reportResponse reqId timer res
         return res
   where
     method = decodeUtf8 $ reflectMethod methodP
@@ -509,15 +552,13 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
     eParamLogs :: Either Text SecuredText
     eParamLogs = case paramsInfo of
         ApiParamsLogInfo info -> Right $ \sl ->
-            let params =
-                  mconcat $ reverse info <&> \securedParamsInfo ->
-                      sformat ("    "%stext%" "%stext%"\n")
-                          (colorizeDull White ":>")
-                          (securedParamsInfo sl)
-            in  sformat ("\n"%stext%"\n"%build) cmethod params
+            T.intercalate "\n" $ reverse info <&> \securedParamsInfo ->
+                sformat ("    "%stext%" "%stext)
+                    (colorizeDull White ":>")
+                    (securedParamsInfo sl)
         ApiNoParamsLogInfo why -> Left why
-    logWithParamInfo :: MonadIO m => SecuredText -> m ()
-    logWithParamInfo securedText =
+    reportRequest :: MonadIO m => RequestId -> m ()
+    reportRequest reqId =
         case eParamLogs of
             Left e ->
                 inLogCtx $ logInfoSP $ \sl ->
@@ -525,34 +566,38 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
                         (colorizeDull Red "Unexecuted request due to error") e
             Right paramLogs -> do
                 inLogCtx $ logInfoSP $ \sl ->
-                    sformat (build%" "%build) (paramLogs sl) (securedText sl)
-    reportResponse timer resp = do
+                    sformat ("\n"%stext%" "%stext%"\n"%build)
+                        cmethod
+                        (colorizeDull White $ "Request " <> pretty reqId)
+                        (paramLogs sl)
+    responseTag reqId = "Response " <> pretty reqId
+    reportResponse reqId timer resp = do
         durationText <- timer
-        logWithParamInfo $ \sl ->
-            sformat ("  "%stext%" "%stext%" "%stext
+        inLogCtx $ logInfoSP $ \sl ->
+            sformat ("\n    "%stext%" "%stext%" "%stext
                     %plainOrSecureF sl (stext%stext) (fconst ""%fconst ""))
-                (colorizeDull White "Status:")
+                (colorizeDull White $ responseTag reqId)
                 (colorizeDull Green "OK")
                 durationText
                 (colorizeDull White " > ")
                 (showResponse resp)
-    catchErrors st =
-        flip catchError (servantErrHandler st) .
-        handleAny (exceptionsHandler st)
-    servantErrHandler timer err@ServantErr{..} = do
+    catchErrors reqId st =
+        flip catchError (servantErrHandler reqId st) .
+        handleAny (exceptionsHandler reqId st)
+    servantErrHandler reqId timer err@ServantErr{..} = do
         durationText <- timer
         let errMsg = sformat (build%" "%string) errHTTPCode errReasonPhrase
-        logWithParamInfo $ \_sl ->
-            sformat ("  "%stext%" "%stext%" "%stext)
-                (colorizeDull White "Status: ")
+        inLogCtx $ logInfoSP $ \_sl ->
+            sformat ("\n    "%stext%" "%stext%" "%stext)
+                (colorizeDull White $ responseTag reqId)
                 (colorizeDull Red errMsg)
                 durationText
         throwError err
-    exceptionsHandler timer e = do
+    exceptionsHandler reqId timer e = do
         durationText <- timer
-        logWithParamInfo $ \_sl ->
-            sformat ("  "%stext%" "%shown%" "%stext)
-                (colorizeDull Red "Error")
+        inLogCtx $ logInfoSP $ \_sl ->
+            sformat ("\n    "%stext%" "%shown%" "%stext)
+                (colorizeDull Red $ responseTag reqId)
                 e
                 durationText
         throwM e

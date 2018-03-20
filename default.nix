@@ -48,12 +48,13 @@ let
         };
       });
 
+      cardano-sl-wallet-static = justStaticExecutables super.cardano-sl-wallet;
       cardano-sl-networking = dontCheck super.cardano-sl-networking;
       cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
       cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
       cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
       cardano-sl-node = addGitRev super.cardano-sl-node;
-      cardano-sl-wallet = addGitRev (justStaticExecutables super.cardano-sl-wallet);
+      cardano-sl-wallet-new = addGitRev (justStaticExecutables super.cardano-sl-wallet-new);
       cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;

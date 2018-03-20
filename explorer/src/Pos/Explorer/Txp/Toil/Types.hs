@@ -1,13 +1,12 @@
 -- | Additional types used by explorer's toil.
 
 module Pos.Explorer.Txp.Toil.Types
-       ( ExplorerExtra (..)
-       , EToilModifier
-       , eeLocalTxsExtra
-       , eeAddrHistories
-       , eeAddrBalances
-       , eeNewUtxoSum
-       , ExplorerExtraTxp (..)
+       ( ExplorerExtraModifier (..)
+       , eemLocalTxsExtra
+       , eemAddrHistories
+       , eemAddrBalances
+       , eemNewUtxoSum
+       , ExplorerExtraLookup (..)
        ) where
 
 import           Universum
@@ -17,36 +16,35 @@ import           Data.Default (Default, def)
 
 import           Pos.Core (Address, Coin, TxId)
 import           Pos.Explorer.Core (AddrHistory, TxExtra)
-import           Pos.Txp.Toil (GenericToilModifier)
 import qualified Pos.Util.Modifier as MM
 
 type TxMapExtra = MM.MapModifier TxId TxExtra
 type UpdatedAddrHistories = HashMap Address AddrHistory
 type TxMapBalances = MM.MapModifier Address Coin
 
-data ExplorerExtra = ExplorerExtra
-    { _eeLocalTxsExtra :: !TxMapExtra
-    , _eeAddrHistories :: !UpdatedAddrHistories
-    , _eeAddrBalances  :: !TxMapBalances
-    , _eeNewUtxoSum    :: !(Maybe Integer)
+-- | Modifier of extra data stored by explorer.
+data ExplorerExtraModifier = ExplorerExtraModifier
+    { _eemLocalTxsExtra :: !TxMapExtra
+    , _eemAddrHistories :: !UpdatedAddrHistories
+    , _eemAddrBalances  :: !TxMapBalances
+    , _eemNewUtxoSum    :: !(Maybe Integer)
     }
 
-makeLenses ''ExplorerExtra
+makeLenses ''ExplorerExtraModifier
 
-instance Default ExplorerExtra where
+instance Default ExplorerExtraModifier where
     def =
-        ExplorerExtra
-        { _eeLocalTxsExtra = mempty
-        , _eeAddrHistories = mempty
-        , _eeAddrBalances  = mempty
-        , _eeNewUtxoSum    = Nothing
+        ExplorerExtraModifier
+        { _eemLocalTxsExtra = mempty
+        , _eemAddrHistories = mempty
+        , _eemAddrBalances  = mempty
+        , _eemNewUtxoSum    = Nothing
         }
 
-type EToilModifier = GenericToilModifier ExplorerExtra
-
-data ExplorerExtraTxp = ExplorerExtraTxp
-    { eetTxExtra       :: !(HashMap TxId TxExtra)
-    , eetAddrHistories :: !(HashMap Address AddrHistory)
-    , eetAddrBalances  :: !(HashMap Address Coin)
-    , eetUtxoSum       :: !Integer
+-- | Functions to get extra data stored by explorer.
+data ExplorerExtraLookup = ExplorerExtraLookup
+    { eelGetTxExtra     :: TxId -> Maybe TxExtra
+    , eelGetAddrHistory :: Address -> AddrHistory
+    , eelGetAddrBalance :: Address -> Maybe Coin
+    , eelGetUtxoSum     :: !Integer
     }

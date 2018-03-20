@@ -1,5 +1,9 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE DefaultSignatures          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE UndecidableInstances       #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Abstract definition of a wallet
 module Wallet.Abstract (
@@ -7,6 +11,9 @@ module Wallet.Abstract (
     IsWallet(..)
   , Ours
   , Pending
+  , walletBoot
+    -- * Abstract definition of rollback
+  , Rollback(..)
     -- * Inductive wallet definition
   , Inductive(..)
   , interpret
@@ -16,21 +23,42 @@ module Wallet.Abstract (
     -- ** Testing
   , walletInvariants
   , walletEquivalent
+    -- ** Generation
+    -- $generation
+  , InductiveWithOurs(..)
+  , genFromBlockchain
+  , genFromBlockchainPickingAccounts
     -- * Auxiliary operations
   , balance
   , txIns
   , txOuts
+  , updateUtxo
   , updatePending
   , utxoRestrictToOurs
   ) where
 
-import Universum
 import qualified Data.Foldable as Fold
-import qualified Data.Set      as Set
-import qualified Data.Map      as Map
+import qualified Data.Map as Map
+import qualified Data.Set as Set
+import           Universum
 
-import UTxO.DSL
-import UTxO.Crypto
+import qualified Data.IntMap as IntMap
+import qualified Data.List as List
+import qualified Data.Text.Buildable
+import           Formatting (bprint, build, sformat, (%))
+import           Pos.Util (HasLens', lensOf')
+import           Pos.Util.Chrono
+import           Pos.Util.QuickCheck.Arbitrary (sublistN)
+import           Serokell.Util (listJson)
+import           Test.QuickCheck
+
+import           Util
+import           Util.Validated
+import           UTxO.BlockGen (divvyUp, selectDestinations')
+import           UTxO.Context
+import           UTxO.Crypto
+import           UTxO.DSL
+import           UTxO.PreChain
 
 {-------------------------------------------------------------------------------
   Wallet type class
@@ -44,13 +72,23 @@ type Pending h a = Set (Transaction h a)
 
 -- | Abstract definition of a wallet
 class (Hash h a, Ord a) => IsWallet w h a where
-  pending    :: w h a -> Pending h a
   utxo       :: w h a -> Utxo h a
   ours       :: w h a -> Ours a
   applyBlock :: Block h a -> w h a -> w h a
-  newPending :: Transaction h a -> w h a -> Maybe (w h a)
 
   -- Operations with default implementations
+
+  pending :: w h a -> Pending h a
+  default pending :: HasLens' (w h a) (Pending h a)
+                  => w h a -> Pending h a
+  pending w = w ^. lensOf'
+
+  newPending :: Transaction h a -> w h a -> Maybe (w h a)
+  default newPending :: HasLens' (w h a) (Pending h a)
+                     => Transaction h a -> w h a -> Maybe (w h a)
+  newPending tx w = do
+      guard $ trIns tx `Set.isSubsetOf` utxoDomain (available w)
+      return $ w & lensOf' %~ Set.insert tx
 
   availableBalance :: IsWallet w h a => w h a -> Value
   availableBalance = balance . available
@@ -67,10 +105,18 @@ class (Hash h a, Ord a) => IsWallet w h a where
   total :: IsWallet w h a => w h a -> Utxo h a
   total w = available w `utxoUnion` change w
 
--- | Variation on 'newPending' which simply ignores any transactions
--- that do not belong to us
-newPending' :: IsWallet w h a => Transaction h a -> w h a -> w h a
-newPending' tx w = fromMaybe w $ newPending tx w
+-- | Wallet state after the bootstrap transaction
+walletBoot :: (IsWallet w h a, Hash h a, Ord a)
+           => (Ours a -> w h a) -- ^ Wallet constructor
+           -> Ours a -> Transaction h a -> w h a
+walletBoot mkWallet p boot = applyBlock (OldestFirst [boot]) $ mkWallet p
+
+{-------------------------------------------------------------------------------
+  Rollback
+-------------------------------------------------------------------------------}
+
+class IsWallet w h a => Rollback w h a where
+  rollback :: w h a -> w h a
 
 {-------------------------------------------------------------------------------
   Interlude: "functor" over different wallet types (internal use only)
@@ -88,36 +134,81 @@ walletsMap :: (forall w. IsWallet w h a => w h a -> w h a)
 walletsMap f (One w)    = One (f w)
 walletsMap f (Two w w') = Two (f w) (f w')
 
+walletsMapA :: Applicative f
+            => (forall w. IsWallet w h a => w h a -> f (w h a))
+            -> Wallets ws h a -> f (Wallets ws h a)
+walletsMapA f (One w)    = One <$> f w
+walletsMapA f (Two w w') = Two <$> f w <*> f w'
+
 {-------------------------------------------------------------------------------
   Inductive wallet definition
 -------------------------------------------------------------------------------}
 
 -- | Inductive definition of a wallet
---
--- TODO: We should generate random 'Inductive's and then verify the
--- invariants.
 data Inductive h a =
-    WalletEmpty
-  | ApplyBlock (Block       h a) (Inductive h a)
-  | NewPending (Transaction h a) (Inductive h a)
+    -- | Start the wallet, given the bootstrap transaction
+    WalletBoot (Transaction h a)
+
+    -- | Inform the wallet of a new block added to the blockchain
+  | ApplyBlock (Inductive h a) (Block h a)
+
+    -- | Submit a new transaction to the wallet to be included in the blockchain
+  | NewPending (Inductive h a) (Transaction h a)
+  deriving Eq
 
 -- | Interpreter for 'Inductive'
 --
 -- Given (one or more) empty wallets, evaluate an 'Inductive' wallet, checking
 -- the given property at each step.
-interpret :: forall ws h a.
-             Wallets ws h a                      -- ^ Empty wallet
-          -> (Wallets ws h a -> Either Text ())  -- ^ Predicate to check
-          -> Inductive h a -> Either Text (Wallets ws h a)
-interpret es p = go
+--
+-- Note: we expect the 'Inductive' to be valid (valid blockchain, valid
+-- calls to 'newPending', etc.). This is meant to check properties of the
+-- /wallet/, not the wallet input.
+interpret :: forall ws h a err.
+             (Buildable a)
+          => (Inductive h a -> InvalidInput h a -> err)
+          -- ^ Inject invalid input err. We provide the value of the
+          -- 'Inductive' at the point of the error.
+          -> (Transaction h a -> Wallets ws h a)
+          -- ^ Bootstrapped wallets
+          -> (Inductive h a -> Wallets ws h a -> Validated err ())
+          -- ^ Predicate to check. The predicate is passed the 'Inductive'
+          -- at the point of the error, for better error messages.
+          -> Inductive h a
+          -- ^ 'Inductive' value to interpret
+          -> Validated err (Wallets ws h a)
+interpret invalidInput mkWallets p = fmap snd . go
   where
-    go :: Inductive h a -> Either Text (Wallets ws h a)
-    go WalletEmpty      = verify es
-    go (ApplyBlock b w) = go w >>= verify . walletsMap (applyBlock b)
-    go (NewPending t w) = go w >>= verify . walletsMap (newPending' t)
+    -- Evaluate and verify the 'Inductive'
+    -- Also returns the ledger after validation
+    go :: Inductive h a -> Validated err (Ledger h a, Wallets ws h a)
+    go ind@(WalletBoot t)   = do
+      ws <- verify ind (mkWallets t)
+      return (ledgerSingleton t, ws)
+    go ind@(ApplyBlock w b) = do
+      (l, ws) <- go w
+      ws' <- verify ind $ walletsMap (applyBlock b) ws
+      return (ledgerAdds (toNewestFirst b) l, ws')
+    go ind@(NewPending w t) = do
+      (l, ws) <- go w
+      ws' <- verify ind =<< walletsMapA (verifyNew ind l t) ws
+      return (l, ws')
 
-    verify :: Wallets ws h a -> Either Text (Wallets ws h a)
-    verify ws = p ws >> return ws
+    verify :: Inductive h a -> Wallets ws h a -> Validated err (Wallets ws h a)
+    verify ind ws = p ind ws >> return ws
+
+    -- Verify the input
+    -- If this fails, we provide the /entire/ 'Inductive' value so that it's
+    -- easier to track down what happened.
+    verifyNew :: IsWallet w h a
+              => Inductive h a -- ^ Inductive value at this point
+              -> Ledger h a    -- ^ Ledger so far (for error messages)
+              -> Transaction h a -> w h a -> Validated err (w h a)
+    verifyNew ind l tx w =
+        case newPending tx w of
+          Just w' -> return w'
+          Nothing -> throwError . invalidInput ind
+                   $ InvalidPending tx (utxo w) (pending w) l
 
 {-------------------------------------------------------------------------------
   Invariants
@@ -131,62 +222,231 @@ interpret es p = go
 --
 -- In order to evaluate the inductive definition we need the empty wallet
 -- to be passed as a starting point.
-type Invariant h a = Inductive h a -> Either Text ()
+type Invariant h a = Inductive h a -> Validated (InvariantViolation h a) ()
 
 -- | Lift a property of flat wallet values to an invariant over the wallet ops
-invariant :: IsWallet w h a => Text -> w h a -> (w h a -> Bool) -> Invariant h a
-invariant err e p = void . interpret (One e) p'
+invariant :: forall w h a. (IsWallet w h a, Buildable a)
+          => Text                        -- ^ Name of the invariant
+          -> (Transaction h a -> w h a)  -- ^ Construct empty wallet
+          -> (w h a -> Maybe InvariantViolationEvidence) -- ^ Property to verify
+          -> Invariant h a
+invariant name e p = void . interpret notChecked (One . e) p'
   where
-    p' (One w) = if p w then Right () else Left err
+    notChecked :: Inductive h a
+               -> InvalidInput h a
+               -> InvariantViolation h a
+    notChecked ind reason = InvariantNotChecked {
+          invariantNotCheckedName      = name
+        , invariantNotCheckedReason    = reason
+        , invariantNotCheckedInductive = ind
+        }
+
+    violation :: Inductive h a
+              -> InvariantViolationEvidence
+              -> InvariantViolation h a
+    violation ind ev = InvariantViolation {
+          invariantViolationName      = name
+        , invariantViolationEvidence  = ev
+        , invariantViolationInductive = ind
+        }
+
+    p' :: Inductive h a
+       -> Wallets '[w] h a
+       -> Validated (InvariantViolation h a) ()
+    p' ind (One w) = case p w of
+                       Nothing -> return ()
+                       Just ev -> throwError (violation ind ev)
+
+-- | Invariant violation
+data InvariantViolation h a =
+    -- | Invariance violation
+    InvariantViolation {
+        -- | Name of the invariant
+        invariantViolationName :: Text
+
+        -- | Evidence that the invariant was violated
+      , invariantViolationEvidence :: InvariantViolationEvidence
+
+        -- | The 'Inductive' value at the point of the error
+      , invariantViolationInductive :: Inductive h a
+      }
+
+    -- | The invariant was not checked because the input was invalid
+  | InvariantNotChecked {
+        -- | Name of the invariant
+        invariantNotCheckedName :: Text
+
+        -- | Why did we not check the invariant
+      , invariantNotCheckedReason :: InvalidInput h a
+
+        -- | The 'Inductive' value at the point of the error
+      , invariantNotCheckedInductive :: Inductive h a
+      }
+
+-- | We were unable to check the invariant because the input was invalid
+--
+-- This indicates a bug in the generator (or in the hand-written 'Inductive'),
+-- so we try to provide sufficient information to track that down.
+data InvalidInput h a =
+    InvalidPending {
+        -- | The submitted transaction that was invalid
+        invalidPendingTransaction :: Transaction h a
+
+        -- | The UTxO of the wallet at the time of submission
+      , invalidPendingWalletUtxo :: Utxo h a
+
+        -- | The pending set of the wallet at time of submission
+      , invalidPendingWalletPending :: Pending h a
+
+        -- | The ledger seen so far at the time of submission
+      , invalidPendingLedger :: Ledger h a
+      }
+
+{-------------------------------------------------------------------------------
+  Evidence that an invariant was violated
+
+  Rather than just whether or not that the invariant is maintained, we try
+  to produce an informative error message when the invariant is /not/
+  maintained so that we can debug what's going on.
+-------------------------------------------------------------------------------}
+
+-- | Evidence that the invariance was violated
+data InvariantViolationEvidence =
+    forall a. Buildable a =>
+      NotEqual (Text, a) (Text, a)
+  | forall a. (Buildable a, Ord a) =>
+      NotSubsetOf (Text, Set a) (Text, Set a)
+  | forall a. (Buildable a) =>
+      NotAllSatisfy (Text, a -> Bool) (Text, [a])
+  | forall a. (Buildable a, Ord a) =>
+      NotDisjoint (Text, Set a) (Text, Set a)
+
+checkEqual :: (Buildable a, Eq a)
+           => (Text, a) -> (Text, a) -> Maybe InvariantViolationEvidence
+checkEqual (labelX, x) (labelY, y) =
+    if x == y
+      then Nothing
+      else Just $ NotEqual (labelX, x) (labelY, y)
+
+checkSubsetOf :: (Buildable a, Ord a)
+              => (Text, Set a) -> (Text, Set a) -> Maybe InvariantViolationEvidence
+checkSubsetOf (labelXs, xs) (labelYs, ys) =
+    if xs `Set.isSubsetOf` ys
+      then Nothing
+      else Just $ NotSubsetOf (labelXs, xs) (labelYs, ys)
+
+checkAllSatisfy :: Buildable a
+                => (Text, a -> Bool) -> (Text, [a]) -> Maybe InvariantViolationEvidence
+checkAllSatisfy (labelP, p) (labelXs, xs) =
+    if all p xs
+      then Nothing
+      else Just $ NotAllSatisfy (labelP, p) (labelXs, xs)
+
+checkDisjoint :: (Buildable a, Ord a)
+              => (Text, Set a) -> (Text, Set a) -> Maybe InvariantViolationEvidence
+checkDisjoint (labelXs, xs) (labelYs, ys) =
+    if disjoint xs ys
+      then Nothing
+      else Just $ NotDisjoint (labelXs, xs) (labelYs, ys)
 
 {-------------------------------------------------------------------------------
   Specific invariants
 -------------------------------------------------------------------------------}
 
-walletInvariants :: IsWallet w h a => w h a -> Invariant h a
-walletInvariants e w = sequence_ [
-      pendingInUtxo          e w
-    , utxoIsOurs             e w
-    , changeNotAvailable     e w
-    , changeNotInUtxo        e w
-    , changeAvailable        e w
-    , balanceChangeAvailable e w
+-- | Wallet invariant, parameterized by a function to construct the wallet
+type WalletInv w h a = (IsWallet w h a, Buildable a)
+                    => Text -> (Transaction h a -> w h a) -> Invariant h a
+
+walletInvariants :: WalletInv w h a
+walletInvariants l e w = sequence_ [
+      pendingInUtxo          l e w
+    , utxoIsOurs             l e w
+    , changeNotAvailable     l e w
+    , changeNotInUtxo        l e w
+    , changeAvailable        l e w
+    , balanceChangeAvailable l e w
     ]
 
-pendingInUtxo :: IsWallet w h a => w h a -> Invariant h a
-pendingInUtxo e = invariant "pendingInUtxo" e $ \w ->
-    txIns (pending w) `Set.isSubsetOf` utxoDomain (utxo w)
+pendingInUtxo :: WalletInv w h a
+pendingInUtxo l e = invariant (l <> "/pendingInUtxo") e $ \w ->
+    checkSubsetOf ("txIns (pending w)",
+                    txIns (pending w))
+                  ("utxoDomain (utxo w)",
+                    utxoDomain (utxo w))
 
-utxoIsOurs :: IsWallet w h a => w h a -> Invariant h a
-utxoIsOurs e = invariant "utxoIsOurs" e $ \w ->
-    all (isJust . ours w . outAddr) (utxoRange (utxo w))
+utxoIsOurs :: WalletInv w h a
+utxoIsOurs l e = invariant (l <> "/utxoIsOurs") e $ \w ->
+    checkAllSatisfy ("isOurs",
+                      isJust . ours w . outAddr)
+                    ("utxoRange (utxo w)",
+                      utxoRange (utxo w))
 
-changeNotAvailable :: IsWallet w h a => w h a -> Invariant h a
-changeNotAvailable e = invariant "changeNotAvailable" e $ \w ->
-    utxoDomain (change w) `disjoint` utxoDomain (available w)
+changeNotAvailable :: WalletInv w h a
+changeNotAvailable l e = invariant (l <> "/changeNotAvailable") e $ \w ->
+    checkDisjoint ("utxoDomain (change w)",
+                    utxoDomain (change w))
+                  ("utxoDomain (available w)",
+                    utxoDomain (available w))
 
-changeNotInUtxo :: IsWallet w h a => w h a -> Invariant h a
-changeNotInUtxo e = invariant "changeNotInUtxo" e $ \w ->
-    utxoDomain (change w) `disjoint` utxoDomain (utxo w)
+changeNotInUtxo :: WalletInv w h a
+changeNotInUtxo l e = invariant (l <> "/changeNotInUtxo") e $ \w ->
+    checkDisjoint ("utxoDomain (change w)",
+                    utxoDomain (change w))
+                  ("utxoDomain (utxo w)",
+                    utxoDomain (utxo w))
 
-changeAvailable :: IsWallet w h a => w h a -> Invariant h a
-changeAvailable e = invariant "changeAvailable" e $ \w ->
-    change w `utxoUnion` available w == total w
+changeAvailable :: WalletInv w h a
+changeAvailable l e = invariant (l <> "/changeAvailable") e $ \w ->
+    checkEqual ("change w `utxoUnion` available w" ,
+                 change w `utxoUnion` available w)
+               ("total w",
+                 total w)
 
-balanceChangeAvailable :: IsWallet w h a => w h a -> Invariant h a
-balanceChangeAvailable e = invariant "balanceChangeAvailable" e $ \w ->
-    balance (change w) + balance (available w) == balance (total w)
+balanceChangeAvailable :: WalletInv w h a
+balanceChangeAvailable l e = invariant (l <> "/balanceChangeAvailable") e $ \w ->
+    checkEqual ("balance (change w) + balance (available w)",
+                 balance (change w) + balance (available w))
+               ("balance (total w)",
+                 balance (total w))
 
 {-------------------------------------------------------------------------------
   Compare different wallet implementations
 -------------------------------------------------------------------------------}
 
-walletEquivalent :: forall w w' h a. (IsWallet w h a, IsWallet w' h a)
-                 => w h a -> w' h a -> Invariant h a
-walletEquivalent e e' = void . interpret (Two e e') p
+walletEquivalent :: forall w w' h a.
+                    ( IsWallet w  h a
+                    , IsWallet w' h a
+                    , Buildable a
+                    )
+                 => Text
+                 -> (Transaction h a -> w  h a)
+                 -> (Transaction h a -> w' h a)
+                 -> Invariant h a
+walletEquivalent lbl e e' = void .
+    interpret notChecked (\boot -> Two (e boot) (e' boot)) p
   where
-    p :: Wallets '[w,w'] h a -> Either Text ()
-    p (Two w w') = sequence_ [
+    notChecked :: Inductive h a
+               -> InvalidInput h a
+               -> InvariantViolation h a
+    notChecked ind reason = InvariantNotChecked {
+          invariantNotCheckedName      = lbl
+        , invariantNotCheckedReason    = reason
+        , invariantNotCheckedInductive = ind
+        }
+
+    violation :: Inductive h a
+              -> InvariantViolationEvidence
+              -> InvariantViolation h a
+    violation ind ev = InvariantViolation {
+          invariantViolationName      = lbl
+        , invariantViolationEvidence  = ev
+        , invariantViolationInductive = ind
+        }
+
+    p :: Inductive h a
+      -> Wallets '[w,w'] h a
+      -> Validated (InvariantViolation h a) ()
+    p ind (Two w w') = sequence_ [
           cmp "pending"          pending
         , cmp "utxo"             utxo
         , cmp "availableBalance" availableBalance
@@ -196,11 +456,14 @@ walletEquivalent e e' = void . interpret (Two e e') p
         , cmp "total"            total
         ]
       where
-        cmp :: Eq b
+        cmp :: (Eq b, Buildable b)
             => Text
             -> (forall w''. IsWallet w'' h a => w'' h a -> b)
-            -> Either Text ()
-        cmp err f = if f w == f w' then Right () else Left err
+            -> Validated (InvariantViolation h a) ()
+        cmp fld f =
+          case checkEqual (fld <> " w", f w) (fld <> " w'", f w') of
+            Nothing -> return ()
+            Just ev -> throwError $ violation ind ev
 
 {-------------------------------------------------------------------------------
   Auxiliary operations
@@ -215,6 +478,14 @@ txIns = Set.unions . map trIns . Fold.toList
 txOuts :: (Hash h a, Foldable f) => f (Transaction h a) -> Utxo h a
 txOuts = utxoUnions . map trUtxo . Fold.toList
 
+updateUtxo :: forall h a. Hash h a
+           => Ours a -> Block h a -> Utxo h a -> Utxo h a
+updateUtxo p b = remSpent . addNew
+  where
+    addNew, remSpent :: Utxo h a -> Utxo h a
+    addNew   = utxoUnion (utxoRestrictToOurs p (txOuts b))
+    remSpent = utxoRemoveInputs (txIns b)
+
 updatePending :: forall h a. Hash h a => Block h a -> Pending h a -> Pending h a
 updatePending b = Set.filter $ \t -> disjoint (trIns t) (txIns b)
 
@@ -222,11 +493,508 @@ utxoRestrictToOurs :: Ours a -> Utxo h a -> Utxo h a
 utxoRestrictToOurs p = utxoRestrictToAddr (isJust . p)
 
 {-------------------------------------------------------------------------------
-  Util
+  Generation
 -------------------------------------------------------------------------------}
 
--- | Check that two sets are disjoint
+-- $generation
 --
--- This is available out of the box from containters >= 0.5.11
-disjoint :: Ord a => Set a -> Set a -> Bool
-disjoint a b = Set.null (a `Set.intersection` b)
+-- The 'Inductive' data type describes a potential history of a wallet's
+-- view of an existing blockchain. This means that there are many possible
+-- 'Inductive's for any given blockchain -- any set of addresses can belong
+-- to the 'Inductive' that the wallet is for, and there are many possible
+-- sequences of actions that adequately describe the view of the
+-- blockchain.
+
+-- | A monad for generating inductive chains.
+newtype InductiveGen h a
+    = InductiveGen
+    { unInductiveGen :: ReaderT (InductiveCtx h) Gen a
+    } deriving (Functor, Applicative, Monad, MonadReader (InductiveCtx h))
+
+runInductiveGen :: FromPreChain h () -> InductiveGen h a -> Gen a
+runInductiveGen fpc ig = runReaderT (unInductiveGen ig) (initializeCtx fpc)
+
+data InductiveCtx h
+    = InductiveCtx
+    { icFromPreChain  :: !(FromPreChain h ())
+    }
+
+initializeCtx :: FromPreChain h () -> InductiveCtx h
+initializeCtx fpc = InductiveCtx{..}
+  where
+    icFromPreChain = fpc
+
+getFromPreChain :: InductiveGen h (FromPreChain h ())
+getFromPreChain = asks icFromPreChain
+
+getBootstrap :: InductiveGen h (Transaction h Addr)
+getBootstrap = fpcBoot <$> getFromPreChain
+
+getBlockchain :: InductiveGen h (Chain h Addr)
+getBlockchain = fpcChain <$> getFromPreChain
+
+getLedger :: InductiveGen h (Ledger h Addr)
+getLedger = fpcLedger <$> getFromPreChain
+
+getBootTransaction :: InductiveGen h (Transaction h Addr)
+getBootTransaction = fpcBoot <$> getFromPreChain
+
+-- | The 'Inductive' data type is isomorphic to a linked list of this
+-- 'Action' type. It is more convenient to operate on this type, as it can
+-- vary the sequence representation and reuse sequence functions.
+data Action h a
+    = ApplyBlock' (Block h a)
+    | NewPending' (Transaction h a)
+
+-- | Smart constructor that adds the callstack to the transaction's comments
+-- (Useful for finding out where transactions are coming from)
+newPending' :: HasCallStack => [Text] -> Transaction h a -> Action h a
+newPending' extra t = NewPending' (t { trExtra = trExtra t ++ extra })
+
+-- | Convert a container of 'Action's into an 'Inductive' wallet,
+-- given the bootstrap transaction.
+toInductive :: (Hash h a, Buildable a) => Transaction h a -> [Action h a] -> Inductive h a
+toInductive boot = foldl' k (WalletBoot boot)
+  where
+    k acc (ApplyBlock' a) = ApplyBlock acc a
+    k acc (NewPending' a) = NewPending acc a
+
+-- | Given a 'Set' of addresses that will represent the addresses that
+-- belong to the generated 'Inductive' wallet and the 'FromPreChain' value
+-- that contains the relevant blockchain, this will be able to generate
+-- arbitrary views into the blockchain.
+genFromBlockchain
+    :: Hash h Addr
+    => Set Addr
+    -> FromPreChain h ()
+    -> Gen (Inductive h Addr)
+genFromBlockchain addrs fpc =
+    runInductiveGen fpc (genInductiveFor addrs)
+
+-- | Pair an 'Inductive' wallet definition with the set of addresses owned
+data InductiveWithOurs h a = InductiveWithOurs {
+      inductiveWalletOurs :: Set a
+    , inductiveWalletDef  :: Inductive h a
+    }
+
+-- | Selects a random subset of addresses to be considered from the
+-- blockchain in the amount given.
+genFromBlockchainPickingAccounts
+    :: Hash h Addr
+    => Int
+    -> FromPreChain h ()
+    -> Gen (InductiveWithOurs h Addr)
+genFromBlockchainPickingAccounts i fpc = do
+    let allAddrs = toList (ledgerAddresses (fpcLedger fpc))
+        eligibleAddrs = filter (not . isAvvmAddr) allAddrs
+
+    if null eligibleAddrs then
+        error
+        $ sformat
+            ( "No eligible addresses!\n\n"
+            % "All addresses: " % build
+            ) (intercalate ", " (map show allAddrs))
+        else pure ()
+
+    addrs <- Set.fromList <$> sublistN i eligibleAddrs
+
+    if null addrs then
+        error
+        $ sformat
+            ( "No addresses!\n\n"
+            % "All addresses: " % build
+            ) (intercalate ", " (map show allAddrs))
+        else pure ()
+
+    InductiveWithOurs addrs <$> genFromBlockchain addrs fpc
+
+genInductiveFor :: Hash h Addr => Set Addr -> InductiveGen h (Inductive h Addr)
+genInductiveFor addrs = do
+    boot  <- getBootstrap
+    chain <- getBlockchain
+    intersperseTransactions boot addrs (chainToApplyBlocks chain)
+
+-- | The first step in converting a 'Chain into an 'Inductive' wallet is
+-- to sequence the existing blocks using 'ApplyBlock' constructors.
+chainToApplyBlocks :: Chain h a -> [Action h a]
+chainToApplyBlocks = toList . map ApplyBlock' . chainBlocks
+
+-- | Once we've created our initial @['Action' h 'Addr']@, we want to
+-- insert some 'Transaction's in appropriate locations in the list. There
+-- are some properties that the inserted events must satisfy:
+--
+-- * The transaction must be after all of the blocks that confirm inputs to
+--   the transaction.
+-- * The transaction must be before the block that confirms it, if any
+--   blocks confirm it. It is not necessary that the transaction gets
+--   confirmed eventually!
+--
+-- See Note [Intersperse]
+intersperseTransactions
+    :: Hash h Addr
+    => Transaction h Addr -- ^ Bootstrap transaction
+    -> Set Addr           -- ^ " Our " addresses
+    -> [Action h Addr]    -- ^ Initial actions (the blocks in the chain)
+    -> InductiveGen h (Inductive h Addr)
+intersperseTransactions boot addrs actions = do
+    chain <- getBlockchain
+    ledger <- getLedger
+    let ourTxns = findOurTransactions addrs ledger chain
+    let allTxnCount = length ourTxns
+
+    -- we weight the frequency distribution such that most of the
+    -- transactions will be represented by this wallet. this can be
+    -- changed or made configurable later.
+    --
+    -- also, weirdly, sometimes there aren't any transactions on any of the
+    -- addresses that belong to us. that seems like an edge case.
+    txnToDisperseCount <- if allTxnCount == 0
+        then pure 0
+        else liftGen
+            . frequency
+            . zip [1 .. allTxnCount]
+            . map pure
+            $ [1 .. allTxnCount]
+
+    txnsToDisperse <- liftGen $ sublistN txnToDisperseCount ourTxns
+
+
+    let txnsWithRange =
+            mapMaybe
+                (\(i, t) -> (,,) t i <$> transactionFullyConfirmedAt addrs t chain ledger)
+                txnsToDisperse
+
+    let chooseBlock t lo hi i =
+          (t { trExtra = sformat ("Inserted at "
+                                 % build
+                                 % " <= "
+                                 % build
+                                 % " < "
+                                 % build
+                                 ) lo i hi : trExtra t }, i)
+    txnsWithIndex <- fmap catMaybes $
+        forM txnsWithRange $ \(t, hi, lo) ->
+          if hi > lo then
+            Just . chooseBlock t lo hi <$> liftGen (choose (lo, hi - 1))
+          else
+            -- cannot create a pending transaction from a transaction that uses
+            -- inputs from the very same block in which it gets confirmed
+            return Nothing
+
+    let append    = flip (<>)
+        spent     = Set.unions $ map (trIns . fst) txnsWithIndex
+        confirmed =
+            foldr
+                (\(t, i) -> IntMap.insertWith append i [newPending' [] t])
+                (dissect actions)
+                txnsWithIndex
+
+    unconfirmed <- synthesizeTransactions addrs spent
+
+    return $ toInductive boot
+           . conssect
+           $ IntMap.unionWith (<>) confirmed unconfirmed
+
+-- | Generate transactions that will never be confirmed
+--
+-- We take as argument the set of inputs already spent by transactions that
+-- /will/ be confirmed, so that we don't create an 'Inductive' wallet with
+-- double spending.
+synthesizeTransactions
+    :: forall h. Hash h Addr
+    => Set Addr           -- ^ Addresses owned by the wallet
+    -> Set (Input h Addr) -- ^ Inputs already spent
+    -> InductiveGen h (IntMap [Action h Addr])
+synthesizeTransactions addrs alreadySpent = do
+    boot   <- getBootTransaction
+    blocks <- toList . chainBlocks <$> getBlockchain
+    liftGen $ go IntMap.empty (trUtxo boot) alreadySpent 0 blocks
+  where
+    -- NOTE: We maintain a UTxO as we process the blocks. There are (at least)
+    -- two alternatives here:
+    --
+    -- * Depend on a wallet implementation to keep track both of the utxo and
+    --   of the set of pending transactions. That would make the tests
+    --   kind of circular though (using the wallet to test the wallet);
+    --   better to keep the two independent.
+    -- * We could reuse the UTxOs that we compute while we compute the chain.
+    --   This is certainly a possibility, /but/ there is a downside there:
+    --   those UTxOs are approximate only, as we don't have any fees.
+    --   The chain as we have it here has proper fee values.
+    --   (Having said that, we still don't have proper fee values for the
+    --   transactions we generate here.)
+    go :: IntMap [Action h Addr]  -- Accumulator
+       -> Utxo h Addr             -- Current utxo
+       -> Set (Input h Addr)      -- All inputs already spent
+       -> Int                     -- Index of the next block
+       -> [Block h Addr]          -- Chain yet to process
+       -> Gen (IntMap [Action h Addr])
+    go acc _ _ _ [] =
+        -- We could create some pending transactions after the very last block,
+        -- but we don't
+        return acc
+    go acc utxoBefore spent ix (b:bs) = do
+        pct <- choose (0, 100 :: Int)
+        if pct >= 5 || utxoNull utxoAvail
+          then go acc utxoAfter spent (ix + 1) bs
+          else do
+            (i, o) <- elements $ utxoToList utxoAvail
+            dests  <- selectDestinations' Set.empty utxoAfter
+            let txn = divvyUp newHash (pure (i, o)) dests 0
+                act = newPending' ["never confirmed"] txn
+            go (IntMap.insert ix [act] acc)
+               utxoAfter
+               (Set.insert i spent)
+               (ix + 1)
+               bs
+      where
+        utxoAfter = utxoApplyBlock b utxoBefore
+        utxoAvail = oursNotSpent spent utxoAfter
+        newHash   = (-1) - ix -- negative hashes not used elsewhere
+
+    oursNotSpent :: Set (Input h Addr) -> Utxo h Addr -> Utxo h Addr
+    oursNotSpent spent = utxoRemoveInputs spent
+                       . utxoRestrictToAddr (`Set.member` addrs)
+
+-- | Construct an 'IntMap' consisting of the index of the element in the
+-- input list pointing to a singleton list of the element the original
+-- list.
+dissect :: [a] -> IntMap [a]
+dissect = IntMap.fromList . zip [0..] . map pure
+
+-- | Reverse the operation of 'dissect'. Given an 'IntMap' originally
+-- representing the original index in the list pointing to the list of new
+-- items at that starting index, collapse that into a single list of
+-- elements.
+conssect :: IntMap [a] -> [a]
+conssect = concatMap snd . IntMap.toList
+
+-- | Given a 'Set' of addresses and a 'Chain', this function returns a list
+-- of the transactions with *inputs* belonging to any of the addresses and
+-- the index of the block that the transaction is confirmed in.
+findOurTransactions
+    :: (Hash h a, Ord a)
+    => Set a
+    -> Ledger h a
+    -> Chain h a
+    -> [(Int, Transaction h a)]
+findOurTransactions addrs ledger =
+    concatMap k . zip [0..] . toList . chainBlocks
+  where
+    k (i, block) =
+        map ((,) i)
+            . filter (all p . trIns)
+            $ toList block
+    p = fromMaybe False
+        . fmap (\o -> outAddr o `Set.member` addrs)
+        . (`inpSpentOutput` ledger)
+
+-- | This function identifies the index of the block that the input was
+-- received in the ledger, marking the point at which it may be inserted as
+-- a 'NewPending' transaction.
+blockReceivedIndex :: Hash h Addr => Input h Addr -> Chain h Addr -> Maybe Int
+blockReceivedIndex i =
+    List.findIndex (any ((inpTrans i ==) . hash)) . toList . chainBlocks
+
+-- | For each 'Input' in the 'Transaction' that belongs to one of the
+-- 'Addr'esses in the 'Set' provided, find the index of the block in the
+-- 'Chain' that confirms that 'Input'. Take the maximum index and return
+-- that -- that is the earliest this transaction may appear as a pending
+-- transaction.
+transactionFullyConfirmedAt
+    :: Hash h Addr
+    => Set Addr
+    -> Transaction h Addr
+    -> Chain h Addr
+    -> Ledger h Addr
+    -> Maybe Int
+transactionFullyConfirmedAt addrs txn chain ledger =
+    let inps = Set.filter inputInAddrs (trIns txn)
+        inputInAddrs i =
+            case inpSpentOutput i ledger of
+                Just o  -> outAddr o `Set.member` addrs
+                Nothing -> False
+        indexes = Set.map (\i -> blockReceivedIndex i chain) inps
+     in foldl' max Nothing indexes
+
+liftGen :: Gen a -> InductiveGen h a
+liftGen = InductiveGen . lift
+
+{- Note [Intersperse]
+~~~~~~~~~~~~~~~~~~~~~
+Given a list of blocks
+
+> [ applyBlock_0, applyBlock_1, applyBlock_2, applyBlock_3, applyBlock_4 ]
+
+we construct an 'IntMap' out of them where the index in the intmap is the
+original index of that block in the chain:
+
+> { 0 -> [applyBlock_0]
+> , 1 -> [applyBlock_1]
+> , 2 -> [applyBlock_2]
+> , 3 -> [applyBlock_3]
+> , 4 -> [applyBlock_4]
+> }
+
+Then, when we select an index between @lo@ (the latest block to confirm an input
+in the transaction) and @hi@ (the index of the block that confirms the
+transaction itself), we can 'insertWith' at that index. Suppose we have a
+transaction @t@ where the input was provided in block 1 and is confirmed in
+block 3. That means we can have @NewPending t@ inserted into either index 1 or
+2:
+
+> { 0 -> [applyBlock_0]
+> , 1 -> [applyBlock_1] <> [newPending t] = [applyBlock_1, newPending t]
+> , 2 -> [applyBlock_2]
+> , 3 -> [applyBlock_3]
+> , 4 -> [applyBlock_4]
+> }
+
+or
+
+> { 0 -> [applyBlock_0]
+> , 1 -> [applyBlock_1]
+> , 2 -> [applyBlock_2] <> [newPending t] = [applyBlock_2, newPending t]
+> , 3 -> [applyBlock_3]
+> , 4 -> [applyBlock_4]
+> }
+
+Then, when we finally go to 'conssec' the @IntMap [Action h a]@ back into a
+@[Action h a]@, we get:
+
+> [ applyBlock_0
+> , applyBlock_1
+> , applyBlock_2, newPending t
+> , applyBlock_3
+> , applyBlock_4
+> ]
+
+TODO: This means that currently we never insert pending transactions before
+the first block.
+-}
+
+{-------------------------------------------------------------------------------
+  Pretty-printing
+-------------------------------------------------------------------------------}
+
+instance (Hash h a, Buildable a) => Buildable (Pending h a) where
+  build = bprint listJson . Set.toList
+
+instance (Hash h a, Buildable a) => Buildable (InvalidInput h a) where
+  build InvalidPending{..} = bprint
+    ( "InvalidPending "
+    % "{ transaction:   " % build
+    % ", walletUtxo:    " % build
+    % ", walletPending: " % build
+    % ", ledger:        " % build
+    % "}"
+    )
+    invalidPendingTransaction
+    invalidPendingWalletUtxo
+    invalidPendingWalletPending
+    invalidPendingLedger
+
+instance (Hash h a, Buildable a) => Buildable (InvariantViolation h a) where
+  build InvariantViolation{..} = bprint
+    ( "InvariantViolation "
+    % "{ name:      " % build
+    % ", evidence:  " % build
+    % ", inductive: " % build
+    % "}"
+    )
+    invariantViolationName
+    invariantViolationEvidence
+    invariantViolationInductive
+  build (InvariantNotChecked{..}) = bprint
+    ( "InvariantNotChecked "
+    % "{ name:      " % build
+    % ", reason:    " % build
+    % ", inductive: " % build
+    % "}"
+    )
+    invariantNotCheckedName
+    invariantNotCheckedReason
+    invariantNotCheckedInductive
+
+instance Buildable InvariantViolationEvidence where
+  build (NotEqual (labelX, x) (labelY, y)) = bprint
+    ( "NotEqual "
+    % "{ " % build % ": " % build
+    % ", " % build % ": " % build
+    % "}"
+    )
+    labelX
+      x
+    labelY
+      y
+  build (NotSubsetOf (labelXs, xs) (labelYs, ys)) = bprint
+    ( "NotSubsetOf "
+    % "{ " % build % ": " % listJson
+    % ", " % build % ": " % listJson
+    % ", " % build % ": " % listJson
+    % "}"
+    )
+    labelXs
+      (Set.toList xs)
+    labelYs
+      (Set.toList ys)
+    (labelXs <> " \\\\ " <> labelYs)
+      (Set.toList $ xs Set.\\ ys)
+  build (NotAllSatisfy (labelP, p) (labelXs, xs)) = bprint
+    ( "NotAllSatisfy "
+    % "{ " % build % ": " % build
+    % ", " % build % ": " % listJson
+    % ", " % build % ": " % listJson
+    % "}"
+    )
+    ("pred" :: Text)
+      labelP
+    labelXs
+      xs
+    ("filter (not . " <> labelP <> ")")
+      (filter (not . p) xs)
+  build (NotDisjoint (labelXs, xs) (labelYs, ys)) = bprint
+    ( "NotSubsetOf "
+    % "{ " % build % ": " % listJson
+    % ", " % build % ": " % listJson
+    % ", " % build % ": " % listJson
+    % "}"
+    )
+    labelXs
+      (Set.toList xs)
+    labelYs
+      (Set.toList ys)
+    (labelXs <> " `intersection` " <> labelYs)
+      (Set.toList $ xs `Set.intersection` ys)
+
+-- | We output the inductive in the order that things are applied; something like
+--
+-- > { "boot": <boot transaction>
+-- > , "block": <first block>
+-- > , "new": <first transaction>
+-- > , "block": <second block>
+-- > ..
+-- > }
+instance (Hash h a, Buildable a) => Buildable (Inductive h a) where
+  build ind = bprint (build % "}") (go ind)
+    where
+      go (WalletBoot   t) = bprint (        "{ boot:  " % build)        t
+      go (ApplyBlock n b) = bprint (build % ", block: " % build) (go n) b
+      go (NewPending n t) = bprint (build % ", new:   " % build) (go n) t
+
+instance (Hash h a, Buildable a) => Buildable (Action h a) where
+  build (ApplyBlock' b) = bprint ("ApplyBlock' " % build) b
+  build (NewPending' t) = bprint ("NewPending' " % build) t
+
+instance (Hash h a, Buildable a) => Buildable [Action h a] where
+  build = bprint listJson
+
+instance (Hash h a, Buildable a) => Buildable (InductiveWithOurs h a) where
+  build InductiveWithOurs{..} = bprint
+    ( "InductiveWithOurs"
+    % "{ ours: " % listJson
+    % ", def:  " % build
+    % "}"
+    )
+    inductiveWalletOurs
+    inductiveWalletDef

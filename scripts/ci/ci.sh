@@ -11,7 +11,7 @@ if [[ ("$OS_NAME" == "linux") && ("$BUILDKITE_BRANCH" == "master") ]];
   else with_haddock=false
 fi
 
-targets="cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet"
+targets="cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-wallet-new"
 
 # There are no macOS explorer devs atm and it's only deployed on linux
 if [[ "$OS_NAME" == "linux" ]]; then
@@ -44,7 +44,7 @@ for trgt in $targets; do
 done
 
 #if [[ "$OS_NAME" == "linux" && "$BUILDKITE_BRANCH" == "master" && "$BUILDKITE_PULL_REQUEST" == "false" ]]; then
-  # XXX: this won't work, unless `GITHUB_CARDANO_DOCS_ACCESS_2` and `GITHUB_CARDANO_DOCS_ACCESS` vars are supplied
+  # XXX: DEVOPS-728 this won't work, unless `GITHUB_CARDANO_DOCS_ACCESS_2` and `GITHUB_CARDANO_DOCS_ACCESS` vars are supplied
   #
   #./update-wallet-web-api-docs.sh
   #./update-explorer-web-api-docs.sh
@@ -61,7 +61,7 @@ pushd daedalus
   cp ../lib/configuration.yaml .
   cp ../lib/*genesis*.json .
   cp ../cardano-sl-tools.root/bin/cardano-launcher .
-  cp ../cardano-sl-wallet.root/bin/cardano-node .
+  cp ../cardano-sl-wallet-new.root/bin/cardano-node .
   # check that binaries exit with 0
   ./cardano-node --help > /dev/null
   ./cardano-launcher --help > /dev/null

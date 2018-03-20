@@ -28,9 +28,6 @@ module Pos.Wallet.Web.Tracking.Sync
        , syncWalletOnImport
        , txMempoolToModifier
 
-       , fixingCachedAccModifier
-       , fixCachedAccModifierFor
-
        , buildTHEntryExtra
        , isTxEntryInteresting
 
@@ -54,10 +51,10 @@ import           System.Wlog (HasLoggerName, WithLogger, logInfo, logWarning, mo
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
 import           Pos.Core (ChainDifficulty, HasConfiguration, HasDifficulty (..),
-                           HeaderHash, Timestamp, blkSecurityParam, genesisHash, headerHash,
-                           headerSlotL, timestampToPosix)
+                           HasProtocolConstants, HeaderHash, Timestamp, blkSecurityParam,
+                           genesisHash, headerHash, headerSlotL, timestampToPosix)
 import           Pos.Core.Block (BlockHeader (..), getBlockHeader, mainBlockTxPayload)
-import           Pos.Core.Txp (TxAux (..), TxOutAux (..), TxUndo, toaOut, txOutAddress)
+import           Pos.Core.Txp (TxAux (..), TxId, TxOutAux (..), TxUndo, toaOut, txOutAddress)
 import           Pos.Crypto (EncryptedSecretKey, WithHash (..), shortHashF, withHash)
 import           Pos.DB.Block (getBlund)
 import qualified Pos.DB.Block.Load as GS
@@ -67,28 +64,27 @@ import qualified Pos.GState as GS
 import           Pos.GState.BlockExtra (foldlUpWhileM, resolveForwardLink)
 import           Pos.Slotting (MonadSlots (..), MonadSlotsData, getSlotStartPure, getSystemStartM)
 import           Pos.StateLock (Priority (..), StateLock, withStateLockNoMetrics)
-import           Pos.Txp (MonadTxpMem, flattenTxPayload, genesisUtxo, getLocalTxsNUndo, topsortTxs,
-                          unGenesisUtxo, utxoToModifier, _txOutputs)
+import           Pos.Txp (UndoMap, flattenTxPayload, genesisUtxo, topsortTxs, unGenesisUtxo,
+                          utxoToModifier, _txOutputs)
 import           Pos.Util.Chrono (getNewestFirst)
 import           Pos.Util.LogSafe (buildSafe, logErrorSP, logInfoSP, logWarningSP, secretOnlyF,
                                    secure)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens (..), getKeys)
-
-import           Pos.Wallet.WalletMode (WalletMempoolExt)
-import           Pos.Wallet.Web.Account (MonadKeySearch (..))
 import           Pos.Wallet.Web.ClientTypes (Addr, CId, CTxMeta (..), CWAddressMeta (..), Wal,
                                              addrMetaToAccount, encToCId)
 import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo,
                                                PtxCondition (PtxApplying, PtxInNewestBlocks))
-import           Pos.Wallet.Web.State (CustomAddressType (..), MonadWalletDB, WalletTip (..))
+import           Pos.Wallet.Web.State (CustomAddressType (..), WalletDB, WalletDbReader,
+                                       WalletSnapshot, WalletTip (..))
 import qualified Pos.Wallet.Web.State as WS
+import qualified Pos.Wallet.Web.State.State as WS
 import           Pos.Wallet.Web.Tracking.Decrypt (THEntryExtra (..), buildTHEntryExtra,
                                                   eskToWalletDecrCredentials, isTxEntryInteresting,
                                                   selectOwnAddresses)
-import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), CachedCAccModifier,
+import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..),
                                                    VoidModifier, deleteAndInsertIMM,
                                                    deleteAndInsertMM, deleteAndInsertVM,
                                                    indexedDeletions, sortedInsertions)
@@ -101,30 +97,29 @@ type BlockLockMode ctx m =
      , MonadMask m
      )
 
-type WalletTrackingEnvRead ctx m =
-     ( BlockLockMode ctx m
-     , MonadTxpMem WalletMempoolExt ctx m
-     , WS.MonadWalletDBRead ctx m
+type WalletTrackingEnv ctx m =
+     ( WS.WalletDbReader ctx m
      , MonadSlotsData ctx m
      , WithLogger m
      , HasConfiguration
-     )
-
-type WalletTrackingEnv ctx m =
-     ( WalletTrackingEnvRead ctx m
-     , MonadWalletDB ctx m
+     , MonadThrow m
+     , MonadDBRead m
+     , BlockLockMode ctx m
      )
 
 syncWalletOnImport :: WalletTrackingEnv ctx m => EncryptedSecretKey -> m ()
 syncWalletOnImport = syncWalletsWithGState . one
 
-txMempoolToModifier :: WalletTrackingEnvRead ctx m => EncryptedSecretKey -> m CAccModifier
-txMempoolToModifier encSK = do
+txMempoolToModifier :: WalletTrackingEnv ctx m
+                    => WalletSnapshot
+                    -> ([(TxId, TxAux)], UndoMap) -- ^ Transactions and UndoMap from mempool
+                    -> EncryptedSecretKey
+                    -> m CAccModifier
+txMempoolToModifier ws (txs, undoMap) encSK = do
     let wHash (i, TxAux {..}, _) = WithHash taTx i
         getDiff       = const Nothing  -- no difficulty (mempool txs)
         getTs         = const Nothing  -- don't give any timestamp
         getPtxBlkInfo = const Nothing  -- no slot of containing block
-    (txs, undoMap) <- getLocalTxsNUndo
 
     txsWUndo <- forM txs $ \(id, tx) -> case HM.lookup id undoMap of
         Just undo -> pure (id, tx, undo)
@@ -137,7 +132,7 @@ txMempoolToModifier encSK = do
         Nothing      -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
         Just ordered -> do
             tipH <- DB.getTipHeader
-            dbUsed <- WS.getCustomAddresses WS.UsedAddr
+            let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
             pure $
                 trackingApplyTxs encSK dbUsed getDiff getTs getPtxBlkInfo $
                 map (\(_, tx, undo) -> (tx, undo, tipH)) ordered
@@ -149,15 +144,16 @@ txMempoolToModifier encSK = do
 -- Iterate over blocks (using forward links) and actualize our accounts.
 syncWalletsWithGState
     :: forall ctx m.
-    ( MonadWalletDB ctx m
+    ( WalletDbReader ctx m
     , BlockLockMode ctx m
     , MonadSlotsData ctx m
     , HasConfiguration
     )
     => [EncryptedSecretKey] -> m ()
 syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAny (onErr encSK) $ do
+    ws <- WS.askWalletSnapshot
     let wAddr = encToCId encSK
-    WS.getWalletSyncTip wAddr >>= \case
+    case WS.getWalletSyncTip ws wAddr of
         Nothing                -> logWarningSP $ \sl -> sformat ("There is no syncTip corresponding to wallet #"%secretOnlyF sl build) wAddr
         Just NotSynced         -> syncDo encSK Nothing
         Just (SyncedWith wTip) -> DB.getHeader wTip >>= \case
@@ -204,7 +200,7 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAny (onErr encSK) 
 -- BE CAREFUL! This function iterates over blockchain, the blockchain can be large.
 syncWalletWithGStateUnsafe
     :: forall ctx m .
-    ( MonadWalletDB ctx m
+    ( WalletDbReader ctx m
     , MonadDBRead m
     , WithLogger m
     , MonadSlotsData ctx m
@@ -216,8 +212,11 @@ syncWalletWithGStateUnsafe
     -> BlockHeader             -- ^ GState header hash
     -> m ()
 syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
+    -- XXX Transaction
     systemStart  <- getSystemStartM
     slottingData <- GS.getSlottingData
+    db <- WS.askWalletDB
+    ws <- WS.getWalletSnapshot db
 
     let wAddr = encToCId encSK
         diff = (^. difficultyL)
@@ -245,7 +244,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 
         computeAccModifier :: BlockHeader -> m CAccModifier
         computeAccModifier wHeader = do
-            dbUsed <- WS.getCustomAddresses WS.UsedAddr
+            let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
             logInfoSP $ \sl ->
                 sformat ("Wallet "%secretOnlyF sl build%" header: "%build%", current tip header: "%build)
                 wAddr wHeader gstateH
@@ -283,14 +282,14 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
                 M.toList $ unGenesisUtxo genesisUtxo
             ownGenesisUtxo = M.fromList $ map fst ownGenesisData
             ownGenesisAddrs = map snd ownGenesisData
-        mapM_ WS.addWAddress ownGenesisAddrs
-        WS.updateWalletBalancesAndUtxo (utxoToModifier ownGenesisUtxo)
+        mapM_ (WS.addWAddress db) ownGenesisAddrs
+        WS.updateWalletBalancesAndUtxo db (utxoToModifier ownGenesisUtxo)
 
     startFromH <- maybe firstGenesisHeader pure wTipHeader
     mapModifier@CAccModifier{..} <- computeAccModifier startFromH
-    applyModifierToWallet wAddr (headerHash gstateH) mapModifier
+    applyModifierToWallet db wAddr (headerHash gstateH) mapModifier
     -- Mark the wallet as ready, so it will be available from api endpoints.
-    WS.setWalletReady wAddr True
+    WS.setWalletReady db wAddr True
     logInfoSP $ \sl ->
         sformat ("Wallet "%secretOnlyF sl build%" has been synced with tip "
                 %shortHashF%", "%buildSafe sl)
@@ -409,49 +408,61 @@ trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) dbUsed getDiff getTs txs
             deletedPtxCandidates
 
 applyModifierToWallet
-    :: MonadWalletDB ctx m
-    => CId Wal
+    :: (MonadIO m, HasConfiguration)
+    => WalletDB
+    -> CId Wal
     -> HeaderHash
     -> CAccModifier
     -> m ()
-applyModifierToWallet wid newTip CAccModifier{..} = do
+applyModifierToWallet db wid newTip CAccModifier{..} = do
     -- TODO maybe do it as one acid-state transaction.
-    mapM_ WS.addWAddress (sortedInsertions camAddresses)
-    mapM_ (WS.addCustomAddress UsedAddr . fst) (MM.insertions camUsed)
-    mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions camChange)
-    WS.updateWalletBalancesAndUtxo camUtxo
-    let cMetas = M.fromList
-               $ mapMaybe (\THEntry {..} -> (\mts -> (_thTxId, CTxMeta . timestampToPosix $ mts)) <$> _thTimestamp)
+    -- XXX Transaction
+
+    let cMetas = mapMaybe (\THEntry {..} -> (\mts -> (encodeCType _thTxId
+                                                     , CTxMeta . timestampToPosix $ mts)
+                                            ) <$> _thTimestamp)
                $ DL.toList camAddedHistory
-    WS.addOnlyNewTxMetas wid cMetas
-    let addedHistory = txHistoryListToMap $ DL.toList camAddedHistory
-    WS.insertIntoHistoryCache wid addedHistory
-    -- resubmitting worker can change ptx in db nonatomically, but
-    -- tracker has priority over the resubmiter, thus do not use CAS here
-    forM_ camAddedPtxCandidates $ \(txid, ptxBlkInfo) ->
-        WS.setPtxCondition wid txid (PtxInNewestBlocks ptxBlkInfo)
-    WS.setWalletSyncTip wid newTip
+
+    WS.applyModifierToWallet
+      db
+      wid
+      (sortedInsertions camAddresses)
+      [ (UsedAddr, fst <$> MM.insertions camUsed)
+      , (ChangeAddr, fst <$> MM.insertions camChange)
+      ]
+      camUtxo
+      cMetas
+      (txHistoryListToMap $ DL.toList camAddedHistory)
+      (DL.toList $ second PtxInNewestBlocks <$> camAddedPtxCandidates)
+      newTip
 
 rollbackModifierFromWallet
-    :: (MonadWalletDB ctx m, MonadSlots ctx m)
-    => CId Wal
+    :: ( MonadSlots ctx m
+       , HasProtocolConstants
+       , HasConfiguration
+       )
+    => WalletDB
+    -> CId Wal
     -> HeaderHash
     -> CAccModifier
     -> m ()
-rollbackModifierFromWallet wid newTip CAccModifier{..} = do
-    -- TODO maybe do it as one acid-state transaction.
-    mapM_ WS.removeWAddress (indexedDeletions camAddresses)
-    mapM_ (WS.removeCustomAddress UsedAddr) (MM.deletions camUsed)
-    mapM_ (WS.removeCustomAddress ChangeAddr) (MM.deletions camChange)
-    WS.updateWalletBalancesAndUtxo camUtxo
-    forM_ camDeletedPtxCandidates $ \(txid, poolInfo) -> do
-        curSlot <- getCurrentSlotInaccurate
-        WS.ptxUpdateMeta wid txid (WS.PtxResetSubmitTiming curSlot)
-        WS.setPtxCondition wid txid (PtxApplying poolInfo)
-        let deletedHistory = txHistoryListToMap (DL.toList camDeletedHistory)
-        WS.removeFromHistoryCache wid deletedHistory
-        WS.removeWalletTxMetas wid (map encodeCType $ M.keys deletedHistory)
-    WS.setWalletSyncTip wid newTip
+rollbackModifierFromWallet db wid newTip CAccModifier{..} = do
+    curSlot <- getCurrentSlotInaccurate
+
+    WS.rollbackModifierFromWallet
+      db
+      wid
+      (indexedDeletions camAddresses)
+      [ (UsedAddr, MM.deletions camUsed)
+      , (ChangeAddr, MM.deletions camChange)
+      ]
+      camUtxo
+      (txHistoryListToMap (DL.toList camDeletedHistory))
+      ((\(txId, poolInfo) -> ( txId, PtxApplying poolInfo
+                             , WS.PtxResetSubmitTiming curSlot))
+        <$> DL.toList camDeletedPtxCandidates
+      )
+      newTip
 
 -- Change address is an address which money remainder is sent to.
 -- We will consider output address as "change" if:
@@ -492,24 +503,3 @@ evalChange allUsed inputs outputs allOutputsOur
 
 setLogger :: HasLoggerName m => m a -> m a
 setLogger = modifyLoggerName (<> "wallet" <> "sync")
-
-----------------------------------------------------------------------------
--- Cached modifier
-----------------------------------------------------------------------------
-
--- | Evaluates `txMempoolToModifier` and provides result as a parameter
--- to given function.
-fixingCachedAccModifier
-    :: (WalletTrackingEnvRead ctx m, MonadKeySearch key m)
-    => (CachedCAccModifier -> key -> m a)
-    -> key -> m a
-fixingCachedAccModifier action key =
-    findKey key >>= txMempoolToModifier >>= flip action key
-
-fixCachedAccModifierFor
-    :: (WalletTrackingEnvRead ctx m, MonadKeySearch key m)
-    => key
-    -> (CachedCAccModifier -> m a)
-    -> m a
-fixCachedAccModifierFor key action =
-    fixingCachedAccModifier (const . action) key

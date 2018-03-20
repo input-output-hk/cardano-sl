@@ -7675,44 +7675,15 @@ inherit (pkgs) mesa;};
          , cardano-sl-txp, cardano-sl-update, cardano-sl-util
          , cardano-sl-wallet, constraints, containers, data-default
          , exceptions, formatting, generics-sop, hspec, http-api-data
-         , http-client, http-types, ixset-typed, json-sop, lens, log-warper
-         , memory, mmorph, mtl, neat-interpolation, optparse-applicative
-         , QuickCheck, quickcheck-instances, safe-exceptions, serokell-util
-         , servant, servant-client, servant-client-core, servant-quickcheck
+         , http-client, http-types, insert-ordered-containers, ixset-typed
+         , json-sop, lens, log-warper, memory, mmorph, mtl
+         , neat-interpolation, optparse-applicative, QuickCheck
+         , quickcheck-instances, safe-exceptions, serokell-util, servant
+         , servant-client, servant-client-core, servant-quickcheck
          , servant-server, servant-swagger, servant-swagger-ui, stdenv, stm
          , string-conv, swagger2, text, text-format, time, time-units
-         , cardano-sl-binary, cardano-sl-block, cardano-sl-client
-         , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
-         , cardano-sl-delegation, cardano-sl-infra, cardano-sl-networking
-         , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
-         , cardano-sl-util, cardano-sl-wallet, constraints, containers
-         , data-default, ether, exceptions, formatting, generics-sop, hspec
-         , http-api-data, http-client, http-types, insert-ordered-containers
-         , ixset-typed, json-sop, lens, log-warper, memory, MonadRandom, mtl
-         , neat-interpolation, network-uri, optparse-applicative, QuickCheck
-        ({ mkDerivation, aeson, aeson-pretty, base, bytestring
-         , cardano-crypto, cardano-sl, cardano-sl-binary, cardano-sl-block
-         , cardano-sl-client, cardano-sl-core, cardano-sl-crypto
-         , cardano-sl-db, cardano-sl-delegation, cardano-sl-infra
-         , cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp
-         , cardano-sl-update, cardano-sl-util, cardano-sl-wallet
-         , constraints, containers, data-default, ether, exceptions
-         , formatting, generics-sop, hspec, http-api-data, http-client
-         , http-types, insert-ordered-containers, ixset-typed, json-sop
-         , quickcheck-instances, safe-exceptions, serokell-util, servant
-         , servant-client, servant-quickcheck, servant-server
-         , servant-swagger, stdenv, stm, string-conv, swagger2
-         , template-haskell, text, text-format, time, time-units
          , transformers, universum, unordered-containers, vector, wai
          , wai-cors, wai-extra, warp
-         , lens, log-warper, memory, mtl, neat-interpolation, network-uri
-         , optparse-applicative, QuickCheck, quickcheck-instances
-         , safe-exceptions, serokell-util, servant, servant-client
-         , servant-quickcheck, servant-server, servant-swagger, stdenv, stm
-         , string-conv, swagger2, template-haskell, text, text-format, time
-         , time-units, transformers, universum, unordered-containers, vector
-         , wai, wai-cors, wai-extra, warp
->>>>>>> [CSL-2341] Regenerated project nix file.
          }:
          mkDerivation {
            pname = "cardano-sl-wallet-new";
@@ -7740,9 +7711,10 @@ inherit (pkgs) mesa;};
              data-default exceptions formatting http-api-data http-types
              insert-ordered-containers ixset-typed lens log-warper memory mtl
              neat-interpolation optparse-applicative QuickCheck safe-exceptions
-             serokell-util servant servant-server servant-swagger stm
-             string-conv swagger2 text text-format time-units universum
-             unordered-containers wai wai-cors wai-extra warp
+             serokell-util servant servant-server servant-swagger
+             servant-swagger-ui stm string-conv swagger2 text text-format
+             time-units universum unordered-containers wai wai-cors wai-extra
+             warp
            ];
            testHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-block

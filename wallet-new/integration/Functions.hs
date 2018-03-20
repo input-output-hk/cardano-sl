@@ -323,7 +323,7 @@ runAction wc ws PostAddress = do
 
     -- Modify wallet state accordingly.
     pure $ ws
-        & addresses  .~ ws ^. addresses <> [result]
+        & addresses  <>~ [result]
         & actionsNum +~ 1
   where
     createNewAddress :: WalletId -> AccountIndex -> NewAddress
@@ -341,7 +341,7 @@ runAction wc ws GetAddresses   = do
     result  <-  respToRes $ getAddressIndex wc
 
     checkInvariant
-        (elem address result)
+        (address `elem` result)
         (LocalAddressesDiffer address result)
 
     -- Modify wallet state accordingly.
@@ -483,7 +483,7 @@ runAction wc ws GetTransaction  = do
 
     -- Then check if the transaction exists in the history
     checkInvariant
-        (elem transaction result)
+        (transaction `elem` result)
         (LocalTransactionMissing transaction result)
 
     -- Modify wallet state accordingly.

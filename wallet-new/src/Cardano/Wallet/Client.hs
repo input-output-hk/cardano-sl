@@ -63,7 +63,7 @@ data WalletClient m
     = WalletClient
     { -- address endpoints
       getAddressIndexPaginated
-         :: Maybe Page -> Maybe PerPage -> Resp m [Address]
+         :: Maybe Page -> Maybe PerPage -> Resp m [WalletAddress]
     , postAddress
          :: NewAddress -> Resp m WalletAddress
     , getAddressValidity
@@ -118,7 +118,7 @@ data WalletClient m
          :: Resp m NodeInfo
     } deriving Generic
 
-getAddressIndex :: WalletClient m -> Resp m [Address]
+getAddressIndex :: WalletClient m -> Resp m [WalletAddress]
 getAddressIndex wc = getAddressIndexPaginated wc Nothing Nothing
 
 getAccounts :: WalletClient m -> WalletId -> Resp m [Account]

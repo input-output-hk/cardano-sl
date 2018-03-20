@@ -10,7 +10,7 @@ import           Data.Coerce (coerce)
 import           Data.List (delete)
 import           Data.List.NonEmpty (fromList)
 
-import           Control.Lens ((+~), (<>~), (?~), each, filtered, at)
+import           Control.Lens (at, each, filtered, (+~), (<>~), (?~))
 import           Test.QuickCheck (Gen, arbitrary, elements, frequency, generate)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
@@ -21,10 +21,11 @@ import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, Accoun
                                               PaymentDistribution (..), PaymentSource (..),
                                               SpendingPassword, Transaction (..), V1 (..),
                                               Wallet (..), WalletAddress (..), WalletId,
-                                              WalletOperation (..), WalletUpdate (..))
+                                              WalletOperation (..), WalletUpdate (..), unV1)
 
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
-import           Cardano.Wallet.Client (ClientError (..), WalletClient (..), getTransactionIndex, getAddressIndex, getAccounts, getWallets)
+import           Cardano.Wallet.Client (ClientError (..), WalletClient (..), getAccounts,
+                                        getAddressIndex, getTransactionIndex, getWallets)
 
 import           Pos.Core (mkCoin)
 import           Pos.Util (maybeThrow)
@@ -337,7 +338,7 @@ runAction wc ws GetAddresses   = do
     -- Also, remove the `V1` type since we don't need it now.
     address <-  coerce . addrId <$> pickRandomElement (ws ^. addresses)
     -- We get all the accounts.
-    result  <-  respToRes $ getAddressIndex wc
+    result  <-  map (map (unV1 . addrId)) . respToRes $ getAddressIndex wc
 
     checkInvariant
         (address `elem` result)

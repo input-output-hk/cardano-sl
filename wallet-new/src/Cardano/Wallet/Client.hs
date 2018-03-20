@@ -7,6 +7,8 @@ module Cardano.Wallet.Client
     ( -- * The abstract client
       WalletClient(..)
     , getWalletIndex
+    , getAccounts
+    , getWallets
     , getAddressIndex
     , getTransactionIndex
     , Resp
@@ -28,6 +30,7 @@ module Cardano.Wallet.Client
 
 import           Universum
 
+import           Control.Exception (Exception (..))
 import           Servant.Client (ServantError (..))
 
 import           Cardano.Wallet.API.Request.Filter
@@ -53,6 +56,9 @@ import qualified Pos.Core as Core
 --
 -- Other functions may be defined in terms of this 'WalletClient' -- see
 -- 'getWalletIndex' as a convenience helper for 'getWalletIndexPaged'.
+-- TODO(ks): I don't think that it's important to preserve paging as
+-- an important detail, we should remove paging and return the full set
+-- of results.
 data WalletClient m
     = WalletClient
     { -- address endpoints
@@ -76,7 +82,7 @@ data WalletClient m
     , deleteWallet
          :: WalletId -> m (Either ClientError ())
     , getWallet
-         :: WalletId -> Resp m Wallet
+        :: WalletId -> Resp m Wallet
     , updateWallet
          :: WalletId -> Update Wallet -> Resp m Wallet
     -- account endpoints
@@ -115,6 +121,9 @@ data WalletClient m
 getAddressIndex :: WalletClient m -> Resp m [Address]
 getAddressIndex wc = getAddressIndexPaginated wc Nothing Nothing
 
+getAccounts :: WalletClient m -> WalletId -> Resp m [Account]
+getAccounts wc wi = getAccountIndexPaged wc wi Nothing Nothing
+
 getTransactionIndex
     :: WalletClient m
     -> WalletId
@@ -128,6 +137,11 @@ getTransactionIndex wc wid maid maddr mp mpp =
 
 getWalletIndexPaged :: WalletClient m -> Maybe Page -> Maybe PerPage -> Resp m [Wallet]
 getWalletIndexPaged wc mp mpp = getWalletIndexFilterSorts wc mp mpp NoFilters NoSorts
+
+-- | Retrieves only the first page of wallets, providing a default value to
+-- 'Page' and 'PerPage'.
+getWallets :: WalletClient m -> Resp m [Wallet]
+getWallets wc = getWalletIndexPaged wc Nothing Nothing
 
 -- | Run the given natural transformation over the 'WalletClient'.
 hoistClient :: (forall x. m x -> n x) -> WalletClient m -> WalletClient n
@@ -197,3 +211,18 @@ data ClientError
     -- ^ This constructor is used when the API client reports an error that
     -- isn't represented in either the 'ServantError' HTTP errors or the
     -- 'WalletError' for API errors.
+    deriving (Show)
+
+-- | General (and naive) equality instance.
+instance Eq ClientError where
+    (==) (ClientWalletError e1) (ClientWalletError e2) = e1 == e2
+    (==) (ClientHttpError   e1) (ClientHttpError   e2) = e1 == e2
+    (==) (UnknownError      _ ) (UnknownError      _ ) = True
+    (==) _                      _                      = False
+
+-- | General exception instance.
+instance Exception ClientError where
+    toException   (ClientWalletError e) = toException e
+    toException   (ClientHttpError   e) = toException e
+    toException   (UnknownError      e) = toException e
+

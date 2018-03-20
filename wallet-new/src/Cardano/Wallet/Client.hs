@@ -21,6 +21,7 @@ module Cardano.Wallet.Client
 
 import           Universum
 
+import           Control.Exception (Exception (..))
 import           Servant.Client (ServantError (..))
 
 import           Cardano.Wallet.API.Request.Pagination
@@ -44,6 +45,9 @@ import qualified Pos.Core as Core
 --
 -- Other functions may be defined in terms of this 'WalletClient' -- see
 -- 'getWalletIndex' as a convenience helper for 'getWalletIndexPaged'.
+-- TODO(ks): I don't think that it's important to preserve paging as
+-- an important detail, we should remove paging and return the full set
+-- of results.
 data WalletClient m
     = WalletClient
     { -- address endpoints
@@ -62,13 +66,19 @@ data WalletClient m
          :: WalletId -> PasswordUpdate -> Resp m Wallet
     , deleteWallet
          :: WalletId -> Resp m ()
+    , getWallets
+         :: Resp m [Wallet]
     , getWallet
          :: WalletId -> Resp m Wallet
     , updateWallet
          :: WalletId -> Update Wallet -> Resp m Wallet
     -- account endpoints
+    , postAccount
+         :: New Account -> Resp m Account
     , deleteAccount
          :: WalletId -> AccountIndex -> Resp m ()
+    , getAccounts
+         :: WalletId -> Resp m [Account]
     , getAccount
          :: WalletId -> AccountIndex -> Resp m Account
     , getAccountIndexPaged
@@ -110,9 +120,12 @@ hoistClient phi wc = WalletClient
     , getWalletIndexPaged   = \x -> phi . getWalletIndexPaged wc x
     , updateWalletPassword  = \x -> phi . updateWalletPassword wc x
     , deleteWallet          = phi . deleteWallet wc
+    , getWallets            = phi $ getWallets wc
     , getWallet             = phi . getWallet wc
     , updateWallet          = \x -> phi . updateWallet wc x
+    , postAccount           = phi . postAccount wc
     , deleteAccount         = \x -> phi . deleteAccount wc x
+    , getAccounts           = phi . getAccounts wc
     , getAccount            = \x -> phi . getAccount wc x
     , getAccountIndexPaged  = \x mp -> phi . getAccountIndexPaged wc x mp
     , updateAccount         = \x y -> phi . updateAccount wc x y
@@ -149,3 +162,18 @@ data ClientError
     -- ^ This constructor is used when the API client reports an error that
     -- isn't represented in either the 'ServantError' HTTP errors or the
     -- 'WalletError' for API errors.
+    deriving (Show)
+
+-- | General (and naive) equality instance.
+instance Eq ClientError where
+    (==) (ClientWalletError e1) (ClientWalletError e2) = e1 == e2
+    (==) (ClientHttpError   e1) (ClientHttpError   e2) = e1 == e2
+    (==) (UnknownError      _ ) (UnknownError      _ ) = True
+    (==) _                      _                      = False
+
+-- | General exception instance.
+instance Exception ClientError where
+    toException   (ClientWalletError e) = toException e
+    toException   (ClientHttpError   e) = toException e
+    toException   (UnknownError      e) = toException e
+

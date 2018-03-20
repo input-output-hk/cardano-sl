@@ -67,6 +67,7 @@ import qualified Pos.Network.Policy as Policy
 import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.System.Metrics.Constants (cardanoNamespace)
 import           Pos.Util.TimeWarp (addressToNodeId)
+import           Pos.Util.Trace (wlogTrace)
 import           Pos.Util.Util (HasLens', lensOf)
 
 {-------------------------------------------------------------------------------
@@ -441,7 +442,7 @@ initQueue :: (MonadIO m, FormatMsg msg)
           -> m (OutboundQ msg NodeId Bucket)
 initQueue NetworkConfig{..} loggerName mStore = liftIO $ do
     let selfName = maybe "self" toString ncSelfName
-        oqTrace  = OQ.wlogTrace loggerName selfName
+        oqTrace  = wlogTrace loggerName selfName
     oq <- OQ.new oqTrace
                  ncEnqueuePolicy
                  ncDequeuePolicy

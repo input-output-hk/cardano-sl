@@ -470,7 +470,7 @@ runAction wc ws GetTransaction  = do
 
     result  <-  respToRes $ getTransactionIndex
                                 wc
-                                walletId
+                                (Just walletId)
                                 (Just accountIndex)
                                 Nothing
                                 Nothing

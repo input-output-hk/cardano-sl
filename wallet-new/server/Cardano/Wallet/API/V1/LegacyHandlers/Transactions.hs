@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Cardano.Wallet.API.V1.LegacyHandlers.Transactions where
 
@@ -51,36 +52,43 @@ newTransaction submitTx Payment {..} = do
 
 allTransactions
     :: forall ctx m. (V0.MonadWalletHistory ctx m)
-    => WalletId
+    => Maybe WalletId
     -> Maybe AccountIndex
     -> Maybe (V1 Core.Address)
     -> RequestParams
     -> FilterOperations Transaction
     -> SortOperations Transaction
     -> m (WalletResponse [Transaction])
-allTransactions walletId mAccIdx mAddr requestParams fops sops = do
-    cIdWallet <- migrate walletId
-    ws <- V0.askWalletSnapshot
+allTransactions mwalletId mAccIdx mAddr requestParams fops sops  =
+    case mwalletId of
+        Just walletId -> do
+            cIdWallet <- migrate walletId
+            ws <- V0.askWalletSnapshot
 
-    -- Create a `[V0.AccountId]` to get txs from it
-    let accIds = case mAccIdx of
-            Just accIdx -> migrate (walletId, accIdx)
-            -- ^ Migrate `V1.AccountId` into `V0.AccountId` and put it into a list
-            Nothing     -> V0.getWalletAccountIds ws cIdWallet
-            -- ^ Or get all `V0.AccountId`s of a wallet
+            -- Create a `[V0.AccountId]` to get txs from it
+            let accIds = case mAccIdx of
+                    Just accIdx -> migrate (walletId, accIdx)
+                    -- ^ Migrate `V1.AccountId` into `V0.AccountId` and put it into a list
+                    Nothing     -> V0.getWalletAccountIds ws cIdWallet
+                    -- ^ Or get all `V0.AccountId`s of a wallet
 
-    let v0Addr = case mAddr of
-            Nothing        -> Nothing
-            Just (V1 addr) -> Just $ V0.encodeCType addr
+            let v0Addr = case mAddr of
+                    Nothing        -> Nothing
+                    Just (V1 addr) -> Just $ V0.encodeCType addr
 
-    -- get all `[Transaction]`'s
-    let transactions = do
-            (V0.WalletHistory wh, _) <- V0.getHistory cIdWallet (const accIds) v0Addr
-            migrate wh
+            -- get all `[Transaction]`'s
+            let transactions = do
+                    (V0.WalletHistory wh, _) <- V0.getHistory cIdWallet (const accIds) v0Addr
+                    migrate wh
 
-    -- Paginate result
-    respondWith requestParams fops sops (IxSet.fromList <$> transactions)
-
+            -- Paginate result
+            respondWith requestParams fops sops (IxSet.fromList <$> transactions)
+        _ ->
+            -- TODO: we need to implement the case for Nothing
+            -- TODO: should we use the 'FilterBy' machinery instead? that
+            --       let us express RANGE, GT, etc. in addition to EQ. does
+            --       that make sense for this dataset?
+            undefined
 
 estimateFees :: (MonadThrow m, V0.MonadFees ctx m)
     => Payment

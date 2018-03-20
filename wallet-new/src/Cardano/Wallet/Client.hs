@@ -100,7 +100,7 @@ data WalletClient m
     , postTransaction
          :: Payment -> Resp m Transaction
     , getTransactionIndexFilterSorts
-         :: WalletId
+         :: Maybe WalletId
          -> Maybe AccountIndex
          -> Maybe (V1 Core.Address)
          -> Maybe Page
@@ -126,7 +126,7 @@ getAccounts wc wi = getAccountIndexPaged wc wi Nothing Nothing
 
 getTransactionIndex
     :: WalletClient m
-    -> WalletId
+    -> Maybe WalletId
     -> Maybe AccountIndex
     -> Maybe (V1 Core.Address)
     -> Maybe Page

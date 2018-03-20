@@ -53,7 +53,7 @@ import           Pos.Network.Types (Bucket)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..), NodeAttackedError (..),
                                       SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmptyNewestFirst,
+import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..),
                                   toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Util.Timer (Timer, setTimerDuration, startTimer)
 import           Pos.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
@@ -112,10 +112,10 @@ getBlocks
     -> Word -- ^ Historical: limit on how many headers you can get back... always 2200
     -> EnqueueMsg d
     -> NodeId
-    -> BlockHeader
+    -> HeaderHash
     -> [HeaderHash]
     -> d (OldestFirst [] Block)
-getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeader checkpoints = do
+getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeaderHash checkpoints = do
     -- It is apparently an error to request headers for the tipHeader and
     -- [tipHeader], i.e. 1 checkpoint equal to the header of the block that
     -- you want. Sure, it's a silly thing to do, but should it be an error?
@@ -125,42 +125,28 @@ getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeader checkpoints = do
     -- the block itself.
     bvd <- getAdoptedBVData logic
     blocks <- if singleBlockHeader
-              then requestBlocks bvd (OldestFirst (one tipHeader))
-              else requestAndClassifyHeaders bvd >>= requestBlocks bvd
+              then requestBlocks bvd (OldestFirst (one tipHeaderHash))
+              else requestAndClassifyHeaders bvd >>= requestBlocks bvd . fmap headerHash
     pure (OldestFirst (reverse (toList blocks)))
   where
 
-    requestAndClassifyHeaders :: BlockVersionData -> d (OldestFirst NE BlockHeader)
+    requestAndClassifyHeaders :: BlockVersionData -> d (OldestFirst [] BlockHeader)
     requestAndClassifyHeaders bvd = do
-        headers <- toOldestFirst <$> requestHeaders bvd
-        getLcaMainChain logic headers >>= \case
-            Nothing -> throwM $ DialogUnexpected $ "Got headers, but couldn't compute " <>
-                                                   "LCA to ask for blocks"
-            Just (lca :: HeaderHash) -> do
-                -- Headers list is (oldest to newest)
-                -- [n1,n2,...nj,lca,nj+2,...nk] we drop [n1..lca] and
-                -- return [nj+2..nk], as we already have lca in our
-                -- local db. Usually this function does 1 iterations
-                -- as it's a common case that [n1..nj] is absent and
-                -- lca is the oldest header.
-                let dropUntilLca = NE.dropWhile (\h -> h ^. prevBlockL /= lca)
-                case nonEmpty (dropUntilLca $ getOldestFirst headers) of
-                    Nothing -> throwM $ DialogUnexpected $
-                                   "All headers are older than LCA, nothing to query"
-                    Just headersSuffix -> pure (OldestFirst headersSuffix)
+        OldestFirst headers <- toOldestFirst <$> requestHeaders bvd
+        -- Logic layer gives us the suffix of the chain that we don't have.
+        -- Possibly empty.
+        -- 'requestHeaders' gives a NonEmpty; we drop it to a [].
+        getLcaMainChain logic (OldestFirst (toList headers))
 
     singleBlockHeader :: Bool
     singleBlockHeader = case checkpoints of
-        [checkpointHash] -> checkpointHash == tipHash
+        [checkpointHash] -> checkpointHash == tipHeaderHash
         _                -> False
     mgh :: MsgGetHeaders
     mgh = MsgGetHeaders
         { mghFrom = checkpoints
-        , mghTo = Just tipHash
+        , mghTo = Just tipHeaderHash
         }
-
-    tipHash :: HeaderHash
-    tipHash = headerHash tipHeader
 
     -- | Make message which requests chain of blocks which is based on our
     -- tip. LcaChild is the first block after LCA we don't
@@ -209,17 +195,18 @@ getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeader checkpoints = do
                     nodeId
                 return headers
 
-    requestBlocks :: BlockVersionData -> OldestFirst NE BlockHeader -> d (NewestFirst NE Block)
-    requestBlocks bvd headers = enqueueMsgSingle
+    requestBlocks :: BlockVersionData -> OldestFirst [] HeaderHash -> d (NewestFirst [] Block)
+    requestBlocks _   (OldestFirst [])     = pure (NewestFirst [])
+    requestBlocks bvd (OldestFirst (b:bs)) = enqueueMsgSingle
         enqueue
         (MsgRequestBlocks (S.singleton nodeId))
-        (Conversation $ requestBlocksConversation bvd headers)
+        (Conversation $ requestBlocksConversation bvd (OldestFirst (b :| bs)))
 
     requestBlocksConversation
         :: BlockVersionData
-        -> OldestFirst NE BlockHeader
+        -> OldestFirst NE HeaderHash
         -> ConversationActions MsgGetBlocks MsgBlock d
-        -> d (NewestFirst NE Block)
+        -> d (NewestFirst [] Block)
     requestBlocksConversation bvd headers conv = do
         -- Preserved behaviour from existing logic code: all of the headers
         -- except for the first and last are tossed away.
@@ -228,12 +215,10 @@ getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeader checkpoints = do
             newestHeader = headers ^. _OldestFirst . _neLast
             numBlocks = length headers
             lcaChild = oldestHeader
-            newestHash = headerHash newestHeader
-            lcaChildHash = headerHash lcaChild
         logDebug $ sformat ("Requesting blocks from "%shortHashF%" to "%shortHashF)
-                           lcaChildHash
-                           newestHash
-        send conv $ mkBlocksRequest lcaChildHash newestHash
+                           lcaChild
+                           newestHeader
+        send conv $ mkBlocksRequest lcaChild newestHeader
         logDebug "Requested blocks, waiting for the response"
         chainE <- runExceptT (retrieveBlocks conv bvd numBlocks)
         case chainE of
@@ -241,14 +226,10 @@ getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeader checkpoints = do
                 let msg = sformat ("Error retrieving blocks from "%shortHashF%
                                    " to "%shortHashF%" from peer "%
                                    build%": "%stext)
-                                  lcaChildHash newestHash nodeId e
+                                  lcaChild newestHeader nodeId e
                 logWarning msg
                 throwM $ DialogUnexpected msg
-            Right bs -> case nonEmptyNewestFirst bs of
-                Nothing -> do
-                    let msg = sformat ("Peer gave an empty blocks list")
-                    throwM $ DialogUnexpected msg
-                Just blocks -> return blocks
+            Right bs -> return bs
 
     -- A piece of the block retrieval conversation in which the blocks are
     -- pulled in one-by-one.
@@ -284,27 +265,26 @@ getBlocks logic recoveryHeadersMessage enqueue nodeId tipHeader checkpoints = do
                   retrieveBlocksDo conv bvd (i - 1) (block : acc)
 
 requestTip
-    :: forall d t .
-       ( DiffusionWorkMode d
-       )
+    :: forall d .
+       ( DiffusionWorkMode d )
     => Logic d
     -> EnqueueMsg d
-    -> (BlockHeader -> NodeId -> d t)
-    -> d (Map NodeId (d t))
-requestTip logic enqueue k =
-    fmap waitForDequeues $ enqueue (MsgRequestBlockHeaders Nothing) $ \nodeId _ -> pure . Conversation $
+    -> Word
+    -> d (Map NodeId (d BlockHeader))
+requestTip logic enqueue recoveryHeadersMessage = fmap waitForDequeues $
+    enqueue (MsgRequestBlockHeaders Nothing) $ \nodeId _ -> pure . Conversation $
         \(conv :: ConversationActions MsgGetHeaders MsgHeaders m) -> do
             logDebug "Requesting tip..."
             bvd <- getAdoptedBVData logic
             send conv (MsgGetHeaders [] Nothing)
-            received <- recvLimited conv (mlMsgHeaders bvd 2200)
+            received <- recvLimited conv (mlMsgHeaders bvd (fromIntegral recoveryHeadersMessage))
             case received of
                 Just headers -> handleTip nodeId headers
                 Nothing      -> throwM $ DialogUnexpected "peer didnt' respond with tips"
   where
     handleTip nodeId (MsgHeaders (NewestFirst (tip:|[]))) = do
-        logDebug $ sformat ("Got tip "%shortHashF%", processing") (headerHash tip)
-        k tip nodeId
+        logDebug $ sformat ("Got tip "%shortHashF%" from "%shown%", processing") (headerHash tip) nodeId
+        pure tip
     handleTip _ t = do
         logWarning $ sformat ("requestTip: got enexpected response: "%shown) t
         throwM $ DialogUnexpected "peer sent more than one tip"
@@ -435,7 +415,7 @@ blockListeners logic protocolConstants recoveryHeadersMessage oq keepaliveTimer 
       -- Peer wants some blocks from us.
     , handleGetBlocks logic recoveryHeadersMessage oq
       -- Peer has a block header for us (yes, singular only).
-    , handleBlockHeaders logic oq keepaliveTimer
+    , handleBlockHeaders logic oq recoveryHeadersMessage keepaliveTimer
     ]
 
 ----------------------------------------------------------------------------
@@ -512,16 +492,17 @@ handleBlockHeaders
        )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
+    -> Word
     -> Timer
     -> (ListenerSpec m, OutSpecs)
-handleBlockHeaders logic oq keepaliveTimer =
+handleBlockHeaders logic oq recoveryHeadersMessage keepaliveTimer =
   listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do
     -- The type of the messages we send is set to 'MsgGetHeaders' for
     -- protocol compatibility reasons only. We could use 'Void' here because
     -- we don't really send any messages.
     logDebug "handleBlockHeaders: got some unsolicited block header(s)"
     bvd <- getAdoptedBVData logic
-    mHeaders <- recvLimited conv (mlMsgHeaders bvd 2200)
+    mHeaders <- recvLimited conv (mlMsgHeaders bvd (fromIntegral recoveryHeadersMessage))
     whenJust mHeaders $ \case
         (MsgHeaders headers) -> do
             -- Reset the keepalive timer.

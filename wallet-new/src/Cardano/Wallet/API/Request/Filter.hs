@@ -126,12 +126,12 @@ instance Show (FilterOperation ix a) where
 
 -- | Represents a filter operation on the data model.
 --
--- The first type parameter is a type level list that pairs the query
--- parameter string with the expected parsed type. The second type
--- parameter describes the resource that is being filtered.
+-- The first type parameter is a type level list that describes the
+-- available types for Filtering on. The name of the index is given by the
+-- 'IndexToQueryParam' type family for the resource and type.
 --
 -- @
--- 'FilterBy' '[ "id" ?= WalletId, "balance" ?= Coin ] Wallet
+-- 'FilterBy' '[ WalletId, Coin ] Wallet
 -- @
 --
 -- The above combinator would permit query parameters that look like these
@@ -142,9 +142,14 @@ instance Show (FilterOperation ix a) where
 -- * @balance=RANGE[0,10]@
 --
 -- In order for this to work, you need to ensure that the type family
--- 'IndexToQueryParam' has an entry for each @'[symbol ?= typ] resource@.
--- Otherwise, the client and server won't know how to associate the data
--- and construct requests.
+-- 'IndexToQueryParam' has an entry for each type for the resource.
+--
+-- The instances that enable the above lines are:
+--
+-- @
+--     'IndexToQueryParam' 'Wallet' 'WalletId' = "id"
+--     'IndexToQueryParam' 'Wallet' 'Coin'     = "balance"
+-- @
 data FilterBy (params :: [*]) (resource :: *)
     deriving Typeable
 

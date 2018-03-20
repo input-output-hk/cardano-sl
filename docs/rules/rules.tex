@@ -215,12 +215,13 @@ $b_1,…,b_n$ if all of the following hold
     $\overline{τ} =
     \transactions{b₁},…,\transactions{b_n},t₁,…,t_{i-1}$.
     \begin{description}
-    \item[Unspent inputs] \improvement{Add some spacing for
-        readability} Each input of the transaction $τ$ is
-      unspent. That is, for each $i ∈ \inputs{τ}$,
-      $\overline{τ} = \overline{τ₀},\intrans{i}, \overline{τ_1}$,
-      $\outputs{\intrans{i}}=t₁,…t_k$, $\inindex{i} ⩽ k$, and for each
-      $t ∈ \overline{τ₁}$, $i ∉ \inputs{t}$.
+    \item[Unspent inputs] Each input of the transaction $τ$ is
+      unspent. That is for each $i ∈ \inputs{τ}$
+      \begin{itemize}
+      \item $\overline{τ} = \overline{τ₀},\intrans{i}, \overline{τ_1}$
+      \item $\outputs{\intrans{i}}=t₁,…t_k$, $\inindex{i} ⩽ k$
+      \item for each $t ∈ \overline{τ₁}$, $i ∉ \inputs{t}$.
+      \end{itemize}
 
       In these condition, we can extend the function $\recipient{⋅}$
       and $\amount{⋅}$ on the $i$ as

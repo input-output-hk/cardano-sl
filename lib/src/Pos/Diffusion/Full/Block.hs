@@ -267,8 +267,7 @@ getBlocks logTrace logic recoveryHeadersMessage enqueue nodeId tipHeaderHash che
 
 streamBlocks
     :: forall t .
-       ( Monoid t )
-    => Trace IO (Severity, Text)
+       Trace IO (Severity, Text)
     -> Logic IO
     -> Word32
     -> EnqueueMsg

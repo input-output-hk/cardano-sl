@@ -344,8 +344,7 @@ diffusionLayerFullExposeInternals fdconf
         requestTip = Diffusion.Block.requestTip logTrace logic enqueue recoveryHeadersMessage
 
         streamBlocks :: forall t .
-                        ( Monoid t)
-                     => NodeId
+                        NodeId
                      -> HeaderHash
                      -> [HeaderHash]
                      -> (STM.TBQueue StreamEntry -> IO t)

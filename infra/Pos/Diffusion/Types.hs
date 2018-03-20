@@ -50,8 +50,7 @@ data Diffusion m = Diffusion
                          -> [HeaderHash]
                          -> m (OldestFirst [] Block)
     , streamBlocks       :: forall t .
-                            ( Monoid t)
-                         => NodeId
+                            NodeId
                          -> HeaderHash
                          -> [HeaderHash]
                          -> (TBQueue StreamEntry -> m t)
@@ -141,7 +140,7 @@ dummyDiffusionLayer = do
     dummyDiffusion subscriptionStatus = Diffusion
         { getBlocks          = \_ _ _ -> pure (OldestFirst [])
         , requestTip         = pure mempty
-        , streamBlocks        = \_ _ _ _ -> pure mempty
+        , streamBlocks        = \_ _ _ k -> k (error "dummy: no block streaming")
         , announceBlockHeader = \_ -> pure ()
         , sendTx             = \_ -> pure True
         , sendUpdateProposal = \_ _ _ -> pure ()

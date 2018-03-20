@@ -179,7 +179,7 @@ makeSendActions ourVerInfo enqueue converse = SendActions
     { withConnectionTo = \nodeId mkConv -> N.converseWith converse nodeId $ \pVI ->
           alternativeConversations nodeId ourVerInfo pVI (mkConv pVI)
       -- NB: here we don't use 'converse'; that's ultimately used by the
-      -- outbound queue's dequeue thread. We just enqueue there.
+      -- outbound queue's dequeue thread. We just enqueue here.
     , enqueueMsg = \msg mkConv -> waitForDequeues <$> (makeEnqueueMsg ourVerInfo enqueue msg mkConv)
     } 
 

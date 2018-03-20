@@ -27,7 +27,13 @@ import           Pos.Wallet.Web.Sockets (ConnectionsVar)
 import           Pos.Wallet.Web.State (WalletDB)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.WorkMode (RealModeContext (..))
-import           Serokell.AcidState.ExtendedState
+import           System.Directory (createDirectoryIfMissing, doesPathExist, getCurrentDirectory,
+                                   removeDirectoryRecursive)
+
+import           Mockable (Production, runProduction)
+import           Pos.Util.JsonLog (jsonLogConfigFromHandle)
+import           Pos.Util.UserSecret (usVss)
+
 import           Servant
 import           Servant.QuickCheck
 import           Servant.QuickCheck.Internal
@@ -143,6 +149,10 @@ v1Server diffusion = do
   withoutNtpClient $ \ntpStatus ->
     return (V1.handlers (Migration.v1MonadNat ctx) diffusion ntpStatus)
 
+
+getCurrentTime :: MonadIO m => m Microsecond
+getCurrentTime = liftIO $ fromMicroseconds . round . ( * 1000000) <$> getPOSIXTime
+
 -- | Returns a test 'V1Context' which can be used for the API specs.
 -- Such context will use an in-memory database.
 testV1Context :: Migration.HasConfiguration => IO Migration.V1Context
@@ -172,6 +182,7 @@ serverLayout = Text.encodeUtf8 (layout (Proxy @V1.API))
 -- Our API apparently is returning JSON Arrays which is considered bad practice as very old
 -- browsers can be hacked: https://haacked.com/archive/2009/06/25/json-hijacking.aspx/
 -- The general consensus, after discussing this with the team, is that we can be moderately safe.
+-- stack test cardano-sl-wallet-new --fast --test-arguments '-m "Servant API Properties"'
 spec :: Spec
 spec = withCompileInfo def $ do
     withDefConfigurations $ \_ -> do

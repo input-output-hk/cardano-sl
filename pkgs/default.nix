@@ -7675,10 +7675,10 @@ inherit (pkgs) mesa;};
          , cardano-sl-infra, cardano-sl-networking, cardano-sl-ssc
          , cardano-sl-txp, cardano-sl-update, cardano-sl-util
          , cardano-sl-wallet, constraints, containers, data-default
-         , exceptions, formatting, generics-sop, hspec, http-api-data
-         , http-client, http-types, insert-ordered-containers, ixset-typed
-         , json-sop, lens, log-warper, memory, mmorph, mtl
-         , neat-interpolation, optparse-applicative, QuickCheck
+         , directory, exceptions, formatting, generics-sop, hspec
+         , http-api-data, http-client, http-types, ixset-typed, json-sop
+         , lens, log-warper, memory, mmorph, mtl, neat-interpolation
+         , network-transport-tcp, optparse-applicative, QuickCheck
          , quickcheck-instances, safe-exceptions, serokell-util, servant
          , servant-client, servant-client-core, servant-quickcheck
          , servant-server, servant-swagger, servant-swagger-ui, stdenv, stm
@@ -7723,13 +7723,13 @@ inherit (pkgs) mesa;};
              cardano-sl-client cardano-sl-core cardano-sl-crypto cardano-sl-db
              cardano-sl-delegation cardano-sl-infra cardano-sl-networking
              cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
-             cardano-sl-wallet constraints containers data-default exceptions
-             formatting hspec http-client http-types ixset-typed lens log-warper
-             mmorph mtl neat-interpolation optparse-applicative QuickCheck
-             quickcheck-instances safe-exceptions serokell-util servant
-             servant-quickcheck servant-server servant-swagger stm string-conv
-             swagger2 text text-format time time-units universum
-             unordered-containers
+             cardano-sl-wallet constraints containers data-default directory
+             exceptions formatting hspec http-client http-types ixset-typed lens
+             log-warper mmorph mtl neat-interpolation network-transport-tcp
+             optparse-applicative QuickCheck quickcheck-instances
+             safe-exceptions serokell-util servant servant-quickcheck
+             servant-server servant-swagger stm string-conv swagger2 text
+             text-format time time-units universum unordered-containers
            ];
            doHaddock = false;
            homepage = "https://github.com/input-output-hk/cardano-sl/#readme";

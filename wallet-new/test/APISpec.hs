@@ -11,22 +11,44 @@ module APISpec where
 
 import           Universum
 
-import qualified Control.Concurrent.STM as STM
 import           Data.Default (def)
+import           Data.Maybe (fromJust)
+
+import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Time.Units (Microsecond, fromMicroseconds)
+import           Formatting (format, shown, string, (%))
 import           Network.HTTP.Client hiding (Proxy)
 import           Network.HTTP.Types
+import           System.Wlog (HasLoggerName (..), LoggerName (..))
+
+import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..), NodeArgs (..), getNodeParams,
+                                 gtSscParams)
+import           Pos.Core (Timestamp (..))
+import           Pos.DB.DB (initNodeDBs)
+import           Pos.DB.Rocks.Functions (openNodeDBs)
+import           Pos.DB.Rocks.Types (NodeDBs)
 import qualified Pos.Diffusion.Types as D
-import           Pos.Util.CompileInfo (withCompileInfo)
-import           Pos.Wallet.WalletMode (WalletMempoolExt)
+import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeResources (..),
+                               allocateNodeResources, defaultConfigurationOptions, npBehaviorConfig,
+                               npUserSecret, withConfigurations)
+import           Pos.Network.CLI (NetworkConfigOpts (..), intNetworkConfigOpts)
+import           Pos.Txp (txpGlobalSettings)
+import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
 import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
-import           Pos.Wallet.Web.Sockets (ConnectionsVar)
-import           Pos.Wallet.Web.State (WalletDB)
+import           Pos.Wallet.Web.State (WalletDB, openState)
 import           Pos.WorkMode (RealModeContext (..))
-import           Serokell.AcidState.ExtendedState
+import           System.Directory (createDirectoryIfMissing, doesPathExist, getCurrentDirectory,
+                                   removeDirectoryRecursive)
+
+import           Mockable (Production, runProduction)
+import           Pos.Util.JsonLog (jsonLogConfigFromHandle)
+import           Pos.Util.UserSecret (usVss)
+
 import           Servant
 import           Servant.QuickCheck
 import           Servant.QuickCheck.Internal
+
 import           Test.Hspec
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.QuickCheck
@@ -136,36 +158,157 @@ v1Server diffusion = do
   ctx <- testV1Context
   return (V1.handlers (Migration.v1MonadNat ctx) diffusion)
 
+
+getCurrentTime :: MonadIO m => m Microsecond
+getCurrentTime = liftIO $ fromMicroseconds . round . ( * 1000000) <$> getPOSIXTime
+
 -- | Returns a test 'V1Context' which can be used for the API specs.
 -- Such context will use an in-memory database.
 testV1Context :: Migration.HasConfiguration => IO Migration.V1Context
-testV1Context =
-    WalletWebModeContext <$> testStorage
-                         <*> testConnectionsVar
-                         <*> testAddrCIdHashes
-                         <*> testRealModeContext
-  where
-    testStorage :: IO WalletDB
-    testStorage = openMemoryExtendedState def
+testV1Context = do
 
-    testConnectionsVar :: IO ConnectionsVar
-    testConnectionsVar = STM.newTVarIO def
+    let configurationPath = "../lib/configuration.yaml"
 
-    testAddrCIdHashes :: IO AddrCIdHashes
-    testAddrCIdHashes = AddrCIdHashes <$> newIORef mempty
+    let testPath          = "../run/integration-test/"
+    let nodeDBPath        = testPath <> "node-integration-db"
+    let walletDBPath      = testPath <> "node-wallet-db"
+    let secretKeyPath     = testPath <> "secret-integration-buahaha?.key"
 
-    -- For some categories of tests we won't hit the 'RealModeContext', so that's safe
-    -- for now to leave it unimplemented.
-    testRealModeContext :: IO (RealModeContext WalletMempoolExt)
-    testRealModeContext = return (error "testRealModeContext is currently unimplemented")
+    -- Let's first clear the test directory.
+    whenM (doesPathExist testPath) $ removeDirectoryRecursive testPath
+
+    -- Create it.
+    createDirectoryIfMissing True testPath
+
+    currentTime       <- getCurrentTime
+    currentDirectory  <- getCurrentDirectory
+
+    -- We want to have this since it can be useful if it fails.
+    putStrLn $ format
+        ("Integration test run on '" % shown % "', current dir - '" % string % "'.")
+        currentTime
+        currentDirectory
+
+    let cfg = defaultConfigurationOptions
+            { cfoSystemStart  = Just . Timestamp $ currentTime
+            , cfoFilePath     = configurationPath
+            , cfoKey          = "dev"
+            }
+
+    -- Open wallet state. Delete if exists.
+    ws <- liftIO $ openState True walletDBPath
+
+    liftIO $ withConfigurations cfg $
+        withCompileInfo $(retrieveCompileTimeInfo) $ do
+            dbs  <- openNodeDBs False nodeDBPath
+
+            -- We probably need to close this, but it should close
+            -- after the test is done.
+            walletRunner cfg dbs secretKeyPath ws
+            -- closeState ws
+
+
+-- | Required instance for IO.
+instance HasLoggerName IO where
+    askLoggerName = pure $ LoggerName "APISpec"
+    modifyLoggerName _ x = x
+
+
+newRealModeContext
+    :: HasConfigurations
+    => NodeDBs
+    -> ConfigurationOptions
+    -> FilePath
+    -> Production (RealModeContext ())
+newRealModeContext dbs confOpts secretKeyPath = do
+
+    let nodeArgs = NodeArgs {
+      behaviorConfigPath = Nothing
+    }
+
+    let networkOps = NetworkConfigOpts {
+          ncoTopology = Nothing
+        , ncoKademlia = Nothing
+        , ncoSelf     = Nothing
+        , ncoPort     = 3030
+        , ncoPolicies = Nothing
+        , ncoBindAddress = Nothing
+        , ncoExternalAddress = Nothing
+        }
+
+    let cArgs@CommonNodeArgs {..} = CommonNodeArgs {
+           dbPath                 = Just "node-db"
+         , rebuildDB              = True
+         , devGenesisSecretI      = Nothing
+         , keyfilePath            = secretKeyPath
+         , networkConfigOpts      = networkOps
+         , jlPath                 = Nothing
+         , commonArgs             = CommonArgs {
+               logConfig            = Nothing
+             , logPrefix            = Nothing
+             , reportServers        = mempty
+             , updateServers        = mempty
+             , configurationOptions = confOpts
+             }
+         , updateLatestPath       = "update"
+         , updateWithPackage      = False
+         , noNTP                  = True
+         , route53Params          = Nothing
+         , enableMetrics          = False
+         , ekgParams              = Nothing
+         , statsdParams           = Nothing
+         , cnaDumpGenesisDataPath = Nothing
+         , cnaDumpConfiguration   = False
+         }
+
+    loggerName <- askLoggerName
+    nodeParams <- getNodeParams loggerName cArgs nodeArgs
+
+    let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
+    let gtParams = gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
+
+    networkConfig <- intNetworkConfigOpts networkOps
+
+    -- Maybe switch to bracketNodeResources?
+    nodeResources <-  allocateNodeResources
+                          networkConfig
+                          nodeParams
+                          gtParams
+                          txpGlobalSettings
+                          initNodeDBs
+
+    RealModeContext <$> pure dbs
+                    <*> pure (nrSscState nodeResources)
+                    <*> pure (nrTxpState nodeResources)
+                    <*> pure (nrDlgState nodeResources)
+                    <*> jsonLogConfigFromHandle stdout
+                    <*> pure (LoggerName "APISpec")
+                    <*> pure (nrContext nodeResources)
+
+
+-- | The runner we need to retunr out wallet context.
+walletRunner
+    :: (HasConfigurations, HasCompileInfo)
+    => ConfigurationOptions
+    -> NodeDBs
+    -> FilePath
+    -> WalletDB
+    -> IO WalletWebModeContext
+walletRunner confOpts dbs secretKeyPath ws =
+    WalletWebModeContext <$> pure ws
+                         <*> newTVarIO def
+                         <*> (AddrCIdHashes <$> (newIORef mempty))
+                         <*> runProduction (newRealModeContext dbs confOpts secretKeyPath)
+
 
 -- Our API apparently is returning JSON Arrays which is considered bad practice as very old
 -- browsers can be hacked: https://haacked.com/archive/2009/06/25/json-hijacking.aspx/
 -- The general consensus, after discussing this with the team, is that we can be moderately safe.
+-- stack test cardano-sl-wallet-new --fast --test-arguments '-m "Servant API Properties"'
 spec :: Spec
 spec = withCompileInfo def $ do
     withDefConfigurations $ do
-      xdescribe "Servant API Properties" $ do
+      describe "Servant API Properties" $ do
         it "V0 API follows best practices & is RESTful abiding" $ do
           ddl <- D.dummyDiffusionLayer
           withServantServer (Proxy @V0.API) (v0Server (D.diffusion ddl)) $ \burl ->

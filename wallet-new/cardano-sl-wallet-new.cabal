@@ -461,6 +461,13 @@ test-suite wallet-new-specs
                     , time
                     , time-units
                     , universum
+                    -- Required for the integration test
+                    , network-transport-tcp
+                    , cardano-sl-db
+                    , cardano-sl-block
+                    , log-warper
+                    , directory
+                    , formatting
 
 benchmark cardano-sl-wallet-new-bench
   hs-source-dirs:      bench

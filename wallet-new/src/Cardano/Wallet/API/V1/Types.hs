@@ -1,9 +1,11 @@
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE ExplicitNamespaces         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
@@ -62,13 +64,16 @@ module Cardano.Wallet.API.V1.Types (
   , SyncProgress
   , mkSyncProgress
   , NodeInfo (..)
+  -- * Some types for the API
+  , CaptureWalletId
+  , CaptureAccountId
   -- * Core re-exports
   , Core.Address
   ) where
 
 import           Universum
 
-import           Control.Lens (at, ix, makePrisms, (?~), IxValue, Index, At)
+import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (typeMismatch)
@@ -83,10 +88,10 @@ import           GHC.Generics (Generic, Rep)
 import qualified Prelude
 import qualified Serokell.Aeson.Options as Serokell
 import qualified Serokell.Util.Base16 as Base16
+import           Servant
 import           Test.QuickCheck
 import           Test.QuickCheck.Gen (Gen (..))
 import           Test.QuickCheck.Random (mkQCGen)
-import           Web.HttpApiData
 
 import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
 import           Cardano.Wallet.Orphans.Aeson ()
@@ -94,6 +99,8 @@ import           Cardano.Wallet.Orphans.Aeson ()
 -- V0 logic
 import           Pos.Util.BackupPhrase (BackupPhrase (..))
 
+-- importing for orphan instances for Coin
+import           Pos.Wallet.Web.ClientTypes.Instances ()
 
 import           Cardano.Wallet.Util (showApiUtcTime)
 import qualified Data.ByteArray as ByteArray
@@ -275,7 +282,10 @@ instance ToJSON (V1 Core.Coin) where
     toJSON (V1 c) = toJSON . Core.unsafeGetCoin $ c
 
 instance FromJSON (V1 Core.Coin) where
-    parseJSON v = V1 . Core.mkCoin <$> parseJSON v
+    parseJSON v = do
+        i <- Core.Coin <$> parseJSON v
+        either (fail . toString) (const (pure (V1 i)))
+            $ Core.checkCoin i
 
 instance Arbitrary (V1 Core.Coin) where
     arbitrary = fmap V1 arbitrary
@@ -325,6 +335,16 @@ instance ToJSON (V1 Core.Timestamp) where
     toJSON timestamp =
         let utcTime = timestamp ^. _V1 . Core.timestampToUTCTimeL
         in  String $ showApiUtcTime utcTime
+
+instance ToHttpApiData (V1 Core.Timestamp) where
+    toQueryParam = view (_V1 . Core.timestampToUTCTimeL . to showApiUtcTime)
+
+instance FromHttpApiData (V1 Core.Timestamp) where
+    parseQueryParam t =
+        maybe
+            (Left ("Couldn't parse timestamp or datetime out of: " <> t))
+            (Right . V1)
+            (Core.parseTimestamp t)
 
 -- | Parses from both UTC time in 'apiTimeFormat' format and a fractional
 -- timestamp format.
@@ -739,6 +759,12 @@ instance Arbitrary (V1 Core.TxId) where
 instance ToJSON (V1 Core.TxId) where
   toJSON (V1 t) = String (sformat hashHexF t)
 
+instance FromJSON (V1 Core.TxId) where
+    parseJSON = withText "TxId" $ \t -> do
+       case decodeHash t of
+           Left err -> fail $ "Failed to parse transaction ID: " <> toString err
+           Right a  -> pure (V1 a)
+
 instance FromHttpApiData (V1 Core.TxId) where
     parseQueryParam = fmap (fmap V1) decodeHash
 
@@ -812,7 +838,7 @@ data Transaction = Transaction
     -- ^ The time when transaction was created.
   } deriving (Show, Ord, Eq, Generic)
 
-deriveToJSON Serokell.defaultOptions ''Transaction
+deriveJSON Serokell.defaultOptions ''Transaction
 
 instance ToSchema Transaction where
   declareNamedSchema =
@@ -909,7 +935,6 @@ instance ToSchema Version where
         pure $ NamedSchema (Just "Version") $ mempty
             & type_ .~ SwaggerString
 
-
 instance ToJSON (V1 Core.ApplicationName) where
     toJSON (V1 svAppName) = toJSON (Core.getApplicationName svAppName)
 
@@ -925,6 +950,12 @@ instance ToJSON (V1 Core.SoftwareVersion) where
                , "version" .=  toJSON svNumber
                ]
 
+instance FromJSON (V1 Core.SoftwareVersion) where
+    parseJSON = withObject "V1SoftwareVersion" $ \o -> do
+        V1 svAppName <- o .: "applicationName"
+        svNumber <- o .: "version"
+        pure $ V1 Core.SoftwareVersion{..}
+
 instance ToSchema (V1 Core.SoftwareVersion) where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "V1SoftwareVersion") $ mempty
@@ -938,7 +969,7 @@ instance ToSchema (V1 Core.SoftwareVersion) where
 instance Arbitrary (V1 Core.SoftwareVersion) where
     arbitrary = fmap V1 arbitrary
 
-deriveToJSON Serokell.defaultOptions ''NodeSettings
+deriveJSON Serokell.defaultOptions ''NodeSettings
 
 instance ToSchema NodeSettings where
   declareNamedSchema =
@@ -1103,3 +1134,7 @@ type family New (original :: *) :: * where
   New Wallet  = NewWallet
   New Account = NewAccount
   New WalletAddress = NewAddress
+
+type CaptureWalletId = Capture "walletId" WalletId
+
+type CaptureAccountId = Capture "accountId" AccountIndex

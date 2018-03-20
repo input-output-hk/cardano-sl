@@ -1,10 +1,12 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module APISpec where
 
 import           Universum
@@ -63,7 +65,7 @@ instance HasGenRequest sub => HasGenRequest (FilterBy syms res :> sub) where
 instance HasGenRequest sub => HasGenRequest (Tags tags :> sub) where
     genRequest _ = genRequest (Proxy :: Proxy sub)
 
-instance HasGenRequest sub => HasGenRequest (WalletRequestParams :> sub) where
+instance HasGenRequest (sub :: *) => HasGenRequest (WalletRequestParams :> sub) where
     genRequest _ = genRequest (Proxy @(WithWalletRequestParams sub))
 
 --

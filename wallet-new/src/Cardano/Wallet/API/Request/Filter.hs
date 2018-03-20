@@ -2,26 +2,30 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE LambdaCase                #-}
+{-# LANGUAGE PolyKinds                 #-}
 {-# LANGUAGE RankNTypes                #-}
+
 module Cardano.Wallet.API.Request.Filter where
 
 import qualified Prelude
 import           Universum
 
-import qualified Cardano.Wallet.API.Request.Parameters as Param
-import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 import qualified Data.List as List
 import qualified Data.Text as T
-import           Data.Typeable (Typeable)
+import           Data.Typeable
 import qualified Generics.SOP as SOP
-import           GHC.TypeLits (Symbol)
+import           GHC.TypeLits
+import           Network.HTTP.Types (parseQueryText)
+import           Network.Wai (rawQueryString)
+import           Servant
+import           Servant.Client
+import           Servant.Client.Core (appendToQueryString)
+import           Servant.Server.Internal
 
 import           Cardano.Wallet.API.Indices
-import           Network.HTTP.Types (parseQueryText)
-import           Network.Wai (Request, rawQueryString)
-import           Servant
-import           Servant.Server.Internal
+import qualified Cardano.Wallet.API.Request.Parameters as Param
+import           Cardano.Wallet.API.V1.Types
 
 --
 -- Filtering data
@@ -31,13 +35,27 @@ import           Servant.Server.Internal
 -- the inner closure of 'FilterOp'.
 data FilterOperations a where
     NoFilters  :: FilterOperations a
-    FilterOp   :: (Indexable' a, IsIndexOf' a ix, ToIndex a ix)
+    FilterOp   :: (IndexRelation a ix, FromHttpApiData ix, ToHttpApiData ix, Eq ix)
                => FilterOperation ix a
                -> FilterOperations a
                -> FilterOperations a
 
+infixr 6 `FilterOp`
+
 instance Show (FilterOperations a) where
     show = show . flattenOperations
+
+instance Eq (FilterOperations a) where
+    NoFilters == NoFilters =
+        True
+    FilterOp (f0 :: FilterOperation ix0 a) rest0 == FilterOp (f1 :: FilterOperation ix1 a) rest1 =
+        case eqT @ix0 @ix1 of
+            Nothing ->
+                False
+            Just Refl ->
+                f0 == f1 && rest0 == rest1
+    _ == _ =
+        False
 
 -- | Handy helper function to show opaque 'FilterOperation'(s), mostly for
 -- debug purposes.
@@ -53,7 +71,15 @@ data FilterOrdering =
     | GreaterThanEqual
     | LesserThan
     | LesserThanEqual
-    deriving (Show, Eq)
+    deriving (Show, Eq, Enum, Bounded)
+
+renderFilterOrdering :: FilterOrdering -> Text
+renderFilterOrdering = \case
+    Equal -> "EQ"
+    GreaterThan -> "GT"
+    GreaterThanEqual -> "GTE"
+    LesserThan -> "LT"
+    LesserThanEqual -> "LTE"
 
 -- A filter operation on the data model
 data FilterOperation ix a =
@@ -63,21 +89,69 @@ data FilterOperation ix a =
     -- ^ Filter by predicate (e.g. lesser than, greater than, etc.)
     | FilterByRange ix ix
     -- ^ Filter by range, in the form [from,to]
-    | FilterIdentity
-    -- ^ Do not alter the resource.
+    deriving Eq
+
+instance ToHttpApiData ix => ToHttpApiData (FilterOperation ix a) where
+    toQueryParam = renderFilterOperation
+
+renderFilterOperation :: ToHttpApiData ix => FilterOperation ix a -> Text
+renderFilterOperation = \case
+    FilterByIndex ix ->
+        toQueryParam ix
+    FilterByPredicate p ix ->
+        mconcat [renderFilterOrdering p, "[", toQueryParam ix, "]"]
+    FilterByRange lo hi  ->
+        mconcat ["RANGE", "[", toQueryParam lo, ",", toQueryParam hi, "]"]
+
+findMatchingFilterOp
+    :: forall needle a
+    . Typeable needle
+    => FilterOperations a
+    -> Maybe (FilterOperation needle a)
+findMatchingFilterOp filters =
+    case filters of
+        NoFilters ->
+            Nothing
+        FilterOp (fop :: FilterOperation ix a) rest ->
+            case eqT @ix @needle of
+                Just Refl ->
+                    pure fop
+                Nothing ->
+                    findMatchingFilterOp rest
 
 instance Show (FilterOperation ix a) where
     show (FilterByIndex _)            = "FilterByIndex"
     show (FilterByPredicate theOrd _) = "FilterByPredicate[" <> show theOrd <> "]"
     show (FilterByRange _ _)          = "FilterByRange"
-    show FilterIdentity               = "FilterIdentity"
 
 -- | Represents a filter operation on the data model.
--- Examples:
---   *    `wallet_id=DEADBEEF`.
---   *    `balance=GT[10]`
---   *    `balance=RANGE[0,10]`
-data FilterBy (sym :: [Symbol]) (r :: *) deriving Typeable
+--
+-- The first type parameter is a type level list that describes the
+-- available types for Filtering on. The name of the index is given by the
+-- 'IndexToQueryParam' type family for the resource and type.
+--
+-- @
+-- 'FilterBy' '[ WalletId, Coin ] Wallet
+-- @
+--
+-- The above combinator would permit query parameters that look like these
+-- examples:
+--
+-- * @id=DEADBEEF@.
+-- * @balance=GT[10]@
+-- * @balance=RANGE[0,10]@
+--
+-- In order for this to work, you need to ensure that the type family
+-- 'IndexToQueryParam' has an entry for each type for the resource.
+--
+-- The instances that enable the above lines are:
+--
+-- @
+--     'IndexToQueryParam' 'Wallet' 'WalletId' = "id"
+--     'IndexToQueryParam' 'Wallet' 'Coin'     = "balance"
+-- @
+data FilterBy (params :: [*]) (resource :: *)
+    deriving Typeable
 
 -- | This is a slighly boilerplat-y type family which maps symbols to
 -- indices, so that we can later on reify them into a list of valid indices.
@@ -86,70 +160,51 @@ type family FilterParams (syms :: [Symbol]) (r :: *) :: [*] where
     FilterParams '[Param.Id, Param.CreatedAt] Transaction = IndicesOf Transaction
 
 class ToFilterOperations (ixs :: [*]) a where
-  toFilterOperations :: Request -> [Text] -> proxy ixs -> FilterOperations a
+  toFilterOperations :: [(Text, Maybe Text)] -> proxy ixs -> FilterOperations a
 
 instance Indexable' a => ToFilterOperations ('[]) a where
-  toFilterOperations _ _ _ = NoFilters
+  toFilterOperations _ _ = NoFilters
 
-instance ( Indexable' a
-         , IsIndexOf' a ix
-         , ToIndex a ix
+instance ( IndexRelation a ix
+         , ToHttpApiData ix
+         , FromHttpApiData ix
          , ToFilterOperations ixs a
+         , sym ~ IndexToQueryParam a ix
+         , KnownSymbol sym
          )
          => ToFilterOperations (ix ': ixs) a where
-  toFilterOperations req [] _     =
-      let newOp = FilterIdentity
-      in FilterOp (newOp :: FilterOperation ix a) (toFilterOperations req [] (Proxy :: Proxy ixs))
-  toFilterOperations req (x:xs) _ =
-      case List.lookup x (parseQueryText $ rawQueryString req) of
-          Nothing       ->
-              let newOp = FilterIdentity
-              in FilterOp (newOp :: FilterOperation ix a) (toFilterOperations req xs (Proxy @ ixs))
-          Just Nothing  ->
-              let newOp = FilterIdentity
-              in FilterOp (newOp :: FilterOperation ix a) (toFilterOperations req xs (Proxy @ ixs))
-          Just (Just v) ->
-              case parseFilterOperation (Proxy @a) (Proxy @ix) v of
-                  Left _      ->
-                      let newOp = FilterIdentity
-                      in FilterOp (newOp :: FilterOperation ix a) (toFilterOperations req xs (Proxy @ ixs))
-                  Right newOp -> newOp `FilterOp` toFilterOperations req xs (Proxy @ ixs)
+    toFilterOperations params _ =
+        fromMaybe rest $ do
+            v <- join $ List.lookup x params
+            op <- rightToMaybe $ parseFilterOperation (Proxy @a) (Proxy @ix) v
+            pure (FilterOp op rest)
+      where
+        rest = toFilterOperations params (Proxy @ ixs)
+        x = toText $ symbolVal (Proxy @sym)
 
 instance ( HasServer subApi ctx
-         , FilterParams syms res ~ ixs
-         , KnownSymbols syms
-         , ToFilterOperations ixs res
-         , SOP.All (ToIndex res) ixs
-         ) => HasServer (FilterBy syms res :> subApi) ctx where
+         , ToFilterOperations params res
+         , SOP.All (ToIndex res) params
+         ) => HasServer (FilterBy params res :> subApi) ctx where
 
-    type ServerT (FilterBy syms res :> subApi) m = FilterOperations res -> ServerT subApi m
+    type ServerT (FilterBy params res :> subApi) m = FilterOperations res -> ServerT subApi m
     hoistServerWithContext _ ct hoist' s = hoistServerWithContext (Proxy @subApi) ct hoist' . s
 
     route Proxy context subserver =
-        let allParams = map toText $ symbolVals (Proxy @syms)
-            delayed = addParameterCheck subserver . withRequest $ \req ->
-                          return $ toFilterOperations req allParams (Proxy @ixs)
-
+        let delayed = addParameterCheck subserver . withRequest $ \req ->
+                          return $ toFilterOperations (parseQueryText $ rawQueryString req) (Proxy @params)
         in route (Proxy :: Proxy subApi) context delayed
-
-parseFilterParams :: forall a ixs. (
-                     SOP.All (ToIndex a) ixs
-                  ,  ToFilterOperations ixs a
-                  )
-                  => Request
-                  -> [Text]
-                  -> Proxy ixs
-                  -> DelayedIO (FilterOperations a)
-parseFilterParams req params p = return $ toFilterOperations req params p
 
 -- | Parse the filter operations, failing silently if the query is malformed.
 -- TODO(adinapoli): we need to improve error handling (and the parsers, for
 -- what is worth).
-parseFilterOperation :: forall a ix. ToIndex a ix
-                     => Proxy a
-                     -> Proxy ix
-                     -> Text
-                     -> Either Text (FilterOperation ix a)
+parseFilterOperation
+    :: forall a ix
+    . ToIndex a ix
+    => Proxy a
+    -> Proxy ix
+    -> Text
+    -> Either Text (FilterOperation ix a)
 parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery of
     Nothing -> Left "Not a valid filter."
     Just f  -> Right f
@@ -177,3 +232,23 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
         case bimap identity (T.drop 1) (T.breakOn "," fromTo) of
             (_, "")    -> Nothing
             (from, to) -> FilterByRange <$> toIndex p from <*> toIndex p to
+
+instance
+    ( HasClient m next
+    , SOP.All (ToIndex res) params
+    )
+    => HasClient m (FilterBy params res :> next) where
+    type Client m (FilterBy params res :> next) =
+        FilterOperations res -> Client m next
+    clientWithRoute pm _ req fs =
+        clientWithRoute pm (Proxy @next) (incorporate fs)
+      where
+        incorporate =
+            foldr (uncurry appendToQueryString) req . toQueryString
+
+toQueryString :: FilterOperations a -> [(Text, Maybe Text)]
+toQueryString NoFilters = []
+toQueryString (FilterOp (fop :: FilterOperation ix a) rest) =
+    ( toText (symbolVal (Proxy @(IndexToQueryParam a ix)))
+    , Just (toQueryParam fop)
+    ) : toQueryString rest

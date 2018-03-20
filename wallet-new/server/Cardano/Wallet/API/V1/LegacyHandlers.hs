@@ -22,6 +22,9 @@ import qualified Cardano.Wallet.API.V1.Settings as Settings
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 
+-- importing the orphan instance for ToHttpApiData Core.Coin
+import           Cardano.Wallet.API.V1.Types ()
+
 import           Cardano.Wallet.API.V1.Migration
 
 import           Servant

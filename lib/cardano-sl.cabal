@@ -98,6 +98,7 @@ library
                         -- Util code for tests
                         Test.Pos.Configuration
 
+                        Pos.Util.Mockable
                         Pos.Util.Servant
 
 
@@ -165,6 +166,7 @@ library
                       , hspec
                       , lens
                       , log-warper >= 1.1.1
+                      , mmorph
                       , monad-control
                       , mtl
                       , neat-interpolation
@@ -173,6 +175,7 @@ library
                       , plutus-prototype
                       , pvss
                       , random
+                      , resourcet
                       , reflection
                       , safe-exceptions
                       , safecopy
@@ -190,6 +193,8 @@ library
                       , time
                       , time-units
                       , transformers
+                      , transformers-base
+                      , transformers-lift
                       , universum >= 0.1.11
                       , unliftio
                       , unordered-containers

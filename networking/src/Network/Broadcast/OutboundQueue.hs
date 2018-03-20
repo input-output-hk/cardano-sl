@@ -80,11 +80,6 @@ module Network.Broadcast.OutboundQueue (
   , registerQueueMetrics
   , dumpState
   , currentlyInFlight
-
-  , Trace (..)
-  , trace
-  , noTrace
-  , wlogTrace
   ) where
 
 import           Control.Concurrent
@@ -96,7 +91,6 @@ import           Control.Lens
 import           Control.Monad
 import           Data.Either (rights)
 import           Data.Foldable (fold)
-import           Data.Functor.Contravariant (Contravariant (..), Op (..))
 import           Data.List (intercalate, sortBy)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -109,12 +103,12 @@ import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Time
 import           Data.Typeable (typeOf)
-import           Formatting (Format, sformat, shown, string, stext, (%))
+import           Formatting (Format, sformat, shown, string, (%))
 import qualified System.Metrics as Monitoring
 import           System.Metrics.Counter (Counter)
 import qualified System.Metrics.Counter as Counter
-import           System.Wlog.Severity (Severity (..))
-import qualified System.Wlog as Wlog
+
+import           Pos.Util.Trace (Trace, traceWith, Severity (..))
 
 import           Network.Broadcast.OutboundQueue.ConcurrentMultiQueue (MultiQueue)
 import qualified Network.Broadcast.OutboundQueue.ConcurrentMultiQueue as MQ
@@ -370,28 +364,6 @@ setInFlightFor Packet{..} f var = modifyMVar_ var (return . update)
 
     updateInnerMap :: Map Precedence Int -> Map Precedence Int
     updateInnerMap = Map.adjust f packetPrec
-
--- | Abstracts logging.
-newtype Trace m s = Trace
-    { runTrace :: Op (m ()) s
-    }
-
-instance Contravariant (Trace m) where
-    contramap f = Trace . contramap f . runTrace
-
-trace :: Trace m s -> s -> m ()
-trace = getOp . runTrace
-
--- | A 'Trace' that ignores everything. NB this actually turns off logging: it
--- doesn't force the logged messages.
-noTrace :: Applicative m => Trace m a
-noTrace = Trace $ Op $ const (pure ())
-
--- | A 'Trace' that uses log-warper.
-wlogTrace :: Wlog.LoggerName -> String -> Trace IO (Severity, Text)
-wlogTrace loggerName selfName = Trace $ Op $ \(severity, txt) ->
-  let txtWithName = sformat (string%": "%stext) selfName txt
-  in  Wlog.usingLoggerName loggerName $ Wlog.logMessage severity txtWithName
 
 -- | The outbound queue (opaque data structure)
 --
@@ -666,11 +638,11 @@ logFailure :: OutboundQ msg nid buck
            -> fmt
            -> IO ()
 logFailure OutQ{..} failure fmt = do
-    trace qTrace (failureSeverity failure, failureFormat failure fmt)
+    traceWith qTrace (failureSeverity failure, failureFormat failure fmt)
     Counter.inc $ failureCounter failure qHealth
 
 logDebugOQ :: OutboundQ msg nid buck -> Text -> IO ()
-logDebugOQ OutQ{..} txt = trace qTrace (Debug, txt)
+logDebugOQ OutQ{..} txt = traceWith qTrace (Debug, txt)
 
 {-------------------------------------------------------------------------------
   EKG metrics

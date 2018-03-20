@@ -8,21 +8,27 @@ import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 
 
-type API = Tags '["Accounts"] :>
-    (    "accounts" :> Capture "accountIndex" AccountIndex
-                    :> Summary "Deletes an Account."
-                    :> DeleteNoContent '[ValidJSON] NoContent
-    :<|> "accounts" :> Capture "accountIndex" AccountIndex
-                    :> Summary "Retrieves a specific Account."
-                    :> Get '[ValidJSON] (WalletResponse Account)
-    :<|> "accounts" :> WalletRequestParams
-                    :> Summary "Retrieves the full list of Accounts."
-                    :> Get '[ValidJSON] (WalletResponse [Account])
-    :<|> "accounts" :> Summary "Creates a new Account for the given Wallet."
-                    :> ReqBody '[ValidJSON] (New Account)
-                    :> Post '[ValidJSON] (WalletResponse Account)
-    :<|> "accounts" :> Capture "accountIndex" AccountIndex
-                    :> Summary "Update an Account for the given Wallet."
-                    :> ReqBody '[ValidJSON] (Update Account)
-                    :> Put '[ValidJSON] (WalletResponse Account)
-    )
+type API
+    = Tags '["Accounts"] :> "accounts" :> (
+        CaptureWalletId
+          :> CaptureAccountId
+          :> Summary "Deletes an Account."
+          :> DeleteNoContent '[ValidJSON] NoContent
+        :<|> CaptureWalletId
+          :> CaptureAccountId
+          :> Summary "Retrieves a specific Account."
+          :> Get '[ValidJSON] (WalletResponse Account)
+        :<|> CaptureWalletId
+          :> WalletRequestParams
+          :> Summary "Retrieves the full list of Accounts."
+          :> Get '[ValidJSON] (WalletResponse [Account])
+        :<|> CaptureWalletId
+          :> Summary "Creates a new Account for the given Wallet."
+          :> ReqBody '[ValidJSON] (New Account)
+          :> Post '[ValidJSON] (WalletResponse Account)
+        :<|> CaptureWalletId
+          :> CaptureAccountId
+          :> Summary "Update an Account for the given Wallet."
+          :> ReqBody '[ValidJSON] (Update Account)
+          :> Put '[ValidJSON] (WalletResponse Account)
+      )

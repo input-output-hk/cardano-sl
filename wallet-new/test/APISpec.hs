@@ -1,10 +1,12 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module APISpec where
 
 import           Universum
@@ -63,7 +65,7 @@ instance HasGenRequest sub => HasGenRequest (FilterBy syms res :> sub) where
 instance HasGenRequest sub => HasGenRequest (Tags tags :> sub) where
     genRequest _ = genRequest (Proxy :: Proxy sub)
 
-instance HasGenRequest sub => HasGenRequest (WalletRequestParams :> sub) where
+instance HasGenRequest (sub :: *) => HasGenRequest (WalletRequestParams :> sub) where
     genRequest _ = genRequest (Proxy @(WithWalletRequestParams sub))
 
 --
@@ -165,8 +167,10 @@ spec = withCompileInfo def $ do
     withDefConfigurations $ do
       xdescribe "Servant API Properties" $ do
         it "V0 API follows best practices & is RESTful abiding" $ do
-          withServantServer (Proxy @V0.API) (v0Server (D.diffusion D.dummyDiffusionLayer)) $ \burl ->
+          ddl <- D.dummyDiffusionLayer
+          withServantServer (Proxy @V0.API) (v0Server (D.diffusion ddl)) $ \burl ->
             serverSatisfies (Proxy @V0.API) burl stdArgs predicates
         it "V1 API follows best practices & is RESTful abiding" $ do
-          withServantServer (Proxy @V1.API) (v1Server (D.diffusion D.dummyDiffusionLayer)) $ \burl ->
+          ddl <- D.dummyDiffusionLayer
+          withServantServer (Proxy @V1.API) (v1Server (D.diffusion ddl)) $ \burl ->
             serverSatisfies (Proxy @V1.API) burl stdArgs predicates

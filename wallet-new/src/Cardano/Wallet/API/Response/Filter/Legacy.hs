@@ -26,7 +26,6 @@ applyFilter fltr inputData =
             F.LesserThanEqual  -> filterData (\d -> accessIx d <=  i) inputData
             F.GreaterThanEqual -> filterData (\d -> accessIx d >=  i) inputData
     in case fltr of
-           F.FilterIdentity             -> inputData
            F.FilterByIndex idx          -> byPredicate F.Equal idx
            F.FilterByPredicate ordr idx -> byPredicate ordr idx
            F.FilterByRange from to      -> filterData (\d -> accessIx d >= from && accessIx d <= to) inputData

@@ -7330,14 +7330,15 @@ inherit (pkgs) mesa;};
         ({ mkDerivation, aeson, async, base, base64-bytestring, bytestring
          , cardano-report-server, cardano-sl-binary, cardano-sl-core
          , cardano-sl-crypto, cardano-sl-db, cardano-sl-networking
-         , cardano-sl-util, containers, cpphs, directory, dns, ekg-core
-         , ekg-statsd, ekg-wai, ether, exceptions, filepath, formatting
-         , generic-arbitrary, hashable, http-client, http-client-tls
-         , iproute, kademlia, lens, log-warper, lzma, mtl, network-info
-         , network-transport, network-transport-tcp, optparse-applicative
-         , parsec, QuickCheck, reflection, safe-exceptions, serokell-util
-         , stdenv, stm, tagged, tar, text, text-format, time, time-units
-         , transformers, universum, unix, unordered-containers, yaml
+         , cardano-sl-util, clock, containers, cpphs, directory, dns
+         , ekg-core, ekg-statsd, ekg-wai, ether, exceptions, filepath
+         , formatting, generic-arbitrary, hashable, http-client
+         , http-client-tls, iproute, kademlia, lens, log-warper, lzma, mtl
+         , network-info, network-transport, network-transport-tcp
+         , optparse-applicative, parsec, QuickCheck, reflection
+         , safe-exceptions, serokell-util, stdenv, stm, tagged, tar, text
+         , text-format, time, time-units, transformers, universum, unix
+         , unordered-containers, yaml
          }:
          mkDerivation {
            pname = "cardano-sl-infra";
@@ -7346,13 +7347,13 @@ inherit (pkgs) mesa;};
            libraryHaskellDepends = [
              aeson async base base64-bytestring bytestring cardano-report-server
              cardano-sl-binary cardano-sl-core cardano-sl-crypto cardano-sl-db
-             cardano-sl-networking cardano-sl-util containers directory dns
-             ekg-core ekg-statsd ekg-wai ether exceptions filepath formatting
-             generic-arbitrary hashable http-client http-client-tls iproute
-             kademlia lens log-warper lzma mtl network-info network-transport
-             network-transport-tcp optparse-applicative parsec QuickCheck
-             reflection safe-exceptions serokell-util stm tagged tar text
-             text-format time time-units transformers universum unix
+             cardano-sl-networking cardano-sl-util clock containers directory
+             dns ekg-core ekg-statsd ekg-wai ether exceptions filepath
+             formatting generic-arbitrary hashable http-client http-client-tls
+             iproute kademlia lens log-warper lzma mtl network-info
+             network-transport network-transport-tcp optparse-applicative parsec
+             QuickCheck reflection safe-exceptions serokell-util stm tagged tar
+             text text-format time time-units transformers universum unix
              unordered-containers yaml
            ];
            libraryToolDepends = [ cpphs ];
@@ -7701,9 +7702,10 @@ inherit (pkgs) mesa;};
              containers data-default exceptions formatting generics-sop
              http-api-data http-client http-types ixset-typed json-sop lens
              log-warper memory mtl QuickCheck safe-exceptions serokell-util
-             servant servant-client servant-client-core servant-server
-             servant-swagger-ui string-conv swagger2 text text-format time
-             time-units transformers universum unordered-containers vector wai
+             servant servant-client servant-client-core servant-quickcheck
+             servant-server servant-swagger-ui string-conv swagger2 text
+             text-format time time-units transformers universum
+             unordered-containers vector wai
            ];
            executableHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-client

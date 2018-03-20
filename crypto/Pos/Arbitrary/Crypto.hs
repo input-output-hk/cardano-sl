@@ -16,7 +16,7 @@ import           Pos.Arbitrary.Crypto.Unsafe ()
 import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi, Raw)
 import           Pos.Binary.Crypto ()
 import           Pos.Crypto.AsBinary ()
-import           Pos.Crypto.Configuration (HasCryptoConfiguration, ProtocolMagic (..))
+import           Pos.Crypto.Configuration (HasProtocolMagic, ProtocolMagic (..), protocolMagic)
 import           Pos.Crypto.Hashing (AHash (..), AbstractHash (..), HashAlgorithm, WithHash (..),
                                      unsafeCheatingHashCoerce, withHash)
 import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase (..))
@@ -120,29 +120,29 @@ instance Nonrepeating VssPublicKey where
 -- Arbitrary signatures
 ----------------------------------------------------------------------------
 
-instance (HasCryptoConfiguration, Bi a, Arbitrary a) => Arbitrary (Signature a) where
-    arbitrary = sign <$> arbitrary <*> arbitrary <*> arbitrary
+instance (HasProtocolMagic, Bi a, Arbitrary a) => Arbitrary (Signature a) where
+    arbitrary = sign protocolMagic <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance (HasCryptoConfiguration, Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
-    arbitrary = redeemSign <$> arbitrary <*> arbitrary <*> arbitrary
+instance (HasProtocolMagic, Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
+    arbitrary = redeemSign protocolMagic <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance (HasCryptoConfiguration, Bi a, Arbitrary a) => Arbitrary (Signed a) where
-    arbitrary = mkSigned <$> arbitrary <*> arbitrary <*> arbitrary
+instance (HasProtocolMagic, Bi a, Arbitrary a) => Arbitrary (Signed a) where
+    arbitrary = mkSigned protocolMagic <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance (HasCryptoConfiguration, Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
-    arbitrary = liftA3 createProxyCert arbitrary arbitrary arbitrary
+instance (HasProtocolMagic, Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
+    arbitrary = liftA3 (createProxyCert protocolMagic) arbitrary arbitrary arbitrary
 
-instance (HasCryptoConfiguration, Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
-    arbitrary = liftA3 createPsk arbitrary arbitrary arbitrary
+instance (HasProtocolMagic, Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
+    arbitrary = liftA3 (createPsk protocolMagic) arbitrary arbitrary arbitrary
 
-instance (HasCryptoConfiguration, Bi w, Arbitrary w, Bi a, Arbitrary a) =>
+instance (HasProtocolMagic, Bi w, Arbitrary w, Bi a, Arbitrary a) =>
          Arbitrary (ProxySignature w a) where
     arbitrary = do
         delegateSk <- arbitrary
         issuerSk <- arbitrary
         w <- arbitrary
-        let psk = createPsk issuerSk (toPublic delegateSk) w
-        proxySign SignProxySK delegateSk psk <$> arbitrary
+        let psk = createPsk protocolMagic issuerSk (toPublic delegateSk) w
+        proxySign protocolMagic SignProxySK delegateSk psk <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary secrets

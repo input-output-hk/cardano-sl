@@ -43,12 +43,14 @@ import           Pos.Core.Configuration (HasGenesisBlockVersionData, HasProtocol
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import qualified Pos.Core.Genesis as G
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..),
+                                             VssMinTTL (..))
 import qualified Pos.Core.Slotting as Types
 import           Pos.Core.Slotting.Types (Timestamp (..))
 import           Pos.Core.Ssc.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
 import           Pos.Core.Update.Types (BlockVersionData (..))
 import qualified Pos.Core.Update.Types as U
-import           Pos.Crypto (HasCryptoConfiguration, createPsk, toPublic)
+import           Pos.Crypto (HasProtocolMagic, protocolMagic, createPsk, toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Util.QuickCheck.Arbitrary (nonrepeating)
@@ -499,7 +501,7 @@ instance Arbitrary G.FakeAvvmOptions where
         faoOneBalance <- choose (5, 30)
         return G.FakeAvvmOptions {..}
 
-instance HasCryptoConfiguration => Arbitrary G.GenesisDelegation where
+instance HasProtocolMagic => Arbitrary G.GenesisDelegation where
     arbitrary =
         leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
             secretKeys <- sized (nonrepeating . min 10) -- we generate at most tens keys,
@@ -511,7 +513,7 @@ instance HasCryptoConfiguration => Arbitrary G.GenesisDelegation where
                     []                 -> []
                     (delegate:issuers) -> mkCert (toPublic delegate) <$> issuers
       where
-        mkCert delegatePk issuer = createPsk issuer delegatePk (HeavyDlgIndex 0)
+        mkCert delegatePk issuer = createPsk protocolMagic issuer delegatePk (HeavyDlgIndex 0)
 
 instance Arbitrary G.GenesisWStakeholders where
     arbitrary = G.GenesisWStakeholders <$> arbitrary
@@ -522,12 +524,20 @@ instance Arbitrary G.GenesisAvvmBalances where
 instance Arbitrary G.GenesisNonAvvmBalances where
     arbitrary = G.GenesisNonAvvmBalances <$> arbitrary
 
-instance Arbitrary G.ProtocolConstants where
-    arbitrary =
-        G.ProtocolConstants <$> choose (1, 20000) <*> arbitrary <*> arbitrary <*>
-        arbitrary
 
-instance (HasCryptoConfiguration, HasProtocolConstants) => Arbitrary G.GenesisData where
+instance Arbitrary ProtocolConstants where
+    arbitrary = do
+        vssA <- arbitrary
+        vssB <- arbitrary
+        let (vssMin, vssMax) = if vssA > vssB
+                               then (VssMinTTL vssB, VssMaxTTL vssA)
+                               else (VssMinTTL vssA, VssMaxTTL vssB)
+        ProtocolConstants <$> choose (1, 20000) <*> pure vssMin <*> pure vssMax
+
+instance HasProtocolMagic => Arbitrary G.GenesisProtocolConstants where
+    arbitrary = flip G.genesisProtocolConstantsFromProtocolConstants protocolMagic <$> arbitrary
+
+instance (HasProtocolMagic, HasProtocolConstants) => Arbitrary G.GenesisData where
     arbitrary = G.GenesisData
         <$> arbitrary <*> arbitrary <*> arbitraryStartTime
         <*> arbitraryVssCerts <*> arbitrary <*> arbitraryBVD
@@ -578,8 +588,8 @@ instance Arbitrary LightDlgIndices where
 -- SSC
 ----------------------------------------------------------------------------
 
-instance (HasProtocolConstants, HasCryptoConfiguration) => Arbitrary VssCertificate where
-    arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
+instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary VssCertificate where
+    arbitrary = mkVssCertificate protocolMagic <$> arbitrary <*> arbitrary <*> arbitrary
     -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.
 
 ----------------------------------------------------------------------------

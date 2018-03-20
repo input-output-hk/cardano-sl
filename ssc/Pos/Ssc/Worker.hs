@@ -32,6 +32,7 @@ import           Pos.Core (EpochIndex, HasConfiguration, SlotId (..), Stakeholde
 import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening, SignedCommitment,
                                getCommitmentsMap)
 import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber, runSecureRandom)
+import           Pos.Crypto.Configuration (protocolMagic)
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Diffusion.Types (Diffusion (..))
@@ -147,7 +148,7 @@ checkNSendOurCert sendCert = do
                 ourVssKeyPair <- getOurVssKeyPair
                 let vssKey = asBinary $ toVssPublicKey ourVssKeyPair
                     createOurCert =
-                        mkVssCertificate ourSk vssKey .
+                        mkVssCertificate protocolMagic ourSk vssKey .
                         (+) (vssMaxTTL - 1) . siEpoch
                 return $ createOurCert slot
 
@@ -341,7 +342,7 @@ generateAndSetNewSecret sk SlotId {..} = do
                     Right keys -> do
                         (comm, open) <- liftIO $ runSecureRandom $
                             genCommitmentAndOpening threshold keys
-                        let signedComm = mkSignedCommitment sk siEpoch comm
+                        let signedComm = mkSignedCommitment protocolMagic sk siEpoch comm
                         SS.putOurSecret signedComm open siEpoch
                         pure (Just signedComm)
 

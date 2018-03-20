@@ -15,6 +15,7 @@ module Pos.Core.Block.Blockchain
 
        -- * Lenses
        -- ** Header
+       , gbhProtocolMagic
        , gbhPrevBlock
        , gbhBodyProof
        , gbhConsensus
@@ -37,7 +38,8 @@ import           Formatting (build, sformat, (%))
 
 import           Pos.Core.Class (HasHeaderHash (..), HasPrevBlock (..))
 import           Pos.Core.Common (HeaderHash)
-import           Pos.Core.Configuration.GenesisHash (HasGenesisHash, genesisHash)
+import           Pos.Core.Configuration (GenesisHash (..))
+import           Pos.Crypto (ProtocolMagic)
 
 ----------------------------------------------------------------------------
 -- Blockchain class
@@ -96,8 +98,9 @@ class Blockchain p where
 -- general there may be some invariants which must hold for the
 -- contents of header.
 data GenericBlockHeader b = UnsafeGenericBlockHeader
-    { -- | Pointer to the header of the previous block.
-      _gbhPrevBlock :: !(BHeaderHash b)
+    { _gbhProtocolMagic :: !ProtocolMagic
+      -- | Pointer to the header of the previous block.
+    , _gbhPrevBlock :: !(BHeaderHash b)
     , -- | Proof of body.
       _gbhBodyProof :: !(BodyProof b)
     , -- | Consensus data to verify consensus algorithm.
@@ -172,19 +175,19 @@ mkGenericHeader
     :: forall b .
        ( HasHeaderHash (BBlockHeader b)
        , BHeaderHash b ~ HeaderHash
-       , HasGenesisHash
        , Blockchain b
        )
-    => Maybe (BBlockHeader b)
+    => ProtocolMagic
+    -> Either GenesisHash (BBlockHeader b)
     -> Body b
     -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
     -> ExtraHeaderData b
     -> GenericBlockHeader b
-mkGenericHeader prevHeader body consensus extra =
-    UnsafeGenericBlockHeader h proof (consensus h proof) extra
+mkGenericHeader pm prevHeader body consensus extra =
+    UnsafeGenericBlockHeader pm h proof (consensus h proof) extra
   where
     h :: HeaderHash
-    h = maybe genesisHash headerHash prevHeader
+    h = either getGenesisHash headerHash prevHeader
     proof = mkBodyProof body
 
 -- | Smart constructor for 'GenericBlock'.
@@ -192,19 +195,19 @@ mkGenericBlock
     :: forall b .
        ( HasHeaderHash (BBlockHeader b)
        , BHeaderHash b ~ HeaderHash
-       , HasGenesisHash
        , Blockchain b
        )
-    => Maybe (BBlockHeader b)
+    => ProtocolMagic
+    -> Either GenesisHash (BBlockHeader b)
     -> Body b
     -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
     -> ExtraHeaderData b
     -> ExtraBodyData b
     -> GenericBlock b
-mkGenericBlock prevHeader body consensus extraH extra =
+mkGenericBlock pm prevHeader body consensus extraH extra =
     UnsafeGenericBlock header body extra
   where
-    header = mkGenericHeader prevHeader body consensus extraH
+    header = mkGenericHeader pm prevHeader body consensus extraH
 
 ----------------------------------------------------------------------------
 -- Lenses

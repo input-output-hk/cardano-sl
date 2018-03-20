@@ -31,7 +31,7 @@ import           Pos.Core.Block.Main (Body (..), ConsensusData (..), MainBlockHe
                                       mainBlockEBDataProof)
 import           Pos.Core.Block.Union (BlockHeader (..), BlockSignature (..))
 import           Pos.Core.Class (IsMainHeader (..))
-import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
 import           Pos.Core.Delegation (LightDlgIndices (..), checkDlgPayload)
 import           Pos.Core.Slotting (SlotId (..))
 import           Pos.Core.Ssc (checkSscPayload)
@@ -107,9 +107,9 @@ verifyMainBody
     -> m ()
 verifyMainBody MainBody {..} = do
     checkTxPayload _mbTxPayload
-    checkSscPayload _mbSscPayload
-    checkDlgPayload _mbDlgPayload
-    checkUpdatePayload _mbUpdatePayload
+    checkSscPayload protocolMagic _mbSscPayload
+    checkDlgPayload protocolMagic _mbDlgPayload
+    checkUpdatePayload protocolMagic _mbUpdatePayload
 
 -- | Verify a main block header in isolation.
 verifyMainBlockHeader
@@ -131,16 +131,17 @@ verifyMainBlockHeader UnsafeGenericBlockHeader {..} = do
   where
 
     verifyBlockSignature (BlockSignature sig) =
-        checkSig SignMainBlock leaderPk signature sig
+        checkSig protocolMagic SignMainBlock leaderPk signature sig
     verifyBlockSignature (BlockPSignatureLight proxySig) =
         proxyVerify
+            protocolMagic
             SignMainBlockLight
             proxySig
             (\(LightDlgIndices (epochLow, epochHigh)) ->
                  epochLow <= epochId && epochId <= epochHigh)
             signature
     verifyBlockSignature (BlockPSignatureHeavy proxySig) =
-        proxyVerify SignMainBlockHeavy proxySig (const True) signature
+        proxyVerify protocolMagic SignMainBlockHeavy proxySig (const True) signature
     signature = MainToSign _gbhPrevBlock _gbhBodyProof slotId difficulty _gbhExtra
     epochId = siEpoch slotId
     MainConsensusData

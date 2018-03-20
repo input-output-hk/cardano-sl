@@ -18,13 +18,16 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Arbitrary.Core.Unsafe ()
 import           Pos.Binary.Ssc ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
-import           Pos.Core (EpochIndex, HasConfiguration, SlotId (..), VssCertificate (..),
-                           VssCertificatesMap, mkVssCertificate, mkVssCertificatesMapLossy,
-                           vssMaxTTL, vssMinTTL)
+import           Pos.Core (EpochIndex, SlotId (..), VssCertificate (..),
+                           VssCertificatesMap, mkVssCertificate, mkVssCertificatesMapLossy)
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMinTTL (..),
+                                             VssMaxTTL (..))
+import           Pos.Core.Configuration (HasProtocolConstants)
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SignedCommitment,
                                SscPayload (..), SscProof (..), mkCommitmentsMap)
-import           Pos.Crypto (SecretKey, deterministic, randomNumberInRange, toVssPublicKey,
-                             vssKeyGen)
+import           Pos.Crypto (ProtocolMagic, SecretKey, deterministic, randomNumberInRange,
+                             toVssPublicKey, vssKeyGen)
+import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentId, isOpeningId, isSharesId,
                                mkSignedCommitment)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
@@ -52,7 +55,7 @@ newtype BadSignedCommitment = BadSignedComm
     { getBadSignedC :: SignedCommitment
     } deriving (Generic, Show, Eq)
 
-instance HasConfiguration => Arbitrary BadSignedCommitment where
+instance HasProtocolMagic => Arbitrary BadSignedCommitment where
     arbitrary = BadSignedComm <$> do
         pk <- arbitrary
         sig <- arbitrary
@@ -106,36 +109,36 @@ instance Arbitrary Commitment where
                              | shrunkShares <- filter (not . null) $ shrink commShares
                              ]
 
-instance HasConfiguration => Arbitrary CommitmentsMap where
+instance HasProtocolMagic => Arbitrary CommitmentsMap where
     arbitrary = mkCommitmentsMap <$> arbitrary
     shrink = genericShrink
 
 -- | Generates commitment map having commitments from given epoch.
-commitmentMapEpochGen :: HasConfiguration => EpochIndex -> Gen CommitmentsMap
-commitmentMapEpochGen i = do
+commitmentMapEpochGen :: ProtocolMagic -> EpochIndex -> Gen CommitmentsMap
+commitmentMapEpochGen pm i = do
     (coms :: [(SecretKey, Commitment)]) <- listOf $ (,) <$> arbitrary <*> arbitrary
     pure $ mkCommitmentsMap $
-        map (\(sk,com) -> mkSignedCommitment sk i com) coms
+        map (\(sk,com) -> mkSignedCommitment pm sk i com) coms
 
 instance Arbitrary Opening where
     arbitrary = coOpening <$> arbitrary
 
 -- | For given epoch @e@ enerates vss certificate having epoch in
 -- range @[e+vssMin,e+vssMax)@.
-vssCertificateEpochGen :: (HasConfiguration) => EpochIndex -> Gen VssCertificate
-vssCertificateEpochGen x = do
-    e <- choose (vssMinTTL, vssMaxTTL-1)
-    mkVssCertificate <$> arbitrary <*> arbitrary <*> pure (e + x)
+vssCertificateEpochGen :: ProtocolMagic -> ProtocolConstants -> EpochIndex -> Gen VssCertificate
+vssCertificateEpochGen pm pc x = do
+    e <- choose (getVssMinTTL (pcVssMinTTL pc), getVssMaxTTL (pcVssMaxTTL pc) - 1)
+    mkVssCertificate pm <$> arbitrary <*> arbitrary <*> pure (fromIntegral e + x)
 
 ----------------------------------------------------------------------------
 -- SSC types
 ----------------------------------------------------------------------------
 
-instance HasConfiguration => Arbitrary SscProof where
+instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary SscProof where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary SscPayload where
+instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary SscPayload where
     arbitrary =
         oneof
             [ CommitmentsPayload <$> arbitrary <*> arbitrary
@@ -145,7 +148,7 @@ instance HasConfiguration => Arbitrary SscPayload where
             ]
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary SscPayloadDependsOnSlot where
+instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary SscPayloadDependsOnSlot where
     arbitrary = pure $ SscPayloadDependsOnSlot payloadGen
       where
         payloadGen slot
@@ -161,33 +164,33 @@ instance HasConfiguration => Arbitrary SscPayloadDependsOnSlot where
             mkCommitmentsMap .
             map (genValidComm slot) <$>
             arbitrary
-        genValidComm SlotId{..} (sk, c) = mkSignedCommitment sk siEpoch c
+        genValidComm SlotId{..} (sk, c) = mkSignedCommitment protocolMagic sk siEpoch c
 
         genVssCerts slot =
             mkVssCertificatesMapLossy .
             map (genValidCert slot) <$>
             arbitrary
-        genValidCert SlotId{..} (sk, pk) = mkVssCertificate sk pk $ siEpoch + 5
+        genValidCert SlotId{..} (sk, pk) = mkVssCertificate protocolMagic sk pk $ siEpoch + 5
 
-instance HasConfiguration => Arbitrary VssCertificatesMap where
+instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary VssCertificatesMap where
     arbitrary = do
         certs <- arbitrary
         pure $ mkVssCertificatesMapLossy certs
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary VssCertData where
+instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary VssCertData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary SscGlobalState where
+instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary SscGlobalState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary SscSecretStorage where
+instance HasProtocolMagic => Arbitrary SscSecretStorage where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary TossModifier where
+instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary TossModifier where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -199,7 +202,7 @@ instance Arbitrary SscTag where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary MCCommitment where
+instance HasProtocolMagic => Arbitrary MCCommitment where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -211,11 +214,11 @@ instance Arbitrary MCShares where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary MCVssCertificate where
+instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary MCVssCertificate where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary (DataMsg MCCommitment) where
+instance HasProtocolMagic => Arbitrary (DataMsg MCCommitment) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -227,6 +230,6 @@ instance Arbitrary (DataMsg MCShares) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary (DataMsg MCVssCertificate) where
+instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary (DataMsg MCVssCertificate) where
     arbitrary = genericArbitrary
     shrink = genericShrink

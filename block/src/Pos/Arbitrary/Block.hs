@@ -3,6 +3,11 @@
 module Pos.Arbitrary.Block
        ( HeaderAndParams (..)
        , BlockHeaderList (..)
+
+       , genMainBlockHeader
+       , genMainBlockBody
+       , genMainBlockBodyForSlot
+       , genMainBlock
        ) where
 
 import           Universum
@@ -14,21 +19,24 @@ import           System.Random (Random, mkStdGen, randomR)
 import           Test.QuickCheck (Arbitrary (..), Gen, choose, suchThat, vectorOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+import           Pos.Arbitrary.Core (genSlotId)
 import           Pos.Arbitrary.Delegation (genDlgPayload)
-import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..))
-import           Pos.Arbitrary.Txp ()
-import           Pos.Arbitrary.Update ()
-import           Pos.Binary.Class (Bi, Raw, biSize)
+import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..), genSscPayload,
+                                    genSscPayloadForSlot)
+import           Pos.Arbitrary.Txp (genTxPayload)
+import           Pos.Arbitrary.Update (genUpdatePayload)
+import           Pos.Binary.Class (biSize)
 import qualified Pos.Block.Base as T
 import qualified Pos.Block.Logic.Integrity as T
 import           Pos.Block.Slog.Types (SlogUndo)
 import           Pos.Block.Types (Undo (..))
-import           Pos.Core (HasProtocolConstants, HasGenesisHash,
+import           Pos.Core (HasProtocolConstants, HasGenesisHash, HeaderHash,
                            GenesisHash (..), genesisHash, epochSlots)
 import qualified Pos.Core as Core
 import qualified Pos.Core.Block as T
 import           Pos.Core.Ssc (SscPayload, SscProof)
-import           Pos.Crypto (PublicKey, SecretKey, createPsk, hash, toPublic)
+import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk, hash,
+                             toPublic)
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Data.Attributes (areAttributesKnown)
 
@@ -40,7 +48,7 @@ newtype BodyDependsOnSlot b = BodyDependsOnSlot
 -- Arbitrary instances for Blockchain related types
 ------------------------------------------------------------------------------------------
 
-instance (HasProtocolConstants, HasProtocolMagic, HasGenesisHash) => Arbitrary T.BlockHeader where
+instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary T.BlockHeader where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -97,23 +105,32 @@ instance ( Arbitrary SscProof
 -- MainBlockchain
 ------------------------------------------------------------------------------------------
 
-instance ( Arbitrary SscPayload
-         , Arbitrary SscProof
-         , Bi Raw
-         , HasProtocolMagic
+-- | Generate a 'MainBlockHeader' given a parent hash, difficulty and body.
+genMainBlockHeader
+    :: ProtocolMagic
+    -> Core.ProtocolConstants
+    -> HeaderHash
+    -> Core.ChainDifficulty
+    -> T.Body T.MainBlockchain
+    -> Gen T.MainBlockHeader
+genMainBlockHeader pm pc prevHash difficulty body =
+    T.mkMainHeaderExplicit pm <$> pure prevHash
+                              <*> pure difficulty
+                              <*> genSlotId pc
+                              <*> arbitrary -- SecretKey
+                              <*> pure Nothing
+                              <*> pure body
+                              <*> arbitrary
+
+instance ( HasProtocolMagic
          , HasProtocolConstants
-         , HasGenesisHash
          ) =>
          Arbitrary T.MainBlockHeader where
-    arbitrary =
-        T.mkMainHeader protocolMagic
-            <$> (maybe (Left (GenesisHash genesisHash)) Right <$> arbitrary)
-            <*> arbitrary
-            <*> arbitrary
-            <*> -- TODO: do not hardcode Nothing
-                pure Nothing
-            <*> arbitrary
-            <*> arbitrary
+    arbitrary = do
+        prevHash <- arbitrary
+        difficulty <- arbitrary
+        body <- arbitrary
+        genMainBlockHeader protocolMagic Core.protocolConstants prevHash difficulty body
     shrink = genericShrink
 
 instance Arbitrary T.MainExtraHeaderData where
@@ -157,6 +174,28 @@ instance (Arbitrary SscProof, HasProtocolConstants) => Arbitrary T.MainToSign wh
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
+genMainBlockBody
+    :: ProtocolMagic
+    -> Core.EpochIndex -- ^ For the delegation payload.
+    -> Gen (T.Body T.MainBlockchain)
+genMainBlockBody pm epoch =
+    T.MainBody <$> genTxPayload pm
+               <*> genSscPayload pm
+               <*> genDlgPayload pm epoch
+               <*> genUpdatePayload pm
+
+genMainBlockBodyForSlot
+    :: ProtocolMagic
+    -> Core.ProtocolConstants
+    -> Core.SlotId
+    -> Gen (T.Body T.MainBlockchain)
+genMainBlockBodyForSlot pm pc slotId = do
+    txpPayload <- genTxPayload pm
+    sscPayload <- genSscPayloadForSlot pm pc slotId
+    dlgPayload <- genDlgPayload pm (Core.siEpoch slotId)
+    updPayload <- genUpdatePayload pm
+    pure $ T.MainBody txpPayload sscPayload dlgPayload updPayload
+
 instance (Arbitrary SscPayloadDependsOnSlot, HasProtocolConstants, HasProtocolMagic) =>
          Arbitrary (BodyDependsOnSlot T.MainBlockchain) where
     arbitrary = pure $ BodyDependsOnSlot $ \slotId -> do
@@ -166,6 +205,7 @@ instance (Arbitrary SscPayloadDependsOnSlot, HasProtocolConstants, HasProtocolMa
         dlgPayload  <- genDlgPayload protocolMagic $ Core.siEpoch slotId
         mpcUpload   <- arbitrary
         return $ T.MainBody txPayload mpcData dlgPayload mpcUpload
+
 
 instance (Arbitrary SscPayload, HasProtocolMagic) => Arbitrary (T.Body T.MainBlockchain) where
     arbitrary = genericArbitrary
@@ -177,6 +217,30 @@ instance (Arbitrary SscPayload, HasProtocolMagic) => Arbitrary (T.Body T.MainBlo
                     mb ^. T.mbDlgPayload,
                     mb ^. T.mbUpdatePayload)
         ]
+
+-- | Generate a main block (slot is chosen arbitrarily).
+-- You choose the previous header hash.
+genMainBlock
+    :: ProtocolMagic
+    -> Core.ProtocolConstants
+    -> HeaderHash
+    -> Core.ChainDifficulty
+    -> Gen T.MainBlock
+genMainBlock pm pc prevHash difficulty = do
+    slot <- genSlotId pc
+    body <- genMainBlockBodyForSlot pm pc slot
+    extraBodyData <- arbitrary
+    extraHeaderData <- T.MainExtraHeaderData
+        <$> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> pure (hash extraBodyData)
+    header <- T.mkMainHeaderExplicit pm prevHash difficulty slot
+        <$> arbitrary
+        <*> pure Nothing
+        <*> pure body
+        <*> pure extraHeaderData
+    pure $ T.UnsafeGenericBlock header body extraBodyData
 
 instance ( Arbitrary SscPayload
          , Arbitrary SscProof

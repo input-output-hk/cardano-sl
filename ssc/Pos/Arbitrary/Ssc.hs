@@ -5,8 +5,14 @@ module Pos.Arbitrary.Ssc
        , BadCommAndOpening (..)
        , BadSignedCommitment (..)
        , CommitmentOpening (..)
+
        , commitmentMapEpochGen
        , vssCertificateEpochGen
+       , genCommitmentsMap
+       , genSignedCommitment
+       , genVssCertificatesMap
+       , genSscPayload
+       , genSscPayloadForSlot
        ) where
 
 import           Universum
@@ -15,20 +21,23 @@ import qualified Data.List.NonEmpty as NE
 import           Test.QuickCheck (Arbitrary (..), Gen, choose, elements, listOf, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+import           Pos.Arbitrary.Core (genVssCertificate)
 import           Pos.Arbitrary.Core.Unsafe ()
+import           Pos.Arbitrary.Crypto (genSignature)
 import           Pos.Binary.Ssc ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Core (EpochIndex, SlotId (..), VssCertificate (..),
                            VssCertificatesMap, mkVssCertificate, mkVssCertificatesMapLossy)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMinTTL (..),
                                              VssMaxTTL (..))
-import           Pos.Core.Configuration (HasProtocolConstants)
+import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SignedCommitment,
                                SscPayload (..), SscProof (..), mkCommitmentsMap)
 import           Pos.Crypto (ProtocolMagic, SecretKey, deterministic, randomNumberInRange,
                              toVssPublicKey, vssKeyGen)
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
-import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentId, isOpeningId, isSharesId,
+import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentIdExplicit,
+                               isOpeningIdExplicit, isSharesIdExplicit,
                                mkSignedCommitment)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
                                   MCVssCertificate (..), SscTag (..))
@@ -109,8 +118,19 @@ instance Arbitrary Commitment where
                              | shrunkShares <- filter (not . null) $ shrink commShares
                              ]
 
+-- | A 'CommitmentsMap' is made from a '[SignedCommitment]', where
+-- 'SignedCommitment' is a type alias for
+-- '(PublicKey, Commitment, CommitmentSignature)'. We need a 'ProtocolMagic'
+-- to make the 'CommitmentSignature ~ Signature (EpochIndex, Commitment)`
+genCommitmentsMap :: ProtocolMagic -> Gen CommitmentsMap
+genCommitmentsMap pm = mkCommitmentsMap <$> listOf (genSignedCommitment pm)
+
+-- | 'SignedCommitment = (PublicKey, Commitment, CommitmentSignature)'
+genSignedCommitment :: ProtocolMagic -> Gen SignedCommitment
+genSignedCommitment pm = (,,) <$> arbitrary <*> arbitrary <*> genSignature pm arbitrary
+
 instance HasProtocolMagic => Arbitrary CommitmentsMap where
-    arbitrary = mkCommitmentsMap <$> arbitrary
+    arbitrary = genCommitmentsMap protocolMagic
     shrink = genericShrink
 
 -- | Generates commitment map having commitments from given epoch.
@@ -138,44 +158,53 @@ instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary SscProof where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary SscPayload where
-    arbitrary =
-        oneof
-            [ CommitmentsPayload <$> arbitrary <*> arbitrary
-            , OpeningsPayload <$> arbitrary <*> arbitrary
-            , SharesPayload <$> arbitrary <*> arbitrary
-            , CertificatesPayload <$> arbitrary
-            ]
+genSscPayload :: ProtocolMagic -> Gen SscPayload
+genSscPayload pm =
+    oneof
+        [ CommitmentsPayload <$> genCommitmentsMap pm <*> genVssCertificatesMap pm
+        , OpeningsPayload <$> arbitrary <*> genVssCertificatesMap pm
+        , SharesPayload <$> arbitrary <*> genVssCertificatesMap pm
+        , CertificatesPayload <$> genVssCertificatesMap pm
+        ]
+
+instance (HasProtocolMagic) => Arbitrary SscPayload where
+    arbitrary = genSscPayload protocolMagic
     shrink = genericShrink
 
+-- | We need the 'ProtocolConstants' because they give meaning to 'SlotId'.
+genSscPayloadForSlot :: ProtocolMagic -> ProtocolConstants -> SlotId -> Gen SscPayload
+genSscPayloadForSlot pm pc slot
+    | isCommitmentIdExplicit pc slot =
+        CommitmentsPayload <$> (genCommitments slot) <*> (genVssCerts slot)
+    | isOpeningIdExplicit pc slot =
+        OpeningsPayload <$> arbitrary <*> (genVssCerts slot)
+    | isSharesIdExplicit pc slot =
+        SharesPayload <$> arbitrary <*> (genVssCerts slot)
+    | otherwise =
+        CertificatesPayload <$> (genVssCerts slot)
+  where
+    genCommitments slot' =
+        mkCommitmentsMap .
+        map (genValidComm slot') <$>
+        arbitrary
+    genValidComm SlotId{..} (sk, c) = mkSignedCommitment pm sk siEpoch c
+
+    genVssCerts slot' =
+        mkVssCertificatesMapLossy .
+        map (genValidCert slot') <$>
+        arbitrary
+    genValidCert SlotId{..} (sk, pk) = mkVssCertificate pm sk pk $ siEpoch + 5
+
 instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary SscPayloadDependsOnSlot where
-    arbitrary = pure $ SscPayloadDependsOnSlot payloadGen
-      where
-        payloadGen slot
-            | isCommitmentId slot =
-                CommitmentsPayload <$> (genCommitments slot) <*> (genVssCerts slot)
-            | isOpeningId slot =
-                OpeningsPayload <$> arbitrary <*> (genVssCerts slot)
-            | isSharesId slot =
-                SharesPayload <$> arbitrary <*> (genVssCerts slot)
-            | otherwise =
-                CertificatesPayload <$> (genVssCerts slot)
-        genCommitments slot =
-            mkCommitmentsMap .
-            map (genValidComm slot) <$>
-            arbitrary
-        genValidComm SlotId{..} (sk, c) = mkSignedCommitment protocolMagic sk siEpoch c
+    arbitrary = pure $ SscPayloadDependsOnSlot (genSscPayloadForSlot protocolMagic protocolConstants)
 
-        genVssCerts slot =
-            mkVssCertificatesMapLossy .
-            map (genValidCert slot) <$>
-            arbitrary
-        genValidCert SlotId{..} (sk, pk) = mkVssCertificate protocolMagic sk pk $ siEpoch + 5
+genVssCertificatesMap :: ProtocolMagic -> Gen VssCertificatesMap
+genVssCertificatesMap pm = do
+    certs <- listOf (genVssCertificate pm)
+    pure $ mkVssCertificatesMapLossy certs
 
-instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary VssCertificatesMap where
-    arbitrary = do
-        certs <- arbitrary
-        pure $ mkVssCertificatesMapLossy certs
+instance HasProtocolMagic => Arbitrary VssCertificatesMap where
+    arbitrary = genVssCertificatesMap protocolMagic
     shrink = genericShrink
 
 instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary VssCertData where

@@ -36,9 +36,8 @@ import           Control.Lens (makeLenses)
 import           Control.Monad.Except (MonadError (throwError))
 import           Formatting (build, sformat, (%))
 
-import           Pos.Core.Class (HasHeaderHash (..), HasPrevBlock (..))
+import           Pos.Core.Class (HasPrevBlock (..))
 import           Pos.Core.Common (HeaderHash)
-import           Pos.Core.Configuration (GenesisHash (..))
 import           Pos.Crypto (ProtocolMagic)
 
 ----------------------------------------------------------------------------
@@ -171,43 +170,38 @@ deriving instance
 ----------------------------------------------------------------------------
 
 -- | Smart constructor for 'GenericBlockHeader'.
+-- "Smart" because it makes the body proof for you and then runs your
+-- consensus function.
 mkGenericHeader
     :: forall b .
-       ( HasHeaderHash (BBlockHeader b)
-       , BHeaderHash b ~ HeaderHash
-       , Blockchain b
-       )
+       ( Blockchain b )
     => ProtocolMagic
-    -> Either GenesisHash (BBlockHeader b)
+    -> BHeaderHash b
     -> Body b
-    -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
+    -> (BodyProof b -> ConsensusData b)
     -> ExtraHeaderData b
     -> GenericBlockHeader b
-mkGenericHeader pm prevHeader body consensus extra =
-    UnsafeGenericBlockHeader pm h proof (consensus h proof) extra
+mkGenericHeader pm hashPrev body consensus extra =
+    UnsafeGenericBlockHeader pm hashPrev proof (consensus proof) extra
   where
-    h :: HeaderHash
-    h = either getGenesisHash headerHash prevHeader
     proof = mkBodyProof body
 
 -- | Smart constructor for 'GenericBlock'.
+-- "Smart" because it uses the 'mkGenericHeader' "smart" constructor.
 mkGenericBlock
     :: forall b .
-       ( HasHeaderHash (BBlockHeader b)
-       , BHeaderHash b ~ HeaderHash
-       , Blockchain b
-       )
+       ( Blockchain b )
     => ProtocolMagic
-    -> Either GenesisHash (BBlockHeader b)
+    -> BHeaderHash b
     -> Body b
-    -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
+    -> (BodyProof b -> ConsensusData b)
     -> ExtraHeaderData b
     -> ExtraBodyData b
     -> GenericBlock b
-mkGenericBlock pm prevHeader body consensus extraH extra =
+mkGenericBlock pm hashPrev body consensus extraH extra =
     UnsafeGenericBlock header body extra
   where
-    header = mkGenericHeader pm prevHeader body consensus extraH
+    header = mkGenericHeader pm hashPrev body consensus extraH
 
 ----------------------------------------------------------------------------
 -- Lenses

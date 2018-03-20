@@ -15,6 +15,10 @@ module Pos.Arbitrary.Core
        , SafeCoinPairSum (..)
        , SafeCoinPairSub (..)
        , UnreasonableEoS (..)
+
+       , genVssCertificate
+       , genSlotId
+       , genLocalSlotIndex
        ) where
 
 import           Nub (ordNub)
@@ -39,18 +43,19 @@ import           Pos.Core.Common (coinToInteger, divCoin, makeAddress, maxCoinVa
 import qualified Pos.Core.Common.Fee as Fee
 import qualified Pos.Core.Common.Types as Types
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, HasProtocolConstants,
-                                         epochSlots)
+                                         epochSlots, protocolConstants)
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import qualified Pos.Core.Genesis as G
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..),
                                              VssMinTTL (..))
 import qualified Pos.Core.Slotting as Types
-import           Pos.Core.Slotting.Types (Timestamp (..))
+import           Pos.Core.Slotting.Types (SlotId (..), Timestamp (..))
 import           Pos.Core.Ssc.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
 import           Pos.Core.Update.Types (BlockVersionData (..))
 import qualified Pos.Core.Update.Types as U
-import           Pos.Crypto (HasProtocolMagic, protocolMagic, createPsk, toPublic)
+import           Pos.Crypto (HasProtocolMagic, ProtocolMagic, protocolMagic, createPsk,
+                             toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Util.QuickCheck.Arbitrary (nonrepeating)
@@ -104,11 +109,18 @@ instance Arbitrary Types.EpochIndex where
     arbitrary = choose (0, maxReasonableEpoch)
     shrink = genericShrink
 
+genLocalSlotIndex :: ProtocolConstants -> Gen Types.LocalSlotIndex
+genLocalSlotIndex pc = Types.UnsafeLocalSlotIndex <$>
+    choose ( Types.getSlotIndex Types.localSlotIndexMinBound
+           , Types.getSlotIndex (Types.localSlotIndexMaxBound pc)
+           )
+
 instance HasProtocolConstants => Arbitrary Types.LocalSlotIndex where
-    arbitrary =
-        leftToPanic "arbitrary@LocalSlotIndex: " . Types.mkLocalSlotIndex <$>
-        choose (Types.getSlotIndex minBound, Types.getSlotIndex maxBound)
+    arbitrary = genLocalSlotIndex protocolConstants
     shrink = genericShrink
+
+genSlotId :: ProtocolConstants -> Gen Types.SlotId
+genSlotId pc = SlotId <$> arbitrary <*> genLocalSlotIndex pc
 
 instance HasProtocolConstants => Arbitrary Types.SlotId where
     arbitrary = genericArbitrary
@@ -588,8 +600,14 @@ instance Arbitrary LightDlgIndices where
 -- SSC
 ----------------------------------------------------------------------------
 
-instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary VssCertificate where
-    arbitrary = mkVssCertificate protocolMagic <$> arbitrary <*> arbitrary <*> arbitrary
+genVssCertificate :: ProtocolMagic -> Gen VssCertificate
+genVssCertificate pm =
+    mkVssCertificate pm <$> arbitrary -- secret key
+                        <*> arbitrary -- AsBinary VssPublicKey
+                        <*> arbitrary -- EpochIndex
+
+instance HasProtocolMagic => Arbitrary VssCertificate where
+    arbitrary = genVssCertificate protocolMagic
     -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.
 
 ----------------------------------------------------------------------------

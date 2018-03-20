@@ -5,7 +5,6 @@ module Pos.Core.Configuration.Protocol
          HasProtocolConstants
        , withProtocolConstants
        , protocolConstants
-       , protocolMagic
        , vssMaxTTL
        , vssMinTTL
        , blkSecurityParam
@@ -20,32 +19,28 @@ import           Universum
 import           Data.Reflection (Given (..), give)
 
 import           Pos.Core.Common (BlockCount (..))
-import           Pos.Core.Genesis.Types (ProtocolConstants (..))
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..),
+                                             VssMinTTL (..))
 import           Pos.Core.Slotting.Types (SlotCount)
-import qualified Pos.Crypto.Configuration as CC
 
 type HasProtocolConstants = Given ProtocolConstants
 
 withProtocolConstants ::
        ProtocolConstants
-    -> ((HasProtocolConstants, CC.HasCryptoConfiguration) => r)
+    -> (HasProtocolConstants => r)
     -> r
-withProtocolConstants pc a = give pc (give (pcProtocolMagic pc) a)
+withProtocolConstants = give
 
 protocolConstants :: HasProtocolConstants => ProtocolConstants
 protocolConstants = given
 
--- | 'CC.protocolMagic' with 'HasProtocolConstants' constraint.
-protocolMagic :: HasProtocolConstants => CC.ProtocolMagic
-protocolMagic = pcProtocolMagic protocolConstants
-
 -- | VSS certificates max timeout to live (number of epochs)
 vssMaxTTL :: (HasProtocolConstants, Integral i) => i
-vssMaxTTL = fromIntegral . pcVssMaxTTL $ protocolConstants
+vssMaxTTL = fromIntegral . getVssMaxTTL . pcVssMaxTTL $ protocolConstants
 
 -- | VSS certificates min timeout to live (number of epochs)
 vssMinTTL :: (HasProtocolConstants, Integral i) => i
-vssMinTTL = fromIntegral . pcVssMinTTL $ protocolConstants
+vssMinTTL = fromIntegral . getVssMinTTL . pcVssMinTTL $ protocolConstants
 
 -- | Security parameter which is maximum number of blocks which can be
 -- rolled back.

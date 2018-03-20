@@ -14,7 +14,7 @@ import           Node.Message.Class (Message)
 import           Pos.Binary.Class (Bi)
 import           Universum
 
-import           Pos.Communication.Limits.Types (MessageLimited)
+import           Pos.Communication.Limits.Types (Limit)
 import           Pos.Communication.Types.Protocol (EnqueueMsg, Msg, NodeId)
 import           Pos.Communication.Types.Relay (DataMsg, InvMsg, InvOrData, MempoolMsg, ReqMsg,
                                                 ReqOrRes)
@@ -35,14 +35,12 @@ data Relay m where
       , Message (ReqMsg key)
       , Message (ReqOrRes key)
       , Message (InvOrData key contents)
-      , MessageLimited (DataMsg contents) m
       ) => MempoolParams m -> InvReqDataParams key contents m -> Relay m
   Data ::
       ( Buildable contents
       , Typeable contents
       , Bi (DataMsg contents)
       , Message (DataMsg contents)
-      , MessageLimited (DataMsg contents) m
       ) => DataParams contents m -> Relay m
 
 data MempoolParams m where
@@ -68,10 +66,12 @@ data InvReqDataParams key contents m = InvReqDataParams
       -- ^ Handle req msg and return (Just data) in case requested data can be provided
     , handleData    :: NodeId -> contents -> m Bool
       -- ^ Handle data msg and return True if message is to be propagated
+    , irdpMkLimit   :: m (Limit contents)
     }
 
 data DataParams contents m = DataParams
     { dataMsgType    :: !(Origin NodeId -> Msg)
     , handleDataOnly :: EnqueueMsg m -> NodeId -> contents -> m Bool
       -- ^ Handle data msg and return True if message is to be propagated
+    , dpMkLimit      :: m (Limit contents)
     }

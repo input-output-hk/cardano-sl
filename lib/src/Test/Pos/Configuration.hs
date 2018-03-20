@@ -16,6 +16,8 @@ module Test.Pos.Configuration
        , withDefDlgConfiguration
        , withDefConfigurations
        , withStaticConfigurations
+
+       , HasConfigurations
        ) where
 
 import           Universum
@@ -34,7 +36,6 @@ import           Pos.Ssc.Configuration (HasSscConfiguration, withSscConfiguratio
 import           Pos.Txp (HasTxpConfiguration, withTxpConfiguration)
 import           Pos.Update.Configuration (HasUpdateConfiguration, withUpdateConfiguration)
 import           Pos.Util.Config (embedYamlConfigCT)
-
 
 -- | This configuration is embedded into binary and is used by default
 -- in tests.

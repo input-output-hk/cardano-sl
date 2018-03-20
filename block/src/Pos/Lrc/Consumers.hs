@@ -14,6 +14,6 @@ import           Pos.Ssc.Message (SscMessageConstraints)
 import           Pos.Update.Lrc (usLrcConsumer)
 
 allLrcConsumers
-    :: forall ctx m. (SscMessageConstraints m, LrcMode ctx m)
+    :: forall ctx m. (SscMessageConstraints, LrcMode ctx m)
     => [LrcConsumer m]
 allLrcConsumers = [dlgLrcConsumer, usLrcConsumer, sscLrcConsumer]

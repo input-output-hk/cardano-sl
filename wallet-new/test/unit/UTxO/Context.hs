@@ -78,7 +78,7 @@ initCardanoContext = CardanoContext{..}
   where
     ccLeaders  = genesisLeaders
     ccStakes   = genesisStakes
-    ccBlock0   = genesisBlock0
+    ccBlock0   = genesisBlock0 protocolMagic (GenesisHash genesisHash) genesisLeaders
     ccData     = genesisData
     ccUtxo     = unGenesisUtxo genesisUtxo
     ccSecrets  = fromMaybe (error "initCardanoContext: secrets unavailable") $

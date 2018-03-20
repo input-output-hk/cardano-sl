@@ -89,6 +89,7 @@ data FilterOperation ix a =
     -- ^ Filter by predicate (e.g. lesser than, greater than, etc.)
     | FilterByRange ix ix
     -- ^ Filter by range, in the form [from,to]
+    | FilterIn [ix]
     deriving Eq
 
 instance ToHttpApiData ix => ToHttpApiData (FilterOperation ix a) where
@@ -102,6 +103,8 @@ renderFilterOperation = \case
         mconcat [renderFilterOrdering p, "[", toQueryParam ix, "]"]
     FilterByRange lo hi  ->
         mconcat ["RANGE", "[", toQueryParam lo, ",", toQueryParam hi, "]"]
+    FilterIn ixs ->
+        "IN[" <> T.intercalate "," (map toQueryParam ixs) <> "]"
 
 findMatchingFilterOp
     :: forall needle a
@@ -123,6 +126,7 @@ instance Show (FilterOperation ix a) where
     show (FilterByIndex _)            = "FilterByIndex"
     show (FilterByPredicate theOrd _) = "FilterByPredicate[" <> show theOrd <> "]"
     show (FilterByRange _ _)          = "FilterByRange"
+    show (FilterIn _)                 = "FilterIn"
 
 -- | Represents a filter operation on the data model.
 --
@@ -220,6 +224,7 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
                ("GT", "]")    -> FilterByPredicate GreaterThan <$> toIndex p ixTxt
                ("GTE", "]")   -> FilterByPredicate GreaterThanEqual <$> toIndex p ixTxt
                ("RANGE", "]") -> parseRangeQuery ixTxt
+               ("IN", "]")    -> parseInQuery ixTxt
                _              -> Nothing
 
     -- Tries to parse a query by index.
@@ -232,6 +237,11 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
         case bimap identity (T.drop 1) (T.breakOn "," fromTo) of
             (_, "")    -> Nothing
             (from, to) -> FilterByRange <$> toIndex p from <*> toIndex p to
+
+    parseInQuery :: Text -> Maybe (FilterOperation ix a)
+    parseInQuery =
+        fmap FilterIn . traverse (toIndex p) . T.splitOn ","
+
 
 instance
     ( HasClient m next

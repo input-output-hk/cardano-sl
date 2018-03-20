@@ -88,7 +88,7 @@ allTransactions mwalletId mAccIdx mAddr requestParams fops sops  =
             -- TODO: should we use the 'FilterBy' machinery instead? that
             --       let us express RANGE, GT, etc. in addition to EQ. does
             --       that make sense for this dataset?
-            undefined
+            error "Implement me!"
 
 estimateFees :: (MonadThrow m, V0.MonadFees ctx m)
     => Payment

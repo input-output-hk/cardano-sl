@@ -8,6 +8,9 @@ module Test.Pos.Cbor.RefImpl
     , deserialise
     , UInt(..)
     , Term(..)
+    , toUInt
+    , leadingZeroes
+    , integerToBinaryRep
     , canonicalNaN
     -- * Properties
     , prop_InitialByte
@@ -452,7 +455,8 @@ prop_Token token =
 
 data Term = TUInt   UInt
           | TNInt   UInt
-          | TBigInt Word8 {- number of leading zero bytes in the binary representation -}
+          | TBigInt [Word8] {- binary encoding of the Integer -}
+                    UInt    {- representation of length in the binary encoding -}
                     Integer
           | TBytes  UInt {- representation of length -} [Word8]
           | TBytess  [[Word8]]
@@ -473,13 +477,24 @@ data Term = TUInt   UInt
           | TFloat64 Double
   deriving (Show, Eq)
 
+-- | Encode an Integer as a CBOR-compliant bytestring given a number of leading
+-- zeroes in its representation.
+integerToBinaryRep :: Word8 -> Integer -> [Word8]
+integerToBinaryRep zs n =
+    replicate (fromIntegral zs) 0 ++ (integerToBytes $ if n >= 0
+                                                       then n
+                                                       else -1 - n)
+
 instance Arbitrary Term where
     arbitrary =
         frequency
             [ (1, TUInt    <$> arbitrary)
             , (1, TNInt    <$> arbitrary)
-            , (1, TBigInt  <$> sized (\sz -> fromIntegral <$> choose (0, sz))
-                           <*> (getLargeInteger <$> arbitrary))
+            , (1, arbitrary >>= \(LargeInteger n) -> do
+                      bs <- sized $ \sz -> integerToBinaryRep
+                          <$> (fromIntegral <$> choose (0, sz))
+                          <*> pure n
+                      TBigInt <$> pure bs <*> arbitraryLengthRep bs <*> pure n)
             , (1, arbitrary >>= \bs -> TBytes <$> arbitraryLengthRep bs <*> pure bs)
             , (1, TBytess  <$> arbitrary)
             , (1, arbitrary >>= \bs ->
@@ -537,8 +552,9 @@ instance Arbitrary Term where
 
     shrink (TUInt   n)    = [ TUInt    n'   | n' <- shrink n ]
     shrink (TNInt   n)    = [ TNInt    n'   | n' <- shrink n ]
-    shrink (TBigInt z n)  = [ TBigInt z' n' | (z', n') <- shrink (z, n) ]
-
+    shrink (TBigInt bs len n) = [ let bs' = integerToBinaryRep zs n'
+                                  in TBigInt bs' (replaceLen bs' len) n'
+                                | (zs, n') <- shrink (leadingZeroes bs, n) ]
     shrink (TBytes n ws)  = [ TBytes (replaceLen ws' n) ws' | ws' <- shrink ws ]
     shrink (TBytess wss)  = [ TBytess  wss' | wss' <- shrink wss ]
     shrink (TString n ws) = [ TString (replaceLen (encodeUTF8 ws') n) ws'
@@ -659,27 +675,29 @@ decodeMap acc = do
 decodeTagged :: UInt -> Decoder Term
 decodeTagged tag = case fromUInt tag of
     2 -> do
-        bs <- decodeToken >>= \case
-            MT2_ByteString _ bs -> return bs
+        (bs, len) <- decodeToken >>= \case
+            MT2_ByteString len bs -> return (bs, len)
             _ -> decodeErr
         let !n = integerFromBytes bs
-        return $ TBigInt (leadingZeroes bs) n
+        return $ TBigInt bs len n
     3 -> do
-        bs <- decodeToken >>= \case
-            MT2_ByteString _ bs -> return bs
+        (bs, len) <- decodeToken >>= \case
+            MT2_ByteString len bs -> return (bs, len)
             _ -> decodeErr
         let !n = integerFromBytes bs
-        return $ TBigInt (leadingZeroes bs) (-1 - n)
+        return $ TBigInt bs len (-1 - n)
     _ -> do
         tm <- decodeTerm
         return (TTagged tag tm)
-  where
-    -- If all of the bytes are zeroes, we don't count the last one.
-    leadingZeroes :: [Word8] -> Word8
-    leadingZeroes bs = fromIntegral $ case span (== 0) bs of
-        ([], []) -> error "leadingZeroes: unexpected empty list"
-        (zs, []) -> length zs - 1
-        (zs, _)  -> length zs
+
+-- | Get a number of leading zeroes in the binary representation of an
+-- Integer. Note that if all of the bytes are zeroes (i.e. we're dealing with
+-- the representation of 0), we don't count the last one.
+leadingZeroes :: [Word8] -> Word8
+leadingZeroes bs = fromIntegral $ case span (== 0) bs of
+    ([], []) -> error "leadingZeroes: unexpected empty list"
+    (zs, []) -> length zs - 1
+    (zs, _)  -> length zs
 
 integerFromBytes :: [Word8] -> Integer
 integerFromBytes []       = 0
@@ -716,17 +734,11 @@ prop_integerToFromBytes (LargeInteger n)
 encodeTerm :: Encoder Term
 encodeTerm (TUInt n)       = encodeToken (MT0_UnsignedInt n)
 encodeTerm (TNInt n)       = encodeToken (MT1_NegativeInt n)
-encodeTerm (TBigInt zs n)
+encodeTerm (TBigInt ws len n)
                | n >= 0    = encodeToken (MT6_Tag (UIntSmall 2))
-                          <> let ws  = replicate (fromIntegral zs) 0
-                                    ++ integerToBytes n
-                                 len = lengthUInt ws in
-                             encodeToken (MT2_ByteString len ws)
+                          <> encodeToken (MT2_ByteString len ws)
                | otherwise = encodeToken (MT6_Tag (UIntSmall 3))
-                          <> let ws  = replicate (fromIntegral zs) 0
-                                    ++ integerToBytes (-1 - n)
-                                 len = lengthUInt ws in
-                             encodeToken (MT2_ByteString len ws)
+                          <> encodeToken (MT2_ByteString len ws)
 encodeTerm (TBytes len ws) = encodeToken (MT2_ByteString len ws)
 encodeTerm (TBytess wss)   = encodeToken MT2_ByteStringIndef
                           <> mconcat [ encodeToken (MT2_ByteString len ws)
@@ -916,7 +928,7 @@ instance (Arbitrary n, RealFloat n) => Arbitrary (FloatSpecials n) where
             , (1, pure (FloatSpecials (-1/0)) ) -- -Infinity
             ]
 
-newtype LargeInteger = LargeInteger { getLargeInteger :: Integer }
+newtype LargeInteger = LargeInteger Integer
     deriving (Show, Eq)
 
 instance Arbitrary LargeInteger where

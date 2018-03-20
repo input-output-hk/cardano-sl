@@ -12,7 +12,8 @@ import           GHC.Float (RealFloat (..))
 import           Numeric.Half (Half (..))
 import           Test.QuickCheck.Gen (Gen, choose, elements, oneof, shuffle, sized)
 
-import           Test.Pos.Cbor.RefImpl (Term (..), UInt (..), canonicalNaN)
+import           Test.Pos.Cbor.RefImpl (Term (..), UInt (..), toUInt, leadingZeroes,
+                                        integerToBinaryRep, canonicalNaN)
 
 -- | Traverse elements of a Term which can be represented in multiple ways and
 -- apply appropriate functions to them. We assume that Term is obtained from
@@ -27,14 +28,14 @@ traverseCanonicalBits
     :: Monad m
     => (UInt -> m Term)                         -- ^ positive int
     -> (UInt -> m Term)                         -- ^ negative int
-    -> ((Word8, Integer) -> m (Word8, Integer)) -- ^ big integer
+    -> m Word8                                  -- ^ big integer (add leading zeroes)
     -> (UInt -> m UInt)                         -- ^ length of a string/collection
     -> (UInt -> m UInt)                         -- ^ tag
     -> (forall term. [term] -> m [term])        -- ^ map/set
     -> (Half -> m Half)                         -- ^ 16-bit NaN
     -> Term
     -> m Term
-traverseCanonicalBits tuint tnint tbigint tlength ttag tmapset tnan16 = go
+traverseCanonicalBits tuint tnint tzeroes tlength ttag tmapset tnan16 = go
   where
     go = \case
         -- Representation can be widened or changed to TBigInt.
@@ -42,9 +43,13 @@ traverseCanonicalBits tuint tnint tbigint tlength ttag tmapset tnan16 = go
         -- Representation can be widened or changed to TBigInt.
         TNInt n    -> tnint n
         -- Leading zeroes can be added to binary representation.
-        TBigInt zs n -> case zs of
+        TBigInt bs _len n -> case leadingZeroes bs of
             -- Canonical representation doesn't have leading zeroes.
-            0 -> uncurry TBigInt <$> tbigint (zs, n)
+            0 -> do
+                bs <- integerToBinaryRep <$> tzeroes <*> pure n
+                TBigInt <$> pure bs
+                        <*> (tlength . toUInt . fromIntegral $ length bs)
+                        <*> pure n
             k -> error $ "Unexpected TBigInt with " <> show k
                       <> " leading zeroes: " <> show n
         -- Representation of length can be widened.
@@ -97,7 +102,7 @@ countCanonicalBits =
         traverseCanonicalBits
             (\n -> add >> pure (TUInt n))
             (\n -> add >> pure (TNInt n))
-            dummyAdd
+            (add >> pure 0)
             dummyAdd
             dummyAdd
             dummyAdd
@@ -116,7 +121,7 @@ perturbCanonicity term = sized $ \sz -> do
     n <- choose (1, sz)
     toChange <- shuffle . take (countCanonicalBits term) $
         replicate n True ++ repeat False
-    evalStateT (traverseCanonicalBits tuint tnint tbigint tlength
+    evalStateT (traverseCanonicalBits tuint tnint tzeroes tlength
                                       ttag tmapset tnan16 term)
                toChange
   where
@@ -128,11 +133,10 @@ perturbCanonicity term = sized $ \sz -> do
           False -> pure $ TNInt n
           True  -> lift $ changeUInt TNInt negate n
 
-      tbigint (z, n) = shouldBeChanged >>= \case
-          False -> pure (z, n)
-          True  -> lift . sized $ \sz -> do
-              zs <- choose (1, sz)
-              pure (fromIntegral zs, n)
+      tzeroes = shouldBeChanged >>= \case
+          False -> pure 0
+          True  -> lift . sized $ \sz ->
+              fromIntegral <$> choose (1, sz)
 
       tlength len = shouldBeChanged >>= \case
           False -> pure             len
@@ -189,24 +193,30 @@ perturbCanonicity term = sized $ \sz -> do
           , tint . UInt16 $ fromIntegral w
           , tint . UInt32 $ fromIntegral w
           , tint . UInt64 $ fromIntegral w
-          , TBigInt 0 . f $ fromIntegral w
+          , mkTBigInt 0 . f $ fromIntegral w
           ]
       changeUInt tint f (UInt8 w) = elements
           [ tint . UInt16 $ fromIntegral w
           , tint . UInt32 $ fromIntegral w
           , tint . UInt64 $ fromIntegral w
-          , TBigInt 0 . f $ fromIntegral w
+          , mkTBigInt 0 . f $ fromIntegral w
           ]
       changeUInt tint f (UInt16 w) = elements
           [ tint . UInt32 $ fromIntegral w
           , tint . UInt64 $ fromIntegral w
-          , TBigInt 0 . f $ fromIntegral w
+          , mkTBigInt 0 . f $ fromIntegral w
           ]
       changeUInt tint f (UInt32 w) = elements
           [ tint . UInt64 $ fromIntegral w
-          , TBigInt 0 . f $ fromIntegral w
+          , mkTBigInt 0 . f $ fromIntegral w
           ]
-      changeUInt _ f (UInt64 w) = pure . TBigInt 0 . f $ fromIntegral w
+      changeUInt _ f (UInt64 w) = pure . mkTBigInt 0 . f $ fromIntegral w
+
+      mkTBigInt :: Word8 -> Integer -> Term
+      mkTBigInt zs n =
+          let bs = integerToBinaryRep zs n
+              len = toUInt . fromIntegral $ length bs
+          in TBigInt bs len n
 
       shouldBeChanged :: StateT [Bool] Gen Bool
       shouldBeChanged = do

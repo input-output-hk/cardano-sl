@@ -482,24 +482,35 @@ instance Arbitrary WalletUpdate where
 
 -- | A 'Wallet'.
 data Wallet = Wallet {
-      walId      :: !WalletId
-    , walName    :: !WalletName
-    , walBalance :: !(V1 Core.Coin)
+      walId                  :: !WalletId
+    , walName                :: !WalletName
+    , walBalance             :: !(V1 Core.Coin)
+    , walHasPassphrase       :: !Bool
+    , walPassphraseUpdatedAt :: !(V1 Core.Timestamp)
     } deriving (Eq, Ord, Show, Generic)
 
 deriveJSON Serokell.defaultOptions ''Wallet
 
 instance ToSchema Wallet where
-  declareNamedSchema =
-    genericSchemaDroppingPrefix "wal" (\(--^) props -> props
-      & ("id"      --^ "Unique wallet identifier")
-      & ("name"    --^ "Wallet's name")
-      & ("balance" --^ "Current balance, in ADA")
-    )
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "wal" (\(--^) props -> props
+            & "id"
+            --^ "Unique wallet identifier"
+            & "name"
+            --^ "Wallet's name"
+            & "balance"
+            --^ "Current balance, in ADA"
+            & "hasPassphrase"
+            --^ "Whether or not the wallet has a passphrase"
+            & "passphraseUpdatedAt"
+            --^ "The timestamp that the passphrase was last updated."
+        )
 
 instance Arbitrary Wallet where
   arbitrary = Wallet <$> arbitrary
                      <*> pure "My wallet"
+                     <*> arbitrary
+                     <*> arbitrary
                      <*> arbitrary
 
 --------------------------------------------------------------------------------

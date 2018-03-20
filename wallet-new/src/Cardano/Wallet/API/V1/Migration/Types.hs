@@ -9,9 +9,9 @@ module Cardano.Wallet.API.V1.Migration.Types (
 import           Universum
 
 import qualified Control.Lens as Lens
-import qualified Data.List.NonEmpty as NE
 import           Data.Map (elems)
 import           Data.Time.Clock.POSIX (POSIXTime)
+import           Data.Typeable (typeRep)
 
 import           Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Types (V1 (..))
@@ -48,14 +48,23 @@ instance Migrate from to => Migrate [from] [to] where
     eitherMigrate = mapM eitherMigrate
 
 -- | Migration from list to NonEmpty, as suggested by @akegalj.
-instance Migrate from to => Migrate [from] (NonEmpty to) where
-  eitherMigrate a = NE.fromList <$> mapM eitherMigrate a
+instance (Migrate from to, Typeable from, Typeable to) => Migrate [from] (NonEmpty to) where
+    eitherMigrate [] = Left . MigrationFailed $ mconcat
+        [ "Failed migrating "
+        , show (typeRep (Proxy @[from]))
+        , " to a non empty list of "
+        , show (typeRep (Proxy @to))
+        , " because the list was empty."
+        ]
+    eitherMigrate (x:xs) = (:|) <$> eitherMigrate x <*> mapM eitherMigrate xs
 
 instance Migrate V0.CWallet V1.Wallet where
     eitherMigrate V0.CWallet{..} =
         V1.Wallet <$> eitherMigrate cwId
                   <*> pure (V0.cwName cwMeta)
                   <*> eitherMigrate cwAmount
+                  <*> pure cwHasPassphrase
+                  <*> eitherMigrate cwPassphraseLU
 
 -- NOTE: Migrate V1.Wallet V0.CWallet unable to do - not idempotent
 

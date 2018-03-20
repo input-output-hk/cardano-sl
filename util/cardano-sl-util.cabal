@@ -52,7 +52,6 @@ library
                      , binary
                      , bytestring
                      , cardano-sl-binary
-                     , cardano-sl-networking
                      , cborg
                      , cereal
                      , containers

@@ -26,6 +26,7 @@ module Pos.Communication.Types.Protocol
        , SendActions (..)
        , EnqueueMsg
        , enqueueMsg'
+       , waitForDequeues
        , waitForConversations
        , toOutSpecs
        , VerInfo (..)
@@ -45,13 +46,15 @@ import           Universum
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value)
 import           Data.Aeson.Types (Parser)
 import qualified Data.ByteString.Base64 as B64 (decode, encode)
+import qualified Control.Concurrent.Async as Async
+import qualified Control.Concurrent.STM as STM
+import           Control.Exception (throwIO)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable as B
 import qualified Data.Text.Encoding as Text (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Internal.Builder as B
 import           Formatting (bprint, build, hex, sformat, shown, (%))
--- TODO should not have to import outboundqueue stuff here. MsgType and
--- NodeType should be a cardano-sl notion.
+import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Transport (EndPointAddress (..))
 import qualified Node as N
 import           Node.Message.Class (Message (..), MessageCode)
@@ -97,7 +100,7 @@ type EnqueueMsg m =
        forall t .
        Msg
     -> (NodeId -> PeerData -> NonEmpty (Conversation m t))
-    -> m (Map NodeId (m t))
+    -> m (Map NodeId (STM.TVar (OQ.PacketStatus t)))
 
 -- | Enqueue a conversation with a bunch of peers and then wait for all of
 -- the results.
@@ -110,6 +113,21 @@ enqueueMsg'
     -> m (Map NodeId t)
 enqueueMsg' sendActions msg k =
     enqueueMsg sendActions msg k >>= waitForConversations
+
+waitForDequeues
+    :: forall m t .
+       ( MonadIO m )
+    => Map NodeId (STM.TVar (OQ.PacketStatus t))
+    -> Map NodeId (m t)
+waitForDequeues = fmap waitOne
+
+waitOne :: forall m t . (MonadIO m) => STM.TVar (OQ.PacketStatus t) -> m t
+waitOne statusVar = liftIO . join . atomically $ do
+    st <- readTVar statusVar
+    case st of
+        OQ.PacketEnqueued        -> STM.retry
+        OQ.PacketAborted         -> pure (throwIO OQ.Aborted)
+        OQ.PacketDequeued thread -> pure (Async.wait thread)
 
 -- | Wait for enqueued conversations to complete (useful in a bind with
 -- 'enqueueMsg').

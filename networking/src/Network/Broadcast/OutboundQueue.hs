@@ -55,6 +55,7 @@ module Network.Broadcast.OutboundQueue (
   , Origin(..)
   , EnqueueTo (..)
   , PacketStatus (..)
+  , Aborted (..)
   , enqueue
   , enqueueSync'
   , enqueueSync
@@ -89,7 +90,7 @@ module Network.Broadcast.OutboundQueue (
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
-import           Control.Exception (SomeException, catch, throwIO, displayException,
+import           Control.Exception (Exception, SomeException, catch, throwIO, displayException,
                                     finally, mask_)
 import           Control.Lens
 import           Control.Monad
@@ -274,6 +275,15 @@ data Packet msg nid a = Packet {
 -- infeasible).
 -- Out of the queue and in-flight.
 data PacketStatus a = PacketEnqueued | PacketAborted | PacketDequeued (Async a)
+
+-- | An exception that may be useful for dealing with 'PacketStatus', for
+-- instance when waiting on an enqueued thing: if you retry a transaction
+-- until it becomes 'PacketDequeued', you may want to throw 'Aborted' if
+-- it goes to 'PacketAborted' instead.
+data Aborted = Aborted
+
+deriving instance Show Aborted
+instance Exception Aborted
 
 -- | Hide the 'a' type parameter
 data EnqPacket msg nid = forall a. EnqPacket (Packet msg nid a)

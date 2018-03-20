@@ -3,6 +3,7 @@
 module Pos.Core.Configuration.GenesisHash
        ( HasGenesisHash
        , withGenesisHash
+       , GenesisHash (..)
        , genesisHash
        ) where
 

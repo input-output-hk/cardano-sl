@@ -135,6 +135,7 @@ library
   other-modules:        Paths_cardano_sl_infra
 
   build-depends:        aeson
+                      , async
                       , base
                       , parsec
                       , base64-bytestring

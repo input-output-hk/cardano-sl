@@ -20,6 +20,7 @@ import           System.Wlog (CanLog, HasLoggerName, logDebug, logError, logInfo
 import           Pos.Binary (Raw)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Update.Network (submitUpdateProposal, submitVote)
+import           Pos.Core (protocolMagic)
 import           Pos.Crypto (Hash, emptyPassphrase, hash, hashHexF, unsafeHash, withSafeSigner,
                              withSafeSigners)
 import           Pos.Diffusion.Types (Diffusion (..))
@@ -46,7 +47,7 @@ vote diffusion idx decision upid = do
     logDebug $ "Submitting a vote :" <> show (idx, decision, upid)
     skey <- (!! idx) <$> getSecretKeysPlain
     mbVoteUpd <- withSafeSigner skey (pure emptyPassphrase) $ mapM $ \signer ->
-        pure $ mkUpdateVoteSafe signer upid decision
+        pure $ mkUpdateVoteSafe protocolMagic signer upid decision
     case mbVoteUpd of
         Nothing -> logError "Invalid passphrase"
         Just voteUpd -> do
@@ -76,6 +77,7 @@ propose diffusion ProposeUpdateParams{..} = do
         let publisherSS = ss !! if not puVoteAll then 0 else puSecretKeyIdx
         let updateProposal =
                 mkUpdateProposalWSign
+                    protocolMagic
                     puBlockVersion
                     puBlockVersionModifier
                     puSoftwareVersion

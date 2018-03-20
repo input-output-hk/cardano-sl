@@ -14,15 +14,15 @@ import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
 import           System.Wlog (LoggerName, logInfo)
 
+import           Pos.Block.Configuration (recoveryHeadersMessage)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..))
-import           Pos.Core (ConfigurationError)
+import           Pos.Core (ConfigurationError, protocolConstants, protocolMagic)
 import           Pos.Configuration (networkConnectionTimeout)
 import           Pos.DB.DB (initNodeDBs)
-import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
 import           Pos.Diffusion.Types (DiffusionLayer (..))
-import           Pos.Diffusion.Full (diffusionLayerFull)
+import           Pos.Diffusion.Full (diffusionLayerFull, FullDiffusionConfiguration (..))
 import           Pos.Logic.Full (logicLayerFull)
 import           Pos.Logic.Types (LogicLayer (..))
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
@@ -111,7 +111,14 @@ action opts@AuxxOptions {..} command = do
           CLI.printInfoOnStart aoCommonNodeArgs
           (nodeParams, tempDbUsed) <-
               correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs nArgs
-          let
+          let fdconf = FullDiffusionConfiguration
+                  { fdcProtocolMagic = protocolMagic
+                  , fdcProtocolConstants = protocolConstants
+                  , fdcRecoveryHeadersMessage = recoveryHeadersMessage
+                  , fdcLastKnownBlockVersion = lastKnownBlockVersion
+                  , fdcConvEstablishTimeout = networkConnectionTimeout
+                  }
+
               toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
               toRealMode auxxAction = do
                   realModeContext <- ask
@@ -125,12 +132,10 @@ action opts@AuxxOptions {..} command = do
           bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
               elimRealMode nr $ toRealMode $
                   logicLayerFull jsonLog $ \logicLayer ->
-                      bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->
-                          diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) (npNetworkConfig nodeParams) lastKnownBlockVersion transport Nothing $ \withLogic -> do
-                              diffusionLayer <- withLogic (logic logicLayer)
-                              let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
-                                  (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
-                              runLogicLayer logicLayer (runDiffusionLayer diffusionLayer (auxxModeAction (diffusion diffusionLayer)))
+                      diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) fdconf (npNetworkConfig nodeParams) Nothing (logic logicLayer) $ \diffusionLayer -> do
+                          let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
+                              (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
+                          runLogicLayer logicLayer (runDiffusionLayer diffusionLayer (auxxModeAction (diffusion diffusionLayer)))
   where
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)

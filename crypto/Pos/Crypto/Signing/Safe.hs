@@ -26,7 +26,7 @@ import           Data.Coerce (coerce)
 
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Crypto.Configuration (HasCryptoConfiguration)
+import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.Crypto.Hashing (Hash, hash)
 import qualified Pos.Crypto.Scrypt as S
 import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..), PublicKey (..),
@@ -47,21 +47,21 @@ changeEncPassphrase oldPass newPass esk@(EncryptedSecretKey sk _)
         Just <$> mkEncSecretUnsafe newPass (CC.xPrvChangePass oldPass newPass sk)
     | otherwise = return Nothing
 
-signRaw' :: HasCryptoConfiguration
-         => Maybe SignTag
+signRaw' :: ProtocolMagic
+         -> Maybe SignTag
          -> PassPhrase
          -> EncryptedSecretKey
          -> ByteString
          -> Signature Raw
-signRaw' mbTag (PassPhrase pp) (EncryptedSecretKey sk _) x =
+signRaw' pm mbTag (PassPhrase pp) (EncryptedSecretKey sk _) x =
     Signature (CC.sign pp sk (tag <> x))
   where
-    tag = maybe mempty signTag mbTag
+    tag = maybe mempty (signTag pm) mbTag
 
 sign'
-    :: (HasCryptoConfiguration, Bi a)
-    => SignTag -> PassPhrase -> EncryptedSecretKey -> a -> Signature a
-sign' t pp sk = coerce . signRaw' (Just t) pp sk . Bi.serialize'
+    :: (Bi a)
+    => ProtocolMagic -> SignTag -> PassPhrase -> EncryptedSecretKey -> a -> Signature a
+sign' pm t pp sk = coerce . signRaw' pm (Just t) pp sk . Bi.serialize'
 
 safeCreateKeypairFromSeed
     :: BS.ByteString
@@ -92,9 +92,9 @@ safeDeterministicKeyGen seed pp =
         (mkEncSecretWithSaltUnsafe (S.mkSalt (hash seed)) pp)
         (safeCreateKeypairFromSeed seed pp)
 
-safeSign :: (HasCryptoConfiguration, Bi a) => SignTag -> SafeSigner -> a -> Signature a
-safeSign t (SafeSigner sk pp) = sign' t pp sk
-safeSign t (FakeSigner sk)    = sign t sk
+safeSign :: (Bi a) => ProtocolMagic -> SignTag -> SafeSigner -> a -> Signature a
+safeSign pm t (SafeSigner sk pp) = sign' pm t pp sk
+safeSign pm t (FakeSigner sk)    = sign  pm t sk
 
 safeToPublic :: SafeSigner -> PublicKey
 safeToPublic (SafeSigner sk _) = encToPublic sk
@@ -142,21 +142,21 @@ fakeSigner = FakeSigner
 
 -- | Proxy certificate creation from secret key of issuer, public key
 -- of delegate and the message space ω.
-safeCreateProxyCert :: (HasCryptoConfiguration, Bi w) => SafeSigner -> PublicKey -> w -> ProxyCert w
-safeCreateProxyCert ss (PublicKey delegatePk) o = coerce $ ProxyCert sig
+safeCreateProxyCert :: (Bi w) => ProtocolMagic -> SafeSigner -> PublicKey -> w -> ProxyCert w
+safeCreateProxyCert pm ss (PublicKey delegatePk) o = coerce $ ProxyCert sig
   where
-    Signature sig = safeSign SignProxySK ss $
+    Signature sig = safeSign pm SignProxySK ss $
                       mconcat
                           ["00", CC.unXPub delegatePk, Bi.serialize' o]
 
 -- | Creates proxy secret key
-safeCreatePsk :: (HasCryptoConfiguration, Bi w) => SafeSigner -> PublicKey -> w -> ProxySecretKey w
-safeCreatePsk ss delegatePk w =
+safeCreatePsk :: (Bi w) => ProtocolMagic -> SafeSigner -> PublicKey -> w -> ProxySecretKey w
+safeCreatePsk pm ss delegatePk w =
     UnsafeProxySecretKey
         { pskOmega      = w
         , pskIssuerPk   = safeToPublic ss
         , pskDelegatePk = delegatePk
-        , pskCert       = safeCreateProxyCert ss delegatePk w
+        , pskCert       = safeCreateProxyCert pm ss delegatePk w
         }
 
 -- [CSL-1157] `createProxyCert` and `createProxySecretKey` are not safe and
@@ -165,9 +165,9 @@ safeCreatePsk ss delegatePk w =
 
 -- | Proxy certificate creation from secret key of issuer, public key
 -- of delegate and the message space ω.
-createProxyCert :: (HasCryptoConfiguration, Bi w) => SecretKey -> PublicKey -> w -> ProxyCert w
-createProxyCert = safeCreateProxyCert . fakeSigner
+createProxyCert :: (Bi w) => ProtocolMagic -> SecretKey -> PublicKey -> w -> ProxyCert w
+createProxyCert pm = safeCreateProxyCert pm . fakeSigner
 
 -- | Creates proxy secret key
-createPsk :: (HasCryptoConfiguration, Bi w) => SecretKey -> PublicKey -> w -> ProxySecretKey w
-createPsk = safeCreatePsk . fakeSigner
+createPsk :: (Bi w) => ProtocolMagic -> SecretKey -> PublicKey -> w -> ProxySecretKey w
+createPsk pm = safeCreatePsk pm . fakeSigner

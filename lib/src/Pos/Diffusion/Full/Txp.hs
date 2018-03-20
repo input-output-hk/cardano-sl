@@ -15,7 +15,7 @@ import           Pos.Binary.Communication ()
 import           Pos.Binary.Core ()
 import           Pos.Binary.Txp ()
 import           Pos.Communication.Message ()
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
+import           Pos.Communication.Limits (mlTxMsgContents)
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..), NodeId,
                                              MkListeners, OutSpecs)
 import           Pos.Communication.Relay (invReqDataFlowTK, resOk, MinRelayWorkMode,
@@ -34,7 +34,6 @@ import           Pos.Txp.Network.Types (TxMsgContents (..))
 -- Returns 'True' if any peer accepted and applied this transaction.
 sendTx
     :: ( MinRelayWorkMode m
-       , HasAdoptedBlockVersionData m
        )
     => EnqueueMsg m
     -> TxAux
@@ -56,7 +55,6 @@ sendTx enqueue txAux = do
 
 txListeners
     :: ( DiffusionWorkMode m
-       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
@@ -70,7 +68,6 @@ txListeners logic oq enqueue = relayListeners oq enqueue (txRelays logic)
 txOutSpecs
     :: forall m .
        ( DiffusionWorkMode m
-       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> OutSpecs
@@ -87,11 +84,11 @@ txInvReqDataParams logic =
        , handleInv = \_ -> KV.handleInv (postTx logic)
        , handleReq = \_ -> KV.handleReq (postTx logic)
        , handleData = \_ -> KV.handleData (postTx logic)
+       , irdpMkLimit = mlTxMsgContents <$> getAdoptedBVData logic
        }
 
 txRelays
     :: ( DiffusionWorkMode m
-       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> [Relay m]

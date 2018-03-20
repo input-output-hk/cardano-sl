@@ -9,6 +9,7 @@ module Pos.Crypto.Signing.Signing
 
        -- * Signing and verification
        , sign
+       , signEncoded
        , checkSig                      -- reexport
        , fullSignatureHexF
        , parseFullSignature
@@ -101,6 +102,15 @@ sign
     -> a
     -> Signature a
 sign pm t k = coerce . signRaw pm (Just t) k . Bi.serialize'
+
+-- | Like 'sign' but without the 'Bi' constraint.
+signEncoded
+    :: ProtocolMagic
+    -> SignTag
+    -> SecretKey
+    -> ByteString
+    -> Signature a
+signEncoded pm t k = coerce . signRaw pm (Just t) k
 
 -- | Sign a bytestring.
 signRaw

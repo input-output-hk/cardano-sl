@@ -287,13 +287,9 @@ mkTxProof UnsafeTxPayload {..} =
 data TxPayload = UnsafeTxPayload
     { -- | Transactions are the main payload.
       _txpTxs       :: ![Tx]
-    , -- | Witnesses for each transaction. The length of this field is
-      -- checked during deserialisation; we can't put witnesses into the same
-      -- Merkle tree with transactions, as the whole point of SegWit is to
-      -- separate transactions and witnesses.
-      --
-      -- TODO: should they be put into a separate Merkle tree or left as
-      -- a list?
+    , -- | Witnesses for each transaction.
+      -- The payload is invalid if this list is not of the same length
+      -- as '_txpTxs'. See 'mkTxPayload'r
       _txpWitnesses :: ![TxWitness]
     } deriving (Show, Eq, Generic)
 

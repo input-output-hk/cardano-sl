@@ -17,8 +17,8 @@ import           Formatting (int, sformat, (%))
 import           Serokell.Util (allDistinct, enumerate)
 
 import           Pos.Binary.Core ()
-import           Pos.Core (AddrType (..), Address (..), HasConfiguration, integerToCoin,
-                           isRedeemAddress, isUnknownAddressType, sumCoins)
+import           Pos.Core (AddrType (..), Address (..), integerToCoin, isRedeemAddress,
+                           isUnknownAddressType, sumCoins)
 import           Pos.Core.Common (checkPubKeyAddress, checkRedeemAddress, checkScriptAddress)
 import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..), TxInWitness (..),
                                TxOut (..), TxOutAux (..), TxSigData (..), TxUndo, TxWitness,
@@ -76,8 +76,8 @@ data VerifyTxUtxoRes = VerifyTxUtxoRes
 -- blocks when we're creating a block (because transactions for
 -- inclusion into blocks are verified with 'vtcVerifyAllIsKnown'
 -- set to 'True', so unknown script versions are rejected).
-verifyTxUtxo ::
-       HasConfiguration
+verifyTxUtxo
+    :: ( HasProtocolMagic )
     => VTxContext
     -> TxAux
     -> ExceptT ToilVerFailure UtxoM VerifyTxUtxoRes

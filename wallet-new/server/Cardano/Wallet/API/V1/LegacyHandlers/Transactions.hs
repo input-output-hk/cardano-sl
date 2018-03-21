@@ -11,6 +11,7 @@ import           Cardano.Wallet.API.V1.Migration (HasCompileInfo, HasConfigurati
                                                   migrate)
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
+import           Cardano.Wallet.API.V1.Errors
 import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List.NonEmpty as NE
 import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
@@ -84,11 +85,10 @@ allTransactions mwalletId mAccIdx mAddr requestParams fops sops  =
             -- Paginate result
             respondWith requestParams fops sops (IxSet.fromList <$> transactions)
         _ ->
-            -- TODO: we need to implement the case for Nothing
             -- TODO: should we use the 'FilterBy' machinery instead? that
             --       let us express RANGE, GT, etc. in addition to EQ. does
             --       that make sense for this dataset?
-            throwM MissingRequiredParam
+            throwM MissingRequiredParams
                 { requiredParams = pure ("wallet_id", "WalletId")
                 }
 

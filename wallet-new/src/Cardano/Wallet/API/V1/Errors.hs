@@ -102,13 +102,14 @@ sample =
 toServantError :: WalletError -> ServantErr
 toServantError err =
   case err of
-    NotEnoughMoney{}       -> mkServantErr err403 err
-    OutputIsRedeem{}       -> mkServantErr err403 err
-    SomeOtherError{}       -> mkServantErr err418 err
-    MigrationFailed{}      -> mkServantErr err422 err
-    JSONValidationFailed{} -> mkServantErr err400 err
-    UnkownError{}          -> mkServantErr err400 err
-    WalletNotFound{}       -> mkServantErr err404 err
+    NotEnoughMoney{}        -> mkServantErr err403 err
+    OutputIsRedeem{}        -> mkServantErr err403 err
+    SomeOtherError{}        -> mkServantErr err418 err
+    MigrationFailed{}       -> mkServantErr err422 err
+    JSONValidationFailed{}  -> mkServantErr err400 err
+    UnkownError{}           -> mkServantErr err400 err
+    WalletNotFound{}        -> mkServantErr err404 err
+    MissingRequiredParams{} -> mkServantErr err400 err
   where
     mkServantErr serr@ServantErr{..} werr = serr
       { errBody    = encode werr

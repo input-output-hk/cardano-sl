@@ -20,6 +20,7 @@ import           Pos.Binary (Bi (..), serialize')
 import           Pos.Crypto (AbstractHash, EncryptedSecretKey, PassPhrase, SecretKey, VssKeyPair,
                              deterministicKeyGen, deterministicVssKeyGen, safeDeterministicKeyGen,
                              unsafeAbstractHash)
+import           Pos.Util.LogSafe (SecureLog)
 import           Pos.Util.Mnemonics (fromMnemonic, toMnemonic)
 
 -- | Datatype to contain a valid backup phrase
@@ -51,6 +52,9 @@ instance Show BackupPhrase where
     show _ = "<backup phrase>"
 
 instance Buildable BackupPhrase where
+    build _ = "<backup phrase>"
+
+instance Buildable (SecureLog BackupPhrase) where
     build _ = "<backup phrase>"
 
 instance Read BackupPhrase where

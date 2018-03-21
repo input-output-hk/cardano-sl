@@ -37,11 +37,12 @@ module Pos.Util.LogSafe
 
          -- ** Secure formatters
        , secureF
+       , secureMaybeF
        , plainOrSecureF
        , secretOnlyF
        , secureListF
-
        , buildSafe
+       , buildSafeMaybe
 
          -- ** Secure log utils
        , BuildableSafe
@@ -63,10 +64,13 @@ import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (bprint, build, fconst, later, mapf, (%))
 import           Formatting.Internal (Format (..))
 import qualified Language.Haskell.TH as TH
+import           Serokell.Util (listJson)
 import           System.Wlog (CanLog (..), HasLoggerName (..), Severity (..), logMCond)
 import           System.Wlog.LogHandler (LogHandlerTag (HandlerFilelike))
 
-import           Pos.Core.Common (Coin)
+import           Pos.Binary.Core ()
+import           Pos.Core (TxId)
+import           Pos.Core.Common (Address, Coin)
 import           Pos.Crypto (PassPhrase)
 
 
@@ -184,6 +188,11 @@ type BuildableSafe a = (Buildable a, Buildable (SecureLog a))
 secureF :: Format r (SecureLog a -> r) -> Format r (a -> r)
 secureF = mapf SecureLog
 
+-- | Secure Maybe using default value, use this to avoid leaking about whether
+-- a value is present or not.
+secureMaybeF :: Buildable a => a -> Format r (SecureLog a -> r) -> Format r (Maybe a -> r)
+secureMaybeF def = mapf (SecureLog . fromMaybe def)
+
 -- | Takes one of given items (usually formatters, nonsecure goes first),
 -- depending on security level.
 plainOrSecureF :: LogSecurityLevel -> a -> a -> a
@@ -192,6 +201,9 @@ plainOrSecureF PublicLogLevel _ fmt = fmt
 
 buildSafe :: BuildableSafe a => LogSecurityLevel -> Format r (a -> r)
 buildSafe sl = plainOrSecureF sl build (secureF build)
+
+buildSafeMaybe :: BuildableSafe a => a -> LogSecurityLevel -> Format r (Maybe a -> r)
+buildSafeMaybe def sl = plainOrSecureF sl build (secureMaybeF def build)
 
 -- | Negates single-parameter formatter for public logs.
 secretOnlyF :: LogSecurityLevel -> Format r (a -> r) -> Format r (a -> r)
@@ -315,7 +327,14 @@ logNoticeSP  = logMessageSP Notice
 logWarningSP = logMessageSP Warning
 logErrorSP   = logMessageSP Error
 
--- ** Instances for core types
+instance Buildable [Address] where
+    build = bprint listJson
+
+instance Buildable a => Buildable (SecureLog [a]) where
+    build = bprint (secureListF secure (secureF build)) . getSecureLog
+
+instance Buildable (SecureLog Text) where
+    build _ = "<hidden>"
 
 instance Buildable (SecureLog PassPhrase) where
     build _ = "<passphrase>"
@@ -323,3 +342,12 @@ instance Buildable (SecureLog PassPhrase) where
 -- maybe I'm wrong here, but currently masking it important for wallet servant logs
 instance Buildable (SecureLog Coin) where
     build _ = "? coin(s)"
+
+instance Buildable (SecureLog Address) where
+    build _ = "<address>"
+
+instance Buildable (SecureLog Word32) where
+    build _ = "<bytes>"
+
+instance Buildable (SecureLog TxId) where
+    build _ = "<txid>"

@@ -3,7 +3,7 @@
 Build this article: a one-liner
 
 ``` shell
-$ nix-shell -p make
+$ nix-shell --run make
 ```
 
 ## Further `make` targets

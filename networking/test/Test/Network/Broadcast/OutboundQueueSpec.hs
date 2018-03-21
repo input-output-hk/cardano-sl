@@ -7,7 +7,6 @@ import           Control.Monad
 import           Data.List (delete)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as Set
-import qualified Mockable as M
 import qualified Network.Broadcast.OutboundQueue as OutQ
 import           Network.Broadcast.OutboundQueue.Demo
 import           Network.Broadcast.OutboundQueue.Types hiding (simplePeers)
@@ -23,7 +22,7 @@ testInFlight = do
     removeAllHandlers
 
     -- Set up some test nodes
-    allNodes <- M.runProduction $ do
+    allNodes <- do
       ns <- forM [1..4] $ \nodeIdx -> newNode (C nodeIdx) NodeCore  (CommsDelay 0)
       forM_ ns $ \theNode -> setPeers theNode  (delete theNode ns)
       return ns

@@ -58,7 +58,7 @@ commonNodeArgsParser = do
         long    "db-path" <>
         metavar "FILEPATH" <>
         help    "Path to directory with all DBs used by the node. \
-                \If specified path doesn’t exist, a directory will be created."
+                \If specified path doesn't exist, a directory will be created."
     rebuildDB <- switch $
         long "rebuild-db" <>
         help "If node's database already exists, discard its contents \

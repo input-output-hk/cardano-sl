@@ -73,11 +73,9 @@ library
                      , parsec
                      , process
                      , quickcheck-instances
-                     , random
                      , reflection
                      , resourcet
                      , safe-exceptions
-                     , semigroups
                      , serokell-util
                      , stm
                      , tagged
@@ -93,7 +91,6 @@ library
                      , universum
                      , unliftio-core
                      , unordered-containers
-                     , vector
 
   default-language:    Haskell2010
 

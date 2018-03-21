@@ -71,14 +71,12 @@ library
                      , loc
                      , log-warper
                      , megaparsec
-                     , mmorph
                      , mtl
                      , neat-interpolation
                      , optparse-applicative
                      , parser-combinators
                      , quickcheck-instances
                      , random
-                     , reflection
                      , resourcet
                      , safe-exceptions
                      , scientific

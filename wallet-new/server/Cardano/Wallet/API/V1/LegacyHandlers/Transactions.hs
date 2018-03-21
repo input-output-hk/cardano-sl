@@ -22,6 +22,7 @@ import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.History as V0
 import qualified Pos.Wallet.Web.Methods.Payment as V0
 import qualified Pos.Wallet.Web.Methods.Txp as V0
+import qualified Pos.Wallet.Web.State as V0
 import qualified Pos.Wallet.Web.Util as V0
 import           Servant
 
@@ -54,16 +55,19 @@ allTransactions
     -> Maybe AccountIndex
     -> Maybe (V1 Core.Address)
     -> RequestParams
+    -> FilterOperations Transaction
+    -> SortOperations Transaction
     -> m (WalletResponse [Transaction])
-allTransactions walletId mAccIdx mAddr requestParams = do
+allTransactions walletId mAccIdx mAddr requestParams fops sops = do
     cIdWallet <- migrate walletId
+    ws <- V0.askWalletSnapshot
 
     -- Create a `[V0.AccountId]` to get txs from it
-    accIds <- case mAccIdx of
-        Just accIdx -> pure $ migrate (walletId, accIdx)
-        -- ^ Migrate `V1.AccountId` into `V0.AccountId` and put it into a list
-        Nothing     -> V0.getWalletAccountIds cIdWallet
-        -- ^ Or get all `V0.AccountId`s of a wallet
+    let accIds = case mAccIdx of
+            Just accIdx -> migrate (walletId, accIdx)
+            -- ^ Migrate `V1.AccountId` into `V0.AccountId` and put it into a list
+            Nothing     -> V0.getWalletAccountIds ws cIdWallet
+            -- ^ Or get all `V0.AccountId`s of a wallet
 
     let v0Addr = case mAddr of
             Nothing        -> Nothing
@@ -71,23 +75,22 @@ allTransactions walletId mAccIdx mAddr requestParams = do
 
     -- get all `[Transaction]`'s
     let transactions = do
-            (V0.WalletHistory wh, _) <- V0.getHistory cIdWallet accIds v0Addr
+            (V0.WalletHistory wh, _) <- V0.getHistory cIdWallet (const accIds) v0Addr
             migrate wh
 
     -- Paginate result
-    respondWith requestParams (NoFilters :: FilterOperations Transaction)
-                              (NoSorts :: SortOperations Transaction)
-                              (IxSet.fromList <$> transactions)
+    respondWith requestParams fops sops (IxSet.fromList <$> transactions)
 
 
 estimateFees :: (MonadThrow m, V0.MonadFees ctx m)
     => Payment
     -> m (WalletResponse EstimatedFees)
 estimateFees Payment{..} = do
+    ws <- V0.askWalletSnapshot
     let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) pmtGroupingPolicy
-    pendingAddrs <- V0.getPendingAddresses policy
+        pendingAddrs = V0.getPendingAddresses ws policy
     cAccountId <- migrate pmtSource
-    utxo <- V0.getMoneySourceUtxo (V0.AccountMoneySource cAccountId)
+    utxo <- V0.getMoneySourceUtxo ws (V0.AccountMoneySource cAccountId)
     outputs <- V0.coinDistrToOutputs =<< mapM migrate pmtDestinations
     fee <- V0.rewrapTxError "Cannot compute transaction fee" $
         eitherToThrow =<< V0.runTxCreator policy (V0.computeTxFee pendingAddrs utxo outputs)

@@ -3,14 +3,16 @@ module Pos.Diffusion.Subscription.Dns
     ( dnsSubscriptionWorker
     ) where
 
+import           Universum
+
 import           Control.Exception (IOException)
 import           Data.Either (partitionEithers)
+import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
-import           Data.Time.Units (Millisecond, Second, convertUnit)
+import           Data.Time.Units (Millisecond, fromMicroseconds, toMicroseconds)
 import           Formatting (int, sformat, shown, (%))
 import qualified Network.DNS as DNS
 import           System.Wlog (logError, logNotice, logWarning)
-import           Universum
 
 import           Mockable (Concurrently, Delay, Mockable, SharedAtomic, SharedAtomicT, delay,
                            forConcurrently, modifySharedAtomic, newSharedAtomic)
@@ -18,6 +20,7 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (Alts, peersFromList)
 
 import           Pos.Communication.Protocol (SendActions)
+import           Pos.Diffusion.Types (SubscriptionStatus (..))
 import           Pos.Diffusion.Subscription.Common
 import           Pos.Network.DnsDomains (NodeAddr)
 import           Pos.Network.Types (Bucket (..), DnsDomains (..), NetworkConfig (..), NodeId (..),
@@ -36,9 +39,10 @@ dnsSubscriptionWorker
     -> DnsDomains DNS.Domain
     -> Timer
     -> m Millisecond
+    -> TVar (Map NodeId SubscriptionStatus)
     -> SendActions m
     -> m ()
-dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDuration sendActions = do
+dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDuration subStatus sendActions = do
     -- Shared state between the threads which do subscriptions.
     -- It's a 'Map Int (Alts NodeId)' used to determine the current
     -- peers set for our bucket 'BucketBehindNatWorker'. Each thread takes
@@ -54,7 +58,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     -- fallbacks (for a given outer list element) is the length of the inner
     -- list (disjuncts).
     logNotice $ sformat ("dnsSubscriptionWorker: valency "%int) (length allOf)
-    void $ forConcurrently allOf (subscribeAlts dnsPeersVar)
+    void $ forConcurrently allOf (\anyOf -> newMVar (0 :: Millisecond) >>= subscribeAlts dnsPeersVar anyOf)
     logNotice $ sformat ("dnsSubscriptionWorker: all "%int%" threads finished") (length allOf)
   where
 
@@ -69,47 +73,52 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     subscribeAlts
         :: SharedAtomicT m (Map Int (Alts NodeId))
         -> (Int, Alts (NodeAddr DNS.Domain))
+        -> MVar Millisecond
         -> m ()
-    subscribeAlts _ (index, []) =
+    subscribeAlts _ (index, []) _ =
         logWarning $ sformat ("dnsSubscriptionWorker: no alternatives given for index "%int) index
-    subscribeAlts dnsPeersVar (index, alts) = do
+    subscribeAlts dnsPeersVar (index, alts) subDuration = do
         -- Any DNSError is squelched. So are IOExceptions, for good measure.
         -- This does not include async exceptions.
         -- It does handle the case in which there's no internet connection, or
         -- a bad configuration, so that the subscription thread will keep on
         -- retrying.
-        findAndSubscribe dnsPeersVar index alts
+        findAndSubscribe dnsPeersVar subDuration index alts
             `catch` logDNSError
             `catch` logIOException
-        retryInterval >>= delay
-        subscribeAlts dnsPeersVar (index, alts)
+        d <- swapMVar subDuration 0 >>= retryInterval
+        logNotice $ sformat ("dnsSubscriptionWorker: waiting "%int%"ms before trying again")
+            (toMicroseconds d `div` 1000)
+        delay d
+        subscribeAlts dnsPeersVar (index, alts) subDuration
 
     -- Subscribe to all alternatives, one-at-a-time, until the list is
     -- exhausted.
-    subscribeToOne :: Alts NodeId -> m ()
-    subscribeToOne dnsPeers = case dnsPeers of
+    subscribeToOne :: MVar Millisecond -> Alts NodeId -> m ()
+    subscribeToOne subDuration dnsPeers = case dnsPeers of
         [] -> return ()
         (peer:peers) -> do
-            void $ subscribeTo keepaliveTimer sendActions peer
-            subscribeToOne peers
+            void $ subscribeTo keepaliveTimer subStatus subDuration sendActions peer
+            subscribeToOne subDuration peers
 
     -- Resolve a name and subscribe to the node(s) at the addresses.
     findAndSubscribe
         :: SharedAtomicT m (Map Int (Alts NodeId))
+        -> MVar Millisecond
         -> Int
         -> Alts (NodeAddr DNS.Domain)
         -> m ()
-    findAndSubscribe dnsPeersVar index alts = do
+    findAndSubscribe dnsPeersVar subDuration index alts = do
         -- Resolve all of the names and update the known peers in the queue.
         dnsPeersList <- findDnsPeers index alts
         modifySharedAtomic dnsPeersVar $ \dnsPeers -> do
             let dnsPeers' = M.insert index dnsPeersList dnsPeers
-            void $ OQ.updatePeersBucket oq BucketBehindNatWorker $ \_ ->
+            void $ liftIO $ OQ.updatePeersBucket oq BucketBehindNatWorker $ \_ ->
                 peersFromList mempty ((,) NodeRelay <$> M.elems dnsPeers')
             pure (dnsPeers', ())
         -- Try to subscribe to some peer.
         -- If they all fail, wait a while before trying again.
-        subscribeToOne dnsPeersList
+        subscribeToOne subDuration dnsPeersList
 
     logIOException :: IOException -> m ()
     logIOException ioException =
@@ -134,10 +143,24 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
 
     -- How long to wait before retrying in case no alternative can be
     -- subscribed to.
-    retryInterval :: m Millisecond
-    retryInterval = do
+    --
+    -- The formula to calculate the retry interval is
+    -- @
+    -- retryInterval = floor (slotDuration / 2 ^ (number of slots that passed during the longest subscription duration))
+    -- @
+    -- For a @20s@ slot: the values will be @20s@, @10s@, @5s@, @2s@,
+    -- @1s@, @0s@, i.e. if there was a subscription that lasted more than
+    -- @5@ slots we will try to re-subscribe immediately.
+    retryInterval :: Millisecond -> m Millisecond
+    retryInterval d = do
         slotDur <- nextSlotDuration
-        pure $ max (slotDur `div` 4) (convertUnit (5 :: Second))
+        let -- slot duration in microseconds
+            slotDurF :: Float
+            slotDurF = fromIntegral $ toMicroseconds slotDur
+            -- Number of slots that passed in the longest subscription duration
+            slotsF :: Float
+            slotsF = (fromIntegral $ toMicroseconds d) / slotDurF
+        return $ fromMicroseconds $ floor $ slotDurF / (2 ** slotsF)
 
     msgDnsFailure :: Int -> [DNS.DNSError] -> Text
     msgDnsFailure = sformat ("dnsSubscriptionWorker: DNS failure for index "%int%": "%shown)

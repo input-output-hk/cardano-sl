@@ -4,6 +4,7 @@ in
 { system ? builtins.currentSystem
 , config ? {}
 , gitrev ? localLib.commitIdFromGitRepo ./.git
+, buildId ? null
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
 # profiling slows down performance by 50% so we don't enable it by default
 , enableProfiling ? false
@@ -48,6 +49,7 @@ let
         };
       });
 
+      cardano-sl-wallet-static = justStaticExecutables super.cardano-sl-wallet;
       cardano-sl-networking = dontCheck super.cardano-sl-networking;
       cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
       cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
@@ -111,5 +113,23 @@ let
       mainnetWallet = mkDocker { environment = "mainnet"; };
       stagingWallet = mkDocker { environment = "mainnet-staging"; };
     };
+
+    daedalus-bridge = pkgs.runCommand "cardano-daedalus-bridge" {} ''
+      # Generate daedalus-bridge
+      mkdir -p $out/bin $out/config
+      cd $out
+      ${optionalString (buildId != null) "echo ${buildId} > build-id"}
+      echo ${gitrev} > commit-id
+
+      cp ${./log-configs + "/daedalus.yaml"} config/log-config-prod.yaml
+      cp ${./lib}/configuration.yaml config
+      cp ${./lib}/*genesis*.json config
+      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-launcher bin
+      cp ${cardanoPkgs.cardano-sl-wallet-new}/bin/cardano-node bin
+
+      # test that binaries exit with 0
+      ./bin/cardano-node --help > /dev/null
+      HOME=$TMP ./bin/cardano-launcher --help > /dev/null
+    '';
   };
 in cardanoPkgs // other

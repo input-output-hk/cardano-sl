@@ -8,7 +8,7 @@
 * Generate *before* installer, use `devnet_shortep_wallet`
    * checkout from latest release branch (`cardano-sl-0.6-staging` for instance) of `daedalus`
    * set appropriate `system-start` in `Launcher.hs`, relay ip in `wallet-topology.yaml`
-   * set appropriate `cardano-sl` branch in `.travis.yml`, `appveyor.yaml`
+   * set appropriate `cardano-sl` branch in `.buildkite/pipeline.yml`, `appveyor.yaml`
    * see https://github.com/input-output-hk/daedalus/commit/98998da298a9ff86e6dd4d1c18e09ba8e396c545 for reference
 * Generate *after* installer, use `devnet_shortep_updated_wallet`
    * same as previous item

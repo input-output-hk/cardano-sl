@@ -6,6 +6,7 @@ import qualified APISpec as API
 import qualified DevelopmentSpec as Dev
 import qualified MarshallingSpec as Marshalling
 import qualified SwaggerSpec as Swagger
+import qualified RequestSpec as ReqSpec
 import           Test.Hspec
 
 -- | Tests whether or not some instances (JSON, Bi, etc) roundtrips.
@@ -15,3 +16,4 @@ main = hspec $ do
     Marshalling.spec
     API.spec
     Swagger.spec
+    ReqSpec.spec

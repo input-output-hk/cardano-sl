@@ -25,7 +25,7 @@ import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web (AddrCIdHashes (..), bracketWalletWS, bracketWalletWebDB, getSKById,
                                  getWalletAddresses, runWRealMode, syncWalletsWithGState)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
-import           Pos.Wallet.Web.State (flushWalletStorage)
+import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, flushWalletStorage)
 import           System.Wlog (LoggerName, Severity, logInfo, logMessage, usingLoggerName)
 
 import qualified Cardano.Wallet.Kernel as Kernel
@@ -65,7 +65,7 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
     mainAction = runNodeWithInit $ do
         when (walletFlushDb walletDbOptions) $ do
             logInfo "Flushing wallet db..."
-            flushWalletStorage
+            askWalletDB >>= flushWalletStorage
             logInfo "Resyncing wallets with blockchain..."
             syncWallets
 
@@ -75,7 +75,8 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
 
     syncWallets :: WalletWebMode ()
     syncWallets = do
-        sks <- getWalletAddresses >>= mapM getSKById
+        addrs <- getWalletAddresses <$> askWalletSnapshot
+        sks <- mapM getSKById addrs
         syncWalletsWithGState sks
 
     plugins :: (HasConfigurations, HasCompileInfo) => Plugins.Plugin WalletWebMode

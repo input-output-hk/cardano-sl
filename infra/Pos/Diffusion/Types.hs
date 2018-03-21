@@ -4,10 +4,13 @@
 module Pos.Diffusion.Types
     ( DiffusionLayer (..)
     , Diffusion (..)
+    , SubscriptionStatus (..)
     , dummyDiffusionLayer
     ) where
 
 import           Universum
+import           Data.Map.Strict                  (Map)
+import qualified Data.Map.Strict                  as Map
 import           Formatting                       (Format)
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.Core.Block                   (Block, BlockHeader, MainBlockHeader)
@@ -18,6 +21,17 @@ import           Pos.Reporting.Health.Types       (HealthStatus (..))
 import           Pos.Core.Ssc                     (Opening, InnerSharesMap, SignedCommitment,
                                                    VssCertificate)
 import           Pos.Util.Chrono                  (OldestFirst (..))
+
+data SubscriptionStatus =
+    -- | Established a subscription to a node
+    Subscribed
+    -- | Establishing a TCP connection to a node
+  | Subscribing
+  deriving (Eq, Ord, Show)
+
+instance Semigroup SubscriptionStatus where
+    Subscribed <> _     = Subscribed
+    Subscribing <> s    = s
 
 -- | The interface to a diffusion layer, i.e. some component which takes care
 -- of getting data in from and pushing data out to a network.
@@ -69,6 +83,9 @@ data Diffusion m = Diffusion
       -- quality?). [CSL-2147]
     , healthStatus       :: m HealthStatus
     , formatPeers        :: forall r . (forall a . Format r a -> a) -> m (Maybe r)
+      -- | Subscriptin statuses to all nodes.  If the node is not subscribed it
+      -- is not in the map.
+    , subscriptionStatus :: TVar (Map NodeId SubscriptionStatus)
     }
 
 -- | A diffusion layer: its interface, and a way to run it.
@@ -78,14 +95,16 @@ data DiffusionLayer m = DiffusionLayer
     }
 
 -- | A diffusion layer that does nothing.
-dummyDiffusionLayer :: Applicative m => DiffusionLayer m
-dummyDiffusionLayer = DiffusionLayer
-    { runDiffusionLayer = identity
-    , diffusion         = dummyDiffusion
-    }
+dummyDiffusionLayer :: (Monad m, MonadIO m, Applicative d) => m (DiffusionLayer d)
+dummyDiffusionLayer = do
+    ss <- newTVarIO Map.empty 
+    return DiffusionLayer
+        { runDiffusionLayer = identity
+        , diffusion         = dummyDiffusion ss
+        }
   where
-    dummyDiffusion :: Applicative m => Diffusion m
-    dummyDiffusion = Diffusion
+    dummyDiffusion :: Applicative m => TVar (Map NodeId SubscriptionStatus) -> Diffusion m
+    dummyDiffusion subscriptionStatus = Diffusion
         { getBlocks          = \_ _ _ -> pure (OldestFirst [])
         , requestTip         = \_ -> pure mempty
         , announceBlockHeader = \_ -> pure ()
@@ -99,4 +118,5 @@ dummyDiffusionLayer = DiffusionLayer
         , sendPskHeavy       = \_ -> pure ()
         , healthStatus       = pure (HSUnhealthy "I'm a dummy")
         , formatPeers        = \_ -> pure Nothing
+        , ..
         }

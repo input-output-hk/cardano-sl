@@ -1,44 +1,45 @@
+
+{-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- | A module which contains an interface to acidic Wallet DB.
--- See "Pos.Wallet.Web.State.Storage" for documentation for
--- DB methods.
 module Pos.Wallet.Web.State.State
-       ( WalletState
+       ( WalletDB
+       , WalletDbReader
        , WalletTip (..)
        , PtxMetaUpdate (..)
        , AddressInfo (..)
-       , getWalletWebState
-       , MonadWalletDBAccess
-       , MonadWalletDBRead
-       , MonadWalletDB
+       , askWalletDB
        , openState
        , openMemState
        , closeState
 
        , AddressLookupMode (..)
-       , CustomAddressType (..)
        , CurrentAndRemoved (..)
-       , WalBalancesAndUtxo
+       , CustomAddressType (..)
 
        -- * Getters
+       , WalletSnapshot
+       , askWalletSnapshot
+       , getWalletSnapshot
        , getProfile
+       , doesAccountExist
        , getAccountIds
        , getAccountMeta
        , getAccountAddrMaps
        , getAccountWAddresses
+       , getWAddresses
        , getWalletMeta
        , getWalletMetaIncludeUnready
        , getWalletPassLU
        , getWalletSyncTip
        , getWalletAddresses
-       , doesAccountExist
        , doesWAddressExist
        , getTxMeta
        , getWalletTxHistory
        , getNextUpdate
        , getHistoryCache
        , getCustomAddresses
+       , getCustomAddress
        , isCustomAddress
        , getWalletUtxo
        , getWalletBalancesAndUtxo
@@ -50,6 +51,7 @@ module Pos.Wallet.Web.State.State
        -- * Setters
        , testReset
        , createAccount
+       , createAccountWithAddress
        , createWallet
        , addWAddress
        , addCustomAddress
@@ -63,7 +65,6 @@ module Pos.Wallet.Web.State.State
        , addOnlyNewTxMeta
        , removeWallet
        , removeWalletTxMetas
-       , removeTxMetas
        , removeHistoryCache
        , removeAccount
        , removeWAddress
@@ -81,282 +82,448 @@ module Pos.Wallet.Web.State.State
        , cancelApplyingPtxs
        , cancelSpecificApplyingPtx
        , resetFailedPtxs
-       , getWalletStorage
        , flushWalletStorage
+       , applyModifierToWallet
+       , rollbackModifierFromWallet
        ) where
-
-import           Universum
 
 import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent)
 import qualified Data.Map as Map
-
 import           Pos.Client.Txp.History (TxHistoryEntry)
-import           Pos.Core (HeaderHash, SlotId)
-import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Txp (TxId)
-import           Pos.Txp (Utxo, UtxoModifier)
+import           Pos.Core (HasConfiguration, HasProtocolConstants, SlotId)
+import           Pos.Core.Common (HeaderHash)
+import           Pos.Txp (TxId, Utxo, UtxoModifier)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens', lensOf)
 import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CId, CProfile, CTxId,
                                              CTxMeta, CUpdateInfo, CWAddressMeta, CWalletMeta,
                                              PassPhraseLU, Wal)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition)
-import           Pos.Wallet.Web.State.Acidic (WalletState, closeState, openMemState, openState)
+import           Pos.Wallet.Web.State.Acidic (WalletDB, closeState, openMemState, openState)
 import           Pos.Wallet.Web.State.Acidic as A
-import           Pos.Wallet.Web.State.Storage (AddressInfo (..), AddressLookupMode (..),
+import           Pos.Wallet.Web.State.Storage (AddressInfo (..), AddressLookupMode (..), CAddresses,
                                                CurrentAndRemoved (..), CustomAddressType (..),
-                                               PtxMetaUpdate (..), WalBalancesAndUtxo,
-                                               WalletBalances, WalletStorage, WalletTip (..))
+                                               PtxMetaUpdate (..), WalletBalances, WalletStorage,
+                                               WalletTip (..))
+import qualified Pos.Wallet.Web.State.Storage as S
+import           Universum
 
--- | Type constraint which only allows access to
--- wallet DB state handler.
-type MonadWalletDBAccess ctx m =
-    ( HasLens' ctx WalletState
-    , MonadReader ctx m
+-- | The 'WalletDbReader' constraint encapsulates the set of effects which
+-- are able to read the 'WalletDB'.
+type WalletDbReader ctx m =
+    ( MonadReader ctx m
+    , HasLens' ctx WalletDB
     )
 
--- | Type constraint which only allows reading from
--- wallet DB.
-type MonadWalletDBRead ctx m =
-    ( MonadIO m
-    , MonadWalletDBAccess ctx m
-    , HasConfiguration
-    )
+-- | Reads the 'WalletDB'.
+askWalletDB :: WalletDbReader ctx m => m WalletDB
+askWalletDB = view (lensOf @WalletDB)
 
--- | Dummy typeclass which allows writing to wallet DB.
--- Why it's done this way:
---
---   * In practice, 'MonadWalletDBRead' allows applying
---     update events to database
---   * To separate type constraints for read-only and writing
---     modes to database artificially we explicitly require different
---     constraints for 'queryDisk' and 'updateDisk'
---   * If 'MonadWalletDB' was simply a type alias, no type error
---     would arise if 'updateDisk' is used in 'MonadWalletDBRead' context.
-class MonadWalletDBRead ctx m => MonadWalletDB ctx m
+type WalletSnapshot = WalletStorage
 
--- | Get wallet DB state handler.
-getWalletWebState :: (MonadReader ctx m, HasLens' ctx WalletState) => m WalletState
-getWalletWebState = view (lensOf @WalletState)
-
--- | Perform a query to wallet DB.
 queryDisk
-    :: (EventState event ~ WalletStorage, QueryEvent event, MonadWalletDBRead ctx m)
+    :: (EventState event ~ WalletStorage, QueryEvent event,
+        WalletDbReader ctx m, MonadIO m)
     => event -> m (EventResult event)
-queryDisk e = getWalletWebState >>= flip A.query e
+queryDisk e = askWalletDB >>= flip A.query e
 
--- | Perform an update to wallet DB.
-updateDisk
-    :: (EventState event ~ WalletStorage, UpdateEvent event, MonadWalletDB ctx m)
-    => event -> m (EventResult event)
-updateDisk e = getWalletWebState >>= flip A.update e
+queryValue
+    :: WalletStorage -> S.Query a -> a
+queryValue ws q = runReader q ws
 
----------------------------------------------------------------------------------
--- Wallet DB API
----------------------------------------------------------------------------------
+updateDisk :: (MonadIO m, EventState event ~ WalletStorage, UpdateEvent event)
+           => event -> WalletDB -> m (EventResult event)
+updateDisk evt db = A.update db evt
 
--- Following methods are wrappers over acidic actions.
--- For documentation on those methods look up their counterparts of the same name
--- in "Pos.Wallet.Web.State.Storage".
+-- | All queries work by doing a /single/ read of the DB state and then
+-- by using pure functions to extract the relevant information. A single read
+-- guarantees that we see a self-consistent snapshot of the wallet state.
+--
+askWalletSnapshot :: (WalletDbReader ctx m, MonadIO m) => m WalletSnapshot
+askWalletSnapshot = queryDisk A.GetWalletStorage
 
-getAccountIds :: MonadWalletDBRead ctx m => m [AccountId]
-getAccountIds = queryDisk A.GetAccountIds
+-- | Get a snapshot of the wallet from an existing DB handle.
+getWalletSnapshot :: MonadIO m
+                  => WalletDB
+                  -> m WalletSnapshot
+getWalletSnapshot db = A.query db A.GetWalletStorage
 
-getAccountMeta :: MonadWalletDBRead ctx m => AccountId -> m (Maybe CAccountMeta)
-getAccountMeta = queryDisk . A.GetAccountMeta
+--
+-- Pure functions (Queries)
+--
 
-getAccountAddrMaps
-    :: MonadWalletDBRead ctx m
-    => AccountId -> m (CurrentAndRemoved (HashMap (CId Addr) AddressInfo))
-getAccountAddrMaps = queryDisk . A.GetAccountAddrMaps
+doesAccountExist :: WalletSnapshot -> AccountId -> Bool
+doesAccountExist ws accid = queryValue ws (S.doesAccountExist accid)
 
-getWalletAddresses :: MonadWalletDBRead ctx m => m [CId Wal]
-getWalletAddresses = queryDisk A.GetWalletAddresses
+getAccountIds :: WalletSnapshot -> [AccountId]
+getAccountIds ws = queryValue ws S.getAccountIds
 
-getWalletMeta :: MonadWalletDBRead ctx m => CId Wal -> m (Maybe CWalletMeta)
-getWalletMeta = queryDisk . A.GetWalletMeta
+getAccountMeta :: WalletSnapshot -> AccountId -> Maybe CAccountMeta
+getAccountMeta ws accid = queryValue ws (S.getAccountMeta accid)
 
-getWalletMetaIncludeUnready :: MonadWalletDBRead ctx m => Bool -> CId Wal -> m (Maybe CWalletMeta)
-getWalletMetaIncludeUnready includeReady = queryDisk . A.GetWalletMetaIncludeUnready includeReady
+getAccountAddrMaps :: WalletSnapshot -> AccountId -> CurrentAndRemoved CAddresses
+getAccountAddrMaps ws accid = queryValue ws (S.getAccountAddrMaps accid)
 
-getWalletPassLU :: MonadWalletDBRead ctx m => CId Wal -> m (Maybe PassPhraseLU)
-getWalletPassLU = queryDisk . A.GetWalletPassLU
+getWalletAddresses :: WalletSnapshot -> [CId Wal]
+getWalletAddresses ws = queryValue ws S.getWalletAddresses
 
-getWalletSyncTip :: MonadWalletDBRead ctx m => CId Wal -> m (Maybe WalletTip)
-getWalletSyncTip = queryDisk . A.GetWalletSyncTip
+getWalletMeta :: WalletSnapshot -> CId Wal -> Maybe CWalletMeta
+getWalletMeta ws wid = queryValue ws (S.getWalletMeta wid)
+
+getWalletMetaIncludeUnready
+    :: WalletSnapshot -> Bool -> CId Wal -> Maybe CWalletMeta
+getWalletMetaIncludeUnready ws includeReady wid =
+    queryValue ws (S.getWalletMetaIncludeUnready includeReady wid)
+
+getWalletPassLU :: WalletSnapshot -> CId Wal -> Maybe PassPhraseLU
+getWalletPassLU ws wid = queryValue ws (S.getWalletPassLU wid)
+
+getWalletSyncTip :: WalletSnapshot -> CId Wal -> Maybe WalletTip
+getWalletSyncTip ws wid = queryValue ws (S.getWalletSyncTip wid)
 
 getAccountWAddresses
-    :: MonadWalletDBRead ctx m
-    => AddressLookupMode -> AccountId -> m (Maybe [AddressInfo])
-getAccountWAddresses mode = queryDisk . A.GetAccountWAddresses mode
+    :: WalletSnapshot -> AddressLookupMode -> AccountId -> Maybe [AddressInfo]
+getAccountWAddresses ws mode wid =
+    queryValue ws (S.getAccountWAddresses mode wid)
+
+-- | Get the 'AddressInfo' corresponding to all accounts in this wallet.
+getWAddresses :: WalletSnapshot -> AddressLookupMode -> CId Wal -> [AddressInfo]
+getWAddresses ws mode wid = queryValue ws (S.getWAddresses mode wid)
 
 doesWAddressExist
-    :: MonadWalletDBRead ctx m
-    => AddressLookupMode -> CWAddressMeta -> m Bool
-doesWAddressExist mode = queryDisk . A.DoesWAddressExist mode
+    :: WalletSnapshot -> AddressLookupMode -> CWAddressMeta -> Bool
+doesWAddressExist ws mode addr = queryValue ws (S.doesWAddressExist mode addr)
 
-getProfile :: MonadWalletDBRead ctx m => m CProfile
-getProfile = queryDisk A.GetProfile
+getProfile :: WalletSnapshot -> CProfile
+getProfile ws = queryValue ws S.getProfile
 
-getTxMeta :: MonadWalletDBRead ctx m => CId Wal -> CTxId -> m (Maybe CTxMeta)
-getTxMeta cWalId = queryDisk . A.GetTxMeta cWalId
+getTxMeta :: WalletSnapshot -> CId Wal -> CTxId -> Maybe CTxMeta
+getTxMeta ws wid txid = queryValue ws (S.getTxMeta wid txid)
 
-getWalletTxHistory :: MonadWalletDBRead ctx m => CId Wal -> m (Maybe [CTxMeta])
-getWalletTxHistory = queryDisk . A.GetWalletTxHistory
+getWalletTxHistory :: WalletSnapshot -> CId Wal -> Maybe [CTxMeta]
+getWalletTxHistory ws wid = queryValue ws (S.getWalletTxHistory wid)
 
-getNextUpdate :: MonadWalletDBRead ctx m => m (Maybe CUpdateInfo)
-getNextUpdate = queryDisk A.GetNextUpdate
+getNextUpdate :: WalletSnapshot -> Maybe CUpdateInfo
+getNextUpdate ws = queryValue ws S.getNextUpdate
 
-getHistoryCache :: MonadWalletDBRead ctx m => CId Wal -> m (Map TxId TxHistoryEntry)
-getHistoryCache = queryDisk . A.GetHistoryCache
+getHistoryCache :: WalletSnapshot -> CId Wal -> Map TxId TxHistoryEntry
+getHistoryCache ws wid = queryValue ws (S.getHistoryCache wid)
 
-getCustomAddresses :: MonadWalletDBRead ctx m => CustomAddressType -> m [(CId Addr, HeaderHash)]
-getCustomAddresses = queryDisk ... A.GetCustomAddresses
+getCustomAddresses :: WalletSnapshot -> CustomAddressType -> [(CId Addr, HeaderHash)]
+getCustomAddresses ws addrtype = queryValue ws (S.getCustomAddresses addrtype)
 
-isCustomAddress :: MonadWalletDBRead ctx m => CustomAddressType -> CId Addr -> m Bool
-isCustomAddress = fmap isJust . queryDisk ... A.GetCustomAddress
+getCustomAddress
+    :: WalletSnapshot -> CustomAddressType -> CId Addr -> Maybe HeaderHash
+getCustomAddress ws addrtype addrid =
+    queryValue ws (S.getCustomAddress addrtype addrid)
 
-getPendingTxs :: MonadWalletDBRead ctx m => m [PendingTx]
-getPendingTxs = queryDisk ... A.GetPendingTxs
+isCustomAddress :: WalletSnapshot -> CustomAddressType -> CId Addr -> Bool
+isCustomAddress ws addrtype addrid =
+    isJust (getCustomAddress ws addrtype addrid)
 
-getWalletPendingTxs :: MonadWalletDBRead ctx m => CId Wal -> m (Maybe [PendingTx])
-getWalletPendingTxs = queryDisk ... A.GetWalletPendingTxs
+getPendingTxs :: WalletSnapshot -> [PendingTx]
+getPendingTxs ws = queryValue ws S.getPendingTxs
 
-getPendingTx :: MonadWalletDBRead ctx m => CId Wal -> TxId -> m (Maybe PendingTx)
-getPendingTx = queryDisk ... A.GetPendingTx
+getWalletPendingTxs :: WalletSnapshot -> CId Wal -> Maybe [PendingTx]
+getWalletPendingTxs ws wid = queryValue ws (S.getWalletPendingTxs wid)
 
-createAccount :: MonadWalletDB ctx m => AccountId -> CAccountMeta -> m ()
-createAccount accId = updateDisk . A.CreateAccount accId
+getPendingTx :: WalletSnapshot -> CId Wal -> TxId -> Maybe PendingTx
+getPendingTx ws wid txid = queryValue ws (S.getPendingTx wid txid)
 
-createWallet :: MonadWalletDB ctx m => CId Wal -> CWalletMeta -> Bool -> PassPhraseLU -> m ()
-createWallet cWalId cwMeta isReady = updateDisk . A.CreateWallet cWalId cwMeta isReady
+getWalletUtxo :: WalletSnapshot -> Utxo
+getWalletUtxo ws = queryValue ws S.getWalletUtxo
 
-addWAddress :: MonadWalletDB ctx m => CWAddressMeta -> m ()
-addWAddress addr = updateDisk $ A.AddWAddress addr
+getWalletBalancesAndUtxo :: WalletSnapshot -> (WalletBalances, Utxo)
+getWalletBalancesAndUtxo ws = queryValue ws S.getWalletBalancesAndUtxo
 
-addCustomAddress :: MonadWalletDB ctx m => CustomAddressType -> (CId Addr, HeaderHash) -> m Bool
-addCustomAddress = updateDisk ... A.AddCustomAddress
 
-setAccountMeta :: MonadWalletDB ctx m => AccountId -> CAccountMeta -> m ()
-setAccountMeta accId = updateDisk . A.SetAccountMeta accId
+--
+-- Effectful function (Updates)
+--
 
-setWalletMeta :: MonadWalletDB ctx m => CId Wal -> CWalletMeta -> m ()
-setWalletMeta cWalId = updateDisk . A.SetWalletMeta cWalId
+createAccount :: (MonadIO m, HasConfiguration)
+              => WalletDB
+              -> AccountId
+              -> CAccountMeta
+              -> m ()
+createAccount db accId accMeta =
+    updateDisk (A.CreateAccount accId accMeta) db
 
-setWalletReady :: MonadWalletDB ctx m => CId Wal -> Bool -> m ()
-setWalletReady cWalId = updateDisk . A.SetWalletReady cWalId
+createAccountWithAddress :: (MonadIO m, HasConfiguration)
+                         => WalletDB
+                         -> AccountId
+                         -> CAccountMeta
+                         -> CWAddressMeta
+                         -> m ()
+createAccountWithAddress db accId accMeta addrMeta =
+    updateDisk (A.CreateAccountWithAddress accId accMeta addrMeta) db
 
-setWalletPassLU :: MonadWalletDB ctx m => CId Wal -> PassPhraseLU -> m ()
-setWalletPassLU cWalId = updateDisk . A.SetWalletPassLU cWalId
+createWallet :: (MonadIO m, HasConfiguration)
+             => WalletDB
+             -> CId Wal
+             -> CWalletMeta
+             -> Bool
+             -> PassPhraseLU
+             -> m ()
+createWallet db cWalId cwMeta isReady lastUpdate =
+    updateDisk (A.CreateWallet cWalId cwMeta isReady lastUpdate) db
 
-setWalletSyncTip :: MonadWalletDB ctx m => CId Wal -> HeaderHash -> m ()
-setWalletSyncTip cWalId = updateDisk . A.SetWalletSyncTip cWalId
+addWAddress :: (MonadIO m, HasConfiguration)
+            => WalletDB
+            -> CWAddressMeta
+            -> m ()
+addWAddress db addr = updateDisk (A.AddWAddress addr) db
 
-setProfile :: MonadWalletDB ctx m => CProfile -> m ()
-setProfile = updateDisk . A.SetProfile
+addCustomAddress :: (MonadIO m, HasConfiguration)
+                 => WalletDB
+                 -> CustomAddressType
+                 -> (CId Addr, HeaderHash)
+                 -> m Bool
+addCustomAddress db customAddrType addrAndHash =
+    updateDisk (A.AddCustomAddress customAddrType addrAndHash) db
 
-doesAccountExist :: MonadWalletDBRead ctx m => AccountId -> m Bool
-doesAccountExist = queryDisk . A.DoesAccountExist
+setAccountMeta :: (MonadIO m, HasConfiguration)
+               => WalletDB -> AccountId -> CAccountMeta  -> m ()
+setAccountMeta db accId accMeta =
+    updateDisk (A.SetAccountMeta accId accMeta) db
 
-addOnlyNewTxMetas :: MonadWalletDB ctx m => CId Wal -> Map TxId CTxMeta -> m ()
-addOnlyNewTxMetas cWalId cTxMetas = updateDisk (A.AddOnlyNewTxMetas cWalId cTxMetaList)
+setWalletMeta :: (MonadIO m, HasConfiguration)
+              => WalletDB -> CId Wal -> CWalletMeta  -> m ()
+setWalletMeta db cWalId walletMeta =
+    updateDisk (A.SetWalletMeta cWalId walletMeta) db
+
+setWalletReady :: (MonadIO m, HasConfiguration)
+               => WalletDB -> CId Wal -> Bool  -> m ()
+setWalletReady db cWalId isReady =
+    updateDisk (A.SetWalletReady cWalId isReady) db
+
+setWalletPassLU :: (MonadIO m, HasConfiguration)
+                => WalletDB -> CId Wal -> PassPhraseLU  -> m ()
+setWalletPassLU db cWalId lastUpdate =
+    updateDisk (A.SetWalletPassLU cWalId lastUpdate) db
+
+setWalletSyncTip :: (MonadIO m, HasConfiguration)
+                 => WalletDB -> CId Wal -> HeaderHash  -> m ()
+setWalletSyncTip db cWalId headerHash =
+    updateDisk (A.SetWalletSyncTip cWalId headerHash) db
+
+setProfile :: (MonadIO m, HasConfiguration)
+           => WalletDB -> CProfile  -> m ()
+setProfile db cProfile = updateDisk (A.SetProfile cProfile) db
+
+addOnlyNewTxMetas :: (MonadIO m, HasConfiguration)
+                  => WalletDB -> CId Wal -> Map TxId CTxMeta  -> m ()
+addOnlyNewTxMetas db cWalId cTxMetas =
+    updateDisk (A.AddOnlyNewTxMetas cWalId cTxMetaList) db
     where
       cTxMetaList = [ (encodeCType txId, cTxMeta) | (txId, cTxMeta) <- Map.toList cTxMetas ]
 
-getWalletUtxo :: MonadWalletDBRead ctx m => m Utxo
-getWalletUtxo = queryDisk A.GetWalletUtxo
+updateWalletBalancesAndUtxo :: (MonadIO m, HasConfiguration)
+                            => WalletDB
+                            -> UtxoModifier
+                            -> m ()
+updateWalletBalancesAndUtxo db utxoModifier =
+    updateDisk (A.UpdateWalletBalancesAndUtxo utxoModifier) db
 
-getWalletBalancesAndUtxo :: MonadWalletDBRead ctx m => m (WalletBalances, Utxo)
-getWalletBalancesAndUtxo = queryDisk A.GetWalletBalancesAndUtxo
+setWalletUtxo :: (MonadIO m, HasConfiguration)
+              => WalletDB -> Utxo  -> m ()
+setWalletUtxo db utxo = updateDisk (A.SetWalletUtxo utxo) db
 
-updateWalletBalancesAndUtxo :: MonadWalletDB ctx m => UtxoModifier -> m ()
-updateWalletBalancesAndUtxo = updateDisk . A.UpdateWalletBalancesAndUtxo
+addOnlyNewTxMeta :: (MonadIO m, HasConfiguration)
+                 => WalletDB -> CId Wal -> CTxId -> CTxMeta  -> m ()
+addOnlyNewTxMeta db walletId txId txMeta =
+    updateDisk (A.AddOnlyNewTxMeta walletId txId txMeta) db
 
-setWalletUtxo :: MonadWalletDB ctx m => Utxo -> m ()
-setWalletUtxo = updateDisk . A.SetWalletUtxo
+-- | Remove a wallet and all associated data:
+--   - Associated accounts
+--   - Transaction metadata
+--   - History cache
+--
+--   Note that this functionality has changed - the old version of
+--   'removeWallet' did not used to remove the associated data.
+--   This functionality was not used anywhere and was therefore
+--   removed. Should it be needed again, one should add 'removeWallet'
+--   to the set of acidic updates and add a suitable function in this
+--   module to invoke it.
+removeWallet :: (MonadIO m, HasConfiguration)
+             => WalletDB -> CId Wal  -> m ()
+removeWallet db walletId = updateDisk (A.RemoveWallet2 walletId) db
 
-addOnlyNewTxMeta :: MonadWalletDB ctx m => CId Wal -> CTxId -> CTxMeta -> m ()
-addOnlyNewTxMeta cWalId cTxId = updateDisk . A.AddOnlyNewTxMeta cWalId cTxId
+removeWalletTxMetas :: (MonadIO m, HasConfiguration)
+                    => WalletDB -> CId Wal -> [CTxId]  -> m ()
+removeWalletTxMetas db walletId txIds =
+    updateDisk (A.RemoveWalletTxMetas walletId txIds) db
 
-removeWallet :: MonadWalletDB ctx m => CId Wal -> m ()
-removeWallet = updateDisk . A.RemoveWallet
+removeHistoryCache :: (MonadIO m, HasConfiguration)
+                   => WalletDB
+                   -> CId Wal
+                   -> m ()
+removeHistoryCache db walletId = updateDisk (A.RemoveHistoryCache walletId) db
 
-removeTxMetas :: MonadWalletDB ctx m => CId Wal -> m ()
-removeTxMetas = updateDisk . A.RemoveTxMetas
+removeAccount :: (MonadIO m, HasConfiguration)
+              => WalletDB
+              -> AccountId
+              -> m ()
+removeAccount db accountId = updateDisk (A.RemoveAccount accountId) db
 
-removeWalletTxMetas :: MonadWalletDB ctx m => CId Wal -> [CTxId] -> m ()
-removeWalletTxMetas = updateDisk ... A.RemoveWalletTxMetas
+removeWAddress :: (MonadIO m, HasConfiguration)
+               => WalletDB
+               -> CWAddressMeta
+               -> m ()
+removeWAddress db addrMeta = updateDisk (A.RemoveWAddress addrMeta) db
 
-removeHistoryCache :: MonadWalletDB ctx m => CId Wal -> m ()
-removeHistoryCache = updateDisk . A.RemoveHistoryCache
+removeCustomAddress :: (MonadIO m, HasConfiguration)
+                    => WalletDB
+                    -> CustomAddressType
+                    -> (CId Addr, HeaderHash)
+                    -> m Bool
+removeCustomAddress db customAddrType aIdAndHeaderHash =
+    updateDisk (A.RemoveCustomAddress customAddrType aIdAndHeaderHash) db
 
-removeAccount :: MonadWalletDB ctx m => AccountId -> m ()
-removeAccount = updateDisk . A.RemoveAccount
+addUpdate :: (MonadIO m, HasConfiguration)
+          => WalletDB
+          -> CUpdateInfo
+          -> m ()
+addUpdate db updateInfo =
+    updateDisk (A.AddUpdate updateInfo) db
 
-removeWAddress :: MonadWalletDB ctx m => CWAddressMeta -> m ()
-removeWAddress = updateDisk . A.RemoveWAddress
-
-removeCustomAddress
-    :: MonadWalletDB ctx m
-    => CustomAddressType -> (CId Addr, HeaderHash) -> m Bool
-removeCustomAddress = updateDisk ... A.RemoveCustomAddress
-
-addUpdate :: MonadWalletDB ctx m => CUpdateInfo -> m ()
-addUpdate = updateDisk . A.AddUpdate
-
-removeNextUpdate :: MonadWalletDB ctx m => m ()
+removeNextUpdate :: (MonadIO m, HasConfiguration)
+                 => WalletDB
+                 -> m ()
 removeNextUpdate = updateDisk A.RemoveNextUpdate
 
-testReset :: MonadWalletDB ctx m => m ()
+testReset :: (MonadIO m, HasConfiguration)
+          => WalletDB
+          -> m ()
 testReset = updateDisk A.TestReset
 
-insertIntoHistoryCache :: MonadWalletDB ctx m => CId Wal -> Map TxId TxHistoryEntry -> m ()
-insertIntoHistoryCache cWalId cTxs
+insertIntoHistoryCache :: (MonadIO m, HasConfiguration)
+                       => WalletDB
+                       -> CId Wal
+                       -> Map TxId TxHistoryEntry
+                       -> m ()
+insertIntoHistoryCache db cWalId cTxs
   | Map.null cTxs = return ()
-  | otherwise     = updateDisk (A.InsertIntoHistoryCache cWalId cTxs)
+  | otherwise     = updateDisk (A.InsertIntoHistoryCache cWalId cTxs) db
 
-removeFromHistoryCache :: MonadWalletDB ctx m => CId Wal -> Map TxId a -> m ()
-removeFromHistoryCache cWalId cTxs
+removeFromHistoryCache :: (MonadIO m, HasConfiguration)
+                       => WalletDB
+                       -> CId Wal
+                       -> Map TxId a
+                       -> m ()
+removeFromHistoryCache db cWalId cTxs
   | Map.null cTxs = return ()
-  | otherwise     = updateDisk (A.RemoveFromHistoryCache cWalId cTxs')
+  | otherwise     = updateDisk (A.RemoveFromHistoryCache cWalId cTxs') db
   where
     cTxs' :: Map TxId ()
     cTxs' = Map.map (const ()) cTxs
 
-setPtxCondition
-    :: MonadWalletDB ctx m
-    => CId Wal -> TxId -> PtxCondition -> m ()
-setPtxCondition = updateDisk ... A.SetPtxCondition
+setPtxCondition :: (MonadIO m, HasConfiguration)
+                => WalletDB
+                -> CId Wal
+                -> TxId
+                -> PtxCondition
+                -> m ()
+setPtxCondition db walletId txId condition =
+    updateDisk (A.SetPtxCondition walletId txId condition) db
 
-casPtxCondition
-    :: MonadWalletDB ctx m
-    => CId Wal -> TxId -> PtxCondition -> PtxCondition -> m Bool
-casPtxCondition = updateDisk ... A.CasPtxCondition
+casPtxCondition :: (MonadIO m, HasConfiguration)
+                => WalletDB
+                -> CId Wal
+                -> TxId
+                -> PtxCondition
+                -> PtxCondition
+                -> m Bool
+casPtxCondition db walletId txId old new =
+    updateDisk (A.CasPtxCondition walletId txId old new) db
 
 removeOnlyCreatingPtx
-    :: MonadWalletDB ctx m
-    => CId Wal -> TxId -> m Bool
-removeOnlyCreatingPtx = updateDisk ... A.RemoveOnlyCreatingPtx
+    :: (HasConfiguration, MonadIO m)
+    => WalletDB
+    -> CId Wal
+    -> TxId
+    -> m Bool
+removeOnlyCreatingPtx db walletId txId =
+    updateDisk (A.RemoveOnlyCreatingPtx walletId txId) db
 
-ptxUpdateMeta
-    :: MonadWalletDB ctx m
-    => CId Wal -> TxId -> PtxMetaUpdate -> m ()
-ptxUpdateMeta = updateDisk ... A.PtxUpdateMeta
+ptxUpdateMeta :: (HasProtocolConstants, HasConfiguration, MonadIO m)
+              => WalletDB
+              -> CId Wal
+              -> TxId
+              -> PtxMetaUpdate
+              -> m ()
+ptxUpdateMeta db walletId txId metaUpdate =
+    updateDisk (A.PtxUpdateMeta walletId txId metaUpdate) db
 
-addOnlyNewPendingTx :: MonadWalletDB ctx m => PendingTx -> m ()
-addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx
+addOnlyNewPendingTx :: (MonadIO m, HasConfiguration)
+                    => WalletDB
+                    -> PendingTx
+                    -> m ()
+addOnlyNewPendingTx db pendingTx = updateDisk (A.AddOnlyNewPendingTx pendingTx) db
 
-cancelApplyingPtxs :: MonadWalletDB ctx m => m ()
-cancelApplyingPtxs = updateDisk ... A.CancelApplyingPtxs
+cancelApplyingPtxs :: (MonadIO m, HasConfiguration)
+                   => WalletDB
+                   -> m ()
+cancelApplyingPtxs = updateDisk A.CancelApplyingPtxs
 
-cancelSpecificApplyingPtx :: MonadWalletDB ctx m => TxId -> m ()
-cancelSpecificApplyingPtx txid = updateDisk ... A.CancelSpecificApplyingPtx txid
+cancelSpecificApplyingPtx :: (MonadIO m, HasConfiguration)
+                          => WalletDB -> TxId  -> m ()
+cancelSpecificApplyingPtx db txid = updateDisk (A.CancelSpecificApplyingPtx txid) db
 
-resetFailedPtxs :: MonadWalletDB ctx m => SlotId -> m ()
-resetFailedPtxs = updateDisk ... A.ResetFailedPtxs
+resetFailedPtxs :: (MonadIO m, HasConfiguration)
+                => WalletDB
+                -> SlotId
+                -> m ()
+resetFailedPtxs db slotId = updateDisk (A.ResetFailedPtxs slotId) db
 
-flushWalletStorage :: MonadWalletDB ctx m => m ()
+flushWalletStorage :: (MonadIO m, HasConfiguration)
+                   => WalletDB
+                   -> m ()
 flushWalletStorage = updateDisk A.FlushWalletStorage
 
-getWalletStorage :: MonadWalletDBRead ctx m => m WalletStorage
-getWalletStorage = queryDisk A.GetWalletStorage
+applyModifierToWallet
+  :: (MonadIO m, HasConfiguration)
+  => WalletDB
+  -> CId Wal
+  -> [CWAddressMeta] -- ^ Wallet addresses to add
+  -> [(S.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to add
+  -> UtxoModifier
+  -> [(CTxId, CTxMeta)] -- ^ Transaction metadata to add
+  -> Map TxId TxHistoryEntry -- ^ Entries for the history cache
+  -> [(TxId, PtxCondition)] -- ^ PTX Conditions
+  -> HeaderHash -- ^ New sync tip
+  -> m ()
+applyModifierToWallet db walId wAddrs custAddrs utxoMod
+                      txMetas historyEntries ptxConditions
+                      syncTip =
+    updateDisk
+      ( A.ApplyModifierToWallet
+          walId wAddrs custAddrs utxoMod
+          txMetas historyEntries ptxConditions syncTip
+      )
+      db
+
+rollbackModifierFromWallet
+  :: (MonadIO m, HasConfiguration, HasProtocolConstants)
+  => WalletDB
+  -> CId Wal
+  -> [CWAddressMeta] -- ^ Addresses to remove
+  -> [(S.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to remove
+  -> UtxoModifier
+     -- We use this odd representation because Data.Map does not get 'withoutKeys'
+     -- until 5.8.1
+  -> Map TxId a -- ^ Entries to remove from history cache.
+  -> [(TxId, PtxCondition, S.PtxMetaUpdate)] -- ^ Deleted PTX candidates
+  -> HeaderHash -- ^ New sync tip
+  -> m ()
+rollbackModifierFromWallet db walId wAddrs custAddrs utxoMod
+                           historyEntries ptxConditions
+                           syncTip =
+    updateDisk
+      ( A.RollbackModifierFromWallet
+          walId wAddrs custAddrs utxoMod
+          historyEntries' ptxConditions syncTip
+      )
+      db
+  where
+    historyEntries' = Map.map (const ()) historyEntries

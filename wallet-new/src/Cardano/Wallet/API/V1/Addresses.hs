@@ -11,7 +11,7 @@ import           Cardano.Wallet.API.V1.Types
 
 type API = Tags '["Addresses"] :>
       (    "addresses" :> WalletRequestParams
-                       :> Summary "Returns all the addresses."
+                       :> Summary "Returns a list of the addresses."
                        :> Get '[ValidJSON] (WalletResponse [WalletAddress])
       :<|> "addresses" :> ReqBody '[ValidJSON] NewAddress
                        :> Summary "Creates a new Address."

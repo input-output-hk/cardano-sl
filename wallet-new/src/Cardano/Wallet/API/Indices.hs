@@ -38,6 +38,10 @@ instance ToIndex Wallet Core.Coin where
         Just c  -> Just (Core.mkCoin c)
     accessIx Wallet{..} = let (V1 balance) = walBalance in balance
 
+instance ToIndex Wallet (V1 Core.Timestamp) where
+    toIndex _ = fmap V1 . Core.parseTimestamp
+    accessIx = walCreatedAt
+
 instance ToIndex Transaction (V1 Core.TxId) where
     toIndex _ = fmap V1 . rightToMaybe . decodeHash
     accessIx Transaction{..} = txId
@@ -76,13 +80,14 @@ type IndexRelation a ix =
 --
 
 -- | The indices for each major resource.
-type WalletIxs      = '[WalletId, Core.Coin]
+type WalletIxs      = '[WalletId, Core.Coin, V1 Core.Timestamp]
 type TransactionIxs = '[V1 Core.TxId, V1 Core.Timestamp]
 type AccountIxs     = '[AccountIndex]
 
 instance Indexable WalletIxs Wallet where
   indices = ixList (ixFun (\Wallet{..} -> [walId]))
                    (ixFun (\Wallet{..} -> let (V1 balance) = walBalance in [balance]))
+                   (ixFun (\Wallet{..} -> [walCreatedAt]))
 
 instance Indexable TransactionIxs Transaction where
   indices = ixList (ixFun (\Transaction{..} -> [txId]))
@@ -103,8 +108,9 @@ type family ParamNames res xs where
 type family IndexToQueryParam resource ix where
     IndexToQueryParam Account AccountIndex = "id"
 
-    IndexToQueryParam Wallet  Core.Coin    = "balance"
-    IndexToQueryParam Wallet  WalletId     = "id"
+    IndexToQueryParam Wallet  Core.Coin           = "balance"
+    IndexToQueryParam Wallet  WalletId            = "id"
+    IndexToQueryParam Wallet  (V1 Core.Timestamp) = "created_at"
 
     IndexToQueryParam Transaction (V1 Core.TxId)      = "id"
     IndexToQueryParam Transaction (V1 Core.Timestamp) = "created_at"

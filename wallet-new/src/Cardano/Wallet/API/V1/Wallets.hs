@@ -20,6 +20,7 @@ type API = Tags '["Wallets"] :>
                                 , Core.Coin
                                 ] Wallet
                    :> SortBy   '[ Core.Coin
+                                , V1 Core.Timestamp
                                 ] Wallet
                    :> Get '[ValidJSON] (WalletResponse [Wallet])
     :<|> "wallets" :> CaptureWalletId

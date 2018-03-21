@@ -155,7 +155,7 @@ makeLenses ''AccountInfo
 -- a certain wallet was restored.
 newtype RestorationBlockDepth =
     RestorationBlockDepth { getRestorationBlockDepth :: ChainDifficulty }
-    deriving (Eq)
+    deriving (Eq, Show)
 
 -- | Datatype which stores information about the sync state
 -- of this wallet. Syncing here is always relative to the blockchain.

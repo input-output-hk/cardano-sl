@@ -56,6 +56,8 @@ removeWallet2 walId = do
 -- | Unlike 'applyModifierToWallet', this function doesn't assume we want to blindly
 -- update the 'WalletStorage' with all the information passed, but only with the ones
 -- relevant to the 'WalletSyncState'.
+-- TODO(adn): Is there any way to prevent the duplication without accidentally removing
+-- or modifying `applyModifierToWallet`, which could be present in the `acid-state` transaction log?
 applyModifierToWallet2
     :: CId Wal
     -> [CWAddressMeta] -- ^ Wallet addresses to add
@@ -74,6 +76,7 @@ applyModifierToWallet2 walId wAddrs custAddrs utxoMod
             for_ wAddrs WS.addWAddress
             for_ custAddrs $ \(cat, addrs) ->
                 for_ addrs $ WS.addCustomAddress cat
+            WS.updateWalletBalancesAndUtxo utxoMod
             for_ txMetas $ uncurry $ WS.addOnlyNewTxMeta walId
             WS.insertIntoHistoryCache walId historyEntries
             for_ ptxConditions $ uncurry $ WS.setPtxCondition walId
@@ -108,6 +111,7 @@ applyModifierToWallet walId wAddrs custAddrs utxoMod
 
 -- | Rollback some set of modifiers to a wallet.
 --   TODO Find out the significance of this set of modifiers and document.
+-- TODO(adn): Have a `rollbackModifierFromWallet2` variant here as well.
 rollbackModifierFromWallet
     :: HasProtocolConstants -- Needed for ptxUpdateMeta
     => CId Wal

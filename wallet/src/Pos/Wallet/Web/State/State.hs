@@ -85,7 +85,6 @@ module Pos.Wallet.Web.State.State
        , cancelSpecificApplyingPtx
        , resetFailedPtxs
        , flushWalletStorage
-       , applyModifierToWallet
        , applyModifierToWallet2
        , rollbackModifierFromWallet
        ) where
@@ -510,28 +509,6 @@ applyModifierToWallet2 db walId wAddrs custAddrs utxoMod
       ( A.ApplyModifierToWallet2
           walId wAddrs custAddrs utxoMod
           txMetas historyEntries ptxConditions syncState
-      )
-      db
-
-applyModifierToWallet
-  :: (MonadIO m, HasConfiguration)
-  => WalletDB
-  -> CId Wal
-  -> [CWAddressMeta] -- ^ Wallet addresses to add
-  -> [(S.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to add
-  -> UtxoModifier
-  -> [(CTxId, CTxMeta)] -- ^ Transaction metadata to add
-  -> Map TxId TxHistoryEntry -- ^ Entries for the history cache
-  -> [(TxId, PtxCondition)] -- ^ PTX Conditions
-  -> HeaderHash -- ^ New sync tip
-  -> m ()
-applyModifierToWallet db walId wAddrs custAddrs utxoMod
-                      txMetas historyEntries ptxConditions
-                      syncTip =
-    updateDisk
-      ( A.ApplyModifierToWallet
-          walId wAddrs custAddrs utxoMod
-          txMetas historyEntries ptxConditions syncTip
       )
       db
 

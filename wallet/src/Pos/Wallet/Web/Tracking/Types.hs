@@ -68,7 +68,7 @@ data TrackingOperation = SyncWallet
                        -- ^ Restore the full wallet @history@ as in "restoring a wallet
                        -- from seed." for the whole blockchain (starting from the genesis block),
                        -- but track UTXO changes for blocks coming _after_ the 'RestorationBlockDepth'.
-                       deriving Eq
+                       deriving (Eq, Show)
 
 newRestoreRequest :: WalletDecrCredentials -> RestorationBlockDepth -> SyncRequest
 newRestoreRequest creds rhh = SyncRequest (RestoreWallet rhh) creds

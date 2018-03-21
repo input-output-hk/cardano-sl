@@ -117,7 +117,7 @@ instance
                 }
 
 filterDescription :: Text -> Text
-filterDescription typeOfres = mconcat
+filterDescription typeOfRes = mconcat
     [ "A **FILTER** operation on a " <> typeOfRes <> ". "
     , "Filters support a variety of queries on the resource. "
     , "These are: \n\n"

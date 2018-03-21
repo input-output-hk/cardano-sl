@@ -66,6 +66,7 @@ instance Migrate (V0.CWallet, V0.WalletInfo) V1.Wallet where
                   <*> pure cwHasPassphrase
                   <*> eitherMigrate cwPassphraseLU
                   <*> eitherMigrate _wiCreationTime
+                  <*> eitherMigrate (V0.cwAssurance _wiMeta)
 
 
 -- NOTE: Migrate V1.Wallet V0.CWallet unable to do - not idempotent

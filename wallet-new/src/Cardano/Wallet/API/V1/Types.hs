@@ -381,7 +381,7 @@ type WalletName = Text
 data AssuranceLevel =
     NormalAssurance
   | StrictAssurance
-  deriving (Eq, Show, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance Arbitrary AssuranceLevel where
     arbitrary = elements [minBound .. maxBound]
@@ -488,6 +488,7 @@ data Wallet = Wallet {
     , walHasPassphrase       :: !Bool
     , walPassphraseUpdatedAt :: !(V1 Core.Timestamp)
     , walCreatedAt           :: !(V1 Core.Timestamp)
+    , walAssurance           :: !AssuranceLevel
     } deriving (Eq, Ord, Show, Generic)
 
 deriveJSON Serokell.defaultOptions ''Wallet
@@ -505,11 +506,16 @@ instance ToSchema Wallet where
             --^ "Whether or not the wallet has a passphrase"
             & "passphraseUpdatedAt"
             --^ "The timestamp that the passphrase was last updated."
+            & "createdAt"
+            --^ "The timestamp that the wallet was created."
+            & "assurance"
+            --^ "The assurance level of the wallet."
         )
 
 instance Arbitrary Wallet where
   arbitrary = Wallet <$> arbitrary
                      <*> pure "My wallet"
+                     <*> arbitrary
                      <*> arbitrary
                      <*> arbitrary
                      <*> arbitrary

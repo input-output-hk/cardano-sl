@@ -114,8 +114,8 @@ import           Pos.Core (addressF)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
-import           Pos.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe, buildSafeMaybe,
-                                   deriveSafeBuildable, plainOrSecureF)
+import           Pos.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe, buildSafeList,
+                                   buildSafeMaybe, deriveSafeBuildable, plainOrSecureF)
 
 
 
@@ -215,9 +215,6 @@ instance Bounded a => Bounded (V1 a) where
 
 instance Buildable a => Buildable (V1 a) where
     build (V1 x) = bprint build x
-
-instance Buildable a => Buildable [V1 a] where
-    build = bprint listJson
 
 instance Buildable (SecureLog a) => Buildable (SecureLog (V1 a)) where
     build = bprint build
@@ -578,6 +575,8 @@ instance BuildableSafeGen Wallet where
     walName
     walBalance
 
+instance Buildable [Wallet] where
+    build = bprint listJson
 
 --------------------------------------------------------------------------------
 -- Addresses
@@ -639,7 +638,7 @@ instance BuildableSafeGen Account where
     buildSafeGen sl Account{..} = bprint ("{"
         %" index="%buildSafe sl
         %" name="%buildSafe sl
-        %" addresses="%buildSafe sl
+        %" addresses="%buildSafeList sl
         %" amount="%buildSafe sl
         %" walletId="%buildSafe sl
         %" }")
@@ -649,6 +648,8 @@ instance BuildableSafeGen Account where
         accAmount
         accWalletId
 
+instance Buildable [Account] where
+    build = bprint listJson
 
 -- | Account Update
 data AccountUpdate = AccountUpdate {
@@ -857,6 +858,9 @@ instance BuildableSafeGen PaymentDistribution where
         pdAddress
         pdAmount
 
+-- instance Buildable [PaymentDistribution] where
+--     build = bprint listJson
+
 
 -- | A 'PaymentSource' encapsulate two essentially piece of data to reach for some funds:
 -- a 'WalletId' and an 'AccountIndex' within it.
@@ -870,6 +874,7 @@ deriveJSON Serokell.defaultOptions ''PaymentSource
 instance ToSchema PaymentSource where
   declareNamedSchema =
     genericSchemaDroppingPrefix "ps" (\(--^) props -> props
+
       & ("walletId"     --^ "Target wallet identifier to reach")
       & ("accountIndex" --^ "Corresponding account's index on the wallet")
     )
@@ -936,7 +941,7 @@ deriveSafeBuildable ''Payment
 instance BuildableSafeGen Payment where
     buildSafeGen sl (Payment{..}) = bprint ("{"
         %" source="%buildSafe sl
-        %" destinations="%buildSafe sl
+        %" destinations="%buildSafeList sl
         %" groupingPolicty="%build
         %" spendingPassword="%(buildSafeMaybe mempty sl)
         %" }")
@@ -1076,8 +1081,8 @@ instance BuildableSafeGen Transaction where
         %" id="%buildSafe sl
         %" confirmations="%build
         %" amount="%buildSafe sl
-        %" inputs="%buildSafe sl
-        %" outputs="%buildSafe sl
+        %" inputs="%buildSafeList sl
+        %" outputs="%buildSafeList sl
         %" type="%buildSafe sl
         %" direction"%buildSafe sl
         %" }")
@@ -1088,6 +1093,9 @@ instance BuildableSafeGen Transaction where
         (toList txOutputs)
         txType
         txDirection
+
+instance Buildable [Transaction] where
+    build = bprint listJson
 
 
 -- | A type representing an upcoming wallet update.

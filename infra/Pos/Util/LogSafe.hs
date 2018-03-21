@@ -43,6 +43,7 @@ module Pos.Util.LogSafe
        , secureListF
        , buildSafe
        , buildSafeMaybe
+       , buildSafeList
 
          -- ** Secure log utils
        , BuildableSafe
@@ -205,6 +206,9 @@ buildSafe sl = plainOrSecureF sl build (secureF build)
 buildSafeMaybe :: BuildableSafe a => a -> LogSecurityLevel -> Format r (Maybe a -> r)
 buildSafeMaybe def sl = plainOrSecureF sl build (secureMaybeF def build)
 
+buildSafeList :: BuildableSafe a => LogSecurityLevel -> Format r ([a] -> r)
+buildSafeList sl = secureListF sl (secureF build)
+
 -- | Negates single-parameter formatter for public logs.
 secretOnlyF :: LogSecurityLevel -> Format r (a -> r) -> Format r (a -> r)
 secretOnlyF sl fmt = plainOrSecureF sl fmt (fconst "?")
@@ -330,8 +334,8 @@ logErrorSP   = logMessageSP Error
 instance Buildable [Address] where
     build = bprint listJson
 
-instance Buildable a => Buildable (SecureLog [a]) where
-    build = bprint (secureListF secure (secureF build)) . getSecureLog
+instance BuildableSafe a => Buildable (SecureLog [a]) where
+    build = bprint (buildSafeList secure) . getSecureLog
 
 instance Buildable (SecureLog Text) where
     build _ = "<hidden>"

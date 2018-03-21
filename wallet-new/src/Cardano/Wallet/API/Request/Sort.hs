@@ -10,21 +10,15 @@ module Cardano.Wallet.API.Request.Sort where
 import qualified Prelude
 import           Universum
 
-import           Cardano.Wallet.API.Indices
-import           Cardano.Wallet.API.Types
-import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
-import qualified Data.List as List
 import qualified Data.Text as T
 import qualified Data.Text.Buildable
 import           Data.Typeable
 import           Data.Typeable (Typeable)
 import           Formatting (bprint, build, builder, stext, (%))
 import qualified Generics.SOP as SOP
-import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
+import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (Request, rawQueryString)
-import           Pos.Core as Core
 import           Pos.Util.Servant (HasLoggingServer (..), LoggingApiRec, addParamLogInfo)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
 import           Servant
@@ -33,10 +27,8 @@ import           Servant.Client.Core (appendToQueryString)
 import           Servant.Server.Internal
 
 import           Cardano.Wallet.API.Indices
-import qualified Cardano.Wallet.API.Request.Parameters as Param
-import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.TypeLits (KnownSymbols)
-import           Pos.Core as Core
+import           Cardano.Wallet.API.Types
+import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 
 -- | Represents a sort operation on the data model.
 --
@@ -103,7 +95,6 @@ instance
 
 instance Show (SortOperation ix a) where
     show (SortByIndex dir _) = "SortByIndex[" <> show dir <> "]"
-    show SortIdentity        = "SortIdentity"
 
 -- | A "bag" of sort operations, where the index constraint are captured in
 -- the inner closure of 'SortOp'.
@@ -141,24 +132,11 @@ findMatchingSortOp (SortOp (sop :: SortOperation ix a) rest) =
         Nothing   -> findMatchingSortOp rest
 
 -- | Handy helper function to convert 'SortOperation'(s) into list.
-flattenSortOperations :: (forall ix. SortOperation ix a -> b)
+flattenSortOperations :: (forall (ix :: *). SortOperation ix a -> b)
                       -> SortOperations a
                       -> [b]
 flattenSortOperations _     NoSorts       = mempty
 flattenSortOperations trans (SortOp f fs) = trans f : flattenSortOperations trans fs
-
--- | This is a slighly boilerplat-y type family which maps symbols to
--- indices, so that we can later on reify them into a list of valid indices.
--- In case we want to sort on _all_ the indices, it might make sense having an
--- entry like the following:
---
---    SortParams '["wallet_id", "balance"] Wallet = IndicesOf Wallet
---
--- In the case of a 'Wallet', for example, sorting by @wallet_id@ doesn't have
--- much sense, so we restrict ourselves.
-type family SortParams (syms :: [Symbol]) (r :: *) :: [*] where
-    SortParams '[Param.Balance] Wallet = '[Core.Coin]
-    SortParams '[Param.CreatedAt] Transaction = '[Core.Timestamp]
 
 -- | Handy typeclass to reconcile type and value levels by building a list of 'SortOperation' out of
 -- a type level list.
@@ -204,7 +182,7 @@ instance ( HasServer subApi ctx
 --
 -- Example: @filter: asc id, desc balance@.
 --
--- Default implementation of this instance for 'SortBy syms res'
+-- Default implementation of this instance for 'SortBy params res'
 -- (note OVERLAPPING) would print logs in format of
 -- "<some name dependant on 'syms'>: <prettified SortOperations>".
 -- With current implementation of 'SortOperations' the best logs we can get
@@ -216,14 +194,14 @@ instance ( HasServer subApi ctx
 -- Thus custom instance which cuts off "none"s is used.
 instance {-# OVERLAPPING #-}
          ( HasLoggingServer config subApi ctx
-         , SortParams syms res ~ ixs
+         , ParamNames res params ~ syms
          , KnownSymbols syms
-         , ToSortOperations ixs res
-         , SOP.All (ToIndex res) ixs
+         , ToSortOperations params res
+         , SOP.All (ToIndex res) params
          ) =>
-         HasLoggingServer config (SortBy syms res :> subApi) ctx where
+         HasLoggingServer config (SortBy params res :> subApi) ctx where
     routeWithLog =
-        mapRouter @(SortBy syms res :> LoggingApiRec config subApi) route $
+        mapRouter @(SortBy params res :> LoggingApiRec config subApi) route $
             \(paramsInfo, f) sortOps ->
             (updateParamsInfo sortOps paramsInfo, f sortOps)
       where
@@ -237,10 +215,7 @@ instance {-# OVERLAPPING #-}
             in  case activeOps of
                     [] -> "no sort"
                     ss -> pretty . mconcat $ intersperse ", " ss
-        buildSortOp sortOp =
-            case sortOp of
-                SortIdentity           -> Nothing
-                SortByIndex sortType _ -> Just $ bprint build sortType
+        buildSortOp (SortByIndex sortType _) = Just $ bprint build sortType
         mergeNameAndOp _ Nothing      = Nothing
         mergeNameAndOp name (Just op) = Just $ bprint (builder%" "%stext) op name
 

@@ -14,16 +14,14 @@ import           Universum
 import qualified Data.List as List
 import qualified Data.Text as T
 import qualified Data.Text.Buildable
-import           Data.Typeable (Typeable)
+import           Data.Typeable
 import           Formatting (bprint, build, formatToString, sformat, (%))
 import qualified Generics.SOP as SOP
-import           GHC.TypeLits
-import           GHC.TypeLits (Symbol)
+import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import           Pos.Util.LogSafe (BuildableSafeGen (..), buildSafe, deriveSafeBuildableExt)
 import           Pos.Util.Servant (ApiCanLogArg (..), ApiHasArgClass (..))
 import           Serokell.Util (listJson)
 
-import           Cardano.Wallet.API.Indices
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (rawQueryString)
 import           Servant
@@ -34,6 +32,7 @@ import           Servant.Server.Internal
 import           Cardano.Wallet.API.Indices
 import qualified Cardano.Wallet.API.Request.Parameters as Param
 import           Cardano.Wallet.API.V1.Types
+import           Cardano.Wallet.TypeLits (KnownSymbols, symbolVals)
 
 --
 -- Filtering data
@@ -141,14 +140,13 @@ findMatchingFilterOp filters =
                     findMatchingFilterOp rest
 
 instance Show (FilterOperation ix a) where
-    show (FilterByIndex _)            = "FilterByIndex"
-    show (FilterByPredicate theOrd _) = "FilterByPredicate[" <> show theOrd <> "]"
-    show (FilterByRange _ _)          = "FilterByRange"
-    show                              = formatToString build
+    show = formatToString build
 
 deriveSafeBuildableExt $ \v -> [t| FilterOperation $v $v |]
 instance BuildableSafeGen (FilterOperation ix a) where
-    buildSafeGen _ = bprint build . show
+    buildSafeGen  _ (FilterByIndex _)       = "FilterByIndex"
+    buildSafeGen  _ (FilterByPredicate o _) = "FilterByPredicate[" <> bprint build o <> "]"
+    buildSafeGen  _ (FilterByRange _ _)     = "FilterByRange"
 
 -- TH needs to happen after FilterOperation is defined
 deriveSafeBuildableExt $ \v -> [t| FilterOperations $v |]
@@ -227,8 +225,8 @@ instance ( HasServer subApi ctx
 -- | Defines name of @FilterBy syms res@ as sum of @syms@,
 -- and specifies parameter 'FilterBy' provides.
 -- Used in e.g. logging.
-instance KnownSymbols syms => ApiHasArgClass (FilterBy syms a) where
-    type ApiArg (FilterBy syms a) = FilterOperations a
+instance (KnownSymbols syms, syms ~ ParamNames res params) => ApiHasArgClass (FilterBy params res) where
+    type ApiArg (FilterBy params res) = FilterOperations res
 
     apiArgName _ =
         let filterNames = mconcat . intersperse ", " $ symbolVals (Proxy @syms)
@@ -236,18 +234,8 @@ instance KnownSymbols syms => ApiHasArgClass (FilterBy syms a) where
 
 -- | Defines how 'FilterBy' is logged by just refering to
 -- 'instance Buildable SortOperations'.
-instance KnownSymbols syms => ApiCanLogArg (FilterBy syms a) where
+instance (KnownSymbols syms, syms ~ ParamNames res params) => ApiCanLogArg (FilterBy params res) where
     toLogParamInfo _ param = \sl -> sformat (buildSafe sl) param
-
-parseFilterParams :: forall a ixs. (
-                     SOP.All (ToIndex a) ixs
-                  ,  ToFilterOperations ixs a
-                  )
-                  => Request
-                  -> [Text]
-                  -> Proxy ixs
-                  -> DelayedIO (FilterOperations a)
-parseFilterParams req params p = return $ toFilterOperations req params p
 
 -- | Parse the filter operations, failing silently if the query is malformed.
 -- TODO(adinapoli): we need to improve error handling (and the parsers, for

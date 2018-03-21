@@ -51,10 +51,10 @@ type DevAPI = "api" :> "development" :> Dev.API
 devAPI :: Proxy DevAPI
 devAPI = Proxy
 
-type WalletAPI = LoggingApi WalletLoggingConfig (V0Doc :<|> V1Doc :<|> V0API :<|> V1API)
+type WalletAPI = V0Doc :<|> V1Doc :<|> LoggingApi WalletLoggingConfig (V0API :<|> V1API)
 walletAPI :: Proxy WalletAPI
 walletAPI = Proxy
 
-type WalletDevAPI = LoggingApi WalletLoggingConfig (DevDoc :<|> DevAPI :<|> WalletAPI)
+type WalletDevAPI = DevDoc :<|> DevAPI :<|> WalletAPI
 walletDevAPI :: Proxy WalletDevAPI
 walletDevAPI = Proxy

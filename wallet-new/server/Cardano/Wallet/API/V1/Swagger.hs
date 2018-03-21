@@ -24,10 +24,8 @@ import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols (..))
 import qualified Pos.Core as Core
 import           Pos.Core.Update (SoftwareVersion)
-import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
-import           Pos.Util.CompileInfo (CompileTimeInfo, HasCompileInfo, compileInfo, ctiGitRevision)
+import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Util.Servant (LoggingApi)
-import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))

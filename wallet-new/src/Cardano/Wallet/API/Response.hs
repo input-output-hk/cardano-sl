@@ -100,10 +100,11 @@ instance (ToSchema a, Typeable a) => ToSchema (WalletResponse a) where
                 ]
 
 instance Buildable a => Buildable (WalletResponse a) where
-    build WalletResponse{..} = bprint ("({"
+    build WalletResponse{..} = bprint ("{"
         %" status="%build
         %" meta="%build
-        %" data="%build)
+        %" data="%build
+        %" }")
         wrStatus
         wrMeta
         wrData

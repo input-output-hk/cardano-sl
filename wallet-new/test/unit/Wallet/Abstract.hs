@@ -27,9 +27,8 @@ module Wallet.Abstract (
     -- ** Generation
     -- $generation
   , InductiveWithOurs(..)
-  , genFromBlockchain
-  , genFromBlockchainWithOurs
-  , genFromBlockchainPickingAccounts
+  , genFromBlocktree
+  , genFromBlocktreePickingAccounts
     -- * Auxiliary operations
   , balance
   , txIns
@@ -42,6 +41,7 @@ module Wallet.Abstract (
 import qualified Data.Foldable as Fold
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.Tree as Tree
 import           Universum
 
 import qualified Data.IntMap as IntMap
@@ -175,6 +175,9 @@ data Inductive h a =
 
     -- | Submit a new transaction to the wallet to be included in the blockchain
   | NewPending (Inductive h a) (Transaction h a)
+
+    -- | Roll back the last block added to the blockchain
+  | Rollback (Inductive h a)
   deriving Eq
 
 -- | Interpreter for 'Inductive'
@@ -526,33 +529,27 @@ newtype InductiveGen h a
     { unInductiveGen :: ReaderT (InductiveCtx h) Gen a
     } deriving (Functor, Applicative, Monad, MonadReader (InductiveCtx h))
 
-runInductiveGen :: FromPreChain h () -> InductiveGen h a -> Gen a
+runInductiveGen :: FromPreTree h () -> InductiveGen h a -> Gen a
 runInductiveGen fpc ig = runReaderT (unInductiveGen ig) (initializeCtx fpc)
 
 data InductiveCtx h
     = InductiveCtx
-    { icFromPreChain  :: !(FromPreChain h ())
+    { icFromPreTree  :: !(FromPreTree h ())
     }
 
-initializeCtx :: FromPreChain h () -> InductiveCtx h
+initializeCtx :: FromPreTree h () -> InductiveCtx h
 initializeCtx fpc = InductiveCtx{..}
   where
-    icFromPreChain = fpc
+    icFromPreTree = fpc
 
-getFromPreChain :: InductiveGen h (FromPreChain h ())
-getFromPreChain = asks icFromPreChain
+getFromPreTree :: InductiveGen h (FromPreTree h ())
+getFromPreTree = asks icFromPreTree
 
-getBootstrap :: InductiveGen h (Transaction h Addr)
-getBootstrap = fpcBoot <$> getFromPreChain
-
-getBlockchain :: InductiveGen h (Chain h Addr)
-getBlockchain = fpcChain <$> getFromPreChain
-
-getLedger :: InductiveGen h (Ledger h Addr)
-getLedger = fpcLedger <$> getFromPreChain
+getBlocktree :: InductiveGen h (BlockTree h Addr)
+getBlocktree = fptTree <$> getFromPreTree
 
 getBootTransaction :: InductiveGen h (Transaction h Addr)
-getBootTransaction = fpcBoot <$> getFromPreChain
+getBootTransaction = fptBoot <$> getFromPreTree
 
 -- | The 'Inductive' data type is isomorphic to a linked list of this
 -- 'Action' type. It is more convenient to operate on this type, as it can
@@ -560,6 +557,7 @@ getBootTransaction = fpcBoot <$> getFromPreChain
 data Action h a
     = ApplyBlock' (Block h a)
     | NewPending' (Transaction h a)
+    | Rollback'
 
 -- | Smart constructor that adds the callstack to the transaction's comments
 -- (Useful for finding out where transactions are coming from)
@@ -573,17 +571,18 @@ toInductive boot = foldl' k (WalletBoot boot)
   where
     k acc (ApplyBlock' a) = ApplyBlock acc a
     k acc (NewPending' a) = NewPending acc a
+    k acc Rollback' = Rollback acc
 
 -- | Given a 'Set' of addresses that will represent the addresses that
 -- belong to the generated 'Inductive' wallet and the 'FromPreChain' value
 -- that contains the relevant blockchain, this will be able to generate
 -- arbitrary views into the blockchain.
-genFromBlockchain
+genFromBlocktree
     :: Hash h Addr
     => Set Addr
-    -> FromPreChain h ()
+    -> FromPreTree h ()
     -> Gen (Inductive h Addr)
-genFromBlockchain addrs fpc =
+genFromBlocktree addrs fpc =
     runInductiveGen fpc (genInductiveFor addrs)
 
 -- | Pair an 'Inductive' wallet definition with the set of addresses owned
@@ -619,13 +618,13 @@ genFromBlockchainWithOurs isOurs fpc = do
 
 -- | Selects a random subset of addresses to be considered from the
 -- blockchain in the amount given.
-genFromBlockchainPickingAccounts
+genFromBlocktreePickingAccounts
     :: Hash h Addr
     => Int
-    -> FromPreChain h ()
+    -> FromPreTree h ()
     -> Gen (InductiveWithOurs h Addr)
-genFromBlockchainPickingAccounts i fpc = do
-    let allAddrs = toList (ledgerAddresses (fpcLedger fpc))
+genFromBlocktreePickingAccounts i fpc = do
+    let allAddrs = toList (fptAddresses fpc)
         eligibleAddrs = filter (not . isAvvmAddr) allAddrs
 
     if null eligibleAddrs then
@@ -646,13 +645,29 @@ genFromBlockchainPickingAccounts i fpc = do
             ) (intercalate ", " (map show allAddrs))
         else pure ()
 
-    InductiveWithOurs addrs <$> genFromBlockchain addrs fpc
+    InductiveWithOurs addrs <$> genFromBlocktree addrs fpc
 
 genInductiveFor :: Hash h Addr => Set Addr -> InductiveGen h (Inductive h Addr)
 genInductiveFor addrs = do
-    boot  <- getBootstrap
-    chain <- getBlockchain
-    intersperseTransactions boot addrs (chainToApplyBlocks chain)
+    boot  <- getBootTransaction
+    tree <- getBlocktree
+    intersperseTransactions boot addrs $ treeToApplyBlocks tree
+
+-- | Linearise a blocktree to a list of actions.
+--
+--   Because we construct the tree to have the principal branch on the RHS, this
+--   is just given by the pre-order traversal, except we record Rollbacks any time
+--   we backtrack.
+treeToApplyBlocks :: BlockTree h a -> [Action h a]
+treeToApplyBlocks (OldestFirst root) = reverse . fst $ go root ([], 1)
+  where
+    treeHeight = length $ Tree.levels root
+    go (Tree.Node val []) (acc, lvl)
+      | lvl == treeHeight = (ApplyBlock' val : acc, lvl)
+      | otherwise = (Rollback' : ApplyBlock' val : acc, lvl - 1)
+    go (Tree.Node val xs) (acc, lvl) =
+      foldr go (ApplyBlock' val : acc, lvl + 1) xs
+
 
 -- | The first step in converting a 'Chain into an 'Inductive' wallet is
 -- to sequence the existing blocks using 'ApplyBlock' constructors.

@@ -9,8 +9,11 @@ module Pos.Slotting.Impl.Simple
        , SimpleSlottingMode
        , MonadSimpleSlotting
        , getCurrentSlotSimple
+       , getCurrentSlotSimple'
        , getCurrentSlotBlockingSimple
+       , getCurrentSlotBlockingSimple'
        , getCurrentSlotInaccurateSimple
+       , getCurrentSlotInaccurateSimple'
        , currentTimeSlottingSimple
        ) where
 
@@ -59,35 +62,54 @@ mkSimpleSlottingStateVar = atomically $ newTVar $ SimpleSlottingState $ unflatte
 -- Implementation
 ----------------------------------------------------------------------------
 
+getCurrentSlotSimple'
+    :: (SimpleSlottingMode ctx m)
+    => SimpleSlottingStateVar
+    -> m (Maybe SlotId)
+getCurrentSlotSimple' var = do
+    -- var <- view (lensOf @SimpleSlottingStateVar)
+    traverse (updateLastSlot var) =<< (currentTimeSlottingSimple >>= slotFromTimestamp)
+
 getCurrentSlotSimple
     :: (MonadSimpleSlotting ctx m)
     => m (Maybe SlotId)
-getCurrentSlotSimple = do
-    var <- view (lensOf @SimpleSlottingStateVar)
-    traverse (updateLastSlot var) =<< (currentTimeSlottingSimple >>= slotFromTimestamp)
+getCurrentSlotSimple = view (lensOf @SimpleSlottingStateVar) >>= getCurrentSlotSimple'
+
+getCurrentSlotBlockingSimple'
+    :: (SimpleSlottingMode ctx m)
+    => SimpleSlottingStateVar
+    -> m SlotId
+getCurrentSlotBlockingSimple' var = do
+    (_, nextEpochIndex) <- getCurrentNextEpochIndexM
+    getCurrentSlotSimple' var >>= \case
+        Just slot -> pure slot
+        Nothing -> do
+            waitCurrentEpochEqualsM nextEpochIndex
+            getCurrentSlotBlockingSimple' var
 
 getCurrentSlotBlockingSimple
     :: (MonadSimpleSlotting ctx m)
     => m SlotId
-getCurrentSlotBlockingSimple = do
-    (_, nextEpochIndex) <- getCurrentNextEpochIndexM
-    getCurrentSlotSimple >>= \case
+getCurrentSlotBlockingSimple =
+    view (lensOf @SimpleSlottingStateVar) >>= getCurrentSlotBlockingSimple'
+
+getCurrentSlotInaccurateSimple'
+    :: (SimpleSlottingMode ctx m)
+    => SimpleSlottingStateVar
+    -> m SlotId
+getCurrentSlotInaccurateSimple' var =
+    getCurrentSlotSimple' var >>= \case
         Just slot -> pure slot
-        Nothing -> do
-            waitCurrentEpochEqualsM nextEpochIndex
-            getCurrentSlotBlockingSimple
+        Nothing   -> do
+            lastSlot <- _sssLastSlot <$> atomically (readTVar var)
+            max lastSlot <$> (currentTimeSlottingSimple >>=
+                approxSlotUsingOutdated)
 
 getCurrentSlotInaccurateSimple
     :: (MonadSimpleSlotting ctx m)
     => m SlotId
 getCurrentSlotInaccurateSimple =
-    getCurrentSlotSimple >>= \case
-        Just slot -> pure slot
-        Nothing   -> do
-            var <- view (lensOf @SimpleSlottingStateVar)
-            lastSlot <- _sssLastSlot <$> atomically (readTVar var)
-            max lastSlot <$> (currentTimeSlottingSimple >>=
-                approxSlotUsingOutdated)
+    view (lensOf @SimpleSlottingStateVar) >>= getCurrentSlotInaccurateSimple'
 
 currentTimeSlottingSimple :: (SimpleSlottingMode ctx m) => m Timestamp
 currentTimeSlottingSimple = Timestamp <$> currentTime

@@ -82,8 +82,10 @@ import           Pos.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Reporting (HasReportingContext (..), ReportingContext, emptyReportingContext)
 import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSimpleSlotting, SimpleSlottingMode,
                                SimpleSlottingStateVar, currentTimeSlottingSimple,
-                               getCurrentSlotBlockingSimple, getCurrentSlotInaccurateSimple,
-                               getCurrentSlotSimple, mkSimpleSlottingStateVar)
+                               getCurrentSlotBlockingSimple, getCurrentSlotBlockingSimple',
+                               getCurrentSlotInaccurateSimple, getCurrentSlotInaccurateSimple',
+                               getCurrentSlotSimple, getCurrentSlotSimple',
+                               mkSimpleSlottingStateVar)
 import           Pos.Slotting.MemState (MonadSlotsData)
 import           Pos.Slotting.Types (SlottingData)
 import           Pos.Ssc (HasSscConfiguration, SscMemTag, SscState, mkSscState)
@@ -450,14 +452,25 @@ type TestSlottingContext ctx m =
     , HasLens BlockTestContextTag ctx BlockTestContext
     )
 
+testSlottingHelper
+    :: TestSlottingContext ctx m
+    => (SimpleSlottingStateVar -> m a)
+    -> (SlotId -> a)
+    -> m a
+testSlottingHelper targetF alternative = do
+    BlockTestContext{..} <- view (lensOf @BlockTestContextTag)
+    case btcSlotId of
+        Nothing   -> targetF btcSSlottingStateVar
+        Just slot -> pure $ alternative slot
+
 getCurrentSlotTestDefault :: TestSlottingContext ctx m => m (Maybe SlotId)
-getCurrentSlotTestDefault = getCurrentSlotSimple
+getCurrentSlotTestDefault = testSlottingHelper getCurrentSlotSimple' Just
 
 getCurrentSlotBlockingTestDefault :: TestSlottingContext ctx m => m SlotId
-getCurrentSlotBlockingTestDefault = getCurrentSlotBlockingSimple
+getCurrentSlotBlockingTestDefault = testSlottingHelper getCurrentSlotBlockingSimple' identity
 
 getCurrentSlotInaccurateTestDefault :: TestSlottingContext ctx m => m SlotId
-getCurrentSlotInaccurateTestDefault = getCurrentSlotInaccurateSimple
+getCurrentSlotInaccurateTestDefault = testSlottingHelper getCurrentSlotInaccurateSimple' identity
 
 currentTimeSlottingTestDefault :: SimpleSlottingMode ctx m => m Timestamp
 currentTimeSlottingTestDefault = currentTimeSlottingSimple

@@ -217,7 +217,7 @@ instance Buildable a => Buildable (V1 a) where
     build (V1 x) = bprint build x
 
 instance Buildable (SecureLog a) => Buildable (SecureLog (V1 a)) where
-    build = bprint build
+    build (SecureLog (V1 x)) = bprint build (SecureLog x)
 
 
 --

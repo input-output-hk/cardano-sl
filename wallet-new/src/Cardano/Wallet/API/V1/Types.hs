@@ -819,6 +819,11 @@ instance ToSchema TransactionType where
         pure $ NamedSchema (Just "TransactionType") $ mempty
             & type_ .~ SwaggerString
             & enum_ ?~ ["local", "foreign"]
+            & description ?~ mconcat
+                [ "A transaction is 'local' if all the inputs and outputs "
+                , "belong to the current wallet. A transaction is foreign "
+                , "if the transaction is not local to this wallet."
+                ]
 
 -- | The 'Transaction' @direction@
 data TransactionDirection =

@@ -3,7 +3,9 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Wallets where
 import           Universum
 
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
+import qualified Pos.Wallet.Web.State.Storage as V0
 import qualified Pos.Wallet.Web.Methods as V0
+import qualified Pos.Wallet.Web.State as V0 (askWalletSnapshot)
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
@@ -34,17 +36,22 @@ handlers = (newWallet
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored
 -- wallet in the 'Wallet' type.
-newWallet :: (MonadThrow m, MonadWalletLogic ctx m) => NewWallet -> m (WalletResponse Wallet)
+newWallet
+    :: (MonadThrow m, MonadWalletLogic ctx m)
+    => NewWallet
+    -> m (WalletResponse Wallet)
 newWallet NewWallet{..} = do
-  let newWalletHandler CreateWallet  = V0.newWallet
-      newWalletHandler RestoreWallet = V0.restoreWallet
-      (V1 spendingPassword) = fromMaybe (V1 mempty) newwalSpendingPassword
-      (V1 backupPhrase) = newwalBackupPhrase
-  initMeta <- V0.CWalletMeta <$> pure newwalName
-                             <*> migrate newwalAssuranceLevel
-                             <*> pure 0
-  let walletInit = V0.CWalletInit initMeta backupPhrase
-  single <$> (newWalletHandler newwalOperation spendingPassword walletInit >>= migrate)
+    let newWalletHandler CreateWallet  = V0.newWallet
+        newWalletHandler RestoreWallet = V0.restoreWallet
+        (V1 spendingPassword) = fromMaybe (V1 mempty) newwalSpendingPassword
+        (V1 backupPhrase) = newwalBackupPhrase
+    initMeta <- V0.CWalletMeta <$> pure newwalName
+                              <*> migrate newwalAssuranceLevel
+                              <*> pure 0
+    let walletInit = V0.CWalletInit initMeta backupPhrase
+    single <$> do
+        v0wallet <- newWalletHandler newwalOperation spendingPassword walletInit
+        addWalletInfo v0wallet
 
 -- | Returns the full (paginated) list of wallets.
 listWallets :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
@@ -53,7 +60,8 @@ listWallets :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
             -> SortOperations Wallet
             -> m (WalletResponse [Wallet])
 listWallets params fops sops = do
-    respondWith params fops sops (IxSet.fromList <$> (V0.getWallets >>= migrate @[V0.CWallet] @[V1.Wallet]))
+    respondWith params fops sops (IxSet.fromList <$> do
+        (V0.getWalletsWithInfo >>= migrate @_ @[V1.Wallet]))
 
 updatePassword
     :: (MonadWalletLogic ctx m)
@@ -63,7 +71,9 @@ updatePassword wid PasswordUpdate{..} = do
     let (V1 old) = pwdOld
         (V1 new) = pwdNew
     _ <- V0.changeWalletPassphrase wid' old new
-    single <$> (V0.getWallet wid' >>= migrate)
+    single <$> do
+        wallet <- V0.getWallet wid'
+        addWalletInfo wallet
 
 -- | Deletes an exisiting wallet.
 deleteWallet
@@ -73,7 +83,19 @@ deleteWallet
 deleteWallet = V0.deleteWallet <=< migrate
 
 getWallet :: (MonadThrow m, MonadWalletLogicRead ctx m) => WalletId -> m (WalletResponse Wallet)
-getWallet = fmap single . migrate <=< V0.getWallet <=< migrate
+getWallet wid = do
+    wid' <- migrate wid
+    wallet <- V0.getWallet wid'
+    single <$> addWalletInfo wallet
+
+addWalletInfo :: (MonadThrow m, MonadWalletLogicRead ctx m) => V0.CWallet -> m Wallet
+addWalletInfo wallet = do
+    mwalletInfo <- V0.getWalletInfo (V0.cwId wallet) <$> V0.askWalletSnapshot
+    case mwalletInfo of
+        Nothing ->
+            error "Throw a 500 or something, this is a bug for sure"
+        Just walletInfo ->
+            migrate (wallet, walletInfo)
 
 updateWallet
     :: WalletId

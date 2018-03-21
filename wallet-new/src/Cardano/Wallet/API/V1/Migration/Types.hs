@@ -9,14 +9,15 @@ module Cardano.Wallet.API.V1.Migration.Types (
 import           Universum
 
 import qualified Control.Lens as Lens
+import qualified Control.Monad.Catch as Catch
 import           Data.Map (elems)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable (typeRep)
+import           Formatting (sformat)
 
 import           Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
-import           Formatting (sformat)
 import qualified Pos.Client.Txp.Util as V0
 import           Pos.Core (addressF)
 import qualified Pos.Core.Common as Core
@@ -27,8 +28,7 @@ import qualified Pos.Txp.Toil.Types as V0
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
-
-import qualified Control.Monad.Catch as Catch
+import qualified Pos.Wallet.Web.State.Storage as V0
 
 -- | 'Migrate' encapsulates migration between types, when possible.
 class Migrate from to where
@@ -58,13 +58,15 @@ instance (Migrate from to, Typeable from, Typeable to) => Migrate [from] (NonEmp
         ]
     eitherMigrate (x:xs) = (:|) <$> eitherMigrate x <*> mapM eitherMigrate xs
 
-instance Migrate V0.CWallet V1.Wallet where
-    eitherMigrate V0.CWallet{..} =
+instance Migrate (V0.CWallet, V0.WalletInfo) V1.Wallet where
+    eitherMigrate (V0.CWallet{..}, V0.WalletInfo{..}) =
         V1.Wallet <$> eitherMigrate cwId
                   <*> pure (V0.cwName cwMeta)
                   <*> eitherMigrate cwAmount
                   <*> pure cwHasPassphrase
                   <*> eitherMigrate cwPassphraseLU
+                  <*> eitherMigrate _wiCreationTime
+
 
 -- NOTE: Migrate V1.Wallet V0.CWallet unable to do - not idempotent
 

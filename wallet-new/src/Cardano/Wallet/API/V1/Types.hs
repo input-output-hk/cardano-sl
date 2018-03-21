@@ -487,6 +487,7 @@ data Wallet = Wallet {
     , walBalance             :: !(V1 Core.Coin)
     , walHasPassphrase       :: !Bool
     , walPassphraseUpdatedAt :: !(V1 Core.Timestamp)
+    , walCreatedAt           :: !(V1 Core.Timestamp)
     } deriving (Eq, Ord, Show, Generic)
 
 deriveJSON Serokell.defaultOptions ''Wallet
@@ -509,6 +510,7 @@ instance ToSchema Wallet where
 instance Arbitrary Wallet where
   arbitrary = Wallet <$> arbitrary
                      <*> pure "My wallet"
+                     <*> arbitrary
                      <*> arbitrary
                      <*> arbitrary
                      <*> arbitrary

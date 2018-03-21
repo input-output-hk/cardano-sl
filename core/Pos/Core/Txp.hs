@@ -194,6 +194,9 @@ data TxAux = TxAux
     , taWitness :: !TxWitness
     } deriving (Generic, Show, Eq)
 
+instance Ord TxAux where
+    compare = comparing taTx
+
 instance Hashable Tx
 
 instance Bi Tx => Buildable Tx where

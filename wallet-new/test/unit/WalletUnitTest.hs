@@ -243,6 +243,7 @@ testPassiveWallet = around (bracketPassiveWallet firstPoorActorESK genesisUtxoOu
         -- Cardano applyBlocks
         Kernel.applyBlocks w resolvedBlocks
         cardanoUtxo <- Kernel.getWalletUtxo w
+        cardanoPending <- Kernel.getWalletPending w
 
         -- DSL applyBlocks
         let dslGenesisUtxoOurs = utxoRestrictToOurs (isOurs transCtxt) dslGenesisUtxo
@@ -257,6 +258,8 @@ testPassiveWallet = around (bracketPassiveWallet firstPoorActorESK genesisUtxoOu
         print' cardanoUtxo
         putText "@@@@@@@@@@@@@@@@@@@@@@@@"
         print' dslUtxoAsCardano
+        putText "@@@@@@@@@@@@@@@@@@@@@@@@"
+        print' cardanoPending
 
         -- TODO cardanoUtxo `shouldBe` dslUtxoAsCardano
         True `shouldBe` True

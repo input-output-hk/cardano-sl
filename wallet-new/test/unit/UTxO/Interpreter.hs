@@ -8,6 +8,7 @@ module UTxO.Interpreter (
     IntException(..)
     -- * Interpretation context
   , IntCtxt -- opaque
+  , initIntCtxt
     -- * Interpretation monad
   , IntT
   , runIntT

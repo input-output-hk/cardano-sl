@@ -11,6 +11,11 @@ module UTxO.PreChain (
   , preChain
   , FromPreChain(..)
   , fromPreChain
+    -- * PreTree
+  , PreTree
+  , preTree
+  , FromPreTree(..)
+  , fromPreTree
   ) where
 
 import           Universum
@@ -19,6 +24,8 @@ import           Pos.Client.Txp
 import           Pos.Core
 import           Pos.Txp.Toil
 import           Pos.Util.Chrono
+import Data.Tree (Tree)
+import qualified Data.Tree as Tree
 
 import           Util.DepIndep
 import           UTxO.Bootstrap
@@ -82,10 +89,48 @@ fromPreChain :: (Hash h Addr, Monad m)
              => PreChain h m a -> TranslateT IntException m (FromPreChain h a)
 fromPreChain pc = do
     fpcBoot <- asks bootstrapTransaction
-    (txs, fpcExtra) <- calcFees fpcBoot =<< lift (runDepIndep pc fpcBoot)
+    (txs, fpcExtra) <- calcChainFees fpcBoot =<< lift (runDepIndep pc fpcBoot)
     let fpcChain  = Chain txs -- doesn't include the boot transactions
         fpcLedger = chainToLedger fpcBoot fpcChain
     return FromPreChain{..}
+
+{-------------------------------------------------------------------------------
+  Tree with some information still missing.
+-------------------------------------------------------------------------------}
+
+-- | Blocks organised in a tree structure.
+type TBlocks h a = OldestFirst Tree (UTxO.DSL.Block h a)
+
+-- | Generalisation of a 'PreChain'.
+--   A 'PreChain' is the flattening of a 'PreTree' with a single branch.
+type PreTree h m a = DepIndep (Transaction h Addr) (Tree [Fee]) m (TBlocks h Addr, a)
+
+preTree :: Functor m
+        => (Transaction h Addr -> m ((Tree [Fee]) -> TBlocks h Addr))
+        -> PreTree h m ()
+preTree = fmap (, ()) . DepIndep
+
+-- | Result of translating a 'PreTree'
+--
+-- See 'fromPreTree'
+-- Compared to 'FromPreChain':
+-- - we do not calculate a ledger, since we have not yet fixed on a single chain.
+-- - the boot transaction is included in the chain.
+data FromPreTree h a = FromPreTree {
+      -- | The resulting tree
+      fptTree :: TBlocks h Addr
+
+      -- | Any additional information that was included in the 'PreChain'.
+    , fptExtra :: a
+    }
+
+fromPreTree :: (Hash h Addr, Monad m)
+            => PreTree h m a
+            -> TranslateT IntException m (FromPreTree h a)
+fromPreTree pc = do
+    fpcBoot <- asks bootstrapTransaction
+    (fptTree, fptExtra) <- calcTreeFees fpcBoot =<< lift (runDepIndep pc fpcBoot)
+    return FromPreTree{..}
 
 {-------------------------------------------------------------------------------
   Fee calculation
@@ -134,23 +179,57 @@ type Fee = Value
 -- TODO: We should check that the fees of the constructed transactions match the
 -- fees we calculuated. This ought to be true at the moment, but may break when
 -- the size of the fee might change the size of the the transaction.
-calcFees :: forall h m x. (Hash h Addr, Monad m)
+calcFees :: forall h m x t blocks
+            . ( Hash h Addr, Monad m, Traversable t
+              , blocks ~ OldestFirst t (UTxO.DSL.Block h Addr)
+              )
          => Transaction h Addr
-         -> ([[Fee]] -> (Blocks h Addr, x))
-         -> TranslateT IntException m (Blocks h Addr, x)
-calcFees boot f = do
+         -> (t [Fee] -> (blocks, x))
+         -> t [Fee] -- ^ Initial fees
+         -> ( Transaction h Addr
+              -> blocks
+              -> TranslateT IntException m (OldestFirst t (OldestFirst [] TxAux))
+            )
+         -> TranslateT IntException m (OldestFirst t (UTxO.DSL.Block h Addr), x)
+calcFees boot f initialFees buildFees = do
     TxFeePolicyTxSizeLinear policy <- bvdTxFeePolicy <$> gsAdoptedBVData
     let txToLinearFee' :: TxAux -> TranslateT IntException m Value
         txToLinearFee' = mapTranslateErrors IntExTx
                        . fmap feeValue
                        . txToLinearFee policy
 
-    (txs, _) <- runIntBoot boot $ fst (f (repeat (repeat 0)))
+    txs <- buildFees boot $ fst (f initialFees)
     fees     <- mapM (mapM txToLinearFee') txs
     return $ f (unmarkOldestFirst fees)
   where
-    unmarkOldestFirst :: OldestFirst [] (OldestFirst [] a) -> [[a]]
-    unmarkOldestFirst = map toList . toList
+    unmarkOldestFirst :: OldestFirst t (OldestFirst [] a) -> t [a]
+    unmarkOldestFirst = fmap toList . getOldestFirst
 
     feeValue :: TxFee -> Value
     feeValue (TxFee fee) = unsafeGetCoin fee
+
+calcChainFees :: forall h m x . (Hash h Addr, Monad m)
+              => Transaction h Addr
+              -> ([[Fee]] -> (Blocks h Addr, x))
+              -> TranslateT IntException m (Blocks h Addr, x)
+calcChainFees boot f = calcFees boot f (repeat (repeat 0)) buildFees
+  where
+    buildFees boot' blocks = fst <$> runIntBoot boot' blocks
+
+calcTreeFees  :: forall h m x . (Hash h Addr, Monad m)
+              => Transaction h Addr
+              -> (Tree [Fee] -> (OldestFirst Tree (UTxO.DSL.Block h Addr), x))
+              -> TranslateT IntException m (OldestFirst Tree (UTxO.DSL.Block h Addr), x)
+calcTreeFees boot f = calcFees boot f zeroTree buildFees
+  where
+    -- When building fees for a tree the usual State monad approach falls over,
+    -- since the state needs to fork. Rather than rewriting this interpretation
+    -- code, we cheat and unroll the state at each level of the tree, in order
+    -- to fork it.
+    buildFees boot' (OldestFirst tree) = OldestFirst
+      <$> Tree.unfoldTreeM go (tree, initIntCtxt boot')
+    go (Tree.Node val children, intCtxt) = do
+      (val', intCtxt') <- runIntT intCtxt val
+      return (val', fmap (, intCtxt') children)
+    -- An infinite tree of zero fees
+    zeroTree = Tree.unfoldTree (\_ -> (repeat 0, repeat ())) ()

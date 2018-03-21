@@ -7,6 +7,7 @@
 
 module UTxO.BlockGen
     ( genValidBlockchain
+    , genValidBlocktree
     , divvyUp
     , selectDestinations'
     ) where
@@ -134,7 +135,7 @@ selectSomeInputs' upperLimit (utxoToMap -> utxoMap) = do
 
 selectSomeInputs :: Hash h Addr => BlockGen h (NonEmpty (Input h Addr, Output Addr))
 selectSomeInputs = do
-    utxoMap <- uses nonAvvmUtxo utxoToMap
+    utxoMap <- use nonAvvmUtxo
     upperLimit <- use inputPartiesUpperLimit
     liftGen $ selectSomeInputs' upperLimit utxoMap
 
@@ -245,7 +246,7 @@ type BlockTree h = Tree [Value -> Transaction h Addr]
 -- | Global context for building block trees.
 --   This structure is shared between all branches, and controls the
 --   extent to which the tree forks.
-data TreeGenGlobalCtx = TreeGenGlobalCtx
+data TreeGenGlobalCtx h = TreeGenGlobalCtx
     { _treeGenGlobalCtxFreshHashSrc                :: !Int
       -- ^ A fresh hash value for each new transaction.
     {- The below values form part of configuration, and are unlikely to be
@@ -268,9 +269,22 @@ data TreeGenGlobalCtx = TreeGenGlobalCtx
     , _treeGenGlobalCtxSharedTransactionLikelihood :: !Double
       -- ^ The likelihood that a given transaction will be shared between two
       --   blocks with the same parent.
+    , _treeGenGlobalCtxBootTransaction :: Transaction h Addr
+      -- ^ Boot transaction
     }
 
 makeFields ''TreeGenGlobalCtx
+
+initTreeGenGlobalCtx :: Transaction h Addr -> TreeGenGlobalCtx h
+initTreeGenGlobalCtx boot = TreeGenGlobalCtx
+  { _treeGenGlobalCtxFreshHashSrc = 1
+  , _treeGenGlobalCtxInputPartiesUpperLimit = 1
+  , _treeGenGlobalCtxForkLikelihood = 0.1
+  , _treeGenGlobalCtxPruneLikelihood = 0.3
+  , _treeGenGlobalCtxMaxHeight = 50
+  , _treeGenGlobalCtxSharedTransactionLikelihood = 0.5
+  , _treeGenGlobalCtxBootTransaction = boot
+  }
 
 data TreeGenBranchCtx h = TreeGenBranchCtx
     { _treeGenBranchCtxPrincipalBranch :: !Bool
@@ -289,22 +303,40 @@ data TreeGenBranchCtx h = TreeGenBranchCtx
 makeFields ''TreeGenBranchCtx
 
 -- | Tree generation monad.
-newtype TreeGen a = TreeGen
-    { unTreeGen :: StateT TreeGenGlobalCtx Gen a
-    } deriving (Functor, Applicative, Monad, MonadState TreeGenGlobalCtx)
+newtype TreeGen h a = TreeGen
+    { unTreeGen :: StateT (TreeGenGlobalCtx h) Gen a
+    } deriving (Functor, Applicative, Monad, MonadState (TreeGenGlobalCtx h))
 
 -- | Lift a 'Gen' action into the 'TreeGen' monad.
-liftGenTree :: Gen a -> TreeGen a
+liftGenTree :: Gen a -> TreeGen h a
 liftGenTree = TreeGen . lift
 
-newTree :: forall h. Hash h Addr
-        => Transaction h Addr
-        -> TreeGen (BlockTree h)
-newTree boot = Tree.unfoldTreeM buildTree initBranchCtx
+genValidBlocktree :: Hash h Addr => PreTree h Gen ()
+genValidBlocktree = toPreTreeWith identity newTree
+
+toPreTreeWith
+    :: Hash h Addr
+    => (TreeGenGlobalCtx h -> TreeGenGlobalCtx h) -- ^ Modify the global settings
+    -> TreeGen h (BlockTree h)
+    -> PreTree h Gen ()
+toPreTreeWith settings bg = DepIndep $ \boot -> do
+    ks <- evalStateT (unTreeGen bg) (settings (initTreeGenGlobalCtx boot))
+    return $ \fees -> (markOldestFirst (zipTreeFees ks fees), ())
   where
-    initBranchCtx = TreeGenBranchCtx True 0 (trUtxo boot) [const boot]
+   markOldestFirst = OldestFirst . fmap OldestFirst
+
+newTree :: forall h. Hash h Addr
+        => TreeGen h (BlockTree h)
+newTree = do
+    boot <- use bootTransaction
+    -- Choose a random height for the blocktree
+    height <- liftGenTree $ choose (10, 50)
+    maxHeight .= height
+    Tree.unfoldTreeM buildTree $ initBranchCtx boot
+  where
+    initBranchCtx boot = TreeGenBranchCtx True 0 (trUtxo boot) [const boot]
     buildTree :: TreeGenBranchCtx h
-              -> TreeGen ([Value -> Transaction h Addr], [TreeGenBranchCtx h])
+              -> TreeGen h ([Value -> Transaction h Addr], [TreeGenBranchCtx h])
     buildTree branchCtx = do
 
       -- Firstly, decide whether we should prune this branch. We prune if
@@ -366,3 +398,11 @@ newTree boot = Tree.unfoldTreeM buildTree initBranchCtx
         $ selectDestinations' (foldMap Set.singleton (map fst inputs'outputs))
                               (branchCtx ^. currentUtxo)
       return $ divvyUp hash' inputs'outputs destinations
+
+zipTreeFees
+    :: Tree [Value -> Transaction h Addr]
+    -> (Tree [Value] -> Tree [Transaction h Addr])
+zipTreeFees = curry $ Tree.unfoldTree go
+  where
+    go (Tree.Node f txChildren, Tree.Node fee feeChildren) =
+      (zipWith ($) f fee, zip txChildren feeChildren)

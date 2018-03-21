@@ -1,6 +1,8 @@
 {- | This is a temporary module to help migration @V0@ datatypes into @V1@ datatypes.
 -}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE LambdaCase #-}
+
 module Cardano.Wallet.API.V1.Migration.Types (
       Migrate(..)
     , migrate
@@ -236,8 +238,22 @@ instance Migrate V0.CTx V1.Transaction where
 
         let V0.CTxMeta{..} = ctMeta
         txCreationTime <- eitherMigrate ctmDate
+        txStatus <- eitherMigrate ctCondition
 
         pure V1.Transaction{..}
+
+instance Migrate V0.CPtxCondition V1.TransactionStatus where
+    eitherMigrate = Right . \case
+        V0.CPtxCreating ->
+            V1.TxPending
+        V0.CPtxApplying ->
+            V1.TxPending
+        V0.CPtxInBlocks ->
+            V1.TxOk
+        V0.CPtxWontApply ->
+            V1.TxFailed
+        V0.CPtxNotTracked ->
+            V1.TxOk
 
 -- | The migration instance for migrating history to a list of transactions
 instance Migrate (Map Core.TxId (V0.CTx, POSIXTime)) [V1.Transaction] where

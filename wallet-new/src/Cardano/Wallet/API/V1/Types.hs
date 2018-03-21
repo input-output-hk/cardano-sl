@@ -50,6 +50,7 @@ module Cardano.Wallet.API.V1.Types (
   , Transaction (..)
   , TransactionType (..)
   , TransactionDirection (..)
+  , TransactionStatus(..)
   , EstimatedFees (..)
   -- * Updates
   , WalletSoftwareUpdate (..)
@@ -846,6 +847,27 @@ instance ToSchema TransactionDirection where
             & type_ .~ SwaggerString
             & enum_ ?~ ["outgoing", "incoming"]
 
+data TransactionStatus
+    = TxPending
+    | TxFailed
+    | TxOk
+    deriving (Eq, Ord, Show, Bounded, Enum)
+
+instance Arbitrary TransactionStatus where
+    arbitrary = elements [minBound .. maxBound]
+
+deriveJSON
+    Serokell.defaultOptions
+        { constructorTagModifier = map C.toLower . drop 2
+        }
+    ''TransactionStatus
+
+instance ToSchema TransactionStatus where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "TransactionStatus") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ ?~ ["pending", "failed", "ok"]
+
 -- | A 'Wallet''s 'Transaction'.
 data Transaction = Transaction
   { txId            :: !(V1 Core.TxId)
@@ -860,6 +882,7 @@ data Transaction = Transaction
     -- ^ The direction for this transaction (e.g incoming, outgoing).
   , txCreationTime  :: !(V1 Core.Timestamp)
     -- ^ The time when transaction was created.
+  , txStatus        :: !TransactionStatus
   } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Transaction
@@ -872,12 +895,15 @@ instance ToSchema Transaction where
       & ("amount"        --^ "Coins moved as part of the transaction, in ADA")
       & ("inputs"        --^ "One or more input money distributions")
       & ("outputs"       --^ "One or more ouputs money distributions")
-      & ("type"          --^ "Type of transaction")
+      & ("type"          --^ "Whether the transaction is entirely local or foreign")
       & ("direction"     --^ "Direction for this transaction")
+      & ("creationTime"  --^ "Timestamp indicating when the transaction was created")
+      & ("status"        --^ "Shows whether or not the transaction is accepted")
     )
 
 instance Arbitrary Transaction where
   arbitrary = Transaction <$> arbitrary
+                          <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary

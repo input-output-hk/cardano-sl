@@ -8,6 +8,7 @@ import           Universum
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Data.Aeson
+import           Data.List.NonEmpty (NonEmpty)
 import           Generics.SOP.TH (deriveGeneric)
 import qualified Network.HTTP.Types.Header as HTTP
 import           Servant
@@ -54,6 +55,7 @@ data WalletError =
     | JSONValidationFailed { weValidationError :: !Text }
     | UnkownError { weMsg :: !Text }
     | WalletNotFound
+    | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
     deriving (Show, Eq)
 
 --

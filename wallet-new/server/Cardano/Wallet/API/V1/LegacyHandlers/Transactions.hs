@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeApplications    #-}
 
 module Cardano.Wallet.API.V1.LegacyHandlers.Transactions where
 
@@ -88,7 +88,9 @@ allTransactions mwalletId mAccIdx mAddr requestParams fops sops  =
             -- TODO: should we use the 'FilterBy' machinery instead? that
             --       let us express RANGE, GT, etc. in addition to EQ. does
             --       that make sense for this dataset?
-            error "Implement me!"
+            throwM MissingRequiredParam
+                { requiredParams = pure ("wallet_id", "WalletId")
+                }
 
 estimateFees :: (MonadThrow m, V0.MonadFees ctx m)
     => Payment

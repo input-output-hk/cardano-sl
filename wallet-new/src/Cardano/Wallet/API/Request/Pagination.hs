@@ -59,6 +59,9 @@ instance ToParamSchema Page where
 instance Default Page where
     def = Page 1
 
+instance Buildable Page where
+  build (Page p) = bprint build p
+
 -- | A `PerPage` is used to specify the number of entries which should be returned
 -- as part of a paginated response.
 newtype PerPage = PerPage Int
@@ -104,6 +107,9 @@ instance ToHttpApiData PerPage where
 instance Default PerPage where
     def = PerPage defaultPerPageEntries
 
+instance Buildable PerPage where
+  build (PerPage p) = bprint build p
+
 -- | Extra information associated with pagination
 data PaginationMetadata = PaginationMetadata
   { metaTotalPages   :: Int     -- ^ The total pages returned by this query.
@@ -136,6 +142,14 @@ instance ToSchema PaginationMetadata where
         & at "totalPages" ?~ totalSchema
         & at "totalEntries" ?~ totalSchema
 
+instance Buildable PaginationMetadata where
+    build PaginationMetadata{..} =
+        bprint ("p #"%build%" / "%build%" ("%build%" total / "%build%" pp)")
+            metaPage
+            metaTotalPages
+            metaTotalEntries
+            metaPerPage
+
 -- | `PaginationParams` is datatype which combines request params related
 -- to pagination together.
 data PaginationParams = PaginationParams
@@ -145,6 +159,6 @@ data PaginationParams = PaginationParams
 
 instance Buildable PaginationParams where
     build PaginationParams{..} =
-        let Page page = ppPage
-            PerPage perPage = ppPerPage
-        in  bprint ("p #"%build%" / pp "%build) page perPage
+      bprint ("p #"%build%" / pp "%build)
+          ppPage
+          ppPerPage

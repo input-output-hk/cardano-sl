@@ -84,11 +84,11 @@ import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text.Buildable
 import           Data.Version (Version)
-import           Formatting (build, int, sformat, (%))
-import           Formatting (bprint)
+import           Formatting (bprint, build, fconst, int, sformat, (%))
 import           GHC.Generics (Generic, Rep)
 import qualified Prelude
 import qualified Serokell.Aeson.Options as Serokell
+import           Serokell.Util (listJson)
 import qualified Serokell.Util.Base16 as Base16
 import           Servant
 import           Test.QuickCheck
@@ -114,7 +114,9 @@ import           Pos.Core (addressF)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
-import           Pos.Util.LogSafe (BuildableSafeGen (..), SecureLog (..))
+import           Pos.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe, buildSafeMaybe,
+                                   deriveSafeBuildable, plainOrSecureF)
+
 
 
 -- | Declare generic schema, while documenting properties
@@ -214,8 +216,12 @@ instance Bounded a => Bounded (V1 a) where
 instance Buildable a => Buildable (V1 a) where
     build (V1 x) = bprint build x
 
+instance Buildable a => Buildable [V1 a] where
+    build = bprint listJson
+
 instance Buildable (SecureLog a) => Buildable (SecureLog (V1 a)) where
-    build (SecureLog vx) = bprint build (SecureLog vx)
+    build = bprint build
+
 
 --
 -- Benign instances
@@ -385,16 +391,18 @@ instance ToSchema (V1 Core.Timestamp) where
 -- base16-encoded string.
 type SpendingPassword = V1 Core.PassPhrase
 
+instance Monoid (V1 Core.PassPhrase) where
+    mempty = V1 mempty
+    mappend (V1 a) (V1 b) = V1 (a `mappend` b)
+
 type WalletName = Text
 
+
+-- | Wallet's Assurance Level
 data AssuranceLevel =
     NormalAssurance
   | StrictAssurance
   deriving (Eq, Show, Enum, Bounded)
-
-instance BuildableSafeGen AssuranceLevel where
-    buildSafeGen _sl NormalAssurance = "normal assurance"
-    buildSafeGen _sl StrictAssurance = "strict assurance"
 
 instance Arbitrary AssuranceLevel where
     arbitrary = elements [minBound .. maxBound]
@@ -407,6 +415,11 @@ instance ToSchema AssuranceLevel where
         pure $ NamedSchema (Just "AssuranceLevel") $ mempty
             & type_ .~ SwaggerString
             & enum_ ?~ ["normal", "strict"]
+
+deriveSafeBuildable ''AssuranceLevel
+instance BuildableSafeGen AssuranceLevel where
+    buildSafeGen _ NormalAssurance = "normal"
+    buildSafeGen _ StrictAssurance = "strict"
 
 -- | A Wallet ID.
 newtype WalletId = WalletId Text deriving (Show, Eq, Ord, Generic)
@@ -421,11 +434,10 @@ instance Arbitrary WalletId where
       let wid = "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
           in WalletId <$> elements [wid]
 
-instance Buildable WalletId where
-    build (WalletId wid) = bprint build wid
-
-instance Buildable (SecureLog WalletId) where
-    build _ = "<wallet id>"
+deriveSafeBuildable ''WalletId
+instance BuildableSafeGen WalletId where
+    buildSafeGen sl (WalletId wid) =
+        bprint (plainOrSecureF sl build (fconst "<wallet id>")) wid
 
 instance FromHttpApiData WalletId where
     parseQueryParam = Right . WalletId
@@ -433,6 +445,8 @@ instance FromHttpApiData WalletId where
 instance ToHttpApiData WalletId where
     toQueryParam (WalletId wid) = wid
 
+
+-- | A Wallet Operation
 data WalletOperation =
     CreateWallet
   | RestoreWallet
@@ -450,6 +464,12 @@ instance ToSchema WalletOperation where
         pure $ NamedSchema (Just "WalletOperation") $ mempty
             & type_ .~ SwaggerString
             & enum_ ?~ ["create", "restore"]
+
+deriveSafeBuildable ''WalletOperation
+instance BuildableSafeGen WalletOperation where
+    buildSafeGen _ CreateWallet  = "create"
+    buildSafeGen _ RestoreWallet = "restore"
+
 
 -- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {
@@ -480,6 +500,22 @@ instance ToSchema NewWallet where
     )
 
 
+deriveSafeBuildable ''NewWallet
+instance BuildableSafeGen NewWallet where
+    buildSafeGen sl NewWallet{..} = bprint ("{"
+        %" backupPhrase="%buildSafe sl
+        %" spendingPassword="%(buildSafeMaybe mempty sl)
+        %" assuranceLevel="%buildSafe sl
+        %" name="%buildSafe sl
+        %" operation"%buildSafe sl
+        %" }")
+        newwalBackupPhrase
+        newwalSpendingPassword
+        newwalAssuranceLevel
+        newwalName
+        newwalOperation
+
+
 -- | A type modelling the update of an existing wallet.
 data WalletUpdate = WalletUpdate {
       uwalAssuranceLevel :: !AssuranceLevel
@@ -498,6 +534,16 @@ instance ToSchema WalletUpdate where
 instance Arbitrary WalletUpdate where
   arbitrary = WalletUpdate <$> arbitrary
                            <*> pure "My Wallet"
+
+deriveSafeBuildable ''WalletUpdate
+instance BuildableSafeGen WalletUpdate where
+    buildSafeGen sl WalletUpdate{..} = bprint ("{"
+        %" assuranceLevel="%buildSafe sl
+        %" name="%buildSafe sl
+        %" }")
+        uwalAssuranceLevel
+        uwalName
+
 
 -- | A 'Wallet'.
 data Wallet = Wallet {
@@ -521,6 +567,18 @@ instance Arbitrary Wallet where
                      <*> pure "My wallet"
                      <*> arbitrary
 
+deriveSafeBuildable ''Wallet
+instance BuildableSafeGen Wallet where
+  buildSafeGen sl Wallet{..} = bprint ("{"
+    %" id="%buildSafe sl
+    %" name="%buildSafe sl
+    %" balance="%buildSafe sl
+    %" }")
+    walId
+    walName
+    walBalance
+
+
 --------------------------------------------------------------------------------
 -- Addresses
 --------------------------------------------------------------------------------
@@ -536,6 +594,11 @@ instance ToSchema AddressValidity where
 
 instance Arbitrary AddressValidity where
   arbitrary = AddressValidity <$> arbitrary
+
+deriveSafeBuildable ''AddressValidity
+instance BuildableSafeGen AddressValidity where
+    buildSafeGen _ AddressValidity{..} =
+        bprint ("{ valid="%build%" }") isValid
 
 --------------------------------------------------------------------------------
 -- Accounts
@@ -571,6 +634,23 @@ instance Arbitrary Account where
                       <*> pure "My account"
                       <*> arbitrary
 
+deriveSafeBuildable ''Account
+instance BuildableSafeGen Account where
+    buildSafeGen sl Account{..} = bprint ("{"
+        %" index="%buildSafe sl
+        %" name="%buildSafe sl
+        %" addresses="%buildSafe sl
+        %" amount="%buildSafe sl
+        %" walletId="%buildSafe sl
+        %" }")
+        accIndex
+        accName
+        accAddresses
+        accAmount
+        accWalletId
+
+
+-- | Account Update
 data AccountUpdate = AccountUpdate {
     uaccName      :: !Text
   } deriving (Show, Eq, Generic)
@@ -586,6 +666,13 @@ instance ToSchema AccountUpdate where
 instance Arbitrary AccountUpdate where
   arbitrary = AccountUpdate <$> pure "myAccount"
 
+deriveSafeBuildable ''AccountUpdate
+instance BuildableSafeGen AccountUpdate where
+    buildSafeGen sl AccountUpdate{..} =
+        bprint ("{ name="%buildSafe sl%" }") uaccName
+
+
+-- | New Account
 data NewAccount = NewAccount
   { naccSpendingPassword :: !(Maybe SpendingPassword)
   , naccName             :: !Text
@@ -603,6 +690,16 @@ instance ToSchema NewAccount where
       & ("spendingPassword" --^ "Optional spending password to unlock funds")
       & ("name"             --^ "Account's name")
     )
+
+deriveSafeBuildable ''NewAccount
+instance BuildableSafeGen NewAccount where
+    buildSafeGen sl NewAccount{..} = bprint ("{"
+        %" spendingPassword="%(buildSafeMaybe mempty sl)
+        %" name="%buildSafe sl
+        %" }")
+        naccSpendingPassword
+        naccName
+
 
 -- | Summary about single address.
 data WalletAddress = WalletAddress
@@ -629,6 +726,21 @@ instance Arbitrary WalletAddress where
                             <*> arbitrary
                             <*> arbitrary
 
+deriveSafeBuildable ''WalletAddress
+instance BuildableSafeGen WalletAddress where
+    buildSafeGen sl WalletAddress{..} = bprint ("{"
+        %" id="%buildSafe sl
+        %" balance="%buildSafe sl
+        %" used="%build
+        %" changeAddress="%build
+        %" }")
+        addrId
+        addrBalance
+        addrUsed
+        addrChangeAddress
+
+
+-- | Create a new Address
 data NewAddress = NewAddress
   { newaddrSpendingPassword :: !(Maybe SpendingPassword)
   , newaddrAccountIndex     :: !AccountIndex
@@ -650,6 +762,18 @@ instance Arbitrary NewAddress where
                          <*> arbitrary
                          <*> arbitrary
 
+deriveSafeBuildable ''NewAddress
+instance BuildableSafeGen NewAddress where
+    buildSafeGen sl NewAddress{..} = bprint("{"
+        %" spendingPassword="%(buildSafeMaybe mempty sl)
+        %" accountIndex="%buildSafe sl
+        %" walletId="%buildSafe sl
+        %" }")
+        newaddrSpendingPassword
+        newaddrAccountIndex
+        newaddrWalletId
+
+
 -- | A type incapsulating a password update request.
 data PasswordUpdate = PasswordUpdate {
     pwdOld :: !SpendingPassword
@@ -669,6 +793,16 @@ instance Arbitrary PasswordUpdate where
   arbitrary = PasswordUpdate <$> arbitrary
                              <*> arbitrary
 
+deriveSafeBuildable ''PasswordUpdate
+instance BuildableSafeGen PasswordUpdate where
+    buildSafeGen sl PasswordUpdate{..} = bprint("{"
+        %" old="%buildSafe sl
+        %" new="%buildSafe sl
+        %" }")
+        pwdOld
+        pwdNew
+
+
 -- | 'EstimatedFees' represents the fees which would be generated
 -- for a 'Payment' in case the latter would actually be performed.
 data EstimatedFees = EstimatedFees {
@@ -685,6 +819,14 @@ instance ToSchema EstimatedFees where
 
 instance Arbitrary EstimatedFees where
   arbitrary = EstimatedFees <$> arbitrary
+
+deriveSafeBuildable ''EstimatedFees
+instance BuildableSafeGen EstimatedFees where
+    buildSafeGen sl EstimatedFees{..} = bprint("{"
+        %" estimatedAmount="%buildSafe sl
+        %" }")
+        feeEstimatedAmount
+
 
 -- | Maps an 'Address' to some 'Coin's, and it's
 -- typically used to specify where to send money during a 'Payment'.
@@ -706,6 +848,16 @@ instance Arbitrary PaymentDistribution where
   arbitrary = PaymentDistribution <$> arbitrary
                                   <*> arbitrary
 
+deriveSafeBuildable ''PaymentDistribution
+instance BuildableSafeGen PaymentDistribution where
+    buildSafeGen sl PaymentDistribution{..} = bprint ("{"
+        %" address="%buildSafe sl
+        %" amount="%buildSafe sl
+        %" }")
+        pdAddress
+        pdAmount
+
+
 -- | A 'PaymentSource' encapsulate two essentially piece of data to reach for some funds:
 -- a 'WalletId' and an 'AccountIndex' within it.
 data PaymentSource = PaymentSource
@@ -725,6 +877,16 @@ instance ToSchema PaymentSource where
 instance Arbitrary PaymentSource where
   arbitrary = PaymentSource <$> arbitrary
                             <*> arbitrary
+
+deriveSafeBuildable ''PaymentSource
+instance BuildableSafeGen PaymentSource where
+    buildSafeGen sl PaymentSource{..} = bprint ("{"
+        %" walletId="%buildSafe sl
+        %" accountIndex="%buildSafe sl
+        %" }")
+        psWalletId
+        psAccountIndex
+
 
 -- | A 'Payment' from one source account to one or more 'PaymentDistribution'(s).
 data Payment = Payment
@@ -752,6 +914,7 @@ instance ToSchema (V1 Core.InputSelectionPolicy) where
 instance Arbitrary (V1 Core.InputSelectionPolicy) where
     arbitrary = fmap V1 arbitrary
 
+
 deriveJSON Serokell.defaultOptions ''Payment
 
 instance Arbitrary Payment where
@@ -768,6 +931,20 @@ instance ToSchema Payment where
       & ("groupingPolicy"   --^ "Optional strategy to use for selecting the transaction inputs")
       & ("spendingPassword" --^ "Optional spending password to access funds")
     )
+
+deriveSafeBuildable ''Payment
+instance BuildableSafeGen Payment where
+    buildSafeGen sl (Payment{..}) = bprint ("{"
+        %" source="%buildSafe sl
+        %" destinations="%buildSafe sl
+        %" groupingPolicty="%build
+        %" spendingPassword="%(buildSafeMaybe mempty sl)
+        %" }")
+        pmtSource
+        (toList pmtDestinations)
+        pmtGroupingPolicy
+        pmtSpendingPassword
+
 
 ----------------------------------------------------------------------------
 -- TxId
@@ -820,6 +997,12 @@ instance ToSchema TransactionType where
             & type_ .~ SwaggerString
             & enum_ ?~ ["local", "foreign"]
 
+deriveSafeBuildable ''TransactionType
+instance BuildableSafeGen TransactionType where
+    buildSafeGen _ LocalTransaction   = "local"
+    buildSafeGen _ ForeignTransaction = "foreign"
+
+
 -- | The 'Transaction' @direction@
 data TransactionDirection =
     IncomingTransaction
@@ -840,6 +1023,12 @@ instance ToSchema TransactionDirection where
         pure $ NamedSchema (Just "TransactionDirection") $ mempty
             & type_ .~ SwaggerString
             & enum_ ?~ ["outgoing", "incoming"]
+
+deriveSafeBuildable ''TransactionDirection
+instance BuildableSafeGen TransactionDirection where
+    buildSafeGen _ IncomingTransaction = "incoming"
+    buildSafeGen _ OutgoingTransaction = "outgoing"
+
 
 -- | A 'Wallet''s 'Transaction'.
 data Transaction = Transaction
@@ -881,6 +1070,26 @@ instance Arbitrary Transaction where
                           <*> arbitrary
                           <*> arbitrary
 
+deriveSafeBuildable ''Transaction
+instance BuildableSafeGen Transaction where
+    buildSafeGen sl Transaction{..} = bprint ("{"
+        %" id="%buildSafe sl
+        %" confirmations="%build
+        %" amount="%buildSafe sl
+        %" inputs="%buildSafe sl
+        %" outputs="%buildSafe sl
+        %" type="%buildSafe sl
+        %" direction"%buildSafe sl
+        %" }")
+        txId
+        txConfirmations
+        txAmount
+        (toList txInputs)
+        (toList txOutputs)
+        txType
+        txDirection
+
+
 -- | A type representing an upcoming wallet update.
 data WalletSoftwareUpdate = WalletSoftwareUpdate
   { updSoftwareVersion   :: !Text
@@ -903,6 +1112,18 @@ instance Arbitrary WalletSoftwareUpdate where
   arbitrary = WalletSoftwareUpdate <$> arbitrary
                                    <*> arbitrary
                                    <*> fmap getPositive arbitrary
+
+deriveSafeBuildable ''WalletSoftwareUpdate
+instance BuildableSafeGen WalletSoftwareUpdate where
+    buildSafeGen _ WalletSoftwareUpdate{..} = bprint("{"
+        %" softwareVersion="%build
+        %" blockchainVersion="%build
+        %" scriptVersion="%build
+        %" }")
+        updSoftwareVersion
+        updBlockchainVersion
+        updScriptVersion
+
 
 -- | How many milliseconds a slot lasts for.
 newtype SlotDuration = SlotDuration (MeasuredIn 'Milliseconds Word)
@@ -937,6 +1158,12 @@ instance ToSchema SlotDuration where
                     & enum_ ?~ ["milliseconds"]
                     )
                 )
+
+deriveSafeBuildable ''SlotDuration
+instance BuildableSafeGen SlotDuration where
+    buildSafeGen _ (SlotDuration (MeasuredIn w)) =
+        bprint (build%" milliseconds") w
+
 
 -- | The @static@ settings for this wallet node. In particular, we could group
 -- here protocol-related settings like the slot duration, the transaction max size,
@@ -1005,6 +1232,20 @@ instance Arbitrary NodeSettings where
                              <*> arbitrary
                              <*> pure "0e1c9322a"
 
+deriveSafeBuildable ''NodeSettings
+instance BuildableSafeGen NodeSettings where
+    buildSafeGen _ NodeSettings{..} = bprint ("{"
+        %" slotDuration="%build
+        %" softwareInfo="%build
+        %" projectRevision="%build
+        %" gitRevision="%build
+        %" }")
+        setSlotDuration
+        setSoftwareInfo
+        setProjectVersion
+        setGitRevision
+
+
 -- | The different between the local time and the remote NTP server.
 newtype LocalTimeDifference = LocalTimeDifference (MeasuredIn 'Microseconds Integer)
                             deriving (Show, Eq)
@@ -1038,6 +1279,11 @@ instance ToSchema LocalTimeDifference where
                     & enum_ ?~ ["microseconds"]
                     )
                 )
+
+deriveSafeBuildable ''LocalTimeDifference
+instance BuildableSafeGen LocalTimeDifference where
+    buildSafeGen _ (LocalTimeDifference (MeasuredIn w)) =
+        bprint (build%" microseconds") w
 
 
 -- | The sync progress with the blockchain.
@@ -1076,6 +1322,12 @@ instance ToSchema SyncProgress where
                     )
                 )
 
+deriveSafeBuildable ''SyncProgress
+instance BuildableSafeGen SyncProgress where
+    buildSafeGen _ (SyncProgress (MeasuredIn w)) =
+        bprint (build%" %") w
+
+
 -- | The absolute or relative height of the blockchain, measured in number
 -- of blocks.
 newtype BlockchainHeight = BlockchainHeight (MeasuredIn 'Blocks Core.BlockCount)
@@ -1113,6 +1365,12 @@ instance ToSchema BlockchainHeight where
                     )
                 )
 
+deriveSafeBuildable ''BlockchainHeight
+instance BuildableSafeGen BlockchainHeight where
+    buildSafeGen _ (BlockchainHeight (MeasuredIn w)) =
+        bprint (build%" blocks") w
+
+
 -- | The @dynamic@ information for this node.
 data NodeInfo = NodeInfo {
      nfoSyncProgress          :: !SyncProgress
@@ -1139,6 +1397,20 @@ instance Arbitrary NodeInfo where
                          <*> map Just arbitrary
                          <*> arbitrary
                          <*> arbitrary
+
+deriveSafeBuildable ''NodeInfo
+instance BuildableSafeGen NodeInfo where
+    buildSafeGen _ NodeInfo{..} = bprint ("{"
+        %" syncProgress="%build
+        %" blockchainHeight="%build
+        %" localBlockchainHeight="%build
+        %" localTimeDifference="%build
+        %" }")
+        nfoSyncProgress
+        nfoBlockchainHeight
+        nfoLocalBlockchainHeight
+        nfoLocalTimeDifference
+
 
 --
 -- POST/PUT requests isomorphisms

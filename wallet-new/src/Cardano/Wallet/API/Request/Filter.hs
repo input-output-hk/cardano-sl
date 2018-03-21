@@ -65,8 +65,9 @@ instance Eq (FilterOperations a) where
     _ == _ =
         False
 
-instance Buildable (FilterOperations a) where
-    build = bprint listJson . flattenOperations (bprint build)
+-- NOTE Derived after, see comment below
+instance BuildableSafeGen (FilterOperations a) where
+    buildSafeGen _ = bprint listJson . flattenOperations (bprint build)
 
 -- | Handy helper function to transform 'FilterOperation'(s) into list.
 flattenOperations :: (forall ix. FilterOperation ix a -> b)
@@ -145,10 +146,12 @@ instance Show (FilterOperation ix a) where
     show (FilterByRange _ _)          = "FilterByRange"
     show                              = formatToString build
 
+deriveSafeBuildableExt $ \v -> [t| FilterOperation $v $v |]
 instance BuildableSafeGen (FilterOperation ix a) where
     buildSafeGen _ = bprint build . show
 
-deriveSafeBuildableExt $ \newVar -> [t| FilterOperation $newVar $newVar |]
+-- TH needs to happen after FilterOperation is defined
+deriveSafeBuildableExt $ \v -> [t| FilterOperations $v |]
 
 -- | Represents a filter operation on the data model.
 --

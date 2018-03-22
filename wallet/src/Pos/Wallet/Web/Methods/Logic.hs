@@ -221,9 +221,11 @@ getWallets = do
     mps <- withTxpLocalData getMempoolSnapshot
     mapM (getWalletIncludeUnready ws mps False) (getWalletAddresses ws)
 
-getWalletsWithInfo ::  MonadWalletLogicRead ctx m => m [(CWallet, WalletInfo)]
-getWalletsWithInfo = do
-    ws <- askWalletSnapshot
+getWalletsWithInfo
+    :: MonadWalletLogicRead ctx m
+    => WalletSnapshot
+    -> m [(CWallet, WalletInfo)]
+getWalletsWithInfo ws = do
     mps <- withTxpLocalData getMempoolSnapshot
     forM (getWalletInfos ws) $ \(cid, walInfo) -> do
         wal <- getWalletIncludeUnready ws mps False cid

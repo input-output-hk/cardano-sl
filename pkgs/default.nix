@@ -7424,7 +7424,7 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-node" = callPackage
-        ({ mkDerivation, base, cardano-sl, cardano-sl-infra
+         ({ mkDerivation, base, cardano-sl, cardano-sl-infra
          , cardano-sl-networking, cardano-sl-ssc, cardano-sl-update
          , cardano-sl-util, cpphs, log-warper, stdenv, universum
          }:

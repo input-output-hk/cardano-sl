@@ -59,7 +59,6 @@ instance ToJSON Configuration where
 
 type HasConfigurations =
     ( HasConfiguration
-    , HasNtpConfiguration
     , HasUpdateConfiguration
     , HasSscConfiguration
     , HasBlockConfiguration
@@ -106,17 +105,16 @@ instance Default ConfigurationOptions where
 withConfigurations
     :: (WithLogger m, MonadThrow m, MonadIO m)
     => ConfigurationOptions
-    -> (HasConfigurations => m r)
+    -> (HasConfigurations => NtpConfiguration -> m r)
     -> m r
 withConfigurations co@ConfigurationOptions{..} act = do
     logInfo ("using configurations: " <> show co)
     Configuration{..} <- parseYamlConfig cfoFilePath cfoKey
     let configurationDir = takeDirectory cfoFilePath
     withCoreConfigurations ccCore configurationDir cfoSystemStart cfoSeed $
-        withNtpConfiguration ccNtp $
         withUpdateConfiguration ccUpdate $
         withSscConfiguration ccSsc $
         withDlgConfiguration ccDlg $
         withTxpConfiguration ccTxp $
         withBlockConfiguration ccBlock $
-        withNodeConfiguration ccNode $ act
+        withNodeConfiguration ccNode $ act ccNtp

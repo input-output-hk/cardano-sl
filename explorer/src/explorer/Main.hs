@@ -22,7 +22,6 @@ import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodePara
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs)
 import           Pos.Context (NodeContext (..))
-import           Pos.Ntp.Configuration (ntpConfiguration)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket (NotifierSettings (..))
@@ -55,9 +54,9 @@ main = do
 
 action :: ExplorerNodeArgs -> Production ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
-    withConfigurations conf $
+    withConfigurations conf $ \ntpConfig ->
     withCompileInfo $(retrieveCompileTimeInfo) $ do
-        CLI.printInfoOnStart cArgs
+        CLI.printInfoOnStart cArgs ntpConfig
         logInfo $ "Explorer is enabled!"
         currentParams <- getNodeParams loggerName cArgs nodeArgs
 
@@ -70,7 +69,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
                 , notifierPlugin NotifierSettings{ nsPort = notifierPort }
                 , updateTriggerWorker
                 ]
-        bracketNodeResources currentParams sscParams ntpConfiguration
+        bracketNodeResources currentParams sscParams ntpConfig
             explorerTxpGlobalSettings
             explorerInitDB $ \nr@NodeResources {..} ->
                 runExplorerRealMode nr (runNode nr plugins)

@@ -11,7 +11,8 @@
 module Ntp.Client
     ( NtpClientSettings (..)
     , NtpStatus (..)
-    , runNtpClient
+    , withNtpClient
+    , withoutNtpClient
     , ntpSingleShot
     ) where
 
@@ -314,11 +315,15 @@ spawnNtpClient settings ncStatus =
 
 -- | Run Ntp client in a seprate thread, return a mutable cell which holds
 -- `NtpStatus`.
-runNtpClient :: MonadIO m => NtpClientSettings -> m (TVar NtpStatus)
-runNtpClient ntpSettings = do
+withNtpClient :: MonadIO m => NtpClientSettings -> m (TVar NtpStatus)
+withNtpClient ntpSettings = do
     ntpStatus <- newTVarIO NtpSyncUnavailable
     _ <- liftIO $ async (spawnNtpClient ntpSettings ntpStatus)
     return ntpStatus
+
+-- | Run without Ntp client.
+withoutNtpClient :: MonadIO m => (TVar NtpStatus -> m a) -> m a
+withoutNtpClient f = newTVarIO NtpSyncUnavailable >>= f
 
 -- | Start client, wait for a while so that most likely it ticks once
 -- and stop it.

@@ -16,7 +16,7 @@ import           Formatting (build, sformat, (%))
 import           Mockable (Production, runProduction)
 import           System.Wlog (LoggerName, logInfo, modifyLoggerName)
 
-import           Ntp.Client (NtpStatus, runNtpClient)
+import           Ntp.Client (NtpStatus, withNtpClient)
 
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
@@ -30,7 +30,7 @@ import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
                                NodeResources (..), bracketNodeResources, loggerBracket, runNode,
                                withConfigurations)
-import           Pos.Ntp.Configuration (ntpConfiguration, ntpClientSettings)
+import           Pos.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
@@ -61,16 +61,17 @@ actionWithWallet ::
        )
     => SscParams
     -> NodeParams
+    -> NtpConfiguration
     -> WalletArgs
     -> Production ()
-actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} = do
+actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletArgs {..} = do
     logInfo "Running `actionWithWallet'"
     bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
         bracketWalletWS $ \conn ->
-            bracketNodeResources nodeParams sscParams ntpConfiguration
+            bracketNodeResources nodeParams sscParams ntpConfig
                 txpGlobalSettings
                 initNodeDBs $ \nr@NodeResources {..} -> do
-                ntpStatus <- runNtpClient (ntpClientSettings ntpConfiguration)
+                ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
                 ref <- newIORef mempty
                 runWRealMode
                     db
@@ -142,8 +143,8 @@ plugins WalletArgs {..}
     | otherwise = []
 
 action :: HasCompileInfo => WalletNodeArgs -> Production ()
-action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
-    withConfigurations conf $ do
+action ntpConfig (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
+    withConfigurations conf $ \ntpConfig -> do
         CLI.printInfoOnStart cArgs
         logInfo $ "Wallet is enabled!"
         currentParams <- getNodeParams loggerName cArgs nodeArgs
@@ -151,7 +152,7 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-        actionWithWallet sscParams currentParams wArgs
+        actionWithWallet sscParams currentParams ntpConfig wArgs
   where
     nodeArgs :: NodeArgs
     nodeArgs = NodeArgs { behaviorConfigPath = Nothing }

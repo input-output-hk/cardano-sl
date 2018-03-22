@@ -50,7 +50,6 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
-import           Pos.Ntp.Configuration (HasNtpConfiguration)
 import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Network.Types (HasNodeType (..))
@@ -218,7 +217,6 @@ type MonadFullWalletWebMode ctx m =
     , MonadWalletWebSockets ctx m
     , MonadReporting ctx m
     , Mockable LowLevelAsync m
-    , HasNtpConfiguration
     )
 
 ----------------------------------------------------------------------------

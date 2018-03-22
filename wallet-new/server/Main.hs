@@ -10,7 +10,7 @@ import           Universum
 
 import           Data.Maybe (fromJust)
 import           Mockable (Production (..), runProduction)
-import           Ntp.Client (NtpStatus, runNtpClient)
+import           Ntp.Client (NtpStatus, withNtpClient)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (ActionSpec (..))
 import           Pos.DB.DB (initNodeDBs)
@@ -18,7 +18,7 @@ import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingPar
                                bracketNodeResources, loggerBracket, lpDefaultName, runNode,
                                withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions, HasConfigurations)
-import           Pos.Ntp.Configuration (ntpConfiguration, ntpClientSettings)
+import           Pos.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
@@ -53,16 +53,17 @@ defaultLoggerName = "node"
 actionWithWallet :: (HasConfigurations, HasCompileInfo)
                  => SscParams
                  -> NodeParams
+                 -> NtpConfiguration
                  -> WalletBackendParams
                  -> Production ()
-actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
+actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
     bracketWalletWebDB (walletDbPath walletDbOptions) (walletRebuildDb walletDbOptions) $ \db ->
         bracketWalletWS $ \conn ->
-            bracketNodeResources nodeParams sscParams ntpConfiguration
+            bracketNodeResources nodeParams sscParams ntpConfig
                 txpGlobalSettings
                 initNodeDBs $ \nr@NodeResources {..} -> do
                     ref <- newIORef mempty
-                    ntpStatus <- runNtpClient (ntpClientSettings ntpConfiguration)
+                    ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
                     runWRealMode db conn (AddrCIdHashes ref) nr (mainAction ntpStatus nr)
   where
     mainAction ntpStatus = runNodeWithInit ntpStatus $ do
@@ -94,13 +95,14 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
 actionWithNewWallet :: (HasConfigurations, HasCompileInfo)
                     => SscParams
                     -> NodeParams
+                    -> NtpConfiguration
                     -> NewWalletBackendParams
                     -> Production ()
-actionWithNewWallet sscParams nodeParams params =
+actionWithNewWallet sscParams nodeParams ntpConfig params =
     bracketNodeResources
         nodeParams
         sscParams
-        ntpConfiguration
+        ntpConfig
         txpGlobalSettings
         initNodeDBs $ \nr -> do
       -- TODO: Will probably want to extract some parameters from the
@@ -136,22 +138,22 @@ startEdgeNode :: HasCompileInfo
               => WalletStartupOptions
               -> Production ()
 startEdgeNode WalletStartupOptions{..} =
-  withConfigurations conf $ do
-      (sscParams, nodeParams) <- getParameters
+  withConfigurations conf $ \ntpConfig -> do
+      (sscParams, nodeParams) <- getParameters ntpConfig
       case wsoWalletBackendParams of
         WalletLegacy legacyParams ->
-          actionWithWallet sscParams nodeParams legacyParams
+          actionWithWallet sscParams nodeParams ntpConfig legacyParams
         WalletNew newParams ->
-          actionWithNewWallet sscParams nodeParams newParams
+          actionWithNewWallet sscParams nodeParams ntpConfig newParams
   where
-    getParameters :: HasConfigurations => Production (SscParams, NodeParams)
-    getParameters = do
+    getParameters :: HasConfigurations => NtpConfiguration -> Production (SscParams, NodeParams)
+    getParameters ntpConfig = do
 
       currentParams <- CLI.getNodeParams defaultLoggerName wsoNodeArgs nodeArgs
       let vssSK = fromJust $ npUserSecret currentParams ^. usVss
       let gtParams = CLI.gtSscParams wsoNodeArgs vssSK (npBehaviorConfig currentParams)
 
-      CLI.printInfoOnStart wsoNodeArgs
+      CLI.printInfoOnStart wsoNodeArgs ntpConfig
       logInfo "Wallet is enabled!"
 
       return (gtParams, currentParams)

@@ -8,7 +8,7 @@ module Test.Pos.Configuration
 
        , HasStaticConfigurations
        , withDefConfiguration
-       , withDefInfraConfiguration
+       , withDefNtpConfiguration
        , withDefNodeConfiguration
        , withDefSscConfiguration
        , withDefUpdateConfiguration
@@ -28,8 +28,8 @@ import           Pos.Core (BlockVersionData, HasConfiguration, withGenesisSpec)
 import           Pos.Core.Configuration (CoreConfiguration (..), GenesisConfiguration (..))
 import           Pos.Core.Genesis (GenesisSpec (..))
 import           Pos.Delegation (HasDlgConfiguration, withDlgConfiguration)
-import           Pos.Ntp.Configuration (HasNtpConfiguration, withNtpConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
+import           Pos.Ntp.Configuration (NtpConfiguration)
 import           Pos.Ssc.Configuration (HasSscConfiguration, withSscConfiguration)
 import           Pos.Txp (HasTxpConfiguration, withTxpConfiguration)
 import           Pos.Update.Configuration (HasUpdateConfiguration, withUpdateConfiguration)
@@ -57,8 +57,7 @@ defaultTestBlockVersionData = gsBlockVersionData defaultTestGenesisSpec
 -- | This constraint requires all configurations which are not
 -- always hardcoded in tests (currently).
 type HasStaticConfigurations =
-    ( HasNtpConfiguration
-    , HasUpdateConfiguration
+    ( HasUpdateConfiguration
     , HasSscConfiguration
     , HasBlockConfiguration
     , HasNodeConfiguration
@@ -75,8 +74,8 @@ withDefSscConfiguration = withSscConfiguration (ccSsc defaultTestConf)
 withDefUpdateConfiguration :: (HasUpdateConfiguration => r) -> r
 withDefUpdateConfiguration = withUpdateConfiguration (ccUpdate defaultTestConf)
 
-withDefInfraConfiguration :: (HasNtpConfiguration => r) -> r
-withDefInfraConfiguration = withNtpConfiguration (ccNtp defaultTestConf)
+withDefNtpConfiguration :: (NtpConfiguration -> r) -> r
+withDefNtpConfiguration fn = fn (ccNtp defaultTestConf)
 
 withDefBlockConfiguration :: (HasBlockConfiguration => r) -> r
 withDefBlockConfiguration = withBlockConfiguration (ccBlock defaultTestConf)
@@ -90,7 +89,7 @@ withDefTxpConfiguration = withTxpConfiguration (ccTxp defaultTestConf)
 withDefConfiguration :: (HasConfiguration => r) -> r
 withDefConfiguration = withGenesisSpec 0 (ccCore defaultTestConf)
 
-withStaticConfigurations :: (HasStaticConfigurations => r) -> r
+withStaticConfigurations :: (HasStaticConfigurations => NtpConfiguration -> r) -> r
 withStaticConfigurations patak =
     withDefNodeConfiguration $
     withDefSscConfiguration $
@@ -98,8 +97,8 @@ withStaticConfigurations patak =
     withDefBlockConfiguration $
     withDefDlgConfiguration $
     withDefTxpConfiguration $
-    withDefInfraConfiguration patak
+    withDefNtpConfiguration patak
 
-withDefConfigurations :: (HasConfigurations => r) -> r
+withDefConfigurations :: (HasConfigurations => NtpConfiguration -> r) -> r
 withDefConfigurations bardaq =
     withDefConfiguration $ withStaticConfigurations bardaq

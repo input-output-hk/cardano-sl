@@ -1,10 +1,7 @@
 {-# LANGUAGE Rank2Types #-}
 module Pos.Ntp.Configuration
        ( NtpConfiguration (..)
-       , HasNtpConfiguration
        , ntpClientSettings
-       , ntpConfiguration
-       , withNtpConfiguration
        ) where
 
 import           Universum
@@ -12,7 +9,6 @@ import           Universum
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
 import           Data.List.NonEmpty as NE
 import           Data.Time.Units (fromMicroseconds)
-import           Data.Reflection (Given, give, given)
 import           Ntp.Client (NtpClientSettings (..))
 import           Serokell.Aeson.Options (defaultOptions)
 import           Pos.Util.Util (median)
@@ -48,12 +44,3 @@ ntpClientSettings NtpConfiguration {..} = NtpClientSettings
     , ntpTimeDifferenceWarnInterval  = fromMicroseconds $ ntpcTimeDifferenceWarnInterval
     , ntpTimeDifferenceWarnThreshold = fromMicroseconds $ ntpcTimeDifferenceWarnThreshold
     }
-
-
-type HasNtpConfiguration = Given NtpConfiguration
-
-withNtpConfiguration :: NtpConfiguration -> (HasNtpConfiguration => r) -> r
-withNtpConfiguration = give
-
-ntpConfiguration :: HasNtpConfiguration => NtpConfiguration
-ntpConfiguration = given

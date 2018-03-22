@@ -35,7 +35,6 @@ import           Pos.Core (HasPrimaryKey (..), Timestamp)
 import           Pos.DHT.Real.Param (KademliaParams)
 import           Pos.Launcher.Param (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context (LrcContext)
-import           Pos.Ntp.Configuration (NtpConfiguration)
 import           Pos.Network.Types (NetworkConfig (..))
 import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers (..),
                                          HasReportingContext (..), MisbehaviorMetrics (..),
@@ -109,8 +108,6 @@ data NodeContext = NodeContext
     , ncConnectedPeers      :: !ConnectedPeers
     -- ^ Set of peers that we're connected to.
     , ncNetworkConfig       :: !(NetworkConfig KademliaParams)
-    , ncNtpConfig           :: !NtpConfiguration
-    -- ^ Ntp configuration
     , ncMisbehaviorMetrics  :: Maybe MisbehaviorMetrics
     }
 

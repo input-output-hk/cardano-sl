@@ -35,10 +35,9 @@ actionWithoutWallet
        )
     => SscParams
     -> NodeParams
-    -> NtpConfiguration
     -> Production ()
-actionWithoutWallet sscParams nodeParams ntpConfig =
-    runNodeReal nodeParams sscParams ntpConfig updateTriggerWorker
+actionWithoutWallet sscParams nodeParams =
+    runNodeReal nodeParams sscParams updateTriggerWorker
 
 action
     :: ( HasConfigurations
@@ -55,7 +54,7 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) ntpCon
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-    actionWithoutWallet sscParams currentParams ntpConfig
+    actionWithoutWallet sscParams currentParams
 
 main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do

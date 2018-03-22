@@ -59,7 +59,7 @@ actionWithWallet :: (HasConfigurations, HasCompileInfo)
 actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
     bracketWalletWebDB (walletDbPath walletDbOptions) (walletRebuildDb walletDbOptions) $ \db ->
         bracketWalletWS $ \conn ->
-            bracketNodeResources nodeParams sscParams ntpConfig
+            bracketNodeResources nodeParams sscParams
                 txpGlobalSettings
                 initNodeDBs $ \nr@NodeResources {..} -> do
                     ref <- newIORef mempty
@@ -95,14 +95,12 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
 actionWithNewWallet :: (HasConfigurations, HasCompileInfo)
                     => SscParams
                     -> NodeParams
-                    -> NtpConfiguration
                     -> NewWalletBackendParams
                     -> Production ()
-actionWithNewWallet sscParams nodeParams ntpConfig params =
+actionWithNewWallet sscParams nodeParams params =
     bracketNodeResources
         nodeParams
         sscParams
-        ntpConfig
         txpGlobalSettings
         initNodeDBs $ \nr -> do
       -- TODO: Will probably want to extract some parameters from the
@@ -144,7 +142,7 @@ startEdgeNode WalletStartupOptions{..} =
         WalletLegacy legacyParams ->
           actionWithWallet sscParams nodeParams ntpConfig legacyParams
         WalletNew newParams ->
-          actionWithNewWallet sscParams nodeParams ntpConfig newParams
+          actionWithNewWallet sscParams nodeParams newParams
   where
     getParameters :: HasConfigurations => NtpConfiguration -> Production (SscParams, NodeParams)
     getParameters ntpConfig = do

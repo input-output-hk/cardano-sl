@@ -68,7 +68,7 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletArgs {..} = do
     logInfo "Running `actionWithWallet'"
     bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
         bracketWalletWS $ \conn ->
-            bracketNodeResources nodeParams sscParams ntpConfig
+            bracketNodeResources nodeParams sscParams
                 txpGlobalSettings
                 initNodeDBs $ \nr@NodeResources {..} -> do
                 ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)

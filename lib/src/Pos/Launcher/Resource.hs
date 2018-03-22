@@ -43,7 +43,6 @@ import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegationVar)
 import           Pos.DHT.Real (KademliaParams (..))
 import qualified Pos.GState as GS
-import           Pos.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Lrc.Context (LrcContext (..), mkLrcSyncData)
 import           Pos.Network.Types (NetworkConfig (..))
@@ -99,14 +98,12 @@ allocateNodeResources
        , HasDlgConfiguration
        , HasBlockConfiguration
        )
-    => NetworkConfig KademliaParams
-    -> NtpConfiguration
-    -> NodeParams
+    => NodeParams
     -> SscParams
     -> TxpGlobalSettings
     -> InitMode ()
     -> Production (NodeResources ext)
-allocateNodeResources networkConfig ntpConfig np@NodeParams {..} sscnp txpSettings initDB = do
+allocateNodeResources np@NodeParams {..} sscnp txpSettings initDB = do
     logInfo "Allocating node resources..."
     npDbPath <- case npDbPathM of
         Nothing -> do
@@ -141,11 +138,11 @@ allocateNodeResources networkConfig ntpConfig np@NodeParams {..} sscnp txpSettin
                 { ancdNodeParams = np
                 , ancdSscParams = sscnp
                 , ancdPutSlotting = putSlotting
-                , ancdNetworkCfg = networkConfig
+                , ancdNetworkCfg = npNetworkConfig
                 , ancdEkgStore = nrEkgStore
                 , ancdTxpMemState = txpVar
                 }
-        ctx@NodeContext {..} <- allocateNodeContext ntpConfig ancd txpSettings nrEkgStore
+        ctx@NodeContext {..} <- allocateNodeContext ancd txpSettings nrEkgStore
         putLrcContext ncLrcContext
         logDebug "Filled LRC Context future"
         dlgVar <- mkDelegationVar
@@ -190,15 +187,14 @@ bracketNodeResources :: forall ext a.
       )
     => NodeParams
     -> SscParams
-    -> NtpConfiguration
     -> TxpGlobalSettings
     -> InitMode ()
     -> (HasConfiguration => NodeResources ext -> Production a)
     -> Production a
-bracketNodeResources np sp ntpConfig txp initDB action = do
+bracketNodeResources np sp txp initDB action = do
     let msg = "`NodeResources'"
     bracketWithLogging msg
-            (allocateNodeResources (npNetworkConfig np) ntpConfig np sp txp initDB)
+            (allocateNodeResources np sp txp initDB)
             releaseNodeResources $ \nodeRes ->do
         -- Notify systemd we are fully operative
         -- FIXME this is not the place to notify.
@@ -247,12 +243,11 @@ data AllocateNodeContextData ext = AllocateNodeContextData
 allocateNodeContext
     :: forall ext .
       (HasConfiguration, HasNodeConfiguration, HasBlockConfiguration)
-    => NtpConfiguration
-    -> AllocateNodeContextData ext
+    => AllocateNodeContextData ext
     -> TxpGlobalSettings
     -> Metrics.Store
     -> InitMode NodeContext
-allocateNodeContext ntpConfig ancd txpSettings ekgStore = do
+allocateNodeContext ancd txpSettings ekgStore = do
     let AllocateNodeContextData { ancdNodeParams = np@NodeParams {..}
                                 , ancdSscParams = sscnp
                                 , ancdPutSlotting = putSlotting
@@ -306,7 +301,6 @@ allocateNodeContext ntpConfig ancd txpSettings ekgStore = do
             , ncTxpGlobalSettings = txpSettings
             , ncNetworkConfig = networkConfig
             , ncMisbehaviorMetrics = Just mm
-            , ncNtpConfig = ntpConfig
             , ..
             }
     return ctx

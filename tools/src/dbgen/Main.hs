@@ -26,7 +26,6 @@ import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, Nod
 import           Pos.Network.CLI (NetworkConfigOpts (..))
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
                                     topologyEnqueuePolicy, topologyFailurePolicy)
-import           Pos.Infra.Configuration (ntpConfiguration)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
                                        withCompileInfo)
@@ -91,7 +90,6 @@ newRealModeContext dbs confOpts secretKeyPath = do
              }
          , updateLatestPath       = "update"
          , updateWithPackage      = False
-         , noNtpChecks            = True
          , route53Params          = Nothing
          , enableMetrics          = False
          , ekgParams              = Nothing
@@ -103,7 +101,7 @@ newRealModeContext dbs confOpts secretKeyPath = do
     nodeParams <- getNodeParams loggerName cArgs nodeArgs
     let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
     let gtParams = gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-    bracketNodeResources @() nodeParams gtParams ntpConfiguration txpGlobalSettings initNodeDBs $ \NodeResources{..} ->
+    bracketNodeResources @() nodeParams gtParams txpGlobalSettings initNodeDBs $ \NodeResources{..} ->
         RealModeContext <$> pure dbs
                         <*> pure nrSscState
                         <*> pure nrTxpState

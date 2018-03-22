@@ -45,7 +45,7 @@ import           Test.Pos.Wallet.Web.Util (deriveRandomAddress, expectedAddrBala
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
 spec = withCompileInfo def $
-       withDefConfigurations $ \_ ->
+       withDefConfigurations $
        describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
     describe "newPaymentBatch" $ do
         describe "One payment" oneNewPaymentBatchSpec

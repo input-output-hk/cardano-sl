@@ -27,7 +27,6 @@ import           Pos.Logic.Types (LogicLayer (..))
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
                                bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
                                elimRealMode, withConfigurations)
-import           Pos.Ntp.Configuration (NtpConfiguration)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
                                     topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Txp (txpGlobalSettings)
@@ -103,10 +102,10 @@ action opts@AuxxOptions {..} command = do
     runWithoutNode :: PrintAction Production -> Production ()
     runWithoutNode printAction = printAction "Mode: light" >> rawExec Nothing opts Nothing command
 
-    runWithConfig :: HasConfigurations => PrintAction Production -> NtpConfiguration -> Production ()
-    runWithConfig printAction ntpConfig = do
+    runWithConfig :: HasConfigurations => PrintAction Production -> Production ()
+    runWithConfig printAction = do
         printAction "Mode: with-config"
-        CLI.printInfoOnStart aoCommonNodeArgs ntpConfig
+        CLI.printInfoOnStart aoCommonNodeArgs
         (nodeParams, tempDbUsed) <-
             correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs nArgs
         let

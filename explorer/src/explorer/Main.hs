@@ -54,9 +54,9 @@ main = do
 
 action :: ExplorerNodeArgs -> Production ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
-    withConfigurations conf $ \ntpConfig ->
+    withConfigurations conf $
     withCompileInfo $(retrieveCompileTimeInfo) $ do
-        CLI.printInfoOnStart cArgs ntpConfig
+        CLI.printInfoOnStart cArgs
         logInfo $ "Explorer is enabled!"
         currentParams <- getNodeParams loggerName cArgs nodeArgs
 

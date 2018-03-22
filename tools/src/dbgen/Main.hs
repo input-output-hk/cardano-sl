@@ -152,7 +152,7 @@ main = do
     cli@CLI{..} <- getRecord "DBGen"
     let cfg = newConfig cli
 
-    withConfigurations cfg $ \_ ->
+    withConfigurations cfg $
         withCompileInfo $(retrieveCompileTimeInfo) $ do
             when showStats (showStatsAndExit walletPath)
 

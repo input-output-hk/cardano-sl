@@ -35,7 +35,7 @@ getBlocksTotalBench
     :: BenchmarkTestParams
     -> IO Integer
 getBlocksTotalBench (testParams, extraContext) =
-    withDefConfigurations $ \_ ->
+    withDefConfigurations $
         runExplorerTestMode testParams extraContext getBlocksTotal
 
 -- | @getBlocksPage@ function for the last page for benchmarks.
@@ -43,7 +43,7 @@ getBlocksPageBench
     :: BenchmarkTestParams
     -> IO (Integer, [CBlockEntry])
 getBlocksPageBench (testParams, extraContext) =
-    withDefConfigurations $ \_ ->
+    withDefConfigurations $
         runExplorerTestMode testParams extraContext $
             getBlocksPage Nothing (Just $ fromIntegral defaultPageSize)
 
@@ -62,7 +62,7 @@ generateTestParams totalBlocksNumber slotsPerEpoch = do
 
     -- The extra context so we can mock the functions.
     let extraContext :: ExtraContext
-        extraContext = withDefConfigurations $ const $ makeMockExtraCtx mode
+        extraContext = withDefConfigurations $ makeMockExtraCtx mode
 
     pure (testParams, extraContext)
   where

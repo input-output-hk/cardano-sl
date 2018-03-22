@@ -32,7 +32,7 @@ import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
 
 spec :: Spec
-spec = withCompileInfo def $ withDefConfigurations $ \_ -> do
+spec = withCompileInfo def $ withDefConfigurations $ do
     describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
         describe "Two applications and rollbacks" twoApplyTwoRollbacksSpec
     describe "Pos.Wallet.Web.Tracking.evalChange" $ do

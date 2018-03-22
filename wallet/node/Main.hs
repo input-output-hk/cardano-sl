@@ -29,7 +29,7 @@ import           Pos.DB.DB (initNodeDBs)
 import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
                                NodeResources (..), bracketNodeResources, loggerBracket, runNode,
-                               withConfigurations)
+                               withConfigurations, withNtpConfiguration)
 import           Pos.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
@@ -144,7 +144,8 @@ plugins WalletArgs {..}
 
 action :: HasCompileInfo => WalletNodeArgs -> Production ()
 action ntpConfig (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
-    withConfigurations conf $ \ntpConfig -> do
+    withConfigurations conf $
+    withNtpConfiguration conf $ \ntpConfig -> do
         CLI.printInfoOnStart cArgs
         logInfo $ "Wallet is enabled!"
         currentParams <- getNodeParams loggerName cArgs nodeArgs

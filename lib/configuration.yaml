@@ -60,15 +60,6 @@ dev: &dev
 
     dbSerializeVersion: 0
 
-  ntp: &dev_ntp
-    # NTP
-    responseTimeout: 30000000 # 30 sec
-    pollDelay:  1800000000 # 30 min
-    servers:
-      - "0.pool.ntp.org"
-      - "2.pool.ntp.org"
-      - "3.pool.ntp.org"
-
   update: &dev_update
     applicationName: cardano-sl
     applicationVersion: 0
@@ -111,6 +102,20 @@ dev: &dev
     walletProductionApi: false
     walletTxCreationDisabled: false
 
+
+##############################################################################
+##                                                                          ##
+##   Ntp config                                                             ##
+##                                                                          ##
+##############################################################################
+
+ntp:
+  responseTimeout: 30000000 # 30 sec
+  pollDelay:  1800000000 # 30 min
+  servers:
+    - "0.pool.ntp.org"
+    - "2.pool.ntp.org"
+    - "3.pool.ntp.org"
 
 ##############################################################################
 ##                                                                          ##
@@ -237,14 +242,6 @@ mainnet_base: &mainnet_base
         avvmDistr: {}
 
     dbSerializeVersion: 0
-
-  ntp:
-    responseTimeout: 30000000 # 30 sec
-    pollDelay:  1800000000 # 30 min
-    servers:
-      - "0.pool.ntp.org"
-      - "2.pool.ntp.org"
-      - "3.pool.ntp.org"
 
   update: &mainnet_base_update
     applicationName: cardano-sl

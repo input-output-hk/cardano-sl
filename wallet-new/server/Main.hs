@@ -16,7 +16,7 @@ import           Pos.Communication (ActionSpec (..))
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingParams,
                                bracketNodeResources, loggerBracket, lpDefaultName, runNode,
-                               withConfigurations)
+                               withConfigurations, withNtpConfiguration)
 import           Pos.Launcher.Configuration (ConfigurationOptions, HasConfigurations)
 import           Pos.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
 import           Pos.Ssc.Types (SscParams)
@@ -136,22 +136,23 @@ startEdgeNode :: HasCompileInfo
               => WalletStartupOptions
               -> Production ()
 startEdgeNode WalletStartupOptions{..} =
-  withConfigurations conf $ \ntpConfig -> do
-      (sscParams, nodeParams) <- getParameters ntpConfig
+  withConfigurations conf $
+  withNtpConfiguration conf $ \ntpConfig -> do
+      (sscParams, nodeParams) <- getParameters
       case wsoWalletBackendParams of
         WalletLegacy legacyParams ->
           actionWithWallet sscParams nodeParams ntpConfig legacyParams
         WalletNew newParams ->
           actionWithNewWallet sscParams nodeParams newParams
   where
-    getParameters :: HasConfigurations => NtpConfiguration -> Production (SscParams, NodeParams)
-    getParameters ntpConfig = do
+    getParameters :: HasConfigurations => Production (SscParams, NodeParams)
+    getParameters = do
 
       currentParams <- CLI.getNodeParams defaultLoggerName wsoNodeArgs nodeArgs
       let vssSK = fromJust $ npUserSecret currentParams ^. usVss
       let gtParams = CLI.gtSscParams wsoNodeArgs vssSK (npBehaviorConfig currentParams)
 
-      CLI.printInfoOnStart wsoNodeArgs ntpConfig
+      CLI.printInfoOnStart wsoNodeArgs
       logInfo "Wallet is enabled!"
 
       return (gtParams, currentParams)

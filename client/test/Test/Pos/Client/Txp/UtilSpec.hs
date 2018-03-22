@@ -44,7 +44,7 @@ import           Test.Pos.Client.Txp.Mode (HasTxpConfigurations, TxpTestMode, Tx
 ----------------------------------------------------------------------------
 
 spec :: Spec
-spec = withDefConfigurations $ \_ ->
+spec = withDefConfigurations $
     describe "Client.Txp.Util" $ do
         describe "createMTx" $ createMTxSpec
 

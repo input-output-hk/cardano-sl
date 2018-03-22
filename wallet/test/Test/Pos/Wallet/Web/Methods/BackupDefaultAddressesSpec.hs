@@ -19,7 +19,7 @@ import           Test.QuickCheck.Monadic (pick)
 
 spec :: Spec
 spec = withCompileInfo def $
-       withDefConfigurations $ \_ ->
+       withDefConfigurations $
        describe "restoreAddressFromWalletBackup" $ modifyMaxSuccess (const 10) $ do
            restoreWalletAddressFromBackupSpec
 

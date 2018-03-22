@@ -37,7 +37,7 @@ import           Test.Pos.Configuration (withDefConfigurations)
 
 -- stack test cardano-sl-explorer --fast --test-arguments "-m Pos.Explorer.Web.Server"
 spec :: Spec
-spec = withDefConfigurations $ \_ -> do
+spec = withDefConfigurations $ do
     describe "Pos.Explorer.Web.Server" $ do
         blocksTotalSpec
         blocksPagesTotalSpec

@@ -662,8 +662,8 @@ computeTxFee pendingTx utxo outputs = do
 --       i.e. @ fee_{i+1} <= fee_{i} @.
 --
 --     * Number if input addresses decreased.
---       Is may occur when fee increases more than on current remainder.
---       Is this case fee on next iteration would indeed decrease, because
+--       It may occur when fee increases more than on current remainder.
+--       In this case fee on next iteration would indeed decrease, because
 --       size of single input is much greater than any fluctuations of
 --       remainder size (in bytes).
 --

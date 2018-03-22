@@ -118,6 +118,7 @@ executable discovery
                       , binary
                       , bytestring
                       , cardano-sl-networking
+                      , cardano-sl-util
                       , containers
                       , network-transport
                       , network-transport-tcp
@@ -142,6 +143,7 @@ executable ping-pong
                      , binary
                      , bytestring
                      , cardano-sl-networking
+                     , cardano-sl-util
                      , network-transport
                      , network-transport-tcp
                      , random

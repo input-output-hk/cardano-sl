@@ -28,6 +28,7 @@ import           Node
 import           Node.Message.Binary (BinaryP, binaryPacking)
 import           System.Environment (getArgs)
 import           System.Random
+import           Pos.Util.Trace (noTrace)
 
 data Pong = Pong BS.ByteString
 deriving instance Generic Pong
@@ -98,7 +99,7 @@ makeNode transport i = do
         prng1 = mkStdGen (2 * i)
         prng2 = mkStdGen ((2 * i) + 1)
     putStrLn $ "Starting node " ++ show i
-    forkIO $ node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
+    forkIO $ node noTrace (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
                 prng1 binaryPacking (B8.pack "my peer data!") defaultNodeEnvironment $ \node' ->
         NodeAction (listeners . nodeId $ node') $ \converse -> do
             putStrLn $ "Making discovery for node " ++ show i

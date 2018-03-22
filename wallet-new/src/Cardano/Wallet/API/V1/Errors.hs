@@ -53,6 +53,7 @@ data WalletError =
     | MigrationFailed { weDescription :: !Text }
     | JSONValidationFailed { weValidationError :: !Text }
     | UnkownError { weMsg :: !Text }
+    | InvalidAddressFormat { weMsg :: !Text }
     | WalletNotFound
     deriving (Show, Eq)
 

@@ -17,7 +17,6 @@ type API = Tags '["Addresses"] :>
                        :> Summary "Creates a new Address."
                        :> Post '[ValidJSON] (WalletResponse WalletAddress)
       :<|> "addresses" :> Capture "address" Text
-                       :> "validity"
-                       :> Summary "Checks the validity of an address."
-                       :> Get '[ValidJSON] (WalletResponse AddressValidity)
+                       :> Summary "Returns interesting information about an address, if available and valid."
+                       :> Get '[ValidJSON] (WalletResponse AddressInfo)
       )

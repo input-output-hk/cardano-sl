@@ -23,7 +23,7 @@ handlers
     => ServerT Addresses.API m
 handlers =  listAddresses
        :<|> newAddress
-       :<|> verifyAddress
+       :<|> getAddress
 
 listAddresses
     :: MonadIO m
@@ -51,10 +51,18 @@ newAddress NewAddress {..} = do
               >>= migrate
 
 -- | Verifies that an address is base58 decodable.
-verifyAddress :: Monad m => Text -> m (WalletResponse AddressValidity)
-verifyAddress address =
-    case decodeTextAddress address of
-        Right _ ->
-            return $ single $ AddressValidity True
-        Left _  ->
-            return $ single $ AddressValidity False
+getAddress
+    :: (MonadThrow m , V0.MonadWalletLogic ctx m)
+    => Text
+    -> m (WalletResponse AddressInfo)
+getAddress addrText = do
+    addr <- either
+        (throwM . InvalidAddressFormat)
+        pure
+        (decodeTextAddress addrText)
+
+    ss <- V0.askWalletSnapshot
+
+    undefined "i have no idea what to do here now?"
+
+

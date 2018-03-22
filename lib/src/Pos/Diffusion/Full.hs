@@ -15,7 +15,7 @@ module Pos.Diffusion.Full
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
-import qualified Control.Concurrent.Async as Async
+import           Control.Concurrent.Async (Concurrently (..))
 import           Data.Functor.Contravariant (contramap)
 import qualified Data.Map as M
 import qualified Data.Map.Strict as MS
@@ -409,24 +409,27 @@ runDiffusionLayerFull logTrace
                       k =
     maybeBracketKademliaInstance logTrace mKademliaParams defaultPort $ \mKademlia ->
         timeWarpNode transport convEstablishTimeout ourVerInfo listeners $ \nd converse ->
-            -- TODO use 'concurrently' or similar combinator.
-            Async.withAsync (liftIO $ OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \dthread -> do
-                Async.link dthread
-                case mEkgNodeMetrics of
-                    Just ekgNodeMetrics -> registerEkgNodeMetrics ekgNodeMetrics nd
-                    Nothing -> pure ()
-                -- Subscription worker bypasses the outbound queue and uses
-                -- send actions directly.
-                let sendActions :: SendActions
-                    sendActions = makeSendActions logTrace ourVerInfo oqEnqueue converse
-                Async.withAsync (subscriptionThread (fst <$> mKademlia) sendActions) $ \sthread -> do
-                    Async.link sthread
+            -- 'Concurrently' is used to run the outbound queue dequeue thread,
+            -- the subscription thread, as well as the main continuation. This
+            -- is preferable to using 'withAsync' and 'link' because in that
+            -- case, when the main thread throws an exception, the child
+            -- threads may in turn throw a 'ThreadKilled' exception back to the
+            -- main thread, which may unexpectedly interrupt some bracket
+            -- releaser action.
+            let sendActions :: SendActions
+                sendActions = makeSendActions logTrace ourVerInfo oqEnqueue converse
+                dequeueAsync = Concurrently $ OQ.dequeueThread oq (sendMsgFromConverse converse)
+                subscriptionAsync = Concurrently $ subscriptionThread (fst <$> mKademlia) sendActions
+                mainAsync = Concurrently $ do
+                    maybe (pure ()) (flip registerEkgNodeMetrics nd) mEkgNodeMetrics
                     maybe (pure ()) joinKademlia mKademlia
                     k $ FullDiffusionInternals
                         { fdiNode = nd
                         , fdiConverse = converse
                         , fdiSendActions = sendActions
                         }
+                actions = dequeueAsync *> subscriptionAsync *> mainAsync
+            in  runConcurrently actions
   where
     oqEnqueue :: Msg
               -> (NodeId -> VerInfo -> Conversation PackingType t)

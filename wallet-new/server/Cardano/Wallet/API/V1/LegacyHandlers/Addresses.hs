@@ -41,6 +41,7 @@ handlers
 handlers =  listAddresses
        :<|> newAddress
        :<|> getAddress
+       :<|> newExternalAddress
 
 -- | This is quite slow. What happens when we have 50k addresses?
 -- TODO(ks): One idea I have is to persist the length of the
@@ -126,3 +127,11 @@ getAddress addrText = do
             accMod <- V0.txMempoolToModifier ws mps =<< V0.findKey accId
             let caddr = V0.getWAddress ws accMod adiWAddressMeta
             single <$> migrate caddr
+
+-- | Creates new address in external wallet.
+newExternalAddress
+    :: (MonadThrow m, V0.MonadWalletLogic ctx m)
+    => NewExternalAddress
+    -> m (WalletResponse WalletAddress)
+newExternalAddress _ =
+    single <$> (liftIO $ generate arbitrary)

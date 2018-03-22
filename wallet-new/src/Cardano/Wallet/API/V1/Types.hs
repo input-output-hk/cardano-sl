@@ -22,6 +22,7 @@ module Cardano.Wallet.API.V1.Types (
   , PasswordUpdate (..)
   , AccountUpdate (..)
   , NewAccount (..)
+  , NewExternalAccount (..)
   , Update
   , New
   -- * Domain-specific types
@@ -33,14 +34,20 @@ module Cardano.Wallet.API.V1.Types (
   , WalletId (..)
   , WalletOperation (..)
   , SpendingPassword
+  , ExternalWallet (..)
+  , NewExternalWallet (..)
   -- * Addresses
   , AddressValidity (..)
   -- * Accounts
   , Account (..)
   , AccountIndex
+  , ExternalAccount (..)
   -- * Addresses
   , WalletAddress (..)
   , NewAddress (..)
+  , ExternalWalletAddress (..)
+  , NewExternalAddress (..)
+  , AddressPath (..)
   -- * Payments
   , Payment (..)
   , PaymentSource (..)
@@ -50,6 +57,8 @@ module Cardano.Wallet.API.V1.Types (
   , TransactionDirection (..)
   , TransactionStatus(..)
   , EstimatedFees (..)
+  , TransactionSignature (..)
+  , SignedTransaction (..)
   -- * Updates
   , WalletSoftwareUpdate (..)
   -- * Settings
@@ -480,6 +489,40 @@ instance ToSchema NewWallet where
       & ("operation"        --^ "Create a new wallet or Restore an existing one.")
     )
 
+-- | A type modelling the request for a new 'ExternalWallet',
+-- on the mobile client or hardware wallet.
+data NewExternalWallet = NewExternalWallet
+    { newewalAssuranceLevel :: !AssuranceLevel
+    , newewalName           :: !WalletName
+    , newewalOperation      :: !WalletOperation
+    } deriving (Eq, Show, Generic)
+
+deriveJSON Serokell.defaultOptions ''NewExternalWallet
+
+instance Arbitrary NewExternalWallet where
+  arbitrary = NewExternalWallet <$> arbitrary
+                                <*> pure "My external Wallet"
+                                <*> arbitrary
+
+instance ToSchema NewExternalWallet where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "newewal" (\(--^) props -> props
+      & ("assuranceLevel" --^ "Desired assurance level based on the number of confirmations counter of each transaction.")
+      & ("name"           --^ "External Wallet's name")
+      & ("operation"      --^ "Create a new external wallet or Restore an existing one")
+    )
+
+deriveSafeBuildable ''NewExternalWallet
+instance BuildableSafeGen NewExternalWallet where
+    buildSafeGen sl NewExternalWallet{..} = bprint ("{"
+        %" assuranceLevel="%buildSafe sl
+        %" name="%buildSafe sl
+        %" operation"%buildSafe sl
+        %" }")
+        newewalAssuranceLevel
+        newewalName
+        newewalOperation
+
 
 deriveSafeBuildable ''NewWallet
 instance BuildableSafeGen NewWallet where
@@ -581,6 +624,28 @@ instance BuildableSafeGen Wallet where
 instance Buildable [Wallet] where
     build = bprint listJson
 
+-- | An external wallet (mobile client or hardware wallet).
+data ExternalWallet = ExternalWallet
+    { ewalId      :: !WalletId
+    , ewalName    :: !WalletName
+    , ewalBalance :: !(V1 Core.Coin)
+    } deriving (Eq, Ord, Show, Generic)
+
+deriveJSON Serokell.defaultOptions ''ExternalWallet
+
+instance ToSchema ExternalWallet where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "ewal" (\(--^) props -> props
+      & ("id"      --^ "Unique wallet identifier")
+      & ("name"    --^ "Wallet's name")
+      & ("balance" --^ "Current balance, in ADA")
+    )
+
+instance Arbitrary ExternalWallet where
+  arbitrary = ExternalWallet <$> arbitrary
+                             <*> pure "My external wallet"
+                             <*> arbitrary
+
 --------------------------------------------------------------------------------
 -- Addresses
 --------------------------------------------------------------------------------
@@ -679,6 +744,34 @@ instance BuildableSafeGen Account where
 instance Buildable [Account] where
     build = bprint listJson
 
+-- | An external wallet 'ExternalAccount'.
+data ExternalAccount = ExternalAccount
+  { accExtIndex     :: !AccountIndex
+  , accExtAddresses :: [V1 Core.Address]  -- should be WalletAddress
+  , accExtAmount    :: !(V1 Core.Coin)
+  , accExtName      :: !Text
+  , accExtWalletId  :: WalletId
+  } deriving (Show, Ord, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''ExternalAccount
+
+instance ToSchema ExternalAccount where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "accExt" (\(--^) props -> props
+      & ("index"     --^ "Account's index in external wallet, starting at 0")
+      & ("addresses" --^ "Public addresses pointing to this account")
+      & ("amount"    --^ "Available funds, in ADA")
+      & ("name"      --^ "Account's name")
+      & ("walletId"  --^ "Id of external wallet this account belongs to")
+    )
+
+instance Arbitrary ExternalAccount where
+  arbitrary = ExternalAccount <$> arbitrary
+                              <*> arbitrary
+                              <*> arbitrary
+                              <*> pure "My external account"
+                              <*> arbitrary
+
 -- | Account Update
 data AccountUpdate = AccountUpdate {
     uaccName      :: !Text
@@ -729,6 +822,53 @@ instance BuildableSafeGen NewAccount where
         naccSpendingPassword
         naccName
 
+data NewExternalAccount = NewExternalAccount
+  { neaccName :: !Text
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''NewExternalAccount
+
+instance Arbitrary NewExternalAccount where
+  arbitrary = NewExternalAccount <$> arbitrary
+
+instance ToSchema NewExternalAccount where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "neacc" (\(--^) props -> props
+      & ("name" --^ "External Account's name")
+    )
+
+deriveSafeBuildable ''NewExternalAccount
+instance BuildableSafeGen NewExternalAccount where
+    buildSafeGen sl NewExternalAccount{..} = bprint ("{"
+        %" name="%buildSafe sl
+        %" }")
+        neaccName
+
+-- | Summary about single address.
+data WalletAddress = WalletAddress
+  { addrId            :: !(V1 Core.Address)
+  , addrBalance       :: !(V1 Core.Coin)
+  , addrUsed          :: !Bool
+  , addrChangeAddress :: !Bool
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''WalletAddress
+
+instance ToSchema WalletAddress where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "addr" (\(--^) props -> props
+      & ("id"            --^ "Actual address")
+      & ("balance"       --^ "Associated balance, in ADA")
+      & ("used"          --^ "True if this address has been used")
+      & ("changeAddress" --^ "True if this address stores change from a previous transaction")
+    )
+
+instance Arbitrary WalletAddress where
+  arbitrary = WalletAddress <$> arbitrary
+                            <*> arbitrary
+                            <*> arbitrary
+                            <*> arbitrary
+
 deriveSafeBuildable ''WalletAddress
 instance BuildableSafeGen WalletAddress where
     buildSafeGen sl WalletAddress{..} = bprint ("{"
@@ -745,6 +885,30 @@ instance BuildableSafeGen WalletAddress where
 instance Buildable [WalletAddress] where
     build = bprint listJson
 
+-- | Summary about single address in external wallet.
+data ExternalWalletAddress = ExternalWalletAddress
+  { addrExtId            :: !(V1 Core.Address)
+  , addrExtBalance       :: !(V1 Core.Coin)
+  , addrExtUsed          :: !Bool
+  , addrExtChangeAddress :: !Bool
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''ExternalWalletAddress
+
+instance ToSchema ExternalWalletAddress where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "addrExt" (\(--^) props -> props
+      & ("id"            --^ "Actual address in external wallet")
+      & ("balance"       --^ "Associated balance, in ADA")
+      & ("used"          --^ "True if this address has been used")
+      & ("changeAddress" --^ "True if this address stores change from a previous transaction")
+    )
+
+instance Arbitrary ExternalWalletAddress where
+  arbitrary = ExternalWalletAddress <$> arbitrary
+                                    <*> arbitrary
+                                    <*> arbitrary
+                                    <*> arbitrary
 
 -- | Create a new Address
 data NewAddress = NewAddress
@@ -779,6 +943,57 @@ instance BuildableSafeGen NewAddress where
         newaddrAccountIndex
         newaddrWalletId
 
+data NewExternalAddress = NewExternalAddress
+  { neweaddrAccountIndex :: !AccountIndex
+  , neweaddrWalletId     :: !WalletId
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''NewExternalAddress
+
+instance ToSchema NewExternalAddress where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "neweaddr" (\(--^) props -> props
+      & ("accountIndex" --^ "Target account's index to store this address in")
+      & ("walletId"     --^ "Corresponding external wallet identifier")
+    )
+
+instance Arbitrary NewExternalAddress where
+  arbitrary = NewExternalAddress <$> arbitrary
+                                 <*> arbitrary
+
+deriveSafeBuildable ''NewExternalAddress
+instance BuildableSafeGen NewExternalAddress where
+    buildSafeGen sl NewExternalAddress{..} = bprint("{"
+        %" accountIndex="%buildSafe sl
+        %" walletId="%buildSafe sl
+        %" }")
+        neweaddrAccountIndex
+        neweaddrWalletId
+
+-- | BIP44 derivation path, for work with external wallets, for example:
+-- m / purpose' / coin_type' / account' / change / address_index
+-- m /      44' /         0' /       0' /      0 /             1
+data AddressPath = AddressPath
+  { addrLevels :: ![Word32]
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''AddressPath
+
+instance ToSchema AddressPath where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "addr" (\(--^) props -> props
+      & ("levels" --^ "BIP44 derivation path's levels.")
+    )
+
+instance Arbitrary AddressPath where
+  arbitrary = AddressPath <$> arbitrary
+
+deriveSafeBuildable ''AddressPath
+instance BuildableSafeGen AddressPath where
+    buildSafeGen sl AddressPath{..} = bprint("{"
+        %" levels="%buildSafeList sl
+        %" }")
+        addrLevels
 
 -- | A type incapsulating a password update request.
 data PasswordUpdate = PasswordUpdate {
@@ -1175,6 +1390,59 @@ instance BuildableSafeGen Transaction where
 instance Buildable [Transaction] where
     build = bprint listJson
 
+-- | Signature of transaction. We are use it in case of
+-- externally signed transaction (mobile client or hardware wallet).
+data TransactionSignature = TransactionSignature
+  { etxSignature :: !Text -- Should it be 'Text'?
+  } deriving (Show, Ord, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''TransactionSignature
+
+instance ToSchema TransactionSignature where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "etx" (\(--^) props -> props
+      & ("signature" --^ "Raw signature of new transaction.")
+    )
+
+instance Arbitrary TransactionSignature where
+  arbitrary = TransactionSignature <$> arbitrary
+
+deriveSafeBuildable ''TransactionSignature
+instance BuildableSafeGen TransactionSignature where
+    buildSafeGen sl TransactionSignature{..} = bprint ("{"
+        %" signature="%buildSafe sl
+        %" }")
+        etxSignature
+
+-- | A 'Wallet''s 'SignedTransaction'. It is assumed
+-- that this transaction was signed on the client-side
+-- (mobile client or hardware wallet).
+data SignedTransaction = SignedTransaction
+  { stxTransaction :: !Transaction
+  , stxSignature   :: !TransactionSignature
+  } deriving (Show, Ord, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''SignedTransaction
+
+instance ToSchema SignedTransaction where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "stx" (\(--^) props -> props
+      & ("transaction" --^ "New transaction that wasn't published yet.")
+      & ("signature"   --^ "Signature of this transaction.")
+    )
+
+instance Arbitrary SignedTransaction where
+  arbitrary = SignedTransaction <$> arbitrary
+                                <*> arbitrary
+
+deriveSafeBuildable ''SignedTransaction
+instance BuildableSafeGen SignedTransaction where
+    buildSafeGen sl SignedTransaction{..} = bprint ("{"
+        %" transaction="%buildSafe sl
+        %" signature="%buildSafe sl
+        %" }")
+        stxTransaction
+        stxSignature
 
 -- | A type representing an upcoming wallet update.
 data WalletSoftwareUpdate = WalletSoftwareUpdate
@@ -1535,9 +1803,12 @@ type family Update (original :: *) :: * where
   Update WalletAddress = () -- read-only
 
 type family New (original :: *) :: * where
-  New Wallet  = NewWallet
-  New Account = NewAccount
-  New WalletAddress = NewAddress
+  New Wallet                = NewWallet
+  New Account               = NewAccount
+  New WalletAddress         = NewAddress
+  New ExternalWallet        = NewExternalWallet
+  New ExternalAccount       = NewExternalAccount
+  New ExternalWalletAddress = NewExternalAddress
 
 type CaptureWalletId = Capture "walletId" WalletId
 

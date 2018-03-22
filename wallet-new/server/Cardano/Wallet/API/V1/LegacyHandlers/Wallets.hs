@@ -30,6 +30,9 @@ handlers = newWallet
     :<|> deleteWallet
     :<|> getWallet
     :<|> updateWallet
+    :<|> newExternalWallet
+    :<|> newAddressPath
+    ) :<|> Accounts.handlers
 
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored
@@ -120,3 +123,21 @@ updateWallet wid WalletUpdate{..} = do
         -- reacquire the snapshot because we did an update
         ws' <- V0.askWalletSnapshot
         addWalletInfo ws' updated
+
+-- | Creates a new or restores an existing external @wallet@ given a 'NewExternalWallet' payload.
+-- Returns to the client the representation of the created or restored
+-- wallet in the 'Wallet' type.
+newExternalWallet
+    :: (MonadThrow m, MonadWalletLogic ctx m)
+    => NewExternalWallet
+    -> m (WalletResponse Wallet)
+newExternalWallet _ =
+    single <$> (liftIO $ generate arbitrary)
+
+-- | Creates a new BIP44 derivation path for an external wallet.
+newAddressPath
+    :: (MonadThrow m, MonadWalletLogic ctx m)
+    => WalletId
+    -> m (WalletResponse AddressPath)
+newAddressPath _ =
+    single <$> (liftIO $ generate arbitrary)

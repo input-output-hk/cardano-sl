@@ -24,6 +24,7 @@ import qualified Pos.Wallet.Web.Methods.Txp as V0
 import qualified Pos.Wallet.Web.State as V0
 import qualified Pos.Wallet.Web.Util as V0
 import           Servant
+import           Test.QuickCheck (arbitrary, generate)
 
 handlers :: ( HasConfigurations
             , HasCompileInfo
@@ -34,6 +35,8 @@ handlers submitTx =
              newTransaction submitTx
         :<|> allTransactions
         :<|> estimateFees
+        :<|> newUnsignedTransaction
+        :<|> newSignedTransaction submitTx
 
 newTransaction
     :: forall ctx m . (V0.MonadWalletTxFull ctx m)
@@ -102,3 +105,30 @@ estimateFees Payment{..} = do
     fee <- V0.rewrapTxError "Cannot compute transaction fee" $
         eitherToThrow =<< V0.runTxCreator policy (V0.computeTxFee pendingAddrs utxo outputs)
     single <$> migrate fee
+
+
+newUnsignedTransaction
+    :: forall ctx m . (V0.MonadWalletTxFull ctx m)
+    => Payment
+    -> m (WalletResponse Transaction)
+newUnsignedTransaction _ = do
+    -- We're creating new transaction as usually, but we mustn't sign/publish it.
+    -- This transaction will be signed on the client-side (mobile client or
+    -- hardware wallet), and after that transaction (with its signature) will be
+    -- sent to backend.
+    --
+    -- It's just a stub instead of 'undefined'.
+    fakeTransaction <- liftIO $ generate arbitrary
+    pure $ single fakeTransaction
+
+
+newSignedTransaction
+    :: forall ctx m . (V0.MonadWalletTxFull ctx m)
+    => (TxAux -> m Bool)
+    -> SignedTransaction
+    -> m (WalletResponse Transaction)
+newSignedTransaction _ SignedTransaction {..} = do
+    -- It is assumed that we received a transaction which was signed on the
+    -- client side (mobile client or hardware wallet).
+    -- Now we have to submit it as usually.
+    pure $ single stxTransaction

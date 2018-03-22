@@ -15,6 +15,7 @@ import qualified Pos.Wallet.Web.Account as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.Logic as V0
 import           Servant
+import           Test.QuickCheck (arbitrary, generate)
 
 handlers
     :: (HasCompileInfo, HasConfigurations)
@@ -25,6 +26,7 @@ handlers =
     :<|> listAccounts
     :<|> newAccount
     :<|> updateAccount
+    :<|> newExternalAccount
 
 deleteAccount
     :: (V0.MonadWalletLogic ctx m)
@@ -64,3 +66,12 @@ updateAccount wId accIdx accUpdate = do
     accMeta <- migrate accUpdate
     cAccount <- V0.updateAccount newAccId accMeta
     single <$> (migrate cAccount)
+
+
+newExternalAccount
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId
+    -> NewExternalAccount
+    -> m (WalletResponse Account)
+newExternalAccount _ _ = do
+    single <$> (liftIO $ generate arbitrary)

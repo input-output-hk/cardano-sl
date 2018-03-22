@@ -37,8 +37,8 @@ import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..), hoist
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..))
-import           Pos.Logic.Full (LogicWorkMode, logicLayerFull)
-import           Pos.Logic.Types (LogicLayer (..), hoistLogic)
+import           Pos.Logic.Full (LogicWorkMode, logicFullM)
+import           Pos.Logic.Types (hoistLogic)
 import           Pos.Network.Types (NetworkConfig (..), topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance ()
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgMetrics, withEkgServer)
@@ -139,16 +139,24 @@ runServer
     -> m t
 runServer runIO NodeParams {..} ekgNodeMetrics _ (ActionSpec act) = do
     lname <- askLoggerName
-    exitOnShutdown . logicLayerFull jsonLog $ \logicLayer ->
-        liftIO $ diffusionLayerFull (fdconf lname) npNetworkConfig (Just ekgNodeMetrics) (hoistLogic runIO (logic logicLayer)) $ \diffusionLayer -> do
+    exitOnShutdown $ do
+        logic <- logicFullM jsonLog
+        -- Full diffusion layer is in CPS because it brings up a TCP
+        -- transport.
+        liftIO $ diffusionLayerFull (fdconf lname)
+                                    npNetworkConfig
+                                    (Just ekgNodeMetrics)
+                                    -- It's 'Logic m' but we need
+                                    -- 'Logic IO', so we hoist it.
+                                    (hoistLogic runIO logic) $ \diffusionLayer -> do
             when npEnableMetrics (registerEkgMetrics ekgStore)
-            runIO $ runLogicLayer logicLayer $ liftIO $
-                runDiffusionLayer diffusionLayer $
+            runDiffusionLayer diffusionLayer $
                 maybeWithRoute53 (healthStatus (diffusion diffusionLayer)) $
                 maybeWithEkg $
                 maybeWithStatsd $
+                -- The 'act' is in 'm', and needs a 'Diffusion m'. We can hoist
+                -- that, since 'm' is 'MonadIO'.
                 runIO (act (hoistDiffusion liftIO (diffusion diffusionLayer)))
-                -- Whew that's a lot of lifting
   where
     fdconf lname = FullDiffusionConfiguration
         { fdcProtocolMagic = protocolMagic

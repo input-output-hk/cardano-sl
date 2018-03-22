@@ -33,6 +33,7 @@ module Pos.Wallet.Web.State.State
        , getWalletMetaIncludeUnready
        , getWalletPassLU
        , getWalletSyncState
+       , isWalletRestoring
        , getWalletAddresses
        , doesWAddressExist
        , getTxMeta
@@ -184,6 +185,12 @@ getWalletPassLU ws wid = queryValue ws (S.getWalletPassLU wid)
 -- present in some acid-state transaction log?
 getWalletSyncState :: WalletSnapshot -> CId Wal -> Maybe WalletSyncState
 getWalletSyncState ws wid = queryValue ws (S.getWalletSyncState wid)
+
+-- | Returns 'True' if this wallet is being restored.
+isWalletRestoring :: WalletSnapshot -> CId Wal -> Bool
+isWalletRestoring ws wid = case getWalletSyncState ws wid of
+    Just (RestoringFrom _ _) -> True
+    _                        -> False
 
 getAccountWAddresses
     :: WalletSnapshot -> AddressLookupMode -> AccountId -> Maybe [AddressInfo]

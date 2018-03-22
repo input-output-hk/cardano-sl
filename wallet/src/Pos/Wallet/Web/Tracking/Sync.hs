@@ -319,20 +319,17 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                 sformat ("Wallet "%secretOnlyF sl build%" has been synced with tip "
                         %shortHashF%", "%buildSafe sl)
                         walletId (headerHash newSyncTip) mapModifier
+            -- Read the old wallet state, by the virtue of the fact `applyModifierToWallet` doesn't perform any
+            -- state transition (restoring -> syncing), so we are relying on an immutable piece of invariant here.
+            when (WS.isWalletRestoring ws walletId) $ do
+                -- If we have here is means we are fully synced with the blockchain,
+                -- at which point we can forget about the distinction @restoration vs sync@. Even if a
+                -- rollback occurs, we don't need to transition back the old state, as it won't matter anymore.
+                logDebugSP $ \sl ->
+                    sformat ("Transitioning Wallet "%secretOnlyF sl build%" back into normal sync mode..") walletId
+                WS.setWalletSyncTip db walletId (headerHash newSyncTip)
             pure $ Right ()
-        False -> do
-            -- TODO(adn) rewrite this crappy check.
-            -- Read the old wallet state, by the virtue of the fact a 'RestorationBlockDepth' is, in fact,
-            -- immutable by contract.
-            case WS.getWalletSyncState ws walletId of
-                Just (RestoringFrom (WS.RestorationBlockDepth rbd) _) | depthOf newSyncTip > rbd -> do
-                    -- If we have surpassed the original 'RestorationBlockDepth', it means this wallet has caught up
-                    -- fully with the blockchain, at which point we can forget about the distinction @restoration vs sync@.
-                    logDebugSP $ \sl ->
-                        sformat ("Transitioning Wallet "%secretOnlyF sl build%" to a normal sync..") walletId
-                    WS.setWalletSyncTip db walletId (headerHash newSyncTip)
-                    syncWalletWithBlockchainUnsafe (syncRequest { srOperation = SyncWallet }) newSyncTip blockchainTip
-                _ -> syncWalletWithBlockchainUnsafe syncRequest newSyncTip blockchainTip
+        False -> syncWalletWithBlockchainUnsafe syncRequest newSyncTip blockchainTip
 
 
     where

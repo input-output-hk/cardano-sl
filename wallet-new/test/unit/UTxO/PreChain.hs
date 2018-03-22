@@ -12,6 +12,7 @@ module UTxO.PreChain (
   , FromPreChain(..)
   , fromPreChain
     -- * PreTree
+  , BlockTree
   , PreTree
   , preTree
   , FromPreTree(..)
@@ -20,12 +21,13 @@ module UTxO.PreChain (
 
 import           Universum
 
+import qualified Data.Set as Set
+import           Data.Tree (Tree)
+import qualified Data.Tree as Tree
 import           Pos.Client.Txp
 import           Pos.Core
 import           Pos.Txp.Toil
 import           Pos.Util.Chrono
-import Data.Tree (Tree)
-import qualified Data.Tree as Tree
 
 import           Util.DepIndep
 import           UTxO.Bootstrap
@@ -71,18 +73,18 @@ preChain = fmap (, ()) . DepIndep
 -- See 'fromPreChain'
 data FromPreChain h a = FromPreChain {
       -- | The boot transaction that was used in the translation
-      fpcBoot :: Transaction h Addr
+      fpcBoot   :: Transaction h Addr
 
       -- | The resulting chain (i.e., list of list of transactions)
       -- This does /not/ include the bootstrap transaction.
-    , fpcChain :: Chain h Addr
+    , fpcChain  :: Chain h Addr
 
       -- | The resulting ledger (i.e., flat list of transactions)
       -- This /does/ include the bootstrap transaction .
     , fpcLedger :: Ledger h Addr
 
       -- | Any additional information that was included in the 'PreChain'.
-    , fpcExtra :: a
+    , fpcExtra  :: a
     }
 
 fromPreChain :: (Hash h Addr, Monad m)
@@ -99,14 +101,14 @@ fromPreChain pc = do
 -------------------------------------------------------------------------------}
 
 -- | Blocks organised in a tree structure.
-type TBlocks h a = OldestFirst Tree (UTxO.DSL.Block h a)
+type BlockTree h a = OldestFirst Tree (UTxO.DSL.Block h a)
 
 -- | Generalisation of a 'PreChain'.
 --   A 'PreChain' is the flattening of a 'PreTree' with a single branch.
-type PreTree h m a = DepIndep (Transaction h Addr) (Tree [Fee]) m (TBlocks h Addr, a)
+type PreTree h m a = DepIndep (Transaction h Addr) (Tree [Fee]) m (BlockTree h Addr, a)
 
 preTree :: Functor m
-        => (Transaction h Addr -> m ((Tree [Fee]) -> TBlocks h Addr))
+        => (Transaction h Addr -> m ((Tree [Fee]) -> BlockTree h Addr))
         -> PreTree h m ()
 preTree = fmap (, ()) . DepIndep
 
@@ -115,21 +117,36 @@ preTree = fmap (, ()) . DepIndep
 -- See 'fromPreTree'
 -- Compared to 'FromPreChain':
 -- - we do not calculate a ledger, since we have not yet fixed on a single chain.
+--   Instead we include the list of all addresses in the tree. Note that this may
+--   include addresses which have no transactions to/from them in the final
+--   blockchain, because they were in blocks which were rolled back.
 -- - the boot transaction is included in the chain.
 data FromPreTree h a = FromPreTree {
       -- | The resulting tree
-      fptTree :: TBlocks h Addr
+      fptTree      :: BlockTree h Addr
+
+      -- | The boot transaction
+    , fptBoot      :: Transaction h Addr
+
+      -- | Addresses involved in this block tree
+    , fptAddresses :: Set Addr
 
       -- | Any additional information that was included in the 'PreChain'.
-    , fptExtra :: a
+    , fptExtra     :: a
     }
 
 fromPreTree :: (Hash h Addr, Monad m)
             => PreTree h m a
             -> TranslateT IntException m (FromPreTree h a)
 fromPreTree pc = do
-    fpcBoot <- asks bootstrapTransaction
-    (fptTree, fptExtra) <- calcTreeFees fpcBoot =<< lift (runDepIndep pc fpcBoot)
+    fptBoot <- asks bootstrapTransaction
+    (fptTree, fptExtra) <- calcTreeFees fptBoot =<< lift (runDepIndep pc fptBoot)
+    let fptAddresses = Set.fromList
+          . map outAddr
+          . concatMap trOuts
+          . concatMap toList
+          . Tree.flatten
+          $ getOldestFirst fptTree
     return FromPreTree{..}
 
 {-------------------------------------------------------------------------------

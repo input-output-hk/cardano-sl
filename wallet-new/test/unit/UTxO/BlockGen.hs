@@ -241,7 +241,7 @@ zipFees = zipWith (zipWith ($))
   Forkable blockchains
 -------------------------------------------------------------------------------}
 
-type BlockTree h = Tree [Value -> Transaction h Addr]
+type NoFeeBlockTree h = Tree [Value -> Transaction h Addr]
 
 -- | Global context for building block trees.
 --   This structure is shared between all branches, and controls the
@@ -269,7 +269,7 @@ data TreeGenGlobalCtx h = TreeGenGlobalCtx
     , _treeGenGlobalCtxSharedTransactionLikelihood :: !Double
       -- ^ The likelihood that a given transaction will be shared between two
       --   blocks with the same parent.
-    , _treeGenGlobalCtxBootTransaction :: Transaction h Addr
+    , _treeGenGlobalCtxBootTransaction             :: Transaction h Addr
       -- ^ Boot transaction
     }
 
@@ -317,7 +317,7 @@ genValidBlocktree = toPreTreeWith identity newTree
 toPreTreeWith
     :: Hash h Addr
     => (TreeGenGlobalCtx h -> TreeGenGlobalCtx h) -- ^ Modify the global settings
-    -> TreeGen h (BlockTree h)
+    -> TreeGen h (NoFeeBlockTree h)
     -> PreTree h Gen ()
 toPreTreeWith settings bg = DepIndep $ \boot -> do
     ks <- evalStateT (unTreeGen bg) (settings (initTreeGenGlobalCtx boot))
@@ -326,7 +326,7 @@ toPreTreeWith settings bg = DepIndep $ \boot -> do
    markOldestFirst = OldestFirst . fmap OldestFirst
 
 newTree :: forall h. Hash h Addr
-        => TreeGen h (BlockTree h)
+        => TreeGen h (NoFeeBlockTree h)
 newTree = do
     boot <- use bootTransaction
     -- Choose a random height for the blocktree

@@ -64,8 +64,6 @@ dev: &dev
     # NTP
     responseTimeout: 30000000 # 30 sec
     pollDelay:  1800000000 # 30 min
-    timeDifferenceWarnInterval: 14400000000 # 4 hours
-    timeDifferenceWarnThreshold: 5000000 # 5 sec
     servers:
       - "0.pool.ntp.org"
       - "2.pool.ntp.org"
@@ -243,8 +241,6 @@ mainnet_base: &mainnet_base
   ntp:
     responseTimeout: 30000000 # 30 sec
     pollDelay:  1800000000 # 30 min
-    timeDifferenceWarnInterval: 14400000000 # 4 hours
-    timeDifferenceWarnThreshold: 5000000 # 5 sec
     servers:
       - "0.pool.ntp.org"
       - "2.pool.ntp.org"

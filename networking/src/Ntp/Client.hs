@@ -42,8 +42,8 @@ import           Ntp.Util (createAndBindSock, resolveNtpHost, selectIPv4, select
                            udpLocalAddresses, withSocketsDoLifted)
 
 data NtpStatus =
-      NtpSyncOk
-    | NtpDesync Microsecond
+      NtpDrift Microsecond
+    | NtpSyncPending
     | NtpSyncUnavailable
     deriving (Eq, Show)
 
@@ -58,10 +58,6 @@ data NtpClientSettings = NtpClientSettings
       -- ^ way to sumarize results received from different servers.
       -- this may accept list of lesser size than @length ntpServers@ in case
       -- some servers failed to respond in time, but never an empty list
-    , ntpTimeDifferenceWarnInterval  :: Microsecond
-      -- ^ NTP checking interval
-    , ntpTimeDifferenceWarnThreshold :: Microsecond
-      -- ^ Maxium tolerable difference between NTP time and locak time.
     }
 
 data NtpClient = NtpClient
@@ -107,7 +103,6 @@ logDebug = usingNtpLogger . Wlog.logDebug
 handleCollectedResponses :: NtpClient -> IO ()
 handleCollectedResponses cli = do
     mres <- readTVarIO (ncState cli)
-    let selection = ntpMeanSelection (ncSettings cli)
     case mres of
         Nothing        -> do
             atomically $ writeTVar (ncStatus cli) NtpSyncUnavailable
@@ -116,7 +111,7 @@ handleCollectedResponses cli = do
             atomically $ writeTVar (ncStatus cli) NtpSyncUnavailable
             logWarning "No servers responded"
         Just responses -> handleE `handleAny` do
-            let time = selection responses
+            let time = ntpMeanSelection (ncSettings cli) responses
             logInfo $ sformat ("Evaluated clock offset "%shown%
                 " mcs for request at "%shown%" mcs")
                 (toMicroseconds $ fst time)
@@ -130,13 +125,7 @@ handleCollectedResponses cli = do
         let ntpTime = transmitTime + newMargin
         localTime <- realTime
         let timeDiff = abs $ ntpTime - localTime
-        -- If the @absolute@ time difference between the NTP time and the local time is
-        -- bigger than the given threshold, it effectively means we are not synced, as we are
-        -- either behind or ahead of the NTP time.
-        let !status
-                | timeDiff > (ntpTimeDifferenceWarnThreshold . ncSettings $ cli) = NtpDesync timeDiff
-                | otherwise = NtpSyncOk
-        atomically $ writeTVar (ncStatus cli) status
+        atomically $ writeTVar (ncStatus cli) (NtpDrift timeDiff)
 
 
 allResponsesGathered :: NtpClient -> STM Bool
@@ -317,7 +306,7 @@ spawnNtpClient settings ncStatus =
 -- `NtpStatus`.
 withNtpClient :: MonadIO m => NtpClientSettings -> m (TVar NtpStatus)
 withNtpClient ntpSettings = do
-    ntpStatus <- newTVarIO NtpSyncUnavailable
+    ntpStatus <- newTVarIO NtpSyncPending
     _ <- liftIO $ async (spawnNtpClient ntpSettings ntpStatus)
     return ntpStatus
 

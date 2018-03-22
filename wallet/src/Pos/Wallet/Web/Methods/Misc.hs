@@ -181,10 +181,8 @@ localTimeDifference ntpStatus = diff <$> readTVarIO ntpStatus
   where
     diff :: NtpStatus -> Integer
     diff = \case
-        NtpSyncOk -> 0
-        -- `NtpSyncOk` considered already a `timeDifferenceWarnThreshold`
-        -- so that we can return 0 here to show there is no difference in time
-        NtpDesync diff' -> toMicroseconds diff'
+        NtpDrift time -> toMicroseconds time
+        NtpSyncPending -> 0
         NtpSyncUnavailable -> 0
 
 ----------------------------------------------------------------------------

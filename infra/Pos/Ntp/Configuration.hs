@@ -15,18 +15,13 @@ import           Pos.Util.Util (median)
 
 data NtpConfiguration = NtpConfiguration
     {
-      ntpcResponseTimeout             :: !Integer
+      ntpcServers                     :: [String]
+      -- ^ List of DNS names of ntp servers
+    , ntpcResponseTimeout             :: !Integer
       -- ^ how long to await for responses from ntp servers (in microseconds)
     , ntpcPollDelay                   :: !Integer
-      -- ^ how long to wait between to send requests to the servers (in
+      -- ^ how long to wait between sending requests to the ntp servers (in
       -- microseconds)
-    , ntpcTimeDifferenceWarnInterval  :: !Integer
-      -- ^ NTP checking interval (in microseconds)
-    , ntpcTimeDifferenceWarnThreshold :: !Integer
-      -- ^ Maximum tolerable difference between NTP time and local time (in
-      -- microseconds)
-    , ntpcServers                     :: [String]
-      -- ^ List of ntp servers
     } deriving (Show, Generic)
 
 instance FromJSON NtpConfiguration where
@@ -41,6 +36,4 @@ ntpClientSettings NtpConfiguration {..} = NtpClientSettings
     , ntpResponseTimeout = fromMicroseconds $ ntpcResponseTimeout
     , ntpPollDelay       = fromMicroseconds $ ntpcPollDelay
     , ntpMeanSelection   = median . NE.fromList
-    , ntpTimeDifferenceWarnInterval  = fromMicroseconds $ ntpcTimeDifferenceWarnInterval
-    , ntpTimeDifferenceWarnThreshold = fromMicroseconds $ ntpcTimeDifferenceWarnThreshold
     }

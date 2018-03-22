@@ -9,39 +9,36 @@ Installation follows the standard approach to installing Stack-based projects.
 1. Install the [Haskell `stack` tool](http://docs.haskellstack.org/en/stable/README).
 2. Run `stack install cardano-sl-wallet-new` from the project *root* to install this package.
 
-## The API
+## API
 
-We describe how to interact with our API via the popular [Swagger](https://swagger.io/) framework & format.
-In order to do so, we export the full Swagger specification inside `spec/swagger.json`. Such JSON file must
-be kept in sync with the current version of the project and is developer responsibility to do so upon
-committing new work.
-This will be made automatic as part of [this issue](https://iohk.myjetbrains.com/youtrack/issue/CSL-1939) but
-for now requires self-enforced discipline.
+We describe how to interact with our API via the popular [Swagger](https://swagger.io/)
+framework & format. Swagger relies on a single specifications file in a `json` format. From 
+this file is derived a handful of tools. 
 
-Currently the only way to generate an updated `swagger.json` is to run the `cardano-node` node, so that
-the updated Swagger file will be written on disk. For example:
+A cardano node exposes both a Swagger file corresponding to the wallet API and a visualization
+tool that can be used for browsing the specification as well as playing with the API. As a
+first step, start a `cardano-node` using the following command line:
 
 ```
 stack exec cardano-node -- --topology=wallet-new/topology-examples/testnet.yaml --configuration-key mainnet_staging_short_epoch_full --wallet-debug --rebuild-db
 ```
 
-Running the command above *from the root of the Cardano project* will store an updated `swagger.json` into
-`wallet-new/spec`.
+From there, you can browse the documentation for V0 & V1 through the following URLs:
 
-### Playing with the API
+- http://localhost:8090/docs/v0/index/
+- http://localhost:8090/docs/v1/index/
 
-Once you have your updated `swagger.json` file, the easiest way is to head over to [the online editor](https://editor.swagger.io),
-click "Edit -> Import File" and import the file. Once done that, the API will be rendered in its full glory.
+The visualization at those URLs lets you play with the API by the mean of a _Try it out_ button
+made available for each endpoint. This will seemingly contact the node already running on your
+local machine with actual HTTP requests augmented with the parameters you provide!
 
-Alternatively (and *recommended*), is also possible to download the editor locally and play with it. This has the advantage
-you can now also *try out* the API, because the `host` of the swagger API points to `localhost`, which won't work, of course,
-in case of the online editor. We won't get too deep into how to setup the editor locally, but generally speaking it should be
-as simple as:
+If needed, you can access the corresponding raw Swagger files via these URLs:
 
-- Downloading [the editor](https://github.com/swagger-api/swagger-editor/archive/v3.1.17.zip) online;
-- Download the [http-server](https://www.npmjs.com/package/http-server) npm package and install it;
-- Serve the editor with something like `http-server swagger-editor-folder` where `swagger-editor-folder` is the folder where
-  you opened/decompressed the downloaded editor.
+- http://localhost:8090/docs/v0/swagger.json
+- http://localhost:8090/docs/v1/swagger.json
+
+> **NOTE** If you run the wallet in debug mode (`--wallet-debug`), you'll have access to an
+> extra set of endpoints, documented under: http://localhost:8090/docs/development/index
 
 ## Testing
 

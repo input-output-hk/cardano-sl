@@ -88,8 +88,9 @@ data RunFullDiffusionInternals = RunFullDiffusionInternals
     }
 
 data FullDiffusionInternals = FullDiffusionInternals
-    { fdiNode :: Node
-    , fdiConverse :: Converse PackingType PeerData
+    { fdiNode        :: Node
+    , fdiConverse    :: Converse PackingType PeerData
+    , fdiSendActions :: SendActions
     }
 
 -- | Make a full diffusion layer, filling in many details using a
@@ -424,6 +425,7 @@ runDiffusionLayerFull logTrace
                     k $ FullDiffusionInternals
                         { fdiNode = nd
                         , fdiConverse = converse
+                        , fdiSendActions = sendActions
                         }
   where
     oqEnqueue :: Msg

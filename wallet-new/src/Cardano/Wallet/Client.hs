@@ -67,7 +67,7 @@ data WalletClient m
     , postAddress
          :: NewAddress -> Resp m WalletAddress
     , getAddress
-         :: Text -> Resp m AddressInfo
+         :: Text -> Resp m WalletAddress
     -- wallets endpoints
     , postWallet
          :: New Wallet -> Resp m Wallet

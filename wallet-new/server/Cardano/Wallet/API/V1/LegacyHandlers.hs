@@ -4,6 +4,7 @@
 {-# LANGUAGE PolyKinds             #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
+
 module Cardano.Wallet.API.V1.LegacyHandlers where
 
 import           Universum

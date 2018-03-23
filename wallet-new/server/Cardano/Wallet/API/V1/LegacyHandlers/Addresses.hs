@@ -1,15 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators     #-}
+
 module Cardano.Wallet.API.V1.LegacyHandlers.Addresses where
 
 import           Universum
 
+import qualified Data.List as List
 import           Pos.Crypto (emptyPassphrase)
+import qualified Pos.Wallet.Web.Methods.Logic as V0 (getWAddress)
 import qualified Pos.Wallet.Web.Account as V0
+import qualified Pos.Wallet.Web.ClientTypes as V0
 import qualified Pos.Wallet.Web.Methods as V0
-import qualified Pos.Wallet.Web.State as V0
+import qualified Pos.Wallet.Web.State as V0 (askWalletSnapshot)
 import qualified Pos.Wallet.Web.State.Storage as V0
-import Control.Lens (at)
+import qualified Pos.Wallet.Web.State.State as V0State
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
@@ -33,7 +37,7 @@ listAddresses
     :: MonadIO m
     => RequestParams -> m (WalletResponse [Address])
 listAddresses RequestParams {..} = do
-    -- TODO: lmao
+    -- TODO(matt.parsons):  Fix as part of CSL-2146
     addresses <- liftIO $ generate (vectorOf 2 arbitrary)
     return WalletResponse {
               wrData = addresses
@@ -59,7 +63,7 @@ newAddress NewAddress {..} = do
 getAddress
     :: (MonadThrow m , V0.MonadWalletLogic ctx m)
     => Text
-    -> m (WalletResponse AddressInfo)
+    -> m (WalletResponse WalletAddress)
 getAddress addrText = do
     addr <- either
         (throwM . InvalidAddressFormat)
@@ -68,13 +72,37 @@ getAddress addrText = do
 
     ss <- V0.askWalletSnapshot
 
-    let mOurAddr = ss ^? V0.wsBalances . at addr
+    let
+        addrId :: V0.CId V0.Addr
+        addrId =
+            V0.addressToCId addr
 
-    case mOurAddr of
+        addrInfoMatchesAddr ::  V0.AddressInfo -> Bool
+        addrInfoMatchesAddr addrInfo =
+            addrId == V0.cwamId (V0.adiCWAddressMeta addrInfo)
+
+        getAddresses :: V0.CId V0.Wal -> [V0.AddressInfo]
+        getAddresses = V0State.getWAddresses ss V0.Ever
+
+        minfo :: Maybe (V0.CWalletMeta, V0.AddressInfo)
+        minfo =
+            asum
+            . map (\wid ->
+                (,) <$> V0State.getWalletMeta ss wid
+                    <*> List.find addrInfoMatchesAddr (getAddresses wid)
+                )
+            . V0.getWalletAddresses
+            $ ss
+
+    case minfo of
         Nothing ->
             throwM err404 -- TODO: make this a real error in the type
-        Just balance ->
-            pure $ undefined "return the real deal"
+        Just (_walletMeta, addressInfo) -> do
+            caddr <- V0.getWAddress
+                ss
+                mempty -- this is a weird cache mod thing? CachedCAccModifier
+                (V0.adiCWAddressMeta addressInfo)
+            single <$> migrate caddr
 
 -- ss has:
 -- - wsWalletInfos (Map (CId Wal) (WalletInfo))

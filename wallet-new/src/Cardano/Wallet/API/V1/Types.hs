@@ -37,7 +37,6 @@ module Cardano.Wallet.API.V1.Types (
   , SpendingPassword
   -- * Addresses
   , AddressValidity (..)
-  , AddressInfo (..)
   -- * Accounts
   , Account (..)
   , AccountIndex
@@ -521,23 +520,6 @@ instance ToSchema AddressValidity where
 
 instance Arbitrary AddressValidity where
   arbitrary = AddressValidity <$> arbitrary
-
-data AddressInfo = AddressInfo
-    { addrinfoWalletId     :: !WalletId
-    , addrinfoAccountIndex :: !AccountIndex
-    } deriving (Eq, Ord, Show, Generic)
-
-deriveJSON Serokell.defaultOptions ''AddressInfo
-
-instance Arbitrary AddressInfo where
-    arbitrary = AddressInfo <$> arbitrary <*> arbitrary
-
-instance ToSchema AddressInfo where
-    declareNamedSchema = genericSchemaDroppingPrefix "addrinfo" $ \(--^) p -> p
-        & "walletId"
-        --^ "The wallet ID that this address belongs to."
-        & "accountIndex"
-        --^ "The index of the account that this address belongs to in the wallet."
 
 --------------------------------------------------------------------------------
 -- Accounts

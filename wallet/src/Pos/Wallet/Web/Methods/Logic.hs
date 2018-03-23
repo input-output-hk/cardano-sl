@@ -24,6 +24,9 @@ module Pos.Wallet.Web.Methods.Logic
        , updateWallet
        , updateAccount
        , changeWalletPassphrase
+
+        -- hack to support V1 Legacy handler
+       , getWAddress
        ) where
 
 import           Universum

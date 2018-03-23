@@ -71,7 +71,9 @@ recordTxpMetrics ekgStore memPoolVar = do
               logDebug $ sformat ("MemPool metrics acquire: "%shown
                                   %" wait time was "%shown) reason timeWaited
 
-        , slmRelease = \reason timeWaited timeElapsed -> do
+        , slmRelease = \reason timeWaited timeElapsed memAllocated -> do
+              qlen <- liftIO $ Metrics.Gauge.read ekgMemPoolQueueLength
+              oldMemPoolSize <- liftIO $ Metrics.Gauge.read ekgMemPoolSize
               newMemPoolSize <- _mpSize <$> readTVarIO memPoolVar
               liftIO $ Metrics.Gauge.set ekgMemPoolSize (fromIntegral newMemPoolSize)
               let ekgMemPoolModifyTime = case reason of
@@ -89,6 +91,9 @@ recordTxpMetrics ekgStore memPoolVar = do
               pure . toJSON . JLMemPoolEvent $ JLMemPool
                   reason
                   (fromIntegral timeWaited)
+                  (fromIntegral qlen)
                   (fromIntegral timeElapsed)
+                  (fromIntegral oldMemPoolSize)
                   (fromIntegral newMemPoolSize)
+                  (fromIntegral memAllocated)
         }

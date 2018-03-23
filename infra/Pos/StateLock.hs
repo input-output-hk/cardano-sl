@@ -30,6 +30,7 @@ import           Control.Monad.Catch              (MonadMask)
 import           Data.Aeson.Types                 (Value, ToJSON (..))
 import           Data.Time.Units                  (Microsecond)
 import           JsonLog                          (CanJsonLog (..))
+import           System.Mem                       (getAllocationCounter)
 import           Mockable                         (CurrentTime, Mockable, currentTime)
 import           System.Wlog                      (LoggerNameBox, WithLogger,
                                                    askLoggerName, usingLoggerName)
@@ -76,7 +77,7 @@ data StateLockMetrics slr = StateLockMetrics
       -- | Called when a thread is finished modifying the mempool and has
       --   released the lock. Parameters indicates time elapsed since acquiring
       --   the lock, and new mempool size.
-    , slmRelease :: !(slr -> Microsecond -> Microsecond -> LoggerNameBox IO Value)
+    , slmRelease :: !(slr -> Microsecond -> Microsecond -> Int64 -> LoggerNameBox IO Value)
     }
 
 -- | A 'StateLockMetrics' that never does any writes. Use it if you
@@ -85,7 +86,7 @@ ignoreStateLockMetrics :: StateLockMetrics ()
 ignoreStateLockMetrics = StateLockMetrics
     { slmWait = const (pure ())
     , slmAcquire = const (const (pure ()))
-    , slmRelease = const (const (const (pure (toJSON ()))))
+    , slmRelease = const (const (const (const (pure (toJSON ())))))
     }
 
 type MonadStateLockBase ctx m
@@ -143,11 +144,15 @@ stateLockHelper doWithMVar prio reason action = do
         liftIO . usingLoggerName lname $
             slmAcquire reason (timeEndWait - timeBeginWait)
         timeBeginModify <- currentTime
+        memBeginModify <- liftIO getAllocationCounter
         res <- action hh
         timeEndModify <- currentTime
+        memEndModify <- liftIO getAllocationCounter
         json <- liftIO . usingLoggerName lname $ slmRelease
             reason
             (timeEndWait - timeBeginWait)
             (timeEndModify - timeBeginModify)
+            -- counter counts "down" memory that has been allocated by the thread
+            (memBeginModify - memEndModify)
         jsonLog json
         pure res

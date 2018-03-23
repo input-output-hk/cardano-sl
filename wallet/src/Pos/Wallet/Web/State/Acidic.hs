@@ -63,6 +63,7 @@ module Pos.Wallet.Web.State.Acidic
        , ApplyModifierToWallet (..)
        , ApplyModifierToWallet2 (..)
        , RollbackModifierFromWallet (..)
+       , RollbackModifierFromWallet2 (..)
        ) where
 
 import           Universum
@@ -157,4 +158,5 @@ makeAcidic ''WalletStorage
     , 'WST.applyModifierToWallet
     , 'WST.applyModifierToWallet2
     , 'WST.rollbackModifierFromWallet
+    , 'WST.rollbackModifierFromWallet2
     ]

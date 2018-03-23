@@ -84,7 +84,6 @@ import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo,
 import           Pos.Wallet.Web.State (CustomAddressType (..), WalletDB, WalletDbReader,
                                        WalletSnapshot, WalletSyncState (..))
 import qualified Pos.Wallet.Web.State as WS
-import qualified Pos.Wallet.Web.State.State as WS
 import           Pos.Wallet.Web.Tracking.Decrypt (THEntryExtra (..), WalletDecrCredentials,
                                                   buildTHEntryExtra, isTxEntryInteresting)
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), VoidModifier,
@@ -322,8 +321,6 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
             -- If we have here is means we are fully synced with the blockchain,
             -- at which point we can forget about the distinction @restoration vs sync@. Even if a
             -- rollback occurs, we don't need to transition back the old state, as it won't matter anymore.
-            logDebugSP $ \sl ->
-                sformat ("Transitioning Wallet "%secretOnlyF sl build%" back into normal sync mode..") walletId
             WS.setWalletSyncTip db walletId (headerHash newSyncTip)
             pure $ Right ()
         False -> syncWalletWithBlockchainUnsafe syncRequest newSyncTip blockchainTip
@@ -573,19 +570,28 @@ applyModifierToWallet db trackingOperation wid newBlockHeaderTip CAccModifier{..
       newSyncState
 
 rollbackModifierFromWallet
-    :: ( MonadSlots ctx m
+    :: ( CanLog m
+       , HasLoggerName m
+       , MonadSlots ctx m
        , HasProtocolConstants
        , HasConfiguration
        )
     => WalletDB
+    -> TrackingOperation
     -> CId Wal
     -> HeaderHash
     -> CAccModifier
     -> m ()
-rollbackModifierFromWallet db wid newTip CAccModifier{..} = do
+rollbackModifierFromWallet db trackingOperation wid newTip CAccModifier{..} = do
+
+    let newSyncState = case trackingOperation of
+            SyncWallet        -> SyncedWith newTip
+            RestoreWallet rbd -> RestoringFrom rbd newTip
+    logDebug $ sformat ("rollbackModifierFromWallet: new SyncState = " % shown) trackingOperation
+
     curSlot <- getCurrentSlotInaccurate
 
-    WS.rollbackModifierFromWallet
+    WS.rollbackModifierFromWallet2
       db
       wid
       (indexedDeletions camAddresses)
@@ -598,7 +604,7 @@ rollbackModifierFromWallet db wid newTip CAccModifier{..} = do
                              , WS.PtxResetSubmitTiming curSlot))
         <$> DL.toList camDeletedPtxCandidates
       )
-      newTip
+      newSyncState
 
 -- Change address is an address which money remainder is sent to.
 -- We will consider output address as "change" if:

@@ -9,6 +9,7 @@ module Pos.Wallet.Web.State.Transactions
     , applyModifierToWallet
     , applyModifierToWallet2
     , rollbackModifierFromWallet
+    , rollbackModifierFromWallet2
     )
     where
 
@@ -115,9 +116,44 @@ applyModifierToWallet walId wAddrs custAddrs utxoMod
     for_ ptxConditions $ uncurry $ WS.setPtxCondition walId
     WS.setWalletSyncTip walId syncTip
 
+-- | Like 'rollbackModifierFromWallet', but it takes into account the given 'WalletSyncState'.
+-- TODO(adn): Is there any way to prevent the duplication without accidentally removing
+-- or modifying 'rollbackModifierFromWallet2', which could be present in the @acid-state@ transaction log?
+rollbackModifierFromWallet2
+    :: HasProtocolConstants -- Needed for ptxUpdateMeta
+    => CId Wal
+    -> [CWAddressMeta] -- ^ Addresses to remove
+    -> [(WS.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to remove
+    -> UtxoModifier
+       -- We use this odd representation because Data.Map does not get 'withoutKeys'
+       -- until 5.8.1
+    -> Map TxId () -- ^ Entries to remove from history cache.
+    -> [(TxId, PtxCondition, WS.PtxMetaUpdate)] -- ^ Deleted PTX candidates
+    -> WS.WalletSyncState -- ^ New 'WalletSyncState'
+    -> Update ()
+rollbackModifierFromWallet2 walId wAddrs custAddrs utxoMod
+                            historyEntries ptxConditions
+                            syncState = do
+    case syncState of
+        (WS.RestoringFrom rhh newSyncTip) -> do
+            for_ wAddrs WS.removeWAddress
+            for_ custAddrs $ \(cat, addrs) ->
+                for_ addrs $ WS.removeCustomAddress cat
+            WS.updateWalletBalancesAndUtxo utxoMod
+            WS.removeFromHistoryCache walId historyEntries
+            WS.removeWalletTxMetas walId (encodeCType <$> M.keys historyEntries)
+            for_ ptxConditions $ \(txId, cond, meta) -> do
+                WS.ptxUpdateMeta walId txId meta
+                WS.setPtxCondition walId txId cond
+            WS.setWalletRestorationSyncTip walId rhh newSyncTip
+        (WS.SyncedWith newSyncTip) ->
+            rollbackModifierFromWallet walId wAddrs custAddrs utxoMod
+                                       historyEntries ptxConditions
+                                       newSyncTip
+        WS.NotSynced -> return ()
+
 -- | Rollback some set of modifiers to a wallet.
 --   TODO Find out the significance of this set of modifiers and document.
--- TODO(adn): Have a `rollbackModifierFromWallet2` variant here as well.
 rollbackModifierFromWallet
     :: HasProtocolConstants -- Needed for ptxUpdateMeta
     => CId Wal

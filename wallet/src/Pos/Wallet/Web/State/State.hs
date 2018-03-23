@@ -87,7 +87,7 @@ module Pos.Wallet.Web.State.State
        , resetFailedPtxs
        , flushWalletStorage
        , applyModifierToWallet2
-       , rollbackModifierFromWallet
+       , rollbackModifierFromWallet2
        ) where
 
 import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent)
@@ -520,7 +520,7 @@ applyModifierToWallet2 db walId wAddrs custAddrs utxoMod
       )
       db
 
-rollbackModifierFromWallet
+rollbackModifierFromWallet2
   :: (MonadIO m, HasConfiguration, HasProtocolConstants)
   => WalletDB
   -> CId Wal
@@ -531,15 +531,15 @@ rollbackModifierFromWallet
      -- until 5.8.1
   -> Map TxId a -- ^ Entries to remove from history cache.
   -> [(TxId, PtxCondition, S.PtxMetaUpdate)] -- ^ Deleted PTX candidates
-  -> HeaderHash -- ^ New sync tip
+  -> WalletSyncState -- ^ New 'WalletSyncState'
   -> m ()
-rollbackModifierFromWallet db walId wAddrs custAddrs utxoMod
-                           historyEntries ptxConditions
-                           syncTip =
+rollbackModifierFromWallet2 db walId wAddrs custAddrs utxoMod
+                            historyEntries ptxConditions
+                            syncState =
     updateDisk
-      ( A.RollbackModifierFromWallet
+      ( A.RollbackModifierFromWallet2
           walId wAddrs custAddrs utxoMod
-          historyEntries' ptxConditions syncTip
+          historyEntries' ptxConditions syncState
       )
       db
   where

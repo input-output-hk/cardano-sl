@@ -146,7 +146,6 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
     -- something a bit more reasonable.
     pure mempty
   where
-    -- TODO(adn): Revisit this bit.
     syncWallet
         :: WS.WalletDB
         -> WS.WalletSnapshot
@@ -158,10 +157,14 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
     syncWallet db ws curTip newTip txs wid = walletGuard ws curTip wid $ do
         encSK <- getSKById wid
         blkHeaderTs <- blkHeaderTsGetter
-        let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
-            mapModifier = trackingRollbackTxs (eskToWalletDecrCredentials encSK) dbUsed gbDiff blkHeaderTs txs
-        rollbackModifierFromWallet db wid newTip mapModifier
-        logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
+
+        let rollbackBlockWith trackingOperation = do
+              let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
+                  mapModifier = trackingRollbackTxs (eskToWalletDecrCredentials encSK) dbUsed gbDiff blkHeaderTs txs
+              rollbackModifierFromWallet db trackingOperation wid newTip mapModifier
+              logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
+
+        rollbackBlockWith SyncWallet
 
     gbDiff = Just . view difficultyL
 

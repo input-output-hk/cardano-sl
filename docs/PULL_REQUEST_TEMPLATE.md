@@ -11,6 +11,7 @@
 - [ ] 🐞 Bug fix (non-breaking change which fixes an issue)
 - [ ] 🛠 New feature (non-breaking change which adds functionality)
 - [ ] ⚠️ Breaking change (fix or feature that would cause existing functionality to change)
+- [ ] 🏭 Refactoring that does not change existing functionality but does improve things like code readability, structure etc
 - [ ] ⛑ git-flow chore (backport, hotfix, etc)
 
 ## Developer checklist

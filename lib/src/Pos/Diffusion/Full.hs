@@ -413,9 +413,9 @@ runDiffusionLayerFull logTrace
             -- main action.
             let sendActions :: SendActions
                 sendActions = makeSendActions logTrace ourVerInfo oqEnqueue converse
-                dequeueDaemon = Concurrently $ OQ.dequeueThread oq (sendMsgFromConverse converse)
-                subscriptionDaemon = Concurrently $ subscriptionThread (fst <$> mKademlia) sendActions
-                mainAction = Concurrently $ do
+                dequeueDaemon = OQ.dequeueThread oq (sendMsgFromConverse converse)
+                subscriptionDaemon = subscriptionThread (fst <$> mKademlia) sendActions
+                mainAction = do
                     maybe (pure ()) (flip registerEkgNodeMetrics nd) mEkgNodeMetrics
                     maybe (pure ()) joinKademlia mKademlia
                     k $ FullDiffusionInternals
@@ -423,7 +423,13 @@ runDiffusionLayerFull logTrace
                         , fdiConverse = converse
                         , fdiSendActions = sendActions
                         }
-                action = dequeueDaemon *> subscriptionDaemon *> mainAction
+                
+                action = Concurrently dequeueDaemon
+                      *> Concurrently subscriptionDaemon
+                      -- The outbound qeueue won't shutdown gracefully unless
+                      -- we call 'waitShutdown'.
+                      *> Concurrently (mainAction `finally` OQ.waitShutdown oq)
+
             in  runConcurrently action
   where
     oqEnqueue :: Msg

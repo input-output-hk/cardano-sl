@@ -277,8 +277,8 @@ yarn test
 
 ## Regenerating nix for dependencies
 
-If the dependencies in `bower.json`, `package.json`, or
-`package-lock.json` have changed, you need to regenerate the nix files
-used by the production build. This is checked by CI.
+If the dependencies in `bower.json` have changed, you need to
+regenerate the nix files used by the production build. This is checked
+by CI.
 
 Run `./nix/generate-frontend-deps.hs` to update the nix files.

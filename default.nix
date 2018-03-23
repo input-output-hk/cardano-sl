@@ -98,7 +98,7 @@ let
     cardano-sl-explorer-frontend = (import ./explorer/frontend {
       inherit system config gitrev pkgs;
       cardano-sl-explorer = cardanoPkgs.cardano-sl-explorer-static;
-    }).dist;
+    });
     mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";

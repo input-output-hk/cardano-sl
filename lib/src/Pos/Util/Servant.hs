@@ -337,7 +337,7 @@ instance (RunClient m, HasClient m (Verb mt st ct $ ApiModifiedRes mod a)) =>
 -- If user makes request which can't be processed (e.g. with path to undefined
 -- endpoint which normally terminates with 404) it won't be logged. However,
 -- I don't find it a great problem, it may impede only in development or on
--- getting acknoledged with api.
+-- getting acknowledged with api.
 data LoggingApi config api
 
 -- | Helper to traverse servant api and apply logging.

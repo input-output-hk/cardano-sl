@@ -442,6 +442,7 @@ test-suite wallet-new-specs
                     , containers
                     , data-default
                     , exceptions
+                    , formatting
                     , hspec
                     , http-client
                     , http-types

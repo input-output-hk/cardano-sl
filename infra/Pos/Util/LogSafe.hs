@@ -52,7 +52,6 @@ module Pos.Util.LogSafe
        , buildUnsecure
        , getSecuredText
        , deriveSafeBuildable
-       , deriveSafeBuildableExt
        ) where
 
 import           Universum
@@ -70,7 +69,7 @@ import           System.Wlog (CanLog (..), HasLoggerName (..), Severity (..), lo
 import           System.Wlog.LogHandler (LogHandlerTag (HandlerFilelike))
 
 import           Pos.Binary.Core ()
-import           Pos.Core (TxId)
+import           Pos.Core (Timestamp, TxId)
 import           Pos.Core.Common (Address, Coin)
 import           Pos.Crypto (PassPhrase)
 
@@ -250,38 +249,21 @@ instance BuildableSafeGen Password where
 class BuildableSafeGen a where
     buildSafeGen :: LogSecurityLevel -> a -> Builder
 
-{-
-Similar to 'deriveSafeBuildable', but more flexible,
-suitable for complex types.
-Provides helper to make new type variables.
-
-Example:
-
-@
-data Nyan a
-
-deriveSafeBuildableExt (\newVar -> [t| Nyan $newVar |])
-@
--}
-deriveSafeBuildableExt :: (TH.Q TH.Type -> TH.Q TH.Type) -> TH.Q [TH.Dec]
-deriveSafeBuildableExt mkTypeQ =
-    let newTypeVarQ = TH.VarT <$> TH.newName "t"
-        typeQ = mkTypeQ newTypeVarQ
-    in  [d|
-        instance Buildable $typeQ where
-            build = buildSafeGen unsecure
-
-        instance Buildable (SecureLog $typeQ) where
-            build = buildSafeGen secure . getSecureLog
-        |]
-
 -- | Builds up @instance Buildable a@ and @instance Buildable (SecureLog a)@
 -- assuming provided @instance BuildableSafeGen a@.
 -- Suitable for simple types.
 --
 -- Example: @deriveSafeBuildable ''Nyan@
 deriveSafeBuildable :: TH.Name -> TH.Q [TH.Dec]
-deriveSafeBuildable typeName = deriveSafeBuildableExt (\_ -> TH.conT typeName)
+deriveSafeBuildable typeName =
+    let typeQ = TH.conT typeName
+    in [d|
+       instance Buildable $typeQ where
+           build = buildSafeGen unsecure
+
+       instance Buildable (SecureLog $typeQ) where
+           build = buildSafeGen secure . getSecureLog
+       |]
 
 -- | Same as 'logMesssage', put to public logs only (these logs don't go
 -- to terminal). Use it along with 'logMessageS' when want to specify
@@ -355,3 +337,6 @@ instance Buildable (SecureLog Word32) where
 
 instance Buildable (SecureLog TxId) where
     build _ = "<txid>"
+
+instance Buildable (SecureLog Timestamp) where
+    build _ = "<timestamp>"

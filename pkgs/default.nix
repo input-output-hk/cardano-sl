@@ -7676,11 +7676,11 @@ inherit (pkgs) mesa;};
          , cardano-sl-txp, cardano-sl-update, cardano-sl-util
          , cardano-sl-wallet, constraints, containers, data-default
          , directory, exceptions, formatting, generics-sop, hspec
-         , http-api-data, http-client, http-types, ixset-typed, json-sop
-         , lens, log-warper, memory, mmorph, mtl, neat-interpolation
-         , network-transport-tcp, optparse-applicative, QuickCheck
-         , quickcheck-instances, safe-exceptions, serokell-util, servant
-         , servant-client, servant-client-core, servant-quickcheck
+         , http-api-data, http-client, http-types, insert-ordered-containers
+         , ixset-typed, json-sop, lens, log-warper, memory, mmorph, mtl
+         , neat-interpolation, network-transport-tcp, optparse-applicative
+         , QuickCheck, quickcheck-instances, safe-exceptions, serokell-util
+         , servant, servant-client, servant-client-core, servant-quickcheck
          , servant-server, servant-swagger, servant-swagger-ui, stdenv, stm
          , string-conv, swagger2, text, text-format, time, time-units
          , transformers, universum, unordered-containers, vector, wai

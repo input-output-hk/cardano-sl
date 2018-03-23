@@ -506,9 +506,6 @@ instance Arbitrary Wallet where
 -- Addresses
 --------------------------------------------------------------------------------
 
-
-type AccountIndex = Word32
-
 -- | Whether an address is valid or not.
 newtype AddressValidity = AddressValidity { isValid :: Bool }
   deriving (Eq, Show, Generic)
@@ -524,6 +521,8 @@ instance Arbitrary AddressValidity where
 --------------------------------------------------------------------------------
 -- Accounts
 --------------------------------------------------------------------------------
+
+type AccountIndex = Word32
 
 -- | A wallet 'Account'.
 data Account = Account

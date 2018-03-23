@@ -96,28 +96,10 @@ getAddress addrText = do
 
     case minfo of
         Nothing ->
-            throwM err404 -- TODO: make this a real error in the type
+            throwM AddressNotFound
         Just (_walletMeta, addressInfo) -> do
             caddr <- V0.getWAddress
                 ss
                 mempty -- this is a weird cache mod thing? CachedCAccModifier
                 (V0.adiCWAddressMeta addressInfo)
             single <$> migrate caddr
-
--- ss has:
--- - wsWalletInfos (Map (CId Wal) (WalletInfo))
---   - WalletInfo has CWalletMeta (deadend)
--- - wsAccountInfos (Map AccountId AccountInfo)
---   - aiMeta (just a name)
---   - aiAddresses (CAddresses ~ Map (CId Addr) AddressInfo
---     - AddressInfo has:
---       - CWAddressMeta has:
---         - CId Wal
---         - index 1+2 for derivation key
---         - CID Addr
---       - AddressSortingKey-
--- - wsBalances (WalletBalances ~ AddrCoinMap ~ Map Address Coin
---   - this has all the addresses that belong to this wallet, pointing to
---     their balance!
-
-

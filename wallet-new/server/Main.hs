@@ -95,10 +95,9 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
 actionWithNewWallet :: (HasConfigurations, HasCompileInfo)
                     => SscParams
                     -> NodeParams
-                    -> NtpConfiguration
                     -> NewWalletBackendParams
                     -> Production ()
-actionWithNewWallet sscParams nodeParams ntpConfig params =
+actionWithNewWallet sscParams nodeParams params =
     bracketNodeResources
         nodeParams
         sscParams
@@ -143,7 +142,7 @@ startEdgeNode WalletStartupOptions{..} =
         WalletLegacy legacyParams ->
           actionWithWallet sscParams nodeParams ntpConfig legacyParams
         WalletNew newParams ->
-          actionWithNewWallet sscParams nodeParams ntpConfig newParams
+          actionWithNewWallet sscParams nodeParams newParams
   where
     getParameters :: HasConfigurations => NtpConfiguration -> Production (SscParams, NodeParams)
     getParameters ntpConfig = do

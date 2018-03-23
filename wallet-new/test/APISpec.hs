@@ -9,9 +9,11 @@
 
 module APISpec where
 
+import qualified Prelude
 import           Universum
 
 import           Data.Default (def)
+import           Data.List.NonEmpty (fromList)
 import           Data.Maybe (fromJust)
 
 import           Data.Time.Clock.POSIX (getPOSIXTime)
@@ -21,9 +23,10 @@ import           Network.HTTP.Client hiding (Proxy)
 import           Network.HTTP.Types
 import           System.Wlog (HasLoggerName (..), LoggerName (..))
 
+import           Pos.Block.Types (Blund)
 import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..), NodeArgs (..), getNodeParams,
                                  gtSscParams)
-import           Pos.Core (Timestamp (..))
+import           Pos.Core (GenesisBlock, MainBlock, Timestamp (..), headerHash)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Rocks.Functions (openNodeDBs)
 import           Pos.DB.Rocks.Types (NodeDBs)
@@ -35,11 +38,26 @@ import           Pos.Network.CLI (NetworkConfigOpts (..), intNetworkConfigOpts)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
-import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
+
+import           Cardano.Wallet.API.V1.LegacyHandlers.Accounts (newAccount)
+import           Cardano.Wallet.API.V1.LegacyHandlers.Addresses (newAddress)
+import           Cardano.Wallet.API.V1.LegacyHandlers.Wallets (newWallet)
+
+import           Pos.DB.GState.Common (getTip, initGStateCommon, setInitialized)
+import           Pos.StateLock (StateLock (..))
+import           Pos.Wallet.Web.Mode (MonadWalletWebMode, WalletWebMode, WalletWebModeContext (..))
 import           Pos.Wallet.Web.State (WalletDB, openState)
 import           Pos.WorkMode (RealModeContext (..))
+
+import           Pos.DB.Block (prepareBlockDB, putBlunds)
+
+import           Pos.Util.Util (lensOf)
 import           System.Directory (createDirectoryIfMissing, doesPathExist, getCurrentDirectory,
                                    removeDirectoryRecursive)
+
+import           TestUtil (BlockNumber, SlotsPerEpoch, createEmptyUndo,
+                           produceBlocksByBlockNumberAndSlots, produceSecretKeys,
+                           produceSlotLeaders)
 
 import           Mockable (Production, runProduction)
 import           Pos.Util.JsonLog (jsonLogConfigFromHandle)
@@ -55,6 +73,7 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
 import           Cardano.Wallet.API.Request
+import           Cardano.Wallet.API.Response (WalletResponse (..))
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1 as V0
 import qualified Cardano.Wallet.API.V1 as V1
@@ -62,7 +81,7 @@ import qualified Cardano.Wallet.API.V1.LegacyHandlers as V0
 import qualified Cardano.Wallet.API.V1.LegacyHandlers as V1
 import qualified Cardano.Wallet.API.V1.Migration as Migration
 import           Cardano.Wallet.API.V1.Parameters
-import           Cardano.Wallet.API.V1.Types ()
+import           Cardano.Wallet.API.V1.Types (Wallet (..))
 
 --
 -- Instances to allow use of `servant-quickcheck`.
@@ -158,7 +177,7 @@ v1Server diffusion = do
   ctx <- testV1Context
   return (V1.handlers (Migration.v1MonadNat ctx) diffusion)
 
-
+-- | Get the current time from the system to provide a @systemStart@.
 getCurrentTime :: MonadIO m => m Microsecond
 getCurrentTime = liftIO $ fromMicroseconds . round . ( * 1000000) <$> getPOSIXTime
 
@@ -206,6 +225,80 @@ testV1Context = do
             -- after the test is done.
             walletRunner cfg dbs secretKeyPath ws
             -- closeState ws
+
+
+-- | Here we have data that we need since we fetch it from the clinet.
+insertRequiredData
+    :: forall ctx. MonadWalletWebMode ctx WalletWebMode
+    => WalletWebMode ()
+insertRequiredData = do
+
+    -- Generate arbitrary blockchain.
+    (genBlock, mainBlocks) <- liftIO $ generateValidBlocks 10 5
+
+    -- Insert the data we need in the node database.
+    prepareBlockDB genBlock
+
+    let blunds :: [Blund]
+        blunds = map (\mb -> (Right mb, createEmptyUndo)) mainBlocks
+
+    putBlunds $ fromList blunds
+
+    initGStateCommon $ headerHash genBlock
+    setInitialized
+
+    -- Lock the access, we now insert what we need in the wallet database.
+    gainExclusiveLock
+
+    -- The idea here was that we were going to insert the required
+    -- arbitrary instances in the wallet database and when the
+    -- servant-quickcheck asks for them, we will have them.
+    genWallet   <- liftIO $ generate arbitrary
+    genAccount  <- liftIO $ generate arbitrary
+    genAddress  <- liftIO $ generate arbitrary
+
+    wallet      <- newWallet genWallet
+    _account    <- newAccount (walId . wrData $ wallet) genAccount
+    _address    <- newAddress genAddress
+
+    pure ()
+
+
+-- | Simple blocks generation. Currently using @Explorer@ block generation.
+-- Ideally, we should use wallet-new block generation with something like:
+-- `generate $ int . fpcChain =<< runTranslateT =<< fromPreChain =<< genValidBlockchain`
+generateValidBlocks
+    :: BlockNumber
+    -> SlotsPerEpoch
+    -> IO (GenesisBlock, [MainBlock])
+generateValidBlocks blocksNumber slotsPerEpoch = do
+
+    slotLeaders   <- produceSlotLeaders blocksNumber
+    secretKeys    <- produceSecretKeys blocksNumber
+
+    blocks        <- withDefConfigurations $
+        produceBlocksByBlockNumberAndSlots
+            blocksNumber
+            slotsPerEpoch
+            slotLeaders
+            secretKeys
+
+    let genesisBlock :: GenesisBlock
+        genesisBlock = Prelude.head $ lefts blocks
+
+    let mainBlocks :: [MainBlock]
+        mainBlocks = rights $ Prelude.tail blocks
+
+    pure (genesisBlock, mainBlocks)
+
+
+gainExclusiveLock
+    :: forall ctx. MonadWalletWebMode ctx WalletWebMode
+    => WalletWebMode ()
+gainExclusiveLock = do
+    tip <- getTip
+    (StateLock mvar _) <- view (lensOf @StateLock)
+    () <$ tryPutMVar mvar tip
 
 
 -- | Required instance for IO.
@@ -294,11 +387,15 @@ walletRunner
     -> FilePath
     -> WalletDB
     -> IO WalletWebModeContext
-walletRunner confOpts dbs secretKeyPath ws =
-    WalletWebModeContext <$> pure ws
-                         <*> newTVarIO def
-                         <*> (AddrCIdHashes <$> (newIORef mempty))
-                         <*> runProduction (newRealModeContext dbs confOpts secretKeyPath)
+walletRunner confOpts dbs secretKeyPath ws = runProduction $ do
+    wwmc  <- WalletWebModeContext <$> pure ws
+                                  <*> newTVarIO def
+                                  <*> (AddrCIdHashes <$> (newIORef mempty))
+                                  <*> newRealModeContext dbs confOpts secretKeyPath
+
+    -- Insert the wallet and node data we need to run this test.
+    runReaderT insertRequiredData wwmc
+    pure wwmc
 
 
 -- Our API apparently is returning JSON Arrays which is considered bad practice as very old
@@ -309,10 +406,12 @@ spec :: Spec
 spec = withCompileInfo def $ do
     withDefConfigurations $ do
       describe "Servant API Properties" $ do
+
         it "V0 API follows best practices & is RESTful abiding" $ do
           ddl <- D.dummyDiffusionLayer
           withServantServer (Proxy @V0.API) (v0Server (D.diffusion ddl)) $ \burl ->
             serverSatisfies (Proxy @V0.API) burl stdArgs predicates
+
         it "V1 API follows best practices & is RESTful abiding" $ do
           ddl <- D.dummyDiffusionLayer
           withServantServer (Proxy @V1.API) (v1Server (D.diffusion ddl)) $ \burl ->

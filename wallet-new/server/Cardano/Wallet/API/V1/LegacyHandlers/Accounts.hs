@@ -1,5 +1,6 @@
-module Cardano.Wallet.API.V1.LegacyHandlers.Accounts (
-      handlers
+module Cardano.Wallet.API.V1.LegacyHandlers.Accounts
+    ( handlers
+    , newAccount
     ) where
 
 import           Universum

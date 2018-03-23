@@ -108,6 +108,7 @@ toServantError err =
     JSONValidationFailed{} -> mkServantErr err400 err
     UnkownError{}          -> mkServantErr err400 err
     WalletNotFound{}       -> mkServantErr err404 err
+    InvalidAddressFormat{} -> mkServantErr err401 err
   where
     mkServantErr serr@ServantErr{..} werr = serr
       { errBody    = encode werr

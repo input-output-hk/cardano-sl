@@ -21,8 +21,8 @@ import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger)
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Types (Blund, undoTx)
-import           Pos.Core (HasConfiguration, HeaderHash, Timestamp, difficultyL, headerHash,
-                           headerSlotL, prevBlockL)
+import           Pos.Core (HasConfiguration, HeaderHash, Timestamp, difficultyL, headerSlotL,
+                           prevBlockL)
 import           Pos.Core.Block (BlockHeader (..), blockHeader, getBlockHeader, mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux (..), TxUndo)
 import           Pos.DB.BatchOp (SomeBatchOp)
@@ -110,7 +110,7 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
         let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
         let applyBlockWith trackingOp = do
               let mapModifier = trackingApplyTxs credentials dbUsed gbDiff blkHeaderTs ptxBlkInfo blkTxsWUndo
-              applyModifierToWallet db trackingOp wAddr (headerHash newTipH) mapModifier
+              applyModifierToWallet db trackingOp wAddr newTipH mapModifier
               logMsg "Applied" (getOldestFirst blunds) wAddr mapModifier
 
         applyBlockWith SyncWallet

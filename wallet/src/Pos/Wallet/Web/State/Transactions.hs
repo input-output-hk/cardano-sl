@@ -18,7 +18,7 @@ import           Data.Foldable (for_)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
 import           Pos.Client.Txp.History (TxHistoryEntry)
-import           Pos.Core (HasProtocolConstants)
+import           Pos.Core (ChainDifficulty, HasProtocolConstants)
 import           Pos.Core.Common (HeaderHash)
 import           Pos.Txp (TxId, UtxoModifier)
 import           Pos.Util.Servant (encodeCType)
@@ -66,17 +66,23 @@ applyModifierToWallet2
     -> [(CTxId, CTxMeta)] -- ^ Transaction metadata to add
     -> Map TxId TxHistoryEntry -- ^ Entries for the history cache
     -> [(TxId, PtxCondition)] -- ^ PTX Conditions
+    -> ChainDifficulty
+    -- ^ The current depth of the blockchain.
     -> WS.WalletSyncState -- ^ New 'WalletSyncState'
     -> Update ()
 applyModifierToWallet2 walId wAddrs custAddrs utxoMod
                       txMetas historyEntries ptxConditions
-                      syncState = do
+                      currentBlockchainDepth syncState = do
     case syncState of
         (WS.RestoringFrom rhh newSyncTip) -> do
             for_ wAddrs WS.addWAddress
             for_ custAddrs $ \(cat, addrs) ->
                 for_ addrs $ WS.addCustomAddress cat
-            WS.updateWalletBalancesAndUtxo utxoMod
+            -- Allow the transactions to influence the 'UTXO' and the balance only
+            -- if we are looking at transactions happened _after_ the point where we
+            -- originally restored this wallet.
+            when (currentBlockchainDepth > WS.getRestorationBlockDepth rhh) $
+                WS.updateWalletBalancesAndUtxo utxoMod
             for_ txMetas $ uncurry $ WS.addOnlyNewTxMeta walId
             WS.insertIntoHistoryCache walId historyEntries
             for_ ptxConditions $ uncurry $ WS.setPtxCondition walId

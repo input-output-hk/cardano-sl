@@ -23,9 +23,6 @@ module Pos.Client.Txp.History
        , saveTxDefault
 
        , txHistoryListToMap
-
-       -- * Unused (٩◔̯◔۶)
-       , deriveAddrHistory
        ) where
 
 import           Universum
@@ -129,14 +126,6 @@ getRelatedTxsByAddrs
     -> [(WithHash Tx, TxWitness)]
     -> UtxoM (Map TxId TxHistoryEntry)
 getRelatedTxsByAddrs addrs = getTxsByPredicate $ any (`elem` addrs)
-
--- | Given a full blockchain, derive address history and Utxo
--- TODO: Such functionality will still be useful for merging
--- blockchains when wallet state is ready, but some metadata for
--- Tx will be required.
-deriveAddrHistory :: [Address] -> [Block] -> UtxoM (Map TxId TxHistoryEntry)
-deriveAddrHistory addrs chain =
-    foldrM (flip $ deriveAddrHistoryBlk addrs $ const Nothing) mempty chain
 
 deriveAddrHistoryBlk
     :: [Address]

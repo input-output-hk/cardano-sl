@@ -93,7 +93,7 @@ module Pos.Wallet.Web.State.State
 import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent)
 import qualified Data.Map as Map
 import           Pos.Client.Txp.History (TxHistoryEntry)
-import           Pos.Core (HasConfiguration, HasProtocolConstants, SlotId)
+import           Pos.Core (ChainDifficulty, HasConfiguration, HasProtocolConstants, SlotId)
 import           Pos.Core.Common (HeaderHash)
 import           Pos.Txp (TxId, Utxo, UtxoModifier)
 import           Pos.Util.Servant (encodeCType)
@@ -507,15 +507,16 @@ applyModifierToWallet2
   -> [(CTxId, CTxMeta)] -- ^ Transaction metadata to add
   -> Map TxId TxHistoryEntry -- ^ Entries for the history cache
   -> [(TxId, PtxCondition)] -- ^ PTX Conditions
+  -> ChainDifficulty -- ^ The current depth of the blockchain
   -> WalletSyncState -- ^ New 'WalletSyncState'
   -> m ()
 applyModifierToWallet2 db walId wAddrs custAddrs utxoMod
                       txMetas historyEntries ptxConditions
-                      syncState =
+                      currentDepth syncState =
     updateDisk
       ( A.ApplyModifierToWallet2
           walId wAddrs custAddrs utxoMod
-          txMetas historyEntries ptxConditions syncState
+          txMetas historyEntries ptxConditions currentDepth syncState
       )
       db
 

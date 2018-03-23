@@ -270,7 +270,7 @@ syncWalletWithBlockchain syncRequest@SyncRequest{..} = setLogger $ do
         let finaliseSyncUnderBlockLock = withStateLockNoMetrics HighPriority $ \tip -> do
                 logInfo $ sformat ("Syncing wallet with "%build%" under the block lock") tip
                 tipH <- maybe (error "No block header corresponding to tip") pure =<< DB.getHeader tip
-                syncWalletWithBlockchainUnsafe (syncRequest { srOperation = trackingOp }) wNewTip tipH
+                syncWalletWithBlockchainUnsafe (syncRequest { srOperation = SyncWallet }) wNewTip tipH
 
         case syncResult of
             Nothing         -> finaliseSyncUnderBlockLock
@@ -310,7 +310,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
 
     let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
     (mapModifier, newSyncTip) <- computeAccModifier credentials getBlockHeaderTimestamp walletTip dbUsed mempty 0
-    applyModifierToWallet db (srOperation syncRequest) walletId (headerHash newSyncTip) mapModifier
+    applyModifierToWallet db (srOperation syncRequest) walletId newSyncTip mapModifier
     logInfoSP $ \sl -> sformat ("Applied " %buildSafe sl) mapModifier
 
     case headerHash newSyncTip == headerHash blockchainTip of
@@ -319,15 +319,12 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                 sformat ("Wallet "%secretOnlyF sl build%" has been synced with tip "
                         %shortHashF%", "%buildSafe sl)
                         walletId (headerHash newSyncTip) mapModifier
-            -- Read the old wallet state, by the virtue of the fact `applyModifierToWallet` doesn't perform any
-            -- state transition (restoring -> syncing), so we are relying on an immutable piece of invariant here.
-            when (WS.isWalletRestoring ws walletId) $ do
-                -- If we have here is means we are fully synced with the blockchain,
-                -- at which point we can forget about the distinction @restoration vs sync@. Even if a
-                -- rollback occurs, we don't need to transition back the old state, as it won't matter anymore.
-                logDebugSP $ \sl ->
-                    sformat ("Transitioning Wallet "%secretOnlyF sl build%" back into normal sync mode..") walletId
-                WS.setWalletSyncTip db walletId (headerHash newSyncTip)
+            -- If we have here is means we are fully synced with the blockchain,
+            -- at which point we can forget about the distinction @restoration vs sync@. Even if a
+            -- rollback occurs, we don't need to transition back the old state, as it won't matter anymore.
+            logDebugSP $ \sl ->
+                sformat ("Transitioning Wallet "%secretOnlyF sl build%" back into normal sync mode..") walletId
+            WS.setWalletSyncTip db walletId (headerHash newSyncTip)
             pure $ Right ()
         False -> syncWalletWithBlockchainUnsafe syncRequest newSyncTip blockchainTip
 
@@ -544,10 +541,12 @@ applyModifierToWallet
     => WalletDB
     -> TrackingOperation
     -> CId Wal
-    -> HeaderHash
+    -> BlockHeader
     -> CAccModifier
     -> m ()
-applyModifierToWallet db trackingOperation wid newTip CAccModifier{..} = do
+applyModifierToWallet db trackingOperation wid newBlockHeaderTip CAccModifier{..} = do
+
+    let newTip = headerHash newBlockHeaderTip
 
     let newSyncState = case trackingOperation of
             SyncWallet        -> SyncedWith newTip
@@ -570,6 +569,7 @@ applyModifierToWallet db trackingOperation wid newTip CAccModifier{..} = do
       cMetas
       (txHistoryListToMap $ DL.toList camAddedHistory)
       (DL.toList $ second PtxInNewestBlocks <$> camAddedPtxCandidates)
+      (depthOf newBlockHeaderTip)
       newSyncState
 
 rollbackModifierFromWallet

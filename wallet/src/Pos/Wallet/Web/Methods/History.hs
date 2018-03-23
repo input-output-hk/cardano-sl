@@ -39,9 +39,9 @@ import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
 import           Pos.Wallet.Web.Methods.Misc (convertCIdTOAddrs)
 import           Pos.Wallet.Web.Pending (PendingTx (..), ptxPoolInfo, _PtxApplying)
 import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (Ever), WalletDB,
-                                       WalletSnapshot, addOnlyNewTxMetas, getHistoryCache,
-                                       getPendingTx, getTxMeta, getWalletPendingTxs,
-                                       getWalletSnapshot, askWalletDB)
+                                       WalletSnapshot, addOnlyNewTxMetas, askWalletDB,
+                                       getHistoryCache, getPendingTx, getTxMeta,
+                                       getWalletPendingTxs, getWalletSnapshot)
 import           Pos.Wallet.Web.Util (getAccountAddrsOrThrow, getWalletAccountIds, getWalletAddrs,
                                       getWalletAddrsDetector)
 import           Servant.API.ContentTypes (NoContent (..))

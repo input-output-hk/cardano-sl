@@ -1170,7 +1170,7 @@ instance ToSchema SlotDuration where
 deriveSafeBuildable ''SlotDuration
 instance BuildableSafeGen SlotDuration where
     buildSafeGen _ (SlotDuration (MeasuredIn w)) =
-        bprint (build%" milliseconds") w
+        bprint (build%"ms") w
 
 
 -- | The @static@ settings for this wallet node. In particular, we could group
@@ -1291,7 +1291,7 @@ instance ToSchema LocalTimeDifference where
 deriveSafeBuildable ''LocalTimeDifference
 instance BuildableSafeGen LocalTimeDifference where
     buildSafeGen _ (LocalTimeDifference (MeasuredIn w)) =
-        bprint (build%" microseconds") w
+        bprint (build%"μs") w
 
 
 -- | The sync progress with the blockchain.
@@ -1333,7 +1333,7 @@ instance ToSchema SyncProgress where
 deriveSafeBuildable ''SyncProgress
 instance BuildableSafeGen SyncProgress where
     buildSafeGen _ (SyncProgress (MeasuredIn w)) =
-        bprint (build%" %") w
+        bprint (build%"%") w
 
 
 -- | The absolute or relative height of the blockchain, measured in number

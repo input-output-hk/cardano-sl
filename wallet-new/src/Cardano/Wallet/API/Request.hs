@@ -22,8 +22,7 @@ data RequestParams = RequestParams
     -- ^ The pagination-related parameters
     }
 
+deriveSafeBuildable ''RequestParams
 instance BuildableSafeGen RequestParams where
     buildSafeGen _sl RequestParams{..} =
         bprint ("pagination: "%build) rpPaginationParams
-
-deriveSafeBuildable ''RequestParams

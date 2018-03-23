@@ -14,7 +14,6 @@ import           Universum
 import qualified Data.Text as T
 import qualified Data.Text.Buildable
 import           Data.Typeable
-import           Data.Typeable (Typeable)
 import           Formatting (bprint, build, formatToString, sformat)
 import qualified Generics.SOP as SOP
 import           GHC.TypeLits (KnownSymbol, symbolVal)

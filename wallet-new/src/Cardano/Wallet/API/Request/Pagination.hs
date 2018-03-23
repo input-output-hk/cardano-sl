@@ -144,7 +144,7 @@ instance ToSchema PaginationMetadata where
 
 instance Buildable PaginationMetadata where
     build PaginationMetadata{..} =
-        bprint ("p #"%build%" / "%build%" ("%build%" total / "%build%" pp)")
+        bprint (build%"/"%build%" total="%build%" per_page="%build)
             metaPage
             metaTotalPages
             metaTotalEntries
@@ -159,6 +159,6 @@ data PaginationParams = PaginationParams
 
 instance Buildable PaginationParams where
     build PaginationParams{..} =
-      bprint ("p #"%build%" / pp "%build)
+      bprint ("page="%build%", per_page="%build)
           ppPage
           ppPerPage

@@ -24,8 +24,7 @@ import qualified Data.Char as Char
 import           Data.Swagger as S
 import qualified Data.Text.Buildable
 import           Data.Typeable
-import           Formatting (build, (%))
-import           Formatting (bprint)
+import           Formatting (bprint, build, (%))
 import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
 import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..), MimeUnrender (..),
@@ -100,11 +99,11 @@ instance (ToSchema a, Typeable a) => ToSchema (WalletResponse a) where
                 ]
 
 instance Buildable a => Buildable (WalletResponse a) where
-    build WalletResponse{..} = bprint ("{"
-        %" status="%build
-        %" meta="%build
-        %" data="%build
-        %" }")
+    build WalletResponse{..} = bprint
+        ("\n\tstatus="%build
+        %"\n\tmeta="%build
+        %"\n\tdata="%build
+        )
         wrStatus
         wrMeta
         wrData

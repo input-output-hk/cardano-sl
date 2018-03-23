@@ -12,14 +12,12 @@ module Pos.Launcher.Configuration
        , defaultConfigurationOptions
 
        , withConfigurations
-       , withNtpConfiguration
        ) where
 
 import           Universum
 
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON,
                              withObject, (.:), (.:?))
-import           Data.Yaml as Y
 import           Data.Default (Default (..))
 import           Serokell.Aeson.Options (defaultOptions)
 import           Serokell.Util (sec)
@@ -44,6 +42,7 @@ import           Pos.Update.Configuration
 -- | Product of all configurations required to run a node.
 data Configuration = Configuration
     { ccCore   :: !CoreConfiguration
+    , ccNtp    :: !NtpConfiguration
     , ccUpdate :: !UpdateConfiguration
     , ccSsc    :: !SscConfiguration
     , ccDlg    :: !DlgConfiguration
@@ -101,28 +100,12 @@ defaultConfigurationOptions = ConfigurationOptions
 instance Default ConfigurationOptions where
     def = defaultConfigurationOptions
 
--- | Parse a yaml file and extract key with `NtpConfiguration`.
-withConfiguration
-    :: (WithLogger m, MonadThrow m, MonadIO m, Y.FromJSON a)
-    => ConfigurationOptions
-    -> (a -> m r)
-    -> m r
-withConfiguration ConfigurationOptions{..} act =
-    parseYamlConfig cfoFilePath cfoKey >>= act
-
-withNtpConfiguration
-    :: (WithLogger m, MonadThrow m, MonadIO m)
-    => ConfigurationOptions
-    -> (NtpConfiguration -> m r)
-    -> m r
-withNtpConfiguration cfg = withConfiguration (cfg { cfoKey = "ntp" })
-
 -- | Parse some big yaml file to 'MultiConfiguration' and then use the
 -- configuration at a given key.
 withConfigurations
     :: (WithLogger m, MonadThrow m, MonadIO m)
     => ConfigurationOptions
-    -> (HasConfigurations => m r)
+    -> (HasConfigurations => NtpConfiguration -> m r)
     -> m r
 withConfigurations co@ConfigurationOptions{..} act = do
     logInfo ("using configurations: " <> show co)
@@ -134,4 +117,4 @@ withConfigurations co@ConfigurationOptions{..} act = do
         withDlgConfiguration ccDlg $
         withTxpConfiguration ccTxp $
         withBlockConfiguration ccBlock $
-        withNodeConfiguration ccNode act
+        withNodeConfiguration ccNode $ act ccNtp

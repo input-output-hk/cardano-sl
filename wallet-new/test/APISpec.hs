@@ -167,7 +167,7 @@ testV1Context =
 -- The general consensus, after discussing this with the team, is that we can be moderately safe.
 spec :: Spec
 spec = withCompileInfo def $ do
-    withDefConfigurations $ do
+    withDefConfigurations $ \_ -> do
       xdescribe "Servant API Properties" $ do
         it "V0 API follows best practices & is RESTful abiding" $ do
           ddl <- D.dummyDiffusionLayer

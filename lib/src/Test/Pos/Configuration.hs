@@ -8,6 +8,7 @@ module Test.Pos.Configuration
 
        , HasStaticConfigurations
        , withDefConfiguration
+       , withDefNtpConfiguration
        , withDefNodeConfiguration
        , withDefSscConfiguration
        , withDefUpdateConfiguration
@@ -28,6 +29,7 @@ import           Pos.Core.Configuration (CoreConfiguration (..), GenesisConfigur
 import           Pos.Core.Genesis (GenesisSpec (..))
 import           Pos.Delegation (HasDlgConfiguration, withDlgConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
+import           Pos.Ntp.Configuration (NtpConfiguration)
 import           Pos.Ssc.Configuration (HasSscConfiguration, withSscConfiguration)
 import           Pos.Txp (HasTxpConfiguration, withTxpConfiguration)
 import           Pos.Update.Configuration (HasUpdateConfiguration, withUpdateConfiguration)
@@ -72,6 +74,9 @@ withDefSscConfiguration = withSscConfiguration (ccSsc defaultTestConf)
 withDefUpdateConfiguration :: (HasUpdateConfiguration => r) -> r
 withDefUpdateConfiguration = withUpdateConfiguration (ccUpdate defaultTestConf)
 
+withDefNtpConfiguration :: (NtpConfiguration -> r) -> r
+withDefNtpConfiguration fn = fn (ccNtp defaultTestConf)
+
 withDefBlockConfiguration :: (HasBlockConfiguration => r) -> r
 withDefBlockConfiguration = withBlockConfiguration (ccBlock defaultTestConf)
 
@@ -84,15 +89,16 @@ withDefTxpConfiguration = withTxpConfiguration (ccTxp defaultTestConf)
 withDefConfiguration :: (HasConfiguration => r) -> r
 withDefConfiguration = withGenesisSpec 0 (ccCore defaultTestConf)
 
-withStaticConfigurations :: (HasStaticConfigurations => r) -> r
+withStaticConfigurations :: (HasStaticConfigurations => NtpConfiguration -> r) -> r
 withStaticConfigurations patak =
     withDefNodeConfiguration $
     withDefSscConfiguration $
     withDefUpdateConfiguration $
     withDefBlockConfiguration $
     withDefDlgConfiguration $
-    withDefTxpConfiguration patak
+    withDefTxpConfiguration $
+    withDefNtpConfiguration patak
 
-withDefConfigurations :: (HasConfigurations => r) -> r
+withDefConfigurations :: (HasConfigurations => NtpConfiguration -> r) -> r
 withDefConfigurations bardaq =
     withDefConfiguration $ withStaticConfigurations bardaq

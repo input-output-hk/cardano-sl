@@ -157,14 +157,17 @@ doSend cli addr = do
         logWarning . sformat ("Failed to send to "%shown%": "%shown) addr
 
 -- |
--- Every `ntpPollDelay` send request to the list of `ntpServers`.  After
--- sending requests wait until either all servers respond or
--- `ntpResponseTimeout` passes.  If at least one server responded
--- `handleCollectedResponses` will update `ncStatus` in `NtpClient`.
+-- Every `ntpPollDelay` send request to the list of `ntpServers`.  Before
+-- sending the request, fill `ncState` with `NtpSyncPending`.  After sending
+-- requests wait until either all servers respond or `ntpResponseTimeout`
+-- passes.  If at least one server responded `handleCollectedResponses` will
+-- update `ncStatus` in `NtpClient`.
 startSend :: NtpClient -> [SockAddr] -> IO ()
 startSend cli addrs = do
     let respTimeout = ntpResponseTimeout (ncSettings cli)
     let poll = ntpPollDelay (ncSettings cli)
+
+    atomically $ writeTVar (ncStatus cli) NtpSyncPending
 
     _ <- concurrently (threadDelay poll) $ do
         logDebug "Sending requests"
@@ -172,6 +175,7 @@ startSend cli addrs = do
         let sendRequests = forConcurrently addrs (doSend cli)
         let waitTimeout = void $ timeout respTimeout
                     (atomically $ check =<< allResponsesGathered cli)
+
         withAsync sendRequests $ \_ -> waitTimeout
 
         logDebug "Collecting responses"

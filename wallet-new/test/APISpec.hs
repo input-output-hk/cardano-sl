@@ -27,8 +27,16 @@ import           Pos.Wallet.Web.Sockets (ConnectionsVar)
 import           Pos.Wallet.Web.State (WalletDB)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.WorkMode (RealModeContext (..))
+
+import           Pos.DB.Block (prepareBlockDB, putBlunds)
+
+import           Pos.Util.Util (lensOf)
 import           System.Directory (createDirectoryIfMissing, doesPathExist, getCurrentDirectory,
                                    removeDirectoryRecursive)
+
+import           TestUtil (BlockNumber, SlotsPerEpoch, createEmptyUndo,
+                           produceBlocksByBlockNumberAndSlots, produceSecretKeys,
+                           produceSlotLeaders)
 
 import           Mockable (Production, runProduction)
 import           Pos.Util.JsonLog (jsonLogConfigFromHandle)
@@ -44,6 +52,7 @@ import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
 import           Cardano.Wallet.API.Request
+import           Cardano.Wallet.API.Response (WalletResponse (..))
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1 as V0
 import qualified Cardano.Wallet.API.V1 as V1
@@ -51,7 +60,7 @@ import qualified Cardano.Wallet.API.V1.LegacyHandlers as V0
 import qualified Cardano.Wallet.API.V1.LegacyHandlers as V1
 import qualified Cardano.Wallet.API.V1.Migration as Migration
 import           Cardano.Wallet.API.V1.Parameters
-import           Cardano.Wallet.API.V1.Types ()
+import           Cardano.Wallet.API.V1.Types (Wallet (..))
 
 --
 -- Instances to allow use of `servant-quickcheck`.
@@ -149,7 +158,7 @@ v1Server diffusion = do
   withoutNtpClient $ \ntpStatus ->
     return (V1.handlers (Migration.v1MonadNat ctx) diffusion ntpStatus)
 
-
+-- | Get the current time from the system to provide a @systemStart@.
 getCurrentTime :: MonadIO m => m Microsecond
 getCurrentTime = liftIO $ fromMicroseconds . round . ( * 1000000) <$> getPOSIXTime
 

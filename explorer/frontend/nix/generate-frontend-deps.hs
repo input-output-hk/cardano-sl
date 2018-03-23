@@ -1,14 +1,11 @@
 #! /usr/bin/env nix-shell
 #! nix-shell shell.nix -i runhaskell
-{-# LANGUAGE OverloadedStrings, LambdaCase #-}
+{-# LANGUAGE OverloadedStrings, LambdaCase, NoImplicitPrelude #-}
 
-import Prelude hiding (FilePath)
-import Turtle hiding (find)
+import Universum hiding (FilePath, die, fold)
 import qualified Data.Text as T
-import qualified Data.Map as M
+import Turtle hiding (find)
 import System.IO (withFile, IOMode(WriteMode))
-import Filesystem.Path.CurrentOS (encodeString)
-import Data.Maybe (maybeToList, mapMaybe)
 import qualified Control.Foldl as Fold
 import Data.Foldable (find)
 
@@ -50,7 +47,8 @@ cachedShell srcs dst action = needsChange srcs dst >>= \case
     action tmp
     whenM (testpath dst) $ rm dst
     input tmp & stampFile srcs & output dst
-  False -> printf (fp % " is already up to date according to " % fp % "\n") dst (head srcs)
+  False -> printf (fp % " is already up to date according to " % s % "\n")
+               dst (T.intercalate ", " $ map tt srcs)
 
 -- | A file needs a change if its hash doesn't match or it doesn't exist.
 needsChange :: [FilePath] -> FilePath -> Shell Bool
@@ -71,10 +69,5 @@ hashFile srcs = fmap ("# " <>) (inproc "sha256sum" (map tt srcs) empty)
 -- | Adds a hash to the top of the file
 stampFile :: [FilePath] -> Shell Line -> Shell Line
 stampFile ref f = cat [hashFile ref, f]
-
-----------------------------------------------------------------------------
-
-whenM :: Monad f => f Bool -> f () -> f ()
-whenM f a = f >>= \t -> if t then a else pure ()
 
 tt = format fp

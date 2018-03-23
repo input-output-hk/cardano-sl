@@ -7,7 +7,7 @@ in
 }:
 
 let 
-  ghc = pkgs.haskellPackages.ghcWithPackages (ps: [ps.turtle]);
+  ghc = pkgs.haskellPackages.ghcWithPackages (ps: [ps.turtle ps.universum]);
 
 in
   # This is an environment for running the frontend deps regeneration script.

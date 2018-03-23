@@ -53,7 +53,7 @@ import           Test.Pos.Configuration (HasStaticConfigurations, withStaticConf
 spec :: Spec
 -- Unfortunatelly, blocks generation is quite slow nowdays.
 -- See CSL-1382.
-spec = withStaticConfigurations $ \_ -> withCompileInfo def $
+spec = withStaticConfigurations $ withCompileInfo def $
     describe "Block.Logic.VAR" $ modifyMaxSuccess (min 4) $ do
         describe "verifyBlocksPrefix" verifyBlocksPrefixSpec
         describe "verifyAndApplyBlocks" verifyAndApplyBlocksSpec

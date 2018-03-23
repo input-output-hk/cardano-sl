@@ -409,18 +409,13 @@ runDiffusionLayerFull logTrace
                       k =
     maybeBracketKademliaInstance logTrace mKademliaParams defaultPort $ \mKademlia ->
         timeWarpNode logTrace transport convEstablishTimeout ourVerInfo listeners $ \nd converse ->
-            -- 'Concurrently' is used to run the outbound queue dequeue thread,
-            -- the subscription thread, as well as the main continuation. This
-            -- is preferable to using 'withAsync' and 'link' because in that
-            -- case, when the main thread throws an exception, the child
-            -- threads may in turn throw a 'ThreadKilled' exception back to the
-            -- main thread, which may unexpectedly interrupt some bracket
-            -- releaser action.
+            -- Concurrently run the dequeue thread, subscription thread, and
+            -- main action.
             let sendActions :: SendActions
                 sendActions = makeSendActions logTrace ourVerInfo oqEnqueue converse
-                dequeueAsync = Concurrently $ OQ.dequeueThread oq (sendMsgFromConverse converse)
-                subscriptionAsync = Concurrently $ subscriptionThread (fst <$> mKademlia) sendActions
-                mainAsync = Concurrently $ do
+                dequeueDaemon = Concurrently $ OQ.dequeueThread oq (sendMsgFromConverse converse)
+                subscriptionDaemon = Concurrently $ subscriptionThread (fst <$> mKademlia) sendActions
+                mainAction = Concurrently $ do
                     maybe (pure ()) (flip registerEkgNodeMetrics nd) mEkgNodeMetrics
                     maybe (pure ()) joinKademlia mKademlia
                     k $ FullDiffusionInternals
@@ -428,8 +423,8 @@ runDiffusionLayerFull logTrace
                         , fdiConverse = converse
                         , fdiSendActions = sendActions
                         }
-                actions = dequeueAsync *> subscriptionAsync *> mainAsync
-            in  runConcurrently actions
+                action = dequeueDaemon *> subscriptionDaemon *> mainAction
+            in  runConcurrently action
   where
     oqEnqueue :: Msg
               -> (NodeId -> VerInfo -> Conversation PackingType t)

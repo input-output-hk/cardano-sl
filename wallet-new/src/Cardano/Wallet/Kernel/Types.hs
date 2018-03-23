@@ -4,6 +4,7 @@ module Cardano.Wallet.Kernel.Types (
    , RawResolvedTx
    , ResolvedTxPair
    , mkResolvedBlock
+   , txUtxo
   ) where
 
 import           Universum
@@ -11,7 +12,7 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as Map
 import           Serokell.Util (enumerate)
 import           Pos.Crypto (WithHash (..), withHash)
-import           Pos.Core.Txp (Tx (..), TxIn (..), TxOutAux (..), TxAux)
+import           Pos.Core.Txp (TxId, Tx (..), TxIn (..), TxOutAux (..), TxOut, TxAux)
 import           Pos.Core.Block (Block)
 import           Pos.Core (gbBody, mbTxPayload, txpTxs)
 import           Pos.Txp.Toil(Utxo)
@@ -44,14 +45,27 @@ mkResolvedBlock b spentOutputs
         rbTxs = zipWith toResolvedTx (getBlockTxs b) spentOutputs
         rbBlock = b
 
+txOutUtxo :: TxId -> [TxOut] -> Utxo
+txOutUtxo txId outputs
+    = Map.fromList $ map toTxInOut $ enumerate outputs
+
+      where toTxInOut (idx, out) = (TxInUtxo txId idx, TxOutAux out)
+
+unpackTx :: Tx -> ([TxIn], Utxo)
+unpackTx tx
+    = let (WithHash tx' txId) = withHash tx
+          (UnsafeTx (NE.toList -> inputs) (NE.toList -> outputs) _) = tx' in
+
+      (inputs, txOutUtxo txId outputs)
+
+txUtxo :: Tx -> Utxo
+txUtxo = snd . unpackTx
+
 toResolvedTx :: Tx -> [TxOutAux] -> ResolvedTx
 toResolvedTx tx spentOutputs
-    = let toTxInOut (idx, out) = (TxInUtxo txId idx, TxOutAux out)
-          (WithHash tx' txId) = withHash tx
-          (UnsafeTx (NE.toList -> inputs) (NE.toList -> outputs) _) = tx'
-
+    = let (inputs, outUtxo) = unpackTx tx
           rtxInputs = zip inputs spentOutputs
-          rtxOutputs = Map.fromList $ map toTxInOut $ enumerate outputs in
+          rtxOutputs = outUtxo in
 
       ResolvedTx{..}
 

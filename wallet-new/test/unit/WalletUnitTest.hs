@@ -28,7 +28,6 @@ import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import           Cardano.Wallet.Kernel.Types (ResolvedBlock(..))
 import           Cardano.Wallet.Kernel.PrefilterTx (ourUtxo)
-import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 
 import           UTxO.BlockGen
 import           UTxO.Bootstrap
@@ -266,7 +265,7 @@ testPassiveWallet = around (bracketPassiveWallet firstPoorActorESK genesisUtxoOu
 
     where
         firstPoorActorESK = getFirstPoorActorESK
-        genesisUtxoOurs = ourUtxo (eskToWalletDecrCredentials firstPoorActorESK)
+        genesisUtxoOurs = ourUtxo firstPoorActorESK
                                   (unGenesisUtxo genesisUtxo)
 
         isOurs :: TransCtxt -> Ours Addr

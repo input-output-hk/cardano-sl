@@ -37,13 +37,16 @@ prefilterTx :: WalletDecrCredentials
              -> ResolvedTx
 prefilterTx wdc ResolvedTx{..} =
     ResolvedTx  (ourResolvedTxPairs wdc rtxInputs)
-                (ourUtxo wdc rtxOutputs)
+                (ourUtxo_ wdc rtxOutputs)
 
 ourResolvedTxPairs :: WalletDecrCredentials -> [ResolvedTxPair] -> [ResolvedTxPair]
 ourResolvedTxPairs wdc = ours wdc (txOutAddress . toaOut . snd)
 
-ourUtxo :: WalletDecrCredentials -> Utxo -> Utxo
-ourUtxo wdc rtxs = Map.fromList $ ourResolvedTxPairs wdc $ Map.toList rtxs
+ourUtxo :: EncryptedSecretKey -> Utxo -> Utxo
+ourUtxo (eskToWalletDecrCredentials -> wdc) = ourUtxo_ wdc
+
+ourUtxo_ :: WalletDecrCredentials -> Utxo -> Utxo
+ourUtxo_ wdc utxo = Map.fromList $ ourResolvedTxPairs wdc $ Map.toList utxo
 
 ours :: WalletDecrCredentials
         -> (a -> Address)

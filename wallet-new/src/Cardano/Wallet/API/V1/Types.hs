@@ -502,13 +502,13 @@ instance ToSchema Wallet where
             --^ "Wallet's name."
             & "balance"
             --^ "Current balance, in ADA."
-            & "hasPassphrase"
+            & "hasSpendingPassword"
             --^ "Whether or not the wallet has a passphrase."
-            & "passphraseUpdatedAt"
+            & "spendingPasswordLastUpdate"
             --^ "The timestamp that the passphrase was last updated."
             & "createdAt"
             --^ "The timestamp that the wallet was created."
-            & "assurance"
+            & "assuranceLevel"
             --^ "The assurance level of the wallet."
         )
 

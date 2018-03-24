@@ -845,26 +845,71 @@ instance ToSchema TransactionDirection where
             & type_ .~ SwaggerString
             & enum_ ?~ ["outgoing", "incoming"]
 
+-- | This is an information-less variant of 'PtxCondition'.
 data TransactionStatus
-    = TxPending
-    | TxFailed
-    | TxOk
-    deriving (Eq, Ord, Show, Bounded, Enum)
+    = Applying
+    | InNewestBlocks
+    | Persisted
+    | WontApply
+    | Creating
+    deriving (Eq, Ord, Show, Enum, Bounded)
 
-instance Arbitrary TransactionStatus where
-    arbitrary = elements [minBound .. maxBound]
+transactionStatusToText :: TransactionStatus -> Text
+transactionStatusToText x = case x of
+    Applying {} ->
+        "applying"
+    InNewestBlocks {} ->
+        "inNewestBlocks"
+    Persisted {} ->
+        "persisted"
+    WontApply {} ->
+        "wontApply"
+    Creating {} ->
+        "creating"
 
-deriveJSON
-    Serokell.defaultOptions
-        { constructorTagModifier = map C.toLower . drop 2
-        }
-    ''TransactionStatus
+instance ToJSON TransactionStatus where
+    toJSON x = object
+        [ "tag" .= transactionStatusToText x
+        , "data" .= Object mempty
+        ]
 
 instance ToSchema TransactionStatus where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "TransactionStatus") $ mempty
-            & type_ .~ SwaggerString
-            & enum_ ?~ ["pending", "failed", "ok"]
+            & type_ .~ SwaggerObject
+            & required .~ ["tag", "data"]
+            & properties .~ (mempty
+                & at "tag" ?~ Inline (mempty
+                    & type_ .~ SwaggerString
+                    & enum_ ?~
+                        [ "applying", "inNewestBlocks", "persisted"
+                        , "wontApply", "creating"
+                        ]
+                )
+                & at "data" ?~ Inline (mempty
+                    & type_ .~ SwaggerObject
+                )
+            )
+
+instance FromJSON TransactionStatus where
+    parseJSON = withObject "TransactionStatus" $ \o -> do
+       tag <- o .: "tag"
+       case tag of
+           "applying" ->
+                pure Applying
+           "inNewestBlocks" ->
+                pure InNewestBlocks
+           "persisted" ->
+                pure Persisted
+           "wontApply" ->
+                pure WontApply
+           "creating" ->
+                pure Creating
+           _ ->
+                fail $ "Couldn't parse out of " ++ toString (tag :: Text)
+
+instance Arbitrary TransactionStatus where
+    arbitrary = elements [minBound .. maxBound]
 
 -- | A 'Wallet''s 'Transaction'.
 data Transaction = Transaction

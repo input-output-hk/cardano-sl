@@ -242,18 +242,18 @@ instance Migrate V0.CTx V1.Transaction where
 
         pure V1.Transaction{..}
 
-instance Migrate V0.CPtxCondition V1.TransactionStatus where
+instance Migrate V0.PtxCondition V1.TransactionStatus where
     eitherMigrate = Right . \case
-        V0.CPtxCreating ->
-            V1.TxPending
-        V0.CPtxApplying ->
-            V1.TxPending
-        V0.CPtxInBlocks ->
-            V1.TxOk
-        V0.CPtxWontApply ->
-            V1.TxFailed
-        V0.CPtxNotTracked ->
-            V1.TxOk
+        V0.PtxApplying{} ->
+            V1.Applying
+        V0.PtxInNewestBlocks{} ->
+            V1.InNewestBlocks
+        V0.PtxPersisted {}->
+            V1.Persisted
+        V0.PtxWontApply{} ->
+            V1.WontApply
+        V0.PtxCreating{} ->
+            V1.Creating
 
 -- | The migration instance for migrating history to a list of transactions
 instance Migrate (Map Core.TxId (V0.CTx, POSIXTime)) [V1.Transaction] where

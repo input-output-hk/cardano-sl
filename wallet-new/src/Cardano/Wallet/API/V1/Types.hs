@@ -482,13 +482,13 @@ instance Arbitrary WalletUpdate where
 
 -- | A 'Wallet'.
 data Wallet = Wallet {
-      walId                  :: !WalletId
-    , walName                :: !WalletName
-    , walBalance             :: !(V1 Core.Coin)
-    , walHasPassphrase       :: !Bool
-    , walPassphraseUpdatedAt :: !(V1 Core.Timestamp)
-    , walCreatedAt           :: !(V1 Core.Timestamp)
-    , walAssurance           :: !AssuranceLevel
+      walId                         :: !WalletId
+    , walName                       :: !WalletName
+    , walBalance                    :: !(V1 Core.Coin)
+    , walHasSpendingPassword        :: !Bool
+    , walSpendingPasswordLastUpdate :: !(V1 Core.Timestamp)
+    , walCreatedAt                  :: !(V1 Core.Timestamp)
+    , walAssuranceLevel             :: !AssuranceLevel
     } deriving (Eq, Ord, Show, Generic)
 
 deriveJSON Serokell.defaultOptions ''Wallet
@@ -543,57 +543,57 @@ instance Arbitrary AddressValidity where
 
 -- | Summary about single address.
 data WalletAddress = WalletAddress
-  { addrId            :: !(V1 Core.Address)
-  , addrBalance       :: !(V1 Core.Coin)
-  , addrUsed          :: !Bool
-  , addrChangeAddress :: !Bool
-  } deriving (Show, Eq, Generic, Ord)
+    { addrId            :: !(V1 Core.Address)
+    , addrBalance       :: !(V1 Core.Coin)
+    , addrUsed          :: !Bool
+    , addrChangeAddress :: !Bool
+    } deriving (Show, Eq, Generic, Ord)
 
 deriveJSON Serokell.defaultOptions ''WalletAddress
 
 instance ToSchema WalletAddress where
-  declareNamedSchema =
-    genericSchemaDroppingPrefix "addr" (\(--^) props -> props
-      & ("id"            --^ "Actual address.")
-      & ("balance"       --^ "Associated balance, in ADA.")
-      & ("used"          --^ "True if this address has been used.")
-      & ("changeAddress" --^ "True if this address stores change from a previous transaction.")
-    )
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "addr" (\(--^) props -> props
+            & ("id"            --^ "Actual address.")
+            & ("balance"       --^ "Associated balance, in ADA.")
+            & ("used"          --^ "True if this address has been used.")
+            & ("changeAddress" --^ "True if this address stores change from a previous transaction.")
+        )
 
 instance Arbitrary WalletAddress where
-  arbitrary = WalletAddress <$> arbitrary
-                            <*> arbitrary
-                            <*> arbitrary
-                            <*> arbitrary
+    arbitrary = WalletAddress <$> arbitrary
+                              <*> arbitrary
+                              <*> arbitrary
+                              <*> arbitrary
 type AccountIndex = Word32
 
 -- | A wallet 'Account'.
 data Account = Account
-  { accIndex     :: !AccountIndex
-  , accAddresses :: ![WalletAddress]
-  , accAmount    :: !(V1 Core.Coin)
-  , accName      :: !Text
-  , accWalletId  :: !WalletId
-  } deriving (Show, Ord, Eq, Generic)
+    { accIndex     :: !AccountIndex
+    , accAddresses :: ![WalletAddress]
+    , accAmount    :: !(V1 Core.Coin)
+    , accName      :: !Text
+    , accWalletId  :: !WalletId
+    } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Account
 
 instance ToSchema Account where
-  declareNamedSchema =
-    genericSchemaDroppingPrefix "acc" (\(--^) props -> props
-      & ("index"     --^ "Account's index in the wallet, starting at 0.")
-      & ("addresses" --^ "Public addresses pointing to this account.")
-      & ("amount"    --^ "Available funds, in ADA.")
-      & ("name"      --^ "Account's name.")
-      & ("walletId"  --^ "Id of the wallet this account belongs to.")
-    )
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "acc" (\(--^) props -> props
+            & ("index"     --^ "Account's index in the wallet, starting at 0.")
+            & ("addresses" --^ "Public addresses pointing to this account.")
+            & ("amount"    --^ "Available funds, in ADA.")
+            & ("name"      --^ "Account's name.")
+            & ("walletId"  --^ "Id of the wallet this account belongs to.")
+          )
 
 instance Arbitrary Account where
-  arbitrary = Account <$> arbitrary
-                      <*> arbitrary
-                      <*> arbitrary
-                      <*> pure "My account"
-                      <*> arbitrary
+    arbitrary = Account <$> arbitrary
+                        <*> arbitrary
+                        <*> arbitrary
+                        <*> pure "My account"
+                        <*> arbitrary
 
 data AccountUpdate = AccountUpdate {
     uaccName      :: !Text

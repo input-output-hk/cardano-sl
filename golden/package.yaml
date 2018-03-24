@@ -1,0 +1,28 @@
+name:                golden
+version:             0.1.0.0
+license:             BSD3
+author:              "IOHK golden tests"
+maintainer:          "example@example.com"
+copyright:           "2018 IOHK"
+
+dependencies:
+- base >= 1 && < 5
+- foundation
+- basement
+- bytestring
+- memory
+- inspector
+- cryptonite
+- cardano-crypto
+- cardano-sl-crypto
+- cardano-sl-binary
+- cardano-sl-core
+
+tests:
+  golden-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N

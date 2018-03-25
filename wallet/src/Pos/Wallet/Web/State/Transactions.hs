@@ -54,6 +54,7 @@ removeWallet2 walId = do
     WS.removeTxMetas walId
     WS.removeHistoryCache walId
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 -- | Unlike 'applyModifierToWallet', this function doesn't assume we want to blindly
 -- update the 'WalletStorage' with all the information passed, but only with the ones
 -- relevant to the 'WalletSyncState'.

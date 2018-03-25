@@ -76,7 +76,6 @@ newRestoreRequest creds rhh = SyncRequest (RestoreWallet rhh) creds
 newSyncRequest :: WalletDecrCredentials -> SyncRequest
 newSyncRequest creds = SyncRequest SyncWallet creds
 
-
 -- | An enumerations of the errors the syncing process can yield.
 -- Such errors are handled internally at the moment, where an error is just logged and flushed away,
 -- but could be later exposed to the frontend to offer more fine-grained diagnostics.

@@ -51,7 +51,6 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (build, float, sformat, shown, (%))
 import           System.Wlog (CanLog, HasLoggerName, WithLogger, logDebug, logError, logInfo,
                               logWarning, modifyLoggerName)
-
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
 import           Pos.Core (ChainDifficulty, HasConfiguration, HasDifficulty (..),
@@ -325,7 +324,6 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
             WS.setWalletSyncTip db walletId (headerHash newSyncTip)
             pure $ Right ()
         False -> syncWalletWithBlockchainUnsafe syncRequest newSyncTip blockchainTip
-
 
     where
         -- | Main workhorse which iterates over the blockchain and reconstruct the transaction

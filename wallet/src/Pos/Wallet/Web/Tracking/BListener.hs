@@ -45,6 +45,7 @@ import           Pos.Wallet.Web.Tracking.Sync (applyModifierToWallet, rollbackMo
                                                trackingApplyTxs, trackingRollbackTxs)
 import           Pos.Wallet.Web.Tracking.Types (TrackingOperation (..))
 
+
 walletGuard ::
        (WithLogger m, MonadIO m)
     => WS.WalletSnapshot
@@ -146,6 +147,7 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
     -- something a bit more reasonable.
     pure mempty
   where
+    -- TODO(adn): Revisit this bit.
     syncWallet
         :: WS.WalletDB
         -> WS.WalletSnapshot

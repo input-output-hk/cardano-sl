@@ -13,15 +13,15 @@ import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
 import           System.Wlog (LoggerName, logInfo)
 
-import           Pos.Block.Configuration (recoveryHeadersMessage)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..))
-import           Pos.Core (ConfigurationError, protocolConstants, protocolMagic)
+import           Pos.Core (ConfigurationError)
 import           Pos.Configuration (networkConnectionTimeout)
 import           Pos.DB.DB (initNodeDBs)
+import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
 import           Pos.Diffusion.Types (DiffusionLayer (..))
-import           Pos.Diffusion.Full (diffusionLayerFull, FullDiffusionConfiguration (..))
+import           Pos.Diffusion.Full (diffusionLayerFull)
 import           Pos.Logic.Full (logicLayerFull)
 import           Pos.Logic.Types (LogicLayer (..))
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
@@ -35,6 +35,7 @@ import           Pos.Update (lastKnownBlockVersion)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
+import           Pos.Util.JsonLog.Events (JLEvent (JLTxReceived))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 import           Pos.Worker.Types (WorkerSpec)
@@ -109,15 +110,7 @@ action opts@AuxxOptions {..} command = do
         CLI.printInfoOnStart aoCommonNodeArgs ntpConfig
         (nodeParams, tempDbUsed) <-
             correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs nArgs
-
-        let fdconf = FullDiffusionConfiguration
-                { fdcProtocolMagic = protocolMagic
-                , fdcProtocolConstants = protocolConstants
-                , fdcRecoveryHeadersMessage = recoveryHeadersMessage
-                , fdcLastKnownBlockVersion = lastKnownBlockVersion
-                , fdcConvEstablishTimeout = networkConnectionTimeout
-                }
-
+        let
             toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
             toRealMode auxxAction = do
                 realModeContext <- ask
@@ -130,11 +123,13 @@ action opts@AuxxOptions {..} command = do
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
         bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
             elimRealMode nr $ toRealMode $
-                logicLayerFull jsonLog $ \logicLayer ->
-                      diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) fdconf (npNetworkConfig nodeParams) Nothing (logic logicLayer) $ \diffusionLayer -> do
-                          let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
-                              (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
-                          runLogicLayer logicLayer (runDiffusionLayer diffusionLayer (auxxModeAction (diffusion diffusionLayer)))
+                logicLayerFull (jsonLog.JLTxReceived) $ \logicLayer ->
+                    bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->
+                        diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) (npNetworkConfig nodeParams) lastKnownBlockVersion transport Nothing $ \withLogic -> do
+                            diffusionLayer <- withLogic (logic logicLayer)
+                            let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
+                                (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
+                            runLogicLayer logicLayer (runDiffusionLayer diffusionLayer (auxxModeAction (diffusion diffusionLayer)))
 
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)

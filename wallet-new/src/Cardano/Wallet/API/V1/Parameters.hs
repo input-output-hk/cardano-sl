@@ -6,6 +6,7 @@ module Cardano.Wallet.API.V1.Parameters where
 import           Universum
 
 import           Servant
+import           Servant.Client
 
 import           Cardano.Wallet.API.Request (RequestParams (..))
 import           Cardano.Wallet.API.Request.Pagination (Page (..), PaginationParams (..),
@@ -33,3 +34,8 @@ instance HasServer subApi ctx =>
               rpPaginationParams = PaginationParams ppPage ppPerPage
             }
     hoistServerWithContext _ ct hoist' s = hoistServerWithContext (Proxy @subApi) ct hoist' . s
+
+instance HasClient m subApi => HasClient m (WalletRequestParams :> subApi) where
+    type Client m (WalletRequestParams :> subApi) = Maybe Page -> Maybe PerPage -> Client m subApi
+    clientWithRoute proxyM _ =
+        clientWithRoute proxyM (Proxy :: Proxy (QueryParam "page" Page :> QueryParam "per_page" PerPage :> subApi))

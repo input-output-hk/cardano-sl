@@ -8,6 +8,7 @@ module Cardano.Wallet.API.V1.Migration.Types (
 
 import           Universum
 
+import qualified Control.Lens as Lens
 import qualified Data.List.NonEmpty as NE
 import           Data.Map (elems)
 import           Data.Time.Clock.POSIX (POSIXTime)
@@ -19,6 +20,7 @@ import           Formatting (sformat)
 import qualified Pos.Client.Txp.Util as V0
 import           Pos.Core (addressF)
 import qualified Pos.Core.Common as Core
+import qualified Pos.Core.Slotting as Core
 import qualified Pos.Core.Txp as Core
 import           Pos.Crypto (decodeHash)
 import qualified Pos.Txp.Toil.Types as V0
@@ -201,6 +203,9 @@ instance Migrate V0.CTxId (V1 Core.TxId) where
         let err = Left . Errors.MigrationFailed . mappend "Error migrating a TxId: "
         in either err (pure . V1) (decodeHash h)
 
+instance Migrate POSIXTime (V1 Core.Timestamp) where
+    eitherMigrate time = pure . V1 $ view (Lens.from Core.timestampSeconds) time
+
 instance Migrate V0.CTx V1.Transaction where
     eitherMigrate V0.CTx{..} = do
         txId      <- eitherMigrate ctId
@@ -216,6 +221,9 @@ instance Migrate V0.CTx V1.Transaction where
         let txDirection = if ctIsOutgoing
             then V1.OutgoingTransaction
             else V1.IncomingTransaction
+
+        let V0.CTxMeta{..} = ctMeta
+        txCreationTime <- eitherMigrate ctmDate
 
         pure V1.Transaction{..}
 

@@ -23,3 +23,8 @@ steps:
     command: 'scripts/ci/nix-shell.sh --run scripts/ci/check-hydra.sh'
     agents:
       system: x86_64-linux
+
+  - label: 'explorer frontend: checking generated dependencies'
+    command: 'scripts/ci/nix-shell.sh --run "cd explorer/frontend && ./nix/generate-frontend-deps.hs --test"'
+    agents:
+      system: x86_64-linux

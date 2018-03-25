@@ -18,13 +18,13 @@ import           Servant
 
 handlers
     :: (HasCompileInfo, HasConfigurations)
-    => WalletId -> ServerT Accounts.API MonadV1
-handlers walletId =
-          deleteAccount walletId
-    :<|>  getAccount walletId
-    :<|>  listAccounts walletId
-    :<|>  newAccount walletId
-    :<|>  updateAccount walletId
+    => ServerT Accounts.API MonadV1
+handlers =
+         deleteAccount
+    :<|> getAccount
+    :<|> listAccounts
+    :<|> newAccount
+    :<|> updateAccount
 
 deleteAccount
     :: (V0.MonadWalletLogic ctx m)

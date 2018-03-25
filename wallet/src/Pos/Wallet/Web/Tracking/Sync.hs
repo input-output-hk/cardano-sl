@@ -31,8 +31,9 @@ module Pos.Wallet.Web.Tracking.Sync
        , buildTHEntryExtra
        , isTxEntryInteresting
 
-       -- For tests
+       -- Internal & test use only
        , evalChange
+       , syncWalletWithBlockchain
        ) where
 
 import           Control.Monad.Except (MonadError (throwError))

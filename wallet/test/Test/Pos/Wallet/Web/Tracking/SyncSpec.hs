@@ -7,6 +7,7 @@ import           Universum
 import           Data.Default (def)
 import qualified Data.HashSet as HS
 import           Data.List ((\\))
+import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..), Property, choose, oneof, sublistOf, suchThat,
@@ -24,7 +25,9 @@ import           Pos.Util.QuickCheck.Property (assertProperty)
 import           Pos.Wallet.Web.ClientTypes (Addr, CId, CWAddressMeta (..))
 import qualified Pos.Wallet.Web.State.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
-import           Pos.Wallet.Web.Tracking.Sync (evalChange)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Sync (evalChange, syncWalletWithBlockchain)
+import           Pos.Wallet.Web.Tracking.Types (newSyncRequest)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..))
 import           Test.Pos.Configuration (withDefConfigurations)
 
@@ -47,7 +50,13 @@ spec = withCompileInfo def $ withDefConfigurations $ do
 twoApplyTwoRollbacksSpec :: (HasCompileInfo, HasConfigurations) => Spec
 twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     let k = fromIntegral blkSecurityParam :: Word64
+    -- During these tests we need to manually switch back to the old synchronous
+    -- way of restoring.
     void $ importSomeWallets (pure emptyPassphrase)
+    sks <- lift getSecretKeysPlain
+    lift $ forM_ sks $ \s -> syncWalletWithBlockchain (newSyncRequest (eskToWalletDecrCredentials s))
+
+    -- Testing starts here
     genesisWalletDB <- lift WS.askWalletSnapshot
     applyBlocksCnt1 <- pick $ choose (1, k `div` 2)
     applyBlocksCnt2 <- pick $ choose (1, k `div` 2)

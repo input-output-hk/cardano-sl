@@ -36,6 +36,7 @@ import           Pos.Update (lastKnownBlockVersion)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
+import           Pos.Util.JsonLog.Events (JLEvent (JLTxReceived))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 import           Pos.Worker.Types (WorkerSpec)
@@ -123,7 +124,7 @@ action opts@AuxxOptions {..} command = do
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
         bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
             elimRealMode nr $ toRealMode $
-                logicLayerFull jsonLog $ \logicLayer ->
+                logicLayerFull (jsonLog.JLTxReceived) $ \logicLayer ->
                     bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->
                         diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) (npNetworkConfig nodeParams) lastKnownBlockVersion protocolMagic protocolConstants recoveryHeadersMessage transport Nothing $ \withLogic -> do
                             diffusionLayer <- withLogic (logic logicLayer)

@@ -46,7 +46,7 @@ import           Pos.Shutdown (HasShutdownContext, waitForShutdown)
 import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.JsonLog.Events (JsonLogConfig (..), jsonLogConfigFromHandle)
+import           Pos.Util.JsonLog.Events (JLEvent (JLTxReceived), JsonLogConfig (..), jsonLogConfigFromHandle)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 
@@ -130,7 +130,7 @@ runServer
     -> ActionSpec m t
     -> m t
 runServer runIO NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
-    exitOnShutdown . logicLayerFull jsonLog $ \logicLayer ->
+    exitOnShutdown . logicLayerFull (jsonLog . JLTxReceived) $ \logicLayer ->
         bracketTransportTCP networkConnectionTimeout tcpAddr $ \transport ->
             diffusionLayerFull runIO npNetworkConfig lastKnownBlockVersion transport (Just ekgNodeMetrics) $ \withLogic -> do
                 diffusionLayer <- withLogic (logic logicLayer)

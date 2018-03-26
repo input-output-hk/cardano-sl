@@ -66,9 +66,10 @@ getCurrentSlotSimple'
     :: (SimpleSlottingMode ctx m)
     => SimpleSlottingStateVar
     -> m (Maybe SlotId)
-getCurrentSlotSimple' var = do
-    -- var <- view (lensOf @SimpleSlottingStateVar)
-    traverse (updateLastSlot var) =<< (currentTimeSlottingSimple >>= slotFromTimestamp)
+getCurrentSlotSimple' var =
+        currentTimeSlottingSimple
+    >>= slotFromTimestamp
+    >>= traverse (updateLastSlot var)
 
 getCurrentSlotSimple
     :: (MonadSimpleSlotting ctx m)

@@ -1,4 +1,3 @@
-
 module Cardano.Wallet.API.Response.JSend where
 
 import           Universum
@@ -7,6 +6,7 @@ import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.Char as Char
 import           Data.Swagger hiding (constructorTagModifier)
+import qualified Data.Text.Buildable
 import           Test.QuickCheck (Arbitrary (..), elements)
 
 data ResponseStatus =
@@ -25,3 +25,8 @@ instance ToSchema ResponseStatus where
         pure $ NamedSchema (Just "ResponseStatus") $ mempty
             & type_ .~ SwaggerString
             & enum_ .~ Just ["success", "fail", "error"]
+
+instance Buildable ResponseStatus where
+    build SuccessStatus = "success"
+    build FailStatus    = "fail"
+    build ErrorStatus   = "error"

@@ -38,6 +38,16 @@ cd {path/to}/cardano-sl/explorer/frontend
 
 All generated files will be in `dist/`
 
+#### Build with nix
+
+The nix build of the frontend is deployed in production.
+
+```bash
+cd {path/to}/cardano-sl
+nix-build -A cardano-sl-explorer-frontend
+```
+
+All generated files will be in `result/`
 
 
 ## Long version of installation
@@ -264,3 +274,11 @@ To start test run:
 ```bash
 yarn test
 ```
+
+## Regenerating nix for dependencies
+
+If the dependencies in `bower.json` have changed, you need to
+regenerate the nix files used by the production build. This is checked
+by CI.
+
+Run `./nix/generate-frontend-deps.hs` to update the nix files.

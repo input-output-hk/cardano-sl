@@ -45,7 +45,7 @@ import           Test.Pos.Configuration (defaultTestBlockVersionData, withStatic
 
 
 spec :: Spec
-spec = withStaticConfigurations $ withCompileInfo def $
+spec = withStaticConfigurations $ \_ -> withCompileInfo def $
     describe "Lrc.Worker" $ modifyMaxSuccess (const 4) $ do
         describe "lrcSingleShot" $ do
             -- Currently we want to run it only 4 times, because there

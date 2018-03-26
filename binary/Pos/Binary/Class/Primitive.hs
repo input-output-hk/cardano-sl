@@ -240,7 +240,7 @@ decodeKnownCborDataItem = do
 decodeUnknownCborDataItem :: D.Decoder s ByteString
 decodeUnknownCborDataItem = do
     decodeCborDataItemTag
-    D.decodeBytes
+    D.decodeBytesCanonical
 
 -- | Encodes a type `a` , protecting it from tampering/network-transport-alteration by
 -- protecting it with a CRC.

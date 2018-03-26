@@ -3,6 +3,7 @@ module RequestSpec where
 import           Universum
 
 import           Data.Either (isLeft)
+import           Formatting (build, sformat)
 import           Test.Hspec
 
 import           Cardano.Wallet.API.Request.Filter
@@ -58,7 +59,7 @@ filterSpec = do
             forM_ [minBound .. maxBound] $ \p ->
                 it ("supports predicate: " <> show p) $ do
                     parseFilterOperation pw pwid
-                        (renderFilterOrdering p <> "[asdf]")
+                        (sformat build p <> "[asdf]")
                         `shouldBe`
                             Right (FilterByPredicate p (WalletId "asdf"))
 

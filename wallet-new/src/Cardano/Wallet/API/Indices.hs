@@ -1,8 +1,8 @@
-{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ConstraintKinds           #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE PolyKinds                 #-}
 {-# LANGUAGE RankNTypes                #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans      #-}
@@ -13,9 +13,9 @@ import           Universum
 
 import           Cardano.Wallet.API.V1.Types
 import           Data.String.Conv (toS)
+import           GHC.TypeLits
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash)
-import           GHC.TypeLits
 
 import           Data.IxSet.Typed (Indexable (..), IsIndexOf, IxSet, ixFun, ixList)
 
@@ -128,4 +128,3 @@ type family IndexToQueryParam resource ix where
         ':$$: 'Text "Perhaps you mismatched a resource and an index?"
         ':$$: 'Text "Or, maybe you need to add a type instance to `IndexToQueryParam'."
         )
-

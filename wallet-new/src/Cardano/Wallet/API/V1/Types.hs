@@ -858,9 +858,6 @@ instance BuildableSafeGen PaymentDistribution where
         pdAddress
         pdAmount
 
--- instance Buildable [PaymentDistribution] where
---     build = bprint listJson
-
 
 -- | A 'PaymentSource' encapsulate two essentially piece of data to reach for some funds:
 -- a 'WalletId' and an 'AccountIndex' within it.

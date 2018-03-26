@@ -185,7 +185,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                 | otherwise = (atomically $ tryReadTQueue outQueue) >>= \case
                       Just neout -> do
                           addTxSubmit tpsMVar
-                          send sendActions (-1) neout
+                          send sendActions n neout
                           delay $ ms delay_
                           logInfo "Continuing to send transactions."
                           sendTxsCont (n - 1)
@@ -208,8 +208,9 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         -- While we're sending, we're constructing the second batch of
         -- transactions.
         forM_ allTrans addTx
-        logInfo "First iteration finished"
+        logInfo "First iteration started"
         void $ concurrently writeTPS (sendTxsConcurrently (duration))
+        logInfo "Second iteration started"
         void $ concurrently writeTPS (sendTxsConcurrentlyCont (duration))
         logInfo "Second iteration finished"
         
@@ -232,6 +233,8 @@ send
 send sendActions idx outputs = do
     CmdCtx{ccPeers} <- getCmdCtx
     skey <- takeSecret
+    --let keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
+    --skey <- (!! idx) <$> keyToSend 
     let curPk = encToPublic skey
     let plainAddresses = map (flip makePubKeyAddress curPk . IsBootstrapEraAddr) [False, True]
     let (hdAddresses, hdSecrets) = unzip $ map

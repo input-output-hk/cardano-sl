@@ -41,10 +41,10 @@ import           Pos.Communication (SendActions, immediateConcurrentConversation
 import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAddr (..),
                            Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretKeys)
-import           Pos.Core.Txp (TxAux, TxOut (..), TxOutAux (..), txaF {-,taTx-})
+import           Pos.Core.Txp (TxAux, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase, encToPublic, fakeSigner,
-                             safeToPublic, toPublic, withSafeSigners{-, withHash-})
-import           Pos.Txp (topsortTxAuxes {-,applyTxToUtxo-})
+                             safeToPublic, toPublic, withSafeSigners)
+import           Pos.Txp (topsortTxAuxes)
 
 import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util (maybeThrow)
@@ -110,21 +110,9 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         liftIO $ T.hPutStrLn h "time,txCount,txType"
         txQueue <- atomically $ newTQueue
         outQueue <- atomically $ newTQueue
-        -- prepare a queue with all transactions
         logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
         startAtTxt <- liftIO $ lookupEnv "AUXX_START_AT"
         let startAt = fromMaybe 0 . readMaybe . fromMaybe "" $ startAtTxt :: Int
-        -- construct transaction output
-        --outAddr <- makePubKeyAddressAuxx (toPublic (fromMaybe (error "sendToAllGenesis: no keys") $ head keysToSend))
-        {-let val1 = mkCoin 1
-            txOut1 = TxOut {
-                txOutAddress = outAddr,
-                txOutValue = val1
-                }
-            txOuts = TxOutAux txOut1 :| []
-        -}
-        -- construct a transaction, and add it to the queue
-        --let gutxo = view _GenesisUtxo genesisUtxo
         let addTx (secretKey, n) = do
                 neighbours <- case sendMode of
                     SendNeighbours -> return ccPeers
@@ -135,24 +123,24 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                 utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
         -- every genesis secret key sends to itself
                 me <- makePubKeyAddressAuxx (toPublic secretKey)
-                --_ <- getOwnUtxosGenesis [me] 
-                let val2 = mkCoin 1
-                    txOut2 = TxOut {
+                let val1 = mkCoin 1
+                    txOut = TxOut {
                         txOutAddress = me,
-                        txOutValue   = val2
+                        txOutValue   = val1
                     }
-                    txOuts2 = TxOutAux txOut2 :| []
-                etx <- createTx mempty utxo (fakeSigner secretKey) txOuts2 (toPublic secretKey)
+                    txOuts = TxOutAux txOut :| []
+                etx <- createTx mempty utxo (fakeSigner secretKey) txOuts (toPublic secretKey)
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
                     Right (tx, neout) -> do 
                                 atomically $ writeTQueue txQueue (tx, neighbours)
+                                -- who can spend those outputs, where are their addresses?
                                 atomically $ writeTQueue outQueue neout
                                 
 
         let nTrans = duration
             allTrans = (zip (drop startAt keysToSend) [0.. nTrans])
-            (firstBatch, secondBatch) = splitAt ((2 * nTrans) `div` 3) allTrans
+            --(firstBatch, secondBatch) = splitAt ((2 * nTrans) `div` 3) allTrans
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
         let writeTPS :: m ()
             writeTPS = do
@@ -184,7 +172,6 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                                     else sformat ("Applied transaction "%txaF%", however no neighbour applied it") tx
                           delay $ ms delay_
                           logInfo "Continuing to send transactions."
-                          --applyTxToUtxo (withHash $ taTx tx)
                           sendTxs (n - 1)
                       Nothing -> do
                           logInfo "No more transactions in the queue."
@@ -198,13 +185,13 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                 | otherwise = (atomically $ tryReadTQueue outQueue) >>= \case
                       Just neout -> do
                           addTxSubmit tpsMVar
-                          send sendActions 0 neout
+                          send sendActions (-1) neout
                           delay $ ms delay_
                           logInfo "Continuing to send transactions."
-                          sendTxs (n - 1)
+                          sendTxsCont (n - 1)
                       Nothing -> do
                           logInfo "No more transactions in the queue."
-                          sendTxs 0
+                          sendTxsCont 0
 
 
             sendTxsConcurrently     n = void $ forConcurrently [1..conc] (const (sendTxs n))
@@ -213,7 +200,6 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         -- we'll be CPU bound and will not achieve high transaction
         -- rates. If we pre construct all the transactions, the
         -- startup time will be quite long.
-        forM_  firstBatch addTx
         -- Send transactions while concurrently writing the TPS numbers every
         -- slot duration. The 'writeTPS' action takes care to *always* write
         -- after every slot duration, even if it is killed, so as to
@@ -221,12 +207,10 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         --
         -- While we're sending, we're constructing the second batch of
         -- transactions.
-        void $
-            concurrently (forM_ secondBatch addTx) $
-            concurrently writeTPS (sendTxsConcurrently (duration))
+        forM_ allTrans addTx
         logInfo "First iteration finished"
-        void $
-            concurrently writeTPS (sendTxsConcurrentlyCont (duration))
+        void $ concurrently writeTPS (sendTxsConcurrently (duration))
+        void $ concurrently writeTPS (sendTxsConcurrentlyCont (duration))
         logInfo "Second iteration finished"
         
 

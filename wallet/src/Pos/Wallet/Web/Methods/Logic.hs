@@ -27,6 +27,7 @@ module Pos.Wallet.Web.Methods.Logic
 
         -- hack to support V1 Legacy handler
        , getWAddress
+       , getMempoolSnapshot
        ) where
 
 import           Universum

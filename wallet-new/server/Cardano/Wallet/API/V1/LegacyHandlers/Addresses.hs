@@ -14,6 +14,9 @@ import qualified Pos.Wallet.Web.Methods as V0
 import qualified Pos.Wallet.Web.State as V0 (askWalletSnapshot)
 import qualified Pos.Wallet.Web.State.Storage as V0
 import qualified Pos.Wallet.Web.State.State as V0State
+import qualified Pos.Txp as V0 (withTxpLocalData)
+import qualified Pos.Wallet.Web.Methods.Logic as V0 (getMempoolSnapshot)
+import qualified Pos.Wallet.Web.Tracking as V0 (txMempoolToModifier)
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
@@ -70,7 +73,7 @@ getAddress addrText = do
         pure
         (decodeTextAddress addrText)
 
-    ss <- V0.askWalletSnapshot
+    ws <- V0.askWalletSnapshot
 
     let
         addrId :: V0.CId V0.Addr
@@ -82,24 +85,29 @@ getAddress addrText = do
             addrId == V0.cwamId (V0.adiCWAddressMeta addrInfo)
 
         getAddresses :: V0.CId V0.Wal -> [V0.AddressInfo]
-        getAddresses = V0State.getWAddresses ss V0.Ever
+        getAddresses = V0State.getWAddresses ws V0.Ever
 
         minfo :: Maybe (V0.CWalletMeta, V0.AddressInfo)
         minfo =
             asum
             . map (\wid ->
-                (,) <$> V0State.getWalletMeta ss wid
+                (,) <$> V0State.getWalletMeta ws wid
                     <*> List.find addrInfoMatchesAddr (getAddresses wid)
                 )
             . V0.getWalletAddresses
-            $ ss
+            $ ws
 
     case minfo of
         Nothing ->
             throwM AddressNotFound
-        Just (_walletMeta, addressInfo) -> do
+        Just (_walletMeta, V0.AddressInfo{..}) -> do
+            let accId = V0.AccountId
+                    (V0.cwamWId adiCWAddressMeta)
+                    (V0.cwamAccountIndex adiCWAddressMeta)
+            mps <- V0.withTxpLocalData V0.getMempoolSnapshot
+            accMod <- V0.txMempoolToModifier ws mps =<< V0.findKey accId
             caddr <- V0.getWAddress
-                ss
-                mempty -- this is a weird cache mod thing? CachedCAccModifier
-                (V0.adiCWAddressMeta addressInfo)
+                ws
+                accMod
+                adiCWAddressMeta
             single <$> migrate caddr

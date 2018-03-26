@@ -1,14 +1,19 @@
+{-# LANGUAGE RankNTypes #-}
+
 module Main where
 
 import           Universum
 
-import           Cardano.Wallet.Client (WalletClient (..))
+import           Cardano.Wallet.Client
+import           Control.Lens hiding ((^..), (^?))
 import           System.IO (hSetEncoding, stdout, utf8)
+import           Test.QuickCheck (arbitrary, generate)
+import           Test.Hspec
 
 import           CLI
+import           Error
 import           Functions
 import           Types
-import           Error
 
 -- | Here we want to run main when the (local) nodes
 -- have started.
@@ -42,6 +47,9 @@ main = do
         walletState
         actionDistr
 
+    -- some expected test cases
+    hspec $ deterministicTests walletClient
+
     pure ()
   where
     actionDistribution :: Either WalletTestError ActionProbabilities
@@ -53,3 +61,43 @@ main = do
                 , (GetWallet,  getWalletProb)
                 ]
 
+deterministicTests :: WalletClient IO -> Spec
+deterministicTests wc = do
+    describe "Addresses" $ do
+        it "Creating an address makes it available" $ do
+            -- create a wallet
+            newWallet <- generate $
+                NewWallet
+                    <$> arbitrary
+                    <*> pure Nothing
+                    <*> arbitrary
+                    <*> pure "Wallet"
+                    <*> pure CreateWallet
+            result <- fmap wrData <$> postWallet wc newWallet
+            Wallet{..} <- result `shouldPrism` _Right
+
+            -- create an account
+            accResp <- postAccount wc walId (NewAccount Nothing "hello")
+            Account{..} <- wrData <$> accResp `shouldPrism` _Right
+
+            -- create an address
+            addResp <- postAddress wc (NewAddress Nothing accIndex walId)
+            _addr <- wrData <$> addResp `shouldPrism` _Right
+
+            -- verify that address is in the API
+            idxResp <- getAddressIndex wc
+            _addrs <- wrData <$> idxResp `shouldPrism` _Right
+
+            -- TODO(matt.parsons): uncomment when the change to return
+            -- a WalletAddress has landed (CSL-2335)
+            -- addr `shouldSatisfy` (`elem` addrs)
+            pure ()
+
+
+shouldPrism :: Show s => s -> Prism' s a -> IO a
+shouldPrism a b = do
+    a `shouldSatisfy` has b
+    let Just x = a ^? b
+    pure x
+
+infixr 8 `shouldPrism`

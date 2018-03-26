@@ -253,6 +253,7 @@ executable cardano-integration-test
                      , exceptions
                      , formatting
                      , formatting
+                     , hspec
                      , http-api-data
                      , http-types
                      , insert-ordered-containers

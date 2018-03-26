@@ -33,7 +33,7 @@ import           System.Random (randomRIO)
 import           System.Wlog (logError, logInfo)
 
 import           Pos.Binary (decodeFull)
-import           Pos.Client.KeyStorage (getSecretKeysPlain)
+--import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
 import           Pos.Client.Txp.Util (createTx)
@@ -42,11 +42,11 @@ import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAdd
                            Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretKeys)
 import           Pos.Core.Txp (TxAux, TxOut (..), TxOutAux (..), txaF)
-import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase, encToPublic, fakeSigner,
-                             safeToPublic, toPublic, withSafeSigners)
+import           Pos.Crypto ({-EncryptedSecretKey,-} emptyPassphrase, encToPublic, fakeSigner,
+                             safeToPublic, toPublic, withSafeSigners, SecretKey(..), mkEncSecretUnsafe)
 import           Pos.Txp (topsortTxAuxes)
 
-import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
+--import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util (maybeThrow)
 
 import           Lang.Value (SendMode (..))
@@ -232,9 +232,10 @@ send
     -> m ()
 send sendActions idx outputs = do
     CmdCtx{ccPeers} <- getCmdCtx
-    skey <- takeSecret
-    --let keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
-    --skey <- (!! idx) <$> keyToSend 
+    --skey <- takeSecret
+    let keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
+    let (SecretKey rawskey) = keysToSend !! idx  
+    skey <- mkEncSecretUnsafe emptyPassphrase rawskey
     let curPk = encToPublic skey
     let plainAddresses = map (flip makePubKeyAddress curPk . IsBootstrapEraAddr) [False, True]
     let (hdAddresses, hdSecrets) = unzip $ map
@@ -251,13 +252,14 @@ send sendActions idx outputs = do
     case etx of
         Left err -> logError $ sformat ("Error: "%stext) (toText $ displayException err)
         Right tx -> logInfo $ sformat ("Submitted transaction: "%txaF) tx
-  where
+  {-where
     takeSecret :: m EncryptedSecretKey
     takeSecret
         | idx == -1 = do
             _userSecret <- view userSecret >>= atomically . readTVar
             pure $ maybe (error "Unknown wallet address") (^. wusRootKey) (_userSecret ^. usWallet)
         | otherwise = (!! idx) <$> getSecretKeysPlain
+    -}
 
 ----------------------------------------------------------------------------
 -- Send from file

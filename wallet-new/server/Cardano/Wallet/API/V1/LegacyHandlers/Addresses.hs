@@ -7,23 +7,22 @@ import           Universum
 
 import qualified Data.List as List
 import           Pos.Crypto (emptyPassphrase)
-import qualified Pos.Wallet.Web.Methods.Logic as V0 (getWAddress)
+import qualified Pos.Txp as V0 (withTxpLocalData)
 import qualified Pos.Wallet.Web.Account as V0
 import qualified Pos.Wallet.Web.ClientTypes as V0
 import qualified Pos.Wallet.Web.Methods as V0
+import qualified Pos.Wallet.Web.Methods.Logic as V0 (getMempoolSnapshot, getWAddress)
 import qualified Pos.Wallet.Web.State as V0 (askWalletSnapshot)
-import qualified Pos.Wallet.Web.State.Storage as V0
 import qualified Pos.Wallet.Web.State.State as V0State
-import qualified Pos.Txp as V0 (withTxpLocalData)
-import qualified Pos.Wallet.Web.Methods.Logic as V0 (getMempoolSnapshot)
+import qualified Pos.Wallet.Web.State.Storage as V0
 import qualified Pos.Wallet.Web.Tracking as V0 (txMempoolToModifier)
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses
+import           Cardano.Wallet.API.V1.Errors
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.API.V1.Errors
 import           Pos.Core (decodeTextAddress)
 
 import           Servant

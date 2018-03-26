@@ -33,7 +33,7 @@ data WalletTestError
     | LocalAccountsDiffers [Account]
 
     | AddressBalanceNotZero WalletAddress
-    | LocalAddressesDiffer Address [Address]
+    | LocalAddressesDiffer WalletAddress [WalletAddress]
     | LocalAddressDiffer Address
 
     | InvalidTransactionState Transaction

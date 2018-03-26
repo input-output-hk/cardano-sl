@@ -736,6 +736,25 @@ instance ToSchema NewAccount where
       & ("name"             --^ "Account's name.")
     )
 
+-- | Summary about single address.
+data WalletAddress = WalletAddress
+  { addrId            :: !(V1 Core.Address)
+  , addrBalance       :: !(V1 Core.Coin)
+  , addrUsed          :: !Bool
+  , addrChangeAddress :: !Bool
+  } deriving (Show, Eq, Ord, Generic)
+
+deriveJSON Serokell.defaultOptions ''WalletAddress
+
+instance ToSchema WalletAddress where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "addr" (\(--^) props -> props
+      & ("id"            --^ "Actual address")
+      & ("balance"       --^ "Associated balance, in ADA")
+      & ("used"          --^ "True if this address has been used")
+      & ("changeAddress" --^ "True if this address stores change from a previous transaction")
+    )
+
 
 deriveSafeBuildable ''NewAccount
 instance BuildableSafeGen NewAccount where

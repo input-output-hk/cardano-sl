@@ -15,8 +15,13 @@ import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types
 import           Pos.Core (decodeTextAddress)
 
+import           Pos.Wallet.Web.State.Storage (getWalletAddresses)
+import           Pos.Wallet.Web.State.State (getWalletSnapshot, askWalletDB)
+import           Pos.Wallet.Web.ClientTypes.Types (CAccount (..))
+
 import           Servant
-import           Test.QuickCheck (arbitrary, generate, vectorOf)
+
+import qualified Data.IxSet.Typed as IxSet
 
 handlers
     :: (MonadThrow m, V0.MonadWalletLogic ctx m)
@@ -25,21 +30,32 @@ handlers =  listAddresses
        :<|> newAddress
        :<|> verifyAddress
 
+-- | This is quite slow. What happens when we have 50k addresses?
+-- TODO(ks): One idea I have is to persist the length of the
+-- addresses and send that to `respondWith`,
+-- while we could lazily fetch the data (and have better performance)
+-- we need to show what the current page contains?
+-- In other words, we wouldn't send everything to `respondWith`.
+-- Another idea is to use actual paging to reduce the footprint of all
+-- these calls. The flaw with this is that we need to think about deletion,
+-- but I have an idea or two how that can be fixed.
 listAddresses
-    :: MonadIO m
-    => RequestParams -> m (WalletResponse [WalletAddress])
-listAddresses RequestParams {..} = do
-    addresses <- liftIO $ generate (vectorOf 2 arbitrary)
-    return WalletResponse {
-              wrData = addresses
-            , wrStatus = SuccessStatus
-            , wrMeta = Metadata $ PaginationMetadata {
-                        metaTotalPages = 1
-                      , metaPage = 1
-                      , metaPerPage = 20
-                      , metaTotalEntries = 2
-                      }
-            }
+    :: (MonadThrow m, V0.MonadWalletLogic ctx m)
+    => RequestParams
+    -> m (WalletResponse [WalletAddress])
+listAddresses params = do
+
+    wdb <- askWalletDB
+    ws  <- getWalletSnapshot wdb
+
+    let walletAddresses   = getWalletAddresses ws
+    allCAccounts         <- concatMapM (V0.getAccounts . Just) walletAddresses
+    let allCAddresses     = concatMap caAddresses allCAccounts
+    let allAddresses      = migrate allCAddresses
+
+    respondWith params (NoFilters :: FilterOperations WalletAddress)
+                       (NoSorts   :: SortOperations   WalletAddress)
+                       (IxSet.fromList <$> allAddresses)
 
 newAddress
     :: (MonadThrow m, V0.MonadWalletLogic ctx m)

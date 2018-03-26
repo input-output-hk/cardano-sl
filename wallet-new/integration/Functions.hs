@@ -336,7 +336,7 @@ runAction wc ws PostAddress = do
 runAction wc ws GetAddresses   = do
     -- We choose one address, we could choose all of them.
     -- Also, remove the `V1` type since we don't need it now.
-    address <-  coerce . addrId <$> pickRandomElement (ws ^. addresses)
+    address <-  coerce <$> pickRandomElement (ws ^. addresses)
     -- We get all the accounts.
     result  <-  map (map (unV1 . addrId)) . respToRes $ getAddressIndex wc
 

@@ -34,11 +34,17 @@ import Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                         AddrStakeDistribution (..), AddrType (..), Address (..),
                         Address' (..), AddressHash, Script, StakeholderId, IsBootstrapEraAddr(..))
 
-type GoldenAddress =
+type GoldenAddressPrime =
     "AddressPrime" :> Payload "root-publickey" PublicKey
                    :> Payload "derived-publickey" PublicKey
                    :> Payload "derivation-path" [Word32]
                    :> Payload "address-prime" (Block Word8)
+
+type GoldenAddress =
+    "Address" :> Payload "root-publickey" PublicKey
+              :> Payload "derived-publickey" PublicKey
+              :> Payload "derivation-path" [Word32]
+              :> Payload "address" (Block Word8)
 
 dumpBi :: Bi a => a -> Block Word8
 dumpBi a = BA.convert $ BSL.toStrict (serialize a)
@@ -55,7 +61,7 @@ instance Inspectable PublicKey where
 
 main :: IO ()
 main = defaultMain $ do
-    golden (Proxy @GoldenAddress) $ \rootPub derivePub derivePath ->
+    golden (Proxy @GoldenAddressPrime) $ \rootPub derivePub derivePath ->
         let
             hdPassPhrase     = deriveHDPassphrase rootPub
             hdAddressPayload = packHDAddressAttr hdPassPhrase derivePath
@@ -67,3 +73,14 @@ main = defaultMain $ do
 
             addr'            = Address' (ATPubKey, spendingData, attributes)
          in dumpBi addr'
+    golden (Proxy @GoldenAddress) $ \rootPub derivePub derivePath ->
+        let
+            hdPassPhrase     = deriveHDPassphrase rootPub
+            hdAddressPayload = packHDAddressAttr hdPassPhrase derivePath
+
+            bootstrapEra     = IsBootstrapEraAddr True
+            spendingData     = PubKeyASD derivePub
+            aa               = AddrAttributes (Just hdAddressPayload) BootstrapEraDistr
+            attributes       = mkAttributes aa
+            addr             = makePubKeyHdwAddress bootstrapEra hdAddressPayload rootPub
+         in dumpBi addr

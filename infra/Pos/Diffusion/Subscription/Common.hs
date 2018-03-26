@@ -11,6 +11,7 @@ module Pos.Diffusion.Subscription.Common
     , subscriptionListener1
     
     , networkSubscribeTo
+    , withNetworkSubscription
     , networkSubscribeTo'
 
     , updatePeersBucket
@@ -21,6 +22,7 @@ module Pos.Diffusion.Subscription.Common
 import           Universum hiding (mask, catch)
 
 import           Control.Exception (mask, catch, throwIO)
+import           Control.Concurrent.Async (concurrently)
 import           Control.Concurrent.MVar (modifyMVar, modifyMVar_)
 import qualified Data.Map.Strict as Map
 import qualified Data.List.NonEmpty as NE
@@ -136,6 +138,27 @@ networkSubscribeTo before middle keepalive after sendActions peer = mask $ \rest
         after peer (Exceptional e) r
         throwIO e
     after peer Normal r
+    pure t
+
+-- | Do a subscription to a given peer, and run an action as soon as it's
+-- established. The action will be killed when the subscription goes down, and
+-- vice-versa (they are run 'concurrently').
+withNetworkSubscription
+    :: ( SubscriptionMessageConstraints )
+    => (NodeId -> IO r)  -- ^ Run before attempting to subscribe
+    -> (NodeId -> IO ()) -- ^ Run after subscription comes up
+    -> (NodeId -> IO ()) -- ^ In case the keepalive version is run, keepalive is sent when
+                         --   this returns.
+    -> (NodeId -> SubscriptionTerminationReason -> r -> IO ()) -- ^ Run after subscription ends
+    -> SendActions
+    -> NodeId
+    -> IO t
+    -> IO t
+withNetworkSubscription before middle keepalive after sendActions peer action = do
+    control <- newEmptyMVar
+    (_, t) <- concurrently
+        (networkSubscribeTo before (\r -> putMVar control () >> middle r) keepalive after sendActions peer)
+        (takeMVar control >> action)
     pure t
 
 convMsgSubscribe

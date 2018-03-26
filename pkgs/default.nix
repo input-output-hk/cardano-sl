@@ -7903,20 +7903,20 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.bsd3;
          }) {};
       "cborg" = callPackage
-        ({ mkDerivation, array, base, bytestring, containers, fetchgit
-         , ghc-prim, half, integer-gmp, primitive, stdenv, text
+        ({ mkDerivation, array, base, bytestring, containers, deepseq
+         , fetchgit, ghc-prim, half, integer-gmp, primitive, stdenv, text
          }:
          mkDerivation {
            pname = "cborg";
            version = "0.2.0.0";
            src = fetchgit {
              url = "https://github.com/well-typed/cborg";
-             sha256 = "0i38fzyj34cg5i6n0kk05zv255hbz2544rxknsxlvdz90cr2rk51";
-             rev = "8bddf97abe613d4eb523ed6b0ff8eabbd713c744";
+             sha256 = "1w06annk6nm01brd60hzl15143cvjvsaam9lhwzpmppyvgb0cdyz";
+             rev = "3d274c14ca3077c3a081ba7ad57c5182da65c8c1";
            };
            postUnpack = "sourceRoot+=/cborg; echo source root reset to $sourceRoot";
            libraryHaskellDepends = [
-             array base bytestring containers ghc-prim half integer-gmp
+             array base bytestring containers deepseq ghc-prim half integer-gmp
              primitive text
            ];
            doHaddock = false;

@@ -16,6 +16,7 @@ import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
 import           Crypto.Hash (Blake2b_224, Blake2b_256)
+import           Data.Bits (shiftL)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Fixed (Nano)
@@ -72,6 +73,28 @@ import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
 import qualified Test.Pos.Cbor.RefImpl as R
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Helpers (binaryTest, msgLenLimitedTest)
+
+-- | Wrapper for Integer with Arbitrary instance that can generate "proper" big
+-- integers, i.e. ones that don't fit in Int64. This really needs to be fixed
+-- within QuickCheck though (https://github.com/nick8325/quickcheck/issues/213).
+newtype LargeInteger = LargeInteger Integer
+    deriving (Eq, Show)
+
+instance Arbitrary LargeInteger where
+    arbitrary = sized $ \sz -> do
+        n <- choose (1, sz)
+        sign <- arbitrary
+        LargeInteger . (if sign then negate else identity) . foldr f 0
+            <$> replicateM n arbitrary
+      where
+        f :: Word8 -> Integer -> Integer
+        f w acc = (acc `shiftL` 8) + fromIntegral w
+
+instance Bi LargeInteger where
+    encode (LargeInteger n) = encode n
+    decode = LargeInteger <$> decode
+
+----------------------------------------
 
 data User
     = Login { login :: String
@@ -383,6 +406,7 @@ spec = withDefConfiguration $ do
                 binaryTest @Bool
                 binaryTest @Char
                 binaryTest @Integer
+                binaryTest @LargeInteger
                 binaryTest @Word
                 binaryTest @Word8
                 binaryTest @Word16
@@ -400,6 +424,8 @@ spec = withDefConfiguration $ do
                 binaryTest @(HashMap Int Int)
                 binaryTest @(Set Int)
                 binaryTest @(HashSet Int)
+                binaryTest @ByteString
+                binaryTest @Text
 
         describe "Types" $ do
           -- 100 is not enough to catch some bugs (e.g. there was a bug with

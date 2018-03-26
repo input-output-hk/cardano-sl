@@ -8,6 +8,9 @@ module Test.Pos.Cbor.RefImpl
     , deserialise
     , UInt(..)
     , Term(..)
+    , toUInt
+    , leadingZeroes
+    , integerToBinaryRep
     , canonicalNaN
     -- * Properties
     , prop_InitialByte
@@ -452,15 +455,16 @@ prop_Token token =
 
 data Term = TUInt   UInt
           | TNInt   UInt
-          | TBigInt Word8 {- number of leading zero bytes in the binary representation -}
+          | TBigInt [Word8] {- binary encoding of the Integer -}
+                    UInt    {- representation of length in the binary encoding -}
                     Integer
-          | TBytes    [Word8]
+          | TBytes  UInt {- representation of length -} [Word8]
           | TBytess  [[Word8]]
-          | TString   [Char]
+          | TString UInt {- representation of length -} [Char]
           | TStrings [[Char]]
-          | TArray  [Term]
+          | TArray  UInt {- representation of length -} [Term]
           | TArrayI [Term]
-          | TMap    [(Term, Term)]
+          | TMap    UInt {- representation of length -} [(Term, Term)]
           | TMapI   [(Term, Term)]
           | TTagged UInt Term
           | TTrue
@@ -473,20 +477,34 @@ data Term = TUInt   UInt
           | TFloat64 Double
   deriving (Show, Eq)
 
+-- | Encode an Integer as a CBOR-compliant bytestring given a number of leading
+-- zeroes in its representation.
+integerToBinaryRep :: Word8 -> Integer -> [Word8]
+integerToBinaryRep zs n =
+    replicate (fromIntegral zs) 0 ++ (integerToBytes $ if n >= 0
+                                                       then n
+                                                       else -1 - n)
+
 instance Arbitrary Term where
     arbitrary =
         frequency
             [ (1, TUInt    <$> arbitrary)
             , (1, TNInt    <$> arbitrary)
-            , (1, TBigInt  <$> sized (\sz -> fromIntegral <$> choose (0, sz))
-                           <*> (getLargeInteger <$> arbitrary))
-            , (1, TBytes   <$> arbitrary)
+            , (1, arbitrary >>= \(LargeInteger n) -> do
+                      bs <- sized $ \sz -> integerToBinaryRep
+                          <$> (fromIntegral <$> choose (0, sz))
+                          <*> pure n
+                      TBigInt <$> pure bs <*> arbitraryLengthRep bs <*> pure n)
+            , (1, arbitrary >>= \bs -> TBytes <$> arbitraryLengthRep bs <*> pure bs)
             , (1, TBytess  <$> arbitrary)
-            , (1, TString  <$> arbitrary)
+            , (1, arbitrary >>= \bs ->
+                      TString <$> arbitraryLengthRep (encodeUTF8 bs) <*> pure bs)
             , (1, TStrings <$> arbitrary)
-            , (2, TArray   <$> listOfSmaller arbitrary)
+            , (2, listOfSmaller arbitrary >>= \arr ->
+                      TArray <$> arbitraryLengthRep arr <*> pure arr)
             , (2, TArrayI  <$> listOfSmaller arbitrary)
-            , (2, TMap     <$> listOfSmaller ((,) <$> arbitrary <*> arbitrary))
+            , (2, listOfSmaller ((,) <$> arbitrary <*> arbitrary) >>= \arr ->
+                      TMap <$> arbitraryLengthRep arr <*> pure arr)
             , (2, TMapI    <$> listOfSmaller ((,) <$> arbitrary <*> arbitrary))
             , (1, TTagged  <$> arbitraryTag <*> sized (\sz -> resize (max 0 (sz-1)) arbitrary))
             , (1, pure TFalse)
@@ -505,24 +523,53 @@ instance Arbitrary Term where
                 k <- choose (0,n)
                 vectorOf k (resize (n `div` (k+1)) gen)
 
+        arbitraryLengthRep :: [a] -> Gen UInt
+        arbitraryLengthRep xs
+          | len <= 23         = elements [ UIntSmall $ fromIntegral len
+                                         , UInt8     $ fromIntegral len
+                                         , UInt16    $ fromIntegral len
+                                         , UInt32    $ fromIntegral len
+                                         , UInt64    $ fromIntegral len
+                                         ]
+          | len <= 0xff       = elements [ UInt8  $ fromIntegral len
+                                         , UInt16 $ fromIntegral len
+                                         , UInt32 $ fromIntegral len
+                                         , UInt64 $ fromIntegral len
+                                         ]
+          | len <= 0xffff     = elements [ UInt16 $ fromIntegral len
+                                         , UInt32 $ fromIntegral len
+                                         , UInt64 $ fromIntegral len
+                                         ]
+          | len <= 0xffffffff = elements [ UInt32 $ fromIntegral len
+                                         , UInt64 $ fromIntegral len
+                                         ]
+          | otherwise         = pure     $ UInt64 $ fromIntegral len
+          where
+            len :: Word
+            len = fromIntegral (length xs)
+
         arbitraryTag = arbitrary `suchThat` (not . reservedTag . fromUInt)
 
     shrink (TUInt   n)    = [ TUInt    n'   | n' <- shrink n ]
     shrink (TNInt   n)    = [ TNInt    n'   | n' <- shrink n ]
-    shrink (TBigInt z n)  = [ TBigInt z' n' | (z', n') <- shrink (z, n) ]
-
-    shrink (TBytes  ws)   = [ TBytes   ws'  | ws'  <- shrink ws  ]
+    shrink (TBigInt bs len n) = [ let bs' = integerToBinaryRep zs n'
+                                  in TBigInt bs' (replaceLen bs' len) n'
+                                | (zs, n') <- shrink (leadingZeroes bs, n) ]
+    shrink (TBytes n ws)  = [ TBytes (replaceLen ws' n) ws' | ws' <- shrink ws ]
     shrink (TBytess wss)  = [ TBytess  wss' | wss' <- shrink wss ]
-    shrink (TString  ws)  = [ TString  ws'  | ws'  <- shrink ws  ]
+    shrink (TString n ws) = [ TString (replaceLen (encodeUTF8 ws') n) ws'
+                            | ws' <- shrink ws ]
     shrink (TStrings wss) = [ TStrings wss' | wss' <- shrink wss ]
 
-    shrink (TArray  xs@[x]) = x : [ TArray  xs' | xs' <- shrink xs ]
-    shrink (TArray  xs)     =     [ TArray  xs' | xs' <- shrink xs ]
+    shrink (TArray n xs@[x]) = x : [ TArray (replaceLen xs' n) xs' | xs' <- shrink xs ]
+    shrink (TArray n xs)     =     [ TArray (replaceLen xs' n) xs' | xs' <- shrink xs ]
     shrink (TArrayI xs@[x]) = x : [ TArrayI xs' | xs' <- shrink xs ]
     shrink (TArrayI xs)     =     [ TArrayI xs' | xs' <- shrink xs ]
 
-    shrink (TMap  xys@[(x,y)]) = x : y : [ TMap  xys' | xys' <- shrink xys ]
-    shrink (TMap  xys)         =         [ TMap  xys' | xys' <- shrink xys ]
+    shrink (TMap n xys@[(x,y)]) = x : y : [ TMap (replaceLen xys' n) xys'
+                                          | xys' <- shrink xys ]
+    shrink (TMap n xys)         =         [ TMap (replaceLen xys' n) xys'
+                                          | xys' <- shrink xys ]
     shrink (TMapI xys@[(x,y)]) = x : y : [ TMapI xys' | xys' <- shrink xys ]
     shrink (TMapI xys)         =         [ TMapI xys' | xys' <- shrink xys ]
 
@@ -539,6 +586,16 @@ instance Arbitrary Term where
     shrink (TFloat32 f) = [ TFloat32 f' | f' <- shrink f ]
     shrink (TFloat64 f) = [ TFloat64 f' | f' <- shrink f ]
 
+-- Shrinking produces smaller values, so there will be no overflow.
+replaceLen :: [a] -> UInt -> UInt
+replaceLen xs = \case
+    UIntSmall _ -> UIntSmall $ fromIntegral len
+    UInt8     _ -> UInt8     $ fromIntegral len
+    UInt16    _ -> UInt16    $ fromIntegral len
+    UInt32    _ -> UInt32    $ fromIntegral len
+    UInt64    _ -> UInt64    $ fromIntegral len
+  where
+    len = length xs
 
 decodeTerm :: Decoder Term
 decodeTerm = decodeToken >>= decodeTermFrom
@@ -548,17 +605,17 @@ decodeTermFrom = \case
     MT0_UnsignedInt n   -> return (TUInt n)
     MT1_NegativeInt n   -> return (TNInt n)
 
-    MT2_ByteString _ bs -> return (TBytes bs)
+    MT2_ByteString n bs -> return (TBytes n bs)
     MT2_ByteStringIndef -> decodeBytess []
 
-    MT3_String _ ws     -> either (const decodeErr) (return . TString) $
+    MT3_String n ws     -> either (const decodeErr) (return . TString n) $
                            decodeUTF8 ws
     MT3_StringIndef     -> decodeStrings []
 
-    MT4_ArrayLen len    -> decodeArrayN (fromUInt len)
+    MT4_ArrayLen len    -> decodeArrayN len
     MT4_ArrayLenIndef   -> decodeArray []
 
-    MT5_MapLen  len     -> decodeMapN (fromUInt len)
+    MT5_MapLen  len     -> decodeMapN len
     MT5_MapLenIndef     -> decodeMap  []
 
     MT6_Tag     tag     -> decodeTagged tag
@@ -589,8 +646,8 @@ decodeStrings acc =
                                decodeStrings (cs : acc)
         _                -> decodeErr
 
-decodeArrayN :: Word64 -> Decoder Term
-decodeArrayN n = TArray <$!> replicateM (fromIntegral n) decodeTerm
+decodeArrayN :: UInt -> Decoder Term
+decodeArrayN n = TArray n <$!> replicateM (fromIntegral $ fromUInt n) decodeTerm
 
 decodeArray :: [Term] -> Decoder Term
 decodeArray acc = do
@@ -601,8 +658,9 @@ decodeArray acc = do
         tm <- decodeTermFrom tk
         decodeArray (tm : acc)
 
-decodeMapN :: Word64 -> Decoder Term
-decodeMapN n = TMap <$!> replicateM (fromIntegral n) ((,) <$> decodeTerm <*> decodeTerm)
+decodeMapN :: UInt -> Decoder Term
+decodeMapN n = TMap n
+    <$!> replicateM (fromIntegral $ fromUInt n) ((,) <$> decodeTerm <*> decodeTerm)
 
 decodeMap :: [(Term, Term)] -> Decoder Term
 decodeMap acc = do
@@ -617,27 +675,29 @@ decodeMap acc = do
 decodeTagged :: UInt -> Decoder Term
 decodeTagged tag = case fromUInt tag of
     2 -> do
-        bs <- decodeToken >>= \case
-            MT2_ByteString _ bs -> return bs
+        (bs, len) <- decodeToken >>= \case
+            MT2_ByteString len bs -> return (bs, len)
             _ -> decodeErr
         let !n = integerFromBytes bs
-        return $ TBigInt (leadingZeroes bs) n
+        return $ TBigInt bs len n
     3 -> do
-        bs <- decodeToken >>= \case
-            MT2_ByteString _ bs -> return bs
+        (bs, len) <- decodeToken >>= \case
+            MT2_ByteString len bs -> return (bs, len)
             _ -> decodeErr
         let !n = integerFromBytes bs
-        return $ TBigInt (leadingZeroes bs) (-1 - n)
+        return $ TBigInt bs len (-1 - n)
     _ -> do
         tm <- decodeTerm
         return (TTagged tag tm)
-  where
-    -- If all of the bytes are zeroes, we don't count the last one.
-    leadingZeroes :: [Word8] -> Word8
-    leadingZeroes bs = fromIntegral $ case span (== 0) bs of
-        ([], []) -> error "leadingZeroes: unexpected empty list"
-        (zs, []) -> length zs - 1
-        (zs, _)  -> length zs
+
+-- | Get a number of leading zeroes in the binary representation of an
+-- Integer. Note that if all of the bytes are zeroes (i.e. we're dealing with
+-- the representation of 0), we don't count the last one.
+leadingZeroes :: [Word8] -> Word8
+leadingZeroes bs = fromIntegral $ case span (== 0) bs of
+    ([], []) -> error "leadingZeroes: unexpected empty list"
+    (zs, []) -> length zs - 1
+    (zs, _)  -> length zs
 
 integerFromBytes :: [Word8] -> Integer
 integerFromBytes []       = 0
@@ -674,41 +734,31 @@ prop_integerToFromBytes (LargeInteger n)
 encodeTerm :: Encoder Term
 encodeTerm (TUInt n)       = encodeToken (MT0_UnsignedInt n)
 encodeTerm (TNInt n)       = encodeToken (MT1_NegativeInt n)
-encodeTerm (TBigInt zs n)
+encodeTerm (TBigInt ws len n)
                | n >= 0    = encodeToken (MT6_Tag (UIntSmall 2))
-                          <> let ws  = replicate (fromIntegral zs) 0
-                                    ++ integerToBytes n
-                                 len = lengthUInt ws in
-                             encodeToken (MT2_ByteString len ws)
+                          <> encodeToken (MT2_ByteString len ws)
                | otherwise = encodeToken (MT6_Tag (UIntSmall 3))
-                          <> let ws  = replicate (fromIntegral zs) 0
-                                    ++ integerToBytes (-1 - n)
-                                 len = lengthUInt ws in
-                             encodeToken (MT2_ByteString len ws)
-encodeTerm (TBytes ws)     = let len = lengthUInt ws in
-                             encodeToken (MT2_ByteString len ws)
+                          <> encodeToken (MT2_ByteString len ws)
+encodeTerm (TBytes len ws) = encodeToken (MT2_ByteString len ws)
 encodeTerm (TBytess wss)   = encodeToken MT2_ByteStringIndef
                           <> mconcat [ encodeToken (MT2_ByteString len ws)
                                      | ws <- wss
                                      , let len = lengthUInt ws ]
                           <> encodeToken MT7_Break
-encodeTerm (TString  cs)   = let ws  = encodeUTF8 cs
-                                 len = lengthUInt ws in
-                             encodeToken (MT3_String len ws)
+encodeTerm (TString len cs) = let ws  = encodeUTF8 cs in
+                              encodeToken (MT3_String len ws)
 encodeTerm (TStrings css)  = encodeToken MT3_StringIndef
                           <> mconcat [ encodeToken (MT3_String len ws)
                                      | cs <- css
                                      , let ws  = encodeUTF8 cs
                                            len = lengthUInt ws ]
                           <> encodeToken MT7_Break
-encodeTerm (TArray  ts)    = let len = lengthUInt ts in
-                             encodeToken (MT4_ArrayLen len)
+encodeTerm (TArray len ts) = encodeToken (MT4_ArrayLen len)
                           <> mconcat (map encodeTerm ts)
 encodeTerm (TArrayI ts)    = encodeToken MT4_ArrayLenIndef
                           <> mconcat (map encodeTerm ts)
                           <> encodeToken MT7_Break
-encodeTerm (TMap    kvs)   = let len = lengthUInt kvs in
-                             encodeToken (MT5_MapLen len)
+encodeTerm (TMap len kvs)  = encodeToken (MT5_MapLen len)
                           <> mconcat [ encodeTerm k <> encodeTerm v
                                      | (k,v) <- kvs ]
 encodeTerm (TMapI   kvs)   = encodeToken MT5_MapLenIndef
@@ -737,9 +787,9 @@ prop_Term term =
   where
     -- NaNs are so annoying...
     eqTerm :: Term -> Term -> Property
-    eqTerm (TArray  ts)  (TArray  ts')   = conjoin (zipWith eqTerm ts ts')
+    eqTerm (TArray n ts) (TArray n' ts') = n == n' .&&. conjoin (zipWith eqTerm ts ts')
     eqTerm (TArrayI ts)  (TArrayI ts')   = conjoin (zipWith eqTerm ts ts')
-    eqTerm (TMap    ts)  (TMap    ts')   = conjoin (zipWith eqTermPair ts ts')
+    eqTerm (TMap n ts)   (TMap n' ts')   = n == n' .&&. conjoin (zipWith eqTermPair ts ts')
     eqTerm (TMapI   ts)  (TMapI   ts')   = conjoin (zipWith eqTermPair ts ts')
     eqTerm (TTagged w t) (TTagged w' t') = w === w' .&&. eqTerm t t'
     eqTerm (TFloat16 f)  (TFloat16 f')   | isNaN f && isNaN f' = property True
@@ -878,7 +928,7 @@ instance (Arbitrary n, RealFloat n) => Arbitrary (FloatSpecials n) where
             , (1, pure (FloatSpecials (-1/0)) ) -- -Infinity
             ]
 
-newtype LargeInteger = LargeInteger { getLargeInteger :: Integer }
+newtype LargeInteger = LargeInteger Integer
     deriving (Show, Eq)
 
 instance Arbitrary LargeInteger where

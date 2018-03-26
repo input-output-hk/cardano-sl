@@ -3,6 +3,7 @@ module Cardano.Wallet.API.V0.Handlers where
 
 import           Universum
 import qualified Cardano.Wallet.API.V0          as V0
+import           Ntp.Client (NtpStatus)
 import           Pos.Diffusion.Types            (Diffusion(sendTx))
 import           Pos.Wallet.Web.Mode            (MonadFullWalletWebMode)
 import qualified Pos.Wallet.Web.Server.Handlers as V0
@@ -17,6 +18,7 @@ import           Servant
 handlers :: MonadFullWalletWebMode ctx m
          => (forall a. m a -> Handler a)
          -> Diffusion m
+         -> TVar NtpStatus
          -> Server V0.API
-handlers naturalTransformation diffusion =
-    hoistServer (Proxy @V0.API) naturalTransformation (V0.servantHandlers (sendTx diffusion))
+handlers naturalTransformation diffusion ntpStatus =
+    hoistServer (Proxy @V0.API) naturalTransformation (V0.servantHandlers ntpStatus (sendTx diffusion))

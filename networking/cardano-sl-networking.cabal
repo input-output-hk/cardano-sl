@@ -47,8 +47,7 @@ Library
 
                         Node.Util.Monitor
 
-                        NTP.Client
-                        NTP.Example
+                        Ntp.Client
 
                         Bench.Network.Commons
 
@@ -57,8 +56,8 @@ Library
                         JsonLog.Event
                         JsonLog.JsonLogT
 
-  other-modules:        NTP.Packet
-                        NTP.Util
+  other-modules:        Ntp.Packet
+                        Ntp.Util
                         Data.NonEmptySet
 
   build-depends:        aeson

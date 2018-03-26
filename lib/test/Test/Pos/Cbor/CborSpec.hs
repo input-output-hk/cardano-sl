@@ -70,7 +70,7 @@ import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Util.QuickCheck.Property (expectationError)
 import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
 import qualified Test.Pos.Cbor.RefImpl as R
-import           Test.Pos.Configuration (withDefConfiguration, withDefInfraConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Helpers (binaryTest, msgLenLimitedTest)
 
 data User
@@ -336,7 +336,7 @@ testAgainstFile name x expected =
               Right actual -> x `shouldBe` actual
 
 spec :: Spec
-spec = withDefInfraConfiguration $ withDefConfiguration $ do
+spec = withDefConfiguration $ do
     describe "Reference implementation" $ do
         describe "properties" $ do
             prop "encoding/decoding initial byte"    R.prop_InitialByte

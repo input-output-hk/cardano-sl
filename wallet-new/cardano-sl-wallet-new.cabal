@@ -448,6 +448,7 @@ test-suite wallet-new-specs
                     , http-types
                     , ixset-typed
                     , lens
+                    , log-warper
                     , neat-interpolation
                     , optparse-applicative
                     , quickcheck-instances

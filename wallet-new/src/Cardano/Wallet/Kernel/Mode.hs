@@ -21,7 +21,6 @@ import           Pos.Core
 import           Pos.DB
 import           Pos.DB.Block
 import           Pos.DB.DB
-import           Pos.Infra.Configuration
 import           Pos.KnownPeers
 import           Pos.Launcher
 import           Pos.Network.Types
@@ -197,13 +196,12 @@ instance HasConfiguration => MonadDB WalletMode where
   dbPutSerBlunds = dbPutSerBlundsRealDefault
 
 instance ( HasConfiguration
-         , HasInfraConfiguration
          , MonadSlotsData ctx WalletMode
          ) => MonadSlots ctx WalletMode where
-  getCurrentSlot           = getCurrentSlotSum
-  getCurrentSlotBlocking   = getCurrentSlotBlockingSum
-  getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
-  currentTimeSlotting      = currentTimeSlottingSum
+  getCurrentSlot           = getCurrentSlotSimple
+  getCurrentSlotBlocking   = getCurrentSlotBlockingSimple
+  getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
+  currentTimeSlotting      = currentTimeSlottingSimple
 
 instance HasConfiguration => MonadGState WalletMode where
   gsAdoptedBVData = gsAdoptedBVDataDefault
@@ -217,7 +215,7 @@ instance MonadFormatPeers WalletMode where
 instance {-# OVERLAPPING #-} CanJsonLog WalletMode where
   jsonLog = jsonLogDefault
 
-instance (HasConfiguration, HasInfraConfiguration, HasTxpConfiguration, HasCompileInfo)
+instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo)
       => MonadTxpLocal WalletMode where
   txpNormalize = txNormalize
   txpProcessTx = txProcessTransaction

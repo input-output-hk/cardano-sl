@@ -35,13 +35,14 @@ import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Lrc.Context (LrcContext)
 import           Pos.Slotting (HasSlottingVar (..))
 import           Pos.Slotting.Class (MonadSlots (..))
-import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingSum,
-                                        getCurrentSlotBlockingSum, getCurrentSlotInaccurateSum,
-                                        getCurrentSlotSum)
+import           Pos.Slotting.Impl (SimpleSlottingStateVar,
+                                    currentTimeSlottingSimple,
+                                    getCurrentSlotBlockingSimple,
+                                    getCurrentSlotInaccurateSimple,
+                                    getCurrentSlotSimple)
 import           Pos.Slotting.MemState (MonadSlotsData)
 import           Pos.Slotting.Types (SlottingData)
 import           Pos.Util.Lens (postfixLFields)
@@ -52,7 +53,7 @@ import           Pos.Util.Util (HasLens (..))
 data InitModeContext = InitModeContext
     { imcNodeDBs            :: NodeDBs
     , imcSlottingVar        :: (Timestamp, TVar SlottingData)
-    , imcSlottingContextSum :: SlottingContextSum
+    , imcSlottingStateVar   :: SimpleSlottingStateVar
     , imcLrcContext         :: LrcContext
     }
 
@@ -66,8 +67,8 @@ runInitMode = flip Mtl.runReaderT
 instance HasLens NodeDBs InitModeContext NodeDBs where
     lensOf = imcNodeDBs_L
 
-instance HasLens SlottingContextSum InitModeContext SlottingContextSum where
-    lensOf = imcSlottingContextSum_L
+instance HasLens SimpleSlottingStateVar InitModeContext SimpleSlottingStateVar where
+    lensOf = imcSlottingStateVar_L
 
 instance HasLens LrcContext InitModeContext LrcContext where
     lensOf = imcLrcContext_L
@@ -88,10 +89,10 @@ instance HasConfiguration => MonadDB InitMode where
     dbDelete = dbDeleteDefault
     dbPutSerBlunds = dbPutSerBlundsRealDefault
 
-instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx InitMode) =>
+instance (HasConfiguration, MonadSlotsData ctx InitMode) =>
          MonadSlots ctx InitMode
   where
-    getCurrentSlot           = getCurrentSlotSum
-    getCurrentSlotBlocking   = getCurrentSlotBlockingSum
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
-    currentTimeSlotting      = currentTimeSlottingSum
+    getCurrentSlot           = getCurrentSlotSimple
+    getCurrentSlotBlocking   = getCurrentSlotBlockingSimple
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
+    currentTimeSlotting      = currentTimeSlottingSimple

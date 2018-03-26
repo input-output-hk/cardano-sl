@@ -73,7 +73,6 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
 
 
   ${executables.${executable}}                                     \
-    --no-ntp                                                       \
     --configuration-file ${configFiles}/configuration.yaml         \
     --configuration-key ${environments.${environment}.confKey}     \
     ${ ifWallet "--tlscert ${stateDir}/tls/server.cert"}           \

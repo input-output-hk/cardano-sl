@@ -148,6 +148,11 @@ retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
 -- | Pass a list of absolute paths to log files. This function will
 -- archive and compress these files and put resulting file into log
 -- directory (returning filepath is absolute).
+--
+-- It will throw a PackingError in case:
+--   - Any of the file paths given does not point to an existing file.
+--   - Any of the file paths could not be converted to a tar path, for instance
+--     because it is too long.
 compressLogs :: (MonadIO m) => [FilePath] -> m FilePath
 compressLogs files = liftIO $ do
     tar <- tarPackIndependently files

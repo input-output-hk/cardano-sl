@@ -647,13 +647,23 @@ reportNodeCrash exitCode logConfPath reportServ = do
     let logFileNames =
             map ((fromMaybe "" (logConfig ^. Log.lcLogsDirectory) </>) . snd) $
             retrieveLogFiles logConfig
-    let logFiles = filter (".pub" `isSuffixOf`) logFileNames
-    let ec = case exitCode of
+        -- The log files are computed purely: they're only hypothetical. They
+        -- are the file names that the logger config *would* create, but they
+        -- don't necessarily exist on disk. 'compressLogs' assumes that all
+        -- of the paths given indeed exist, and it will throw an exception if
+        -- any of them do not (or if they're not tar-appropriate paths).
+        hyptheticalLogFiles = filter (".pub" `isSuffixOf`) logFileNames
+        ec = case exitCode of
             ExitSuccess   -> 0
             ExitFailure n -> n
-    let handler = logError . sformat ("Failed to report node crash: "%build)
-    bracket (compressLogs logFiles) (liftIO . removeFile) $ \txz ->
-        sendReport [txz] (RCrash ec) "cardano-node" reportServ `catchAny` handler
+        handler = logError . sformat ("Failed to report node crash: "%build)
+        sendIt logFiles = bracket (compressLogs logFiles) (liftIO . removeFile) $ \txz ->
+            sendReport [txz] (RCrash ec) "cardano-node" reportServ
+    logFiles <- liftIO $ filterM doesFileExist hyptheticalLogFiles
+    -- We catch synchronous exceptions and do not re-throw! This is a crash
+    -- handler. It runs if some other part of the system crashed. We wouldn't
+    -- want a crash in the crash handler to shadow an existing crash.
+    sendIt logFiles `catchAny` handler
 
 -- Taken from the 'turtle' library and modified
 system'

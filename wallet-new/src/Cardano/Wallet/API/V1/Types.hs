@@ -646,6 +646,7 @@ instance Arbitrary WalletAddress where
                               <*> arbitrary
                               <*> arbitrary
                               <*> arbitrary
+
 type AccountIndex = Word32
 
 -- | A wallet 'Account'.
@@ -757,6 +758,9 @@ instance BuildableSafeGen WalletAddress where
         addrBalance
         addrUsed
         addrChangeAddress
+
+instance Buildable [WalletAddress] where
+    build = bprint listJson
 
 
 -- | Create a new Address

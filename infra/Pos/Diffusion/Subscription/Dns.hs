@@ -1,170 +1,149 @@
+-- | 'SubscriptionTarget' backed by DNS.
 
 module Pos.Diffusion.Subscription.Dns
-    ( dnsSubscriptionWorker
+    ( dnsSubscriptionTarget
+    , dnsSubscriptionWorker
+    , retryInterval
     ) where
 
--- Why put MVars in a prelude? Weird.
-import           Universum hiding (newMVar)
+import           Universum hiding (atomically)
 
 import           Control.Concurrent (threadDelay)
-import           Control.Concurrent.MVar (modifyMVar, newMVar)
-import           Control.Concurrent.Async (forConcurrently)
-import           Control.Exception (IOException)
+import           Control.Concurrent.Async (forConcurrently_)
+import           Control.Concurrent.STM (atomically)
+import           Control.Exception (SomeException, IOException, toException)
 import           Data.Either (partitionEithers)
-import           Data.Map.Strict (Map)
-import qualified Data.Map.Strict as M
-import           Data.Time.Units (Millisecond, fromMicroseconds, toMicroseconds)
-import           Formatting (int, sformat, shown, (%))
+import qualified Data.Map.Strict as Map
+import           Data.Time.Units (Microsecond, Millisecond, toMicroseconds,
+                                  fromMicroseconds)
+import           Formatting (sformat, shown, int, (%))
+import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.DNS as DNS
 
-import qualified Network.Broadcast.OutboundQueue as OQ
-import           Network.Broadcast.OutboundQueue.Types (Alts, peersFromList)
-
 import           Pos.Communication.Protocol (SendActions)
+import           Pos.Diffusion.Subscription.Common (SubscriptionMessageConstraints,
+                                                    networkSubscribeTo')
+import           Pos.Diffusion.Subscription.Subscriber (SubscriptionTarget (..),
+                                                        subscriber)
 import           Pos.Diffusion.Types (SubscriptionStatus (..))
-import           Pos.Diffusion.Subscription.Common
 import           Pos.Network.DnsDomains (NodeAddr)
 import           Pos.Network.Types (Bucket (..), DnsDomains (..), NodeId (..),
                                     NodeType (..), resolveDnsDomains)
-import           Pos.Util.Timer (Timer)
+import           Pos.Util.Timer (Timer, waitTimer)
 import           Pos.Util.Trace (Trace, Severity (..), traceWith)
 
+-- | Resolve a fixed list of names to a NodeId (using a given port) repeatedly.
+-- If the resolution may give more than one address, the addresses are given
+-- in-order, and a new resolution will take place once they have all been
+-- consumed.
+dnsSubscriptionTarget
+    :: Trace IO (Severity, Text)
+    -> IO Microsecond -- ^ How long to wait between resolutions (after all
+                      -- addresses from a single resolution have been tried).
+    -> Word16
+    -> [NodeAddr DNS.Domain]
+    -> SubscriptionTarget IO NodeId
+dnsSubscriptionTarget logTrace timeoutExhausted defaultPort addrs = SubscriptionTarget $ do
+    nodeIds <- resolve
+    listTargets nodeIds
+
+  where
+
+    listTargets :: [NodeId] -> IO (NodeId, SubscriptionTarget IO NodeId)
+    -- After exhausting all of them, wait a while.
+    listTargets [] = do
+        timeoutExhausted >>= threadDelay . fromIntegral
+        getSubscriptionTarget (dnsSubscriptionTarget logTrace timeoutExhausted defaultPort addrs)
+    listTargets (nodeId : nodeIds) = pure (nodeId, SubscriptionTarget (listTargets nodeIds))
+
+    resolve :: IO [NodeId]
+    resolve = do
+        outcome <- fmap Right (resolveOne logTrace defaultPort addrs)
+            `catch` handleDnsError
+            `catch` handleIoError
+        case outcome of
+            Left err -> do
+                traceWith logTrace (Error, formatErr err)
+                -- TODO wait a while?
+                resolve
+            Right nodeIds -> pure nodeIds
+
+    handleDnsError :: DNS.DNSError -> IO (Either SomeException t)
+    handleDnsError = return . Left . toException
+
+    handleIoError :: IOException -> IO (Either SomeException t)
+    handleIoError = return . Left . toException
+
+    formatErr :: SomeException -> Text
+    formatErr err = sformat ("exception while resolving domains "%shown%": "%shown) addrs err
+
+-- Find peers via DNS, preserving order.
+-- In case multiple addresses are returned for one name, they're flattened
+-- and we forget the boundaries, but all of the addresses for a given name
+-- are adjacent.
+resolveOne :: Trace IO (Severity, Text) -> Word16 -> [NodeAddr DNS.Domain] -> IO [NodeId]
+resolveOne logTrace defaultPort nodeAddrs = do
+    mNodeIds <- resolveDnsDomains defaultPort nodeAddrs
+    let (errs, nids_) = partitionEithers mNodeIds
+        nids = mconcat nids_
+    when (null nids)       $ traceWith logTrace (Error, msgNoRelays)
+    when (not (null errs)) $ traceWith logTrace (Error, msgDnsFailure errs)
+    return nids
+
+  where
+
+    msgDnsFailure :: [DNS.DNSError] -> Text
+    msgDnsFailure = sformat ("DNS resolution failure for "%shown%": "%shown) nodeAddrs
+
+    msgNoRelays :: Text
+    msgNoRelays = sformat ("DNS resolution for "%shown%" gave no results") nodeAddrs
+
+-- How long to wait before retrying in case no alternative can be
+-- subscribed to.
+--
+-- The formula to calculate the retry interval is
+-- @
+-- retryInterval = floor (slotDuration / 2 ^ (number of slots that passed during the longest subscription duration))
+-- @
+-- For a @20s@ slot: the values will be @20s@, @10s@, @5s@, @2s@,
+-- @1s@, @0s@, i.e. if there was a subscription that lasted more than
+-- @5@ slots we will try to re-subscribe immediately.
+retryInterval :: Millisecond -> Millisecond -> Millisecond
+retryInterval d slotDur =
+    let -- slot duration in microseconds
+        slotDurF :: Float
+        slotDurF = fromIntegral $ toMicroseconds slotDur
+        -- Number of slots that passed in the longest subscription duration
+        slotsF :: Float
+        slotsF = (fromIntegral $ toMicroseconds d) / slotDurF
+    in  fromMicroseconds $ floor $ slotDurF / (2 ** slotsF)
+
+-- | DNS-backed subscription worker. Uses 'subscriber' with a DNS resolver,
+-- and 'networkSubscribeTo''. Runs a thread for each conjunct in the
+-- 'DnsDomains' which cycles through alternatives.
 dnsSubscriptionWorker
     :: forall pack .
-     ( SubscriptionMode )
+       ( SubscriptionMessageConstraints )
     => Trace IO (Severity, Text)
     -> OQ.OutboundQ pack NodeId Bucket
     -> Word16 -- ^ Default port to use for addresses resolved from DNS domains.
     -> DnsDomains DNS.Domain
     -> Timer
-    -> IO Millisecond
+    -> IO Millisecond -- ^ Last slot duration.
     -> TVar (Map NodeId SubscriptionStatus)
     -> SendActions
     -> IO ()
-dnsSubscriptionWorker logTrace oq defaultPort DnsDomains{..} keepaliveTimer nextSlotDuration subStatus sendActions = do
-    -- Shared state between the threads which do subscriptions.
-    -- It's a 'Map Int (Alts NodeId)' used to determine the current
-    -- peers set for our bucket 'BucketBehindNatWorker'. Each thread takes
-    -- care of its own index and updates the peers while holding the lock, so
-    -- that the threads don't erase each-others' work.
-    let initialDnsPeers :: Map Int (Alts NodeId)
-        initialDnsPeers = M.fromList $ map (\(i, _) -> (i, [])) allOf
-    dnsPeersVar <- newMVar initialDnsPeers
-    -- There's a thread for each conjunct which attempts to subscribe to one of
-    -- the alternatives.
-    -- This gives valency and fallbacks implicitly, just as for static
-    -- routes. Valency is the length of the outer list (conjuncts) and
-    -- fallbacks (for a given outer list element) is the length of the inner
-    -- list (disjuncts).
-    traceWith logTrace (Notice, sformat ("dnsSubscriptionWorker: valency "%int) (length allOf))
-    void $ forConcurrently allOf (\anyOf -> newMVar (0 :: Millisecond) >>= subscribeAlts dnsPeersVar anyOf)
-    traceWith logTrace (Notice, sformat ("dnsSubscriptionWorker: all "%int%" threads finished") (length allOf))
+dnsSubscriptionWorker logTrace oq defaultPort DnsDomains {..} keepaliveTimer nextSlotDuration status sendActions = do
+    peersVar <- newMVar Map.empty
+    forConcurrently_ dnsDomains $ \domain -> do
+        duration <- newMVar 0
+        subscriber (networkSubscribeTo' logTrace oq BucketBehindNatWorker NodeRelay peersVar keepalive status duration sendActions)
+                   (dnsSubscriptionTarget logTrace (timeoutExhausted duration) defaultPort domain)
   where
-
-    allOf :: [(Int, Alts (NodeAddr DNS.Domain))]
-    allOf = zip [1..] dnsDomains
-
-    -- Resolve all of the names and try to subscribe to one.
-    -- If a subscription goes down, try later names.
-    -- When the list is exhausted (either because it's empty to begin with, or
-    -- because all subscriptions to have failed), wait a while before retrying
-    -- (see 'retryInterval').
-    subscribeAlts
-        :: MVar (Map Int (Alts NodeId))
-        -> (Int, Alts (NodeAddr DNS.Domain))
-        -> MVar Millisecond
-        -> IO ()
-    subscribeAlts _ (index, []) _ =
-        traceWith logTrace (Warning, sformat ("dnsSubscriptionWorker: no alternatives given for index "%int) index)
-    subscribeAlts dnsPeersVar (index, alts) subDuration = do
-        -- Any DNSError is squelched. So are IOExceptions, for good measure.
-        -- This does not include async exceptions.
-        -- It does handle the case in which there's no internet connection, or
-        -- a bad configuration, so that the subscription thread will keep on
-        -- retrying.
-        findAndSubscribe dnsPeersVar subDuration index alts
-            `catch` logDNSError
-            `catch` logIOException
-        d <- swapMVar subDuration 0 >>= retryInterval
+    keepalive _ = atomically $ waitTimer keepaliveTimer
+    timeoutExhausted :: MVar Millisecond -> IO Microsecond
+    timeoutExhausted duration = do
+        d <- retryInterval <$> swapMVar duration 0 <*> nextSlotDuration
         traceWith logTrace (Notice, sformat ("dnsSubscriptionWorker: waiting "%int%"ms before trying again")
             (toMicroseconds d `div` 1000))
-        threadDelay (fromIntegral d * 1000)
-        subscribeAlts dnsPeersVar (index, alts) subDuration
-
-    -- Subscribe to all alternatives, one-at-a-time, until the list is
-    -- exhausted.
-    subscribeToOne :: MVar Millisecond -> Alts NodeId -> IO ()
-    subscribeToOne subDuration dnsPeers = case dnsPeers of
-        [] -> return ()
-        (peer:peers) -> do
-            void $ subscribeTo logTrace keepaliveTimer subStatus subDuration sendActions peer
-            subscribeToOne subDuration peers
-
-    -- Resolve a name and subscribe to the node(s) at the addresses.
-    findAndSubscribe
-        :: MVar (Map Int (Alts NodeId))
-        -> MVar Millisecond
-        -> Int
-        -> Alts (NodeAddr DNS.Domain)
-        -> IO ()
-    findAndSubscribe dnsPeersVar subDuration index alts = do
-        -- Resolve all of the names and update the known peers in the queue.
-        dnsPeersList <- findDnsPeers index alts
-        modifyMVar dnsPeersVar $ \dnsPeers -> do
-            let dnsPeers' = M.insert index dnsPeersList dnsPeers
-            void $ OQ.updatePeersBucket oq BucketBehindNatWorker $ \_ ->
-                peersFromList mempty ((,) NodeRelay <$> M.elems dnsPeers')
-            pure (dnsPeers', ())
-        -- Try to subscribe to some peer.
-        -- If they all fail, wait a while before trying again.
-        subscribeToOne subDuration dnsPeersList
-
-    logIOException :: IOException -> IO ()
-    logIOException ioException =
-        traceWith logTrace (Error, sformat ("dnsSubscriptionWorker: "%shown) ioException)
-
-    logDNSError :: DNS.DNSError -> IO ()
-    logDNSError dnsError =
-        traceWith logTrace (Error, sformat ("dnsSubscriptionWorker: "%shown) dnsError)
-
-    -- Find peers via DNS, preserving order.
-    -- In case multiple addresses are returned for one name, they're flattened
-    -- and we forget the boundaries, but all of the addresses for a given name
-    -- are adjacent.
-    findDnsPeers :: Int -> Alts (NodeAddr DNS.Domain) -> IO (Alts NodeId)
-    findDnsPeers index alts = do
-        mNodeIds <- resolveDnsDomains defaultPort alts
-        let (errs, nids_) = partitionEithers mNodeIds
-            nids = mconcat nids_
-        when (null nids)       $ traceWith logTrace (Error, msgNoRelays index)
-        when (not (null errs)) $ traceWith logTrace (Error, msgDnsFailure index errs)
-        return nids
-
-    -- How long to wait before retrying in case no alternative can be
-    -- subscribed to.
-    --
-    -- The formula to calculate the retry interval is
-    -- @
-    -- retryInterval = floor (slotDuration / 2 ^ (number of slots that passed during the longest subscription duration))
-    -- @
-    -- For a @20s@ slot: the values will be @20s@, @10s@, @5s@, @2s@,
-    -- @1s@, @0s@, i.e. if there was a subscription that lasted more than
-    -- @5@ slots we will try to re-subscribe immediately.
-    retryInterval :: Millisecond -> IO Millisecond
-    retryInterval d = do
-        slotDur <- nextSlotDuration
-        let -- slot duration in microseconds
-            slotDurF :: Float
-            slotDurF = fromIntegral $ toMicroseconds slotDur
-            -- Number of slots that passed in the longest subscription duration
-            slotsF :: Float
-            slotsF = (fromIntegral $ toMicroseconds d) / slotDurF
-        return $ fromMicroseconds $ floor $ slotDurF / (2 ** slotsF)
-
-    msgDnsFailure :: Int -> [DNS.DNSError] -> Text
-    msgDnsFailure = sformat ("dnsSubscriptionWorker: DNS failure for index "%int%": "%shown)
-
-    msgNoRelays :: Int -> Text
-    msgNoRelays = sformat ("dnsSubscriptionWorker: no relays found for index "%int)
-
-{-# ANN dnsSubscriptionWorker ("HLint: ignore Use unless" :: String) #-}
+        pure (fromIntegral d * 1000)

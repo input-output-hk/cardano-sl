@@ -25,6 +25,7 @@ import           Cardano.Wallet.TypeLits (KnownSymbols (..))
 import qualified Pos.Core as Core
 import           Pos.Core.Update (SoftwareVersion)
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
+import           Pos.Util.Servant (LoggingApi)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))
@@ -73,6 +74,9 @@ surroundedBy wrap context = wrap <> context <> wrap
 --
 -- Instances
 --
+
+instance HasSwagger a => HasSwagger (LoggingApi config a) where
+    toSwagger _ = toSwagger (Proxy @a)
 
 instance HasSwagger (apiType a :> res) =>
          HasSwagger (WithDefaultApiArg apiType a :> res) where

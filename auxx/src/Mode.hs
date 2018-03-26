@@ -48,7 +48,6 @@ import           Pos.DB (DBSum (..), MonadGState (..), NodeDBs, gsIsBootstrapEra
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.GState (HasGStateContext (..), getGStateImplicit)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
@@ -150,7 +149,7 @@ instance HasSlogGState AuxxContext where
 instance HasJsonLogConfig AuxxContext where
     jsonLogConfig = acRealModeContext_L . jsonLogConfig
 
-instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx AuxxMode)
+instance (HasConfiguration, MonadSlotsData ctx AuxxMode)
       => MonadSlots ctx AuxxMode
   where
     getCurrentSlot = realModeToAuxx getCurrentSlot
@@ -194,7 +193,6 @@ instance HasConfiguration => MonadBalances AuxxMode where
     getBalance = getBalanceFromUtxo
 
 instance ( HasConfiguration
-         , HasInfraConfiguration
          , HasSscConfiguration
          , HasTxpConfiguration
          , HasCompileInfo
@@ -226,7 +224,6 @@ instance MonadKeys AuxxMode where
 type instance MempoolExt AuxxMode = EmptyMempoolExt
 
 instance ( HasConfiguration
-         , HasInfraConfiguration
          , HasTxpConfiguration
          , HasCompileInfo
          ) =>

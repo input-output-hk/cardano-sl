@@ -15,6 +15,7 @@ import qualified Control.Concurrent.STM as STM
 import           Data.Default (def)
 import           Network.HTTP.Client hiding (Proxy)
 import           Network.HTTP.Types
+import           Ntp.Client (withoutNtpClient)
 import qualified Pos.Diffusion.Types as D
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
@@ -126,7 +127,8 @@ v0Server diffusion = do
   -- TODO(adinapoli): If the monadic stack ends up diverging between V0 and V1,
   -- it's obviously incorrect using 'testV1Context' here.
   ctx <- testV1Context
-  return (V0.handlers (Migration.v1MonadNat ctx) diffusion)
+  withoutNtpClient $ \ntpStatus ->
+    return (V0.handlers (Migration.v1MonadNat ctx) diffusion ntpStatus)
 
 -- | "Lowers" V1 Handlers from our domain-specific monad to a @Servant@ 'Handler'.
 v1Server :: ( Migration.HasConfigurations
@@ -134,7 +136,8 @@ v1Server :: ( Migration.HasConfigurations
             ) => D.Diffusion Migration.MonadV1 -> IO (Server V1.API)
 v1Server diffusion = do
   ctx <- testV1Context
-  return (V1.handlers (Migration.v1MonadNat ctx) diffusion)
+  withoutNtpClient $ \ntpStatus ->
+    return (V1.handlers (Migration.v1MonadNat ctx) diffusion ntpStatus)
 
 -- | Returns a test 'V1Context' which can be used for the API specs.
 -- Such context will use an in-memory database.
@@ -164,7 +167,7 @@ testV1Context =
 -- The general consensus, after discussing this with the team, is that we can be moderately safe.
 spec :: Spec
 spec = withCompileInfo def $ do
-    withDefConfigurations $ do
+    withDefConfigurations $ \_ -> do
       xdescribe "Servant API Properties" $ do
         it "V0 API follows best practices & is RESTful abiding" $ do
           ddl <- D.dummyDiffusionLayer

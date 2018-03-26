@@ -1,6 +1,6 @@
 {-# LANGUAGE ViewPatterns #-}
 
-module NTP.Packet
+module Ntp.Packet
     ( NtpPacket (..)
     , ntpPacketSize
     , mkCliNtpPacket
@@ -8,7 +8,7 @@ module NTP.Packet
     ) where
 
 
-import           Control.Lens (both, (^..))
+import           Control.Lens (each, (^..))
 import           Control.Monad (replicateM_)
 import           Control.Monad.Trans (MonadIO (..))
 import           Data.Binary (Binary (..))
@@ -17,7 +17,7 @@ import           Data.Binary.Put (putWord32be, putWord8)
 import           Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
 import           Data.Word (Word32, Word8)
 
-import           NTP.Util (getCurrentTime)
+import           Ntp.Util (getCurrentTime)
 
 data NtpPacket = NtpPacket
     { ntpParams       :: Word8        -- some magic parameters
@@ -56,7 +56,7 @@ instance Binary NtpPacket where
         -- since it's sent only by client, initialize only `transmitTime`
         replicateM_ 3 $ putWord8 0
         replicateM_ 9 $ putWord32be 0
-        mapM_ putWord32be $ realMcsToNtp ntpTransmitTime ^.. both
+        mapM_ putWord32be $ realMcsToNtp ntpTransmitTime ^.. each
 
     get = do
         ntpParams <- getWord8

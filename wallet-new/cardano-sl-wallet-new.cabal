@@ -94,6 +94,7 @@ library
                      , text
                      , text-format
                      , transformers
+                     , reflection
                      , universum
                      , unordered-containers
                      , vector
@@ -131,6 +132,7 @@ library
                       ScopedTypeVariables
                       UndecidableInstances
                       MonadFailDesugaring
+                      TupleSections
 
 executable cardano-node
   hs-source-dirs:      server
@@ -440,11 +442,13 @@ test-suite wallet-new-specs
                     , containers
                     , data-default
                     , exceptions
+                    , formatting
                     , hspec
                     , http-client
                     , http-types
                     , ixset-typed
                     , lens
+                    , log-warper
                     , neat-interpolation
                     , optparse-applicative
                     , quickcheck-instances

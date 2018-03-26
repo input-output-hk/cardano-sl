@@ -31,7 +31,6 @@ import           Pos.DB.Rocks (MonadRealDB)
 import           Pos.Delegation.Class (MonadDelegation)
 import           Pos.Delegation.Configuration (HasDlgConfiguration)
 import           Pos.DHT.Real.Param (KademliaParams)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Network.Types (HasNodeType, NetworkConfig)
 import           Pos.Recovery.Info (MonadRecoveryInfo)
@@ -98,7 +97,6 @@ type MinWorkMode m
       , MonadIO m
       , MonadUnliftIO m
       , HasConfiguration
-      , HasInfraConfiguration
       , HasUpdateConfiguration
       , HasNodeConfiguration
       , HasBlockConfiguration

@@ -7336,9 +7336,9 @@ inherit (pkgs) mesa;};
          , http-client-tls, iproute, kademlia, lens, log-warper, lzma, mtl
          , network-info, network-transport, network-transport-tcp
          , optparse-applicative, parsec, QuickCheck, reflection
-         , safe-exceptions, serokell-util, stdenv, stm, tagged, tar, text
-         , text-format, time, time-units, transformers, universum, unix
-         , unordered-containers, yaml
+         , safe-exceptions, serokell-util, stdenv, stm, tagged, tar
+         , template-haskell, text, text-format, time, time-units
+         , transformers, universum, unix, unordered-containers, yaml
          }:
          mkDerivation {
            pname = "cardano-sl-infra";
@@ -7353,8 +7353,8 @@ inherit (pkgs) mesa;};
              iproute kademlia lens log-warper lzma mtl network-info
              network-transport network-transport-tcp optparse-applicative parsec
              QuickCheck reflection safe-exceptions serokell-util stm tagged tar
-             text text-format time time-units transformers universum unix
-             unordered-containers yaml
+             template-haskell text text-format time time-units transformers
+             universum unix unordered-containers yaml
            ];
            libraryToolDepends = [ cpphs ];
            doHaddock = false;
@@ -7427,9 +7427,9 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-node" = callPackage
-        ({ mkDerivation, base, cardano-sl, cardano-sl-networking
-         , cardano-sl-ssc, cardano-sl-update, cardano-sl-util, cpphs
-         , log-warper, stdenv, universum
+         ({ mkDerivation, base, cardano-sl, cardano-sl-infra
+         , cardano-sl-networking, cardano-sl-ssc, cardano-sl-update
+         , cardano-sl-util, cpphs, log-warper, stdenv, universum
          }:
          mkDerivation {
            pname = "cardano-sl-node";
@@ -7438,8 +7438,9 @@ inherit (pkgs) mesa;};
            isLibrary = false;
            isExecutable = true;
            executableHaskellDepends = [
-             base cardano-sl cardano-sl-networking cardano-sl-ssc
-             cardano-sl-update cardano-sl-util log-warper universum
+             base cardano-sl cardano-sl-infra cardano-sl-networking
+             cardano-sl-ssc cardano-sl-update cardano-sl-util log-warper
+             universum
            ];
            executableToolDepends = [ cpphs ];
            doHaddock = false;
@@ -7681,8 +7682,8 @@ inherit (pkgs) mesa;};
          , http-client, http-types, insert-ordered-containers, ixset-typed
          , json-sop, lens, log-warper, memory, mmorph, mtl
          , neat-interpolation, optparse-applicative, QuickCheck
-         , quickcheck-instances, safe-exceptions, serokell-util, servant
-         , servant-client, servant-client-core, servant-quickcheck
+         , quickcheck-instances, reflection, safe-exceptions, serokell-util
+         , servant, servant-client, servant-client-core, servant-quickcheck
          , servant-server, servant-swagger, servant-swagger-ui, stdenv, stm
          , string-conv, swagger2, text, text-format, time, time-units
          , transformers, universum, unordered-containers, vector, wai
@@ -7701,10 +7702,10 @@ inherit (pkgs) mesa;};
              cardano-sl-txp cardano-sl-update cardano-sl-util cardano-sl-wallet
              containers data-default exceptions formatting generics-sop
              http-api-data http-client http-types ixset-typed json-sop lens
-             log-warper memory mtl QuickCheck safe-exceptions serokell-util
-             servant servant-client servant-client-core servant-quickcheck
-             servant-server servant-swagger-ui string-conv swagger2 text
-             text-format time time-units transformers universum
+             log-warper memory mtl QuickCheck reflection safe-exceptions
+             serokell-util servant servant-client servant-client-core
+             servant-quickcheck servant-server servant-swagger-ui string-conv
+             swagger2 text text-format time time-units transformers universum
              unordered-containers vector wai
            ];
            executableHaskellDepends = [

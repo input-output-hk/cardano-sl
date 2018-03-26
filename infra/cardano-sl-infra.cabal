@@ -40,11 +40,8 @@ library
                         -- Slotting
                         Pos.Slotting
                         Pos.Slotting.Class
-                        Pos.Slotting.Configuration
                         Pos.Slotting.Impl
-                        Pos.Slotting.Impl.Ntp
                         Pos.Slotting.Impl.Simple
-                        Pos.Slotting.Impl.Sum
                         Pos.Slotting.Impl.Util
                         Pos.Slotting.MemState
                         Pos.Slotting.Types
@@ -82,9 +79,6 @@ library
                         -- Health Checks
                         Pos.HealthCheck.Route53
 
-                        -- Configuration
-                        Pos.Infra.Configuration
-
                         -- Known peers
                         Pos.KnownPeers
 
@@ -115,7 +109,7 @@ library
                         Pos.Statistics.Statsd
 
                         -- NTP
-                        Pos.NtpCheck
+                        Pos.Ntp.Configuration
 
                         -- Pos.Binary
                         Pos.Binary.Infra
@@ -178,6 +172,7 @@ library
                       , stm
                       , clock
                       , tagged
+                      , template-haskell
                       , tar
                       , text
                       , text-format

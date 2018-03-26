@@ -13,7 +13,7 @@ module Cardano.Wallet.API.Response (
   ) where
 
 import           Prelude
-import           Universum (decodeUtf8, toText, (<>))
+import           Universum (Buildable, decodeUtf8, toText, (<>))
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
 import           Control.Lens
@@ -22,7 +22,9 @@ import           Data.Aeson.Encode.Pretty (encodePretty)
 import           Data.Aeson.TH
 import qualified Data.Char as Char
 import           Data.Swagger as S
+import qualified Data.Text.Buildable
 import           Data.Typeable
+import           Formatting (bprint, build, (%))
 import           GHC.Generics (Generic)
 import qualified Serokell.Aeson.Options as Serokell
 import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..), MimeUnrender (..),
@@ -55,6 +57,10 @@ instance ToSchema Metadata where
         { S.fieldLabelModifier =
             over (ix 0) Char.toLower . drop 4 -- length "meta"
         }
+
+instance Buildable Metadata where
+  build Metadata{..} =
+    bprint ("{ pagination="%build%" }") metaPagination
 
 -- | An `WalletResponse` models, unsurprisingly, a response (successful or not)
 -- produced by the wallet backend.
@@ -91,6 +97,16 @@ instance (ToSchema a, Typeable a) => ToSchema (WalletResponse a) where
                 , ("status", respRef)
                 , ("meta", metaRef)
                 ]
+
+instance Buildable a => Buildable (WalletResponse a) where
+    build WalletResponse{..} = bprint
+        ("\n\tstatus="%build
+        %"\n\tmeta="%build
+        %"\n\tdata="%build
+        )
+        wrStatus
+        wrMeta
+        wrData
 
 -- | Inefficient function to build a response out of a @generator@ function. When the data layer will
 -- be rewritten the obvious solution is to slice & dice the data as soon as possible (aka out of the DB), in this order:

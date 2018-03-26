@@ -20,6 +20,8 @@ import           Data.Aeson.TH
 import qualified Data.Char as Char
 import           Data.Default
 import           Data.Swagger as S
+import qualified Data.Text.Buildable
+import           Formatting (bprint, build, (%))
 import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck (Arbitrary (..), choose, getPositive)
 import           Web.HttpApiData
@@ -56,6 +58,9 @@ instance ToParamSchema Page where
 -- | If not specified otherwise, return first page.
 instance Default Page where
     def = Page 1
+
+instance Buildable Page where
+  build (Page p) = bprint build p
 
 -- | A `PerPage` is used to specify the number of entries which should be returned
 -- as part of a paginated response.
@@ -102,6 +107,9 @@ instance ToHttpApiData PerPage where
 instance Default PerPage where
     def = PerPage defaultPerPageEntries
 
+instance Buildable PerPage where
+  build (PerPage p) = bprint build p
+
 -- | Extra information associated with pagination
 data PaginationMetadata = PaginationMetadata
   { metaTotalPages   :: Int     -- ^ The total pages returned by this query.
@@ -134,9 +142,23 @@ instance ToSchema PaginationMetadata where
         & at "totalPages" ?~ totalSchema
         & at "totalEntries" ?~ totalSchema
 
+instance Buildable PaginationMetadata where
+    build PaginationMetadata{..} =
+        bprint (build%"/"%build%" total="%build%" per_page="%build)
+            metaPage
+            metaTotalPages
+            metaTotalEntries
+            metaPerPage
+
 -- | `PaginationParams` is datatype which combines request params related
 -- to pagination together.
 data PaginationParams = PaginationParams
     { ppPage    :: Page
     , ppPerPage :: PerPage
     } deriving (Show, Eq, Generic)
+
+instance Buildable PaginationParams where
+    build PaginationParams{..} =
+      bprint ("page="%build%", per_page="%build)
+          ppPage
+          ppPerPage

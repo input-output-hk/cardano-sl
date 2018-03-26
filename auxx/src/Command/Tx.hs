@@ -34,17 +34,17 @@ import           System.Wlog (logError, logInfo)
 
 import           Pos.Binary (decodeFull)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
-import           Pos.Client.Txp.Balances (getOwnUtxoForPk, getOwnUtxosGenesis)
+import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
 import           Pos.Client.Txp.Util (createTx)
 import           Pos.Communication (SendActions, immediateConcurrentConversations)
 import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAddr (..),
                            Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretKeys)
-import           Pos.Core.Txp (TxAux, TxOut (..), TxOutAux (..), txaF)
+import           Pos.Core.Txp (TxAux, TxOut (..), TxOutAux (..), txaF {-,taTx-})
 import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase, encToPublic, fakeSigner,
-                             safeToPublic, toPublic, withSafeSigners)
-import           Pos.Txp (topsortTxAuxes)
+                             safeToPublic, toPublic, withSafeSigners{-, withHash-})
+import           Pos.Txp (topsortTxAuxes {-,applyTxToUtxo-})
 
 import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util (maybeThrow)
@@ -109,6 +109,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                                                    , "delay=" <> show delay_ ]
         liftIO $ T.hPutStrLn h "time,txCount,txType"
         txQueue <- atomically $ newTQueue
+        outQueue <- atomically $ newTQueue
         -- prepare a queue with all transactions
         logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
         startAtTxt <- liftIO $ lookupEnv "AUXX_START_AT"
@@ -134,7 +135,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                 utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
         -- every genesis secret key sends to itself
                 me <- makePubKeyAddressAuxx (toPublic secretKey)
-                _ <- getOwnUtxosGenesis [me] 
+                --_ <- getOwnUtxosGenesis [me] 
                 let val2 = mkCoin 1
                     txOut2 = TxOut {
                         txOutAddress = me,
@@ -144,8 +145,10 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                 etx <- createTx mempty utxo (fakeSigner secretKey) txOuts2 (toPublic secretKey)
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
-                    Right (tx, _) -> do 
+                    Right (tx, neout) -> do 
                                 atomically $ writeTQueue txQueue (tx, neighbours)
+                                atomically $ writeTQueue outQueue neout
+                                
 
         let nTrans = duration
             allTrans = (zip (drop startAt keysToSend) [0.. nTrans])
@@ -181,12 +184,31 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                                     else sformat ("Applied transaction "%txaF%", however no neighbour applied it") tx
                           delay $ ms delay_
                           logInfo "Continuing to send transactions."
+                          --applyTxToUtxo (withHash $ taTx tx)
                           sendTxs (n - 1)
                       Nothing -> do
                           logInfo "No more transactions in the queue."
                           sendTxs 0
 
-            sendTxsConcurrently n = void $ forConcurrently [1..conc] (const (sendTxs n))
+            sendTxsCont :: Int -> m ()
+            sendTxsCont n
+                | n <= 0 = do
+                      logInfo "All done sending transactions on this thread."
+                      
+                | otherwise = (atomically $ tryReadTQueue outQueue) >>= \case
+                      Just neout -> do
+                          addTxSubmit tpsMVar
+                          send sendActions 0 neout
+                          delay $ ms delay_
+                          logInfo "Continuing to send transactions."
+                          sendTxs (n - 1)
+                      Nothing -> do
+                          logInfo "No more transactions in the queue."
+                          sendTxs 0
+
+
+            sendTxsConcurrently     n = void $ forConcurrently [1..conc] (const (sendTxs n))
+            sendTxsConcurrentlyCont n = void $ forConcurrently [1..conc] (const (sendTxsCont n))
         -- pre construct the first batch of transactions. Otherwise,
         -- we'll be CPU bound and will not achieve high transaction
         -- rates. If we pre construct all the transactions, the
@@ -203,10 +225,8 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
             concurrently (forM_ secondBatch addTx) $
             concurrently writeTPS (sendTxsConcurrently (duration))
         logInfo "First iteration finished"
-        forM_  firstBatch addTx
         void $
-            concurrently (forM_ secondBatch addTx) $
-            concurrently writeTPS (sendTxsConcurrently (duration))
+            concurrently writeTPS (sendTxsConcurrentlyCont (duration))
         logInfo "Second iteration finished"
         
 

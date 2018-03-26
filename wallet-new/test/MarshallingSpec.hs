@@ -47,8 +47,9 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @(V1 InputSelectionPolicy) Proxy
         aesonRoundtripProp @Transaction Proxy
         aesonRoundtripProp @(V1 Core.Timestamp) Proxy
-        aesonRoundtripProp @TransactionType Proxy
         aesonRoundtripProp @TransactionDirection Proxy
+        aesonRoundtripProp @TransactionType Proxy
+        aesonRoundtripProp @TransactionStatus Proxy
         aesonRoundtripProp @WalletError Proxy
         aesonRoundtripProp @WalletId Proxy
         aesonRoundtripProp @Wallet Proxy

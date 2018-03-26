@@ -852,7 +852,11 @@ data TransactionStatus
     | Persisted
     | WontApply
     | Creating
-    deriving (Eq, Ord, Show, Enum, Bounded)
+    deriving (Eq, Show, Ord)
+
+allTransactionStatuses :: [TransactionStatus]
+allTransactionStatuses =
+    [Applying, InNewestBlocks, Persisted, WontApply, Creating]
 
 transactionStatusToText :: TransactionStatus -> Text
 transactionStatusToText x = case x of
@@ -882,9 +886,8 @@ instance ToSchema TransactionStatus where
                 & at "tag" ?~ Inline (mempty
                     & type_ .~ SwaggerString
                     & enum_ ?~
-                        [ "applying", "inNewestBlocks", "persisted"
-                        , "wontApply", "creating"
-                        ]
+                        map (String . transactionStatusToText)
+                            allTransactionStatuses
                 )
                 & at "data" ?~ Inline (mempty
                     & type_ .~ SwaggerObject
@@ -909,7 +912,7 @@ instance FromJSON TransactionStatus where
                 fail $ "Couldn't parse out of " ++ toString (tag :: Text)
 
 instance Arbitrary TransactionStatus where
-    arbitrary = elements [minBound .. maxBound]
+    arbitrary = elements allTransactionStatuses
 
 -- | A 'Wallet''s 'Transaction'.
 data Transaction = Transaction

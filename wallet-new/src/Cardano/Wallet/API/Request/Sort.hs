@@ -2,6 +2,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE PolyKinds                 #-}
 {-# LANGUAGE RankNTypes                #-}
 
@@ -11,21 +12,22 @@ import qualified Prelude
 import           Universum
 
 import qualified Data.Text as T
+import qualified Data.Text.Buildable
 import           Data.Typeable
+import           Formatting (bprint, build, formatToString, sformat)
 import qualified Generics.SOP as SOP
-import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
+import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (Request, rawQueryString)
+import           Pos.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe, secure,
+                                   unsecure)
+import           Pos.Util.Servant (ApiCanLogArg (..), ApiHasArgClass (..))
 import           Servant
 import           Servant.Client
 import           Servant.Client.Core (appendToQueryString)
 import           Servant.Server.Internal
 
 import           Cardano.Wallet.API.Indices
-import qualified Cardano.Wallet.API.Request.Parameters as Param
-import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.TypeLits (KnownSymbols)
-import           Pos.Core as Core
 
 -- | Represents a sort operation on the data model.
 --
@@ -61,10 +63,11 @@ data SortDirection =
     | SortDescending
     deriving (Eq, Show)
 
-renderSortDir :: SortDirection -> Text
-renderSortDir sd = case sd of
-    SortAscending  -> "ASC"
-    SortDescending -> "DESC"
+instance Buildable SortDirection where
+    build = \case
+        SortAscending  -> "ASC"
+        SortDescending -> "DESC"
+
 
 -- | A sort operation on an index @ix@ for a resource 'a'.
 data SortOperation ix a
@@ -72,22 +75,30 @@ data SortOperation ix a
     -- ^ Standard sort by index (e.g. sort_by=balance).
     deriving Eq
 
-instance
-    ( IndexToQueryParam a ix ~ sym
-    , KnownSymbol sym
-    ) => ToHttpApiData (SortOperation ix a) where
-    toQueryParam sop =
-        case sop of
-            SortByIndex sortDir _ ->
-                mconcat
-                    [ renderSortDir sortDir
-                    , "["
-                    , toText (symbolVal (Proxy @sym))
-                    , "]"
-                    ]
+instance (Buildable (SortOperation ix a)) => Show (SortOperation ix a) where
+    show = formatToString build
 
-instance Show (SortOperations a) where
-    show = show . flattenSortOperations
+instance (IndexToQueryParam a ix ~ sym , KnownSymbol sym) =>
+    ToHttpApiData (SortOperation ix a) where
+    toQueryParam = \case
+        SortByIndex dir _ ->
+            let
+                ix = toText (symbolVal (Proxy @sym))
+            in
+                mconcat [ sformat build dir , "[" , ix , "]" ]
+
+instance (ToHttpApiData (SortOperation ix a)) =>
+    BuildableSafeGen (SortOperation ix a) where
+    buildSafeGen _ = bprint build . toQueryParam
+
+instance (BuildableSafeGen (SortOperation ix a)) =>
+    Buildable (SortOperation ix a) where
+    build = buildSafeGen unsecure
+
+instance (BuildableSafeGen (SortOperation ix a)) =>
+    Buildable (SecureLog (SortOperation ix a)) where
+    build = buildSafeGen secure . getSecureLog
+
 
 -- | A "bag" of sort operations, where the index constraint are captured in
 -- the inner closure of 'SortOp'.
@@ -110,6 +121,24 @@ instance Eq (SortOperations a) where
     _ == _ =
         False
 
+instance Show (SortOperations a) where
+    show = formatToString build
+
+instance BuildableSafeGen (SortOperations a) where
+    buildSafeGen _ NoSorts =
+        "-"
+    buildSafeGen _ (SortOp op NoSorts) =
+        bprint build op
+    buildSafeGen _ (SortOp op rest) =
+        bprint build op <> ", " <> bprint build rest
+
+instance Buildable (SortOperations a) where
+    build = buildSafeGen unsecure
+
+instance Buildable (SecureLog (SortOperations a)) where
+    build = buildSafeGen secure . getSecureLog
+
+
 findMatchingSortOp
     :: forall (needle :: *) (a :: *)
     . Typeable needle
@@ -121,27 +150,6 @@ findMatchingSortOp (SortOp (sop :: SortOperation ix a) rest) =
         Just Refl -> pure sop
         Nothing   -> findMatchingSortOp rest
 
-instance Show (SortOperation ix a) where
-    show (SortByIndex dir _) = "SortByIndex[" <> show dir <> "]"
-
--- | Handy helper function to show opaque 'FilterOperation'(s), mostly for
--- debug purposes.
-flattenSortOperations :: SortOperations a -> [String]
-flattenSortOperations NoSorts       = mempty
-flattenSortOperations (SortOp f fs) = show f : flattenSortOperations fs
-
--- | This is a slighly boilerplat-y type family which maps symbols to
--- indices, so that we can later on reify them into a list of valid indices.
--- In case we want to sort on _all_ the indices, it might make sense having an
--- entry like the following:
---
---    SortParams '["wallet_id", "balance"] Wallet = IndicesOf Wallet
---
--- In the case of a 'Wallet', for example, sorting by @wallet_id@ doesn't have
--- much sense, so we restrict ourselves.
-type family SortParams (syms :: [Symbol]) (r :: *) :: [*] where
-    SortParams '[Param.Balance] Wallet = '[Core.Coin]
-    SortParams '[Param.CreatedAt] Transaction = '[Core.Timestamp]
 
 -- | Handy typeclass to reconcile type and value levels by building a list of 'SortOperation' out of
 -- a type level list.
@@ -168,8 +176,6 @@ instance ( IndexRelation a ix
 
 -- | Servant's 'HasServer' instance telling us what to do with a type-level specification of a sort operation.
 instance ( HasServer subApi ctx
-         , syms ~ ParamNames res params
-         , KnownSymbols syms
          , ToSortOperations params res
          , SOP.All (ToIndex res) params
          ) => HasServer (SortBy params res :> subApi) ctx where
@@ -182,6 +188,14 @@ instance ( HasServer subApi ctx
                         return $ toSortOperations req (Proxy @params)
 
         in route (Proxy :: Proxy subApi) context delayed
+
+instance ApiHasArgClass (SortBy params res) where
+    type ApiArg (SortBy params res) = SortOperations res
+    apiArgName _ = "sort_by"
+
+instance ApiCanLogArg (SortBy params res) where
+    toLogParamInfo _ param = \sl -> sformat (buildSafe sl) param
+
 
 -- | Parse the incoming HTTP query param into a 'SortOperation', failing if the input is not a valid operation.
 parseSortOperation
@@ -215,7 +229,6 @@ parseSortOperation _ ix@Proxy value =
 
 instance
     ( HasClient m next
-    , KnownSymbols syms
     , SOP.All (ToIndex res) params
     , syms ~ ParamNames res params
     )

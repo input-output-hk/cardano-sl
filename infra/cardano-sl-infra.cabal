@@ -177,6 +177,7 @@ library
                       , stm
                       , clock
                       , tagged
+                      , template-haskell
                       , tar
                       , text
                       , text-format

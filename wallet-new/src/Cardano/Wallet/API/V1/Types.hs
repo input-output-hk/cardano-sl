@@ -6,7 +6,6 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PolyKinds                  #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
 
 -- The hlint parser fails on the `pattern` function, so we disable the
@@ -50,6 +49,7 @@ module Cardano.Wallet.API.V1.Types (
   , Transaction (..)
   , TransactionType (..)
   , TransactionDirection (..)
+  , TransactionStatus(..)
   , EstimatedFees (..)
   -- * Updates
   , WalletSoftwareUpdate (..)
@@ -399,7 +399,7 @@ type WalletName = Text
 data AssuranceLevel =
     NormalAssurance
   | StrictAssurance
-  deriving (Eq, Show, Enum, Bounded)
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 instance Arbitrary AssuranceLevel where
     arbitrary = elements [minBound .. maxBound]
@@ -489,11 +489,11 @@ instance Arbitrary NewWallet where
 instance ToSchema NewWallet where
   declareNamedSchema =
     genericSchemaDroppingPrefix "newwal" (\(--^) props -> props
-      & ("backupPhrase"     --^ "Backup phrase to restore the wallet")
-      & ("spendingPassword" --^ "Optional spending password to encrypt / decrypt private keys")
+      & ("backupPhrase"     --^ "Backup phrase to restore the wallet.")
+      & ("spendingPassword" --^ "Optional spending password to encrypt / decrypt private keys.")
       & ("assuranceLevel"   --^ "Desired assurance level based on the number of confirmations counter of each transaction.")
-      & ("name"             --^ "Wallet's name")
-      & ("operation"        --^ "Create a new wallet or Restore an existing one")
+      & ("name"             --^ "Wallet's name.")
+      & ("operation"        --^ "Create a new wallet or Restore an existing one.")
     )
 
 
@@ -524,8 +524,8 @@ deriveJSON Serokell.defaultOptions  ''WalletUpdate
 instance ToSchema WalletUpdate where
   declareNamedSchema =
     genericSchemaDroppingPrefix "uwal" (\(--^) props -> props
-      & ("assuranceLevel" --^ "New assurance level")
-      & ("name"           --^ "New wallet's name")
+      & ("assuranceLevel" --^ "New assurance level.")
+      & ("name"           --^ "New wallet's name.")
     )
 
 instance Arbitrary WalletUpdate where
@@ -544,24 +544,43 @@ instance BuildableSafeGen WalletUpdate where
 
 -- | A 'Wallet'.
 data Wallet = Wallet {
-      walId      :: !WalletId
-    , walName    :: !WalletName
-    , walBalance :: !(V1 Core.Coin)
+      walId                         :: !WalletId
+    , walName                       :: !WalletName
+    , walBalance                    :: !(V1 Core.Coin)
+    , walHasSpendingPassword        :: !Bool
+    , walSpendingPasswordLastUpdate :: !(V1 Core.Timestamp)
+    , walCreatedAt                  :: !(V1 Core.Timestamp)
+    , walAssuranceLevel             :: !AssuranceLevel
     } deriving (Eq, Ord, Show, Generic)
 
 deriveJSON Serokell.defaultOptions ''Wallet
 
 instance ToSchema Wallet where
-  declareNamedSchema =
-    genericSchemaDroppingPrefix "wal" (\(--^) props -> props
-      & ("id"      --^ "Unique wallet identifier")
-      & ("name"    --^ "Wallet's name")
-      & ("balance" --^ "Current balance, in ADA")
-    )
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "wal" (\(--^) props -> props
+            & "id"
+            --^ "Unique wallet identifier."
+            & "name"
+            --^ "Wallet's name."
+            & "balance"
+            --^ "Current balance, in ADA."
+            & "hasSpendingPassword"
+            --^ "Whether or not the wallet has a passphrase."
+            & "spendingPasswordLastUpdate"
+            --^ "The timestamp that the passphrase was last updated."
+            & "createdAt"
+            --^ "The timestamp that the wallet was created."
+            & "assuranceLevel"
+            --^ "The assurance level of the wallet."
+        )
 
 instance Arbitrary Wallet where
   arbitrary = Wallet <$> arbitrary
                      <*> pure "My wallet"
+                     <*> arbitrary
+                     <*> arbitrary
+                     <*> arbitrary
+                     <*> arbitrary
                      <*> arbitrary
 
 deriveSafeBuildable ''Wallet
@@ -603,35 +622,60 @@ instance BuildableSafeGen AddressValidity where
 -- Accounts
 --------------------------------------------------------------------------------
 
+-- | Summary about single address.
+data WalletAddress = WalletAddress
+    { addrId            :: !(V1 Core.Address)
+    , addrBalance       :: !(V1 Core.Coin)
+    , addrUsed          :: !Bool
+    , addrChangeAddress :: !Bool
+    } deriving (Show, Eq, Generic, Ord)
+
+deriveJSON Serokell.defaultOptions ''WalletAddress
+
+instance ToSchema WalletAddress where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "addr" (\(--^) props -> props
+            & ("id"            --^ "Actual address.")
+            & ("balance"       --^ "Associated balance, in ADA.")
+            & ("used"          --^ "True if this address has been used.")
+            & ("changeAddress" --^ "True if this address stores change from a previous transaction.")
+        )
+
+instance Arbitrary WalletAddress where
+    arbitrary = WalletAddress <$> arbitrary
+                              <*> arbitrary
+                              <*> arbitrary
+                              <*> arbitrary
+
 type AccountIndex = Word32
 
 -- | A wallet 'Account'.
 data Account = Account
-  { accIndex     :: !AccountIndex
-  , accAddresses :: [V1 Core.Address]  -- should be WalletAddress
-  , accAmount    :: !(V1 Core.Coin)
-  , accName      :: !Text
-  , accWalletId  :: WalletId
-  } deriving (Show, Ord, Eq, Generic)
+    { accIndex     :: !AccountIndex
+    , accAddresses :: ![WalletAddress]
+    , accAmount    :: !(V1 Core.Coin)
+    , accName      :: !Text
+    , accWalletId  :: !WalletId
+    } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Account
 
 instance ToSchema Account where
-  declareNamedSchema =
-    genericSchemaDroppingPrefix "acc" (\(--^) props -> props
-      & ("index"     --^ "Account's index in the wallet, starting at 0")
-      & ("addresses" --^ "Public addresses pointing to this account")
-      & ("amount"    --^ "Available funds, in ADA")
-      & ("name"      --^ "Account's name")
-      & ("walletId"  --^ "Id of the wallet this account belongs to")
-    )
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "acc" (\(--^) props -> props
+            & ("index"     --^ "Account's index in the wallet, starting at 0.")
+            & ("addresses" --^ "Public addresses pointing to this account.")
+            & ("amount"    --^ "Available funds, in ADA.")
+            & ("name"      --^ "Account's name.")
+            & ("walletId"  --^ "Id of the wallet this account belongs to.")
+          )
 
 instance Arbitrary Account where
-  arbitrary = Account <$> arbitrary
-                      <*> arbitrary
-                      <*> arbitrary
-                      <*> pure "My account"
-                      <*> arbitrary
+    arbitrary = Account <$> arbitrary
+                        <*> arbitrary
+                        <*> arbitrary
+                        <*> pure "My account"
+                        <*> arbitrary
 
 deriveSafeBuildable ''Account
 instance BuildableSafeGen Account where
@@ -661,7 +705,7 @@ deriveJSON Serokell.defaultOptions ''AccountUpdate
 instance ToSchema AccountUpdate where
   declareNamedSchema =
     genericSchemaDroppingPrefix "uacc" (\(--^) props -> props
-      & ("name" --^ "New account's name")
+      & ("name" --^ "New account's name.")
     )
 
 instance Arbitrary AccountUpdate where
@@ -688,9 +732,10 @@ instance Arbitrary NewAccount where
 instance ToSchema NewAccount where
   declareNamedSchema =
     genericSchemaDroppingPrefix "nacc" (\(--^) props -> props
-      & ("spendingPassword" --^ "Optional spending password to unlock funds")
-      & ("name"             --^ "Account's name")
+      & ("spendingPassword" --^ "Optional spending password to unlock funds.")
+      & ("name"             --^ "Account's name.")
     )
+
 
 deriveSafeBuildable ''NewAccount
 instance BuildableSafeGen NewAccount where
@@ -700,32 +745,6 @@ instance BuildableSafeGen NewAccount where
         %" }")
         naccSpendingPassword
         naccName
-
-
--- | Summary about single address.
-data WalletAddress = WalletAddress
-  { addrId            :: !(V1 Core.Address)
-  , addrBalance       :: !(V1 Core.Coin)
-  , addrUsed          :: !Bool
-  , addrChangeAddress :: !Bool
-  } deriving (Show, Eq, Generic)
-
-deriveJSON Serokell.defaultOptions ''WalletAddress
-
-instance ToSchema WalletAddress where
-  declareNamedSchema =
-    genericSchemaDroppingPrefix "addr" (\(--^) props -> props
-      & ("id"            --^ "Actual address")
-      & ("balance"       --^ "Associated balance, in ADA")
-      & ("used"          --^ "True if this address has been used")
-      & ("changeAddress" --^ "True if this address stores change from a previous transaction")
-    )
-
-instance Arbitrary WalletAddress where
-  arbitrary = WalletAddress <$> arbitrary
-                            <*> arbitrary
-                            <*> arbitrary
-                            <*> arbitrary
 
 deriveSafeBuildable ''WalletAddress
 instance BuildableSafeGen WalletAddress where
@@ -740,6 +759,9 @@ instance BuildableSafeGen WalletAddress where
         addrUsed
         addrChangeAddress
 
+instance Buildable [WalletAddress] where
+    build = bprint listJson
+
 
 -- | Create a new Address
 data NewAddress = NewAddress
@@ -753,9 +775,9 @@ deriveJSON Serokell.defaultOptions ''NewAddress
 instance ToSchema NewAddress where
   declareNamedSchema =
     genericSchemaDroppingPrefix "newaddr" (\(--^) props -> props
-      & ("spendingPassword" --^ "Optional spending password to unlock funds")
-      & ("accountIndex"     --^ "Target account's index to store this address in")
-      & ("walletId"         --^ "Corresponding wallet identifier")
+      & ("spendingPassword" --^ "Optional spending password to unlock funds.")
+      & ("accountIndex"     --^ "Target account's index to store this address in.")
+      & ("walletId"         --^ "Corresponding wallet identifier.")
     )
 
 instance Arbitrary NewAddress where
@@ -786,8 +808,8 @@ deriveJSON Serokell.defaultOptions ''PasswordUpdate
 instance ToSchema PasswordUpdate where
   declareNamedSchema =
     genericSchemaDroppingPrefix "pwd" (\(--^) props -> props
-      & ("old" --^ "Old password")
-      & ("new" --^ "New passowrd")
+      & ("old" --^ "Old password.")
+      & ("new" --^ "New passowrd.")
     )
 
 instance Arbitrary PasswordUpdate where
@@ -815,7 +837,7 @@ deriveJSON Serokell.defaultOptions ''EstimatedFees
 instance ToSchema EstimatedFees where
   declareNamedSchema =
     genericSchemaDroppingPrefix "fee" (\(--^) props -> props
-      & ("estimatedAmount" --^ "Estimated fees, in ADA")
+      & ("estimatedAmount" --^ "Estimated fees, in ADA.")
     )
 
 instance Arbitrary EstimatedFees where
@@ -841,8 +863,8 @@ deriveJSON Serokell.defaultOptions ''PaymentDistribution
 instance ToSchema PaymentDistribution where
   declareNamedSchema =
     genericSchemaDroppingPrefix "pd" (\(--^) props -> props
-      & ("address" --^ "Address to map coins to")
-      & ("amount"  --^ "Amount of coin to bind, in ADA")
+      & ("address" --^ "Address to map coins to.")
+      & ("amount"  --^ "Amount of coin to bind, in ADA.")
     )
 
 instance Arbitrary PaymentDistribution where
@@ -871,9 +893,8 @@ deriveJSON Serokell.defaultOptions ''PaymentSource
 instance ToSchema PaymentSource where
   declareNamedSchema =
     genericSchemaDroppingPrefix "ps" (\(--^) props -> props
-
-      & ("walletId"     --^ "Target wallet identifier to reach")
-      & ("accountIndex" --^ "Corresponding account's index on the wallet")
+      & ("walletId"     --^ "Target wallet identifier to reach.")
+      & ("accountIndex" --^ "Corresponding account's index on the wallet.")
     )
 
 instance Arbitrary PaymentSource where
@@ -928,10 +949,10 @@ instance Arbitrary Payment where
 instance ToSchema Payment where
   declareNamedSchema =
     genericSchemaDroppingPrefix "pmt" (\(--^) props -> props
-      & ("source"           --^ "Source for the payment")
-      & ("destinations"     --^ "One or more destinations for the payment")
-      & ("groupingPolicy"   --^ "Optional strategy to use for selecting the transaction inputs")
-      & ("spendingPassword" --^ "Optional spending password to access funds")
+      & ("source"           --^ "Source for the payment.")
+      & ("destinations"     --^ "One or more destinations for the payment.")
+      & ("groupingPolicy"   --^ "Optional strategy to use for selecting the transaction inputs.")
+      & ("spendingPassword" --^ "Optional spending password to access funds.")
     )
 
 deriveSafeBuildable ''Payment
@@ -998,6 +1019,11 @@ instance ToSchema TransactionType where
         pure $ NamedSchema (Just "TransactionType") $ mempty
             & type_ .~ SwaggerString
             & enum_ ?~ ["local", "foreign"]
+            & description ?~ mconcat
+                [ "A transaction is 'local' if all the inputs and outputs "
+                , "belong to the current wallet. A transaction is foreign "
+                , "if the transaction is not local to this wallet."
+                ]
 
 deriveSafeBuildable ''TransactionType
 instance BuildableSafeGen TransactionType where
@@ -1026,11 +1052,79 @@ instance ToSchema TransactionDirection where
             & type_ .~ SwaggerString
             & enum_ ?~ ["outgoing", "incoming"]
 
+-- | This is an information-less variant of 'PtxCondition'.
+data TransactionStatus
+    = Applying
+    | InNewestBlocks
+    | Persisted
+    | WontApply
+    | Creating
+    deriving (Eq, Show, Ord)
+
+allTransactionStatuses :: [TransactionStatus]
+allTransactionStatuses =
+    [Applying, InNewestBlocks, Persisted, WontApply, Creating]
+
+transactionStatusToText :: TransactionStatus -> Text
+transactionStatusToText x = case x of
+    Applying {} ->
+        "applying"
+    InNewestBlocks {} ->
+        "inNewestBlocks"
+    Persisted {} ->
+        "persisted"
+    WontApply {} ->
+        "wontApply"
+    Creating {} ->
+        "creating"
+
+instance ToJSON TransactionStatus where
+    toJSON x = object
+        [ "tag" .= transactionStatusToText x
+        , "data" .= Object mempty
+        ]
+
+instance ToSchema TransactionStatus where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "TransactionStatus") $ mempty
+            & type_ .~ SwaggerObject
+            & required .~ ["tag", "data"]
+            & properties .~ (mempty
+                & at "tag" ?~ Inline (mempty
+                    & type_ .~ SwaggerString
+                    & enum_ ?~
+                        map (String . transactionStatusToText)
+                            allTransactionStatuses
+                )
+                & at "data" ?~ Inline (mempty
+                    & type_ .~ SwaggerObject
+                )
+            )
+
+instance FromJSON TransactionStatus where
+    parseJSON = withObject "TransactionStatus" $ \o -> do
+       tag <- o .: "tag"
+       case tag of
+           "applying" ->
+                pure Applying
+           "inNewestBlocks" ->
+                pure InNewestBlocks
+           "persisted" ->
+                pure Persisted
+           "wontApply" ->
+                pure WontApply
+           "creating" ->
+                pure Creating
+           _ ->
+                fail $ "Couldn't parse out of " ++ toString (tag :: Text)
+
+instance Arbitrary TransactionStatus where
+    arbitrary = elements allTransactionStatuses
+
 deriveSafeBuildable ''TransactionDirection
 instance BuildableSafeGen TransactionDirection where
     buildSafeGen _ IncomingTransaction = "incoming"
     buildSafeGen _ OutgoingTransaction = "outgoing"
-
 
 -- | A 'Wallet''s 'Transaction'.
 data Transaction = Transaction
@@ -1046,6 +1140,7 @@ data Transaction = Transaction
     -- ^ The direction for this transaction (e.g incoming, outgoing).
   , txCreationTime  :: !(V1 Core.Timestamp)
     -- ^ The time when transaction was created.
+  , txStatus        :: !TransactionStatus
   } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Transaction
@@ -1053,17 +1148,20 @@ deriveJSON Serokell.defaultOptions ''Transaction
 instance ToSchema Transaction where
   declareNamedSchema =
     genericSchemaDroppingPrefix "tx" (\(--^) props -> props
-      & ("id"            --^ "Transaction's id")
-      & ("confirmations" --^ "Number of confirmations")
-      & ("amount"        --^ "Coins moved as part of the transaction, in ADA")
-      & ("inputs"        --^ "One or more input money distributions")
-      & ("outputs"       --^ "One or more ouputs money distributions")
-      & ("type"          --^ "Type of transaction")
-      & ("direction"     --^ "Direction for this transaction")
+      & ("id"            --^ "Transaction's id.")
+      & ("confirmations" --^ "Number of confirmations.")
+      & ("amount"        --^ "Coins moved as part of the transaction, in ADA.")
+      & ("inputs"        --^ "One or more input money distributions.")
+      & ("outputs"       --^ "One or more ouputs money distributions.")
+      & ("type"          --^ "Whether the transaction is entirely local or foreign.")
+      & ("direction"     --^ "Direction for this transaction.")
+      & ("creationTime"  --^ "Timestamp indicating when the transaction was created.")
+      & ("status"        --^ "Shows whether or not the transaction is accepted.")
     )
 
 instance Arbitrary Transaction where
   arbitrary = Transaction <$> arbitrary
+                          <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary
                           <*> arbitrary
@@ -1108,9 +1206,9 @@ deriveJSON Serokell.defaultOptions ''WalletSoftwareUpdate
 instance ToSchema WalletSoftwareUpdate where
   declareNamedSchema =
     genericSchemaDroppingPrefix "upd" (\(--^) props -> props
-      & ("softwareVersion"   --^ "Current software (wallet) version")
-      & ("blockchainVersion" --^ "Version of the underlying blockchain")
-      & ("scriptVersion"     --^ "Update script version")
+      & ("softwareVersion"   --^ "Current software (wallet) version.")
+      & ("blockchainVersion" --^ "Version of the underlying blockchain.")
+      & ("scriptVersion"     --^ "Update script version.")
     )
 
 instance Arbitrary WalletSoftwareUpdate where
@@ -1225,10 +1323,10 @@ deriveJSON Serokell.defaultOptions ''NodeSettings
 instance ToSchema NodeSettings where
   declareNamedSchema =
     genericSchemaDroppingPrefix "set" (\(--^) props -> props
-      & ("slotDuration"   --^ "Duration of a slot")
-      & ("softwareInfo"   --^ "Various pieces of information about the current software")
-      & ("projectVersion" --^ "Current project's version")
-      & ("gitRevision"    --^ "Git revision of this deployment")
+      & ("slotDuration"   --^ "Duration of a slot.")
+      & ("softwareInfo"   --^ "Various pieces of information about the current software.")
+      & ("projectVersion" --^ "Current project's version.")
+      & ("gitRevision"    --^ "Git revision of this deployment.")
     )
 
 instance Arbitrary NodeSettings where
@@ -1389,10 +1487,10 @@ deriveJSON Serokell.defaultOptions ''NodeInfo
 instance ToSchema NodeInfo where
   declareNamedSchema =
     genericSchemaDroppingPrefix "nfo" (\(--^) props -> props
-      & ("syncProgress"          --^ "Syncing progression, in percentage")
-      & ("blockchainHeight"      --^ "If known, the current blockchain height, in number of blocks")
-      & ("localBlockchainHeight" --^ "Local blockchain height, in number of blocks")
-      & ("localTimeDifference"   --^ "Local time difference, in number of blocks")
+      & ("syncProgress"          --^ "Syncing progression, in percentage.")
+      & ("blockchainHeight"      --^ "If known, the current blockchain height, in number of blocks.")
+      & ("localBlockchainHeight" --^ "Local blockchain height, in number of blocks.")
+      & ("localTimeDifference"   --^ "Local time difference, in number of blocks.")
     )
 
 instance Arbitrary NodeInfo where

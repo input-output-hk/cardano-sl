@@ -8,6 +8,7 @@ import           Universum
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Data.Aeson
+import           Data.List.NonEmpty (NonEmpty)
 import           Generics.SOP.TH (deriveGeneric)
 import qualified Network.HTTP.Types.Header as HTTP
 import           Servant
@@ -54,6 +55,7 @@ data WalletError =
     | JSONValidationFailed { weValidationError :: !Text }
     | UnkownError { weMsg :: !Text }
     | WalletNotFound
+    | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
     deriving (Show, Eq)
 
 --
@@ -100,13 +102,14 @@ sample =
 toServantError :: WalletError -> ServantErr
 toServantError err =
   case err of
-    NotEnoughMoney{}       -> mkServantErr err403 err
-    OutputIsRedeem{}       -> mkServantErr err403 err
-    SomeOtherError{}       -> mkServantErr err418 err
-    MigrationFailed{}      -> mkServantErr err422 err
-    JSONValidationFailed{} -> mkServantErr err400 err
-    UnkownError{}          -> mkServantErr err400 err
-    WalletNotFound{}       -> mkServantErr err404 err
+    NotEnoughMoney{}        -> mkServantErr err403 err
+    OutputIsRedeem{}        -> mkServantErr err403 err
+    SomeOtherError{}        -> mkServantErr err418 err
+    MigrationFailed{}       -> mkServantErr err422 err
+    JSONValidationFailed{}  -> mkServantErr err400 err
+    UnkownError{}           -> mkServantErr err400 err
+    WalletNotFound{}        -> mkServantErr err404 err
+    MissingRequiredParams{} -> mkServantErr err400 err
   where
     mkServantErr serr@ServantErr{..} werr = serr
       { errBody    = encode werr

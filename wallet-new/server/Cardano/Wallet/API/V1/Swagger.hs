@@ -112,13 +112,27 @@ instance
                 in Param {
                   _paramName = opName
                 , _paramRequired = Nothing
-                , _paramDescription = Just $ "A **FILTER** operation on a " <> typeOfRes <> "."
+                , _paramDescription = Just $ filterDescription typeOfRes
                 , _paramSchema = ParamOther ParamOtherSchema {
                          _paramOtherSchemaIn = ParamQuery
                        , _paramOtherSchemaAllowEmptyValue = Nothing
                        , _paramOtherSchemaParamSchema = mempty
                        }
                 }
+
+filterDescription :: Text -> Text
+filterDescription typeOfRes = mconcat
+    [ "A **FILTER** operation on a " <> typeOfRes <> ". "
+    , "Filters support a variety of queries on the resource. "
+    , "These are: \n\n"
+    , "- `EQ[value]`    : only allow values equal to `value`\n"
+    , "- `LT[value]`    : allow resource with attribute less than the `value`\n"
+    , "- `GT[value]`    : allow objects with an attribute greater than the `value`\n"
+    , "- `GTE[value]`   : allow objects with an attribute at least the `value`\n"
+    , "- `LTE[value]`   : allow objects with an attribute at most the `value`\n"
+    , "- `RANGE[lo,hi]` : allow objects with the attribute in the range between `lo` and `hi`\n"
+    , "- `IN[a,b,c,d]`  : allow objects with the attribute belonging to one provided.\n\n"
+    ]
 
 instance
     ( Typeable res

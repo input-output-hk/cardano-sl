@@ -668,33 +668,53 @@ instance BuildableSafeGen AddressValidity where
         bprint ("{ valid="%build%" }") isValid
 
 --------------------------------------------------------------------------------
--- Accounts
+-- Addresses
 --------------------------------------------------------------------------------
 
 -- | Summary about single address.
 data WalletAddress = WalletAddress
-    { addrId            :: !(V1 Core.Address)
-    , addrBalance       :: !(V1 Core.Coin)
-    , addrUsed          :: !Bool
-    , addrChangeAddress :: !Bool
-    } deriving (Show, Eq, Generic, Ord)
+  { addrId            :: !(V1 Core.Address)
+  , addrBalance       :: !(V1 Core.Coin)
+  , addrUsed          :: !Bool
+  , addrChangeAddress :: !Bool
+  } deriving (Show, Eq, Ord, Generic)
 
 deriveJSON Serokell.defaultOptions ''WalletAddress
 
 instance ToSchema WalletAddress where
-    declareNamedSchema =
-        genericSchemaDroppingPrefix "addr" (\(--^) props -> props
-            & ("id"            --^ "Actual address.")
-            & ("balance"       --^ "Associated balance, in ADA.")
-            & ("used"          --^ "True if this address has been used.")
-            & ("changeAddress" --^ "True if this address stores change from a previous transaction.")
-        )
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "addr" (\(--^) props -> props
+      & ("id"            --^ "Actual address")
+      & ("balance"       --^ "Associated balance, in ADA")
+      & ("used"          --^ "True if this address has been used")
+      & ("changeAddress" --^ "True if this address stores change from a previous transaction")
+    )
 
 instance Arbitrary WalletAddress where
-    arbitrary = WalletAddress <$> arbitrary
-                              <*> arbitrary
-                              <*> arbitrary
-                              <*> arbitrary
+  arbitrary = WalletAddress <$> arbitrary
+                            <*> arbitrary
+                            <*> arbitrary
+                            <*> arbitrary
+
+deriveSafeBuildable ''WalletAddress
+instance BuildableSafeGen WalletAddress where
+    buildSafeGen sl WalletAddress{..} = bprint ("{"
+        %" id="%buildSafe sl
+        %" balance="%buildSafe sl
+        %" used="%build
+        %" changeAddress="%build
+        %" }")
+        addrId
+        addrBalance
+        addrUsed
+        addrChangeAddress
+
+instance Buildable [WalletAddress] where
+    build = bprint listJson
+
+--------------------------------------------------------------------------------
+-- Accounts
+--------------------------------------------------------------------------------
 
 type AccountIndex = Word32
 
@@ -843,47 +863,6 @@ instance BuildableSafeGen NewExternalAccount where
         %" name="%buildSafe sl
         %" }")
         neaccName
-
--- | Summary about single address.
-data WalletAddress = WalletAddress
-  { addrId            :: !(V1 Core.Address)
-  , addrBalance       :: !(V1 Core.Coin)
-  , addrUsed          :: !Bool
-  , addrChangeAddress :: !Bool
-  } deriving (Show, Eq, Generic)
-
-deriveJSON Serokell.defaultOptions ''WalletAddress
-
-instance ToSchema WalletAddress where
-  declareNamedSchema =
-    genericSchemaDroppingPrefix "addr" (\(--^) props -> props
-      & ("id"            --^ "Actual address")
-      & ("balance"       --^ "Associated balance, in ADA")
-      & ("used"          --^ "True if this address has been used")
-      & ("changeAddress" --^ "True if this address stores change from a previous transaction")
-    )
-
-instance Arbitrary WalletAddress where
-  arbitrary = WalletAddress <$> arbitrary
-                            <*> arbitrary
-                            <*> arbitrary
-                            <*> arbitrary
-
-deriveSafeBuildable ''WalletAddress
-instance BuildableSafeGen WalletAddress where
-    buildSafeGen sl WalletAddress{..} = bprint ("{"
-        %" id="%buildSafe sl
-        %" balance="%buildSafe sl
-        %" used="%build
-        %" changeAddress="%build
-        %" }")
-        addrId
-        addrBalance
-        addrUsed
-        addrChangeAddress
-
-instance Buildable [WalletAddress] where
-    build = bprint listJson
 
 -- | Summary about single address in external wallet.
 data ExternalWalletAddress = ExternalWalletAddress

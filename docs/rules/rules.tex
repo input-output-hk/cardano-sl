@@ -104,6 +104,8 @@ as it is.\improvement{We may want to add something about protocol
   summed: $∑_{x∈X}f(x)$ is well-defined. Indeed, it suffices to sum
   over the the (finite!) support of $f$, which, as a finite sum, is
   defined.
+\item[Remainder] For any $a∈ℤ$ and $b∈ℕ$, let us write $\rem{a}{b}$
+  for the unique $0⩽r<b$ such that $a=qb+r$.
 \end{description}
 
 \section{Definitions}
@@ -351,8 +353,7 @@ and $(s_n)_{n∈ℕ}$ and $(u_n)_{n>0}$ as\improvement{I could define
 \item $(u_{n+1}, s_{n+1}) = g(B)(s_n)$
 \end{itemize}
 
-Let\improvement{define the remainder notation}{}
-$n₀ = \min_{n>0} \left(\rem{2^{kB}}{N} ⩽ u_n < 2^{kB}\right)$.
+Let $n₀ = \min_{n>0} \left(\rem{2^{kB}}{N} ⩽ u_n < 2^{kB}\right)$.
 
 We define
 $$
@@ -360,8 +361,8 @@ f(N)(s₀) = (\rem{u_{n₀}}{N}, s_{n₀})
 $$
 
 Note that, by definition of the remainder,
-$\{ p∈ℕ | \rem{2^{kB}}{N} ⩽ u_n < 2^{kB} \}$ has $aN$ elements for
-some $a$. From which we can deduce that $f(N)$ is surjective on its
+$\{ p∈ℕ | \rem{2^{kB}}{N} ⩽ u_n < 2^{kB} \}$ has $qN$ elements for
+some $q$. From which we can deduce that $f(N)$ is surjective on its
 first component (and actually: if the frequency of each $p$ in $u_n$
 is the same, then the same property also holds of $f$).
 

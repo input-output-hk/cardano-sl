@@ -49,8 +49,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, float, sformat, shown, (%))
-import           System.Wlog (CanLog, HasLoggerName, WithLogger, logDebug, logError, logInfo,
-                              logWarning, modifyLoggerName)
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
 import           Pos.Core (ChainDifficulty, HasConfiguration, HasDifficulty (..),
@@ -75,6 +73,8 @@ import           Pos.Util.LogSafe (buildSafe, logDebugSP, logErrorSP, logInfoSP,
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens (..), getKeys)
+import           System.Wlog (CanLog, HasLoggerName, WithLogger, logDebug, logError, logInfo,
+                              logWarning, modifyLoggerName)
 
 import           Pos.Wallet.Web.ClientTypes (Addr, CId, CTxMeta (..), CWAddressMeta (..), Wal,
                                              addrMetaToAccount)
@@ -117,7 +117,7 @@ processSyncRequest :: ( WalletDbReader ctx m
                       ) => SyncQueue -> m ()
 processSyncRequest syncQueue = do
     newRequest <- atomically (readTBQueue syncQueue)
-    syncWalletWithBlockchain newRequest >>= either processSyncError (pure . const ())
+    syncWalletWithBlockchain newRequest >>= either processSyncError (const (logSuccess newRequest))
     processSyncRequest syncQueue
 
 -- | Yields a new 'CAccModifier' using the information retrieved from the mempool, if any.
@@ -174,6 +174,13 @@ processSyncError sr = case sr of
         let errMsg sl = "SyncState transition for Wallet #" % secretOnlyF sl build % " is not allowed."
         logErrorSP $ \sl -> sformat (errMsg sl) walletId
 
+
+-- | Simply log that the wallet syncing has been completed.
+logSuccess :: (WithLogger m, MonadIO m) => SyncRequest -> m ()
+logSuccess SyncRequest{..} = do
+  let (_, walletId) = srCredentials
+  logInfoSP   $ \sl -> sformat ("Wallet #" % secretOnlyF sl build
+                                           % " is now 100% synced.") walletId
 
 -- | Iterates over blocks (using forward links) and reconstructs the transaction
 -- history and the balance for the given wallet. In case of a restore, we deliberately ignore changes in the
@@ -375,8 +382,8 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                              let newModifier = foldl' (\r b -> r <> rollbackBlock credentials getBlockTimestamp dbUsed b) currentModifier blunds
                              pure (newModifier, getBlockHeader . fst . unsafeLast $ blunds)
                        | otherwise -> do
-                             logInfoSP $ \sl -> sformat ("Wallet " % secretOnlyF sl build %" is already synced") walletId
-                             pure (mempty, blockchainTip)
+                             logInfoSP $ \sl -> sformat ("Wallet " % secretOnlyF sl build %" has finally caught up with the blockchain.") walletId
+                             pure (currentModifier, blockchainTip)
 
         gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
 

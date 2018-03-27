@@ -31,6 +31,9 @@
 
 \newenvironment{record}{\begin{description}[font=\it]}{\end{description}}
 
+\newcommand{\lists}[1]{{#1}^*}
+\newcommand{\nelists}[1]{{#1}^+}
+
 \newcommand{\pos}[2]{{#2}_{#1}}
 \newcommand{\length}[1]{|#1|}
 \newcommand{\rem}[2]{\mathrm{rem}_{#1}(#2)}
@@ -80,6 +83,19 @@ parameters, and versioning issues. This document specifies the system
 as it is.\improvement{We may want to add something about protocol
   updates, though.}
 
+\section{Terminology \& notations}
+\label{sec:notations}
+
+\begin{description}
+\item[Lists] Given a set $A$, we write $\lists{A}$ for the set of
+  lists of elements of $A$, and $\nelists{A}$ for the set of non-empty
+  lists of elements of $A$. For an element $a∈A$ we write simply $a$
+  for the singleton list. For two lists $l,r∈\lists{A}$, we write
+  $l,r$ for their concatenation. For a list $l∈\lists{A}$, we write
+  $\length{l}$ for its length.\improvement{Don't I need a notation for
+    the empty list? Do we only need non-empty lists?}
+\end{description}
+
 \section{Definitions}
 
 \info{General definitions used in all sections. Like the
@@ -125,9 +141,9 @@ as it is.\improvement{We may want to add something about protocol
   A transaction consists of\unsure{Consider using record notation
   for inputs and outputs.}
   \begin{record}
-  \item[Inputs] A non-empty list of pairs in $\txids ×
-    ℕ$.\improvement{Explain that it represents an output identified by
-      its index in the transaction output list}
+  \item[Inputs] A non-empty list of pairs in
+    $\nelists{(\txids × ℕ)}$.\improvement{Explain that it represents an
+      output identified by its index in the transaction output list}
 
     For an input $in = (tx, ix) ∈ \txids × ℕ$ we write
     \begin{itemize}
@@ -135,8 +151,8 @@ as it is.\improvement{We may want to add something about protocol
     \item $\inindex{in} = ix$
     \end{itemize}
 
-  \item[Outputs] A non-empty list of pairs in $\agentids ×
-    ℕ$.\improvement{This only embodies pay-to-public-key schemes. For
+  \item[Outputs] A non-empty list of pairs in $\nelists{(\agentids ×
+    ℕ)}$.\improvement{This only embodies pay-to-public-key schemes. For
       pay-to-script and such, we will need further
       refinements.}
 
@@ -146,10 +162,9 @@ as it is.\improvement{We may want to add something about protocol
     \item $\amount{out} = q$
     \end{itemize}
 
-  \item[Witnesses] A non-empty list of agent ids.\improvement{This
-      whole section could be improved with a notation for the set of
-      lists over a given type} In an implementation these ids would be
-    realised by cryptographic signatures.
+  \item[Witnesses] A non-empty list $w∈\nelists{\agentids}$ of agent
+    ids. In an implementation these ids would be realised by
+    cryptographic signatures.
   \end{record}
 
   We assume given a function $\minimumfee{⋅} ∈ \txs ⟶ ℕ$,

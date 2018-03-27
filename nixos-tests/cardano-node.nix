@@ -16,7 +16,7 @@ import <nixpkgs/nixos/tests/make-test.nix> ({ pkgs, ... }: {
       wantedBy = [ "multi-user.target" ];
       after = [ "network.target" ];
       serviceConfig = {
-        ExecStart = cardano_staging_wallet;
+        ExecStart = cardano_sl.connectScripts.stagingWallet.override ( { config = {}; } );
       };
     };
   };

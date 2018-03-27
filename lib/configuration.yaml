@@ -60,16 +60,14 @@ dev: &dev
 
     dbSerializeVersion: 0
 
-  infra: &dev_infra
-
-    # NTP slotting
-    ntpResponseTimeout: 7000000 # 7 sec
-    ntpPollDelay: 300000000 # 300 sec
-    ntpMaxError: 120000000 # 2 mins
-
-    # NTP checking
-    timeDifferenceWarnInterval: 14400000000 # 4 hours
-    timeDifferenceWarnThreshold: 5000000 # 5 sec
+  ntp: &dev_ntp
+    # NTP
+    responseTimeout: 30000000 # 30 sec
+    pollDelay:  1800000000 # 30 min
+    servers:
+      - "0.pool.ntp.org"
+      - "2.pool.ntp.org"
+      - "3.pool.ntp.org"
 
   update: &dev_update
     applicationName: cardano-sl
@@ -240,16 +238,13 @@ mainnet_base: &mainnet_base
 
     dbSerializeVersion: 0
 
-  infra:
-
-    # NTP slotting
-    ntpResponseTimeout: 10000000           # 10 sec
-    ntpPollDelay: 60000000                 # 1 min
-    ntpMaxError: 120000000 # 2 mins
-
-    # NTP checking
-    timeDifferenceWarnInterval: 14400000000 # 4 hours
-    timeDifferenceWarnThreshold: 5000000 # 5 sec
+  ntp:
+    responseTimeout: 30000000 # 30 sec
+    pollDelay:  1800000000 # 30 min
+    servers:
+      - "0.pool.ntp.org"
+      - "2.pool.ntp.org"
+      - "3.pool.ntp.org"
 
   update: &mainnet_base_update
     applicationName: cardano-sl

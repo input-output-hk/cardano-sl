@@ -32,7 +32,7 @@ import           Pos.DB.DB as DB
 import qualified Pos.GState as GS
 import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
-                               SimpleSlottingVar, mkSimpleSlottingVar)
+                               SimpleSlottingStateVar, mkSimpleSlottingStateVar)
 import qualified Pos.Slotting as Slot
 import           Pos.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem, TxpHolderTag,
                           mkTxpLocalData)
@@ -103,7 +103,7 @@ type ExplorerExtraTestMode = ExtraContextT ExplorerTestMode
 data ExplorerTestContext = ExplorerTestContext
     { etcGState       :: !GS.GStateContext
     , etcSystemStart  :: !Timestamp
-    , etcSSlottingVar :: !SimpleSlottingVar
+    , etcSSlottingVar :: !SimpleSlottingStateVar
     , etcSlotId       :: !(Maybe SlotId)
     -- ^ If this value is 'Just' we will return it as the current
     -- slot. Otherwise simple slotting is used.
@@ -113,6 +113,9 @@ data ExplorerTestContext = ExplorerTestContext
     }
 
 makeLensesWith postfixLFields ''ExplorerTestContext
+
+instance HasLens SimpleSlottingStateVar ExplorerTestContext SimpleSlottingStateVar where
+    lensOf = etcSSlottingVar_L
 
 ----------------------------------------------------------------------------
 -- Mock initialization
@@ -145,7 +148,7 @@ initExplorerTestContext tp@TestParams {..} = do
         _gscSlogGState <- mkSlogGState
         _gscSlottingVar <- newTVarIO =<< GS.getSlottingData
         let etcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
-        etcSSlottingVar <- mkSimpleSlottingVar
+        etcSSlottingVar <- mkSimpleSlottingStateVar
         etcSystemStart <- Timestamp <$> currentTime
         etcTxpLocalData <- mkTxpLocalData
 
@@ -237,15 +240,15 @@ instance (HasConfigurations, MonadSlotsData ctx ExplorerTestMode)
   where
     getCurrentSlot = do
         view etcSlotId_L >>= \case
-            Nothing -> Slot.getCurrentSlotSimple =<< view etcSSlottingVar_L
+            Nothing -> Slot.getCurrentSlotSimple
             Just slot -> pure (Just slot)
     getCurrentSlotBlocking =
         view etcSlotId_L >>= \case
-            Nothing -> Slot.getCurrentSlotBlockingSimple =<< view etcSSlottingVar_L
+            Nothing -> Slot.getCurrentSlotBlockingSimple
             Just slot -> pure slot
     getCurrentSlotInaccurate = do
         view etcSlotId_L >>= \case
-            Nothing -> Slot.getCurrentSlotInaccurateSimple =<< view etcSSlottingVar_L
+            Nothing -> Slot.getCurrentSlotInaccurateSimple
             Just slot -> pure slot
     currentTimeSlotting = Slot.currentTimeSlottingSimple
 

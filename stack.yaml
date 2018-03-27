@@ -37,7 +37,7 @@ packages:
 - location:
     git: https://github.com/well-typed/cborg
     # Has support for canonical cbor
-    commit: 8bddf97abe613d4eb523ed6b0ff8eabbd713c744
+    commit: 3d274c14ca3077c3a081ba7ad57c5182da65c8c1
   subdirs:
   - cborg
   extra-dep: true

@@ -38,8 +38,8 @@ import           Servant
 spec :: Spec
 spec =
     withCompileInfo def $
-    withDefConfigurations $
-    describe "development endpoint" $
+    withDefConfigurations $ \_ ->
+        describe "development endpoint" $
         describe "secret-keys" $ modifyMaxSuccess (const 10) deleteAllSecretKeysSpec
 
 deleteAllSecretKeysSpec :: (HasCompileInfo, HasConfigurations) => Spec

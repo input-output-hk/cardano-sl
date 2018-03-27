@@ -14,12 +14,13 @@ type API = Tags '["Wallets"] :>
     (    "wallets" :> Summary "Creates a new or restores an existing Wallet."
                    :> ReqBody '[ValidJSON] (New Wallet)
                    :> PostCreated '[ValidJSON] (WalletResponse Wallet)
-    :<|> "wallets" :> Summary "Returns all the available wallets."
+    :<|> "wallets" :> Summary "Returns a list of the available wallets."
                    :> WalletRequestParams
                    :> FilterBy '[ WalletId
                                 , Core.Coin
                                 ] Wallet
                    :> SortBy   '[ Core.Coin
+                                , V1 Core.Timestamp
                                 ] Wallet
                    :> Get '[ValidJSON] (WalletResponse [Wallet])
     :<|> "wallets" :> CaptureWalletId

@@ -11,6 +11,7 @@ import           Universum
 import           Control.Concurrent.STM (newTBQueueIO)
 import           Data.Maybe (fromJust)
 import           Mockable (Production (..), runProduction)
+import           Ntp.Client (NtpStatus, withNtpClient)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (ActionSpec (..))
 import           Pos.DB.DB (initNodeDBs)
@@ -18,6 +19,7 @@ import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingPar
                                bracketNodeResources, loggerBracket, lpDefaultName, runNode,
                                withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions, HasConfigurations)
+import           Pos.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
@@ -54,9 +56,10 @@ defaultLoggerName = "node"
 actionWithWallet :: (HasConfigurations, HasCompileInfo)
                  => SscParams
                  -> NodeParams
+                 -> NtpConfiguration
                  -> WalletBackendParams
                  -> Production ()
-actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
+actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
     bracketWalletWebDB (walletDbPath walletDbOptions) (walletRebuildDb walletDbOptions) $ \db ->
         bracketWalletWS $ \conn ->
             bracketNodeResources nodeParams sscParams
@@ -64,9 +67,10 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
                 initNodeDBs $ \nr@NodeResources {..} -> do
                     ref <- newIORef mempty
                     syncQueue <- liftIO $ newTBQueueIO 50
-                    runWRealMode db conn (AddrCIdHashes ref) syncQueue nr (mainAction nr)
+                    ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
+                    runWRealMode db conn (AddrCIdHashes ref) syncQueue nr (mainAction ntpStatus nr)
   where
-    mainAction = runNodeWithInit $ do
+    mainAction ntpStatus = runNodeWithInit ntpStatus $ do
         when (walletFlushDb walletDbOptions) $ do
             logInfo "Flushing wallet db..."
             askWalletDB >>= flushWalletStorage
@@ -77,8 +81,8 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
         -- server.
         syncWallets
 
-    runNodeWithInit init nr =
-        let (ActionSpec f, outs) = runNode nr plugins
+    runNodeWithInit ntpStatus init nr =
+        let (ActionSpec f, outs) = runNode nr (plugins ntpStatus)
          in (ActionSpec $ \s -> init >> f s, outs)
 
     syncWallets :: WalletWebMode ()
@@ -87,14 +91,15 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
         sks <- mapM getSKById addrs
         forM_ sks (syncWallet . eskToWalletDecrCredentials)
 
-    plugins :: (HasConfigurations, HasCompileInfo) => Plugins.Plugin WalletWebMode
-    plugins = mconcat [ Plugins.conversation wArgs
-                      , Plugins.legacyWalletBackend wArgs
-                      , Plugins.acidCleanupWorker wArgs
-                      , Plugins.syncWalletWorker
-                      , Plugins.resubmitterPlugin
-                      , Plugins.notifierPlugin
-                      ]
+    plugins :: (HasConfigurations, HasCompileInfo) => TVar NtpStatus -> Plugins.Plugin WalletWebMode
+    plugins ntpStatus =
+        mconcat [ Plugins.conversation wArgs
+                , Plugins.legacyWalletBackend wArgs ntpStatus
+                , Plugins.acidCleanupWorker wArgs
+                , Plugins.syncWalletWorker
+                , Plugins.resubmitterPlugin
+                , Plugins.notifierPlugin
+                ]
 
 actionWithNewWallet :: (HasConfigurations, HasCompileInfo)
                     => SscParams
@@ -140,22 +145,22 @@ startEdgeNode :: HasCompileInfo
               => WalletStartupOptions
               -> Production ()
 startEdgeNode WalletStartupOptions{..} =
-  withConfigurations conf $ do
-      (sscParams, nodeParams) <- getParameters
+  withConfigurations conf $ \ntpConfig -> do
+      (sscParams, nodeParams) <- getParameters ntpConfig
       case wsoWalletBackendParams of
         WalletLegacy legacyParams ->
-          actionWithWallet sscParams nodeParams legacyParams
+          actionWithWallet sscParams nodeParams ntpConfig legacyParams
         WalletNew newParams ->
           actionWithNewWallet sscParams nodeParams newParams
   where
-    getParameters :: HasConfigurations => Production (SscParams, NodeParams)
-    getParameters = do
+    getParameters :: HasConfigurations => NtpConfiguration -> Production (SscParams, NodeParams)
+    getParameters ntpConfig = do
 
       currentParams <- CLI.getNodeParams defaultLoggerName wsoNodeArgs nodeArgs
       let vssSK = fromJust $ npUserSecret currentParams ^. usVss
       let gtParams = CLI.gtSscParams wsoNodeArgs vssSK (npBehaviorConfig currentParams)
 
-      CLI.printInfoOnStart wsoNodeArgs
+      CLI.printInfoOnStart wsoNodeArgs ntpConfig
       logInfo "Wallet is enabled!"
 
       return (gtParams, currentParams)

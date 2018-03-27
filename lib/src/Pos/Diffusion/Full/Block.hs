@@ -13,6 +13,7 @@ module Pos.Diffusion.Full.Block
 
 import           Universum
 
+import           Control.Concurrent.Async (cancel)
 import qualified Control.Concurrent.STM as Conc
 import           Control.Exception (Exception (..), throwIO)
 import           Control.Lens (to)
@@ -278,10 +279,16 @@ streamBlocks
     -> IO t
 streamBlocks logTrace logic streamWindow enqueue nodeId tipHeader checkpoints k = do
     blockChan <- atomically $ Conc.newTBQueue $ fromIntegral streamWindow
-    -- TODO abort/cancel the request if 'k' ends early.
     -- TODO if the request ends early, it should signal that via the channel.
-    _request <- requestBlocks blockChan
-    k blockChan
+    requestVar <- requestBlocks blockChan
+    k blockChan `finally` (join $ atomically $ do
+        status <- Conc.readTVar requestVar
+        case status of
+            OQ.PacketAborted -> pure (pure ())
+            OQ.PacketEnqueued -> do
+                Conc.writeTVar requestVar OQ.PacketAborted
+                pure (pure ())
+            OQ.PacketDequeued asyncIO -> pure (cancel asyncIO))
   where
 
     mkStreamStart :: [HeaderHash] -> HeaderHash -> MsgStream
@@ -348,7 +355,7 @@ streamBlocks logTrace logic streamWindow enqueue nodeId tipHeader checkpoints k 
                  atomically $ Conc.writeTBQueue blockChan StreamEnd
                  return ()
              MsgStreamBlock b -> do
-                 traceWith logTrace (Debug, sformat ("Read block "%shortHashF) (headerHash b))
+                 -- traceWith logTrace (Debug, sformat ("Read block "%shortHashF) (headerHash b))
                  atomically $ Conc.writeTBQueue blockChan (StreamBlock b)
                  retrieveBlocks bvd blockChan conv window'
 

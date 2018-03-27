@@ -276,19 +276,10 @@ diffusionLayerFullExposeInternals fdconf
         -- Plainly mempty from the definition of allWorkers.
         slottingWorkerOutSpecs = mempty
 
-        -- Copied from existing implementation but
-        -- FIXME it will be wrong when the patch to include a keepalive
-        -- is merged. That shall be the first test of this inspec/outspec
-        -- system I suppose.
-        subscriptionWorkerOutSpecs = case mSubscriptionWorker of
-            Just (SubscriptionWorkerBehindNAT _)     -> specs
-            Just (SubscriptionWorkerKademlia  _ _ _) -> specs
-            _                                        -> mempty
-          where
-            specs = toOutSpecs
-                [ convH (Proxy @MsgSubscribe)  (Proxy @Void)
-                , convH (Proxy @MsgSubscribe1) (Proxy @Void)
-                ]
+        subscriptionWorkerOutSpecs = toOutSpecs
+            [ convH (Proxy @MsgSubscribe)  (Proxy @Void)
+            , convH (Proxy @MsgSubscribe1) (Proxy @Void)
+            ]
 
         -- It's a localOnNewSlotWorker, so mempty.
         dhtWorkerOutSpecs = mempty

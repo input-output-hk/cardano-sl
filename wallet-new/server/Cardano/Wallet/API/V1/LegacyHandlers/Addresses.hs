@@ -37,7 +37,7 @@ handlers =  listAddresses
 
 listAddresses
     :: MonadIO m
-    => RequestParams -> m (WalletResponse [Address])
+    => RequestParams -> m (WalletResponse [WalletAddress])
 listAddresses RequestParams {..} = do
     -- TODO(matt.parsons):  Fix as part of CSL-2146
     addresses <- liftIO $ generate (vectorOf 2 arbitrary)

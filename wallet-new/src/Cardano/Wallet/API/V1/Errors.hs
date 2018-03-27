@@ -8,6 +8,7 @@ import           Universum
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Data.Aeson
+import           Data.List.NonEmpty (NonEmpty)
 import           Generics.SOP.TH (deriveGeneric)
 import qualified Network.HTTP.Types.Header as HTTP
 import           Servant
@@ -56,6 +57,7 @@ data WalletError =
     | InvalidAddressFormat { weMsg :: !Text }
     | WalletNotFound
     | AddressNotFound
+    | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
     deriving (Show, Eq)
 
 --
@@ -111,12 +113,12 @@ toServantError err =
     WalletNotFound{}       -> err404
     InvalidAddressFormat{} -> err401
     AddressNotFound{}      -> err404
+    MissingRequiredParams{} -> err400
   where
     mkServantErr serr@ServantErr{..} = serr
       { errBody    = encode err
       , errHeaders = applicationJson : errHeaders
       }
-
 
 -- | Generates the @Content-Type: application/json@ 'HTTP.Header'.
 applicationJson :: HTTP.Header

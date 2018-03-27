@@ -18,6 +18,7 @@ executable cardano-node-simple
   build-depends:       base
                      , cardano-sl-update
                      , cardano-sl-ssc
+                     , cardano-sl-infra
                      , cardano-sl-networking
                      , cardano-sl-update
                      , cardano-sl-util

@@ -154,12 +154,14 @@ verifyHeader VerifyHeaderParams {..} h =
 
     -- CHECK: Verifies that the slot does not lie in the future.
     relatedToCurrentSlot curSlotId =
-        [ ( case h of
-              BlockHeaderGenesis _ -> True
-              BlockHeaderMain bh   -> (bh ^. headerSlotL) <= curSlotId
-          , "block is from slot which hasn't happened yet"
-          )
-        ]
+        case h of
+            BlockHeaderGenesis _ -> [(True, "block is from slot which hasn't happened yet")]
+            BlockHeaderMain bh   ->
+                [
+                    ( (bh ^. headerSlotL) <= curSlotId
+                    , sformat ("block is from slot "%build%" which hasn't happened yet (current slot "%build%")") (bh ^. headerSlotL) curSlotId
+                    )
+                ]
 
     -- CHECK: Checks that the block leader is the expected one.
     relatedToLeaders leaders =

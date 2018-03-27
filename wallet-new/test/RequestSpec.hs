@@ -3,6 +3,7 @@ module RequestSpec where
 import           Universum
 
 import           Data.Either (isLeft)
+import           Formatting (build, sformat)
 import           Test.Hspec
 
 import           Cardano.Wallet.API.Request.Filter
@@ -58,7 +59,7 @@ filterSpec = do
             forM_ [minBound .. maxBound] $ \p ->
                 it ("supports predicate: " <> show p) $ do
                     parseFilterOperation pw pwid
-                        (renderFilterOrdering p <> "[asdf]")
+                        (sformat build p <> "[asdf]")
                         `shouldBe`
                             Right (FilterByPredicate p (WalletId "asdf"))
 
@@ -73,6 +74,12 @@ filterSpec = do
                 parseFilterOperation pw pcoin "nope"
                     `shouldSatisfy`
                         isLeft
+
+            it "supports IN" $ do
+                parseFilterOperation pw pcoin "IN[1,2,3]"
+                    `shouldBe`
+                        Right
+                            (FilterIn (map Core.mkCoin [1,2,3]))
 
     describe "toQueryString" $ do
         let ops = FilterByRange (Core.mkCoin 2345) (Core.mkCoin 2348)

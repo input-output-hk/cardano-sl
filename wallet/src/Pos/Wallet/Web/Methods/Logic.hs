@@ -8,6 +8,7 @@ module Pos.Wallet.Web.Methods.Logic
 
        , getWallet
        , getWallets
+       , getWalletsWithInfo
        , getAccount
        , getAccounts
 
@@ -70,6 +71,7 @@ import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (Exis
                                        getWalletSnapshot, isCustomAddress, removeAccount,
                                        removeWallet, setAccountMeta, setWalletMeta, setWalletPassLU,
                                        setWalletReady)
+import           Pos.Wallet.Web.State.Storage (WalletInfo (..), getWalletInfos)
 import           Pos.Wallet.Web.Tracking (BlockLockMode, CAccModifier (..), CachedCAccModifier,
                                           sortedInsertions, txMempoolToModifier)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
@@ -222,6 +224,16 @@ getWallets = do
     ws <- askWalletSnapshot
     mps <- withTxpLocalData getMempoolSnapshot
     mapM (getWalletIncludeUnready ws mps False) (getWalletAddresses ws)
+
+getWalletsWithInfo
+    :: MonadWalletLogicRead ctx m
+    => WalletSnapshot
+    -> m [(CWallet, WalletInfo)]
+getWalletsWithInfo ws = do
+    mps <- withTxpLocalData getMempoolSnapshot
+    forM (getWalletInfos ws) $ \(cid, walInfo) -> do
+        wal <- getWalletIncludeUnready ws mps False cid
+        pure (wal, walInfo)
 
 ----------------------------------------------------------------------------
 -- Creators

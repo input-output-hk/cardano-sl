@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Cardano.Wallet.Client.Http
     ( module Cardano.Wallet.Client.Http
       -- * Abstract Client export

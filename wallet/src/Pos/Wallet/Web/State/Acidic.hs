@@ -31,6 +31,7 @@ module Pos.Wallet.Web.State.Acidic
        , SetWalletReady (..)
        , SetWalletPassLU (..)
        , SetWalletSyncTip (..)
+       , SetWalletRestorationSyncTip (..)
        , AddOnlyNewTxMetas (..)
        , GetWalletTxHistory (..)
        , AddOnlyNewTxMeta (..)
@@ -60,7 +61,9 @@ module Pos.Wallet.Web.State.Acidic
        , CreateAccountWithAddress (..)
        , RemoveWallet2 (..)
        , ApplyModifierToWallet (..)
+       , ApplyModifierToWallet2 (..)
        , RollbackModifierFromWallet (..)
+       , RollbackModifierFromWallet2 (..)
        ) where
 
 import           Universum
@@ -125,6 +128,7 @@ makeAcidic ''WalletStorage
     , 'WS.setWalletReady
     , 'WS.setWalletPassLU
     , 'WS.setWalletSyncTip
+    , 'WS.setWalletRestorationSyncTip
     , 'WS.addOnlyNewTxMetas
     , 'WS.getWalletTxHistory
     , 'WS.addOnlyNewTxMeta
@@ -152,5 +156,7 @@ makeAcidic ''WalletStorage
     , 'WST.createAccountWithAddress
     , 'WST.removeWallet2
     , 'WST.applyModifierToWallet
+    , 'WST.applyModifierToWallet2
     , 'WST.rollbackModifierFromWallet
+    , 'WST.rollbackModifierFromWallet2
     ]

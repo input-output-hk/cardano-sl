@@ -27,7 +27,7 @@ import           Pos.DB.GState.Common (getTip)
 import           Pos.StateLock (StateLock (..))
 import           Pos.Txp (Tx (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil.Types (utxoToModifier)
-import           Pos.Util.BackupPhrase (BackupPhrase(..))
+import           Pos.Util.BackupPhrase (BackupPhrase (..))
 import           Pos.Util.Mnemonics (toMnemonic)
 import           Pos.Util.Servant (decodeCType)
 import           Pos.Util.Util (lensOf)
@@ -38,9 +38,9 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAcc
                                              CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Pos.Wallet.Web.Methods.Logic (getAccounts, newAccountIncludeUnready, newAddress)
-import           Pos.Wallet.Web.Methods.Restore (newWallet)
-import           Pos.Wallet.Web.State.State (askWalletDB, getWalletSnapshot,
-                                             getWalletUtxo, insertIntoHistoryCache, setWalletUtxo,
+import           Pos.Wallet.Web.Methods.Restore (newWalletHandler)
+import           Pos.Wallet.Web.State.State (askWalletDB, getWalletSnapshot, getWalletUtxo,
+                                             insertIntoHistoryCache, setWalletUtxo,
                                              updateWalletBalancesAndUtxo)
 import           Test.QuickCheck (Gen, arbitrary, choose, frequency, generate, vectorOf)
 import           Text.Printf (printf)
@@ -399,7 +399,7 @@ genAddresses (accountSpec . walletSpec -> aspec) cid = do
 genWallet :: Integer -> UberMonad CWallet
 genWallet walletNum = do
     mnemonic  <- newRandomMnemonic
-    newWallet mempty (walletInit mnemonic)
+    newWalletHandler mempty (walletInit mnemonic)
   where
     walletInit :: BackupPhrase -> CWalletInit
     walletInit backupPhrase = CWalletInit {

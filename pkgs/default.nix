@@ -7683,8 +7683,8 @@ inherit (pkgs) mesa;};
          , servant-client, servant-client-core, servant-quickcheck
          , servant-server, servant-swagger, servant-swagger-ui, stdenv, stm
          , string-conv, swagger2, text, text-format, time, time-units
-         , transformers, universum, unordered-containers, vector, wai
-         , wai-cors, wai-extra, warp
+         , transformers, universum, unliftio, unordered-containers, vector
+         , wai, wai-cors, wai-extra, warp
          }:
          mkDerivation {
            pname = "cardano-sl-wallet-new";
@@ -7701,7 +7701,7 @@ inherit (pkgs) mesa;};
              http-api-data http-client http-types ixset-typed json-sop lens
              log-warper memory mtl QuickCheck safe-exceptions serokell-util
              servant servant-client servant-client-core servant-quickcheck
-             servant-server servant-swagger-ui string-conv swagger2 text
+             servant-server servant-swagger-ui stm string-conv swagger2 text
              text-format time time-units transformers universum
              unordered-containers vector wai
            ];
@@ -7715,8 +7715,8 @@ inherit (pkgs) mesa;};
              neat-interpolation optparse-applicative QuickCheck safe-exceptions
              serokell-util servant servant-server servant-swagger
              servant-swagger-ui stm string-conv swagger2 text text-format
-             time-units universum unordered-containers wai wai-cors wai-extra
-             warp
+             time-units universum unliftio unordered-containers wai wai-cors
+             wai-extra warp
            ];
            testHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-block
@@ -7728,7 +7728,7 @@ inherit (pkgs) mesa;};
              mmorph mtl neat-interpolation optparse-applicative QuickCheck
              quickcheck-instances safe-exceptions serokell-util servant
              servant-quickcheck servant-server servant-swagger stm string-conv
-             swagger2 text text-format time time-units universum
+             swagger2 text text-format time time-units universum unliftio
              unordered-containers
            ];
            doHaddock = false;

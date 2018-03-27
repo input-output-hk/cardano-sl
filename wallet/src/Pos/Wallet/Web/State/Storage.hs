@@ -15,7 +15,8 @@ module Pos.Wallet.Web.State.Storage
        , CurrentAndRemoved (..)
        , WalletBalances
        , WalBalancesAndUtxo
-       , WalletTip (..)
+       , WalletSyncState (..)
+       , RestorationBlockDepth (..)
        , PtxMetaUpdate (..)
        , Query
        , Update
@@ -30,7 +31,7 @@ module Pos.Wallet.Web.State.Storage
        , getWalletMeta
        , getWalletMetaIncludeUnready
        , getWalletPassLU
-       , getWalletSyncTip
+       , getWalletSyncState
        , getWalletAddresses
        , getAccountWAddresses
        , getWAddresses
@@ -53,6 +54,7 @@ module Pos.Wallet.Web.State.Storage
        , setWalletReady
        , setWalletPassLU
        , setWalletSyncTip
+       , setWalletRestorationSyncTip
        , getWalletTxHistory
        , getWalletUtxo
        , getWalletBalancesAndUtxo
@@ -96,7 +98,7 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Serokell.Util (zoom')
 
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
-import           Pos.Core (HeaderHash, SlotId, Timestamp)
+import           Pos.Core (ChainDifficulty, HeaderHash, SlotId, Timestamp)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.SafeCopy ()
@@ -113,6 +115,7 @@ import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition, Ptx
 import           Pos.Wallet.Web.Pending.Util (cancelApplyingPtx, incPtxSubmitTimingPure,
                                               mkPtxSubmitTiming, ptxMarkAcknowledgedPure,
                                               resetFailedPtx)
+import qualified Pos.Wallet.Web.State.Migrations as Migrations
 
 -- | Type alias for indices which are used to maintain order
 -- in which addresses were created.
@@ -147,13 +150,30 @@ data AccountInfo = AccountInfo
 
 makeLenses ''AccountInfo
 
--- | Datatype which stores information about whether
--- or not a wallet has been synced with blockchain and if
--- it has, until which block.
+-- | A 'RestorationBlockDepth' is simply a @newtype@ wrapper over a 'ChainDifficulty',
+-- More specifically, it stores the simple but crucial information of when, relative to the blockchain,
+-- a certain wallet was restored.
+newtype RestorationBlockDepth =
+    RestorationBlockDepth { getRestorationBlockDepth :: ChainDifficulty }
+    deriving (Eq, Show)
+
+-- | Datatype which stores information about the sync state
+-- of this wallet. Syncing here is always relative to the blockchain.
 -- See "Pos.Wallet.Web.Tracking.Sync" for syncing functionality.
-data WalletTip
+data WalletSyncState
     = NotSynced
+    -- ^ A sync state associated with a brand-new, prestine wallet,
+    -- created by the user (or programmatically) to be later used.
+    | RestoringFrom !RestorationBlockDepth !HeaderHash
+    -- ^ This wallet has been restored from 'RestorationBlockDepth',
+    -- and is now tracking the blockchain up to 'HeaderHash'.
+    -- Whilst it might seem that storing the 'RestorationBlockDepth' is
+    -- redundant, it's a necessary evil to cover the case when the user
+    -- closes the wallet whilst the restoration is in progress. When the
+    -- wallet resumes its activity, this distinction (restoration vs normal
+    -- syncing) is important to correctly compute the balance for this wallet.
     | SyncedWith !HeaderHash
+    -- ^ This wallet is tracking the blockchain up to 'HeaderHash'.
     deriving (Eq)
 
 data WalletInfo = WalletInfo
@@ -163,9 +183,8 @@ data WalletInfo = WalletInfo
     , _wiPassphraseLU :: !PassPhraseLU
       -- | Wallet creation time.
     , _wiCreationTime :: !POSIXTime
-      -- | Header hash until which wallet has been synced
-      -- (or @NotSynced@ if wallet hasn't beed synced at all)
-    , _wiSyncTip      :: !WalletTip
+      -- | Incapsulate the history of this wallet in terms of "lifecycle".
+    , _wiSyncState    :: !WalletSyncState
       -- | Pending states for all created transactions (information related
       -- to transaction resubmission).
       -- See "Pos.Wallet.Web.Pending" for resubmission functionality.
@@ -319,8 +338,8 @@ getWalletPassLU :: CId Wal -> Query (Maybe PassPhraseLU)
 getWalletPassLU cWalId = preview (wsWalletInfos . ix cWalId . wiPassphraseLU)
 
 -- | Get wallet sync tip.
-getWalletSyncTip :: CId Wal -> Query (Maybe WalletTip)
-getWalletSyncTip cWalId = preview (wsWalletInfos . ix cWalId . wiSyncTip)
+getWalletSyncState :: CId Wal -> Query (Maybe WalletSyncState)
+getWalletSyncState cWalId = preview (wsWalletInfos . ix cWalId . wiSyncState)
 
 -- | Get IDs of all existing and /ready/ wallets.
 getWalletAddresses :: Query [CId Wal]
@@ -492,7 +511,12 @@ setWalletPassLU cWalId passLU = wsWalletInfos . ix cWalId . wiPassphraseLU .= pa
 -- | Declare that given wallet has been synced with blockchain up to block with given
 -- header hash.
 setWalletSyncTip :: CId Wal -> HeaderHash -> Update ()
-setWalletSyncTip cWalId hh = wsWalletInfos . ix cWalId . wiSyncTip .= SyncedWith hh
+setWalletSyncTip cWalId hh = wsWalletInfos . ix cWalId . wiSyncState .= SyncedWith hh
+
+-- | Deliberately-verbose transaction to update the 'SyncState' for this wallet during a
+-- restoration.
+setWalletRestorationSyncTip :: CId Wal -> RestorationBlockDepth -> HeaderHash -> Update ()
+setWalletRestorationSyncTip cWalId rhh hh = wsWalletInfos . ix cWalId . wiSyncState .= RestoringFrom rhh hh
 
 -- | Set meta data for transaction only if it hasn't been set already.
 -- FIXME: this will be removed later (temporary solution) (not really =\)
@@ -658,8 +682,8 @@ flushWalletStorage = modify flushDo
         , _wsUsedAddresses = HM.empty
         , _wsChangeAddresses = HM.empty
         }
-    flushWalletInfo wi = wi { _wiSyncTip = NotSynced
-                            , _wiIsReady = False
+    flushWalletInfo wi = wi { _wiSyncState = NotSynced
+                            , _wiIsReady   = False
                             }
 
 deriveSafeCopySimple 0 'base ''CCoin
@@ -689,10 +713,17 @@ deriveSafeCopySimple 0 'base ''PtxMetaUpdate
 deriveSafeCopySimple 0 'base ''PendingTx
 deriveSafeCopySimple 0 'base ''AddressInfo
 deriveSafeCopySimple 0 'base ''AccountInfo
-deriveSafeCopySimple 0 'base ''WalletTip
 deriveSafeCopySimple 0 'base ''WalletInfo
+deriveSafeCopySimple 0 'base ''RestorationBlockDepth
 
 -- Legacy versions, for migrations
+
+deriveSafeCopySimple 1 'extension ''WalletSyncState
+
+instance Migrate WalletSyncState where
+    type MigrateFrom WalletSyncState = Migrations.WalletTip
+    migrate  Migrations.NotSynced     = NotSynced
+    migrate (Migrations.SyncedWith h) = SyncedWith h
 
 data WalletStorage_v0 = WalletStorage_v0
     { _v0_wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)

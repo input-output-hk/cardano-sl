@@ -41,6 +41,7 @@ executable dbgen
                      , containers
                      , cryptonite
                      , serokell-util
+                     , stm
                      , text
                      , time
                      , QuickCheck

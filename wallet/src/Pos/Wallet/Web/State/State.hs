@@ -5,7 +5,8 @@
 module Pos.Wallet.Web.State.State
        ( WalletDB
        , WalletDbReader
-       , WalletTip (..)
+       , WalletSyncState (..)
+       , RestorationBlockDepth (..)
        , PtxMetaUpdate (..)
        , AddressInfo (..)
        , askWalletDB
@@ -31,7 +32,8 @@ module Pos.Wallet.Web.State.State
        , getWalletMeta
        , getWalletMetaIncludeUnready
        , getWalletPassLU
-       , getWalletSyncTip
+       , getWalletSyncState
+       , isWalletRestoring
        , getWalletAddresses
        , doesWAddressExist
        , getTxMeta
@@ -61,6 +63,7 @@ module Pos.Wallet.Web.State.State
        , setWalletReady
        , setWalletPassLU
        , setWalletSyncTip
+       , setWalletRestorationSyncTip
        , addOnlyNewTxMetas
        , addOnlyNewTxMeta
        , removeWallet
@@ -83,14 +86,14 @@ module Pos.Wallet.Web.State.State
        , cancelSpecificApplyingPtx
        , resetFailedPtxs
        , flushWalletStorage
-       , applyModifierToWallet
-       , rollbackModifierFromWallet
+       , applyModifierToWallet2
+       , rollbackModifierFromWallet2
        ) where
 
 import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent)
 import qualified Data.Map as Map
 import           Pos.Client.Txp.History (TxHistoryEntry)
-import           Pos.Core (HasConfiguration, HasProtocolConstants, SlotId)
+import           Pos.Core (ChainDifficulty, HasConfiguration, HasProtocolConstants, SlotId)
 import           Pos.Core.Common (HeaderHash)
 import           Pos.Txp (TxId, Utxo, UtxoModifier)
 import           Pos.Util.Servant (encodeCType)
@@ -103,8 +106,8 @@ import           Pos.Wallet.Web.State.Acidic (WalletDB, closeState, openMemState
 import           Pos.Wallet.Web.State.Acidic as A
 import           Pos.Wallet.Web.State.Storage (AddressInfo (..), AddressLookupMode (..), CAddresses,
                                                CurrentAndRemoved (..), CustomAddressType (..),
-                                               PtxMetaUpdate (..), WalletBalances, WalletStorage,
-                                               WalletTip (..))
+                                               PtxMetaUpdate (..), RestorationBlockDepth (..),
+                                               WalletBalances, WalletStorage, WalletSyncState (..))
 import qualified Pos.Wallet.Web.State.Storage as S
 import           Universum
 
@@ -178,8 +181,16 @@ getWalletMetaIncludeUnready ws includeReady wid =
 getWalletPassLU :: WalletSnapshot -> CId Wal -> Maybe PassPhraseLU
 getWalletPassLU ws wid = queryValue ws (S.getWalletPassLU wid)
 
-getWalletSyncTip :: WalletSnapshot -> CId Wal -> Maybe WalletTip
-getWalletSyncTip ws wid = queryValue ws (S.getWalletSyncTip wid)
+-- TODO(adn):  Is it necessary to preserve 'getWalletSyncTip' in case it's
+-- present in some acid-state transaction log?
+getWalletSyncState :: WalletSnapshot -> CId Wal -> Maybe WalletSyncState
+getWalletSyncState ws wid = queryValue ws (S.getWalletSyncState wid)
+
+-- | Returns 'True' if this wallet is being restored.
+isWalletRestoring :: WalletSnapshot -> CId Wal -> Bool
+isWalletRestoring ws wid = case getWalletSyncState ws wid of
+    Just (RestoringFrom _ _) -> True
+    _                        -> False
 
 getAccountWAddresses
     :: WalletSnapshot -> AddressLookupMode -> AccountId -> Maybe [AddressInfo]
@@ -306,6 +317,11 @@ setWalletSyncTip :: (MonadIO m, HasConfiguration)
                  => WalletDB -> CId Wal -> HeaderHash  -> m ()
 setWalletSyncTip db cWalId headerHash =
     updateDisk (A.SetWalletSyncTip cWalId headerHash) db
+
+setWalletRestorationSyncTip :: (MonadIO m, HasConfiguration)
+                            => WalletDB -> CId Wal -> RestorationBlockDepth -> HeaderHash  -> m ()
+setWalletRestorationSyncTip db cWalId rbd headerHash =
+    updateDisk (A.SetWalletRestorationSyncTip cWalId rbd headerHash) db
 
 setProfile :: (MonadIO m, HasConfiguration)
            => WalletDB -> CProfile  -> m ()
@@ -481,7 +497,7 @@ flushWalletStorage :: (MonadIO m, HasConfiguration)
                    -> m ()
 flushWalletStorage = updateDisk A.FlushWalletStorage
 
-applyModifierToWallet
+applyModifierToWallet2
   :: (MonadIO m, HasConfiguration)
   => WalletDB
   -> CId Wal
@@ -491,19 +507,20 @@ applyModifierToWallet
   -> [(CTxId, CTxMeta)] -- ^ Transaction metadata to add
   -> Map TxId TxHistoryEntry -- ^ Entries for the history cache
   -> [(TxId, PtxCondition)] -- ^ PTX Conditions
-  -> HeaderHash -- ^ New sync tip
+  -> ChainDifficulty -- ^ The current depth of the blockchain
+  -> WalletSyncState -- ^ New 'WalletSyncState'
   -> m ()
-applyModifierToWallet db walId wAddrs custAddrs utxoMod
+applyModifierToWallet2 db walId wAddrs custAddrs utxoMod
                       txMetas historyEntries ptxConditions
-                      syncTip =
+                      currentDepth syncState =
     updateDisk
-      ( A.ApplyModifierToWallet
+      ( A.ApplyModifierToWallet2
           walId wAddrs custAddrs utxoMod
-          txMetas historyEntries ptxConditions syncTip
+          txMetas historyEntries ptxConditions currentDepth syncState
       )
       db
 
-rollbackModifierFromWallet
+rollbackModifierFromWallet2
   :: (MonadIO m, HasConfiguration, HasProtocolConstants)
   => WalletDB
   -> CId Wal
@@ -514,15 +531,15 @@ rollbackModifierFromWallet
      -- until 5.8.1
   -> Map TxId a -- ^ Entries to remove from history cache.
   -> [(TxId, PtxCondition, S.PtxMetaUpdate)] -- ^ Deleted PTX candidates
-  -> HeaderHash -- ^ New sync tip
+  -> WalletSyncState -- ^ New 'WalletSyncState'
   -> m ()
-rollbackModifierFromWallet db walId wAddrs custAddrs utxoMod
-                           historyEntries ptxConditions
-                           syncTip =
+rollbackModifierFromWallet2 db walId wAddrs custAddrs utxoMod
+                            historyEntries ptxConditions
+                            syncState =
     updateDisk
-      ( A.RollbackModifierFromWallet
+      ( A.RollbackModifierFromWallet2
           walId wAddrs custAddrs utxoMod
-          historyEntries' ptxConditions syncTip
+          historyEntries' ptxConditions syncState
       )
       db
   where

@@ -40,7 +40,7 @@
 \newcommand{\txids}{\idsof{\txs}}
 \newcommand{\blockids}{\idsof{\mathcal{B}}}
 \newcommand{\agentids}{\idsof{\mathcal{A}}}
-\newcommand{\slotleader}{\mathsf{sl}}
+\newcommand{\slotleader}[1]{\mathsf{sl}(#1)}
 \newcommand{\recipient}[1]{\mathsf{recipient}(#1)}
 \newcommand{\amount}[1]{\mathsf{amount}(#1)}
 \newcommand{\transactions}[1]{\mathsf{transactions}(#1)}
@@ -104,7 +104,7 @@ as it is.\improvement{We may want to add something about protocol
     being}
 
 \item[Slot leader] We assume known a function
-  $\slotleader ∈ ℕ ⟶ \agentids$ mapping each slot to an agent
+  $\slotleader{⋅} ∈ ℕ ⟶ \agentids$ mapping each slot to an agent
   id.\improvement{This function is actually also parametrised by a valid
     blockchain. And doesn't look arbitrarily far into the future.}
 
@@ -260,6 +260,48 @@ $b_1,…,b_n$ if all of the following hold
     \end{description}
   \end{description}
 \end{description}
+
+\section{Instantiating parameters}
+\label{sec:params}
+
+\info{The purpose of this section is to give concrete values to some
+  of the parameters of the algorithm}
+
+\subsection{Slot leader selection}
+\label{sec:slot-lead-select}
+
+A \emph{number generator} is a function $f ∈ ℕ ⟶ S ⟶ ℕ×S$ for some state
+$S$, such that for every $n$ and $s$, $(i,s') = f(n)(s) ⟹ 0 ⩽ i <
+n$. For security, we would need to assume that $f(n)$ has good
+randomness properties, but we can safely ignore this aspect for the
+purpose of this document.
+
+A \emph{stake distribution} is a function $d ∈ \agentids ⟶ ℕ$ with
+finite support (\emph{i.e.} such that $d(a) = 0$ for all but a finite
+choice of $a$)\improvement{Make a terminology-and-notation section and
+  define finite support there, both for partial function and for
+  number-valued functions}.
+
+In the rest of the section, we assume given a number generator $f$, a
+seed $s_0∈S$, and a stake distribution $d$. Let $N$, the \emph{total
+  stake}, be $N=∑_{a∈\agentids} d(a)$ (which is defined since $d$ has
+finite support).
+
+Let us define the sequences $(s_n)_{n∈ℕ}$ and $(u_n)_{n>0}$ as
+\begin{itemize}
+\item $s_0$ is as given above
+\item $(u_{n+1}, s_{n+1}) = f(N)(s_n)$
+\end{itemize}
+
+We can then define the slot leader function as\improvement{This relies
+  on a total ordering of $\agentids$. This needs to be
+  specified.}\improvement{This assumes a given seed distribution, but
+  this is epoch dependent. We need to be able to describe this bit
+  better}
+
+$$
+\slotleader{n} = \max_{l∈\agentids} \left( ∑_{a<l} d(a)<u_n \right)
+$$
 
 \section{Extending the blockchain}
 

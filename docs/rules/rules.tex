@@ -33,6 +33,7 @@
 
 \newcommand{\pos}[2]{{#2}_{#1}}
 \newcommand{\length}[1]{|#1|}
+\newcommand{\rem}[2]{\mathrm{rem}_{#1}(#2)}
 
 \newcommand{\idsof}[1]{\mathcal{I}\!_#1}
 \newcommand{\id}{\mathsf{id}}
@@ -268,10 +269,10 @@ $b_1,…,b_n$ if all of the following hold
 \info{The purpose of this section is to give concrete values to some
   of the parameters of the algorithm}
 
-\subsection{Slot leader selection}
-\label{sec:slot-lead-select}
+\subsection{Slot leader}
+\label{sec:slot-leader}
 
-A \emph{number generator} is a function $f ∈ ℕ ⟶ S ⟶ ℕ×S$ for some state
+A \emph{number generator} is a function $f ∈ ℕ ⟶ S ⟶ ℕ×S$ for some set
 $S$, such that for every $n$ and $s$, $(i,s') = f(n)(s) ⟹ 0 ⩽ i <
 n$. For security, we would need to assume that $f(n)$ has good
 randomness properties, but we can safely ignore this aspect for the
@@ -303,6 +304,44 @@ We can then define the slot leader function as\improvement{This relies
 $$
 \slotleader{n} = \max_{l∈\agentids} \left( ∑_{a<l} d(a)<u_n \right)
 $$
+
+\subsection{Number generator}
+\label{sec:number-generator}
+
+A \emph{binary number generator} is a function $g ∈ ℕ ⟶ S ⟶ ℕ×S$ for
+some set $S$, such that for every $n$ and $s$,
+$(i,s') = f(n)(s) ⟹ 0 ⩽ i < 2^{kn}$ for some $k$. A typical example is
+to have $k=8$ for a generator which produces a byte at a time.
+
+Our goal is to construct a general number generator $f$ as in
+Section~\ref{sec:number-generator}. With the additional requirement
+that $f(N)$ must be surjective on its first component, and assuming that $g(N)$ is
+surjective on its first component\improvement{I think it's better to just put the surjective
+  requirement in the definition of (binary) random generators.}
+
+Let us fix $N∈ℕ$ and $s₀∈S$. And define $B = \min_{n∈ℕ}N < 2^{kn}$,
+and $(s_n)_{n∈ℕ}$ and $(u_n)_{n>0}$ as\improvement{I could define
+  generators once and for all and these could derive from them. This
+  seems to require a dependent product though. We can work around this
+  defining a family of generators instead.}
+\begin{itemize}
+\item $s_0$ is as given above
+\item $(u_{n+1}, s_{n+1}) = g(B)(s_n)$
+\end{itemize}
+
+Let\improvement{define the remainder notation}{}
+$n₀ = \min_{n>0} \left(\rem{2^{kB}}{N} ⩽ u_n < 2^{kB}\right)$.
+
+We define
+$$
+f(N)(s₀) = (\rem{u_{n₀}}{N}, s_{n₀})
+$$
+
+Note that, by definition of the remainder,
+$\{ p∈ℕ | \rem{2^{kB}}{N} ⩽ u_n < 2^{kB} \}$ has $aN$ elements for
+some $a$. From which we can deduce that $f(N)$ is surjective on its
+first component (and actually: if the frequency of each $p$ in $u_n$
+is the same, then the same property also holds of $f$).
 
 \section{Extending the blockchain}
 

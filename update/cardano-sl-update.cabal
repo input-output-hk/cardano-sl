@@ -121,7 +121,6 @@ library
                      , stm
                      , tagged
                      , template-haskell
-                     , text
                      , text-format
                      , time-units
                      , transformers

@@ -94,6 +94,16 @@ as it is.\improvement{We may want to add something about protocol
   $l,r$ for their concatenation. For a list $l∈\lists{A}$, we write
   $\length{l}$ for its length.\improvement{Don't I need a notation for
     the empty list? Do we only need non-empty lists?}
+\item[Support] Let $f$ be a function $f∈X⟶R$ where $R$ is a semiring
+  (typically $ℕ$, $ℤ$, $ℚ$, $ℝ$, …), the \emph{support} of $f$ is
+  $\{ x∈X | f(x)≠0 \}$. We say that $f$ has finite support, or that
+  $f$ is a function with finite support, if the support of $f$ is
+  a finite set.
+
+  A notable property of finite-support function, is that they can be
+  summed: $∑_{x∈X}f(x)$ is well-defined. Indeed, it suffices to sum
+  over the the (finite!) support of $f$, which, as a finite sum, is
+  defined.
 \end{description}
 
 \section{Definitions}
@@ -294,10 +304,7 @@ randomness properties, but we can safely ignore this aspect for the
 purpose of this document.
 
 A \emph{stake distribution} is a function $d ∈ \agentids ⟶ ℕ$ with
-finite support (\emph{i.e.} such that $d(a) = 0$ for all but a finite
-choice of $a$)\improvement{Make a terminology-and-notation section and
-  define finite support there, both for partial function and for
-  number-valued functions}.
+finite support.
 
 In the rest of the section, we assume given a number generator $f$, a
 seed $s_0∈S$, and a stake distribution $d$. Let $N$, the \emph{total

@@ -3,7 +3,6 @@ module Cardano.Wallet.API.V1.Wallets where
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
-import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 import           Pos.Core as Core
@@ -38,5 +37,3 @@ type API = Tags '["Wallets"] :>
                    :> ReqBody '[ValidJSON] (Update Wallet)
                    :> Put '[ValidJSON] (WalletResponse Wallet)
     )
-    -- Nest the Accounts API, note that it is left out of the "Wallets" tag purposedly
-    :<|> "wallets" :> Accounts.API

@@ -7,7 +7,6 @@ import qualified Pos.Wallet.Web.Methods as V0
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
-import qualified Cardano.Wallet.API.V1.LegacyHandlers.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
@@ -23,13 +22,12 @@ handlers :: ( HasConfigurations
             , HasCompileInfo
             )
          => ServerT Wallets.API MonadV1
-handlers = (newWallet
+handlers = newWallet
     :<|> listWallets
     :<|> updatePassword
     :<|> deleteWallet
     :<|> getWallet
     :<|> updateWallet
-    ) :<|> Accounts.handlers
 
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored

@@ -1,6 +1,8 @@
 {- | This is a temporary module to help migration @V0@ datatypes into @V1@ datatypes.
 -}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE LambdaCase #-}
+
 module Cardano.Wallet.API.V1.Migration.Types (
       Migrate(..)
     , migrate
@@ -9,14 +11,15 @@ module Cardano.Wallet.API.V1.Migration.Types (
 import           Universum
 
 import qualified Control.Lens as Lens
-import qualified Data.List.NonEmpty as NE
+import qualified Control.Monad.Catch as Catch
 import           Data.Map (elems)
 import           Data.Time.Clock.POSIX (POSIXTime)
+import           Data.Typeable (typeRep)
+import           Formatting (sformat)
 
 import           Cardano.Wallet.API.V1.Errors as Errors
 import           Cardano.Wallet.API.V1.Types (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
-import           Formatting (sformat)
 import qualified Pos.Client.Txp.Util as V0
 import           Pos.Core (addressF)
 import qualified Pos.Core.Common as Core
@@ -27,8 +30,7 @@ import qualified Pos.Txp.Toil.Types as V0
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
-
-import qualified Control.Monad.Catch as Catch
+import qualified Pos.Wallet.Web.State.Storage as V0
 
 -- | 'Migrate' encapsulates migration between types, when possible.
 class Migrate from to where
@@ -48,14 +50,26 @@ instance Migrate from to => Migrate [from] [to] where
     eitherMigrate = mapM eitherMigrate
 
 -- | Migration from list to NonEmpty, as suggested by @akegalj.
-instance Migrate from to => Migrate [from] (NonEmpty to) where
-  eitherMigrate a = NE.fromList <$> mapM eitherMigrate a
+instance (Migrate from to, Typeable from, Typeable to) => Migrate [from] (NonEmpty to) where
+    eitherMigrate [] = Left . MigrationFailed $ mconcat
+        [ "Failed migrating "
+        , show (typeRep (Proxy @[from]))
+        , " to a non empty list of "
+        , show (typeRep (Proxy @to))
+        , " because the list was empty."
+        ]
+    eitherMigrate (x:xs) = (:|) <$> eitherMigrate x <*> mapM eitherMigrate xs
 
-instance Migrate V0.CWallet V1.Wallet where
-    eitherMigrate V0.CWallet{..} =
+instance Migrate (V0.CWallet, V0.WalletInfo) V1.Wallet where
+    eitherMigrate (V0.CWallet{..}, V0.WalletInfo{..}) =
         V1.Wallet <$> eitherMigrate cwId
                   <*> pure (V0.cwName cwMeta)
                   <*> eitherMigrate cwAmount
+                  <*> pure cwHasPassphrase
+                  <*> eitherMigrate cwPassphraseLU
+                  <*> eitherMigrate _wiCreationTime
+                  <*> eitherMigrate (V0.cwAssurance _wiMeta)
+
 
 -- NOTE: Migrate V1.Wallet V0.CWallet unable to do - not idempotent
 
@@ -224,8 +238,22 @@ instance Migrate V0.CTx V1.Transaction where
 
         let V0.CTxMeta{..} = ctMeta
         txCreationTime <- eitherMigrate ctmDate
+        txStatus <- eitherMigrate ctCondition
 
         pure V1.Transaction{..}
+
+instance Migrate V0.CPtxCondition V1.TransactionStatus where
+    eitherMigrate = Right . \case
+        V0.CPtxCreating{} ->
+            V1.Creating
+        V0.CPtxApplying{} ->
+            V1.Applying
+        V0.CPtxInBlocks{} ->
+            V1.InNewestBlocks
+        V0.CPtxWontApply{} ->
+            V1.WontApply
+        V0.CPtxNotTracked ->
+            V1.Persisted
 
 -- | The migration instance for migrating history to a list of transactions
 instance Migrate (Map Core.TxId (V0.CTx, POSIXTime)) [V1.Transaction] where

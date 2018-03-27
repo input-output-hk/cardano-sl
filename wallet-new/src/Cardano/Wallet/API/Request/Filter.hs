@@ -94,6 +94,9 @@ data FilterOrdering =
     | LesserThanEqual
     deriving (Show, Eq, Enum, Bounded)
 
+renderFilterOrdering :: FilterOrdering -> Text
+renderFilterOrdering = sformat build
+
 instance Buildable FilterOrdering where
     build = \case
         Equal            -> "EQ"
@@ -111,19 +114,14 @@ data FilterOperation ix a =
     -- ^ Filter by predicate (e.g. lesser than, greater than, etc.)
     | FilterByRange ix ix
     -- ^ Filter by range, in the form [from,to]
+    | FilterIn [ix]
     deriving Eq
 
 instance (BuildableSafe ix, sym ~ IndexToQueryParam a ix, KnownSymbol sym) => Show (FilterOperation ix a) where
     show = formatToString build
 
 instance ToHttpApiData ix => ToHttpApiData (FilterOperation ix a) where
-    toQueryParam = \case
-        FilterByIndex ix ->
-            toQueryParam ix
-        FilterByPredicate p ix ->
-            mconcat [sformat build p, "[", toQueryParam ix, "]"]
-        FilterByRange lo hi  ->
-            mconcat ["RANGE", "[", toQueryParam lo, ",", toQueryParam hi, "]"]
+    toQueryParam = renderFilterOperation
 
 instance (BuildableSafe ix, sym ~ IndexToQueryParam a ix, KnownSymbol sym) =>
     BuildableSafeGen (FilterOperation ix a) where
@@ -133,9 +131,30 @@ instance (BuildableSafe ix, sym ~ IndexToQueryParam a ix, KnownSymbol sym) =>
         bprint (build%"="%build%"["%buildSafe sl%"]") (symbolVal (Proxy @sym)) o ix
     buildSafeGen sl (FilterByRange lo hi) =
         bprint (build%"=RANGE["%buildSafe sl%","%buildSafe sl%"]") (symbolVal (Proxy @sym)) lo hi
+    buildSafeGen sl (FilterIn ixs) =
+        bprint (build % "=IN[" % build % "]")
+            (symbolVal (Proxy @sym))
+            bps
+      where
+        bps = mconcat
+            . List.intersperse ","
+            $ map (bprint (buildSafe sl)) ixs
+
+
 
 instance (BuildableSafeGen (FilterOperation ix a)) => Buildable (FilterOperation ix a) where
     build = buildSafeGen unsecure
+
+renderFilterOperation :: ToHttpApiData ix => FilterOperation ix a -> Text
+renderFilterOperation = \case
+    FilterByIndex ix ->
+        toQueryParam ix
+    FilterByPredicate p ix ->
+        mconcat [renderFilterOrdering p, "[", toQueryParam ix, "]"]
+    FilterByRange lo hi  ->
+        mconcat ["RANGE", "[", toQueryParam lo, ",", toQueryParam hi, "]"]
+    FilterIn ixs ->
+        "IN[" <> T.intercalate "," (map toQueryParam ixs) <> "]"
 
 instance (BuildableSafeGen (FilterOperation ix a)) => Buildable (SecureLog (FilterOperation ix a)) where
     build = buildSafeGen secure . getSecureLog
@@ -155,7 +174,6 @@ findMatchingFilterOp filters =
                     pure fop
                 Nothing ->
                     findMatchingFilterOp rest
-
 
 -- | Represents a filter operation on the data model.
 --
@@ -263,6 +281,7 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
                ("GT", "]")    -> FilterByPredicate GreaterThan <$> toIndex p ixTxt
                ("GTE", "]")   -> FilterByPredicate GreaterThanEqual <$> toIndex p ixTxt
                ("RANGE", "]") -> parseRangeQuery ixTxt
+               ("IN", "]")    -> parseInQuery ixTxt
                _              -> Nothing
 
     -- Tries to parse a query by index.
@@ -275,6 +294,11 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
         case bimap identity (T.drop 1) (T.breakOn "," fromTo) of
             (_, "")    -> Nothing
             (from, to) -> FilterByRange <$> toIndex p from <*> toIndex p to
+
+    parseInQuery :: Text -> Maybe (FilterOperation ix a)
+    parseInQuery =
+        fmap FilterIn . traverse (toIndex p) . T.splitOn ","
+
 
 instance
     ( HasClient m next

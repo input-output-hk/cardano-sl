@@ -1,5 +1,4 @@
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE PolyKinds #-}
 
 module Cardano.Wallet.API.V1.Generic
        ( gtoJsend

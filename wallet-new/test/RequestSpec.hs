@@ -75,6 +75,12 @@ filterSpec = do
                     `shouldSatisfy`
                         isLeft
 
+            it "supports IN" $ do
+                parseFilterOperation pw pcoin "IN[1,2,3]"
+                    `shouldBe`
+                        Right
+                            (FilterIn (map Core.mkCoin [1,2,3]))
+
     describe "toQueryString" $ do
         let ops = FilterByRange (Core.mkCoin 2345) (Core.mkCoin 2348)
                 `FilterOp` FilterByIndex (WalletId "hello")

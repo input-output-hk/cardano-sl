@@ -88,9 +88,7 @@ deterministicTests wc = do
             idxResp <- getAddressIndex wc
             _addrs <- wrData <$> idxResp `shouldPrism` _Right
 
-            -- TODO(matt.parsons): uncomment when the change to return
-            -- a WalletAddress has landed (CSL-2335)
-            -- addr `shouldSatisfy` (`elem` addrs)
+            addr `shouldSatisfy` (`elem` addrs)
             pure ()
 
 

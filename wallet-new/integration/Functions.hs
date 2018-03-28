@@ -21,7 +21,7 @@ import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, Accoun
                                               PaymentDistribution (..), PaymentSource (..),
                                               SpendingPassword, Transaction (..), V1 (..),
                                               Wallet (..), WalletAddress (..), WalletId,
-                                              WalletOperation (..), WalletUpdate (..), unV1)
+                                              WalletOperation (..), WalletUpdate (..))
 
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..), getAccounts,
@@ -338,7 +338,7 @@ runAction wc ws GetAddresses   = do
     -- Also, remove the `V1` type since we don't need it now.
     address <-  coerce <$> pickRandomElement (ws ^. addresses)
     -- We get all the accounts.
-    result  <-  map (map (unV1 . addrId)) . respToRes $ getAddressIndex wc
+    result  <-  respToRes $ getAddressIndex wc
 
     checkInvariant
         (address `elem` result)

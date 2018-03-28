@@ -7424,7 +7424,7 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-node" = callPackage
-         ({ mkDerivation, base, cardano-sl, cardano-sl-infra
+        ({ mkDerivation, base, cardano-sl, cardano-sl-infra
          , cardano-sl-networking, cardano-sl-ssc, cardano-sl-update
          , cardano-sl-util, cpphs, log-warper, stdenv, universum
          }:
@@ -7675,7 +7675,7 @@ inherit (pkgs) mesa;};
          , cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation
          , cardano-sl-infra, cardano-sl-networking, cardano-sl-ssc
          , cardano-sl-txp, cardano-sl-update, cardano-sl-util
-         , cardano-sl-wallet, constraints, containers, data-default
+         , cardano-sl-wallet, conduit, constraints, containers, data-default
          , exceptions, formatting, generics-sop, hspec, http-api-data
          , http-client, http-types, insert-ordered-containers, ixset-typed
          , json-sop, lens, log-warper, memory, mmorph, mtl
@@ -7710,14 +7710,14 @@ inherit (pkgs) mesa;};
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-client
              cardano-sl-core cardano-sl-crypto cardano-sl-infra
              cardano-sl-networking cardano-sl-ssc cardano-sl-txp
-             cardano-sl-update cardano-sl-util cardano-sl-wallet containers
-             data-default exceptions formatting http-api-data http-types
-             insert-ordered-containers ixset-typed lens log-warper memory mtl
-             neat-interpolation optparse-applicative QuickCheck safe-exceptions
-             serokell-util servant servant-server servant-swagger
-             servant-swagger-ui stm string-conv swagger2 text text-format
-             time-units universum unordered-containers wai wai-cors wai-extra
-             warp
+             cardano-sl-update cardano-sl-util cardano-sl-wallet conduit
+             containers data-default exceptions formatting http-api-data
+             http-types insert-ordered-containers ixset-typed lens log-warper
+             memory mtl neat-interpolation optparse-applicative QuickCheck
+             safe-exceptions serokell-util servant servant-server
+             servant-swagger servant-swagger-ui stm string-conv swagger2 text
+             text-format time-units universum unordered-containers wai wai-cors
+             wai-extra warp
            ];
            testHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-block

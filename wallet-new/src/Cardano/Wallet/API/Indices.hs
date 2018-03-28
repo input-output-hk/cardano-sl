@@ -80,7 +80,7 @@ type IndexRelation a ix =
 --
 
 -- | The indices for each major resource.
-type WalletIxs        = '[WalletId, Core.Coin]
+type WalletIxs        = '[WalletId, Core.Coin, V1 Core.Timestamp]
 type TransactionIxs   = '[V1 Core.TxId, V1 Core.Timestamp]
 type AccountIxs       = '[AccountIndex]
 type WalletAddressIxs = '[V1 Core.Address]

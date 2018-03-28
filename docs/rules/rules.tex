@@ -284,7 +284,9 @@ $b_1,…,b_n$ if all of the following hold
     \transactions{b₁},…,\transactions{b_n},t₁,…,t_{i-1}$.
     \begin{description}
     \item[Unspent inputs] Each input of the transaction $τ$ is
-      unspent. That is for each $i ∈ \inputs{τ}$
+      unspent. That is for each $i ∈ \inputs{τ}$\improvement{This does
+      not take into account the utxos in the initial state. It should
+      be specified.}
       \begin{itemize}
       \item $\overline{τ} = \overline{τ₀},\intrans{i}, \overline{τ_1}$
       \item $\outputs{\intrans{i}}=t₁,…t_k$, $\inindex{i} ⩽ k$

@@ -42,10 +42,13 @@ import           Ntp.Util (createAndBindSock, resolveNtpHost, selectIPv4, select
                            udpLocalAddresses, withSocketsDoLifted)
 
 data NtpStatus =
+      -- | The difference between ntp time and local system time
       NtpDrift Microsecond
+      -- | NTP client has send requests to the servers
     | NtpSyncPending
-    | NtpSyncUnavailable
-    deriving (Eq, Show)
+      -- | NTP is not available: the client has not received any respond within
+      -- `ntpResponseTimeout` or NTP was not configured.
+    | NtpSyncUnavailable deriving (Eq, Show)
 
 data NtpClientSettings = NtpClientSettings
     { ntpServers         :: [String]
@@ -124,8 +127,7 @@ handleCollectedResponses cli = do
     handler (newMargin, transmitTime) = do
         let ntpTime = transmitTime + newMargin
         localTime <- realTime
-        let timeDiff = abs $ ntpTime - localTime
-        atomically $ writeTVar (ncStatus cli) (NtpDrift timeDiff)
+        atomically $ writeTVar (ncStatus cli) (NtpDrift $ ntpTime - localTime)
 
 
 allResponsesGathered :: NtpClient -> STM Bool

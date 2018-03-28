@@ -7713,7 +7713,7 @@ inherit (pkgs) mesa;};
              cardano-sl-core cardano-sl-crypto cardano-sl-infra
              cardano-sl-networking cardano-sl-ssc cardano-sl-txp
              cardano-sl-update cardano-sl-util cardano-sl-wallet containers
-             data-default exceptions formatting http-api-data http-types
+             data-default exceptions formatting hspec http-api-data http-types
              insert-ordered-containers ixset-typed lens log-warper memory mtl
              neat-interpolation optparse-applicative QuickCheck safe-exceptions
              serokell-util servant servant-server servant-swagger

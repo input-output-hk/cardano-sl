@@ -16,7 +16,6 @@ nodeArgs:
   - "./scripts/tls-files/server.key"
   - "--tlsca"
   - "./scripts/tls-files/ca.crt"
-  - "--no-ntp"
   - "--topology"
   - "docs/network/example-topologies/mainnet-staging.yaml"
   - "--logs-prefix"

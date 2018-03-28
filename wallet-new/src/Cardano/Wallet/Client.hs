@@ -26,6 +26,7 @@ module Cardano.Wallet.Client
     , SortOperations(..)
     , FilterOperation(..)
     , SortOperation(..)
+    , WalletResponse(..)
     ) where
 
 import           Universum
@@ -66,8 +67,8 @@ data WalletClient m
          :: Maybe Page -> Maybe PerPage -> Resp m [WalletAddress]
     , postAddress
          :: NewAddress -> Resp m WalletAddress
-    , getAddressValidity
-         :: Text -> Resp m AddressValidity
+    , getAddress
+         :: Text -> Resp m WalletAddress
     -- wallets endpoints
     , postWallet
          :: New Wallet -> Resp m Wallet
@@ -150,8 +151,8 @@ hoistClient phi wc = WalletClient
          \x -> phi . getAddressIndexPaginated wc x
     , postAddress =
          phi . postAddress wc
-    , getAddressValidity =
-         phi . getAddressValidity wc
+    , getAddress =
+         phi . getAddress wc
     , postWallet =
          phi . postWallet wc
     , getWalletIndexFilterSorts =

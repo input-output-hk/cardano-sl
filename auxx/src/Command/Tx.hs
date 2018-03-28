@@ -34,7 +34,7 @@ import           System.Wlog (logError, logInfo)
 
 import           Pos.Binary (decodeFull)
 --import           Pos.Client.KeyStorage (getSecretKeysPlain)
-import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
+import           Pos.Client.Txp.Balances ({-getOwnUtxoForPk,-} getOwnUtxo)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
 import           Pos.Client.Txp.Util (createTx)
 import           Pos.Communication (SendActions, immediateConcurrentConversations)
@@ -43,7 +43,7 @@ import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAdd
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretKeys)
 import           Pos.Core.Txp (TxAux, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto ({-EncryptedSecretKey,-} emptyPassphrase, encToPublic, fakeSigner,
-                             safeToPublic{-, toPublic-}, withSafeSigners, SecretKey(..), mkEncSecretUnsafe)
+                             {-safeToPublic{-, toPublic-},-} withSafeSigners, SecretKey(..), mkEncSecretUnsafe)
 import           Pos.Txp (topsortTxAuxes)
 
 --import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
@@ -120,14 +120,16 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                     SendRandom -> do
                         i <- liftIO $ randomRIO (0, nNeighbours - 1)
                         return [ccPeers !! i]
-                utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
+                --utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
         -- every genesis secret key sends to itself
                 --me <- makePubKeyAddressAuxx (toPublic secretKey)
+                
                 let (SecretKey rawkey) = secretKey
                 skey <- mkEncSecretUnsafe emptyPassphrase rawkey
                 let curPk = encToPublic skey
 
                 let [_, tempaddr] = map (flip makePubKeyAddress curPk . IsBootstrapEraAddr) [False, True]
+                utxo <- getOwnUtxo tempaddr
 
                 let val1 = mkCoin 1
                     txOut = TxOut {

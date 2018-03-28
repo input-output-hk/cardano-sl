@@ -428,6 +428,7 @@ test-suite wallet-new-specs
                     , aeson
                     , aeson-pretty
                     , bytestring
+                    , conduit
                     , cardano-sl
                     , cardano-sl-client
                     , cardano-sl-core

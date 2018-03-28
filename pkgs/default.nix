@@ -7724,12 +7724,12 @@ inherit (pkgs) mesa;};
              cardano-sl-client cardano-sl-core cardano-sl-crypto cardano-sl-db
              cardano-sl-delegation cardano-sl-infra cardano-sl-networking
              cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
-             cardano-sl-wallet constraints containers data-default exceptions
-             formatting hspec http-client http-types ixset-typed lens log-warper
-             mmorph mtl neat-interpolation optparse-applicative QuickCheck
-             quickcheck-instances safe-exceptions serokell-util servant
-             servant-quickcheck servant-server servant-swagger stm string-conv
-             swagger2 text text-format time time-units universum
+             cardano-sl-wallet conduit constraints containers data-default
+             exceptions formatting hspec http-client http-types ixset-typed lens
+             log-warper mmorph mtl neat-interpolation optparse-applicative
+             QuickCheck quickcheck-instances safe-exceptions serokell-util
+             servant servant-quickcheck servant-server servant-swagger stm
+             string-conv swagger2 text text-format time time-units universum
              unordered-containers
            ];
            doHaddock = false;

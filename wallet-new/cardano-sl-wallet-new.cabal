@@ -257,6 +257,7 @@ executable cardano-integration-test
                      , formatting
                      , http-api-data
                      , http-types
+                     , http-client
                      , insert-ordered-containers
                      , ixset-typed
                      , lens
@@ -265,6 +266,7 @@ executable cardano-integration-test
                      , neat-interpolation
                      , optparse-applicative
                      , servant
+                     , servant-client
                      , servant-server
                      , servant-swagger
                      , serokell-util

@@ -1,5 +1,7 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeOperators     #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators       #-}
+
 module Cardano.Wallet.API.V1.LegacyHandlers.Addresses where
 
 import           Universum
@@ -15,9 +17,12 @@ import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types
 import           Pos.Core (decodeTextAddress)
 
-import           Pos.Wallet.Web.State.Storage (getWalletAddresses)
-import           Pos.Wallet.Web.State.State (getWalletSnapshot, askWalletDB)
+import           Data.Conduit (runConduit, (.|))
+import qualified Data.Conduit.List as CL
+
 import           Pos.Wallet.Web.ClientTypes.Types (CAccount (..))
+import           Pos.Wallet.Web.State.State (WalletSnapshot, askWalletDB, getWalletSnapshot)
+import           Pos.Wallet.Web.State.Storage (getWalletAddresses)
 
 import           Servant
 
@@ -40,7 +45,7 @@ handlers =  listAddresses
 -- these calls. The flaw with this is that we need to think about deletion,
 -- but I have an idea or two how that can be fixed.
 listAddresses
-    :: (MonadThrow m, V0.MonadWalletLogic ctx m)
+    :: forall ctx m. (MonadThrow m, V0.MonadWalletLogic ctx m)
     => RequestParams
     -> m (WalletResponse [WalletAddress])
 listAddresses params = do
@@ -48,14 +53,23 @@ listAddresses params = do
     wdb <- askWalletDB
     ws  <- getWalletSnapshot wdb
 
-    let walletAddresses   = getWalletAddresses ws
-    allCAccounts         <- concatMapM (V0.getAccounts . Just) walletAddresses
-    let allCAddresses     = concatMap caAddresses allCAccounts
-    let allAddresses      = migrate allCAddresses
+    let allAddresses = runStreamAddresses ws
 
     respondWith params (NoFilters :: FilterOperations WalletAddress)
                        (NoSorts   :: SortOperations   WalletAddress)
                        (IxSet.fromList <$> allAddresses)
+  where
+    -- | Should improve performance, stream fusion ultra super nuclear
+    -- fission... Insert cool word of coice.
+    runStreamAddresses :: WalletSnapshot -> m [WalletAddress]
+    runStreamAddresses ws =
+        runConduit   $ CL.sourceList (getWalletAddresses ws)
+                    .| CL.map Just
+                    .| CL.concatMapM V0.getAccounts
+                    .| CL.concatMap caAddresses
+                    .| CL.mapM migrate
+                    .| CL.consume
+
 
 newAddress
     :: (MonadThrow m, V0.MonadWalletLogic ctx m)

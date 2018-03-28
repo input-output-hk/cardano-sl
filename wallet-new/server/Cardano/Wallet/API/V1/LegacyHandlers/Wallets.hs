@@ -32,7 +32,6 @@ handlers = newWallet
     :<|> updateWallet
     :<|> newExternalWallet
     :<|> newAddressPath
-    ) :<|> Accounts.handlers
 
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored

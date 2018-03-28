@@ -10,7 +10,7 @@ import qualified Data.Conduit.List as CL
 import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List as List
 import           Servant
-
+import           Test.QuickCheck (arbitrary, generate)
 
 import           Pos.Core (decodeTextAddress)
 import           Pos.Crypto (emptyPassphrase)

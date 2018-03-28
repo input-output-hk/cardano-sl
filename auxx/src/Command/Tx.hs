@@ -43,14 +43,14 @@ import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAdd
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretKeys)
 import           Pos.Core.Txp (TxAux, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto ({-EncryptedSecretKey,-} emptyPassphrase, encToPublic, fakeSigner,
-                             safeToPublic, toPublic, withSafeSigners, SecretKey(..), mkEncSecretUnsafe)
+                             safeToPublic{-, toPublic-}, withSafeSigners, SecretKey(..), mkEncSecretUnsafe)
 import           Pos.Txp (topsortTxAuxes)
 
 --import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util (maybeThrow)
 
 import           Lang.Value (SendMode (..))
-import           Mode (CmdCtx (..), MonadAuxxMode, getCmdCtx, makePubKeyAddressAuxx)
+import           Mode (CmdCtx (..), MonadAuxxMode, getCmdCtx{-, makePubKeyAddressAuxx-})
 
 ----------------------------------------------------------------------------
 -- Send to all genesis
@@ -122,14 +122,20 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                         return [ccPeers !! i]
                 utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
         -- every genesis secret key sends to itself
-                me <- makePubKeyAddressAuxx (toPublic secretKey)
+                --me <- makePubKeyAddressAuxx (toPublic secretKey)
+                let (SecretKey rawkey) = secretKey
+                skey <- mkEncSecretUnsafe emptyPassphrase rawkey
+                let curPk = encToPublic skey
+
+                let [_, tempaddr] = map (flip makePubKeyAddress curPk . IsBootstrapEraAddr) [False, True]
+
                 let val1 = mkCoin 1
                     txOut = TxOut {
-                        txOutAddress = me,
+                        txOutAddress = tempaddr,
                         txOutValue   = val1
                     }
                     txOuts = TxOutAux txOut :| []
-                etx <- createTx mempty utxo (fakeSigner secretKey) txOuts (toPublic secretKey)
+                etx <- createTx mempty utxo (fakeSigner secretKey) txOuts curPk
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
                     Right (tx, neout) -> do 

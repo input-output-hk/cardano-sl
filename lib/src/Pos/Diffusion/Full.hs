@@ -534,3 +534,5 @@ joinKademlia (kInst, mustJoin) = case mustJoin of
     retryInterval :: Second
     retryInterval = 5
 -}
+
+{-# ANN module ("HLint: ignore Use whenNothing_" :: Text) #-}

@@ -44,7 +44,7 @@
 \newcommand{\txids}{\idsof{\txs}}
 \newcommand{\blockids}{\idsof{\mathcal{B}}}
 \newcommand{\agentids}{\idsof{\mathcal{A}}}
-\newcommand{\slotleader}[1]{\mathsf{sl}(#1)}
+\newcommand{\slotleader}[3]{\mathsf{sl}(#1,#2,#3)}
 \newcommand{\recipient}[1]{\mathsf{recipient}(#1)}
 \newcommand{\amount}[1]{\mathsf{amount}(#1)}
 \newcommand{\transactions}[1]{\mathsf{transactions}(#1)}
@@ -54,6 +54,14 @@
 \newcommand{\inindex}[1]{\mathsf{index}(#1)}
 \newcommand{\witnesses}[1]{\mathsf{witnesses}(#1)}
 \newcommand{\minimumfee}[1]{\mathsf{minfee}(#1)}
+\newcommand{\stakedistributions}{\mathcal{D}}
+\newcommand{\seeds}{\mathcal{S}}
+\newcommand{\initialdistribution}{d_{\mathsf{init}}}
+\newcommand{\initialseed}{s_{\mathsf{init}}}
+\newcommand{\epoch}[1]{\mathsf{epoch}(#1)}
+\newcommand{\epochslot}[1]{\mathsf{slot}_\mathsf{epoch}(#1)}
+\newcommand{\epochseed}[1]{\mathsf{seed}(#1)}
+\newcommand{\epochdistribution}[1]{\mathsf{distr}(#1)}
 
 %% /macros %%
 
@@ -115,6 +123,10 @@ as it is.\improvement{We may want to add something about protocol
   abstract syntax of transactions and of blocks, \ldots}
 
 \begin{description}
+\item[k] This entire specification is parameterised by a natural
+  number $k$. It comes from the Ouroboros paper: it is the depth after
+  which a block is considered stable.
+
 \item[System of identifiers] A set $A$ is said to \emph{have
     identifiers} if there is a set, written $\idsof{A}$ and an
   injective function $\id ∈ A ⟶ \idsof{A}$. In implementations,
@@ -129,14 +141,25 @@ as it is.\improvement{We may want to add something about protocol
   representing the agents interacting on the blockchain. In an
   implementation agent ids would be public cryptographic keys.
 
-\item[Slot] An integer.\improvement{I'm ignoring epochs for the time
-    being}
+\item[Stake distribution] A \emph{stake distribution} is a function
+  $d ∈ \agentids ⟶ ℕ$ with finite support. We write
+  $\stakedistributions$ for the set of stake distributions. We assume
+  given an \emph{initial stake distribution}
+  $\initialdistribution ∈ \stakedistributions$.
+
+\item[Slot] An integer.
+
+\item[Epoch] Let us define $\epoch{n}$ and $\epochslot{n}$, the
+  \emph{epoch decomposition} of a slot, as the unique numbers such
+  that $n=\epoch{n}.10k+\epochslot{n}$ and $0⩽ \epochslot{n} < 10k$.
+
+\item[Seeds] We assume given a set $\seeds$ of \emph{seeds}, as well
+  as an \emph{initial seed} $\initialseed ∈ \seeds$.
 
 \item[Slot leader] We assume known a function
-  $\slotleader{⋅} ∈ ℕ ⟶ \agentids$ mapping each slot to an agent
-  id.\improvement{This function is actually also parametrised by a
-    valid blockchain. And doesn't look arbitrarily far into the
-    future.}\info{For future reference: an epoch is $10k$ slots.}
+  $\slotleader{⋅}{⋅}{⋅} ∈ \stakedistributions×\seeds×ℕ ⟶ \agentids$,
+  which, given a stake distribution and a source of randomness, maps
+  each subsequent slot to an agent id.
 
 \item[Current slot] The current slot is a parameter of every
   verification (\emph{i.e.} it doesn't make sense in general to ask
@@ -232,8 +255,15 @@ $b_1,…,b_n$ if all of the following hold
   slot.
 \item[Not past slot] the slot number of $b$ is larger than the slot
   number of $b_n$
-\item[Issuer] The issuer is the slot leader at the block's slot
-  number\improvement{This ignores delegation}.
+\item[Issuer] The issuer of $b$ is the slot leader at the block's slot
+  number, that is
+  $$
+  \slotleader{\epochdistribution{b_1,…,b_n}}{\epochseed{b_1,…,b_n}}{slot}
+  $$
+  See Section~\ref{sec:derived-functions} for the definitions of
+  $\epochdistribution{⋅}$ and $\epochseed{⋅}$.
+  \improvement{This ignores delegation}\improvement{this doesn't read
+    too well, improve.}
 \item[Transactions] Each transaction in the block's transactions is
   validated according to the following rules.
   \begin{description}
@@ -318,9 +348,6 @@ n$. For security, we would need to assume that $f(n)$ has good
 randomness properties, but we can safely ignore this aspect for the
 purpose of this document.
 
-A \emph{stake distribution} is a function $d ∈ \agentids ⟶ ℕ$ with
-finite support.
-
 In the rest of the section, we assume given a number generator $f$, a
 seed $s_0∈S$, and a stake distribution $d$. Let $N$, the \emph{total
   stake}, be $N=∑_{a∈\agentids} d(a)$ (which is defined since $d$ has
@@ -341,7 +368,7 @@ We can then define the slot leader function as\improvement{This relies
   somewhere)}
 
 $$
-\slotleader{n} = \max_{l∈\agentids} \left( ∑_{a<l} d(a)<u_n \right)
+\slotleader{d}{s_0}{n} = \max_{l∈\agentids} \left( ∑_{a<l} d(a)<u_n \right)
 $$
 
 \subsection{Number generator}

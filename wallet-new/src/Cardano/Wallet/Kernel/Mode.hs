@@ -1,4 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes                 #-}
+
 module Cardano.Wallet.Kernel.Mode
     ( WalletMode
     , WalletContext -- opaque
@@ -6,10 +8,11 @@ module Cardano.Wallet.Kernel.Mode
     , getWallet
     ) where
 
+import           Universum
+
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
 import           System.Wlog
-import           Universum
 
 import           Mockable
 import           Pos.Block.BListener
@@ -36,14 +39,15 @@ import           Pos.Util.JsonLog
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.WorkMode
 
-import           Cardano.Wallet.Kernel (PassiveWallet)
+import           Cardano.Wallet.Kernel (PassiveWalletLayer)
 
 {-------------------------------------------------------------------------------
   The wallet context and monad
 -------------------------------------------------------------------------------}
 
-data WalletContext = WalletContext {
-      wcWallet          :: !PassiveWallet
+-- First approximation as I have no clue where this will @m@ come from.
+data WalletContext m = WalletContext {
+      wcWallet          :: !(PassiveWalletLayer m)
     , wcRealModeContext :: !(RealModeContext EmptyMempoolExt)
     }
 
@@ -51,11 +55,11 @@ data WalletContext = WalletContext {
 --
 -- NOTE: I'd prefer to @newtype@ this but it's just too painful (too many
 -- constraints cannot be derived, there are a /lot/ of them).
-type WalletMode = ReaderT WalletContext Production
+type WalletMode m = ReaderT (WalletContext m) Production
 
 makeLensesWith postfixLFields ''WalletContext
 
-getWallet :: WalletMode PassiveWallet
+getWallet :: forall m. (WalletMode m) (PassiveWalletLayer m)
 getWallet = view wcWallet_L
 
 {-------------------------------------------------------------------------------
@@ -66,9 +70,9 @@ getWallet = view wcWallet_L
 --
 -- TODO: This should wrap the functionality in "Cardano.Wallet.Core" to
 -- wrap things in Cardano specific types.
-walletApplyBlocks :: PassiveWallet
+walletApplyBlocks :: PassiveWalletLayer m
                   -> OldestFirst NE Blund
-                  -> WalletMode SomeBatchOp
+                  -> (WalletMode m) SomeBatchOp
 walletApplyBlocks _w _bs = do
     -- TODO: Call into the wallet. This should be an asynchronous operation
     -- because 'onApplyBlocks' gets called with the block lock held.
@@ -81,9 +85,9 @@ walletApplyBlocks _w _bs = do
 --
 -- TODO: This should wrap the functionality in "Cardano.Wallet.Core" to
 -- wrap things in Cardano specific types.
-walletRollbackBlocks :: PassiveWallet
+walletRollbackBlocks :: PassiveWalletLayer m
                      -> NewestFirst NE Blund
-                     -> WalletMode SomeBatchOp
+                     -> (WalletMode m) SomeBatchOp
 walletRollbackBlocks _w _bs = do
     -- TODO: Call into the wallet. This should be an asynchronous operation
     -- because 'onRollbackBlocks' gets called with the block lock held.
@@ -92,7 +96,7 @@ walletRollbackBlocks _w _bs = do
     -- We don't make any changes to the DB so we always return 'mempty'.
     return mempty
 
-instance MonadBListener WalletMode where
+instance MonadBListener (WalletMode m) where
   onApplyBlocks    bs = getWallet >>= (`walletApplyBlocks`    bs)
   onRollbackBlocks bs = getWallet >>= (`walletRollbackBlocks` bs)
 
@@ -100,10 +104,10 @@ instance MonadBListener WalletMode where
   Run the wallet
 -------------------------------------------------------------------------------}
 
-runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
+runWalletMode :: forall a m. (HasConfigurations, HasCompileInfo)
               => NodeResources ()
-              -> PassiveWallet
-              -> (ActionSpec WalletMode a, OutSpecs)
+              -> PassiveWalletLayer m
+              -> (ActionSpec (WalletMode m) a, OutSpecs)
               -> Production a
 runWalletMode nr wallet (action, outSpecs) =
     elimRealMode nr serverRealMode
@@ -115,7 +119,7 @@ runWalletMode nr wallet (action, outSpecs) =
           (nrEkgStore nr)
           (runProduction . elimRealMode nr . walletModeToRealMode wallet)
 
-    serverWalletMode :: WalletMode a
+    serverWalletMode :: (WalletMode m) a
     serverWalletMode = runServer
         (runProduction . elimRealMode nr . walletModeToRealMode wallet)
         ncNodeParams
@@ -126,7 +130,7 @@ runWalletMode nr wallet (action, outSpecs) =
     serverRealMode :: RealMode EmptyMempoolExt a
     serverRealMode = walletModeToRealMode wallet serverWalletMode
 
-walletModeToRealMode :: PassiveWallet -> WalletMode a -> RealMode () a
+walletModeToRealMode :: forall m a. PassiveWalletLayer m -> (WalletMode m) a -> RealMode () a
 walletModeToRealMode wallet ma = do
     rmc <- ask
     let env = WalletContext {
@@ -141,37 +145,37 @@ walletModeToRealMode wallet ma = do
   These all just piggy-back on the 'RealModeContext'.
 -------------------------------------------------------------------------------}
 
-instance HasNodeType WalletContext where
+instance HasNodeType (WalletContext m) where
   getNodeType = getNodeType . wcRealModeContext
 
-instance HasSlottingVar WalletContext where
+instance HasSlottingVar (WalletContext m) where
   slottingTimestamp = wcRealModeContext_L . slottingTimestamp
   slottingVar       = wcRealModeContext_L . slottingVar
 
-instance HasPrimaryKey WalletContext where
+instance HasPrimaryKey (WalletContext m) where
   primaryKey        = wcRealModeContext_L . primaryKey
 
-instance HasReportingContext WalletContext where
+instance HasReportingContext (WalletContext m) where
   reportingContext  = wcRealModeContext_L . reportingContext
 
-instance HasSlogGState WalletContext where
+instance HasSlogGState (WalletContext m) where
   slogGState        = wcRealModeContext_L . slogGState
 
-instance HasSlogContext WalletContext where
+instance HasSlogContext (WalletContext m) where
   slogContext       = wcRealModeContext_L . slogContext
 
-instance HasShutdownContext WalletContext where
+instance HasShutdownContext (WalletContext m) where
   shutdownContext   = wcRealModeContext_L . shutdownContext
 
-instance HasJsonLogConfig WalletContext where
+instance HasJsonLogConfig (WalletContext m) where
   jsonLogConfig     = wcRealModeContext_L . jsonLogConfig
 
-instance HasSscContext WalletContext where
+instance HasSscContext (WalletContext m) where
   sscContext        = wcRealModeContext_L . sscContext
 
 instance {-# OVERLAPPABLE #-}
     HasLens tag (RealModeContext EmptyMempoolExt) r =>
-    HasLens tag WalletContext r
+    HasLens tag (WalletContext m) r
   where
     lensOf = wcRealModeContext_L . lensOf @tag
 
@@ -181,41 +185,41 @@ instance {-# OVERLAPPABLE #-}
   These are all modelled after the instances for the (legacy) 'WalletWebMode'
 -------------------------------------------------------------------------------}
 
-type instance MempoolExt WalletMode = EmptyMempoolExt
+type instance MempoolExt (WalletMode a) = EmptyMempoolExt
 
-instance HasConfiguration => MonadDBRead WalletMode where
+instance HasConfiguration => MonadDBRead (WalletMode a) where
   dbGet         = dbGetDefault
   dbIterSource  = dbIterSourceDefault
   dbGetSerBlock = dbGetSerBlockRealDefault
   dbGetSerUndo  = dbGetSerUndoRealDefault
 
-instance HasConfiguration => MonadDB WalletMode where
+instance HasConfiguration => MonadDB (WalletMode a) where
   dbPut         = dbPutDefault
   dbWriteBatch  = dbWriteBatchDefault
   dbDelete      = dbDeleteDefault
   dbPutSerBlunds = dbPutSerBlundsRealDefault
 
 instance ( HasConfiguration
-         , MonadSlotsData ctx WalletMode
-         ) => MonadSlots ctx WalletMode where
+         , MonadSlotsData ctx (WalletMode a)
+         ) => MonadSlots ctx (WalletMode a) where
   getCurrentSlot           = getCurrentSlotSimple
   getCurrentSlotBlocking   = getCurrentSlotBlockingSimple
   getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
   currentTimeSlotting      = currentTimeSlottingSimple
 
-instance HasConfiguration => MonadGState WalletMode where
+instance HasConfiguration => MonadGState (WalletMode a) where
   gsAdoptedBVData = gsAdoptedBVDataDefault
 
-instance HasConfiguration => HasAdoptedBlockVersionData WalletMode where
+instance HasConfiguration => HasAdoptedBlockVersionData (WalletMode a) where
   adoptedBVData = gsAdoptedBVData
 
-instance MonadFormatPeers WalletMode where
+instance MonadFormatPeers (WalletMode a) where
   formatKnownPeers f = Mtl.withReaderT wcRealModeContext $ formatKnownPeers f
 
-instance {-# OVERLAPPING #-} CanJsonLog WalletMode where
+instance {-# OVERLAPPING #-} CanJsonLog (WalletMode a) where
   jsonLog = jsonLogDefault
 
 instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo)
-      => MonadTxpLocal WalletMode where
+      => MonadTxpLocal (WalletMode a) where
   txpNormalize = txNormalize
   txpProcessTx = txProcessTransaction

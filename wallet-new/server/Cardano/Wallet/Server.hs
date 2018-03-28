@@ -21,7 +21,7 @@ import           Servant.Swagger.UI (swaggerSchemaUIServer)
 -- NOTE: Unlike the legacy server, the handlers will not run in a special
 -- Cardano monad because they just interfact with the Wallet object.
 walletServer :: (HasCompileInfo, HasUpdateConfiguration)
-             => ActiveWallet
+             => ActiveWalletLayer m
              -> Server WalletAPI
 walletServer w = v0DocHandler :<|> v1DocHandler :<|> v0Handler :<|> v1Handler
   where
@@ -37,7 +37,7 @@ walletServer w = v0DocHandler :<|> v1DocHandler :<|> v0Handler :<|> v1Handler
 
 
 walletDevServer :: (HasCompileInfo, HasUpdateConfiguration)
-             => ActiveWallet
+             => ActiveWalletLayer m
              -> RunMode
              -> Server WalletDevAPI
 walletDevServer w runMode = devDocHandler :<|> devHandler :<|> walletHandler

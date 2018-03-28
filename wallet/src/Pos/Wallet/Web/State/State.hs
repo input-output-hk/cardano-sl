@@ -87,6 +87,8 @@ module Pos.Wallet.Web.State.State
        , rollbackModifierFromWallet
        ) where
 
+import           Universum
+
 import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent)
 import qualified Data.Map as Map
 import           Pos.Client.Txp.History (TxHistoryEntry)
@@ -106,7 +108,7 @@ import           Pos.Wallet.Web.State.Storage (AddressInfo (..), AddressLookupMo
                                                PtxMetaUpdate (..), WalletBalances, WalletStorage,
                                                WalletTip (..))
 import qualified Pos.Wallet.Web.State.Storage as S
-import           Universum
+
 
 -- | The 'WalletDbReader' constraint encapsulates the set of effects which
 -- are able to read the 'WalletDB'.
@@ -235,7 +237,6 @@ getWalletUtxo ws = queryValue ws S.getWalletUtxo
 
 getWalletBalancesAndUtxo :: WalletSnapshot -> (WalletBalances, Utxo)
 getWalletBalancesAndUtxo ws = queryValue ws S.getWalletBalancesAndUtxo
-
 
 --
 -- Effectful function (Updates)

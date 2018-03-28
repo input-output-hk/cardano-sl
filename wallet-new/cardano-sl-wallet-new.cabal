@@ -114,6 +114,7 @@ library
                      , cardano-sl-infra
                      , cardano-sl-ssc
                      , cardano-sl-update
+                     , QuickCheck-GenT
   default-language:    Haskell2010
   default-extensions: TypeOperators
                       DataKinds

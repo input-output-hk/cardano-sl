@@ -197,6 +197,7 @@ extra-deps:
 - gauge-0.2.1
 - statistics-0.14.0.2
 - validation-0.6.1
+- QuickCheck-GenT-0.2.0
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

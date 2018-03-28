@@ -3,6 +3,7 @@
      a particular monad, at some point in time.
 -}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE RankNTypes    #-}
 module Cardano.Wallet.Server.Plugins (
       Plugin
     , acidCleanupWorker
@@ -122,10 +123,10 @@ legacyWalletBackend WalletBackendParams {..} ntpStatus =
 -- | A 'Plugin' to start the wallet REST server
 --
 -- TODO: no web socket support in the new wallet for now
-walletBackend :: (HasConfigurations, HasCompileInfo)
+walletBackend :: forall m. (Monad m, HasConfigurations, HasCompileInfo)
               => NewWalletBackendParams
-              -> Kernel.PassiveWallet
-              -> Plugin Kernel.WalletMode
+              -> Kernel.PassiveWalletLayer m
+              -> Plugin (Kernel.WalletMode m)
 walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
     first one $ worker walletServerOuts $ \diffusion -> do
       env <- ask
@@ -138,7 +139,7 @@ walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
           (if isDebugMode walletRunMode then Nothing else walletTLSParams)
           Nothing
   where
-    getApplication :: Kernel.ActiveWallet -> Kernel.WalletMode Application
+    getApplication :: Kernel.ActiveWalletLayer m -> (Kernel.WalletMode m) Application
     getApplication active = do
       logInfo "New wallet API has STARTED!"
       return $ withMiddleware walletRunMode $

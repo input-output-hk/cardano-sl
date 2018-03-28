@@ -736,7 +736,6 @@ instance ToSchema NewAccount where
       & ("name"             --^ "Account's name.")
     )
 
-
 deriveSafeBuildable ''NewAccount
 instance BuildableSafeGen NewAccount where
     buildSafeGen sl NewAccount{..} = bprint ("{"

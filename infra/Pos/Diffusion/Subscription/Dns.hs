@@ -87,7 +87,7 @@ resolveOne logTrace defaultPort nodeAddrs = do
     let (errs, nids_) = partitionEithers mNodeIds
         nids = mconcat nids_
     when (null nids)       $ traceWith logTrace (Error, msgNoRelays)
-    when (not (null errs)) $ traceWith logTrace (Error, msgDnsFailure errs)
+    unless (null errs) $ traceWith logTrace (Error, msgDnsFailure errs)
     return nids
 
   where

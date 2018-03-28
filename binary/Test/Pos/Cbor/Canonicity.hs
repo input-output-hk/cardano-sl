@@ -43,7 +43,7 @@ traverseCanonicalBits tuint tnint tzeroes tlength ttag tmapset tnan16 = go
         -- Representation can be widened or changed to TBigInt.
         TNInt n    -> tnint n
         -- Leading zeroes can be added to binary representation.
-        TBigInt bs _len n -> case leadingZeroes bs of
+        TBigInt oldBs _len n -> case leadingZeroes oldBs of
             -- Canonical representation doesn't have leading zeroes.
             0 -> do
                 bs <- integerToBinaryRep <$> tzeroes <*> pure n

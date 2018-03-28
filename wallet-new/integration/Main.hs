@@ -82,15 +82,13 @@ deterministicTests wc = do
 
             -- create an address
             addResp <- postAddress wc (NewAddress Nothing accIndex walId)
-            _addr <- wrData <$> addResp `shouldPrism` _Right
+            addr <- wrData <$> addResp `shouldPrism` _Right
 
             -- verify that address is in the API
             idxResp <- getAddressIndex wc
-            _addrs <- wrData <$> idxResp `shouldPrism` _Right
+            addrs <- wrData <$> idxResp `shouldPrism` _Right
 
             addr `shouldSatisfy` (`elem` addrs)
-            pure ()
-
 
 shouldPrism :: Show s => s -> Prism' s a -> IO a
 shouldPrism a b = do

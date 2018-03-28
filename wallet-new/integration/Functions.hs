@@ -15,9 +15,9 @@ import           Test.QuickCheck (Gen, arbitrary, elements, frequency, generate)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
 import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, AccountUpdate (..),
-                                              AddressValidity (..), AssuranceLevel (..),
-                                              EstimatedFees (..), NewAccount (..), NewAddress (..),
-                                              NewWallet (..), PasswordUpdate (..), Payment (..),
+                                              AssuranceLevel (..), EstimatedFees (..),
+                                              NewAccount (..), NewAddress (..), NewWallet (..),
+                                              PasswordUpdate (..), Payment (..),
                                               PaymentDistribution (..), PaymentSource (..),
                                               SpendingPassword, Transaction (..), V1 (..),
                                               Wallet (..), WalletAddress (..), WalletId,
@@ -358,15 +358,8 @@ runAction wc ws GetAddress     = do
 
     textAddress <- coerce <$> cAddress
 
-    -- We check if the address is valid. It should be.
-    result  <-  respToRes $ getAddressValidity wc textAddress
-
-    let isAddressValid = isValid result
-
-    -- The address should be valid, it should exist.
-    checkInvariant
-        isAddressValid
-        (LocalAddressDiffer . coerce $ address)
+    -- If the address exists, it is valid.
+    _  <-  respToRes $ getAddress wc textAddress
 
     -- Modify wallet state accordingly.
     pure $ ws

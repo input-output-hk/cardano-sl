@@ -62,6 +62,7 @@
 \newcommand{\epochslot}[1]{\mathsf{slot}_\mathsf{epoch}(#1)}
 \newcommand{\epochseed}[1]{\mathsf{seed}(#1)}
 \newcommand{\epochdistribution}[1]{\mathsf{distr}(#1)}
+\newcommand{\currentdistribution}[1]{\mathsf{distr}_0(#1)}
 
 %% /macros %%
 
@@ -101,7 +102,9 @@ as it is.\improvement{We may want to add something about protocol
   for the singleton list. For two lists $l,r∈\lists{A}$, we write
   $l,r$ for their concatenation. For a list $l∈\lists{A}$, we write
   $\length{l}$ for its length.\improvement{Don't I need a notation for
-    the empty list? Do we only need non-empty lists?}
+    the empty list? Do we only need non-empty lists?}{}
+  We write $\pos{i}{l}$ for the $i$-th element of the
+  list\improvement{starting with $0$ or $1$?}.
 \item[Support] Let $f$ be a function $f∈X⟶R$ where $R$ is a semiring
   (typically $ℕ$, $ℤ$, $ℚ$, $ℝ$, …), the \emph{support} of $f$ is
   $\{ x∈X | f(x)≠0 \}$. We say that $f$ has finite support, or that
@@ -331,8 +334,38 @@ $b_1,…,b_n$ if all of the following hold
 
 \begin{description}
 \item[Stake distribution] \info{The stake distribution at any given
-    point, as well as at the last epoch}
-\item[Seed] \info{The shared seed at the last epoch}
+    point, as well as at the last epoch}Let us define
+  $\currentdistribution{τ₁,…,τ_n}$ by induction, for a valid sequence
+  of transactions\improvement{Valid sequence of transaction hasn't
+    properly been defined, but it's implicit in the definition above,
+    it would maybe be worth making more precise.}:
+  \begin{itemize}
+  \item $\currentdistribution{} = \initialdistribution$\improvement{I need a notation for the
+    empty list after all}
+  \item Inductively (note that we use the validity hypothesis in order
+    to define $\recipient{i}$ and $\amount{i}$):\improvement{Ignores
+      stake delegation}
+    \begin{align*}
+      \currentdistribution{τ₁,…,τ_n, τ_{n+1}}(a)
+      & = &\currentdistribution{τ₁,…τ_n}(a)\\
+      & - & \left(∑_{\scriptsize \begin{array}{c} i∈\inputs{τ_{n+1}}\\\recipient{i}=a \end{array}} \amount{i} \right)\\
+      & + & \left(∑_{\scriptsize \begin{array}{c} o∈\outputs{τ_{n+1}}\\ \recipient{o}=a \end{array}} \amount{o} \right)
+    \end{align*}
+  \end{itemize}
+
+  We can then extend $\currentdistribution{⋅}$ on valid chains by defining
+  $$
+  \currentdistribution{b₁,…,b_n} = \currentdistribution{\transactions{b₁},…,\transactions{b_n}}
+  $$
+  Finally we define\improvement{There are two imprecise points in this
+  definition: first I didn't define $\epoch{⋅}$ on a block, though it
+  is easy to. Secondly, this is only defined after the first block,
+  so we need to explain what happens for the empty list.}
+  $$
+  \epochdistribution{b₁,…,b_n} = \currentdistribution{b₁,…,b_{\epoch{b_n}}}
+  $$
+
+\item[Seed] \info{The shared seed at the last epoch} Define $\epochseed{⋅}$\improvement{Todo}
 \end{description}
 
 \section{Instantiating parameters}

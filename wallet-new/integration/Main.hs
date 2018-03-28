@@ -90,6 +90,15 @@ deterministicTests wc = do
 
             addr `shouldSatisfy` (`elem` addrs)
 
+        it "Index returns real data" $ do
+            addrsResp <- getAddressIndex wc
+            addrs <- wrData <$> addrsResp `shouldPrism` _Right
+
+            addrsResp' <- getAddressIndex wc
+            addrs' <- wrData <$> addrsResp' `shouldPrism` _Right
+
+            addrs `shouldBe` addrs'
+
 shouldPrism :: Show s => s -> Prism' s a -> IO a
 shouldPrism a b = do
     a `shouldSatisfy` has b

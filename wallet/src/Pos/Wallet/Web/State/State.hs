@@ -1,4 +1,3 @@
-
 {-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -7,6 +6,8 @@ module Pos.Wallet.Web.State.State
        , WalletDbReader
        , WalletSyncState (..)
        , RestorationBlockDepth (..)
+       , SyncThroughput (..)
+       , SyncStatistics (..)
        , PtxMetaUpdate (..)
        , AddressInfo (..)
        , askWalletDB
@@ -33,7 +34,6 @@ module Pos.Wallet.Web.State.State
        , getWalletMetaIncludeUnready
        , getWalletPassLU
        , getWalletSyncState
-       , isWalletRestoring
        , getWalletAddresses
        , doesWAddressExist
        , getTxMeta
@@ -64,6 +64,7 @@ module Pos.Wallet.Web.State.State
        , setWalletPassLU
        , setWalletSyncTip
        , setWalletRestorationSyncTip
+       , updateSyncStatistics
        , addOnlyNewTxMetas
        , addOnlyNewTxMeta
        , removeWallet
@@ -107,7 +108,8 @@ import           Pos.Wallet.Web.State.Acidic as A
 import           Pos.Wallet.Web.State.Storage (AddressInfo (..), AddressLookupMode (..), CAddresses,
                                                CurrentAndRemoved (..), CustomAddressType (..),
                                                PtxMetaUpdate (..), RestorationBlockDepth (..),
-                                               WalletBalances, WalletStorage, WalletSyncState (..))
+                                               SyncStatistics, SyncThroughput, WalletBalances,
+                                               WalletStorage, WalletSyncState (..))
 import qualified Pos.Wallet.Web.State.Storage as S
 import           Universum
 
@@ -186,11 +188,6 @@ getWalletPassLU ws wid = queryValue ws (S.getWalletPassLU wid)
 getWalletSyncState :: WalletSnapshot -> CId Wal -> Maybe WalletSyncState
 getWalletSyncState ws wid = queryValue ws (S.getWalletSyncState wid)
 
--- | Returns 'True' if this wallet is being restored.
-isWalletRestoring :: WalletSnapshot -> CId Wal -> Bool
-isWalletRestoring ws wid = case getWalletSyncState ws wid of
-    Just (RestoringFrom _ _) -> True
-    _                        -> False
 
 getAccountWAddresses
     :: WalletSnapshot -> AddressLookupMode -> AccountId -> Maybe [AddressInfo]
@@ -319,9 +316,20 @@ setWalletSyncTip db cWalId headerHash =
     updateDisk (A.SetWalletSyncTip cWalId headerHash) db
 
 setWalletRestorationSyncTip :: (MonadIO m, HasConfiguration)
-                            => WalletDB -> CId Wal -> RestorationBlockDepth -> HeaderHash  -> m ()
+                            => WalletDB
+                            -> CId Wal
+                            -> RestorationBlockDepth
+                            -> HeaderHash  -> m ()
 setWalletRestorationSyncTip db cWalId rbd headerHash =
     updateDisk (A.SetWalletRestorationSyncTip cWalId rbd headerHash) db
+
+updateSyncStatistics :: (MonadIO m, HasConfiguration)
+                     => WalletDB
+                     -> CId Wal
+                     -> SyncStatistics
+                     -> m ()
+updateSyncStatistics db cWalId stats =
+    updateDisk (A.UpdateSyncStatistics cWalId stats) db
 
 setProfile :: (MonadIO m, HasConfiguration)
            => WalletDB -> CProfile  -> m ()

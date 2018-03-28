@@ -31,6 +31,9 @@ module Pos.Wallet.Web.Tracking.Sync
        , buildTHEntryExtra
        , isTxEntryInteresting
 
+       -- * Utility functions
+       , calculateEstimatedRemainingTime
+
        -- Internal & test use only
        , evalChange
        , syncWalletWithBlockchain
@@ -48,12 +51,13 @@ import qualified Data.DList as DL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
+import           Data.Time.Units (Microsecond, TimeUnit (..))
 import           Formatting (build, float, sformat, shown, (%))
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core (ChainDifficulty, HasConfiguration, HasDifficulty (..),
-                           HasProtocolConstants, HeaderHash, Timestamp, blkSecurityParam,
-                           genesisHash, headerHash, headerSlotL, timestampToPosix)
+import           Pos.Core (BlockCount (..), ChainDifficulty (..), HasConfiguration,
+                           HasDifficulty (..), HasProtocolConstants, HeaderHash, Timestamp (..),
+                           blkSecurityParam, genesisHash, headerHash, headerSlotL, timestampToPosix)
 import           Pos.Core.Block (BlockHeader (..), getBlockHeader, mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..), shortHashF, withHash)
@@ -72,6 +76,7 @@ import           Pos.Util.LogSafe (buildSafe, logDebugSP, logErrorSP, logInfoSP,
                                    secretOnlyF, secure)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
+import           Pos.Util.Util (timed)
 import           Pos.Util.Util (HasLens (..), getKeys)
 import           System.Wlog (CanLog, HasLoggerName, WithLogger, logDebug, logError, logInfo,
                               logWarning, modifyLoggerName)
@@ -81,8 +86,8 @@ import           Pos.Wallet.Web.ClientTypes (Addr, CId, CTxMeta (..), CWAddressM
 import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo,
                                                PtxCondition (PtxApplying, PtxInNewestBlocks))
-import           Pos.Wallet.Web.State (CustomAddressType (..), WalletDB, WalletDbReader,
-                                       WalletSnapshot, WalletSyncState (..))
+import           Pos.Wallet.Web.State (CustomAddressType (..), SyncStatistics (..), WalletDB,
+                                       WalletDbReader, WalletSnapshot, WalletSyncState (..))
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking.Decrypt (THEntryExtra (..), WalletDecrCredentials,
                                                   buildTHEntryExtra, isTxEntryInteresting)
@@ -315,7 +320,16 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
     let getBlockHeaderTimestamp = blockHeaderTimestamp systemStart slottingData
 
     let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
-    (mapModifier, newSyncTip) <- computeAccModifier credentials getBlockHeaderTimestamp walletTip dbUsed mempty 0
+
+    -- Compute the next 'CAccModifier' and tentatively assess the throughput.
+    ((mapModifier, newSyncTip), timeTook) <-
+        timed "syncWalletWithBlockchainUnsafe.computeAccModifier" $
+            computeAccModifier credentials getBlockHeaderTimestamp walletTip dbUsed mempty 0
+
+    let syncTime = BoundedSyncTime 10000 timeTook
+    WS.updateSyncStatistics db walletId (SyncStatistics (calculateThroughput syncTime) (depthOf newSyncTip))
+
+    -- Apply the 'CAccModifier' to the wallet state.
     applyModifierToWallet db (srOperation syncRequest) walletId newSyncTip mapModifier
     logInfoSP $ \sl -> sformat ("Applied " %buildSafe sl) mapModifier
 
@@ -344,7 +358,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                            -> CAccModifier
                            -- ^ The initial CAccModifier we will fold on.
                            -> Int
-                           -- ^ The initial block count accumulator. Every X blocks we will stop the recursion.
+                           -- ^ The initial block count accumulator. Every 10000 blocks we will stop the recursion.
                            -> m (CAccModifier, BlockHeader)
                            -- ^ The new wallet modifier and the new sync tip for the wallet.
         computeAccModifier credentials getBlockTimestamp wHeader dbUsed currentModifier currentBlockCount = do
@@ -535,6 +549,39 @@ trackingRollbackTxs credentials dbUsed getDiff getTs txs =
             camAddedPtxCandidates
             deletedPtxCandidates
 
+data BoundedSyncTime = BoundedSyncTime {
+    bscProcessedBlocks :: !BlockCount
+    -- ^ How many blocks we did process
+  , bscProcessingTime  :: !Microsecond
+    -- ^ How many microseconds it took to do so
+  }
+
+-- | Calculates the 'SyncThroughput' in terms of blocks/sec.
+-- processedBlockCount : processingTime = X : 1000000
+-- X = (processedBlockCount * 1000000) / processingTime
+calculateThroughput :: BoundedSyncTime -> WS.SyncThroughput
+calculateThroughput BoundedSyncTime{..} =
+    let processingTime = realToFrac @Integer @Double $ toMicroseconds bscProcessingTime
+        (microseconds :: Integer) = 1000000
+        (processedBlocks :: Integer) = fromIntegral . getBlockCount $ bscProcessedBlocks
+        (tput :: Double) = (realToFrac $ processedBlocks * microseconds) / (realToFrac processingTime)
+     in WS.SyncThroughput . BlockCount . round $ tput
+
+-- | Calculates the estimated remaining time to restore the wallet via the
+-- provided 'SyncThroughput' and the total height of the blockchain.
+-- This is given by the simple proportion:
+-- syncedBlocks : 1_second = actualBlockchainDepth : X
+-- X = (1.0 * actualBlockchainDepth) / syncedBlocks
+calculateEstimatedRemainingTime :: WS.SyncThroughput -> ChainDifficulty -> Timestamp
+calculateEstimatedRemainingTime (WS.SyncThroughput blocks) actualBlockchainDepth =
+    let toDouble                = realToFrac @Integer @Double . fromIntegral . getBlockCount
+        (actualDepth :: Double) = toDouble (getChainDifficulty actualBlockchainDepth)
+        (throughput :: Double)  = toDouble blocks
+        (microseconds :: Integer) = 1000000
+        eta = actualDepth / throughput
+     in Timestamp . fromMicroseconds . (* microseconds) . round $ eta
+
+-- | Apply the given 'CAccModifier' to a wallet.
 applyModifierToWallet
     :: ( CanLog m
        , HasLoggerName m

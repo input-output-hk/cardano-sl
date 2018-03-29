@@ -1,0 +1,31 @@
+#!/usr/bin/env sh
+
+# This scripts runs cardano cluster together with integration tests
+# TODO (akegalj): we would like to have this code in haskell
+
+# cardano/scripts directory
+scripts=$(dirname "$0")/../..
+
+# clean db
+$scripts/clean/db.sh
+
+# generate keys
+# TODO (akegalj): use OS temp location instead
+rm -rf $scripts/tmp-secrets
+stack exec -- cardano-keygen --system-start 0 generate-keys-by-spec --genesis-out-dir tmp-secrets
+
+# import keys
+# TODO: we should import multiple keys for them to be useful as they contain little amount of money. Check does fakeavvm contains more money and if it does use that instead
+ curl -X POST --insecure https://localhost:8090/api/wallets/keys -H 'cache-control: no-cache' -H 'content-type: application/json' -d '"$scripts/../tmp-secrets/generated-keys/poor/key0.sk"'
+
+# run cluster
+# TODO (akegalj): move to integration/Main.hs
+$scripts/launch/demo-with-wallet-api.sh
+
+# run integration tests
+# TODO (akegalj): add tls files to default integration options
+stack exec cardano-integration-test -- --tls-pub-cert $scripts/tls-files/server.crt --tls-priv-key $scripts/tls-files/server.key
+
+# kill cluster
+# TODO (akegalj): move to integration/Main.hs
+$scripts/launch/kill-demo.sh

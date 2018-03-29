@@ -6,8 +6,6 @@ node_modules/*
 
 # Config files
 .ghci
-.hindent.yaml
-.stylish-haskell.yaml
 
 # Our custom build script (util-scripts/build.sh)
 b
@@ -18,6 +16,7 @@ b
 # Various DBs
 node-db*
 wallet-db/
+wallet-new-db/
 db-*/
 wdb-*/
 
@@ -26,10 +25,7 @@ wdb-*/
 *.key.lock
 keys
 !secrets/*.key
-
-# TLS certificates
-server.crt
-ca.crt
+!scripts/tls-files/server.key
 
 # Node runtime data
 logs
@@ -67,11 +63,33 @@ scripts/haskell/dependencies
 
 # 'pkgs/stack2nix' is a symlink into the nix store, it can safely be ignored
 pkgs/stack2nix
+nixpkgs # in case generate.sh clones nixpkgs in here
+pkgs/result
 
-# logs
-explorer-*.log
+# explorer
+explorer-node.log.*
+explorer-node.log
 explorer.log
 socket-io.log
 
+# importify
+.importify
+
 # custom configuration
 custom-wallet-config.nix
+
+# wallet web API benchmarking results
+wallet-new/bench/results/*.csv
+wallet-new/bench/results/*.txt
+
+# cardano-state-* for wallet data
+cardano-state-*
+state-*
+
+# exchange topology file
+exchange-topology.yaml
+exchange-topology-*.yaml
+
+# launch scripts
+launch_*
+result*

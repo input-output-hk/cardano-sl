@@ -23,7 +23,7 @@ stack exec -- cardano-keygen --system-start 0 generate-keys-by-spec --genesis-ou
 # run cluster
 # TODO (akegalj): move to integration/Main.hs
 # WALLET_DEBUG flag is needed so that wallet is launched without TLS. We could also use --no-tls, but this involves changes to the underlying script. See https://iohk.myjetbrains.com/youtrack/issue/CT-7#comment=93-17848
-WALLET_DEBUG=1 $scripts/launch/demo-with-wallet-api.sh
+WALLET_DEBUG=1 $scripts/launch/demo-with-new-wallet-api.sh
 
 # run integration tests
 # TODO (akegalj): add tls files to default integration options

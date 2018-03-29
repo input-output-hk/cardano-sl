@@ -35,7 +35,7 @@ main = do
         printT "Stateless mode not implemented currently!"
 
     -- TODO (akegalj): move these to CLOptions
-    let baseUrl = BaseUrl Http "127.0.0.1" 8090 mempty
+    let baseUrl = BaseUrl Http "localhost" 8090 mempty
     manager <- newManager defaultManagerSettings
 
     let walletClient :: MonadIO m => WalletClient m

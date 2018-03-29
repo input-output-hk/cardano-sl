@@ -4,7 +4,8 @@
 
 module Functions where
 
-import           Universum
+import           Prelude (error)
+import           Universum hiding (error)
 
 import           Data.Coerce (coerce)
 import           Data.List (delete)
@@ -38,7 +39,7 @@ import           Types
 -- | The top function that we need to run in order
 -- to test the backend.
 runActionCheck
-    :: (WalletTestMode m)
+    :: (WalletTestMode m, HasCallStack)
     => WalletClient m
     -> WalletState
     -> ActionProbabilities
@@ -51,7 +52,7 @@ runActionCheck walletClient walletState actionProb = do
 -- | Here we run the actions.
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 runAction
-    :: (WalletTestMode m)
+    :: (WalletTestMode m, HasCallStack)
     => WalletClient m
     -> WalletState
     -> Action
@@ -523,9 +524,8 @@ respToRes resp = do
 
 
 -- | Pick a random element using @IO@.
-pickRandomElement :: (MonadIO m) => [a] -> m a
-pickRandomElement = liftIO . generate . elements
-
+pickRandomElement :: (MonadIO m, HasCallStack) => NonEmpty a -> m a
+pickRandomElement = liftIO . generate . elements . toList
 
 -- | A util function for checking the validity of invariants.
 checkInvariant

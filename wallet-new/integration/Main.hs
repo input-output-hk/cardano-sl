@@ -1,12 +1,14 @@
+{-# LANGUAGE RankNTypes #-}
+
 module Main where
 
 import           Universum
 
-import           Cardano.Wallet.Client (WalletClient (..), liftClient)
-import           Cardano.Wallet.Client.Http (mkHttpClient)
-import           Network.HTTP.Client (defaultManagerSettings, newManager)
-import           Servant.Client (BaseUrl (..), Scheme (Http))
+import           Cardano.Wallet.Client
+import           Control.Lens hiding ((^..), (^?))
 import           System.IO (hSetEncoding, stdout, utf8)
+import           Test.QuickCheck (arbitrary, generate)
+import           Test.Hspec
 
 import           CLI
 import           Error
@@ -46,6 +48,9 @@ main = do
     -- We throw exception if the value is invalid.
     actionDistr <- either throwM pure actionDistribution
 
+    -- some expected test cases
+    hspec $ deterministicTests walletClient
+
     -- some monadic fold or smth similar
     _ <- runActionCheck
         walletClient
@@ -63,3 +68,48 @@ main = do
              [ (GetWallet, getWalletProb)
              ]
 
+deterministicTests :: WalletClient IO -> Spec
+deterministicTests wc = do
+    describe "Addresses" $ do
+        it "Creating an address makes it available" $ do
+            -- create a wallet
+            newWallet <- generate $
+                NewWallet
+                    <$> arbitrary
+                    <*> pure Nothing
+                    <*> arbitrary
+                    <*> pure "Wallet"
+                    <*> pure CreateWallet
+            result <- fmap wrData <$> postWallet wc newWallet
+            Wallet{..} <- result `shouldPrism` _Right
+
+            -- create an account
+            accResp <- postAccount wc walId (NewAccount Nothing "hello")
+            Account{..} <- wrData <$> accResp `shouldPrism` _Right
+
+            -- create an address
+            addResp <- postAddress wc (NewAddress Nothing accIndex walId)
+            addr <- wrData <$> addResp `shouldPrism` _Right
+
+            -- verify that address is in the API
+            idxResp <- getAddressIndex wc
+            addrs <- wrData <$> idxResp `shouldPrism` _Right
+
+            addr `shouldSatisfy` (`elem` addrs)
+
+        it "Index returns real data" $ do
+            addrsResp <- getAddressIndex wc
+            addrs <- wrData <$> addrsResp `shouldPrism` _Right
+
+            addrsResp' <- getAddressIndex wc
+            addrs' <- wrData <$> addrsResp' `shouldPrism` _Right
+
+            addrs `shouldBe` addrs'
+
+shouldPrism :: Show s => s -> Prism' s a -> IO a
+shouldPrism a b = do
+    a `shouldSatisfy` has b
+    let Just x = a ^? b
+    pure x
+
+infixr 8 `shouldPrism`

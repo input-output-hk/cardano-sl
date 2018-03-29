@@ -9,7 +9,8 @@ environment:
     STACK_ROOT: "c:\\s"
     STACK_WORK: ".w"
     WORK_DIR: "c:\\w"
-    CACHE_S3_VERSION: v0.1.3
+    CACHE_S3_VERSION: v0.1.4
+    CACHE_S3_MAX_SIZE: 1600MB  # AppVeyor limits the amount uploaded to approx 2GB
     AWS_REGION: us-west-1
     S3_BUCKET: appveyor-ci-cache
     AWS_ACCESS_KEY_ID:
@@ -30,12 +31,12 @@ before_test:
     if ( $env:CACHE_S3_READY -eq $true ) {
       Start-FileDownload https://github.com/fpco/cache-s3/releases/download/$env:CACHE_S3_VERSION/cache-s3-$env:CACHE_S3_VERSION-windows-x86_64.zip -FileName cache-s3.zip
       7z x cache-s3.zip cache-s3.exe
-      .\cache-s3 --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -v info -c restore stack --base-branch=develop
-      .\cache-s3 --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -v info -c restore stack work --base-branch=develop
+      .\cache-s3 --max-size=$env:CACHE_S3_MAX_SIZE --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -v info -c restore stack --base-branch=develop
+      .\cache-s3 --max-size=$env:CACHE_S3_MAX_SIZE --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -v info -c restore stack work --base-branch=develop
     }
 
 # Install OpenSSL 1.0.2 (see https://github.com/appveyor/ci/issues/1665)
-- ps: (New-Object Net.WebClient).DownloadFile('https://slproweb.com/download/Win64OpenSSL-1_0_2n.exe', "$($env:USERPROFILE)\Win64OpenSSL.exe")
+- ps: (New-Object Net.WebClient).DownloadFile('https://slproweb.com/download/Win64OpenSSL-1_0_2o.exe', "$($env:USERPROFILE)\Win64OpenSSL.exe")
 - ps: cmd /c start /wait "$($env:USERPROFILE)\Win64OpenSSL.exe" /silent /verysilent /sp- /suppressmsgboxes /DIR=C:\OpenSSL-Win64-v102
 - ps: Install-Product node 6
 # Install stack
@@ -110,9 +111,9 @@ after_test:
  - ps: >-
     if ( ($env:CACHE_S3_READY -eq $true) -and (-not $env:APPVEYOR_PULL_REQUEST_NUMBER) ) {
       if ($env:APPVEYOR_REPO_BRANCH -eq "master" -Or $env:APPVEYOR_REPO_BRANCH -eq "develop" -Or $env:APPVEYOR_REPO_BRANCH -like "release*") {
-        .\cache-s3 --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -c -v info save stack
+        .\cache-s3 --max-size=$env:CACHE_S3_MAX_SIZE --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -c -v info save stack
       }
-      .\cache-s3 --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -c -v info save stack work
+      .\cache-s3 --max-size=$env:CACHE_S3_MAX_SIZE --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -c -v info save stack work
     }
  - xcopy /q /s /e /r /k /i /v /h /y "%WORK_DIR%\daedalus" "%APPVEYOR_BUILD_FOLDER%\daedalus"
 

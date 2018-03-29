@@ -6,7 +6,7 @@
 {-# LANGUAGE RecordWildCards            #-}
 module Main where
 
-import           Universum
+import           Universum hiding (init)
 
 import           Data.Maybe (fromJust)
 import           Mockable (Production (..), runProduction)

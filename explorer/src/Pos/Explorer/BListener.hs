@@ -17,8 +17,7 @@ module Pos.Explorer.BListener
        , createPagedHeaderHashesPair
        ) where
 
-import           Nub (ordNub)
-import           Universum
+import           Universum hiding (keys)
 
 import           Control.Lens (at, non)
 import           Control.Monad.Trans.Identity (IdentityT (..))
@@ -558,7 +557,7 @@ epochPagedBlocksMap neBlocks = getPagedEpochHeaderHashesMap
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 onApplyEpochPagedBlocks
     :: forall m.
-    (MonadBListenerT m, KeyBlocksOperation EpochPagedBlocksKey)
+       ( MonadBListenerT m )
     => OldestFirst NE (Blund)
     -> m SomeBatchOp
 onApplyEpochPagedBlocks blunds = do
@@ -598,7 +597,7 @@ onApplyEpochPagedBlocks blunds = do
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 onRollbackEpochPagedBlocks
     :: forall m.
-    (MonadBListenerT m, KeyBlocksOperation EpochPagedBlocksKey)
+       ( MonadBListenerT m )
     => NewestFirst NE (Blund)
     -> m SomeBatchOp
 onRollbackEpochPagedBlocks blunds = do

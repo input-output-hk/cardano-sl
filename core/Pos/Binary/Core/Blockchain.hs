@@ -32,10 +32,6 @@ instance ( Typeable b
     decode = do
         enforceSize "GenericBlockHeader b" 5
         _gbhProtocolMagic <- ProtocolMagic <$> decode
-        {- TODO replace this in block verification.
-        when (blockMagic /= getProtocolMagic protocolMagic) $ cborError $
-            "GenericBlockHeader failed with wrong magic: " <> pretty blockMagic
-        -}
         _gbhPrevBlock <- decode
         _gbhBodyProof <- decode
         _gbhConsensus <- decode

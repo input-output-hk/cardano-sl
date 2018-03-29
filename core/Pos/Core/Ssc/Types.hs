@@ -90,9 +90,7 @@ type SignedCommitment = (PublicKey, Commitment, CommitmentSignature)
 -- from 'SignedCommitment' corresponds to key which is 'StakeholderId'.
 newtype CommitmentsMap = CommitmentsMap
     { getCommitmentsMap :: HashMap StakeholderId SignedCommitment
-    } deriving (Generic, Semigroup, Monoid, Show, Eq, ToList, NFData)
-
-type instance Element CommitmentsMap = SignedCommitment
+    } deriving (Generic, Semigroup, Monoid, Show, Eq, Container, NFData)
 
 -- | Safe constructor of 'CommitmentsMap'.
 mkCommitmentsMap :: [SignedCommitment] -> CommitmentsMap
@@ -154,7 +152,7 @@ type SharesMap = HashMap StakeholderId InnerSharesMap
 type SharesDistribution = HashMap StakeholderId Word16
 
 instance Buildable (StakeholderId, Word16) where
-    build (id, c) = bprint ("("%build%": "%build%" shares)") id c
+    build (ident, c) = bprint ("("%build%": "%build%" shares)") ident c
 
 ----------------------------------------------------------------------------
 -- Vss certificates
@@ -212,9 +210,7 @@ instance Hashable VssCertificate where
 --   * no two certs have the same 'vcVssKey'
 newtype VssCertificatesMap = UnsafeVssCertificatesMap
     { getVssCertificatesMap :: HashMap StakeholderId VssCertificate }
-    deriving (Eq, Show, Generic, NFData, ToList, Container)
-
-type instance Element VssCertificatesMap = VssCertificate
+    deriving (Eq, Show, Generic, NFData, Container)
 
 makeWrapped ''VssCertificatesMap
 
@@ -320,7 +316,7 @@ instance Buildable SscPayload where
             formatIfNotNull
                 ("  certificates from: " %listJson % "\n")
                 (map formatVssCert $ HM.toList certs)
-        formatVssCert (id, cert) =
-            bprint (shortHashF%":"%int) id (vcExpiryEpoch cert)
+        formatVssCert (ident, cert) =
+            bprint (shortHashF%":"%int) ident (vcExpiryEpoch cert)
         formatTwo formatter hm certs =
             mconcat [formatter hm, formatCertificates certs]

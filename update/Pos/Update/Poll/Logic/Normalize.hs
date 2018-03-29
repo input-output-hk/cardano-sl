@@ -8,7 +8,7 @@ module Pos.Update.Poll.Logic.Normalize
        , filterProposalsByThd
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, non)
 import qualified Data.HashMap.Strict as HM

@@ -6,7 +6,7 @@ module Pos.Crypto.HDDiscovery
        , discoverHDAddresses
        ) where
 
-import           Universum
+import           Universum hiding (safeHead)
 
 import           Data.Conduit (mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL

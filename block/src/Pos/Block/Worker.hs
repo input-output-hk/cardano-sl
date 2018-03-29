@@ -11,10 +11,10 @@ import           Universum
 
 import           Control.Lens (ix)
 import qualified Data.List.NonEmpty as NE
-import           Data.Time.Units (Microsecond)
+import           Data.Time.Units (Microsecond, Second, fromMicroseconds)
 import           Formatting (Format, bprint, build, fixed, int, now, sformat, shown, (%))
 import           Mockable (delay)
-import           Serokell.Util (enumerate, listJson, pairF, sec)
+import           Serokell.Util (enumerate, listJson, pairF)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
@@ -229,7 +229,8 @@ recoveryTriggerWorkerImpl
 recoveryTriggerWorkerImpl diffusion = do
     -- Initial heuristic delay is needed (the system takes some time
     -- to initialize).
-    delay $ sec 3
+    -- TBD why 3 seconds? Why delay at all? Come on, we can do better.
+    delay (3 :: Second)
 
     repeatOnInterval $ do
         doTrigger <- needTriggerRecovery <$> getSyncStatusK
@@ -258,14 +259,14 @@ recoveryTriggerWorkerImpl diffusion = do
         -- headers. Or it may happen that we will receive only
         -- useless broken tips for some reason (attack?). This
         -- will minimize risks and network load.
-        when (doTrigger || triggerSafety) $ delay $ sec 20
+        when (doTrigger || triggerSafety) $ delay (20 :: Second)
   where
     repeatOnInterval action = void $ do
-        delay $ sec 1
+        delay (1 :: Second)
         -- REPORT:ERROR 'reportOrLogE' in recovery trigger worker
         void $ action `catchAny` \e -> do
             reportOrLogE "recoveryTriggerWorker" e
-            delay $ sec 15
+            delay (15 :: Second)
         repeatOnInterval action
 
 ----------------------------------------------------------------------------
@@ -393,7 +394,7 @@ cqkMetricMonitor st isBootstrapEra =
     classifier :: Microsecond -> Maybe Double -> Double -> Maybe Bool
     classifier timePassed prevVal newVal
         -- report at most once per 400 sec, unless decreased
-        | not decreased && timePassed < sec 400 = Nothing
+        | not decreased && timePassed < fromMicroseconds 400000000 = Nothing
         | newVal < criticalThreshold = Just True
         | newVal < nonCriticalThreshold = Just False
         | otherwise = Nothing

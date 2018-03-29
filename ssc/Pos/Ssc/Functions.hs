@@ -14,7 +14,7 @@ module Pos.Ssc.Functions
        , getStableCertsPure
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (to)
 import           Control.Monad.Except (MonadError (throwError))

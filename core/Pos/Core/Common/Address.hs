@@ -103,8 +103,8 @@ instance Buildable AddrStakeDistribution where
     build =
         \case
             BootstrapEraDistr -> "Bootstrap era distribution"
-            SingleKeyDistr id ->
-                bprint ("Single key distribution ("%shortHashF%")") id
+            SingleKeyDistr ident ->
+                bprint ("Single key distribution ("%shortHashF%")") ident
             UnsafeMultiKeyDistr distr ->
                 bprint ("Multi key distribution: "%mapJson) distr
 

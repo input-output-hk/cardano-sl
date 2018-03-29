@@ -25,7 +25,7 @@ module Pos.Core.Ssc.Vss
        , deleteVss
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM

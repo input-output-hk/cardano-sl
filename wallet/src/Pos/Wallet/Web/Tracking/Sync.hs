@@ -35,14 +35,14 @@ module Pos.Wallet.Web.Tracking.Sync
        , evalChange
        ) where
 
-import           Universum
-import           Unsafe (unsafeLast)
+import           Universum hiding (id)
 
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import qualified Data.DList as DL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
+import qualified Data.List as List (last)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import           Formatting (build, sformat, (%))
@@ -180,7 +180,7 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAny (onErr encSK) 
                 -- rollback can't occur more then @blkSecurityParam@ blocks,
                 -- so we can sync wallet and GState without the block lock
                 -- to avoid blocking of blocks verification/application.
-                bh <- unsafeLast . getNewestFirst <$> GS.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
+                bh <- List.last . getNewestFirst <$> GS.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
                 logInfo $
                     sformat ("Wallet's tip is far from GState tip. Syncing with "%build%" without the block lock")
                     (headerHash bh)

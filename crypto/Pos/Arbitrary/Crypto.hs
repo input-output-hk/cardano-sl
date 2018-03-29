@@ -9,7 +9,7 @@ module Pos.Arbitrary.Crypto
        , genRedeemSignature
        ) where
 
-import           Universum
+import           Universum hiding (keys)
 
 import           Control.Monad (zipWithM)
 import qualified Data.ByteArray as ByteArray

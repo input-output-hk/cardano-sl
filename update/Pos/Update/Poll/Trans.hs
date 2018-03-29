@@ -9,7 +9,7 @@ module Pos.Update.Poll.Trans
        , execPollT
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (uses, (%=), (.=))
 import           Control.Monad.State (MonadState (..))

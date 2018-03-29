@@ -12,7 +12,6 @@ module Pos.Diffusion.Full
     , RunFullDiffusionInternals (..)
     ) where
 
-import           Nub (ordNub)
 import           Universum
 
 import qualified Control.Concurrent.STM as STM

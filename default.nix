@@ -21,6 +21,8 @@ let
         configureFlags = (drv.configureFlags or []) ++ [
           "-f-asserts"
           "-f-dev-mode"
+          "-f-with-explorer"
+          "-fwith-wallet"
         ];
         testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
         preCheck = ''

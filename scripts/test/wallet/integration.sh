@@ -2,6 +2,8 @@
 
 # This scripts runs cardano cluster together with integration tests
 # TODO (akegalj): we would like to have this code in haskell
+# Note that launching tmux local clusters might not be supported by our CI (waiting to be tested)
+# Shuting down tmux cluster also should be tested.
 
 # cardano/scripts directory
 scripts=$(dirname "$0")/../..

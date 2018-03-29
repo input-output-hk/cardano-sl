@@ -78,8 +78,7 @@ import           Pos.Util.LogSafe (buildSafe, logDebugSP, logErrorSP, logInfoSP,
                                    secretOnlyF, secure)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
-import           Pos.Util.Util (timed)
-import           Pos.Util.Util (HasLens (..), getKeys)
+import           Pos.Util.Util (HasLens (..), getKeys, timed)
 import           System.Wlog (CanLog, HasLoggerName, WithLogger, logDebug, logError, logInfo,
                               logWarning, modifyLoggerName)
 

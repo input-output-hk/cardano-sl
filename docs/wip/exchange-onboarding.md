@@ -147,7 +147,7 @@ it standalone on any linux system built in the nix store or you can generate
 a docker container that can be ran on any docker container orchestrator like
 docker swarm or kubernetes.
 
-### Build and run in the nix store
+### Method 1: Build and run in the nix store
 
 By default the wallet's local state goes in
 `./state-wallet-mainnet`.
@@ -161,13 +161,13 @@ After the build finishes the generated connection script is
 available as a symlink called `./launch_2018-01-30_0d4f79eea`, or
 similar. Run that symlink as a script to start the wallet.
 
-### Build and run a docker image
+### Method 2: Build and run a docker image
 
 Follow the above instructions for customization and dependencies. To build a docker
 container and import the image run
 (use `connectScripts.stagingWallet` for testnet):
 
-    docker load < $(nix-build -A dockerImages.mainnetWallet)
+    docker load < $(nix-build --no-out-link -A dockerImages.mainnetWallet)
 
 This will create an image `cardano-container-mainnet:latest`
 (or `cardano-container-staging:latest` for testnet)

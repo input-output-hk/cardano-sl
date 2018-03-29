@@ -1486,7 +1486,11 @@ instance ToSchema TimeInfo where
           <> "unavailable.")
 
 instance Arbitrary TimeInfo where
-    arbitrary = TimeInfo <$> arbitrary
+    -- TODO(matt.parsons): The Swagger spec doesn't understand optional/maybe values for
+    -- some reason, so we create Just values instead.
+    --
+    -- This is fixed in this issue: https://github.com/GetShopTV/swagger2/issues/142
+    arbitrary = TimeInfo . Just <$> arbitrary
 
 deriveSafeBuildable ''TimeInfo
 
@@ -1518,9 +1522,11 @@ instance ToSchema NodeInfo where
     )
 
 instance Arbitrary NodeInfo where
+    -- TODO(matt.parsons): The Swagger spec doesn't understand optional/maybe values for
+    -- some reason, so we create Just values instead.
+    --
+    -- This is fixed in this issue: https://github.com/GetShopTV/swagger2/issues/142
     arbitrary = NodeInfo <$> arbitrary
-                         -- TODO: The JSON validation stuff is currently
-    -- failing because
                          <*> map Just arbitrary
                          <*> arbitrary
                          <*> arbitrary

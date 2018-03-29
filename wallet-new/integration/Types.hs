@@ -81,7 +81,7 @@ data Action
 -- TODO(ks): We could create a custom constructor with valid
 -- values only.
 -- Add invariant?
-type ActionProbabilities = [(Action, Probability)]
+type ActionProbabilities = NonEmpty (Action, Probability)
 
 
 -- | State of the wallet while testing, from the client side.

@@ -59,7 +59,7 @@ main = do
         postWalletProb <- createProbability 50
         getWalletProb  <- createProbability 50
 
-        pure $  [ (PostWallet, postWalletProb)
-                , (GetWallet,  getWalletProb)
-                ]
+        pure $ (PostWallet, postWalletProb) :|
+             [ (GetWallet, getWalletProb)
+             ]
 

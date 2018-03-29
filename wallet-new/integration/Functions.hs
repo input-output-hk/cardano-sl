@@ -500,8 +500,8 @@ runAction wc ws GetTransaction  = do
 chooseActionGen
     :: ActionProbabilities
     -> Gen Action
-chooseActionGen aProb =
-    frequency $ map (\(a, p) -> (getProbability p, pure a)) aProb
+chooseActionGen =
+    frequency . map (\(a, p) -> (getProbability p, pure a)) . toList
 
 
 -- | Generate action from the generator.

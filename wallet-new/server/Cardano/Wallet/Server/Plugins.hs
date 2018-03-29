@@ -124,7 +124,7 @@ legacyWalletBackend WalletBackendParams {..} ntpStatus =
 -- TODO: no web socket support in the new wallet for now
 walletBackend :: (HasConfigurations, HasCompileInfo)
               => NewWalletBackendParams
-              -> Kernel.PassiveWallet
+              -> Kernel.PassiveWallet Production
               -> Plugin Kernel.WalletMode
 walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
     first one $ worker walletServerOuts $ \diffusion -> do
@@ -138,7 +138,7 @@ walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
           (if isDebugMode walletRunMode then Nothing else walletTLSParams)
           Nothing
   where
-    getApplication :: Kernel.ActiveWallet -> Kernel.WalletMode Application
+    getApplication :: Kernel.ActiveWallet Production -> Kernel.WalletMode Application
     getApplication active = do
       logInfo "New wallet API has STARTED!"
       return $ withMiddleware walletRunMode $

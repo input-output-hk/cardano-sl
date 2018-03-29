@@ -1,4 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes                 #-}
+
 module Cardano.Wallet.Kernel.Mode
     ( WalletMode
     , WalletContext -- opaque
@@ -43,7 +45,7 @@ import           Cardano.Wallet.Kernel (PassiveWallet)
 -------------------------------------------------------------------------------}
 
 data WalletContext = WalletContext {
-      wcWallet          :: !PassiveWallet
+      wcWallet          :: !(PassiveWallet Production)
     , wcRealModeContext :: !(RealModeContext EmptyMempoolExt)
     }
 
@@ -55,7 +57,7 @@ type WalletMode = ReaderT WalletContext Production
 
 makeLensesWith postfixLFields ''WalletContext
 
-getWallet :: WalletMode PassiveWallet
+getWallet :: WalletMode (PassiveWallet Production)
 getWallet = view wcWallet_L
 
 {-------------------------------------------------------------------------------
@@ -66,7 +68,7 @@ getWallet = view wcWallet_L
 --
 -- TODO: This should wrap the functionality in "Cardano.Wallet.Core" to
 -- wrap things in Cardano specific types.
-walletApplyBlocks :: PassiveWallet
+walletApplyBlocks :: PassiveWallet Production
                   -> OldestFirst NE Blund
                   -> WalletMode SomeBatchOp
 walletApplyBlocks _w _bs = do
@@ -81,7 +83,7 @@ walletApplyBlocks _w _bs = do
 --
 -- TODO: This should wrap the functionality in "Cardano.Wallet.Core" to
 -- wrap things in Cardano specific types.
-walletRollbackBlocks :: PassiveWallet
+walletRollbackBlocks :: PassiveWallet Production
                      -> NewestFirst NE Blund
                      -> WalletMode SomeBatchOp
 walletRollbackBlocks _w _bs = do
@@ -102,7 +104,7 @@ instance MonadBListener WalletMode where
 
 runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
               => NodeResources ()
-              -> PassiveWallet
+              -> PassiveWallet Production
               -> (ActionSpec WalletMode a, OutSpecs)
               -> Production a
 runWalletMode nr wallet (action, outSpecs) =
@@ -126,7 +128,7 @@ runWalletMode nr wallet (action, outSpecs) =
     serverRealMode :: RealMode EmptyMempoolExt a
     serverRealMode = walletModeToRealMode wallet serverWalletMode
 
-walletModeToRealMode :: PassiveWallet -> WalletMode a -> RealMode () a
+walletModeToRealMode :: forall a. PassiveWallet Production -> WalletMode a -> RealMode () a
 walletModeToRealMode wallet ma = do
     rmc <- ask
     let env = WalletContext {

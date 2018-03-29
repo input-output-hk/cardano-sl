@@ -32,6 +32,7 @@ import           System.Wlog (LoggerName, Severity, logInfo, logMessage, usingLo
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
+import           Cardano.Wallet.WalletLayer.Kernel (kernelWalletLayer)
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletBackendParams (..),
                                             WalletBackendParams (..), WalletStartupOptions (..),
                                             getWalletNodeOptions, walletDbPath, walletFlushDb,
@@ -105,7 +106,9 @@ actionWithNewWallet sscParams nodeParams params =
         initNodeDBs $ \nr -> do
       -- TODO: Will probably want to extract some parameters from the
       -- 'NewWalletBackendParams' to construct or initialize the wallet
-      Kernel.bracketPassiveWallet logMessage' $ \wallet ->
+
+      -- TODO(ks): Currently using non-implemented layer for wallet layer.
+      Kernel.bracketPassiveWallet logMessage' kernelWalletLayer $ \wallet ->
         Kernel.Mode.runWalletMode nr wallet (mainAction wallet nr)
   where
     mainAction w = runNodeWithInit w $
@@ -117,7 +120,7 @@ actionWithNewWallet sscParams nodeParams params =
 
     -- TODO: Don't know if we need any of the other plugins that are used
     -- in the legacy wallet (see 'actionWithWallet').
-    plugins :: Kernel.PassiveWallet -> Plugins.Plugin Kernel.Mode.WalletMode
+    plugins :: Kernel.PassiveWallet Production -> Plugins.Plugin Kernel.Mode.WalletMode
     plugins w = mconcat [ Plugins.walletBackend params w ]
 
     -- Extract the logger name from node parameters

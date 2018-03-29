@@ -138,7 +138,7 @@ settingsHandlers ntpStatus = toServant' A.WSettingsApiRecord
     { _getSlotsDuration    = blockchainSlotDuration <&> fromIntegral
     , _getVersion          = pure curSoftwareVersion
     , _getSyncProgress     = M.syncProgress
-    , _localTimeDifference = M.localTimeDifference ntpStatus
+    , _localTimeDifference = fromMaybe 0 <$> M.localTimeDifference ntpStatus
     }
 
 backupHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WBackupApi m

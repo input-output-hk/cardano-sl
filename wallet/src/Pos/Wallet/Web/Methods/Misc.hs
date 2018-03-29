@@ -176,14 +176,14 @@ syncProgress = do
 -- NTP (Network Time Protocol) based time difference
 ----------------------------------------------------------------------------
 
-localTimeDifference :: MonadIO m => TVar NtpStatus -> m Integer
+localTimeDifference :: MonadIO m => TVar NtpStatus -> m (Maybe Integer)
 localTimeDifference ntpStatus = diff <$> readTVarIO ntpStatus
   where
-    diff :: NtpStatus -> Integer
+    diff :: NtpStatus -> Maybe Integer
     diff = \case
-        NtpDrift time -> toMicroseconds time
-        NtpSyncPending -> 0
-        NtpSyncUnavailable -> 0
+        NtpDrift time -> Just (toMicroseconds time)
+        NtpSyncPending -> Nothing
+        NtpSyncUnavailable -> Nothing
 
 ----------------------------------------------------------------------------
 -- Reset

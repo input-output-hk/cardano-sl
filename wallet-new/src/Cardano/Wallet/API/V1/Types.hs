@@ -64,6 +64,7 @@ module Cardano.Wallet.API.V1.Types (
   , SyncProgress
   , mkSyncProgress
   , NodeInfo (..)
+  , TimeInfo(..)
   -- * Some types for the API
   , CaptureWalletId
   , CaptureAccountId
@@ -1472,13 +1473,37 @@ instance BuildableSafeGen BlockchainHeight where
     buildSafeGen _ (BlockchainHeight (MeasuredIn w)) =
         bprint (build%" blocks") w
 
+newtype TimeInfo
+    = TimeInfo
+    { timeDifferenceFromNtpServer :: Maybe LocalTimeDifference
+    } deriving (Eq, Show, Generic)
+
+instance ToSchema TimeInfo where
+    declareNamedSchema = genericSchemaDroppingPrefix "time" $ \(--^) p -> p &
+        "differenceFromNtpServer"
+        --^ ("The difference in microseconds between the node time and the NTP "
+          <> "server. This value will be null if the NTP server is pending or "
+          <> "unavailable.")
+
+instance Arbitrary TimeInfo where
+    arbitrary = TimeInfo <$> arbitrary
+
+deriveSafeBuildable ''TimeInfo
+
+instance BuildableSafeGen TimeInfo where
+    buildSafeGen _ TimeInfo{..} = bprint ("{"
+        %" differenceFromNtpServer="%build
+        %" }")
+        timeDifferenceFromNtpServer
+
+deriveJSON Serokell.defaultOptions ''TimeInfo
 
 -- | The @dynamic@ information for this node.
 data NodeInfo = NodeInfo {
      nfoSyncProgress          :: !SyncProgress
    , nfoBlockchainHeight      :: !(Maybe BlockchainHeight)
    , nfoLocalBlockchainHeight :: !BlockchainHeight
-   , nfoLocalTimeDifference   :: !LocalTimeDifference
+   , nfoLocalTimeInformation   :: !TimeInfo
    } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''NodeInfo
@@ -1489,7 +1514,7 @@ instance ToSchema NodeInfo where
       & ("syncProgress"          --^ "Syncing progression, in percentage.")
       & ("blockchainHeight"      --^ "If known, the current blockchain height, in number of blocks.")
       & ("localBlockchainHeight" --^ "Local blockchain height, in number of blocks.")
-      & ("localTimeDifference"   --^ "Local time difference, in number of blocks.")
+      & ("localTimeInformation"  --^ "Information about the clock on this node.")
     )
 
 instance Arbitrary NodeInfo where
@@ -1511,7 +1536,7 @@ instance BuildableSafeGen NodeInfo where
         nfoSyncProgress
         nfoBlockchainHeight
         nfoLocalBlockchainHeight
-        nfoLocalTimeDifference
+        nfoLocalTimeInformation
 
 
 --

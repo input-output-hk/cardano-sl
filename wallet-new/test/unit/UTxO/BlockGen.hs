@@ -9,7 +9,9 @@ module UTxO.BlockGen
     ( genValidBlockchain
     , genValidBlocktree
     , divvyUp
+    , selectDestination
     , selectDestinations'
+    , estimateFee
     ) where
 
 import           Universum hiding (use, (%~), (.~), (^.))
@@ -143,16 +145,22 @@ selectDestinations :: Hash h Addr => Set (Input h Addr) -> BlockGen h (NonEmpty 
 selectDestinations notThese =
     liftGen . selectDestinations' notThese =<< use currentUtxo
 
+-- | FIXME: This returns just one 'Addr' wrapped in a 'NonEmpty', drop the thing
+-- and use 'selectDestination' instead.
 selectDestinations'
     :: Hash h Addr
     => Set (Input h Addr)
     -> Utxo h Addr
     -> Gen (NonEmpty Addr)
-selectDestinations' notThese =
-    fmap pure . elements
-        . map (outAddr . snd) . utxoToList
-        . utxoRestrictToAddr (not . isAvvmAddr)
-        . utxoRemoveInputs notThese
+selectDestinations' notThese u0 =
+  pure <$> selectDestination (utxoRemoveInputs notThese u0)
+
+selectDestination :: Hash h Addr => Utxo h Addr -> Gen Addr
+selectDestination u0 = do
+  -- AVVM addresses can't ever receive deposits, so we exclude them.
+  let u1 = utxoRestrictToAddr (not . isAvvmAddr) u0
+  elements (map (outAddr . snd) (utxoToList u1))
+
 
 -- | Create a fresh transaction that depends on the fee provided to it.
 newTransaction :: (HasCallStack, Hash h Addr)
@@ -176,7 +184,7 @@ newTransaction = do
 -- evenly over the output addresses.
 divvyUp
     :: (HasCallStack, Hash h Addr)
-    => Int
+    => Int -- ^ hash
     -> NonEmpty (Input h Addr, Output Addr)
     -> NonEmpty Addr
     -> Value
@@ -319,11 +327,11 @@ toPreTreeWith
     => (TreeGenGlobalCtx h -> TreeGenGlobalCtx h) -- ^ Modify the global settings
     -> TreeGen h (NoFeeBlockTree h)
     -> PreTree h Gen ()
-toPreTreeWith settings bg = DepIndep $ \boot -> do
+toPreTreeWith settings bg = DepIndep $ \(boot :: Transaction h Addr)-> do
     ks <- evalStateT (unTreeGen bg) (settings (initTreeGenGlobalCtx boot))
-    return $ \fees -> (markOldestFirst (zipTreeFees ks fees), ())
-  where
-   markOldestFirst = OldestFirst . fmap OldestFirst
+    return $ \fees ->
+      (OldestFirst (fmap (OldestFirst . dropWhile (== boot))
+                         (zipTreeFees ks fees)), ())
 
 newTree :: forall h. Hash h Addr
         => TreeGen h (NoFeeBlockTree h)
@@ -338,6 +346,7 @@ newTree = do
     buildTree :: TreeGenBranchCtx h
               -> TreeGen h ([Value -> Transaction h Addr], [TreeGenBranchCtx h])
     buildTree branchCtx = do
+      let curHeight = branchCtx ^. branchHeight
 
       -- Firstly, decide whether we should prune this branch. We prune if
       -- - we have reached the maximum height, or
@@ -348,7 +357,6 @@ newTree = do
         pl <- use pruneLikelihood
         maxH <- use maxHeight
         toss <- liftGenTree $ choose (0,1)
-        let curHeight = branchCtx ^. branchHeight
         return $ (curHeight >= maxH)
                || ((not $ branchCtx ^. principalBranch)
                    && ((curHeight >= maxH - 1) || toss < pl)
@@ -361,7 +369,9 @@ newTree = do
         -- then generate a number of transactions T and select from the set of
         -- transactions (with replacement). This should result in a relatively
         -- high degree of transactions shared between branches.
-        numBranches <- liftGenTree . branchCount =<< use forkLikelihood
+        numBranches <- case curHeight of
+          0 -> pure 1  -- we don't branch on the first block.
+          _ -> liftGenTree . branchCount =<< use forkLikelihood
         branchSizes <- liftGenTree $ vectorOf numBranches $ choose (1, 10)
         stl <- use sharedTransactionLikelihood
         txs <- replicateM

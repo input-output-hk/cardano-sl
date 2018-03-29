@@ -119,16 +119,20 @@ streamBlocks
     -> (HeaderHash -> m (Maybe HeaderHash))
     -> HeaderHash
     -> Producer Block m ()
-streamBlocks loadBlock forwardLink hhash = do
-    mb <- lift $ loadBlock hhash
-    case mb of
-        Nothing -> pure ()
-        Just block -> do
-            yield block
-            mNext <- lift $ forwardLink hhash
-            case mNext of
-                Nothing -> pure ()
-                Just hhash' -> streamBlocks loadBlock forwardLink hhash'
+streamBlocks loadBlock forwardLink base = do
+    loop base
+  where
+    loop hhash = do
+        mb <- lift $ loadBlock hhash
+        case mb of
+            Nothing -> pure ()
+            Just block -> do
+                when (hhash /= base) $
+                    yield block
+                mNext <- lift $ forwardLink hhash
+                case mNext of
+                    Nothing -> pure ()
+                    Just hhash' -> loop  hhash'
 
 foldlUpWhileM
     :: forall a b m r .

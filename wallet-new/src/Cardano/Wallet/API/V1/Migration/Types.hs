@@ -86,7 +86,7 @@ instance Migrate (OldStorage.SyncStatistics, Maybe Core.ChainDifficulty) V1.Sync
             percentage = case currentBlockchainDepth of
                 Nothing -> 0.0
                 Just nd | wspCurrentBlockchainDepth >= nd -> 100
-                Just nd -> (fromIntegral wspCurrentBlockchainDepth / fromIntegral nd) * 100.0
+                Just nd -> (fromIntegral wspCurrentBlockchainDepth / max 1.0 (fromIntegral nd)) * 100.0
             toMs (Core.Timestamp microsecs) =
               V1.mkEstimatedCompletionTime (round @Double $ (realToFrac (toMicroseconds microsecs) / 1000.0))
             tput (OldStorage.SyncThroughput blocks) = V1.mkSyncThroughput blocks
@@ -152,7 +152,7 @@ instance Migrate V0.SyncProgress V1.SyncPercentage where
         let percentage = case _spNetworkCD of
                 Nothing -> (0 :: Word8)
                 Just nd | _spLocalCD >= nd -> 100
-                Just nd -> round @Double $ (fromIntegral _spLocalCD / fromIntegral nd) * 100.0
+                Just nd -> round @Double $ (fromIntegral _spLocalCD / max 1.0 (fromIntegral nd)) * 100.0
         in pure $ V1.mkSyncPercentage (fromIntegral percentage)
 
 -- NOTE: Migrate V1.SyncProgress V0.SyncProgress unable to do - not idempotent

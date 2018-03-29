@@ -451,5 +451,4 @@ tMeasure logAction label action = do
     let d1 = d0 `div` 10
     let d2 = d0 `mod` 10
     logAction $ "tMeasure " <> label <> ": " <> show d1 <> "." <> show d2 <> "ms"
-    -- `NominalDiffTime` has up to picoseconds precision.
-    pure (x, fromMicroseconds (round $ 1000 * toRational diff))
+    pure (x, fromMicroseconds (round $ 1000000 * toRational diff))

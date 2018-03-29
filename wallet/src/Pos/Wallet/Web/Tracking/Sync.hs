@@ -366,7 +366,8 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
         computeAccModifier credentials getBlockTimestamp wHeader dbUsed currentModifier currentBlockCount = do
             case currentBlockCount >= 10000 of
                 True -> do
-                    let progress localDepth totalDepth = ((fromIntegral localDepth) * 100.0) / fromIntegral totalDepth
+                    let progress localDepth totalDepth = ((fromIntegral localDepth) * 100.0) /
+                                                         (max 1.0 (fromIntegral totalDepth))
                     let renderProgress = progress (depthOf wHeader) (depthOf blockchainTip)
                     logDebug $ sformat ("Progress: " % float @Double % "%") renderProgress
                     pure (currentModifier, wHeader)
@@ -563,7 +564,7 @@ data BoundedSyncTime = BoundedSyncTime {
 -- X = (processedBlockCount * 1000000) / processingTime
 calculateThroughput :: BoundedSyncTime -> WS.SyncThroughput
 calculateThroughput BoundedSyncTime{..} =
-    let processingTime = realToFrac @Integer @Double $ toMicroseconds bscProcessingTime
+    let processingTime = max 1.0 (realToFrac @Integer @Double $ toMicroseconds bscProcessingTime)
         (microseconds :: Integer) = 1000000
         (processedBlocks :: Integer) = fromIntegral . getBlockCount $ bscProcessedBlocks
         (tput :: Double) = (realToFrac $ processedBlocks * microseconds) / (realToFrac processingTime)
@@ -578,7 +579,7 @@ calculateEstimatedRemainingTime :: WS.SyncThroughput -> ChainDifficulty -> Times
 calculateEstimatedRemainingTime (WS.SyncThroughput blocks) actualBlockchainDepth =
     let toDouble                = realToFrac @Integer @Double . fromIntegral . getBlockCount
         (actualDepth :: Double) = toDouble (getChainDifficulty actualBlockchainDepth)
-        (throughput :: Double)  = toDouble blocks
+        (throughput :: Double)  = max 1.0 (toDouble blocks) -- Avoids division by 0.
         (microseconds :: Integer) = 1000000
         eta = actualDepth / throughput
      in Timestamp . fromMicroseconds . (* microseconds) . round $ eta

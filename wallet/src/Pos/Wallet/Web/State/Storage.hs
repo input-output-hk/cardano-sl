@@ -201,7 +201,7 @@ data SyncStatistics = SyncStatistics {
 -- during the syncing process, to provide better estimate to the frontend
 -- on how much time the restoration/syncing progress is going to take.
 newtype SyncThroughput = SyncThroughput BlockCount
-     deriving (Eq)
+     deriving (Eq, Ord, Show)
 
 zeroThroughput :: SyncThroughput
 zeroThroughput = SyncThroughput (BlockCount 0)
@@ -218,7 +218,8 @@ data WalletInfo = WalletInfo
     , _wiCreationTime   :: !POSIXTime
       -- | Incapsulate the history of this wallet in terms of "lifecycle".
     , _wiSyncState      :: !WalletSyncState
-    , _wiSyncStatistics :: !(Maybe SyncStatistics)
+      -- | Syncing statistics for this wallet, if any.
+    , _wiSyncStatistics :: !SyncStatistics
       -- | Pending states for all created transactions (information related
       -- to transaction resubmission).
       -- See "Pos.Wallet.Web.Pending" for resubmission functionality.
@@ -517,7 +518,7 @@ createAccount accId cAccMeta =
 -- @isReady@ should be set to @False@ when syncing is still needed.
 createWallet :: CId Wal -> CWalletMeta -> Bool -> POSIXTime -> Update ()
 createWallet cWalId cWalMeta isReady curTime = do
-    let info = WalletInfo cWalMeta curTime curTime NotSynced Nothing mempty isReady
+    let info = WalletInfo cWalMeta curTime curTime NotSynced noSyncStatistics mempty isReady
     wsWalletInfos . at cWalId %= (<|> Just info)
 
 -- | Add new address given 'CWAddressMeta' (which contains information about
@@ -567,7 +568,7 @@ setWalletRestorationSyncTip cWalId rhh hh = wsWalletInfos . ix cWalId . wiSyncSt
 updateSyncStatistics :: CId Wal
                            -> SyncStatistics
                            -> Update ()
-updateSyncStatistics cWalId stats = wsWalletInfos . ix cWalId . wiSyncStatistics .= Just stats
+updateSyncStatistics cWalId stats = wsWalletInfos . ix cWalId . wiSyncStatistics .= stats
 
 -- | Set meta data for transaction only if it hasn't been set already.
 -- FIXME: this will be removed later (temporary solution) (not really =\)

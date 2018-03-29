@@ -37,6 +37,8 @@ module Pos.Wallet.Web.Tracking.Sync
        -- Internal & test use only
        , evalChange
        , syncWalletWithBlockchain
+       , calculateThroughput
+       , BoundedSyncTime (..)
        ) where
 
 import           Control.Monad.Except (MonadError (throwError))

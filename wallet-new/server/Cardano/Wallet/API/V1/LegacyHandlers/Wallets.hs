@@ -19,6 +19,7 @@ import qualified Data.IxSet.Typed as IxSet
 import           Pos.Update.Configuration ()
 
 import           Pos.Util (HasLens (..))
+import qualified Pos.Wallet.WalletMode as V0
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Servant
@@ -44,6 +45,7 @@ newWallet
     :: (MonadThrow m
        , MonadUnliftIO m
        , MonadWalletLogic ctx m
+       , V0.MonadBlockchainInfo m
        , HasLens SyncQueue ctx SyncQueue
        )
     => NewWallet
@@ -63,18 +65,24 @@ newWallet NewWallet{..} = do
         addWalletInfo ss v0wallet
 
 -- | Returns the full (paginated) list of wallets.
-listWallets :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
+listWallets :: ( MonadThrow m
+               , V0.MonadWalletLogicRead ctx m
+               , V0.MonadBlockchainInfo m
+               )
             => RequestParams
             -> FilterOperations Wallet
             -> SortOperations Wallet
             -> m (WalletResponse [Wallet])
 listWallets params fops sops = do
     ws <- V0.askWalletSnapshot
+    currentDepth <- V0.networkChainDifficulty
     respondWith params fops sops (IxSet.fromList <$> do
-        (V0.getWalletsWithInfo ws >>= migrate @_ @[V1.Wallet]))
+        (V0.getWalletsWithInfo ws >>= (migrate @_ @[V1.Wallet] . map (\(w, i) -> (w,i,currentDepth)))))
 
 updatePassword
-    :: (MonadWalletLogic ctx m)
+    :: ( MonadWalletLogic ctx m
+       , V0.MonadBlockchainInfo m
+       )
     => WalletId -> PasswordUpdate -> m (WalletResponse Wallet)
 updatePassword wid PasswordUpdate{..} = do
     ss <- V0.askWalletSnapshot
@@ -93,7 +101,10 @@ deleteWallet
     -> m NoContent
 deleteWallet = V0.deleteWallet <=< migrate
 
-getWallet :: (MonadThrow m, MonadWalletLogicRead ctx m) => WalletId -> m (WalletResponse Wallet)
+getWallet :: ( MonadThrow m
+             , MonadWalletLogicRead ctx m
+             , V0.MonadBlockchainInfo m
+             ) => WalletId -> m (WalletResponse Wallet)
 getWallet wid = do
     ss <- V0.askWalletSnapshot
     wid' <- migrate wid
@@ -101,7 +112,10 @@ getWallet wid = do
     single <$> addWalletInfo ss wallet
 
 addWalletInfo
-    :: (MonadThrow m, MonadWalletLogicRead ctx m)
+    :: ( MonadThrow m
+       , V0.MonadWalletLogicRead ctx m
+       , V0.MonadBlockchainInfo m
+       )
     => V0.WalletSnapshot
     -> V0.CWallet
     -> m Wallet
@@ -109,8 +123,9 @@ addWalletInfo snapshot wallet = do
     case V0.getWalletInfo (V0.cwId wallet) snapshot of
         Nothing ->
             throwM WalletNotFound
-        Just walletInfo ->
-            migrate (wallet, walletInfo)
+        Just walletInfo -> do
+            currentDepth <- V0.networkChainDifficulty
+            migrate (wallet, walletInfo, currentDepth)
 
 updateWallet
     :: WalletId

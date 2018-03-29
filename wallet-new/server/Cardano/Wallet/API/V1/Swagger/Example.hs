@@ -4,15 +4,15 @@ import           Universum
 
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.Orphans.Arbitrary()
+import           Cardano.Wallet.Orphans.Arbitrary ()
 
+import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import qualified Pos.Core.Common as Core
 import qualified Pos.Crypto.Signing as Core
 import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
 import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
-import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
+import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
 
 import           Test.QuickCheck (Arbitrary (..), Gen, listOf1)
 
@@ -48,7 +48,7 @@ instance Example WalletId
 instance Example BackupPhrase
 instance Example (V1 BackupPhrase)
 instance Example AssuranceLevel
-instance Example SyncProgress
+instance Example SyncPercentage
 instance Example BlockchainHeight
 instance Example LocalTimeDifference
 instance Example PaymentDistribution

@@ -4,7 +4,7 @@ module Main where
 
 import           Universum
 
-import           Cardano.Wallet.Client
+import           Cardano.Wallet.Client.Http
 import           Control.Lens hiding ((^..), (^?))
 import           System.IO (hSetEncoding, stdout, utf8)
 import           Test.QuickCheck (arbitrary, generate)

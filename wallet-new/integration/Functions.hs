@@ -4,8 +4,8 @@
 
 module Functions where
 
-import           Prelude (error)
 import           Universum hiding (error)
+import           Prelude (error)
 
 import           Data.Coerce (coerce)
 import           Data.List (delete)
@@ -517,8 +517,9 @@ respToRes resp = do
 
 
 -- | Pick a random element using @IO@.
-pickRandomElement :: (MonadIO m, HasCallStack) => NonEmpty a -> m a
-pickRandomElement = liftIO . generate . elements . toList
+pickRandomElement :: (MonadIO m, HasCallStack) => [a] -> m a
+pickRandomElement [] = error "called with empty list"
+pickRandomElement xs = liftIO . generate . elements $ xs
 
 -- | A util function for checking the validity of invariants.
 checkInvariant

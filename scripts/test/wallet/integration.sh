@@ -28,7 +28,6 @@ WALLET_DEBUG=1 $scripts/launch/demo-with-new-wallet-api.sh
 # run integration tests
 # TODO (akegalj): add tls files to default integration options
 stack exec -- cardano-integration-test --help
-echo $scripts/tls-files/server.crt
 stack exec -- cardano-integration-test # --tls-pub-cert scripts/tls-files/server.crt --tls-priv-key scripts/tls-files/server.key
 
 # kill cluster

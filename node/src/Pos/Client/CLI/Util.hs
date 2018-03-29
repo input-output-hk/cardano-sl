@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP                 #-}
+
 -- | Module for command-line utilites, parsers and convenient handlers.
 
 module Pos.Client.CLI.Util
@@ -40,6 +42,11 @@ printFlags = do
         then putText "[Attention] We are in DEV mode"
         else putText "[Attention] We are in PRODUCTION mode"
     inAssertMode $ putText "Asserts are ON"
+#ifdef WITH_EXPLORER
+    putText "cardano explorer enabled"
+#else
+    putText "cardano explorer disabled"
+#endif
 
 -- | Decides which secret-sharing algorithm to use.
 sscAlgoParser :: P.Parser SscAlgo

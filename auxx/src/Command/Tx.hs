@@ -33,8 +33,7 @@ import           System.Random (randomRIO)
 import           System.Wlog (logError, logInfo)
 
 import           Pos.Binary (decodeFull)
---import           Pos.Client.KeyStorage (getSecretKeysPlain)
-import           Pos.Client.Txp.Balances ({-getOwnUtxoForPk,-} getOwnUtxo)
+import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
 import           Pos.Client.Txp.Util (createTx)
 import           Pos.Communication (SendActions, immediateConcurrentConversations)
@@ -42,15 +41,15 @@ import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAdd
                            Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretKeys)
 import           Pos.Core.Txp (TxAux, TxOut (..), TxOutAux (..), txaF)
-import           Pos.Crypto ({-EncryptedSecretKey,-} emptyPassphrase, encToPublic, fakeSigner,
-                             {-safeToPublic{-, toPublic-},-} withSafeSigners, SecretKey(..), mkEncSecretUnsafe)
+import           Pos.Crypto (emptyPassphrase, encToPublic, fakeSigner,
+                             safeToPublic, toPublic, withSafeSigners, SecretKey(..), mkEncSecretUnsafe)
 import           Pos.Txp (topsortTxAuxes)
 
 --import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util (maybeThrow)
 
 import           Lang.Value (SendMode (..))
-import           Mode (CmdCtx (..), MonadAuxxMode, getCmdCtx{-, makePubKeyAddressAuxx-})
+import           Mode (CmdCtx (..), MonadAuxxMode, getCmdCtx, makePubKeyAddressAuxx)
 
 ----------------------------------------------------------------------------
 -- Send to all genesis
@@ -120,24 +119,16 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                     SendRandom -> do
                         i <- liftIO $ randomRIO (0, nNeighbours - 1)
                         return [ccPeers !! i]
-                --utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
+                utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
         -- every genesis secret key sends to itself
-                --me <- makePubKeyAddressAuxx (toPublic secretKey)
-                
-                let (SecretKey rawkey) = secretKey
-                skey <- mkEncSecretUnsafe emptyPassphrase rawkey
-                let curPk = encToPublic skey
-
-                let [_, tempaddr] = map (flip makePubKeyAddress curPk . IsBootstrapEraAddr) [False, True]
-                utxo <- getOwnUtxo tempaddr
-
+                me <- makePubKeyAddressAuxx (toPublic secretKey)
                 let val1 = mkCoin 1
                     txOut = TxOut {
-                        txOutAddress = tempaddr,
+                        txOutAddress = me,
                         txOutValue   = val1
                     }
                     txOuts = TxOutAux txOut :| []
-                etx <- createTx mempty utxo (fakeSigner secretKey) txOuts curPk
+                etx <- createTx mempty utxo (fakeSigner secretKey) txOuts (toPublic secretKey)
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
                     Right (tx, neout) -> do 

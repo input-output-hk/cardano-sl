@@ -166,7 +166,7 @@ retrievalWorkerImpl diffusion = do
             throwM $ DialogUnexpected $ "handleRecovery: recovery header is " <>
                                         "already present in db"
         logDebug "handleRecovery: fetching blocks"
-        checkpoints <- toList <$> getHeadersOlderExp Nothing
+        checkpoints <- reverse <$> toList <$> getHeadersOlderExp Nothing
         void $ streamProcessBlocks diffusion nodeId (headerHash rHeader) checkpoints
 
 ----------------------------------------------------------------------------

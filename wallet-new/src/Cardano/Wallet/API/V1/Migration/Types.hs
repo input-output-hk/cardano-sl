@@ -90,9 +90,10 @@ instance Migrate (OldStorage.SyncStatistics, Maybe Core.ChainDifficulty) V1.Sync
             toMs (Core.Timestamp microsecs) =
               V1.mkEstimatedCompletionTime (round @Double $ (realToFrac (toMicroseconds microsecs) / 1000.0))
             tput (OldStorage.SyncThroughput blocks) = V1.mkSyncThroughput blocks
+            remainingBlocks = fmap (\total -> total - wspCurrentBlockchainDepth) currentBlockchainDepth
         in V1.SyncProgress <$> pure (toMs (maybe unknownCompletionTime
                                                  (calculateEstimatedRemainingTime wspThroughput)
-                                                 currentBlockchainDepth))
+                                                 remainingBlocks))
                            <*> pure (tput wspThroughput)
                            <*> pure (V1.mkSyncPercentage (round @Double $ percentage))
 

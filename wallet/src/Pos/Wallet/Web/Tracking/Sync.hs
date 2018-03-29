@@ -571,14 +571,14 @@ calculateThroughput BoundedSyncTime{..} =
      in WS.SyncThroughput . BlockCount . round $ tput
 
 -- | Calculates the estimated remaining time to restore the wallet via the
--- provided 'SyncThroughput' and the total height of the blockchain.
+-- provided 'SyncThroughput' and the @remaining@ height of the blockchain.
 -- This is given by the simple proportion:
--- syncedBlocks : 1_second = actualBlockchainDepth : X
--- X = (1.0 * actualBlockchainDepth) / syncedBlocks
+-- syncedBlocks : 1_second = remainingHeight : X
+-- X = (1.0 * remainingHeight) / syncedBlocks
 calculateEstimatedRemainingTime :: WS.SyncThroughput -> ChainDifficulty -> Timestamp
-calculateEstimatedRemainingTime (WS.SyncThroughput blocks) actualBlockchainDepth =
+calculateEstimatedRemainingTime (WS.SyncThroughput blocks) remainingBlocks =
     let toDouble                = realToFrac @Integer @Double . fromIntegral . getBlockCount
-        (actualDepth :: Double) = toDouble (getChainDifficulty actualBlockchainDepth)
+        (actualDepth :: Double) = toDouble (getChainDifficulty remainingBlocks)
         (throughput :: Double)  = max 1.0 (toDouble blocks) -- Avoids division by 0.
         (microseconds :: Integer) = 1000000
         eta = actualDepth / throughput

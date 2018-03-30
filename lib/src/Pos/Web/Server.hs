@@ -6,6 +6,7 @@
 
 module Pos.Web.Server
        ( serveImpl
+       , serveDocImpl
        , withRoute53HealthCheckApplication
        , serveWeb
        , application
@@ -88,74 +89,91 @@ application = do
     server <- servantServer
     return $ serve nodeApi server
 
-serveImpl
-    :: (MonadIO m)
-    => m Application
+type TLSServer m =
+    m Application
     -> String
     -> Word16
     -> Maybe TlsParams
     -> Maybe Settings
     -> m ()
-serveImpl app host port mWalletTLSParams mSettings =
+
+type GetTLSSettings =
+    String -> Word16 -> TlsParams -> TLSSettings
+
+serveTLS :: (MonadIO m) => GetTLSSettings -> TLSServer m
+serveTLS getTLSSettings app host port mWalletTLSParams mSettings = do
     liftIO . maybe runSettings runTLS mTlsConfig mySettings =<< app
   where
     mySettings = setHost (fromString host) $
                  setPort (fromIntegral port) $
                  fromMaybe defaultSettings mSettings
-    mTlsConfig = tlsParamsToWai host port <$> mWalletTLSParams
+    mTlsConfig = getTLSSettings host port <$> mWalletTLSParams
 
-tlsParamsToWai
-    :: String -> Word16 -> TlsParams -> TLSSettings
-tlsParamsToWai host port TlsParams{..} = tlsSettingsWithCertCheck
+serveImpl :: (MonadIO m) => TLSServer m
+serveImpl =
+    serveTLS tlsWithClientCheck
+
+serveDocImpl :: (MonadIO m) => TLSServer m
+serveDocImpl =
+    serveTLS tlsWebServerMode
+
+tlsWebServerMode
+    :: GetTLSSettings
+tlsWebServerMode _ _ TlsParams{..} = tlsSettings
+    { tlsWantClientCert = False }
   where
     tlsSettings =
       tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath
 
+tlsWithClientCheck
+    :: String -> Word16 -> TlsParams -> TLSSettings
+tlsWithClientCheck host port TlsParams{..} = tlsSettings
+    { tlsWantClientCert = True
+    , tlsServerHooks    = def
+        { onClientCertificate = fmap acceptOrRejectCertificate . validateCertificate }
+    }
+  where
+    tlsSettings =
+        tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath
+
     serviceID =
-      (host, BSC.pack (show port))
+        (host, BSC.pack (show port))
 
     -- By default, X509.Validation validates the certificate names against the host
     -- which is irrelevant when checking the client certificate (but relevant for
     -- the client when checking the server's certificate).
     validationHooks = def
-      { hookValidateName = \_ -> validateClient tpClients . certSubjectDN }
-
-    -- Require and validate client certificate
-    tlsSettingsWithCertCheck = tlsSettings
-      { tlsWantClientCert = True
-      , tlsServerHooks    = def
-          { onClientCertificate = fmap acceptOrRejectCertificate . validateCertificate }
-      }
+        { hookValidateName = \_ -> validateClient tpClients . certSubjectDN }
 
     acceptOrRejectCertificate =
-      maybe CertificateUsageAccept (CertificateUsageReject . CertificateRejectOther)
+        maybe CertificateUsageAccept (CertificateUsageReject . CertificateRejectOther)
 
     -- This solely verify that the provided certificate is valid and was signed by authority we
     -- recognize (tpCaPath)
     validateCertificate cert = do
-      mstore <- readCertificateStore tpCaPath
-      maybe
-        (pure $ Just "Cannot init a store, unable to validate client certificates")
-        (fmap fromX509FailedReasons . (\store -> X509.validate HashSHA256 validationHooks X509.defaultChecks store def serviceID cert))
-        mstore
+          mstore <- readCertificateStore tpCaPath
+          maybe
+                (pure $ Just "Cannot init a store, unable to validate client certificates")
+                (fmap fromX509FailedReasons . (\store -> X509.validate HashSHA256 validationHooks X509.defaultChecks store def serviceID cert))
+                mstore
 
     -- Once a valid certificate is presented, we simply check if the name matches one of the allowed
     -- client's name. Not much use from an anthentication perspective, but could prevent people from
     -- using the server certificate to authenticate client. We don't yet rely on the information
     -- inside the certificate so it won't matter much now but perhaps more in the future.
     validateClient rs ns =
-      let
-        acceptedNames = fmap fromString rs
-        clientNames   = fmap snd (X509.getDistinguishedElements ns)
-      in
-        case acceptedNames `intersect` clientNames of
-          [] -> [X509.InvalidName "Unrecognized client"]
-          _  -> []
+        let
+            acceptedNames = fmap fromString rs
+            clientNames   = fmap snd (X509.getDistinguishedElements ns)
+        in
+            case acceptedNames `intersect` clientNames of
+                  [] -> [X509.InvalidName "Unrecognized client"]
+                  _  -> []
 
     fromX509FailedReasons reasons =
-      case reasons of
-        [] -> Nothing
-        _  -> Just (show reasons)
+        case reasons of
+            [] -> Nothing
+            _  -> Just (show reasons)
 
 ----------------------------------------------------------------------------
 -- Servant infrastructure

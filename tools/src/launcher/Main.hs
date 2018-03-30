@@ -20,12 +20,13 @@ import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, pol
                                                        withAsync, withAsyncWithUnmask)
 import           Control.Exception.Safe (catchAny, handle, mask_, tryAny)
 import           Control.Lens (makeLensesWith)
-import           Data.Aeson (FromJSON, Value (Array, Bool, Object), genericParseJSON, withObject)
+import qualified Data.Aeson as AE
+import           Data.Aeson (FromJSON, Value (Array, Bool, Object), fromJSON, genericParseJSON, withObject)
 import qualified Data.ByteString.Lazy as BS.L
 import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
 import           Data.Maybe (isNothing)
-import qualified Data.Text as T (replace)
+import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Time.Units (Second, convertUnit)
 import           Data.Version (showVersion)
@@ -177,6 +178,12 @@ reportErrorDefault filename contents = do
     createDirectoryIfMissing True logDir
     writeFile (logDir </> filename) contents
 
+substituteEnvVars :: Value -> IO Value
+substituteEnvVars (AE.String text) = AE.String <$> pure text
+substituteEnvVars (AE.Array xs)    = AE.Array  <$> traverse substituteEnvVars xs
+substituteEnvVars (AE.Object o)    = AE.Object <$> traverse substituteEnvVars o
+substituteEnvVars x                = pure x
+
 getLauncherOptions :: IO LauncherOptions
 getLauncherOptions = do
     LauncherArgs {..} <- either parseErrorHandler pure =<< execParserEither programInfo
@@ -186,7 +193,14 @@ getLauncherOptions = do
         Left err -> do
             reportErrorDefault "config-parse-error.log" $ show err
             throwM $ ConfigParseError configPath err
-        Right op -> expandVars op
+        Right (op :: Value) -> do
+          substituted <- substituteEnvVars op
+          case fromJSON $ substituted of
+            AE.Error err -> do
+              reportErrorDefault "config-parse-error.log" $ show err
+              error $ T.pack err
+            AE.Success op -> pure op
+
   where
     execParserEither :: ParserInfo a -> IO (Either (Text, ExitCode) a)
     execParserEither pinfo = do

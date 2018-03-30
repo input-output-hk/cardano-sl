@@ -11,11 +11,6 @@ module Pos.Communication.Limits.Types
        , MessageLimited (..)
 
        , recvLimited
-
-       -- Commented out because every use of it everywhere else seems to also
-       -- be commented out.
-       -- FIXME decide whether to keep it or trash it.
-       --, MaxSize (..)
        ) where
 
 import           Universum

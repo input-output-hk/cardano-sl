@@ -18,13 +18,19 @@ module Pos.Wallet.Web.Server.Launcher
 import           Universum
 
 import           Network.Wai (Application)
+import           Network.Wai.Handler.Warp (Settings)
 import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Servant.Server (Handler, Server, serve)
 import           System.Wlog (WithLogger, logInfo)
 
 import qualified Data.ByteString.Char8 as BS8
+
+import           Ntp.Client (NtpStatus)
+
 import           Pos.Client.Txp.Network (sendTxOuts)
 import           Pos.Communication (OutSpecs)
+import           Pos.Core (HasConfiguration)
+import           Pos.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (bracketWithLogging)
 import           Pos.Util.CompileInfo (HasCompileInfo)
@@ -44,10 +50,11 @@ import           Pos.Web (TlsParams, serveImpl)
 -- TODO [CSM-407]: Mixture of logic seems to be here
 
 walletServeImpl
-    :: MonadWalletWebMode ctx m
+    :: (HasConfiguration, MonadIO m)
     => m Application     -- ^ Application getter
     -> NetworkAddress    -- ^ IP and port to listen
     -> Maybe TlsParams
+    -> Maybe Settings
     -> m ()
 walletServeImpl app (ip, port) = serveImpl app (BS8.unpack ip) port
 
@@ -62,11 +69,16 @@ walletApplication serv = do
 walletServer
     :: forall ctx m.
        ( MonadFullWalletWebMode ctx m )
-    => (forall x. m x -> Handler x)
+    => Diffusion m
+    -> TVar NtpStatus
+    -> (forall x. m x -> Handler x)
     -> m (Server WalletSwaggerApi)
-walletServer nat = do
+walletServer diffusion ntpStatus nat = do
     syncWalletsWithGState =<< mapM findKey =<< myRootAddresses
-    return $ servantHandlersWithSwagger nat
+    return $ servantHandlersWithSwagger ntpStatus submitTx nat
+  where
+    -- Diffusion layer takes care of submitting transactions.
+    submitTx = sendTx diffusion
 
 bracketWalletWebDB
     :: ( MonadIO m

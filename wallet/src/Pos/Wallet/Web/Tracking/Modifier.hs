@@ -23,7 +23,6 @@ module Pos.Wallet.Web.Tracking.Modifier
 import           Universum
 
 import           Data.DList (DList)
-import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
 import           Serokell.Util (listJson, listJsonIndent)
 
@@ -31,6 +30,8 @@ import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core (HeaderHash)
 import           Pos.Core.Txp (TxId)
 import           Pos.Txp.Toil (UtxoModifier)
+import           Pos.Util.LogSafe (BuildableSafeGen (..), deriveSafeBuildable, secretOnlyF,
+                                   secureListF)
 import           Pos.Util.Modifier (MapModifier)
 import qualified Pos.Util.Modifier as MM
 
@@ -80,18 +81,18 @@ instance Monoid CAccModifier where
     mempty = CAccModifier mempty mempty mempty mempty mempty mempty mempty mempty
     mappend = (<>)
 
-instance Buildable CAccModifier where
-    build CAccModifier{..} =
+instance BuildableSafeGen CAccModifier where
+    buildSafeGen sl CAccModifier{..} =
         bprint
-            ( "\n    added addresses: "%listJsonIndent 8
-            %",\n    deleted addresses: "%listJsonIndent 8
-            %",\n    used addresses: "%listJson
-            %",\n    change addresses: "%listJson
-            %",\n    local utxo (difference): "%build
-            %",\n    added history entries: "%listJsonIndent 8
-            %",\n    deleted history entries: "%listJsonIndent 8
-            %",\n    added pending candidates: "%listJson
-            %",\n    deleted pending candidates: "%listJson)
+            ( "\n    added addresses: "%secureListF sl (listJsonIndent 8)
+            %",\n    deleted addresses: "%secureListF sl (listJsonIndent 8)
+            %",\n    used addresses: "%secureListF sl listJson
+            %",\n    change addresses: "%secureListF sl listJson
+            %",\n    local utxo (difference): "%secretOnlyF sl build
+            %",\n    added history entries: "%secureListF sl (listJsonIndent 8)
+            %",\n    deleted history entries: "%secureListF sl (listJsonIndent 8)
+            %",\n    added pending candidates: "%secureListF sl listJson
+            %",\n    deleted pending candidates: "%secureListF sl listJson)
         (sortedInsertions camAddresses)
         (indexedDeletions camAddresses)
         (map (fst . fst) $ MM.insertions camUsed)
@@ -101,6 +102,8 @@ instance Buildable CAccModifier where
         camDeletedHistory
         (map fst camAddedPtxCandidates)
         (map fst camDeletedPtxCandidates)
+
+deriveSafeBuildable ''CAccModifier
 
 -- | `txMempoolToModifier`, once evaluated, is passed around under this type in
 -- scope of single request.

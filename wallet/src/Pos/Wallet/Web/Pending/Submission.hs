@@ -23,15 +23,15 @@ import           System.Wlog (WithLogger, logDebug, logInfo)
 import           Pos.Client.Txp.History (saveTx, thTimestamp)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (walletTxCreationDisabled)
-import           Pos.Core (diffTimestamp, getCurrentTimestamp)
-import           Pos.Util.LogSafe (logInfoS, logWarningS)
+import           Pos.Core (HasConfiguration, diffTimestamp, getCurrentTimestamp)
+import           Pos.Core.Txp (TxAux)
+import           Pos.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Error (WalletError (InternalError))
-import           Pos.Wallet.Web.Networking (MonadWalletSendActions (..))
 import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure, ptxPoolInfo,
                                                    usingPtxCoords)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), PtxPoolInfo)
-import           Pos.Wallet.Web.State (MonadWalletDB, PtxMetaUpdate (PtxMarkAcknowledged),
+import           Pos.Wallet.Web.State (PtxMetaUpdate (PtxMarkAcknowledged), WalletDB,
                                        addOnlyNewPendingTx, casPtxCondition, ptxUpdateMeta,
                                        removeOnlyCreatingPtx)
 
@@ -59,9 +59,11 @@ ptxFirstSubmissionHandler =
     }
 
 ptxResubmissionHandler
-    :: forall ctx m. (MonadThrow m, WithLogger m, MonadWalletDB ctx m)
-    => PendingTx -> PtxSubmissionHandlers m
-ptxResubmissionHandler PendingTx{..} =
+    :: forall m. (HasConfiguration, MonadIO m, MonadThrow m, WithLogger m)
+    => WalletDB
+    -> PendingTx
+    -> PtxSubmissionHandlers m
+ptxResubmissionHandler db PendingTx{..} =
     PtxSubmissionHandlers
     { pshOnNonReclaimable = \e ->
         if | _ptxPeerAck ->
@@ -79,36 +81,36 @@ ptxResubmissionHandler PendingTx{..} =
         => PtxPoolInfo -> e -> m ()
     cancelPtx poolInfo e = do
         let newCond = PtxWontApply (sformat build e) poolInfo
-        void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond newCond
+        void $ casPtxCondition db _ptxWallet _ptxTxId _ptxCond newCond
         reportCanceled
 
     reportPeerAppliedEarlier =
-        logInfoS $
-        sformat ("Some peer applied tx #"%build%" earlier - continuing \
+        logInfoSP $ \sl ->
+        sformat ("Some peer applied tx #"%secretOnlyF sl build%" earlier - continuing \
             \tracking")
             _ptxTxId
     reportCanceled =
-        logInfoS $
-        sformat ("Pending transaction #"%build%" was canceled")
+        logInfoSP $ \sl ->
+        sformat ("Pending transaction #"%secretOnlyF sl build%" was canceled")
             _ptxTxId
     reportBadCondition =
-        logWarningS $
-        sformat ("Processing failure of "%build%" resubmission, but \
-            \this transaction has unexpected condition "%build)
+        logWarningSP $ \sl ->
+        sformat ("Processing failure of "%secretOnlyF sl build%" resubmission, but \
+            \this transaction has unexpected condition "%buildSafe sl)
             _ptxTxId _ptxCond
 
-type TxSubmissionMode ctx m =
-    ( TxMode m
-    , MonadWalletSendActions m
-    , MonadWalletDB ctx m
-    )
+type TxSubmissionMode ctx m = ( TxMode m )
 
 -- | Like 'Pos.Communication.Tx.submitAndSaveTx',
 -- but treats tx as future /pending/ transaction.
 submitAndSavePtx
     :: TxSubmissionMode ctx m
-    => PtxSubmissionHandlers m -> PendingTx -> m ()
-submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
+    => WalletDB
+    -> (TxAux -> m Bool)
+    -> PtxSubmissionHandlers m
+    -> PendingTx
+    -> m ()
+submitAndSavePtx db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
     -- this should've been checked before, but just in case
     when walletTxCreationDisabled $
         throwM $ InternalError "Transaction creation is disabled by configuration!"
@@ -118,22 +120,22 @@ submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
          Just creationTime <- poolInfo ^. thTimestamp,
          diffTimestamp now creationTime > hour 1 -> do
            let newCond = PtxWontApply "1h limit exceeded" poolInfo
-           void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond newCond
+           void $ casPtxCondition db _ptxWallet _ptxTxId _ptxCond newCond
            logInfo $
              sformat ("Pending transaction #"%build%" discarded becauce \
                       \the 1h time limit was exceeded")
                       _ptxTxId
        | otherwise -> do
-           addOnlyNewPendingTx ptx
+           addOnlyNewPendingTx db ptx
            (saveTx (_ptxTxId, _ptxTxAux)
                `catches` handlers)
                `onException` creationFailedHandler
-           ack <- sendTxToNetwork _ptxTxAux
+           ack <- submitTx _ptxTxAux
            reportSubmitted ack
 
            poolInfo <- badInitPtxCondition `maybeThrow` ptxPoolInfo _ptxCond
-           _ <- usingPtxCoords casPtxCondition ptx _ptxCond (PtxApplying poolInfo)
-           when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
+           _ <- usingPtxCoords (casPtxCondition db) ptx _ptxCond (PtxApplying poolInfo)
+           when ack $ ptxUpdateMeta db _ptxWallet _ptxTxId PtxMarkAcknowledged
   where
     handlers =
         [ Handler $ \e ->
@@ -154,8 +156,8 @@ submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
         pshOnNonReclaimable e
 
     reportError desc e outcome =
-        logInfoS $
-        sformat ("Transaction #"%build%" application failed ("%shown%" - "
+        logInfoSP $ \sl ->
+        sformat ("Transaction #"%secretOnlyF sl build%" application failed ("%shown%" - "
                 %stext%")"%stext) _ptxTxId e desc outcome
 
     creationFailedHandler =
@@ -163,7 +165,7 @@ submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
         -- if transaction was detected in blocks and its state got updated by tracker
         -- while transaction creation failed, due to protocol error or bug,
         -- then we better not remove this pending transaction
-        void $ usingPtxCoords removeOnlyCreatingPtx ptx
+        void $ usingPtxCoords (removeOnlyCreatingPtx db) ptx
     badInitPtxCondition = InternalError "Expected PtxCreating as initial pending condition"
 
     reportSubmitted ack =

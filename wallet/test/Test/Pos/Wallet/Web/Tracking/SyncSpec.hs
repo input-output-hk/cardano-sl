@@ -20,18 +20,19 @@ import           Pos.Crypto (emptyPassphrase)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.Chrono (nonEmptyOldestFirst, toNewestFirst)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
+import           Pos.Util.QuickCheck.Property (assertProperty)
 import           Pos.Wallet.Web.ClientTypes (Addr, CId, CWAddressMeta (..))
 import qualified Pos.Wallet.Web.State.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
 import           Pos.Wallet.Web.Tracking.Sync (evalChange)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..))
-import           Test.Pos.Util (assertProperty, withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations)
 
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
 
 spec :: Spec
-spec = withCompileInfo def $ withDefConfigurations $ do
+spec = withCompileInfo def $ withDefConfigurations $ \_ -> do
     describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
         describe "Two applications and rollbacks" twoApplyTwoRollbacksSpec
     describe "Pos.Wallet.Web.Tracking.evalChange" $ do
@@ -47,20 +48,20 @@ twoApplyTwoRollbacksSpec :: (HasCompileInfo, HasConfigurations) => Spec
 twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     let k = fromIntegral blkSecurityParam :: Word64
     void $ importSomeWallets (pure emptyPassphrase)
-    genesisWalletDB <- lift WS.getWalletStorage
+    genesisWalletDB <- lift WS.askWalletSnapshot
     applyBlocksCnt1 <- pick $ choose (1, k `div` 2)
     applyBlocksCnt2 <- pick $ choose (1, k `div` 2)
     blunds1 <- wpGenBlocks (Just $ BlockCount applyBlocksCnt1) (EnableTxPayload True) (InplaceDB True)
-    after1ApplyDB <- lift WS.getWalletStorage
+    after1ApplyDB <- lift WS.askWalletSnapshot
     blunds2 <- wpGenBlocks (Just $ BlockCount applyBlocksCnt2) (EnableTxPayload True) (InplaceDB True)
-    after2ApplyDB <- lift WS.getWalletStorage
+    after2ApplyDB <- lift WS.askWalletSnapshot
     let toNE = fromMaybe (error "sequence of blocks are empty") . nonEmptyOldestFirst
     let to1Rollback = toNewestFirst $ toNE blunds2
     let to2Rollback = toNewestFirst $ toNE blunds1
     lift $ rollbackBlocks to1Rollback
-    after1RollbackDB <- lift WS.getWalletStorage
+    after1RollbackDB <- lift WS.askWalletSnapshot
     lift $ rollbackBlocks to2Rollback
-    after2RollbackDB <- lift WS.getWalletStorage
+    after2RollbackDB <- lift WS.askWalletSnapshot
     assertProperty (after1RollbackDB == after1ApplyDB)
         "wallet-db after first apply doesn't equal to wallet-db after first rollback"
     assertProperty (after2RollbackDB == genesisWalletDB)

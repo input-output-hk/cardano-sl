@@ -31,8 +31,7 @@ import           Pos.Core (FlatSlotId, HasConfiguration, HasHeaderHash, HeaderHa
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..), RocksBatchOp (..),
-                         dbSerializeValue)
-import           Pos.DB.BlockIndex (getHeader)
+                         dbSerializeValue, getHeader)
 import           Pos.DB.Class (MonadBlockDBRead, getBlock)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Chrono (OldestFirst (..))

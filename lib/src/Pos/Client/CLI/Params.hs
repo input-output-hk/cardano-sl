@@ -12,7 +12,6 @@ import           Universum
 
 import           Data.Default (def)
 import qualified Data.Yaml as Yaml
-import           Mockable (Fork, Mockable)
 import           System.Wlog (LoggerName, WithLogger)
 
 import           Pos.Behavior (BehaviorConfig (..))
@@ -59,7 +58,6 @@ getKeyfilePath CommonNodeArgs {..}
 getNodeParams ::
        ( MonadIO m
        , WithLogger m
-       , Mockable Fork m
        , MonadCatch m
        , HasConfiguration
        , HasSscConfiguration
@@ -88,7 +86,6 @@ getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} = do
             , upUpdateWithPkg = updateWithPackage
             , upUpdateServers = updateServers commonArgs
             }
-        , npUseNTP = not noNTP
         , npRoute53Params = route53Params
         , npEnableMetrics = enableMetrics
         , npEkgParams = ekgParams

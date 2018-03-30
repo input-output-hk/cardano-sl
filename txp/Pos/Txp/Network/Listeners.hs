@@ -3,15 +3,16 @@
 {-# LANGUAGE RankNTypes #-}
 
 -- | Server which handles transactions.
+--
+-- TODO rename this module. It doesn't define any listeners and doesn't deal
+-- with a network.
 
 module Pos.Txp.Network.Listeners
-       ( txRelays
-       , txInvReqDataParams
-       , JLTxR (..)
+       ( handleTxDo
+       , TxpMode
        ) where
 
-import qualified Data.HashMap.Strict as HM
-import           Data.Tagged (Tagged (..), tagWith)
+import           Data.Tagged (Tagged (..))
 import           Formatting (build, sformat, (%))
 import           Node.Message.Class (Message)
 import           System.Wlog (WithLogger, logInfo)
@@ -19,15 +20,12 @@ import           Universum
 
 import           Pos.Binary.Txp ()
 import           Pos.Communication.Limits.Types (MessageLimited)
-import           Pos.Communication.Relay (InvReqDataParams (..), MempoolParams (..), Relay (..))
 import qualified Pos.Communication.Relay as Relay
-import           Pos.Communication.Types.Protocol (MsgType (..))
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Crypto (hash)
-import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem, getMemPool, txpProcessTx)
+import           Pos.Txp.MemState ( JLTxR (..), MempoolExt, MonadTxpLocal, MonadTxpMem, txpProcessTx)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 import           Pos.Txp.Toil.Types (MemPool (..))
-import           Pos.Util.JsonLog.Events (JLTxR (..))
 
 txInvReqDataParams
     :: TxpMode ctx m

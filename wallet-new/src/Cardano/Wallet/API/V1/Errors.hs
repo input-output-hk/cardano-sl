@@ -8,12 +8,13 @@ import           Universum
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Data.Aeson
+import           Data.List.NonEmpty (NonEmpty)
 import           Generics.SOP.TH (deriveGeneric)
 import qualified Network.HTTP.Types.Header as HTTP
 import           Servant
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
-import           Cardano.Wallet.API.V1.Generic (gconsNames, gparseJsend, gtoJsend)
+import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
 
 --
 -- Error handling
@@ -52,7 +53,11 @@ data WalletError =
     | SomeOtherError { weFoo :: !Text, weBar :: !Int }
     | MigrationFailed { weDescription :: !Text }
     | JSONValidationFailed { weValidationError :: !Text }
+    | UnkownError { weMsg :: !Text }
+    | InvalidAddressFormat { weMsg :: !Text }
     | WalletNotFound
+    | AddressNotFound
+    | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
     deriving (Show, Eq)
 
 --
@@ -71,42 +76,49 @@ instance Exception WalletError where
 
 -- TODO: generate `Arbitrary` instance with TH too?
 instance Arbitrary WalletError where
-    arbitrary = oneof
-        [ NotEnoughMoney <$> arbitrary
-        , OutputIsRedeem <$> pure "address"
-        , SomeOtherError <$> pure "blah" <*> arbitrary
-        , MigrationFailed <$> pure "migration"
-        , JSONValidationFailed <$> pure "Expected String, found Null."
-        , pure WalletNotFound
-        ]
+    arbitrary = oneof (map pure sample)
 
 --
 -- Helpers
 --
 
--- | List of all existing error tags. Populates automatically
-allErrorsList :: [Text]
-allErrorsList = gconsNames (Proxy :: Proxy WalletError)
+type ErrorName = Text
+type ErrorCode = Int
+type ErrorExample = Value
 
--- | Function which determines which HTTP error corresponds to each
--- `WalletError`.
--- Note: current choices of particular errors are debatable
-walletHTTPError :: WalletError -> ServantErr
-walletHTTPError NotEnoughMoney{}       = err403 -- <https://httpstatuses.com/403 403> Forbidden
-walletHTTPError OutputIsRedeem{}       = err403
-walletHTTPError SomeOtherError{}       = err418 -- <https://httpstatuses.com/418 418> I'm a teapot
-walletHTTPError MigrationFailed{}      = err422 -- <https://httpstatuses.com/422 422> Unprocessable Entity
-walletHTTPError JSONValidationFailed{} = err400 -- <https://httpstatuses.com/400 400> Bad Request
-walletHTTPError WalletNotFound         = err404 -- <https://httpstatuses.com/404 404> NotFound
 
--- | "Hoist" the given 'Wallet' error into a 'ServantError',
--- returning as the response body the encoded JSON representation
--- of the error.
-toError :: WalletError -> ServantErr
-toError we = let err@ServantErr{..} = walletHTTPError we in
-    err { errBody = encode we
-        , errHeaders = applicationJson : errHeaders
-        }
+-- | Sample of errors we use for documentation
+sample :: [WalletError]
+sample =
+  [ NotEnoughMoney 1400
+  , OutputIsRedeem "b10b24203f1f0cadffcfd16277125cf7f3ad598983bef9123be80d93"
+  , SomeOtherError "foo" 14
+  , MigrationFailed "migration"
+  , JSONValidationFailed "Expected String, found Null."
+  , UnkownError "unknown"
+  , WalletNotFound
+  ]
+
+
+-- | Convert wallet errors to Servant errors
+toServantError :: WalletError -> ServantErr
+toServantError err =
+  mkServantErr $ case err of
+    NotEnoughMoney{}       -> err403
+    OutputIsRedeem{}       -> err403
+    SomeOtherError{}       -> err418
+    MigrationFailed{}      -> err422
+    JSONValidationFailed{} -> err400
+    UnkownError{}          -> err400
+    WalletNotFound{}       -> err404
+    InvalidAddressFormat{} -> err401
+    AddressNotFound{}      -> err404
+    MissingRequiredParams{} -> err400
+  where
+    mkServantErr serr@ServantErr{..} = serr
+      { errBody    = encode err
+      , errHeaders = applicationJson : errHeaders
+      }
 
 -- | Generates the @Content-Type: application/json@ 'HTTP.Header'.
 applicationJson :: HTTP.Header

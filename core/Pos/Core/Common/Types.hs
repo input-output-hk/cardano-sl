@@ -13,6 +13,9 @@ module Pos.Core.Common.Types
        , mkMultiKeyDistr
        , Address (..)
 
+       -- * Forward-declared BlockHeader
+       , BlockHeader
+
        -- * Stakeholders
        , StakeholderId
        , StakesMap
@@ -22,7 +25,6 @@ module Pos.Core.Common.Types
        , ChainDifficulty (..)
 
        -- * HeaderHash related types and functions
-       , BlockHeaderStub
        , HeaderHash
        , headerHashF
 
@@ -31,14 +33,14 @@ module Pos.Core.Common.Types
        , slotLeadersF
 
        -- * Coin
-       , Coin
-       , CoinPortion
+       , Coin (..)
+       , CoinPortion (..)
+       , mkCoin
+       , checkCoin
        , coinF
        , unsafeGetCoin
-       , getCoinPortion
-       , mkCoin
        , coinPortionDenominator
-       , mkCoinPortion
+       , checkCoinPortion
        , unsafeCoinPortionFromDouble
        , maxCoinVal
 
@@ -215,13 +217,22 @@ newtype ChainDifficulty = ChainDifficulty
     } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable, Typeable, NFData)
 
 ----------------------------------------------------------------------------
+-- BlockHeader (forward-declaration)
+----------------------------------------------------------------------------
+
+-- We use a data family instead of a data type solely to avoid a module
+-- cycle. Grep for @data instance BlockHeader@ to find the definition.
+--
+-- | Forward-declaration of block headers. See the corresponding type instance
+-- for the actual definition.
+data family BlockHeader
+
+----------------------------------------------------------------------------
 -- HeaderHash
 ----------------------------------------------------------------------------
 
--- | 'Hash' of block header. This should be @Hash BlockHeader@
--- but 'BlockHeader' is not defined in core.
-type HeaderHash = Hash BlockHeaderStub
-data BlockHeaderStub
+-- | 'Hash' of block header.
+type HeaderHash = Hash BlockHeader
 
 -- | Specialized formatter for 'HeaderHash'.
 headerHashF :: Format r (HeaderHash -> r)
@@ -288,12 +299,18 @@ instance Bounded Coin where
 maxCoinVal :: Word64
 maxCoinVal = 45000000000000000
 
--- | Make Coin from Word64.
+-- | Makes a 'Coin' but is _|_ if that coin exceeds 'maxCoinVal'.
+-- You can also use 'checkCoin' to do that check.
 mkCoin :: Word64 -> Coin
-mkCoin c
-    | c <= maxCoinVal = Coin c
-    | otherwise       = error $ "mkCoin: " <> show c <> " is too large"
+mkCoin c = either error (const coin) (checkCoin coin)
+  where
+    coin = (Coin c)
 {-# INLINE mkCoin #-}
+
+checkCoin :: MonadError Text m => Coin -> m ()
+checkCoin (Coin c)
+    | c <= maxCoinVal = pure ()
+    | otherwise       = throwError $ "Coin: " <> show c <> " is too large"
 
 -- | Coin formatter which restricts type.
 coinF :: Format r (Coin -> r)
@@ -329,14 +346,17 @@ instance Bounded CoinPortion where
 
 -- | Make 'CoinPortion' from 'Word64' checking whether it is not greater
 -- than 'coinPortionDenominator'.
-mkCoinPortion :: Word64 -> Either Text CoinPortion
-mkCoinPortion x
-    | x <= coinPortionDenominator = Right $ CoinPortion x
-    | otherwise = Left err
+checkCoinPortion
+    :: MonadError Text m
+    => CoinPortion -> m ()
+checkCoinPortion (CoinPortion x)
+    | x <= coinPortionDenominator = pure ()
+    | otherwise = throwError err
   where
-    err = sformat
-        ("mkCoinPortion: value is greater than coinPortionDenominator: "
-        %int) x
+    err =
+        sformat
+            ("CoinPortion: value is greater than coinPortionDenominator: "
+            %int) x
 
 -- | Make CoinPortion from Double. Caller must ensure that value is in
 -- [0..1]. Internally 'CoinPortion' stores 'Word64' which is divided by

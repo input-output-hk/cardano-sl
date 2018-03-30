@@ -14,7 +14,6 @@ module Pos.Arbitrary.Core
        , SafeCoinPairMul (..)
        , SafeCoinPairSum (..)
        , SafeCoinPairSub (..)
-       , SafeWord (..)
        , UnreasonableEoS (..)
        ) where
 
@@ -33,6 +32,7 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Test.QuickCheck.Instances ()
 
 import           Pos.Arbitrary.Crypto ()
+import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Common (coinToInteger, divCoin, makeAddress, maxCoinVal, unsafeSubCoin)
@@ -41,6 +41,7 @@ import qualified Pos.Core.Common.Types as Types
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, HasProtocolConstants,
                                          epochSlots)
 import           Pos.Core.Constants (sharedSeedLength)
+import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import qualified Pos.Core.Genesis as G
 import qualified Pos.Core.Slotting as Types
 import           Pos.Core.Slotting.Types (Timestamp (..))
@@ -49,7 +50,8 @@ import           Pos.Core.Update.Types (BlockVersionData (..))
 import qualified Pos.Core.Update.Types as U
 import           Pos.Crypto (HasCryptoConfiguration, createPsk, toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
-import           Pos.Util.Arbitrary (nonrepeating)
+import           Pos.Merkle (MerkleTree, mkMerkleTree)
+import           Pos.Util.QuickCheck.Arbitrary (nonrepeating)
 import           Pos.Util.Util (leftToPanic)
 
 {- NOTE: Deriving an 'Arbitrary' instance
@@ -216,20 +218,18 @@ instance Arbitrary Types.AddrStakeDistribution where
             let limit =
                     foldl' (-) Types.coinPortionDenominator $
                     map Types.getCoinPortion res
-            let unsafeMkCoinPortion =
-                    leftToPanic @Text "genPortions" . Types.mkCoinPortion
             case (n, limit) of
                 -- Limit is exhausted, can't create more.
                 (_, 0) -> return res
                 -- The last portion, we must ensure the sum is correct.
-                (1, _) -> return (unsafeMkCoinPortion limit : res)
+                (1, _) -> return (Types.CoinPortion limit : res)
                 -- We intentionally don't generate 'limit', because we
                 -- want to generate at least 2 portions.  However, if
                 -- 'limit' is 1, we will generate 1, because we must
                 -- have already generated one portion.
                 _ -> do
                     portion <-
-                        unsafeMkCoinPortion <$> choose (1, max 1 (limit - 1))
+                        Types.CoinPortion <$> choose (1, max 1 (limit - 1))
                     genPortions (n - 1) (portion : res)
 
 instance Arbitrary Types.AddrAttributes where
@@ -417,16 +417,6 @@ newtype DoubleInZeroToOneRange = DoubleInRange
 instance Arbitrary DoubleInZeroToOneRange where
     arbitrary = DoubleInRange <$> choose (0, 1)
 
--- | A wrapper over 'Word64'. Its 'Arbitrary' instance guarantees the 'Word64'
--- inside can always be safely converted into 'CoinPortion'. Used in tests to ensure
--- converting a valid 'Word64' to/from 'CoinPortion' works properly.
-newtype SafeWord = SafeWord
-    { getSafeWord :: Word64
-    } deriving (Show, Eq)
-
-instance Arbitrary SafeWord where
-    arbitrary = SafeWord . Types.getCoinPortion <$> arbitrary
-
 instance Arbitrary Types.SharedSeed where
     arbitrary = do
         bs <- replicateM sharedSeedLength (choose (0, 255))
@@ -446,8 +436,7 @@ instance Arbitrary U.BlockVersionData where
 
 instance Arbitrary U.ApplicationName where
     arbitrary =
-        either (error . mappend "arbitrary @ApplicationName failed: ") identity .
-        U.mkApplicationName .
+        U.ApplicationName .
         toText . map selectAlpha . take U.applicationNameMaxLength <$>
         arbitrary
       where
@@ -522,7 +511,7 @@ instance HasCryptoConfiguration => Arbitrary G.GenesisDelegation where
                     []                 -> []
                     (delegate:issuers) -> mkCert (toPublic delegate) <$> issuers
       where
-        mkCert delegatePk issuer = createPsk issuer delegatePk 0
+        mkCert delegatePk issuer = createPsk issuer delegatePk (HeavyDlgIndex 0)
 
 instance Arbitrary G.GenesisWStakeholders where
     arbitrary = G.GenesisWStakeholders <$> arbitrary
@@ -552,7 +541,6 @@ instance (HasCryptoConfiguration, HasProtocolConstants) => Arbitrary G.GenesisDa
             True
         hasKnownFeePolicy _ = False
         arbitraryVssCerts = G.GenesisVssCertificatesMap . mkVssCertificatesMapLossy <$> arbitrary
-
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types
 ----------------------------------------------------------------------------
@@ -569,8 +557,22 @@ instance Arbitrary Second where
     arbitrary = convertUnit @Microsecond <$> arbitrary
     shrink = shrinkIntegral
 
-deriving instance Arbitrary Types.Timestamp
+instance Arbitrary Types.Timestamp where
+    arbitrary = Timestamp . fromMicroseconds <$> choose (0, 2000000000 * 1000 * 1000)
+    shrink = shrinkIntegral
+
 deriving instance Arbitrary Types.TimeDiff
+
+instance Arbitrary HeavyDlgIndex where
+    arbitrary = HeavyDlgIndex <$> arbitrary
+    shrink = genericShrink
+
+instance Arbitrary LightDlgIndices where
+    arbitrary = do
+        l <- arbitrary
+        r <- arbitrary
+        pure $ LightDlgIndices $ if r >= l then (l,r) else (r,l)
+    shrink = genericShrink
 
 ----------------------------------------------------------------------------
 -- SSC
@@ -579,3 +581,10 @@ deriving instance Arbitrary Types.TimeDiff
 instance (HasProtocolConstants, HasCryptoConfiguration) => Arbitrary VssCertificate where
     arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
     -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.
+
+----------------------------------------------------------------------------
+-- Merkle
+----------------------------------------------------------------------------
+
+instance (Bi a, Arbitrary a) => Arbitrary (MerkleTree a) where
+    arbitrary = mkMerkleTree <$> arbitrary

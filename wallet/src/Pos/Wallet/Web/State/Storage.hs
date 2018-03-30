@@ -5,10 +5,12 @@
 module Pos.Wallet.Web.State.Storage
        (
          WalletStorage (..)
+       , HasWalletStorage (..)
        , WalletInfo (..)
        , AccountInfo (..)
        , AddressInfo (..)
        , AddressLookupMode (..)
+       , CAddresses
        , CustomAddressType (..)
        , CurrentAndRemoved (..)
        , WalletBalances
@@ -30,7 +32,10 @@ module Pos.Wallet.Web.State.Storage
        , getWalletPassLU
        , getWalletSyncTip
        , getWalletAddresses
+       , getWalletInfos
+       , getWalletInfo
        , getAccountWAddresses
+       , getWAddresses
        , doesWAddressExist
        , getTxMeta
        , getNextUpdate
@@ -104,7 +109,7 @@ import qualified Pos.Util.Modifier as MM
 import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CCoin, CHash, CId,
                                              CProfile, CTxId, CTxMeta, CUpdateInfo,
                                              CWAddressMeta (..), CWalletAssurance, CWalletMeta,
-                                             PassPhraseLU, Wal, addrMetaToAccount)
+                                             PassPhraseLU, Wal, addrMetaToAccount, aiWId)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition, PtxSubmitTiming (..),
                                                ptxCond, ptxSubmitTiming, _PtxCreating)
 import           Pos.Wallet.Web.Pending.Util (cancelApplyingPtx, incPtxSubmitTimingPure,
@@ -307,6 +312,10 @@ getWalletMetaIncludeUnready includeUnready cWalId = fmap _wiMeta . applyFilter <
     filterMaybe :: (a -> Bool) -> Maybe a -> Maybe a
     filterMaybe p ma = ma >>= \a -> guard (p a) >> return a
 
+-- | Retrieve the wallet info.
+getWalletInfo :: CId Wal -> Query (Maybe WalletInfo)
+getWalletInfo cid = view (wsWalletInfos . at cid)
+
 -- | Get wallet meta info regardless of wallet sync status.
 getWalletMeta :: CId Wal -> Query (Maybe CWalletMeta)
 getWalletMeta = getWalletMetaIncludeUnready False
@@ -322,7 +331,12 @@ getWalletSyncTip cWalId = preview (wsWalletInfos . ix cWalId . wiSyncTip)
 -- | Get IDs of all existing and /ready/ wallets.
 getWalletAddresses :: Query [CId Wal]
 getWalletAddresses =
-    map fst . sortOn (view wiCreationTime . snd) . filter (view wiIsReady . snd) . HM.toList <$>
+    map fst <$> getWalletInfos
+
+-- | Get IDs and information for of all existing and /ready/ wallets.
+getWalletInfos :: Query [(CId Wal, WalletInfo)]
+getWalletInfos =
+    sortOn (view wiCreationTime . snd) . filter (view wiIsReady . snd) . HM.toList <$>
     view wsWalletInfos
 
 -- | Get addresses of given account by account ID in the same order they were created.
@@ -335,6 +349,17 @@ getAccountWAddresses mode accId =
   where
     fetch :: MonadReader WalletStorage m => Lens' AccountInfo CAddresses -> m (Maybe [AddressInfo])
     fetch which = fmap HM.elems <$> preview (wsAccountInfos . ix accId . which)
+
+getWAddresses :: AddressLookupMode
+              -> CId Wal
+              -> Query [AddressInfo]
+getWAddresses mode wid =
+    withAccLookupMode mode (fetch aiAddresses) (fetch aiRemovedAddresses)
+  where
+    fetch :: MonadReader WalletStorage m => Lens' AccountInfo CAddresses -> m [AddressInfo]
+    fetch which = do
+      accs <- HM.filterWithKey (\k _ -> aiWId k == wid) <$> view wsAccountInfos
+      return $ HM.elems =<< accs ^.. traverse . which
 
 -- | Check if given address exists.
 doesWAddressExist ::
@@ -390,8 +415,8 @@ getNextUpdate :: Query (Maybe CUpdateInfo)
 getNextUpdate = preview (wsReadyUpdates . _head)
 
 -- | Get block history cache for given wallet.
-getHistoryCache :: CId Wal -> Query (Maybe (Map TxId TxHistoryEntry))
-getHistoryCache cWalId = view $ wsHistoryCache . at cWalId
+getHistoryCache :: CId Wal -> Query (Map TxId TxHistoryEntry)
+getHistoryCache cWalId = view $ wsHistoryCache . at cWalId . non' _Empty
 
 -- | Get set of all used or change addresses with corresponding
 -- header hashes of blocks these addresses were firtst encountered

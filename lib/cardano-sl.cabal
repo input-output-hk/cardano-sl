@@ -1,5 +1,5 @@
 name:                cardano-sl
-version:             1.0.3
+version:             1.1.0
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT
@@ -28,7 +28,6 @@ library
                         Pos.DB.DB
 
                         -- Diffusion layer
-                        Pos.Diffusion.Types
                         Pos.Diffusion.Full
                         Pos.Diffusion.Full.Block
                         Pos.Diffusion.Full.Delegation
@@ -36,15 +35,14 @@ library
                         Pos.Diffusion.Full.Types
                         Pos.Diffusion.Full.Txp
                         Pos.Diffusion.Full.Update
-                        Pos.Diffusion.Subscription.Common
-                        Pos.Diffusion.Subscription.Dns
-                        Pos.Diffusion.Subscription.Dht
 
                         -- GState
                         Pos.GState
 
                         -- Logic layer
                         Pos.Logic.Types
+                        Pos.Logic.Full
+                        Pos.Logic.Pure
 
                         -- Behavior
                         Pos.Behavior
@@ -60,11 +58,9 @@ library
 
                         -- cardano-sl-client & cardano-sl-generator
                         Pos.Communication.Limits
+                        Pos.Communication.Limits.Given
                         Pos.Communication.Message
                         Pos.Communication.Types
-
-                        -- Statistics
-                        Pos.Statistics
 
                         -- Recovery
                         Pos.Recovery
@@ -79,7 +75,6 @@ library
 
                         -- Utilities/helpers
                         Pos.Util.Config
-                        Pos.Util.Monitor
                         Pos.Util.OutboundQueue
                         Pos.Util.UserSecret
 
@@ -99,14 +94,12 @@ library
 
                         -- Exposed for tests
                         Test.Pos.Helpers
-                        Test.Pos.Cbor.Canonicity
-                        Test.Pos.Cbor.RefImpl
 
                         -- Util code for tests
-                        Test.Pos.Util
                         Test.Pos.Configuration
 
                         Pos.Util.Servant
+
 
   other-modules:        Pos.Aeson.Types
 
@@ -131,20 +124,13 @@ library
 
                         Pos.Recovery.Instance
 
-                        -- Health Checks
-                        Pos.HealthCheck.Route53
-
-                        -- Statistics
-                        Pos.Statistics.Ekg
-                        Pos.Statistics.Statsd
-
-  build-depends:        MonadRandom
+  build-depends:        base 
                       , QuickCheck
+                      , async
                       , aeson >= 0.11.2.1
+                      , async
                       , ansi-terminal
                       , ansi-wl-pprint
-                      , base
-                      , binary
                       , bytestring
                       , canonical-json
                       , cardano-crypto
@@ -165,46 +151,36 @@ library
                       , conduit >= 1.2.8
                       , constraints
                       , containers
-                      , cryptonite >= 0.23 && <= 0.23
+                      , cryptonite >= 0.23 && <= 0.24
                       , data-default
-                      , deepseq
                       , directory
-                      , dns >= 3.0.0
                       , ed25519
                       , ekg-core
-                      , ekg-statsd
-                      , ekg-wai
                       , ether >= 0.5
                       , exceptions
                       , filelock >= 0.1.0.1
                       , filepath
                       , formatting
                       , generic-arbitrary
-                      , half
                       , hashable
                       , hspec
                       , lens
                       , log-warper >= 1.1.1
-                      , lrucache
-                      , memory
-                      , mmorph
                       , monad-control
                       , mtl
                       , neat-interpolation
-                      , network-transport
-                      , network-transport-tcp
                       , optparse-applicative
                       , parsec
                       , plutus-prototype
                       , pvss
                       , random
                       , reflection
-                      , resourcet
-                      , rocksdb-haskell-ng
                       , safe-exceptions
                       , safecopy
                       , serokell-util >= 0.1.3.4
                       , servant >= 0.8.1
+                      , servant-client >= 0.8.1
+                      , servant-client-core >= 0.8.1
                       , servant-server >= 0.8.1
                       , servant-swagger
                       , stm
@@ -215,10 +191,9 @@ library
                       , time
                       , time-units
                       , transformers
-                      , transformers-base
                       , universum >= 0.1.11
+                      , unliftio
                       , unordered-containers
-                      , vector
                       , wai
                       , warp
                       , warp-tls
@@ -273,11 +248,7 @@ test-suite cardano-test
                        -- Standard module with some magic
                        Spec
 
-                       -- Something
-                       Test.Pos.BinarySpec
-
                        -- Pos.Block testing
-                       Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
 
                        -- Core
@@ -291,7 +262,6 @@ test-suite cardano-test
 
                        -- Ssc
                        Test.Pos.Ssc.ComputeSharesSpec
-                       Test.Pos.Ssc.Identity.BinarySpec
                        Test.Pos.Ssc.Identity.SafeCopySpec
                        Test.Pos.Ssc.SeedSpec
                        Test.Pos.Ssc.Toss.BaseSpec
@@ -300,23 +270,16 @@ test-suite cardano-test
 
                        -- Everything else
                        Test.Pos.Cbor.CborSpec
-                       Test.Pos.Communication.Identity.BinarySpec
                        Test.Pos.ConstantsSpec
                        Test.Pos.CryptoSpec
-                       Test.Pos.Delegation.Identity.BinarySpec
-                       Test.Pos.DHT.Identity.BinarySpec
                        Test.Pos.Genesis.CanonicalSpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Slotting.TypesSpec
-                       Test.Pos.Slotting.BinarySpec
                        Test.Pos.Txp.CoreSpec
-                       Test.Pos.Txp.Identity.BinarySpec
                        Test.Pos.Txp.Toil.UtxoSpec
                        Test.Pos.Types.BlockSpec
-                       Test.Pos.Types.Identity.BinarySpec
                        Test.Pos.Types.Identity.SafeCopySpec
                        Test.Pos.Types.Identity.ShowReadSpec
-                       Test.Pos.Update.Identity.BinarySpec
                        Test.Pos.Update.Identity.SafeCopySpec
                        Test.Pos.Update.MemStateSpec
                        Test.Pos.Update.PollSpec
@@ -330,6 +293,7 @@ test-suite cardano-test
                      , base
                      , bytestring
                      , canonical-json
+                     , cardano-crypto
                      , cardano-sl
                      , cardano-sl-binary
                      , cardano-sl-block
@@ -350,6 +314,7 @@ test-suite cardano-test
                      , cryptonite
                      , data-default
                      , extra
+                     , filelock
                      , fmt
                      , formatting
                      , generic-arbitrary

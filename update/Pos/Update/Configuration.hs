@@ -17,20 +17,21 @@ module Pos.Update.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), withObject, (.:), (.:?))
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericToJSON, withObject, (.:), (.:?))
 import           Data.Maybe (fromMaybe)
 import           Data.Reflection (Given (..), give)
 import qualified Data.Text as T
 import           Distribution.System (buildArch, buildOS)
 import           Language.Haskell.TH (runIO)
 import qualified Language.Haskell.TH.Syntax as TH (lift)
-import           Serokell.Util.ANSI  (Color (Red, Blue), colorize)
+import           Serokell.Aeson.Options (defaultOptions)
+import           Serokell.Util.ANSI (Color (Blue, Red), colorize)
 
 -- For FromJSON instances.
 import           Pos.Aeson.Core ()
 import           Pos.Aeson.Update ()
 import           Pos.Core (ApplicationName, BlockVersion (..), SoftwareVersion (..))
-import           Pos.Core.Update (SystemTag, archHelper, mkSystemTag, osHelper)
+import           Pos.Core.Update (SystemTag (..), archHelper, osHelper, checkSystemTag)
 
 ----------------------------------------------------------------------------
 -- Config itself
@@ -56,6 +57,9 @@ data UpdateConfiguration = UpdateConfiguration
     , ccSystemTag             :: !SystemTag
     }
     deriving (Show, Generic)
+
+instance ToJSON UpdateConfiguration where
+    toJSON = genericToJSON defaultOptions
 
 instance FromJSON UpdateConfiguration where
     parseJSON = withObject "UpdateConfiguration" $ \o -> do
@@ -89,14 +93,16 @@ curSoftwareVersion = SoftwareVersion ourAppName (ccApplicationVersion updateConf
 -- information.
 currentSystemTag :: SystemTag
 currentSystemTag =
-    $(do let st :: Either Text SystemTag
-             st = mkSystemTag (toText (osHelper buildOS ++ archHelper buildArch))
+    $(do let tag :: SystemTag
+             tag = SystemTag (toText (osHelper buildOS ++ archHelper buildArch))
+             st :: Either Text ()
+             st = checkSystemTag tag
              color c s = "\n" <> colorize c s <> "\n"
          case st of Left e -> error . color Red . T.concat $
                                   ["Current system tag could not be calculated: ", e]
-                    Right tag -> do runIO . putStrLn . color Blue . T.concat $
-                                        ["Current system tag is: ", show tag]
-                                    TH.lift tag
+                    Right () -> do runIO . putStrLn . color Blue . T.concat $
+                                       ["Current system tag is: ", show tag]
+                                   TH.lift tag
      )
 
 ourSystemTag :: HasUpdateConfiguration => SystemTag

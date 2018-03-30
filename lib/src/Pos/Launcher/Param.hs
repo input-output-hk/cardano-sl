@@ -12,7 +12,6 @@ module Pos.Launcher.Param
 import           Universum
 
 import           Control.Lens (makeLensesWith)
-import           Ether.Internal (HasLens (..))
 import           System.Wlog (LoggerName)
 
 import           Pos.Behavior (BehaviorConfig (..))
@@ -28,6 +27,7 @@ import           Pos.Update.Params (UpdateParams)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.TimeWarp (NetworkAddress)
 import           Pos.Util.UserSecret (UserSecret)
+import           Pos.Util.Util (HasLens (..))
 
 -- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams
@@ -54,10 +54,9 @@ data NodeParams = NodeParams
     , npSecretKey      :: !SecretKey            -- ^ Primary secret key of node
     , npUserSecret     :: !UserSecret           -- ^ All node secret keys
     , npBaseParams     :: !BaseParams           -- ^ See 'BaseParams'
-    , npJLFile         :: !(Maybe FilePath)     -- TODO COMMENT
+    , npJLFile         :: !(Maybe FilePath)     -- ^ File to use for JSON logging.
     , npReportServers  :: ![Text]               -- ^ List of report server URLs
     , npUpdateParams   :: !UpdateParams         -- ^ Params for update system
-    , npUseNTP         :: !Bool                 -- ^ Whether to use synchronisation with NTP servers.
     , npRoute53Params  :: !(Maybe NetworkAddress) -- ^ Where to listen for the Route53 DNS health-check.
     , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics.
     , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.

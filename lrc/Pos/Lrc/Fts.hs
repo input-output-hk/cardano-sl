@@ -5,10 +5,11 @@ module Pos.Lrc.Fts
        ( followTheSatoshiM
        ) where
 
-import           Control.Lens (makeLenses, makePrisms, uses)
-import           Data.Conduit (Sink, await)
-import           Data.List.NonEmpty (fromList)
 import           Universum
+
+import           Control.Lens (makeLenses, makePrisms, uses)
+import           Data.Conduit (ConduitT, await)
+import           Data.List.NonEmpty (fromList)
 
 import           Pos.Core.Common (Coin, SharedSeed (..), SlotLeaders, StakeholderId, coinToInteger,
                                   mkCoin, unsafeGetCoin)
@@ -197,7 +198,7 @@ followTheSatoshiM
     :: forall m . (Monad m, HasConfiguration)
     => SharedSeed
     -> Coin
-    -> Sink (StakeholderId, Coin) m SlotLeaders
+    -> ConduitT (StakeholderId, Coin) Void m SlotLeaders
 followTheSatoshiM _ totalCoins
     | totalCoins == mkCoin 0 = error "followTheSatoshiM: nobody has any stake"
 followTheSatoshiM (SharedSeed seed) totalCoins = do
@@ -214,7 +215,7 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
     findLeaders = (traverse . _2) findLeader
 
     findLeader :: CoinIndex ->
-                  StateT FtsState (Sink (StakeholderId, Coin) m) StakeholderId
+                  StateT FtsState (ConduitT (StakeholderId, Coin) Void m) StakeholderId
     findLeader coinIndex = do
         inRange <- uses fsCurrentCoinRangeUpperBound (coinIndex <=)
         if inRange

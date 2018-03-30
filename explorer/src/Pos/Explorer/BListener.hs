@@ -28,6 +28,7 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import qualified Ether
 import           System.Wlog (WithLogger)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Types (Blund)
@@ -64,11 +65,13 @@ type MonadBListenerT m =
     ( WithLogger m
     , MonadCatch m
     , MonadDBRead m
+    , MonadUnliftIO m
     , HasConfiguration
     )
 
 -- Explorer implementation for usual node. Combines the operations.
 instance ( MonadDBRead m
+         , MonadUnliftIO m
          , MonadCatch m
          , WithLogger m
          , HasConfiguration

@@ -29,6 +29,7 @@ let
     cardano-sl-node-static = supportedSystems;
     cardano-sl-tools = supportedSystems;
     cardano-sl-wallet = supportedSystems;
+    cardano-sl-wallet-new = supportedSystems;
     cardano-sl-explorer-static = [ "x86_64-linux" ];
     cardano-report-server-static = [ "x86_64-linux" ];
     stack2nix = supportedSystems;
@@ -37,6 +38,7 @@ let
     connectScripts.mainnetExplorer = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.stagingWallet   = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.stagingExplorer = [ "x86_64-linux" "x86_64-darwin" ];
+    daedalus-bridge = supportedSystems;
   };
 in (mapTestOn platforms) // {
   inherit stagingWalletdockerImage;

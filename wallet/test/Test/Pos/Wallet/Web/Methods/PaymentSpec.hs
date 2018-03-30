@@ -27,16 +27,17 @@ import           Pos.Wallet.Web.Account (myRootAddresses)
 import           Pos.Wallet.Web.ClientTypes (CAccount (..), CWAddressMeta (..),
                                              NewBatchPayment (..))
 
+import           Pos.Util.QuickCheck.Property (assertProperty, expectedOne, maybeStopProperty,
+                                               splitWord, stopProperty)
 import           Pos.Wallet.Web.Methods.Logic (getAccounts)
 import           Pos.Wallet.Web.Methods.Payment (newPaymentBatch)
 import qualified Pos.Wallet.Web.State.State as WS
 import           Pos.Wallet.Web.State.Storage (AddressInfo (..))
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
-import           Test.Pos.Util (assertProperty, expectedOne, maybeStopProperty, splitWord,
-                                stopProperty, withDefConfigurations)
 
 import           Pos.Util.Servant (encodeCType)
-import           Test.Pos.Wallet.Web.Mode (getSentTxs, walletPropertySpec)
+import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Wallet.Web.Mode (getSentTxs, submitTxTestMode, walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (deriveRandomAddress, expectedAddrBalance,
                                            importSomeWallets, mostlyEmptyPassphrases)
 
@@ -44,7 +45,7 @@ import           Test.Pos.Wallet.Web.Util (deriveRandomAddress, expectedAddrBala
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
 spec = withCompileInfo def $
-       withDefConfigurations $
+       withDefConfigurations $ \_ ->
        describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
     describe "newPaymentBatch" $ do
         describe "One payment" oneNewPaymentBatchSpec
@@ -66,7 +67,8 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     srcAccount <- maybeStopProperty noOneAccount =<< (lift $ head <$> getAccounts (Just walId))
     srcAccId <- lift $ decodeCTypeOrFail (caId srcAccount)
 
-    srcAddr <- getAddress srcAccId
+    ws <- WS.askWalletSnapshot
+    srcAddr <- getAddress ws srcAccId
     -- Dunno how to get account's balances without CAccModifier
     initBalance <- getBalance srcAddr
     -- `div` 2 to leave money for tx fee
@@ -79,7 +81,7 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
                 , npbTo = fromList $ zip dstCAddrs coins
                 , npbInputSelectionPolicy = policy
                 }
-    void $ lift $ newPaymentBatch pswd newBatchP
+    void $ lift $ newPaymentBatch submitTxTestMode pswd newBatchP
     dstAddrs <- lift $ mapM decodeCTypeOrFail dstCAddrs
     txLinearPolicy <- lift $ (bvdTxFeePolicy <$> gsAdoptedBVData) <&> \case
         TxFeePolicyTxSizeLinear linear -> linear
@@ -101,9 +103,10 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     assertProperty (changeBalance <= initBalance `unsafeSubCoin` fee) $
         "Minimal tx fee isn't satisfied"
 
+    ws' <- WS.askWalletSnapshot
     -- Validate that tx meta was added when transaction was processed
     forM_ (ordNub $ walId:dstWalIds) $ \wId -> do
-        txMetas <- maybeStopProperty "Wallet doesn't exist" =<< lift (WS.getWalletTxHistory wId)
+        txMetas <- maybeStopProperty "Wallet doesn't exist" (WS.getWalletTxHistory ws' wId)
         void $ expectedOne "TxMeta for wallet" txMetas
 
     -- Validate change and used address
@@ -112,10 +115,10 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     -- expectedUserAddresses
     -- expectedChangeAddresses
   where
-    getAddress srcAccId =
+    getAddress ws srcAccId =
         lift . decodeCTypeOrFail . cwamId . adiCWAddressMeta =<<
         expectedOne "address" =<<
-        lift (getAccountAddrsOrThrow WS.Existing srcAccId)
+        lift (getAccountAddrsOrThrow ws WS.Existing srcAccId)
     oneNewPaymentBatchDesc =
         "Send money from one own address to multiple own addresses; " <>
         "check balances validity for destination addresses, source address and change address; " <>

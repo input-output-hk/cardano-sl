@@ -15,6 +15,7 @@ import           Universum
 import           Control.Concurrent.STM.TQueue (newTQueue, tryReadTQueue, writeTQueue)
 import           Control.Exception.Safe (Exception (..), try)
 import           Control.Monad.Except (runExceptT)
+import           Data.Aeson (eitherDecodeStrict)
 import qualified Data.ByteString as BS
 import           Data.Default (def)
 import qualified Data.HashMap.Strict as HM
@@ -29,27 +30,24 @@ import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently, 
 import           Serokell.Util (ms, sec)
 import           System.Environment (lookupEnv)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
-import           System.Random (randomRIO)
 import           System.Wlog (logError, logInfo)
 
-import           Pos.Binary (decodeFull)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
 import           Pos.Client.Txp.Util (createTx)
-import           Pos.Communication (SendActions, immediateConcurrentConversations)
 import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAddr (..),
                            Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretKeys)
 import           Pos.Core.Txp (TxAux, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase, encToPublic, fakeSigner,
                              safeToPublic, toPublic, withSafeSigners)
+import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Txp (topsortTxAuxes)
 import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util (maybeThrow)
 
-import           Lang.Value (SendMode (..))
-import           Mode (CmdCtx (..), MonadAuxxMode, getCmdCtx, makePubKeyAddressAuxx)
+import           Mode (MonadAuxxMode, makePubKeyAddressAuxx)
 
 ----------------------------------------------------------------------------
 -- Send to all genesis
@@ -60,7 +58,6 @@ data SendToAllGenesisParams = SendToAllGenesisParams
     { stagpDuration    :: !Int
     , stagpConc        :: !Int
     , stagpDelay       :: !Int
-    , stagpMode        :: !SendMode
     , stagpTpsSentFile :: !FilePath
     } deriving (Show)
 
@@ -89,12 +86,10 @@ addTxFailed =
 
 sendToAllGenesis
     :: forall m. MonadAuxxMode m
-    => SendActions m
+    => Diffusion m
     -> SendToAllGenesisParams
     -> m ()
-sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMode tpsSentFile) = do
-    CmdCtx {ccPeers} <- getCmdCtx
-    let nNeighbours = length ccPeers
+sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentFile) = do
     let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration genesisBlockVersionData) `div` 1000000 :: Int
         keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
     tpsMVar <- newSharedAtomic $ TxCount 0 0 conc
@@ -102,7 +97,6 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
     bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
         liftIO $ hSetBuffering h LineBuffering
         liftIO . T.hPutStrLn h $ T.intercalate "," [ "slotDuration=" <> show genesisSlotDuration
-                                                   , "sendMode=" <> show sendMode
                                                    , "conc=" <> show conc
                                                    , "startTime=" <> startTime
                                                    , "delay=" <> show delay_ ]
@@ -121,20 +115,14 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                 }
             txOuts = TxOutAux txOut1 :| []
         -- construct a transaction, and add it to the queue
-        let addTx (secretKey, n) = do
-                neighbours <- case sendMode of
-                    SendNeighbours -> return ccPeers
-                    SendRoundRobin -> return [ccPeers !! (n `mod` nNeighbours)]
-                    SendRandom -> do
-                        i <- liftIO $ randomRIO (0, nNeighbours - 1)
-                        return [ccPeers !! i]
+        let addTx secretKey = do
                 utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
                 etx <- createTx mempty utxo (fakeSigner secretKey) txOuts (toPublic secretKey)
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
-                    Right (tx, _) -> atomically $ writeTQueue txQueue (tx, neighbours)
+                    Right (tx, _) -> atomically $ writeTQueue txQueue (tx, txOuts)
         let nTrans = conc * duration -- number of transactions we'll send
-            allTrans = (zip (drop startAt keysToSend) [0.. conc * duration])
+            allTrans = take nTrans (drop startAt keysToSend)
             (firstBatch, secondBatch) = splitAt ((2 * nTrans) `div` 3) allTrans
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
         let writeTPS :: m ()
@@ -159,11 +147,11 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                       modifySharedAtomic tpsMVar $ \(TxCount submitted failed sending) ->
                           return (TxCount submitted failed (sending - 1), ())
                 | otherwise = (atomically $ tryReadTQueue txQueue) >>= \case
-                      Just (tx, neighbours) -> do
-                          res <- submitTxRaw (immediateConcurrentConversations sendActions neighbours) tx
+                      Just (tx, _) -> do
+                          res <- submitTxRaw diffusion tx
                           addTxSubmit tpsMVar
                           logInfo $ if res
-                                    then sformat ("Submitted transaction: "%txaF%" to "%shown) tx neighbours
+                                    then sformat ("Submitted transaction: "%txaF) tx
                                     else sformat ("Applied transaction "%txaF%", however no neighbour applied it") tx
                           delay $ ms delay_
                           logInfo "Continuing to send transactions."
@@ -200,12 +188,11 @@ instance Exception AuxxException
 
 send
     :: forall m. MonadAuxxMode m
-    => SendActions m
+    => Diffusion m
     -> Int
     -> NonEmpty TxOut
     -> m ()
-send sendActions idx outputs = do
-    CmdCtx{ccPeers} <- getCmdCtx
+send diffusion idx outputs = do
     skey <- takeSecret
     let curPk = encToPublic skey
     let plainAddresses = map (flip makePubKeyAddress curPk . IsBootstrapEraAddr) [False, True]
@@ -216,10 +203,10 @@ send sendActions idx outputs = do
     let allSecrets = hdSecrets ++ [skey, skey]
     etx <- withSafeSigners allSecrets (pure emptyPassphrase) $ \signers -> runExceptT @AuxxException $ do
         let addrSig = HM.fromList $ zip allAddresses signers
-        let getSigner = fromMaybe (error "Couldn't get SafeSigner") . flip HM.lookup addrSig
+        let getSigner addr = HM.lookup addr addrSig
         -- BE CAREFUL: We create remain address using our pk, wallet doesn't show such addresses
         (txAux,_) <- lift $ prepareMTx getSigner mempty def (NE.fromList allAddresses) (map TxOutAux outputs) curPk
-        txAux <$ (ExceptT $ try $ submitTxRaw (immediateConcurrentConversations sendActions ccPeers) txAux)
+        txAux <$ (ExceptT $ try $ submitTxRaw diffusion txAux)
     case etx of
         Left err -> logError $ sformat ("Error: "%stext) (toText $ displayException err)
         Right tx -> logInfo $ sformat ("Submitted transaction: "%txaF) tx
@@ -239,12 +226,12 @@ send sendActions idx outputs = do
 -- 'rollbackAndDump') and submit them to the network.
 sendTxsFromFile
     :: forall m. MonadAuxxMode m
-    => SendActions m
+    => Diffusion m
     -> FilePath
     -> m ()
-sendTxsFromFile sendActions txsFile = do
-    liftIO (BS.readFile txsFile) <&> decodeFull >>= \case
-        Left err -> throwM (AuxxException err)
+sendTxsFromFile diffusion txsFile = do
+    liftIO (BS.readFile txsFile) <&> eitherDecodeStrict >>= \case
+        Left err -> throwM (AuxxException $ toText err)
         Right txs -> sendTxs txs
   where
     sendTxs :: [TxAux] -> m ()
@@ -257,8 +244,5 @@ sendTxsFromFile sendActions txsFile = do
             maybeThrow
                 (AuxxException "txs form a cycle")
                 (topsortTxAuxes txAuxes)
-        CmdCtx {ccPeers} <- getCmdCtx
-        let submitOne =
-                submitTxRaw
-                    (immediateConcurrentConversations sendActions ccPeers)
+        let submitOne = submitTxRaw diffusion
         mapM_ submitOne sortedTxAuxes

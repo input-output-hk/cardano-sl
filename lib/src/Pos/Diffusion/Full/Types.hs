@@ -11,31 +11,50 @@ module Pos.Diffusion.Full.Types
 
 import           Universum
 
-import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Crypto.Random as Rand
-import           Mockable (MonadMockable)
+import           Mockable (LowLevelAsync, Mockable, MonadMockable)
+import qualified Mockable.Metrics as Mockable
+import qualified System.Metrics.Counter as Metrics
+import qualified System.Metrics.Distribution as Metrics
+import qualified System.Metrics.Gauge as Metrics
 import           System.Wlog (WithLogger)
 
 import           Pos.Block.Configuration (HasBlockConfiguration)
+import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.Ssc.Configuration (HasSscConfiguration)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Util.TimeWarp (CanJsonLog)
 
 type DiffusionWorkMode m
     = ( WithLogger m
-      , CanJsonLog m
       , MonadMockable m
+      , Mockable LowLevelAsync m
       , MonadIO m
+      -- Unfortunately we need HasConfigurations because so much of the core
+      -- program depends upon it (serialization, message limits, smart
+      -- constructors).
+      -- [CSL-2141] aspires to fix that. There's a lot of stuff in here that
+      -- a diffusion layer simply should not need to know about.
       , HasConfiguration
+      -- Needed for the recoveryHeadersMessage, which is not ideal but whatever
+      -- we can deal with that later.
       , HasBlockConfiguration
-      , HasInfraConfiguration
-      , HasUpdateConfiguration
-      , HasSscConfiguration
+      -- Needed for message size limits, but shouldn't be [CSL-2242].
       , HasNodeConfiguration
-      , MonadBaseControl IO m
       , Rand.MonadRandom m
       , MonadMask m
+      -- TODO should not need HasAdoptedBlockVersionData
+      --
+      -- It's a stop-gap to provide message limits.
+      -- Really though, these limits should not *necessarily* come from block
+      -- version data; we ought to be able to drop in our own in case of, for
+      -- example, a simulation or test.
+      --
+      -- The plan: define message limits at value-level rather than via
+      -- typeclass, and take a record of (mutable) limits as a parameter to the
+      -- diffusion layer.
+      , HasAdoptedBlockVersionData m
+      , Mockable Mockable.Metrics m
+      , Mockable.Distribution m ~ Metrics.Distribution
+      , Mockable.Gauge m ~ Metrics.Gauge
+      , Mockable.Counter m ~ Metrics.Counter
       )

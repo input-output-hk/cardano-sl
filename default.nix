@@ -4,6 +4,7 @@ in
 { system ? builtins.currentSystem
 , config ? {}
 , gitrev ? localLib.commitIdFromGitRepo ./.git
+, buildId ? null
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
 # profiling slows down performance by 50% so we don't enable it by default
 , enableProfiling ? false
@@ -48,12 +49,13 @@ let
         };
       });
 
+      cardano-sl-wallet-static = justStaticExecutables super.cardano-sl-wallet;
       cardano-sl-networking = dontCheck super.cardano-sl-networking;
       cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
       cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
       cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
       cardano-sl-node = addGitRev super.cardano-sl-node;
-      cardano-sl-wallet = addGitRev (justStaticExecutables super.cardano-sl-wallet);
+      cardano-sl-wallet-new = addGitRev (justStaticExecutables super.cardano-sl-wallet-new);
       cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
@@ -87,14 +89,22 @@ let
       });
     };
   });
-  connect = args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev; });
+  connect = let
+      walletConfigFile = ./custom-wallet-config.nix;
+      walletConfig = if builtins.pathExists walletConfigFile then import walletConfigFile else {};
+    in
+      args: import ./scripts/launch/connect-to-cluster (args // walletConfig // { inherit gitrev; });
   other = rec {
+    cardano-sl-explorer-frontend = (import ./explorer/frontend {
+      inherit system config gitrev pkgs;
+      cardano-sl-explorer = cardanoPkgs.cardano-sl-explorer-static;
+    });
     mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";
-      rev = "3b1807dc5011704ae6a045e612a679c6fbf9ceb3";
-      sha256 = "0p545wbfrg569hspcdpw9v6zd9ngifdj2wsvxpxsdypw124j3jdl";
+      rev = "486a88f161a08df8af42cb4c84f44e99fa9a98d8";
+      sha256 = "0nskf1s51np320ijlf38sxmksk68xmg14cnarg1p9rph03y81m7w";
     }) { inherit pkgs; };
     inherit (pkgs) purescript;
     connectScripts = {
@@ -107,5 +117,23 @@ let
       mainnetWallet = mkDocker { environment = "mainnet"; };
       stagingWallet = mkDocker { environment = "mainnet-staging"; };
     };
+
+    daedalus-bridge = pkgs.runCommand "cardano-daedalus-bridge" {} ''
+      # Generate daedalus-bridge
+      mkdir -p $out/bin $out/config
+      cd $out
+      ${optionalString (buildId != null) "echo ${buildId} > build-id"}
+      echo ${gitrev} > commit-id
+
+      cp ${./log-configs + "/daedalus.yaml"} config/log-config-prod.yaml
+      cp ${./lib}/configuration.yaml config
+      cp ${./lib}/*genesis*.json config
+      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-launcher bin
+      cp ${cardanoPkgs.cardano-sl-wallet-new}/bin/cardano-node bin
+
+      # test that binaries exit with 0
+      ./bin/cardano-node --help > /dev/null
+      HOME=$TMP ./bin/cardano-launcher --help > /dev/null
+    '';
   };
 in cardanoPkgs // other

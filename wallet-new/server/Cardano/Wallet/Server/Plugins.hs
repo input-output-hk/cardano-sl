@@ -24,8 +24,8 @@ import qualified Cardano.Wallet.Server as Server
 import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode,
                                             WalletBackendParams (..), isDebugMode,
                                             walletAcidInterval, walletDbOptions)
-import           Cardano.Wallet.WalletLayer (ActiveWalletLayer, PassiveWalletLayer,
-                                             bracketActiveWalletLayer)
+import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
+import           Cardano.Wallet.WalletLayer.Kernel (bracketActiveWallet)
 
 import           Data.Aeson
 import           Formatting (build, sformat, (%))
@@ -125,13 +125,12 @@ legacyWalletBackend WalletBackendParams {..} ntpStatus =
 -- TODO: no web socket support in the new wallet for now
 walletBackend :: (HasConfigurations, HasCompileInfo)
               => NewWalletBackendParams
-              -> PassiveWalletLayer Production
               -> Plugin Kernel.WalletMode
-walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
+walletBackend (NewWalletBackendParams WalletBackendParams{..}) =
     first one $ worker walletServerOuts $ \diffusion -> do
       env <- ask
       let diffusion' = Kernel.fromDiffusion (lower env) diffusion
-      bracketActiveWalletLayer passive diffusion' $ \active ->
+      bracketActiveWallet diffusion' $ \active ->
         walletServeImpl
           (getApplication active)
           walletAddress
@@ -139,7 +138,7 @@ walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
           (if isDebugMode walletRunMode then Nothing else walletTLSParams)
           Nothing
   where
-    getApplication :: forall m. ActiveWalletLayer m -> Kernel.WalletMode Application
+    getApplication :: ActiveWalletLayer Production -> Kernel.WalletMode Application
     getApplication active = do
       logInfo "New wallet API has STARTED!"
       return $ withMiddleware walletRunMode $

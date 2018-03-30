@@ -1,30 +1,43 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Cardano.Wallet.WalletLayer.Kernel
-    ( bracketKernelWallet
+    ( bracketPassiveWallet
+    , bracketActiveWallet
     ) where
 
 import           Universum
-import           System.Wlog (Severity (..))
 
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..))
+import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..), PassiveWalletLayer (..))
+import qualified Cardano.Wallet.Kernel as Kernel
+import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
-import           Cardano.Wallet.Kernel (bracketPassiveWallet)
-
-
-bracketKernelWallet
+-- | Initialize the passive wallet.
+-- The passive wallet cannot send new transactions.
+bracketPassiveWallet
     :: forall m n a. (MonadMask m, Monad n)
-    => (Severity -> Text -> IO ())
-    -> (PassiveWalletLayer n -> m a) -> m a
-bracketKernelWallet walletLogMessage =
+    => (PassiveWalletLayer n -> m a) -> m a
+bracketPassiveWallet =
     bracket
-        (bracketPassiveWallet walletLogMessage bracketNewWallet)
+        (Kernel.bracketPassiveWallet logFunction passiveWalletLayer)
         (\_ -> return ())
   where
     -- | TODO(ks): Currently not implemented!
-    bracketNewWallet _wallet =
+    passiveWalletLayer _wallet =
         pure $ PassiveWalletLayer
             { pwlGetWalletAddresses  = error "Not implemented!"
             , pwlGetWalletMeta       = error "Not implemented!"
-
-            , pwlWalletLogMessage    = walletLogMessage
             }
 
+    -- | Empty log function.
+    logFunction _ = pure $ pure ()
+
+-- | Initialize the active wallet.
+-- The active wallet is allowed all.
+bracketActiveWallet
+    :: forall m n a. (MonadMask m, Monad n)
+    => WalletDiffusion
+    -> (ActiveWalletLayer n -> m a) -> m a
+bracketActiveWallet walletDiffusion =
+    bracket
+        (bracketPassiveWallet $ \walletPassiveLayer -> return ActiveWalletLayer {..})
+        (\_ -> return ())

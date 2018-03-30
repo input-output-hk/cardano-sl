@@ -65,6 +65,7 @@ library
                        Cardano.Wallet.WalletLayer.Legacy
                        Cardano.Wallet.WalletLayer.QuickCheck
 
+
   ghc-options:         -Wall
   build-depends:       base
                      , QuickCheck

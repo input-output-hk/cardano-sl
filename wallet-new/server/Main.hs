@@ -29,16 +29,15 @@ import           Pos.Wallet.Web (AddrCIdHashes (..), bracketWalletWS, bracketWal
                                  getWalletAddresses, runWRealMode, syncWalletsWithGState)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, flushWalletStorage)
-import           System.Wlog (LoggerName, Severity, logInfo, logMessage, usingLoggerName)
+import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage, usingLoggerName)
 
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
-import           Cardano.Wallet.WalletLayer.Kernel (bracketKernelWallet)
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer, init)
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletBackendParams (..),
                                             WalletBackendParams (..), WalletStartupOptions (..),
                                             getWalletNodeOptions, walletDbPath, walletFlushDb,
                                             walletRebuildDb)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
+import           Cardano.Wallet.WalletLayer.Kernel (bracketPassiveWallet)
 
 
 -- | Default logger name when one is not provided on the command line
@@ -109,24 +108,26 @@ actionWithNewWallet sscParams nodeParams params =
       -- 'NewWalletBackendParams' to construct or initialize the wallet
 
       -- TODO(ks): Currently using non-implemented layer for wallet layer.
-      bracketKernelWallet logMessage' $ \wallet ->
-        Kernel.Mode.runWalletMode nr wallet (mainAction wallet nr)
+      bracketPassiveWallet $ \wallet -> do
+        liftIO $ logMessage' Info "Wallet kernel initialized"
+        Kernel.Mode.runWalletMode nr wallet (mainAction nr)
   where
     mainAction
-        :: PassiveWalletLayer Production
-        -> NodeResources ext
+        :: NodeResources ext
         -> (ActionSpec Kernel.Mode.WalletMode (), OutSpecs)
-    mainAction w = runNodeWithInit w $
-        liftIO $ init w
+    mainAction nr = runNodeWithInit nr
 
-    runNodeWithInit w init' nr =
-        let (ActionSpec f, outs) = runNode nr (plugins w)
-         in (ActionSpec $ \s -> init' >> f s, outs)
+    runNodeWithInit
+        :: NodeResources ext
+        -> (ActionSpec Kernel.Mode.WalletMode (), OutSpecs)
+    runNodeWithInit nr =
+        let (ActionSpec f, outs) = runNode nr plugins
+         in (ActionSpec $ \s -> f s, outs)
 
     -- TODO: Don't know if we need any of the other plugins that are used
     -- in the legacy wallet (see 'actionWithWallet').
-    plugins :: PassiveWalletLayer Production -> Plugins.Plugin Kernel.Mode.WalletMode
-    plugins w = mconcat [ Plugins.walletBackend params w ]
+    plugins :: Plugins.Plugin Kernel.Mode.WalletMode
+    plugins = mconcat [ Plugins.walletBackend params ]
 
     -- Extract the logger name from node parameters
     --

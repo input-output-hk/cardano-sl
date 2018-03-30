@@ -8,10 +8,12 @@ import           Cardano.Wallet.Orphans.Arbitrary () -- Arbitrary instances
 import           Test.QuickCheck (Arbitrary, arbitrary, generate)
 
 -- | Allocation of the wallet resources for the arbitrary wallet.
-kernelWalletLayer :: forall m. (MonadIO m) => PassiveWalletLayer m
-kernelWalletLayer = PassiveWalletLayer
+quickCheckWalletLayer :: forall m. (MonadIO m) => PassiveWalletLayer m
+quickCheckWalletLayer = PassiveWalletLayer
     { pwlGetWalletAddresses  = liftedGen
     , pwlGetWalletMeta       = \_ -> liftedGen
+    -- | We don't require messages at this point.
+    , pwlWalletLogMessage    = \_ _ -> pure ()
     }
 
 -- | A utility function.

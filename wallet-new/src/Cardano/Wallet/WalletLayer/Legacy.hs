@@ -4,6 +4,7 @@ module Cardano.Wallet.WalletLayer.Legacy
 
 import           Universum
 
+import           System.Wlog (usingLoggerName, logMessage)
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..))
 
 import           Cardano.Wallet.API.V1.Migration (migrate)
@@ -17,5 +18,6 @@ legacyWalletLayer
 legacyWalletLayer = PassiveWalletLayer
     { pwlGetWalletAddresses  = askWalletSnapshot >>= \ws -> migrate $ getWalletAddresses ws
     , pwlGetWalletMeta       = \cIdWal -> askWalletSnapshot >>= \ws -> pure $ getWalletMeta ws =<< (migrate cIdWal)
+    , pwlWalletLogMessage    = \sev txt -> usingLoggerName "legacy-wallet" $ logMessage sev txt
     }
 

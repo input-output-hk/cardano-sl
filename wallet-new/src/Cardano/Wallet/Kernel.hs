@@ -22,7 +22,6 @@ import Universum
 import System.Wlog (Severity(..))
 
 import Cardano.Wallet.Kernel.Diffusion (WalletDiffusion(..))
-import Cardano.Wallet.WalletLayer (PassiveWalletLayer)
 
 import Pos.Core (TxAux)
 
@@ -37,12 +36,9 @@ import Pos.Core (TxAux)
 --
 -- TODO: This is just a placeholder for now, we'll want all kinds of state
 -- in here.
-data PassiveWallet m = PassiveWallet {
-      -- | The data layer for the wallet calling the database.
-      passiveWalletLayer  :: PassiveWalletLayer m
-
+data PassiveWallet = PassiveWallet {
       -- | Send log message
-    , walletLogMessage    :: Severity -> Text -> IO ()
+      walletLogMessage :: Severity -> Text -> IO ()
     }
 
 -- | Allocate wallet resources
@@ -51,11 +47,10 @@ data PassiveWallet m = PassiveWallet {
 --
 -- TODO: Here and elsewhere we'll want some constraints on this monad here, but
 -- it shouldn't be too specific.
-bracketPassiveWallet :: forall m n a. (MonadMask m, Monad n)
+bracketPassiveWallet :: MonadMask m
                      => (Severity -> Text -> IO ())
-                     -> PassiveWalletLayer n
-                     -> (PassiveWallet n -> m a) -> m a
-bracketPassiveWallet walletLogMessage passiveWalletLayer =
+                     -> (PassiveWallet -> m a) -> m a
+bracketPassiveWallet walletLogMessage =
     bracket
       (return PassiveWallet{..})
       (\_ -> return ())
@@ -64,7 +59,7 @@ bracketPassiveWallet walletLogMessage passiveWalletLayer =
 --
 -- This is separate from allocating the wallet resources, and will only be
 -- called when the node is initialized (when run in the node proper).
-init :: forall m. PassiveWallet m -> IO ()
+init :: PassiveWallet -> IO ()
 init PassiveWallet{..} = do
     walletLogMessage Info "Wallet kernel initialized"
 
@@ -76,32 +71,31 @@ init PassiveWallet{..} = do
 --
 -- An active wallet can do everything the passive wallet can, but also
 -- send new transactions.
-data ActiveWallet m = ActiveWallet {
+data ActiveWallet = ActiveWallet {
       -- | The underlying passive wallet
-      walletPassive   :: PassiveWallet m
+      walletPassive   :: PassiveWallet
 
       -- | The wallet diffusion layer
     , walletDiffusion :: WalletDiffusion
     }
 
 -- | Initialize the active wallet
-bracketActiveWallet :: forall m n a. (MonadMask m, Monad n)
-                    => PassiveWallet n
+bracketActiveWallet :: MonadMask m
+                    => PassiveWallet
                     -> WalletDiffusion
-                    -> (ActiveWallet n -> m a) -> m a
+                    -> (ActiveWallet -> m a) -> m a
 bracketActiveWallet walletPassive walletDiffusion =
     bracket
       (return ActiveWallet{..})
       (\_ -> return ())
 
 -- | Submit a new pending transaction
-newPending :: forall m. ActiveWallet m -> TxAux -> IO ()
+newPending :: ActiveWallet -> TxAux -> IO ()
 newPending ActiveWallet{..} _tx = do
     walletLogMessage Error "TODO: Cardano.Wallet.Kernel.newPending"
   where
     PassiveWallet{..} = walletPassive
 
 -- | Return True if there are pending transactions
-hasPending :: forall m. ActiveWallet m -> IO Bool
+hasPending :: ActiveWallet -> IO Bool
 hasPending _ = return False
-

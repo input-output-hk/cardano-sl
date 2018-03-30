@@ -29,7 +29,8 @@ txCntInChainMemPoolToCSV f sp txCnt mp =
                 csvLine h (toTxType "SizeAfter" p) n ts (fromIntegral jlmSizeAfter)
   where
     csvLine :: MonadIO m => Handle -> String -> NodeId -> Timestamp -> Integer -> m ()
-    csvLine h txType node time txCount = liftIO $ hPutStrLn h $ show (fromIntegral time :: Integer) ++ "," ++ show txCount ++ "," ++ txType ++ "," ++ T.unpack node
+    csvLine h txType node time txCount = liftIO $ hPutStrLn h $ show (fromIntegral time :: Integer)
+        ++ "," ++ show txCount ++ "," ++ txType ++ "," ++ toString node
 
     draw :: MonadRandom m => m Bool
     draw = (<= sp) <$> getRandomR (0, 1)
@@ -65,4 +66,5 @@ focusToCSV f xs = withFile f WriteMode $ \h -> do
 
     csvLine :: Handle -> Timestamp -> Double -> Double -> NodeId -> String -> BlockHash -> IO ()
     csvLine h ts dt0 dt node t he =
-        hPutStrLn h $ show ts ++ "," ++ show dt0 ++ "," ++ show dt ++ "," ++ show node ++ "," ++ t ++ "," ++ toString he
+        hPutStrLn h $ show ts ++ "," ++ show dt0 ++ "," ++ show dt ++ "," ++ show node ++ "," ++ t
+            ++ "," ++ toString he

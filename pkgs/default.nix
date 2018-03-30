@@ -783,7 +783,7 @@ let
            homepage = "http://github.com/ryantm/hdbc-mysql";
            description = "MySQL driver for HDBC";
            license = "LGPL";
-         }) {inherit (pkgs) mysqlclient; inherit (pkgs) openssl;
+         }) {inherit (pkgs) mysqlclient; inherit (pkgs) openssl; 
 inherit (pkgs) zlib;};
       "HDBC-session" = callPackage
         ({ mkDerivation, base, HDBC, stdenv }:
@@ -2024,8 +2024,8 @@ inherit (pkgs) zlib;};
            description = "A binding to part of the Win32 library";
            license = stdenv.lib.licenses.bsd3;
            platforms = stdenv.lib.platforms.none;
-         }) {inherit (pkgs) advapi32; inherit (pkgs) gdi32;
-inherit (pkgs) shell32; inherit (pkgs) shfolder;
+         }) {inherit (pkgs) advapi32; inherit (pkgs) gdi32; 
+inherit (pkgs) shell32; inherit (pkgs) shfolder; 
 inherit (pkgs) user32; inherit (pkgs) winmm;};
       "Win32-extras" = callPackage
         ({ mkDerivation, base, imm32, msimg32, stdenv, Win32 }:
@@ -2095,7 +2095,7 @@ inherit (pkgs) user32; inherit (pkgs) winmm;};
            homepage = "https://github.com/xmonad/X11";
            description = "A binding to the X11 graphics library";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs.xorg) libXext; inherit (pkgs.xorg) libXinerama;
+         }) {inherit (pkgs.xorg) libXext; inherit (pkgs.xorg) libXinerama; 
 inherit (pkgs.xorg) libXrender;};
       "X11-xft" = callPackage
         ({ mkDerivation, base, libXft, stdenv, utf8-string, X11 }:
@@ -5505,7 +5505,7 @@ inherit (pkgs.xorg) libXrender;};
            doCheck = false;
            description = "Low-level bindings to GLFW OpenGL library";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs.xorg) libXext; inherit (pkgs.xorg) libXfixes;
+         }) {inherit (pkgs.xorg) libXext; inherit (pkgs.xorg) libXfixes; 
 inherit (pkgs) mesa;};
       "bindings-libzip" = callPackage
         ({ mkDerivation, base, bindings-DSL, libzip, stdenv }:
@@ -7482,13 +7482,14 @@ inherit (pkgs) mesa;};
          , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
          , cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking
          , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
-         , cardano-sl-util, cardano-sl-wallet, cassava, Chart, Chart-diagrams
-         , containers, cpphs, cryptonite, data-default, directory, ed25519
-         , fgl, filepath, foldl, formatting, Glob, graphviz, kademlia, lens
-         , lifted-async, log-warper, MonadRandom, mtl, neat-interpolation
-         , network-transport-tcp, optparse-applicative, optparse-generic
-         , parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe
-         , process, QuickCheck, random, random-shuffle, safe-exceptions
+         , cardano-sl-util, cardano-sl-wallet, cassava, Chart
+         , Chart-diagrams, containers, cpphs, cryptonite, data-default
+         , directory, ed25519, fgl, filepath, foldl, formatting, Glob
+         , graphviz, kademlia, lens, lifted-async, log-warper, MonadRandom
+         , mtl, neat-interpolation, network-transport-tcp
+         , optparse-applicative, optparse-generic, parsec, pipes
+         , pipes-bytestring, pipes-interleave, pipes-safe, process
+         , QuickCheck, random, random-shuffle, safe-exceptions
          , serokell-util, silently, stdenv, stm, string-conv, tabl, tar
          , text, time, time-units, universum, unix, unix-compat
          , unordered-containers, vector, yaml
@@ -7506,15 +7507,15 @@ inherit (pkgs) mesa;};
              cardano-sl-client cardano-sl-core cardano-sl-crypto cardano-sl-db
              cardano-sl-infra cardano-sl-lrc cardano-sl-networking
              cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
-             cardano-sl-wallet cassava Chart Chart-diagrams containers cryptonite
-             data-default directory ed25519 fgl filepath foldl formatting Glob
-             graphviz kademlia lens lifted-async log-warper MonadRandom mtl
-             neat-interpolation network-transport-tcp optparse-applicative
-             optparse-generic parsec pipes pipes-bytestring pipes-interleave
-             pipes-safe process QuickCheck random random-shuffle safe-exceptions
-             serokell-util silently stm string-conv tabl tar text time
-             time-units universum unix unix-compat unordered-containers vector
-             yaml
+             cardano-sl-wallet cassava Chart Chart-diagrams containers
+             cryptonite data-default directory ed25519 fgl filepath foldl
+             formatting Glob graphviz kademlia lens lifted-async log-warper
+             MonadRandom mtl neat-interpolation network-transport-tcp
+             optparse-applicative optparse-generic parsec pipes pipes-bytestring
+             pipes-interleave pipes-safe process QuickCheck random
+             random-shuffle safe-exceptions serokell-util silently stm
+             string-conv tabl tar text time time-units universum unix
+             unix-compat unordered-containers vector yaml
            ];
            executableToolDepends = [ cpphs ];
            doHaddock = false;
@@ -7625,8 +7626,8 @@ inherit (pkgs) mesa;};
          , cardano-sl-delegation, cardano-sl-generator, cardano-sl-infra
          , cardano-sl-lrc, cardano-sl-networking, cardano-sl-ssc
          , cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers
-         , cpphs, cryptonite, data-default, directory, dlist, ether
-         , exceptions, filepath, formatting, hashable, hspec, lens
+         , cpphs, cryptonite, data-default, directory, dlist, ekg-core
+         , ether, exceptions, filepath, formatting, hashable, hspec, lens
          , log-warper, memory, monad-control, MonadRandom, mtl, QuickCheck
          , quickcheck-instances, random, reflection, safe-exceptions
          , safecopy, semver, serokell-util, servant, servant-generic
@@ -7645,10 +7646,10 @@ inherit (pkgs) mesa;};
              cardano-sl-crypto cardano-sl-db cardano-sl-delegation
              cardano-sl-generator cardano-sl-infra cardano-sl-networking
              cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
-             containers cryptonite data-default directory dlist ether exceptions
-             filepath formatting hashable hspec lens log-warper memory
-             monad-control mtl QuickCheck quickcheck-instances random reflection
-             safe-exceptions safecopy semver serokell-util servant
+             containers cryptonite data-default directory dlist ekg-core ether
+             exceptions filepath formatting hashable hspec lens log-warper
+             memory monad-control mtl QuickCheck quickcheck-instances random
+             reflection safe-exceptions safecopy semver serokell-util servant
              servant-generic servant-multipart servant-server servant-swagger
              servant-swagger-ui stm swagger2 text text-format time time-units
              transformers universum unix unliftio unordered-containers wai
@@ -7660,8 +7661,8 @@ inherit (pkgs) mesa;};
              cardano-sl-crypto cardano-sl-db cardano-sl-delegation
              cardano-sl-generator cardano-sl-infra cardano-sl-lrc
              cardano-sl-networking cardano-sl-ssc cardano-sl-txp
-             cardano-sl-update cardano-sl-util containers data-default ether
-             formatting hspec lens log-warper MonadRandom mtl QuickCheck
+             cardano-sl-update cardano-sl-util containers data-default ekg-core
+             ether formatting hspec lens log-warper MonadRandom mtl QuickCheck
              serokell-util stm text-format universum unordered-containers
            ];
            testToolDepends = [ cpphs ];
@@ -14194,7 +14195,7 @@ inherit (pkgs) mesa;};
            homepage = "https://github.com/chrisdone/freenect";
            description = "Interface to the Kinect device";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs) freenect; inherit (pkgs) freenect_sync;
+         }) {inherit (pkgs) freenect; inherit (pkgs) freenect_sync; 
 inherit (pkgs) libfreenect;};
       "freer" = callPackage
         ({ mkDerivation, base, stdenv }:
@@ -14431,8 +14432,8 @@ inherit (pkgs) libfreenect;};
            doCheck = false;
            description = "A Haskell binding to a subset of the GD graphics library";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs) expat; inherit (pkgs) fontconfig;
-inherit (pkgs) freetype; inherit (pkgs) gd;
+         }) {inherit (pkgs) expat; inherit (pkgs) fontconfig; 
+inherit (pkgs) freetype; inherit (pkgs) gd; 
 inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
       "general-games" = callPackage
         ({ mkDerivation, base, monad-loops, MonadRandom, random
@@ -15303,9 +15304,9 @@ inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
            description = "manage files with git, without checking their contents into git";
            license = stdenv.lib.licenses.gpl3;
            platforms = [ "i686-linux" "x86_64-linux" ];
-         }) {inherit (pkgs) bup; inherit (pkgs) curl; inherit (pkgs) git;
-inherit (pkgs) gnupg; inherit (pkgs) lsof; inherit (pkgs) openssh;
-inherit (pkgs) perl; inherit (pkgs) rsync; inherit (pkgs) wget;
+         }) {inherit (pkgs) bup; inherit (pkgs) curl; inherit (pkgs) git; 
+inherit (pkgs) gnupg; inherit (pkgs) lsof; inherit (pkgs) openssh; 
+inherit (pkgs) perl; inherit (pkgs) rsync; inherit (pkgs) wget; 
 inherit (pkgs) which;};
       "github" = callPackage
         ({ mkDerivation, aeson, aeson-compat, base, base-compat

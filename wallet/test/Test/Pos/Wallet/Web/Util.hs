@@ -54,9 +54,9 @@ import           Pos.Util.UserSecret (mkGenesisWalletUserSecret)
 import           Pos.Wallet.Web.ClientTypes (Addr, CId, Wal, encToCId)
 import           Pos.Wallet.Web.Methods.Restore (importWalletDo)
 
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason (ApplyBlock))
 import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB, genBlockGenParams)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
-import           Pos.Util.JsonLog.Events (MemPoolModifyReason(ApplyBlock))
 
 ----------------------------------------------------------------------------
 -- Block utils

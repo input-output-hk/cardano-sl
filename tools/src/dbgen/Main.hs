@@ -29,7 +29,7 @@ import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyD
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
                                        withCompileInfo)
-import           Pos.Util.JsonLog (jsonLogConfigFromHandle)
+import           Pos.Util.JsonLog.Events (jsonLogConfigFromHandle)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web (AddrCIdHashes (..), WalletWebModeContext (..))
 import           Pos.Wallet.Web.State.Acidic (closeState, openState)

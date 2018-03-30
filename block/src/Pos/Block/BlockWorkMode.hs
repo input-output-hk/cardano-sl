@@ -30,9 +30,9 @@ import           Pos.Shutdown.Class (HasShutdownContext)
 import           Pos.StateLock (StateLock, StateLockMetrics)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal, TxpHolderTag)
 import           Pos.Update.Context (UpdateContext)
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Util.TimeWarp (CanJsonLog)
 import           Pos.Util.Util (HasLens, HasLens')
-import           Pos.Util.JsonLog.Events (MemPoolModifyReason)
 
 -- | These instances are implemented in @Pos.Binary.Communication@,
 -- @Pos.Communication.Message@ and @Pos.Communication.Limits@, which

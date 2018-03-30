@@ -1,7 +1,7 @@
 #!/usr/bin/env stack
 -- stack script --resolver lts-9.17 --package conduit-combinators --package conduit-extra --package containers --package bytestring --package unix
 {-# LANGUAGE ExtendedDefaultRules #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings    #-}
 
 {- running GHCi
     stack ghci --package conduit-combinators --package text --package conduit-extra --package containers --package bytestring --package unix
@@ -12,23 +12,17 @@
 module ParseBlocks
 where
 
-import           Prelude hiding (putStrLn, isPrefixOf)
-import           Control.Monad (forM)
 import           Conduit
--- import qualified Data.Conduit.Text as CT
+import           Control.Monad (forM)
+import           Prelude hiding (isPrefixOf, putStrLn)
 import qualified Data.Conduit.Binary as CB
--- import qualified Data.Conduit.List as CL
-import qualified Data.List as L (sortBy, length, map)
-import           Data.Map as M
 import           Data.ByteString.Char8 hiding (head)
+import qualified Data.List as L (length, map, sortBy)
+import           Data.Map as M
 import           System.Posix.Env.ByteString (getArgs)
 
 type BlockRel = M.Map ByteString ByteString
 type BlockPair = (ByteString, ByteString)
-
-{-
-list2map ["(\"aaaa\",\"bbbb\")", "(\"cccc\",\"dddd\")"]
--}
 
 interpretBP :: ByteString -> BlockPair
 interpretBP s = read s'
@@ -42,7 +36,7 @@ successors n br h = do
   putStrLn $ ((pack . show) n) `append` " : " `append` h
   case M.lookup h br of
     Just suc -> successors (n + 1) br suc
-    Nothing -> return (n)
+    Nothing  -> return (n)
 
 findBlock rb h =
   case M.toList $ M.filter (\v -> h `isPrefixOf` v) rb of
@@ -77,7 +71,7 @@ main = do
                                      return $ (n, h)
                            )
         case L.sortBy (\(v1,v2) (w1,w2) -> (-v1) `compare` (-w1)) forks of
-          [] -> print "[]"
+          []        -> print "[]"
           ((n,h):_) -> putStrLn $ ((pack . show) n) `append` " " `append` h
   return ()
 

@@ -18,8 +18,9 @@ import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Slotting (MonadSlots (getCurrentSlot), getSlotStart)
 import           Pos.StateLock (Priority (..), StateLock, StateLockMetrics, withStateLock)
 import           Pos.Txp.Logic.Local (txNormalizeAbstract, txProcessTransactionAbstract)
-import           Pos.Txp.MemState (MempoolExt, MemPoolModifyReason (..), TxpLocalWorkMode, getTxpExtra, withTxpLocalData)
+import           Pos.Txp.MemState (MempoolExt, TxpLocalWorkMode, getTxpExtra, withTxpLocalData)
 import           Pos.Txp.Toil (ToilVerFailure (..), Utxo)
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..))
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Util (HasLens')
 

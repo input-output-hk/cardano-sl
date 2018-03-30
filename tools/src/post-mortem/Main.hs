@@ -2,7 +2,7 @@
 
 import           Universum
 
-import           qualified Data.ByteString.Lazy.Char8 as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSL
 import           Data.Csv as C (encode)
 import           Data.List (last)
 import qualified Data.Map.Strict as M

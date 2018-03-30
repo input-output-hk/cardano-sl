@@ -8,8 +8,8 @@ module Pos.Util.JsonLog.Events
        , JLTxR (..)
        , JLMemPool (..)
        , JLBlock (..)
-       , JLTimedEvent(..)
-       , JsonLogConfig(..)
+       , JLTimedEvent (..)
+       , JsonLogConfig (..)
        , MemPoolModifyReason (..)
        , appendJL
        , jlAdoptedBlock

@@ -59,6 +59,7 @@ import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure
                           txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet, utxoToLookup,
                           withTxpLocalData)
 import           Pos.Util (eitherToThrow, maybeThrow)
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Util.Util (HasLens')
 
 ----------------------------------------------------------------------

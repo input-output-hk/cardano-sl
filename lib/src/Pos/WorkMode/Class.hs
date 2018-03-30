@@ -41,11 +41,12 @@ import           Pos.Slotting.Class (MonadSlots)
 import           Pos.Ssc (HasSscConfiguration)
 import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.StateLock (StateLock, StateLockMetrics)
-import           Pos.Txp.MemState (MempoolExt, MemPoolModifyReason, MonadTxpLocal, MonadTxpMem)
+import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Params (UpdateParams)
 import           Pos.Util (HasLens, HasLens')
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Util.TimeWarp (CanJsonLog)
 
 -- | Bunch of constraints to perform work for real world distributed system.

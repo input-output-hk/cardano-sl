@@ -56,7 +56,7 @@ import           Pos.Wallet.Web.Methods.Restore (importWalletDo)
 
 import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB, genBlockGenParams)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
-import           Pos.Txp (MemPoolModifyReason(ApplyBlock))
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason(ApplyBlock))
 
 ----------------------------------------------------------------------------
 -- Block utils

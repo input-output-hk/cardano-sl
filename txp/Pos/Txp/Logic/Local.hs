@@ -44,6 +44,7 @@ import           Pos.Txp.Toil (ExtendedLocalToilM, LocalToilState (..), MemPool,
                                ToilVerFailure (..), UndoMap, Utxo, UtxoLookup, UtxoModifier,
                                extendLocalToilM, mpLocalTxs, normalizeToil, processTx, utxoToLookup)
 import           Pos.Txp.Topsort (topsortTxs)
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Util.Util (HasLens')
 
 type TxpProcessTransactionMode ctx m =

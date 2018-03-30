@@ -23,6 +23,9 @@ module Pos.Client.Txp.History
        , saveTxDefault
 
        , txHistoryListToMap
+
+       -- * Unused (٩◔̯◔۶)
+       , deriveAddrHistory
        ) where
 
 import           Universum
@@ -40,23 +43,25 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Block.Base (genesisBlock0)
 import           Pos.Core (Address, ChainDifficulty, HasConfiguration, Timestamp (..), difficultyL,
-                           headerHash, protocolMagic, GenesisHash (..), genesisHash)
+                           headerHash)
 import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPayload)
 import           Pos.Crypto (WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
 import           Pos.DB.Block (getBlock)
 import qualified Pos.GState as GS
 import           Pos.KnownPeers (MonadFormatPeers (..))
-import           Pos.Lrc.Genesis (genesisLeaders)
 import           Pos.Network.Types (HasNodeType)
 import           Pos.Reporting (HasReportingContext)
 import           Pos.Slotting (MonadSlots, getSlotStartPure, getSystemStartM)
 import           Pos.StateLock (StateLock, StateLockMetrics)
-import           Pos.Txp (MempoolExt, MemPoolModifyReason, MonadTxpLocal, MonadTxpMem, MonadUtxo, MonadUtxoRead, ToilT,
-                          Tx (..), TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..),
-                          applyTxToUtxo, evalToilTEmpty, flattenTxPayload, genesisUtxo, getLocalTxs,
-                          runDBToil, topsortTxs, txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet)
+import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure, Tx (..),
+                          TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..),
+                          UtxoLookup, UtxoM, UtxoModifier, applyTxToUtxo, buildUtxo, evalUtxoM,
+                          flattenTxPayload, genesisUtxo, getLocalTxs, runUtxoM, topsortTxs,
+                          txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet, utxoToLookup,
+                          withTxpLocalData)
 import           Pos.Util (eitherToThrow, maybeThrow)
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Util.Util (HasLens')
 
 ----------------------------------------------------------------------
@@ -126,6 +131,14 @@ getRelatedTxsByAddrs
     -> [(WithHash Tx, TxWitness)]
     -> UtxoM (Map TxId TxHistoryEntry)
 getRelatedTxsByAddrs addrs = getTxsByPredicate $ any (`elem` addrs)
+
+-- | Given a full blockchain, derive address history and Utxo
+-- TODO: Such functionality will still be useful for merging
+-- blockchains when wallet state is ready, but some metadata for
+-- Tx will be required.
+deriveAddrHistory :: [Address] -> [Block] -> UtxoM (Map TxId TxHistoryEntry)
+deriveAddrHistory addrs chain =
+    foldrM (flip $ deriveAddrHistoryBlk addrs $ const Nothing) mempty chain
 
 deriveAddrHistoryBlk
     :: [Address]
@@ -201,7 +214,7 @@ getBlockHistoryDefault
     :: forall ctx m. (HasConfiguration, TxHistoryEnv ctx m)
     => [Address] -> m (Map TxId TxHistoryEntry)
 getBlockHistoryDefault addrs = do
-    let bot      = headerHash (genesisBlock0 protocolMagic (GenesisHash genesisHash) genesisLeaders)
+    let bot      = headerHash genesisBlock0
     sd          <- GS.getSlottingData
     systemStart <- getSystemStartM
 

@@ -1,22 +1,14 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Type stored in the Txp holder.
 
 module Pos.Txp.MemState.Types
        ( GenericTxpLocalData (..)
        , TxpLocalData
-       , TxpLocalDataPure
-       , MemPoolModifyReason (..)
-       , JLEvent (..)
-       , JLMemPool (..)
        ) where
 
 import           Universum
 
 import           Pos.Core.Common                  (HeaderHash)
 import           Pos.Txp.Toil.Types               (MemPool, UndoMap, UtxoModifier)
-import           Pos.Util.JsonLog.Events          (MemPoolModifyReason (..), JLEvent (..),
-                                                   JLMemPool (..))
 
 -- | LocalData of transactions processing.
 -- There are two invariants which must hold for local data
@@ -39,6 +31,3 @@ data GenericTxpLocalData extra = TxpLocalData
 
 -- | Memory state of Txp. This version is used by actual Txp implementation.
 type TxpLocalData = GenericTxpLocalData ()
-
--- | Pure version of TxpLocalData.
-type TxpLocalDataPure = GenericTxpLocalDataPure ()

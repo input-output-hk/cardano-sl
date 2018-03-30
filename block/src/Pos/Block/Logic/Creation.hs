@@ -54,8 +54,8 @@ import           Pos.Ssc.Logic (sscGetLocalPayload)
 import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.Ssc.State (sscResetLocal)
 import           Pos.StateLock (Priority (..), StateLock, StateLockMetrics, modifyStateLock)
-import           Pos.Txp (MempoolExt, MemPoolModifyReason (..), MonadTxpLocal (..),
-                          MonadTxpMem, clearTxpMemPool, txGetPayload)
+import           Pos.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem, clearTxpMemPool,
+                          txGetPayload, withTxpLocalData)
 import           Pos.Txp.Base (emptyTxPayload)
 import           Pos.Update (UpdateContext)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
@@ -65,6 +65,7 @@ import           Pos.Update.Logic (clearUSMemPool, usCanCreateBlock, usPreparePa
 import           Pos.Util (_neHead)
 import           Pos.Util.LogSafe (logInfoS)
 import           Pos.Util.Util (HasLens (..), HasLens')
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..))
 
 -- | A set of constraints necessary to create a block from mempool.
 type MonadCreateBlock ctx m

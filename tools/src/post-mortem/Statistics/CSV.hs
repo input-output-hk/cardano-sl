@@ -8,8 +8,7 @@ import qualified Data.Text as T
 import           System.IO (hPutStrLn)
 import           System.Random (mkStdGen)
 
-import           Pos.Txp.MemState.Types (MemPoolModifyReason (..))
-import           Pos.Util.JsonLog (JLMemPool (..))
+import           Pos.Util.JsonLog.Events (JLMemPool (..), MemPoolModifyReason (..))
 import           Statistics.Focus (Focus (..))
 import           Types
 import           Universum

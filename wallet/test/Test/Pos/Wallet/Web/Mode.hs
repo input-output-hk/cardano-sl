@@ -78,14 +78,14 @@ import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
 import           Pos.StateLock (StateLock, StateLockMetrics (..), newStateLock)
-import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), MemPoolModifyReason,
-                          TxpGlobalSettings, TxpHolderTag, recordTxpMetrics,
-                          txNormalize, txProcessTransactionNoLock, txpTip, txpMemPool)
+import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), TxpGlobalSettings,
+                          TxpHolderTag, recordTxpMetrics, txNormalize, txProcessTransactionNoLock,
+                          txpTip, txpMemPool)
 import qualified System.Metrics as Metrics
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.JsonLog (HasJsonLogConfig (..), JsonLogConfig (..), jsonLogDefault)
+import           Pos.Util.JsonLog.Events (HasJsonLogConfig (..), JsonLogConfig (..), jsonLogDefault)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp (CanJsonLog (..))

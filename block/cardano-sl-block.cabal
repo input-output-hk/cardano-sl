@@ -50,9 +50,6 @@ library
                         Pos.Binary.Block.Types
                         Pos.Binary.Block.Network
 
-                        -- Utilities
-                        Pos.Util.JsonLog
-
                         -- Exposed for tests
                         Pos.Block.Logic.VAR
                         Pos.Block.Logic.Integrity

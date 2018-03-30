@@ -54,13 +54,14 @@ import           Pos.Network.Types (HasNodeType)
 import           Pos.Reporting (HasReportingContext)
 import           Pos.Slotting (MonadSlots, getSlotStartPure, getSystemStartM)
 import           Pos.StateLock (StateLock, StateLockMetrics)
-import           Pos.Txp (MempoolExt, MemPoolModifyReason, MonadTxpLocal, MonadTxpMem, ToilVerFailure, Tx (..),
+import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure, Tx (..),
                           TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..),
                           UtxoLookup, UtxoM, UtxoModifier, applyTxToUtxo, buildUtxo, evalUtxoM,
                           flattenTxPayload, genesisUtxo, getLocalTxs, runUtxoM, topsortTxs,
                           txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet, utxoToLookup,
                           withTxpLocalData)
 import           Pos.Util (eitherToThrow, maybeThrow)
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Util.Util (HasLens')
 
 ----------------------------------------------------------------------

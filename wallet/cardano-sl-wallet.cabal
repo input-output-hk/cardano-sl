@@ -131,6 +131,7 @@ library
                       , data-default
                       , directory
                       , dlist
+                      , ekg-core
                       , ether
                       , exceptions
                       , filepath

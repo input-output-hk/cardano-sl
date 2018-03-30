@@ -48,7 +48,7 @@ import           Pos.Ssc.Toss (SscTag (..), TossModifier, tmCertificates, tmComm
                                tmShares)
 import           Pos.Ssc.Types (ldModifier)
 import           Pos.Txp (MemPool (..))
-import           Pos.Txp.MemState (JLTxR, getMemPool, withTxpLocalData)
+import           Pos.Txp.MemState (getMemPool, withTxpLocalData)
 import           Pos.Txp.Network.Listeners (TxpMode)
 import qualified Pos.Txp.Network.Listeners as Txp (handleTxDo)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
@@ -57,6 +57,7 @@ import qualified Pos.Update.Logic.Local as Update (getLocalProposalNVotes, getLo
 import           Pos.Update.Mode (UpdateMode)
 import qualified Pos.Update.Network.Listeners as Update (handleProposal, handleVote)
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
+import           Pos.Util.JsonLog.Events (JLTxR)
 import           Pos.Util.Util (HasLens (..), lensOf)
 
 

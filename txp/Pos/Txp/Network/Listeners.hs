@@ -23,11 +23,12 @@ import           Pos.Communication.Limits.Types (MessageLimited)
 import qualified Pos.Communication.Relay as Relay
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Crypto (hash)
-import           Pos.Txp.MemState ( JLTxR (..), MempoolExt, MonadTxpLocal, MonadTxpMem, txpProcessTx)
+import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem, txpProcessTx)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 import           Pos.Txp.Toil.Types (MemPool (..))
+import           Pos.Util.JsonLog.Events (JLTxR (..))
 
-txInvReqDataParams
+{-txInvReqDataParams
     :: TxpMode ctx m
     => (JLTxR -> m ())  -- ^ How to log transactions
     -> InvReqDataParams (Tagged TxMsgContents TxId) TxMsgContents m
@@ -57,7 +58,7 @@ txRelays logTx = pure $
                            (map tag . HM.keys . _mpLocalTxs <$> getMemPool)) $
                (txInvReqDataParams logTx)
   where
-    tag = tagWith (Proxy :: Proxy TxMsgContents)
+    tag = tagWith (Proxy :: Proxy TxMsgContents) -}
 
 -- Real tx processing
 -- CHECK: @handleTxDo

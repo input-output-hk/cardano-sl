@@ -50,7 +50,7 @@ import           Pos.Ssc.Types (SscState)
 import           Pos.Txp (GenericTxpLocalData, HasTxpConfiguration, MempoolExt, MonadTxpLocal (..),
                           TxpHolderTag, txNormalize, txProcessTransaction)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.JsonLog (HasJsonLogConfig (..), JsonLogConfig, jsonLogDefault)
+import           Pos.Util.JsonLog.Events (HasJsonLogConfig (..), JsonLogConfig, jsonLogDefault)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)

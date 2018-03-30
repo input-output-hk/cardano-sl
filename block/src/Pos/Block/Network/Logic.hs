@@ -53,12 +53,11 @@ import           Pos.Recovery.Info (recoveryInProgress)
 import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Reporting.Methods (reportMisbehaviour)
 import           Pos.StateLock (Priority (..), modifyStateLock)
-import           Pos.Txp.MemState.Types (MemPoolModifyReason (..))
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
                                   _OldestFirst)
-import           Pos.Util.JsonLog (jlAdoptedBlock)
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..), jlAdoptedBlock)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.Util (lensOf)
 

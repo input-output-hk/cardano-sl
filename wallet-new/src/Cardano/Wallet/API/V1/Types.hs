@@ -12,8 +12,7 @@
 -- language extension here.
 {-# LANGUAGE NoPatternSynonyms          #-}
 
--- TODO: Banish NonEmpty orphan when https://github.com/GetShopTV/swagger2/pull/141
--- is merged
+-- See note [Version orphan]
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Cardano.Wallet.API.V1.Types (
@@ -108,6 +107,7 @@ import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Cardano.Wallet.Util (showApiUtcTime)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
+import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
 import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
 import qualified Pos.Client.Txp.Util as Core
@@ -145,7 +145,13 @@ type IsPropertiesMap m =
   (IxValue m ~ Referenced Schema, Index m ~ Text, At m, HasProperties Schema m)
 
 genericSchemaDroppingPrefix
-    :: forall a m proxy. (Generic a, ToJSON a, Arbitrary a, GToSchema (Rep a), IsPropertiesMap m)
+    :: forall a m proxy.
+    ( Generic a, ToJSON a, Arbitrary a, GToSchema (Rep a), IsPropertiesMap m
+    , GenericHasSimpleShape
+        a
+        "genericDeclareNamedSchemaUnrestricted"
+        (GenericShape (Rep a))
+    )
     => String -- ^ Prefix to drop on each constructor tag
     -> ((Index m -> Text -> m -> m) -> m -> m) -- ^ Callback update to attach descriptions to underlying properties
     -> proxy a -- ^ Underlying data-type proxy
@@ -308,16 +314,6 @@ instance ToSchema (V1 Core.Coin) where
         pure $ NamedSchema (Just "V1Coin") $ mempty
             & type_ .~ SwaggerNumber
             & maximum_ .~ Just (fromIntegral Core.maxCoinVal)
-
--- Orphan instance copied from a PR.
---
--- TODO: remove and use upstream when this PR is merged
--- <https://github.com/GetShopTV/swagger2/pull/141>
-instance ToSchema a => ToSchema (NonEmpty a) where
-     declareNamedSchema _ = do
-        listSchema <- declareSchema (Proxy :: Proxy [a])
-        pure $ NamedSchema Nothing $ listSchema
-            & minItems .~ Just 1
 
 instance ToJSON (V1 Core.Address) where
     toJSON (V1 c) = String $ sformat addressF c
@@ -1278,11 +1274,16 @@ data NodeSettings = NodeSettings {
    , setGitRevision    :: !Text
    } deriving (Show, Eq, Generic)
 
--- ORPHAN! TODO: Newtype this?
+-- See note [Version Orphan]
 instance ToSchema Version where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "Version") $ mempty
             & type_ .~ SwaggerString
+
+-- Note [Version Orphan]
+-- I have opened a PR to add an instance of 'Version' to the swagger2
+-- library. When the PR is merged, we can delete the instance here and remove the warning from the file.
+-- PR: https://github.com/GetShopTV/swagger2/pull/152
 
 instance ToJSON (V1 Core.ApplicationName) where
     toJSON (V1 svAppName) = toJSON (Core.getApplicationName svAppName)
@@ -1507,7 +1508,7 @@ data NodeInfo = NodeInfo {
      nfoSyncProgress          :: !SyncProgress
    , nfoBlockchainHeight      :: !(Maybe BlockchainHeight)
    , nfoLocalBlockchainHeight :: !BlockchainHeight
-   , nfoLocalTimeInformation   :: !TimeInfo
+   , nfoLocalTimeInformation  :: !TimeInfo
    } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''NodeInfo
@@ -1522,12 +1523,8 @@ instance ToSchema NodeInfo where
     )
 
 instance Arbitrary NodeInfo where
-    -- TODO(matt.parsons): The Swagger spec doesn't understand optional/maybe values for
-    -- some reason, so we create Just values instead.
-    --
-    -- This is fixed in this issue: https://github.com/GetShopTV/swagger2/issues/142
     arbitrary = NodeInfo <$> arbitrary
-                         <*> map Just arbitrary
+                         <*> arbitrary
                          <*> arbitrary
                          <*> arbitrary
 

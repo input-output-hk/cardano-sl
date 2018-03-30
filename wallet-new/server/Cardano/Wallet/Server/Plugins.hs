@@ -9,6 +9,7 @@ module Cardano.Wallet.Server.Plugins (
     , conversation
     , legacyWalletBackend
     , walletBackend
+    , walletDocumentation
     , resubmitterPlugin
     , notifierPlugin
     ) where
@@ -29,13 +30,13 @@ import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode
 import           Data.Aeson
 import           Formatting (build, sformat, (%))
 import           Mockable
-import           Network.HTTP.Types.Status (badRequest400)
 import           Network.HTTP.Types (hContentType)
+import           Network.HTTP.Types.Status (badRequest400)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
+import           Network.Wai.Handler.Warp (defaultSettings, setOnExceptionResponse)
 import           Network.Wai.Middleware.Cors (cors, corsMethods, corsRequestHeaders,
                                               simpleCorsResourcePolicy, simpleMethods)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
-import           Network.Wai.Handler.Warp (defaultSettings, setOnExceptionResponse)
 import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.Web (cleanupAcidStatePeriodically)
 import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)
@@ -52,7 +53,8 @@ import           Pos.Configuration (walletProductionApi, walletTxCreationDisable
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
-import           Pos.Wallet.Web.Server.Launcher (walletServeImpl, walletServerOuts)
+import           Pos.Wallet.Web.Server.Launcher (walletDocumentationImpl, walletServeImpl,
+                                                 walletServerOuts)
 import           Pos.Wallet.Web.State (askWalletDB)
 import           Pos.Web (serveWeb)
 import           Pos.Worker.Types (WorkerSpec, worker)
@@ -81,6 +83,26 @@ conversation wArgs = (, mempty) $ map (ActionSpec . const) (pluginsMonitoringApi
     pluginsMonitoringApi WalletBackendParams {..}
         | enableMonitoringApi = [serveWeb monitoringApiPort walletTLSParams]
         | otherwise = []
+
+walletDocumentation
+    :: (HasConfigurations, HasCompileInfo)
+    => WalletBackendParams
+    -> Plugin WalletWebMode
+walletDocumentation WalletBackendParams {..} =
+    first one $ worker walletServerOuts $ \_ ->
+        walletDocumentationImpl application walletDocAddress tls (Just defaultSettings)
+  where
+    application :: WalletWebMode Application
+    application = do
+        let app =
+                if isDebugMode walletRunMode then
+                    Servant.serve API.walletDevDocAPI LegacyServer.walletDevDocServer
+                else
+                    Servant.serve API.walletDocAPI LegacyServer.walletDocServer
+        return $ withMiddleware walletRunMode app
+
+    tls =
+        if isDebugMode walletRunMode then Nothing else walletTLSParams
 
 -- | A @Plugin@ to start the wallet backend API.
 legacyWalletBackend :: (HasConfigurations, HasCompileInfo)

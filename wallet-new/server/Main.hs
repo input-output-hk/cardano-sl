@@ -82,6 +82,7 @@ actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
     plugins :: (HasConfigurations, HasCompileInfo) => Plugins.Plugin WalletWebMode
     plugins = mconcat [ Plugins.conversation wArgs
                       , Plugins.legacyWalletBackend wArgs
+                      , Plugins.walletDocumentation wArgs
                       , Plugins.acidCleanupWorker wArgs
                       , Plugins.resubmitterPlugin
                       , Plugins.notifierPlugin

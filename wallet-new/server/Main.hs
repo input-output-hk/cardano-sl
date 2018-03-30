@@ -95,6 +95,7 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
     plugins ntpStatus =
         mconcat [ Plugins.conversation wArgs
                 , Plugins.legacyWalletBackend wArgs ntpStatus
+                , Plugins.walletDocumentation wArgs
                 , Plugins.acidCleanupWorker wArgs
                 , Plugins.syncWalletWorker
                 , Plugins.resubmitterPlugin

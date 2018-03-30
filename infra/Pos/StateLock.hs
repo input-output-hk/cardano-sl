@@ -1,5 +1,5 @@
+{-# LANGUAGE RankNTypes       #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE RankNTypes #-}
 {-|
 Module:      Pos.StateLock
 Description: A lock on the local state of a node
@@ -26,14 +26,13 @@ module Pos.StateLock
 
 import           Universum
 
-import           Control.Monad.Catch              (MonadMask)
-import           Data.Aeson.Types                 (Value, ToJSON (..))
-import           Data.Time.Units                  (Microsecond)
-import           JsonLog                          (CanJsonLog (..))
-import           System.Mem                       (getAllocationCounter)
-import           Mockable                         (CurrentTime, Mockable, currentTime)
-import           System.Wlog                      (LoggerNameBox, WithLogger,
-                                                   askLoggerName, usingLoggerName)
+import           Control.Monad.Catch (MonadMask)
+import           Data.Aeson.Types (ToJSON (..), Value)
+import           Data.Time.Units (Microsecond)
+import           JsonLog (CanJsonLog (..))
+import           Mockable (CurrentTime, Mockable, currentTime)
+import           System.Mem (getAllocationCounter)
+import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName, usingLoggerName)
 
 import           Pos.Core (HeaderHash)
 import           Pos.Util.Concurrent (modifyMVar, withMVar)

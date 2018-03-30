@@ -1,14 +1,6 @@
 {-# LANGUAGE Rank2Types      #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 -- | Module which provides `MonadWalletWebMode` instance for tests
@@ -80,12 +72,12 @@ import           Pos.Ssc.Types (SscState)
 import           Pos.StateLock (StateLock, StateLockMetrics (..), newStateLock)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), TxpGlobalSettings,
                           TxpHolderTag, recordTxpMetrics, txNormalize, txProcessTransactionNoLock,
-                          txpTip, txpMemPool)
-import qualified System.Metrics as Metrics
+                          txpMemPool, txpTip)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.JsonLog.Events (HasJsonLogConfig (..), JsonLogConfig (..), jsonLogDefault)
+import           Pos.Util.JsonLog.Events (HasJsonLogConfig (..), JsonLogConfig (..),
+                                          MemPoolModifyReason, jsonLogDefault)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
@@ -95,15 +87,16 @@ import           Pos.Wallet.Redirect (applyLastUpdateWebWallet, blockchainSlotDu
                                       connectedPeersWebWallet, localChainDifficultyWebWallet,
                                       networkChainDifficultyWebWallet, txpNormalizeWebWallet,
                                       txpProcessTxWebWallet, waitForUpdateWebWallet)
+import qualified System.Metrics as Metrics
 
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..),
                                         WalletMempoolExt)
 import           Pos.Wallet.Web.ClientTypes (AccountId)
+import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
 import           Pos.Wallet.Web.Mode (getBalanceDefault, getNewAddressWebWallet, getOwnUtxosDefault)
 import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, openMemState)
 import           Pos.Wallet.Web.Tracking.BListener (onApplyBlocksWebWallet,
                                                     onRollbackBlocksWebWallet)
-import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext (..), BlockTestContextTag,
@@ -164,8 +157,8 @@ data WalletTestContext = WalletTestContext
     -- ^ Stub
     , wtcSentTxs          :: !(TVar [TxAux])
     -- ^ Sent transactions via MonadWalletSendActions
-    , wtcSyncQueue        :: !SyncQueue
-    -- ^ STM queue for wallet sync requests.
+    , wtcHashes           :: !AddrCIdHashes
+    -- ^ Address hashes ref
     , wtcSlottingStateVar :: SimpleSlottingStateVar
     -- ^ A mutable cell with SlotId
     }
@@ -205,7 +198,7 @@ initWalletTestContext WalletTestParams {..} callback =
             wtcConnectedPeers <- ConnectedPeers <$> STM.newTVarIO mempty
             wtcLastKnownHeader <- STM.newTVarIO Nothing
             wtcSentTxs <- STM.newTVarIO mempty
-            wtcSyncQueue <- STM.newTQueueIO
+            wtcHashes <- AddrCIdHashes <$> newIORef mempty
             wtcSlottingStateVar <- mkSimpleSlottingStateVar
             pure WalletTestContext {..}
         callback wtc
@@ -256,12 +249,11 @@ walletPropertySpec description wp = prop description (walletPropertyToProperty a
 ----------------------------------------------------------------------------
 -- Instances derived from BlockTestContext
 ----------------------------------------------------------------------------
+instance HasLens AddrCIdHashes WalletTestContext AddrCIdHashes where
+    lensOf = wtcHashes_L
 
 instance HasLens BlockTestContextTag WalletTestContext BlockTestContext where
     lensOf = wtcBlockTestContext_L
-
-instance HasLens SyncQueue WalletTestContext SyncQueue where
-    lensOf = wtcSyncQueue_L
 
 instance HasAllSecrets WalletTestContext where
     allSecrets = wtcBlockTestContext_L . allSecrets

@@ -46,7 +46,8 @@ import           Pos.Shutdown (HasShutdownContext, waitForShutdown)
 import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.JsonLog.Events (JLEvent (JLTxReceived), JsonLogConfig (..), jsonLogConfigFromHandle)
+import           Pos.Util.JsonLog.Events (JLEvent (JLTxReceived), JsonLogConfig (..),
+                                          jsonLogConfigFromHandle)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 

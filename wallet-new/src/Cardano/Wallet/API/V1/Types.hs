@@ -1487,11 +1487,7 @@ instance ToSchema TimeInfo where
           <> "unavailable.")
 
 instance Arbitrary TimeInfo where
-    -- TODO(matt.parsons): The Swagger spec doesn't understand optional/maybe values for
-    -- some reason, so we create Just values instead.
-    --
-    -- This is fixed in this issue: https://github.com/GetShopTV/swagger2/issues/142
-    arbitrary = TimeInfo . Just <$> arbitrary
+    arbitrary = TimeInfo <$> arbitrary
 
 deriveSafeBuildable ''TimeInfo
 

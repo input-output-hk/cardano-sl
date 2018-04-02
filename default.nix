@@ -7,6 +7,7 @@ in
 , buildId ? null
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
 # profiling slows down performance by 50% so we don't enable it by default
+, doCheck ? true
 , enableProfiling ? false
 , enableDebugging ? false
 , allowCustomConfig ? true
@@ -87,6 +88,8 @@ let
         # TODO: DEVOPS-355
         dontStrip = true;
         configureFlags = (args.configureFlags or []) ++ [ "--ghc-options=-g --disable-executable-stripping --disable-library-stripping" "--profiling-detail=toplevel-functions"];
+      } // optionalAttrs (doCheck == false) {
+        inherit doCheck;
       });
     };
   });

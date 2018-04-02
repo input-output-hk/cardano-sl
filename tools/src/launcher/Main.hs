@@ -20,12 +20,13 @@ import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, pol
                                                        withAsync, withAsyncWithUnmask)
 import           Control.Exception.Safe (catchAny, handle, mask_, tryAny)
 import           Control.Lens (makeLensesWith)
-import           Data.Aeson (FromJSON, Value (Array, Bool, Object), genericParseJSON, withObject)
+import qualified Data.Aeson as AE
+import           Data.Aeson (FromJSON, Value (Array, Bool, Object), fromJSON, genericParseJSON, withObject)
 import qualified Data.ByteString.Lazy as BS.L
 import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
 import           Data.Maybe (isNothing)
-import qualified Data.Text as T (replace)
+import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Time.Units (Second, convertUnit)
 import           Data.Version (showVersion)
@@ -38,7 +39,7 @@ import           Options.Applicative (Parser, ParserInfo, ParserResult (..), def
                                       progDesc, renderFailure, short, strOption)
 import           Serokell.Aeson.Options (defaultOptions)
 import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
-import           System.Environment (getEnv, getExecutablePath, getProgName)
+import           System.Environment (getEnv, setEnv, lookupEnv, getExecutablePath, getProgName)
 import           System.Exit (ExitCode (..))
 import           System.FilePath (takeDirectory, (</>))
 import qualified System.IO as IO
@@ -48,6 +49,10 @@ import           System.Timeout (timeout)
 import           System.Wlog (logError, logInfo, logNotice, logWarning)
 import qualified System.Wlog as Log
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
+import qualified Text.Parser.Char                 as P
+import qualified Text.Parser.Combinators          as P
+import qualified Text.Parser.Token                as P
+import qualified Text.Trifecta                    as P
 
 #ifdef mingw32_HOST_OS
 import qualified System.IO.Silently as Silently
@@ -178,16 +183,82 @@ reportErrorDefault filename contents = do
     createDirectoryIfMissing True logDir
     writeFile (logDir </> filename) contents
 
+data Chunk
+  = EnvVar Text
+  | Plain  Text
+  deriving (Show)
+
+parseEnvrefs :: Text -> P.Result [Chunk]
+parseEnvrefs text = P.parseString pEnvrefs mempty (toString text)
+  where
+    pEnvrefs :: (Monad p, P.TokenParsing p) => p [Chunk]
+    pEnvrefs = P.some $ P.choice [pPassiveText, pEnvvarRef]
+
+    pEnvvarRef, pPassiveText :: (Monad p, P.TokenParsing p) => p Chunk
+    -- TODO: figure out a less ugly OS conditionalisation method
+    -- TODO: decide if we want escaping
+#ifdef mingw32_HOST_OS
+    pEnvvarRef   = P.between (P.char '%') (P.char '%') pEnvvarName <&> EnvVar . toText
+    pPassiveText = P.some (P.noneOf "%")                           <&> Plain  . toText
+#else
+    pEnvvarRef   = P.char '$' >>
+                   P.choice [ pEnvvarName
+                            , P.between (P.char '{') (P.char '}') pEnvvarName
+                            ] <&> EnvVar
+    pPassiveText = P.some (P.noneOf "$") <&> Plain  . toText
+#endif
+    pEnvvarName :: (Monad p, P.TokenParsing p) => p Text
+    pEnvvarName = (P.some $ P.choice [P.alphaNum, P.char '_']) <&> toText
+
+substituteEnvVarsText :: Text -> Text -> IO Text
+substituteEnvVarsText ctx text = do
+  chunks <- case parseEnvrefs text of
+    P.Success r  -> pure r
+    P.Failure ei -> do
+      let err = ctx <> "\n" <> (show $ P._errDoc ei)
+      reportErrorDefault "config-parse-error.log" err
+      error err
+  substd <- forM chunks $
+    \case Plain  x -> pure x
+          EnvVar x -> do
+            val <- lookupEnv $ toString x
+            case val of
+              Just x' -> pure $ toText x'
+              Nothing -> do
+                let err = ctx <> "\n" <> "Reference to an undefined environment variable '"<> x <>"'"
+                reportErrorDefault "config-parse-error.log" err
+                error err
+  pure $ T.concat substd
+
+substituteEnvVars :: Text -> Value -> IO Value
+substituteEnvVars ctx (AE.String text) = AE.String <$> substituteEnvVarsText ctx text
+substituteEnvVars ctx (AE.Array xs)    = AE.Array  <$> traverse (substituteEnvVars ctx) xs
+substituteEnvVars ctx (AE.Object o)    = AE.Object <$> traverse (substituteEnvVars ctx) o
+substituteEnvVars _   x                = pure x
+
 getLauncherOptions :: IO LauncherOptions
 getLauncherOptions = do
     LauncherArgs {..} <- either parseErrorHandler pure =<< execParserEither programInfo
+#ifdef mingw32_HOST_OS
+    daedalusDir <- takeDirectory <$> getExecutablePath
+    -- This is used by 'substituteEnvVars', later
+    setEnv "DAEDALUS_DIR" daedalusDir
+#endif
     configPath <- maybe defaultConfigPath pure maybeConfigPath
     decoded <- Y.decodeFileEither configPath
     case decoded of
         Left err -> do
             reportErrorDefault "config-parse-error.log" $ show err
             throwM $ ConfigParseError configPath err
-        Right op -> expandVars op
+        Right value -> do
+          let contextDesc = "Substituting environment vars in '"<>toText configPath<>"'"
+          substituted <- substituteEnvVars contextDesc value
+          case fromJSON $ substituted of
+            AE.Error err -> do
+              reportErrorDefault "config-parse-error.log" $ show err
+              error $ toText err
+            AE.Success op -> pure op
+
   where
     execParserEither :: ParserInfo a -> IO (Either (Text, ExitCode) a)
     execParserEither pinfo = do
@@ -218,43 +289,6 @@ getLauncherOptions = do
     defaultConfigPath = do
         launcherDir <- takeDirectory <$> getExecutablePath
         pure $ launcherDir </> "launcher-config.yaml"
-
-    -- Poor man's environment variable expansion.
-    expandVars :: LauncherOptions -> IO LauncherOptions
-#ifdef mingw32_HOST_OS
-    expandVars lo@(LO {..}) = do
-        -- %APPDATA%: nodeArgs, nodeDbPath,
-        --     nodeLogPath, updaterPath,
-        --     updateWindowsRunner, launcherLogsPrefix
-        -- %DAEDALUS_DIR%: nodePath, walletPath
-        appdata <- toText <$> getEnv "APPDATA"
-        daedalusDir <- (toText . takeDirectory) <$> getExecutablePath
-        let replaceAppdata = replace "%APPDATA%" appdata
-            replaceDaedalusDir = replace "%DAEDALUS_DIR%" daedalusDir
-        pure lo
-            { loNodeArgs            = map (T.replace "%APPDATA%" appdata) loNodeArgs
-            , loNodeDbPath          = replaceAppdata loNodeDbPath
-            , loNodeLogPath         = replaceAppdata <$> loNodeLogPath
-            , loUpdaterPath         = replaceAppdata loUpdaterPath
-            , loUpdateWindowsRunner = replaceAppdata <$> loUpdateWindowsRunner
-            , loLogsPrefix          = replaceAppdata <$> loLogsPrefix
-            , loNodePath            = replaceDaedalusDir loNodePath
-            , loWalletPath          = replaceDaedalusDir <$> loWalletPath
-            }
-#else
-    expandVars lo@(LO {..}) = do
-        home <- toText <$> getEnv "HOME"
-        let replaceHome = replace "$HOME" home
-        pure lo
-            { loNodeArgs      = map (T.replace "$HOME" home) loNodeArgs
-            , loNodeDbPath    = replaceHome loNodeDbPath
-            , loNodeLogPath   = replaceHome <$> loNodeLogPath
-            , loUpdateArchive = replaceHome <$> loUpdateArchive
-            , loLogsPrefix    = replaceHome <$> loLogsPrefix
-            }
-#endif
-    replace :: Text -> Text -> FilePath -> FilePath
-    replace from to = toString . T.replace from to . toText
 
 usageExample :: Maybe Doc
 usageExample = (Just . fromString @Doc . toString @Text) [Q.text|

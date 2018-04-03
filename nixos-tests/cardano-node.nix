@@ -9,6 +9,9 @@ import <nixpkgs/nixos/tests/make-test.nix> ({ pkgs, ... }: {
   name = "cardano-node";
 
   nodes.server = { config, pkgs, ... }: {
+    virtualisation.qemu.options = [
+      "-cpu Haswell"
+    ];
     systemd.services.cardano_node_default = {
       description = "Cardano Node";
       wantedBy = [ "multi-user.target" ];

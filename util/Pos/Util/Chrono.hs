@@ -16,16 +16,12 @@ module Pos.Util.Chrono
        , nonEmptyNewestFirst
        , splitAtNewestFirst
        , splitAtOldestFirst
-       , filterChrono
-       , mapMaybeChrono
-       , toListChrono
        ) where
 
 import           Universum
 
 import           Control.Lens (makePrisms, makeWrapped, _Wrapped)
 import qualified Control.Lens as Lens (Each (..))
-import qualified Container.Class as CC
 import           Data.Binary (Binary)
 import           Data.Coerce (coerce)
 import qualified Data.List.NonEmpty as NE
@@ -37,13 +33,13 @@ import           Pos.Binary.Class (Bi)
 newtype NewestFirst f a = NewestFirst {getNewestFirst :: f a}
   deriving (Eq, Ord, Show,
             Functor, Foldable, Traversable,
-            ToList, Container,
+            Container,
             Binary, Bi,
             NFData)
 newtype OldestFirst f a = OldestFirst {getOldestFirst :: f a}
   deriving (Eq, Ord, Show,
             Functor, Foldable, Traversable,
-            ToList, Container,
+            Container,
             Binary, Bi,
             NFData)
 
@@ -119,35 +115,3 @@ splitAtNewestFirst ::
     -> NewestFirst NE a
     -> (NewestFirst [] a, NewestFirst [] a)
 splitAtNewestFirst = coerce (NE.splitAt @a)
-
-class Chronological c where
-  chronologically :: (f a -> g b) -> c f a -> c g b
-
-instance Chronological OldestFirst where
-  chronologically f = OldestFirst . f . getOldestFirst
-
-instance Chronological NewestFirst where
-  chronologically f = NewestFirst . f . getNewestFirst
-
-filterChrono ::
-  forall c f a.
-     (Chronological c, CC.ToList (f a))
-  => (a -> Bool)
-  -> c f a
-  -> c [] a
-filterChrono f = chronologically (filter f . CC.toList)
-
-mapMaybeChrono ::
-  forall c f a b.
-     (Chronological c, CC.ToList (f a))
-  => (a -> Maybe b)
-  -> c f a
-  -> c [] b
-mapMaybeChrono f = chronologically (mapMaybe f . CC.toList)
-
-toListChrono ::
-  forall c f a.
-     (Chronological c, CC.ToList (f a))
-  => c f a
-  -> c [] a
-toListChrono = chronologically CC.toList

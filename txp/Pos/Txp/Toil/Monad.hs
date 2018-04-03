@@ -49,7 +49,7 @@ module Pos.Txp.Toil.Monad
        , utxoMToGlobalToilM
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, magnify, makeLenses, zoom, (%=), (+=), (.=))
 import           Control.Monad.Free.Church (F (..), foldF)

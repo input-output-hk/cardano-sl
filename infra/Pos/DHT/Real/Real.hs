@@ -11,10 +11,10 @@ module Pos.DHT.Real.Real
        ) where
 
 
-import           Nub (ordNub)
--- We'll take 'catch' from Control.Exception
--- Universum uses the one from Control.Exception.Safe
-import           Universum hiding (catch)
+-- We'll take 'try' and 'catch' from Control.Exception
+-- Universum uses those from Control.Exception.Safe, but in here we never
+-- squelch async exceptions so it's ok.
+import           Universum hiding (try, catch)
 
 import           Control.Concurrent (threadDelay)
 import           Control.Exception (throwIO, try, catch)

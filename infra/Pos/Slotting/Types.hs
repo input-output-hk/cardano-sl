@@ -18,7 +18,7 @@ module Pos.Slotting.Types
        , computeSlotStart
        ) where
 
-import           Universum
+import           Universum hiding (keys)
 
 import           Data.Map.Strict as M
 import           Data.Time.Units (Millisecond, toMicroseconds)

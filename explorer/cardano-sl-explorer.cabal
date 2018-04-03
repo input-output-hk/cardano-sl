@@ -52,6 +52,8 @@ library
                         Pos.Explorer.Txp.Toil.Types
                         Pos.Explorer.BListener
 
+                        Paths_cardano_sl_explorer
+
   build-depends:        QuickCheck
                       , aeson
                       , base
@@ -157,6 +159,7 @@ executable cardano-explorer
   hs-source-dirs:      src/explorer
   main-is:             Main.hs
   other-modules:       ExplorerNodeOptions
+                       Paths_cardano_sl_explorer
   build-depends:       base
                      , cardano-sl
                      , cardano-sl-infra
@@ -205,6 +208,7 @@ executable cardano-explorer-hs2purs
   main-is:             Main.hs
   other-modules:       PSTypes
                        PSOptions
+                       Paths_cardano_sl_explorer
   build-depends:       base
                      , cardano-sl-explorer
                      , purescript-bridge
@@ -246,6 +250,7 @@ executable cardano-explorer-hs2purs
 executable cardano-explorer-swagger
   hs-source-dirs:      src/documentation
   main-is:             Main.hs
+  other-modules:       Paths_cardano_sl_explorer
   build-depends:       aeson
                      , base
                      , bytestring
@@ -279,7 +284,7 @@ executable cardano-explorer-swagger
 executable cardano-explorer-mock
   hs-source-dirs:      src/mock
   main-is:             Main.hs
-  other-modules:
+  other-modules:       Paths_cardano_sl_explorer
   build-depends:       base
                      , cardano-sl-explorer
                      , optparse-applicative

@@ -231,7 +231,7 @@ checkTx
 checkTx it =
     case verRes of
         VerSuccess -> pure ()
-        failure    -> throwError $ sformat verResSingleF failure
+        failure    -> throwError $ verResSingleF failure
   where
     verRes =
         verifyGeneric $

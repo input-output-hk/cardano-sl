@@ -303,16 +303,14 @@ type VerifyBlocksIter = (SlotLeaders, Maybe BlockHeader, VerificationRes)
 -- laziness of 'VerificationRes' which is good because laziness for this data
 -- type is crucial.
 verifyBlocks
-    :: ( t ~ OldestFirst f Block
-       , NontrivialContainer t
-       , HasProtocolConstants
+    :: ( HasProtocolConstants
        , HasProtocolMagic
        )
     => Maybe SlotId
     -> Bool
     -> BlockVersionData
     -> SlotLeaders
-    -> OldestFirst f Block
+    -> OldestFirst [] Block
     -> VerificationRes
 verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
   where

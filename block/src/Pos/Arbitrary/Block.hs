@@ -36,7 +36,6 @@ import           Pos.Core (GenesisHash (..), HasGenesisHash, HasProtocolConstant
                            epochSlots, genesisHash)
 import qualified Pos.Core as Core
 import qualified Pos.Core.Block as T
-import           Pos.Core.Ssc (SscPayload, SscProof)
 import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk, hash, toPublic)
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Data.Attributes (areAttributesKnown)
@@ -53,7 +52,7 @@ instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary T.BlockHeader whe
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (Arbitrary SscProof, HasProtocolConstants, HasProtocolMagic) =>
+instance (HasProtocolConstants, HasProtocolMagic) =>
     Arbitrary T.BlockSignature where
     arbitrary = genericArbitrary
     shrink = genericShrink
@@ -89,9 +88,7 @@ instance Arbitrary (T.Body T.GenesisBlockchain) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance ( Arbitrary SscProof
-         , Arbitrary SscPayload
-         , HasProtocolMagic
+instance ( HasProtocolMagic
          , HasProtocolConstants
          , HasGenesisHash
          ) =>
@@ -142,7 +139,7 @@ instance Arbitrary T.MainExtraBodyData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (Arbitrary SscProof) =>
+instance (HasProtocolConstants, HasProtocolMagic) =>
     Arbitrary (T.BodyProof T.MainBlockchain) where
     arbitrary = genericArbitrary
     shrink T.MainProof {..} =
@@ -151,12 +148,12 @@ instance (Arbitrary SscProof) =>
             shrink (mpTxProof, mpMpcProof, mpProxySKsProof, mpUpdateProof)
         ]
 
-instance (Arbitrary SscProof, HasProtocolConstants, HasProtocolMagic) =>
+instance (HasProtocolConstants, HasProtocolMagic) =>
     Arbitrary (T.ConsensusData T.MainBlockchain) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (Arbitrary SscProof, HasProtocolConstants) => Arbitrary T.MainToSign where
+instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary T.MainToSign where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -197,7 +194,7 @@ genMainBlockBodyForSlot pm pc slotId = do
     updPayload <- genUpdatePayload pm
     pure $ T.MainBody txpPayload sscPayload dlgPayload updPayload
 
-instance (Arbitrary SscPayloadDependsOnSlot, HasProtocolConstants, HasProtocolMagic) =>
+instance (HasProtocolConstants, HasProtocolMagic) =>
          Arbitrary (BodyDependsOnSlot T.MainBlockchain) where
     arbitrary = pure $ BodyDependsOnSlot $ \slotId -> do
         txPayload   <- arbitrary
@@ -208,7 +205,7 @@ instance (Arbitrary SscPayloadDependsOnSlot, HasProtocolConstants, HasProtocolMa
         return $ T.MainBody txPayload mpcData dlgPayload mpcUpload
 
 
-instance (Arbitrary SscPayload, HasProtocolMagic) => Arbitrary (T.Body T.MainBlockchain) where
+instance (HasProtocolMagic) => Arbitrary (T.Body T.MainBlockchain) where
     arbitrary = genericArbitrary
     shrink mb =
         [ T.MainBody txp sscp dlgp updp
@@ -243,10 +240,7 @@ genMainBlock pm pc prevHash difficulty = do
         <*> pure extraHeaderData
     pure $ T.UnsafeGenericBlock header body extraBodyData
 
-instance ( Arbitrary SscPayload
-         , Arbitrary SscProof
-         , Arbitrary SscPayloadDependsOnSlot
-         , HasProtocolConstants
+instance ( HasProtocolConstants
          , HasProtocolMagic
          , HasGenesisHash
          ) =>
@@ -272,7 +266,7 @@ instance ( Arbitrary SscPayload
         return $ T.UnsafeGenericBlock header body extraBodyData
     shrink = genericShrink
 
-instance Buildable T.BlockHeader => Buildable (T.BlockHeader, PublicKey) where
+instance Buildable (T.BlockHeader, PublicKey) where
     build (block, key) =
         bprint
             ( build%"\n"%
@@ -283,7 +277,7 @@ newtype BlockHeaderList = BHL
     { getHeaderList :: ([T.BlockHeader], [PublicKey])
     } deriving (Eq)
 
-instance Buildable T.BlockHeader => Show BlockHeaderList where
+instance Show BlockHeaderList where
     show = toString . unlines . map pretty . uncurry zip . getHeaderList
 
 -- | Generation of arbitrary, valid headerchain along with a list of leaders
@@ -327,12 +321,12 @@ recursiveHeaderGen gHash
                    blockchain
     | genesis && Core.getSlotIndex siSlot == 0 = do
           gBody <- arbitrary
-          let pHeader = maybe (Left gHash) Right (head blockchain)
+          let pHeader = maybe (Left gHash) Right ((fmap fst . uncons) blockchain)
               gHeader = T.BlockHeaderGenesis $ T.mkGenesisHeader protocolMagic pHeader siEpoch gBody
           mHeader <- genMainHeader (Just gHeader)
           recursiveHeaderGen gHash True leaders rest (mHeader : gHeader : blockchain)
     | otherwise = do
-          curHeader <- genMainHeader (head blockchain)
+          curHeader <- genMainHeader ((fmap fst . uncons) blockchain)
           recursiveHeaderGen gHash True leaders rest (curHeader : blockchain)
   where
     genMainHeader prevHeader = do
@@ -434,7 +428,7 @@ newtype HeaderAndParams = HAndP
 -- already been done in the 'Arbitrary' instance of the 'BlockHeaderList'
 -- type, so it is used here and at most 3 blocks are taken from the generated
 -- list.
-instance (Arbitrary SscPayload, HasProtocolConstants, HasProtocolMagic, HasGenesisHash) =>
+instance (HasProtocolConstants, HasProtocolMagic, HasGenesisHash) =>
     Arbitrary HeaderAndParams where
     arbitrary = do
         -- This integer is used as a seed to randomly choose a slot down below

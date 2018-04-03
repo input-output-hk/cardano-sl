@@ -16,8 +16,8 @@ module Pos.Wallet.Web.Pending.Submission
 import           Universum
 
 import           Control.Exception.Safe (Handler (..), catches, onException)
+import           Data.Time.Units (fromMicroseconds)
 import           Formatting (build, sformat, shown, stext, (%))
-import           Serokell.Util (hour)
 import           System.Wlog (WithLogger, logDebug, logInfo)
 
 import           Pos.Client.Txp.History (saveTx, thTimestamp)
@@ -118,7 +118,8 @@ submitAndSavePtx db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
     now <- getCurrentTimestamp
     if | PtxApplying poolInfo <- _ptxCond,
          Just creationTime <- poolInfo ^. thTimestamp,
-         diffTimestamp now creationTime > hour 1 -> do
+         -- 1 hour, 3600 seconds
+         diffTimestamp now creationTime > fromMicroseconds 3600000000 -> do
            let newCond = PtxWontApply "1h limit exceeded" poolInfo
            void $ casPtxCondition db _ptxWallet _ptxTxId _ptxCond newCond
            logInfo $

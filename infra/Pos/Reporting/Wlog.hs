@@ -13,7 +13,7 @@ import           Universum
 
 import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Archive.Tar.Entry as Tar
-import           System.Wlog (LoggerConfig (..), hwFilePath, lcTree, ltFiles,
+import           System.Wlog (LoggerConfig (..), LoggerName, hwFilePath, lcTree, ltFiles,
                               ltSubloggers, retrieveLogContent)
 import           Control.Lens (each, to)
 import qualified Data.ByteString as BS
@@ -64,7 +64,7 @@ readWlogFile logConfig = case mLogFile of
     -- Grab all public log files, using the 'LoggerConfig', and take the
     -- first one.
     allFiles = map snd $ retrieveLogFiles logConfig
-    mLogFile = head $ filter (".pub" `isSuffixOf`) allFiles
+    mLogFile = (fmap fst . uncons) (filter (".pub" `isSuffixOf`) allFiles)
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
     charsConst = 1024 * 1024 * 2
@@ -77,7 +77,7 @@ readWlogFile logConfig = case mLogFile of
 -- | Given logger config, retrieves all (logger name, filepath) for
 -- every logger that has file handle. Filepath inside does __not__
 -- contain the common logger config prefix.
-retrieveLogFiles :: LoggerConfig -> [([Text], FilePath)]
+retrieveLogFiles :: LoggerConfig -> [([LoggerName], FilePath)]
 retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
   where
     fromLogTree lt =

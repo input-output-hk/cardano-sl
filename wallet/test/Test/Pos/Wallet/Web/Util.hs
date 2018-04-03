@@ -25,11 +25,10 @@ module Test.Pos.Wallet.Web.Util
        ) where
 
 import           Universum
-import           Unsafe (unsafeHead)
 
 import           Control.Concurrent.STM (writeTVar)
 import           Control.Monad.Random.Strict (evalRandT)
-import           Data.List ((!!))
+import           Data.List ((!!), head)
 import qualified Data.Map as M
 import           Formatting (build, sformat, (%))
 import           Test.QuickCheck (Arbitrary (..), choose, frequency, sublistOf, suchThat, vectorOf)
@@ -94,7 +93,7 @@ wpGenBlock
     => EnableTxPayload
     -> InplaceDB
     -> WalletProperty Blund
-wpGenBlock = fmap (unsafeHead . toList) ... wpGenBlocks (Just 1)
+wpGenBlock = fmap (Data.List.head . toList) ... wpGenBlocks (Just 1)
 
 ----------------------------------------------------------------------------
 -- Wallet test helpers
@@ -129,7 +128,7 @@ importSingleWallet
     :: (HasConfigurations, HasCompileInfo)
     => Gen PassPhrase -> WalletProperty PassPhrase
 importSingleWallet passGen =
-    fromMaybe (error "No wallets imported") . head <$> importWallets 1 passGen
+    fromMaybe (error "No wallets imported") . (fmap fst . uncons) <$> importWallets 1 passGen
 
 mostlyEmptyPassphrases :: Gen PassPhrase
 mostlyEmptyPassphrases =

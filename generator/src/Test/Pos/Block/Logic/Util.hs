@@ -15,10 +15,10 @@ module Test.Pos.Block.Logic.Util
        ) where
 
 import           Universum
-import           Unsafe (unsafeHead)
 
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.Default (Default (def))
+import qualified Data.List as List (head)
 import           Test.QuickCheck.Gen (Gen (MkGen), sized)
 import           Test.QuickCheck.Monadic (PropertyM, pick)
 
@@ -104,7 +104,7 @@ bpGenBlock
        )
     => EnableTxPayload -> InplaceDB -> PropertyM m Blund
 -- 'unsafeHead' is safe because we create exactly 1 block
-bpGenBlock = fmap (unsafeHead . toList) ... bpGenBlocks (Just 1)
+bpGenBlock = fmap (List.head . toList) ... bpGenBlocks (Just 1)
 
 getAllSecrets :: (MonadReader ctx m, HasAllSecrets ctx) => m AllSecrets
 getAllSecrets = view allSecrets

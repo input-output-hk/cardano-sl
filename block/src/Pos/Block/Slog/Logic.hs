@@ -37,9 +37,11 @@ import           Pos.Block.Logic.Integrity (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import           Pos.Block.Slog.Types (HasSlogGState)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
-import           Pos.Core (BlockVersion (..), FlatSlotId, blkSecurityParam, HasProtocolConstants,
-                           difficultyL, epochIndexL, flattenSlotId, headerHash, headerHashG,
-                           prevBlockL, HasProtocolMagic)
+import           Pos.Core (BlockVersion (..), FlatSlotId, HasProtocolConstants,
+                           HasProtocolMagic, HasGeneratedSecrets,
+                           HasGenesisBlockVersionData, HasGenesisData,
+                           HasGenesisHash, blkSecurityParam, difficultyL, epochIndexL,
+                           flattenSlotId, headerHash, headerHashG, prevBlockL)
 import           Pos.Core.Block (Block, genBlockLeaders, mainBlockSlot)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block (putBlunds)
@@ -153,8 +155,10 @@ slogVerifyBlocks blocks = runExceptT $ do
             throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
     -- Do pure block verification.
+    let blocksList :: OldestFirst [] Block
+        blocksList = OldestFirst (NE.toList (getOldestFirst blocks))
     verResToMonadError formatAllErrors $
-        verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocks
+        verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocksList
     -- Here we need to compute 'SlogUndo'. When we apply a block,
     -- we can remove one of the last slots stored in 'BlockExtra'.
     -- This removed slot must be put into 'SlogUndo'.
@@ -213,7 +217,15 @@ newtype ShouldCallBListener = ShouldCallBListener Bool
 --     5. Adding new forward links
 --     6. Setting @inMainChain@ flags
 slogApplyBlocks
-    :: forall ctx m. (MonadSlogApply ctx m, HasProtocolConstants)
+    :: forall ctx m.
+       ( MonadSlogApply ctx m
+       , HasProtocolConstants
+       , HasProtocolMagic
+       , HasGeneratedSecrets
+       , HasGenesisData
+       , HasGenesisBlockVersionData
+       , HasGenesisHash
+       )
     => ShouldCallBListener
     -> OldestFirst NE Blund
     -> m SomeBatchOp

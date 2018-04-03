@@ -11,7 +11,6 @@ module Test.Pos.Wallet.Web.Methods.PaymentSpec
        ( spec
        ) where
 
-import           Nub (ordNub)
 import           Universum
 
 import           Control.Exception.Safe (try)
@@ -96,7 +95,7 @@ newPaymentFixture = do
     let walId = rootsWIds !! idx
     let pswd = passphrases !! idx
     let noOneAccount = sformat ("There is no one account for wallet: "%build) walId
-    srcAccount <- maybeStopProperty noOneAccount =<< (lift $ head <$> getAccounts (Just walId))
+    srcAccount <- maybeStopProperty noOneAccount =<< (lift $ (fmap fst . uncons) <$> getAccounts (Just walId))
     srcAccId <- lift $ decodeCTypeOrFail (caId srcAccount)
 
     ws <- WS.askWalletSnapshot

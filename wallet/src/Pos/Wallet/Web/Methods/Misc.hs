@@ -34,10 +34,10 @@ import           Universum
 import           Data.Aeson (encode)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.Text.Buildable
-import           Data.Time.Units (toMicroseconds)
+import           Data.Time.Units (Second, toMicroseconds)
 import           Formatting (bprint, build, sformat, (%))
 import           Mockable (Delay, LowLevelAsync, Mockables, async, delay)
-import           Serokell.Util (listJson, sec)
+import           Serokell.Util (listJson)
 import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), OctetStream)
 import           System.Wlog (WithLogger)
 
@@ -145,7 +145,7 @@ requestShutdown ::
        , Mockables m [Delay, LowLevelAsync]
        )
     => m NoContent
-requestShutdown = NoContent <$ async (delay (sec 1) >> triggerShutdown)
+requestShutdown = NoContent <$ async (delay (1 :: Second) >> triggerShutdown)
 
 ----------------------------------------------------------------------------
 -- Sync progress

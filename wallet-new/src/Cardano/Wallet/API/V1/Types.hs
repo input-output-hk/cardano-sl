@@ -86,9 +86,10 @@ import           Data.Aeson
 import           Data.Aeson.TH as A
 import           Data.Aeson.Types (toJSONKeyText, typeMismatch)
 import qualified Data.Char as C
-import           Data.Swagger as S hiding (constructorTagModifier)
+import           Data.Swagger as S
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
+import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text as T
 import qualified Data.Text.Buildable
@@ -119,7 +120,6 @@ import           Cardano.Wallet.Util (showApiUtcTime)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import qualified Data.Map.Strict as Map
-import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
 import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
 import qualified Pos.Client.Txp.Util as Core
@@ -404,7 +404,7 @@ data AssuranceLevel =
 instance Arbitrary AssuranceLevel where
     arbitrary = elements [minBound .. maxBound]
 
-deriveJSON Serokell.defaultOptions { constructorTagModifier = toString . toLower . dropEnd 9 . fromString
+deriveJSON Serokell.defaultOptions { A.constructorTagModifier = toString . toLower . dropEnd 9 . fromString
                                    } ''AssuranceLevel
 
 instance ToSchema AssuranceLevel where
@@ -455,7 +455,7 @@ instance Arbitrary WalletOperation where
     arbitrary = elements [minBound .. maxBound]
 
 -- Drops the @Wallet@ suffix.
-deriveJSON Serokell.defaultOptions  { constructorTagModifier = reverse . drop 6 . reverse . map C.toLower
+deriveJSON Serokell.defaultOptions  { A.constructorTagModifier = reverse . drop 6 . reverse . map C.toLower
                                     } ''WalletOperation
 
 instance ToSchema WalletOperation where
@@ -1216,7 +1216,7 @@ instance Arbitrary TransactionType where
   arbitrary = elements [minBound .. maxBound]
 
 -- Drops the @Transaction@ suffix.
-deriveJSON defaultOptions { constructorTagModifier = reverse . drop 11 . reverse . map C.toLower
+deriveJSON defaultOptions { A.constructorTagModifier = reverse . drop 11 . reverse . map C.toLower
                           } ''TransactionType
 
 instance ToSchema TransactionType where
@@ -1248,7 +1248,7 @@ instance Arbitrary TransactionDirection where
   arbitrary = elements [minBound .. maxBound]
 
 -- Drops the @Transaction@ suffix.
-deriveJSON defaultOptions { constructorTagModifier = reverse . drop 11 . reverse . map C.toLower
+deriveJSON defaultOptions { A.constructorTagModifier = reverse . drop 11 . reverse . map C.toLower
                           } ''TransactionDirection
 
 instance ToSchema TransactionDirection where

@@ -4,7 +4,7 @@ module Pos.Ssc.Worker
        ( sscWorkers
        ) where
 
-import           Universum
+import           Universum hiding (keys)
 
 import           Control.Concurrent.STM (readTVar)
 import           Control.Lens (at, each, partsOf, to, views)
@@ -20,7 +20,7 @@ import qualified System.Metrics.Gauge as Metrics
 import qualified Test.QuickCheck as QC
 
 import           Pos.Arbitrary.Ssc ()
-import           Pos.Binary.Class (AsBinary, Bi, asBinary, fromBinary)
+import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
 import           Pos.Binary.Infra ()
 import           Pos.Binary.Ssc ()
 import           Pos.Core (EpochIndex, SlotId (..), StakeholderId, Timestamp (..),
@@ -29,8 +29,7 @@ import           Pos.Core (EpochIndex, SlotId (..), StakeholderId, Timestamp (..
                            memberVss, mkLocalSlotIndex, mkVssCertificate, slotSecurityParam,
                            vssMaxTTL, HasProtocolConstants, HasProtocolMagic, HasGenesisData,
                            HasGenesisBlockVersionData)
-import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening, SignedCommitment,
-                               getCommitmentsMap)
+import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment, getCommitmentsMap)
 import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber, runSecureRandom)
 import           Pos.Crypto.Configuration (protocolMagic)
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
@@ -326,7 +325,6 @@ generateAndSetNewSecret
     :: forall ctx m.
        ( HasSscConfiguration
        , SscMode ctx m
-       , Bi Commitment
        , HasProtocolConstants
        , HasProtocolMagic
        , HasGenesisData

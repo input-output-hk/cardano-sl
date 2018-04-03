@@ -38,9 +38,9 @@ import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply, Monad
                                  ShouldCallBListener, slogApplyBlocks, slogRollbackBlocks)
 import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
 import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL, HasGeneratedSecrets,
-                           gbHeader, headerHash, mainBlockDlgPayload, mainBlockSscPayload, HasGenesisData,
+                           gbHeader, headerHash, mainBlockDlgPayload, mainBlockSscPayload,
                            mainBlockTxPayload, mainBlockUpdatePayload, HasGenesisBlockVersionData,
-                           HasGenesisData, HasProtocolConstants, HasProtocolMagic)
+                           HasGenesisData, HasGenesisHash, HasProtocolConstants, HasProtocolMagic)
 import           Pos.Core.Block (Block, GenesisBlock, MainBlock)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
 import qualified Pos.DB.GState.Common as GS (writeBatchGState)
@@ -149,8 +149,9 @@ applyBlocksUnsafe
     :: forall ctx m .
        ( MonadBlockApply ctx m
        , HasGeneratedSecrets
-       , HasGenesisData
        , HasGenesisBlockVersionData
+       , HasGenesisData
+       , HasGenesisHash
        , HasProtocolConstants
        , HasProtocolMagic
        )
@@ -187,8 +188,9 @@ applyBlocksDbUnsafeDo
     :: forall ctx m .
        ( MonadBlockApply ctx m
        , HasGeneratedSecrets
-       , HasGenesisData
        , HasGenesisBlockVersionData
+       , HasGenesisData
+       , HasGenesisHash
        , HasProtocolConstants
        , HasProtocolMagic
        )

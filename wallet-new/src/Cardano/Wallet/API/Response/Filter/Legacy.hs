@@ -38,7 +38,7 @@ applyFilter fltr inputData =
 -- A simple and unoptimised generic 'filter' function running in 'MonadPlus'
 -- See: http://conal.net/blog/posts/a-handy-generalized-filter
 filterData :: MonadPlus m => (a -> Bool) -> m a -> m a
-filterData p m = joinMaybes (liftM f m)
+filterData p m = joinMaybes (fmap f m)
  where
    f a | p a       = Just a
        | otherwise = Nothing

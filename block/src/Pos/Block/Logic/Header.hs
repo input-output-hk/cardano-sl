@@ -16,13 +16,14 @@ module Pos.Block.Logic.Header
        , getHashesRange
        ) where
 
-import           Universum
-import           Unsafe (unsafeLast)
+import           Universum hiding (elems)
 
 import           Control.Lens (to)
 import           Control.Monad.Except (MonadError (throwError))
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import qualified Data.Text as T
+import qualified Data.List as List (last)
+import qualified Data.List.NonEmpty as NE (toList)
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess)
@@ -131,7 +132,7 @@ classifyNewHeader (BlockHeaderMain header) = fmap (either identity identity) <$>
                     , vhpVerifyNoUnknown = False
                     }
             case verifyHeader vhp (BlockHeaderMain header) of
-                VerFailure errors -> throwError $ mkCHRinvalid errors
+                VerFailure errors -> throwError $ mkCHRinvalid (NE.toList errors)
                 _                 -> pass
 
             dlgHeaderValid <- lift $ runDBCede $ dlgVerifyHeader header
@@ -154,7 +155,7 @@ data ClassifyHeadersRes
     | CHsUseless !Text             -- ^ Header is useless.
     | CHsInvalid !Text             -- ^ Header is invalid.
 
-deriving instance Show BlockHeader => Show ClassifyHeadersRes
+deriving instance Show ClassifyHeadersRes
 
 -- | Classify headers received in response to 'GetHeaders' message.
 --
@@ -448,7 +449,7 @@ getHashesRange depthLimitM older newer = runExceptT $ do
         "May be (very rare) concurrency problem, just retry"
 
     -- It's safe to use 'unsafeLast' here after the last check.
-    let lastElem = allExceptNewest ^. _OldestFirst . to unsafeLast
+    let lastElem = allExceptNewest ^. _OldestFirst . to List.last
     when (newerHd ^. prevBlockL . headerHashG /= lastElem) $
         throwGHR $
         sformat ("getHashesRange: newest block parent is not "%

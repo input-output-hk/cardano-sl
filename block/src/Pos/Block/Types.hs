@@ -59,7 +59,7 @@ instance HasConfiguration => Buildable Undo where
 instance HasDifficulty Blund where
     difficultyL = _1 . difficultyL
 
-instance HasHeaderHash Block => HasHeaderHash Blund where
+instance HasConfiguration => HasHeaderHash Blund where
     headerHash = headerHash . fst
 
 -- | For a description of what these types mean,

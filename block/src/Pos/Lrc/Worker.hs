@@ -10,7 +10,7 @@ module Pos.Lrc.Worker
        , lrcSingleShot
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Exception.Safe (bracketOnError)
 import           Control.Lens (views)

@@ -5,7 +5,7 @@ module Pos.Update.Poll.Failure
        , reportUnexpectedError
        ) where
 
-import           Universum
+import           Universum hiding (last, id)
 
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, int, sformat, stext, (%))

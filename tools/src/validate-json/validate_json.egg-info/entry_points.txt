@@ -1,0 +1,3 @@
+        [console_scripts]
+        validate-json = validate_json:main
+      

@@ -1,0 +1,8 @@
+README.md
+setup.py
+validate_json.egg-info/PKG-INFO
+validate_json.egg-info/SOURCES.txt
+validate_json.egg-info/dependency_links.txt
+validate_json.egg-info/entry_points.txt
+validate_json.egg-info/requires.txt
+validate_json.egg-info/top_level.txt

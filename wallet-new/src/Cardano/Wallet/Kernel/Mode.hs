@@ -113,7 +113,6 @@ runWalletMode nr wallet (action, outSpecs) =
     ekgNodeMetrics =
         EkgNodeMetrics
           (nrEkgStore nr)
-          (runProduction . elimRealMode nr . walletModeToRealMode wallet)
 
     serverWalletMode :: WalletMode a
     serverWalletMode = runServer

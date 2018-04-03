@@ -21,12 +21,10 @@ import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, getHeadersOlderExp)
-import           Pos.Block.Network.Logic (BlockNetLogicException (DialogUnexpected), handleBlocks,
-                                          triggerRecovery)
-import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..))
+import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlocks, triggerRecovery)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (RecoveryHeaderTag)
-import           Pos.Communication.Protocol (NodeId, OutSpecs, convH, toOutSpecs)
+import           Pos.Communication.Protocol (NodeId, OutSpecs)
 import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL, isMoreDifficult)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Crypto (shortHashF)
@@ -42,11 +40,7 @@ retrievalWorker
     :: forall ctx m.
        (BlockWorkMode ctx m)
     => (WorkerSpec m, OutSpecs)
-retrievalWorker = worker outs retrievalWorkerImpl
-  where
-    outs = toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
-                             (Proxy :: Proxy MsgBlock)
-                      ]
+retrievalWorker = worker mempty retrievalWorkerImpl
 
 -- I really don't like join
 {-# ANN retrievalWorkerImpl ("HLint: ignore Use join" :: Text) #-}
@@ -299,7 +293,7 @@ getProcessBlocks diffusion nodeId desired checkpoints = do
           logDebug $ sformat
               ("Retrieved "%int%" blocks")
               (blocks ^. _OldestFirst . to NE.length)
-          handleBlocks nodeId blocks diffusion 
+          handleBlocks nodeId blocks diffusion
           -- If we've downloaded any block with bigger
           -- difficulty than ncRecoveryHeader, we're
           -- gracefully exiting recovery mode.

@@ -20,10 +20,10 @@ import           Pos.Communication.Util (ActionSpec (..))
 import           Pos.Core (ConfigurationError, protocolConstants, protocolMagic)
 import           Pos.Configuration (networkConnectionTimeout)
 import           Pos.DB.DB (initNodeDBs)
-import           Pos.Diffusion.Types (DiffusionLayer (..))
+import           Pos.Diffusion.Types (DiffusionLayer (..), hoistDiffusion)
 import           Pos.Diffusion.Full (diffusionLayerFull, FullDiffusionConfiguration (..))
-import           Pos.Logic.Full (logicLayerFull)
-import           Pos.Logic.Types (LogicLayer (..))
+import           Pos.Logic.Full (logicFullM)
+import           Pos.Logic.Types (hoistLogic)
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
                                bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
                                elimRealMode, withConfigurations)
@@ -36,6 +36,7 @@ import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.UserSecret (usVss)
+import           Pos.Util.Trace (wlogTrace)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 import           Pos.Worker.Types (WorkerSpec)
 
@@ -115,6 +116,7 @@ action opts@AuxxOptions {..} command = do
                 , fdcRecoveryHeadersMessage = recoveryHeadersMessage
                 , fdcLastKnownBlockVersion = lastKnownBlockVersion
                 , fdcConvEstablishTimeout = networkConnectionTimeout
+                , fdcTrace = wlogTrace "auxx"
                 }
             toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
             toRealMode auxxAction = do
@@ -126,14 +128,28 @@ action opts@AuxxOptions {..} command = do
                 lift $ runReaderT auxxAction auxxContext
         let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-        bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
-            elimRealMode nr $ toRealMode $
-                logicLayerFull jsonLog $ \logicLayer ->
-                    diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) fdconf (npNetworkConfig nodeParams) Nothing (logic logicLayer) $ \diffusionLayer -> do
-                        let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
-                            (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
-                        runLogicLayer logicLayer (runDiffusionLayer diffusionLayer (auxxModeAction (diffusion diffusionLayer)))
-
+        bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr -> do
+            let runIO = runProduction . elimRealMode nr . toRealMode
+            -- Monad here needs to be 'Production' (bracketNodeResources) so
+            -- take it to real mode and then eliminate it.
+            elimRealMode nr $ toRealMode $ do
+                -- Here's an 'AuxxMode' thing, using a 'Logic AuxxMode' and
+                -- doing a continuation in 'AuxxMode'
+                logic <- logicFullM jsonLog
+                -- 'diffusionLayerFull' works in 'IO'. Luckily, we have
+                -- AuxxMode ~> IO and vice-versa (liftIO).
+                -- We hoist the 'Logic AuxxMode' using 'runIO' so that
+                -- the diffusion layer can use it.
+                liftIO $ diffusionLayerFull fdconf
+                                            (npNetworkConfig nodeParams)
+                                            Nothing
+                                            (hoistLogic runIO logic) $ \diffusionLayer -> do
+                    let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
+                        (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
+                    -- We're back in 'AuxxMode' again. We run the logic
+                    -- layer using a hoisted diffusion layer (liftIO).
+                    runDiffusionLayer diffusionLayer $ runIO $
+                        auxxModeAction (hoistDiffusion liftIO (diffusion diffusionLayer))
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
     nArgs =

@@ -21,6 +21,7 @@ import <nixpkgs/nixos/tests/make-test.nix> ({ pkgs, ... }: {
       serviceConfig = {
         ExecStart = cardano_sl.connectScripts.stagingWallet;
         Type = "notify";
+        NotifyAccess = "all";
         TimeoutStartSec = 600;
       };
     };

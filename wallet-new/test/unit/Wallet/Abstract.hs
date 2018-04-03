@@ -51,7 +51,7 @@ import           Formatting (bprint, build, sformat, (%))
 import           Pos.Util.Chrono
 import           Pos.Util.QuickCheck.Arbitrary (sublistN)
 import           Serokell.Util (listJson)
-import           Test.QuickCheck
+import           Test.QuickCheck hiding (total)
 
 import           Util
 import           Util.Validated

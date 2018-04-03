@@ -6,7 +6,7 @@ module Pos.Logic.Full
     , LogicWorkMode
     ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, to)
 import qualified Data.HashMap.Strict as HM

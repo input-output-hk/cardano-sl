@@ -34,6 +34,7 @@ executable dbgen
                      , QueryMethods
   if !flag(for-installer)
    build-depends:      base >= 4.7 && < 5
+                     , acid-state
                      , aeson
                      , ansi-terminal
                      , bytestring
@@ -64,6 +65,7 @@ executable dbgen
                      , string-conv
                      , text
                      , time
+                     , time-units
                      , universum >= 0.1.11
                      , unordered-containers
   default-language:    Haskell2010

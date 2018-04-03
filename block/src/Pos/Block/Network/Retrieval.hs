@@ -14,9 +14,9 @@ import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import           Control.Monad.STM (retry)
 import qualified Data.List.NonEmpty as NE
+import           Data.Time.Units (Second)
 import           Formatting (build, int, sformat, (%))
 import           Mockable (delay)
-import           Serokell.Util (sec)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
@@ -267,7 +267,8 @@ dropRecoveryHeaderAndRepeat diffusion nodeId = do
   where
     attemptRestartRecovery = do
         logDebug "Attempting to restart recovery"
-        delay $ sec 2
+        -- FIXME why delay? Why 2 seconds?
+        delay (2 :: Second)
         handleAny handleRecoveryTriggerE $ triggerRecovery diffusion
         logDebug "Attempting to restart recovery over"
     handleRecoveryTriggerE =

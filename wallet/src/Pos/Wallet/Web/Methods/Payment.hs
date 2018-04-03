@@ -143,7 +143,7 @@ getSomeMoneySourceAccount _ (AddressMoneySource addrId) =
     return $ addrId ^. wamAccount
 getSomeMoneySourceAccount _ (AccountMoneySource accId) = return accId
 getSomeMoneySourceAccount ws (WalletMoneySource wid) = do
-    wAddr <- maybeThrow noWallets (head (getWalletAccountIds ws wid))
+    wAddr <- maybeThrow noWallets ((fmap fst . uncons) (getWalletAccountIds ws wid))
     getSomeMoneySourceAccount ws (AccountMoneySource wAddr)
   where
     noWallets = InternalError "Wallet has no accounts"

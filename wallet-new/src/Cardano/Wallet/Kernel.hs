@@ -30,7 +30,7 @@ module Cardano.Wallet.Kernel (
   , hasPending
   ) where
 
-import           Universum hiding (State)
+import           Universum hiding (State, init)
 
 import           Control.Lens.TH
 import qualified Data.List.NonEmpty as NE

@@ -23,11 +23,11 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , otraverse
   ) where
 
-import           Universum
+import           Universum hiding (Foldable)
 
 import qualified Control.Lens as Lens
 import           Data.Coerce (coerce)
-import qualified Data.Foldable
+import           Data.Foldable (Foldable (..))
 import qualified Data.IxSet.Typed as IxSet
 import           Data.SafeCopy (SafeCopy (..))
 import qualified Data.Set as Set
@@ -127,18 +127,8 @@ instance (HasPrimKey a, Indexable a) => Lens.At (IxSet a) where
       upd Nothing  = WrapIxSet $ IxSet.deleteIx pk                      s
       upd (Just a) = WrapIxSet $ IxSet.updateIx pk (WrapOrdByPrimKey a) s
 
-{-------------------------------------------------------------------------------
-  Standard and @universum@ type class instances
--------------------------------------------------------------------------------}
-
-type instance Element (IxSet a) = a
-
-instance ToList (IxSet a) where
-    toList = coerce . IxSet.toList . unwrapIxSet
-    null   = IxSet.null . unwrapIxSet
-
 instance Foldable IxSet where
-    foldr f e = foldr f e . toList
+    foldr f e = Data.Foldable.foldr f e . Data.Foldable.toList
 
 {-------------------------------------------------------------------------------
   Queries
@@ -178,4 +168,4 @@ omap f =
 -- NOTE: This rebuilds the entire 'IxSet'. Potentially expensive.
 otraverse :: (Applicative f, Indexable a)
           => (a -> f a) -> IxSet a -> f (IxSet a)
-otraverse f = fmap fromList . Data.Traversable.traverse f . toList
+otraverse f = fmap fromList . Data.Traversable.traverse f . Data.Foldable.toList

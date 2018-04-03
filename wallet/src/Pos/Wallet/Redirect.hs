@@ -19,7 +19,7 @@ module Pos.Wallet.Redirect
        , txpNormalizeWebWallet
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (views)
 import qualified Data.HashMap.Strict as HM

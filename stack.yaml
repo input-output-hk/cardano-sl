@@ -1,4 +1,4 @@
-resolver: lts-9.1
+resolver: lts-11.2
 
 flags:
   ether:
@@ -48,16 +48,12 @@ packages:
     commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
   extra-dep: true
 - location:
-    git: https://github.com/serokell/acid-state.git
-    commit: 9a8af2440d655e14b802639b0b363be2ffb5a32a
-  extra-dep: true
-- location:
     git: https://github.com/serokell/kademlia.git
     commit: 7120bb4d28e708acd52dfd61d3dca7914fac7d7f # master
   extra-dep: true
 - location:
-    git: https://github.com/input-output-hk/plutus-prototype
-    commit: d4aa461fc69fc6957aab46b41a670c2144aefb77
+    git: https://github.com/avieth/plutus-prototype
+    commit: d094be301195fcd8ab864d793f114970426a4478
   extra-dep: true
 - location:
     git: https://github.com/thoughtpolice/hs-ed25519
@@ -89,10 +85,13 @@ packages:
     git: https://github.com/haskell-crypto/cryptonite
     commit: 41d610fb18e2924d7aa704c37798e1c197557f3e
   extra-dep: true
-# Required for explorer
+
+# Required for explorer.
+# We forked it because it has some unacceptable version bounds. We didn't
+# add any features nor fix any bugs.
 - location:
-    git: https://github.com/serokell/engine.io.git
-    commit: a594e402fd450f11ad60d09ddbd93db500000632
+    git: https://github.com/input-output-hk/engine.io.git
+    commit: d3c55f51bb81cee7d0d551de930ce65fe7d76756
   extra-dep: true
   subdirs:
     - socket-io
@@ -115,84 +114,86 @@ packages:
     commit: 49f501a082d745f3b880677220a29cafaa181452
   extra-dep: true
 
-# I don't think making a PR to servant is a good idea at this point
-- location:
-    git: https://github.com/serokell/servant.git
-    commit: 5db013cc36894afdff9e748dbc1c05947c54df3d
-  extra-dep: true
-  subdirs:
-    - servant-server
-- location:
-    git: https://github.com/serokell/servant-multipart.git
-    commit: e7de56b5f7c39f8dc473f1bbaf534bb7affc3cf4
-  extra-dep: true
+# Because log-warper mainline depends on a lifted-async which depends upon a
+# buggy async
 - location:
     git: https://github.com/input-output-hk/log-warper.git
-    commit: b8c390357b27e7ae3b9b0c5309bf9d0bbbf09852
+    commit: 5271ab6c33541b8155ca203e714875974ec116be
+  extra-dep: true
+
+# Because it includes a bunch of safecopy instances that we currently rely upon.
+# Also the 'Serokell.AcidState.ExtendedState' thing.
+- location:
+    git: https://github.com/serokell/acid-state.git
+    commit: 1049699df411c9584523ba7424cba1f3f82ac419
   extra-dep: true
 
 nix:
   shell-file: shell.nix
 
 extra-deps:
-- ekg-core-0.1.1.3                # https://github.com/tibbe/ekg-core/pull/21
-- transformers-0.5.5.0            # https://hub.darcs.net/ross/transformers/issue/33#comment-20171004T152940
-- universum-0.9.0
-- serokell-util-0.5.2
+
+# Very important! First release with a fix of 'race' and 'cancel'.
+#   https://github.com/simonmar/async/issues/59
+#   https://github.com/simonmar/async/issues/81
+# It has yet to appear in an LTS.
+- async-2.2.1
+# There are 2 asyncs -_-
+- lifted-async-0.10.0.1
+# Stackage has hinotify-0.3.9 which requires async < 2.2
+# This older version requires no async.
+- hinotify-0.3.8.1
+
+# Serokell stuff
+- universum-1.1.0
+- serokell-util-0.8.0
+# Because serokell-util
+- formatting-6.2.5
+
+# Following 9 are not on stackage.
 - pvss-0.2.0
 - base58-bytestring-0.1.0
-- concurrent-extra-0.7.0.10       # not yet on Stackage
-# - purescript-bridge-0.8.0.1
-- directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
-- servant-0.12
-- servant-client-0.12
-- servant-client-core-0.12
-- servant-docs-0.11.1             # needed for servant-0.12
-- servant-swagger-1.1.4           # needed for servant-0.12
-- servant-swagger-ui-0.2.4.3.4.0  # needed for servant-0.12
-- servant-blaze-0.7.1             # needed for servant-0.12
-- servant-quickcheck-0.0.4
-- ether-0.5.1.0
-- pipes-interleave-1.1.1
-- generic-arbitrary-0.1.0
-- happy-1.19.5                    # https://github.com/commercialhaskell/stack/issues/3151
-- entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151
-- fmt-0.5.0.0
+- pipes-interleave-1.1.2
 - systemd-1.1.2
 - tabl-1.0.3
+- loc-0.1.3.2
+- lens-sop-0.2.0.2
+- json-sop-0.2.0.3
+- lzma-clib-5.2.2
+# TBD why not directory from LTS?
+- directory-1.3.1.1
+# https://github.com/commercialhaskell/stack/issues/3151
+- happy-1.19.5
+# https://github.com/commercialhaskell/stack/issues/3151
+- entropy-0.3.7
 # ekg-statsd version without the unnecessary diffing optimisation
 - ekg-statsd-0.2.2.0
 # https://github.com/fpco/lts-haskell/issues/70
+# Also, graphviz latest needs ghl >=5.4 && <5.6, but stackage has 5.6
 - fgl-5.5.3.1
-- megaparsec-6.2.0
-- parser-combinators-0.2.0
-- loc-0.1.3.1
-- lens-sop-0.2.0.2
-- json-sop-0.2.0.3
-- servant-generic-0.1.0.1
-# See CSL-2231
-- conduit-1.3.0
-- conduit-extra-1.3.0
-- mono-traversable-1.0.8.1
-- resourcet-1.2.0
-- yaml-0.8.28
-- lzma-0.0.0.3
-- lzma-clib-5.2.2
-- lzma-conduit-1.2.1 # https://github.com/alphaHeavy/lzma-conduit/pull/18
-- wai-extra-3.0.22.0
-- typed-process-0.2.1.0
-- unliftio-0.2.4.0
-- unliftio-core-0.1.1.0
-- http-conduit-2.3.0
-- simple-sendfile-0.2.27
-- basement-0.0.6
-- foundation-0.0.19
-- memory-0.14.14
-- criterion-1.3.0.0
+# Good bug fixes in here.
+- criterion-1.4.0.0
+# Gauge _and_ criterion? Ok, whatever.
 - gauge-0.2.1
-- statistics-0.14.0.2
-- validation-0.6.1
-- swagger2-2.2.1
+
+# Servant stuff not found on stackage
+- servant-quickcheck-0.0.6.0
+- servant-multipart-0.11.1
+
+# Graphics stuff not found on stackage.
+- Chart-diagrams-1.8.2
+- graphviz-2999.19.0.0
+- diagrams-core-1.4.0.1
+# diagrams-core implies lens < 4.16
+- lens-4.15.4
+# lens-4.15.4 implies free < 5
+- free-4.12.4
+- diagrams-lib-1.4.2
+- diagrams-postscript-1.4
+- diagrams-svg-1.4.1.1
+- diagrams-solve-0.1.1
+- SVGFonts-1.6.0.3
+- dual-tree-0.2.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

@@ -56,10 +56,9 @@ import           System.Directory (canonicalizePath, doesFileExist, getTemporary
 import           System.FilePath (takeFileName)
 import           System.Info (arch, os)
 import           System.IO (IOMode (WriteMode), hClose, hFlush, withFile)
-import           System.Wlog (LoggerConfig (..), Severity (..), WithLogger, hwFilePath, lcTree,
-                              logError, logInfo, logMessage, logWarning, ltFiles, ltSubloggers,
-                              retrieveLogContent)
-
+import           System.Wlog (LoggerConfig (..), LoggerName (..), Severity (..), WithLogger,
+                              hwFilePath, lcTree, logError, logInfo, logMessage, logWarning,
+                              ltFiles, ltSubloggers, retrieveLogContent)
 
 import           Paths_cardano_sl_infra (version)
 import           Pos.Crypto (ProtocolMagic (..), HasProtocolMagic, protocolMagic)
@@ -137,8 +136,10 @@ sendReport logFiles reportType appName reportServerUri = do
 -- every logger that has file handle. Filepath inside does __not__
 -- contain the common logger config prefix.
 retrieveLogFiles :: LoggerConfig -> [([Text], FilePath)]
-retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
+retrieveLogFiles lconfig = fmap convertToText $ fromLogTree $ lconfig ^. lcTree
   where
+    convertToText :: ([LoggerName], t) -> ([Text], t)
+    convertToText (lns, t) = (fmap getLoggerName lns, t)
     fromLogTree lt =
         let curElems = map ([],) (lt ^.. ltFiles . each . hwFilePath)
             iterNext (part, node) = map (first (part :)) $ fromLogTree node
@@ -253,12 +254,19 @@ sendReportNode reportType = do
             logFile <-
                 maybeThrow
                     NoPubFiles
-                    (head $ filter (".pub" `isSuffixOf`) allFiles)
+                    (listHead $ filter (".pub" `isSuffixOf`) allFiles)
             logContent <-
                 takeGlobalSize charsConst <$>
                 retrieveLogContent logFile (Just 5000)
             sendReportNodeImpl (Just $ unlines $ reverse logContent) reportType
   where
+    -- 'head' comes from Universum and works only on NonEmpty, but is also
+    -- total. We want the other variant, which works on lists but gives
+    -- a 'Maybe'. Can't be bothered to find a package from which to import
+    -- it...
+    listHead :: [a] -> Maybe a
+    listHead [] = Nothing
+    listHead (x:_) = Just x
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
     charsConst = 1024 * 1024 * 2

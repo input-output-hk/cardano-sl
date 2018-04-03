@@ -6,7 +6,7 @@
 {-# LANGUAGE RecordWildCards            #-}
 module Main where
 
-import           Universum
+import           Universum hiding (init)
 
 import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Maybe (fromJust)

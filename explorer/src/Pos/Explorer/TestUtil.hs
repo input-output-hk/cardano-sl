@@ -18,7 +18,7 @@ module Pos.Explorer.TestUtil
     ) where
 
 import qualified Prelude
-import           Universum
+import           Universum hiding (keys)
 
 import           Control.Lens (at)
 import           Data.Default (def)
@@ -43,7 +43,7 @@ import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock, ge
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))
-import           Pos.Crypto (ProtocolMagic, SecretKey, toPublic)
+import           Pos.Crypto (SecretKey, toPublic)
 import           Pos.Delegation (DlgPayload, DlgUndo (..), ProxySKBlockInfo)
 import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
@@ -192,7 +192,7 @@ basicBlock prevHeader sk slotId =
     producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
 
 emptyBlk
-    :: (HasConfiguration, HasUpdateConfiguration, Testable p, Arbitrary ProtocolMagic)
+    :: (HasConfiguration, HasUpdateConfiguration, Testable p)
     => (Either Text MainBlock -> p)
     -> Property
 emptyBlk testableBlock =

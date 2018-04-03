@@ -132,7 +132,7 @@ instance ToString ByteString where
 
 -- | Decoding the text to the original form.
 decodeHashHex
-    :: forall algo a. (HashAlgorithm algo, Bi (AbstractHash algo a))
+    :: forall algo a. (HashAlgorithm algo)
     => Text
     -> Either Text (AbstractHash algo a)
 decodeHashHex hashText = do
@@ -146,7 +146,7 @@ decodeHashHex hashText = do
 toCHash :: forall a. (Bi a) => Hash a -> CHash
 toCHash = CHash . encodeHashHex
 
-fromCHash :: forall a. (Bi (Hash a)) => CHash -> Either Text (Hash a)
+fromCHash :: forall a. CHash -> Either Text (Hash a)
 fromCHash (CHash h) = decodeHashHex h
 
 toCAddress :: Address -> CAddress

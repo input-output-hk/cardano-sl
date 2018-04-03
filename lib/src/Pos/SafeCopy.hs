@@ -15,6 +15,7 @@ import           Data.SafeCopy (Contained, SafeCopy (..), base, contain, deriveS
 import qualified Data.Serialize as Cereal
 import qualified PlutusCore.Program as PLCore
 import qualified PlutusCore.Term as PLCore
+import           Serokell.AcidState.Instances ()
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 
 import           Pos.Binary.Class (AsBinary (..), Bi)

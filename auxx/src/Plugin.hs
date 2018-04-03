@@ -16,9 +16,9 @@ import           System.Posix.Process (exitImmediately)
 #endif
 import           Control.Monad.Except (ExceptT (..), withExceptT)
 import           Data.Constraint (Dict (..))
+import           Data.Time.Units (Second)
 import           Formatting (float, int, sformat, (%))
 import           Mockable (Delay, Mockable, delay)
-import           Serokell.Util (sec)
 import           System.IO (hFlush, stdout)
 import           System.Wlog (CanLog, HasLoggerName, logInfo)
 
@@ -88,7 +88,7 @@ runWalletCmd mHasAuxxMode mDiffusion line = do
     printAction " " -- for exit by SIGPIPE
     liftIO $ hFlush stdout
 #if !(defined(mingw32_HOST_OS))
-    delay $ sec 3
+    delay (3 :: Second)
     liftIO $ exitImmediately ExitSuccess
 #endif
   where

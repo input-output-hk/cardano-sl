@@ -21,7 +21,7 @@ module UTxO.Interpreter (
   , Interpret(..)
   ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Arrow ((&&&))
 import           Data.Default (def)

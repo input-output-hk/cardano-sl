@@ -36,7 +36,7 @@ import           Pos.Util.Util (leftToPanic)
 -- protection against possible overflow. If you are sure overflow is
 -- impossible, you can use 'unsafeIntegerToCoin'.
 sumCoins
-    :: (NontrivialContainer coins, Element coins ~ Coin)
+    :: (Container coins, ElementConstraint coins Coin, Element coins ~ Coin)
     => coins -> Integer
 sumCoins = sum . map coinToInteger . toList
 

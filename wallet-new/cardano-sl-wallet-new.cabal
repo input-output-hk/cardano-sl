@@ -261,6 +261,7 @@ executable cardano-integration-test
                      , pretty-show
                      , QuickCheck
                      , servant
+                     , servant-client
                      , servant-quickcheck
                      , servant-server
                      , text

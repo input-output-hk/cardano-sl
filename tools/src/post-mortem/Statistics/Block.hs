@@ -56,7 +56,7 @@ blockHeadersF = Fold step MS.empty id
         _                          -> m
 
 blockChain :: SMap BlockHash BlockHeader -> Set BlockHash
-blockChain m = S.fromList $ maybe [] id $ head $ sortByLengthDesc [getLongestChain h | h <- allHashes]
+blockChain m = S.fromList $ maybe [] id $ (fmap fst . uncons) $ sortByLengthDesc [getLongestChain h | h <- allHashes]
   where
     allHashes :: [BlockHash]
     allHashes = MS.keys m

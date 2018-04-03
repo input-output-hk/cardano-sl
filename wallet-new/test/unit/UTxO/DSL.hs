@@ -72,6 +72,7 @@ module UTxO.DSL (
 
 import           Control.Exception (throw)
 import           Control.Monad.Except (MonadError (..))
+import           Data.Foldable (Foldable (..), foldr, sum)
 import           Data.List (tail)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -82,7 +83,7 @@ import           Formatting (bprint, build, sformat, (%))
 import           Pos.Util.Chrono
 import           Prelude (Show (..))
 import           Serokell.Util (listJson, mapJson)
-import           Universum
+import           Universum hiding (Foldable, tail, toList, foldr, sum)
 
 import           Util
 import           Util.Validated

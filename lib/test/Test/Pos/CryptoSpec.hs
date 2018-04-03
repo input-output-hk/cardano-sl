@@ -419,6 +419,14 @@ verifyEncSharesWrongKeys SharedSecrets {..} =
     (headMay ssVssKeys /= lastMay ssVssKeys) ==>
     not <$> Crypto.verifyEncShares @Gen ssSecProof ssThreshold
                (zip (reverse ssVssKeys) ssEncShares)
+  where
+    headMay :: [a] -> Maybe a
+    headMay []    = Nothing
+    headMay (x:_) = Just x
+    lastMay :: [a] -> Maybe a
+    lastMay []     = Nothing
+    lastMay [x]    = Just x
+    lastMay (_:xs) = lastMay xs
 
 verifyShareGoodData :: SharedSecrets -> Bool
 verifyShareGoodData SharedSecrets {..} =

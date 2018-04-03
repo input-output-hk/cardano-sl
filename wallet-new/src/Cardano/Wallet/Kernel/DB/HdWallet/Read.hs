@@ -28,9 +28,10 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Read (
   , readHdAddress
   ) where
 
-import           Universum
+import           Universum hiding (toList)
 
 import           Control.Lens (at)
+import           Data.Foldable (toList)
 
 import           Pos.Core (Coin, sumCoins)
 
@@ -73,7 +74,7 @@ check f g = using' f (const g)
 hdRootBalance :: HdRootId -> HdQuery Integer
 hdRootBalance rootId = sumCoins
                      . map hdAccountBalance
-                     . toList
+                     . Data.Foldable.toList
                      . IxSet.getEQ rootId
                      . view hdWalletsAccounts
 

@@ -18,7 +18,10 @@ import           Pos.Util.QuickCheck.Property ((.=.))
 
 import           Test.Hspec (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Arbitrary, Property)
+import           Test.QuickCheck (Arbitrary (..), Property, listOf1)
+
+instance Arbitrary a => Arbitrary (NonEmpty a) where
+    arbitrary = NE.fromList <$> listOf1 arbitrary
 
 spec :: Spec
 spec = describe "Util" $ do

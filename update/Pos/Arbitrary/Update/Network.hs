@@ -4,7 +4,7 @@ module Pos.Arbitrary.Update.Network
        (
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Test.QuickCheck (Arbitrary (..), listOf)
 

@@ -12,8 +12,7 @@
 --   during blocks application/rollback at the previous launch,
 --   then wallet-db can fall behind from node-db (when interrupted during rollback)
 --   or vice versa (when interrupted during application)
---   @syncWSetsWithGStateLock@ implements this functionality.
--- • When a user wants to import a secret key. Then we must rely on
+-- • When a user wants to import a secret key. Then we must rely on the
 --   Utxo (GStateDB), because blockchain can be large.
 
 module Pos.Wallet.Web.Tracking.Sync
@@ -34,7 +33,7 @@ module Pos.Wallet.Web.Tracking.Sync
        -- * Utility functions
        , calculateEstimatedRemainingTime
 
-       -- Internal & test use only
+       -- Internal & test-use only
        , evalChange
        , syncWalletWithBlockchain
        , calculateThroughput
@@ -332,7 +331,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
 
     -- Apply the 'CAccModifier' to the wallet state.
     applyModifierToWallet db (srOperation syncRequest) walletId newSyncTip mapModifier
-    logInfoSP $ \sl -> sformat ("Applied " %buildSafe sl) mapModifier
+    logDebugSP $ \sl -> sformat ("Applied " %buildSafe sl) mapModifier
 
     case headerHash newSyncTip == headerHash blockchainTip of
         True -> do
@@ -342,7 +341,8 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                         walletId (headerHash newSyncTip) mapModifier
             -- If we have here is means we are fully synced with the blockchain,
             -- at which point we can forget about the distinction @restoration vs sync@. Even if a
-            -- rollback occurs, we don't need to transition back the old state, as it won't matter anymore.
+            -- rollback occurs, we don't need to transition back the old "restoring" state,
+            -- as it won't matter anymore.
             WS.setWalletSyncTip db walletId (headerHash newSyncTip)
             pure $ Right ()
         False -> syncWalletWithBlockchainUnsafe syncRequest newSyncTip blockchainTip
@@ -430,11 +430,12 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
 
--- | Gets the 'ChainDifficulty' for either a 'GenesisBlock' or
--- a 'MainBlock'.
+-- | Gets the 'ChainDifficulty' for either a 'GenesisBlock' or a 'MainBlock'.
 depthOf :: HasDifficulty a => a -> ChainDifficulty
 depthOf = view difficultyL
 
+-- | Retrieves the 'BlockHeader' correspending to the first 'GenesisBlock' of
+-- this blockchain.
 firstGenesisHeader :: MonadDBRead m => m (Either SyncError BlockHeader)
 firstGenesisHeader = runExceptT $ do
     genesisHeaderHash  <- resolveForwardLink (genesisHash @BlockHeader)
@@ -551,11 +552,14 @@ trackingRollbackTxs credentials dbUsed getDiff getTs txs =
             camAddedPtxCandidates
             deletedPtxCandidates
 
+-- | A 'BoundedSyncTime' (by lack of better names) stores time stats of a
+-- smaller (bounded, finite) portion of the syncing process. These information
+-- can be used to compute the 'SyncThroughput'.
 data BoundedSyncTime = BoundedSyncTime {
     bscProcessedBlocks :: !BlockCount
-    -- ^ How many blocks we did process
+    -- ^ How many blocks we did process?
   , bscProcessingTime  :: !Microsecond
-    -- ^ How many microseconds it took to do so
+    -- ^ How many microseconds it took to do so?
   }
 
 -- | Calculates the 'SyncThroughput' in terms of blocks/sec.
@@ -566,7 +570,7 @@ calculateThroughput BoundedSyncTime{..} =
     let processingTime = max 1.0 (realToFrac @Integer @Double $ toMicroseconds bscProcessingTime)
         (microseconds :: Integer) = 1000000
         (processedBlocks :: Integer) = fromIntegral . getBlockCount $ bscProcessedBlocks
-        (tput :: Double) = (realToFrac $ processedBlocks * microseconds) / (realToFrac processingTime)
+        (tput :: Double) = realToFrac (processedBlocks * microseconds) / realToFrac processingTime
      in WS.SyncThroughput . BlockCount . round $ tput
 
 -- | Calculates the estimated remaining time to restore the wallet via the

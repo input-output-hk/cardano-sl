@@ -730,7 +730,8 @@ instance FromJSON SyncState where
             _           -> typeMismatch "unrecognised tag" (Object ss)
 
 instance ToSchema SyncState where
-    declareNamedSchema _ =
+    declareNamedSchema _ = do
+      syncProgress <- declareNamedSchema @SyncProgress Proxy
       pure $ NamedSchema (Just "SyncState") $ mempty
           & type_ .~ SwaggerObject
           & required .~ ["tag"]
@@ -739,9 +740,7 @@ instance ToSchema SyncState where
                   & type_ .~ SwaggerString
                   & enum_ ?~ ["restoring", "synced"]
                   )
-              & at "data" ?~ (Inline $ mempty
-                  & type_ .~ SwaggerObject
-                  )
+              & at "data" ?~ (Inline . _namedSchemaSchema $ syncProgress)
               )
 
 instance Arbitrary SyncState where

@@ -5,8 +5,7 @@ module Pos.Explorer.Txp.Common
        ( buildExplorerExtraLookup
        ) where
 
-import           Nub (ordNub)
-import           Universum
+import           Universum hiding (keys)
 
 import           Control.Lens (at, non)
 import qualified Data.HashMap.Strict as HM

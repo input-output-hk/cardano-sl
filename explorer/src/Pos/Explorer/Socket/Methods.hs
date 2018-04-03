@@ -53,7 +53,7 @@ module Pos.Explorer.Socket.Methods
        , SubscriptionMode
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, ix, lens, non, (.=), _Just)
 import           Control.Monad.State (MonadState)

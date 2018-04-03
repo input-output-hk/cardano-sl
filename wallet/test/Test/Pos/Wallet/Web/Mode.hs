@@ -53,7 +53,6 @@ import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDefault,
                                          getLocalHistoryDefault, saveTxDefault)
-import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Context (ConnectedPeers (..))
 import           Pos.Core (HasConfiguration, Timestamp (..), largestHDAddressBoot)
 import           Pos.Core.Txp (TxAux)
@@ -82,7 +81,6 @@ import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Lrc (LrcContext)
-import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), TxpGlobalSettings,
@@ -104,7 +102,7 @@ import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (
                                         WalletMempoolExt)
 import           Pos.Wallet.Web.ClientTypes (AccountId)
 import           Pos.Wallet.Web.Mode (getBalanceDefault, getNewAddressWebWallet, getOwnUtxosDefault)
-import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, openMemState)
+import           Pos.Wallet.Web.State (WalletDB, openMemState)
 import           Pos.Wallet.Web.Tracking.BListener (onApplyBlocksWebWallet,
                                                     onRollbackBlocksWebWallet)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
@@ -234,7 +232,7 @@ type WalletProperty = PropertyM WalletTestMode
 -- | Convert 'WalletProperty' to 'Property' using given generator of
 -- 'WalletTestParams'.
 walletPropertyToProperty
-    :: (HasConfiguration, HasDlgConfiguration)
+    :: (HasConfiguration, HasDlgConfiguration, Testable a)
     => Gen WalletTestParams
     -> WalletProperty a
     -> Property
@@ -242,12 +240,12 @@ walletPropertyToProperty wtpGen walletProperty =
     forAll wtpGen $ \wtp ->
         monadic (ioProperty . runWalletTestMode wtp) walletProperty
 
-instance (HasConfiguration, HasDlgConfiguration)
+instance (HasConfiguration, HasDlgConfiguration, Testable a)
         => Testable (WalletProperty a) where
     property = walletPropertyToProperty arbitrary
 
 walletPropertySpec ::
-       (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration)
+       (HasConfiguration, HasDlgConfiguration, Testable a)
     => String
     -> (HasConfiguration => WalletProperty a)
     -> Spec
@@ -372,7 +370,8 @@ instance HasNodeType WalletTestContext where
 instance HasLens (StateLockMetrics MemPoolModifyReason) WalletTestContext (StateLockMetrics MemPoolModifyReason) where
     lensOf = wtcStateLockMetrics_L
 
-instance WalletDbReader WalletTestContext WalletTestMode
+-- This never made any sense. WalletDbReader is a type synonym.
+-- instance WalletDbReader WalletTestContext WalletTestMode
 
 instance HasConfigurations => MonadAddresses WalletTestMode where
     type AddrData WalletTestMode = (AccountId, PassPhrase)

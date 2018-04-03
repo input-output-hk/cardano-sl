@@ -6,7 +6,7 @@ module Pos.Lrc.Core
        , findRichmenStakes
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Data.Conduit (ConduitT, await)
 import qualified Data.Conduit.List as CL

@@ -8,12 +8,13 @@ module Pos.Ssc.Toss.Logic
        , refreshToss
        ) where
 
+import           Universum hiding (id)
+
 import           Control.Lens (at)
 import           Control.Monad.Except (MonadError, throwError, runExceptT)
 import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
 import           System.Wlog (logError)
-import           Universum
 
 import           Pos.Core (EpochIndex, EpochOrSlot (..), IsMainHeader, HasProtocolConstants,
                            LocalSlotIndex, SlotCount, SlotId (siSlot), StakeholderId,

@@ -5,7 +5,7 @@ module Test.Infrastructure.Genesis (
 
 import           Universum
 
-import           Data.Maybe (fromJust)
+import qualified Data.List (head)
 
 import           UTxO.Context
 import           UTxO.DSL
@@ -59,4 +59,4 @@ genesisValues boot@Transaction{..} = GenesisValues{..}
 -------------------------------------------------------------------------------}
 
 unsafeHead :: [a] -> a
-unsafeHead = fromJust . head
+unsafeHead = Data.List.head

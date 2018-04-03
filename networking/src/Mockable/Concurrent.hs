@@ -18,7 +18,6 @@ module Mockable.Concurrent (
 
   , Delay(..)
   , delay
-  , sleepForever
 
   , MyThreadId(..)
   , myThreadId
@@ -101,11 +100,9 @@ killThread tid = throwTo tid ThreadKilled
 
 data Delay (m :: * -> *) (t :: *) where
     Delay :: TimeUnit t => t -> Delay m ()    -- Finite delay.
-    SleepForever :: Delay m ()                -- Infinite delay.
 
 instance MFunctor' Delay m n where
     hoist' _ (Delay i)    = Delay i
-    hoist' _ SleepForever = SleepForever
 
 ----------------------------------------------------------------------------
 -- Delay mock helper functions
@@ -114,10 +111,6 @@ instance MFunctor' Delay m n where
 {-# INLINE delay #-}
 delay :: ( Mockable Delay m ) => TimeUnit t => t -> m ()
 delay time = liftMockable $ Delay time
-
-{-# INLINE sleepForever #-}
-sleepForever :: ( Mockable Delay m ) => m ()
-sleepForever = liftMockable SleepForever
 
 ----------------------------------------------------------------------------
 -- MyThreadId mock and helper functions

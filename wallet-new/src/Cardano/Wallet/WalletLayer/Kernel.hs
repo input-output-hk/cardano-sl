@@ -18,7 +18,7 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..), fromRawResolvedBlock)
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
 
-import           Pos.Core.Chrono (mapMaybeChrono)
+import           Pos.Core.Chrono (OldestFirst (..))
 
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Data.Map.Strict as Map
@@ -37,7 +37,8 @@ bracketPassiveWallet logFunction f =
       -- Create the wallet worker and its communication endpoint `invoke`.
       invoke <- Actions.forkWalletWorker $ Actions.WalletActionInterp
                { Actions.applyBlocks  =  \blunds ->
-                   Kernel.applyBlocks w (mapMaybeChrono blundToResolvedBlock blunds)
+                   Kernel.applyBlocks w $
+                       OldestFirst (mapMaybe blundToResolvedBlock (toList (getOldestFirst blunds)))
                , Actions.switchToFork = \_ _ -> logFunction Debug "<switchToFork>"
                , Actions.emit         = logFunction Debug
                }

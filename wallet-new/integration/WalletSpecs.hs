@@ -7,7 +7,7 @@ import           Universum
 
 import           Cardano.Wallet.Client.Http
 import           Cardano.Wallet.API.V1.Errors (WalletError (WalletAlreadyExists))
-import           Control.Lens hiding ((^..), (^?))
+import           Control.Lens
 import           Test.Hspec
 
 import           Util

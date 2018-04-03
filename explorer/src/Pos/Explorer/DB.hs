@@ -26,7 +26,7 @@ module Pos.Explorer.DB
        , findEpochMaxPages
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, non)
 import           Control.Monad.Trans.Resource (ResourceT)

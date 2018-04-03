@@ -15,7 +15,7 @@ module Pos.Core.Ssc.VssCertificatesMap
        , deleteVss
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (makeWrapped)
 import           Control.Monad.Except (MonadError (throwError))

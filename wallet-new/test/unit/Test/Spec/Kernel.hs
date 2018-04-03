@@ -6,8 +6,6 @@ import           Universum
 
 import qualified Data.Set as Set
 
-import           Pos.Core (HasConfiguration)
-
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 
@@ -29,7 +27,7 @@ import qualified Wallet.Basic as Base
   Compare the wallet kernel with the pure model
 -------------------------------------------------------------------------------}
 
-spec :: HasConfiguration => Spec
+spec :: Spec
 spec =
     it "Compare wallet kernel to pure model" $
       forAll (genInductiveUsingModel model) $ \ind -> do

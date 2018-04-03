@@ -19,8 +19,8 @@ import           Universum
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON,
                              withObject, (.:), (.:?))
 import           Data.Default (Default (..))
+import           Data.Time.Units (fromMicroseconds)
 import           Serokell.Aeson.Options (defaultOptions)
-import           Serokell.Util (sec)
 import           System.FilePath (takeDirectory)
 import           System.Wlog (WithLogger, logInfo)
 
@@ -85,7 +85,7 @@ instance FromJSON ConfigurationOptions where
     parseJSON = withObject "ConfigurationOptions" $ \o -> do
         cfoFilePath    <- o .: "filePath"
         cfoKey         <- o .: "key"
-        cfoSystemStart <- (Timestamp . sec) <<$>> o .:? "systemStart"
+        cfoSystemStart <- (Timestamp . fromMicroseconds . (*) 1000000) <<$>> o .:? "systemStart"
         cfoSeed        <- o .:? "seed"
         pure ConfigurationOptions {..}
 

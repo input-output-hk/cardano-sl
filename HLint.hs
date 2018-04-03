@@ -31,6 +31,9 @@ ignore "Use :"
 ignore "Use ++"
 ignore "Use ||"
 ignore "Use &&"
+ignore "Use ?~"
+ignore "Use <$>"
+ignore "Use ."
 
 -- There's no 'head' in Universum
 ignore "Use head"

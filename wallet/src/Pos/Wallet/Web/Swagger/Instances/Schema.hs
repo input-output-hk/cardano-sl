@@ -11,7 +11,7 @@ import           Data.Aeson (toJSON)
 import           Data.Swagger (NamedSchema (..), SwaggerType (..), ToParamSchema (..),
                                ToSchema (..), declareNamedSchema, declareSchema, declareSchemaRef,
                                defaultSchemaOptions, description, example, format,
-                               genericDeclareNamedSchema, minItems, name, properties, required,
+                               genericDeclareNamedSchema, name, properties, required,
                                sketchSchema, type_)
 import           Data.Swagger.Internal.Schema (named)
 import qualified Data.Swagger.Lens as Swagger
@@ -148,8 +148,13 @@ instance {-# OVERLAPPING #-}
         genericDeclareNamedSchema defaultSchemaOptions proxy
             & mapped . name ?~ show (typeRep $ Proxy @(Either ET.WalletError a))
 
+-- After an update of swagger, this now overlaps with one in
+-- Data.Swagger.Internal.Schema
+-- TBD is it ok to use that one?
+{-
 instance ToSchema a => ToSchema (NonEmpty a) where
     declareNamedSchema _ = do
         schema <- declareSchema (Proxy :: Proxy [a])
         pure $ NamedSchema Nothing $ schema
             & minItems ?~ 1
+-}

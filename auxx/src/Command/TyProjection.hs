@@ -31,9 +31,8 @@ module Command.TyProjection
 import           Universum
 
 import           Data.Scientific (Scientific, floatingOrInteger, toBoundedInteger, toRealFloat)
-import           Data.Time.Units (TimeUnit, convertUnit)
+import           Data.Time.Units (TimeUnit, Microsecond, convertUnit, fromMicroseconds)
 import           Serokell.Data.Memory.Units (Byte, fromBytes)
-import           Serokell.Util (sec)
 
 import           Pos.Core (AddrStakeDistribution (..), Address, BlockVersion, Coin,
                            CoinPortion, EpochIndex, ScriptVersion, SoftwareVersion, StakeholderId,
@@ -93,8 +92,10 @@ tyByte = fromBytes <$> TyProjection "Byte" (sciToInteger <=< preview _ValueNumbe
 sciToInteger :: Scientific -> Maybe Integer
 sciToInteger = either (const Nothing) Just . floatingOrInteger @Double @Integer
 
-tySecond :: TimeUnit a => TyProjection a
-tySecond = convertUnit . sec <$> TyProjection "Second" (toBoundedInteger <=< preview _ValueNumber)
+tySecond :: forall a . TimeUnit a => TyProjection a
+tySecond =
+    convertUnit . (fromMicroseconds . fromIntegral . (*) 1000000 :: Int -> Microsecond) <$>
+    TyProjection "Second" (toBoundedInteger <=< preview _ValueNumber)
 
 tyScriptVersion :: TyProjection ScriptVersion
 tyScriptVersion = TyProjection "ScriptVersion" (toBoundedInteger <=< preview _ValueNumber)

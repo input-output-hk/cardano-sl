@@ -30,7 +30,7 @@ module Pos.Explorer.Web.Server
        , cAddrToAddr
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at)
 import qualified Data.ByteString as BS
@@ -878,3 +878,12 @@ getEpochPagesOrThrow
     -> m Page
 getEpochPagesOrThrow epochIndex =
     getEpochPagesCSLI epochIndex >>= maybeThrow (Internal "No epoch pages.")
+
+-- Silly name for a list index-lookup function.
+atMay :: [a] -> Int -> Maybe a
+atMay xs n
+    | n < 0     = Nothing
+    | n == 0    = fmap fst (uncons xs)
+    | otherwise = case xs of
+                      []        -> Nothing
+                      (_ : xs') -> atMay xs' (n - 1)

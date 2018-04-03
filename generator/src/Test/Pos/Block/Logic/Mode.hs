@@ -55,6 +55,7 @@ import           Mockable (Production, currentTime, runProduction)
 import qualified Prelude
 import           System.Wlog (HasLoggerName (..), LoggerName)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, ioProperty)
+import           Test.QuickCheck.Property (Testable)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..), mkAllSecretsSimple)
@@ -313,7 +314,11 @@ type BlockProperty = PropertyM BlockTestMode
 -- | Convert 'BlockProperty' to 'Property' using given generator of
 -- 'TestParams'.
 blockPropertyToProperty ::
-       (HasNodeConfiguration, HasDlgConfiguration, HasSscConfiguration)
+       ( HasNodeConfiguration
+       , HasDlgConfiguration
+       , HasSscConfiguration
+       , Testable a
+       )
     => Gen TestParams
     -> (HasConfiguration =>
             BlockProperty a)
@@ -336,7 +341,7 @@ blockPropertyToProperty tpGen blockProperty =
 --          => Testable (HasConfiguration => BlockProperty a) where
 --     property = blockPropertyToProperty arbitrary
 blockPropertyTestable ::
-       (HasNodeConfiguration, HasDlgConfiguration, HasSscConfiguration)
+       (HasNodeConfiguration, HasDlgConfiguration, HasSscConfiguration, Testable a)
     => (HasConfiguration => BlockProperty a)
     -> Property
 blockPropertyTestable = blockPropertyToProperty arbitrary

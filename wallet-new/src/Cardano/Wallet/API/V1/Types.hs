@@ -81,6 +81,7 @@ import qualified Data.Char as C
 import           Data.Swagger as S hiding (constructorTagModifier)
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
+import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text.Buildable
 import           Data.Version (Version)
@@ -144,7 +145,14 @@ type IsPropertiesMap m =
   (IxValue m ~ Referenced Schema, Index m ~ Text, At m, HasProperties Schema m)
 
 genericSchemaDroppingPrefix
-    :: forall a m proxy. (Generic a, ToJSON a, Arbitrary a, GToSchema (Rep a), IsPropertiesMap m)
+    :: forall a m proxy. 
+       ( Generic a
+       , ToJSON a
+       , Arbitrary a
+       , GToSchema (Rep a)
+       , IsPropertiesMap m
+       , GenericHasSimpleShape a "genericDeclareNamedSchemaUnrestricted" (GenericShape (Rep a))
+       )
     => String -- ^ Prefix to drop on each constructor tag
     -> ((Index m -> Text -> m -> m) -> m -> m) -- ^ Callback update to attach descriptions to underlying properties
     -> proxy a -- ^ Underlying data-type proxy
@@ -307,16 +315,6 @@ instance ToSchema (V1 Core.Coin) where
         pure $ NamedSchema (Just "V1Coin") $ mempty
             & type_ .~ SwaggerNumber
             & maximum_ .~ Just (fromIntegral Core.maxCoinVal)
-
--- Orphan instance copied from a PR.
---
--- TODO: remove and use upstream when this PR is merged
--- <https://github.com/GetShopTV/swagger2/pull/141>
-instance ToSchema a => ToSchema (NonEmpty a) where
-     declareNamedSchema _ = do
-        listSchema <- declareSchema (Proxy :: Proxy [a])
-        pure $ NamedSchema Nothing $ listSchema
-            & minItems .~ Just 1
 
 instance ToJSON (V1 Core.Address) where
     toJSON (V1 c) = String $ sformat addressF c

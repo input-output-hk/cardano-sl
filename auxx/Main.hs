@@ -3,9 +3,9 @@ module Main
        ) where
 
 import           Universum
-import           Unsafe (unsafeFromJust)
 
 import           Control.Exception.Safe (handle)
+import           Data.Maybe (fromJust)
 import           Formatting (sformat, shown, (%))
 import           Mockable (Production, runProduction)
 import           JsonLog (jsonLog)
@@ -124,7 +124,7 @@ action opts@AuxxOptions {..} command = do
                         { acRealModeContext = realModeContext
                         , acTempDbUsed = tempDbUsed }
                 lift $ runReaderT auxxAction auxxContext
-        let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
+        let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
         bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
             elimRealMode nr $ toRealMode $

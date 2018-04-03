@@ -274,7 +274,7 @@ node
     :: forall packing peerData m t .
        ( Mockable Channel.Channel m
        , Mockable SharedAtomic m, MonadMask m
-       , Mockable LowLevelAsync m, Mockable Async m, Mockable Concurrently m
+       , Mockable LowLevelAsync m, Mockable Async m
        , Ord (ThreadId m), Show (ThreadId m)
        , Mockable SharedExclusive m
        , Mockable Delay m

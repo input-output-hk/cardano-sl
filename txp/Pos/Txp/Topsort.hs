@@ -5,12 +5,12 @@ module Pos.Txp.Topsort
        , topsortTxAuxes
        ) where
 
-import           Universum
+import           Universum hiding (tail, uncons)
 
 import           Control.Lens (makeLenses, to, uses, (%=), (.=))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import           Data.List (nub, tail)
+import           Data.List (nub, tail, uncons)
 
 import           Pos.Binary.Core ()
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), txInputs)
@@ -54,7 +54,8 @@ topsortTxs toTx input =
     -- visited vertices.
     dfs1 :: State (TopsortState a) ()
     dfs1 = unlessM (use tsLoop) $ do
-        t <- head <$> use tsUnprocessed
+        -- fmap fst . uncons ~ safeHead :: [a] -> Maybe a
+        t <- (fmap fst . uncons) <$> use tsUnprocessed
         whenJust t $ \a -> do
             let tx = toTx a
             ifM (HS.member (whHash tx) <$> use tsVisited)

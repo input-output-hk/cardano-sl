@@ -16,20 +16,19 @@ module Pos.DHT.Real.Real
        ) where
 
 
-import           Nub (ordNub)
-import           Universum
+import           Universum hiding (init)
 
 import           Control.Exception.Safe (try)
 import qualified Data.ByteString.Char8 as B8 (unpack)
 import qualified Data.ByteString.Lazy as BS
 import           Data.List (intersect, (\\))
-import           Data.Time.Units (Second)
+import           Data.Time.Units (Second, fromMicroseconds)
 import           Formatting (build, int, sformat, shown, (%))
 import           Mockable (Delay, Mockable, MonadMockable, delay, withAsync)
 import qualified Network.Kademlia as K
 import qualified Network.Kademlia.Instance as K (KademliaInstance (state), KademliaState (sTree))
 import qualified Network.Kademlia.Tree as K (toView)
-import           Serokell.Util (listJson, ms, sec)
+import           Serokell.Util (listJson)
 import           System.Directory (doesFileExist)
 import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger, logDebug, logError,
                               logInfo, logWarning, usingLoggerName)
@@ -61,7 +60,7 @@ foreverRejoinNetwork
     -> m a
     -> m a
 foreverRejoinNetwork inst action = withAsync
-    (runWithRandomIntervals (ms 500) (sec 5) (rejoinNetwork inst))
+    (runWithRandomIntervals (fromMicroseconds 500000) (fromMicroseconds 5000000) (rejoinNetwork inst))
     (const action)
 
 -- | Stop chosen 'KademliaDHTInstance'.

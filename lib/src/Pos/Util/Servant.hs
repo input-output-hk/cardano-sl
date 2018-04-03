@@ -50,7 +50,7 @@ module Pos.Util.Servant
     , applyLoggingToHandler
     ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (Iso, iso, makePrisms)
@@ -77,8 +77,8 @@ import qualified Servant.Server.Internal as SI
 import           Servant.Swagger (HasSwagger (toSwagger))
 import           System.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
 
-import           Pos.Util.LogSafe (BuildableSafe, SecuredText, buildSafe, logInfoSP, plainOrSecureF,
-                                   secretOnlyF)
+import           Pos.Util.LogSafe (SecureLog, BuildableSafe, SecuredText, buildSafe, logInfoSP,
+                                   plainOrSecureF, secretOnlyF)
 
 -------------------------------------------------------------------------
 -- Utility functions
@@ -114,10 +114,11 @@ class ApiHasArgClass api where
 
     -- | Name of argument.
     -- E.g. name of argument specified by @Capture "nyan"@ is /nyan/.
-    apiArgName :: Proxy api -> String
+    apiArgName
+        :: Proxy api -> String
     default apiArgName
         :: forall n someApiType a. (KnownSymbol n, someApiType n a ~ api)
-        => Proxy (someApiType n a) -> String
+        => Proxy api -> String
     apiArgName _ = formatToString ("'"%string%"' field") $ symbolVal (Proxy @n)
 
 class ServerT (subApi :> res) m ~ (ApiArg subApi -> ServerT res m)
@@ -456,8 +457,11 @@ class ApiHasArgClass subApi =>
         :: BuildableSafe (ApiArgToLog subApi)
         => Proxy subApi -> ApiArg subApi -> SecuredText
     default toLogParamInfo
-        :: BuildableSafe (ApiArgToLog subApi)
-        => Proxy subApi -> ApiArgToLog subApi -> SecuredText
+        :: ( BuildableSafe (ApiArgToLog subApi)
+           , Buildable (ApiArg subApi)
+           , Buildable (SecureLog (ApiArg subApi))
+           )
+        => Proxy subApi -> ApiArg subApi -> SecuredText
     toLogParamInfo _ param = \sl -> sformat (buildSafe sl) param
 
 instance KnownSymbol s => ApiCanLogArg (Capture s a)

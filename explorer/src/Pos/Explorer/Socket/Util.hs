@@ -17,6 +17,7 @@ module Pos.Explorer.Socket.Util
 
 import           Universum hiding (on)
 
+import           Control.Concurrent (threadDelay)
 import           Control.Monad.Reader (MonadReader)
 import           Control.Monad.State (MonadState)
 import           Control.Monad.Trans (MonadIO)
@@ -28,7 +29,6 @@ import           Formatting (sformat, shown, (%))
 import           Network.EngineIO.Wai (WaiMonad)
 
 import qualified Network.SocketIO as S
-import           Serokell.Util.Concurrent (threadDelay)
 import           System.Wlog (CanLog (..), WithLogger, logWarning)
 
 -- * Provides type-safety for event names in some socket-io functions.
@@ -85,7 +85,8 @@ runPeriodically delay initState action =
     let loop st = do
             st' <- execStateT action st
                 `catchAny` \e -> handler e $> st
-            threadDelay delay
+            -- toMicroseconds makes an 'Integer'
+            liftIO $ threadDelay (fromIntegral (toMicroseconds delay))
             loop st'
     in  loop initState
   where

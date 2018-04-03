@@ -18,7 +18,7 @@ module Cardano.Wallet.Kernel (
   , hasPending
   ) where
 
-import Universum
+import Universum hiding (init)
 import System.Wlog (Severity(..))
 
 import Cardano.Wallet.Kernel.Diffusion (WalletDiffusion(..))

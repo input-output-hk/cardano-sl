@@ -35,7 +35,7 @@ import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
 import           Pos.Core.Genesis (gdStartTime)
 import           Pos.Crypto (decodeAbstractHash)
 import           Pos.Delegation.Configuration (dlgConfiguration)
-import           Pos.Infra.Configuration (infraConfiguration)
+import           Pos.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.Configuration (sscConfiguration)
@@ -51,10 +51,11 @@ printFlags = do
 printInfoOnStart ::
        (HasConfigurations, WithLogger m, Mockable CurrentTime m, MonadIO m)
     => CommonNodeArgs
+    -> NtpConfiguration
     -> m ()
-printInfoOnStart CommonNodeArgs {..} = do
+printInfoOnStart CommonNodeArgs {..} ntpConfig = do
     whenJust cnaDumpGenesisDataPath $ dumpGenesisData True
-    when cnaDumpConfiguration dumpConfiguration
+    when cnaDumpConfiguration $ dumpConfiguration ntpConfig
     printFlags
     t <- currentTime
     mapM_ logInfo $
@@ -102,12 +103,15 @@ dumpGenesisData canonical path = do
         False -> writeFile path (toText prettyJsonStr)
 
 -- | Dump our configuration into stdout and exit.
-dumpConfiguration :: (HasConfigurations, MonadIO m) => m ()
-dumpConfiguration = do
+dumpConfiguration
+    :: (HasConfigurations, MonadIO m)
+    => NtpConfiguration
+    -> m ()
+dumpConfiguration ntpConfig = do
     let conf =
             Configuration
             { ccCore = coreConfiguration
-            , ccInfra = infraConfiguration
+            , ccNtp = ntpConfig
             , ccUpdate = updateConfiguration
             , ccSsc = sscConfiguration
             , ccDlg = dlgConfiguration

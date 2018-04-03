@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 -- | Fee calculation
 --
 -- See also
@@ -5,24 +7,25 @@
 -- * Module "Pos.Core.Common.Fee"
 -- * Function 'Pos.Client.Txp.Util.stabilizeTxFee'
 module UTxO.PreChain (
-    PreChain(..)
-  , hoistPreChain
+    PreChain
+  , preChain
   , FromPreChain(..)
   , fromPreChain
   ) where
 
-import Universum
+import           Universum
 
-import Pos.Core
-import Pos.Client.Txp
-import Pos.Txp.Toil
-import Pos.Util.Chrono
+import           Pos.Client.Txp
+import           Pos.Core
+import           Pos.Txp.Toil
+import           Pos.Util.Chrono
 
-import UTxO.Bootstrap
-import UTxO.Context
-import UTxO.DSL
-import UTxO.Interpreter
-import UTxO.Translate
+import           Util.DepIndep
+import           UTxO.Bootstrap
+import           UTxO.Context
+import           UTxO.DSL
+import           UTxO.Interpreter
+import           UTxO.Translate
 
 {-------------------------------------------------------------------------------
   Chain with some information still missing
@@ -30,11 +33,13 @@ import UTxO.Translate
 
 -- | A chain with "holes" for the bootstrap transaction and the fees
 --
--- NOTE: The position of @m@ here is very deliberate. If we used
+-- We use the 'DepIndep' monad transformer here to make sure that the
+-- effects can depend on the bootstrap transaction, but not on the fees.
+-- This is important. Suppose we used
 --
 -- > Transaction h Addr -> [[Fee]] -> m (Blocks h Addr)
 --
--- instead then we'd have to execute the action that generates the blocks
+-- instead: we'd have to execute the action that generates the blocks
 -- /twice/ (once before we know the fees, and once again after we computed
 -- the fees), and the second time around we may in fact generate a very
 -- different chain (think @m@ = QuickCheck 'Gen', for instance) -- which
@@ -45,29 +50,39 @@ import UTxO.Translate
 -- instead, then (thinking @m@ = 'Gen' again) we could not generate different
 -- chains for different bootstrap transactions, which would also be no good.
 --
--- By having the @m@ parameter after the bootstrap transaction but before
--- the fees we avoid having to run the generator twice. It is still the
--- responsibility of the 'PreChain' author to make sure that the structure of
--- the blockchain does not depend on the fees that are passed.
-newtype PreChain h m = PreChain {
-      runPreChain :: Transaction h Addr -> m ([[Fee]] -> Blocks h Addr)
-    }
+-- It is still the responsibility of the 'PreChain' author to make sure that the
+-- structure of the blockchain does not depend on the fees that are passed.
+type PreChain h m a = DepIndep (Transaction h Addr) [[Fee]] m (Blocks h Addr, a)
 
--- | Transform the underlying monad in the 'PreChain'.
-hoistPreChain :: (forall x. m x -> n x) -> PreChain h m -> PreChain h n
-hoistPreChain k (PreChain f) = PreChain (k . f)
+preChain :: Functor m
+         => (Transaction h Addr -> m ([[Fee]] -> Blocks h Addr))
+         -> PreChain h m ()
+preChain = fmap (, ()) . DepIndep
 
-data FromPreChain h = FromPreChain {
-      fpcBoot   :: Transaction h Addr
-    , fpcChain  :: Chain       h Addr
-    , fpcLedger :: Ledger      h Addr
+-- | Result of translating a 'PreChain'
+--
+-- See 'fromPreChain'
+data FromPreChain h a = FromPreChain {
+      -- | The boot transaction that was used in the translation
+      fpcBoot :: Transaction h Addr
+
+      -- | The resulting chain (i.e., list of list of transactions)
+      -- This does /not/ include the bootstrap transaction.
+    , fpcChain :: Chain h Addr
+
+      -- | The resulting ledger (i.e., flat list of transactions)
+      -- This /does/ include the bootstrap transaction .
+    , fpcLedger :: Ledger h Addr
+
+      -- | Any additional information that was included in the 'PreChain'.
+    , fpcExtra :: a
     }
 
 fromPreChain :: (Hash h Addr, Monad m)
-             => PreChain h m -> TranslateT IntException m (FromPreChain h)
-fromPreChain (PreChain f) = do
+             => PreChain h m a -> TranslateT IntException m (FromPreChain h a)
+fromPreChain pc = do
     fpcBoot <- asks bootstrapTransaction
-    txs <- calcFees fpcBoot =<< lift (f fpcBoot)
+    (txs, fpcExtra) <- calcFees fpcBoot =<< lift (runDepIndep pc fpcBoot)
     let fpcChain  = Chain txs -- doesn't include the boot transactions
         fpcLedger = chainToLedger fpcBoot fpcChain
     return FromPreChain{..}
@@ -119,10 +134,10 @@ type Fee = Value
 -- TODO: We should check that the fees of the constructed transactions match the
 -- fees we calculuated. This ought to be true at the moment, but may break when
 -- the size of the fee might change the size of the the transaction.
-calcFees :: forall h m. (Hash h Addr, Monad m)
+calcFees :: forall h m x. (Hash h Addr, Monad m)
          => Transaction h Addr
-         -> ([[Fee]] -> Blocks h Addr)
-         -> TranslateT IntException m (Blocks h Addr)
+         -> ([[Fee]] -> (Blocks h Addr, x))
+         -> TranslateT IntException m (Blocks h Addr, x)
 calcFees boot f = do
     TxFeePolicyTxSizeLinear policy <- bvdTxFeePolicy <$> gsAdoptedBVData
     let txToLinearFee' :: TxAux -> TranslateT IntException m Value
@@ -130,7 +145,7 @@ calcFees boot f = do
                        . fmap feeValue
                        . txToLinearFee policy
 
-    (txs, _) <- runIntBoot boot $ f (repeat (repeat 0))
+    (txs, _) <- runIntBoot boot $ fst (f (repeat (repeat 0)))
     fees     <- mapM (mapM txToLinearFee') txs
     return $ f (unmarkOldestFirst fees)
   where

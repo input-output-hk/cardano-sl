@@ -44,8 +44,6 @@ library
                      , formatting
                      , lens
                      , memory
-                     , monad-control
-                     , mmorph
                      , mtl
                      , resourcet
                      , rocksdb-haskell-ng
@@ -53,7 +51,6 @@ library
                      , text-format
                      , transformers
                      , universum
-                     , unliftio
 
   default-language:    Haskell2010
 

@@ -89,7 +89,7 @@ data PtxCondition
                                       --   (this constructor is at bottom for
                                       --   the sake of SafeCopy instance's
                                       --   backward-compatibility)
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 makePrisms ''PtxCondition
 

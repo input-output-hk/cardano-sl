@@ -54,9 +54,9 @@ main = do
 
 action :: ExplorerNodeArgs -> Production ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
-    withConfigurations conf $
+    withConfigurations conf $ \ntpConfig ->
     withCompileInfo $(retrieveCompileTimeInfo) $ do
-        CLI.printInfoOnStart cArgs
+        CLI.printInfoOnStart cArgs ntpConfig
         logInfo $ "Explorer is enabled!"
         currentParams <- getNodeParams loggerName cArgs nodeArgs
 
@@ -91,7 +91,12 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
             ekgNodeMetrics = EkgNodeMetrics
                 nrEkgStore
                 (runProduction . elim . explorerModeToRealMode)
-            serverRealMode = explorerModeToRealMode (runServer ncNodeParams ekgNodeMetrics outSpecs go)
+            serverRealMode = explorerModeToRealMode $ runServer
+                (runProduction . elim . explorerModeToRealMode)
+                ncNodeParams
+                ekgNodeMetrics
+                outSpecs
+                go
         in  elim serverRealMode
 
     nodeArgs :: NodeArgs

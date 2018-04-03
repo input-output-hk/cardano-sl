@@ -8,6 +8,7 @@ import           Universum
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Data.Aeson
+import           Data.List.NonEmpty (NonEmpty)
 import           Generics.SOP.TH (deriveGeneric)
 import qualified Network.HTTP.Types.Header as HTTP
 import           Servant
@@ -53,7 +54,10 @@ data WalletError =
     | MigrationFailed { weDescription :: !Text }
     | JSONValidationFailed { weValidationError :: !Text }
     | UnkownError { weMsg :: !Text }
+    | InvalidAddressFormat { weMsg :: !Text }
     | WalletNotFound
+    | AddressNotFound
+    | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
     deriving (Show, Eq)
 
 --
@@ -99,20 +103,22 @@ sample =
 -- | Convert wallet errors to Servant errors
 toServantError :: WalletError -> ServantErr
 toServantError err =
-  case err of
-    NotEnoughMoney{}       -> mkServantErr err403 err
-    OutputIsRedeem{}       -> mkServantErr err403 err
-    SomeOtherError{}       -> mkServantErr err418 err
-    MigrationFailed{}      -> mkServantErr err422 err
-    JSONValidationFailed{} -> mkServantErr err400 err
-    UnkownError{}          -> mkServantErr err400 err
-    WalletNotFound{}       -> mkServantErr err404 err
+  mkServantErr $ case err of
+    NotEnoughMoney{}       -> err403
+    OutputIsRedeem{}       -> err403
+    SomeOtherError{}       -> err418
+    MigrationFailed{}      -> err422
+    JSONValidationFailed{} -> err400
+    UnkownError{}          -> err400
+    WalletNotFound{}       -> err404
+    InvalidAddressFormat{} -> err401
+    AddressNotFound{}      -> err404
+    MissingRequiredParams{} -> err400
   where
-    mkServantErr serr@ServantErr{..} werr = serr
-      { errBody    = encode werr
+    mkServantErr serr@ServantErr{..} = serr
+      { errBody    = encode err
       , errHeaders = applicationJson : errHeaders
       }
-
 
 -- | Generates the @Content-Type: application/json@ 'HTTP.Header'.
 applicationJson :: HTTP.Header

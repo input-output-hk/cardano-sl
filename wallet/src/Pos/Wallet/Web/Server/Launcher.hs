@@ -24,6 +24,9 @@ import           Servant.Server (Handler, Server, serve)
 import           System.Wlog (WithLogger, logInfo)
 
 import qualified Data.ByteString.Char8 as BS8
+
+import           Ntp.Client (NtpStatus)
+
 import           Pos.Client.Txp.Network (sendTxOuts)
 import           Pos.Communication (OutSpecs)
 import           Pos.Core (HasConfiguration)
@@ -67,11 +70,12 @@ walletServer
     :: forall ctx m.
        ( MonadFullWalletWebMode ctx m )
     => Diffusion m
+    -> TVar NtpStatus
     -> (forall x. m x -> Handler x)
     -> m (Server WalletSwaggerApi)
-walletServer diffusion nat = do
+walletServer diffusion ntpStatus nat = do
     syncWalletsWithGState =<< mapM findKey =<< myRootAddresses
-    return $ servantHandlersWithSwagger submitTx nat
+    return $ servantHandlersWithSwagger ntpStatus submitTx nat
   where
     -- Diffusion layer takes care of submitting transactions.
     submitTx = sendTx diffusion

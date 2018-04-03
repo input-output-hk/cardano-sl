@@ -1,10 +1,12 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module APISpec where
 
 import           Universum
@@ -13,6 +15,7 @@ import qualified Control.Concurrent.STM as STM
 import           Data.Default (def)
 import           Network.HTTP.Client hiding (Proxy)
 import           Network.HTTP.Types
+import           Ntp.Client (withoutNtpClient)
 import qualified Pos.Diffusion.Types as D
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
@@ -62,7 +65,7 @@ instance HasGenRequest sub => HasGenRequest (FilterBy syms res :> sub) where
 instance HasGenRequest sub => HasGenRequest (Tags tags :> sub) where
     genRequest _ = genRequest (Proxy :: Proxy sub)
 
-instance HasGenRequest sub => HasGenRequest (WalletRequestParams :> sub) where
+instance HasGenRequest (sub :: *) => HasGenRequest (WalletRequestParams :> sub) where
     genRequest _ = genRequest (Proxy @(WithWalletRequestParams sub))
 
 --
@@ -123,7 +126,8 @@ v0Server diffusion = do
   -- TODO(adinapoli): If the monadic stack ends up diverging between V0 and V1,
   -- it's obviously incorrect using 'testV1Context' here.
   ctx <- testV1Context
-  return (V0.handlers (Migration.v1MonadNat ctx) diffusion)
+  withoutNtpClient $ \ntpStatus ->
+    return (V0.handlers (Migration.v1MonadNat ctx) diffusion ntpStatus)
 
 -- | "Lowers" V1 Handlers from our domain-specific monad to a @Servant@ 'Handler'.
 v1Server :: ( Migration.HasConfigurations
@@ -131,7 +135,8 @@ v1Server :: ( Migration.HasConfigurations
             ) => D.Diffusion Migration.MonadV1 -> IO (Server V1.API)
 v1Server diffusion = do
   ctx <- testV1Context
-  return (V1.handlers (Migration.v1MonadNat ctx) diffusion)
+  withoutNtpClient $ \ntpStatus ->
+    return (V1.handlers (Migration.v1MonadNat ctx) diffusion ntpStatus)
 
 -- | Returns a test 'V1Context' which can be used for the API specs.
 -- Such context will use an in-memory database.
@@ -157,11 +162,13 @@ testV1Context =
 -- The general consensus, after discussing this with the team, is that we can be moderately safe.
 spec :: Spec
 spec = withCompileInfo def $ do
-    withDefConfigurations $ do
+    withDefConfigurations $ \_ -> do
       xdescribe "Servant API Properties" $ do
         it "V0 API follows best practices & is RESTful abiding" $ do
-          withServantServer (Proxy @V0.API) (v0Server (D.diffusion D.dummyDiffusionLayer)) $ \burl ->
+          ddl <- D.dummyDiffusionLayer
+          withServantServer (Proxy @V0.API) (v0Server (D.diffusion ddl)) $ \burl ->
             serverSatisfies (Proxy @V0.API) burl stdArgs predicates
         it "V1 API follows best practices & is RESTful abiding" $ do
-          withServantServer (Proxy @V1.API) (v1Server (D.diffusion D.dummyDiffusionLayer)) $ \burl ->
+          ddl <- D.dummyDiffusionLayer
+          withServantServer (Proxy @V1.API) (v1Server (D.diffusion ddl)) $ \burl ->
             serverSatisfies (Proxy @V1.API) burl stdArgs predicates

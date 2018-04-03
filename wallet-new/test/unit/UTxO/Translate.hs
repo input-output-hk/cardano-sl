@@ -17,21 +17,22 @@ module UTxO.Translate (
   , MonadGState(..)
   ) where
 
-import Universum
-import Control.Exception (throw)
-import Control.Monad.Except
-import Data.Constraint (Dict(..))
+import           Control.Exception (throw)
+import           Control.Monad.Except
+import           Data.Constraint (Dict (..))
+import           Universum
 
-import Pos.Block.Error
-import Pos.Block.Types
-import Pos.Core
-import Pos.DB.Class (MonadGState(..))
-import Pos.Txp.Toil
-import Pos.Update
-import Pos.Util.Chrono
+import           Pos.Block.Error
+import           Pos.Block.Types
+import           Pos.Core
+import           Pos.DB.Class (MonadGState (..))
+import           Pos.Txp.Toil
+import           Pos.Update
+import           Pos.Util.Chrono
 
-import UTxO.Context
-import UTxO.Verify (Verify)
+import           Util.Validated
+import           UTxO.Context
+import           UTxO.Verify (Verify)
 import qualified UTxO.Verify as Verify
 
 {-------------------------------------------------------------------------------
@@ -41,10 +42,7 @@ import qualified UTxO.Verify as Verify
   configuration.yaml. It is specified by a 'GenesisSpec'.
 -------------------------------------------------------------------------------}
 
-import Test.Pos.Configuration (
-    withDefConfiguration
-  , withDefUpdateConfiguration
-  )
+import           Test.Pos.Configuration (withDefConfiguration, withDefUpdateConfiguration)
 
 {-------------------------------------------------------------------------------
   Translation monad
@@ -138,16 +136,16 @@ catchTranslateErrors (TranslateT (ExceptT (ReaderT ma))) =
 -- | Run the verifier
 verify :: Monad m
        => (HasConfiguration => Verify e a)
-       -> TranslateT e' m (Either e (a, Utxo))
+       -> TranslateT e' m (Validated e (a, Utxo))
 verify ma = withConfig $ do
     utxo <- asks (ccUtxo . tcCardano)
-    return $ Verify.verify utxo ma
+    return $ validatedFromEither (Verify.verify utxo ma)
 
 -- | Wrapper around 'UTxO.Verify.verifyBlocksPrefix'
 verifyBlocksPrefix
   :: Monad m
   => OldestFirst NE Block
-  -> TranslateT e' m (Either VerifyBlocksException (OldestFirst NE Undo, Utxo))
+  -> TranslateT e' m (Validated VerifyBlocksException (OldestFirst NE Undo, Utxo))
 verifyBlocksPrefix blocks = do
     CardanoContext{..} <- asks tcCardano
     let tip         = ccHash0

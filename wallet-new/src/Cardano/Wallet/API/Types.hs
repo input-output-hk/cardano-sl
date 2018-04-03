@@ -10,16 +10,20 @@ module Cardano.Wallet.API.Types
        , WithDefaultApiArg
        , AlternativeApiArg
        , Tags
+       , WalletLoggingConfig
        ) where
 
 import           Universum
 
 import           Data.Default (Default (..))
+import           Data.Reflection (Reifies (..))
 import           GHC.TypeLits
+import           Pos.Util.Servant (ApiLoggingConfig (..), HasLoggingServer (..), LoggingApiRec)
 import qualified Servant.Server.Internal as SI
 
 import           Servant
 import           Servant.API.Sub ((:>))
+import           Servant.Client
 
 --
 -- Utilities
@@ -95,6 +99,9 @@ instance ( HasServer (argA a :> argB a :> res) ctx
 -- directly in the Servant API.
 data Tags (tags :: [Symbol])
 
+-- | Specifes logging config for servant.
+data WalletLoggingConfig
+
 --
 -- Instances
 --
@@ -105,3 +112,18 @@ instance (HasServer subApi context) => HasServer (Tags tags :> subApi) context w
   type ServerT (Tags tags :> subApi) m = ServerT subApi m
   route _ = route (Proxy @subApi)
   hoistServerWithContext _ = hoistServerWithContext (Proxy @subApi)
+
+instance (HasClient m subApi) => HasClient m (Tags tags :> subApi) where
+    type Client m (Tags tags :> subApi) = Client m subApi
+    clientWithRoute pm _ = clientWithRoute pm (Proxy @subApi)
+
+-- | Similar to 'instance HasServer', just skips 'Tags'.
+instance HasLoggingServer config subApi context =>
+         HasLoggingServer config (Tags tags :> subApi) context where
+  routeWithLog = mapRouter @(Tags tags :> LoggingApiRec config subApi) route identity
+
+-- If logger config will ever be determined in runtime, 'Data.Reflection.reify'
+-- can be used.
+-- | Raises 'WalletLoggingConfig' at type level.
+instance Reifies WalletLoggingConfig ApiLoggingConfig where
+    reflect _ = ApiLoggingConfig ("wallet" <> "api")

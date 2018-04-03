@@ -14,7 +14,6 @@ import           System.Wlog (WithLogger, logNotice)
 import           Pos.Communication.Protocol (NodeId, SendActions)
 import           Pos.DHT.Real.Real (kademliaGetKnownPeers)
 import           Pos.DHT.Real.Types (KademliaDHTInstance (..))
-import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Network.Types (Bucket (..), NodeType, choosePeers)
 import           Pos.Util.TimeWarp (addressToNodeId)
 
@@ -25,7 +24,6 @@ dhtSubscriptionWorker
     :: forall pack m .
        ( MonadIO m
        , WithLogger m
-       , HasInfraConfiguration
        )
     => OQ.OutboundQ pack NodeId Bucket
     -> KademliaDHTInstance
@@ -46,7 +44,7 @@ dhtSubscriptionWorker oq kademliaInst peerType valency fallbacks _sendActions = 
         peers' <- atomically $ updateFromKademliaNoSubscribe peers
         logNotice $
             sformat ("Kademlia peer set changed to "%shown) peers'
-        void $ OQ.updatePeersBucket oq BucketKademliaWorker (const peers')
+        void $ liftIO $ OQ.updatePeersBucket oq BucketKademliaWorker (const peers')
         updateForeverNoSubscribe peers'
 
     updateFromKademliaNoSubscribe

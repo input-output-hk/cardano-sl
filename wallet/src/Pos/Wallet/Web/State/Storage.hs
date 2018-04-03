@@ -35,6 +35,8 @@ module Pos.Wallet.Web.State.Storage
        , getWalletPassLU
        , getWalletSyncTip
        , getWalletAddresses
+       , getWalletInfos
+       , getWalletInfo
        , getAccountWAddresses
        , getWAddresses
        , doesWAddressExist
@@ -342,6 +344,10 @@ getWalletMetaIncludeUnready includeUnready cWalId = fmap _wiMeta . applyFilter <
     filterMaybe :: (a -> Bool) -> Maybe a -> Maybe a
     filterMaybe p ma = ma >>= \a -> guard (p a) >> return a
 
+-- | Retrieve the wallet info.
+getWalletInfo :: WebTypes.CId WebTypes.Wal -> Query (Maybe WalletInfo)
+getWalletInfo cid = view (wsWalletInfos . at cid)
+
 -- | Get wallet meta info regardless of wallet sync status.
 getWalletMeta :: WebTypes.CId WebTypes.Wal -> Query (Maybe WebTypes.CWalletMeta)
 getWalletMeta = getWalletMetaIncludeUnready False
@@ -357,7 +363,12 @@ getWalletSyncTip cWalId = preview (wsWalletInfos . ix cWalId . wiSyncTip)
 -- | Get IDs of all existing and /ready/ wallets.
 getWalletAddresses :: Query [WebTypes.CId WebTypes.Wal]
 getWalletAddresses =
-    map fst . sortOn (view wiCreationTime . snd) . filter (view wiIsReady . snd) . HM.toList <$>
+    map fst <$> getWalletInfos
+
+-- | Get IDs and information for of all existing and /ready/ wallets.
+getWalletInfos :: Query [(WebTypes.CId WebTypes.Wal, WalletInfo)]
+getWalletInfos =
+    sortOn (view wiCreationTime . snd) . filter (view wiIsReady . snd) . HM.toList <$>
     view wsWalletInfos
 
 -- | Get addresses of given account by account ID in the same order they were created.

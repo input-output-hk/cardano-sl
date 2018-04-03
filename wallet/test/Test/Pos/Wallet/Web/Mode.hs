@@ -64,7 +64,7 @@ import           Pos.Lrc (LrcContext)
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Reporting (HasReportingContext (..))
 import           Pos.Shutdown (HasShutdownContext (..), ShutdownContext (..))
-import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData)
+import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData, SimpleSlottingStateVar, mkSimpleSlottingStateVar)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
@@ -150,6 +150,8 @@ data WalletTestContext = WalletTestContext
     -- ^ Stub
     , wtcSentTxs          :: !(TVar [TxAux])
     -- ^ Sent transactions via MonadWalletSendActions
+    , wtcSlottingStateVar  :: SimpleSlottingStateVar
+    -- ^ A mutable cell with SlotId
     }
 
 makeLensesWith postfixLFields ''WalletTestContext
@@ -185,6 +187,7 @@ initWalletTestContext WalletTestParams {..} callback =
             wtcConnectedPeers <- ConnectedPeers <$> STM.newTVarIO mempty
             wtcLastKnownHeader <- STM.newTVarIO Nothing
             wtcSentTxs <- STM.newTVarIO mempty
+            wtcSlottingStateVar <- mkSimpleSlottingStateVar
             pure WalletTestContext {..}
         callback wtc
 
@@ -293,6 +296,9 @@ instance HasLoggerName' WalletTestContext where
 
 instance HasLens TxpHolderTag WalletTestContext (GenericTxpLocalData WalletMempoolExt) where
     lensOf = wtcBlockTestContext_L . btcTxpMemL
+
+instance HasLens SimpleSlottingStateVar WalletTestContext SimpleSlottingStateVar where
+    lensOf = wtcSlottingStateVar_L
 
 instance {-# OVERLAPPING #-} HasLoggerName WalletTestMode where
     askLoggerName = askLoggerNameDefault

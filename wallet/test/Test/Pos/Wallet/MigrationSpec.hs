@@ -198,8 +198,8 @@ instance HasConfiguration => Arbitrary WalletStorage_v2 where
     <*> arbitrary
 
 spec :: Spec
-spec = withCompileInfo def $ withDefConfigurations
-    $ describe "Migration to latest version can be reversed" $ do
+spec = withCompileInfo def $ withDefConfigurations $ \_ ->
+    describe "Migration to latest version can be reversed" $
       it "migrating back results in the original" $ property prop_backMigrate
   where
     -- This test verifies that the migration to version 2 of the wallet storage is

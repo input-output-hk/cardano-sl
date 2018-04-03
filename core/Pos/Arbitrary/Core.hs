@@ -32,8 +32,8 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Test.QuickCheck.Instances ()
 
 import           Pos.Arbitrary.Crypto ()
-import           Pos.Binary.Core ()
 import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Common (coinToInteger, divCoin, makeAddress, maxCoinVal, unsafeSubCoin)
 import qualified Pos.Core.Common.Fee as Fee
@@ -50,7 +50,7 @@ import           Pos.Core.Update.Types (BlockVersionData (..))
 import qualified Pos.Core.Update.Types as U
 import           Pos.Crypto (HasCryptoConfiguration, createPsk, toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
-import           Pos.Merkle (mkMerkleTree, MerkleTree)
+import           Pos.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Util.QuickCheck.Arbitrary (nonrepeating)
 import           Pos.Util.Util (leftToPanic)
 
@@ -557,7 +557,10 @@ instance Arbitrary Second where
     arbitrary = convertUnit @Microsecond <$> arbitrary
     shrink = shrinkIntegral
 
-deriving instance Arbitrary Types.Timestamp
+instance Arbitrary Types.Timestamp where
+    arbitrary = Timestamp . fromMicroseconds <$> choose (0, 2000000000 * 1000 * 1000)
+    shrink = shrinkIntegral
+
 deriving instance Arbitrary Types.TimeDiff
 
 instance Arbitrary HeavyDlgIndex where

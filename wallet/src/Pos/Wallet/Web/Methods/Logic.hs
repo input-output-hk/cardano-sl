@@ -8,6 +8,7 @@ module Pos.Wallet.Web.Methods.Logic
 
        , getWallet
        , getWallets
+       , getWalletsWithInfo
        , getAccount
        , getAccounts
 
@@ -24,6 +25,10 @@ module Pos.Wallet.Web.Methods.Logic
        , updateWallet
        , updateAccount
        , changeWalletPassphrase
+
+        -- hack to support V1 Legacy handler
+       , getWAddress
+       , getMempoolSnapshot
        ) where
 
 import           Universum
@@ -55,8 +60,9 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAcc
                                              CAccountMeta (..), CAddress (..), CId, CWallet (..),
                                              CWalletMeta (..), Wal, encToCId, mkCCoin)
 import           Pos.Wallet.Web.Error (WalletError (..))
-import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (..),
-                                       CustomAddressType (ChangeAddr, UsedAddr), WAddressMeta (..),
+import           Pos.Wallet.Web.State (AddressInfo (..),
+                                       AddressLookupMode (Deleted, Ever, Existing),
+                                       CustomAddressType (ChangeAddr, UsedAddr), WAddressMeta,
                                        WalletDbReader, WalletSnapshot, addWAddress, askWalletDB,
                                        askWalletSnapshot, createAccountWithAddress, createWallet,
                                        doesAccountExist, getAccountIds, getWalletAddresses,
@@ -65,6 +71,7 @@ import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (..),
                                        removeAccount, removeWallet, setAccountMeta, setWalletMeta,
                                        setWalletPassLU, setWalletReady, wamAccount, wamAddress,
                                        wamWalletId)
+import           Pos.Wallet.Web.State.Storage (WalletInfo (..), getWalletInfos)
 import           Pos.Wallet.Web.Tracking (BlockLockMode, CAccModifier (..), CachedCAccModifier,
                                           IndexedMapModifier (..), sortedInsertions,
                                           txMempoolToModifier)
@@ -186,6 +193,16 @@ getWallets = do
     ws <- askWalletSnapshot
     mps <- withTxpLocalData getMempoolSnapshot
     mapM (getWalletIncludeUnready ws mps False) (getWalletAddresses ws)
+
+getWalletsWithInfo
+    :: MonadWalletLogicRead ctx m
+    => WalletSnapshot
+    -> m [(CWallet, WalletInfo)]
+getWalletsWithInfo ws = do
+    mps <- withTxpLocalData getMempoolSnapshot
+    forM (getWalletInfos ws) $ \(cid, walInfo) -> do
+        wal <- getWalletIncludeUnready ws mps False cid
+        pure (wal, walInfo)
 
 ----------------------------------------------------------------------------
 -- Creators

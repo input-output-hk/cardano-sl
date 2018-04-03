@@ -6,7 +6,7 @@ import           Universum
 
 import           Data.Default (def)
 import qualified Data.HashSet as HS
-import           Data.List ((\\))
+import           Data.List ((\\), intersect)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..), Property, choose, oneof, sublistOf, suchThat,
@@ -41,7 +41,7 @@ spec = withCompileInfo def $ withDefConfigurations $ \_ -> do
     evalChangeDiffAccountsDesc =
       "An outgoing transaction to another account."
     evalChangeSameAccountsDesc =
-      "Outgoing transcation from account to the same account."
+      "Outgoing transaction from account to the same account."
 
 twoApplyTwoRollbacksSpec :: (HasCompileInfo, HasConfigurations) => Spec
 twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
@@ -99,7 +99,8 @@ instance Arbitrary AddressesFromDiffAccounts where
         (wId1, accIdx1) <- arbitrary
         let genAddrs1 n = map (uncurry $ WS.WAddressMeta wId1 accIdx1) <$> vectorOf n arbitrary
         inpAddrs <- choose (1, 5) >>= genAddrs1
-        changeAddrsL <- choose (1, 3) >>= genAddrs1
+        changeAddrsL <- (choose (1, 3) >>= genAddrs1)
+          `suchThat` (\x -> null $ x `intersect` inpAddrs)
         let outAddrs = changeAddrsL
         let changeAddrs = HS.fromList $ map (view WS.wamAddress) changeAddrsL
         let usedAddrs = HS.fromList $ map (view WS.wamAddress) inpAddrs

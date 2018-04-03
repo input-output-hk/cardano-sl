@@ -2,13 +2,13 @@
 
 module Pos.Binary.Core.Address (encodeAddr, encodeAddrCRC32) where
 
-import           Universum
-import           Unsafe (unsafeFromJust)
+import           Universum hiding (id)
 
 import           Codec.CBOR.Encoding (Encoding)
 import           Control.Exception.Safe (Exception (displayException))
 import           Control.Lens (_Left)
 import qualified Data.ByteString.Lazy as LBS
+import           Data.Maybe (fromJust)
 import           Data.Word (Word8)
 
 import           Pos.Binary.Class (Bi (..), decodeCrcProtected, decodeListLenCanonical,
@@ -139,7 +139,7 @@ instance Bi (Attributes AddrAttributes) where
                 -- 'unsafeFromJust' is safe, because 'case' ensures
                 -- that derivation path is 'Just'.
                 Just _ ->
-                    [(1, serialize . unsafeFromJust . aaPkDerivationPath)]
+                    [(1, serialize . fromJust . aaPkDerivationPath)]
 
     decode = decodeAttributes initValue go
       where

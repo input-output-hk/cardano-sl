@@ -89,7 +89,6 @@ import           Universum
 import           Control.Lens (at, has, ix, makeClassy, makeLenses, non', to, toListOf, traversed,
                                (%=), (+=), (.=), (<<.=), (?=), _Empty, _Just, _head)
 import           Control.Monad.State.Class (get, put)
-import qualified Control.Monad.State.Lazy as LS
 import           Data.Default (Default, def)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
@@ -593,7 +592,7 @@ checkAndSmthPtx
     :: CId Wal
     -> TxId
     -> (Maybe PtxCondition -> Bool)
-    -> LS.State (Maybe PendingTx) ()
+    -> State (Maybe PendingTx) ()
     -> Update Bool
 checkAndSmthPtx wid txId whetherModify modifier =
     fmap getAny $ zoom' (wsWalletInfos . ix wid . wsPendingTxs . at txId) $ do

@@ -62,7 +62,7 @@ module Pos.Binary.Class.TH
        , Field (Field)
        ) where
 
-import           Universum
+import           Universum hiding (Type)
 
 import qualified Codec.CBOR.Decoding as Cbor
 import qualified Codec.CBOR.Encoding as Cbor

@@ -6,20 +6,21 @@ module Pos.Update.Poll.Logic.Apply
        , verifyAndApplyVoteDo
        ) where
 
+import           Universum hiding (id)
+
 import           Control.Monad.Except (MonadError, runExceptT, throwError)
 import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, builder, int, sformat, (%))
 import           System.Wlog (logDebug, logInfo, logNotice)
-import           Universum
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex, HeaderHash, IsMainHeader (..),
                            SlotId (siEpoch), SoftwareVersion (..), addressHash, applyCoinPortionUp,
                            blockVersionL, coinToInteger, difficultyL, epochIndexL, flattenSlotId,
                            headerHashG, headerSlotL, sumCoins, unflattenSlotId, unsafeIntegerToCoin)
-import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam)
+import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam, protocolMagic)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..), UpId, UpdatePayload (..),
                                   UpdateProposal (..), UpdateVote (..), bvdUpdateProposalThd,
                                   checkUpdatePayload)
@@ -66,7 +67,7 @@ verifyAndApplyUSPayload ::
     -> m ()
 verifyAndApplyUSPayload lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
     -- First of all, we verify data.
-    either (throwError . PollInvalidUpdatePayload) pure =<< runExceptT (checkUpdatePayload upp)
+    either (throwError . PollInvalidUpdatePayload) pure =<< runExceptT (checkUpdatePayload protocolMagic upp)
     whenRight slotOrHeader $ verifyHeader lastAdopted
 
     unless isEmptyPayload $ do

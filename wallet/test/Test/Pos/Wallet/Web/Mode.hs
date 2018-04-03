@@ -90,7 +90,7 @@ import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (
 import           Pos.Wallet.Web.ClientTypes (AccountId)
 import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
 import           Pos.Wallet.Web.Mode (getBalanceDefault, getNewAddressWebWallet, getOwnUtxosDefault)
-import           Pos.Wallet.Web.State (WalletDbReader, WalletDB, openMemState)
+import           Pos.Wallet.Web.State (WalletDB, openMemState)
 import           Pos.Wallet.Web.Tracking.BListener (onApplyBlocksWebWallet,
                                                     onRollbackBlocksWebWallet)
 
@@ -219,7 +219,7 @@ type WalletProperty = PropertyM WalletTestMode
 -- | Convert 'WalletProperty' to 'Property' using given generator of
 -- 'WalletTestParams'.
 walletPropertyToProperty
-    :: (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration)
+    :: (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration, Testable a)
     => Gen WalletTestParams
     -> WalletProperty a
     -> Property
@@ -227,12 +227,12 @@ walletPropertyToProperty wtpGen walletProperty =
     forAll wtpGen $ \wtp ->
         monadic (ioProperty . runWalletTestMode wtp) walletProperty
 
-instance (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration)
+instance (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration, Testable a)
         => Testable (WalletProperty a) where
     property = walletPropertyToProperty arbitrary
 
 walletPropertySpec ::
-       (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration)
+       (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration, Testable a)
     => String
     -> (HasConfiguration => WalletProperty a)
     -> Spec
@@ -371,7 +371,8 @@ instance HasLens StateLockMetrics WalletTestContext StateLockMetrics where
             , slmRelease = const $ const $ pure ()
             }
 
-instance HasConfigurations => WalletDbReader WalletTestContext WalletTestMode
+-- This never made any sense. WalletDbReader is a type synonym.
+-- instance HasConfigurations => WalletDbReader WalletTestContext WalletTestMode
 
 -- TODO remove HasCompileInfo here
 -- when getNewAddressWebWallet won't require MonadWalletWebMode

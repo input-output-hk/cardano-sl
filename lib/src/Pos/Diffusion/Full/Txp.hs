@@ -15,32 +15,27 @@ import           Pos.Binary.Communication ()
 import           Pos.Binary.Core ()
 import           Pos.Binary.Txp ()
 import           Pos.Communication.Message ()
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
+import           Pos.Communication.Limits (mlTxMsgContents)
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..), NodeId,
                                              MkListeners, OutSpecs)
-import           Pos.Communication.Relay (invReqDataFlowTK, resOk, MinRelayWorkMode,
+import           Pos.Communication.Relay (invReqDataFlowTK, resOk,
                                           InvReqDataParams (..), invReqMsgType, Relay (..),
                                           relayListeners, MempoolParams (..),
                                           relayPropagateOut)
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Crypto (hash)
-import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
 import           Pos.Network.Types (Bucket)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
+import           Pos.Util.Trace (Trace, Severity)
 
 -- | Send Tx to given addresses.
 -- Returns 'True' if any peer accepted and applied this transaction.
-sendTx
-    :: ( MinRelayWorkMode m
-       , HasAdoptedBlockVersionData m
-       )
-    => EnqueueMsg m
-    -> TxAux
-    -> m Bool
-sendTx enqueue txAux = do
+sendTx :: Trace IO (Severity, Text) -> EnqueueMsg -> TxAux -> IO Bool
+sendTx logTrace enqueue txAux = do
     anySucceeded <$> invReqDataFlowTK
+        logTrace
         "tx"
         enqueue
         (MsgTransaction OriginSender)
@@ -55,31 +50,22 @@ sendTx enqueue txAux = do
         ]
 
 txListeners
-    :: ( DiffusionWorkMode m
-       , HasAdoptedBlockVersionData m
-       )
-    => Logic m
+    :: Trace IO (Severity, Text)
+    -> Logic IO
     -> OQ.OutboundQ pack NodeId Bucket
-    -> EnqueueMsg m
-    -> MkListeners m
-txListeners logic oq enqueue = relayListeners oq enqueue (txRelays logic)
+    -> EnqueueMsg
+    -> MkListeners
+txListeners logTrace logic oq enqueue = relayListeners logTrace oq enqueue (txRelays logic)
 
 -- | 'OutSpecs' for the tx relays, to keep up with the 'InSpecs'/'OutSpecs'
 -- motif required for communication.
 -- The 'Logic m' isn't *really* needed, it's just an artefact of the design.
-txOutSpecs
-    :: forall m .
-       ( DiffusionWorkMode m
-       , HasAdoptedBlockVersionData m
-       )
-    => Logic m
-    -> OutSpecs
+txOutSpecs :: Logic IO -> OutSpecs
 txOutSpecs logic = relayPropagateOut (txRelays logic)
 
 txInvReqDataParams
-    :: DiffusionWorkMode m
-    => Logic m
-    -> InvReqDataParams (Tagged TxMsgContents TxId) TxMsgContents m
+    :: Logic IO
+    -> InvReqDataParams (Tagged TxMsgContents TxId) TxMsgContents
 txInvReqDataParams logic =
     InvReqDataParams
        { invReqMsgType = MsgTransaction
@@ -87,14 +73,10 @@ txInvReqDataParams logic =
        , handleInv = \_ -> KV.handleInv (postTx logic)
        , handleReq = \_ -> KV.handleReq (postTx logic)
        , handleData = \_ -> KV.handleData (postTx logic)
+       , irdpMkLimit = mlTxMsgContents <$> getAdoptedBVData logic
        }
 
-txRelays
-    :: ( DiffusionWorkMode m
-       , HasAdoptedBlockVersionData m
-       )
-    => Logic m
-    -> [Relay m]
+txRelays :: Logic IO -> [Relay]
 txRelays logic = pure $
     -- Previous implementation had KeyMempool, but mempool messages are never
     -- used so we drop it.

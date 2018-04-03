@@ -113,7 +113,6 @@ runWalletMode nr wallet (action, outSpecs) =
     ekgNodeMetrics =
         EkgNodeMetrics
           (nrEkgStore nr)
-          (runProduction . elimRealMode nr . walletModeToRealMode wallet)
 
     serverWalletMode :: WalletMode a
     serverWalletMode = runServer
@@ -205,9 +204,6 @@ instance ( HasConfiguration
 
 instance HasConfiguration => MonadGState WalletMode where
   gsAdoptedBVData = gsAdoptedBVDataDefault
-
-instance HasConfiguration => HasAdoptedBlockVersionData WalletMode where
-  adoptedBVData = gsAdoptedBVData
 
 instance MonadFormatPeers WalletMode where
   formatKnownPeers f = Mtl.withReaderT wcRealModeContext $ formatKnownPeers f

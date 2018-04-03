@@ -14,7 +14,7 @@ import           Node.Message.Class (Message)
 import           Pos.Binary.Class (Bi)
 import           Universum
 
-import           Pos.Communication.Limits.Types (MessageLimited)
+import           Pos.Communication.Limits.Types (Limit)
 import           Pos.Communication.Types.Protocol (EnqueueMsg, Msg, NodeId)
 import           Pos.Communication.Types.Relay (DataMsg, InvMsg, InvOrData, MempoolMsg, ReqMsg,
                                                 ReqOrRes)
@@ -22,7 +22,7 @@ import           Pos.Network.Types (Origin)
 
 -- | Data for general Inv/Req/Dat framework
 
-data Relay m where
+data Relay where
   InvReqData ::
       ( Buildable contents
       , Buildable key
@@ -35,18 +35,16 @@ data Relay m where
       , Message (ReqMsg key)
       , Message (ReqOrRes key)
       , Message (InvOrData key contents)
-      , MessageLimited (DataMsg contents) m
-      ) => MempoolParams m -> InvReqDataParams key contents m -> Relay m
+      ) => MempoolParams -> InvReqDataParams key contents -> Relay
   Data ::
       ( Buildable contents
       , Typeable contents
       , Bi (DataMsg contents)
       , Message (DataMsg contents)
-      , MessageLimited (DataMsg contents) m
-      ) => DataParams contents m -> Relay m
+      ) => DataParams contents -> Relay
 
-data MempoolParams m where
-    NoMempool :: MempoolParams m
+data MempoolParams where
+    NoMempool :: MempoolParams
     -- `tag` is used only as type param, no actual param used
     KeyMempool ::
       ( Message (MempoolMsg tag)
@@ -56,22 +54,24 @@ data MempoolParams m where
       , Buildable key
       , Typeable tag
       , Typeable key
-      ) => Proxy tag -> m [key] -> MempoolParams m
+      ) => Proxy tag -> IO [key] -> MempoolParams
 
-data InvReqDataParams key contents m = InvReqDataParams
+data InvReqDataParams key contents = InvReqDataParams
     { invReqMsgType :: !(Origin NodeId -> Msg)
-    , contentsToKey :: contents -> m key
+    , contentsToKey :: contents -> IO key
       -- ^ Get key for given contents.
-    , handleInv     :: NodeId -> key -> m Bool
+    , handleInv     :: NodeId -> key -> IO Bool
       -- ^ Handle inv msg and return whether it's useful or not
-    , handleReq     :: NodeId -> key -> m (Maybe contents)
+    , handleReq     :: NodeId -> key -> IO (Maybe contents)
       -- ^ Handle req msg and return (Just data) in case requested data can be provided
-    , handleData    :: NodeId -> contents -> m Bool
+    , handleData    :: NodeId -> contents -> IO Bool
       -- ^ Handle data msg and return True if message is to be propagated
+    , irdpMkLimit   :: IO (Limit contents)
     }
 
-data DataParams contents m = DataParams
+data DataParams contents = DataParams
     { dataMsgType    :: !(Origin NodeId -> Msg)
-    , handleDataOnly :: EnqueueMsg m -> NodeId -> contents -> m Bool
+    , handleDataOnly :: EnqueueMsg -> NodeId -> contents -> IO Bool
       -- ^ Handle data msg and return True if message is to be propagated
+    , dpMkLimit      :: IO (Limit contents)
     }

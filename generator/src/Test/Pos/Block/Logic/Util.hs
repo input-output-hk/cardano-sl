@@ -15,16 +15,15 @@ module Test.Pos.Block.Logic.Util
        ) where
 
 import           Universum
-import           Unsafe (unsafeHead)
 
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.Default (Default (def))
+import qualified Data.List as List (head)
 import           Test.QuickCheck.Gen (Gen (MkGen), sized)
 import           Test.QuickCheck.Monadic (PropertyM, pick)
 
 import           Pos.AllSecrets (AllSecrets, HasAllSecrets (..), allSecrets)
 import           Pos.Block.Types (Blund)
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Core (BlockCount, GenesisData (..), HasConfiguration, HasGenesisData,
                            SlotId (..), epochIndexL, genesisData)
 import           Pos.Core.Block (Block)
@@ -81,7 +80,6 @@ bpGenBlocks
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        , HasAllSecrets ctx
-       , HasAdoptedBlockVersionData (BlockGenMode (MempoolExt m) m)
        )
     => Maybe BlockCount
     -> EnableTxPayload
@@ -102,11 +100,10 @@ bpGenBlock
        , HasAllSecrets ctx
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        , Default (MempoolExt m)
-       , HasAdoptedBlockVersionData (BlockGenMode (MempoolExt m) m)
        )
     => EnableTxPayload -> InplaceDB -> PropertyM m Blund
 -- 'unsafeHead' is safe because we create exactly 1 block
-bpGenBlock = fmap (unsafeHead . toList) ... bpGenBlocks (Just 1)
+bpGenBlock = fmap (List.head . toList) ... bpGenBlocks (Just 1)
 
 getAllSecrets :: (MonadReader ctx m, HasAllSecrets ctx) => m AllSecrets
 getAllSecrets = view allSecrets

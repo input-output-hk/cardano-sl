@@ -26,7 +26,7 @@ module Lang.Lexer
        , detokenize
        ) where
 
-import           Universum
+import           Universum hiding (try)
 
 import qualified Control.Applicative.Combinators.NonEmpty as NonEmpty
 import           Control.Lens (makePrisms)

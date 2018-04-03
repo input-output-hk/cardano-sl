@@ -9,7 +9,7 @@ module Pos.Ssc.Toss.Trans
        , execTossT
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, (%=), (.=))
 import qualified Ether

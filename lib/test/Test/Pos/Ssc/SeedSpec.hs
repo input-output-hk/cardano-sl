@@ -5,7 +5,6 @@ module Test.Pos.Ssc.SeedSpec
        ) where
 
 import           Universum
-import           Unsafe ()
 
 import           Control.Lens (each, traverseOf)
 import           Crypto.Random (MonadRandom)
@@ -26,7 +25,8 @@ import           Pos.Core (AddressHash, HasConfiguration, SharedSeed (..), Stake
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), getCommShares,
                                getCommitmentsMap, mkCommitmentsMap)
 import           Pos.Crypto (DecShare, PublicKey, SecretKey, SignTag (SignCommitment), Threshold,
-                             VssKeyPair, VssPublicKey, decryptShare, sign, toPublic, toVssPublicKey)
+                             VssKeyPair, VssPublicKey, decryptShare, sign, toPublic, toVssPublicKey,
+                             protocolMagic)
 import           Pos.Ssc (SscSeedError (..), calculateSeed, genCommitmentAndOpening,
                           secretToSharedSeed, vssThreshold)
 import           Pos.Util (nonrepeating, sublistN)
@@ -218,7 +218,7 @@ mkCommitmentsMap' keys comms =
     mkCommitmentsMap $ do
         (sk, comm) <- zip keys comms
         let epochIdx = 0  -- we don't care here
-        let sig = sign SignCommitment sk (epochIdx, comm)
+        let sig = sign protocolMagic SignCommitment sk (epochIdx, comm)
         return (toPublic sk, comm, sig)
 
 mkVssMap :: [SecretKey]

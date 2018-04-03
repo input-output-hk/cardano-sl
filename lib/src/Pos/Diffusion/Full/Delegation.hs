@@ -13,7 +13,7 @@ import           Universum
 import qualified Network.Broadcast.OutboundQueue as OQ
 
 import           Pos.Binary ()
-import           Pos.Communication.Limits ()
+import           Pos.Communication.Limits (mlHeavyDlgIndex, mlProxySecretKey)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (MsgType (..), NodeId, EnqueueMsg,
                                              MkListeners, OutSpecs)
@@ -21,47 +21,45 @@ import           Pos.Communication.Relay (DataParams (..), Relay (..),
                                           relayListeners, dataFlow,
                                           relayPropagateOut)
 import           Pos.Core       (ProxySKHeavy)
-import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Types (Bucket)
+import           Pos.Util.Trace (Trace, Severity)
 
 delegationListeners
-    :: ( DiffusionWorkMode m )
-    => Logic m
+    :: Trace IO (Severity, Text)
+    -> Logic IO
     -> OQ.OutboundQ pack NodeId Bucket
-    -> EnqueueMsg m
-    -> MkListeners m
-delegationListeners logic oq enqueue = relayListeners oq enqueue (delegationRelays logic)
+    -> EnqueueMsg
+    -> MkListeners
+delegationListeners logTrace logic oq enqueue = relayListeners logTrace oq enqueue (delegationRelays logic)
 
 -- | Listeners for requests related to delegation processing.
 delegationRelays
-    :: forall m .
-       ( DiffusionWorkMode m )
-    => Logic m
-    -> [Relay m]
+    :: Logic IO
+    -> [Relay]
 delegationRelays logic = [ pskHeavyRelay logic ]
 
 -- | 'OutSpecs' for the tx relays, to keep up with the 'InSpecs'/'OutSpecs'
 -- motif required for communication.
 -- The 'Logic m' isn't *really* needed, it's just an artefact of the design.
 delegationOutSpecs
-    :: forall m .
-       ( DiffusionWorkMode m
-       )
-    => Logic m
+    :: Logic IO
     -> OutSpecs
 delegationOutSpecs logic = relayPropagateOut (delegationRelays logic)
 
 pskHeavyRelay
-    :: ( DiffusionWorkMode m )
-    => Logic m
-    -> Relay m
-pskHeavyRelay logic = Data $ DataParams MsgTransaction $ \_ _ -> postPskHeavy logic
+    :: Logic IO
+    -> Relay
+pskHeavyRelay logic = Data $ DataParams
+    MsgTransaction
+    (\_ _ -> postPskHeavy logic)
+    -- The message size limit for ProxySKHeavy: a ProxySecretKey with an
+    -- EpochIndex.
+    (pure (mlProxySecretKey mlHeavyDlgIndex))
 
 sendPskHeavy
-    :: forall m .
-       ( DiffusionWorkMode m )
-    => EnqueueMsg m
+    :: Trace IO (Severity, Text)
+    -> EnqueueMsg
     -> ProxySKHeavy
-    -> m ()
-sendPskHeavy enqueue = dataFlow "pskHeavy" enqueue (MsgTransaction OQ.OriginSender)
+    -> IO ()
+sendPskHeavy logTrace enqueue = dataFlow logTrace "pskHeavy" enqueue (MsgTransaction OQ.OriginSender)

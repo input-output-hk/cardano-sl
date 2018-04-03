@@ -14,7 +14,9 @@ module Pos.Merkle
        , mkLeaf
        ) where
 
-import           Universum
+-- Universum has its own Rube Goldberg variant of 'Foldable' which we do not
+-- want.
+import           Universum hiding (toList, foldMap)
 
 import           Data.Bits (Bits (..))
 import           Data.ByteArray (ByteArrayAccess, convert)
@@ -45,7 +47,7 @@ instance NFData a => NFData (MerkleTree a)
 
 instance Foldable MerkleTree where
     foldMap _ MerkleEmpty      = mempty
-    foldMap f (MerkleTree _ n) = foldMap f n
+    foldMap f (MerkleTree _ n) = Foldable.foldMap f n
 
     null MerkleEmpty = True
     null _           = False
@@ -54,7 +56,7 @@ instance Foldable MerkleTree where
     length (MerkleTree s _) = fromIntegral s
 
 instance Show a => Show (MerkleTree a) where
-  show tree = "Merkle tree: " <> show (toList tree)
+  show tree = "Merkle tree: " <> show (Foldable.toList tree)
 
 data MerkleNode a
     = MerkleBranch { mRoot  :: MerkleRoot a
@@ -70,7 +72,7 @@ instance Foldable MerkleNode where
     foldMap f x = case x of
         MerkleLeaf{mVal}            -> f mVal
         MerkleBranch{mLeft, mRight} ->
-            foldMap f mLeft `mappend` foldMap f mRight
+            Foldable.foldMap f mLeft `mappend` Foldable.foldMap f mRight
 
 toLazyByteString :: Builder -> LBS.ByteString
 toLazyByteString = Builder.toLazyByteStringWith (Builder.safeStrategy 1024 4096) mempty

@@ -54,9 +54,12 @@ module Pos.Util.LogSafe
        , deriveSafeBuildable
        ) where
 
-import           Universum
+-- Universum invents its own Rube Goldberg 'Foldable' that we don't want to
+-- use.
+import           Universum hiding (length, null)
 
 import           Control.Monad.Trans (MonadTrans)
+import           Data.Foldable (Foldable, length, null)
 import           Data.List (isSuffixOf)
 import           Data.Reflection (Reifies (..), reify)
 import qualified Data.Text.Buildable
@@ -214,15 +217,18 @@ secretOnlyF sl fmt = plainOrSecureF sl fmt (fconst "?")
 
 -- | For public logs hides list content, showing only its size.
 -- For secret logs uses provided formatter for list.
+--
+-- TODO make it use a list not a Foldable. Simpler that way.
+-- It's also more consistent with the name.
 secureListF
-    :: NontrivialContainer l
-    => LogSecurityLevel -> Format r (l -> r) -> Format r (l -> r)
+    :: Foldable l
+    => LogSecurityLevel -> Format r (l t -> r) -> Format r (l t -> r)
 secureListF sl fmt = plainOrSecureF sl fmt lengthFmt
   where
     lengthFmt = later $ \l ->
-        if null l
+        if Data.Foldable.null l
         then "[]"
-        else bprint ("[... ("%build%" item(s))]") $ length l
+        else bprint ("[... ("%build%" item(s))]") $ Data.Foldable.length l
 
 {-
 This is helper in generating @instance Buildable a@ and

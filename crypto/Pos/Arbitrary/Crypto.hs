@@ -1,22 +1,27 @@
 -- | `Arbitrary` instances for using in tests and benchmarks
 
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Pos.Arbitrary.Crypto
        ( SharedSecrets (..)
+       , genSignature
+       , genSignatureEncoded
+       , genRedeemSignature
        ) where
 
-import           Universum
+import           Universum hiding (keys)
 
 import           Control.Monad (zipWithM)
 import qualified Data.ByteArray as ByteArray
 import           Data.List.NonEmpty (fromList)
-import           Test.QuickCheck (Arbitrary (..), elements, oneof, vector)
+import           Test.QuickCheck (Arbitrary (..), Gen, elements, oneof, vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Crypto.Unsafe ()
 import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi, Raw)
 import           Pos.Binary.Crypto ()
 import           Pos.Crypto.AsBinary ()
-import           Pos.Crypto.Configuration (HasCryptoConfiguration, ProtocolMagic (..))
+import           Pos.Crypto.Configuration (HasProtocolMagic, ProtocolMagic (..), protocolMagic)
 import           Pos.Crypto.Hashing (AHash (..), AbstractHash (..), HashAlgorithm, WithHash (..),
                                      unsafeCheatingHashCoerce, withHash)
 import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase (..))
@@ -26,7 +31,7 @@ import           Pos.Crypto.SecretSharing (DecShare, EncShare, Secret, SecretPro
                                            toVssPublicKey, vssKeyGen)
 import           Pos.Crypto.Signing (ProxyCert, ProxySecretKey, ProxySignature, PublicKey,
                                      SecretKey, Signature, Signed, keyGen, mkSigned, proxySign,
-                                     sign, toPublic)
+                                     sign, signEncoded, toPublic)
 import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey, RedeemSignature,
                                             redeemKeyGen, redeemSign)
 import           Pos.Crypto.Signing.Safe (PassPhrase, createProxyCert, createPsk)
@@ -35,6 +40,8 @@ import           Pos.Crypto.Signing.Types.Tag (SignTag (..))
 import           Pos.Util.Orphans ()
 import           Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), arbitraryUnsafe, runGen,
                                                 sublistN)
+
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 deriving instance Arbitrary ProtocolMagic
 
@@ -120,29 +127,66 @@ instance Nonrepeating VssPublicKey where
 -- Arbitrary signatures
 ----------------------------------------------------------------------------
 
-instance (HasCryptoConfiguration, Bi a, Arbitrary a) => Arbitrary (Signature a) where
-    arbitrary = sign <$> arbitrary <*> arbitrary <*> arbitrary
+-- hlint thinks that the where clauses in the following 3 definitions are
+-- unnecessary duplication. I disagree completely.
 
-instance (HasCryptoConfiguration, Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
-    arbitrary = redeemSign <$> arbitrary <*> arbitrary <*> arbitrary
+{-# ANN genSignatureEncoded ("HLint: ignore Reduce duplication" :: Text) #-}
 
-instance (HasCryptoConfiguration, Bi a, Arbitrary a) => Arbitrary (Signed a) where
-    arbitrary = mkSigned <$> arbitrary <*> arbitrary <*> arbitrary
+-- | Generate a signature with a given 'ProtocolMagic', for some generated
+-- bytes. The 'SignTag' and 'SecretKey' are generated using their
+-- 'Arbitrary' instances.
+genSignatureEncoded :: ProtocolMagic -> Gen ByteString -> Gen (Signature a)
+genSignatureEncoded pm genBytes = signEncoded pm <$> genSignTag <*> genSecretKey <*> genBytes
+  where
+    genSignTag :: Gen SignTag
+    genSignTag = arbitrary
+    genSecretKey :: Gen SecretKey
+    genSecretKey = arbitrary
 
-instance (HasCryptoConfiguration, Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
-    arbitrary = liftA3 createProxyCert arbitrary arbitrary arbitrary
+{-# ANN genSignature ("HLint: ignore Reduce duplication" :: Text) #-}
 
-instance (HasCryptoConfiguration, Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
-    arbitrary = liftA3 createPsk arbitrary arbitrary arbitrary
+-- | Like 'genSignatureEncoded' but use an 'a' that can be serialized.
+genSignature :: Bi a => ProtocolMagic -> Gen a -> Gen (Signature a)
+genSignature pm genA = sign pm <$> genSignTag <*> genSecretKey <*> genA
+  where
+    genSignTag :: Gen SignTag
+    genSignTag = arbitrary
+    genSecretKey :: Gen SecretKey
+    genSecretKey = arbitrary
 
-instance (HasCryptoConfiguration, Bi w, Arbitrary w, Bi a, Arbitrary a) =>
+{-# ANN genRedeemSignature ("HLint: ignore Reduce duplication" :: Text) #-}
+
+genRedeemSignature :: Bi a => ProtocolMagic -> Gen a -> Gen (RedeemSignature a)
+genRedeemSignature pm genA = redeemSign pm <$> genSignTag <*> genSecretKey <*> genA
+  where
+    genSignTag :: Gen SignTag
+    genSignTag = arbitrary
+    genSecretKey :: Gen RedeemSecretKey
+    genSecretKey = arbitrary
+
+instance (HasProtocolMagic, Bi a, Arbitrary a) => Arbitrary (Signature a) where
+    arbitrary = genSignature protocolMagic arbitrary
+
+instance (HasProtocolMagic, Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
+    arbitrary = genRedeemSignature protocolMagic arbitrary
+
+instance (HasProtocolMagic, Bi a, Arbitrary a) => Arbitrary (Signed a) where
+    arbitrary = mkSigned protocolMagic <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance (HasProtocolMagic, Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
+    arbitrary = liftA3 (createProxyCert protocolMagic) arbitrary arbitrary arbitrary
+
+instance (HasProtocolMagic, Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
+    arbitrary = liftA3 (createPsk protocolMagic) arbitrary arbitrary arbitrary
+
+instance (HasProtocolMagic, Bi w, Arbitrary w, Bi a, Arbitrary a) =>
          Arbitrary (ProxySignature w a) where
     arbitrary = do
         delegateSk <- arbitrary
         issuerSk <- arbitrary
         w <- arbitrary
-        let psk = createPsk issuerSk (toPublic delegateSk) w
-        proxySign SignProxySK delegateSk psk <$> arbitrary
+        let psk = createPsk protocolMagic issuerSk (toPublic delegateSk) w
+        proxySign protocolMagic SignProxySK delegateSk psk <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary secrets

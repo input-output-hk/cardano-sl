@@ -20,109 +20,85 @@ import           Pos.Binary.Ssc ()
 -- Message instances for various types.
 -- TODO should move these into the Diffusion module subtree.
 import           Pos.Communication.Message ()
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
-import           Pos.Communication.Limits.Types (MessageLimited)
+import           Pos.Communication.Limits (Limit, mlMCOpening, mlMCVssCertificate,
+                                           mlMCCommitment, mlMCShares)
 import           Pos.Communication.Relay (DataMsg, InvOrData, InvReqDataParams (..),
                                           MempoolParams (NoMempool), Relay (..), ReqMsg, ReqOrRes,
                                           relayListeners, relayPropagateOut)
 import           Pos.Communication.Types.Protocol (MsgType (..), NodeId, EnqueueMsg,
                                                    MkListeners, OutSpecs)
 import           Pos.Core (StakeholderId)
-import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Network.Types (Bucket)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
                                   MCVssCertificate (..), SscMessageConstraints)
+import           Pos.Util.Trace (Trace, Severity)
 
 sscListeners
-    :: ( DiffusionWorkMode m
-       , HasAdoptedBlockVersionData m
-       )
-    => Logic m
+    :: Trace IO (Severity, Text)
+    -> Logic IO
     -> OQ.OutboundQ pack NodeId Bucket
-    -> EnqueueMsg m
-    -> MkListeners m
-sscListeners logic oq enqueue = relayListeners oq enqueue (sscRelays logic)
+    -> EnqueueMsg
+    -> MkListeners
+sscListeners logTrace logic oq enqueue = relayListeners logTrace oq enqueue (sscRelays logic)
 
 sscRelays
-    :: ( DiffusionWorkMode m
-       , SscMessageConstraints m
-       , MessageLimited (DataMsg MCVssCertificate) m
-       , MessageLimited (DataMsg MCShares) m
-       , MessageLimited (DataMsg MCCommitment) m
-       , MessageLimited (DataMsg MCOpening) m
-       )
-    => Logic m
-    -> [Relay m]
+    :: ( SscMessageConstraints )
+    => Logic IO
+    -> [Relay]
 sscRelays logic =
-    [ commitmentRelay (postSscCommitment logic)
+    [ commitmentRelay logic (postSscCommitment logic)
     , openingRelay (postSscOpening logic)
-    , sharesRelay (postSscShares logic)
+    , sharesRelay logic (postSscShares logic)
     , vssCertRelay (postSscVssCert logic)
     ]
 
 -- | 'OutSpecs' for the tx relays, to keep up with the 'InSpecs'/'OutSpecs'
 -- motif required for communication.
 -- The 'Logic m' isn't *really* needed, it's just an artefact of the design.
-sscOutSpecs
-    :: forall m .
-       ( DiffusionWorkMode m
-       , HasAdoptedBlockVersionData m
-       )
-    => Logic m
-    -> OutSpecs
+sscOutSpecs :: Logic IO -> OutSpecs
 sscOutSpecs logic = relayPropagateOut (sscRelays logic)
 
 commitmentRelay
-    :: ( SscMessageConstraints m
-       , MessageLimited (DataMsg MCCommitment) m
-       , DiffusionWorkMode m
-       )
-    => KV.KeyVal (Tagged MCCommitment StakeholderId) MCCommitment m
-    -> Relay m
-commitmentRelay kv = sscRelay kv
+    :: ( SscMessageConstraints )
+    => Logic IO
+    -> KV.KeyVal (Tagged MCCommitment StakeholderId) MCCommitment IO
+    -> Relay
+commitmentRelay logic kv = sscRelay kv (mlMCCommitment <$> getAdoptedBVData logic)
 
 openingRelay
-    :: ( SscMessageConstraints m
-       , MessageLimited (DataMsg MCOpening) m
-       , DiffusionWorkMode m
-       )
-    => KV.KeyVal (Tagged MCOpening StakeholderId) MCOpening m
-    -> Relay m
-openingRelay kv = sscRelay kv
+    :: ( SscMessageConstraints )
+    => KV.KeyVal (Tagged MCOpening StakeholderId) MCOpening IO
+    -> Relay
+openingRelay kv = sscRelay kv (pure mlMCOpening)
 
 sharesRelay
-    :: ( SscMessageConstraints m
-       , MessageLimited (DataMsg MCShares) m
-       , DiffusionWorkMode m
+    :: ( SscMessageConstraints
        )
-    => KV.KeyVal (Tagged MCShares StakeholderId) MCShares m
-    -> Relay m
-sharesRelay kv = sscRelay kv
+    => Logic IO
+    -> KV.KeyVal (Tagged MCShares StakeholderId) MCShares IO
+    -> Relay
+sharesRelay logic kv = sscRelay kv (mlMCShares <$> getAdoptedBVData logic)
 
 vssCertRelay
-    :: ( SscMessageConstraints m
-       , MessageLimited (DataMsg MCVssCertificate) m
-       , DiffusionWorkMode m
-       )
-    => KV.KeyVal (Tagged MCVssCertificate StakeholderId) MCVssCertificate m
-    -> Relay m
-vssCertRelay kv = sscRelay kv
+    :: ( SscMessageConstraints )
+    => KV.KeyVal (Tagged MCVssCertificate StakeholderId) MCVssCertificate IO
+    -> Relay
+vssCertRelay kv = sscRelay kv (pure mlMCVssCertificate)
 
 sscRelay
     :: ( Buildable contents
        , Typeable contents
-       , MessageLimited (DataMsg contents) m
        , Bi (DataMsg contents)
        , Message (InvOrData (Tagged contents StakeholderId) contents)
        , Message (ReqOrRes (Tagged contents StakeholderId))
        , Message (ReqMsg (Tagged contents StakeholderId))
-       , DiffusionWorkMode m
        )
-    => KV.KeyVal (Tagged contents StakeholderId) contents m
-    -> Relay m
-sscRelay kv =
+    => KV.KeyVal (Tagged contents StakeholderId) contents IO
+    -> IO (Limit contents)
+    -> Relay
+sscRelay kv mkLimit =
     InvReqData NoMempool $
         InvReqDataParams
           { invReqMsgType = MsgMPC
@@ -130,4 +106,5 @@ sscRelay kv =
           , handleInv = \_ -> KV.handleInv kv
           , handleReq = \_ -> KV.handleReq kv
           , handleData = \_ -> KV.handleData kv
+          , irdpMkLimit = mkLimit
           }

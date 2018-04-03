@@ -11,7 +11,6 @@ import           Universum
 
 import           Pos.Block.Worker (blkWorkers)
 import           Pos.Communication (OutSpecs)
-import           Pos.Communication.Util (wrapActionSpec)
 -- Message instances.
 import           Pos.Communication.Message ()
 import           Pos.Context (NodeContext (..))
@@ -32,24 +31,17 @@ allWorkers
        WorkMode ctx m
     => NodeResources ext -> ([WorkerSpec m], OutSpecs)
 allWorkers NodeResources {..} = mconcatPair
-    [
-      -- Only workers of "onNewSlot" type
+    [ -- Only workers of "onNewSlot" type
       -- I have no idea what this ↑ comment means (@gromak).
-
-      wrap' "ssc"        $ sscWorkers
-    , wrap' "us"         $ usWorkers
-
+      sscWorkers
+    , usWorkers
       -- Have custom loggers
-    , wrap' "block"      $ blkWorkers
-    , wrap' "delegation" $ dlgWorkers
-    , wrap' "slotting"   $ (properSlottingWorkers, mempty)
-    , wrap' "StaticConfigMonitoring" $
-      first one $
-      localWorker $
-      launchStaticConfigMonitoring topology
+    , blkWorkers
+    , dlgWorkers
+    , (properSlottingWorkers, mempty)
+    , first one $ localWorker $ launchStaticConfigMonitoring topology
     ]
   where
     topology = ncTopology ncNetworkConfig
     NodeContext {..} = nrContext
     properSlottingWorkers = [fst (localWorker logNewSlotWorker)]
-    wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)

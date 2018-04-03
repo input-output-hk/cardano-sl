@@ -43,6 +43,7 @@ executable dbgen
                      , serokell-util
                      , text
                      , time
+                     , time-units
                      , QuickCheck
                      , bytestring
                      , string-conv

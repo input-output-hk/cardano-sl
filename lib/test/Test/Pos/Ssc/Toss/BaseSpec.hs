@@ -29,7 +29,7 @@ import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap (
                                Opening, OpeningsMap, SharesMap, SignedCommitment,
                                mkCommitmentsMapUnsafe)
 import           Pos.Crypto (DecShare, PublicKey, SecretKey, SignTag (SignCommitment), sign,
-                             toPublic)
+                             toPublic, protocolMagic)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc (MultiRichmenStakes, PureTossWithEnv, SscGlobalState (..),
                           SscVerifyError (..), VssCertData (..), checkCertificatesPayload,
@@ -111,7 +111,7 @@ verifiesOkComm CommitmentOpening{..} =
 
 verifiesOkCommSig :: HasConfiguration => SecretKey -> Commitment -> EpochIndex -> Bool
 verifiesOkCommSig sk comm epoch =
-    let commSig = (toPublic sk, comm, sign SignCommitment sk (epoch, comm))
+    let commSig = (toPublic sk, comm, sign protocolMagic SignCommitment sk (epoch, comm))
     in verifyCommitmentSignature epoch commSig
 
 notVerifiesBadCommSig :: HasConfiguration => BadSignedCommitment -> EpochIndex -> Bool
@@ -598,9 +598,9 @@ checksBadCertsPayload (GoodPayload epoch sgs certsMap mrs) pk cert =
         -- We take the VSS key of some cert from 'sgs' and replace a key of
         -- some cert in 'certsMap' with it
         res4 = fromMaybe (property True) $ do
-            c1 <- head (certs (sgs ^. sgsVssCertificates))
+            c1 <- (fmap fst . uncons . toList) (certs (sgs ^. sgsVssCertificates))
             let c1id = addressHash . vcSigningKey $ c1
-            c2id <- head (HM.keys (getVssCertificatesMap certsMap))
+            c2id <- (fmap fst . uncons) (HM.keys (getVssCertificatesMap certsMap))
             let certsMap4 = certsMap
                     & _Wrapped . ix c2id . _vcVssKey .~ vcVssKey c1
                 certDuplicateVss =

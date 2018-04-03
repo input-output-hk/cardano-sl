@@ -55,12 +55,12 @@ import           Mockable (Production, currentTime, runProduction)
 import qualified Prelude
 import           System.Wlog (HasLoggerName (..), LoggerName)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, ioProperty)
+import           Test.QuickCheck.Property (Testable)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..), mkAllSecretsSimple)
 import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub, onRollbackBlocksStub)
 import           Pos.Block.Slog (HasSlogGState (..), mkSlogGState)
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (BlockVersionData, CoreConfiguration (..), GenesisConfiguration (..),
                            GenesisInitializer (..), GenesisSpec (..), HasConfiguration, SlotId,
@@ -314,7 +314,11 @@ type BlockProperty = PropertyM BlockTestMode
 -- | Convert 'BlockProperty' to 'Property' using given generator of
 -- 'TestParams'.
 blockPropertyToProperty ::
-       (HasNodeConfiguration, HasDlgConfiguration, HasSscConfiguration)
+       ( HasNodeConfiguration
+       , HasDlgConfiguration
+       , HasSscConfiguration
+       , Testable a
+       )
     => Gen TestParams
     -> (HasConfiguration =>
             BlockProperty a)
@@ -337,7 +341,7 @@ blockPropertyToProperty tpGen blockProperty =
 --          => Testable (HasConfiguration => BlockProperty a) where
 --     property = blockPropertyToProperty arbitrary
 blockPropertyTestable ::
-       (HasNodeConfiguration, HasDlgConfiguration, HasSscConfiguration)
+       (HasNodeConfiguration, HasDlgConfiguration, HasSscConfiguration, Testable a)
     => (HasConfiguration => BlockProperty a)
     -> Property
 blockPropertyTestable = blockPropertyToProperty arbitrary
@@ -496,9 +500,6 @@ instance HasConfiguration => MonadDB BlockTestMode where
 
 instance HasConfiguration => MonadGState BlockTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
-
-instance HasConfiguration => HasAdoptedBlockVersionData BlockTestMode where
-    adoptedBVData = gsAdoptedBVData
 
 instance MonadBListener BlockTestMode where
     onApplyBlocks = onApplyBlocksStub

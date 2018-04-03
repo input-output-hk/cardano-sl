@@ -18,6 +18,7 @@ module Ntp.Client
 
 import           Universum
 
+import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async (withAsync, async, concurrently, forConcurrently, race)
 import           Control.Concurrent.STM (TVar, check, modifyTVar')
 import           Control.Exception.Safe (Exception, catchAny, handleAny)
@@ -27,12 +28,12 @@ import           Control.Monad.State (gets)
 import           Data.Binary (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Maybe (catMaybes, isNothing)
-import           Data.Time.Units (TimeUnit, Microsecond, Second, toMicroseconds)
+import           Data.Time.Units (TimeUnit, Microsecond, toMicroseconds)
 import           Data.Typeable (Typeable)
 import           Formatting (sformat, shown, (%))
 import           Network.Socket (AddrInfo, SockAddr (..), Socket, addrAddress, addrFamily, close)
 import           Network.Socket.ByteString (recvFrom, sendTo)
-import           Serokell.Util.Concurrent (modifyTVarS, threadDelay)
+import           Serokell.Util.Concurrent (modifyTVarS)
 import           System.Wlog (LoggerNameBox)
 import qualified System.Wlog as Wlog
 
@@ -171,7 +172,8 @@ startSend cli addrs = do
 
     atomically $ writeTVar (ncStatus cli) NtpSyncPending
 
-    _ <- concurrently (threadDelay poll) $ do
+    -- poll :: Microsecond
+    _ <- concurrently (threadDelay (fromIntegral poll)) $ do
         logDebug "Sending requests"
         atomically . modifyTVarS (ncState cli) $ identity .= Just []
         let sendRequests = forConcurrently addrs (doSend cli)
@@ -198,7 +200,7 @@ mkSockets settings = do
         (Nothing, Just sock2)    -> pure $ IPv6Sock sock2
         (_, _)                   -> do
             logWarning "Couldn't create both IPv4 and IPv6 socket, retrying in 5 sec..."
-            threadDelay (5 :: Second)
+            threadDelay 5000000
             mkSockets settings
   where
     logging (_, addrInfo) = logInfo $
@@ -213,7 +215,7 @@ mkSockets settings = do
         logWarning $
             sformat ("Failed to create sockets, retrying in 5 sec... (reason: "%shown%")")
             e
-        threadDelay (5 :: Second)
+        threadDelay 5000000
         doMkSockets
 
 handleNtpPacket :: NtpClient -> NtpPacket -> IO ()
@@ -260,7 +262,7 @@ startReceive cli = do
         logDebug $ sformat ("doReceive failed on socket"%shown%
                             ", reason: "%shown%
                             ", recreate socket in 5 sec") sock e
-        threadDelay (5 :: Second)
+        threadDelay 5000000
         serveraddrs <- udpLocalAddresses
         newSockMB <-
             if isIPv4 then
@@ -357,4 +359,4 @@ mergeSockets (IPv4Sock _) (IPv4Sock s)    = IPv4Sock s
 mergeSockets _ _                          = error "Unexpected state of mergeSockets"
 
 timeout :: TimeUnit t => t -> IO a -> IO (Maybe a)
-timeout t io = rightToMaybe <$> race (threadDelay t) io
+timeout t io = rightToMaybe <$> race (threadDelay (fromIntegral (toMicroseconds t))) io

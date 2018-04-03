@@ -79,6 +79,7 @@ send :: MonadIO m => (WSConnection -> NotifyEvent -> IO ()) -> WSConnection -> N
 send f conn msg = liftIO $ f conn msg
 
 instance WS.WebSocketsData NotifyEvent where
+    fromDataMessage _ = error "Attempt to deserialize NotifyEvent is apparently illegal"
     fromLazyByteString _ = error "Attempt to deserialize NotifyEvent is illegal"
     toLazyByteString = encode
 

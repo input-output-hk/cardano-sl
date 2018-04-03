@@ -24,6 +24,7 @@ library
                         Pos.Diffusion.Subscription.Common
                         Pos.Diffusion.Subscription.Dns
                         Pos.Diffusion.Subscription.Dht
+                        Pos.Diffusion.Subscription.Subscriber
 
                         Pos.DHT.Workers
 
@@ -129,6 +130,7 @@ library
   other-modules:        Paths_cardano_sl_infra
 
   build-depends:        aeson
+                      , async
                       , base
                       , parsec
                       , base64-bytestring

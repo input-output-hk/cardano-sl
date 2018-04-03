@@ -57,14 +57,14 @@ import           Formatting (Format, bprint, build, builder, int, later, shown, 
 import           Instances.TH.Lift ()
 import           Language.Haskell.TH.Syntax (Lift)
 import qualified Prelude
-import           Serokell.AcidState ()
+--import           Serokell.AcidState ()
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (Bi, Raw)
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy, addressHash)
 import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
-import           Pos.Crypto (HasCryptoConfiguration, Hash, PublicKey, SafeSigner, SecretKey,
+import           Pos.Crypto (ProtocolMagic, Hash, PublicKey, SafeSigner, SecretKey,
                              SignTag (SignUSVote), Signature, hash, safeSign,
                              safeToPublic, shortHashF, sign, toPublic)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
@@ -444,25 +444,25 @@ instance Buildable VoteId where
 
 -- | A safe constructor for 'UnsafeVote'.
 mkUpdateVote
-    :: HasCryptoConfiguration
-    => SecretKey           -- ^ The voter
+    :: ProtocolMagic
+    -> SecretKey           -- ^ The voter
     -> UpId                -- ^ Proposal which is voted for
     -> Bool                -- ^ Approval/rejection bit
     -> UpdateVote
-mkUpdateVote sk uvProposalId uvDecision =
-    let uvSignature = sign SignUSVote sk (uvProposalId, uvDecision)
+mkUpdateVote pm sk uvProposalId uvDecision =
+    let uvSignature = sign pm SignUSVote sk (uvProposalId, uvDecision)
         uvKey       = toPublic sk
     in  UnsafeUpdateVote{..}
 
 -- | Same as 'mkUpdateVote', but uses 'SafeSigner'.
 mkUpdateVoteSafe
-    :: HasCryptoConfiguration
-    => SafeSigner          -- ^ The voter
+    :: ProtocolMagic
+    -> SafeSigner          -- ^ The voter
     -> UpId                -- ^ Proposal which is voted for
     -> Bool                -- ^ Approval/rejection bit
     -> UpdateVote
-mkUpdateVoteSafe sk uvProposalId uvDecision =
-    let uvSignature = safeSign SignUSVote sk (uvProposalId, uvDecision)
+mkUpdateVoteSafe pm sk uvProposalId uvDecision =
+    let uvSignature = safeSign pm SignUSVote sk (uvProposalId, uvDecision)
         uvKey       = safeToPublic sk
     in  UnsafeUpdateVote{..}
 

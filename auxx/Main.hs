@@ -3,9 +3,9 @@ module Main
        ) where
 
 import           Universum
-import           Unsafe (unsafeFromJust)
 
 import           Control.Exception.Safe (handle)
+import           Data.Maybe (fromJust)
 import           Formatting (sformat, shown, (%))
 import           Mockable (Production, runProduction)
 import           JsonLog (jsonLog)
@@ -13,17 +13,17 @@ import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
 import           System.Wlog (LoggerName, logInfo)
 
+import           Pos.Block.Configuration (recoveryHeadersMessage)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..))
-import           Pos.Core (ConfigurationError)
+import           Pos.Core (ConfigurationError, protocolConstants, protocolMagic)
 import           Pos.Configuration (networkConnectionTimeout)
 import           Pos.DB.DB (initNodeDBs)
-import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
-import           Pos.Diffusion.Types (DiffusionLayer (..))
-import           Pos.Diffusion.Full (diffusionLayerFull)
-import           Pos.Logic.Full (logicLayerFull)
-import           Pos.Logic.Types (LogicLayer (..))
+import           Pos.Diffusion.Types (DiffusionLayer (..), hoistDiffusion)
+import           Pos.Diffusion.Full (diffusionLayerFull, FullDiffusionConfiguration (..))
+import           Pos.Logic.Full (logicFullM)
+import           Pos.Logic.Types (hoistLogic)
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
                                bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
                                elimRealMode, withConfigurations)
@@ -36,6 +36,7 @@ import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.UserSecret (usVss)
+import           Pos.Util.Trace (wlogTrace)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 import           Pos.Worker.Types (WorkerSpec)
 
@@ -109,7 +110,14 @@ action opts@AuxxOptions {..} command = do
         CLI.printInfoOnStart aoCommonNodeArgs ntpConfig
         (nodeParams, tempDbUsed) <-
             correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs nArgs
-        let
+        let fdconf = FullDiffusionConfiguration
+                { fdcProtocolMagic = protocolMagic
+                , fdcProtocolConstants = protocolConstants
+                , fdcRecoveryHeadersMessage = recoveryHeadersMessage
+                , fdcLastKnownBlockVersion = lastKnownBlockVersion
+                , fdcConvEstablishTimeout = networkConnectionTimeout
+                , fdcTrace = wlogTrace "auxx"
+                }
             toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
             toRealMode auxxAction = do
                 realModeContext <- ask
@@ -118,18 +126,30 @@ action opts@AuxxOptions {..} command = do
                         { acRealModeContext = realModeContext
                         , acTempDbUsed = tempDbUsed }
                 lift $ runReaderT auxxAction auxxContext
-        let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
+        let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-        bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
-            elimRealMode nr $ toRealMode $
-                logicLayerFull jsonLog $ \logicLayer ->
-                    bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->
-                        diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) (npNetworkConfig nodeParams) lastKnownBlockVersion transport Nothing $ \withLogic -> do
-                            diffusionLayer <- withLogic (logic logicLayer)
-                            let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
-                                (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
-                            runLogicLayer logicLayer (runDiffusionLayer diffusionLayer (auxxModeAction (diffusion diffusionLayer)))
-
+        bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr -> do
+            let runIO = runProduction . elimRealMode nr . toRealMode
+            -- Monad here needs to be 'Production' (bracketNodeResources) so
+            -- take it to real mode and then eliminate it.
+            elimRealMode nr $ toRealMode $ do
+                -- Here's an 'AuxxMode' thing, using a 'Logic AuxxMode' and
+                -- doing a continuation in 'AuxxMode'
+                logic <- logicFullM jsonLog
+                -- 'diffusionLayerFull' works in 'IO'. Luckily, we have
+                -- AuxxMode ~> IO and vice-versa (liftIO).
+                -- We hoist the 'Logic AuxxMode' using 'runIO' so that
+                -- the diffusion layer can use it.
+                liftIO $ diffusionLayerFull fdconf
+                                            (npNetworkConfig nodeParams)
+                                            Nothing
+                                            (hoistLogic runIO logic) $ \diffusionLayer -> do
+                    let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
+                        (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
+                    -- We're back in 'AuxxMode' again. We run the logic
+                    -- layer using a hoisted diffusion layer (liftIO).
+                    runDiffusionLayer diffusionLayer $ runIO $
+                        auxxModeAction (hoistDiffusion liftIO (diffusion diffusionLayer))
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
     nArgs =

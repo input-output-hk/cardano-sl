@@ -8,12 +8,13 @@ module Pos.Ssc.Toss.Logic
        , refreshToss
        ) where
 
+import           Universum hiding (id)
+
 import           Control.Lens (at)
 import           Control.Monad.Except (MonadError, throwError, runExceptT)
 import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
 import           System.Wlog (logError)
-import           Universum
 
 import           Pos.Core (EpochIndex, EpochOrSlot (..), HasConfiguration, IsMainHeader,
                            LocalSlotIndex, SlotCount, SlotId (siSlot), StakeholderId,
@@ -23,6 +24,7 @@ import           Pos.Core (EpochIndex, EpochOrSlot (..), HasConfiguration, IsMai
 import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening, SignedCommitment,
                                SscPayload (..), getCommitmentsMap, mkCommitmentsMapUnsafe, spVss,
                                checkSscPayload)
+import           Pos.Crypto.Configuration (protocolMagic)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Error (SscVerifyError (..))
 import           Pos.Ssc.Functions (verifySscPayload)
@@ -43,7 +45,7 @@ verifyAndApplySscPayload
     => Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
 verifyAndApplySscPayload eoh payload = do
     -- Check the payload for internal consistency.
-    either (throwError . SscInvalidPayload) pure (checkSscPayload payload)
+    either (throwError . SscInvalidPayload) pure (checkSscPayload protocolMagic payload)
     -- We can't trust payload from mempool, so we must call
     -- @verifySscPayload@.
     whenLeft eoh $ const $ verifySscPayload eoh payload

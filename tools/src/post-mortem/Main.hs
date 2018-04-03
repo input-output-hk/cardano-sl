@@ -1,6 +1,6 @@
 -- | Post-mortem tool main.
 
-import           Universum
+import           Universum hiding (last)
 
 import           Data.List (last)
 import qualified Data.Map.Strict as M

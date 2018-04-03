@@ -7,11 +7,10 @@ module Pos.Wallet.Web.State.Util
 import           Universum
 
 import           Data.Acid (createArchive, createCheckpoint)
-import           Data.Time.Units (TimeUnit)
+import           Data.Time.Units (TimeUnit, Second)
 import           Formatting (sformat, shown, (%))
 import           Mockable (Delay, Mockable, delay)
-import           Serokell.AcidState (ExtendedState (..), extendedStateToAcid)
-import           Serokell.Util (sec)
+import           Serokell.AcidState.ExtendedState (ExtendedState (..), extendedStateToAcid)
 import           System.Directory (getModificationTime, listDirectory, removeFile)
 import           System.FilePath ((</>))
 import           System.Wlog (WithLogger, logDebug, logError)
@@ -65,7 +64,7 @@ cleanupAcidStatePeriodically db interval = perform
                 logError $ sformat ("acidCleanupWorker failed with error: "%shown%
                                     " restarting in 1m")
                                    e
-                delay $ sec 60
+                delay (60 :: Second)
         report `finally` perform
 
     -- Returns how many files were deleted

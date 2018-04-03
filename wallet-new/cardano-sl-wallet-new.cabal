@@ -159,6 +159,7 @@ executable cardano-node
                        Cardano.Wallet.Server
                        Cardano.Wallet.Server.CLI
                        Cardano.Wallet.Server.Plugins
+                       Paths_cardano_sl_wallet_new
   build-depends:       base
                      , QuickCheck
                      , aeson

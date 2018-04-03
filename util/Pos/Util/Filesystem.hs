@@ -11,7 +11,7 @@ module Pos.Util.Filesystem
        , withMaybeFile
        ) where
 
-import           Universum
+import           Universum hiding (last)
 
 import           Control.Concurrent (myThreadId)
 import qualified Control.Exception.Safe as E

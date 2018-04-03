@@ -21,7 +21,6 @@ import           Servant.Server (Handler, hoistServer)
 
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Communication (OutSpecs)
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
 import           Pos.Diffusion.Types (Diffusion)
@@ -30,6 +29,7 @@ import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..))
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.Mockable ()
 import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 
@@ -59,9 +59,6 @@ instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo) =>
          MonadTxpLocal ExplorerProd where
     txpNormalize = lift $ lift txpNormalize
     txpProcessTx = lift . lift . txpProcessTx
-
-instance HasAdoptedBlockVersionData RealModeE => HasAdoptedBlockVersionData ExplorerProd where
-    adoptedBVData = lift . lift $ adoptedBVData
 
 runExplorerProd :: ExtraContext -> ExplorerProd a -> RealModeE a
 runExplorerProd extraCtx = runExplorerBListener . runExtraContextT extraCtx

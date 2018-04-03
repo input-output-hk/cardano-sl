@@ -12,7 +12,7 @@ module NodeOptions
 
 import           Universum
 
-import           Data.List (drop, span)
+import           Data.Text (splitOn)
 import           Data.Time.Units (Minute)
 import           Data.Version (showVersion)
 import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc, header, help,
@@ -127,13 +127,8 @@ tlsParamsOption = do
 
 strList :: Opt.ReadM [String]
 strList =
-    Opt.str >>= failIfEmpty . splitOn ','
+    Opt.str >>= failIfEmpty . fmap toString . splitOn "," . toText
   where
-    splitOn c str =
-      case span (/= c) str of
-        (h, []) -> [h]
-        (h, q)  -> h : splitOn c (drop 1 q)
-
     failIfEmpty xs =
       case xs of
         [] -> empty

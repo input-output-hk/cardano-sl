@@ -14,7 +14,7 @@ module Pos.Txp.Toil.Logic
        , processTx
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Monad.Except (ExceptT, mapExceptT, throwError)
 import           Serokell.Data.Memory.Units (Byte)

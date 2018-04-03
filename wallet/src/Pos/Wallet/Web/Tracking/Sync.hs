@@ -41,9 +41,8 @@ module Pos.Wallet.Web.Tracking.Sync
        ) where
 
 import           Control.Monad.Except (MonadError (throwError))
-import           Universum
+import           Universum hiding (id)
 import           UnliftIO (MonadUnliftIO)
-import           Unsafe (unsafeLast)
 
 import           Control.Concurrent.STM (readTQueue)
 import           Control.Exception.Safe (handleAny)
@@ -51,6 +50,7 @@ import           Control.Lens (to)
 import qualified Data.DList as DL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
+import qualified Data.List as List (last)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond, TimeUnit (..))
 import           Formatting (build, float, sformat, shown, (%))
@@ -273,7 +273,7 @@ syncWalletWithBlockchain syncRequest@SyncRequest{..} = setLogger $ do
                 -- rollback can't occur more then @blkSecurityParam@ blocks,
                 -- so we can sync wallet and GState without the block lock
                 -- to avoid blocking of blocks verification/application.
-                stableBlockHeader <- unsafeLast . getNewestFirst <$> GS.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
+                stableBlockHeader <- List.last . getNewestFirst <$> GS.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
                 logInfo $
                     sformat ( "Wallet's tip is far from GState tip. Syncing with the last stable known header " %build%
                               " (the tip of the blockchain - k blocks) without the block lock"
@@ -400,7 +400,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                              -- if the application was interrupted during blocks application.
                              blunds <- getNewestFirst <$> GS.loadBlundsWhile (\b -> getBlockHeader b /= blockchainTip) (headerHash wHeader)
                              let newModifier = foldl' (\r b -> r <> rollbackBlock credentials usedAddresses b getBlockTimestamp) currentModifier blunds
-                             pure (newModifier, getBlockHeader . fst . unsafeLast $ blunds)
+                             pure (newModifier, getBlockHeader . fst . List.last $ blunds)
                        | otherwise -> do
                              logInfoSP $ \sl -> sformat ("Wallet " % secretOnlyF sl build %" has finally caught up with the blockchain.") walletId
                              pure (currentModifier, blockchainTip)

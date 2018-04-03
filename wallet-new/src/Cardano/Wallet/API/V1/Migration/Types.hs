@@ -8,7 +8,7 @@ module Cardano.Wallet.API.V1.Migration.Types (
     , migrate
     ) where
 
-import           Universum
+import           Universum hiding (elems)
 
 import qualified Control.Lens as Lens
 import qualified Control.Monad.Catch as Catch

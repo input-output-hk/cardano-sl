@@ -16,7 +16,7 @@ module Pos.Ssc.Logic.Local
        , sscGarbageCollectLocalData
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens ((+=), (.=))
 import           Control.Monad.Except (MonadError (throwError), runExceptT)

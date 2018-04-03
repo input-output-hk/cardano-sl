@@ -12,6 +12,7 @@ import           Universum
 import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Default (def)
 import           Data.Maybe (fromJust, isJust)
+import           Data.Time.Units (fromMicroseconds)
 import           Mockable (Production, runProduction)
 import qualified Network.Transport.TCP as TCP
 import           Options.Generic (getRecord)
@@ -35,7 +36,6 @@ import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
 import           Pos.Wallet.Web.State.Acidic (closeState, openState)
 import           Pos.Wallet.Web.State.State (WalletDB)
 import           Pos.WorkMode (RealModeContext (..))
-import           Serokell.Util (sec)
 import           System.Wlog (HasLoggerName (..), LoggerName (..))
 
 import           CLI (CLI (..))
@@ -140,7 +140,7 @@ instance HasLoggerName IO where
 -- TODO(ks): Fix according to Pos.Client.CLI.Options
 newConfig :: CLI -> ConfigurationOptions
 newConfig CLI{..} = defaultConfigurationOptions {
-      cfoSystemStart  = Timestamp . sec <$> systemStart
+      cfoSystemStart  = Timestamp . fromMicroseconds . fromIntegral . (*) 1000000 <$> systemStart
     , cfoFilePath     = configurationPath
     , cfoKey          = toText configurationProf
     }

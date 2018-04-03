@@ -16,7 +16,6 @@ import           Test.QuickCheck (Testable (..), ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Client.Txp.Util (TxCreateMode)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (Address, BlockVersionData, HasConfiguration, makePubKeyAddressBoot)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, genesisBlockVersionData)
@@ -42,8 +41,6 @@ type HasTxpConfigurations =
 ----------------------------------------------------------------------------
 
 type TxpTestMode = ReaderT BlockVersionData IO
-
-instance HasTxpConfigurations => TxCreateMode TxpTestMode
 
 ----------------------------------------------------------------------------
 -- Boilerplate TxpTestMode instances
@@ -85,5 +82,5 @@ instance HasTxpConfigurations => MonadAddresses TxpTestProperty where
     getNewAddress = lift . getNewAddress
     getFakeChangeAddress = lift getFakeChangeAddress
 
-instance HasTxpConfigurations => Testable (TxpTestProperty a) where
+instance (HasTxpConfigurations, Testable a) => Testable (TxpTestProperty a) where
     property = monadic (ioProperty . flip runReaderT genesisBlockVersionData)

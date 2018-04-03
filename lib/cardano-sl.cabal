@@ -125,6 +125,7 @@ library
 
   build-depends:        base
                       , QuickCheck
+                      , acid-state
                       , async
                       , aeson >= 0.11.2.1
                       , async

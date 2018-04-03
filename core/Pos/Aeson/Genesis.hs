@@ -30,7 +30,7 @@ module Pos.Aeson.Genesis
         -- ** GenesisSpec
        ) where
 
-import           Universum
+import           Universum hiding (elems)
 
 import           Control.Lens (_Left)
 import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..), ToJSON (..),

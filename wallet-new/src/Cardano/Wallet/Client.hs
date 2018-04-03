@@ -17,7 +17,8 @@ module Cardano.Wallet.Client
     -- * The type of errors that the client might return
     , ClientError(..)
     , ServantError(..)
-    , Response(..)
+    , Response
+    , GenResponse(..)
     -- * Reexports
     , module Cardano.Wallet.API.V1.Types
     , module Cardano.Wallet.API.V1.Parameters
@@ -32,7 +33,7 @@ module Cardano.Wallet.Client
 import           Universum
 
 import           Control.Exception (Exception (..))
-import           Servant.Client (Response (..), ServantError (..))
+import           Servant.Client (Response, GenResponse (..), ServantError (..))
 
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination

@@ -44,6 +44,7 @@ executable dbgen
                      , stm
                      , text
                      , time
+                     , time-units
                      , QuickCheck
                      , bytestring
                      , string-conv

@@ -57,7 +57,6 @@ import           Formatting (Format, bprint, build, builder, int, later, shown, 
 import           Instances.TH.Lift ()
 import           Language.Haskell.TH.Syntax (Lift)
 import qualified Prelude
-import           Serokell.AcidState ()
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Text (listJson)
 

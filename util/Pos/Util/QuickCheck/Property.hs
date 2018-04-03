@@ -62,15 +62,20 @@ qcIsRight :: Show a => Either a b -> Property
 qcIsRight (Right _) = property True
 qcIsRight (Left x)  = qcFail ("expected Right, got Left (" <> show x <> ")")
 
+-- TBD would it not be sufficient to just use 'Traversable'? Does the
+-- 'Container' class from 'universum' add any value?
+--
+--   qcElem :: (Eq a, Show a, Show (t a), Traversable t) => a -> t a -> Property
+--
 qcElem
-    :: (Eq a, Show a, Show t, NontrivialContainer t, Element t ~ a)
+    :: (Eq a, Show a, Show t, Container t, Element t ~ a, ElementConstraint t a)
     => a -> t -> Property
 qcElem x xs =
     counterexample ("expected " <> show x <> " to be in " <> show xs) $
     x `elem` xs
 
 qcNotElem
-    :: (Eq a, Show a, Show t, NontrivialContainer t, Element t ~ a)
+    :: (Eq a, Show a, Show t, Container t, Element t ~ a, ElementConstraint t a)
     => a -> t -> Property
 qcNotElem x xs =
     counterexample ("expected " <> show x <> " not to be in " <> show xs) $

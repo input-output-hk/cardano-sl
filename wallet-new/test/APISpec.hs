@@ -27,7 +27,8 @@ import           Pos.Wallet.Web.Sockets (ConnectionsVar)
 import           Pos.Wallet.Web.State (WalletDB)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.WorkMode (RealModeContext (..))
-import           Serokell.AcidState.ExtendedState
+import           Serokell.AcidState.ExtendedState (openMemoryExtendedState)
+
 import           Servant
 import           Servant.QuickCheck
 import           Servant.QuickCheck.Internal

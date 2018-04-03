@@ -8,12 +8,13 @@ module Pos.Update.Poll.RollTrans
        , execRollT
        ) where
 
+import           Universum hiding (id)
+
 import           Control.Lens ((%=), (.=))
 import           Data.Default (def)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List as List (find)
 import qualified Ether
-import           Universum
 
 import           Pos.Binary.Update ()
 import           Pos.Core.Configuration (HasConfiguration)

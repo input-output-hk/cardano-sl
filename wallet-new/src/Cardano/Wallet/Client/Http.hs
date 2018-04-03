@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Cardano.Wallet.Client.Http
     ( module Cardano.Wallet.Client.Http
       -- * Abstract Client export
@@ -13,7 +15,7 @@ import           Control.Lens (_Left)
 import           Data.Aeson (decode)
 import           Network.HTTP.Client (Manager, defaultManagerSettings, newManager)
 import           Servant ((:<|>) (..), (:>))
-import           Servant.Client (BaseUrl (..), ClientEnv (..), Scheme (..), client, runClientM, ServantError(..))
+import           Servant.Client (BaseUrl (..), ClientEnv (..), Scheme (..), ClientM, client, runClientM, ServantError(..))
 
 import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.Client
@@ -73,8 +75,14 @@ mkHttpClient baseUrl manager = WalletClient
     }
 
   where
+
+    -- Must give the type. GHC will not infer it to be polymorphic in 'a'.
+    run :: forall a . ClientM a -> IO (Either ClientError a)
+    run = fmap (over _Left ClientHttpError) . (`runClientM` clientEnv)
+
     unNoContent = map void
-    clientEnv = ClientEnv manager baseUrl
+    cookieJar = Nothing
+    clientEnv = ClientEnv manager baseUrl cookieJar
     parseJsendError servantErr =
         case servantErr of
             FailureResponse resp ->

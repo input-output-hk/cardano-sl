@@ -5,7 +5,6 @@ module Test.Pos.Ssc.SeedSpec
        ) where
 
 import           Universum
-import           Unsafe ()
 
 import           Control.Lens (each, traverseOf)
 import           Crypto.Random (MonadRandom)

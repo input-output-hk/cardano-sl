@@ -11,6 +11,7 @@ module Pos.Wallet.Web.Sockets.Notifier
 
 import           Universum
 
+import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.Async (mapConcurrently)
 import           Control.Lens ((.=))
 import           Data.Default (Default (def))
@@ -23,7 +24,6 @@ import           Pos.Wallet.Web.Mode (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.Connection (notifyAll)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent (..))
 import           Pos.Wallet.Web.State (WalletDbReader, addUpdate, askWalletDB)
-import           Serokell.Util (threadDelay)
 import           Servant.Server (Handler, runHandler)
 import           System.Wlog (WithLogger, logDebug)
 
@@ -58,13 +58,13 @@ launchNotifier nat =
     restartOnError action = catchAny action $ const $ do
         -- TODO: log error
         -- cooldown
-        threadDelay cooldownPeriod
+        threadDelay (fromIntegral cooldownPeriod * 1000000)
         restartOnError action
     -- TODO: use Servant.enter here
     -- FIXME: don't ignore errors, send error msg to the socket
     startNotifier = restartOnError . void . runHandler . nat
     notifier period action = forever $ do
-        liftIO $ threadDelay period
+        liftIO $ threadDelay (fromIntegral period)
         action
     dificultyNotifier = void . flip runStateT def $ notifier difficultyNotifyPeriod $ do
         whenJustM networkChainDifficulty $

@@ -8,7 +8,6 @@ module Pos.Diffusion.Full
     ( diffusionLayerFull
     ) where
 
-import           Nub (ordNub)
 import           Universum
 
 import qualified Control.Concurrent.Async as Async

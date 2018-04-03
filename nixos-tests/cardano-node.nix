@@ -26,6 +26,7 @@ import <nixpkgs/nixos/tests/make-test.nix> ({ pkgs, ... }: {
       after = [ "network.target" ];
       serviceConfig = {
         ExecStart = cardano_sl.connectScripts.stagingWallet.override ( { walletListen = "127.0.0.1:8091"; ekgListen = "127.0.0.1:8001"; stateDir = "cardano-state-staging-custom-port"; } );
+        Type = "notify";
       };
     };
   };

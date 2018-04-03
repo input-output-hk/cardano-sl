@@ -5,7 +5,7 @@ module Cardano.Wallet.Server.CLI where
 
 import           Universum
 
-import           Data.List (drop, span)
+import           Data.Text (splitOn)
 import           Data.Time.Units (Minute)
 import           Data.Version (showVersion)
 import           Options.Applicative (Parser, ReadM, auto, execParser, footerDoc, fullDesc, header,
@@ -204,13 +204,8 @@ tlsParamsParser = constructTlsParams <$> certPathParser
 
     strList :: ReadM [String]
     strList =
-        str >>= failIfEmpty . splitOn ','
+        str >>= failIfEmpty . fmap toString . splitOn "," . toText
       where
-        splitOn c s =
-          case span (/= c) s of
-            (h, []) -> [h]
-            (h, q)  -> h : splitOn c (drop 1 q)
-
         failIfEmpty xs =
           case xs of
             [] -> empty

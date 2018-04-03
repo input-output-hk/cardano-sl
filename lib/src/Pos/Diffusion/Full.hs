@@ -418,17 +418,21 @@ runDiffusionLayerFull logTrace
                 mainAction = do
                     maybe (pure ()) (flip registerEkgNodeMetrics nd) mEkgNodeMetrics
                     maybe (pure ()) joinKademlia mKademlia
-                    k $ FullDiffusionInternals
-                        { fdiNode = nd
-                        , fdiConverse = converse
-                        , fdiSendActions = sendActions
-                        }
+                    let fdi = FullDiffusionInternals
+                            { fdiNode = nd
+                            , fdiConverse = converse
+                            , fdiSendActions = sendActions
+                            }
+                    t <- k fdi
+                    -- If everything went well, stop the outbound queue
+                    -- normally. If 'k fdi' threw an exception, the dequeue
+                    -- thread ('dequeueDaemon') will be killed.
+                    OQ.waitShutdown oq
+                    pure t
                 
                 action = Concurrently dequeueDaemon
                       *> Concurrently subscriptionDaemon
-                      -- The outbound qeueue won't shutdown gracefully unless
-                      -- we call 'waitShutdown'.
-                      *> Concurrently (mainAction `finally` OQ.waitShutdown oq)
+                      *> Concurrently mainAction
 
             in  runConcurrently action
   where

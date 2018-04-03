@@ -150,10 +150,10 @@ tyProposeUpdateSystem :: TyProjection ProposeUpdateSystem
 tyProposeUpdateSystem = TyProjection "ProposeUpdateSystem" (preview _ValueProposeUpdateSystem)
 
 tySystemTag :: TyProjection SystemTag
-tySystemTag = TyProjection "SystemTag" ((fmap . fmap) (SystemTag . fromString) (preview _ValueString))
+tySystemTag = TyProjection "SystemTag" ((fmap . fmap) (SystemTag) (preview _ValueString))
 
 tyApplicationName :: TyProjection ApplicationName
-tyApplicationName = TyProjection "ApplicationName" ((fmap . fmap) (ApplicationName . fromString) (preview _ValueString))
+tyApplicationName = TyProjection "ApplicationName" ((fmap . fmap) (ApplicationName) (preview _ValueString))
 
-tyString :: TyProjection String
+tyString :: TyProjection Text
 tyString = TyProjection "String" (preview _ValueString)

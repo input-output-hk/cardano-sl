@@ -24,6 +24,7 @@ module Lang.Lexer
        , tokenize
        , tokenize'
        , detokenize
+       , tokenRender
        ) where
 
 import           Universum hiding (try)
@@ -45,7 +46,7 @@ import           Text.Megaparsec (Parsec, SourcePos (..), between, choice, eof, 
                                   manyTill, notFollowedBy, parseMaybe, skipMany, takeP, takeWhile1P,
                                   try, unPos, (<?>))
 import           Text.Megaparsec.Char (anyChar, char, satisfy, spaceChar, string)
-import           Text.Megaparsec.Char.Lexer (charLiteral, decimal, scientific, signed)
+import           Text.Megaparsec.Char.Lexer (decimal, scientific, signed)
 
 import           Lang.Name (Letter, Name (..), unsafeMkLetter)
 import           Pos.Arbitrary.Core ()
@@ -98,7 +99,7 @@ isFilePathChar c = isAlphaNum c || c `elem` ['.', '/', '-', '_']
 data Token
     = TokenSquareBracket BracketSide
     | TokenParenthesis BracketSide
-    | TokenString String
+    | TokenString Text
     | TokenNumber Scientific
     | TokenAddress Address
     | TokenPublicKey PublicKey
@@ -124,7 +125,14 @@ tokenRender :: Token -> Text
 tokenRender = \case
     TokenSquareBracket bs -> withBracketSide "[" "]" bs
     TokenParenthesis bs -> withBracketSide "(" ")" bs
-    TokenString s -> show s
+    -- Double up every double quote, and surround the whole thing with double
+    -- quotes.
+    TokenString t -> quote (escapeQuotes t)
+      where
+        quote :: Text -> Text
+        quote t' = Text.concat [Text.singleton '\"', t', Text.singleton '\"']
+        escapeQuotes :: Text -> Text
+        escapeQuotes = Text.intercalate "\"\"" . Text.splitOn "\""
     TokenNumber n -> show n
     TokenAddress a -> pretty a
     TokenPublicKey pk -> sformat fullPublicKeyF pk
@@ -186,7 +194,7 @@ pToken' = choice
     , string "~software~" *> (TokenSoftwareVersion <$> try pSoftwareVersion)
     , marking "filepath" $ TokenFilePath <$> pFilePath
     , marking "num" $ TokenNumber <$> pScientific
-    , marking "str" $ TokenString <$> pString
+    , marking "str" $ TokenString <$> pText
     , marking "ident" $ pIdent
     ] <?> "token"
 
@@ -200,10 +208,21 @@ pPunct = choice
     , char ';' $> TokenSemicolon
     ] <?> "punct"
 
-pString :: Lexer String
-pString =
-    char '\"' *>
-    manyTill (charLiteral <|> anyChar) (char '\"')
+pText :: Lexer Text
+pText = do
+    _ <- char '\"'
+    Text.pack <$> loop []
+  where
+    loop :: [Char] -> Lexer [Char]
+    loop !acc = do
+        next <- anyChar
+        case next of
+            -- Check for double double quotes. If it's a single double quote,
+            -- it's the end of the string.
+            '\"' -> try (doubleQuote acc) <|> pure (reverse acc)
+            c    -> loop (c : acc)
+    doubleQuote :: [Char] -> Lexer [Char]
+    doubleQuote !acc = char '\"' >> loop ('\"' : acc)
 
 pSomeAlphaNum :: Lexer Text
 pSomeAlphaNum = takeWhile1P (Just "alphanumeric") isAlphaNum

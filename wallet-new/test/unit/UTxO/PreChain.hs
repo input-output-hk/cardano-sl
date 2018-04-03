@@ -123,16 +123,16 @@ preTree = fmap (, ()) . DepIndep
 -- - the boot transaction is included in the chain.
 data FromPreTree h a = FromPreTree {
       -- | The resulting tree
-      fptTree      :: BlockTree h Addr
+      fptTree      :: !(BlockTree h Addr)
 
       -- | The boot transaction
-    , fptBoot      :: Transaction h Addr
+    , fptBoot      :: !(Transaction h Addr)
 
       -- | Addresses involved in this block tree
-    , fptAddresses :: Set Addr
+    , fptAddresses :: !(Set Addr)
 
       -- | Any additional information that was included in the 'PreChain'.
-    , fptExtra     :: a
+    , fptExtra     :: !a
     }
 
 fromPreTree :: (Hash h Addr, Monad m)

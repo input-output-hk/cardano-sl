@@ -9,7 +9,7 @@ module Pos.Explorer.Txp.Toil.Logic
        , eProcessTx
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Monad.Except (mapExceptT)
 import qualified Data.HashMap.Strict as HM

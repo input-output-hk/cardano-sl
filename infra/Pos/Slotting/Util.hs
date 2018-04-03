@@ -26,10 +26,9 @@ module Pos.Slotting.Util
 
 import           Universum
 
-import           Data.Time.Units (Millisecond)
+import           Data.Time.Units (Millisecond, fromMicroseconds)
 import           Formatting (int, sformat, shown, stext, (%))
 import           Mockable (Async, Delay, Mockable, delay, timeout)
-import           Serokell.Util (sec)
 import           System.Wlog (WithLogger, logDebug, logInfo, logNotice, logWarning,
                               modifyLoggerName)
 
@@ -253,5 +252,5 @@ waitSystemStart = do
     let Timestamp waitPeriod = start - cur
     when (cur < start) $ do
         logInfo $ sformat ("Waiting "%int%" seconds for system start") $
-            waitPeriod `div` sec 1
+            waitPeriod `div` fromMicroseconds 1000000
         delay waitPeriod

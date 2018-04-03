@@ -66,6 +66,7 @@ library
                      , serokell-util
                      , text-format
                      , time
+                     , time-units
                      , transformers
                      , universum
                      , unliftio

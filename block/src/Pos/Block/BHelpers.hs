@@ -22,14 +22,13 @@ import           Control.Monad.Except (MonadError (throwError))
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core ()
-import           Pos.Core.Block (Block, GenesisBlockchain, MainBlockHeader, MainBlockchain,
+import           Pos.Core.Block (Block, GenesisBlockchain, MainBlockchain,
                                  MainConsensusData (..), MainToSign (..))
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
                                             GenericBlockHeader (..), gbExtra)
 import           Pos.Core.Block.Main (MainBody (..), MainExtraHeaderData (..), MainProof,
                                       mainBlockEBDataProof)
 import           Pos.Core.Block.Union (BlockHeader (..), BlockSignature (..))
-import           Pos.Core.Class (IsMainHeader (..))
 import           Pos.Core.Configuration (HasProtocolConstants, HasProtocolMagic, protocolMagic)
 import           Pos.Core.Delegation (LightDlgIndices (..), checkDlgPayload)
 import           Pos.Core.Slotting (SlotId (..))
@@ -53,9 +52,6 @@ verifyBlockHeader (BlockHeaderMain bhm)  = verifyMainBlockHeader bhm
 -- | Verify a Block in isolation.
 verifyBlock
     :: ( MonadError Text m
-       , Bi BlockHeader
-       , Bi MainProof
-       , IsMainHeader MainBlockHeader
        , HasProtocolConstants
        , HasProtocolMagic
        )
@@ -75,7 +71,6 @@ verifyMainBlock
     :: ( MonadError Text m
        , Bi BlockHeader
        , Bi MainProof
-       , IsMainHeader MainBlockHeader
        , HasProtocolConstants
        , HasProtocolMagic
        )

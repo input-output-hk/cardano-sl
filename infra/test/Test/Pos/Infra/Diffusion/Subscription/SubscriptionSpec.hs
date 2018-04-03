@@ -3,8 +3,8 @@ module Test.Pos.Infra.Diffusion.Subscription.SubscriptionSpec
     ) where
 
 import           Control.Concurrent.MVar (newEmptyMVar, takeMVar)
-import           Control.Concurrent.Async (async, cancel, waitCatch)
-import           Control.Exception (AsyncException (ThreadKilled), throwIO, fromException)
+import           Control.Concurrent.Async (AsyncCancelled (..), async, cancel, waitCatch)
+import           Control.Exception (throwIO, fromException)
 import           System.IO.Error (userError)
 import           Test.Hspec (Expectation, Spec, describe, it, shouldBe, expectationFailure)
 
@@ -47,10 +47,7 @@ asyncExceptionSpec = do
     reason <- waitCatch thread
 
     case reason of
-        -- FIXME this will change to AsyncCancelled when we upgrade to
-        -- async >=2.2 with the LTS-11.2 change.
-        -- But who knows when that will finally pass CI????
-        Left someException -> fromException someException `shouldBe` Just ThreadKilled
+        Left someException -> fromException someException `shouldBe` Just AsyncCancelled
         Right Normal -> expectationFailure "thread finished normally"
         -- The thread should die exceptionally rather than finish up and
         -- return 'Exceptional'.

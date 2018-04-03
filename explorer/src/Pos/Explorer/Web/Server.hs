@@ -30,7 +30,7 @@ module Pos.Explorer.Web.Server
        , cAddrToAddr
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at)
 import qualified Data.ByteString as BS
@@ -608,9 +608,7 @@ getEpochSlot epochIndex slotIndex = do
     -- TODO: Fix this Int / Integer thing once we merge repositories
     epochBlocksHH   <- getPageHHsOrThrow epochIndex page
     blunds          <- forM epochBlocksHH getBlundOrThrow
-    cBlocksEntry    <- forM (getEpochSlots slotIndex (blundToMainBlockUndo blunds)) toBlockEntry
-
-    pure cBlocksEntry
+    forM (getEpochSlots slotIndex (blundToMainBlockUndo blunds)) toBlockEntry
   where
     blundToMainBlockUndo :: [Blund] -> [(MainBlock, Undo)]
     blundToMainBlockUndo blund = [(mainBlock, undo) | (Right mainBlock, undo) <- blund]
@@ -706,9 +704,7 @@ getStatsTxs
 getStatsTxs mPageNumber = do
     -- Get blocks from the requested page
     blocksPage <- getBlocksPage mPageNumber (Just defaultPageSizeWord)
-
-    blockPageTxsInfo <- getBlockPageTxsInfo blocksPage
-    pure blockPageTxsInfo
+    getBlockPageTxsInfo blocksPage
   where
     getBlockPageTxsInfo
         :: (Integer, [CBlockEntry])
@@ -761,9 +757,7 @@ getMainBlockTxs :: ExplorerMode ctx m => CHash -> m [Tx]
 getMainBlockTxs cHash = do
     hash' <- unwrapOrThrow $ fromCHash cHash
     blk   <- getMainBlock hash'
-    txs   <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
-
-    pure txs
+    topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
 
 makeTxBrief :: Tx -> TxExtra -> CTxBrief
 makeTxBrief tx extra = toTxBrief (TxInternal extra tx)
@@ -886,3 +880,12 @@ getEpochPagesOrThrow
     -> m Page
 getEpochPagesOrThrow epochIndex =
     getEpochPagesCSLI epochIndex >>= maybeThrow (Internal "No epoch pages.")
+
+-- Silly name for a list index-lookup function.
+atMay :: [a] -> Int -> Maybe a
+atMay xs n
+    | n < 0     = Nothing
+    | n == 0    = fmap fst (uncons xs)
+    | otherwise = case xs of
+                      []        -> Nothing
+                      (_ : xs') -> atMay xs' (n - 1)

@@ -31,8 +31,7 @@ import           Pos.Block.Logic.Util (calcChainQualityM)
 import           Pos.Block.Logic.VAR (verifyBlocksPrefix)
 import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.Block.Slog (HasSlogGState (..), ShouldCallBListener (..))
-import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..), HasGeneratedSecrets,
-                           HasGenesisBlockVersionData, HasGenesisData, HasGenesisHash,
+import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..),
                            HasProtocolConstants, HasProtocolMagic, HeaderHash, SlotId (..),
                            chainQualityThreshold, epochIndexL, epochSlots, flattenSlotId,
                            getEpochOrSlot, headerHash, protocolMagic)
@@ -113,16 +112,9 @@ type MonadCreateBlock ctx m
 createGenesisBlockAndApply ::
        forall ctx m.
        ( MonadCreateBlock ctx m
-       , MonadBlockApply ctx m
        , CanJsonLog m
        , HasLens StateLock ctx StateLock
        , HasLens (StateLockMetrics MemPoolModifyReason) ctx (StateLockMetrics MemPoolModifyReason)
-       , HasGeneratedSecrets
-       , HasGenesisBlockVersionData
-       , HasGenesisData
-       , HasGenesisHash
-       , HasProtocolConstants
-       , HasProtocolMagic
        , HasMisbehaviorMetrics ctx
        )
     => EpochIndex
@@ -247,9 +239,6 @@ createMainBlockAndApply sId pske =
 createMainBlockInternal ::
        forall ctx m.
        ( MonadCreateBlock ctx m
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisBlockVersionData
        )
     => SlotId
     -> ProxySKBlockInfo
@@ -354,12 +343,6 @@ applyCreatedBlock ::
       forall ctx m.
     ( MonadBlockApply ctx m
     , MonadCreateBlock ctx m
-    , CanJsonLog m
-    , HasProtocolConstants
-    , HasProtocolMagic
-    , HasGeneratedSecrets
-    , HasGenesisData
-    , HasGenesisBlockVersionData
     )
     => ProxySKBlockInfo
     -> MainBlock

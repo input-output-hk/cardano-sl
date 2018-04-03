@@ -11,7 +11,6 @@ module Test.Pos.Wallet.Web.Methods.PaymentSpec
        ( spec
        ) where
 
-import           Nub (ordNub)
 import           Universum
 
 import           Control.Exception.Safe (try)
@@ -33,7 +32,7 @@ import           Pos.Crypto (PassPhrase)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Txp (TxFee (..))
-import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
+import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Wallet.Web.Account (myRootAddresses)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount (..), CId, CTx (..),
                                              NewBatchPayment (..), Wal)
@@ -96,7 +95,7 @@ newPaymentFixture = do
     let walId = rootsWIds !! idx
     let pswd = passphrases !! idx
     let noOneAccount = sformat ("There is no one account for wallet: "%build) walId
-    srcAccount <- maybeStopProperty noOneAccount =<< (lift $ head <$> getAccounts (Just walId))
+    srcAccount <- maybeStopProperty noOneAccount =<< (lift $ (fmap fst . uncons) <$> getAccounts (Just walId))
     srcAccId <- lift $ decodeCTypeOrFail (caId srcAccount)
 
     ws <- WS.askWalletSnapshot
@@ -121,7 +120,7 @@ newPaymentFixture = do
 
 -- | Assess that if we try to submit a payment when the wallet is restoring,
 -- the backend prevents us from doing that.
-rejectPaymentIfRestoringSpec :: (HasCompileInfo, HasConfigurations) => Spec
+rejectPaymentIfRestoringSpec :: (HasConfigurations) => Spec
 rejectPaymentIfRestoringSpec = walletPropertySpec "should fail with 403" $ do
     PaymentFixture{..} <- newPaymentFixture
     res <- lift $ try (newPaymentBatch submitTxTestMode pswd batch)

@@ -32,9 +32,7 @@ import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockA
 import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.Block.Slog (ShouldCallBListener (..), mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types (Blund, Undo (..))
-import           Pos.Core (Block, HasGeneratedSecrets, HasGenesisBlockVersionData, HasGenesisData,
-                           HasGenesisHash, HasProtocolConstants, HasProtocolMagic, HeaderHash,
-                           epochIndexL, headerHashG, prevBlockL)
+import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG, prevBlockL)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Logic (dlgVerifyBlocks)
 import           Pos.Reporting (HasMisbehaviorMetrics)
@@ -125,12 +123,6 @@ verifyAndApplyBlocks
     :: forall ctx m.
        ( BlockLrcMode ctx m
        , MonadMempoolNormalization ctx m
-       , HasGeneratedSecrets
-       , HasGenesisData
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisHash
        , HasMisbehaviorMetrics ctx
        )
     => Bool -> OldestFirst NE Block -> m (Either ApplyBlocksException HeaderHash)
@@ -226,12 +218,6 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
 applyBlocks
     :: forall ctx m.
        ( BlockLrcMode ctx m
-       , HasGeneratedSecrets
-       , HasGenesisHash
-       , HasGenesisData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisBlockVersionData
        , HasMisbehaviorMetrics ctx
        )
     => Bool -> Maybe PollModifier -> OldestFirst NE Blund -> m ()

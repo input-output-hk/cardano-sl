@@ -6,8 +6,6 @@ import           Universum
 import           Formatting (build, sformat)
 import           Test.Hspec (Spec, describe, hspec)
 
-import           Pos.Core (HasConfiguration)
-
 import           UTxO.Bootstrap (bootstrapTransaction)
 import           UTxO.Context (Addr, TransCtxt)
 import           UTxO.DSL (GivenHash, Transaction)
@@ -42,7 +40,7 @@ _showContext = do
   Tests proper
 -------------------------------------------------------------------------------}
 
-tests :: HasConfiguration => Spec
+tests :: Spec
 tests = describe "Wallet unit tests" $ do
     Test.Spec.Translation.spec
     Test.Spec.Models.spec

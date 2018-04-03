@@ -17,7 +17,7 @@ module Pos.GState.BlockExtra
        , initGStateBlockExtra
        ) where
 
-import           Universum
+import           Universum hiding (init)
 
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB as Rocks

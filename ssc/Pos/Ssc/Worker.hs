@@ -4,7 +4,7 @@ module Pos.Ssc.Worker
        ( sscWorkers
        ) where
 
-import           Universum
+import           Universum hiding (keys)
 
 import           Control.Concurrent.STM (readTVar)
 import           Control.Lens (at, each, partsOf, to, views)

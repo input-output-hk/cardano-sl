@@ -73,9 +73,9 @@ import           Universum
 
 import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent, makeAcidic)
 import           Data.Default (def)
-import           Serokell.AcidState (ExtendedState, closeExtendedState, openLocalExtendedState,
-                                     openMemoryExtendedState, queryExtended, tidyExtendedState,
-                                     updateExtended)
+import           Serokell.AcidState.ExtendedState (ExtendedState, closeExtendedState, openLocalExtendedState,
+                                                   openMemoryExtendedState, queryExtended, tidyExtendedState,
+                                                   updateExtended)
 
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.State.Storage as WS

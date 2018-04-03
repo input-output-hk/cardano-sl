@@ -53,7 +53,7 @@ unitFailureExample1 args err = do
     consumeArguments acExample1 args `shouldBe`
         Left err
 
-acExample1 :: ArgumentConsumer (String, Int)
+acExample1 :: ArgumentConsumer (Text, Int)
 acExample1 = do
     x <- getArg tyString "s"
     y <- getArg tyInt "i"

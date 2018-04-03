@@ -46,7 +46,7 @@ module Pos.Core.Common.Types
        , BlockCount(..)
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Exception.Safe (Exception (displayException))
 import           Control.Lens (makePrisms, _Left)

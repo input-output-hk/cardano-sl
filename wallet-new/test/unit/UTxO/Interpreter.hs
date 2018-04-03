@@ -21,7 +21,7 @@ module UTxO.Interpreter (
   , Interpret(..)
   ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Arrow ((&&&))
 import           Data.Default (def)
@@ -78,13 +78,13 @@ data IntCtxt h = IntCtxt {
       -- | Ledger we have interpreted so far
       --
       -- This is needed to resolve DSL hashes to DSL transactions.
-      icLedger :: DSL.Ledger h Addr
+      icLedger    :: DSL.Ledger h Addr
 
       -- | Mapping from DSL hashes to Cardano hashes
-    , icHashes :: Map (h (DSL.Transaction h Addr)) TxId
+    , icHashes    :: Map (h (DSL.Transaction h Addr)) TxId
 
       -- | Slot number for the next block to be translated
-    , icNextSlot :: SlotId
+    , icNextSlot  :: SlotId
 
       -- | The header of the last block we translated
       --

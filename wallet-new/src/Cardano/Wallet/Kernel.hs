@@ -30,7 +30,7 @@ module Cardano.Wallet.Kernel (
   , hasPending
   ) where
 
-import           Universum hiding (State)
+import           Universum hiding (State, init)
 
 import           Control.Lens.TH
 import qualified Data.List.NonEmpty as NE
@@ -281,10 +281,10 @@ applyBlock' pw b wid = do
     updateWalletState pw wid $ State utxo'' pending'' balance''
 
 -- | Apply the ResolvedBlocks, one at a time, to all wallets in the PassiveWallet
-applyBlocks :: Container (f ResolvedBlock)
-              => PassiveWallet
-              -> OldestFirst f ResolvedBlock
-              -> IO ()
+applyBlocks
+    :: PassiveWallet
+    -> OldestFirst [] ResolvedBlock
+    -> IO ()
 applyBlocks pw = mapM_ (applyBlock pw)
 
 updateUtxo :: PrefilteredBlock -> Utxo -> (Utxo, Balance)

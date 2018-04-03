@@ -8,11 +8,10 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Block ()
-import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..))
+import           Pos.Arbitrary.Ssc ()
 import           Pos.Arbitrary.Update ()
 import qualified Pos.Block.Network.Types as T
 import           Pos.Core (HasGenesisHash, HasProtocolConstants, HasProtocolMagic)
-import           Pos.Core.Ssc (SscPayload)
 
 import           Test.Pos.Txp.Arbitrary ()
 import           Test.Pos.Util.Chrono ()
@@ -36,9 +35,7 @@ instance ( HasProtocolConstants
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance ( Arbitrary SscPayload
-         , Arbitrary SscPayloadDependsOnSlot
-         , HasProtocolConstants
+instance ( HasProtocolConstants
          , HasProtocolMagic
          , HasGenesisHash
          ) =>

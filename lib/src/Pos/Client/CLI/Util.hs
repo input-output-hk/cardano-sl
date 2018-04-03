@@ -12,7 +12,7 @@ module Pos.Client.CLI.Util
        , dumpConfiguration
        ) where
 
-import           Universum
+import           Universum hiding (try)
 
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Yaml as Yaml

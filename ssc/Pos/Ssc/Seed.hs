@@ -6,7 +6,7 @@ module Pos.Ssc.Seed
        ( calculateSeed
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (_Left)
 import qualified Data.HashMap.Strict as HM

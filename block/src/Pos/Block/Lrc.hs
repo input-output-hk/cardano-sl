@@ -10,7 +10,7 @@ module Pos.Block.Lrc
        , lrcSingleShot
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Exception.Safe (bracketOnError)
 import           Control.Lens (views)
@@ -28,9 +28,7 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Block.Slog.Logic (ShouldCallBListener (..))
-import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), HasGeneratedSecrets,
-                           HasGenesisBlockVersionData, HasGenesisData, HasGenesisHash,
-                           HasProtocolConstants, HasProtocolMagic, SharedSeed, StakeholderId,
+import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId,
                            blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot)
 import qualified Pos.DB.Block.Load as DB
 import           Pos.DB.Class (MonadDBRead, MonadGState)
@@ -135,12 +133,6 @@ tryAcquireExclusiveLock epoch lock action =
 lrcDo
     :: forall ctx m.
        ( LrcModeFull ctx m
-       , HasGeneratedSecrets
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisData
-       , HasGenesisHash
        , HasMisbehaviorMetrics ctx
        )
     => EpochIndex -> [LrcConsumer m] -> m ()

@@ -23,7 +23,6 @@ module Pos.Arbitrary.Core
        , genLocalSlotIndex
        ) where
 
-import           Nub (ordNub)
 import           Universum
 
 import qualified Data.ByteString as BS (pack)

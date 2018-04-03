@@ -15,7 +15,7 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import           Pos.Arbitrary.Block ()
 import qualified Pos.Communication ()
-import           Pos.Core (EpochIndex (..), HasConfiguration)
+import           Pos.Core (EpochIndex (..))
 import           Pos.Explorer.ExplorerMode (runExplorerTestMode)
 import           Pos.Explorer.ExtraContext (ExtraContext (..), makeExtraCtx, makeMockExtraCtx)
 import           Pos.Explorer.TestUtil (emptyBlk, generateValidBlocksSlotsNumber,
@@ -69,7 +69,7 @@ blocksTotalSpec =
 
 -- | A spec with the simple test that @getBlocksPagesTotal@ works correct.
 -- It shows that two equal algorithms should work the same.
-blocksPagesTotalSpec :: HasConfiguration => Spec
+blocksPagesTotalSpec :: Spec
 blocksPagesTotalSpec =
     describe "divRoundUp"
     $ modifyMaxSuccess (const 10000) $ do

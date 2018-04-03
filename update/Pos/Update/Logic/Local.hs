@@ -20,7 +20,7 @@ module Pos.Update.Logic.Local
        , clearUSMemPool
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Concurrent.STM (modifyTVar', readTVar, writeTVar)
 import           Control.Lens (views)

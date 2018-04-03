@@ -300,3 +300,5 @@ pScientific = do
     n <- signed (return ()) scientific
     p <- isJust <$> optional (char '%')
     return $ if p then n / 100 else n
+
+{-# ANN module ("HLint: ignore Use toText" :: Text) #-}

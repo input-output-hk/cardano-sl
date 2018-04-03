@@ -7596,7 +7596,7 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-util" = callPackage
-        ({ mkDerivation, aeson, autoexporter, base, bytestring
+        ({ mkDerivation, aeson, async, autoexporter, base, bytestring
          , cardano-sl-networking, cborg, cereal, concurrent-extra
          , containers, cpphs, cryptonite, data-default, deepseq, directory
          , ether, exceptions, filepath, formatting, hashable, hspec, lens
@@ -7624,6 +7624,9 @@ inherit (pkgs) mesa;};
              unordered-containers
            ];
            libraryToolDepends = [ cpphs ];
+           testHaskellDepends = [
+             async base hspec QuickCheck time time-units universum
+           ];
            doHaddock = false;
            description = "Cardano SL - general utilities";
            license = stdenv.lib.licenses.mit;

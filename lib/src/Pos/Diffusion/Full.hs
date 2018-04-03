@@ -17,7 +17,7 @@ import           Control.Exception (Exception, throwIO)
 import           Control.Monad.Fix (MonadFix)
 import qualified Data.Map as M
 import qualified Data.Map.Strict as MS
-import           Data.Time.Units (Millisecond, Second, convertUnit)
+import           Data.Time.Units (Millisecond, Second)
 import           Formatting (Format)
 import           Mockable (withAsync, link)
 import qualified Network.Broadcast.OutboundQueue as OQ
@@ -109,8 +109,9 @@ diffusionLayerFull runIO networkConfig lastKnownBlockVersion transport mEkgNodeM
         -- Subscription status.
         subscriptionStatus <- newTVarIO MS.empty
 
-        -- Timer is in microseconds.
-        keepaliveTimer :: Timer <- newTimer $ convertUnit (20 :: Second)
+        let currentSlotDuration :: d Millisecond
+            currentSlotDuration = bvdSlotDuration <$> getAdoptedBVData logic
+        keepaliveTimer <- newTimer
 
         let -- VerInfo is a diffusion-layer-specific thing. It's only used for
             -- negotiating with peers.
@@ -235,9 +236,6 @@ diffusionLayerFull runIO networkConfig lastKnownBlockVersion transport mEkgNodeM
 
             listeners :: VerInfo -> [Listener d]
             listeners = mkListeners mkL ourVerInfo
-
-            currentSlotDuration :: d Millisecond
-            currentSlotDuration = bvdSlotDuration <$> getAdoptedBVData logic
 
             -- Bracket kademlia and network-transport, create a node. This
             -- will be very involved. Should make it top-level I think.

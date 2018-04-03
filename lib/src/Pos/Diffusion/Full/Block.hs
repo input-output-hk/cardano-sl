@@ -20,7 +20,6 @@ import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
 import qualified Data.Text.Buildable as B
-import           Data.Time.Units (toMicroseconds, fromMicroseconds)
 import           Formatting (bprint, build, int, sformat, shown, stext, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Serokell.Util.Text (listJson)
@@ -37,7 +36,7 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
                                              EnqueueMsg, ListenerSpec, MkListeners (..),
                                              MsgType (..), NodeId, Origin (..), OutSpecs,
                                              constantListeners, waitForConversations)
-import           Pos.Core (HeaderHash, bvdSlotDuration, headerHash, prevBlockL)
+import           Pos.Core (HeaderHash, headerHash, bvdSlotDuration, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
@@ -51,7 +50,7 @@ import           Pos.Security.Params (AttackTarget (..), AttackType (..), NodeAt
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmptyNewestFirst,
                                   toOldestFirst, _NewestFirst, _OldestFirst)
-import           Pos.Util.Timer (Timer, setTimerDuration, startTimer)
+import           Pos.Util.Timer (Timer, startTimer)
 import           Pos.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
@@ -505,9 +504,8 @@ handleBlockHeaders logic oq keepaliveTimer =
     whenJust mHeaders $ \case
         (MsgHeaders headers) -> do
             -- Reset the keepalive timer.
-            slotDuration <- toMicroseconds . bvdSlotDuration <$> getAdoptedBVData logic
-            setTimerDuration keepaliveTimer $ fromMicroseconds (3 * slotDuration)
-            startTimer keepaliveTimer
+            slotDuration <- bvdSlotDuration <$> getAdoptedBVData logic
+            startTimer (3 * slotDuration) keepaliveTimer
             handleUnsolicitedHeaders logic (getNewestFirst headers) nodeId
         _ -> pass -- Why would somebody propagate 'MsgNoHeaders'? We don't care.
 

@@ -15,7 +15,7 @@ import           Control.Exception.Safe (try)
 import           Control.Concurrent.MVar (modifyMVar_)
 import qualified Data.Map.Strict as Map
 import qualified Data.List.NonEmpty as NE
-import           Data.Time.Units (Millisecond, Second, convertUnit, fromMicroseconds)
+import           Data.Time.Units (Millisecond, fromMicroseconds)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
 
@@ -34,8 +34,8 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
                                              convH, toOutSpecs, withConnectionTo)
 import           Pos.Diffusion.Types (SubscriptionStatus (..))
 import           Pos.Network.Types (Bucket (..), NodeType)
-import           Pos.Util.Timer (Timer, startTimer, waitTimer, setTimerDuration)
 import           Pos.Worker.Types (Worker, WorkerSpec, worker)
+import           Pos.Util.Timer (Timer, startTimer, waitTimer)
 
 type SubscriptionMode m =
     ( MonadIO m
@@ -63,12 +63,13 @@ data SubscriptionTerminationReason =
 subscribeTo
     :: forall m. (SubscriptionMode m)
     => Timer
+    -> m Millisecond -- ^ Slot duration.
     -> TVar (Map NodeId SubscriptionStatus)
     -> MVar Millisecond -- ^ Subscription duration.
     -> SendActions m
     -> NodeId
     -> m SubscriptionTerminationReason
-subscribeTo keepAliveTimer subStatus subDuration sendActions peer =
+subscribeTo keepAliveTimer slotDuration subStatus subDuration sendActions peer =
     do
         -- Change subscription status as we begin a new subscription
         alterPeerSubStatus (Just Subscribing)
@@ -97,15 +98,12 @@ subscribeTo keepAliveTimer subStatus subDuration sendActions peer =
         alterPeerSubStatus (Just Subscribed)
         send conv MsgSubscribe
         forever $ do
-            startTimer keepAliveTimer
+            time <- slotDuration
+            startTimer time keepAliveTimer
             atomically $ waitTimer keepAliveTimer
             logDebug $ sformat ("subscriptionWorker: sending keep-alive to "%shown)
                                peer
             send conv MsgSubscribeKeepAlive
-            -- If there is a suspicion that subscriptions are no longer valid,
-            -- we want to start sending keep-alive packets more frequently. Use
-            -- 20 seconds as we don't have access to slot duration here.
-            setTimerDuration keepAliveTimer $ convertUnit (20 :: Second)
 
     convMsgSubscribe1 :: ConversationActions MsgSubscribe1 Void m -> m (Maybe Void)
     convMsgSubscribe1 conv = do

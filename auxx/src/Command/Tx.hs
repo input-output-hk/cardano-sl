@@ -25,7 +25,7 @@ import qualified Data.Text.IO as T
 import           Data.Time.Units (toMicroseconds)
 import           Formatting (build, int, sformat, shown, stext, (%))
 import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently, currentTime, delay,
-                           forConcurrently, modifySharedAtomic, newSharedAtomic)
+                           {-forConcurrently,-} modifySharedAtomic, newSharedAtomic)
 import           Serokell.Util (ms, sec)
 import           System.Environment (lookupEnv)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
@@ -38,7 +38,7 @@ import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
 import           Pos.Client.Txp.Util (createTx)
 import           Pos.Communication (SendActions, immediateConcurrentConversations)
 import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAddr (..),
-                           Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
+                           Timestamp (..), {-deriveFirstHDAddress,-} makePubKeyAddress, mkCoin)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretKeys)
 import           Pos.Core.Txp (TxAux, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto (emptyPassphrase, encToPublic, fakeSigner,
@@ -122,18 +122,22 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                 utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
         -- every genesis secret key sends to itself
                 me <- makePubKeyAddressAuxx (toPublic secretKey)
-                let val1 = mkCoin 1
+                let val1 = mkCoin 100
                     txOut = TxOut {
                         txOutAddress = me,
                         txOutValue   = val1
                     }
                     txOuts = TxOutAux txOut :| []
-                etx <- createTx mempty utxo (fakeSigner secretKey) txOuts (toPublic secretKey)
+                --let ss = fakeSigner secretKey
+                --etx <- createGenericTxSingle mempty utxo (makePubKeyTx ss) OptimizeForHighThroughput
+                etx <- createTx mempty utxo (fakeSigner secretKey) txOuts (toPublic secretKey) 
+                {-utxo outputs (toPublic secretKey)-}  
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
                     Right (tx, neout) -> do 
                                 atomically $ writeTQueue txQueue (tx, neighbours)
                                 -- who can spend those outputs, where are their addresses?
+
                                 atomically $ writeTQueue outQueue neout
                                 
 
@@ -193,8 +197,8 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                           sendTxsCont 0
 
 
-            sendTxsConcurrently     n = void $ forConcurrently [1..conc] (const (sendTxs n))
-            sendTxsConcurrentlyCont n = void $ forConcurrently [1..conc] (const (sendTxsCont n))
+            --sendTxsConcurrently     n = void $ forConcurrently [1..conc] (const (sendTxs n))
+            --sendTxsConcurrentlyCont n = void $ forConcurrently [1..conc] (const (sendTxsCont n))
         -- pre construct the first batch of transactions. Otherwise,
         -- we'll be CPU bound and will not achieve high transaction
         -- rates. If we pre construct all the transactions, the
@@ -205,12 +209,12 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         -- guarantee that we don't miss any numbers.
         --
         -- While we're sending, we're constructing the second batch of
-        -- transactions.
+        -- transactions.5
         forM_ allTrans addTx
         logInfo "First iteration started"
-        void $ concurrently writeTPS (sendTxsConcurrently (duration))
+        void $ concurrently writeTPS (sendTxs (duration))
         logInfo "Second iteration started"
-        void $ concurrently writeTPS (sendTxsConcurrentlyCont (duration))
+        void $ concurrently writeTPS (sendTxsCont (duration))
         logInfo "Second iteration finished"
         
 
@@ -237,16 +241,17 @@ send sendActions idx outputs = do
     skey <- mkEncSecretUnsafe emptyPassphrase rawskey
     let curPk = encToPublic skey
     let plainAddresses = map (flip makePubKeyAddress curPk . IsBootstrapEraAddr) [False, True]
-    let (hdAddresses, hdSecrets) = unzip $ map
-            (\ibea -> fromMaybe (error "send: pass mismatch") $
-                    deriveFirstHDAddress (IsBootstrapEraAddr ibea) emptyPassphrase skey) [False, True]
-    let allAddresses = hdAddresses ++ plainAddresses
-    let allSecrets = hdSecrets ++ [skey, skey]
+    --let (hdAddresses, hdSecrets) = unzip $ map
+    --        (\ibea -> fromMaybe (error "send: pass mismatch") $
+    --               deriveFirstHDAddress (IsBootstrapEraAddr ibea) emptyPassphrase skey) [False, True]
+    let allAddresses = {-hdAddresses ++-} plainAddresses
+    let allSecrets = {-hdSecrets ++ -} [skey, skey]
     etx <- withSafeSigners allSecrets (pure emptyPassphrase) $ \signers -> runExceptT @AuxxException $ do
         let addrSig = HM.fromList $ zip allAddresses signers
         let getSigner = fromMaybe (error "Couldn't get SafeSigner") . flip HM.lookup addrSig
         -- BE CAREFUL: We create remain address using our pk, wallet doesn't show such addresses
         (txAux,_) <- lift $ prepareMTx getSigner mempty def (NE.fromList allAddresses) (map TxOutAux outputs) curPk
+        --(txAux, _) <- lift $ createTx mempty utxo (fakeSigner secretKey) txOuts (toPublic secretKey)
         txAux <$ (ExceptT $ try $ submitTxRaw (immediateConcurrentConversations sendActions ccPeers) txAux)
     case etx of
         Left err -> logError $ sformat ("Error: "%stext) (toText $ displayException err)

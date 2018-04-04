@@ -28,29 +28,41 @@ import           Pos.Wallet.Web.State.State (WalletDbReader)
 -- Kernel
 ------------------------------------------------------------
 
-bracketKernelPassiveWallet :: forall m n a. (MonadMask n, Monad m) => (PassiveWalletLayer m -> n a) -> n a
+bracketKernelPassiveWallet
+    :: forall m n a. (MonadMask n, Monad m)
+    => (PassiveWalletLayer m -> n a) -> n a
 bracketKernelPassiveWallet = Kernel.bracketPassiveWallet
 
-bracketKernelActiveWallet :: forall m n a. (MonadMask n, Monad m) => PassiveWalletLayer m -> WalletDiffusion -> (ActiveWalletLayer m -> n a) -> n a
+bracketKernelActiveWallet
+    :: forall m n a. (MonadMask n, Monad m)
+    => PassiveWalletLayer m -> WalletDiffusion -> (ActiveWalletLayer m -> n a) -> n a
 bracketKernelActiveWallet  = Kernel.bracketActiveWallet
 
 ------------------------------------------------------------
 -- Legacy
 ------------------------------------------------------------
 
-bracketLegacyPassiveWallet :: forall ctx m n a. (MonadMask n, WalletDbReader ctx m, MonadIO m, MonadThrow m) => (PassiveWalletLayer m -> n a) -> n a
+bracketLegacyPassiveWallet
+    :: forall ctx m n a. (MonadMask n, WalletDbReader ctx m, MonadIO m, MonadThrow m)
+    => (PassiveWalletLayer m -> n a) -> n a
 bracketLegacyPassiveWallet = Legacy.bracketPassiveWallet
 
-bracketLegacyActiveWallet :: forall ctx m n a. (MonadMask n, WalletDbReader ctx m, MonadIO m, MonadThrow m) => PassiveWalletLayer m -> WalletDiffusion -> (ActiveWalletLayer m -> n a) -> n a
+bracketLegacyActiveWallet
+    :: forall ctx m n a. (MonadMask n, WalletDbReader ctx m, MonadIO m, MonadThrow m)
+    => PassiveWalletLayer m -> WalletDiffusion -> (ActiveWalletLayer m -> n a) -> n a
 bracketLegacyActiveWallet  = Legacy.bracketActiveWallet
 
 ------------------------------------------------------------
 -- QuickCheck
 ------------------------------------------------------------
 
-bracketQuickCheckPassiveWallet :: forall m n a. (MonadMask n, MonadIO m) => (PassiveWalletLayer m -> n a) -> n a
+bracketQuickCheckPassiveWallet
+    :: forall m n a. (MonadMask n, MonadIO m)
+    => (PassiveWalletLayer m -> n a) -> n a
 bracketQuickCheckPassiveWallet = QuickCheck.bracketPassiveWallet
 
-bracketQuickCheckActiveWallet :: forall m n a. (MonadMask n, MonadIO m) => PassiveWalletLayer m -> WalletDiffusion -> (ActiveWalletLayer m -> n a) -> n a
+bracketQuickCheckActiveWallet
+    :: forall m n a. (MonadMask n, MonadIO m)
+    => PassiveWalletLayer m -> WalletDiffusion -> (ActiveWalletLayer m -> n a) -> n a
 bracketQuickCheckActiveWallet  = QuickCheck.bracketActiveWallet
 

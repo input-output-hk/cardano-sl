@@ -136,8 +136,8 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
                     Right (tx, neout) -> do 
                                 atomically $ writeTQueue txQueue (tx, neighbours)
+                                logInfo $ show neout
                                 -- who can spend those outputs, where are their addresses?
-
                                 atomically $ writeTQueue outQueue neout
                                 
 

@@ -7672,7 +7672,8 @@ inherit (pkgs) mesa;};
              cardano-sl-networking cardano-sl-ssc cardano-sl-txp
              cardano-sl-update cardano-sl-util containers data-default ether
              formatting hspec lens log-warper MonadRandom mtl QuickCheck
-             serokell-util stm text-format universum unordered-containers
+             safecopy serokell-util stm text-format universum
+             unordered-containers
            ];
            testToolDepends = [ cpphs ];
            doHaddock = false;

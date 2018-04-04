@@ -6,6 +6,9 @@ module Pos.Wallet.Web.State.Storage
        (
          WalletStorage (..)
        , HasWalletStorage (..)
+       , WAddressMeta (..)
+       , HasWAddressMeta (..)
+       , wamAccount
        , WalletInfo (..)
        , AccountInfo (..)
        , AddressInfo (..)
@@ -82,23 +85,29 @@ module Pos.Wallet.Web.State.Storage
        , resetFailedPtxs
        , cancelApplyingPtxs
        , cancelSpecificApplyingPtx
+         -- * Exported only for testing purposes
+       , AddressInfo_v0 (..)
+       , AccountInfo_v0 (..)
+       , WalletStorage_v2(..)
        ) where
 
 import           Universum
 
-import           Control.Lens (at, has, ix, makeClassy, makeLenses, non', to, toListOf, traversed,
-                               (%=), (+=), (.=), (<<.=), (?=), _Empty, _Just, _head)
+import           Control.Arrow ((***))
+import           Control.Lens (at, has, ix, lens, makeClassy, makeLenses, non', to, toListOf,
+                               traversed, (%=), (+=), (.=), (<<.=), (?=), _Empty, _Just, _head)
 import           Control.Monad.State.Class (get, put)
 import qualified Control.Monad.State.Lazy as LS
 import           Data.Default (Default, def)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
 import           Data.SafeCopy (Migrate (..), base, deriveSafeCopySimple, extension)
+import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX (POSIXTime)
-import           Serokell.Util (zoom')
-
+import           Formatting ((%))
+import qualified Formatting as F
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
-import           Pos.Core (HeaderHash, SlotId, Timestamp)
+import           Pos.Core (Address, HeaderHash, SlotId, Timestamp)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.SafeCopy ()
@@ -106,36 +115,56 @@ import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier, applyUtxoModToAddrCoi
                           utxoToAddressCoinMap)
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import qualified Pos.Util.Modifier as MM
-import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CCoin, CHash, CId,
-                                             CProfile, CTxId, CTxMeta, CUpdateInfo,
-                                             CWAddressMeta (..), CWalletAssurance, CWalletMeta,
-                                             PassPhraseLU, Wal, addrMetaToAccount, aiWId)
+import qualified Pos.Wallet.Web.ClientTypes as WebTypes
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition, PtxSubmitTiming (..),
                                                ptxCond, ptxSubmitTiming, _PtxCreating)
 import           Pos.Wallet.Web.Pending.Util (cancelApplyingPtx, incPtxSubmitTimingPure,
                                               mkPtxSubmitTiming, ptxMarkAcknowledgedPure,
                                               resetFailedPtx)
+import           Serokell.Util (zoom')
 
 -- | Type alias for indices which are used to maintain order
 -- in which addresses were created.
+
+-- | Address with associated metadata locating it in an account in a wallet.
+data WAddressMeta = WAddressMeta
+    { _wamWalletId     :: WebTypes.CId WebTypes.Wal
+    , _wamAccountIndex :: Word32
+    , _wamAddressIndex :: Word32
+    , _wamAddress      :: Address
+    } deriving (Eq, Ord, Show, Generic, Typeable)
+
+makeClassy ''WAddressMeta
+instance Hashable WAddressMeta
+instance Buildable WAddressMeta where
+    build WAddressMeta{..} =
+        F.bprint (F.build%"@"%F.build%"@"%F.build%" ("%F.build%")")
+        _wamWalletId _wamAccountIndex _wamAddressIndex _wamAddress
+
+-- | Lens to extract the account from an 'AddressMeta'
+wamAccount :: Lens' WAddressMeta WebTypes.AccountId
+wamAccount = lens
+    (WebTypes.AccountId <$> view wamWalletId <*> view wamAccountIndex)
+    (\am (WebTypes.AccountId wid accIdx) -> set wamWalletId wid
+                                            . set wamAccountIndex accIdx $ am)
+
 type AddressSortingKey = Int
 
 -- | Information about existing wallet address.
 data AddressInfo = AddressInfo
     { -- | Address data, including derivation indices and address itself.
-      adiCWAddressMeta :: !CWAddressMeta
+      adiWAddressMeta :: !WAddressMeta
       -- | An index which determines which position this address has in
       -- list of all account's addresses.
-    , adiSortingKey    :: !AddressSortingKey
-    } deriving (Eq)
+    , adiSortingKey   :: !AddressSortingKey
+    } deriving Eq
 
--- | Alias for set of 'AddressInfo' indexed by address IDs (@CId Addr@)
-type CAddresses = HashMap (CId Addr) AddressInfo
+type CAddresses = HashMap Address AddressInfo
 
 -- | Information about existing wallet account.
 data AccountInfo = AccountInfo
     { -- | Account metadata (e. g. account name).
-      _aiMeta             :: !CAccountMeta
+      _aiMeta             :: !WebTypes.CAccountMeta
       -- | Addresses which currently belong to this account.
     , _aiAddresses        :: !CAddresses
       -- | Addresses which used to belong to this account, but has been
@@ -160,9 +189,9 @@ data WalletTip
 
 data WalletInfo = WalletInfo
     { -- | Wallet metadata (name, assurance, etc.)
-      _wiMeta         :: !CWalletMeta
+      _wiMeta         :: !WebTypes.CWalletMeta
       -- | Last time when wallet passphrase was updated.
-    , _wiPassphraseLU :: !PassPhraseLU
+    , _wiPassphraseLU :: !WebTypes.PassPhraseLU
       -- | Wallet creation time.
     , _wiCreationTime :: !POSIXTime
       -- | Header hash until which wallet has been synced
@@ -180,8 +209,8 @@ data WalletInfo = WalletInfo
 
 makeLenses ''WalletInfo
 
--- | Maps addresses to their first occurrence in the blockchain.
-type CustomAddresses = HashMap (CId Addr) HeaderHash
+-- | Maps addresses to their first occurrence in the blockchain
+type CustomAddresses = HashMap Address HeaderHash
 
 -- | Alias for 'Pos.Txp.AddrCoinMap' storing balances for wallet's addresses.
 type WalletBalances = AddrCoinMap
@@ -190,26 +219,26 @@ type WalBalancesAndUtxo = (WalletBalances, Utxo)
 -- | Datatype which defines full structure of acid-state.
 data WalletStorage = WalletStorage
     { -- | Stores information about all existing wallets.
-      _wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
+      _wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo)
       -- | Stores information about all existing accounts.
-    , _wsAccountInfos    :: !(HashMap AccountId AccountInfo)
+    , _wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo)
       -- | Non-wallet-specific client metadata.
-    , _wsProfile         :: !CProfile
+    , _wsProfile         :: !WebTypes.CProfile
       -- | List of descriptions of approved and downloaded updates, waiting
       -- for user action. See "Pos.Update.Download" and @updateNotifier@ in
       -- "Pos.Wallet.Web.Sockets.Notifier" for more info of how updates work.
-    , _wsReadyUpdates    :: [CUpdateInfo]
+    , _wsReadyUpdates    :: [WebTypes.CUpdateInfo]
       -- | For every wallet ID (@CId Wal@) stores metadata for transactions in
       -- transactions history of correponding wallet.
       -- Some transactions might not have associated metadata.
       -- Invariant:
       -- prop> keys (_wsTxHistory ws) == keys (_wsWalletInfos ws)
-    , _wsTxHistory       :: !(HashMap (CId Wal) (HashMap CTxId CTxMeta))
+    , _wsTxHistory       :: !(HashMap (WebTypes.CId WebTypes.Wal) (HashMap WebTypes.CTxId WebTypes.CTxMeta))
       -- | For every wallet ID (@CId Wal@) stores transaction history of corresponding
       -- wallet as map from 'TxId' to 'TxHistoryEntry'.
       -- Invariant:
       -- prop> keys (_wsHistoryCache ws) == keys (_wsWalletInfos ws)
-    , _wsHistoryCache    :: !(HashMap (CId Wal) (Map TxId TxHistoryEntry))
+    , _wsHistoryCache    :: !(HashMap (WebTypes.CId WebTypes.Wal) (Map TxId TxHistoryEntry))
       -- | Cache of unspent transaction outputs which belong
       -- to /one of the wallets present in wallet-db/ (i. e. listed in @_wsWalletInfos@).
     , _wsUtxo            :: !Utxo
@@ -278,22 +307,25 @@ data CurrentAndRemoved a = CurrentAndRemoved
     }
 
 -- | Get user profile metadata.
-getProfile :: Query CProfile
+getProfile :: Query WebTypes.CProfile
 getProfile = view wsProfile
 
 -- | Set user profile metadata.
-setProfile :: CProfile -> Update ()
+setProfile :: WebTypes.CProfile -> Update ()
 setProfile cProfile = wsProfile .= cProfile
 
+doesAccountExist :: WebTypes.AccountId -> Query Bool
+doesAccountExist accId = view $ wsAccountInfos . at accId . to isJust
+
 -- | Get IDs of all existing accounts.
-getAccountIds :: Query [AccountId]
+getAccountIds :: Query [WebTypes.AccountId]
 getAccountIds = HM.keys <$> view wsAccountInfos
 
 -- | Get account meta info by given account ID.
-getAccountMeta :: AccountId -> Query (Maybe CAccountMeta)
+getAccountMeta :: WebTypes.AccountId -> Query (Maybe WebTypes.CAccountMeta)
 getAccountMeta accId = preview (wsAccountInfos . ix accId . aiMeta)
 
-getAccountAddrMaps :: AccountId -> Query (CurrentAndRemoved CAddresses)
+getAccountAddrMaps :: WebTypes.AccountId -> Query (CurrentAndRemoved CAddresses)
 getAccountAddrMaps accId = do
     getCurrent <- getMap aiAddresses
     getRemoved <- getMap aiRemovedAddresses
@@ -304,8 +336,8 @@ getAccountAddrMaps accId = do
 -- | Get wallet meta info considering sync status of wallet.
 getWalletMetaIncludeUnready ::
        Bool                      -- ^ If set to @False@, then return @Nothing@ if wallet is not ready.
-    -> CId Wal                   -- ^ Wallet ID.
-    -> Query (Maybe CWalletMeta)
+    -> WebTypes.CId WebTypes.Wal                   -- ^ Wallet ID.
+    -> Query (Maybe WebTypes.CWalletMeta)
 getWalletMetaIncludeUnready includeUnready cWalId = fmap _wiMeta . applyFilter <$> preview (wsWalletInfos . ix cWalId)
   where
     applyFilter xs = if includeUnready then xs else filterMaybe _wiIsReady xs
@@ -313,36 +345,36 @@ getWalletMetaIncludeUnready includeUnready cWalId = fmap _wiMeta . applyFilter <
     filterMaybe p ma = ma >>= \a -> guard (p a) >> return a
 
 -- | Retrieve the wallet info.
-getWalletInfo :: CId Wal -> Query (Maybe WalletInfo)
+getWalletInfo :: WebTypes.CId WebTypes.Wal -> Query (Maybe WalletInfo)
 getWalletInfo cid = view (wsWalletInfos . at cid)
 
 -- | Get wallet meta info regardless of wallet sync status.
-getWalletMeta :: CId Wal -> Query (Maybe CWalletMeta)
+getWalletMeta :: WebTypes.CId WebTypes.Wal -> Query (Maybe WebTypes.CWalletMeta)
 getWalletMeta = getWalletMetaIncludeUnready False
 
 -- | Get last time when wallet password was changed.
-getWalletPassLU :: CId Wal -> Query (Maybe PassPhraseLU)
+getWalletPassLU :: WebTypes.CId WebTypes.Wal -> Query (Maybe WebTypes.PassPhraseLU)
 getWalletPassLU cWalId = preview (wsWalletInfos . ix cWalId . wiPassphraseLU)
 
 -- | Get wallet sync tip.
-getWalletSyncTip :: CId Wal -> Query (Maybe WalletTip)
+getWalletSyncTip :: WebTypes.CId WebTypes.Wal -> Query (Maybe WalletTip)
 getWalletSyncTip cWalId = preview (wsWalletInfos . ix cWalId . wiSyncTip)
 
 -- | Get IDs of all existing and /ready/ wallets.
-getWalletAddresses :: Query [CId Wal]
+getWalletAddresses :: Query [WebTypes.CId WebTypes.Wal]
 getWalletAddresses =
     map fst <$> getWalletInfos
 
 -- | Get IDs and information for of all existing and /ready/ wallets.
-getWalletInfos :: Query [(CId Wal, WalletInfo)]
+getWalletInfos :: Query [(WebTypes.CId WebTypes.Wal, WalletInfo)]
 getWalletInfos =
     sortOn (view wiCreationTime . snd) . filter (view wiIsReady . snd) . HM.toList <$>
     view wsWalletInfos
 
 -- | Get addresses of given account by account ID in the same order they were created.
 getAccountWAddresses ::
-       AddressLookupMode             -- ^ Determines which addresses to include: existing, deleted or both
-    -> AccountId                     -- ^ Account ID.
+       AddressLookupMode           -- ^ Determines which addresses to include: existing, deleted or both
+    -> WebTypes.AccountId          -- ^ Account ID.
     -> Query (Maybe [AddressInfo]) -- ^ Returns @Nothing@ if given account ID does not exist.
 getAccountWAddresses mode accId =
     withAccLookupMode mode (fetch aiAddresses) (fetch aiRemovedAddresses)
@@ -351,40 +383,37 @@ getAccountWAddresses mode accId =
     fetch which = fmap HM.elems <$> preview (wsAccountInfos . ix accId . which)
 
 getWAddresses :: AddressLookupMode
-              -> CId Wal
+              -> WebTypes.CId WebTypes.Wal
               -> Query [AddressInfo]
 getWAddresses mode wid =
     withAccLookupMode mode (fetch aiAddresses) (fetch aiRemovedAddresses)
   where
     fetch :: MonadReader WalletStorage m => Lens' AccountInfo CAddresses -> m [AddressInfo]
     fetch which = do
-      accs <- HM.filterWithKey (\k _ -> aiWId k == wid) <$> view wsAccountInfos
+      accs <- HM.filterWithKey (\k _ -> WebTypes.aiWId k == wid) <$> view wsAccountInfos
       return $ HM.elems =<< accs ^.. traverse . which
 
 -- | Check if given address exists.
 doesWAddressExist ::
        AddressLookupMode -- ^ Determines where to look for address: in set of existing
                          -- addresses, deleted addresses or both
-    -> CWAddressMeta     -- ^ Given address
+    -> WAddressMeta     -- ^ Given address
     -> Query Bool
-doesWAddressExist mode addrMeta@(addrMetaToAccount -> wAddr) =
+doesWAddressExist mode addrMeta@(view wamAccount -> wAddr) =
     getAny <$>
         withAccLookupMode mode (exists aiAddresses) (exists aiRemovedAddresses)
   where
     exists :: Lens' AccountInfo CAddresses -> Query Any
     exists which =
         Any . isJust <$>
-        preview (wsAccountInfos . ix wAddr . which . ix (cwamId addrMeta))
-
-doesAccountExist :: AccountId -> Query Bool
-doesAccountExist accId = view $ wsAccountInfos . at accId . to isJust
+        preview (wsAccountInfos . ix wAddr . which . ix (addrMeta ^. wamAddress))
 
 -- | Get transaction metadata given wallet ID and transaction ID.
-getTxMeta :: CId Wal -> CTxId -> Query (Maybe CTxMeta)
+getTxMeta :: WebTypes.CId WebTypes.Wal -> WebTypes.CTxId -> Query (Maybe WebTypes.CTxMeta)
 getTxMeta cid ctxId = preview $ wsTxHistory . ix cid . ix ctxId
 
 -- | Get metadata for all transactions in given wallet (for which metadata exist).
-getWalletTxHistory :: CId Wal -> Query (Maybe [CTxMeta])
+getWalletTxHistory :: WebTypes.CId WebTypes.Wal -> Query (Maybe [WebTypes.CTxMeta])
 getWalletTxHistory cWalId = toList <<$>> preview (wsTxHistory . ix cWalId)
 
 -- | Get wallet DB 'Utxo' cache.
@@ -411,21 +440,21 @@ setWalletUtxo utxo = do
     wsBalances .= utxoToAddressCoinMap utxo
 
 -- | Get next pending update if it exists.
-getNextUpdate :: Query (Maybe CUpdateInfo)
+getNextUpdate :: Query (Maybe WebTypes.CUpdateInfo)
 getNextUpdate = preview (wsReadyUpdates . _head)
 
 -- | Get block history cache for given wallet.
-getHistoryCache :: CId Wal -> Query (Map TxId TxHistoryEntry)
+getHistoryCache :: WebTypes.CId WebTypes.Wal -> Query (Map TxId TxHistoryEntry)
 getHistoryCache cWalId = view $ wsHistoryCache . at cWalId . non' _Empty
 
 -- | Get set of all used or change addresses with corresponding
 -- header hashes of blocks these addresses were firtst encountered
-getCustomAddresses :: CustomAddressType -> Query [(CId Addr, HeaderHash)]
+getCustomAddresses :: CustomAddressType -> Query [(Address, HeaderHash)]
 getCustomAddresses t = HM.toList <$> view (customAddressL t)
 
 -- | Given used or change address, return hash of first block it has been
 -- encountered.
-getCustomAddress :: CustomAddressType -> CId Addr -> Query (Maybe HeaderHash)
+getCustomAddress :: CustomAddressType -> Address -> Query (Maybe HeaderHash)
 getCustomAddress t addr = view $ customAddressL t . at addr
 
 -- | Get list of all pending transactions.
@@ -433,23 +462,23 @@ getPendingTxs :: Query [PendingTx]
 getPendingTxs = asks $ toListOf (wsWalletInfos . traversed . wsPendingTxs . traversed)
 
 -- | Get list of pending transactions related to given wallet.
-getWalletPendingTxs :: CId Wal -> Query (Maybe [PendingTx])
+getWalletPendingTxs :: WebTypes.CId WebTypes.Wal -> Query (Maybe [PendingTx])
 getWalletPendingTxs wid =
     preview $ wsWalletInfos . ix wid . wsPendingTxs . to toList
 
 -- | Given wallet ID and transaction ID, return corresponding pending transaction
 -- (if it exists)
-getPendingTx :: CId Wal -> TxId -> Query (Maybe PendingTx)
+getPendingTx :: WebTypes.CId WebTypes.Wal -> TxId -> Query (Maybe PendingTx)
 getPendingTx wid txId = preview $ wsWalletInfos . ix wid . wsPendingTxs . ix txId
 
 -- | If given address isn't yet present in set of used\/change addresses, then add it
 -- with given block header hash.
-addCustomAddress :: CustomAddressType -> (CId Addr, HeaderHash) -> Update Bool
+addCustomAddress :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
 addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
 
 -- | Remove given address from set of used\/change addresses only if provided
 -- header hash is equal to one which is stored in database.
-removeCustomAddress :: CustomAddressType -> (CId Addr, HeaderHash) -> Update Bool
+removeCustomAddress :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
 removeCustomAddress t (addr, hh) = do
     mhh' <- use $ customAddressL t . at addr
     let exists = mhh' == Just hh
@@ -458,91 +487,92 @@ removeCustomAddress t (addr, hh) = do
     return exists
 
 -- | Add given account to wallet db.
-createAccount :: AccountId -> CAccountMeta -> Update ()
+createAccount :: WebTypes.AccountId -> WebTypes.CAccountMeta -> Update ()
 createAccount accId cAccMeta =
     wsAccountInfos . at accId %= Just . fromMaybe (AccountInfo cAccMeta mempty mempty 0)
 
 -- | Create a new wallet with given parameters.
 -- @isReady@ should be set to @False@ when syncing is still needed.
-createWallet :: CId Wal -> CWalletMeta -> Bool -> POSIXTime -> Update ()
+createWallet :: WebTypes.CId WebTypes.Wal -> WebTypes.CWalletMeta -> Bool -> POSIXTime -> Update ()
 createWallet cWalId cWalMeta isReady curTime = do
     let info = WalletInfo cWalMeta curTime curTime NotSynced mempty isReady
     wsWalletInfos . at cWalId %= (<|> Just info)
 
 -- | Add new address given 'CWAddressMeta' (which contains information about
 -- target wallet and account too).
-addWAddress :: CWAddressMeta -> Update ()
-addWAddress addrMeta@CWAddressMeta{..} = do
+addWAddress :: WAddressMeta -> Update ()
+addWAddress addrMeta = do
     let accInfo :: Traversal' WalletStorage AccountInfo
-        accInfo = wsAccountInfos . ix (addrMetaToAccount addrMeta)
+        accInfo = wsAccountInfos . ix (addrMeta ^. wamAccount)
+        addr = addrMeta ^. wamAddress
     whenJustM (preuse accInfo) $ \info -> do
-        let mAddr = info ^. aiAddresses . at cwamId
+        let mAddr = info ^. aiAddresses . at addr
         when (isNothing mAddr) $ do
             -- Here we increment current account's last address index
             -- and assign its value to sorting index of newly created address.
             accInfo . aiUnusedKey += 1
             let key = info ^. aiUnusedKey
-            accInfo . aiAddresses . at cwamId ?= AddressInfo addrMeta key
+            accInfo . aiAddresses . at addr ?= AddressInfo addrMeta key
 
 -- | Update account metadata.
-setAccountMeta :: AccountId -> CAccountMeta -> Update ()
+setAccountMeta :: WebTypes.AccountId -> WebTypes.CAccountMeta -> Update ()
 setAccountMeta accId cAccMeta = wsAccountInfos . ix accId . aiMeta .= cAccMeta
 
 -- | Update wallet metadata.
-setWalletMeta :: CId Wal -> CWalletMeta -> Update ()
+setWalletMeta :: WebTypes.CId WebTypes.Wal -> WebTypes.CWalletMeta -> Update ()
 setWalletMeta cWalId cWalMeta = wsWalletInfos . ix cWalId . wiMeta .= cWalMeta
 
 -- | Change wallet ready status.
-setWalletReady :: CId Wal -> Bool -> Update ()
+setWalletReady :: WebTypes.CId WebTypes.Wal -> Bool -> Update ()
 setWalletReady cWalId isReady = wsWalletInfos . ix cWalId . wiIsReady .= isReady
 
 -- | Update wallet's last password change time.
-setWalletPassLU :: CId Wal -> PassPhraseLU -> Update ()
+setWalletPassLU :: WebTypes.CId WebTypes.Wal -> WebTypes.PassPhraseLU -> Update ()
 setWalletPassLU cWalId passLU = wsWalletInfos . ix cWalId . wiPassphraseLU .= passLU
 
 -- | Declare that given wallet has been synced with blockchain up to block with given
 -- header hash.
-setWalletSyncTip :: CId Wal -> HeaderHash -> Update ()
+setWalletSyncTip :: WebTypes.CId WebTypes.Wal -> HeaderHash -> Update ()
 setWalletSyncTip cWalId hh = wsWalletInfos . ix cWalId . wiSyncTip .= SyncedWith hh
 
 -- | Set meta data for transaction only if it hasn't been set already.
 -- FIXME: this will be removed later (temporary solution) (not really =\)
-addOnlyNewTxMeta :: CId Wal -> CTxId -> CTxMeta -> Update ()
+addOnlyNewTxMeta :: WebTypes.CId WebTypes.Wal -> WebTypes.CTxId -> WebTypes.CTxMeta -> Update ()
 addOnlyNewTxMeta cWalId cTxId cTxMeta =
     -- Double nested HashMap update (if either or both of cWalId, cTxId don't exist, they will be created)
     wsTxHistory . at cWalId . non' _Empty . at cTxId %= Just . fromMaybe cTxMeta
 
 -- | Delete all transactions' metadata for given wallet.
-removeTxMetas :: CId Wal -> Update ()
+removeTxMetas :: WebTypes.CId WebTypes.Wal -> Update ()
 removeTxMetas cWalId = wsTxHistory . at cWalId .= Nothing
 
 -- | 'addOnlyNewTxMeta' for several transactions at once.
-addOnlyNewTxMetas :: CId Wal -> [(CTxId, CTxMeta)] -> Update ()
+addOnlyNewTxMetas :: WebTypes.CId WebTypes.Wal -> [(WebTypes.CTxId, WebTypes.CTxMeta)] -> Update ()
 addOnlyNewTxMetas = mapM_ . uncurry . addOnlyNewTxMeta
 
 -- | Delete transactions metadata by given wallet id and transactions ids.
-removeWalletTxMetas :: CId Wal -> [CTxId] -> Update ()
+removeWalletTxMetas :: WebTypes.CId WebTypes.Wal -> [WebTypes.CTxId] -> Update ()
 removeWalletTxMetas cWalId cTxs =
     wsTxHistory . at cWalId . non' _Empty %= flip (foldr HM.delete) cTxs
 
 -- | Delete the wallet info. This doesn't delete wallet's accounts, history cache
 -- and transactions metadata.
-removeWallet :: CId Wal -> Update ()
+removeWallet :: WebTypes.CId WebTypes.Wal -> Update ()
 removeWallet cWalId = wsWalletInfos . at cWalId .= Nothing
 
 -- | Delete all transaction history cache for given wallet.
-removeHistoryCache :: CId Wal -> Update ()
+removeHistoryCache :: WebTypes.CId WebTypes.Wal -> Update ()
 removeHistoryCache cWalId = wsHistoryCache . at cWalId .= Nothing
 
 -- | Delete given account.
-removeAccount :: AccountId -> Update ()
+removeAccount :: WebTypes.AccountId -> Update ()
 removeAccount accId = wsAccountInfos . at accId .= Nothing
 
 -- | Remove given address, not removing it completely, but marking it as `removed` instead.
 -- See also 'addRemovedAccount'.
-removeWAddress :: CWAddressMeta -> Update ()
-removeWAddress addrMeta@(addrMetaToAccount -> accId) = do
-    let addrId = cwamId addrMeta
+removeWAddress :: WAddressMeta -> Update ()
+removeWAddress addrMeta@(view wamAccount -> accId) = do
+    let addrId = addrMeta ^. wamAddress
     -- If the address exists, move it to 'addressesRemoved'
     whenJustM (preuse (accAddresses accId . ix addrId)) $ \addressInfo -> do
         accAddresses        accId . at addrId .= Nothing
@@ -552,7 +582,7 @@ removeWAddress addrMeta@(addrMetaToAccount -> accId) = do
     accRemovedAddresses accId' = wsAccountInfos . ix accId' . aiRemovedAddresses
 
 -- | Add info about new pending update to the end of update info list.
-addUpdate :: CUpdateInfo -> Update ()
+addUpdate :: WebTypes.CUpdateInfo -> Update ()
 addUpdate ui = wsReadyUpdates %= (++ [ui])
 
 -- | Remove next pending update info from update info list.
@@ -565,17 +595,17 @@ testReset = put def
 
 -- | Legacy transaction, no longer used. For existing Db tx logs only. Now use
 -- 'removeHistoryCache', 'insertIntoHistoryCache' or 'removeFromHistoryCache'
-updateHistoryCache :: CId Wal -> [TxHistoryEntry] -> Update ()
+updateHistoryCache :: WebTypes.CId WebTypes.Wal -> [TxHistoryEntry] -> Update ()
 updateHistoryCache cWalId cTxs =
     wsHistoryCache . at cWalId ?= txHistoryListToMap cTxs
 
 -- | Add new history entries to history cache of given wallet.
-insertIntoHistoryCache :: CId Wal -> Map TxId TxHistoryEntry -> Update ()
+insertIntoHistoryCache :: WebTypes.CId WebTypes.Wal -> Map TxId TxHistoryEntry -> Update ()
 insertIntoHistoryCache cWalId cTxs =
     wsHistoryCache . at cWalId . non' _Empty %= (cTxs `M.union`)
 
 -- | Remove entries about transactions with given IDs from wallet's history cache.
-removeFromHistoryCache :: CId Wal -> Map TxId () -> Update ()
+removeFromHistoryCache :: WebTypes.CId WebTypes.Wal -> Map TxId () -> Update ()
 removeFromHistoryCache cWalId cTxs =
     wsHistoryCache . at cWalId . non' _Empty %= (`M.difference` cTxs)
 
@@ -583,14 +613,14 @@ removeFromHistoryCache cWalId cTxs =
 -- This shouldn't be able to create new transaction.
 -- NOTE: If you're going to use this function, make sure 'casPtxCondition'
 -- doesn't fit your purposes better
-setPtxCondition :: CId Wal -> TxId -> PtxCondition -> Update ()
+setPtxCondition :: WebTypes.CId WebTypes.Wal -> TxId -> PtxCondition -> Update ()
 setPtxCondition wid txId cond =
     wsWalletInfos . ix wid . wsPendingTxs . ix txId . ptxCond .= cond
 
 -- | Conditional modifier.
 -- Returns 'True' if pending transaction existed and modification was applied.
 checkAndSmthPtx
-    :: CId Wal
+    :: WebTypes.CId WebTypes.Wal
     -> TxId
     -> (Maybe PtxCondition -> Bool)
     -> LS.State (Maybe PendingTx) ()
@@ -602,12 +632,13 @@ checkAndSmthPtx wid txId whetherModify modifier =
         return (Any matches)
 
 -- | Compare-and-set version of 'setPtxCondition'.
-casPtxCondition :: CId Wal -> TxId -> PtxCondition -> PtxCondition -> Update Bool
+-- Returns 'True' if transaction existed and modification was applied.
+casPtxCondition :: WebTypes.CId WebTypes.Wal -> TxId -> PtxCondition -> PtxCondition -> Update Bool
 casPtxCondition wid txId expectedCond newCond =
     checkAndSmthPtx wid txId (== Just expectedCond) (_Just . ptxCond .= newCond)
 
 -- | Removes pending transaction, if its status is 'PtxCreating'.
-removeOnlyCreatingPtx :: CId Wal -> TxId -> Update Bool
+removeOnlyCreatingPtx :: WebTypes.CId WebTypes.Wal -> TxId -> Update Bool
 removeOnlyCreatingPtx wid txId =
     checkAndSmthPtx wid txId (has (_Just . _PtxCreating)) (put Nothing)
 
@@ -618,7 +649,7 @@ data PtxMetaUpdate
     | PtxMarkAcknowledged         -- ^ Mark tx as acknowledged by some peer
 
 -- | Update meta info of pending transaction atomically.
-ptxUpdateMeta :: CId Wal -> TxId -> PtxMetaUpdate -> Update ()
+ptxUpdateMeta :: WebTypes.CId WebTypes.Wal -> TxId -> PtxMetaUpdate -> Update ()
 ptxUpdateMeta wid txId updType =
     wsWalletInfos . ix wid . wsPendingTxs . ix txId %=
         case updType of
@@ -673,23 +704,23 @@ flushWalletStorage = modify flushDo
                             , _wiIsReady = False
                             }
 
-deriveSafeCopySimple 0 'base ''CCoin
-deriveSafeCopySimple 0 'base ''CProfile
-deriveSafeCopySimple 0 'base ''CHash
-deriveSafeCopySimple 0 'base ''CId
-deriveSafeCopySimple 0 'base ''Wal
-deriveSafeCopySimple 0 'base ''Addr
+deriveSafeCopySimple 0 'base ''WebTypes.CCoin
+deriveSafeCopySimple 0 'base ''WebTypes.CProfile
+deriveSafeCopySimple 0 'base ''WebTypes.CHash
+deriveSafeCopySimple 0 'base ''WebTypes.CId
+deriveSafeCopySimple 0 'base ''WebTypes.Wal
+deriveSafeCopySimple 0 'base ''WebTypes.Addr
 deriveSafeCopySimple 0 'base ''BackupPhrase
-deriveSafeCopySimple 0 'base ''AccountId
-deriveSafeCopySimple 0 'base ''CWAddressMeta
-deriveSafeCopySimple 0 'base ''CWalletAssurance
-deriveSafeCopySimple 0 'base ''CAccountMeta
-deriveSafeCopySimple 0 'base ''CWalletMeta
-deriveSafeCopySimple 0 'base ''CTxId
+deriveSafeCopySimple 0 'base ''WebTypes.AccountId
+deriveSafeCopySimple 0 'base ''WebTypes.CWAddressMeta
+deriveSafeCopySimple 0 'base ''WebTypes.CWalletAssurance
+deriveSafeCopySimple 0 'base ''WebTypes.CAccountMeta
+deriveSafeCopySimple 0 'base ''WebTypes.CWalletMeta
+deriveSafeCopySimple 0 'base ''WebTypes.CTxId
 deriveSafeCopySimple 0 'base ''Timestamp
 deriveSafeCopySimple 0 'base ''TxHistoryEntry
-deriveSafeCopySimple 0 'base ''CTxMeta
-deriveSafeCopySimple 0 'base ''CUpdateInfo
+deriveSafeCopySimple 0 'base ''WebTypes.CTxMeta
+deriveSafeCopySimple 0 'base ''WebTypes.CUpdateInfo
 deriveSafeCopySimple 0 'base ''AddressLookupMode
 deriveSafeCopySimple 0 'base ''CustomAddressType
 deriveSafeCopySimple 0 'base ''CurrentAndRemoved
@@ -698,40 +729,107 @@ deriveSafeCopySimple 0 'base ''PtxCondition
 deriveSafeCopySimple 0 'base ''PtxSubmitTiming
 deriveSafeCopySimple 0 'base ''PtxMetaUpdate
 deriveSafeCopySimple 0 'base ''PendingTx
-deriveSafeCopySimple 0 'base ''AddressInfo
-deriveSafeCopySimple 0 'base ''AccountInfo
+deriveSafeCopySimple 0 'base ''WAddressMeta
 deriveSafeCopySimple 0 'base ''WalletTip
 deriveSafeCopySimple 0 'base ''WalletInfo
 
 -- Legacy versions, for migrations
 
+data AddressInfo_v0 = AddressInfo_v0
+    { _v0_adiCWAddressMeta :: !WebTypes.CWAddressMeta
+    , _v0_adiSortingKey    :: !AddressSortingKey
+    }
+
+type CAddresses_v0 = HashMap (WebTypes.CId WebTypes.Addr) AddressInfo_v0
+type CustomAddresses_v0 = HashMap (WebTypes.CId WebTypes.Addr) HeaderHash
+
+data AccountInfo_v0 = AccountInfo_v0
+    { _v0_aiMeta             :: !WebTypes.CAccountMeta
+    , _v0_aiAddresses        :: !CAddresses_v0
+    , _v0_aiRemovedAddresses :: !CAddresses_v0
+    , _v0_aiUnusedKey        :: !AddressSortingKey
+    }
+
 data WalletStorage_v0 = WalletStorage_v0
-    { _v0_wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
-    , _v0_wsAccountInfos    :: !(HashMap AccountId AccountInfo)
-    , _v0_wsProfile         :: !CProfile
-    , _v0_wsReadyUpdates    :: [CUpdateInfo]
-    , _v0_wsTxHistory       :: !(HashMap (CId Wal) (HashMap CTxId CTxMeta))
-    , _v0_wsHistoryCache    :: !(HashMap (CId Wal) [TxHistoryEntry])
+    { _v0_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo)
+    , _v0_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo_v0)
+    , _v0_wsProfile         :: !WebTypes.CProfile
+    , _v0_wsReadyUpdates    :: [WebTypes.CUpdateInfo]
+    , _v0_wsTxHistory       :: !(HashMap (WebTypes.CId WebTypes.Wal) (HashMap WebTypes.CTxId WebTypes.CTxMeta))
+    , _v0_wsHistoryCache    :: !(HashMap (WebTypes.CId WebTypes.Wal) [TxHistoryEntry])
     , _v0_wsUtxo            :: !Utxo
-    , _v0_wsUsedAddresses   :: !CustomAddresses
-    , _v0_wsChangeAddresses :: !CustomAddresses
+    , _v0_wsUsedAddresses   :: !CustomAddresses_v0
+    , _v0_wsChangeAddresses :: !CustomAddresses_v0
     }
 
 data WalletStorage_v1 = WalletStorage_v1
-    { _v1_wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
-    , _v1_wsAccountInfos    :: !(HashMap AccountId AccountInfo)
-    , _v1_wsProfile         :: !CProfile
-    , _v1_wsReadyUpdates    :: [CUpdateInfo]
-    , _v1_wsTxHistory       :: !(HashMap (CId Wal) (HashMap CTxId CTxMeta))
-    , _v1_wsHistoryCache    :: !(HashMap (CId Wal) (Map TxId TxHistoryEntry))
+    { _v1_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo)
+    , _v1_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo_v0)
+    , _v1_wsProfile         :: !WebTypes.CProfile
+    , _v1_wsReadyUpdates    :: [WebTypes.CUpdateInfo]
+    , _v1_wsTxHistory       :: !(HashMap (WebTypes.CId WebTypes.Wal) (HashMap WebTypes.CTxId WebTypes.CTxMeta))
+    , _v1_wsHistoryCache    :: !(HashMap (WebTypes.CId WebTypes.Wal) (Map TxId TxHistoryEntry))
     , _v1_wsUtxo            :: !Utxo
-    , _v1_wsUsedAddresses   :: !CustomAddresses
-    , _v1_wsChangeAddresses :: !CustomAddresses
+    , _v1_wsUsedAddresses   :: !CustomAddresses_v0
+    , _v1_wsChangeAddresses :: !CustomAddresses_v0
     }
+
+data WalletStorage_v2 = WalletStorage_v2
+    { _v2_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo)
+    , _v2_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo_v0)
+    , _v2_wsProfile         :: !WebTypes.CProfile
+    , _v2_wsReadyUpdates    :: [WebTypes.CUpdateInfo]
+    , _v2_wsTxHistory       :: !(HashMap (WebTypes.CId WebTypes.Wal) (HashMap WebTypes.CTxId WebTypes.CTxMeta))
+    , _v2_wsHistoryCache    :: !(HashMap (WebTypes.CId WebTypes.Wal) (Map TxId TxHistoryEntry))
+    , _v2_wsUtxo            :: !Utxo
+    -- @_wsBalances@ depends on @_wsUtxo@,
+    -- it's forbidden to update @_wsBalances@ without @_wsUtxo@
+    , _v2_wsBalances        :: !WalletBalances
+    , _v2_wsUsedAddresses   :: !CustomAddresses_v0
+    , _v2_wsChangeAddresses :: !CustomAddresses_v0
+    }
+
+deriveSafeCopySimple 0 'base ''AddressInfo_v0
+deriveSafeCopySimple 1 'extension ''AddressInfo
+
+deriveSafeCopySimple 0 'base ''AccountInfo_v0
+deriveSafeCopySimple 1 'extension ''AccountInfo
 
 deriveSafeCopySimple 0 'base ''WalletStorage_v0
 deriveSafeCopySimple 1 'extension ''WalletStorage_v1
-deriveSafeCopySimple 2 'extension ''WalletStorage
+deriveSafeCopySimple 2 'extension ''WalletStorage_v2
+deriveSafeCopySimple 3 'extension ''WalletStorage
+
+-- | Unsafe address conversion for use in migration. This will throw an error if
+--   the address cannot be migrated.
+unsafeCIdToAddress :: WebTypes.CId WebTypes.Addr -> Address
+unsafeCIdToAddress cId = case WebTypes.cIdToAddress cId of
+    Left err -> error $ "unsafeCIdToAddress: " <> err
+    Right x  -> x
+
+instance Migrate AddressInfo where
+    type MigrateFrom AddressInfo = AddressInfo_v0
+    migrate AddressInfo_v0{..} = AddressInfo
+        { adiWAddressMeta = cwamToWam _v0_adiCWAddressMeta
+        , adiSortingKey = _v0_adiSortingKey
+        }
+      where
+        cwamToWam (WebTypes.CWAddressMeta wid accIdx addrIdx cAddr) =
+            WAddressMeta wid accIdx addrIdx $ unsafeCIdToAddress cAddr
+
+instance Migrate AccountInfo where
+    type MigrateFrom AccountInfo = AccountInfo_v0
+    migrate AccountInfo_v0{..} = AccountInfo
+        { _aiMeta = _v0_aiMeta
+        , _aiAddresses = mapAddrs _v0_aiAddresses
+        , _aiRemovedAddresses = mapAddrs _v0_aiRemovedAddresses
+        , _aiUnusedKey = _v0_aiUnusedKey
+        }
+      where
+        mapAddrs =
+            HM.fromList
+          . fmap (unsafeCIdToAddress *** migrate)
+          . HM.toList
 
 instance Migrate WalletStorage_v1 where
     type MigrateFrom WalletStorage_v1 = WalletStorage_v0
@@ -747,17 +845,34 @@ instance Migrate WalletStorage_v1 where
         , _v1_wsChangeAddresses = _v0_wsChangeAddresses
         }
 
-instance Migrate WalletStorage where
-    type MigrateFrom WalletStorage = WalletStorage_v1
-    migrate WalletStorage_v1{..} = WalletStorage
-        { _wsWalletInfos     = _v1_wsWalletInfos
-        , _wsAccountInfos    = _v1_wsAccountInfos
-        , _wsProfile         = _v1_wsProfile
-        , _wsReadyUpdates    = _v1_wsReadyUpdates
-        , _wsTxHistory       = _v1_wsTxHistory
-        , _wsHistoryCache    = _v1_wsHistoryCache
-        , _wsUtxo            = _v1_wsUtxo
-        , _wsBalances        = utxoToAddressCoinMap _v1_wsUtxo
-        , _wsUsedAddresses   = _v1_wsUsedAddresses
-        , _wsChangeAddresses = _v1_wsChangeAddresses
+instance Migrate WalletStorage_v2 where
+    type MigrateFrom WalletStorage_v2 = WalletStorage_v1
+    migrate WalletStorage_v1{..} = WalletStorage_v2
+        { _v2_wsWalletInfos     = _v1_wsWalletInfos
+        , _v2_wsAccountInfos    = _v1_wsAccountInfos
+        , _v2_wsProfile         = _v1_wsProfile
+        , _v2_wsReadyUpdates    = _v1_wsReadyUpdates
+        , _v2_wsTxHistory       = _v1_wsTxHistory
+        , _v2_wsHistoryCache    = _v1_wsHistoryCache
+        , _v2_wsUtxo            = _v1_wsUtxo
+        , _v2_wsBalances        = utxoToAddressCoinMap _v1_wsUtxo
+        , _v2_wsUsedAddresses   = _v1_wsUsedAddresses
+        , _v2_wsChangeAddresses = _v1_wsChangeAddresses
         }
+
+instance Migrate WalletStorage where
+    type MigrateFrom WalletStorage = WalletStorage_v2
+    migrate WalletStorage_v2{..} = WalletStorage
+        { _wsWalletInfos     = _v2_wsWalletInfos
+        , _wsAccountInfos    = fmap migrate _v2_wsAccountInfos
+        , _wsProfile         = _v2_wsProfile
+        , _wsReadyUpdates    = _v2_wsReadyUpdates
+        , _wsTxHistory       = _v2_wsTxHistory
+        , _wsHistoryCache    = _v2_wsHistoryCache
+        , _wsUtxo            = _v2_wsUtxo
+        , _wsBalances        = _v2_wsBalances
+        , _wsUsedAddresses   = mapAddrKeys _v2_wsUsedAddresses
+        , _wsChangeAddresses = mapAddrKeys _v2_wsChangeAddresses
+        }
+      where
+        mapAddrKeys = HM.fromList . fmap (first unsafeCIdToAddress) . HM.toList

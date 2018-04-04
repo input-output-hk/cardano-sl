@@ -31,11 +31,11 @@ import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
 import           Util.Validated
 import           Wallet.Abstract
--- import qualified Wallet.Full as Full
-import qualified Wallet.Incremental as Incr
-import qualified Wallet.Prefiltered as Pref
-import qualified Wallet.Rollback as Roll
-import qualified Wallet.Spec as Spec
+import qualified Wallet.Basic          as Base
+import qualified Wallet.Incremental    as Incr
+import qualified Wallet.Prefiltered    as Pref
+import qualified Wallet.Rollback.Basic as Roll
+import qualified Wallet.Rollback.Full  as Full
 
 {-------------------------------------------------------------------------------
   Main test driver
@@ -103,13 +103,15 @@ testPureWallet :: Spec
 testPureWallet = do
     it "Test pure wallets" $
       forAll genInductive $ \ind -> conjoin [
-          checkInvariants "spec"      ind specEmpty
+          checkInvariants "base"      ind baseEmpty
         , checkInvariants "incr"      ind incrEmpty
-        , checkInvariants "roll"      ind rollEmpty
         , checkInvariants "pref"      ind prefEmpty
-        , checkEquivalent "spec/incr" ind specEmpty incrEmpty
-        , checkEquivalent "spec/roll" ind specEmpty rollEmpty
-        , checkEquivalent "spec/pref" ind specEmpty prefEmpty
+        , checkInvariants "roll"      ind rollEmpty
+        , checkInvariants "full"      ind fullEmpty
+        , checkEquivalent "base/incr" ind baseEmpty incrEmpty
+        , checkEquivalent "base/pref" ind baseEmpty prefEmpty
+        , checkEquivalent "base/roll" ind baseEmpty rollEmpty
+        , checkEquivalent "base/full" ind baseEmpty fullEmpty
         ]
   where
     transCtxt = runTranslateNoErrors ask
@@ -124,41 +126,41 @@ testPureWallet = do
         )
       genFromBlockchainPickingAccounts n fpc
 
-    checkInvariants :: (IsWallet w h a, Buildable a)
+    checkInvariants :: (Hash h a, Eq a, Buildable a)
                     => Text
                     -> InductiveWithOurs h a
-                    -> (Set a -> Transaction h a -> w h a)
+                    -> (Set a -> Transaction h a -> Wallet h a)
                     -> Expectation
     checkInvariants label (InductiveWithOurs addrs ind) w =
         shouldBeValidated $
           walletInvariants label (w addrs) ind
 
-    checkEquivalent :: (IsWallet w h a, IsWallet w' h a, Buildable a)
+    checkEquivalent :: (Hash h a, Eq a, Buildable a)
                     => Text
                     -> InductiveWithOurs h a
-                    -> (Set a -> Transaction h a -> w  h a)
-                    -> (Set a -> Transaction h a -> w' h a)
+                    -> (Set a -> Transaction h a -> Wallet h a)
+                    -> (Set a -> Transaction h a -> Wallet h a)
                     -> Expectation
     checkEquivalent label (InductiveWithOurs addrs ind) w w' =
         shouldBeValidated $
           walletEquivalent label (w addrs) (w' addrs) ind
 
-    specEmpty :: Set Addr -> Transaction GivenHash Addr -> Spec.Wallet GivenHash Addr
-    specEmpty = walletBoot Spec.walletEmpty . oursFromSet
-
-    incrEmpty :: Set Addr -> Transaction GivenHash Addr -> Incr.Wallet GivenHash Addr
-    incrEmpty = walletBoot Incr.walletEmpty . oursFromSet
-
-    rollEmpty :: Set Addr -> Transaction GivenHash Addr -> Roll.Wallet GivenHash Addr
-    rollEmpty = walletBoot Roll.walletEmpty . oursFromSet
-
-    prefEmpty :: Set Addr -> Transaction GivenHash Addr -> Pref.Wallet GivenHash Addr
-    prefEmpty = walletBoot Pref.walletEmpty . oursFromSet
-
     oursFromSet :: Set Addr -> Ours Addr
     oursFromSet addrs addr = do
         guard (Set.member addr addrs)
         return $ fst (resolveAddr addr transCtxt)
+
+    baseEmpty :: Set Addr -> Transaction GivenHash Addr -> Wallet GivenHash Addr
+    incrEmpty :: Set Addr -> Transaction GivenHash Addr -> Wallet GivenHash Addr
+    prefEmpty :: Set Addr -> Transaction GivenHash Addr -> Wallet GivenHash Addr
+    rollEmpty :: Set Addr -> Transaction GivenHash Addr -> Wallet GivenHash Addr
+    fullEmpty :: Set Addr -> Transaction GivenHash Addr -> Wallet GivenHash Addr
+
+    baseEmpty = walletBoot Base.walletEmpty . oursFromSet
+    incrEmpty = walletBoot Incr.walletEmpty . oursFromSet
+    prefEmpty = walletBoot Pref.walletEmpty . oursFromSet
+    rollEmpty = walletBoot Roll.walletEmpty . oursFromSet
+    fullEmpty = walletBoot Full.walletEmpty . oursFromSet
 
 {-------------------------------------------------------------------------------
   Passive wallet tests

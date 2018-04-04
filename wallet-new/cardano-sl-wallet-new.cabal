@@ -328,11 +328,11 @@ test-suite wallet-unit-tests
                       UTxO.Translate
                       UTxO.Verify
                       Wallet.Abstract
-                      Wallet.Full
+                      Wallet.Basic
                       Wallet.Incremental
                       Wallet.Prefiltered
-                      Wallet.Rollback
-                      Wallet.Spec
+                      Wallet.Rollback.Basic
+                      Wallet.Rollback.Full
   default-language:   Haskell2010
   default-extensions: BangPatterns
                       ConstraintKinds

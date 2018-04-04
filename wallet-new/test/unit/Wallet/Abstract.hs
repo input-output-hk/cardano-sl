@@ -8,12 +8,12 @@
 -- | Abstract definition of a wallet
 module Wallet.Abstract (
     -- * Abstract definition of a wallet
-    IsWallet(..)
+    Wallet(..)
   , Ours
   , Pending
+  , WalletConstr
+  , mkDefaultWallet
   , walletBoot
-    -- * Abstract definition of rollback
-  , Rollback(..)
     -- * Inductive wallet definition
   , Inductive(..)
   , interpret
@@ -46,7 +46,6 @@ import qualified Data.IntMap as IntMap
 import qualified Data.List as List
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, (%))
-import           Pos.Util (HasLens', lensOf')
 import           Pos.Util.Chrono
 import           Pos.Util.QuickCheck.Arbitrary (sublistN)
 import           Serokell.Util (listJson)
@@ -70,75 +69,91 @@ type Ours a = a -> Maybe SomeKeyPair
 -- | Pending transactions
 type Pending h a = Set (Transaction h a)
 
--- | Abstract definition of a wallet
-class (Hash h a, Ord a) => IsWallet w h a where
-  utxo       :: w h a -> Utxo h a
-  ours       :: w h a -> Ours a
-  applyBlock :: Block h a -> w h a -> w h a
+-- | Abstract wallet interface
+data Wallet h a = Wallet {
+      -- MAIN API
 
-  -- Operations with default implementations
+      -- | Return the total balance of the wallet (see 'available')
+      totalBalance :: Value
 
-  pending :: w h a -> Pending h a
-  default pending :: HasLens' (w h a) (Pending h a)
-                  => w h a -> Pending h a
-  pending w = w ^. lensOf'
+      -- | Return the available balance of the wallet (see 'total')
+    , availableBalance :: Value
 
-  newPending :: Transaction h a -> w h a -> Maybe (w h a)
-  default newPending :: HasLens' (w h a) (Pending h a)
-                     => Transaction h a -> w h a -> Maybe (w h a)
-  newPending tx w = do
-      guard $ trIns tx `Set.isSubsetOf` utxoDomain (available w)
-      return $ w & lensOf' %~ Set.insert tx
+      -- | Notify the wallet of a new block
+    , applyBlock :: Block h a -> Wallet h a
 
-  availableBalance :: IsWallet w h a => w h a -> Value
-  availableBalance = balance . available
+      -- | Submit a new transaction to be included in the blockchain
+    , newPending :: Transaction h a -> Maybe (Wallet h a)
 
-  totalBalance :: IsWallet w h a => w h a -> Value
-  totalBalance = balance . total
+      -- | Rollback
+    , rollback :: Wallet h a
 
-  available :: IsWallet w h a => w h a -> Utxo h a
-  available w = utxoRemoveInputs (txIns (pending w)) (utxo w)
+      -- AUXILIARY API
 
-  change :: IsWallet w h a => w h a -> Utxo h a
-  change w = utxoRestrictToOurs (ours w) (txOuts (pending w))
+      -- | Current set of pending transactions
+    , pending :: Pending h a
 
-  total :: IsWallet w h a => w h a -> Utxo h a
-  total w = available w `utxoUnion` change w
+      -- | Wallet's current UTxO (ignoring pending transactions)
+    , utxo :: Utxo h a
+
+      -- | Addresses that belong to the wallet
+    , ours :: Ours a
+
+      -- | Change from the pending transactions
+    , change :: Utxo h a
+
+      -- | Available UTxO
+      --
+      -- This is the UTxO with the inputs spent by the pending transactions
+      -- removed.
+    , available :: Utxo h a
+
+      -- | Total UTxO
+      --
+      -- This is the available UTxO where we add back the change from the
+      -- pending transactions.
+    , total :: Utxo h a
+    }
+
+-- | Type of a wallet constructor
+--
+-- See <http://www.well-typed.com/blog/2018/03/oop-in-haskell/> for a
+-- detailed discussion of the approach we take.
+type WalletConstr h a st = (st -> Wallet h a) -> (st -> Wallet h a)
+
+-- | Default wallet constructor
+--
+-- This does not pick any particular implementation, but provides some
+-- default implementations of some of the wallet methods in terms of the
+-- other methods.
+mkDefaultWallet :: (Hash h a, Ord a)
+                => Lens' st (Pending h a) -> WalletConstr h a st
+mkDefaultWallet l self st = Wallet {
+      -- Dealing with pending
+      pending    = st ^. l
+    , newPending = \tx -> do
+          guard $ trIns tx `Set.isSubsetOf` utxoDomain (available this)
+          return $ self (st & l %~ Set.insert tx)
+      -- UTxOs
+    , available = utxoRemoveInputs (txIns (pending this)) (utxo this)
+    , change    = utxoRestrictToOurs (ours this) (txOuts (pending this))
+    , total     = available this `utxoUnion` change this
+      -- Balance
+    , availableBalance = balance $ available this
+    , totalBalance     = balance $ total     this
+      -- Functions without a default
+    , utxo       = error "mkDefaultWallet: no default for utxo"
+    , ours       = error "mkDefaultWallet: no default for ours"
+    , applyBlock = error "mkDefaultWallet: no default for applyBlock"
+    , rollback   = error "mkDefaultWallet: no default for rollback"
+    }
+  where
+    this = self st
 
 -- | Wallet state after the bootstrap transaction
-walletBoot :: (IsWallet w h a, Hash h a, Ord a)
-           => (Ours a -> w h a) -- ^ Wallet constructor
-           -> Ours a -> Transaction h a -> w h a
-walletBoot mkWallet p boot = applyBlock (OldestFirst [boot]) $ mkWallet p
-
-{-------------------------------------------------------------------------------
-  Rollback
--------------------------------------------------------------------------------}
-
-class IsWallet w h a => Rollback w h a where
-  rollback :: w h a -> w h a
-
-{-------------------------------------------------------------------------------
-  Interlude: "functor" over different wallet types (internal use only)
--------------------------------------------------------------------------------}
-
-data Wallets :: [(* -> *) -> * -> *] -> (* -> *) -> * -> * where
-  One :: IsWallet w h a
-      => w h a -> Wallets '[w] h a
-
-  Two :: (IsWallet w h a, IsWallet w' h a)
-      => w h a -> w' h a -> Wallets '[w,w'] h a
-
-walletsMap :: (forall w. IsWallet w h a => w h a -> w h a)
-           -> Wallets ws h a -> Wallets ws h a
-walletsMap f (One w)    = One (f w)
-walletsMap f (Two w w') = Two (f w) (f w')
-
-walletsMapA :: Applicative f
-            => (forall w. IsWallet w h a => w h a -> f (w h a))
-            -> Wallets ws h a -> f (Wallets ws h a)
-walletsMapA f (One w)    = One <$> f w
-walletsMapA f (Two w w') = Two <$> f w <*> f w'
+walletBoot :: (Ours a -> Wallet h a) -- ^ Wallet constructor
+           -> Ours a -> Transaction h a -> Wallet h a
+walletBoot mkWallet p boot = applyBlock (mkWallet p) (OldestFirst [boot])
 
 {-------------------------------------------------------------------------------
   Inductive wallet definition
@@ -158,54 +173,50 @@ data Inductive h a =
 
 -- | Interpreter for 'Inductive'
 --
--- Given (one or more) empty wallets, evaluate an 'Inductive' wallet, checking
--- the given property at each step.
+-- Given (one or more) wallet constructors, evaluate an 'Inductive' wallet,
+-- checking the given property at each step.
 --
 -- Note: we expect the 'Inductive' to be valid (valid blockchain, valid
 -- calls to 'newPending', etc.). This is meant to check properties of the
 -- /wallet/, not the wallet input.
-interpret :: forall ws h a err.
-             (Buildable a)
-          => (Inductive h a -> InvalidInput h a -> err)
+interpret :: forall h a err.
+             (Inductive h a -> InvalidInput h a -> err)
           -- ^ Inject invalid input err. We provide the value of the
           -- 'Inductive' at the point of the error.
-          -> (Transaction h a -> Wallets ws h a)
-          -- ^ Bootstrapped wallets
-          -> (Inductive h a -> Wallets ws h a -> Validated err ())
+          -> (Transaction h a -> [Wallet h a])
+          -- ^ Wallet constructors
+          -> (Inductive h a -> [Wallet h a] -> Validated err ())
           -- ^ Predicate to check. The predicate is passed the 'Inductive'
           -- at the point of the error, for better error messages.
           -> Inductive h a
           -- ^ 'Inductive' value to interpret
-          -> Validated err (Wallets ws h a)
+          -> Validated err [Wallet h a]
 interpret invalidInput mkWallets p = fmap snd . go
   where
-    -- Evaluate and verify the 'Inductive'
-    -- Also returns the ledger after validation
-    go :: Inductive h a -> Validated err (Ledger h a, Wallets ws h a)
-    go ind@(WalletBoot t)   = do
+    go :: Inductive h a -> Validated err (Ledger h a, [Wallet h a])
+    go ind@(WalletBoot t) = do
       ws <- verify ind (mkWallets t)
       return (ledgerSingleton t, ws)
     go ind@(ApplyBlock w b) = do
       (l, ws) <- go w
-      ws' <- verify ind $ walletsMap (applyBlock b) ws
+      ws' <- verify ind $ map (`applyBlock` b) ws
       return (ledgerAdds (toNewestFirst b) l, ws')
     go ind@(NewPending w t) = do
       (l, ws) <- go w
-      ws' <- verify ind =<< walletsMapA (verifyNew ind l t) ws
+      ws' <- verify ind =<< mapM (verifyNew ind l t) ws
       return (l, ws')
 
-    verify :: Inductive h a -> Wallets ws h a -> Validated err (Wallets ws h a)
+    verify :: Inductive h a -> [Wallet h a] -> Validated err [Wallet h a]
     verify ind ws = p ind ws >> return ws
 
     -- Verify the input
     -- If this fails, we provide the /entire/ 'Inductive' value so that it's
     -- easier to track down what happened.
-    verifyNew :: IsWallet w h a
-              => Inductive h a -- ^ Inductive value at this point
+    verifyNew :: Inductive h a -- ^ Inductive value at this point
               -> Ledger h a    -- ^ Ledger so far (for error messages)
-              -> Transaction h a -> w h a -> Validated err (w h a)
+              -> Transaction h a -> Wallet h a -> Validated err (Wallet h a)
     verifyNew ind l tx w =
-        case newPending tx w of
+        case newPending w tx of
           Just w' -> return w'
           Nothing -> throwError . invalidInput ind
                    $ InvalidPending tx (utxo w) (pending w) l
@@ -225,12 +236,12 @@ interpret invalidInput mkWallets p = fmap snd . go
 type Invariant h a = Inductive h a -> Validated (InvariantViolation h a) ()
 
 -- | Lift a property of flat wallet values to an invariant over the wallet ops
-invariant :: forall w h a. (IsWallet w h a, Buildable a)
-          => Text                        -- ^ Name of the invariant
-          -> (Transaction h a -> w h a)  -- ^ Construct empty wallet
-          -> (w h a -> Maybe InvariantViolationEvidence) -- ^ Property to verify
+invariant :: forall h a.
+             Text                             -- ^ Name of the invariant
+          -> (Transaction h a -> Wallet h a)  -- ^ Construct empty wallet
+          -> (Wallet h a -> Maybe InvariantViolationEvidence) -- ^ Property
           -> Invariant h a
-invariant name e p = void . interpret notChecked (One . e) p'
+invariant name e p = void . interpret notChecked ((:[]) . e) p'
   where
     notChecked :: Inductive h a
                -> InvalidInput h a
@@ -251,11 +262,12 @@ invariant name e p = void . interpret notChecked (One . e) p'
         }
 
     p' :: Inductive h a
-       -> Wallets '[w] h a
+       -> [Wallet h a]
        -> Validated (InvariantViolation h a) ()
-    p' ind (One w) = case p w of
-                       Nothing -> return ()
-                       Just ev -> throwError (violation ind ev)
+    p' ind [w] = case p w of
+                   Nothing -> return ()
+                   Just ev -> throwError (violation ind ev)
+    p' _ _ = error "impossible"
 
 -- | Invariant violation
 data InvariantViolation h a =
@@ -354,10 +366,10 @@ checkDisjoint (labelXs, xs) (labelYs, ys) =
 -------------------------------------------------------------------------------}
 
 -- | Wallet invariant, parameterized by a function to construct the wallet
-type WalletInv w h a = (IsWallet w h a, Buildable a)
-                    => Text -> (Transaction h a -> w h a) -> Invariant h a
+type WalletInv h a = (Hash h a, Buildable a, Eq a)
+                  => Text -> (Transaction h a -> Wallet h a) -> Invariant h a
 
-walletInvariants :: WalletInv w h a
+walletInvariants :: WalletInv h a
 walletInvariants l e w = sequence_ [
       pendingInUtxo          l e w
     , utxoIsOurs             l e w
@@ -367,42 +379,42 @@ walletInvariants l e w = sequence_ [
     , balanceChangeAvailable l e w
     ]
 
-pendingInUtxo :: WalletInv w h a
+pendingInUtxo :: WalletInv h a
 pendingInUtxo l e = invariant (l <> "/pendingInUtxo") e $ \w ->
     checkSubsetOf ("txIns (pending w)",
                     txIns (pending w))
                   ("utxoDomain (utxo w)",
                     utxoDomain (utxo w))
 
-utxoIsOurs :: WalletInv w h a
+utxoIsOurs :: WalletInv h a
 utxoIsOurs l e = invariant (l <> "/utxoIsOurs") e $ \w ->
     checkAllSatisfy ("isOurs",
                       isJust . ours w . outAddr)
                     ("utxoRange (utxo w)",
                       utxoRange (utxo w))
 
-changeNotAvailable :: WalletInv w h a
+changeNotAvailable :: WalletInv h a
 changeNotAvailable l e = invariant (l <> "/changeNotAvailable") e $ \w ->
     checkDisjoint ("utxoDomain (change w)",
                     utxoDomain (change w))
                   ("utxoDomain (available w)",
                     utxoDomain (available w))
 
-changeNotInUtxo :: WalletInv w h a
+changeNotInUtxo :: WalletInv h a
 changeNotInUtxo l e = invariant (l <> "/changeNotInUtxo") e $ \w ->
     checkDisjoint ("utxoDomain (change w)",
                     utxoDomain (change w))
                   ("utxoDomain (utxo w)",
                     utxoDomain (utxo w))
 
-changeAvailable :: WalletInv w h a
+changeAvailable :: WalletInv h a
 changeAvailable l e = invariant (l <> "/changeAvailable") e $ \w ->
     checkEqual ("change w `utxoUnion` available w" ,
                  change w `utxoUnion` available w)
                ("total w",
                  total w)
 
-balanceChangeAvailable :: WalletInv w h a
+balanceChangeAvailable :: WalletInv h a
 balanceChangeAvailable l e = invariant (l <> "/balanceChangeAvailable") e $ \w ->
     checkEqual ("balance (change w) + balance (available w)",
                  balance (change w) + balance (available w))
@@ -413,17 +425,13 @@ balanceChangeAvailable l e = invariant (l <> "/balanceChangeAvailable") e $ \w -
   Compare different wallet implementations
 -------------------------------------------------------------------------------}
 
-walletEquivalent :: forall w w' h a.
-                    ( IsWallet w  h a
-                    , IsWallet w' h a
-                    , Buildable a
-                    )
+walletEquivalent :: forall h a. (Hash h a, Eq a, Buildable a)
                  => Text
-                 -> (Transaction h a -> w  h a)
-                 -> (Transaction h a -> w' h a)
+                 -> (Transaction h a -> Wallet h a)
+                 -> (Transaction h a -> Wallet h a)
                  -> Invariant h a
 walletEquivalent lbl e e' = void .
-    interpret notChecked (\boot -> Two (e boot) (e' boot)) p
+    interpret notChecked (\boot -> [e boot, e' boot]) p
   where
     notChecked :: Inductive h a
                -> InvalidInput h a
@@ -444,9 +452,9 @@ walletEquivalent lbl e e' = void .
         }
 
     p :: Inductive h a
-      -> Wallets '[w,w'] h a
+      -> [Wallet h a]
       -> Validated (InvariantViolation h a) ()
-    p ind (Two w w') = sequence_ [
+    p ind [w, w'] = sequence_ [
           cmp "pending"          pending
         , cmp "utxo"             utxo
         , cmp "availableBalance" availableBalance
@@ -458,12 +466,13 @@ walletEquivalent lbl e e' = void .
       where
         cmp :: (Eq b, Buildable b)
             => Text
-            -> (forall w''. IsWallet w'' h a => w'' h a -> b)
+            -> (Wallet h a -> b)
             -> Validated (InvariantViolation h a) ()
         cmp fld f =
           case checkEqual (fld <> " w", f w) (fld <> " w'", f w') of
             Nothing -> return ()
             Just ev -> throwError $ violation ind ev
+    p _ _ = error "impossible"
 
 {-------------------------------------------------------------------------------
   Auxiliary operations

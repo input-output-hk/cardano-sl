@@ -7,7 +7,8 @@ module Cardano.Wallet.WalletLayer.Kernel
 
 import           Universum
 
-import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..), PassiveWalletLayer (..))
+import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
+
 import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 

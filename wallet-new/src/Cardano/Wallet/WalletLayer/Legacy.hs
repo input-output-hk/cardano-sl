@@ -7,7 +7,8 @@ module Cardano.Wallet.WalletLayer.Legacy
 
 import           Universum
 
-import           Cardano.Wallet.WalletLayer (ActiveWalletLayer (..), PassiveWalletLayer (..))
+import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
+
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
 import           Cardano.Wallet.API.V1.Migration (migrate)

@@ -3,15 +3,15 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Wallets where
 import           Universum
 
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
-import qualified Pos.Wallet.Web.State.Storage as V0
 import qualified Pos.Wallet.Web.Methods as V0
-import qualified Pos.Wallet.Web.State as V0 (askWalletSnapshot, WalletSnapshot)
+import qualified Pos.Wallet.Web.State as V0 (WalletSnapshot, askWalletSnapshot)
+import qualified Pos.Wallet.Web.State.Storage as V0
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
+import           Cardano.Wallet.API.V1.Errors
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
-import           Cardano.Wallet.API.V1.Errors
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import qualified Data.IxSet.Typed as IxSet
 import           Pos.Update.Configuration ()
@@ -40,7 +40,6 @@ newWallet
     => NewWallet
     -> m (WalletResponse Wallet)
 newWallet NewWallet{..} = do
-    ss <- V0.askWalletSnapshot
     let newWalletHandler CreateWallet  = V0.newWallet
         newWalletHandler RestoreWallet = V0.restoreWallet
         (V1 spendingPassword) = fromMaybe (V1 mempty) newwalSpendingPassword
@@ -51,6 +50,7 @@ newWallet NewWallet{..} = do
     let walletInit = V0.CWalletInit initMeta backupPhrase
     single <$> do
         v0wallet <- newWalletHandler newwalOperation spendingPassword walletInit
+        ss <- V0.askWalletSnapshot
         addWalletInfo ss v0wallet
 
 -- | Returns the full (paginated) list of wallets.

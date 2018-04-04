@@ -417,8 +417,8 @@ out-of-the-box; notice how `destinations` is a list of addresses (and correspond
 
 When the transaction succeeds, funds are no longer available in the sources addresses, and are
 soon made available to the destinations in a short delay. Note that, you can at any time see
-the status of your wallets by using the [`GET /api/v1/transactions`] (#tag/Transactions%2Fpaths%2F~1api~1v1~1transactions%2Fget)
-endpoint:
+the status of your wallets by using the [`GET /api/v1/transactions`](#tag/Transactions%2Fpaths%2F~1api~1v1~1transactions%2Fget)
+endpoint as follows:
 
 ```
 curl -X GET https://localhost:8090/api/v1/transactions?&wallet_id=Ae2tdPwUPE...8V3AVTnqGZ\
@@ -898,15 +898,31 @@ Retrieving Transactions History
 
 If needed, applications may regularly poll the wallet's backend to retrieve the history of
 transactions of a given wallet. Using the [`GET /api/v1/transactions`](#tag/Transactions%2Fpaths%2F~1api~1v1~1transactions%2Fget)
-endpoint, you can view the status of all transactions that ever sent or took money from they
+endpoint, you can view the status of all transactions that ever sent or took money from the
 wallet.
 
+The following table sums up the available filters (also detailed in the endpoint documentation details):
+
+Filter On                   | Corresponding Query Parameter(s)
+----------------------------| ------------------------------
+Wallet                      | `wallet_id`
+Wallet's account            | `account_index` + `wallet_id`
+Address                     | `address`
+Transaction's creation time | `created_at`
+Transaction's id            | `id`
+
+For example, in order to retrieve the last 50 transactions of a particular account,
+ordered by descending date:
+
+```
+curl -X GET https://127.0.0.1:8090/api/v1/transactions?wallet_id=Ae2tdPwU...3AVTnqGZ&account_index=2902829384&sort_by=DES\[created_at\]&per_page=50' \
+  -H 'Accept: application/json;charset=utf-8' \
+  --cacert ./scripts/tls-files/ca.crt
+```
 For example, in order to retrieve the last 50 transactions, ordered by descending date:
 
 ```
-curl -X GET \
-  https://127.0.0.1:8090/api/v1/transactions\
-  ?wallet_id=Ae2tdPwU...3AVTnqGZ&sort_by=DES[created_at]&per_page=50 \
+curl -X GET 'https://127.0.0.1:8090/api/v1/transactions?wallet_id=Ae2tdPwU...3AVTnqGZ &sort_by=DES\[created_at\]&per_page=50' \
   -H 'Accept: application/json;charset=utf-8' \
   --cacert ./scripts/tls-files/ca.crt
 ```
@@ -915,11 +931,9 @@ curl -X GET \
 Another example, if you were to look for all transactions made since the 1st of January 2018:
 
 ```
-curl -X GET \
-  https://127.0.0.1:8090/api/v1/transactions\
-  ?wallet_id=Ae2tdPwU...3AVTnqGZ&created_at=GT[2018-01-01T00:00:00.00000] \
+curl -X GET 'https://127.0.0.1:8090/api/v1/transactions?wallet_id=Ae2tdPwU...3AVTnqGZ&created_at=GT\[2018-01-01T00:00:00.00000\]' \
   -H 'Accept: application/json;charset=utf-8' \
-  --cacert ./scripts/tls-files/ca.crt1
+  --cacert ./scripts/tls-files/ca.crt
 ```
 
 Make sure to carefully read the section about [Pagination](#section/Pagination) to fully

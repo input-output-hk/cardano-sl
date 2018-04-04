@@ -25,7 +25,7 @@ import qualified Data.Text.IO as T
 import           Data.Time.Units (toMicroseconds)
 import           Formatting (build, int, sformat, shown, stext, (%))
 import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently, currentTime, delay,
-                           {-forConcurrently,-} modifySharedAtomic, newSharedAtomic)
+                           forConcurrently, modifySharedAtomic, newSharedAtomic)
 import           Serokell.Util (ms, sec)
 import           System.Environment (lookupEnv)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
@@ -197,8 +197,8 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                           sendTxsCont 0
 
 
-            --sendTxsConcurrently     n = void $ forConcurrently [1..conc] (const (sendTxs n))
-            --sendTxsConcurrentlyCont n = void $ forConcurrently [1..conc] (const (sendTxsCont n))
+            sendTxsConcurrently     n = void $ forConcurrently [1..conc] (const (sendTxs n))
+            sendTxsConcurrentlyCont n = void $ forConcurrently [1..conc] (const (sendTxsCont n))
         -- pre construct the first batch of transactions. Otherwise,
         -- we'll be CPU bound and will not achieve high transaction
         -- rates. If we pre construct all the transactions, the
@@ -212,9 +212,9 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         -- transactions.5
         forM_ allTrans addTx
         logInfo "First iteration started"
-        void $ concurrently writeTPS (sendTxs (duration))
+        void $ concurrently writeTPS (sendTxsConcurrently (duration))
         logInfo "Second iteration started"
-        void $ concurrently writeTPS (sendTxsCont (duration))
+        void $ concurrently writeTPS (sendTxsConcurrentlyCont (duration))
         logInfo "Second iteration finished"
         
 

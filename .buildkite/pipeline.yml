@@ -14,11 +14,6 @@ steps:
     agents:
       system: x86_64-linux
 
-  - label: 'cardano-sl-nixos-tests'
-    command: 'scripts/ci/nix-shell.sh --run "nix-build nixos-tests/cardano-node.nix"'
-    agents:
-      system: x86_64-linux
-
   - label: 'cardano-x86_64-darwin'
     command: 'scripts/ci/nix-shell.sh --run scripts/ci/ci.sh'
     agents:

@@ -3,7 +3,7 @@ let
   system = builtins.currentSystem;
   pkgs = import (localLib.fetchNixPkgs) { inherit system config; };
   config = {};
-  cardano_sl = pkgs.callPackage ../default.nix { allowCustomConfig = false; };
+  cardano_sl = pkgs.callPackage ../default.nix { gitrev = "abcdef"; allowCustomConfig = false; };
 in
 import (pkgs.path + "/nixos/tests/make-test.nix") ({ pkgs, ... }: {
   name = "cardano-node";

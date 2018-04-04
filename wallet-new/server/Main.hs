@@ -62,6 +62,7 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
             bracketNodeResources nodeParams sscParams
                 txpGlobalSettings
                 initNodeDBs $ \nr@NodeResources {..} -> do
+                    ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
                     runWRealMode db conn nr (mainAction ntpStatus nr)
   where
     mainAction ntpStatus = runNodeWithInit ntpStatus $ do

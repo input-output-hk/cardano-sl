@@ -100,13 +100,9 @@ getAddress addrText = do
     ws <- V0.askWalletSnapshot
 
     let
-        addrId :: V0.CId V0.Addr
-        addrId =
-            V0.addressToCId addr
-
         addrInfoMatchesAddr ::  V0.AddressInfo -> Bool
         addrInfoMatchesAddr addrInfo =
-            addrId == V0.cwamId (V0.adiCWAddressMeta addrInfo)
+            addr == V0._wamAddress (V0.adiWAddressMeta addrInfo)
 
         getAddresses :: V0.CId V0.Wal -> [V0.AddressInfo]
         getAddresses = V0State.getWAddresses ws V0.Ever
@@ -125,13 +121,8 @@ getAddress addrText = do
         Nothing ->
             throwM AddressNotFound
         Just (_walletMeta, V0.AddressInfo{..}) -> do
-            let accId = V0.AccountId
-                    (V0.cwamWId adiCWAddressMeta)
-                    (V0.cwamAccountIndex adiCWAddressMeta)
+            let accId = adiWAddressMeta ^. V0.wamAccount
             mps <- V0.withTxpLocalData V0.getMempoolSnapshot
             accMod <- V0.txMempoolToModifier ws mps =<< V0.findKey accId
-            caddr <- V0.getWAddress
-                ws
-                accMod
-                adiCWAddressMeta
+            let caddr = V0.getWAddress ws accMod adiWAddressMeta
             single <$> migrate caddr

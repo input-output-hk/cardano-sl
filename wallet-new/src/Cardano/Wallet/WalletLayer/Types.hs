@@ -3,18 +3,16 @@ module Cardano.Wallet.WalletLayer.Types
     , ActiveWalletLayer (..)
     ) where
 
-import           Universum
+import           Universum ()
 
 import           Cardano.Wallet.API.V1.Types (WalletId)
-import           Pos.Wallet.Web.ClientTypes (CWalletMeta)
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
 
 -- | The passive wallet (data) layer. See @PassiveWallet@.
 data PassiveWalletLayer m = PassiveWalletLayer
-    { pwlGetWalletAddresses :: m [WalletId]
-    , pwlGetWalletMeta      :: WalletId -> m (Maybe CWalletMeta)
+    { pwlGetWalletIds       :: m [WalletId]
     }
 
 -- An active wallet layer. See @ActiveWallet@.

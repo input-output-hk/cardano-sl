@@ -12,8 +12,7 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), Passi
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
 import           Cardano.Wallet.API.V1.Migration (migrate)
-import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletSnapshot, getWalletAddresses,
-                                             getWalletMeta)
+import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletSnapshot, getWalletAddresses)
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
@@ -27,8 +26,7 @@ bracketPassiveWallet =
   where
     passiveWalletLayer :: PassiveWalletLayer n
     passiveWalletLayer = PassiveWalletLayer
-        { pwlGetWalletAddresses  = askWalletSnapshot >>= \ws -> migrate $ getWalletAddresses ws
-        , pwlGetWalletMeta       = \cIdWal -> askWalletSnapshot >>= \ws -> pure $ getWalletMeta ws =<< (migrate cIdWal)
+        { pwlGetWalletIds  = askWalletSnapshot >>= \ws -> migrate $ getWalletAddresses ws
         }
 
 -- | Initialize the active wallet.

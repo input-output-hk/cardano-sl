@@ -25,8 +25,7 @@ bracketPassiveWallet =
   where
     passiveWalletLayer :: PassiveWalletLayer n
     passiveWalletLayer = PassiveWalletLayer
-        { pwlGetWalletAddresses  = liftedGen
-        , pwlGetWalletMeta       = \_ -> liftedGen
+        { pwlGetWalletIds  = liftedGen
         }
 
     -- | A utility function.

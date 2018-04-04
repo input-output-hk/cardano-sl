@@ -88,7 +88,6 @@ import           Pos.Wallet.Redirect (applyLastUpdateWebWallet, blockchainSlotDu
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..),
                                         WalletMempoolExt)
 import           Pos.Wallet.Web.ClientTypes (AccountId)
-import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
 import           Pos.Wallet.Web.Mode (getBalanceDefault, getNewAddressWebWallet, getOwnUtxosDefault)
 import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, openMemState)
 import           Pos.Wallet.Web.Tracking.BListener (onApplyBlocksWebWallet,
@@ -152,8 +151,6 @@ data WalletTestContext = WalletTestContext
     -- ^ Stub
     , wtcSentTxs          :: !(TVar [TxAux])
     -- ^ Sent transactions via MonadWalletSendActions
-    , wtcHashes           :: !AddrCIdHashes
-    -- ^ Address hashes ref
     , wtcSyncQueue        :: !SyncQueue
     -- ^ STM queue for wallet sync requests.
     , wtcSlottingStateVar  :: SimpleSlottingStateVar
@@ -193,7 +190,6 @@ initWalletTestContext WalletTestParams {..} callback =
             wtcConnectedPeers <- ConnectedPeers <$> STM.newTVarIO mempty
             wtcLastKnownHeader <- STM.newTVarIO Nothing
             wtcSentTxs <- STM.newTVarIO mempty
-            wtcHashes <- AddrCIdHashes <$> newIORef mempty
             wtcSyncQueue <- STM.newTBQueueIO 50
             wtcSlottingStateVar <- mkSimpleSlottingStateVar
             pure WalletTestContext {..}
@@ -245,8 +241,6 @@ walletPropertySpec description wp = prop description (walletPropertyToProperty a
 ----------------------------------------------------------------------------
 -- Instances derived from BlockTestContext
 ----------------------------------------------------------------------------
-instance HasLens AddrCIdHashes WalletTestContext AddrCIdHashes where
-    lensOf = wtcHashes_L
 
 instance HasLens BlockTestContextTag WalletTestContext BlockTestContext where
     lensOf = wtcBlockTestContext_L

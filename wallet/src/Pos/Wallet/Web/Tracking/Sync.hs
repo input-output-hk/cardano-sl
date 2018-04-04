@@ -56,7 +56,7 @@ import           Data.Time.Units (Microsecond, TimeUnit (..))
 import           Formatting (build, float, sformat, shown, (%))
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core (BlockCount (..), ChainDifficulty (..), HasConfiguration,
+import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HasConfiguration,
                            HasDifficulty (..), HasProtocolConstants, HeaderHash, Timestamp (..),
                            blkSecurityParam, genesisHash, headerHash, headerSlotL, timestampToPosix)
 import           Pos.Core.Block (BlockHeader (..), getBlockHeader, mainBlockTxPayload)
@@ -81,13 +81,13 @@ import           Pos.Util.Util (HasLens (..), getKeys, timed)
 import           System.Wlog (CanLog, HasLoggerName, WithLogger, logDebug, logError, logInfo,
                               logWarning, modifyLoggerName)
 
-import           Pos.Wallet.Web.ClientTypes (Addr, CId, CTxMeta (..), CWAddressMeta (..), Wal,
-                                             addrMetaToAccount)
+import           Pos.Wallet.Web.ClientTypes (CId, CTxMeta (..), Wal)
 import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo,
                                                PtxCondition (PtxApplying, PtxInNewestBlocks))
-import           Pos.Wallet.Web.State (CustomAddressType (..), SyncStatistics (..), WalletDB,
-                                       WalletDbReader, WalletSnapshot, WalletSyncState (..))
+import           Pos.Wallet.Web.State (CustomAddressType (..), SyncStatistics (..), WAddressMeta,
+                                       WalletDB, WalletDbReader, WalletSnapshot,
+                                       WalletSyncState (..))
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking.Decrypt (THEntryExtra (..), WalletDecrCredentials,
                                                   buildTHEntryExtra, isTxEntryInteresting)
@@ -148,9 +148,9 @@ txMempoolToModifier ws (txs, undoMap) credentials = do
         Nothing      -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
         Just ordered -> do
             tipH <- DB.getTipHeader
-            let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
+            let usedAddresses = WS.getCustomAddresses ws WS.UsedAddr
             pure $
-                trackingApplyTxs credentials dbUsed getDiff getTs getPtxBlkInfo $
+                trackingApplyTxs credentials usedAddresses getDiff getTs getPtxBlkInfo $
                 map (\(_, tx, undo) -> (tx, undo, tipH)) ordered
 
 -- | Process each 'SyncError'.
@@ -319,12 +319,12 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
 
     let getBlockHeaderTimestamp = blockHeaderTimestamp systemStart slottingData
 
-    let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
+    let usedAddresses = WS.getCustomAddresses ws WS.UsedAddr
 
     -- Compute the next 'CAccModifier' and tentatively assess the throughput.
     ((mapModifier, newSyncTip), timeTook) <-
         timed "syncWalletWithBlockchainUnsafe.computeAccModifier" $
-            computeAccModifier credentials getBlockHeaderTimestamp walletTip dbUsed mempty 0
+            computeAccModifier credentials getBlockHeaderTimestamp walletTip usedAddresses mempty 0
 
     let syncTime = BoundedSyncTime 10000 timeTook
     WS.updateSyncStatistics db walletId (SyncStatistics (calculateThroughput syncTime) (depthOf newSyncTip))
@@ -354,7 +354,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                            -> (BlockHeader -> Maybe Timestamp)
                            -> BlockHeader
                            -- ^ The current wallet 'HeaderHash'.
-                           -> [(CId Addr, HeaderHash)]
+                           -> [(Address, HeaderHash)]
                            -- ^ Used addresses.
                            -> CAccModifier
                            -- ^ The initial CAccModifier we will fold on.
@@ -362,7 +362,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                            -- ^ The initial block count accumulator. Every 10000 blocks we will stop the recursion.
                            -> m (CAccModifier, BlockHeader)
                            -- ^ The new wallet modifier and the new sync tip for the wallet.
-        computeAccModifier credentials getBlockTimestamp wHeader dbUsed currentModifier currentBlockCount = do
+        computeAccModifier credentials getBlockTimestamp wHeader usedAddresses currentModifier currentBlockCount = do
             case currentBlockCount >= 10000 of
                 True -> do
                     let progress localDepth totalDepth = ((fromIntegral localDepth) * 100.0) /
@@ -383,11 +383,11 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                              case nextBlund of
                                  Nothing -> pure (currentModifier, blockchainTip)
                                  Just blund@(currentBlock, _) -> do
-                                     newModifier <- (currentModifier <>) <$> applyBlock credentials getBlockTimestamp dbUsed blund
+                                     let !newModifier = currentModifier <> applyBlock credentials usedAddresses blund getBlockTimestamp
                                      computeAccModifier credentials
                                                         getBlockTimestamp
                                                         (getBlockHeader currentBlock)
-                                                        dbUsed
+                                                        usedAddresses
                                                         newModifier
                                                         (currentBlockCount + 1)
 
@@ -395,7 +395,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                              -- This rollback can occur
                              -- if the application was interrupted during blocks application.
                              blunds <- getNewestFirst <$> GS.loadBlundsWhile (\b -> getBlockHeader b /= blockchainTip) (headerHash wHeader)
-                             let newModifier = foldl' (\r b -> r <> rollbackBlock credentials getBlockTimestamp dbUsed b) currentModifier blunds
+                             let newModifier = foldl' (\r b -> r <> rollbackBlock credentials usedAddresses b getBlockTimestamp) currentModifier blunds
                              pure (newModifier, getBlockHeader . fst . unsafeLast $ blunds)
                        | otherwise -> do
                              logInfoSP $ \sl -> sformat ("Wallet " % secretOnlyF sl build %" has finally caught up with the blockchain.") walletId
@@ -412,21 +412,21 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
         ptxBlkInfo = const Nothing
 
         rollbackBlock :: WalletDecrCredentials
-                      -> (BlockHeader -> Maybe Timestamp)
-                      -> [(CId Addr, HeaderHash)]
+                      -> [(Address, HeaderHash)]
                       -> Blund
+                      -> (BlockHeader -> Maybe Timestamp)
                       -> CAccModifier
-        rollbackBlock credentials blkHeaderTs dbUsed (b, u) =
-            trackingRollbackTxs credentials dbUsed (Just . depthOf) blkHeaderTs $
+        rollbackBlock credentials allAddresses (b, u) blkHeaderTs =
+            trackingRollbackTxs credentials allAddresses (Just . depthOf) blkHeaderTs $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
         applyBlock :: WalletDecrCredentials
-                   -> (BlockHeader -> Maybe Timestamp)
-                   -> [(CId Addr, HeaderHash)]
+                   -> [(Address, HeaderHash)]
                    -> Blund
-                   -> m CAccModifier
-        applyBlock credentials blkHeaderTs dbUsed (b, u) = pure $
-            trackingApplyTxs credentials dbUsed (Just . depthOf) blkHeaderTs ptxBlkInfo $
+                   -> (BlockHeader -> Maybe Timestamp)
+                   -> CAccModifier
+        applyBlock credentials allAddresses (b, u) blkHeaderTs =
+            trackingApplyTxs credentials allAddresses (Just . depthOf) blkHeaderTs ptxBlkInfo $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
 
@@ -446,15 +446,15 @@ firstGenesisHeader = runExceptT $ do
             maybe (throwError GenesisBlockHeaderNotFound) pure genesisBlockHeader
 
 constructAllUsed
-    :: [(CId Addr, HeaderHash)]
-    -> VoidModifier (CId Addr, HeaderHash)
-    -> HashSet (CId Addr)
-constructAllUsed dbUsed modif =
+    :: [(Address, HeaderHash)]
+    -> VoidModifier (Address, HeaderHash)
+    -> HashSet Address
+constructAllUsed usedAddresses modif =
     HS.map fst $
     getKeys $
     MM.modifyHashMap modif $
     HM.fromList $
-    zip dbUsed (repeat ()) -- not so good performance :(
+    zip usedAddresses (repeat ()) -- not so good performance :(
 
 -- Process transactions on block application,
 -- decrypt our addresses, and add/delete them to/from wallet-db.
@@ -462,14 +462,14 @@ constructAllUsed dbUsed modif =
 -- in TxOut's will be added.
 trackingApplyTxs
     :: HasConfiguration
-    => WalletDecrCredentials
-    -> [(CId Addr, HeaderHash)]               -- ^ All used addresses from db along with their HeaderHashes
+    => WalletDecrCredentials                 -- ^ Wallet's decryption credentials
+    -> [(Address, HeaderHash)]               -- ^ All used addresses from db along with their HeaderHashes
     -> (BlockHeader -> Maybe ChainDifficulty) -- ^ Function to determine tx chain difficulty
     -> (BlockHeader -> Maybe Timestamp)       -- ^ Function to determine tx timestamp in history
     -> (BlockHeader -> Maybe PtxBlockInfo)    -- ^ Function to determine pending tx's block info
     -> [(TxAux, TxUndo, BlockHeader)]         -- ^ Txs of blocks and corresponding header hash
     -> CAccModifier
-trackingApplyTxs credentials dbUsed getDiff getTs getPtxBlkInfo txs =
+trackingApplyTxs credentials usedAddresses getDiff getTs getPtxBlkInfo txs =
     foldl' applyTx mempty txs
   where
     applyTx :: CAccModifier -> (TxAux, TxUndo, BlockHeader) -> CAccModifier
@@ -485,9 +485,9 @@ trackingApplyTxs credentials dbUsed getDiff getTs getPtxBlkInfo txs =
 
             addedHistory = maybe camAddedHistory (flip DL.cons camAddedHistory) (isTxEntryInteresting thee)
 
-            usedAddrs = map (cwamId . snd) theeOutputs
+            usedAddrs = map (WS._wamAddress . snd) theeOutputs
             changeAddrs = evalChange
-                              (constructAllUsed dbUsed camUsed)
+                              (constructAllUsed usedAddresses camUsed)
                               (map snd theeInputs)
                               (map snd theeOutputs)
                               (length theeOutputs == NE.length (_txOutputs $ taTx tx))
@@ -512,13 +512,13 @@ trackingApplyTxs credentials dbUsed getDiff getTs getPtxBlkInfo txs =
 -- Like @trackingApplyTxs@, but vise versa.
 trackingRollbackTxs
     :: HasConfiguration
-    => WalletDecrCredentials
-    -> [(CId Addr, HeaderHash)]                -- ^ All used addresses from db along with their HeaderHashes
-    -> (BlockHeader -> Maybe ChainDifficulty)  -- ^ Function to determine tx chain difficulty
-    -> (BlockHeader -> Maybe Timestamp)        -- ^ Function to determine tx timestamp in history
-    -> [(TxAux, TxUndo, BlockHeader)]          -- ^ Txs of blocks and corresponding header hash
+    => WalletDecrCredentials                  -- ^ Wallet's decryption credentials
+    -> [(Address, HeaderHash)]                -- ^ All used addresses from db along with their HeaderHashes
+    -> (BlockHeader -> Maybe ChainDifficulty) -- ^ Function to determine tx chain difficulty
+    -> (BlockHeader -> Maybe Timestamp)       -- ^ Function to determine tx timestamp in history
+    -> [(TxAux, TxUndo, BlockHeader)]         -- ^ Txs of blocks and corresponding header hash
     -> CAccModifier
-trackingRollbackTxs credentials dbUsed getDiff getTs txs =
+trackingRollbackTxs credentials usedAddresses getDiff getTs txs =
     foldl' rollbackTx mempty txs
   where
     rollbackTx :: CAccModifier -> (TxAux, TxUndo, BlockHeader) -> CAccModifier
@@ -535,10 +535,10 @@ trackingRollbackTxs credentials dbUsed getDiff getTs txs =
 
         -- Rollback isn't needed, because we don't use @utxoGet@
         -- (undo contains all required information)
-        let usedAddrs = map (cwamId . snd) theeOutputs
+        let usedAddrs = map (WS._wamAddress . snd) theeOutputs
             changeAddrs =
                 evalChange
-                    (constructAllUsed dbUsed camUsed)
+                    (constructAllUsed usedAddresses camUsed)
                     (map snd theeInputs)
                     (map snd theeOutputs)
                     (length theeOutputs == NE.length (_txOutputs $ taTx tx))
@@ -685,21 +685,22 @@ rollbackModifierFromWallet db trackingOperation wid newTip CAccModifier{..} = do
 -- which of them is really "change".
 -- There is an option to treat both of them as "change", but it seems to be more puzzling.
 evalChange
-    :: HashSet (CId Addr)
-    -> [CWAddressMeta] -- ^ Own input addresses of tx
-    -> [CWAddressMeta] -- ^ Own outputs addresses of tx
+    :: HashSet Address
+    -> [WAddressMeta] -- ^ Own input addresses of tx
+    -> [WAddressMeta] -- ^ Own outputs addresses of tx
     -> Bool            -- ^ Whether all tx's outputs are our own
-    -> [CId Addr]
+    -> [Address]
 evalChange allUsed inputs outputs allOutputsOur
     | [] <- inputs = [] -- It means this transaction isn't our outgoing transaction.
     | inp : _ <- inputs =
-        let srcAccount = addrMetaToAccount inp in
+        let srcAccount = inp ^. WS.wamAccount in
         -- Apply the first point.
-        let addrFromSrcAccount = HS.fromList $ map cwamId $ filter ((== srcAccount) . addrMetaToAccount) outputs in
+        let addrFromSrcAccount = HS.fromList $ map WS._wamAddress
+              $ filter ((== srcAccount) . view WS.wamAccount) outputs in
         -- Apply the second point.
         let potentialChange = addrFromSrcAccount `HS.difference` allUsed in
         -- Apply the third point.
-        if allOutputsOur && potentialChange == HS.fromList (map cwamId outputs) then []
+        if allOutputsOur && potentialChange == HS.fromList (map WS._wamAddress outputs) then []
         else HS.toList potentialChange
 
 setLogger :: HasLoggerName m => m a -> m a

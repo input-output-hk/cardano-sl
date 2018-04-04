@@ -7,6 +7,7 @@ module Pos.Util.Modifier
        , lookupM
        , lookup
        , filter
+       , filterWithKey
        , keysM
        , keys
        , valuesM
@@ -91,6 +92,9 @@ lookup getter k = runIdentity . lookupM (Identity . getter) k
 
 filter :: (Eq k, Hashable k) => (Maybe v -> Bool) -> MapModifier k v -> MapModifier k v
 filter fil = MapModifier . HM.filter fil . getMapModifier
+
+filterWithKey :: (Eq k, Hashable k) => (k -> Maybe v -> Bool) -> MapModifier k v -> MapModifier k v
+filterWithKey fil = MapModifier . HM.filterWithKey fil . getMapModifier
 
 -- | Get keys of something map-like in Functor context taking
 -- 'MapModifier' into account.

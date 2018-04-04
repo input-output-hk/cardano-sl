@@ -15,13 +15,13 @@ import           Test.QuickCheck (Gen, arbitrary, elements, frequency, generate)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
 import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, AccountUpdate (..),
-                                              AddressValidity (..), AssuranceLevel (..),
-                                              EstimatedFees (..), NewAccount (..), NewAddress (..),
-                                              NewWallet (..), PasswordUpdate (..), Payment (..),
+                                              AssuranceLevel (..), EstimatedFees (..),
+                                              NewAccount (..), NewAddress (..), NewWallet (..),
+                                              PasswordUpdate (..), Payment (..),
                                               PaymentDistribution (..), PaymentSource (..),
                                               SpendingPassword, Transaction (..), V1 (..),
                                               Wallet (..), WalletAddress (..), WalletId,
-                                              WalletOperation (..), WalletUpdate (..), unV1)
+                                              WalletOperation (..), WalletUpdate (..))
 
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..), getAccounts,
@@ -336,9 +336,9 @@ runAction wc ws PostAddress = do
 runAction wc ws GetAddresses   = do
     -- We choose one address, we could choose all of them.
     -- Also, remove the `V1` type since we don't need it now.
-    address <-  coerce . addrId <$> pickRandomElement (ws ^. addresses)
+    address <-  coerce <$> pickRandomElement (ws ^. addresses)
     -- We get all the accounts.
-    result  <-  map (map (unV1 . addrId)) . respToRes $ getAddressIndex wc
+    result  <-  respToRes $ getAddressIndex wc
 
     checkInvariant
         (address `elem` result)
@@ -358,15 +358,8 @@ runAction wc ws GetAddress     = do
 
     textAddress <- coerce <$> cAddress
 
-    -- We check if the address is valid. It should be.
-    result  <-  respToRes $ getAddressValidity wc textAddress
-
-    let isAddressValid = isValid result
-
-    -- The address should be valid, it should exist.
-    checkInvariant
-        isAddressValid
-        (LocalAddressDiffer . coerce $ address)
+    -- If the address exists, it is valid.
+    _  <-  respToRes $ getAddress wc textAddress
 
     -- Modify wallet state accordingly.
     pure $ ws

@@ -165,6 +165,7 @@ executable cardano-node
                      , aeson
                      , aeson-pretty
                      , bytestring
+                     , conduit
                      , cardano-sl
                      , cardano-sl-client
                      , cardano-sl-core
@@ -259,6 +260,7 @@ executable cardano-integration-test
                      , exceptions
                      , formatting
                      , formatting
+                     , hspec
                      , http-api-data
                      , http-types
                      , insert-ordered-containers
@@ -431,6 +433,7 @@ test-suite wallet-new-specs
                     , aeson
                     , aeson-pretty
                     , bytestring
+                    , conduit
                     , cardano-sl
                     , cardano-sl-client
                     , cardano-sl-core

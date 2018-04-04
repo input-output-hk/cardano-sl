@@ -12,8 +12,7 @@
 -- language extension here.
 {-# LANGUAGE NoPatternSynonyms          #-}
 
--- TODO: Banish NonEmpty orphan when https://github.com/GetShopTV/swagger2/pull/141
--- is merged
+-- See note [Version orphan]
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Cardano.Wallet.API.V1.Types (
@@ -70,6 +69,7 @@ module Cardano.Wallet.API.V1.Types (
   , SyncPercentage
   , mkSyncPercentage
   , NodeInfo (..)
+  , TimeInfo(..)
   -- * Some types for the API
   , CaptureWalletId
   , CaptureAccountId
@@ -113,6 +113,7 @@ import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Cardano.Wallet.Util (showApiUtcTime)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
+import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
 import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
 import qualified Pos.Client.Txp.Util as Core
@@ -151,7 +152,13 @@ type IsPropertiesMap m =
   (IxValue m ~ Referenced Schema, Index m ~ Text, At m, HasProperties Schema m)
 
 genericSchemaDroppingPrefix
-    :: forall a m proxy. (Generic a, ToJSON a, Arbitrary a, GToSchema (Rep a), IsPropertiesMap m)
+    :: forall a m proxy.
+    ( Generic a, ToJSON a, Arbitrary a, GToSchema (Rep a), IsPropertiesMap m
+    , GenericHasSimpleShape
+        a
+        "genericDeclareNamedSchemaUnrestricted"
+        (GenericShape (Rep a))
+    )
     => String -- ^ Prefix to drop on each constructor tag
     -> ((Index m -> Text -> m -> m) -> m -> m) -- ^ Callback update to attach descriptions to underlying properties
     -> proxy a -- ^ Underlying data-type proxy
@@ -314,16 +321,6 @@ instance ToSchema (V1 Core.Coin) where
         pure $ NamedSchema (Just "V1Coin") $ mempty
             & type_ .~ SwaggerNumber
             & maximum_ .~ Just (fromIntegral Core.maxCoinVal)
-
--- Orphan instance copied from a PR.
---
--- TODO: remove and use upstream when this PR is merged
--- <https://github.com/GetShopTV/swagger2/pull/141>
-instance ToSchema a => ToSchema (NonEmpty a) where
-     declareNamedSchema _ = do
-        listSchema <- declareSchema (Proxy :: Proxy [a])
-        pure $ NamedSchema Nothing $ listSchema
-            & minItems .~ Just 1
 
 instance ToJSON (V1 Core.Address) where
     toJSON (V1 c) = String $ sformat addressF c
@@ -946,7 +943,6 @@ instance ToSchema NewAccount where
       & ("name"             --^ "Account's name.")
     )
 
-
 deriveSafeBuildable ''NewAccount
 instance BuildableSafeGen NewAccount where
     buildSafeGen sl NewAccount{..} = bprint ("{"
@@ -1488,11 +1484,16 @@ data NodeSettings = NodeSettings {
    , setGitRevision    :: !Text
    } deriving (Show, Eq, Generic)
 
--- ORPHAN! TODO: Newtype this?
+-- See note [Version Orphan]
 instance ToSchema Version where
     declareNamedSchema _ =
         pure $ NamedSchema (Just "Version") $ mempty
             & type_ .~ SwaggerString
+
+-- Note [Version Orphan]
+-- I have opened a PR to add an instance of 'Version' to the swagger2
+-- library. When the PR is merged, we can delete the instance here and remove the warning from the file.
+-- PR: https://github.com/GetShopTV/swagger2/pull/152
 
 instance ToJSON (V1 Core.ApplicationName) where
     toJSON (V1 svAppName) = toJSON (Core.getApplicationName svAppName)
@@ -1641,13 +1642,37 @@ instance BuildableSafeGen BlockchainHeight where
     buildSafeGen _ (BlockchainHeight (MeasuredIn w)) =
         bprint (build%" blocks") w
 
+newtype TimeInfo
+    = TimeInfo
+    { timeDifferenceFromNtpServer :: Maybe LocalTimeDifference
+    } deriving (Eq, Show, Generic)
+
+instance ToSchema TimeInfo where
+    declareNamedSchema = genericSchemaDroppingPrefix "time" $ \(--^) p -> p &
+        "differenceFromNtpServer"
+        --^ ("The difference in microseconds between the node time and the NTP "
+          <> "server. This value will be null if the NTP server is pending or "
+          <> "unavailable.")
+
+instance Arbitrary TimeInfo where
+    arbitrary = TimeInfo <$> arbitrary
+
+deriveSafeBuildable ''TimeInfo
+
+instance BuildableSafeGen TimeInfo where
+    buildSafeGen _ TimeInfo{..} = bprint ("{"
+        %" differenceFromNtpServer="%build
+        %" }")
+        timeDifferenceFromNtpServer
+
+deriveJSON Serokell.defaultOptions ''TimeInfo
 
 -- | The @dynamic@ information for this node.
 data NodeInfo = NodeInfo {
      nfoSyncProgress          :: !SyncPercentage
    , nfoBlockchainHeight      :: !(Maybe BlockchainHeight)
    , nfoLocalBlockchainHeight :: !BlockchainHeight
-   , nfoLocalTimeDifference   :: !LocalTimeDifference
+   , nfoLocalTimeInformation  :: !TimeInfo
    } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''NodeInfo
@@ -1658,14 +1683,12 @@ instance ToSchema NodeInfo where
       & ("syncProgress"          --^ "Syncing progression, in percentage.")
       & ("blockchainHeight"      --^ "If known, the current blockchain height, in number of blocks.")
       & ("localBlockchainHeight" --^ "Local blockchain height, in number of blocks.")
-      & ("localTimeDifference"   --^ "Local time difference, in number of blocks.")
+      & ("localTimeInformation"  --^ "Information about the clock on this node.")
     )
 
 instance Arbitrary NodeInfo where
     arbitrary = NodeInfo <$> arbitrary
-                         -- TODO: The JSON validation stuff is currently
-    -- failing because
-                         <*> map Just arbitrary
+                         <*> arbitrary
                          <*> arbitrary
                          <*> arbitrary
 
@@ -1680,7 +1703,7 @@ instance BuildableSafeGen NodeInfo where
         nfoSyncProgress
         nfoBlockchainHeight
         nfoLocalBlockchainHeight
-        nfoLocalTimeDifference
+        nfoLocalTimeInformation
 
 
 --

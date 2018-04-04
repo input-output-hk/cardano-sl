@@ -25,8 +25,8 @@ mkHttpClient baseUrl manager = WalletClient
         = \x -> run . getAddressIndexR x
     , postAddress
         = run . postAddressR
-    , getAddressValidity
-        = run . getAddressValidityR
+    , getAddress
+        = run . getAddressR
     -- wallets endpoints
     , postWallet
         = run . postWalletR
@@ -72,8 +72,10 @@ mkHttpClient baseUrl manager = WalletClient
     unNoContent = map void
     clientEnv = ClientEnv manager baseUrl
     run       = fmap (over _Left ClientHttpError) . (`runClientM` clientEnv)
-    (getAddressIndexR :<|> postAddressR :<|> getAddressValidityR) =
-        addressesAPI
+    getAddressIndexR
+        :<|> postAddressR
+        :<|> getAddressR
+        = addressesAPI
 
     postWalletR
         :<|> getWalletIndexFilterSortsR
@@ -82,19 +84,22 @@ mkHttpClient baseUrl manager = WalletClient
         :<|> getWalletR
         :<|> updateWalletR
         = walletsAPI
+
     deleteAccountR
         :<|> getAccountR
         :<|> getAccountIndexPagedR
         :<|> postAccountR
         :<|> updateAccountR
         = accountsAPI
+
     postTransactionR
         :<|> getTransactionIndexFilterSortsR
         :<|> getTransactionFeeR
         = transactionsAPI
 
     addressesAPI
-        :<|> (walletsAPI :<|> accountsAPI)
+        :<|> walletsAPI
+        :<|> accountsAPI
         :<|> transactionsAPI
         :<|> getNodeSettingsR
         :<|> getNodeInfoR

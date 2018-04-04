@@ -19,12 +19,11 @@ import           Data.Foldable (for_)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
 import           Pos.Client.Txp.History (TxHistoryEntry)
-import           Pos.Core (ChainDifficulty, HasProtocolConstants)
+import           Pos.Core (Address, ChainDifficulty, HasProtocolConstants)
 import           Pos.Core.Common (HeaderHash)
 import           Pos.Txp (TxId, UtxoModifier)
 import           Pos.Util.Servant (encodeCType)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccountMeta, CId, CTxId,
-                                             CTxMeta, CWAddressMeta (..), Wal)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta, CId, CTxId, CTxMeta, Wal)
 import           Pos.Wallet.Web.Pending.Types (PtxCondition)
 import           Pos.Wallet.Web.State.Storage (Update)
 import qualified Pos.Wallet.Web.State.Storage as WS
@@ -33,7 +32,7 @@ import qualified Pos.Wallet.Web.State.Storage as WS
 createAccountWithAddress
     :: AccountId
     -> CAccountMeta
-    -> CWAddressMeta
+    -> WS.WAddressMeta
     -> Update ()
 createAccountWithAddress accId accMeta addrMeta = do
     WS.createAccount accId accMeta
@@ -62,8 +61,8 @@ removeWallet2 walId = do
 -- or modifying `applyModifierToWallet`, which could be present in the `acid-state` transaction log?
 applyModifierToWallet2
     :: CId Wal
-    -> [CWAddressMeta] -- ^ Wallet addresses to add
-    -> [(WS.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to add
+    -> [WS.WAddressMeta] -- ^ Wallet addresses to add
+    -> [(WS.CustomAddressType, [(Address, HeaderHash)])] -- ^ Custom addresses to add
     -> UtxoModifier
     -> [(CTxId, CTxMeta)] -- ^ Transaction metadata to add
     -> Map TxId TxHistoryEntry -- ^ Entries for the history cache
@@ -97,8 +96,8 @@ applyModifierToWallet2 walId wAddrs custAddrs utxoMod
 --   TODO Find out the significance of this set of modifiers and document.
 applyModifierToWallet
     :: CId Wal
-    -> [CWAddressMeta] -- ^ Wallet addresses to add
-    -> [(WS.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to add
+    -> [WS.WAddressMeta] -- ^ Wallet addresses to add
+    -> [(WS.CustomAddressType, [(Address, HeaderHash)])] -- ^ Custom addresses to add
     -> UtxoModifier
     -> [(CTxId, CTxMeta)] -- ^ Transaction metadata to add
     -> Map TxId TxHistoryEntry -- ^ Entries for the history cache
@@ -123,8 +122,8 @@ applyModifierToWallet walId wAddrs custAddrs utxoMod
 rollbackModifierFromWallet2
     :: HasProtocolConstants -- Needed for ptxUpdateMeta
     => CId Wal
-    -> [CWAddressMeta] -- ^ Addresses to remove
-    -> [(WS.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to remove
+    -> [WS.WAddressMeta] -- ^ Addresses to remove
+    -> [(WS.CustomAddressType, [(Address, HeaderHash)])] -- ^ Custom addresses to remove
     -> UtxoModifier
        -- We use this odd representation because Data.Map does not get 'withoutKeys'
        -- until 5.8.1
@@ -158,8 +157,8 @@ rollbackModifierFromWallet2 walId wAddrs custAddrs utxoMod
 rollbackModifierFromWallet
     :: HasProtocolConstants -- Needed for ptxUpdateMeta
     => CId Wal
-    -> [CWAddressMeta] -- ^ Addresses to remove
-    -> [(WS.CustomAddressType, [(CId Addr, HeaderHash)])] -- ^ Custom addresses to remove
+    -> [WS.WAddressMeta] -- ^ Addresses to remove
+    -> [(WS.CustomAddressType, [(Address, HeaderHash)])] -- ^ Custom addresses to remove
     -> UtxoModifier
        -- We use this odd representation because Data.Map does not get 'withoutKeys'
        -- until 5.8.1

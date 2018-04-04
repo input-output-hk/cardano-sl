@@ -11,7 +11,6 @@ import qualified Pos.Wallet.Web.State.Storage as V0
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Errors
-import qualified Cardano.Wallet.API.V1.LegacyHandlers.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
@@ -30,13 +29,12 @@ handlers :: ( HasConfigurations
             , HasCompileInfo
             )
          => ServerT Wallets.API MonadV1
-handlers = (newWallet
+handlers = newWallet
     :<|> listWallets
     :<|> updatePassword
     :<|> deleteWallet
     :<|> getWallet
     :<|> updateWallet
-    ) :<|> Accounts.handlers
 
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored
@@ -51,7 +49,6 @@ newWallet
     => NewWallet
     -> m (WalletResponse Wallet)
 newWallet NewWallet{..} = do
-    ss <- V0.askWalletSnapshot
     let newWalletHandler CreateWallet  = V0.newWalletHandler
         newWalletHandler RestoreWallet = V0.restoreWalletFromSeed
         (V1 spendingPassword) = fromMaybe (V1 mempty) newwalSpendingPassword
@@ -62,6 +59,7 @@ newWallet NewWallet{..} = do
     let walletInit = V0.CWalletInit initMeta backupPhrase
     single <$> do
         v0wallet <- newWalletHandler newwalOperation spendingPassword walletInit
+        ss <- V0.askWalletSnapshot
         addWalletInfo ss v0wallet
 
 -- | Returns the full (paginated) list of wallets.

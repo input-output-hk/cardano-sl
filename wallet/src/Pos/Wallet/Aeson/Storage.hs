@@ -21,9 +21,9 @@ import           Pos.Util.Util (toAesonError)
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CHash (..), CId (..), CTxId (..))
 import           Pos.Wallet.Web.Pending.Types (PendingTx, PtxCondition, PtxSubmitTiming)
-import           Pos.Wallet.Web.State.Storage (AccountInfo, AddressInfo, RestorationBlockDepth,
-                                               SyncStatistics, SyncThroughput, WalletInfo,
-                                               WalletStorage, WalletSyncState)
+import           Pos.Wallet.Web.State.Storage (AccountInfo, AddressInfo, WAddressMeta,
+                                               RestorationBlockDepth, SyncStatistics, SyncThroughput,
+                                               WalletInfo, WalletStorage, WalletSyncState)
 
 instance FromJSON (CId a) => FromJSONKey (CId a) where
     fromJSONKey = FromJSONKeyTextParser parser
@@ -61,6 +61,7 @@ deriveJSON defaultOptions ''WalletSyncState
 deriveJSON defaultOptions ''AddressInfo
 deriveJSON defaultOptions ''AccountInfo
 deriveJSON defaultOptions ''AccountId
+deriveJSON defaultOptions ''WAddressMeta
 deriveJSON defaultOptions ''WalletInfo
 deriveJSON defaultOptions ''RestorationBlockDepth
 deriveJSON defaultOptions ''WalletStorage

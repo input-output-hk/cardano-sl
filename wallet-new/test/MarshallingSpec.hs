@@ -45,6 +45,7 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @(V1 Core.Coin) Proxy
         aesonRoundtripProp @(V1 Crypto.PassPhrase) Proxy
         aesonRoundtripProp @(V1 InputSelectionPolicy) Proxy
+        aesonRoundtripProp @TimeInfo Proxy
         aesonRoundtripProp @Transaction Proxy
         aesonRoundtripProp @(V1 Core.Timestamp) Proxy
         aesonRoundtripProp @TransactionDirection Proxy

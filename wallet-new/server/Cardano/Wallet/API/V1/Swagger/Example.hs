@@ -64,6 +64,7 @@ instance Example NodeSettings
 instance Example SlotDuration
 instance Example WalletAddress
 instance Example NewAccount
+instance Example TimeInfo
 instance Example AddressValidity
 instance Example NewAddress
 instance Example CUpdateInfo

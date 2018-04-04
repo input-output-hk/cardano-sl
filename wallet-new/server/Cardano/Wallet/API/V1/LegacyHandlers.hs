@@ -4,6 +4,7 @@
 {-# LANGUAGE PolyKinds             #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
+
 module Cardano.Wallet.API.V1.LegacyHandlers where
 
 import           Universum
@@ -12,8 +13,10 @@ import           Ntp.Client (NtpStatus)
 import           Pos.Diffusion.Types (Diffusion (sendTx))
 
 import qualified Cardano.Wallet.API.V1 as V1
+import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses
 import qualified Cardano.Wallet.API.V1.Info as Info
+import qualified Cardano.Wallet.API.V1.LegacyHandlers.Accounts as Accounts
 import qualified Cardano.Wallet.API.V1.LegacyHandlers.Addresses as Addresses
 import qualified Cardano.Wallet.API.V1.LegacyHandlers.Info as Info
 import qualified Cardano.Wallet.API.V1.LegacyHandlers.Settings as Settings
@@ -42,6 +45,7 @@ handlers :: ( HasConfigurations
 handlers naturalTransformation diffusion ntpStatus =
          hoistServer (Proxy @Addresses.API) naturalTransformation Addresses.handlers
     :<|> hoistServer (Proxy @Wallets.API) naturalTransformation Wallets.handlers
+    :<|> hoistServer (Proxy @Accounts.API) naturalTransformation Accounts.handlers
     :<|> hoistServer (Proxy @Transactions.API) naturalTransformation (Transactions.handlers (sendTx diffusion))
     :<|> hoistServer (Proxy @Settings.API) naturalTransformation Settings.handlers
     :<|> hoistServer (Proxy @Info.API) naturalTransformation (Info.handlers ntpStatus)

@@ -80,7 +80,6 @@ import qualified Pos.Util.Modifier as MM
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
-import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
 import           Pos.WorkMode (MinWorkMode, RealMode, RealModeContext (..))
 
 import           Pos.Wallet.Redirect (MonadBlockchainInfo (..), MonadUpdates (..),
@@ -90,20 +89,18 @@ import           Pos.Wallet.Redirect (MonadBlockchainInfo (..), MonadUpdates (..
                                       txpProcessTxWebWallet, waitForUpdateWebWallet)
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Account (AccountMode, GenSeed (RandomSeed))
-import           Pos.Wallet.Web.ClientTypes (AccountId, cwamId)
+import           Pos.Wallet.Web.ClientTypes (AccountId)
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, newAddress_)
-import           Pos.Wallet.Web.Methods.Misc (AddrCIdHashes, MonadConvertToAddr)
 import           Pos.Wallet.Web.Sockets.Connection (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
 import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, getWalletBalancesAndUtxo,
-                                       getWalletUtxo, askWalletSnapshot)
+                                       getWalletUtxo, askWalletSnapshot, wamAddress)
 import           Pos.Wallet.Web.Tracking (MonadBListener (..), onApplyBlocksWebWallet,
                                           onRollbackBlocksWebWallet)
 
 data WalletWebModeContext = WalletWebModeContext
     { wwmcWalletState        :: !WalletDB
     , wwmcConnectionsVar     :: !ConnectionsVar
-    , wwmcHashes             :: !AddrCIdHashes
     , wwmcWalletSyncRequests :: !SyncQueue
     , wwmcRealModeContext    :: !(RealModeContext WalletMempoolExt)
     }
@@ -114,18 +111,14 @@ type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
 walletWebModeToRealMode
     :: WalletDB
     -> ConnectionsVar
-    -> AddrCIdHashes
     -> SyncQueue
     -> WalletWebMode t
     -> RealMode WalletMempoolExt t
-walletWebModeToRealMode ws cv cidHashes syncRequests act = do
+walletWebModeToRealMode ws cv syncRequests act = do
     rmc <- ask
-    lift $ runReaderT act (WalletWebModeContext ws cv cidHashes syncRequests rmc)
+    lift $ runReaderT act (WalletWebModeContext ws cv syncRequests rmc)
 
 makeLensesWith postfixLFields ''WalletWebModeContext
-
-instance HasLens AddrCIdHashes WalletWebModeContext AddrCIdHashes where
-    lensOf = wwmcHashes_L
 
 instance HasLens SyncQueue WalletWebModeContext SyncQueue where
     lensOf = wwmcWalletSyncRequests_L
@@ -201,7 +194,6 @@ type MonadWalletWebMode ctx m =
     , MonadBListener m
     , MonadReader ctx m
     , MonadFormatPeers m
-    , MonadConvertToAddr ctx m
     , HasLens StateLock ctx StateLock
     , HasNodeType ctx
     , HasReportingContext ctx
@@ -349,7 +341,7 @@ getNewAddressWebWallet
 getNewAddressWebWallet (accId, passphrase) = do
     ws <- askWalletSnapshot
     cAddrMeta <- newAddress_ ws RandomSeed passphrase accId
-    decodeCTypeOrFail (cwamId cAddrMeta)
+    return $ cAddrMeta ^. wamAddress
 
 instance (HasConfigurations, HasCompileInfo)
       => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where

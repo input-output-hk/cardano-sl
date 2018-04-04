@@ -19,8 +19,9 @@ import qualified Pos.Block.Base as T
 import qualified Pos.Block.Logic.Integrity as T
 import           Pos.Core (HasConfiguration, GenesisHash (..), genesisHash)
 import qualified Pos.Core as T
-import           Pos.Crypto (ProxySecretKey (pskIssuerPk), SecretKey, SignTag (..), createPsk,
-                             proxySign, sign, toPublic, protocolMagic)
+import           Pos.Crypto (ProtocolMagic (..), ProxySecretKey (pskIssuerPk), SecretKey,
+                             SignTag (..), createPsk, proxySign, sign, toPublic,
+                             protocolMagic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Util.Chrono (NewestFirst (..))
 
@@ -35,6 +36,7 @@ spec = withDefConfiguration $ describe "Block properties" $ modifyMaxSuccess (mi
         prop genesisHeaderFormationDesc genesisHeaderFormation
     describe "verifyHeader" $ do
         prop verifyHeaderDesc validateGoodMainHeader
+        prop invalidProtocolMagicHeaderDesc validateBadProtocolMagicMainHeader
     describe "verifyHeaders" $ modifyMaxSuccess (const 1) $ do
         prop verifyHeadersDesc validateGoodHeaderChain
         emptyHeaderChain (NewestFirst [])
@@ -44,6 +46,7 @@ spec = withDefConfiguration $ describe "Block properties" $ modifyMaxSuccess (mi
     genesisHeaderFormationDesc = "Manually generating a genesis header block and using\
     \ mkGenesisHeader is the same"
     verifyHeaderDesc = "Successfully verifies a correct main block header"
+    invalidProtocolMagicHeaderDesc = "Header with invalid protocol magic does not validate"
     verifyHeadersDesc = "Successfully verifies a correct chain of block headers"
     verifyEmptyHsDesc = "Successfully validates an empty header chain"
     emptyHeaderChain ::
@@ -147,6 +150,18 @@ validateGoodMainHeader
     => T.HeaderAndParams -> Bool
 validateGoodMainHeader (T.getHAndP -> (params, header)) =
     isVerSuccess $ T.verifyHeader params header
+
+-- FIXME should sharpen this test to ensure that it fails with the expected
+-- reason.
+validateBadProtocolMagicMainHeader
+    :: HasConfiguration
+    => T.HeaderAndParams -> Bool
+validateBadProtocolMagicMainHeader (T.getHAndP -> (params, header)) =
+    let protocolMagic' = ProtocolMagic (getProtocolMagic protocolMagic + 1)
+        header' = case header of
+            T.BlockHeaderGenesis h -> T.BlockHeaderGenesis (h { T._gbhProtocolMagic = protocolMagic' })
+            T.BlockHeaderMain h    -> T.BlockHeaderMain    (h { T._gbhProtocolMagic = protocolMagic' })
+    in  not $ isVerSuccess $ T.verifyHeader params header'
 
 validateGoodHeaderChain
     :: HasConfiguration

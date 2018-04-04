@@ -29,11 +29,14 @@ import           Pos.Binary.Update ()
 import qualified Pos.Block.BHelpers as BHelpers
 import           Pos.Core (BlockVersionData (..), ChainDifficulty, EpochOrSlot, HasConfiguration,
                            HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
-                           HasHeaderHash (..), HeaderHash, SlotId (..), SlotLeaders, addressHash,
-                           gbExtra, gbhExtra, getSlotIndex, headerSlotL, prevBlockL)
-import           Pos.Core.Block (Block, BlockHeader (..), gebAttributes, gehAttributes,
-                                 genBlockLeaders, getBlockHeader, mainHeaderLeaderKey,
+                           HasHeaderHash (..), HeaderHash, SlotId (..), SlotLeaders,
+                           protocolMagic, addressHash, gbExtra, gbhExtra, getSlotIndex,
+                           headerSlotL, prevBlockL)
+import           Pos.Core.Block (Block, BlockHeader (..), blockHeaderProtocolMagic,
+                                 gebAttributes, gehAttributes, genBlockLeaders,
+                                 getBlockHeader, mainHeaderLeaderKey,
                                  mebAttributes, mehAttributes)
+import           Pos.Crypto (ProtocolMagic (getProtocolMagic))
 import           Pos.Data.Attributes (areAttributesKnown)
 import           Pos.Util.Chrono (NewestFirst (..), OldestFirst)
 
@@ -91,7 +94,8 @@ verifyHeader VerifyHeaderParams {..} h =
   where
     checks =
         mconcat
-            [ maybe mempty relatedToPrevHeader vhpPrevHeader
+            [ checkProtocolMagic
+            , maybe mempty relatedToPrevHeader vhpPrevHeader
             , maybe mempty relatedToCurrentSlot vhpCurrentSlot
             , maybe mempty relatedToLeaders vhpLeaders
             , checkSize
@@ -123,9 +127,20 @@ verifyHeader VerifyHeaderParams {..} h =
               ("two adjacent blocks are from different epochs ("%build%" != "%build%")")
               oldEpoch newEpoch
         )
+    -- FIXME do not use 'HasConfigurations' 'protocolMagic'. Take it as a
+    -- parameter instead.
+    checkProtocolMagic =
+        [ ( protocolMagic == blockHeaderProtocolMagic h
+          , sformat
+                ("protocol magic number mismatch: got "%int%" but expected "%int)
+                (getProtocolMagic (blockHeaderProtocolMagic h))
+                (getProtocolMagic protocolMagic)
+          )
+        ]
     checkSize =
         case vhpMaxSize of
             Nothing -> mempty
+            -- FIXME do not use 'biSize'! It's expensive.
             Just maxSize ->
                 [ ( Bi.biSize h <= maxSize
                   , sformat

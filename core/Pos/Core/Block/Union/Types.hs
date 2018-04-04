@@ -9,6 +9,7 @@ module Pos.Core.Block.Union.Types
        , ComponentBlock (..)
 
        , blockHeaderHash
+       , blockHeaderProtocolMagic
 
        , module Pos.Core.Block.Genesis.Types
        , module Pos.Core.Block.Main.Types
@@ -19,7 +20,8 @@ import           Universum
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Core.Common (BlockHeader, HeaderHash)
-import           Pos.Crypto (unsafeHash)
+import           Pos.Crypto (ProtocolMagic, unsafeHash)
+import           Pos.Core.Block.Blockchain (GenericBlockHeader (..))
 -- Re-exports
 import           Pos.Core.Block.Genesis.Types
 import           Pos.Core.Block.Main.Types
@@ -66,3 +68,8 @@ data ComponentBlock payload =
 -- for only this function.
 blockHeaderHash :: Bi BlockHeader => BlockHeader -> HeaderHash
 blockHeaderHash = unsafeHash
+
+-- | The 'ProtocolMagic' in a 'BlockHeader'.
+blockHeaderProtocolMagic :: BlockHeader -> ProtocolMagic
+blockHeaderProtocolMagic (BlockHeaderGenesis gbh) = _gbhProtocolMagic gbh
+blockHeaderProtocolMagic (BlockHeaderMain mbh)    = _gbhProtocolMagic mbh

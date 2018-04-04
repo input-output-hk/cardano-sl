@@ -17,9 +17,12 @@ module Pos.Wallet.Web.State.Storage
        , WalBalancesAndUtxo
        , WalletSyncState (..)
        , RestorationBlockDepth (..)
+       , SyncThroughput (..)
+       , SyncStatistics (..)
        , PtxMetaUpdate (..)
        , Query
        , Update
+       , noSyncStatistics
        , getWalletStorage
        , flushWalletStorage
        , getProfile
@@ -57,6 +60,7 @@ module Pos.Wallet.Web.State.Storage
        , setWalletPassLU
        , setWalletSyncTip
        , setWalletRestorationSyncTip
+       , updateSyncStatistics
        , getWalletTxHistory
        , getWalletUtxo
        , getWalletBalancesAndUtxo
@@ -100,7 +104,7 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Serokell.Util (zoom')
 
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
-import           Pos.Core (ChainDifficulty, HeaderHash, SlotId, Timestamp)
+import           Pos.Core (BlockCount (..), ChainDifficulty (..), HeaderHash, SlotId, Timestamp)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.SafeCopy ()
@@ -178,23 +182,52 @@ data WalletSyncState
     -- ^ This wallet is tracking the blockchain up to 'HeaderHash'.
     deriving (Eq)
 
+-- The 'SyncThroughput' is computed during the syncing phase in terms of
+-- how many blocks we can sync in one second. This information can be
+-- used by consumers of the API to construct heuristics on the state of the
+-- syncing (e.g. estimated completion time, for example).
+-- We also store the 'ChainDifficulty' we have been syncing up until now so
+-- API consumers can also compute progress in terms of percentage. We don't
+-- store this information in the 'WalletSyncState' directly as we cannot
+-- calculate the 'ChainDifficulty' from a 'HeaderHash', and that requires a
+-- RocksDB lookup, which would make migration harder to perform without
+-- incidents.
+data SyncStatistics = SyncStatistics {
+      wspThroughput             :: !SyncThroughput
+    , wspCurrentBlockchainDepth :: !ChainDifficulty
+    } deriving (Eq)
+
+-- ^ | The 'SyncThroughput', in blocks/sec. This can be roughly computed
+-- during the syncing process, to provide better estimate to the frontend
+-- on how much time the restoration/syncing progress is going to take.
+newtype SyncThroughput = SyncThroughput BlockCount
+     deriving (Eq, Ord, Show)
+
+zeroThroughput :: SyncThroughput
+zeroThroughput = SyncThroughput (BlockCount 0)
+
+noSyncStatistics :: SyncStatistics
+noSyncStatistics = SyncStatistics zeroThroughput (ChainDifficulty $ BlockCount 0)
+
 data WalletInfo = WalletInfo
     { -- | Wallet metadata (name, assurance, etc.)
-      _wiMeta         :: !CWalletMeta
+      _wiMeta           :: !CWalletMeta
       -- | Last time when wallet passphrase was updated.
-    , _wiPassphraseLU :: !PassPhraseLU
+    , _wiPassphraseLU   :: !PassPhraseLU
       -- | Wallet creation time.
-    , _wiCreationTime :: !POSIXTime
+    , _wiCreationTime   :: !POSIXTime
       -- | Incapsulate the history of this wallet in terms of "lifecycle".
-    , _wiSyncState    :: !WalletSyncState
+    , _wiSyncState      :: !WalletSyncState
+      -- | Syncing statistics for this wallet, if any.
+    , _wiSyncStatistics :: !SyncStatistics
       -- | Pending states for all created transactions (information related
       -- to transaction resubmission).
       -- See "Pos.Wallet.Web.Pending" for resubmission functionality.
-    , _wsPendingTxs   :: !(HashMap TxId PendingTx)
+    , _wsPendingTxs     :: !(HashMap TxId PendingTx)
       -- | Wallets that are being synced are marked as not ready, and
       -- are excluded from api endpoints. This info should not be leaked
       -- into a client facing data structure (for example 'CWalletMeta')
-    , _wiIsReady      :: !Bool
+    , _wiIsReady        :: !Bool
     } deriving (Eq)
 
 makeLenses ''WalletInfo
@@ -485,7 +518,7 @@ createAccount accId cAccMeta =
 -- @isReady@ should be set to @False@ when syncing is still needed.
 createWallet :: CId Wal -> CWalletMeta -> Bool -> POSIXTime -> Update ()
 createWallet cWalId cWalMeta isReady curTime = do
-    let info = WalletInfo cWalMeta curTime curTime NotSynced mempty isReady
+    let info = WalletInfo cWalMeta curTime curTime NotSynced noSyncStatistics mempty isReady
     wsWalletInfos . at cWalId %= (<|> Just info)
 
 -- | Add new address given 'CWAddressMeta' (which contains information about
@@ -526,8 +559,16 @@ setWalletSyncTip cWalId hh = wsWalletInfos . ix cWalId . wiSyncState .= SyncedWi
 
 -- | Deliberately-verbose transaction to update the 'SyncState' for this wallet during a
 -- restoration.
-setWalletRestorationSyncTip :: CId Wal -> RestorationBlockDepth -> HeaderHash -> Update ()
+setWalletRestorationSyncTip :: CId Wal
+                            -> RestorationBlockDepth
+                            -> HeaderHash
+                            -> Update ()
 setWalletRestorationSyncTip cWalId rhh hh = wsWalletInfos . ix cWalId . wiSyncState .= RestoringFrom rhh hh
+
+updateSyncStatistics :: CId Wal
+                           -> SyncStatistics
+                           -> Update ()
+updateSyncStatistics cWalId stats = wsWalletInfos . ix cWalId . wiSyncStatistics .= stats
 
 -- | Set meta data for transaction only if it hasn't been set already.
 -- FIXME: this will be removed later (temporary solution) (not really =\)
@@ -726,6 +767,8 @@ deriveSafeCopySimple 0 'base ''AddressInfo
 deriveSafeCopySimple 0 'base ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletInfo
 deriveSafeCopySimple 0 'base ''RestorationBlockDepth
+deriveSafeCopySimple 0 'base ''SyncThroughput
+deriveSafeCopySimple 0 'base ''SyncStatistics -- TODO(adn): migrations
 
 -- Legacy versions, for migrations
 

@@ -7,6 +7,8 @@ module Cardano.Wallet.WalletLayer.Kernel
 
 import           Universum
 
+import           System.Wlog (Severity)
+
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
 
 import qualified Cardano.Wallet.Kernel as Kernel
@@ -16,8 +18,9 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 -- The passive wallet cannot send new transactions.
 bracketPassiveWallet
     :: forall m n a. (MonadMask m, Monad n)
-    => (PassiveWalletLayer n -> m a) -> m a
-bracketPassiveWallet =
+    => (Severity -> Text -> IO ())
+    -> (PassiveWalletLayer n -> m a) -> m a
+bracketPassiveWallet logFunction =
     bracket
         (Kernel.bracketPassiveWallet logFunction passiveWalletLayer)
         (\_ -> return ())
@@ -28,9 +31,6 @@ bracketPassiveWallet =
             { pwlGetWalletAddresses  = error "Not implemented!"
             , pwlGetWalletMeta       = error "Not implemented!"
             }
-
-    -- | Empty log function.
-    logFunction _ = pure $ pure ()
 
 -- | Initialize the active wallet.
 -- The active wallet is allowed all.

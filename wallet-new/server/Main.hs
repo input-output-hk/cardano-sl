@@ -108,7 +108,7 @@ actionWithNewWallet sscParams nodeParams params =
       -- 'NewWalletBackendParams' to construct or initialize the wallet
 
       -- TODO(ks): Currently using non-implemented layer for wallet layer.
-      bracketKernelPassiveWallet $ \wallet -> do
+      bracketKernelPassiveWallet logMessage' $ \wallet -> do
         liftIO $ logMessage' Info "Wallet kernel initialized"
         Kernel.Mode.runWalletMode nr wallet (mainAction wallet nr)
   where

@@ -9,11 +9,13 @@ module Cardano.Wallet.WalletLayer
     , bracketQuickCheckPassiveWallet
     , bracketQuickCheckActiveWallet
     -- * We re-export the types since we want all the dependencies
-    -- in this module, other module shouldn't be touched.
+    -- in this module, other modules shouldn't be touched.
     , module Cardano.Wallet.WalletLayer.Types
     ) where
 
 import           Universum
+
+import           System.Wlog (Severity)
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
@@ -30,7 +32,8 @@ import           Pos.Wallet.Web.State.State (WalletDbReader)
 
 bracketKernelPassiveWallet
     :: forall m n a. (MonadMask n, Monad m)
-    => (PassiveWalletLayer m -> n a) -> n a
+    => (Severity -> Text -> IO ())
+    -> (PassiveWalletLayer m -> n a) -> n a
 bracketKernelPassiveWallet = Kernel.bracketPassiveWallet
 
 bracketKernelActiveWallet

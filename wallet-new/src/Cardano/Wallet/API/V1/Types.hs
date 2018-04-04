@@ -575,7 +575,7 @@ instance ToSchema SyncPercentage where
     declareNamedSchema _ = do
         pure $ NamedSchema (Just "SyncPercentage") $ mempty
             & type_ .~ SwaggerObject
-            & required .~ ["quantity"]
+            & required .~ ["quantity", "unit"]
             & properties .~ (mempty
                 & at "quantity" ?~ (Inline $ mempty
                     & type_ .~ SwaggerNumber
@@ -620,11 +620,10 @@ instance ToSchema EstimatedCompletionTime where
     declareNamedSchema _ = do
         pure $ NamedSchema (Just "EstimatedCompletionTime") $ mempty
             & type_ .~ SwaggerObject
-            & required .~ ["quantity"]
+            & required .~ ["quantity", "unit"]
             & properties .~ (mempty
                 & at "quantity" ?~ (Inline $ mempty
                     & type_ .~ SwaggerNumber
-                    & maximum_ .~ Just 100
                     & minimum_ .~ Just 0
                     )
                 & at "unit" ?~ (Inline $ mempty
@@ -661,7 +660,7 @@ instance ToSchema SyncThroughput where
     declareNamedSchema _ = do
         pure $ NamedSchema (Just "SyncThroughput") $ mempty
             & type_ .~ SwaggerObject
-            & required .~ ["quantity"]
+            & required .~ ["quantity", "unit"]
             & properties .~ (mempty
                 & at "quantity" ?~ (Inline $ mempty
                     & type_ .~ SwaggerNumber
@@ -731,7 +730,7 @@ instance FromJSON SyncState where
 
 instance ToSchema SyncState where
     declareNamedSchema _ = do
-      syncProgress <- declareNamedSchema @SyncProgress Proxy
+      syncProgress <- declareSchemaRef @SyncProgress Proxy
       pure $ NamedSchema (Just "SyncState") $ mempty
           & type_ .~ SwaggerObject
           & required .~ ["tag"]
@@ -740,7 +739,7 @@ instance ToSchema SyncState where
                   & type_ .~ SwaggerString
                   & enum_ ?~ ["restoring", "synced"]
                   )
-              & at "data" ?~ (Inline . _namedSchemaSchema $ syncProgress)
+              & at "data" ?~ syncProgress
               )
 
 instance Arbitrary SyncState where

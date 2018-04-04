@@ -25,7 +25,7 @@ import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode
                                             WalletBackendParams (..), isDebugMode,
                                             walletAcidInterval, walletDbOptions)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer, PassiveWalletLayer,
-                                             WalletBracketable (..), WalletTypeKernel (..))
+                                             bracketKernelActiveWallet)
 
 import           Data.Aeson
 import           Formatting (build, sformat, (%))
@@ -131,7 +131,7 @@ walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
     first one $ worker walletServerOuts $ \diffusion -> do
       env <- ask
       let diffusion' = Kernel.fromDiffusion (lower env) diffusion
-      bracketActiveWallet Kernel passive diffusion' $ \active ->
+      bracketKernelActiveWallet passive diffusion' $ \active ->
         walletServeImpl
           (getApplication active)
           walletAddress

@@ -1,8 +1,13 @@
 module Cardano.Wallet.WalletLayer
-    ( WalletBracketable (..)
-    , WalletTypeKernel (..)
-    , WalletTypeLegacy (..)
-    , WalletTypeQuickCheck (..)
+    ( -- * Kernel
+      bracketKernelPassiveWallet
+    , bracketKernelActiveWallet
+    -- * Legacy
+    , bracketLegacyPassiveWallet
+    , bracketLegacyActiveWallet
+    -- * QuickCheck
+    , bracketQuickCheckPassiveWallet
+    , bracketQuickCheckActiveWallet
     -- * We re-export the types since we want all the dependencies
     -- in this module, other module shouldn't be touched.
     , module Cardano.Wallet.WalletLayer.Types
@@ -19,52 +24,33 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), Passi
 
 import           Pos.Wallet.Web.State.State (WalletDbReader)
 
+------------------------------------------------------------
+-- Kernel
+------------------------------------------------------------
 
------------------------------------------------------------
--- Data types
------------------------------------------------------------
+bracketKernelPassiveWallet :: forall m n a. (MonadMask n, Monad m) => (PassiveWalletLayer m -> n a) -> n a
+bracketKernelPassiveWallet = Kernel.bracketPassiveWallet
 
-data WalletTypeKernel
-    = Kernel
-    deriving (Eq, Show)
+bracketKernelActiveWallet :: forall m n a. (MonadMask n, Monad m) => PassiveWalletLayer m -> WalletDiffusion -> (ActiveWalletLayer m -> n a) -> n a
+bracketKernelActiveWallet  = Kernel.bracketActiveWallet
 
-data WalletTypeLegacy
-    = Legacy
-    deriving (Eq, Show)
+------------------------------------------------------------
+-- Legacy
+------------------------------------------------------------
 
-data WalletTypeQuickCheck
-    = QuickCheck
-    deriving (Eq, Show)
+bracketLegacyPassiveWallet :: forall ctx m n a. (MonadMask n, WalletDbReader ctx m, MonadIO m, MonadThrow m) => (PassiveWalletLayer m -> n a) -> n a
+bracketLegacyPassiveWallet = Legacy.bracketPassiveWallet
 
------------------------------------------------------------
--- Class and instances
------------------------------------------------------------
+bracketLegacyActiveWallet :: forall ctx m n a. (MonadMask n, WalletDbReader ctx m, MonadIO m, MonadThrow m) => PassiveWalletLayer m -> WalletDiffusion -> (ActiveWalletLayer m -> n a) -> n a
+bracketLegacyActiveWallet  = Legacy.bracketActiveWallet
 
--- | The typeclass that unifies all the underlying wallets.
-class WalletBracketable b m where
+------------------------------------------------------------
+-- QuickCheck
+------------------------------------------------------------
 
-    bracketPassiveWallet
-        :: forall n a. (MonadMask n)
-        => b
-        -> (PassiveWalletLayer m -> n a) -> n a
+bracketQuickCheckPassiveWallet :: forall m n a. (MonadMask n, MonadIO m) => (PassiveWalletLayer m -> n a) -> n a
+bracketQuickCheckPassiveWallet = QuickCheck.bracketPassiveWallet
 
-    bracketActiveWallet
-        :: forall n a. (MonadMask n)
-        => b
-        -> PassiveWalletLayer m
-        -> WalletDiffusion
-        -> (ActiveWalletLayer m -> n a) -> n a
-
-
-instance (Monad m) => WalletBracketable WalletTypeKernel m where
-    bracketPassiveWallet _ = Kernel.bracketPassiveWallet
-    bracketActiveWallet  _ = Kernel.bracketActiveWallet
-
-instance (WalletDbReader ctx m, MonadIO m, MonadThrow m) => WalletBracketable WalletTypeLegacy m where
-    bracketPassiveWallet _ = Legacy.bracketPassiveWallet
-    bracketActiveWallet  _ = Legacy.bracketActiveWallet
-
-instance (MonadIO m) => WalletBracketable WalletTypeQuickCheck m where
-    bracketPassiveWallet _ = QuickCheck.bracketPassiveWallet
-    bracketActiveWallet  _ = QuickCheck.bracketActiveWallet
+bracketQuickCheckActiveWallet :: forall m n a. (MonadMask n, MonadIO m) => PassiveWalletLayer m -> WalletDiffusion -> (ActiveWalletLayer m -> n a) -> n a
+bracketQuickCheckActiveWallet  = QuickCheck.bracketActiveWallet
 

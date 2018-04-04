@@ -37,8 +37,7 @@ import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletB
                                             getWalletNodeOptions, walletDbPath, walletFlushDb,
                                             walletRebuildDb)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer, WalletBracketable (..),
-                                             WalletTypeKernel (..))
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer, bracketKernelPassiveWallet)
 
 
 -- | Default logger name when one is not provided on the command line
@@ -109,7 +108,7 @@ actionWithNewWallet sscParams nodeParams params =
       -- 'NewWalletBackendParams' to construct or initialize the wallet
 
       -- TODO(ks): Currently using non-implemented layer for wallet layer.
-      bracketPassiveWallet Kernel $ \wallet -> do
+      bracketKernelPassiveWallet $ \wallet -> do
         liftIO $ logMessage' Info "Wallet kernel initialized"
         Kernel.Mode.runWalletMode nr wallet (mainAction wallet nr)
   where

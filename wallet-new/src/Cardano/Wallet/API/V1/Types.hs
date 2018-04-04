@@ -492,7 +492,7 @@ instance ToSchema NewWallet where
   declareNamedSchema =
     genericSchemaDroppingPrefix "newwal" (\(--^) props -> props
       & ("backupPhrase"     --^ "Backup phrase to restore the wallet.")
-      & ("spendingPassword" --^ "Optional spending password to encrypt / decrypt private keys.")
+      & ("spendingPassword" --^ "Optional (but recommended) password to protect the wallet on sensitive operations.")
       & ("assuranceLevel"   --^ "Desired assurance level based on the number of confirmations counter of each transaction.")
       & ("name"             --^ "Wallet's name.")
       & ("operation"        --^ "Create a new wallet or Restore an existing one.")
@@ -765,7 +765,7 @@ instance ToSchema Wallet where
             & "name"
             --^ "Wallet's name."
             & "balance"
-            --^ "Current balance, in ADA."
+            --^ "Current balance, in Lovelace."
             & "hasSpendingPassword"
             --^ "Whether or not the wallet has a passphrase."
             & "spendingPasswordLastUpdate"
@@ -873,7 +873,7 @@ instance ToSchema Account where
         genericSchemaDroppingPrefix "acc" (\(--^) props -> props
             & ("index"     --^ "Account's index in the wallet, starting at 0.")
             & ("addresses" --^ "Public addresses pointing to this account.")
-            & ("amount"    --^ "Available funds, in ADA.")
+            & ("amount"    --^ "Available funds, in Lovelace.")
             & ("name"      --^ "Account's name.")
             & ("walletId"  --^ "Id of the wallet this account belongs to.")
           )
@@ -940,7 +940,7 @@ instance Arbitrary NewAccount where
 instance ToSchema NewAccount where
   declareNamedSchema =
     genericSchemaDroppingPrefix "nacc" (\(--^) props -> props
-      & ("spendingPassword" --^ "Optional spending password to unlock funds.")
+      & ("spendingPassword" --^ "Wallet's protection password, required if defined.")
       & ("name"             --^ "Account's name.")
     )
 
@@ -980,7 +980,7 @@ deriveJSON Serokell.defaultOptions ''NewAddress
 instance ToSchema NewAddress where
   declareNamedSchema =
     genericSchemaDroppingPrefix "newaddr" (\(--^) props -> props
-      & ("spendingPassword" --^ "Optional spending password to unlock funds.")
+      & ("spendingPassword" --^ "Wallet's protection password, required if defined.")
       & ("accountIndex"     --^ "Target account's index to store this address in.")
       & ("walletId"         --^ "Corresponding wallet identifier.")
     )
@@ -1042,7 +1042,7 @@ deriveJSON Serokell.defaultOptions ''EstimatedFees
 instance ToSchema EstimatedFees where
   declareNamedSchema =
     genericSchemaDroppingPrefix "fee" (\(--^) props -> props
-      & ("estimatedAmount" --^ "Estimated fees, in ADA.")
+      & ("estimatedAmount" --^ "Estimated fees, in Lovelace.")
     )
 
 instance Arbitrary EstimatedFees where
@@ -1069,7 +1069,7 @@ instance ToSchema PaymentDistribution where
   declareNamedSchema =
     genericSchemaDroppingPrefix "pd" (\(--^) props -> props
       & ("address" --^ "Address to map coins to.")
-      & ("amount"  --^ "Amount of coin to bind, in ADA.")
+      & ("amount"  --^ "Amount of coin to bind, in Lovelace.")
     )
 
 instance Arbitrary PaymentDistribution where
@@ -1157,7 +1157,7 @@ instance ToSchema Payment where
       & ("source"           --^ "Source for the payment.")
       & ("destinations"     --^ "One or more destinations for the payment.")
       & ("groupingPolicy"   --^ "Optional strategy to use for selecting the transaction inputs.")
-      & ("spendingPassword" --^ "Optional spending password to access funds.")
+      & ("spendingPassword" --^ "Wallet's protection password, required to spend funds if defined.")
     )
 
 deriveSafeBuildable ''Payment
@@ -1355,7 +1355,7 @@ instance ToSchema Transaction where
     genericSchemaDroppingPrefix "tx" (\(--^) props -> props
       & ("id"            --^ "Transaction's id.")
       & ("confirmations" --^ "Number of confirmations.")
-      & ("amount"        --^ "Coins moved as part of the transaction, in ADA.")
+      & ("amount"        --^ "Coins moved as part of the transaction, in Lovelace.")
       & ("inputs"        --^ "One or more input money distributions.")
       & ("outputs"       --^ "One or more ouputs money distributions.")
       & ("type"          --^ "Whether the transaction is entirely local or foreign.")

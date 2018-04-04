@@ -20,19 +20,9 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), Passi
 import           Pos.Wallet.Web.State.State (WalletDbReader)
 
 
--- | The typeclass that unifies all the underlying wallets.
-class WalletBracketable b m where
-
-    bracketPassiveWallet
-        :: forall n a. (MonadMask n)
-        => b
-        -> (PassiveWalletLayer m -> n a) -> n a
-
-    bracketActiveWallet
-        :: forall n a. (MonadMask n)
-        => b
-        -> WalletDiffusion
-        -> (ActiveWalletLayer m -> n a) -> n a
+-----------------------------------------------------------
+-- Data types
+-----------------------------------------------------------
 
 data WalletTypeKernel
     = Kernel
@@ -45,6 +35,25 @@ data WalletTypeLegacy
 data WalletTypeQuickCheck
     = QuickCheck
     deriving (Eq, Show)
+
+-----------------------------------------------------------
+-- Class and instances
+-----------------------------------------------------------
+
+-- | The typeclass that unifies all the underlying wallets.
+class WalletBracketable b m where
+
+    bracketPassiveWallet
+        :: forall n a. (MonadMask n)
+        => b
+        -> (PassiveWalletLayer m -> n a) -> n a
+
+    bracketActiveWallet
+        :: forall n a. (MonadMask n)
+        => b
+        -> PassiveWalletLayer m
+        -> WalletDiffusion
+        -> (ActiveWalletLayer m -> n a) -> n a
 
 
 instance (Monad m) => WalletBracketable WalletTypeKernel m where

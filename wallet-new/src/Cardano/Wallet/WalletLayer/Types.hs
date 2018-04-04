@@ -25,3 +25,4 @@ data ActiveWalletLayer m = ActiveWalletLayer {
       -- | The wallet diffusion layer
     , walletDiffusion    :: WalletDiffusion
     }
+

@@ -37,7 +37,8 @@ import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletB
                                             getWalletNodeOptions, walletDbPath, walletFlushDb,
                                             walletRebuildDb)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
-import           Cardano.Wallet.WalletLayer (WalletBracketable (..), WalletTypeKernel (..))
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer, WalletBracketable (..),
+                                             WalletTypeKernel (..))
 
 
 -- | Default logger name when one is not provided on the command line
@@ -110,24 +111,26 @@ actionWithNewWallet sscParams nodeParams params =
       -- TODO(ks): Currently using non-implemented layer for wallet layer.
       bracketPassiveWallet Kernel $ \wallet -> do
         liftIO $ logMessage' Info "Wallet kernel initialized"
-        Kernel.Mode.runWalletMode nr wallet (mainAction nr)
+        Kernel.Mode.runWalletMode nr wallet (mainAction wallet nr)
   where
     mainAction
-        :: NodeResources ext
+        :: PassiveWalletLayer Production
+        -> NodeResources ext
         -> (ActionSpec Kernel.Mode.WalletMode (), OutSpecs)
-    mainAction nr = runNodeWithInit nr
+    mainAction w nr = runNodeWithInit w nr
 
     runNodeWithInit
-        :: NodeResources ext
+        :: PassiveWalletLayer Production
+        -> NodeResources ext
         -> (ActionSpec Kernel.Mode.WalletMode (), OutSpecs)
-    runNodeWithInit nr =
-        let (ActionSpec f, outs) = runNode nr plugins
+    runNodeWithInit w nr =
+        let (ActionSpec f, outs) = runNode nr (plugins w)
          in (ActionSpec $ \s -> f s, outs)
 
     -- TODO: Don't know if we need any of the other plugins that are used
     -- in the legacy wallet (see 'actionWithWallet').
-    plugins :: Plugins.Plugin Kernel.Mode.WalletMode
-    plugins = mconcat [ Plugins.walletBackend params ]
+    plugins :: PassiveWalletLayer Production -> Plugins.Plugin Kernel.Mode.WalletMode
+    plugins w = mconcat [ Plugins.walletBackend params w ]
 
     -- Extract the logger name from node parameters
     --

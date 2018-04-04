@@ -37,10 +37,11 @@ bracketPassiveWallet =
 -- The active wallet is allowed all.
 bracketActiveWallet
     :: forall m n a. (MonadMask m, MonadIO n)
-    => WalletDiffusion
+    => PassiveWalletLayer n
+    -> WalletDiffusion
     -> (ActiveWalletLayer n -> m a) -> m a
-bracketActiveWallet walletDiffusion =
+bracketActiveWallet walletPassiveLayer walletDiffusion =
     bracket
-        (bracketPassiveWallet $ \walletPassiveLayer -> return ActiveWalletLayer {..})
-        (\_ -> return ())
+      (return ActiveWalletLayer{..})
+      (\_ -> return ())
 

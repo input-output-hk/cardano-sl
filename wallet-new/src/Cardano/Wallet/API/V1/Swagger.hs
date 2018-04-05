@@ -341,10 +341,10 @@ curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}} \
      --cacert ./scripts/tls-files/ca.crt
 ```
 
-Receiving Ada
+Receiving ADA
 -------------
 
-To receive _Ada_ from other users you should provide your address. This address can be obtained
+To receive _ADA_ from other users you should provide your address. This address can be obtained
 from an account. Each wallet contains at least one account. An account is like a pocket inside
 of your wallet. Vew all existing accounts of a wallet by using the [`GET /api/v1/wallets/{{walletId}}/accounts`](#tag/Accounts%2Fpaths%2F~1api~1v1~1wallets~1{walletId}~1accounts%2Fget)
 endpoint:
@@ -383,13 +383,13 @@ Since you have, for now, only a single wallet, you'll see something like this:
 ```
 
 All the wallet's accounts are listed under the `addresses` field. You can communicate one of
-these addresses to receive _Ada_ on the associated account.
+these addresses to receive _ADA_ on the associated account.
 
 
-Sending Ada
+Sending ADA
 -----------
 
-In order to send _Ada_ from one of your accounts to another address, you must create a new
+In order to send _ADA_ from one of your accounts to another address, you must create a new
 payment transaction using the [`POST /api/v1/transactions`](#tag/Transactions%2Fpaths%2F~1api~1v1~1transactions%2Fpost)
 endpoint as follows:
 
@@ -411,7 +411,7 @@ curl -X POST https://localhost:8090/api/v1/transactions \
 }'
 ```
 
-Note that, in order to perform a transaction, you need to have enough existing coins on the
+Note that, in order to perform a transaction, you need to have enough existing _ADA_ on the
 source account! The Cardano API is designed to accomodate multiple recipients payments
 out-of-the-box; notice how `destinations` is a list of addresses (and corresponding amounts).
 
@@ -507,7 +507,7 @@ Filter Operators
 | `GTE`    | Retrieves the resources with index _greater than equal_ the one provided. | `balance=GTE[10]`      |
 | `RANGE`  | Retrieves the resources with index _within the inclusive range_ [k,k].    | `balance=RANGE[10,20]` |
 
-Sort Ooperators
+Sort Operators
 --------------
 
 | Operator | Description                                                               | Example                |
@@ -520,7 +520,7 @@ Sort Ooperators
 Errors
 ======
 
-In case a request cannot be served by the API, a non-2xx HTTP response will be issue, together
+In case a request cannot be served by the API, a non-2xx HTTP response will be issued, together
 with a [JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error
 in detail together with a numeric error code which can be used by API consumers to implement
 proper error handling in their application. For example, here's a typical error which might be
@@ -539,18 +539,18 @@ $deWalletErrorTable
 Monetary Denomination & Units
 =============================
 
-Cardano's currency is called _Ada_ ( ₳ ). _Ada_ has up to **6** decimal places; hence the
+Cardano's currency is called _ADA_ ( ₳ ). _ADA_ has up to **6** decimal places; hence the
 smallest monetary unit that can be represented in the Cardano's blockhain is: 0.000001₳. This
 is also called a _Lovelace_ (Cardano's currency is named after the mathematician and computer
 scientist [Ada Lovelace](https://en.wikipedia.org/wiki/Ada_Lovelace)). Put in another way, one
-_Ada_ is equal to one million _Lovelace_.
+_ADA_ is equal to one million _Lovelace_.
 
-Ada        | Lovelace
+ADA        | Lovelace
 -----------|----------
 `1`        | `1 000 000`
 `.000 001` | `1`
 
-> **Warning**: All amounts manipulated in the API are given and expected in Lovelace
+> **Warning**: All amounts manipulated in the API are given and expected in Lovelace.
 
 
 Mnemonic Codes
@@ -589,7 +589,7 @@ Common Use-Cases
 Sending Money to Multiple Recipients
 ------------------------------------
 
-As seen in [Sending Ada](#section/Getting-Started/Sending-Ada), you can send _ADA_ to
+As seen in [Sending ADA](#section/Getting-Started/Sending-ADA), you can send _ADA_ to
 another party using the [`POST /api/v1/transactions`](#tag/Transactions%2Fpaths%2F~1api~1v1~1transactions%2Fpost) endpoint.
 Important to notice is the type of the field `destinations`: it's a list, enabling you to provide more
 than one destination. Each destination is composed of:

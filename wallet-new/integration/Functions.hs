@@ -43,8 +43,8 @@ runActionCheck
     => WalletClient m
     -> WalletState
     -> ActionProbabilities
-    -> m WalletState
-runActionCheck walletClient walletState actionProb = do
+    -> m (Maybe WalletState)
+runActionCheck walletClient walletState actionProb = runMaybeT $ do
     action <- chooseAction actionProb
     runAction walletClient walletState action
 
@@ -56,7 +56,7 @@ runAction
     => WalletClient m
     -> WalletState
     -> Action
-    -> m WalletState
+    -> MaybeT m WalletState
 -- Wallets
 runAction wc ws  PostWallet = do
     newPassword <- liftIO $ generate arbitrary
@@ -117,7 +117,7 @@ runAction wc ws DeleteWallet = do
     wallet  <-  pickRandomElement localWallets
 
     -- If we don't have any http client errors, the delete was a success.
-    _       <-  either throwM pure =<< deleteWallet wc (walId wallet)
+    _       <-  lift $ either throwM pure =<< deleteWallet wc (walId wallet)
 
     -- Just in case, let's check if it's still there.
     result  <-  respToRes $ getWallets wc
@@ -261,7 +261,7 @@ runAction wc ws DeleteAccount = do
     let walletId = accWalletId account
 
     -- If we don't have any http client errors, the delete was a success.
-    _ <- either throwM pure =<< deleteAccount wc walletId (accIndex account)
+    _ <- lift $ either throwM pure =<< deleteAccount wc walletId (accIndex account)
 
     -- Just in case, let's check if it's still there.
     result  <-  respToRes $ getAccounts wc walletId
@@ -510,10 +510,10 @@ chooseAction = liftIO . generate . chooseActionGen
 respToRes
     :: forall m a. (MonadThrow m)
     => m (Either ClientError (WalletResponse a))
-    -> m a
+    -> MaybeT m a
 respToRes resp = do
-    result <- resp
-    either throwM (pure . wrData) result
+    result <- lift resp
+    lift $ either throwM (pure . wrData) result
 
 
 -- | Pick a random element using @IO@.
@@ -534,5 +534,3 @@ checkInvariant False walletTestErr = throwM walletTestErr
 -- | Output for @Text@.
 printT :: Text -> IO ()
 printT = putStrLn
-
-

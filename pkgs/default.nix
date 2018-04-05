@@ -7712,12 +7712,12 @@ inherit (pkgs) mesa;};
              cardano-sl-networking cardano-sl-ssc cardano-sl-txp
              cardano-sl-update cardano-sl-util cardano-sl-wallet conduit
              containers data-default exceptions formatting hspec http-api-data
-             http-types insert-ordered-containers ixset-typed lens log-warper
-             memory mtl neat-interpolation optparse-applicative QuickCheck
-             safe-exceptions serokell-util servant servant-server
-             servant-swagger servant-swagger-ui stm string-conv swagger2 text
-             text-format time-units universum unordered-containers wai wai-cors
-             wai-extra warp
+             http-client http-types insert-ordered-containers ixset-typed lens
+             log-warper memory mtl neat-interpolation optparse-applicative
+             QuickCheck safe-exceptions serokell-util servant servant-client
+             servant-server servant-swagger servant-swagger-ui stm string-conv
+             swagger2 text text-format time-units universum unordered-containers
+             wai wai-cors wai-extra warp
            ];
            testHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-block

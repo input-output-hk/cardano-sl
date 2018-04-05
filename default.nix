@@ -9,6 +9,7 @@ in
 # profiling slows down performance by 50% so we don't enable it by default
 , enableProfiling ? false
 , enableDebugging ? false
+, allowCustomConfig ? true
 }:
 
 with pkgs.lib;
@@ -91,9 +92,9 @@ let
   });
   connect = let
       walletConfigFile = ./custom-wallet-config.nix;
-      walletConfig = if builtins.pathExists walletConfigFile then import walletConfigFile else {};
+      walletConfig = if allowCustomConfig then (if builtins.pathExists walletConfigFile then import walletConfigFile else {}) else {};
     in
-      args: import ./scripts/launch/connect-to-cluster (args // walletConfig // { inherit gitrev; });
+      args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev; } // walletConfig );
   other = rec {
     cardano-sl-explorer-frontend = (import ./explorer/frontend {
       inherit system config gitrev pkgs;

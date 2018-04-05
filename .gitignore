@@ -84,3 +84,14 @@ wallet-new/bench/results/*.txt
 
 # wallet web API golden tests
 wallet-new/test/golden/*.txt.new
+
+# cardano-state-* for wallet data
+cardano-state-*
+state-*
+
+# exchange topology file
+exchange-topology.yaml
+
+# launch scripts
+launch_*
+result*

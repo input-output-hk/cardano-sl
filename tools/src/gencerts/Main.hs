@@ -3,22 +3,21 @@
 --
 module Main where
 
-import           Configuration (CertConfiguration (..), CertDescription (..), ConfigurationKey,
-                                DirConfiguration (..), decodeEitherConfigFile, fromConfiguration)
 import           Control.Monad (forM_, (>=>))
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.Except (ExceptT (..), runExceptT)
 import           Crypto.PubKey.RSA (PrivateKey, PublicKey)
-import           Data.Hourglass (Period (..), dateAddPeriod)
+import           Data.Hourglass (Minutes (..), Period (..), dateAddPeriod, timeAdd)
 import           Data.Semigroup ((<>))
 import           Data.X509 (Certificate (..), Extensions (..), PubKey (PubKeyRSA),
                             SignedCertificate, encodeSignedObject)
-import           Data.X509.Extra (encodeRSAPrivateKey, genRSA256KeyPair, signAlgRSA256,
-                                  signCertificate)
 import           Options.Applicative
 import           System.FilePath.Posix (FilePath, (</>))
 import           Time.System (dateCurrent)
 import           Time.Types (DateTime (..))
+
+import           Configuration
+import           Data.X509.Extra
 
 import qualified Data.ByteString as BS
 
@@ -42,6 +41,9 @@ main = runOrFail $ do
     let caName =
             certFilename caDesc
 
+    let serverHost = -- NOTE We expect at least one alternative name
+            (head $ serverAltNames $ tlsServer tlsConfig, "")
+
     (caKey, caCert) <-
         genCertificate caDesc
 
@@ -50,8 +52,10 @@ main = runOrFail $ do
         Just dir -> lift $ writeCertificate (dir </> caName) (caKey, caCert)
 
     forM_ descs $ \desc@CertDescription{..} -> do
-        genCertificate desc >>= lift . writeCertificate (certOutDir </> certFilename)
-        lift $ writeCertificate_ (certOutDir </> caName) caCert
+        (key, cert) <- genCertificate desc
+        validateSHA256 caCert certChecks serverHost cert
+        lift $ writeCertificate  (certOutDir </> certFilename) (key, cert)
+        lift $ writeCertificate_ (certOutDir </> caName)       caCert
   where
     opts :: ParserInfo Command
     opts =
@@ -98,7 +102,7 @@ genCertificate CertDescription{..} = do
             { certVersion      = 2
             , certSerial       = fromIntegral certSerial
             , certSignatureAlg = signAlgRSA256
-            , certValidity     = (now, addDays certExpiryDays now)
+            , certValidity     = (addMinutes (-1) now, addDays certExpiryDays now)
             , certPubKey       = PubKeyRSA pub
             , certExtensions   = Extensions (Just certExtensions)
             , certIssuerDN     = certIssuer
@@ -110,6 +114,10 @@ genCertificate CertDescription{..} = do
     addDays :: Int -> DateTime -> DateTime
     addDays n time@DateTime{..} =
         time { dtDate = dateAddPeriod dtDate (mempty { periodDays = n }) }
+
+    addMinutes :: Int -> DateTime -> DateTime
+    addMinutes n time =
+        timeAdd time (Minutes $ fromIntegral n)
 
 
 -- | Write a certificate and its private key to the given location

@@ -557,6 +557,9 @@ executable cardano-x509-certificates
                , universum
                , unordered-containers
                , x509
+               , x509-validation
+               , x509-store
+               , data-default-class
                , yaml
 
   default-extensions:   DeriveGeneric

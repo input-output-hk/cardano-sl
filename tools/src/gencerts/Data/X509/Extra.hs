@@ -1,9 +1,12 @@
+{-# LANGUAGE LambdaCase #-}
+
 --
 -- | Cryptographic & Data.X509 specialized methods for RSA with SHA256
 --
 module Data.X509.Extra
     ( signAlgRSA256
     , signCertificate
+    , validateSHA256
     , genRSA256KeyPair
     , encodeRSAPrivateKey
     ) where
@@ -16,7 +19,11 @@ import           Data.ASN1.BinaryEncoding (DER (..))
 import           Data.ASN1.Encoding (encodeASN1)
 import           Data.ASN1.Types (ASN1 (..), ASN1ConstructionType (..))
 import           Data.ByteString (ByteString)
+import           Data.Default.Class
+import           Data.List (intercalate)
 import           Data.X509
+import           Data.X509.CertificateStore (makeCertificateStore)
+import           Data.X509.Validation (ServiceID, ValidationChecks (..), defaultHooks, validate)
 
 import qualified Data.ByteString.Lazy as BL
 
@@ -34,6 +41,18 @@ signCertificate key =
     signSHA256 :: ByteString -> ExceptT String IO (ByteString, SignatureALG)
     signSHA256 =
         fmap (,signAlgRSA256) . withExceptT show . ExceptT . signSafer (Just SHA256) key
+
+-- | Validate a X.509 certificate using SHA256 hash and a given CA. This is
+-- merely to verify that we aren't generating invalid certificates.
+validateSHA256 :: SignedCertificate -> ValidationChecks -> ServiceID -> SignedCertificate -> ExceptT String IO ()
+validateSHA256 caCert checks sid cert = ExceptT $
+    failuresToEither <$> validate HashSHA256 defaultHooks checks store def sid chain
+  where
+    store = makeCertificateStore [caCert]
+    chain = CertificateChain [cert]
+    failuresToEither = \case
+        [] -> Right ()
+        xs -> Left $ "Generated invalid certificate: " ++ intercalate ", " (map show xs)
 
 -- | Generate a new RSA-256 key pair
 genRSA256KeyPair :: IO (PublicKey, PrivateKey)

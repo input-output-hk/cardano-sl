@@ -17,6 +17,7 @@ import           Data.List (stripPrefix)
 import           Data.Semigroup ((<>))
 import           Data.String (fromString)
 import           Data.X509
+import           Data.X509.Validation (ValidationChecks (..), defaultChecks)
 import           Data.Yaml (decodeFileEither, parseEither, withObject)
 import           GHC.Generics (Generic)
 import           System.IO (FilePath)
@@ -115,6 +116,7 @@ data CertDescription m pub priv outdir = CertDescription
     , certSigningKey    :: priv
     , certOutDir        :: outdir
     , certFilename      :: String
+    , certChecks        :: ValidationChecks
     }
 
 
@@ -141,6 +143,7 @@ fromConfiguration TLSConfiguration{..} DirConfiguration{..} certGenKeys (caPub, 
             , certSigningKey    = caPriv
             , certOutDir        = outDirCA
             , certFilename      = "ca"
+            , certChecks        = defaultChecks
             }
 
         ServerConfiguration tlsServer' serverAltDNS = tlsServer
@@ -155,6 +158,7 @@ fromConfiguration TLSConfiguration{..} DirConfiguration{..} certGenKeys (caPub, 
             , certSigningKey    = caPriv
             , certOutDir        = outDirServer
             , certFilename      = "server"
+            , certChecks        = defaultChecks
             }
 
         clConfigs = forEach tlsClients $ \(i, tlsClient) ->
@@ -171,6 +175,7 @@ fromConfiguration TLSConfiguration{..} DirConfiguration{..} certGenKeys (caPub, 
                 , certSigningKey    = caPriv
                 , certOutDir        = outDirClients
                 , certFilename      = "client" <> suffix
+                , certChecks        = defaultChecks { checkFQHN = False }
                 }
     in
         (caConfig, svConfig : clConfigs)

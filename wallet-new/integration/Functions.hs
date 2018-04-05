@@ -4,8 +4,8 @@
 
 module Functions where
 
-import           Universum hiding (error)
 import           Prelude (error)
+import           Universum hiding (error)
 
 import           Data.Coerce (coerce)
 import           Data.List (delete)
@@ -94,8 +94,14 @@ runAction wc ws GetWallets   = do
         & actionsNum +~ 1
 
 runAction wc ws GetWallet    = do
+
+    let localWallets = ws ^. wallets
+
+    -- The precondition is that we need to have wallets.
+    guard (not (null localWallets))
+
     -- We choose from the existing wallets.
-    wallet  <-  pickRandomElement (ws ^. wallets)
+    wallet  <-  pickRandomElement localWallets
     result  <-  respToRes $ getWallet wc (walId wallet)
 
     checkInvariant

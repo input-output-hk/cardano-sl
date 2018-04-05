@@ -94,6 +94,7 @@ module Pos.Wallet.Web.State.Storage
          -- * Exported only for testing purposes
        , AddressInfo_v0 (..)
        , AccountInfo_v0 (..)
+       , WalletInfo_v0(..)
        , WalletStorage_v2(..)
        ) where
 
@@ -796,10 +797,9 @@ deriveSafeCopySimple 0 'base ''PtxSubmitTiming
 deriveSafeCopySimple 0 'base ''PtxMetaUpdate
 deriveSafeCopySimple 0 'base ''PendingTx
 deriveSafeCopySimple 0 'base ''WAddressMeta
-deriveSafeCopySimple 0 'base ''WalletInfo
 deriveSafeCopySimple 0 'base ''RestorationBlockDepth
 deriveSafeCopySimple 0 'base ''SyncThroughput
-deriveSafeCopySimple 0 'base ''SyncStatistics -- TODO(adn): migrations
+deriveSafeCopySimple 0 'base ''SyncStatistics
 
 -- Legacy versions, for migrations
 
@@ -809,6 +809,30 @@ instance Migrate WalletSyncState where
     type MigrateFrom WalletSyncState = Migrations.WalletTip
     migrate  Migrations.NotSynced     = NotSynced
     migrate (Migrations.SyncedWith h) = SyncedWith h
+
+data WalletInfo_v0 = WalletInfo_v0
+    { _v0_wiMeta         :: !WebTypes.CWalletMeta
+    , _v0_wiPassphraseLU :: !WebTypes.PassPhraseLU
+    , _v0_wiCreationTime :: !POSIXTime
+    , _v0_wiSyncTip      :: !Migrations.WalletTip
+    , _v0_wsPendingTxs   :: !(HashMap TxId PendingTx)
+    , _v0_wiIsReady      :: !Bool
+    }
+
+instance Migrate WalletInfo where
+    type MigrateFrom WalletInfo = WalletInfo_v0
+    migrate WalletInfo_v0{..} = WalletInfo
+        { _wiMeta           = _v0_wiMeta
+        , _wiPassphraseLU   = _v0_wiPassphraseLU
+        , _wiCreationTime   = _v0_wiCreationTime
+        , _wiSyncState      = migrate _v0_wiSyncTip
+        , _wiSyncStatistics = noSyncStatistics
+        , _wsPendingTxs     = _v0_wsPendingTxs
+        , _wiIsReady        = _v0_wiIsReady
+        }
+
+deriveSafeCopySimple 0 'base ''WalletInfo_v0
+deriveSafeCopySimple 1 'extension ''WalletInfo
 
 data AddressInfo_v0 = AddressInfo_v0
     { _v0_adiCWAddressMeta :: !WebTypes.CWAddressMeta
@@ -826,7 +850,7 @@ data AccountInfo_v0 = AccountInfo_v0
     }
 
 data WalletStorage_v0 = WalletStorage_v0
-    { _v0_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo)
+    { _v0_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo_v0)
     , _v0_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo_v0)
     , _v0_wsProfile         :: !WebTypes.CProfile
     , _v0_wsReadyUpdates    :: [WebTypes.CUpdateInfo]
@@ -838,7 +862,7 @@ data WalletStorage_v0 = WalletStorage_v0
     }
 
 data WalletStorage_v1 = WalletStorage_v1
-    { _v1_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo)
+    { _v1_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo_v0)
     , _v1_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo_v0)
     , _v1_wsProfile         :: !WebTypes.CProfile
     , _v1_wsReadyUpdates    :: [WebTypes.CUpdateInfo]
@@ -850,7 +874,7 @@ data WalletStorage_v1 = WalletStorage_v1
     }
 
 data WalletStorage_v2 = WalletStorage_v2
-    { _v2_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo)
+    { _v2_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo_v0)
     , _v2_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo_v0)
     , _v2_wsProfile         :: !WebTypes.CProfile
     , _v2_wsReadyUpdates    :: [WebTypes.CUpdateInfo]
@@ -938,7 +962,7 @@ instance Migrate WalletStorage_v2 where
 instance Migrate WalletStorage where
     type MigrateFrom WalletStorage = WalletStorage_v2
     migrate WalletStorage_v2{..} = WalletStorage
-        { _wsWalletInfos     = _v2_wsWalletInfos
+        { _wsWalletInfos     = migrateMapElements _v2_wsWalletInfos
         , _wsAccountInfos    = fmap migrate _v2_wsAccountInfos
         , _wsProfile         = _v2_wsProfile
         , _wsReadyUpdates    = _v2_wsReadyUpdates
@@ -950,4 +974,5 @@ instance Migrate WalletStorage where
         , _wsChangeAddresses = mapAddrKeys _v2_wsChangeAddresses
         }
       where
-        mapAddrKeys = HM.fromList . fmap (first unsafeCIdToAddress) . HM.toList
+        mapAddrKeys  = HM.fromList . fmap (first unsafeCIdToAddress) . HM.toList
+        migrateMapElements = HM.fromList . fmap (second migrate) . HM.toList

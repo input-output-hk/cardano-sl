@@ -18,6 +18,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccountMeta 
                                              CTxMeta (..), CUpdateInfo (..), CWAddressMeta (..),
                                              CWalletAssurance (..), CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId)
+import qualified Pos.Wallet.Web.State.Migrations as Migrations
 import           Pos.Wallet.Web.State.Storage
 import           Test.Hspec (Spec, describe, it)
 import           Test.Pos.Configuration (withDefConfigurations)
@@ -56,12 +57,29 @@ instance Migrate AccountInfo_v0 where
         . fmap (addressToCId *** migrate)
         . HM.toList
 
+instance Migrate Migrations.WalletTip where
+    type MigrateFrom Migrations.WalletTip = WalletSyncState
+    migrate  NotSynced          = Migrations.NotSynced
+    migrate (RestoringFrom _ _) = Migrations.NotSynced
+    migrate (SyncedWith h)      = Migrations.SyncedWith h
+
+instance Migrate WalletInfo_v0 where
+    type MigrateFrom WalletInfo_v0 = WalletInfo
+    migrate WalletInfo{..} = WalletInfo_v0
+        { _v0_wiMeta           = _wiMeta
+        , _v0_wiPassphraseLU   = _wiPassphraseLU
+        , _v0_wiCreationTime   = _wiCreationTime
+        , _v0_wiSyncTip        = migrate _wiSyncState
+        , _v0_wsPendingTxs     = _wsPendingTxs
+        , _v0_wiIsReady        = _wiIsReady
+        }
+
 newtype WalletStorage_Back_v2 = WalletStorage_Back_v2 WalletStorage_v2
 
 instance Migrate WalletStorage_Back_v2 where
   type MigrateFrom WalletStorage_Back_v2 = WalletStorage
   migrate WalletStorage{..} = WalletStorage_Back_v2 $ WalletStorage_v2
-      { _v2_wsWalletInfos = _wsWalletInfos
+      { _v2_wsWalletInfos = migrateMapElements _wsWalletInfos
       , _v2_wsAccountInfos = fmap migrate _wsAccountInfos
       , _v2_wsProfile = _wsProfile
       , _v2_wsReadyUpdates = _wsReadyUpdates
@@ -74,18 +92,22 @@ instance Migrate WalletStorage_Back_v2 where
       }
     where
       mapAddrKeys = HM.fromList . fmap (first addressToCId) . HM.toList
+      migrateMapElements = HM.fromList . fmap (second migrate) . HM.toList
 
 --------------------------------------------------------------------------------
 
 deriving instance Eq AccountInfo_v0
 deriving instance Eq AddressInfo_v0
 deriving instance Eq WalletStorage_v2
+deriving instance Eq WalletInfo_v0
 
 deriving instance Show WalletSyncState
 deriving instance Show SyncStatistics
 deriving instance Show WalletInfo
 deriving instance Show AccountInfo_v0
 deriving instance Show AddressInfo_v0
+deriving instance Show WalletInfo_v0
+deriving instance Show Migrations.WalletTip
 deriving instance Show WalletStorage_v2
 
 deriving instance Arbitrary CHash
@@ -150,6 +172,12 @@ instance Arbitrary AccountId where
 instance Arbitrary RestorationBlockDepth where
     arbitrary = RestorationBlockDepth <$> arbitrary
 
+instance HasConfiguration => Arbitrary Migrations.WalletTip where
+  arbitrary = oneof
+    [ pure Migrations.NotSynced
+    , Migrations.SyncedWith <$> arbitrary
+    ]
+
 instance HasConfiguration => Arbitrary WalletSyncState where
   arbitrary = oneof
     [ pure NotSynced
@@ -184,6 +212,15 @@ instance Arbitrary AccountInfo_v0 where
     <$> arbitrary
     <*> arbitrary
     <*> arbitrary
+    <*> arbitrary
+
+instance HasConfiguration => Arbitrary WalletInfo_v0 where
+  arbitrary = WalletInfo_v0
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> pure HM.empty
     <*> arbitrary
 
 instance HasConfiguration => Arbitrary WalletInfo where

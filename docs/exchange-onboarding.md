@@ -10,17 +10,20 @@ Table of Contents
       * [Backup local state](#backup-local-state)
       * [Fetch latest code](#fetch-latest-code)
       * [Generate custom configuration](#generate-custom-configuration)
-      * [Build and run in the nix store](#build-and-run-in-the-nix-store)
-      * [Build and run a docker image](#build-and-run-a-docker-image)
+      * [Building and running](#building-and-running)
+         * [Method 1: Build and run in the nix store](#method-1-build-and-run-in-the-nix-store)
+         * [Method 2: Build and run a docker image](#method-2-build-and-run-a-docker-image)
    * [Migrating from V0 to V1 API](#migrating-from-v0-to-v1-api)
+      * [Checking Sync Status](#checking-sync-status)
+      * [Wallets](#wallets)
+      * [Accounts](#accounts)
+      * [Transactions](#transactions)
+      * [Transaction Fees](#transaction-fees)
+      * [Wallet Addresses](#wallet-addresses)
    * [Usage FAQs](#usage-faqs)
       * [What are recommended hardware/software requirements for exchange wallets?](#what-are-recommended-hardwaresoftware-requirements-for-exchange-wallets)
-      * [How do I customize the wallet configuration?](#how-do-i-customize-the-wallet-configuration)
       * [How do I export the CA certificate for the API?](#how-do-i-export-the-ca-certificate-for-the-api)
       * [How do I know when the wallet has fetched all the blocks?](#how-do-i-know-when-the-wallet-has-fetched-all-the-blocks)
-      * [Creating a New Wallet](#creating-a-new-wallet)
-      * [Receiving Money](#receiving-money)
-      * [Sending Money](#sending-money)
       * [Where can I find the API documentation?](#where-can-i-find-the-api-documentation)
       * [How can I inspect runtime metrics and statistics?](#how-can-i-inspect-runtime-metrics-and-statistics)
 
@@ -191,7 +194,87 @@ name you used for any future docker commands in examples in the document.
 
 # Migrating from V0 to V1 API
 
-TODO: add instructions for migrating to new API
+## Checking Sync Status
+
+With v0, to check the sync status required comparing number of blocks on the network and locally.
+With v1, the sync status `/api/v1/node-info` outputs a sync progress attribute that shows you the
+current sync progress.
+
+## Wallets
+
+With v0, there were two separate POST API calls, `/api/wallets/new` and `/api/wallets/restore`.
+With v1, these have been combined into a POST to `/api/v1/wallets` that passes an
+attribute `operation` that can be `create` or `restore`.
+
+With v0, list wallets was done using a GET to `/api/wallets`. This is now a GET to
+`/api/v1/wallets` and supports filtering by `id` and `balance` as well as specifying
+`sort_by`.
+
+With v0, actions against a specific wallet were done using a GET, PUT or DELETE to
+`/api/wallets/{walletId}` This is now `/api/v1/wallets/{walletId}`. The parameters
+in the body and responses have changed slightly, so check the API docs, but the
+general usage is the same as before.
+
+With v0, the endpoint to update a wallet password was a POST to
+`/api/wallets/password/{walletId}`. With v1 this is now `/api/v1/wallets/{walletId}/password`.
+
+For more details see the [API documentation](#where-can-i-find-the-api-documentation).
+
+## Accounts
+
+With v0, accounts didn't include the `walletId` in it's API queries. With v1,
+accounts in the API are logically underneath a wallet. The calls in v0 were:
+
+* GET, PUT, DELETE `/api/accounts/{accountId}`
+* GET, POST `/api/accounts`
+
+In v1 these are at:
+
+* GET, PUT, DELETE `/api/v1/wallets/{walletId}/accounts/{accountId}`
+* GET, POST `/api/v1/wallets/{walletId}/accounts`
+
+For more details see the [API documentation](#where-can-i-find-the-api-documentation).
+
+## Transactions
+
+How to send and receive ADA has changed significantly with the new API. In v0 there
+were 2 separate API calls to send money one with parameters, and a batch version:
+
+* `/api/txs/payments/{from}/{to}/{amount}`
+* `/api/txs/payments/batch`
+
+In v1 this has been significantly simplified:
+
+* POST to `/api/v1/transactions`
+
+This POST takes an array of `destinations` where each one contains a `address` and
+`amount` and a single `source`.
+
+To view transactions the `/api/txs/histories` has been replaced with a GET to the
+same endpoint used to send: `/api/v1/transactions`.
+
+For more details see the [API documentation](#where-can-i-find-the-api-documentation).
+
+## Transaction Fees
+
+`/api/txs/fee/{from}/{to}/{amount}` has been replaced with `/api/v1/transactions/fees`
+Similar to sending money, this takes an array of `destinations` and a single `source`
+making it much easier to estimate transaction fees for transactions with multiple
+`destinations`.
+
+For more details see the [API documentation](#where-can-i-find-the-api-documentation).
+
+## Wallet Addresses
+
+With v0, addresses could be created using a POST to `/api/addresses` or could be
+validated using a GET to `/api/addresses/{address}`. With v1 a new GET to
+`/api/v1/addresses` has been introduced that gets all addresses. A new address can
+be created using a POST to the same URL.
+
+Also a GET to `/api/v1/addresses/{address}` returns detailed information about the
+address instead of just a boolean `true` or `false`.
+
+For more details see the [API documentation](#where-can-i-find-the-api-documentation).
 
 # Usage FAQs
 

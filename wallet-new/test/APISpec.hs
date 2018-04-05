@@ -31,11 +31,12 @@ import           Serokell.AcidState.ExtendedState
 import           Servant
 import           Servant.QuickCheck
 import           Servant.QuickCheck.Internal
-import           System.Process (readProcess)
+import           System.Process (readProcessWithExitCode)
 import           Test.Hspec
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
+import           System.Exit (ExitCode (..))
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Types
@@ -183,7 +184,13 @@ spec = withCompileInfo def $ do
 
     describe "Servant Layout" $ do
         let strip = reverse . dropWhile isSpace . reverse . dropWhile isSpace
-        root <- fmap strip . runIO $ readProcess "git" ["rev-parse", "--show-toplevel"] []
+        (exitCode, root, _) <- fmap (over _2 strip) . runIO
+            $ readProcessWithExitCode "git" ["rev-parse", "--show-toplevel"] []
+        case exitCode of
+            ExitSuccess ->
+                pure ()
+            _ ->
+                error "Failed to acquire git top level directory."
         let layoutPath = root <> "/wallet-new/test/golden/api-layout.txt"
             newLayoutPath = layoutPath <> ".new"
         it "has not changed" $ do

@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeApplications    #-}
 
 module Functions where
@@ -35,6 +36,84 @@ import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import           Error
 import           Types
 
+-- | Run all actions from the given list. If some actions are not ready, they will be skipped, put in the queue and retried (in order) until every action succeeds.
+-- Might run indefinitely if some action from the list is guarded identifinitely.
+runAllActions
+    :: (WalletTestMode m, HasCallStack)
+    => WalletClient m
+    -> WalletState
+    -> [Action]
+    -> m WalletState
+runAllActions _ walletState [] = pure walletState
+runAllActions walletClient walletState actions = do
+    uncurry (runAllActions walletClient) =<< tryAllActions walletClient walletState actions
+
+-- | Run all actions from the given list. If some actions are not ready, they will be skipped, put in the queue and retried (in order) until every action succeeds or if max number of retries is exceeded.
+runAllActionsWithRetry
+    :: (WalletTestMode m, HasCallStack)
+    => Word
+    -> WalletClient m
+    -> WalletState
+    -> [Action]
+    -> m WalletState
+runAllActionsWithRetry _ _ walletState [] = pure walletState
+runAllActionsWithRetry 0 walletClient walletState actions = do
+    (newWalletState, guardedActions) <- tryAllActions walletClient walletState actions
+    if null guardedActions
+        then pure newWalletState
+        -- TODO: use throwM?
+        else error "runAllActionsWithRetry: exceeded maximum number of retries"
+runAllActionsWithRetry retry walletClient walletState actions = do
+    (newState, guardedActions) <- tryAllActions walletClient walletState actions
+    runAllActionsWithRetry (pred retry) walletClient newState guardedActions
+
+-- | Try to run all actions from the given list.
+-- Actions that have been skipped will be returned.
+tryAllActions
+    :: (WalletTestMode m, HasCallStack)
+    => WalletClient m
+    -> WalletState
+    -> [Action]
+    -> m (WalletState, [Action])
+tryAllActions walletClient walletState =
+    fmap (second reverse) . foldM tryAction (walletState, mempty)
+  where
+    tryAction (oldState, guardedActions) action = do
+        mNewState <- runMaybeT $ runAction walletClient oldState action
+        pure $ case mNewState of
+            Just newState -> (newState, guardedActions)
+            Nothing       -> (oldState, action : guardedActions)
+
+-- | Run number of actions. Actions that don't satisfy run conditions (ie, guards) will be skipped.
+-- If none of the actions satisfy run conditions - no actions will be executed and this might run idefinitely. This function tries to run exactly number of actions and will try until it succeeds.
+-- Might run indefinitely if some action from the list is guarded.
+-- FIXME: bad naming! I didn't have the inspiration (akegalj)
+runActionsCount'
+    :: (WalletTestMode m, HasCallStack)
+    => Word
+    -> WalletClient m
+    -> WalletState
+    -> ActionProbabilities
+    -> m WalletState
+runActionsCount' 0 _ walletState _ = pure walletState
+runActionsCount' count walletClient walletState actionDistr = do
+    newState <- fromMaybe walletState <$> runActionCheck walletClient walletState actionDistr
+    runActionsCount' (pred count) walletClient newState actionDistr
+
+-- | Try to run number of actions. Actions that don't satisfy run conditions (ie, guards) will be skipped.
+-- If none of the actions satisfy run conditions - no actions will be executed.
+runActionsCount
+    :: (WalletTestMode m, HasCallStack)
+    => Word
+    -> WalletClient m
+    -> WalletState
+    -> ActionProbabilities
+    -> m WalletState
+runActionsCount count client walletState =
+    foldM runAct walletState . replicate (fromIntegral count)
+  where
+    runAct oldState action =
+        fromMaybe oldState <$> runActionCheck client oldState action
 
 -- | The top function that we need to run in order
 -- to test the backend.
@@ -44,9 +123,9 @@ runActionCheck
     -> WalletState
     -> ActionProbabilities
     -> m (Maybe WalletState)
-runActionCheck walletClient walletState actionProb = runMaybeT $ do
+runActionCheck walletClient walletState actionProb = do
     action <- chooseAction actionProb
-    runAction walletClient walletState action
+    runMaybeT $ runAction walletClient walletState action
 
 
 -- | Here we run the actions.

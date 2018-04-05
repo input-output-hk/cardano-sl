@@ -14,7 +14,6 @@ import           Universum
 
 import qualified Control.Concurrent.STM as STM
 import qualified Data.ByteString as BS
-import           Data.Char (isSpace)
 import           Data.Default (def)
 import qualified Data.Text.Encoding as Text
 import           Network.HTTP.Client hiding (Proxy)
@@ -31,12 +30,11 @@ import           Serokell.AcidState.ExtendedState
 import           Servant
 import           Servant.QuickCheck
 import           Servant.QuickCheck.Internal
-import           System.Process (readProcessWithExitCode)
+import           System.Directory
 import           Test.Hspec
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
-import           System.Exit (ExitCode (..))
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Types
@@ -182,16 +180,8 @@ spec = withCompileInfo def $ do
                 withServantServer (Proxy @V1.API) (v1Server (D.diffusion ddl)) $ \burl ->
                     serverSatisfies (Proxy @V1.API) burl stdArgs predicates
 
-    describe "Servant Layout" $ do
-        let strip = reverse . dropWhile isSpace . reverse . dropWhile isSpace
-        (exitCode, root, _) <- fmap (over _2 strip) . runIO
-            $ readProcessWithExitCode "git" ["rev-parse", "--show-toplevel"] []
-        case exitCode of
-            ExitSuccess ->
-                pure ()
-            _ ->
-                error "Failed to acquire git top level directory."
-        let layoutPath = root <> "/wallet-new/test/golden/api-layout.txt"
+    describe "Servant Layout" $ around_ withTestDirectory $ do
+        let layoutPath = "./test/golden/api-layout.txt"
             newLayoutPath = layoutPath <> ".new"
         it "has not changed" $ do
             oldLayout <- BS.readFile layoutPath `catch` \(_err :: SomeException) -> pure ""
@@ -205,3 +195,19 @@ spec = withCompileInfo def $ do
                     , "Command:"
                     , "    mv " <> newLayoutPath <> " " <> layoutPath
                     ]
+
+-- | This is a hack that sets the CWD to the correct directory to access
+-- golden tests. `stack` will run tests at the top level of the git
+-- project, while `cabal` and the Nix CI will run tests at the `wallet-new`
+-- directory. This function ensures that we are in the `wallet-new`
+-- directory for the execution of this test.
+withTestDirectory :: IO () -> IO ()
+withTestDirectory action = void . runMaybeT $ do
+    dir <- lift getCurrentDirectory
+    entries <- lift $ listDirectory dir
+    guard ("cardano-sl-wallet-new.cabal" `notElem` entries)
+    guard ("wallet-new" `elem` entries)
+    lift $ do
+        bracket_ (setCurrentDirectory =<< makeAbsolute "wallet-new")
+                 (setCurrentDirectory dir)
+                 action

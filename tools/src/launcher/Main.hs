@@ -26,7 +26,6 @@ import qualified Data.ByteString.Lazy as BS.L
 import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
 import           Data.Maybe (isNothing)
-import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import           Data.Time.Units (Second, convertUnit)
 import           Data.Version (showVersion)
@@ -39,7 +38,7 @@ import           Options.Applicative (Parser, ParserInfo, ParserResult (..), def
                                       progDesc, renderFailure, short, strOption)
 import           Serokell.Aeson.Options (defaultOptions)
 import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
-import           System.Environment (getEnv, setEnv, lookupEnv, getExecutablePath, getProgName)
+import           System.Environment (getExecutablePath, getProgName)
 import           System.Exit (ExitCode (..))
 import           System.FilePath (takeDirectory, (</>))
 import qualified System.IO as IO
@@ -49,10 +48,6 @@ import           System.Timeout (timeout)
 import           System.Wlog (logError, logInfo, logNotice, logWarning)
 import qualified System.Wlog as Log
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import qualified Text.Parser.Char                 as P
-import qualified Text.Parser.Combinators          as P
-import qualified Text.Parser.Token                as P
-import qualified Text.Trifecta                    as P
 
 #ifdef mingw32_HOST_OS
 import qualified System.IO.Silently as Silently
@@ -81,6 +76,9 @@ import           Pos.Update (installerHash)
 import           Pos.Update.DB.Misc (affirmUpdateInstalled)
 import           Pos.Util (HasLens (..), directory, logException, postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+
+import           Launcher.Environment (substituteEnvVarsValue)
+import           Launcher.Logging     (reportErrorDefault)
 
 data LauncherOptions = LO
     { loNodePath            :: !FilePath
@@ -164,88 +162,6 @@ launcherArgsParser = do
         metavar "PATH"
     pure $ LauncherArgs {..}
 
-getDefaultLogDir :: IO FilePath
-getDefaultLogDir =
-#ifdef mingw32_HOST_OS
-    (</> "Daedalus\\Logs") <$> getEnv "APPDATA"
-#else
-    (</> "Library/Application Support/Daedalus/Logs") <$> getEnv "HOME"
-#endif
-
--- | Write @contents@ into @filename@ under default logging directory.
---
--- This function is only intended to be used before normal logging
--- is initialized. Its purpose is to provide at least some information
--- in cases where normal reporting methods don't work yet.
-reportErrorDefault :: FilePath -> Text -> IO ()
-reportErrorDefault filename contents = do
-    logDir <- getDefaultLogDir
-    createDirectoryIfMissing True logDir
-    writeFile (logDir </> filename) contents
-
--- * Environment variable parsing and substitution for the launcher configuration file,
---   typically launcher-config.yaml.
-
--- | Represent an element of a parse of a string containing environment variable
---   references: either a plain text piece, or a variable reference.
-data Chunk
-  = EnvVar Text
-  | Plain  Text
-  deriving (Show)
-
--- | A parse is a sequence of variable references & plain text pieces.
-parseEnvrefs :: Text -> P.Result [Chunk]
-parseEnvrefs text = P.parseString pEnvrefs mempty (toString text)
-  where
-    pEnvrefs :: (Monad p, P.TokenParsing p) => p [Chunk]
-    pEnvrefs = P.some $ P.choice [pPassiveText, pEnvvarRef]
-
-    pEnvvarRef, pPassiveText :: (Monad p, P.TokenParsing p) => p Chunk
-    -- TODO: figure out a less ugly OS conditionalisation method
-    -- TODO: decide if we want escaping
-#ifdef mingw32_HOST_OS
-    pEnvvarRef   = P.between (P.char '%') (P.char '%') pEnvvarName <&> EnvVar . toText
-    pPassiveText = P.some (P.noneOf "%")                           <&> Plain  . toText
-#else
-    pEnvvarRef   = P.char '$' >>
-                   P.choice [ pEnvvarName
-                            , P.between (P.char '{') (P.char '}') pEnvvarName
-                            ] <&> EnvVar
-    pPassiveText = P.some (P.noneOf "$") <&> Plain  . toText
-#endif
-    pEnvvarName :: (Monad p, P.TokenParsing p) => p Text
-    pEnvvarName = (P.some $ P.choice [P.alphaNum, P.char '_']) <&> toText
-
--- | Substitute environment variable references. The 'desc' argument supplies
--- human-oriented context description in case of error.
-substituteEnvVarsText :: Text -> Text -> IO Text
-substituteEnvVarsText desc text = do
-  chunks <- case parseEnvrefs text of
-    P.Success r  -> pure r
-    P.Failure ei -> do
-      let err = desc <> "\n" <> (show $ P._errDoc ei)
-      reportErrorDefault "config-parse-error.log" err
-      error err
-  substd <- forM chunks $
-    \case Plain  x -> pure x
-          EnvVar x -> do
-            val <- lookupEnv $ toString x
-            case val of
-              Just x' -> pure $ toText x'
-              Nothing -> do
-                let err = desc <> "\n" <> "Reference to an undefined environment variable '"<> x <>"'"
-                reportErrorDefault "config-parse-error.log" err
-                error err
-  pure $ T.concat substd
-
--- | Given an Aeson 'Value', parse and substitute environment variables in all
---   'AE.String' objects.  The 'desc' argument supplies context in case of error.
-substituteEnvVars :: Text -> Value -> IO Value
-substituteEnvVars desc (AE.String text) = AE.String <$> substituteEnvVarsText desc text
-substituteEnvVars desc (AE.Array xs)    = AE.Array  <$> traverse (substituteEnvVars desc) xs
-substituteEnvVars desc (AE.Object o)    = AE.Object <$> traverse (substituteEnvVars desc) o
-substituteEnvVars _    x                = pure x
-
 getLauncherOptions :: IO LauncherOptions
 getLauncherOptions = do
     LauncherArgs {..} <- either parseErrorHandler pure =<< execParserEither programInfo
@@ -262,7 +178,7 @@ getLauncherOptions = do
             throwM $ ConfigParseError configPath err
         Right value -> do
           let contextDesc = "Substituting environment vars in '"<>toText configPath<>"'"
-          substituted <- substituteEnvVars contextDesc value
+          substituted <- substituteEnvVarsValue contextDesc value
           case fromJSON $ substituted of
             AE.Error err -> do
               reportErrorDefault "config-parse-error.log" $ show err

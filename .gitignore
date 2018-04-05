@@ -1,5 +1,6 @@
-# Stack
+# Cabal & Stack
 .stack-work/
+*/dist
 
 # From daedalus-bridge
 node_modules/*

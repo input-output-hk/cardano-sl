@@ -13,6 +13,8 @@
 \usepackage{forest}
 \usepackage{IEEEtrantools}
 
+\usetikzlibrary{arrows}
+
 \newcommand{\powerset}[1]{\mathbb{P}(#1)}
 \newcommand{\order}[1]{\mathcal{O}\left(#1\right)}
 \newcommand{\restrictdom}{\lhd}
@@ -42,7 +44,7 @@
 
 \title{Cardano wallet specification (DRAFT)}
 \author{Duncan Coutts \and Edsko de Vries}
-\date{April 3, 2018}
+\date{April 12, 2018}
 
 \maketitle
 
@@ -80,6 +82,10 @@
 \item[Draft 13, April 3, 2018 (Edsko)] Once more significantly improved the minimum
      balance computation, and pushed this all the way through. I feel that we now
      have a clear story for balance in the presence of rollbacks.
+\item[Draft 14, April 6, 2018 (Duncan)] Reviewed and made minor corrections.
+\item[Draft 15, April 6, 2018 (Edsko)] Added section on tracking metadata.
+\item[Draft 16, April 12, 2018 (Edsko)] Improved secion on tracking metadata,
+     added section on transaction submission layer.
 \end{description}
 
 \section{Introduction}
@@ -103,7 +109,7 @@ or does.
 
 \begin{figure}
 
-\emph{Sets with no further structure}
+\emph{Primitive types}
 %
 \begin{equation*}
 \begin{array}{r@{~\in~}lr}
@@ -125,7 +131,7 @@ or does.
 \end{array}
 \end{equation*}
 %
-\emph{Types}
+\emph{Derived types}
 %
 \begin{equation*}
 \begin{array}{r@{~\in~}l@{\qquad=\qquad}r@{~\in~}lr}
@@ -1318,7 +1324,7 @@ It is of course possible that such missing transactions ($t_1$) \emph{never}
 make it into the new fork, in which case dependent pending transaction ($t_2$)
 should eventually be removed from $\mathit{pending}$. This problem may arise
 even without rollbacks, however, and cannot be solved until we introduce a TTL
-value for transactions.
+value for transactions (Section~\ref{sec:TTL}).
 
 In this section we will see how by keeping track of the expected UTxO we can
 give a clearer picture of the wallet's balance, even in the presence of
@@ -2102,30 +2108,464 @@ well as the actual UTxO.
 \caption{\label{fig:full_wallet_model}Full wallet model}
 \end{figure}
 
-\section{TODO: History tracking}
+\section{Tracking Metadata}
 
-Goals:
+The wallet may wish to track some additional information about transactions and
+blocks. In this section we first study how we can model this abstractly, and
+then how we can instantiate that abstract model to record the data that we
+are interested in in the actual implementation.
+
+\subsection{Abstract model}
+
+From the point of the abstract wallet specification we are primarily
+interested in modelling how this relates to rollback. The basic model is shown
+in Figure~\ref{fig:tracking_metadata}. The specification is parameterized
+by the type of metadata:
 
 \begin{itemize}
-\item For each transaction ever submitted to the wallet, or coming from the
-blockchain and transferring funds to the wallet, be able to report its current
-state: pending, confirmed (and how deep into the chain it was confirmed),
-abandoned.
-\item Support efficient storage.
-\item Support fast lookup (and pagination).
+\item Transaction metadata $\mathsf{TxMeta}$ is assumed to be stateless;
+once we have seen a transaction we can compute its metadata and this will never
+change. Consequently, rollbacks don't change the transaction metadata that the
+wallet records.
+\item Block metadata $\mathsf{BlockMeta}$ is assumed derivable from a block;
+on rollback we simply revert to the previous value of the block metadata.
 \end{itemize}
 
-Non-goal: be able to see when things rolled back; but can of course use
-implement the above as a view on some sort of append-only log
-(as long as efficiency is guaranteed).
+\begin{figure}
+%
+\emph{Parameters}
+%
+\begin{IEEEeqnarray*}{LLLR}
+\mathsf{TxMeta}              &&& \text{meta information about transactions} \\
+(\mathsf{BlockMeta}, \uplus) &&& \text{meta information about blocks (monoid)} \\
+\mathsf{txMeta}    & :: \mathsf{Tx}             & \rightarrow \mathsf{TxMeta} \\
+\mathsf{blockMeta} & :: \mathbb{P}(\mathsf{Tx}) & \rightarrow \mathsf{BlockMeta}
+\end{IEEEeqnarray*}
+%
+\emph{Wallet state}
+%
+\begin{align*}
+& \mathsf{TxInfo} = \mathsf{TxId} \mapsto \mathsf{TxMeta}    \\
+& \mathsf{Wallet} = [\mathsf{Utxo} \times \mathsf{Pending} \times \mathsf{BlockMeta}] \times \mathsf{TxInfo}
+\end{align*}
+%
+\emph{Updates}
+%
+\begin{align*}
+& \mathsf{applyBlock} ~ b ~ ((\mathit{utxo}, \mathit{pending}, \mathit{blockMeta}) : \mathit{checkpoints}, \mathit{txInfo}) = ( \\
+& \qquad \phantom{:{}} ~
+         ( \mathsf{updateUTxO} ~ b ~ \mathit{utxo}
+         , \mathsf{updatePending} ~ b ~ \mathit{pending}
+         , \mathit{blockMeta} \uplus \mathsf{blockMeta} ~ b
+         ) \\
+& \qquad : (\mathit{utxo}, \mathit{pending}, \mathit{blockMeta}) : \mathit{checkpoints}
+         , ~ \mathit{txInfo} \cup \{ \mathsf{txid} ~ \mathit{tx} \mapsto \mathsf{txMeta} ~ \mathit{tx} \mid \mathit{tx} \in b \}
+         ) \\
+& \mathsf{newPending} ~ tx ~ ((\mathit{utxo}, \mathit{pending}, \mathit{blockMeta}) : \mathit{checkpoints}, \mathit{txInfo}) = \\
+& \qquad (\mathit{utxo}, pending \cup \{ tx \}, \mathit{blockMeta}) : \mathit{checkpoints}, \mathit{txInfo} \cup \{ \mathsf{txid} ~ \mathit{tx} \mapsto \mathsf{txMeta} ~ \mathit{tx} \}) \\
+& \mathsf{rollback} ~ ((\mathit{utxo}, \mathit{pending}, \mathit{blockMeta}) :  (\mathit{utxo}^\prime, \mathit{pending}^\prime, \mathit{blockMeta}') : \mathit{checkpoints})) = \\
+& \qquad (\mathit{utxo}^\prime, \mathit{pending} \cup \mathit{pending}^\prime, \mathit{blockMeta}') : \mathit{checkpoints}
+\end{align*}
+%
+\caption{\label{fig:tracking_metadata}Tracking metadata}
+\end{figure}
 
-\section{TODO: Transaction resubmission}
+In order to make metadata tracking work well with prefiltering it suffices
+to make sure that $\mathsf{blockMeta}$ can take a prefiltered block as argument.
+In an actual implementation, this means that if $\mathsf{blockMeta}$ needs
+any additional information other than the transactions, the prefiltering
+function needs to ensure to add this information also to the prefiltered block.
 
-Exponential back-off?
+\subsection{Transaction history}
+\label{sec:transaction_history}
 
-Give up after 1 hr? (Currently applied heuristic in lieu of a proper TTL.)
+This section is a bit more technique in nature and studies how the transaction
+metadata reported in the current wallet `V1 REST API' can be defined in terms
+of the abstract model from Figure~\ref{fig:tracking_metadata}.
 
-\section{TODO: Transaction input selection and UTxO maintenance}
+The transaction metadata reported in the REST API divides into three categories:
+information that we can model as part of $\mathsf{TxMeta}$, information that
+we can model as part of $\mathsf{BlockMeta}$, and information that is derived
+from the state of the wallet proper.
+
+\subsubsection{Static information}
+
+The static information ($\mathsf{TxMeta}$) is the most straight-forward.
+This includes
+%
+\begin{itemize}
+\item transaction ID
+\item total amount
+\item inputs and outputs (both in terms of addresses)
+\item whether the transaction is ``local'' or not
+(\emph{all} input and output addresses are owned by the wallet)
+\item the transaction creation time
+(as a timestamp in microseconds, not as a slot number)
+\item the transaction direction (incoming or outgoing)
+\end{itemize}
+%
+For the final classification (incoming or outgoing), we can mark a
+transaction as outgoing when it is introduced by $\mathsf{newPending}$,
+and incoming otherwise.
+
+\subsubsection{Information dependent on chain status}
+\label{sec:confirmations}
+
+The V1 API also records how deep the transaction lives in the blockchain
+(counting from the tip); somewhat confusingly, it refers to this as the number
+of ``confirmations''. We can model this somewhat indirectly by choosing
+
+\begin{equation*}
+\mathsf{BlockMeta} = \mathsf{TxId} \mapsto \mathsf{BlockNumber}
+\end{equation*}
+
+This tells use which block each transaction got confirmed in; the depth
+can then be derived once we know the block number of the current tip.
+
+\subsubsection{Transaction status}
+\label{sec:transaction_status}
+
+The API reports transaction status as one of\footnote{The current wallet
+supports an additional status $\texttt{Creating}$, but we will not include this
+in the reimplementation.}
+%
+\begin{description}
+\item[\texttt{Applying}] In terms of our model, this means that the transaction
+is in the pending set.
+\item[\texttt{InNewestBlocks}] The transaction has been included in the blockchain,
+but may still be rolled back.
+\item[\texttt{Persisted}] The transaction has been included in the blockchain,
+and can no longer be rolled back.\footnote{The current wallet may in fact be
+optimistic here and report a transaction as \texttt{Persisted} even before $k$
+slots have passed.}
+\item[\texttt{WontApply}] The wallet has given up on trying to get a pending
+transaction into the blockchain; perhaps because the transaction has been
+invalidated, or perhaps simply because some time limit has expired.
+\end{description}
+%
+For incoming transactions, only $\mathtt{InNewestBlocks}$ and
+$\mathtt{Persisted}$ are applicable. We can derive transaction status from
+the block metadata as described in Section~\ref{sec:confirmations} and
+the wallet's state as follows:
+%
+\begin{equation*}
+\begin{cases}
+\texttt{Applying}       & \mathit{tx} \in \mathit{pending} \\
+\begin{cases}
+\texttt{InNewestBlocks} & d \le k \\
+\texttt{Persisted}      & d > k
+\end{cases} & \mathsf{txid} ~ \mathit{tx} \mapsto n \in \mathit{blockMeta} \text{ ($d$ derived block depth)} \\
+\begin{cases}
+\texttt{WontApply} & \textit{outgoing} \\
+\textit{not shown} & \textit{incoming}
+\end{cases} & \textit{otherwise}
+\end{cases}
+\end{equation*}
+
+The diagram in Figure~\ref{fig:transaction_state} shows how the status of
+transactions can change over dynamically; the left diagram shows outgoing
+transactions, the right shows incoming transactions. The empty circle at the top
+of the diagram means that the transaction is not included in the wallet's
+reported history.
+
+As is clear from this diagram, incoming transactions that get rolled back are
+not currently assigned any status, and are simply excluded from the wallet's
+history. The metadata about these transactions however is \emph{not}  removed
+from $\mathit{txInfo}$. After all, it can still be useful in order to be able to
+provide the wallet's user with information about the expected UTxO (a feature
+that the current wallet does not have).
+
+\begin{figure}
+\begin{tikzpicture}[->,>=stealth',shorten >=1pt,auto,node distance=2cm,
+  thick,main node/.style={rectangle,fill=blue!20,draw,minimum size=1mm}]
+
+  \node[main node,style={circle}] (LStart) {};
+  \node[main node] (LApplying)      [below=1cm of LStart] {\texttt{Applying}};
+  \node[main node] (LInNewestBlock) [below left=1cm and 0.5cm of LApplying] {\texttt{InNewestBlock}};
+  \node[main node] (LWontApply)     [below right=1cm and 0.5cm of LApplying] {\texttt{WontApply}};
+  \node[main node] (LPersisted)     [below =1cm of LInNewestBlock] {\texttt{Persisted}};
+
+  \path[every node/.style={font=\sffamily\scriptsize,
+      fill=white,inner sep=1pt}]
+    % Right-hand-side arrows rendered from top to bottom to
+    % achieve proper rendering of labels over arrows.
+    (LStart)
+      edge node {$\mathsf{newPending}$} (LApplying)
+    (LApplying)
+      edge [bend right=30] node[left=1mm] {$\mathsf{applyBlock}$} (LInNewestBlock)
+      edge [bend left=30]  node[right=1mm] {$\mathsf{applyBlock}^*$} (LWontApply)
+    (LInNewestBlock)
+      edge [loop left]     node {$\mathsf{applyBlock}$} (LInNewestBlock)
+      edge [bend right=30] node[left=1mm] {$\mathsf{rollback}$} (LApplying)
+      edge node {$\mathsf{applyBlock}$} (LPersisted)
+    (LWontApply)
+      edge [bend left=30] node[right=1mm] {$\mathsf{rollback}^*$} (LApplying)
+    ;
+
+  \node[main node,style={circle}] (RStart) [right=5.5cm of LStart] {};
+  \node[main node] (RInNewestBlock) [below=1cm of RStart] {\texttt{InNewestBlock}};
+  \node[main node] (RPersisted)     [below=1cm of RInNewestBlock] {\texttt{Persisted}};
+
+  \path[every node/.style={font=\sffamily\scriptsize,
+      fill=white,inner sep=1pt}]
+    % Right-hand-side arrows rendered from top to bottom to
+    % achieve proper rendering of labels over arrows.
+    (RStart)
+      edge [bend right=30] node[left=1mm] {$\mathsf{applyBlock}$} (RInNewestBlock)
+    (RInNewestBlock)
+      edge [loop right]     node {$\mathsf{applyBlock}$} (RInNewestBlock)
+      edge [bend right=30] node[right=1mm] {$\mathsf{rollback}$} (RStart)
+      edge node {$\mathsf{applyBlock}$} (RPersisted)
+    ;
+\end{tikzpicture}
+\caption{\label{fig:transaction_state}Transaction state transitions (outgoing, \emph{left}, and incoming, \emph{right})}
+\end{figure}
+
+\section{Transaction Submission}
+
+An actual implementation of the wallet needs to broadcast pending transactions
+to the network, monitor when they get included in the blockchain, re-submit them
+if they don't get included, and perhaps eventually decide to give up on them if
+for some reason they do not get included.
+
+This functionality does not need to be part of the wallet proper. In
+Section~\ref{sec:submission_interface} we will discuss the interface to this
+component, and in Section~\ref{sec:submission_implementation} we will give a
+concrete simple implementation (which however still ignores any actual
+networking issues).
+
+\subsection{Interface}
+\label{sec:submission_interface}
+
+The interface to the transaction submission layer is shown in
+Figure~\ref{fig:transaction_submission_layer}. It is of a similar nature as
+interface to the wallet itself (Figure~\ref{fig:wallet_interface}). Just like
+the wallet expects to be notified of events such as `new block arrived' and
+`user submitted a new transaction', the submission layer expects to be notified
+when the set of pending transactions grows or shrinks, and whenever a time slot
+has passed (more on that below).
+
+\begin{figure}
+\begin{align*}
+\mathsf{addPending} & :: \mathbb{P}(\mathsf{Tx}) \rightarrow \mathsf{Submission} \rightarrow \mathsf{Submission} \\
+\mathsf{remPending} & :: \mathbb{P}(\mathsf{Tx}) \rightarrow \mathsf{Submission} \rightarrow \mathsf{Submission} \\
+\mathsf{tick}       & :: \mathsf{Submission} \rightarrow (\mathbb{P}(\mathsf{Tx}), \mathsf{Submission})
+\end{align*}
+\caption{\label{fig:transaction_submission_layer}Transaction submission layer}
+\end{figure}
+
+It is the responsibility of the wallet to
+%
+\begin{itemize}
+\item call $\mathsf{addPending}$ on $\mathsf{newPending}$ and (possibly) on $\mathsf{rollback}$
+\item call $\mathsf{remPending}$ on $\mathsf{applyBlock}$ and $\mathsf{cancel}$
+\end{itemize}
+
+In addition there must be a thread that periodically calls $\mathsf{tick}$, to
+give the submission layer a chance to resubmit transactions that haven't made it
+into the blockchain yet. The set of transactions returned by $\mathsf{tick}$ are
+the transactions that the submission layer gave up on (see below); the wallet
+should remove such transactions from its $\mathit{pending}$ set. From the point
+of view of the wallet model this corresponds to a new function
+%
+\begin{align*}
+& \mathsf{cancel} :: \mathbb{P}(\mathsf{Tx}) \rightarrow \mathsf{Wallet} \rightarrow \mathsf{Wallet} \\
+& \mathsf{cancel} ~ \mathit{txs} ~ (\mathit{checkpoints}, \mathit{txInfo}) = (\mathsf{map} ~ \mathsf{cancel'} ~ \mathit{checkpoints}, \mathit{txInfo}) \\
+& \qquad \text{where} ~ \mathsf{cancel}' ~ (\mathit{utxo}, \mathit{pending}, \mathit{blockMeta}) = (\mathit{utxo}, \mathit{pending} \setminus \mathit{txs}, \mathit{blockMeta})
+\end{align*}
+%
+By the logic of Section~\ref{sec:transaction_status}, such a transaction would
+be reported as $\mathtt{WontApply}$. Since we removed the transaction from the
+$\mathit{pending}$ set in all checkpoints\footnote{If the overhead of traversing
+all checkpoints is too large, an alternative implementation strategy would to be
+maintain an explicit $\mathit{cancelled}$ set of transaction as part of the
+wallet's state.}, however, a rollback won't reintroduce it into
+$\mathit{pending}$; if the user wants to explicitly tell the wallet to try this
+transaction again they will need to call $\mathsf{newPending}$. Effectively,
+$\mathsf{cancel}$ becomes a secondary way in which a transaction may go from
+$\texttt{Applying}$ to $\texttt{WontApply}$ (arrow $\mathsf{applyBlock}^*$), and
+$\mathsf{newPending}$ a secondary way to get back from $\texttt{WontApply}$ to
+$\texttt{Applying}$ (arrow $\mathsf{rollback}^*$).
+
+\subsection{Implementation}
+\label{sec:submission_implementation}
+
+Figure~\ref{fig:submission_layer_impl} shows a simple implementation of the
+submission layer.  Part of the goal of this section is to show that the
+submission layer has sufficient information and does not need further support
+from the core wallet layer---indeed, does not need to know it exists at all.
+
+The state of the submission layer consists of a mirror copy of the pending set
+of the wallet, as well as a schedule of which transactions to (re)submit next.
+The schedule is modelled as a simple list of time slots, recording for each slot
+the transactions that should be submitted, along with a submission count for
+each transaction.
+%
+\begin{itemize}
+\item When the submission layer is notified of new pending transactions,
+it adds those to its $\mathit{pending}$ set and schedules them to be submitted
+in the next slot, recording a initial submission count of 0.
+\item When the wallet tells the submission layer that some transactions are
+no longer pending (because they have been confirmed, because they have become
+invalid, or for other reasons), the submission layer simply removes them
+from its local $\mathit{pending}$ set.
+\item The submission layer is parameterized over a ``resubmission function''
+$\varrho$. At the start of each time slot, the submission layer calls $\varrho$
+to resubmit the set of transactions that are due, possibly dropping some
+transactions that have reached a maximum submission count.
+\end{itemize}
+
+Although our model here does not deal with actual networking concerns, a
+typical side-effectful implementation of $\varrho$ would
+%
+\begin{itemize}
+\item Drop any transactions that have reached their maximum submission
+count, possibly notifying the user
+(note that $\varrho$ only gets called for transactions that are still listed as
+pending).
+\item Resubmit the remaining transactions to the network, and reschedule them
+for the next attempt later. If desired, the submission count can be used to
+implement exponential back-off.
+\end{itemize}
+
+The concept of time slots is essentially private to the submission layer; it
+can, but does not have to, line up with the underlying blockchain slot length
+(indeed, we don't need to assume that the underlying blockchain even \emph{has}
+a slot length).
+
+In principle $\mathit{pending}$ could be dropped from the submission layer; the
+reason that we don't is that this would mean that $\mathsf{remPending}$ would
+have to traverse the entire schedule to remove the transactions from each slot.
+By keeping a separate $\mathit{pending}$ set we avoid this traversal, only
+checking the pending set at the point where we need it. The wallet's
+$\mathit{pending}$ set and the submission layer's one don't need to be in
+perfect sync:
+%
+\begin{itemize}
+\item If
+\begin{math}
+t \in    \mathit{pending}_\mathsf{Wallet} \text{ but }
+t \notin \mathit{pending}_\mathsf{Submission}
+\end{math}
+(yet), transaction $t$ will just be submitted a little bit later.
+
+\item If
+\begin{math}
+t \notin \mathit{pending}_\mathsf{Wallet} \text{ but (still) }
+t \in    \mathit{pending}_\mathsf{Submission}
+\end{math}
+then (depending on the submission count) the submission layer may resubmit a
+transaction which has already been included in the blockchain, or report the
+transaction as ``dropped''. The former is harmless; the latter at worst simply
+confusing. Moreover,  this may happen even if the wallet and the submission
+layer \emph{are} synchronized: it's entirely possible that the transaction has
+been included in the blockchain but the wallet hasn't been informed of the block
+yet.
+\end{itemize}
+
+Although the specification uses a simple list for its schedule, if the overhead
+of a linear scan over all time slots to reschedule transactions is unacceptable,
+it can of course easily use a different list-like datatype such as a
+fingertree\footnote{Available in Haskell as \texttt{Data.Sequence}.}
+\citep{hinze_paterson_2006}.
+
+\begin{figure}
+%
+\emph{Types}
+%
+\begin{align*}
+  \mathit{schedule}
+& \in \mathsf{Schedule} = [\mathsf{Tx} \mapsto \mathbb{N}]
+\end{align*}
+%
+\emph{Parameters}
+%
+\begin{align*}
+  \varrho
+& \in (\mathsf{Tx} \mapsto \mathbb{N}) \times \mathsf{Schedule} \rightarrow \mathbb{P}(\mathsf{Tx}) \times \mathsf{Schedule} & \text{Resubmission}
+\end{align*}
+%
+\emph{State}
+%
+\begin{align*}
+  (\mathit{pending}, \mathit{schedule})
+& \in \mathsf{Submission} = \mathsf{Pending} \times \mathsf{Schedule}
+\end{align*}
+%
+\emph{Updates}
+%
+\begin{align*}
+  \mathsf{addPending}
+    ~ \mathit{txs}
+    ~ (\mathit{pending}, \mathit{schedule})
+& = ( \mathit{pending} \cup \mathit{txs}
+    , \{ \mathit{tx} \mapsto 0 \mid \mathit{tx} \in \mathit{txs} \} : \mathit{schedule}
+    )
+\\
+  \mathsf{remPending}
+    ~ \mathit{txs}
+    ~ (\mathit{pending}, \mathit{schedule})
+& = ( \mathit{pending} \setminus \mathit{txs}
+    , \mathit{schedule}
+    )
+\end{align*}
+\begin{align*}
+& \mathsf{tick} ~ (\mathit{pending}, []) = (\emptyset, (\mathit{pending}, [])) \\
+& \mathsf{tick} ~ (\mathit{pending}, \mathit{due} : \mathit{schedule})
+= (\mathit{dropped}, (\mathit{pending}, \mathit{schedule'})) \\
+& \qquad\text{where~} (\mathit{dropped}, \mathit{schedule}')
+= \rho(\mathit{pending} \restrictdom \mathit{due}, \mathit{schedule})
+\end{align*}
+%
+\caption{\label{fig:submission_layer_impl}Submission layer implementation}
+\end{figure}
+
+\subsection{Persistence}
+
+The state of the submission layer does not need to be persisted. If the wallet
+is shutdown for some period of time, the submission layer can simply be
+re-initialized from the state of the wallet, starting the submission process
+afresh for any transactions that the wallet still reports as pending. As long
+as the submission layer is able to report ``time until dropped'' for still
+pending transactions, so that the user can see that all pending transactions
+have been reset to the initial expiry time of say 1 hour, it will be clear to
+the user what happened. This should be sufficient even for exchange nodes
+(especially since they will shutdown the wallet only very rarely).
+
+If this reset to 1 hr (or whatever the expiry time is) is not acceptable,
+then the state of the submission layer \emph{does} need to be persisted.
+The creation time of the transactions cannot be used, since this is a static
+value and will not change when the transaction gets explicitly resubmitted
+by the user after the submission layer decided to drop it.
+
+\subsection{Transactions with TTL}
+\label{sec:TTL}
+
+Dropping transactions after a certain time has passed is merely a stop-gap
+measure. Once a transaction has been broadcast across the network, it may be
+included at any point, possibly long after the submission layer has given up on
+it (unless the chain includes confirmed transactions that spends one or more of
+the tranasction's inputs).
+
+The proper solution to this problem is to introduce a time-to-live (TTL) value
+for transactions, stating that the transaction must be included in the
+blockchain before a certain slot and simply dropped otherwise. A proper treatment
+of TTL would require revisiting every aspect of this specification; for now
+we just make a few observations:
+
+\begin{itemize}
+\item Once a TTL has been introduced, the core wallet \emph{itself} can remove
+transactions from its $\mathit{pending}$ set once the TTL has expired.
+\item This means that the submission layer does not need to implement expiry
+anymore, although it may still wish to keep track of a submission count so that
+it can implement exponential back-off.
+\item Persistence for the submission layer becomes even less important.
+The expiry of a transaction is now determined by the state of the blockchain,
+and moreover once a transaction \emph{is} expired it cannot be resubmitted again
+(a new transaction, with a new TTL, must be signed).
+\end{itemize}
+
+\section{WIP: Transaction input selection and UTxO maintenance}
 
 \subsection{The problems}
 
@@ -2353,9 +2793,7 @@ simulations over time.
 
 \section{TODO: Persistent storage}
 
-Threading (see prefiltering)
-
-Batching (see rollback, definition of $\mathsf{switch}$).
+Threading (see prefiltering): blocks must be applied in order!
 
 \subsection{Switching to a fork}
 

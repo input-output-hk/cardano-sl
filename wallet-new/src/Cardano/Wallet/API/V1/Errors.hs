@@ -53,7 +53,7 @@ data WalletError =
     | SomeOtherError { weFoo :: !Text, weBar :: !Int }
     | MigrationFailed { weDescription :: !Text }
     | JSONValidationFailed { weValidationError :: !Text }
-    | UnkownError { weMsg :: !Text }
+    | UnknownError { weMsg :: !Text }
     | InvalidAddressFormat { weMsg :: !Text }
     | WalletNotFound
     | AddressNotFound
@@ -95,7 +95,7 @@ sample =
   , SomeOtherError "foo" 14
   , MigrationFailed "migration"
   , JSONValidationFailed "Expected String, found Null."
-  , UnkownError "unknown"
+  , UnknownError "unknown"
   , WalletNotFound
   ]
 
@@ -109,7 +109,7 @@ toServantError err =
     SomeOtherError{}       -> err418
     MigrationFailed{}      -> err422
     JSONValidationFailed{} -> err400
-    UnkownError{}          -> err400
+    UnknownError{}          -> err400
     WalletNotFound{}       -> err404
     InvalidAddressFormat{} -> err401
     AddressNotFound{}      -> err404

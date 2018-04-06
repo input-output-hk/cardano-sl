@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 set -Eeuo pipefail
 
@@ -38,7 +38,7 @@ tmux new-session -s $sessionName -d "WALLET_DEBUG=1 scripts/launch/demo-with-wal
 
 # wait until cluster is fully up and running
 echo "Waiting 140 seconds until local cluster is ready..."
-sleep 140s
+sleep 40s
 
 # import keys
 # TODO: we should import multiple keys for them to be useful as they contain little amount of money. Check does fakeavvm contains more money and if it does use that instead

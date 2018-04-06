@@ -208,7 +208,7 @@ data ClientError
     -- might return.
     | ClientHttpError ServantError
     -- ^ We directly expose the 'ServantError' type as part of this
-    | UnknownError SomeException
+    | UnknownClientError SomeException
     -- ^ This constructor is used when the API client reports an error that
     -- isn't represented in either the 'ServantError' HTTP errors or the
     -- 'WalletError' for API errors.
@@ -216,14 +216,14 @@ data ClientError
 
 -- | General (and naive) equality instance.
 instance Eq ClientError where
-    (==) (ClientWalletError e1) (ClientWalletError e2) = e1 == e2
-    (==) (ClientHttpError   e1) (ClientHttpError   e2) = e1 == e2
-    (==) (UnknownError      _ ) (UnknownError      _ ) = True
-    (==) _                      _                      = False
+    ClientWalletError  e1 == ClientWalletError  e2 = e1 == e2
+    ClientHttpError    e1 == ClientHttpError    e2 = e1 == e2
+    UnknownClientError _  == UnknownClientError _  = True
+    _ == _ = False
 
 -- | General exception instance.
 instance Exception ClientError where
-    toException   (ClientWalletError e) = toException e
-    toException   (ClientHttpError   e) = toException e
-    toException   (UnknownError      e) = toException e
+    toException (ClientWalletError  e) = toException e
+    toException (ClientHttpError    e) = toException e
+    toException (UnknownClientError e) = toException e
 

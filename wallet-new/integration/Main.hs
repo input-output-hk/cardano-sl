@@ -42,7 +42,7 @@ main = do
     let walletClient :: MonadIO m => WalletClient m
         walletClient = liftClient $ mkHttpClient baseUrl manager
 
-    let walletState = WalletState mempty mempty mempty mempty mempty 0
+    walletState <- initialWalletState walletClient
 
     -- some expected test cases
     hspec $ deterministicTests walletClient
@@ -58,6 +58,16 @@ main = do
     actionDistribution :: ActionProbabilities
     actionDistribution = do
         (PostWallet, Weight 1) :| fmap (\x -> (x, Weight 1)) [minBound .. maxBound]
+
+initialWalletState :: WalletClient IO -> IO  WalletState
+initialWalletState wc = do
+    _wallets <- either throwM (pure . wrData) =<< getWallets wc
+    let _walletsPass = mempty
+        _accounts = mempty
+        _addresses = mempty
+        _transactions = mempty
+        _actionsNum = 0
+    pure $ WalletState {..}
 
 deterministicTests :: WalletClient IO -> Spec
 deterministicTests wc = do

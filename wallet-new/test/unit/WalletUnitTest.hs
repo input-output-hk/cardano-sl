@@ -113,6 +113,20 @@ testPureWallet = do
         , checkEquivalent "base/roll" ind baseEmpty rollEmpty
         , checkEquivalent "base/full" ind baseEmpty fullEmpty
         ]
+
+    it "Sanity check rollback" $ do
+      let FromPreChain{..} = runTranslate $ fromPreChain oneTrans
+
+          ours :: Ours Addr
+          ours = oursFromSet $ Set.singleton r1
+
+          w0, w1 :: Wallet GivenHash Addr
+          w0 = walletBoot Full.walletEmpty ours fpcBoot
+          w1 = applyBlocks w0 (chainBlocks fpcChain)
+          w2 = rollback w1
+
+      shouldNotBe (utxo w0) (utxo w1)
+      shouldBe    (utxo w0) (utxo w2)
   where
     transCtxt = runTranslateNoErrors ask
 

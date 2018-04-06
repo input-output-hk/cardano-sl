@@ -14,6 +14,7 @@ module Wallet.Abstract (
   , WalletConstr
   , mkDefaultWallet
   , walletBoot
+  , applyBlocks
     -- * Inductive wallet definition
   , Inductive(..)
   , interpret
@@ -114,6 +115,10 @@ data Wallet h a = Wallet {
       -- pending transactions.
     , total :: Utxo h a
     }
+
+-- | Apply multiple blocks
+applyBlocks :: Wallet h a -> Blocks h a -> Wallet h a
+applyBlocks w0 bs = foldl' applyBlock w0 bs
 
 -- | Type of a wallet constructor
 --

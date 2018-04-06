@@ -237,20 +237,7 @@ instance ByteArray.ByteArrayAccess a => ByteArray.ByteArrayAccess (V1 a) where
 
 -- TODO(adinapoli) Rewrite it properly under CSL-2048.
 instance Arbitrary (V1 BackupPhrase) where
-    arbitrary = pure . V1 . BackupPhrase $ [
-          "shell"
-        , "also"
-        , "throw"
-        , "ramp"
-        , "grape"
-        , "chest"
-        , "setup"
-        , "mandate"
-        , "spare"
-        , "verb"
-        , "lemon"
-        , "test"
-        ]
+    arbitrary = V1 <$> arbitrary
 
 instance ToJSON (V1 BackupPhrase) where
     toJSON (V1 (BackupPhrase wrds)) = toJSON wrds

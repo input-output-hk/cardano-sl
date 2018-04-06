@@ -115,9 +115,6 @@ runAction wc action = do
 
             let localWallets = ws ^. wallets
 
-            -- The precondition is that we need to have wallets.
-            guard (not (null localWallets))
-
             -- We choose from the existing wallets.
             wal@Wallet{ walId }  <-  pickRandomElement localWallets
 
@@ -132,9 +129,6 @@ runAction wc action = do
 
         DeleteWallet -> do
             localWallets <- use wallets
-
-            -- The precondition is that we need to have wallets.
-            guard (not (null localWallets))
 
             -- We choose from the existing wallets.
             wallet  <-  pickRandomElement localWallets
@@ -157,9 +151,6 @@ runAction wc action = do
 
             localWallets <- use wallets
 
-            -- The precondition is that we need to have wallets.
-            guard (not (null localWallets))
-
             -- We choose from the existing wallets.
             wallet  <-  pickRandomElement localWallets
 
@@ -180,9 +171,6 @@ runAction wc action = do
         UpdateWalletPass -> do
 
             localWallets <- use wallets
-
-            -- The precondition is that we need to have wallets.
-            guard (not (null localWallets))
 
             -- We choose from the existing wallets.
             wallet  <-  pickRandomElement localWallets
@@ -213,10 +201,6 @@ runAction wc action = do
         PostAccount -> do
 
             localWallets <- use wallets
-
-            -- Precondition, we need to have wallet in order
-            -- to create an account.
-            guard (not (null localWallets))
 
             wallet     <- pickRandomElement localWallets
             newAcc  <-  liftIO $ generate generateNewAccount
@@ -266,9 +250,6 @@ runAction wc action = do
         DeleteAccount -> do
             localAccounts <- use accounts
 
-            -- The precondition is that we need to have accounts.
-            guard (not (null localAccounts))
-
             -- We choose from the existing wallets AND existing accounts.
             account <-  pickRandomElement localAccounts
             let walletId = accWalletId account
@@ -288,9 +269,6 @@ runAction wc action = do
 
         UpdateAccount -> do
             localAccounts <- use accounts
-
-            -- The precondition is that we need to have accounts.
-            guard (not (null localAccounts))
 
             -- We choose from the existing wallets.
             account <-  pickRandomElement localAccounts
@@ -315,8 +293,6 @@ runAction wc action = do
             -- If we have accounts, that presupposes that we have wallets,
             -- which is the other thing we need here.
             localAccounts <- use accounts
-
-            guard (not (null localAccounts))
 
             -- We choose from the existing wallets AND existing accounts.
             account <-  pickRandomElement localAccounts
@@ -378,13 +354,6 @@ runAction wc action = do
             let minCoinForTxs = V1 . mkCoin $ 200000
             let localAccsWithMoney = filter ((> minCoinForTxs) . accAmount) localAccounts
 
-            -- | The preconditions we need to generate a transaction.
-            -- We need to have an account and an address.
-            -- We also need money to execute a transaction.
-            guard (not (null localAccounts))
-            guard (not (null localAddresses))
-            guard (not (null localAccsWithMoney))
-
             -- From which source to pay.
             accountSource <- pickRandomElement localAccsWithMoney
 
@@ -445,9 +414,6 @@ runAction wc action = do
         GetTransaction  -> do
             ws <- get
             let txs = ws ^. transactions
-
-            -- We need to have transactions in order to test this endpoint.
-            guard (not (null txs))
 
             -- We choose from the existing transactions.
             accTransaction  <- pickRandomElement txs

@@ -18,6 +18,7 @@ module Cardano.Wallet.Client
     , ClientError(..)
     , WalletError(..)
     , ServantError(..)
+    , Response(..)
     -- * Reexports
     , module Cardano.Wallet.API.V1.Types
     , module Cardano.Wallet.API.V1.Parameters
@@ -32,7 +33,7 @@ module Cardano.Wallet.Client
 import           Universum
 
 import           Control.Exception (Exception (..))
-import           Servant.Client (ServantError (..))
+import           Servant.Client (ServantError (..), Response(..))
 
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination

@@ -10,12 +10,12 @@ module Functions where
 import           Universum hiding (log)
 
 import           Data.Coerce (coerce)
-import           Data.List (delete)
+import           Data.List (delete, isInfixOf)
 import           Data.List.NonEmpty (fromList)
 
-import           Control.Lens (at, each, filtered, (+=), (%=), (.=), (<>=), (?=))
+import           Control.Lens (at, each, filtered, uses, (%=), (+=), (.=), (<>=), (?=))
 import           Test.Hspec
-import           Test.QuickCheck (Gen, arbitrary, choose, elements, frequency, generate)
+import           Test.QuickCheck (Gen, arbitrary, choose, elements, frequency, generate, suchThat)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
 import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, AccountUpdate (..),
@@ -23,14 +23,14 @@ import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, Accoun
                                               NewAccount (..), NewAddress (..), NewWallet (..),
                                               PasswordUpdate (..), Payment (..),
                                               PaymentDistribution (..), PaymentSource (..),
-                                              Transaction (..), V1 (..), Wallet (..),
-                                              WalletAddress (..), WalletId, WalletOperation (..),
-                                              WalletUpdate (..), unV1)
+                                              SpendingPassword, Transaction (..), V1 (..),
+                                              Wallet (..), WalletAddress (..), WalletId,
+                                              WalletOperation (..), WalletUpdate (..), unV1)
 
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
-import           Cardano.Wallet.Client (ClientError (..), WalletClient (..), getAccounts,
-                                        getAddressIndex, getTransactionIndex, getWallets,
-                                        hoistClient)
+import           Cardano.Wallet.Client (ClientError (..), Response (..), ServantError (..),
+                                        WalletClient (..), getAccounts, getAddressIndex,
+                                        getTransactionIndex, getWallets, hoistClient)
 
 import           Pos.Core (getCoin, mkCoin)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -88,6 +88,11 @@ tryAll :: Alternative f => [f a] -> f a
 tryAll []     = empty
 tryAll (x:xs) = foldr (\act acc -> act *> acc <|> acc) x xs
 
+freshPassword :: (MonadState WalletState m, MonadIO m) => m SpendingPassword
+freshPassword = do
+    passwords <- gets (toList . view walletsPass)
+    liftIO $ generate $ arbitrary `suchThat` (`notElem` passwords)
+
 -- | Here we run the actions.
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 runAction
@@ -100,18 +105,31 @@ runAction wc action = do
     log $ "Running: " <> show action
     case action of
         PostWallet -> do
-            newPassword <- liftIO $ generate arbitrary
+            newPassword <- freshPassword
             newWall     <- liftIO $ generate $ generateNewWallet newPassword
             log $ "Request: " <> show newWall
-            result      <- respToRes $ postWallet wc newWall
+            eresult      <- postWallet wc newWall
 
-            checkInvariant
-                (walBalance result == minBound)
-                (WalletBalanceNotZero result)
+            case eresult of
+                Right WalletResponse { wrData = result } -> do
+                    checkInvariant
+                        (walBalance result == minBound)
+                        (WalletBalanceNotZero result)
 
-            -- Modify wallet state accordingly.
-            wallets    <>= [result]
-            walletsPass . at result ?= newPassword
+                    log $ "New wallet ID: " <> show (walId result)
+                    -- Modify wallet state accordingly.
+                    wallets    <>= [result]
+                    walletsPass . at result ?= newPassword
+
+                Left (ClientHttpError (FailureResponse (Response {..})))
+                    | "mnemonics" `isInfixOf` show responseBody -> do
+                        log "Mnemonic was already taken!"
+                        -- we need to record that the password is in use
+                        -- somehow
+                        dummyWallet <- liftIO . generate $ arbitrary
+                        walletsPass . at dummyWallet ?= newPassword
+                Left err ->
+                    throwM err
           where
             generateNewWallet spendPass =
                 NewWallet
@@ -122,25 +140,21 @@ runAction wc action = do
                     <*> pure CreateWallet
 
         GetWallets -> do
-            localWallets <- use wallets
-            -- We choose from the existing wallets.
+            -- our internal state is less important than
             result  <-  respToRes $ getWallets wc
-
-            checkInvariant
-                (length result == length localWallets)
-                (LocalWalletsDiffers result localWallets)
+            wallets .= result
 
             -- No modification required.
 
         GetWallet -> do
             -- We choose from the existing wallets.
-            wal@Wallet{ walId }  <-  pickRandomElement =<< use wallets
+            wal <-  pickRandomElement =<< use wallets
 
-            log $ "Requesting wallet: " <> show walId
-            result  <-  respToRes $ getWallet wc walId
+            log $ "Requesting wallet: " <> show (walId wal)
+            result  <-  respToRes $ getWallet wc (walId wal)
 
             checkInvariant
-                (result == wal)
+                (walId result == walId wal)
                 (LocalWalletDiffers result wal)
 
         DeleteWallet -> do
@@ -157,11 +171,16 @@ runAction wc action = do
             result  <-  respToRes $ getWallets wc
 
             checkInvariant
-                (all ((/=) wallet) result)
+                (wallet `notElem` result)
                 (LocalWalletsDiffers result localWallets)
 
+            walletAccounts <- uses accounts (filter (\acc -> accWalletId acc /= walId wallet))
+
             -- Modify wallet state accordingly.
-            wallets    .= delete wallet localWallets
+            wallets  .= delete wallet localWallets
+            accounts .= walletAccounts
+            addresses %= filter (`notElem` concatMap accAddresses walletAccounts)
+
 
         UpdateWallet -> do
 
@@ -197,7 +216,7 @@ runAction wc action = do
             oldWalletPass <- use (walletsPass . at wallet)
 
             walletPass  <- maybe empty pure oldWalletPass
-            newPassword <- liftIO $ generate arbitrary
+            newPassword <- freshPassword
 
             -- Create a password update.
             let newPasswordUpdate =
@@ -282,7 +301,8 @@ runAction wc action = do
                 (LocalAccountsDiffers result deleted)
 
             -- Modify wallet state accordingly.
-            accounts   .= deleted
+            accounts  .= deleted
+            addresses %= filter (`notElem` accAddresses account)
 
         UpdateAccount -> do
             localAccounts <- use accounts

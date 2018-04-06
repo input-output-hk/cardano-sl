@@ -45,13 +45,22 @@ sleep 40s
 echo "Importing poor HD key/wallet..."
  curl -X POST http://localhost:8090/api/wallets/keys -H 'cache-control: no-cache' -H 'content-type: application/json' -d "\"$tmpSecrets/generated-keys/poor/key0.sk\""
 
+FAILED=0
+
 # run integration tests
 # TODO (akegalj): add tls files to default integration options
 echo "Launching cardano integration tests..."
 stack exec -- cardano-integration-test --help
-stack exec -- cardano-integration-test # --tls-pub-cert scripts/tls-files/server.crt --tls-priv-key scripts/tls-files/server.key
+stack exec -- cardano-integration-test || {
+    echo "Shutting down cardano cluster... it did a fail"
+    cleanState
+    FAILED=1
+}
+# --tls-pub-cert scripts/tls-files/server.crt --tls-priv-key scripts/tls-files/server.key
 
 # kill cluster
 # TODO (akegalj): move to integration/Main.hs
-echo "Shutting down cardano cluster..."
-cleanState
+if [[ $FAILED == 0 ]]; then
+    echo "Shutting down cardano cluster..."
+    cleanState
+fi

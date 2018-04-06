@@ -2,7 +2,6 @@
 
 -- | Types describing runtime errors related to
 -- wallet integration tests.
-
 module Error
     ( WalletTestError (..)
     ) where
@@ -20,8 +19,6 @@ import           Cardano.Wallet.Client (ClientError)
 
 data WalletTestError
     = HttpClientError ClientError
-
-    | InvalidProbabilityDistr
 
     | WalletBalanceNotZero Wallet
     | WalletPassMissing Wallet
@@ -49,8 +46,6 @@ instance Exception WalletTestError
 
 instance Buildable WalletTestError where
     build (HttpClientError _        )     = bprint "Http client error"
-    -- ^ TODO (ks): A proper instance
-    build InvalidProbabilityDistr         = bprint "The probability distribution should be between 1 - 100."
     build (WalletBalanceNotZero    w)     = bprint ("Wallet balance is not zero - ("%stext%")") (show w)
     build (WalletPassMissing       w)     = bprint ("Missing wallet pass - ("%stext%")") (show w)
     build (LocalWalletDiffers      w)     = bprint ("Local wallet differs - ("%stext%")") (show w)

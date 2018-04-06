@@ -12,7 +12,7 @@ import           Data.Coerce (coerce)
 import           Data.List (delete)
 import           Data.List.NonEmpty (fromList)
 
-import           Control.Lens (at, each, filtered, (+~), (<>~), (?~))
+import           Control.Lens (at, each, filtered, uses, (+=), (.=), (<>=), (?=))
 import           Test.QuickCheck (Gen, arbitrary, elements, frequency, generate)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
@@ -21,13 +21,14 @@ import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, Accoun
                                               NewAccount (..), NewAddress (..), NewWallet (..),
                                               PasswordUpdate (..), Payment (..),
                                               PaymentDistribution (..), PaymentSource (..),
-                                              SpendingPassword, Transaction (..), V1 (..),
+                                              Transaction (..), V1 (..),
                                               Wallet (..), WalletAddress (..), WalletId,
                                               WalletOperation (..), WalletUpdate (..))
 
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..), getAccounts,
-                                        getAddressIndex, getTransactionIndex, getWallets)
+                                        getAddressIndex, getTransactionIndex, getWallets,
+                                        hoistClient)
 
 import           Pos.Core (mkCoin)
 import           Pos.Util (maybeThrow)
@@ -36,108 +37,35 @@ import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import           Error
 import           Types
 
--- | Run all actions from the given list. If some actions are not ready, they will be skipped, put in the queue and retried (in order) until every action succeeds.
--- Might run indefinitely if some action from the list is guarded identifinitely.
-runAllActions
-    :: (WalletTestMode m, HasCallStack)
-    => WalletClient m
-    -> WalletState
-    -> [Action]
-    -> m WalletState
-runAllActions _ walletState [] = pure walletState
-runAllActions walletClient walletState actions = do
-    uncurry (runAllActions walletClient) =<< tryAllActions walletClient walletState actions
-
--- | Run all actions from the given list. If some actions are not ready, they will be skipped, put in the queue and retried (in order) until every action succeeds or if max number of retries is exceeded.
-runAllActionsWithRetry
-    :: (WalletTestMode m, HasCallStack)
-    => Word
-    -> WalletClient m
-    -> WalletState
-    -> [Action]
-    -> m WalletState
-runAllActionsWithRetry _ _ walletState [] = pure walletState
-runAllActionsWithRetry 0 walletClient walletState actions = do
-    (newWalletState, guardedActions) <- tryAllActions walletClient walletState actions
-    if null guardedActions
-        then pure newWalletState
-        -- TODO: use throwM?
-        else error "runAllActionsWithRetry: exceeded maximum number of retries"
-runAllActionsWithRetry retry walletClient walletState actions = do
-    (newState, guardedActions) <- tryAllActions walletClient walletState actions
-    runAllActionsWithRetry (pred retry) walletClient newState guardedActions
-
--- | Try to run all actions from the given list.
--- Actions that have been skipped will be returned.
-tryAllActions
-    :: (WalletTestMode m, HasCallStack)
-    => WalletClient m
-    -> WalletState
-    -> [Action]
-    -> m (WalletState, [Action])
-tryAllActions walletClient walletState =
-    fmap (second reverse) . foldM tryAction (walletState, mempty)
-  where
-    tryAction (oldState, guardedActions) action = do
-        mNewState <- runMaybeT $ runAction walletClient oldState action
-        pure $ case mNewState of
-            Just newState -> (newState, guardedActions)
-            Nothing       -> (oldState, action : guardedActions)
-
--- | Run number of actions. Actions that don't satisfy run conditions (ie, guards) will be skipped.
--- If none of the actions satisfy run conditions - no actions will be executed and this might run idefinitely. This function tries to run exactly number of actions and will try until it succeeds.
--- Might run indefinitely if some action from the list is guarded.
--- FIXME: bad naming! I didn't have the inspiration (akegalj)
-runActionsCount'
-    :: (WalletTestMode m, HasCallStack)
-    => Word
-    -> WalletClient m
-    -> WalletState
-    -> ActionProbabilities
-    -> m WalletState
-runActionsCount' 0 _ walletState _ = pure walletState
-runActionsCount' count walletClient walletState actionDistr = do
-    newState <- fromMaybe walletState <$> runActionCheck walletClient walletState actionDistr
-    runActionsCount' (pred count) walletClient newState actionDistr
-
--- | Try to run number of actions. Actions that don't satisfy run conditions (ie, guards) will be skipped.
--- If none of the actions satisfy run conditions - no actions will be executed.
-runActionsCount
-    :: (WalletTestMode m, HasCallStack)
-    => Word
-    -> WalletClient m
-    -> WalletState
-    -> ActionProbabilities
-    -> m WalletState
-runActionsCount count client walletState =
-    foldM runAct walletState . replicate (fromIntegral count)
-  where
-    runAct oldState action =
-        fromMaybe oldState <$> runActionCheck client oldState action
-
--- | The top function that we need to run in order
--- to test the backend.
+-- | This function uses the given 'ActionProbabilities' to generate a list
+-- of actions to test against the API. It runs the actions through,
+-- eventually returning the final state.
 runActionCheck
     :: (WalletTestMode m, HasCallStack)
     => WalletClient m
     -> WalletState
     -> ActionProbabilities
-    -> m (Maybe WalletState)
+    -> m WalletState
 runActionCheck walletClient walletState actionProb = do
-    action <- chooseAction actionProb
-    runMaybeT $ runAction walletClient walletState action
+    actions <- toList <$> chooseActions 20 actionProb
+    let client' = hoistClient lift walletClient
+    execStateT (tryAll (map (runAction client') actions)) walletState
 
+-- | Attempt each action in the list. If an action fails, ignore the
+-- failure.
+tryAll :: Alternative f => [f a] -> f a
+tryAll []     = empty
+tryAll (x:xs) = foldr (\act acc -> act *> acc <|> acc) x xs
 
 -- | Here we run the actions.
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 runAction
-    :: (WalletTestMode m, HasCallStack)
+    :: (WalletTestMode m, HasCallStack, MonadState WalletState m)
     => WalletClient m
-    -> WalletState
     -> Action
-    -> MaybeT m WalletState
+    -> m ()
 -- Wallets
-runAction wc ws  PostWallet = do
+runAction wc PostWallet = do
     newPassword <- liftIO $ generate arbitrary
     newWall     <- liftIO $ generate $ generateNewWallet newPassword
     result      <- respToRes $ postWallet wc newWall
@@ -147,10 +75,9 @@ runAction wc ws  PostWallet = do
         (WalletBalanceNotZero result)
 
     -- Modify wallet state accordingly.
-    pure $ ws
-        & wallets    <>~ [result]
-        & walletsPass . at result ?~ newPassword
-        & actionsNum +~ 1
+    wallets    <>= [result]
+    walletsPass . at result ?= newPassword
+    actionsNum += 1
   where
     generateNewWallet spendPass =
         NewWallet
@@ -160,7 +87,8 @@ runAction wc ws  PostWallet = do
             <*> pure "Wallet"
             <*> pure CreateWallet
 
-runAction wc ws GetWallets   = do
+runAction wc GetWallets   = do
+    ws      <- get
     -- We choose from the existing wallets.
     result  <-  respToRes $ getWallets wc
 
@@ -169,10 +97,10 @@ runAction wc ws GetWallets   = do
         (LocalWalletsDiffers result)
 
     -- No modification required.
-    pure $ ws
-        & actionsNum +~ 1
+    actionsNum += 1
 
-runAction wc ws GetWallet    = do
+runAction wc GetWallet    = do
+    ws <- get
 
     let localWallets = ws ^. wallets
 
@@ -188,12 +116,10 @@ runAction wc ws GetWallet    = do
         (LocalWalletDiffers result)
 
     -- No modification required.
-    pure $ ws
-        & actionsNum +~ 1
+    actionsNum += 1
 
-runAction wc ws DeleteWallet = do
-
-    let localWallets = ws ^. wallets
+runAction wc DeleteWallet = do
+    localWallets <- use wallets
 
     -- The precondition is that we need to have wallets.
     guard (not (null localWallets))
@@ -202,7 +128,7 @@ runAction wc ws DeleteWallet = do
     wallet  <-  pickRandomElement localWallets
 
     -- If we don't have any http client errors, the delete was a success.
-    _       <-  lift $ either throwM pure =<< deleteWallet wc (walId wallet)
+    _       <-  either throwM pure =<< deleteWallet wc (walId wallet)
 
     -- Just in case, let's check if it's still there.
     result  <-  respToRes $ getWallets wc
@@ -212,13 +138,12 @@ runAction wc ws DeleteWallet = do
         (LocalWalletsDiffers result)
 
     -- Modify wallet state accordingly.
-    pure $ ws
-        & wallets    .~ delete wallet localWallets
-        & actionsNum +~ 1
+    wallets    .= delete wallet localWallets
+    actionsNum += 1
 
-runAction wc ws UpdateWallet = do
+runAction wc UpdateWallet = do
 
-    let localWallets = ws ^. wallets
+    localWallets <- use wallets
 
     -- The precondition is that we need to have wallets.
     guard (not (null localWallets))
@@ -237,13 +162,12 @@ runAction wc ws UpdateWallet = do
     result  <-  respToRes $ updateWallet wc walletId newWallet
 
     -- Modify wallet state accordingly.
-    pure $ ws
-        & wallets . each . filtered (== wallet) .~ result
-        & actionsNum +~ 1
+    wallets . each . filtered (== wallet) .= result
+    actionsNum += 1
 
-runAction wc ws UpdateWalletPass = do
+runAction wc UpdateWalletPass = do
 
-    let localWallets = ws ^. wallets
+    localWallets <- use wallets
 
     -- The precondition is that we need to have wallets.
     guard (not (null localWallets))
@@ -254,8 +178,7 @@ runAction wc ws UpdateWalletPass = do
     let walletId = walId wallet
 
     -- Get the old wallet password.
-    let oldWalletPass :: Maybe SpendingPassword
-        oldWalletPass = ws ^. walletsPass . at wallet
+    oldWalletPass <- use (walletsPass . at wallet)
 
     walletPass  <- maybeThrow (WalletPassMissing wallet) oldWalletPass
     newPassword <- liftIO $ generate arbitrary
@@ -270,15 +193,14 @@ runAction wc ws UpdateWalletPass = do
     result  <-  respToRes $ updateWalletPassword wc walletId newPasswordUpdate
 
     -- Modify wallet state accordingly.
-    pure $ ws
-        & wallets . each . filtered (== wallet) .~ result
-        & walletsPass . at wallet ?~ newPassword
-        & actionsNum +~ 1
+    wallets . each . filtered (== wallet) .= result
+    walletsPass . at wallet ?= newPassword
+    actionsNum += 1
 
 -- Accounts
-runAction wc ws  PostAccount = do
+runAction wc PostAccount = do
 
-    let localWallets = ws ^. wallets
+    localWallets <- use wallets
 
     -- Precondition, we need to have wallet in order
     -- to create an account.
@@ -293,9 +215,8 @@ runAction wc ws  PostAccount = do
         (AccountBalanceNotZero result)
 
     -- Modify wallet state accordingly.
-    pure $ ws
-        & accounts   <>~ [result]
-        & actionsNum +~ 1
+    accounts   <>= [result]
+    actionsNum += 1
   where
     -- | We don't want to memorize the passwords for now.
     generateNewAccount =
@@ -303,24 +224,23 @@ runAction wc ws  PostAccount = do
             <$> pure Nothing
             <*> arbitrary
 
-runAction wc ws GetAccounts   = do
+runAction wc GetAccounts   = do
     -- We choose from the existing wallets AND existing accounts.
-    wallet  <-  pickRandomElement (ws ^. wallets)
+    wallet  <-  pickRandomElement =<< use wallets
     let walletId = walId wallet
     -- We get all the accounts.
     result  <-  respToRes $ getAccounts wc walletId
 
+    acctLength <- uses accounts length
     checkInvariant
-        (length result == length (ws ^. accounts))
+        (length result == acctLength)
         (LocalAccountsDiffers result)
 
-    -- Modify wallet state accordingly.
-    pure $ ws
-        & actionsNum +~ 1
+    actionsNum += 1
 
-runAction wc ws GetAccount    = do
+runAction wc GetAccount    = do
     -- We choose from the existing wallets AND existing accounts.
-    account <-  pickRandomElement (ws ^. accounts)
+    account <-  pickRandomElement =<< use accounts
     let walletId = accWalletId account
 
     result  <-  respToRes $ getAccount wc walletId (accIndex account)
@@ -330,13 +250,10 @@ runAction wc ws GetAccount    = do
         (LocalAccountDiffers result)
 
     -- Modify wallet state accordingly.
-    pure $ ws
-        & actionsNum +~ 1
+    actionsNum += 1
 
-
-runAction wc ws DeleteAccount = do
-
-    let localAccounts = ws ^. accounts
+runAction wc DeleteAccount = do
+    localAccounts <- use accounts
 
     -- The precondition is that we need to have accounts.
     guard (not (null localAccounts))
@@ -346,7 +263,7 @@ runAction wc ws DeleteAccount = do
     let walletId = accWalletId account
 
     -- If we don't have any http client errors, the delete was a success.
-    _ <- lift $ either throwM pure =<< deleteAccount wc walletId (accIndex account)
+    _ <- either throwM pure =<< deleteAccount wc walletId (accIndex account)
 
     -- Just in case, let's check if it's still there.
     result  <-  respToRes $ getAccounts wc walletId
@@ -356,13 +273,11 @@ runAction wc ws DeleteAccount = do
         (LocalAccountsDiffers result)
 
     -- Modify wallet state accordingly.
-    pure $ ws
-        & accounts   .~ delete account localAccounts
-        & actionsNum +~ 1
+    accounts   .= delete account localAccounts
+    actionsNum += 1
 
-runAction wc ws UpdateAccount = do
-
-    let localAccounts = ws ^. accounts
+runAction wc UpdateAccount = do
+    localAccounts <- use accounts
 
     -- The precondition is that we need to have accounts.
     guard (not (null localAccounts))
@@ -381,22 +296,20 @@ runAction wc ws UpdateAccount = do
     result  <-  respToRes $ updateAccount wc walletId accountId newAccount
 
     -- Modify wallet state accordingly.
-    pure $ ws
-        & accounts . each . filtered (== account) .~ result
-        & actionsNum +~ 1
+    accounts . each . filtered (== account) .= result
+    actionsNum += 1
 
 -- Addresses
-runAction wc ws PostAddress = do
-
+runAction wc PostAddress = do
     -- The precondition is that we must have accounts.
     -- If we have accounts, that presupposes that we have wallets,
     -- which is the other thing we need here.
-    let localAccounts = ws ^. accounts
+    localAccounts <- use accounts
 
     guard (not (null localAccounts))
 
     -- We choose from the existing wallets AND existing accounts.
-    account <-  pickRandomElement (ws ^. accounts)
+    account <-  pickRandomElement localAccounts
     let walletId = accWalletId account
 
     let newAddress = createNewAddress walletId (accIndex account)
@@ -408,9 +321,8 @@ runAction wc ws PostAddress = do
         (AddressBalanceNotZero result)
 
     -- Modify wallet state accordingly.
-    pure $ ws
-        & addresses  <>~ [result]
-        & actionsNum +~ 1
+    addresses  <>= [result]
+    actionsNum += 1
   where
     createNewAddress :: WalletId -> AccountIndex -> NewAddress
     createNewAddress wId accIndex = NewAddress
@@ -419,10 +331,10 @@ runAction wc ws PostAddress = do
         , newaddrWalletId         = wId
         }
 
-runAction wc ws GetAddresses   = do
+runAction wc GetAddresses   = do
     -- We choose one address, we could choose all of them.
     -- Also, remove the `V1` type since we don't need it now.
-    address <-  coerce <$> pickRandomElement (ws ^. addresses)
+    address <-  fmap coerce . pickRandomElement =<< use addresses
     -- We get all the accounts.
     result  <-  respToRes $ getAddressIndex wc
 
@@ -431,12 +343,11 @@ runAction wc ws GetAddresses   = do
         (LocalAddressesDiffer address result)
 
     -- Modify wallet state accordingly.
-    pure $ ws
-        & actionsNum +~ 1
+    actionsNum += 1
 
-runAction wc ws GetAddress     = do
+runAction wc GetAddress     = do
     -- We choose one address.
-    address <-  addrId <$> pickRandomElement (ws ^. addresses)
+    address <-  fmap addrId . pickRandomElement =<< use addresses
 
     -- If we can't switch to @Text@ something is obviously wrong.
     let cAddress :: (MonadThrow m) => m (V0.CId V0.Addr)
@@ -448,12 +359,11 @@ runAction wc ws GetAddress     = do
     _  <-  respToRes $ getAddress wc textAddress
 
     -- Modify wallet state accordingly.
-    pure $ ws
-        & actionsNum +~ 1
+    actionsNum += 1
 
 -- Transactions
-runAction wc ws PostTransaction = do
-
+runAction wc PostTransaction = do
+    ws <- get
     let localAccounts  = ws ^. accounts
     let localAddresses = ws ^. addresses
 
@@ -511,9 +421,8 @@ runAction wc ws PostTransaction = do
         (InvalidTransactionState result)
 
     -- Modify wallet state accordingly.
-    pure $ ws
-        & transactions  <>~ [(accountSource, result)]
-        & actionsNum    +~ 1
+    transactions  <>= [(accountSource, result)]
+    actionsNum    += 1
 
   where
     createNewPayment :: PaymentSource -> [PaymentDistribution] -> Payment
@@ -526,7 +435,8 @@ runAction wc ws PostTransaction = do
         }
 
 
-runAction wc ws GetTransaction  = do
+runAction wc GetTransaction  = do
+    ws <- get
     let txs = ws ^. transactions
 
     -- We need to have transactions in order to test this endpoint.
@@ -566,8 +476,7 @@ runAction wc ws GetTransaction  = do
         (LocalTransactionMissing transaction result)
 
     -- Modify wallet state accordingly.
-    pure $ ws
-        & actionsNum +~ 1
+    actionsNum += 1
 
 
 -----------------------------------------------------------------------------
@@ -580,7 +489,7 @@ chooseActionGen
     :: ActionProbabilities
     -> Gen Action
 chooseActionGen =
-    frequency . map (\(a, p) -> (getProbability p, pure a)) . toList
+    frequency . map (\(a, p) -> (getWeight p, pure a)) . toList
 
 
 -- | Generate action from the generator.
@@ -590,15 +499,26 @@ chooseAction
     -> m Action
 chooseAction = liftIO . generate . chooseActionGen
 
+-- | Generate a random sequence of actions with the given size.
+chooseActions
+    :: (WalletTestMode m)
+    => Word
+    -> ActionProbabilities
+    -> m (NonEmpty Action)
+chooseActions n probs = liftIO . generate $ do
+    let gens = map (\(a, p) -> (getWeight p, pure a)) (toList probs)
+    a <- frequency gens
+    as <- replicateM (fromIntegral n - 1) (frequency gens)
+    pure (a :| as)
 
 -- | We are not interested in the @WalletResponse@ for now.
 respToRes
     :: forall m a. (MonadThrow m)
     => m (Either ClientError (WalletResponse a))
-    -> MaybeT m a
+    -> m a
 respToRes resp = do
-    result <- lift resp
-    lift $ either throwM (pure . wrData) result
+    result <- resp
+    either throwM (pure . wrData) result
 
 
 -- | Pick a random element using @IO@.

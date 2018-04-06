@@ -12,8 +12,9 @@ import qualified Prelude
 import           Universum
 
 import           Crypto.Hash (Blake2b_256)
+import qualified Data.ByteString as BS
 import           Data.Text.Buildable (Buildable (..))
-import           Test.QuickCheck (Arbitrary (..), elements, genericShrink, vectorOf)
+import           Test.QuickCheck (Arbitrary (..), Gen, elements, genericShrink, vectorOf)
 import           Test.QuickCheck.Instances ()
 
 import           Pos.Binary (Bi (..), serialize')
@@ -28,21 +29,15 @@ newtype BackupPhrase = BackupPhrase
     { bpToList :: [Text]
     } deriving (Eq, Generic)
 
+-- NOTE: it's guaranteed not to fail
 instance Arbitrary BackupPhrase where
-    arbitrary = BackupPhrase <$> vectorOf 12 (elements englishWords)
+    arbitrary = either error identity <$> arbitraryMnemonic 16
     shrink    = genericShrink
 
--- | (Some) valid English words as taken from <https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki BIP-39>
-englishWords :: [Text]
-englishWords = [ "recycle" , "child" , "universe" , "extend" , "edge" , "tourist"
-               , "swamp" , "rare" , "enhance" , "rabbit" , "blast" , "plastic" , "attitude"
-               , "name" , "skull" , "merit" , "night" , "idle" , "bone" , "exact"
-               , "inflict" , "legal" , "predict" , "certain" , "napkin" , "blood"
-               , "color" , "screen" , "birth" , "detect" , "summer" , "palm"
-               , "entry" , "swing" , "fit" , "garden" , "trick" , "timber"
-               , "toss" , "atom" , "kitten" , "flush" , "master" , "transfer"
-               , "success" , "worry" , "rural" , "silver" , "invest" , "mean"
-               ]
+arbitraryMnemonic :: Int -> Gen (Either Text BackupPhrase)
+arbitraryMnemonic len = do
+    eitherMnemonic <- toMnemonic . BS.pack <$> vectorOf len arbitrary
+    pure . first toText $ BackupPhrase . words <$> eitherMnemonic
 
 -- | Number of words in backup phrase
 backupPhraseWordsNum :: Int

@@ -63,7 +63,7 @@ main = do
 initialWalletState :: WalletClient IO -> IO WalletState
 initialWalletState wc = do
     _wallets <- fromResp $ getWallets wc
-    _accounts <- concat <$> for (map walId _wallets) (fromResp . getAccounts wc)
+    _accounts <- concat <$> for _wallets (fromResp . getAccounts wc . walId)
     let _walletsPass = mempty
         _addresses = mempty
         _transactions = mempty

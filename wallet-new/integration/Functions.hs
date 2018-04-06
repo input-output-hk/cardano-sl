@@ -13,7 +13,7 @@ import           Data.Coerce (coerce)
 import           Data.List (delete)
 import           Data.List.NonEmpty (fromList)
 
-import           Control.Lens (at, each, filtered, (+=), (.=), (<>=), (?=))
+import           Control.Lens (at, each, filtered, (+=), (%=), (.=), (<>=), (?=))
 import           Test.Hspec
 import           Test.QuickCheck (Gen, arbitrary, choose, elements, frequency, generate)
 
@@ -133,18 +133,14 @@ runAction wc action = do
             -- No modification required.
 
         GetWallet -> do
-            ws <- get
-
-            let localWallets = ws ^. wallets
-
             -- We choose from the existing wallets.
-            wal@Wallet{ walId }  <-  pickRandomElement localWallets
+            wal@Wallet{ walId }  <-  pickRandomElement =<< use wallets
 
             log $ "Requesting wallet: " <> show walId
             result  <-  respToRes $ getWallet wc walId
 
             checkInvariant
-                (walBalance result == walBalance wal)
+                (result == wal)
                 (LocalWalletDiffers result wal)
 
         DeleteWallet -> do
@@ -262,7 +258,7 @@ runAction wc action = do
             result  <-  respToRes $ getAccount wc walletId (accIndex account)
 
             checkInvariant
-                (accAmount result == minBound)
+                (accAmount result == accAmount account)
                 (LocalAccountDiffers result account)
 
             -- Modify wallet state accordingly.
@@ -273,6 +269,7 @@ runAction wc action = do
             -- We choose from the existing wallets AND existing accounts.
             account <-  pickRandomElement localAccounts
             let walletId = accWalletId account
+            let deleted = delete account localAccounts
 
             -- If we don't have any http client errors, the delete was a success.
             _ <- either throwM pure =<< deleteAccount wc walletId (accIndex account)
@@ -281,11 +278,11 @@ runAction wc action = do
             result  <-  respToRes $ getAccounts wc walletId
 
             checkInvariant
-                (all ((/=) account) localAccounts)
-                (LocalAccountsDiffers result localAccounts)
+                (account `notElem` result)
+                (LocalAccountsDiffers result deleted)
 
             -- Modify wallet state accordingly.
-            accounts   .= delete account localAccounts
+            accounts   .= deleted
 
         UpdateAccount -> do
             localAccounts <- use accounts
@@ -329,6 +326,8 @@ runAction wc action = do
 
             -- Modify wallet state accordingly.
             addresses  <>= [result]
+            accounts . traverse . filtered (== account) %= \acct ->
+                acct { accAddresses = accAddresses acct <> [result] }
           where
             createNewAddress :: WalletId -> AccountIndex -> NewAddress
             createNewAddress wId accIndex = NewAddress

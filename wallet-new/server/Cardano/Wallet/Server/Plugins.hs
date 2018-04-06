@@ -2,7 +2,9 @@
      A @Plugin@ is essentially a set of actions which will be run in
      a particular monad, at some point in time.
 -}
+{-# LANGUAGE LambdaCase    #-}
 {-# LANGUAGE TupleSections #-}
+
 module Cardano.Wallet.Server.Plugins (
       Plugin
     , acidCleanupWorker
@@ -16,7 +18,7 @@ module Cardano.Wallet.Server.Plugins (
 import           Universum
 
 import           Cardano.Wallet.API as API
-import           Cardano.Wallet.API.V1.Errors (WalletError (..), toServantError)
+import           Cardano.Wallet.API.V1.Errors (WalletError (..), toServantError, applicationJson)
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel
@@ -26,9 +28,8 @@ import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode
                                             WalletBackendParams (..), isDebugMode,
                                             walletAcidInterval, walletDbOptions)
 
-import           Control.Lens (_Left)
-
 import           Control.Exception (try)
+import           Control.Lens (_Left)
 import           Data.Aeson
 import           Formatting (build, sformat, (%))
 import           Mockable
@@ -41,6 +42,7 @@ import           Network.Wai.Middleware.Cors (cors, corsMethods, corsRequestHead
 import           Ntp.Client (NtpStatus)
 import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.Web (cleanupAcidStatePeriodically)
+import qualified Pos.Wallet.Web.Error.Types as V0
 import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)
 import qualified Pos.Wallet.Web.Server.Runner as V0
 import           Pos.Wallet.Web.Sockets (getWalletWebSockets, upgradeApplicationWS)
@@ -129,9 +131,28 @@ catchWalletErrors :: Servant.Handler a -> Servant.Handler a
 catchWalletErrors =
         Servant.Handler
             . ExceptT
+            . fmap (join . over _Left walletErrorToServantError)
+            . try
             . fmap (join . over _Left toServantError)
             . try
             . Servant.runHandler
+  where
+    walletErrorToServantError :: V0.WalletError -> Servant.ServantErr
+    walletErrorToServantError = conv . \case
+        V0.RequestError txt -> (Servant.err400, "BadRequest", txt)
+        V0.InternalError txt -> (Servant.err500, "Internal", txt)
+        V0.DecodeError txt -> (Servant.err400, "DecodeError", txt)
+    conv :: (Servant.ServantErr, Text, Text) -> Servant.ServantErr
+    conv (err, msg, txt) =
+        err { Servant.errBody = encode $ object
+                [ "status" .= ("error" :: Text)
+                , "diagnostic" .= object
+                    [ "msg" .= txt
+                    ]
+                , "message" .= msg
+                ]
+            , Servant.errHeaders = applicationJson : Servant.errHeaders err
+            }
 
 -- | A 'Plugin' to start the wallet REST server
 --

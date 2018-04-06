@@ -9,7 +9,7 @@ import           Universum
 import qualified Data.ByteString.Char8 as B8
 import qualified Serokell.Util.Base64 as B64
 import           Test.QuickCheck (Arbitrary (..), vectorOf)
-
+import Pos.Wallet.Web.State (WAddressMeta(..))
 import           Pos.Wallet.Web.ClientTypes.Types (CHash (..), CId (..), CWAddressMeta (..))
 
 instance Arbitrary CHash where
@@ -28,3 +28,10 @@ instance Arbitrary CWAddressMeta where
         cwamAddressIndex <- arbitrary
         cwamId <- arbitrary
         pure CWAddressMeta {..}
+
+instance Arbitrary WAddressMeta where
+  arbitrary = WAddressMeta
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary

@@ -40,10 +40,14 @@ getInfo :: ( HasConfigurations
 getInfo ntpStatus = do
     spV0 <- V0.syncProgress
     syncProgress   <- migrate spV0
-    timeDifference <- fmap V1.mkLocalTimeDifference (V0.localTimeDifference ntpStatus)
+    timeDifference <- V0.localTimeDifference ntpStatus
     return $ single NodeInfo {
           nfoSyncProgress = syncProgress
         , nfoBlockchainHeight = V1.mkBlockchainHeight . Core.getChainDifficulty <$> V0._spNetworkCD spV0
         , nfoLocalBlockchainHeight = V1.mkBlockchainHeight . Core.getChainDifficulty . V0._spLocalCD $ spV0
-        , nfoLocalTimeDifference = timeDifference
+        , nfoLocalTimeInformation =
+            TimeInfo
+                { timeDifferenceFromNtpServer =
+                    fmap V1.mkLocalTimeDifference timeDifference
+                }
         }

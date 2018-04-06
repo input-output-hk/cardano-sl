@@ -30,11 +30,11 @@ import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphra
                              firstHardened)
 import           Pos.Util (eitherToThrow)
 import           Pos.Util.BackupPhrase (BackupPhrase, safeKeysFromPhrase)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), Wal,
-                                             addrMetaToAccount, addressToCId, encToCId)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, Wal, encToCId)
 import           Pos.Wallet.Web.Error (WalletError (..))
-import           Pos.Wallet.Web.State (AddressLookupMode (Ever), WalletSnapshot, doesWAddressExist,
-                                       getAccountMeta)
+import           Pos.Wallet.Web.State (AddressLookupMode (Ever), HasWAddressMeta (..),
+                                       WAddressMeta (..), WalletSnapshot, doesWAddressExist,
+                                       getAccountMeta, wamAccount)
 
 type AccountMode ctx m =
     ( MonadThrow m
@@ -69,7 +69,7 @@ getSKByAddress
     :: AccountMode ctx m
     => ShouldCheckPassphrase
     -> PassPhrase
-    -> CWAddressMeta
+    -> WAddressMeta
     -> m EncryptedSecretKey
 getSKByAddress scp passphrase addrMeta = do
     secrets <- getSecretKeys
@@ -80,13 +80,12 @@ getSKByAddressPure
     => AllUserSecrets
     -> ShouldCheckPassphrase
     -> PassPhrase
-    -> CWAddressMeta
+    -> WAddressMeta
     -> m EncryptedSecretKey
-getSKByAddressPure secrets scp passphrase addrMeta@CWAddressMeta {..} = do
+getSKByAddressPure secrets scp passphrase addrMeta = do
     (addr, addressKey) <-
-            deriveAddressSKPure secrets scp passphrase (addrMetaToAccount addrMeta) cwamAddressIndex
-    let accCAddr = addressToCId addr
-    if accCAddr /= cwamId
+            deriveAddressSKPure secrets scp passphrase (addrMeta ^. wamAccount) (addrMeta ^. wamAddressIndex)
+    if addr /= addrMeta ^. wamAddress
              -- if you see this error, maybe you generated public key address with
              -- no hd wallet attribute (if so, address would be ~half shorter than
              -- others)
@@ -157,11 +156,11 @@ genUniqueAddress
     -> AddrGenSeed
     -> PassPhrase
     -> AccountId
-    -> m CWAddressMeta
+    -> m WAddressMeta
 genUniqueAddress ws genSeed passphrase wCAddr@AccountId{..} =
     generateUnique "address generation" genSeed mkAddress notFit
   where
-    mkAddress :: AccountMode ctx m => Word32 -> m CWAddressMeta
+    mkAddress :: AccountMode ctx m => Word32 -> m WAddressMeta
     mkAddress cwamAddressIndex =
         deriveAddress passphrase wCAddr cwamAddressIndex
     notFit _idx addr = doesWAddressExist ws Ever addr
@@ -203,13 +202,10 @@ deriveAddress
     => PassPhrase
     -> AccountId
     -> Word32
-    -> m CWAddressMeta
+    -> m WAddressMeta
 deriveAddress passphrase accId@AccountId{..} cwamAddressIndex = do
     (addr, _) <- deriveAddressSK (ShouldCheckPassphrase True) passphrase accId cwamAddressIndex
-    let cwamWId         = aiWId
-        cwamAccountIndex = aiIndex
-        cwamId          = addressToCId addr
-    return CWAddressMeta{..}
+    return $ WAddressMeta aiWId aiIndex cwamAddressIndex addr
 
 -- | Allows to find a key related to given @id@ item.
 class MonadKeySearch id m where
@@ -221,5 +217,5 @@ instance AccountMode ctx m => MonadKeySearch (CId Wal) m where
 instance AccountMode ctx m => MonadKeySearch AccountId m where
     findKey = findKey . aiWId
 
-instance AccountMode ctx m => MonadKeySearch CWAddressMeta m where
-    findKey = findKey . cwamWId
+instance AccountMode ctx m => MonadKeySearch WAddressMeta m where
+    findKey = findKey . _wamWalletId

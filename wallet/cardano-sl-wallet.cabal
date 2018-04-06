@@ -227,6 +227,8 @@ test-suite cardano-wallet-test
 
                        Test.Pos.Wallet.Web.Tracking.SyncSpec
 
+                       Test.Pos.Wallet.MigrationSpec
+
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom
                      , QuickCheck
@@ -254,13 +256,13 @@ test-suite cardano-wallet-test
                      , hspec
                      , lens
                      , log-warper
-                     , MonadRandom
                      , mtl
+                     , safecopy
                      , serokell-util >= 0.1.3.4
                      , stm
-                     , unordered-containers
                      , text-format
                      , universum >= 0.1.11
+                     , unordered-containers
 
   hs-source-dirs:      test
   default-language:    Haskell2010

@@ -19,7 +19,6 @@ import           Universum
 
 import           Cardano.Wallet.API as API
 import           Cardano.Wallet.API.V1.Errors (WalletError (..), toServantError, applicationJson)
-import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel
 import qualified Cardano.Wallet.LegacyServer as LegacyServer
@@ -27,6 +26,8 @@ import qualified Cardano.Wallet.Server as Server
 import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode,
                                             WalletBackendParams (..), isDebugMode,
                                             walletAcidInterval, walletDbOptions)
+import           Cardano.Wallet.WalletLayer (ActiveWalletLayer, PassiveWalletLayer,
+                                             bracketKernelActiveWallet)
 
 import           Control.Exception (try)
 import           Control.Lens (_Left)
@@ -159,13 +160,13 @@ catchWalletErrors =
 -- TODO: no web socket support in the new wallet for now
 walletBackend :: (HasConfigurations, HasCompileInfo)
               => NewWalletBackendParams
-              -> Kernel.PassiveWallet
+              -> PassiveWalletLayer Production
               -> Plugin Kernel.WalletMode
 walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
     first one $ worker walletServerOuts $ \diffusion -> do
       env <- ask
       let diffusion' = Kernel.fromDiffusion (lower env) diffusion
-      Kernel.bracketActiveWallet passive diffusion' $ \active ->
+      bracketKernelActiveWallet passive diffusion' $ \active ->
         walletServeImpl
           (getApplication active)
           walletAddress
@@ -173,7 +174,7 @@ walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
           (if isDebugMode walletRunMode then Nothing else walletTLSParams)
           Nothing
   where
-    getApplication :: Kernel.ActiveWallet -> Kernel.WalletMode Application
+    getApplication :: ActiveWalletLayer Production -> Kernel.WalletMode Application
     getApplication active = do
       logInfo "New wallet API has STARTED!"
       return $ withMiddleware walletRunMode $

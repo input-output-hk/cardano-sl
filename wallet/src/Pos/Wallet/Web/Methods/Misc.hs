@@ -24,10 +24,6 @@ module Pos.Wallet.Web.Methods.Misc
 
        , resetAllFailedPtxs
 
-       , MonadConvertToAddr
-       , convertCIdTOAddrs
-       , convertCIdTOAddr
-       , AddrCIdHashes(AddrCIdHashes)
        , PendingTxsSummary (..)
        , cancelAllApplyingPtxs
        , cancelOneApplyingPtx
@@ -37,8 +33,6 @@ import           Universum
 
 import           Data.Aeson (encode)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
-import qualified Data.Foldable as Foldable
-import qualified Data.Map.Strict as M
 import qualified Data.Text.Buildable
 import           Data.Time.Units (toMicroseconds)
 import           Formatting (bprint, build, sformat, (%))
@@ -51,13 +45,13 @@ import           Ntp.Client (NtpStatus (..))
 
 import           Pos.Client.KeyStorage (MonadKeys (..), deleteAllSecretKeys)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (Address, HasConfiguration, SlotId, SoftwareVersion (..))
+import           Pos.Core (HasConfiguration, SlotId, SoftwareVersion (..))
 import           Pos.Crypto (hashHexF)
 import           Pos.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Slotting (MonadSlots, getCurrentSlotBlocking)
 import           Pos.Txp (TxId, TxIn, TxOut)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
-import           Pos.Util (HasLens, lensOf, maybeThrow)
+import           Pos.Util (maybeThrow)
 import           Pos.Util.LogSafe (logInfoUnsafeP)
 import           Pos.Util.Servant (HasTruncateLogPolicy (..))
 import           Pos.Wallet.Aeson.ClientTypes ()
@@ -65,7 +59,7 @@ import           Pos.Wallet.Aeson.Storage ()
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo, MonadUpdates, applyLastUpdate,
                                         connectedPeers, localChainDifficulty,
                                         networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes (Addr, CHash, CId (..), CProfile (..), CPtxCondition,
+import           Pos.Wallet.Web.ClientTypes (Addr, CId (..), CProfile (..), CPtxCondition,
                                              CTxId (..), CUpdateInfo (..), SyncProgress (..),
                                              cIdToAddress)
 import           Pos.Wallet.Web.Error (WalletError (..))
@@ -176,14 +170,14 @@ syncProgress = do
 -- NTP (Network Time Protocol) based time difference
 ----------------------------------------------------------------------------
 
-localTimeDifference :: MonadIO m => TVar NtpStatus -> m Integer
+localTimeDifference :: MonadIO m => TVar NtpStatus -> m (Maybe Integer)
 localTimeDifference ntpStatus = diff <$> readTVarIO ntpStatus
   where
-    diff :: NtpStatus -> Integer
+    diff :: NtpStatus -> Maybe Integer
     diff = \case
-        NtpDrift time -> toMicroseconds time
-        NtpSyncPending -> 0
-        NtpSyncUnavailable -> 0
+        NtpDrift time -> Just (toMicroseconds time)
+        NtpSyncPending -> Nothing
+        NtpSyncUnavailable -> Nothing
 
 ----------------------------------------------------------------------------
 -- Reset
@@ -226,48 +220,6 @@ resetAllFailedPtxs = do
     db <- askWalletDB
     getCurrentSlotBlocking >>= resetFailedPtxs db
     return NoContent
-
-----------------------------------------------------------------------------
--- Conversion to Address
-----------------------------------------------------------------------------
-
-newtype AddrCIdHashes = AddrCIdHashes { unAddrCIdHashes :: (IORef (Map CHash Address)) }
-
-type MonadConvertToAddr ctx m =
-  ( MonadIO m
-  , MonadThrow m
-  , HasLens AddrCIdHashes ctx AddrCIdHashes
-  , MonadReader ctx m
-  )
-
-convertCIdTOAddr :: (MonadConvertToAddr ctx m) => CId Addr -> m Address
-convertCIdTOAddr i@(CId id) = do
-    hmRef <- unAddrCIdHashes <$> view (lensOf @AddrCIdHashes)
-    maddr <- atomicModifyIORef' hmRef $ \hm ->
-      case id `M.lookup` hm of
-       Just addr -> (hm, Right addr)
-       _         -> case cIdToAddress i of
-                    -- decoding can fail, but we don't cache failures
-                      Right addr -> (M.insert id addr hm, Right addr)
-                      Left  err  -> (hm,                  Left err)
-    either (throwM . DecodeError) pure maddr
-
-convertCIdTOAddrs :: (MonadConvertToAddr ctx m, Traversable t) => t (CId Addr) -> m (t Address)
-convertCIdTOAddrs cids = do
-    hmRef <- unAddrCIdHashes <$> view (lensOf @AddrCIdHashes)
-    maddrs <- atomicModifyIORef' hmRef $ \hm ->
-      let lookups = map (\cid@(CId h) -> (h, M.lookup h hm, cIdToAddress cid)) cids
-          hm'     = Foldable.foldl' accum hm lookups
-
-          accum m (cid, Nothing, Right addr) = M.insert cid addr m
-          accum m _                          = m
-
-          result (_, Just addr, _)   = Right addr
-          result (_, Nothing, maddr) = maddr
-
-       in (hm', map result lookups)
-
-    mapM (either (throwM . DecodeError) pure) maddrs
 
 ----------------------------------------------------------------------------
 -- Print pending transactions info

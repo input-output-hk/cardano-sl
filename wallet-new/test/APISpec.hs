@@ -19,7 +19,6 @@ import           Ntp.Client (withoutNtpClient)
 import qualified Pos.Diffusion.Types as D
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
-import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
 import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
 import           Pos.Wallet.Web.Sockets (ConnectionsVar)
 import           Pos.Wallet.Web.State (WalletDB)
@@ -145,7 +144,6 @@ testV1Context :: Migration.HasConfiguration => IO Migration.V1Context
 testV1Context =
     WalletWebModeContext <$> testStorage
                          <*> testConnectionsVar
-                         <*> testAddrCIdHashes
                          <*> testRealModeContext
   where
     testStorage :: IO WalletDB
@@ -153,9 +151,6 @@ testV1Context =
 
     testConnectionsVar :: IO ConnectionsVar
     testConnectionsVar = STM.newTVarIO def
-
-    testAddrCIdHashes :: IO AddrCIdHashes
-    testAddrCIdHashes = AddrCIdHashes <$> newIORef mempty
 
     -- For some categories of tests we won't hit the 'RealModeContext', so that's safe
     -- for now to leave it unimplemented.

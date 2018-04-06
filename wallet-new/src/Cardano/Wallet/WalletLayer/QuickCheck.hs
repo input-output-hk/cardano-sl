@@ -27,7 +27,11 @@ bracketPassiveWallet =
     passiveWalletLayer = PassiveWalletLayer
         { pwlGetWalletIds  = liftedGen
         , pwlGetWallet     = \_ -> liftedGen
+        , pwlDeleteWallet  = \_ -> liftedGen
+
         , pwlGetAccounts   = \_ -> liftedGen
+        , pwlGetAccount    = \_ _ -> liftedGen
+
         , pwlGetAddresses  = \_ -> liftedGen
         }
 

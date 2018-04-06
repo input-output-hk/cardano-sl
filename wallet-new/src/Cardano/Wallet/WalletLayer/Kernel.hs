@@ -30,7 +30,11 @@ bracketPassiveWallet logFunction =
         pure $ PassiveWalletLayer
             { pwlGetWalletIds  = error "Not implemented!"
             , pwlGetWallet     = error "Not implemented!"
+            , pwlDeleteWallet  = error "Not implemented!"
+
             , pwlGetAccounts   = error "Not implemented!"
+            , pwlGetAccount    = error "Not implemented!"
+
             , pwlGetAddresses  = error "Not implemented!"
             }
 

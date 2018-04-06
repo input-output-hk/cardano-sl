@@ -29,6 +29,9 @@ bracketPassiveWallet logFunction =
     passiveWalletLayer _wallet =
         pure $ PassiveWalletLayer
             { pwlGetWalletIds  = error "Not implemented!"
+            , pwlGetWallet     = error "Not implemented!"
+            , pwlGetAccounts   = error "Not implemented!"
+            , pwlGetAddresses  = error "Not implemented!"
             }
 
 -- | Initialize the active wallet.

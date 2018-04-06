@@ -12,30 +12,72 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), Passi
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
 import           Cardano.Wallet.API.V1.Migration (migrate)
+import           Cardano.Wallet.API.V1.Migration.Types ()
+import           Cardano.Wallet.API.V1.Types (Account, Address, Wallet, WalletId)
+
+import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead, getAccounts, getWallet)
 import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletSnapshot, getWalletAddresses)
+import           Pos.Wallet.Web.State.Storage (getWalletInfo)
+
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
 bracketPassiveWallet
-    :: forall ctx m n a. (MonadMask m, WalletDbReader ctx n, MonadIO n, MonadThrow n)
-    => (PassiveWalletLayer n -> m a) -> m a
+    :: forall ctx m n a.
+    ( MonadMask n
+    , WalletDbReader ctx m
+    , MonadIO m
+    , MonadThrow m
+    , MonadWalletLogicRead ctx m
+    )
+    => (PassiveWalletLayer m -> n a) -> n a
 bracketPassiveWallet =
     bracket
         (pure passiveWalletLayer)
         (\_ -> return ())
   where
-    passiveWalletLayer :: PassiveWalletLayer n
-    passiveWalletLayer = PassiveWalletLayer
-        { pwlGetWalletIds  = askWalletSnapshot >>= \ws -> migrate $ getWalletAddresses ws
-        }
+
+    pwlGetWalletIds :: m [WalletId]
+    pwlGetWalletIds = do
+        ws          <- askWalletSnapshot
+        migrate $ getWalletAddresses ws
+
+    pwlGetWallet :: WalletId -> m (Maybe Wallet)
+    pwlGetWallet wId = do
+        ws          <- askWalletSnapshot
+        cWId        <- migrate wId
+        wallet      <- getWallet cWId
+
+        pure $ do
+            walletInfo <- getWalletInfo cWId ws
+            migrate (wallet, walletInfo)
+
+    pwlGetAccounts :: WalletId -> m [Account]
+    pwlGetAccounts wId = do
+        cWId        <- migrate wId
+        cAccounts   <- getAccounts $ Just cWId
+        migrate cAccounts
+
+    pwlGetAddresses :: WalletId -> m [Address]
+    pwlGetAddresses = error "Not implemented!"
+
+    passiveWalletLayer :: PassiveWalletLayer m
+    passiveWalletLayer = PassiveWalletLayer {..}
+
 
 -- | Initialize the active wallet.
 -- The active wallet is allowed all.
 bracketActiveWallet
-    :: forall ctx m n a. (MonadMask m, WalletDbReader ctx n, MonadIO n, MonadThrow n)
-    => PassiveWalletLayer n
+    :: forall ctx m n a.
+    ( MonadMask n
+    , WalletDbReader ctx m
+    , MonadIO m
+    , MonadThrow m
+    , MonadWalletLogicRead ctx m
+    )
+    => PassiveWalletLayer m
     -> WalletDiffusion
-    -> (ActiveWalletLayer n -> m a) -> m a
+    -> (ActiveWalletLayer m -> n a) -> n a
 bracketActiveWallet walletPassiveLayer walletDiffusion =
     bracket
       (return ActiveWalletLayer{..})

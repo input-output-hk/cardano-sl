@@ -29,7 +29,7 @@ import           Cardano.Wallet.API.V1.Types (Account, SpendingPassword, Transac
 -- but it's better to see how the client fits in the end.
 type WalletTestMode m =
     ( MonadIO m
-    , MonadThrow m
+    , MonadCatch m
     , MonadPlus m
     )
 

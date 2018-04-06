@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -13,6 +14,7 @@ import           Data.List (delete)
 import           Data.List.NonEmpty (fromList)
 
 import           Control.Lens (at, each, filtered, (+=), (.=), (<>=), (?=))
+import           Test.Hspec
 import           Test.QuickCheck (Gen, arbitrary, elements, frequency, generate)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
@@ -50,6 +52,27 @@ runActionCheck walletClient walletState actionProb = do
     actions <- toList <$> chooseActions 20 actionProb
     let client' = hoistClient lift walletClient
     execStateT (tryAll (map (runAction client') actions)) walletState
+        `catch` \x -> fmap (const walletState) . liftIO . hspec .
+            describe "Unit Test Failure" $
+                it "should not fail" $ case x of
+                    LocalWalletDiffers a b ->
+                        a `shouldBe` b
+                    LocalWalletsDiffers as bs ->
+                        as `shouldBe` bs
+                    LocalAccountDiffers a b ->
+                        a `shouldBe` b
+                    LocalAccountsDiffers as bs ->
+                        as `shouldBe` bs
+                    LocalAddressesDiffer addr addrs ->
+                        addr `shouldSatisfy` (`elem` addrs)
+                    LocalAddressDiffer a b ->
+                        a `shouldBe` b
+                    LocalTransactionsDiffer as bs ->
+                        as `shouldBe` bs
+                    LocalTransactionMissing txn txns ->
+                        txn `shouldSatisfy` (`elem` txns)
+                    err ->
+                        expectationFailure $ show err
 
 -- | Attempt each action in the list. If an action fails, ignore the
 -- failure.

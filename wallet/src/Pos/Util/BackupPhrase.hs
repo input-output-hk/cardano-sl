@@ -29,9 +29,12 @@ newtype BackupPhrase = BackupPhrase
     { bpToList :: [Text]
     } deriving (Eq, Generic)
 
--- NOTE: it's guaranteed not to fail
 instance Arbitrary BackupPhrase where
-    arbitrary = either error identity <$> arbitraryMnemonic 16
+    arbitrary = do
+        em <- arbitraryMnemonic 16
+        case em of
+            Left _  -> arbitrary
+            Right a -> pure a
     shrink    = genericShrink
 
 arbitraryMnemonic :: Int -> Gen (Either Text BackupPhrase)

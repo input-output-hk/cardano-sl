@@ -35,6 +35,10 @@ import qualified Pos.Wallet.Web.State.Storage as OldStorage
 import           Pos.Wallet.Web.Tracking.Sync (calculateEstimatedRemainingTime)
 
 -- | 'Migrate' encapsulates migration between types, when possible.
+-- NOTE: This has @nothing@ to do with database migrations (see `safecopy`),
+-- and the name clash is a historic accident. Hopefully once the new data layer
+-- will be completed and the V0 API removed, we will be able to remove this
+-- typeclass altogether.
 class Migrate from to where
     eitherMigrate :: from -> Either Errors.WalletError to
 

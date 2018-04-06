@@ -9,7 +9,7 @@ module Main where
 
 import           Universum
 
-import           Control.Concurrent.STM (newTBQueueIO)
+import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Default (def)
 import           Data.Maybe (fromJust, isJust)
 import           Mockable (Production, runProduction)
@@ -123,7 +123,7 @@ walletRunner
 walletRunner confOpts dbs secretKeyPath ws act = runProduction $ do
     wwmc <- WalletWebModeContext <$> pure ws
                                  <*> newTVarIO def
-                                 <*> liftIO (newTBQueueIO 10)
+                                 <*> liftIO newTQueueIO
                                  <*> newRealModeContext dbs confOpts secretKeyPath
     runReaderT act wwmc
 

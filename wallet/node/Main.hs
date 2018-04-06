@@ -97,9 +97,9 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletArgs {..} = do
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \_ -> act)
     syncWallets :: WalletWebMode ()
     syncWallets = do
-      ws  <- askWalletSnapshot
-      sks <- mapM getSKById (getWalletAddresses ws)
-      forM_ sks (syncWallet . eskToWalletDecrCredentials)
+        ws  <- askWalletSnapshot
+        sks <- mapM getSKById (getWalletAddresses ws)
+        forM_ sks (syncWallet . eskToWalletDecrCredentials)
     resubmitterPlugins = ([ActionSpec $ \diffusion -> askWalletDB >>=
                             \db -> startPendingTxsResubmitter db (sendTx diffusion)], mempty)
     notifierPlugins = ([ActionSpec $ \_ -> notifierPlugin], mempty)

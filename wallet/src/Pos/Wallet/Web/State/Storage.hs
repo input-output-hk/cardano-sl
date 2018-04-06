@@ -96,6 +96,7 @@ module Pos.Wallet.Web.State.Storage
        , AccountInfo_v0 (..)
        , WalletInfo_v0(..)
        , WalletStorage_v2(..)
+       , WalletStorage_v3(..)
        ) where
 
 import           Universum
@@ -881,11 +882,22 @@ data WalletStorage_v2 = WalletStorage_v2
     , _v2_wsTxHistory       :: !(HashMap (WebTypes.CId WebTypes.Wal) (HashMap WebTypes.CTxId WebTypes.CTxMeta))
     , _v2_wsHistoryCache    :: !(HashMap (WebTypes.CId WebTypes.Wal) (Map TxId TxHistoryEntry))
     , _v2_wsUtxo            :: !Utxo
-    -- @_wsBalances@ depends on @_wsUtxo@,
-    -- it's forbidden to update @_wsBalances@ without @_wsUtxo@
     , _v2_wsBalances        :: !WalletBalances
     , _v2_wsUsedAddresses   :: !CustomAddresses_v0
     , _v2_wsChangeAddresses :: !CustomAddresses_v0
+    }
+
+data WalletStorage_v3 = WalletStorage_v3
+    { _v3_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo_v0)
+    , _v3_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo)
+    , _v3_wsProfile         :: !WebTypes.CProfile
+    , _v3_wsReadyUpdates    :: [WebTypes.CUpdateInfo]
+    , _v3_wsTxHistory       :: !(HashMap (WebTypes.CId WebTypes.Wal) (HashMap WebTypes.CTxId WebTypes.CTxMeta))
+    , _v3_wsHistoryCache    :: !(HashMap (WebTypes.CId WebTypes.Wal) (Map TxId TxHistoryEntry))
+    , _v3_wsUtxo            :: !Utxo
+    , _v3_wsBalances        :: !WalletBalances
+    , _v3_wsUsedAddresses   :: !CustomAddresses
+    , _v3_wsChangeAddresses :: !CustomAddresses
     }
 
 deriveSafeCopySimple 0 'base ''AddressInfo_v0
@@ -897,7 +909,8 @@ deriveSafeCopySimple 1 'extension ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletStorage_v0
 deriveSafeCopySimple 1 'extension ''WalletStorage_v1
 deriveSafeCopySimple 2 'extension ''WalletStorage_v2
-deriveSafeCopySimple 3 'extension ''WalletStorage
+deriveSafeCopySimple 3 'extension ''WalletStorage_v3
+deriveSafeCopySimple 4 'extension ''WalletStorage
 
 -- | Unsafe address conversion for use in migration. This will throw an error if
 --   the address cannot be migrated.
@@ -959,20 +972,36 @@ instance Migrate WalletStorage_v2 where
         , _v2_wsChangeAddresses = _v1_wsChangeAddresses
         }
 
-instance Migrate WalletStorage where
-    type MigrateFrom WalletStorage = WalletStorage_v2
-    migrate WalletStorage_v2{..} = WalletStorage
-        { _wsWalletInfos     = migrateMapElements _v2_wsWalletInfos
-        , _wsAccountInfos    = fmap migrate _v2_wsAccountInfos
-        , _wsProfile         = _v2_wsProfile
-        , _wsReadyUpdates    = _v2_wsReadyUpdates
-        , _wsTxHistory       = _v2_wsTxHistory
-        , _wsHistoryCache    = _v2_wsHistoryCache
-        , _wsUtxo            = _v2_wsUtxo
-        , _wsBalances        = _v2_wsBalances
-        , _wsUsedAddresses   = mapAddrKeys _v2_wsUsedAddresses
-        , _wsChangeAddresses = mapAddrKeys _v2_wsChangeAddresses
+instance Migrate WalletStorage_v3 where
+    type MigrateFrom WalletStorage_v3 = WalletStorage_v2
+    migrate WalletStorage_v2{..} = WalletStorage_v3
+        { _v3_wsWalletInfos     = _v2_wsWalletInfos
+        , _v3_wsAccountInfos    = fmap migrate _v2_wsAccountInfos
+        , _v3_wsProfile         = _v2_wsProfile
+        , _v3_wsReadyUpdates    = _v2_wsReadyUpdates
+        , _v3_wsTxHistory       = _v2_wsTxHistory
+        , _v3_wsHistoryCache    = _v2_wsHistoryCache
+        , _v3_wsUtxo            = _v2_wsUtxo
+        , _v3_wsBalances        = _v2_wsBalances
+        , _v3_wsUsedAddresses   = mapAddrKeys _v2_wsUsedAddresses
+        , _v3_wsChangeAddresses = mapAddrKeys _v2_wsChangeAddresses
         }
       where
         mapAddrKeys  = HM.fromList . fmap (first unsafeCIdToAddress) . HM.toList
+
+instance Migrate WalletStorage where
+    type MigrateFrom WalletStorage = WalletStorage_v3
+    migrate WalletStorage_v3{..} = WalletStorage
+        { _wsWalletInfos     = migrateMapElements _v3_wsWalletInfos
+        , _wsAccountInfos    = _v3_wsAccountInfos
+        , _wsProfile         = _v3_wsProfile
+        , _wsReadyUpdates    = _v3_wsReadyUpdates
+        , _wsTxHistory       = _v3_wsTxHistory
+        , _wsHistoryCache    = _v3_wsHistoryCache
+        , _wsUtxo            = _v3_wsUtxo
+        , _wsBalances        = _v3_wsBalances
+        , _wsUsedAddresses   = _v3_wsUsedAddresses
+        , _wsChangeAddresses = _v3_wsChangeAddresses
+        }
+      where
         migrateMapElements = HM.fromList . fmap (second migrate) . HM.toList

@@ -77,21 +77,39 @@ instance Migrate WalletInfo_v0 where
 newtype WalletStorage_Back_v2 = WalletStorage_Back_v2 WalletStorage_v2
 
 instance Migrate WalletStorage_Back_v2 where
-  type MigrateFrom WalletStorage_Back_v2 = WalletStorage
-  migrate WalletStorage{..} = WalletStorage_Back_v2 $ WalletStorage_v2
-      { _v2_wsWalletInfos = migrateMapElements _wsWalletInfos
-      , _v2_wsAccountInfos = fmap migrate _wsAccountInfos
-      , _v2_wsProfile = _wsProfile
-      , _v2_wsReadyUpdates = _wsReadyUpdates
-      , _v2_wsTxHistory = _wsTxHistory
-      , _v2_wsHistoryCache = _wsHistoryCache
-      , _v2_wsUtxo = _wsUtxo
-      , _v2_wsBalances = _wsBalances
-      , _v2_wsUsedAddresses = mapAddrKeys _wsUsedAddresses
-      , _v2_wsChangeAddresses = mapAddrKeys _wsChangeAddresses
+  type MigrateFrom WalletStorage_Back_v2 = WalletStorage_v3
+  migrate WalletStorage_v3{..} = WalletStorage_Back_v2 $ WalletStorage_v2
+      { _v2_wsWalletInfos = _v3_wsWalletInfos
+      , _v2_wsAccountInfos = fmap migrate _v3_wsAccountInfos
+      , _v2_wsProfile = _v3_wsProfile
+      , _v2_wsReadyUpdates = _v3_wsReadyUpdates
+      , _v2_wsTxHistory = _v3_wsTxHistory
+      , _v2_wsHistoryCache = _v3_wsHistoryCache
+      , _v2_wsUtxo = _v3_wsUtxo
+      , _v2_wsBalances = _v3_wsBalances
+      , _v2_wsUsedAddresses = mapAddrKeys _v3_wsUsedAddresses
+      , _v2_wsChangeAddresses = mapAddrKeys _v3_wsChangeAddresses
       }
     where
       mapAddrKeys = HM.fromList . fmap (first addressToCId) . HM.toList
+
+newtype WalletStorage_Back_v3 = WalletStorage_Back_v3 WalletStorage_v3
+
+instance Migrate WalletStorage_Back_v3 where
+  type MigrateFrom WalletStorage_Back_v3 = WalletStorage
+  migrate WalletStorage{..} = WalletStorage_Back_v3 $ WalletStorage_v3
+      { _v3_wsWalletInfos = migrateMapElements _wsWalletInfos
+      , _v3_wsAccountInfos = _wsAccountInfos
+      , _v3_wsProfile = _wsProfile
+      , _v3_wsReadyUpdates = _wsReadyUpdates
+      , _v3_wsTxHistory = _wsTxHistory
+      , _v3_wsHistoryCache = _wsHistoryCache
+      , _v3_wsUtxo = _wsUtxo
+      , _v3_wsBalances = _wsBalances
+      , _v3_wsUsedAddresses = _wsUsedAddresses
+      , _v3_wsChangeAddresses = _wsChangeAddresses
+      }
+    where
       migrateMapElements = HM.fromList . fmap (second migrate) . HM.toList
 
 --------------------------------------------------------------------------------
@@ -99,16 +117,20 @@ instance Migrate WalletStorage_Back_v2 where
 deriving instance Eq AccountInfo_v0
 deriving instance Eq AddressInfo_v0
 deriving instance Eq WalletStorage_v2
+deriving instance Eq WalletStorage_v3
 deriving instance Eq WalletInfo_v0
 
 deriving instance Show WalletSyncState
 deriving instance Show SyncStatistics
 deriving instance Show WalletInfo
 deriving instance Show AccountInfo_v0
+deriving instance Show AccountInfo
 deriving instance Show AddressInfo_v0
+deriving instance Show AddressInfo
 deriving instance Show WalletInfo_v0
 deriving instance Show Migrations.WalletTip
 deriving instance Show WalletStorage_v2
+deriving instance Show WalletStorage_v3
 
 deriving instance Arbitrary CHash
 deriving instance Arbitrary (CId Wal)
@@ -246,15 +268,35 @@ instance HasConfiguration => Arbitrary WalletStorage_v2 where
     <*> arbitrary
     <*> arbitrary
 
+instance HasConfiguration => Arbitrary WalletStorage_v3 where
+  arbitrary = WalletStorage_v3
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> pure HM.empty
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+
+
 spec :: Spec
 spec = withCompileInfo def $ withDefConfigurations $ \_ ->
-    describe "Migration to latest version can be reversed" $
-      it "migrating back results in the original" $ property prop_backMigrate
+    describe "Migration to latest version can be reversed" $ do
+      it "(WalletStorage_v2) migrating back results in the original" $ property prop_backMigrate_v2
+      it "(WalletStorage_v3) migrating back results in the original" $ property prop_backMigrate_v3
   where
     -- This test verifies that the migration to version 2 of the wallet storage is
     -- reversible, and as such that we don't accidentally cause any data loss in
     -- the conversion.
-    prop_backMigrate :: WalletStorage_v2 -> Bool
-    prop_backMigrate ws = let
+    prop_backMigrate_v2 :: WalletStorage_v2 -> Bool
+    prop_backMigrate_v2 ws = let
         WalletStorage_Back_v2 ws' = migrate . migrate $ ws
+      in ws == ws'
+
+    prop_backMigrate_v3 :: WalletStorage_v3 -> Bool
+    prop_backMigrate_v3 ws = let
+        WalletStorage_Back_v3 ws' = migrate . migrate $ ws
       in ws == ws'

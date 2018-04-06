@@ -74,11 +74,16 @@ restoreWalletBalance :: ( WalletDbReader ctx m
                         ) => WalletDB -> WalletDecrCredentials -> m ()
 restoreWalletBalance db credentials = do
     utxo <- filterUtxo walletUtxo
-    -- FIXME(adn): Quite inefficient for now.
+    -- FIXME(adn): Quite inefficient for now as it requires another linear scan
+    -- of the addresses in the wallet's UTXO.
     -- NOTE: Due to the fact that in the current implementation of the wallet the balance
     -- (as returned in a 'CWallet') is computed by looking at the coins on each account of
-    -- the wallet, we also need to add these addresses to the wallet for the balance
-    -- computation to consider them.
+    -- the wallet, and subsequently summing all the coins found for all the addresses
+    -- associated to each of those accounts, we also need to add these addresses
+    -- to the wallet for the balance computation to consider them.
+    -- If we don't do that, the final balance for a wallet would always be 0 up until
+    -- the full restoration is completed, which is the point where all the addresses belonging
+    -- to us have been found and added to the database.
     forM_ (M.elems utxo) $ \txOutAux -> do
         whenJust (decryptAddress credentials . getAddress $ txOutAux) (WS.addWAddress db)
     updateWalletBalancesAndUtxo db (utxoToModifier utxo)

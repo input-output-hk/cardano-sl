@@ -155,7 +155,7 @@ testV1Context =
     testConnectionsVar = STM.newTVarIO def
 
     testSyncQueue :: IO SyncQueue
-    testSyncQueue = STM.newTBQueueIO 50
+    testSyncQueue = STM.newTQueueIO
 
     -- For some categories of tests we won't hit the 'RealModeContext', so that's safe
     -- for now to leave it unimplemented.

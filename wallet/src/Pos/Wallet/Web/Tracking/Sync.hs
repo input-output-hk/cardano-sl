@@ -45,7 +45,7 @@ import           Universum
 import           UnliftIO (MonadUnliftIO)
 import           Unsafe (unsafeLast)
 
-import           Control.Concurrent.STM (readTBQueue)
+import           Control.Concurrent.STM (readTQueue)
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import qualified Data.DList as DL
@@ -89,6 +89,7 @@ import           Pos.Wallet.Web.State (CustomAddressType (..), SyncStatistics (.
                                        WalletDB, WalletDbReader, WalletSnapshot,
                                        WalletSyncState (..))
 import qualified Pos.Wallet.Web.State as WS
+import qualified Pos.Wallet.Web.State.State as WS
 import           Pos.Wallet.Web.Tracking.Decrypt (THEntryExtra (..), WalletDecrCredentials,
                                                   buildTHEntryExtra, isTxEntryInteresting)
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), VoidModifier,
@@ -121,7 +122,7 @@ processSyncRequest :: ( WalletDbReader ctx m
                       , MonadIO m
                       ) => SyncQueue -> m ()
 processSyncRequest syncQueue = do
-    newRequest <- atomically (readTBQueue syncQueue)
+    newRequest <- atomically (readTQueue syncQueue)
     syncWalletWithBlockchain newRequest >>= either processSyncError (const (logSuccess newRequest))
     processSyncRequest syncQueue
 
@@ -614,7 +615,7 @@ applyModifierToWallet db trackingOperation wid newBlockHeaderTip CAccModifier{..
                                             ) <$> _thTimestamp)
                $ DL.toList camAddedHistory
 
-    WS.applyModifierToWallet2
+    WS.applyModifierToWallet
       db
       wid
       (sortedInsertions camAddresses)
@@ -650,7 +651,7 @@ rollbackModifierFromWallet db trackingOperation wid newTip CAccModifier{..} = do
 
     curSlot <- getCurrentSlotInaccurate
 
-    WS.rollbackModifierFromWallet2
+    WS.rollbackModifierFromWallet
       db
       wid
       (indexedDeletions camAddresses)

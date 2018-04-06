@@ -64,7 +64,8 @@ import           Pos.Lrc (LrcContext)
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Reporting (HasReportingContext (..))
 import           Pos.Shutdown (HasShutdownContext (..), ShutdownContext (..))
-import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData, SimpleSlottingStateVar, mkSimpleSlottingStateVar)
+import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
+                               SimpleSlottingStateVar, mkSimpleSlottingStateVar)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
@@ -153,7 +154,7 @@ data WalletTestContext = WalletTestContext
     -- ^ Sent transactions via MonadWalletSendActions
     , wtcSyncQueue        :: !SyncQueue
     -- ^ STM queue for wallet sync requests.
-    , wtcSlottingStateVar  :: SimpleSlottingStateVar
+    , wtcSlottingStateVar :: SimpleSlottingStateVar
     -- ^ A mutable cell with SlotId
     }
 
@@ -190,7 +191,7 @@ initWalletTestContext WalletTestParams {..} callback =
             wtcConnectedPeers <- ConnectedPeers <$> STM.newTVarIO mempty
             wtcLastKnownHeader <- STM.newTVarIO Nothing
             wtcSentTxs <- STM.newTVarIO mempty
-            wtcSyncQueue <- STM.newTBQueueIO 50
+            wtcSyncQueue <- STM.newTQueueIO
             wtcSlottingStateVar <- mkSimpleSlottingStateVar
             pure WalletTestContext {..}
         callback wtc

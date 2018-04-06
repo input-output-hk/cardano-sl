@@ -38,7 +38,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAcc
                                              CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Pos.Wallet.Web.Methods.Logic (getAccounts, newAccountIncludeUnready, newAddress)
-import           Pos.Wallet.Web.Methods.Restore (newWalletHandler)
+import           Pos.Wallet.Web.Methods.Restore (newWallet)
 import           Pos.Wallet.Web.State.State (askWalletDB, getWalletSnapshot, getWalletUtxo,
                                              insertIntoHistoryCache, setWalletUtxo,
                                              updateWalletBalancesAndUtxo)
@@ -399,7 +399,7 @@ genAddresses (accountSpec . walletSpec -> aspec) cid = do
 genWallet :: Integer -> UberMonad CWallet
 genWallet walletNum = do
     mnemonic  <- newRandomMnemonic
-    newWalletHandler mempty (walletInit mnemonic)
+    newWallet mempty (walletInit mnemonic)
   where
     walletInit :: BackupPhrase -> CWalletInit
     walletInit backupPhrase = CWalletInit {

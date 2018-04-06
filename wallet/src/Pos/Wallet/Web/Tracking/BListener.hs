@@ -94,7 +94,6 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
     -- something a bit more reasonable.
     pure mempty
   where
-    -- TODO(adn): Revisit this bit.
     syncWallet
         :: WS.WalletDB
         -> WS.WalletSnapshot
@@ -147,7 +146,6 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
     -- something a bit more reasonable.
     pure mempty
   where
-    -- TODO(adn): Revisit this bit.
     syncWallet
         :: WS.WalletDB
         -> WS.WalletSnapshot

@@ -49,7 +49,7 @@ newWallet
     => NewWallet
     -> m (WalletResponse Wallet)
 newWallet NewWallet{..} = do
-    let newWalletHandler CreateWallet  = V0.newWalletHandler
+    let newWalletHandler CreateWallet  = V0.newWallet
         newWalletHandler RestoreWallet = V0.restoreWalletFromSeed
         (V1 spendingPassword) = fromMaybe (V1 mempty) newwalSpendingPassword
         (V1 backupPhrase) = newwalBackupPhrase

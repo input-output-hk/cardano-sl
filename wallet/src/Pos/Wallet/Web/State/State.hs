@@ -88,8 +88,8 @@ module Pos.Wallet.Web.State.State
        , cancelSpecificApplyingPtx
        , resetFailedPtxs
        , flushWalletStorage
-       , applyModifierToWallet2
-       , rollbackModifierFromWallet2
+       , applyModifierToWallet
+       , rollbackModifierFromWallet
        ) where
 
 import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent)
@@ -100,9 +100,8 @@ import           Pos.Core.Common (HeaderHash)
 import           Pos.Txp (TxId, Utxo, UtxoModifier)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens', lensOf)
-import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountMeta, CId, CProfile, CTxId,
-                                             CTxMeta, CUpdateInfo, CWalletMeta,
-                                             PassPhraseLU, Wal)
+import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountMeta, CId, CProfile, CTxId, CTxMeta,
+                                             CUpdateInfo, CWalletMeta, PassPhraseLU, Wal)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition)
 import           Pos.Wallet.Web.State.Acidic (WalletDB, closeState, openMemState, openState)
 import           Pos.Wallet.Web.State.Acidic as A
@@ -184,11 +183,8 @@ getWalletMetaIncludeUnready ws includeReady wid =
 getWalletPassLU :: WalletSnapshot -> CId Wal -> Maybe PassPhraseLU
 getWalletPassLU ws wid = queryValue ws (S.getWalletPassLU wid)
 
--- TODO(adn):  Is it necessary to preserve 'getWalletSyncTip' in case it's
--- present in some acid-state transaction log?
 getWalletSyncState :: WalletSnapshot -> CId Wal -> Maybe WalletSyncState
 getWalletSyncState ws wid = queryValue ws (S.getWalletSyncState wid)
-
 
 getAccountWAddresses
     :: WalletSnapshot -> AddressLookupMode -> AccountId -> Maybe [AddressInfo]
@@ -506,7 +502,7 @@ flushWalletStorage :: (MonadIO m, HasConfiguration)
                    -> m ()
 flushWalletStorage = updateDisk A.FlushWalletStorage
 
-applyModifierToWallet2
+applyModifierToWallet
   :: (MonadIO m, HasConfiguration)
   => WalletDB
   -> CId Wal
@@ -519,7 +515,7 @@ applyModifierToWallet2
   -> ChainDifficulty -- ^ The current depth of the blockchain
   -> WalletSyncState -- ^ New 'WalletSyncState'
   -> m ()
-applyModifierToWallet2 db walId wAddrs custAddrs utxoMod
+applyModifierToWallet db walId wAddrs custAddrs utxoMod
                       txMetas historyEntries ptxConditions
                       currentDepth syncState =
     updateDisk
@@ -529,7 +525,7 @@ applyModifierToWallet2 db walId wAddrs custAddrs utxoMod
       )
       db
 
-rollbackModifierFromWallet2
+rollbackModifierFromWallet
   :: (MonadIO m, HasConfiguration, HasProtocolConstants)
   => WalletDB
   -> CId Wal
@@ -542,7 +538,7 @@ rollbackModifierFromWallet2
   -> [(TxId, PtxCondition, S.PtxMetaUpdate)] -- ^ Deleted PTX candidates
   -> WalletSyncState -- ^ New 'WalletSyncState'
   -> m ()
-rollbackModifierFromWallet2 db walId wAddrs custAddrs utxoMod
+rollbackModifierFromWallet db walId wAddrs custAddrs utxoMod
                             historyEntries ptxConditions
                             syncState =
     updateDisk

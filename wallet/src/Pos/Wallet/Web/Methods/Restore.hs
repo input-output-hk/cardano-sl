@@ -3,7 +3,7 @@
 -- | Everything related to wallet creation
 
 module Pos.Wallet.Web.Methods.Restore
-       ( newWalletHandler
+       ( newWallet
        , importWallet
        , restoreWalletFromSeed
        , restoreWalletFromBackup
@@ -55,10 +55,10 @@ import           UnliftIO (MonadUnliftIO)
 initialAccAddrIdxs :: Word32
 initialAccAddrIdxs = firstHardened
 
-newWallet
+mkWallet
     :: L.MonadWalletLogic ctx m
     => PassPhrase -> CWalletInit -> Bool -> m (EncryptedSecretKey, CId Wal)
-newWallet passphrase CWalletInit {..} isReady = do
+mkWallet passphrase CWalletInit {..} isReady = do
     let CWalletMeta {..} = cwInitMeta
 
     skey <- genSaveRootKey passphrase cwBackupPhrase
@@ -73,11 +73,11 @@ newWallet passphrase CWalletInit {..} isReady = do
 
     return (skey, cAddr)
 
-newWalletHandler :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
-newWalletHandler passphrase cwInit = do
+newWallet :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
+newWallet passphrase cwInit = do
     db <- askWalletDB
     -- A brand new wallet doesn't need any syncing, so we mark isReady=True
-    (_, wId) <- newWallet passphrase cwInit True
+    (_, wId) <- mkWallet passphrase cwInit True
     removeHistoryCache db wId
     -- BListener checks current syncTip before applying update,
     -- thus setting it up to date manually here
@@ -94,7 +94,7 @@ restoreWalletFromSeed :: ( L.MonadWalletLogic ctx m
                          , HasLens SyncQueue ctx SyncQueue
                          ) => PassPhrase -> CWalletInit -> m CWallet
 restoreWalletFromSeed passphrase cwInit = do
-    (sk, _) <- newWallet passphrase cwInit False
+    (sk, _) <- mkWallet passphrase cwInit False
     restoreWallet sk
 
 restoreWallet :: ( L.MonadWalletLogic ctx m

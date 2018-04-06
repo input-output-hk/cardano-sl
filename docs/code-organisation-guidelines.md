@@ -11,21 +11,20 @@ pull request or one long lived refactoring branch would be a huge amount of work
 lot of disruption to the regular flow of development. Instead, these guidelines should be applied
 as a series of small easy-to-review commits that can be merged relatively quickly.
 
+* All library code for a Haskell package should be in the `src` directory of that package.
+  Currently some packages use `src` and others use `Pos`.  For example the `lib` package currently
+  has testing related code in the `src/Test` directory that should be be moved to the `test`
+  directory.
+
 * The `cardano-sl` git repository includes a number of distinct Haskell packages like `core`, `util`,
   `explorer`, `networking` and so on. All Haskell modules within each of these packages should be
   given a unique name prefix. All modules within `core` would have a prefix `Pos.Core`, modules
   within `util` would have a name prefix `Pos.Util`, modules within `networking` might have a prefix
   of `Pos.Network` and so on. This means that when looking at the imports for a module, it is
   immediately obvious which package each import comes from. As an example of a file that needs to be
-  renamed/moved the file `core/Pos/Aeson/Core.hs` should be renamed to `core/Pos/Core/Aeson.hs` so
-  that if it is imported in another module its name `Pos.Core.Aeson` would immediately suggest its
-  location in the source tree.
-
-* All library code for a Haskell packages should be in the `Pos` directory of that package.
-  Currently some packages use `src` and then `src` has both `Pos` and `Test` sub-directories. Since
-  all test code should be in the `test` sub directory (see below), we should choose `Pos` over
-  `src/Pos`. For example `lib` currently has testing related code in the `src` directory and if
-  that test code moves to the `test` directory then there is no need for `src`.
+  renamed/moved the file `core/Pos/Aeson/Core.hs` should be renamed to `core/src/Pos/Core/Aeson.hs`
+  so that if it is imported in another module its name `Pos.Core.Aeson` would immediately suggest
+  its location in the source tree.
 
 * Tests for a Haskell package should always be a part of the same package as the implementation of
   the code it is testing. Test code should not be included in the library that a package provides.

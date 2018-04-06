@@ -17,7 +17,7 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Second)
 import           Formatting (build, int, sformat, (%))
 import           Mockable (delay)
-import           System.Wlog (logDebug, logError, logInfo, logWarning)
+import           System.Wlog (logDebug, logError, logInfo, logWarning, logNotice)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, getHeadersOlderExp)
@@ -165,7 +165,7 @@ retrievalWorkerImpl diffusion = do
             -- How did we even got into recovery then?
             throwM $ DialogUnexpected $ "handleRecovery: recovery header is " <>
                                         "already present in db"
-        logDebug "handleRecovery: fetching blocks"
+        logNotice "handleRecovery: fetching blocks"
         checkpoints <- reverse <$> toList <$> getHeadersOlderExp Nothing
         void $ streamProcessBlocks diffusion nodeId (headerHash rHeader) checkpoints
 
@@ -309,7 +309,7 @@ getProcessBlocks diffusion nodeId desired checkpoints = do
                   then isJust <$> tryTakeTMVar recHeaderVar
                   else pure False
           when exitedRecovery $
-              logInfo "Recovery mode exited gracefully on receiving block we needed"
+              logNotice "Recovery mode exited gracefully on receiving block we needed"
 
 streamProcessBlocks
     :: forall ctx m.
@@ -320,14 +320,27 @@ streamProcessBlocks
     -> [HeaderHash]
     -> m ()
 streamProcessBlocks diffusion nodeId desired checkpoints = do
-    _ <- Diffusion.streamBlocks diffusion nodeId desired checkpoints loop
+    !_ <- Diffusion.streamBlocks diffusion nodeId desired checkpoints (loop (0::Int) [])
     return ()
   where
-    loop blockChan = do
+    loop n blocks blockChan = do
         streamEntry <- atomically $ readTBQueue blockChan
         case streamEntry of
-          StreamEnd         -> return ()
+          StreamEnd         -> addBlocks blocks
           StreamBlock block -> do
-            handleBlocks nodeId (OldestFirst (block :| [])) diffusion
-            loop blockChan
+              let !n' = n + 1
+              when (n' `mod` 256 == 0) $
+                     logInfo $ sformat ("Read block "%shortHashF%" difficulty "%int) (headerHash block)
+                                        (block ^. difficultyL)
+
+              if n' `mod` 64 == 0
+                 then do
+                     addBlocks (block : blocks)
+                     loop n' [] blockChan
+                 else
+                     loop n' (block : blocks) blockChan
+
+    addBlocks [] = return ()
+    addBlocks (block : blocks) =
+        handleBlocks nodeId (OldestFirst (NE.reverse $ block :| blocks)) diffusion
 

@@ -46,3 +46,10 @@ as simple as:
 ## Testing
 
 Tests can be run by running `stack test cardano-sl-wallet-new` from the project *root* directory.
+
+## Developing
+
+We have a [`Makefile`](./Makefile) with some helpful commands for development.
+`make ghcid` runs a GHCid daemon with the project, reloading quickly on every save.
+This gives you fast feedback on your changes.
+`make ghcid-test` runs GHCid daemon, which will also run tests if there are no compile errors.

@@ -31,24 +31,20 @@ rm -rf $tmpSecrets
 stack exec -- cardano-keygen --system-start 0 generate-keys-by-spec --genesis-out-dir $tmpSecrets
 
 # run cluster
-# TODO (akegalj): move to integration/Main.hs
-# WALLET_DEBUG flag is needed so that wallet is launched without TLS. We could also use --no-tls, but this involves changes to the underlying script. See https://iohk.myjetbrains.com/youtrack/issue/CT-7#comment=93-17848
 echo "Starting local cardano cluster..."
 tmux new-session -s $sessionName -d "WALLET_DEBUG=1 scripts/launch/demo-with-wallet-api.sh"
 
 # wait until cluster is fully up and running
-echo "Waiting 140 seconds until local cluster is ready..."
+echo "Waiting 40 seconds until local cluster is ready..."
 sleep 40s
 
 # import keys
-# TODO: we should import multiple keys for them to be useful as they contain little amount of money. Check does fakeavvm contains more money and if it does use that instead
 echo "Importing poor HD key/wallet..."
  curl -X POST http://localhost:8090/api/wallets/keys -H 'cache-control: no-cache' -H 'content-type: application/json' -d "\"$tmpSecrets/generated-keys/poor/key0.sk\""
 
 FAILED=0
 
 # run integration tests
-# TODO (akegalj): add tls files to default integration options
 echo "Launching cardano integration tests..."
 stack exec -- cardano-integration-test --help
 stack exec -- cardano-integration-test || {
@@ -56,10 +52,8 @@ stack exec -- cardano-integration-test || {
     cleanState
     FAILED=1
 }
-# --tls-pub-cert scripts/tls-files/server.crt --tls-priv-key scripts/tls-files/server.key
 
 # kill cluster
-# TODO (akegalj): move to integration/Main.hs
 if [[ $FAILED == 0 ]]; then
     echo "Shutting down cardano cluster..."
     cleanState

@@ -53,6 +53,15 @@ runActionCheck walletClient walletState actionProb = do
 
 -- | Attempt each action in the list. If an action fails, ignore the
 -- failure.
+--
+-- If this were implemented as:
+--
+-- @
+-- tryAll = foldr (\a b -> a *> b <|> b) empty
+-- @
+--
+-- Then it would always end up failing with the final `empty`. The explicit
+-- pattern matching allows us to potentially succeed.
 tryAll :: Alternative f => [f a] -> f a
 tryAll []     = empty
 tryAll (x:xs) = foldr (\act acc -> act *> acc <|> acc) x xs

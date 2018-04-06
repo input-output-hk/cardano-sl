@@ -45,14 +45,14 @@ main = do
 
     walletState <- initialWalletState walletClient
 
-    -- some expected test cases
-    -- hspec $ deterministicTests walletClient
-
     -- some monadic fold or smth similar
     _ <- runActionCheck
         walletClient
         walletState
         actionDistribution
+
+    -- some expected test cases
+    hspec $ deterministicTests walletClient
 
     pure ()
   where

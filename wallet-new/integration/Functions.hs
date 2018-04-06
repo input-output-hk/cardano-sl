@@ -199,7 +199,8 @@ runAction wc action = do
 
             log $ "Updating wallet: " <> show walletId <> ", " <> show newWallet
             result  <-  respToRes $ updateWallet wc walletId newWallet
-
+            log $ "Old   : " <> show wallet
+            log $ "Result: " <> show result
             -- Modify wallet state accordingly.
             wallets . each . filtered (== wallet) .= result
 
@@ -260,6 +261,7 @@ runAction wc action = do
             wallet  <-  pickRandomElement =<< use wallets
             let walletId = walId wallet
             -- We get all the accounts.
+            log $ "Getting accounts for walletID: " <> show walletId
             result  <-  respToRes $ getAccounts wc walletId
 
             accts <- use accounts
@@ -436,8 +438,10 @@ runAction wc action = do
             log $ "postTransaction: " <> show newPayment
             result  <-  respToRes $ postTransaction wc newPayment
 
+            let expectedAmount =
+                    V1 (mkCoin (getCoin moneyAmount - getCoin (unV1 (feeEstimatedAmount txFees))))
             checkInvariant
-                (txAmount result == V1 moneyAmount)
+                (txAmount result == expectedAmount)
                 (InvalidTransactionState result)
 
             -- Modify wallet state accordingly.

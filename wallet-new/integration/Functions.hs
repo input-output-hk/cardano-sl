@@ -15,7 +15,7 @@ import           Data.List.NonEmpty (fromList)
 
 import           Control.Lens (at, each, filtered, (+=), (.=), (<>=), (?=))
 import           Test.Hspec
-import           Test.QuickCheck (Gen, arbitrary, elements, frequency, generate)
+import           Test.QuickCheck (Gen, arbitrary, choose, elements, frequency, generate)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
 import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, AccountUpdate (..),
@@ -25,15 +25,14 @@ import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, Accoun
                                               PaymentDistribution (..), PaymentSource (..),
                                               Transaction (..), V1 (..), Wallet (..),
                                               WalletAddress (..), WalletId, WalletOperation (..),
-                                              WalletUpdate (..))
+                                              WalletUpdate (..), unV1)
 
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
 import           Cardano.Wallet.Client (ClientError (..), WalletClient (..), getAccounts,
                                         getAddressIndex, getTransactionIndex, getWallets,
                                         hoistClient)
 
-import           Pos.Core (mkCoin)
-import           Pos.Util (maybeThrow)
+import           Pos.Core (getCoin, mkCoin)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import           Error
@@ -145,10 +144,8 @@ runAction wc action = do
             result  <-  respToRes $ getWallet wc walId
 
             checkInvariant
-                (walBalance result == minBound)
+                (walBalance result == walBalance wal)
                 (LocalWalletDiffers result wal)
-
-            -- No modification required.
 
         DeleteWallet -> do
             localWallets <- use wallets
@@ -164,7 +161,7 @@ runAction wc action = do
             result  <-  respToRes $ getWallets wc
 
             checkInvariant
-                (all ((/=) wallet) localWallets)
+                (all ((/=) wallet) result)
                 (LocalWalletsDiffers result localWallets)
 
             -- Modify wallet state accordingly.
@@ -203,7 +200,7 @@ runAction wc action = do
             -- Get the old wallet password.
             oldWalletPass <- use (walletsPass . at wallet)
 
-            walletPass  <- maybeThrow (WalletPassMissing wallet) oldWalletPass
+            walletPass  <- maybe empty pure oldWalletPass
             newPassword <- liftIO $ generate arbitrary
 
             -- Create a password update.
@@ -380,11 +377,15 @@ runAction wc action = do
             -- From which source to pay.
             accountSource <- pickRandomElement localAccsWithMoney
 
-            let _accountSourceMoney = accAmount accountSource
+            let accountSourceMoney = accAmount accountSource
 
             -- We should probably have a sensible minimum value.
-            -- moneyAmount <- liftIO $ mkCoin $ generate $ choose (0, getCoin accountSourceMoney)
-            moneyAmount <- liftIO $ generate arbitrary
+            moneyAmount <- liftIO . fmap mkCoin . generate
+                $ choose
+                    ( 10
+                    , getCoin (unV1 accountSourceMoney)
+                    )
+            -- moneyAmount <- liftIO $ generate arbitrary
 
             let paymentSource =
                     PaymentSource
@@ -397,7 +398,7 @@ runAction wc action = do
             let paymentDistribution =
                     PaymentDistribution
                         { pdAddress = addrId addressDestination
-                        , pdAmount  = moneyAmount
+                        , pdAmount  = V1 moneyAmount
                         }
 
             let newPayment =  createNewPayment
@@ -417,7 +418,7 @@ runAction wc action = do
             result  <-  respToRes $ postTransaction wc newPayment
 
             checkInvariant
-                (txAmount result == moneyAmount)
+                (txAmount result == V1 moneyAmount)
                 (InvalidTransactionState result)
 
             -- Modify wallet state accordingly.

@@ -6,6 +6,7 @@ import           Universum
 
 import           Cardano.Wallet.Client.Http
 import           Control.Lens hiding ((^..), (^?))
+import           Data.Traversable (for)
 import           System.IO (hSetEncoding, stdout, utf8)
 import           Test.Hspec
 import           Test.QuickCheck (arbitrary, generate)
@@ -59,15 +60,17 @@ main = do
     actionDistribution = do
         (PostWallet, Weight 1) :| fmap (\x -> (x, Weight 1)) [minBound .. maxBound]
 
-initialWalletState :: WalletClient IO -> IO  WalletState
+initialWalletState :: WalletClient IO -> IO WalletState
 initialWalletState wc = do
-    _wallets <- either throwM (pure . wrData) =<< getWallets wc
+    _wallets <- fromResp $ getWallets wc
+    _accounts <- concat <$> for (map walId _wallets) (fromResp . getAccounts wc)
     let _walletsPass = mempty
-        _accounts = mempty
         _addresses = mempty
         _transactions = mempty
         _actionsNum = 0
     pure $ WalletState {..}
+  where
+    fromResp = (either throwM (pure . wrData) =<<)
 
 deterministicTests :: WalletClient IO -> Spec
 deterministicTests wc = do

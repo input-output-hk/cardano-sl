@@ -16,7 +16,7 @@ module Cardano.Wallet.Server.Plugins (
 import           Universum
 
 import           Cardano.Wallet.API as API
-import           Cardano.Wallet.API.V1.Errors (WalletError (..))
+import           Cardano.Wallet.API.V1.Errors (WalletError (..), toServantError)
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel
@@ -26,6 +26,9 @@ import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode
                                             WalletBackendParams (..), isDebugMode,
                                             walletAcidInterval, walletDbOptions)
 
+import           Control.Lens (_Left)
+
+import           Control.Exception (try)
 import           Data.Aeson
 import           Formatting (build, sformat, (%))
 import           Mockable
@@ -109,15 +112,26 @@ legacyWalletBackend WalletBackendParams {..} ntpStatus =
       ctx <- V0.walletWebModeContext
       let app = upgradeApplicationWS wsConn $
             if isDebugMode walletRunMode then
-              Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer (V0.convertHandler ctx) diffusion ntpStatus walletRunMode
+              Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer (catchWalletErrors . V0.convertHandler ctx) diffusion ntpStatus walletRunMode
             else
-              Servant.serve API.walletAPI $ LegacyServer.walletServer (V0.convertHandler ctx) diffusion ntpStatus
+              Servant.serve API.walletAPI $ LegacyServer.walletServer (catchWalletErrors . V0.convertHandler ctx) diffusion ntpStatus
       return $ withMiddleware walletRunMode app
 
     exceptionHandler :: SomeException -> Response
     exceptionHandler exn =
         responseLBS badRequest400 [(hContentType, "application/json")] .
             encode $ UnknownError $ "Something went wrong. " <> show exn
+
+-- | The 'V0.convertHandler' function is unaware of our custom error
+-- classes, which can be converted to 'ServantErr' quite nicely. This
+-- function adds that catching.
+catchWalletErrors :: Servant.Handler a -> Servant.Handler a
+catchWalletErrors =
+        Servant.Handler
+            . ExceptT
+            . fmap (join . over _Left toServantError)
+            . try
+            . Servant.runHandler
 
 -- | A 'Plugin' to start the wallet REST server
 --

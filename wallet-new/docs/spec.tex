@@ -75,7 +75,7 @@
 \item[Draft 10, Mar 16, 2018 (Duncan)] First sketch of input selection
 \item[Draft 11, Mar 19, 2018 (Edsko)] Computation of minimum balance
 \item[Draft 12, Mar 30, 2018 (Edsko)] Significantly improved minimum balance computation,
-     and cleaned up the whole document. Also presented the new treatment of ``expected UTxO''
+     and cleaned up the whole document. Also presented the new treatment of `expected UTxO'
      both in the weekly internal Well-Typed meeting and in the IOHK weekly Formal Spec meeting.
 \item[Draft 13, April 3, 2018 (Edsko)] Once more significantly improved the minimum
      balance computation, and pushed this all the way through. I feel that we now
@@ -149,7 +149,7 @@ or does.
 \\
   utxo
 & \mathsf{UTxO}
-& \multicolumn{1}{l}{}
+& txin \mapsto txout
 & \mathsf{TxIn} \mapsto \mathsf{TxOut}
 & \text{unspent transaction outputs}
 \\
@@ -200,10 +200,10 @@ The wallet specification will be based on the formalization of UTxO style
 accounting by \cite{utxo_accounting}. The basic definitions are summarized in
 Figure~\ref{fig:basic_definitions}. A full explanation of UTxO style accounting
 is beyond the scope of this document, and we refer the reader to the
-beforementioned paper. Here we will only comment on some details.
+aforementioned paper. Here we will only comment on some details.
 
 The computation $\mathsf{txid}$ of transaction IDs (hashes) is assumed to be
-``effectively'' injective\footnote{A quick counting argument shows this is
+`effectively' injective\footnote{A quick counting argument shows this is
 impossible for given finite representations. The assumption is justified on the
 basis that we use cryptographically strong hash functions so that computing
 clashes is computationally impractical.} so that a transaction ID uniquely
@@ -213,7 +213,7 @@ values are numeric values supporting 0 and addition.
 
 Addresses stand for cryptographic public keys. In this presentation we can keep
 them quite abstract, it is merely a large set of distinct values. The predicate
-$\mathsf{ours}$ tells us if a particular address ``belongs'' to our wallet.
+$\mathsf{ours}$ tells us if a particular address `belongs' to our wallet.
 This corresponds in the real implementation to us being able to identify
 addresses that correspond to our wallet where we can derive the keypair used
 to generate that address, and to sign transactions that pay from that address.
@@ -222,7 +222,7 @@ were elaborated to cover public/private key pairs, then we would model this as
 a partial function that returns the keypair as evidence
 $\mathsf{ours} \in \mathsf{Addr} \mapsto (\mathsf{PubKey} \times \mathsf{PrivKey})$.
 
-The intuition between the unspent transaction outputs type $\mathsf{UTxO}$ is
+The intuition behind the unspent transaction outputs type $\mathsf{UTxO}$ is
 that it records all the transaction inputs in our wallet that we have available
 to spend from, and how much cash is available at each one. We will see that it
 will be derived solely from the chain, and not any other wallet state. Moreover,
@@ -240,7 +240,7 @@ transactions and the set of transactions in a block.
 
 \subsection{Operations on UTxO}
 
-For convenience we will define a number of operations filter UTxOs:
+For convenience we will define a number of operations to filter UTxOs:
 %
 \begin{align*}
   \mathit{ins} \restrictdom \mathit{utxo}
@@ -316,7 +316,7 @@ We will also make use of two preorders on UTxOs:
 \begin{definition}[$u \subseteq v$]
 We will write $u \subseteq v$ whenever
 \begin{equation*}
-\forall (\mathit{tx}, i)  \mapsto (\mathit{addr}, c) \in u \cdot
+\forall (\mathit{tx}, i)  \mapsto (\mathit{addr}, c) \in u \ldotp
 (\mathit{tx}, i)  \mapsto (\mathit{addr}, c) \in v
 \end{equation*}
 \end{definition}
@@ -324,8 +324,8 @@ We will write $u \subseteq v$ whenever
 \begin{definition}[$u \sqsubseteq v$]
 We will write $u \sqsubseteq v$ whenever $u \subseteq v$ and moreover
 \begin{equation*}
-\forall (\mathit{tx}, i)  \mapsto (\mathit{addr}, c) \in u \cdot
-\forall (\mathit{tx}, i') \mapsto (\mathit{addr}', c') \in v \cdot
+\forall (\mathit{tx}, i)  \mapsto (\mathit{addr}, c) \in u \ldotp
+\forall (\mathit{tx}, i') \mapsto (\mathit{addr}', c') \in v \ldotp
 (\mathit{tx}, i') \mapsto (\mathit{addr}', c') \in u
 \end{equation*}
 \end{definition}
@@ -359,7 +359,7 @@ specification.
 \begin{definition}[Dependence]
 We say that transaction $t_2$ \emph{depends on} transaction $t_1$ iff
 \begin{equation*}
-\exists \mathit{ix} \cdot (\mathsf{txid} ~ t_1, \mathit{ix}) \in \mathsf{txins} ~ t_2
+\exists \mathit{ix} \ldotp (\mathsf{txid} ~ t_1, \mathit{ix}) \in \mathsf{txins} ~ t_2
 \end{equation*}
 \end{definition}
 
@@ -420,7 +420,7 @@ are only a small number of wallet operations of interest. We can:
 \begin{itemize}
 \item enquire as to the balance of the wallet (total balance and
       available balance).
-\item make a new wallet state by "applying" a block to a wallet state
+\item make a new wallet state by `applying' a block to a wallet state
 \item make a new wallet state by adding a new pending transaction to a wallet
       state
 \end{itemize}
@@ -502,7 +502,7 @@ incorrect to use the definition
 The difference crops up when one considers transactions within the block $b$
 that depend on each other: that is where the output of one transaction is used
 as the input of another within the same block. To make this intuition clearer,
-we can define a function that computes only the ``new'' outputs from a block
+we can define a function that computes only the `new' outputs from a block
 (outputs that are not spent within that same block):
 %
 \begin{definition}[Block UTxO]
@@ -543,14 +543,14 @@ blocks and not the pending transactions.
 
 The definition of $\mathsf{updatePending}$ is pleasantly simple; the fact that
 it could be made so simple was an ``ah hah'' moment in the early development of
-this specification. Note that this covers the case of one of our own
+this specification. Note that this definition covers the case of one of our own
 transactions being committed, as well as transactions submitted by other
 instances of our wallet invalidating our pending transactions. Both are covered
 because all we are doing is removing pending transactions that have had any (or
 indeed all) of their inputs spent.
 
 The precondition to $\mathsf{newPending}$ states that new pending transactions
-can only spent outputs in the wallet's current UTxO. Alternatively, we could
+can only spend outputs in the wallet's current UTxO. Alternatively, we could
 require that
 %
 \begin{equation*}
@@ -581,7 +581,7 @@ Proofs would proceed by induction on the wallet construction (empty wallet
 $w_\emptyset$, $\mathsf{applyBlock}$, $\mathsf{newPending}$). Not
 all of these invariants will be true in all models.
 
-\begin{invariant}
+\begin{invariant}[Pending transactions only spend from our current UTxO]
 \begin{equation*}
 \mathsf{txins} ~ pending \subseteq \dom utxo
 \end{equation*}
@@ -591,7 +591,8 @@ all of these invariants will be true in all models.
 Note that Invariant~\ref{inv:txins_in_dom_utxo} only holds if we do not allow
 dependent in-flight transactions. If we do allow dependent ones then the spent
 set of the pending includes change addresses that are not yet in the wallet
-UTxO.
+UTxO. Additionally, as we will see in Section~\ref{sec:rollback}, once we add
+rollback then this invariant no longer holds.
 
 \begin{invariant}[The wallet UTxO only covers addresses that belongs to the wallet]
 %
@@ -601,7 +602,7 @@ UTxO.
 \label{inv:utxo_is_ours}
 \end{invariant}
 
-\begin{invariant}[Transactions removed from pending once included in UTxO]
+\begin{invariant}[Transactions are removed from the pending set once they are included in the UTxO]
 \begin{equation*}
 \dom (\mathsf{change} ~ \mathit{pending}) \cap \dom (\mathsf{available} ~ (\mathit{utxo}, \mathit{pending})) = \emptyset
 \end{equation*}
@@ -662,7 +663,7 @@ Invariant~\ref{inv:change_vs_available}.
 \subsection{Complexity}
 \label{sec:basic_model_complexity}
 
-The basic model is intended to be basic, not efficient. Let us take the
+The basic model is intended to be comprehensible, not efficient. Let us take the
 initial description as a na\"ive implementation and consider the asymptotic
 complexity of the major operations. We will explore other approaches with
 better asymptotic complexity in later sections.
@@ -727,11 +728,12 @@ order of magnitudes of the sizes of the utxo and pending sets. The UTxO can be
 quite large, for example $|utxo| \leq 10^6$, while the pending set will
 typically be small, usually around $|pending| \leq 3$, while $|pending| = 100$
 would be extreme. Similarly, the number of inputs and outputs in any individual
-transaction is not large.
+transaction is not large. The current bound on the total size of a transaction
+is 64Kb.
 
 \todo[inline]{Justify some of these bounds (see comments in the \TeX{} file).}
 
-% You give the bound `O(nlogn |txins txs|)` for `txins txs`. This is "clearly" correct in that we can first construct this set from a list, and constructing _any_ set from a list is `nlogn` in the size of that list (although a comment to this effect might help the reader). Having said that, I think we take advantage of the assumption stated below that "the number of inputs and outputs in any individual transaciton isn not large." If we assume that, for all intents and purposes, the number of % inputs and outputs of a transaction is bounded by some constant, then `O(|txins txs|) = O(|txs|)` and hence we can give the bound `O(nlogn |txs|)`, which is a bit simpler and looks less circular (the current definition gives the complexity in terms of the _output_ of `txins` rather than its input, which, though not incorrect, is a bit confusing
+% You give the bound `O(nlogn |txins txs|)` for `txins txs`. This is "clearly" correct in that we can first construct this set from a list, and constructing _any_ set from a list is `nlogn` in the size of that list (although a comment to this effect might help the reader). Having said that, I think we take advantage of the assumption stated below that "the number of inputs and outputs in any individual transaction isn not large." If we assume that, for all intents and purposes, the number of % inputs and outputs of a transaction is bounded by some constant, then `O(|txins txs|) = O(|txs|)` and hence we can give the bound `O(nlogn |txs|)`, which is a bit simpler and looks less circular (the current definition gives the complexity in terms of the _output_ of `txins` rather than its input, which, though not incorrect, is a bit confusing
 % we can then do the exact same for `txouts`, giving the bound `O(nlogn txs)`
 %
 % The bound for `available` is stated as `O(join |txins p| |u|)`. This confused me. I think it'd be clearer to say it's `O(nlogn |txins p| + join |txins p| |u|)` (or possibly `O(nlogn |p| + join |txins p| |u|)`) (we do have to compute `txins p`after all), and then state the bound as given only as a simplificaiton. it's all the more confusing because in `change` this construction of `txouts` _is_ present (because there isn't a larger term to consume it)
@@ -808,7 +810,7 @@ Note the complexity of these operations
 \end{equation*}
 %
 Only the first is expensive. This suggests that we should at least cache the
-balance of the UTxO. If we only cache the UTxO then the available and total
+balance of the UTxO. If we only cache the UTxO balance then the available and total
 balances are not too expensive to compute. Of course we could cache more, but
 each extra value we cache adds complexity to the design, and additional proof
 obligations.
@@ -860,7 +862,7 @@ to give us}
               & = \sigma + \mathsf{balance} ~ utxo^+ - \mathsf{balance} ~ (\mathsf{txins} ~ b \restrictdom (utxo \cup utxo^+))
 \end{align*}
 
-The extra things we do have to compute turn out not to be expensive
+The extra things we have to compute turn out not to be expensive
 \begin{equation*}
 \begin{split}
 \mathsf{balance} ~ (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}})  & \in \order{\mathsf{nlogn} ~ |\mathsf{txouts}~ b|} \\
@@ -919,10 +921,11 @@ in Figure~\ref{fig:model_with_cached_balance}.
 \subsection{Motivation}
 
 The $\mathsf{applyBlock} ~ b$ operation is problematic in a setting where it is
-implemented as an operation on the local database of the wallet and those
-operations are stored in a log. The log would contain the full blocks received
-by the wallet, which at current constants of a maximum block of 2 MB and a slot
-length of 20 seconds would mean a worst-case log growth rate of 360 MB/hour.
+implemented as an operation on a local wallet database and where the database
+implementation keeps a transaction log containing all the inputs of each
+transaction. The log would contain the full blocks received
+by the wallet, which -- at current constants of a maximum block of 2 MB and a slot
+length of 20 seconds -- would mean a worst-case log growth rate of 360 MB/hour.
 
 \subsection{Derivation}
 
@@ -958,7 +961,7 @@ As in the basic model with cached balance (Figure~\ref{fig:model_with_cached_bal
 \end{figure}
 
 The goal is to define an auxiliary function to $\mathsf{applyBlock}$ which only
-needs the ``relevant'' information from the block. Since
+needs the `relevant' information from the block. Since
 $\mathsf{applyBlock}$ is only defined in terms of the inputs and outputs
 of the block, we can easily define a variation $\mathsf{applyBlock}'$,
 shown in Figure~\ref{fig:wallet_with_prefiltering}, that accepts these as two
@@ -977,7 +980,7 @@ we trivially we have that
 = \mathsf{applyBlock}' ~ (\mathsf{txins} ~ b, \mathit{utxo}^+)
 \end{equation*}
 %
-but we haven't gained much yet because although we only pass in ``our'' outputs,
+but we haven't gained much yet because although we only pass in `our' outputs,
 we still pass in \emph{all} inputs of the block.  However,
 lemma~\ref{lem:prefiltering} shows how we can filter the inputs also, justifying
 the definition of the wallet with prefiltering
@@ -1067,9 +1070,10 @@ in the blockchain, and may be beneficial elsewhere also.
 \end{itemize}
 
 \section{Rollback}
+\label{sec:rollback}
 
-The possible presence of forks in the blockchain means that we may occassionally
-have to roll back and ``undo'' calls to $\mathsf{applyBlock}$, reverting to an
+The possible presence of forks in the blockchain means that we may occasionally
+have to roll back and `undo' calls to $\mathsf{applyBlock}$, reverting to an
 older version of the UTxO. When we \emph{apply} a block, pending transactions
 may become confirmed and are therefore removed from the $\mathit{pending}$ set.
 When we roll back, those transactions may once again become pending and should
@@ -1127,12 +1131,12 @@ only a single checkpoint (a rollback before any blocks have been applied would
 anyway not make semantic sense).
 
 After a rollback we have transactions in $\mathit{pending}$ that spend inputs
-that are not available in wallet's UTxO (we will explore this issue in detail in
+that are not available in the wallet's UTxO (we will explore this issue in detail in
 Section~\ref{sec:tracking_expected_UTxO}). Nonetheless, the definition of $\mathsf{available}$ can
 remain pretty much unchanged, since that only considers inputs that \emph{are}
 in the UTxO anyway.
 
-However, rollbacks also mean that we have end up with pending transactions that
+However, rollbacks also mean that we may end up with pending transactions that
 depend on other pending transactions. This means that the definition of
 $\mathsf{change}$ must be modified to remove any outputs that are spent by other
 pending transactions. Note that the precondition to $\mathsf{newPending}$
@@ -1194,7 +1198,7 @@ Moreover, we have
 \begin{invariant}
 Given a $\mathit{pending}$ set in one of the wallets checkpoints,
 \begin{equation*}
-\forall (\mathit{ins}_1, \mathit{outs}_1), (\mathit{ins}_2, \mathit{outs}_2) \in \mathit{pending} \text{ where } (\mathit{ins}_1, \mathit{outs}_1) \ne (\mathit{ins}_2, \mathit{outs}_2) \cdot
+\forall (\mathit{ins}_1, \mathit{outs}_1), (\mathit{ins}_2, \mathit{outs}_2) \in \mathit{pending} \text{ where } (\mathit{ins}_1, \mathit{outs}_1) \ne (\mathit{ins}_2, \mathit{outs}_2) \ldotp ~
 \mathit{ins}_1 \cap \mathit{ins}_2 = \emptyset
 \end{equation*}
 \end{invariant}
@@ -1306,16 +1310,15 @@ the UTxO:
 We will refer to incoming transactions that have been rolled back as
 \emph{expected transactions}. In other words, expected transactions are
 transactions (such as $t_1$ in the example above) that we expect to be included
-in the blockchain, but haven't yet. We will refer to the curresponding unspent
+in the blockchain, but haven't yet. We will refer to the corresponding unspent
 outputs as the \emph{expected UTxO}.
 
-\begin{quote} \emph{Note.}
+\paragraph{Note.}
 It is of course possible that such missing transactions ($t_1$) \emph{never}
 make it into the new fork, in which case dependent pending transaction ($t_2$)
 should eventually be removed from $\mathit{pending}$. This problem may arise
 even without rollbacks, however, and cannot be solved until we introduce a TTL
 value for transactions.
-\end{quote}
 
 In this section we will see how by keeping track of the expected UTxO we can
 give a clearer picture of the wallet's balance, even in the presence of
@@ -1365,7 +1368,7 @@ A trivial fact we need later is that
 \end{lemma}
 
 When we roll back a block but remember the UTxO we used to have, we
-can, in a sense, ``anticipate'' what we think the future might look like:
+can, in a sense, `anticipate' what we think the future might look like:
 
 \begin{definition}[Anticipate a block]
 \begin{equation*}
@@ -1439,27 +1442,23 @@ none will, or maybe all will be included. The situation is more complicated in
 the model with rollback. When a pending transaction (possibly transitively)
 depends on an expected output, it can never happen that that pending transaction
 is confirmed but the expected incoming transaction is not. Let's refer to these
-subsets of confirmed pending and expected transactions as ``possible futures''.
+subsets of confirmed pending and expected transactions as \emph{possible futures}.
 Then a reasonable question we might ask is: what is the wallet's \emph{minimum
 balance across all possible futures}?\footnote{This is somewhat akin to the
-economical concept of ``value at risk''.}
+financial concept of ``value at risk''.}
 
-\begin{quote}
-\emph{Note.} We assume that there is no other instance of the wallet
-``out there'', so that this wallet is the only one to can transfer funds
+\paragraph{Note.} We assume that there is no other instance of the wallet
+`out there', so that this wallet is the only one to transfer funds
 from the wallet to other accounts. In other words, we assume that expected
 transactions can only \emph{increase} the wallet's balance (and pending
 transactions can only \emph{decrease} it). If this assumption is not satisfied,
-the concept of minimum balance becomes meaningless, since there then always
-a possible future in which the ``other wallet'' spends all of the wallet's
-funds.
-
-For somewhat similar reasons, the wallet's \emph{maximum} balance
-is not a particular interesting notion; if we stipulate ``assuming no
-incoming transactions'' then the maximum balance is simply the current balance,
+the concept of minimum balance becomes meaningless, since there is then always
+a possible future in which the `other wallet' spends all of the wallet's
+funds. For somewhat similar reasons, the wallet's \emph{maximum} balance
+is not a particular interesting notion; if we stipulate `assuming no
+incoming transactions' then the maximum balance is simply the current balance,
 and if we don't make such a stipulation, then the balance of the wallet is
 unbounded (or bounded by the cryptocurrency's cap).
-\end{quote}
 
 Since we only keep track of the expected UTxO, and therefore lack dependency
 information about expected transactions, we cannot determine if two expected
@@ -1859,16 +1858,14 @@ forget any dependencies from pending transactions on expected ones. This means
 that we can always use Lemma~\ref{lem:minimumBalance_equal_totalBalance} to
 approximate $\mathsf{minimumBalance}$ using $\mathsf{totalBalance}$.
 
-\begin{quote}
-\emph{Note.}
+\paragraph{Note.}
 Expected transactions that coexisted in the blockchain at some point are
-obviously compatible with each other. However, keep track of this information
-does not help us here: we already assume that \emph{all} expected transactions
+obviously compatible with each other. However, keeping track of this information
+would not help us here: we already assume that \emph{all} expected transactions
 are compatible with each other. Knowing when expected transactions are
 \emph{not} compatible with each other would allow us to establish more tighter
 bounds on the minimum balance, but presence or absence of transactions in
 particular forks is not sufficient to conclude incompatibility.
-\end{quote}
 
 \subsection{Further efficiency improvements}
 
@@ -2162,7 +2159,7 @@ fee may require selecting more transaction inputs which increases the size.
 \end{equation}
 
 The actual fee for a specific transaction must be at least the minimum fee of
-course. There is no fee upper bound but a ``good'' input selection
+course. There is no fee upper bound but a `good' input selection
 implementation will produce a relatively tight bound. We may wish to make that
 tight bound precise such as constraining it to be within a certain factor of
 the minimum fee.
@@ -2221,7 +2218,7 @@ that identity. In UTxO style accounting, this is typically done by an identity
 holding multiple unspent transaction outputs and avoiding using them in such a
 way that they can be easily associated with each other. For example, an obvious
 thing to avoid is having different unspent transaction outputs at the same
-address. One particular issue is the problem of the ``change address'' in a
+address. One particular issue is the problem of the `change address' in a
 transaction being easily identifiable. For example, if a very large input is
 selected and a small amount is sent to one output and the remaining large
 amount to another output then all observers will reasonably conclude that the
@@ -2415,7 +2412,7 @@ Look for other properties, e.g. wallet utxo $\subseteq$ chain utxo.
 
 Establish storage/memory requirements.
 
-It should be true that different instances of the "same" wallet (that do not share their pending sets) eventually end up in the same state.
+It should be true that different instances of the `same' wallet (that do not share their pending sets) eventually end up in the same state.
 
 Add pending tx expiry / TTL (would be needed to prove wallets end up in the same state after a finite time).
 

@@ -60,6 +60,12 @@ library
 
                        Cardano.Wallet.Util
 
+                       Cardano.Wallet.WalletLayer
+
+  other-modules:       Cardano.Wallet.WalletLayer.Types
+                       Cardano.Wallet.WalletLayer.Kernel
+                       Cardano.Wallet.WalletLayer.Legacy
+                       Cardano.Wallet.WalletLayer.QuickCheck
   ghc-options:         -Wall
   build-depends:       base
                      , QuickCheck

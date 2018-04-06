@@ -13,6 +13,7 @@ import           Mockable (Production (..), runProduction)
 import           Ntp.Client (NtpStatus, withNtpClient)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (ActionSpec (..))
+import           Pos.Communication.Types.Protocol (OutSpecs)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingParams,
                                bracketNodeResources, loggerBracket, lpDefaultName, runNode,
@@ -28,15 +29,15 @@ import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById,
                                  getWalletAddresses, runWRealMode, syncWalletsWithGState)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, flushWalletStorage)
-import           System.Wlog (LoggerName, Severity, logInfo, logMessage, usingLoggerName)
+import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage, usingLoggerName)
 
-import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletBackendParams (..),
                                             WalletBackendParams (..), WalletStartupOptions (..),
                                             getWalletNodeOptions, walletDbPath, walletFlushDb,
                                             walletRebuildDb)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer, bracketKernelPassiveWallet)
 
 
 -- | Default logger name when one is not provided on the command line
@@ -72,9 +73,9 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
             logInfo "Resyncing wallets with blockchain..."
             syncWallets
 
-    runNodeWithInit ntpStatus init nr =
+    runNodeWithInit ntpStatus init' nr =
         let (ActionSpec f, outs) = runNode nr (plugins ntpStatus)
-         in (ActionSpec $ \s -> init >> f s, outs)
+         in (ActionSpec $ \s -> init' >> f s, outs)
 
     syncWallets :: WalletWebMode ()
     syncWallets = do
@@ -104,19 +105,29 @@ actionWithNewWallet sscParams nodeParams params =
         initNodeDBs $ \nr -> do
       -- TODO: Will probably want to extract some parameters from the
       -- 'NewWalletBackendParams' to construct or initialize the wallet
-      Kernel.bracketPassiveWallet logMessage' $ \wallet ->
+
+      -- TODO(ks): Currently using non-implemented layer for wallet layer.
+      bracketKernelPassiveWallet logMessage' $ \wallet -> do
+        liftIO $ logMessage' Info "Wallet kernel initialized"
         Kernel.Mode.runWalletMode nr wallet (mainAction wallet nr)
   where
-    mainAction w = runNodeWithInit w $
-        liftIO $ Kernel.init w
+    mainAction
+        :: PassiveWalletLayer Production
+        -> NodeResources ext
+        -> (ActionSpec Kernel.Mode.WalletMode (), OutSpecs)
+    mainAction w nr = runNodeWithInit w nr
 
-    runNodeWithInit w init nr =
+    runNodeWithInit
+        :: PassiveWalletLayer Production
+        -> NodeResources ext
+        -> (ActionSpec Kernel.Mode.WalletMode (), OutSpecs)
+    runNodeWithInit w nr =
         let (ActionSpec f, outs) = runNode nr (plugins w)
-         in (ActionSpec $ \s -> init >> f s, outs)
+         in (ActionSpec $ \s -> f s, outs)
 
     -- TODO: Don't know if we need any of the other plugins that are used
     -- in the legacy wallet (see 'actionWithWallet').
-    plugins :: Kernel.PassiveWallet -> Plugins.Plugin Kernel.Mode.WalletMode
+    plugins :: PassiveWalletLayer Production -> Plugins.Plugin Kernel.Mode.WalletMode
     plugins w = mconcat [ Plugins.walletBackend params w ]
 
     -- Extract the logger name from node parameters

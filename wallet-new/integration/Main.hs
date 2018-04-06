@@ -7,11 +7,10 @@ import           Universum
 import           Cardano.Wallet.Client.Http
 import           Control.Lens hiding ((^..), (^?))
 import           System.IO (hSetEncoding, stdout, utf8)
-import           Test.QuickCheck (arbitrary, generate)
 import           Test.Hspec
+import           Test.QuickCheck (arbitrary, generate)
 
 import           CLI
-import           Error
 import           Functions
 import           Types
 
@@ -43,10 +42,7 @@ main = do
     let walletClient :: MonadIO m => WalletClient m
         walletClient = liftClient $ mkHttpClient baseUrl manager
 
-    let walletState = WalletState mempty mempty mempty mempty mempty 0
-
-    -- We throw exception if the value is invalid.
-    actionDistr <- either throwM pure actionDistribution
+    walletState <- initialWalletState walletClient
 
     -- some expected test cases
     hspec $ deterministicTests walletClient
@@ -55,18 +51,23 @@ main = do
     _ <- runActionCheck
         walletClient
         walletState
-        actionDistr
+        actionDistribution
 
     pure ()
   where
-    actionDistribution :: Either WalletTestError ActionProbabilities
+    actionDistribution :: ActionProbabilities
     actionDistribution = do
-        postWalletProb <- createProbability 50
-        getWalletProb  <- createProbability 50
+        (PostWallet, Weight 1) :| fmap (\x -> (x, Weight 1)) [minBound .. maxBound]
 
-        pure $ (PostWallet, postWalletProb) :|
-             [ (GetWallet, getWalletProb)
-             ]
+initialWalletState :: WalletClient IO -> IO  WalletState
+initialWalletState wc = do
+    _wallets <- either throwM (pure . wrData) =<< getWallets wc
+    let _walletsPass = mempty
+        _accounts = mempty
+        _addresses = mempty
+        _transactions = mempty
+        _actionsNum = 0
+    pure $ WalletState {..}
 
 deterministicTests :: WalletClient IO -> Spec
 deterministicTests wc = do

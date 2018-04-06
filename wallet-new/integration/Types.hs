@@ -4,9 +4,7 @@
 {-# LANGUAGE TypeFamilies    #-}
 
 module Types
-    ( Probability
-    , createProbability
-    , getProbability
+    ( Weight (..)
     , Action (..)
     , WalletState (..)
     , wallets
@@ -27,9 +25,6 @@ import           Control.Lens (makeLenses)
 import           Cardano.Wallet.API.V1.Types (Account, SpendingPassword, Transaction, Wallet,
                                               WalletAddress)
 
-import           Error
-
-
 -- | Ideally, we would put @MonadGen@ here and remove @MonadIO@,
 -- but it's better to see how the client fits in the end.
 type WalletTestMode m =
@@ -39,18 +34,13 @@ type WalletTestMode m =
     )
 
 -- | The probability type that captures the chance of
--- our random action selection choosing a specific @Action@.
--- The number is restricted to 1 - 100 - see @createProbability@.
-data Probability = Probability { getProbability :: Int }
+-- our random action selection choosing a specific 'Action'.
+--
+-- An 'Action' is paired with a 'Weight'. All of the 'Weight's are summed
+-- up, and the eventual probability is the weight divided by the total
+-- weight.
+newtype Weight = Weight { getWeight :: Int }
     deriving (Show, Eq)
-
-
--- | Safe constructor that checks the values.
-createProbability :: Int -> Either WalletTestError Probability
-createProbability prob
-    | prob <= 0 || prob > 100 = Left InvalidProbabilityDistr
-    | otherwise               = Right $ Probability prob
-
 
 -- | Actions that can be called from the test.
 data Action
@@ -73,16 +63,13 @@ data Action
 
     | PostTransaction
     | GetTransaction
-
-    deriving (Show, Eq)
-
+    deriving (Show, Eq, Ord, Enum, Bounded)
 
 -- | The type that defines the probabilites of the actions
 -- TODO(ks): We could create a custom constructor with valid
 -- values only.
 -- Add invariant?
-type ActionProbabilities = NonEmpty (Action, Probability)
-
+type ActionProbabilities = NonEmpty (Action, Weight)
 
 -- | State of the wallet while testing, from the client side.
 -- We require this so we can check for the invariants and
@@ -101,10 +88,7 @@ data WalletState = WalletState
 
 makeLenses ''WalletState
 
-
 -- | The type that has the action probabilities to execute along
 -- with the current @WalletState@ from the client perspective.
 -- Yes, I know, @MonadState@, but we can always switch to that.
 type ActionWalletState = (WalletState, ActionProbabilities)
-
-

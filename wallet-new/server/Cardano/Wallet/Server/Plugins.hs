@@ -115,9 +115,9 @@ legacyWalletBackend WalletBackendParams {..} ntpStatus =
       return $ withMiddleware walletRunMode app
 
     exceptionHandler :: SomeException -> Response
-    exceptionHandler _ =
+    exceptionHandler exn =
         responseLBS badRequest400 [(hContentType, "application/json")] .
-            encode $ UnkownError "Something went wrong."
+            encode $ UnknownError $ "Something went wrong. " <> show exn
 
 -- | A 'Plugin' to start the wallet REST server
 --

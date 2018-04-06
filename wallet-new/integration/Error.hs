@@ -1,9 +1,11 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE LambdaCase    #-}
 
 -- | Types describing runtime errors related to
 -- wallet integration tests.
 module Error
     ( WalletTestError (..)
+    , showConstr
     ) where
 
 import           Universum
@@ -40,6 +42,23 @@ data WalletTestError
 
     deriving (Show, Eq, Generic)
 
+showConstr :: WalletTestError -> String
+showConstr = \case
+    HttpClientError {} -> "HttpClientError"
+    WalletBalanceNotZero {} -> "WalletBalanceNotZero"
+    WalletPassMissing {} -> "WalletPassMissing"
+    LocalWalletDiffers {} -> "LocalWalletDiffers"
+    LocalWalletsDiffers {} -> "LocalWalletsDiffers"
+    AccountBalanceNotZero {} -> "AccountBalanceNotZero"
+    LocalAccountDiffers {} -> "LocalAccountDiffers"
+    LocalAccountsDiffers {} -> "LocalAccountsDiffers"
+    AddressBalanceNotZero {} -> "AddressBalanceNotZero"
+    LocalAddressesDiffer {} -> "LocalAddressesDiffer"
+    LocalAddressDiffer {} -> "LocalAddressDiffer"
+    InvalidTransactionState {} -> "InvalidTransactionState"
+    InvalidTransactionFee {} -> "InvalidTransactionFee"
+    LocalTransactionsDiffer {} -> "LocalTransactionsDiffer"
+    LocalTransactionMissing {} -> "LocalTransactionMissing"
 
 instance Exception WalletTestError
 

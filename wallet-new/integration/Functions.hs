@@ -54,7 +54,7 @@ runActionCheck walletClient walletState actionProb = do
     execStateT (tryAll (map (runAction client') actions)) walletState
         `catch` \x -> fmap (const walletState) . liftIO . hspec .
             describe "Unit Test Failure" $
-                it "should not fail" $ case x of
+                it ("threw a test error: " ++ showConstr x) $ case x of
                     LocalWalletDiffers a b ->
                         a `shouldBe` b
                     LocalWalletsDiffers as bs ->

@@ -212,7 +212,7 @@ data ClientError
     -- ^ This constructor is used when the API client reports an error that
     -- isn't represented in either the 'ServantError' HTTP errors or the
     -- 'WalletError' for API errors.
-    deriving (Show)
+    deriving (Show, Generic)
 
 -- | General (and naive) equality instance.
 instance Eq ClientError where

@@ -44,6 +44,7 @@ module Pos.Wallet.Web.State.State
        , getCustomAddresses
        , getCustomAddress
        , isCustomAddress
+       , isWalletRestoring
        , getWalletUtxo
        , getWalletBalancesAndUtxo
        , updateWalletBalancesAndUtxo
@@ -198,6 +199,9 @@ getWAddresses ws mode wid = queryValue ws (S.getWAddresses mode wid)
 doesWAddressExist
     :: WalletSnapshot -> AddressLookupMode -> S.WAddressMeta -> Bool
 doesWAddressExist ws mode addr = queryValue ws (S.doesWAddressExist mode addr)
+
+isWalletRestoring :: WalletSnapshot -> CId Wal -> Bool
+isWalletRestoring ws walletId = queryValue ws (S.isWalletRestoring walletId)
 
 getProfile :: WalletSnapshot -> CProfile
 getProfile ws = queryValue ws S.getProfile

@@ -579,7 +579,7 @@ executable cardano-blockchain-analyser
     buildable: False
 
 library
-  hs-source-dirs:      src/launcher
+  hs-source-dirs:      .
   default-language:    Haskell2010
   exposed-modules:
                        Launcher.Environment

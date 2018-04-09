@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wextra            #-}
 {-# LANGUAGE ApplicativeDo         #-}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DeriveGeneric         #-}
@@ -7,17 +8,29 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE QuasiQuotes           #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
 module Launcher.Environment
-  (substituteEnvVars)
+  ( substituteEnvVarsValue
+  , substituteEnvVarsText
+  )
 where
 
-import qualified Prelude (show)
 import           Universum
+
+import qualified Data.Aeson                       as AE
+import qualified Data.Text                        as T
+import           System.Environment                  (lookupEnv)
+import qualified Text.Parser.Char                 as P
+import qualified Text.Parser.Combinators          as P
+import qualified Text.Parser.Token                as P
+import qualified Text.Trifecta                    as P
+
+import           Launcher.Logging                    (reportErrorDefault)
 
 -- * Environment variable parsing and substitution for the launcher configuration file,
 --   typically launcher-config.yaml.
@@ -37,18 +50,9 @@ parseEnvrefs text = P.parseString pEnvrefs mempty (toString text)
     pEnvrefs = P.some $ P.choice [pPassiveText, pEnvvarRef]
 
     pEnvvarRef, pPassiveText :: (Monad p, P.TokenParsing p) => p Chunk
-    -- TODO: figure out a less ugly OS conditionalisation method
-    -- TODO: decide if we want escaping
-#ifdef mingw32_HOST_OS
-    pEnvvarRef   = P.between (P.char '%') (P.char '%') pEnvvarName <&> EnvVar . toText
-    pPassiveText = P.some (P.noneOf "%")                           <&> Plain  . toText
-#else
     pEnvvarRef   = P.char '$' >>
-                   P.choice [ pEnvvarName
-                            , P.between (P.char '{') (P.char '}') pEnvvarName
-                            ] <&> EnvVar
+                   EnvVar <$> P.between (P.char '{') (P.char '}') pEnvvarName
     pPassiveText = P.some (P.noneOf "$") <&> Plain  . toText
-#endif
     pEnvvarName :: (Monad p, P.TokenParsing p) => p Text
     pEnvvarName = (P.some $ P.choice [P.alphaNum, P.char '_']) <&> toText
 
@@ -76,8 +80,8 @@ substituteEnvVarsText desc text = do
 
 -- | Given an Aeson 'Value', parse and substitute environment variables in all
 --   'AE.String' objects.  The 'desc' argument supplies context in case of error.
-substituteEnvVars :: Text -> Value -> IO Value
-substituteEnvVars desc (AE.String text) = AE.String <$> substituteEnvVarsText desc text
-substituteEnvVars desc (AE.Array xs)    = AE.Array  <$> traverse (substituteEnvVars desc) xs
-substituteEnvVars desc (AE.Object o)    = AE.Object <$> traverse (substituteEnvVars desc) o
-substituteEnvVars _    x                = pure x
+substituteEnvVarsValue :: Text -> AE.Value -> IO AE.Value
+substituteEnvVarsValue desc (AE.String text) = AE.String <$> substituteEnvVarsText desc text
+substituteEnvVarsValue desc (AE.Array xs)    = AE.Array  <$> traverse (substituteEnvVarsValue desc) xs
+substituteEnvVarsValue desc (AE.Object o)    = AE.Object <$> traverse (substituteEnvVarsValue desc) o
+substituteEnvVarsValue _    x                = pure x

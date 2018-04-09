@@ -6,6 +6,7 @@ module Util.Buildable.Hspec (
     -- * Wrappers around Test.HSpec.Expectations
     shouldSatisfy
   , shouldBe
+  , shouldNotBe
   , shouldReturn
     -- * Working with Validated
   , valid
@@ -40,6 +41,10 @@ shouldSatisfy a f = H.shouldSatisfy (STB a) (f . unSTB)
 shouldBe :: (HasCallStack, Buildable a, Eq a)
          => a -> a -> H.Expectation
 shouldBe a a' = H.shouldBe (STB a) (STB a')
+
+shouldNotBe :: (HasCallStack, Buildable a, Eq a)
+            => a -> a -> H.Expectation
+shouldNotBe a a' = H.shouldNotBe (STB a) (STB a')
 
 shouldReturn :: (HasCallStack, Buildable a, Eq a)
              => IO a -> a -> H.Expectation

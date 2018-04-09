@@ -39,7 +39,7 @@ import           Options.Applicative (Parser, ParserInfo, ParserResult (..), def
 import           Serokell.Aeson.Options (defaultOptions)
 import qualified System.Directory as Sys
 import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
-import           System.Environment (getExecutablePath, getProgName)
+import           System.Environment (getExecutablePath, getProgName, setEnv)
 import           System.Exit (ExitCode (..))
 import           System.FilePath (takeDirectory, (</>))
 import qualified System.IO as IO
@@ -171,8 +171,8 @@ getLauncherOptions = do
     -- This is used by 'substituteEnvVars', later
     setEnv "DAEDALUS_DIR" daedalusDir
 #else
-    xdgDataDir <- Sys.getXdgDirectory XdgData ""
-    setEnv "XDG_DATA_DIR" xdgDataDir
+    xdgDataHome <- Sys.getXdgDirectory Sys.XdgData ""
+    setEnv "XDG_DATA_HOME" xdgDataHome
 #endif
     configPath <- maybe defaultConfigPath pure maybeConfigPath
     decoded <- Y.decodeFileEither configPath

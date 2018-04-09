@@ -28,14 +28,16 @@ bracketPassiveWallet logFunction =
     -- | TODO(ks): Currently not implemented!
     passiveWalletLayer _wallet =
         pure $ PassiveWalletLayer
-            { pwlGetWalletIds  = error "Not implemented!"
-            , pwlGetWallet     = error "Not implemented!"
-            , pwlDeleteWallet  = error "Not implemented!"
+            { _pwlCreateWallet  = error "Not implemented!"
+            , _pwlGetWalletIds  = error "Not implemented!"
+            , _pwlGetWallet     = error "Not implemented!"
+            , _pwlUpdateWallet  = error "Not implemented!"
+            , _pwlDeleteWallet  = error "Not implemented!"
 
-            , pwlGetAccounts   = error "Not implemented!"
-            , pwlGetAccount    = error "Not implemented!"
+            , _pwlGetAccounts   = error "Not implemented!"
+            , _pwlGetAccount    = error "Not implemented!"
 
-            , pwlGetAddresses  = error "Not implemented!"
+            , _pwlGetAddresses  = error "Not implemented!"
             }
 
 -- | Initialize the active wallet.

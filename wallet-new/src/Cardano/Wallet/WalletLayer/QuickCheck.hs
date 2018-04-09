@@ -25,14 +25,16 @@ bracketPassiveWallet =
   where
     passiveWalletLayer :: PassiveWalletLayer n
     passiveWalletLayer = PassiveWalletLayer
-        { pwlGetWalletIds  = liftedGen
-        , pwlGetWallet     = \_ -> liftedGen
-        , pwlDeleteWallet  = \_ -> liftedGen
+        { _pwlCreateWallet  = \_     -> liftedGen
+        , _pwlGetWalletIds  =           liftedGen
+        , _pwlGetWallet     = \_     -> liftedGen
+        , _pwlUpdateWallet  = \_ _   -> liftedGen
+        , _pwlDeleteWallet  = \_     -> liftedGen
 
-        , pwlGetAccounts   = \_ -> liftedGen
-        , pwlGetAccount    = \_ _ -> liftedGen
+        , _pwlGetAccounts   = \_     -> liftedGen
+        , _pwlGetAccount    = \_ _   -> liftedGen
 
-        , pwlGetAddresses  = \_ -> liftedGen
+        , _pwlGetAddresses  = \_     -> liftedGen
         }
 
     -- | A utility function.

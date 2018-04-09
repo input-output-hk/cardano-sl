@@ -299,3 +299,22 @@ instance Migrate V1.EstimatedFees V0.TxFee where
     eitherMigrate V1.EstimatedFees{..} =
         let (V1 amount) = feeEstimatedAmount
             in pure $ V0.TxFee amount
+
+
+-- | This type is really the same, since the unit can be ignored.
+instance Migrate V1.WalletUpdate V0.CWalletMeta where
+    eitherMigrate V1.WalletUpdate{..} = do
+        migratedAssurance <- eitherMigrate uwalAssuranceLevel
+        pure $ V0.CWalletMeta
+            { cwName      = uwalName
+            , cwAssurance = migratedAssurance
+            , cwUnit      = 0
+            }
+
+instance Migrate V0.CWalletMeta V1.WalletUpdate where
+    eitherMigrate V0.CWalletMeta{..} = do
+        migratedAssurance <- eitherMigrate cwAssurance
+        pure $ V1.WalletUpdate
+            { uwalName              = cwName
+            , uwalAssuranceLevel    = migratedAssurance
+            }

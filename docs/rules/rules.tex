@@ -395,13 +395,15 @@ Let us define the sequences $(s_n)_{n∈ℕ}$ and $(u_n)_{n>0}$ as
 
 We can then define the slot leader function as\improvement{This relies
   on a total ordering of $\agentids$. This needs to be
-  specified.}\improvement{The formula works for $u_n ⩾ 1$ but $u_n$ can be
-  $0$, should be fixed (either use a $\min$-based formula, or add $+1$
-  somewhere)}
+  specified.}
 
 $$
-\slotleader{d}{s_0}{n} = \max_{l∈\agentids} \left( ∑_{a<l} d(a)<u_n \right)
+\slotleader{d}{s_0}{n} = \min_{l∈\agentids} \left( u_n < ∑_{a⩽l} d(a) \right)
 $$
+
+That is, laying the agents in order on a line, and letting each take
+$d(a)$ unit of length. We select the agent whose extent on the line
+contains $u_n$.
 
 \subsection{Number generator}
 \label{sec:number-generator}

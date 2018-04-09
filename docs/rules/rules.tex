@@ -33,6 +33,7 @@
 
 \newcommand{\lists}[1]{{#1}^*}
 \newcommand{\nelists}[1]{{#1}^+}
+\newcommand{\emptylist}{ε}
 
 \newcommand{\pos}[2]{{#2}_{#1}}
 \newcommand{\length}[1]{|#1|}
@@ -100,9 +101,8 @@ as it is.\improvement{We may want to add something about protocol
   lists of elements of $A$, and $\nelists{A}$ for the set of non-empty
   lists of elements of $A$. For an element $a∈A$ we write simply $a$
   for the singleton list. For two lists $l,r∈\lists{A}$, we write
-  $l,r$ for their concatenation. For a list $l∈\lists{A}$, we write
-  $\length{l}$ for its length.\improvement{Don't I need a notation for
-    the empty list? Do we only need non-empty lists?}{}
+  $l,r$ for their concatenation. We write $\emptylist$ for the empty
+  list.For a list $l∈\lists{A}$, we write $\length{l}$ for its length.
   We write $\pos{i}{l}$ for the $i$-th element of the
   list\improvement{starting with $0$ or $1$?}.
 \item[Support] Let $f$ be a function $f∈X⟶R$ where $R$ is a semiring
@@ -340,8 +340,7 @@ $b_1,…,b_n$ if all of the following hold
     properly been defined, but it's implicit in the definition above,
     it would maybe be worth making more precise.}:
   \begin{itemize}
-  \item $\currentdistribution{} = \initialdistribution$\improvement{I need a notation for the
-    empty list after all}
+  \item $\currentdistribution{\emptylist} = \initialdistribution$
   \item Inductively (note that we use the validity hypothesis in order
     to define $\recipient{i}$ and $\amount{i}$):\improvement{Ignores
       stake delegation}

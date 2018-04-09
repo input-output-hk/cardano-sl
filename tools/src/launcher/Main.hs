@@ -37,11 +37,14 @@ import           Options.Applicative (Parser, ParserInfo, ParserResult (..), def
                                       header, help, helper, info, infoOption, long, metavar,
                                       progDesc, renderFailure, short, strOption)
 import           Serokell.Aeson.Options (defaultOptions)
+import qualified System.Directory as Sys
 import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import           System.Environment (getExecutablePath, getProgName, setEnv)
 import           System.Exit (ExitCode (..))
 import           System.FilePath (takeDirectory, (</>))
 import qualified System.IO as IO
+import qualified System.Info as Sys
+import qualified System.IO.Silently as Silently
 import           System.Process (ProcessHandle, waitForProcess)
 import qualified System.Process as Process
 import           System.Timeout (timeout)
@@ -49,9 +52,7 @@ import           System.Wlog (logError, logInfo, logNotice, logWarning)
 import qualified System.Wlog as Log
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
-#ifdef mingw32_HOST_OS
-import qualified System.IO.Silently as Silently
-#else
+#ifndef mingw32_HOST_OS
 import           System.Posix.Signals (sigKILL, signalProcess)
 import qualified System.Process.Internals as Process
 #endif
@@ -165,14 +166,14 @@ launcherArgsParser = do
 getLauncherOptions :: IO LauncherOptions
 getLauncherOptions = do
     LauncherArgs {..} <- either parseErrorHandler pure =<< execParserEither programInfo
-#ifdef mingw32_HOST_OS
-    daedalusDir <- takeDirectory <$> getExecutablePath
-    -- This is used by 'substituteEnvVars', later
-    setEnv "DAEDALUS_DIR" daedalusDir
-#else
+    case Sys.os of
+      "mingw32" -> do
+        daedalusDir <- takeDirectory <$> getExecutablePath
+        -- This is used by 'substituteEnvVars', later
+        setEnv "DAEDALUS_DIR" daedalusDir
+      _ -> pure ()
     xdgDataHome <- Sys.getXdgDirectory Sys.XdgData ""
     setEnv "XDG_DATA_HOME" xdgDataHome
-#endif
     configPath <- maybe defaultConfigPath pure maybeConfigPath
     decoded <- Y.decodeFileEither configPath
     case decoded of
@@ -257,13 +258,14 @@ bracketNodeDBs (NodeDbPath dbPath) = bracket (openNodeDBs False dbPath) closeNod
 main :: IO ()
 main =
   withCompileInfo $(retrieveCompileTimeInfo) $
-#ifdef mingw32_HOST_OS
-  -- We don't output anything to console on Windows because on Windows the
-  -- launcher is considered a “GUI application” and so stdout and stderr
-  -- don't even exist.
-  Silently.hSilence [stdout, stderr] $
-#endif
-  do
+  case Sys.os of
+    "mingw32" ->
+      -- We don't output anything to console on Windows because on Windows the
+      -- launcher is considered a “GUI application” and so stdout and stderr
+      -- don't even exist.
+      Silently.hSilence [stdout, stderr]
+    _ -> identity
+  $ do
     LO {..} <- getLauncherOptions
     -- Launcher logs should be in public directory
     let launcherLogsPrefix = (</> "pub") <$> loLogsPrefix

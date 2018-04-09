@@ -6,14 +6,14 @@
 module Main (main) where
 
 import qualified Data.Set as Set
+import           Data.List((!!))
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, shown, (%))
-import           Serokell.Util (mapJson)
+import           Serokell.Util (mapJson, listJson)
 import           Test.Hspec.QuickCheck
 import           Universum
 import Data.Maybe (fromJust)
 import qualified Data.Map.Strict as Map
-import qualified Data.List.NonEmpty as NE
 
 import qualified Pos.Block.Error as Cardano
 import qualified Pos.Txp.Toil as Cardano
@@ -21,13 +21,9 @@ import           Pos.Util.Chrono
 import           Pos.Core
 import qualified Pos.Crypto as C
 
-import           Pos.Txp.Toil.Types (GenesisUtxo (..))
-import           Pos.Txp.GenesisUtxo (genesisUtxo)
-
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import           Cardano.Wallet.Kernel.Types (ResolvedBlock(..))
-import           Cardano.Wallet.Kernel.PrefilterTx (ourUtxo)
 
 import           UTxO.BlockGen
 import           UTxO.Bootstrap
@@ -56,7 +52,6 @@ import qualified Wallet.Spec as Spec
 
 main :: IO ()
 main = do
---    _showContext
     runTranslateNoErrors $ withConfig $
         return $ hspec tests
 
@@ -78,29 +73,29 @@ tests :: HasConfiguration => Spec
 tests = describe "Wallet unit tests" $ do
     testTranslation
     testPureWallet
-    testPassiveWallet
+    testPureWallets
     testActiveWallet
 
 {-------------------------------------------------------------------------------
   Utils
 -------------------------------------------------------------------------------}
 
-toCardano :: PreChain GivenHash Identity ()
-          -> (OldestFirst NE ResolvedBlock, Chain GivenHash Addr, Utxo GivenHash Addr,
-              TransCtxt, IntCtxt GivenHash)
-toCardano chain = runTranslate $ do
-        FromPreChain{..} <- fromPreChain chain
-        (cardanoBlocks, intCtxt) <- runIntBoot fpcBoot fpcChain
-        transCtxt <- ask
-        let dslGenesisUtxo = trUtxo fpcBoot
-        return (toResolvedBlocks cardanoBlocks, fpcChain, dslGenesisUtxo, transCtxt, intCtxt)
-        where
-            toResolvedBlocks cardanoBs = OldestFirst . NE.fromList . getOldestFirst $ cardanoBs
-
 dslToCardanoUtxo :: IntCtxt GivenHash -> Utxo GivenHash Addr -> Cardano.Utxo
 dslToCardanoUtxo intCtxt dslUtxo = runTranslate $ do
         (utxo', _) <- runIntT intCtxt dslUtxo
         return utxo'
+
+dslToCardanoBlock :: IntCtxt GivenHash -> UTxO.DSL.Block GivenHash Addr -> ResolvedBlock
+dslToCardanoBlock intCtxt b = runTranslate $ do
+        (resolvedBlocks, _) <- runIntT intCtxt chain
+        return $ fromJust . head . getOldestFirst $ resolvedBlocks
+        where blocks = OldestFirst [b]
+              chain = Chain blocks
+
+dslToCardanoTxAux :: IntCtxt GivenHash -> UTxO.DSL.Transaction GivenHash Addr -> TxAux
+dslToCardanoTxAux intCtxt t = runTranslate $ do
+        (rawResolvedTx, _) <- runIntT intCtxt t
+        return $ fst rawResolvedTx
 
 getFirstPoorActorESK :: C.EncryptedSecretKey
 getFirstPoorActorESK
@@ -110,9 +105,6 @@ getFirstPoorActorESK
         getFirstPoorActorESK_ TransCtxt{..}
             =  encKpEnc . poorKey . fromJust . head $ poorActors
             where poorActors = Map.elems . actorsPoor $ tcActors
-
-print' :: (Show a) => a -> IO ()
-print' = putText . Universum.show
 
 {-------------------------------------------------------------------------------
   UTxO->Cardano translation tests
@@ -145,6 +137,256 @@ testTranslation = do
 {-------------------------------------------------------------------------------
   Pure wallet tests
 -------------------------------------------------------------------------------}
+walletEquivalent' :: HasConfiguration => TransCtxt
+                 -> Kernel.ActiveWallet
+                 -> (Transaction GivenHash Addr -> Spec.Wallet GivenHash Addr)
+                 -> Inductive GivenHash Addr
+                 -> ValidatedT ()
+walletEquivalent' transCtxt cardanoW mkDSLWallet ind
+    = do
+        liftIO $ putText "New GenInductive Test"
+        interpret' transCtxt cardanoW mkDSLWallet p ind
+  where
+    p :: Inductive GivenHash Addr
+      -> IntCtxt GivenHash
+      -> Spec.Wallet GivenHash Addr
+      -> ValidatedT ()
+    p ind' intCtxt dslW =
+            sequence_ [ cmpUtxo ind' intCtxt dslW
+                      , cmpPending ind' intCtxt dslW]
+
+        {-, TODO ...
+        , cmp "availableBalance" availableBalance
+        , cmp "totalBalance"     totalBalance
+        , cmp "available"        available
+        , cmp "change"           change
+        , cmp "total"            total -}
+
+    cmpUtxo :: Inductive GivenHash Addr
+            -> IntCtxt GivenHash
+            -> Spec.Wallet GivenHash Addr
+            -> ValidatedT ()
+    cmpUtxo ind' intCtxt dslW = do
+        let cardanoPassiveW = Kernel.getPassiveWallet cardanoW
+            dslUtxo = Spec.getWalletUtxo dslW
+            dslUtxoAsCardano = dslToCardanoUtxo intCtxt dslUtxo
+
+        cardanoUtxo <- liftIO $ Kernel.getWalletUtxo cardanoPassiveW
+        checkEq "UTXO" ind' intCtxt dslUtxo dslUtxoAsCardano cardanoUtxo
+
+    cmpPending :: Inductive GivenHash Addr
+                -> IntCtxt GivenHash
+                -> Spec.Wallet GivenHash Addr
+                -> ValidatedT ()
+    cmpPending ind' intCtxt dslW = do
+        let cardanoPassiveW = Kernel.getPassiveWallet cardanoW
+            dslPending = Spec.getWalletPending dslW
+            dslPendingAsCardano = Set.map (dslToCardanoTxAux intCtxt) dslPending
+
+        cardanoPending <- liftIO $ Kernel.getWalletPending cardanoPassiveW
+        checkEq "PENDING" ind' intCtxt dslPending dslPendingAsCardano cardanoPending
+
+    checkEq :: forall a b. (Buildable a, Buildable b, Eq b)
+            => Text
+            -> Inductive GivenHash Addr
+            -> IntCtxt GivenHash
+            -> a -> b -> b
+            -> ValidatedT ()
+    checkEq lbl ind' intCtxt dslVal dslAsCardanoVal cardanoVal
+        = if dslAsCardanoVal == cardanoVal
+            then do
+                liftIO $ putText $ "inductive step... ok"
+                return ()
+            else do
+                    liftIO $ putText $ "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                    liftIO $ putText lbl
+                    liftIO $ putText $ "DSL VAL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                    liftIO $ putText $ sformat build dslVal
+                    liftIO $ putText $ "DSL AS CARDANO VAL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                    liftIO $ putText $ sformat build dslAsCardanoVal
+                    liftIO $ putText $ "CARDANO VAL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                    liftIO $ putText $ sformat build cardanoVal
+
+                    throwError $
+                        eqViolation lbl ind'
+                                    (EqViolationEvidence intCtxt dslVal dslAsCardanoVal cardanoVal)
+
+type ValidatedT a = ExceptT EqViolation IO a
+
+data EqViolation = EqViolation {
+    eqViolationName :: Text
+
+    -- | Evidence that the equality was violated
+  , eqViolationEvidence :: EqViolationEvidence
+
+    -- | The 'Inductive' value at the point of the error
+  , eqViolationInductive :: Inductive GivenHash Addr
+  }
+
+data EqViolationEvidence = forall a b. EqViolationEvidence {
+    _eveIntCtxt :: IntCtxt GivenHash
+  , _eveDslVal :: a
+  , _eveDslAsCardanoVal :: b
+  , _eveCardanoVal :: b
+}
+
+eqViolation :: Text
+            -> Inductive GivenHash Addr
+            -> EqViolationEvidence
+            -> EqViolation
+eqViolation name ind ev = EqViolation {
+      eqViolationName      = name
+    , eqViolationEvidence  = ev
+    , eqViolationInductive = ind
+    }
+
+-- | Interpreter for 'Inductive'
+--
+-- Given a Cardano Active Wallet and Spec Wallet, evaluate an 'Inductive' wallet
+-- in both DSL and Cardano worlds, comparing the wallets at each step.
+interpret' :: HasConfiguration => TransCtxt
+          -> Kernel.ActiveWallet
+          -- ^ "Cardano Wallet"
+          -> (Transaction GivenHash Addr -> Spec.Wallet GivenHash Addr)
+          -- ^ "DSL Wallet" Builder
+          -> (Inductive GivenHash Addr -> IntCtxt GivenHash -> Spec.Wallet GivenHash Addr -> ValidatedT ())
+          -- ^ Predicate to check. The predicate is passed the 'Inductive'
+          -- and 'DSl/Cardano Interpretation Context' at the point of the error,
+          -- for better error messages.
+          -> Inductive GivenHash Addr
+          -- ^ 'Inductive' value to interpret
+          -> ValidatedT ()
+interpret' _transCtxt cardanoW mkDSLWallet' pCheckEqual ind'
+      = void $ go ind'
+      where
+        cardanoPassiveW = Kernel.getPassiveWallet cardanoW
+
+        -- Evaluate and verify the 'Inductive'
+        -- Also returns the ledger after validation
+        go :: Inductive GivenHash Addr -> ValidatedT (IntCtxt GivenHash, Spec.Wallet GivenHash Addr)
+        go ind@(WalletBoot t)   = do
+          -- DSL Wallet Boot
+          let dslW = mkDSLWallet' t
+              dslUtxo = Spec.getWalletUtxo dslW
+
+          -- Initialise DSL-to-Cardano Interpretation Context
+          let intCtxt = initIntCtxt t
+
+          -- Cardano Wallet Boot
+          let cardanoUtxo = dslToCardanoUtxo intCtxt dslUtxo
+          liftIO $ Kernel.init cardanoPassiveW cardanoUtxo
+
+          pCheckEqual ind intCtxt dslW
+          return (intCtxt,dslW)
+
+        go ind@(ApplyBlock w b) = do
+          -- DSL applyBlock
+          (intCtxt, dslW) <- go w
+          let dslW' = applyBlock b dslW
+
+          -- Add Block Txs to DSL-to-Cardano Interpretation Context
+          let intCtxt' = pushAll (toList b) intCtxt
+
+          -- Cardano applyBlock
+          let cardanoBlock = dslToCardanoBlock intCtxt' b
+          liftIO $ Kernel.applyBlock cardanoPassiveW cardanoBlock
+
+          pCheckEqual ind intCtxt' dslW'
+          return (intCtxt', dslW')
+
+        go ind@(NewPending w t) = do
+          -- DSL New Pending
+          (intCtxt, dslW) <- go w
+          dslW' <- verifyNew ind intCtxt t dslW
+
+          -- Cardano New Pending
+          let cardanoTx = dslToCardanoTxAux intCtxt t
+          _ <- liftIO $ Kernel.newPending cardanoW cardanoTx
+
+          pCheckEqual ind intCtxt dslW'
+          return (intCtxt, dslW')
+
+        -- Verify the input
+        -- If this fails, we provide the /entire/ 'Inductive' value so that it's
+        -- easier to track down what happened.
+        verifyNew :: Inductive GivenHash Addr -- ^ Inductive value at this point
+                    -> IntCtxt GivenHash
+                    -> Transaction GivenHash Addr
+                    -> Spec.Wallet GivenHash Addr
+                    -> ValidatedT (Spec.Wallet GivenHash Addr)
+        verifyNew ind intCtxt tx w =
+          case newPending tx w of
+            Just w' -> return w'
+            Nothing -> throwError $
+                           eqViolation "DSL NewPending" ind
+                           (EqViolationEvidence intCtxt (tx, w) [] [])
+                           -- TODO create DSLError... generalise "ValidatedT e a"
+
+newtype InductiveWithCtxt
+    = InductiveWithCtxt (InductiveWithOurs GivenHash Addr,
+                         TransCtxt,
+                         C.EncryptedSecretKey)
+
+instance Buildable InductiveWithCtxt where
+  build (InductiveWithCtxt (ind, _, _)) = bprint ("InductiveWithCtxt " % build) ind
+
+instance Buildable Cardano.Utxo where
+    --build utxo' = bprint ("Actual utxo is: " %Cardano.utxoF) utxo'
+    build = Cardano.formatUtxo
+
+instance Buildable Kernel.Pending where
+    build = bprint listJson . Set.toList
+
+testPureWallets :: HasConfiguration => Spec
+testPureWallets =
+    it "Test pure wallets - compare DSL and Cardano Wallets after each Inductive step" $
+      forAll genInductive $ \(InductiveWithCtxt (ind, transCtxt, esk)) ->
+                                (bracketActiveWallet esk $ \cardanoW ->
+                                    checkEquivalent transCtxt cardanoW ind)
+
+  where
+    genInductive :: Hash GivenHash Addr
+                 => Gen InductiveWithCtxt
+    genInductive = do
+      (fpc,transCtxt) <- runTranslateT $ do
+                                    transCtxt' <- ask
+                                    fpc' <- fromPreChain genValidBlockchain
+                                    return (fpc',transCtxt')
+
+      let poorActors = Map.elems . actorsPoor . tcActors $ transCtxt
+      poorIx <- choose (0, length poorActors -1)
+      let esk =  encKpEnc . poorKey $ poorActors !! poorIx
+
+      ind <- genFromBlockchainWithOurs (ours' (IxPoor poorIx)) fpc
+      return $ InductiveWithCtxt (ind, transCtxt, esk)
+
+    ours' :: ActorIx -> Addr -> Bool
+    ours' poorIx@(IxPoor _) addr = addrActorIx addr == poorIx
+    ours' _ _ = False
+
+    checkEquivalent :: HasConfiguration
+                    => TransCtxt
+                    -> Kernel.ActiveWallet
+                    -> InductiveWithOurs GivenHash Addr
+                    -> Expectation
+    checkEquivalent transCtxt cardanoW (InductiveWithOurs addrs ind)
+        = do
+            res <- runExceptT $ -- TODO runTranslateT
+                        walletEquivalent' transCtxt cardanoW (mkDSLWallet transCtxt addrs) ind
+
+            let resBool = case res of
+                            Left _ -> False
+                            Right _ -> True
+
+            shouldBe resBool True
+
+    mkDSLWallet :: TransCtxt -> Set Addr -> Transaction GivenHash Addr -> Spec.Wallet GivenHash Addr
+    mkDSLWallet transCtxt = walletBoot Spec.walletEmpty . (oursFromSet transCtxt)
+
+    oursFromSet :: TransCtxt -> Set Addr -> Ours Addr
+    oursFromSet transCtxt addrs addr = do
+        guard (Set.member addr addrs)
+        return $ fst (resolveAddr addr transCtxt)
 
 testPureWallet :: Spec
 testPureWallet = do
@@ -224,70 +466,25 @@ testPureWallet = do
     fullEmpty = walletBoot Full.walletEmpty . oursFromSet
 
 {-------------------------------------------------------------------------------
-  Passive wallet tests
+  Bracket Passive/Active Wallets
 -------------------------------------------------------------------------------}
 
-applyBlocks :: Spec.Wallet GivenHash Addr -> [UTxO.DSL.Block GivenHash Addr] -> Spec.Wallet GivenHash Addr
-applyBlocks wallet bs = foldl (flip Spec.applyBlock) wallet bs
-
-testPassiveWallet  :: HasConfiguration => Spec
-testPassiveWallet = around (bracketPassiveWallet firstPoorActorESK genesisUtxoOurs) $
-    describe "Passive wallet sanity checks" $ do
-      it "can compute same Utxo using DSL and Cardano - Actor p0, example1b" $ \w -> do
-        Kernel.init w
-
-        -- translate example PreChain
-        let (resolvedBlocks, chain, dslGenesisUtxo, transCtxt, intCtxt) = toCardano example1b
-
-        -- Cardano applyBlocks
-        Kernel.applyBlocks w resolvedBlocks
-        cardanoUtxo <- Kernel.getWalletUtxo w
-        cardanoPending <- Kernel.getWalletPending w
-
-        -- DSL applyBlocks
-        let dslGenesisUtxoOurs = utxoRestrictToOurs (isOurs transCtxt) dslGenesisUtxo
-            dslWallet = Spec.initWallet (isOurs transCtxt) dslGenesisUtxoOurs
-
-            dslWallet' = applyBlocks dslWallet (toList . chainBlocks $ chain)
-            dslUtxo = Spec.getWalletUtxo dslWallet'
-
-            dslUtxoAsCardano = dslToCardanoUtxo intCtxt dslUtxo
-
-        putText "@@@@@@@@@@@@@@@@@@@@@@@@"
-        print' cardanoUtxo
-        putText "@@@@@@@@@@@@@@@@@@@@@@@@"
-        print' dslUtxoAsCardano
-        putText "@@@@@@@@@@@@@@@@@@@@@@@@"
-        print' cardanoPending
-
-        -- TODO cardanoUtxo `shouldBe` dslUtxoAsCardano
-        True `shouldBe` True
-
-    where
-        firstPoorActorESK = getFirstPoorActorESK
-        genesisUtxoOurs = ourUtxo firstPoorActorESK
-                                  (unGenesisUtxo genesisUtxo)
-
-        isOurs :: TransCtxt -> Ours Addr
-        isOurs transCtxt addr = do
-            guard (isOurs' addr)
-            return $ fst (resolveAddr addr transCtxt)
-
-        -- wallet tracking poor actor 'p1'
-        isOurs' :: Addr -> Bool
-        isOurs' (Addr (IxPoor 0) 0) = True
-        isOurs' _otherwise          = False
-
-
 -- | Initialize passive wallet in a manner suitable for the unit tests
-bracketPassiveWallet :: C.EncryptedSecretKey -> Cardano.Utxo -> (Kernel.PassiveWallet -> IO a) -> IO a
-bracketPassiveWallet esk utxo' = Kernel.bracketPassiveWallet logMessage esk utxo'
+bracketPassiveWallet :: C.EncryptedSecretKey -> (Kernel.PassiveWallet -> IO a) -> IO a
+bracketPassiveWallet esk = Kernel.bracketPassiveWallet logMessage esk
   where
    -- TODO: Decide what to do with logging
     logMessage _sev _txt = do
       print _txt
 
       return ()
+
+-- | Initialize active wallet in a manner suitable for generator-based testing
+bracketActiveWallet :: C.EncryptedSecretKey -> (Kernel.ActiveWallet -> IO a) -> IO a
+bracketActiveWallet esk test =
+    (bracketPassiveWallet esk) $ \passive ->
+      Kernel.bracketActiveWallet passive diffusion $ \active ->
+        test active
 
 {-------------------------------------------------------------------------------
   Active wallet tests
@@ -301,16 +498,17 @@ testActiveWallet = around bracketWallet $
 
 -- | Initialize active wallet in a manner suitable for unit testing
 bracketWallet :: (Kernel.ActiveWallet -> IO a) -> IO a
-bracketWallet test =
-    (bracketPassiveWallet undefined Map.empty) $ \passive ->        -- TODO: esk, utxo
+bracketWallet test = do
+    let esk = getFirstPoorActorESK
+    (bracketPassiveWallet esk) $ \passive ->
       Kernel.bracketActiveWallet passive diffusion $ \active ->
         test active
-  where
-    -- TODO: Decide what we want to do with submitted transactions
-    diffusion :: Kernel.WalletDiffusion
-    diffusion =  Kernel.WalletDiffusion {
-          walletSendTx = \_tx -> return False
-        }
+
+-- TODO: Decide what we want to do with submitted transactions
+diffusion :: Kernel.WalletDiffusion
+diffusion =  Kernel.WalletDiffusion {
+  walletSendTx = \_tx -> return False
+}
 
 {-------------------------------------------------------------------------------
   Example hand-constructed chains
@@ -412,37 +610,6 @@ example1 = preChain $ \boot -> return $ \((fee3 : fee4 : _) : _) ->
                }
     in OldestFirst [OldestFirst [t3, t4]]
 
-
-example1b :: Hash h Addr => PreChain h Identity ()
-example1b = preChain $ \boot -> return $ \((fee3 : fee4 : fee5 : _) : _) ->
-    let t3 = Transaction {
-                 trFresh = 0
-               , trFee   = fee3
-               , trHash  = 3
-               , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
-               , trOuts  = [ Output p0 1000
-                           , Output p1 (initR0 - 1000 - fee3)
-                           ]
-               , trExtra = ["t3"]
-               }
-        t4 = Transaction {
-                 trFresh = 0
-               , trFee   = fee4
-               , trHash  = 4
-               , trIns   = Set.fromList [ Input (hash t3) 1 ]
-               , trOuts  = [ Output p0 (initR0 - 1000 - fee3 - fee4) ]
-               , trExtra = ["t4"]
-               }
-        t5 = Transaction {
-                trFresh = 0
-              , trFee   = fee5
-              , trHash  = 5
-              , trIns   = Set.fromList [ Input (hash t4) 0 ]
-              , trOuts  = [ Output p1 (initR0 - 1000 - fee3 - fee4 - fee5) ]
-              , trExtra = ["t5"]
-              }
-    in OldestFirst [OldestFirst [t3, t4, t5]]
-
 {-------------------------------------------------------------------------------
   Some initial values
 
@@ -457,10 +624,6 @@ r0, r1, r2 :: Addr
 r0 = Addr (IxRich 0) 0
 r1 = Addr (IxRich 1) 0
 r2 = Addr (IxRich 2) 0
-
-p0, p1 :: Addr
-p0 = Addr (IxPoor 0) 0
-p1 = Addr (IxPoor 1) 0
 
 {-------------------------------------------------------------------------------
   Verify chain

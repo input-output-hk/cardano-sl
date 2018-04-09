@@ -15,6 +15,8 @@ module UTxO.Interpreter (
   , runIntBoot
     -- * Interpreter proper
   , Interpret(..)
+  , initIntCtxt
+  , pushAll
   ) where
 
 import           Data.Default (def)
@@ -141,6 +143,23 @@ push (t, id) = modify aux
           icLedger = DSL.ledgerAdd t (icLedger ic)
         , icHashes = Map.insert (DSL.hash t) id (icHashes ic)
         }
+
+pushAll :: forall h. (DSL.Hash h Addr) => [DSL.Transaction h Addr] -> IntCtxt h -> IntCtxt h
+pushAll [] intCtxt = intCtxt
+pushAll (dslTx:dslTxs) intCtxt
+    = runTranslate $ do
+        ((txAux, _), _) <- runIntT intCtxt dslTx
+
+        let intCtxt' = pushTx (dslTx, hash (taTx txAux)) intCtxt
+        return $ pushAll dslTxs intCtxt'
+
+        where
+            -- | Add transaction into the context
+            pushTx :: (DSL.Transaction h Addr, TxId) -> IntCtxt h -> IntCtxt h
+            pushTx (tx, txId) intCtxt' = IntCtxt {
+                  icLedger = DSL.ledgerAdd tx (icLedger intCtxt')
+                , icHashes = Map.insert (DSL.hash tx) txId (icHashes intCtxt')
+                }
 
 intHash :: Monad m
         => DSL.Hash h Addr => h (DSL.Transaction h Addr) -> IntT h m TxId

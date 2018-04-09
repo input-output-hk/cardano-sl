@@ -7,6 +7,7 @@ module Wallet.Spec (
   , walletEmpty
   , initWallet
   , getWalletUtxo
+  , getWalletPending
   , applyBlock
   ) where
 
@@ -60,6 +61,9 @@ initWallet _walletOurs utxo' = Wallet {..}
 
 getWalletUtxo :: Wallet h a -> Utxo h a
 getWalletUtxo w = w ^. walletState ^. stateUtxo
+
+getWalletPending :: Wallet h a -> Pending h a
+getWalletPending w = w ^. walletState ^. statePending
 
 {-------------------------------------------------------------------------------
   IsWallet instance

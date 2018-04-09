@@ -16,16 +16,17 @@ module Cardano.Wallet.Kernel (
     -- * Active wallet
   , ActiveWallet -- opaque
   , bracketActiveWallet
+  , getPassiveWallet
   , newPending
   , hasPending
   , updateUtxo
   , applyBlock
   , applyBlocks
+  , Pending
   ) where
 
 import Universum hiding (State)
 import           Control.Lens.TH
-import           Control.Concurrent.MVar(modifyMVar_)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.List.NonEmpty as NE
@@ -75,27 +76,47 @@ makeLenses ''State
 
 -- DB stubs
 getWalletUtxo :: PassiveWallet -> IO Utxo
-getWalletUtxo w = takeMVar (w ^. walletState ^. stateUtxo)
-
-updateWalletUtxo :: PassiveWallet -> Utxo -> IO ()
-updateWalletUtxo w utxo = putMVar (w ^. walletState ^. stateUtxo) utxo
+getWalletUtxo w = getWallet w (_stateUtxo . _walletState)
 
 getWalletPending :: PassiveWallet -> IO Pending
-getWalletPending w = takeMVar (w ^. walletState ^. statePending)
-
-updateWalletPending :: PassiveWallet -> Pending -> IO ()
-updateWalletPending w = putMVar (w ^. walletState ^. statePending)
+getWalletPending w = getWallet w (_statePending . _walletState)
 
 getWalletUtxoBalance :: PassiveWallet -> IO Balance
-getWalletUtxoBalance w = takeMVar (w ^. walletState ^. stateUtxoBalance)
+getWalletUtxoBalance w = getWallet w (_stateUtxoBalance . _walletState)
+
+getWallet :: forall a. PassiveWallet -> (PassiveWallet -> MVar a) -> IO a
+getWallet w getMVar = do
+    v <- takeMVar mvar
+    putMVar mvar v
+    return v
+    where mvar = getMVar w
+
+updateWalletUtxo :: PassiveWallet -> Utxo -> IO ()
+updateWalletUtxo w = updateWallet w (_stateUtxo . _walletState)
+
+updateWalletPending :: PassiveWallet -> Pending -> IO ()
+updateWalletPending w = updateWallet w (_statePending . _walletState)
 
 updateWalletUtxoBalance :: PassiveWallet -> Balance -> IO ()
-updateWalletUtxoBalance w = putMVar (w ^. walletState ^. stateUtxoBalance)
+updateWalletUtxoBalance w = updateWallet w (_stateUtxoBalance . _walletState)
+
+modifyWallet :: forall a. PassiveWallet -> (PassiveWallet -> MVar a) -> (a -> a) -> IO ()
+modifyWallet w getMVar modifyMVar = do
+    v <- takeMVar mvar
+    putMVar mvar $ modifyMVar v
+    where mvar = getMVar w
+
+updateWallet :: forall a. PassiveWallet -> (PassiveWallet -> MVar a) -> a -> IO ()
+updateWallet w getMVar v = do
+    _ <- takeMVar mvar
+    putMVar mvar v
+    where mvar = getMVar w
 
 insertWalletPending :: ActiveWallet -> TxAux -> IO ()
 insertWalletPending ActiveWallet{..} tx
-    = modifyMVar_ (walletPassive ^. walletState ^. statePending)
-                  (\pending -> return (Set.insert tx pending))
+    = modifyWallet walletPassive
+                   (_statePending . _walletState)
+                   (Set.insert tx)
 
 -- | Allocate wallet resources
 --
@@ -106,12 +127,11 @@ insertWalletPending ActiveWallet{..} tx
 bracketPassiveWallet :: (MonadMask m, MonadIO m)
                      => (Severity -> Text -> IO ())
                      -> EncryptedSecretKey
-                     -> Utxo
                      -> (PassiveWallet -> m a) -> m a
-bracketPassiveWallet _walletLogMessage _walletESK utxo =
+bracketPassiveWallet _walletLogMessage _walletESK =
     bracket
       (do
-          _stateUtxo <- Universum.newMVar utxo
+          _stateUtxo <- Universum.newMVar Map.empty
           _statePending <- Universum.newMVar Set.empty
           _stateUtxoBalance <- Universum.newMVar 0
           let _walletState = State{..}
@@ -124,9 +144,14 @@ bracketPassiveWallet _walletLogMessage _walletESK utxo =
 --
 -- This is separate from allocating the wallet resources, and will only be
 -- called when the node is initialized (when run in the node proper).
-init :: PassiveWallet -> IO ()
-init PassiveWallet{..} = do
+init :: PassiveWallet -> Utxo -> IO ()
+init w@PassiveWallet{..} utxo' = do
     _walletLogMessage Info "Wallet kernel initialized"
+
+    if (utxo' /= Map.empty)
+        then updateWalletUtxo w utxo'
+        else return ()
+
 
 {-------------------------------------------------------------------------------
   Active wallet
@@ -153,6 +178,9 @@ bracketActiveWallet walletPassive walletDiffusion =
     bracket
       (return ActiveWallet{..})
       (\_ -> return ())
+
+getPassiveWallet :: ActiveWallet -> PassiveWallet
+getPassiveWallet = walletPassive
 
 {-------------------------------------------------------------------------------
   Apply Block - updateUtxo, updatePending

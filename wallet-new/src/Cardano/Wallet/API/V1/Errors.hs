@@ -58,6 +58,10 @@ data WalletError =
     | WalletNotFound
     | AddressNotFound
     | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
+    | WalletIsNotReadyToProcessPayments
+    -- ^ The @Wallet@ where a @Payment@ is being originated is not fully
+    -- synced (its 'WalletSyncState' indicates it's either syncing or
+    -- restoring) and thus cannot accept new @Payment@ requests.
     deriving (Show, Eq)
 
 --
@@ -97,6 +101,7 @@ sample =
   , JSONValidationFailed "Expected String, found Null."
   , UnkownError "unknown"
   , WalletNotFound
+  , WalletIsNotReadyToProcessPayments
   ]
 
 
@@ -104,16 +109,17 @@ sample =
 toServantError :: WalletError -> ServantErr
 toServantError err =
   mkServantErr $ case err of
-    NotEnoughMoney{}       -> err403
-    OutputIsRedeem{}       -> err403
-    SomeOtherError{}       -> err418
-    MigrationFailed{}      -> err422
-    JSONValidationFailed{} -> err400
-    UnkownError{}          -> err400
-    WalletNotFound{}       -> err404
-    InvalidAddressFormat{} -> err401
-    AddressNotFound{}      -> err404
-    MissingRequiredParams{} -> err400
+    NotEnoughMoney{}                    -> err403
+    OutputIsRedeem{}                    -> err403
+    SomeOtherError{}                    -> err418
+    MigrationFailed{}                   -> err422
+    JSONValidationFailed{}              -> err400
+    UnkownError{}                       -> err400
+    WalletNotFound{}                    -> err404
+    InvalidAddressFormat{}              -> err401
+    AddressNotFound{}                   -> err404
+    MissingRequiredParams{}             -> err400
+    WalletIsNotReadyToProcessPayments{} -> err403
   where
     mkServantErr serr@ServantErr{..} = serr
       { errBody    = encode err

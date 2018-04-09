@@ -44,6 +44,7 @@ module Pos.Wallet.Web.State.Storage
        , getAccountWAddresses
        , getWAddresses
        , doesWAddressExist
+       , isWalletRestoring
        , getTxMeta
        , getNextUpdate
        , getHistoryCache
@@ -515,6 +516,17 @@ getCustomAddress t addr = view $ customAddressL t . at addr
 -- | Get list of all pending transactions.
 getPendingTxs :: Query [PendingTx]
 getPendingTxs = asks $ toListOf (wsWalletInfos . traversed . wsPendingTxs . traversed)
+
+-- | Returns 'True' if the input @Wallet@ (as identified by its @CId Wal@) is
+-- being restored, i.e. it has its 'WalletSyncState' on @RestoringFrom@.
+isWalletRestoring :: WebTypes.CId WebTypes.Wal -> Query Bool
+isWalletRestoring walletId = do
+    syncState <- getWalletSyncState walletId
+    return $ case syncState of
+         Nothing                  -> False
+         Just (SyncedWith _)      -> False
+         Just NotSynced           -> False
+         Just (RestoringFrom _ _) -> True
 
 -- | Get list of pending transactions related to given wallet.
 getWalletPendingTxs :: WebTypes.CId WebTypes.Wal -> Query (Maybe [PendingTx])

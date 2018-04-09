@@ -4,11 +4,11 @@ import           Universum
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
+import           Cardano.Wallet.API.V1.Errors
 import           Cardano.Wallet.API.V1.Migration (HasCompileInfo, HasConfigurations, MonadV1,
                                                   migrate)
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.API.V1.Errors
 import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List.NonEmpty as NE
 import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
@@ -39,6 +39,13 @@ newTransaction
     :: forall ctx m . (V0.MonadWalletTxFull ctx m)
     => (TxAux -> m Bool) -> Payment -> m (WalletResponse Transaction)
 newTransaction submitTx Payment {..} = do
+    ws <- V0.askWalletSnapshot
+    sourceWallet <- migrate (psWalletId pmtSource)
+
+    -- If the wallet is being restored, we need to disallow any @Payment@ from
+    -- being submitted.
+    when (V0.isWalletRestoring ws sourceWallet) (throwM WalletIsNotReadyToProcessPayments)
+
     let (V1 spendingPw) = fromMaybe (V1 mempty) pmtSpendingPassword
     cAccountId <- migrate pmtSource
     addrCoinList <- migrate $ NE.toList pmtDestinations

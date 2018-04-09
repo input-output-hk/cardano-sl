@@ -43,7 +43,8 @@
 \newcommand{\id}{\mathsf{id}}
 \newcommand{\txs}{\mathcal{T}}
 \newcommand{\txids}{\idsof{\txs}}
-\newcommand{\blockids}{\idsof{\mathcal{B}}}
+\newcommand{\blocks}{\mathcal{B}}
+\newcommand{\blockids}{\idsof{\blocks}}
 \newcommand{\agentids}{\idsof{\mathcal{A}}}
 \newcommand{\slotleader}[3]{\mathsf{sl}(#1,#2,#3)}
 \newcommand{\recipient}[1]{\mathsf{recipient}(#1)}
@@ -97,14 +98,14 @@ as it is.\improvement{We may want to add something about protocol
 \label{sec:notations}
 
 \begin{description}
-\item[Lists] Given a set $A$, we write $\lists{A}$ for the set of
-  lists of elements of $A$, and $\nelists{A}$ for the set of non-empty
-  lists of elements of $A$. For an element $a∈A$ we write simply $a$
-  for the singleton list. For two lists $l,r∈\lists{A}$, we write
-  $l,r$ for their concatenation. We write $\emptylist$ for the empty
-  list.For a list $l∈\lists{A}$, we write $\length{l}$ for its length.
-  We write $\pos{i}{l}$ for the $i$-th element of the
-  list (the head of the list is $\pos{1}{l}$).
+\item[Lists] Given a set $A$, we write $\lists{A}$ for the set of lists of
+  elements of $A$, and $\nelists{A}$ for the set of non-empty lists of elements
+  of $A$. For an element $a∈A$ we write simply $a$ for the singleton list. For
+  two lists $l,r∈\lists{A}$, we write $l,r$ for their concatenation. We write
+  $\emptylist$ for the empty list.For a list $l∈\lists{A}$, we write
+  $\length{l}$ for its length. We write $\pos{i}{l}$ for the $i$-th element of
+  the list (the head of the list is $\pos{1}{l}$). We sometimes abuse notation
+  and write $x∈l$ for $l = l',x,l''$.
 \item[Support] Let $f$ be a function $f∈X⟶R$ where $R$ is a semiring
   (typically $ℕ$, $ℤ$, $ℚ$, $ℝ$, …), the \emph{support} of $f$ is
   $\{ x∈X | f(x)≠0 \}$. We say that $f$ has finite support, or that
@@ -137,8 +138,7 @@ as it is.\improvement{We may want to add something about protocol
   which are injective for all intent and purposes.
 
   When an item $a∈A$ such that $\id(a) = h$ is clear from the context,
-  we will often identify $a$ and $h$. Similarly, when given an $a∈A$
-  and a $h∈\idsof{A}$,
+  we will often identify $a$ and $h$.
 
 \item[Agent id] We assume a set $\agentids$ of identifiers
   representing the agents interacting on the blockchain. In an
@@ -147,36 +147,35 @@ as it is.\improvement{We may want to add something about protocol
 \item[Stake distribution] A \emph{stake distribution} is a function
   $d ∈ \agentids ⟶ ℕ$ with finite support. We write
   $\stakedistributions$ for the set of stake distributions. We assume
-  given an \emph{initial stake distribution}
+  an \emph{initial stake distribution}
   $\initialdistribution ∈ \stakedistributions$.
 
 \item[Slot] An integer.
 
 \item[Epoch] Let us define $\epoch{n}$ and $\epochslot{n}$, the
   \emph{epoch decomposition} of a slot, as the unique numbers such
-  that $n=\epoch{n}.10k+\epochslot{n}$ and $0⩽ \epochslot{n} < 10k$.
+  that $n=\epoch{n}\cdot 10k+\epochslot{n}$ and $0⩽ \epochslot{n} < 10k$.
 
-\item[Seeds] We assume given a set $\seeds$ of \emph{seeds}, as well
+\item[Seeds] We assume a set $\seeds$ of \emph{seeds}, as well
   as an \emph{initial seed} $\initialseed ∈ \seeds$.
 
-\item[Slot leader] We assume known a function
-  $\slotleader{⋅}{⋅}{⋅} ∈ \stakedistributions×\seeds×ℕ ⟶ \agentids$,
-  which, given a stake distribution and a source of randomness, maps
-  each subsequent slot to an agent id.
+\item[Slot leader] We assume a function $\slotleader{⋅}{⋅}{⋅} ∈
+  \stakedistributions×\seeds×ℕ ⟶ \agentids$, which, given a stake distribution
+  and a source of randomness, maps each subsequent slot to an agent id.
 
-\item[Current slot] The current slot is a parameter of every
-  verification (\emph{i.e.} it doesn't make sense in general to ask
-  whether a chain is valid, only that it is valid \emph{at the current
-    slot}). In an implementation, the current slot would be computed
-  from the clock time. The role of the current slot is to prevent
-  attacks where a malicious slot leader at slot $i+1$ would try to
-  issue a block without acknowledging the block issued by the slot
-  leader at slot $i$.
+\item[Current slot] The current slot is a parameter of every verification
+  (\emph{i.e.} it doesn't make sense in general to ask whether a chain is valid,
+  only that it is valid \emph{at the current slot}). In an implementation, the
+  current slot would be computed from the clock time. The role of the current
+  slot is to prevent attacks where a malicious slot leader at slot $i+1$ would
+  try to issue a block without acknowledging the block issued by the slot leader
+  at slot $i$.\unsure{This sentence is unclear to me. As verification hasn't
+    been discussed yet, maybe just leave it out?}
 
 \item[Transaction] Transactions have a system of identifiers
   $\txids$.
 
-  A transaction consists of\unsure{Consider using record notation
+  A transaction $t∈\txs$ consists of\unsure{Consider using record notation
   for inputs and outputs.}
   \begin{record}
   \item[Inputs] A non-empty list of pairs in
@@ -205,7 +204,7 @@ as it is.\improvement{We may want to add something about protocol
     cryptographic signatures.
   \end{record}
 
-  We assume given a function $\minimumfee{⋅} ∈ \txs ⟶ ℕ$,
+  We assume a function $\minimumfee{⋅} ∈ \txs ⟶ ℕ$,
   called the minimum fee function.\info{It's not clear that the
     minimum fee, as is currently implemented, is indeed a function of
     the (abstract represention of) the transaction. This may create
@@ -215,7 +214,7 @@ as it is.\improvement{We may want to add something about protocol
   a distinguished $b_0∈ \blockids$, called the genesis identifier,
   which is not in the image of $\id$.
 
-  A block
+  A block $b∈\blocks$
   consists of\improvement{I'm ignoring epoch boundary blocks, and the
     genesis block. Genesis block is not really important, but epoch
     boundary blocks may become relevant for this specification}
@@ -243,12 +242,11 @@ as it is.\improvement{We may want to add something about protocol
   chain. The state is a single chain (aka list). The block must be
   added on top (aka in front) of it.}
 
-A chain\improvement{We can replace ``chain'' by sequence and put the
-  predecessor condition in the validity rule. Though this opens a
-  question: from the valid extension rules, can I directly define the
-  blockchain's forest data structure?} $b₁,…,b_n$ is said to be
-\emph{valid} if $b₁,…,b_{n-1}$ is valid, and $b_n$ is a \emph{valid
-  extension} of $b₁,…,b_{n-1}$.
+A chain \improvement{We can replace ``chain'' by sequence and put the
+  predecessor condition in the validity rule. Though this opens a question: from
+  the valid extension rules, can I directly define the blockchain's forest data
+  structure?} $b₁,…,b_n$ is said to be \emph{valid} if $b₁,…,b_{n-1}$ is valid,
+and $b_n$ is a \emph{valid extension} of $b₁,…,b_{n-1}$.
 
 A block $b$ is said to be a valid extension of a valid chain
 $b_1,…,b_n$ if all of the following hold
@@ -265,8 +263,8 @@ $b_1,…,b_n$ if all of the following hold
   $$
   See Section~\ref{sec:derived-functions} for the definitions of
   $\epochdistribution{⋅}$ and $\epochseed{⋅}$.
-  \improvement{This ignores delegation}\improvement{this doesn't read
-    too well, improve.}
+  \improvement{This ignores delegation}
+  \improvement{this doesn't read too well, improve.}
 \item[Transactions] Each transaction in the block's transactions is
   validated according to the following rules.
   \begin{description}
@@ -276,24 +274,23 @@ $b_1,…,b_n$ if all of the following hold
       amount $a > 0$.
     \item[No double-spending] The list of inputs contains no duplicate.
     \end{description}
-  \item[Stateful] Stateful transaction validation rules are
-    parametrised by a list of transactions $τ_1,…,τ_m$ which we will
-    abridge as $\overline{τ}$.
+  \item[Stateful] Stateful transaction validation rules for a transaction $τ$
+    are parametrised by a list of transactions $τ_1,…,τ_m$ which we will abridge
+    as $\overline{τ}$.
 
     Given a chain $b₁,…,b_n$ and $b$, the block being validated, such
     that $\transactions{b}=t₁,…,t_k$. Then, for the purpose of
-    stateful validation of the transaction $t_i$,
-    $\overline{τ} =
-    \transactions{b₁},…,\transactions{b_n},t₁,…,t_{i-1}$.
+    stateful validation of the transaction $t_i$, we set
+    $\overline{τ} = \transactions{b₁},…,\transactions{b_n},t₁,…,t_{i-1}$.
     \begin{description}
     \item[Unspent inputs] Each input of the transaction $τ$ is
       unspent. That is for each $i ∈ \inputs{τ}$\improvement{This does
       not take into account the utxos in the initial state. It should
       be specified.}
       \begin{itemize}
-      \item $\overline{τ} = \overline{τ₀},\intrans{i}, \overline{τ_1}$
-      \item $\outputs{\intrans{i}}=t₁,…t_k$, $\inindex{i} ⩽ k$
-      \item for each $t ∈ \overline{τ₁}$, $i ∉ \inputs{t}$.
+      \item $\intrans{i}∈\overline{τ}$
+      \item $\outputs{\intrans{i}}=t₁,…,t_k$, $\inindex{i} ⩽ k$
+      \item for each $t ∈ \overline{τ}$, $i ∉ \inputs{t}$.
       \end{itemize}
 
       In these conditions, we can extend the function $\recipient{⋅}$
@@ -312,7 +309,7 @@ $b_1,…,b_n$ if all of the following hold
       \minimumfee{τ} + ∑_{i∈\inputs{τ}} \amount{i}⩽ ∑_{o∈\outputs{τ}} \amount{o}
       $$
     \item[Authorised] The list of witnesses has the same length as the
-      list of input
+      list of inputs
       $$
       \length{\witnesses{τ}} = \length{\inputs{τ}}
       $$

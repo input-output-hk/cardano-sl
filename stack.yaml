@@ -64,7 +64,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 19fd5ddf24dab731375a156ce38dcfce4319d1e4 # master 0.4.9
+    commit: 81eea7361a75923f9402fcb7840fb36722dbf88e # master 0.4.10
   extra-dep: true
 # These three are needed for cardano-sl-networking
 - location:

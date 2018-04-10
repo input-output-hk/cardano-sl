@@ -45,14 +45,17 @@ main = do
 
     walletState <- initialWalletState walletClient
 
+    printT $ "Initial wallet state: " <> show walletState
+
+
+    -- some expected test cases
+    hspec $ deterministicTests walletClient
+
     -- some monadic fold or smth similar
     _ <- runActionCheck
         walletClient
         walletState
         actionDistribution
-
-    -- some expected test cases
-    hspec $ deterministicTests walletClient
 
     pure ()
   where
@@ -63,7 +66,7 @@ main = do
 initialWalletState :: WalletClient IO -> IO WalletState
 initialWalletState wc = do
     _wallets <- fromResp $ getWallets wc
-    _accounts <- concat <$> for _wallets (fromResp . getAccounts wc . walId)
+    _accounts <- (const mempty) . concat <$> for _wallets (fromResp . getAccounts wc . walId)
     let _walletsPass = mempty
         _addresses = mempty
         _transactions = mempty
@@ -89,7 +92,12 @@ deterministicTests wc = do
 
             -- create an account
             accResp <- postAccount wc walId (NewAccount Nothing "hello")
-            Account{..} <- wrData <$> accResp `shouldPrism` _Right
+            acc@Account{..} <- wrData <$> accResp `shouldPrism` _Right
+
+            -- accounts should exist
+            accResp' <- getAccounts wc walId
+            accs <- wrData <$> accResp' `shouldPrism` _Right
+            acc `shouldSatisfy` (`elem` accs)
 
             -- create an address
             addResp <- postAddress wc (NewAddress Nothing accIndex walId)

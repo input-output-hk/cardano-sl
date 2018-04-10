@@ -197,8 +197,8 @@ name you used for any future docker commands in examples in the document.
 ## Checking Sync Status
 
 With v0, to check the sync status required comparing number of blocks on the network and locally.
-With v1, the sync status `/api/v1/node-info` outputs a sync progress attribute that shows you the
-current sync progress.
+With v1, the sync status `/api/v1/node-info` outputs `data.syncProgress.quantity`
+attribute that shows the current sync progress.
 
 ## Wallets
 

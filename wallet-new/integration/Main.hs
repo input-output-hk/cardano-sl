@@ -7,8 +7,8 @@ import           Universum
 import           Cardano.Wallet.Client
 import           Control.Lens hiding ((^..), (^?))
 import           System.IO (hSetEncoding, stdout, utf8)
-import           Test.QuickCheck (arbitrary, generate)
 import           Test.Hspec
+import           Test.QuickCheck (arbitrary, generate)
 
 import           CLI
 import           Error
@@ -63,6 +63,8 @@ main = do
 
 deterministicTests :: WalletClient IO -> Spec
 deterministicTests wc = do
+    -- TODO(adn): Add proper "Transactions" deterministicTests as part of
+    -- https://iohk.myjetbrains.com/youtrack/issue/CBR-184
     describe "Addresses" $ do
         it "Creating an address makes it available" $ do
             -- create a wallet

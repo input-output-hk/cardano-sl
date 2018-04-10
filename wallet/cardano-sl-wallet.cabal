@@ -261,7 +261,9 @@ test-suite cardano-wallet-test
                      , log-warper
                      , mtl
                      , safecopy
+                     , safe-exceptions
                      , serokell-util >= 0.1.3.4
+                     , servant-server
                      , stm
                      , text-format
                      , universum >= 0.1.11

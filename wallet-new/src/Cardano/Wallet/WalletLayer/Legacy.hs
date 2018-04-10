@@ -161,7 +161,7 @@ pwlDeleteWallet wId = do
     cWId        <- migrate wId
     -- TODO(ks): It would be better to catch specific @Exception@.
     -- Maybe @try@?
-    catchAll (fmap (const True) $ V0.deleteWallet cWId) (const . pure $ False)
+    catchAll (const True <$> V0.deleteWallet cWId) (const . pure $ False)
 
 ------------------------------------------------------------
 -- Account
@@ -198,7 +198,7 @@ pwlGetAccount
 pwlGetAccount wId aId = do
     accId       <- migrate (wId, aId)
     account     <- V0.getAccount accId
-    fmap Just $ migrate account
+    Just <$> migrate account
 
 pwlUpdateAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
@@ -219,7 +219,7 @@ pwlDeleteAccount
     -> m Bool
 pwlDeleteAccount wId accIdx = do
     accId <- migrate (wId, accIdx)
-    catchAll (fmap (const True) $ V0.deleteAccount accId) (const . pure $ False)
+    catchAll (const True <$> V0.deleteAccount accId) (const . pure $ False)
 
 ------------------------------------------------------------
 -- Address

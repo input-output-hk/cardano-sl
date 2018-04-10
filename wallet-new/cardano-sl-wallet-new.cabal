@@ -312,27 +312,6 @@ test-suite wallet-unit-tests
   ghc-options:        -Wall
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
-  other-modules:      Util
-                      Util.Buildable
-                      Util.Buildable.Hspec
-                      Util.Buildable.QuickCheck
-                      Util.DepIndep
-                      Util.Validated
-                      UTxO.BlockGen
-                      UTxO.Bootstrap
-                      UTxO.Context
-                      UTxO.Crypto
-                      UTxO.DSL
-                      UTxO.Interpreter
-                      UTxO.PreChain
-                      UTxO.Translate
-                      UTxO.Verify
-                      Wallet.Abstract
-                      Wallet.Basic
-                      Wallet.Incremental
-                      Wallet.Prefiltered
-                      Wallet.Rollback.Basic
-                      Wallet.Rollback.Full
   default-language:   Haskell2010
   default-extensions: BangPatterns
                       ConstraintKinds
@@ -396,20 +375,6 @@ test-suite wallet-new-specs
                     MarshallingSpec
                     SwaggerSpec
                     RequestSpec
-
-                    Cardano.Wallet.API.Development.Helpers
-                    Cardano.Wallet.API.Development.LegacyHandlers
-                    Cardano.Wallet.API.V0.Handlers
-                    Cardano.Wallet.API.V1.LegacyHandlers
-                    Cardano.Wallet.API.V1.LegacyHandlers.Accounts
-                    Cardano.Wallet.API.V1.LegacyHandlers.Addresses
-                    Cardano.Wallet.API.V1.LegacyHandlers.Transactions
-                    Cardano.Wallet.API.V1.LegacyHandlers.Settings
-                    Cardano.Wallet.API.V1.LegacyHandlers.Info
-                    Cardano.Wallet.API.V1.LegacyHandlers.Wallets
-                    Cardano.Wallet.API.V1.Swagger
-                    Cardano.Wallet.API.V1.Swagger.Example
-                    Cardano.Wallet.Server.CLI
 
   default-language: Haskell2010
   default-extensions: TypeOperators

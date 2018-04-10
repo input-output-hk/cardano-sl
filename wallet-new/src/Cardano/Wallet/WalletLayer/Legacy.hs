@@ -13,6 +13,7 @@ import           Control.Monad.Catch (catchAll)
 import           Data.Coerce (coerce)
 
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
+import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
@@ -33,7 +34,7 @@ import           Pos.Wallet.Web.Methods.Restore (newWallet, restoreWallet)
 import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB, askWalletSnapshot,
                                              getWalletAddresses, setWalletMeta)
 import           Pos.Wallet.Web.State.Storage (getWalletInfo)
-
+import           Pos.Util (maybeThrow)
 
 -- | Let's unify all the requirements for the legacy wallet.
 type MonadLegacyWallet ctx m =
@@ -91,7 +92,7 @@ bracketActiveWallet walletPassiveLayer walletDiffusion =
 pwlCreateWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => NewWallet
-    -> m (Maybe Wallet)
+    -> m Wallet
 pwlCreateWallet NewWallet{..} = do
 
     let spendingPassword = fromMaybe mempty $ coerce newwalSpendingPassword
@@ -106,7 +107,8 @@ pwlCreateWallet NewWallet{..} = do
     wallet      <- newWalletHandler newwalOperation spendingPassword walletInit
     wId         <- migrate $ cwId wallet
 
-    pwlGetWallet wId
+    -- Get wallet or throw if missing.
+    maybeThrow (MissingWallet wId) =<< pwlGetWallet wId
   where
     -- | We have two functions which are very similar.
     newWalletHandler :: WalletOperation -> PassPhrase -> CWalletInit -> m CWallet
@@ -139,7 +141,7 @@ pwlUpdateWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
     -> WalletUpdate
-    -> m (Maybe Wallet)
+    -> m Wallet
 pwlUpdateWallet wId wUpdate = do
     walletDB    <- askWalletDB
 
@@ -149,7 +151,8 @@ pwlUpdateWallet wId wUpdate = do
     -- Update the data
     setWalletMeta walletDB cWId cWMeta
 
-    pwlGetWallet wId
+    -- Get wallet or throw if missing.
+    maybeThrow (MissingWallet wId) =<< pwlGetWallet wId
 
 -- | Seems silly, but we do need some sort of feedback from
 -- the DB.

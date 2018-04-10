@@ -42,7 +42,7 @@ Being parametrised over an `m` means pure mocks can run in `Identity`
 and other usage can allow for `IO` or any other monad. This means that,
 practically-speaking, a servant handler would look like this:
 
-```
+```haskell
 getAddresses :: ActiveWalletLayer -> ServantT ...
 getAddresses awl = do
   let pwl = getPassiveLayer awl

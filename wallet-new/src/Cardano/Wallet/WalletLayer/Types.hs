@@ -31,10 +31,10 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 data PassiveWalletLayer m = PassiveWalletLayer
     {
     -- * wallets
-      _pwlCreateWallet  :: NewWallet -> m (Maybe Wallet)
+      _pwlCreateWallet  :: NewWallet -> m Wallet
     , _pwlGetWalletIds  :: m [WalletId]
     , _pwlGetWallet     :: WalletId -> m (Maybe Wallet)
-    , _pwlUpdateWallet  :: WalletId -> WalletUpdate -> m (Maybe Wallet)
+    , _pwlUpdateWallet  :: WalletId -> WalletUpdate -> m Wallet
     , _pwlDeleteWallet  :: WalletId -> m Bool
     -- * accounts
     , _pwlCreateAccount :: WalletId -> NewAccount -> m Account

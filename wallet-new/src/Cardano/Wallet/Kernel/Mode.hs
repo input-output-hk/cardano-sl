@@ -38,8 +38,8 @@ import           Pos.Util.JsonLog
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.WorkMode
 
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
-import           Cardano.Wallet.Kernel (PassiveWallet, applyBlocks)
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer(..))
+--import           Cardano.Wallet.Kernel (PassiveWallet, applyBlocks)
 import           Cardano.Wallet.Kernel.Types (ResolvedBlock, mkResolvedBlock)
 import qualified Data.List.NonEmpty as NE
 import           Data.Maybe (fromJust)
@@ -68,21 +68,11 @@ getWallet = view wcWallet_L
   The raison d'être of the wallet monad: call into the wallet in the BListener
 -------------------------------------------------------------------------------}
 
--- | Callback for new blocks
---
--- TODO: This should wrap the functionality in "Cardano.Wallet.Core" to
--- wrap things in Cardano specific types.
 walletApplyBlocks :: PassiveWalletLayer Production
                   -> OldestFirst NE Blund
                   -> WalletMode SomeBatchOp
-walletApplyBlocks _w _bs = do
-    -- TODO: Call into the wallet. This should be an asynchronous operation
-    -- because 'onApplyBlocks' gets called with the block lock held.
-
-    let resolvedBlocks = map blundToResolvedBlock _bs
-
-    liftIO $ applyBlocks _w resolvedBlocks
-
+walletApplyBlocks w bs = do
+    let _ = pwlApplyBlocks w bs
     return mempty -- We don't make any changes to the DB so we always return 'mempty'
 
 -- | Callback for rollbacks

@@ -27,6 +27,7 @@ bracketPassiveWallet =
     passiveWalletLayer :: PassiveWalletLayer n
     passiveWalletLayer = PassiveWalletLayer
         { pwlGetWalletIds  = askWalletSnapshot >>= \ws -> migrate $ getWalletAddresses ws
+        , pwlApplyBlocks = error "Not implemented!"
         }
 
 -- | Initialize the active wallet.
@@ -36,8 +37,7 @@ bracketActiveWallet
     => PassiveWalletLayer n
     -> WalletDiffusion
     -> (ActiveWalletLayer n -> m a) -> m a
-bracketActiveWallet walletPassiveLayer walletDiffusion =
+bracketActiveWallet walletPassiveLayer _walletDiffusion =
     bracket
       (return ActiveWalletLayer{..})
       (\_ -> return ())
-

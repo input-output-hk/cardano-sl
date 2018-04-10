@@ -44,7 +44,6 @@ import qualified Wallet.Rollback.Basic as Roll
 import qualified Wallet.Rollback.Full  as Full
 
 import           UTxO.Crypto
-import qualified Wallet.Spec as Spec
 
 {-------------------------------------------------------------------------------
   Main test driver
@@ -139,7 +138,7 @@ testTranslation = do
 -------------------------------------------------------------------------------}
 walletEquivalent' :: HasConfiguration => TransCtxt
                  -> Kernel.ActiveWallet
-                 -> (Transaction GivenHash Addr -> Spec.Wallet GivenHash Addr)
+                 -> (Transaction GivenHash Addr -> Wallet GivenHash Addr)
                  -> Inductive GivenHash Addr
                  -> ValidatedT ()
 walletEquivalent' transCtxt cardanoW mkDSLWallet ind
@@ -149,7 +148,7 @@ walletEquivalent' transCtxt cardanoW mkDSLWallet ind
   where
     p :: Inductive GivenHash Addr
       -> IntCtxt GivenHash
-      -> Spec.Wallet GivenHash Addr
+      -> Wallet GivenHash Addr
       -> ValidatedT ()
     p ind' intCtxt dslW =
             sequence_ [ cmpUtxo ind' intCtxt dslW
@@ -164,11 +163,11 @@ walletEquivalent' transCtxt cardanoW mkDSLWallet ind
 
     cmpUtxo :: Inductive GivenHash Addr
             -> IntCtxt GivenHash
-            -> Spec.Wallet GivenHash Addr
+            -> Wallet GivenHash Addr
             -> ValidatedT ()
     cmpUtxo ind' intCtxt dslW = do
         let cardanoPassiveW = Kernel.getPassiveWallet cardanoW
-            dslUtxo = Spec.getWalletUtxo dslW
+            dslUtxo = utxo dslW
             dslUtxoAsCardano = dslToCardanoUtxo intCtxt dslUtxo
 
         cardanoUtxo <- liftIO $ Kernel.getWalletUtxo cardanoPassiveW
@@ -176,11 +175,11 @@ walletEquivalent' transCtxt cardanoW mkDSLWallet ind
 
     cmpPending :: Inductive GivenHash Addr
                 -> IntCtxt GivenHash
-                -> Spec.Wallet GivenHash Addr
+                -> Wallet GivenHash Addr
                 -> ValidatedT ()
     cmpPending ind' intCtxt dslW = do
         let cardanoPassiveW = Kernel.getPassiveWallet cardanoW
-            dslPending = Spec.getWalletPending dslW
+            dslPending = pending dslW
             dslPendingAsCardano = Set.map (dslToCardanoTxAux intCtxt) dslPending
 
         cardanoPending <- liftIO $ Kernel.getWalletPending cardanoPassiveW
@@ -247,9 +246,9 @@ eqViolation name ind ev = EqViolation {
 interpret' :: HasConfiguration => TransCtxt
           -> Kernel.ActiveWallet
           -- ^ "Cardano Wallet"
-          -> (Transaction GivenHash Addr -> Spec.Wallet GivenHash Addr)
+          -> (Transaction GivenHash Addr -> Wallet GivenHash Addr)
           -- ^ "DSL Wallet" Builder
-          -> (Inductive GivenHash Addr -> IntCtxt GivenHash -> Spec.Wallet GivenHash Addr -> ValidatedT ())
+          -> (Inductive GivenHash Addr -> IntCtxt GivenHash -> Wallet GivenHash Addr -> ValidatedT ())
           -- ^ Predicate to check. The predicate is passed the 'Inductive'
           -- and 'DSl/Cardano Interpretation Context' at the point of the error,
           -- for better error messages.
@@ -263,11 +262,11 @@ interpret' _transCtxt cardanoW mkDSLWallet' pCheckEqual ind'
 
         -- Evaluate and verify the 'Inductive'
         -- Also returns the ledger after validation
-        go :: Inductive GivenHash Addr -> ValidatedT (IntCtxt GivenHash, Spec.Wallet GivenHash Addr)
+        go :: Inductive GivenHash Addr -> ValidatedT (IntCtxt GivenHash, Wallet GivenHash Addr)
         go ind@(WalletBoot t)   = do
           -- DSL Wallet Boot
           let dslW = mkDSLWallet' t
-              dslUtxo = Spec.getWalletUtxo dslW
+              dslUtxo = utxo dslW
 
           -- Initialise DSL-to-Cardano Interpretation Context
           let intCtxt = initIntCtxt t
@@ -282,7 +281,7 @@ interpret' _transCtxt cardanoW mkDSLWallet' pCheckEqual ind'
         go ind@(ApplyBlock w b) = do
           -- DSL applyBlock
           (intCtxt, dslW) <- go w
-          let dslW' = applyBlock b dslW
+          let dslW' = applyBlock dslW b
 
           -- Add Block Txs to DSL-to-Cardano Interpretation Context
           let intCtxt' = pushAll (toList b) intCtxt
@@ -312,10 +311,10 @@ interpret' _transCtxt cardanoW mkDSLWallet' pCheckEqual ind'
         verifyNew :: Inductive GivenHash Addr -- ^ Inductive value at this point
                     -> IntCtxt GivenHash
                     -> Transaction GivenHash Addr
-                    -> Spec.Wallet GivenHash Addr
-                    -> ValidatedT (Spec.Wallet GivenHash Addr)
+                    -> Wallet GivenHash Addr
+                    -> ValidatedT (Wallet GivenHash Addr)
         verifyNew ind intCtxt tx w =
-          case newPending tx w of
+          case newPending w tx of
             Just w' -> return w'
             Nothing -> throwError $
                            eqViolation "DSL NewPending" ind
@@ -380,8 +379,8 @@ testPureWallets =
 
             shouldBe resBool True
 
-    mkDSLWallet :: TransCtxt -> Set Addr -> Transaction GivenHash Addr -> Spec.Wallet GivenHash Addr
-    mkDSLWallet transCtxt = walletBoot Spec.walletEmpty . (oursFromSet transCtxt)
+    mkDSLWallet :: TransCtxt -> Set Addr -> Transaction GivenHash Addr -> Wallet GivenHash Addr
+    mkDSLWallet transCtxt = walletBoot Base.walletEmpty . (oursFromSet transCtxt)
 
     oursFromSet :: TransCtxt -> Set Addr -> Ours Addr
     oursFromSet transCtxt addrs addr = do

@@ -26,6 +26,7 @@ bracketPassiveWallet =
     passiveWalletLayer :: PassiveWalletLayer n
     passiveWalletLayer = PassiveWalletLayer
         { pwlGetWalletIds  = liftedGen
+        , pwlApplyBlocks = error "Not implemented!"
         }
 
     -- | A utility function.
@@ -39,8 +40,7 @@ bracketActiveWallet
     => PassiveWalletLayer n
     -> WalletDiffusion
     -> (ActiveWalletLayer n -> m a) -> m a
-bracketActiveWallet walletPassiveLayer walletDiffusion =
+bracketActiveWallet walletPassiveLayer _walletDiffusion =
     bracket
       (return ActiveWalletLayer{..})
       (\_ -> return ())
-

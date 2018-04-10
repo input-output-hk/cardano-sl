@@ -9,7 +9,6 @@ module Main where
 import           Universum
 
 import           Data.Maybe (fromJust)
-import qualified Data.Map as Map
 import           Mockable (Production (..), runProduction)
 import           Ntp.Client (NtpStatus, withNtpClient)
 import qualified Pos.Client.CLI as CLI

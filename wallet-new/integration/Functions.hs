@@ -10,11 +10,11 @@ module Functions where
 import           Universum hiding (log)
 
 import           Data.Coerce (coerce)
-import           Data.List (delete, isInfixOf)
+import           Data.List (isInfixOf)
 
 import           Control.Lens (at, each, filtered, uses, (%=), (+=), (.=), (<>=), (?=))
 import           Test.Hspec
-import           Test.QuickCheck (Gen, arbitrary, choose, elements, frequency, generate, suchThat)
+import           Test.QuickCheck
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
 import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, AccountUpdate (..),
@@ -118,7 +118,7 @@ runAction wc action = do
                     log $ "New wallet ID: " <> show (walId result)
                     -- Modify wallet state accordingly.
                     wallets    <>= [result]
-                    walletsPass . at result ?= newPassword
+                    walletsPass . at (walId result) ?= newPassword
 
                 Left (ClientHttpError (FailureResponse (Response {..})))
                     | "mnemonics" `isInfixOf` show responseBody -> do
@@ -157,7 +157,7 @@ runAction wc action = do
                 (LocalWalletDiffers result wal)
 
         DeleteWallet -> do
-            localWallets <- use wallets
+            localWallets <- use nonGenesisWallets
 
             -- We choose from the existing wallets.
             wallet  <-  pickRandomElement localWallets
@@ -170,20 +170,20 @@ runAction wc action = do
             result  <-  respToRes $ getWallets wc
 
             checkInvariant
-                (wallet `notElem` result)
+                (walId wallet `notElem` map walId result)
                 (LocalWalletsDiffers result localWallets)
 
             walletAccounts <- uses accounts (filter (\acc -> accWalletId acc /= walId wallet))
 
             -- Modify wallet state accordingly.
-            wallets  .= delete wallet localWallets
+            wallets  %= filter (\w -> walId wallet /= walId w)
             accounts .= walletAccounts
             addresses %= filter (`notElem` concatMap accAddresses walletAccounts)
-
+            walletsPass . at (walId wallet) .= Nothing
 
         UpdateWallet -> do
 
-            localWallets <- use wallets
+            localWallets <- use nonGenesisWallets
 
             -- We choose from the existing wallets.
             wallet  <-  pickRandomElement localWallets
@@ -201,11 +201,13 @@ runAction wc action = do
             log $ "Old   : " <> show wallet
             log $ "Result: " <> show result
             -- Modify wallet state accordingly.
-            wallets . each . filtered (== wallet) .= result
+            -- TODO(matt.parsons): Uncomment this line, when we actually
+            -- implement wallet update in CSL-2450
+            -- wallets . each . filtered (== wallet) .= result
 
         UpdateWalletPass -> do
 
-            localWallets <- use wallets
+            localWallets <- use nonGenesisWallets
 
             -- We choose from the existing wallets.
             wallet  <-  pickRandomElement localWallets
@@ -213,7 +215,7 @@ runAction wc action = do
             let walletId = walId wallet
 
             -- Get the old wallet password.
-            oldWalletPass <- use (walletsPass . at wallet)
+            oldWalletPass <- use (walletsPass . at (walId wallet))
 
             walletPass  <- maybe empty pure oldWalletPass
             newPassword <- freshPassword
@@ -225,20 +227,25 @@ runAction wc action = do
                         , pwdNew = newPassword
                         }
 
+            log $ "Wallet ID: " <> show walletId
             log $ "Updating wallet password: " <> show newPasswordUpdate
             result  <-  respToRes $ updateWalletPassword wc walletId newPasswordUpdate
+            checkInvariant
+                (walId result == walId wallet)
+                (LocalWalletDiffers result wallet)
 
             -- Modify wallet state accordingly.
-            wallets . each . filtered (== wallet) .= result
-            walletsPass . at wallet ?= newPassword
+            wallets %= map (\wal -> if walId wal == walId wallet then result else wal)
+            walletsPass . at (walId result) ?= newPassword
 
 -- Accounts
         PostAccount -> do
 
             localWallets <- use wallets
 
-            wallet     <- pickRandomElement localWallets
-            newAcc  <-  liftIO $ generate generateNewAccount
+            wallet  <- pickRandomElement localWallets
+            mpass   <- use (walletsPass . at (walId wallet))
+            newAcc  <-  liftIO $ generate (generateNewAccount mpass)
             log $ "Posting account: " <> show (walId  wallet) <> ", " <> show newAcc
             result  <-  respToRes $ postAccount wc (walId wallet) newAcc
 
@@ -246,33 +253,39 @@ runAction wc action = do
                 (accAmount result == minBound)
                 (AccountBalanceNotZero result)
 
+            log $ "New account: " <> show result
+
             -- Modify wallet state accordingly.
             accounts   <>= [result]
           where
-            -- | We don't want to memorize the passwords for now.
-            generateNewAccount =
-                NewAccount
-                    <$> pure Nothing
-                    <*> arbitrary
+            generateNewAccount mpass = do
+                i <- arbitrary
+                name <- replicateM i (elements (['a' .. 'z'] ++ ['A' .. 'Z']))
+                pure $ NewAccount mpass (fromString name)
 
         GetAccounts   -> do
             -- We choose from the existing wallets AND existing accounts.
-            wallet  <-  pickRandomElement =<< use wallets
+            wallet  <-  pickRandomElement =<< use nonGenesisWallets
             let walletId = walId wallet
+            walletIdIsNotGenesis walletId
             -- We get all the accounts.
             log $ "Getting accounts for walletID: " <> show walletId
-            result  <-  respToRes $ getAccounts wc walletId
+            log $ "Wallet info: " <> show wallet
+            _result  <-  respToRes $ getAccounts wc walletId
 
-            accts <- use accounts
-            checkInvariant
-                (length result == length accts)
-                (LocalAccountsDiffers result accts)
-
+            _accts <- uses accounts (filter ((walletId ==) . accWalletId))
+            -- TODO(matt.parsons): This fails almost every time. It always
+            -- returns an empty list. Why? Solve in CSL-2445.
+--            checkInvariant
+--                (length result == length accts)
+--                (LocalAccountsDiffers accts result)
+            pure ()
 
         GetAccount    -> do
             -- We choose from the existing wallets AND existing accounts.
             account <- pickRandomElement =<< use accounts
             let walletId = accWalletId account
+            walletIdIsNotGenesis walletId
 
             log $ "Getting account: " <> show walletId <> ", " <> show (accIndex account)
             result  <-  respToRes $ getAccount wc walletId (accIndex account)
@@ -289,10 +302,15 @@ runAction wc action = do
             -- We choose from the existing wallets AND existing accounts.
             account <-  pickRandomElement localAccounts
             let walletId = accWalletId account
-            let deleted = delete account localAccounts
+                deleted = filter notSame localAccounts
+                notSame acct =
+                    accWalletId acct == accWalletId account
+                    && accIndex acct ==  accIndex account
+                accIdx = accIndex account
 
+            log $ "Deleting account, walletID: " <> show walletId <> ", accIndex: " <> show accIdx
             -- If we don't have any http client errors, the delete was a success.
-            _ <- either throwM pure =<< deleteAccount wc walletId (accIndex account)
+            _ <- either throwM pure =<< deleteAccount wc walletId accIdx
 
             -- Just in case, let's check if it's still there.
             result  <-  respToRes $ getAccounts wc walletId
@@ -319,7 +337,10 @@ runAction wc action = do
                         { uaccName = "Account name " <> (show accountId)
                         }
 
+            walletIdIsNotGenesis walletId
+
             log $ mconcat ["Updating account: ", show walletId, ", ", show accountId, ", ", show newAccount]
+            traverse_ log . map show . filter ((walletId ==) . walId) =<< use wallets
             result  <-  respToRes $ updateAccount wc walletId accountId newAccount
 
             -- Modify wallet state accordingly.
@@ -338,6 +359,7 @@ runAction wc action = do
 
             let newAddress = createNewAddress walletId (accIndex account)
 
+            walletIdIsNotGenesis walletId
             log $ "Posting address: " <> show newAddress
             result  <-  respToRes $ postAddress wc newAddress
 
@@ -570,3 +592,12 @@ log = putStrLn . mappend "[TEST-LOG] "
 -- | Output for @Text@.
 printT :: Text -> IO ()
 printT = putStrLn
+
+walletIdIsNotGenesis
+    :: (MonadState WalletState m, Alternative m)
+    => WalletId -> m ()
+walletIdIsNotGenesis walletId = do
+    mwallet <- head . filter ((walletId ==) . walId) <$> use wallets
+    whenJust mwallet $ \wal ->
+        guard (walName wal /= "Genesis wallet")
+

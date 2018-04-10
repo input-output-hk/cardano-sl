@@ -119,6 +119,8 @@ runAction wc action = do
                     -- Modify wallet state accordingly.
                     wallets    <>= [result]
                     walletsPass . at (walId result) ?= newPassword
+                    -- FIXME: creating a wallet is creating default account. This account should be added to WalletState.
+                    -- FIXME: creating an account is creating default address. This address should be added to WalletState.
 
                 Left (ClientHttpError (FailureResponse (Response {..})))
                     | "mnemonics" `isInfixOf` show responseBody -> do
@@ -257,6 +259,8 @@ runAction wc action = do
 
             -- Modify wallet state accordingly.
             accounts   <>= [result]
+            -- FIXME: creating a wallet is creating default account. This account should be added to WalletState.
+            -- FIXME: creating an account is creating default address. This address should be added to WalletState.
           where
             generateNewAccount mpass = do
                 i <- arbitrary
@@ -486,6 +490,7 @@ runAction wc action = do
 
             -- Modify wallet state accordingly.
             transactions  <>= [(accountSource, newTx)]
+            -- FIXME: creating transaction is creating return address for most of the transaction (when there is some change to be returned). This address should be added to WalletState.
 
         GetTransaction  -> do
             ws <- get

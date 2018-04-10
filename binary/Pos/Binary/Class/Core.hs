@@ -265,6 +265,8 @@ instance Bi Nano where
 instance Bi Void where
     decode = cborError "instance Bi Void: you shouldn't try to deserialize Void"
     encode = absurd
+    encodedSize = absurd
+    encodedListSize _ = error "instance Bi Void: you should not compute size of list of Void"
 
 ----------------------------------------------------------------------------
 -- Tagged

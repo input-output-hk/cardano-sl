@@ -15,10 +15,10 @@ import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import qualified Data.IxSet.Typed as IxSet
 import           Pos.Update.Configuration ()
+import           Test.QuickCheck (arbitrary, generate)
 
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
 import           Servant
-import           Test.QuickCheck (arbitrary, generate)
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: ( HasConfigurations
@@ -68,12 +68,12 @@ updatePassword
     :: (MonadWalletLogic ctx m)
     => WalletId -> PasswordUpdate -> m (WalletResponse Wallet)
 updatePassword wid PasswordUpdate{..} = do
-    ss <- V0.askWalletSnapshot
     wid' <- migrate wid
     let (V1 old) = pwdOld
         (V1 new) = pwdNew
     _ <- V0.changeWalletPassphrase wid' old new
     single <$> do
+        ss <- V0.askWalletSnapshot
         wallet <- V0.getWallet wid'
         addWalletInfo ss wallet
 
@@ -107,4 +107,4 @@ updateWallet
     :: WalletId
     -> WalletUpdate
     -> MonadV1 (WalletResponse Wallet)
-updateWallet _ _ = single <$> (liftIO $ generate arbitrary)
+updateWallet _ _ = single <$> liftIO (generate arbitrary) -- error "Unimplemented: tracked in CSL-2450"

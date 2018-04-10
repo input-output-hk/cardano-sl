@@ -8,6 +8,7 @@ module Types
     , Action (..)
     , WalletState (..)
     , wallets
+    , nonGenesisWallets
     , walletsPass
     , accounts
     , addresses
@@ -20,10 +21,10 @@ module Types
 
 import           Universum
 
-import           Control.Lens (makeLenses)
+import           Control.Lens (makeLenses, to, Getter)
 
-import           Cardano.Wallet.API.V1.Types (Account, SpendingPassword, Transaction, Wallet,
-                                              WalletAddress)
+import           Cardano.Wallet.API.V1.Types (Account, SpendingPassword, Transaction, Wallet(..),
+                                              WalletAddress, WalletId)
 
 -- | Ideally, we would put @MonadGen@ here and remove @MonadIO@,
 -- but it's better to see how the client fits in the end.
@@ -76,7 +77,7 @@ type ActionProbabilities = NonEmpty (Action, Weight)
 -- keep track of some interesting information.
 data WalletState = WalletState
     { _wallets      :: [Wallet]
-    , _walletsPass  :: Map Wallet SpendingPassword
+    , _walletsPass  :: Map WalletId SpendingPassword
     , _accounts     :: [Account]
     , _addresses    :: [WalletAddress]
     , _transactions :: [(Account, Transaction)]
@@ -85,8 +86,10 @@ data WalletState = WalletState
     , _actionsNum   :: Int
     } deriving (Show, Eq, Generic)
 
-
 makeLenses ''WalletState
+
+nonGenesisWallets :: Getter WalletState [Wallet]
+nonGenesisWallets = wallets . to (filter (("Genesis wallet" /=) . walName))
 
 -- | The type that has the action probabilities to execute along
 -- with the current @WalletState@ from the client perspective.

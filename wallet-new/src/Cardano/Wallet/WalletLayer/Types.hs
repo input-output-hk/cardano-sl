@@ -7,16 +7,22 @@ module Cardano.Wallet.WalletLayer.Types
     , pwlGetWallet
     , pwlUpdateWallet
     , pwlDeleteWallet
+
+    , pwlCreateAccount
     , pwlGetAccounts
     , pwlGetAccount
+    , pwlUpdateAccount
+    , pwlDeleteAccount
+
     , pwlGetAddresses
     ) where
 
 import           Universum
+
 import           Control.Lens (makeLenses)
 
-import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, Address, NewWallet, Wallet,
-                                              WalletId, WalletUpdate)
+import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, Address,
+                                              NewAccount, NewWallet, Wallet, WalletId, WalletUpdate)
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
@@ -25,16 +31,19 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 data PassiveWalletLayer m = PassiveWalletLayer
     {
     -- * wallets
-      _pwlCreateWallet :: NewWallet -> m (Maybe Wallet)
-    , _pwlGetWalletIds :: m [WalletId]
-    , _pwlGetWallet    :: WalletId -> m (Maybe Wallet)
-    , _pwlUpdateWallet :: WalletId -> WalletUpdate -> m (Maybe Wallet)
-    , _pwlDeleteWallet :: WalletId -> m Bool
+      _pwlCreateWallet  :: NewWallet -> m (Maybe Wallet)
+    , _pwlGetWalletIds  :: m [WalletId]
+    , _pwlGetWallet     :: WalletId -> m (Maybe Wallet)
+    , _pwlUpdateWallet  :: WalletId -> WalletUpdate -> m (Maybe Wallet)
+    , _pwlDeleteWallet  :: WalletId -> m Bool
     -- * accounts
-    , _pwlGetAccounts  :: WalletId -> m [Account]
-    , _pwlGetAccount   :: WalletId -> AccountIndex -> m (Maybe Account)
+    , _pwlCreateAccount :: WalletId -> NewAccount -> m Account
+    , _pwlGetAccounts   :: WalletId -> m [Account]
+    , _pwlGetAccount    :: WalletId -> AccountIndex -> m (Maybe Account)
+    , _pwlUpdateAccount :: WalletId -> AccountIndex -> AccountUpdate -> m Account
+    , _pwlDeleteAccount :: WalletId -> AccountIndex -> m Bool
     -- * addresses
-    , _pwlGetAddresses :: WalletId -> m [Address]
+    , _pwlGetAddresses  :: WalletId -> m [Address]
     }
 
 makeLenses ''PassiveWalletLayer

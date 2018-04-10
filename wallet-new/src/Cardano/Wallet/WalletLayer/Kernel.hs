@@ -34,8 +34,11 @@ bracketPassiveWallet logFunction =
             , _pwlUpdateWallet  = error "Not implemented!"
             , _pwlDeleteWallet  = error "Not implemented!"
 
+            , _pwlCreateAccount = error "Not implemented!"
             , _pwlGetAccounts   = error "Not implemented!"
             , _pwlGetAccount    = error "Not implemented!"
+            , _pwlUpdateAccount = error "Not implemented!"
+            , _pwlDeleteAccount = error "Not implemented!"
 
             , _pwlGetAddresses  = error "Not implemented!"
             }

@@ -1,5 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.Wallet.WalletLayer.Legacy
     ( MonadLegacyWallet
@@ -18,17 +18,20 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
 import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
-import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, Address, NewWallet (..),
-                                              V1 (..), Wallet, WalletId, WalletOperation (..),
-                                              WalletUpdate)
+import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, Address,
+                                              NewAccount (..), NewWallet (..), V1 (..), Wallet,
+                                              WalletId, WalletOperation (..), WalletUpdate)
 
 import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Crypto (PassPhrase)
+
+import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes.Types (CWallet (..), CWalletInit (..), CWalletMeta (..))
-import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead, deleteWallet, getAccount,
-                                               getAccounts, getWallet)
+import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
+import qualified Pos.Wallet.Web.Methods.Logic as V0
 import           Pos.Wallet.Web.Methods.Restore (newWallet, restoreWallet)
-import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletSnapshot, askWalletDB, getWalletAddresses, setWalletMeta)
+import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB, askWalletSnapshot,
+                                             getWalletAddresses, setWalletMeta)
 import           Pos.Wallet.Web.State.Storage (getWalletInfo)
 
 
@@ -59,8 +62,11 @@ bracketPassiveWallet =
         , _pwlUpdateWallet  = pwlUpdateWallet
         , _pwlDeleteWallet  = pwlDeleteWallet
 
+        , _pwlCreateAccount = pwlCreateAccount
         , _pwlGetAccounts   = pwlGetAccounts
         , _pwlGetAccount    = pwlGetAccount
+        , _pwlUpdateAccount = pwlUpdateAccount
+        , _pwlDeleteAccount = pwlDeleteAccount
 
         , _pwlGetAddresses  = pwlGetAddresses
         }
@@ -123,7 +129,7 @@ pwlGetWallet wId = do
     ws          <- askWalletSnapshot
 
     cWId        <- migrate wId
-    wallet      <- getWallet cWId
+    wallet      <- V0.getWallet cWId
 
     pure $ do
         walletInfo  <- getWalletInfo cWId ws
@@ -155,11 +161,25 @@ pwlDeleteWallet wId = do
     cWId        <- migrate wId
     -- TODO(ks): It would be better to catch specific @Exception@.
     -- Maybe @try@?
-    catchAll (fmap (const True) $ deleteWallet cWId) (const . pure $ False)
+    catchAll (fmap (const True) $ V0.deleteWallet cWId) (const . pure $ False)
 
 ------------------------------------------------------------
 -- Account
 ------------------------------------------------------------
+
+pwlCreateAccount
+    :: forall ctx m. (MonadLegacyWallet ctx m)
+    => WalletId
+    -> NewAccount
+    -> m Account
+pwlCreateAccount wId newAcc@NewAccount{..} = do
+
+    let spendingPassword = fromMaybe mempty . fmap coerce $ naccSpendingPassword
+
+    accInit     <- migrate (wId, newAcc)
+    cAccount    <- V0.newAccount RandomSeed spendingPassword accInit
+
+    migrate cAccount
 
 pwlGetAccounts
     :: forall ctx m. (MonadLegacyWallet ctx m)
@@ -167,7 +187,7 @@ pwlGetAccounts
     -> m [Account]
 pwlGetAccounts wId = do
     cWId        <- migrate wId
-    cAccounts   <- getAccounts $ Just cWId
+    cAccounts   <- V0.getAccounts $ Just cWId
     migrate cAccounts
 
 pwlGetAccount
@@ -177,8 +197,29 @@ pwlGetAccount
     -> m (Maybe Account)
 pwlGetAccount wId aId = do
     accId       <- migrate (wId, aId)
-    account     <- getAccount accId
+    account     <- V0.getAccount accId
     fmap Just $ migrate account
+
+pwlUpdateAccount
+    :: forall ctx m. (MonadLegacyWallet ctx m)
+    => WalletId
+    -> AccountIndex
+    -> AccountUpdate
+    -> m Account
+pwlUpdateAccount wId accIdx accUpdate = do
+    newAccId    <- migrate (wId, accIdx)
+    accMeta     <- migrate accUpdate
+    cAccount    <- V0.updateAccount newAccId accMeta
+    migrate cAccount
+
+pwlDeleteAccount
+    :: forall ctx m. (MonadLegacyWallet ctx m)
+    => WalletId
+    -> AccountIndex
+    -> m Bool
+pwlDeleteAccount wId accIdx = do
+    accId <- migrate (wId, accIdx)
+    catchAll (fmap (const True) $ V0.deleteAccount accId) (const . pure $ False)
 
 ------------------------------------------------------------
 -- Address

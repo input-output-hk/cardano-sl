@@ -36,6 +36,8 @@ library
                      , formatting
                      , half
                      , hashable
+                     , integer-gmp
+                     , ghc-prim
                      , lens
                      , mtl
                      , safe-exceptions
@@ -82,3 +84,25 @@ library
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+
+test-suite cardano-sl-binary-test
+  main-is:            Test.hs
+  other-modules:      Spec
+                    , Test.Pos.Binary.Class.CoreSpec
+  type:               exitcode-stdio-1.0
+  build-depends:      base
+                    , cardano-sl-binary
+                    , bytestring
+                    , hspec
+                    , universum
+                    , QuickCheck
+  hs-source-dirs:     test
+  default-language:   Haskell2010
+  default-extensions: NoImplicitPrelude
+                      ScopedTypeVariables
+                      TypeApplications
+  ghc-options:        -threaded
+                      -rtsopts
+                      -Wall
+                      -fno-warn-orphans
+                      -with-rtsopts=-N

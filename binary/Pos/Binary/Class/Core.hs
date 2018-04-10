@@ -1,4 +1,6 @@
+{-# LANGUAGE CPP              #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MagicHash        #-}
 {-# LANGUAGE TypeFamilies     #-}
 {-# LANGUAGE TypeOperators    #-}
 
@@ -28,19 +30,26 @@ module Pos.Binary.Class.Core
     , cborError
     ) where
 
+#include <MachDeps.h>
+
 import           Universum
+import qualified GHC.Integer.GMP.Internals as Gmp
+import           GHC.Prim (int2Word#)
+import           GHC.Types (Int (..), Word (..))
 
 import qualified Codec.CBOR.Decoding as D
 import qualified Codec.CBOR.Encoding as E
 import qualified Codec.CBOR.Read as CBOR.Read
 import qualified Codec.CBOR.Write as CBOR.Write
 import qualified Data.Binary as Binary
+import           Data.Bits (finiteBitSize, unsafeShiftR)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BS.Lazy
 import           Data.Fixed (Fixed (..), Nano)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Data.Map as M
+import           Data.Monoid (Sum (getSum))
 import qualified Data.Set as S
 import           Data.Tagged (Tagged (..))
 import qualified Data.Text as Text
@@ -82,6 +91,21 @@ matchSize requestedSize lbl actualSize =
   when (actualSize /= requestedSize) $
     cborError (lbl <> " failed the size check. Expected " <> show requestedSize <> ", found " <> show actualSize)
 
+withSize :: Integral s => s -> a -> a -> a -> a -> a -> a
+withSize s a1 a2 a3 a4 a5 =
+    if | s <= 0x17 -> a1
+       | s <= 0xff -> a2
+       | s <= 0xffff -> a3
+#if WORD_SIZE_IN_BITS == 64
+       | s <= 0xffffffff -> a4
+       | otherwise -> a5
+#elif WORD_SIZE_IN_BITS == 32
+       | otherwise -> a4
+#define ARCH_32bit
+#else
+#error expected WORD_SIZE_IN_BITS to be 32 or 64
+#endif
+
 ----------------------------------------
 
 class Typeable a => Bi a where
@@ -96,6 +120,13 @@ class Typeable a => Bi a where
 
     decodeList :: D.Decoder s [a]
     decodeList = defaultDecodeList
+
+    -- | Size of the encoded term.  It should satisfy
+    -- @'encodedSize' -- a = fromIntegral . length . 'serialize' a@
+    encodedSize :: a -> Byte
+
+    encodedListSize :: [a] -> Byte
+    encodedListSize as = (2 :: Byte) + getSum (fold $ (Sum . encodedSize) <$> as)
 
 -- | Default @'E.Encoding'@ for list types.
 defaultEncodeList :: Bi a => [a] -> E.Encoding
@@ -114,10 +145,12 @@ defaultDecodeList = do
 
 instance Bi () where
     encode = const E.encodeNull
+    encodedSize _ = 1
     decode = D.decodeNull
 
 instance Bi Bool where
     encode = E.encodeBool
+    encodedSize _ = 1
     decode = D.decodeBool
 
 instance Bi Char where
@@ -132,6 +165,24 @@ instance Bi Char where
     decodeList    = do txt <- D.decodeStringCanonical
                        return (toString txt) -- unpack lazily
 
+    -- 1 byte of a header plus number of bytes used in Utf8 encoding
+    encodedSize c =
+        if | c <= chr 0x7f -> 2
+           | c <= chr 0x7ff -> 3
+           | c <= chr 0xffff -> 4
+           | otherwise -> 5
+
+    encodedListSize cs =
+        let bsLength = foldl' fn 0 cs
+        in -- size of the header plus size of the byte string
+           (withSize bsLength 1 2 3 4 5) + bsLength
+        where
+        fn acu c =
+            if | c <= chr 0x7f -> acu + 1
+               | c <= chr 0x7ff -> acu + 2
+               | c <= chr 0xffff -> acu + 3
+               | otherwise -> acu + 4
+
 ----------------------------------------------------------------------------
 -- Numeric data
 ----------------------------------------------------------------------------
@@ -139,30 +190,59 @@ instance Bi Char where
 instance Bi Integer where
     encode = E.encodeInteger
     decode = D.decodeIntegerCanonical
+    encodedSize (Gmp.S# i) = encodedSize (I# i)
+    encodedSize integer@(Gmp.Jp# bigNat) =
+        if integer <= fromIntegral (maxBound @Word64)
+            then encodedSize @Word64 (fromIntegral integer)
+            else
+                let sizeW# = Gmp.sizeInBaseBigNat bigNat 256#
+                -- size of header plus the size of number of digits plus the
+                -- size of the buffer
+                in 1 + encodedSize (W# sizeW#) + fromIntegral (W# sizeW#)
+    encodedSize integer@(Gmp.Jn# bigNat) =
+        if integer >= -1 - fromIntegral (maxBound :: Word64)
+            then encodedSize @Word64 (fromIntegral (-1 - integer))
+            else
+                let bigNat' = Gmp.minusBigNatWord bigNat (int2Word# 1#)
+                    sizeW# = Gmp.sizeInBaseBigNat bigNat' 256#
+                in 1 + encodedSize (W# sizeW#) + fromIntegral (W# sizeW#)
 
 instance Bi Word where
     encode = E.encodeWord
+    encodedSize w = withSize w 1 2 3 5 9
     decode = D.decodeWordCanonical
 
 instance Bi Word8 where
     encode = E.encodeWord8
+    encodedSize a = encodedSize @Word (fromIntegral a)
     decode = D.decodeWord8Canonical
 
 instance Bi Word16 where
     encode = E.encodeWord16
+    encodedSize a = encodedSize @Word (fromIntegral a)
     decode = D.decodeWord16Canonical
 
 instance Bi Word32 where
     encode = E.encodeWord32
+    encodedSize a = encodedSize @Word (fromIntegral a)
     decode = D.decodeWord32Canonical
 
 instance Bi Word64 where
     encode = E.encodeWord64
+    encodedSize a = encodedSize @Word (fromIntegral a)
     decode = D.decodeWord64Canonical
 
 instance Bi Int where
     encode = E.encodeInt
     decode = D.decodeIntCanonical
+    encodedSize n = withSize ui 1 2 3 5 9
+        where
+            sign :: Word
+            sign = fromIntegral (n `unsafeShiftR` intBits)
+            -- minimum version of base-4.7.0
+            intBits = finiteBitSize (0 :: Int) - 1
+            ui   :: Word
+            ui   = fromIntegral n `xor` sign
 
 instance Bi Float where
     encode = E.encodeFloat
@@ -170,10 +250,12 @@ instance Bi Float where
 
 instance Bi Int32 where
     encode = E.encodeInt32
+    encodedSize a = encodedSize @Int (fromIntegral a)
     decode = D.decodeInt32Canonical
 
 instance Bi Int64 where
     encode = E.encodeInt64
+    encodedSize a = encodedSize @Int (fromIntegral a)
     decode = D.decodeInt64Canonical
 
 instance Bi Nano where

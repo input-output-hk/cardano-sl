@@ -41,7 +41,7 @@ GPATH
 TAGS
 
 # Vim
-tags
+tags*
 
 # Intellij Idea & intellij-haskell
 .idea

@@ -272,14 +272,15 @@ runAction wc action = do
             -- We get all the accounts.
             log $ "Getting accounts for walletID: " <> show walletId
             log $ "Wallet info: " <> show wallet
-            result  <-  respToRes $ getAccounts wc walletId
+            _result  <-  respToRes $ getAccounts wc walletId
 
-            accts <- uses accounts (filter ((walletId ==) . accWalletId))
+            _accts <- uses accounts (filter ((walletId ==) . accWalletId))
             -- TODO(matt.parsons): This fails almost every time. It always
             -- returns an empty list. Why?
 --            checkInvariant
 --                (length result == length accts)
 --                (LocalAccountsDiffers accts result)
+            pure ()
 
         GetAccount    -> do
             -- We choose from the existing wallets AND existing accounts.

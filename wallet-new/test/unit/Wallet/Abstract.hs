@@ -49,6 +49,8 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, (%))
 import           Pos.Util (HasLens', lensOf')
 import           Pos.Util.Chrono
+                   (NewestFirst(NewestFirst), toNewestFirst,
+                    OldestFirst(OldestFirst), toOldestFirst)
 import           Pos.Util.QuickCheck.Arbitrary (sublistN)
 import           Serokell.Util (listJson)
 import           Test.QuickCheck
@@ -197,6 +199,7 @@ interpret invalidInput mkWallets p = fmap snd . go
       (l, ws) <- go w
       ws' <- verify ind =<< walletsMapA (verifyNew ind l t) ws
       return (l, ws')
+    go (Rollback w) = go w
 
     verify :: Inductive h a -> Wallets ws h a -> Validated err (Wallets ws h a)
     verify ind ws = p ind ws >> return ws
@@ -610,9 +613,9 @@ genFromBlocktreePickingAccounts i fpc = do
 
 genInductiveFor :: Hash h Addr => Set Addr -> InductiveGen h (Inductive h Addr)
 genInductiveFor addrs = do
-    boot  <- getBootTransaction
+    boot <- getBootTransaction
     tree <- getBlocktree
-    intersperseTransactions boot addrs $ treeToApplyBlocks tree
+    intersperseTransactions boot addrs (treeToApplyBlocks tree)
 
 -- | Linearise a blocktree to a list of actions.
 --
@@ -630,11 +633,6 @@ treeToApplyBlocks (OldestFirst root) = reverse . fst $ go root ([], 1)
       foldr go (ApplyBlock' val : acc, lvl + 1) xs
 
 
--- | The first step in converting a 'Chain into an 'Inductive' wallet is
--- to sequence the existing blocks using 'ApplyBlock' constructors.
-chainToApplyBlocks :: Chain h a -> [Action h a]
-chainToApplyBlocks = toList . map ApplyBlock' . chainBlocks
-
 -- | Once we've created our initial @['Action' h 'Addr']@, we want to
 -- insert some 'Transaction's in appropriate locations in the list. There
 -- are some properties that the inserted events must satisfy:
@@ -650,13 +648,14 @@ intersperseTransactions
     :: Hash h Addr
     => Transaction h Addr -- ^ Bootstrap transaction
     -> Set Addr           -- ^ " Our " addresses
-    -> [Action h Addr]    -- ^ Initial actions (the blocks in the chain)
+    -> [Action h Addr]    -- ^ Initial actions (the blocks in the chain),
+                          --   including bootstrap transaction.
     -> InductiveGen h (Inductive h Addr)
 intersperseTransactions boot addrs actions = do
-    chain <- getBlockchain
-    ledger <- getLedger
-    let ourTxns = findOurTransactions addrs ledger chain
-    let allTxnCount = length ourTxns
+    let chain = actionsToChain actions
+        ledger = chainToLedger boot chain
+        ourTxns = findOurTransactions addrs ledger chain
+        allTxnCount = length ourTxns
 
     -- we weight the frequency distribution such that most of the
     -- transactions will be represented by this wallet. this can be
@@ -705,7 +704,7 @@ intersperseTransactions boot addrs actions = do
                 (dissect actions)
                 txnsWithIndex
 
-    unconfirmed <- synthesizeTransactions addrs spent
+    unconfirmed <- synthesizeTransactions boot addrs chain spent
 
     return $ toInductive boot
            . conssect
@@ -718,12 +717,13 @@ intersperseTransactions boot addrs actions = do
 -- double spending.
 synthesizeTransactions
     :: forall h. Hash h Addr
-    => Set Addr           -- ^ Addresses owned by the wallet
+    => Transaction h Addr -- ^ Bootstrap transaction
+    -> Set Addr           -- ^ Addresses owned by the wallet
+    -> Chain h Addr       -- ^ Blockchain
     -> Set (Input h Addr) -- ^ Inputs already spent
     -> InductiveGen h (IntMap [Action h Addr])
-synthesizeTransactions addrs alreadySpent = do
-    boot   <- getBootTransaction
-    blocks <- toList . chainBlocks <$> getBlockchain
+synthesizeTransactions boot addrs chain alreadySpent = do
+    let blocks = toList (chainBlocks chain)
     liftGen $ go IntMap.empty (trUtxo boot) alreadySpent 0 blocks
   where
     -- NOTE: We maintain a UTxO as we process the blocks. There are (at least)
@@ -785,9 +785,19 @@ dissect = IntMap.fromList . zip [0..] . map pure
 conssect :: IntMap [a] -> [a]
 conssect = concatMap snd . IntMap.toList
 
--- | Given a 'Set' of addresses and a 'Chain', this function returns a list
--- of the transactions with *inputs* belonging to any of the addresses and
--- the index of the block that the transaction is confirmed in.
+-- | Build a 'Chain' from a list of 'Action's.
+actionsToChain :: forall h a. [Action h a] -> Chain h a
+actionsToChain = Chain . toOldestFirst . foldl' f (NewestFirst [])
+  where
+    f :: NewestFirst [] (OldestFirst [] (Transaction h a))
+      -> Action h a
+      -> NewestFirst [] (OldestFirst [] (Transaction h a))
+    f (NewestFirst xs) (ApplyBlock' x) = NewestFirst (x : xs)
+    f (NewestFirst []) Rollback' = error "findOurTransactions: can't rollback"
+    f (NewestFirst (_ : xs)) Rollback' = NewestFirst xs
+    f x (NewPending' _) = x
+
+
 findOurTransactions
     :: (Hash h a, Ord a)
     => Set a
@@ -994,13 +1004,15 @@ instance Buildable InvariantViolationEvidence where
 instance (Hash h a, Buildable a) => Buildable (Inductive h a) where
   build ind = bprint (build % "}") (go ind)
     where
-      go (WalletBoot   t) = bprint (        "{ boot:  " % build)        t
-      go (ApplyBlock n b) = bprint (build % ", block: " % build) (go n) b
-      go (NewPending n t) = bprint (build % ", new:   " % build) (go n) t
+      go (WalletBoot   t) = bprint (        "{ boot:     " % build)        t
+      go (ApplyBlock n b) = bprint (build % ", block:    " % build) (go n) b
+      go (NewPending n t) = bprint (build % ", new:      " % build) (go n) t
+      go (Rollback   n  ) = bprint (build % ", rollback: "        ) (go n)
 
 instance (Hash h a, Buildable a) => Buildable (Action h a) where
   build (ApplyBlock' b) = bprint ("ApplyBlock' " % build) b
   build (NewPending' t) = bprint ("NewPending' " % build) t
+  build Rollback'       = bprint "Rollback'"
 
 instance (Hash h a, Buildable a) => Buildable [Action h a] where
   build = bprint listJson

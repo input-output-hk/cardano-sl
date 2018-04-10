@@ -81,6 +81,8 @@ import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, (%))
 import           Pos.Util.Chrono
+                   (NewestFirst(NewestFirst),
+                    OldestFirst(getOldestFirst))
 import           Prelude (Show (..))
 import           Serokell.Util (listJson, mapJson)
 import           Universum
@@ -264,6 +266,8 @@ data Output a = Output {
 data Input h a = Input {
       inpTrans :: h (Transaction h a)
     , inpIndex :: Index
+      -- ^ Index to a particular 'Output' among the 'trOut' outputs in
+      -- the 'Transaction' idenfified  by 'inpTrans'.
     }
 
 deriving instance Hash h a => Eq  (Input h a)

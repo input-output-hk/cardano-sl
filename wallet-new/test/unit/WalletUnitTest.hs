@@ -116,13 +116,12 @@ testPureWallet = do
 
     genInductive :: Hash h Addr => Gen (InductiveWithOurs h Addr)
     genInductive = do
-      fpc <- runTranslateT $ fromPreChain genValidBlockchain
+      fpt <- runTranslateT $ fromPreTree  genValidBlocktree
       n <- choose
         ( 1
-        , length . filter (not . isAvvmAddr) . toList
-        . ledgerAddresses $ fpcLedger fpc
+        , length (filter (not . isAvvmAddr) (toList (fptAddresses fpt)))
         )
-      genFromBlockchainPickingAccounts n fpc
+      genFromBlocktreePickingAccounts n fpt
 
     checkInvariants :: (IsWallet w h a, Buildable a)
                     => Text

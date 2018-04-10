@@ -7681,18 +7681,19 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-wallet-new" = callPackage
-        ({ mkDerivation, aeson, aeson-pretty, base, bytestring, cardano-sl
-         , cardano-sl-block, cardano-sl-client, cardano-sl-core
-         , cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation
-         , cardano-sl-infra, cardano-sl-networking, cardano-sl-ssc
-         , cardano-sl-txp, cardano-sl-update, cardano-sl-util
-         , cardano-sl-wallet, conduit, constraints, containers, data-default
-         , exceptions, formatting, generics-sop, hspec, http-api-data
-         , http-client, http-types, insert-ordered-containers, ixset-typed
-         , json-sop, lens, log-warper, memory, mmorph, mtl
-         , neat-interpolation, optparse-applicative, QuickCheck
-         , quickcheck-instances, reflection, safe-exceptions, serokell-util
-         , servant, servant-client, servant-client-core, servant-quickcheck
+        ({ mkDerivation, aeson, aeson-pretty, base, base58-bytestring
+         , bytestring, cardano-crypto, cardano-sl, cardano-sl-block
+         , cardano-sl-client, cardano-sl-core, cardano-sl-crypto
+         , cardano-sl-db, cardano-sl-delegation, cardano-sl-infra
+         , cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp
+         , cardano-sl-update, cardano-sl-util, cardano-sl-wallet, conduit
+         , constraints, containers, data-default, exceptions, formatting
+         , generics-sop, hspec, http-api-data, http-client, http-types
+         , insert-ordered-containers, ixset-typed, json-sop, lens
+         , log-warper, memory, mmorph, mtl, neat-interpolation
+         , optparse-applicative, QuickCheck, quickcheck-instances
+         , reflection, safe-exceptions, serokell-util, servant
+         , servant-client, servant-client-core, servant-quickcheck
          , servant-server, servant-swagger, servant-swagger-ui, stdenv, stm
          , string-conv, swagger2, text, text-format, time, time-units
          , transformers, universum, unordered-containers, vector, wai
@@ -7705,16 +7706,17 @@ inherit (pkgs) mesa;};
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [
-             aeson aeson-pretty base bytestring cardano-sl cardano-sl-block
-             cardano-sl-client cardano-sl-core cardano-sl-crypto cardano-sl-db
-             cardano-sl-infra cardano-sl-networking cardano-sl-ssc
-             cardano-sl-txp cardano-sl-update cardano-sl-util cardano-sl-wallet
-             containers data-default exceptions formatting generics-sop
-             http-api-data http-client http-types ixset-typed json-sop lens
-             log-warper memory mtl QuickCheck reflection safe-exceptions
-             serokell-util servant servant-client servant-client-core
-             servant-quickcheck servant-server servant-swagger-ui string-conv
-             swagger2 text text-format time time-units transformers universum
+             aeson aeson-pretty base base58-bytestring bytestring cardano-crypto
+             cardano-sl cardano-sl-block cardano-sl-client cardano-sl-core
+             cardano-sl-crypto cardano-sl-db cardano-sl-infra
+             cardano-sl-networking cardano-sl-ssc cardano-sl-txp
+             cardano-sl-update cardano-sl-util cardano-sl-wallet containers
+             data-default exceptions formatting generics-sop http-api-data
+             http-client http-types ixset-typed json-sop lens log-warper memory
+             mtl QuickCheck reflection safe-exceptions serokell-util servant
+             servant-client servant-client-core servant-quickcheck
+             servant-server servant-swagger-ui string-conv swagger2 text
+             text-format time time-units transformers universum
              unordered-containers vector wai
            ];
            executableHaskellDepends = [

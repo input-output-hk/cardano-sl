@@ -71,7 +71,7 @@ updateAccount wId accIdx accUpdate = do
 newExternalAccount
     :: (V0.MonadWalletLogic ctx m)
     => WalletId
-    -> NewExternalAccount
+    -> NewAccount
     -> m (WalletResponse Account)
 newExternalAccount _ _ = do
     single <$> (liftIO $ generate arbitrary)

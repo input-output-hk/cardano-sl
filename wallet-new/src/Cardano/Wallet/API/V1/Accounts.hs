@@ -31,8 +31,8 @@ type API
           :> Summary "Update an Account for the given Wallet."
           :> ReqBody '[ValidJSON] (Update Account)
           :> Put '[ValidJSON] (WalletResponse Account)
-    :<|> "wallets" :> CaptureWalletId :> "accounts" :> "external"
+    :<|> "external-wallets" :> CaptureWalletId :> "accounts"
           :> Summary "Creates a new Account for the given external Wallet."
-          :> ReqBody '[ValidJSON] (New ExternalAccount)
+          :> ReqBody '[ValidJSON] (New Account)
           :> Post '[ValidJSON] (WalletResponse Account)
     )

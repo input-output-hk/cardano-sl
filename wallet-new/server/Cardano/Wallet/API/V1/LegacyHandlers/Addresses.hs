@@ -131,7 +131,7 @@ getAddress addrText = do
 -- | Creates new address in external wallet.
 newExternalAddress
     :: (MonadThrow m, V0.MonadWalletLogic ctx m)
-    => NewExternalAddress
+    => NewAddress
     -> m (WalletResponse WalletAddress)
 newExternalAddress _ =
     single <$> (liftIO $ generate arbitrary)

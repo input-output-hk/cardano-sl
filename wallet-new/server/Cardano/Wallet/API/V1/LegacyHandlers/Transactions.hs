@@ -131,4 +131,7 @@ newSignedTransaction _ SignedTransaction {..} = do
     -- It is assumed that we received a transaction which was signed on the
     -- client side (mobile client or hardware wallet).
     -- Now we have to submit it as usually.
-    pure $ single stxTransaction
+    --
+    -- It's just a stub instead of 'undefined'.
+    fakeTransaction <- liftIO $ generate arbitrary
+    pure $ single fakeTransaction

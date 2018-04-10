@@ -43,7 +43,6 @@ library
                         -- LRC
                         Pos.Lrc
                         Pos.Lrc.DB
-                        Pos.Lrc.FtsPure
                         Pos.Lrc.Genesis
 
                         -- Binary serialization

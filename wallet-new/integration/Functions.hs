@@ -281,9 +281,9 @@ runAction wc action = do
             _accts <- uses accounts (filter ((walletId ==) . accWalletId))
             -- TODO(matt.parsons): This fails almost every time. It always
             -- returns an empty list. Why? Solve in CSL-2445.
---            checkInvariant
---                (length result == length accts)
---                (LocalAccountsDiffers accts result)
+            checkInvariant
+                (length _result == length _accts)
+                (LocalAccountsDiffers _accts _result)
             pure ()
 
         GetAccount    -> do

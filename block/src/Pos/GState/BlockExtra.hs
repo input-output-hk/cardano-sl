@@ -127,8 +127,7 @@ streamBlocks loadBlock forwardLink base = do
         case mb of
             Nothing -> pure ()
             Just block -> do
-                when (hhash /= base) $
-                    yield block
+                yield block
                 mNext <- lift $ forwardLink hhash
                 case mNext of
                     Nothing -> pure ()

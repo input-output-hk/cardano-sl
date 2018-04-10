@@ -607,18 +607,22 @@ handleStreamStart logTrace logic oq = listenerConv logTrace oq $ \__ourVerInfo n
         send conv $ MsgStreamNoBlock "MsgStreamStart with empty from chain"
         traceWith logTrace (Debug, sformat ("MsgStreamStart with empty from chain from node "%build) nodeId)
         return ()
-    stream nodeId conv (cl:_) _ window = do
-        -- XXX need a variant which uses the checkpoints to find the oldest
-        -- starting point in the database.
-        -- XXX need a sensible limit on the number of checkpoints, or just a
-        -- different scheme for negotiating an LCA in general. Normal case:
-        -- the tip checkpoint is in the server's DB. This is always the case
-        -- for syncing.
-        let producer = do
-                Logic.streamBlocks logic cl
-                lift $ send conv MsgStreamEnd
-            consumer = loop nodeId conv window
-        runEffect $ producer >-> consumer
+    stream nodeId conv (cl:cxs) _ window = do
+        -- Ideally we want a function that only returns the oldest blockheader derived from the
+        -- list of checkpoints, not a list of blockheaders.
+        headersE <- Logic.getBlockHeaders logic Nothing (cl:|cxs) Nothing
+        case headersE of
+             Left e        -> do
+                send conv $ MsgStreamNoBlock "handleStreamStart:strean Failed to find lca"
+                traceWith logTrace (Debug, sformat ("handleStreamStart:strean getBlockHeaders from "%shown%" failed with "%shown%" for "%listJson) nodeId e (cl:cxs))
+                return ()
+             Right headers -> do
+                let lca = headers ^. _NewestFirst . _neLast
+                    producer = do
+                        Logic.streamBlocks logic $ headerHash lca
+                        lift $ send conv MsgStreamEnd
+                    consumer = loop nodeId conv window
+                runEffect $ producer >-> consumer
 
     loop nodeId conv 0 = do
         lift $ traceWith logTrace (Debug, "handleStreamStart:loop waiting on window update")

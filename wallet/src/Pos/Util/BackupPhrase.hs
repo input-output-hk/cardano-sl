@@ -31,15 +31,17 @@ newtype BackupPhrase = BackupPhrase
 
 instance Arbitrary BackupPhrase where
     arbitrary = do
-        em <- arbitraryMnemonic 16
+        em <- arbitraryMnemonic 4
         case em of
             Left _  -> arbitrary
             Right a -> pure a
     shrink    = genericShrink
 
+-- | Generate an arbitrary mnemonic with the given number of words.
 arbitraryMnemonic :: Int -> Gen (Either Text BackupPhrase)
 arbitraryMnemonic len = do
-    eitherMnemonic <- toMnemonic . BS.pack <$> vectorOf len arbitrary
+    let byteCount = len * 4
+    eitherMnemonic <- toMnemonic . BS.pack <$> vectorOf byteCount arbitrary
     pure . first toText $ BackupPhrase . words <$> eitherMnemonic
 
 -- | Number of words in backup phrase

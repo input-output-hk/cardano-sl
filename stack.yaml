@@ -215,8 +215,3 @@ ghc-options:
   cardano-sl-explorer:   -Werror
   cardano-sl-node:       -Werror
   cardano-sl-wallet-new: -Werror
-
-# The 'swagger2' has a broken Haddock with GHC 8.0. We can remove this flag
-# when we have upgraded to GHC >= 8.2
-build:
-  haddock-hyperlink-source: false

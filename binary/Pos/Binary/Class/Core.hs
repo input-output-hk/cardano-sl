@@ -260,6 +260,7 @@ instance Bi Int64 where
 
 instance Bi Nano where
     encode (MkFixed resolution) = encode resolution
+    encodedSize (MkFixed i) = encodedSize i
     decode = MkFixed <$> decode
 
 instance Bi Void where

@@ -4,6 +4,7 @@ module Test.Pos.Binary.Class.CoreSpec
 
 import           Data.Bits (unsafeShiftR)
 import           Data.Char (GeneralCategory(Surrogate), generalCategory)
+import           Data.Fixed (Fixed (..), Nano)
 import           Test.Hspec (Spec, describe, it)
 import           Test.QuickCheck (Gen, Property, arbitrary, choose, listOf, forAll, oneof, suchThat, (===))
 import           Universum
@@ -125,3 +126,6 @@ spec = describe "Bi" $ do
 
     it "encodedSize Integer" $ encodedSizeProp integerGen
     it "encodedListSize Integer" $ encodedListSizeProp integerGen
+
+    it "encodedSize Nano" $ encodedSizeProp @Nano (MkFixed <$> integerGen)
+    it "encodedListSize Nano" $ encodedListSizeProp @Nano (fromIntegral <$> integerGen)

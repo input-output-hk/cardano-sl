@@ -11,7 +11,6 @@ import           Universum hiding (log)
 
 import           Data.Coerce (coerce)
 import           Data.List (isInfixOf)
-import           Data.List.NonEmpty (fromList)
 
 import           Control.Lens (at, each, filtered, uses, (%=), (+=), (.=), (<>=), (?=))
 import           Test.Hspec
@@ -438,15 +437,17 @@ runAction wc action = do
 
             addressDestination <- pickRandomElement localAddresses
 
-            let paymentDistribution =
+            let paymentDestinations =
                     PaymentDistribution
                         { pdAddress = addrId addressDestination
                         , pdAmount  = V1 moneyAmount
-                        }
+                        } :| []
 
-            let newPayment =  createNewPayment
-                                  paymentSource
-                                  [paymentDistribution]
+            let newPayment = Payment
+                                 paymentSource
+                                 paymentDestinations
+                                 mzero
+                                 mzero
 
             -- Check the transaction fees.
             log $ "getTransactionFee: " <> show newPayment
@@ -458,27 +459,33 @@ runAction wc action = do
 
             -- Check the transaction.
             log $ "postTransaction: " <> show newPayment
-            result  <-  respToRes $ postTransaction wc newPayment
+            newTx  <-  respToRes $ postTransaction wc newPayment
 
-            let expectedAmount =
-                    V1 (mkCoin (getCoin moneyAmount - getCoin (unV1 (feeEstimatedAmount txFees))))
+            let sumCoins f =
+                    sum . map (getCoin . unV1 . pdAmount) . toList $ f newTx
+                inputSum = sumCoins txInputs
+                outputSum = sumCoins txOutputs
+
+            -- Transaction shouldn't produce any money
             checkInvariant
-                (txAmount result == expectedAmount)
-                (InvalidTransactionState result)
+                (inputSum >= outputSum)
+                (InvalidTransactionState newTx)
+
+            let actualFees = V1 . mkCoin $ inputSum - outputSum
+
+            -- Estimated fees should correspond to actual fees
+            -- TODO(akegalj): add custom error type
+            checkInvariant
+                (feeEstimatedAmount txFees == actualFees)
+                (InvalidTransactionState newTx)
+
+            -- TODO(akegalj): add invariant that checks is there paymentDestinations distributions in newTx
+            -- TODO(akegalj): add invariant that checks is paymentSource the only source of newTx
+            -- TODO(akegalj): add invariant that checks did accounts of all payment destinations increase by expected amount
+            -- TODO(akegalj): add invariant that checks did accounts of all payment sources decrease by expected amount
 
             -- Modify wallet state accordingly.
-            transactions  <>= [(accountSource, result)]
-
-          where
-            createNewPayment :: PaymentSource -> [PaymentDistribution] -> Payment
-            createNewPayment ps pd = Payment
-                { pmtSource           = ps
-                , pmtDestinations     = fromList pd
-                , pmtGroupingPolicy   = Nothing
-                -- ^ Simple for now.
-                , pmtSpendingPassword = Nothing
-                }
-
+            transactions  <>= [(accountSource, newTx)]
 
         GetTransaction  -> do
             ws <- get

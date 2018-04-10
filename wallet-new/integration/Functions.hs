@@ -10,7 +10,7 @@ module Functions where
 import           Universum hiding (log)
 
 import           Data.Coerce (coerce)
-import           Data.List (isInfixOf)
+import           Data.List (isInfixOf, (\\))
 
 import           Control.Lens (at, each, filtered, uses, (%=), (+=), (.=), (<>=), (?=))
 import           Test.Hspec
@@ -115,12 +115,14 @@ runAction wc action = do
                         (walBalance result == minBound)
                         (WalletBalanceNotZero result)
 
+                    walletAccounts <- respToRes . getAccounts wc $ walId result
+
                     log $ "New wallet ID: " <> show (walId result)
                     -- Modify wallet state accordingly.
                     wallets    <>= [result]
                     walletsPass . at (walId result) ?= newPassword
-                    -- FIXME: creating a wallet is creating default account. This account should be added to WalletState.
-                    -- FIXME: creating an account is creating default address. This address should be added to WalletState.
+                    accounts   <>= walletAccounts
+                    addresses  <>= concatMap accAddresses walletAccounts
 
                 Left (ClientHttpError (FailureResponse (Response {..})))
                     | "mnemonics" `isInfixOf` show responseBody -> do
@@ -259,8 +261,7 @@ runAction wc action = do
 
             -- Modify wallet state accordingly.
             accounts   <>= [result]
-            -- FIXME: creating a wallet is creating default account. This account should be added to WalletState.
-            -- FIXME: creating an account is creating default address. This address should be added to WalletState.
+            addresses  <>= accAddresses result
           where
             generateNewAccount mpass = do
                 i <- arbitrary
@@ -483,6 +484,16 @@ runAction wc action = do
                 (feeEstimatedAmount txFees == actualFees)
                 (InvalidTransactionState newTx)
 
+            let changeAddress = toList (txOutputs newTx) \\ toList paymentDestinations
+                -- NOTE: instead of this manual conversion we could filter WalletAddress from getAddressIndex
+                pdToChangeAddress PaymentDistribution{..} = WalletAddress pdAddress pdAmount True True
+
+            -- We expect at most one extra PaymentDestination which should be a change address
+            -- TODO(akegalj): add custom error type
+            checkInvariant
+                (length changeAddress <= 1)
+                (InvalidTransactionState newTx)
+
             -- TODO(akegalj): add invariant that checks is there paymentDestinations distributions in newTx
             -- TODO(akegalj): add invariant that checks is paymentSource the only source of newTx
             -- TODO(akegalj): add invariant that checks did accounts of all payment destinations increase by expected amount
@@ -490,7 +501,7 @@ runAction wc action = do
 
             -- Modify wallet state accordingly.
             transactions  <>= [(accountSource, newTx)]
-            -- FIXME: creating transaction is creating return address for most of the transaction (when there is some change to be returned). This address should be added to WalletState.
+            addresses     <>= map pdToChangeAddress changeAddress
 
         GetTransaction  -> do
             ws <- get

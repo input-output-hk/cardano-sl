@@ -4,6 +4,7 @@
 [![Windows build status](https://ci.appveyor.com/api/projects/status/github/input-output-hk/cardano-sl?branch=master&svg=true)](https://ci.appveyor.com/project/input-output/cardano-sl)
 [![Release](https://img.shields.io/github/release/input-output-hk/cardano-sl.svg)](https://github.com/input-output-hk/cardano-sl/releases)
 
+
 ## What is Cardano SL?
 
 Cardano SL (or Cardano Settlement Layer) is a cryptographic currency designed

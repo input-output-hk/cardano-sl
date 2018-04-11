@@ -66,15 +66,8 @@ deterministicTests wc = do
     describe "Addresses" $ do
         it "Creating an address makes it available" $ do
             -- create a wallet
-            newWallet <- generate $
-                NewWallet
-                    <$> arbitrary
-                    <*> pure Nothing
-                    <*> arbitrary
-                    <*> pure "Wallet"
-                    <*> pure CreateWallet
-            result <- fmap wrData <$> postWallet wc newWallet
-            Wallet{..} <- result `shouldPrism` _Right
+            newWallet <- randomWallet
+            Wallet{..} <- createWalletCheck newWallet
 
             -- create an account
             accResp <- postAccount wc walId (NewAccount Nothing "hello")
@@ -98,6 +91,40 @@ deterministicTests wc = do
             addrs' <- wrData <$> addrsResp' `shouldPrism` _Right
 
             addrs `shouldBe` addrs'
+
+    describe "Wallets" $ do
+        it "Creating a wallet makes it available." $ do
+            newWallet <- randomWallet
+            Wallet{..} <- createWalletCheck newWallet
+
+            eresp <- getWallet wc walId
+            void $ eresp `shouldPrism` _Right
+        it "Updating a wallet persists the update" $ do
+            newWallet <- randomWallet
+            wallet <- createWalletCheck newWallet
+            let newName = "Foobar Bazquux"
+                newAssurance = NormalAssurance
+            eupdatedWallet <- updateWallet wc (walId wallet) WalletUpdate
+                { uwalName = newName
+                , uwalAssuranceLevel = newAssurance
+                }
+            Wallet{..} <- wrData <$> eupdatedWallet `shouldPrism` _Right
+            walName `shouldBe` newName
+            walAssuranceLevel `shouldBe` newAssurance
+
+  where
+    randomWallet =
+        generate $
+            NewWallet
+                <$> arbitrary
+                <*> pure Nothing
+                <*> arbitrary
+                <*> pure "Wallet"
+                <*> pure CreateWallet
+    createWalletCheck newWallet = do
+        result <- fmap wrData <$> postWallet wc newWallet
+        result `shouldPrism` _Right
+
 
 shouldPrism :: Show s => s -> Prism' s a -> IO a
 shouldPrism a b = do

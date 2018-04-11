@@ -450,11 +450,12 @@ runAction wc action = do
                         , pdAmount  = V1 moneyAmount
                         } :| []
 
+            walletPass <- use (walletsPass . at (accWalletId accountSource))
             let newPayment = Payment
                                  paymentSource
                                  paymentDestinations
                                  mzero
-                                 mzero
+                                 walletPass
 
             -- Check the transaction fees.
             log $ "getTransactionFee: " <> show newPayment

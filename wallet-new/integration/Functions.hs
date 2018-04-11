@@ -118,6 +118,8 @@ runAction wc action = do
                     walletAccounts <- respToRes . getAccounts wc $ walId result
 
                     log $ "New wallet ID: " <> show (walId result)
+                    log $ "New accounts: " <> show walletAccounts
+
                     -- Modify wallet state accordingly.
                     wallets    <>= [result]
                     walletsPass . at (walId result) ?= newPassword
@@ -364,8 +366,9 @@ runAction wc action = do
             -- We choose from the existing wallets AND existing accounts.
             account <-  pickRandomElement localAccounts
             let walletId = accWalletId account
+            walletPass <- use (walletsPass . at walletId)
 
-            let newAddress = createNewAddress walletId (accIndex account)
+            let newAddress = NewAddress walletPass (accIndex account) walletId
 
             -- We don't want to create a new address in genesis wallet (although it should be safe)
             walletIdIsNotGenesis walletId
@@ -381,13 +384,6 @@ runAction wc action = do
             addresses  <>= [result]
             accounts . traverse . filtered (== account) %= \acct ->
                 acct { accAddresses = accAddresses acct <> [result] }
-          where
-            createNewAddress :: WalletId -> AccountIndex -> NewAddress
-            createNewAddress wId accIndex = NewAddress
-                { newaddrSpendingPassword = Nothing
-                , newaddrAccountIndex     = accIndex
-                , newaddrWalletId         = wId
-                }
 
         GetAddresses   -> do
             -- We choose one address, we could choose all of them.

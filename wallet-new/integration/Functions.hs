@@ -426,6 +426,7 @@ runAction wc action = do
             accountSource <- pickRandomElement localAccsWithMoney
 
             let accountSourceMoney = accAmount accountSource
+                withoutSourceAddresses = filter (`notElem` accAddresses accountSource) localAddresses
 
             -- We should probably have a sensible minimum value.
             moneyAmount <- liftIO . fmap mkCoin . generate
@@ -441,7 +442,7 @@ runAction wc action = do
                         , psAccountIndex = accIndex    accountSource
                         }
 
-            addressDestination <- pickRandomElement localAddresses
+            addressDestination <- pickRandomElement withoutSourceAddresses
 
             let paymentDestinations =
                     PaymentDistribution

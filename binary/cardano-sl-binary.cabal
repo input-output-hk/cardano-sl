@@ -92,11 +92,15 @@ test-suite cardano-sl-binary-test
   type:               exitcode-stdio-1.0
   build-depends:      base
                     , cardano-sl-binary
+                    , containers
                     , bytestring
                     , hspec
+                    , hashable
                     , tagged
                     , text
                     , universum
+                    , unordered-containers
+                    , vector
                     , QuickCheck
   hs-source-dirs:     test
   default-language:   Haskell2010

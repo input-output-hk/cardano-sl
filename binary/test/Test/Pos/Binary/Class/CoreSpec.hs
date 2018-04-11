@@ -1,3 +1,5 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
 module Test.Pos.Binary.Class.CoreSpec
     ( spec
     ) where
@@ -7,18 +9,26 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BS.Lazy
 import           Data.Char (GeneralCategory(Surrogate), generalCategory)
 import           Data.Fixed (Fixed (..), Nano)
+import           Data.Hashable (Hashable)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet as HS
+import qualified Data.Map as M
 import           Data.Tagged (Tagged (..))
 import           Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Vector as V
 import           Test.Hspec (Spec, describe, it)
-import           Test.QuickCheck (Gen, Property, arbitrary, choose, listOf, forAll, oneof, suchThat, (===))
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, arbitrary, choose, listOf, forAll, oneof, resize, sized, suchThat, (===))
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), serialize)
 
 
 encodedSizeProp :: forall a. (Bi a, Show a) => Gen a -> Property
-encodedSizeProp gen = forAll gen $ \a ->
+encodedSizeProp gen = forAll gen encodedSizeProp'
+
+encodedSizeProp' :: forall a. (Bi a, Show a) => a -> Property
+encodedSizeProp' a =
     encodedSize a === fromIntegral (length $ serialize a)
 
 encodedListSizeProp :: forall a. (Bi a, Show a) => Gen a -> Property
@@ -101,6 +111,55 @@ floatGen = oneof
     , choose (10.0**8, 10.0**9)
     ]
 
+-- | Newtype wrapper for arbitrary instance
+newtype HashMapA k v = HashMapA (HM.HashMap k v)
+    deriving (Show)
+
+deriving instance (Bi k, Bi v, Hashable k, Ord k) => Bi (HashMapA k v)
+
+instance (Arbitrary k, Arbitrary v, Hashable k, Eq k) => Arbitrary (HashMapA k v) where
+    arbitrary = sized $ \size ->
+        HashMapA . HM.fromList <$> replicateM size arbitrary
+    shrink (HashMapA a) =
+        let l = HM.toList a
+        in map (HashMapA . HM.fromList) $ shrink l
+
+newtype HashSetA k = HashSetA (HS.HashSet k)
+    deriving (Show)
+
+deriving instance (Bi k, Hashable k, Ord k) => Bi (HashSetA k)
+
+instance (Arbitrary k, Hashable k, Eq k) => Arbitrary (HashSetA k) where
+    arbitrary = sized $ \size ->
+        HashSetA . HS.fromList <$> replicateM size arbitrary
+    shrink (HashSetA a) =
+        let l = HS.toList a
+        in map (HashSetA . HS.fromList) $ shrink l
+
+newtype MapA k v = MapA (M.Map k v)
+    deriving (Show)
+
+deriving instance (Bi k, Bi v, Ord k) => Bi (MapA k v)
+
+instance (Arbitrary k, Arbitrary v, Hashable k, Ord k) => Arbitrary (MapA k v) where
+    arbitrary = sized $ \size ->
+        MapA . M.fromList <$> replicateM size arbitrary
+    shrink (MapA a) =
+        let l = M.toList a
+        in map (MapA . M.fromList) $ shrink l
+
+newtype VectorA k = VectorA (V.Vector k)
+    deriving (Show)
+
+deriving instance (Bi k) => Bi (VectorA k)
+
+instance (Arbitrary k) => Arbitrary (VectorA k) where
+    arbitrary = sized $ \size ->
+        VectorA . V.fromList <$> replicateM size arbitrary
+    shrink (VectorA a) =
+        let l = V.toList a
+        in map (VectorA . V.fromList) (shrink l)
+
 spec :: Spec
 spec = describe "Bi" $ do
     it "encodedSize ()" $ encodedSizeProp @() arbitrary
@@ -178,3 +237,20 @@ spec = describe "Bi" $ do
 
     it "encodedSize (Maybe Word8)" $ encodedSizeProp @(Maybe Word8) arbitrary
     it "encodedListSize (Maybe Word8)" $ encodedListSizeProp @(Maybe Word8) arbitrary
+
+    it "encodedSize (HashMap Int Char)" $ encodedSizeProp @(HashMapA Int Char) (resize 0x200 arbitrary)
+    -- test one value that is greater than 0xffff
+    it "encodedSize (HashMap Integer Integer) (big)" $ encodedSizeProp' @(HashMapA Integer Integer) (HashMapA $ HM.fromList $ map (\x -> (x,x)) $ take 0x11000 [1..])
+    it "encodedListSize (HashMap Int Char)" $ encodedListSizeProp @(HashMapA Int Char) arbitrary
+
+    it "encodedSize (HashSet Char)" $ encodedSizeProp @(HashSetA Char) (resize 0x200 arbitrary)
+    -- test one value that is greater than 0xffff
+    it "encodedSize (HashSet Integer) (big)" $ encodedSizeProp' @(HashSetA Integer) (HashSetA $ HS.fromList $ take 0x11000 [1..])
+    it "encodedListSize (HashSet Char)" $ encodedListSizeProp @(HashSetA Char) arbitrary
+
+    it "encodedSize (Map Int Char)" $ encodedSizeProp @(MapA Int Char) arbitrary
+    it "encodedSize (Map Int Char) (big)" $ encodedSizeProp' @(MapA Integer Integer) (MapA $ M.fromList $ map (\x -> (x,x)) $ take 0x11000 [1..])
+    it "encodedListSize (Map Int Char)" $ encodedListSizeProp @(MapA Int Char) arbitrary
+
+    it "encodedSize (Vector Int)" $ encodedSizeProp @(VectorA Int) arbitrary
+    it "encodedListSize (Vector Int)" $ encodedListSizeProp @(VectorA Int) arbitrary

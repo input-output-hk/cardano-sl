@@ -28,6 +28,8 @@ import           Formatting (bprint, build, int, sformat, shown, stext, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Pipes (await, runEffect, (>->))
 import           Serokell.Util.Text (listJson)
+import           System.Metrics.Gauge (Gauge)
+import qualified System.Metrics.Gauge as Gauge
 
 import           Pos.Binary.Communication ()
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
@@ -47,7 +49,7 @@ import           Pos.Core (BlockVersionData, HeaderHash, ProtocolConstants (..),
 import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
-import           Pos.Diffusion.Types (StreamEntry (..))
+import           Pos.Diffusion.Types (StreamEntry (..), DiffusionHealth (..))
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 import           Pos.Logic.Types (Logic)
 import qualified Pos.Logic.Types as Logic
@@ -269,19 +271,21 @@ getBlocks logTrace logic recoveryHeadersMessage enqueue nodeId tipHeaderHash che
 streamBlocks
     :: forall t .
        Trace IO (Severity, Text)
+    -> Maybe DiffusionHealth
     -> Logic IO
     -> Word32
     -> EnqueueMsg
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]
-    -> (Conc.TBQueue StreamEntry -> IO t)
+    -> ((Maybe Gauge, Conc.TBQueue StreamEntry) -> IO t)
     -> IO t
-streamBlocks logTrace logic streamWindow enqueue nodeId tipHeader checkpoints k = do
+streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoints k = do
     blockChan <- atomically $ Conc.newTBQueue $ fromIntegral streamWindow
     -- TODO if the request ends early, it should signal that via the channel.
     requestVar <- requestBlocks blockChan
-    k blockChan `finally` (join $ atomically $ do
+    let wqgM = dhStreamWriteQueue <$> smM
+    k (wqgM, blockChan) `finally` (join $ atomically $ do
         status <- Conc.readTVar requestVar
         case status of
             OQ.PacketAborted -> pure (pure ())
@@ -357,6 +361,11 @@ streamBlocks logTrace logic streamWindow enqueue nodeId tipHeader checkpoints k 
              MsgStreamBlock b -> do
                  -- traceWith logTrace (Debug, sformat ("Read block "%shortHashF) (headerHash b))
                  atomically $ Conc.writeTBQueue blockChan (StreamBlock b)
+                 case smM of
+                      Nothing -> pure ()
+                      Just sm -> do
+                          Gauge.inc $ dhStreamWriteQueue sm
+                          Gauge.set (dhStreamWindow sm) (fromIntegral window')
                  retrieveBlocks bvd blockChan conv window'
 
     retrieveBlock

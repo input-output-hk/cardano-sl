@@ -8,12 +8,14 @@ module Pos.Diffusion.Types
     , hoistDiffusion
     , dummyDiffusionLayer
     , StreamEntry (..)
+    , DiffusionHealth (..)
     ) where
 
 import           Universum
 import           Control.Concurrent.STM           (TBQueue)
 import           Data.Map.Strict                  (Map)
 import qualified Data.Map.Strict                  as Map
+import           System.Metrics.Gauge (Gauge)
 
 import           Formatting                       (Format)
 import           Pos.Communication.Types.Protocol (NodeId)
@@ -39,6 +41,11 @@ instance Semigroup SubscriptionStatus where
 
 data StreamEntry = StreamEnd | StreamBlock Block
 
+data DiffusionHealth = DiffusionHealth {
+    dhStreamWriteQueue :: Gauge
+  , dhStreamWindow     :: Gauge
+  }
+
 -- | The interface to a diffusion layer, i.e. some component which takes care
 -- of getting data in from and pushing data out to a network.
 data Diffusion m = Diffusion
@@ -53,7 +60,7 @@ data Diffusion m = Diffusion
                             NodeId
                          -> HeaderHash
                          -> [HeaderHash]
-                         -> (TBQueue StreamEntry -> m t)
+                         -> ((Maybe Gauge, TBQueue StreamEntry) -> m t)
                          -> m t
       -- | This is needed because there's a security worker which will request
       -- tip-of-chain from the network if it determines it's very far behind.

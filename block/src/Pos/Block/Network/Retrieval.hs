@@ -4,6 +4,7 @@
 
 module Pos.Block.Network.Retrieval
        ( retrievalWorker
+       , streamProcessBlocks -- XXX
        ) where
 
 import           Universum
@@ -17,6 +18,7 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Second)
 import           Formatting (build, int, sformat, (%))
 import           Mockable (delay)
+import qualified System.Metrics.Gauge as Gauge
 import           System.Wlog (logDebug, logError, logInfo, logWarning, logNotice)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
@@ -168,6 +170,7 @@ retrievalWorkerImpl diffusion = do
         logNotice "handleRecovery: fetching blocks"
         checkpoints <- reverse <$> toList <$> getHeadersOlderExp Nothing
         void $ streamProcessBlocks diffusion nodeId (headerHash rHeader) checkpoints
+        --void $ getProcessBlocks diffusion nodeId (headerHash rHeader) checkpoints
 
 ----------------------------------------------------------------------------
 -- Entering and exiting recovery mode
@@ -320,10 +323,12 @@ streamProcessBlocks
     -> [HeaderHash]
     -> m ()
 streamProcessBlocks diffusion nodeId desired checkpoints = do
+    logNotice "streaming start"
     !_ <- Diffusion.streamBlocks diffusion nodeId desired checkpoints (loop (0::Int) [])
+    logNotice "streaming done"
     return ()
   where
-    loop n blocks blockChan = do
+    loop n blocks (wqgM, blockChan) = do
         streamEntry <- atomically $ readTBQueue blockChan
         case streamEntry of
           StreamEnd         -> addBlocks blocks
@@ -332,13 +337,16 @@ streamProcessBlocks diffusion nodeId desired checkpoints = do
               when (n' `mod` 256 == 0) $
                      logInfo $ sformat ("Read block "%shortHashF%" difficulty "%int) (headerHash block)
                                         (block ^. difficultyL)
+              case wqgM of
+                   Nothing -> pure ()
+                   Just wqg -> liftIO $ Gauge.dec wqg
 
               if n' `mod` 64 == 0
                  then do
                      addBlocks (block : blocks)
-                     loop n' [] blockChan
+                     loop n' [] (wqgM, blockChan)
                  else
-                     loop n' (block : blocks) blockChan
+                     loop n' (block : blocks) (wqgM, blockChan)
 
     addBlocks [] = return ()
     addBlocks (block : blocks) =

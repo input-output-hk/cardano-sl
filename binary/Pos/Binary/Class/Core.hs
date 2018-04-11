@@ -278,6 +278,7 @@ instance Bi Void where
 
 instance (Typeable s, Bi a) => Bi (Tagged s a) where
     encode (Tagged a) = encode a
+    encodedSize (Tagged a) = encodedSize a
     decode = Tagged <$> decode
 
 ----------------------------------------------------------------------------

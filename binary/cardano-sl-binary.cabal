@@ -94,6 +94,7 @@ test-suite cardano-sl-binary-test
                     , cardano-sl-binary
                     , bytestring
                     , hspec
+                    , tagged
                     , universum
                     , QuickCheck
   hs-source-dirs:     test

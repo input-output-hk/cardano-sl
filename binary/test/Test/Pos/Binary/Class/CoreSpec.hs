@@ -5,6 +5,7 @@ module Test.Pos.Binary.Class.CoreSpec
 import           Data.Bits (unsafeShiftR)
 import           Data.Char (GeneralCategory(Surrogate), generalCategory)
 import           Data.Fixed (Fixed (..), Nano)
+import           Data.Tagged (Tagged (..))
 import           Test.Hspec (Spec, describe, it)
 import           Test.QuickCheck (Gen, Property, arbitrary, choose, listOf, forAll, oneof, suchThat, (===))
 import           Universum
@@ -139,3 +140,6 @@ spec = describe "Bi" $ do
 
     it "encodedSize Float" $ encodedSizeProp floatGen
     it "encodedListSize Float" $ encodedListSizeProp floatGen
+
+    it "encodedSize Tagged" $ encodedSizeProp @(Tagged Void Char) (Tagged <$> charGen)
+    it "encodedListSize Tagged" $ encodedListSizeProp @(Tagged Void Char) (Tagged <$> charGen)

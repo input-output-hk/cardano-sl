@@ -17,7 +17,6 @@ cleanState()
 {
     rm -rf $tmpSecrets
     tmux kill-session -t $sessionName
-    exit 1
 }
 trap "cleanState" ERR
 

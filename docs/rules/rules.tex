@@ -43,6 +43,7 @@
 \newcommand{\id}{\mathsf{id}}
 \newcommand{\txs}{\mathcal{T}}
 \newcommand{\txids}{\idsof{\txs}}
+\newcommand{\txinit}{\txs_{\!\mathsf{init}}}
 \newcommand{\blocks}{\mathcal{B}}
 \newcommand{\blockids}{\idsof{\blocks}}
 \newcommand{\agentids}{\idsof{\mathcal{A}}}
@@ -210,6 +211,14 @@ as it is.\improvement{We may want to add something about protocol
     the (abstract represention of) the transaction. This may create
     mismatches in tests.}
 
+\item[Initial transactions] We assume a finite subset $\txinit ⊆ \txs$
+  of transactions. The intent behind $\txinit$ is that these
+  transactions are present ``in the initial state''. They represent
+  the initial assets in the system. Their inputs are
+  meaningless.\improvement{We may want to compute the initial
+    distribution based on $\txinit$.}\improvement{This doesn't model
+    the ATRedeem story. Does it matter?}
+
 \item[Block] Blocks have a system of identifier $\blockids$. There is
   a distinguished $b_0∈ \blockids$, called the genesis identifier,
   which is not in the image of $\id$.
@@ -288,7 +297,7 @@ $b_1,…,b_n$ if all of the following hold
       not take into account the utxos in the initial state. It should
       be specified.}
       \begin{itemize}
-      \item $\intrans{i}∈\overline{τ}$
+      \item $\intrans{i}∈\overline{τ}$ or $\intrans{i} ∈ \txinit$
       \item $\outputs{\intrans{i}}=t₁,…,t_k$, $\inindex{i} ⩽ k$
       \item for each $t ∈ \overline{τ}$, $i ∉ \inputs{t}$.
       \end{itemize}

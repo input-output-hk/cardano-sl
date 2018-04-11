@@ -327,14 +327,24 @@ instance (Bi a, Bi b, Bi c, Bi d) => Bi (a,b,c,d) where
 
 instance Bi BS.ByteString where
     encode = E.encodeBytes
+    encodedSize a =
+        let len = BS.length a
+        -- size of a header plus length of the @'ByteString'@
+        in withSize len 1 2 3 5 9 + fromIntegral len
     decode = D.decodeBytesCanonical
 
 instance Bi Text.Text where
     encode = E.encodeString
+    -- compute size of `Text` via `String` using `Bi Char` `encodedListSize`
+    encodedSize = encodedListSize . Text.unpack
     decode = D.decodeStringCanonical
 
 instance Bi BS.Lazy.ByteString where
     encode = encode . BS.Lazy.toStrict
+    encodedSize a =
+        let len = BS.Lazy.length a
+        -- size of a header plus length of the @'ByteString'@
+        in withSize len 1 2 3 5 9 + fromIntegral len
     decode = BS.Lazy.fromStrict <$> decode
 
 instance Bi a => Bi [a] where

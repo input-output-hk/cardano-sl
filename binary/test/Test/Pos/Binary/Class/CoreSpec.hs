@@ -3,9 +3,13 @@ module Test.Pos.Binary.Class.CoreSpec
     ) where
 
 import           Data.Bits (unsafeShiftR)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BS.Lazy
 import           Data.Char (GeneralCategory(Surrogate), generalCategory)
 import           Data.Fixed (Fixed (..), Nano)
 import           Data.Tagged (Tagged (..))
+import           Data.Text (Text)
+import qualified Data.Text as T
 import           Test.Hspec (Spec, describe, it)
 import           Test.QuickCheck (Gen, Property, arbitrary, choose, listOf, forAll, oneof, suchThat, (===))
 import           Universum
@@ -152,3 +156,12 @@ spec = describe "Bi" $ do
 
     it "encodedSize (Float, Integer, Word32, Char)" $ encodedSizeProp $ (,,,) <$> floatGen <*> integerGen <*> word32Gen <*> charGen
     it "encodedListSize (Float, Integer, Word32, Char)" $ encodedListSizeProp $ (,,,) <$> floatGen <*> integerGen <*> word32Gen <*> charGen
+
+    it "encodedSize ByteString" $ encodedSizeProp (BS.pack <$> listOf arbitrary)
+    it "encodedListSize ByteString" $ encodedListSizeProp (BS.pack <$> listOf arbitrary)
+
+    it "encodedSize Lazy.ByteString" $ encodedSizeProp (BS.Lazy.pack <$> listOf arbitrary)
+    it "encodedListSize Lazy.ByteString" $ encodedListSizeProp (BS.Lazy.pack <$> listOf arbitrary)
+
+    it "encodedSize Text" $ encodedSizeProp @Text (T.pack <$> listOf charGen)
+    it "encodedListSize Text" $ encodedListSizeProp @Text (T.pack <$> listOf charGen)

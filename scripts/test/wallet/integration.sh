@@ -17,6 +17,7 @@ cleanState()
 {
     rm -rf $tmpSecrets
     tmux kill-session -t $sessionName
+    exit 1
 }
 trap "cleanState" ERR
 
@@ -35,8 +36,8 @@ echo "Starting local cardano cluster..."
 tmux new-session -s $sessionName -d "WALLET_DEBUG=1 scripts/launch/demo-with-wallet-api.sh"
 
 # wait until cluster is fully up and running
-echo "Waiting 40 seconds until local cluster is ready..."
-sleep 40s
+echo "Waiting 120 seconds until local cluster is ready..."
+sleep 120s
 
 # import keys
 echo "Importing poor HD key/wallet..."
@@ -57,4 +58,6 @@ stack exec -- cardano-integration-test || {
 if [[ $FAILED == 0 ]]; then
     echo "Shutting down cardano cluster..."
     cleanState
+else
+    exit 1
 fi

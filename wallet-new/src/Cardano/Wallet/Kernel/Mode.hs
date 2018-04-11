@@ -39,7 +39,6 @@ import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.WorkMode
 
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer(..))
---import           Cardano.Wallet.Kernel (PassiveWallet, applyBlocks)
 import           Cardano.Wallet.Kernel.Types (ResolvedBlock, mkResolvedBlock)
 import qualified Data.List.NonEmpty as NE
 import           Data.Maybe (fromJust)

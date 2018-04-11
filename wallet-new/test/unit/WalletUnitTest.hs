@@ -8,7 +8,7 @@ module Main (main) where
 import qualified Data.Set as Set
 import           Data.List((!!))
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, sformat, shown, (%))
+import           Formatting (bprint, build, sformat, shown, (%), formatToString)
 import           Serokell.Util (mapJson, listJson)
 import           Test.Hspec.QuickCheck
 import           Universum
@@ -45,6 +45,8 @@ import qualified Wallet.Rollback.Full  as Full
 
 import           UTxO.Crypto
 
+import           Prelude (Show (..))
+
 {-------------------------------------------------------------------------------
   Main test driver
 -------------------------------------------------------------------------------}
@@ -79,22 +81,32 @@ tests = describe "Wallet unit tests" $ do
   Utils
 -------------------------------------------------------------------------------}
 
-dslToCardanoUtxo :: IntCtxt GivenHash -> Utxo GivenHash Addr -> Cardano.Utxo
-dslToCardanoUtxo intCtxt dslUtxo = runTranslate $ do
-        (utxo', _) <- runIntT intCtxt dslUtxo
-        return utxo'
+dslToCardanoUtxo :: IntCtxt GivenHash -> Utxo GivenHash Addr -> ValidatedT Cardano.Utxo
+dslToCardanoUtxo intCtxt dslUtxo = do
+    res <- catchTranslateErrors $ runIntT intCtxt dslUtxo
+    case res of
+        Left e -> throwError $ EqViolationIntEx e
+        Right (utxo', _) ->
+            return utxo'
 
-dslToCardanoBlock :: IntCtxt GivenHash -> UTxO.DSL.Block GivenHash Addr -> ResolvedBlock
-dslToCardanoBlock intCtxt b = runTranslate $ do
-        (resolvedBlocks, _) <- runIntT intCtxt chain
-        return $ fromJust . head . getOldestFirst $ resolvedBlocks
-        where blocks = OldestFirst [b]
-              chain = Chain blocks
+dslToCardanoBlock :: IntCtxt GivenHash -> UTxO.DSL.Block GivenHash Addr -> ValidatedT ResolvedBlock
+dslToCardanoBlock intCtxt b = do
+    res <- catchTranslateErrors $ runIntT intCtxt chain
+    case res of
+        Left e -> throwError $ EqViolationIntEx e
+        Right (resolvedBlocks, _) ->
+            return $ fromJust . head . getOldestFirst $ resolvedBlocks
 
-dslToCardanoTxAux :: IntCtxt GivenHash -> UTxO.DSL.Transaction GivenHash Addr -> TxAux
-dslToCardanoTxAux intCtxt t = runTranslate $ do
-        (rawResolvedTx, _) <- runIntT intCtxt t
-        return $ fst rawResolvedTx
+    where blocks = OldestFirst [b]
+          chain = Chain blocks
+
+dslToCardanoTxAux :: IntCtxt GivenHash -> UTxO.DSL.Transaction GivenHash Addr -> ValidatedT TxAux
+dslToCardanoTxAux intCtxt t = do
+    res <- catchTranslateErrors $ runIntT intCtxt t
+    case res of
+        Left e -> throwError $ EqViolationIntEx e
+        Right (rawResolvedTx, _) ->
+            return $ fst rawResolvedTx
 
 getFirstPoorActorESK :: C.EncryptedSecretKey
 getFirstPoorActorESK
@@ -136,15 +148,15 @@ testTranslation = do
 {-------------------------------------------------------------------------------
   Pure wallet tests
 -------------------------------------------------------------------------------}
-walletEquivalent' :: HasConfiguration => TransCtxt
-                 -> Kernel.ActiveWallet
+walletEquivalent' :: HasConfiguration
+                 => Kernel.ActiveWallet
                  -> (Transaction GivenHash Addr -> Wallet GivenHash Addr)
                  -> Inductive GivenHash Addr
                  -> ValidatedT ()
-walletEquivalent' transCtxt cardanoW mkDSLWallet ind
+walletEquivalent' cardanoW mkDSLWallet ind
     = do
-        liftIO $ putText "New GenInductive Test"
-        interpret' transCtxt cardanoW mkDSLWallet p ind
+        lift $ putText "New GenInductive Test"
+        interpret' cardanoW mkDSLWallet p ind
   where
     p :: Inductive GivenHash Addr
       -> IntCtxt GivenHash
@@ -168,9 +180,10 @@ walletEquivalent' transCtxt cardanoW mkDSLWallet ind
     cmpUtxo ind' intCtxt dslW = do
         let cardanoPassiveW = Kernel.getPassiveWallet cardanoW
             dslUtxo = utxo dslW
-            dslUtxoAsCardano = dslToCardanoUtxo intCtxt dslUtxo
 
-        cardanoUtxo <- liftIO $ Kernel.getWalletUtxo cardanoPassiveW
+        dslUtxoAsCardano <- dslToCardanoUtxo intCtxt dslUtxo
+
+        cardanoUtxo <- lift $ Kernel.getWalletUtxo cardanoPassiveW
         checkEq "UTXO" ind' intCtxt dslUtxo dslUtxoAsCardano cardanoUtxo
 
     cmpPending :: Inductive GivenHash Addr
@@ -180,9 +193,11 @@ walletEquivalent' transCtxt cardanoW mkDSLWallet ind
     cmpPending ind' intCtxt dslW = do
         let cardanoPassiveW = Kernel.getPassiveWallet cardanoW
             dslPending = pending dslW
-            dslPendingAsCardano = Set.map (dslToCardanoTxAux intCtxt) dslPending
 
-        cardanoPending <- liftIO $ Kernel.getWalletPending cardanoPassiveW
+        dslPendingAsCardano <- Set.fromList <$>
+                                   mapM (dslToCardanoTxAux intCtxt) (Set.toList dslPending)
+
+        cardanoPending <- lift $ Kernel.getWalletPending cardanoPassiveW
         checkEq "PENDING" ind' intCtxt dslPending dslPendingAsCardano cardanoPending
 
     checkEq :: forall a b. (Buildable a, Buildable b, Eq b)
@@ -194,23 +209,12 @@ walletEquivalent' transCtxt cardanoW mkDSLWallet ind
     checkEq lbl ind' intCtxt dslVal dslAsCardanoVal cardanoVal
         = if dslAsCardanoVal == cardanoVal
             then do
-                liftIO $ putText $ "inductive step... ok"
+                lift $ putText $ "inductive step... ok"
                 return ()
-            else do
-                    liftIO $ putText $ "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                    liftIO $ putText lbl
-                    liftIO $ putText $ "DSL VAL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                    liftIO $ putText $ sformat build dslVal
-                    liftIO $ putText $ "DSL AS CARDANO VAL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                    liftIO $ putText $ sformat build dslAsCardanoVal
-                    liftIO $ putText $ "CARDANO VAL!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                    liftIO $ putText $ sformat build cardanoVal
+            else throwError $
+                     eqViolation lbl ind' (EqViolationEvidence intCtxt dslVal dslAsCardanoVal cardanoVal)
 
-                    throwError $
-                        eqViolation lbl ind'
-                                    (EqViolationEvidence intCtxt dslVal dslAsCardanoVal cardanoVal)
-
-type ValidatedT a = ExceptT EqViolation IO a
+type ValidatedT a = TranslateT EqViolation IO a
 
 data EqViolation = EqViolation {
     eqViolationName :: Text
@@ -221,8 +225,11 @@ data EqViolation = EqViolation {
     -- | The 'Inductive' value at the point of the error
   , eqViolationInductive :: Inductive GivenHash Addr
   }
+  | EqViolationIntEx IntException -- Interpretation Exception
 
-data EqViolationEvidence = forall a b. EqViolationEvidence {
+instance Exception EqViolation
+
+data EqViolationEvidence = forall a b. (Buildable a, Buildable b) => EqViolationEvidence {
     _eveIntCtxt :: IntCtxt GivenHash
   , _eveDslVal :: a
   , _eveDslAsCardanoVal :: b
@@ -243,8 +250,8 @@ eqViolation name ind ev = EqViolation {
 --
 -- Given a Cardano Active Wallet and Spec Wallet, evaluate an 'Inductive' wallet
 -- in both DSL and Cardano worlds, comparing the wallets at each step.
-interpret' :: HasConfiguration => TransCtxt
-          -> Kernel.ActiveWallet
+interpret' :: HasConfiguration
+          => Kernel.ActiveWallet
           -- ^ "Cardano Wallet"
           -> (Transaction GivenHash Addr -> Wallet GivenHash Addr)
           -- ^ "DSL Wallet" Builder
@@ -255,7 +262,7 @@ interpret' :: HasConfiguration => TransCtxt
           -> Inductive GivenHash Addr
           -- ^ 'Inductive' value to interpret
           -> ValidatedT ()
-interpret' _transCtxt cardanoW mkDSLWallet' pCheckEqual ind'
+interpret' cardanoW mkDSLWallet' pCheckEqual ind'
       = void $ go ind'
       where
         cardanoPassiveW = Kernel.getPassiveWallet cardanoW
@@ -272,8 +279,8 @@ interpret' _transCtxt cardanoW mkDSLWallet' pCheckEqual ind'
           let intCtxt = initIntCtxt t
 
           -- Cardano Wallet Boot
-          let cardanoUtxo = dslToCardanoUtxo intCtxt dslUtxo
-          liftIO $ Kernel.init cardanoPassiveW cardanoUtxo
+          cardanoUtxo <- dslToCardanoUtxo intCtxt dslUtxo
+          lift $ Kernel.init cardanoPassiveW cardanoUtxo
 
           pCheckEqual ind intCtxt dslW
           return (intCtxt,dslW)
@@ -287,8 +294,8 @@ interpret' _transCtxt cardanoW mkDSLWallet' pCheckEqual ind'
           let intCtxt' = pushAll (toList b) intCtxt
 
           -- Cardano applyBlock
-          let cardanoBlock = dslToCardanoBlock intCtxt' b
-          liftIO $ Kernel.applyBlock cardanoPassiveW cardanoBlock
+          cardanoBlock <- dslToCardanoBlock intCtxt' b
+          lift $ Kernel.applyBlock cardanoPassiveW cardanoBlock
 
           pCheckEqual ind intCtxt' dslW'
           return (intCtxt', dslW')
@@ -299,8 +306,8 @@ interpret' _transCtxt cardanoW mkDSLWallet' pCheckEqual ind'
           dslW' <- verifyNew ind intCtxt t dslW
 
           -- Cardano New Pending
-          let cardanoTx = dslToCardanoTxAux intCtxt t
-          _ <- liftIO $ Kernel.newPending cardanoW cardanoTx
+          cardanoTx <- dslToCardanoTxAux intCtxt t
+          _ <- lift $ Kernel.newPending cardanoW cardanoTx
 
           pCheckEqual ind intCtxt dslW'
           return (intCtxt, dslW')
@@ -318,23 +325,13 @@ interpret' _transCtxt cardanoW mkDSLWallet' pCheckEqual ind'
             Just w' -> return w'
             Nothing -> throwError $
                            eqViolation "DSL NewPending" ind
-                           (EqViolationEvidence intCtxt (tx, w) [] [])
+                            (EqViolationEvidence intCtxt tx () ()) -- (tx, w)
                            -- TODO create DSLError... generalise "ValidatedT e a"
 
 newtype InductiveWithCtxt
     = InductiveWithCtxt (InductiveWithOurs GivenHash Addr,
                          TransCtxt,
                          C.EncryptedSecretKey)
-
-instance Buildable InductiveWithCtxt where
-  build (InductiveWithCtxt (ind, _, _)) = bprint ("InductiveWithCtxt " % build) ind
-
-instance Buildable Cardano.Utxo where
-    --build utxo' = bprint ("Actual utxo is: " %Cardano.utxoF) utxo'
-    build = Cardano.formatUtxo
-
-instance Buildable Kernel.Pending where
-    build = bprint listJson . Set.toList
 
 testPureWallets :: HasConfiguration => Spec
 testPureWallets =
@@ -370,14 +367,10 @@ testPureWallets =
                     -> Expectation
     checkEquivalent transCtxt cardanoW (InductiveWithOurs addrs ind)
         = do
-            res <- runExceptT $ -- TODO runTranslateT
-                        walletEquivalent' transCtxt cardanoW (mkDSLWallet transCtxt addrs) ind
+            res <- runTranslateT $
+                      walletEquivalent' cardanoW (mkDSLWallet transCtxt addrs) ind
 
-            let resBool = case res of
-                            Left _ -> False
-                            Right _ -> True
-
-            shouldBe resBool True
+            shouldBe res ()
 
     mkDSLWallet :: TransCtxt -> Set Addr -> Transaction GivenHash Addr -> Wallet GivenHash Addr
     mkDSLWallet transCtxt = walletBoot Base.walletEmpty . (oursFromSet transCtxt)
@@ -793,3 +786,49 @@ instance (Hash h a, Buildable a) => Buildable (Disagreement h a) where
       utxoDsl
       utxoCardano
       utxoInt
+
+instance Buildable InductiveWithCtxt where
+    build (InductiveWithCtxt (ind, _, _)) = bprint ("InductiveWithCtxt " % build) ind
+
+instance Buildable Cardano.Utxo where
+  build = Cardano.formatUtxo
+
+instance Buildable Kernel.Pending where
+  build = bprint listJson . Set.toList
+
+instance Buildable EqViolation where
+    build (EqViolation{..}) = bprint
+        ( "EqViolation "
+        % "{ lbl:      "  % build
+        % ", evidence: "  % build
+        % ", inductive: " % build
+        % "}"
+        )
+        eqViolationName
+        eqViolationEvidence
+        eqViolationInductive
+
+    build (EqViolationIntEx intEx) = bprint
+        ( "EqViolationIntEx "
+        % "{ IntException:      "  % build
+        % "}"
+        )
+        intEx
+
+instance Buildable EqViolationEvidence where
+  build (EqViolationEvidence{..}) = bprint
+    ( "EqViolationEvidence "
+    % "{ dslVal:          " % build
+    % ", dslAsCardanoVal: " % build
+    % ", cardanoVal:      " % build
+    % "}"
+    )
+    _eveDslVal
+    _eveDslAsCardanoVal
+    _eveCardanoVal
+
+instance Show EqViolation where
+    show = formatToString build
+
+instance Show EqViolationEvidence where
+    show = formatToString build

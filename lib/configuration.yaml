@@ -14786,7 +14786,7 @@ mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 6
+    applicationVersion: 8
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1

@@ -349,11 +349,14 @@ instance Bi BS.Lazy.ByteString where
 
 instance Bi a => Bi [a] where
     encode = encodeList
+    encodedSize = encodedListSize
     decode = decodeList
 
 instance (Bi a, Bi b) => Bi (Either a b) where
     encode (Left  x) = E.encodeListLen 2 <> E.encodeWord 0 <> encode x
     encode (Right x) = E.encodeListLen 2 <> E.encodeWord 1 <> encode x
+
+    encodedSize x = 2 + either encodedSize encodedSize x
 
     decode = do D.decodeListLenCanonicalOf 2
                 t <- D.decodeWordCanonical

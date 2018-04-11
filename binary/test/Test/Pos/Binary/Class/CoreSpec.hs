@@ -165,3 +165,10 @@ spec = describe "Bi" $ do
 
     it "encodedSize Text" $ encodedSizeProp @Text (T.pack <$> listOf charGen)
     it "encodedListSize Text" $ encodedListSizeProp @Text (T.pack <$> listOf charGen)
+
+    -- the (Bi a => Bi [a]) instance:
+    it "encodedSize [Char]" $ encodedSizeProp @[Char] (listOf charGen)
+    it "encodedListSize [[Char]]" $ encodedListSizeProp @[Char] (listOf charGen)
+
+    it "encodedSize (Either Char Integer)" $ encodedSizeProp @(Either Char Integer) arbitrary
+    it "encodedListSize (Either Char Integer)" $ encodedListSizeProp @(Either Char Integer) arbitrary

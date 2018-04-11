@@ -89,6 +89,13 @@ integerGen = oneof
     min64 = fromIntegral $ minBound @Int64
     max64 = fromIntegral $ maxBound @Int64
 
+floatGen :: Gen Float
+floatGen = oneof
+    [ choose (-100.0, 100.0)
+    , choose (-10.0**9, -10.0**8)
+    , choose (10.0**8, 10.0**9)
+    ]
+
 spec :: Spec
 spec = describe "Bi" $ do
     it "encodedSize ()" $ encodedSizeProp @() arbitrary
@@ -129,3 +136,6 @@ spec = describe "Bi" $ do
 
     it "encodedSize Nano" $ encodedSizeProp @Nano (MkFixed <$> integerGen)
     it "encodedListSize Nano" $ encodedListSizeProp @Nano (fromIntegral <$> integerGen)
+
+    it "encodedSize Float" $ encodedSizeProp floatGen
+    it "encodedListSize Float" $ encodedListSizeProp floatGen

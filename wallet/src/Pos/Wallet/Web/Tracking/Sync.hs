@@ -68,6 +68,7 @@ import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead (..))
 import qualified Pos.GState as GS
 import           Pos.GState.BlockExtra (resolveForwardLink)
+import           Pos.Recovery.Info (MonadRecoveryInfo (..), recoveryInProgress)
 import           Pos.Slotting (MonadSlots (..), MonadSlotsData, getSlotStartPure, getSystemStartM)
 import           Pos.Slotting.Types (SlottingData)
 import           Pos.StateLock (Priority (..), StateLock, withStateLockNoMetrics)
@@ -119,6 +120,7 @@ processSyncRequest :: ( WalletDbReader ctx m
                       , BlockLockMode ctx m
                       , MonadSlotsData ctx m
                       , HasConfiguration
+                      , MonadRecoveryInfo m
                       , MonadIO m
                       ) => SyncQueue -> m ()
 processSyncRequest syncQueue = do
@@ -198,6 +200,7 @@ syncWalletWithBlockchain
     , BlockLockMode ctx m
     , MonadSlotsData ctx m
     , HasConfiguration
+    , MonadRecoveryInfo m
     )
     => SyncRequest
     -> m SyncResult
@@ -302,6 +305,7 @@ syncWalletWithBlockchainUnsafe
     , WithLogger m
     , MonadSlotsData ctx m
     , HasConfiguration
+    , MonadRecoveryInfo m
     )
     => SyncRequest
     -> BlockHeader
@@ -318,6 +322,9 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
     db <- WS.askWalletDB
     ws <- WS.getWalletSnapshot db
 
+    inRecovery <- recoveryInProgress
+    logDebug $ sformat ("Recovery in progress? " % shown) inRecovery
+
     let getBlockHeaderTimestamp = blockHeaderTimestamp systemStart slottingData
 
     let usedAddresses = WS.getCustomAddresses ws WS.UsedAddr
@@ -332,7 +339,8 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
 
     -- Apply the 'CAccModifier' to the wallet state.
     applyModifierToWallet db (srOperation syncRequest) walletId newSyncTip mapModifier
-    logDebugSP $ \sl -> sformat ("Applied " %buildSafe sl) mapModifier
+    -- logDebugSP $ \sl -> sformat ("Applied " %buildSafe sl) mapModifier
+    logDebug "Applied this new modifier."
 
     case headerHash newSyncTip == headerHash blockchainTip of
         True -> do
@@ -345,6 +353,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
             -- rollback occurs, we don't need to transition back the old "restoring" state,
             -- as it won't matter anymore.
             WS.setWalletSyncTip db walletId (headerHash newSyncTip)
+            logDebug "Preparing to exit syncWalletWithBlockchainUnsafe.."
             pure $ Right ()
         False -> syncWalletWithBlockchainUnsafe syncRequest newSyncTip blockchainTip
 
@@ -393,6 +402,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                                                         (currentBlockCount + 1)
 
                        | depthOf blockchainTip < depthOf wHeader -> do
+                             logDebug "we  detected a rollback..."
                              -- This rollback can occur
                              -- if the application was interrupted during blocks application.
                              blunds <- getNewestFirst <$> GS.loadBlundsWhile (\b -> getBlockHeader b /= blockchainTip) (headerHash wHeader)

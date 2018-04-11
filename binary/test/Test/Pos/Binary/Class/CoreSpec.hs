@@ -172,3 +172,9 @@ spec = describe "Bi" $ do
 
     it "encodedSize (Either Char Integer)" $ encodedSizeProp @(Either Char Integer) arbitrary
     it "encodedListSize (Either Char Integer)" $ encodedListSizeProp @(Either Char Integer) arbitrary
+
+    it "encodedSize (NonEmpty Integer)" $ encodedSizeProp @(NonEmpty Integer) arbitrary
+    it "encodedListSize [NonEmpty Integer]" $ encodedListSizeProp @(NonEmpty Integer) arbitrary
+
+    it "encodedSize (Maybe Word8)" $ encodedSizeProp @(Maybe Word8) arbitrary
+    it "encodedListSize (Maybe Word8)" $ encodedListSizeProp @(Maybe Word8) arbitrary

@@ -127,12 +127,16 @@ class Typeable a => Bi a where
     encodedSize :: a -> Byte
 
     encodedListSize :: [a] -> Byte
-    encodedListSize as = (2 :: Byte) + getSum (fold $ (Sum . encodedSize) <$> as)
+    encodedListSize = defaultEncodedListSize
 
 -- | Default @'E.Encoding'@ for list types.
 defaultEncodeList :: Bi a => [a] -> E.Encoding
 defaultEncodeList xs = E.encodeListLenIndef
                     <> Universum.foldr (\x r -> encode x <> r) E.encodeBreak xs
+
+-- | Default size of encoded list of elements.
+defaultEncodedListSize :: Bi a => [a] -> Byte
+defaultEncodedListSize as = (2 :: Byte) + getSum (fold (Sum . encodedSize <$> as))
 
 -- | Default @'D.Decoder'@ for list types.
 defaultDecodeList :: Bi a => D.Decoder s [a]
@@ -369,6 +373,7 @@ instance (Bi a, Bi b) => Bi (Either a b) where
 
 instance Bi a => Bi (NonEmpty a) where
     encode = defaultEncodeList . toList
+    encodedSize = defaultEncodedListSize . toList
     decode =
         nonEmpty <$> defaultDecodeList >>= toCborError . \case
             Nothing -> Left "Expected a NonEmpty list, but an empty list was found!"
@@ -377,6 +382,8 @@ instance Bi a => Bi (NonEmpty a) where
 instance Bi a => Bi (Maybe a) where
     encode Nothing  = E.encodeListLen 0
     encode (Just x) = E.encodeListLen 1 <> encode x
+
+    encodedSize x = 1 + maybe 0 encodedSize x
 
     decode = do n <- D.decodeListLenCanonical
                 case n of

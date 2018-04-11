@@ -289,6 +289,7 @@ instance (Bi a, Bi b) => Bi (a,b) where
     encode (a,b) = E.encodeListLen 2
                 <> encode a
                 <> encode b
+    encodedSize (a,b) = 1 + encodedSize a + encodedSize b
     decode = do D.decodeListLenCanonicalOf 2
                 !x <- decode
                 !y <- decode
@@ -299,6 +300,8 @@ instance (Bi a, Bi b, Bi c) => Bi (a,b,c) where
                   <> encode a
                   <> encode b
                   <> encode c
+
+    encodedSize (a,b,c) = 1 + encodedSize a + encodedSize b + encodedSize c
 
     decode = do D.decodeListLenCanonicalOf 3
                 !x <- decode
@@ -312,6 +315,8 @@ instance (Bi a, Bi b, Bi c, Bi d) => Bi (a,b,c,d) where
                     <> encode b
                     <> encode c
                     <> encode d
+
+    encodedSize (a,b,c,d) = 1 + encodedSize a + encodedSize b + encodedSize c + encodedSize d
 
     decode = do D.decodeListLenCanonicalOf 4
                 !a <- decode

@@ -143,3 +143,12 @@ spec = describe "Bi" $ do
 
     it "encodedSize Tagged" $ encodedSizeProp @(Tagged Void Char) (Tagged <$> charGen)
     it "encodedListSize Tagged" $ encodedListSizeProp @(Tagged Void Char) (Tagged <$> charGen)
+
+    it "encodedSize (Float, Integer)" $ encodedSizeProp $ (,) <$> floatGen <*> integerGen
+    it "encodedListSize (Float, Integer)" $ encodedListSizeProp $ (,) <$> floatGen <*> integerGen
+
+    it "encodedSize (Float, Integer, Word32)" $ encodedSizeProp $ (,,) <$> floatGen <*> integerGen <*> word32Gen
+    it "encodedListSize (Float, Integer, Word32)" $ encodedListSizeProp $ (,,) <$> floatGen <*> integerGen <*> word32Gen
+
+    it "encodedSize (Float, Integer, Word32, Char)" $ encodedSizeProp $ (,,,) <$> floatGen <*> integerGen <*> word32Gen <*> charGen
+    it "encodedListSize (Float, Integer, Word32, Char)" $ encodedListSizeProp $ (,,,) <$> floatGen <*> integerGen <*> word32Gen <*> charGen

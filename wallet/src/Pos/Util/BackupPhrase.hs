@@ -29,19 +29,36 @@ newtype BackupPhrase = BackupPhrase
     { bpToList :: [Text]
     } deriving (Eq, Generic)
 
+data MnemonicWordCount
+    = Nine
+    | Twelve
+    | Fifteen
+    | Eighteen
+    | Twentyone
+    | Twentyfour
+    deriving (Eq, Show)
+
+byteCount :: MnemonicWordCount -> Int
+byteCount wc = case wc of
+    Nine -> 3
+    Twelve ->  4
+    Fifteen ->  5
+    Eighteen ->  6
+    Twentyone -> 7
+    Twentyfour -> 8
+
 instance Arbitrary BackupPhrase where
     arbitrary = do
-        em <- arbitraryMnemonic 4
+        em <- arbitraryMnemonic Twelve
         case em of
             Left _  -> arbitrary
             Right a -> pure a
     shrink    = genericShrink
 
 -- | Generate an arbitrary mnemonic with the given number of words.
-arbitraryMnemonic :: Int -> Gen (Either Text BackupPhrase)
-arbitraryMnemonic len = do
-    let byteCount = len * 4
-    eitherMnemonic <- toMnemonic . BS.pack <$> vectorOf byteCount arbitrary
+arbitraryMnemonic :: MnemonicWordCount -> Gen (Either Text BackupPhrase)
+arbitraryMnemonic wordCount = do
+    eitherMnemonic <- toMnemonic . BS.pack <$> vectorOf (byteCount wordCount) arbitrary
     pure . first toText $ BackupPhrase . words <$> eitherMnemonic
 
 -- | Number of words in backup phrase

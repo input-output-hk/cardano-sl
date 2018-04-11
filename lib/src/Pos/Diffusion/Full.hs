@@ -27,6 +27,9 @@ import           Network.Broadcast.OutboundQueue.Types (MsgType (..), Origin (..
 import           Network.Transport (Transport)
 import           Node (Node, NodeAction (..), simpleNodeEndPoint, NodeEnvironment (..), defaultNodeEnvironment, node)
 import           Node.Conversation (Converse, converseWith, Conversation)
+import           System.Metrics.Gauge (Gauge)
+import qualified System.Metrics as Monitoring
+
 import           System.Random (newStdGen)
 
 import           Pos.Block.Network (MsgGetHeaders, MsgHeaders, MsgGetBlocks, MsgBlock, MsgStream,
@@ -57,7 +60,8 @@ import           Pos.Diffusion.Subscription.Common (subscriptionListeners)
 import           Pos.Diffusion.Subscription.Dht (dhtSubscriptionWorker)
 import           Pos.Diffusion.Subscription.Dns (dnsSubscriptionWorker)
 import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
-import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..), StreamEntry, SubscriptionStatus)
+import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..), StreamEntry,
+                                      SubscriptionStatus, DiffusionHealth (..))
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Types (NetworkConfig (..), Bucket (..), initQueue,
                                     topologySubscribers, SubscriptionWorker (..),
@@ -66,6 +70,7 @@ import           Pos.Network.Types (NetworkConfig (..), Bucket (..), initQueue,
 import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgNodeMetrics)
 import           Pos.Ssc.Message (MCOpening (..), MCShares (..), MCCommitment (..), MCVssCertificate (..))
+import           Pos.System.Metrics.Constants (withCardanoNamespace)
 import           Pos.Util.Chrono (OldestFirst)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 import           Pos.Util.Timer (Timer, newTimer)
@@ -182,6 +187,13 @@ diffusionLayerFullExposeInternals fdconf
     subscriptionStatus <- newTVarIO MS.empty
 
     keepaliveTimer <- newTimer
+
+    diffusionHealth <- case mEkgNodeMetrics of
+                            Nothing -> return Nothing
+                            Just m  -> liftIO $ do
+                                wqgM <- Monitoring.createGauge (withCardanoNamespace "diffusion.WriteQueue") $ enmStore m
+                                wM   <- Monitoring.createGauge (withCardanoNamespace "diffusion.Window")     $ enmStore m
+                                return $ Just $ DiffusionHealth wqgM wM
 
     let -- VerInfo is a diffusion-layer-specific thing. It's only used for
         -- negotiating with peers.
@@ -337,9 +349,9 @@ diffusionLayerFullExposeInternals fdconf
                         NodeId
                      -> HeaderHash
                      -> [HeaderHash]
-                     -> (STM.TBQueue StreamEntry -> IO t)
+                     -> ((Maybe Gauge, STM.TBQueue StreamEntry) -> IO t)
                      -> IO t
-        streamBlocks = Diffusion.Block.streamBlocks logTrace logic streamWindow enqueue
+        streamBlocks = Diffusion.Block.streamBlocks logTrace diffusionHealth logic streamWindow enqueue
 
         announceBlockHeader :: MainBlockHeader -> IO ()
         announceBlockHeader = void . Diffusion.Block.announceBlockHeader logTrace logic protocolConstants recoveryHeadersMessage enqueue

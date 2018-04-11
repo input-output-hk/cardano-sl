@@ -161,6 +161,7 @@ runAction wc action = do
                 (LocalWalletDiffers result wal)
 
         DeleteWallet -> do
+            -- We are using non genesis wallets because we don't want to remove wallet with money during tests
             localWallets <- use nonGenesisWallets
 
             -- We choose from the existing wallets.
@@ -211,7 +212,7 @@ runAction wc action = do
 
         UpdateWalletPass -> do
 
-            localWallets <- use nonGenesisWallets
+            localWallets <- use wallets
 
             -- We choose from the existing wallets.
             wallet  <-  pickRandomElement localWallets
@@ -270,9 +271,9 @@ runAction wc action = do
 
         GetAccounts   -> do
             -- We choose from the existing wallets AND existing accounts.
-            wallet  <-  pickRandomElement =<< use nonGenesisWallets
+            wallet  <-  pickRandomElement =<< use wallets
             let walletId = walId wallet
-            walletIdIsNotGenesis walletId
+
             -- We get all the accounts.
             log $ "Getting accounts for walletID: " <> show walletId
             log $ "Wallet info: " <> show wallet
@@ -290,7 +291,6 @@ runAction wc action = do
             -- We choose from the existing wallets AND existing accounts.
             account <- pickRandomElement =<< use accounts
             let walletId = accWalletId account
-            walletIdIsNotGenesis walletId
 
             log $ "Getting account: " <> show walletId <> ", " <> show (accIndex account)
             result  <-  respToRes $ getAccount wc walletId (accIndex account)
@@ -307,12 +307,14 @@ runAction wc action = do
             -- We choose from the existing wallets AND existing accounts.
             account <-  pickRandomElement localAccounts
             let walletId = accWalletId account
+                accIdx = accIndex account
                 withoutAccount = filter (not . chosenAccount) localAccounts
                 chosenAccount acct =
-                    accWalletId acct == accWalletId account
-                    && accIndex acct ==  accIndex account
-                accIdx = accIndex account
+                    accWalletId acct == walletId
+                    && accIndex acct ==  accIdx
 
+            -- We don't want to delete accounts in genesis wallets
+            walletIdIsNotGenesis walletId
             log $ "Deleting account, walletID: " <> show walletId <> ", accIndex: " <> show accIdx
             -- If we don't have any http client errors, the delete was a success.
             _ <- either throwM pure =<< deleteAccount wc walletId accIdx
@@ -342,6 +344,7 @@ runAction wc action = do
                         { uaccName = "Account name " <> (show accountId)
                         }
 
+            -- We don't want to update genesis wallet account (althought it should be safe)
             walletIdIsNotGenesis walletId
 
             log $ mconcat ["Updating account: ", show walletId, ", ", show accountId, ", ", show newAccount]
@@ -364,7 +367,9 @@ runAction wc action = do
 
             let newAddress = createNewAddress walletId (accIndex account)
 
+            -- We don't want to create a new address in genesis wallet (although it should be safe)
             walletIdIsNotGenesis walletId
+
             log $ "Posting address: " <> show newAddress
             result  <-  respToRes $ postAddress wc newAddress
 
@@ -616,4 +621,3 @@ walletIdIsNotGenesis walletId = do
     mwallet <- head . filter ((walletId ==) . walId) <$> use wallets
     whenJust mwallet $ \wal ->
         guard (walName wal /= "Genesis wallet")
-

@@ -67,6 +67,10 @@
 \newcommand{\epochseed}[1]{\mathsf{seed}(#1)}
 \newcommand{\epochdistribution}[1]{\mathsf{distr}(#1)}
 \newcommand{\currentdistribution}[1]{\mathsf{distr}_0(#1)}
+\newcommand{\blocktrees}{\mathcal{G}}
+\newcommand{\blockchains}{\mathcal{D}}
+\newcommand{\maxchains}[1]{\mathcal{M}(#1)}
+\newcommand{\weight}[1]{\mathsf{weight}(#1)}
 
 %% /macros %%
 
@@ -242,6 +246,17 @@ as it is.\improvement{We may want to add something about protocol
 \item[Chain] A chain is a sequence of blocks $b₁,…,b_n$ such that the
   predecessor of $b₁$ is the genesis block, and for every $i$, the
   predecessor of $b_{i+1}$ is $b_i$.
+
+\item[Weight] We assume a weight function
+  $\weight{⋅} ∈ \lists{\blocks} ⟶ ℕ$\unsure{We may want to restrict
+    the parameter of the weight function to be chains, or even valid
+    chains, but it is probably unnecessary. Which is why I used the
+    simpler version for the moment}. It is usually necessary, for the
+  sake of good behaviour of the system to assume that
+  $\weight{b₁,…,b_n} < \weight{b₁,…,b_n,b_{n+1}}$, though it is not
+  necessary for the specification itself. A typical such function is
+  the length of the list, though more refined criterion are usually
+  chosen.
 
 \item[Richmen] We assume a finite set $\richmen ⊆ \agentids$. These
   so-called richmen receive all the stake during the bootstrap era.
@@ -480,5 +495,35 @@ is the same, then the same property also holds of $f$).
   which chain is the longest (\emph{e.g.} if I'm a slot leader, which
   chain I'm going to extend) among all possible chains produced by the
   network. The state is a tree of chains rooted in the origin block.}
+
+Let us call a blocktree $\mathfrak{T} ∈
+\blocktrees$\improvement{Clearly, a better notation for the set of
+  blocktrees and the set of blockchains is necessary} a finite set of
+valid chains, closed under prefix (\emph{i.e.} if
+$b₁, …, b_{n+1} ∈ \mathfrak{T}$, then
+$b₁, …, b_n ∈ \mathfrak{T}$)\info{This simply means that
+  $\mathfrak{T}$ is an arbitrarily branching tree, where the nodes are blocks
+  and predecessors point to the parents. And the paths are all valid
+  chains.}. Let us define the maximal chains
+$\maxchains{\mathfrak{T}} ⊆ \mathfrak{T}$ to be the set of chains
+$b₁,…,b_n$ such that for any extension $b₁,…,b_n,b ∉ \mathfrak{T}$.
+
+A blockchain datastructure is a pair $(\mathfrak{C},\mathfrak{T}) ∈
+\blockchains ⊆ \lists{\blocks}×\blocktrees$. Such that
+\begin{itemize}
+\item $\mathfrak{C}$ is a maximal chain of $\mathfrak{T}$:
+  $$
+  \mathfrak{C} ∈ \maxchains{\mathfrak{T}}
+  $$
+\item $\mathfrak{C}$ is of maximal weight:
+  $$
+  \weight{\mathfrak{C}} = \max_{\mathfrak{D}∈\maxchains{\mathfrak{T}}}
+  \left( \weight{\mathfrak{D}} \right)
+  $$
+\end{itemize}
+
+Because a typical weight function is the length of the chain,
+$\mathfrak{C}$ is often referred to as the longest chain (despite not
+necessarily being unique at that length).
 
 \end{document}

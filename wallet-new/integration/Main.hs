@@ -1,4 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes    #-}
+{-# LANGUAGE TupleSections #-}
 
 module Main where
 
@@ -6,6 +7,7 @@ import           Universum
 
 import           Cardano.Wallet.Client.Http
 import           Control.Lens hiding ((^..), (^?))
+import           Data.Map (fromList)
 import           Data.Traversable (for)
 import           System.IO (hSetEncoding, stdout, utf8)
 import           Test.Hspec
@@ -65,12 +67,16 @@ main = do
 
 initialWalletState :: WalletClient IO -> IO WalletState
 initialWalletState wc = do
+    -- We will have single genesis wallet in intial state that was imported from launching script
     _wallets <- fromResp $ getWallets wc
-    _accounts <- (const mempty) . concat <$> for _wallets (fromResp . getAccounts wc . walId)
-    let _walletsPass = mempty
-        _addresses = mempty
+    _accounts <- concat <$> for _wallets (fromResp . getAccounts wc . walId)
+    -- Lets set all wallet passwords for initial wallets (genesis) to default (emptyPassphrase)
+    let _walletsPass  = fromList $ map ((, V1 mempty) . walId) _wallets
+        _addresses    = concatMap accAddresses _accounts
+        -- TODO(akegalj): I am not sure does importing a genesis wallet (which we do prior launching integration tests) creates a transaction
+        -- If it does, we should add this transaction to the list
         _transactions = mempty
-        _actionsNum = 0
+        _actionsNum   = 0
     pure $ WalletState {..}
   where
     fromResp = (either throwM (pure . wrData) =<<)

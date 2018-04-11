@@ -307,8 +307,8 @@ runAction wc action = do
             -- We choose from the existing wallets AND existing accounts.
             account <-  pickRandomElement localAccounts
             let walletId = accWalletId account
-                deleted = filter notSame localAccounts
-                notSame acct =
+                withoutAccount = filter (not . chosenAccount) localAccounts
+                chosenAccount acct =
                     accWalletId acct == accWalletId account
                     && accIndex acct ==  accIndex account
                 accIdx = accIndex account
@@ -322,10 +322,10 @@ runAction wc action = do
 
             checkInvariant
                 (account `notElem` result)
-                (LocalAccountsDiffers result deleted)
+                (LocalAccountsDiffers result withoutAccount)
 
             -- Modify wallet state accordingly.
-            accounts  .= deleted
+            accounts  .= withoutAccount
             addresses %= filter (`notElem` accAddresses account)
 
         UpdateAccount -> do

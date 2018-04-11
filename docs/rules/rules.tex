@@ -47,6 +47,7 @@
 \newcommand{\blocks}{\mathcal{B}}
 \newcommand{\blockids}{\idsof{\blocks}}
 \newcommand{\agentids}{\idsof{\mathcal{A}}}
+\newcommand{\richmen}{\mathcal{A}_{\mathsf{bootstrap}}}
 \newcommand{\slotleader}[3]{\mathsf{sl}(#1,#2,#3)}
 \newcommand{\recipient}[1]{\mathsf{recipient}(#1)}
 \newcommand{\amount}[1]{\mathsf{amount}(#1)}
@@ -241,6 +242,10 @@ as it is.\improvement{We may want to add something about protocol
 \item[Chain] A chain is a sequence of blocks $b₁,…,b_n$ such that the
   predecessor of $b₁$ is the genesis block, and for every $i$, the
   predecessor of $b_{i+1}$ is $b_i$.
+
+\item[Richmen] We assume a finite set $\richmen ⊆ \agentids$. These
+  so-called richmen receive all the stake during the bootstrap era.
+
 \end{description}
 
 \section{Adding a block}
@@ -329,6 +334,14 @@ $b_1,…,b_n$ if all of the following hold
       \pos{k}{\witnesses{τ}}
       $$
     \end{description}
+  \item[Bootstrap era]\info{These rules are only used during the
+      bootstrap era. They are, however, not qualified because in the
+      current state of the document, only the bootstrap era is documented.}\hfill
+    \begin{description}
+    \item[No stake for poormen] \improvement{Placeholder: will
+        describe the rule by which all stake must be delegated to the richmen}
+    \end{description}
+
   \end{description}
 \end{description}
 

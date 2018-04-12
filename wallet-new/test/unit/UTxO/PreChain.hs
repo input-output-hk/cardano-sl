@@ -52,10 +52,10 @@ import           UTxO.Translate
 --
 -- It is still the responsibility of the 'PreChain' author to make sure that the
 -- structure of the blockchain does not depend on the fees that are passed.
-type PreChain h m a = DepIndep (Transaction h Addr) [[Fee]] m (Blocks h Addr, a)
+type PreChain h m a = DepIndep (Transaction h Addr) [[Fee]] m (Chain h Addr, a)
 
 preChain :: Functor m
-         => (Transaction h Addr -> m ([[Fee]] -> Blocks h Addr))
+         => (Transaction h Addr -> m ([[Fee]] -> Chain h Addr))
          -> PreChain h m ()
 preChain = fmap (, ()) . DepIndep
 
@@ -83,7 +83,7 @@ fromPreChain :: (Hash h Addr, Monad m)
 fromPreChain pc = do
     fpcBoot <- asks bootstrapTransaction
     (txs, fpcExtra) <- calcFees fpcBoot =<< lift (runDepIndep pc fpcBoot)
-    let fpcChain  = Chain txs -- doesn't include the boot transactions
+    let fpcChain  = txs -- doesn't include the boot transactions
         fpcLedger = chainToLedger fpcBoot fpcChain
     return FromPreChain{..}
 
@@ -136,8 +136,8 @@ type Fee = Value
 -- the size of the fee might change the size of the the transaction.
 calcFees :: forall h m x. (Hash h Addr, Monad m)
          => Transaction h Addr
-         -> ([[Fee]] -> (Blocks h Addr, x))
-         -> TranslateT IntException m (Blocks h Addr, x)
+         -> ([[Fee]] -> (Chain h Addr, x))
+         -> TranslateT IntException m (Chain h Addr, x)
 calcFees boot f = do
     TxFeePolicyTxSizeLinear policy <- bvdTxFeePolicy <$> gsAdoptedBVData
     let txToLinearFee' :: TxAux -> TranslateT IntException m Value
@@ -145,7 +145,7 @@ calcFees boot f = do
                        . fmap feeValue
                        . txToLinearFee policy
 
-    (txs, _) <- runIntBoot boot $ fst (f (repeat (repeat 0)))
+    (txs, _) <- runIntBoot boot $ mapM (mapM int) $ fst (f (repeat (repeat 0)))
     fees     <- mapM (mapM txToLinearFee') txs
     return $ f (unmarkOldestFirst fees)
   where

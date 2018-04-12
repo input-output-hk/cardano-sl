@@ -92,6 +92,7 @@ module Pos.Wallet.Web.State.Storage
        , cancelApplyingPtxs
        , cancelSpecificApplyingPtx
          -- * Exported only for testing purposes
+       , WalletTip_v0 (..)
        , AddressInfo_v0 (..)
        , AccountInfo_v0 (..)
        , WalletInfo_v0(..)
@@ -130,7 +131,6 @@ import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition, Ptx
 import           Pos.Wallet.Web.Pending.Util (cancelApplyingPtx, incPtxSubmitTimingPure,
                                               mkPtxSubmitTiming, ptxMarkAcknowledgedPure,
                                               resetFailedPtx)
-import qualified Pos.Wallet.Web.State.Migrations as Migrations
 import           Serokell.Util (zoom')
 
 -- | Type alias for indices which are used to maintain order
@@ -804,18 +804,24 @@ deriveSafeCopySimple 0 'base ''SyncStatistics
 
 -- Legacy versions, for migrations
 
+data WalletTip_v0
+    = V0_NotSynced
+    | V0_SyncedWith !HeaderHash
+    deriving (Eq)
+
+deriveSafeCopySimple 0 'base      ''WalletTip_v0
 deriveSafeCopySimple 1 'extension ''WalletSyncState
 
 instance Migrate WalletSyncState where
-    type MigrateFrom WalletSyncState = Migrations.WalletTip
-    migrate  Migrations.NotSynced     = NotSynced
-    migrate (Migrations.SyncedWith h) = SyncedWith h
+    type MigrateFrom WalletSyncState = WalletTip_v0
+    migrate  V0_NotSynced     = NotSynced
+    migrate (V0_SyncedWith h) = SyncedWith h
 
 data WalletInfo_v0 = WalletInfo_v0
     { _v0_wiMeta         :: !WebTypes.CWalletMeta
     , _v0_wiPassphraseLU :: !WebTypes.PassPhraseLU
     , _v0_wiCreationTime :: !POSIXTime
-    , _v0_wiSyncTip      :: !Migrations.WalletTip
+    , _v0_wiSyncTip      :: !WalletTip_v0
     , _v0_wsPendingTxs   :: !(HashMap TxId PendingTx)
     , _v0_wiIsReady      :: !Bool
     }

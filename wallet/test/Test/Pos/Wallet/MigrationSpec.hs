@@ -18,7 +18,6 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccountMeta 
                                              CTxMeta (..), CUpdateInfo (..), CWAddressMeta (..),
                                              CWalletAssurance (..), CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId)
-import qualified Pos.Wallet.Web.State.Migrations as Migrations
 import           Pos.Wallet.Web.State.Storage
 import           Test.Hspec (Spec, describe, it)
 import           Test.Pos.Configuration (withDefConfigurations)
@@ -57,11 +56,11 @@ instance Migrate AccountInfo_v0 where
         . fmap (addressToCId *** migrate)
         . HM.toList
 
-instance Migrate Migrations.WalletTip where
-    type MigrateFrom Migrations.WalletTip = WalletSyncState
-    migrate  NotSynced          = Migrations.NotSynced
-    migrate (RestoringFrom _ _) = Migrations.NotSynced
-    migrate (SyncedWith h)      = Migrations.SyncedWith h
+instance Migrate WalletTip_v0 where
+    type MigrateFrom WalletTip_v0 = WalletSyncState
+    migrate  NotSynced          = V0_NotSynced
+    migrate (RestoringFrom _ _) = V0_NotSynced
+    migrate (SyncedWith h)      = V0_SyncedWith h
 
 instance Migrate WalletInfo_v0 where
     type MigrateFrom WalletInfo_v0 = WalletInfo
@@ -128,7 +127,7 @@ deriving instance Show AccountInfo
 deriving instance Show AddressInfo_v0
 deriving instance Show AddressInfo
 deriving instance Show WalletInfo_v0
-deriving instance Show Migrations.WalletTip
+deriving instance Show WalletTip_v0
 deriving instance Show WalletStorage_v2
 deriving instance Show WalletStorage_v3
 
@@ -194,10 +193,10 @@ instance Arbitrary AccountId where
 instance Arbitrary RestorationBlockDepth where
     arbitrary = RestorationBlockDepth <$> arbitrary
 
-instance HasConfiguration => Arbitrary Migrations.WalletTip where
+instance HasConfiguration => Arbitrary WalletTip_v0 where
   arbitrary = oneof
-    [ pure Migrations.NotSynced
-    , Migrations.SyncedWith <$> arbitrary
+    [ pure V0_NotSynced
+    , V0_SyncedWith <$> arbitrary
     ]
 
 instance HasConfiguration => Arbitrary WalletSyncState where

@@ -57,8 +57,6 @@ removeWallet2 walId = do
 -- | Unlike 'applyModifierToWallet', this function doesn't assume we want to blindly
 -- update the 'WalletStorage' with all the information passed, but only with the ones
 -- relevant to the 'WalletSyncState'.
--- TODO(adn): Is there any way to prevent the duplication without accidentally removing
--- or modifying `applyModifierToWallet`, which could be present in the `acid-state` transaction log?
 applyModifierToWallet2
     :: CId Wal
     -> [WS.WAddressMeta] -- ^ Wallet addresses to add
@@ -90,7 +88,20 @@ applyModifierToWallet2 walId wAddrs custAddrs utxoMod
             WS.setWalletRestorationSyncTip walId rhh newSyncTip
         (WS.SyncedWith newSyncTip) ->
             applyModifierToWallet walId wAddrs custAddrs utxoMod txMetas historyEntries ptxConditions newSyncTip
-        WS.NotSynced -> return ()
+        -- A wallet should never be in a "NotSynced" state when we call this
+        -- function, because:
+        -- 1. When creating a new wallet (cfr. Pos.Wallet.Web.Methods.Restore.newWallet)
+        --    we immediately set its syncTip appropriately.
+        -- 2. When we restore from seed (or backup), we eventually call
+        --    Pos.Wallet.Web.Tracking.Restore.restoreWallet, which actively sets
+        --    the wallet restoration sync tip correctly.
+        --
+        -- Therefore, it's actually an invariant violation to even end up in
+        -- this branch of the pattern match, and we call out this mistake
+        -- explicitly.
+        WS.NotSynced -> let msg = "applyModifierToWallet2: invariant violated! "
+                               <> "applied modifier to a 'NotSynced' wallet."
+                        in error msg
 
 -- | Apply some set of modifiers to a wallet.
 --   TODO Find out the significance of this set of modifiers and document.
@@ -117,8 +128,6 @@ applyModifierToWallet walId wAddrs custAddrs utxoMod
     WS.setWalletSyncTip walId syncTip
 
 -- | Like 'rollbackModifierFromWallet', but it takes into account the given 'WalletSyncState'.
--- TODO(adn): Is there any way to prevent the duplication without accidentally removing
--- or modifying 'rollbackModifierFromWallet2', which could be present in the @acid-state@ transaction log?
 rollbackModifierFromWallet2
     :: HasProtocolConstants -- Needed for ptxUpdateMeta
     => CId Wal
@@ -150,7 +159,10 @@ rollbackModifierFromWallet2 walId wAddrs custAddrs utxoMod
             rollbackModifierFromWallet walId wAddrs custAddrs utxoMod
                                        historyEntries ptxConditions
                                        newSyncTip
-        WS.NotSynced -> return ()
+        -- See similar comment as for 'applyModifierToWallet2'.
+        WS.NotSynced -> let msg = "rollbackModifierFromWallet2: invariant violated! "
+                               <> "applied modifier to a 'NotSynced' wallet."
+                        in error msg
 
 -- | Rollback some set of modifiers to a wallet.
 --   TODO Find out the significance of this set of modifiers and document.

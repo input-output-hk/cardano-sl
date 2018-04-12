@@ -257,26 +257,29 @@ syncWalletWithBlockchain syncRequest@SyncRequest{..} = setLogger $ do
   where
     syncDo :: TrackingOperation -> BlockHeader -> m SyncResult
     syncDo trackingOp walletTipHeader = do
-        let wdiff = (fromIntegral . ( ^. difficultyL) $ walletTipHeader) :: Word32
+        let wdiff = (fromIntegral . depthOf $ walletTipHeader) :: Word32
         gstateTipH <- DB.getTipHeader
-        -- If account's syncTip is before the current gstate's tip,
-        -- then it loads accounts and addresses starting with @wHeader@.
-        -- syncTip can be before gstate's the current tip
-        -- when we call @syncWalletSetWithTip@ at the first time
-        -- or if the application was interrupted during rollback.
-        -- We don't load all blocks explicitly, because blockchain can be long.
+        let currentBlockchainDepth = depthOf gstateTipH
+
+        -- First of all we check how far we are lagging behind with respect to
+        -- the @currentBlockchainDepth@. If we are lagging _at least_ k blocks
+        -- behind, it means we can sync without the block lock. To do so, we
+        -- fetch from the database a @stableBlockHeader@, which is a 'BlockHeader'
+        -- guaranteed (by the protocol) to not be rolled-back and which can
+        -- be considered stable and fully persisted into the blockchain.
         (syncResult, wNewTip) <-
-            if (gstateTipH ^. difficultyL > fromIntegral blkSecurityParam + fromIntegral wdiff) then do
+            if (currentBlockchainDepth > fromIntegral blkSecurityParam + fromIntegral wdiff) then do
                 -- Wallet tip is "far" from gState tip,
                 -- rollback can't occur more then @blkSecurityParam@ blocks,
                 -- so we can sync wallet and GState without the block lock
                 -- to avoid blocking of blocks verification/application.
-                bh <- unsafeLast . getNewestFirst <$> GS.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
+                stableBlockHeader <- unsafeLast . getNewestFirst <$> GS.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
                 logInfo $
-                    sformat ("Wallet's tip is far from GState tip. Syncing with "%build%" without the block lock")
-                    (headerHash bh)
-                result <- syncWalletWithBlockchainUnsafe (syncRequest { srOperation = trackingOp }) walletTipHeader bh
-                pure $ (Just result, bh)
+                    sformat ( "Wallet's tip is far from GState tip. Syncing with the last stable known header " %build%
+                              " (the tip of the blockchain - k blocks) without the block lock"
+                            ) (headerHash stableBlockHeader)
+                result <- syncWalletWithBlockchainUnsafe (syncRequest { srOperation = trackingOp }) walletTipHeader stableBlockHeader
+                pure $ (Just result, stableBlockHeader)
             else pure (Nothing, walletTipHeader)
 
         let finaliseSyncUnderBlockLock = withStateLockNoMetrics HighPriority $ \tip -> do

@@ -7700,7 +7700,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-wallet-new";
-           version = "0.1.0.0";
+           version = "1.1.1";
            src = ./../wallet-new;
            isLibrary = true;
            isExecutable = true;

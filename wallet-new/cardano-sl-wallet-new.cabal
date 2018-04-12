@@ -19,6 +19,7 @@ library
                        Cardano.Wallet.Kernel
                        Cardano.Wallet.Kernel.Diffusion
                        Cardano.Wallet.Kernel.Mode
+                       Cardano.Wallet.Kernel.Types
                        Cardano.Wallet.Orphans
                        Cardano.Wallet.Orphans.Aeson
                        Cardano.Wallet.Orphans.Arbitrary

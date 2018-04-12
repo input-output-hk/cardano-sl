@@ -29,6 +29,9 @@ newtype BackupPhrase = BackupPhrase
     { bpToList :: [Text]
     } deriving (Eq, Generic)
 
+-- | A datatype representing word counts you'd have in
+-- a <https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki BIP39>
+-- mnemonic passphrase.
 data MnemonicWordCount
     = Nine
     | Twelve
@@ -38,14 +41,26 @@ data MnemonicWordCount
     | Twentyfour
     deriving (Eq, Show)
 
-byteCount :: MnemonicWordCount -> Int
-byteCount wc = case wc of
-    Nine -> 3
-    Twelve ->  4
-    Fifteen ->  5
-    Eighteen ->  6
-    Twentyone -> 7
+wordCountToInt :: MnemonicWordCount -> Int
+wordCountToInt wc = case wc of
+    Nine       -> 9
+    Twelve     -> 12
+    Fifteen    -> 15
+    Eighteen   -> 18
+    Twentyone  -> 21
+    Twentyfour -> 24
+
+checksumLength :: MnemonicWordCount -> Int
+checksumLength wc = case wc of
+    Nine       -> 3
+    Twelve     -> 4
+    Fifteen    -> 5
+    Eighteen   -> 6
+    Twentyone  -> 7
     Twentyfour -> 8
+
+byteCount :: MnemonicWordCount -> Int
+byteCount wc = wordCountToInt wc + checksumLength wc
 
 instance Arbitrary BackupPhrase where
     arbitrary = do

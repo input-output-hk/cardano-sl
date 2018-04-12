@@ -122,7 +122,7 @@ testPureWallet = do
 
           w0, w1 :: Wallet GivenHash Addr
           w0 = walletBoot Full.walletEmpty ours fpcBoot
-          w1 = applyBlocks w0 (chainBlocks fpcChain)
+          w1 = applyBlocks w0 fpcChain
           w2 = rollback w1
 
       shouldNotBe (utxo w0) (utxo w1)
@@ -358,7 +358,7 @@ intAndVerifyChain pc = runTranslateT $ do
     FromPreChain{..} <- fromPreChain pc
     let dslIsValid = ledgerIsValid fpcLedger
         dslUtxo    = ledgerUtxo    fpcLedger
-    intResult <- catchTranslateErrors $ runIntBoot fpcBoot fpcChain
+    intResult <- catchTranslateErrors $ runIntBoot fpcBoot $ int fpcChain
     case intResult of
       Left e ->
         case dslIsValid of
@@ -366,14 +366,15 @@ intAndVerifyChain pc = runTranslateT $ do
           Invalid _ e' -> return $ ExpectedInvalid' e' e
       Right (chain', ctxt) -> do
         let chain'' = fromMaybe (error "intAndVerify: Nothing")
-                    $ nonEmptyOldestFirst chain'
+                    $ nonEmptyOldestFirst
+                    $ map Right chain'
         isCardanoValid <- verifyBlocksPrefix chain''
         case (dslIsValid, isCardanoValid) of
           (Invalid _ e' , Invalid _ e) -> return $ ExpectedInvalid e' e
           (Invalid _ e' , Valid     _) -> return $ Disagreement fpcLedger (UnexpectedValid e')
           (Valid     () , Invalid _ e) -> return $ Disagreement fpcLedger (UnexpectedInvalid e)
           (Valid     () , Valid (_undo, finalUtxo)) -> do
-            (finalUtxo', _) <- runIntT ctxt dslUtxo
+            (finalUtxo', _) <- runIntT ctxt $ int dslUtxo
             if finalUtxo == finalUtxo'
               then return $ ExpectedValid
               else return $ Disagreement fpcLedger UnexpectedUtxo {

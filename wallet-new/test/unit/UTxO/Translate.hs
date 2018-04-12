@@ -9,6 +9,10 @@ module UTxO.Translate (
   , withConfig
   , mapTranslateErrors
   , catchTranslateErrors
+    -- * Convenience wrappers
+  , translateFirstSlot
+  , translateNextSlot
+  , translateGenesisHeader
     -- * Interface to the verifier
   , verify
   , verifyBlocksPrefix
@@ -128,6 +132,28 @@ catchTranslateErrors :: Functor m
                      => TranslateT e m a -> TranslateT e' m (Either e a)
 catchTranslateErrors (TranslateT (ExceptT (ReaderT ma))) =
     TranslateT $ ExceptT $ ReaderT $ \env -> fmap Right (ma env)
+
+{-------------------------------------------------------------------------------
+  Convenience wrappers
+-------------------------------------------------------------------------------}
+
+-- | Slot ID of the first block
+translateFirstSlot :: Monad m => TranslateT Text m SlotId
+translateFirstSlot = withConfig $ do
+    SlotId 0 <$> mkLocalSlotIndex 0
+
+-- | Increment slot ID
+--
+-- TODO: Surely a function like this must already exist somewhere?
+translateNextSlot :: Monad m => SlotId -> TranslateT Text m SlotId
+translateNextSlot (SlotId epoch lsi) = withConfig $
+    case addLocalSlotIndex 1 lsi of
+      Just lsi' -> return $ SlotId epoch lsi'
+      Nothing   -> SlotId (epoch + 1) <$> mkLocalSlotIndex 0
+
+-- | Genesis block header
+translateGenesisHeader :: Monad m => TranslateT e m GenesisBlockHeader
+translateGenesisHeader = view gbHeader <$> asks (ccBlock0 . tcCardano)
 
 {-------------------------------------------------------------------------------
   Interface to the verifier

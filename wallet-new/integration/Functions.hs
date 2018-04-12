@@ -47,7 +47,7 @@ runActionCheck
     -> ActionProbabilities
     -> m WalletState
 runActionCheck walletClient walletState actionProb = do
-    actions <- toList <$> chooseActions 20 actionProb
+    actions <- chooseActions 20 actionProb
     let client' = hoistClient lift walletClient
     execStateT (tryAll (map (runAction client') actions)) walletState
         `catch` \x -> fmap (const walletState) . liftIO . hspec .
@@ -73,19 +73,9 @@ runActionCheck walletClient walletState actionProb = do
                         expectationFailure $ show err
 
 -- | Attempt each action in the list. If an action fails, ignore the
--- failure.
---
--- If this were implemented as:
---
--- @
--- tryAll = foldr (\a b -> a *> b <|> b) empty
--- @
---
--- Then it would always end up failing with the final `empty`. The explicit
--- pattern matching allows us to potentially succeed.
-tryAll :: Alternative f => [f a] -> f a
-tryAll []     = empty
-tryAll (x:xs) = foldr (\act acc -> act *> acc <|> acc) x xs
+-- failure and try the next action in the sequence.
+tryAll :: Alternative f => NonEmpty (f a) -> f a
+tryAll (x :| xs) = foldl' (\this next -> (this *> next) <|> next) x xs
 
 freshPassword :: (MonadState WalletState m, MonadIO m) => m SpendingPassword
 freshPassword = do

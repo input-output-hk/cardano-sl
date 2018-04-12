@@ -29,6 +29,7 @@ module Pos.Wallet.Web.State.State
        , getAccountIds
        , getAccountMeta
        , getAccountAddrMaps
+       , getAccountAddresses
        , getAccountWAddresses
        , getWAddresses
        , getWalletMeta
@@ -170,6 +171,9 @@ getAccountMeta ws accid = queryValue ws (S.getAccountMeta accid)
 
 getAccountAddrMaps :: WalletSnapshot -> AccountId -> CurrentAndRemoved CAddresses
 getAccountAddrMaps ws accid = queryValue ws (S.getAccountAddrMaps accid)
+
+getAccountAddresses :: WalletSnapshot -> AccountId -> CAddresses
+getAccountAddresses ws accId = queryValue ws (S.getAccountAddresses accId)
 
 getWalletAddresses :: WalletSnapshot -> [CId Wal]
 getWalletAddresses ws = queryValue ws S.getWalletAddresses

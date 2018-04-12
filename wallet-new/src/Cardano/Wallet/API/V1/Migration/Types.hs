@@ -318,3 +318,4 @@ instance Migrate V0.CWalletMeta V1.WalletUpdate where
             { uwalName              = cwName
             , uwalAssuranceLevel    = migratedAssurance
             }
+

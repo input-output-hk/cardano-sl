@@ -257,9 +257,9 @@ syncWalletWithBlockchain syncRequest@SyncRequest{..} = setLogger $ do
   where
     syncDo :: TrackingOperation -> BlockHeader -> m SyncResult
     syncDo trackingOp walletTipHeader = do
-        let wdiff = (fromIntegral . depthOf $ walletTipHeader) :: Word32
+        let wdiff = (fromIntegral . heightOf $ walletTipHeader) :: Word32
         gstateTipH <- DB.getTipHeader
-        let currentBlockchainDepth = depthOf gstateTipH
+        let currentBlockchainDepth = heightOf gstateTipH
 
         -- First of all we check how far we are lagging behind with respect to
         -- the @currentBlockchainDepth@. If we are lagging _at least_ k blocks
@@ -331,7 +331,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
             computeAccModifier credentials getBlockHeaderTimestamp walletTip usedAddresses mempty 0
 
     let syncTime = BoundedSyncTime 10000 timeTook
-    WS.updateSyncStatistics db walletId (SyncStatistics (calculateThroughput syncTime) (depthOf newSyncTip))
+    WS.updateSyncStatistics db walletId (SyncStatistics (calculateThroughput syncTime) (heightOf newSyncTip))
 
     -- Apply the 'CAccModifier' to the wallet state.
     applyModifierToWallet db (srOperation syncRequest) walletId newSyncTip mapModifier
@@ -371,12 +371,12 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                 True -> do
                     let progress localDepth totalDepth = ((fromIntegral localDepth) * 100.0) /
                                                          (max 1.0 (fromIntegral totalDepth))
-                    let renderProgress = progress (depthOf wHeader) (depthOf blockchainTip)
+                    let renderProgress = progress (heightOf wHeader) (heightOf blockchainTip)
                     logDebug $ sformat ("Progress: " % float @Double % "%") renderProgress
                     pure (currentModifier, wHeader)
                 False -> do
                     let walletId = snd credentials
-                    if | depthOf blockchainTip > depthOf wHeader -> do
+                    if | heightOf blockchainTip > heightOf wHeader -> do
                              -- If wallet's syncTip is before than the current tip in the blockchain,
                              -- then it loads wallets starting with @wHeader@.
                              -- Sync tip can be before the current tip
@@ -395,7 +395,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                                                         newModifier
                                                         (currentBlockCount + 1)
 
-                       | depthOf blockchainTip < depthOf wHeader -> do
+                       | heightOf blockchainTip < heightOf wHeader -> do
                              -- This rollback can occur
                              -- if the application was interrupted during blocks application.
                              blunds <- getNewestFirst <$> GS.loadBlundsWhile (\b -> getBlockHeader b /= blockchainTip) (headerHash wHeader)
@@ -421,7 +421,7 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                       -> (BlockHeader -> Maybe Timestamp)
                       -> CAccModifier
         rollbackBlock credentials allAddresses (b, u) blkHeaderTs =
-            trackingRollbackTxs credentials allAddresses (Just . depthOf) blkHeaderTs $
+            trackingRollbackTxs credentials allAddresses (Just . heightOf) blkHeaderTs $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
         applyBlock :: WalletDecrCredentials
@@ -430,13 +430,14 @@ syncWalletWithBlockchainUnsafe syncRequest walletTip blockchainTip = setLogger $
                    -> (BlockHeader -> Maybe Timestamp)
                    -> CAccModifier
         applyBlock credentials allAddresses (b, u) blkHeaderTs =
-            trackingApplyTxs credentials allAddresses (Just . depthOf) blkHeaderTs ptxBlkInfo $
+            trackingApplyTxs credentials allAddresses (Just . heightOf) blkHeaderTs ptxBlkInfo $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
 
 -- | Gets the 'ChainDifficulty' for either a 'GenesisBlock' or a 'MainBlock'.
-depthOf :: HasDifficulty a => a -> ChainDifficulty
-depthOf = view difficultyL
+-- See: https://bitcoin.org/en/glossary/block-height
+heightOf :: HasDifficulty a => a -> ChainDifficulty
+heightOf = view difficultyL
 
 -- | Retrieves the 'BlockHeader' correspending to the first 'GenesisBlock' of
 -- this blockchain.
@@ -629,7 +630,7 @@ applyModifierToWallet db trackingOperation wid newBlockHeaderTip CAccModifier{..
       cMetas
       (txHistoryListToMap $ DL.toList camAddedHistory)
       (DL.toList $ second PtxInNewestBlocks <$> camAddedPtxCandidates)
-      (depthOf newBlockHeaderTip)
+      (heightOf newBlockHeaderTip)
       newSyncState
 
 rollbackModifierFromWallet

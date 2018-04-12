@@ -40,7 +40,7 @@ import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers 
                                          HasReportingContext (..), MisbehaviorMetrics (..),
                                          ReportingContext (..), rcMisbehaviorMetrics)
 import           Pos.Shutdown (HasShutdownContext (..), ShutdownContext (..))
-import           Pos.Slotting (HasSlottingVar (..), SlottingContextSum)
+import           Pos.Slotting (HasSlottingVar (..), SimpleSlottingStateVar)
 import           Pos.Slotting.Types (SlottingData)
 import           Pos.Ssc.Types (HasSscContext (..), SscContext)
 import           Pos.StateLock (StateLock, StateLockMetrics)
@@ -69,7 +69,7 @@ data NodeContext = NodeContext
     -- ^ Context needed for LRC
     , ncSlottingVar         :: !(Timestamp, TVar SlottingData)
     -- ^ Data necessary for 'MonadSlotsData'.
-    , ncSlottingContext     :: !SlottingContextSum
+    , ncSlottingContext     :: !SimpleSlottingStateVar
     -- ^ Context needed for Slotting.
     , ncShutdownContext     :: !ShutdownContext
     -- ^ Context needed for Shutdown
@@ -132,7 +132,7 @@ instance HasSlogContext NodeContext where
 instance HasSlogGState NodeContext where
     slogGState = ncSlogContext_L . slogGState
 
-instance HasLens SlottingContextSum NodeContext SlottingContextSum where
+instance HasLens SimpleSlottingStateVar NodeContext SimpleSlottingStateVar where
     lensOf = ncSlottingContext_L
 
 instance HasLens StateLock NodeContext StateLock where

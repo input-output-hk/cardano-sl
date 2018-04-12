@@ -19,7 +19,7 @@ import           Pos.Delegation.Worker (dlgWorkers)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Network.CLI (launchStaticConfigMonitoring)
 import           Pos.Network.Types (NetworkConfig (..))
-import           Pos.Slotting (logNewSlotWorker, slottingWorkers)
+import           Pos.Slotting (logNewSlotWorker)
 import           Pos.Ssc.Worker (sscWorkers)
 import           Pos.Update.Worker (usWorkers)
 import           Pos.Util (mconcatPair)
@@ -51,7 +51,5 @@ allWorkers NodeResources {..} = mconcatPair
   where
     topology = ncTopology ncNetworkConfig
     NodeContext {..} = nrContext
-    properSlottingWorkers =
-       fst (localWorker logNewSlotWorker) :
-       map (fst . localWorker) (slottingWorkers ncSlottingContext)
+    properSlottingWorkers = [fst (localWorker logNewSlotWorker)]
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)

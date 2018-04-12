@@ -50,7 +50,6 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Network.Types (HasNodeType (..))
@@ -59,8 +58,10 @@ import           Pos.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Reporting (HasReportingContext (..), MonadReporting)
 import           Pos.Shutdown (HasShutdownContext (..))
 import           Pos.Slotting.Class (MonadSlots (..))
-import           Pos.Slotting.Impl.Sum (currentTimeSlottingSum, getCurrentSlotBlockingSum,
-                                        getCurrentSlotInaccurateSum, getCurrentSlotSum)
+import           Pos.Slotting.Impl (currentTimeSlottingSimple,
+                                    getCurrentSlotBlockingSimple,
+                                    getCurrentSlotInaccurateSimple,
+                                    getCurrentSlotSimple)
 import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc (HasSscConfiguration)
 import           Pos.Ssc.Types (HasSscContext (..))
@@ -78,7 +79,6 @@ import qualified Pos.Util.Modifier as MM
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
-import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
 import           Pos.WorkMode (MinWorkMode, RealMode, RealModeContext (..))
 
 import           Pos.Wallet.Redirect (MonadBlockchainInfo (..), MonadUpdates (..),
@@ -88,20 +88,18 @@ import           Pos.Wallet.Redirect (MonadBlockchainInfo (..), MonadUpdates (..
                                       txpProcessTxWebWallet, waitForUpdateWebWallet)
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Account (AccountMode, GenSeed (RandomSeed))
-import           Pos.Wallet.Web.ClientTypes (AccountId, cwamId)
+import           Pos.Wallet.Web.ClientTypes (AccountId)
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, newAddress_)
-import           Pos.Wallet.Web.Methods.Misc (AddrCIdHashes, MonadConvertToAddr)
 import           Pos.Wallet.Web.Sockets.Connection (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.ConnSet (ConnectionsVar)
 import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, getWalletBalancesAndUtxo,
-                                       getWalletUtxo, askWalletSnapshot)
+                                       getWalletUtxo, askWalletSnapshot, wamAddress)
 import           Pos.Wallet.Web.Tracking (MonadBListener (..), onApplyBlocksWebWallet,
                                           onRollbackBlocksWebWallet)
 
 data WalletWebModeContext = WalletWebModeContext
     { wwmcWalletState     :: !WalletDB
     , wwmcConnectionsVar  :: !ConnectionsVar
-    , wwmcHashes          :: !AddrCIdHashes
     , wwmcRealModeContext :: !(RealModeContext WalletMempoolExt)
     }
 
@@ -111,17 +109,13 @@ type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
 walletWebModeToRealMode
     :: WalletDB
     -> ConnectionsVar
-    -> AddrCIdHashes
     -> WalletWebMode t
     -> RealMode WalletMempoolExt t
-walletWebModeToRealMode ws cv cidHashes act = do
+walletWebModeToRealMode ws cv act = do
     rmc <- ask
-    lift $ runReaderT act (WalletWebModeContext ws cv cidHashes rmc)
+    lift $ runReaderT act (WalletWebModeContext ws cv rmc)
 
 makeLensesWith postfixLFields ''WalletWebModeContext
-
-instance HasLens AddrCIdHashes WalletWebModeContext AddrCIdHashes where
-    lensOf = wwmcHashes_L
 
 instance HasSscContext WalletWebModeContext where
     sscContext = wwmcRealModeContext_L . sscContext
@@ -194,7 +188,6 @@ type MonadWalletWebMode ctx m =
     , MonadBListener m
     , MonadReader ctx m
     , MonadFormatPeers m
-    , MonadConvertToAddr ctx m
     , HasLens StateLock ctx StateLock
     , HasNodeType ctx
     , HasReportingContext ctx
@@ -222,13 +215,13 @@ type MonadFullWalletWebMode ctx m =
 -- Instances for WalletWebMode
 ----------------------------------------------------------------------------
 
-instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx WalletWebMode)
+instance (HasConfiguration, MonadSlotsData ctx WalletWebMode)
       => MonadSlots ctx WalletWebMode
   where
-    getCurrentSlot = getCurrentSlotSum
-    getCurrentSlotBlocking = getCurrentSlotBlockingSum
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
-    currentTimeSlotting = currentTimeSlottingSum
+    getCurrentSlot = getCurrentSlotSimple
+    getCurrentSlotBlocking = getCurrentSlotBlockingSimple
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
+    currentTimeSlotting = currentTimeSlottingSimple
 
 instance {-# OVERLAPPING #-} HasLoggerName WalletWebMode where
     askLoggerName = askLoggerNameDefault
@@ -255,7 +248,7 @@ instance HasConfiguration => MonadGState WalletWebMode where
 instance HasConfiguration => HasAdoptedBlockVersionData WalletWebMode where
     adoptedBVData = gsAdoptedBVData
 
-instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo)
+instance (HasConfiguration, HasCompileInfo)
        => MonadBListener WalletWebMode where
     onApplyBlocks = onApplyBlocksWebWallet
     onRollbackBlocks = onRollbackBlocksWebWallet
@@ -264,7 +257,7 @@ instance MonadUpdates WalletWebMode where
     waitForUpdate = waitForUpdateWebWallet
     applyLastUpdate = applyLastUpdateWebWallet
 
-instance (HasConfiguration, HasSscConfiguration, HasInfraConfiguration) =>
+instance (HasConfiguration, HasSscConfiguration) =>
          MonadBlockchainInfo WalletWebMode where
     networkChainDifficulty = networkChainDifficultyWebWallet
     localChainDifficulty = localChainDifficultyWebWallet
@@ -312,7 +305,7 @@ instance HasConfiguration => MonadBalances WalletWebMode where
     getOwnUtxos = getOwnUtxosDefault
     getBalance = getBalanceDefault
 
-instance (HasConfiguration, HasSscConfiguration, HasTxpConfiguration, HasInfraConfiguration, HasCompileInfo)
+instance (HasConfiguration, HasSscConfiguration, HasTxpConfiguration, HasCompileInfo)
         => MonadTxHistory WalletWebMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
@@ -324,7 +317,7 @@ instance MonadFormatPeers WalletWebMode where
 
 type instance MempoolExt WalletWebMode = WalletMempoolExt
 
-instance (HasConfiguration, HasInfraConfiguration, HasTxpConfiguration, HasCompileInfo) =>
+instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo) =>
          MonadTxpLocal WalletWebMode where
     txpNormalize = txpNormalizeWebWallet
     txpProcessTx = txpProcessTxWebWallet
@@ -341,7 +334,7 @@ getNewAddressWebWallet
 getNewAddressWebWallet (accId, passphrase) = do
     ws <- askWalletSnapshot
     cAddrMeta <- newAddress_ ws RandomSeed passphrase accId
-    decodeCTypeOrFail (cwamId cAddrMeta)
+    return $ cAddrMeta ^. wamAddress
 
 instance (HasConfigurations, HasCompileInfo)
       => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where

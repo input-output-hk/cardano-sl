@@ -96,7 +96,6 @@ instance ToSchema      ExplorerError
 instance ToParamSchema C.CAddressesFilter
 
 deriving instance Generic Micro
-instance ToSchema      Micro
 
 -- | Instance for Either-based types (types we return as 'Right') in responses.
 -- Due 'typeOf' these types must be 'Typeable'.

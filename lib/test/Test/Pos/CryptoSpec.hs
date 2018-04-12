@@ -24,14 +24,14 @@ import           Pos.SafeCopy ()
 import           Pos.Ssc ()
 
 import           Pos.Util.QuickCheck.Property (qcIsLeft, (.=.))
-import           Test.Pos.Configuration (withDefConfiguration, withDefInfraConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Helpers (msgLenLimitedTest, safeCopyEncodeDecode,
                                    safeCopyTest, serDeserId)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 spec :: Spec
-spec = withDefInfraConfiguration $ withDefConfiguration $ describe "Crypto" $ do
+spec = withDefConfiguration $ describe "Crypto" $ do
     describe "Random" $ do
         -- Let's protect ourselves against *accidental* random gen changes
         -- (e.g. if binary or cryptonite or some other package decide to

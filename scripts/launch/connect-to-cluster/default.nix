@@ -11,6 +11,8 @@
 , ekgListen ? "127.0.0.1:8000"
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
+, confKey ? null
+, relays ? null
 }:
 
 with localLib;
@@ -28,6 +30,9 @@ let
     mainnet-staging = {
       relays = "relays.awstest.iohkdev.io";
       confKey = "mainnet_dryrun_full";
+    };
+    override = {
+      inherit relays confKey;
     };
   };
   executables =  {
@@ -73,7 +78,6 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
 
 
   ${executables.${executable}}                                     \
-    --no-ntp                                                       \
     --configuration-file ${configFiles}/configuration.yaml         \
     --configuration-key ${environments.${environment}.confKey}     \
     ${ ifWallet "--tlscert ${stateDir}/tls/server.cert"}           \

@@ -49,7 +49,7 @@ instance ToSchema NoContent where
 spec :: Spec
 spec = modifyMaxSuccess (const 10) $
     describe "Swagger Integration" $ do
-        describe "(V1) ToJSON matches ToSchema" $
+        parallel $ describe "(V1) ToJSON matches ToSchema" $
             validateEveryToJSON' (Proxy @ V1.API)
 
 -- vendored

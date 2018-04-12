@@ -38,7 +38,9 @@ let
     connectScripts.mainnetExplorer = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.stagingWallet   = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.stagingExplorer = [ "x86_64-linux" "x86_64-darwin" ];
+    daedalus-bridge = supportedSystems;
   };
+  nixosTests = import ./nixos-tests;
 in (mapTestOn platforms) // {
-  inherit stagingWalletdockerImage;
+  inherit stagingWalletdockerImage nixosTests;
 }

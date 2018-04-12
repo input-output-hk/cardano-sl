@@ -11,13 +11,12 @@ import           Cardano.Wallet.API.V1.Types
 
 type API = Tags '["Addresses"] :>
       (    "addresses" :> WalletRequestParams
-                       :> Summary "Returns all the addresses."
-                       :> Get '[ValidJSON] (WalletResponse [Address])
+                       :> Summary "Returns a list of the addresses."
+                       :> Get '[ValidJSON] (WalletResponse [WalletAddress])
       :<|> "addresses" :> ReqBody '[ValidJSON] NewAddress
                        :> Summary "Creates a new Address."
                        :> Post '[ValidJSON] (WalletResponse WalletAddress)
       :<|> "addresses" :> Capture "address" Text
-                       :> "validity"
-                       :> Summary "Checks the validity of an address."
-                       :> Get '[ValidJSON] (WalletResponse AddressValidity)
+                       :> Summary "Returns interesting information about an address, if available and valid."
+                       :> Get '[ValidJSON] (WalletResponse WalletAddress)
       )

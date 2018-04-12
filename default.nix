@@ -4,10 +4,12 @@ in
 { system ? builtins.currentSystem
 , config ? {}
 , gitrev ? localLib.commitIdFromGitRepo ./.git
+, buildId ? null
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
 # profiling slows down performance by 50% so we don't enable it by default
 , enableProfiling ? false
 , enableDebugging ? false
+, allowCustomConfig ? true
 }:
 
 with pkgs.lib;
@@ -90,10 +92,14 @@ let
   });
   connect = let
       walletConfigFile = ./custom-wallet-config.nix;
-      walletConfig = if builtins.pathExists walletConfigFile then import walletConfigFile else {};
+      walletConfig = if allowCustomConfig then (if builtins.pathExists walletConfigFile then import walletConfigFile else {}) else {};
     in
-      args: import ./scripts/launch/connect-to-cluster (args // walletConfig // { inherit gitrev; });
+      args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev; } // walletConfig );
   other = rec {
+    cardano-sl-explorer-frontend = (import ./explorer/frontend {
+      inherit system config gitrev pkgs;
+      cardano-sl-explorer = cardanoPkgs.cardano-sl-explorer-static;
+    });
     mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
@@ -112,5 +118,23 @@ let
       mainnetWallet = mkDocker { environment = "mainnet"; };
       stagingWallet = mkDocker { environment = "mainnet-staging"; };
     };
+
+    daedalus-bridge = pkgs.runCommand "cardano-daedalus-bridge" {} ''
+      # Generate daedalus-bridge
+      mkdir -p $out/bin $out/config
+      cd $out
+      ${optionalString (buildId != null) "echo ${buildId} > build-id"}
+      echo ${gitrev} > commit-id
+
+      cp ${./log-configs + "/daedalus.yaml"} config/log-config-prod.yaml
+      cp ${./lib}/configuration.yaml config
+      cp ${./lib}/*genesis*.json config
+      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-launcher bin
+      cp ${cardanoPkgs.cardano-sl-wallet-new}/bin/cardano-node bin
+
+      # test that binaries exit with 0
+      ./bin/cardano-node --help > /dev/null
+      HOME=$TMP ./bin/cardano-launcher --help > /dev/null
+    '';
   };
 in cardanoPkgs // other

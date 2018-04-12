@@ -17,7 +17,6 @@ import           Universum
 
 import           Cardano.Wallet.API as API
 import           Cardano.Wallet.API.V1.Errors (WalletError (..))
-import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel
 import qualified Cardano.Wallet.LegacyServer as LegacyServer
@@ -25,17 +24,19 @@ import qualified Cardano.Wallet.Server as Server
 import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode,
                                             WalletBackendParams (..), isDebugMode,
                                             walletAcidInterval, walletDbOptions)
+import           Cardano.Wallet.WalletLayer (ActiveWalletLayer, PassiveWalletLayer,
+                                             bracketKernelActiveWallet)
 
 import           Data.Aeson
 import           Formatting (build, sformat, (%))
 import           Mockable
-import           Network.HTTP.Types.Status (badRequest400)
 import           Network.HTTP.Types (hContentType)
+import           Network.HTTP.Types.Status (badRequest400)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
+import           Network.Wai.Handler.Warp (defaultSettings, setOnExceptionResponse)
 import           Network.Wai.Middleware.Cors (cors, corsMethods, corsRequestHeaders,
                                               simpleCorsResourcePolicy, simpleMethods)
-import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
-import           Network.Wai.Handler.Warp (defaultSettings, setOnExceptionResponse)
+import           Ntp.Client (NtpStatus)
 import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.Web (cleanupAcidStatePeriodically)
 import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)
@@ -85,8 +86,9 @@ conversation wArgs = (, mempty) $ map (ActionSpec . const) (pluginsMonitoringApi
 -- | A @Plugin@ to start the wallet backend API.
 legacyWalletBackend :: (HasConfigurations, HasCompileInfo)
                     => WalletBackendParams
+                    -> TVar NtpStatus
                     -> Plugin WalletWebMode
-legacyWalletBackend WalletBackendParams {..} =
+legacyWalletBackend WalletBackendParams {..} ntpStatus =
     first one $ worker walletServerOuts $ \diffusion -> do
       logInfo $ sformat ("Production mode for API: "%build)
         walletProductionApi
@@ -108,9 +110,9 @@ legacyWalletBackend WalletBackendParams {..} =
       ctx <- V0.walletWebModeContext
       let app = upgradeApplicationWS wsConn $
             if isDebugMode walletRunMode then
-              Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer (V0.convertHandler ctx) diffusion walletRunMode
+              Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer (V0.convertHandler ctx) diffusion ntpStatus walletRunMode
             else
-              Servant.serve API.walletAPI $ LegacyServer.walletServer (V0.convertHandler ctx) diffusion
+              Servant.serve API.walletAPI $ LegacyServer.walletServer (V0.convertHandler ctx) diffusion ntpStatus
       return $ withMiddleware walletRunMode app
 
     exceptionHandler :: SomeException -> Response
@@ -123,13 +125,13 @@ legacyWalletBackend WalletBackendParams {..} =
 -- TODO: no web socket support in the new wallet for now
 walletBackend :: (HasConfigurations, HasCompileInfo)
               => NewWalletBackendParams
-              -> Kernel.PassiveWallet
+              -> PassiveWalletLayer Production
               -> Plugin Kernel.WalletMode
 walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
     first one $ worker walletServerOuts $ \diffusion -> do
       env <- ask
       let diffusion' = Kernel.fromDiffusion (lower env) diffusion
-      Kernel.bracketActiveWallet passive diffusion' $ \active ->
+      bracketKernelActiveWallet passive diffusion' $ \active ->
         walletServeImpl
           (getApplication active)
           walletAddress
@@ -137,7 +139,7 @@ walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
           (if isDebugMode walletRunMode then Nothing else walletTLSParams)
           Nothing
   where
-    getApplication :: Kernel.ActiveWallet -> Kernel.WalletMode Application
+    getApplication :: ActiveWalletLayer Production -> Kernel.WalletMode Application
     getApplication active = do
       logInfo "New wallet API has STARTED!"
       return $ withMiddleware walletRunMode $
@@ -163,7 +165,7 @@ notifierPlugin = ([ActionSpec $ const V0.notifierPlugin], mempty)
 -- with a Swagger editor, locally.
 withMiddleware :: RunMode -> Application -> Application
 withMiddleware wrm app
-  | isDebugMode wrm = logStdoutDev . corsMiddleware $ app
+  | isDebugMode wrm = corsMiddleware app
   | otherwise = app
 
 corsMiddleware :: Middleware

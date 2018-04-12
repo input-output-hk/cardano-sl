@@ -31,7 +31,7 @@ import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
                                        withCompileInfo)
 import           Pos.Util.JsonLog (jsonLogConfigFromHandle)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (AddrCIdHashes (..), WalletWebModeContext (..))
+import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
 import           Pos.Wallet.Web.State.Acidic (closeState, openState)
 import           Pos.Wallet.Web.State.State (WalletDB)
 import           Pos.WorkMode (RealModeContext (..))
@@ -90,7 +90,6 @@ newRealModeContext dbs confOpts secretKeyPath = do
              }
          , updateLatestPath       = "update"
          , updateWithPackage      = False
-         , noNTP                  = True
          , route53Params          = Nothing
          , enableMetrics          = False
          , ekgParams              = Nothing
@@ -124,7 +123,6 @@ walletRunner
 walletRunner confOpts dbs secretKeyPath ws act = runProduction $ do
     wwmc <- WalletWebModeContext <$> pure ws
                                  <*> newTVarIO def
-                                 <*> (AddrCIdHashes <$> (newIORef mempty))
                                  <*> newRealModeContext dbs confOpts secretKeyPath
     runReaderT act wwmc
 
@@ -153,7 +151,7 @@ main = do
     cli@CLI{..} <- getRecord "DBGen"
     let cfg = newConfig cli
 
-    withConfigurations cfg $
+    withConfigurations cfg $ \_ ->
         withCompileInfo $(retrieveCompileTimeInfo) $ do
             when showStats (showStatsAndExit walletPath)
 

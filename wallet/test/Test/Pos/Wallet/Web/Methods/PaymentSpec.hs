@@ -24,15 +24,14 @@ import           Pos.Launcher (HasConfigurations)
 import           Pos.Txp (TxFee (..))
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Wallet.Web.Account (myRootAddresses)
-import           Pos.Wallet.Web.ClientTypes (CAccount (..), CWAddressMeta (..),
-                                             NewBatchPayment (..))
+import           Pos.Wallet.Web.ClientTypes (CAccount (..), NewBatchPayment (..))
 
 import           Pos.Util.QuickCheck.Property (assertProperty, expectedOne, maybeStopProperty,
                                                splitWord, stopProperty)
 import           Pos.Wallet.Web.Methods.Logic (getAccounts)
 import           Pos.Wallet.Web.Methods.Payment (newPaymentBatch)
 import qualified Pos.Wallet.Web.State.State as WS
-import           Pos.Wallet.Web.State.Storage (AddressInfo (..))
+import           Pos.Wallet.Web.State.Storage (AddressInfo (..), wamAddress)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
 
 import           Pos.Util.Servant (encodeCType)
@@ -45,7 +44,7 @@ import           Test.Pos.Wallet.Web.Util (deriveRandomAddress, expectedAddrBala
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
 spec = withCompileInfo def $
-       withDefConfigurations $
+       withDefConfigurations $ \_ ->
        describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
     describe "newPaymentBatch" $ do
         describe "One payment" oneNewPaymentBatchSpec
@@ -116,7 +115,7 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     -- expectedChangeAddresses
   where
     getAddress ws srcAccId =
-        lift . decodeCTypeOrFail . cwamId . adiCWAddressMeta =<<
+        return . view wamAddress . adiWAddressMeta =<<
         expectedOne "address" =<<
         lift (getAccountAddrsOrThrow ws WS.Existing srcAccId)
     oneNewPaymentBatchDesc =

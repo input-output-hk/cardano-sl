@@ -81,3 +81,14 @@ custom-wallet-config.nix
 # wallet web API benchmarking results
 wallet-new/bench/results/*.csv
 wallet-new/bench/results/*.txt
+
+# cardano-state-* for wallet data
+cardano-state-*
+state-*
+
+# exchange topology file
+exchange-topology.yaml
+
+# launch scripts
+launch_*
+result*

@@ -73,7 +73,7 @@ init PassiveWallet{..} = do
 -- send new transactions.
 data ActiveWallet = ActiveWallet {
       -- | The underlying passive wallet
-      walletPassive :: PassiveWallet
+      walletPassive   :: PassiveWallet
 
       -- | The wallet diffusion layer
     , walletDiffusion :: WalletDiffusion

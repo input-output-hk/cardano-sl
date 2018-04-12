@@ -2,7 +2,7 @@ module MarshallingSpec where
 
 import           Universum
 
-import           Control.Lens (from)
+import           Control.Lens (from, to)
 import           Data.Aeson
 import           Data.Time (UTCTime(..), fromGregorian)
 import           Data.Time.Clock.POSIX (POSIXTime)
@@ -30,12 +30,14 @@ import qualified Cardano.Wallet.Util as Util
 
 -- | Tests whether or not some instances (JSON, Bi, etc) roundtrips.
 spec :: Spec
-spec = describe "Marshalling & Unmarshalling" $ do
-    describe "Roundtrips" $ do
+spec = parallel $ describe "Marshalling & Unmarshalling" $ do
+    parallel $ describe "Roundtrips" $ do
         -- Aeson roundrips
         aesonRoundtripProp @(V1 BackupPhrase) Proxy
         aesonRoundtripProp @Account Proxy
         aesonRoundtripProp @AssuranceLevel Proxy
+        aesonRoundtripProp @(V1 Core.SoftwareVersion) Proxy
+        aesonRoundtripProp @NodeSettings Proxy
         aesonRoundtripProp @Payment Proxy
         aesonRoundtripProp @PaymentDistribution Proxy
         aesonRoundtripProp @NewWallet Proxy
@@ -43,9 +45,12 @@ spec = describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @(V1 Core.Coin) Proxy
         aesonRoundtripProp @(V1 Crypto.PassPhrase) Proxy
         aesonRoundtripProp @(V1 InputSelectionPolicy) Proxy
+        aesonRoundtripProp @TimeInfo Proxy
+        aesonRoundtripProp @Transaction Proxy
         aesonRoundtripProp @(V1 Core.Timestamp) Proxy
-        aesonRoundtripProp @TransactionType Proxy
         aesonRoundtripProp @TransactionDirection Proxy
+        aesonRoundtripProp @TransactionType Proxy
+        aesonRoundtripProp @TransactionStatus Proxy
         aesonRoundtripProp @WalletError Proxy
         aesonRoundtripProp @WalletId Proxy
         aesonRoundtripProp @Wallet Proxy
@@ -80,13 +85,13 @@ spec = describe "Marshalling & Unmarshalling" $ do
 
     describe "Timestamp Parsing" $ do
         describe "ToIndex" $ do
-            let toIndex' :: Text -> Maybe Core.Timestamp
+            let toIndex' :: Text -> Maybe (V1 Core.Timestamp)
                 toIndex' = toIndex (Proxy @Transaction)
             it "can parse an ISO8601 UTC formatted date" $ do
                 toIndex' "1999-10-12"
                     `shouldBe`
                         Just (UTCTime (fromGregorian 1999 10 12) 0
-                            ^. from Core.timestampToUTCTimeL
+                            ^. from Core.timestampToUTCTimeL . to V1
                             )
             it "can parse an ISO8601 UTC formatted datetime (seconds)" $ do
                 toIndex' "1999-10-12T22:15:31.123"
@@ -95,7 +100,7 @@ spec = describe "Marshalling & Unmarshalling" $ do
                             UTCTime
                                 (fromGregorian 1999 10 12)
                                 ((22 * 60 * 60) + (15 * 60) + 31.123)
-                            ^. from Core.timestampToUTCTimeL
+                            ^. from Core.timestampToUTCTimeL . to V1
                             )
             it "can parse an ISO8601 UTC formatted datetime (fractional)" $ do
                 toIndex' "1999-10-12T22:15:37"
@@ -104,19 +109,19 @@ spec = describe "Marshalling & Unmarshalling" $ do
                             UTCTime
                                 (fromGregorian 1999 10 12)
                                 ((22 * 60 * 60) + (15 * 60) + 37)
-                            ^. from Core.timestampToUTCTimeL
+                            ^. from Core.timestampToUTCTimeL . to V1
                             )
             it "can parse an integral timestamp" $ do
                 toIndex' "123456789"
                     `shouldBe`
                         Just ((123456789 :: POSIXTime)
-                            ^. from Core.timestampSeconds
+                            ^. from Core.timestampSeconds . to V1
                             )
             it "can parse an fractional timestamp" $ do
                 toIndex' "123456789.123"
                     `shouldBe`
                         Just ((123456789.123 :: POSIXTime)
-                            ^. from Core.timestampSeconds
+                            ^. from Core.timestampSeconds . to V1
                             )
 
 

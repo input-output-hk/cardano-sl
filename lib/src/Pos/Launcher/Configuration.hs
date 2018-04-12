@@ -34,7 +34,7 @@ import           Pos.Block.Configuration
 import           Pos.Configuration
 import           Pos.Core.Configuration
 import           Pos.Delegation.Configuration
-import           Pos.Infra.Configuration
+import           Pos.Ntp.Configuration
 import           Pos.Ssc.Configuration
 import           Pos.Txp.Configuration
 import           Pos.Update.Configuration
@@ -42,7 +42,7 @@ import           Pos.Update.Configuration
 -- | Product of all configurations required to run a node.
 data Configuration = Configuration
     { ccCore   :: !CoreConfiguration
-    , ccInfra  :: !InfraConfiguration
+    , ccNtp    :: !NtpConfiguration
     , ccUpdate :: !UpdateConfiguration
     , ccSsc    :: !SscConfiguration
     , ccDlg    :: !DlgConfiguration
@@ -59,7 +59,6 @@ instance ToJSON Configuration where
 
 type HasConfigurations =
     ( HasConfiguration
-    , HasInfraConfiguration
     , HasUpdateConfiguration
     , HasSscConfiguration
     , HasBlockConfiguration
@@ -106,17 +105,16 @@ instance Default ConfigurationOptions where
 withConfigurations
     :: (WithLogger m, MonadThrow m, MonadIO m)
     => ConfigurationOptions
-    -> (HasConfigurations => m r)
+    -> (HasConfigurations => NtpConfiguration -> m r)
     -> m r
 withConfigurations co@ConfigurationOptions{..} act = do
     logInfo ("using configurations: " <> show co)
     Configuration{..} <- parseYamlConfig cfoFilePath cfoKey
     let configurationDir = takeDirectory cfoFilePath
     withCoreConfigurations ccCore configurationDir cfoSystemStart cfoSeed $
-        withInfraConfiguration ccInfra $
         withUpdateConfiguration ccUpdate $
         withSscConfiguration ccSsc $
         withDlgConfiguration ccDlg $
         withTxpConfiguration ccTxp $
         withBlockConfiguration ccBlock $
-        withNodeConfiguration ccNode $ act
+        withNodeConfiguration ccNode $ act ccNtp

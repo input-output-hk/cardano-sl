@@ -21,6 +21,7 @@ import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
 import           Mockable (Production, runProduction)
 import           Network.Wai (Application)
+import           Ntp.Client (NtpStatus)
 import           Servant.Server (Handler)
 import           System.Wlog (logInfo)
 
@@ -35,7 +36,7 @@ import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.TimeWarp (NetworkAddress)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
-import           Pos.Wallet.Web.Methods (AddrCIdHashes (..), addInitialRichAccount)
+import           Pos.Wallet.Web.Methods (addInitialRichAccount)
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
                                       WalletWebModeContextTag, walletWebModeToRealMode)
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl, walletServer)
@@ -52,37 +53,37 @@ runWRealMode
        )
     => WalletDB
     -> ConnectionsVar
-    -> AddrCIdHashes
     -> NodeResources WalletMempoolExt
     -> (ActionSpec WalletWebMode a, OutSpecs)
     -> Production a
-runWRealMode db conn ref res (action, outSpecs) =
+runWRealMode db conn res (action, outSpecs) =
     elimRealMode res serverRealMode
   where
     NodeContext {..} = nrContext res
     ekgNodeMetrics = EkgNodeMetrics
         (nrEkgStore res)
-        (runProduction . elimRealMode res . walletWebModeToRealMode db conn ref)
+        (runProduction . elimRealMode res . walletWebModeToRealMode db conn)
     serverWalletWebMode :: WalletWebMode a
     serverWalletWebMode = runServer
-        (runProduction . elimRealMode res . walletWebModeToRealMode db conn ref)
+        (runProduction . elimRealMode res . walletWebModeToRealMode db conn)
         ncNodeParams
         ekgNodeMetrics
         outSpecs
         action
     serverRealMode :: RealMode WalletMempoolExt a
-    serverRealMode = walletWebModeToRealMode db conn ref serverWalletWebMode
+    serverRealMode = walletWebModeToRealMode db conn serverWalletWebMode
 
 walletServeWebFull
     :: ( HasConfigurations
        , HasCompileInfo
        )
     => Diffusion WalletWebMode
+    -> TVar NtpStatus
     -> Bool                    -- whether to include genesis keys
     -> NetworkAddress          -- ^ IP and Port to listen
     -> Maybe TlsParams
     -> WalletWebMode ()
-walletServeWebFull diffusion debug address mTlsParams =
+walletServeWebFull diffusion ntpStatus debug address mTlsParams =
     walletServeImpl action address mTlsParams Nothing
   where
     action :: WalletWebMode Application
@@ -92,7 +93,7 @@ walletServeWebFull diffusion debug address mTlsParams =
 
         wwmc <- walletWebModeContext
         walletApplication $
-            walletServer @WalletWebModeContext @WalletWebMode diffusion (convertHandler wwmc)
+            walletServer @WalletWebModeContext @WalletWebMode diffusion ntpStatus (convertHandler wwmc)
 
 walletWebModeContext :: WalletWebMode WalletWebModeContext
 walletWebModeContext = view (lensOf @WalletWebModeContextTag)

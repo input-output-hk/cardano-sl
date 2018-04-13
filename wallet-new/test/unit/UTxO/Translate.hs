@@ -9,6 +9,7 @@ module UTxO.Translate (
   , withConfig
   , mapTranslateErrors
   , catchTranslateErrors
+  , catchSomeTranslateErrors
     -- * Convenience wrappers
   , translateFirstSlot
   , translateNextSlot
@@ -69,6 +70,7 @@ newtype TranslateT e m a = TranslateT {
            , Applicative
            , Monad
            , MonadError e
+           , MonadIO
            )
 
 instance MonadTrans (TranslateT e) where
@@ -132,6 +134,16 @@ catchTranslateErrors :: Functor m
                      => TranslateT e m a -> TranslateT e' m (Either e a)
 catchTranslateErrors (TranslateT (ExceptT (ReaderT ma))) =
     TranslateT $ ExceptT $ ReaderT $ \env -> fmap Right (ma env)
+
+catchSomeTranslateErrors :: Monad m
+                         => TranslateT (Either e e') m a
+                         -> TranslateT e m (Either e' a)
+catchSomeTranslateErrors act = do
+    ma <- catchTranslateErrors act
+    case ma of
+      Left (Left e)   -> throwError e
+      Left (Right e') -> return $ Left e'
+      Right a         -> return $ Right a
 
 {-------------------------------------------------------------------------------
   Convenience wrappers

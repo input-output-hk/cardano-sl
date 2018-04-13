@@ -27,6 +27,8 @@ getDefaultLogDir :: IO FilePath
 getDefaultLogDir =
 #ifdef mingw32_HOST_OS
     (</> "Daedalus\\Logs") <$> getEnv "APPDATA"
+#elif defined (linux_HOST_OS)
+    (</> "Daedalus/ogs") <$> getEnv "XDG_DATA_HOME"
 #else
     (</> "Library/Application Support/Daedalus/Logs") <$> getEnv "HOME"
 #endif

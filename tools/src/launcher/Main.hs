@@ -172,8 +172,6 @@ getLauncherOptions = do
         -- This is used by 'substituteEnvVars', later
         setEnv "DAEDALUS_DIR" daedalusDir
       _ -> pure ()
-    xdgDataHome <- Sys.getXdgDirectory Sys.XdgData ""
-    setEnv "XDG_DATA_HOME" xdgDataHome
     configPath <- maybe defaultConfigPath pure maybeConfigPath
     decoded <- Y.decodeFileEither configPath
     case decoded of
@@ -266,6 +264,7 @@ main =
       Silently.hSilence [stdout, stderr]
     _ -> identity
   $ do
+    Sys.getXdgDirectory Sys.XdgData "" >>= setEnv "XDG_DATA_HOME"
     LO {..} <- getLauncherOptions
     -- Launcher logs should be in public directory
     let launcherLogsPrefix = (</> "pub") <$> loLogsPrefix

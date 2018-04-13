@@ -498,7 +498,7 @@ is the same, then the same property also holds of $f$).
 
 Let us call a blocktree $\mathfrak{T} ∈
 \blocktrees$\improvement{Clearly, a better notation for the set of
-  blocktrees and the set of blockchains is necessary} a finite set of
+  blocktrees and the set of blockchains is necessary}{} a finite set of
 valid chains, closed under prefix (\emph{i.e.} if
 $b₁, …, b_{n+1} ∈ \mathfrak{T}$, then
 $b₁, …, b_n ∈ \mathfrak{T}$)\info{This simply means that
@@ -524,6 +524,20 @@ A blockchain datastructure is a pair $(\mathfrak{C},\mathfrak{T}) ∈
 
 Because a typical weight function is the length of the chain,
 $\mathfrak{C}$ is often referred to as the longest chain (despite not
-necessarily being unique at that length).
+necessarily being unique at that weight).
+
+Rules to add a block $b$ to the blockchain:
+
+\begin{description}
+\item[Predecessor] There must exist $b₁,…,b_n∈ \mathfrak{T}$ such that
+  $b_n$ is the predecessor of $b$.
+\item[Validity] $b₁,…,b_n,b$ must be a valid chain, let $\mathfrak{T}'
+  = \mathfrak{T}∪\{b₁,…,b_n,b\}$
+\item[Longest chain] if $\weight{b₁,…,b_n,b} > \weight{C}$ (note:
+  larger \emph{and not equal}) then let $\mathfrak{C}'=b₁,…,b_n,b$
+  else let $\mathfrak{C}'=\mathfrak{C}$.
+\item[Update] The new blockchain is $(\mathfrak{C}', \mathfrak{T}')$
+\end{description}
+
 
 \end{document}

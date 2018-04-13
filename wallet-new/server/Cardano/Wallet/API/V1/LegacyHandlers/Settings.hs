@@ -8,6 +8,7 @@ import qualified Cardano.Wallet.API.V1.Settings as Settings
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Data.Text as T
 import           Paths_cardano_sl_wallet_new (version)
+import           Pos.Crypto.Configuration (protocolMagic)
 
 import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Util.CompileInfo (compileInfo, ctiGitRevision)
@@ -30,4 +31,5 @@ getSettings = do
                              <*> pure (V1 curSoftwareVersion)
                              <*> pure version
                              <*> pure (T.replace "\n" mempty $ ctiGitRevision compileInfo)
+                             <*> pure (V1 protocolMagic)
     return $ single settings

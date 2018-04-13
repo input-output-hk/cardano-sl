@@ -70,7 +70,7 @@ runActionCheck
     -> ActionProbabilities
     -> m WalletState
 runActionCheck walletClient walletState actionProb = do
-    actions <- chooseActions 100 actionProb
+    actions <- chooseActions 20 actionProb
     let client' = hoistClient lift walletClient
     execRefT (tryAll (map (runAction client') actions)) walletState
         `catch` \x -> fmap (const walletState) . liftIO . hspec .
@@ -293,20 +293,18 @@ runAction wc action = do
 
         GetAccounts   -> do
             -- We choose from the existing wallets AND existing accounts.
-            wallet  <-  pickRandomElement =<< use nonGenesisWallets
+            wallet  <-  pickRandomElement =<< use wallets
             let walletId = walId wallet
 
             -- We get all the accounts.
             log $ "Getting accounts for walletID: " <> show walletId
             log $ "Wallet info: " <> ppShowT wallet
-            _result  <-  respToRes $ getAccounts wc walletId
+            result  <-  respToRes $ getAccounts wc walletId
 
-            _accts <- uses accounts (filter ((walletId ==) . accWalletId))
-            -- TODO(matt.parsons): This fails almost every time. It always
-            -- returns an empty list. Why? Solve in CSL-2445.
+            accts <- uses accounts (filter ((walletId ==) . accWalletId))
             checkInvariant
-                (length _result == length _accts)
-                (LocalAccountsDiffers _accts _result)
+                (length result == length accts)
+                (LocalAccountsDiffers accts result)
             pure ()
 
         GetAccount    -> do

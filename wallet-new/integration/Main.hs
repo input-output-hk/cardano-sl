@@ -93,7 +93,7 @@ deterministicTests wc = do
             -- accounts should exist
             accResp' <- getAccounts wc walId
             accs <- wrData <$> accResp' `shouldPrism` _Right
-            acc `shouldSatisfy` (`elem` accs)
+            accs `shouldContain` [acc]
 
             -- create an address
             addResp <- postAddress wc (NewAddress Nothing accIndex walId)

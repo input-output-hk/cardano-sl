@@ -358,7 +358,7 @@ intAndVerifyChain pc = runTranslateT $ do
     FromPreChain{..} <- fromPreChain pc
     let dslIsValid = ledgerIsValid fpcLedger
         dslUtxo    = ledgerUtxo    fpcLedger
-    intResult <- catchTranslateErrors $ runIntBoot fpcBoot $ int fpcChain
+    intResult <- catchTranslateErrors $ runIntBoot' fpcBoot $ int fpcChain
     case intResult of
       Left e ->
         case dslIsValid of
@@ -374,7 +374,7 @@ intAndVerifyChain pc = runTranslateT $ do
           (Invalid _ e' , Valid     _) -> return $ Disagreement fpcLedger (UnexpectedValid e')
           (Valid     () , Invalid _ e) -> return $ Disagreement fpcLedger (UnexpectedInvalid e)
           (Valid     () , Valid (_undo, finalUtxo)) -> do
-            (finalUtxo', _) <- runIntT ctxt $ int dslUtxo
+            (finalUtxo', _) <- runIntT' ctxt $ int dslUtxo
             if finalUtxo == finalUtxo'
               then return $ ExpectedValid
               else return $ Disagreement fpcLedger UnexpectedUtxo {

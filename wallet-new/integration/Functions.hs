@@ -13,6 +13,9 @@ import           Universum hiding (log)
 import           Control.Lens (at, each, filtered, uses, (%=), (+=), (.=), (<>=), (?=))
 import           Data.Coerce (coerce)
 import           Data.List (isInfixOf, nub, (!!), (\\))
+import           Data.Aeson (toJSON)
+import           Data.Aeson.Diff (diff)
+import           Data.Aeson.Encode.Pretty (encodePretty)
 import           Test.Hspec
 import           Test.QuickCheck
 import           Text.Show.Pretty (ppShow)
@@ -125,6 +128,9 @@ runAction
     -> m ()
 -- Wallets
 runAction wc action = do
+
+    previousWalletState <- get
+
     log $ "Action Selected: " <> show action
     actionsNum += 1
     acts <- use actionsNum
@@ -581,6 +587,17 @@ runAction wc action = do
             checkInvariant
                 (txId transaction `elem` map txId result)
                 (LocalTransactionMissing transaction result)
+
+        NoOp  -> pure ()
+
+    lastAction .= action
+
+    -- Let's print it out to JSON
+    walletState <- get
+
+    log "=================================================================="
+    log . decodeUtf8 . encodePretty $ diff (toJSON previousWalletState) (toJSON walletState)
+    log "=================================================================="
 
     -- increment successful actions
     log "Success!"

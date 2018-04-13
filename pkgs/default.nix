@@ -7681,8 +7681,8 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-wallet-new" = callPackage
-        ({ mkDerivation, aeson, aeson-pretty, base, bytestring, cardano-sl
-         , cardano-sl-block, cardano-sl-client, cardano-sl-core
+        ({ mkDerivation, aeson, aeson-diff, aeson-pretty, base, bytestring
+         , cardano-sl, cardano-sl-block, cardano-sl-client, cardano-sl-core
          , cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation
          , cardano-sl-infra, cardano-sl-networking, cardano-sl-ssc
          , cardano-sl-txp, cardano-sl-update, cardano-sl-util
@@ -7718,17 +7718,18 @@ inherit (pkgs) mesa;};
              unordered-containers vector wai
            ];
            executableHaskellDepends = [
-             aeson aeson-pretty base bytestring cardano-sl cardano-sl-client
-             cardano-sl-core cardano-sl-crypto cardano-sl-infra
-             cardano-sl-networking cardano-sl-ssc cardano-sl-txp
-             cardano-sl-update cardano-sl-util cardano-sl-wallet conduit
-             containers data-default exceptions formatting hspec http-api-data
-             http-client http-types insert-ordered-containers ixset-typed lens
-             log-warper memory mtl neat-interpolation optparse-applicative
-             pretty-show QuickCheck safe-exceptions serokell-util servant
-             servant-client servant-server servant-swagger servant-swagger-ui
-             stm string-conv swagger2 text text-format time-units universum
-             unordered-containers wai wai-cors wai-extra warp
+             aeson aeson-diff aeson-pretty base bytestring cardano-sl
+             cardano-sl-client cardano-sl-core cardano-sl-crypto
+             cardano-sl-infra cardano-sl-networking cardano-sl-ssc
+             cardano-sl-txp cardano-sl-update cardano-sl-util cardano-sl-wallet
+             conduit containers data-default exceptions formatting hspec
+             http-api-data http-client http-types insert-ordered-containers
+             ixset-typed lens log-warper memory mtl neat-interpolation
+             optparse-applicative pretty-show QuickCheck safe-exceptions
+             serokell-util servant servant-client servant-server servant-swagger
+             servant-swagger-ui stm string-conv swagger2 text text-format
+             time-units universum unordered-containers wai wai-cors wai-extra
+             warp
            ];
            testHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-block

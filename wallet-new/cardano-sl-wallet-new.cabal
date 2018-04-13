@@ -243,6 +243,7 @@ executable cardano-integration-test
   build-depends:       base
                      , aeson
                      , aeson-pretty
+                     , aeson-diff
                      , bytestring
                      , cardano-sl
                      , cardano-sl-client

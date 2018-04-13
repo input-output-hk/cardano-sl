@@ -135,10 +135,10 @@ getAccountsIncludeUnready
     => WalletSnapshot
     -> ([(TxId, TxAux)], UndoMap) -- ^ Transactions and UndoMap from mempool
     -> Bool -> Maybe (CId Wal) -> m [CAccount]
-getAccountsIncludeUnready ws mps _includeUnready mCAddr = do
+getAccountsIncludeUnready ws mps includeUnready mCAddr = do
     whenJust mCAddr $ \cAddr ->
       void $ maybeThrow (noWallet cAddr) $
-        pure Just -- getWalletMetaIncludeUnready ws includeUnready cAddr
+        getWalletMetaIncludeUnready ws includeUnready cAddr
     let accIds = maybe (getAccountIds ws) (getWalletAccountIds ws) mCAddr
     let groupedAccIds = fmap reverse $ HM.fromListWith mappend $
                         accIds <&> \acc -> (aiWId acc, [acc])

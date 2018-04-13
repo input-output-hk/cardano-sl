@@ -15,7 +15,6 @@ import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import qualified Data.IxSet.Typed as IxSet
 import           Pos.Update.Configuration ()
-import           Test.QuickCheck (arbitrary, generate)
 
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
 import           Servant
@@ -104,7 +103,20 @@ addWalletInfo snapshot wallet = do
             migrate (wallet, walletInfo)
 
 updateWallet
-    :: WalletId
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId
     -> WalletUpdate
-    -> MonadV1 (WalletResponse Wallet)
-updateWallet _ _ = single <$> liftIO (generate arbitrary) -- error "Unimplemented: tracked in CSL-2450"
+    -> m (WalletResponse Wallet)
+updateWallet wid WalletUpdate{..} = do
+    ws <- V0.askWalletSnapshot
+    wid' <- migrate wid
+    assurance <- migrate uwalAssuranceLevel
+    walletMeta <- maybe (throwM WalletNotFound) pure $ V0.getWalletMeta wid' ws
+    updated <- V0.updateWallet wid' walletMeta
+        { V0.cwName = uwalName
+        , V0.cwAssurance = assurance
+        }
+    single <$> do
+        -- reacquire the snapshot because we did an update
+        ws' <- V0.askWalletSnapshot
+        addWalletInfo ws' updated

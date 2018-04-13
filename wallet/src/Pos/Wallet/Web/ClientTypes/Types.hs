@@ -217,7 +217,12 @@ instance Buildable CWalletAssurance where
 data CWalletMeta = CWalletMeta
     { cwName      :: !Text
     , cwAssurance :: !CWalletAssurance
-    , cwUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
+    , cwUnit      :: !Int
+    -- ^ The unit of currency. A 0 indicates a large currency (bitcoin,
+    -- ada) and a 1 indicates a small currency (satoshi, lovelace).
+    --
+    -- See <https://iohk.myjetbrains.com/youtrack/issue/CSM-163 this
+    -- ticket> for more information.
     } deriving (Show, Eq, Generic)
 
 instance Buildable CWalletMeta where

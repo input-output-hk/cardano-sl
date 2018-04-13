@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
@@ -8,7 +9,7 @@ import           Universum
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Data.Aeson
-import           Data.List.NonEmpty (NonEmpty)
+import           Data.List.NonEmpty (NonEmpty ((:|)))
 import           Generics.SOP.TH (deriveGeneric)
 import qualified Network.HTTP.Types.Header as HTTP
 import           Servant
@@ -50,7 +51,6 @@ import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
 data WalletError =
       NotEnoughMoney { weNeedMore :: !Int }
     | OutputIsRedeem { weAddress :: !Text }
-    | SomeOtherError { weFoo :: !Text, weBar :: !Int }
     | MigrationFailed { weDescription :: !Text }
     | JSONValidationFailed { weValidationError :: !Text }
     | UnknownError { weMsg :: !Text }
@@ -78,6 +78,7 @@ instance Exception WalletError where
 instance Arbitrary WalletError where
     arbitrary = oneof (map pure sample)
 
+
 --
 -- Helpers
 --
@@ -91,13 +92,29 @@ type ErrorExample = Value
 sample :: [WalletError]
 sample =
   [ NotEnoughMoney 1400
-  , OutputIsRedeem "b10b24203f1f0cadffcfd16277125cf7f3ad598983bef9123be80d93"
-  , SomeOtherError "foo" 14
-  , MigrationFailed "migration"
+  , OutputIsRedeem "b10b242...be80d93"
+  , MigrationFailed "Migration failed"
   , JSONValidationFailed "Expected String, found Null."
   , UnknownError "unknown"
+  , InvalidAddressFormat "Invalid base58 representation."
   , WalletNotFound
+  , AddressNotFound
+  , MissingRequiredParams (("wallet_id", "walletId") :| [])
   ]
+
+
+-- | Give a short description of an error
+describe :: WalletError -> String
+describe = \case
+  NotEnoughMoney _        -> "Not enough available coins to proceed."
+  OutputIsRedeem  _       -> "One of the TX outputs is a redemption address."
+  MigrationFailed  _      -> "Error while migrating a legacy type into the current version."
+  JSONValidationFailed _  -> "Couldn't decode a JSON input."
+  UnknownError        _   -> "Unexpected internal error."
+  InvalidAddressFormat _  -> "Provided address format is not valid."
+  WalletNotFound          -> "Reference to an unexisting wallet was given."
+  AddressNotFound         -> "Reference to an unexisting address was given."
+  MissingRequiredParams _ -> "Missing required parameters in the request payload."
 
 
 -- | Convert wallet errors to Servant errors
@@ -106,7 +123,6 @@ toServantError err =
   mkServantErr $ case err of
     NotEnoughMoney{}        -> err403
     OutputIsRedeem{}        -> err403
-    SomeOtherError{}        -> err418
     MigrationFailed{}       -> err422
     JSONValidationFailed{}  -> err400
     UnknownError{}          -> err400
@@ -119,6 +135,7 @@ toServantError err =
       { errBody    = encode err
       , errHeaders = applicationJson : errHeaders
       }
+
 
 -- | Generates the @Content-Type: application/json@ 'HTTP.Header'.
 applicationJson :: HTTP.Header

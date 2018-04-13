@@ -2,20 +2,28 @@
 -- | Base part of /follow-the-satoshi/ procedure.
 
 module Pos.Lrc.Fts
-       ( followTheSatoshiM
+       ( followTheSatoshi
+       , followTheSatoshiM
        ) where
 
 import           Universum
 
 import           Control.Lens (makeLenses, makePrisms, uses)
-import           Data.Conduit (ConduitT, await)
+import           Data.Conduit (ConduitT, (.|), runConduitPure, await)
+import qualified Data.Conduit.List as CL
 import           Data.List.NonEmpty (fromList)
 
+import           Formatting (int, sformat, (%))
+
 import           Pos.Core.Common (Coin, SharedSeed (..), SlotLeaders, StakeholderId, coinToInteger,
-                                  mkCoin, unsafeGetCoin)
+                                  mkCoin, sumCoins, unsafeGetCoin)
 import           Pos.Core.Configuration (HasConfiguration, epochSlots)
 import           Pos.Core.Slotting (LocalSlotIndex (..))
 import           Pos.Crypto (deterministic, randomNumber)
+
+-- Note: The "Satoshi" is the smallest indivisble unit of a Bitcoin.
+-- The currency of the Cardano network is called "Ada" and its smallest
+-- indivisible unit is called the "Lovelace".
 
 -- | Whereas 'Coin' stores an amount of coins, 'CoinIndex' is an identifier
 -- for a particular coin.
@@ -194,6 +202,28 @@ whenever we transition to the next coin, its index bona fide exceeds the
 previous upper bound (and thus it's more or equal to the current lower bound).
 
 -}
+
+-- | Choose several random stakeholders (specifically, their amount is
+-- currently hardcoded in 'Pos.Constants.epochSlots'). It is important to
+-- note that the only source of random-ness in this compuation is the shared
+-- random seed passed in as the first parameter.
+--
+-- The probability that a stakeholder will be chosen is proportional to the
+-- number of coins this stakeholder holds. The same stakeholder can be picked
+-- more than once.
+--
+-- How the algorithm works: we sort all unspent outputs in a deterministic
+-- way (lexicographically) and have an ordered sequence of pairs
+-- @(StakeholderId, Coin)@. Then we choose several random 'i's between 1 and
+-- amount of Lovelace (the smallest indivisible unit of the Ada currency) in
+-- the system; to find owner of 'i'th coin we find the lowest x such that sum
+-- of all coins in this list up to 'i'th is not less than 'i' (and then 'x'th
+-- address is the owner).
+--
+-- With P2SH addresses, we don't know who is going to end up with funds sent
+-- to them. Therefore, P2SH addresses can contain 'addrDestination' which
+-- specifies which addresses should count as “owning” funds for the purposes
+-- of follow-the-satoshi.
 followTheSatoshiM
     :: forall m . (Monad m, HasConfiguration)
     => SharedSeed
@@ -237,3 +267,24 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
                 findLeader coinIndex
 
     nextStakeholder = fromMaybe (error "followTheSatoshiM: indices out of range") <$> await
+
+
+-- | A pure version of `followTheSatoshiM` above.
+-- This pure version is used for testing and benchmarking. Its important to
+-- note that since the ordering if the input stakes influences ths output,
+-- testing this pure version as a proxy for the one above is insufficient.
+-- The monadic version needs to be tested in conjunction with the same conduit
+-- source that will feed it values in the real system.
+followTheSatoshi :: HasConfiguration => SharedSeed -> [(StakeholderId, Coin)] -> SlotLeaders
+followTheSatoshi seed stakes
+    | totalCoins > coinToInteger maxBound =
+        error $ sformat
+        ("followTheSatoshi: total stake exceeds limit ("%int%" > "%int%")")
+        totalCoins (coinToInteger maxBound)
+    | totalCoinsCoin == minBound = error "followTheSatoshi: no stake"
+    | otherwise =
+          runConduitPure $ CL.sourceList stakes .|
+                           followTheSatoshiM seed totalCoinsCoin
+  where
+    totalCoins = sumCoins $ map snd stakes
+    totalCoinsCoin = mkCoin $ fromInteger totalCoins

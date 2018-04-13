@@ -71,6 +71,7 @@ runActionCheck
     -> m WalletState
 runActionCheck walletClient walletState actionProb = do
     actions <- chooseActions 20 actionProb
+    log $ "Test will run these actions: " <> show (toList actions)
     let client' = hoistClient lift walletClient
     execRefT (tryAll (map (runAction client') actions)) walletState
         `catch` \x -> fmap (const walletState) . liftIO . hspec .

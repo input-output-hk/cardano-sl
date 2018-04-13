@@ -469,6 +469,7 @@ test-suite wallet-new-specs
                     , servant
                     , servant-server
                     , servant-swagger
+                    , servant-swagger-ui
                     , string-conv
                     , swagger2
                     , text

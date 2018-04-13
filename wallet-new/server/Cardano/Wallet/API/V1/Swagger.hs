@@ -29,7 +29,7 @@ import           Pos.Util.Servant (LoggingApi)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))
-import           Data.Aeson (ToJSON (..), encode)
+import           Data.Aeson (ToJSON (..))
 import           Data.Aeson.Encode.Pretty
 import qualified Data.ByteString.Lazy as BL
 import           Data.Map (Map)
@@ -66,10 +66,17 @@ fromExampleJSON (_ :: proxy a) = do
     let (randomSample :: a) = genExample
     return $ NamedSchema (Just $ fromString $ show $ typeOf randomSample) (sketchSchema randomSample)
 
-
 -- | Surround a Text with another
 surroundedBy :: Text -> Text -> Text
 surroundedBy wrap context = wrap <> context <> wrap
+
+-- | Display a multi-line code-block inline (e.g. in tables)
+inlineCodeBlock :: Text -> Text
+inlineCodeBlock txt = "<pre>" <> replaceNewLines (replaceWhiteSpaces txt) <> "</pre>"
+  where
+    replaceNewLines    = T.replace "\n" "<br/>"
+    replaceWhiteSpaces = T.replace " " "&nbsp;"
+
 
 --
 -- Instances
@@ -214,16 +221,17 @@ A **SORT** operation on this $resource. Allowed keys: `$allowedKeys`.
 
 errorsDescription :: Text
 errorsDescription = [text|
-Error Name | HTTP Error code | Example
------------|-----------------|---------
+Error Name / Description | HTTP Error code | Example
+-------------------------|-----------------|---------
 $errors
 |] where
   errors = T.intercalate "\n" rows
-  rows = map mkRow Errors.sample
-  mkRow err = T.intercalate "|"
-    [ surroundedBy "`" (gconsName err)
+  rows = map (mkRow errToDescription) Errors.sample
+  mkRow fmt err = T.intercalate "|" (fmt err)
+  errToDescription err =
+    [ surroundedBy "`" (gconsName err) <> "<br/>" <> toText (Errors.describe err)
     , show $ errHTTPCode $ Errors.toServantError err
-    , surroundedBy "`" (T.decodeUtf8 $ BL.toStrict $ encode err)
+    , inlineCodeBlock (T.decodeUtf8 $ BL.toStrict $ encodePretty err)
     ]
 
 

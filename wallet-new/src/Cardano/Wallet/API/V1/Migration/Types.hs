@@ -67,7 +67,7 @@ instance (Migrate from to, Typeable from, Typeable to) => Migrate [from] (NonEmp
     eitherMigrate (x:xs) = (:|) <$> eitherMigrate x <*> mapM eitherMigrate xs
 
 instance Migrate (V0.CWallet, OldStorage.WalletInfo, Maybe Core.ChainDifficulty) V1.Wallet where
-    eitherMigrate (V0.CWallet{..}, OldStorage.WalletInfo{..}, currentBlockchainDepth) =
+    eitherMigrate (V0.CWallet{..}, OldStorage.WalletInfo{..}, currentBlockchainHeight) =
         V1.Wallet <$> eitherMigrate cwId
                   <*> pure (V0.cwName cwMeta)
                   <*> eitherMigrate cwAmount
@@ -75,26 +75,26 @@ instance Migrate (V0.CWallet, OldStorage.WalletInfo, Maybe Core.ChainDifficulty)
                   <*> eitherMigrate cwPassphraseLU
                   <*> eitherMigrate _wiCreationTime
                   <*> eitherMigrate (V0.cwAssurance _wiMeta)
-                  <*> eitherMigrate (_wiSyncState, _wiSyncStatistics, currentBlockchainDepth)
+                  <*> eitherMigrate (_wiSyncState, _wiSyncStatistics, currentBlockchainHeight)
 
 instance Migrate (OldStorage.WalletSyncState, OldStorage.SyncStatistics, Maybe Core.ChainDifficulty) V1.SyncState where
-    eitherMigrate (wss, stats, currentBlockchainDepth) =
+    eitherMigrate (wss, stats, currentBlockchainHeight) =
         case wss of
-            OldStorage.NotSynced         -> V1.Restoring <$> eitherMigrate (stats, currentBlockchainDepth)
-            OldStorage.RestoringFrom _ _ -> V1.Restoring <$> eitherMigrate (stats, currentBlockchainDepth)
+            OldStorage.NotSynced         -> V1.Restoring <$> eitherMigrate (stats, currentBlockchainHeight)
+            OldStorage.RestoringFrom _ _ -> V1.Restoring <$> eitherMigrate (stats, currentBlockchainHeight)
             OldStorage.SyncedWith _      -> pure V1.Synced
 
 instance Migrate (OldStorage.SyncStatistics, Maybe Core.ChainDifficulty) V1.SyncProgress where
-    eitherMigrate (OldStorage.SyncStatistics{..}, currentBlockchainDepth) =
+    eitherMigrate (OldStorage.SyncStatistics{..}, currentBlockchainHeight) =
         let unknownCompletionTime = Core.Timestamp $ fromMicroseconds (fromIntegral (maxBound :: Int))
-            percentage = case currentBlockchainDepth of
+            percentage = case currentBlockchainHeight of
                 Nothing -> 0.0
                 Just nd | wspCurrentBlockchainDepth >= nd -> 100
                 Just nd -> (fromIntegral wspCurrentBlockchainDepth / max 1.0 (fromIntegral nd)) * 100.0
             toMs (Core.Timestamp microsecs) =
               V1.mkEstimatedCompletionTime (round @Double $ (realToFrac (toMicroseconds microsecs) / 1000.0))
             tput (OldStorage.SyncThroughput blocks) = V1.mkSyncThroughput blocks
-            remainingBlocks = fmap (\total -> total - wspCurrentBlockchainDepth) currentBlockchainDepth
+            remainingBlocks = fmap (\total -> total - wspCurrentBlockchainDepth) currentBlockchainHeight
         in V1.SyncProgress <$> pure (toMs (maybe unknownCompletionTime
                                                  (calculateEstimatedRemainingTime wspThroughput)
                                                  remainingBlocks))

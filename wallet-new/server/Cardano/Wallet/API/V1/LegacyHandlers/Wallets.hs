@@ -22,7 +22,6 @@ import qualified Pos.Wallet.WalletMode as V0
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Servant
-import           Test.QuickCheck (arbitrary, generate)
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: ( HasConfigurations
@@ -126,7 +125,22 @@ addWalletInfo snapshot wallet = do
             migrate (wallet, walletInfo, currentDepth)
 
 updateWallet
-    :: WalletId
+    :: (V0.MonadWalletLogic ctx m
+       , V0.MonadBlockchainInfo m
+       )
+    => WalletId
     -> WalletUpdate
-    -> MonadV1 (WalletResponse Wallet)
-updateWallet _ _ = single <$> (liftIO $ generate arbitrary)
+    -> m (WalletResponse Wallet)
+updateWallet wid WalletUpdate{..} = do
+    ws <- V0.askWalletSnapshot
+    wid' <- migrate wid
+    assurance <- migrate uwalAssuranceLevel
+    walletMeta <- maybe (throwM WalletNotFound) pure $ V0.getWalletMeta wid' ws
+    updated <- V0.updateWallet wid' walletMeta
+        { V0.cwName = uwalName
+        , V0.cwAssurance = assurance
+        }
+    single <$> do
+        -- reacquire the snapshot because we did an update
+        ws' <- V0.askWalletSnapshot
+        addWalletInfo ws' updated

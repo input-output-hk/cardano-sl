@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
@@ -8,13 +9,16 @@ import           Universum
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Data.Aeson
-import           Data.List.NonEmpty (NonEmpty)
+import           Data.List.NonEmpty (NonEmpty ((:|)))
 import           Generics.SOP.TH (deriveGeneric)
 import qualified Network.HTTP.Types.Header as HTTP
+import qualified Pos.Core as Core
 import           Servant
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
+import           Cardano.Wallet.API.V1.Types (SyncProgress (..), mkEstimatedCompletionTime,
+                                              mkSyncPercentage, mkSyncThroughput)
 
 --
 -- Error handling
@@ -50,7 +54,6 @@ import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
 data WalletError =
       NotEnoughMoney { weNeedMore :: !Int }
     | OutputIsRedeem { weAddress :: !Text }
-    | SomeOtherError { weFoo :: !Text, weBar :: !Int }
     | MigrationFailed { weDescription :: !Text }
     | JSONValidationFailed { weValidationError :: !Text }
     | UnkownError { weMsg :: !Text }
@@ -58,7 +61,7 @@ data WalletError =
     | WalletNotFound
     | AddressNotFound
     | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
-    | WalletIsNotReadyToProcessPayments
+    | WalletIsNotReadyToProcessPayments { weStillRestoring :: SyncProgress }
     -- ^ The @Wallet@ where a @Payment@ is being originated is not fully
     -- synced (its 'WalletSyncState' indicates it's either syncing or
     -- restoring) and thus cannot accept new @Payment@ requests.
@@ -82,6 +85,7 @@ instance Exception WalletError where
 instance Arbitrary WalletError where
     arbitrary = oneof (map pure sample)
 
+
 --
 -- Helpers
 --
@@ -91,18 +95,42 @@ type ErrorCode = Int
 type ErrorExample = Value
 
 
+sampleSyncProgress :: SyncProgress
+sampleSyncProgress = SyncProgress {
+    spEstimatedCompletionTime = mkEstimatedCompletionTime 3000
+  , spThroughput              = mkSyncThroughput (Core.BlockCount 400)
+  , spPercentage              = mkSyncPercentage 80
+}
+
 -- | Sample of errors we use for documentation
 sample :: [WalletError]
 sample =
   [ NotEnoughMoney 1400
-  , OutputIsRedeem "b10b24203f1f0cadffcfd16277125cf7f3ad598983bef9123be80d93"
-  , SomeOtherError "foo" 14
-  , MigrationFailed "migration"
+  , OutputIsRedeem "b10b242...be80d93"
+  , MigrationFailed "Migration failed"
   , JSONValidationFailed "Expected String, found Null."
-  , UnkownError "unknown"
+  , UnkownError "Unknown error"
+  , InvalidAddressFormat "Invalid base58 representation."
   , WalletNotFound
-  , WalletIsNotReadyToProcessPayments
+  , AddressNotFound
+  , MissingRequiredParams (("wallet_id", "walletId") :| [])
+  , WalletIsNotReadyToProcessPayments sampleSyncProgress
   ]
+
+
+-- | Give a short description of an error
+describe :: WalletError -> String
+describe = \case
+  NotEnoughMoney _                    -> "Not enough available coins to proceed."
+  OutputIsRedeem  _                   -> "One of the TX outputs is a redemption address."
+  MigrationFailed  _                  -> "Error while migrating a legacy type into the current version."
+  JSONValidationFailed _              -> "Couldn't decode a JSON input."
+  UnkownError        _                -> "Unexpected internal error."
+  InvalidAddressFormat _              -> "Provided address format is not valid."
+  WalletNotFound                      -> "Reference to an unexisting wallet was given."
+  AddressNotFound                     -> "Reference to an unexisting address was given."
+  MissingRequiredParams _             -> "Missing required parameters in the request payload."
+  WalletIsNotReadyToProcessPayments _ -> "This wallet is restoring, and it cannot send new transactions until restoration completes."
 
 
 -- | Convert wallet errors to Servant errors
@@ -111,10 +139,9 @@ toServantError err =
   mkServantErr $ case err of
     NotEnoughMoney{}                    -> err403
     OutputIsRedeem{}                    -> err403
-    SomeOtherError{}                    -> err418
     MigrationFailed{}                   -> err422
     JSONValidationFailed{}              -> err400
-    UnkownError{}                       -> err400
+    UnkownError{}                       -> err500
     WalletNotFound{}                    -> err404
     InvalidAddressFormat{}              -> err401
     AddressNotFound{}                   -> err404
@@ -125,6 +152,7 @@ toServantError err =
       { errBody    = encode err
       , errHeaders = applicationJson : errHeaders
       }
+
 
 -- | Generates the @Content-Type: application/json@ 'HTTP.Header'.
 applicationJson :: HTTP.Header

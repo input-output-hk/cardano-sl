@@ -17,11 +17,13 @@ import           Pos.Core (TxAux)
 import qualified Pos.Core as Core
 import           Pos.Util (eitherToThrow)
 import qualified Pos.Util.Servant as V0
+import qualified Pos.Wallet.WalletMode as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.History as V0
 import qualified Pos.Wallet.Web.Methods.Payment as V0
 import qualified Pos.Wallet.Web.Methods.Txp as V0
 import qualified Pos.Wallet.Web.State as V0
+import           Pos.Wallet.Web.State.Storage (WalletInfo (_wiSyncStatistics))
 import qualified Pos.Wallet.Web.Util as V0
 import           Servant
 
@@ -44,7 +46,17 @@ newTransaction submitTx Payment {..} = do
 
     -- If the wallet is being restored, we need to disallow any @Payment@ from
     -- being submitted.
-    when (V0.isWalletRestoring ws sourceWallet) (throwM WalletIsNotReadyToProcessPayments)
+    -- FIXME(adn): make grabbing a 'V1.SyncState' from the old data layer
+    -- easier and less verbose.
+    when (V0.isWalletRestoring ws sourceWallet) $ do
+        let stats    = _wiSyncStatistics <$> V0.getWalletInfo ws sourceWallet
+        currentHeight <- V0.networkChainDifficulty
+        progress <- case liftM2 (,) stats currentHeight  of
+                        Nothing     -> pure $ SyncProgress (mkEstimatedCompletionTime 0)
+                                                           (mkSyncThroughput (Core.BlockCount 0))
+                                                           (mkSyncPercentage 0)
+                        Just (s, h) -> migrate (s, Just h)
+        throwM $ WalletIsNotReadyToProcessPayments progress
 
     let (V1 spendingPw) = fromMaybe (V1 mempty) pmtSpendingPassword
     cAccountId <- migrate pmtSource

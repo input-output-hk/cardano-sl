@@ -34,6 +34,7 @@ module Pos.Wallet.Web.State.State
        , getWalletMeta
        , getWalletMetaIncludeUnready
        , getWalletPassLU
+       , getWalletInfo
        , getWalletSyncState
        , getWalletAddresses
        , doesWAddressExist
@@ -110,7 +111,7 @@ import           Pos.Wallet.Web.State.Storage (AddressInfo (..), AddressLookupMo
                                                CurrentAndRemoved (..), CustomAddressType (..),
                                                PtxMetaUpdate (..), RestorationBlockDepth (..),
                                                SyncStatistics, SyncThroughput, WalletBalances,
-                                               WalletStorage, WalletSyncState (..))
+                                               WalletInfo, WalletStorage, WalletSyncState (..))
 import qualified Pos.Wallet.Web.State.Storage as S
 import           Universum
 
@@ -183,6 +184,9 @@ getWalletMetaIncludeUnready ws includeReady wid =
 
 getWalletPassLU :: WalletSnapshot -> CId Wal -> Maybe PassPhraseLU
 getWalletPassLU ws wid = queryValue ws (S.getWalletPassLU wid)
+
+getWalletInfo :: WalletSnapshot -> CId Wal -> Maybe WalletInfo
+getWalletInfo ws wid = queryValue ws (S.getWalletInfo wid)
 
 getWalletSyncState :: WalletSnapshot -> CId Wal -> Maybe WalletSyncState
 getWalletSyncState ws wid = queryValue ws (S.getWalletSyncState wid)

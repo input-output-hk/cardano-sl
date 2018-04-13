@@ -11,19 +11,24 @@ module Cardano.Wallet.Kernel (
     PassiveWallet -- opaque
   , bracketPassiveWallet
   , init
+  , applyBlock
+  , utxo
     -- * Active wallet
   , ActiveWallet -- opaque
   , bracketActiveWallet
   , newPending
   , hasPending
+  , walletPassive
   ) where
 
-import Universum
-import System.Wlog (Severity(..))
+import           System.Wlog (Severity (..))
+import           Universum
 
-import Cardano.Wallet.Kernel.Diffusion (WalletDiffusion(..))
+import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
+import           Cardano.Wallet.Kernel.Types
 
-import Pos.Core (TxAux)
+import           Pos.Core (TxAux)
+import           Pos.Txp (Utxo)
 
 {-------------------------------------------------------------------------------
   Passive wallet
@@ -59,9 +64,17 @@ bracketPassiveWallet walletLogMessage =
 --
 -- This is separate from allocating the wallet resources, and will only be
 -- called when the node is initialized (when run in the node proper).
-init :: PassiveWallet -> IO ()
-init PassiveWallet{..} = do
+init :: PassiveWallet -> Utxo -> IO ()
+init PassiveWallet{..} _utxo = do
     walletLogMessage Info "Wallet kernel initialized"
+
+-- | Notify the wallet of a new block
+applyBlock :: PassiveWallet -> ResolvedBlock -> IO ()
+applyBlock _wallet _block = error "TODO: applyBlock"
+
+-- | Return the wallet's current UTxO
+utxo :: PassiveWallet -> IO Utxo
+utxo _wallet = error "TODO: utxo"
 
 {-------------------------------------------------------------------------------
   Active wallet

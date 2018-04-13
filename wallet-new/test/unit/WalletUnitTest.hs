@@ -184,7 +184,7 @@ testPassiveWallet  :: Spec
 testPassiveWallet = around bracketPassiveWallet $
     describe "Passive wallet sanity checks" $ do
       it "can be initialized" $ \w ->
-        Kernel.init w
+        Kernel.init w (error "utxo")
 
 -- | Initialize passive wallet in a manner suitable for the unit tests
 bracketPassiveWallet :: (Kernel.PassiveWallet -> IO a) -> IO a

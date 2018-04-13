@@ -164,10 +164,10 @@ runAction wc action = do
 
         GetWallets -> do
             result  <-  respToRes $ getWallets wc
---            localWallets <- use wallets
---            checkInvariant
---                (length localWallets == length result)
---                (LocalWalletsDiffers result localWallets)
+            localWallets <- use wallets
+            checkInvariant
+                (length localWallets == length result)
+                (LocalWalletsDiffers result localWallets)
             wallets .= result
 
             -- No modification required.

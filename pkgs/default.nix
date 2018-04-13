@@ -7690,7 +7690,7 @@ inherit (pkgs) mesa;};
          , exceptions, formatting, generics-sop, hspec, http-api-data
          , http-client, http-types, insert-ordered-containers, ixset-typed
          , json-sop, lens, log-warper, memory, mmorph, mtl
-         , neat-interpolation, optparse-applicative, QuickCheck
+         , neat-interpolation, optparse-applicative, pretty-show, QuickCheck
          , quickcheck-instances, reflection, safe-exceptions, serokell-util
          , servant, servant-client, servant-client-core, servant-quickcheck
          , servant-server, servant-swagger, servant-swagger-ui, stdenv, stm
@@ -7725,10 +7725,10 @@ inherit (pkgs) mesa;};
              containers data-default exceptions formatting hspec http-api-data
              http-client http-types insert-ordered-containers ixset-typed lens
              log-warper memory mtl neat-interpolation optparse-applicative
-             QuickCheck safe-exceptions serokell-util servant servant-client
-             servant-server servant-swagger servant-swagger-ui stm string-conv
-             swagger2 text text-format time-units universum unordered-containers
-             wai wai-cors wai-extra warp
+             pretty-show QuickCheck safe-exceptions serokell-util servant
+             servant-client servant-server servant-swagger servant-swagger-ui
+             stm string-conv swagger2 text text-format time-units universum
+             unordered-containers wai wai-cors wai-extra warp
            ];
            testHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-block

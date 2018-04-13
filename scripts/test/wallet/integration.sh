@@ -12,6 +12,8 @@ scripts=$(dirname "$0")/../..
 sessionName="integration-tests-"`date +%H%M%S`
 tmpSecrets=$scripts/../temp-secrets
 
+SECONDS=$1
+
 # remove generated keys and shut down cardano cluster
 cleanState()
 {
@@ -35,8 +37,8 @@ echo "Starting local cardano cluster..."
 tmux new-session -s $sessionName -d "WALLET_DEBUG=1 scripts/launch/demo-with-wallet-api.sh"
 
 # wait until cluster is fully up and running
-echo "Waiting 120 seconds until local cluster is ready..."
-sleep 120s
+echo "Waiting $SECONDS seconds until local cluster is ready..."
+sleep "$SECONDS"s
 
 # import keys
 echo "Importing poor HD key/wallet..."

@@ -49,21 +49,17 @@ main = do
 
     printT $ "Initial wallet state: " <> show walletState
 
-
-    -- some expected test cases
-    hspec $ deterministicTests walletClient
-
     -- some monadic fold or smth similar
     _ <- runActionCheck
         walletClient
         walletState
         actionDistribution
 
-    pure ()
+    hspec $ deterministicTests walletClient
   where
     actionDistribution :: ActionProbabilities
     actionDistribution = do
-        (PostWallet, Weight 1) :| fmap (\x -> (x, Weight 1)) [minBound .. maxBound]
+        (PostWallet, Weight 2) :| fmap (\x -> (x, Weight 1)) [minBound .. maxBound]
 
 initialWalletState :: WalletClient IO -> IO WalletState
 initialWalletState wc = do
@@ -77,6 +73,7 @@ initialWalletState wc = do
         -- If it does, we should add this transaction to the list
         _transactions = mempty
         _actionsNum   = 0
+        _successNum   = 0
     pure $ WalletState {..}
   where
     fromResp = (either throwM (pure . wrData) =<<)
@@ -113,7 +110,7 @@ deterministicTests wc = do
             idxResp <- getAddressIndex wc
             addrs <- wrData <$> idxResp `shouldPrism` _Right
 
-            addr `shouldSatisfy` (`elem` addrs)
+            map addrId addrs `shouldContain` [addrId addr]
 
         it "Index returns real data" $ do
             addrsResp <- getAddressIndex wc

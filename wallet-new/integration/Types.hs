@@ -14,6 +14,7 @@ module Types
     , addresses
     , transactions
     , actionsNum
+    , successNum
     , ActionWalletState
     , ActionProbabilities
     , WalletTestMode
@@ -84,6 +85,9 @@ data WalletState = WalletState
     -- ^ A tuple since for now we can't get @Wallet@ or
     -- @Account@ with a @Transaction@.
     , _actionsNum   :: Int
+    -- ^ The count of actions that have been performed thus far.
+    , _successNum   :: Int
+    -- ^ The number of successful tests that have run so far.
     } deriving (Show, Eq, Generic)
 
 makeLenses ''WalletState

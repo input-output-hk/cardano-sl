@@ -67,13 +67,13 @@ initialWalletState wc = do
     _wallets <- fromResp $ getWallets wc
     _accounts <- concat <$> for _wallets (fromResp . getAccounts wc . walId)
     -- Lets set all wallet passwords for initial wallets (genesis) to default (emptyPassphrase)
-    let _walletsPass  = fromList $ map ((, V1 mempty) . walId) _wallets
-        _addresses    = concatMap accAddresses _accounts
+    let _walletsPass      = fromList $ map ((, V1 mempty) . walId) _wallets
+        _addresses        = concatMap accAddresses _accounts
         -- TODO(akegalj): I am not sure does importing a genesis wallet (which we do prior launching integration tests) creates a transaction
         -- If it does, we should add this transaction to the list
-        _transactions = mempty
-        _actionsNum   = 0
-        _successNum   = 0
+        _transactions     = mempty
+        _actionsNum       = 0
+        _successActions   = mempty
     pure $ WalletState {..}
   where
     fromResp = (either throwM (pure . wrData) =<<)

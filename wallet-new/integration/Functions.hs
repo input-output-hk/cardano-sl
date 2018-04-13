@@ -12,7 +12,7 @@ import           Universum hiding (log)
 
 import           Control.Lens (at, each, filtered, uses, (%=), (+=), (.=), (<>=), (?=))
 import           Data.Coerce (coerce)
-import           Data.List (isInfixOf, (\\))
+import           Data.List (isInfixOf, nub, (!!), (\\))
 import           Test.Hspec
 import           Test.QuickCheck
 import           Text.Show.Pretty (ppShow)
@@ -70,31 +70,41 @@ runActionCheck
     -> ActionProbabilities
     -> m WalletState
 runActionCheck walletClient walletState actionProb = do
-    actions <- chooseActions 20 actionProb
+    actions <- chooseActions 100 actionProb
     log $ "Test will run these actions: " <> show (toList actions)
     let client' = hoistClient lift walletClient
-    execRefT (tryAll (map (runAction client') actions)) walletState
-        `catch` \x -> fmap (const walletState) . liftIO . hspec .
-            describe "Unit Test Failure" $
-                it ("threw a test error: " ++ showConstr x) $ case x of
-                    LocalWalletDiffers a b ->
-                        a `shouldBe` b
-                    LocalWalletsDiffers as bs ->
-                        sort as `shouldBe` sort bs
-                    LocalAccountDiffers a b ->
-                        a `shouldBe` b
-                    LocalAccountsDiffers as bs ->
-                        sort as `shouldBe` sort bs
-                    LocalAddressesDiffer as bs ->
-                        sort as `shouldBe` sort bs
-                    LocalAddressDiffer a b ->
-                        a `shouldBe` b
-                    LocalTransactionsDiffer as bs ->
-                        sort as `shouldBe` sort bs
-                    LocalTransactionMissing txn txns ->
-                        txns `shouldContain` [txn]
-                    err ->
-                        expectationFailure $ show err
+    ws <- execRefT (tryAll (map (runAction client') actions)) walletState
+              `catch` \x -> fmap (const walletState) . liftIO . hspec .
+                  describe "Unit Test Failure" $
+                      it ("threw a test error: " ++ showConstr x) $ case x of
+                          LocalWalletDiffers a b ->
+                              a `shouldBe` b
+                          LocalWalletsDiffers as bs ->
+                              sort as `shouldBe` sort bs
+                          LocalAccountDiffers a b ->
+                              a `shouldBe` b
+                          LocalAccountsDiffers as bs ->
+                              sort as `shouldBe` sort bs
+                          LocalAddressesDiffer as bs ->
+                              sort as `shouldBe` sort bs
+                          LocalAddressDiffer a b ->
+                              a `shouldBe` b
+                          LocalTransactionsDiffer as bs ->
+                              sort as `shouldBe` sort bs
+                          LocalTransactionMissing txn txns ->
+                              txns `shouldContain` [txn]
+                          err ->
+                              expectationFailure $ show err
+    _ <- execRefT report ws
+    pure ws
+  where
+    report = do
+        acts <- use actionsNum
+        succs <- use successActions
+        log $ "Successfully run " <> show (length succs) <> " out of " <> show acts <> " actions"
+        log $ "Successful actions counts:" <> show (map (\a -> (a!!0, length a)) $ group $ sort succs)
+        log $ "Non successful actions: " <> show ([minBound..maxBound] \\ nub succs)
+
 
 -- | Attempt each action in the list. If an action fails, ignore the
 -- failure and try the next action in the sequence.
@@ -118,7 +128,7 @@ runAction wc action = do
     log $ "Action Selected: " <> show action
     actionsNum += 1
     acts <- use actionsNum
-    succs <- use successNum
+    succs <- length <$> use successActions
     log $ "Actions:\t" <> show acts <> "\t\tSuccesses:\t" <> show succs
     case action of
         PostWallet -> do
@@ -574,7 +584,7 @@ runAction wc action = do
 
     -- increment successful actions
     log "Success!"
-    successNum += 1
+    successActions <>= [action]
 
 
 -----------------------------------------------------------------------------

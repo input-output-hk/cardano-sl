@@ -14,7 +14,7 @@ module Types
     , addresses
     , transactions
     , actionsNum
-    , successNum
+    , successActions
     , ActionWalletState
     , ActionProbabilities
     , WalletTestMode
@@ -22,9 +22,9 @@ module Types
 
 import           Universum
 
-import           Control.Lens (makeLenses, to, Getter)
+import           Control.Lens (Getter, makeLenses, to)
 
-import           Cardano.Wallet.API.V1.Types (Account, SpendingPassword, Transaction, Wallet(..),
+import           Cardano.Wallet.API.V1.Types (Account, SpendingPassword, Transaction, Wallet (..),
                                               WalletAddress, WalletId)
 
 -- | Ideally, we would put @MonadGen@ here and remove @MonadIO@,
@@ -77,17 +77,17 @@ type ActionProbabilities = NonEmpty (Action, Weight)
 -- We require this so we can check for the invariants and
 -- keep track of some interesting information.
 data WalletState = WalletState
-    { _wallets      :: [Wallet]
-    , _walletsPass  :: Map WalletId SpendingPassword
-    , _accounts     :: [Account]
-    , _addresses    :: [WalletAddress]
-    , _transactions :: [(Account, Transaction)]
+    { _wallets        :: [Wallet]
+    , _walletsPass    :: Map WalletId SpendingPassword
+    , _accounts       :: [Account]
+    , _addresses      :: [WalletAddress]
+    , _transactions   :: [(Account, Transaction)]
     -- ^ A tuple since for now we can't get @Wallet@ or
     -- @Account@ with a @Transaction@.
-    , _actionsNum   :: Int
+    , _actionsNum     :: Int
     -- ^ The count of actions that have been performed thus far.
-    , _successNum   :: Int
-    -- ^ The number of successful tests that have run so far.
+    , _successActions :: [Action]
+    -- ^ Successful actions successful tests that have run so far.
     } deriving (Show, Eq, Generic)
 
 makeLenses ''WalletState

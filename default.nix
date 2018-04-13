@@ -119,12 +119,17 @@ let
       stagingWallet = mkDocker { environment = "mainnet-staging"; };
     };
 
-    daedalus-bridge = pkgs.runCommand "cardano-daedalus-bridge" {} ''
+    daedalus-bridge = let
+      inherit (cardanoPkgs.cardano-sl-node) version;
+    in pkgs.runCommand "cardano-daedalus-bridge-${version}" {
+      inherit version;
+    } ''
       # Generate daedalus-bridge
       mkdir -p $out/bin $out/config
       cd $out
       ${optionalString (buildId != null) "echo ${buildId} > build-id"}
       echo ${gitrev} > commit-id
+      echo ${version} > version
 
       cp ${./log-configs + "/daedalus.yaml"} config/log-config-prod.yaml
       cp ${./lib}/configuration.yaml config

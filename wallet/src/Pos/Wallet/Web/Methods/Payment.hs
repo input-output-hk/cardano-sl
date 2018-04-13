@@ -226,7 +226,9 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
                 th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
             ptx <- mkPendingTx srcWallet txHash txAux th
 
+            logDebug "sendMoney: 1"
             (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
+            logDebug "sendMoney: 2"
 
     logInfoS $
         sformat ("Successfully spent money from "%
@@ -235,8 +237,11 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
         (toList srcAddrs)
         dstAddrs
 
+    logDebug "sendMoney: 3"
     addHistoryTx srcWallet th
+    logDebug "sendMoney: 4"
     diff <- getCurChainDifficulty
+    logDebug "sendMoney: 5"
     srcWalletAddrsDetector <- getWalletAddrsDetector Ever srcWallet
 
     logDebug "sendMoney: constructing response"

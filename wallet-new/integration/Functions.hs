@@ -116,7 +116,8 @@ runAction
 runAction wc action = do
     log $ "Action Selected: " <> show action
     actionsNum += 1
-    (acts, succs) <- gets (\w -> (_actionsNum w, _successNum w))
+    acts <- use actionsNum
+    succs <- use successNum
     log $ "Actions:\t" <> show acts <> "\t\tSuccesses:\t" <> show succs
     case action of
         PostWallet -> do

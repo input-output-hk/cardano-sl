@@ -11,7 +11,10 @@ module UTxO.Interpreter (
     -- * Interpretation monad
   , IntT
   , runIntT
+  , runIntT'
   , runIntBoot
+  , runIntBoot'
+  , liftTranslate
     -- * Interpreter proper
   , Interpret(..)
   ) where
@@ -110,45 +113,67 @@ initIntCtxt boot = do
 -------------------------------------------------------------------------------}
 
 -- | Interpretation monad
-newtype IntT h m a = IntT {
-    unIntT :: StateT (IntCtxt h) (TranslateT IntException m) a
+newtype IntT h e m a = IntT {
+    unIntT :: StateT (IntCtxt h) (TranslateT (Either IntException e) m) a
   }
   deriving ( Functor
            , Applicative
            , Monad
            , MonadReader TransCtxt
            , MonadState (IntCtxt h)
-           , MonadError IntException
+           , MonadError (Either IntException e)
            )
 
 -- | Run the interpreter monad
 runIntT :: IntCtxt h
-        -> IntT h m a
-        -> TranslateT IntException m (a, IntCtxt h)
+        -> IntT h e m a
+        -> TranslateT (Either IntException e) m (a, IntCtxt h)
 runIntT ic ma = runStateT (unIntT ma) ic
+
+-- | Variation on 'runIntT' when we can /only/ have interpretation exceptions
+runIntT' :: Functor m
+         => IntCtxt h
+         -> IntT h Void m a
+         -> TranslateT IntException m (a, IntCtxt h)
+runIntT' ic = mapTranslateErrors mustBeLeft . runIntT ic
 
 -- | Run the interpreter monad, given only the boot transaction
 runIntBoot :: Monad m
            => DSL.Transaction h Addr
-           -> IntT h m a
-           -> TranslateT IntException m (a, IntCtxt h)
+           -> IntT h e m a
+           -> TranslateT (Either IntException e) m (a, IntCtxt h)
 runIntBoot boot ma = do
-    ic <- initIntCtxt boot
+    ic <- mapTranslateErrors Left $ initIntCtxt boot
     runIntT ic ma
+
+-- | Variation on 'runIntBoot' when we can /only/ have interpretation exceptions
+runIntBoot' :: Monad m
+            => DSL.Transaction h Addr
+            -> IntT h Void m a
+            -> TranslateT IntException m (a, IntCtxt h)
+runIntBoot' boot = mapTranslateErrors mustBeLeft . runIntBoot boot
 
 {-------------------------------------------------------------------------------
   Internal monad functions
 -------------------------------------------------------------------------------}
 
 liftTranslate :: Monad m
-              => (e -> IntException)
-              -> ((HasConfiguration, HasUpdateConfiguration) => TranslateT e m a)
-              -> IntT h m a
-liftTranslate f ta = IntT $ lift $ mapTranslateErrors f $ withConfig $ ta
+              => (   (HasConfiguration, HasUpdateConfiguration)
+                  => TranslateT e m a)
+              -> IntT h e m a
+liftTranslate ta = IntT $ lift $ mapTranslateErrors Right $ withConfig $ ta
+
+-- | Variation on @liftTranslate@ for translation functions that actually
+-- may throw 'IntException's
+liftTranslateInt :: Monad m
+                 => (   (HasConfiguration, HasUpdateConfiguration)
+                     => TranslateT IntException m a)
+                 -> IntT h e m a
+liftTranslateInt ta =  IntT $ lift $ mapTranslateErrors Left $ withConfig $ ta
 
 -- | Add transaction into the context
-pushTx :: forall h m. (DSL.Hash h Addr, Monad m)
-       => (DSL.Transaction h Addr, TxId) -> IntT h m ()
+pushTx :: forall h e m. (DSL.Hash h Addr, Monad m)
+       => (DSL.Transaction h Addr, TxId) -> IntT h e m ()
 pushTx (t, id) = modify aux
   where
     aux :: IntCtxt h -> IntCtxt h
@@ -162,14 +187,14 @@ pushTx (t, id) = modify aux
 -- | Add a block into the context
 --
 -- This sets the " previous block " header and increases the next slot number.
-pushBlock :: forall m h. Monad m => MainBlock -> IntT h m ()
+pushBlock :: forall h e m. Monad m => MainBlock -> IntT h e m ()
 pushBlock block = do
     s  <- get
-    s' <- liftTranslate IntExMkSlot $ aux s
+    s' <- liftTranslateInt $ aux s
     put s'
   where
-    aux :: IntCtxt h -> TranslateT Text m (IntCtxt h)
-    aux ic = do
+    aux :: IntCtxt h -> TranslateT IntException m (IntCtxt h)
+    aux ic = mapTranslateErrors IntExMkSlot $ do
         nextSlot' <- translateNextSlot (icNextSlot ic)
         return IntCtxt {
             icLedger    = icLedger ic
@@ -178,13 +203,13 @@ pushBlock block = do
           , icPrevBlock = BlockHeaderMain $ block ^. gbHeader
           }
 
-intHash :: Monad m
-        => DSL.Hash h Addr => h (DSL.Transaction h Addr) -> IntT h m TxId
+intHash :: (Monad m, DSL.Hash h Addr)
+        => h (DSL.Transaction h Addr) -> IntT h e m TxId
 intHash h = do
     mId <- Map.lookup h . icHashes <$> get
     case mId of
       Just id -> return id
-      Nothing -> throwError $ IntUnknownHash (pretty h)
+      Nothing -> throwError . Left $ IntUnknownHash (pretty h)
 
 {-------------------------------------------------------------------------------
   Lift some DSL operations that require a ledger to operations that
@@ -192,11 +217,11 @@ intHash h = do
 -------------------------------------------------------------------------------}
 
 findHash' :: (DSL.Hash h Addr, Monad m)
-          => h (DSL.Transaction h Addr) -> IntT h m (DSL.Transaction h Addr)
+          => h (DSL.Transaction h Addr) -> IntT h e m (DSL.Transaction h Addr)
 findHash' h = (DSL.findHash' h . icLedger) <$> get
 
 inpSpentOutput' :: (DSL.Hash h Addr, Monad m)
-                => DSL.Input h Addr -> IntT h m (DSL.Output Addr)
+                => DSL.Input h Addr -> IntT h e m (DSL.Output Addr)
 inpSpentOutput' inp = (DSL.inpSpentOutput' inp . icLedger) <$> get
 
 {-------------------------------------------------------------------------------
@@ -212,7 +237,7 @@ class Interpret h a where
   type Interpreted a :: *
 
   int :: (HasCallStack, Monad m)
-      => a -> IntT h m (Interpreted a)
+      => a -> IntT h e m (Interpreted a)
 
 {-------------------------------------------------------------------------------
   Instances that read, but not update, the state
@@ -222,14 +247,14 @@ instance Interpret h Addr where
   type Interpreted Addr = (SomeKeyPair, Address)
 
   int :: (HasCallStack, Monad m)
-      => Addr -> IntT h m (SomeKeyPair, Address)
+      => Addr -> IntT h e m (SomeKeyPair, Address)
   int = asks . resolveAddr
 
 instance DSL.Hash h Addr => Interpret h (DSL.Input h Addr) where
   type Interpreted (DSL.Input h Addr) = (TxOwnedInput SomeKeyPair, ResolvedInput)
 
   int :: (HasCallStack, Monad m)
-      => DSL.Input h Addr -> IntT h m (TxOwnedInput SomeKeyPair, ResolvedInput)
+      => DSL.Input h Addr -> IntT h e m (TxOwnedInput SomeKeyPair, ResolvedInput)
   int inp@DSL.Input{..} = do
       -- We figure out who must sign the input by looking at the output
       spentOutput   <- inpSpentOutput' inp
@@ -262,7 +287,7 @@ instance Interpret h (DSL.Output Addr) where
   type Interpreted (DSL.Output Addr) = TxOutAux
 
   int :: (HasCallStack, Monad m)
-      => DSL.Output Addr -> IntT h m TxOutAux
+      => DSL.Output Addr -> IntT h e m TxOutAux
   int DSL.Output{..} = do
       (_, outAddr') <- int outAddr
       return TxOutAux {
@@ -275,12 +300,12 @@ instance Interpret h (DSL.Output Addr) where
 instance DSL.Hash h Addr => Interpret h (DSL.Utxo h Addr) where
   type Interpreted (DSL.Utxo h Addr) = Utxo
 
-  int :: forall m. (HasCallStack, Monad m)
-      => DSL.Utxo h Addr -> IntT h m Utxo
+  int :: forall e m. (HasCallStack, Monad m)
+      => DSL.Utxo h Addr -> IntT h e m Utxo
   int = fmap Map.fromList . mapM aux . DSL.utxoToList
     where
       aux :: (DSL.Input h Addr, DSL.Output Addr)
-          -> IntT h m (TxIn, TxOutAux)
+          -> IntT h e m (TxIn, TxOutAux)
       aux (inp, out) = do
           ((_key, inp'), _) <- int inp
           out'              <- int out
@@ -298,29 +323,29 @@ instance DSL.Hash h Addr => Interpret h (DSL.Utxo h Addr) where
 instance DSL.Hash h Addr => Interpret h (DSL.Transaction h Addr) where
   type Interpreted (DSL.Transaction h Addr) = RawResolvedTx
 
-  int :: forall m. (HasCallStack, Monad m)
-      => DSL.Transaction h Addr -> IntT h m RawResolvedTx
+  int :: forall e m. (HasCallStack, Monad m)
+      => DSL.Transaction h Addr -> IntT h e m RawResolvedTx
   int t = do
       (trIns', resolvedInputs) <- unzip <$> mapM int (DSL.trIns' t)
       trOuts'                  <-           mapM int (DSL.trOuts t)
-      txAux   <- liftTranslate IntExClassifyInputs $ mkTx trIns' trOuts'
+      txAux   <- liftTranslateInt $ mkTx trIns' trOuts'
       pushTx (t, hash (taTx txAux))
       return (txAux, resolvedInputs)
     where
       mkTx :: [TxOwnedInput SomeKeyPair]
            -> [TxOutAux]
-           -> TranslateT Text m TxAux
-      mkTx inps outs = withConfig $
+           -> TranslateT IntException m TxAux
+      mkTx inps outs = mapTranslateErrors IntExClassifyInputs $
         case classifyInputs inps of
           Left err ->
             throwError err
-          Right (InputsRegular inps') ->
+          Right (InputsRegular inps') -> withConfig $
             return . either absurd identity $
               makeMPubKeyTx
                 (Right . FakeSigner . regKpSec)
                 (NE.fromList inps')
                 (NE.fromList outs)
-          Right (InputsRedeem (kp, inp)) ->
+          Right (InputsRedeem (kp, inp)) -> withConfig $
             return $
               makeRedemptionTx
                 (redKpSec kp)
@@ -333,18 +358,21 @@ instance DSL.Hash h Addr => Interpret h (DSL.Transaction h Addr) where
 instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
   type Interpreted (DSL.Block h Addr) = RawResolvedBlock
 
-  int :: forall m. (HasCallStack, Monad m)
-      => DSL.Block h Addr -> IntT h m RawResolvedBlock
+  int :: forall e m. (HasCallStack, Monad m)
+      => DSL.Block h Addr -> IntT h e m RawResolvedBlock
   int (OldestFirst txs) = do
       (txs', resolvedTxInputs) <- unzip <$> mapM int txs
       prev  <- gets icPrevBlock
       slot  <- gets icNextSlot
-      block <- liftTranslate IntExCreateBlock $ mkBlock prev slot txs'
+      block <- liftTranslateInt $ mkBlock prev slot txs'
       pushBlock block
       return (block, resolvedTxInputs)
     where
-      mkBlock :: BlockHeader -> SlotId -> [TxAux] -> TranslateT Text m MainBlock
-      mkBlock prev slotId ts = do
+      mkBlock :: BlockHeader
+              -> SlotId
+              -> [TxAux]
+              -> TranslateT IntException m MainBlock
+      mkBlock prev slotId ts = mapTranslateErrors IntExCreateBlock $ do
         -- TODO: empty delegation payload
         let dlgPayload = UnsafeDlgPayload []
 
@@ -374,6 +402,14 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
 instance DSL.Hash h Addr => Interpret h (DSL.Chain h Addr) where
   type Interpreted (DSL.Chain h Addr) = OldestFirst [] MainBlock
 
-  int :: forall m. (HasCallStack, Monad m)
-      => DSL.Chain h Addr -> IntT h m (OldestFirst [] MainBlock)
+  int :: forall e m. (HasCallStack, Monad m)
+      => DSL.Chain h Addr -> IntT h e m (OldestFirst [] MainBlock)
   int (OldestFirst blocks) = OldestFirst <$> mapM (fmap fst . int) blocks
+
+{-------------------------------------------------------------------------------
+  Auxiliary
+-------------------------------------------------------------------------------}
+
+mustBeLeft :: Either a Void -> a
+mustBeLeft (Left  a) = a
+mustBeLeft (Right b) = absurd b

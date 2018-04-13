@@ -576,7 +576,7 @@ runAction wc action = do
                                         (Just accountIndex)
                                         Nothing
                                         Nothing
-                                        Nothing
+                                        (Just 50)
 
             -- First check we have results
             checkInvariant

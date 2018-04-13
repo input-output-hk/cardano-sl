@@ -6906,11 +6906,11 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-report-server";
-           version = "0.4.9";
+           version = "0.4.10";
            src = fetchgit {
              url = "https://github.com/input-output-hk/cardano-report-server.git";
-             sha256 = "1yfplc0allrrhssphq0w4qhivvbwn0vxpvv4ndmhplq2ppqv8hd5";
-             rev = "19fd5ddf24dab731375a156ce38dcfce4319d1e4";
+             sha256 = "0chhbnrl68aqjfhkqvq53v572zsg52mj8pjxl3n7nnbc006cqs49";
+             rev = "81eea7361a75923f9402fcb7840fb36722dbf88e";
            };
            isLibrary = true;
            isExecutable = true;
@@ -6952,7 +6952,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../lib;
            libraryHaskellDepends = [
              aeson ansi-terminal ansi-wl-pprint async base bytestring
@@ -7003,7 +7003,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-auxx";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../auxx;
            isLibrary = true;
            isExecutable = true;
@@ -7046,7 +7046,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-binary";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../binary;
            libraryHaskellDepends = [
              autoexporter base binary bytestring cborg containers digest
@@ -7074,7 +7074,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-block";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../block;
            libraryHaskellDepends = [
              aeson base bytestring cardano-sl-binary cardano-sl-core
@@ -7104,7 +7104,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-client";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../client;
            libraryHaskellDepends = [
              base cardano-sl cardano-sl-block cardano-sl-core cardano-sl-crypto
@@ -7141,7 +7141,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-core";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../core;
            libraryHaskellDepends = [
              aeson ansi-terminal autoexporter base base58-bytestring binary
@@ -7170,7 +7170,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-crypto";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../crypto;
            libraryHaskellDepends = [
              aeson autoexporter base binary bytestring cardano-crypto
@@ -7195,7 +7195,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-db";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../db;
            libraryHaskellDepends = [
              base bytestring cardano-sl-binary cardano-sl-core cardano-sl-crypto
@@ -7220,7 +7220,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-delegation";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../delegation;
            libraryHaskellDepends = [
              aeson base cardano-sl-binary cardano-sl-core cardano-sl-crypto
@@ -7255,7 +7255,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-explorer";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../explorer;
            isLibrary = true;
            isExecutable = true;
@@ -7308,7 +7308,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-generator";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../generator;
            libraryHaskellDepends = [
              base bytestring cardano-sl cardano-sl-block cardano-sl-client
@@ -7350,7 +7350,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-infra";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../infra;
            libraryHaskellDepends = [
              aeson base base64-bytestring bytestring cardano-report-server
@@ -7379,7 +7379,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-lrc";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../lrc;
            libraryHaskellDepends = [
              base bytestring cardano-sl-binary cardano-sl-core cardano-sl-crypto
@@ -7406,7 +7406,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-networking";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../networking;
            isLibrary = true;
            isExecutable = true;
@@ -7440,7 +7440,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-node";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../node;
            isLibrary = false;
            isExecutable = true;
@@ -7467,7 +7467,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-ssc";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../ssc;
            libraryHaskellDepends = [
              aeson array base bytestring cardano-sl-binary cardano-sl-core
@@ -7505,7 +7505,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-tools";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../tools;
            isLibrary = false;
            isExecutable = true;
@@ -7545,7 +7545,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-txp";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../txp;
            libraryHaskellDepends = [
              aeson base bytestring cardano-sl-binary cardano-sl-core
@@ -7577,7 +7577,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-update";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../update;
            libraryHaskellDepends = [
              aeson base bytestring Cabal cardano-sl-binary cardano-sl-core
@@ -7610,7 +7610,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-util";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../util;
            libraryHaskellDepends = [
              aeson autoexporter base bytestring cardano-sl-networking cborg
@@ -7647,7 +7647,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-wallet";
-           version = "1.1.0";
+           version = "1.1.1";
            src = ./../wallet;
            libraryHaskellDepends = [
              acid-state aeson async base base58-bytestring bytestring cardano-sl
@@ -7700,7 +7700,7 @@ inherit (pkgs) mesa;};
          }:
          mkDerivation {
            pname = "cardano-sl-wallet-new";
-           version = "0.1.0.0";
+           version = "1.1.1";
            src = ./../wallet-new;
            isLibrary = true;
            isExecutable = true;

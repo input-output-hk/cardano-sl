@@ -93,6 +93,7 @@ library
                      , servant-quickcheck
                      , servant-server
                      , servant-swagger-ui
+                     , stm
                      , string-conv
                      , swagger2
                      , time
@@ -200,11 +201,14 @@ executable cardano-node
                      , servant-server
                      , servant-swagger
                      , servant-swagger-ui
+                     , stm
                      , string-conv
                      , swagger2
                      , text
                      , time-units
                      , universum
+                     , unliftio
+                     , unordered-containers
                      , wai
                      , wai-cors
                      , wai-extra
@@ -474,6 +478,8 @@ test-suite wallet-new-specs
                     , time
                     , time-units
                     , universum
+                    , unliftio
+                    , unordered-containers
 
 benchmark cardano-sl-wallet-new-bench
   hs-source-dirs:      bench

@@ -21,8 +21,8 @@ import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger)
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Types (Blund, undoTx)
-import           Pos.Core (HasConfiguration, HeaderHash, Timestamp, difficultyL, headerHash,
-                           headerSlotL, prevBlockL)
+import           Pos.Core (HasConfiguration, HeaderHash, Timestamp, difficultyL, headerSlotL,
+                           prevBlockL)
 import           Pos.Core.Block (BlockHeader (..), blockHeader, getBlockHeader, mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux (..), TxUndo)
 import           Pos.DB.BatchOp (SomeBatchOp)
@@ -35,6 +35,7 @@ import           Pos.Txp.Base (flattenTxPayload)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF, secure)
 import           Pos.Util.TimeLimit (CanLogInParallel, logWarningWaitInf)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 
 import           Pos.Wallet.Web.Account (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
@@ -42,6 +43,8 @@ import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..))
 import           Pos.Wallet.Web.Tracking.Sync (applyModifierToWallet, rollbackModifierFromWallet,
                                                trackingApplyTxs, trackingRollbackTxs)
+import           Pos.Wallet.Web.Tracking.Types (TrackingOperation (..))
+
 
 walletGuard ::
        (WithLogger m, MonadIO m)
@@ -50,15 +53,20 @@ walletGuard ::
     -> CId Wal
     -> m ()
     -> m ()
-walletGuard ws curTip wAddr action = case WS.getWalletSyncTip ws wAddr of
+walletGuard ws curTip wAddr action = case WS.getWalletSyncState ws wAddr of
     Nothing -> logWarningSP $ \sl -> sformat ("There is no syncTip corresponding to wallet #"%secretOnlyF sl build) wAddr
     Just WS.NotSynced    -> logInfoSP $ \sl -> sformat ("Wallet #"%secretOnlyF sl build%" hasn't been synced yet") wAddr
-    Just (WS.SyncedWith wTip)
-        | wTip /= curTip ->
-            logWarningSP $ \sl ->
-                sformat ("Skip wallet #"%secretOnlyF sl build%", because of wallet's tip "%build
-                         %" mismatched with current tip") wAddr wTip
-        | otherwise -> action
+    Just (WS.SyncedWith wTip)      -> tipGuard wTip
+    Just (WS.RestoringFrom _ _) -> do
+        logWarningSP $ \sl ->
+            sformat ( "Wallet #"%secretOnlyF sl build%" is restoring, not tracking it just yet...") wAddr
+    where
+        tipGuard wTip
+            | wTip /= curTip =
+                logWarningSP $ \sl ->
+                    sformat ("Skip wallet #"%secretOnlyF sl build%", because of wallet's tip "%build
+                             %" mismatched with current tip") wAddr wTip
+            | otherwise = action
 
 -- Perform this action under block lock.
 onApplyBlocksWebWallet
@@ -96,12 +104,16 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
         -> m ()
     syncWallet db ws curTip newTipH blkTxsWUndo wAddr = walletGuard ws curTip wAddr $ do
         blkHeaderTs <- blkHeaderTsGetter
-        let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
         encSK <- getSKById wAddr
-        let mapModifier =
-                trackingApplyTxs encSK dbUsed gbDiff blkHeaderTs ptxBlkInfo blkTxsWUndo
-        applyModifierToWallet db wAddr (headerHash newTipH) mapModifier
-        logMsg "Applied" (getOldestFirst blunds) wAddr mapModifier
+
+        let credentials = eskToWalletDecrCredentials encSK
+        let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
+        let applyBlockWith trackingOp = do
+              let mapModifier = trackingApplyTxs credentials dbUsed gbDiff blkHeaderTs ptxBlkInfo blkTxsWUndo
+              applyModifierToWallet db trackingOp wAddr newTipH mapModifier
+              logMsg "Applied" (getOldestFirst blunds) wAddr mapModifier
+
+        applyBlockWith SyncWallet
 
     gbDiff = Just . view difficultyL
     ptxBlkInfo = \case
@@ -145,10 +157,14 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
     syncWallet db ws curTip newTip txs wid = walletGuard ws curTip wid $ do
         encSK <- getSKById wid
         blkHeaderTs <- blkHeaderTsGetter
-        let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
-            mapModifier = trackingRollbackTxs encSK dbUsed gbDiff blkHeaderTs txs
-        rollbackModifierFromWallet db wid newTip mapModifier
-        logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
+
+        let rollbackBlockWith trackingOperation = do
+              let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
+                  mapModifier = trackingRollbackTxs (eskToWalletDecrCredentials encSK) dbUsed gbDiff blkHeaderTs txs
+              rollbackModifierFromWallet db trackingOperation wid newTip mapModifier
+              logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
+
+        rollbackBlockWith SyncWallet
 
     gbDiff = Just . view difficultyL
 
@@ -175,7 +191,7 @@ gbTxsWUndo (blk@(Right mb), undo) =
             (repeat $ getBlockHeader blk)
 
 setLogger :: HasLoggerName m => m a -> m a
-setLogger = modifyLoggerName (<> "wallet" <> "blistener")
+setLogger = modifyLoggerName (const "syncWalletBListener")
 
 reportTimeouts
     :: (MonadSlotsData ctx m, CanLogInParallel m)

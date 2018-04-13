@@ -8,6 +8,7 @@ module Main where
 
 import           Universum
 
+import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Maybe (fromJust)
 import           Mockable (Production (..), runProduction)
 import           Ntp.Client (NtpStatus, withNtpClient)
@@ -25,10 +26,12 @@ import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById,
-                                 getWalletAddresses, runWRealMode, syncWalletsWithGState)
+import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById, getWalletAddresses,
+                                 runWRealMode)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, flushWalletStorage)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Sync (syncWallet)
 import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage, usingLoggerName)
 
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
@@ -63,15 +66,20 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
             bracketNodeResources nodeParams sscParams
                 txpGlobalSettings
                 initNodeDBs $ \nr@NodeResources {..} -> do
+                    syncQueue <- liftIO newTQueueIO
                     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
-                    runWRealMode db conn nr (mainAction ntpStatus nr)
+                    runWRealMode db conn syncQueue nr (mainAction ntpStatus nr)
   where
     mainAction ntpStatus = runNodeWithInit ntpStatus $ do
         when (walletFlushDb walletDbOptions) $ do
             logInfo "Flushing wallet db..."
             askWalletDB >>= flushWalletStorage
             logInfo "Resyncing wallets with blockchain..."
-            syncWallets
+
+        -- NOTE(adn): Sync the wallets anyway. The old implementation was skipping syncing in
+        -- case `walletFlushDb` was not set, but was still calling it before starting the Servant
+        -- server.
+        syncWallets
 
     runNodeWithInit ntpStatus init' nr =
         let (ActionSpec f, outs) = runNode nr (plugins ntpStatus)
@@ -81,13 +89,14 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
     syncWallets = do
         addrs <- getWalletAddresses <$> askWalletSnapshot
         sks <- mapM getSKById addrs
-        syncWalletsWithGState sks
+        forM_ sks (syncWallet . eskToWalletDecrCredentials)
 
     plugins :: (HasConfigurations, HasCompileInfo) => TVar NtpStatus -> Plugins.Plugin WalletWebMode
     plugins ntpStatus =
         mconcat [ Plugins.conversation wArgs
                 , Plugins.legacyWalletBackend wArgs ntpStatus
                 , Plugins.acidCleanupWorker wArgs
+                , Plugins.syncWalletWorker
                 , Plugins.resubmitterPlugin
                 , Plugins.notifierPlugin
                 ]

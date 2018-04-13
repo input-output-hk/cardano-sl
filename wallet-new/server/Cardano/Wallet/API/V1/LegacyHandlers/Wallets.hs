@@ -1,6 +1,7 @@
 module Cardano.Wallet.API.V1.LegacyHandlers.Wallets where
 
 import           Universum
+import           UnliftIO (MonadUnliftIO)
 
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods as V0
@@ -16,7 +17,10 @@ import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import qualified Data.IxSet.Typed as IxSet
 import           Pos.Update.Configuration ()
 
+import           Pos.Util (HasLens (..))
+import qualified Pos.Wallet.WalletMode as V0
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Servant
 
 -- | All the @Servant@ handlers for wallet-specific operations.
@@ -35,12 +39,17 @@ handlers = newWallet
 -- Returns to the client the representation of the created or restored
 -- wallet in the 'Wallet' type.
 newWallet
-    :: (MonadThrow m, MonadWalletLogic ctx m)
+    :: (MonadThrow m
+       , MonadUnliftIO m
+       , MonadWalletLogic ctx m
+       , V0.MonadBlockchainInfo m
+       , HasLens SyncQueue ctx SyncQueue
+       )
     => NewWallet
     -> m (WalletResponse Wallet)
 newWallet NewWallet{..} = do
     let newWalletHandler CreateWallet  = V0.newWallet
-        newWalletHandler RestoreWallet = V0.restoreWallet
+        newWalletHandler RestoreWallet = V0.restoreWalletFromSeed
         (V1 spendingPassword) = fromMaybe (V1 mempty) newwalSpendingPassword
         (V1 backupPhrase) = newwalBackupPhrase
     initMeta <- V0.CWalletMeta <$> pure newwalName
@@ -53,18 +62,24 @@ newWallet NewWallet{..} = do
         addWalletInfo ss v0wallet
 
 -- | Returns the full (paginated) list of wallets.
-listWallets :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
+listWallets :: ( MonadThrow m
+               , V0.MonadWalletLogicRead ctx m
+               , V0.MonadBlockchainInfo m
+               )
             => RequestParams
             -> FilterOperations Wallet
             -> SortOperations Wallet
             -> m (WalletResponse [Wallet])
 listWallets params fops sops = do
     ws <- V0.askWalletSnapshot
+    currentDepth <- V0.networkChainDifficulty
     respondWith params fops sops (IxSet.fromList <$> do
-        (V0.getWalletsWithInfo ws >>= migrate @_ @[V1.Wallet]))
+        (V0.getWalletsWithInfo ws >>= (migrate @_ @[V1.Wallet] . map (\(w, i) -> (w,i,currentDepth)))))
 
 updatePassword
-    :: (MonadWalletLogic ctx m)
+    :: ( MonadWalletLogic ctx m
+       , V0.MonadBlockchainInfo m
+       )
     => WalletId -> PasswordUpdate -> m (WalletResponse Wallet)
 updatePassword wid PasswordUpdate{..} = do
     ss <- V0.askWalletSnapshot
@@ -83,7 +98,10 @@ deleteWallet
     -> m NoContent
 deleteWallet = V0.deleteWallet <=< migrate
 
-getWallet :: (MonadThrow m, MonadWalletLogicRead ctx m) => WalletId -> m (WalletResponse Wallet)
+getWallet :: ( MonadThrow m
+             , MonadWalletLogicRead ctx m
+             , V0.MonadBlockchainInfo m
+             ) => WalletId -> m (WalletResponse Wallet)
 getWallet wid = do
     ss <- V0.askWalletSnapshot
     wid' <- migrate wid
@@ -91,7 +109,10 @@ getWallet wid = do
     single <$> addWalletInfo ss wallet
 
 addWalletInfo
-    :: (MonadThrow m, MonadWalletLogicRead ctx m)
+    :: ( MonadThrow m
+       , V0.MonadWalletLogicRead ctx m
+       , V0.MonadBlockchainInfo m
+       )
     => V0.WalletSnapshot
     -> V0.CWallet
     -> m Wallet
@@ -99,11 +120,14 @@ addWalletInfo snapshot wallet = do
     case V0.getWalletInfo (V0.cwId wallet) snapshot of
         Nothing ->
             throwM WalletNotFound
-        Just walletInfo ->
-            migrate (wallet, walletInfo)
+        Just walletInfo -> do
+            currentDepth <- V0.networkChainDifficulty
+            migrate (wallet, walletInfo, currentDepth)
 
 updateWallet
-    :: (V0.MonadWalletLogic ctx m)
+    :: (V0.MonadWalletLogic ctx m
+       , V0.MonadBlockchainInfo m
+       )
     => WalletId
     -> WalletUpdate
     -> m (WalletResponse Wallet)

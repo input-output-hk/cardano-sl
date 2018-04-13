@@ -72,6 +72,7 @@ module Pos.Util.Util
 
        , tMeasureLog
        , tMeasureIO
+       , timed
        ) where
 
 import           Universum
@@ -94,7 +95,7 @@ import qualified Data.Semigroup as Smg
 import qualified Data.Serialize as Cereal
 import           Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime, getCurrentTime)
 import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import           Data.Time.Units (Microsecond, toMicroseconds)
+import           Data.Time.Units (Microsecond, toMicroseconds, fromMicroseconds)
 import qualified Ether
 import           Ether.Internal (HasLens (..))
 import qualified Formatting as F
@@ -426,23 +427,28 @@ sleep n = liftIO (threadDelay (truncate (n * 10^(6::Int))))
 
 -- | 'tMeasure' with 'logDebug'.
 tMeasureLog :: (MonadIO m, WithLogger m) => Text -> m a -> m a
-tMeasureLog = tMeasure logDebug
+tMeasureLog label = fmap fst . tMeasure logDebug label
 
 -- | 'tMeasure' with 'putText'. For places you don't have
 -- 'WithLogger' constraint.
 tMeasureIO :: (MonadIO m) => Text -> m a -> m a
-tMeasureIO = tMeasure putText
+tMeasureIO label = fmap fst . tMeasure putText label
+
+timed :: (MonadIO m, WithLogger m) => Text -> m a -> m (a, Microsecond)
+timed = tMeasure logDebug
 
 -- | Takes the first time sample, executes action (forcing its
 -- result), takes the second time sample, logs it.
-tMeasure :: (MonadIO m) => (Text -> m ()) -> Text -> m a -> m a
+tMeasure :: (MonadIO m) => (Text -> m ()) -> Text -> m a -> m (a, Microsecond)
 tMeasure logAction label action = do
     before <- liftIO getCurrentTime
     !x <- action
     after <- liftIO getCurrentTime
-    let d0 :: Integer
-        d0 = round $ 10000 * toRational (after `diffUTCTime` before)
+    let diff :: NominalDiffTime
+        diff = after `diffUTCTime` before
+        d0 :: Integer
+        d0 = round $ 10000 * toRational diff
     let d1 = d0 `div` 10
     let d2 = d0 `mod` 10
     logAction $ "tMeasure " <> label <> ": " <> show d1 <> "." <> show d2 <> "ms"
-    pure x
+    pure (x, fromMicroseconds (round $ 1000000 * toRational diff))

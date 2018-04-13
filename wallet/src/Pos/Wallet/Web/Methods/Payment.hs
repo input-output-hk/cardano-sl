@@ -18,7 +18,7 @@ import           Control.Monad.Except (runExcept)
 import qualified Data.Map as M
 import           Data.Time.Units (Second)
 import           Mockable (Concurrently, Delay, Mockable, concurrently, delay)
-import           Servant.Server (err405, errReasonPhrase)
+import           Servant.Server (err403, err405, errReasonPhrase)
 import           System.Wlog (logDebug)
 
 import           Pos.Client.KeyStorage (getSecretKeys)
@@ -52,7 +52,7 @@ import           Pos.Wallet.Web.Pending (mkPendingTx)
 import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (Ever, Existing),
                                        HasWAddressMeta (..), WAddressMeta (..), WalletDbReader,
                                        WalletSnapshot, askWalletDB, askWalletSnapshot,
-                                       getWalletSnapshot, wamAccount)
+                                       getWalletSnapshot, isWalletRestoring, wamAccount)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
                                       getWalletAccountIds, getWalletAddrsDetector)
 
@@ -178,6 +178,10 @@ sendMoney submitTx passphrase moneySource dstDistr policy = do
         { errReasonPhrase = "Transaction creation is disabled by configuration!"
         }
     let srcWallet = getMoneySourceWallet moneySource
+    when (isWalletRestoring ws srcWallet) $
+        throwM err403
+        { errReasonPhrase = "Transaction creation is disabled when the wallet is restoring."
+        }
     rootSk <- getSKById srcWallet
     checkPassMatches passphrase rootSk `whenNothing`
         throwM (RequestError "Passphrase doesn't match")

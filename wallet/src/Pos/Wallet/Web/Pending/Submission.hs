@@ -119,7 +119,9 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
            addOnlyNewPendingTx ptx
            ack <- submitTxRaw enqueue _ptxTxAux
            reportSubmitted ack
+           logDebug "sendMoney: 1.1"
            when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged
+           logDebug "sendMoney: 1.2"
   where
     handlers =
         [ Handler $ \e ->

@@ -57,14 +57,14 @@ local machine with actual HTTP requests augmented with the parameters you provid
 By default, wallet backend only accepts HTTPS connections:
 
 ```
-$ curl localhost:8090/docs/v1/index/index.html
+$ curl localhost:8090/docs/v1/index/
 This server only accepts secure HTTPS connections.
 ```
 
 We should provide our `ca.crt`:
 
 ```
-$ curl --cacert scripts/tls-files/ca.crt https://localhost:8090/docs/v1/index/index.html
+$ curl --cacert scripts/tls-files/ca.crt https://localhost:8090/docs/v1/index/
 ```
 
 But if we launch a node with `--wallet-debug` option, we can send simple `http`-requests.

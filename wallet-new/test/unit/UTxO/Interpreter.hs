@@ -8,6 +8,7 @@ module UTxO.Interpreter (
     IntException(..)
     -- * Interpretation context
   , IntCtxt -- opaque
+  , initIntCtxt
     -- * Interpretation monad
   , IntT
   , runIntT
@@ -15,6 +16,7 @@ module UTxO.Interpreter (
   , runIntBoot
   , runIntBoot'
   , liftTranslate
+  , liftTranslateInt
     -- * Interpreter proper
   , Interpret(..)
   ) where
@@ -243,6 +245,13 @@ class Interpret h a where
   Instances that read, but not update, the state
 -------------------------------------------------------------------------------}
 
+instance Interpret h DSL.Value where
+  type Interpreted DSL.Value = Coin
+
+  int :: (HasCallStack, Monad m)
+      => DSL.Value -> IntT h e m Coin
+  int = return . mkCoin
+
 instance Interpret h Addr where
   type Interpreted Addr = (SomeKeyPair, Address)
 
@@ -290,10 +299,11 @@ instance Interpret h (DSL.Output Addr) where
       => DSL.Output Addr -> IntT h e m TxOutAux
   int DSL.Output{..} = do
       (_, outAddr') <- int outAddr
+      outVal'       <- int outVal
       return TxOutAux {
           toaOut = TxOut {
               txOutAddress = outAddr'
-            , txOutValue   = mkCoin outVal
+            , txOutValue   = outVal'
             }
         }
 

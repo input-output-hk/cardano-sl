@@ -228,7 +228,6 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
 
             logDebug "sendMoney: 1"
             (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
-            logDebug "sendMoney: 2"
 
     logInfoS $
         sformat ("Successfully spent money from "%
@@ -237,11 +236,11 @@ sendMoney SendActions{..} passphrase moneySource dstDistr policy = do
         (toList srcAddrs)
         dstAddrs
 
-    logDebug "sendMoney: 3"
+    logDebug "sendMoney: 2"
     addHistoryTx srcWallet th
-    logDebug "sendMoney: 4"
+    logDebug "sendMoney: 3"
     diff <- getCurChainDifficulty
-    logDebug "sendMoney: 5"
+    logDebug "sendMoney: 4"
     srcWalletAddrsDetector <- getWalletAddrsDetector Ever srcWallet
 
     logDebug "sendMoney: constructing response"

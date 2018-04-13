@@ -567,8 +567,6 @@ runAction wc action = do
             let accountIndex :: AccountIndex
                 accountIndex = accIndex txsAccount
 
-            walletIdIsNotGenesis walletId
-
             log $ "getTransactionIndex: " <> show walletId <> ", " <> show accountIndex
             result  <-  respToRes $ getTransactionIndex
                                         wc

@@ -33,7 +33,7 @@ module Cardano.Wallet.Client
 import           Universum
 
 import           Control.Exception (Exception (..))
-import           Servant.Client (ServantError (..), Response(..))
+import           Servant.Client (Response (..), ServantError (..))
 
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination
@@ -121,10 +121,10 @@ data WalletClient m
     } deriving Generic
 
 getAddressIndex :: WalletClient m -> Resp m [WalletAddress]
-getAddressIndex wc = getAddressIndexPaginated wc Nothing Nothing
+getAddressIndex wc = getAddressIndexPaginated wc Nothing $ Just 50
 
 getAccounts :: WalletClient m -> WalletId -> Resp m [Account]
-getAccounts wc wi = getAccountIndexPaged wc wi Nothing Nothing
+getAccounts wc wi = getAccountIndexPaged wc wi Nothing $ Just 50
 
 getTransactionIndex
     :: WalletClient m
@@ -143,7 +143,7 @@ getWalletIndexPaged wc mp mpp = getWalletIndexFilterSorts wc mp mpp NoFilters No
 -- | Retrieves only the first page of wallets, providing a default value to
 -- 'Page' and 'PerPage'.
 getWallets :: WalletClient m -> Resp m [Wallet]
-getWallets wc = getWalletIndexPaged wc Nothing Nothing
+getWallets wc = getWalletIndexPaged wc Nothing $ Just 50
 
 -- | Run the given natural transformation over the 'WalletClient'.
 hoistClient :: (forall x. m x -> n x) -> WalletClient m -> WalletClient n
@@ -197,7 +197,7 @@ liftClient = hoistClient liftIO
 -- | Calls 'getWalletIndexPaged' using the 'Default' values for 'Page' and
 -- 'PerPage'.
 getWalletIndex :: WalletClient m -> Resp m [Wallet]
-getWalletIndex wc = getWalletIndexPaged wc Nothing Nothing
+getWalletIndex wc = getWalletIndexPaged wc Nothing $ Just 50
 
 -- | A type alias shorthand for the response from the 'WalletClient'.
 type Resp m a = m (Either ClientError (WalletResponse a))

@@ -41,8 +41,13 @@ echo "Waiting $SECONDS seconds until local cluster is ready..."
 sleep "$SECONDS"s
 
 # import keys
-echo "Importing poor HD key/wallet..."
- curl -X POST http://localhost:8090/api/wallets/keys -H 'cache-control: no-cache' -H 'content-type: application/json' -d "\"$tmpSecrets/generated-keys/poor/key0.sk\""
+echo "Importing poor HD keys/wallet..."
+
+for i in {0..11}
+do
+    echo "Imporing key$i.sk ..."
+    curl -X POST http://localhost:8090/api/wallets/keys -H 'cache-control: no-cache' -H 'content-type: application/json' -d "\"$tmpSecrets/generated-keys/poor/key$i.sk\""
+done
 
 FAILED=0
 

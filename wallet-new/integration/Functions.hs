@@ -11,11 +11,11 @@ module Functions where
 import           Universum hiding (log)
 
 import           Control.Lens (at, each, filtered, uses, (%=), (+=), (.=), (<>=), (?=))
-import           Data.Coerce (coerce)
-import           Data.List (isInfixOf, nub, (!!), (\\))
 import           Data.Aeson (toJSON)
 import           Data.Aeson.Diff (diff)
 import           Data.Aeson.Encode.Pretty (encodePretty)
+import           Data.Coerce (coerce)
+import           Data.List (isInfixOf, nub, (!!), (\\))
 import           Test.Hspec
 import           Test.QuickCheck
 import           Text.Show.Pretty (ppShow)
@@ -106,7 +106,7 @@ runActionCheck walletClient walletState actionProb = do
         succs <- use successActions
         log $ "Successfully run " <> show (length succs) <> " out of " <> show acts <> " actions"
         log $ "Successful actions counts:" <> show (map (\a -> (a!!0, length a)) $ group $ sort succs)
-        log $ "Non successful actions: " <> show ([minBound..maxBound] \\ nub succs)
+        log $ "Skipped actions: " <> show ([minBound..maxBound] \\ nub succs)
 
 
 -- | Attempt each action in the list. If an action fails, ignore the

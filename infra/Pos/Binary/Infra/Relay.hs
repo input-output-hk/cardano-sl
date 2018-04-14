@@ -11,20 +11,24 @@ import           Pos.Util.Util (cborError)
 
 instance Bi key => Bi (InvMsg key) where
     encode = encode . imKey
+    encodedSize = encodedSize . imKey
     decode = InvMsg <$> decode
 
 instance Bi key => Bi (ReqMsg key) where
     encode = encode . rmKey
+    encodedSize = encodedSize . rmKey
     decode = ReqMsg <$> decode
 
 instance Bi key => Bi (ResMsg key) where
     encode (ResMsg {..}) = encode (resKey, resOk)
+    encodedSize (ResMsg {..}) = encodedSize (resKey, resOk)
     decode = uncurry ResMsg <$> decode
 
 instance Typeable tag => Bi (MempoolMsg tag) where
     -- The extra byte is needed because time-warp doesn't work with
     -- possibly-empty messages. 228 was chosen as homage to @pva701
     encode MempoolMsg = encode (228 :: Word8)
+    encodedSize _ = 2
     decode = do
         x <- decode @Word8
         when (x /= 228) $ cborError "wrong byte"

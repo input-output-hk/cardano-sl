@@ -23,6 +23,7 @@ deriveSimpleBi ''EpochSlottingData [
 
 instance Bi SlottingData where
     encode slottingData = encode $ getSlottingDataMap slottingData
+    encodedSize slottingData = encodedSize $ getSlottingDataMap slottingData
     decode = checkIfSlottindDataValid $ decode
       where
         -- We first check if the data we are trying to decode is valid.

@@ -10,6 +10,7 @@ module Pos.Binary.Class.Core
     ( Bi(..)
     , encodeBinary
     , decodeBinary
+    , encodedSizeBinary
     , enforceSize
     , matchSize
     -- * CBOR re-exports
@@ -24,6 +25,7 @@ module Pos.Binary.Class.Core
     , CBOR.Read.IDecode(..)
     -- * GHC-Generics-based encoding & decoding
     , genericEncode
+    , genericEncodedSize
     , genericDecode
     -- * Utils
     , toCborError
@@ -81,6 +83,9 @@ decodeBinary = do
         Right (bs, _, res)
             | BS.Lazy.null bs -> Right res
             | otherwise       -> Left "decodeBinary: unconsumed input"
+
+encodedSizeBinary :: Binary.Binary a => a -> Byte
+encodedSizeBinary = encodedSize . BS.Lazy.toStrict . Binary.encode
 
 -- | Enforces that the input size is the same as the decoded one, failing in
 -- case it's not.
@@ -659,8 +664,12 @@ genericEncode = gencode . G.from
 genericDecode :: (Generic a, GSerialiseDecode (G.Rep a)) => D.Decoder s a
 genericDecode = G.to <$> gdecode
 
+genericEncodedSize :: (Generic a, GSerialiseEncode (G.Rep a)) => a -> Byte
+genericEncodedSize = gencodedSize . G.from
+
 class GSerialiseEncode f where
     gencode  :: f a -> E.Encoding
+    gencodedSize :: f a -> Byte
 
 class GSerialiseDecode f where
     gdecode  :: D.Decoder s (f a)
@@ -668,6 +677,7 @@ class GSerialiseDecode f where
 instance GSerialiseEncode G.V1 where
     -- Data types without constructors are still serialised as null value
     gencode _ = E.encodeNull
+    gencodedSize _ = 1
 
 instance GSerialiseDecode G.V1 where
     gdecode   = error "G.V1 don't have contructors" <$ D.decodeNull
@@ -675,6 +685,7 @@ instance GSerialiseDecode G.V1 where
 instance GSerialiseEncode G.U1 where
     -- Constructors without fields are serialised as null value
     gencode _ = E.encodeListLen 0
+    gencodedSize _ = 1
 
 instance GSerialiseDecode G.U1 where
     gdecode   = do
@@ -685,6 +696,7 @@ instance GSerialiseDecode G.U1 where
 instance GSerialiseEncode a => GSerialiseEncode (G.M1 i c a) where
     -- Metadata (constructor name, etc) is skipped
     gencode = gencode . G.unM1
+    gencodedSize = gencodedSize . G.unM1
 
 instance GSerialiseDecode a => GSerialiseDecode (G.M1 i c a) where
     gdecode = G.M1 <$> gdecode
@@ -694,6 +706,7 @@ instance Bi a => GSerialiseEncode (G.K1 i a) where
     -- data types). In all other cases we go through GSerialise{Sum,Prod}
     gencode (G.K1 a) = E.encodeListLen 1
                      <> encode a
+    gencodedSize (G.K1 a) = 1 + encodedSize a
 
 instance Bi a => GSerialiseDecode (G.K1 i a) where
     gdecode = do
@@ -708,6 +721,10 @@ instance (GSerialiseProd f, GSerialiseProd g) => GSerialiseEncode (f G.:*: g) wh
         = E.encodeListLen (nFields (Proxy :: Proxy (f G.:*: g)))
        <> encodeSeq f
        <> encodeSeq g
+    gencodedSize (f G.:*: g)
+        = withSize (nFields (Proxy :: Proxy (f G.:*: g))) 1 2 3 5 9
+            + encodedSeqSize f
+            + encodedSeqSize g
 
 instance (GSerialiseProd f, GSerialiseProd g) => GSerialiseDecode (f G.:*: g) where
     gdecode = do
@@ -726,6 +743,10 @@ instance (GSerialiseSum f, GSerialiseSum g) => GSerialiseEncode (f G.:+: g) wher
     gencode a = E.encodeListLen (numOfFields a + 1)
              <> encode (conNumber a)
              <> encodeSum a
+    gencodedSize a =
+          withSize (numOfFields a + 1) 1 2 3 5 9
+        + encodedSize (conNumber a)
+        + encodedSumSize a
 
 instance (GSerialiseSum f, GSerialiseSum g) => GSerialiseDecode (f G.:+: g) where
     gdecode = do
@@ -746,12 +767,15 @@ class GSerialiseProd f where
     nFields   :: Proxy f -> Word
     -- | Encode fields sequentially without writing header
     encodeSeq :: f a -> E.Encoding
+    -- | Encoded size of fields
+    encodedSeqSize :: f a -> Byte
     -- | Decode fields sequentially without reading header
     gdecodeSeq :: D.Decoder s (f a)
 
 instance (GSerialiseProd f, GSerialiseProd g) => GSerialiseProd (f G.:*: g) where
     nFields _ = nFields (Proxy :: Proxy f) + nFields (Proxy :: Proxy g)
     encodeSeq (f G.:*: g) = encodeSeq f <> encodeSeq g
+    encodedSeqSize (f G.:*: g) = encodedSeqSize f + encodedSeqSize g
     gdecodeSeq = do !f <- gdecodeSeq
                     !g <- gdecodeSeq
                     return (f G.:*: g)
@@ -761,29 +785,34 @@ instance GSerialiseProd G.U1 where
     --      don't have parameters
     nFields   _ = 0
     encodeSeq _ = mempty
+    encodedSeqSize _ = 0
     gdecodeSeq  = return G.U1
 
 instance (Bi a) => GSerialiseProd (G.K1 i a) where
     -- Ordinary field
     nFields    _     = 1
     encodeSeq (G.K1 f) = encode f
+    encodedSeqSize (G.K1 f) = encodedSize f
     gdecodeSeq       = G.K1 <$> decode
 
 instance (i ~ G.S, GSerialiseProd f) => GSerialiseProd (G.M1 i c f) where
     -- We skip metadata
     nFields     _     = 1
     encodeSeq  (G.M1 f) = encodeSeq f
+    encodedSeqSize  (G.M1 f) = encodedSeqSize f
     gdecodeSeq        = G.M1 <$> gdecodeSeq
 
 -- | Serialization of sum types
 --
 class GSerialiseSum f where
     -- | Number of constructor of given value
-    conNumber   :: f a -> Word
+    conNumber        :: f a -> Word
     -- | Number of fields of given value
-    numOfFields :: f a -> Word
+    numOfFields      :: f a -> Word
     -- | Encode field
-    encodeSum   :: f a  -> E.Encoding
+    encodeSum        :: f a  -> E.Encoding
+    -- | Size of encoded field
+    encodedSumSize   :: f a  -> Byte
 
     -- | Decode field
     decodeSum     :: Word -> D.Decoder s (f a)
@@ -802,6 +831,9 @@ instance (GSerialiseSum f, GSerialiseSum g) => GSerialiseSum (f G.:+: g) where
     encodeSum x = case x of
       G.L1 f -> encodeSum f
       G.R1 g -> encodeSum g
+    encodedSumSize x = case x of
+      G.L1 f -> encodedSumSize f
+      G.R1 g -> encodedSumSize g
 
     nConstructors _ = nConstructors (Proxy :: Proxy f)
                     + nConstructors (Proxy :: Proxy g)
@@ -820,6 +852,7 @@ instance (i ~ G.C, GSerialiseProd f) => GSerialiseSum (G.M1 i c f) where
     conNumber    _     = 0
     numOfFields  _     = nFields (Proxy :: Proxy f)
     encodeSum   (G.M1 f) = encodeSeq f
+    encodedSumSize (G.M1 f) = encodedSeqSize f
 
     nConstructors  _ = 1
     fieldsForCon _ 0 = return $ nFields (Proxy :: Proxy f)

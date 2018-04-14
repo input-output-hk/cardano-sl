@@ -635,14 +635,17 @@ instance (Bi a) => Bi (Vector.Vector a) where
 
 instance Bi Millisecond where
     encode = encode . toInteger
+    encodedSize = encodedSize . toInteger
     decode = fromInteger <$> decode
 
 instance Bi Microsecond where
     encode = encode . toInteger
+    encodedSize = encodedSize . toInteger
     decode = fromInteger <$> decode
 
 instance Bi Byte where
     encode = encode . toBytes
+    encodedSize = encodedSize . toBytes
     decode = fromBytes <$> decode
 
 ----------------------------------------------------------------------------

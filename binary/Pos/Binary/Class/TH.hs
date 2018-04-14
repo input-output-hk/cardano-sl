@@ -72,6 +72,7 @@ import           Formatting (sformat, shown, (%))
 import           Language.Haskell.TH
 import           TH.ReifySimple (DataCon (..), DataType (..), reifyDataType)
 import           TH.Utilities (plainInstanceD)
+import           Serokell.Data.Memory.Units (Byte)
 
 import qualified Pos.Binary.Class.Core as Bi
 
@@ -167,7 +168,7 @@ deriveSimpleBiInternal predsMB headTy constrs = do
                                 %shown%"', passed type '"%shown%"'")
                         field cName realType passedType
     ty <- conT headTy
-    makeBiInstanceTH preds ty <$> biEncodeExpr <*> biDecodeExpr
+    makeBiInstanceTH preds ty <$> biEncodeExpr <*> biDecodeExpr <*> biEncodedSizeExpr
   where
     shortNameTy :: Text
     shortNameTy = toText $ nameBase headTy
@@ -206,17 +207,47 @@ deriveSimpleBiInternal predsMB headTy constrs = do
             else
                 mconcatE (encodeFlat (length cFields) : map (encodeField val) cFields)
 
+    biEncodedSizeExpr :: Q Exp
+    biEncodedSizeExpr = do
+        x <- newName "x"
+        lam1E (varP x) $
+            caseE (varE x) $
+                imap biEncodedSizeConstr filteredConstrs
+
+    biEncodedSizeConstr :: Int -> Cons -> MatchQ
+    biEncodedSizeConstr ix (Cons cName cFields) = do
+        val <- newName $ if null cFields then "_" else "val"
+        match (asP val (recP cName [])) (body (varE val)) []
+     where
+        body val = normalB $
+            if length constrs >= 2 then
+                appE [| getSum |] $ mconcatE (encodedSizeFlat (length cFields + 1) : encodedSizeTag ix : map (encodedSizeField val) cFields)
+            else
+                appE [| getSum |] $ mconcatE (encodedSizeFlat (length cFields) : map (encodedSizeField val) cFields)
+
+
     -- Ensure the encoding of constructors with multiple arguments are encoded as a flat term.
     encodeFlat :: Int -> Q Exp
     encodeFlat listLen = [| Cbor.encodeListLen listLen |]
 
+    encodedSizeFlat :: Int -> Q Exp
+    encodedSizeFlat listLen = [| Sum (withSize listLen 1 2 3 5 9) |]
+
     encodeTag :: Int -> Q Exp
     encodeTag ix = [| Bi.encode (ix :: $tagType) |]
+
+    encodedSizeTag :: Int -> Q Exp
+    encodedSizeTag ix = [| Sum (Bi.encodedSize (ix :: $tagType)) |]
 
     encodeField :: ExpQ -> Field -> Q Exp
     encodeField val Field{..} = do
         (fName, _) <- expToNameAndType fFieldAndType
         [| Bi.encode ($(varE fName) $val) |]
+
+    encodedSizeField :: ExpQ -> Field -> Q Exp
+    encodedSizeField val Field{..} = do
+        (fName, _) <- expToNameAndType fFieldAndType
+        [| Sum (Bi.encodedSize ($(varE fName) $val)) |]
 
     actualLen :: Name
     actualLen = mkName "actualLen"
@@ -277,13 +308,14 @@ deriveSimpleBiInternal predsMB headTy constrs = do
                                 recWildUsedVars
         doE $ lenCheck : (map pure bindExprs ++ [pure recordWildCardReturn])
 
-makeBiInstanceTH :: Cxt -> Type -> Exp -> Exp -> [Dec]
-makeBiInstanceTH preds ty encodeE decodeE = one $
+makeBiInstanceTH :: Cxt -> Type -> Exp -> Exp -> Exp -> [Dec]
+makeBiInstanceTH preds ty encodeE decodeE encodedSizeE = one $
   plainInstanceD
         preds -- context
         (AppT (ConT ''Bi.Bi) ty)
         [ ValD (VarP 'Bi.encode) (NormalB encodeE) []
         , ValD (VarP 'Bi.decode) (NormalB decodeE) []
+        , ValD (VarP 'Bi.encodedSize) (NormalB encodedSizeE) []
         ]
 
 data MatchConstructors
@@ -346,3 +378,6 @@ checkAllFields passedFields realFields
 -- | Put '(<>)' between expressions.
 mconcatE :: [ExpQ] -> ExpQ
 mconcatE = foldr (\a b -> infixApp a [| (<>) |] b) [| mempty |]
+
+withSize :: Int -> Byte -> Byte -> Byte -> Byte -> Byte -> Byte
+withSize i a1 a2 a3 a4 a5 = Bi.withSize i a1 a2 a3 a4 a5

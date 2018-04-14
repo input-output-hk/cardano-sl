@@ -28,7 +28,7 @@ import           Pos.Core.Txp (TxAux (..), TxUndo)
 import           Pos.DB.BatchOp (SomeBatchOp)
 import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.GState as GS
-import           Pos.Reporting (MonadReporting, tryReport)
+import           Pos.Reporting (MonadReporting, reportOrLogE)
 import           Pos.Slotting (MonadSlots, MonadSlotsData, getCurrentEpochSlotDuration,
                                getSlotStartPure, getSystemStartM)
 import           Pos.Txp.Base (flattenTxPayload)
@@ -220,7 +220,7 @@ catchInSync
     => Text -> (CId Wal -> m ()) -> CId Wal -> m ()
 catchInSync desc syncWallet wId =
     syncWallet wId `catchAny` \e -> do
-        _ <- tryReport (prefix secure) e
+        reportOrLogE (prefix secure) e
         logWarningSP $ \sl -> prefix sl <> show e
   where
     -- REPORT:ERROR 'reportOrLogW' in wallet sync.

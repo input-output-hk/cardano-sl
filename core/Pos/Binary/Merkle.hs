@@ -13,7 +13,9 @@ import           Pos.Merkle (MerkleRoot (..), MerkleTree (..), mkMerkleTree)
 instance (Bi a, Bi (Hash Raw)) => Bi (MerkleTree a) where
     encode = encode . toList
     decode = mkMerkleTree <$> decode
+    encodedSize = encodedSize . toList
 
 instance (Bi a, Bi (Hash Raw)) => Bi (MerkleRoot a) where
     encode = encode . getMerkleRoot
     decode = MerkleRoot <$> decode
+    encodedSize = encodedSize . getMerkleRoot

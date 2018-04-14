@@ -20,6 +20,7 @@ library
   exposed-modules:
                        Pos.Arbitrary.Core
                        Pos.Arbitrary.Core.Unsafe
+                       Pos.Arbitrary.Data.Attributes
 
                        Pos.Aeson.Core
                        Pos.Aeson.Core.Configuration
@@ -132,6 +133,7 @@ library
                      , base58-bytestring
                      , binary
                      , bytestring
+                     , bytestring-arbitrary
                      , Cabal
                      , canonical-json
                      , cardano-sl-binary
@@ -209,3 +211,44 @@ library
   ghc-options: -pgmP cpphs -optP --cpp
   if flag(asserts)
     cpp-options: -DASSERTS_ON
+
+test-suite cardano-sl-core-test
+
+  main-is:            Test.hs
+
+  other-modules:      Spec
+                    , Test.Pos.Binary.Core.Txp
+                    , Test.Pos.Binary.Core.AddressSpec
+                    , Test.Pos.Binary.MerkleSpec
+  type:               exitcode-stdio-1.0
+
+  build-depends:      base
+                    , cardano-sl-binary
+                    , cardano-sl-core
+                    , cardano-sl-crypto
+                    , cardano-sl-txp
+                    , containers
+                    , bytestring
+                    , hspec
+                    , hashable
+                    , tagged
+                    , text
+                    , universum
+                    , unordered-containers
+                    , vector
+                    , QuickCheck
+
+  hs-source-dirs:     test
+
+  default-language:   Haskell2010
+
+  default-extensions: FlexibleContexts
+                      NoImplicitPrelude
+                      ScopedTypeVariables
+                      TypeApplications
+
+  ghc-options:        -threaded
+                      -rtsopts
+                      -Wall
+                      -fno-warn-orphans
+                      -with-rtsopts=-N

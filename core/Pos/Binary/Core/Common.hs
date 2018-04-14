@@ -14,14 +14,17 @@ import           Pos.Util.Orphans ()
 instance Bi (A.Attributes ()) where
     encode = A.encodeAttributes []
     decode = A.decodeAttributes () $ \_ _ _ -> pure Nothing
+    encodedSize A.Attributes {..} = encodedSize $ A.fromUnparsedFields attrRemain
 
 instance Bi T.CoinPortion where
     encode = encode . T.getCoinPortion
     decode = T.CoinPortion <$> decode
+    encodedSize = encodedSize . T.getCoinPortion
 
 instance Bi T.BlockCount where
     encode = encode . T.getBlockCount
     decode = T.BlockCount <$> decode
+    encodedSize = encodedSize . T.getBlockCount
 
 deriveSimpleBi ''T.SharedSeed [
     Cons 'T.SharedSeed [
@@ -55,3 +58,4 @@ deriveSimpleBi ''T.ChainDifficulty [
 instance Bi Coin where
     encode = encode . unsafeGetCoin
     decode = Coin <$> decode
+    encodedSize = encodedSize . unsafeGetCoin

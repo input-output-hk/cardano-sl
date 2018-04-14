@@ -34,6 +34,12 @@ instance Bi (Core.BodyProof BC.MainBlockchain) where
                          decode <*>
                          decode <*>
                          decode
+    encodedSize bc =
+        1 + encodedSize (BC.mpTxProof bc)
+          + encodedSize (BC.mpTxProof bc)
+          + encodedSize (BC.mpMpcProof bc)
+          + encodedSize (BC.mpProxySKsProof bc)
+          + encodedSize (BC.mpUpdateProof bc)
 
 instance Bi BC.BlockSignature where
     encode input = case input of
@@ -48,6 +54,10 @@ instance Bi BC.BlockSignature where
           1 -> BC.BlockPSignatureLight <$> decode
           2 -> BC.BlockPSignatureHeavy <$> decode
           _ -> cborError $ "decode@BlockSignature: unknown tag: " <> show tag
+    encodedSize input = case input of
+        BC.BlockSignature sig       -> 2 + encodedSize sig
+        BC.BlockPSignatureLight pxy -> 2 + encodedSize pxy
+        BC.BlockPSignatureHeavy pxy -> 2 + encodedSize pxy
 
 instance Bi (BC.ConsensusData BC.MainBlockchain) where
     encode cd =  encodeListLen 4
@@ -61,6 +71,11 @@ instance Bi (BC.ConsensusData BC.MainBlockchain) where
                                  decode <*>
                                  decode <*>
                                  decode
+    encodedSize cd =
+            1 + encodedSize (BC._mcdSlot cd)
+              + encodedSize (BC._mcdLeaderKey cd)
+              + encodedSize (BC._mcdDifficulty cd)
+              + encodedSize (BC._mcdSignature cd)
 
 instance Bi (BC.Body BC.MainBlockchain) where
     encode bc =  encodeListLen 4
@@ -74,6 +89,11 @@ instance Bi (BC.Body BC.MainBlockchain) where
                         decode <*>
                         decode <*>
                         decode
+    encodedSize bc =
+            1 + encodedSize (BC._mbTxPayload  bc)
+              + encodedSize (BC._mbSscPayload bc)
+              + encodedSize (BC._mbDlgPayload bc)
+              + encodedSize (BC._mbUpdatePayload bc)
 
 deriveSimpleBi ''BC.MainExtraHeaderData [
     Cons 'BC.MainExtraHeaderData [
@@ -102,6 +122,12 @@ instance Bi BC.MainToSign where
                           decode <*>
                           decode <*>
                           decode
+    encodedSize mts =
+               1 + encodedSize (BC._msHeaderHash mts)
+                 + encodedSize (BC._msBodyProof mts)
+                 + encodedSize (BC._msSlot mts)
+                 + encodedSize (BC._msChainDiff mts)
+                 + encodedSize (BC._msExtraHeader mts)
 
 -- ----------------------------------------------------------------------------
 -- -- GenesisBlock
@@ -120,6 +146,7 @@ deriveSimpleBi ''BC.GenesisExtraBodyData [
 instance Bi (BC.BodyProof BC.GenesisBlockchain) where
     encode (BC.GenesisProof h) = encode h
     decode = BC.GenesisProof <$> decode
+    encodedSize (BC.GenesisProof h) = encodedSize h
 
 instance Bi (BC.ConsensusData BC.GenesisBlockchain) where
     encode bc =  encodeListLen 2
@@ -129,6 +156,11 @@ instance Bi (BC.ConsensusData BC.GenesisBlockchain) where
       enforceSize "BC.ConsensusData BC.GenesisBlockchain" 2
       BC.GenesisConsensusData <$> decode <*> decode
 
+    encodedSize bc =
+            1 + encodedSize (BC._gcdEpoch bc)
+              + encodedSize (BC._gcdDifficulty bc)
+
 instance Bi (BC.Body BC.GenesisBlockchain) where
     encode = encode . BC._gbLeaders
     decode = BC.GenesisBody <$> decode
+    encodedSize = encodedSize . BC._gbLeaders

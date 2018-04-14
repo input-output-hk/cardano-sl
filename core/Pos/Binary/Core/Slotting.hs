@@ -12,18 +12,22 @@ import qualified Pos.Core.Slotting as T
 instance Bi T.Timestamp where
     encode (T.Timestamp ms) = encode . toInteger $ ms
     decode = T.Timestamp . fromIntegral <$> decode @Integer
+    encodedSize (T.Timestamp ms) = encodedSize . toInteger $ ms
 
 instance Bi T.TimeDiff where
     encode = encode . toInteger
     decode = fromInteger <$> decode
+    encodedSize = encodedSize . toInteger
 
 instance Bi T.EpochIndex where
     encode (T.EpochIndex epoch) = encode epoch
     decode = T.EpochIndex <$> decode
+    encodedSize (T.EpochIndex epoch) = encodedSize epoch
 
 instance Bi T.LocalSlotIndex where
     encode = encode . T.getSlotIndex
     decode = T.UnsafeLocalSlotIndex <$> decode
+    encodedSize = encodedSize . T.getSlotIndex
 
 deriveSimpleBi ''T.SlotId [
     Cons 'T.SlotId [
@@ -34,7 +38,9 @@ deriveSimpleBi ''T.SlotId [
 instance Bi T.EpochOrSlot where
     encode (T.EpochOrSlot e) = encode e
     decode = T.EpochOrSlot <$> decode @(Either T.EpochIndex T.SlotId)
+    encodedSize (T.EpochOrSlot e) = encodedSize e
 
 instance Bi T.SlotCount where
     encode = encode . T.getSlotCount
     decode = T.SlotCount <$> decode
+    encodedSize = encodedSize . T.getSlotCount

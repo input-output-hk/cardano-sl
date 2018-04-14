@@ -8,6 +8,7 @@ import           Universum
 
 import qualified Data.HashSet as HS
 import           Serokell.Util (allDistinct)
+import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Decoder, Encoding, Field (..),
                                    deriveSimpleBi, encodeListLen, enforceSize)
@@ -30,10 +31,13 @@ instance Bi Commitment where
         when (null commShares) $ cborError "decode@Commitment: no shares"
         commProof <- decode
         return $ Commitment commProof commShares
+    encodedSize Commitment{..} =
+        1 + encodedSize commShares + encodedSize commProof
 
 instance Bi CommitmentsMap where
     encode = encodeCommitments
     decode = decodeCommitments
+    encodedSize = encodedSizeCommitments
 
 instance Bi VssCertificate where
     encode vssCert = encodeListLen 4 <> encode (vcVssKey vssCert)
@@ -47,14 +51,21 @@ instance Bi VssCertificate where
         sig <- decode
         sky <- decode
         pure $ UnsafeVssCertificate key epo sig sky
+    encodedSize vssCert =
+        1 + encodedSize (vcVssKey vssCert)
+          + encodedSize (vcExpiryEpoch vssCert)
+          + encodedSize (vcSignature vssCert)
+          + encodedSize (vcSigningKey vssCert)
 
 instance Bi VssCertificatesMap where
     encode = encodeVssCertificates
     decode = decodeVssCertificates
+    encodedSize = encodedSizeVssCertificates
 
 instance Bi Opening where
     encode = encode . getOpening
     decode = Opening <$> decode
+    encodedSize = encodedSize . getOpening
 
 ----------------------------------------------------------------------------
 -- Maps encoding/decoding
@@ -88,6 +99,9 @@ decodeVssCertificates = do
     when (length certs > length vssMap) (cborError "duplicate vss key")
     pure vssMap
 
+encodedSizeVssCertificates :: VssCertificatesMap -> Byte
+encodedSizeVssCertificates = encodedSize . HS.fromList . toList
+
 encodeCommitments :: CommitmentsMap -> Encoding
 encodeCommitments = encode . HS.fromList . toList
 
@@ -97,6 +111,9 @@ decodeCommitments = do
     unless (allDistinct (map (view _1) comms :: [PublicKey])) $ cborError $
         "decodeCommitments: two commitments have the same signing key"
     pure (mkCommitmentsMap comms)
+
+encodedSizeCommitments :: CommitmentsMap -> Byte
+encodedSizeCommitments = encodedSize . HS.fromList . toList
 
 ----------------------------------------------------------------------------
 -- TH-generated instances go to the end of the file

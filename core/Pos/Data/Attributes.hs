@@ -10,7 +10,9 @@ module Pos.Data.Attributes
        , areAttributesKnown
        , encodeAttributes
        , decodeAttributes
+       , encodedAttributesSize
        , mkAttributes
+       , fromUnparsedFields
        ) where
 
 import           Universum
@@ -23,6 +25,7 @@ import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, int, (%))
 import qualified Prelude
+import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class
 
@@ -169,3 +172,20 @@ decodeAttributes initval updater = do
                 { attrData   = newData
                 , attrRemain = UnparsedFields . M.delete k $ fromUnparsedFields attrRemain
                 }
+
+-- TODO: can this be made more efficient?
+encodedAttributesSize
+    :: forall t. [(Word8, t -> LBS.ByteString)]
+    -> Attributes t
+    -> Byte
+encodedAttributesSize encs Attributes{..} =
+    encodedSize $ foldr go (fromUnparsedFields attrRemain) encs
+  where
+    go :: (Word8, t -> LBS.ByteString)
+       -> Map Word8 LBS.ByteString
+       -> Map Word8 LBS.ByteString
+    go (k, f) = M.alter (insertCheck $ f attrData) k
+        where
+          insertCheck v Nothing   = Just v
+          insertCheck _ (Just v') = error $ "encodeAttributes: impossible: field no. "
+              <> show k <> " is already encoded as unparsed field: " <> show v'

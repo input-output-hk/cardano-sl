@@ -29,6 +29,12 @@ instance ( Typeable b
               <> encode (T._gbhBodyProof bh)
               <> encode (T._gbhConsensus bh)
               <> encode (T._gbhExtra bh)
+    encodedSize bh =
+            1 + encodedSize (getProtocolMagic (T._gbhProtocolMagic bh))
+              + encodedSize (T._gbhPrevBlock bh)
+              + encodedSize (T._gbhBodyProof bh)
+              + encodedSize (T._gbhConsensus bh)
+              + encodedSize (T._gbhExtra bh)
     decode = do
         enforceSize "GenericBlockHeader b" 5
         _gbhProtocolMagic <- ProtocolMagic <$> decode
@@ -47,10 +53,17 @@ instance ( Typeable b
          , Bi (T.ExtraBodyData b)
          ) =>
          Bi (T.GenericBlock b) where
+
     encode gb =  encodeListLen 3
               <> encode (T._gbHeader gb)
               <> encode (T._gbBody gb)
               <> encode (T._gbExtra gb)
+
+    encodedSize gb =
+            1 + encodedSize (T._gbHeader gb)
+              + encodedSize (T._gbBody gb)
+              + encodedSize (T._gbExtra gb)
+
     decode = do
         enforceSize "GenericBlock" 3
         _gbHeader <- decode
@@ -68,6 +81,12 @@ instance Bi BlockHeader where
        (tag, body) = case x of
          BlockHeaderGenesis bh -> (0, encode bh)
          BlockHeaderMain bh    -> (1, encode bh)
+
+   encodedSize x = 2 + bodySize
+     where
+       bodySize = case x of
+         BlockHeaderGenesis bh -> encodedSize bh
+         BlockHeaderMain bh    -> encodedSize bh
 
    decode = do
        decodeListLenCanonicalOf 2

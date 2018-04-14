@@ -13,7 +13,7 @@ import qualified Utils.Names as Names
 import qualified Utils.Vars as Vars
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi, genericDecode,
-                                   genericEncode, serialize')
+                                   genericEncode, genericEncodedSize, serialize')
 import           Pos.Core.Common (Script (..), ScriptVersion)
 import           Pos.Core.Script ()
 
@@ -21,62 +21,77 @@ import           Pos.Core.Script ()
 instance Bi Vars.FreeVar where
     encode = genericEncode
     decode = genericDecode
+    encodedSize = genericEncodedSize
 
 instance Bi Vars.MetaVar where
     encode = genericEncode
     decode = genericDecode
+    encodedSize = genericEncodedSize
 
 instance Bi Vars.BoundVar where
     encode = genericEncode
     decode = genericDecode
+    encodedSize = genericEncodedSize
 
 instance Bi PLTypes.TyConSig where
     encode = genericEncode
     decode = genericDecode
+    encodedSize = genericEncodedSize
 
 instance Bi PLTypes.ConSig where
     encode = genericEncode
     decode = genericDecode
+    encodedSize = genericEncodedSize
 
 instance Bi a => Bi (Names.Sourced a) where
     encode = genericEncode
     decode = genericDecode
+    encodedSize = genericEncodedSize
 
 instance Bi ABT.Variable where
     encode = genericEncode
     decode = genericDecode
+    encodedSize = genericEncodedSize
 
 instance (Typeable f, Bi (f (ABT.Scope f))) => Bi (ABT.ABT f) where
     encode = genericEncode
     decode = genericDecode
+    encodedSize = genericEncodedSize
 
 instance (Typeable f, Bi (f (ABT.Scope f))) => Bi (ABT.Scope f) where
     encode = genericEncode
     decode = genericDecode
+    encodedSize = genericEncodedSize
 
 instance (Typeable r, Bi r) => Bi (PLCore.ClauseF r) where
     encode = genericEncode
     decode = genericDecode
+    encodedSize = genericEncodedSize
 
 instance Bi a => Bi (PLCore.TermF a) where
     encode = genericEncode
     decode = genericDecode
+    encodedSize = genericEncodedSize
 
 instance Bi a => Bi (PLTypes.TypeF a) where
     encode = genericEncode
     decode = genericDecode
+    encodedSize = genericEncodedSize
 
 instance Bi PLCore.SimplePattern where
     encode = genericEncode
     decode = genericDecode
+    encodedSize = genericEncodedSize
 
 instance Bi PLCore.PrimData where
     encode = genericEncode
     decode = genericDecode
+    encodedSize = genericEncodedSize
 
 instance Bi PLCore.Program where
     encode = genericEncode
     decode = genericDecode
+    encodedSize = genericEncodedSize
 
 deriveSimpleBi ''Script [
     Cons 'Script [

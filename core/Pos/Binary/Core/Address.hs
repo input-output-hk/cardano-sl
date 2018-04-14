@@ -10,10 +10,13 @@ import           Control.Exception.Safe (Exception (displayException))
 import           Control.Lens (_Left)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Word (Word8)
+import           Serokell.Data.Memory.Units (fromBytes)
 
 import           Pos.Binary.Class (Bi (..), decodeCrcProtected, decodeListLenCanonical,
-                                   decodeUnknownCborDataItem, deserialize, encodeCrcProtected,
-                                   encodeListLen, encodeUnknownCborDataItem, enforceSize,
+                                   decodeUnknownCborDataItem, deserialize,
+                                   encodeCrcProtected, encodedCrcProtectedSize,
+                                   encodeListLen, encodeUnknownCborDataItem,
+                                   encodedUnknownCborDataItemSize, enforceSize,
                                    serialize)
 import           Pos.Binary.Core.Common ()
 import           Pos.Binary.Core.Script ()
@@ -21,7 +24,7 @@ import           Pos.Binary.Crypto ()
 import           Pos.Core.Common.Types (AddrAttributes (..), AddrSpendingData (..),
                                         AddrStakeDistribution (..), AddrType (..), Address (..),
                                         Address' (..), mkMultiKeyDistr)
-import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
+import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes, encodedAttributesSize)
 import           Pos.Util.Util (cborError, toCborError)
 
 ----------------------------------------------------------------------------
@@ -46,6 +49,9 @@ instance Bi AddrType where
             1 -> ATScript
             2 -> ATRedeem
             tag -> ATUnknown tag
+
+    encodedSize (ATUnknown tag) = encodedSize @Word8 tag
+    encodedSize _ = 1
 
 {- NOTE: Address spending data serialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -85,6 +91,16 @@ instance Bi AddrSpendingData where
             2 -> RedeemASD <$> decode
             tag -> UnknownASD tag <$> decodeUnknownCborDataItem
 
+    encodedSize =
+        \case
+            PubKeyASD pk -> encodedSize (w8 0, pk)
+            ScriptASD script -> encodedSize (w8 1, script)
+            RedeemASD redeemPK -> encodedSize (w8 2, redeemPK)
+            UnknownASD tag payload ->
+                let len = fromIntegral $ length payload
+                in 1 + encodedSize tag
+                     + encodedUnknownCborDataItemSize (fromBytes len)
+
 instance Bi AddrStakeDistribution where
     encode =
         \case
@@ -104,6 +120,12 @@ instance Bi AddrStakeDistribution where
                         pretty tag
             len -> cborError $
                 "decode @AddrStakeDistribution: unexpected length " <> pretty len
+    
+    encodedSize =
+        \case
+            BootstrapEraDistr -> 1
+            SingleKeyDistr id -> encodedSize (w8 0, id)
+            UnsafeMultiKeyDistr distr -> encodedSize (w8 1, distr)
 
 {- NOTE: Address attributes serialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -154,6 +176,25 @@ instance Bi (Attributes AddrAttributes) where
                 1 -> (\deriv -> Just $ acc {aaPkDerivationPath = Just deriv }) <$> deserialize v
                 _ -> pure Nothing
 
+    -- TODO: can this be made more efficient?
+    encodedSize attrs@(Attributes {attrData = AddrAttributes derivationPath stakeDistr}) =
+        encodedAttributesSize listWithIndices attrs
+      where
+        listWithIndices :: [(Word8, AddrAttributes -> LBS.ByteString)]
+        listWithIndices =
+            stakeDistributionListWithIndices <> derivationPathListWithIndices
+        stakeDistributionListWithIndices =
+            case stakeDistr of
+                BootstrapEraDistr -> []
+                _                 -> [(0, serialize . aaStakeDistribution)]
+        derivationPathListWithIndices =
+            case derivationPath of
+                Nothing -> []
+                -- 'unsafeFromJust' is safe, because 'case' ensures
+                -- that derivation path is 'Just'.
+                Just _ ->
+                    [(1, serialize . unsafeFromJust . aaPkDerivationPath)]
+
 -- We don't need a special encoding for 'Address'', GND is what we want.
 deriving instance Bi Address'
 
@@ -190,3 +231,4 @@ instance Bi Address where
         (addrRoot, addrAttributes, addrType) <- decodeCrcProtected
         let res = Address {..}
         pure res
+    encodedSize Address{..} = encodedCrcProtectedSize (addrRoot, addrAttributes, addrType)

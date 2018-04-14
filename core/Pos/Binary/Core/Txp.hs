@@ -7,11 +7,14 @@ module Pos.Binary.Core.Txp
 import           Universum
 
 import qualified Data.ByteString.Lazy as LBS
+import           Serokell.Data.Memory.Units (fromBytes)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
                                    decodeListLenCanonical, decodeUnknownCborDataItem,
-                                   deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,
-                                   encodeUnknownCborDataItem, enforceSize, matchSize)
+                                   deriveSimpleBi, encodeKnownCborDataItem,
+                                   encodedKnownCborDataItemSize, encodeListLen,
+                                   encodeUnknownCborDataItem, encodedUnknownCborDataItemSize,
+                                   enforceSize, matchSize)
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Merkle ()
 import qualified Pos.Core.Common as Common
@@ -36,6 +39,13 @@ instance Bi T.TxIn where
         case tag of
             0 -> uncurry T.TxInUtxo <$> decodeKnownCborDataItem
             _ -> T.TxInUnknown tag  <$> decodeUnknownCborDataItem
+    encodedSize T.TxInUtxo{..} =
+        2 + encodedKnownCborDataItemSize (txInHash, txInIndex)
+    encodedSize (T.TxInUnknown tag bs) =
+        let len = fromIntegral $ length bs
+        in 1 + encodedSize tag
+             + encodedUnknownCborDataItemSize (fromBytes len)
+
 
 deriveSimpleBi ''T.TxOut [
     Cons 'T.TxOut [
@@ -56,6 +66,11 @@ instance Bi T.Tx where
     decode = do
         enforceSize "Tx" 3
         T.UnsafeTx <$> decode <*> decode <*> decode
+
+    encodedSize tx = 1
+        + encodedSize (T._txInputs tx)
+        + encodedSize (T._txOutputs tx)
+        + encodedSize (T._txAttributes tx)
 
 instance Bi T.TxInWitness where
     encode input = case input of
@@ -92,9 +107,22 @@ instance Bi T.TxInWitness where
                 matchSize len "TxInWitness.UnknownWitnessType" 2
                 T.UnknownWitnessType tag <$> decodeUnknownCborDataItem
 
+    encodedSize input = case input of
+        T.PkWitness key sig ->
+            2 + encodedKnownCborDataItemSize (key, sig)
+        T.ScriptWitness val red ->
+            2 + encodedKnownCborDataItemSize (val, red)
+        T.RedeemWitness key sig ->
+            2 + encodedKnownCborDataItemSize (key, sig)
+        T.UnknownWitnessType tag bs ->
+            let len = fromIntegral $ length bs
+            in 2 + encodedSize tag
+                 + encodedUnknownCborDataItemSize (fromBytes len)
+
 instance Bi T.TxSigData where
     encode (T.TxSigData {..}) = encode txSigTxHash
     decode = T.TxSigData <$> decode
+    encodedSize (T.TxSigData {..}) = encodedSize txSigTxHash
 
 deriveSimpleBi ''T.TxAux [
     Cons 'T.TxAux [
@@ -113,6 +141,13 @@ instance Bi T.TxProof where
                       decode <*>
                       decode
 
+    encodedSize proof =
+        1 + encodedSize (T.txpNumber proof)
+          + encodedSize (T.txpRoot proof)
+          + encodedSize (T.txpWitnessesHash proof)
+
 instance Bi T.TxPayload where
     encode T.UnsafeTxPayload {..} = encode $ zip (toList _txpTxs) _txpWitnesses
     decode = T.mkTxPayload <$> decode
+    encodedSize T.UnsafeTxPayload {..} =
+        encodedSize $ zip (toList _txpTxs) _txpWitnesses

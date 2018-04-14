@@ -16,4 +16,5 @@ import           Pos.Txp.Network.Types (TxMsgContents (..))
 
 instance Bi (DataMsg TxMsgContents) where
     encode (DataMsg (TxMsgContents txAux)) = encode txAux
+    encodedSize (DataMsg (TxMsgContents txAux)) = encodedSize txAux
     decode = DataMsg <$> (TxMsgContents <$> decode)

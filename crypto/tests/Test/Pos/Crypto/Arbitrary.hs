@@ -245,7 +245,7 @@ instance Arbitrary SharedSecrets where
 -- Arbitrary hashes
 ----------------------------------------------------------------------------
 
-instance (HashAlgorithm algo, Bi a) => Arbitrary (AbstractHash algo a) where
+instance (HashAlgorithm algo) => Arbitrary (AbstractHash algo a) where
     arbitrary = arbitraryUnsafe
 
 instance Arbitrary AHash where

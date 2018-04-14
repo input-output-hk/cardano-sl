@@ -28,6 +28,7 @@ module Pos.Binary.Class.Core
     -- * Utils
     , toCborError
     , cborError
+    , withSize
     ) where
 
 #include <MachDeps.h>

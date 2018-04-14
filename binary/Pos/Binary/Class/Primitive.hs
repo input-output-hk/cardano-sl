@@ -26,12 +26,15 @@ module Pos.Binary.Class.Primitive
        , deserializeOrFail'
        -- * CBOR in CBOR
        , encodeKnownCborDataItem
+       , encodedKnownCborDataItemSize
        , encodeUnknownCborDataItem
+       , encodedUnknownCborDataItemSize
        , decodeKnownCborDataItem
        , decodeUnknownCborDataItem
        -- * Cyclic redundancy check
        , encodeCrcProtected
        , decodeCrcProtected
+       , encodedCrcProtectedSize
        ) where
 
 import           Universum
@@ -52,7 +55,7 @@ import           Data.Typeable (typeOf)
 import           Formatting (sformat, shown, (%))
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class.Core (Bi (..), cborError, enforceSize, toCborError)
+import           Pos.Binary.Class.Core (Bi (..), cborError, enforceSize, toCborError, withSize)
 
 -- | Serialize a Haskell value to an external binary representation.
 --
@@ -207,12 +210,24 @@ biSize = fromIntegral . BSL.length . serialize
 encodeKnownCborDataItem :: Bi a => a -> E.Encoding
 encodeKnownCborDataItem = encodeUnknownCborDataItem . serialize
 
+-- | Compute size of encoded term when passed through `encodeKnownCborDataItem`.
+encodedKnownCborDataItemSize :: Bi a => a -> Byte
+encodedKnownCborDataItemSize = encodedUnknownCborDataItemSize . encodedSize
+
 -- | Like `encodeKnownCborDataItem`, but assumes nothing about the shape of
 -- input object, so that it must be passed as a binary `ByteString` blob.
 -- It's the caller responsibility to ensure the input `ByteString` correspond
 -- indeed to valid, previously-serialised CBOR data.
 encodeUnknownCborDataItem :: BSL.ByteString -> E.Encoding
 encodeUnknownCborDataItem x = E.encodeTag 24 <> encode x
+
+-- | Compute size of encoded `ByteString` when passed through
+-- `encodeUnknownCborDataItem`.
+encodedUnknownCborDataItemSize :: Byte -> Byte
+encodedUnknownCborDataItemSize x =
+    -- 2 bytes for a tag plus size of encoded @'ByteString'@ of length @x@
+    -- (i.e. encoded size of x plus x)
+    2 + withSize x 1 2 3 5 9 + x
 
 -- | Remove the the semantic tag 24 from the enclosed CBOR data item,
 -- failing if the tag cannot be found.
@@ -249,6 +264,12 @@ encodeCrcProtected x =
     E.encodeListLen 2 <> encodeUnknownCborDataItem body <> encode (crc32 body)
   where
     body = serialize x
+
+encodedCrcProtectedSize :: Bi a => a -> Byte
+encodedCrcProtectedSize x =
+    -- To avoid computation of the CRC check sum we put the upper limit of four
+    -- bytes.
+    2 + encodedUnknownCborDataItemSize (encodedSize x) + 4
 
 -- | Decodes a CBOR blob into a type `a`, checking the serialised CRC corresponds to the computed one.
 decodeCrcProtected :: forall s a. Bi a => D.Decoder s a

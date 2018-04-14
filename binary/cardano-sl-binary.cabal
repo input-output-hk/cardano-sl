@@ -17,6 +17,7 @@ library
   exposed-modules:
                        Pos.Binary.Class
 
+                       Test.Pos.Binary.Class.Core
                        Test.Pos.Cbor.Canonicity
                        Test.Pos.Cbor.RefImpl
 
@@ -87,26 +88,37 @@ library
 
 test-suite cardano-sl-binary-test
   main-is:            Test.hs
+
   other-modules:      Spec
                     , Test.Pos.Binary.Class.CoreSpec
+                    , Test.Pos.Binary.Class.PrimitiveSpec
+
   type:               exitcode-stdio-1.0
+
   build-depends:      base
                     , cardano-sl-binary
+                    , cborg
                     , containers
                     , bytestring
+                    , bytestring-arbitrary
                     , hspec
                     , hashable
                     , tagged
                     , text
+                    , serokell-util
                     , universum
                     , unordered-containers
                     , vector
                     , QuickCheck
+
   hs-source-dirs:     test
+
   default-language:   Haskell2010
+
   default-extensions: NoImplicitPrelude
                       ScopedTypeVariables
                       TypeApplications
+
   ghc-options:        -threaded
                       -rtsopts
                       -Wall

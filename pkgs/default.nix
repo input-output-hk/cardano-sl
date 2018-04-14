@@ -7493,22 +7493,27 @@ inherit (pkgs) mesa;};
          , cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking
          , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
          , cardano-sl-util, cardano-sl-wallet, Chart, Chart-diagrams
-         , containers, cpphs, cryptonite, data-default, directory, ed25519
-         , fgl, filepath, foldl, formatting, Glob, graphviz, kademlia, lens
-         , lifted-async, log-warper, MonadRandom, mtl, neat-interpolation
-         , network-transport-tcp, optparse-applicative, optparse-generic
-         , parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe
-         , process, QuickCheck, random, random-shuffle, safe-exceptions
+         , conduit, containers, cpphs, cryptonite, data-default, directory
+         , ed25519, fgl, filepath, foldl, formatting, Glob, graphviz, hspec
+         , hspec-discover, kademlia, lens, lifted-async, log-warper
+         , MonadRandom, mtl, neat-interpolation, network-transport-tcp
+         , optparse-applicative, optparse-generic, parsec, parsers, pipes
+         , pipes-bytestring, pipes-interleave, pipes-safe, process
+         , QuickCheck, random, random-shuffle, safe-exceptions
          , serokell-util, silently, stdenv, stm, string-conv, tabl, tar
-         , text, time, time-units, universum, unix, unix-compat
-         , unordered-containers, vector, yaml
+         , temporary, text, time, time-units, trifecta, universum, unix
+         , unix-compat, unordered-containers, vector, yaml
          }:
          mkDerivation {
            pname = "cardano-sl-tools";
            version = "1.1.1";
            src = ./../tools;
-           isLibrary = false;
+           isLibrary = true;
            isExecutable = true;
+           libraryHaskellDepends = [
+             aeson base bytestring conduit containers directory filepath parsers
+             text trifecta universum yaml
+           ];
            executableHaskellDepends = [
              acid-state aeson ansi-terminal ansi-wl-pprint array async
              attoparsec base base58-bytestring bytestring canonical-json
@@ -7516,17 +7521,22 @@ inherit (pkgs) mesa;};
              cardano-sl-client cardano-sl-core cardano-sl-crypto cardano-sl-db
              cardano-sl-infra cardano-sl-lrc cardano-sl-networking
              cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
-             cardano-sl-wallet Chart Chart-diagrams containers cryptonite
-             data-default directory ed25519 fgl filepath foldl formatting Glob
-             graphviz kademlia lens lifted-async log-warper MonadRandom mtl
-             neat-interpolation network-transport-tcp optparse-applicative
-             optparse-generic parsec pipes pipes-bytestring pipes-interleave
-             pipes-safe process QuickCheck random random-shuffle safe-exceptions
-             serokell-util silently stm string-conv tabl tar text time
-             time-units universum unix unix-compat unordered-containers vector
-             yaml
+             cardano-sl-wallet Chart Chart-diagrams conduit containers
+             cryptonite data-default directory ed25519 fgl filepath foldl
+             formatting Glob graphviz kademlia lens lifted-async log-warper
+             MonadRandom mtl neat-interpolation network-transport-tcp
+             optparse-applicative optparse-generic parsec parsers pipes
+             pipes-bytestring pipes-interleave pipes-safe process QuickCheck
+             random random-shuffle safe-exceptions serokell-util silently stm
+             string-conv tabl tar text time time-units trifecta universum unix
+             unix-compat unordered-containers vector yaml
            ];
            executableToolDepends = [ cpphs ];
+           testHaskellDepends = [
+             aeson base directory filepath hspec hspec-discover parsers
+             QuickCheck temporary text trifecta universum yaml
+           ];
+           testToolDepends = [ cpphs ];
            doHaddock = false;
            description = "Cardano SL - Tools";
            license = stdenv.lib.licenses.mit;

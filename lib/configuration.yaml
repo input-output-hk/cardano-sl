@@ -14752,7 +14752,7 @@ mainnet_wallet_macos64: &mainnet_wallet_macos64
       bvMinor: 1
       bvAlt: 0
 
-mainnet_wallet_linux: &mainnet_wallet_linux
+mainnet_wallet_linux64: &mainnet_wallet_linux64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
@@ -14797,7 +14797,7 @@ mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
       bvMinor: 1
       bvAlt: 0
 
-mainnet_dryrun_wallet_linux: &mainnet_dryrun_wallet_linux
+mainnet_dryrun_wallet_linux64: &mainnet_dryrun_wallet_linux64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
@@ -14851,7 +14851,7 @@ mainnet_staging_short_epoch_wallet_macos64:
       bvMinor: 0
       bvAlt: 0
 
-mainnet_staging_short_epoch_wallet_linux:
+mainnet_staging_short_epoch_wallet_linux64:
   <<: *mainnet_staging_short_epoch_full
   update:
     applicationName: csl-daedalus
@@ -14938,7 +14938,7 @@ devnet_macos64:
       bvAlt: 0
     systemTag: macos64
 
-devnet_linux:
+devnet_linux64:
   <<: *devnet
   update:
     <<:
@@ -15022,7 +15022,7 @@ internal_staging_wallet_macos64:
       bvMinor: 0
       bvAlt: 0
 
-internal_staging_wallet_linux:
+internal_staging_wallet_linux64:
   <<: *internal_staging_full
   update:
     applicationName: csl-daedalus

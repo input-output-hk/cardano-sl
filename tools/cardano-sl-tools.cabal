@@ -307,8 +307,11 @@ executable cardano-launcher
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra
+                     , cardano-sl-tools
                      , cardano-sl-update
                      , cardano-sl-util
+                     , conduit
+                     , containers
                      , directory
                      , filepath
                      , formatting
@@ -317,12 +320,14 @@ executable cardano-launcher
                      , log-warper
                      , neat-interpolation
                      , optparse-applicative
+                     , parsers
                      , process
                      , safe-exceptions
                      , serokell-util
                      , silently
                      , text
                      , time-units
+                     , trifecta
                      , universum
                      , unordered-containers
                      , yaml
@@ -572,3 +577,64 @@ executable cardano-blockchain-analyser
 
   if flag(for-installer)
     buildable: False
+
+library
+  hs-source-dirs:      .
+  default-language:    Haskell2010
+  exposed-modules:
+                       Launcher.Environment
+                       Launcher.Logging
+
+  build-depends:       aeson
+                     , base
+                     , bytestring
+                     , conduit
+                     , containers
+                     , directory
+                     , filepath
+                     , parsers
+                     , text
+                     , trifecta
+                     , universum
+                     , yaml
+
+test-suite cardano-sl-tools-test
+  main-is:             Test.hs
+  other-modules:
+                       -- Standard module with some magic
+                       Spec
+
+                       -- Subject
+                       Test.Launcher.Environment
+
+  type:                exitcode-stdio-1.0
+  build-depends:
+                       QuickCheck
+                     , aeson
+                     , base
+                     , cardano-sl-tools
+                     , directory
+                     , filepath
+                     , hspec
+                     , hspec-discover
+                     , parsers
+                     , temporary
+                     , text
+                     , trifecta
+                     , universum >= 0.1.11
+                     , yaml
+
+  hs-source-dirs:      test
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

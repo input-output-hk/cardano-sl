@@ -20,12 +20,12 @@ import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, pol
                                                        withAsync, withAsyncWithUnmask)
 import           Control.Exception.Safe (catchAny, handle, mask_, tryAny)
 import           Control.Lens (makeLensesWith)
-import           Data.Aeson (FromJSON, Value (Array, Bool, Object), genericParseJSON, withObject)
+import qualified Data.Aeson as AE
+import           Data.Aeson (FromJSON, Value (Array, Bool, Object), fromJSON, genericParseJSON, withObject)
 import qualified Data.ByteString.Lazy as BS.L
 import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
 import           Data.Maybe (isNothing)
-import qualified Data.Text as T (replace)
 import qualified Data.Text.IO as T
 import           Data.Time.Units (Second, convertUnit)
 import           Data.Version (showVersion)
@@ -37,11 +37,14 @@ import           Options.Applicative (Parser, ParserInfo, ParserResult (..), def
                                       header, help, helper, info, infoOption, long, metavar,
                                       progDesc, renderFailure, short, strOption)
 import           Serokell.Aeson.Options (defaultOptions)
+import qualified System.Directory as Sys
 import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
-import           System.Environment (getEnv, getExecutablePath, getProgName)
+import           System.Environment (getExecutablePath, getProgName, setEnv)
 import           System.Exit (ExitCode (..))
 import           System.FilePath (takeDirectory, (</>))
 import qualified System.IO as IO
+import qualified System.Info as Sys
+import qualified System.IO.Silently as Silently
 import           System.Process (ProcessHandle, waitForProcess)
 import qualified System.Process as Process
 import           System.Timeout (timeout)
@@ -49,9 +52,7 @@ import           System.Wlog (logError, logInfo, logNotice, logWarning)
 import qualified System.Wlog as Log
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
-#ifdef mingw32_HOST_OS
-import qualified System.IO.Silently as Silently
-#else
+#ifndef mingw32_HOST_OS
 import           System.Posix.Signals (sigKILL, signalProcess)
 import qualified System.Process.Internals as Process
 #endif
@@ -76,6 +77,9 @@ import           Pos.Update (installerHash)
 import           Pos.Update.DB.Misc (affirmUpdateInstalled)
 import           Pos.Util (HasLens (..), directory, logException, postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+
+import           Launcher.Environment (substituteEnvVarsValue)
+import           Launcher.Logging     (reportErrorDefault)
 
 data LauncherOptions = LO
     { loNodePath            :: !FilePath
@@ -159,35 +163,30 @@ launcherArgsParser = do
         metavar "PATH"
     pure $ LauncherArgs {..}
 
-getDefaultLogDir :: IO FilePath
-getDefaultLogDir =
-#ifdef mingw32_HOST_OS
-    (</> "Daedalus\\Logs") <$> getEnv "APPDATA"
-#else
-    (</> "Library/Application Support/Daedalus/Logs") <$> getEnv "HOME"
-#endif
-
--- | Write @contents@ into @filename@ under default logging directory.
---
--- This function is only intended to be used before normal logging
--- is initialized. Its purpose is to provide at least some information
--- in cases where normal reporting methods don't work yet.
-reportErrorDefault :: FilePath -> Text -> IO ()
-reportErrorDefault filename contents = do
-    logDir <- getDefaultLogDir
-    createDirectoryIfMissing True logDir
-    writeFile (logDir </> filename) contents
-
 getLauncherOptions :: IO LauncherOptions
 getLauncherOptions = do
     LauncherArgs {..} <- either parseErrorHandler pure =<< execParserEither programInfo
+    case Sys.os of
+      "mingw32" -> do
+        daedalusDir <- takeDirectory <$> getExecutablePath
+        -- This is used by 'substituteEnvVars', later
+        setEnv "DAEDALUS_DIR" daedalusDir
+      _ -> pure ()
     configPath <- maybe defaultConfigPath pure maybeConfigPath
     decoded <- Y.decodeFileEither configPath
     case decoded of
         Left err -> do
             reportErrorDefault "config-parse-error.log" $ show err
             throwM $ ConfigParseError configPath err
-        Right op -> expandVars op
+        Right value -> do
+          let contextDesc = "Substituting environment vars in '"<>toText configPath<>"'"
+          substituted <- substituteEnvVarsValue contextDesc value
+          case fromJSON $ substituted of
+            AE.Error err -> do
+              reportErrorDefault "config-parse-error.log" $ show err
+              error $ toText err
+            AE.Success op -> pure op
+
   where
     execParserEither :: ParserInfo a -> IO (Either (Text, ExitCode) a)
     execParserEither pinfo = do
@@ -218,43 +217,6 @@ getLauncherOptions = do
     defaultConfigPath = do
         launcherDir <- takeDirectory <$> getExecutablePath
         pure $ launcherDir </> "launcher-config.yaml"
-
-    -- Poor man's environment variable expansion.
-    expandVars :: LauncherOptions -> IO LauncherOptions
-#ifdef mingw32_HOST_OS
-    expandVars lo@(LO {..}) = do
-        -- %APPDATA%: nodeArgs, nodeDbPath,
-        --     nodeLogPath, updaterPath,
-        --     updateWindowsRunner, launcherLogsPrefix
-        -- %DAEDALUS_DIR%: nodePath, walletPath
-        appdata <- toText <$> getEnv "APPDATA"
-        daedalusDir <- (toText . takeDirectory) <$> getExecutablePath
-        let replaceAppdata = replace "%APPDATA%" appdata
-            replaceDaedalusDir = replace "%DAEDALUS_DIR%" daedalusDir
-        pure lo
-            { loNodeArgs            = map (T.replace "%APPDATA%" appdata) loNodeArgs
-            , loNodeDbPath          = replaceAppdata loNodeDbPath
-            , loNodeLogPath         = replaceAppdata <$> loNodeLogPath
-            , loUpdaterPath         = replaceAppdata loUpdaterPath
-            , loUpdateWindowsRunner = replaceAppdata <$> loUpdateWindowsRunner
-            , loLogsPrefix          = replaceAppdata <$> loLogsPrefix
-            , loNodePath            = replaceDaedalusDir loNodePath
-            , loWalletPath          = replaceDaedalusDir <$> loWalletPath
-            }
-#else
-    expandVars lo@(LO {..}) = do
-        home <- toText <$> getEnv "HOME"
-        let replaceHome = replace "$HOME" home
-        pure lo
-            { loNodeArgs      = map (T.replace "$HOME" home) loNodeArgs
-            , loNodeDbPath    = replaceHome loNodeDbPath
-            , loNodeLogPath   = replaceHome <$> loNodeLogPath
-            , loUpdateArchive = replaceHome <$> loUpdateArchive
-            , loLogsPrefix    = replaceHome <$> loLogsPrefix
-            }
-#endif
-    replace :: Text -> Text -> FilePath -> FilePath
-    replace from to = toString . T.replace from to . toText
 
 usageExample :: Maybe Doc
 usageExample = (Just . fromString @Doc . toString @Text) [Q.text|
@@ -294,13 +256,15 @@ bracketNodeDBs (NodeDbPath dbPath) = bracket (openNodeDBs False dbPath) closeNod
 main :: IO ()
 main =
   withCompileInfo $(retrieveCompileTimeInfo) $
-#ifdef mingw32_HOST_OS
-  -- We don't output anything to console on Windows because on Windows the
-  -- launcher is considered a “GUI application” and so stdout and stderr
-  -- don't even exist.
-  Silently.hSilence [stdout, stderr] $
-#endif
-  do
+  case Sys.os of
+    "mingw32" ->
+      -- We don't output anything to console on Windows because on Windows the
+      -- launcher is considered a “GUI application” and so stdout and stderr
+      -- don't even exist.
+      Silently.hSilence [stdout, stderr]
+    _ -> identity
+  $ do
+    Sys.getXdgDirectory Sys.XdgData "" >>= setEnv "XDG_DATA_HOME"
     LO {..} <- getLauncherOptions
     -- Launcher logs should be in public directory
     let launcherLogsPrefix = (</> "pub") <$> loLogsPrefix

@@ -261,7 +261,8 @@ as it is.\improvement{We may want to add something about protocol
 
 \item[Chain] A chain is a sequence of blocks $b₁,…,b_n$ such that the
   predecessor of $b₁$ is the genesis block, and for every $i$, the
-  predecessor of $b_{i+1}$ is $b_i$.
+  predecessor of $b_{i+1}$ is $b_i$, and the predecessor of $b₁$ is
+  $b₀$.
 
 \item[Weight] We assume a weight function
   $\weight{⋅} ∈ \lists{\blocks} ⟶ ℕ$\unsure{We may want to restrict
@@ -296,7 +297,8 @@ and $b_n$ is a \emph{valid extension} of $b₁,…,b_{n-1}$.
 A block $b$ is said to be a valid extension of a valid chain
 $b_1,…,b_n$ if all of the following hold
 \begin{description}
-\item[Predecessor] The predecessor of $b$ is $b_n$.
+\item[Predecessor] The predecessor of $b$ is $b_n$ or, if $n=0$, the
+  predecessor of $b$ is the genesis identifier $b₀$.
 \item[Not future slot] The slot number is no larger than the current
   slot.
 \item[Not past slot] the slot number of $b$ is larger than the slot

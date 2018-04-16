@@ -74,6 +74,9 @@
 \newcommand{\blockchains}{\mathcal{D}}
 \newcommand{\maxchains}[1]{\mathcal{M}(#1)}
 \newcommand{\weight}[1]{\mathsf{weight}(#1)}
+\newcommand{\delegator}[1]{\mathsf{delegator}(#1)}
+\newcommand{\delegatee}[1]{\mathsf{delegatee}(#1)}
+\newcommand{\delegationcertificates}[1]{\mathsf{certificates}_\mathsf{delegation}(#1)}
 
 %% /macros %%
 
@@ -146,6 +149,7 @@ as it is.\improvement{We may want to add something about protocol
 \end{description}
 
 \section{Definitions}
+\label{sec:definitions}
 
 \info{General definitions used in all sections. Like the
   slot-to-leader function, the global-time-to-slot function, the
@@ -270,6 +274,17 @@ as it is.\improvement{We may want to add something about protocol
   \item[transactions] A list of transactions\improvement{Ignored:
       secret-sharing, updates, delegation. Eventually we need at least
     delegation}
+  \item[Delegation certificates] A list of pairs in
+    $\lists{(\agentids×\agentids)}$. For a delegation certificate
+    $c = (D,d)∈\agentids×\agentids$, we write
+  \begin{itemize}
+  \item $\delegator{c}=D$
+  \item $\delegatee{c}=d$
+  \end{itemize}
+
+  In a concrete implementation, these certificates would be
+  cryptographically signed by $D$, to ensure that $D$ is indeed
+  authorising $d$ to sign blocks for them.
   \end{record}
 
 \item[Chain] A chain is a sequence of blocks $b₁,…,b_n$ such that the
@@ -388,6 +403,21 @@ $b_1,…,b_n$ if all of the following hold
       \pos{k}{\witnesses{τ}}
       $$
     \end{description}
+  \item[Delegation certificates] Let
+    $\overline{c}=\delegationcertificates{b}$ be the list of
+    delegation certificates of $b$. Then for any two
+    $c₁,c₂∈\overline{c}$, it must hold that
+    $\delegator{c₁}≠\delegator{c₂}$.
+
+    Note that this prevents any agent which has issued a delegation
+    certificate to another party to issue any block: they \emph{must}
+    be signed by the delegatee (or, transitively, by the agent
+    authorised to sign instead of the delegatee). That is, until the
+    agent issues a new delegation certificate to itself, which, in
+    effect, revokes any previous delegation certificate. See also the
+    definition of $\transitivefix{g}$ in
+    Section~\ref{sec:definitions}.
+
   \item[Bootstrap era]\info{These rules are only used during the
       bootstrap era. They are, however, not qualified because in the
       current state of the document, only the bootstrap era is documented.}\hfill
@@ -439,7 +469,24 @@ $b_1,…,b_n$ if all of the following hold
 
 \item[Seed] \info{The shared seed at the last epoch} Define
   $\epochseed{⋅}$\improvement{Todo}
-\item[Delegation graph] Define $\delegations{⋅}$\improvement{Todo}
+\item[Delegation graph] Let us define $\delegations{c₁,…,c_n}$, for a
+  list of delegation certificates, by indudction:
+  \begin{itemize}
+  \item $\delegations{\emptylist} = \initialdelegation$
+  \item $$
+    \delegations{c₁,…,c_n,(D,d)}(a) = \left\{
+      \begin{array}{ll}
+        d & \mbox{if $a=D$}\\
+        \delegations{c₁,…,c_n}(a) & \mbox{otherwise}
+      \end{array}\right.
+      $$
+  \end{itemize}
+
+  We can extend $\delegations{⋅}$ on valid chain by defining
+  $$
+  \delegations{b₁,…,b_n} = \delegations{\delegationcertificates{b₁},…,\delegationcertificates{b₁}}
+  $$
+
 \end{description}
 
 \section{Instantiating parameters}

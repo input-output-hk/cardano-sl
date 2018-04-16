@@ -67,17 +67,18 @@ findDelegationStakes isIssuer stakeResolver t = do
         pure (oldRichmen, newRichmen)
     safeGetStake id = fromMaybe (mkCoin 0) <$> lift (stakeResolver id)
 
--- | Find nodes which have at least 'eligibility threshold' coins.
+-- | Find all stake holders which have at least 'eligibility threshold' coins.
+-- Assumes that the `StakeholderId`s are unique. The consumer of the  generated
+-- `RichmenStakes` further assumes that the provided `Coin` values are valid,
+-- and that the sum of the input `Coin` values is less than `maxCoinVal`.
 findRichmenStakes
     :: forall m . Monad m
     => Coin  -- ^ Eligibility threshold
     -> ConduitT (StakeholderId, Coin) Void m RichmenStakes
-findRichmenStakes t = CL.fold tryAdd mempty
+findRichmenStakes t = CL.fold thresholdInsert mempty
   where
-    tryAdd :: HashMap StakeholderId Coin
+    thresholdInsert
+           :: HashMap StakeholderId Coin
            -> (StakeholderId, Coin)
            -> HashMap StakeholderId Coin
-    -- Adding coins here should be safe because in utxo we're not supposed to
-    -- ever have more coins than the total possible number of coins, and the
-    -- total possible number of coins is less than Word64
-    tryAdd hm (a, c) = if c >= t then HM.insert a c hm else hm
+    thresholdInsert hm (a, c) = if c >= t then HM.insert a c hm else hm

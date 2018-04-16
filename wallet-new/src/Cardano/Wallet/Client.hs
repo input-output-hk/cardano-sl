@@ -128,7 +128,7 @@ data WalletClient m
 --     -- first page is fetched in sequence
 --     page1 <- request (page 1) (Just maxPerPageEntries)
 --     -- then rest of the pages is fetched in parallel
---     fromPage2 <- paralelMap (\p -> request p $ Just 50) [2..page1.wrMeta.metaTotalEntries `div` maxPerPageEntries + 1]
+--     fromPage2 <- paralelMap (\p -> request p $ Just 50) [2..page1.wrMeta.metaTotalPages]
 --     concatMap wrData $ page1:fromPage2
 --
 paginateAll :: Monad m => (Maybe Page -> Maybe PerPage -> Resp m [a]) -> Resp m [a]

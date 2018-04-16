@@ -105,7 +105,7 @@ runActionCheck walletClient walletState actionProb = do
         acts <- use actionsNum
         succs <- use successActions
         log $ "Successfully run " <> show (length succs) <> " out of " <> show acts <> " actions"
-        log $ "Successful actions counts:" <> show (map (\a -> (a!!0, length a)) $ group $ sort succs)
+        log $ "Successful actions counts: " <> show (map (\a -> (a!!0, length a)) $ group $ sort succs)
         log $ "Skipped actions: " <> show ([minBound..maxBound] \\ nub succs)
 
 
@@ -573,8 +573,6 @@ runAction wc action = do
                                         (Just walletId)
                                         (Just accountIndex)
                                         Nothing
-                                        Nothing
-                                        (Just 50)
 
             -- First check we have results
             checkInvariant

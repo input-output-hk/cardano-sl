@@ -42,81 +42,174 @@ import Cardano.Wallet.Kernel.Types (ResolvedBlock(..),
                                     ResolvedTxPair,
                                     txUtxo)
 
-import Pos.Crypto (EncryptedSecretKey)
+import Pos.Crypto (EncryptedSecretKey) -- TODO Hash, PublicKey
 import Pos.Txp.Toil.Types (Utxo)
 import Pos.Util.Chrono (OldestFirst, NE)
+
+import Data.Maybe (fromJust)
 
 {-------------------------------------------------------------------------------
   Passive wallet
 -------------------------------------------------------------------------------}
 
--- | Passive wallet
---
--- A passive wallet can receive and process blocks, keeping track of state,
--- but cannot send new transactions.
-
 type Pending = Set TxAux
 type Balance = Integer
 
 data State = State {
-      _stateUtxo        :: MVar Utxo -- temporary DB before AcidState DB...
-    , _statePending     :: MVar Pending
-    , _stateUtxoBalance :: MVar Balance
+      _stateUtxo        :: Utxo
+    , _statePending     :: Pending
+    , _stateUtxoBalance :: Balance
     }
 
+-- | Wallet
+--
+-- Contains the Wallet EncryptedSecretKey and State DB handle
+
+data Wallet = WalletHdRnd {
+      -- | Wallet master key
+      --
+      -- TODO: We may need to rethink having this in-memory
+      -- ESK should _not_ end up in the wallet's acid-state log
+      -- (for some reason..)
+    _walletESK :: EncryptedSecretKey
+
+    -- | Wallet state
+    --
+    -- TODO: will become an acid-state handle
+    , _walletState :: MVar State
+    }
+
+-- | Wallet Id
+--
+-- A Wallet Id can take several forms, the simplest of which is a hash
+-- of the Wallet public key
+
+data WalletId =
+    -- | HD wallet with randomly generated addresses
+    WalletIdHdRnd Int -- TODO @@@ (Hash PublicKey)
+
+    {- potential future kinds of wallet IDs:
+    -- | HD wallet with sequentially generated addresses
+    | WalletIdHdSeq ...
+
+    -- | External wallet (all crypto done off-site, like hardware wallets)
+    | WalletIdExt ...
+    -}
+    deriving (Eq, Ord)
+
+-- | Passive Wallet
+--
+-- Contains multiple PassiveWalletBase, indexed by WalletId
+
+-- | Wallets
+type Wallets = Map WalletId Wallet
+
+-- | Passive Wallet
+--
+-- Contains multiple Wallet indexed by WalletId
 data PassiveWallet = PassiveWallet {
-      -- | Send log message
       _walletLogMessage :: Severity -> Text -> IO ()
-    , _walletESK :: EncryptedSecretKey -- TODO MVar [EncryptedSecretKey] or [esk + [State]]
-    , _walletState :: State
+    , _wallets :: MVar Wallets
     }
 
+makeLenses ''Wallet
 makeLenses ''PassiveWallet
 makeLenses ''State
 
--- DB stubs
-getWalletUtxo :: PassiveWallet -> IO Utxo
-getWalletUtxo w = getWallet w (_stateUtxo . _walletState)
+-- | Get Map of wallets in PassiveWallet
+--
+getWallets :: PassiveWallet -> IO Wallets
+getWallets pw = modifyWallets pw (\x -> x) -- TODO
 
-getWalletPending :: PassiveWallet -> IO Pending
-getWalletPending w = getWallet w (_statePending . _walletState)
+-- | Modify PassiveWallet Wallet collection
+--
+modifyWallets :: PassiveWallet -> (Wallets -> Wallets) -> IO Wallets
+modifyWallets pw modifyF = do
+    ws <- takeMVar mvar
 
-getWalletUtxoBalance :: PassiveWallet -> IO Balance
-getWalletUtxoBalance w = getWallet w (_stateUtxoBalance . _walletState)
+    let ws' = modifyF ws
+    putMVar mvar ws'
+    return ws'
+    where mvar = pw ^. wallets
 
-getWallet :: forall a. PassiveWallet -> (PassiveWallet -> MVar a) -> IO a
-getWallet w getMVar = do
-    v <- takeMVar mvar
-    putMVar mvar v
-    return v
-    where mvar = getMVar w
+-- | Insert a new {WalletId -> Wallet} into PassiveWallet wallets
+--
+insertWallet :: PassiveWallet -> WalletId -> Wallet -> IO ()
+insertWallet pw wid w
+    = void $ modifyWallets pw (Map.insert wid w)
 
-updateWalletUtxo :: PassiveWallet -> Utxo -> IO ()
-updateWalletUtxo w = updateWallet w (_stateUtxo . _walletState)
+-- | Lookup Wallet in PassiveWallet, using WalletId
+--
+findWallet :: PassiveWallet -> WalletId -> IO (Maybe Wallet)
+findWallet pw wid = do
+    wallets' <- getWallets pw
+    return $ Map.lookup wid wallets'
 
-updateWalletPending :: PassiveWallet -> Pending -> IO ()
-updateWalletPending w = updateWallet w (_statePending . _walletState)
+getWalletState :: PassiveWallet -> WalletId -> IO State
+getWalletState pw wid = modifyWalletState pw wid (\x -> x) -- TODO id
 
-updateWalletUtxoBalance :: PassiveWallet -> Balance -> IO ()
-updateWalletUtxoBalance w = updateWallet w (_stateUtxoBalance . _walletState)
+getWalletUtxo :: PassiveWallet -> WalletId -> IO Utxo
+getWalletUtxo pw wid = _stateUtxo <$> getWalletState pw wid
 
-modifyWallet :: forall a. PassiveWallet -> (PassiveWallet -> MVar a) -> (a -> a) -> IO ()
-modifyWallet w getMVar modifyMVar = do
-    v <- takeMVar mvar
-    putMVar mvar $ modifyMVar v
-    where mvar = getMVar w
+getWalletPending :: PassiveWallet -> WalletId -> IO Pending
+getWalletPending pw wid = _statePending <$> getWalletState pw wid
 
-updateWallet :: forall a. PassiveWallet -> (PassiveWallet -> MVar a) -> a -> IO ()
-updateWallet w getMVar v = do
-    _ <- takeMVar mvar
-    putMVar mvar v
-    where mvar = getMVar w
+-- | Modify Wallet State with given modifier function
+--
+modifyWalletState :: PassiveWallet -> WalletId -> (State -> State) -> IO State
+modifyWalletState pw wid modifyF = do
+    w <- fromJust <$> findWallet pw wid
+    let mvar = w ^. walletState
+    s <- takeMVar mvar
 
-insertWalletPending :: ActiveWallet -> TxAux -> IO ()
-insertWalletPending ActiveWallet{..} tx
-    = modifyWallet walletPassive
-                   (_statePending . _walletState)
-                   (Set.insert tx)
+    let s' = modifyF s
+    putMVar mvar s'
+    return s'
+
+-- | Replace Wallet State
+--
+updateWalletState :: PassiveWallet -> WalletId -> State -> IO ()
+updateWalletState pw wid s' = void $ modifyWalletState pw wid (const s')
+
+-- | Insert a new pending transaction to Pending set of the Wallet given
+--   by WalletId.
+--
+insertWalletPending :: ActiveWallet -> WalletId -> TxAux -> IO ()
+insertWalletPending ActiveWallet{..} wid tx
+    = void $ modifyWalletState walletPassive wid modifyF
+    where modifyF = over statePending (Set.insert tx)
+
+-- TODO doc
+initState :: State
+initState = State {_stateUtxo = Map.empty
+                  , _statePending = Set.empty
+                  , _stateUtxoBalance = 0
+                  }
+
+-- TODO doc
+initWalletHdRnd :: EncryptedSecretKey -> IO Wallet
+initWalletHdRnd esk = do
+    state' <- Universum.newMVar initState
+    return $ WalletHdRnd esk state'
+
+initPassiveWallet :: (Severity -> Text -> IO ())
+                  -> IO PassiveWallet
+initPassiveWallet logMessage = do
+    ws <- Universum.newMVar Map.empty
+    return $ PassiveWallet logMessage ws
+
+-- TODO doc
+newWalletHdRndWithESK :: PassiveWallet -> EncryptedSecretKey -> IO WalletId
+newWalletHdRndWithESK pw esk = do
+    w <- initWalletHdRnd esk
+    let wid = todoEskToWalletID esk
+
+    insertWallet pw wid w
+    return wid
+    where
+        todoEskToWalletID _esk' = WalletIdHdRnd 0 -- TODO @@@
+
+-- TODO `newWalletHdRnd :: PassiveWallet -> Utxo -> IO WalletId` (which will _construct_ a new secret key)
 
 -- | Allocate wallet resources
 --
@@ -128,30 +221,26 @@ bracketPassiveWallet :: (MonadMask m, MonadIO m)
                      => (Severity -> Text -> IO ())
                      -> EncryptedSecretKey
                      -> (PassiveWallet -> m a) -> m a
-bracketPassiveWallet _walletLogMessage _walletESK =
+bracketPassiveWallet _walletLogMessage esk =
     bracket
       (do
-          _stateUtxo <- Universum.newMVar Map.empty
-          _statePending <- Universum.newMVar Set.empty
-          _stateUtxoBalance <- Universum.newMVar 0
-          let _walletState = State{..}
-
-          return PassiveWallet{..})
+          pw <- liftIO $ initPassiveWallet _walletLogMessage
+          _wid <- liftIO $ newWalletHdRndWithESK pw esk -- TODO ?esdko -> discarding wid!
+          return pw)
       (\_ -> return ())
 
-
--- | Initialize the wallet
+-- | Initialize the Active wallet (specified by WalletId) with the given Utxo
 --
 -- This is separate from allocating the wallet resources, and will only be
 -- called when the node is initialized (when run in the node proper).
-init :: PassiveWallet -> Utxo -> IO ()
-init w@PassiveWallet{..} utxo' = do
+
+init :: PassiveWallet -> WalletId -> Utxo -> IO ()
+init pw@PassiveWallet{..} wid utxo' = do
     _walletLogMessage Info "Wallet kernel initialized"
 
-    if (utxo' /= Map.empty)
-        then updateWalletUtxo w utxo'
-        else return ()
-
+    when (utxo' /= Map.empty) $
+        void $ modifyWalletState pw wid modifyF
+    where modifyF = over stateUtxo (const utxo')
 
 {-------------------------------------------------------------------------------
   Active wallet
@@ -186,31 +275,40 @@ getPassiveWallet = walletPassive
   Apply Block - updateUtxo, updatePending
 -------------------------------------------------------------------------------}
 
+-- | Apply the ResolvedBlock to all the wallets in the PassiveWallet
 applyBlock :: HasConfiguration
-              => PassiveWallet
-              -> ResolvedBlock
-              -> IO ()
-applyBlock w b = do
-    utxo <- getWalletUtxo w
-    pending <- getWalletPending w
-    utxoBalance <- getWalletUtxoBalance w
+          => PassiveWallet
+          -> ResolvedBlock
+          -> IO ()
+applyBlock pw b
+    = do
+        ws <- getWallets pw
+        let wids = map fst $ Map.toList ws
+        mapM_ (applyBlock' pw b) wids
+
+-- | Apply the ResolvedBlock to the PassiveWallet indexed by WalletID @wid@
+applyBlock' :: HasConfiguration
+            => PassiveWallet
+            -> ResolvedBlock
+            -> WalletId
+            -> IO ()
+applyBlock' pw b wid = do
+    (State utxo' pending' balance') <- getWalletState pw wid
+    w <- fromJust <$> findWallet pw wid
 
     let prefilteredTxs = prefilterTxs (w ^. walletESK) (rbTxs b)
-        (utxo', balanceDelta) = updateUtxo prefilteredTxs utxo
-        pending'              = updatePending prefilteredTxs pending
-        balance'              = balanceDelta + utxoBalance
+        (utxo'', balanceDelta) = updateUtxo prefilteredTxs utxo'
+        pending''              = updatePending prefilteredTxs pending'
+        balance''              = balanceDelta + balance'
 
-    updateWalletUtxo        w $ utxo'
-    updateWalletPending     w $ pending'
-    updateWalletUtxoBalance w $ balance'
+    updateWalletState pw wid $ State utxo'' pending'' balance''
 
+-- | Apply the ResolvedBlocks, one at a time, to all wallets in the PassiveWallet
 applyBlocks :: HasConfiguration
               => PassiveWallet
               -> OldestFirst NE ResolvedBlock
               -> IO ()
-applyBlocks w bs = do
-    mapM_ (applyBlock w) bs
-    return ()
+applyBlocks pw = mapM_ (applyBlock pw)
 
 updateUtxo :: [ResolvedTx]  -- ^ Prefiltered [(inputs, outputsUtxo)]
             -> Utxo -> (Utxo, Balance)
@@ -269,53 +367,54 @@ utxoOutputs = map toaOut . Map.elems
 {-------------------------------------------------------------------------------
   Available, Change, Total + balances
 -------------------------------------------------------------------------------}
+-- TODO WalletId
 
-available :: PassiveWallet -> IO Utxo
-available w = do
-    utxo' <- getWalletUtxo w
-    pending' <- getWalletPending w
+available :: PassiveWallet -> WalletId -> IO Utxo
+available pw wid = do
+    State utxo pending _ <- getWalletState pw wid
 
-    return $ utxoRemoveInputs utxo' (txIns' pending')
+    return $ utxoRemoveInputs utxo (txIns' pending)
 
     where
         txIns' :: Set TxAux -> Set TxIn
-        txIns' txs = Set.fromList . concatMap (NE.toList . _txInputs . taTx) $ txs
+        txIns' = Set.fromList . concatMap (NE.toList . _txInputs . taTx)
 
-change :: PassiveWallet -> IO Utxo
-change w = do
-    pending' <- getWalletPending w
-    let pendingUtxo = unionTxOuts $ map (txUtxo . taTx) $ Set.toList pending'
+change :: PassiveWallet -> WalletId -> IO Utxo
+change pw wid = do
+    State _ pending _ <- getWalletState pw wid
+    let pendingUtxo = unionTxOuts $ map (txUtxo . taTx) $ Set.toList pending
 
-    return $ ourUtxo (_walletESK w) pendingUtxo
+    w <- fromJust <$> findWallet pw wid
+    return $ ourUtxo (w ^. walletESK) pendingUtxo
 
-total :: PassiveWallet -> IO Utxo
-total w = Map.union <$> available w <*> change w
+total :: PassiveWallet -> WalletId -> IO Utxo
+total pw wid = Map.union <$> available pw wid <*> change pw wid
 
 balance :: Utxo -> Balance
 balance = sumCoins . map txOutValue . utxoOutputs
 
-availableBalance :: PassiveWallet -> IO Balance
-availableBalance w = balance <$> available w
+availableBalance :: PassiveWallet -> WalletId -> IO Balance
+availableBalance pw wid = balance <$> available pw wid
 
-totalBalance :: PassiveWallet -> IO Balance
-totalBalance w = balance <$> total w
+totalBalance :: PassiveWallet -> WalletId -> IO Balance
+totalBalance pw wid = balance <$> total pw wid
 
 {-------------------------------------------------------------------------------
   New Pending
 -------------------------------------------------------------------------------}
 
 -- | Return True if there are pending transactions
-hasPending :: ActiveWallet -> IO Bool
-hasPending ActiveWallet{..} = do
-    pending' <- getWalletPending walletPassive
-    return $ Set.size pending' > 0
+hasPending :: ActiveWallet -> WalletId -> IO Bool
+hasPending ActiveWallet{..} wid = do
+    s <- getWalletState walletPassive wid
+    return $ Set.size (s ^. statePending) > 0
 
 -- | Submit a new pending transaction
-newPending :: ActiveWallet -> TxAux -> IO Bool
-newPending activeWallet@ActiveWallet{..} tx = do
-    availableInputs <- utxoInputs <$> available walletPassive
+newPending :: ActiveWallet -> WalletId -> TxAux -> IO Bool
+newPending activeWallet@ActiveWallet{..} wid tx = do
+    availableInputs <- utxoInputs <$> available walletPassive wid
 
     let isValid = txAuxInputSet tx `Set.isSubsetOf` availableInputs
     if isValid
-        then insertWalletPending activeWallet tx >> return True
+        then insertWalletPending activeWallet wid tx >> return True
         else return False

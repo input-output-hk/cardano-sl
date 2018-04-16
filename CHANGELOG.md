@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## Cardano SL 1.2.0 (Mainnet)
+
+TO BE DONE.
+
 ## Cardano SL 1.1.1 (Mainnet)
 
 Bug fix release.

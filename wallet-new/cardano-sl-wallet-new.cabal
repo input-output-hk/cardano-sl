@@ -17,6 +17,19 @@ library
   hs-source-dirs:      src
   exposed-modules:     Cardano.Wallet.TypeLits
                        Cardano.Wallet.Kernel
+                       Cardano.Wallet.Kernel.DB.AcidState
+                       Cardano.Wallet.Kernel.DB.AcidStateUtil
+                       Cardano.Wallet.Kernel.DB.BlockMeta
+                       Cardano.Wallet.Kernel.DB.HdWallet
+                       Cardano.Wallet.Kernel.DB.HdWallet.Create
+                       Cardano.Wallet.Kernel.DB.HdWallet.Delete
+                       Cardano.Wallet.Kernel.DB.HdWallet.Read
+                       Cardano.Wallet.Kernel.DB.HdWallet.Update
+                       Cardano.Wallet.Kernel.DB.InDb
+                       Cardano.Wallet.Kernel.DB.Resolved
+                       Cardano.Wallet.Kernel.DB.Spec
+                       Cardano.Wallet.Kernel.DB.Spec.Update
+                       Cardano.Wallet.Kernel.DB.TxMeta
                        Cardano.Wallet.Kernel.Diffusion
                        Cardano.Wallet.Kernel.Mode
                        Cardano.Wallet.Kernel.Types
@@ -72,6 +85,7 @@ library
   ghc-options:         -Wall
   build-depends:       base
                      , QuickCheck
+                     , acid-state
                      , aeson
                      , aeson-pretty
                      , bytestring
@@ -91,6 +105,7 @@ library
                      , mtl
                      , network-transport
                      , unliftio-core
+                     , safecopy
                      , safe-exceptions
                      , servant
                      , servant-client

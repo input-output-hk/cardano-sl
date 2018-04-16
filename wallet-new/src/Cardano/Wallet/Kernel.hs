@@ -33,24 +33,25 @@ module Cardano.Wallet.Kernel (
 import           Universum hiding (State)
 
 import           Control.Lens.TH
-import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
 import qualified Data.List.NonEmpty as NE
+import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromJust)
+import qualified Data.Set as Set
 
 import           System.Wlog (Severity (..))
 
+import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
-import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock(..), prefilterBlock, ourUtxo)
-import           Cardano.Wallet.Kernel.Types (ResolvedBlock(..), txUtxo)
+import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..), ourUtxo, prefilterBlock)
+import           Cardano.Wallet.Kernel.Types (txUtxo)
 
-import           Pos.Core (TxAux, HasConfiguration, sumCoins)
-import           Pos.Core.Txp (TxIn (..), Tx (..), TxAux (..), TxOutAux (..), TxOut (..), TxId)
-import           Pos.Txp (Utxo)
+import           Pos.Core (HasConfiguration, TxAux, sumCoins)
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, hash)
-import           Pos.Util.Chrono (OldestFirst, NE)
+import           Pos.Txp (Utxo)
+import           Pos.Util.Chrono (NE, OldestFirst)
 
-import           Cardano.Wallet.Orphans()
+import           Cardano.Wallet.Orphans ()
 
 {-------------------------------------------------------------------------------
   Wallet with State
@@ -78,7 +79,7 @@ data Wallet = WalletHdRnd {
       -- TODO: We may need to rethink having this in-memory
       -- ESK should _not_ end up in the wallet's acid-state log
       -- (for some reason..)
-    _walletESK :: EncryptedSecretKey
+    _walletESK     :: EncryptedSecretKey
 
     -- | Wallet state
     --
@@ -124,7 +125,7 @@ makeLenses ''State
 data PassiveWallet = PassiveWallet {
       -- | Send log message
       _walletLogMessage :: Severity -> Text -> IO ()
-    , _wallets :: MVar Wallets
+    , _wallets          :: MVar Wallets
     }
 
 makeLenses ''PassiveWallet

@@ -20,7 +20,9 @@ import           Pos.Txp.Toil.Types (Utxo)
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials, eskToWalletDecrCredentials,
                                                   selectOwnAddresses)
 
-import           Cardano.Wallet.Kernel.Types (ResolvedBlock(..), ResolvedTx(..))
+import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
+import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock, ResolvedTx, rbTxs, rtxInputs,
+                                                    rtxOutputs)
 
 {-------------------------------------------------------------------------------
  Pre-filter Tx Inputs and Outputs to those that belong to the given Wallet.
@@ -49,7 +51,7 @@ prefilterBlock esk block = PrefilteredBlock {
   where
     inpss :: [[(TxIn, TxOutAux)]]
     outss :: [Utxo]
-    (inpss, outss) = unzip $ map (prefilterTx wdc) (rbTxs block)
+    (inpss, outss) = unzip $ map (prefilterTx wdc) (block ^. rbTxs)
 
     wdc :: WalletDecrCredentials
     wdc = eskToWalletDecrCredentials esk
@@ -58,8 +60,8 @@ prefilterTx :: WalletDecrCredentials
             -> ResolvedTx
             -> ([(TxIn, TxOutAux)], Utxo)
 prefilterTx wdc tx = (
-      ourResolvedTxPairs wdc (toList (rtxInputs  tx))
-    , ourUtxo_           wdc         (rtxOutputs tx)
+      ourResolvedTxPairs wdc (toList (tx ^. rtxInputs  . fromDb))
+    , ourUtxo_           wdc         (tx ^. rtxOutputs . fromDb)
     )
 
 ourResolvedTxPairs :: WalletDecrCredentials

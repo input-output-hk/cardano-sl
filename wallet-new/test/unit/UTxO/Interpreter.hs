@@ -32,6 +32,7 @@ import           Formatting (bprint, shown)
 import           Prelude (Show (..))
 
 import           Cardano.Wallet.Kernel.Types
+import           Cardano.Wallet.Kernel.DB.Resolved
 
 import           Pos.Block.Logic
 import           Pos.Client.Txp

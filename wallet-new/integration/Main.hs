@@ -81,6 +81,8 @@ initialWalletState wc = do
 
 deterministicTests :: WalletClient IO -> Spec
 deterministicTests wc = do
+    -- TODO(adn): Add proper "Transactions" deterministicTests as part of
+    -- https://iohk.myjetbrains.com/youtrack/issue/CBR-184
     describe "Addresses" $ do
         it "Creating an address makes it available" $ do
             -- create a wallet

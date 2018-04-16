@@ -22,6 +22,7 @@ import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
 import           Pos.Wallet.Web.Sockets (ConnectionsVar)
 import           Pos.Wallet.Web.State (WalletDB)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.WorkMode (RealModeContext (..))
 import           Serokell.AcidState.ExtendedState
 import           Servant
@@ -144,6 +145,7 @@ testV1Context :: Migration.HasConfiguration => IO Migration.V1Context
 testV1Context =
     WalletWebModeContext <$> testStorage
                          <*> testConnectionsVar
+                         <*> testSyncQueue
                          <*> testRealModeContext
   where
     testStorage :: IO WalletDB
@@ -151,6 +153,9 @@ testV1Context =
 
     testConnectionsVar :: IO ConnectionsVar
     testConnectionsVar = STM.newTVarIO def
+
+    testSyncQueue :: IO SyncQueue
+    testSyncQueue = STM.newTQueueIO
 
     -- For some categories of tests we won't hit the 'RealModeContext', so that's safe
     -- for now to leave it unimplemented.

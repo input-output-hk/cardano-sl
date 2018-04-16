@@ -1,7 +1,7 @@
 {- | This is a temporary module to help migration @V0@ datatypes into @V1@ datatypes.
 -}
+{-# LANGUAGE LambdaCase           #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE LambdaCase #-}
 
 module Cardano.Wallet.API.V1.Migration.Types (
       Migrate(..)
@@ -14,6 +14,7 @@ import qualified Control.Lens as Lens
 import qualified Control.Monad.Catch as Catch
 import           Data.Map (elems)
 import           Data.Time.Clock.POSIX (POSIXTime)
+import           Data.Time.Units (fromMicroseconds, toMicroseconds)
 import           Data.Typeable (typeRep)
 import           Formatting (sformat)
 
@@ -30,9 +31,14 @@ import qualified Pos.Txp.Toil.Types as V0
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Instances ()
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
-import qualified Pos.Wallet.Web.State.Storage as V0
+import qualified Pos.Wallet.Web.State.Storage as OldStorage
+import           Pos.Wallet.Web.Tracking.Sync (calculateEstimatedRemainingTime)
 
 -- | 'Migrate' encapsulates migration between types, when possible.
+-- NOTE: This has @nothing@ to do with database migrations (see `safecopy`),
+-- and the name clash is a historic accident. Hopefully once the new data layer
+-- will be completed and the V0 API removed, we will be able to remove this
+-- typeclass altogether.
 class Migrate from to where
     eitherMigrate :: from -> Either Errors.WalletError to
 
@@ -60,8 +66,8 @@ instance (Migrate from to, Typeable from, Typeable to) => Migrate [from] (NonEmp
         ]
     eitherMigrate (x:xs) = (:|) <$> eitherMigrate x <*> mapM eitherMigrate xs
 
-instance Migrate (V0.CWallet, V0.WalletInfo) V1.Wallet where
-    eitherMigrate (V0.CWallet{..}, V0.WalletInfo{..}) =
+instance Migrate (V0.CWallet, OldStorage.WalletInfo, Maybe Core.ChainDifficulty) V1.Wallet where
+    eitherMigrate (V0.CWallet{..}, OldStorage.WalletInfo{..}, currentBlockchainHeight) =
         V1.Wallet <$> eitherMigrate cwId
                   <*> pure (V0.cwName cwMeta)
                   <*> eitherMigrate cwAmount
@@ -69,7 +75,31 @@ instance Migrate (V0.CWallet, V0.WalletInfo) V1.Wallet where
                   <*> eitherMigrate cwPassphraseLU
                   <*> eitherMigrate _wiCreationTime
                   <*> eitherMigrate (V0.cwAssurance _wiMeta)
+                  <*> eitherMigrate (_wiSyncState, _wiSyncStatistics, currentBlockchainHeight)
 
+instance Migrate (OldStorage.WalletSyncState, OldStorage.SyncStatistics, Maybe Core.ChainDifficulty) V1.SyncState where
+    eitherMigrate (wss, stats, currentBlockchainHeight) =
+        case wss of
+            OldStorage.NotSynced         -> V1.Restoring <$> eitherMigrate (stats, currentBlockchainHeight)
+            OldStorage.RestoringFrom _ _ -> V1.Restoring <$> eitherMigrate (stats, currentBlockchainHeight)
+            OldStorage.SyncedWith _      -> pure V1.Synced
+
+instance Migrate (OldStorage.SyncStatistics, Maybe Core.ChainDifficulty) V1.SyncProgress where
+    eitherMigrate (OldStorage.SyncStatistics{..}, currentBlockchainHeight) =
+        let unknownCompletionTime = Core.Timestamp $ fromMicroseconds (fromIntegral (maxBound :: Int))
+            percentage = case currentBlockchainHeight of
+                Nothing -> 0.0
+                Just nd | wspCurrentBlockchainDepth >= nd -> 100
+                Just nd -> (fromIntegral wspCurrentBlockchainDepth / max 1.0 (fromIntegral nd)) * 100.0
+            toMs (Core.Timestamp microsecs) =
+              V1.mkEstimatedCompletionTime (round @Double $ (realToFrac (toMicroseconds microsecs) / 1000.0))
+            tput (OldStorage.SyncThroughput blocks) = V1.mkSyncThroughput blocks
+            remainingBlocks = fmap (\total -> total - wspCurrentBlockchainDepth) currentBlockchainHeight
+        in V1.SyncProgress <$> pure (toMs (maybe unknownCompletionTime
+                                                 (calculateEstimatedRemainingTime wspThroughput)
+                                                 remainingBlocks))
+                           <*> pure (tput wspThroughput)
+                           <*> pure (V1.mkSyncPercentage (round @Double $ percentage))
 
 -- NOTE: Migrate V1.Wallet V0.CWallet unable to do - not idempotent
 
@@ -122,13 +152,13 @@ instance Migrate V0.CAddress V1.WalletAddress where
 
 -- | Migrates to a V1 `SyncProgress` by computing the percentage as
 -- coded here: https://github.com/input-output-hk/daedalus/blob/master/app/stores/NetworkStatusStore.js#L108
-instance Migrate V0.SyncProgress V1.SyncProgress where
+instance Migrate V0.SyncProgress V1.SyncPercentage where
     eitherMigrate V0.SyncProgress{..} =
         let percentage = case _spNetworkCD of
                 Nothing -> (0 :: Word8)
                 Just nd | _spLocalCD >= nd -> 100
-                Just nd -> round @Double $ (fromIntegral _spLocalCD / fromIntegral nd) * 100.0
-        in pure $ V1.mkSyncProgress (fromIntegral percentage)
+                Just nd -> round @Double $ (fromIntegral _spLocalCD / max 1.0 (fromIntegral nd)) * 100.0
+        in pure $ V1.mkSyncPercentage (fromIntegral percentage)
 
 -- NOTE: Migrate V1.SyncProgress V0.SyncProgress unable to do - not idempotent
 

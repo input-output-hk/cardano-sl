@@ -1,5 +1,6 @@
-# Stack
+# Cabal & Stack
 .stack-work/
+*/dist
 
 # From daedalus-bridge
 node_modules/*
@@ -35,6 +36,7 @@ run
 # Emacs
 *~
 *#
+.#*
 .dir-locals.el
 GTAGS
 GRTAGS
@@ -42,7 +44,7 @@ GPATH
 TAGS
 
 # Vim
-tags
+tags*
 
 # Intellij Idea & intellij-haskell
 .idea

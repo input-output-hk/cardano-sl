@@ -108,7 +108,7 @@ pwlCreateWallet NewWallet{..} = do
     wId         <- migrate $ cwId wallet
 
     -- Get wallet or throw if missing.
-    maybeThrow (MissingWallet wId) =<< pwlGetWallet wId
+    maybeThrow (WalletNotFound wId) =<< pwlGetWallet wId
   where
     -- | We have two functions which are very similar.
     newWalletHandler :: WalletOperation -> PassPhrase -> CWalletInit -> m CWallet
@@ -152,7 +152,7 @@ pwlUpdateWallet wId wUpdate = do
     setWalletMeta walletDB cWId cWMeta
 
     -- Get wallet or throw if missing.
-    maybeThrow (MissingWallet wId) =<< pwlGetWallet wId
+    maybeThrow (WalletNotFound wId) =<< pwlGetWallet wId
 
 -- | Seems silly, but we do need some sort of feedback from
 -- the DB.

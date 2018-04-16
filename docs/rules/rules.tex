@@ -62,6 +62,9 @@
 \newcommand{\seeds}{\mathcal{S}}
 \newcommand{\initialdistribution}{d_{\mathsf{init}}}
 \newcommand{\initialseed}{s_{\mathsf{init}}}
+\newcommand{\initialdelegation}{g_{\mathsf{init}}}
+\newcommand{\transitivefix}[1]{{#1}^ω}
+\newcommand{\delegations}[1]{\mathsf{deleg}(#1)}
 \newcommand{\epoch}[1]{\mathsf{epoch}(#1)}
 \newcommand{\epochslot}[1]{\mathsf{slot}_\mathsf{epoch}(#1)}
 \newcommand{\epochseed}[1]{\mathsf{seed}(#1)}
@@ -240,6 +243,16 @@ as it is.\improvement{We may want to add something about protocol
     distribution based on $\txinit$.}\improvement{This doesn't model
     the ATRedeem story. Does it matter?}
 
+\item[Delegation graph] A delegation graph is a function $g ∈
+  \agentids ⟶ \agentids$. The initial delegation graph is defined as
+  the identitity function $\initialdelegation(a) = a$.
+
+  Given a delegation graph $g$, we write $\transitivefix{g}$ for the
+  partial function defined as
+  $$
+  \transitivefix{g}(a)=a' \iff ∃n. g^n(a) = a'∧ g(a') = a'
+  $$
+
 \item[Block] Blocks have a system of identifier $\blockids$. There is
   a distinguished $b_0∈ \blockids$, called the genesis identifier,
   which is not in the image of $\id$.
@@ -303,15 +316,23 @@ $b_1,…,b_n$ if all of the following hold
   slot.
 \item[Not past slot] the slot number of $b$ is larger than the slot
   number of $b_n$
-\item[Issuer] The issuer of $b$ is the slot leader at the block's slot
-  number, that is
+\item[Issuer] Let $i$ be the issuer of $b$, and let $l$ be the slot
+  leader at the slot of $b$:
   $$
-  \slotleader{\epochdistribution{b_1,…,b_n}}{\epochseed{b_1,…,b_n}}{\epochslot{slot}}
+  b = \slotleader{\epochdistribution{b_1,…,b_n}}{\epochseed{b_1,…,b_n}}{\epochslot{slot}}
   $$
   See Section~\ref{sec:derived-functions} for the definitions of
   $\epochdistribution{⋅}$ and $\epochseed{⋅}$.
-  \improvement{This ignores delegation}
   \improvement{this doesn't read too well, improve.}
+
+  Then, $i$ must be transitively authorised by $b$ in that:
+  $$
+  i = \transitivefix{\delegations{b₁,…,b_n}}(b)
+  $$
+  Note that, by definition, there is (at most) a single agent
+  autorised by $b$ (it may be $b$ itself, if no delegation certificate
+  has been issued). See Section~\ref{sec:derived-functions} for the
+  definition of $\delegations{⋅}$.
 \item[Transactions] Each transaction in the block's transactions is
   validated according to the following rules.
   \begin{description}
@@ -416,7 +437,9 @@ $b_1,…,b_n$ if all of the following hold
   \epochdistribution{b₁,…,b_n} = \currentdistribution{b₁,…,b_{\epoch{b_n}}}
   $$
 
-\item[Seed] \info{The shared seed at the last epoch} Define $\epochseed{⋅}$\improvement{Todo}
+\item[Seed] \info{The shared seed at the last epoch} Define
+  $\epochseed{⋅}$\improvement{Todo}
+\item[Delegation graph] Define $\delegations{⋅}$\improvement{Todo}
 \end{description}
 
 \section{Instantiating parameters}

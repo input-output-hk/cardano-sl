@@ -66,6 +66,7 @@ library
                        Cardano.Wallet.WalletLayer.Kernel
                        Cardano.Wallet.WalletLayer.Legacy
                        Cardano.Wallet.WalletLayer.QuickCheck
+                       Cardano.Wallet.WalletLayer.Error
   ghc-options:         -Wall
   build-depends:       base
                      , QuickCheck
@@ -86,6 +87,7 @@ library
                      , log-warper
                      , memory
                      , mtl
+                     , unliftio-core
                      , safe-exceptions
                      , servant
                      , servant-client

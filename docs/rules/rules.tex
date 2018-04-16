@@ -77,6 +77,7 @@
 \newcommand{\delegator}[1]{\mathsf{delegator}(#1)}
 \newcommand{\delegatee}[1]{\mathsf{delegatee}(#1)}
 \newcommand{\delegationcertificates}[1]{\mathsf{certificates}_\mathsf{delegation}(#1)}
+\newcommand{\selectrichman}[1]{\mathsf{select}_\mathsf{richmen}(#1)}
 
 %% /macros %%
 
@@ -304,7 +305,16 @@ as it is.\improvement{We may want to add something about protocol
   chosen.
 
 \item[Richmen] We assume a finite set $\richmen ⊆ \agentids$. These
-  so-called richmen receive all the stake during the bootstrap era.
+  so-called richmen receive all the stake during the bootstrap
+  era.\unsure{For the sake of simplicity, I assume, for the time
+    being, that the richmen all get the same share of stake of each
+    output. This is not necessary in cardano, but it is the case in
+    practice. We can refine later if we so wish}
+
+  We will also assume a function $\selectrichman{⋅} ∈ ℕ ⟶ \richmen$
+  which selects one of the richmen based on the value of an unspent
+  output. In a concrete implementation this function needs to have
+  good randomness properties.
 
 \end{description}
 

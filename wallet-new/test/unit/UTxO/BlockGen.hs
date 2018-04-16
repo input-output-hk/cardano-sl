@@ -319,11 +319,11 @@ toPreTreeWith
     => (TreeGenGlobalCtx h -> TreeGenGlobalCtx h) -- ^ Modify the global settings
     -> TreeGen h (NoFeeBlockTree h)
     -> PreTree h Gen ()
-toPreTreeWith settings bg = DepIndep $ \boot -> do
+toPreTreeWith settings bg = DepIndep $ \(boot :: Transaction h Addr)-> do
     ks <- evalStateT (unTreeGen bg) (settings (initTreeGenGlobalCtx boot))
-    return $ \fees -> (markOldestFirst (zipTreeFees ks fees), ())
-  where
-   markOldestFirst = OldestFirst . fmap OldestFirst
+    return $ \fees ->
+      (OldestFirst (fmap (OldestFirst . dropWhile (== boot))
+                         (zipTreeFees ks fees)), ())
 
 newTree :: forall h. Hash h Addr
         => TreeGen h (NoFeeBlockTree h)
@@ -338,6 +338,7 @@ newTree = do
     buildTree :: TreeGenBranchCtx h
               -> TreeGen h ([Value -> Transaction h Addr], [TreeGenBranchCtx h])
     buildTree branchCtx = do
+      let curHeight = branchCtx ^. branchHeight
 
       -- Firstly, decide whether we should prune this branch. We prune if
       -- - we have reached the maximum height, or
@@ -348,7 +349,6 @@ newTree = do
         pl <- use pruneLikelihood
         maxH <- use maxHeight
         toss <- liftGenTree $ choose (0,1)
-        let curHeight = branchCtx ^. branchHeight
         return $ (curHeight >= maxH)
                || ((not $ branchCtx ^. principalBranch)
                    && ((curHeight >= maxH - 1) || toss < pl)
@@ -361,7 +361,9 @@ newTree = do
         -- then generate a number of transactions T and select from the set of
         -- transactions (with replacement). This should result in a relatively
         -- high degree of transactions shared between branches.
-        numBranches <- liftGenTree . branchCount =<< use forkLikelihood
+        numBranches <- case curHeight of
+          0 -> pure 1  -- we don't branch on the first block.
+          _ -> liftGenTree . branchCount =<< use forkLikelihood
         branchSizes <- liftGenTree $ vectorOf numBranches $ choose (1, 10)
         stl <- use sharedTransactionLikelihood
         txs <- replicateM

@@ -9,15 +9,12 @@ module Cardano.Wallet.WalletLayer.Legacy
 
 import           Universum
 
-<<<<<<< HEAD
-import           Control.Monad.Catch (catchAll)
 import           Control.Monad.IO.Unlift (MonadUnliftIO)
-=======
->>>>>>> [CSL-2424] Implement WalletActiveLayer for addresses, simpler error handling.
 import           Data.Coerce (coerce)
 
 import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
+import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..),
+                                                   monadThrowToEither)
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
@@ -30,11 +27,12 @@ import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, Accoun
                                               WalletUpdate)
 
 import           Pos.Client.KeyStorage (MonadKeys)
-import           Pos.Crypto (PassPhrase, emptyPassphrase)
 import           Pos.Core (ChainDifficulty)
+import           Pos.Crypto (PassPhrase, emptyPassphrase)
 
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
+import           Pos.Util (HasLens', maybeThrow)
 import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes.Types (CWallet (..), CWalletInit (..), CWalletMeta (..))
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
@@ -44,7 +42,6 @@ import           Pos.Wallet.Web.Methods.Restore (newWallet, restoreWalletFromSee
 import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB, askWalletSnapshot,
                                              getWalletAddresses, setWalletMeta)
 import           Pos.Wallet.Web.State.Storage (getWalletInfo)
-import           Pos.Util (HasLens', maybeThrow)
 
 
 -- | Let's unify all the requirements for the legacy wallet.
@@ -87,21 +84,21 @@ passiveWalletLayer
     :: forall ctx m. MonadLegacyWallet ctx m
     => PassiveWalletLayer m
 passiveWalletLayer = PassiveWalletLayer
-    { _pwlCreateWallet      = pwlCreateWallet
-    , _pwlGetWalletIds      = pwlGetWalletIds
-    , _pwlGetWallet         = pwlGetWallet
-    , _pwlUpdateWallet      = pwlUpdateWallet
-    , _pwlDeleteWallet      = pwlDeleteWallet
+    { _pwlCreateWallet      = monadThrowToEither ... pwlCreateWallet
+    , _pwlGetWalletIds      = monadThrowToEither ... pwlGetWalletIds
+    , _pwlGetWallet         = monadThrowToEither ... pwlGetWallet
+    , _pwlUpdateWallet      = monadThrowToEither ... pwlUpdateWallet
+    , _pwlDeleteWallet      = monadThrowToEither ... pwlDeleteWallet
 
-    , _pwlCreateAccount     = pwlCreateAccount
-    , _pwlGetAccounts       = pwlGetAccounts
-    , _pwlGetAccount        = pwlGetAccount
-    , _pwlUpdateAccount     = pwlUpdateAccount
-    , _pwlDeleteAccount     = pwlDeleteAccount
+    , _pwlCreateAccount     = monadThrowToEither ... pwlCreateAccount
+    , _pwlGetAccounts       = monadThrowToEither ... pwlGetAccounts
+    , _pwlGetAccount        = monadThrowToEither ... pwlGetAccount
+    , _pwlUpdateAccount     = monadThrowToEither ... pwlUpdateAccount
+    , _pwlDeleteAccount     = monadThrowToEither ... pwlDeleteAccount
 
-    , _pwlCreateAddress     = pwlCreateAddress
-    , _pwlGetAddresses      = pwlGetAddresses
-    , _pwlIsAddressValid    = pwlIsAddressValid
+    , _pwlCreateAddress     = monadThrowToEither ... pwlCreateAddress
+    , _pwlGetAddresses      = monadThrowToEither ... pwlGetAddresses
+    , _pwlIsAddressValid    = monadThrowToEither ... pwlIsAddressValid
     }
 
 ------------------------------------------------------------
@@ -156,8 +153,6 @@ pwlGetWallet wId = do
     pure $ do
         walletInfo  <- getWalletInfo cWId ws
         migrate (wallet, walletInfo, Nothing @ChainDifficulty)
-
---instance Migrate (V0.CWallet, OldStorage.WalletInfo, Maybe Core.ChainDifficulty) V1.Wallet where
 
 
 pwlUpdateWallet
@@ -299,7 +294,7 @@ pwlGetAccountAddresses
 pwlGetAccountAddresses wId aIdx = do
     account     <- pwlGetAccount wId aIdx
     accAddresses <$> maybeThrow
-        (MissingAccount aIdx)
+        (AccountNotFound wId aIdx)
         account
 
 

@@ -1,6 +1,10 @@
+{-# LANGUAGE StrictData #-}
+
 module Cardano.Wallet.WalletLayer.Types
     ( PassiveWalletLayer (..)
     , ActiveWalletLayer (..)
+    , WalletLayerResponse
+    , monadThrowToEither
     -- * Getters
     , createWallet
     , getWalletIds
@@ -14,42 +18,54 @@ module Cardano.Wallet.WalletLayer.Types
     , updateAccount
     , deleteAccount
 
+    , createAddress
     , getAddresses
+    , isAddressValid
     ) where
+
 
 import           Universum
 
 import           Control.Lens (makeLenses)
+import           Control.Exception.Safe (try)
 
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, AddressValidity,
                                               NewAccount, NewAddress, NewWallet, Wallet,
                                               WalletAddress, WalletId, WalletUpdate)
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
+import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
 
 ------------------------------------------------------------
 -- Passive wallet layer
 ------------------------------------------------------------
 
+-- The response for the @WalletPassiveLayer@.
+type WalletLayerResponse m a = m (Either WalletLayerError a)
+
+-- A utility function for transforming between representations.
+monadThrowToEither :: forall m a. (MonadCatch m) => m a -> WalletLayerResponse m a
+monadThrowToEither = try
+
 -- | The passive wallet (data) layer. See @PassiveWallet@.
 data PassiveWalletLayer m = PassiveWalletLayer
     {
     -- * wallets
-      _pwlCreateWallet   :: NewWallet -> m Wallet
-    , _pwlGetWalletIds   :: m [WalletId]
-    , _pwlGetWallet      :: WalletId -> m (Maybe Wallet)
-    , _pwlUpdateWallet   :: WalletId -> WalletUpdate -> m Wallet
-    , _pwlDeleteWallet   :: WalletId -> m ()
+      _pwlCreateWallet   :: NewWallet -> WalletLayerResponse m Wallet
+    , _pwlGetWalletIds   :: WalletLayerResponse m [WalletId]
+    , _pwlGetWallet      :: WalletId -> WalletLayerResponse m (Maybe Wallet)
+    , _pwlUpdateWallet   :: WalletId -> WalletUpdate -> WalletLayerResponse m Wallet
+    , _pwlDeleteWallet   :: WalletId -> WalletLayerResponse m ()
     -- * accounts
-    , _pwlCreateAccount  :: WalletId -> NewAccount -> m Account
-    , _pwlGetAccounts    :: WalletId -> m [Account]
-    , _pwlGetAccount     :: WalletId -> AccountIndex -> m (Maybe Account)
-    , _pwlUpdateAccount  :: WalletId -> AccountIndex -> AccountUpdate -> m Account
-    , _pwlDeleteAccount  :: WalletId -> AccountIndex -> m ()
+    , _pwlCreateAccount  :: WalletId -> NewAccount -> WalletLayerResponse m Account
+    , _pwlGetAccounts    :: WalletId -> WalletLayerResponse m [Account]
+    , _pwlGetAccount     :: WalletId -> AccountIndex -> WalletLayerResponse m (Maybe Account)
+    , _pwlUpdateAccount  :: WalletId -> AccountIndex -> AccountUpdate -> WalletLayerResponse m Account
+    , _pwlDeleteAccount  :: WalletId -> AccountIndex -> WalletLayerResponse m ()
     -- * addresses
-    , _pwlCreateAddress  :: NewAddress -> m WalletAddress
-    , _pwlGetAddresses   :: WalletId -> Maybe AccountIndex -> m [WalletAddress]
-    , _pwlIsAddressValid :: WalletAddress -> m AddressValidity
+    , _pwlCreateAddress  :: NewAddress -> WalletLayerResponse m WalletAddress
+    , _pwlGetAddresses   :: WalletId -> Maybe AccountIndex -> WalletLayerResponse m [WalletAddress]
+    , _pwlIsAddressValid :: WalletAddress -> WalletLayerResponse m AddressValidity
     }
 
 makeLenses ''PassiveWalletLayer
@@ -58,40 +74,46 @@ makeLenses ''PassiveWalletLayer
 -- Passive wallet layer getters
 ------------------------------------------------------------
 
-createWallet :: forall m. PassiveWalletLayer m -> NewWallet -> m Wallet
+createWallet :: forall m. PassiveWalletLayer m -> NewWallet -> WalletLayerResponse m Wallet
 createWallet pwl = pwl ^. pwlCreateWallet
 
-getWalletIds :: forall m. PassiveWalletLayer m -> m [WalletId]
+getWalletIds :: forall m. PassiveWalletLayer m -> WalletLayerResponse m [WalletId]
 getWalletIds pwl = pwl ^. pwlGetWalletIds
 
-getWallet :: forall m. PassiveWalletLayer m -> WalletId -> m (Maybe Wallet)
+getWallet :: forall m. PassiveWalletLayer m -> WalletId -> WalletLayerResponse m (Maybe Wallet)
 getWallet pwl = pwl ^. pwlGetWallet
 
-updateWallet :: forall m. PassiveWalletLayer m -> WalletId -> WalletUpdate -> m Wallet
+updateWallet :: forall m. PassiveWalletLayer m -> WalletId -> WalletUpdate -> WalletLayerResponse m Wallet
 updateWallet pwl = pwl ^. pwlUpdateWallet
 
-deleteWallet :: forall m. PassiveWalletLayer m -> WalletId -> m Bool
+deleteWallet :: forall m. PassiveWalletLayer m -> WalletId -> WalletLayerResponse m ()
 deleteWallet pwl = pwl ^. pwlDeleteWallet
 
 
-createAccount :: forall m. PassiveWalletLayer m -> WalletId -> NewAccount -> m Account
+createAccount :: forall m. PassiveWalletLayer m -> WalletId -> NewAccount -> WalletLayerResponse m Account
 createAccount pwl = pwl ^. pwlCreateAccount
 
-getAccounts :: forall m. PassiveWalletLayer m -> WalletId -> m [Account]
+getAccounts :: forall m. PassiveWalletLayer m -> WalletId -> WalletLayerResponse m [Account]
 getAccounts pwl = pwl ^. pwlGetAccounts
 
-getAccount :: forall m. PassiveWalletLayer m -> WalletId -> AccountIndex -> m (Maybe Account)
+getAccount :: forall m. PassiveWalletLayer m -> WalletId -> AccountIndex -> WalletLayerResponse m (Maybe Account)
 getAccount pwl = pwl ^. pwlGetAccount
 
-updateAccount :: forall m. PassiveWalletLayer m -> WalletId -> AccountIndex -> AccountUpdate -> m Account
+updateAccount :: forall m. PassiveWalletLayer m -> WalletId -> AccountIndex -> AccountUpdate -> WalletLayerResponse m Account
 updateAccount pwl = pwl ^. pwlUpdateAccount
 
-deleteAccount :: forall m. PassiveWalletLayer m -> WalletId -> AccountIndex -> m Bool
+deleteAccount :: forall m. PassiveWalletLayer m -> WalletId -> AccountIndex -> WalletLayerResponse m ()
 deleteAccount pwl = pwl ^. pwlDeleteAccount
 
 
-getAddresses :: forall m. PassiveWalletLayer m -> WalletId -> m [Address]
+createAddress :: forall m. PassiveWalletLayer m -> NewAddress -> WalletLayerResponse m WalletAddress
+createAddress pwl = pwl ^. pwlCreateAddress
+
+getAddresses :: forall m. PassiveWalletLayer m -> WalletId -> Maybe AccountIndex -> WalletLayerResponse m [WalletAddress]
 getAddresses pwl = pwl ^. pwlGetAddresses
+
+isAddressValid :: forall m. PassiveWalletLayer m -> WalletAddress -> WalletLayerResponse m AddressValidity
+isAddressValid pwl = pwl ^. pwlIsAddressValid
 
 ------------------------------------------------------------
 -- Active wallet layer

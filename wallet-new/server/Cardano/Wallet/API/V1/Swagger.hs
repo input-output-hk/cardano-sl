@@ -295,20 +295,21 @@ curl -X POST https://localhost:8090/api/v1/wallets \
 > not** use them on a production system. See the section below about mnemonic codes for more
 > information.
 
-The `spendingPassword` is optional but highly recommended. It is an original UTF-8
-string of 32 characters, encoded in base 16, yielding to an hexadecimal sequence of 64 bytes.
+The `spendingPassword` is optional but highly recommended. It a string of 32
+characters, encoded in base 16, yielding to an hexadecimal sequence of 64 bytes.
 This passphrase is required for sensitive operations on the wallet and adds
-therefore an extra security layer to it.
+an extra security layer to it.
 
 To generate a valid `spendingPassword`, please follow the following steps:
 
-    - Pick a strong passphrase (long, from a big set of characters), randomly
-      generated passphrase are best for humans are a poor source of randomness.
+- Pick a long sentence using a wide variety of characters (uppercase, lowercase,
+  whitespace, punctuation, etc). Using a computer to randomly generate
+  a passphrase is best, as humans aren't a good source of randomness.
 
-    - Compute an appropriate hash of this passphrase. You'll need to use an
-    algorithm that yields a 32-byte long string (e.g. *SHA256* or *BLAKE2b*).
+- Compute an appropriate hash of this passphrase. You'll need to use an
+  algorithm that yields a 32-byte long string (e.g. *SHA256* or *BLAKE2b*).
 
-    - Hex-encode the 32-byte hash into a 64-byte sequence of bytes.
+- Hex-encode the 32-byte hash into a 64-byte sequence of bytes.
 
 As a response, the API provides you with a unique wallet `id` to be used in subsequent
 requests. Make sure to store it / write it down. Note that every API response is
@@ -316,22 +317,7 @@ requests. Make sure to store it / write it down. Note that every API response is
 meta-data specific to pagination. More details in the section below about [Pagination](#section/Pagination)
 
 ```json
-{
-    "status": "success",
-    "data": {
-        "id": "Ae2tdPwUPE...8V3AVTnqGZ",
-        "name": "MyFirstWallet",
-        "balance": 0
-    },
-    "meta": {
-        "pagination": {
-            "totalPages": 1,
-            "page": 1,
-            "perPage": 1,
-            "totalEntries": 1
-        }
-    }
-}
+$createWallet
 ```
 
 You have just created your first wallet. Information about this wallet can be retrieved using the [`GET /api/v1/wallets/{walletId}`](#tag/Wallets%2Fpaths%2F~1api~1v1~1wallets~1{walletId}%2Fget)
@@ -360,28 +346,7 @@ curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}}/accounts?page=1&p
 Since you have, for now, only a single wallet, you'll see something like this:
 
 ```json
-{
-    "status": "success",
-    "data": [
-        {
-            "index": 2147483648,
-            "addresses": [
-                "DdzFFzCqrh...fXSru1pdFE"
-            ],
-            "amount": 0,
-            "name": "Initial account",
-            "walletId": "Ae2tdPwUPE...8V3AVTnqGZ"
-        }
-    ],
-    "meta": {
-        "pagination": {
-            "totalPages": 1,
-            "page": 1,
-            "perPage": 10,
-            "totalEntries": 1
-        }
-    }
-}
+$readAccounts
 ```
 
 All the wallet's accounts are listed under the `addresses` field. You can communicate one of
@@ -418,12 +383,12 @@ source account! The Cardano API is designed to accomodate multiple recipients pa
 out-of-the-box; notice how `destinations` is a list of addresses (and corresponding amounts).
 
 When the transaction succeeds, funds are no longer available in the sources addresses, and are
-soon made available to the destinations in a short delay. Note that, you can at any time see
+soon made available to the destinations within a short delay. Note that, you can at any time see
 the status of your wallets by using the [`GET /api/v1/transactions`](#tag/Transactions%2Fpaths%2F~1api~1v1~1transactions%2Fget)
 endpoint as follows:
 
 ```
-curl -X GET https://localhost:8090/api/v1/transactions?&wallet_id=Ae2tdPwUPE...8V3AVTnqGZ\
+curl -X GET https://localhost:8090/api/v1/transactions?wallet_id=Ae2tdPwUPE...8V3AVTnqGZ\
      -H "Accept: application/json; charset=utf-8" \
      --cacert ./scripts/tls-files/ca.crt \
 ```
@@ -432,34 +397,7 @@ Here we constrained the request to a specific account. After our previous transa
 should look roughly similar to this:
 
 ```json
-{
-    "status": "success",
-    "data": [
-        {
-            "amount": 14,
-            "inputs": [{
-              "amount": 14,
-              "address": "DdzFFzCqrh...fXSru1pdFE"
-            }],
-            "direction": "outgoing",
-            "outputs": [{
-              "amount": 14,
-              "address": "A7k5bz1QR2...Tx561NNmfF"
-            }],
-            "confirmations": 42,
-            "id": "43zkUzCVi7...TT31uDfEF7",
-            "type": "local"
-        }
-    ],
-    "meta": {
-        "pagination": {
-            "totalPages": 1,
-            "page": 1,
-            "perPage": 10,
-            "totalEntries": 1
-        }
-    }
-}
+$readTransactions
 ```
 
 In addition, and because it is not possible to _preview_ a transaction, one can lookup a
@@ -659,13 +597,7 @@ The API resolves with an estimated amount in _ADA_. This estimation highly depen
 current state of the ledger and diverges with time.
 
 ```json
-{
-    "status": "success",
-    "data": {
-        "estimatedAmount": 194
-    },
-    "meta": { ... }
-}
+$readFees
 ```
 
 
@@ -675,7 +607,7 @@ Managing Accounts
 A wallet isn't limited to one account. It can actually be useful to have more than one account
 in order to separate business activities. With the API, you can retrieve a specific account,
 create new ones, list all existing accounts of a wallet or edit a few things on an existing
-account. By default, your wallet comes with a provided account; let's see how to create a fresh
+account. By default, your wallet comes with a provided account. Let's see how to create a fresh
 new account on a wallet using [`POST /api/v1/wallets/{{walletId}}/accounts`](#tag/Accounts%2Fpaths%2F~1api~1v1~1wallets~1{walletId}~1accounts%2Fpost):
 
 ```
@@ -695,19 +627,7 @@ New Wallet](#section/Getting-Started/Creating-a-New-Wallet).
 
 
 ```json
-{
-    "status": "success",
-    "data": {
-        "index": 2902829384,
-        "addresses": [
-            "DdzFFzCqrh...Sj5a2rkx8y"
-        ],
-        "amount": 0,
-        "name": "MyOtherAccount",
-        "walletId": "Ae2tdPwUPE...8V3AVTnqGZ",
-    },
-    "meta": { ... }
-}
+$createAccount
 ```
 
 You can always retrieve this account description later if needed via [`GET /api/v1/wallets/{{walletId}}/accounts/{{accountId}}`](#tag/Accounts%2Fpaths%2F~1api~1v1~1wallets~1{walletId}~1accounts~1{accountId}%2Fget).
@@ -730,37 +650,7 @@ curl -X GET \
 ```
 
 ```json
-{
-    "status": "success",
-    "data": [
-        {
-            "index": 2147483648,
-            "addresses": [
-                "DdzFFzCqrh...U6AGwxWmw"
-            ],
-            "amount": 0,
-            "name": "Initial account",
-            "walletId": "Ae2tdPwUPE...8V3AVTnqGZ"
-        },
-        {
-            "index": 2902829384,
-            "addresses": [
-                "DdzFFzCqrh...Sj5a2rkx8y"
-            ],
-            "amount": 0,
-            "name": "MyOtherAccount",
-            "walletId": "Ae2tdPwUPE...8V3AVTnqGZ"
-        }
-    ],
-    "meta": {
-        "pagination": {
-            "totalPages": 1,
-            "page": 1,
-            "perPage": 10,
-            "totalEntries": 2
-        }
-    }
-}
+$readAccounts
 ```
 
 
@@ -771,8 +661,9 @@ By default, wallets you create are provided with an account which has one defaul
 is possible (and recommended) for an account to manage multiple addresses. Address reuse
 actually reduces privacy for it tights more transactions to a small set of addresses.
 
-Note that when paying, this is fairly abstracted from you: addresses are selected from an
-account of your wallet based on different strategies and policies.
+When paying, the wallet makes many of these choices for you. Addresses are
+selected from a wallet's account based on several different strategies and
+policies.
 
 To create a new address, use the [`POST /api/v1/addresses`](#tag/Addresses%2Fpaths%2F~1api~1v1~1addresses%2Fpost)
 endpoint:
@@ -790,44 +681,18 @@ curl -X POST \
 ```
 
 ```json
-{
-    "status": "success",
-    "data": {
-        "id": "DdzFFzCqrh...QfiU5E6N8S",
-        "balance": 0,
-        "used": false,
-        "changeAddress": false
-    },
-    "meta": { ... }
-}
+$createAddress
 ```
 
 If your wallet is protected with a password, this password is also required in order to create
 new addresses for that wallet. In such case, the field `spendingPassword` should match the one
 defined earlier to protect your wallet.
 
-Addresses generated as just described are always valid. However, when dealing with other
-parties, you might want to check whether a given address is a valid base58-encoded address.
+Addresses generated as just described are always valid. When the API encounters
+an invalid address however (e.g. when provided by another party), it will fail with a
+client error.
 
-For that purpose, use [`GET /api/v1/addresses/{{address}}/validity`](#tag/Addresses%2Fpaths%2F~1api~1v1~1addresses~1{address}~1validity%2Fget):
-
-```
-curl -X GET https://localhost:8090/api/v1/addresses/not-a-valid-address/validity
-  -H 'Accept: application/json;charset=utf-8' \
-  --cacert ./scripts/tls-files/ca.crt
-```
-
-```json
-{
-    "status": "success",
-    "data": {
-        "valid": false
-    },
-    "meta": { ... }
-}
-```
-
-Finally, you can always view all your available addresses across all your wallets by using
+You can always view all your available addresses across all your wallets by using
 [`GET /api/v1/addresses`](#tag/Addresses%2Fpaths%2F~1api~1v1~1addresses%2Fget):
 
 ```
@@ -837,23 +702,7 @@ curl -X GET https://localhost:8090/api/v1/addresses \
 ```
 
 ```json
-{
-    "data": [
-        "YQdiVKZwx...d16oatjqf3",
-        "2iQCuXVhU...S4YoYruxet",
-        "jM8R4tBCP...2ueD7ndDV4",
-        "B9x5woS58...TUDWnYRdfv",
-    ],
-    "status": "success",
-    "meta": {
-        "pagination": {
-            "totalPages": 1,
-            "page": 1,
-            "perPage": 20,
-            "totalEntries": 4
-        }
-    }
-}
+$readAddresses
 ```
 
 Checking Synchronization Progress
@@ -870,32 +719,11 @@ curl -X GET https://localhost:8090/api/v1/node-info \
 ```
 
 ```json
-{
-    "data": {
-        "syncProgress": {
-            "quantity": 100,
-            "unit": "percent"
-        },
-        "blockchainHeight": {
-            "quantity": 1927,
-            "unit": "blocks"
-        },
-        "localBlockchainHeight": {
-            "quantity": 1927,
-            "unit": "blocks"
-        },
-        "localTimeDifference": {
-            "quantity": 87870,
-            "unit": "microseconds"
-        }
-    },
-    "status": "success",
-    "meta": { ... }
-}
+$readNodeInfo
 ```
 
 
-Retrieving Transactions History
+Retrieving Transaction History
 ------------------------------
 
 If needed, applications may regularly poll the wallet's backend to retrieve the history of
@@ -941,6 +769,15 @@ curl -X GET 'https://127.0.0.1:8090/api/v1/transactions?wallet_id=Ae2tdPwU...3AV
 Make sure to carefully read the section about [Pagination](#section/Pagination) to fully
 leverage the API capabilities.
 |]
+  where
+    createAccount    = toS $ encodePretty $ genExample @(WalletResponse Account)
+    createAddress    = toS $ encodePretty $ genExample @(WalletResponse WalletAddress)
+    createWallet     = toS $ encodePretty $ genExample @(WalletResponse Wallet)
+    readAccounts     = toS $ encodePretty $ genExample @(WalletResponse [Account])
+    readAddresses    = toS $ encodePretty $ genExample @(WalletResponse [Address])
+    readFees         = toS $ encodePretty $ genExample @(WalletResponse EstimatedFees)
+    readNodeInfo     = toS $ encodePretty $ genExample @(WalletResponse NodeInfo)
+    readTransactions = toS $ encodePretty $ genExample @(WalletResponse [Transaction])
 
 
 -- | Provide an alternative UI (ReDoc) for rendering Swagger documentation.
@@ -989,12 +826,11 @@ swaggerSchemaUIServer =
 --
 
 data DescriptionEnvironment = DescriptionEnvironment
-  { deErrorExample          :: !T.Text
-  , deDefaultPerPage        :: !T.Text
-  , deWalletResponseExample :: !T.Text
-  , deWalletErrorTable      :: !T.Text
-  , deGitRevision           :: !T.Text
-  , deSoftwareVersion       :: !T.Text
+  { deErrorExample     :: !T.Text
+  , deDefaultPerPage   :: !T.Text
+  , deWalletErrorTable :: !T.Text
+  , deGitRevision      :: !T.Text
+  , deSoftwareVersion  :: !T.Text
   }
 
 api :: HasSwagger a
@@ -1009,7 +845,6 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
   & info.description ?~ (mkDescription $ DescriptionEnvironment
     { deErrorExample          = toS $ encodePretty Errors.WalletNotFound
     , deDefaultPerPage        = fromString (show defaultPerPageEntries)
-    , deWalletResponseExample = toS $ encodePretty (genExample @(WalletResponse [Account]))
     , deWalletErrorTable      = errorsDescription
     , deGitRevision           = ctiGitRevision compileInfo
     , deSoftwareVersion       = fromString $ show curSoftwareVersion

@@ -637,5 +637,51 @@ Rules to add a block $b$ to the blockchain:
 \item[Update] The new blockchain is $(\mathfrak{C}', \mathfrak{T}')$
 \end{description}
 
+\appendix
+
+\section{Notes \& further considerations}
+\label{sec:notes}
+
+The purpose of this section is to collect information which does not
+fit the specification proper, but can illuminate it, or describe how
+it can be expanded to meet future requirements.
+
+\subsection{Lightweight delegation}
+\label{sec:lightweight-delegation}
+
+Lightweight delegation is an alternative to heavyweight delegation as
+described with the delegation graph and delegation certificates in
+this document.
+
+In lightweight delegation, we use a cryptographic subkey signing
+scheme to authorise other parties to sign in our stead. The subkey
+sharing happens off chain, therefore it is harder to revoke a
+certificate (since we don't benefit from the blockchain as a broadcast
+channel: if we broadcast a revocation message, it can be received only
+partially by the network and new blocks will issued which still accept
+the subkey. The subkey is still technically valid. Plus, the economic
+insentive probably don't apply, and make it costless to ignore a
+revocation).
+
+Lightweight delegation is currently implemented in Cardano, but hasn't
+been deployed yet. Therefore it has not been specified in this
+document yet, as this document is only concerned with the currently
+used features of Cardano.
+
+The main reason to require an off-chain delegation scheme is to be
+able to keep one's private key hidden and sign for oneself using
+subkeys instead. They can be made single use, at very little cost,
+guaranteeing very strong security: even if a private subkey is leaked,
+it is useless, and only the private key which is never used directly
+is.
+
+From the point of view of the specification, the current view is that
+lightweight delegation need not appear at all: we simply assume that
+the cryptography allows an agent $a$ to sign with any subkey of its
+private key, whenever its private key would be allowed. In this sense,
+this document is already ready for lightweight specification. But,
+when time comes, we may come to the conclusion that, in fact, we need
+some mechanism in the specification, to model lightweight delegation
+explicitly.
 
 \end{document}

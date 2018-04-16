@@ -19,7 +19,7 @@ import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex, HeaderHash, I
                            SlotId (siEpoch), SoftwareVersion (..), addressHash, applyCoinPortionUp,
                            blockVersionL, coinToInteger, difficultyL, epochIndexL, flattenSlotId,
                            headerHashG, headerSlotL, sumCoins, unflattenSlotId, unsafeIntegerToCoin)
-import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam)
+import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam, protocolMagic)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..), UpId, UpdatePayload (..),
                                   UpdateProposal (..), UpdateVote (..), bvdUpdateProposalThd,
                                   checkUpdatePayload)
@@ -66,7 +66,7 @@ verifyAndApplyUSPayload ::
     -> m ()
 verifyAndApplyUSPayload lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
     -- First of all, we verify data.
-    either (throwError . PollInvalidUpdatePayload) pure =<< runExceptT (checkUpdatePayload upp)
+    either (throwError . PollInvalidUpdatePayload) pure =<< runExceptT (checkUpdatePayload protocolMagic upp)
     whenRight slotOrHeader $ verifyHeader lastAdopted
 
     unless isEmptyPayload $ do

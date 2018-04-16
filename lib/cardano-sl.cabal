@@ -58,7 +58,6 @@ library
 
                         -- cardano-sl-client & cardano-sl-generator
                         Pos.Communication.Limits
-                        Pos.Communication.Limits.Given
                         Pos.Communication.Message
                         Pos.Communication.Types
 

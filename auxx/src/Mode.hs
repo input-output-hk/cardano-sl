@@ -39,7 +39,6 @@ import           Pos.Client.Txp.Balances (MonadBalances(..), getBalanceFromUtxo,
                                           getOwnUtxosGenesis)
 import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDefault,
                                          getLocalHistoryDefault, saveTxDefault)
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..),
                            IsBootstrapEraAddr (..), deriveFirstHDAddress, largestPubKeyAddressBoot,
@@ -184,9 +183,6 @@ instance HasConfiguration => MonadDB AuxxMode where
 
 instance HasConfiguration => MonadGState AuxxMode where
     gsAdoptedBVData = realModeToAuxx ... gsAdoptedBVData
-
-instance HasConfiguration => HasAdoptedBlockVersionData AuxxMode where
-    adoptedBVData = gsAdoptedBVData
 
 instance HasConfiguration => MonadBListener AuxxMode where
     onApplyBlocks = realModeToAuxx ... onApplyBlocks

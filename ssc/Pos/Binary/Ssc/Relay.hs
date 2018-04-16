@@ -6,7 +6,6 @@ import           Universum
 
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
 import           Pos.Communication.Types.Relay (DataMsg (..))
-import           Pos.Core.Configuration (HasConfiguration)
 import qualified Pos.Ssc.Message as T
 
 instance Bi (DataMsg T.MCCommitment) where
@@ -25,6 +24,6 @@ instance Bi (DataMsg T.MCShares) where
         enforceSize "DataMsg T.MCShares" 2
         DataMsg <$> (T.MCShares <$> decode <*> decode)
 
-instance HasConfiguration => Bi (DataMsg T.MCVssCertificate) where
+instance Bi (DataMsg T.MCVssCertificate) where
     encode (DataMsg (T.MCVssCertificate vss)) = encode vss
     decode = DataMsg . T.MCVssCertificate <$> decode

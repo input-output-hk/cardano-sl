@@ -19,7 +19,6 @@ import           System.Wlog (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Binary.Txp ()
-import           Pos.Communication.Limits.Types (MessageLimited)
 import qualified Pos.Communication.Relay as Relay
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Crypto (hash)
@@ -69,5 +68,4 @@ type TxpMode ctx m =
          , Relay.ReqMsg    (Tagged TxMsgContents TxId)
          , Relay.MempoolMsg TxMsgContents
          ]
-    , MessageLimited (Relay.DataMsg TxMsgContents) m
     )

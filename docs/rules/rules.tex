@@ -273,8 +273,7 @@ as it is.\improvement{We may want to add something about protocol
     an implementation, this would be realised by a cryptographic
     signature.
   \item[transactions] A list of transactions\improvement{Ignored:
-      secret-sharing, updates, delegation. Eventually we need at least
-    delegation}
+      secret-sharing, updates.}
   \item[Delegation certificates] A list of pairs in
     $\lists{(\agentids×\agentids)}$. For a delegation certificate
     $c = (D,d)∈\agentids×\agentids$, we write
@@ -377,9 +376,7 @@ $b_1,…,b_n$ if all of the following hold
     $\overline{τ} = \transactions{b₁},…,\transactions{b_n},t₁,…,t_{i-1}$.
     \begin{description}
     \item[Unspent inputs] Each input of the transaction $τ$ is
-      unspent. That is for each $i ∈ \inputs{τ}$\improvement{This does
-      not take into account the utxos in the initial state. It should
-      be specified.}
+      unspent. That is for each $i ∈ \inputs{τ}$
       \begin{itemize}
       \item $\intrans{i}∈\overline{τ}$ or $\intrans{i} ∈ \txinit$
       \item $\outputs{\intrans{i}}=t₁,…,t_k$, $\inindex{i} ⩽ k$

@@ -10,6 +10,7 @@ module Cardano.Wallet.WalletLayer.Legacy
 import           Universum
 
 import           Control.Monad.Catch (catchAll)
+import           Control.Monad.IO.Unlift (MonadUnliftIO)
 import           Data.Coerce (coerce)
 
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
@@ -25,20 +26,24 @@ import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpda
 
 import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Crypto (PassPhrase)
+import           Pos.Core (ChainDifficulty)
 
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes.Types (CWallet (..), CWalletInit (..), CWalletMeta (..))
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
 import qualified Pos.Wallet.Web.Methods.Logic as V0
-import           Pos.Wallet.Web.Methods.Restore (newWallet, restoreWallet)
+import           Pos.Wallet.Web.Methods.Restore (newWallet, restoreWalletFromSeed)
 import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB, askWalletSnapshot,
                                              getWalletAddresses, setWalletMeta)
 import           Pos.Wallet.Web.State.Storage (getWalletInfo)
-import           Pos.Util (maybeThrow)
+import           Pos.Util (HasLens', maybeThrow)
 
 -- | Let's unify all the requirements for the legacy wallet.
 type MonadLegacyWallet ctx m =
     ( WalletDbReader ctx m
+    , HasLens' ctx SyncQueue
+    , MonadUnliftIO m
     , MonadIO m
     , MonadThrow m
     , MonadWalletLogicRead ctx m
@@ -113,7 +118,7 @@ pwlCreateWallet NewWallet{..} = do
     -- | We have two functions which are very similar.
     newWalletHandler :: WalletOperation -> PassPhrase -> CWalletInit -> m CWallet
     newWalletHandler CreateWallet  = newWallet
-    newWalletHandler RestoreWallet = restoreWallet
+    newWalletHandler RestoreWallet = restoreWalletFromSeed
 
 
 pwlGetWalletIds
@@ -135,7 +140,9 @@ pwlGetWallet wId = do
 
     pure $ do
         walletInfo  <- getWalletInfo cWId ws
-        migrate (wallet, walletInfo)
+        migrate (wallet, walletInfo, Nothing @ChainDifficulty)
+
+--instance Migrate (V0.CWallet, OldStorage.WalletInfo, Maybe Core.ChainDifficulty) V1.Wallet where
 
 pwlUpdateWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)

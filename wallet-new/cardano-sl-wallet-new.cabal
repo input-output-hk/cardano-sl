@@ -87,6 +87,7 @@ library
                      , log-warper
                      , memory
                      , mtl
+                     , unliftio-core
                      , safe-exceptions
                      , servant
                      , servant-client

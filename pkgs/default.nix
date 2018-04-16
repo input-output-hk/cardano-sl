@@ -7705,8 +7705,8 @@ inherit (pkgs) mesa;};
          , servant, servant-client, servant-client-core, servant-quickcheck
          , servant-server, servant-swagger, servant-swagger-ui, stdenv, stm
          , string-conv, swagger2, text, text-format, time, time-units
-         , transformers, universum, unliftio, unordered-containers, vector
-         , wai, wai-cors, wai-extra, warp
+         , transformers, universum, unliftio, unliftio-core
+         , unordered-containers, vector, wai, wai-cors, wai-extra, warp
          }:
          mkDerivation {
            pname = "cardano-sl-wallet-new";
@@ -7725,7 +7725,7 @@ inherit (pkgs) mesa;};
              serokell-util servant servant-client servant-client-core
              servant-quickcheck servant-server servant-swagger-ui stm
              string-conv swagger2 text text-format time time-units transformers
-             universum unordered-containers vector wai
+             universum unliftio-core unordered-containers vector wai
            ];
            executableHaskellDepends = [
              aeson aeson-pretty base bytestring cardano-sl cardano-sl-client

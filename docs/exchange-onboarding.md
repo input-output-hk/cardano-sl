@@ -222,7 +222,7 @@ For more details see the [API documentation](#where-can-i-find-the-api-documenta
 
 ## Accounts
 
-With v0, accounts didn't include the `walletId` in it's API queries. With v1,
+With v0, accounts did not include the `walletId` in it's API path. With v1,
 accounts in the API are logically underneath a wallet. The calls in v0 were:
 
 * GET, PUT, DELETE `/api/accounts/{accountId}`
@@ -267,12 +267,14 @@ For more details see the [API documentation](#where-can-i-find-the-api-documenta
 ## Wallet Addresses
 
 With v0, addresses could be created using a POST to `/api/addresses` or could be
-validated using a GET to `/api/addresses/{address}`. With v1 a new GET to
-`/api/v1/addresses` has been introduced that gets all addresses. A new address can
-be created using a POST to the same URL.
+validated using a GET to `/api/addresses/{address}`. The validation only checked
+that the address was a valid format. With v1 a new GET to `/api/v1/addresses` has
+been introduced that gets all addresses. A new address can be created using a POST
+to the same URL.
 
 Also a GET to `/api/v1/addresses/{address}` returns detailed information about the
-address instead of just a boolean `true` or `false`.
+address instead of just a boolean `true` or `false` and it only returns successful
+if the address belongs to one of the wallets belonging to the running node.
 
 For more details see the [API documentation](#where-can-i-find-the-api-documentation).
 

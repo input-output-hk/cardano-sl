@@ -14911,16 +14911,16 @@ mainnet_staging_short_epoch_wallet_linux64:
 
 devnet: &devnet
   <<: *mainnet_base
-  core:
+  core: &devnet_core
     <<: *mainnet_base_core
-    genesis:
+    genesis: &devnet_genesis
       <<: *mainnet_base_genesis
-      spec:
+      spec: &devnet_spec
         <<: *mainnet_base_spec
-        blockVersionData:
+        blockVersionData: &devnet_blockver
           <<: *mainnet_base_blockVersionData
           slotDuration:      20000 # set to desired value
-        protocolConstants:
+        protocolConstants: &devnet_protocol
           <<: *mainnet_base_protocolConstants
           protocolMagic: 170987650
           k: 6 # set to desired value
@@ -14951,10 +14951,29 @@ devnet: &devnet
       bvAlt: 0
     systemTag: none
 
-  node:
+  node: &devnet_node
     <<: *mainnet_base_node
     networkDiameter: 18 # should be slightly less than slot duration
     recoveryHeadersMessage: 200 # should be greater than k
+
+michaelnet: &michaelnet
+  <<: *devnet
+  node:
+    <<: *devnet_node
+    networkDiameter: 3
+  core:
+    <<: *devnet_core
+    genesis:
+      <<: *devnet_genesis
+      spec:
+        <<: *devnet_spec
+        blockVersionData:
+          <<: *devnet_blockver
+          slotDuration:     5000
+        protocolConstants:
+          <<: *devnet_protocol
+          protocolMagic: 3588277354
+          k: 64
 
 devnet_win64:
   <<: *devnet

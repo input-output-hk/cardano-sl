@@ -6,11 +6,17 @@ module Pos.Ssc.Base
        (
          -- * Helpers
          genCommitmentAndOpening
+       , isCommitmentIdExplicit
        , isCommitmentId
+       , isCommitmentIdxExplicit
        , isCommitmentIdx
+       , isOpeningIdExplicit
        , isOpeningId
+       , isOpeningIdxExplicit
        , isOpeningIdx
+       , isSharesIdExplicit
        , isSharesId
+       , isSharesIdxExplicit
        , isSharesIdx
        , mkSignedCommitment
        , secretToSharedSeed
@@ -49,14 +55,18 @@ import           Pos.Binary.Class (Bi, asBinary, biSize, fromBinary)
 import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
 import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..), SlotCount, SlotId (..),
-                           StakeholderId, addressHash, unsafeMkLocalSlotIndex)
-import           Pos.Core.Configuration (HasConfiguration, slotSecurityParam, vssMaxTTL, vssMinTTL)
+                           StakeholderId, addressHash, unsafeMkLocalSlotIndexExplicit)
+import           Pos.Core.Configuration (HasProtocolConstants, vssMaxTTL, vssMinTTL,
+                                         protocolConstants)
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
+                                             pcSlotSecurityParam)
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (getCommitmentsMap), Opening (..),
                                SignedCommitment, SscPayload (..), VssCertificate (vcExpiryEpoch),
                                VssCertificatesMap (..), mkCommitmentsMapUnsafe)
-import           Pos.Crypto (Secret, SecretKey, SignTag (SignCommitment), Threshold, VssPublicKey,
-                             checkSig, genSharedSecret, getDhSecret, secretToDhSecret, sign,
-                             toPublic, verifySecret)
+import           Pos.Crypto (ProtocolMagic, Secret, SecretKey, SignTag (SignCommitment),
+                             Threshold, VssPublicKey, checkSig, genSharedSecret,
+                             getDhSecret, secretToDhSecret, sign, toPublic, verifySecret)
+import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Util.Limits (stripHashMap)
 
 -- | Convert Secret to SharedSeed.
@@ -94,36 +104,54 @@ genCommitmentAndOpening t pks
 
 -- | Make signed commitment from commitment and epoch index using secret key.
 mkSignedCommitment
-    :: (HasConfiguration, Bi Commitment)
-    => SecretKey -> EpochIndex -> Commitment -> SignedCommitment
-mkSignedCommitment sk i c = (toPublic sk, c, sign SignCommitment sk (i, c))
+    :: (Bi Commitment)
+    => ProtocolMagic -> SecretKey -> EpochIndex -> Commitment -> SignedCommitment
+mkSignedCommitment pm sk i c = (toPublic sk, c, sign pm SignCommitment sk (i, c))
 
-toLocalSlotIndex :: HasConfiguration => SlotCount -> LocalSlotIndex
-toLocalSlotIndex = unsafeMkLocalSlotIndex . fromIntegral
+toLocalSlotIndex :: ProtocolConstants -> SlotCount -> LocalSlotIndex
+toLocalSlotIndex pc = unsafeMkLocalSlotIndexExplicit pc . fromIntegral
 
-isCommitmentIdx :: HasConfiguration => LocalSlotIndex -> Bool
-isCommitmentIdx =
-    inRange (toLocalSlotIndex 0,
-             toLocalSlotIndex (slotSecurityParam - 1))
+isCommitmentIdxExplicit :: ProtocolConstants -> LocalSlotIndex -> Bool
+isCommitmentIdxExplicit pc =
+    inRange (toLocalSlotIndex pc 0,
+             toLocalSlotIndex pc (pcSlotSecurityParam pc - 1))
 
-isOpeningIdx :: HasConfiguration => LocalSlotIndex -> Bool
-isOpeningIdx =
-    inRange (toLocalSlotIndex (2 * slotSecurityParam),
-             toLocalSlotIndex (3 * slotSecurityParam - 1))
+isCommitmentIdx :: HasProtocolConstants => LocalSlotIndex -> Bool
+isCommitmentIdx = isCommitmentIdxExplicit protocolConstants
 
-isSharesIdx :: HasConfiguration => LocalSlotIndex -> Bool
-isSharesIdx =
-    inRange (toLocalSlotIndex (4 * slotSecurityParam),
-             toLocalSlotIndex (5 * slotSecurityParam - 1))
+isOpeningIdxExplicit :: ProtocolConstants -> LocalSlotIndex -> Bool
+isOpeningIdxExplicit pc =
+    inRange (toLocalSlotIndex pc (2 * pcSlotSecurityParam pc),
+             toLocalSlotIndex pc (3 * pcSlotSecurityParam pc - 1))
 
-isCommitmentId :: HasConfiguration => SlotId -> Bool
-isCommitmentId = isCommitmentIdx . siSlot
+isOpeningIdx :: HasProtocolConstants => LocalSlotIndex -> Bool
+isOpeningIdx = isOpeningIdxExplicit protocolConstants
 
-isOpeningId :: HasConfiguration => SlotId -> Bool
-isOpeningId = isOpeningIdx . siSlot
+isSharesIdxExplicit :: ProtocolConstants -> LocalSlotIndex -> Bool
+isSharesIdxExplicit pc =
+    inRange (toLocalSlotIndex pc (4 * pcSlotSecurityParam pc),
+             toLocalSlotIndex pc (5 * pcSlotSecurityParam pc - 1))
 
-isSharesId :: HasConfiguration => SlotId -> Bool
-isSharesId = isSharesIdx . siSlot
+isSharesIdx :: HasProtocolConstants => LocalSlotIndex -> Bool
+isSharesIdx = isSharesIdxExplicit protocolConstants
+
+isCommitmentIdExplicit :: ProtocolConstants -> SlotId -> Bool
+isCommitmentIdExplicit pc = isCommitmentIdxExplicit pc . siSlot
+
+isCommitmentId :: HasProtocolConstants => SlotId -> Bool
+isCommitmentId = isCommitmentIdExplicit protocolConstants
+
+isOpeningIdExplicit :: ProtocolConstants -> SlotId -> Bool
+isOpeningIdExplicit pc = isOpeningIdxExplicit pc . siSlot
+
+isOpeningId :: HasProtocolConstants => SlotId -> Bool
+isOpeningId = isOpeningIdExplicit protocolConstants
+
+isSharesIdExplicit :: ProtocolConstants -> SlotId -> Bool
+isSharesIdExplicit pc = isSharesIdxExplicit pc . siSlot
+
+isSharesId :: HasProtocolConstants => SlotId -> Bool
+isSharesId = isSharesIdExplicit protocolConstants
 
 ----------------------------------------------------------------------------
 -- CommitmentsMap
@@ -183,9 +211,13 @@ verifyCommitment Commitment {..} = fromMaybe False $ do
 -- | Verify signature in SignedCommitment using epoch index.
 --
 -- #checkSig
-verifyCommitmentSignature :: (HasConfiguration, Bi Commitment) => EpochIndex -> SignedCommitment -> Bool
+verifyCommitmentSignature
+    :: (HasProtocolMagic, Bi Commitment)
+    => EpochIndex
+    -> SignedCommitment
+    -> Bool
 verifyCommitmentSignature epoch (pk, comm, commSig) =
-    checkSig SignCommitment pk (epoch, comm) commSig
+    checkSig protocolMagic SignCommitment pk (epoch, comm) commSig
 
 -- CHECK: @verifySignedCommitment
 -- | Verify SignedCommitment using public key and epoch index.
@@ -193,7 +225,7 @@ verifyCommitmentSignature epoch (pk, comm, commSig) =
 -- #verifyCommitmentSignature
 -- #verifyCommitment
 verifySignedCommitment
-    :: (HasConfiguration, Bi Commitment)
+    :: (HasProtocolMagic, Bi Commitment)
     => EpochIndex
     -> SignedCommitment
     -> VerificationRes
@@ -218,7 +250,7 @@ verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
 -- CHECK: @checkCertTTL
 -- | Check that the VSS certificate has valid TTL: i. e. it is in
 -- '[vssMinTTL, vssMaxTTL]'.
-checkCertTTL :: HasConfiguration => EpochIndex -> VssCertificate -> Bool
+checkCertTTL :: HasProtocolConstants => EpochIndex -> VssCertificate -> Bool
 checkCertTTL curEpochIndex vc =
     expiryEpoch + 1 >= vssMinTTL + curEpochIndex &&
     expiryEpoch < vssMaxTTL + curEpochIndex
@@ -232,7 +264,7 @@ checkCertTTL curEpochIndex vc =
 -- | Removes parts of payload so its binary representation length
 -- fits into passed limit. If limit is too low (0), we can return
 -- 'Nothing'.
-stripSscPayload :: HasConfiguration => Byte -> SscPayload -> Maybe SscPayload
+stripSscPayload :: HasProtocolConstants => Byte -> SscPayload -> Maybe SscPayload
 stripSscPayload lim payload | biSize payload <= lim = Just payload
 stripSscPayload lim payload = case payload of
     (CertificatesPayload vssmap) ->
@@ -259,7 +291,7 @@ stripSscPayload lim payload = case payload of
                  getVssCertificatesMap
 
 -- | Default SSC payload depending on local slot index.
-defaultSscPayload :: HasConfiguration => LocalSlotIndex -> SscPayload
+defaultSscPayload :: HasProtocolConstants => LocalSlotIndex -> SscPayload
 defaultSscPayload lsi
     | isCommitmentIdx lsi = CommitmentsPayload mempty mempty
     | isOpeningIdx lsi = OpeningsPayload mempty mempty

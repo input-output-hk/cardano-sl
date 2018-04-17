@@ -32,7 +32,6 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (Address, GenesisWStakeholders (..), HasConfiguration, HasPrimaryKey (..),
                            SlotId (..), Timestamp, epochOrSlotToSlot, getEpochOrSlot,
@@ -324,9 +323,6 @@ instance (MonadBlockGenBase m, MonadSlotsData ctx (BlockGenMode ext m))
 
 instance MonadBlockGenBase m => DB.MonadGState (BlockGenMode ext m) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
-
-instance MonadBlockGenBase m => HasAdoptedBlockVersionData (BlockGenMode ext m) where
-    adoptedBVData = DB.gsAdoptedBVData
 
 instance MonadBListener m => MonadBListener (BlockGenMode ext m) where
     onApplyBlocks = lift . onApplyBlocks

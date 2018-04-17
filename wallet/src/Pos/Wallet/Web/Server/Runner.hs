@@ -42,6 +42,7 @@ import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Sockets (ConnectionsVar, launchNotifier)
 import           Pos.Wallet.Web.State (WalletDB)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Web (TlsParams)
 import           Pos.WorkMode (RealMode)
 
@@ -53,25 +54,26 @@ runWRealMode
        )
     => WalletDB
     -> ConnectionsVar
+    -> SyncQueue
     -> NodeResources WalletMempoolExt
     -> (ActionSpec WalletWebMode a, OutSpecs)
     -> Production a
-runWRealMode db conn res (action, outSpecs) =
+runWRealMode db conn syncRequests res (action, outSpecs) =
     elimRealMode res serverRealMode
   where
     NodeContext {..} = nrContext res
     ekgNodeMetrics = EkgNodeMetrics
         (nrEkgStore res)
-        (runProduction . elimRealMode res . walletWebModeToRealMode db conn)
+        (runProduction . elimRealMode res . walletWebModeToRealMode db conn syncRequests)
     serverWalletWebMode :: WalletWebMode a
     serverWalletWebMode = runServer
-        (runProduction . elimRealMode res . walletWebModeToRealMode db conn)
+        (runProduction . elimRealMode res . walletWebModeToRealMode db conn syncRequests)
         ncNodeParams
         ekgNodeMetrics
         outSpecs
         action
     serverRealMode :: RealMode WalletMempoolExt a
-    serverRealMode = walletWebModeToRealMode db conn serverWalletWebMode
+    serverRealMode = walletWebModeToRealMode db conn syncRequests serverWalletWebMode
 
 walletServeWebFull
     :: ( HasConfigurations

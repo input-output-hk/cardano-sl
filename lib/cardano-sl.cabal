@@ -1,5 +1,5 @@
 name:                cardano-sl
-version:             1.1.0
+version:             1.1.1
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT
@@ -58,7 +58,6 @@ library
 
                         -- cardano-sl-client & cardano-sl-generator
                         Pos.Communication.Limits
-                        Pos.Communication.Limits.Given
                         Pos.Communication.Message
                         Pos.Communication.Types
 

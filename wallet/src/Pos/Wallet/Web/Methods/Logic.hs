@@ -73,8 +73,9 @@ import           Pos.Wallet.Web.State (AddressInfo (..),
                                        wamWalletId)
 import           Pos.Wallet.Web.State.Storage (WalletInfo (..), getWalletInfos)
 import           Pos.Wallet.Web.Tracking (BlockLockMode, CAccModifier (..), CachedCAccModifier,
-                                          IndexedMapModifier (..), sortedInsertions,
-                                          txMempoolToModifier)
+                                          sortedInsertions, txMempoolToModifier)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Modifier (IndexedMapModifier (..))
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
                                       getAccountMetaOrThrow, getWalletAccountIds,
                                       getWalletAddrMetas)
@@ -127,7 +128,7 @@ getAccount :: MonadWalletLogicRead ctx m => AccountId -> m CAccount
 getAccount accId = do
     ws <- askWalletSnapshot
     mps <- withTxpLocalData getMempoolSnapshot
-    accMod <- txMempoolToModifier ws mps =<< findKey accId
+    accMod <- txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< findKey accId
     getAccountMod ws accMod accId
 
 getAccountsIncludeUnready
@@ -143,7 +144,7 @@ getAccountsIncludeUnready ws mps includeUnready mCAddr = do
     let groupedAccIds = fmap reverse $ HM.fromListWith mappend $
                         accIds <&> \acc -> (aiWId acc, [acc])
     concatForM (HM.toList groupedAccIds) $ \(wid, walAccIds) -> do
-      accMod <- txMempoolToModifier ws mps =<< findKey wid
+      accMod <- txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< findKey wid
       mapM (getAccountMod ws accMod) walAccIds
   where
     noWallet cAddr = RequestError $
@@ -167,7 +168,7 @@ getWalletIncludeUnready ws mps includeUnready cAddr = do
     meta       <- maybeThrow noWallet $ getWalletMetaIncludeUnready ws includeUnready cAddr
     accounts   <- getAccountsIncludeUnready ws mps includeUnready (Just cAddr)
     let accountsNum = length accounts
-    accMod     <- txMempoolToModifier ws mps =<< findKey cAddr
+    accMod     <- txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< findKey cAddr
     balance    <- computeBalance accMod
     hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKById cAddr
     passLU     <- maybeThrow noWallet (getWalletPassLU ws cAddr)
@@ -180,7 +181,7 @@ getWalletIncludeUnready ws mps includeUnready cAddr = do
         pure . mkCCoin . unsafeIntegerToCoin . sumCoins $ coins
 
     noWallet = RequestError $
-        sformat ("No wallet with address "%build%" found") cAddr
+        sformat ("getWalletIncludeUnready: No wallet with address "%build%" found") cAddr
 
 getWallet :: MonadWalletLogicRead ctx m => CId Wal -> m CWallet
 getWallet wid = do
@@ -240,7 +241,7 @@ newAddress addGenSeed passphrase accId = do
     mps <- withTxpLocalData getMempoolSnapshot
     ws <- askWalletSnapshot
     cwAddrMeta <- newAddress_ ws addGenSeed passphrase accId
-    accMod <- txMempoolToModifier ws mps =<< findKey accId
+    accMod <- txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< findKey accId
     return $ getWAddress ws accMod cwAddrMeta
 
 newAccountIncludeUnready
@@ -253,7 +254,7 @@ newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} 
     -- TODO nclarke We read the mempool at this point to be consistent with the previous
     -- behaviour, but we may want to consider whether we should read it _after_ the
     -- account is created, since it's not used until we call 'getAccountMod'
-    accMod <- txMempoolToModifier ws mps =<< findKey caInitWId
+    accMod <- txMempoolToModifier ws mps . eskToWalletDecrCredentials =<< findKey caInitWId
     -- check wallet exists
     _ <- getWalletIncludeUnready ws mps includeUnready caInitWId
 
@@ -300,7 +301,7 @@ markWalletReady cid isReady = do
     return NoContent
   where
     noWallet = RequestError $
-        sformat ("No wallet with that id "%build%" found") cid
+        sformat ("markWalletReady: No wallet with that id "%build%" found") cid
 
 
 ----------------------------------------------------------------------------

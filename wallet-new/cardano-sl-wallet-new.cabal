@@ -1,5 +1,5 @@
 name:                cardano-sl-wallet-new
-version:             0.1.0.0
+version:             1.1.1
 synopsis:            The Wallet Backend for a Cardano node.
 description:         Please see README.md
 homepage:            https://github.com/input-output-hk/cardano-sl/#readme
@@ -66,6 +66,7 @@ library
                        Cardano.Wallet.WalletLayer.Kernel
                        Cardano.Wallet.WalletLayer.Legacy
                        Cardano.Wallet.WalletLayer.QuickCheck
+                       Cardano.Wallet.WalletLayer.Error
   ghc-options:         -Wall
   build-depends:       base
                      , QuickCheck
@@ -86,6 +87,7 @@ library
                      , log-warper
                      , memory
                      , mtl
+                     , unliftio-core
                      , safe-exceptions
                      , servant
                      , servant-client
@@ -93,6 +95,7 @@ library
                      , servant-quickcheck
                      , servant-server
                      , servant-swagger-ui
+                     , stm
                      , string-conv
                      , swagger2
                      , time
@@ -200,11 +203,14 @@ executable cardano-node
                      , servant-server
                      , servant-swagger
                      , servant-swagger-ui
+                     , stm
                      , string-conv
                      , swagger2
                      , text
                      , time-units
                      , universum
+                     , unliftio
+                     , unordered-containers
                      , wai
                      , wai-cors
                      , wai-extra
@@ -476,6 +482,8 @@ test-suite wallet-new-specs
                     , time
                     , time-units
                     , universum
+                    , unliftio
+                    , unordered-containers
 
 benchmark cardano-sl-wallet-new-bench
   hs-source-dirs:      bench

@@ -26,6 +26,34 @@ contain the following line:
 Wallet is disabled, because software is built w/o it
 ```
 
+## Flushing Logs to Disk
+
+Note that by default, logs are only sent to stdout/stderr. If you want to enable flushing on
+disk in rotated log files, use the `--log-config` option and specify a logging configuration 
+yaml file to define what to log and where to log it. 
+
+For instance:
+
+```yaml
+rotation:
+    logLimit: 104857600 # 100 MB
+    keepFiles: 20
+loggerTree:
+  severity: Debug+
+  files:
+    - node.log
+```
+
+You can find more examples and working configurations in _../log-configs_. Using stack, you
+may use _../log-configs/cluster.yaml_ to start a node and dump all logs to a file _node.log_:
+
+```
+$ stack exec cardano-node -- --topology=wallet-new/topology-examples/testnet.yaml \
+                             --configuration-key=mainnet_staging_short_epoch_full \
+                             --log-config=log-configs/cluster.yaml
+```
+
+
 ## API
 
 We describe how to interact with our API via the popular [Swagger](https://swagger.io/)

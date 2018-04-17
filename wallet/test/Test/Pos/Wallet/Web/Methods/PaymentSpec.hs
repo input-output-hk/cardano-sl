@@ -5,26 +5,30 @@ module Test.Pos.Wallet.Web.Methods.PaymentSpec
 import           Nub (ordNub)
 import           Universum
 
+import           Control.Exception.Safe (try)
 import           Data.Default (def)
 import           Data.List ((!!), (\\))
 import           Data.List.NonEmpty (fromList)
 import           Formatting (build, sformat, (%))
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import           Test.QuickCheck (arbitrary, choose)
+import           Test.QuickCheck (arbitrary, choose, generate)
 import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), txToLinearFee)
-import           Pos.Core (TxFeePolicy (..), bvdTxFeePolicy, mkCoin, sumCoins, unsafeGetCoin,
-                           unsafeSubCoin)
+import           Pos.Core (Address, Coin, TxFeePolicy (..), bvdTxFeePolicy, mkCoin, sumCoins,
+                           unsafeGetCoin, unsafeSubCoin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), _TxOut)
+import           Pos.Crypto (PassPhrase)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Txp (TxFee (..))
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Wallet.Web.Account (myRootAddresses)
-import           Pos.Wallet.Web.ClientTypes (CAccount (..), NewBatchPayment (..))
+import           Pos.Wallet.Web.ClientTypes (Addr, CAccount (..), CId, CTx (..),
+                                             NewBatchPayment (..), Wal)
+import           Servant.Server (ServantErr (..), err403)
 
 import           Pos.Util.QuickCheck.Property (assertProperty, expectedOne, maybeStopProperty,
                                                splitWord, stopProperty)
@@ -36,10 +40,13 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
 
 import           Pos.Util.Servant (encodeCType)
 import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.Pos.Wallet.Web.Mode (getSentTxs, submitTxTestMode, walletPropertySpec)
+import           Test.Pos.Wallet.Web.Mode (WalletProperty, getSentTxs, submitTxTestMode,
+                                           walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (deriveRandomAddress, expectedAddrBalance,
                                            importSomeWallets, mostlyEmptyPassphrases)
 
+
+deriving instance Eq CTx
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
@@ -47,10 +54,24 @@ spec = withCompileInfo def $
        withDefConfigurations $ \_ ->
        describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
     describe "newPaymentBatch" $ do
+        describe "Submitting a payment when restoring" rejectPaymentIfRestoringSpec
         describe "One payment" oneNewPaymentBatchSpec
 
-oneNewPaymentBatchSpec :: (HasCompileInfo, HasConfigurations) => Spec
-oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
+data PaymentFixture = PaymentFixture {
+      pswd        :: PassPhrase
+    , dstWalIds   :: [CId Wal]
+    , dstCAddrs   :: [CId Addr]
+    , initBalance :: Coin
+    , policy      :: InputSelectionPolicy
+    , batch       :: NewBatchPayment
+    , srcAddr     :: Address
+    , walId       :: CId Wal
+    , coins       :: [Coin]
+}
+
+-- | Generic block of code to be reused across all the different payment specs.
+newPaymentFixture :: (HasCompileInfo, HasConfigurations) => WalletProperty PaymentFixture
+newPaymentFixture = do
     passphrases <- importSomeWallets mostlyEmptyPassphrases
     let l = length passphrases
     destLen <- pick $ choose (1, l)
@@ -74,13 +95,38 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     let topBalance = unsafeGetCoin initBalance `div` 2
     coins <- pick $ map mkCoin <$> splitWord topBalance (fromIntegral destLen)
     policy <- pick arbitrary
-    let newBatchP =
-            NewBatchPayment
+    let batch = NewBatchPayment
                 { npbFrom = encodeCType srcAccId
                 , npbTo = fromList $ zip dstCAddrs coins
                 , npbInputSelectionPolicy = policy
                 }
-    void $ lift $ newPaymentBatch submitTxTestMode pswd newBatchP
+    return PaymentFixture{..}
+  where
+    getAddress ws srcAccId =
+        return . view wamAddress . adiWAddressMeta =<<
+        expectedOne "address" =<<
+        lift (getAccountAddrsOrThrow ws WS.Existing srcAccId)
+
+-- | Assess that if we try to submit a payment when the wallet is restoring,
+-- the backend prevents us from doing that.
+rejectPaymentIfRestoringSpec :: (HasCompileInfo, HasConfigurations) => Spec
+rejectPaymentIfRestoringSpec = walletPropertySpec "should fail with 403" $ do
+    PaymentFixture{..} <- newPaymentFixture
+    res <- lift $ try (newPaymentBatch submitTxTestMode pswd batch)
+    liftIO $ shouldBe res (Left (err403 { errReasonPhrase = "Transaction creation is disabled when the wallet is restoring." }))
+
+
+-- | Test one single, successful payment.
+oneNewPaymentBatchSpec :: (HasCompileInfo, HasConfigurations) => Spec
+oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
+    PaymentFixture{..} <- newPaymentFixture
+
+    -- Force the wallet to be in a (fake) synced state
+    db <- WS.askWalletDB
+    randomSyncTip <- liftIO $ generate arbitrary
+    WS.setWalletSyncTip db walId randomSyncTip
+
+    void $ lift $ newPaymentBatch submitTxTestMode pswd batch
     dstAddrs <- lift $ mapM decodeCTypeOrFail dstCAddrs
     txLinearPolicy <- lift $ (bvdTxFeePolicy <$> gsAdoptedBVData) <&> \case
         TxFeePolicyTxSizeLinear linear -> linear
@@ -114,10 +160,6 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     -- expectedUserAddresses
     -- expectedChangeAddresses
   where
-    getAddress ws srcAccId =
-        return . view wamAddress . adiWAddressMeta =<<
-        expectedOne "address" =<<
-        lift (getAccountAddrsOrThrow ws WS.Existing srcAccId)
     oneNewPaymentBatchDesc =
         "Send money from one own address to multiple own addresses; " <>
         "check balances validity for destination addresses, source address and change address; " <>

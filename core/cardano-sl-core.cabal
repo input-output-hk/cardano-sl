@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             1.1.0
+version:             1.1.1
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -30,6 +30,8 @@ library
                        Pos.Binary.Merkle
 
                        Pos.Core
+
+                       Pos.Core.ProtocolConstants
 
                        Pos.Core.Block
                        Pos.Core.Block.Blockchain

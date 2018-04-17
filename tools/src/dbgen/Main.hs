@@ -9,6 +9,7 @@ module Main where
 
 import           Universum
 
+import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Default (def)
 import           Data.Maybe (fromJust, isJust)
 import           Mockable (Production, runProduction)
@@ -27,8 +28,7 @@ import           Pos.Network.CLI (NetworkConfigOpts (..))
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
                                     topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Txp (txpGlobalSettings)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
-                                       withCompileInfo)
+import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.JsonLog (jsonLogConfigFromHandle)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
@@ -123,6 +123,7 @@ walletRunner
 walletRunner confOpts dbs secretKeyPath ws act = runProduction $ do
     wwmc <- WalletWebModeContext <$> pure ws
                                  <*> newTVarIO def
+                                 <*> liftIO newTQueueIO
                                  <*> newRealModeContext dbs confOpts secretKeyPath
     runReaderT act wwmc
 

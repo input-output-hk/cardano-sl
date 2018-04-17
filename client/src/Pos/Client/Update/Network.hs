@@ -13,6 +13,7 @@ import           Formatting (sformat, (%))
 import           System.Wlog (logInfo)
 
 import           Pos.Communication.Message ()
+import           Pos.Core (protocolMagic)
 import           Pos.Crypto (SafeSigner, hash, hashHexF)
 import           Pos.DB.Class (MonadGState)
 import           Pos.Diffusion.Types (Diffusion)
@@ -37,7 +38,7 @@ submitUpdateProposal
     -> m ()
 submitUpdateProposal diffusion ss prop = do
     let upid  = hash prop
-    let votes = [mkUpdateVoteSafe signer upid True | signer <- ss]
+    let votes = [mkUpdateVoteSafe protocolMagic signer upid True | signer <- ss]
     sendUpdateProposal diffusion upid prop votes
 
 -- Send UpdateProposal to given address.

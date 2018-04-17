@@ -124,7 +124,7 @@ pwlCreateWallet NewWallet{..} = do
     wId         <- migrate $ cwId wallet
 
     -- Get wallet or throw if missing.
-    maybeThrow (WalletNotFound wId) =<< pwlGetWallet wId
+    pwlGetWallet wId
   where
     -- | We have two functions which are very similar.
     newWalletHandler :: WalletOperation -> PassPhrase -> CWalletInit -> m CWallet
@@ -143,14 +143,14 @@ pwlGetWalletIds = do
 pwlGetWallet
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
-    -> m (Maybe Wallet)
+    -> m Wallet
 pwlGetWallet wId = do
     ws          <- askWalletSnapshot
 
     cWId        <- migrate wId
     wallet      <- V0.getWallet cWId
 
-    pure $ do
+    maybeThrow (WalletNotFound wId) $ do
         walletInfo  <- getWalletInfo cWId ws
         migrate (wallet, walletInfo, Nothing @ChainDifficulty)
 
@@ -170,7 +170,7 @@ pwlUpdateWallet wId wUpdate = do
     setWalletMeta walletDB cWId cWMeta
 
     -- Get wallet or throw if missing.
-    maybeThrow (WalletNotFound wId) =<< pwlGetWallet wId
+    pwlGetWallet wId
 
 
 pwlDeleteWallet
@@ -217,11 +217,11 @@ pwlGetAccount
     :: forall ctx m. (MonadLegacyWallet ctx m)
     => WalletId
     -> AccountIndex
-    -> m (Maybe Account)
+    -> m Account
 pwlGetAccount wId aId = do
     accId       <- migrate (wId, aId)
     account     <- V0.getAccount accId
-    Just <$> migrate account
+    migrate account
 
 
 pwlUpdateAccount
@@ -293,9 +293,7 @@ pwlGetAccountAddresses
     -> m [WalletAddress]
 pwlGetAccountAddresses wId aIdx = do
     account     <- pwlGetAccount wId aIdx
-    accAddresses <$> maybeThrow
-        (AccountNotFound wId aIdx)
-        account
+    pure $ accAddresses account
 
 
 pwlIsAddressValid

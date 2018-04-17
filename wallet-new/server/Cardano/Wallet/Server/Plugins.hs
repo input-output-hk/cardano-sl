@@ -17,7 +17,7 @@ module Cardano.Wallet.Server.Plugins (
 import           Universum
 
 import           Cardano.Wallet.API as API
-import           Cardano.Wallet.API.V1.Errors (WalletError (..))
+import qualified Cardano.Wallet.API.V1.Errors as V1
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel
 import qualified Cardano.Wallet.LegacyServer as LegacyServer
@@ -27,11 +27,12 @@ import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode
                                             walletAcidInterval, walletDbOptions)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer, PassiveWalletLayer,
                                              bracketKernelActiveWallet)
+import qualified Pos.Wallet.Web.Error.Types as V0
 
+import           Control.Exception (fromException)
 import           Data.Aeson
 import           Formatting (build, sformat, (%))
 import           Mockable
-import           Network.HTTP.Types (hContentType)
 import           Network.HTTP.Types.Status (badRequest400)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
 import           Network.Wai.Handler.Warp (defaultSettings, setOnExceptionResponse)
@@ -56,9 +57,9 @@ import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.Server.Launcher (walletServeImpl, walletServerOuts)
+import           Pos.Wallet.Web.State (askWalletDB)
 import           Pos.Wallet.Web.Tracking.Sync (processSyncRequest)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
-import           Pos.Wallet.Web.State (askWalletDB)
 import           Pos.Web (serveWeb)
 import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (WorkMode)
@@ -121,9 +122,30 @@ legacyWalletBackend WalletBackendParams {..} ntpStatus =
       return $ withMiddleware walletRunMode app
 
     exceptionHandler :: SomeException -> Response
-    exceptionHandler _ =
-        responseLBS badRequest400 [(hContentType, "application/json")] .
-            encode $ UnkownError "Something went wrong."
+    exceptionHandler se =
+        case asum [handleV1Errors se, handleV0Errors se] of
+             Nothing -> handleGenericError se
+             Just r  -> r
+
+    -- Handles domain-specific errors coming from the V1 API.
+    handleV1Errors :: SomeException -> Maybe Response
+    handleV1Errors se =
+        let reify (we :: V1.WalletError) =
+                responseLBS (V1.toHttpStatus we) [V1.applicationJson] .  encode $ we
+        in fmap reify (fromException se)
+
+    -- Handles domain-specific errors coming from the V0 API, but rewraps it
+    -- into a jsend payload.
+    handleV0Errors :: SomeException -> Maybe Response
+    handleV0Errors se =
+        let reify (re :: V0.WalletError) =
+                responseLBS badRequest400 [V1.applicationJson] .  encode $ V1.UnknownError (show re)
+        in fmap reify (fromException se)
+
+    -- Handles the generic error, trying to avoid internal exceptions to leak outside.
+    handleGenericError :: SomeException -> Response
+    handleGenericError _ =
+        responseLBS badRequest400 [V1.applicationJson] .  encode $ V1.UnknownError "Something went wrong."
 
 -- | A 'Plugin' to start the wallet REST server
 --

@@ -7069,7 +7069,7 @@ inherit (pkgs) mesa;};
          , cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp
          , cardano-sl-update, cardano-sl-util, cborg, conduit, containers
          , cpphs, cryptonite, data-default, directory, ekg-core, ether
-         , exceptions, filepath, formatting, generic-arbitrary, lens
+         , exceptions, filepath, formatting, generic-arbitrary, hspec, lens
          , log-warper, mtl, QuickCheck, random, reflection
          , rocksdb-haskell-ng, safe-exceptions, serokell-util, stdenv, stm
          , text, text-format, time-units, transformers, universum, unliftio
@@ -7091,6 +7091,12 @@ inherit (pkgs) mesa;};
              transformers universum unliftio unordered-containers
            ];
            libraryToolDepends = [ cpphs ];
+           testHaskellDepends = [
+             base bytestring cardano-sl-binary cardano-sl-core cardano-sl-crypto
+             cardano-sl-db cardano-sl-delegation cardano-sl-infra cardano-sl-ssc
+             cardano-sl-txp cardano-sl-update cardano-sl-util hspec lens text
+             universum
+           ];
            doHaddock = false;
            description = "Cardano SL - block processing";
            license = stdenv.lib.licenses.mit;

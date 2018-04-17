@@ -1,6 +1,7 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TypeOperators        #-}
+{-# OPTIONS_GHC -Weverything      #-}
 
 -- | Interface and implementation of Blocks DB: storing blocks in files on disk.
 
@@ -24,6 +25,7 @@ module Pos.DB.Block
        , dbGetSerBlockRealDefault
        , dbGetSerUndoRealDefault
        , dbPutSerBlundsRealDefault
+       , dbPutSerBlundsRealDefaultNoIndex
 
        -- * DBSum implementation
        , dbGetSerBlockSumDefault
@@ -59,7 +61,7 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), Serialized (..), 
 import           Pos.DB.Error (DBError (..))
 import           Pos.DB.GState.Common (getTipSomething)
 import           Pos.DB.Pure (DBPureVar, MonadPureDB, atomicModifyIORefPure, pureBlocksStorage)
-import           Pos.DB.Rocks (MonadRealDB, blockDataDir, getNodeDBs)
+import           Pos.DB.Rocks (MonadRealDB, blockDataDir, getNodeDBs, NodeDBs)
 import           Pos.DB.Sum (MonadDBSum, eitherDB)
 import           Pos.Delegation.Types (DlgUndo (..))
 import           Pos.Util.Util (HasLens (..), eitherToThrow)
@@ -91,10 +93,17 @@ getTipBlock = getTipSomething "block" getBlock
 ----------------------------------------------------------------------------
 
 -- Get serialization of a block with given hash from Block DB.
-getSerializedBlock
-    :: forall ctx m. (MonadRealDB ctx m)
-    => HeaderHash -> m (Maybe ByteString)
-getSerializedBlock = blockDataPath >=> getRawData
+getSerializedBlock ::
+    ( MonadReader ctx m
+    , HasLens NodeDBs ctx NodeDBs
+    , MonadIO m
+    , MonadCatch m
+    , HasConfiguration)
+    => FilePath -> HeaderHash -> m (Maybe ByteString)
+getSerializedBlock bdd hh = do
+    path <- blockDataPath hh
+    maybeContents <- getRawData path
+    pure maybeContents
 
 -- Get serialization of an undo data for block with given hash from Block DB.
 getSerializedUndo :: (MonadRealDB ctx m) => HeaderHash -> m (Maybe ByteString)
@@ -102,11 +111,19 @@ getSerializedUndo = undoDataPath >=> getRawData
 
 -- For every blund, put given block, its metadata and Undo data into
 -- Block DB. This function uses 'MonadRealDB' constraint which is too
--- severe. Consider using 'dbPutBlund' instead.
+-- severe.
 putSerializedBlunds
     :: (MonadRealDB ctx m, MonadDB m)
     => NonEmpty SerializedBlund -> m ()
-putSerializedBlunds (toList -> bs) = do
+putSerializedBlunds rawBs = do
+    let bs = toList rawBs
+    putSerializedBlundsNoIndex rawBs
+    putHeadersIndex $ toList $ map (CB.getBlockHeader . fst) bs
+
+putSerializedBlundsNoIndex
+    :: (MonadIO m, MonadReader ctx0 m, HasLens NodeDBs ctx0 NodeDBs, HasConfiguration, MonadCatch m)
+    => NonEmpty SerializedBlund -> m ()
+putSerializedBlundsNoIndex (toList -> bs) = do
     bdd <- view blockDataDir <$> getNodeDBs
     let allData = map (\(b,u) -> let (dP, bP, uP) = getAllPaths bdd (headerHash b)
                                  in (dP,(b,u,bP,uP))
@@ -117,7 +134,6 @@ putSerializedBlunds (toList -> bs) = do
     forM_ (map snd allData) $ \(blk,serUndo,bPath,uPath) -> do
         putData bPath blk
         putRawData uPath (unSerialized serUndo)
-    putHeadersIndex $ toList $ map (CB.getBlockHeader . fst) bs
 
 deleteBlock :: (MonadRealDB ctx m, MonadDB m) => HeaderHash -> m ()
 deleteBlock hh = do
@@ -202,10 +218,16 @@ type BlockDBGenericEnv ctx m =
     )
 
 dbGetSerBlockRealDefault ::
-       forall ctx m. (BlockDBGenericEnv ctx m)
-    => HeaderHash
-    -> m (Maybe SerializedBlock)
-dbGetSerBlockRealDefault x = Serialized <<$>> getSerializedBlock x
+    ( HasCallStack
+    , MonadIO m
+    , HasLens NodeDBs ctx NodeDBs
+    , MonadReader ctx m
+    , MonadCatch m
+    , HasConfiguration)
+    => HeaderHash -> m (Maybe SerializedBlock)
+dbGetSerBlockRealDefault x = do
+    bdd <- view blockDataDir <$> getNodeDBs
+    Serialized <<$>> getSerializedBlock bdd x
 
 dbGetSerUndoRealDefault ::
        forall ctx m. BlockDBGenericEnv ctx m
@@ -219,6 +241,12 @@ dbPutSerBlundsRealDefault ::
     -> m ()
 dbPutSerBlundsRealDefault = putSerializedBlunds
 
+dbPutSerBlundsRealDefaultNoIndex ::
+       (MonadReader ctx m, MonadIO m, HasLens NodeDBs ctx NodeDBs, HasConfiguration, MonadCatch m)
+    => NonEmpty SerializedBlund
+    -> m ()
+dbPutSerBlundsRealDefaultNoIndex = putSerializedBlundsNoIndex
+
 ----------------------------------------------------------------------------
 -- DBSum implementation
 ----------------------------------------------------------------------------
@@ -229,14 +257,14 @@ type DBSumEnv ctx m =
     )
 
 dbGetSerBlockSumDefault
-    :: forall ctx m. (DBSumEnv ctx m)
+    :: forall ctx m. (DBSumEnv ctx m, MonadIO m, MonadRealDB ctx m)
     => HeaderHash -> m (Maybe SerializedBlock)
 dbGetSerBlockSumDefault hh = eitherDB (dbGetSerBlockRealDefault hh) (dbGetSerBlockPureDefault hh)
 
 dbGetSerUndoSumDefault
-    :: forall ctx m. DBSumEnv ctx m
+    :: forall ctx m. (DBSumEnv ctx m, MonadRealDB ctx m)
     => HeaderHash -> m (Maybe SerializedUndo)
-dbGetSerUndoSumDefault hh =
+dbGetSerUndoSumDefault hh = do
     eitherDB (dbGetSerUndoRealDefault hh) (dbGetSerUndoPureDefault hh)
 
 dbPutSerBlundsSumDefault

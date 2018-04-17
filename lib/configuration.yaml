@@ -14902,7 +14902,7 @@ michaelnet: &michaelnet
           slotDuration:     5000
         protocolConstants:
           <<: *devnet_protocol
-          protocolMagic: 3588277354
+          protocolMagic: 1626667360
           k: 64
 
 devnet_win64:

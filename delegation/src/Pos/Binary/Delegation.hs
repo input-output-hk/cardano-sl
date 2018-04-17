@@ -21,4 +21,5 @@ deriveSimpleBi ''DlgUndo [
 
 instance Bi (DataMsg ProxySKHeavy) where
     encode = encode . dmContents
+    encodedSize = encodedSize . dmContents
     decode = DataMsg <$> decode

@@ -25,6 +25,15 @@ instance HasConfiguration => Bi VssCertData where
         , encode whenExpire
         , encode expiredCerts
         ]
+    encodedSize VssCertData {..} = getSum $ mconcat
+        [ Sum 1
+        , Sum $ encodedSize lastKnownEoS
+        , Sum $ encodedSize (getVssCertificatesMap certs)
+        , Sum $ encodedSize whenInsMap
+        , Sum $ encodedSize whenInsSet
+        , Sum $ encodedSize whenExpire
+        , Sum $ encodedSize expiredCerts
+        ]
     decode = do
         enforceSize "VssCertData" 6
         lastKnownEoS <- decode

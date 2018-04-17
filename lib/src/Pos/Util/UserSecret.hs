@@ -188,6 +188,10 @@ instance Bi UserSecret where
                                       encode (_usPrimKey us) <>
                                       encode (_usKeys us) <>
                                       encode (_usWallet us)
+  encodedSize us = 1 + encodedSize (_usVss us) +
+                                      encodedSize (_usPrimKey us) +
+                                      encodedSize (_usKeys us) +
+                                      encodedSize (_usWallet us)
   decode = do
     enforceSize "UserSecret" 4
     vss  <- decode

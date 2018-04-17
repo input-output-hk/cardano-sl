@@ -142,12 +142,13 @@ verifyHeader VerifyHeaderParams {..} h =
             Nothing -> mempty
             -- FIXME do not use 'biSize'! It's expensive.
             Just maxSize ->
-                [ ( Bi.biSize h <= maxSize
-                  , sformat
-                        ("header's size exceeds limit ("%memory%" > "%memory%")")
-                        (Bi.biSize h)
-                        maxSize)
-                ]
+                let hSize = Bi.encodedSize h
+                in [ ( hSize <= maxSize
+                    , sformat
+                            ("header's size exceeds limit ("%memory%" > "%memory%")")
+                            hSize
+                            maxSize)
+                    ]
 
     -- CHECK: Performs checks related to the previous header:
     --
@@ -266,10 +267,7 @@ verifyBlock VerifyBlockParams {..} blk = mconcat
     , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
     ]
   where
-    -- Oh no! Verification involves re-searilizing the thing!
-    -- What a tragic waste.
-    -- What shall we do about this?
-    blkSize = Bi.biSize blk
+    blkSize = Bi.encodedSize blk
     checkSize maxSize = verifyGeneric [
       (blkSize <= maxSize,
        sformat ("block's size exceeds limit ("%memory%" > "%memory%")")

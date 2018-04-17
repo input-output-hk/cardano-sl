@@ -18,6 +18,7 @@ import           Pos.Util.Util (cborError)
 
 instance Bi (DataMsg (U.UpdateProposal, [U.UpdateVote])) where
     encode = encode . dmContents
+    encodedSize = encodedSize . dmContents
     decode = do
         c@(up, votes) <- decode
         let !id = hash up
@@ -28,4 +29,5 @@ instance Bi (DataMsg (U.UpdateProposal, [U.UpdateVote])) where
 
 instance Bi (DataMsg U.UpdateVote) where
     encode = encode . dmContents
+    encodedSize = encodedSize . dmContents
     decode = DataMsg <$> decode

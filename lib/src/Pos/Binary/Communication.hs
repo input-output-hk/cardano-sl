@@ -9,11 +9,13 @@ module Pos.Binary.Communication
 import           Universum
 
 import qualified Data.ByteString.Lazy as LBS
+import           Serokell.Data.Memory.Units (fromBytes)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
                                    decodeUnknownCborDataItem, deriveSimpleBi,
-                                   encodeKnownCborDataItem, encodeListLen,
-                                   encodeUnknownCborDataItem, enforceSize)
+                                   encodeKnownCborDataItem, encodedKnownCborDataItemSize,
+                                   encodeListLen, encodeUnknownCborDataItem,
+                                   encodedUnknownCborDataItemSize, enforceSize, withSize)
 import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
@@ -46,6 +48,9 @@ instance Bi MsgHeaders where
     encode = \case
         (MsgHeaders b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
         (MsgNoHeaders t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
+    encodedSize = \case
+        (MsgHeaders b) -> 2 + encodedSize b
+        (MsgNoHeaders t) -> 2 + encodedSize t
     decode = do
         enforceSize "MsgHeaders" 2
         tag <- decode @Word8
@@ -58,6 +63,9 @@ instance Bi MsgBlock where
     encode = \case
         (MsgBlock b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
         (MsgNoBlock t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
+    encodedSize = \case
+        (MsgBlock b) -> 2 + encodedSize b
+        (MsgNoBlock t) -> 2 + encodedSize t
     decode = do
         enforceSize "MsgBlock" 2
         tag <- decode @Word8
@@ -71,6 +79,7 @@ instance Bi MsgBlock where
 -- TODO: Shall we encode this as `CBOR` TkNull?
 instance Bi MsgSubscribe1 where
     encode MsgSubscribe1 = encode (42 :: Word8)
+    encodedSize _ = 2
     decode = decode @Word8 >>= \case
         42 -> pure MsgSubscribe1
         n  -> cborError $ "MsgSubscribe1 wrong byte:" <> show n
@@ -79,6 +88,7 @@ instance Bi MsgSubscribe where
     encode = \case
         MsgSubscribe          -> encode (42 :: Word8)
         MsgSubscribeKeepAlive -> encode (43 :: Word8)
+    encodedSize _ = 2
     decode = decode @Word8 >>= \case
         42 -> pure MsgSubscribe
         43 -> pure MsgSubscribeKeepAlive
@@ -94,6 +104,12 @@ instance Bi HandlerSpec where
             encodeListLen 2 <> encode (0 :: Word8) <> encodeKnownCborDataItem mname
         UnknownHandler word8 bs  ->
             encodeListLen 2 <> encode word8 <> encodeUnknownCborDataItem (LBS.fromStrict bs)
+    encodedSize input = case input of
+        ConvHandler mname        ->
+            2 + encodedKnownCborDataItemSize mname
+        UnknownHandler word8 bs  ->
+            let len = fromIntegral $ length bs
+            in 2 + encodedSize word8 + withSize len 1 2 3 5 9 + encodedUnknownCborDataItemSize (fromBytes len)
     decode = do
         enforceSize "HandlerSpec" 2
         tag <- decode @Word8

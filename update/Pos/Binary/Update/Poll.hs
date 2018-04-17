@@ -24,6 +24,8 @@ deriveSimpleBi ''U.VoteState [
 instance Bi a => Bi (U.PrevValue a) where
     encode (U.PrevValue a) = encodeListLen 1 <> encode a
     encode U.NoExist       = encodeListLen 0
+    encodedSize (U.PrevValue a) = 1 + encodedSize a
+    encodedSize U.NoExist       = 1
     decode = do
         len <- decodeListLenCanonical
         case len of

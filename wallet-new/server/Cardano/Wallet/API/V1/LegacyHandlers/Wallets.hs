@@ -1,4 +1,9 @@
-module Cardano.Wallet.API.V1.LegacyHandlers.Wallets where
+module Cardano.Wallet.API.V1.LegacyHandlers.Wallets (
+      handlers
+
+    -- * Internals, exposed only for testing
+    , isNodeSufficientlySynced
+    ) where
 
 import           Universum
 import           UnliftIO (MonadUnliftIO)
@@ -15,6 +20,7 @@ import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import qualified Data.IxSet.Typed as IxSet
+import qualified Pos.Core as Core
 import           Pos.Update.Configuration ()
 
 import           Pos.Util (HasLens (..))
@@ -35,6 +41,23 @@ handlers = newWallet
     :<|> getWallet
     :<|> updateWallet
 
+
+-- | Monadic action which returns whether or not the underlying node is
+-- "synced enough" to allow wallet creation/restoration. The notion of
+-- "synced enough" is quite vague and if made too stringent could prevent
+-- the backend to operate normally for wallets which are on a slow network
+-- or are struggling to keep up. Therefore we consider a node to be "synced
+-- enough" with the blockchain if we are not lagging more than @k@ slots, where
+-- @k@ comes from the `blkSecurityParam`.
+isNodeSufficientlySynced :: Core.HasProtocolConstants => V0.SyncProgress -> Bool
+isNodeSufficientlySynced spV0 =
+    let blockchainHeight = fromMaybe (Core.BlockCount maxBound)
+                                     (Core.getChainDifficulty <$> V0._spNetworkCD spV0)
+        localHeight = Core.getChainDifficulty . V0._spLocalCD $ spV0
+        remainingBlocks = blockchainHeight - localHeight
+
+        in remainingBlocks <= Core.blkSecurityParam
+
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored
 -- wallet in the 'Wallet' type.
@@ -48,6 +71,14 @@ newWallet
     => NewWallet
     -> m (WalletResponse Wallet)
 newWallet NewWallet{..} = do
+
+    spV0 <- V0.syncProgress
+    syncPercentage <- migrate spV0
+
+    -- Do now allow creation or restoration of wallets if the underlying node
+    -- is still catching up.
+    unless (isNodeSufficientlySynced spV0) $ throwM (NodeIsStillSyncing syncPercentage)
+
     let newWalletHandler CreateWallet  = V0.newWallet
         newWalletHandler RestoreWallet = V0.restoreWalletFromSeed
         (V1 spendingPassword) = fromMaybe (V1 mempty) newwalSpendingPassword

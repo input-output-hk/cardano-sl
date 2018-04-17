@@ -53,13 +53,13 @@ data PassiveWalletLayer m = PassiveWalletLayer
     -- * wallets
       _pwlCreateWallet   :: NewWallet -> WalletLayerResponse m Wallet
     , _pwlGetWalletIds   :: WalletLayerResponse m [WalletId]
-    , _pwlGetWallet      :: WalletId -> WalletLayerResponse m (Maybe Wallet)
+    , _pwlGetWallet      :: WalletId -> WalletLayerResponse m Wallet
     , _pwlUpdateWallet   :: WalletId -> WalletUpdate -> WalletLayerResponse m Wallet
     , _pwlDeleteWallet   :: WalletId -> WalletLayerResponse m ()
     -- * accounts
     , _pwlCreateAccount  :: WalletId -> NewAccount -> WalletLayerResponse m Account
     , _pwlGetAccounts    :: WalletId -> WalletLayerResponse m [Account]
-    , _pwlGetAccount     :: WalletId -> AccountIndex -> WalletLayerResponse m (Maybe Account)
+    , _pwlGetAccount     :: WalletId -> AccountIndex -> WalletLayerResponse m Account
     , _pwlUpdateAccount  :: WalletId -> AccountIndex -> AccountUpdate -> WalletLayerResponse m Account
     , _pwlDeleteAccount  :: WalletId -> AccountIndex -> WalletLayerResponse m ()
     -- * addresses
@@ -80,7 +80,7 @@ createWallet pwl = pwl ^. pwlCreateWallet
 getWalletIds :: forall m. PassiveWalletLayer m -> WalletLayerResponse m [WalletId]
 getWalletIds pwl = pwl ^. pwlGetWalletIds
 
-getWallet :: forall m. PassiveWalletLayer m -> WalletId -> WalletLayerResponse m (Maybe Wallet)
+getWallet :: forall m. PassiveWalletLayer m -> WalletId -> WalletLayerResponse m Wallet
 getWallet pwl = pwl ^. pwlGetWallet
 
 updateWallet :: forall m. PassiveWalletLayer m -> WalletId -> WalletUpdate -> WalletLayerResponse m Wallet
@@ -96,7 +96,7 @@ createAccount pwl = pwl ^. pwlCreateAccount
 getAccounts :: forall m. PassiveWalletLayer m -> WalletId -> WalletLayerResponse m [Account]
 getAccounts pwl = pwl ^. pwlGetAccounts
 
-getAccount :: forall m. PassiveWalletLayer m -> WalletId -> AccountIndex -> WalletLayerResponse m (Maybe Account)
+getAccount :: forall m. PassiveWalletLayer m -> WalletId -> AccountIndex -> WalletLayerResponse m Account
 getAccount pwl = pwl ^. pwlGetAccount
 
 updateAccount :: forall m. PassiveWalletLayer m -> WalletId -> AccountIndex -> AccountUpdate -> WalletLayerResponse m Account

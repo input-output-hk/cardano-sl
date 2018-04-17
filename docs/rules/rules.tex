@@ -38,6 +38,7 @@
 \newcommand{\pos}[2]{{#2}_{#1}}
 \newcommand{\length}[1]{|#1|}
 \newcommand{\rem}[2]{\mathrm{rem}_{#1}(#2)}
+\newcommand{\supportsize}[1]{|#1|}
 
 \newcommand{\idsof}[1]{\mathcal{I}\!_#1}
 \newcommand{\id}{\mathsf{id}}
@@ -78,6 +79,9 @@
 \newcommand{\delegatee}[1]{\mathsf{delegatee}(#1)}
 \newcommand{\delegationcertificates}[1]{\mathsf{certificates}_\mathsf{delegation}(#1)}
 \newcommand{\selectrichman}[1]{\mathsf{select}_\mathsf{richmen}(#1)}
+\newcommand{\stakerepartitions}{\mathcal{R}}
+\newcommand{\repartition}[1]{\mathsf{repartition}(#1)}
+\newcommand{\bootstraprepartition}{r_\mathsf{bootstrap}}
 
 %% /macros %%
 
@@ -202,6 +206,22 @@ as it is.\improvement{We may want to add something about protocol
   at slot $i$.\unsure{This sentence is unclear to me. As verification hasn't
     been discussed yet, maybe just leave it out?}
 
+\item[Stake repartition] A stake repartition is a function
+  $r ∈ \stakerepartitions ⊆ \agentids ⟶ \mathbb{Q}$ with finite
+  support, and such that $r(a) ⩾ 0$ for all $a$. And such that
+  $∑_{a∈\agentids} r(a) = 1$.\unsure{In the bootstrap era, there is a
+    single stake repartition, so the following doesn't really matter.
+
+    But there is a further question of what is data validation, and
+    what is a block validation rule. For instance, non-empty lists in
+    the spec are typed as such, so if the serialised input contains an
+    empty list where a non-empty list is expected, it would fail data
+    validation. In a spec for after bootstrap, it must be decided
+    whether the non-negativity and sums-to-one property of stake
+    repartitions are similarly performed in data validation, or as
+    block validation rule. My opinion is that it would be saner, more
+    modular, to do it during data validation.}
+
 \item[Transaction] Transactions have a system of identifiers
   $\txids$.
 
@@ -218,15 +238,16 @@ as it is.\improvement{We may want to add something about protocol
     \item $\inindex{in} = ix$
     \end{itemize}
 
-  \item[Outputs] A non-empty list of pairs in $\nelists{(\agentids ×
-    ℕ)}$.\improvement{This only embodies pay-to-public-key schemes. For
-      pay-to-script and such, we will need further
-      refinements.}
+  \item[Outputs] A non-empty list of triples in
+    $\nelists{(\agentids × ℕ × \stakerepartitions)}$.\improvement{This
+      only embodies pay-to-public-key schemes. For pay-to-script and
+      such, we will need further refinements.}
 
-    For an output $out = (id, q)$, we write
+    For an output $out = (id, q, r)$, we write
     \begin{itemize}
     \item $\recipient{out} = id$
     \item $\amount{out} = q$
+    \item $\repartition{out} = r$
     \end{itemize}
 
   \item[Witnesses] A non-empty list $w∈\nelists{\agentids}$ of agent
@@ -309,6 +330,18 @@ as it is.\improvement{We may want to add something about protocol
     being, that the richmen all get the same share of stake of each
     output. This is not necessary in cardano, but it is the case in
     practice. We can refine later if we so wish}
+
+  We assume a stake repartition
+  $\bootstraprepartition ∈ \stakerepartitions$ which allocates stake
+  to each richmen in equal proportion. That is\improvement{Define
+    cardinal notation for finite-support functions.}
+  $$
+  \bootstraprepartition(a) = \left\{
+    \begin{array}{cl}
+      \displaystyle{\frac{1}{\supportsize{r}}}& \mbox{if $a∈\richmen$}\\
+      0 & \mbox{otherwise}
+    \end{array}\right.
+  $$
 
   We will also assume a function $\selectrichman{⋅} ∈ ℕ ⟶ \richmen$
   which selects one of the richmen based on the value of an unspent
@@ -410,30 +443,35 @@ $b_1,…,b_n$ if all of the following hold
       \pos{k}{\witnesses{τ}}
       $$
     \end{description}
-  \item[Delegation certificates] Let
-    $\overline{c}=\delegationcertificates{b}$ be the list of
-    delegation certificates of $b$. Then for any two
-    $c₁,c₂∈\overline{c}$, it must hold that
-    $\delegator{c₁}≠\delegator{c₂}$.
 
-    Note that this prevents any agent which has issued a delegation
-    certificate to another party to issue any block: they \emph{must}
-    be signed by the delegatee (or, transitively, by the agent
-    authorised to sign instead of the delegatee). That is, until the
-    agent issues a new delegation certificate to itself, which, in
-    effect, revokes any previous delegation certificate. See also the
-    definition of $\transitivefix{g}$ in
-    Section~\ref{sec:definitions}.
-
-  \item[Bootstrap era]\info{These rules are only used during the
+    \item[Bootstrap era]\info{These rules are only used during the
       bootstrap era. They are, however, not qualified because in the
       current state of the document, only the bootstrap era is documented.}\hfill
     \begin{description}
-    \item[No stake for poormen] \improvement{Placeholder: will
-        describe the rule by which all stake must be delegated to the richmen}
-    \end{description}
+    \item[No stake for poormen] For every output $o∈\outputs{τ}$, the
+      stake is delegated in to the richmen:
+      $\repartition{o} = \bootstraprepartition$.\improvement{This is
+        slightly imprecise because the bootstrap repartition has two
+        representations in Cardano's block chain: it has a name (a
+        data constructor), but it can also be represented by a
+        explicit map. Only the former is actually permitted}
 
+    \end{description}
   \end{description}
+
+\item[Delegation certificates] Let
+  $\overline{c}=\delegationcertificates{b}$ be the list of delegation
+  certificates of $b$. Then for any two $c₁,c₂∈\overline{c}$, it must
+  hold that $\delegator{c₁}≠\delegator{c₂}$.
+
+  Note that this prevents any agent which has issued a delegation
+  certificate to another party to issue any block: they \emph{must} be
+  signed by the delegatee (or, transitively, by the agent authorised
+  to sign instead of the delegatee). That is, until the agent issues a
+  new delegation certificate to itself, which, in effect, revokes any
+  previous delegation certificate. See also the definition of
+  $\transitivefix{g}$ in Section~\ref{sec:definitions}.
+
 \end{description}
 
 \section{Derived functions}

@@ -40,6 +40,8 @@
 \newcommand{\rem}[2]{\mathrm{rem}_{#1}(#2)}
 \newcommand{\supportsize}[1]{|#1|}
 
+\newcommand{\kronecker}[2]{[#1 = #2]}
+
 \newcommand{\idsof}[1]{\mathcal{I}\!_#1}
 \newcommand{\id}{\mathsf{id}}
 \newcommand{\txs}{\mathcal{T}}
@@ -82,6 +84,7 @@
 \newcommand{\stakerepartitions}{\mathcal{R}}
 \newcommand{\repartition}[1]{\mathsf{repartition}(#1)}
 \newcommand{\bootstraprepartition}{r_\mathsf{bootstrap}}
+\newcommand{\stakeof}[2]{\mathsf{stake}(#1,#2)}
 
 %% /macros %%
 
@@ -406,10 +409,11 @@ $b_1,…,b_n$ if all of the following hold
       \end{itemize}
 
       In these conditions, we can extend the function $\recipient{⋅}$
-      and $\amount{⋅}$ on the $i$ as
+      and $\amount{⋅}$, as well as $\repartition{⋅}$, on the $i$ as
       \begin{itemize}
       \item $\recipient{i} = \recipient{\pos{\inindex{i}}{\outputs{\intrans{i}}}}$
       \item $\amount{i} = \amount{\pos{\inindex{i}}{\outputs{\intrans{i}}}}$
+      \item $\repartition{i} = \repartition{\pos{\inindex{i}}{\outputs{\intrans{i}}}}$
       \end{itemize}
       \info{Remark: in all this rule, we use implicitly
         $\overline{τ}$, to cast $\intrans{i}∈\txids$ to an actual
@@ -470,22 +474,37 @@ $b_1,…,b_n$ if all of the following hold
   chains. It is mutually recursive with Section~\ref{sec:adding-block}.}
 
 \begin{description}
-\item[Stake distribution] \info{The stake distribution at any given
-    point, as well as at the last epoch}Let us define
+\item[Stake distribution] Let us define
   $\currentdistribution{τ₁,…,τ_n}$ by induction, for a valid sequence
   of transactions\improvement{Valid sequence of transaction hasn't
     properly been defined, but it's implicit in the definition above,
     it would maybe be worth making more precise.}:
   \begin{itemize}
   \item $\currentdistribution{\emptylist} = \initialdistribution$
-  \item Inductively (note that we use the validity hypothesis in order
-    to define $\recipient{i}$ and $\amount{i}$):\improvement{Ignores
-      stake delegation}
+  \item Inductively, and writing
+    \begin{itemize}
+    \item $\kronecker{⋅}{⋅}$ for Kronecker's delta function
+      (\emph{i.e.} $\kronecker{i}{j}$ is $1$ if $i=j$ and $0$
+      otherwise)
+    \item $\stakeof{o}{a} = \repartition{o}(a).\amount{o} ∈ \mathbb{Q}$
+    \item For inputs of $τ_{n+1}$, we extend $\stakeof{⋅}{⋅}$ to
+      inputs using the validity hypothesis to define $\repartition{i}$ and $\amount{i}$
+    \end{itemize}
+    We define
+    \improvement{The
+      treatment of remainder as specified here is only valid for
+      the bootstrap era.}
+\newcommand{\stakerepartitionformula}[4]{∑_{#2∈#3} + \left\{
+            \begin{aligned}
+              &⌊\stakeof{#2}{#1}⌋\\
+              &\kronecker{#1}{\selectrichman{\amount{#2}}}\left(\amount{#2} - ∑_{#4∈\agentids}
+            ⌊\stakeof{#2}{#4}⌋\right)
+            \end{aligned}\right\}}
     \begin{align*}
-      \currentdistribution{τ₁,…,τ_n, τ_{n+1}}(a)
-      & = &\currentdistribution{τ₁,…τ_n}(a)\\
-      & - & \left(∑_{\scriptsize \begin{array}{c} i∈\inputs{τ_{n+1}}\\\recipient{i}=a \end{array}} \amount{i} \right)\\
-      & + & \left(∑_{\scriptsize \begin{array}{c} o∈\outputs{τ_{n+1}}\\ \recipient{o}=a \end{array}} \amount{o} \right)
+      \makebox[3em][l]{$\currentdistribution{τ₁,…,τ_n, τ_{n+1}}(a) =$}\\
+      & \phantom{=} \currentdistribution{τ₁,…τ_n}(a)\\
+      & - \stakerepartitionformula{a}{i}{\inputs{τ_{n+1}}}{b}\\
+      & + \stakerepartitionformula{a}{o}{\outputs{τ_{n+1}}}{b}
     \end{align*}
   \end{itemize}
 

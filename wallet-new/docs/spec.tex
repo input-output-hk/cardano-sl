@@ -2110,17 +2110,28 @@ well as the actual UTxO.
 
 \section{Tracking Metadata}
 
-The wallet may wish to track some additional information about transactions and
-blocks. In this section we first study how we can model this abstractly, and
-then how we can instantiate that abstract model to record the data that we
-are interested in in the actual implementation.
+A real wallet implementation may need to store more information than
+we have modelled in the specification so far. For instance, users may wish to
+know \emph{when} their pending transactions got confirmed in the blockchain
+(as opposed to merely \emph{that} they were confirmed), or what the effect
+was of a particular transaction on their balance (rather than merely being
+able to see the current balance).
+
+In Section~\ref{sec:abstract_metadata} we first study this kind of \emph{metadata}
+from an abstract point of view; here the main question we want to answer is
+how this metadata relates to the state of the wallet, and in particular to
+rollbacks. Then in Section~\ref{sec:transaction_history} we will see how
+we can instantiate the abstract model from Section~\ref{sec:abstract_metadata}
+to track the metadata required by the actual Cardano (V1) wallet.
 
 \subsection{Abstract model}
+\label{sec:abstract_metadata}
 
-From the point of the abstract wallet specification we are primarily
-interested in modelling how this relates to rollback. The basic model is shown
-in Figure~\ref{fig:tracking_metadata}. The specification is parameterized
-by the type of metadata:
+Our abstract model of tracking metadata is shown in
+Figure~\ref{fig:tracking_metadata}. We distinguish between \emph{block}
+metadata, $\mathsf{BlockMeta}$, and \emph{transaction} metadata,
+$\mathsf{TxMeta}$. The key idea is that the block metadata depends on the
+state of the blockchain, but the transaction metadata does not. Specifically:
 
 \begin{itemize}
 \item Transaction metadata $\mathsf{TxMeta}$ is assumed to be stateless;
@@ -2170,16 +2181,19 @@ on rollback we simply revert to the previous value of the block metadata.
 \caption{\label{fig:tracking_metadata}Tracking metadata}
 \end{figure}
 
-In order to make metadata tracking work well with prefiltering it suffices
-to make sure that $\mathsf{blockMeta}$ can take a prefiltered block as argument.
-In an actual implementation, this means that if $\mathsf{blockMeta}$ needs
-any additional information other than the transactions, the prefiltering
-function needs to ensure to add this information also to the prefiltered block.
+\paragraph{Note on prefiltering.} The model we show in
+Figure~\ref{fig:tracking_metadata} does not implement prefiltering
+(Section~\ref{sec:prefiltering}). In order to make metadata tracking work well
+with prefiltering it suffices to make sure that $\mathsf{blockMeta}$ can take a
+prefiltered block as argument. In an actual implementation, this means that if
+$\mathsf{blockMeta}$ needs any additional information other than the
+transactions, the prefiltering function needs to ensure that this information
+is included in the prefiltered block.
 
 \subsection{Transaction history}
 \label{sec:transaction_history}
 
-This section is a bit more technique in nature and studies how the transaction
+This section is a bit more technical in nature and studies how the transaction
 metadata reported in the current wallet `V1 REST API' can be defined in terms
 of the abstract model from Figure~\ref{fig:tracking_metadata}.
 
@@ -2197,16 +2211,15 @@ This includes
 \item transaction ID
 \item total amount
 \item inputs and outputs (both in terms of addresses)
-\item whether the transaction is ``local'' or not
-(\emph{all} input and output addresses are owned by the wallet)
 \item the transaction creation time
 (as a timestamp in microseconds, not as a slot number)
-\item the transaction direction (incoming or outgoing)
+\item whether or not the transaction is \emph{local}
+(\emph{all} input and output addresses are owned by the wallet)
+\item the transaction's \emph{direction}: \emph{incoming} if the transaction
+increases the wallet's balance, or \emph{outgoing} otherwise\footnote{this
+roughly matches the informal usage of `incoming' and `outgoing' elsewhere in
+this document.}
 \end{itemize}
-%
-For the final classification (incoming or outgoing), we can mark a
-transaction as outgoing when it is introduced by $\mathsf{newPending}$,
-and incoming otherwise.
 
 \subsubsection{Information dependent on chain status}
 \label{sec:confirmations}
@@ -2235,9 +2248,10 @@ is in the pending set.
 \item[\texttt{InNewestBlocks}] The transaction has been included in the blockchain,
 but may still be rolled back.
 \item[\texttt{Persisted}] The transaction has been included in the blockchain,
-and can no longer be rolled back.\footnote{The current wallet may in fact be
-optimistic here and report a transaction as \texttt{Persisted} even before $k$
-slots have passed.}
+and can no longer be rolled back.\footnote{The current wallet may actually
+report a transaction as \texttt{Persisted} even before $k$ blocks, depending on
+the wallet's `assurance level'. This is of course misleading: such a transaction
+may in fact still be rolled back.}
 \item[\texttt{WontApply}] The wallet has given up on trying to get a pending
 transaction into the blockchain; perhaps because the transaction has been
 invalidated, or perhaps simply because some time limit has expired.
@@ -2261,17 +2275,50 @@ the wallet's state as follows:
 \end{cases} & \textit{otherwise}
 \end{cases}
 \end{equation*}
-
-The diagram in Figure~\ref{fig:transaction_state} shows how the status of
+%
+The correct status when a transaction is in the wallet's pending set
+($\mathit{tx} \in \mathit{pending}$) or the transaction is confirmed
+($\mathsf{txid} ~ \mathit{tx} \mapsto n \in \mathit{blockMeta}$) is
+obvious. The status for transactions that the wallet is aware of but
+are neither in the wallet's $\mathit{pending}$ set, nor confirmed in the
+blockchain, is a bit more subtle.
+%
+\begin{itemize}
+\item If the transaction is an \emph{incoming} transaction (i.e., increases
+the wallet's balance) then it can never have been pending; the only way we might
+end up in this situation is when this transaction was included in a block that
+has since been rolled back. We don't report a `rolled back' status for such
+transactions, but rather simply exclude from the wallet's history.
+\item If the transaction is an \emph{outgoing} transaction (decreases the
+wallet's balance), it may be that it was pending at some point, but got removed
+from $\mathit{pending}$ (without being included in the blockchain), perhaps
+because it was invalidated by another transaction (or the transaction submission
+layer gave up on it; see Section~\ref{sec:transaction_submission}). We will
+report a \texttt{WontApply} status for such a transaction.
+\item There is however a second way that we might end up with such an
+outgoing transaction: it may have been created by \emph{another instance} of the
+same wallet. Reporting such a transaction as \texttt{WontApply} is perhaps
+somewhat confusing, as it was never in the \texttt{Applying} state in
+\emph{this} wallet. However, it \emph{was} of course in \texttt{Applying} state
+in the other way, and reporting the transaction as \texttt{WontApply}  also in
+this wallet has the benefit that both instances of the wallet will give the same
+status for this transaction.\footnote{If we wanted to extend the invariant that
+``multiple instances of the same wallet''---which we don't currently prove---to
+also include this concrete transaction status, then this is the only possible
+choice. Moreover, the property ``has this transaction ever been pending'' is not
+a property that we could infer when the recover a wallet's status from the block
+chain, and hence this property would not be ``stable''.}
+\end{itemize}
+%
+The diagram in Figure~\ref{fig:transaction_state} shows visually how the status of
 transactions can change over dynamically; the left diagram shows outgoing
 transactions, the right shows incoming transactions. The empty circle at the top
 of the diagram means that the transaction is not included in the wallet's
 reported history.
 
-As is clear from this diagram, incoming transactions that get rolled back are
-not currently assigned any status, and are simply excluded from the wallet's
-history. The metadata about these transactions however is \emph{not}  removed
-from $\mathit{txInfo}$. After all, it can still be useful in order to be able to
+Although we do not include incoming transactions in the wallet's transaction
+history after they get rolled back, we do \emph{not} remove their metadata  from
+$\mathit{txInfo}$. After all, it can still be useful in order to be able to
 provide the wallet's user with information about the expected UTxO (a feature
 that the current wallet does not have).
 
@@ -2322,6 +2369,7 @@ that the current wallet does not have).
 \end{figure}
 
 \section{Transaction Submission}
+\label{sec:transaction_submission}
 
 An actual implementation of the wallet needs to broadcast pending transactions
 to the network, monitor when they get included in the blockchain, re-submit them

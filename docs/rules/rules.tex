@@ -209,18 +209,7 @@ as it is.\improvement{We may want to add something about protocol
 \item[Stake repartition] A stake repartition is a function
   $r ∈ \stakerepartitions ⊆ \agentids ⟶ \mathbb{Q}$ with finite
   support, and such that $r(a) ⩾ 0$ for all $a$. And such that
-  $∑_{a∈\agentids} r(a) = 1$.\unsure{In the bootstrap era, there is a
-    single stake repartition, so the following doesn't really matter.
-
-    But there is a further question of what is data validation, and
-    what is a block validation rule. For instance, non-empty lists in
-    the spec are typed as such, so if the serialised input contains an
-    empty list where a non-empty list is expected, it would fail data
-    validation. In a spec for after bootstrap, it must be decided
-    whether the non-negativity and sums-to-one property of stake
-    repartitions are similarly performed in data validation, or as
-    block validation rule. My opinion is that it would be saner, more
-    modular, to do it during data validation.}
+  $∑_{a∈\agentids} r(a) = 1$.
 
 \item[Transaction] Transactions have a system of identifiers
   $\txids$.
@@ -680,6 +669,54 @@ Rules to add a block $b$ to the blockchain:
 The purpose of this section is to collect information which does not
 fit the specification proper, but can illuminate it, or describe how
 it can be expanded to meet future requirements.
+
+\subsection{Data validation vs validation rules}
+\label{sec:data-validation-vs}
+
+This is a general consideration for specification and implementation
+design. The input received by a Cardano node is a piece of serialise
+data, that is a string of bits. But validation rules for block are
+done on \textsc{ast}s.
+
+There are necessarily some validation done in the conversion from
+string of bits to \textsc{ast}: not all string of bits decode to an
+\textsc{ast}. This document refers to the rules which reject strings
+of bit or make an \textsc{ast} as \emph{data validation}.
+
+The rules to validate data which is already in \textsc{ast} form are
+referred to, by contrast, as \emph{logic validation rules}.
+
+Specification documents (this and any future document) are concerned
+exclusively with logic validation rules. This raises the
+question of what should be data validation rules and what should be
+logic validation rules.
+
+A an example, consider stake repartition as defined in
+Section~\ref{sec:definitions}: a finite-support function $r∈\agentids
+⟶ \mathbb{Q}$ such that $r(a) ⩾ 0$ and $∑_{a∈\agentids} r(a) =
+1$. There are two possibilities:
+\begin{itemize}
+\item Take this as the definition of stake repartition in the
+  \textsc{ast}
+\item Take $r$ to be an arbitrary finite-support function in the
+  \textsc{ast} and verify, as logic validation rules, that the two
+  constraints hold
+\end{itemize}
+In the former case, the properties of $r$ are relegated as data
+validation.
+
+Data validation rules are invisible to specification, making
+specification shorter, clearer, and easier to reason about. One may
+fear that turning logic rules into validation rule may make errors
+harder to spot in testing. But the contrary hold, at least in a typed
+language like Haskell: validation rules can be enforced by abstract
+data types, which can be tested in isolation.
+
+So, having as many data validation rules and as few logic validation
+rules as possible makes it easier to write property-based tests, is
+more composable, and make specification better. It is therefore
+recommanded, for future specification document to make as many rules
+as possible into data validation.
 
 \subsection{Lightweight delegation}
 \label{sec:lightweight-delegation}

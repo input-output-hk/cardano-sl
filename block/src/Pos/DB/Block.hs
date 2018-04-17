@@ -63,6 +63,7 @@ import           Pos.DB.Rocks (MonadRealDB, blockDataDir, getNodeDBs)
 import           Pos.DB.Sum (MonadDBSum, eitherDB)
 import           Pos.Delegation.Types (DlgUndo (..))
 import           Pos.Util.Util (HasLens (..), eitherToThrow)
+import           Pos.DB.SqliteBlock
 
 ----------------------------------------------------------------------------
 -- BlockDB related methods

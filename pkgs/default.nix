@@ -7065,12 +7065,12 @@ inherit (pkgs) mesa;};
          , cardano-sl-delegation, cardano-sl-infra, cardano-sl-lrc
          , cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp
          , cardano-sl-update, cardano-sl-util, cborg, conduit, containers
-         , cpphs, cryptonite, data-default, directory, ekg-core, ether
-         , exceptions, filepath, formatting, generic-arbitrary, lens
-         , log-warper, mtl, QuickCheck, random, reflection
-         , rocksdb-haskell-ng, safe-exceptions, serokell-util, stdenv, stm
-         , text, text-format, time-units, transformers, universum, unliftio
-         , unordered-containers
+         , cpphs, criterion, cryptonite, data-default, directory, ekg-core
+         , ether, exceptions, filepath, formatting, generic-arbitrary, hspec
+         , lens, log-warper, mtl, QuickCheck, random, reflection
+         , rocksdb-haskell-ng, safe-exceptions, serokell-util, sqlite-simple
+         , stdenv, stm, text, text-format, time-units, transformers
+         , universum, unliftio, unordered-containers
          }:
          mkDerivation {
            pname = "cardano-sl-block";
@@ -7081,13 +7081,17 @@ inherit (pkgs) mesa;};
              cardano-sl-crypto cardano-sl-db cardano-sl-delegation
              cardano-sl-infra cardano-sl-lrc cardano-sl-networking
              cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
-             cborg conduit containers cryptonite data-default directory ekg-core
-             ether exceptions filepath formatting generic-arbitrary lens
-             log-warper mtl QuickCheck random reflection rocksdb-haskell-ng
-             safe-exceptions serokell-util stm text text-format time-units
-             transformers universum unliftio unordered-containers
+             cborg conduit containers criterion cryptonite data-default
+             directory ekg-core ether exceptions filepath formatting
+             generic-arbitrary lens log-warper mtl QuickCheck random reflection
+             rocksdb-haskell-ng safe-exceptions serokell-util sqlite-simple stm
+             text text-format time-units transformers universum unliftio
+             unordered-containers
            ];
            libraryToolDepends = [ cpphs ];
+           testHaskellDepends = [
+             base bytestring cardano-sl-core cardano-sl-db hspec text universum
+           ];
            doHaddock = false;
            description = "Cardano SL - block processing";
            license = stdenv.lib.licenses.mit;

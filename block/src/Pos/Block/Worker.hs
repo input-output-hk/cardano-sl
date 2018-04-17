@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP        #-}
 {-# LANGUAGE RankNTypes #-}
 
 -- | Block processing related workers.

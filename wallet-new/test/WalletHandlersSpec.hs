@@ -6,6 +6,7 @@ import           Test.Hspec
 
 import qualified Cardano.Wallet.API.V1.LegacyHandlers.Wallets as V1
 import qualified Pos.Core as Core
+import           Pos.Crypto (ProtocolMagic (..))
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 newSyncProgress :: Word64 -> Word64 -> V0.SyncProgress
@@ -24,6 +25,7 @@ pc = Core.ProtocolConstants
     { Core.pcK = 10
     , Core.pcVssMaxTTL = maxBound
     , Core.pcVssMinTTL = minBound
+    , Core.pcProtocolMagic = ProtocolMagic 10
     }
 
 spec :: Spec

@@ -42,7 +42,7 @@ handlers = newWallet
     :<|> updateWallet
 
 
--- | Monadic action which returns whether or not the underlying node is
+-- | Pure function which returns whether or not the underlying node is
 -- "synced enough" to allow wallet creation/restoration. The notion of
 -- "synced enough" is quite vague and if made too stringent could prevent
 -- the backend to operate normally for wallets which are on a slow network

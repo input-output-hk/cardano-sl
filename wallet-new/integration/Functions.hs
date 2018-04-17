@@ -121,6 +121,8 @@ freshPassword = do
 
 -- | Here we run the actions.
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+-- NOTE: ordNub is available in latest universum, but current universum-0.9 doesn't have it.
+{-# ANN module ("HLint: ignore Use ordNub" :: Text) #-}
 runAction
     :: (WalletTestMode m, HasCallStack, MonadState WalletState m)
     => WalletClient m

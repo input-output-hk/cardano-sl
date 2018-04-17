@@ -491,21 +491,27 @@ $b_1,…,b_n$ if all of the following hold
       inputs using the validity hypothesis to define $\repartition{i}$ and $\amount{i}$
     \end{itemize}
     We define
-    \improvement{The
-      treatment of remainder as specified here is only valid for
-      the bootstrap era.}
-\newcommand{\stakerepartitionformula}[4]{∑_{#2∈#3} + \left\{
+\newcommand{\stakerepartitionformula}[4]{∑_{#2∈#3} \left(
             \begin{aligned}
               &⌊\stakeof{#2}{#1}⌋\\
-              &\kronecker{#1}{\selectrichman{\amount{#2}}}\left(\amount{#2} - ∑_{#4∈\agentids}
-            ⌊\stakeof{#2}{#4}⌋\right)
-            \end{aligned}\right\}}
+              &\qquad+\\
+              &\raisebox{0pt}[0pt][3.5ex]{$\displaystyle{\kronecker{#1}{\selectrichman{\amount{#2}}}\left(\amount{#2} - ∑_{#4∈\agentids}
+            ⌊\stakeof{#2}{#4}⌋\right)}$}
+            \end{aligned}\right)}
     \begin{align*}
-      \makebox[3em][l]{$\currentdistribution{τ₁,…,τ_n, τ_{n+1}}(a) =$}\\
+      \makebox[1em][l]{$\currentdistribution{τ₁,…,τ_n, τ_{n+1}}(a) =$}\\
       & \phantom{=} \currentdistribution{τ₁,…τ_n}(a)\\
       & - \stakerepartitionformula{a}{i}{\inputs{τ_{n+1}}}{b}\\
       & + \stakerepartitionformula{a}{o}{\outputs{τ_{n+1}}}{b}
     \end{align*}
+
+    That is, the stake contributed by each unspent output $o$ to $a$
+    is the proportion of its value specified by the stake repartition
+    of $o$ rounded \emph{down} to the nearest integer. The unallocated
+    stake goes to the richman specified by the $\selectrichman{⋅}$
+    function, applied to the total value of $o$.  \improvement{The
+      treatment of remainder as specified here is only valid for the
+      bootstrap era.}
   \end{itemize}
 
   We can then extend $\currentdistribution{⋅}$ on valid chains by defining

@@ -15,7 +15,7 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCb
                                    decodeUnknownCborDataItem, deriveSimpleBi,
                                    encodeKnownCborDataItem, encodedKnownCborDataItemSize,
                                    encodeListLen, encodeUnknownCborDataItem,
-                                   encodedUnknownCborDataItemSize, enforceSize, withSize)
+                                   encodedUnknownCborDataItemSize, enforceSize, withWordSize)
 import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
@@ -109,7 +109,7 @@ instance Bi HandlerSpec where
             2 + encodedKnownCborDataItemSize mname
         UnknownHandler word8 bs  ->
             let len = fromIntegral $ length bs
-            in 2 + encodedSize word8 + withSize len 1 2 3 5 9 + encodedUnknownCborDataItemSize (fromBytes len)
+            in 2 + encodedSize word8 + withWordSize len + encodedUnknownCborDataItemSize (fromBytes len)
     decode = do
         enforceSize "HandlerSpec" 2
         tag <- decode @Word8

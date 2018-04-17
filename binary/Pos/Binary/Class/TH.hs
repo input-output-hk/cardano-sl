@@ -231,7 +231,7 @@ deriveSimpleBiInternal predsMB headTy constrs = do
     encodeFlat listLen = [| Cbor.encodeListLen listLen |]
 
     encodedSizeFlat :: Int -> Q Exp
-    encodedSizeFlat listLen = [| Sum (withSize listLen 1 2 3 5 9) |]
+    encodedSizeFlat listLen = [| Sum (withWordSize listLen) |]
 
     encodeTag :: Int -> Q Exp
     encodeTag ix = [| Bi.encode (ix :: $tagType) |]
@@ -379,5 +379,5 @@ checkAllFields passedFields realFields
 mconcatE :: [ExpQ] -> ExpQ
 mconcatE = foldr (\a b -> infixApp a [| (<>) |] b) [| mempty |]
 
-withSize :: Int -> Byte -> Byte -> Byte -> Byte -> Byte -> Byte
-withSize i a1 a2 a3 a4 a5 = Bi.withSize i a1 a2 a3 a4 a5
+withWordSize :: Int -> Byte
+withWordSize i = Bi.withWordSize i

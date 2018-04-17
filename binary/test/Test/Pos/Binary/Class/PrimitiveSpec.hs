@@ -13,7 +13,7 @@ import           Serokell.Data.Memory.Units (Byte, fromBytes)
 import           Pos.Binary.Class (Bi (..), encodeKnownCborDataItem, encodeUnknownCborDataItem,
                                    encodedKnownCborDataItemSize, encodedUnknownCborDataItemSize,
                                    encodeCrcProtected, encodedCrcProtectedSize,
-                                   withSize)
+                                   withWordSize)
 import           Test.Pos.Binary.Class.Core
 import           Data.ByteString.Arbitrary
 
@@ -28,7 +28,7 @@ spec = describe "Pos.Binary.Class.Primitive" $ do
         let len = fromIntegral $ length a
         in
                 encodedSize (toStrictByteString $ encodeUnknownCborDataItem (BSL.fromStrict a))
-            === withSize len 1 2 3 5 9 + encodedUnknownCborDataItemSize (fromBytes len)
+            === withWordSize len + encodedUnknownCborDataItemSize (fromBytes len)
     it "encodedCrcProtectedSize" $ forAll word64Gen $ \a ->
         greaterEqual
             (encodedCrcProtectedSize a)

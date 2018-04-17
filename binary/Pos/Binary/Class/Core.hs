@@ -30,7 +30,7 @@ module Pos.Binary.Class.Core
     -- * Utils
     , toCborError
     , cborError
-    , withSize
+    , withWordSize
     ) where
 
 #include <MachDeps.h>
@@ -112,6 +112,11 @@ withSize s a1 a2 a3 a4 a5 =
 #else
 #error expected WORD_SIZE_IN_BITS to be 32 or 64
 #endif
+
+-- | Compute size of a @'Word'@, this is used for computation of @'Word8'@, ..,
+-- @'Word32'@ encoded size.
+withWordSize :: (Integral s, Integral a) => s -> a
+withWordSize s = withSize s 1 2 3 5 9
 
 ----------------------------------------
 
@@ -220,7 +225,7 @@ instance Bi Integer where
 
 instance Bi Word where
     encode = E.encodeWord
-    encodedSize w = withSize w 1 2 3 5 9
+    encodedSize w = withWordSize w
     decode = D.decodeWordCanonical
 
 instance Bi Word8 where
@@ -246,7 +251,7 @@ instance Bi Word64 where
 instance Bi Int where
     encode = E.encodeInt
     decode = D.decodeIntCanonical
-    encodedSize n = withSize ui 1 2 3 5 9
+    encodedSize n = withWordSize ui
         where
             sign :: Word
             sign = fromIntegral (n `unsafeShiftR` intBits)
@@ -340,7 +345,7 @@ instance Bi BS.ByteString where
     encodedSize a =
         let len = BS.length a
         -- size of a header plus length of the @'ByteString'@
-        in withSize len 1 2 3 5 9 + fromIntegral len
+        in withWordSize len + fromIntegral len
     decode = D.decodeBytesCanonical
 
 instance Bi Text.Text where
@@ -354,7 +359,7 @@ instance Bi BS.Lazy.ByteString where
     encodedSize a =
         let len = BS.Lazy.length a
         -- size of a header plus length of the @'ByteString'@
-        in withSize len 1 2 3 5 9 + fromIntegral len
+        in withWordSize len + fromIntegral len
     decode = BS.Lazy.fromStrict <$> decode
 
 instance Bi a => Bi [a] where
@@ -462,7 +467,7 @@ encodedSizeMapSkel
     -> Byte
 encodedSizeMapSkel size foldrWithKey =
     getSum . encodeContainerSkel
-        (\s -> Sum $ withSize s 1 2 3 5 9)
+        (\s -> Sum $ withWordSize s)
         (fromIntegral . size)
         foldrWithKey
         (\k v b -> Sum (encodedSize k) `mappend` Sum (encodedSize v) `mappend` b)
@@ -536,7 +541,7 @@ encodedSizeSetSkel
 encodedSizeSetSkel size foldrFunction =
     -- @'setTag'@ takes @3@ bytes.
     getSum . mappend (Sum 3) . encodeContainerSkel
-        (\s -> Sum $ withSize s 1 2 3 5 9)
+        (\s -> Sum $ withWordSize s)
         (fromIntegral . size)
         foldrFunction
         (\a b -> Sum (encodedSize a) `mappend` b)
@@ -611,7 +616,7 @@ encodedSizeVector :: (Bi a, Vector.Generic.Vector v a)
                   => v a -> Byte
 encodedSizeVector =
     getSum . encodeContainerSkel
-        (\s -> Sum $ withSize s 1 2 3 5 9)
+        (\s -> Sum $ withWordSize s)
         (fromIntegral . Vector.Generic.length)
         Vector.Generic.foldr
         (\a b -> Sum (encodedSize a) `mappend` b)
@@ -722,7 +727,7 @@ instance (GSerialiseProd f, GSerialiseProd g) => GSerialiseEncode (f G.:*: g) wh
        <> encodeSeq f
        <> encodeSeq g
     gencodedSize (f G.:*: g)
-        = withSize (nFields (Proxy :: Proxy (f G.:*: g))) 1 2 3 5 9
+        = withWordSize (nFields (Proxy :: Proxy (f G.:*: g)))
             + encodedSeqSize f
             + encodedSeqSize g
 
@@ -744,7 +749,7 @@ instance (GSerialiseSum f, GSerialiseSum g) => GSerialiseEncode (f G.:+: g) wher
              <> encode (conNumber a)
              <> encodeSum a
     gencodedSize a =
-          withSize (numOfFields a + 1) 1 2 3 5 9
+          withWordSize (numOfFields a + 1)
         + encodedSize (conNumber a)
         + encodedSumSize a
 

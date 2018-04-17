@@ -55,7 +55,7 @@ import           Data.Typeable (typeOf)
 import           Formatting (sformat, shown, (%))
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class.Core (Bi (..), cborError, enforceSize, toCborError, withSize)
+import           Pos.Binary.Class.Core (Bi (..), cborError, enforceSize, toCborError, withWordSize)
 
 -- | Serialize a Haskell value to an external binary representation.
 --
@@ -227,7 +227,7 @@ encodedUnknownCborDataItemSize :: Byte -> Byte
 encodedUnknownCborDataItemSize x =
     -- 2 bytes for a tag plus size of encoded @'ByteString'@ of length @x@
     -- (i.e. encoded size of x plus x)
-    2 + withSize x 1 2 3 5 9 + x
+    2 + withWordSize x + x
 
 -- | Remove the the semantic tag 24 from the enclosed CBOR data item,
 -- failing if the tag cannot be found.

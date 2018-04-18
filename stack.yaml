@@ -15,6 +15,7 @@ packages:
 - binary
 - util
 - crypto
+- crypto/tests
 - core
 - db
 - lrc

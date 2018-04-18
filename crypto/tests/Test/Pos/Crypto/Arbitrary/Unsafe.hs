@@ -1,6 +1,6 @@
 -- | Unsafe arbitrary instances for crypto primitives.
 
-module Pos.Arbitrary.Crypto.Unsafe () where
+module Test.Pos.Crypto.Arbitrary.Unsafe () where
 
 import           Universum
 
@@ -14,8 +14,7 @@ import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Crypto.Hashing (AbstractHash, HashAlgorithm, unsafeAbstractHash)
 import           Pos.Crypto.SecretSharing (VssKeyPair, VssPublicKey, deterministicVssKeyGen,
                                            toVssPublicKey)
-import           Pos.Crypto.Signing (PublicKey, SecretKey, Signed, mkSigned)
-import           Pos.Crypto.Signing.Types.Tag (SignTag)
+import           Pos.Crypto.Signing (PublicKey, SecretKey, SignTag, Signed, mkSigned)
 import           Pos.Util.QuickCheck.Arbitrary (ArbitraryUnsafe (..), arbitrarySizedS)
 
 instance ArbitraryUnsafe PublicKey where

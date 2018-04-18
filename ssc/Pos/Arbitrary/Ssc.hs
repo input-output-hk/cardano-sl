@@ -23,7 +23,6 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 
 import           Pos.Arbitrary.Core (genVssCertificate)
 import           Pos.Arbitrary.Core.Unsafe ()
-import           Pos.Arbitrary.Crypto (genSignature)
 import           Pos.Binary.Ssc ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Core (EpochIndex, SlotId (..), VssCertificate (..),
@@ -45,6 +44,8 @@ import           Pos.Ssc.Toss.Types (TossModifier (..))
 import           Pos.Ssc.Types (SscGlobalState (..), SscSecretStorage (..))
 import           Pos.Ssc.VssCertData (VssCertData (..))
 import           Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), sublistN)
+
+import           Test.Pos.Crypto.Arbitrary (genSignature)
 
 ----------------------------------------------------------------------------
 -- Types

@@ -13,7 +13,6 @@ import           Test.QuickCheck (Arbitrary (..), Gen, listOf, listOf1, oneof, f
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core ()
-import           Pos.Arbitrary.Crypto ()
 import           Pos.Arbitrary.Slotting ()
 import           Pos.Binary.Update ()
 import           Pos.Core.Configuration (HasProtocolMagic, protocolMagic)
@@ -24,6 +23,8 @@ import           Pos.Core.Update (BlockVersionModifier, SystemTag (..), UpdateDa
 import           Pos.Crypto (ProtocolMagic, fakeSigner)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Update.Poll.Types (VoteState (..))
+
+import           Test.Pos.Crypto.Arbitrary ()
 
 instance Arbitrary BlockVersionModifier where
     arbitrary = genericArbitrary

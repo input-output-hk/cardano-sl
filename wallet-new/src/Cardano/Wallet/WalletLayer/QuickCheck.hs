@@ -38,6 +38,8 @@ bracketPassiveWallet =
         , _pwlDeleteAccount = \_ _   -> liftedGen
 
         , _pwlGetAddresses  = \_     -> liftedGen
+
+        , _pwlApplyBlocks   = \_     -> liftedGen
         }
 
     -- | A utility function.
@@ -51,8 +53,7 @@ bracketActiveWallet
     => PassiveWalletLayer n
     -> WalletDiffusion
     -> (ActiveWalletLayer n -> m a) -> m a
-bracketActiveWallet walletPassiveLayer walletDiffusion =
+bracketActiveWallet walletPassiveLayer _walletDiffusion =
     bracket
       (return ActiveWalletLayer{..})
       (\_ -> return ())
-

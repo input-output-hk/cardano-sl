@@ -16,6 +16,9 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
 
 import           Pos.Txp (Utxo, formatUtxo)
+import           Pos.Core (HasConfiguration)
+import           Pos.Crypto (EncryptedSecretKey)
+
 import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.Types
 
@@ -41,13 +44,13 @@ data InductiveT h m = InductiveT {
       -- The callback is given the translated UTxO of the bootstrap
       -- transaction (we cannot give it the translated transaction because
       -- we cannot translate the bootstrap transaction).
-      walletBootT :: InductiveCtxt h -> Utxo -> m ()
+      walletBootT :: InductiveCtxt h -> Utxo -> m Kernel.WalletId
 
       -- | Apply a block
-    , walletApplyBlockT :: InductiveCtxt h -> RawResolvedBlock -> m ()
+    , walletApplyBlockT :: InductiveCtxt h -> Kernel.WalletId -> RawResolvedBlock -> m ()
 
       -- | Insert new pending transaction
-    , walletNewPendingT :: InductiveCtxt h -> RawResolvedTx -> m ()
+    , walletNewPendingT :: InductiveCtxt h -> Kernel.WalletId -> RawResolvedTx -> m ()
     }
 
 -- | The context in which a function of 'InductiveT' gets called
@@ -69,44 +72,47 @@ interpretT :: forall h e m. (Monad m, Hash h Addr)
            -> InductiveT h (TranslateT e m)
            -> Inductive h Addr
            -> TranslateT (Either IntException e) m (Wallet h Addr, IntCtxt h)
-interpretT mkWallet InductiveT{..} =
+interpretT mkWallet InductiveT{..} ind'' =
     -- This is ugly, but we only discover the bootstrap transaction once we
     -- descend down the 'Inductive' wallet. We will 'put' the right context
     -- before the first call to 'int'.
-    runIntT (error "initialized later") . go
+    runIntT (error "initialized later") (fst <$> go ind'')
   where
-    go :: Inductive h Addr -> IntT h e m (Wallet h Addr)
-    go ind@(WalletBoot t) = do
+    go :: Inductive h Addr -> IntT h e m (Wallet h Addr, Kernel.WalletId)
+    go ind'@(WalletBoot t) = do
         let w' = mkWallet t
         ic <- liftTranslateInt (initIntCtxt t)
         put ic
         utxo' <- int (utxo w') -- translating UTxO does not change the state
-        liftTranslate $ walletBootT (InductiveCtxt ind ic w') utxo'
-        return w'
-    go ind@(ApplyBlock w b) = do
-        w' <- go w
+        wid <- liftTranslate $ walletBootT (InductiveCtxt ind' ic w') utxo'
+        return (w',wid)
+    go ind'@(ApplyBlock ind b) = do
+        (w,wid) <- go ind
+        let w' = applyBlock w b
         b' <- int b
         ic <- get
-        liftTranslate $ walletApplyBlockT (InductiveCtxt ind ic w') b'
-        return w'
-    go ind@(NewPending w t) = do
-        w' <- go w
+        liftTranslate $ walletApplyBlockT (InductiveCtxt ind' ic w') wid b'
+        return (w',wid)
+    go ind'@(NewPending ind t) = do
+        (w,wid) <- go ind
+        let (Just w') = newPending w t
         t' <- int t
         ic <- get
-        liftTranslate $ walletNewPendingT (InductiveCtxt ind ic w') t'
-        return w'
+        liftTranslate $ walletNewPendingT (InductiveCtxt ind' ic w') wid t'
+        return (w',wid)
 
 {-------------------------------------------------------------------------------
   Equivalence check between the real implementation and (a) pure wallet
 -------------------------------------------------------------------------------}
 
-equivalentT :: forall h m. (Hash h Addr, MonadIO m)
+equivalentT :: forall h m. (HasConfiguration, Hash h Addr, MonadIO m)
             => Kernel.ActiveWallet
+            -> EncryptedSecretKey
             -> (DSL.Transaction h Addr -> Wallet h Addr)
             -> Inductive h Addr
             -> TranslateT IntException m
                  (Validated (EquivalenceViolation h) (Wallet h Addr, IntCtxt h))
-equivalentT activeWallet = \mkWallet w ->
+equivalentT activeWallet esk = \mkWallet w ->
       fmap validatedFromEither
     $ catchSomeTranslateErrors
     $ interpretT mkWallet InductiveT{..} w
@@ -115,29 +121,33 @@ equivalentT activeWallet = \mkWallet w ->
 
     walletBootT :: InductiveCtxt h
                 -> Utxo
-                -> TranslateT (EquivalenceViolation h) m ()
+                -> TranslateT (EquivalenceViolation h) m Kernel.WalletId
     walletBootT ctxt utxo = do
-        liftIO $ Kernel.init passiveWallet utxo
-        checkWalletState ctxt
+        wid <- liftIO $ Kernel.newWalletHdRnd passiveWallet esk utxo
+        checkWalletState ctxt wid
+        return wid
 
     walletApplyBlockT :: InductiveCtxt h
+                      -> Kernel.WalletId
                       -> RawResolvedBlock
                       -> TranslateT (EquivalenceViolation h) m ()
-    walletApplyBlockT ctxt block = do
+    walletApplyBlockT ctxt wid block = do
         liftIO $ Kernel.applyBlock passiveWallet (fromRawResolvedBlock block)
-        checkWalletState ctxt
+        checkWalletState ctxt wid
 
     walletNewPendingT :: InductiveCtxt h
+                      -> Kernel.WalletId
                       -> RawResolvedTx
                       -> TranslateT (EquivalenceViolation h) m ()
-    walletNewPendingT ctxt tx = do
-        liftIO $ Kernel.newPending activeWallet (fst tx)
-        checkWalletState ctxt
+    walletNewPendingT ctxt wid tx = do
+        _ <- liftIO $ Kernel.newPending activeWallet wid (fst tx)
+        checkWalletState ctxt wid
 
     checkWalletState :: InductiveCtxt h
+                     -> Kernel.WalletId
                      -> TranslateT (EquivalenceViolation h) m ()
-    checkWalletState ctxt@InductiveCtxt{..} = do
-        cmp "utxo" utxo Kernel.utxo
+    checkWalletState ctxt@InductiveCtxt{..} wid = do
+        cmp "utxo" utxo (`Kernel.getWalletUtxo` wid)
         -- TODO: check other properties
       where
         cmp :: ( Interpret h a

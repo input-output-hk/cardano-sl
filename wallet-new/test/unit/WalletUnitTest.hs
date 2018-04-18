@@ -5,7 +5,9 @@
 -- TODO: Take advantage of https://github.com/input-output-hk/cardano-sl/pull/2296 ?
 module Main (main) where
 
+import qualified Data.Map as Map
 import qualified Data.Set as Set
+import           Data.List((!!))
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, shown, (%))
 import           Serokell.Util (mapJson)
@@ -15,6 +17,8 @@ import           Universum
 import qualified Pos.Block.Error as Cardano
 import qualified Pos.Txp.Toil as Cardano
 import           Pos.Util.Chrono
+import           Pos.Crypto (EncryptedSecretKey)
+import           Pos.Core (HasConfiguration)
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
@@ -26,11 +30,13 @@ import           UTxO.DSL
 import           UTxO.Interpreter
 import           UTxO.PreChain
 import           UTxO.Translate
+import           UTxO.Crypto
 
 import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
 import           Util.Validated
 import           Wallet.Abstract
+import           Wallet.Abstract.Cardano
 import qualified Wallet.Basic          as Base
 import qualified Wallet.Incremental    as Incr
 import qualified Wallet.Prefiltered    as Pref
@@ -43,8 +49,9 @@ import qualified Wallet.Rollback.Full  as Full
 
 main :: IO ()
 main = do
---    _showContext
-    hspec tests
+--   _showContext
+    runTranslateNoErrors $ withConfig $
+            return $ hspec tests
 
 -- | Debugging: show the translation context
 _showContext :: IO ()
@@ -60,11 +67,10 @@ _showContext = do
   Tests proper
 -------------------------------------------------------------------------------}
 
-tests :: Spec
+tests :: HasConfiguration =>Spec
 tests = describe "Wallet unit tests" $ do
     testTranslation
     testPureWallet
-    testPassiveWallet
     testActiveWallet
 
 {-------------------------------------------------------------------------------
@@ -177,44 +183,106 @@ testPureWallet = do
     fullEmpty = walletBoot Full.walletEmpty . oursFromSet
 
 {-------------------------------------------------------------------------------
-  Passive wallet tests
+  Inductive wallet tests, compares DSL vs Cardano Wallet API results at each
+  inductive step.
 -------------------------------------------------------------------------------}
 
-testPassiveWallet  :: Spec
-testPassiveWallet = around bracketPassiveWallet $
-    describe "Passive wallet sanity checks" $ do
-      it "can be initialized" $ \w ->
-        Kernel.init w (error "utxo")
+-- | GenInductive
+--
+-- Contains a Generated Inductive Wallet along with a DSL Wallet Builder
+-- (which embeds "ours" in the DSL world) and an ESK
+-- used to derive "ours" in the Cardano world.
+data GenInductive
+    = GenInductive (Inductive GivenHash Addr)
+                    -- ^ Generated Inductive Wallet
+                    (Transaction GivenHash Addr -> Wallet GivenHash Addr)
+                    -- ^ DSL Wallet Builder
+                    EncryptedSecretKey
+                    -- ^ ESK of selected poor actor
+
+testActiveWallet :: HasConfiguration => Spec
+testActiveWallet =
+    it "Test Active Wallet API - compare DSL and Cardano wallet state after each Inductive step" $
+      forAll genInductive $ \(GenInductive ind mkDSLWallet esk) ->
+                                (bracketActiveWallet $ \activeWallet -> do
+                                    checkEquivalent activeWallet esk mkDSLWallet ind)
+
+  where
+    genInductive :: Gen GenInductive
+    genInductive = do
+      -- generate a blockchain and capture the translation context
+      (fpc,transCtxt) <- runTranslateT $ do
+                                    transCtxt' <- ask
+                                    fpc' <- fromPreChain genValidBlockchain
+                                    return (fpc',transCtxt')
+
+      (poorIx, esk) <- choosePoorActor transCtxt
+
+      -- generate an Inductive Wallet for the blockchain, including ourAddrs
+      (InductiveWithOurs ourAddrs ind) <- genFromBlockchainWithOurs (ours' poorIx) fpc
+
+      return $ GenInductive ind (mkDSLWallet' transCtxt ourAddrs) esk
+
+    ours' :: ActorIx -> Addr -> Bool
+    ours' poorIx@(IxPoor _) addr = addrActorIx addr == poorIx
+    ours' _ _ = False
+
+    choosePoorActor :: TransCtxt -> Gen (ActorIx, EncryptedSecretKey)
+    choosePoorActor transCtxt' = do
+        let poorActors = Map.elems . actorsPoor . tcActors $ transCtxt'
+        poorIx <- choose (0, length poorActors -1)
+        let esk =  encKpEnc . poorKey $ poorActors !! poorIx
+        return (IxPoor poorIx, esk)
+
+    checkEquivalent :: forall h. Hash h Addr
+                    => Kernel.ActiveWallet
+                    -> EncryptedSecretKey
+                    -> (Transaction h Addr -> Wallet h Addr)
+                    -> Inductive h Addr
+                    -> Expectation
+    checkEquivalent activeWallet esk mkDSLWallet ind
+        = do
+            res <- runTranslateT $
+                       equivalentT activeWallet esk mkDSLWallet ind
+            case res of
+                Invalid _ts e -> do
+                    putText $ sformat build e
+                    shouldBe True False
+                Valid _res' ->
+                    shouldBe True True
+
+    mkDSLWallet' :: forall h. Hash h Addr
+                 => TransCtxt -> Set Addr -> Transaction h Addr -> Wallet h Addr
+    mkDSLWallet' transCtxt = walletBoot Base.walletEmpty . oursFromSet transCtxt
+
+    oursFromSet :: TransCtxt -> Set Addr -> Ours Addr
+    oursFromSet transCtxt addrs addr = do
+        guard (Set.member addr addrs)
+        return $ fst (resolveAddr addr transCtxt)
+
+{-------------------------------------------------------------------------------
+  Wallet resource management
+-------------------------------------------------------------------------------}
 
 -- | Initialize passive wallet in a manner suitable for the unit tests
 bracketPassiveWallet :: (Kernel.PassiveWallet -> IO a) -> IO a
 bracketPassiveWallet = Kernel.bracketPassiveWallet logMessage
   where
    -- TODO: Decide what to do with logging
-    logMessage _sev _txt = return ()
+    logMessage _sev txt = print txt
 
-{-------------------------------------------------------------------------------
-  Active wallet tests
--------------------------------------------------------------------------------}
-
-testActiveWallet :: Spec
-testActiveWallet = around bracketWallet $
-    describe "Active wallet sanity checks" $ do
-      it "initially has no pending transactions" $ \w ->
-        Kernel.hasPending w `shouldReturn` False
-
--- | Initialize active wallet in a manner suitable for unit testing
-bracketWallet :: (Kernel.ActiveWallet -> IO a) -> IO a
-bracketWallet test =
+-- | Initialize active wallet in a manner suitable for generator-based testing
+bracketActiveWallet :: (Kernel.ActiveWallet -> IO a) -> IO a
+bracketActiveWallet test =
     bracketPassiveWallet $ \passive ->
       Kernel.bracketActiveWallet passive diffusion $ \active ->
         test active
-  where
-    -- TODO: Decide what we want to do with submitted transactions
-    diffusion :: Kernel.WalletDiffusion
-    diffusion =  Kernel.WalletDiffusion {
-          walletSendTx = \_tx -> return False
-        }
+
+-- TODO: Decide what we want to do with submitted transactions
+diffusion :: Kernel.WalletDiffusion
+diffusion =  Kernel.WalletDiffusion {
+    walletSendTx = \_tx -> return False
+  }
 
 {-------------------------------------------------------------------------------
   Example hand-constructed chains
@@ -499,3 +567,6 @@ instance (Hash h a, Buildable a) => Buildable (Disagreement h a) where
       utxoDsl
       utxoCardano
       utxoInt
+
+instance Buildable GenInductive where
+    build (GenInductive ind _ _) = bprint ("GenInductive " % build) ind

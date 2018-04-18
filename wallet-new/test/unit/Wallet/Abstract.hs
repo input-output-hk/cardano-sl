@@ -28,6 +28,7 @@ module Wallet.Abstract (
     -- $generation
   , InductiveWithOurs(..)
   , genFromBlockchain
+  , genFromBlockchainWithOurs
   , genFromBlockchainPickingAccounts
     -- * Auxiliary operations
   , balance
@@ -591,6 +592,31 @@ data InductiveWithOurs h a = InductiveWithOurs {
     , inductiveWalletDef  :: Inductive h a
     }
 
+;
+-- | Given a predicate function that selects addresses that
+-- belong to the generated 'Inductive' wallet and the 'FromPreChain' value
+-- that contains the relevant blockchain, this will build a set of addrs and
+-- call genFromBlockchain
+genFromBlockchainWithOurs
+    :: Hash h Addr
+    => (Addr -> Bool)
+    -> FromPreChain h ()
+    -> Gen (InductiveWithOurs h Addr)
+genFromBlockchainWithOurs isOurs fpc = do
+    let allAddrs = toList (ledgerAddresses (fpcLedger fpc))
+        ourAddrs = Set.fromList $ filter isOurs allAddrs
+
+    if null ourAddrs then
+        error
+        $ sformat
+            ( "None of the addresses are ours!\n\n"
+            % "All addresses: " % build
+            ) (intercalate ", " (map show allAddrs))
+        else pure ()
+
+    InductiveWithOurs ourAddrs <$> genFromBlockchain ourAddrs fpc
+
+
 -- | Selects a random subset of addresses to be considered from the
 -- blockchain in the amount given.
 genFromBlockchainPickingAccounts
@@ -631,7 +657,7 @@ genInductiveFor addrs = do
 -- | The first step in converting a 'Chain into an 'Inductive' wallet is
 -- to sequence the existing blocks using 'ApplyBlock' constructors.
 chainToApplyBlocks :: Chain h a -> [Action h a]
-chainToApplyBlocks = toList . map ApplyBlock' 
+chainToApplyBlocks = toList . map ApplyBlock'
 
 -- | Once we've created our initial @['Action' h 'Addr']@, we want to
 -- insert some 'Transaction's in appropriate locations in the list. There

@@ -12,6 +12,7 @@ module Cardano.Wallet.Kernel.Types (
     -- ** From raw to derived types
   , fromRawResolvedTx
   , fromRawResolvedBlock
+  , txUtxo
   ) where
 
 import qualified Data.Map.Strict as Map
@@ -81,7 +82,7 @@ data ResolvedBlock = ResolvedBlock {
 fromRawResolvedTx :: RawResolvedTx -> ResolvedTx
 fromRawResolvedTx (txAux, resolvedInputs) = ResolvedTx {
       rtxInputs  = zip inps resolvedInputs
-    , rtxOutputs = Map.fromList $ map toTxInOut outs
+    , rtxOutputs = txUtxo tx
     }
   where
     tx :: Tx
@@ -90,15 +91,19 @@ fromRawResolvedTx (txAux, resolvedInputs) = ResolvedTx {
     inps :: [TxIn]
     inps = toList $ tx ^. txInputs
 
-    outs :: [(Word32, TxOut)]
-    outs = enumerate $ toList $ tx ^. txOutputs
+txUtxo :: Tx -> Utxo
+txUtxo tx = Map.fromList $
+                map (toTxInOut tx) (outs tx)
 
-    toTxInOut :: (Word32, TxOut) -> (TxIn, TxOutAux)
-    toTxInOut (idx, out) = (TxInUtxo (hash tx) idx, TxOutAux out)
+outs :: Tx -> [(Word32, TxOut)]
+outs tx = enumerate $ toList $ tx ^. txOutputs
+
+toTxInOut :: Tx -> (Word32, TxOut) -> (TxIn, TxOutAux)
+toTxInOut tx (idx, out) = (TxInUtxo (hash tx) idx, TxOutAux out)
 
 fromRawResolvedBlock :: RawResolvedBlock -> ResolvedBlock
 fromRawResolvedBlock (block, resolvedTxInputs) = ResolvedBlock {
-      rbTxs = zipWith (curry fromRawResolvedTx) 
+      rbTxs = zipWith (curry fromRawResolvedTx)
                 (getBlockTxs block)
                 resolvedTxInputs
     }

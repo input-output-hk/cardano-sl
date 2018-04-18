@@ -12,6 +12,8 @@ import           Data.Traversable (for)
 import           System.IO (hSetEncoding, stdout, utf8)
 import           Test.Hspec
 import           Test.QuickCheck (arbitrary, generate)
+import System.IO.Unsafe (unsafePerformIO)
+import qualified Pos.Core as Core
 
 import           CLI
 import           Functions
@@ -59,7 +61,9 @@ main = do
   where
     actionDistribution :: ActionProbabilities
     actionDistribution = do
-        (PostWallet, Weight 2) :| fmap (\x -> (x, Weight 1)) [minBound .. maxBound]
+        (PostWallet, Weight 2)
+            :| (PostTransaction, Weight 5)
+            : fmap (\x -> (x, Weight 1)) [minBound .. maxBound]
 
 initialWalletState :: WalletClient IO -> IO WalletState
 initialWalletState wc = do
@@ -86,8 +90,7 @@ deterministicTests wc = do
     describe "Addresses" $ do
         it "Creating an address makes it available" $ do
             -- create a wallet
-            newWallet <- randomWallet
-            Wallet{..} <- createWalletCheck newWallet
+            Wallet{..} <- sampleWallet
 
             -- create an account
             accResp <- postAccount wc walId (NewAccount Nothing "hello")
@@ -124,6 +127,7 @@ deterministicTests wc = do
 
             eresp <- getWallet wc walId
             void $ eresp `shouldPrism` _Right
+
         it "Updating a wallet persists the update" $ do
             newWallet <- randomWallet
             wallet <- createWalletCheck newWallet
@@ -137,6 +141,58 @@ deterministicTests wc = do
             walName `shouldBe` newName
             walAssuranceLevel `shouldBe` newAssurance
 
+    describe "Transactions" $ do
+        it "posted transactions appear in the index" $ do
+            genesis <- genesisWallet
+            (fromAcct, _) <- firstAccountAndId genesis
+
+            wallet <- sampleWallet
+            (toAcct, toAddr) <- firstAccountAndId wallet
+
+            let payment = Payment
+                    { pmtSource =  PaymentSource
+                        { psWalletId = walId genesis
+                        , psAccountIndex = accIndex fromAcct
+                        }
+                    , pmtDestinations = pure PaymentDistribution
+                        { pdAddress = addrId toAddr
+                        , pdAmount = halfOf (accAmount fromAcct)
+                        }
+                    , pmtGroupingPolicy = Nothing
+                    , pmtSpendingPassword = Nothing
+                    }
+                halfOf (V1 c) = V1 (Core.mkCoin (Core.getCoin c `div` 2))
+
+            etxn <- postTransaction wc payment
+
+            txn <- fmap wrData etxn `shouldPrism` _Right
+
+            eresp <- getTransactionIndex wc (Just (walId wallet)) (Just (accIndex toAcct)) Nothing
+            resp <- fmap wrData eresp `shouldPrism` _Right
+
+            map txId resp `shouldContain` [txId txn]
+
+        it "fails if you spend too much money" $ do
+            wallet <- sampleWallet
+            (toAcct, toAddr) <- firstAccountAndId wallet
+
+            let payment = Payment
+                    { pmtSource =  PaymentSource
+                        { psWalletId = walId wallet
+                        , psAccountIndex = accIndex toAcct
+                        }
+                    , pmtDestinations = pure PaymentDistribution
+                        { pdAddress = addrId toAddr
+                        , pdAmount = tooMuchCash (accAmount toAcct)
+                        }
+                    , pmtGroupingPolicy = Nothing
+                    , pmtSpendingPassword = Nothing
+                    }
+                tooMuchCash (V1 c) = V1 (Core.mkCoin (Core.getCoin c * 2))
+            etxn <- postTransaction wc payment
+
+            void $ etxn `shouldPrism` _Left
+
   where
     randomWallet =
         generate $
@@ -146,10 +202,62 @@ deterministicTests wc = do
                 <*> arbitrary
                 <*> pure "Wallet"
                 <*> pure CreateWallet
+
     createWalletCheck newWallet = do
         result <- fmap wrData <$> postWallet wc newWallet
         result `shouldPrism` _Right
 
+    firstAccountAndId wallet = do
+        etoAccts <- getAccounts wc (walId wallet)
+        toAccts <- fmap wrData etoAccts `shouldPrism` _Right
+
+        toAccts `shouldSatisfy` (not . null)
+        let (toAcct : _) = toAccts
+
+        accAddresses toAcct `shouldSatisfy` (not . null)
+        let (toAddr : _) = accAddresses toAcct
+
+        pure (toAcct, toAddr)
+
+    -- this is a "Safe' usage of `unsafePerformIO`. if it's too gross then
+    -- I can delete it.
+    walletRef :: MVar Wallet
+    walletRef = unsafePerformIO newEmptyMVar
+    {-# NOINLINE walletRef #-}
+
+    sampleWallet :: IO Wallet
+    sampleWallet = do
+        mwallet <- tryTakeMVar walletRef
+        case mwallet of
+            Just wallet -> do
+                putMVar walletRef wallet
+                pure wallet
+            Nothing -> do
+                w <- randomWallet
+                w' <- createWalletCheck w
+                didWrite <- tryPutMVar walletRef w'
+                if didWrite
+                    then pure w'
+                    else readMVar walletRef
+
+    genesisWallet :: IO Wallet
+    genesisWallet = do
+        mwallet <- tryTakeMVar genesisRef
+        case mwallet of
+            Just wallet -> do
+                putMVar genesisRef wallet
+                pure wallet
+            Nothing -> do
+                Right allWallets <- fmap wrData <$> getWallets wc
+                let Just wallet = find (("Genesis wallet" ==) . walName) allWallets
+                didWrite <- tryPutMVar genesisRef wallet
+                if didWrite
+                    then pure wallet
+                    else readMVar genesisRef
+
+    genesisRef :: MVar Wallet
+    genesisRef = unsafePerformIO newEmptyMVar
+    {-# NOINLINE genesisRef #-}
 
 shouldPrism :: Show s => s -> Prism' s a -> IO a
 shouldPrism a b = do

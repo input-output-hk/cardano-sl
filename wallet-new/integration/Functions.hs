@@ -73,10 +73,10 @@ runActionCheck
     -> ActionProbabilities
     -> m WalletState
 runActionCheck walletClient walletState actionProb = do
-    actions <- chooseActions 100 actionProb
+    actions <- chooseActions 10 actionProb
     log $ "Test will run these actions: " <> show (toList actions)
     let client' = hoistClient lift walletClient
-    ws <- execRefT (tryAll (map (runAction client') actions)) walletState
+    ws <- execRefT (tryAll (map (runAction client') actions) <|> pure ()) walletState
               `catch` \x -> fmap (const walletState) . liftIO . hspec .
                   describe "Unit Test Failure" $
                       it ("threw a test error: " ++ showConstr x) $ case x of

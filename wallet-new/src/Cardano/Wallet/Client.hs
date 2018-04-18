@@ -16,7 +16,6 @@ module Cardano.Wallet.Client
     , liftClient
     -- * The type of errors that the client might return
     , ClientError(..)
-    , WalletError(..)
     , ServantError(..)
     -- * Reexports
     , module Cardano.Wallet.API.V1.Types
@@ -38,7 +37,7 @@ import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination
 import           Cardano.Wallet.API.Request.Sort
 import           Cardano.Wallet.API.Response
-import           Cardano.Wallet.API.V1.Errors
+import qualified Cardano.Wallet.API.V1.Errors as V1Errors
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 import qualified Pos.Core as Core
@@ -203,7 +202,7 @@ type Resp m a = m (Either ClientError (WalletResponse a))
 
 -- | The type of errors that the wallet might return.
 data ClientError
-    = ClientWalletError WalletError
+    = ClientWalletError V1Errors.WalletError
     -- ^ The 'WalletError' type represents known failures that the API
     -- might return.
     | ClientHttpError ServantError

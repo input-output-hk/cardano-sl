@@ -471,6 +471,7 @@ test-suite wallet-new-specs
                     , servant-quickcheck
                     , servant-server
                     , servant-swagger
+                    , servant-swagger-ui
                     , string-conv
                     , stm
                     , swagger2

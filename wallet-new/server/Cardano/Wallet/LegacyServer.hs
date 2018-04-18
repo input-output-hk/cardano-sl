@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 module Cardano.Wallet.LegacyServer where
 
-import           Universum (TVar)
+import           Universum
 
 import           Cardano.Wallet.API
 import           Cardano.Wallet.API.V1.Migration as Migration
@@ -9,6 +9,7 @@ import           Cardano.Wallet.API.V1.Migration as Migration
 import qualified Cardano.Wallet.API.Development.LegacyHandlers as Dev
 import qualified Cardano.Wallet.API.V0.Handlers as V0
 import qualified Cardano.Wallet.API.V1.LegacyHandlers as V1
+import           Cardano.Wallet.API.V1.Swagger (swaggerSchemaUIServer)
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 
@@ -18,7 +19,6 @@ import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Util.CompileInfo (compileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Servant
-import           Servant.Swagger.UI (swaggerSchemaUIServer)
 
 -- | This function has the tricky task of plumbing different versions of the API,
 -- with potentially different monadic stacks into a uniform @Server@ we can use

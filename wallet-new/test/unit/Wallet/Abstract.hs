@@ -50,7 +50,7 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, (%))
 import           Pos.Util.Chrono
                    (NewestFirst(NewestFirst), toNewestFirst,
-                    OldestFirst(OldestFirst), toOldestFirst)
+                    OldestFirst(OldestFirst))
 import           Pos.Util.QuickCheck.Arbitrary (sublistN)
 import           Serokell.Util (listJson)
 import           Test.QuickCheck
@@ -647,6 +647,28 @@ treeToApplyBlocks (OldestFirst root) = reverse . fst $ go root ([], 1)
       foldr go (ApplyBlock' val : acc, lvl + 1) xs
 
 
+blocksToLedger :: Blocks h a -> Ledger h a
+blocksToLedger blocks = Ledger $ NewestFirst $ do
+  block <- reverse (toList blocks)
+  reverse (toList block)
+
+actionsToBlocks
+  :: forall h a
+  .  Transaction h a   -- ^ Boot transaction
+  -> [Action h a]
+  -> Blocks h a
+actionsToBlocks boot =
+    OldestFirst . reverse . map OldestFirst . foldl' f [[boot]]
+  where
+    f :: [[Transaction h a]] -> Action h a -> [[Transaction h a]]
+    -- Ordering as in `NewestFirst [] (OldestFirst [] (Transaction h a))`
+    f xs (ApplyBlock' (OldestFirst x)) = x : xs
+    f [] Rollback' = error "actionsToBlocks: can't rollback"
+    f (_ : xs) Rollback' = xs
+    f xs (NewPending' _) = xs
+
+
+
 -- | Once we've created our initial @['Action' h 'Addr']@, we want to
 -- insert some 'Transaction's in appropriate locations in the list. There
 -- are some properties that the inserted events must satisfy:
@@ -663,12 +685,11 @@ intersperseTransactions
     => Transaction h Addr -- ^ Bootstrap transaction
     -> Set Addr           -- ^ " Our " addresses
     -> [Action h Addr]    -- ^ Initial actions (the blocks in the chain),
-                          --   including bootstrap transaction.
+                          --   not including bootstrap transaction.
     -> InductiveGen h (Inductive h Addr)
 intersperseTransactions boot addrs actions = do
-    let chain = actionsToChain actions
-        ledger = chainToLedger boot chain
-        ourTxns = findOurTransactions addrs ledger chain
+    let blocks = actionsToBlocks boot actions
+        ourTxns = findOurTransactions addrs blocks
         allTxnCount = length ourTxns
 
     -- we weight the frequency distribution such that most of the
@@ -690,7 +711,7 @@ intersperseTransactions boot addrs actions = do
 
     let txnsWithRange =
             mapMaybe
-                (\(i, t) -> (,,) t i <$> transactionFullyConfirmedAt addrs t chain ledger)
+                (\(i, t) -> (,,) t i <$> transactionFullyConfirmedAt addrs t blocks)
                 txnsToDisperse
 
     let chooseBlock t lo hi i =
@@ -718,7 +739,7 @@ intersperseTransactions boot addrs actions = do
                 (dissect actions)
                 txnsWithIndex
 
-    unconfirmed <- synthesizeTransactions boot addrs chain spent
+    unconfirmed <- synthesizeTransactions boot addrs blocks spent
 
     return $ toInductive boot
            . conssect
@@ -733,11 +754,10 @@ synthesizeTransactions
     :: forall h. Hash h Addr
     => Transaction h Addr -- ^ Bootstrap transaction
     -> Set Addr           -- ^ Addresses owned by the wallet
-    -> Chain h Addr       -- ^ Blockchain
+    -> Blocks h Addr      -- ^ Blockchain
     -> Set (Input h Addr) -- ^ Inputs already spent
     -> InductiveGen h (IntMap [Action h Addr])
-synthesizeTransactions boot addrs chain alreadySpent = do
-    let blocks = toList (chainBlocks chain)
+synthesizeTransactions boot addrs blocks alreadySpent = do
     liftGen $ go IntMap.empty (trUtxo boot) alreadySpent 0 blocks
   where
     -- NOTE: We maintain a UTxO as we process the blocks. There are (at least)
@@ -757,16 +777,16 @@ synthesizeTransactions boot addrs chain alreadySpent = do
        -> Utxo h Addr             -- Current utxo
        -> Set (Input h Addr)      -- All inputs already spent
        -> Int                     -- Index of the next block
-       -> [Block h Addr]          -- Chain yet to process
+       -> Blocks h Addr           -- Chain yet to process
        -> Gen (IntMap [Action h Addr])
-    go acc _ _ _ [] =
+    go acc _ _ _ (OldestFirst []) =
         -- We could create some pending transactions after the very last block,
         -- but we don't
         return acc
-    go acc utxoBefore spent ix (b:bs) = do
+    go acc utxoBefore spent ix (OldestFirst (b:bs)) = do
         pct <- choose (0, 100 :: Int)
         if pct >= 5 || utxoNull utxoAvail
-          then go acc utxoAfter spent (ix + 1) bs
+          then go acc utxoAfter spent (ix + 1) (OldestFirst bs)
           else do
             (i, o) <- elements $ utxoToList utxoAvail
             dests  <- selectDestinations' Set.empty utxoAfter
@@ -776,7 +796,7 @@ synthesizeTransactions boot addrs chain alreadySpent = do
                utxoAfter
                (Set.insert i spent)
                (ix + 1)
-               bs
+               (OldestFirst bs)
       where
         utxoAfter = utxoApplyBlock b utxoBefore
         utxoAvail = oursNotSpent spent utxoAfter
@@ -799,42 +819,33 @@ dissect = IntMap.fromList . zip [0..] . map pure
 conssect :: IntMap [a] -> [a]
 conssect = concatMap snd . IntMap.toList
 
--- | Build a 'Chain' from a list of 'Action's.
-actionsToChain :: forall h a. [Action h a] -> Chain h a
-actionsToChain = Chain . toOldestFirst . foldl' f (NewestFirst [])
-  where
-    f :: NewestFirst [] (OldestFirst [] (Transaction h a))
-      -> Action h a
-      -> NewestFirst [] (OldestFirst [] (Transaction h a))
-    f (NewestFirst xs) (ApplyBlock' x) = NewestFirst (x : xs)
-    f (NewestFirst []) Rollback' = error "findOurTransactions: can't rollback"
-    f (NewestFirst (_ : xs)) Rollback' = NewestFirst xs
-    f x (NewPending' _) = x
 
-
+-- | Given a set of addresses and a list of 'Action's (including the boot
+-- transaction), return all of the 'Transaction's whose output includes at
+-- least one of said addresses together with their block index.
 findOurTransactions
-    :: (Hash h a, Ord a)
-    => Set a
-    -> Ledger h a
-    -> Chain h a
-    -> [(Int, Transaction h a)]
-findOurTransactions addrs ledger =
-    concatMap k . zip [0..] . toList . chainBlocks
-  where
-    k (i, block) =
-        map ((,) i)
-            . filter (all p . trIns)
-            $ toList block
-    p = fromMaybe False
-        . fmap (\o -> outAddr o `Set.member` addrs)
-        . (`inpSpentOutput` ledger)
+  :: forall h a
+  .  (Hash h a, Ord a)
+  => Set a
+  -> Blocks h a
+  -> [(Int, Transaction h a)]
+  -- ^ Block index, transaction.
+findOurTransactions addrs blocks = do
+  let ledger = blocksToLedger blocks
+  (n, block) <- zip [0..] (toList blocks)
+  tr <- toList block
+  guard $ and $ do
+     inp <- trIns' tr
+     pure $ case inpSpentOutput inp ledger of
+       Nothing -> False
+       Just o -> Set.member (outAddr o) addrs
+  pure (n, tr)
 
 -- | This function identifies the index of the block that the input was
 -- received in the ledger, marking the point at which it may be inserted as
 -- a 'NewPending' transaction.
-blockReceivedIndex :: Hash h Addr => Input h Addr -> Chain h Addr -> Maybe Int
-blockReceivedIndex i =
-    List.findIndex (any ((inpTrans i ==) . hash)) . toList . chainBlocks
+blockReceivedIndex :: Hash h Addr => Input h Addr -> Blocks h Addr -> Maybe Int
+blockReceivedIndex i = List.findIndex (any ((inpTrans i ==) . hash)) . toList
 
 -- | For each 'Input' in the 'Transaction' that belongs to one of the
 -- 'Addr'esses in the 'Set' provided, find the index of the block in the
@@ -842,20 +853,20 @@ blockReceivedIndex i =
 -- that -- that is the earliest this transaction may appear as a pending
 -- transaction.
 transactionFullyConfirmedAt
-    :: Hash h Addr
-    => Set Addr
-    -> Transaction h Addr
-    -> Chain h Addr
-    -> Ledger h Addr
-    -> Maybe Int
-transactionFullyConfirmedAt addrs txn chain ledger =
-    let inps = Set.filter inputInAddrs (trIns txn)
-        inputInAddrs i =
-            case inpSpentOutput i ledger of
-                Just o  -> outAddr o `Set.member` addrs
-                Nothing -> False
-        indexes = Set.map (\i -> blockReceivedIndex i chain) inps
-     in foldl' max Nothing indexes
+  :: forall h
+  .  Hash h Addr
+  => Set Addr
+  -> Transaction h Addr
+  -> Blocks h Addr
+  -> Maybe Int
+transactionFullyConfirmedAt addrs txn blocks = do
+  let ledger :: Ledger h Addr = blocksToLedger blocks
+  foldl' max Nothing $ do
+     inp :: Input h Addr <- trIns' txn
+     case inpSpentOutput inp ledger of
+        Just o | Set.member (outAddr o) addrs ->
+           [blockReceivedIndex inp blocks]
+        _ -> []
 
 liftGen :: Gen a -> InductiveGen h a
 liftGen = InductiveGen . lift

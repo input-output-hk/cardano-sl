@@ -165,10 +165,6 @@ as it is.\improvement{We may want to add something about protocol
   abstract syntax of transactions and of blocks, \ldots}
 
 \begin{description}
-\item[k] This entire specification is parameterised by a natural
-  number $k$. It comes from the Ouroboros paper: it is the depth after
-  which a block is considered stable.\info{In Cardano, $k=2160$}
-
 \item[System of identifiers] A set $A$ is said to \emph{have
     identifiers} if there is a set, written $\idsof{A}$ and an
   injective function $\id ∈ A ⟶ \idsof{A}$. In implementations,
@@ -194,8 +190,7 @@ as it is.\improvement{We may want to add something about protocol
   \emph{epoch decomposition} of a slot, as the unique numbers such
   that $n=\epoch{n}\cdot 10k+\epochslot{n}$ and $0⩽ \epochslot{n} < 10k$.
 
-\item[Seeds] We assume a set $\seeds$ of \emph{seeds}, as well
-  as an \emph{initial seed} $\initialseed ∈ \seeds$.
+\item[Seeds] We assume a set $\seeds$ of \emph{seeds}.
 
 \item[Slot leader] We assume a function $\slotleader{⋅}{⋅}{⋅} ∈
   \stakedistributions×\seeds×ℕ ⟶ \agentids$, which, given a stake distribution
@@ -343,6 +338,31 @@ as it is.\improvement{We may want to add something about protocol
 
 \end{description}
 
+\section{Parameters}
+\label{sec:parameters}
+
+\subsection{Validation parameters}
+\label{sec:validation-parameters}
+
+This section lists parameters of the validation rules. The concrete
+instantiation of most of these parameters in Cardano is specified in
+Section~\ref{sec:params}. They are kept abstract in the validation
+rules to highlight that the rules can be stated independently of their
+concrete value, which simplifies the specification.
+
+\subsection{Chain parameters}
+\label{sec:chain-parameters}
+
+This section lists the parameters of a Cardano block chain. They are
+specified in the initial state and can be further modified by updates.
+
+\begin{description}
+\item[k] This entire specification is parameterised by a natural
+  number $k$. It comes from the Ouroboros paper: it is the depth after
+  which a block is considered stable.\info{In Cardano, $k=2160$}
+
+\item[Initial seed] A distinguished seed $\initialseed ∈ \seeds$.
+\end{description}
 \section{Adding a block}
 \label{sec:adding-block}
 

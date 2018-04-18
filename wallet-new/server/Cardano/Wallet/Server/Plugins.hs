@@ -135,14 +135,22 @@ legacyWalletBackend WalletBackendParams {..} ntpStatus =
         in fmap reify (fromException se)
 
     -- Handles domain-specific errors coming from the V0 API, but rewraps it
-    -- into a jsend payload.
+    -- into a jsend payload. It doesn't explicitly handle 'InternalError' or
+    -- 'DecodeError', as they can come from any part of the stack or even
+    -- rewrap some other exceptions (cfr 'rewrapToWalletError').
+    -- Uses the 'Buildable' istance on 'WalletError' to exploit any
+    -- available rendering and information-masking improvements.
     handleV0Errors :: SomeException -> Maybe Response
     handleV0Errors se =
-        let reify (re :: V0.WalletError) =
-                responseLBS badRequest400 [V1.applicationJson] .  encode $ V1.UnknownError (show re)
-        in fmap reify (fromException se)
+        let maskSensitive err =
+                case err of
+                    V0.RequestError _  -> err
+                    V0.InternalError _ -> V0.RequestError "InternalError"
+                    V0.DecodeError _   -> V0.RequestError "DecodeError"
+            reify (re :: V0.WalletError) = V1.UnknownError (sformat build . maskSensitive $ re)
+        in fmap (responseLBS badRequest400 [V1.applicationJson] .  encode . reify) (fromException se)
 
-    -- Handles the generic error, trying to avoid internal exceptions to leak outside.
+    -- Handles any generic error, trying to prevent internal exceptions from leak outside.
     handleGenericError :: SomeException -> Response
     handleGenericError _ =
         responseLBS badRequest400 [V1.applicationJson] .  encode $ V1.UnknownError "Something went wrong."

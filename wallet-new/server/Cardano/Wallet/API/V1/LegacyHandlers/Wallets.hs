@@ -43,12 +43,12 @@ handlers = newWallet
 
 
 -- | Pure function which returns whether or not the underlying node is
--- "synced enough" to allow wallet creation/restoration. The notion of
--- "synced enough" is quite vague and if made too stringent could prevent
+-- \"synced enough\" to allow wallet creation/restoration. The notion of
+-- \"synced enough\" is quite vague and if made too stringent could prevent
 -- the backend to operate normally for wallets which are on a slow network
--- or are struggling to keep up. Therefore we consider a node to be "synced
--- enough" with the blockchain if we are not lagging more than @k@ slots, where
--- @k@ comes from the `blkSecurityParam`.
+-- or are struggling to keep up. Therefore we consider a node to be \"synced
+-- enough\" with the blockchain if we are not lagging more than @k@ slots, where
+-- @k@ comes from the 'blkSecurityParam'.
 isNodeSufficientlySynced :: Core.HasProtocolConstants => V0.SyncProgress -> Bool
 isNodeSufficientlySynced spV0 =
     let blockchainHeight = fromMaybe (Core.BlockCount maxBound)
@@ -75,7 +75,7 @@ newWallet NewWallet{..} = do
     spV0 <- V0.syncProgress
     syncPercentage <- migrate spV0
 
-    -- Do now allow creation or restoration of wallets if the underlying node
+    -- Do not allow creation or restoration of wallets if the underlying node
     -- is still catching up.
     unless (isNodeSufficientlySynced spV0) $ throwM (NodeIsStillSyncing syncPercentage)
 

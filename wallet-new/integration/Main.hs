@@ -9,11 +9,11 @@ import           Cardano.Wallet.Client.Http
 import           Control.Lens hiding ((^..), (^?))
 import           Data.Map (fromList)
 import           Data.Traversable (for)
+import qualified Pos.Core as Core
 import           System.IO (hSetEncoding, stdout, utf8)
+import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Hspec
 import           Test.QuickCheck (arbitrary, generate)
-import System.IO.Unsafe (unsafePerformIO)
-import qualified Pos.Core as Core
 
 import           CLI
 import           Functions
@@ -85,8 +85,6 @@ initialWalletState wc = do
 
 deterministicTests :: WalletClient IO -> Spec
 deterministicTests wc = do
-    -- TODO(adn): Add proper "Transactions" deterministicTests as part of
-    -- https://iohk.myjetbrains.com/youtrack/issue/CBR-184
     describe "Addresses" $ do
         it "Creating an address makes it available" $ do
             -- create a wallet
@@ -172,6 +170,34 @@ deterministicTests wc = do
 
             map txId resp `shouldContain` [txId txn]
 
+        it "estimate fees of a well-formed transaction" $ do
+            ws <- (,)
+                <$> (randomWallet >>= createWalletCheck)
+                <*> (randomWallet >>= createWalletCheck)
+
+            ((fromAcct, _), (toAcct, toAddr)) <- (,)
+                <$> firstAccountAndId (fst ws)
+                <*> firstAccountAndId (snd ws)
+
+            let amount = V1 (Core.mkCoin 42)
+
+            let payment = Payment
+                    { pmtSource = PaymentSource
+                        { psWalletId = walId (fst ws)
+                        , psAccountIndex = accIndex fromAcct
+                        }
+                    , pmtDestinations = pure PaymentDistribution
+                        { pdAddress = addrId toAddr
+                        , pdAmount = amount
+                        }
+                    , pmtGroupingPolicy = Nothing
+                    , pmtSpendingPassword = Nothing
+                    }
+
+            efee <- getTransactionFee wc payment
+            fee <- fmap (feeEstimatedAmount . wrData) efee `shouldPrism` _Right
+            fee `shouldSatisfy` (> amount)
+
         it "fails if you spend too much money" $ do
             wallet <- sampleWallet
             (toAcct, toAddr) <- firstAccountAndId wallet
@@ -249,7 +275,10 @@ deterministicTests wc = do
                 pure wallet
             Nothing -> do
                 Right allWallets <- fmap wrData <$> getWallets wc
-                let Just wallet = find (("Genesis wallet" ==) . walName) allWallets
+                wallet <- maybe
+                    (fail "Genesis wallet is missing; did you import it prior to executing the test-suite?")
+                    return
+                    (find (("Genesis wallet" ==) . walName) allWallets)
                 didWrite <- tryPutMVar genesisRef wallet
                 if didWrite
                     then pure wallet

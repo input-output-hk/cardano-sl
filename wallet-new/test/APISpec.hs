@@ -9,10 +9,13 @@
 
 module APISpec where
 
+import qualified Prelude
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
+import qualified Data.ByteString as BS
 import           Data.Default (def)
+import qualified Data.Text.Encoding as Text
 import           Network.HTTP.Client hiding (Proxy)
 import           Network.HTTP.Types
 import           Ntp.Client (withoutNtpClient)
@@ -28,6 +31,7 @@ import           Serokell.AcidState.ExtendedState
 import           Servant
 import           Servant.QuickCheck
 import           Servant.QuickCheck.Internal
+import           System.Directory
 import           Test.Hspec
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.QuickCheck
@@ -162,18 +166,53 @@ testV1Context =
     testRealModeContext :: IO (RealModeContext WalletMempoolExt)
     testRealModeContext = return (error "testRealModeContext is currently unimplemented")
 
+serverLayout :: ByteString
+serverLayout = Text.encodeUtf8 (layout (Proxy @V1.API))
+
 -- Our API apparently is returning JSON Arrays which is considered bad practice as very old
 -- browsers can be hacked: https://haacked.com/archive/2009/06/25/json-hijacking.aspx/
 -- The general consensus, after discussing this with the team, is that we can be moderately safe.
 spec :: Spec
 spec = withCompileInfo def $ do
     withDefConfigurations $ \_ -> do
-      xdescribe "Servant API Properties" $ do
-        it "V0 API follows best practices & is RESTful abiding" $ do
-          ddl <- D.dummyDiffusionLayer
-          withServantServer (Proxy @V0.API) (v0Server (D.diffusion ddl)) $ \burl ->
-            serverSatisfies (Proxy @V0.API) burl stdArgs predicates
-        it "V1 API follows best practices & is RESTful abiding" $ do
-          ddl <- D.dummyDiffusionLayer
-          withServantServer (Proxy @V1.API) (v1Server (D.diffusion ddl)) $ \burl ->
-            serverSatisfies (Proxy @V1.API) burl stdArgs predicates
+        xdescribe "Servant API Properties" $ do
+            it "V0 API follows best practices & is RESTful abiding" $ do
+                ddl <- D.dummyDiffusionLayer
+                withServantServer (Proxy @V0.API) (v0Server (D.diffusion ddl)) $ \burl ->
+                    serverSatisfies (Proxy @V0.API) burl stdArgs predicates
+            it "V1 API follows best practices & is RESTful abiding" $ do
+                ddl <- D.dummyDiffusionLayer
+                withServantServer (Proxy @V1.API) (v1Server (D.diffusion ddl)) $ \burl ->
+                    serverSatisfies (Proxy @V1.API) burl stdArgs predicates
+
+    describe "Servant Layout" $ around_ withTestDirectory $ do
+        let layoutPath = "./test/golden/api-layout.txt"
+            newLayoutPath = layoutPath <> ".new"
+        it "has not changed" $ do
+            oldLayout <- BS.readFile layoutPath `catch` \(_err :: SomeException) -> pure ""
+            when (oldLayout /= serverLayout) $ do
+                BS.writeFile newLayoutPath serverLayout
+                expectationFailure $ Prelude.unlines
+                    [ "The API layout has changed!!! The new layout has been written to:"
+                    , "    " <> newLayoutPath
+                    , "If this was intentional and correct, move the new layout path to:"
+                    , "    " <> layoutPath
+                    , "Command:"
+                    , "    mv " <> newLayoutPath <> " " <> layoutPath
+                    ]
+
+-- | This is a hack that sets the CWD to the correct directory to access
+-- golden tests. `stack` will run tests at the top level of the git
+-- project, while `cabal` and the Nix CI will run tests at the `wallet-new`
+-- directory. This function ensures that we are in the `wallet-new`
+-- directory for the execution of this test.
+withTestDirectory :: IO () -> IO ()
+withTestDirectory action = void . runMaybeT $ do
+    dir <- lift getCurrentDirectory
+    entries <- lift $ listDirectory dir
+    guard ("cardano-sl-wallet-new.cabal" `notElem` entries)
+    guard ("wallet-new" `elem` entries)
+    lift $ do
+        bracket_ (setCurrentDirectory =<< makeAbsolute "wallet-new")
+                 (setCurrentDirectory dir)
+                 action

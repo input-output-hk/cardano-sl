@@ -180,9 +180,7 @@ as it is.\improvement{We may want to add something about protocol
 
 \item[Stake distribution] A \emph{stake distribution} is a function
   $d ∈ \agentids ⟶ ℕ$ with finite support. We write
-  $\stakedistributions$ for the set of stake distributions. We assume
-  an \emph{initial stake distribution}
-  $\initialdistribution ∈ \stakedistributions$.
+  $\stakedistributions$ for the set of stake distributions.
 
 \item[Slot] An integer.
 
@@ -191,19 +189,6 @@ as it is.\improvement{We may want to add something about protocol
   that $n=\epoch{n}\cdot 10k+\epochslot{n}$ and $0⩽ \epochslot{n} < 10k$.
 
 \item[Seeds] We assume a set $\seeds$ of \emph{seeds}.
-
-\item[Slot leader] We assume a function $\slotleader{⋅}{⋅}{⋅} ∈
-  \stakedistributions×\seeds×ℕ ⟶ \agentids$, which, given a stake distribution
-  and a source of randomness, maps each subsequent slot to an agent id.
-
-\item[Current slot] The current slot is a parameter of every verification
-  (\emph{i.e.} it doesn't make sense in general to ask whether a chain is valid,
-  only that it is valid \emph{at the current slot}). In an implementation, the
-  current slot would be computed from the clock time. The role of the current
-  slot is to prevent attacks where a malicious slot leader at slot $i+1$ would
-  try to issue a block without acknowledging the block issued by the slot leader
-  at slot $i$.\unsure{This sentence is unclear to me. As verification hasn't
-    been discussed yet, maybe just leave it out?}
 
 \item[Stake repartition] A stake repartition is a function
   $r ∈ \stakerepartitions ⊆ \agentids ⟶ \mathbb{Q}$ with finite
@@ -243,20 +228,6 @@ as it is.\improvement{We may want to add something about protocol
     cryptographic signatures.
   \end{record}
 
-  We assume a function $\minimumfee{⋅} ∈ \txs ⟶ ℕ$,
-  called the minimum fee function.\info{It's not clear that the
-    minimum fee, as is currently implemented, is indeed a function of
-    the (abstract represention of) the transaction. This may create
-    mismatches in tests.}
-
-\item[Initial transactions] We assume a finite subset $\txinit ⊆ \txs$
-  of transactions. The intent behind $\txinit$ is that these
-  transactions are present ``in the initial state''. They represent
-  the initial assets in the system. Their inputs are
-  meaningless.\improvement{We may want to compute the initial
-    distribution based on $\txinit$.}\improvement{This doesn't model
-    the ATRedeem story. Does it matter?}
-
 \item[Delegation graph] A delegation graph is a function $g ∈
   \agentids ⟶ \agentids$. The initial delegation graph is defined as
   the identitity function $\initialdelegation(a) = a$.
@@ -283,7 +254,7 @@ as it is.\improvement{We may want to add something about protocol
     signature.
   \item[transactions] A list of transactions\improvement{Ignored:
       secret-sharing, updates.}
-  \item[Delegation certificates] A list of pairs in
+  \item[delegation certificates] A list of pairs in
     $\lists{(\agentids×\agentids)}$. For a delegation certificate
     $c = (D,d)∈\agentids×\agentids$, we write
   \begin{itemize}
@@ -301,6 +272,44 @@ as it is.\improvement{We may want to add something about protocol
   predecessor of $b_{i+1}$ is $b_i$, and the predecessor of $b₁$ is
   $b₀$.
 
+\end{description}
+
+\section{Parameters}
+\label{sec:parameters}
+
+\subsection{Validation parameters}
+\label{sec:validation-parameters}
+
+This section lists parameters of the validation rules. The concrete
+instantiation of most of these parameters in Cardano is specified in
+Section~\ref{sec:params}. They are kept abstract in the validation
+rules to highlight that the rules can be stated independently of their
+concrete value, which simplifies the specification.
+
+\begin{description}
+\item[Slot leader] We assume a function
+  $\slotleader{⋅}{⋅}{⋅} ∈ \stakedistributions×\seeds×ℕ ⟶ \agentids$,
+  which, given a stake distribution and a source of randomness, maps
+  each subsequent slot to an agent id.
+
+\item[Current slot] The current slot is a parameter of the validation
+  rules desribed in this document (\emph{i.e.} it doesn't make sense
+  in general to ask whether, say, a chain is valid, only that it is
+  valid \emph{at the current slot}).
+
+  This parameter is not instantiated in Section~\ref{sec:params}
+  because it actually varies. In an implementation, the current slot
+  would be a function of the wall-clock time. The role of the current
+  slot is to prevent attacks where a malicious slot leader at slot
+  $i+1$ would try to issue a block without acknowledging the block
+  issued by the slot leader at slot $i$.\unsure{Nick: This sentence is
+    unclear to me. As verification hasn't been discussed yet, maybe
+    just leave it out?\\Arnaud: I think it's fair to assume that the
+    reader of this document has a reasonable understanding about how
+    blockchain works, even the Cardano blockchain. It is not a
+    tutorial. I'm trying to make the document easier to read by
+    explaining the reason why things are even there.}
+
 \item[Weight] We assume a weight function
   $\weight{⋅} ∈ \lists{\blocks} ⟶ ℕ$\unsure{We may want to restrict
     the parameter of the weight function to be chains, or even valid
@@ -311,6 +320,37 @@ as it is.\improvement{We may want to add something about protocol
   necessary for the specification itself. A typical such function is
   the length of the list, though more refined criterion are usually
   chosen.
+\end{description}
+
+\subsection{Chain parameters}
+\label{sec:chain-parameters}
+
+This section lists the parameters of a Cardano block chain. They are
+specified in the initial state and can be further modified by updates.
+
+\begin{description}
+\item[k] This entire specification is parameterised by a natural
+  number $k$. It comes from the Ouroboros paper: it is the depth after
+  which a block is considered stable.\info{In Cardano, $k=2160$}
+
+\item[Initial stake distribution] We assume an \emph{initial stake
+    distribution} $\initialdistribution ∈ \stakedistributions$.
+
+\item[Initial seed] A distinguished seed $\initialseed ∈ \seeds$.
+
+\item[Minimum fee] We assume a function $\minimumfee{⋅} ∈ \txs ⟶ ℕ$,
+  called the minimum fee function.\info{It's not clear that the
+    minimum fee, as is currently implemented, is indeed a function of
+    the (abstract represention of) the transaction. This may create
+    mismatches in tests.}
+
+\item[Initial transactions] We assume a finite subset $\txinit ⊆ \txs$
+  of transactions. The intent behind $\txinit$ is that these
+  transactions are present ``in the initial state''. They represent
+  the initial assets in the system. Their inputs are
+  meaningless.\improvement{We may want to compute the initial
+    distribution based on $\txinit$.}\improvement{This doesn't model
+    the ATRedeem story. Does it matter?}
 
 \item[Richmen] We assume a finite set $\richmen ⊆ \agentids$. These
   so-called richmen receive all the stake during the bootstrap
@@ -336,32 +376,6 @@ as it is.\improvement{We may want to add something about protocol
   output. In a concrete implementation this function needs to have
   good randomness properties.
 
-\end{description}
-
-\section{Parameters}
-\label{sec:parameters}
-
-\subsection{Validation parameters}
-\label{sec:validation-parameters}
-
-This section lists parameters of the validation rules. The concrete
-instantiation of most of these parameters in Cardano is specified in
-Section~\ref{sec:params}. They are kept abstract in the validation
-rules to highlight that the rules can be stated independently of their
-concrete value, which simplifies the specification.
-
-\subsection{Chain parameters}
-\label{sec:chain-parameters}
-
-This section lists the parameters of a Cardano block chain. They are
-specified in the initial state and can be further modified by updates.
-
-\begin{description}
-\item[k] This entire specification is parameterised by a natural
-  number $k$. It comes from the Ouroboros paper: it is the depth after
-  which a block is considered stable.\info{In Cardano, $k=2160$}
-
-\item[Initial seed] A distinguished seed $\initialseed ∈ \seeds$.
 \end{description}
 \section{Adding a block}
 \label{sec:adding-block}

@@ -175,7 +175,7 @@ deterministicTests wc = do
                 <$> (randomWallet >>= createWalletCheck)
                 <*> (randomWallet >>= createWalletCheck)
 
-            ((fromAcct, _), (toAcct, toAddr)) <- (,)
+            ((fromAcct, _), (_toAcct, toAddr)) <- (,)
                 <$> firstAccountAndId (fst ws)
                 <*> firstAccountAndId (snd ws)
 

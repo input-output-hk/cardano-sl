@@ -18,6 +18,7 @@ module Pos.Update.Poll.Modifier
 import           Universum
 
 import           Control.Lens (makeLensesFor)
+import           Control.DeepSeq (NFData)
 import           Data.Default (Default (def))
 import           Data.Semigroup (Semigroup)
 
@@ -81,3 +82,5 @@ instance Semigroup PollModifier where
 instance Monoid PollModifier where
     mempty = def
     mappend = modifyPollModifier
+
+instance NFData PollModifier

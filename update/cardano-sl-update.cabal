@@ -99,6 +99,7 @@ library
                      , conduit
                      , containers
                      , data-default
+                     , deepseq
                      , directory
                      , ether >= 0.5
                      , exceptions

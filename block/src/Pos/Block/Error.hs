@@ -1,4 +1,5 @@
 -- | Types describing runtime errors related to Block processing.
+{-# LANGUAGE DeriveGeneric #-}
 
 module Pos.Block.Error
        ( RollbackException(..)
@@ -9,9 +10,11 @@ module Pos.Block.Error
 import           Universum
 
 import           Control.Exception.Safe (Exception (..))
+import           Control.DeepSeq (NFData)
 import           Data.Text.Buildable (Buildable (..))
 import           Data.Text.Lazy.Builder (Builder, fromText)
 import           Formatting (bprint, stext, (%))
+import           GHC.Generics (Generic)
 
 import           Pos.Core (HeaderHash)
 import           Pos.Crypto (shortHashF)
@@ -65,13 +68,15 @@ instance Buildable ApplyBlocksException where
 
 data VerifyBlocksException
     = VerifyBlocksError Text
-    deriving (Show)
+    deriving (Show, Generic)
 
 instance Exception VerifyBlocksException where
     displayException = toString . pretty
 
 instance Buildable VerifyBlocksException where
     build = renderVerifyBlocksException
+
+instance NFData VerifyBlocksException
 
 renderVerifyBlocksException :: VerifyBlocksException -> Builder
 renderVerifyBlocksException = \case

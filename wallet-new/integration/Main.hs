@@ -6,8 +6,10 @@ module Main where
 import           Universum
 
 import           Cardano.Wallet.Client.Http
+import qualified Data.ByteString.Char8 as B8
 import           Data.Map (fromList)
 import           Data.Traversable (for)
+import           Data.X509.File (readSignedObject)
 import           System.IO (hSetEncoding, stdout, utf8)
 import           Test.Hspec
 
@@ -28,8 +30,6 @@ main = do
     hSetEncoding stdout utf8
     CLOptions {..} <- getOptions
 
-    _pubCert <- readFile tlsPubCertPath
-    _privKey <- readFile tlsPrivKeyPath
     -- stateless
 
     -- TODO (akegalj): run server cluster in haskell, instead of using shell scripts
@@ -37,13 +37,17 @@ main = do
 
     printT "Starting the integration testing for wallet."
 
+
     when stateless $ do
         printT "The wallet test node is running in stateless mode."
         printT "Stateless mode not implemented currently!"
 
-    -- TODO (akegalj): move these to CLOptions
-    let baseUrl = BaseUrl Http "localhost" 8090 mempty
-    manager <- newManager defaultManagerSettings
+    let serverId = (serverHost, B8.pack $ show serverPort)
+    caChain <- readSignedObject tlsCACertPath
+    clientCredentials <- orFail =<< credentialLoadX509 tlsClientCertPath tlsPrivKeyPath
+    manager <- newManager $ mkHttpsManagerSettings serverId caChain clientCredentials
+
+    let baseUrl = BaseUrl Https serverHost serverPort mempty
 
     let walletClient :: MonadIO m => WalletClient m
         walletClient = liftClient $ mkHttpClient baseUrl manager
@@ -63,6 +67,10 @@ main = do
 
     hspec $ deterministicTests wRef walletClient
   where
+    orFail :: MonadFail m => Either String a -> m a
+    orFail =
+        either (fail . ("Error decoding X509 certificates: " <>)) return
+
     actionDistribution :: ActionProbabilities
     actionDistribution = do
         (PostWallet, Weight 2)

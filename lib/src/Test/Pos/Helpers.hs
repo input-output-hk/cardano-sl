@@ -35,7 +35,7 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 import           Pos.Core.Genesis (SchemaError)
 import           Pos.Binary (AsBinaryClass (..), Bi (..), decodeFull, serialize, serialize',
                              unsafeDeserialize)
-import           Pos.Communication (Limit (..), MessageLimited (..))
+import           Pos.Communication (Limit (..))
 import           Pos.Util.QuickCheck.Arbitrary (SmallGenerator (..))
 import           Test.Pos.Cbor.Canonicity (perturbCanonicity)
 import qualified Test.Pos.Cbor.RefImpl as R
@@ -198,9 +198,9 @@ msgLenLimitedTest' limit desc whetherTest =
         in  conjoin $ doCheck <$> [1..13 :: Int]
 
 msgLenLimitedTest
-    :: forall a. (IdTestingRequiredClasses Bi a, MessageLimited a Identity)
-    => Spec
-msgLenLimitedTest = msgLenLimitedTest' @a (runIdentity (getMsgLenLimit Proxy)) "" (const True)
+    :: forall a. (IdTestingRequiredClasses Bi a)
+    => Limit a -> Spec
+msgLenLimitedTest lim = msgLenLimitedTest' @a lim "" (const True)
 
 ----------------------------------------------------------------------------
 -- Orphans

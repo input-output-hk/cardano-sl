@@ -6,14 +6,13 @@ module Pos.Crypto.Signing.Tag
 import           Universum
 
 import qualified Pos.Binary.Class as Bi
-import           Pos.Crypto.Configuration (HasCryptoConfiguration, ProtocolMagic (..),
-                                           protocolMagic)
+import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Crypto.Signing.Types.Tag
 
 -- | Get magic bytes corresponding to a 'SignTag'. Guaranteed to be different
 -- (and begin with a different byte) for different tags.
-signTag :: HasCryptoConfiguration => SignTag -> ByteString
-signTag = \case
+signTag :: ProtocolMagic -> SignTag -> ByteString
+signTag protocolMagic = \case
     SignForTestingOnly -> "\x00"
     SignTx             -> "\x01" <> network
     SignRedeemTx       -> "\x02" <> network

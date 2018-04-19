@@ -208,9 +208,6 @@ instance ( HasConfiguration
 instance HasConfiguration => MonadGState WalletMode where
   gsAdoptedBVData = gsAdoptedBVDataDefault
 
-instance HasConfiguration => HasAdoptedBlockVersionData WalletMode where
-  adoptedBVData = gsAdoptedBVData
-
 instance MonadFormatPeers WalletMode where
   formatKnownPeers f = Mtl.withReaderT wcRealModeContext $ formatKnownPeers f
 

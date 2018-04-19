@@ -24,8 +24,6 @@ import qualified Cardano.Wallet.WalletLayer.Legacy as Legacy
 import qualified Cardano.Wallet.WalletLayer.QuickCheck as QuickCheck
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
 
-import           Pos.Wallet.Web.State.State (WalletDbReader)
-
 ------------------------------------------------------------
 -- Kernel
 ------------------------------------------------------------
@@ -46,12 +44,12 @@ bracketKernelActiveWallet  = Kernel.bracketActiveWallet
 ------------------------------------------------------------
 
 bracketLegacyPassiveWallet
-    :: forall ctx m n a. (MonadMask n, WalletDbReader ctx m, MonadIO m, MonadThrow m)
+    :: forall ctx m n a. (MonadMask n, Legacy.MonadLegacyWallet ctx m)
     => (PassiveWalletLayer m -> n a) -> n a
 bracketLegacyPassiveWallet = Legacy.bracketPassiveWallet
 
 bracketLegacyActiveWallet
-    :: forall ctx m n a. (MonadMask n, WalletDbReader ctx m, MonadIO m, MonadThrow m)
+    :: forall ctx m n a. (MonadMask n, Legacy.MonadLegacyWallet ctx m)
     => PassiveWalletLayer m -> WalletDiffusion -> (ActiveWalletLayer m -> n a) -> n a
 bracketLegacyActiveWallet  = Legacy.bracketActiveWallet
 

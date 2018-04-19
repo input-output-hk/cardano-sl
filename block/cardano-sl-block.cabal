@@ -94,6 +94,7 @@ library
                       , cardano-sl-util
                       , cborg
                       , conduit
+                      , containers
                       , cryptonite
                       , data-default
                       , directory

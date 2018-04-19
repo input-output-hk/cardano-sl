@@ -7,15 +7,16 @@
 module Pos.Communication.Limits.Types
        ( Limit (..)
        , (<+>)
-
-       , MessageLimited (..)
-
-       , recvLimited
+       , mlBool
+       , mlMaybe
+       , mlEither
+       , mlTuple
+       , mlTriple
+       , vectorOf
+       , vectorOfNE
        ) where
 
 import           Universum
-
-import           Pos.Communication.Protocol (ConversationActions (..))
 
 -- | A limit on the length of something (in bytes).
 --   TODO should check for overflow in the Num instance.
@@ -32,68 +33,34 @@ infixl 4 <+>
 (<+>) :: Limit (a -> b) -> Limit a -> Limit b
 Limit x <+> Limit y = Limit $ x + y
 
--- | Defines how to determine the limit of some type's serialized
--- representation using some particular state. See 'recvLimited'.
---
--- TODO FIXME can we get rid of this class?
--- Its instances are basically tied up with the Binary instances; they assume
--- to know how they are defined.
-class MessageLimited a m where
-    getMsgLenLimit :: Proxy a -> m (Limit a)
+mlBool :: Limit Bool
+mlBool = 1
 
--- | Pure analogy to `MessageLimited`. Allows to easily get message length
--- limit for simple types.
---
--- All instances are encouraged to be covered with tests
--- (using `Test.Pos.Util.msgLenLimitedTest`).
---
--- If you're going to add instance and have no idea regarding limit value,
--- and your type's size is essentially bounded (doesn't contain list-like
--- structures and doesn't depend on global parameters), you can do as follows:
--- 1) Create instance with limit @1@.
--- 2) Add test case, run - it would fail and report actual size.
--- 3) Insert that value into instance.
+mlMaybe :: Limit a -> Limit (Maybe a)
+mlMaybe lim = Just <$> lim + 1
 
-instance (Applicative m, MessageLimited a m) => MessageLimited (Maybe a) m where
-    getMsgLenLimit _ = (\lim -> Just <$> lim + 1) <$> (getMsgLenLimit Proxy)
+mlEither :: Limit a -> Limit b -> Limit (Either a b)
+mlEither limA limB = 1 + max (Left <$> limA) (Right <$> limB)
 
-instance ( MessageLimited a m
-         , MessageLimited b m
-         , Applicative m
-         )
-         => MessageLimited (Either a b) m where
-    getMsgLenLimit _ = f <$> getMsgLenLimit Proxy <*> getMsgLenLimit Proxy
-      where
-      f limA limB = 1 + max (Left <$> limA) (Right <$> limB)
+mlTuple :: Limit a -> Limit b -> Limit (a, b)
+mlTuple limA limB = (,) <$> limA <+> limB
 
-instance ( MessageLimited a m
-         , MessageLimited b m
-         , Applicative m
-         )
-         => MessageLimited (a, b) m where
-    getMsgLenLimit _ = f <$> getMsgLenLimit Proxy <*> getMsgLenLimit Proxy
-      where
-      f limA limB = (,) <$> limA <+> limB
+mlTriple :: Limit a -> Limit b -> Limit c -> Limit (a, b, c)
+mlTriple limA limB limC = (,,) <$> limA <+> limB <+> limC
 
-instance ( MessageLimited a m
-         , MessageLimited b m
-         , MessageLimited c m
-         , Applicative m
-         )
-         => MessageLimited (a, b, c) m where
-    getMsgLenLimit _ = f <$> getMsgLenLimit Proxy <*> getMsgLenLimit Proxy <*> getMsgLenLimit Proxy
-      where
-      f limA limB limC = (,,) <$> limA <+> limB <+> limC
+-- | Given a limit for a list item, generate limit for a list with N elements
+vectorOf :: Int -> Limit l -> Limit [l]
+vectorOf k (Limit x) =
+    Limit $ encodedListLength + x * (fromIntegral k)
+  where
+    -- should be enough for most reasonable cases
+    -- FIXME this is silly.
+    -- Better solution: never read in an arbitrary-length structure from the
+    -- network. If you want a list, read in one item at a time.
+    encodedListLength = 20
 
-instance Applicative m => MessageLimited Bool m where
-    getMsgLenLimit _ = pure 1
-
--- | Use the MessageLimited instance to determine the length limit of a
---   'rcv' type within the monadic context, and then receive at most that
---   many bytes. If more than that many bytes come in before a parse then
---   an exception is raised.
-recvLimited
-    :: forall rcv snd m .
-       ( Monad m, MessageLimited rcv m )
-    => ConversationActions snd rcv m -> m (Maybe rcv)
-recvLimited conv = getMsgLenLimit (Proxy @rcv) >>= recv conv . getLimit
+vectorOfNE :: Int -> Limit l -> Limit (NonEmpty l)
+vectorOfNE k (Limit x) =
+    Limit $ encodedListLength + x * (fromIntegral k)
+  where
+    encodedListLength = 20

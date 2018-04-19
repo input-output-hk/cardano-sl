@@ -25,13 +25,13 @@ import           System.Clock (Clock (Monotonic), TimeSpec, getTime, toNanoSecs)
 import           System.Wlog (WithLogger, logDebug, logNotice)
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Communication.Limits.Types (MessageLimited, recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              ListenerSpec, MkListeners, MsgSubscribe (..),
                                              MsgSubscribe1 (..), NodeId, OutSpecs,
                                              SendActions, constantListeners,
-                                             convH, toOutSpecs, withConnectionTo)
+                                             convH, toOutSpecs, withConnectionTo,
+                                             recvLimited, mlMsgSubscribe, mlMsgSubscribe1)
 import           Pos.Diffusion.Types (SubscriptionStatus (..))
 import           Pos.Network.Types (Bucket (..), NodeType)
 import           Pos.Util.Timer (Timer, startTimer, waitTimer, setTimerDuration)
@@ -44,8 +44,6 @@ type SubscriptionMode m =
     , MonadMask m
     , Message MsgSubscribe
     , Message MsgSubscribe1
-    , MessageLimited MsgSubscribe m
-    , MessageLimited MsgSubscribe1 m
     , Bi MsgSubscribe
     , Bi MsgSubscribe1
     , Message Void
@@ -141,7 +139,7 @@ subscriptionListener
     -> NodeType
     -> (ListenerSpec m, OutSpecs)
 subscriptionListener oq nodeType = listenerConv @Void oq $ \__ourVerInfo nodeId conv -> do
-    recvLimited conv >>= \case
+    recvLimited conv mlMsgSubscribe >>= \case
         Just MsgSubscribe -> do
             let peers = simplePeers [(nodeType, nodeId)]
             bracket
@@ -151,7 +149,7 @@ subscriptionListener oq nodeType = listenerConv @Void oq $ \__ourVerInfo nodeId 
                 logDebug $ sformat ("subscriptionListener: removed "%shown) nodeId)
               (\added -> when added $ do -- if not added, close the conversation
                   logDebug $ sformat ("subscriptionListener: added "%shown) nodeId
-                  fix $ \loop -> recvLimited conv >>= \case
+                  fix $ \loop -> recvLimited conv mlMsgSubscribe >>= \case
                       Just MsgSubscribeKeepAlive -> do
                           logDebug $ sformat
                               ("subscriptionListener: received keep-alive from "%shown)
@@ -173,7 +171,7 @@ subscriptionListener1
     -> NodeType
     -> (ListenerSpec m, OutSpecs)
 subscriptionListener1 oq nodeType = listenerConv @Void oq $ \_ourVerInfo nodeId conv -> do
-    mbMsg <- recvLimited conv
+    mbMsg <- recvLimited conv mlMsgSubscribe1
     whenJust mbMsg $ \MsgSubscribe1 -> do
       let peers = simplePeers [(nodeType, nodeId)]
       bracket
@@ -183,7 +181,7 @@ subscriptionListener1 oq nodeType = listenerConv @Void oq $ \_ourVerInfo nodeId 
               logDebug $ sformat ("subscriptionListener1: removed "%shown) nodeId)
           (\added -> when added $ do -- if not added, close the conversation
               logDebug $ sformat ("subscriptionListener1: added "%shown) nodeId
-              void $ recvLimited conv)
+              void $ recvLimited conv mlMsgSubscribe1)
 
 subscriptionListeners
     :: forall pack m.

@@ -12,7 +12,7 @@ import qualified Data.ByteString.Lazy as LBS
 import           Formatting (build, sformat, shown)
 import           System.Environment (lookupEnv)
 
-import           Pos.Arbitrary.Block.Generate (generateBlock)
+import           Pos.Arbitrary.Block.Generate (generateMainBlock)
 import           Pos.Binary.Class (Bi, serialize, unsafeDeserialize)
 import qualified Pos.Block.BHelpers as Verify
 import           Pos.Core (Block, BlockHeader, BlockVersionData (..), Body, BodyProof,
@@ -25,84 +25,22 @@ import           Pos.Core (Block, BlockHeader, BlockVersionData (..), Body, Body
                            _mbUpdatePayload)
 import           Pos.Core.Block.Main ()
 import           Pos.Core.Common (CoinPortion, SharedSeed (..))
-import           Pos.Core.Configuration
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Core.Genesis
 import           Pos.Crypto (ProtocolMagic (..))
 
--- We need configurations in order to get Arbitrary and Bi instances for
--- Block stuff.
+-- We need 'ProtocolMagic' and 'ProtocolConstants' in order to generate a
+-- 'MainBlock'.
 
-cc :: CoreConfiguration
-cc = CoreConfiguration
-    { ccGenesis = GCSpec genesisSpec
-    , ccDbSerializeVersion = 0
-    }
+pm :: ProtocolMagic
+pm = ProtocolMagic 0
 
 pc :: ProtocolConstants
 pc = ProtocolConstants
     { pcK = 7
-    , pcProtocolMagic = ProtocolMagic 0
     , pcVssMaxTTL = maxBound
     , pcVssMinTTL = minBound
     }
-
-bvd :: BlockVersionData
-bvd = BlockVersionData
-    { bvdScriptVersion = 0
-    , bvdSlotDuration  = 20000
-    , bvdMaxBlockSize    = limit
-    , bvdMaxHeaderSize   = limit
-    , bvdMaxTxSize       = limit
-    , bvdMaxProposalSize = limit
-    , bvdMpcThd            = unsafeCoinPortionFromDouble 0
-    , bvdHeavyDelThd       = unsafeCoinPortionFromDouble 0
-    , bvdUpdateVoteThd     = unsafeCoinPortionFromDouble 0
-    , bvdUpdateProposalThd = unsafeCoinPortionFromDouble 0
-    , bvdUpdateImplicit = 0
-    , bvdSoftforkRule     = SoftforkRule
-          { srInitThd      = unsafeCoinPortionFromDouble 0
-          , srMinThd       = unsafeCoinPortionFromDouble 0
-          , srThdDecrement = unsafeCoinPortionFromDouble 0
-          }
-    , bvdTxFeePolicy      = TxFeePolicyUnknown 0 mempty
-    , bvdUnlockStakeEpoch = EpochIndex { getEpochIndex = 0 }
-    }
-  where
-    limit = fromIntegral ((2 :: Int) ^ (32 :: Int))
-
-genesisInitializer :: GenesisInitializer
-genesisInitializer = GenesisInitializer
-    { giTestBalance = balance
-    , giFakeAvvmBalance = FakeAvvmOptions
-          { faoCount = 1
-          , faoOneBalance = maxBound
-          }
-    , giAvvmBalanceFactor = unsafeCoinPortionFromDouble 0
-    , giUseHeavyDlg = False
-    , giSeed = 0
-    }
-
-balance :: TestnetBalanceOptions
-balance = TestnetBalanceOptions
-    { tboPoors = 1
-    , tboRichmen = 1
-    , tboTotalBalance = maxBound
-    , tboRichmenShare = 1
-    , tboUseHDAddresses = False
-    }
-
-genesisSpec :: GenesisSpec
-genesisSpec = UnsafeGenesisSpec
-    { gsAvvmDistr = GenesisAvvmBalances mempty
-    , gsFtsSeed = SharedSeed mempty
-    , gsHeavyDelegation = UnsafeGenesisDelegation mempty
-    , gsBlockVersionData = bvd
-    , gsProtocolConstants = pc
-    , gsInitializer = genesisInitializer
-    }
-
-confDir :: FilePath
-confDir = "./lib"
 
 -- | A test subject: a MainBlock, and its various components, each paired with
 -- its serialization.
@@ -161,13 +99,13 @@ withSerialized a = (a, serialize a)
 
 -- | Make a TestSubject using a seed for a PRNG and size.
 testSubject
-    :: ( HasConfiguration )
+    :: ( )
     => Int -- ^ Seed
     -> Int -- ^ Size
     -> TestSubject
 testSubject seed size =
   let block :: MainBlock
-      block = generateBlock seed size
+      block = generateMainBlock pm pc seed size
 
       tsBlock = withSerialized block
       tsHeader = withSerialized (_gbHeader $ block)
@@ -183,13 +121,10 @@ testSubject seed size =
 
   in  TestSubject {..}
 
-benchMain :: ( HasConfiguration ) => Int -> Int -> IO ()
+benchMain :: ( ) => Int -> Int -> IO ()
 benchMain seed size = defaultMain
     [ env (return (testSubject seed size) >>= printSizes) $ \ts -> bgroup "block" $
-          [ bgroup "verify" $
-                [ bench "all" (nf (either (Prelude.error "invalid") identity . Verify.verifyMainBlock :: MainBlock -> ()) (fst . tsBlock $ ts))
-                ]
-          , bgroup "serialize" $
+          [ bgroup "serialize" $
                 [ bench "all" (nf serialize (fst . tsBlock $ ts))
                 , bgroup "header" $
                       [ bench "all" (nf serialize (fst . tsHeader $ ts))
@@ -227,7 +162,7 @@ benchMain seed size = defaultMain
     ]
 
 main :: IO ()
-main = withCoreConfigurations cc confDir (Just (Timestamp 0)) Nothing $ do
+main = do
   sizeStr <- lookupEnv "SIZE"
   seedStr <- lookupEnv "SEED"
   let size = case fmap reads sizeStr of

@@ -58,7 +58,6 @@ library
 
                         -- cardano-sl-client & cardano-sl-generator
                         Pos.Communication.Limits
-                        Pos.Communication.Limits.Given
                         Pos.Communication.Message
                         Pos.Communication.Types
 
@@ -138,6 +137,7 @@ library
                       , cardano-sl-block
                       , cardano-sl-core
                       , cardano-sl-crypto
+                      , cardano-sl-crypto-test
                       , cardano-sl-db
                       , cardano-sl-delegation
                       , cardano-sl-infra
@@ -299,6 +299,7 @@ test-suite cardano-test
                      , cardano-sl-block
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-crypto-test
                      , cardano-sl-db
                      , cardano-sl-delegation
                      , cardano-sl-infra

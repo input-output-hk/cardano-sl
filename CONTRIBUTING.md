@@ -4,7 +4,8 @@
 
 The following places are where developers chat about cardano development:
 * The officially sanctioned chat can be found [here](https://chat.cardano.org/channel/developers)
-* Additionally, there is a gitter channel that has been created for this project, that can be found [here](https://gitter.im/cardano-dev),
+* Additionally, there is a Telegram channel for developers [here](https://t.me/CardanoDevelopersOfficial)
+* Finally, there is a gitter channel that has been created for this project, that can be found [here](https://gitter.im/cardano-dev),
 however, this one is not as active, but is maintained by the community rather than the official cardano project.
 
 ## Bug Reports

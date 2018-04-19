@@ -56,7 +56,7 @@ data WalletError =
     | OutputIsRedeem { weAddress :: !Text }
     | MigrationFailed { weDescription :: !Text }
     | JSONValidationFailed { weValidationError :: !Text }
-    | UnkownError { weMsg :: !Text }
+    | UnknownError { weMsg :: !Text }
     | InvalidAddressFormat { weMsg :: !Text }
     | WalletNotFound
     | AddressNotFound
@@ -109,7 +109,7 @@ sample =
   , OutputIsRedeem "b10b242...be80d93"
   , MigrationFailed "Migration failed"
   , JSONValidationFailed "Expected String, found Null."
-  , UnkownError "Unknown error"
+  , UnknownError "unknown"
   , InvalidAddressFormat "Invalid base58 representation."
   , WalletNotFound
   , AddressNotFound
@@ -125,7 +125,7 @@ describe = \case
   OutputIsRedeem  _                   -> "One of the TX outputs is a redemption address."
   MigrationFailed  _                  -> "Error while migrating a legacy type into the current version."
   JSONValidationFailed _              -> "Couldn't decode a JSON input."
-  UnkownError        _                -> "Unexpected internal error."
+  UnknownError        _                -> "Unexpected internal error."
   InvalidAddressFormat _              -> "Provided address format is not valid."
   WalletNotFound                      -> "Reference to an unexisting wallet was given."
   AddressNotFound                     -> "Reference to an unexisting address was given."
@@ -141,7 +141,7 @@ toServantError err =
     OutputIsRedeem{}                    -> err403
     MigrationFailed{}                   -> err422
     JSONValidationFailed{}              -> err400
-    UnkownError{}                       -> err500
+    UnknownError{}                      -> err500
     WalletNotFound{}                    -> err404
     InvalidAddressFormat{}              -> err401
     AddressNotFound{}                   -> err404

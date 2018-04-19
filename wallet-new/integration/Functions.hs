@@ -1,17 +1,24 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE NamedFieldPuns             #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE TypeApplications           #-}
 
 module Functions where
 
-import           Universum
+import           Universum hiding (log)
 
+import           Control.Lens (at, each, filtered, uses, (%=), (+=), (.=), (<>=), (?=))
+import           Data.Aeson (toJSON)
+import           Data.Aeson.Diff (diff)
+import           Data.Aeson.Encode.Pretty (encodePretty)
 import           Data.Coerce (coerce)
-import           Data.List (delete)
-import           Data.List.NonEmpty (fromList)
-
-import           Control.Lens (at, each, filtered, (+~), (<>~), (?~))
-import           Test.QuickCheck (Gen, arbitrary, elements, frequency, generate)
+import           Data.List (isInfixOf, nub, (!!), (\\))
+import           Test.Hspec
+import           Test.QuickCheck
+import           Text.Show.Pretty (ppShow)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
 import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, AccountUpdate (..),
@@ -21,467 +28,578 @@ import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, Accoun
                                               PaymentDistribution (..), PaymentSource (..),
                                               SpendingPassword, Transaction (..), V1 (..),
                                               Wallet (..), WalletAddress (..), WalletId,
-                                              WalletOperation (..), WalletUpdate (..))
+                                              WalletOperation (..), WalletUpdate (..), unV1)
 
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
-import           Cardano.Wallet.Client (ClientError (..), WalletClient (..), getAccounts,
-                                        getAddressIndex, getTransactionIndex, getWallets)
+import           Cardano.Wallet.Client (ClientError (..), Response (..), ServantError (..),
+                                        WalletClient (..), getAccounts, getAddressIndex,
+                                        getTransactionIndex, getWallets, hoistClient)
 
-import           Pos.Core (mkCoin)
-import           Pos.Util (maybeThrow)
+import           Pos.Core (getCoin, mkCoin)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import           Error
 import           Types
 
+newtype RefT s m a
+    = RefT
+    { unRefT :: ReaderT (IORef s) m a
+    } deriving
+    ( Functor, Applicative, Monad, MonadIO, MonadTrans, Alternative, MonadCatch
+    , MonadThrow, MonadPlus
+    )
 
--- | The top function that we need to run in order
--- to test the backend.
+instance MonadIO m => MonadState s (RefT s m) where
+    get = RefT ask >>= readIORef
+    put x = RefT ask >>= (`writeIORef` x)
+
+runRefT :: MonadIO m => RefT s m a -> s -> m (a, s)
+runRefT act i = do
+    init <- newIORef i
+    a <- runReaderT (unRefT act) init
+    s <- readIORef init
+    pure (a, s)
+
+execRefT :: MonadIO m => RefT s m a -> s -> m s
+execRefT x = fmap snd . runRefT x
+
+-- | This function uses the given 'ActionProbabilities' to generate a list
+-- of actions to test against the API. It runs the actions through,
+-- eventually returning the final state.
 runActionCheck
-    :: (WalletTestMode m)
+    :: (WalletTestMode m, HasCallStack)
     => WalletClient m
     -> WalletState
     -> ActionProbabilities
     -> m WalletState
 runActionCheck walletClient walletState actionProb = do
-    action <- chooseAction actionProb
-    runAction walletClient walletState action
+    actions <- chooseActions 10 actionProb
+    log $ "Test will run these actions: " <> show (toList actions)
+    let client' = hoistClient lift walletClient
+    ws <- execRefT (tryAll (map (runAction client') actions) <|> pure ()) walletState
+              `catch` \x -> fmap (const walletState) . liftIO . hspec .
+                  describe "Unit Test Failure" $
+                      it ("threw a test error: " ++ showConstr x) $ case x of
+                          LocalWalletDiffers a b ->
+                              a `shouldBe` b
+                          LocalWalletsDiffers as bs ->
+                              sort as `shouldBe` sort bs
+                          LocalAccountDiffers a b ->
+                              a `shouldBe` b
+                          LocalAccountsDiffers as bs ->
+                              sort as `shouldBe` sort bs
+                          LocalAddressesDiffer as bs ->
+                              sort as `shouldBe` sort bs
+                          LocalAddressDiffer a b ->
+                              a `shouldBe` b
+                          LocalTransactionsDiffer as bs ->
+                              sort as `shouldBe` sort bs
+                          LocalTransactionMissing txn txns ->
+                              txns `shouldContain` [txn]
+                          err ->
+                              expectationFailure $ show err
+    _ <- execRefT report ws
+    pure ws
+  where
+    report = do
+        acts <- use actionsNum
+        succs <- use successActions
+        log $ "Successfully run " <> show (length succs) <> " out of " <> show acts <> " actions"
+        log $ "Successful actions counts: " <> show (map (\a -> (a!!0, length a)) $ group $ sort succs)
+        log $ "Skipped actions: " <> show ([minBound..maxBound] \\ nub succs)
 
+
+-- | Attempt each action in the list. If an action fails, ignore the
+-- failure and try the next action in the sequence.
+tryAll :: Alternative f => NonEmpty (f a) -> f a
+tryAll (x :| xs) = foldl' (\this next -> (this *> next) <|> next) x xs
+
+freshPassword :: (MonadState WalletState m, MonadIO m) => m SpendingPassword
+freshPassword = do
+    passwords <- gets (toList . view walletsPass)
+    liftIO $ generate $ arbitrary `suchThat` (`notElem` passwords)
 
 -- | Here we run the actions.
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+-- NOTE: ordNub is available in latest universum, but current universum-0.9 doesn't have it.
+{-# ANN module ("HLint: ignore Use ordNub" :: Text) #-}
 runAction
-    :: (WalletTestMode m)
+    :: (WalletTestMode m, HasCallStack, MonadState WalletState m)
     => WalletClient m
-    -> WalletState
     -> Action
-    -> m WalletState
+    -> m ()
 -- Wallets
-runAction wc ws  PostWallet = do
-    newPassword <- liftIO $ generate arbitrary
-    newWall     <- liftIO $ generate $ generateNewWallet newPassword
-    result      <- respToRes $ postWallet wc newWall
+runAction wc action = do
 
-    checkInvariant
-        (walBalance result == minBound)
-        (WalletBalanceNotZero result)
+    previousWalletState <- get
 
-    -- Modify wallet state accordingly.
-    pure $ ws
-        & wallets    <>~ [result]
-        & walletsPass . at result ?~ newPassword
-        & actionsNum +~ 1
-  where
-    generateNewWallet spendPass =
-        NewWallet
-            <$> arbitrary
-            <*> pure (Just spendPass)
-            <*> arbitrary
-            <*> pure "Wallet"
-            <*> pure CreateWallet
+    log $ "Action Selected: " <> show action
+    actionsNum += 1
+    acts <- use actionsNum
+    succs <- length <$> use successActions
+    log $ "Actions:\t" <> show acts <> "\t\tSuccesses:\t" <> show succs
+    case action of
+        PostWallet -> do
+            newPassword <- freshPassword
+            newWall     <- liftIO $ generate $ generateNewWallet newPassword
+            log $ "Request: " <> ppShowT newWall
+            eresult      <- postWallet wc newWall
 
-runAction wc ws GetWallets   = do
-    -- We choose from the existing wallets.
-    result  <-  respToRes $ getWallets wc
+            case eresult of
+                Right WalletResponse { wrData = result } -> do
+                    checkInvariant
+                        (walBalance result == minBound)
+                        (WalletBalanceNotZero result)
 
-    checkInvariant
-        (length result == length (ws ^. wallets))
-        (LocalWalletsDiffers result)
+                    walletAccounts <- respToRes . getAccounts wc $ walId result
 
-    -- No modification required.
-    pure $ ws
-        & actionsNum +~ 1
+                    log $ "New wallet ID: " <> ppShowT (walId result)
+                    log $ "New accounts: " <> ppShowT walletAccounts
 
-runAction wc ws GetWallet    = do
-    -- We choose from the existing wallets.
-    wallet  <-  pickRandomElement (ws ^. wallets)
-    result  <-  respToRes $ getWallet wc (walId wallet)
+                    -- Modify wallet state accordingly.
+                    wallets    <>= [result]
+                    walletsPass . at (walId result) ?= newPassword
+                    accounts   <>= walletAccounts
+                    addresses  <>= concatMap accAddresses walletAccounts
 
-    checkInvariant
-        (walBalance result == minBound)
-        (LocalWalletDiffers result)
+                Left (ClientHttpError (FailureResponse (Response {..})))
+                    | "mnemonics" `isInfixOf` show responseBody -> do
+                        log "Mnemonic was already taken!"
+                        -- we need to record that the password is in use
+                        -- somehow
+                        dummyWallet <- liftIO $ generate arbitrary
+                        walletsPass . at dummyWallet ?= newPassword
+                Left err ->
+                    throwM err
+          where
+            generateNewWallet spendPass =
+                NewWallet
+                    <$> arbitrary
+                    <*> pure (Just spendPass)
+                    <*> arbitrary
+                    <*> pure "Wallet"
+                    <*> pure CreateWallet
 
-    -- No modification required.
-    pure $ ws
-        & actionsNum +~ 1
+        GetWallets -> do
+            result  <-  respToRes $ getWallets wc
+            localWallets <- use wallets
+            checkInvariant
+                (length localWallets == length result)
+                (LocalWalletsDiffers result localWallets)
+            wallets .= result
 
-runAction wc ws DeleteWallet = do
+            -- No modification required.
 
-    let localWallets = ws ^. wallets
+        GetWallet -> do
+            -- We choose from the existing wallets.
+            wal <-  pickRandomElement =<< use wallets
 
-    -- The precondition is that we need to have wallets.
-    guard (not (null localWallets))
+            log $ "Requesting wallet: " <> show (walId wal)
+            result  <-  respToRes $ getWallet wc (walId wal)
 
-    -- We choose from the existing wallets.
-    wallet  <-  pickRandomElement localWallets
+            checkInvariant
+                (walId result == walId wal)
+                (LocalWalletDiffers result wal)
 
-    -- If we don't have any http client errors, the delete was a success.
-    _       <-  either throwM pure =<< deleteWallet wc (walId wallet)
+        DeleteWallet -> do
+            -- We are using non genesis wallets because we don't want to remove wallet with money during tests
+            localWallets <- use nonGenesisWallets
 
-    -- Just in case, let's check if it's still there.
-    result  <-  respToRes $ getWallets wc
+            -- We choose from the existing wallets.
+            wallet  <-  pickRandomElement localWallets
 
-    checkInvariant
-        (all ((/=) wallet) localWallets)
-        (LocalWalletsDiffers result)
+            log $ "Deleting: " <> show (walId wallet)
+            -- If we don't have any http client errors, the delete was a success.
+            _       <-  either throwM pure =<< deleteWallet wc (walId wallet)
 
-    -- Modify wallet state accordingly.
-    pure $ ws
-        & wallets    .~ delete wallet localWallets
-        & actionsNum +~ 1
+            -- Just in case, let's check if it's still there.
+            result  <-  respToRes $ getWallets wc
 
-runAction wc ws UpdateWallet = do
+            checkInvariant
+                (walId wallet `notElem` map walId result)
+                (LocalWalletsDiffers result localWallets)
 
-    let localWallets = ws ^. wallets
+            walletAccounts <- uses accounts (filter (\acc -> accWalletId acc /= walId wallet))
 
-    -- The precondition is that we need to have wallets.
-    guard (not (null localWallets))
+            -- Modify wallet state accordingly.
+            wallets  %= filter (\w -> walId wallet /= walId w)
+            accounts .= walletAccounts
+            addresses %= filter (`elem` concatMap accAddresses walletAccounts)
+            walletsPass . at (walId wallet) .= Nothing
 
-    -- We choose from the existing wallets.
-    wallet  <-  pickRandomElement localWallets
+        UpdateWallet -> do
 
-    let walletId = walId wallet
+            localWallets <- use nonGenesisWallets
 
-    let newWallet =
-            WalletUpdate
-                { uwalAssuranceLevel = NormalAssurance
-                , uwalName           = "Wallet name " <> (show walletId)
-                }
+            -- We choose from the existing wallets.
+            wallet  <-  pickRandomElement localWallets
 
-    result  <-  respToRes $ updateWallet wc walletId newWallet
+            let walletId = walId wallet
 
-    -- Modify wallet state accordingly.
-    pure $ ws
-        & wallets . each . filtered (== wallet) .~ result
-        & actionsNum +~ 1
+            let newWallet =
+                    WalletUpdate
+                        { uwalAssuranceLevel = NormalAssurance
+                        , uwalName           = "Wallet name " <> (show walletId)
+                        }
 
-runAction wc ws UpdateWalletPass = do
+            log $ "Updating wallet: " <> show walletId <> ", " <> ppShowT newWallet
+            result  <-  respToRes $ updateWallet wc walletId newWallet
+            log $ "Old   : " <> ppShowT wallet
+            log $ "Result: " <> ppShowT result
+            -- Modify wallet state accordingly.
+            -- TODO(matt.parsons): Uncomment this line, when we actually
+            -- implement wallet update in CSL-2450
+            -- wallets . each . filtered (== wallet) .= result
 
-    let localWallets = ws ^. wallets
+        UpdateWalletPass -> do
 
-    -- The precondition is that we need to have wallets.
-    guard (not (null localWallets))
+            localWallets <- use nonGenesisWallets
 
-    -- We choose from the existing wallets.
-    wallet  <-  pickRandomElement localWallets
+            -- We choose from the existing wallets.
+            wallet  <-  pickRandomElement localWallets
 
-    let walletId = walId wallet
+            let walletId = walId wallet
 
-    -- Get the old wallet password.
-    let oldWalletPass :: Maybe SpendingPassword
-        oldWalletPass = ws ^. walletsPass . at wallet
+            -- Get the old wallet password.
+            oldWalletPass <- use (walletsPass . at (walId wallet))
 
-    walletPass  <- maybeThrow (WalletPassMissing wallet) oldWalletPass
-    newPassword <- liftIO $ generate arbitrary
+            walletPass  <- maybe empty pure oldWalletPass
+            newPassword <- freshPassword
 
-    -- Create a password update.
-    let newPasswordUpdate =
-            PasswordUpdate
-                { pwdOld = walletPass
-                , pwdNew = newPassword
-                }
+            -- Create a password update.
+            let newPasswordUpdate =
+                    PasswordUpdate
+                        { pwdOld = walletPass
+                        , pwdNew = newPassword
+                        }
 
-    result  <-  respToRes $ updateWalletPassword wc walletId newPasswordUpdate
+            log $ "Wallet ID: " <> show walletId
+            log $ "Updating wallet password: " <> ppShowT newPasswordUpdate
+            result  <-  respToRes $ updateWalletPassword wc walletId newPasswordUpdate
+            checkInvariant
+                (walId result == walId wallet)
+                (LocalWalletDiffers result wallet)
 
-    -- Modify wallet state accordingly.
-    pure $ ws
-        & wallets . each . filtered (== wallet) .~ result
-        & walletsPass . at wallet ?~ newPassword
-        & actionsNum +~ 1
+            -- Modify wallet state accordingly.
+            wallets %= map (\wal -> if walId wal == walId wallet then result else wal)
+            walletsPass . at (walId result) ?= newPassword
 
 -- Accounts
-runAction wc ws  PostAccount = do
+        PostAccount -> do
 
-    let localWallets = ws ^. wallets
+            localWallets <- use wallets
 
-    -- Precondition, we need to have wallet in order
-    -- to create an account.
-    guard (not (null localWallets))
+            wallet  <- pickRandomElement localWallets
+            mpass   <- use (walletsPass . at (walId wallet))
+            newAcc  <-  liftIO $ generate (generateNewAccount mpass)
+            log $ "Posting account: " <> show (walId  wallet) <> ", " <> ppShowT newAcc
+            result  <-  respToRes $ postAccount wc (walId wallet) newAcc
 
-    wallet     <- pickRandomElement localWallets
-    newAcc  <-  liftIO $ generate generateNewAccount
-    result  <-  respToRes $ postAccount wc (walId wallet) newAcc
+            checkInvariant
+                (accAmount result == minBound)
+                (AccountBalanceNotZero result)
 
-    checkInvariant
-        (accAmount result == minBound)
-        (AccountBalanceNotZero result)
+            log $ "New account: " <> ppShowT result
 
-    -- Modify wallet state accordingly.
-    pure $ ws
-        & accounts   <>~ [result]
-        & actionsNum +~ 1
-  where
-    -- | We don't want to memorize the passwords for now.
-    generateNewAccount =
-        NewAccount
-            <$> pure Nothing
-            <*> arbitrary
+            -- Modify wallet state accordingly.
+            accounts   <>= [result]
+            addresses  <>= accAddresses result
+          where
+            generateNewAccount mpass = do
+                i <- arbitrary
+                name <- replicateM i (elements (['a' .. 'z'] ++ ['A' .. 'Z']))
+                pure $ NewAccount mpass (fromString name)
 
-runAction wc ws GetAccounts   = do
-    -- We choose from the existing wallets AND existing accounts.
-    wallet  <-  pickRandomElement (ws ^. wallets)
-    let walletId = walId wallet
-    -- We get all the accounts.
-    result  <-  respToRes $ getAccounts wc walletId
+        GetAccounts   -> do
+            -- We choose from the existing wallets AND existing accounts.
+            wallet  <-  pickRandomElement =<< use wallets
+            let walletId = walId wallet
 
-    checkInvariant
-        (length result == length (ws ^. accounts))
-        (LocalAccountsDiffers result)
+            -- We get all the accounts.
+            log $ "Getting accounts for walletID: " <> show walletId
+            log $ "Wallet info: " <> ppShowT wallet
+            result  <-  respToRes $ getAccounts wc walletId
 
-    -- Modify wallet state accordingly.
-    pure $ ws
-        & actionsNum +~ 1
+            accts <- uses accounts (filter ((walletId ==) . accWalletId))
+            checkInvariant
+                (length result == length accts)
+                (LocalAccountsDiffers accts result)
+            pure ()
 
-runAction wc ws GetAccount    = do
-    -- We choose from the existing wallets AND existing accounts.
-    account <-  pickRandomElement (ws ^. accounts)
-    let walletId = accWalletId account
+        GetAccount    -> do
+            -- We choose from the existing wallets AND existing accounts.
+            account <- pickRandomElement =<< use accounts
+            let walletId = accWalletId account
+            walletIdIsNotGenesis walletId
 
-    result  <-  respToRes $ getAccount wc walletId (accIndex account)
+            log $ "Getting account: " <> show walletId <> ", " <> show (accIndex account)
+            result  <-  respToRes $ getAccount wc walletId (accIndex account)
 
-    checkInvariant
-        (accAmount result == minBound)
-        (LocalAccountDiffers result)
+            -- posting transactions changes the account, so we really want
+            -- to check that nothing *but* the amount differs.
+            let eqOn :: Eq b => (Account -> b) -> Bool
+                eqOn f = f account == f result
+            checkInvariant
+                (and [eqOn accIndex, eqOn (length . accAddresses), eqOn accName, eqOn accWalletId])
+                (LocalAccountDiffers result account)
 
-    -- Modify wallet state accordingly.
-    pure $ ws
-        & actionsNum +~ 1
+        DeleteAccount -> do
+            localAccounts <- use accounts
 
+            -- We choose from the existing wallets AND existing accounts.
+            account <-  pickRandomElement localAccounts
+            let walletId = accWalletId account
+                accIdx = accIndex account
+                withoutAccount = filter (not . chosenAccount) localAccounts
+                chosenAccount acct =
+                    accWalletId acct == walletId
+                    && accIndex acct ==  accIdx
 
-runAction wc ws DeleteAccount = do
+            -- We don't want to delete accounts in genesis walletsG
+            walletIdIsNotGenesis walletId
+            log $ "Deleting account, walletID: " <> show walletId <> ", accIndex: " <> show accIdx
+            -- If we don't have any http client errors, the delete was a success.
+            _ <- either throwM pure =<< deleteAccount wc walletId accIdx
 
-    let localAccounts = ws ^. accounts
+            -- Just in case, let's check if it's still there.
+            result  <-  respToRes $ getAccounts wc walletId
 
-    -- The precondition is that we need to have accounts.
-    guard (not (null localAccounts))
+            checkInvariant
+                (account `notElem` result)
+                (LocalAccountsDiffers result withoutAccount)
 
-    -- We choose from the existing wallets AND existing accounts.
-    account <-  pickRandomElement localAccounts
-    let walletId = accWalletId account
+            -- Modify wallet state accordingly.
+            accounts  .= withoutAccount
+            addresses %= filter (`notElem` accAddresses account)
 
-    -- If we don't have any http client errors, the delete was a success.
-    _ <- either throwM pure =<< deleteAccount wc walletId (accIndex account)
+        UpdateAccount -> do
+            localAccounts <- use accounts
 
-    -- Just in case, let's check if it's still there.
-    result  <-  respToRes $ getAccounts wc walletId
+            -- We choose from the existing wallets.
+            account <-  pickRandomElement localAccounts
 
-    checkInvariant
-        (all ((/=) account) localAccounts)
-        (LocalAccountsDiffers result)
+            let walletId  = accWalletId account
+            let accountId = accIndex account
 
-    -- Modify wallet state accordingly.
-    pure $ ws
-        & accounts   .~ delete account localAccounts
-        & actionsNum +~ 1
+            let newAccount =
+                    AccountUpdate
+                        { uaccName = "Account name " <> (show accountId)
+                        }
 
-runAction wc ws UpdateAccount = do
+            -- We don't want to update genesis wallet account (althought it should be safe)
+            walletIdIsNotGenesis walletId
 
-    let localAccounts = ws ^. accounts
+            log $ mconcat ["Updating account: ", show walletId, ", ", show accountId, ", ", ppShowT newAccount]
+            result  <-  respToRes $ updateAccount wc walletId accountId newAccount
 
-    -- The precondition is that we need to have accounts.
-    guard (not (null localAccounts))
-
-    -- We choose from the existing wallets.
-    account <-  pickRandomElement localAccounts
-
-    let walletId  = accWalletId account
-    let accountId = accIndex account
-
-    let newAccount =
-            AccountUpdate
-                { uaccName = "Account name " <> (show accountId)
-                }
-
-    result  <-  respToRes $ updateAccount wc walletId accountId newAccount
-
-    -- Modify wallet state accordingly.
-    pure $ ws
-        & accounts . each . filtered (== account) .~ result
-        & actionsNum +~ 1
+            -- Modify wallet state accordingly.
+            accounts . each . filtered (== account) .= result
 
 -- Addresses
-runAction wc ws PostAddress = do
+        PostAddress -> do
+            -- The precondition is that we must have accounts.
+            -- If we have accounts, that presupposes that we have wallets,
+            -- which is the other thing we need here.
+            localAccounts <- use accounts
 
-    -- The precondition is that we must have accounts.
-    -- If we have accounts, that presupposes that we have wallets,
-    -- which is the other thing we need here.
-    let localAccounts = ws ^. accounts
+            -- We choose from the existing wallets AND existing accounts.
+            account <-  pickRandomElement localAccounts
+            let walletId = accWalletId account
+            walletPass <- use (walletsPass . at walletId)
 
-    guard (not (null localAccounts))
+            let newAddress = NewAddress walletPass (accIndex account) walletId
 
-    -- We choose from the existing wallets AND existing accounts.
-    account <-  pickRandomElement (ws ^. accounts)
-    let walletId = accWalletId account
+            -- We don't want to create a new address in genesis wallet (although it should be safe)
+            walletIdIsNotGenesis walletId
 
-    let newAddress = createNewAddress walletId (accIndex account)
+            log $ "Posting address: " <> ppShowT newAddress
+            result  <-  respToRes $ postAddress wc newAddress
 
-    result  <-  respToRes $ postAddress wc newAddress
+            checkInvariant
+                (addrBalance result == minBound)
+                (AddressBalanceNotZero result)
 
-    checkInvariant
-        (addrBalance result == minBound)
-        (AddressBalanceNotZero result)
+            -- Modify wallet state accordingly.
+            addresses  <>= [result]
+            accounts . traverse . filtered (== account) %= \acct ->
+                acct { accAddresses = accAddresses acct <> [result] }
 
-    -- Modify wallet state accordingly.
-    pure $ ws
-        & addresses  <>~ [result]
-        & actionsNum +~ 1
-  where
-    createNewAddress :: WalletId -> AccountIndex -> NewAddress
-    createNewAddress wId accIndex = NewAddress
-        { newaddrSpendingPassword = Nothing
-        , newaddrAccountIndex     = accIndex
-        , newaddrWalletId         = wId
-        }
+        GetAddresses   -> do
+            -- We set the state to be the result of calling the endpoint.
+            -- Attempting to keep the addresses in sync with the server
+            -- introduces a lot of complexity, and mostly catches bugs in
+            -- the local state management.
+            result <- respToRes $ getAddressIndex wc
+            addresses .= result
 
-runAction wc ws GetAddresses   = do
-    -- We choose one address, we could choose all of them.
-    -- Also, remove the `V1` type since we don't need it now.
-    address <-  coerce <$> pickRandomElement (ws ^. addresses)
-    -- We get all the accounts.
-    result  <-  respToRes $ getAddressIndex wc
+        GetAddress -> do
+            -- We choose one address.
+            address <-  fmap addrId . pickRandomElement =<< use addresses
 
-    checkInvariant
-        (address `elem` result)
-        (LocalAddressesDiffer address result)
+            -- If we can't switch to @Text@ something is obviously wrong.
+            let cAddress :: (MonadThrow m) => m (V0.CId V0.Addr)
+                cAddress = either throwM pure (migrate address)
 
-    -- Modify wallet state accordingly.
-    pure $ ws
-        & actionsNum +~ 1
+            textAddress <- coerce <$> cAddress
 
-runAction wc ws GetAddress     = do
-    -- We choose one address.
-    address <-  addrId <$> pickRandomElement (ws ^. addresses)
+            log $ "Requesting: " <> show textAddress
 
-    -- If we can't switch to @Text@ something is obviously wrong.
-    let cAddress :: (MonadThrow m) => m (V0.CId V0.Addr)
-        cAddress = either throwM pure (migrate address)
+            -- If the address exists, it is valid.
+            void . respToRes $ getAddress wc textAddress
 
-    textAddress <- coerce <$> cAddress
+        -- Transactions
+        PostTransaction -> do
+            localAccounts  <- use accounts
+            localAddresses <- use addresses
 
-    -- If the address exists, it is valid.
-    _  <-  respToRes $ getAddress wc textAddress
+            -- Some min amount of money so we can send a transaction?
+            -- https://github.com/input-output-hk/cardano-sl/blob/develop/lib/configuration.yaml#L228
+            let minCoinForTxs = V1 . mkCoin $ 200000
+            let localAccsWithMoney = filter ((> minCoinForTxs) . accAmount) localAccounts
 
-    -- Modify wallet state accordingly.
-    pure $ ws
-        & actionsNum +~ 1
+            -- From which source to pay.
+            accountSource <- pickRandomElement localAccsWithMoney
 
--- Transactions
-runAction wc ws PostTransaction = do
+            let accountSourceMoney = accAmount accountSource
+                withoutSourceAddresses = filter (`notElem` accAddresses accountSource) localAddresses
+                reasonableFee = 100
 
-    let localAccounts  = ws ^. accounts
-    let localAddresses = ws ^. addresses
+            -- We should probably have a sensible minimum value.
+            moneyAmount <- liftIO . fmap mkCoin . generate
+                $ choose
+                    ( 10
+                    , getCoin (unV1 accountSourceMoney) - reasonableFee
+                    )
+            -- moneyAmount <- liftIO $ generate arbitrary
 
-    -- Some min amount of money so we can send a transaction?
-    -- https://github.com/input-output-hk/cardano-sl/blob/develop/lib/configuration.yaml#L228
-    let minCoinForTxs = V1 . mkCoin $ 200000
-    let localAccsWithMoney = filter ((> minCoinForTxs) . accAmount) localAccounts
+            let paymentSource =
+                    PaymentSource
+                        { psWalletId     = accWalletId accountSource
+                        , psAccountIndex = accIndex    accountSource
+                        }
 
-    -- | The preconditions we need to generate a transaction.
-    -- We need to have an account and an address.
-    -- We also need money to execute a transaction.
-    guard (not (null localAccounts))
-    guard (not (null localAddresses))
-    guard (not (null localAccsWithMoney))
+            addressDestination <- pickRandomElement withoutSourceAddresses
 
-    -- From which source to pay.
-    accountSource <- pickRandomElement localAccsWithMoney
+            let paymentDestinations =
+                    PaymentDistribution
+                        { pdAddress = addrId addressDestination
+                        , pdAmount  = V1 moneyAmount
+                        } :| []
 
-    let _accountSourceMoney = accAmount accountSource
+            walletPass <- use (walletsPass . at (accWalletId accountSource))
+            let newPayment = Payment
+                                 paymentSource
+                                 paymentDestinations
+                                 mzero
+                                 walletPass
 
-    -- We should probably have a sensible minimum value.
-    -- moneyAmount <- liftIO $ mkCoin $ generate $ choose (0, getCoin accountSourceMoney)
-    moneyAmount <- liftIO $ generate arbitrary
+            -- Check the transaction fees.
+            log $ "getTransactionFee: " <> ppShowT newPayment
+            etxFees  <-  fmap wrData <$> getTransactionFee wc newPayment
 
-    let paymentSource =
-            PaymentSource
-                { psWalletId     = accWalletId accountSource
-                , psAccountIndex = accIndex    accountSource
-                }
-
-    addressDestination <- pickRandomElement localAddresses
-
-    let paymentDistribution =
-            PaymentDistribution
-                { pdAddress = addrId addressDestination
-                , pdAmount  = moneyAmount
-                }
-
-    let newPayment =  createNewPayment
-                          paymentSource
-                          [paymentDistribution]
-
-    -- Check the transaction fees.
-    txFees  <-  respToRes $ getTransactionFee wc newPayment
-
-    checkInvariant
-        (feeEstimatedAmount txFees > minBound)
-        (InvalidTransactionFee txFees)
-
-    -- Check the transaction.
-    result  <-  respToRes $ postTransaction wc newPayment
-
-    checkInvariant
-        (txAmount result == moneyAmount)
-        (InvalidTransactionState result)
-
-    -- Modify wallet state accordingly.
-    pure $ ws
-        & transactions  <>~ [(accountSource, result)]
-        & actionsNum    +~ 1
-
-  where
-    createNewPayment :: PaymentSource -> [PaymentDistribution] -> Payment
-    createNewPayment ps pd = Payment
-        { pmtSource           = ps
-        , pmtDestinations     = fromList pd
-        , pmtGroupingPolicy   = Nothing
-        -- ^ Simple for now.
-        , pmtSpendingPassword = Nothing
-        }
+            txFees <- case etxFees of
+                Right a -> pure a
+                Left (ClientHttpError (FailureResponse (Response {..})))
+                    | "not enough money" `isInfixOf` show responseBody -> do
+                        log "Not enough money to do the transaction."
+                        empty
+                Left err -> throwM err
 
 
-runAction wc ws GetTransaction  = do
-    let txs = ws ^. transactions
+            checkInvariant
+                (feeEstimatedAmount txFees > minBound)
+                (InvalidTransactionFee txFees)
 
-    -- We need to have transactions in order to test this endpoint.
-    guard (not (null txs))
+            -- Check the transaction.
+            log $ "postTransaction: " <> ppShowT newPayment
+            newTx  <-  respToRes $ postTransaction wc newPayment
 
-    -- We choose from the existing transactions.
-    accTransaction  <- pickRandomElement txs
+            let sumCoins f =
+                    sum . map (getCoin . unV1 . pdAmount) . toList $ f newTx
+                inputSum = sumCoins txInputs
+                outputSum = sumCoins txOutputs
 
-    let txsAccount :: Account
-        txsAccount = accTransaction ^. _1
+            -- Transaction shouldn't produce any money
+            checkInvariant
+                (inputSum >= outputSum)
+                (InvalidTransactionState newTx)
 
-    let transaction :: Transaction
-        transaction = accTransaction ^. _2
+            let actualFees = V1 . mkCoin $ inputSum - outputSum
 
-    let walletId :: WalletId
-        walletId = accWalletId txsAccount
+            -- Estimated fees should correspond to actual fees
+            -- TODO(akegalj): add custom error type
+            checkInvariant
+                (feeEstimatedAmount txFees == actualFees)
+                (InvalidTransactionState newTx)
 
-    let accountIndex :: AccountIndex
-        accountIndex = accIndex txsAccount
+            let changeAddress = toList (txOutputs newTx) \\ toList paymentDestinations
+                -- NOTE: instead of this manual conversion we could filter WalletAddress from getAddressIndex
+                pdToChangeAddress PaymentDistribution{..} = WalletAddress pdAddress pdAmount True True
 
-    result  <-  respToRes $ getTransactionIndex
-                                wc
-                                (Just walletId)
-                                (Just accountIndex)
-                                Nothing
-                                Nothing
-                                Nothing
+            -- We expect at most one extra PaymentDestination which should be a change address
+            -- TODO(akegalj): add custom error type
+            checkInvariant
+                (length changeAddress <= 1)
+                (InvalidTransactionState newTx)
 
-    -- First check we have results
-    checkInvariant
-        (not (null result))
-        (LocalTransactionsDiffer result)
+            -- TODO(akegalj): add invariant that checks is there paymentDestinations distributions in newTx
+            -- TODO(akegalj): add invariant that checks is paymentSource the only source of newTx
+            -- TODO(akegalj): add invariant that checks did accounts of all payment destinations increase by expected amount
+            -- TODO(akegalj): add invariant that checks did accounts of all payment sources decrease by expected amount
 
-    -- Then check if the transaction exists in the history
-    checkInvariant
-        (transaction `elem` result)
-        (LocalTransactionMissing transaction result)
+            -- Modify wallet state accordingly.
+            transactions  <>= [(accountSource, newTx)]
+            addresses     <>= map pdToChangeAddress changeAddress
 
-    -- Modify wallet state accordingly.
-    pure $ ws
-        & actionsNum +~ 1
+        GetTransaction  -> do
+            txs <- use transactions
+
+            -- We choose from the existing transactions.
+            accTransaction  <- pickRandomElement txs
+
+            let txsAccount :: Account
+                txsAccount = accTransaction ^. _1
+
+            let transaction :: Transaction
+                transaction = accTransaction ^. _2
+
+            let walletId :: WalletId
+                walletId = accWalletId txsAccount
+
+            let accountIndex :: AccountIndex
+                accountIndex = accIndex txsAccount
+
+            log $ "getTransactionIndex: " <> show walletId <> ", " <> show accountIndex
+            result  <-  respToRes $ getTransactionIndex
+                                        wc
+                                        (Just walletId)
+                                        (Just accountIndex)
+                                        Nothing
+
+            -- First check we have results
+            checkInvariant
+                (not (null result))
+                (LocalTransactionsDiffer result (map snd txs))
+
+            -- Then check if the transaction exists in the history
+            checkInvariant
+                (txId transaction `elem` map txId result)
+                (LocalTransactionMissing transaction result)
+
+        NoOp  -> pure ()
+
+    lastAction .= action
+
+    -- Let's print it out to JSON
+    walletState <- get
+
+    log "=================================================================="
+    log . decodeUtf8 . encodePretty $ diff (toJSON previousWalletState) (toJSON walletState)
+    log "=================================================================="
+
+    -- increment successful actions
+    log "Success!"
+    successActions <>= [action]
 
 
 -----------------------------------------------------------------------------
@@ -493,8 +611,8 @@ runAction wc ws GetTransaction  = do
 chooseActionGen
     :: ActionProbabilities
     -> Gen Action
-chooseActionGen aProb =
-    frequency $ map (\(a, p) -> (getProbability p, pure a)) aProb
+chooseActionGen =
+    frequency . map (\(a, p) -> (getWeight p, pure a)) . toList
 
 
 -- | Generate action from the generator.
@@ -504,6 +622,17 @@ chooseAction
     -> m Action
 chooseAction = liftIO . generate . chooseActionGen
 
+-- | Generate a random sequence of actions with the given size.
+chooseActions
+    :: (WalletTestMode m)
+    => Word
+    -> ActionProbabilities
+    -> m (NonEmpty Action)
+chooseActions n probs = liftIO . generate $ do
+    let gens = map (\(a, p) -> (getWeight p, pure a)) (toList probs)
+    a <- frequency gens
+    as <- replicateM (fromIntegral n - 1) (frequency gens)
+    pure (a :| as)
 
 -- | We are not interested in the @WalletResponse@ for now.
 respToRes
@@ -516,9 +645,9 @@ respToRes resp = do
 
 
 -- | Pick a random element using @IO@.
-pickRandomElement :: (MonadIO m) => [a] -> m a
-pickRandomElement = liftIO . generate . elements
-
+pickRandomElement :: (MonadIO m, Alternative m) => [a] -> m a
+pickRandomElement [] = empty
+pickRandomElement xs = liftIO . generate . elements $ xs
 
 -- | A util function for checking the validity of invariants.
 checkInvariant
@@ -529,9 +658,20 @@ checkInvariant
 checkInvariant True  _             = pure ()
 checkInvariant False walletTestErr = throwM walletTestErr
 
+log :: MonadIO m => Text -> m ()
+log = putStrLn . mappend "[TEST-LOG] "
 
 -- | Output for @Text@.
 printT :: Text -> IO ()
 printT = putStrLn
 
+ppShowT :: Show a => a -> Text
+ppShowT = fromString . ppShow
 
+walletIdIsNotGenesis
+    :: (MonadState WalletState m, Alternative m)
+    => WalletId -> m ()
+walletIdIsNotGenesis walletId = do
+    mwallet <- head . filter ((walletId ==) . walId) <$> use wallets
+    whenJust mwallet $ \wal ->
+        guard (walName wal /= "Genesis wallet")

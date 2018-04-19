@@ -18,6 +18,7 @@ module Cardano.Wallet.Client
     , ClientError(..)
     , WalletError(..)
     , ServantError(..)
+    , Response(..)
     -- * Reexports
     , module Cardano.Wallet.API.V1.Types
     , module Cardano.Wallet.API.V1.Parameters
@@ -32,7 +33,7 @@ module Cardano.Wallet.Client
 import           Universum
 
 import           Control.Exception (Exception (..))
-import           Servant.Client (ServantError (..))
+import           Servant.Client (Response (..), ServantError (..))
 
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination
@@ -119,30 +120,63 @@ data WalletClient m
          :: Resp m NodeInfo
     } deriving Generic
 
-getAddressIndex :: WalletClient m -> Resp m [WalletAddress]
-getAddressIndex wc = getAddressIndexPaginated wc Nothing Nothing
+-- | Paginates through all request pages and concatenates the result.
+--
+-- NOTE: this lazy variant might be inefficient. It is supposed to be used only in tests. Implement strict version if optimization is needed
+-- TODO(akegalj): this can be paralelized like so (pseudo):
+--   do
+--     -- first page is fetched in sequence
+--     page1 <- request (page 1) (Just maxPerPageEntries)
+--     -- then rest of the pages is fetched in parallel
+--     fromPage2 <- paralelMap (\p -> request p $ Just 50) [2..page1.wrMeta.metaTotalPages]
+--     concatMap wrData $ page1:fromPage2
+--
+paginateAll :: Monad m => (Maybe Page -> Maybe PerPage -> Resp m [a]) -> Resp m [a]
+paginateAll request = fmap fixMetadata <$> paginatePage 1
+  where
+    fixMetadata WalletResponse{..} =
+        WalletResponse
+            { wrMeta = Metadata $
+                PaginationMetadata
+                    { metaTotalPages = 1
+                    , metaPage = Page 1
+                    , metaPerPage = PerPage $ length wrData
+                    , metaTotalEntries = length wrData
+                    }
+            , ..
+            }
+    paginatePage page = do
+        result <- request (Just $ Page page) (Just $ PerPage maxPerPageEntries)
+        case result of
+            Left _ -> pure result
+            Right resp ->
+                if null $ wrData resp
+                    then pure result
+                    else fmap (\d -> d { wrData = wrData resp <> wrData d }) <$> paginatePage (succ page)
 
-getAccounts :: WalletClient m -> WalletId -> Resp m [Account]
-getAccounts wc wi = getAccountIndexPaged wc wi Nothing Nothing
+getAddressIndex :: Monad m => WalletClient m -> Resp m [WalletAddress]
+getAddressIndex = paginateAll . getAddressIndexPaginated
+
+getAccounts :: Monad m => WalletClient m -> WalletId -> Resp m [Account]
+getAccounts wc = paginateAll . getAccountIndexPaged wc
 
 getTransactionIndex
-    :: WalletClient m
+    :: Monad m
+    => WalletClient m
     -> Maybe WalletId
     -> Maybe AccountIndex
     -> Maybe (V1 Core.Address)
-    -> Maybe Page
-    -> Maybe PerPage
     -> Resp m [Transaction]
-getTransactionIndex wc wid maid maddr mp mpp =
-    getTransactionIndexFilterSorts wc wid maid maddr mp mpp NoFilters NoSorts
+getTransactionIndex wc wid maid maddr =
+    paginateAll $ \mp mpp -> getTransactionIndexFilterSorts wc wid maid maddr mp mpp NoFilters NoSorts
 
 getWalletIndexPaged :: WalletClient m -> Maybe Page -> Maybe PerPage -> Resp m [Wallet]
 getWalletIndexPaged wc mp mpp = getWalletIndexFilterSorts wc mp mpp NoFilters NoSorts
 
 -- | Retrieves only the first page of wallets, providing a default value to
 -- 'Page' and 'PerPage'.
-getWallets :: WalletClient m -> Resp m [Wallet]
-getWallets wc = getWalletIndexPaged wc Nothing Nothing
+getWallets :: Monad m => WalletClient m -> Resp m [Wallet]
+getWallets = paginateAll . getWalletIndexPaged
 
 -- | Run the given natural transformation over the 'WalletClient'.
 hoistClient :: (forall x. m x -> n x) -> WalletClient m -> WalletClient n
@@ -195,8 +229,8 @@ liftClient = hoistClient liftIO
 
 -- | Calls 'getWalletIndexPaged' using the 'Default' values for 'Page' and
 -- 'PerPage'.
-getWalletIndex :: WalletClient m -> Resp m [Wallet]
-getWalletIndex wc = getWalletIndexPaged wc Nothing Nothing
+getWalletIndex :: Monad m => WalletClient m -> Resp m [Wallet]
+getWalletIndex = paginateAll . getWalletIndexPaged
 
 -- | A type alias shorthand for the response from the 'WalletClient'.
 type Resp m a = m (Either ClientError (WalletResponse a))
@@ -208,22 +242,22 @@ data ClientError
     -- might return.
     | ClientHttpError ServantError
     -- ^ We directly expose the 'ServantError' type as part of this
-    | UnknownError SomeException
+    | UnknownClientError SomeException
     -- ^ This constructor is used when the API client reports an error that
     -- isn't represented in either the 'ServantError' HTTP errors or the
     -- 'WalletError' for API errors.
-    deriving (Show)
+    deriving (Show, Generic)
 
 -- | General (and naive) equality instance.
 instance Eq ClientError where
-    (==) (ClientWalletError e1) (ClientWalletError e2) = e1 == e2
-    (==) (ClientHttpError   e1) (ClientHttpError   e2) = e1 == e2
-    (==) (UnknownError      _ ) (UnknownError      _ ) = True
-    (==) _                      _                      = False
+    ClientWalletError  e1 == ClientWalletError  e2 = e1 == e2
+    ClientHttpError    e1 == ClientHttpError    e2 = e1 == e2
+    UnknownClientError _  == UnknownClientError _  = True
+    _ == _ = False
 
 -- | General exception instance.
 instance Exception ClientError where
-    toException   (ClientWalletError e) = toException e
-    toException   (ClientHttpError   e) = toException e
-    toException   (UnknownError      e) = toException e
+    toException (ClientWalletError  e) = toException e
+    toException (ClientHttpError    e) = toException e
+    toException (UnknownClientError e) = toException e
 

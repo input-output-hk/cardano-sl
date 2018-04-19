@@ -195,6 +195,12 @@ as it is.\improvement{We may want to add something about protocol
   support, and such that $r(a) ⩾ 0$ for all $a$. And such that
   $∑_{a∈\agentids} r(a) = 1$.
 
+  Repartition are used as part of transaction output to allocate stake
+  to parties which are not necessarily the recipient of the
+  output. Agent $a$ receive stake in proportion $r(a)$ (with
+  subtleties due to rounding, see
+  Section~\ref{sec:derived-functions}).
+
 \item[Transaction] Transactions have a system of identifiers
   $\txids$.
 

@@ -681,69 +681,62 @@ actionsToBlocks boot =
 --
 -- See Note [Intersperse]
 intersperseTransactions
-    :: Hash h Addr
+    :: forall h
+    .  Hash h Addr
     => Transaction h Addr -- ^ Bootstrap transaction
     -> Set Addr           -- ^ " Our " addresses
     -> [Action h Addr]    -- ^ Initial actions (the blocks in the chain),
                           --   not including bootstrap transaction.
     -> InductiveGen h (Inductive h Addr)
 intersperseTransactions boot addrs actions = do
-    let blocks = actionsToBlocks boot actions
-        ourTxns = findOurTransactions addrs blocks
-        allTxnCount = length ourTxns
-
-    -- we weight the frequency distribution such that most of the
-    -- transactions will be represented by this wallet. this can be
+    let blocks :: Blocks h Addr = actionsToBlocks boot actions
+        ourTxns :: [(Int, Transaction h Addr)]
+          = findOurTransactions addrs blocks
+        ourTxnsCount :: Int = length ourTxns
+    -- We weigh the frequency distribution such that most of the
+    -- transactions will be represented by this wallet. This can be
     -- changed or made configurable later.
     --
-    -- also, weirdly, sometimes there aren't any transactions on any of the
-    -- addresses that belong to us. that seems like an edge case.
-    txnToDisperseCount <- if allTxnCount == 0
-        then pure 0
-        else liftGen
-            . frequency
-            . zip [1 .. allTxnCount]
-            . map pure
-            $ [1 .. allTxnCount]
-
-    txnsToDisperse <- liftGen $ sublistN txnToDisperseCount ourTxns
-
-
-    let txnsWithRange =
-            mapMaybe
-                (\(i, t) -> (,,) t i <$> transactionFullyConfirmedAt addrs t blocks)
-                txnsToDisperse
-
-    let chooseBlock t lo hi i =
-          (t { trExtra = sformat ("Inserted at "
-                                 % build
-                                 % " <= "
-                                 % build
-                                 % " < "
-                                 % build
-                                 ) lo i hi : trExtra t }, i)
-    txnsWithIndex <- fmap catMaybes $
-        forM txnsWithRange $ \(t, hi, lo) ->
-          if hi > lo then
-            Just . chooseBlock t lo hi <$> liftGen (choose (lo, hi - 1))
-          else
-            -- cannot create a pending transaction from a transaction that uses
-            -- inputs from the very same block in which it gets confirmed
-            return Nothing
-
-    let append    = flip (<>)
-        spent     = Set.unions $ map (trIns . fst) txnsWithIndex
-        confirmed =
-            foldr
-                (\(t, i) -> IntMap.insertWith append i [newPending' [] t])
-                (dissect actions)
-                txnsWithIndex
-
-    unconfirmed <- synthesizeTransactions boot addrs blocks spent
-
-    return $ toInductive boot
-           . conssect
-           $ IntMap.unionWith (<>) confirmed unconfirmed
+    -- Also, weirdly, sometimes there aren't any transactions on any of the
+    -- addresses that belong to us. That seems like an edge case.
+    txnToDisperseCount :: Int <- case ourTxnsCount of
+       0 -> pure 0
+       n -> liftGen $ frequency (zip [1 .. n] (map pure [1 .. n]))
+    txnsToDisperse :: [(Int, Transaction h Addr)] <-
+       liftGen $ sublistN txnToDisperseCount ourTxns
+    let txnsWithRange :: [(Transaction h Addr, Int, IntMap.Key)] = do
+           (i, txn) <- txnsToDisperse
+           case transactionFullyConfirmedAt addrs txn blocks of
+              Just k -> [(txn, i, k)]
+              Nothing -> []
+    let chooseBlock
+          :: Transaction h Addr -> IntMap.Key -> Int -> IntMap.Key
+          -> (Transaction h Addr, IntMap.Key)
+        chooseBlock = \t lo hi i ->
+          ( t { trExtra = sformat
+                  ( "Inserted at " % build % " <= " % build % " < " % build
+                  ) lo i hi : trExtra t }
+          , i )
+    txnsWithIndex :: [(Transaction h Addr, Int)] <- do
+       fmap join $ forM txnsWithRange $ \(t, hi, lo) -> case lo < hi of
+          True -> do
+             i <- liftGen $ choose (lo, hi - 1)
+             pure [chooseBlock t lo hi i]
+          False -> pure []
+             -- Can't create a pending transaction from a transaction that
+             -- uses inputs from the same block in which it gets confirmed
+    let spent :: Set (Input h Addr)
+          = Set.unions (map (trIns . fst) txnsWithIndex)
+    let confirmed :: IntMap [Action h Addr]
+          = foldr
+              (\(t, i) -> IntMap.insertWith (flip (<>)) i [newPending' [] t])
+              (dissect actions)
+              txnsWithIndex
+    unconfirmed :: IntMap [Action h Addr] <-
+       synthesizeTransactions boot addrs blocks spent
+    pure $ toInductive boot
+         $ conssect
+         $ IntMap.unionWith (<>) confirmed unconfirmed
 
 -- | Generate transactions that will never be confirmed
 --

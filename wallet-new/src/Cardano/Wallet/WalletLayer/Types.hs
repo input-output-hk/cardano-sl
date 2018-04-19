@@ -6,6 +6,8 @@ module Cardano.Wallet.WalletLayer.Types
     , WalletLayerResponse
     , monadThrowToEither
     -- * Getters
+    -- TODO(ks): Should we expose getters only and
+    -- use lenses for the modification or is that confusing?
     , createWallet
     , getWalletIds
     , getWallet
@@ -21,17 +23,27 @@ module Cardano.Wallet.WalletLayer.Types
     , createAddress
     , getAddresses
     , isAddressValid
+
+    , addTx
+    , getTxs
+
+    , setWalletRestoring
+    , unsetWalletRestoring
+    , isWalletRestoring
+
+    , getSyncState
     ) where
 
 
 import           Universum
 
-import           Control.Lens (makeLenses)
 import           Control.Exception.Safe (try)
+import           Control.Lens (makeLenses)
 
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, AddressValidity,
-                                              NewAccount, NewAddress, NewWallet, Wallet,
-                                              WalletAddress, WalletId, WalletUpdate)
+                                              NewAccount, NewAddress, NewWallet, SyncState,
+                                              Transaction, Wallet, WalletAddress, WalletId,
+                                              WalletRestorationStatus, WalletUpdate)
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
@@ -51,21 +63,36 @@ monadThrowToEither = try
 data PassiveWalletLayer m = PassiveWalletLayer
     {
     -- * wallets
-      _pwlCreateWallet   :: NewWallet -> WalletLayerResponse m Wallet
-    , _pwlGetWalletIds   :: WalletLayerResponse m [WalletId]
-    , _pwlGetWallet      :: WalletId -> WalletLayerResponse m Wallet
-    , _pwlUpdateWallet   :: WalletId -> WalletUpdate -> WalletLayerResponse m Wallet
-    , _pwlDeleteWallet   :: WalletId -> WalletLayerResponse m ()
+      _pwlCreateWallet          :: NewWallet -> WalletLayerResponse m Wallet
+    , _pwlGetWalletIds          :: WalletLayerResponse m [WalletId]
+    , _pwlGetWallet             :: WalletId -> WalletLayerResponse m Wallet
+    , _pwlUpdateWallet          :: WalletId -> WalletUpdate -> WalletLayerResponse m Wallet
+    , _pwlDeleteWallet          :: WalletId -> WalletLayerResponse m ()
     -- * accounts
-    , _pwlCreateAccount  :: WalletId -> NewAccount -> WalletLayerResponse m Account
-    , _pwlGetAccounts    :: WalletId -> WalletLayerResponse m [Account]
-    , _pwlGetAccount     :: WalletId -> AccountIndex -> WalletLayerResponse m Account
-    , _pwlUpdateAccount  :: WalletId -> AccountIndex -> AccountUpdate -> WalletLayerResponse m Account
-    , _pwlDeleteAccount  :: WalletId -> AccountIndex -> WalletLayerResponse m ()
+    , _pwlCreateAccount         :: WalletId -> NewAccount -> WalletLayerResponse m Account
+    , _pwlGetAccounts           :: WalletId -> WalletLayerResponse m [Account]
+    , _pwlGetAccount            :: WalletId -> AccountIndex -> WalletLayerResponse m Account
+    , _pwlUpdateAccount         :: WalletId -> AccountIndex -> AccountUpdate -> WalletLayerResponse m Account
+    , _pwlDeleteAccount         :: WalletId -> AccountIndex -> WalletLayerResponse m ()
     -- * addresses
-    , _pwlCreateAddress  :: NewAddress -> WalletLayerResponse m WalletAddress
-    , _pwlGetAddresses   :: WalletId -> Maybe AccountIndex -> WalletLayerResponse m [WalletAddress]
-    , _pwlIsAddressValid :: WalletAddress -> WalletLayerResponse m AddressValidity
+    , _pwlCreateAddress         :: NewAddress -> WalletLayerResponse m WalletAddress
+    , _pwlGetAddresses          :: WalletId -> Maybe AccountIndex -> WalletLayerResponse m [WalletAddress]
+    , _pwlIsAddressValid        :: WalletAddress -> WalletLayerResponse m AddressValidity
+    -- * transactions
+    -- We can just add them and fetch them.
+    , _pwlAddTx                 :: WalletId -> AccountIndex -> Transaction -> WalletLayerResponse m ()
+    , _pwlGetTxs                :: WalletId -> AccountIndex -> WalletLayerResponse m [Transaction]
+    -- * required for txp
+    , _pwlSetWalletRestoring    :: WalletId -> WalletLayerResponse m ()
+    , _pwlUnsetWalletRestoring  :: WalletId -> WalletLayerResponse m ()
+    , _pwlIsWalletRestoring     :: WalletId -> WalletLayerResponse m WalletRestorationStatus
+    -- * utxo
+    -- TODO(ks): Can we hide the rest of internals?
+    -- , _getWalletUtxo            :: WalletId -> WalletLayerResponse m Utxo
+    -- , _getAccountUtxo           :: AccountIndex -> WalletLayerResponse m Utxo
+    -- , _getAddressUtxo           :: WalletAddress -> WalletLayerResponse m Utxo
+
+    , _pwlGetSyncState          :: WalletId -> WalletLayerResponse m SyncState
     }
 
 makeLenses ''PassiveWalletLayer
@@ -114,6 +141,27 @@ getAddresses pwl = pwl ^. pwlGetAddresses
 
 isAddressValid :: forall m. PassiveWalletLayer m -> WalletAddress -> WalletLayerResponse m AddressValidity
 isAddressValid pwl = pwl ^. pwlIsAddressValid
+
+
+addTx :: forall m. PassiveWalletLayer m -> WalletId -> AccountIndex -> Transaction -> WalletLayerResponse m ()
+addTx pwl = pwl ^. pwlAddTx
+
+getTxs :: forall m. PassiveWalletLayer m -> WalletId -> AccountIndex -> WalletLayerResponse m [Transaction]
+getTxs pwl = pwl ^. pwlGetTxs
+
+
+setWalletRestoring :: forall m. PassiveWalletLayer m -> WalletId -> WalletLayerResponse m ()
+setWalletRestoring pwl = pwl ^. pwlSetWalletRestoring
+
+unsetWalletRestoring :: forall m. PassiveWalletLayer m -> WalletId -> WalletLayerResponse m ()
+unsetWalletRestoring pwl = pwl ^. pwlUnsetWalletRestoring
+
+isWalletRestoring :: forall m. PassiveWalletLayer m -> WalletId -> WalletLayerResponse m WalletRestorationStatus
+isWalletRestoring pwl = pwl ^. pwlIsWalletRestoring
+
+
+getSyncState :: forall m. PassiveWalletLayer m -> WalletId -> WalletLayerResponse m SyncState
+getSyncState pwl = pwl ^. pwlGetSyncState
 
 ------------------------------------------------------------
 -- Active wallet layer

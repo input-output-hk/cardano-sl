@@ -25,21 +25,30 @@ bracketPassiveWallet =
   where
     passiveWalletLayer :: PassiveWalletLayer n
     passiveWalletLayer = PassiveWalletLayer
-        { _pwlCreateWallet      = \_     -> liftedGen
-        , _pwlGetWalletIds      =           liftedGen
-        , _pwlGetWallet         = \_     -> liftedGen
-        , _pwlUpdateWallet      = \_ _   -> liftedGen
-        , _pwlDeleteWallet      = \_     -> liftedGen
+        { _pwlCreateWallet          = \_     -> liftedGen
+        , _pwlGetWalletIds          =           liftedGen
+        , _pwlGetWallet             = \_     -> liftedGen
+        , _pwlUpdateWallet          = \_ _   -> liftedGen
+        , _pwlDeleteWallet          = \_     -> liftedGen
 
-        , _pwlCreateAccount     = \_ _   -> liftedGen
-        , _pwlGetAccounts       = \_     -> liftedGen
-        , _pwlGetAccount        = \_ _   -> liftedGen
-        , _pwlUpdateAccount     = \_ _ _ -> liftedGen
-        , _pwlDeleteAccount     = \_ _   -> liftedGen
+        , _pwlCreateAccount         = \_ _   -> liftedGen
+        , _pwlGetAccounts           = \_     -> liftedGen
+        , _pwlGetAccount            = \_ _   -> liftedGen
+        , _pwlUpdateAccount         = \_ _ _ -> liftedGen
+        , _pwlDeleteAccount         = \_ _   -> liftedGen
 
-        , _pwlCreateAddress     = \_     -> liftedGen
-        , _pwlGetAddresses      = \_ _   -> liftedGen
-        , _pwlIsAddressValid    = \_     -> liftedGen
+        , _pwlCreateAddress         = \_     -> liftedGen
+        , _pwlGetAddresses          = \_ _   -> liftedGen
+        , _pwlIsAddressValid        = \_     -> liftedGen
+
+        , _pwlAddTx                 = \_ _ _ -> liftedGen
+        , _pwlGetTxs                = \_ _   -> liftedGen
+
+        , _pwlSetWalletRestoring    = \_     -> liftedGen
+        , _pwlUnsetWalletRestoring  = \_     -> liftedGen
+        , _pwlIsWalletRestoring     = \_     -> liftedGen
+
+        , _pwlGetSyncState          = \_     -> liftedGen
         }
 
     -- | A utility function.

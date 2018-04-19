@@ -105,9 +105,6 @@ library
                         -- NodeContext
                         Pos.Context.Context
 
-                        -- Crypto
-                        Pos.Crypto.HDDiscovery
-
                         -- GState
                         Pos.GState.Context
                         Pos.GState.GState

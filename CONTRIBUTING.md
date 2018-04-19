@@ -2,8 +2,10 @@
 
 ## Discussion
 
-There is a gitter channel that has been created for this project. This is the place to discuss developments at a more conceptual level.
-The parent community can be found [here](https://gitter.im/cardano-dev) and the cardano-sl specific room can be found [here](https://gitter.im/cardano-dev/cardano-sl)
+The following places are where developers chat about cardano development:
+* The officially sanctioned chat can be found [here](https://chat.cardano.org/channel/developers)
+* Additionally, there is a gitter channel that has been created for this project, that can be found [here](https://gitter.im/cardano-dev),
+however, this one is not as active, but is maintained by the community rather than the official cardano project.
 
 ## Bug Reports
 

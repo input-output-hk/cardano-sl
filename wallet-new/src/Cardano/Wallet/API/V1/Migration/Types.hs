@@ -26,7 +26,7 @@ import           Pos.Core (addressF)
 import qualified Pos.Core.Common as Core
 import qualified Pos.Core.Slotting as Core
 import qualified Pos.Core.Txp as Core
-import           Pos.Crypto (decodeHash)
+import           Pos.Crypto (encodeHash, decodeHash)
 import qualified Pos.Txp.Toil.Types as V0
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Instances ()
@@ -65,6 +65,10 @@ instance (Migrate from to, Typeable from, Typeable to) => Migrate [from] (NonEmp
         , " because the list was empty."
         ]
     eitherMigrate (x:xs) = (:|) <$> eitherMigrate x <*> mapM eitherMigrate xs
+
+-- | Migration the other way around.
+instance (Migrate from to, Typeable from, Typeable to) => Migrate (NonEmpty from) [to] where
+    eitherMigrate (x:|xs) = (:) <$> eitherMigrate x <*> mapM eitherMigrate xs
 
 instance Migrate (V0.CWallet, OldStorage.WalletInfo, Maybe Core.ChainDifficulty) V1.Wallet where
     eitherMigrate (V0.CWallet{..}, OldStorage.WalletInfo{..}, currentBlockchainHeight) =
@@ -225,6 +229,13 @@ instance Migrate (V1 Core.Address) (V0.CId V0.Addr) where
       let h = sformat addressF address in
       pure $ (V0.CId (V0.CHash h))
 
+instance Migrate V1.PaymentDistribution (V0.CId V0.Addr, V0.CCoin) where
+    eitherMigrate V1.PaymentDistribution {..} = do
+        cIdAddr     <- eitherMigrate pdAddress
+        cCoin       <- eitherMigrate pdAmount
+
+        pure (cIdAddr, cCoin)
+
 instance Migrate (V0.CId V0.Addr, V0.CCoin) V1.PaymentDistribution where
     eitherMigrate (cIdAddr, cCoin) = do
         pdAddress <- eitherMigrate cIdAddr
@@ -235,7 +246,7 @@ instance Migrate V1.PaymentDistribution (V0.CId V0.Addr, Core.Coin) where
     eitherMigrate V1.PaymentDistribution {..} =
         let (V1 amount) = pdAmount
             (V1 addr)   = pdAddress
-            in pure (V0.encodeCType addr, amount)
+        in pure (V0.encodeCType addr, amount)
 
 instance Migrate (V0.CId V0.Addr, Core.Coin) V1.PaymentDistribution where
     eitherMigrate (cIdAddr, coin) = do
@@ -247,8 +258,15 @@ instance Migrate V0.CTxId (V1 Core.TxId) where
         let err = Left . Errors.MigrationFailed . mappend "Error migrating a TxId: "
         in either err (pure . V1) (decodeHash h)
 
+instance Migrate (V1 Core.TxId) V0.CTxId where
+    eitherMigrate (V1 txId) =
+        pure . V0.CTxId . V0.CHash $ encodeHash txId
+
 instance Migrate POSIXTime (V1 Core.Timestamp) where
     eitherMigrate time = pure . V1 $ view (Lens.from Core.timestampSeconds) time
+
+instance Migrate (V1 Core.Timestamp) POSIXTime where
+    eitherMigrate (V1 timestamp) = pure $ Core.timestampToPosix timestamp
 
 instance Migrate V0.CTx V1.Transaction where
     eitherMigrate V0.CTx{..} = do
@@ -272,6 +290,31 @@ instance Migrate V0.CTx V1.Transaction where
 
         pure V1.Transaction{..}
 
+
+instance Migrate V1.Transaction V0.CTx where
+    eitherMigrate V1.Transaction{..} = do
+        ctId        <- eitherMigrate txId
+        let ctConfirmations = txConfirmations
+        ctAmount    <- eitherMigrate txAmount
+        ctInputs    <- eitherMigrate txInputs
+        ctOutputs   <- eitherMigrate txOutputs
+
+        let ctIsLocal       = ctIsLocalBool txType
+        let ctIsOutgoing    = ctIsOutgoingBool txDirection
+
+        ctmDate     <- eitherMigrate txCreationTime
+        let ctMeta = V0.CTxMeta{..}
+
+        ctCondition <- eitherMigrate txStatus
+
+        pure V0.CTx{..}
+      where
+        ctIsLocalBool V1.LocalTransaction       = True
+        ctIsLocalBool V1.ForeignTransaction     = False
+
+        ctIsOutgoingBool V1.OutgoingTransaction = True
+        ctIsOutgoingBool V1.IncomingTransaction = False
+
 instance Migrate V0.CPtxCondition V1.TransactionStatus where
     eitherMigrate = Right . \case
         V0.CPtxCreating{} ->
@@ -284,6 +327,22 @@ instance Migrate V0.CPtxCondition V1.TransactionStatus where
             V1.WontApply
         V0.CPtxNotTracked ->
             V1.Persisted
+
+-- TODO(ks): This is getting tedious, iso or prism that uses
+-- the @Migrate@ instance?
+instance Migrate V1.TransactionStatus V0.CPtxCondition where
+    eitherMigrate = Right . \case
+        V1.Creating{}       ->
+            V0.CPtxCreating
+        V1.Applying{}       ->
+            V0.CPtxApplying
+        V1.InNewestBlocks{} ->
+            V0.CPtxInBlocks
+        V1.WontApply{}      ->
+            V0.CPtxWontApply
+        V1.Persisted{}      ->
+            V0.CPtxNotTracked
+
 
 -- | The migration instance for migrating history to a list of transactions
 instance Migrate (Map Core.TxId (V0.CTx, POSIXTime)) [V1.Transaction] where

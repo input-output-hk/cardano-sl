@@ -66,7 +66,8 @@ newTransaction submitTx Payment {..} = do
     cTx <- V0.newPaymentBatch submitTx spendingPw batchPayment
     single <$> migrate cTx
 
-
+-- TODO(ks): Why do we have a @Maybe WalletId@?
+-- At least that shouldn't be optional.
 allTransactions
     :: forall ctx m. (V0.MonadWalletHistory ctx m)
     => Maybe WalletId

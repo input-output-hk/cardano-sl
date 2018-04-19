@@ -11,6 +11,7 @@ import           Universum
 
 import           Control.Monad.IO.Unlift (MonadUnliftIO)
 import           Data.Coerce (coerce)
+import           Data.Map (elems)
 
 import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..),
@@ -22,26 +23,33 @@ import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
 import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, AccountUpdate,
                                               AddressValidity (..), NewAccount (..),
-                                              NewAddress (..), NewWallet (..), V1 (..), Wallet,
-                                              WalletAddress (..), WalletId, WalletOperation (..),
-                                              WalletUpdate)
+                                              NewAddress (..), NewWallet (..), SyncState,
+                                              Transaction (..), V1 (..), Wallet, WalletAddress (..),
+                                              WalletId, WalletOperation (..),
+                                              WalletRestorationStatus (..), WalletUpdate)
 
 import           Pos.Client.KeyStorage (MonadKeys)
+import           Pos.Client.Txp.History (MonadTxHistory, TxHistoryEntry)
+
 import           Pos.Core (ChainDifficulty)
 import           Pos.Crypto (PassPhrase, emptyPassphrase)
 
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
 import           Pos.Util (HasLens', maybeThrow)
+import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..))
 import           Pos.Wallet.Web.Account (GenSeed (..))
-import           Pos.Wallet.Web.ClientTypes.Types (CWallet (..), CWalletInit (..), CWalletMeta (..))
+import           Pos.Wallet.Web.ClientTypes.Types (CTx, CWallet (..), CWalletInit (..),
+                                                   CWalletMeta (..))
+import           Pos.Wallet.Web.Methods.History (WalletHistory (..), addHistoryTxMeta, getHistory)
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
 import qualified Pos.Wallet.Web.Methods.Logic as V0
 import qualified Pos.Wallet.Web.Methods.Misc as V0
 import           Pos.Wallet.Web.Methods.Restore (newWallet, restoreWalletFromSeed)
 import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB, askWalletSnapshot,
-                                             getWalletAddresses, setWalletMeta)
-import           Pos.Wallet.Web.State.Storage (getWalletInfo)
+                                             getWalletAddresses, getWalletInfo, getWalletSyncState,
+                                             isWalletRestoring, setWalletMeta)
+import           Pos.Wallet.Web.State.Storage (WalletInfo (..))
 
 
 -- | Let's unify all the requirements for the legacy wallet.
@@ -53,6 +61,8 @@ type MonadLegacyWallet ctx m =
     , MonadThrow m
     , MonadWalletLogicRead ctx m
     , MonadKeys m
+    , MonadTxHistory m
+    , MonadBlockchainInfo m
     )
 
 
@@ -84,21 +94,30 @@ passiveWalletLayer
     :: forall ctx m. MonadLegacyWallet ctx m
     => PassiveWalletLayer m
 passiveWalletLayer = PassiveWalletLayer
-    { _pwlCreateWallet      = monadThrowToEither ... pwlCreateWallet
-    , _pwlGetWalletIds      = monadThrowToEither ... pwlGetWalletIds
-    , _pwlGetWallet         = monadThrowToEither ... pwlGetWallet
-    , _pwlUpdateWallet      = monadThrowToEither ... pwlUpdateWallet
-    , _pwlDeleteWallet      = monadThrowToEither ... pwlDeleteWallet
+    { _pwlCreateWallet          = monadThrowToEither ... pwlCreateWallet
+    , _pwlGetWalletIds          = monadThrowToEither ... pwlGetWalletIds
+    , _pwlGetWallet             = monadThrowToEither ... pwlGetWallet
+    , _pwlUpdateWallet          = monadThrowToEither ... pwlUpdateWallet
+    , _pwlDeleteWallet          = monadThrowToEither ... pwlDeleteWallet
 
-    , _pwlCreateAccount     = monadThrowToEither ... pwlCreateAccount
-    , _pwlGetAccounts       = monadThrowToEither ... pwlGetAccounts
-    , _pwlGetAccount        = monadThrowToEither ... pwlGetAccount
-    , _pwlUpdateAccount     = monadThrowToEither ... pwlUpdateAccount
-    , _pwlDeleteAccount     = monadThrowToEither ... pwlDeleteAccount
+    , _pwlCreateAccount         = monadThrowToEither ... pwlCreateAccount
+    , _pwlGetAccounts           = monadThrowToEither ... pwlGetAccounts
+    , _pwlGetAccount            = monadThrowToEither ... pwlGetAccount
+    , _pwlUpdateAccount         = monadThrowToEither ... pwlUpdateAccount
+    , _pwlDeleteAccount         = monadThrowToEither ... pwlDeleteAccount
 
-    , _pwlCreateAddress     = monadThrowToEither ... pwlCreateAddress
-    , _pwlGetAddresses      = monadThrowToEither ... pwlGetAddresses
-    , _pwlIsAddressValid    = monadThrowToEither ... pwlIsAddressValid
+    , _pwlCreateAddress         = monadThrowToEither ... pwlCreateAddress
+    , _pwlGetAddresses          = monadThrowToEither ... pwlGetAddresses
+    , _pwlIsAddressValid        = monadThrowToEither ... pwlIsAddressValid
+
+    , _pwlAddTx                 = monadThrowToEither ... pwlAddTx
+    , _pwlGetTxs                = monadThrowToEither ... pwlGetTxs
+
+    , _pwlSetWalletRestoring    = monadThrowToEither ... pwlSetWalletRestoring
+    , _pwlUnsetWalletRestoring  = monadThrowToEither ... pwlUnsetWalletRestoring
+    , _pwlIsWalletRestoring     = monadThrowToEither ... pwlIsWalletRestoring
+
+    , _pwlGetSyncState          = monadThrowToEither ... pwlGetSyncState
     }
 
 ------------------------------------------------------------
@@ -151,7 +170,7 @@ pwlGetWallet wId = do
     wallet      <- V0.getWallet cWId
 
     maybeThrow (WalletNotFound wId) $ do
-        walletInfo  <- getWalletInfo cWId ws
+        walletInfo  <- getWalletInfo ws cWId
         migrate (wallet, walletInfo, Nothing @ChainDifficulty)
 
 
@@ -304,5 +323,102 @@ pwlIsAddressValid wAddr = do
     cAddress    <- migrate $ addrId wAddr
     isValid     <- V0.isValidAddress cAddress
     pure AddressValidity{..}
+
+------------------------------------------------------------
+-- Transactions
+------------------------------------------------------------
+
+-- TODO(ks): There are some quite complicated questions here and it would
+-- be best to wait for the new wallet implementation of the
+-- backend DB so we can know in which direction to proceed.
+
+-- | Note we are NOT using @AccountIndex@ for legacy.
+pwlAddTx
+    :: forall ctx m. (MonadLegacyWallet ctx m)
+    => WalletId
+    -> AccountIndex
+    -> Transaction
+    -> m ()
+pwlAddTx wId _ tx = do
+    wdb         <- askWalletDB
+    cWId        <- migrate wId
+    cTx         <- migrate tx
+
+    wHist       <- convertCTxToTHEntry cTx
+
+    _           <- addHistoryTxMeta wdb cWId wHist
+
+    pure ()
+  where
+    -- | This requires the @ChainDifficulty@, so we
+    -- can't simple migrate this one.
+    convertCTxToTHEntry
+        :: forall n. (MonadBlockchainInfo n)
+        => CTx
+        -> n TxHistoryEntry
+    convertCTxToTHEntry = error "Implement!"
+
+
+pwlGetTxs
+    :: forall ctx m. (MonadLegacyWallet ctx m)
+    => WalletId
+    -> AccountIndex
+    -> m [Transaction]
+pwlGetTxs wId accIx = do
+    cWId        <- migrate wId
+    accId       <- migrate (wId, accIx)
+    (wHist,_)   <- getHistory cWId (const [accId]) Nothing
+
+    let cTxs = map fst . elems . unWalletHistory $ wHist
+    mapM migrate cTxs
+
+
+pwlSetWalletRestoring
+    :: forall ctx m. (MonadLegacyWallet ctx m)
+    => WalletId
+    -> m ()
+pwlSetWalletRestoring = error "Not implemented!"
+
+
+pwlUnsetWalletRestoring
+    :: forall ctx m. (MonadLegacyWallet ctx m)
+    => WalletId
+    -> m ()
+pwlUnsetWalletRestoring = error "Not implemented!"
+
+
+pwlIsWalletRestoring
+    :: forall ctx m. (MonadLegacyWallet ctx m)
+    => WalletId
+    -> m WalletRestorationStatus
+pwlIsWalletRestoring wId = do
+    ws          <- askWalletSnapshot
+    cWId        <- migrate wId
+
+    case isWalletRestoring ws cWId of
+        True  -> pure WalletRestoring
+        False -> pure WalletNotRestoring
+
+
+pwlGetSyncState
+    :: forall ctx m. (MonadLegacyWallet ctx m)
+    => WalletId
+    -> m SyncState
+pwlGetSyncState wId = do
+    ws          <- askWalletSnapshot
+    cWId        <- migrate wId
+
+    syncState   <- maybeThrow
+        (WalletNotFound wId)
+        (getWalletSyncState ws cWId)
+
+    walletInfo  <- maybeThrow
+        (WalletNotFound wId)
+        (getWalletInfo ws cWId)
+
+    nChainDiff  <- networkChainDifficulty
+
+    migrate (syncState, _wiSyncStatistics walletInfo, nChainDiff)
+
 
 

@@ -15,6 +15,7 @@ module Pos.Crypto.Hashing
        , AbstractHash (..)
        , decodeAbstractHash
        , decodeHash
+       , encodeHash
        , abstractHash
        , unsafeAbstractHash
        , unsafeMkAbstractHash
@@ -133,6 +134,13 @@ decodeAbstractHash prettyHash = do
 -- | Parses given hash in base16 form.
 decodeHash :: Bi (Hash a) => Text -> Either Text (Hash a)
 decodeHash = decodeAbstractHash @Blake2b_256
+
+-- | Encodes the hash in text.
+encodeHash
+    :: (HashAlgorithm algo, Bi a)
+    => AbstractHash algo a
+    -> Text
+encodeHash = B16.encode . ByteArray.convert
 
 -- | Encode thing as 'Binary' data and then wrap into constructor.
 abstractHash

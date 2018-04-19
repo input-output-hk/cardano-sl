@@ -33,6 +33,7 @@ module Cardano.Wallet.API.V1.Types (
   , WalletId (..)
   , WalletOperation (..)
   , SpendingPassword
+  , WalletRestorationStatus (..)
   -- * Addresses
   , AddressValidity (..)
   -- * Accounts
@@ -790,6 +791,23 @@ instance BuildableSafeGen Wallet where
 
 instance Buildable [Wallet] where
     build = bprint listJson
+
+-- | This is something we could easily expose in the
+-- future since it seems to be an important information
+-- for the user.
+data WalletRestorationStatus
+    = WalletRestoring
+    | WalletNotRestoring
+    deriving (Show, Eq, Generic)
+
+instance Buildable WalletRestorationStatus where
+    build WalletRestoring       = "WalletRestoring"
+    build WalletNotRestoring    = "WalletNotRestoring"
+
+deriveJSON Serokell.defaultOptions ''WalletRestorationStatus
+
+instance Arbitrary WalletRestorationStatus where
+    arbitrary = oneof [pure WalletRestoring, pure WalletNotRestoring]
 
 --------------------------------------------------------------------------------
 -- Addresses

@@ -143,6 +143,7 @@ as it is.\improvement{We may want to add something about protocol
   $\length{l}$ for its length. We write $\pos{i}{l}$ for the $i$-th element of
   the list (the head of the list is $\pos{1}{l}$). We sometimes abuse notation
   and write $x∈l$ for $l = l',x,l''$.
+
 \item[Support] Let $f$ be a function $f∈X⟶R$ where $R$ is a semiring
   (typically $ℕ$, $ℤ$, $ℚ$, $ℝ$, …), the \emph{support} of $f$ is
   $\{ x∈X | f(x)≠0 \}$. We say that $f$ has finite support, or that
@@ -153,6 +154,14 @@ as it is.\improvement{We may want to add something about protocol
   summed: $∑_{x∈X}f(x)$ is well-defined. Indeed, it suffices to sum
   over the the (finite!) support of $f$, which, as a finite sum, is
   defined.
+
+  Finite support function are typically implemented as finite maps (as
+  in Haskell's \verb+Data.Map+ module). Where we then interpret absent
+  bindings to map to $0$. There are subtleties if we want to test
+  equality as natively, such data structure distinguishes bindings to
+  $0$ and absence of bindings. One way to solve this is to remove any
+  binding to $0$ from the map.
+
 \item[Remainder] For any $a∈ℤ$ and $b∈ℕ$, let us write $\rem{a}{b}$
   for the unique $0⩽r<b$ such that $a=qb+r$.
 \end{description}

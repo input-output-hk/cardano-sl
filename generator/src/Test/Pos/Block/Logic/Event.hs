@@ -65,7 +65,7 @@ verifyAndApplyBlocks' ::
     -> m ()
 verifyAndApplyBlocks' blunds = do
     satisfySlotCheck blocks $ do
-        (_ :: HeaderHash) <- eitherToThrow =<<
+        (_ :: HeaderHash, _) <- eitherToThrow =<<
             verifyAndApplyBlocks dummyProtocolMagic True blocks
         return ()
   where

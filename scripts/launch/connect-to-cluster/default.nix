@@ -31,6 +31,9 @@ let
       relays = "relays.awstest.iohkdev.io";
       confKey = "mainnet_dryrun_full";
     };
+    demo = {
+      confKey = "dev";
+    };
     override = {
       inherit relays confKey;
     };
@@ -64,6 +67,11 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     echo "Deleting ${stateDir} ... "
     rm -Rf ${stateDir}
   fi
+  if [[ "$2" == "--runtime-args" ]]; then
+    RUNTIME_ARGS=$3
+  else
+    RUNTIME_ARGS=""
+  fi
 
   echo "Keeping state in ${stateDir}"
   mkdir -p ${stateDir}/logs
@@ -94,5 +102,6 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     ${ ifWallet "--wallet-address ${walletListen}" }               \
     --ekg-server ${ekgListen} --metrics                            \
     +RTS ${ghcRuntimeArgs} -RTS                                    \
-    ${additionalNodeArgs}
+    ${additionalNodeArgs}                                          \
+    $RUNTIME_ARGS
 ''

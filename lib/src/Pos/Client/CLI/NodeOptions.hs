@@ -2,7 +2,7 @@
 {-# LANGUAGE CPP           #-}
 {-# LANGUAGE QuasiQuotes   #-}
 
--- | Command line options of pos-node.
+-- | Command line options of Cardano node.
 
 module Pos.Client.CLI.NodeOptions
        ( CommonNodeArgs (..)
@@ -43,12 +43,12 @@ data CommonNodeArgs = CommonNodeArgs
     , commonArgs             :: !CommonArgs
     , updateLatestPath       :: !FilePath
     , updateWithPackage      :: !Bool
-    , noNTP                  :: !Bool
     , route53Params          :: !(Maybe NetworkAddress)
     , enableMetrics          :: !Bool
     , ekgParams              :: !(Maybe EkgParams)
     , statsdParams           :: !(Maybe StatsdParams)
     , cnaDumpGenesisDataPath :: !(Maybe FilePath)
+    , cnaDumpConfiguration   :: !Bool
     } deriving Show
 
 commonNodeArgsParser :: Parser CommonNodeArgs
@@ -57,7 +57,7 @@ commonNodeArgsParser = do
         long    "db-path" <>
         metavar "FILEPATH" <>
         help    "Path to directory with all DBs used by the node. \
-                \If specified path doesn’t exist, a directory will be created."
+                \If specified path doesn't exist, a directory will be created."
     rebuildDB <- switch $
         long "rebuild-db" <>
         help "If node's database already exists, discard its contents \
@@ -85,9 +85,6 @@ commonNodeArgsParser = do
     updateWithPackage <- switch $
         long "update-with-package" <>
         help "Enable updating via installer."
-    noNTP <- switch $
-        long "no-ntp" <>
-        help "Whether to use real NTP servers to synchronise time or rely on local time"
 
     route53Params <- optional route53HealthCheckOption
 
@@ -101,6 +98,10 @@ commonNodeArgsParser = do
     cnaDumpGenesisDataPath <- optional $ strOption $
         long "dump-genesis-data-to" <>
         help "Dump genesis data in canonical JSON format to this file."
+
+    cnaDumpConfiguration <- switch $
+        long "dump-configuration" <>
+        help "Dump configuration and exit."
 
     pure CommonNodeArgs{..}
 

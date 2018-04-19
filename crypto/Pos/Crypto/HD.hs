@@ -1,5 +1,5 @@
 -- | Hierarchical derivation interface.
--- This module provides basic operations under HD wallets.
+-- This module provides basic operations with HD wallets.
 -- You can read HD wallets overall description in docs/hd.md.
 
 module Pos.Crypto.HD
@@ -20,7 +20,7 @@ module Pos.Crypto.HD
        , isHardened
        ) where
 
-import           Cardano.Crypto.Wallet (deriveXPrv, deriveXPub, unXPub)
+import           Cardano.Crypto.Wallet (DerivationScheme (..), deriveXPrv, deriveXPub, unXPub)
 import qualified Crypto.Cipher.ChaChaPoly1305 as C
 import           Crypto.Error
 import           Crypto.Hash (SHA512 (..))
@@ -30,7 +30,7 @@ import           Data.ByteArray as BA (convert)
 import           Data.ByteString.Char8 as B
 import           Universum
 
-import           Pos.Binary.Class (Bi, decodeFull, serialize')
+import           Pos.Binary.Class (Bi, decodeFull', serialize')
 import           Pos.Crypto.Scrypt (EncryptedPass)
 import           Pos.Crypto.Signing.Types (EncryptedSecretKey (..), PassPhrase, PublicKey (..),
                                            checkPassMatches)
@@ -87,7 +87,7 @@ deriveHDPublicKey (PublicKey xpub) childIndex
         error "Wrong index for non-hardened derivation"
     | otherwise =
         maybe (error "deriveHDPublicKey: deriveXPub failed") PublicKey $
-          deriveXPub xpub childIndex
+          deriveXPub DerivationScheme1 xpub childIndex
 
 -- | Whether to call @checkPassMatches@
 newtype ShouldCheckPassphrase = ShouldCheckPassphrase Bool
@@ -104,7 +104,7 @@ deriveHDSecretKey (ShouldCheckPassphrase checkPass) passPhrase encSK@(EncryptedS
     when checkPass $ checkPassMatches passPhrase encSK
     pure $
         EncryptedSecretKey
-            (deriveXPrv passPhrase xprv childIndex)
+            (deriveXPrv DerivationScheme1 passPhrase xprv childIndex)
             pph
 
 addrAttrNonce :: ByteString
@@ -125,7 +125,7 @@ packHDAddressAttr (HDPassphrase passphrase) path = do
         CryptoPassed p  -> HDAddressPayload p
 
 -- | Try to decrypt HDAddressPayload using HDPassphrase.
-unpackHDAddressAttr :: MonadFail m => HDPassphrase -> HDAddressPayload -> m [Word32]
+unpackHDAddressAttr :: HDPassphrase -> HDAddressPayload -> Maybe [Word32]
 unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
     let !unpackCF =
           decryptChaChaPoly
@@ -134,11 +134,9 @@ unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
               ""
               payload
     case unpackCF of
-        Left er ->
-            fail $ "Error in unpackHDAddressAttr, during decryption: " <> show er
-        Right p -> case decodeFull p of
-            Left er ->
-                fail $ "Error in unpackHDAddressAttr, during deserialization: " <> show er
+        Left _ -> Nothing
+        Right p -> case decodeFull' p of
+            Left _ -> Nothing
             Right path -> pure path
 
 -- | Take HDPassphrase as symmetric key and serialized derivation path

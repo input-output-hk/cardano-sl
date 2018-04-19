@@ -12,7 +12,7 @@ import           Pos.DB.Error (DBError (..))
 import           Pos.Lrc.DB.Common (prepareLrcCommon)
 import           Pos.Lrc.DB.Issuers (prepareLrcIssuers)
 import           Pos.Lrc.DB.Leaders (prepareLrcLeaders)
-import           Pos.Lrc.DB.Richmen (getRichmenUS, prepareLrcRichmen)
+import           Pos.Lrc.DB.Richmen (prepareLrcRichmen, tryGetUSRichmen)
 import           Pos.Lrc.DB.Seed (prepareLrcSeed)
 
 import           Pos.Util (maybeThrow)
@@ -28,7 +28,7 @@ prepareLrcDB = do
     prepareLrcRichmen
     let cantReadErr =
             DBMalformed "Can't read richmen US after richmen initialization"
-    totalStake <- fst <$> (maybeThrow cantReadErr =<< getRichmenUS 0)
+    totalStake <- fst <$> (maybeThrow cantReadErr =<< tryGetUSRichmen 0)
     prepareLrcIssuers totalStake
     prepareLrcSeed
     prepareLrcCommon

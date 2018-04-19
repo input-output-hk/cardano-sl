@@ -10,7 +10,6 @@ module Pos.DHT.Real.Real
        , stopDHTInstance
          -- * Exported to avoid compiler warnings
          -- TODO: If we really don't need these functions, remove
-       , waitAnyUnexceptional
        , foreverRejoinNetwork
        , rejoinNetwork
        , withKademliaLogger
@@ -26,7 +25,7 @@ import qualified Data.ByteString.Lazy as BS
 import           Data.List (intersect, (\\))
 import           Data.Time.Units (Second)
 import           Formatting (build, int, sformat, shown, (%))
-import           Mockable (Delay, Mockable, MonadMockable, delay, waitAnyUnexceptional, withAsync)
+import           Mockable (Delay, Mockable, MonadMockable, delay, withAsync)
 import qualified Network.Kademlia as K
 import qualified Network.Kademlia.Instance as K (KademliaInstance (state), KademliaState (sTree))
 import qualified Network.Kademlia.Tree as K (toView)
@@ -37,15 +36,14 @@ import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger, logD
 
 import           Pos.Binary.Class (Bi (..), decodeFull)
 import           Pos.Binary.Infra.DHTModel ()
-import           Pos.DHT.Configuration (enhancedMessageBroadcast, enhancedMessageTimeout,
-                                        neighborsSendThreshold)
+import           Pos.DHT.Constants (enhancedMessageBroadcast, enhancedMessageTimeout,
+                                    neighborsSendThreshold)
 import           Pos.DHT.Model.Types (DHTData, DHTException (..), DHTKey, DHTNode (..),
                                       randomDHTKey)
 import           Pos.DHT.Real.Param (KademliaParams (..))
 import           Pos.DHT.Real.Types (KademliaDHTInstance (..))
-import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Util.LogSafe (logInfoS)
-import           Pos.Util.TimeLimit (runWithRandomIntervals')
+import           Pos.Util.TimeLimit (runWithRandomIntervals)
 import           Pos.Util.TimeWarp (NetworkAddress)
 
 kademliaConfig :: K.KademliaConfig
@@ -58,13 +56,12 @@ foreverRejoinNetwork
     :: ( MonadMockable m
        , MonadIO m
        , WithLogger m
-       , HasInfraConfiguration
        )
     => KademliaDHTInstance
     -> m a
     -> m a
 foreverRejoinNetwork inst action = withAsync
-    (runWithRandomIntervals' (ms 500) (sec 5) (rejoinNetwork inst))
+    (runWithRandomIntervals (ms 500) (sec 5) (rejoinNetwork inst))
     (const action)
 
 -- | Stop chosen 'KademliaDHTInstance'.
@@ -100,7 +97,7 @@ startDHTInstance kconf@KademliaParams {..} defaultBind = do
             logInfo "Restoring DHT Instance from snapshot"
             catchErrors $
                 createKademliaFromSnapshot bindAddr extAddr kademliaConfig =<<
-                (either error identity . decodeFull . BS.toStrict) <$> BS.readFile dumpFile
+                (either error identity . decodeFull) <$> BS.readFile dumpFile
         Nothing -> do
             logInfo "Creating new DHT instance"
             catchErrors $ createKademlia bindAddr extAddr kdiKey kademliaConfig
@@ -129,7 +126,6 @@ rejoinNetwork
        , WithLogger m
        , Bi DHTData
        , Bi DHTKey
-       , HasInfraConfiguration
        )
     => KademliaDHTInstance
     -> m ()
@@ -152,8 +148,7 @@ withKademliaLogger action = modifyLoggerName (<> "kademlia") action
 --
 -- You can get DHTNode using @toDHTNode@ and Kademlia function @peersToNodeIds@.
 kademliaGetKnownPeers
-    :: HasInfraConfiguration
-    => KademliaDHTInstance
+    :: KademliaDHTInstance
     -> STM [NetworkAddress]
 kademliaGetKnownPeers inst = do
     let kInst = kdiHandle inst

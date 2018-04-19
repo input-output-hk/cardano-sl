@@ -6,6 +6,7 @@ module Pos.Diffusion.Full.Update
        , sendUpdateProposal
 
        , updateListeners
+       , updateOutSpecs
        ) where
 
 import           Universum
@@ -13,38 +14,25 @@ import           Formatting (sformat, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           System.Wlog (logInfo)
 
-import           Pos.Binary.Communication ()
-import           Pos.Binary.Core ()
-import           Pos.Binary.Txp ()
-import           Pos.Core.Configuration (HasCoreConfiguration, HasGenesisBlockVersionData,
-                                         HasGenesisData, HasGenesisHash,
-                                         HasGeneratedSecrets, HasProtocolConstants)
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
+import           Pos.Core.Update (UpId, UpdateVote, UpdateProposal, mkVoteId)
 import           Pos.Communication.Message ()
+import           Pos.Communication.Limits (mlUpdateVote, mlUpdateProposalAndVotes)
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..),
-                                             NodeId, MkListeners)
+                                             NodeId, MkListeners, OutSpecs)
 import           Pos.Communication.Relay (invReqDataFlowTK, MinRelayWorkMode,
                                           Relay (..), relayListeners,
-                                          InvReqDataParams (..), MempoolParams (..))
+                                          InvReqDataParams (..), MempoolParams (..),
+                                          relayPropagateOut)
 import           Pos.Crypto (hashHexF)
-import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
 import           Pos.Network.Types (Bucket)
-import           Pos.Update (UpId, UpdateProposal, UpdateVote, mkVoteId)
+import           Pos.Update ()
 
 -- Send UpdateVote to given addresses.
 sendVote
     :: ( MinRelayWorkMode m
-       , HasAdoptedBlockVersionData m
-       , HasCoreConfiguration
-       , HasGenesisData
-       , HasGenesisHash
-       , HasGeneratedSecrets
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasCryptoConfiguration
        )
     => EnqueueMsg m
     -> UpdateVote
@@ -60,14 +48,6 @@ sendVote enqueue vote =
 -- Send UpdateProposal to given address.
 sendUpdateProposal
     :: ( MinRelayWorkMode m
-       , HasAdoptedBlockVersionData m
-       , HasCoreConfiguration
-       , HasGenesisData
-       , HasGenesisHash
-       , HasGeneratedSecrets
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasCryptoConfiguration
        )
     => EnqueueMsg m
     -> UpId
@@ -85,7 +65,6 @@ sendUpdateProposal enqueue upid proposal votes = do
 
 updateListeners
     :: ( DiffusionWorkMode m
-       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
@@ -97,11 +76,21 @@ updateListeners logic oq enqueue = relayListeners oq enqueue (usRelays logic)
 usRelays
     :: forall m .
        ( DiffusionWorkMode m
-       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> [Relay m]
 usRelays logic = [proposalRelay logic, voteRelay logic]
+
+-- | 'OutSpecs' for the update system, to keep up with the 'InSpecs'/'OutSpecs'
+-- motif required for communication.
+-- The 'Logic m' isn't *really* needed, it's just an artefact of the design.
+updateOutSpecs
+    :: forall m .
+       ( DiffusionWorkMode m
+       )
+    => Logic m
+    -> OutSpecs
+updateOutSpecs logic = relayPropagateOut (usRelays logic)
 
 ----------------------------------------------------------------------------
 -- UpdateProposal relays
@@ -109,7 +98,6 @@ usRelays logic = [proposalRelay logic, voteRelay logic]
 
 proposalRelay
     :: ( DiffusionWorkMode m
-       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> Relay m
@@ -122,6 +110,7 @@ proposalRelay logic =
            , handleInv = \_ -> KV.handleInv kv
            , handleReq = \_ -> KV.handleReq kv
            , handleData = \_ -> KV.handleData kv
+           , irdpMkLimit = mlUpdateProposalAndVotes <$> getAdoptedBVData logic
            }
   where
     kv = postUpdate logic
@@ -143,6 +132,7 @@ voteRelay logic =
            , handleInv = \_ -> KV.handleInv kv
            , handleReq = \_ -> KV.handleReq kv
            , handleData = \_ -> KV.handleData kv
+           , irdpMkLimit = pure mlUpdateVote
            }
   where
     kv = postVote logic

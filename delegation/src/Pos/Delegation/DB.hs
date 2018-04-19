@@ -48,21 +48,22 @@ import           Universum
 
 import           Control.Lens (at, non)
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit (Source, mapOutput, runConduitRes, (.|))
+import           Data.Conduit (ConduitT, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Database.RocksDB as Rocks
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Core (HasConfiguration, ProxySKHeavy, StakeholderId, addressHash)
 import           Pos.Core.Genesis (GenesisDelegation (..))
-import           Pos.Crypto (ProxySecretKey (..), PublicKey, verifyPsk)
+import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (RocksBatchOp (..), dbSerializeValue, encodeWithKeyPrefix)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), MonadDB, MonadDBRead (..))
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
 import           Pos.Delegation.Cede.Types (DlgEdgeAction (..))
-import           Pos.Delegation.Helpers (isRevokePsk)
+import           Pos.Delegation.Types (isRevokePsk)
 
 ----------------------------------------------------------------------------
 -- Getters/direct accessors
@@ -109,8 +110,8 @@ initGStateDlg (unGenesisDelegation -> genesisDlg) =
   where
     stIdPairs :: [(StakeholderId, StakeholderId)] -- (issuer, delegate)
     stIdPairs =
-        HM.toList genesisDlg <&> \(issuer, ProxySecretKey {..}) ->
-            (issuer, addressHash pskDelegatePk)
+        HM.toList genesisDlg <&> \(issuer, psk) ->
+            (issuer, addressHash (pskDelegatePk psk))
     -- DB is split into 4 groups, each of them is represented as a
     -- list of operations.
     pskOperations = map (PskFromEdgeAction . DlgEdgeAdd) $ toList genesisDlg
@@ -152,8 +153,6 @@ instance HasConfiguration => RocksBatchOp DelegationOp where
         | isRevokePsk psk =
           error $ "RocksBatchOp DelegationOp: malformed " <>
                   "revoke psk in DlgEdgeAdd: " <> pretty psk
-        | not (verifyPsk psk) =
-          error $ "Tried to insert invalid psk: " <> pretty psk
         | otherwise =
           [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (dbSerializeValue psk)]
     toBatchOp (PskFromEdgeAction (DlgEdgeDel issuerPk)) =
@@ -187,7 +186,9 @@ instance DBIteratorClass DlgTransRevIter where
 --
 -- NB. It's not called @getIssuers@ because we already have issuers (i.e.
 -- block issuers)
-getDelegators :: MonadDBRead m => Source (ResourceT m) (StakeholderId, HashSet StakeholderId)
+getDelegators ::
+       MonadDBRead m
+    => ConduitT () (StakeholderId, HashSet StakeholderId) (ResourceT m) ()
 getDelegators = dbIterSource GStateDB (Proxy @DlgTransRevIter)
 
 -- Iterator over the "this epoch posted" set.
@@ -199,7 +200,7 @@ instance DBIteratorClass ThisEpochPostedIter where
     iterKeyPrefix = iterPostedThisEpochPrefix
 
 -- | Get all keys of thisEpochPosted set.
-getThisEpochPostedKeys :: MonadDBRead m => m (HashSet StakeholderId)
+getThisEpochPostedKeys :: (MonadDBRead m, MonadUnliftIO m) => m (HashSet StakeholderId)
 getThisEpochPostedKeys =
     runConduitRes $
     mapOutput fst (dbIterSource GStateDB (Proxy @ThisEpochPostedIter)) .| consumeHs

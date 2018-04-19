@@ -4,6 +4,7 @@ module Pos.Aeson.Crypto
 
 import           Universum
 
+import           Control.Lens (_Left)
 import           Crypto.Hash (HashAlgorithm)
 import qualified Crypto.Sign.Ed25519 as Ed25519
 import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..), ToJSON (..),
@@ -18,7 +19,7 @@ import           Pos.Crypto (AbstractHash, HDAddressPayload (..), ProtocolMagic 
                              Signature (..), decodeAbstractHash, fullProxyCertHexF, fullPublicKeyF,
                              fullSignatureHexF, hashHexF, parseFullProxyCert, parseFullPublicKey,
                              parseFullSignature)
-import           Pos.Util.Util (eitherToFail, parseJSONWithRead)
+import           Pos.Util.Util (toAesonError , parseJSONWithRead)
 
 deriving instance ToJSON ProtocolMagic
 deriving instance FromJSON ProtocolMagic
@@ -31,9 +32,7 @@ instance HashAlgorithm algo => FromJSON (AbstractHash algo a) where
 
 instance (HashAlgorithm algo, FromJSON (AbstractHash algo a))
          => FromJSONKey (AbstractHash algo a) where
-    fromJSONKey = FromJSONKeyTextParser parser
-      where
-        parser = eitherToFail . decodeAbstractHash
+    fromJSONKey = FromJSONKeyTextParser (toAesonError . decodeAbstractHash)
 
 instance ToJSONKey (AbstractHash algo a) where
     toJSONKey = toJSONKeyText (sformat hashHexF)
@@ -44,21 +43,21 @@ instance ToJSON PublicKey where
 instance ToJSON (ProxyCert w) where
     toJSON = toJSON . sformat fullProxyCertHexF
 
-eitherMsgFail :: (MonadFail m, ToString s) => String -> Either s a -> m a
-eitherMsgFail msg =
-    either (fail . (("Unable to parse json " <> msg <> " reason: ") <>) . toString) pure
+fmsg :: ToText s => Text -> Either s a -> Either Text a
+fmsg msg = over _Left $ \e ->
+    ("Unable to parse json " <> msg <> " reason: ") <> toText e
 
 instance FromJSON PublicKey where
-    parseJSON v = parseJSON v >>= eitherMsgFail "PublicKey" . parseFullPublicKey
+    parseJSON v = parseJSON v >>= toAesonError . fmsg "PublicKey" . parseFullPublicKey
 
 instance FromJSON (Signature w) where
-    parseJSON v = parseJSON v >>= eitherMsgFail "Signature" . parseFullSignature
+    parseJSON v = parseJSON v >>= toAesonError . fmsg "Signature" . parseFullSignature
 
 instance ToJSON (Signature w) where
     toJSON = toJSON . sformat fullSignatureHexF
 
 instance FromJSON (ProxyCert w) where
-    parseJSON v = parseJSON v >>= eitherMsgFail "Signature" . parseFullProxyCert
+    parseJSON v = parseJSON v >>= toAesonError . fmsg "Signature" . parseFullProxyCert
 
 deriveJSON defaultOptions ''ProxySecretKey
 

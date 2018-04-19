@@ -1,5 +1,5 @@
 name:                cardano-sl-ssc
-version:             1.0.3
+version:             1.1.1
 synopsis:            Cardano SL - shared seed computation
 description:         Cardano SL - shared seed computation
 license:             MIT
@@ -9,6 +9,7 @@ maintainer:          hi@serokell.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
@@ -33,8 +34,6 @@ library
     Pos.Ssc.State.Global
 
     Pos.Ssc.Message
-    Pos.Ssc.Listeners
-    Pos.Ssc.Worker
     Pos.Ssc.Lrc
     Pos.Ssc.Mem
     Pos.Ssc.Functions
@@ -46,7 +45,6 @@ library
     Pos.Ssc.Shares
     Pos.Ssc.DB
     Pos.Ssc.Mode
-    Pos.Ssc.RichmenComponent
 
     Pos.Ssc.Toss
     Pos.Ssc.Toss.Logic
@@ -55,6 +53,8 @@ library
     Pos.Ssc.Toss.Class
     Pos.Ssc.Toss.Trans
     Pos.Ssc.Toss.Types
+
+    Pos.Ssc.Worker
 
     Pos.Arbitrary.Ssc
 
@@ -74,6 +74,7 @@ library
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-crypto-test
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
@@ -85,7 +86,6 @@ library
                      , ether
                      , ekg-core
                      , exceptions
-                     , safe-exceptions
                      , formatting
                      , generic-arbitrary
                      , lens
@@ -96,7 +96,7 @@ library
                      , mtl
                      , parsec
                      , reflection
-                     , rocksdb-haskell >= 1.0.0
+                     , rocksdb-haskell-ng
                      , serokell-util
                      , stm
                      , tagged
@@ -131,6 +131,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   ghc-options:         -Wall
                        -fno-warn-orphans

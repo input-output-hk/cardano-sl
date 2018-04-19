@@ -1,5 +1,7 @@
 {-# LANGUAGE Rank2Types #-}
 
+-- | Utilities for passing runtime SSC configuration.
+
 module Pos.Ssc.Configuration
     ( SscConfiguration (..)
     , HasSscConfiguration
@@ -12,7 +14,7 @@ module Pos.Ssc.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), genericParseJSON)
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
 import           Data.Reflection (Given (..), give)
 import           Serokell.Aeson.Options (defaultOptions)
 
@@ -39,6 +41,9 @@ data SscConfiguration = SscConfiguration
 
 instance FromJSON SscConfiguration where
     parseJSON = genericParseJSON defaultOptions
+
+instance ToJSON SscConfiguration where
+    toJSON = genericToJSON defaultOptions
 
 ----------------------------------------------------------------------------
 -- Constants

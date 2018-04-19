@@ -1,28 +1,40 @@
 module Cardano.Wallet.API.V1.Wallets where
 
+import           Cardano.Wallet.API.Request
+import           Cardano.Wallet.API.Response
+import           Cardano.Wallet.API.Types
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
+import           Pos.Core as Core
 
 import           Servant
 
-type API =
-         "wallets" :> Summary "Creates a new Wallet."
-                   :> ReqBody '[JSON] (New Wallet)
-                   :> PostCreated '[JSON] Wallet
-    :<|> "wallets" :> Summary "Returns all the available wallets."
+type API = Tags '["Wallets"] :>
+    (    "wallets" :> Summary "Creates a new or restores an existing Wallet."
+                   :> ReqBody '[ValidJSON] (New Wallet)
+                   :> PostCreated '[ValidJSON] (WalletResponse Wallet)
+    :<|> "wallets" :> Summary "Returns a list of the available wallets."
                    :> WalletRequestParams
-                   :> Get '[JSON] (OneOf [Wallet] (ExtendedResponse [Wallet]))
-    :<|> "wallets" :> Capture "walletId" WalletId
-                   :> ( "password" :> Summary "Updates the password for the given Wallet."
-                                   :> ReqBody '[JSON] PasswordUpdate
-                                   :> Put '[JSON] Wallet
-                   :<|> Summary "Deletes the given Wallet and all its accounts."
-                        :> DeleteNoContent '[JSON] NoContent
-                   :<|> Summary "Returns the Wallet identified by the given walletId."
-                        :> Get '[JSON] Wallet
-                   :<|> Summary "Update the Wallet identified by the given walletId."
-                        :> ReqBody '[JSON] (Update Wallet)
-                        :> Put '[JSON] Wallet
-                   -- Nest the Accounts API
-                   -- :<|> Tags '["Accounts"] :> Accounts.API
-                   )
+                   :> FilterBy '[ WalletId
+                                , Core.Coin
+                                ] Wallet
+                   :> SortBy   '[ Core.Coin
+                                , V1 Core.Timestamp
+                                ] Wallet
+                   :> Get '[ValidJSON] (WalletResponse [Wallet])
+    :<|> "wallets" :> CaptureWalletId
+                   :> "password"
+                   :> Summary "Updates the password for the given Wallet."
+                   :> ReqBody '[ValidJSON] PasswordUpdate
+                   :> Put '[ValidJSON] (WalletResponse Wallet)
+    :<|> "wallets" :> CaptureWalletId
+                   :> Summary "Deletes the given Wallet and all its accounts."
+                   :> DeleteNoContent '[ValidJSON] NoContent
+    :<|> "wallets" :> CaptureWalletId
+                   :> Summary "Returns the Wallet identified by the given walletId."
+                   :> Get '[ValidJSON] (WalletResponse Wallet)
+    :<|> "wallets" :> CaptureWalletId
+                   :> Summary "Update the Wallet identified by the given walletId."
+                   :> ReqBody '[ValidJSON] (Update Wallet)
+                   :> Put '[ValidJSON] (WalletResponse Wallet)
+    )

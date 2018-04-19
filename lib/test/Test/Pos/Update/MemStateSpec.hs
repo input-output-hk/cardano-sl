@@ -18,7 +18,7 @@ import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, (.&&.), (==>))
 
-import           Test.Pos.Util (withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "MemState" $ do
@@ -45,17 +45,19 @@ payloadIsAddedToMemPool up@Upd.UpdatePayload {..} mp =
         Nothing    -> True
         Just uProp -> HM.lookup (hash uProp) mpProposals == Just uProp
     votesWereAdded = all verifyVoteWasAdded upVotes
-    verifyVoteWasAdded vote@(Upd.UpdateVote {..}) =
-        (== Just vote) (HM.lookup uvKey <=< HM.lookup uvProposalId $ mpLocalVotes)
+    verifyVoteWasAdded vote =
+        (== Just vote) (HM.lookup (Upd.uvKey vote) =<<
+                        HM.lookup (Upd.uvProposalId vote) mpLocalVotes)
     Upd.MemPool {..} = Upd.addToMemPool up mp
 
 badVoteIsNotAdded :: HasConfiguration => Upd.UpdateVote -> Upd.UpdatePayload -> Upd.MemPool -> Property
-badVoteIsNotAdded uv@Upd.UpdateVote {..} up@Upd.UpdatePayload {..} mp =
-    (not $ elem uv upVotes) ==> voteIsNotPresent
+badVoteIsNotAdded vote up@Upd.UpdatePayload {..} mp =
+    (not $ elem vote upVotes) ==> voteIsNotPresent
   where
     Upd.MemPool {..} = Upd.addToMemPool up mp
     voteIsNotPresent =
-        (/= Just uv) (HM.lookup uvKey <=< HM.lookup uvProposalId $ mpLocalVotes)
+        (/= Just vote) (HM.lookup (Upd.uvKey vote) =<<
+                        HM.lookup (Upd.uvProposalId vote) mpLocalVotes)
 
 keysWithoutVoteRemainSo :: HasConfiguration => PublicKey -> Upd.UpdatePayload -> Upd.MemPool -> Property
 keysWithoutVoteRemainSo pk up@Upd.UpdatePayload {..} mp@(Upd.MemPool _ lv _) =

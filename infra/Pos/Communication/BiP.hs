@@ -12,6 +12,7 @@ import           Universum
 
 import           Control.Monad.ST
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.ByteString.Builder.Extra as Builder
 
 import           Node.Message.Class (Packing (..), PackingType (..), Serializable (..))
 import qualified Node.Message.Decoder as TW
@@ -33,7 +34,9 @@ bipPacking = Packing
     }
 
 biPackMsg :: Bi.Encoding -> LBS.ByteString
-biPackMsg = Bi.toLazyByteString
+biPackMsg = Builder.toLazyByteStringWith strategy mempty . Bi.toBuilder
+  where
+    strategy = Builder.untrimmedStrategy 1024 4096
 
 biUnpackMsg :: Bi t => Bi.Decoder RealWorld t -> TW.Decoder (UnpackM BiP) t
 biUnpackMsg decoder = TW.Decoder (fromBiDecoder Proxy (Bi.deserialiseIncremental decoder))
@@ -52,4 +55,4 @@ fromBiDecoder p x = do
       (Bi.Done bs off t)   -> return (TW.Done bs off t)
       (Bi.Fail bs off exn) -> do
           let msg = "fromBiDecoder failure for " <> label p <> ": " <> show exn <> ", leftover: " <> show bs
-          return (TW.Fail bs off (toText @String msg))
+          return (TW.Fail bs off msg)

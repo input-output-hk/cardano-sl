@@ -1,7 +1,7 @@
 name:                cardano-sl-crypto
-version:             1.0.3
+version:             1.1.1
 synopsis:            Cardano SL - cryptography primitives
-description:         This package contains cryptography primities used in Cardano SL.
+description:         This package contains cryptography primitives used in Cardano SL.
 license:             MIT
 license-file:        LICENSE
 author:              Serokell
@@ -9,16 +9,17 @@ maintainer:          hi@serokell.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
   exposed-modules:
                        Pos.Aeson.Crypto
-                       Pos.Arbitrary.Crypto
                        Pos.Binary.Crypto
 
                        Pos.Crypto
 
+                       Pos.Crypto.AsBinary
                        Pos.Crypto.Configuration
                        Pos.Crypto.Hashing
                        Pos.Crypto.HD
@@ -30,21 +31,18 @@ library
                        Pos.Crypto.Signing.Signing
 
   other-modules:
-                       Pos.Arbitrary.Crypto.Unsafe
-
-                       Pos.Crypto.AsBinary
                        Pos.Crypto.Encryption
                        Pos.Crypto.Scrypt
 
+                       Pos.Crypto.Signing.Check
                        Pos.Crypto.Signing.Tag
                        Pos.Crypto.Signing.Types
-                       Pos.Crypto.Signing.Types.Tag
                        Pos.Crypto.Signing.Types.Redeem
                        Pos.Crypto.Signing.Types.Safe
                        Pos.Crypto.Signing.Types.Signing
+                       Pos.Crypto.Signing.Types.Tag
 
-  build-depends:       QuickCheck
-                     , aeson
+  build-depends:       aeson
                      , autoexporter
                      , base
                      , binary
@@ -52,7 +50,7 @@ library
                      , cardano-crypto
                      , cardano-sl-binary
                      , cardano-sl-util
-                     , containers
+                     , cborg
                      , cryptonite
                      , cryptonite-openssl
                      , data-default
@@ -66,15 +64,13 @@ library
                      , pvss
                      , quickcheck-instances
                      , reflection
+                     , safe-exceptions
                      , scrypt
                      , serokell-util
-                     , stm
                      , text
                      , text-format
-                     , transformers
                      , universum
                      , unordered-containers
-                     , vector
 
   default-language:    Haskell2010
 
@@ -100,6 +96,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   ghc-options:         -Wall
                        -fno-warn-orphans

@@ -12,23 +12,18 @@ import           Pos.Arbitrary.Core ()
 import           Pos.Arbitrary.Update.Core ()
 import           Pos.Binary.Update ()
 import           Pos.Communication.Relay (DataMsg (..))
-import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
-import           Pos.Crypto (SignTag (SignUSVote), hash, sign, toPublic)
+import           Pos.Core.Configuration (HasProtocolMagic, protocolMagic)
+import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..), mkUpdateVote)
+import           Pos.Crypto (hash)
 
-instance HasConfiguration => Arbitrary (DataMsg UpdateVote) where
+instance HasProtocolMagic => Arbitrary (DataMsg UpdateVote) where
     arbitrary = DataMsg <$> arbitrary
 
-instance HasConfiguration => Arbitrary (DataMsg (UpdateProposal, [UpdateVote])) where
+instance HasProtocolMagic => Arbitrary (DataMsg (UpdateProposal, [UpdateVote])) where
     arbitrary = do
         up <- arbitrary
         let id = hash up
-            genVote = do
-                sk <- arbitrary
-                let pk = toPublic sk
-                decision <- arbitrary
-                pure $ UpdateVote pk id decision
-                                  (sign SignUSVote sk (id, decision))
+            genVote = mkUpdateVote protocolMagic <$> arbitrary <*> pure id <*> arbitrary
         votes <- listOf genVote
         pure $ DataMsg (up, votes)
 

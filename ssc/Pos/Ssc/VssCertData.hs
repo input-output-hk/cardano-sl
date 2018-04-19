@@ -1,3 +1,10 @@
+-- | Definition of `VssCertData` which is a wrapper around all VSS certificates
+-- known to the node and auxiliary functions.
+--
+-- VSS certificates are basically public keys from Scrape. They are
+-- distinct from the node's usual public/private key pair (defined
+-- in 'Cardano.Crypto.Wallet').
+
 module Pos.Ssc.VssCertData
        ( VssCertData (..)
        , empty
@@ -18,12 +25,13 @@ module Pos.Ssc.VssCertData
        , filter
        ) where
 
+import           Universum hiding (empty, filter)
+
 import           Control.Lens (makeLensesFor)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List as List
 import qualified Data.Set as S
 import           Formatting (build, sformat, (%))
-import           Universum hiding (empty, filter)
 
 import           Pos.Core (EpochIndex (..), EpochOrSlot (..), SlotId (..), StakeholderId,
                            VssCertificate (..), VssCertificatesMap (..), deleteVss, getCertId,

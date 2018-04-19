@@ -4,11 +4,10 @@
 
 module Pos.Txp.MemState.Types
        ( GenericTxpLocalData (..)
-       , GenericTxpLocalDataPure
        , TxpLocalData
-       , TxpLocalDataPure
        , TransactionProvenance (..)
        , MemPoolModifyReason (..)
+       , JLTxR (..)
        ) where
 
 import           Universum
@@ -27,8 +26,7 @@ import           Pos.Txp.Toil.Types (MemPool, UndoMap, UtxoModifier)
 -- (let's call it 'utxo1') will be such that all transactions from
 -- 'memPool' are valid with respect to it.
 -- 2. If one applies all transactions from 'memPool' to 'utxo1',
--- resulting Utxo will be equivalent to 'um' with respect to
--- MonadUtxo.
+-- resulting 'UtxoModifier' will be equivalent to 'um'.
 
 -- | Memory state of Txp. Generic version.
 data GenericTxpLocalData extra = TxpLocalData
@@ -39,14 +37,8 @@ data GenericTxpLocalData extra = TxpLocalData
     , txpExtra        :: !(TVar extra)
     }
 
--- | Pure version of GenericTxpLocalData.
-type GenericTxpLocalDataPure extra = (UtxoModifier, MemPool, UndoMap, HeaderHash, extra)
-
 -- | Memory state of Txp. This version is used by actual Txp implementation.
 type TxpLocalData = GenericTxpLocalData ()
-
--- | Pure version of TxpLocalData.
-type TxpLocalDataPure = GenericTxpLocalDataPure ()
 
 -- TODO COMMENT
 data TransactionProvenance
@@ -71,3 +63,13 @@ data MemPoolModifyReason =
     deriving Show
 
 $(deriveJSON defaultOptions ''MemPoolModifyReason)
+
+----------------------------------------------------------------------------
+-- Logging
+----------------------------------------------------------------------------
+
+-- | Json log of one transaction being received by a node.
+data JLTxR = JLTxR
+    { jlrTxId  :: Text
+    , jlrError :: Maybe Text
+    } deriving Show

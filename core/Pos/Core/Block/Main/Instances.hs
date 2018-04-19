@@ -24,12 +24,11 @@ import           Pos.Core.Block.Main.Lens (mainBlockBlockVersion, mainBlockDiffi
                                            mehBlockVersion, mehSoftwareVersion)
 import           Pos.Core.Block.Main.Types (MainBlock, MainBlockHeader, MainBlockchain,
                                             MainExtraHeaderData (..))
-import           Pos.Core.Block.Union.Types (BlockHeader, blockHeaderHash)
+import           Pos.Core.Block.Union.Types (BlockHeader (..), blockHeaderHash)
 import           Pos.Core.Class (HasBlockVersion (..), HasDifficulty (..), HasEpochIndex (..),
                                  HasEpochOrSlot (..), HasHeaderHash (..), HasSoftwareVersion (..),
                                  IsHeader, IsMainHeader (..))
 import           Pos.Core.Common (HeaderHash)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Slotting.Types (EpochOrSlot (..), slotIdF)
 import           Pos.Crypto (hashHexF)
 
@@ -55,10 +54,10 @@ instance Bi BlockHeader => Buildable MainBlockHeader where
             _gbhExtra
       where
         gbhHeaderHash :: HeaderHash
-        gbhHeaderHash = blockHeaderHash $ Right gbh
+        gbhHeaderHash = blockHeaderHash $ BlockHeaderMain gbh
         MainConsensusData {..} = _gbhConsensus
 
-instance (HasConfiguration, Bi BlockHeader) => Buildable MainBlock where
+instance (Bi BlockHeader) => Buildable MainBlock where
     build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -99,11 +98,11 @@ instance HasEpochOrSlot MainBlock where
 
 instance Bi BlockHeader =>
          HasHeaderHash MainBlockHeader where
-    headerHash = blockHeaderHash . Right
+    headerHash = blockHeaderHash . BlockHeaderMain
 
 instance Bi BlockHeader =>
          HasHeaderHash MainBlock where
-    headerHash = blockHeaderHash . Right . _gbHeader
+    headerHash = blockHeaderHash . BlockHeaderMain . _gbHeader
 
 instance HasDifficulty (ConsensusData MainBlockchain) where
     difficultyL = mcdDifficulty

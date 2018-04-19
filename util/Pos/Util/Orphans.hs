@@ -10,7 +10,6 @@ module Pos.Util.Orphans
        -- ** Lift HashMap
        -- ** FromJSON Byte, ToJSON Byte
        -- ** Hashable Byte
-       -- ** MonadFail (Either s), assuming IsString s
        -- ** HasLoggerName (MonadPseudoRandom drg)
 
        -- ** Hashable
@@ -26,17 +25,12 @@ module Pos.Util.Orphans
        -- ** Buildable
        -- *** "Data.Time.Units" types
        -- *** @()@
-
-       -- ** MonadFail
-       -- ** MonadFail ParsecT
-       -- ** MonadFail ResourceT
-       -- ** MonadFail LoggerNameBox
        ) where
 
 import           Universum
 
-import qualified Control.Monad as Monad
 import           Control.Monad.Base (MonadBase)
+import           Control.Monad.IO.Unlift (MonadUnliftIO (..), UnliftIO (..), unliftIO, withUnliftIO)
 import           Control.Monad.Morph (MFunctor (..))
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
@@ -60,7 +54,6 @@ import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 import           System.Wlog (CanLog, HasLoggerName (..), LoggerNameBox (..))
 import qualified Test.QuickCheck as QC
 import           Test.QuickCheck.Monadic (PropertyM (..))
-import           Text.Parsec (ParsecT)
 
 ----------------------------------------------------------------------------
 -- Orphan miscellaneous instances
@@ -86,9 +79,6 @@ instance FromJSON Byte where
 instance ToJSON Byte where
     toJSON = toJSON . toBytes
 
-instance IsString s => MonadFail (Either s) where
-    fail = Left . fromString
-
 instance Rand.DRG drg => HasLoggerName (Rand.MonadPseudoRandom drg) where
     askLoggerName = pure "MonadPseudoRandom"
     modifyLoggerName = flip const
@@ -98,9 +88,16 @@ instance {-# OVERLAPPABLE #-}
          => Rand.MonadRandom (t m) where
     getRandomBytes = lift . Rand.getRandomBytes
 
+-- TODO: use the 'vec' package for traversable N-products
+data Five a = Five a a a a a
+    deriving (Functor, Foldable, Traversable)
+
+five :: a -> Five a
+five a = Five a a a a a
+
 instance Rand.MonadRandom QC.Gen where
     getRandomBytes n = do
-        [a,b,c,d,e] <- replicateM 5 (QC.choose (minBound, maxBound))
+        Five a b c d e <- sequenceA . five $ QC.choose (minBound, maxBound)
         pure $ fst $ Rand.randomBytesGenerate n (Rand.drgNewTest (a,b,c,d,e))
 
 ----------------------------------------------------------------------------
@@ -157,9 +154,6 @@ instance (Typeable s, Buildable a) => Buildable (Tagged s a) where
 ----------------------------------------------------------------------------
 -- MonadResource/ResourceT
 ----------------------------------------------------------------------------
-
-instance LiftLocal ResourceT where
-    liftLocal _ l f = hoist (l f)
 
 instance {-# OVERLAPPABLE #-}
     (MonadResource m, MonadTrans t, Applicative (t m),
@@ -238,14 +232,14 @@ type instance SharedExclusiveT (Ether.TaggedTrans tag t m) = SharedExclusiveT m
 type instance Gauge (Ether.TaggedTrans tag t m) = Gauge m
 type instance ChannelT (Ether.TaggedTrans tag t m) = ChannelT m
 
-----------------------------------------------------------------------------
--- MonadFail
-----------------------------------------------------------------------------
-
-instance MonadFail (ParsecT s u m) where
-    fail = Monad.fail
-
-deriving instance MonadFail m => MonadFail (LoggerNameBox m)
-
-instance MonadFail m => MonadFail (ResourceT m) where
-    fail = lift . fail
+instance MonadUnliftIO (t m) => MonadUnliftIO (Ether.TaggedTrans tag t m) where
+    {-# INLINE askUnliftIO #-}
+    askUnliftIO =
+        Ether.TaggedTrans $
+        withUnliftIO $ \u ->
+        return (UnliftIO (unliftIO u . \case Ether.TaggedTrans trans -> trans))
+    {-# INLINE withRunInIO #-}
+    withRunInIO inner =
+        Ether.TaggedTrans $
+        withRunInIO $ \run ->
+        inner (run . \case Ether.TaggedTrans trans -> trans)

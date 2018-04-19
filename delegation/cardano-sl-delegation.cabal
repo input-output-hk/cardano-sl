@@ -1,5 +1,5 @@
 name:                cardano-sl-delegation
-version:             1.0.3
+version:             1.1.1
 synopsis:            Cardano SL - delegation
 description:         Cardano SL - delegation
 license:             MIT
@@ -9,6 +9,7 @@ maintainer:          hi@serokell.io
 copyright:           2017 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
@@ -18,11 +19,9 @@ library
                        Pos.Delegation.Class
                        Pos.Delegation.Configuration
                        Pos.Delegation.DB
-                       Pos.Delegation.Helpers
                        Pos.Delegation.Listeners
                        Pos.Delegation.Logic
                        Pos.Delegation.Lrc
-                       Pos.Delegation.RichmenComponent
                        Pos.Delegation.Types
                        Pos.Delegation.Worker
 
@@ -63,13 +62,14 @@ library
                      , mtl
                      , reflection
                      , resourcet
-                     , rocksdb-haskell
                      , safe-exceptions
+                     , rocksdb-haskell-ng
                      , serokell-util
                      , text-format
                      , time
                      , transformers
                      , universum
+                     , unliftio
                      , unordered-containers
 
   default-extensions:  DeriveDataTypeable
@@ -94,6 +94,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   hs-source-dirs:      src
   default-language:    Haskell2010

@@ -10,23 +10,21 @@ import           Data.Time.Units (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), Raw, deriveSimpleBi,
-                                   deriveSimpleBiCxt, encodeListLen, enforceSize)
+                                   encodeListLen, enforceSize)
 import           Pos.Binary.Core.Common ()
 import           Pos.Binary.Core.Fee ()
 import           Pos.Binary.Core.Script ()
+import           Pos.Binary.Core.Slotting ()
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
 import qualified Pos.Core.Update as U
 import           Pos.Core.Update.Types (BlockVersion, BlockVersionData (..), SoftforkRule (..),
                                         SoftwareVersion)
-import           Pos.Crypto (Hash, SignTag (SignUSVote), checkSig)
+import           Pos.Crypto (Hash)
 
 instance Bi U.ApplicationName where
     encode appName = encode (U.getApplicationName appName)
-    decode = do
-        appName <- decode
-        U.mkApplicationName appName
+    decode = U.ApplicationName <$> decode
 
 deriveSimpleBi ''U.BlockVersion [
     Cons 'U.BlockVersion [
@@ -86,9 +84,7 @@ deriveSimpleBi ''U.BlockVersionModifier [
 
 instance Bi U.SystemTag where
     encode = encode . U.getSystemTag
-    decode = decode >>= \decoded -> case U.mkSystemTag decoded of
-        Left e   -> fail e
-        Right st -> pure st
+    decode = U.SystemTag <$> decode
 
 deriveSimpleBi ''U.UpdateData [
     Cons 'U.UpdateData [
@@ -107,7 +103,7 @@ deriveSimpleBi ''U.UpdateProposalToSign [
         Field [| U.upsAttr :: U.UpAttributes                   |]
     ]]
 
-instance HasConfiguration => Bi U.UpdateProposal where
+instance Bi U.UpdateProposal where
     encode up = encodeListLen 7
             <> encode (U.upBlockVersion up)
             <> encode (U.upBlockVersionMod up)
@@ -118,18 +114,15 @@ instance HasConfiguration => Bi U.UpdateProposal where
             <> encode (U.upSignature up)
     decode = do
         enforceSize "UpdateProposal" 7
-        up <- U.mkUpdateProposal <$> decode
-                                <*> decode
-                                <*> decode
-                                <*> decode
-                                <*> decode
-                                <*> decode
-                                <*> decode
-        case up of
-            Left e  -> fail e
-            Right p -> pure p
+        U.UnsafeUpdateProposal <$> decode
+                               <*> decode
+                               <*> decode
+                               <*> decode
+                               <*> decode
+                               <*> decode
+                               <*> decode
 
-instance HasConfiguration => Bi U.UpdateVote where
+instance Bi U.UpdateVote where
     encode uv =  encodeListLen 4
             <> encode (U.uvKey uv)
             <> encode (U.uvProposalId uv)
@@ -137,15 +130,13 @@ instance HasConfiguration => Bi U.UpdateVote where
             <> encode (U.uvSignature uv)
     decode = do
         enforceSize "UpdateVote" 4
-        k <- decode
-        p <- decode
-        d <- decode
-        s <- decode
-        let sigValid = checkSig SignUSVote k (p, d) s
-        unless sigValid $ fail "Pos.Binary.Update: UpdateVote: invalid signature"
-        pure $ U.UpdateVote k p d s
+        uvKey        <- decode
+        uvProposalId <- decode
+        uvDecision   <- decode
+        uvSignature  <- decode
+        pure U.UnsafeUpdateVote{..}
 
-deriveSimpleBiCxt [t|HasConfiguration|] ''U.UpdatePayload [
+deriveSimpleBi ''U.UpdatePayload [
     Cons 'U.UpdatePayload [
         Field [| U.upProposal :: Maybe U.UpdateProposal |],
         Field [| U.upVotes    :: [U.UpdateVote]         |]

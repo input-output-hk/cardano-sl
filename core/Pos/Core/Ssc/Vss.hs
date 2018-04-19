@@ -7,12 +7,13 @@ module Pos.Core.Ssc.Vss
        , VssCertificatesMap (..)
        -- * Certificates
        , mkVssCertificate
-       , recreateVssCertificate
+       , checkVssCertificate
        , checkCertSign
        , getCertId
 
        -- * Certificate maps
        -- ** Creating maps
+       , checkVssCertificatesMap
        , mkVssCertificatesMap
        , mkVssCertificatesMapLossy
        , mkVssCertificatesMapSingleton
@@ -36,50 +37,39 @@ import           Pos.Binary.Class (AsBinary (..), Bi)
 import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Core.Slotting.Types (EpochIndex)
 import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))
-import           Pos.Crypto (HasCryptoConfiguration, PublicKey, SecretKey, SignTag (SignVssCert),
-                             Signature, VssPublicKey, checkSig, sign, toPublic)
+import           Pos.Crypto (ProtocolMagic, SecretKey, SignTag (SignVssCert),
+                             VssPublicKey, checkSig, sign, toPublic)
 
 -- | Make VssCertificate valid up to given epoch using 'SecretKey' to sign
 -- data.
 mkVssCertificate
-    :: (HasCryptoConfiguration, Bi EpochIndex)
-    => SecretKey
+    :: (Bi EpochIndex)
+    => ProtocolMagic
+    -> SecretKey
     -> AsBinary VssPublicKey
     -> EpochIndex
     -> VssCertificate
-mkVssCertificate sk vk expiry =
+mkVssCertificate pm sk vk expiry =
     UnsafeVssCertificate vk expiry signature (toPublic sk)
   where
-    signature = sign SignVssCert sk (vk, expiry)
+    signature = sign pm SignVssCert sk (vk, expiry)
 
--- | Recreate 'VssCertificate' from its contents. This function main
--- 'fail' if data is invalid.
-recreateVssCertificate
-    :: (HasCryptoConfiguration, Bi EpochIndex, MonadFail m)
-    => AsBinary VssPublicKey
-    -> EpochIndex
-    -> Signature (AsBinary VssPublicKey, EpochIndex)
-    -> PublicKey
-    -> m VssCertificate
-recreateVssCertificate vssKey epoch sig pk =
-    res <$
-    (unless (checkCertSign res) $ fail "recreateVssCertificate: invalid sign")
-  where
-    res =
-        UnsafeVssCertificate
-        { vcVssKey = vssKey
-        , vcExpiryEpoch = epoch
-        , vcSignature = sig
-        , vcSigningKey = pk
-        }
+-- | Check a 'VssCertificate' for validity.
+checkVssCertificate
+    :: (Bi EpochIndex, MonadError Text m)
+    => ProtocolMagic
+    -> VssCertificate
+    -> m ()
+checkVssCertificate pm it =
+    unless (checkCertSign pm it) $ throwError "checkVssCertificate: invalid sign"
 
 -- CHECK: @checkCertSign
 -- | Check that the VSS certificate is signed properly
 -- #checkPubKeyAddress
 -- #checkSig
-checkCertSign :: (HasCryptoConfiguration, Bi EpochIndex) => VssCertificate -> Bool
-checkCertSign UnsafeVssCertificate {..} =
-    checkSig SignVssCert vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
+checkCertSign :: (Bi EpochIndex) => ProtocolMagic -> VssCertificate -> Bool
+checkCertSign pm UnsafeVssCertificate {..} =
+    checkSig pm SignVssCert vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
 
 getCertId :: VssCertificate -> StakeholderId
 getCertId = addressHash . vcSigningKey
@@ -88,17 +78,27 @@ getCertId = addressHash . vcSigningKey
 toCertPair :: VssCertificate -> (StakeholderId, VssCertificate)
 toCertPair vc = (getCertId vc, vc)
 
--- | Safe constructor of 'VssCertificatesMap'. It doesn't allow certificates
--- with duplicate signing keys or with duplicate 'vcVssKey's.
-mkVssCertificatesMap
-    :: MonadFail m
-    => [VssCertificate] -> m VssCertificatesMap
-mkVssCertificatesMap certs = do
-    unless (allDistinct (map vcSigningKey certs)) $
-        fail "mkVssCertificatesMap: two certs have the same signing key"
-    unless (allDistinct (map vcVssKey certs)) $
-        fail "mkVssCertificatesMap: two certs have the same VSS key"
-    pure $ UnsafeVssCertificatesMap (HM.fromList (map toCertPair certs))
+-- | Construct a 'VssCertificatesMap' from a list of certs by making a
+-- hashmap on certificate identifiers.
+mkVssCertificatesMap :: [VssCertificate] -> VssCertificatesMap
+mkVssCertificatesMap = UnsafeVssCertificatesMap . HM.fromList . map toCertPair
+
+-- | Guard against certificates with duplicate signing keys or with duplicate
+-- 'vcVssKey's. Also checks every VssCertificate in the map (see
+-- 'checkVssCertificate').
+checkVssCertificatesMap
+    :: (Bi EpochIndex, MonadError Text m)
+    => ProtocolMagic
+    -> VssCertificatesMap
+    -> m ()
+checkVssCertificatesMap pm vssCertsMap = do
+    forM_ certs (checkVssCertificate pm)
+    unless (allDistinct (map vcSigningKey certs))
+        (throwError "VssCertificatesMap: two certs have the same signing key")
+    unless (allDistinct (map vcVssKey certs))
+        (throwError "VssCertificatesMap: two certs have the same VSS key")
+  where
+    certs = HM.elems (getVssCertificatesMap vssCertsMap)
 
 -- | A convenient constructor of 'VssCertificatesMap' that throws away
 -- certificates with duplicate signing keys or with duplicate 'vcVssKey's.

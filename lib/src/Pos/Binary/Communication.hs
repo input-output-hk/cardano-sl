@@ -8,6 +8,8 @@ module Pos.Binary.Communication
 
 import           Universum
 
+import qualified Data.ByteString.Lazy as LBS
+
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
                                    decodeUnknownCborDataItem, deriveSimpleBi,
                                    encodeKnownCborDataItem, encodeListLen,
@@ -19,7 +21,8 @@ import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHead
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
                                                    MsgSubscribe (..), MsgSubscribe1 (..),
                                                    VerInfo (..))
-import           Pos.Core (BlockVersion, HasConfiguration, HeaderHash)
+import           Pos.Core (BlockVersion, HeaderHash)
+import           Pos.Util.Util (cborError)
 
 -- TODO: move into each component
 
@@ -39,7 +42,7 @@ deriveSimpleBi ''MsgGetBlocks [
         Field [| mgbTo   :: HeaderHash |]
     ]]
 
-instance HasConfiguration => Bi MsgHeaders where
+instance Bi MsgHeaders where
     encode = \case
         (MsgHeaders b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
         (MsgNoHeaders t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
@@ -49,9 +52,9 @@ instance HasConfiguration => Bi MsgHeaders where
         case tag of
             0 -> MsgHeaders <$> decode
             1 -> MsgNoHeaders <$> decode
-            t -> fail $ "MsgHeaders wrong tag: " <> show t
+            t -> cborError $ "MsgHeaders wrong tag: " <> show t
 
-instance HasConfiguration => Bi MsgBlock where
+instance Bi MsgBlock where
     encode = \case
         (MsgBlock b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
         (MsgNoBlock t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
@@ -61,7 +64,7 @@ instance HasConfiguration => Bi MsgBlock where
         case tag of
             0 -> MsgBlock <$> decode
             1 -> MsgNoBlock <$> decode
-            t -> fail $ "MsgBlock wrong tag: " <> show t
+            t -> cborError $ "MsgBlock wrong tag: " <> show t
 
 -- deriveSimpleBi is not happy with constructors without arguments
 -- "fake" deriving as per `MempoolMsg`.
@@ -70,7 +73,7 @@ instance Bi MsgSubscribe1 where
     encode MsgSubscribe1 = encode (42 :: Word8)
     decode = decode @Word8 >>= \case
         42 -> pure MsgSubscribe1
-        n  -> fail $ "MsgSubscribe1 wrong byte:" <> show n
+        n  -> cborError $ "MsgSubscribe1 wrong byte:" <> show n
 
 instance Bi MsgSubscribe where
     encode = \case
@@ -79,7 +82,7 @@ instance Bi MsgSubscribe where
     decode = decode @Word8 >>= \case
         42 -> pure MsgSubscribe
         43 -> pure MsgSubscribeKeepAlive
-        n  -> fail $ "MsgSubscribe wrong byte: " <> show n
+        n  -> cborError $ "MsgSubscribe wrong byte: " <> show n
 
 ----------------------------------------------------------------------------
 -- Protocol version info and related
@@ -90,7 +93,7 @@ instance Bi HandlerSpec where
         ConvHandler mname        ->
             encodeListLen 2 <> encode (0 :: Word8) <> encodeKnownCborDataItem mname
         UnknownHandler word8 bs  ->
-            encodeListLen 2 <> encode word8 <> encodeUnknownCborDataItem bs
+            encodeListLen 2 <> encode word8 <> encodeUnknownCborDataItem (LBS.fromStrict bs)
     decode = do
         enforceSize "HandlerSpec" 2
         tag <- decode @Word8

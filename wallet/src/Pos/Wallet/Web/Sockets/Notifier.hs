@@ -11,29 +11,30 @@ module Pos.Wallet.Web.Sockets.Notifier
 
 import           Universum
 
-import           Control.Concurrent (forkFinally)
+import           Control.Concurrent.Async (mapConcurrently)
 import           Control.Lens ((.=))
 import           Data.Default (Default (def))
 import           Data.Time.Units (Microsecond, Second)
-import           Serokell.Util (threadDelay)
-import           Servant.Server (Handler, runHandler)
-import           System.Wlog (WithLogger, logDebug)
-
+import           Pos.Core (HasConfiguration)
 import           Pos.DB (MonadGState (..))
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..))
 import           Pos.Wallet.Web.ClientTypes (spLocalCD, spNetworkCD, spPeers, toCUpdateInfo)
 import           Pos.Wallet.Web.Mode (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.Connection (notifyAll)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent (..))
-import           Pos.Wallet.Web.State (MonadWalletDB, addUpdate)
+import           Pos.Wallet.Web.State (WalletDbReader, addUpdate, askWalletDB)
+import           Serokell.Util (threadDelay)
+import           Servant.Server (Handler, runHandler)
+import           System.Wlog (WithLogger, logDebug)
 
 type MonadNotifier ctx m =
     ( WithLogger m
-    , MonadWalletDB ctx m
+    , WalletDbReader ctx m
     , MonadWalletWebSockets ctx m
     , MonadBlockchainInfo m
     , MonadUpdates m
     , MonadGState m
+    , HasConfiguration
     )
 
 -- FIXME: this is really inefficient. Temporary solution
@@ -42,7 +43,7 @@ launchNotifier
     => (forall x. m x -> Handler x)
     -> m ()
 launchNotifier nat =
-    void . liftIO $ mapM startForking
+    void . liftIO $ mapConcurrently startNotifier
         [ dificultyNotifier
         , updateNotifier
         ]
@@ -54,14 +55,14 @@ launchNotifier nat =
     difficultyNotifyPeriod = 500000  -- 0.5 sec
 
     -- networkResendPeriod = 10         -- in delay periods
-    forkForever action = forkFinally action $ const $ do
+    restartOnError action = catchAny action $ const $ do
         -- TODO: log error
         -- cooldown
         threadDelay cooldownPeriod
-        void $ forkForever action
+        restartOnError action
     -- TODO: use Servant.enter here
     -- FIXME: don't ignore errors, send error msg to the socket
-    startForking = forkForever . void . runHandler . nat
+    startNotifier = restartOnError . void . runHandler . nat
     notifier period action = forever $ do
         liftIO $ threadDelay period
         action
@@ -86,9 +87,10 @@ launchNotifier nat =
             spPeers .= peers
 
     updateNotifier = do
+        db <- askWalletDB
         cps <- waitForUpdate
         bvd <- gsAdoptedBVData
-        addUpdate $ toCUpdateInfo bvd cps
+        addUpdate db $ toCUpdateInfo bvd cps
         logDebug "Added update to wallet storage"
         notifyAll UpdateAvailable
 

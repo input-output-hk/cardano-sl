@@ -8,7 +8,7 @@ import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Cardano.Crypto.Wallet.Encrypted as CC
-import qualified Crypto.ECC.Edwards25519 as ED25519
+import qualified Crypto.Math.Edwards25519 as ED25519
 import qualified Crypto.Sign.Ed25519 as EDS25519
 import           Data.SafeCopy (Contained, SafeCopy (..), base, contain, deriveSafeCopySimple,
                                 safeGet, safePut)
@@ -25,7 +25,7 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                                   Address' (..), BlockCount (..), ChainDifficulty (..), Coeff (..),
                                   Coin, CoinPortion (..), Script (..), SharedSeed (..),
                                   TxFeePolicy (..), TxSizeLinear (..))
-import           Pos.Core.Delegation (DlgPayload (..))
+import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..), LightDlgIndices (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), LocalSlotIndex (..),
                                     SlotCount (..), SlotId (..))
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SscPayload (..),
@@ -36,6 +36,7 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), Block
                                   BlockVersionModifier (..), SoftforkRule (..),
                                   SoftwareVersion (..), SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..), UpdateVote (..))
+import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (AbstractHash (..), WithHash (..))
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.SecretSharing (SecretProof)
@@ -47,6 +48,7 @@ import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree (..))
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Util (cerealError, toCerealError)
 
 ----------------------------------------------------------------------------
 -- Bi
@@ -58,14 +60,16 @@ putCopyBi = contain . safePut . Bi.serialize
 getCopyBi :: forall a. Bi a => Contained (Cereal.Get a)
 getCopyBi = contain $ do
     bs <- safeGet
-    case Bi.deserializeOrFail bs of
-        Left (err, _) -> fail $ "getCopy@" ++ (Bi.label (Proxy @a)) <> ": " <> show err
-        Right (x, _)  -> return x
+    toCerealError $ case Bi.deserializeOrFail bs of
+        Left (err, _) -> Left $ "getCopy@" <> Bi.label (Proxy @a) <> ": " <> show err
+        Right (x, _)  -> Right x
 
 
 ----------------------------------------------------------------------------
 -- Core types
 ----------------------------------------------------------------------------
+
+deriveSafeCopySimple 0 'base ''ProtocolMagic
 
 deriveSafeCopySimple 0 'base ''Script
 deriveSafeCopySimple 0 'base ''ApplicationName
@@ -176,14 +180,16 @@ instance ( SafeCopy (BHeaderHash b)
          SafeCopy (GenericBlockHeader b) where
     getCopy =
         contain $
-        do _gbhPrevBlock <- safeGet
+        do _gbhProtocolMagic <- safeGet
+           _gbhPrevBlock <- safeGet
            _gbhBodyProof <- safeGet
            _gbhConsensus <- safeGet
            _gbhExtra <- safeGet
            return $! UnsafeGenericBlockHeader {..}
     putCopy UnsafeGenericBlockHeader {..} =
         contain $
-        do safePut _gbhPrevBlock
+        do safePut _gbhProtocolMagic
+           safePut _gbhPrevBlock
            safePut _gbhBodyProof
            safePut _gbhConsensus
            safePut _gbhExtra
@@ -238,7 +244,7 @@ instance SafeCopy BlockSignature where
         0 -> BlockSignature <$> safeGet
         1 -> BlockPSignatureLight <$> safeGet
         2 -> BlockPSignatureHeavy <$> safeGet
-        t -> fail $ "getCopy@BlockSignature: couldn't read tag: " <> show t
+        t -> cerealError $ "getCopy@BlockSignature: couldn't read tag: " <> show t
     putCopy (BlockSignature sig)            = contain $ Cereal.putWord8 0 >> safePut sig
     putCopy (BlockPSignatureLight proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
     putCopy (BlockPSignatureHeavy proxySig) = contain $ Cereal.putWord8 2 >> safePut proxySig
@@ -305,7 +311,7 @@ instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
     getCopy = contain $ do
         bs <- safeGet
         case Bi.decodeFull bs of
-            Left err    -> fail $ toString $ "getCopy@SafeCopy: " <> err
+            Left err    -> cerealError $ "getCopy@SafeCopy: " <> err
             Right (v,s) -> pure $ Signed v s
 
 instance SafeCopy (ProxyCert w) where
@@ -361,8 +367,16 @@ instance SafeCopy (AsBinary a) where
     putCopy = contain . safePut . getAsBinary
 
 instance (Typeable a, Bi a) => SafeCopy (WithHash a) where
-    putCopy = putCopyBi
     getCopy = getCopyBi
+    putCopy = putCopyBi
+
+instance SafeCopy HeavyDlgIndex where
+    getCopy = contain $ HeavyDlgIndex <$> safeGet
+    putCopy x = contain $ safePut $ getHeavyDlgIndex x
+
+instance SafeCopy LightDlgIndices where
+    getCopy = contain $ LightDlgIndices <$> safeGet
+    putCopy x = contain $ safePut $ getLightDlgIndices x
 
 ----------------------------------------------------------------------------
 -- Plutus

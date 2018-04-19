@@ -10,7 +10,7 @@ $ stack exec -- cardano-auxx                      \
     --system-start 0                              \
     --configuration-file node/configuration.yaml  \
     --configuration-key mainnet_full              \
-    --log-config log-config-prod.yaml             \
+    --log-config log-configs/daedalus.yaml        \
     --logs-prefix "logs/mainnet-1.0"              \
     --db-path db-mainnet-1.0                      \
     cmd --commands="rollback 5 /tmp/cardano-sl-rollback-txs-dump"

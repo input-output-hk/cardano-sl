@@ -1,4 +1,4 @@
--- | Error which can arise during seed calculation.
+-- | Possible failures during SSC seed calculation.
 
 module Pos.Ssc.Error.Seed
        ( SscSeedError (..)

@@ -5,10 +5,12 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE LambdaCase            #-}
 
 module Main where
 
 import           Control.Applicative (empty, liftA2)
+import           Control.Exception.Safe (throwString, throwM)
 import           Control.Lens (makeLenses, (+=))
 import           Control.Monad (forM, forM_)
 import           Control.Monad.Random (evalRandT, getRandomR)
@@ -24,7 +26,8 @@ import           Serokell.Util.Concurrent (threadDelay)
 import           System.Random (mkStdGen)
 import           System.Wlog (LoggerNameBox, usingLoggerName)
 
-import           Mockable (Production, delay, fork, realTime, runProduction)
+import           Mockable (Production, concurrently, delay, forConcurrently, realTime,
+                           runProduction)
 import qualified Network.Transport.Abstract as NT
 import           Network.Transport.Concrete (concrete)
 import           Node (Conversation (..), ConversationActions (..), Node (Node), NodeAction (..),
@@ -61,7 +64,11 @@ main = do
     loadLogConfig logsPrefix logConfig
     setLocaleEncoding utf8
 
-    Right transport_ <- TCP.createTransport (TCP.defaultTCPAddr "127.0.0.1" "3432") TCP.defaultTCPParameters
+    transport_ <- do
+        transportOrError <-
+            TCP.createTransport (TCP.defaultTCPAddr "127.0.0.1" "3432")
+            TCP.defaultTCPParameters
+        either throwM return transportOrError
     let transport = concrete transport_
 
     let prngNode = mkStdGen 0
@@ -80,11 +87,11 @@ main = do
                                      (zip [0, msgNum..] nodeIds)
 
             node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prngNode binaryPacking () defaultNodeEnvironment $ \node' ->
-                NodeAction (const []) $ \converse -> do
+                NodeAction (const []) $ \converse -> () <$ do
                     drones <- forM nodeIds (startDrone node')
-                    _ <- forM pingWorkers (fork . flip ($) converse)
-                    delay (fromIntegral duration :: Second)
-                    forM_ drones stopDrone
+                    forConcurrently pingWorkers ($ converse) `concurrently` do
+                        delay (fromIntegral duration :: Second)
+                        forM_ drones stopDrone
 
     runProduction $ usingLoggerName "sender" $ action
   where
@@ -99,7 +106,9 @@ main = do
             lift . lift $ converseWith converse peerId $
                 \_ -> Conversation $ \cactions -> do
                     send cactions (Ping sMsgId payload)
-                    Just (Pong _ _) <- recv cactions maxBound
+                    recv cactions maxBound >>= \case
+                        Just (Pong _ _) -> return ()
+                        _ -> throwString "Expected a pong"
                     return ()
 
             PingState{..}    <- get
@@ -121,7 +130,7 @@ main = do
         -> NodeId
         -> LoggerNameBox Production (NT.Connection (LoggerNameBox Production))
     startDrone (Node _ endPoint _) (NodeId peer) = do
-        Right conn <- NT.connect endPoint peer NT.ReliableOrdered (NT.ConnectHints Nothing)
-        pure conn
+        connOrErr <- NT.connect endPoint peer NT.ReliableOrdered (NT.ConnectHints Nothing)
+        either throwM return connOrErr
 
     stopDrone = NT.close

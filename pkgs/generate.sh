@@ -4,7 +4,7 @@
 # regenerate the `pkgs/default.nix` file based on the current contents of cardano-sl.cabal and stack.yaml
 
 function runInShell {
-  nix-shell -j 4 -p nix cabal2nix glibcLocales --pure --run "LANG=en_US.utf-8 NIX_REMOTE=daemon NIX_PATH=$NIX_PATH $*"
+  nix-shell -j 4 -p nix cabal2nix glibcLocales --pure --run "LANG=en_US.utf-8 NIX_REMOTE=$NIX_REMOTE NIX_PATH=$NIX_PATH $*"
 }
 
 set -xe
@@ -21,6 +21,6 @@ pushd "${scriptDir}"
      https://github.com/luite/hfsevents.git > hfsevents.nix
 
   # Generate cardano-sl package set
-  runInShell $(nix-build -A stack2nix -Q ../)/bin/stack2nix --platform x86_64-linux --hackage-snapshot 2018-01-01T08:56:04Z -j8 --test ./.. > default.nix.new
+  runInShell $(nix-build -A stack2nix --no-out-link -Q ../)/bin/stack2nix --platform x86_64-linux --hackage-snapshot 2018-03-22T11:56:04Z -j8 --test ./.. > default.nix.new
   mv default.nix.new default.nix
 popd

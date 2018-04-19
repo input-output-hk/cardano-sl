@@ -14,8 +14,11 @@ module Pos.Arbitrary.Core
        , SafeCoinPairMul (..)
        , SafeCoinPairSum (..)
        , SafeCoinPairSub (..)
-       , SafeWord (..)
        , UnreasonableEoS (..)
+
+       , genVssCertificate
+       , genSlotId
+       , genLocalSlotIndex
        ) where
 
 import           Nub (ordNub)
@@ -32,27 +35,32 @@ import           Test.QuickCheck (Arbitrary (..), Gen, choose, oneof, scale, shr
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances ()
 
-import           Pos.Arbitrary.Crypto ()
-import           Pos.Binary.Class (FixedSizeInt (..), SignedVarInt (..), TinyVarInt (..),
-                                   UnsignedVarInt (..))
+import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Common (coinToInteger, divCoin, makeAddress, maxCoinVal, unsafeSubCoin)
 import qualified Pos.Core.Common.Fee as Fee
 import qualified Pos.Core.Common.Types as Types
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, HasProtocolConstants,
-                                         epochSlots)
+                                         epochSlots, protocolConstants)
 import           Pos.Core.Constants (sharedSeedLength)
+import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import qualified Pos.Core.Genesis as G
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..),
+                                             VssMinTTL (..))
 import qualified Pos.Core.Slotting as Types
-import           Pos.Core.Slotting.Types (Timestamp (..))
+import           Pos.Core.Slotting.Types (SlotId (..), Timestamp (..))
 import           Pos.Core.Ssc.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
 import           Pos.Core.Update.Types (BlockVersionData (..))
 import qualified Pos.Core.Update.Types as U
-import           Pos.Crypto (HasCryptoConfiguration, createPsk, toPublic)
+import           Pos.Crypto (HasProtocolMagic, ProtocolMagic, protocolMagic, createPsk,
+                             toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
-import           Pos.Util.Arbitrary (nonrepeating)
+import           Pos.Merkle (MerkleTree, mkMerkleTree)
+import           Pos.Util.QuickCheck.Arbitrary (nonrepeating)
 import           Pos.Util.Util (leftToPanic)
+
+import           Test.Pos.Crypto.Arbitrary ()
 
 {- NOTE: Deriving an 'Arbitrary' instance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -102,11 +110,18 @@ instance Arbitrary Types.EpochIndex where
     arbitrary = choose (0, maxReasonableEpoch)
     shrink = genericShrink
 
+genLocalSlotIndex :: ProtocolConstants -> Gen Types.LocalSlotIndex
+genLocalSlotIndex pc = Types.UnsafeLocalSlotIndex <$>
+    choose ( Types.getSlotIndex Types.localSlotIndexMinBound
+           , Types.getSlotIndex (Types.localSlotIndexMaxBound pc)
+           )
+
 instance HasProtocolConstants => Arbitrary Types.LocalSlotIndex where
-    arbitrary =
-        leftToPanic "arbitrary@LocalSlotIndex: " . Types.mkLocalSlotIndex <$>
-        choose (Types.getSlotIndex minBound, Types.getSlotIndex maxBound)
+    arbitrary = genLocalSlotIndex protocolConstants
     shrink = genericShrink
+
+genSlotId :: ProtocolConstants -> Gen Types.SlotId
+genSlotId pc = SlotId <$> arbitrary <*> genLocalSlotIndex pc
 
 instance HasProtocolConstants => Arbitrary Types.SlotId where
     arbitrary = genericArbitrary
@@ -218,20 +233,18 @@ instance Arbitrary Types.AddrStakeDistribution where
             let limit =
                     foldl' (-) Types.coinPortionDenominator $
                     map Types.getCoinPortion res
-            let unsafeMkCoinPortion =
-                    leftToPanic @Text "genPortions" . Types.mkCoinPortion
             case (n, limit) of
                 -- Limit is exhausted, can't create more.
                 (_, 0) -> return res
                 -- The last portion, we must ensure the sum is correct.
-                (1, _) -> return (unsafeMkCoinPortion limit : res)
+                (1, _) -> return (Types.CoinPortion limit : res)
                 -- We intentionally don't generate 'limit', because we
                 -- want to generate at least 2 portions.  However, if
                 -- 'limit' is 1, we will generate 1, because we must
                 -- have already generated one portion.
                 _ -> do
                     portion <-
-                        unsafeMkCoinPortion <$> choose (1, max 1 (limit - 1))
+                        Types.CoinPortion <$> choose (1, max 1 (limit - 1))
                     genPortions (n - 1) (portion : res)
 
 instance Arbitrary Types.AddrAttributes where
@@ -419,16 +432,6 @@ newtype DoubleInZeroToOneRange = DoubleInRange
 instance Arbitrary DoubleInZeroToOneRange where
     arbitrary = DoubleInRange <$> choose (0, 1)
 
--- | A wrapper over 'Word64'. Its 'Arbitrary' instance guarantees the 'Word64'
--- inside can always be safely converted into 'CoinPortion'. Used in tests to ensure
--- converting a valid 'Word64' to/from 'CoinPortion' works properly.
-newtype SafeWord = SafeWord
-    { getSafeWord :: Word64
-    } deriving (Show, Eq)
-
-instance Arbitrary SafeWord where
-    arbitrary = SafeWord . Types.getCoinPortion <$> arbitrary
-
 instance Arbitrary Types.SharedSeed where
     arbitrary = do
         bs <- replicateM sharedSeedLength (choose (0, 255))
@@ -448,8 +451,7 @@ instance Arbitrary U.BlockVersionData where
 
 instance Arbitrary U.ApplicationName where
     arbitrary =
-        either (error . mappend "arbitrary @ApplicationName failed: ") identity .
-        U.mkApplicationName .
+        U.ApplicationName .
         toText . map selectAlpha . take U.applicationNameMaxLength <$>
         arbitrary
       where
@@ -512,7 +514,7 @@ instance Arbitrary G.FakeAvvmOptions where
         faoOneBalance <- choose (5, 30)
         return G.FakeAvvmOptions {..}
 
-instance HasCryptoConfiguration => Arbitrary G.GenesisDelegation where
+instance HasProtocolMagic => Arbitrary G.GenesisDelegation where
     arbitrary =
         leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
             secretKeys <- sized (nonrepeating . min 10) -- we generate at most tens keys,
@@ -524,7 +526,7 @@ instance HasCryptoConfiguration => Arbitrary G.GenesisDelegation where
                     []                 -> []
                     (delegate:issuers) -> mkCert (toPublic delegate) <$> issuers
       where
-        mkCert delegatePk issuer = createPsk issuer delegatePk 0
+        mkCert delegatePk issuer = createPsk protocolMagic issuer delegatePk (HeavyDlgIndex 0)
 
 instance Arbitrary G.GenesisWStakeholders where
     arbitrary = G.GenesisWStakeholders <$> arbitrary
@@ -535,12 +537,20 @@ instance Arbitrary G.GenesisAvvmBalances where
 instance Arbitrary G.GenesisNonAvvmBalances where
     arbitrary = G.GenesisNonAvvmBalances <$> arbitrary
 
-instance Arbitrary G.ProtocolConstants where
-    arbitrary =
-        G.ProtocolConstants <$> choose (1, 20000) <*> arbitrary <*> arbitrary <*>
-        arbitrary
 
-instance (HasCryptoConfiguration, HasProtocolConstants) => Arbitrary G.GenesisData where
+instance Arbitrary ProtocolConstants where
+    arbitrary = do
+        vssA <- arbitrary
+        vssB <- arbitrary
+        let (vssMin, vssMax) = if vssA > vssB
+                               then (VssMinTTL vssB, VssMaxTTL vssA)
+                               else (VssMinTTL vssA, VssMaxTTL vssB)
+        ProtocolConstants <$> choose (1, 20000) <*> pure vssMin <*> pure vssMax
+
+instance HasProtocolMagic => Arbitrary G.GenesisProtocolConstants where
+    arbitrary = flip G.genesisProtocolConstantsFromProtocolConstants protocolMagic <$> arbitrary
+
+instance (HasProtocolMagic, HasProtocolConstants) => Arbitrary G.GenesisData where
     arbitrary = G.GenesisData
         <$> arbitrary <*> arbitrary <*> arbitraryStartTime
         <*> arbitraryVssCerts <*> arbitrary <*> arbitraryBVD
@@ -554,7 +564,6 @@ instance (HasCryptoConfiguration, HasProtocolConstants) => Arbitrary G.GenesisDa
             True
         hasKnownFeePolicy _ = False
         arbitraryVssCerts = G.GenesisVssCertificatesMap . mkVssCertificatesMapLossy <$> arbitrary
-
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types
 ----------------------------------------------------------------------------
@@ -571,18 +580,40 @@ instance Arbitrary Second where
     arbitrary = convertUnit @Microsecond <$> arbitrary
     shrink = shrinkIntegral
 
-deriving instance Arbitrary Types.Timestamp
+instance Arbitrary Types.Timestamp where
+    arbitrary = Timestamp . fromMicroseconds <$> choose (0, 2000000000 * 1000 * 1000)
+    shrink = shrinkIntegral
+
 deriving instance Arbitrary Types.TimeDiff
 
-deriving instance Arbitrary a => Arbitrary (UnsignedVarInt a)
-deriving instance Arbitrary a => Arbitrary (SignedVarInt a)
-deriving instance Arbitrary a => Arbitrary (FixedSizeInt a)
-deriving instance Arbitrary TinyVarInt
+instance Arbitrary HeavyDlgIndex where
+    arbitrary = HeavyDlgIndex <$> arbitrary
+    shrink = genericShrink
+
+instance Arbitrary LightDlgIndices where
+    arbitrary = do
+        l <- arbitrary
+        r <- arbitrary
+        pure $ LightDlgIndices $ if r >= l then (l,r) else (r,l)
+    shrink = genericShrink
 
 ----------------------------------------------------------------------------
 -- SSC
 ----------------------------------------------------------------------------
 
-instance (HasProtocolConstants, HasCryptoConfiguration) => Arbitrary VssCertificate where
-    arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
+genVssCertificate :: ProtocolMagic -> Gen VssCertificate
+genVssCertificate pm =
+    mkVssCertificate pm <$> arbitrary -- secret key
+                        <*> arbitrary -- AsBinary VssPublicKey
+                        <*> arbitrary -- EpochIndex
+
+instance HasProtocolMagic => Arbitrary VssCertificate where
+    arbitrary = genVssCertificate protocolMagic
     -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.
+
+----------------------------------------------------------------------------
+-- Merkle
+----------------------------------------------------------------------------
+
+instance (Bi a, Arbitrary a) => Arbitrary (MerkleTree a) where
+    arbitrary = mkMerkleTree <$> arbitrary

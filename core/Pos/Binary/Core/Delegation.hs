@@ -1,17 +1,22 @@
 -- | Delegation types serialization.
 
-module Pos.Binary.Core.Delegation
-       (
-       ) where
+module Pos.Binary.Core.Delegation () where
 
 import           Universum
 
 import           Pos.Binary.Class (Bi (..))
+import           Pos.Binary.Core.Slotting ()
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Delegation (DlgPayload (getDlgPayload), mkDlgPayload)
-import           Pos.Util.Util (eitherToFail)
+import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..), LightDlgIndices (..))
 
-instance HasConfiguration => Bi DlgPayload where
+instance Bi HeavyDlgIndex where
+    encode = encode . getHeavyDlgIndex
+    decode = HeavyDlgIndex <$> decode
+
+instance Bi LightDlgIndices where
+    encode = encode . getLightDlgIndices
+    decode = LightDlgIndices <$> decode
+
+instance Bi DlgPayload where
     encode = encode . getDlgPayload
-    decode = decode >>= eitherToFail . mkDlgPayload
+    decode = UnsafeDlgPayload <$> decode

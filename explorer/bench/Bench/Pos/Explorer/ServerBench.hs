@@ -13,7 +13,7 @@ import           Test.QuickCheck (arbitrary, generate)
 
 import           Pos.Arbitrary.Txp.Unsafe ()
 
-import           Test.Pos.Util (withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations)
 
 import           Pos.Explorer.DB (defaultPageSize)
 import           Pos.Explorer.ExplorerMode (ExplorerTestParams, runExplorerTestMode)
@@ -35,7 +35,7 @@ getBlocksTotalBench
     :: BenchmarkTestParams
     -> IO Integer
 getBlocksTotalBench (testParams, extraContext) =
-    withDefConfigurations $
+    withDefConfigurations $ \_ ->
         runExplorerTestMode testParams extraContext getBlocksTotal
 
 -- | @getBlocksPage@ function for the last page for benchmarks.
@@ -43,7 +43,7 @@ getBlocksPageBench
     :: BenchmarkTestParams
     -> IO (Integer, [CBlockEntry])
 getBlocksPageBench (testParams, extraContext) =
-    withDefConfigurations $
+    withDefConfigurations $ \_ ->
         runExplorerTestMode testParams extraContext $
             getBlocksPage Nothing (Just $ fromIntegral defaultPageSize)
 
@@ -62,7 +62,7 @@ generateTestParams totalBlocksNumber slotsPerEpoch = do
 
     -- The extra context so we can mock the functions.
     let extraContext :: ExtraContext
-        extraContext = withDefConfigurations $ makeMockExtraCtx mode
+        extraContext = withDefConfigurations $ const $ makeMockExtraCtx mode
 
     pure (testParams, extraContext)
   where

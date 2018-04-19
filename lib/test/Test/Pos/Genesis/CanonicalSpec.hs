@@ -11,15 +11,15 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 
 import           Pos.Arbitrary.Core ()
 import           Pos.Core.Genesis (GenesisAvvmBalances, GenesisData, GenesisDelegation,
-                                   GenesisWStakeholders, ProtocolConstants)
+                                   GenesisWStakeholders, GenesisProtocolConstants)
 
 import           Test.Pos.Helpers (canonicalJsonTest)
-import           Test.Pos.Util (withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Genesis" $ modifyMaxSuccess (const 10) $ do
     describe "Canonical encoding" $ do
-        canonicalJsonTest @ProtocolConstants
+        canonicalJsonTest @GenesisProtocolConstants
         canonicalJsonTest @GenesisAvvmBalances
         canonicalJsonTest @GenesisWStakeholders
         canonicalJsonTest @GenesisDelegation

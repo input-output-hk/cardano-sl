@@ -46,7 +46,7 @@ import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import           Formatting (ords, sformat, (%))
 import           System.Wlog (logWarning)
 
-import           Pos.Binary.Class (AsBinary, fromBinaryM)
+import           Pos.Binary.Class (AsBinary, fromBinary)
 import           Pos.Core (CoinPortion, EpochIndex, StakeholderId, VssCertificatesMap (..),
                            addressHash, bvdMpcThd, coinPortionDenominator, getCoinPortion,
                            lookupVss, memberVss, unsafeGetCoin, vcSigningKey, vcVssKey)
@@ -323,10 +323,10 @@ checkSharePure globalCommitments globalOpeningsPK globalCertificates (idTo, idFr
         -- Get encrypted share, which was sent from idFrom to idTo in
         -- commitment phase
         pure $ all (checkShare vssKey) $ NE.zip idToCommShares multiShare
-    checkShare vssKey (encShare, decShare) = fromMaybe False $
-        verifyDecShare <$> fromBinaryM vssKey
-                       <*> fromBinaryM encShare
-                       <*> fromBinaryM decShare
+    checkShare vssKey (encShare, decShare) = fromMaybe False . rightToMaybe $
+        verifyDecShare <$> fromBinary vssKey
+                       <*> fromBinary encShare
+                       <*> fromBinary decShare
 
 -- CHECK: @checkSharesPure
 -- Apply checkShare to all shares in map.

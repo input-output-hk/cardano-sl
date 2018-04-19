@@ -2,7 +2,9 @@
 
 module Pos.Binary.Class.Primitive
        ( serialize
+       , serializeWith
        , serialize'
+       , serializeBuilder
        -- * Deserialize inside the Decoder monad
        , deserialize
        , deserialize'
@@ -14,11 +16,11 @@ module Pos.Binary.Class.Primitive
        -- * Binary serialization
        , AsBinary (..)
        , AsBinaryClass (..)
-       , fromBinaryM
        -- * Temporary functions
        , biSize
        -- * Backward-compatible functions
        , decodeFull
+       , decodeFull'
        -- * Low-level, fine-grained functions
        , deserializeOrFail
        , deserializeOrFail'
@@ -40,28 +42,45 @@ import qualified Codec.CBOR.Read as CBOR.Read
 import qualified Codec.CBOR.Write as CBOR.Write
 import           Control.Exception.Safe (impureThrow)
 import           Control.Monad.ST (ST, runST)
+import           Data.ByteString.Builder (Builder)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Internal as BSL
+import qualified Data.ByteString.Builder.Extra as Builder
 import           Data.Digest.CRC32 (CRC32 (..))
 import           Data.Typeable (typeOf)
-import           Formatting (formatToString, shown, (%))
+import           Formatting (sformat, shown, (%))
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class.Core (Bi (..), enforceSize)
+import           Pos.Binary.Class.Core (Bi (..), cborError, enforceSize, toCborError)
 
 -- | Serialize a Haskell value to an external binary representation.
 --
 -- The output is represented as a lazy 'BSL.ByteString' and is constructed
 -- incrementally.
 serialize :: Bi a => a -> BSL.ByteString
-serialize = CBOR.Write.toLazyByteString . encode
+-- 1024 is the size of the first buffer, 4096 is the size of subsequent
+-- buffers. Chosen because they seem to give good performance. They are not
+-- sacred.
+serialize = serializeWith 1024 4096
 
 -- | Serialize a Haskell value to an external binary representation.
 --
 -- The output is represented as a strict 'BS.ByteString'.
 serialize' :: Bi a => a -> BS.ByteString
 serialize' = BSL.toStrict . serialize
+
+-- | Serialize into a Builder. Useful if you want to throw other ByteStrings
+-- around it.
+serializeBuilder :: Bi a => a -> Builder
+serializeBuilder = CBOR.Write.toBuilder . encode
+
+-- | Serialize using the safe allocation strategy with a given first and
+-- subsequent chunk size.
+serializeWith :: Bi a => Int -> Int -> a -> BSL.ByteString
+serializeWith firstChunk nextChunk = Builder.toLazyByteStringWith strategy mempty . serializeBuilder
+  where
+    strategy = Builder.safeStrategy firstChunk nextChunk
 
 -- | Deserialize a Haskell value from the external binary representation
 -- (which must have been made using 'serialize' or related function).
@@ -82,7 +101,7 @@ unsafeDeserialize' = unsafeDeserialize . BSL.fromStrict
 -- us to cheat, as not all the monads have a sensible `fail` implementation.
 -- Expect the whole input to be consumed.
 deserialize :: Bi a => BSL.ByteString -> D.Decoder s a
-deserialize = either (fail . toString) return . decodeFull . BSL.toStrict
+deserialize = toCborError . decodeFull
 
 -- | Strict version of `deserialize`.
 deserialize' :: Bi a => BS.ByteString -> D.Decoder s a
@@ -92,16 +111,19 @@ deserialize' = deserialize . BSL.fromStrict
 -- failing if there are leftovers. In a nutshell, the `full` here implies
 -- the contract of this function is that what you feed as input needs to
 -- be consumed entirely.
-decodeFull :: forall a. Bi a => BS.ByteString -> Either Text a
-decodeFull bs0 = case deserializeOrFail' bs0 of
+decodeFull :: forall a. Bi a => BSL.ByteString -> Either Text a
+decodeFull bs0 = case deserializeOrFail bs0 of
   Right (x, leftover) -> case BS.null leftover of
       True  -> pure x
       False ->
           let msg = "decodeFull failed for " <> label (Proxy @a) <>
                     "! Leftover found: " <> show leftover
-          in Left $ fromString msg
+          in Left msg
   Left  (e, _) ->
-      Left $ fromString $ "decodeFull failed for " <> label (Proxy @a) <> ": " <> show e
+      Left $ "decodeFull failed for " <> label (Proxy @a) <> ": " <> show e
+
+decodeFull' :: forall a. Bi a => BS.ByteString -> Either Text a
+decodeFull' = decodeFull . BSL.fromStrict
 
 -- | Deserialize a Haskell value from the external binary representation,
 -- returning either (leftover, value) or a (leftover, @'DeserialiseFailure'@).
@@ -169,13 +191,9 @@ class AsBinaryClass a where
     asBinary :: a -> AsBinary a
     fromBinary :: AsBinary a -> Either Text a
 
--- | Version of 'fromBinary' which works in any 'MonadFail'.
-fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
-fromBinaryM = either (fail . toString) return . fromBinary
-
 -- | Compute size of something serializable in bytes.
 biSize :: Bi a => a -> Byte
-biSize = fromIntegral . BS.length . serialize'
+biSize = fromIntegral . BSL.length . serialize
 {-# INLINE biSize #-}
 
 ----------------------------------------------------------------------------
@@ -187,13 +205,13 @@ biSize = fromIntegral . BS.length . serialize'
 -- In CBOR diagnostic notation:
 -- >>> 24(h'DEADBEEF')
 encodeKnownCborDataItem :: Bi a => a -> E.Encoding
-encodeKnownCborDataItem = encodeUnknownCborDataItem . serialize'
+encodeKnownCborDataItem = encodeUnknownCborDataItem . serialize
 
 -- | Like `encodeKnownCborDataItem`, but assumes nothing about the shape of
 -- input object, so that it must be passed as a binary `ByteString` blob.
 -- It's the caller responsibility to ensure the input `ByteString` correspond
 -- indeed to valid, previously-serialised CBOR data.
-encodeUnknownCborDataItem :: ByteString -> E.Encoding
+encodeUnknownCborDataItem :: BSL.ByteString -> E.Encoding
 encodeUnknownCborDataItem x = E.encodeTag 24 <> encode x
 
 -- | Remove the the semantic tag 24 from the enclosed CBOR data item,
@@ -201,7 +219,7 @@ encodeUnknownCborDataItem x = E.encodeTag 24 <> encode x
 decodeCborDataItemTag :: D.Decoder s ()
 decodeCborDataItemTag = do
     t <- D.decodeTagCanonical
-    when (t /= 24) $ fail $
+    when (t /= 24) $ cborError $
         "decodeCborDataItem: expected a bytestring with \
         \CBOR (marked by tag 24), found tag: " <> show t
 
@@ -211,9 +229,7 @@ decodeCborDataItemTag = do
 decodeKnownCborDataItem :: Bi a => D.Decoder s a
 decodeKnownCborDataItem = do
     bs <- decodeUnknownCborDataItem
-    case decodeFull bs of
-        Left e  -> fail (toString e)
-        Right v -> pure v
+    toCborError $ decodeFull' bs
 
 -- | Like `decodeKnownCborDataItem`, but assumes nothing about the Haskell
 -- type we want to deserialise back, therefore it yields the `ByteString`
@@ -224,7 +240,7 @@ decodeKnownCborDataItem = do
 decodeUnknownCborDataItem :: D.Decoder s ByteString
 decodeUnknownCborDataItem = do
     decodeCborDataItemTag
-    D.decodeBytes
+    D.decodeBytesCanonical
 
 -- | Encodes a type `a` , protecting it from tampering/network-transport-alteration by
 -- protecting it with a CRC.
@@ -232,7 +248,7 @@ encodeCrcProtected :: Bi a => a -> E.Encoding
 encodeCrcProtected x =
     E.encodeListLen 2 <> encodeUnknownCborDataItem body <> encode (crc32 body)
   where
-    body = serialize' x
+    body = serialize x
 
 -- | Decodes a CBOR blob into a type `a`, checking the serialised CRC corresponds to the computed one.
 decodeCrcProtected :: forall s a. Bi a => D.Decoder s a
@@ -243,7 +259,5 @@ decodeCrcProtected = do
     let actualCrc :: Word32
         actualCrc = crc32 body
     let crcErrorFmt = "decodeCrcProtected, expected CRC " % shown % " was not the computed one, which was " % shown
-    when (actualCrc /= expectedCrc) $ fail (formatToString crcErrorFmt expectedCrc actualCrc)
-    case decodeFull body of
-      Left e  -> fail (toString e)
-      Right x -> pure x
+    when (actualCrc /= expectedCrc) $ cborError (sformat crcErrorFmt expectedCrc actualCrc)
+    toCborError $ decodeFull' body

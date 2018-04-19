@@ -38,21 +38,20 @@ module Pos.DB.Pure
 import           Universum
 
 import           Control.Lens (at, makeLenses)
-import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.ByteString as BS
-import           Data.Conduit (Source)
+import           Data.Conduit (ConduitT)
 import qualified Data.Conduit.List as CL
 import           Data.Default (Default (..))
 import qualified Data.Map as M
 import qualified Data.Set as S
 import qualified Database.RocksDB as Rocks
-import           Ether.Internal (HasLens (..))
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Core (HasConfiguration, HeaderHash)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), IterType, iterKeyPrefix)
 import           Pos.DB.Functions (processIterEntry)
+import           Pos.Util.Util (HasLens (..))
 
 -- | Bytestring to Bytestring mapping mimicking rocks kv storage.
 type DBPureMap = Map ByteString ByteString
@@ -95,7 +94,6 @@ type MonadPureDB ctx m =
     ( MonadReader ctx m
     , HasLens DBPureVar ctx DBPureVar
     , MonadMask m
-    , MonadBaseControl IO m
     , MonadIO m
     , HasConfiguration
     )
@@ -124,7 +122,7 @@ dbIterSourcePureDefault ::
        , Bi (IterValue i))
     => DBTag
     -> Proxy i
-    -> Source m (IterType i)
+    -> ConduitT () (IterType i) m ()
 dbIterSourcePureDefault (tagToLens -> l) (_ :: Proxy i) = do
     let filterPrefix = M.filterWithKey $ \k _ -> iterKeyPrefix @i `BS.isPrefixOf` k
     (dbPureVar :: DBPureVar) <- lift $ view (lensOf @DBPureVar)

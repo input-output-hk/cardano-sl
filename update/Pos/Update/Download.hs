@@ -15,7 +15,6 @@ import           Control.Monad.Except (ExceptT (..), throwError)
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as HM
-import           Ether.Internal (HasLens (..))
 import           Formatting (build, sformat, stext, (%))
 import           Network.HTTP.Client (Manager, newManager)
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
@@ -39,7 +38,7 @@ import           Pos.Update.Mode (UpdateMode)
 import           Pos.Update.Params (UpdateParams (..))
 import           Pos.Update.Poll.Types (ConfirmedProposalState (..))
 import           Pos.Util.Concurrent (withMVar)
-import           Pos.Util.Util ((<//>))
+import           Pos.Util.Util (HasLens (..), (<//>))
 
 -- | Compute hash of installer, this is hash is 'udPkgHash' from 'UpdateData'.
 --

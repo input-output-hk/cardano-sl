@@ -16,13 +16,14 @@ import qualified Data.Text as T
 import           Pos.Aeson.Crypto ()
 import           Pos.Aeson.Txp ()
 import           Pos.Client.Txp.History (TxHistoryEntry)
-import           Pos.Util.Util (eitherToFail)
+import           Pos.Util.Util (toAesonError)
 
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CHash (..), CId (..), CTxId (..))
 import           Pos.Wallet.Web.Pending.Types (PendingTx, PtxCondition, PtxSubmitTiming)
-import           Pos.Wallet.Web.State.Storage (AccountInfo, AddressInfo, WalletInfo, WalletStorage,
-                                               WalletTip)
+import           Pos.Wallet.Web.State.Storage (AccountInfo, AddressInfo, WAddressMeta,
+                                               RestorationBlockDepth, SyncStatistics, SyncThroughput,
+                                               WalletInfo, WalletStorage, WalletSyncState)
 
 instance FromJSON (CId a) => FromJSONKey (CId a) where
     fromJSONKey = FromJSONKeyTextParser parser
@@ -44,10 +45,10 @@ instance ToJSON CTxId => ToJSONKey CTxId where
 accountIdFromText :: Text -> Either Text AccountId
 accountIdFromText t = case T.splitOn "@" t of
     [walId, idx] -> AccountId (CId $ CHash walId) <$> readEither idx
-    _            -> fail $ toString $ "Invalid AccountId " <> t
+    _            -> Left $ "Invalid AccountId " <> t
 
 instance FromJSON AccountId => FromJSONKey AccountId where
-    fromJSONKey = FromJSONKeyTextParser (eitherToFail . accountIdFromText)
+    fromJSONKey = FromJSONKeyTextParser (toAesonError . accountIdFromText)
 
 instance ToJSON AccountId => ToJSONKey AccountId where
     toJSONKey = toJSONKeyText pretty
@@ -56,9 +57,13 @@ deriveJSON defaultOptions ''PtxSubmitTiming
 deriveJSON defaultOptions ''PendingTx
 deriveJSON defaultOptions ''PtxCondition
 deriveJSON defaultOptions ''TxHistoryEntry
-deriveJSON defaultOptions ''WalletTip
+deriveJSON defaultOptions ''WalletSyncState
 deriveJSON defaultOptions ''AddressInfo
 deriveJSON defaultOptions ''AccountInfo
 deriveJSON defaultOptions ''AccountId
+deriveJSON defaultOptions ''WAddressMeta
 deriveJSON defaultOptions ''WalletInfo
+deriveJSON defaultOptions ''RestorationBlockDepth
 deriveJSON defaultOptions ''WalletStorage
+deriveJSON defaultOptions ''SyncThroughput
+deriveJSON defaultOptions ''SyncStatistics

@@ -1,4 +1,4 @@
--- | Types used for communication about Blocks.
+-- | Types used for communication about transactions.
 
 module Pos.Txp.Network.Types
        ( TxMsgContents (..)

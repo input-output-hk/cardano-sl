@@ -11,31 +11,20 @@ module Pos.Diffusion.Full.Types
 
 import           Universum
 
-import           Control.Monad.Trans.Control (MonadBaseControl)
-import qualified Crypto.Random as Rand
-import           Mockable (MonadMockable)
+import           Mockable (LowLevelAsync, Mockable, MonadMockable)
+import qualified Mockable.Metrics as Mockable
+import qualified System.Metrics.Counter as Metrics
+import qualified System.Metrics.Distribution as Metrics
+import qualified System.Metrics.Gauge as Metrics
 import           System.Wlog (WithLogger)
-
-import           Pos.Block.Configuration (HasBlockConfiguration)
-import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (HasConfiguration)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.Ssc.Configuration (HasSscConfiguration)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Util.TimeWarp (CanJsonLog)
 
 type DiffusionWorkMode m
     = ( WithLogger m
-      , CanJsonLog m
       , MonadMockable m
+      , Mockable LowLevelAsync m
       , MonadIO m
-      , HasConfiguration
-      , HasBlockConfiguration
-      , HasInfraConfiguration
-      , HasUpdateConfiguration
-      , HasSscConfiguration
-      , HasNodeConfiguration
-      , MonadBaseControl IO m
-      , Rand.MonadRandom m
-      , MonadMask m
+      , Mockable Mockable.Metrics m
+      , Mockable.Distribution m ~ Metrics.Distribution
+      , Mockable.Gauge m ~ Metrics.Gauge
+      , Mockable.Counter m ~ Metrics.Counter
       )

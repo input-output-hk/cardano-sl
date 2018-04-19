@@ -9,8 +9,12 @@ module Pos.Core.Common.Types
        , Address' (..)
        , AddrAttributes (..)
        , AddrStakeDistribution (..)
+       , MultiKeyDistrError (..)
        , mkMultiKeyDistr
        , Address (..)
+
+       -- * Forward-declared BlockHeader
+       , BlockHeader
 
        -- * Stakeholders
        , StakeholderId
@@ -21,7 +25,6 @@ module Pos.Core.Common.Types
        , ChainDifficulty (..)
 
        -- * HeaderHash related types and functions
-       , BlockHeaderStub
        , HeaderHash
        , headerHashF
 
@@ -30,14 +33,14 @@ module Pos.Core.Common.Types
        , slotLeadersF
 
        -- * Coin
-       , Coin
-       , CoinPortion
+       , Coin (..)
+       , CoinPortion (..)
+       , mkCoin
+       , checkCoin
        , coinF
        , unsafeGetCoin
-       , getCoinPortion
-       , mkCoin
        , coinPortionDenominator
-       , mkCoinPortion
+       , checkCoinPortion
        , unsafeCoinPortionFromDouble
        , maxCoinVal
 
@@ -53,6 +56,7 @@ module Pos.Core.Common.Types
 
 import           Universum
 
+import           Control.Exception.Safe (Exception (displayException))
 import           Control.Lens (makePrisms)
 import           Control.Monad.Except (MonadError (throwError))
 import           Crypto.Hash (Blake2b_224)
@@ -62,7 +66,7 @@ import           Data.Data (Data)
 import           Data.Hashable (Hashable (..))
 import qualified Data.Semigroup (Semigroup (..))
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (Format, bprint, build, formatToString, int, later, (%))
+import           Formatting (Format, bprint, build, int, later, sformat, (%))
 import qualified PlutusCore.Program as PLCore
 import           Serokell.Util (enumerate, listChunkedJson, pairBuilder)
 import           Serokell.Util.Base16 (formatBase16)
@@ -136,20 +140,39 @@ data AddrStakeDistribution
     -- 'SingleKeyDistr' can be used instead (which is smaller).
     deriving (Eq, Ord, Show, Generic, Typeable)
 
+data MultiKeyDistrError
+    = MkdMapIsEmpty
+    | MkdMapIsSingleton
+    | MkdNegativePortion
+    | MkdSumNot1
+    deriving (Show)
+
+instance Buildable MultiKeyDistrError where
+    build = mappend "mkMultiKeyDistr: " . \case
+        MkdMapIsEmpty -> "map is empty"
+        MkdMapIsSingleton -> "map's size is 1, use SingleKeyDistr"
+        MkdNegativePortion -> "all portions must be positive"
+        MkdSumNot1 -> "distributions' sum must be equal to 1"
+
+instance Exception MultiKeyDistrError where
+    displayException = toString . pretty
+
 -- | Safe constructor of multi-key distribution. It checks invariants
 -- of this distribution and returns an error if something is violated.
-mkMultiKeyDistr :: MonadError Text m => Map StakeholderId CoinPortion -> m AddrStakeDistribution
+mkMultiKeyDistr ::
+       MonadError MultiKeyDistrError m
+    => Map StakeholderId CoinPortion
+    -> m AddrStakeDistribution
 mkMultiKeyDistr distrMap = UnsafeMultiKeyDistr distrMap <$ check
   where
     check = do
-        when (null distrMap) $ throwError "mkMultiKeyDistr: map is empty"
-        when (length distrMap == 1) $
-            throwError "mkMultiKeyDistr: map's size is 1, use SingleKeyDistr"
+        when (null distrMap) $ throwError MkdMapIsEmpty
+        when (length distrMap == 1) $ throwError MkdMapIsSingleton
         unless (all ((> 0) . getCoinPortion) distrMap) $
-            throwError "mkMultiKeyDistr: all portions must be positive"
+            throwError MkdNegativePortion
         let distrSum = sum $ map getCoinPortion distrMap
         unless (distrSum == coinPortionDenominator) $
-            throwError "mkMultiKeyDistr: distributions' sum must be equal to 1"
+            throwError MkdSumNot1
 
 -- | Additional information stored along with address. It's intended
 -- to be put into 'Attributes' data type to make it extensible with
@@ -194,13 +217,22 @@ newtype ChainDifficulty = ChainDifficulty
     } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable, Typeable, NFData)
 
 ----------------------------------------------------------------------------
+-- BlockHeader (forward-declaration)
+----------------------------------------------------------------------------
+
+-- We use a data family instead of a data type solely to avoid a module
+-- cycle. Grep for @data instance BlockHeader@ to find the definition.
+--
+-- | Forward-declaration of block headers. See the corresponding type instance
+-- for the actual definition.
+data family BlockHeader
+
+----------------------------------------------------------------------------
 -- HeaderHash
 ----------------------------------------------------------------------------
 
--- | 'Hash' of block header. This should be @Hash BlockHeader@
--- but 'BlockHeader' is not defined in core.
-type HeaderHash = Hash BlockHeaderStub
-data BlockHeaderStub
+-- | 'Hash' of block header.
+type HeaderHash = Hash BlockHeader
 
 -- | Specialized formatter for 'HeaderHash'.
 headerHashF :: Format r (HeaderHash -> r)
@@ -267,12 +299,18 @@ instance Bounded Coin where
 maxCoinVal :: Word64
 maxCoinVal = 45000000000000000
 
--- | Make Coin from Word64.
+-- | Makes a 'Coin' but is _|_ if that coin exceeds 'maxCoinVal'.
+-- You can also use 'checkCoin' to do that check.
 mkCoin :: Word64 -> Coin
-mkCoin c
-    | c <= maxCoinVal = Coin c
-    | otherwise       = error $ "mkCoin: " <> show c <> " is too large"
+mkCoin c = either error (const coin) (checkCoin coin)
+  where
+    coin = (Coin c)
 {-# INLINE mkCoin #-}
+
+checkCoin :: MonadError Text m => Coin -> m ()
+checkCoin (Coin c)
+    | c <= maxCoinVal = pure ()
+    | otherwise       = throwError $ "Coin: " <> show c <> " is too large"
 
 -- | Coin formatter which restricts type.
 coinF :: Format r (Coin -> r)
@@ -308,16 +346,16 @@ instance Bounded CoinPortion where
 
 -- | Make 'CoinPortion' from 'Word64' checking whether it is not greater
 -- than 'coinPortionDenominator'.
-mkCoinPortion
-    :: MonadFail m
-    => Word64 -> m CoinPortion
-mkCoinPortion x
-    | x <= coinPortionDenominator = pure $ CoinPortion x
-    | otherwise = fail err
+checkCoinPortion
+    :: MonadError Text m
+    => CoinPortion -> m ()
+checkCoinPortion (CoinPortion x)
+    | x <= coinPortionDenominator = pure ()
+    | otherwise = throwError err
   where
     err =
-        formatToString
-            ("mkCoinPortion: value is greater than coinPortionDenominator: "
+        sformat
+            ("CoinPortion: value is greater than coinPortionDenominator: "
             %int) x
 
 -- | Make CoinPortion from Double. Caller must ensure that value is in

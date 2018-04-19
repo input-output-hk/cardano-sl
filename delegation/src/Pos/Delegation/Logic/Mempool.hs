@@ -1,7 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
--- | Heavy PSK processing, in-mem state and
--- mempool-related functions.
+-- | Heavy PSK processing, in-memory state and mempool-related functions.
 
 module Pos.Delegation.Logic.Mempool
        (
@@ -24,25 +23,24 @@ import           Control.Lens (at, uses, (%=), (+=), (-=), (.=))
 import qualified Data.Cache.LRU as LRU
 import qualified Data.HashMap.Strict as HM
 import           Mockable (CurrentTime, Mockable, currentTime)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (HasConfiguration, ProxySKHeavy, addressHash, bvdMaxBlockSize,
                            epochIndexL, headerHash)
-import           Pos.Core.Block (BlockchainHelpers, MainBlockchain)
-import           Pos.Crypto (ProxySecretKey (..), PublicKey, verifyPsk)
+import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB
-import           Pos.Delegation.Cede (CedeModifier (..), CheckForCycle (..), dlgVerifyPskHeavy,
-                                      evalMapCede, pskToDlgEdgeAction)
+import           Pos.Delegation.Cede (CheckForCycle (..), cmPskMods, dlgVerifyPskHeavy,
+                                      emptyCedeModifier, evalMapCede, pskToDlgEdgeAction)
 import           Pos.Delegation.Class (DlgMemPool, MonadDelegation, dwMessageCache, dwPoolSize,
                                        dwProxySKPool, dwTip)
-import           Pos.Delegation.Helpers (isRevokePsk)
 import           Pos.Delegation.Logic.Common (DelegationStateAction, runDelegationStateAction)
-import           Pos.Delegation.RichmenComponent (getRichmenDlg)
-import           Pos.Delegation.Types (DlgPayload, mkDlgPayload)
-import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
+import           Pos.Delegation.Lrc (getDlgRichmen)
+import           Pos.Delegation.Types (DlgPayload (..), isRevokePsk)
+import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.StateLock (StateLock, withStateLockNoMetrics)
-import           Pos.Util (HasLens', leftToPanic, microsecondsToUTC)
+import           Pos.Util (HasLens', microsecondsToUTC)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 
 ----------------------------------------------------------------------------
@@ -53,9 +51,7 @@ import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 getDlgMempool
     :: (MonadIO m, MonadDBRead m, MonadDelegation ctx m, MonadMask m)
     => m DlgPayload
-getDlgMempool = do
-    sks <- runDelegationStateAction $ uses dwProxySKPool HM.elems
-    pure $ leftToPanic "getDlgMempool: " $ mkDlgPayload sks
+getDlgMempool = UnsafeDlgPayload <$> (runDelegationStateAction $ uses dwProxySKPool HM.elems)
 
 -- | Clears delegation mempool.
 clearDlgMemPool
@@ -71,12 +67,16 @@ clearDlgMemPoolAction = do
 -- Put value into Proxy SK Pool. Value must not exist in pool.
 -- Caller must ensure it.
 -- Caller must also ensure that size limit allows to put more data.
-putToDlgMemPool :: PublicKey -> ProxySKHeavy -> DelegationStateAction ()
+putToDlgMemPool
+    :: HasConfiguration
+    => PublicKey -> ProxySKHeavy -> DelegationStateAction ()
 putToDlgMemPool pk psk = do
     dwProxySKPool . at pk .= Just psk
     dwPoolSize += biSize pk + biSize psk
 
-deleteFromDlgMemPool :: PublicKey -> DelegationStateAction ()
+deleteFromDlgMemPool
+    :: HasConfiguration
+    => PublicKey -> DelegationStateAction ()
 deleteFromDlgMemPool pk =
     use (dwProxySKPool . at pk) >>= \case
         Nothing -> pass
@@ -86,7 +86,9 @@ deleteFromDlgMemPool pk =
 
 -- Caller must ensure that there won't be too much data (more than limit) as
 -- a result of transformation.
-modifyDlgMemPool :: (DlgMemPool -> DlgMemPool) -> DelegationStateAction ()
+modifyDlgMemPool
+    :: HasConfiguration
+    => (DlgMemPool -> DlgMemPool) -> DelegationStateAction ()
 modifyDlgMemPool f = do
     memPool <- use dwProxySKPool
     let newPool = f memPool
@@ -102,7 +104,6 @@ modifyDlgMemPool f = do
 data PskHeavyVerdict
     = PHExists       -- ^ If we have exactly the same cert in psk mempool
     | PHInvalid Text -- ^ Can't accept PSK though it's most probably user's error
-    | PHBroken       -- ^ Broken (signature, most probably attack, we can ban for this)
     | PHCached       -- ^ Message is cached
     | PHTipMismatch  -- ^ Verdict can't be made at the moment, mempool tip is different from db one
     | PHExhausted    -- ^ Memory pool is exhausted and can't accept more data
@@ -112,6 +113,7 @@ data PskHeavyVerdict
 
 type ProcessHeavyConstraint ctx m =
        ( MonadIO m
+       , MonadUnliftIO m
        , MonadMask m
        , MonadDBRead m
        , MonadGState m
@@ -129,7 +131,6 @@ processProxySKHeavy
     :: forall ctx m.
        ( ProcessHeavyConstraint ctx m
        , HasLens' ctx StateLock
-       , BlockchainHelpers MainBlockchain
        )
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk =
@@ -140,7 +141,7 @@ processProxySKHeavy psk =
 -- synchronization. Should be called __only__ if you are sure that
 -- 'StateLock' is taken already.
 processProxySKHeavyInternal ::
-       forall ctx m. (ProcessHeavyConstraint ctx m, BlockchainHelpers MainBlockchain)
+       forall ctx m. (ProcessHeavyConstraint ctx m)
     => ProxySKHeavy
     -> m PskHeavyVerdict
 processProxySKHeavyInternal psk = do
@@ -148,14 +149,9 @@ processProxySKHeavyInternal psk = do
     dbTip <- DB.getTipHeader
     let dbTipHash = headerHash dbTip
     let headEpoch = dbTip ^. epochIndexL
-    richmen <-
-        lrcActionOnEpochReason
-        headEpoch
-        "Delegation.Logic#processProxySKHeavy: there are no richmen for current epoch"
-        getRichmenDlg
+    richmen <- getDlgRichmen "Delegation.Logic#processProxySKHeavy" headEpoch
     maxBlockSize <- bvdMaxBlockSize <$> DB.gsAdoptedBVData
-    let consistent = verifyPsk psk
-        iPk = pskIssuerPk psk
+    let iPk = pskIssuerPk psk
 
     -- Retrieve psk pool and perform another db check. It's
     -- guaranteed that pool is not changed when we're under
@@ -164,14 +160,13 @@ processProxySKHeavyInternal psk = do
 
     -- This is inefficient. Consider supporting this map
     -- in-memory or changing mempool key to stakeholderId.
-    let _cmPskMods = HM.fromList $
+    let pskMods = HM.fromList $
             map (bimap addressHash pskToDlgEdgeAction) $
             HM.toList cyclePool
-        -- Not used since we can't have more than one psk per issuer
-        -- in mempool and "has posted this epoch" is fully backed up
-        -- by the database.
-    let _cmHasPostedThisEpoch = mempty
-    let cedeModifier = CedeModifier {..}
+    -- We don't use postedThisEpoch since we can't have more than
+    -- one psk per issuer in mempool and "has posted this epoch"
+    -- is fully backed up by the database.
+    let cedeModifier = emptyCedeModifier & cmPskMods .~ pskMods
     (verificationError, pskValid) <-
         fmap (either (,False)
                      (const (error "processProxySKHeavyInternal:can't happen",True))) $
@@ -195,7 +190,6 @@ processProxySKHeavyInternal psk = do
 
         let res = if | cached -> PHCached
                      | not coherent -> PHTipMismatch
-                     | not consistent -> PHBroken
                      | existsSameMempool -> PHExists
                      | not pskValid -> PHInvalid verificationError
                      | exhausted -> PHExhausted

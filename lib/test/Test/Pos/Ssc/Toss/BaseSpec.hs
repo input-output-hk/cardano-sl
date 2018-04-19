@@ -29,7 +29,7 @@ import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap (
                                Opening, OpeningsMap, SharesMap, SignedCommitment,
                                mkCommitmentsMapUnsafe)
 import           Pos.Crypto (DecShare, PublicKey, SecretKey, SignTag (SignCommitment), sign,
-                             toPublic)
+                             toPublic, protocolMagic)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc (MultiRichmenStakes, PureTossWithEnv, SscGlobalState (..),
                           SscVerifyError (..), VssCertData (..), checkCertificatesPayload,
@@ -38,8 +38,9 @@ import           Pos.Ssc (MultiRichmenStakes, PureTossWithEnv, SscGlobalState (.
                           supplyPureTossEnv)
 import           Pos.Ssc.Base (deleteSignedCommitment, verifyCommitment, verifyCommitmentSignature,
                                verifyOpening)
+import           Pos.Util.QuickCheck.Property (qcElem, qcFail, qcIsRight)
 
-import           Test.Pos.Util (qcElem, qcFail, qcIsRight, withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Ssc.Base" $ do
@@ -110,7 +111,7 @@ verifiesOkComm CommitmentOpening{..} =
 
 verifiesOkCommSig :: HasConfiguration => SecretKey -> Commitment -> EpochIndex -> Bool
 verifiesOkCommSig sk comm epoch =
-    let commSig = (toPublic sk, comm, sign SignCommitment sk (epoch, comm))
+    let commSig = (toPublic sk, comm, sign protocolMagic SignCommitment sk (epoch, comm))
     in verifyCommitmentSignature epoch commSig
 
 notVerifiesBadCommSig :: HasConfiguration => BadSignedCommitment -> EpochIndex -> Bool

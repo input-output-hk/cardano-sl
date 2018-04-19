@@ -16,9 +16,7 @@ import           Universum
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
-import           Formatting (sformat, shown, (%))
 import           System.FilePath ((</>))
-import           System.Wlog (WithLogger, logInfo)
 import qualified Text.JSON.Canonical as Canonical
 
 import           Pos.Binary.Class (Raw)
@@ -28,31 +26,33 @@ import           Pos.Core.Configuration.GeneratedSecrets as E
 import           Pos.Core.Configuration.GenesisData as E
 import           Pos.Core.Configuration.GenesisHash as E
 import           Pos.Core.Configuration.Protocol as E
-import           Pos.Core.Genesis.Canonical ()
+import           Pos.Core.Genesis.Canonical (SchemaError)
 import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..), generateGenesisData)
 import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
 import           Pos.Core.Genesis.Types (GenesisData (..), GenesisDelegation,
-                                         GenesisInitializer (..), GenesisSpec (..))
+                                         GenesisInitializer (..), GenesisSpec (..),
+                                         GenesisProtocolConstants (..),
+                                         genesisProtocolConstantsToProtocolConstants)
 import           Pos.Core.Slotting.Types (Timestamp)
-import           Pos.Crypto.Configuration (HasCryptoConfiguration)
+import           Pos.Crypto.Configuration as E
 import           Pos.Crypto.Hashing (Hash, hashRaw, unsafeHash)
 import           Pos.Util.Util (leftToPanic)
 
 -- | Coarse catch-all configuration constraint for use by depending modules.
 type HasConfiguration =
-    ( HasCoreConfiguration
+    ( HasProtocolMagic
+    , HasCoreConfiguration
     , HasGenesisData
     , HasGenesisHash
     , HasGeneratedSecrets
     , HasGenesisBlockVersionData
     , HasProtocolConstants
-    , HasCryptoConfiguration
     )
 
 canonicalGenesisJson :: GenesisData -> (BSL.ByteString, Hash Raw)
 canonicalGenesisJson theGenesisData = (canonicalJsonBytes, jsonHash)
   where
-    jsonHash = hashRaw $ BSL.toStrict canonicalJsonBytes
+    jsonHash = hashRaw canonicalJsonBytes
     canonicalJsonBytes = Canonical.renderCanonicalJSON $ runIdentity $ Canonical.toJSON theGenesisData
 
 -- | Encode 'GenesisData' in JSON format in a pretty way. JSON object
@@ -73,12 +73,11 @@ prettyGenesisJson theGenesisData =
 --
 -- If the configuration gives a testnet genesis spec, then a start time must
 -- be provided, probably sourced from command line arguments.
-withCoreConfigurations ::
-       forall m r.
+withCoreConfigurations
+    :: forall m r.
        ( MonadThrow m
-       , WithLogger m
        , MonadIO m
-       , Canonical.FromJSON (Either String) GenesisData
+       , Canonical.FromJSON (Either SchemaError) GenesisData
        )
     => CoreConfiguration
     -> FilePath
@@ -107,16 +106,19 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
             Right it -> return it
 
         theGenesisData <- case Canonical.fromJSON gdataJSON of
-            Left str -> throwM $ GenesisDataParseFailure (fromString str)
+            Left err -> throwM $ GenesisDataSchemaError err
             Right it -> return it
 
         let (_, theGenesisHash) = canonicalGenesisJson theGenesisData
+            pc = genesisProtocolConstantsToProtocolConstants (gdProtocolConsts theGenesisData)
+            pm = gpcProtocolMagic (gdProtocolConsts theGenesisData)
         when (theGenesisHash /= expectedHash) $
             throwM $ GenesisHashMismatch
                      (show theGenesisHash) (show expectedHash)
 
         withCoreConfiguration conf $
-            withProtocolConstants (gdProtocolConsts theGenesisData) $
+            withProtocolMagic pm $
+            withProtocolConstants pc $
             withGenesisBlockVersionData (gdBlockVersionData theGenesisData) $
             withGenesisData theGenesisData $
             withGenesisHash theGenesisHash $
@@ -129,7 +131,6 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
 
         theSystemStart <- case mSystemStart of
             Just it -> do
-                logInfo $ sformat ("withConfiguration using custom system start time "%shown) it
                 return it
             Nothing -> throwM MissingSystemStartTime
 
@@ -145,8 +146,6 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
 
         let theConf = conf {ccGenesis = GCSpec theSpec}
 
-        logInfo $ "We are going to generate genesis data from genesis spec," <>
-                  " it can take a lot of time if there are many HD addresses!"
         withGenesisSpec theSystemStart theConf act
 
 withGenesisSpec
@@ -157,12 +156,13 @@ withGenesisSpec
 withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis of
     GCSrc {} -> error "withGenesisSpec called with GCSrc"
     GCSpec spec ->
-        withProtocolConstants (gsProtocolConstants spec) $
+        withProtocolMagic pm $
+        withProtocolConstants pc $
         withGenesisBlockVersionData (gsBlockVersionData spec) $
             let
                 -- Generate
                 GeneratedGenesisData {..} =
-                    generateGenesisData (gsInitializer spec) (gsAvvmDistr spec)
+                    generateGenesisData protocolMagic (gsInitializer spec) (gsAvvmDistr spec)
 
                 -- Unite with generated
                 finalHeavyDelegation :: GenesisDelegation
@@ -179,7 +179,7 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
                       , gdVssCerts         = ggdVssCerts
                       , gdNonAvvmBalances  = ggdNonAvvm
                       , gdBlockVersionData = genesisBlockVersionData
-                      , gdProtocolConsts   = protocolConstants
+                      , gdProtocolConsts   = gsProtocolConstants spec
                       , gdAvvmDistr        = ggdAvvm
                       , gdFtsSeed          = gsFtsSeed spec
                       }
@@ -190,6 +190,9 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
                   withGenesisHash theGenesisHash $
                   withGeneratedSecrets (Just ggdSecrets) $
                   withGenesisData theGenesisData val
+      where
+        pm = gpcProtocolMagic (gsProtocolConstants spec)
+        pc = genesisProtocolConstantsToProtocolConstants (gsProtocolConstants spec)
 
 data ConfigurationError =
       -- | A system start time must be given when a testnet genesis is used.
@@ -201,6 +204,7 @@ data ConfigurationError =
     | UnnecessarySystemStartTime
 
     | GenesisDataParseFailure !Text
+    | GenesisDataSchemaError !SchemaError
 
       -- | The GenesisData canonical JSON hash is different than expected.
     | GenesisHashMismatch !Text !Text

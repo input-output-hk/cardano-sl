@@ -5,8 +5,7 @@ This manual describes how to build Cardano SL and Daedalus from the source code.
 ## Cardano SL and Daedalus
 
 Cardano SL consists of a collection of binaries that constitute
-the backend, a PureScript API for the Electron-based wallet, and the
-Electron-based wallet called “Daedalus”.
+the backend and the Electron-based wallet called “Daedalus”.
 
 The source code of Cardano SL can be obtained from the
 [official repository](https://github.com/input-output-hk/cardano-sl).
@@ -79,7 +78,7 @@ NOTE: the various other Cardano components can be obtained through other attribu
    - `cardano-explorer`, `cardano-explorer-swagger`, `cardano-explorer-mock`
 -  `cardano-sl-tools-static`:
    - `cardano-analyzer`, `cardano-dht-keygen`, `cardano-genupdate`, `cardano-keygen`, `cardano-launcher`, `cardano-addr-convert`, `cardano-cli-docs`, `cardano-block-gen`, `cardano-post-mortem`
--  `cardano-sl-wallet`:
+-  `cardano-sl-wallet-static`:
    - `cardano-node`, `cardano-swagger`
 
 In general, for any given cabal `PACKAGE` provided by Cardano, there is a
@@ -99,7 +98,7 @@ After that, in order to build Cardano SL with wallet capabilities, run the follo
 
     [nix-shell:~/cardano-sl]$ ./scripts/build/cardano-sl.sh
 
-Dependecy version collisions have been encountered on macOS. If you run into something
+Dependency version collisions have been encountered on macOS. If you run into something
 [like this](https://github.com/input-output-hk/cardano-sl/issues/2230#issuecomment-354881696),
 try running the following command from outside of a `nix-shell`
 

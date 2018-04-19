@@ -1,4 +1,4 @@
--- | Helper for core types.
+-- | Helpers for core types.
 
 module Pos.Txp.Base
        ( addrBelongsTo

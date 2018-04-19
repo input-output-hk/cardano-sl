@@ -23,6 +23,7 @@ type UpdateVotes = HashMap PublicKey UpdateVote
 
 -- | Use a lock to perform operation on in-memory state of update system.
 --
+-- TODO(thatguy): the following comment needs to be updated.
 -- Currently we are using a single lock for everything, so this
 -- function is just an alias for 'withStateLock'.
 withUSLock
@@ -46,8 +47,8 @@ addToMemPool UpdatePayload {..} = addProposal . addVotes
                      , mpSize = biSize upVotes + mpSize mp}
 
     forceInsertVote :: UpdateVote -> LocalVotes -> LocalVotes
-    forceInsertVote e@UpdateVote{..} = HM.alter (append e) uvProposalId
+    forceInsertVote vote = HM.alter (append vote) (uvProposalId vote)
 
     append :: UpdateVote -> Maybe UpdateVotes -> Maybe UpdateVotes
-    append e@UpdateVote{..} Nothing        = Just $ HM.singleton uvKey e
-    append e@UpdateVote{..} (Just stVotes) = Just $ HM.insert uvKey e stVotes
+    append vote Nothing        = Just $ HM.singleton (uvKey vote) vote
+    append vote (Just stVotes) = Just $ HM.insert (uvKey vote) vote stVotes

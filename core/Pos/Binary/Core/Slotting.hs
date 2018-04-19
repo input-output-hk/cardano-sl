@@ -6,8 +6,7 @@ module Pos.Binary.Core.Slotting
 
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBiCxt)
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi)
 import qualified Pos.Core.Slotting as T
 
 instance Bi T.Timestamp where
@@ -22,21 +21,17 @@ instance Bi T.EpochIndex where
     encode (T.EpochIndex epoch) = encode epoch
     decode = T.EpochIndex <$> decode
 
-instance HasProtocolConstants => Bi T.LocalSlotIndex where
+instance Bi T.LocalSlotIndex where
     encode = encode . T.getSlotIndex
-    decode = do
-        word16 <- decode @Word16
-        case T.mkLocalSlotIndex word16 of
-            Left err        -> fail ("decode@LocalSlotIndex: " <> toString err)
-            Right slotIndex -> return slotIndex
+    decode = T.UnsafeLocalSlotIndex <$> decode
 
-deriveSimpleBiCxt [t| HasProtocolConstants |] ''T.SlotId [
+deriveSimpleBi ''T.SlotId [
     Cons 'T.SlotId [
         Field [| T.siEpoch :: T.EpochIndex     |],
         Field [| T.siSlot  :: T.LocalSlotIndex |]
     ]]
 
-instance HasProtocolConstants => Bi T.EpochOrSlot where
+instance Bi T.EpochOrSlot where
     encode (T.EpochOrSlot e) = encode e
     decode = T.EpochOrSlot <$> decode @(Either T.EpochIndex T.SlotId)
 

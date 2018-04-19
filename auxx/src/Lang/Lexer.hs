@@ -50,9 +50,10 @@ import           Text.Megaparsec.Char.Lexer (charLiteral, decimal, scientific, s
 import           Lang.Name (Letter, Name (..), unsafeMkLetter)
 import           Pos.Arbitrary.Core ()
 import           Pos.Core (Address, BlockVersion (..), SoftwareVersion (..), StakeholderId,
-                           decodeTextAddress, mkApplicationName)
+                           decodeTextAddress, ApplicationName (..))
 import           Pos.Crypto (AHash (..), PublicKey, decodeAbstractHash, fullPublicKeyF, hashHexF,
                              parseFullPublicKey, unsafeCheatingHashCoerce)
+import           Pos.Util.Util (toParsecError)
 
 data BracketSide = BracketSideOpening | BracketSideClosing
     deriving (Eq, Ord, Show, Generic)
@@ -210,26 +211,22 @@ pSomeAlphaNum = takeWhile1P (Just "alphanumeric") isAlphaNum
 pAddress :: Lexer Address
 pAddress = do
     str <- pSomeAlphaNum
-    either (fail . toString) return $
-        decodeTextAddress str
+    toParsecError $ decodeTextAddress str
 
 pPublicKey :: Lexer PublicKey
 pPublicKey = do
     str <- (<>) <$> takeP (Just "base64") 86 <*> string "=="
-    either (fail . toString) return $
-        parseFullPublicKey str
+    toParsecError $ parseFullPublicKey str
 
 pStakeholderId :: Lexer StakeholderId
 pStakeholderId = do
     str <- pSomeAlphaNum
-    either (fail . toString) return $
-        decodeAbstractHash str
+    toParsecError $ decodeAbstractHash str
 
 pHash :: Lexer AHash
 pHash = do
     str <- pSomeAlphaNum
-    either (fail . toString) (return . unsafeCheatingHashCoerce) $
-        decodeAbstractHash str
+    toParsecError . fmap unsafeCheatingHashCoerce $ decodeAbstractHash str
 
 pBlockVersion :: Lexer BlockVersion
 pBlockVersion = do
@@ -244,7 +241,7 @@ pBlockVersion = do
 pSoftwareVersion :: Lexer SoftwareVersion
 pSoftwareVersion = do
     appName <- manyTill (satisfy isAlphaNum <|> char '-') (char ':')
-    svAppName <- either fail return $ mkApplicationName (toText appName)
+    let svAppName = ApplicationName (toText appName)
     svNumber <- decimal
     notFollowedBy $ char '.'
     return SoftwareVersion {..}

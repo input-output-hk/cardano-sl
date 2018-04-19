@@ -7,16 +7,16 @@ module Pos.Binary.Core.Block
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi, encodeListLen,
-                                   enforceSize)
+                                   encodeListLen, enforceSize)
 import           Pos.Binary.Core.Txp ()
 import qualified Pos.Core.Block.Blockchain as Core
 import qualified Pos.Core.Block.Genesis.Chain as BC
 import qualified Pos.Core.Block.Genesis.Types as BC
 import qualified Pos.Core.Block.Main.Chain as BC
 import qualified Pos.Core.Block.Main.Types as BC
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Update.Types (BlockVersion, SoftwareVersion)
 import           Pos.Crypto (Hash)
+import           Pos.Util.Util (cborError)
 
 ----------------------------------------------------------------------------
 -- MainBlock
@@ -47,9 +47,9 @@ instance Bi BC.BlockSignature where
           0 -> BC.BlockSignature <$> decode
           1 -> BC.BlockPSignatureLight <$> decode
           2 -> BC.BlockPSignatureHeavy <$> decode
-          _ -> fail $ "decode@BlockSignature: unknown tag: " <> show tag
+          _ -> cborError $ "decode@BlockSignature: unknown tag: " <> show tag
 
-instance HasConfiguration => Bi (BC.ConsensusData BC.MainBlockchain) where
+instance Bi (BC.ConsensusData BC.MainBlockchain) where
     encode cd =  encodeListLen 4
               <> encode (BC._mcdSlot cd)
               <> encode (BC._mcdLeaderKey cd)
@@ -62,7 +62,7 @@ instance HasConfiguration => Bi (BC.ConsensusData BC.MainBlockchain) where
                                  decode <*>
                                  decode
 
-instance HasConfiguration => Bi (BC.Body BC.MainBlockchain) where
+instance Bi (BC.Body BC.MainBlockchain) where
     encode bc =  encodeListLen 4
               <> encode (BC._mbTxPayload  bc)
               <> encode (BC._mbSscPayload bc)
@@ -88,7 +88,7 @@ deriveSimpleBi ''BC.MainExtraBodyData [
         Field [| BC._mebAttributes :: BC.BlockBodyAttributes |]
     ]]
 
-instance HasConfiguration => Bi BC.MainToSign where
+instance Bi BC.MainToSign where
     encode mts = encodeListLen 5
                <> encode (BC._msHeaderHash mts)
                <> encode (BC._msBodyProof mts)

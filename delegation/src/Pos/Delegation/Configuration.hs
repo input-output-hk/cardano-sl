@@ -13,7 +13,7 @@ module Pos.Delegation.Configuration
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), genericParseJSON)
+import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, genericToJSON)
 import           Data.Reflection (Given (..), give)
 import           Serokell.Aeson.Options (defaultOptions)
 
@@ -35,6 +35,9 @@ data DlgConfiguration = DlgConfiguration
     , ccMessageCacheTimeout :: !Int
       -- ^ Interval we ignore cached messages for if it's sent again.
     } deriving (Eq,Show,Generic)
+
+instance ToJSON DlgConfiguration where
+    toJSON = genericToJSON defaultOptions
 
 instance FromJSON DlgConfiguration where
     parseJSON = genericParseJSON defaultOptions

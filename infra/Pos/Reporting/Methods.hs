@@ -51,7 +51,8 @@ import           Network.HTTP.Client.TLS (tlsManagerSettings)
 import           Network.Info (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Pos.ReportServer.Report (ReportInfo (..), ReportType (..))
 import           Serokell.Util.Text (listBuilderJSON)
-import           System.Directory (canonicalizePath, doesFileExist, removeFile)
+import           System.Directory (canonicalizePath, doesFileExist, getTemporaryDirectory,
+                                   removeFile)
 import           System.FilePath (takeFileName)
 import           System.Info (arch, os)
 import           System.IO (IOMode (WriteMode), hClose, hFlush, withFile)
@@ -61,8 +62,8 @@ import           System.Wlog (LoggerConfig (..), Severity (..), WithLogger, hwFi
 
 
 import           Paths_cardano_sl_infra (version)
-import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
-import           Pos.Crypto (ProtocolMagic (..))
+import           Pos.Crypto (ProtocolMagic (..), HasProtocolMagic, protocolMagic)
+import           Pos.DB.Error (DBError (..))
 import           Pos.Exception (CardanoFatalError)
 import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
@@ -72,7 +73,6 @@ import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers 
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Util.Filesystem (withSystemTempFile)
 import           Pos.Util.Util (maybeThrow, (<//>))
-
 
 ----------------------------------------------------------------------------
 -- General purpose/low level
@@ -88,7 +88,7 @@ import           Pos.Util.Util (maybeThrow, (<//>))
 -- same file, see 'System.IO' documentation on handles. See
 -- 'withTempLogFile' to overcome this problem.
 sendReport
-    :: (HasConfiguration, HasCompileInfo, MonadIO m, MonadMask m)
+    :: (HasProtocolMagic, HasCompileInfo, MonadIO m, MonadMask m)
     => [FilePath]                 -- ^ Log files to read from
     -> ReportType
     -> Text
@@ -147,6 +147,11 @@ retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
 -- | Pass a list of absolute paths to log files. This function will
 -- archive and compress these files and put resulting file into log
 -- directory (returning filepath is absolute).
+--
+-- It will throw a PackingError in case:
+--   - Any of the file paths given does not point to an existing file.
+--   - Any of the file paths could not be converted to a tar path, for instance
+--     because it is too long.
 compressLogs :: (MonadIO m) => [FilePath] -> m FilePath
 compressLogs files = liftIO $ do
     tar <- tarPackIndependently files
@@ -173,7 +178,8 @@ compressLogs files = liftIO $ do
         pure $ BSL.toStrict $ Tar.write entries
     getArchiveName = liftIO $ do
         curTime <- formatTime defaultTimeLocale "%q" <$> getCurrentTime
-        pure $ "report-" <> curTime <> ".tar.lzma"
+        tempDir <- getTemporaryDirectory
+        pure $ tempDir <//> ("report-" <> curTime <> ".tar.lzma")
 
 -- | Creates a temp file from given text
 withTempLogFile :: (MonadIO m, MonadMask m) => Text -> (FilePath -> m a) -> m a
@@ -199,7 +205,7 @@ type MonadReporting ctx m =
        , HasReportingContext ctx
        , HasNodeType ctx
        , WithLogger m
-       , HasConfiguration
+       , HasProtocolMagic
        , HasCompileInfo
        )
 
@@ -310,6 +316,8 @@ reportNode sendLogs extendWithNodeInfo reportType =
         logWarning $ "Reporting non-critical misbehavior with reason \"" <> reason <> "\""
     logReportType (RInfo text) =
         logInfo $ "Reporting info with text \"" <> text <> "\""
+    logReportType (RCustomReport{}) =
+        logInfo $ "Reporting custom report"
 
     -- Retrieves node info that we would like to know when analyzing
     -- malicious behavior of node.
@@ -380,7 +388,7 @@ reportOrLog
     :: forall ctx m . (MonadReporting ctx m)
     => Severity -> Text -> SomeException -> m ()
 reportOrLog severity prefix exc =
-    case tryCast @CardanoFatalError <|> tryCast @ErrorCall of
+    case tryCast @CardanoFatalError <|> tryCast @ErrorCall <|> tryCast @DBError of
         Just msg -> reportError $ prefix <> msg
         Nothing  -> logMessage severity $ prefix <> pretty exc
   where

@@ -1,5 +1,5 @@
 name:                cardano-sl-generator
-version:             1.0.3
+version:             1.1.1
 synopsis:            Cardano SL - arbitrary data generation
 description:         Cardano SL - arbitrary data generation
 license:             MIT
@@ -9,6 +9,7 @@ maintainer:          hi@serokell.io
 copyright:           2017 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
@@ -67,6 +68,7 @@ library
                      , time-units
                      , transformers-base
                      , universum
+                     , unliftio
                      , unordered-containers
                      , vector
 
@@ -93,6 +95,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       MonadFailDesugaring
 
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -108,11 +111,11 @@ test-suite cardano-generator-test
   main-is:             Test.hs
   other-modules:
                        Spec
-                       Test.Pos.Helpers
 
                        Test.Pos.Lrc.WorkerSpec
                        Test.Pos.Block.Logic.CreationSpec
                        Test.Pos.Block.Logic.VarSpec
+                       Test.Pos.Block.Property
 
   type:                exitcode-stdio-1.0
 
@@ -135,6 +138,7 @@ test-suite cardano-generator-test
                      , formatting
                      , hspec
                      , lens
+                     , safe-exceptions
                      , serokell-util
                      , universum >= 0.1.11
                      , unordered-containers
@@ -174,6 +178,7 @@ test-suite cardano-generator-test
                         TemplateHaskell
                         ScopedTypeVariables
                         GADTs
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

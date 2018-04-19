@@ -42,10 +42,9 @@ import           Pos.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Error (SscVerifyError (..))
-import           Pos.Ssc.Lrc (getSscRichmenFromLrc)
+import           Pos.Ssc.Lrc (getSscRichmen, tryGetSscRichmen)
 import           Pos.Ssc.Mem (MonadSscMem, SscLocalQuery, SscLocalUpdate, askSscMem,
                               sscRunGlobalQuery, sscRunLocalQuery, sscRunLocalSTM, syncingStateWith)
-import           Pos.Ssc.RichmenComponent (getRichmenSsc)
 import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT, evalPureTossWithLogger, evalTossT,
                                execTossT, hasCertificateToss, hasCommitmentToss, hasOpeningToss,
                                hasSharesToss, isGoodSlotForTag, normalizeToss, refreshToss,
@@ -104,7 +103,7 @@ sscNormalize
     => m ()
 sscNormalize = do
     tipEpoch <- view epochIndexL <$> getTipHeader
-    richmenData <- getSscRichmenFromLrc "sscNormalize" tipEpoch
+    richmenData <- getSscRichmen "sscNormalize" tipEpoch
     bvd <- gsAdoptedBVData
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem
@@ -186,7 +185,6 @@ type SscDataProcessingMode ctx m =
     , MonadGState m       -- to get block size limit
     , MonadSlots ctx m
     , MonadSscMem ctx m
-    , MonadError SscVerifyError m
     , HasConfiguration
     , HasSscConfiguration
     )
@@ -196,7 +194,7 @@ type SscDataProcessingMode ctx m =
 sscProcessCommitment
     :: forall ctx m.
        SscDataProcessingMode ctx m
-    => SignedCommitment -> m ()
+    => SignedCommitment -> m (Either SscVerifyError ())
 sscProcessCommitment comm =
     sscProcessData CommitmentMsg $
     CommitmentsPayload (mkCommitmentsMap [comm]) mempty
@@ -205,7 +203,7 @@ sscProcessCommitment comm =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessOpening
     :: SscDataProcessingMode ctx m
-    => StakeholderId -> Opening -> m ()
+    => StakeholderId -> Opening -> m (Either SscVerifyError ())
 sscProcessOpening id opening =
     sscProcessData OpeningMsg $
     OpeningsPayload (HM.fromList [(id, opening)]) mempty
@@ -214,7 +212,7 @@ sscProcessOpening id opening =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessShares
     :: SscDataProcessingMode ctx m
-    => StakeholderId -> InnerSharesMap -> m ()
+    => StakeholderId -> InnerSharesMap -> m (Either SscVerifyError ())
 sscProcessShares id shares =
     sscProcessData SharesMsg $ SharesPayload (HM.fromList [(id, shares)]) mempty
 
@@ -222,7 +220,7 @@ sscProcessShares id shares =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessCertificate
     :: SscDataProcessingMode ctx m
-    => VssCertificate -> m ()
+    => VssCertificate -> m (Either SscVerifyError ())
 sscProcessCertificate cert =
     sscProcessData VssCertificateMsg $
     CertificatesPayload (mkVssCertificatesMapSingleton cert)
@@ -230,15 +228,15 @@ sscProcessCertificate cert =
 sscProcessData
     :: forall ctx m.
        SscDataProcessingMode ctx m
-    => SscTag -> SscPayload -> m ()
+    => SscTag -> SscPayload -> m (Either SscVerifyError ())
 sscProcessData tag payload =
-    generalizeExceptT $ do
+    runExceptT $ do
         getCurrentSlot >>= checkSlot
         ld <- sscRunLocalQuery ask
         bvd <- gsAdoptedBVData
         let epoch = ld ^. ldEpoch
         seed <- Rand.drgNew
-        getRichmenSsc epoch >>= \case
+        lift (tryGetSscRichmen epoch) >>= \case
             Nothing -> throwError $ TossUnknownRichmen epoch
             Just richmen -> do
                 gs <- sscRunGlobalQuery ask
@@ -247,7 +245,6 @@ sscProcessData tag payload =
                     executeMonadBaseRandom seed $
                     sscProcessDataDo (epoch, richmen) bvd gs payload
   where
-    generalizeExceptT action = either throwError pure =<< runExceptT action
     checkSlot Nothing = throwError CurrentSlotUnknown
     checkSlot (Just si@SlotId {..})
         | isGoodSlotForTag tag siSlot = pass

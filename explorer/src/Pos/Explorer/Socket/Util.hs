@@ -11,10 +11,11 @@ module Pos.Explorer.Socket.Util
     , on_
     , on
 
-    , runPeriodicallyUnless
-    , forkAccompanion
+    , runPeriodically
     , regroupBySnd
     ) where
+
+import           Universum hiding (on)
 
 import           Control.Monad.Reader (MonadReader)
 import           Control.Monad.State (MonadState)
@@ -26,11 +27,9 @@ import           Data.Time.Units (TimeUnit (..))
 import           Formatting (sformat, shown, (%))
 import           Network.EngineIO.Wai (WaiMonad)
 
-import           Mockable (Fork, Mockable, fork)
 import qualified Network.SocketIO as S
 import           Serokell.Util.Concurrent (threadDelay)
 import           System.Wlog (CanLog (..), WithLogger, logWarning)
-import           Universum hiding (on)
 
 -- * Provides type-safety for event names in some socket-io functions.
 
@@ -78,13 +77,12 @@ instance CanLog WaiMonad where
 -- * Misc
 
 -- | Runs an action periodically.
--- It's provided with a flag whether repetition should be stopped.
 -- Action is launched with state. If action fails, state remains unmodified.
-runPeriodicallyUnless
+runPeriodically
     :: (MonadIO m, MonadCatch m, WithLogger m, TimeUnit t)
-    => t -> m Bool -> s -> StateT s m () -> m ()
-runPeriodicallyUnless delay stop initState action =
-    let loop st = unlessM stop $ do
+    => t -> s -> StateT s m () -> m ()
+runPeriodically delay initState action =
+    let loop st = do
             st' <- execStateT action st
                 `catchAny` \e -> handler e $> st
             threadDelay delay
@@ -92,18 +90,6 @@ runPeriodicallyUnless delay stop initState action =
     in  loop initState
   where
     handler = logWarning . sformat ("Periodic action failed: "%shown)
-
--- | Fork a side action.
--- It's given a flag, whether main action has completed.
-forkAccompanion
-    :: (MonadIO m, MonadMask m, Mockable Fork m)
-    => (m Bool -> m ()) -> m a -> m a
-forkAccompanion accompanion main = do
-    stopped <- newTVarIO False
-    let whetherStopped = readTVarIO stopped
-    bracket_ (fork $ accompanion whetherStopped)
-             (atomically $ writeTVar stopped True)
-             main
 
 regroupBySnd
     :: forall a b l. (Ord b, Container l, Element l ~ b)

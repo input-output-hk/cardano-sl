@@ -23,6 +23,7 @@ import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CA
                                              NewBatchPayment (..), SyncProgress, Wal)
 import           Pos.Wallet.Web.Error (WalletError)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent)
+import           Pos.Util.Util (aesonError)
 
 deriveJSON defaultOptions ''CAccountId
 deriveJSON defaultOptions ''CWAddressMeta
@@ -76,10 +77,10 @@ deriveJSON defaultOptions ''CPtxCondition
 deriveJSON defaultOptions ''CTx
 deriveJSON defaultOptions ''CTExMeta
 deriveJSON defaultOptions ''CUpdateInfo
+deriveJSON defaultOptions ''WalletError
+deriveJSON defaultOptions ''SyncProgress
 
-deriveToJSON defaultOptions ''SyncProgress
 deriveToJSON defaultOptions ''NotifyEvent
-deriveToJSON defaultOptions ''WalletError
 
 -- For backward compatibility.
 -- Guys /really/ want it to be normal JSON
@@ -110,7 +111,7 @@ instance FromJSON NewBatchPayment where
         npbInputSelectionPolicy <- o .: "policy"
         return NewBatchPayment {..}
       where
-        expectedOneRecipient = fail "Expected at least one recipient."
+        expectedOneRecipient = aesonError "Expected at least one recipient."
         collectRecipientTuples = mapM $ withObject "NewBatchPayment.to[x]" $
             \o -> (,)
                 <$> o .: "address"

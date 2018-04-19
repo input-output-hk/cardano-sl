@@ -1,6 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
 
--- | This module defines methods which operate on 'SscLocalData'.
+-- | Methods that operate on 'SscLocalData'.
 
 module Pos.Ssc.State.Local
        (

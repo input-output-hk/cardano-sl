@@ -12,25 +12,26 @@ import           Pos.Arbitrary.Txp ()
 import           Pos.Arbitrary.Update ()
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Block.Network.Types as T
-import           Pos.Core (HasConfiguration)
+import           Pos.Core (HasProtocolConstants, HasProtocolMagic, HasGenesisHash)
 import           Pos.Core.Ssc (SscPayload, SscProof)
 
 ------------------------------------------------------------------------------------------
 -- Block network types
 ------------------------------------------------------------------------------------------
 
-instance HasConfiguration => Arbitrary T.MsgGetHeaders where
+instance Arbitrary T.MsgGetHeaders where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary T.MsgGetBlocks where
+instance Arbitrary T.MsgGetBlocks where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
 instance ( Arbitrary SscPayload
          , Arbitrary SscProof
          , Bi Raw
-         , HasConfiguration
+         , HasProtocolConstants
+         , HasProtocolMagic
          ) =>
          Arbitrary T.MsgHeaders where
     arbitrary = genericArbitrary
@@ -39,7 +40,9 @@ instance ( Arbitrary SscPayload
 instance ( Arbitrary SscPayload
          , Arbitrary SscProof
          , Arbitrary SscPayloadDependsOnSlot
-         , HasConfiguration
+         , HasProtocolConstants
+         , HasProtocolMagic
+         , HasGenesisHash
          ) =>
          Arbitrary T.MsgBlock where
     arbitrary = genericArbitrary

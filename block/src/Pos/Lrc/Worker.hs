@@ -27,8 +27,9 @@ import           System.Wlog (logDebug, logInfo, logWarning)
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Block.Slog.Logic (ShouldCallBListener (..))
-import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId,
-                           blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot)
+import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId, HasProtocolConstants,
+                           blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot, HasGeneratedSecrets,
+                           HasGenesisBlockVersionData, HasGenesisData, HasGenesisHash)
 import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.GState.Stakes as GS (getRealStake, getRealTotalStake)
 import qualified Pos.GState.SanityCheck as DB (sanityCheckDB)
@@ -73,7 +74,7 @@ type LrcModeFull ctx m =
 -- block for this epoch is not known, LrcError will be thrown.
 -- It assumes that 'StateLock' is taken already.
 lrcSingleShot
-    :: forall ctx m. (LrcModeFull ctx m)
+    :: forall ctx m. (LrcModeFull ctx m, HasGeneratedSecrets, HasGenesisBlockVersionData, HasProtocolConstants, HasGenesisData, HasGenesisHash)
     => EpochIndex -> m ()
 lrcSingleShot epoch = do
     lock <- views (lensOf @LrcContext) lcLrcSync
@@ -126,7 +127,7 @@ tryAcquireExclusiveLock epoch lock action =
 
 lrcDo
     :: forall ctx m.
-       (LrcModeFull ctx m)
+       (LrcModeFull ctx m, HasGeneratedSecrets, HasGenesisBlockVersionData, HasProtocolConstants, HasGenesisData, HasGenesisHash)
     => EpochIndex -> [LrcConsumer m] -> m ()
 lrcDo epoch consumers = do
     blundsUpToGenesis <- DB.loadBlundsFromTipWhile upToGenesis
@@ -210,7 +211,7 @@ issuersComputationDo epochId = do
         Just stake -> pure $ HM.insert id stake hm
 
 leadersComputationDo ::
-       forall ctx m. LrcMode ctx m
+       forall ctx m. (LrcMode ctx m, HasProtocolConstants)
     => EpochIndex
     -> SharedSeed
     -> m ()

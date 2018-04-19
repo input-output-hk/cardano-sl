@@ -12,7 +12,7 @@ import           System.Wlog (WithLogger)
 import           Universum
 
 import           Pos.Binary.Ssc ()
-import           Pos.Core (EpochIndex (..), SharedSeed, VssCertificatesMap (..), vcVssKey)
+import           Pos.Core (EpochIndex (..), SharedSeed, VssCertificatesMap (..), vcVssKey, HasGenesisBlockVersionData)
 import           Pos.DB (MonadDBRead)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenStakes)
@@ -35,7 +35,9 @@ sscCalculateSeed
        , MonadReader ctx m
        , HasLrcContext ctx
        , MonadIO m
-       , WithLogger m )
+       , WithLogger m
+       , HasGenesisBlockVersionData
+       )
     => EpochIndex
     -> m (Either SscSeedError SharedSeed)
 sscCalculateSeed epoch = do

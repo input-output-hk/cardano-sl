@@ -33,7 +33,7 @@ import           Serokell.Util (sec)
 import           System.Wlog (WithLogger, logDebug, logInfo, logNotice, logWarning,
                               modifyLoggerName)
 
-import           Pos.Core (FlatSlotId, HasConfiguration, LocalSlotIndex, SlotId (..),
+import           Pos.Core (FlatSlotId, LocalSlotIndex, SlotId (..), HasProtocolConstants,
                            Timestamp (..), flattenSlotId, slotIdF)
 import           Pos.Recovery.Info (MonadRecoveryInfo, recoveryInProgress)
 import           Pos.Reporting.Methods (MonadReporting, reportOrLogE)
@@ -49,7 +49,7 @@ import           Pos.Util.Util (maybeThrow)
 
 
 -- | Get flat id of current slot based on MonadSlots.
-getCurrentSlotFlat :: (MonadSlots ctx m, HasConfiguration) => m (Maybe FlatSlotId)
+getCurrentSlotFlat :: (MonadSlots ctx m, HasProtocolConstants) => m (Maybe FlatSlotId)
 getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
 
 -- | Get timestamp when given slot starts.
@@ -108,7 +108,6 @@ type MonadOnNewSlot ctx m =
     , MonadReporting ctx m
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
-    , HasConfiguration
     )
 
 -- | Parameters for `onNewSlot`.
@@ -158,18 +157,18 @@ data ActionTerminationPolicy
 -- it.  This function uses Mockable and assumes consistency between
 -- MonadSlots and Mockable implementations.
 onNewSlot
-    :: MonadOnNewSlot ctx m
+    :: (MonadOnNewSlot ctx m, HasProtocolConstants)
     => OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlot = onNewSlotImpl False
 
 onNewSlotWithLogging
-    :: MonadOnNewSlot ctx m
+    :: (MonadOnNewSlot ctx m, HasProtocolConstants)
     => OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlotWithLogging = onNewSlotImpl True
 
 -- TODO [CSL-198]: think about exceptions more carefully.
 onNewSlotImpl
-    :: forall ctx m. MonadOnNewSlot ctx m
+    :: forall ctx m. (MonadOnNewSlot ctx m, HasProtocolConstants)
     => Bool -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlotImpl withLogging params action =
     impl `catch` workerHandler
@@ -188,7 +187,7 @@ onNewSlotImpl withLogging params action =
         onNewSlotImpl withLogging params action
 
 onNewSlotDo
-    :: MonadOnNewSlot ctx m
+    :: (MonadOnNewSlot ctx m, HasProtocolConstants)
     => Bool -> Maybe SlotId -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
 onNewSlotDo withLogging expectedSlotId onsp action = do
     curSlot <- waitUntilExpectedSlot
@@ -234,7 +233,7 @@ onNewSlotDo withLogging expectedSlotId onsp action = do
     logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
                  sformat ("Waiting for "%shown%" before new slot") timeToWait
 
-logNewSlotWorker :: MonadOnNewSlot ctx m => m ()
+logNewSlotWorker :: (MonadOnNewSlot ctx m, HasProtocolConstants) => m ()
 logNewSlotWorker =
     onNewSlotWithLogging defaultOnNewSlotParams $ \slotId -> do
         modifyLoggerName (<> "slotting") $

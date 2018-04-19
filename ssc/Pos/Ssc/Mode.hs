@@ -10,7 +10,7 @@ import qualified Crypto.Random as Rand
 import           Mockable (MonadMockable)
 import           System.Wlog (WithLogger)
 
-import           Pos.Core (HasConfiguration, HasPrimaryKey)
+import           Pos.Core (HasPrimaryKey)
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Recovery.Info (MonadRecoveryInfo)
@@ -44,6 +44,5 @@ type SscMode ctx m
       , HasPrimaryKey ctx
       , HasLens SecurityParams ctx SecurityParams
       , HasLrcContext ctx
-      , HasConfiguration
       , HasSscConfiguration
       )

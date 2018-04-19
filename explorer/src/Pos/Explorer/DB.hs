@@ -168,7 +168,7 @@ getLastTransactions = gsGetBi lastTxsPrefix
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareExplorerDB :: (MonadDB m, MonadUnliftIO m) => m ()
+prepareExplorerDB :: (MonadDB m, MonadUnliftIO m, HasConfiguration) => m ()
 prepareExplorerDB = do
     unlessM balancesInitializedM $ do
         let GenesisUtxo utxo = genesisUtxo
@@ -264,7 +264,7 @@ balancesInitializedM = isJust <$> dbGet GStateDB balancesInitFlag
 putInitFlag :: MonadDB m => m ()
 putInitFlag = gsPutBi balancesInitFlag True
 
-putGenesisBalances :: MonadDB m => [(Address, Coin)] -> m ()
+putGenesisBalances :: (MonadDB m, HasConfiguration) => [(Address, Coin)] -> m ()
 putGenesisBalances addressCoinPairs = writeBatchGState putAddrBalancesOp
   where
     putAddrBalancesOp :: [ExplorerOp]
@@ -273,7 +273,7 @@ putGenesisBalances addressCoinPairs = writeBatchGState putAddrBalancesOp
 utxoSumInitializedM :: MonadDBRead m => m Bool
 utxoSumInitializedM = isJust <$> dbGet GStateDB utxoSumPrefix
 
-putCurrentUtxoSum :: (MonadDB m, MonadUnliftIO m) => m ()
+putCurrentUtxoSum :: (MonadDB m, MonadUnliftIO m, HasConfiguration) => m ()
 putCurrentUtxoSum = do
     utxoSum <- computeUtxoSum
     writeBatchGState [PutUtxoSum utxoSum]

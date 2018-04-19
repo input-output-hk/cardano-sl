@@ -16,6 +16,7 @@ import           Pos.Lrc.Context (LrcContext)
 import           Pos.Slotting.Class (MonadSlots)
 import           Pos.Ssc.Types (SscState (..))
 import           Pos.Util.Util (HasLens (..))
+import           Pos.Core (HasProtocolConstants)
 
 -- Reexports
 import           Pos.Ssc.State.Global
@@ -29,6 +30,7 @@ mkSscState
        , MonadDBRead m
        , MonadIO m
        , MonadSlots ctx m
+       , HasProtocolConstants
        )
     => m SscState
 mkSscState = do

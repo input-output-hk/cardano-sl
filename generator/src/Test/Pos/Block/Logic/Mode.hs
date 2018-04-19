@@ -63,7 +63,7 @@ import           Pos.Block.Slog (HasSlogGState (..), mkSlogGState)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (BlockVersionData, CoreConfiguration (..), GenesisConfiguration (..),
                            GenesisInitializer (..), GenesisSpec (..), HasConfiguration, SlotId,
-                           Timestamp (..), genesisSecretKeys, withGenesisSpec)
+                           Timestamp (..), genesisSecretKeys, withGenesisSpec, HasProtocolConstants)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, withGenesisBlockVersionData)
 import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..), MonadGState (..))
 import qualified Pos.DB as DB
@@ -462,13 +462,13 @@ testSlottingHelper targetF alternative = do
         Nothing   -> targetF btcSSlottingStateVar
         Just slot -> pure $ alternative slot
 
-getCurrentSlotTestDefault :: TestSlottingContext ctx m => m (Maybe SlotId)
+getCurrentSlotTestDefault :: (TestSlottingContext ctx m, HasProtocolConstants) => m (Maybe SlotId)
 getCurrentSlotTestDefault = testSlottingHelper getCurrentSlotSimple' Just
 
-getCurrentSlotBlockingTestDefault :: TestSlottingContext ctx m => m SlotId
+getCurrentSlotBlockingTestDefault :: (TestSlottingContext ctx m, HasProtocolConstants) => m SlotId
 getCurrentSlotBlockingTestDefault = testSlottingHelper getCurrentSlotBlockingSimple' identity
 
-getCurrentSlotInaccurateTestDefault :: TestSlottingContext ctx m => m SlotId
+getCurrentSlotInaccurateTestDefault :: (TestSlottingContext ctx m, HasProtocolConstants) => m SlotId
 getCurrentSlotInaccurateTestDefault = testSlottingHelper getCurrentSlotInaccurateSimple' identity
 
 currentTimeSlottingTestDefault :: SimpleSlottingMode ctx m => m Timestamp

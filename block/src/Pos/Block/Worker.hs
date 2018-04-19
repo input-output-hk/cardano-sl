@@ -33,10 +33,11 @@ import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState,
                                  scEpochMonitorState, scGlobalSlotMonitorState,
                                  scLocalSlotMonitorState, slogGetLastSlots)
 import           Pos.Communication.Protocol (OutSpecs)
-import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, HasConfiguration,
+import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, HasProtocolConstants,
                            SlotId (..), Timestamp (Timestamp), addressHash, blkSecurityParam,
                            difficultyL, epochOrSlotToSlot, epochSlots, flattenSlotId, gbHeader,
-                           getEpochOrSlot, getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId)
+                           getEpochOrSlot, getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId,
+                           HasGeneratedSecrets, HasGenesisData, HasGenesisHash, HasGenesisBlockVersionData)
 import           Pos.Crypto (ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import qualified Pos.DB.BlockIndex as DB
@@ -67,7 +68,13 @@ import           Pos.Worker.Types (Worker, WorkerSpec, onNewSlotWorker, worker)
 
 -- | All workers specific to block processing.
 blkWorkers
-    :: BlockWorkMode ctx m
+    :: ( BlockWorkMode ctx m
+       , HasGeneratedSecrets
+       , HasGenesisHash
+       , HasGenesisData
+       , HasProtocolConstants
+       , HasGenesisBlockVersionData
+       )
     => ([WorkerSpec m], OutSpecs)
 blkWorkers =
     merge $ [ blkCreatorWorker
@@ -78,7 +85,10 @@ blkWorkers =
   where
     merge = mconcatPair . map (first pure)
 
-informerWorker :: BlockWorkMode ctx m => (WorkerSpec m, OutSpecs)
+informerWorker
+    :: ( BlockWorkMode ctx m
+       , HasProtocolConstants
+    ) => (WorkerSpec m, OutSpecs)
 informerWorker =
     onNewSlotWorker defaultOnNewSlotParams mempty $ \slotId _ ->
         recoveryCommGuard "onNewSlot worker, informerWorker" $ do
@@ -101,7 +111,14 @@ informerWorker =
 -- Block creation worker
 ----------------------------------------------------------------------------
 
-blkCreatorWorker :: BlockWorkMode ctx m => (WorkerSpec m, OutSpecs)
+blkCreatorWorker
+    :: ( BlockWorkMode ctx m
+       , HasProtocolConstants
+       , HasGeneratedSecrets
+       , HasGenesisHash
+       , HasGenesisData
+       , HasGenesisBlockVersionData
+       ) => (WorkerSpec m, OutSpecs)
 blkCreatorWorker =
     onNewSlotWorker onsp mempty $ \slotId diffusion ->
         recoveryCommGuard "onNewSlot worker, blkCreatorWorker" $
@@ -114,7 +131,13 @@ blkCreatorWorker =
         {onspTerminationPolicy = NewSlotTerminationPolicy "block creator"}
 
 blockCreator
-    :: BlockWorkMode ctx m
+    :: ( BlockWorkMode ctx m
+       , HasGeneratedSecrets
+       , HasProtocolConstants
+       , HasGenesisHash
+       , HasGenesisData
+       , HasGenesisBlockVersionData
+       )
     => SlotId -> Diffusion m -> m ()
 blockCreator (slotId@SlotId {..}) diffusion = do
 
@@ -178,7 +201,13 @@ blockCreator (slotId@SlotId {..}) diffusion = do
            | otherwise -> pass
 
 onNewSlotWhenLeader
-    :: BlockWorkMode ctx m
+    :: ( BlockWorkMode ctx m
+       , HasGeneratedSecrets
+       , HasGenesisData
+       , HasGenesisHash
+       , HasGenesisBlockVersionData
+       , HasProtocolConstants
+       )
     => SlotId
     -> ProxySKBlockInfo
     -> Worker m
@@ -217,14 +246,16 @@ onNewSlotWhenLeader slotId pske diffusion = do
 ----------------------------------------------------------------------------
 
 recoveryTriggerWorker ::
-       forall ctx m. (BlockWorkMode ctx m)
+       forall ctx m. ( BlockWorkMode ctx m, HasProtocolConstants )
     => (WorkerSpec m, OutSpecs)
 recoveryTriggerWorker =
     worker mempty recoveryTriggerWorkerImpl
 
 recoveryTriggerWorkerImpl
     :: forall ctx m.
-       (BlockWorkMode ctx m)
+       ( BlockWorkMode ctx m
+       , HasProtocolConstants
+       )
     => Diffusion m -> m ()
 recoveryTriggerWorkerImpl diffusion = do
     -- Initial heuristic delay is needed (the system takes some time
@@ -281,7 +312,7 @@ recoveryTriggerWorkerImpl diffusion = do
 --
 -- Apart from chain quality check we also record some generally useful values.
 metricWorker
-    :: forall ctx m. BlockWorkMode ctx m
+    :: forall ctx m. ( BlockWorkMode ctx m, HasProtocolConstants )
     => SlotId -> m ()
 metricWorker curSlot = do
     OldestFirst lastSlots <- slogGetLastSlots
@@ -316,7 +347,7 @@ difficultyMonitor ::
        MetricMonitorState ChainDifficulty -> MetricMonitor ChainDifficulty
 difficultyMonitor = noReportMonitor fromIntegral Nothing
 
-reportSlottingData :: BlockWorkMode ctx m => SlotId -> m ()
+reportSlottingData :: (HasProtocolConstants, BlockWorkMode ctx m) => SlotId -> m ()
 reportSlottingData slotId = do
     -- epoch
     let epoch = siEpoch slotId
@@ -336,7 +367,7 @@ reportSlottingData slotId = do
         view scGlobalSlotMonitorState
     recordValue globalSlotMonitor globalSlot
 
-reportCrucialValues :: BlockWorkMode ctx m => m ()
+reportCrucialValues :: (HasProtocolConstants, BlockWorkMode ctx m) => m ()
 reportCrucialValues = do
     label <- view scCrucialValuesLabel
     BlockVersionData {..} <- getAdoptedBVData
@@ -354,7 +385,9 @@ reportCrucialValues = do
 ----------------------------------------------------------------------------
 
 chainQualityChecker ::
-       forall ctx m. BlockWorkMode ctx m
+       ( BlockWorkMode ctx m
+       , HasProtocolConstants
+       )
     => SlotId
     -> FlatSlotId
     -> m ()
@@ -374,7 +407,7 @@ chainQualityChecker curSlot kThSlot = do
 
 -- Monitor for chain quality for last k blocks.
 cqkMetricMonitor ::
-       (HasBlockConfiguration, HasConfiguration)
+       ( HasBlockConfiguration, HasProtocolConstants )
     => MetricMonitorState Double
     -> Bool
     -> MetricMonitor Double

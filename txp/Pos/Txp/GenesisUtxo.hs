@@ -12,7 +12,7 @@ import           Universum
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as Map
 
-import           Pos.Core (Address, Coin, GenesisData (..), HasConfiguration, StakesMap,
+import           Pos.Core (Address, Coin, GenesisData (..), StakesMap, HasGenesisData,
                            genesisData, getGenesisAvvmBalances, getGenesisNonAvvmBalances,
                            makeRedeemAddress)
 import           Pos.Core.Txp (TxIn (..), TxOut (..), TxOutAux (..))
@@ -20,10 +20,10 @@ import           Pos.Crypto (unsafeHash)
 import           Pos.Txp.Toil (GenesisUtxo (..), utxoToStakes)
 
 
-genesisStakes :: HasConfiguration => StakesMap
+genesisStakes :: HasGenesisData => StakesMap
 genesisStakes = utxoToStakes . unGenesisUtxo $ genesisUtxo
 
-genesisUtxo :: HasConfiguration => GenesisUtxo
+genesisUtxo :: HasGenesisData => GenesisUtxo
 genesisUtxo =
     let GenesisData{ gdNonAvvmBalances
                    , gdAvvmDistr

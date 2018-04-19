@@ -16,7 +16,7 @@ import qualified Ether
 import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (Coin, HasConfiguration)
+import           Pos.Core (Coin, HasGenesisBlockVersionData)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
 import           Pos.Lrc.DB.Issuers (getIssuersStakes)
@@ -43,8 +43,8 @@ instance ( MonadIO m
          , WithLogger m
          , MonadReader ctx m
          , HasLrcContext ctx
-         , HasConfiguration
          , HasUpdateConfiguration
+         , HasGenesisBlockVersionData
          ) =>
          MonadPollRead (DBPoll m) where
     getBVState = GS.getBVState

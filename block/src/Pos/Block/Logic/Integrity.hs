@@ -12,6 +12,7 @@ module Pos.Block.Logic.Integrity
 
          -- * Block
        , VerifyBlockParams (..)
+       , verifyBlock
        , verifyBlocks
        ) where
 
@@ -61,7 +62,9 @@ data VerifyHeaderParams = VerifyHeaderParams
       -- ^ Maximal allowed header size. It's applied to 'BlockHeader'.
     , vhpVerifyNoUnknown :: !Bool
       -- ^ Check that header has no unknown attributes.
-    } deriving (Eq, Show)
+    } deriving (Eq, Show, Generic)
+
+instance NFData VerifyHeaderParams
 
 verifyFromEither :: Text -> Either Text b -> VerificationRes
 verifyFromEither txt (Left reason) = verifyGeneric [(False, txt <> ": " <> reason)]
@@ -246,7 +249,9 @@ data VerifyBlockParams = VerifyBlockParams
     -- is either main or genesis block).
     , vbpVerifyNoUnknown :: !Bool
     -- ^ Check that block has no unknown attributes.
-    }
+    } deriving (Generic)
+
+instance NFData VerifyBlockParams
 
 -- CHECK: @verifyBlock
 -- | Check predicates defined by VerifyBlockParams.

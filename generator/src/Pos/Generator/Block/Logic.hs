@@ -5,6 +5,8 @@
 
 module Pos.Generator.Block.Logic
        ( BlockTxpGenMode
+       , genBlockNoApply
+       , genBlocksNoApply
        , genBlocks
        ) where
 
@@ -26,7 +28,7 @@ import           Pos.Block.Types (Blund)
 import           Pos.Communication.Message ()
 import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash, epochIndexL, getEpochOrSlot,
                            getSlotIndex, protocolMagic)
-import           Pos.Core.Block (Block)
+import           Pos.Core.Block (Block, BlockHeader, getBlockHeader)
 import           Pos.Crypto (pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Delegation.Logic (getDlgTransPsk)
@@ -56,6 +58,12 @@ type BlockTxpGenMode g ctx m =
     , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
     )
 
+foldM' :: forall a t m. Monad m => (a -> t -> m a) -> a -> [t] -> m a
+foldM' combine = go
+    where
+    go !base []     = return base
+    go !base (x:xs) = combine base x >>= flip go xs
+
 -- | Generate an arbitrary sequence of valid blocks. The blocks are
 -- valid with respect to the global state right before this function
 -- call.
@@ -72,6 +80,7 @@ genBlocks params inj = do
     ctx <- lift $ mkBlockGenContext @(MempoolExt m) params
     mapRandT (`runReaderT` ctx) genBlocksDo
   where
+    genBlocksDo :: RandT g (BlockGenMode (MempoolExt m) m) t
     genBlocksDo = do
         let numberOfBlocks = params ^. bgpBlockCount
         tipEOS <- getEpochOrSlot <$> lift DB.getTipHeader
@@ -79,35 +88,60 @@ genBlocks params inj = do
         let finishEOS = toEnum $ fromEnum tipEOS + fromIntegral numberOfBlocks
         foldM' genOneBlock mempty [startEOS .. finishEOS]
 
+    genOneBlock
+        :: t
+        -> EpochOrSlot
+        -> RandT g (BlockGenMode (MempoolExt m) m) t
     genOneBlock t eos = ((t <>) . inj) <$> genBlock eos
 
-    foldM' combine = go
-      where
-      go !base []     = return base
-      go !base (x:xs) = combine base x >>= flip go xs
+genBlocksNoApply ::
+        forall g ctx m t . (BlockTxpGenMode g ctx m, Semigroup t, Monoid t)
+    => BlockGenParams
+    -> (Maybe Block -> t)
+    -> RandT g m t
+genBlocksNoApply params inj = do
+    ctx <- lift $ mkBlockGenContext @(MempoolExt m) params
+    mapRandT (`runReaderT` ctx) genBlocksDo
+  where
+    genBlocksDo :: RandT g (BlockGenMode (MempoolExt m) m) t
+    genBlocksDo = withCompileInfo def $ do
+        let numberOfBlocks = params ^. bgpBlockCount
+        tipHeader <- lift DB.getTipHeader
+        let tipEOS = getEpochOrSlot tipHeader
+        let startEOS = succ tipEOS
+        let finishEOS = toEnum $ fromEnum tipEOS + fromIntegral numberOfBlocks
+        snd <$> foldM' genOneBlock (tipHeader, mempty) [startEOS .. finishEOS]
 
--- Generate a valid 'Block' for the given epoch or slot (genesis block
--- in the former case and main block the latter case) and apply it.
-genBlock ::
-       forall g ctx m.
+    genOneBlock
+        :: HasCompileInfo
+        => (BlockHeader, t)
+        -> EpochOrSlot
+        -> RandT g (BlockGenMode (MempoolExt m) m) (BlockHeader, t)
+    genOneBlock (header, t) eos = do
+        block <- genBlockNoApply eos header
+        return (maybe header getBlockHeader block, (t <>) . inj $ block)
+
+-- | Generate a block and do not apply it.
+genBlockNoApply
+    :: forall g ctx m.
        ( RandomGen g
        , MonadBlockGen ctx m
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
+       , HasCompileInfo
        )
     => EpochOrSlot
-    -> BlockGenRandMode (MempoolExt m) g m (Maybe Blund)
-genBlock eos = withCompileInfo def $ do
+    -> BlockHeader -- ^ previoud block header
+    -> BlockGenRandMode (MempoolExt m) g m (Maybe Block)
+genBlockNoApply eos header = do
     let epoch = eos ^. epochIndexL
     lift $ unlessM ((epoch ==) <$> LrcDB.getEpoch) (lrcSingleShot epoch)
     -- We need to know leaders to create any block.
     leaders <- lift $ lrcActionOnEpochReason epoch "genBlock" LrcDB.getLeadersForEpoch
     case eos of
         EpochOrSlot (Left _) -> do
-            tipHeader <- lift DB.getTipHeader
-            let slot0 = SlotId epoch minBound
-            let genesisBlock = mkGenesisBlock protocolMagic (Right tipHeader) epoch leaders
-            fmap Just $ withCurrentSlot slot0 $ lift $ verifyAndApply (Left genesisBlock)
+            let genesisBlock = mkGenesisBlock protocolMagic (Right header) epoch leaders
+            return $ Just $ Left genesisBlock
         EpochOrSlot (Right slot@SlotId {..}) -> withCurrentSlot slot $ do
             genPayload slot
             leader <-
@@ -133,16 +167,39 @@ genBlock eos = withCompileInfo def $ do
                     -- When we know the secret key we can proceed to the actual creation.
                     Just <$> usingPrimaryKey leaderSK
                              (lift $ genMainBlock slot (swap <$> transCert))
-  where
+    where
     genMainBlock ::
         HasCompileInfo =>
         SlotId ->
         ProxySKBlockInfo ->
-        BlockGenMode (MempoolExt m) m Blund
+        BlockGenMode (MempoolExt m) m Block
     genMainBlock slot proxySkInfo =
         createMainBlockInternal slot proxySkInfo >>= \case
             Left err -> throwM (BGFailedToCreate err)
-            Right mainBlock -> verifyAndApply $ Right mainBlock
+            Right mainBlock -> return $ Right mainBlock
+
+-- | Generate a valid 'Block' for the given epoch or slot (genesis block
+-- in the former case and main block the latter case) and apply it.
+genBlock ::
+       forall g ctx m.
+       ( RandomGen g
+       , MonadBlockGen ctx m
+       , Default (MempoolExt m)
+       , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
+       )
+    => EpochOrSlot
+    -> BlockGenRandMode (MempoolExt m) g m (Maybe Blund)
+genBlock eos = withCompileInfo def $ do
+    let epoch = eos ^. epochIndexL
+    tipHeader <- lift DB.getTipHeader
+    genBlockNoApply eos tipHeader >>= \case
+        Just block@Left {} -> do
+            let slot0 = SlotId epoch minBound
+            fmap Just $ withCurrentSlot slot0 $ lift $ verifyAndApply block
+        Just block@Right {} ->
+            fmap Just $ lift $ verifyAndApply block
+        Nothing -> return Nothing
+    where
     verifyAndApply ::
         HasCompileInfo =>
         Block -> BlockGenMode (MempoolExt m) m Blund

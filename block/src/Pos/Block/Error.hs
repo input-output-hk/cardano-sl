@@ -51,7 +51,9 @@ data ApplyBlocksException
         HeaderHash -- attempted tip
     | ApplyBlocksVerifyFailure VerifyBlocksException
     | ApplyBlocksError Text -- other error (not covered by constructors above)
-    deriving (Show)
+    deriving (Show, Generic)
+
+instance NFData ApplyBlocksException
 
 renderApplyBlocksException :: ApplyBlocksException -> Builder
 renderApplyBlocksException = \case

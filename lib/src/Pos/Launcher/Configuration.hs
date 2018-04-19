@@ -12,6 +12,7 @@ module Pos.Launcher.Configuration
        , defaultConfigurationOptions
 
        , withConfigurations
+       , withConfigurationsM
        ) where
 
 import           Universum
@@ -22,7 +23,7 @@ import           Data.Default (Default (..))
 import           Serokell.Aeson.Options (defaultOptions)
 import           Serokell.Util (sec)
 import           System.FilePath (takeDirectory)
-import           System.Wlog (WithLogger, logInfo)
+import           System.Wlog (LoggerName, WithLogger, askLoggerName, logInfo, usingLoggerName)
 
 -- FIXME consistency on the locus of the JSON instances for configuration.
 -- Core keeps them separate, infra update and ssc define them on-site.
@@ -102,13 +103,14 @@ instance Default ConfigurationOptions where
 
 -- | Parse some big yaml file to 'MultiConfiguration' and then use the
 -- configuration at a given key.
-withConfigurations
-    :: (WithLogger m, MonadThrow m, MonadIO m)
-    => ConfigurationOptions
+withConfigurationsM
+    :: forall m r. (MonadThrow m, MonadIO m)
+    => LoggerName
+    -> ConfigurationOptions
     -> (HasConfigurations => NtpConfiguration -> m r)
     -> m r
-withConfigurations co@ConfigurationOptions{..} act = do
-    logInfo ("using configurations: " <> show co)
+withConfigurationsM logName co@ConfigurationOptions{..} act = do
+    logInfo' ("using configurations: " <> show co)
     Configuration{..} <- parseYamlConfig cfoFilePath cfoKey
     let configurationDir = takeDirectory cfoFilePath
     withCoreConfigurations ccCore configurationDir cfoSystemStart cfoSeed $
@@ -118,3 +120,16 @@ withConfigurations co@ConfigurationOptions{..} act = do
         withTxpConfiguration ccTxp $
         withBlockConfiguration ccBlock $
         withNodeConfiguration ccNode $ act ccNtp
+
+    where
+    logInfo' :: Text -> m ()
+    logInfo' = liftIO . usingLoggerName logName . logInfo
+
+withConfigurations
+    :: (WithLogger m, MonadThrow m, MonadIO m)
+    => ConfigurationOptions
+    -> (HasConfigurations => NtpConfiguration -> m r)
+    -> m r
+withConfigurations co act = do
+    loggerName <- askLoggerName
+    withConfigurationsM loggerName co act

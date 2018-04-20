@@ -118,6 +118,30 @@ estimateFees Payment{..} = do
     cAccountId <- migrate pmtSource
     utxo <- V0.getMoneySourceUtxo ws (V0.AccountMoneySource cAccountId)
     outputs <- V0.coinDistrToOutputs =<< mapM migrate pmtDestinations
-    fee <- V0.rewrapTxError "Cannot compute transaction fee" $
-        eitherToThrow =<< V0.runTxCreator policy (V0.computeTxFee pendingAddrs utxo outputs)
-    single <$> migrate fee
+    efee <- V0.runTxCreator policy (V0.computeTxFee pendingAddrs utxo outputs)
+    case efee of
+        Left txError ->
+            case txError of
+                V0.NotEnoughMoney coin ->
+                    -- so we didn't have enough money to create the
+                    -- transaction
+                    error "Can we reconstruct a fee here?"
+                V0.NotEnoughAllowedMoney coin ->
+                    error "Can we reconstruct a fee here?"
+                V0.FailedToStabilize ->
+                -- ^ Parameter: how many attempts were performed
+                    error "What to do in this case?"
+                V0.OutputIsRedeem addr ->
+                    error "What to do in this case?"
+                -- ^ One of the tx outputs is a redemption address
+                V0.RedemptionDepleted ->
+                    error "What to do in this case?"
+                -- ^ Redemption address has already been used
+                V0.SafeSignerNotFound addr ->
+                    error "What to do in this case?"
+                -- ^ The safe signer at the specified address was not found
+                V0.GeneralTxError txt ->
+                    error "What to do in this case?"
+                -- ^ Parameter: description of the problem
+        Right fee ->
+            single <$> migrate fee

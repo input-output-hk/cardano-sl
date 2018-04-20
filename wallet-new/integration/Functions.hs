@@ -543,18 +543,25 @@ runAction wc action = do
             -- All change addresses should set up a flag addrChangeAddress
             -- TODO(akegalj): create custom error type
             checkInvariant
-                (length changeAddress <= 1 && map pdAddress changeAddress == realChangeAddressId && and (map addrChangeAddress changeWalletAddresses))
+                ( length changeAddress <= 1
+                  && map pdAddress changeAddress == realChangeAddressId
+                  && and (map addrChangeAddress changeWalletAddresses)
+                )
                 (InvalidTransactionState newTx)
 
-            let checkWalletAddressAfter diffList expectedOperation =
+            let checkWalletAddressAfter diffList expectedOperation = do
+                    log "checking expected addresses balances..."
                     forM_ diffList $ \PaymentDistribution{..} -> do
-                        let beforePayment = find ((pdAddress ==) . addrId) addressesBeforeTransaction
-                            afterPayment = find ((pdAddress ==) . addrId) addressesAfterTransaction
-                            balanceBeforePaymentModified = V1 . expectedOperation (unV1 pdAmount) . unV1 . addrBalance <$> beforePayment
-                            balanceAfterPayment = addrBalance <$> afterPayment
-                        checkInvariant
-                            (isJust beforePayment && balanceBeforePaymentModified == balanceAfterPayment)
-                            (InvalidTransactionState newTx)
+                        let mBeforePayment = find ((pdAddress ==) . addrId) addressesBeforeTransaction
+                            mAfterPayment = find ((pdAddress ==) . addrId) addressesAfterTransaction
+                        case (,) <$> mBeforePayment <*> mAfterPayment of
+                            Just (beforePayment, afterPayment) -> do
+                                let balanceBeforePaymentModified = V1 . expectedOperation (unV1 pdAmount) . unV1 $ addrBalance beforePayment
+                                    balanceAfterPayment = addrBalance afterPayment
+                                checkInvariant
+                                    (balanceBeforePaymentModified == balanceAfterPayment)
+                                    (UnexpectedAddressBalance beforePayment afterPayment)
+                            Nothing -> throwM $ CantFindAddress pdAddress
 
             -- Check did addresses of all payment sources decrease by expected amount after transaction
             checkWalletAddressAfter (txInputs newTx) $ flip unsafeSubCoin

@@ -68,6 +68,7 @@ instance Example TimeInfo
 instance Example AddressValidity
 instance Example NewAddress
 instance Example CUpdateInfo
+instance Example SubscriptionStatusInfo
 
 instance Example InputSelectionPolicy where
     example = pure OptimizeForHighThroughput
@@ -92,6 +93,7 @@ instance Example NewWallet where
 instance Example NodeInfo where
     example = NodeInfo <$> example
                        <*> example  -- NOTE: will produce `Just a`
+                       <*> example
                        <*> example
                        <*> example
 

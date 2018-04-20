@@ -70,6 +70,7 @@ module Cardano.Wallet.API.V1.Types (
   , mkSyncPercentage
   , NodeInfo (..)
   , TimeInfo(..)
+  , SubscriptionStatusInfo(..)
   -- * Some types for the API
   , CaptureWalletId
   , CaptureAccountId
@@ -121,6 +122,7 @@ import           Pos.Core (addressF)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
+import           Pos.Diffusion.Types (SubscriptionStatus (..))
 import           Pos.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe, buildSafeList,
                                    buildSafeMaybe, deriveSafeBuildable, plainOrSecureF)
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
@@ -1645,7 +1647,6 @@ instance Arbitrary TimeInfo where
     arbitrary = TimeInfo <$> arbitrary
 
 deriveSafeBuildable ''TimeInfo
-
 instance BuildableSafeGen TimeInfo where
     buildSafeGen _ TimeInfo{..} = bprint ("{"
         %" differenceFromNtpServer="%build
@@ -1654,12 +1655,60 @@ instance BuildableSafeGen TimeInfo where
 
 deriveJSON Serokell.defaultOptions ''TimeInfo
 
+
+-- | Subscription status comes from a map where an unsubscribed node may be
+-- missing. In such case, we want to leverage that information to the client.
+newtype SubscriptionStatusInfo = SubscriptionStatusInfo
+    { getSubscriptionStatusInfo :: Maybe SubscriptionStatus
+    } deriving (Eq, Ord, Show)
+
+availableSubscriptionStatusInfo :: [SubscriptionStatusInfo]
+availableSubscriptionStatusInfo = SubscriptionStatusInfo <$>
+    [ Just Subscribed
+    , Just Subscribing
+    , Nothing
+    ]
+
+deriveSafeBuildable ''SubscriptionStatusInfo
+instance BuildableSafeGen SubscriptionStatusInfo where
+    buildSafeGen _ (SubscriptionStatusInfo s) = case s of
+        Nothing          -> "Not Subscribed"
+        Just Subscribed  -> "Subscribed"
+        Just Subscribing -> "Subscribing"
+
+deriveJSON Serokell.defaultOptions ''SubscriptionStatus
+instance ToJSON SubscriptionStatusInfo where
+    toJSON =
+        maybe "notSubscribed" toJSON . getSubscriptionStatusInfo
+
+instance FromJSON SubscriptionStatusInfo where
+    parseJSON v =
+        SubscriptionStatusInfo <$> (parseSubscribed v <|> parseNotSubscribed v)
+      where
+        parseSubscribed = fmap Just . parseJSON
+        parseNotSubscribed = withText "SubscriptionStatusInfo" $ \case
+            "notSubscribed" -> pure Nothing
+            _               -> empty
+
+instance Arbitrary SubscriptionStatusInfo where
+    arbitrary =
+        elements availableSubscriptionStatusInfo
+
+instance ToSchema SubscriptionStatusInfo where
+    declareNamedSchema _ = do
+        let enum = toJSON <$> availableSubscriptionStatusInfo
+        pure $ NamedSchema (Just "SubscriptionStatusInfo") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ ?~ enum
+
+
 -- | The @dynamic@ information for this node.
 data NodeInfo = NodeInfo {
      nfoSyncProgress          :: !SyncPercentage
    , nfoBlockchainHeight      :: !(Maybe BlockchainHeight)
    , nfoLocalBlockchainHeight :: !BlockchainHeight
    , nfoLocalTimeInformation  :: !TimeInfo
+   , nfoSubscriptionStatus    :: !SubscriptionStatusInfo
    } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''NodeInfo
@@ -1671,10 +1720,12 @@ instance ToSchema NodeInfo where
       & ("blockchainHeight"      --^ "If known, the current blockchain height, in number of blocks.")
       & ("localBlockchainHeight" --^ "Local blockchain height, in number of blocks.")
       & ("localTimeInformation"  --^ "Information about the clock on this node.")
+      & ("subscriptionStatus"    --^ "Is the node connected to the network?")
     )
 
 instance Arbitrary NodeInfo where
     arbitrary = NodeInfo <$> arbitrary
+                         <*> arbitrary
                          <*> arbitrary
                          <*> arbitrary
                          <*> arbitrary
@@ -1686,11 +1737,13 @@ instance BuildableSafeGen NodeInfo where
         %" blockchainHeight="%build
         %" localBlockchainHeight="%build
         %" localTimeDifference="%build
+        %" subscriptionStatus="%build
         %" }")
         nfoSyncProgress
         nfoBlockchainHeight
         nfoLocalBlockchainHeight
         nfoLocalTimeInformation
+        nfoSubscriptionStatus
 
 
 --

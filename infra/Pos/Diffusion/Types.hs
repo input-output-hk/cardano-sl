@@ -1,5 +1,5 @@
+{-# LANGUAGE RankNTypes         #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE RankNTypes #-}
 
 module Pos.Diffusion.Types
     ( DiffusionLayer (..)
@@ -8,26 +8,26 @@ module Pos.Diffusion.Types
     , dummyDiffusionLayer
     ) where
 
-import           Universum
-import           Data.Map.Strict                  (Map)
-import qualified Data.Map.Strict                  as Map
-import           Formatting                       (Format)
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
+import           Formatting (Format)
+import           GHC.Generics (Generic)
 import           Pos.Communication.Types.Protocol (NodeId)
-import           Pos.Core.Block                   (Block, BlockHeader, MainBlockHeader)
-import           Pos.Core                         (HeaderHash, ProxySKHeavy)
-import           Pos.Core.Txp                     (TxAux)
-import           Pos.Core.Update                  (UpId, UpdateVote, UpdateProposal)
-import           Pos.Reporting.Health.Types       (HealthStatus (..))
-import           Pos.Core.Ssc                     (Opening, InnerSharesMap, SignedCommitment,
-                                                   VssCertificate)
-import           Pos.Util.Chrono                  (OldestFirst (..))
+import           Pos.Core (HeaderHash, ProxySKHeavy)
+import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
+import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment, VssCertificate)
+import           Pos.Core.Txp (TxAux)
+import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
+import           Pos.Reporting.Health.Types (HealthStatus (..))
+import           Pos.Util.Chrono (OldestFirst (..))
+import           Universum
 
 data SubscriptionStatus =
     -- | Established a subscription to a node
     Subscribed
     -- | Establishing a TCP connection to a node
   | Subscribing
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
 
 instance Semigroup SubscriptionStatus where
     Subscribed <> _     = Subscribed
@@ -97,7 +97,7 @@ data DiffusionLayer m = DiffusionLayer
 -- | A diffusion layer that does nothing.
 dummyDiffusionLayer :: (Monad m, MonadIO m, Applicative d) => m (DiffusionLayer d)
 dummyDiffusionLayer = do
-    ss <- newTVarIO Map.empty 
+    ss <- newTVarIO Map.empty
     return DiffusionLayer
         { runDiffusionLayer = identity
         , diffusion         = dummyDiffusion ss

@@ -43,4 +43,5 @@ let
   nixosTests = import ./nixos-tests;
 in (mapTestOn platforms) // {
   inherit stagingWalletdockerImage nixosTests;
+  nixpkgs = fixedNixpkgs;
 }

@@ -2,14 +2,17 @@ module Cardano.Wallet.Client.Http
     ( module Cardano.Wallet.Client.Http
       -- * Abstract Client export
     , module Cardano.Wallet.Client
+    -- * Servant Client Export
+    , module Servant.Client
+    , module Network.HTTP.Client
     ) where
 
 import           Universum
 
 import           Control.Lens (_Left)
-import           Network.HTTP.Client (Manager)
+import           Network.HTTP.Client (Manager, defaultManagerSettings, newManager)
 import           Servant ((:<|>) (..), (:>))
-import           Servant.Client (BaseUrl, ClientEnv (..), client, runClientM)
+import           Servant.Client (BaseUrl (..), ClientEnv (..), Scheme (..), client, runClientM)
 
 import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.Client

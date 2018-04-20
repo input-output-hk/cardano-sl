@@ -2,7 +2,9 @@
      A @Plugin@ is essentially a set of actions which will be run in
      a particular monad, at some point in time.
 -}
+{-# LANGUAGE LambdaCase    #-}
 {-# LANGUAGE TupleSections #-}
+
 module Cardano.Wallet.Server.Plugins (
       Plugin
     , syncWalletWorker
@@ -17,7 +19,7 @@ module Cardano.Wallet.Server.Plugins (
 import           Universum
 
 import           Cardano.Wallet.API as API
-import           Cardano.Wallet.API.V1.Errors (WalletError (..))
+import           Cardano.Wallet.API.V1.Errors (WalletError (..), toServantError, applicationJson)
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel
 import qualified Cardano.Wallet.LegacyServer as LegacyServer
@@ -28,6 +30,8 @@ import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer, PassiveWalletLayer,
                                              bracketKernelActiveWallet)
 
+import           Control.Exception (try)
+import           Control.Lens (_Left)
 import           Data.Aeson
 import           Formatting (build, sformat, (%))
 import           Mockable
@@ -40,6 +44,7 @@ import           Network.Wai.Middleware.Cors (cors, corsMethods, corsRequestHead
 import           Ntp.Client (NtpStatus)
 import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.Web (cleanupAcidStatePeriodically)
+import qualified Pos.Wallet.Web.Error.Types as V0
 import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)
 import qualified Pos.Wallet.Web.Server.Runner as V0
 import           Pos.Wallet.Web.Sockets (getWalletWebSockets, upgradeApplicationWS)
@@ -115,15 +120,45 @@ legacyWalletBackend WalletBackendParams {..} ntpStatus =
       ctx <- V0.walletWebModeContext
       let app = upgradeApplicationWS wsConn $
             if isDebugMode walletRunMode then
-              Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer (V0.convertHandler ctx) diffusion ntpStatus walletRunMode
+              Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer (catchWalletErrors . V0.convertHandler ctx) diffusion ntpStatus walletRunMode
             else
-              Servant.serve API.walletAPI $ LegacyServer.walletServer (V0.convertHandler ctx) diffusion ntpStatus
+              Servant.serve API.walletAPI $ LegacyServer.walletServer (catchWalletErrors . V0.convertHandler ctx) diffusion ntpStatus
       return $ withMiddleware walletRunMode app
 
     exceptionHandler :: SomeException -> Response
-    exceptionHandler _ =
+    exceptionHandler exn =
         responseLBS badRequest400 [(hContentType, "application/json")] .
-            encode $ UnkownError "Something went wrong."
+            encode $ UnknownError $ "Something went wrong. " <> show exn
+
+-- | The 'V0.convertHandler' function is unaware of our custom error
+-- classes, which can be converted to 'ServantErr' quite nicely. This
+-- function adds that catching.
+catchWalletErrors :: Servant.Handler a -> Servant.Handler a
+catchWalletErrors =
+        Servant.Handler
+            . ExceptT
+            . fmap (join . over _Left walletErrorToServantError)
+            . try
+            . fmap (join . over _Left toServantError)
+            . try
+            . Servant.runHandler
+  where
+    walletErrorToServantError :: V0.WalletError -> Servant.ServantErr
+    walletErrorToServantError = conv . \case
+        V0.RequestError txt -> (Servant.err400, "BadRequest", txt)
+        V0.InternalError txt -> (Servant.err500, "Internal", txt)
+        V0.DecodeError txt -> (Servant.err400, "DecodeError", txt)
+    conv :: (Servant.ServantErr, Text, Text) -> Servant.ServantErr
+    conv (err, msg, txt) =
+        err { Servant.errBody = encode $ object
+                [ "status" .= ("error" :: Text)
+                , "diagnostic" .= object
+                    [ "msg" .= txt
+                    ]
+                , "message" .= msg
+                ]
+            , Servant.errHeaders = applicationJson : Servant.errHeaders err
+            }
 
 -- | A 'Plugin' to start the wallet REST server
 --

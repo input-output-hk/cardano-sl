@@ -82,12 +82,12 @@ updatePassword
        )
     => WalletId -> PasswordUpdate -> m (WalletResponse Wallet)
 updatePassword wid PasswordUpdate{..} = do
-    ss <- V0.askWalletSnapshot
     wid' <- migrate wid
     let (V1 old) = pwdOld
         (V1 new) = pwdNew
     _ <- V0.changeWalletPassphrase wid' old new
     single <$> do
+        ss <- V0.askWalletSnapshot
         wallet <- V0.getWallet wid'
         addWalletInfo ss wallet
 

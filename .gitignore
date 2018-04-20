@@ -27,6 +27,7 @@ wdb-*/
 keys
 !secrets/*.key
 !scripts/tls-files/server.key
+tmp-secrets/
 
 # Node runtime data
 logs

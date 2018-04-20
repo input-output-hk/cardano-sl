@@ -541,13 +541,12 @@ runAction wc action = do
 
             -- We expect at most one extra PaymentDestination which should be a change address. Also at most one address should be added after transaction - which should be the same change address
             -- All change addresses should set up a flag addrChangeAddress
-            -- TODO(akegalj): create custom error type
             checkInvariant
                 ( length changeAddress <= 1
                   && map pdAddress changeAddress == realChangeAddressId
                   && and (map addrChangeAddress changeWalletAddresses)
                 )
-                (InvalidTransactionState newTx)
+                (UnexpectedChangeAddress changeWalletAddresses)
 
             let checkWalletAddressAfter diffList expectedOperation = do
                     log "checking expected addresses balances..."

@@ -38,6 +38,7 @@ data WalletTestError
 
     | InvalidTransactionState Transaction
     | InvalidTransactionFee EstimatedFees
+    | UnexpectedChangeAddress [WalletAddress]
     | UnexpectedAddressBalance WalletAddress WalletAddress
     | CantFindAddress (V1 Core.Address)
     | LocalTransactionsDiffer [Transaction] [Transaction]
@@ -60,6 +61,7 @@ showConstr = \case
     LocalAddressDiffer {} -> "LocalAddressDiffer"
     InvalidTransactionState {} -> "InvalidTransactionState"
     InvalidTransactionFee {} -> "InvalidTransactionFee"
+    UnexpectedChangeAddress {} -> "UnexpectedChangeAddress"
     UnexpectedAddressBalance {} -> "UnexpectedAddressBalance"
     CantFindAddress {} -> "CantFindAddress"
     LocalTransactionsDiffer {} -> "LocalTransactionsDiffer"
@@ -85,6 +87,7 @@ instance Buildable WalletTestError where
 
     build (InvalidTransactionState t)     = bprint ("Transaction state is invalid. Transaction - ("%stext%")") (show t)
     build (InvalidTransactionFee   f)     = bprint ("Transaction fees are invalid - ("%stext%")") (show f)
+    build (UnexpectedChangeAddress a)  = bprint ("Unexpected change address after transaction ("%stext%")") (show a)
     build (UnexpectedAddressBalance b a)  = bprint ("Unexpected address balance before ("%stext%") and after ("%stext%")") (show b) (show a)
     build (CantFindAddress a)  = bprint ("Can't find address ("%stext%") before and/or after transaction") (show a)
     build (LocalTransactionsDiffer t t')  = bprint ("Local transactions differs - ("%stext%"), ("%stext%")") (show t) (show t')

@@ -36,12 +36,13 @@ import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.TimeWarp (NetworkAddress)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
-import           Pos.Wallet.Web.Methods (AddrCIdHashes (..), addInitialRichAccount)
+import           Pos.Wallet.Web.Methods (addInitialRichAccount)
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
                                       WalletWebModeContextTag, walletWebModeToRealMode)
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Sockets (ConnectionsVar, launchNotifier)
 import           Pos.Wallet.Web.State (WalletDB)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Web (TlsParams)
 import           Pos.WorkMode (RealMode)
 
@@ -53,26 +54,26 @@ runWRealMode
        )
     => WalletDB
     -> ConnectionsVar
-    -> AddrCIdHashes
+    -> SyncQueue
     -> NodeResources WalletMempoolExt
     -> (ActionSpec WalletWebMode a, OutSpecs)
     -> Production a
-runWRealMode db conn ref res (action, outSpecs) =
+runWRealMode db conn syncRequests res (action, outSpecs) =
     elimRealMode res serverRealMode
   where
     NodeContext {..} = nrContext res
     ekgNodeMetrics = EkgNodeMetrics
         (nrEkgStore res)
-        (runProduction . elimRealMode res . walletWebModeToRealMode db conn ref)
+        (runProduction . elimRealMode res . walletWebModeToRealMode db conn syncRequests)
     serverWalletWebMode :: WalletWebMode a
     serverWalletWebMode = runServer
-        (runProduction . elimRealMode res . walletWebModeToRealMode db conn ref)
+        (runProduction . elimRealMode res . walletWebModeToRealMode db conn syncRequests)
         ncNodeParams
         ekgNodeMetrics
         outSpecs
         action
     serverRealMode :: RealMode WalletMempoolExt a
-    serverRealMode = walletWebModeToRealMode db conn ref serverWalletWebMode
+    serverRealMode = walletWebModeToRealMode db conn syncRequests serverWalletWebMode
 
 walletServeWebFull
     :: ( HasConfigurations

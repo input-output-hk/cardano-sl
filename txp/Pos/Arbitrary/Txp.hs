@@ -7,6 +7,13 @@ module Pos.Arbitrary.Txp
        , DoubleInputTx (..)
        , GoodTx (..)
        , goodTxToTxAux
+
+       -- | Standalone generators.
+       , genTx
+       , genTxIn
+       , genTxInWitness
+       , genTxOutDist
+       , genTxPayload
        ) where
 
 import           Universum
@@ -22,13 +29,16 @@ import           Pos.Arbitrary.Core ()
 import           Pos.Binary.Class (Raw)
 import           Pos.Binary.Core ()
 import           Pos.Core.Common (Coin, IsBootstrapEraAddr (..), makePubKeyAddress)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
                                TxOutAux (..), TxPayload (..), TxProof (..), TxSigData (..),
                                mkTxPayload)
-import           Pos.Crypto (Hash, SecretKey, SignTag (SignTx), hash, sign, toPublic)
+import           Pos.Crypto (Hash, ProtocolMagic, SecretKey, SignTag (SignTx),
+                             hash, sign, toPublic)
+import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..))
+
+import           Test.Pos.Crypto.Arbitrary (genSignature, genRedeemSignature)
 
 ----------------------------------------------------------------------------
 -- Arbitrary txp types
@@ -46,29 +56,42 @@ instance Arbitrary TxSigData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary TxInWitness where
-    arbitrary = oneof [
-        PkWitness <$> arbitrary <*> arbitrary,
-        -- this can generate a redeemer script where a validator script is
-        -- needed and vice-versa, but it doesn't matter
-        ScriptWitness <$> arbitrary <*> arbitrary,
-        RedeemWitness <$> arbitrary <*> arbitrary,
-        UnknownWitnessType <$> choose (3, 255) <*> scale (min 150) arbitrary ]
+-- | Generator for a 'TxInWitness'. 'ProtocolMagic' is needed because it
+-- contains signatures.
+genTxInWitness :: ProtocolMagic -> Gen TxInWitness
+genTxInWitness pm = oneof
+    [ PkWitness <$> arbitrary <*> genSignature pm arbitrary
+      -- this can generate a redeemer script where a validator script is
+      -- needed and vice-versa, but it doesn't matter
+    , ScriptWitness <$> arbitrary <*> arbitrary
+    , RedeemWitness <$> arbitrary <*> genRedeemSignature pm arbitrary
+    , UnknownWitnessType <$> choose (3, 255) <*> scale (min 150) arbitrary
+    ]
+
+instance HasProtocolMagic => Arbitrary TxInWitness where
+    arbitrary = genTxInWitness protocolMagic
     shrink = \case
         UnknownWitnessType n a -> UnknownWitnessType n <$> shrink a
         ScriptWitness a b -> uncurry ScriptWitness <$> shrink (a, b)
         _ -> []
 
+genTxIn :: Gen TxIn
+genTxIn = oneof
+    [ TxInUtxo <$> arbitrary <*> arbitrary
+    , TxInUnknown <$> choose (1, 255) <*> scale (min 150) arbitrary
+    ]
+
 instance Arbitrary TxIn where
-    arbitrary = oneof [
-        TxInUtxo <$> arbitrary <*> arbitrary,
-        TxInUnknown <$> choose (1, 255) <*> scale (min 150) arbitrary]
+    arbitrary = genTxIn
     shrink = genericShrink
+
+genTx :: Gen Tx
+genTx = UnsafeTx <$> arbitrary <*> arbitrary <*> pure (mkAttributes ())
 
 -- | Arbitrary transactions generated from this instance will only be valid
 -- with regards to 'mxTx'
 instance Arbitrary Tx where
-    arbitrary = UnsafeTx <$> arbitrary <*> arbitrary <*> pure (mkAttributes ())
+    arbitrary = genTx
     shrink = genericShrink
 
 -- | Type used to generate valid ('verifyTx')
@@ -88,11 +111,12 @@ instance Arbitrary Tx where
 -- signatures in the transaction's inputs have been replaced with a bogus one.
 
 buildProperTx
-    :: HasConfiguration
-    => NonEmpty (Tx, SecretKey, SecretKey, Coin)
+    :: ( )
+    => ProtocolMagic
+    -> NonEmpty (Tx, SecretKey, SecretKey, Coin)
     -> (Coin -> Coin, Coin -> Coin)
     -> NonEmpty (Tx, TxIn, TxOutAux, TxInWitness)
-buildProperTx inputList (inCoin, outCoin) =
+buildProperTx pm inputList (inCoin, outCoin) =
     txList <&> \(tx, txIn, fromSk, txOutput) ->
         ( tx
         , txIn
@@ -120,7 +144,7 @@ buildProperTx inputList (inCoin, outCoin) =
     outs = fmap (view _4) txList
     mkWitness fromSk = PkWitness
         { twKey = toPublic fromSk
-        , twSig = sign SignTx fromSk TxSigData {
+        , twSig = sign pm SignTx fromSk TxSigData {
                       txSigTxHash = newTxHash } }
     makeTxOutput s c =
         TxOut (makePubKeyAddress (IsBootstrapEraAddr True) $ toPublic s) c
@@ -138,9 +162,9 @@ goodTxToTxAux (GoodTx l) = TxAux tx witness
     tx = UnsafeTx (map (view _2) l) (map (toaOut . view _3) l) def
     witness = V.fromList $ NE.toList $ map (view _4) l
 
-instance HasConfiguration => Arbitrary GoodTx where
+instance HasProtocolMagic => Arbitrary GoodTx where
     arbitrary =
-        GoodTx <$> (buildProperTx <$> arbitrary <*> pure (identity, identity))
+        GoodTx <$> (buildProperTx protocolMagic <$> arbitrary <*> pure (identity, identity))
     shrink = const []  -- used to be “genericShrink”, but shrinking is broken
                        -- because naive shrinking may turn a good transaction
                        -- into a bad one (by setting one of outputs to 0, for
@@ -156,17 +180,18 @@ newtype DoubleInputTx = DoubleInputTx
     { getDoubleInputTx :: NonEmpty (Tx, TxIn, TxOutAux, TxInWitness)
     } deriving (Generic, Show)
 
-instance HasConfiguration => Arbitrary BadSigsTx where
+instance HasProtocolMagic => Arbitrary BadSigsTx where
     arbitrary = BadSigsTx <$> do
         goodTxList <- getGoodTx <$> arbitrary
         badSig <- arbitrary
         return $ map (set _4 badSig) goodTxList
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary DoubleInputTx where
+instance HasProtocolMagic => Arbitrary DoubleInputTx where
     arbitrary = DoubleInputTx <$> do
         inputs <- arbitrary
-        pure $ buildProperTx (NE.cons (NE.head inputs) inputs)
+        pure $ buildProperTx protocolMagic
+                             (NE.cons (NE.head inputs) inputs)
                              (identity, identity)
     shrink = const []
 
@@ -182,23 +207,29 @@ instance Arbitrary TxProof where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary TxAux where
-    arbitrary = genericArbitrary
+genTxAux :: ProtocolMagic -> Gen TxAux
+genTxAux pm = TxAux <$> genTx <*> (V.fromList <$> listOf (genTxInWitness pm))
+
+instance HasProtocolMagic => Arbitrary TxAux where
+    arbitrary = genTxAux protocolMagic
     shrink = genericShrink
 
 ----------------------------------------------------------------------------
 -- Utilities used in 'Pos.Block.Arbitrary'
 ----------------------------------------------------------------------------
 
-txOutDistGen :: HasConfiguration => Gen [TxAux]
-txOutDistGen =
+genTxOutDist :: ProtocolMagic -> Gen [TxAux]
+genTxOutDist pm =
     listOf $ do
-        txInW <- arbitrary
+        txInW <- V.fromList <$> listOf (genTxInWitness pm)
         txIns <- arbitrary
         txOuts <- arbitrary
         let tx = UnsafeTx txIns txOuts (mkAttributes ())
-        return $ TxAux tx (txInW)
+        return $ TxAux tx txInW
 
-instance HasConfiguration => Arbitrary TxPayload where
-    arbitrary = mkTxPayload <$> txOutDistGen
+genTxPayload :: ProtocolMagic -> Gen TxPayload
+genTxPayload pm = mkTxPayload <$> genTxOutDist pm
+
+instance HasProtocolMagic => Arbitrary TxPayload where
+    arbitrary = genTxPayload protocolMagic
     shrink = genericShrink

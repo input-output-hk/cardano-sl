@@ -25,10 +25,12 @@ import           Mockable.Production (Production (..))
 import           System.Exit (ExitCode (..))
 
 import           Pos.Binary ()
+import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
 import           Pos.Communication (ActionSpec (..), OutSpecs (..))
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
-import           Pos.Configuration (networkConnectionTimeout)
+import           Pos.Configuration (HasNodeConfiguration, networkConnectionTimeout)
+import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
 import           Pos.Context.Context (NodeContext (..))
+import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Diffusion.Full (diffusionLayerFull)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
@@ -61,7 +63,6 @@ runRealMode
        ( Default ext
        , HasCompileInfo
        , HasConfigurations
-       , HasAdoptedBlockVersionData (RealMode ext)
        , MonadTxpLocal (RealMode ext)
        -- MonadTxpLocal is meh,
        -- we can't remove @ext@ from @RealMode@ because
@@ -88,7 +89,6 @@ elimRealMode
        ( HasConfigurations
        , HasCompileInfo
        , MonadTxpLocal (RealMode ext)
-       , HasAdoptedBlockVersionData (RealMode ext)
        )
     => NodeResources ext
     -> RealMode ext t
@@ -117,12 +117,19 @@ elimRealMode NodeResources {..} action = do
 -- Bring up a full diffusion layer over a TCP transport and use it to run some
 -- action. Also brings up ekg monitoring, route53 health check, statds,
 -- according to parameters.
+-- Uses magic Data.Reflection configuration for the protocol constants,
+-- network connection timeout (nt-tcp), and, and the 'recoveryHeadersMessage'
+-- number.
 runServer
     :: forall ctx m t .
        ( DiffusionWorkMode m
        , LogicWorkMode ctx m
        , HasShutdownContext ctx
        , MonadFix m
+       , HasProtocolMagic
+       , HasProtocolConstants
+       , HasBlockConfiguration
+       , HasNodeConfiguration
        )
     => (forall y . m y -> IO y)
     -> NodeParams
@@ -133,7 +140,7 @@ runServer
 runServer runIO NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
     exitOnShutdown . logicLayerFull (jsonLog . JLTxReceived) $ \logicLayer ->
         bracketTransportTCP networkConnectionTimeout tcpAddr $ \transport ->
-            diffusionLayerFull runIO npNetworkConfig lastKnownBlockVersion transport (Just ekgNodeMetrics) $ \withLogic -> do
+            diffusionLayerFull runIO npNetworkConfig lastKnownBlockVersion protocolMagic protocolConstants recoveryHeadersMessage transport (Just ekgNodeMetrics) $ \withLogic -> do
                 diffusionLayer <- withLogic (logic logicLayer)
                 when npEnableMetrics (registerEkgMetrics ekgStore)
                 runLogicLayer logicLayer $

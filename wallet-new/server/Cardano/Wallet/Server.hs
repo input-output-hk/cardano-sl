@@ -10,7 +10,7 @@ import           Cardano.Wallet.API
 import qualified Cardano.Wallet.API.Development.Handlers as Dev
 import qualified Cardano.Wallet.API.V1.Handlers as V1
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
-import           Cardano.Wallet.Kernel
+import           Cardano.Wallet.WalletLayer (ActiveWalletLayer)
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
@@ -20,8 +20,8 @@ import           Servant.Swagger.UI (swaggerSchemaUIServer)
 --
 -- NOTE: Unlike the legacy server, the handlers will not run in a special
 -- Cardano monad because they just interfact with the Wallet object.
-walletServer :: (HasCompileInfo, HasUpdateConfiguration)
-             => ActiveWallet
+walletServer :: forall m. (HasCompileInfo, HasUpdateConfiguration)
+             => ActiveWalletLayer m
              -> Server WalletAPI
 walletServer w = v0DocHandler :<|> v1DocHandler :<|> v0Handler :<|> v1Handler
   where
@@ -36,10 +36,10 @@ walletServer w = v0DocHandler :<|> v1DocHandler :<|> v0Handler :<|> v1Handler
     v1Handler    = V1.handlers w
 
 
-walletDevServer :: (HasCompileInfo, HasUpdateConfiguration)
-             => ActiveWallet
-             -> RunMode
-             -> Server WalletDevAPI
+walletDevServer :: forall m. (HasCompileInfo, HasUpdateConfiguration)
+                => ActiveWalletLayer m
+                -> RunMode
+                -> Server WalletDevAPI
 walletDevServer w runMode = devDocHandler :<|> devHandler :<|> walletHandler
   where
     devDocHandler = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) devAPI Swagger.highLevelShortDescription)

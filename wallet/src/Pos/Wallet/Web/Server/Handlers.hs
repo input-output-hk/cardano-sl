@@ -76,7 +76,7 @@ walletsHandlers = toServant' A.WWalletsApiRecord
     , _getWallets             = M.getWallets
     , _newWallet              = M.newWallet
     , _updateWallet           = M.updateWallet
-    , _restoreWallet          = M.restoreWallet
+    , _restoreWallet          = M.restoreWalletFromSeed
     , _deleteWallet           = M.deleteWallet
     , _importWallet           = M.importWallet
     , _changeWalletPassphrase = M.changeWalletPassphrase
@@ -138,7 +138,7 @@ settingsHandlers ntpStatus = toServant' A.WSettingsApiRecord
     { _getSlotsDuration    = blockchainSlotDuration <&> fromIntegral
     , _getVersion          = pure curSoftwareVersion
     , _getSyncProgress     = M.syncProgress
-    , _localTimeDifference = M.localTimeDifference ntpStatus
+    , _localTimeDifference = fromMaybe 0 <$> M.localTimeDifference ntpStatus
     }
 
 backupHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WBackupApi m

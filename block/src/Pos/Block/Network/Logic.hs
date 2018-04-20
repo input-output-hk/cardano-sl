@@ -8,8 +8,6 @@ module Pos.Block.Network.Logic
        (
          BlockNetLogicException (..)
        , triggerRecovery
-       , requestTipOuts
-       , requestTip
 
        , handleBlocks
 
@@ -28,19 +26,16 @@ import qualified System.Metrics.Gauge as Metrics
 import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Txp ()
-import           Pos.Block.BlockWorkMode (BlockInstancesConstraint, BlockWorkMode)
+import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (criticalForkThreshold)
 import           Pos.Block.Error (ApplyBlocksException)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, lcaWithMainChain,
                                   verifyAndApplyBlocks)
 import qualified Pos.Block.Logic as L
-import           Pos.Block.Network.Types (MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag,
                                            BlockRetrievalTask (..))
 import           Pos.Block.Types (Blund, LastKnownHeaderTag)
-import           Pos.Communication.Limits.Types (recvLimited)
-import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs, convH,
-                                             toOutSpecs)
+import           Pos.Communication.Protocol (NodeId)
 import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader, headerHashG, isMoreDifficult,
                            prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
@@ -106,30 +101,6 @@ triggerRecovery diffusion = unlessM recoveryInProgress $ do
            logDebug ("Error happened in triggerRecovery: " <> show e)
            throwM e
     logDebug "Finished requesting tips for recovery"
-
-requestTipOuts :: BlockInstancesConstraint m => Proxy m -> OutSpecs
-requestTipOuts _ =
-    toOutSpecs [ convH (Proxy :: Proxy MsgGetHeaders)
-                       (Proxy :: Proxy MsgHeaders) ]
-
--- | Is used if we're recovering after offline and want to know what's
--- current blockchain state. Sends "what's your current tip" request
--- to everybody we know.
-requestTip
-    :: BlockWorkMode ctx m
-    => NodeId
-    -> ConversationActions MsgGetHeaders MsgHeaders m
-    -> m ()
-requestTip nodeId conv = do
-    logDebug "Requesting tip..."
-    send conv (MsgGetHeaders [] Nothing)
-    whenJustM (recvLimited conv) handleTip
-  where
-    handleTip (MsgHeaders (NewestFirst (tip:|[]))) = do
-        logDebug $ sformat ("Got tip "%shortHashF%", processing") (headerHash tip)
-        handleUnsolicitedHeader tip nodeId
-    handleTip t =
-        logWarning $ sformat ("requestTip: got unexpected response: "%shown) t
 
 ----------------------------------------------------------------------------
 -- Headers processing

@@ -3,6 +3,11 @@
 module Pos.Arbitrary.Block
        ( HeaderAndParams (..)
        , BlockHeaderList (..)
+
+       , genMainBlockHeader
+       , genMainBlockBody
+       , genMainBlockBodyForSlot
+       , genMainBlock
        ) where
 
 import           Universum
@@ -14,20 +19,25 @@ import           System.Random (Random, mkStdGen, randomR)
 import           Test.QuickCheck (Arbitrary (..), Gen, choose, suchThat, vectorOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+import           Pos.Arbitrary.Core (genSlotId)
 import           Pos.Arbitrary.Delegation (genDlgPayload)
-import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..))
-import           Pos.Arbitrary.Txp ()
-import           Pos.Arbitrary.Update ()
-import           Pos.Binary.Class (Bi, Raw, biSize)
+import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..), genSscPayload,
+                                    genSscPayloadForSlot)
+import           Pos.Arbitrary.Txp (genTxPayload)
+import           Pos.Arbitrary.Update (genUpdatePayload)
+import           Pos.Binary.Class (biSize)
 import qualified Pos.Block.Base as T
 import qualified Pos.Block.Logic.Integrity as T
 import           Pos.Block.Slog.Types (SlogUndo)
 import           Pos.Block.Types (Undo (..))
-import           Pos.Core (HasConfiguration, epochSlots)
+import           Pos.Core (HasProtocolConstants, HasGenesisHash, HeaderHash,
+                           GenesisHash (..), genesisHash, epochSlots)
 import qualified Pos.Core as Core
 import qualified Pos.Core.Block as T
 import           Pos.Core.Ssc (SscPayload, SscProof)
-import           Pos.Crypto (PublicKey, SecretKey, createPsk, hash, toPublic)
+import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk, hash,
+                             toPublic)
+import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Data.Attributes (areAttributesKnown)
 
 newtype BodyDependsOnSlot b = BodyDependsOnSlot
@@ -38,11 +48,11 @@ newtype BodyDependsOnSlot b = BodyDependsOnSlot
 -- Arbitrary instances for Blockchain related types
 ------------------------------------------------------------------------------------------
 
-instance HasConfiguration => Arbitrary T.BlockHeader where
+instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary T.BlockHeader where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasConfiguration, Arbitrary SscProof) =>
+instance (Arbitrary SscProof, HasProtocolConstants, HasProtocolMagic) =>
     Arbitrary T.BlockSignature where
     arbitrary = genericArbitrary
     shrink = genericShrink
@@ -59,7 +69,7 @@ instance Arbitrary T.GenesisExtraBodyData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary T.GenesisBlockHeader where
+instance Arbitrary T.GenesisBlockHeader where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -80,28 +90,47 @@ instance Arbitrary (T.Body T.GenesisBlockchain) where
 
 instance ( Arbitrary SscProof
          , Arbitrary SscPayload
-         , HasConfiguration
+         , HasProtocolMagic
+         , HasProtocolConstants
+         , HasGenesisHash
          ) =>
          Arbitrary T.GenesisBlock where
-    arbitrary = T.mkGenesisBlock <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = T.mkGenesisBlock protocolMagic
+        <$> (maybe (Left (GenesisHash genesisHash)) Right <$> arbitrary)
+        <*> arbitrary
+        <*> arbitrary
     shrink = genericShrink
 
 ------------------------------------------------------------------------------------------
 -- MainBlockchain
 ------------------------------------------------------------------------------------------
 
-instance ( Arbitrary SscPayload
-         , Arbitrary SscProof
-         , Bi Raw
-         , HasConfiguration
+-- | Generate a 'MainBlockHeader' given a parent hash, difficulty and body.
+genMainBlockHeader
+    :: ProtocolMagic
+    -> Core.ProtocolConstants
+    -> HeaderHash
+    -> Core.ChainDifficulty
+    -> T.Body T.MainBlockchain
+    -> Gen T.MainBlockHeader
+genMainBlockHeader pm pc prevHash difficulty body =
+    T.mkMainHeaderExplicit pm <$> pure prevHash
+                              <*> pure difficulty
+                              <*> genSlotId pc
+                              <*> arbitrary -- SecretKey
+                              <*> pure Nothing
+                              <*> pure body
+                              <*> arbitrary
+
+instance ( HasProtocolMagic
+         , HasProtocolConstants
          ) =>
          Arbitrary T.MainBlockHeader where
-    arbitrary =
-        T.mkMainHeader <$> arbitrary <*> arbitrary <*> arbitrary <*>
-        -- TODO: do not hardcode Nothing
-        pure Nothing <*>
-        arbitrary <*>
-        arbitrary
+    arbitrary = do
+        prevHash <- arbitrary
+        difficulty <- arbitrary
+        body <- arbitrary
+        genMainBlockHeader protocolMagic Core.protocolConstants prevHash difficulty body
     shrink = genericShrink
 
 instance Arbitrary T.MainExtraHeaderData where
@@ -112,7 +141,7 @@ instance Arbitrary T.MainExtraBodyData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasConfiguration, Arbitrary SscProof) =>
+instance (Arbitrary SscProof) =>
     Arbitrary (T.BodyProof T.MainBlockchain) where
     arbitrary = genericArbitrary
     shrink T.MainProof {..} =
@@ -121,12 +150,12 @@ instance (HasConfiguration, Arbitrary SscProof) =>
             shrink (mpTxProof, mpMpcProof, mpProxySKsProof, mpUpdateProof)
         ]
 
-instance (HasConfiguration, Arbitrary SscProof) =>
+instance (Arbitrary SscProof, HasProtocolConstants, HasProtocolMagic) =>
     Arbitrary (T.ConsensusData T.MainBlockchain) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasConfiguration, Arbitrary SscProof) => Arbitrary T.MainToSign where
+instance (Arbitrary SscProof, HasProtocolConstants) => Arbitrary T.MainToSign where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -145,17 +174,40 @@ instance (HasConfiguration, Arbitrary SscProof) => Arbitrary T.MainToSign where
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
-instance (HasConfiguration, Arbitrary SscPayloadDependsOnSlot) =>
+genMainBlockBody
+    :: ProtocolMagic
+    -> Core.EpochIndex -- ^ For the delegation payload.
+    -> Gen (T.Body T.MainBlockchain)
+genMainBlockBody pm epoch =
+    T.MainBody <$> genTxPayload pm
+               <*> genSscPayload pm
+               <*> genDlgPayload pm epoch
+               <*> genUpdatePayload pm
+
+genMainBlockBodyForSlot
+    :: ProtocolMagic
+    -> Core.ProtocolConstants
+    -> Core.SlotId
+    -> Gen (T.Body T.MainBlockchain)
+genMainBlockBodyForSlot pm pc slotId = do
+    txpPayload <- genTxPayload pm
+    sscPayload <- genSscPayloadForSlot pm pc slotId
+    dlgPayload <- genDlgPayload pm (Core.siEpoch slotId)
+    updPayload <- genUpdatePayload pm
+    pure $ T.MainBody txpPayload sscPayload dlgPayload updPayload
+
+instance (Arbitrary SscPayloadDependsOnSlot, HasProtocolConstants, HasProtocolMagic) =>
          Arbitrary (BodyDependsOnSlot T.MainBlockchain) where
     arbitrary = pure $ BodyDependsOnSlot $ \slotId -> do
         txPayload   <- arbitrary
         generator   <- genPayloadDependsOnSlot <$> arbitrary
         mpcData     <- generator slotId
-        dlgPayload  <- genDlgPayload $ Core.siEpoch slotId
+        dlgPayload  <- genDlgPayload protocolMagic $ Core.siEpoch slotId
         mpcUpload   <- arbitrary
         return $ T.MainBody txPayload mpcData dlgPayload mpcUpload
 
-instance (HasConfiguration, Arbitrary SscPayload) => Arbitrary (T.Body T.MainBlockchain) where
+
+instance (Arbitrary SscPayload, HasProtocolMagic) => Arbitrary (T.Body T.MainBlockchain) where
     arbitrary = genericArbitrary
     shrink mb =
         [ T.MainBody txp sscp dlgp updp
@@ -166,10 +218,36 @@ instance (HasConfiguration, Arbitrary SscPayload) => Arbitrary (T.Body T.MainBlo
                     mb ^. T.mbUpdatePayload)
         ]
 
+-- | Generate a main block (slot is chosen arbitrarily).
+-- You choose the previous header hash.
+genMainBlock
+    :: ProtocolMagic
+    -> Core.ProtocolConstants
+    -> HeaderHash
+    -> Core.ChainDifficulty
+    -> Gen T.MainBlock
+genMainBlock pm pc prevHash difficulty = do
+    slot <- genSlotId pc
+    body <- genMainBlockBodyForSlot pm pc slot
+    extraBodyData <- arbitrary
+    extraHeaderData <- T.MainExtraHeaderData
+        <$> arbitrary
+        <*> arbitrary
+        <*> arbitrary
+        <*> pure (hash extraBodyData)
+    header <- T.mkMainHeaderExplicit pm prevHash difficulty slot
+        <$> arbitrary
+        <*> pure Nothing
+        <*> pure body
+        <*> pure extraHeaderData
+    pure $ T.UnsafeGenericBlock header body extraBodyData
+
 instance ( Arbitrary SscPayload
          , Arbitrary SscProof
          , Arbitrary SscPayloadDependsOnSlot
-         , HasConfiguration
+         , HasProtocolConstants
+         , HasProtocolMagic
+         , HasGenesisHash
          ) =>
          Arbitrary T.MainBlock where
     arbitrary = do
@@ -183,10 +261,13 @@ instance ( Arbitrary SscPayload
             <*> arbitrary
             <*> pure (hash extraBodyData)
         header <-
-            T.mkMainHeader <$> arbitrary <*> pure slot <*> arbitrary <*>
-            pure Nothing <*>
-            pure body <*>
-            pure extraHeaderData
+            T.mkMainHeader protocolMagic
+                <$> (maybe (Left (GenesisHash genesisHash)) Right <$> arbitrary)
+                <*> pure slot
+                <*> arbitrary
+                <*> pure Nothing
+                <*> pure body
+                <*> pure extraHeaderData
         return $ T.UnsafeGenericBlock header body extraBodyData
     shrink = genericShrink
 
@@ -225,26 +306,33 @@ instance Buildable T.BlockHeader => Show BlockHeaderList where
 --   * if an epoch is `n` slots long, every `n+1`-th block will be of the
 --     genesis kind.
 recursiveHeaderGen
-    :: ( Arbitrary SscPayload
-       , HasConfiguration
+    :: ( HasProtocolConstants   -- Can't remove this unfortunately....
+                                -- We first have to make generators for
+                                -- other things which are parameterized on
+                                -- the constants and magic etc. so we can use
+                                -- them in here.
+       , HasProtocolMagic
        )
-    => Bool -- ^ Whether to create genesis block before creating main block for 0th slot
+    => GenesisHash
+    -> Bool -- ^ Whether to create genesis block before creating main block for 0th slot
     -> [Either SecretKey (SecretKey, SecretKey)]
     -> [Core.SlotId]
     -> [T.BlockHeader]
     -> Gen [T.BlockHeader]
-recursiveHeaderGen genesis
+recursiveHeaderGen gHash
+                   genesis
                    (eitherOfLeader : leaders)
                    (Core.SlotId{..} : rest)
                    blockchain
     | genesis && Core.getSlotIndex siSlot == 0 = do
           gBody <- arbitrary
-          let gHeader = T.BlockHeaderGenesis $ T.mkGenesisHeader (head blockchain) siEpoch gBody
+          let pHeader = maybe (Left gHash) Right (head blockchain)
+              gHeader = T.BlockHeaderGenesis $ T.mkGenesisHeader protocolMagic pHeader siEpoch gBody
           mHeader <- genMainHeader (Just gHeader)
-          recursiveHeaderGen True leaders rest (mHeader : gHeader : blockchain)
+          recursiveHeaderGen gHash True leaders rest (mHeader : gHeader : blockchain)
     | otherwise = do
           curHeader <- genMainHeader (head blockchain)
-          recursiveHeaderGen True leaders rest (curHeader : blockchain)
+          recursiveHeaderGen gHash True leaders rest (curHeader : blockchain)
   where
     genMainHeader prevHeader = do
         body <- arbitrary
@@ -257,13 +345,13 @@ recursiveHeaderGen genesis
                 Left sk -> (sk, Nothing)
                 Right (issuerSK, delegateSK) ->
                     let delegatePK = toPublic delegateSK
-                        proxy = ( createPsk issuerSK delegatePK (Core.HeavyDlgIndex siEpoch)
+                        proxy = ( createPsk protocolMagic issuerSK delegatePK (Core.HeavyDlgIndex siEpoch)
                                 , toPublic issuerSK)
                     in (delegateSK, Just proxy)
         pure $ T.BlockHeaderMain $
-            T.mkMainHeader prevHeader slotId leader proxySK body extraHData
-recursiveHeaderGen _ [] _ b = return b
-recursiveHeaderGen _ _ [] b = return b
+            T.mkMainHeader protocolMagic (maybe (Left gHash) Right prevHeader) slotId leader proxySK body extraHData
+recursiveHeaderGen _ _ [] _ b = return b
+recursiveHeaderGen _ _ _ [] b = return b
 
 
 -- | Maximum start epoch in block header verification tests
@@ -291,25 +379,27 @@ bhlEpochs = 2
 --
 -- Note that a leader is generated for each slot.
 -- (Not exactly a leader - see previous comment)
-instance ( Arbitrary SscPayload
-         , HasConfiguration
+instance ( HasProtocolMagic
+         , HasProtocolConstants
+         , HasGenesisHash
          ) =>
          Arbitrary BlockHeaderList where
     arbitrary = do
         incompleteEpochSize <- choose (1, epochSlots - 1)
         let slot = Core.SlotId 0 minBound
-        generateBHL True slot (epochSlots * bhlEpochs + incompleteEpochSize)
+        generateBHL (GenesisHash genesisHash) True slot (epochSlots * bhlEpochs + incompleteEpochSize)
 
 generateBHL
-    :: ( Arbitrary SscPayload
-       , HasConfiguration
+    :: ( HasProtocolMagic      -- Can't remove these yet.
+       , HasProtocolConstants  -- See comment in recursiveHeaderGen
        )
-    => Bool         -- ^ Whether to create genesis block before creating main
+    => GenesisHash
+    -> Bool         -- ^ Whether to create genesis block before creating main
                     --    block for 0th slot
     -> Core.SlotId     -- ^ Start slot
     -> Core.SlotCount  -- ^ Slot count
     -> Gen BlockHeaderList
-generateBHL createInitGenesis startSlot slotCount = BHL <$> do
+generateBHL gHash createInitGenesis startSlot slotCount = BHL <$> do
     let correctLeaderGen :: Gen (Either SecretKey (SecretKey, SecretKey))
         correctLeaderGen =
             -- We don't want to create blocks with self-signed psks
@@ -320,9 +410,11 @@ generateBHL createInitGenesis startSlot slotCount = BHL <$> do
     let actualLeaders = map (toPublic . either identity (view _1)) leadersList
         slotIdsRange =
             take (fromIntegral slotCount) $
-            map Core.unflattenSlotId [Core.flattenSlotId startSlot ..]
+            map Core.unflattenSlotId
+                [Core.flattenSlotId startSlot ..]
     (, actualLeaders) <$>
         recursiveHeaderGen
+            gHash
             createInitGenesis
             leadersList
             slotIdsRange
@@ -341,13 +433,14 @@ newtype HeaderAndParams = HAndP
 -- already been done in the 'Arbitrary' instance of the 'BlockHeaderList'
 -- type, so it is used here and at most 3 blocks are taken from the generated
 -- list.
-instance (Arbitrary SscPayload, HasConfiguration) =>
+instance (Arbitrary SscPayload, HasProtocolConstants, HasProtocolMagic, HasGenesisHash) =>
     Arbitrary HeaderAndParams where
     arbitrary = do
         -- This integer is used as a seed to randomly choose a slot down below
         seed <- arbitrary :: Gen Int
         startSlot <- Core.SlotId <$> choose (0, bhlMaxStartingEpoch) <*> arbitrary
-        (headers, leaders) <- first reverse . getHeaderList <$> (generateBHL True startSlot =<< choose (1, 2))
+        (headers, leaders) <- first reverse . getHeaderList <$>
+            (generateBHL (GenesisHash genesisHash) True startSlot =<< choose (1, 2))
         let num = length headers
         -- 'skip' is the random number of headers that should be skipped in
         -- the header chain. This ensures different parts of it are chosen
@@ -412,6 +505,6 @@ instance Arbitrary SlogUndo where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary Undo where
+instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary Undo where
     arbitrary = genericArbitrary
     shrink = genericShrink

@@ -2,18 +2,25 @@
 
 module Pos.Core.Slotting.Util
        ( flattenSlotId
+       , flattenSlotIdExplicit
        , flattenEpochIndex
        , flattenEpochOrSlot
        , unflattenSlotId
+       , unflattenSlotIdExplicit
        , diffEpochOrSlot
        , flatSlotId
        , crucialSlot
+       , unsafeMkLocalSlotIndexExplicit
        , unsafeMkLocalSlotIndex
        , isBootstrapEra
        , epochOrSlot
        , epochOrSlotToSlot
+       , mkLocalSlotIndexExplicit
        , mkLocalSlotIndex
        , addLocalSlotIndex
+
+       , localSlotIndexMinBound
+       , localSlotIndexMaxBound
        ) where
 
 import           Universum
@@ -23,16 +30,20 @@ import           Control.Monad.Except (MonadError (throwError))
 import           System.Random (Random (..))
 
 import           Pos.Core.Class (HasEpochIndex (..), HasEpochOrSlot (..), getEpochOrSlot)
+import           Pos.Core.ProtocolConstants (ProtocolConstants, pcEpochSlots)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants, epochSlots,
-                                                  slotSecurityParam)
+                                                  slotSecurityParam, protocolConstants)
 import           Pos.Core.Slotting.Types (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
                                           LocalSlotIndex (..), SlotCount, SlotId (..), getSlotIndex)
 import           Pos.Util.Util (leftToPanic)
 
 -- | Flatten 'SlotId' (which is basically pair of integers) into a single number.
 flattenSlotId :: HasProtocolConstants => SlotId -> FlatSlotId
-flattenSlotId SlotId {..} = fromIntegral $
-    fromIntegral siEpoch * epochSlots +
+flattenSlotId = flattenSlotIdExplicit epochSlots
+
+flattenSlotIdExplicit :: SlotCount -> SlotId -> FlatSlotId
+flattenSlotIdExplicit es SlotId {..} = fromIntegral $
+    fromIntegral siEpoch * es +
     fromIntegral (getSlotIndex siSlot)
 
 -- | Flattens 'EpochIndex' into a single number.
@@ -47,11 +58,16 @@ flattenEpochOrSlot =
 
 -- | Construct 'SlotId' from a flattened variant.
 unflattenSlotId :: HasProtocolConstants => FlatSlotId -> SlotId
-unflattenSlotId n =
+unflattenSlotId = unflattenSlotIdExplicit epochSlots
+
+-- | Construct a 'SlotId' from a flattened variant, using a given 'SlotCount'
+-- modulus.
+unflattenSlotIdExplicit :: SlotCount -> FlatSlotId -> SlotId
+unflattenSlotIdExplicit es n =
     let (fromIntegral -> siEpoch, fromIntegral -> slot) =
-            n `divMod` fromIntegral epochSlots
-        siSlot = leftToPanic "unflattenSlotId: " $ mkLocalSlotIndex slot
-    in SlotId {..}
+            n `divMod` fromIntegral es
+        siSlot = leftToPanic "unflattenSlotId: " $ mkLocalSlotIndexThrow_ es slot
+    in  SlotId {..}
 
 -- | Distance (in slots) between two slots. The first slot is newer, the
 -- second slot is older. An epoch is considered the same as the 0th slot of
@@ -152,13 +168,29 @@ instance HasProtocolConstants => Bounded LocalSlotIndex where
     minBound = UnsafeLocalSlotIndex 0
     maxBound = UnsafeLocalSlotIndex (fromIntegral epochSlots - 1)
 
-mkLocalSlotIndex :: (HasProtocolConstants, MonadError Text m) => Word16 -> m LocalSlotIndex
-mkLocalSlotIndex idx
-    | idx < fromIntegral epochSlots = pure (UnsafeLocalSlotIndex idx)
-    | otherwise =
-        throwError $
+localSlotIndexMinBound :: LocalSlotIndex
+localSlotIndexMinBound = UnsafeLocalSlotIndex 0
+
+localSlotIndexMaxBound :: ProtocolConstants -> LocalSlotIndex
+localSlotIndexMaxBound pc = UnsafeLocalSlotIndex (fromIntegral (pcEpochSlots pc) - 1)
+
+mkLocalSlotIndex_ :: SlotCount -> Word16 -> Maybe LocalSlotIndex
+mkLocalSlotIndex_ es idx
+    | idx < fromIntegral es = Just (UnsafeLocalSlotIndex idx)
+    | otherwise = Nothing
+
+mkLocalSlotIndexThrow_ :: MonadError Text m => SlotCount -> Word16 -> m LocalSlotIndex
+mkLocalSlotIndexThrow_ es idx = case mkLocalSlotIndex_ es idx of
+    Just it -> pure it
+    Nothing -> throwError $
         "local slot is greater than or equal to the number of slots in epoch: " <>
         show idx
+
+mkLocalSlotIndex :: (HasProtocolConstants, MonadError Text m) => Word16 -> m LocalSlotIndex
+mkLocalSlotIndex = mkLocalSlotIndexThrow_ epochSlots
+
+mkLocalSlotIndexExplicit :: MonadError Text m => ProtocolConstants -> Word16 -> m LocalSlotIndex
+mkLocalSlotIndexExplicit pc = mkLocalSlotIndexThrow_ (pcEpochSlots pc)
 
 -- | Shift slot index by given amount, and return 'Nothing' if it has
 -- overflowed past 'epochSlots'.
@@ -172,8 +204,11 @@ addLocalSlotIndex x (UnsafeLocalSlotIndex i)
 
 -- | Unsafe constructor of 'LocalSlotIndex'.
 unsafeMkLocalSlotIndex :: HasProtocolConstants => Word16 -> LocalSlotIndex
-unsafeMkLocalSlotIndex =
-    leftToPanic "unsafeMkLocalSlotIndex failed: " . mkLocalSlotIndex
+unsafeMkLocalSlotIndex = unsafeMkLocalSlotIndexExplicit protocolConstants
+
+unsafeMkLocalSlotIndexExplicit :: ProtocolConstants -> Word16 -> LocalSlotIndex
+unsafeMkLocalSlotIndexExplicit pc =
+    leftToPanic "unsafeMkLocalSlotIndex failed: " . mkLocalSlotIndexExplicit pc
 
 -- | Bootstrap era is ongoing until stakes are unlocked. The reward era starts
 -- from the epoch specified as the epoch that unlocks stakes:

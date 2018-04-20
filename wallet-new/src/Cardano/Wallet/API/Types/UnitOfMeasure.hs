@@ -15,6 +15,8 @@ data UnitOfMeasure =
     | Percentage100
     -- | Number of blocks.
     | Blocks
+    -- | Number of blocks per second.
+    | BlocksPerSecond
     deriving (Show, Eq)
 
 data MeasuredIn (a :: UnitOfMeasure) b = MeasuredIn b deriving (Eq, Show)

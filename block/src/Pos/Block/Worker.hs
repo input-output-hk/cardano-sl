@@ -26,7 +26,7 @@ import           Pos.Block.Configuration (HasBlockConfiguration, criticalCQ, cri
 import           Pos.Block.Logic (calcChainQualityFixedTime, calcChainQualityM,
                                   calcOverallChainQuality, createGenesisBlockAndApply,
                                   createMainBlockAndApply)
-import           Pos.Block.Network.Logic (requestTipOuts, triggerRecovery)
+import           Pos.Block.Network.Logic (triggerRecovery)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState, scCQkMonitorState,
                                  scCrucialValuesLabel, scDifficultyMonitorState,
@@ -220,7 +220,7 @@ recoveryTriggerWorker ::
        forall ctx m. (BlockWorkMode ctx m)
     => (WorkerSpec m, OutSpecs)
 recoveryTriggerWorker =
-    worker (requestTipOuts (Proxy :: Proxy m)) recoveryTriggerWorkerImpl
+    worker mempty recoveryTriggerWorkerImpl
 
 recoveryTriggerWorkerImpl
     :: forall ctx m.

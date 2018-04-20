@@ -1,5 +1,5 @@
 name:                cardano-sl-infra
-version:             1.1.0
+version:             1.1.1
 synopsis:            Cardano SL - infrastructural
 description:         Cardano SL - infrastructural
 license:             MIT
@@ -141,6 +141,7 @@ library
                       , cardano-sl-networking
                       , cardano-sl-util
                       , cardano-report-server >= 0.4.5
+                      , conduit
                       , containers
                       , directory
                       , dns
@@ -152,7 +153,7 @@ library
                       , filepath
                       , formatting
                       , generic-arbitrary
-                      , lzma
+                      , lzma-conduit
                       , hashable
                       , http-client
                       , http-client-tls

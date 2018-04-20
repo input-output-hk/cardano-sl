@@ -1,10 +1,11 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE LambdaCase    #-}
 
 -- | Types describing runtime errors related to
 -- wallet integration tests.
-
 module Error
     ( WalletTestError (..)
+    , showConstr
     ) where
 
 import           Universum
@@ -21,51 +22,64 @@ import           Cardano.Wallet.Client (ClientError)
 data WalletTestError
     = HttpClientError ClientError
 
-    | InvalidProbabilityDistr
-
     | WalletBalanceNotZero Wallet
     | WalletPassMissing Wallet
-    | LocalWalletDiffers Wallet
-    | LocalWalletsDiffers [Wallet]
+    | LocalWalletDiffers Wallet Wallet
+    | LocalWalletsDiffers [Wallet] [Wallet]
 
     | AccountBalanceNotZero Account
-    | LocalAccountDiffers Account
-    | LocalAccountsDiffers [Account]
+    | LocalAccountDiffers Account Account
+    | LocalAccountsDiffers [Account] [Account]
 
     | AddressBalanceNotZero WalletAddress
-    | LocalAddressesDiffer WalletAddress [WalletAddress]
-    | LocalAddressDiffer Address
+    | LocalAddressesDiffer [WalletAddress] [WalletAddress]
+    | LocalAddressDiffer Address Address
 
     | InvalidTransactionState Transaction
     | InvalidTransactionFee EstimatedFees
-    | LocalTransactionsDiffer [Transaction]
+    | LocalTransactionsDiffer [Transaction] [Transaction]
     | LocalTransactionMissing Transaction [Transaction]
 
     deriving (Show, Eq, Generic)
 
+showConstr :: WalletTestError -> String
+showConstr = \case
+    HttpClientError {} -> "HttpClientError"
+    WalletBalanceNotZero {} -> "WalletBalanceNotZero"
+    WalletPassMissing {} -> "WalletPassMissing"
+    LocalWalletDiffers {} -> "LocalWalletDiffers"
+    LocalWalletsDiffers {} -> "LocalWalletsDiffers"
+    AccountBalanceNotZero {} -> "AccountBalanceNotZero"
+    LocalAccountDiffers {} -> "LocalAccountDiffers"
+    LocalAccountsDiffers {} -> "LocalAccountsDiffers"
+    AddressBalanceNotZero {} -> "AddressBalanceNotZero"
+    LocalAddressesDiffer {} -> "LocalAddressesDiffer"
+    LocalAddressDiffer {} -> "LocalAddressDiffer"
+    InvalidTransactionState {} -> "InvalidTransactionState"
+    InvalidTransactionFee {} -> "InvalidTransactionFee"
+    LocalTransactionsDiffer {} -> "LocalTransactionsDiffer"
+    LocalTransactionMissing {} -> "LocalTransactionMissing"
 
 instance Exception WalletTestError
 
 
 instance Buildable WalletTestError where
     build (HttpClientError _        )     = bprint "Http client error"
-    -- ^ TODO (ks): A proper instance
-    build InvalidProbabilityDistr         = bprint "The probability distribution should be between 1 - 100."
     build (WalletBalanceNotZero    w)     = bprint ("Wallet balance is not zero - ("%stext%")") (show w)
     build (WalletPassMissing       w)     = bprint ("Missing wallet pass - ("%stext%")") (show w)
-    build (LocalWalletDiffers      w)     = bprint ("Local wallet differs - ("%stext%")") (show w)
-    build (LocalWalletsDiffers     w)     = bprint ("Local wallets differs - ("%stext%")") (show w)
+    build (LocalWalletDiffers      w w')     = bprint ("Local wallet differs - ("%stext%"), ("%stext%")") (show w) (show w')
+    build (LocalWalletsDiffers     w w')  = bprint ("Local wallets differs - ("%stext%"), ("%stext%")") (show w) (show w')
 
     build (AccountBalanceNotZero   a)     = bprint ("Acccount balance is not zero - ("%stext%")") (show a)
-    build (LocalAccountDiffers     a)     = bprint ("Local account differs - ("%stext%")") (show a)
-    build (LocalAccountsDiffers    a)     = bprint ("Local accounts differs - ("%stext%")") (show a)
+    build (LocalAccountDiffers     a a')  = bprint ("Local account differs - ("%stext%"), ("%stext%")") (show a) (show a')
+    build (LocalAccountsDiffers    a a')  = bprint ("Local accounts differs - ("%stext%"), ("%stext%")") (show a) (show a')
 
     build (AddressBalanceNotZero   a)     = bprint ("Address balance is not zero - ("%stext%")") (show a)
     build (LocalAddressesDiffer a as)     = bprint ("Local address ("%stext%") missing from addresses ("%stext%")") (show a) (show as)
-    build (LocalAddressDiffer      a)     = bprint ("Local address differs - ("%stext%")") (show a)
+    build (LocalAddressDiffer      a a')  = bprint ("Local address differs - ("%stext%"), ("%stext%")") (show a) (show a')
 
     build (InvalidTransactionState t)     = bprint ("Transaction state is invalid. Transaction - ("%stext%")") (show t)
     build (InvalidTransactionFee   f)     = bprint ("Transaction fees are invalid - ("%stext%")") (show f)
-    build (LocalTransactionsDiffer t)     = bprint ("Local transactions differs - ("%stext%")") (show t)
+    build (LocalTransactionsDiffer t t')  = bprint ("Local transactions differs - ("%stext%"), ("%stext%")") (show t) (show t')
     build (LocalTransactionMissing t ts)  = bprint ("Local transaction ("%stext%") missing from txs history ("%stext%")") (show t) (show ts)
 

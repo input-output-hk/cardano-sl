@@ -11,6 +11,7 @@ import           Universum
 
 import           Ntp.Client (NtpStatus)
 import           Pos.Diffusion.Types (Diffusion (sendTx))
+import           Pos.Util.TimeWarp (NetworkAddress)
 
 import qualified Cardano.Wallet.API.V1 as V1
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
@@ -41,11 +42,12 @@ handlers :: ( HasConfigurations
             => (forall a. MonadV1 a -> Handler a)
             -> Diffusion MonadV1
             -> TVar NtpStatus
+            -> NetworkAddress
             -> Server V1.API
-handlers naturalTransformation diffusion ntpStatus =
+handlers naturalTransformation diffusion ntpStatus addr =
          hoistServer (Proxy @Addresses.API) naturalTransformation Addresses.handlers
     :<|> hoistServer (Proxy @Wallets.API) naturalTransformation Wallets.handlers
     :<|> hoistServer (Proxy @Accounts.API) naturalTransformation Accounts.handlers
     :<|> hoistServer (Proxy @Transactions.API) naturalTransformation (Transactions.handlers (sendTx diffusion))
     :<|> hoistServer (Proxy @Settings.API) naturalTransformation Settings.handlers
-    :<|> hoistServer (Proxy @Info.API) naturalTransformation (Info.handlers ntpStatus)
+    :<|> hoistServer (Proxy @Info.API) naturalTransformation (Info.handlers diffusion ntpStatus addr)

@@ -190,7 +190,7 @@ Section `"blockVersionData"` contains fundamental blockchain-related values:
 *  `"maxTxSize"` - maximum size of transaction, in bytes,
 *  `"mpcThd"` - threshold for participation in MPC,
 *  `"scriptVersion"` - script version, 
-*  `"slotDuration"` - slot duration, in microseconds,
+*  `"slotDuration"` - slot duration, in milliseconds,
 *  `"softforkRule"` - rules for softfork:
    *  `"initThd"` - initial threshold, right after proposal is confirmed,
    *  `"minThd"` - minimal threshold (i.e. threshold can't become less than this one),

@@ -13,10 +13,11 @@ import           Universum
 import qualified Data.Text.Buildable
 import           Formatting (bprint, stext, (%))
 
-import           Cardano.Wallet.API.V1.Types (Account, Address, EstimatedFees, Transaction, Wallet,
-                                              WalletAddress)
+import           Cardano.Wallet.API.V1.Types (Account, Address, EstimatedFees, Transaction, V1,
+                                              Wallet, WalletAddress)
 
 import           Cardano.Wallet.Client (ClientError)
+import qualified Pos.Core as Core
 
 
 data WalletTestError
@@ -37,6 +38,9 @@ data WalletTestError
 
     | InvalidTransactionState Transaction
     | InvalidTransactionFee EstimatedFees
+    | UnexpectedChangeAddress [WalletAddress]
+    | UnexpectedAddressBalance WalletAddress WalletAddress
+    | CantFindAddress (V1 Core.Address)
     | LocalTransactionsDiffer [Transaction] [Transaction]
     | LocalTransactionMissing Transaction [Transaction]
 
@@ -57,6 +61,9 @@ showConstr = \case
     LocalAddressDiffer {} -> "LocalAddressDiffer"
     InvalidTransactionState {} -> "InvalidTransactionState"
     InvalidTransactionFee {} -> "InvalidTransactionFee"
+    UnexpectedChangeAddress {} -> "UnexpectedChangeAddress"
+    UnexpectedAddressBalance {} -> "UnexpectedAddressBalance"
+    CantFindAddress {} -> "CantFindAddress"
     LocalTransactionsDiffer {} -> "LocalTransactionsDiffer"
     LocalTransactionMissing {} -> "LocalTransactionMissing"
 
@@ -80,6 +87,9 @@ instance Buildable WalletTestError where
 
     build (InvalidTransactionState t)     = bprint ("Transaction state is invalid. Transaction - ("%stext%")") (show t)
     build (InvalidTransactionFee   f)     = bprint ("Transaction fees are invalid - ("%stext%")") (show f)
+    build (UnexpectedChangeAddress a)  = bprint ("Unexpected change address after transaction ("%stext%")") (show a)
+    build (UnexpectedAddressBalance b a)  = bprint ("Unexpected address balance before ("%stext%") and after ("%stext%")") (show b) (show a)
+    build (CantFindAddress a)  = bprint ("Can't find address ("%stext%") before and/or after transaction") (show a)
     build (LocalTransactionsDiffer t t')  = bprint ("Local transactions differs - ("%stext%"), ("%stext%")") (show t) (show t')
     build (LocalTransactionMissing t ts)  = bprint ("Local transaction ("%stext%") missing from txs history ("%stext%")") (show t) (show ts)
 

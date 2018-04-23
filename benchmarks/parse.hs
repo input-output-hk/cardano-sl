@@ -1,10 +1,10 @@
 #!/usr/bin/env stack
--- stack script --resolver lts-9.17 --package conduit-combinators --package conduit-extra --package containers --package bytestring --package unix
+-- stack script --resolver lts-9.17 --package bytestring --package conduit-combinators --package conduit-extra --package containers --package optparse-applicative --package unix
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 {- running GHCi
-    stack ghci --package conduit-combinators --package text --package conduit-extra --package containers --package bytestring --package unix
+    stack ghci --package bytestring --package conduit-combinators --package conduit-extra --package containers --package optparse-applicative --package text --package unix
 
     :set -XOverloadedStrings
 -}
@@ -53,19 +53,14 @@ findBlock rb h =
 {- entry point -}
 main :: IO ()
 main = do
-  args <- getArgs
-  if L.length args < 1
-     then do
-        error "need at least one hash (prefix) as argument"
+    let parser = some (argument str (metavar "Block hashes ..."))
+        opts = info parser mempty
+    args <- fmap (map pack) (execParser opts :: IO [String])
 
-     else do
-        {- read list of pairs from stdin -}
-        ll <- runConduitRes $ stdinC
-          .| CB.lines
-          .| sinkList
-
-        {- create map of hashes -}
-        rb <- return $ list2map ll
+    {- read list of pairs from stdin -}
+    ll <- runConduitRes $ stdinC
+        .| CB.lines
+        .| sinkList
 
         {- for every argument on the command line -}
         forks <- forM args (\h0 -> do
@@ -81,3 +76,16 @@ main = do
           ((n,h):_) -> putStrLn $ ((pack . show) n) `append` " " `append` h
   return ()
 
+    {- for every argument on the command line -}
+    forks <- forM args (\h0 -> do
+                                    -- find a block hash that starts with <h0>
+                                    h <- return $ findBlock rb h0
+                                    putStrLn h
+                                    -- find successors to a block hash
+                                    n <- successors 0 rb h
+                                    return $ (n, h)
+                        )
+    case L.sortBy (\(v1,v2) (w1,w2) -> (-v1) `compare` (-w1)) forks of
+        []        -> print "[]"
+        ((n,h):_) -> putStrLn $ ((pack . show) n) `append` " " `append` h
+    return ()

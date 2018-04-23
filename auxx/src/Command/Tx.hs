@@ -61,28 +61,19 @@ data SendToAllGenesisParams = SendToAllGenesisParams
     , stagpTpsSentFile :: !FilePath
     } deriving (Show)
 
--- | Count submitted and failed transactions.
+-- | Count submitted transactions.
 --
 -- This is used in the benchmarks using send-to-all-genesis
 data TxCount = TxCount
     { _txcSubmitted :: !Int
-    , _txcFailed    :: !Int
       -- How many threads are still sending transactions.
     , _txcThreads   :: !Int }
 
 addTxSubmit :: Mockable SharedAtomic m => SharedAtomicT m TxCount -> m ()
 addTxSubmit =
     flip modifySharedAtomic
-        (\(TxCount submitted failed sending) ->
-             pure (TxCount (submitted + 1) failed sending, ()))
-
-{-
-addTxFailed :: Mockable SharedAtomic m => SharedAtomicT m TxCount -> m ()
-addTxFailed =
-    flip modifySharedAtomic
-        (\(TxCount submitted failed sending) ->
-             pure (TxCount submitted (failed + 1) sending, ()))
--}
+        (\(TxCount submitted sending) ->
+             pure (TxCount (submitted + 1) sending, ()))
 
 sendToAllGenesis
     :: forall m. MonadAuxxMode m
@@ -92,7 +83,7 @@ sendToAllGenesis
 sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentFile) = do
     let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration genesisBlockVersionData) `div` 1000000 :: Int
         keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
-    tpsMVar <- newSharedAtomic $ TxCount 0 0 conc
+    tpsMVar <- newSharedAtomic $ TxCount 0 conc
     startTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
     bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
         liftIO $ hSetBuffering h LineBuffering
@@ -119,12 +110,11 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentF
             writeTPS = do
                 delay (sec genesisSlotDuration)
                 curTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
-                finished <- modifySharedAtomic tpsMVar $ \(TxCount submitted failed sending) -> do
+                finished <- modifySharedAtomic tpsMVar $ \(TxCount submitted sending) -> do
                     -- CSV is formatted like this:
                     -- time,txCount,txType
                     liftIO $ T.hPutStrLn h $ T.intercalate "," [curTime, show $ submitted, "submitted"]
-                    liftIO $ T.hPutStrLn h $ T.intercalate "," [curTime, show $ failed, "failed"]
-                    return (TxCount 0 0 sending, sending <= 0)
+                    return (TxCount 0 sending, sending <= 0)
                 if finished
                     then logInfo "Finished writing TPS samples."
                     else writeTPS
@@ -134,8 +124,8 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentF
             sendTxs n
                 | n <= 0 = do
                       logInfo "All done sending transactions on this thread."
-                      modifySharedAtomic tpsMVar $ \(TxCount submitted failed sending) ->
-                          return (TxCount submitted failed (sending - 1), ())
+                      modifySharedAtomic tpsMVar $ \(TxCount submitted sending) ->
+                          return (TxCount submitted (sending - 1), ())
                 | otherwise = (atomically $ tryReadTQueue txQueue) >>= \case
                       Just (key, txOuts) -> do
                           utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner key)

@@ -73,18 +73,12 @@ data JLTxR = JLTxR
 
 -- | Enumeration of all reasons for modifying the mempool.
 data MemPoolModifyReason =
-      -- | Apply a block created by someone else.
+      -- | Apply a block.
       ApplyBlock
       -- | Apply a block, with rollback.
     | ApplyBlockWithRollback
-      -- | Apply a block created by us.
-    -- | CreateBlock
       -- | Include a transaction. It came from this peer.
     | ProcessTransaction
-      -- TODO COMMENT
-    -- | Custom Text
-      -- TODO COMMENT
-    -- | Unknown
     deriving Show
 
 -- | Json log of one mempool modification.

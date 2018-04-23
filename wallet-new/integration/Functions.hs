@@ -544,7 +544,7 @@ runAction wc action = do
             checkInvariant
                 ( length changeAddress <= 1
                   && map pdAddress changeAddress == realChangeAddressId
-                  && and (map addrChangeAddress changeWalletAddresses)
+                  && all addrChangeAddress changeWalletAddresses
                 )
                 (UnexpectedChangeAddress changeWalletAddresses)
 

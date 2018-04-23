@@ -135,7 +135,7 @@ estimateFees Payment{..} = do
                 _ ->
                     throwM (transactionErrorToWalletError txError)
         Right fee ->
-            migrate fee
+            migrate (fee, Accurate)
   where
     mkLowerBound
         :: V0.CAccount

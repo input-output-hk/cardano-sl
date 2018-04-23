@@ -1028,9 +1028,27 @@ instance Arbitrary Accuracy where
     arbitrary = elements [Accurate, LowerBound]
 
 instance ToSchema Accuracy where
-    declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "Accuracy") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ ?~ ["Accurate", "LowerBound"]
 
-deriveJSON Serokell.defaultOptions ''Accuracy
+deriveSafeBuildable ''Accuracy
+instance BuildableSafeGen Accuracy where
+    buildSafeGen _ = show
+
+instance ToJSON Accuracy where
+    toJSON = String . show
+
+instance FromJSON Accuracy where
+    parseJSON = withText "Accuracy" $ \str ->
+        case str of
+            "Accurate" -> pure Accurate
+            "LowerBound" -> pure LowerBound
+            _ -> fail $ mconcat
+                [ "Expected one of 'Accurate' or 'LowerBound', got: "
+                , toString str
+                ]
 
 -- | 'EstimatedFees' represents the fees which would be generated
 -- for a 'Payment' in case the latter would actually be performed.
@@ -1049,6 +1067,7 @@ instance ToSchema EstimatedFees where
   declareNamedSchema =
     genericSchemaDroppingPrefix "fee" (\(--^) props -> props
       & ("estimatedAmount" --^ "Estimated fees, in ADA.")
+      & ("accuracy" --^ "If the account does not have sufficient funds to process the transaction, then we return a lower bound on the estimated fee amount. This is reflected as a 'lowerBound' value.")
     )
 
 instance Arbitrary EstimatedFees where
@@ -1058,8 +1077,10 @@ deriveSafeBuildable ''EstimatedFees
 instance BuildableSafeGen EstimatedFees where
     buildSafeGen sl EstimatedFees{..} = bprint("{"
         %" estimatedAmount="%buildSafe sl
+        %" accuracy="%buildSafe sl
         %" }")
         feeEstimatedAmount
+        feeAccuracy
 
 
 -- | Maps an 'Address' to some 'Coin's, and it's

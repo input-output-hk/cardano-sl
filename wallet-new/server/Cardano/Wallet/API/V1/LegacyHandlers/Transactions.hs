@@ -147,9 +147,9 @@ estimateFees Payment{..} = do
         EstimatedFees (V1 (Core.mkCoin (fromIntegral feeLowerBound))) LowerBound
       where
         feeLowerBound =
-            totalToSpend - acctAmount
+            totalToSpend - txnTotal
         totalToSpend =
-            Core.getCoin amountUnder + txnTotal
+            Core.getCoin amountUnder + acctAmount
         txnTotal =
             sum (fmap (Core.getCoin . unV1 . pdAmount) pmtDestinations)
         acctAmount =

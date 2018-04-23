@@ -55,10 +55,10 @@ import           Mode (MonadAuxxMode, makePubKeyAddressAuxx)
 
 -- | Parameters for 'SendToAllGenesis' command.
 data SendToAllGenesisParams = SendToAllGenesisParams
-    { stagpDuration    :: !Int
-    , stagpConc        :: !Int
-    , stagpDelay       :: !Int
-    , stagpTpsSentFile :: !FilePath
+    { stagpTxsPerThread :: !Int
+    , stagpConc         :: !Int
+    , stagpDelay        :: !Int
+    , stagpTpsSentFile  :: !FilePath
     } deriving (Show)
 
 -- | Count submitted transactions.
@@ -80,7 +80,7 @@ sendToAllGenesis
     => Diffusion m
     -> SendToAllGenesisParams
     -> m ()
-sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentFile) = do
+sendToAllGenesis diffusion (SendToAllGenesisParams txsPerThread conc delay_ tpsSentFile) = do
     let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration genesisBlockVersionData) `div` 1000000 :: Int
         keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
     tpsMVar <- newSharedAtomic $ TxCount 0 conc
@@ -105,20 +105,14 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentF
                 }
             txOuts = TxOutAux txOut1 :| []
         -- construct a transaction, and add it to the queue
-        let addTx (secretKey, n) = do
-                neighbours <- case sendMode of
-                    SendNeighbours -> return ccPeers
-                    SendRoundRobin -> return [ccPeers !! (n `mod` nNeighbours)]
-                    SendRandom -> do
-                        i <- liftIO $ randomRIO (0, nNeighbours - 1)
-                        return [ccPeers !! i]
+        let addTx secretKey = do
                 utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
                 etx <- createTx mempty utxo (fakeSigner secretKey) txOuts (toPublic secretKey)
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
-                    Right (tx, _) -> atomically $ writeTQueue txQueue (tx, neighbours)
-        let nTrans = conc * duration -- number of transactions we'll send
-            allTrans = (zip (drop startAt keysToSend) [0.. conc * duration])
+                    Right (tx, _) -> atomically $ writeTQueue txQueue (tx, txOuts)
+        let nTrans = conc * txsPerThread
+            allTrans = take nTrans (drop startAt keysToSend)
             (firstBatch, secondBatch) = splitAt ((2 * nTrans) `div` 3) allTrans
             -- every <slotDuration> seconds, write the number of sent transactions to a CSV file.
         let writeTPS :: m ()
@@ -142,11 +136,11 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentF
                       modifySharedAtomic tpsMVar $ \(TxCount submitted sending) ->
                           return (TxCount submitted (sending - 1), ())
                 | otherwise = (atomically $ tryReadTQueue txQueue) >>= \case
-                      Just (tx, neighbours) -> do
-                          res <- submitTxRaw (immediateConcurrentConversations sendActions neighbours) tx
+                      Just (tx, _) -> do
+                          res <- submitTxRaw diffusion tx
                           addTxSubmit tpsMVar
                           logInfo $ if res
-                                    then sformat ("Submitted transaction: "%txaF%" to "%shown) tx neighbours
+                                    then sformat ("Submitted transaction: "%txaF) tx
                                     else sformat ("Applied transaction "%txaF%", however no neighbour applied it") tx
                           delay $ ms delay_
                           logInfo "Continuing to send transactions."
@@ -170,7 +164,7 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentF
         -- transactions.
         void $
             concurrently (forM_ secondBatch addTx) $
-            concurrently writeTPS (sendTxsConcurrently duration)
+            concurrently writeTPS (sendTxsConcurrently txsPerThread)
 
 ----------------------------------------------------------------------------
 -- Casual sending

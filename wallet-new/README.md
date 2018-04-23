@@ -180,3 +180,39 @@ Response:
 	}
 }
 ```
+
+## Troubleshooting
+
+##### commitAndReleaseBuffer: invalid argument (invalid character)
+
+When running a node directly with stack, you may encounter an unexpected runtime error
+`commitAndReleaseBuffer` if your machine's locale aren't well suitable for managing unicode
+characters. 
+
+On a _*nix_ system, you can view your current locale by doing:
+
+```
+$ locale
+LANG=en_US.UTF-8
+LANGUAGE=en_US
+LC_CTYPE="en_US.UTF-8"
+LC_NUMERIC=nl_NL.UTF-8
+LC_TIME=nl_NL.UTF-8
+LC_COLLATE="en_US.UTF-8"
+LC_MONETARY=nl_NL.UTF-8
+LC_MESSAGES="en_US.UTF-8"
+LC_PAPER=nl_NL.UTF-8
+LC_NAME=nl_NL.UTF-8
+LC_ADDRESS=nl_NL.UTF-8
+LC_TELEPHONE=nl_NL.UTF-8
+LC_MEASUREMENT=nl_NL.UTF-8
+LC_IDENTIFICATION=nl_NL.UTF-8
+LC_ALL=
+```
+
+One way to cope with this is to force different (UTF-8 compatible) locales when starting a node
+using environment variables as follows:
+
+```
+LANG=en_GB.UTF-8 LC_ALL=en_GB.UTF-8 stack exec -- ...
+```

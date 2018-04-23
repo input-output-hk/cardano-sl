@@ -98,7 +98,7 @@ $ stack exec -- cardano-auxx repl
 Welcome to Cardano SL Auxx REPL
 Mode: light
 ... the auxx plugin is ready
-auxx>  
+auxx>
 ```
 
 Notice that no additional parameters were passed to it, so it runs in
@@ -148,7 +148,7 @@ Hash of installer './update.example' is c78823ad3dc7ef861a09019e73e66af9ea8832bc
 The parameter is mandatory, so we get an error if we forget to specify it:
 
 ```
-auxx> hash-installer 
+auxx> hash-installer
 Invalid arguments for 'hash-installer':
   Missing keys: file
 ```
@@ -217,7 +217,7 @@ $ scripts/launch/auxx.sh repl
 Welcome to Cardano SL Auxx REPL
 Mode: with-config
 ... the auxx plugin is ready
-auxx> 
+auxx>
 ```
 
 The `scripts/launch/auxx.sh` script runs `cardano-auxx` with some default
@@ -232,7 +232,7 @@ $ scripts/launch/auxx.sh repl --mode with-node
 /home/gumo/Projects/cardano-sl/.stack-work/install/x86_64-linux/lts-9.1/8.0.2/bin/cardano-auxx  --peer 127.0.0.1:3000 --peer 127.0.0.1:3001 --peer 127.0.0.1:3002 --peer 127.0.0.1:3003   --json-log=/home/gumo/Projects/cardano-sl/scripts/../logs/2017-11-25_172834/node.json  --logs-prefix /home/gumo/Projects/cardano-sl/scripts/../logs/2017-11-25_172834 --log-config /home/gumo/Projects/cardano-sl/scripts/../logs/2017-11-25_172834/conf/auxx.log.yaml                   --system-start 100500 repl --mode with-node
 Welcome to Cardano SL Auxx REPL
 ... the auxx plugin is ready
-auxx> 
+auxx>
 ```
 
 ## Keys, Addresses, and Transactions
@@ -244,7 +244,7 @@ time and this file doesn't exist, the output of `listaddr` will be empty:
 ```
 auxx> listaddr
 Available addresses:
-auxx> 
+auxx>
 ```
 
 We can add keys using the following commands:
@@ -263,7 +263,7 @@ parameters, like this:
 
 ```
 auxx> add-key-pool 0 1 2 3
-auxx> 
+auxx>
 ```
 
 Now the `secret.key` file was extended with 4 pre-determined keys, the same as used by nodes
@@ -616,7 +616,7 @@ Example:
 
 ```
     cpArgumentConsumer = do
-        stagpDuration <- getArg tyInt "dur"
+        stagpTxsPerThread <- getArg tyInt "txsPerThread"
         stagpConc <- getArg tyInt "conc"
         stagpDelay <- getArg tyInt "delay"
         stagpMode <- getArg tySendMode "mode"

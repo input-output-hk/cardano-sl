@@ -13,6 +13,8 @@ import           Control.Monad.IO.Unlift (MonadUnliftIO)
 import           Data.Coerce (coerce)
 
 import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
+import           Cardano.Wallet.WalletLayer.Legacy.Transactions (pwlCreateTx, pwlEstimateFees,
+                                                                 pwlGetTxs)
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..),
                                                    monadThrowToEither)
 
@@ -43,6 +45,9 @@ import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB, askWal
                                              getWalletAddresses, setWalletMeta)
 import           Pos.Wallet.Web.State.Storage (getWalletInfo)
 
+import           Pos.Wallet.Web.Methods.History (MonadWalletHistory)
+import           Pos.Wallet.Web.Methods.Txp (MonadWalletTxFull)
+
 
 -- | Let's unify all the requirements for the legacy wallet.
 type MonadLegacyWallet ctx m =
@@ -53,6 +58,8 @@ type MonadLegacyWallet ctx m =
     , MonadThrow m
     , MonadWalletLogicRead ctx m
     , MonadKeys m
+    , MonadWalletTxFull ctx m
+    , MonadWalletHistory ctx m
     )
 
 
@@ -99,6 +106,10 @@ passiveWalletLayer = PassiveWalletLayer
     , _pwlCreateAddress     = monadThrowToEither ... pwlCreateAddress
     , _pwlGetAddresses      = monadThrowToEither ... pwlGetAddresses
     , _pwlIsAddressValid    = monadThrowToEither ... pwlIsAddressValid
+
+    , _pwlCreateTx          = monadThrowToEither ... pwlCreateTx
+    , _pwlGetTxs            = monadThrowToEither ... pwlGetTxs
+    , _pwlEstimateFees      = monadThrowToEither ... pwlEstimateFees
     }
 
 ------------------------------------------------------------
@@ -304,5 +315,4 @@ pwlIsAddressValid wAddr = do
     cAddress    <- migrate $ addrId wAddr
     isValid     <- V0.isValidAddress cAddress
     pure AddressValidity{..}
-
 

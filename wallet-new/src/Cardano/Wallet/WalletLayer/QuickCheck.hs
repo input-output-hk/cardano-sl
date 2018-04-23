@@ -40,6 +40,10 @@ bracketPassiveWallet =
         , _pwlCreateAddress     = \_     -> liftedGen
         , _pwlGetAddresses      = \_ _   -> liftedGen
         , _pwlIsAddressValid    = \_     -> liftedGen
+
+        , _pwlCreateTx          = \_ _   -> liftedGen
+        , _pwlGetTxs            = \_ _ _ -> liftedGen
+        , _pwlEstimateFees      = \_     -> liftedGen
         }
 
     -- | A utility function.

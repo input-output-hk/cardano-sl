@@ -65,6 +65,7 @@ library
   other-modules:       Cardano.Wallet.WalletLayer.Types
                        Cardano.Wallet.WalletLayer.Kernel
                        Cardano.Wallet.WalletLayer.Legacy
+                       Cardano.Wallet.WalletLayer.Legacy.Transactions
                        Cardano.Wallet.WalletLayer.QuickCheck
                        Cardano.Wallet.WalletLayer.Error
   ghc-options:         -Wall

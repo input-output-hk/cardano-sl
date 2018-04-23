@@ -21,17 +21,24 @@ module Cardano.Wallet.WalletLayer.Types
     , createAddress
     , getAddresses
     , isAddressValid
+
+    , createTx
+    , getTxs
+    , estimateFees
+
     ) where
 
 
 import           Universum
 
-import           Control.Lens (makeLenses)
 import           Control.Exception.Safe (try)
+import           Control.Lens (makeLenses)
 
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, AddressValidity,
-                                              NewAccount, NewAddress, NewWallet, Wallet,
-                                              WalletAddress, WalletId, WalletUpdate)
+                                              EstimatedFees, NewAccount, NewAddress, NewWallet,
+                                              Payment, Transaction, V1, Wallet, WalletAddress,
+                                              WalletId, WalletUpdate)
+import           Pos.Core (Address, TxAux)
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
@@ -66,6 +73,10 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , _pwlCreateAddress  :: NewAddress -> WalletLayerResponse m WalletAddress
     , _pwlGetAddresses   :: WalletId -> Maybe AccountIndex -> WalletLayerResponse m [WalletAddress]
     , _pwlIsAddressValid :: WalletAddress -> WalletLayerResponse m AddressValidity
+    -- * transactions
+    , _pwlCreateTx       :: (TxAux -> m Bool) -> Payment -> WalletLayerResponse m Transaction
+    , _pwlGetTxs         :: Maybe WalletId -> Maybe AccountIndex -> Maybe (V1 Address) -> WalletLayerResponse m [Transaction]
+    , _pwlEstimateFees   :: Payment -> WalletLayerResponse m EstimatedFees
     }
 
 makeLenses ''PassiveWalletLayer
@@ -114,6 +125,16 @@ getAddresses pwl = pwl ^. pwlGetAddresses
 
 isAddressValid :: forall m. PassiveWalletLayer m -> WalletAddress -> WalletLayerResponse m AddressValidity
 isAddressValid pwl = pwl ^. pwlIsAddressValid
+
+
+createTx :: forall m. PassiveWalletLayer m -> (TxAux -> m Bool) -> Payment -> WalletLayerResponse m Transaction
+createTx pwl = pwl ^. pwlCreateTx
+
+getTxs :: forall m. PassiveWalletLayer m -> Maybe WalletId -> Maybe AccountIndex -> Maybe (V1 Address) -> WalletLayerResponse m [Transaction]
+getTxs pwl = pwl ^. pwlGetTxs
+
+estimateFees :: forall m. PassiveWalletLayer m -> Payment -> WalletLayerResponse m EstimatedFees
+estimateFees pwl = pwl ^. pwlEstimateFees
 
 ------------------------------------------------------------
 -- Active wallet layer

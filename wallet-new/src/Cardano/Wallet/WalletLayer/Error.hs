@@ -38,3 +38,10 @@ instance Arbitrary WalletLayerError where
         , AddressNotFound <$> arbitrary <*> arbitrary
         ]
 
+------------------------------------------------------------
+-- Specific error handlers
+------------------------------------------------------------
+
+
+
+

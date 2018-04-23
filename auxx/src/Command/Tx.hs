@@ -55,10 +55,10 @@ import           Mode (MonadAuxxMode, makePubKeyAddressAuxx)
 
 -- | Parameters for 'SendToAllGenesis' command.
 data SendToAllGenesisParams = SendToAllGenesisParams
-    { stagpDuration    :: !Int
-    , stagpConc        :: !Int
-    , stagpDelay       :: !Int
-    , stagpTpsSentFile :: !FilePath
+    { stagpTxsPerThread :: !Int
+    , stagpConc         :: !Int
+    , stagpDelay        :: !Int
+    , stagpTpsSentFile  :: !FilePath
     } deriving (Show)
 
 -- | Count submitted transactions.
@@ -80,7 +80,7 @@ sendToAllGenesis
     => Diffusion m
     -> SendToAllGenesisParams
     -> m ()
-sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentFile) = do
+sendToAllGenesis diffusion (SendToAllGenesisParams txsPerThread conc delay_ tpsSentFile) = do
     let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration genesisBlockVersionData) `div` 1000000 :: Int
         keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
     tpsMVar <- newSharedAtomic $ TxCount 0 conc
@@ -162,7 +162,7 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentF
         -- transactions.
         void $
             concurrently (forM_ secondBatch addTx) $
-            concurrently writeTPS (sendTxsConcurrently duration)
+            concurrently writeTPS (sendTxsConcurrently txsPerThread)
 
 ----------------------------------------------------------------------------
 -- Casual sending

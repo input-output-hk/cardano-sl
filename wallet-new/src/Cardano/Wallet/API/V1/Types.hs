@@ -46,6 +46,7 @@ module Cardano.Wallet.API.V1.Types (
   , PaymentSource (..)
   , PaymentDistribution (..)
   , Transaction (..)
+  , Accuracy (..)
   , TransactionType (..)
   , TransactionDirection (..)
   , TransactionStatus(..)
@@ -1018,12 +1019,29 @@ instance BuildableSafeGen PasswordUpdate where
         pwdOld
         pwdNew
 
+data Accuracy
+    = Accurate
+    | LowerBound
+    deriving (Eq, Show, Generic)
+
+instance Arbitrary Accuracy where
+    arbitrary = elements [Accurate, LowerBound]
+
+instance ToSchema Accuracy where
+    declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
+
+deriveJSON Serokell.defaultOptions ''Accuracy
 
 -- | 'EstimatedFees' represents the fees which would be generated
 -- for a 'Payment' in case the latter would actually be performed.
-data EstimatedFees = EstimatedFees {
-    feeEstimatedAmount :: !(V1 Core.Coin)
-  } deriving (Show, Eq, Generic)
+data EstimatedFees = EstimatedFees
+    { feeEstimatedAmount :: !(V1 Core.Coin)
+    -- ^ The estimated amount.
+    , feeAccuracy :: !Accuracy
+    -- ^ The accuracy of this estimate. If an account has insufficient
+    -- funds to perform a transaction, then we return 'LowerBound', as
+    -- adding additional inputs to a transaction will increase the fee.
+    } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''EstimatedFees
 
@@ -1034,7 +1052,7 @@ instance ToSchema EstimatedFees where
     )
 
 instance Arbitrary EstimatedFees where
-  arbitrary = EstimatedFees <$> arbitrary
+  arbitrary = EstimatedFees <$> arbitrary <*> arbitrary
 
 deriveSafeBuildable ''EstimatedFees
 instance BuildableSafeGen EstimatedFees where

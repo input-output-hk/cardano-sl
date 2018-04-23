@@ -2,6 +2,24 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Transactions where
 
 import           Universum
 
+import qualified Data.IxSet.Typed as IxSet
+import qualified Data.List.NonEmpty as NE
+
+import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
+import qualified Pos.Client.Txp.Util as V0
+import           Pos.Core (TxAux)
+import qualified Pos.Core as Core
+import qualified Pos.Util.Servant as V0
+import qualified Pos.Wallet.WalletMode as V0
+import qualified Pos.Wallet.Web.ClientTypes.Types as V0
+import qualified Pos.Wallet.Web.Methods.History as V0
+import qualified Pos.Wallet.Web.Methods.Logic as V0
+import qualified Pos.Wallet.Web.Methods.Payment as V0
+import qualified Pos.Wallet.Web.Methods.Txp as V0
+import qualified Pos.Wallet.Web.State as V0
+import           Pos.Wallet.Web.State.Storage (WalletInfo (_wiSyncStatistics))
+import qualified Pos.Wallet.Web.Util as V0
+
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Errors
@@ -9,37 +27,23 @@ import           Cardano.Wallet.API.V1.Migration (HasCompileInfo, HasConfigurati
                                                   migrate)
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
-import qualified Data.IxSet.Typed as IxSet
-import qualified Data.List.NonEmpty as NE
-import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
-import qualified Pos.Client.Txp.Util as V0
-import           Pos.Core (TxAux)
-import qualified Pos.Core as Core
-import           Pos.Util (eitherToThrow)
-import qualified Pos.Util.Servant as V0
-import qualified Pos.Wallet.WalletMode as V0
-import qualified Pos.Wallet.Web.ClientTypes.Types as V0
-import qualified Pos.Wallet.Web.Methods.History as V0
-import qualified Pos.Wallet.Web.Methods.Payment as V0
-import qualified Pos.Wallet.Web.Methods.Txp as V0
-import qualified Pos.Wallet.Web.State as V0
-import           Pos.Wallet.Web.State.Storage (WalletInfo (_wiSyncStatistics))
-import qualified Pos.Wallet.Web.Util as V0
+
 import           Servant
 
-handlers :: ( HasConfigurations
-            , HasCompileInfo
-            )
-         => (TxAux -> MonadV1 Bool) -> ServerT Transactions.API MonadV1
-
+handlers
+    :: (HasConfigurations, HasCompileInfo)
+    => (TxAux -> MonadV1 Bool)
+    -> ServerT Transactions.API MonadV1
 handlers submitTx =
-             newTransaction submitTx
-        :<|> allTransactions
-        :<|> estimateFees
+         newTransaction submitTx
+    :<|> allTransactions
+    :<|> estimateFees
 
 newTransaction
-    :: forall ctx m . (V0.MonadWalletTxFull ctx m)
-    => (TxAux -> m Bool) -> Payment -> m (WalletResponse Transaction)
+    :: forall ctx m. (V0.MonadWalletTxFull ctx m)
+    => (TxAux -> m Bool)
+    -> Payment
+    -> m (WalletResponse Transaction)
 newTransaction submitTx Payment {..} = do
     ws <- V0.askWalletSnapshot
     sourceWallet <- migrate (psWalletId pmtSource)
@@ -108,7 +112,7 @@ allTransactions mwalletId mAccIdx mAddr requestParams fops sops  =
                 { requiredParams = pure ("wallet_id", "WalletId")
                 }
 
-estimateFees :: (MonadThrow m, V0.MonadFees ctx m)
+estimateFees :: (MonadThrow m, V0.MonadFees ctx m, V0.MonadWalletLogicRead ctx m)
     => Payment
     -> m (WalletResponse EstimatedFees)
 estimateFees Payment{..} = do
@@ -119,29 +123,45 @@ estimateFees Payment{..} = do
     utxo <- V0.getMoneySourceUtxo ws (V0.AccountMoneySource cAccountId)
     outputs <- V0.coinDistrToOutputs =<< mapM migrate pmtDestinations
     efee <- V0.runTxCreator policy (V0.computeTxFee pendingAddrs utxo outputs)
-    case efee of
+    single <$> case efee of
         Left txError ->
             case txError of
-                V0.NotEnoughMoney coin ->
-                    -- so we didn't have enough money to create the
-                    -- transaction
-                    error "Can we reconstruct a fee here?"
-                V0.NotEnoughAllowedMoney coin ->
-                    error "Can we reconstruct a fee here?"
-                V0.FailedToStabilize ->
-                -- ^ Parameter: how many attempts were performed
-                    error "What to do in this case?"
-                V0.OutputIsRedeem addr ->
-                    error "What to do in this case?"
-                -- ^ One of the tx outputs is a redemption address
-                V0.RedemptionDepleted ->
-                    error "What to do in this case?"
-                -- ^ Redemption address has already been used
-                V0.SafeSignerNotFound addr ->
-                    error "What to do in this case?"
-                -- ^ The safe signer at the specified address was not found
-                V0.GeneralTxError txt ->
-                    error "What to do in this case?"
-                -- ^ Parameter: description of the problem
+                V0.NotEnoughMoney coin -> do
+                    acct <- V0.getAccount cAccountId
+                    pure $ mkLowerBound acct coin
+                V0.NotEnoughAllowedMoney coin -> do
+                    acct <- V0.getAccount cAccountId
+                    pure $ mkLowerBound acct coin
+                _ ->
+                    throwM (transactionErrorToWalletError txError)
         Right fee ->
-            single <$> migrate fee
+            migrate fee
+  where
+    mkLowerBound
+        :: V0.CAccount
+        -- ^ The account that failed to pay.
+        -> Core.Coin
+        -- ^ The amount of coins necessary to complete the transaction.
+        -> EstimatedFees
+    mkLowerBound acct amountUnder =
+        EstimatedFees (V1 (Core.mkCoin (fromIntegral feeLowerBound))) LowerBound
+      where
+        feeLowerBound =
+            totalToSpend - acctAmount
+        totalToSpend =
+            Core.getCoin amountUnder + txnTotal
+        txnTotal =
+            sum (fmap (Core.getCoin . unV1 . pdAmount) pmtDestinations)
+        acctAmount =
+            case V0.caAmount acct of
+                V0.CCoin coinAsText ->
+                    -- (parsons.matt): The function that actually acquires the
+                    -- 'CAccount' in this case is getting it from
+                    -- 'getAccountMod' in "Pos.Wallet.Web.Methods.Logic". That
+                    -- function *always* calls 'mkCCoin' with an int value, and
+                    -- 'mkCCoin' always calls 'show' on the coin.
+                    --
+                    -- TODO: banish these awful legacy types
+                    fromMaybe
+                        (error "Account somehow had a non-integral coin value???")
+                        (readMaybe (toString coinAsText))

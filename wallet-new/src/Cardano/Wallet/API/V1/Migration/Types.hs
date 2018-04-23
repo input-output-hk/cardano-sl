@@ -293,7 +293,7 @@ instance Migrate (V1 V0.InputSelectionPolicy) V0.InputSelectionPolicy where
     eitherMigrate (V1 policy) = pure policy
 
 instance Migrate V0.TxFee V1.EstimatedFees where
-    eitherMigrate (V0.TxFee coin) = pure $ V1.EstimatedFees (V1 coin)
+    eitherMigrate (V0.TxFee coin) = pure $ V1.EstimatedFees (V1 coin) V1.Accurate
 
 instance Migrate V1.EstimatedFees V0.TxFee where
     eitherMigrate V1.EstimatedFees{..} =

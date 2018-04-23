@@ -15,6 +15,7 @@ import qualified Network.HTTP.Types as HTTP
 import qualified Pos.Core as Core
 import           Servant
 import           Test.QuickCheck (Arbitrary (..), oneof)
+import qualified Pos.Client.Txp.Util as TxError
 
 import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
 import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
@@ -163,6 +164,23 @@ toServantError err =
 toHttpStatus :: WalletError -> HTTP.Status
 toHttpStatus err = HTTP.Status (errHTTPCode $ toServantError err)
                                (encodeUtf8 $ describe err)
+
+transactionErrorToWalletError :: TxError.TxError -> WalletError
+transactionErrorToWalletError = \case
+    TxError.NotEnoughMoney coin ->
+        NotEnoughMoney (fromIntegral (Core.getCoin coin))
+    TxError.NotEnoughAllowedMoney coin ->
+        NotEnoughMoney (fromIntegral (Core.getCoin coin))
+    TxError.FailedToStabilize ->
+        UnknownError "Transaction process failed to stabilize."
+    TxError.OutputIsRedeem addr ->
+        OutputIsRedeem (show addr)
+    TxError.RedemptionDepleted ->
+        UnknownError "Redemption Depleted"
+    TxError.SafeSignerNotFound _addr ->
+        UnknownError "Safe Signer not found"
+    TxError.GeneralTxError txt ->
+        UnknownError txt
 
 -- | Generates the @Content-Type: application/json@ 'HTTP.Header'.
 applicationJson :: HTTP.Header

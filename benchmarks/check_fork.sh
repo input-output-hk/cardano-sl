@@ -32,4 +32,3 @@ for NODE in ${NODES}; do
   done
   echo
 done
-

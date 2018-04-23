@@ -35,7 +35,7 @@ import           Cardano.Wallet.Client (ClientError (..), Response (..), Servant
                                         WalletClient (..), getAccounts, getAddressIndex,
                                         getTransactionIndex, getWallets, hoistClient)
 
-import           Pos.Core (getCoin, mkCoin)
+import           Pos.Core (getCoin, mkCoin, unsafeAddCoin, unsafeSubCoin)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import           Error
@@ -512,7 +512,9 @@ runAction wc action = do
 
             -- Check the transaction.
             log $ "postTransaction: " <> ppShowT newPayment
+            addressesBeforeTransaction <- respToRes $ getAddressIndex wc
             newTx  <-  respToRes $ postTransaction wc newPayment
+            addressesAfterTransaction <- respToRes $ getAddressIndex wc
 
             let sumCoins f =
                     sum . map (getCoin . unV1 . pdAmount) . toList $ f newTx
@@ -527,25 +529,45 @@ runAction wc action = do
             let actualFees = V1 . mkCoin $ inputSum - outputSum
 
             -- Estimated fees should correspond to actual fees
-            -- TODO(akegalj): add custom error type
             checkInvariant
                 (feeEstimatedAmount txFees == actualFees)
-                (InvalidTransactionState newTx)
+                (InvalidTransactionFee txFees)
 
             let changeAddress = toList (txOutputs newTx) \\ toList paymentDestinations
                 -- NOTE: instead of this manual conversion we could filter WalletAddress from getAddressIndex
                 pdToChangeAddress PaymentDistribution{..} = WalletAddress pdAddress pdAmount True True
+                realChangeAddressId = map addrId addressesAfterTransaction \\ map addrId addressesBeforeTransaction
+                changeWalletAddresses = filter ((`elem` realChangeAddressId) . addrId) addressesAfterTransaction
 
-            -- We expect at most one extra PaymentDestination which should be a change address
-            -- TODO(akegalj): add custom error type
+            -- We expect at most one extra PaymentDestination which should be a change address. Also at most one address should be added after transaction - which should be the same change address
+            -- All change addresses should set up a flag addrChangeAddress
             checkInvariant
-                (length changeAddress <= 1)
-                (InvalidTransactionState newTx)
+                ( length changeAddress <= 1
+                  && map pdAddress changeAddress == realChangeAddressId
+                  && all addrChangeAddress changeWalletAddresses
+                )
+                (UnexpectedChangeAddress changeWalletAddresses)
 
-            -- TODO(akegalj): add invariant that checks is there paymentDestinations distributions in newTx
-            -- TODO(akegalj): add invariant that checks is paymentSource the only source of newTx
-            -- TODO(akegalj): add invariant that checks did accounts of all payment destinations increase by expected amount
-            -- TODO(akegalj): add invariant that checks did accounts of all payment sources decrease by expected amount
+            let checkWalletAddressAfter diffList expectedOperation = do
+                    log "checking expected addresses balances..."
+                    forM_ diffList $ \PaymentDistribution{..} -> do
+                        let mBeforePayment = find ((pdAddress ==) . addrId) addressesBeforeTransaction
+                            mAfterPayment = find ((pdAddress ==) . addrId) addressesAfterTransaction
+                        case (,) <$> mBeforePayment <*> mAfterPayment of
+                            Just (beforePayment, afterPayment) -> do
+                                let balanceBeforePaymentModified = V1 . expectedOperation (unV1 pdAmount) . unV1 $ addrBalance beforePayment
+                                    balanceAfterPayment = addrBalance afterPayment
+                                checkInvariant
+                                    (balanceBeforePaymentModified == balanceAfterPayment)
+                                    (UnexpectedAddressBalance beforePayment afterPayment)
+                            Nothing -> throwM $ CantFindAddress pdAddress
+
+            -- Check did addresses of all payment sources decrease by expected amount after transaction
+            checkWalletAddressAfter (txInputs newTx) $ flip unsafeSubCoin
+
+            -- Check did addresses of all payment destinations increase by expected amount after transaction
+            -- NOTE: we are using paymentDestinations instead of txOutputs to eliminate changeAddress
+            checkWalletAddressAfter paymentDestinations unsafeAddCoin
 
             -- Modify wallet state accordingly.
             transactions  <>= [(accountSource, newTx)]

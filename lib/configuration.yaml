@@ -14921,6 +14921,7 @@ michaelnet: &michaelnet
   node:
     <<: *devnet_node
     networkDiameter: 3
+    recoveryHeadersMessage: 2200 # should be greater than k
   core:
     <<: *devnet_core
     genesis:

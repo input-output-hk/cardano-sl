@@ -317,10 +317,6 @@ runAction wc ws PostAddress = do
 
     result  <-  respToRes $ postAddress wc newAddress
 
-    checkInvariant
-        (addrBalance result == minBound)
-        (AddressBalanceNotZero result)
-
     -- Modify wallet state accordingly.
     pure $ ws
         & addresses  <>~ [result]

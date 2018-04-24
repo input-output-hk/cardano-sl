@@ -67,7 +67,7 @@ newWallet NewWallet{..} = do
     --   https://github.com/input-output-hk/cardano-sl/pull/2811#discussion_r183472103
     rethrowDuplicateMnemonic (e :: V0.WalletError) =
         case e of
-            V0.RequestError "Wallet with that mnemonics already exists" -> throwM $ WalletAlreadyExists "Can't create a wallet. The wallet already exists."
+            V0.RequestError "Wallet with that mnemonics already exists" -> throwM WalletAlreadyExists
             _ -> throwM e
 
 -- | Returns the full (paginated) list of wallets.

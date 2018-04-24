@@ -59,7 +59,8 @@ data WalletError =
     | UnknownError { weMsg :: !Text }
     | InvalidAddressFormat { weMsg :: !Text }
     | WalletNotFound
-    | WalletAlreadyExists { weExists :: !Text }
+    -- FIXME(akegalj): https://iohk.myjetbrains.com/youtrack/issue/CSL-2496
+    | WalletAlreadyExists
     | AddressNotFound
     | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
     | WalletIsNotReadyToProcessPayments { weStillRestoring :: SyncProgress }
@@ -113,7 +114,7 @@ sample =
   , UnknownError "unknown"
   , InvalidAddressFormat "Invalid base58 representation."
   , WalletNotFound
-  , WalletAlreadyExists "Wallet with that mnemonics already exists"
+  , WalletAlreadyExists
   , AddressNotFound
   , MissingRequiredParams (("wallet_id", "walletId") :| [])
   , WalletIsNotReadyToProcessPayments sampleSyncProgress
@@ -130,7 +131,7 @@ describe = \case
   UnknownError        _                -> "Unexpected internal error."
   InvalidAddressFormat _              -> "Provided address format is not valid."
   WalletNotFound                      -> "Reference to an unexisting wallet was given."
-  WalletAlreadyExists _               -> "Can't create a wallet. The wallet already exists."
+  WalletAlreadyExists                 -> "Can't create or restore a wallet. The wallet already exists."
   AddressNotFound                     -> "Reference to an unexisting address was given."
   MissingRequiredParams _             -> "Missing required parameters in the request payload."
   WalletIsNotReadyToProcessPayments _ -> "This wallet is restoring, and it cannot send new transactions until restoration completes."

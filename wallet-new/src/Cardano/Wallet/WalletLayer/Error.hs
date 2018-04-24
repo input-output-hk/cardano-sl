@@ -20,7 +20,7 @@ data WalletLayerError
     = WalletNotFound WalletId
     | AccountNotFound WalletId AccountIndex
     | AddressNotFound WalletId AccountIndex
-    -- NOTE: optionally show mnemonic of the wallet (adn thinks its a bad idea https://iohk.myjetbrains.com/youtrack/issue/CSL-2431#comment=93-19922 )
+    -- FIXME(akegalj): https://iohk.myjetbrains.com/youtrack/issue/CSL-2496
     | WalletAlreadyExists
     deriving (Show, Eq, Generic)
 
@@ -30,4 +30,4 @@ instance Buildable WalletLayerError where
     build (WalletNotFound  wId      ) = bprint ("Wallet not found. Wallet id ("%stext%").") (show wId)
     build (AccountNotFound wId accIx) = bprint ("Account not found. Wallet id ("%stext%"), accound index ("%stext%").") (show wId) (show accIx)
     build (AddressNotFound wId accIx) = bprint ("Address not found. Wallet id ("%stext%"), accound index ("%stext%").") (show wId) (show accIx)
-    build WalletAlreadyExists         = "Can't create a wallet. The wallet already exists."
+    build WalletAlreadyExists = bprint ("Can't create or restore a wallet. The wallet already exists.")

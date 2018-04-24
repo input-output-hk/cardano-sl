@@ -145,7 +145,6 @@ instance Migrate (V1.WalletId, V1.NewAccount) V0.CAccountInit where
 instance Migrate V0.CAddress V1.WalletAddress where
     eitherMigrate V0.CAddress{..} = do
         addrId <- eitherMigrate cadId
-        addrBalance <- eitherMigrate cadAmount
         let addrUsed = cadIsUsed
         let addrChangeAddress = cadIsChange
         return V1.WalletAddress{..}

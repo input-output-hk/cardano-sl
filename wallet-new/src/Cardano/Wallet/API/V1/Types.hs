@@ -819,7 +819,6 @@ instance BuildableSafeGen AddressValidity where
 -- | Summary about single address.
 data WalletAddress = WalletAddress
     { addrId            :: !(V1 Core.Address)
-    , addrBalance       :: !(V1 Core.Coin)
     , addrUsed          :: !Bool
     , addrChangeAddress :: !Bool
     } deriving (Show, Eq, Generic, Ord)
@@ -830,14 +829,12 @@ instance ToSchema WalletAddress where
     declareNamedSchema =
         genericSchemaDroppingPrefix "addr" (\(--^) props -> props
             & ("id"            --^ "Actual address.")
-            & ("balance"       --^ "Associated balance, in Lovelace.")
             & ("used"          --^ "True if this address has been used.")
             & ("changeAddress" --^ "True if this address stores change from a previous transaction.")
         )
 
 instance Arbitrary WalletAddress where
     arbitrary = WalletAddress <$> arbitrary
-                              <*> arbitrary
                               <*> arbitrary
                               <*> arbitrary
 
@@ -943,12 +940,10 @@ deriveSafeBuildable ''WalletAddress
 instance BuildableSafeGen WalletAddress where
     buildSafeGen sl WalletAddress{..} = bprint ("{"
         %" id="%buildSafe sl
-        %" balance="%buildSafe sl
         %" used="%build
         %" changeAddress="%build
         %" }")
         addrId
-        addrBalance
         addrUsed
         addrChangeAddress
 

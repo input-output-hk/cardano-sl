@@ -15,6 +15,7 @@ module Cardano.Wallet.WalletLayer.Types
     , deleteAccount
 
     , getAddresses
+    , applyBlocks
     ) where
 
 import           Universum
@@ -92,6 +93,10 @@ deleteAccount pwl = pwl ^. pwlDeleteAccount
 
 getAddresses :: forall m. PassiveWalletLayer m -> WalletId -> m [Address]
 getAddresses pwl = pwl ^. pwlGetAddresses
+
+
+applyBlocks :: forall m. PassiveWalletLayer m -> OldestFirst NE Blund -> m ()
+applyBlocks pwl = pwl ^. pwlApplyBlocks
 
 ------------------------------------------------------------
 -- Active wallet layer

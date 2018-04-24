@@ -408,6 +408,7 @@ test-suite wallet-new-specs
                     MarshallingSpec
                     SwaggerSpec
                     RequestSpec
+                    WalletHandlersSpec
 
                     Cardano.Wallet.API.Development.Helpers
                     Cardano.Wallet.API.Development.LegacyHandlers

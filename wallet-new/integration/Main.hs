@@ -122,14 +122,14 @@ deterministicTests wc = do
 
     describe "Wallets" $ do
         it "Creating a wallet makes it available." $ do
-            newWallet <- randomWallet
+            newWallet <- createRandomWallet
             Wallet{..} <- createWalletCheck newWallet
 
             eresp <- getWallet wc walId
             void $ eresp `shouldPrism` _Right
 
         it "Updating a wallet persists the update" $ do
-            newWallet <- randomWallet
+            newWallet <- createRandomWallet
             wallet <- createWalletCheck newWallet
             let newName = "Foobar Bazquux"
                 newAssurance = NormalAssurance
@@ -140,23 +140,10 @@ deterministicTests wc = do
             Wallet{..} <- wrData <$> eupdatedWallet `shouldPrism` _Right
             walName `shouldBe` newName
             walAssuranceLevel `shouldBe` newAssurance
-        it "Creating a wallet with same mnemonics rises WalletAlreadyExists error." $ do
-            newWallet1 <- randomWallet
-            newWallet2 <- (\wallet -> wallet { newwalBackupPhrase = newwalBackupPhrase newWallet1 }) <$> randomWallet
-            -- First wallet creation should succeed
-            void $ createWalletCheck newWallet1
-            -- Second wallet creation should rise WalletAlreadyExists
-            eresp <- postWallet wc newWallet2
-            clientError <- eresp `shouldPrism` _Left
-            let errorBody = errBody $ toServantError WalletAlreadyExists
-            -- TODO(akegalj): is there a better way to achieve this?
-            -- Ideally I would love to use prism to walk through to the
-            -- response body and test it. To do it I would have to create
-            -- a custom Prism/Lens or to derive prism for some servant internals (which doesn't seem nice thing to do)
-            case clientError of
-                ClientHttpError (FailureResponse response) ->
-                    responseBody response `shouldBe` errorBody
-                _ -> expectationFailure $ "expected (ClientHttpError FailureResponse) but got: " <> show clientError
+
+        it "Creating a wallet with the same mnemonics rises WalletAlreadyExists error." $ testWalletAlreadyExists CreateWallet
+
+        it "Restoring a wallet with the same mnemonics rises WalletAlreadyExists error." $ testWalletAlreadyExists RestoreWallet
 
     describe "Transactions" $ do
         it "posted transactions appear in the index" $ do
@@ -191,8 +178,8 @@ deterministicTests wc = do
 
         it "estimate fees of a well-formed transaction" $ do
             ws <- (,)
-                <$> (randomWallet >>= createWalletCheck)
-                <*> (randomWallet >>= createWalletCheck)
+                <$> (createRandomWallet >>= createWalletCheck)
+                <*> (createRandomWallet >>= createWalletCheck)
 
             ((fromAcct, _), (_toAcct, toAddr)) <- (,)
                 <$> firstAccountAndId (fst ws)
@@ -239,14 +226,34 @@ deterministicTests wc = do
             void $ etxn `shouldPrism` _Left
 
   where
-    randomWallet =
+    randomWallet action =
         generate $
             NewWallet
                 <$> arbitrary
                 <*> pure Nothing
                 <*> arbitrary
                 <*> pure "Wallet"
-                <*> pure CreateWallet
+                <*> pure action
+    createRandomWallet = randomWallet CreateWallet
+
+    testWalletAlreadyExists action = do
+            newWallet1 <- randomWallet action
+            newWallet2 <- (\wallet -> wallet { newwalBackupPhrase = newwalBackupPhrase newWallet1 }) <$> randomWallet action
+            -- First wallet creation should succeed
+            result <- postWallet wc newWallet1
+            void $ result `shouldPrism` _Right
+            -- Second wallet creation should rise WalletAlreadyExists
+            eresp <- postWallet wc newWallet2
+            clientError <- eresp `shouldPrism` _Left
+            let errorBody = errBody $ toServantError WalletAlreadyExists
+            -- TODO(akegalj): is there a better way to achieve this?
+            -- Ideally I would love to use prism to walk through to the
+            -- response body and test it. To do it I would have to create
+            -- a custom Prism/Lens or to derive prism for some servant internals (which doesn't seem nice thing to do)
+            case clientError of
+                ClientHttpError (FailureResponse response) ->
+                    responseBody response `shouldBe` errorBody
+                _ -> expectationFailure $ "expected (ClientHttpError FailureResponse) but got: " <> show clientError
 
     createWalletCheck newWallet = do
         result <- fmap wrData <$> postWallet wc newWallet
@@ -264,6 +271,7 @@ deterministicTests wc = do
 
         pure (toAcct, toAddr)
 
+
     -- this is a "Safe' usage of `unsafePerformIO`. if it's too gross then
     -- I can delete it.
     walletRef :: MVar Wallet
@@ -278,7 +286,7 @@ deterministicTests wc = do
                 putMVar walletRef wallet
                 pure wallet
             Nothing -> do
-                w <- randomWallet
+                w <- createRandomWallet
                 w' <- createWalletCheck w
                 didWrite <- tryPutMVar walletRef w'
                 if didWrite

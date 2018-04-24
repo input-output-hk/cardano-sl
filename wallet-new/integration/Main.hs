@@ -5,11 +5,13 @@ module Main where
 
 import           Universum
 
+import           Cardano.Wallet.API.V1.Errors (toServantError)
 import           Cardano.Wallet.Client.Http
 import           Control.Lens hiding ((^..), (^?))
 import           Data.Map (fromList)
 import           Data.Traversable (for)
 import qualified Pos.Core as Core
+import           Servant (errBody)
 import           System.IO (hSetEncoding, stdout, utf8)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Hspec
@@ -138,6 +140,23 @@ deterministicTests wc = do
             Wallet{..} <- wrData <$> eupdatedWallet `shouldPrism` _Right
             walName `shouldBe` newName
             walAssuranceLevel `shouldBe` newAssurance
+        it "Creating a wallet with same mnemonics rises WalletAlreadyExists error." $ do
+            newWallet1 <- randomWallet
+            newWallet2 <- (\wallet -> wallet { newwalBackupPhrase = newwalBackupPhrase newWallet1 }) <$> randomWallet
+            -- First wallet creation should succeed
+            void $ createWalletCheck newWallet1
+            -- Second wallet creation should rise WalletAlreadyExists
+            eresp <- postWallet wc newWallet2
+            clientError <- eresp `shouldPrism` _Left
+            let errorBody = errBody $ toServantError WalletAlreadyExists
+            -- TODO(akegalj): is there a better way to achieve this?
+            -- Ideally I would love to use prism to walk through to the
+            -- response body and test it. To do it I would have to create
+            -- a custom Prism/Lens or to derive prism for some servant internals (which doesn't seem nice thing to do)
+            case clientError of
+                ClientHttpError (FailureResponse response) ->
+                    responseBody response `shouldBe` errorBody
+                _ -> expectationFailure $ "expected (ClientHttpError FailureResponse) but got: " <> show clientError
 
     describe "Transactions" $ do
         it "posted transactions appear in the index" $ do

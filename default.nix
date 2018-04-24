@@ -89,6 +89,8 @@ let
       mkDerivation = args: super.mkDerivation (args // {
         enableLibraryProfiling = enableProfiling;
         enableExecutableProfiling = enableProfiling;
+        enableSharedExecutables = false;
+        #enableSharedLibraries = false;
       } // optionalAttrs enableDebugging {
         # TODO: DEVOPS-355
         dontStrip = true;

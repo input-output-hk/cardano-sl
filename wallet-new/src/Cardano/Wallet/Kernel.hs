@@ -10,13 +10,19 @@ module Cardano.Wallet.Kernel (
     -- * Passive wallet
     PassiveWallet -- opaque
   , WalletId
+  , walletLogMessage
   , walletPassive
   , getWalletUtxo
+  , getWalletPending
   , bracketPassiveWallet
   , init
   , newWalletHdRnd
   , applyBlock
   , applyBlocks
+  , availableBalance
+  , totalBalance
+  , stateUtxo
+  , stateUtxoBalance
     -- * Active wallet
   , ActiveWallet -- opaque
   , bracketActiveWallet

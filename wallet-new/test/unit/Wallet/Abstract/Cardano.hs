@@ -14,11 +14,9 @@ module Wallet.Abstract.Cardano (
 import           Universum
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
-
 import           Pos.Txp (Utxo, formatUtxo)
-import           Pos.Core (HasConfiguration)
+import           Pos.Core (HasConfiguration, Coin, unsafeIntegerToCoin)
 import           Pos.Crypto (EncryptedSecretKey)
-
 import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.Types
 
@@ -148,8 +146,12 @@ equivalentT activeWallet esk = \mkWallet w ->
                      -> TranslateT (EquivalenceViolation h) m ()
     checkWalletState ctxt@InductiveCtxt{..} wid = do
         cmp "utxo" utxo (`Kernel.getWalletUtxo` wid)
+        cmp "totalUtxoBalance" totalBalance getWalletTotalBalance
         -- TODO: check other properties
       where
+        getWalletTotalBalance :: Kernel.PassiveWallet -> IO Coin
+        getWalletTotalBalance pw = unsafeIntegerToCoin <$> Kernel.totalBalance pw wid
+
         cmp :: ( Interpret h a
                , Eq (Interpreted a)
                , Buildable a
@@ -163,6 +165,7 @@ equivalentT activeWallet esk = \mkWallet w ->
           let dsl = f inductiveCtxtWallet
           translated <- toCardano ctxt fld dsl
           kernel     <- liftIO $ g passiveWallet
+
           unless (translated == kernel) $
             throwError EquivalenceViolation {
                 equivalenceViolationName      = fld

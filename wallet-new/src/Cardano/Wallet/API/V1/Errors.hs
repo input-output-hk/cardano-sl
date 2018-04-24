@@ -7,18 +7,21 @@ module Cardano.Wallet.API.V1.Errors where
 
 import           Universum
 
-import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Data.Aeson
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import           Generics.SOP.TH (deriveGeneric)
 import qualified Network.HTTP.Types as HTTP
-import qualified Pos.Core as Core
 import           Servant
 import           Test.QuickCheck (Arbitrary (..), oneof)
-import qualified Pos.Client.Txp.Util as TxError
 
+import qualified Pos.Client.Txp.Util as TxError
+import qualified Pos.Crypto.Hashing as Crypto
+import qualified Pos.Core as Core
+import qualified Pos.Data.Attributes as Core
+
+import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
-import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
+import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..), V1 (..),
                                               mkEstimatedCompletionTime, mkSyncPercentage,
                                               mkSyncThroughput)
 
@@ -55,7 +58,7 @@ import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
 -- TODO: change fields' types to actual Cardano core types, like `Coin` and `Address`
 data WalletError =
       NotEnoughMoney { weNeedMore :: !Int }
-    | OutputIsRedeem { weAddress :: !Text }
+    | OutputIsRedeem { weAddress :: !(V1 Core.Address) }
     | MigrationFailed { weDescription :: !Text }
     | JSONValidationFailed { weValidationError :: !Text }
     | UnknownError { weMsg :: !Text }
@@ -70,6 +73,9 @@ data WalletError =
     | NodeIsStillSyncing { wenssStillSyncing :: SyncPercentage }
     -- ^ The backend couldn't process the incoming request as the underlying
     -- node is still syncing with the blockchain.
+    | TxRedemptionDepleted
+    -- ^ Transaction Redemption address has already been used
+
     deriving (Show, Eq)
 
 --
@@ -110,51 +116,85 @@ sampleSyncProgress = SyncProgress {
 -- | Sample of errors we use for documentation
 sample :: [WalletError]
 sample =
-  [ NotEnoughMoney 1400
-  , OutputIsRedeem "b10b242...be80d93"
-  , MigrationFailed "Migration failed"
-  , JSONValidationFailed "Expected String, found Null."
-  , UnknownError "Unknown error"
-  , InvalidAddressFormat "Invalid base58 representation."
-  , WalletNotFound
-  , AddressNotFound
-  , MissingRequiredParams (("wallet_id", "walletId") :| [])
-  , WalletIsNotReadyToProcessPayments sampleSyncProgress
-  , NodeIsStillSyncing (mkSyncPercentage 42)
-  ]
+    [ NotEnoughMoney 1400
+    , OutputIsRedeem . V1 $
+        Core.Address
+            { Core.addrRoot =
+                Crypto.unsafeAbstractHash ("asdfasdf" :: String)
+            , Core.addrAttributes = Core.mkAttributes $ Core.AddrAttributes Nothing Core.BootstrapEraDistr
+            , Core.addrType = Core.ATPubKey
+            }
+
+    , MigrationFailed "Migration failed"
+    , JSONValidationFailed "Expected String, found Null."
+    , UnknownError "Unknown error"
+    , InvalidAddressFormat "Invalid base58 representation."
+    , WalletNotFound
+    , AddressNotFound
+    , MissingRequiredParams (("wallet_id", "walletId") :| [])
+    , WalletIsNotReadyToProcessPayments sampleSyncProgress
+    , NodeIsStillSyncing (mkSyncPercentage 42)
+    ]
 
 
 -- | Give a short description of an error
 describe :: WalletError -> String
 describe = \case
-  NotEnoughMoney _                    -> "Not enough available coins to proceed."
-  OutputIsRedeem  _                   -> "One of the TX outputs is a redemption address."
-  MigrationFailed  _                  -> "Error while migrating a legacy type into the current version."
-  JSONValidationFailed _              -> "Couldn't decode a JSON input."
-  UnknownError        _                -> "Unexpected internal error."
-  InvalidAddressFormat _              -> "Provided address format is not valid."
-  WalletNotFound                      -> "Reference to an unexisting wallet was given."
-  AddressNotFound                     -> "Reference to an unexisting address was given."
-  MissingRequiredParams _             -> "Missing required parameters in the request payload."
-  WalletIsNotReadyToProcessPayments _ -> "This wallet is restoring, and it cannot send new transactions until restoration completes."
-  NodeIsStillSyncing _                -> "The node is still syncing with the blockchain, and cannot process the request yet."
+    NotEnoughMoney _ ->
+         "Not enough available coins to proceed."
+    OutputIsRedeem  _ ->
+         "One of the TX outputs is a redemption address."
+    MigrationFailed  _ ->
+         "Error while migrating a legacy type into the current version."
+    JSONValidationFailed _ ->
+         "Couldn't decode a JSON input."
+    UnknownError        _ ->
+         "Unexpected internal error."
+    InvalidAddressFormat _ ->
+         "Provided address format is not valid."
+    WalletNotFound ->
+         "Reference to an unexisting wallet was given."
+    AddressNotFound ->
+         "Reference to an unexisting address was given."
+    MissingRequiredParams _ ->
+         "Missing required parameters in the request payload."
+    WalletIsNotReadyToProcessPayments _ ->
+         "This wallet is restoring, and it cannot send new transactions until restoration completes."
+    NodeIsStillSyncing _ ->
+         "The node is still syncing with the blockchain, and cannot process the request yet."
+    TxRedemptionDepleted {} ->
+        "The redemption address has already been used."
+
 
 
 -- | Convert wallet errors to Servant errors
 toServantError :: WalletError -> ServantErr
 toServantError err =
-  mkServantErr $ case err of
-    NotEnoughMoney{}                    -> err403
-    OutputIsRedeem{}                    -> err403
-    MigrationFailed{}                   -> err422
-    JSONValidationFailed{}              -> err400
-    UnknownError{}                      -> err500
-    WalletNotFound{}                    -> err404
-    InvalidAddressFormat{}              -> err401
-    AddressNotFound{}                   -> err404
-    MissingRequiredParams{}             -> err400
-    WalletIsNotReadyToProcessPayments{} -> err403
-    NodeIsStillSyncing{}                -> err412 -- Precondition failed
+    mkServantErr $ case err of
+        NotEnoughMoney{} ->
+            err403
+        OutputIsRedeem{} ->
+            err403
+        MigrationFailed{} ->
+            err422
+        JSONValidationFailed{} ->
+            err400
+        UnknownError{} ->
+            err500
+        WalletNotFound{} ->
+            err404
+        InvalidAddressFormat{} ->
+            err401
+        AddressNotFound{} ->
+            err404
+        MissingRequiredParams{} ->
+            err400
+        WalletIsNotReadyToProcessPayments{} ->
+            err403
+        NodeIsStillSyncing{} ->
+            err412 -- Precondition failed
+        TxRedemptionDepleted{} ->
+            err400
   where
     mkServantErr serr@ServantErr{..} = serr
       { errBody    = encode err
@@ -174,9 +214,9 @@ transactionErrorToWalletError = \case
     TxError.FailedToStabilize ->
         UnknownError "Transaction process failed to stabilize."
     TxError.OutputIsRedeem addr ->
-        OutputIsRedeem (show addr)
+        OutputIsRedeem (V1 addr)
     TxError.RedemptionDepleted ->
-        UnknownError "Redemption Depleted"
+        TxRedemptionDepleted
     TxError.SafeSignerNotFound _addr ->
         UnknownError "Safe Signer not found"
     TxError.GeneralTxError txt ->

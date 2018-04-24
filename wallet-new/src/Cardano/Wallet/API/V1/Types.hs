@@ -580,7 +580,7 @@ instance BuildableSafeGen SyncPercentage where
 
 
 newtype EstimatedCompletionTime = EstimatedCompletionTime (MeasuredIn 'Milliseconds Word)
-  deriving (Show, Eq)
+    deriving (Show, Eq)
 
 mkEstimatedCompletionTime :: Word -> EstimatedCompletionTime
 mkEstimatedCompletionTime = EstimatedCompletionTime . MeasuredIn
@@ -1019,6 +1019,12 @@ instance BuildableSafeGen PasswordUpdate where
         pwdOld
         pwdNew
 
+-- | The 'Accuracy' data type represents the accuracy of a 'EstimatedFees'.
+-- If the wallet in question has enough funds to perform the transaction,
+-- then we are able to accurately estimate the transaction fee. If the
+-- wallet does not have enough funds, then we can only provide a lower
+-- bound, as adding more inputs to a transaction would cause the fee to
+-- rise.
 data Accuracy
     = Accurate
     | LowerBound
@@ -1031,24 +1037,13 @@ instance ToSchema Accuracy where
     declareNamedSchema _ = do
         pure $ NamedSchema (Just "Accuracy") $ mempty
             & type_ .~ SwaggerString
-            & enum_ ?~ ["Accurate", "LowerBound"]
+            & enum_ ?~ ["accurate", "lowerBound"]
 
 deriveSafeBuildable ''Accuracy
 instance BuildableSafeGen Accuracy where
     buildSafeGen _ = show
 
-instance ToJSON Accuracy where
-    toJSON = String . show
-
-instance FromJSON Accuracy where
-    parseJSON = withText "Accuracy" $ \str ->
-        case str of
-            "Accurate" -> pure Accurate
-            "LowerBound" -> pure LowerBound
-            _ -> fail $ mconcat
-                [ "Expected one of 'Accurate' or 'LowerBound', got: "
-                , toString str
-                ]
+deriveJSON Serokell.defaultOptions ''Accuracy
 
 -- | 'EstimatedFees' represents the fees which would be generated
 -- for a 'Payment' in case the latter would actually be performed.

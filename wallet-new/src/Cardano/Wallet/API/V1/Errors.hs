@@ -15,8 +15,8 @@ import           Servant
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import qualified Pos.Client.Txp.Util as TxError
-import qualified Pos.Crypto.Hashing as Crypto
 import qualified Pos.Core as Core
+import qualified Pos.Crypto.Hashing as Crypto
 import qualified Pos.Data.Attributes as Core
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
@@ -75,7 +75,10 @@ data WalletError =
     -- node is still syncing with the blockchain.
     | TxRedemptionDepleted
     -- ^ Transaction Redemption address has already been used
-
+    | TxFailedToStabilize
+    -- ^ Transaction failed to find an adequate set of inputs.
+    | TxSafeSignerNotFound { weAddress :: !(V1 Core.Address) }
+    -- ^ The safe signer at the specified address was not found
     deriving (Show, Eq)
 
 --
@@ -164,8 +167,10 @@ describe = \case
          "The node is still syncing with the blockchain, and cannot process the request yet."
     TxRedemptionDepleted {} ->
         "The redemption address has already been used."
-
-
+    TxSafeSignerNotFound{} ->
+        "The safe signer at the specified address was not found."
+    TxFailedToStabilize{} ->
+        "The input selection process failed to find an adequate set of inputs."
 
 -- | Convert wallet errors to Servant errors
 toServantError :: WalletError -> ServantErr
@@ -195,6 +200,10 @@ toServantError err =
             err412 -- Precondition failed
         TxRedemptionDepleted{} ->
             err400
+        TxFailedToStabilize{} ->
+            err500
+        TxSafeSignerNotFound{} ->
+            err400
   where
     mkServantErr serr@ServantErr{..} = serr
       { errBody    = encode err
@@ -212,13 +221,13 @@ transactionErrorToWalletError = \case
     TxError.NotEnoughAllowedMoney coin ->
         NotEnoughMoney (fromIntegral (Core.getCoin coin))
     TxError.FailedToStabilize ->
-        UnknownError "Transaction process failed to stabilize."
+        TxFailedToStabilize
     TxError.OutputIsRedeem addr ->
         OutputIsRedeem (V1 addr)
     TxError.RedemptionDepleted ->
         TxRedemptionDepleted
-    TxError.SafeSignerNotFound _addr ->
-        UnknownError "Safe Signer not found"
+    TxError.SafeSignerNotFound addr ->
+        TxSafeSignerNotFound (V1 addr)
     TxError.GeneralTxError txt ->
         UnknownError txt
 

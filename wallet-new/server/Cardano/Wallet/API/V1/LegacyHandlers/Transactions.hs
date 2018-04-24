@@ -19,6 +19,7 @@ import qualified Pos.Wallet.Web.Methods.Txp as V0
 import qualified Pos.Wallet.Web.State as V0
 import           Pos.Wallet.Web.State.Storage (WalletInfo (_wiSyncStatistics))
 import qualified Pos.Wallet.Web.Util as V0
+import qualified Pos.Txp as Txp
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
@@ -127,23 +128,21 @@ estimateFees Payment{..} = do
         Left txError ->
             case txError of
                 V0.NotEnoughMoney coin -> do
-                    acct <- V0.getAccount cAccountId
-                    pure $ mkLowerBound acct coin
+                    pure $ mkLowerBound utxo coin
                 V0.NotEnoughAllowedMoney coin -> do
-                    acct <- V0.getAccount cAccountId
-                    pure $ mkLowerBound acct coin
+                    pure $ mkLowerBound utxo coin
                 _ ->
                     throwM (transactionErrorToWalletError txError)
         Right fee ->
             migrate (fee, Accurate)
   where
     mkLowerBound
-        :: V0.CAccount
-        -- ^ The account that failed to pay.
+        :: Txp.Utxo
+        -- ^ The account's Utxo that failed to pay.
         -> Core.Coin
         -- ^ The amount of coins necessary to complete the transaction.
         -> EstimatedFees
-    mkLowerBound acct amountUnder =
+    mkLowerBound utxo amountUnder =
         EstimatedFees (V1 (Core.mkCoin (fromIntegral feeLowerBound))) LowerBound
       where
         feeLowerBound =
@@ -153,15 +152,4 @@ estimateFees Payment{..} = do
         txnTotal =
             sum (fmap (Core.getCoin . unV1 . pdAmount) pmtDestinations)
         acctAmount =
-            case V0.caAmount acct of
-                V0.CCoin coinAsText ->
-                    -- (parsons.matt): The function that actually acquires the
-                    -- 'CAccount' in this case is getting it from
-                    -- 'getAccountMod' in "Pos.Wallet.Web.Methods.Logic". That
-                    -- function *always* calls 'mkCCoin' with an int value, and
-                    -- 'mkCCoin' always calls 'show' on the coin.
-                    --
-                    -- TODO: banish these awful legacy types
-                    fromMaybe
-                        (error "Account somehow had a non-integral coin value???")
-                        (readMaybe (toString coinAsText))
+            sum (fmap (Core.getCoin . Txp.txOutValue . Txp.toaOut) utxo)

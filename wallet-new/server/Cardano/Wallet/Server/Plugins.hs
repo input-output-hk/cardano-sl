@@ -122,14 +122,12 @@ legacyWalletBackend WalletBackendParams {..} ntpStatus =
                 (V0.convertHandler ctx)
                 diffusion
                 ntpStatus
-                walletAddress
                 walletRunMode
             else
               Servant.serve API.walletAPI $ LegacyServer.walletServer
                 (V0.convertHandler ctx)
                 diffusion
                 ntpStatus
-                walletAddress
 
       return $ withMiddleware walletRunMode app
 

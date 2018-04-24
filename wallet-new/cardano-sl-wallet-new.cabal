@@ -87,6 +87,7 @@ library
                      , log-warper
                      , memory
                      , mtl
+                     , network-transport
                      , unliftio-core
                      , safe-exceptions
                      , servant

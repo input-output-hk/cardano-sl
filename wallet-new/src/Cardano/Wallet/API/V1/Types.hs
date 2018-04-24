@@ -70,7 +70,7 @@ module Cardano.Wallet.API.V1.Types (
   , mkSyncPercentage
   , NodeInfo (..)
   , TimeInfo(..)
-  , SubscriptionStatusInfo(..)
+  , SubscriptionStatus(..)
   -- * Some types for the API
   , CaptureWalletId
   , CaptureAccountId
@@ -83,16 +83,19 @@ import           Universum
 import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
 import           Data.Aeson.TH as A
-import           Data.Aeson.Types (typeMismatch)
+import           Data.Aeson.Types (toJSONKeyText, typeMismatch)
 import qualified Data.Char as C
 import           Data.Swagger as S hiding (constructorTagModifier)
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Text (Text, dropEnd, toLower)
+import qualified Data.Text as T
 import qualified Data.Text.Buildable
 import           Data.Version (Version)
 import           Formatting (bprint, build, fconst, int, sformat, (%))
 import           GHC.Generics (Generic, Rep)
+import           Network.Transport (EndPointAddress (..))
+import           Node (NodeId (..))
 import qualified Prelude
 import qualified Serokell.Aeson.Options as Serokell
 import           Serokell.Util (listJson)
@@ -114,6 +117,7 @@ import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Cardano.Wallet.Util (showApiUtcTime)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
+import qualified Data.Map.Strict as Map
 import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
 import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
@@ -235,6 +239,8 @@ instance Buildable a => Buildable (V1 a) where
 instance Buildable (SecureLog a) => Buildable (SecureLog (V1 a)) where
     build (SecureLog (V1 x)) = bprint build (SecureLog x)
 
+instance (Buildable a, Buildable b) => Buildable (a, b) where
+    build (a, b) = bprint ("("%build%", "%build%")") a b
 
 --
 -- Benign instances
@@ -1656,50 +1662,54 @@ instance BuildableSafeGen TimeInfo where
 deriveJSON Serokell.defaultOptions ''TimeInfo
 
 
--- | Subscription status comes from a map where an unsubscribed node may be
--- missing. In such case, we want to leverage that information to the client.
-newtype SubscriptionStatusInfo = SubscriptionStatusInfo
-    { getSubscriptionStatusInfo :: Maybe SubscriptionStatus
-    } deriving (Eq, Ord, Show)
+availableSubscriptionStatus :: [SubscriptionStatus]
+availableSubscriptionStatus = [Subscribed, Subscribing]
 
-availableSubscriptionStatusInfo :: [SubscriptionStatusInfo]
-availableSubscriptionStatusInfo = SubscriptionStatusInfo <$>
-    [ Just Subscribed
-    , Just Subscribing
-    , Nothing
-    ]
-
-deriveSafeBuildable ''SubscriptionStatusInfo
-instance BuildableSafeGen SubscriptionStatusInfo where
-    buildSafeGen _ (SubscriptionStatusInfo s) = case s of
-        Nothing          -> "Not Subscribed"
-        Just Subscribed  -> "Subscribed"
-        Just Subscribing -> "Subscribing"
+deriveSafeBuildable ''SubscriptionStatus
+instance BuildableSafeGen SubscriptionStatus where
+    buildSafeGen _ = \case
+        Subscribed  -> "Subscribed"
+        Subscribing -> "Subscribing"
 
 deriveJSON Serokell.defaultOptions ''SubscriptionStatus
-instance ToJSON SubscriptionStatusInfo where
-    toJSON =
-        maybe "notSubscribed" toJSON . getSubscriptionStatusInfo
 
-instance FromJSON SubscriptionStatusInfo where
-    parseJSON v =
-        SubscriptionStatusInfo <$> (parseSubscribed v <|> parseNotSubscribed v)
-      where
-        parseSubscribed = fmap Just . parseJSON
-        parseNotSubscribed = withText "SubscriptionStatusInfo" $ \case
-            "notSubscribed" -> pure Nothing
-            _               -> empty
-
-instance Arbitrary SubscriptionStatusInfo where
+instance Arbitrary SubscriptionStatus where
     arbitrary =
-        elements availableSubscriptionStatusInfo
+        elements availableSubscriptionStatus
 
-instance ToSchema SubscriptionStatusInfo where
+instance ToSchema SubscriptionStatus where
     declareNamedSchema _ = do
-        let enum = toJSON <$> availableSubscriptionStatusInfo
-        pure $ NamedSchema (Just "SubscriptionStatusInfo") $ mempty
+        let enum = toJSON <$> availableSubscriptionStatus
+        pure $ NamedSchema (Just "SubscriptionStatus") $ mempty
             & type_ .~ SwaggerString
             & enum_ ?~ enum
+
+instance FromJSONKey NodeId where
+    fromJSONKey =
+        FromJSONKeyText (NodeId . EndPointAddress . encodeUtf8)
+
+instance ToJSONKey NodeId where
+    toJSONKey =
+        toJSONKeyText (decodeUtf8 . getAddress)
+      where
+        getAddress (NodeId (EndPointAddress x)) = x
+
+instance ToSchema NodeId where
+    declareNamedSchema _ = pure $ NamedSchema (Just "NodeId") $ mempty
+        & type_ .~ SwaggerString
+
+instance Arbitrary NodeId where
+    arbitrary = do
+        ipv4  <- genIPv4
+        port_ <- genPort
+        idx   <- genIdx
+        return . toNodeId $ ipv4 <> ":" <> port_ <> ":" <> idx
+      where
+        toNodeId = NodeId . EndPointAddress . encodeUtf8
+        showT    = show :: Int -> Text
+        genIdx   = showT <$> choose (0, 9)
+        genPort  = showT <$> choose (1000, 8000)
+        genIPv4  = T.intercalate "." <$> replicateM 4 (showT <$> choose (0, 255))
 
 
 -- | The @dynamic@ information for this node.
@@ -1708,7 +1718,7 @@ data NodeInfo = NodeInfo {
    , nfoBlockchainHeight      :: !(Maybe BlockchainHeight)
    , nfoLocalBlockchainHeight :: !BlockchainHeight
    , nfoLocalTimeInformation  :: !TimeInfo
-   , nfoSubscriptionStatus    :: !SubscriptionStatusInfo
+   , nfoSubscriptionStatus    :: Map NodeId SubscriptionStatus
    } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''NodeInfo
@@ -1737,13 +1747,13 @@ instance BuildableSafeGen NodeInfo where
         %" blockchainHeight="%build
         %" localBlockchainHeight="%build
         %" localTimeDifference="%build
-        %" subscriptionStatus="%build
+        %" subscriptionStatus="%listJson
         %" }")
         nfoSyncProgress
         nfoBlockchainHeight
         nfoLocalBlockchainHeight
         nfoLocalTimeInformation
-        nfoSubscriptionStatus
+        (Map.toList nfoSubscriptionStatus)
 
 
 --

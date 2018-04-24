@@ -8,10 +8,12 @@ module Pos.Diffusion.Types
     , dummyDiffusionLayer
     ) where
 
+import           Universum
+
 import           Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
 import           Formatting (Format)
 import           GHC.Generics (Generic)
+
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.Core (HeaderHash, ProxySKHeavy)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
@@ -20,7 +22,9 @@ import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
 import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Util.Chrono (OldestFirst (..))
-import           Universum
+
+import qualified Data.Map.Strict as Map
+
 
 data SubscriptionStatus =
     -- | Established a subscription to a node

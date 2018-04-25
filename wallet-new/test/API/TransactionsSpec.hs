@@ -35,4 +35,3 @@ spec = do
                 (AdditionalCoin 10)
                 `shouldBe`
                     60
-

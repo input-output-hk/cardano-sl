@@ -2300,7 +2300,7 @@ outgoing transaction: it may have been created by \emph{another instance} of the
 same wallet. Reporting such a transaction as \texttt{WontApply} is perhaps
 somewhat confusing, as it was never in the \texttt{Applying} state in
 \emph{this} wallet. However, it \emph{was} of course in \texttt{Applying} state
-in the other way, and reporting the transaction as \texttt{WontApply}  also in
+in the other wallet, and reporting the transaction as \texttt{WontApply} also in
 this wallet has the benefit that both instances of the wallet will give the same
 status for this transaction.\footnote{If we wanted to extend the invariant that
 ``multiple instances of the same wallet''---which we don't currently prove---to

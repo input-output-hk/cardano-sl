@@ -20,8 +20,9 @@ import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, pol
                                                        withAsync, withAsyncWithUnmask)
 import           Control.Exception.Safe (catchAny, handle, mask_, tryAny)
 import           Control.Lens (makeLensesWith)
+import           Data.Aeson (FromJSON, Value (Array, Bool, Object), fromJSON, genericParseJSON,
+                             withObject)
 import qualified Data.Aeson as AE
-import           Data.Aeson (FromJSON, Value (Array, Bool, Object), fromJSON, genericParseJSON, withObject)
 import qualified Data.ByteString.Lazy as BS.L
 import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
@@ -37,13 +38,13 @@ import           Options.Applicative (Parser, ParserInfo, ParserResult (..), def
                                       header, help, helper, info, infoOption, long, metavar,
                                       progDesc, renderFailure, short, strOption)
 import           Serokell.Aeson.Options (defaultOptions)
-import qualified System.Directory as Sys
 import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
+import qualified System.Directory as Sys
 import           System.Environment (getExecutablePath, getProgName, setEnv)
 import           System.Exit (ExitCode (..))
 import           System.FilePath (takeDirectory, (</>))
-import qualified System.IO as IO
 import qualified System.Info as Sys
+import qualified System.IO as IO
 import qualified System.IO.Silently as Silently
 import           System.Process (ProcessHandle, waitForProcess)
 import qualified System.Process as Process
@@ -79,7 +80,7 @@ import           Pos.Util (HasLens (..), directory, logException, postfixLFields
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 
 import           Launcher.Environment (substituteEnvVarsValue)
-import           Launcher.Logging     (reportErrorDefault)
+import           Launcher.Logging (reportErrorDefault)
 
 data LauncherOptions = LO
     { loNodePath            :: !FilePath
@@ -265,6 +266,9 @@ main =
     _ -> identity
   $ do
     Sys.getXdgDirectory Sys.XdgData "" >>= setEnv "XDG_DATA_HOME"
+    setEnv "LC_ALL" "en_GB.UTF-8"
+    setEnv "LANG"   "en_GB.UTF-8"
+
     LO {..} <- getLauncherOptions
     -- Launcher logs should be in public directory
     let launcherLogsPrefix = (</> "pub") <$> loLogsPrefix

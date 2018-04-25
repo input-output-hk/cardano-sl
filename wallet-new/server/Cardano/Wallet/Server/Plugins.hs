@@ -118,9 +118,17 @@ legacyWalletBackend WalletBackendParams {..} ntpStatus =
       ctx <- V0.walletWebModeContext
       let app = upgradeApplicationWS wsConn $
             if isDebugMode walletRunMode then
-              Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer (V0.convertHandler ctx) diffusion ntpStatus walletRunMode
+              Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer
+                (V0.convertHandler ctx)
+                diffusion
+                ntpStatus
+                walletRunMode
             else
-              Servant.serve API.walletAPI $ LegacyServer.walletServer (V0.convertHandler ctx) diffusion ntpStatus
+              Servant.serve API.walletAPI $ LegacyServer.walletServer
+                (V0.convertHandler ctx)
+                diffusion
+                ntpStatus
+
       return $ withMiddleware walletRunMode app
 
     exceptionHandler :: SomeException -> Response

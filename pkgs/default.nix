@@ -7720,14 +7720,14 @@ inherit (pkgs) mesa;};
          , directory, exceptions, formatting, generics-sop, hspec
          , http-api-data, http-client, http-types, insert-ordered-containers
          , ixset-typed, json-sop, lens, log-warper, memory, mmorph, mtl
-         , neat-interpolation, optparse-applicative, pretty-show, process
-         , QuickCheck, quickcheck-instances, reflection, safe-exceptions
-         , serokell-util, servant, servant-client, servant-client-core
-         , servant-quickcheck, servant-server, servant-swagger
-         , servant-swagger-ui, stdenv, stm, string-conv, swagger2, text
-         , text-format, time, time-units, transformers, universum, unliftio
-         , unliftio-core, unordered-containers, vector, wai, wai-cors
-         , wai-extra, warp
+         , neat-interpolation, network-transport, optparse-applicative
+         , pretty-show, process, QuickCheck, quickcheck-instances
+         , reflection, safe-exceptions, serokell-util, servant
+         , servant-client, servant-client-core, servant-quickcheck
+         , servant-server, servant-swagger, servant-swagger-ui, stdenv, stm
+         , string-conv, swagger2, text, text-format, time, time-units
+         , transformers, universum, unliftio, unliftio-core
+         , unordered-containers, vector, wai, wai-cors, wai-extra, warp
          }:
          mkDerivation {
            pname = "cardano-sl-wallet-new";
@@ -7742,11 +7742,12 @@ inherit (pkgs) mesa;};
              cardano-sl-txp cardano-sl-update cardano-sl-util cardano-sl-wallet
              containers data-default exceptions formatting generics-sop
              http-api-data http-client http-types ixset-typed json-sop lens
-             log-warper memory mtl QuickCheck reflection safe-exceptions
-             serokell-util servant servant-client servant-client-core
-             servant-quickcheck servant-server servant-swagger-ui stm
-             string-conv swagger2 text text-format time time-units transformers
-             universum unliftio-core unordered-containers vector wai
+             log-warper memory mtl network-transport QuickCheck reflection
+             safe-exceptions serokell-util servant servant-client
+             servant-client-core servant-quickcheck servant-server
+             servant-swagger-ui stm string-conv swagger2 text text-format time
+             time-units transformers universum unliftio-core
+             unordered-containers vector wai
            ];
            executableHaskellDepends = [
              aeson aeson-diff aeson-pretty base bytestring cardano-sl

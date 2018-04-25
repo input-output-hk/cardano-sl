@@ -199,7 +199,7 @@ bench-validation:
         <<: *dev_core_genesis_spec
         protocolConstants:
           <<: *dev_core_genesis_spec_protocolConstants
-          k: 2160
+          k: 5000
 
 
 ##############################################################################

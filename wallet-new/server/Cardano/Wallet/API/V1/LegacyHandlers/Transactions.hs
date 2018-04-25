@@ -126,30 +126,68 @@ estimateFees Payment{..} = do
     efee <- V0.runTxCreator policy (V0.computeTxFee pendingAddrs utxo outputs)
     single <$> case efee of
         Left txError ->
-            case txError of
-                V0.NotEnoughMoney coin -> do
-                    pure $ mkLowerBound utxo coin
-                V0.NotEnoughAllowedMoney coin -> do
-                    pure $ mkLowerBound utxo coin
-                _ ->
-                    throwM (transactionErrorToWalletError txError)
+            let
+                estimatedFee coin =
+                    pure (mkLowerBoundFee pmtDestinations utxo coin)
+            in
+                case txError of
+                    V0.NotEnoughMoney coin ->
+                        estimatedFee coin
+                    V0.NotEnoughAllowedMoney coin ->
+                        estimatedFee coin
+                    _ ->
+                        throwM (transactionErrorToWalletError txError)
         Right fee ->
             migrate (fee, Accurate)
+
+-- | Create a lower bound estimate, given the account's available cash and
+-- the amount of additional coins necesssary to complete the transaction.
+-- This function is a safe wrapper around 'mkLowerBound' that derives the
+-- required amounts from the given values.
+mkLowerBoundFee
+    :: NonEmpty PaymentDistribution
+    -- ^ The payment distributions that were attempted.
+    -> Txp.Utxo
+    -- ^ The account's Utxo.
+    -> Core.Coin
+    -- ^ The amount of coins necessary to complete the transaction.
+    -> EstimatedFees
+mkLowerBoundFee payments utxo amountUnder =
+    EstimatedFees
+        (V1 (Core.mkCoin (fromIntegral estimatedFeeAmount)))
+        LowerBound
   where
-    mkLowerBound
-        :: Txp.Utxo
-        -- ^ The account's Utxo that failed to pay.
-        -> Core.Coin
-        -- ^ The amount of coins necessary to complete the transaction.
-        -> EstimatedFees
-    mkLowerBound utxo amountUnder =
-        EstimatedFees (V1 (Core.mkCoin (fromIntegral feeLowerBound))) LowerBound
-      where
-        feeLowerBound =
-            totalToSpend - txnTotal
-        totalToSpend =
-            Core.getCoin amountUnder + acctAmount
-        txnTotal =
-            sum (fmap (Core.getCoin . unV1 . pdAmount) pmtDestinations)
-        acctAmount =
-            sum (fmap (Core.getCoin . Txp.txOutValue . Txp.toaOut) utxo)
+    utxoAmount =
+        sum (fmap (Core.getCoin . Txp.txOutValue . Txp.toaOut) utxo)
+    estimatedFeeAmount =
+        rawMkLowerBound
+            (TxnAmount txnAmount)
+            (AvailableCoin utxoAmount)
+            (AdditionalCoin (Core.getCoin amountUnder))
+    txnAmount =
+        sum (fmap (Core.getCoin . unV1 . pdAmount) payments)
+
+newtype TxnAmount = TxnAmount Word64
+newtype AvailableCoin = AvailableCoin Word64
+newtype AdditionalCoin = AdditionalCoin Word64
+
+-- | TODO: write a real doc comment
+rawMkLowerBound
+    :: TxnAmount
+    -- ^ The transaction total amount.
+    -> AvailableCoin
+    -- ^ The account's available cash, acquired from the Utxo.
+    -> AdditionalCoin
+    -- ^ The amount of coins necessary to complete the transaction.
+    -> Word64
+rawMkLowerBound
+    (TxnAmount txnTotal)
+    (AvailableCoin acctAmount)
+    (AdditionalCoin amountUnder)
+  =
+    feeLowerBound
+  where
+    feeLowerBound =
+        totalToSpend - txnTotal
+    totalToSpend =
+        amountUnder + acctAmount

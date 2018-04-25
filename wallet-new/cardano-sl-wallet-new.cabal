@@ -404,6 +404,7 @@ test-suite wallet-new-specs
   hs-source-dirs:   server test
 
   other-modules:    APISpec
+                    API.TransactionsSpec
                     DevelopmentSpec
                     MarshallingSpec
                     SwaggerSpec

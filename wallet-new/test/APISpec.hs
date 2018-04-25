@@ -47,6 +47,7 @@ import qualified Cardano.Wallet.API.V1.Migration as Migration
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types ()
 
+import qualified API.TransactionsSpec as Transactions
 --
 -- Instances to allow use of `servant-quickcheck`.
 --
@@ -200,6 +201,8 @@ spec = withCompileInfo def $ do
                     , "Command:"
                     , "    mv " <> newLayoutPath <> " " <> layoutPath
                     ]
+
+    describe "Transactions" $ Transactions.spec
 
 -- | This is a hack that sets the CWD to the correct directory to access
 -- golden tests. `stack` will run tests at the top level of the git

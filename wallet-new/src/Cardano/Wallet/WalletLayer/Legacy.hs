@@ -110,7 +110,8 @@ pwlCreateWallet NewWallet{..} = do
 
     let walletInit = CWalletInit initMeta backupPhrase
 
-    wallet      <- newWalletHandler newwalOperation spendingPassword walletInit `catch` rethrowDuplicateMnemonic
+    wallet      <- newWalletHandler newwalOperation spendingPassword walletInit
+                       `catch` rethrowDuplicateMnemonic
     wId         <- migrate $ cwId wallet
 
     -- Get wallet or throw if missing.

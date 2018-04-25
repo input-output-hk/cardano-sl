@@ -58,7 +58,8 @@ newWallet NewWallet{..} = do
                               <*> pure 0
     let walletInit = V0.CWalletInit initMeta backupPhrase
     single <$> do
-        v0wallet <- newWalletHandler newwalOperation spendingPassword walletInit `catch` rethrowDuplicateMnemonic
+        v0wallet <- newWalletHandler newwalOperation spendingPassword walletInit
+                        `catch` rethrowDuplicateMnemonic
         ss <- V0.askWalletSnapshot
         addWalletInfo ss v0wallet
   where

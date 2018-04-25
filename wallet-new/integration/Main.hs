@@ -5,7 +5,7 @@ module Main where
 
 import           Universum
 
-import           Cardano.Wallet.API.V1.Errors (toServantError)
+import           Cardano.Wallet.API.V1.Errors (WalletError (WalletAlreadyExists), toServantError)
 import           Cardano.Wallet.Client.Http
 import           Control.Lens hiding ((^..), (^?))
 import           Data.Map (fromList)
@@ -141,9 +141,11 @@ deterministicTests wc = do
             walName `shouldBe` newName
             walAssuranceLevel `shouldBe` newAssurance
 
-        it "Creating a wallet with the same mnemonics rises WalletAlreadyExists error." $ testWalletAlreadyExists CreateWallet
+        it "Creating a wallet with the same mnemonics rises \
+            \WalletAlreadyExists error." $ testWalletAlreadyExists CreateWallet
 
-        it "Restoring a wallet with the same mnemonics rises WalletAlreadyExists error." $ testWalletAlreadyExists RestoreWallet
+        it "Restoring a wallet with the same mnemonics rises \
+            \WalletAlreadyExists error." $ testWalletAlreadyExists RestoreWallet
 
     describe "Transactions" $ do
         it "posted transactions appear in the index" $ do
@@ -239,17 +241,13 @@ deterministicTests wc = do
     testWalletAlreadyExists action = do
             newWallet1 <- randomWallet action
             newWallet2 <- (\wallet -> wallet { newwalBackupPhrase = newwalBackupPhrase newWallet1 }) <$> randomWallet action
-            -- First wallet creation should succeed
+            -- First wallet creation/restoration should succeed
             result <- postWallet wc newWallet1
             void $ result `shouldPrism` _Right
-            -- Second wallet creation should rise WalletAlreadyExists
+            -- Second wallet creation/restoration should rise WalletAlreadyExists
             eresp <- postWallet wc newWallet2
             clientError <- eresp `shouldPrism` _Left
             let errorBody = errBody $ toServantError WalletAlreadyExists
-            -- TODO(akegalj): is there a better way to achieve this?
-            -- Ideally I would love to use prism to walk through to the
-            -- response body and test it. To do it I would have to create
-            -- a custom Prism/Lens or to derive prism for some servant internals (which doesn't seem nice thing to do)
             case clientError of
                 ClientHttpError (FailureResponse response) ->
                     responseBody response `shouldBe` errorBody
@@ -270,7 +268,6 @@ deterministicTests wc = do
         let (toAddr : _) = accAddresses toAcct
 
         pure (toAcct, toAddr)
-
 
     -- this is a "Safe' usage of `unsafePerformIO`. if it's too gross then
     -- I can delete it.

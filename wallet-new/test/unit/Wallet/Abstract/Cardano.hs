@@ -146,7 +146,7 @@ equivalentT activeWallet esk = \mkWallet w ->
                      -> TranslateT (EquivalenceViolation h) m ()
     checkWalletState ctxt@InductiveCtxt{..} wid = do
         cmp "utxo" utxo (`Kernel.getWalletUtxo` wid)
-        cmp "totalUtxoBalance" totalBalance getWalletTotalBalance
+        cmp "totalBalance" totalBalance getWalletTotalBalance
         -- TODO: check other properties
       where
         getWalletTotalBalance :: Kernel.PassiveWallet -> IO Coin

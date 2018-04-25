@@ -190,6 +190,16 @@ verify ma = withConfig $ do
     return $ validatedFromEither (Verify.verify utxo ma)
 
 -- | Wrapper around 'UTxO.Verify.verifyBlocksPrefix'
+--
+-- NOTE: This assumes right now that we verify starting from the genesis block.
+-- If that assumption is not valid, we need to pass in the slot leaders here.
+-- Probably easier is to always start from an epoch boundary block; in such a
+-- case in principle we don't need to pass in the set of leaders all, since the
+-- the core of the block verification code ('verifyBlocks' from module
+-- "Pos.Block.Logic.Integrity") will then take the set of leaders from the
+-- genesis/epoch boundary block itself. In practice, however, the passed in set
+-- of leaders is verified 'slogVerifyBlocks', so we'd have to modify the
+-- verification code a bit.
 verifyBlocksPrefix
   :: Monad m
   => OldestFirst NE Block
@@ -203,6 +213,6 @@ verifyBlocksPrefix blocks = do
           pm
           tip
           currentSlot
-          ccLeaders        -- TODO: May not be necessary to pass this if we start from genesis
+          ccInitLeaders    -- TODO: May not be necessary to pass this if we start from genesis
           (OldestFirst []) -- TODO: LastBlkSlots. Unsure about the required value or its effect
           blocks

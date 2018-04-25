@@ -57,12 +57,14 @@ import           UTxO.Crypto
 
 -- | The information returned by core
 data CardanoContext = CardanoContext {
-      ccLeaders  :: SlotLeaders
-    , ccStakes   :: StakesMap
+      ccStakes   :: StakesMap
     , ccBlock0   :: GenesisBlock
     , ccData     :: GenesisData
     , ccUtxo     :: Utxo
     , ccSecrets  :: GeneratedSecrets
+
+      -- | Initial stake distribution
+    , ccInitLeaders :: SlotLeaders
 
       -- | Initial balances
       --
@@ -501,14 +503,14 @@ resolveAddress addr TransCtxt{..} =
   where
     AddrMap{..} = tcAddrMap
 
-leaderForSlot :: SlotId -> TransCtxt -> Stakeholder
-leaderForSlot slotId TransCtxt{..} = actorsStake Map.! leader
+leaderForSlot :: SlotLeaders -> SlotId -> TransCtxt -> Stakeholder
+leaderForSlot leaders slotId TransCtxt{..} = actorsStake Map.! leader
   where
     Actors{..}         = tcActors
     CardanoContext{..} = tcCardano
 
     leader :: StakeholderId
-    leader = ccLeaders NE.!! slotIx
+    leader = leaders NE.!! slotIx
 
     slotIx :: Int
     slotIx = fromIntegral $ getSlotIndex (siSlot slotId)
@@ -535,8 +537,10 @@ blockSignInfo Stakeholder{..} = BlockSignInfo{..}
     bsiKey    = regKpSec richKey
     bsiPSK    = delPSK
 
-blockSignInfoForSlot :: SlotId -> TransCtxt -> BlockSignInfo
-blockSignInfoForSlot slotId = blockSignInfo . leaderForSlot slotId
+blockSignInfoForSlot :: SlotLeaders -> SlotId -> TransCtxt -> BlockSignInfo
+blockSignInfoForSlot leaders slotId =
+      blockSignInfo
+    . leaderForSlot leaders slotId
 
 {-------------------------------------------------------------------------------
   Pretty-printing
@@ -617,13 +621,13 @@ instance Buildable Addr where
 instance Buildable CardanoContext where
   build CardanoContext{..} = bprint
       ( "CardanoContext"
-      % "{ leaders:  " % listJson
-      % ", stakes:   " % listJson
-      % ", balances: " % listJson
-      % ", utxo:     " % mapJson
+      % "{ initLeaders:  " % listJson
+      % ", stakes:       " % listJson
+      % ", balances:     " % listJson
+      % ", utxo:         " % mapJson
       % "}"
       )
-      ccLeaders
+      ccInitLeaders
       (map (bprint pairF) (HM.toList ccStakes))
       (map (bprint pairF) ccBalances)
       ccUtxo

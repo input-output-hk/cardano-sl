@@ -92,6 +92,7 @@ import qualified Data.Text.Buildable
 import           Data.Version (Version)
 import           Formatting (bprint, build, fconst, int, sformat, (%))
 import           GHC.Generics (Generic, Rep)
+import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import qualified Prelude
 import qualified Serokell.Aeson.Options as Serokell
 import           Serokell.Util (listJson)
@@ -1469,6 +1470,7 @@ data NodeSettings = NodeSettings {
    , setSoftwareInfo   :: !(V1 Core.SoftwareVersion)
    , setProjectVersion :: !Version
    , setGitRevision    :: !Text
+   , setProtocolMagic  :: !(V1 ProtocolMagic)
    } deriving (Show, Eq, Generic)
 
 -- See note [Version Orphan]
@@ -1488,6 +1490,21 @@ instance ToJSON (V1 Core.ApplicationName) where
 instance FromJSON (V1 Core.ApplicationName) where
     parseJSON (String svAppName) = pure (V1 (Core.ApplicationName svAppName))
     parseJSON x                  = typeMismatch "Not a valid ApplicationName" x
+
+instance Arbitrary (V1 ProtocolMagic) where
+    arbitrary = fmap V1 arbitrary
+
+instance ToJSON (V1 ProtocolMagic) where
+    toJSON (V1 magic) = toJSON (getProtocolMagic magic)
+
+instance FromJSON (V1 ProtocolMagic) where
+    parseJSON magicNumber@(Number _) = V1 . ProtocolMagic <$> parseJSON magicNumber
+    parseJSON x                      = typeMismatch "Not a valid ProtocolMagic" x
+
+instance ToSchema (V1 ProtocolMagic) where
+    declareNamedSchema _ =
+        pure $ NamedSchema (Just "ProtocolMagic") $ mempty
+            & type_ .~ SwaggerNumber
 
 instance ToJSON (V1 Core.SoftwareVersion) where
     toJSON (V1 Core.SoftwareVersion{..}) =
@@ -1525,6 +1542,7 @@ instance ToSchema NodeSettings where
       & ("softwareInfo"   --^ "Various pieces of information about the current software.")
       & ("projectVersion" --^ "Current project's version.")
       & ("gitRevision"    --^ "Git revision of this deployment.")
+      & ("protocolMagic"  --^ "The protocol magic associated to the network this wallet is targeting.")
     )
 
 instance Arbitrary NodeSettings where
@@ -1532,6 +1550,7 @@ instance Arbitrary NodeSettings where
                              <*> arbitrary
                              <*> arbitrary
                              <*> pure "0e1c9322a"
+                             <*> (fmap V1 arbitrary)
 
 deriveSafeBuildable ''NodeSettings
 instance BuildableSafeGen NodeSettings where

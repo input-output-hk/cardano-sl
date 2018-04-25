@@ -9,6 +9,7 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable (typeRep)
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import qualified Pos.Crypto as Crypto
+import           Pos.Crypto.Configuration (ProtocolMagic)
 import qualified Pos.Txp.Toil.Types as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import           Test.Hspec
@@ -37,6 +38,7 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @Account Proxy
         aesonRoundtripProp @AssuranceLevel Proxy
         aesonRoundtripProp @(V1 Core.SoftwareVersion) Proxy
+        aesonRoundtripProp @(V1 ProtocolMagic) Proxy
         aesonRoundtripProp @NodeSettings Proxy
         aesonRoundtripProp @Payment Proxy
         aesonRoundtripProp @PaymentDistribution Proxy

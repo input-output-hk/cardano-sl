@@ -263,24 +263,38 @@ data Output a = Output {
   Inputs
 -------------------------------------------------------------------------------}
 
-data Input h a = Input {
-      inpTrans :: h (Transaction h a)
+data Input h a = Input
+    { inpTrans :: h (Transaction h a)
+      -- ^ The hash of the 'Transaction' where the 'Output' that this 'Input'
+      -- spends is found.
     , inpIndex :: Index
       -- ^ Index to a particular 'Output' among the 'trOut' outputs in
-      -- the 'Transaction' idenfified  by 'inpTrans'.
+      -- the 'Transaction' idenfified  by 'inpTrans'. Said 'Output' is the one
+      -- that this 'Input' is spending.
     }
 
 deriving instance Hash h a => Eq  (Input h a)
 deriving instance Hash h a => Ord (Input h a)
 
+-- | Obtain the 'Transaction' to which 'Input' refers.
+--
+-- Returns 'Nothing' if the 'Transaction' is missing from the 'Ledger'.
 inpTransaction :: Hash h a => Input h a -> Ledger h a -> Maybe (Transaction h a)
 inpTransaction = findHash . inpTrans
 
+-- | Obtain the 'Output' that the given 'Input' spent.
+--
+-- Returns 'Nothing' if the 'Transaction' to which this 'Input' refers is
+-- missing from the 'Ledger'.
 inpSpentOutput :: Hash h a => Input h a -> Ledger h a -> Maybe (Output a)
 inpSpentOutput i l = do
     t <- inpTransaction i l
     trOuts t `at` fromIntegral (inpIndex i)
 
+-- | Obtain the 'Value' in the 'Output' spent by the given 'Input'.
+--
+-- Returns 'Nothing' if the 'Transaction' to which this 'Input' refers is
+-- missing from the 'Ledger'.
 inpVal :: Hash h a => Input h a -> Ledger h a -> Maybe Value
 inpVal i l = outVal <$> inpSpentOutput i l
 

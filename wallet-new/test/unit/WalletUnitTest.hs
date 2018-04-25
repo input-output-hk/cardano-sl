@@ -132,7 +132,7 @@ testPureWallet = do
 
     genInductive :: Hash h Addr => Gen (InductiveWithOurs h Addr)
     genInductive = do
-      fpt <- runTranslateT $ fromPreTree  genValidBlocktree
+      fpt <- runTranslateT $ fromPreTree genValidBlocktree
       n <- choose
         ( 1
         , length (filter (not . isAvvmAddr) (toList (fptAddresses fpt)))

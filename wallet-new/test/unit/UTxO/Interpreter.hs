@@ -90,6 +90,9 @@ data IntCtxt h = IntCtxt {
       --
       -- Will be initialized to the header of the genesis block.
     , icPrevBlock :: BlockHeader
+
+      -- | Slot leaders for the current epoch
+    , icEpochLeaders :: SlotLeaders
     }
 
 -- | Initial interpretation context
@@ -100,11 +103,13 @@ initIntCtxt :: Monad m => DSL.Transaction h Addr -> TranslateT IntException m (I
 initIntCtxt boot = do
     firstSlot <- mapTranslateErrors IntExMkSlot $ translateFirstSlot
     genesis   <- BlockHeaderGenesis <$> translateGenesisHeader
+    leaders   <- asks (ccInitLeaders . tcCardano)
     return $ IntCtxt {
-          icLedger    = DSL.ledgerSingleton boot
-        , icHashes    = Map.empty
-        , icNextSlot  = firstSlot
-        , icPrevBlock = genesis
+          icLedger       = DSL.ledgerSingleton boot
+        , icHashes       = Map.empty
+        , icNextSlot     = firstSlot
+        , icPrevBlock    = genesis
+        , icEpochLeaders = leaders
         }
 
 {-------------------------------------------------------------------------------
@@ -180,10 +185,11 @@ pushTx (t, id) = modify aux
   where
     aux :: IntCtxt h -> IntCtxt h
     aux ic = IntCtxt {
-          icLedger    = DSL.ledgerAdd t            (icLedger ic)
-        , icHashes    = Map.insert (DSL.hash t) id (icHashes ic)
-        , icNextSlot  = icNextSlot  ic
-        , icPrevBlock = icPrevBlock ic
+          icLedger       = DSL.ledgerAdd t            (icLedger ic)
+        , icHashes       = Map.insert (DSL.hash t) id (icHashes ic)
+        , icNextSlot     = icNextSlot     ic
+        , icPrevBlock    = icPrevBlock    ic
+        , icEpochLeaders = icEpochLeaders ic
         }
 
 -- | Add a block into the context
@@ -194,6 +200,15 @@ pushBlock block = do
     s  <- get
     s' <- liftTranslateInt $ aux s
     put s'
+
+    -- TODO: Create epoch boundary block when necessary
+    -- See
+    -- * createGenesisBlockDo
+    -- * getLeadersForEpoch
+    -- * mkGenesisBlock
+    -- * leadersComputationDo
+    -- * instance (HasGenesisData, HasProtocolConstants) => MonadTossRead PureToss where ..
+
   where
     aux :: IntCtxt h -> TranslateT IntException m (IntCtxt h)
     aux ic = mapTranslateErrors IntExMkSlot $ do
@@ -372,17 +387,19 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
       => DSL.Block h Addr -> IntT h e m RawResolvedBlock
   int (OldestFirst txs) = do
       (txs', resolvedTxInputs) <- unzip <$> mapM int txs
-      prev  <- gets icPrevBlock
-      slot  <- gets icNextSlot
-      block <- liftTranslateInt $ mkBlock prev slot txs'
+      leaders <- gets icEpochLeaders
+      prev    <- gets icPrevBlock
+      slot    <- gets icNextSlot
+      block   <- liftTranslateInt $ mkBlock leaders prev slot txs'
       pushBlock block
       return (block, resolvedTxInputs)
     where
-      mkBlock :: BlockHeader
+      mkBlock :: SlotLeaders
+              -> BlockHeader
               -> SlotId
               -> [TxAux]
               -> TranslateT IntException m MainBlock
-      mkBlock prev slotId ts = mapTranslateErrors IntExCreateBlock $ do
+      mkBlock leaders prev slotId ts = mapTranslateErrors IntExCreateBlock $ do
         -- TODO: empty delegation payload
         let dlgPayload = UnsafeDlgPayload []
 
@@ -390,7 +407,7 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
         let updPayload = def
 
         -- figure out who needs to sign the block
-        BlockSignInfo{..} <- asks $ blockSignInfoForSlot slotId
+        BlockSignInfo{..} <- asks $ blockSignInfoForSlot leaders slotId
 
         withConfig $
           createMainBlockPure

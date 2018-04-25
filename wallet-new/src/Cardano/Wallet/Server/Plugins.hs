@@ -36,13 +36,11 @@ import           Control.Exception (fromException)
 import           Data.Aeson
 import           Formatting (build, sformat, (%))
 import           Mockable
-import           Network.HTTP.Types (hContentType)
 import           Network.HTTP.Types.Status (badRequest400)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
 import           Network.Wai.Handler.Warp (defaultSettings, setOnExceptionResponse)
 import           Network.Wai.Middleware.Cors (cors, corsMethods, corsRequestHeaders,
                                               simpleCorsResourcePolicy, simpleMethods)
-import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Ntp.Client (NtpStatus)
 import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.Web (cleanupAcidStatePeriodically)

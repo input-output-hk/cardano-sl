@@ -14,6 +14,7 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, stext, (%))
 
 import           Cardano.Wallet.API.V1.Types (WalletId, AccountIndex)
+import           Test.QuickCheck (Arbitrary, arbitrary, oneof)
 
 
 data WalletLayerError
@@ -28,4 +29,12 @@ instance Buildable WalletLayerError where
     build (WalletNotFound  wId      ) = bprint ("Wallet not found. Wallet id ("%stext%").") (show wId)
     build (AccountNotFound wId accIx) = bprint ("Account not found. Wallet id ("%stext%"), accound index ("%stext%").") (show wId) (show accIx)
     build (AddressNotFound wId accIx) = bprint ("Address not found. Wallet id ("%stext%"), accound index ("%stext%").") (show wId) (show accIx)
+
+-- | For now we want arbitrary error if requested.
+instance Arbitrary WalletLayerError where
+    arbitrary = oneof
+        [ WalletNotFound  <$> arbitrary
+        , AccountNotFound <$> arbitrary <*> arbitrary
+        , AddressNotFound <$> arbitrary <*> arbitrary
+        ]
 

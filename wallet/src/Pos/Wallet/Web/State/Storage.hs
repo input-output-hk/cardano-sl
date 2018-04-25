@@ -34,6 +34,7 @@ module Pos.Wallet.Web.State.Storage
        , getAccountIds
        , getAccountMeta
        , getAccountAddrMaps
+       , getAccountAddresses
        , getWalletMeta
        , getWalletMetaIncludeUnready
        , getWalletPassLU
@@ -388,6 +389,10 @@ getAccountAddrMaps accId = do
     return CurrentAndRemoved{..}
   where
     getMap aiLens = fmap (fromMaybe mempty) $ preview $ wsAccountInfos . ix accId . aiLens
+
+-- | A simple way to fetch all the account @CAddress@.
+getAccountAddresses :: WebTypes.AccountId -> Query (CAddresses)
+getAccountAddresses accId = fmap (fromMaybe mempty) . preview $ wsAccountInfos . ix accId . aiAddresses
 
 -- | Get wallet meta info considering sync status of wallet.
 getWalletMetaIncludeUnready ::

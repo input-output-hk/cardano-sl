@@ -21,11 +21,9 @@ import qualified Control.Monad.Reader as Mtl
 import           Data.Aeson.TH (defaultOptions, deriveToJSON)
 import qualified Data.ByteString.Char8 as BSC
 import           Data.Default (Default, def)
-import           Data.List (intersect)
-import           Data.X509 (Certificate (..), HashALG (..))
-import qualified Data.X509 as X509
+import           Data.X509 (ExtKeyUsagePurpose (..), HashALG (..))
 import           Data.X509.CertificateStore (readCertificateStore)
-import           Data.X509.Validation (ValidationHooks (..))
+import           Data.X509.Validation (ValidationChecks (..), ValidationHooks (..))
 import qualified Data.X509.Validation as X509
 import           Mockable (Async, Mockable, Production (runProduction), withAsync)
 import           Network.TLS (CertificateRejectReason (..), CertificateUsage (..), ServerHooks (..))
@@ -130,7 +128,7 @@ tlsWithClientCheck
 tlsWithClientCheck host port TlsParams{..} = tlsSettings
     { tlsWantClientCert = True
     , tlsServerHooks    = def
-        { onClientCertificate = fmap acceptOrRejectCertificate . validateCertificate }
+        { onClientCertificate = fmap certificateUsageFromValidations . validateCertificate }
     }
   where
     tlsSettings =
@@ -139,14 +137,23 @@ tlsWithClientCheck host port TlsParams{..} = tlsSettings
     serviceID =
         (host, BSC.pack (show port))
 
+    certificateUsageFromValidations =
+        maybe CertificateUsageAccept (CertificateUsageReject . CertificateRejectOther)
+
     -- By default, X509.Validation validates the certificate names against the host
     -- which is irrelevant when checking the client certificate (but relevant for
     -- the client when checking the server's certificate).
     validationHooks = def
-        { hookValidateName = \_ -> validateClient tpClients . certSubjectDN }
+        { hookValidateName = \_ _ -> [] }
 
-    acceptOrRejectCertificate =
-        maybe CertificateUsageAccept (CertificateUsageReject . CertificateRejectOther)
+    -- Here we add extra checks as the ones performed by default to enforce that
+    -- the client certificate is actually _meant_ to be used for client auth.
+    -- This should prevent server certificates to be used to authenticate
+    -- against the server.
+    validationChecks = def
+        { checkStrictOrdering = True
+        , checkLeafKeyPurpose = [KeyUsagePurpose_ClientAuth]
+        }
 
     -- This solely verify that the provided certificate is valid and was signed by authority we
     -- recognize (tpCaPath)
@@ -154,21 +161,8 @@ tlsWithClientCheck host port TlsParams{..} = tlsSettings
           mstore <- readCertificateStore tpCaPath
           maybe
                 (pure $ Just "Cannot init a store, unable to validate client certificates")
-                (fmap fromX509FailedReasons . (\store -> X509.validate HashSHA256 validationHooks X509.defaultChecks store def serviceID cert))
+                (fmap fromX509FailedReasons . (\store -> X509.validate HashSHA256 validationHooks validationChecks store def serviceID cert))
                 mstore
-
-    -- Once a valid certificate is presented, we simply check if the name matches one of the allowed
-    -- client's name. Not much use from an anthentication perspective, but could prevent people from
-    -- using the server certificate to authenticate client. We don't yet rely on the information
-    -- inside the certificate so it won't matter much now but perhaps more in the future.
-    validateClient rs ns =
-        let
-            acceptedNames = fmap fromString rs
-            clientNames   = fmap snd (X509.getDistinguishedElements ns)
-        in
-            case acceptedNames `intersect` clientNames of
-                  [] -> [X509.InvalidName "Unrecognized client"]
-                  _  -> []
 
     fromX509FailedReasons reasons =
         case reasons of

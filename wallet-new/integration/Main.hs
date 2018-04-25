@@ -141,11 +141,11 @@ deterministicTests wc = do
             walName `shouldBe` newName
             walAssuranceLevel `shouldBe` newAssurance
 
-        it "Creating a wallet with the same mnemonics rises \
-            \WalletAlreadyExists error." $ testWalletAlreadyExists CreateWallet
+        it "CreateWallet with the same mnemonics rises WalletAlreadyExists error" $
+            testWalletAlreadyExists CreateWallet
 
-        it "Restoring a wallet with the same mnemonics rises \
-            \WalletAlreadyExists error." $ testWalletAlreadyExists RestoreWallet
+        it "RestoreWallet with the same mnemonics throws WalletAlreadyExists" $
+            testWalletAlreadyExists RestoreWallet
 
     describe "Transactions" $ do
         it "posted transactions appear in the index" $ do
@@ -173,7 +173,10 @@ deterministicTests wc = do
 
             txn <- fmap wrData etxn `shouldPrism` _Right
 
-            eresp <- getTransactionIndex wc (Just (walId wallet)) (Just (accIndex toAcct)) Nothing
+            eresp <- getTransactionIndex wc
+                (Just (walId wallet))
+                (Just (accIndex toAcct))
+                Nothing
             resp <- fmap wrData eresp `shouldPrism` _Right
 
             map txId resp `shouldContain` [txId txn]
@@ -240,7 +243,11 @@ deterministicTests wc = do
 
     testWalletAlreadyExists action = do
             newWallet1 <- randomWallet action
-            newWallet2 <- (\wallet -> wallet { newwalBackupPhrase = newwalBackupPhrase newWallet1 }) <$> randomWallet action
+            preWallet2 <- randomWallet action
+            let newWallet2 =
+                    preWallet2
+                        { newwalBackupPhrase = newwalBackupPhrase newWallet1
+                        }
             -- First wallet creation/restoration should succeed
             result <- postWallet wc newWallet1
             void $ result `shouldPrism` _Right
@@ -251,7 +258,10 @@ deterministicTests wc = do
             case clientError of
                 ClientHttpError (FailureResponse response) ->
                     responseBody response `shouldBe` errorBody
-                _ -> expectationFailure $ "expected (ClientHttpError FailureResponse) but got: " <> show clientError
+                _ ->
+                    expectationFailure $
+                        "expected (ClientHttpError FailureResponse) but got: "
+                        <> show clientError
 
     createWalletCheck newWallet = do
         result <- fmap wrData <$> postWallet wc newWallet

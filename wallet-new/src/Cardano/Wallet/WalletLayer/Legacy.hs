@@ -13,8 +13,8 @@ import           Control.Monad.Catch (catchAll)
 import           Control.Monad.IO.Unlift (MonadUnliftIO)
 import           Data.Coerce (coerce)
 
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
 import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
+import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
@@ -25,19 +25,20 @@ import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpda
                                               WalletId, WalletOperation (..), WalletUpdate)
 
 import           Pos.Client.KeyStorage (MonadKeys)
-import           Pos.Crypto (PassPhrase)
 import           Pos.Core (ChainDifficulty)
+import           Pos.Crypto (PassPhrase)
 
-import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
+import           Pos.Util (HasLens', maybeThrow)
 import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes.Types (CWallet (..), CWalletInit (..), CWalletMeta (..))
+import qualified Pos.Wallet.Web.Error.Types as V0
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
 import qualified Pos.Wallet.Web.Methods.Logic as V0
 import           Pos.Wallet.Web.Methods.Restore (newWallet, restoreWalletFromSeed)
 import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB, askWalletSnapshot,
                                              getWalletAddresses, setWalletMeta)
 import           Pos.Wallet.Web.State.Storage (getWalletInfo)
-import           Pos.Util (HasLens', maybeThrow)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
 -- | Let's unify all the requirements for the legacy wallet.
 type MonadLegacyWallet ctx m =
@@ -110,6 +111,7 @@ pwlCreateWallet NewWallet{..} = do
     let walletInit = CWalletInit initMeta backupPhrase
 
     wallet      <- newWalletHandler newwalOperation spendingPassword walletInit
+                       `catch` rethrowDuplicateMnemonic
     wId         <- migrate $ cwId wallet
 
     -- Get wallet or throw if missing.
@@ -119,6 +121,13 @@ pwlCreateWallet NewWallet{..} = do
     newWalletHandler :: WalletOperation -> PassPhrase -> CWalletInit -> m CWallet
     newWalletHandler CreateWallet  = newWallet
     newWalletHandler RestoreWallet = restoreWalletFromSeed
+    -- NOTE: this is temporary solution until we get rid of V0 error handling and/or we lift error handling into types:
+    --   https://github.com/input-output-hk/cardano-sl/pull/2811#discussion_r183469153
+    --   https://github.com/input-output-hk/cardano-sl/pull/2811#discussion_r183472103
+    rethrowDuplicateMnemonic (e :: V0.WalletError) =
+        case e of
+            V0.RequestError "Wallet with that mnemonics already exists" -> throwM WalletAlreadyExists
+            _ -> throwM e
 
 
 pwlGetWalletIds

@@ -60,6 +60,8 @@ data WalletError =
     | UnknownError { weMsg :: !Text }
     | InvalidAddressFormat { weMsg :: !Text }
     | WalletNotFound
+    -- FIXME(akegalj): https://iohk.myjetbrains.com/youtrack/issue/CSL-2496
+    | WalletAlreadyExists
     | AddressNotFound
     | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
     | WalletIsNotReadyToProcessPayments { weStillRestoring :: SyncProgress }
@@ -116,6 +118,7 @@ sample =
   , UnknownError "Unknown error"
   , InvalidAddressFormat "Invalid base58 representation."
   , WalletNotFound
+  , WalletAlreadyExists
   , AddressNotFound
   , MissingRequiredParams (("wallet_id", "walletId") :| [])
   , WalletIsNotReadyToProcessPayments sampleSyncProgress
@@ -133,6 +136,7 @@ describe = \case
   UnknownError        _                -> "Unexpected internal error."
   InvalidAddressFormat _              -> "Provided address format is not valid."
   WalletNotFound                      -> "Reference to an unexisting wallet was given."
+  WalletAlreadyExists                 -> "Can't create or restore a wallet. The wallet already exists."
   AddressNotFound                     -> "Reference to an unexisting address was given."
   MissingRequiredParams _             -> "Missing required parameters in the request payload."
   WalletIsNotReadyToProcessPayments _ -> "This wallet is restoring, and it cannot send new transactions until restoration completes."
@@ -149,6 +153,7 @@ toServantError err =
     JSONValidationFailed{}              -> err400
     UnknownError{}                      -> err500
     WalletNotFound{}                    -> err404
+    WalletAlreadyExists{}               -> err403
     InvalidAddressFormat{}              -> err401
     AddressNotFound{}                   -> err404
     MissingRequiredParams{}             -> err400

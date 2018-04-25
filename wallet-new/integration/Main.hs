@@ -5,11 +5,13 @@ module Main where
 
 import           Universum
 
+import           Cardano.Wallet.API.V1.Errors (WalletError (WalletAlreadyExists), toServantError)
 import           Cardano.Wallet.Client.Http
 import           Control.Lens hiding ((^..), (^?))
 import           Data.Map (fromList)
 import           Data.Traversable (for)
 import qualified Pos.Core as Core
+import           Servant (errBody)
 import           System.IO (hSetEncoding, stdout, utf8)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Hspec
@@ -120,14 +122,14 @@ deterministicTests wc = do
 
     describe "Wallets" $ do
         it "Creating a wallet makes it available." $ do
-            newWallet <- randomWallet
+            newWallet <- createRandomWallet
             Wallet{..} <- createWalletCheck newWallet
 
             eresp <- getWallet wc walId
             void $ eresp `shouldPrism` _Right
 
         it "Updating a wallet persists the update" $ do
-            newWallet <- randomWallet
+            newWallet <- createRandomWallet
             wallet <- createWalletCheck newWallet
             let newName = "Foobar Bazquux"
                 newAssurance = NormalAssurance
@@ -138,6 +140,12 @@ deterministicTests wc = do
             Wallet{..} <- wrData <$> eupdatedWallet `shouldPrism` _Right
             walName `shouldBe` newName
             walAssuranceLevel `shouldBe` newAssurance
+
+        it "CreateWallet with the same mnemonics rises WalletAlreadyExists error" $
+            testWalletAlreadyExists CreateWallet
+
+        it "RestoreWallet with the same mnemonics throws WalletAlreadyExists" $
+            testWalletAlreadyExists RestoreWallet
 
     describe "Transactions" $ do
         it "posted transactions appear in the index" $ do
@@ -165,15 +173,18 @@ deterministicTests wc = do
 
             txn <- fmap wrData etxn `shouldPrism` _Right
 
-            eresp <- getTransactionIndex wc (Just (walId wallet)) (Just (accIndex toAcct)) Nothing
+            eresp <- getTransactionIndex wc
+                (Just (walId wallet))
+                (Just (accIndex toAcct))
+                Nothing
             resp <- fmap wrData eresp `shouldPrism` _Right
 
             map txId resp `shouldContain` [txId txn]
 
         it "estimate fees of a well-formed transaction" $ do
             ws <- (,)
-                <$> (randomWallet >>= createWalletCheck)
-                <*> (randomWallet >>= createWalletCheck)
+                <$> (createRandomWallet >>= createWalletCheck)
+                <*> (createRandomWallet >>= createWalletCheck)
 
             ((fromAcct, _), (_toAcct, toAddr)) <- (,)
                 <$> firstAccountAndId (fst ws)
@@ -220,14 +231,37 @@ deterministicTests wc = do
             void $ etxn `shouldPrism` _Left
 
   where
-    randomWallet =
+    randomWallet action =
         generate $
             NewWallet
                 <$> arbitrary
                 <*> pure Nothing
                 <*> arbitrary
                 <*> pure "Wallet"
-                <*> pure CreateWallet
+                <*> pure action
+    createRandomWallet = randomWallet CreateWallet
+
+    testWalletAlreadyExists action = do
+            newWallet1 <- randomWallet action
+            preWallet2 <- randomWallet action
+            let newWallet2 =
+                    preWallet2
+                        { newwalBackupPhrase = newwalBackupPhrase newWallet1
+                        }
+            -- First wallet creation/restoration should succeed
+            result <- postWallet wc newWallet1
+            void $ result `shouldPrism` _Right
+            -- Second wallet creation/restoration should rise WalletAlreadyExists
+            eresp <- postWallet wc newWallet2
+            clientError <- eresp `shouldPrism` _Left
+            let errorBody = errBody $ toServantError WalletAlreadyExists
+            case clientError of
+                ClientHttpError (FailureResponse response) ->
+                    responseBody response `shouldBe` errorBody
+                _ ->
+                    expectationFailure $
+                        "expected (ClientHttpError FailureResponse) but got: "
+                        <> show clientError
 
     createWalletCheck newWallet = do
         result <- fmap wrData <$> postWallet wc newWallet
@@ -259,7 +293,7 @@ deterministicTests wc = do
                 putMVar walletRef wallet
                 pure wallet
             Nothing -> do
-                w <- randomWallet
+                w <- createRandomWallet
                 w' <- createWalletCheck w
                 didWrite <- tryPutMVar walletRef w'
                 if didWrite

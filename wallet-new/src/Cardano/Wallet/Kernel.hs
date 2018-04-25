@@ -277,7 +277,7 @@ applyBlock' pw b wid = do
     let prefBlock              = prefilterBlock (w ^. walletESK) b
         (utxo'', balanceDelta) = updateUtxo    prefBlock utxo'
         pending''              = updatePending prefBlock pending'
-        balance''              = balanceDelta + balance'
+        balance''              = balance' + balanceDelta
 
     updateWalletState pw wid $ State utxo'' pending'' balance''
 
@@ -295,7 +295,7 @@ updateUtxo PrefilteredBlock{..} currentUtxo =
         unionUtxo = Map.union pfbOutputs currentUtxo
         utxo' = utxoRemoveInputs unionUtxo pfbInputs
         unionUtxoRestricted  = utxoRestrictToInputs unionUtxo pfbInputs
-        balanceDelta = balance unionUtxo - balance unionUtxoRestricted
+        balanceDelta = balance pfbOutputs - balance unionUtxoRestricted
 
 updatePending :: PrefilteredBlock -> Pending -> Pending
 updatePending PrefilteredBlock{..} =
@@ -328,15 +328,14 @@ utxoInputs = Map.keysSet
 utxoOutputs :: Utxo -> [TxOut]
 utxoOutputs = map toaOut . Map.elems
 
+txIns' :: Pending -> Set TxIn
+txIns' = Set.fromList . concatMap (NE.toList . _txInputs . taTx) . Map.elems
+
 available :: PassiveWallet -> WalletId -> IO Utxo
 available pw wid = do
     State utxo pending _ <- getWalletState pw wid
 
     return $ utxoRemoveInputs utxo (txIns' pending)
-
-    where
-        txIns' :: Map TxId TxAux -> Set TxIn
-        txIns' = Set.fromList . concatMap (NE.toList . _txInputs . taTx) . Map.elems
 
 change :: PassiveWallet -> WalletId -> IO Utxo
 change pw wid = do
@@ -346,17 +345,23 @@ change pw wid = do
     w <- fromJust <$> findWallet pw wid
     return $ ourUtxo (w ^. walletESK) pendingUtxo
 
-total :: PassiveWallet -> WalletId -> IO Utxo
-total pw wid = Map.union <$> available pw wid <*> change pw wid
+_total :: PassiveWallet -> WalletId -> IO Utxo
+_total pw wid = Map.union <$> available pw wid <*> change pw wid
 
 balance :: Utxo -> Balance
 balance = sumCoins . map txOutValue . utxoOutputs
 
 availableBalance :: PassiveWallet -> WalletId -> IO Balance
-availableBalance pw wid = balance <$> available pw wid
+availableBalance pw wid = do
+    State utxo pending utxoBalance <- getWalletState pw wid
+    let balanceDelta = balance (utxoRestrictToInputs utxo (txIns' pending))
+    return $ utxoBalance - balanceDelta
 
 totalBalance :: PassiveWallet -> WalletId -> IO Balance
-totalBalance pw wid = balance <$> total pw wid
+totalBalance pw wid = do
+    availableBalance' <- availableBalance pw wid
+    changeBalance' <- balance <$> change pw wid
+    return $ availableBalance' + changeBalance'
 
 {-------------------------------------------------------------------------------
   Active wallet

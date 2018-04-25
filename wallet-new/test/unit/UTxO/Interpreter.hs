@@ -340,7 +340,7 @@ instance DSL.Hash h Addr => Interpret h (DSL.Transaction h Addr) where
       trOuts'                  <-           mapM int (DSL.trOuts t)
       txAux   <- liftTranslateInt $ mkTx trIns' trOuts'
       pushTx (t, hash (taTx txAux))
-      return (txAux, resolvedInputs)
+      return $ mkRawResolvedTx txAux (NE.fromList resolvedInputs)
     where
       mkTx :: [TxOwnedInput SomeKeyPair]
            -> [TxOutAux]
@@ -371,13 +371,17 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
   int :: forall e m. (HasCallStack, Monad m)
       => DSL.Block h Addr -> IntT h e m RawResolvedBlock
   int (OldestFirst txs) = do
-      (txs', resolvedTxInputs) <- unzip <$> mapM int txs
+      (txs', resolvedTxInputs) <- unpack <$> mapM int txs
       prev  <- gets icPrevBlock
       slot  <- gets icNextSlot
       block <- liftTranslateInt $ mkBlock prev slot txs'
       pushBlock block
-      return (block, resolvedTxInputs)
+      return $ mkRawResolvedBlock block resolvedTxInputs
     where
+      unpack :: [RawResolvedTx] -> ([TxAux], [ResolvedTxInputs])
+      unpack = unzip
+             . map (\rtx -> (rawResolvedTx rtx, rawResolvedTxInputs rtx))
+
       mkBlock :: BlockHeader
               -> SlotId
               -> [TxAux]
@@ -414,7 +418,8 @@ instance DSL.Hash h Addr => Interpret h (DSL.Chain h Addr) where
 
   int :: forall e m. (HasCallStack, Monad m)
       => DSL.Chain h Addr -> IntT h e m (OldestFirst [] MainBlock)
-  int (OldestFirst blocks) = OldestFirst <$> mapM (fmap fst . int) blocks
+  int (OldestFirst blocks) = OldestFirst <$>
+      mapM (fmap rawResolvedBlock . int) blocks
 
 {-------------------------------------------------------------------------------
   Auxiliary

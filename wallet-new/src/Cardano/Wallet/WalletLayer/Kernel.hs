@@ -5,19 +5,19 @@ module Cardano.Wallet.WalletLayer.Kernel
     , bracketActiveWallet
     ) where
 
-import           Universum
-import           System.Wlog (Severity)
 import           Pos.Core (HasConfiguration)
+import           System.Wlog (Severity)
+import           Universum
 
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
-import           Pos.Util.Chrono (NE, OldestFirst (..))
 import           Pos.Block.Types (Blund, Undo (..))
+import           Pos.Util.Chrono (NE, OldestFirst (..))
 
-import           Cardano.Wallet.Kernel.Types (ResolvedBlock, fromRawResolvedBlock)
-import qualified Data.List.NonEmpty as NE
+import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..), ResolvedBlock (..),
+                                              fromRawResolvedBlock)
 import           Data.Maybe (fromJust)
 
 -- | Initialize the passive wallet.
@@ -58,14 +58,17 @@ bracketPassiveWallet logFunction f =
             let resolvedBlocks = map blundToResolvedBlock blunds
             liftIO $ Kernel.applyBlocks w resolvedBlocks
 
+    -- The use of the unsafe constructor 'UnsafeRawResolvedBlock' is justified
+    -- by the invariants established in the 'Blund'.
     blundToResolvedBlock :: Blund -> ResolvedBlock
     blundToResolvedBlock (b,u)
         = case b of
             Left _ -> error "genesis block, expecting a MainBlock"
             Right mainBlock ->
-                fromRawResolvedBlock (mainBlock, spentOutputs')
+                fromRawResolvedBlock
+              $ UnsafeRawResolvedBlock mainBlock spentOutputs'
         where
-            spentOutputs' = map (map fromJust . NE.toList) $ undoTx u
+            spentOutputs' = map (map fromJust) $ undoTx u
 
 -- | Initialize the active wallet.
 -- The active wallet is allowed all.

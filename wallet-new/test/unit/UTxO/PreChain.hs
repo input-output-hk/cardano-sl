@@ -20,6 +20,8 @@ import           Pos.Core
 import           Pos.Txp.Toil
 import           Pos.Util.Chrono
 
+import           Cardano.Wallet.Kernel.Types (rawResolvedTx)
+
 import           Util.DepIndep
 import           UTxO.Bootstrap
 import           UTxO.Context
@@ -150,7 +152,7 @@ calcFees boot f = do
     return $ f (unmarkOldestFirst fees)
   where
     int' :: Chain h Addr -> IntT h Void m (OldestFirst [] (OldestFirst [] TxAux))
-    int' = mapM (mapM (fmap fst . int))
+    int' = mapM (mapM (fmap rawResolvedTx . int))
 
     unmarkOldestFirst :: OldestFirst [] (OldestFirst [] a) -> [[a]]
     unmarkOldestFirst = map toList . toList

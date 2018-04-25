@@ -5,20 +5,21 @@
 -- TODO: Take advantage of https://github.com/input-output-hk/cardano-sl/pull/2296 ?
 module Main (main) where
 
+import           Universum
+
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import           Data.List((!!))
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, shown, (%))
 import           Serokell.Util (mapJson)
 import           Test.Hspec.QuickCheck
-import           Universum
+import           Test.QuickCheck (elements)
 
 import qualified Pos.Block.Error as Cardano
+import           Pos.Core (HasConfiguration)
+import           Pos.Crypto (EncryptedSecretKey)
 import qualified Pos.Txp.Toil as Cardano
 import           Pos.Util.Chrono
-import           Pos.Crypto (EncryptedSecretKey)
-import           Pos.Core (HasConfiguration)
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
@@ -26,22 +27,22 @@ import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import           UTxO.BlockGen
 import           UTxO.Bootstrap
 import           UTxO.Context
+import           UTxO.Crypto
 import           UTxO.DSL
 import           UTxO.Interpreter
 import           UTxO.PreChain
 import           UTxO.Translate
-import           UTxO.Crypto
 
 import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
 import           Util.Validated
 import           Wallet.Abstract
 import           Wallet.Abstract.Cardano
-import qualified Wallet.Basic          as Base
-import qualified Wallet.Incremental    as Incr
-import qualified Wallet.Prefiltered    as Pref
+import qualified Wallet.Basic as Base
+import qualified Wallet.Incremental as Incr
+import qualified Wallet.Prefiltered as Pref
 import qualified Wallet.Rollback.Basic as Roll
-import qualified Wallet.Rollback.Full  as Full
+import qualified Wallet.Rollback.Full as Full
 
 {-------------------------------------------------------------------------------
   Main test driver
@@ -225,13 +226,13 @@ testActiveWallet =
 
     ours' :: ActorIx -> Addr -> Bool
     ours' poorIx@(IxPoor _) addr = addrActorIx addr == poorIx
-    ours' _ _ = False
+    ours' _ _                    = False
 
     choosePoorActor :: TransCtxt -> Gen (ActorIx, EncryptedSecretKey)
     choosePoorActor transCtxt' = do
         let poorActors = Map.elems . actorsPoor . tcActors $ transCtxt'
-        poorIx <- choose (0, length poorActors -1)
-        let esk =  encKpEnc . poorKey $ poorActors !! poorIx
+        (poorIx, poorActor) <- elements $ zip [0..] poorActors
+        let esk = encKpEnc $ poorKey poorActor
         return (IxPoor poorIx, esk)
 
     checkEquivalent :: forall h. Hash h Addr

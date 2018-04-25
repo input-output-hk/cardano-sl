@@ -1,0 +1,383 @@
+
+:root {
+  --height-footer-bottom: 70px;
+
+  --cardano-logo-width: 103.5px;
+  --cardano-logo-height: 30px;
+
+  --social-icon-height: 48px;
+}
+
+.explorer-footer {
+  background-color: var(--color2);
+
+  &__container {
+    lost-utility: clearfix;
+  }
+
+  &__top {
+    border-bottom: 1px solid color(var(--color3) a(0.3));
+
+
+    &--content {
+      @extend .outer-container;
+      padding: 24px 18px 0 18px;
+    }
+
+    @media (--md) {
+      &--content {
+        padding: 40px 72px 24px 72px;
+      }
+    }
+
+    .content__container {
+
+      &--left {
+        lost-column: 1/1;
+      }
+
+      &--right{
+        lost-column: 1/1;
+      }
+
+      @media (--md) {
+        &--left {
+          lost-column: 5/12;
+        }
+
+        &--right{
+          lost-column: 6/12;
+          lost-offset: 1/12;
+        }
+      }
+
+      .link-open-source {
+        margin-bottom: 10px;
+      }
+
+      .lang-nav {
+        &__container {
+          box: horizontal center;
+          margin-bottom: 25px;
+        }
+
+        @media (--md) {
+          &__container {
+            box: horizontal left;
+          }
+        }
+
+        &__item {
+          box: center;
+          padding: 5px 10px 5px 30px;
+          background-size: 23px 17px;
+          background-repeat: no-repeat;
+          background-position: left;
+
+          font-family: var(--fontFamily0-Light);
+          font-size: 11px;
+          display: block;
+
+          button: standard-button;
+          button-color: color(var(--color3) a(0.9)) color(var(--color3) a(0.9)) color(var(--color3) a(0.9));
+
+          white-space: nowrap;-
+
+          &:hover{
+            cursor: pointer;
+          }
+        }
+      }
+    }
+
+    .nav-bottom {
+
+      &__list {
+        box: horizontal center wrap;
+        margin-top: 25px;
+      }
+
+      @media (--md) {
+        &__list {
+          box: horizontal left wrap;
+        }
+      }
+
+      &__item {
+
+        border-right: 1px solid color(var(--color3) a(0.3));
+
+        padding: 0 10px;
+        margin-bottom: 5px;
+
+        &:last-child {
+          padding-right: 0;
+          border: none;
+        }
+
+        &:first-child {
+          padding-left: 0;
+        }
+
+        &--link {
+
+          font-family: var(--fontFamily0-Light);
+          font-size: 10px;
+          white-space: nowrap;
+
+          button: standard-button;
+          button-color: color(var(--color3) a(0.3)) color(var(--color3) a(0.3)) color(var(--color3) a(0.7));
+
+          &:hover {
+            text-decoration: underline;
+          }
+        }
+      }
+    }
+
+    .social-nav {
+      &__container {
+        box: horizontal center;
+        margin-top: 15px;
+        margin-bottom: 10px;
+        height: var(--social-icon-height);
+      }
+
+      @media (--md) {
+        &__container {
+          box: horizontal left;
+          margin-bottom: 25px;
+        }
+      }
+
+      &__item {
+
+        margin-right: 5px;
+
+        &:last-child {
+          margin-right: 0;
+        }
+
+        &--link {
+          box: horizontal center;
+          display: block;
+          width: var(--social-icon-height);
+          height: var(--social-icon-height);
+
+          button: default-button;
+          button-background: color(var(--color3) a(0.0)) color(var(--color3) a(0.0)) var(--color16));
+
+          &:hover .icon {
+            opacity: 0.7;
+          }
+        }
+
+
+        .icon {
+            display: block;
+            background-repeat: no-repeat;
+            background-position: left;
+            opacity: 0.4;
+            box-item: center;
+        }
+
+        .bg-icon-twitter {
+          background-size: 25px 20px;
+          width: 25px;
+          height: 20px;
+        }
+        .bg-icon-email {
+          background-size: 25px 25px;
+          width: 25px;
+          height: 25px;
+        }
+        .bg-icon-github {
+          background-size: 25px 25px;
+          width: 25px;
+          height: 25px;
+        }
+
+      }
+    }
+
+    .nav {
+
+      &__container {
+        @extend .outer-container;
+        padding-bottom: 24px;
+      }
+
+      &__list {
+        lost-column: 1/1;
+      }
+
+      @media (--md) {
+        &__list {
+          lost-column: 1/2;
+        }
+      }
+
+      &__item {
+        margin: 5px 0;
+
+        &--link {
+          font-family: var(--fontFamily0-Light);
+          font-size: 12px;
+          line-height: 17px;
+          display: block;
+          text-align: center;
+
+          button: standard-button;
+          button-color: color(var(--color3) a(0.3)) color(var(--color3) a(0.3)) color(var(--color3) a(0.7));
+
+          &:hover {
+            text-decoration: underline;
+          }
+        }
+
+        @media (--md) {
+          &--link {
+            text-align: left;
+          }
+        }
+      }
+    }
+
+    .disclaimer {
+      font-family: var(--fontFamily0-Light);
+      padding-bottom: 10px;
+      font-size: 12px;
+      line-height: 17px;
+      color: color(var(--color13) a(0.7));
+      text-align: center;
+    }
+
+    @media (--md) {
+      .disclaimer {
+        text-align: left;
+      }
+    }
+
+  }
+
+  &__bottom {
+    @extend .outer-container;
+    color: color(var(--color0) a(0.5));
+    padding: 0 18px;
+
+    .logo__wrapper {
+      height: var(--height-footer-bottom);
+      box: horizontal center;
+      padding-top: 30px;
+      padding-bottom:60px;
+    }
+
+    @media (--md) {
+      .logo__wrapper {
+        box: horizontal left;
+      }
+    }
+
+    .logo__container {
+      box: horizontal;
+      height: 100%;
+    }
+
+    .logo__cardano-name {
+      display: block;
+      width: 90.2px;
+      height: 26px;
+      box-item: center;
+    }
+
+    @media (--md) {
+      .logo__cardano-name {
+        width: 104px;
+        height: 30px;
+      }
+    }
+
+    .logo__iohk-name {
+      width: 120.1px;
+      height: 26px;
+      @extend .hide;
+    }
+
+    @media (--md) {
+      .logo__iohk-name {
+        width: 138.5px;
+        height: 30px;
+        margin-left: 24px;
+        box-item: center;
+        @extend .show;
+      }
+    }
+
+    .split {
+      display: inline-block;
+      background: var(--color14);
+      opacity: 0.2;
+      width: 1px;
+      height: 30px;
+      margin-left: 24px;
+      box-item: center;
+      @extend .hide;
+    }
+
+    @media (--md) {
+      .split {
+        @extend .show;
+      }
+    }
+
+    .support {
+      margin-left: 24px;
+      color: var(--color3);
+      opacity: 0.7;
+      font-family: var(--fontFamily0-Regular);
+      font-size: 8px;
+      box-sizing: border-box;
+      text-transform: uppercase;
+      box-item: center;
+      display: block;
+    }
+
+    @media (--md) {
+      .support {
+        font-size: 9px;
+      }
+    }
+
+    .copy {
+      font-family: var(--fontFamily0-Light);
+      font-size: 10px;
+      box-item: center;
+    }
+  }
+
+  &__meta {
+    text-align: center;
+
+    .version {
+      font-family: var(--fontFamily0-Light);
+      font-size: 9px;
+      color: color(var(--color3) a(0.3))
+    }
+
+    .commit {
+        font-family: var(--fontFamily0-Light);
+        font-size: 9px;
+        padding-left: 5px;
+
+        button: standard-button;
+        button-color: color(var(--color3) a(0.3)) color(var(--color3) a(0.3)) color(var(--color3) a(0.3));
+    }
+  }
+
+  @media (--md) {
+    &__bottom {
+      padding: 10px 72px 5px 72px;
+    }
+  }
+
+}

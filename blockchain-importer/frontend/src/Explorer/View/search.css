@@ -1,0 +1,132 @@
+
+.explorer-search {
+
+      &__container {
+        border: 1px solid color(var(--color0) a(0.3));
+        border-radius: 2px;
+        padding: 5px 5px 5px 0px;
+        box: horizontal;
+
+        &.focused {
+          border: 1px solid color(var(--color0) a(0.5));
+        }
+      }
+      @media (--sm) {
+        &__container {
+          width:100%;
+          margin: 0;
+        }
+      }
+
+      &__wrapper {
+        box-item: flex-1;
+        box: horizontal;
+      }
+
+      &__label {
+          color: color(var(--color3) a(0.5));
+          font-family: var(--fontFamily0-Light);
+          box: center;
+          padding-left: 15px;
+      }
+
+      &__input {
+        border: none;
+        font-size: 13px;
+        font-family: var(--fontFamily0-Regular);
+        padding: 0 5px;
+        color: color(var(--color0) a(0.3));
+
+        &.focused {
+          color: var(--color0);
+        }
+
+        background-color: transparent;
+
+        &::placeholder {
+            font-family: var(--fontFamily0-Light);
+            color: color(var(--color0) a(0.3));
+        }
+
+        &--address-tx {
+          box-item: flex-1;
+        }
+
+        &--epoch {
+          width: 55px;
+        }
+
+        @media (--lg) {
+          &--epoch {
+            width: 100px;
+          }
+        }
+
+        &--slot {
+          width: 55px;
+        }
+
+        @media (--lg) {
+          &--slot {
+            width: 100px;
+          }
+        }
+
+      }
+
+
+      @media (--lg) {
+        &__input {
+          padding: 0 15px;
+        }
+      }
+
+      &__btn {
+        box-item: right;
+        button: standard-button;
+        height: 30px;
+        width: 40px;
+
+        background-repeat: no-repeat;
+        background-position: center center;
+        background-size: 15px 15px;
+        opacity: 0.5;
+
+        &.focused {
+          opacity: 1;
+        }
+      }
+
+      &-nav {
+
+        &__container {
+          box: horizontal center;
+        }
+
+        &__item {
+          box: center;
+          padding-right: 5px;
+
+          color: color(var(--color3) a(0.5));
+          font-size: 13px;
+          font-family: var(--fontFamily0-Light);
+          cursor: pointer;
+          white-space: nowrap;
+
+          &:hover,
+          &:active,
+          &.selected {
+            color: color(var(--color0));
+            font-family: var(--fontFamily0-Regular);
+          }
+
+        }
+
+        @media (--lg) {
+          &__item {
+            padding-right: 15px;
+          }
+        }
+      }
+
+}

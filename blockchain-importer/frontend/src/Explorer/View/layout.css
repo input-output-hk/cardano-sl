@@ -1,0 +1,42 @@
+
+.explorer-bg__container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--color2);
+  background-image: var(--bg-header-url);
+  background-repeat: no-repeat;
+  background-size: 100% var(--min-height-header-bg-image);
+}
+
+.explorer-content__wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.explorer-content {
+  padding-top: var(--height-header-top-mobile);
+}
+
+@media (--md) {
+  .explorer-content {
+    padding-top: var(--height-header-top);
+  }
+}
+
+@media (--md) {
+  .explorer-route-dashboard {
+    .explorer-content {
+      padding-top: 0;
+    }
+  }
+}
+
+.label-count {
+  color: var(--color1);
+}

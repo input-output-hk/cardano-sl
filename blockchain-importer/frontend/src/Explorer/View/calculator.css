@@ -1,0 +1,9 @@
+
+.explorer-calculator {
+  background-color: var(--color4);
+
+  &__container {
+    @extend .outer-container;
+  }
+
+}

@@ -1,0 +1,142 @@
+
+.explorer-block {
+
+  &__wrapper {
+    background-color: var(--color4);
+
+    &:nth-child(even) {
+      background-color: var(--color6);
+    }
+  }
+
+
+  &__container {
+    @extend .outer-container;
+    padding: 24px 0;
+  }
+
+  @media (--md) {
+    &__container {
+      padding: 56px 48px 48px 48px;
+    }
+  }
+
+  .subheadline {
+    font-family: var(--fontFamily0-Bold);
+    color: var(--color8);
+    font-size: 10px;
+    font-weight: bold;
+    padding: 10px 24px;
+  }
+
+  .blocks-wrapper {
+    lost-utility: clearfix;
+  }
+
+  .summary-container {
+    lost-column: 1/1;
+  }
+
+  @media (--lg) {
+    .summary-container {
+      lost-column: 1/2;
+    }
+  }
+
+  .hashes-container {
+    margin-top: 24px;
+    lost-column: 1/1;
+  }
+
+  @media (--lg) {
+    .hashes-container {
+      margin-top: 0;
+      lost-column: 1/2;
+    }
+  }
+
+  .row {
+    lost-utility: clearfix;
+    background-color: var(--color6);
+    padding: 0 24px;
+
+    &:nth-child(even) {
+      background-color: transparent;
+    };
+  }
+
+  .row__summary {
+
+  }
+
+  .row__hashes {
+    .column__hash--link {
+      button: standard-button;
+      button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
+    }
+  }
+
+  .column {
+    lost-column: 3.5/12;
+    padding: 10px 0;
+    font-family: var(--fontFamily0-Regular);
+    color: var(--color8);
+    font-size: 10px;
+    font-weight: normal;
+    overflow: hidden;
+
+    &:last-child {
+      lost-column: 8.5/12;
+    }
+
+    &__hash,
+    &__label,
+    &__hash--link {
+      text-overflow: ellipsis;
+    }
+
+    .ada {
+      padding-right: 10px;
+      background-repeat: no-repeat;
+      background-position: right center;
+      background-size: 8px 7px;
+    }
+  }
+
+  @media (--sm) {
+    .column {
+      lost-column: 2.5/12;
+    }
+    &:last-child {
+      lost-column: 9.5/12;
+    }
+  }
+
+  .summary-empty {
+
+    &__container {
+      padding: 10px 18px;
+
+      font-size: 10px;
+      font-family: var(--fontFamily0-Regular);
+      color: var(--color13);
+
+    }
+
+    @media (--md) {
+      &__container {
+          padding: 10px 24px;
+      }
+    }
+  }
+
+  .transaction-header {
+    background-color: var(--color7); /* overridden */
+  }
+
+
+  &__tx-container {
+    lost-utility: clearfix;
+  }
+
+}

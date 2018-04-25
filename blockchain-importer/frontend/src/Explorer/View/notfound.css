@@ -1,0 +1,40 @@
+
+.explorer-404 {
+
+  &__wrapper {
+    background-color: var(--color4);
+  }
+
+  &__container {
+    @extend .outer-container;
+    padding: 56px 48px 48px 48px;
+    box: vertical center;
+  }
+
+  .bg-image-404 {
+    padding-top: 222px;
+    padding-bottom: 222px;
+    width: 267.5px;
+    height: 152.5px;
+    box-item: center;
+    display: block;
+  }
+
+  @media (--xs) {
+    .bg-image-404 {
+      padding-top: 222px;
+      padding-bottom: 222px;
+      width: 133.75px;
+      height: 76.25px;
+      box-item: center;
+    }
+  }
+
+  .description {
+    padding: 0 24px 24px 24px;
+    font-family: var(--fontFamily0-Regular);
+    color: var(--color8);
+    font-size: 10px;
+    font-weight: normal;
+  }
+}

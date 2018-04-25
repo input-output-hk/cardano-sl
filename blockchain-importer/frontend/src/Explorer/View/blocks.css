@@ -1,0 +1,166 @@
+
+/* blocks (slot) / epoch page */
+
+.explorer-blocks {
+
+  &__wrapper {
+    background-color: var(--color4);
+  }
+
+
+  &__container {
+    @extend .outer-container;
+    padding: 46px 0px 38px 0px;
+
+  }
+
+  @media (--md) {
+    &__container {
+      max-width:var(--max-width-desktop);
+      padding: 56px 48px 48px 48px;
+    }
+  }
+}
+
+
+/* shared */
+
+.blocks-header {
+  padding: 10px 24px;
+
+  font-size: 10px;
+  font-family: var(--fontFamily0-Bold);
+  font-weight: bold;
+  color: var(--color8);
+
+  lost-utility: clearfix;
+}
+
+.blocks-column {
+
+  &__epoch {
+    lost-column: 3/12;
+    button: standard-button;
+    button-color: var(--color8) var(--color5) var(--color5);
+  }
+  &__slot {
+    lost-column: 3/12;
+    button: standard-button;
+    button-color: var(--color8) var(--color5) var(--color5);
+  }
+  &__age {
+    lost-column: 6/12 3;
+  }
+  &__txs {
+    @extend .hide;
+  }
+  &__totalSend {
+    @extend .hide;
+
+    .ada {
+      padding-right: 10px;
+      background-repeat: no-repeat;
+      background-position: right center;
+      background-size: 8px 7px;
+    }
+
+  }
+  &__lead {
+    @extend .hide;
+  }
+  &__size {
+    @extend .hide;
+    white-space: nowrap;
+  }
+}
+
+@media (--md) {
+  .blocks-column {
+    &__epoch {
+      lost-column: 1/12;
+    }
+    &__slot {
+      lost-column: 1/12;
+    }
+    &__age {
+      lost-column: 3/12;
+    }
+    &__txs {
+      @extend .show;
+      lost-column: 2/12;
+    }
+    &__totalSend {
+      @extend .show;
+      lost-column: 2/12;
+    }
+    &__lead {
+      @extend .show;
+      lost-column: 2/12;
+    }
+    &__size {
+      @extend .show;
+      lost-column: 1/12;
+    }
+  }
+}
+
+.blocks-message {
+  padding: 10px 24px;
+  font-size: 10px;
+  font-family: var(--fontFamily0-Regular);
+  color: var(--color13);
+}
+
+.blocks-message-back {
+    padding: 0 24px 30px 24px;
+    font-size: 10px;
+    font-family: var(--fontFamily0-Regular);
+    color: var(--color1);
+}
+
+.blocks-body {
+  padding-bottom: 24px;
+
+  &__wrapper {
+    position: relative;
+  }
+
+  &__cover {
+    @extend .hide;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: color(var(--color3) a(0.5));
+  }
+
+  &__cover-label {
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+    text-align: center;
+    font-size: 10px;
+    font-family: var(--fontFamily0-Regular);
+    color: var(--color8);
+  }
+
+  &__row {
+    lost-utility: clearfix;
+    display: block;
+    padding: 10px 24px;
+    color: var(--color8);
+
+    font-size: 10px;
+    font-family: var(--fontFamily0-Regular);
+    font-weight: normal;
+
+    &:nth-child(odd) {
+      background-color: var(--color7);
+    }
+  }
+}
+
+.blocks-footer {
+  text-align: center;
+}

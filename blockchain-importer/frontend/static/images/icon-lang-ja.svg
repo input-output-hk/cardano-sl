@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" style="isolation:isolate" viewBox="0 0 90 60" width="90" height="60">
+  <rect x="0" y="0" width="90" height="60" transform="matrix(1,0,0,1,0,0)" fill="#fff"/>
+  <path d=" M 27 30 C 27 20.066 35.066 12 45 12 C 54.934 12 63 20.066 63 30 C 63 39.934 54.934 48 45 48 C 35.066 48 27 39.934 27 30 Z " fill="#bc002d"/>
+</svg>

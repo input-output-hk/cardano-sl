@@ -1,0 +1,36 @@
+{
+  "name": "cardano-sl-explorer",
+  "description": "Frontend of 'cardano-sl' explorer",
+  "main": "index.js",
+  "authors": [],
+  "keywords": [],
+  "moduleType": [],
+  "homepage": "",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "purescript-pux": "12.0.0",
+    "purescript-maybe": "3.0.0",
+    "purescript-affjax": "5.0.0",
+    "purescript-maps": "3.5.2",
+    "purescript-profunctor-lenses": "3.8.0",
+    "purescript-argonaut-generic-codecs": "6.0.4",
+    "purescript-formatters": "3.0.0",
+    "purescript-remotedata": "2.2.0",
+    "purescript-parsing": "4.3.1",
+    "purescript-now": "v3.0.0",
+    "purescript-strings": "3.3.1"
+  },
+  "devDependencies": {
+    "purescript-debug": "3.0.0",
+    "purescript-console": "3.0.0",
+    "purescript-psci-support": "3.0.0",
+    "purescript-spec": "2.0.0"
+  }
+}

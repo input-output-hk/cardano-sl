@@ -1,0 +1,361 @@
+
+/* ---------------------------
+  vars
+------------------------------ */
+
+:root {
+
+  /* colors */
+  --color0: #fff;
+	--color1: #082737;
+	--color2: #0c1723;
+	--color3: #fcfcfc;
+	--color4: #fafbfc;
+	--color5: #ce851f;
+	--color6: #f3f6f9;
+	--color7: #edf0f3;
+	--color8: #333333;
+	--color9: #414141;
+	--color10: #0e2735;
+	--color11: #cbcbcb;
+	--color12: #e6e6e6;
+	--color13: #aaa;
+	--color14: #f9f9f9;
+	--color15: #9a1805;
+	--color16: #49484c;
+
+  /* fonts */
+  --fontFamily0-Light: 'fontFamily0-Light';
+  --fontFamily0-Regular: 'fontFamily0-Regular';
+  --fontFamily0-Bold: 'fontFamily0-Bold';
+
+  /* global vars */
+  --height-header-top: 70px;
+  --height-header-top-mobile: 64px;
+  --min-height-header-bg-image: 450px;
+  --max-width-desktop: 1200px;
+
+  /* images */
+  --bg-header-url: url('../static/images/header_300517.jpg');
+}
+
+
+/* breakpoints
+
+ Note:
+ All the following definitions based on Bootstrap's breakpoints
+ @see https://v4-alpha.getbootstrap.com/layout/overview/#responsive-breakpoints
+*/
+
+/*extra small devices (portrait phones, <576px)*/
+/* --xs is the default in Explorer, so we don't need to declare this here */
+@custom-media --xs (width < 576px);
+
+/*small devices (landscape phones, >=576px )*/
+@custom-media --sm (width >= 576px);
+/*medium devices (tablets, >=768px)*/
+@custom-media --md (width >= 768px);
+/*large devices (desktops, >=992px)*/
+@custom-media --lg (width >= 992px);
+/*extra large devices (large desktops, >=1200px)*/
+@custom-media --xl (width >= 1200px);
+
+/* ---------------------------
+  fonts
+------------------------------ */
+
+@font-face {
+  font-family: var(--fontFamily0-Regular);
+  src: url("../static/fonts/Montserrat-Medium.otf") format("opentype");
+}
+
+@font-face {
+  font-family: var(--fontFamily0-Regular);
+  src: url("../static/fonts/montserrat_[allfont.ru].ttf") format("truetype");
+}
+
+@font-face {
+  font-family: var(--fontFamily0-Light);
+  src: url("../static/fonts/Montserrat-Thin.otf") format("opentype");
+}
+
+@font-face {
+  font-family: var(--fontFamily0-Light);
+  src: url("../static/fonts/montserrat-light_[allfont.ru].ttf") format("truetype");
+}
+
+@font-face {
+  font-family: var(--fontFamily0-Bold);
+  src: url("../static/fonts/Montserrat-SemiBold.otf") format("opentype");
+}
+
+@font-face {
+  font-family: var(--fontFamily0-Bold);
+  src: url("../static/fonts/montserrat-bold_[allfont.ru].ttf") format("truetype");
+}
+
+/* ---------------------------
+  ie
+------------------------------ */
+
+/* hide arrow of select */
+select::-ms-expand {
+    display: none;
+}
+
+/* ---------------------------
+  embedded svg
+------------------------------ */
+
+@svg-load image-404 url('../static/images/image-404.svg');
+
+.bg-image-404 {
+  background-image: svg-inline(image-404);
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+@svg-load logo-cardano-name url('../static/images/cardano-logo-name.svg');
+
+.bg-logo-cardano-name {
+  background-image: svg-inline(logo-cardano-name);
+  background-size: contain;
+}
+
+@svg-load iohk-logo url('../static/images/iohk-logo.svg');
+
+.bg-iohk-logo {
+  background-image: svg-inline(iohk-logo);
+  background-size: contain;
+}
+
+@svg-load logo url('../static/images/cardano-logo.svg');
+
+.bg-logo {
+  background-image: svg-inline(logo);
+  background-size: contain;
+}
+
+@svg-load arrow-up url('../static/images/arrow-up.svg');
+
+.bg-arrow-up {
+  background-image: svg-inline(arrow-up);
+}
+
+@svg-load arrow-down url('../static/images/arrow-bottom.svg');
+
+.bg-arrow-down {
+  background-image: svg-inline(arrow-down);
+}
+
+@svg-load ada url('../static/images/ada-currency-symbol.svg');
+
+.bg-ada {
+  background-image: svg-inline(ada);
+}
+
+@svg-load ada-dark url('../static/images/ada-currency-symbol-dark.svg');
+
+.bg-ada-dark {
+  background-image: svg-inline(ada-dark);
+}
+
+@svg-load usd-dark url('../static/images/usd-currency-symbol-dark.svg');
+
+.bg-usd-dark {
+  background-image: svg-inline(usd-dark);
+}
+
+@svg-load transaction-arrow url('../static/images/transaction-arrow-blue.svg');
+
+.bg-transaction-arrow {
+  background-image: svg-inline(transaction-arrow);
+}
+
+@svg-load triangle-right url('../static/images/triangle-right.svg');
+
+.bg-triangle-right {
+  background-image: svg-inline(triangle-right);
+}
+
+.bg-triangle-left {
+  background-image: svg-inline(triangle-right);
+  transform: rotate(180deg);
+}
+
+@svg-load arrow-right url('../static/images/arrow-right.svg');
+
+@svg-load arrow-right-hover url('../static/images/arrow-right.svg') {
+  g:nth-child(1) {
+    fill: var(--color2);
+    fill-opacity: 0.5;
+  }
+};
+
+.bg-arrow-right {
+  background-image: svg-inline(arrow-right);
+  &:hover {
+    background-image: svg-inline(arrow-right-hover);
+  }
+}
+
+@svg-load icon-search url('../static/images/icon-search.svg') {
+  g:nth-child(1) {
+    fill:var(--color0);
+    opacity: 1.1; /* 1.0 could not be used - bug of postcss-inline-svg?  */
+  }
+};
+
+.bg-icon-search {
+  background-image: svg-inline(icon-search);
+}
+
+@svg-load icon-hamburger url('../static/images/icon-menu.svg');
+@svg-load icon-hamburger-hover url('../static/images/icon-menu.svg') {
+  path:nth-child(2) {
+    opacity: 1.1; /* 1.0 could not be used - bug of postcss-inline-svg?  */
+  }
+};
+
+.bg-icon-hamburger {
+  background-image: svg-inline(icon-hamburger);
+  &:hover {
+    background-image: svg-inline(icon-hamburger-hover);
+  }
+}
+
+@svg-load icon-cross url('../static/images/icon-cross.svg');
+@svg-load icon-cross-hover url('../static/images/icon-cross.svg') {
+  path:nth-child(2) {
+    opacity: 1.1; /* 1.0 could not be used - bug of postcss-inline-svg?  */
+  }
+};
+
+.bg-icon-cross {
+  background-image: svg-inline(icon-cross);
+  &:hover {
+    background-image: svg-inline(icon-cross-hover);
+  }
+}
+
+/* lang icons */
+@svg-load icon-lang-en url('../static/images/icon-lang-en.svg');
+.bg-icon-lang-en {
+  background-image: svg-inline(icon-lang-en);
+}
+@svg-load icon-lang-de url('../static/images/icon-lang-de.svg');
+.bg-icon-lang-de {
+  background-image: svg-inline(icon-lang-de);
+}
+@svg-load icon-lang-ja url('../static/images/icon-lang-ja.svg');
+.bg-icon-lang-ja {
+  background-image: svg-inline(icon-lang-ja);
+}
+
+/* social icons */
+@svg-load icon-twitter url('../static/images/icon-twitter.svg');
+.bg-icon-twitter {
+  background-image: svg-inline(icon-twitter);
+}
+@svg-load icon-email url('../static/images/icon-email.svg');
+.bg-icon-email {
+  background-image: svg-inline(icon-email);
+}
+@svg-load icon-github url('../static/images/icon-github.svg');
+.bg-icon-github {
+  background-image: svg-inline(icon-github);
+}
+
+/* ---------------------------
+  components
+------------------------------ */
+
+@button standard-button {
+  button-border: none;
+  button-color: var(--color2);
+  button-color-hover: color(var(--color2) a(0.5));
+  button-color-active: var(--color2);
+  button-background-color: transparent;
+  button-background-color-hover: transparent;
+  button-background-color-active: transparent;
+}
+
+@button primary-button {
+  button-color: var(--color0);
+  button-color-hover: var(--color0);
+  button-color-active: color(var(--color0) a(0.8));
+
+  button-background-color: var(--color10);
+  button-background-color-hover: var(--color5);
+  button-background-color-active: color(var(--color5) a(0.8));
+}
+
+@button outline-button {
+  button-color: var(--color9);
+  button-color-hover: color(var(--color9) a(0.5));
+  button-color-active: var(--color9);
+
+  button-background-color: transparent;
+  button-background-color-hover: transparent;
+  button-background-color-active: transparent;
+
+  button-border-width: 1px;
+  button-border-color: var(--color9);
+  button-border-color-hover: color(var(--color9) a(0.8));
+  button-border-color-active: var(--color9);
+}
+
+.headline {
+  font-family: var(--fontFamily0-Regular);
+  color: var(--color5);
+  font-size: 12px;
+  font-weight: normal;
+  text-transform: uppercase;
+  padding: 0 18px 24px 18px;
+}
+
+@media (--md) {
+  .headline {
+    padding: 0 24px 24px 24px;
+  }
+}
+
+.visible {
+  visibility: visible !important;
+}
+
+.invisible {
+  visibility: hidden !important;
+}
+
+.hide {
+  display: none !important;
+}
+
+.show {
+  display: block !important;
+}
+
+.show-inline {
+  display: inline-block !important;
+}
+
+.show-flex {
+  display: flex !important;
+}
+
+.btn-debug {
+  font-family: var(--fontFamily0-Regular);
+  font-weight: normal;
+  font-size: 10;
+  padding: 5px;
+  button: standard-button;
+}
+
+.outer-container {
+  margin-left: auto;
+  margin-right: auto;
+  /*background-color: green;*/
+  max-width: var(--max-width-desktop);
+  lost-utility: clearfix;
+}

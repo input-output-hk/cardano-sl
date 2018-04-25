@@ -1,0 +1,460 @@
+name:                cardano-sl-explorer
+version:             1.1.1
+synopsis:            Cardano explorer
+description:         Please see README.md
+license:             MIT
+license-file:        LICENSE
+author:              IOHK
+maintainer:          IOHK <hi@serokell.io>
+copyright:           2017 IOHK
+category:            Currency
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  exposed-modules:      Pos.Explorer.ExplorerMode
+
+                        Pos.Explorer.Core
+                        Pos.Explorer.DB
+                        Pos.Explorer.ExtraContext
+                        Pos.Explorer.Socket
+                        Pos.Explorer.Socket.App
+                        Pos.Explorer.Socket.Holder
+                        Pos.Explorer.Socket.Methods
+                        Pos.Explorer.Socket.Util
+
+                        Pos.Explorer.Txp
+
+                        Pos.Explorer.Web
+                        Pos.Explorer.Web.Api
+                        Pos.Explorer.Web.ClientTypes
+                        Pos.Explorer.Web.Error
+                        Pos.Explorer.Web.TestServer
+                        Pos.Explorer.Web.Server
+                        Pos.Explorer.Web.Transform
+
+                        Pos.Explorer.TestUtil
+
+                        -- Needed for testing
+                        Pos.Arbitrary.Explorer
+
+  other-modules:        Pos.Explorer.Aeson.ClientTypes
+
+                        Pos.Binary.Explorer
+                        Pos.Explorer.Core.Types
+                        Pos.Explorer.Txp.Common
+                        Pos.Explorer.Txp.Global
+                        Pos.Explorer.Txp.Local
+                        Pos.Explorer.Txp.Toil
+                        Pos.Explorer.Txp.Toil.Logic
+                        Pos.Explorer.Txp.Toil.Monad
+                        Pos.Explorer.Txp.Toil.Types
+                        Pos.Explorer.BListener
+
+  build-depends:        QuickCheck
+                      , aeson
+                      , base
+                      , bytestring
+                      , conduit
+                      , containers
+                      , data-default
+                      , ether >= 0.5.1
+                      , exceptions
+                      , formatting
+                      , free
+                      , generic-arbitrary
+                      , lens
+                      , log-warper
+                      , memory
+                      , mmorph
+                      , resourcet
+                      , rocksdb-haskell-ng
+                      , safe-exceptions
+                      , serokell-util
+                      , servant-generic
+                      , stm
+                      , text
+                      , text-format
+                      , time
+                      , time-units
+                      , transformers
+                      , universum
+                      , unliftio
+                      , unordered-containers
+                      , vector
+
+                      -- cardano sl
+                      , cardano-sl
+                      , cardano-sl-binary
+                      , cardano-sl-block
+                      , cardano-sl-client
+                      , cardano-sl-core
+                      , cardano-sl-crypto
+                      , cardano-sl-db
+                      , cardano-sl-delegation
+                      , cardano-sl-generator
+                      , cardano-sl-infra
+                      , cardano-sl-networking
+                      , cardano-sl-ssc
+                      , cardano-sl-txp
+                      , cardano-sl-update
+                      , cardano-sl-util
+
+                      -- mtl ++
+                      , mtl
+
+                      -- servant
+                      , servant
+                      , servant-server
+                      , http-types
+
+                      -- socket-io + deps
+                      , socket-io
+                      , engine-io
+                      , engine-io-wai
+                      , wai
+                      , wai-extra
+                      , wai-cors
+                      , warp
+  hs-source-dirs:       src
+  default-language:     Haskell2010
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TemplateHaskell
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        ScopedTypeVariables
+                        MonadFailDesugaring
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+
+executable cardano-explorer
+  hs-source-dirs:      src/explorer
+  main-is:             Main.hs
+  other-modules:       ExplorerNodeOptions
+  build-depends:       base
+                     , cardano-sl
+                     , cardano-sl-core
+                     , cardano-sl-infra
+                     , cardano-sl-explorer
+                     , cardano-sl-networking
+                     , cardano-sl-update
+                     , cardano-sl-util
+                     , formatting
+                     , log-warper
+                     , optparse-applicative
+                     , universum
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        MonadFailDesugaring
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+executable cardano-explorer-hs2purs
+  hs-source-dirs:      src/purescript
+  main-is:             Main.hs
+  other-modules:       PSTypes
+                       PSOptions
+  build-depends:       base
+                     , cardano-sl-explorer
+                     , purescript-bridge
+                     , universum
+                     , optparse-simple
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        MonadFailDesugaring
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+executable cardano-explorer-swagger
+  hs-source-dirs:      src/documentation
+  main-is:             Main.hs
+  build-depends:       aeson
+                     , base
+                     , bytestring
+                     , cardano-sl-explorer
+                     , lens
+                     , optparse-applicative
+                     , servant-multipart
+                     , servant-server
+                     , servant-swagger
+                     , swagger2
+                     , text
+                     , universum >= 0.1.11
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+
+  default-extensions:   NoImplicitPrelude
+                        BangPatterns
+                        OverloadedStrings
+                        MonadFailDesugaring
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+executable cardano-explorer-mock
+  hs-source-dirs:      src/mock
+  main-is:             Main.hs
+  other-modules:
+  build-depends:       base
+                     , cardano-sl-explorer
+                     , optparse-applicative
+                     , universum
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        MonadFailDesugaring
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+test-suite cardano-explorer-test
+  main-is:             Test.hs
+  other-modules:
+                       -- Standard module with some magic
+                       Spec
+                       -- Utils
+                       Test.Pos.Explorer.MockFactory
+                       -- Tests
+                       Test.Pos.Explorer.Socket.AppSpec
+                       Test.Pos.Explorer.Socket.MethodsSpec
+                       Test.Pos.Explorer.Socket.UtilSpec
+                       Test.Pos.Explorer.Web.ServerSpec
+                       Test.Pos.Explorer.Web.ClientTypesSpec
+
+                       -- Test.Pos.Explorer.BListenerSpec -- TODO(KS): To merge when we merge tests.
+                       Test.Pos.Explorer.Identity.BinarySpec
+
+  type:                exitcode-stdio-1.0
+  build-depends:       QuickCheck
+                     , base
+                     , bytestring
+                     , cardano-sl
+                     , cardano-sl-block
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-explorer
+                     , cardano-sl-txp
+                     , cardano-sl-util
+                     , containers
+                     , cryptonite
+                     , data-default
+                     , engine-io
+                     , hspec
+                     , lens
+                     , log-warper
+                     , MonadRandom
+                     , mtl
+                     , universum >= 0.1.11
+                     , warp
+  hs-source-dirs:      test
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+                        MonadFailDesugaring
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+benchmark cardano-explorer-bench
+  hs-source-dirs:      bench
+  main-is:             Main.hs
+  other-modules:       Bench.Pos.Explorer.ServerBench
+  type:                exitcode-stdio-1.0
+  build-depends:       QuickCheck
+                     , base
+                     , cardano-sl
+                     , cardano-sl-core
+                     , cardano-sl-explorer
+                     , cardano-sl-txp
+                     , criterion
+                     , data-default
+                     , lens
+                     , text-format
+                     , universum >= 0.1.11
+                     , weigh
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+                        MonadFailDesugaring
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

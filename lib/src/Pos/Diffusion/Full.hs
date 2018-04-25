@@ -188,6 +188,7 @@ diffusionLayerFullExposeInternals fdconf
 
     -- Timer is in microseconds.
     keepaliveTimer :: Timer <- newTimer $ convertUnit (20 :: Second)
+    subsciptionKeepAliveTimer :: Timer <- newTimer $ convertUnit (20 :: Second)
 
     diffusionHealth <- case mEkgNodeMetrics of
                             Nothing -> return Nothing
@@ -327,7 +328,7 @@ diffusionLayerFullExposeInternals fdconf
             mKademliaParams
             mSubscriptionWorker
             mEkgNodeMetrics
-            keepaliveTimer
+            subsciptionKeepAliveTimer
             currentSlotDuration
             subscriptionStatus
             listeners

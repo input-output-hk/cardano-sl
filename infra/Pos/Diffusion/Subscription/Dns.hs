@@ -29,7 +29,7 @@ import           Pos.Diffusion.Types (SubscriptionStatus (..))
 import           Pos.Network.DnsDomains (NodeAddr)
 import           Pos.Network.Types (Bucket (..), DnsDomains (..), NodeId (..),
                                     NodeType (..), resolveDnsDomains)
-import           Pos.Util.Timer (Timer, waitTimer)
+import           Pos.Util.Timer (Timer, waitTimer, startTimer)
 import           Pos.Util.Trace (Trace, Severity (..), traceWith)
 
 -- | Resolve a fixed list of names to a NodeId (using a given port) repeatedly.
@@ -140,7 +140,9 @@ dnsSubscriptionWorker logTrace oq defaultPort DnsDomains {..} keepaliveTimer nex
         subscriber (networkSubscribeTo' logTrace oq BucketBehindNatWorker NodeRelay peersVar keepalive status duration sendActions)
                    (dnsSubscriptionTarget logTrace (timeoutExhausted duration) defaultPort domain)
   where
-    keepalive _ = atomically $ waitTimer keepaliveTimer
+    keepalive _ = do
+        startTimer keepaliveTimer
+        atomically $ waitTimer keepaliveTimer
     timeoutExhausted :: MVar Millisecond -> IO Microsecond
     timeoutExhausted duration = do
         d <- retryInterval <$> swapMVar duration 0 <*> nextSlotDuration

@@ -74,7 +74,7 @@ interpretT mkWallet InductiveT{..} ind'' =
     -- This is ugly, but we only discover the bootstrap transaction once we
     -- descend down the 'Inductive' wallet. We will 'put' the right context
     -- before the first call to 'int'.
-    runIntT (error "initialized later") (fst <$> go ind'')
+    runIntT (error "interpretT: the impossible happened") (fst <$> go ind'')
   where
     go :: Inductive h Addr -> IntT h e m (Wallet h Addr, Kernel.WalletId)
     go ind'@(WalletBoot t) = do
@@ -138,7 +138,7 @@ equivalentT activeWallet esk = \mkWallet w ->
                       -> RawResolvedTx
                       -> TranslateT (EquivalenceViolation h) m ()
     walletNewPendingT ctxt wid tx = do
-        _ <- liftIO $ Kernel.newPending activeWallet wid (fst tx)
+        _ <- liftIO $ Kernel.newPending activeWallet wid (rawResolvedTx tx)
         checkWalletState ctxt wid
 
     checkWalletState :: InductiveCtxt h

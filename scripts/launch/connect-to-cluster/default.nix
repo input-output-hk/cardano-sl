@@ -63,7 +63,7 @@ let
     cp -vi ${if topologyFile != null then topologyFile else topologyFileDefault } topology.yaml
   '';
 in pkgs.writeScript "${executable}-connect-to-${environment}" ''
-  #!${pkgs.stdenv.shell}
+  #!${pkgs.stdenv.shell} -e
 
   if [[ "$1" == "--delete-state" ]]; then
     echo "Deleting ${stateDir} ... "
@@ -83,18 +83,21 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   export LC_ALL=en_GB.UTF-8
   export LANG=en_GB.UTF-8
   if [ ! -d ${stateDir}/tls ]; then
-    mkdir ${stateDir}/tls/
-    ${pkgs.openssl}/bin/openssl req -x509 -newkey rsa:2048 -keyout ${stateDir}/tls/server.key -out ${stateDir}/tls/server.cert -days 3650 -nodes -subj "/CN=localhost"
+    mkdir -p ${stateDir}/tls/server && mkdir -p ${stateDir}/tls/client
+    ${iohkPkgs.cardano-sl-tools}/bin/cardano-x509-certificates   \
+      --server-out-dir ${stateDir}/tls/server                    \
+      --clients-out-dir ${stateDir}/tls/client                   \
+      --configuration-key ${environments.${environment}.confKey} \
+      --configuration-file ${configFiles}/configuration.yaml
   fi
   ''}
-
 
   ${executables.${executable}}                                     \
     --configuration-file ${configFiles}/configuration.yaml         \
     --configuration-key ${environments.${environment}.confKey}     \
-    ${ ifWallet "--tlscert ${stateDir}/tls/server.cert"}           \
-    ${ ifWallet "--tlskey ${stateDir}/tls/server.key"}             \
-    ${ ifWallet "--tlsca ${stateDir}/tls/server.cert"}             \
+    ${ ifWallet "--tlscert ${stateDir}/tls/server/server.crt"}     \
+    ${ ifWallet "--tlskey ${stateDir}/tls/server/server.key"}      \
+    ${ ifWallet "--tlsca ${stateDir}/tls/server/ca.crt"}           \
     --log-config ${configFiles}/log-config-connect-to-cluster.yaml \
     --topology "${configFiles}/topology.yaml"                      \
     --logs-prefix "${stateDir}/logs"                               \

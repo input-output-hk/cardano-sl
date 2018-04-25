@@ -143,7 +143,6 @@ mkDefaultWallet l self st = Wallet {
       -- Dealing with pending
       pending    = st ^. l
     , newPending = \tx -> do
-          -- TODO this returns Nothing, figure out why.
           -- Here we check that the inputs to the given transaction are a
           -- subset of the available unspent transaction outputs that aren't
           -- part of a currently pending transaction.
@@ -152,8 +151,6 @@ mkDefaultWallet l self st = Wallet {
           case x `Set.isSubsetOf` y of
              True -> Just $ self (st & l %~ Set.insert tx)
              False -> Nothing
-               -- error (sformat ("newPending: difference x y = " % build)
-               --                (Set.toList (Set.difference x y)))
       -- UTxOs
     , available = utxoRemoveInputs (txIns (pending this)) (utxo this)
     , change    = utxoRestrictToOurs (ours this) (txOuts (pending this))
@@ -395,12 +392,12 @@ type WalletInv h a = (Hash h a, Buildable a, Eq a)
 
 walletInvariants :: WalletInv h a
 walletInvariants l e w = sequence_
-    [ pendingInUtxo          l e w  -- failing
-    , utxoIsOurs             l e w  -- failing
-    , changeNotAvailable     l e w  -- failing
-    , changeNotInUtxo        l e w  -- failing
-    , changeAvailable        l e w  -- failing
-    , balanceChangeAvailable l e w  -- failing
+    [ pendingInUtxo          l e w
+    , utxoIsOurs             l e w
+    , changeNotAvailable     l e w
+    , changeNotInUtxo        l e w
+    , changeAvailable        l e w
+    , balanceChangeAvailable l e w
     ]
 
 pendingInUtxo :: WalletInv h a

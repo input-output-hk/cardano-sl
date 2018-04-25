@@ -292,13 +292,14 @@ instance Migrate (Map Core.TxId (V0.CTx, POSIXTime)) [V1.Transaction] where
 instance Migrate (V1 V0.InputSelectionPolicy) V0.InputSelectionPolicy where
     eitherMigrate (V1 policy) = pure policy
 
-instance Migrate V0.TxFee V1.EstimatedFees where
-    eitherMigrate (V0.TxFee coin) = pure $ V1.EstimatedFees (V1 coin)
+instance Migrate (V0.TxFee, V1.Accuracy) V1.EstimatedFees where
+    eitherMigrate (V0.TxFee coin, accuracy) =
+        pure $ V1.EstimatedFees (V1 coin) accuracy
 
-instance Migrate V1.EstimatedFees V0.TxFee where
+instance Migrate V1.EstimatedFees (V0.TxFee, V1.Accuracy) where
     eitherMigrate V1.EstimatedFees{..} =
         let (V1 amount) = feeEstimatedAmount
-            in pure $ V0.TxFee amount
+            in pure (V0.TxFee amount, feeAccuracy)
 
 
 -- | This type is really the same, since the unit can be ignored.

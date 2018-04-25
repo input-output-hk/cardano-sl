@@ -2,6 +2,25 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Transactions where
 
 import           Universum
 
+import qualified Data.IxSet.Typed as IxSet
+import qualified Data.List.NonEmpty as NE
+
+import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
+import qualified Pos.Client.Txp.Util as V0
+import           Pos.Core (TxAux)
+import qualified Pos.Core as Core
+import qualified Pos.Util.Servant as V0
+import qualified Pos.Wallet.WalletMode as V0
+import qualified Pos.Wallet.Web.ClientTypes.Types as V0
+import qualified Pos.Wallet.Web.Methods.History as V0
+import qualified Pos.Wallet.Web.Methods.Logic as V0
+import qualified Pos.Wallet.Web.Methods.Payment as V0
+import qualified Pos.Wallet.Web.Methods.Txp as V0
+import qualified Pos.Wallet.Web.State as V0
+import           Pos.Wallet.Web.State.Storage (WalletInfo (_wiSyncStatistics))
+import qualified Pos.Wallet.Web.Util as V0
+import qualified Pos.Txp as Txp
+
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Errors
@@ -9,37 +28,23 @@ import           Cardano.Wallet.API.V1.Migration (HasCompileInfo, HasConfigurati
                                                   migrate)
 import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
-import qualified Data.IxSet.Typed as IxSet
-import qualified Data.List.NonEmpty as NE
-import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
-import qualified Pos.Client.Txp.Util as V0
-import           Pos.Core (TxAux)
-import qualified Pos.Core as Core
-import           Pos.Util (eitherToThrow)
-import qualified Pos.Util.Servant as V0
-import qualified Pos.Wallet.WalletMode as V0
-import qualified Pos.Wallet.Web.ClientTypes.Types as V0
-import qualified Pos.Wallet.Web.Methods.History as V0
-import qualified Pos.Wallet.Web.Methods.Payment as V0
-import qualified Pos.Wallet.Web.Methods.Txp as V0
-import qualified Pos.Wallet.Web.State as V0
-import           Pos.Wallet.Web.State.Storage (WalletInfo (_wiSyncStatistics))
-import qualified Pos.Wallet.Web.Util as V0
+
 import           Servant
 
-handlers :: ( HasConfigurations
-            , HasCompileInfo
-            )
-         => (TxAux -> MonadV1 Bool) -> ServerT Transactions.API MonadV1
-
+handlers
+    :: (HasConfigurations, HasCompileInfo)
+    => (TxAux -> MonadV1 Bool)
+    -> ServerT Transactions.API MonadV1
 handlers submitTx =
-             newTransaction submitTx
-        :<|> allTransactions
-        :<|> estimateFees
+         newTransaction submitTx
+    :<|> allTransactions
+    :<|> estimateFees
 
 newTransaction
-    :: forall ctx m . (V0.MonadWalletTxFull ctx m)
-    => (TxAux -> m Bool) -> Payment -> m (WalletResponse Transaction)
+    :: forall ctx m. (V0.MonadWalletTxFull ctx m)
+    => (TxAux -> m Bool)
+    -> Payment
+    -> m (WalletResponse Transaction)
 newTransaction submitTx Payment {..} = do
     ws <- V0.askWalletSnapshot
     sourceWallet <- migrate (psWalletId pmtSource)
@@ -108,7 +113,7 @@ allTransactions mwalletId mAccIdx mAddr requestParams fops sops  =
                 { requiredParams = pure ("wallet_id", "WalletId")
                 }
 
-estimateFees :: (MonadThrow m, V0.MonadFees ctx m)
+estimateFees :: (MonadThrow m, V0.MonadFees ctx m, V0.MonadWalletLogicRead ctx m)
     => Payment
     -> m (WalletResponse EstimatedFees)
 estimateFees Payment{..} = do
@@ -118,6 +123,33 @@ estimateFees Payment{..} = do
     cAccountId <- migrate pmtSource
     utxo <- V0.getMoneySourceUtxo ws (V0.AccountMoneySource cAccountId)
     outputs <- V0.coinDistrToOutputs =<< mapM migrate pmtDestinations
-    fee <- V0.rewrapTxError "Cannot compute transaction fee" $
-        eitherToThrow =<< V0.runTxCreator policy (V0.computeTxFee pendingAddrs utxo outputs)
-    single <$> migrate fee
+    efee <- V0.runTxCreator policy (V0.computeTxFee pendingAddrs utxo outputs)
+    single <$> case efee of
+        Left txError ->
+            case txError of
+                V0.NotEnoughMoney coin -> do
+                    pure $ mkLowerBound utxo coin
+                V0.NotEnoughAllowedMoney coin -> do
+                    pure $ mkLowerBound utxo coin
+                _ ->
+                    throwM (transactionErrorToWalletError txError)
+        Right fee ->
+            migrate (fee, Accurate)
+  where
+    mkLowerBound
+        :: Txp.Utxo
+        -- ^ The account's Utxo that failed to pay.
+        -> Core.Coin
+        -- ^ The amount of coins necessary to complete the transaction.
+        -> EstimatedFees
+    mkLowerBound utxo amountUnder =
+        EstimatedFees (V1 (Core.mkCoin (fromIntegral feeLowerBound))) LowerBound
+      where
+        feeLowerBound =
+            totalToSpend - txnTotal
+        totalToSpend =
+            Core.getCoin amountUnder + acctAmount
+        txnTotal =
+            sum (fmap (Core.getCoin . unV1 . pdAmount) pmtDestinations)
+        acctAmount =
+            sum (fmap (Core.getCoin . Txp.txOutValue . Txp.toaOut) utxo)

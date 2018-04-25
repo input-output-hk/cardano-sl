@@ -35,6 +35,7 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         -- Aeson roundrips
         aesonRoundtripProp @(V1 BackupPhrase) Proxy
         aesonRoundtripProp @Account Proxy
+        aesonRoundtripProp @Accuracy Proxy
         aesonRoundtripProp @AssuranceLevel Proxy
         aesonRoundtripProp @(V1 Core.SoftwareVersion) Proxy
         aesonRoundtripProp @NodeSettings Proxy
@@ -71,7 +72,7 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         migrateRoundtripProp @WalletId @(V0.CId V0.Wal) Proxy Proxy
         migrateRoundtripProp @(WalletId, AccountIndex) @V0.AccountId Proxy Proxy
         migrateRoundtripProp @PaymentDistribution @(V0.CId V0.Addr, Core.Coin) Proxy Proxy
-        migrateRoundtripProp @EstimatedFees @V0.TxFee Proxy Proxy
+        migrateRoundtripProp @EstimatedFees @(V0.TxFee, Accuracy) Proxy Proxy
 
         -- Other roundtrips
         generalRoundtripProp "UTC time" Util.showApiUtcTime Util.parseApiUtcTime

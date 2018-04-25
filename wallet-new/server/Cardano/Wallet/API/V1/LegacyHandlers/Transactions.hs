@@ -142,7 +142,7 @@ estimateFees Payment{..} = do
 
 -- | Create a lower bound estimate, given the account's available cash and
 -- the amount of additional coins necesssary to complete the transaction.
--- This function is a safe wrapper around 'mkLowerBound' that derives the
+-- This function is a safe wrapper around 'mkLowerBoundFee' that derives the
 -- required amounts from the given values.
 mkLowerBoundFee
     :: NonEmpty PaymentDistribution
@@ -171,7 +171,9 @@ newtype TxnAmount = TxnAmount Word64
 newtype AvailableCoin = AvailableCoin Word64
 newtype AdditionalCoin = AdditionalCoin Word64
 
--- | TODO: write a real doc comment
+-- | This function expects a bunch of raw numbers that must be processed
+-- form an account and tranaction information. Prefer 'mkLowerBoundFee'
+-- which calculates these figures from the account's information.
 rawMkLowerBound
     :: TxnAmount
     -- ^ The transaction total amount.

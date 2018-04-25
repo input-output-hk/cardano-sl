@@ -115,21 +115,4 @@ tlsParamsOption = do
                 "FILEPATH"
                 "Path to file with TLS certificate authority"
                 <> Opt.value "./scripts/tls-files/ca.crt"
-    tpClients <-
-      Opt.option strList $
-        CLI.templateParser
-          "tlsclients"
-          "LIST"
-          "A comma-separated list of accepted clients"
-          <> Opt.value ["Daedalus Wallet"]
     return TlsParams{..}
-
-
-strList :: Opt.ReadM [String]
-strList =
-    Opt.str >>= failIfEmpty . fmap toString . splitOn "," . toText
-  where
-    failIfEmpty xs =
-      case xs of
-        [] -> empty
-        _  -> pure xs

@@ -26,7 +26,6 @@ data TlsParams = TlsParams
     { tpCertPath :: FilePath
     , tpCaPath   :: FilePath
     , tpKeyPath  :: FilePath
-    , tpClients  :: [String]
     } deriving (Show)
 
 newtype CConfirmedProposalState = CConfirmedProposalState Text

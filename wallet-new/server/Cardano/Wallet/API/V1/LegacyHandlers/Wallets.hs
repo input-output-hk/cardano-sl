@@ -25,6 +25,7 @@ import           Pos.Update.Configuration ()
 
 import           Pos.Util (HasLens (..))
 import qualified Pos.Wallet.WalletMode as V0
+import qualified Pos.Wallet.Web.Error.Types as V0
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Servant
@@ -89,8 +90,17 @@ newWallet NewWallet{..} = do
     let walletInit = V0.CWalletInit initMeta backupPhrase
     single <$> do
         v0wallet <- newWalletHandler newwalOperation spendingPassword walletInit
+                        `catch` rethrowDuplicateMnemonic
         ss <- V0.askWalletSnapshot
         addWalletInfo ss v0wallet
+  where
+    -- NOTE: this is temporary solution until we get rid of V0 error handling and/or we lift error handling into types:
+    --   https://github.com/input-output-hk/cardano-sl/pull/2811#discussion_r183469153
+    --   https://github.com/input-output-hk/cardano-sl/pull/2811#discussion_r183472103
+    rethrowDuplicateMnemonic (e :: V0.WalletError) =
+        case e of
+            V0.RequestError "Wallet with that mnemonics already exists" -> throwM WalletAlreadyExists
+            _ -> throwM e
 
 -- | Returns the full (paginated) list of wallets.
 listWallets :: ( MonadThrow m

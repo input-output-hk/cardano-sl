@@ -21,13 +21,15 @@ module UTxO.Interpreter (
   , Interpret(..)
   ) where
 
+import           Universum
+
+import           Control.Arrow ((&&&))
 import           Data.Default (def)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import qualified Data.Text.Buildable
 import           Formatting (bprint, shown)
 import           Prelude (Show (..))
-import           Universum
 
 import           Cardano.Wallet.Kernel.Types
 
@@ -379,8 +381,7 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
       return $ mkRawResolvedBlock block resolvedTxInputs
     where
       unpack :: [RawResolvedTx] -> ([TxAux], [ResolvedTxInputs])
-      unpack = unzip
-             . map (\rtx -> (rawResolvedTx rtx, rawResolvedTxInputs rtx))
+      unpack = unzip . map (rawResolvedTx &&& rawResolvedTxInputs)
 
       mkBlock :: BlockHeader
               -> SlotId

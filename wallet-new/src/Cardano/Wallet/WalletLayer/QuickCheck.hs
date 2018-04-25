@@ -25,25 +25,25 @@ bracketPassiveWallet =
   where
     passiveWalletLayer :: PassiveWalletLayer n
     passiveWalletLayer = PassiveWalletLayer
-        { _pwlCreateWallet      = \_     -> liftedGen
-        , _pwlGetWalletIds      =           liftedGen
-        , _pwlGetWallet         = \_     -> liftedGen
-        , _pwlUpdateWallet      = \_ _   -> liftedGen
-        , _pwlDeleteWallet      = \_     -> liftedGen
+        { _pwlCreateWallet      = \_     -> Right <$> liftedGen
+        , _pwlGetWalletIds      =           Right <$> liftedGen
+        , _pwlGetWallet         = \_     -> Right <$> liftedGen
+        , _pwlUpdateWallet      = \_ _   -> Right <$> liftedGen
+        , _pwlDeleteWallet      = \_     -> Right <$> liftedGen
 
-        , _pwlCreateAccount     = \_ _   -> liftedGen
-        , _pwlGetAccounts       = \_     -> liftedGen
-        , _pwlGetAccount        = \_ _   -> liftedGen
-        , _pwlUpdateAccount     = \_ _ _ -> liftedGen
-        , _pwlDeleteAccount     = \_ _   -> liftedGen
+        , _pwlCreateAccount     = \_ _   -> Right <$> liftedGen
+        , _pwlGetAccounts       = \_     -> Right <$> liftedGen
+        , _pwlGetAccount        = \_ _   -> Right <$> liftedGen
+        , _pwlUpdateAccount     = \_ _ _ -> Right <$> liftedGen
+        , _pwlDeleteAccount     = \_ _   -> Right <$> liftedGen
 
-        , _pwlCreateAddress     = \_     -> liftedGen
-        , _pwlGetAddresses      = \_ _   -> liftedGen
-        , _pwlIsAddressValid    = \_     -> liftedGen
+        , _pwlCreateAddress     = \_     -> Right <$> liftedGen
+        , _pwlGetAddresses      = \_ _   -> Right <$> liftedGen
+        , _pwlIsAddressValid    = \_     -> Right <$> liftedGen
 
-        , _pwlCreateTx          = \_ _   -> liftedGen
-        , _pwlGetTxs            = \_ _ _ -> liftedGen
-        , _pwlEstimateFees      = \_     -> liftedGen
+        , _pwlCreateTx          = \_ _   -> Right <$> liftedGen
+        , _pwlGetTxs            = \_ _ _ -> Right <$> liftedGen
+        , _pwlEstimateFees      = \_     -> Right <$> liftedGen
         }
 
     -- | A utility function.

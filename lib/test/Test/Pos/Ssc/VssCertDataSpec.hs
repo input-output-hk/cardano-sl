@@ -4,7 +4,7 @@ module Test.Pos.Ssc.VssCertDataSpec
        ( spec
        ) where
 
-import           Universum hiding (empty, filter, keys)
+import           Universum hiding (empty, filter, keys, id)
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS

@@ -471,6 +471,7 @@ test-suite wallet-new-specs
                       MonadFailDesugaring
 
   build-depends:      base
+                    , acid-state
                     , aeson
                     , aeson-pretty
                     , bytestring

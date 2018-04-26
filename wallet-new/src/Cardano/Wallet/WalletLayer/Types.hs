@@ -15,6 +15,7 @@ module Cardano.Wallet.WalletLayer.Types
     , deleteAccount
 
     , getAddresses
+    , applyBlocks
     ) where
 
 import           Universum
@@ -24,7 +25,8 @@ import           Control.Lens (makeLenses)
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, Address,
                                               NewAccount, NewWallet, Wallet, WalletId, WalletUpdate)
 
-import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
+import           Pos.Util.Chrono (NE, OldestFirst (..))
+import           Pos.Block.Types (Blund)
 
 ------------------------------------------------------------
 -- Passive wallet layer
@@ -47,6 +49,8 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , _pwlDeleteAccount :: WalletId -> AccountIndex -> m Bool
     -- * addresses
     , _pwlGetAddresses  :: WalletId -> m [Address]
+    -- * core API
+    , _pwlApplyBlocks   :: OldestFirst NE Blund -> m ()
     }
 
 makeLenses ''PassiveWalletLayer
@@ -90,6 +94,10 @@ deleteAccount pwl = pwl ^. pwlDeleteAccount
 getAddresses :: forall m. PassiveWalletLayer m -> WalletId -> m [Address]
 getAddresses pwl = pwl ^. pwlGetAddresses
 
+
+applyBlocks :: forall m. PassiveWalletLayer m -> OldestFirst NE Blund -> m ()
+applyBlocks pwl = pwl ^. pwlApplyBlocks
+
 ------------------------------------------------------------
 -- Active wallet layer
 ------------------------------------------------------------
@@ -98,8 +106,4 @@ getAddresses pwl = pwl ^. pwlGetAddresses
 data ActiveWalletLayer m = ActiveWalletLayer {
       -- | The underlying passive wallet layer
       walletPassiveLayer :: PassiveWalletLayer m
-
-      -- | The wallet diffusion layer
-    , walletDiffusion    :: WalletDiffusion
     }
-

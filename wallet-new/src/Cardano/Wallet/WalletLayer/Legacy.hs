@@ -17,7 +17,6 @@ import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
-
 import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, Address,
@@ -39,6 +38,10 @@ import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB, askWal
                                              getWalletAddresses, setWalletMeta)
 import           Pos.Wallet.Web.State.Storage (getWalletInfo)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
+
+import           Pos.Util.Chrono (NE, OldestFirst (..))
+import           Pos.Block.Types (Blund)
+
 
 -- | Let's unify all the requirements for the legacy wallet.
 type MonadLegacyWallet ctx m =
@@ -76,6 +79,8 @@ bracketPassiveWallet =
         , _pwlDeleteAccount = pwlDeleteAccount
 
         , _pwlGetAddresses  = pwlGetAddresses
+
+        , _pwlApplyBlocks   = pwlApplyBlocks
         }
 
 
@@ -86,7 +91,7 @@ bracketActiveWallet
     => PassiveWalletLayer m
     -> WalletDiffusion
     -> (ActiveWalletLayer m -> n a) -> n a
-bracketActiveWallet walletPassiveLayer walletDiffusion =
+bracketActiveWallet walletPassiveLayer _walletDiffusion =
     bracket
       (return ActiveWalletLayer{..})
       (\_ -> return ())
@@ -247,3 +252,9 @@ pwlDeleteAccount wId accIdx = do
 pwlGetAddresses :: WalletId -> m [Address]
 pwlGetAddresses = error "Not implemented!"
 
+------------------------------------------------------------
+-- Apply Block
+------------------------------------------------------------
+
+pwlApplyBlocks :: OldestFirst NE Blund -> m ()
+pwlApplyBlocks = error "Not implemented!"

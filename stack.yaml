@@ -144,6 +144,7 @@ extra-deps:
 # This older version requires no async.
 - hinotify-0.3.8.1
 
+- cabal-install-2.2.0.0
 # Serokell stuff
 - universum-1.1.0
 - serokell-util-0.8.0

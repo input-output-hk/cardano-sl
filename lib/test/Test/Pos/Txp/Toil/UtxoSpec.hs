@@ -4,7 +4,7 @@ module Test.Pos.Txp.Toil.UtxoSpec
        ( spec
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Monad.Except (runExceptT)
 import           Data.List.NonEmpty (NonEmpty ((:|)))

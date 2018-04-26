@@ -43,6 +43,7 @@ import           Pos.Txp.Toil
 import           Pos.Update
 import           Pos.Util.Chrono
 
+import           Cardano.Wallet.Kernel.Types
 import           UTxO.Bootstrap
 import           UTxO.Context
 import           UTxO.Crypto
@@ -78,13 +79,13 @@ data IntCtxt h = IntCtxt {
       -- | Ledger we have interpreted so far
       --
       -- This is needed to resolve DSL hashes to DSL transactions.
-      icLedger :: DSL.Ledger h Addr
+      icLedger    :: DSL.Ledger h Addr
 
       -- | Mapping from DSL hashes to Cardano hashes
-    , icHashes :: Map (h (DSL.Transaction h Addr)) TxId
+    , icHashes    :: Map (h (DSL.Transaction h Addr)) TxId
 
       -- | Slot number for the next block to be translated
-    , icNextSlot :: SlotId
+    , icNextSlot  :: SlotId
 
       -- | The header of the last block we translated
       --

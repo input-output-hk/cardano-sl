@@ -112,42 +112,42 @@ recoverSecretsProp n n_openings n_shares n_overlap
 
 recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
     let threshold = vssThreshold n
-    (keys, vssKeys, comms, opens) <- generateKeysAndMpc threshold n
+    (keys', vssKeys, comms, opens) <- generateKeysAndMpc threshold n
     let des = fromBinary
         seeds :: [SharedSeed]
         seeds = rights $ map (fmap secretToSharedSeed . des . getOpening) opens
     let expectedSharedSeed :: SharedSeed
         expectedSharedSeed = mconcat seeds
     haveSentBoth <- generate $
-        sublistN n_overlap keys
+        sublistN n_overlap keys'
     haveSentOpening <- generate $
         (haveSentBoth ++) <$>
-        sublistN (n_openings - n_overlap) (keys \\ haveSentBoth)
+        sublistN (n_openings - n_overlap) (keys' \\ haveSentBoth)
     haveSentShares <- generate $
         (haveSentBoth ++) <$>
-        sublistN (n_shares - n_overlap) (keys \\ haveSentOpening)
-    let commitmentsMap = mkCommitmentsMap' keys comms
-    let vssMap = mkVssMap keys vssKeys
+        sublistN (n_shares - n_overlap) (keys' \\ haveSentOpening)
+    let commitmentsMap = mkCommitmentsMap' keys' comms
+    let vssMap = mkVssMap keys' vssKeys
     let richmen = getCommitmentsMap commitmentsMap & each .~ mkCoin 1000
     let openingsMap = HM.fromList
             [(getPubAddr k, o)
-              | (k, o) <- zip keys opens
+              | (k, o) <- zip keys' opens
               , k `elem` haveSentOpening]
     -- @generatedShares ! X@ = shares that X generated and sent to others
     -- generatedShares :: HashMap PublicKey (HashMap PublicKey [DecShare])
     generatedShares <- do
         let sentShares (kp, _) = kp `elem` haveSentShares
-        fmap HM.fromList $ forM (filter sentShares (zip keys comms)) $
+        fmap HM.fromList $ forM (filter sentShares (zip keys' comms)) $
             \(kp, comm) -> do
                 let addr = getPubAddr kp
                 let findPub vss = getPubAddr <$>
-                                  lookup vss (zip (toList vssKeys) keys)
+                                  lookup vss (zip (toList vssKeys) keys')
                 decShares <- getDecryptedShares vssKeys comm
                 let decShares' = mapMaybe (traverseOf _1 findPub) decShares
                 return (addr, HM.fromList decShares')
     -- @sharesMap ! X@ = shares that X received from others
     let sharesMap = HM.fromList $ do
-             addr <- getPubAddr <$> keys
+             addr <- getPubAddr <$> keys'
              let ser = asBinary @DecShare
                  receivedShares = HM.fromList $ do
                      (sender, senderShares) <- HM.toList generatedShares
@@ -163,9 +163,9 @@ recoverSecretsProp n n_openings n_shares n_overlap = ioProperty $ do
     let debugInfo = sformat ("n = "%int%", n_openings = "%int%", "%
                              "n_shares = "%int%", n_overlap = "%int%
                              "\n"%
-                             "these keys have sent openings:\n"%
+                             "these keys' have sent openings:\n"%
                              "  "%listJson%"\n"%
-                             "these keys have sent shares they got:\n"%
+                             "these keys' have sent shares they got:\n"%
                              "  "%listJson)
                         n n_openings n_shares n_overlap
                         (map toPublic haveSentOpening)
@@ -206,17 +206,17 @@ generateKeysAndMpc
     -> IO ([SecretKey], NonEmpty VssKeyPair, [Commitment], [Opening])
 generateKeysAndMpc _         0 = error "generateKeysAndMpc: 0 is passed"
 generateKeysAndMpc threshold n = do
-    keys           <- generate $ nonrepeating n
+    keys'           <- generate $ nonrepeating n
     vssKeys        <- sortWith toVssPublicKey <$> generate (nonrepeating n)
     let lvssPubKeys = NE.fromList $ map toVssPublicKey vssKeys
     (comms, opens) <-
         unzip <$> replicateM n (genCommitmentAndOpening threshold lvssPubKeys)
-    return (keys, NE.fromList vssKeys, comms, opens)
+    return (keys', NE.fromList vssKeys, comms, opens)
 
 mkCommitmentsMap' :: HasConfiguration => [SecretKey] -> [Commitment] -> CommitmentsMap
-mkCommitmentsMap' keys comms =
+mkCommitmentsMap' keys' comms =
     mkCommitmentsMap $ do
-        (sk, comm) <- zip keys comms
+        (sk, comm) <- zip keys' comms
         let epochIdx = 0  -- we don't care here
         let sig = sign protocolMagic SignCommitment sk (epochIdx, comm)
         return (toPublic sk, comm, sig)
@@ -224,9 +224,9 @@ mkCommitmentsMap' keys comms =
 mkVssMap :: [SecretKey]
          -> NonEmpty VssKeyPair
          -> HashMap StakeholderId (AsBinary VssPublicKey)
-mkVssMap keys vssKeys =
+mkVssMap keys' vssKeys =
     HM.fromList $
-        zip (map getPubAddr keys)
+        zip (map getPubAddr keys')
             (map (asBinary . toVssPublicKey) (toList vssKeys))
 
 getDecryptedShares

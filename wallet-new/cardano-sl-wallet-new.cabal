@@ -406,6 +406,7 @@ test-suite wallet-new-specs
                       MonadFailDesugaring
 
   build-depends:      base
+                    , acid-state
                     , aeson
                     , bytestring
                     , cardano-sl

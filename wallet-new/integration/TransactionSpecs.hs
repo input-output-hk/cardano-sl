@@ -5,6 +5,7 @@ module TransactionSpecs (transactionSpecs) where
 
 import           Universum
 
+import           Cardano.Wallet.API.V1.Errors hiding (describe)
 import           Cardano.Wallet.Client.Http
 import           Control.Lens hiding ((^..), (^?))
 import qualified Pos.Core as Core
@@ -71,8 +72,18 @@ transactionSpecs wRef wc = do
                     }
 
             efee <- getTransactionFee wc payment
-            fee <- fmap (feeEstimatedAmount . wrData) efee `shouldPrism` _Right
-            fee `shouldSatisfy` (> amount)
+            case efee of
+                Right fee ->
+                    feeEstimatedAmount (wrData fee)
+                        `shouldSatisfy`
+                            (> amount)
+                Left (ClientWalletError (NotEnoughMoney _)) ->
+                    pure ()
+                Left err ->
+                    expectationFailure $
+                        "Expected either a successful fee or a NotEnoughMoney "
+                        <> " error, got: "
+                        <> show err
 
         it "fails if you spend too much money" $ do
             wallet <- sampleWallet wRef wc

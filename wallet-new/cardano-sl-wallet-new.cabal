@@ -248,6 +248,10 @@ executable cardano-integration-test
                        Types
                        Functions
                        Error
+                       Util
+                       WalletSpecs
+                       AddressSpecs
+                       TransactionSpecs
 
   build-depends:       base
                      , aeson

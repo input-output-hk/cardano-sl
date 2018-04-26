@@ -4,49 +4,38 @@
 , system ? builtins.currentSystem # This is overridable if necessary
 }:
 
-with {
-  ifThenElse = { bool, thenValue, elseValue }: (
-    if bool then thenValue else elseValue);
-};
-
-ifThenElse {
-  bool = (0 <= builtins.compareVersions builtins.nixVersion "1.12");
-
-  # In Nix 1.12, we can just give a `sha256` to `builtins.fetchTarball`.
-  thenValue = (
-    builtins.fetchTarball {
+if 0 <= builtins.compareVersions builtins.nixVersion "1.12"
+then
+  builtins.fetchTarball {
+    url = "https://github.com/NixOS/nixpkgs/archive/${rev}.tar.gz";
+    sha256 = sha256unpacked;
+  }
+else
+  (rec {
+    tarball = import <nix/fetchurl.nix> {
       url = "https://github.com/NixOS/nixpkgs/archive/${rev}.tar.gz";
-      sha256 = sha256unpacked;
-    });
+      inherit sha256;
+    };
 
-  # This hack should at least work for Nix 1.11
-  elseValue = (
-    (rec {
-      tarball = import <nix/fetchurl.nix> {
-        url = "https://github.com/NixOS/nixpkgs/archive/${rev}.tar.gz";
-        inherit sha256;
-      };
+    builtin-paths = import <nix/config.nix>;
 
-      builtin-paths = import <nix/config.nix>;
+    script = builtins.toFile "nixpkgs-unpacker" ''
+      "$coreutils/mkdir" "$out"
+      cd "$out"
+      "$gzip" --decompress < "$tarball" | "$tar" -x --strip-components=1
+    '';
 
-      script = builtins.toFile "nixpkgs-unpacker" ''
-        "$coreutils/mkdir" "$out"
-        cd "$out"
-        "$gzip" --decompress < "$tarball" | "$tar" -x --strip-components=1
-      '';
+    nixpkgs = builtins.derivation {
+      name = "nixpkgs-${builtins.substring 0 6 rev}";
 
-      nixpkgs = builtins.derivation {
-        name = "nixpkgs-${builtins.substring 0 6 rev}";
+      builder = builtins.storePath builtin-paths.shell;
 
-        builder = builtins.storePath builtin-paths.shell;
+      args = [ script ];
 
-        args = [ script ];
+      inherit tarball system;
 
-        inherit tarball system;
-
-        tar       = builtins.storePath builtin-paths.tar;
-        gzip      = builtins.storePath builtin-paths.gzip;
-        coreutils = builtins.storePath builtin-paths.coreutils;
-      };
-    }).nixpkgs);
-}
+      tar       = builtins.storePath builtin-paths.tar;
+      gzip      = builtins.storePath builtin-paths.gzip;
+      coreutils = builtins.storePath builtin-paths.coreutils;
+    };
+  }).nixpkgs

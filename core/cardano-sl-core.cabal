@@ -58,10 +58,6 @@ library
 
                        Pos.System.Metrics.Constants
 
-                       Pos.Util.AssertMode
-                       Pos.Util.Chrono
-                       Pos.Util.Limits
-
   other-modules:
                        -- Binary
                        Pos.Binary.Core.Address

@@ -7161,9 +7161,9 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-crypto" = callPackage
-        ({ mkDerivation, aeson, autoexporter, base, binary, bytestring
-         , cardano-crypto, cardano-sl-binary, cardano-sl-util, cborg, cpphs
-         , cryptonite, cryptonite-openssl, data-default, ed25519, formatting
+        ({ mkDerivation, aeson, base, binary, bytestring, cardano-crypto
+         , cardano-sl-binary, cardano-sl-util, cborg, cpphs, cryptonite
+         , cryptonite-openssl, data-default, ed25519, formatting
          , generic-arbitrary, hashable, lens, memory, mtl, pvss
          , quickcheck-instances, reflection, safe-exceptions, scrypt
          , serokell-util, stdenv, text, text-format, universum
@@ -7174,10 +7174,9 @@ inherit (pkgs) mesa;};
            version = "1.1.1";
            src = ./../crypto;
            libraryHaskellDepends = [
-             aeson autoexporter base binary bytestring cardano-crypto
-             cardano-sl-binary cardano-sl-util cborg cryptonite
-             cryptonite-openssl data-default ed25519 formatting
-             generic-arbitrary hashable lens memory mtl pvss
+             aeson base binary bytestring cardano-crypto cardano-sl-binary
+             cardano-sl-util cborg cryptonite cryptonite-openssl data-default
+             ed25519 formatting generic-arbitrary hashable lens memory mtl pvss
              quickcheck-instances reflection safe-exceptions scrypt
              serokell-util text text-format universum unordered-containers
            ];
@@ -7626,14 +7625,14 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-util" = callPackage
-        ({ mkDerivation, aeson, autoexporter, base, binary, bytestring
-         , canonical-json, cardano-sl-binary, cardano-sl-networking, cborg
-         , cereal, concurrent-extra, containers, cpphs, cryptonite
-         , data-default, deepseq, directory, ether, exceptions, extra
-         , filelock, filepath, fmt, formatting, generic-arbitrary, half
-         , hashable, hspec, lens, log-warper, lrucache, megaparsec, mmorph
-         , MonadRandom, mtl, optparse-applicative, parsec, process, pvss
-         , QuickCheck, quickcheck-instances, random, reflection, resourcet
+        ({ mkDerivation, aeson, base, binary, bytestring, canonical-json
+         , cardano-sl-binary, cardano-sl-networking, cborg, cereal
+         , concurrent-extra, containers, cpphs, cryptonite, data-default
+         , deepseq, directory, ether, exceptions, extra, filelock, filepath
+         , fmt, formatting, generic-arbitrary, half, hashable, hspec, lens
+         , log-warper, lrucache, megaparsec, mmorph, MonadRandom, mtl
+         , optparse-applicative, parsec, process, pvss, QuickCheck
+         , quickcheck-instances, random, reflection, resourcet
          , safe-exceptions, safecopy, serokell-util, stdenv, stm, tagged
          , template-haskell, text, text-format, th-lift-instances, time
          , time-units, transformers, transformers-base, transformers-lift
@@ -7644,7 +7643,7 @@ inherit (pkgs) mesa;};
            version = "1.1.1";
            src = ./../util;
            libraryHaskellDepends = [
-             aeson autoexporter base binary bytestring cardano-sl-binary
+             aeson base binary bytestring cardano-sl-binary
              cardano-sl-networking cborg cereal concurrent-extra containers
              cryptonite data-default deepseq directory ether exceptions filepath
              formatting hashable hspec lens log-warper lrucache megaparsec

@@ -13,15 +13,15 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Create (
 import           Universum
 
 import           Control.Lens (at, (.=))
-import qualified Data.Map.Strict as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
 
 import qualified Pos.Core as Core
 
-import           Cardano.Wallet.Kernel.DB.AcidStateUtil
+import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
-import           Cardano.Wallet.Kernel.DB.HdWallet
+import           Cardano.Wallet.Kernel.DB.Util.AcidState
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 {-------------------------------------------------------------------------------
   Errors
@@ -68,19 +68,20 @@ createHdRoot :: HdRootId
              -> HasSpendingPassword
              -> AssuranceLevel
              -> InDb Core.Timestamp
-             -> Update' HdRoots CreateHdRootError ()
-createHdRoot rootId name hasPass assurance created = do
-    exists <- gets $ Map.member rootId
-    when exists $ throwError $ CreateHdRootExists rootId
-    at rootId .= Just hdRoot
+             -> Update' HdWallets CreateHdRootError ()
+createHdRoot rootId name hasPass assurance created =
+    zoom hdWalletsRoots $ do
+      exists <- gets $ IxSet.member rootId
+      when exists $ throwError $ CreateHdRootExists rootId
+      at rootId .= Just hdRoot
   where
     hdRoot :: HdRoot
     hdRoot = HdRoot {
-          _hdRootName        = name
+          _hdRootId          = rootId
+        , _hdRootName        = name
         , _hdRootHasPassword = hasPass
         , _hdRootAssurance   = assurance
         , _hdRootCreatedAt   = created
-        , _hdRootAccounts    = Map.empty
         }
 
 -- | Create a new account in the specified wallet
@@ -93,19 +94,23 @@ createHdRoot rootId name hasPass assurance created = do
 createHdAccount :: HdRootId
                 -> AccountName
                 -> Checkpoint
-                -> Update' HdRoots CreateHdAccountError AccountIx
-createHdAccount rootId name checkpoint =
+                -> Update' HdWallets CreateHdAccountError HdAccountId
+createHdAccount rootId name checkpoint = do
+    -- Check that the root ID exists
     zoomHdRootId CreateHdAccountUnknown rootId $
-    zoom hdRootAccounts $ do
-      numAccounts <- gets Map.size
-      let accIx = AccountIx (fromIntegral numAccounts)
-      at accIx .= Just hdAccount
-      return accIx
+      return ()
+    -- Create the new account
+    zoom hdWalletsAccounts $ do
+      numAccounts <- gets $ IxSet.size . IxSet.getEQ rootId
+      let accIx = HdAccountIx (fromIntegral numAccounts)
+          accId = HdAccountId rootId accIx
+      at accId .= Just (hdAccount accId)
+      return accId
   where
-    hdAccount :: HdAccount
-    hdAccount = HdAccount {
-          _hdAccountName        = name
-        , _hdAccountAddresses   = Map.empty
+    hdAccount :: HdAccountId -> HdAccount
+    hdAccount accId = HdAccount {
+          _hdAccountId          = accId
+        , _hdAccountName        = name
         , _hdAccountCheckpoints = checkpoint :| []
         }
 
@@ -120,17 +125,21 @@ createHdAccount rootId name checkpoint =
 -- address index, as we do not have access to a random number generator here.
 createHdAddress :: HdAddressId
                 -> InDb Core.Address
-                -> Update' HdRoots CreateHdAddressError ()
-createHdAddress addrId@(HdAddressId accId addrIx) address =
-    zoomHdAccountId CreateHdAddressUnknown accId $
-    zoom hdAccountAddresses $ do
-      exists <- gets $ Map.member addrIx
+                -> Update' HdWallets CreateHdAddressError ()
+createHdAddress addrId address = do
+    -- Check that the account ID exists
+    zoomHdAccountId CreateHdAddressUnknown (addrId ^. hdAddressIdParent) $
+      return ()
+    -- Create the new address
+    zoom hdWalletsAddresses $ do
+      exists <- gets $ IxSet.member addrId
       when exists $ throwError $ CreateHdAddressExists addrId
-      at addrIx .= Just hdAddress
+      at addrId .= Just hdAddress
   where
     hdAddress :: HdAddress
     hdAddress = HdAddress {
-          _hdAddressAddress  = address
+          _hdAddressId       = addrId
+        , _hdAddressAddress  = address
         , _hdAddressIsUsed   = error "TODO"
         , _hdAddressIsChange = error "TODO"
         }

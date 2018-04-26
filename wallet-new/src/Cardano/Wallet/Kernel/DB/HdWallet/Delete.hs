@@ -8,24 +8,17 @@ import           Universum
 
 import           Control.Lens (at, (.=))
 
-import           Cardano.Wallet.Kernel.DB.AcidStateUtil
 import           Cardano.Wallet.Kernel.DB.HdWallet
+import           Cardano.Wallet.Kernel.DB.Util.AcidState
 
 {-------------------------------------------------------------------------------
   DELETE
-
-  NOTE:
-
-  * There is no 'deleteAddress'.
 -------------------------------------------------------------------------------}
 
 -- | Delete a wallet
-deleteHdRoot :: HdRootId -> Update' HdRoots Void ()
-deleteHdRoot rootId = at rootId .= Nothing
+deleteHdRoot :: HdRootId -> Update' HdWallets Void ()
+deleteHdRoot rootId = zoom hdWalletsRoots $ at rootId .= Nothing
 
 -- | Delete an account
-deleteHdAccount :: HdAccountId -> Update' HdRoots UnknownHdRoot ()
-deleteHdAccount (HdAccountId rootId accIx) =
-    zoomHdRootId identity rootId $
-    zoom hdRootAccounts $
-      at accIx .= Nothing
+deleteHdAccount :: HdAccountId -> Update' HdWallets UnknownHdRoot ()
+deleteHdAccount accId = zoom hdWalletsAccounts $ at accId .= Nothing

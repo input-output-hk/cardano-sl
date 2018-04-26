@@ -14,11 +14,11 @@ import           Data.SafeCopy (base, deriveSafeCopy)
 
 import qualified Pos.Core as Core
 
-import           Cardano.Wallet.Kernel.DB.AcidStateUtil
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved
 import           Cardano.Wallet.Kernel.DB.Spec
+import           Cardano.Wallet.Kernel.DB.Util.AcidState
 
 {-------------------------------------------------------------------------------
   Errors

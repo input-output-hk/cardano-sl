@@ -3,15 +3,25 @@
 -- NOTE: These are pure functions, which are intended to work on a snapshot
 -- of the database. They are intended to support the V1 wallet API.
 --
--- Filtering and sorting will be the responsibility of the next layer up.
+-- TODO: We need to think about which layer will have the responsibility for
+-- filtering and sorting. If we want the 'IxSet' stuff to be local to the
+-- "Kernel.DB" namespace (which would be a good thing), then filtering and
+-- sorting (and maybe even pagination) will need to happen here.
 module Cardano.Wallet.Kernel.DB.HdWallet.Read (
-    -- | All wallets/accounts/addresses
-    readHdRoots
-  , readHdAccounts
-  , readHdAddresses
+    -- | * Infrastructure
+    HdQuery
+  , HdQueryErr
+    -- | * Derived balance
+  , hdRootBalance
+  , hdAccountBalance
     -- | Accumulate all accounts/addresses
+  , readAllHdRoots
   , readAllHdAccounts
   , readAllHdAddresses
+    -- | All wallets/accounts/addresses
+  , readAccountsByRootId
+  , readAddressesByRootId
+  , readAddressesByAccountId
     -- | Single wallets/accounts/addresses
   , readHdRoot
   , readHdAccount
@@ -20,131 +30,116 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Read (
 
 import           Universum
 
-import qualified Data.Map as Map
+import           Control.Lens (at)
 
-import           Pos.Core (Coin)
+import           Pos.Core (Coin, sumCoins)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
+import           Cardano.Wallet.Kernel.DB.Spec
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 {-------------------------------------------------------------------------------
   Infrastructure
 -------------------------------------------------------------------------------}
 
 -- | Query on a HD wallet
-type HdQuery a = HdRoots -> a
+type HdQuery a = HdWallets -> a
 
 -- | Like 'HdQuery', but with the possibility of errors
 type HdQueryErr e a = HdQuery (Either e a)
 
-{-------------------------------------------------------------------------------
-  Internal functions
--------------------------------------------------------------------------------}
+-- | Like '(>>=)' for queries
+using :: HdQueryErr e a -> (a -> HdQueryErr e b) -> HdQueryErr e b
+using f g wallets =
+    case f wallets of
+      Left  e -> Left e
+      Right a -> g a wallets
 
-hdRootsInfo :: HdRoots -> Map HdRootId (HdRoot, Integer)
-hdRootsInfo =
-    map aux
-  where
-    aux :: HdRoot -> (HdRoot, Integer)
-    aux hdRoot = (hdRoot, hdRootBalance hdRoot)
+-- | Variation on 'using' where the second query cannot throw errors
+using' :: HdQueryErr e a -> (a -> HdQuery b) -> HdQueryErr e b
+using' f g = using f ((Right .) . g)
 
-hdAccountsInfo :: HdRootId -> HdRoot -> Map HdAccountId (HdAccount, Coin)
-hdAccountsInfo rootId =
-    mapKeysVals onKeys onVals . view hdRootAccounts
-  where
-    onKeys :: AccountIx -> HdAccountId
-    onKeys = HdAccountId rootId
-
-    onVals :: HdAccount -> (HdAccount, Coin)
-    onVals hdAccount = (hdAccount, hdAccountBalance hdAccount)
-
-hdAddressesInfo :: HdAccountId -> HdAccount -> Map HdAddressId HdAddress
-hdAddressesInfo accId =
-    Map.mapKeysMonotonic onKeys . view hdAccountAddresses
-  where
-    onKeys :: AddressIx -> HdAddressId
-    onKeys = HdAddressId accId
+-- | Variation on 'using'' where the result of the first query is ignored
+--
+-- Useful when the first query is merely a sanity check.
+check :: HdQueryErr e a -> HdQuery b -> HdQueryErr e b
+check f g = using' f (const g)
 
 {-------------------------------------------------------------------------------
-  Information about all wallets/accounts/addresses
+  Computed balances information
 -------------------------------------------------------------------------------}
 
--- | Meta information and total balance of all wallets
-readHdRoots :: HdQuery (Map HdRootId (HdRoot, Integer))
-readHdRoots = hdRootsInfo
+hdRootBalance :: HdRootId -> HdQuery Integer
+hdRootBalance rootId = sumCoins
+                     . map hdAccountBalance
+                     . toList
+                     . IxSet.getEQ rootId
+                     . view hdWalletsAccounts
 
--- | Meta-information and total balance of all accounts in the given wallet
-readHdAccounts :: HdRootId
-               -> HdQueryErr UnknownHdRoot (Map HdAccountId (HdAccount, Coin))
-readHdAccounts rootId =
-      fmap (hdAccountsInfo rootId . fst)
-    . readHdRoot rootId
-
--- | Meta-information about the addresses in an account
-readHdAddresses :: HdAccountId
-                -> HdQueryErr UnknownHdAccount (Map HdAddressId HdAddress)
-readHdAddresses accId =
-      fmap (hdAddressesInfo accId . fst)
-    . readHdAccount accId
+-- | Current balance of an account
+hdAccountBalance :: HdAccount -> Coin
+hdAccountBalance = view (hdAccountCheckpoints . currentUtxoBalance)
 
 {-------------------------------------------------------------------------------
   Accumulate across wallets/accounts
 -------------------------------------------------------------------------------}
 
--- | Meta-information and total balance of /all/ accounts
-readAllHdAccounts :: HdQuery (Map HdAccountId (HdAccount, Coin))
-readAllHdAccounts =
-      Map.unions
-    . map (uncurry hdAccountsInfo)
-    . Map.toList . map fst
-    . readHdRoots
+-- | Meta-information of /all wallets
+readAllHdRoots :: HdQuery (IxSet HdRoot)
+readAllHdRoots = view hdWalletsRoots
+
+-- | Meta-information of /all/ accounts
+readAllHdAccounts :: HdQuery (IxSet HdAccount)
+readAllHdAccounts = view hdWalletsAccounts
 
 -- | Meta-information and total balance of /all/ addresses
-readAllHdAddresses :: HdQuery (Map HdAddressId HdAddress)
-readAllHdAddresses =
-      Map.unions
-    . map (uncurry hdAddressesInfo)
-    . Map.toList . map fst
-    . readAllHdAccounts
+readAllHdAddresses :: HdQuery (IxSet HdAddress)
+readAllHdAddresses = view hdWalletsAddresses
+
+{-------------------------------------------------------------------------------
+  Information about all wallets/accounts/addresses
+-------------------------------------------------------------------------------}
+
+-- | All accounts in the given wallet
+readAccountsByRootId :: HdRootId  -> HdQueryErr UnknownHdRoot (IxSet HdAccount)
+readAccountsByRootId rootId =
+      check (readHdRoot rootId)
+    $ IxSet.getEQ rootId . readAllHdAccounts
+
+-- | All addresses in the given wallet
+readAddressesByRootId :: HdRootId -> HdQueryErr UnknownHdRoot (IxSet HdAddress)
+readAddressesByRootId rootId =
+      check (readHdRoot rootId)
+    $ IxSet.getEQ rootId . readAllHdAddresses
+
+-- | All addresses in the given account
+readAddressesByAccountId :: HdAccountId -> HdQueryErr UnknownHdAccount (IxSet HdAddress)
+readAddressesByAccountId accId =
+      check (readHdAccount accId)
+    $ IxSet.getEQ accId . readAllHdAddresses
 
 {-------------------------------------------------------------------------------
   Information about a single wallet/address/account
 -------------------------------------------------------------------------------}
 
--- | Meta information and total balance of the given wallet
-readHdRoot :: HdRootId -> HdQueryErr UnknownHdRoot (HdRoot, Integer)
-readHdRoot rootId =
-      aux . Map.lookup rootId
-    . readHdRoots
+-- | Look up the specified wallet
+readHdRoot :: HdRootId -> HdQueryErr UnknownHdRoot HdRoot
+readHdRoot rootId = aux . view (at rootId) . readAllHdRoots
   where
     aux :: Maybe a -> Either UnknownHdRoot a
     aux = maybe (Left (UnknownHdRoot rootId)) Right
 
--- | Meta-information and balance of the given account
-readHdAccount :: HdAccountId -> HdQueryErr UnknownHdAccount (HdAccount, Coin)
-readHdAccount accId@(HdAccountId rootId _) =
-      either (Left . embedUnknownHdRoot) (aux . Map.lookup accId)
-    . readHdAccounts rootId
+-- | Look up the specified account
+readHdAccount :: HdAccountId -> HdQueryErr UnknownHdAccount HdAccount
+readHdAccount accId = aux . view (at accId) . readAllHdAccounts
   where
     aux :: Maybe a -> Either UnknownHdAccount a
     aux = maybe (Left (UnknownHdAccount accId)) Right
 
--- | Meta-information about an address
---
--- We do NOT compute or cache a per-address balance.
+-- | Look up the specified address
 readHdAddress :: HdAddressId -> HdQueryErr UnknownHdAddress HdAddress
-readHdAddress addrId@(HdAddressId accId _) =
-      either (Left . embedUnknownHdAccount) (aux . Map.lookup addrId)
-    . readHdAddresses accId
+readHdAddress addrId = aux . view (at addrId) . readAllHdAddresses
   where
     aux :: Maybe a -> Either UnknownHdAddress a
     aux = maybe (Left (UnknownHdAddress addrId)) Right
-
-{-------------------------------------------------------------------------------
-  Auxiliary
--------------------------------------------------------------------------------}
-
--- | Map both the keys and the values of a map
---
--- NOTE: Uses 'mapKeysMonotonic'; see side conditions.
-mapKeysVals :: (k1 -> k2) -> (a -> b) -> Map k1 a -> Map k2 b
-mapKeysVals onKeys onVals = map onVals . Map.mapKeysMonotonic onKeys

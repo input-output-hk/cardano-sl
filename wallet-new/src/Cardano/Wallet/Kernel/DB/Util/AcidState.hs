@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 -- | Some utilities for working with acid-state
-module Cardano.Wallet.Kernel.DB.AcidStateUtil (
+module Cardano.Wallet.Kernel.DB.Util.AcidState (
     -- * Acid-state updates with support for errors
     Update'
   , runUpdate'
@@ -19,6 +19,9 @@ import           Universum
 
 import           Control.Monad.Except
 import           Data.Acid (Update)
+
+import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet, Indexable)
+import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 {-------------------------------------------------------------------------------
   Acid-state updates with support for errors (and zooming, see below)
@@ -46,12 +49,16 @@ mapUpdateErrors f upd = StateT $ withExcept f . runStateT upd
   Zooming
 -------------------------------------------------------------------------------}
 
+-- | Run an update on part of the state.
 zoom :: Lens' st st' -> Update' st' e a -> Update' st e a
 zoom l upd = StateT $ \large -> do
     let update small' = large & l .~ small'
         small         = large ^. l
     fmap update <$> runStateT upd small
 
+-- | Run an update on part of the state.
+--
+-- If the specified part does not exist, throw the given error.
 zoomTry :: e -> Lens' st (Maybe st') -> Update' st' e a -> Update' st e a
 zoomTry e l upd = StateT $ \large -> do
     let update small' = large & l .~ Just small'
@@ -60,10 +67,13 @@ zoomTry e l upd = StateT $ \large -> do
       Nothing    -> throwError e
       Just small -> fmap update <$> runStateT upd small
 
-zoomAll :: Traversal' st st' -> Update' st' e () -> Update' st e ()
-zoomAll t upd = StateT $ \large -> do
-    let updateSmall = execStateT upd
-    ((),) <$> t updateSmall large
+-- | Run an update on /all/ parts of the state.
+zoomAll :: Indexable st'
+        => Lens' st (IxSet st') -> Update' st' e () -> Update' st e ()
+zoomAll l upd = StateT $ \large -> do
+    let update ixset' = large & l .~ ixset'
+        ixset         = large ^. l
+    (((), ) . update) <$> IxSet.traverse (execStateT upd) ixset
 
 {-------------------------------------------------------------------------------
   Auxiliary

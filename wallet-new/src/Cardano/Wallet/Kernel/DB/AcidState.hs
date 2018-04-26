@@ -5,7 +5,7 @@
 module Cardano.Wallet.Kernel.DB.AcidState (
     -- * Top-level database
     DB(..)
-  , hdRoots
+  , dbHdWallets
     -- * Acid-state operations
     -- ** Snapshot
   , Snapshot(..)
@@ -35,7 +35,6 @@ import           Data.SafeCopy (base, deriveSafeCopy)
 
 import qualified Pos.Core as Core
 
-import           Cardano.Wallet.Kernel.DB.AcidStateUtil
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as HD
@@ -45,6 +44,7 @@ import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved
 import           Cardano.Wallet.Kernel.DB.Spec
 import qualified Cardano.Wallet.Kernel.DB.Spec.Update as Spec
+import           Cardano.Wallet.Kernel.DB.Util.AcidState
 
 {-------------------------------------------------------------------------------
   Top-level database
@@ -62,21 +62,11 @@ import qualified Cardano.Wallet.Kernel.DB.Spec.Update as Spec
 --    "Pos.Wallet.Web.State.Storage".
 --  * V1 API defined in "Cardano.Wallet.API.V1.*" (in @src/@)
 data DB = DB {
-      _hdRoots :: HdRoots
+      _dbHdWallets :: HdWallets
     }
 
 makeLenses ''DB
 deriveSafeCopy 1 'base ''DB
-
-{-------------------------------------------------------------------------------
-  Specialized lenses
--------------------------------------------------------------------------------}
-
--- | All list of checkpoints across the entire DB
-dbCheckpoints :: Traversal' DB Checkpoints
-dbCheckpoints = hdRoots        . traverse
-              . hdRootAccounts . traverse
-              . hdAccountCheckpoints
 
 {-------------------------------------------------------------------------------
   Wrap wallet spec
@@ -95,7 +85,7 @@ deriveSafeCopy 1 'base ''NewPendingError
 newPending :: HdAccountId
            -> InDb (Core.TxAux)
            -> Update DB (Either NewPendingError ())
-newPending accountId tx = runUpdate' . zoom hdRoots $
+newPending accountId tx = runUpdate' . zoom dbHdWallets $
     zoomHdAccountId NewPendingUnknown accountId $
     zoom hdAccountCheckpoints $
       mapUpdateErrors NewPendingFailed $ Spec.newPending tx
@@ -109,14 +99,21 @@ newPending accountId tx = runUpdate' . zoom hdRoots $
 -- (although concurrent calls to 'applyBlock' cannot interfere with each
 -- other, 'applyBlock' must be called in the right order.)
 applyBlock :: (ResolvedBlock, BlockMeta) -> Update DB ()
-applyBlock block = runUpdateNoErrors . zoomAll dbCheckpoints $
-    Spec.applyBlock block
+applyBlock block = runUpdateNoErrors $
+    zoomAll (dbHdWallets . hdWalletsAccounts) $
+      zoom hdAccountCheckpoints $
+        Spec.applyBlock block
 
+-- | Switch to a fork
+--
+-- See comments for 'applyBlock'.
 switchToFork :: Int
              -> [(ResolvedBlock, BlockMeta)]
              -> Update DB ()
-switchToFork n blocks = runUpdateNoErrors . zoomAll dbCheckpoints $
-    Spec.switchToFork n blocks
+switchToFork n blocks = runUpdateNoErrors $
+    zoomAll (dbHdWallets . hdWalletsAccounts) $
+      zoom hdAccountCheckpoints $
+        Spec.switchToFork n blocks
 
 {-------------------------------------------------------------------------------
   Wrap HD C(R)UD operations
@@ -128,46 +125,46 @@ createHdRoot :: HdRootId
              -> AssuranceLevel
              -> InDb Core.Timestamp
              -> Update DB (Either HD.CreateHdRootError ())
-createHdRoot rootId name hasPass assurance created = runUpdate' . zoom hdRoots $
+createHdRoot rootId name hasPass assurance created = runUpdate' . zoom dbHdWallets $
     HD.createHdRoot rootId name hasPass assurance created
 
 createHdAccount :: HdRootId
                 -> AccountName
                 -> Checkpoint
-                -> Update DB (Either HD.CreateHdAccountError AccountIx)
-createHdAccount rootId name checkpoint = runUpdate' . zoom hdRoots $
+                -> Update DB (Either HD.CreateHdAccountError HdAccountId)
+createHdAccount rootId name checkpoint = runUpdate' . zoom dbHdWallets $
     HD.createHdAccount rootId name checkpoint
 
 createHdAddress :: HdAddressId
                 -> InDb Core.Address
                 -> Update DB (Either HD.CreateHdAddressError ())
-createHdAddress addrId address = runUpdate' . zoom hdRoots $
+createHdAddress addrId address = runUpdate' . zoom dbHdWallets $
     HD.createHdAddress addrId address
 
 updateHdRootAssurance :: HdRootId
                       -> AssuranceLevel
                       -> Update DB (Either UnknownHdRoot ())
-updateHdRootAssurance rootId assurance = runUpdate' . zoom hdRoots $
+updateHdRootAssurance rootId assurance = runUpdate' . zoom dbHdWallets $
     HD.updateHdRootAssurance rootId assurance
 
 updateHdRootName :: HdRootId
                  -> WalletName
                  -> Update DB (Either UnknownHdRoot ())
-updateHdRootName rootId name = runUpdate' . zoom hdRoots $
+updateHdRootName rootId name = runUpdate' . zoom dbHdWallets $
     HD.updateHdRootName rootId name
 
 updateHdAccountName :: HdAccountId
                     -> AccountName
                     -> Update DB (Either UnknownHdAccount ())
-updateHdAccountName accId name = runUpdate' . zoom hdRoots $
+updateHdAccountName accId name = runUpdate' . zoom dbHdWallets $
     HD.updateHdAccountName accId name
 
 deleteHdRoot :: HdRootId -> Update DB ()
-deleteHdRoot rootId = runUpdateNoErrors . zoom hdRoots $
+deleteHdRoot rootId = runUpdateNoErrors . zoom dbHdWallets $
     HD.deleteHdRoot rootId
 
 deleteHdAccount :: HdAccountId -> Update DB (Either UnknownHdRoot ())
-deleteHdAccount accId = runUpdate' . zoom hdRoots $
+deleteHdAccount accId = runUpdate' . zoom dbHdWallets $
     HD.deleteHdAccount accId
 
 {-------------------------------------------------------------------------------

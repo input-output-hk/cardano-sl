@@ -3,11 +3,12 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
     -- * Supporting types
     WalletName(..)
   , AccountName(..)
-  , AccountIx(..)
-  , AddressIx(..)
+  , HdAccountIx(..)
+  , HdAddressIx(..)
   , AssuranceLevel(..)
   , HasSpendingPassword(..)
-    -- * HD proper
+    -- * HD wallet types proper
+  , HdWallets(..)
   , HdRootId(..)
   , HdAccountId(..)
   , HdAddressId(..)
@@ -15,20 +16,29 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , HdAccount(..)
   , HdAddress(..)
     -- ** Lenses
+  , hdWalletsRoots
+  , hdWalletsAccounts
+  , hdWalletsAddresses
+  , hdAccountIdParent
+  , hdAccountIdIx
+  , hdAddressIdParent
+  , hdAddressIdIx
+  , hdRootId
   , hdRootName
   , hdRootHasPassword
   , hdRootAssurance
   , hdRootCreatedAt
-  , hdRootAccounts
+  , hdAccountId
   , hdAccountName
-  , hdAccountAddresses
   , hdAccountCheckpoints
+  , hdAddressId
   , hdAddressAddress
   , hdAddressIsUsed
   , hdAddressIsChange
-    -- * Derived information
-  , hdRootBalance
-  , hdAccountBalance
+    -- ** Composite lenses
+  , hdAccountRootId
+  , hdAddressRootId
+  , hdAddressAccountId
     -- * Unknown identifiers
   , UnknownHdRoot(..)
   , UnknownHdAccount(..)
@@ -36,7 +46,6 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , embedUnknownHdRoot
   , embedUnknownHdAccount
     -- * Zoom to parts of the HD wallet
-  , HdRoots
   , zoomHdRootId
   , zoomHdAccountId
   , zoomHdAddressId
@@ -44,16 +53,18 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
 
 import           Universum
 
-import           Control.Lens (at, toListOf)
+import           Control.Lens (at)
 import           Control.Lens.TH (makeLenses)
+import qualified Data.IxSet.Typed as IxSet
 import           Data.SafeCopy (base, deriveSafeCopy)
 
 import qualified Pos.Core as Core
 import qualified Pos.Crypto as Core
 
-import           Cardano.Wallet.Kernel.DB.AcidStateUtil
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Spec
+import           Cardano.Wallet.Kernel.DB.Util.AcidState
+import           Cardano.Wallet.Kernel.DB.Util.IxSet
 
 {-------------------------------------------------------------------------------
   Supporting types
@@ -66,11 +77,11 @@ newtype WalletName = WalletName Text
 newtype AccountName = AccountName Text
 
 -- | Account index
-newtype AccountIx = AccountIx Word32
+newtype HdAccountIx = HdAccountIx Word32
   deriving (Eq, Ord)
 
 -- | Address index
-newtype AddressIx = AddressIx Word32
+newtype HdAddressIx = HdAddressIx Word32
   deriving (Eq, Ord)
 
 -- | Wallet assurance level
@@ -91,8 +102,8 @@ data HasSpendingPassword =
 
 deriveSafeCopy 1 'base ''WalletName
 deriveSafeCopy 1 'base ''AccountName
-deriveSafeCopy 1 'base ''AccountIx
-deriveSafeCopy 1 'base ''AddressIx
+deriveSafeCopy 1 'base ''HdAccountIx
+deriveSafeCopy 1 'base ''HdAddressIx
 deriveSafeCopy 1 'base ''AssuranceLevel
 deriveSafeCopy 1 'base ''HasSpendingPassword
 
@@ -105,11 +116,17 @@ data HdRootId = HdRootId (InDb (Core.AddressHash Core.PublicKey))
   deriving (Eq, Ord)
 
 -- | HD wallet account ID
-data HdAccountId = HdAccountId HdRootId AccountIx
+data HdAccountId = HdAccountId {
+      _hdAccountIdParent :: HdRootId
+    , _hdAccountIdIx     :: HdAccountIx
+    }
   deriving (Eq, Ord)
 
 -- | HD wallet address ID
-data HdAddressId = HdAddressId HdAccountId AddressIx
+data HdAddressId = HdAddressId {
+      _hdAddressIdParent :: HdAccountId
+    , _hdAddressIdIx     :: HdAddressIx
+    }
   deriving (Eq, Ord)
 
 -- | Root of a HD wallet
@@ -121,8 +138,11 @@ data HdAddressId = HdAddressId HdAccountId AddressIx
 --
 -- TODO: synchronization state
 data HdRoot = HdRoot {
+      -- | Wallet ID
+      _hdRootId          :: HdRootId
+
       -- | Wallet name
-      _hdRootName        :: WalletName
+    , _hdRootName        :: WalletName
 
       -- | Does this wallet have a spending password?
       --
@@ -136,20 +156,17 @@ data HdRoot = HdRoot {
 
       -- | When was this wallet created?
     , _hdRootCreatedAt   :: InDb Core.Timestamp
-
-      -- | Known derived accounts
-    , _hdRootAccounts    :: Map AccountIx HdAccount
     }
 
 -- | Account in a HD wallet
 --
 -- Key derivation is cheap
 data HdAccount = HdAccount {
-      -- | Account name
-      _hdAccountName        :: AccountName
+      -- | Account index
+      _hdAccountId          :: HdAccountId
 
-      -- | Known derived addresses
-    , _hdAccountAddresses   :: Map AddressIx HdAddress
+      -- | Account name
+    , _hdAccountName        :: AccountName
 
       -- | State of the " wallet " as stipulated by the wallet specification
     , _hdAccountCheckpoints :: NonEmpty Checkpoint
@@ -157,12 +174,16 @@ data HdAccount = HdAccount {
 
 -- | Address in an account of a HD wallet
 data HdAddress = HdAddress {
+      -- | Address ID
+      _hdAddressId       :: HdAddressId
+
       -- | The actual address
-      _hdAddressAddress  :: InDb Core.Address
+    , _hdAddressAddress  :: InDb Core.Address
 
       -- | Has this address been involved in a transaction?
       --
       -- TODO: How is this determined? What is the definition? How is it set?
+      -- TODO: This will likely move to the 'BlockMeta' instead.
     , _hdAddressIsUsed   :: Bool
 
       -- | Was this address used as a change address?
@@ -171,6 +192,9 @@ data HdAddress = HdAddress {
       -- TODO: Do we need this at all?
     , _hdAddressIsChange :: Bool
     }
+
+makeLenses ''HdAccountId
+makeLenses ''HdAddressId
 
 makeLenses ''HdRoot
 makeLenses ''HdAccount
@@ -185,23 +209,17 @@ deriveSafeCopy 1 'base ''HdAccount
 deriveSafeCopy 1 'base ''HdAddress
 
 {-------------------------------------------------------------------------------
-  Derived information
+  Derived lenses
 -------------------------------------------------------------------------------}
 
--- | Total balance of a wallet
---
--- This returns an integer because we may otherwise run into overflow.
-hdRootBalance :: HdRoot -> Integer
-hdRootBalance = Core.sumCoins
-              . toListOf ( hdRootAccounts
-                         . traverse
-                         . hdAccountCheckpoints
-                         . currentUtxoBalance
-                         )
+hdAccountRootId :: Lens' HdAccount HdRootId
+hdAccountRootId = hdAccountId . hdAccountIdParent
 
--- | Current balance on an account
-hdAccountBalance :: HdAccount -> Core.Coin
-hdAccountBalance = view (hdAccountCheckpoints . currentUtxoBalance)
+hdAddressAccountId :: Lens' HdAddress HdAccountId
+hdAddressAccountId = hdAddressId . hdAddressIdParent
+
+hdAddressRootId :: Lens' HdAddress HdRootId
+hdAddressRootId = hdAddressAccountId . hdAccountIdParent
 
 {-------------------------------------------------------------------------------
   Unknown identifiers
@@ -247,29 +265,75 @@ deriveSafeCopy 1 'base ''UnknownHdAddress
 deriveSafeCopy 1 'base ''UnknownHdAccount
 
 {-------------------------------------------------------------------------------
+  IxSet instantiations
+-------------------------------------------------------------------------------}
+
+instance HasPrimKey HdRoot where
+    type PrimKey HdRoot = HdRootId
+    primKey = _hdRootId
+
+instance HasPrimKey HdAccount where
+    type PrimKey HdAccount = HdAccountId
+    primKey = _hdAccountId
+
+instance HasPrimKey HdAddress where
+    type PrimKey HdAddress = HdAddressId
+    primKey = _hdAddressId
+
+type HdRootIxs    = '[]
+type HdAccountIxs = '[HdRootId]
+type HdAddressIxs = '[HdRootId, HdAccountId]
+
+type instance IndicesOf HdRoot    = HdRootIxs
+type instance IndicesOf HdAccount = HdAccountIxs
+type instance IndicesOf HdAddress = HdAddressIxs
+
+instance IxSet.Indexable (HdRootId ': HdRootIxs)
+                         (OrdByPrimKey HdRoot) where
+    indices = ixList
+
+instance IxSet.Indexable (HdAccountId ': HdAccountIxs)
+                         (OrdByPrimKey HdAccount) where
+    indices = ixList
+                (ixFun ((:[]) . view hdAccountRootId))
+
+instance IxSet.Indexable (HdAddressId ': HdAddressIxs)
+                         (OrdByPrimKey HdAddress) where
+    indices = ixList
+                (ixFun ((:[]) . view hdAddressRootId))
+                (ixFun ((:[]) . view hdAddressAccountId))
+
+{-------------------------------------------------------------------------------
   Zoom to parts of a HD wallet
 -------------------------------------------------------------------------------}
 
-type HdRoots = Map HdRootId HdRoot
+-- | All wallets, accounts and addresses in the HD wallets
+--
+-- We use a flat "relational" structure rather than nested maps so that we can
+-- go from address to wallet just as easily as the other way around.
+data HdWallets = HdWallets {
+    _hdWalletsRoots     :: IxSet HdRoot
+  , _hdWalletsAccounts  :: IxSet HdAccount
+  , _hdWalletsAddresses :: IxSet HdAddress
+  }
+
+deriveSafeCopy 1 'base ''HdWallets
+makeLenses ''HdWallets
 
 zoomHdRootId :: (UnknownHdRoot -> e)
              -> HdRootId
-             -> Update' HdRoot e a -> Update' HdRoots e a
+             -> Update' HdRoot e a -> Update' HdWallets e a
 zoomHdRootId embedErr rootId =
-      zoomTry (embedErr $ UnknownHdRoot rootId) (at rootId)
+      zoomTry (embedErr $ UnknownHdRoot rootId) (hdWalletsRoots . at rootId)
 
 zoomHdAccountId :: (UnknownHdAccount -> e)
                 -> HdAccountId
-                -> Update' HdAccount e a -> Update' HdRoots e a
-zoomHdAccountId embedErr accId@(HdAccountId rootId accIx) =
-      zoomHdRootId (embedErr . embedUnknownHdRoot) rootId
-    . zoom hdRootAccounts
-    . zoomTry (embedErr $ UnknownHdAccount accId) (at accIx)
+                -> Update' HdAccount e a -> Update' HdWallets e a
+zoomHdAccountId embedErr accId =
+      zoomTry (embedErr $ UnknownHdAccount accId) (hdWalletsAccounts . at accId)
 
 zoomHdAddressId :: (UnknownHdAddress -> e)
                 -> HdAddressId
-                -> Update' HdAddress e a -> Update' HdRoots e a
-zoomHdAddressId embedErr addrId@(HdAddressId accId addrIx) =
-      zoomHdAccountId (embedErr . embedUnknownHdAccount) accId
-    . zoom hdAccountAddresses
-    . zoomTry (embedErr $ UnknownHdAddress addrId) (at addrIx)
+                -> Update' HdAddress e a -> Update' HdWallets e a
+zoomHdAddressId embedErr addrId =
+      zoomTry (embedErr $ UnknownHdAddress addrId) (hdWalletsAddresses . at addrId)

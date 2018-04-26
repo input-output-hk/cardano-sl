@@ -9,22 +9,22 @@ module CLI
 
 import           Universum
 
-import           Options.Applicative (Parser, execParser, fullDesc, header, help, helper, info,
-                                      long, metavar, progDesc, strOption, switch)
+import           Options.Applicative -- (Parser, execParser, fullDesc, header, help, helper, info,
+                                      --long, metavar, progDesc, strOption, switch)
 
 -- | Parser for command-line options.
 optionsParser :: Parser CLOptions
 optionsParser = do
-    tlsPubCertPath
-        <- strOption $
-           long        "tls-pub-cert"
-        <> metavar     "PUB_CERT"
-        <> help        "Path to TLS public certificate"
-    tlsPrivKeyPath
-        <- strOption $
-           long        "tls-priv-key"
-        <> metavar     "PRIV_KEY"
-        <> help        "Path to TLS private key"
+    tlsPubCertPath <- pure "./scripts/tls-files/server.crt"
+--        <- strOption $
+--           long        "tls-pub-cert"
+--        <> metavar     "PUB_CERT"
+--        <> help        "Path to TLS public certificate"
+    tlsPrivKeyPath <- pure "./scripts/tls-files/server.key"
+--        <- strOption $
+--           long        "tls-priv-key"
+--        <> metavar     "PRIV_KEY"
+--        <> help        "Path to TLS private key"
     stateless
         <- switch $
            long        "stateless"

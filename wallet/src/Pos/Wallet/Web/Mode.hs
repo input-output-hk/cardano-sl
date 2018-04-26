@@ -28,6 +28,7 @@ import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.Map.Strict as M
 import           Mockable (LowLevelAsync, Mockable, Production)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           System.Wlog (HasLoggerName (..))
 import           UnliftIO (MonadUnliftIO)
 
@@ -38,7 +39,6 @@ import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDefault,
                                          getLocalHistoryDefault, saveTxDefault)
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, Coin, HasConfiguration, HasPrimaryKey (..), isRedeemAddress,
                            largestHDAddressBoot, mkCoin)
@@ -98,9 +98,10 @@ import           Pos.Wallet.Web.Tracking (MonadBListener (..), onApplyBlocksWebW
                                           onRollbackBlocksWebWallet)
 
 data WalletWebModeContext = WalletWebModeContext
-    { wwmcWalletState     :: !WalletDB
-    , wwmcConnectionsVar  :: !ConnectionsVar
-    , wwmcRealModeContext :: !(RealModeContext WalletMempoolExt)
+    { wwmcWalletState        :: !WalletDB
+    , wwmcConnectionsVar     :: !ConnectionsVar
+    , wwmcWalletSyncRequests :: !SyncQueue
+    , wwmcRealModeContext    :: !(RealModeContext WalletMempoolExt)
     }
 
 -- It's here because of TH for lens
@@ -109,13 +110,17 @@ type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
 walletWebModeToRealMode
     :: WalletDB
     -> ConnectionsVar
+    -> SyncQueue
     -> WalletWebMode t
     -> RealMode WalletMempoolExt t
-walletWebModeToRealMode ws cv act = do
+walletWebModeToRealMode ws cv syncRequests act = do
     rmc <- ask
-    lift $ runReaderT act (WalletWebModeContext ws cv rmc)
+    lift $ runReaderT act (WalletWebModeContext ws cv syncRequests rmc)
 
 makeLensesWith postfixLFields ''WalletWebModeContext
+
+instance HasLens SyncQueue WalletWebModeContext SyncQueue where
+    lensOf = wwmcWalletSyncRequests_L
 
 instance HasSscContext WalletWebModeContext where
     sscContext = wwmcRealModeContext_L . sscContext
@@ -209,6 +214,7 @@ type MonadFullWalletWebMode ctx m =
     , MonadWalletWebSockets ctx m
     , MonadReporting ctx m
     , Mockable LowLevelAsync m
+    , HasLens SyncQueue ctx SyncQueue
     )
 
 ----------------------------------------------------------------------------
@@ -244,9 +250,6 @@ instance HasConfiguration => MonadDB WalletWebMode where
 
 instance HasConfiguration => MonadGState WalletWebMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
-
-instance HasConfiguration => HasAdoptedBlockVersionData WalletWebMode where
-    adoptedBVData = gsAdoptedBVData
 
 instance (HasConfiguration, HasCompileInfo)
        => MonadBListener WalletWebMode where

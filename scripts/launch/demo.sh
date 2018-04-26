@@ -118,6 +118,7 @@ while [[ $i -lt $panesCnt ]]; do
   ir=$((i/4))
 
   if [[ $im == 0 ]]; then
+    # TODO (akegalj): use `tmux new-session -s seassion-name` instead
     tmux new-window -n "demo-"`date +%H%M%S`-"$ir"
     tmux split-window -h
     tmux split-window -v

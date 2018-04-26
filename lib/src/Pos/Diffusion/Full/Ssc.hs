@@ -20,8 +20,8 @@ import           Pos.Binary.Ssc ()
 -- Message instances for various types.
 -- TODO should move these into the Diffusion module subtree.
 import           Pos.Communication.Message ()
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
-import           Pos.Communication.Limits.Types (MessageLimited)
+import           Pos.Communication.Limits (Limit, mlMCOpening, mlMCVssCertificate,
+                                           mlMCCommitment, mlMCShares)
 import           Pos.Communication.Relay (DataMsg, InvOrData, InvReqDataParams (..),
                                           MempoolParams (NoMempool), Relay (..), ReqMsg, ReqOrRes,
                                           relayListeners, relayPropagateOut)
@@ -37,7 +37,6 @@ import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (.
 
 sscListeners
     :: ( DiffusionWorkMode m
-       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
@@ -47,18 +46,14 @@ sscListeners logic oq enqueue = relayListeners oq enqueue (sscRelays logic)
 
 sscRelays
     :: ( DiffusionWorkMode m
-       , SscMessageConstraints m
-       , MessageLimited (DataMsg MCVssCertificate) m
-       , MessageLimited (DataMsg MCShares) m
-       , MessageLimited (DataMsg MCCommitment) m
-       , MessageLimited (DataMsg MCOpening) m
+       , SscMessageConstraints
        )
     => Logic m
     -> [Relay m]
 sscRelays logic =
-    [ commitmentRelay (postSscCommitment logic)
+    [ commitmentRelay logic (postSscCommitment logic)
     , openingRelay (postSscOpening logic)
-    , sharesRelay (postSscShares logic)
+    , sharesRelay logic (postSscShares logic)
     , vssCertRelay (postSscVssCert logic)
     ]
 
@@ -68,52 +63,48 @@ sscRelays logic =
 sscOutSpecs
     :: forall m .
        ( DiffusionWorkMode m
-       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> OutSpecs
 sscOutSpecs logic = relayPropagateOut (sscRelays logic)
 
 commitmentRelay
-    :: ( SscMessageConstraints m
-       , MessageLimited (DataMsg MCCommitment) m
+    :: ( SscMessageConstraints
        , DiffusionWorkMode m
        )
-    => KV.KeyVal (Tagged MCCommitment StakeholderId) MCCommitment m
+    => Logic m
+    -> KV.KeyVal (Tagged MCCommitment StakeholderId) MCCommitment m
     -> Relay m
-commitmentRelay kv = sscRelay kv
+commitmentRelay logic kv = sscRelay kv (mlMCCommitment <$> getAdoptedBVData logic)
 
 openingRelay
-    :: ( SscMessageConstraints m
-       , MessageLimited (DataMsg MCOpening) m
+    :: ( SscMessageConstraints
        , DiffusionWorkMode m
        )
     => KV.KeyVal (Tagged MCOpening StakeholderId) MCOpening m
     -> Relay m
-openingRelay kv = sscRelay kv
+openingRelay kv = sscRelay kv (pure mlMCOpening)
 
 sharesRelay
-    :: ( SscMessageConstraints m
-       , MessageLimited (DataMsg MCShares) m
+    :: ( SscMessageConstraints
        , DiffusionWorkMode m
        )
-    => KV.KeyVal (Tagged MCShares StakeholderId) MCShares m
+    => Logic m
+    -> KV.KeyVal (Tagged MCShares StakeholderId) MCShares m
     -> Relay m
-sharesRelay kv = sscRelay kv
+sharesRelay logic kv = sscRelay kv (mlMCShares <$> getAdoptedBVData logic)
 
 vssCertRelay
-    :: ( SscMessageConstraints m
-       , MessageLimited (DataMsg MCVssCertificate) m
+    :: ( SscMessageConstraints
        , DiffusionWorkMode m
        )
     => KV.KeyVal (Tagged MCVssCertificate StakeholderId) MCVssCertificate m
     -> Relay m
-vssCertRelay kv = sscRelay kv
+vssCertRelay kv = sscRelay kv (pure mlMCVssCertificate)
 
 sscRelay
     :: ( Buildable contents
        , Typeable contents
-       , MessageLimited (DataMsg contents) m
        , Bi (DataMsg contents)
        , Message (InvOrData (Tagged contents StakeholderId) contents)
        , Message (ReqOrRes (Tagged contents StakeholderId))
@@ -121,8 +112,9 @@ sscRelay
        , DiffusionWorkMode m
        )
     => KV.KeyVal (Tagged contents StakeholderId) contents m
+    -> m (Limit contents)
     -> Relay m
-sscRelay kv =
+sscRelay kv mkLimit =
     InvReqData NoMempool $
         InvReqDataParams
           { invReqMsgType = MsgMPC
@@ -130,4 +122,5 @@ sscRelay kv =
           , handleInv = \_ -> KV.handleInv kv
           , handleReq = \_ -> KV.handleReq kv
           , handleData = \_ -> KV.handleData kv
+          , irdpMkLimit = mkLimit
           }

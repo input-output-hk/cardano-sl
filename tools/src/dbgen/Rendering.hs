@@ -6,7 +6,8 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), CAccountMeta (..), CHash (..),
                                                    CId (..), CWalletMeta (..), Wal)
-import           Pos.Wallet.Web.State.Storage (AccountInfo (..), WalletInfo (..), WalletTip (..))
+import           Pos.Wallet.Web.State.Storage (AccountInfo (..), WalletInfo (..),
+                                               WalletSyncState (..))
 import           System.Console.ANSI (Color (..), ColorIntensity (..), ConsoleIntensity (..),
                                       ConsoleLayer (..), SGR (..), setSGRCode)
 import           Text.Printf (printf)
@@ -18,7 +19,7 @@ renderWallet WalletInfo{..} = toText renderWalletString
     renderWalletString = printf "%s, %s, %s, PendingTxs: %s"
                               (bold $ toString $ cwName _wiMeta)
                               (renderReady _wiIsReady)
-                              (renderSync _wiSyncTip)
+                              (renderSync _wiSyncState)
                               (renderPendingTxs _wsPendingTxs)
 
 renderAccount :: (AccountId, AccountInfo) -> T.Text
@@ -31,10 +32,11 @@ renderAccount (cid, AccountInfo{..}) = toText accountRenderString
                               (cyan $ show $ HM.size _aiAddresses)
                               (cyan $ show $ HM.size _aiRemovedAddresses)
 
-renderSync :: WalletTip -> String
+renderSync :: WalletSyncState -> String
 renderSync wt = case wt of
-  NotSynced    -> red "NotSynced"
-  SyncedWith h -> green "Synced" <> printf "[%s]" (show h :: String)
+  NotSynced         -> red "NotSynced"
+  SyncedWith h      -> green "Synced" <> printf "[%s]" (show h :: String)
+  RestoringFrom _ h -> green "Restoring" <> printf "[%s]" (show h :: String)
 
 renderPendingTxs :: HM.HashMap a b -> String
 renderPendingTxs m = case HM.size m of

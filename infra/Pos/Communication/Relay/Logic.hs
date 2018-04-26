@@ -41,13 +41,14 @@ import           System.Wlog (WithLogger, logDebug, logError, logWarning)
 import           Universum
 
 import           Pos.Binary.Class (Bi (..))
-import           Pos.Communication.Limits.Instances ()
-import           Pos.Communication.Limits.Types (MessageLimited, recvLimited)
+import           Pos.Communication.Limits.Instances (mlResMsg, mlReqMsg, mlInvMsg,
+                                                     mlDataMsg, mlMempoolMsg)
+import           Pos.Communication.Limits.Types (Limit, mlEither)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              EnqueueMsg, ListenerSpec, MkListeners, Msg, NodeId,
                                              Origin (..), OutSpecs, constantListeners, convH,
-                                             toOutSpecs, waitForConversations)
+                                             toOutSpecs, waitForConversations, recvLimited)
 import           Pos.Communication.Relay.Class (DataParams (..), InvReqDataParams (..),
                                                 MempoolParams (..), Relay (..))
 import           Pos.Communication.Relay.Types (PropagationMsg (..))
@@ -89,7 +90,7 @@ handleReqL
     -> (ListenerSpec m, OutSpecs)
 handleReqL oq handleReq = listenerConv oq $ \__ourVerInfo nodeId conv ->
     let handlingLoop = do
-            mbMsg <- recvLimited conv
+            mbMsg <- recvLimited conv mlReqMsg
             case mbMsg of
                 Just (ReqMsg (Just key)) -> do
                     dtMB <- handleReq nodeId key
@@ -119,7 +120,7 @@ handleMempoolL
 handleMempoolL _ NoMempool = []
 handleMempoolL oq (KeyMempool tagP handleMempool) = pure $ listenerConv oq $
     \__ourVerInfo __nodeId conv -> do
-        mbMsg <- recvLimited conv
+        mbMsg <- recvLimited conv mlMempoolMsg
         whenJust mbMsg $ \msg@MempoolMsg -> do
             let _ = msg `asProxyTypeOf` mmP
             res <- handleMempool
@@ -140,20 +141,21 @@ handleDataOnlyL
        , Message (DataMsg contents)
        , Buildable contents
        , RelayWorkMode ctx m
-       , MessageLimited (DataMsg contents) m
        )
     => OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg m
     -> (Origin NodeId -> Msg)
+    -> m (Limit contents)
     -> (NodeId -> contents -> m Bool)
     -> (ListenerSpec m, OutSpecs)
-handleDataOnlyL oq enqueue mkMsg handleData = listenerConv oq $ \__ourVerInfo nodeId conv ->
+handleDataOnlyL oq enqueue mkMsg mkLimit handleData = listenerConv oq $ \__ourVerInfo nodeId conv ->
     -- First binding is to inform GHC that the send type is Void.
     let msg :: Msg
         msg = mkMsg (OriginForward nodeId)
         _ = send conv :: Void -> m ()
         handlingLoop = do
-            mbMsg <- recvLimited conv
+            lim <- mkLimit
+            mbMsg <- recvLimited conv (mlDataMsg lim)
             whenJust mbMsg $ \DataMsg{..} -> do
                 ifM (handleData nodeId dmContents)
                     (void $ propagateData enqueue $ DataOnlyPM msg dmContents)
@@ -263,7 +265,7 @@ relayListenersOne oq enqueue (InvReqData mP irdP@InvReqDataParams{..}) =
     [handleReqL oq handleReq, invDataListener oq enqueue irdP] ++ handleMempoolL oq mP
 relayListenersOne oq enqueue (Data DataParams{..}) =
     constantListeners $
-    [handleDataOnlyL oq enqueue dataMsgType (handleDataOnly enqueue)]
+    [handleDataOnlyL oq enqueue dataMsgType dpMkLimit (handleDataOnly enqueue)]
 
 relayListeners
   :: forall pack ctx m.
@@ -284,7 +286,6 @@ invDataListener
      , Buildable contents
      , Buildable key
      , Eq key
-     , MessageLimited (DataMsg contents) m
      , Message Void
      )
   => OQ.OutboundQ pack NodeId Bucket
@@ -293,14 +294,15 @@ invDataListener
   -> (ListenerSpec m, OutSpecs)
 invDataListener oq enqueue InvReqDataParams{..} = listenerConv oq $ \__ourVerInfo nodeId conv ->
     let handlingLoop = do
-            inv' <- recvLimited conv
+            lim <- irdpMkLimit
+            inv' <- recvLimited conv (mlEither mlInvMsg (mlDataMsg lim))
             whenJust inv' $ expectInv $ \InvMsg{..} -> do
                 useful <- handleInvDo (handleInv nodeId) imKey
                 case useful of
                     Nothing -> send conv (Left (ReqMsg Nothing))
                     Just ne -> do
                         send conv $ Left (ReqMsg (Just ne))
-                        dt' <- recvLimited conv
+                        dt' <- recvLimited conv (mlEither mlInvMsg (mlDataMsg lim))
                         whenJust dt' $ expectData $ \DataMsg{..} -> do
                               res <- handleDataDo nodeId invReqMsgType enqueue contentsToKey (handleData nodeId) dmContents
                               send conv $ Right res
@@ -333,7 +335,6 @@ propagateOutImpl (Data dp) = toOutSpecs
 invReqDataFlowDo
     :: ( Buildable key
        , MinRelayWorkMode m
-       , MessageLimited (ReqOrRes key) m
        , Eq key
        )
     => Text
@@ -344,14 +345,14 @@ invReqDataFlowDo
     -> m (Maybe (ResMsg key))
 invReqDataFlowDo what key dt peer conv = do
     send conv $ Left $ InvMsg key
-    it <- recvLimited conv
+    it <- recvLimited conv (mlEither mlReqMsg mlResMsg)
     maybe handleD replyWithData it
   where
     replyWithData (Left (ReqMsg (Just key'))) = do
         -- Stop if the peer sends the wrong key. Basically a protocol error.
         unless (key' == key) (throwM MismatchedKey)
         send conv $ Right $ DataMsg dt
-        it <- recvLimited conv
+        it <- recvLimited conv (mlEither mlReqMsg mlResMsg)
         maybe handleD checkResponse it
     -- The peer indicated that he doesn't want the data.
     replyWithData (Left (ReqMsg Nothing)) = return Nothing

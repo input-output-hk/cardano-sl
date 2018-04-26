@@ -1,11 +1,13 @@
-
 {-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Pos.Wallet.Web.State.State
        ( WalletDB
        , WalletDbReader
-       , WalletTip (..)
+       , WalletSyncState (..)
+       , RestorationBlockDepth (..)
+       , SyncThroughput (..)
+       , SyncStatistics (..)
        , PtxMetaUpdate (..)
        , AddressInfo (..)
        , S.WalBalancesAndUtxo
@@ -32,7 +34,8 @@ module Pos.Wallet.Web.State.State
        , getWalletMeta
        , getWalletMetaIncludeUnready
        , getWalletPassLU
-       , getWalletSyncTip
+       , getWalletInfo
+       , getWalletSyncState
        , getWalletAddresses
        , doesWAddressExist
        , getTxMeta
@@ -42,6 +45,7 @@ module Pos.Wallet.Web.State.State
        , getCustomAddresses
        , getCustomAddress
        , isCustomAddress
+       , isWalletRestoring
        , getWalletUtxo
        , getWalletBalancesAndUtxo
        , updateWalletBalancesAndUtxo
@@ -62,6 +66,8 @@ module Pos.Wallet.Web.State.State
        , setWalletReady
        , setWalletPassLU
        , setWalletSyncTip
+       , setWalletRestorationSyncTip
+       , updateSyncStatistics
        , addOnlyNewTxMetas
        , addOnlyNewTxMeta
        , removeWallet
@@ -91,21 +97,21 @@ module Pos.Wallet.Web.State.State
 import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent)
 import qualified Data.Map as Map
 import           Pos.Client.Txp.History (TxHistoryEntry)
-import           Pos.Core (Address, HasConfiguration, HasProtocolConstants, SlotId)
+import           Pos.Core (Address, ChainDifficulty, HasConfiguration, HasProtocolConstants, SlotId)
 import           Pos.Core.Common (HeaderHash)
 import           Pos.Txp (TxId, Utxo, UtxoModifier)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens', lensOf)
-import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountMeta, CId, CProfile, CTxId,
-                                             CTxMeta, CUpdateInfo, CWalletMeta,
-                                             PassPhraseLU, Wal)
+import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountMeta, CId, CProfile, CTxId, CTxMeta,
+                                             CUpdateInfo, CWalletMeta, PassPhraseLU, Wal)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition)
 import           Pos.Wallet.Web.State.Acidic (WalletDB, closeState, openMemState, openState)
 import           Pos.Wallet.Web.State.Acidic as A
 import           Pos.Wallet.Web.State.Storage (AddressInfo (..), AddressLookupMode (..), CAddresses,
                                                CurrentAndRemoved (..), CustomAddressType (..),
-                                               PtxMetaUpdate (..), WalletBalances, WalletStorage,
-                                               WalletTip (..))
+                                               PtxMetaUpdate (..), RestorationBlockDepth (..),
+                                               SyncStatistics, SyncThroughput, WalletBalances,
+                                               WalletInfo, WalletStorage, WalletSyncState (..))
 import qualified Pos.Wallet.Web.State.Storage as S
 import           Universum
 
@@ -179,8 +185,11 @@ getWalletMetaIncludeUnready ws includeReady wid =
 getWalletPassLU :: WalletSnapshot -> CId Wal -> Maybe PassPhraseLU
 getWalletPassLU ws wid = queryValue ws (S.getWalletPassLU wid)
 
-getWalletSyncTip :: WalletSnapshot -> CId Wal -> Maybe WalletTip
-getWalletSyncTip ws wid = queryValue ws (S.getWalletSyncTip wid)
+getWalletInfo :: WalletSnapshot -> CId Wal -> Maybe WalletInfo
+getWalletInfo ws wid = queryValue ws (S.getWalletInfo wid)
+
+getWalletSyncState :: WalletSnapshot -> CId Wal -> Maybe WalletSyncState
+getWalletSyncState ws wid = queryValue ws (S.getWalletSyncState wid)
 
 getAccountWAddresses
     :: WalletSnapshot -> AddressLookupMode -> AccountId -> Maybe [AddressInfo]
@@ -194,6 +203,9 @@ getWAddresses ws mode wid = queryValue ws (S.getWAddresses mode wid)
 doesWAddressExist
     :: WalletSnapshot -> AddressLookupMode -> S.WAddressMeta -> Bool
 doesWAddressExist ws mode addr = queryValue ws (S.doesWAddressExist mode addr)
+
+isWalletRestoring :: WalletSnapshot -> CId Wal -> Bool
+isWalletRestoring ws walletId = queryValue ws (S.isWalletRestoring walletId)
 
 getProfile :: WalletSnapshot -> CProfile
 getProfile ws = queryValue ws S.getProfile
@@ -307,6 +319,22 @@ setWalletSyncTip :: (MonadIO m, HasConfiguration)
                  => WalletDB -> CId Wal -> HeaderHash  -> m ()
 setWalletSyncTip db cWalId headerHash =
     updateDisk (A.SetWalletSyncTip cWalId headerHash) db
+
+setWalletRestorationSyncTip :: (MonadIO m, HasConfiguration)
+                            => WalletDB
+                            -> CId Wal
+                            -> RestorationBlockDepth
+                            -> HeaderHash  -> m ()
+setWalletRestorationSyncTip db cWalId rbd headerHash =
+    updateDisk (A.SetWalletRestorationSyncTip cWalId rbd headerHash) db
+
+updateSyncStatistics :: (MonadIO m, HasConfiguration)
+                     => WalletDB
+                     -> CId Wal
+                     -> SyncStatistics
+                     -> m ()
+updateSyncStatistics db cWalId stats =
+    updateDisk (A.UpdateSyncStatistics cWalId stats) db
 
 setProfile :: (MonadIO m, HasConfiguration)
            => WalletDB -> CProfile  -> m ()
@@ -492,15 +520,16 @@ applyModifierToWallet
   -> [(CTxId, CTxMeta)] -- ^ Transaction metadata to add
   -> Map TxId TxHistoryEntry -- ^ Entries for the history cache
   -> [(TxId, PtxCondition)] -- ^ PTX Conditions
-  -> HeaderHash -- ^ New sync tip
+  -> ChainDifficulty -- ^ The current depth of the blockchain
+  -> WalletSyncState -- ^ New 'WalletSyncState'
   -> m ()
 applyModifierToWallet db walId wAddrs custAddrs utxoMod
                       txMetas historyEntries ptxConditions
-                      syncTip =
+                      currentDepth syncState =
     updateDisk
-      ( A.ApplyModifierToWallet
+      ( A.ApplyModifierToWallet2
           walId wAddrs custAddrs utxoMod
-          txMetas historyEntries ptxConditions syncTip
+          txMetas historyEntries ptxConditions currentDepth syncState
       )
       db
 
@@ -515,15 +544,15 @@ rollbackModifierFromWallet
      -- until 5.8.1
   -> Map TxId a -- ^ Entries to remove from history cache.
   -> [(TxId, PtxCondition, S.PtxMetaUpdate)] -- ^ Deleted PTX candidates
-  -> HeaderHash -- ^ New sync tip
+  -> WalletSyncState -- ^ New 'WalletSyncState'
   -> m ()
 rollbackModifierFromWallet db walId wAddrs custAddrs utxoMod
-                           historyEntries ptxConditions
-                           syncTip =
+                            historyEntries ptxConditions
+                            syncState =
     updateDisk
-      ( A.RollbackModifierFromWallet
+      ( A.RollbackModifierFromWallet2
           walId wAddrs custAddrs utxoMod
-          historyEntries' ptxConditions syncTip
+          historyEntries' ptxConditions syncState
       )
       db
   where

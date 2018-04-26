@@ -48,4 +48,4 @@ handlers naturalTransformation diffusion ntpStatus =
     :<|> hoistServer (Proxy @Accounts.API) naturalTransformation Accounts.handlers
     :<|> hoistServer (Proxy @Transactions.API) naturalTransformation (Transactions.handlers (sendTx diffusion))
     :<|> hoistServer (Proxy @Settings.API) naturalTransformation Settings.handlers
-    :<|> hoistServer (Proxy @Info.API) naturalTransformation (Info.handlers ntpStatus)
+    :<|> hoistServer (Proxy @Info.API) naturalTransformation (Info.handlers diffusion ntpStatus)

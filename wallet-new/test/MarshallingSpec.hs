@@ -4,7 +4,7 @@ import           Universum
 
 import           Control.Lens (from, to)
 import           Data.Aeson
-import           Data.Time (UTCTime(..), fromGregorian)
+import           Data.Time (UTCTime (..), fromGregorian)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable (typeRep)
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
@@ -57,8 +57,12 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @SlotDuration Proxy
         aesonRoundtripProp @LocalTimeDifference Proxy
         aesonRoundtripProp @BlockchainHeight Proxy
-        aesonRoundtripProp @SyncProgress Proxy
+        aesonRoundtripProp @SyncPercentage Proxy
         aesonRoundtripProp @NodeInfo Proxy
+        aesonRoundtripProp @SyncState Proxy
+        aesonRoundtripProp @EstimatedCompletionTime Proxy
+        aesonRoundtripProp @SyncProgress Proxy
+        aesonRoundtripProp @SyncThroughput Proxy
 
         -- Migrate roundrips
         migrateRoundtripProp @(V1 Core.Address) @(V0.CId V0.Addr) Proxy Proxy

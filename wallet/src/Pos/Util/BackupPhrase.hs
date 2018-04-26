@@ -29,17 +29,51 @@ newtype BackupPhrase = BackupPhrase
     { bpToList :: [Text]
     } deriving (Eq, Generic)
 
+-- | A datatype representing word counts you'd have in
+-- a <https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki BIP39>
+-- mnemonic passphrase.
+data MnemonicWordCount
+    = Nine
+    | Twelve
+    | Fifteen
+    | Eighteen
+    | Twentyone
+    | Twentyfour
+    deriving (Eq, Show)
+
+wordCountToInt :: MnemonicWordCount -> Int
+wordCountToInt wc = case wc of
+    Nine       -> 9
+    Twelve     -> 12
+    Fifteen    -> 15
+    Eighteen   -> 18
+    Twentyone  -> 21
+    Twentyfour -> 24
+
+checksumLength :: MnemonicWordCount -> Int
+checksumLength wc = case wc of
+    Nine       -> 3
+    Twelve     -> 4
+    Fifteen    -> 5
+    Eighteen   -> 6
+    Twentyone  -> 7
+    Twentyfour -> 8
+
+byteCount :: MnemonicWordCount -> Int
+byteCount wc = wordCountToInt wc + checksumLength wc
+
 instance Arbitrary BackupPhrase where
     arbitrary = do
-        em <- arbitraryMnemonic 16
+        em <- arbitraryMnemonic Twelve
         case em of
             Left _  -> arbitrary
             Right a -> pure a
     shrink    = genericShrink
 
-arbitraryMnemonic :: Int -> Gen (Either Text BackupPhrase)
-arbitraryMnemonic len = do
-    eitherMnemonic <- toMnemonic . BS.pack <$> vectorOf len arbitrary
+-- | Generate an arbitrary mnemonic with the given number of words.
+arbitraryMnemonic :: MnemonicWordCount -> Gen (Either Text BackupPhrase)
+arbitraryMnemonic wordCount = do
+    eitherMnemonic <- toMnemonic . BS.pack <$> vectorOf (byteCount wordCount) arbitrary
     pure . first toText $ BackupPhrase . words <$> eitherMnemonic
 
 -- | Number of words in backup phrase

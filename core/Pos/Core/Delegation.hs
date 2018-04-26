@@ -25,8 +25,8 @@ import           Serokell.Util (allDistinct, listJson, pairF)
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Core.Slotting.Types (EpochIndex)
-import           Pos.Crypto (HasCryptoConfiguration, Hash, ProxySecretKey (..), ProxySignature,
-                             hash, validateProxySecretKey)
+import           Pos.Crypto (Hash, ProxySecretKey (..), ProxySignature,
+                             ProtocolMagic, hash, validateProxySecretKey)
 
 ----------------------------------------------------------------------------
 -- Proxy signatures and signing keys
@@ -96,13 +96,14 @@ instance Buildable DlgPayload where
             (length psks) psks
 
 checkDlgPayload ::
-       (HasCryptoConfiguration, MonadError Text m, Bi HeavyDlgIndex)
-    => DlgPayload
+       (MonadError Text m, Bi HeavyDlgIndex)
+    => ProtocolMagic
+    -> DlgPayload
     -> m ()
-checkDlgPayload (UnsafeDlgPayload proxySKs) = do
+checkDlgPayload protocolMagic (UnsafeDlgPayload proxySKs) = do
     unless (allDistinct $ map pskIssuerPk proxySKs) $
         throwError "Some of block's PSKs have the same issuer, which is prohibited"
-    forM_ proxySKs validateProxySecretKey
+    forM_ proxySKs (validateProxySecretKey protocolMagic)
 
 -- | Proof of delegation payload.
 type DlgProof = Hash DlgPayload

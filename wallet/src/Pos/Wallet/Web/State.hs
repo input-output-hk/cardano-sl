@@ -6,6 +6,7 @@ module Pos.Wallet.Web.State
        , Storage.wamAccount
        ) where
 
-import           Pos.Wallet.Web.State.State hiding (applyModifierToWallet, rollbackModifierFromWallet)
-import           Pos.Wallet.Web.State.Util
+import           Pos.Wallet.Web.State.State hiding (applyModifierToWallet,
+                                             rollbackModifierFromWallet)
 import qualified Pos.Wallet.Web.State.Storage as Storage
+import           Pos.Wallet.Web.State.Util

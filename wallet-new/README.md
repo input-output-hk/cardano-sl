@@ -26,6 +26,34 @@ contain the following line:
 Wallet is disabled, because software is built w/o it
 ```
 
+## Flushing Logs to Disk
+
+Note that by default, logs are only sent to stdout/stderr. If you want to enable flushing on
+disk in rotated log files, use the `--log-config` option and specify a logging configuration 
+yaml file to define what to log and where to log it. 
+
+For instance:
+
+```yaml
+rotation:
+    logLimit: 104857600 # 100 MB
+    keepFiles: 20
+loggerTree:
+  severity: Debug+
+  files:
+    - node.log
+```
+
+You can find more examples and working configurations in _../log-configs_. Using stack, you
+may use _../log-configs/cluster.yaml_ to start a node and dump all logs to a file _node.log_:
+
+```
+$ stack exec cardano-node -- --topology=wallet-new/topology-examples/testnet.yaml \
+                             --configuration-key=mainnet_staging_short_epoch_full \
+                             --log-config=log-configs/cluster.yaml
+```
+
+
 ## API
 
 We describe how to interact with our API via the popular [Swagger](https://swagger.io/)
@@ -99,6 +127,15 @@ Wallet tests can be run using this command (from the project *root* directory):
 $ stack test cardano-sl-wallet-new
 ```
 
+Tests can be run by running `stack test cardano-sl-wallet-new` from the project *root* directory.
+
+## Developing
+
+We have a [`Makefile`](./Makefile) with some helpful commands for development.
+`make ghcid` runs a GHCid daemon with the project, reloading quickly on every save.
+This gives you fast feedback on your changes.
+`make ghcid-test` runs GHCid daemon, which will also run tests if there are no compile errors.
+
 ## Import Genesis Wallet
 
 It is possible to import Devnet Genesis wallet from Daedalus.
@@ -142,4 +179,40 @@ Response:
 		"cwPassphraseLU": 1.52232831369479818e9
 	}
 }
+```
+
+## Troubleshooting
+
+##### commitAndReleaseBuffer: invalid argument (invalid character)
+
+When running a node directly with stack, you may encounter an unexpected runtime error
+`commitAndReleaseBuffer` if your machine's locale aren't well suitable for managing unicode
+characters. 
+
+On a _*nix_ system, you can view your current locale by doing:
+
+```
+$ locale
+LANG=en_US.UTF-8
+LANGUAGE=en_US
+LC_CTYPE="en_US.UTF-8"
+LC_NUMERIC=nl_NL.UTF-8
+LC_TIME=nl_NL.UTF-8
+LC_COLLATE="en_US.UTF-8"
+LC_MONETARY=nl_NL.UTF-8
+LC_MESSAGES="en_US.UTF-8"
+LC_PAPER=nl_NL.UTF-8
+LC_NAME=nl_NL.UTF-8
+LC_ADDRESS=nl_NL.UTF-8
+LC_TELEPHONE=nl_NL.UTF-8
+LC_MEASUREMENT=nl_NL.UTF-8
+LC_IDENTIFICATION=nl_NL.UTF-8
+LC_ALL=
+```
+
+One way to cope with this is to force different (UTF-8 compatible) locales when starting a node
+using environment variables as follows:
+
+```
+LANG=en_GB.UTF-8 LC_ALL=en_GB.UTF-8 stack exec -- ...
 ```

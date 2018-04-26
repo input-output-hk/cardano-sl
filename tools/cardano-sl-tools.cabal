@@ -548,7 +548,6 @@ executable cardano-x509-certificates
                , filepath
                , hourglass
                , optparse-applicative
-               , transformers
                , universum
                , unordered-containers
                , x509
@@ -558,6 +557,7 @@ executable cardano-x509-certificates
                , yaml
 
   default-extensions:   DeriveGeneric
+                        NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
                         TupleSections

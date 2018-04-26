@@ -13,15 +13,21 @@ import           Test.QuickCheck (arbitrary, generate)
 
 type WalletRef = MVar Wallet
 
-randomWallet :: IO NewWallet
-randomWallet =
+randomWallet :: WalletOperation -> IO NewWallet
+randomWallet walletOp =
     generate $
         NewWallet
             <$> arbitrary
             <*> pure Nothing
             <*> arbitrary
             <*> pure "Wallet"
-            <*> pure CreateWallet
+            <*> pure walletOp
+
+randomCreateWallet :: IO NewWallet
+randomCreateWallet = randomWallet CreateWallet
+
+randomRestoreWallet :: IO NewWallet
+randomRestoreWallet = randomWallet RestoreWallet
 
 createWalletCheck :: WalletClient IO -> NewWallet -> IO Wallet
 createWalletCheck wc newWallet = do
@@ -52,7 +58,7 @@ sampleWallet wRef wc = do
             putMVar wRef wallet
             pure wallet
         Nothing -> do
-            w <- randomWallet
+            w <- randomWallet CreateWallet
             w' <- createWalletCheck wc w
             didWrite <- tryPutMVar wRef w'
             if didWrite

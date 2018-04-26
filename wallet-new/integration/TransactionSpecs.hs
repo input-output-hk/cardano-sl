@@ -48,8 +48,8 @@ transactionSpecs wRef wc = do
 
         it "estimate fees of a well-formed transaction" $ do
             ws <- (,)
-                <$> (randomWallet >>= createWalletCheck wc)
-                <*> (randomWallet >>= createWalletCheck wc)
+                <$> (randomCreateWallet >>= createWalletCheck wc)
+                <*> (randomCreateWallet >>= createWalletCheck wc)
 
             ((fromAcct, _), (_toAcct, toAddr)) <- (,)
                 <$> firstAccountAndId wc (fst ws)

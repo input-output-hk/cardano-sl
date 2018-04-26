@@ -28,6 +28,7 @@ module Wallet.Abstract (
     -- $generation
   , InductiveWithOurs(..)
   , genFromBlockchain
+  , genFromBlockchainWithOurs
   , genFromBlockchainPickingAccounts
     -- * Auxiliary operations
   , balance
@@ -117,7 +118,7 @@ data Wallet h a = Wallet {
     }
 
 -- | Apply multiple blocks
-applyBlocks :: Wallet h a -> Blocks h a -> Wallet h a
+applyBlocks :: Wallet h a -> Chain h a -> Wallet h a
 applyBlocks w0 bs = foldl' applyBlock w0 bs
 
 -- | Type of a wallet constructor
@@ -591,6 +592,31 @@ data InductiveWithOurs h a = InductiveWithOurs {
     , inductiveWalletDef  :: Inductive h a
     }
 
+;
+-- | Given a predicate function that selects addresses that
+-- belong to the generated 'Inductive' wallet and the 'FromPreChain' value
+-- that contains the relevant blockchain, this will build a set of addrs and
+-- call genFromBlockchain
+genFromBlockchainWithOurs
+    :: Hash h Addr
+    => (Addr -> Bool)
+    -> FromPreChain h ()
+    -> Gen (InductiveWithOurs h Addr)
+genFromBlockchainWithOurs isOurs fpc = do
+    let allAddrs = toList (ledgerAddresses (fpcLedger fpc))
+        ourAddrs = Set.fromList $ filter isOurs allAddrs
+
+    if null ourAddrs then
+        error
+        $ sformat
+            ( "None of the addresses are ours!\n\n"
+            % "All addresses: " % build
+            ) (intercalate ", " (map show allAddrs))
+        else pure ()
+
+    InductiveWithOurs ourAddrs <$> genFromBlockchain ourAddrs fpc
+
+
 -- | Selects a random subset of addresses to be considered from the
 -- blockchain in the amount given.
 genFromBlockchainPickingAccounts
@@ -631,7 +657,7 @@ genInductiveFor addrs = do
 -- | The first step in converting a 'Chain into an 'Inductive' wallet is
 -- to sequence the existing blocks using 'ApplyBlock' constructors.
 chainToApplyBlocks :: Chain h a -> [Action h a]
-chainToApplyBlocks = toList . map ApplyBlock' . chainBlocks
+chainToApplyBlocks = toList . map ApplyBlock'
 
 -- | Once we've created our initial @['Action' h 'Addr']@, we want to
 -- insert some 'Transaction's in appropriate locations in the list. There
@@ -721,7 +747,7 @@ synthesizeTransactions
     -> InductiveGen h (IntMap [Action h Addr])
 synthesizeTransactions addrs alreadySpent = do
     boot   <- getBootTransaction
-    blocks <- toList . chainBlocks <$> getBlockchain
+    blocks <- toList <$> getBlockchain
     liftGen $ go IntMap.empty (trUtxo boot) alreadySpent 0 blocks
   where
     -- NOTE: We maintain a UTxO as we process the blocks. There are (at least)
@@ -793,7 +819,7 @@ findOurTransactions
     -> Chain h a
     -> [(Int, Transaction h a)]
 findOurTransactions addrs ledger =
-    concatMap k . zip [0..] . toList . chainBlocks
+    concatMap k . zip [0..] . toList
   where
     k (i, block) =
         map ((,) i)
@@ -808,7 +834,7 @@ findOurTransactions addrs ledger =
 -- a 'NewPending' transaction.
 blockReceivedIndex :: Hash h Addr => Input h Addr -> Chain h Addr -> Maybe Int
 blockReceivedIndex i =
-    List.findIndex (any ((inpTrans i ==) . hash)) . toList . chainBlocks
+    List.findIndex (any ((inpTrans i ==) . hash)) . toList
 
 -- | For each 'Input' in the 'Transaction' that belongs to one of the
 -- 'Addr'esses in the 'Set' provided, find the index of the block in the

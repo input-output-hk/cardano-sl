@@ -588,7 +588,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
     eParamLogs = case paramsInfo of
         ApiParamsLogInfo info -> Right $ \sl ->
             T.intercalate "\n" $ reverse info <&> \securedParamsInfo ->
-                sformat ("    "%stext%" "%secureF)
+                sformat ("    "%stext%" "%stext)
                     (colorizeDull White ":>")
                     (securedParamsInfo sl)
         ApiNoParamsLogInfo why -> Left why

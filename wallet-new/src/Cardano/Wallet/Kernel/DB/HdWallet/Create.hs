@@ -140,6 +140,6 @@ createHdAddress addrId address = do
     hdAddress = HdAddress {
           _hdAddressId       = addrId
         , _hdAddressAddress  = address
-        , _hdAddressIsUsed   = error "TODO"
-        , _hdAddressIsChange = error "TODO"
+        , _hdAddressIsUsed   = error "TODO: _hdAddressIsUsed"
+        , _hdAddressIsChange = error "TODO: _hdAddressIsChange"
         }

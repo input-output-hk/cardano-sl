@@ -34,6 +34,7 @@ import           Data.Acid (Query, Update, makeAcidic)
 import           Data.SafeCopy (base, deriveSafeCopy)
 
 import qualified Pos.Core as Core
+import           Pos.Util.Chrono (OldestFirst(..))
 
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.HdWallet
@@ -101,19 +102,20 @@ newPending accountId tx = runUpdate' . zoom dbHdWallets $
 applyBlock :: (ResolvedBlock, BlockMeta) -> Update DB ()
 applyBlock block = runUpdateNoErrors $
     zoomAll (dbHdWallets . hdWalletsAccounts) $
-      zoom hdAccountCheckpoints $
-        Spec.applyBlock block
+      hdAccountCheckpoints %~ Spec.applyBlock block
 
 -- | Switch to a fork
 --
--- See comments for 'applyBlock'.
+-- See comments about prefiltering for 'applyBlock'.
+--
+-- TODO: We use a plain list here rather than 'OldestFirst' since the latter
+-- does not have a 'SafeCopy' instance.
 switchToFork :: Int
              -> [(ResolvedBlock, BlockMeta)]
              -> Update DB ()
 switchToFork n blocks = runUpdateNoErrors $
     zoomAll (dbHdWallets . hdWalletsAccounts) $
-      zoom hdAccountCheckpoints $
-        Spec.switchToFork n blocks
+      hdAccountCheckpoints %~ Spec.switchToFork n (OldestFirst blocks)
 
 {-------------------------------------------------------------------------------
   Wrap HD C(R)UD operations

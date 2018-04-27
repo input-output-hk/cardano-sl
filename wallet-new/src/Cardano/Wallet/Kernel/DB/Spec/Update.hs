@@ -13,6 +13,7 @@ import           Universum
 import           Data.SafeCopy (base, deriveSafeCopy)
 
 import qualified Pos.Core as Core
+import           Pos.Util.Chrono (OldestFirst(..))
 
 import           Cardano.Wallet.Kernel.DB.BlockMeta
 import           Cardano.Wallet.Kernel.DB.InDb
@@ -54,22 +55,30 @@ deriveSafeCopy 1 'base ''NewPendingFailed
 --   (and do not store private keys) so we cannot actually sign transactions.
 newPending :: InDb (Core.TxAux)
            -> Update' Checkpoints NewPendingFailed ()
-newPending _tx = error "TODO"
+newPending _tx = error "newPending"
 
 -- | Apply a block to /all/ wallets' UTxO.
 --
 -- Ideally the block is prefiltered (see 'prefilter').
-applyBlock :: (ResolvedBlock, BlockMeta) -> Update' Checkpoints Void ()
-applyBlock (_resolvedBlock, _blockMeta) = error "TODO"
+applyBlock :: (ResolvedBlock, BlockMeta) -> Checkpoints -> Checkpoints
+applyBlock (_resolvedBlock, _blockMeta) = error "applyBlock"
 
 -- | Rollback
 --
 -- This is an internal function only, and not exported. See 'switchToFork'.
-rollback :: Update' Checkpoints Void ()
-rollback = error "TODO"
+rollback :: Checkpoints -> Checkpoints
+rollback = error "rollback"
 
 -- | Switch to a fork
-switchToFork :: Int                           -- ^ Number of blocks to rollback
-             -> [(ResolvedBlock, BlockMeta)]  -- ^ Blocks to apply
-             -> Update' Checkpoints Void ()
-switchToFork n blocks = replicateM_ n rollback >> mapM_ applyBlock blocks
+switchToFork :: Int  -- ^ Number of blocks to rollback
+             -> OldestFirst [] (ResolvedBlock, BlockMeta)  -- ^ Blocks to apply
+             -> Checkpoints -> Checkpoints
+switchToFork = \n bs -> applyBlocks (getOldestFirst bs) . rollbacks n
+  where
+    applyBlocks :: [(ResolvedBlock, BlockMeta)] -> Checkpoints -> Checkpoints
+    applyBlocks []     = identity
+    applyBlocks (b:bs) = applyBlocks bs . applyBlock b
+
+    rollbacks :: Int -> Checkpoints -> Checkpoints
+    rollbacks 0 = identity
+    rollbacks n = rollbacks (n - 1) . rollback

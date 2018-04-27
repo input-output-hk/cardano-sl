@@ -320,20 +320,40 @@ data HdWallets = HdWallets {
 deriveSafeCopy 1 'base ''HdWallets
 makeLenses ''HdWallets
 
-zoomHdRootId :: (UnknownHdRoot -> e)
+zoomHdRootId :: forall e a.
+                (UnknownHdRoot -> e)
              -> HdRootId
              -> Update' HdRoot e a -> Update' HdWallets e a
 zoomHdRootId embedErr rootId =
-      zoomTry (embedErr $ UnknownHdRoot rootId) (hdWalletsRoots . at rootId)
+    zoomDef err (hdWalletsRoots . at rootId)
+  where
+    err :: Update' HdWallets e a
+    err = throwError $ embedErr (UnknownHdRoot rootId)
 
-zoomHdAccountId :: (UnknownHdAccount -> e)
+zoomHdAccountId :: forall e a.
+                   (UnknownHdAccount -> e)
                 -> HdAccountId
                 -> Update' HdAccount e a -> Update' HdWallets e a
 zoomHdAccountId embedErr accId =
-      zoomTry (embedErr $ UnknownHdAccount accId) (hdWalletsAccounts . at accId)
+    zoomDef err (hdWalletsAccounts . at accId)
+  where
+    err :: Update' HdWallets e a
+    err = zoomHdRootId embedErr' (accId ^. hdAccountIdParent) $
+            throwError $ embedErr (UnknownHdAccount accId)
 
-zoomHdAddressId :: (UnknownHdAddress -> e)
+    embedErr' :: UnknownHdRoot -> e
+    embedErr' = embedErr . embedUnknownHdRoot
+
+zoomHdAddressId :: forall e a.
+                   (UnknownHdAddress -> e)
                 -> HdAddressId
                 -> Update' HdAddress e a -> Update' HdWallets e a
 zoomHdAddressId embedErr addrId =
-      zoomTry (embedErr $ UnknownHdAddress addrId) (hdWalletsAddresses . at addrId)
+    zoomDef err (hdWalletsAddresses . at addrId)
+  where
+    err :: Update' HdWallets e a
+    err = zoomHdAccountId embedErr' (addrId ^. hdAddressIdParent) $
+            throwError $ embedErr (UnknownHdAddress addrId)
+
+    embedErr' :: UnknownHdAccount -> e
+    embedErr' = embedErr . embedUnknownHdAccount

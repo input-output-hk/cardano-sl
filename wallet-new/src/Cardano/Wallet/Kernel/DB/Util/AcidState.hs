@@ -9,7 +9,7 @@ module Cardano.Wallet.Kernel.DB.Util.AcidState (
   , mapUpdateErrors
     -- * Zooming
   , zoom
-  , zoomTry
+  , zoomDef
   , zoomAll
     -- ** Convenience re-exports
   , throwError
@@ -58,22 +58,28 @@ zoom l upd = StateT $ \large -> do
 
 -- | Run an update on part of the state.
 --
--- If the specified part does not exist, throw the given error.
-zoomTry :: e -> Lens' st (Maybe st') -> Update' st' e a -> Update' st e a
-zoomTry e l upd = StateT $ \large -> do
+-- If the specified part does not exist, run the default action.
+zoomDef :: Update' st  e a      -- ^ Run when lens returns 'Nothing'
+        -> Lens' st (Maybe st') -- ^ Index the state
+        -> Update' st' e a      -- ^ Action to run on the smaller state
+        -> Update' st  e a
+zoomDef def l upd = StateT $ \large -> do
     let update small' = large & l .~ Just small'
         mSmall        = large ^. l
     case mSmall of
-      Nothing    -> throwError e
+      Nothing    -> runStateT def large
       Just small -> fmap update <$> runStateT upd small
 
 -- | Run an update on /all/ parts of the state.
+--
+-- This is used for system initiated actions which should not fail (such as
+-- 'applyBlock', which is why the action we run must be a pure function.
 zoomAll :: Indexable st'
-        => Lens' st (IxSet st') -> Update' st' e () -> Update' st e ()
+        => Lens' st (IxSet st') -> (st' -> st') -> Update' st e ()
 zoomAll l upd = StateT $ \large -> do
     let update ixset' = large & l .~ ixset'
         ixset         = large ^. l
-    (((), ) . update) <$> IxSet.traverse (execStateT upd) ixset
+    return $ ((), update $ IxSet.omap upd ixset)
 
 {-------------------------------------------------------------------------------
   Auxiliary

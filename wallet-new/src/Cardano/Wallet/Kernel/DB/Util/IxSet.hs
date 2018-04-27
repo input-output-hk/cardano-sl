@@ -13,22 +13,24 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
     -- * Building 'Indexable' instances
   , ixFun
   , ixList
-    -- ** Queries
+    -- * Queries
   , getEQ
   , member
   , size
-    -- ** Construction
+    -- * Construction
   , fromList
-  , traverse
+  , omap
+  , otraverse
   ) where
 
-import           Universum hiding (traverse)
+import           Universum
 
 import qualified Control.Lens as Lens
 import           Data.Coerce (coerce)
 import qualified Data.Foldable
 import qualified Data.IxSet.Typed as IxSet
 import           Data.SafeCopy (SafeCopy (..))
+import qualified Data.Set as Set
 import qualified Data.Traversable
 
 {-------------------------------------------------------------------------------
@@ -85,8 +87,8 @@ type IsIndexOf ix a = IxSet.IsIndexOf ix (PrimKey a ': IndicesOf a)
 -------------------------------------------------------------------------------}
 
 instance SafeCopy a => SafeCopy (IxSet a) where
-  getCopy = error "TODO"
-  putCopy = error "TODO"
+  getCopy = error "getCopy for IxSet wrapper"
+  putCopy = error "putCopy for IxSet wrapper"
 
 {-------------------------------------------------------------------------------
   Building 'Indexable' instances
@@ -155,14 +157,25 @@ size = IxSet.size . unwrapIxSet
   Construction
 -------------------------------------------------------------------------------}
 
--- | Construct set from a list
+-- | Construct 'IxSet' from a list
 fromList :: Indexable a => [a] -> IxSet a
 fromList = WrapIxSet . IxSet.fromList . coerce
 
--- | Traverse over an 'IxSet'
+-- | Monomorphic map over an 'IxSet'
 --
--- TODO: We could assume that @f@ does not change the primary key of the
--- elements. In such a case we can avoid the conversions.
-traverse :: (Applicative f, Indexable a)
-         => (a -> f a) -> IxSet a -> f (IxSet a)
-traverse f = fmap fromList . Data.Traversable.traverse f . toList
+-- Since we assume that the primary keys never change, we do not need to
+-- build the set itself. However, we do need to rebuild the indices.
+omap :: forall a. Indexable a => (a -> a) -> IxSet a -> IxSet a
+omap f =
+      WrapIxSet
+    . IxSet.fromSet
+    . Set.mapMonotonic (coerce f)
+    . IxSet.toSet
+    . unwrapIxSet
+
+-- | Monomorphic traversal over an 'IxSet'
+--
+-- NOTE: This rebuilds the entire 'IxSet'. Potentially expensive.
+otraverse :: (Applicative f, Indexable a)
+          => (a -> f a) -> IxSet a -> f (IxSet a)
+otraverse f = fmap fromList . Data.Traversable.traverse f . toList

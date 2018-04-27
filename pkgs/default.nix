@@ -7131,13 +7131,14 @@ inherit (pkgs) mesa;};
         ({ mkDerivation, aeson, ansi-terminal, autoexporter, base
          , base58-bytestring, binary, bytestring, Cabal, canonical-json
          , cardano-sl-binary, cardano-sl-crypto, cardano-sl-crypto-test
-         , cardano-sl-networking, cardano-sl-util, cborg, containers, cpphs
-         , cryptonite, data-default, deepseq, deriving-compat, exceptions
-         , extra, filepath, fmt, formatting, generic-arbitrary, hashable
-         , lens, log-warper, memory, mtl, plutus-prototype, QuickCheck
+         , cardano-sl-networking, cardano-sl-util, cborg, cereal, containers
+         , cpphs, cryptonite, data-default, deepseq, deriving-compat
+         , exceptions, extra, filelock, filepath, fmt, formatting
+         , generic-arbitrary, half, hashable, hspec, lens, log-warper
+         , memory, MonadRandom, mtl, plutus-prototype, pvss, QuickCheck
          , quickcheck-instances, random, reflection, safe-exceptions
-         , serokell-util, stdenv, template-haskell, text, text-format
-         , th-lift-instances, time, time-units, universum
+         , safecopy, serokell-util, stdenv, tagged, template-haskell, text
+         , text-format, th-lift-instances, time, time-units, universum
          , unordered-containers, vector
          }:
          mkDerivation {
@@ -7156,6 +7157,15 @@ inherit (pkgs) mesa;};
              time time-units universum unordered-containers vector
            ];
            libraryToolDepends = [ cpphs ];
+           testHaskellDepends = [
+             base bytestring canonical-json cardano-sl-binary cardano-sl-crypto
+             cardano-sl-util cborg cereal containers cryptonite data-default
+             extra filelock fmt formatting generic-arbitrary half hspec lens
+             MonadRandom mtl pvss QuickCheck random reflection safecopy
+             serokell-util tagged text text-format time-units universum
+             unordered-containers vector
+           ];
+           testToolDepends = [ cpphs ];
            doHaddock = false;
            description = "Cardano SL - core";
            license = stdenv.lib.licenses.mit;

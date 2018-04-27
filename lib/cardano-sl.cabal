@@ -252,8 +252,6 @@ test-suite cardano-test
                        Test.Pos.Block.Identity.SafeCopySpec
 
                        -- Core
-                       Test.Pos.Core.AddressSpec
-                       Test.Pos.Core.CoinSpec
                        Test.Pos.Core.SeedSpec
                        Test.Pos.Core.SlottingSpec
 

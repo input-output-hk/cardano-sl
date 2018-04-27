@@ -17,8 +17,24 @@ library
   hs-source-dirs:      src
   exposed-modules:     Cardano.Wallet.TypeLits
                        Cardano.Wallet.Kernel
+                       Cardano.Wallet.Kernel.DB.AcidState
+                       Cardano.Wallet.Kernel.DB.BlockMeta
+                       Cardano.Wallet.Kernel.DB.HdWallet
+                       Cardano.Wallet.Kernel.DB.HdWallet.Create
+                       Cardano.Wallet.Kernel.DB.HdWallet.Delete
+                       Cardano.Wallet.Kernel.DB.HdWallet.Read
+                       Cardano.Wallet.Kernel.DB.HdWallet.Update
+                       Cardano.Wallet.Kernel.DB.InDb
+                       Cardano.Wallet.Kernel.DB.Resolved
+                       Cardano.Wallet.Kernel.DB.Spec
+                       Cardano.Wallet.Kernel.DB.Spec.Update
+                       Cardano.Wallet.Kernel.DB.TxMeta
+                       Cardano.Wallet.Kernel.DB.Util.AcidState
+                       Cardano.Wallet.Kernel.DB.Util.IxSet
                        Cardano.Wallet.Kernel.Diffusion
                        Cardano.Wallet.Kernel.Mode
+                       Cardano.Wallet.Kernel.Types
+                       Cardano.Wallet.Kernel.PrefilterTx
                        Cardano.Wallet.Orphans
                        Cardano.Wallet.Orphans.Aeson
                        Cardano.Wallet.Orphans.Arbitrary
@@ -70,6 +86,7 @@ library
   ghc-options:         -Wall
   build-depends:       base
                      , QuickCheck
+                     , acid-state
                      , aeson
                      , aeson-pretty
                      , bytestring
@@ -87,7 +104,9 @@ library
                      , log-warper
                      , memory
                      , mtl
+                     , network-transport
                      , unliftio-core
+                     , safecopy
                      , safe-exceptions
                      , servant
                      , servant-client
@@ -245,6 +264,10 @@ executable cardano-integration-test
                        Types
                        Functions
                        Error
+                       Util
+                       WalletSpecs
+                       AddressSpecs
+                       TransactionSpecs
 
   build-depends:       base
                      , aeson
@@ -340,6 +363,7 @@ test-suite wallet-unit-tests
                       UTxO.Translate
                       UTxO.Verify
                       Wallet.Abstract
+                      Wallet.Abstract.Cardano
                       Wallet.Basic
                       Wallet.Incremental
                       Wallet.Prefiltered
@@ -408,6 +432,7 @@ test-suite wallet-new-specs
                     MarshallingSpec
                     SwaggerSpec
                     RequestSpec
+                    WalletHandlersSpec
 
                     Cardano.Wallet.API.Development.Helpers
                     Cardano.Wallet.API.Development.LegacyHandlers

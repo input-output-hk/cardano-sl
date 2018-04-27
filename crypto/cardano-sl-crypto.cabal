@@ -43,7 +43,6 @@ library
                        Pos.Crypto.Signing.Types.Tag
 
   build-depends:       aeson
-                     , autoexporter
                      , base
                      , binary
                      , bytestring

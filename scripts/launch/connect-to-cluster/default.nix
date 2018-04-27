@@ -71,6 +71,8 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
 
   echo "Launching a node connected to '${environment}' ..."
   ${ifWallet ''
+  export LC_ALL=en_GB.UTF-8
+  export LANG=en_GB.UTF-8
   if [ ! -d ${stateDir}/tls ]; then
     mkdir ${stateDir}/tls/
     ${pkgs.openssl}/bin/openssl req -x509 -newkey rsa:2048 -keyout ${stateDir}/tls/server.key -out ${stateDir}/tls/server.cert -days 3650 -nodes -subj "/CN=localhost"

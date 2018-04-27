@@ -2,20 +2,14 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Transactions where
 
 import           Universum
 
-import           Cardano.Wallet.API.Request
-import           Cardano.Wallet.API.Response
-import           Cardano.Wallet.API.V1.Errors
-import           Cardano.Wallet.API.V1.Migration (HasCompileInfo, HasConfigurations, MonadV1,
-                                                  migrate)
-import qualified Cardano.Wallet.API.V1.Transactions as Transactions
-import           Cardano.Wallet.API.V1.Types
 import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List.NonEmpty as NE
+import           Servant
+
 import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
 import qualified Pos.Client.Txp.Util as V0
 import           Pos.Core (TxAux)
 import qualified Pos.Core as Core
-import           Pos.Util (eitherToThrow)
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.WalletMode as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -25,7 +19,14 @@ import qualified Pos.Wallet.Web.Methods.Txp as V0
 import qualified Pos.Wallet.Web.State as V0
 import           Pos.Wallet.Web.State.Storage (WalletInfo (_wiSyncStatistics))
 import qualified Pos.Wallet.Web.Util as V0
-import           Servant
+
+import           Cardano.Wallet.API.Request
+import           Cardano.Wallet.API.Response
+import           Cardano.Wallet.API.V1.Errors
+import           Cardano.Wallet.API.V1.Migration (HasCompileInfo, HasConfigurations, MonadV1,
+                                                  migrate)
+import qualified Cardano.Wallet.API.V1.Transactions as Transactions
+import           Cardano.Wallet.API.V1.Types
 
 handlers :: ( HasConfigurations
             , HasCompileInfo
@@ -118,6 +119,9 @@ estimateFees Payment{..} = do
     cAccountId <- migrate pmtSource
     utxo <- V0.getMoneySourceUtxo ws (V0.AccountMoneySource cAccountId)
     outputs <- V0.coinDistrToOutputs =<< mapM migrate pmtDestinations
-    fee <- V0.rewrapTxError "Cannot compute transaction fee" $
-        eitherToThrow =<< V0.runTxCreator policy (V0.computeTxFee pendingAddrs utxo outputs)
-    single <$> migrate fee
+    efee <- V0.runTxCreator policy (V0.computeTxFee pendingAddrs utxo outputs)
+    case efee of
+        Right fee ->
+            single <$> migrate fee
+        Left err ->
+            throwM (convertTxError err)

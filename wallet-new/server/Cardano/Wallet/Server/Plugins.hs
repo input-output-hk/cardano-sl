@@ -19,7 +19,7 @@ module Cardano.Wallet.Server.Plugins (
 import           Universum
 
 import           Cardano.Wallet.API as API
-import           Cardano.Wallet.API.V1.Errors (WalletError (..), toServantError, applicationJson)
+import qualified Cardano.Wallet.API.V1.Errors as V1
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 import qualified Cardano.Wallet.Kernel.Mode as Kernel
 import qualified Cardano.Wallet.LegacyServer as LegacyServer
@@ -29,13 +29,12 @@ import           Cardano.Wallet.Server.CLI (NewWalletBackendParams (..), RunMode
                                             walletAcidInterval, walletDbOptions)
 import           Cardano.Wallet.WalletLayer (ActiveWalletLayer, PassiveWalletLayer,
                                              bracketKernelActiveWallet)
+import qualified Pos.Wallet.Web.Error.Types as V0
 
-import           Control.Exception (try)
-import           Control.Lens (_Left)
+import           Control.Exception (fromException)
 import           Data.Aeson
 import           Formatting (build, sformat, (%))
 import           Mockable
-import           Network.HTTP.Types (hContentType)
 import           Network.HTTP.Types.Status (badRequest400)
 import           Network.Wai (Application, Middleware, Response, responseLBS)
 import           Network.Wai.Handler.Warp (defaultSettings, setOnExceptionResponse)
@@ -44,7 +43,6 @@ import           Network.Wai.Middleware.Cors (cors, corsMethods, corsRequestHead
 import           Ntp.Client (NtpStatus)
 import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.Web (cleanupAcidStatePeriodically)
-import qualified Pos.Wallet.Web.Error.Types as V0
 import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)
 import qualified Pos.Wallet.Web.Server.Runner as V0
 import           Pos.Wallet.Web.Sockets (getWalletWebSockets, upgradeApplicationWS)
@@ -61,9 +59,9 @@ import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.Server.Launcher (walletServeImpl, walletServerOuts)
+import           Pos.Wallet.Web.State (askWalletDB)
 import           Pos.Wallet.Web.Tracking.Sync (processSyncRequest)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
-import           Pos.Wallet.Web.State (askWalletDB)
 import           Pos.Web (serveWeb)
 import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (WorkMode)
@@ -120,45 +118,52 @@ legacyWalletBackend WalletBackendParams {..} ntpStatus =
       ctx <- V0.walletWebModeContext
       let app = upgradeApplicationWS wsConn $
             if isDebugMode walletRunMode then
-              Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer (catchWalletErrors . V0.convertHandler ctx) diffusion ntpStatus walletRunMode
+              Servant.serve API.walletDevAPI $ LegacyServer.walletDevServer
+                (V0.convertHandler ctx)
+                diffusion
+                ntpStatus
+                walletRunMode
             else
-              Servant.serve API.walletAPI $ LegacyServer.walletServer (catchWalletErrors . V0.convertHandler ctx) diffusion ntpStatus
+              Servant.serve API.walletAPI $ LegacyServer.walletServer
+                (V0.convertHandler ctx)
+                diffusion
+                ntpStatus
+
       return $ withMiddleware walletRunMode app
 
     exceptionHandler :: SomeException -> Response
-    exceptionHandler exn =
-        responseLBS badRequest400 [(hContentType, "application/json")] .
-            encode $ UnknownError $ "Something went wrong. " <> show exn
+    exceptionHandler se =
+        case asum [handleV1Errors se, handleV0Errors se] of
+             Nothing -> handleGenericError se
+             Just r  -> r
 
--- | The 'V0.convertHandler' function is unaware of our custom error
--- classes, which can be converted to 'ServantErr' quite nicely. This
--- function adds that catching.
-catchWalletErrors :: Servant.Handler a -> Servant.Handler a
-catchWalletErrors =
-        Servant.Handler
-            . ExceptT
-            . fmap (join . over _Left walletErrorToServantError)
-            . try
-            . fmap (join . over _Left toServantError)
-            . try
-            . Servant.runHandler
-  where
-    walletErrorToServantError :: V0.WalletError -> Servant.ServantErr
-    walletErrorToServantError = conv . \case
-        V0.RequestError txt -> (Servant.err400, "BadRequest", txt)
-        V0.InternalError txt -> (Servant.err500, "Internal", txt)
-        V0.DecodeError txt -> (Servant.err400, "DecodeError", txt)
-    conv :: (Servant.ServantErr, Text, Text) -> Servant.ServantErr
-    conv (err, msg, txt) =
-        err { Servant.errBody = encode $ object
-                [ "status" .= ("error" :: Text)
-                , "diagnostic" .= object
-                    [ "msg" .= txt
-                    ]
-                , "message" .= msg
-                ]
-            , Servant.errHeaders = applicationJson : Servant.errHeaders err
-            }
+    -- Handles domain-specific errors coming from the V1 API.
+    handleV1Errors :: SomeException -> Maybe Response
+    handleV1Errors se =
+        let reify (we :: V1.WalletError) =
+                responseLBS (V1.toHttpStatus we) [V1.applicationJson] .  encode $ we
+        in fmap reify (fromException se)
+
+    -- Handles domain-specific errors coming from the V0 API, but rewraps it
+    -- into a jsend payload. It doesn't explicitly handle 'InternalError' or
+    -- 'DecodeError', as they can come from any part of the stack or even
+    -- rewrap some other exceptions (cfr 'rewrapToWalletError').
+    -- Uses the 'Buildable' istance on 'WalletError' to exploit any
+    -- available rendering and information-masking improvements.
+    handleV0Errors :: SomeException -> Maybe Response
+    handleV0Errors se =
+        let maskSensitive err =
+                case err of
+                    V0.RequestError _  -> err
+                    V0.InternalError _ -> V0.RequestError "InternalError"
+                    V0.DecodeError _   -> V0.RequestError "DecodeError"
+            reify (re :: V0.WalletError) = V1.UnknownError (sformat build . maskSensitive $ re)
+        in fmap (responseLBS badRequest400 [V1.applicationJson] .  encode . reify) (fromException se)
+
+    -- Handles any generic error, trying to prevent internal exceptions from leak outside.
+    handleGenericError :: SomeException -> Response
+    handleGenericError _ =
+        responseLBS badRequest400 [V1.applicationJson] .  encode $ V1.UnknownError "Something went wrong."
 
 -- | A 'Plugin' to start the wallet REST server
 --

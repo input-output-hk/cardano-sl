@@ -123,7 +123,7 @@ library
 
                         Pos.Recovery.Instance
 
-  build-depends:        base 
+  build-depends:        base
                       , QuickCheck
                       , async
                       , aeson >= 0.11.2.1
@@ -252,8 +252,6 @@ test-suite cardano-test
                        Test.Pos.Block.Identity.SafeCopySpec
 
                        -- Core
-                       Test.Pos.Core.AddressSpec
-                       Test.Pos.Core.CoinSpec
                        Test.Pos.Core.SeedSpec
                        Test.Pos.Core.SlottingSpec
 
@@ -283,9 +281,6 @@ test-suite cardano-test
                        Test.Pos.Update.Identity.SafeCopySpec
                        Test.Pos.Update.MemStateSpec
                        Test.Pos.Update.PollSpec
-                       Test.Pos.Util.LimitsSpec
-                       Test.Pos.Util.ModifierSpec
-                       Test.Pos.UtilSpec
 
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom

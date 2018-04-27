@@ -1,8 +1,7 @@
 module Cardano.Wallet.Kernel.Types (
     -- * Input resolution
     -- ** Raw types
-    ResolvedInput
-  , ResolvedTxInputs
+    ResolvedTxInputs
   , ResolvedBlockInputs
   , RawResolvedTx(..)
   , invRawResolvedTx
@@ -10,9 +9,6 @@ module Cardano.Wallet.Kernel.Types (
   , RawResolvedBlock(..)
   , invRawResolvedBlock
   , mkRawResolvedBlock
-    -- ** Derived types
-  , ResolvedTx(..)
-  , ResolvedBlock(..)
     -- ** From raw to derived types
   , fromRawResolvedTx
   , fromRawResolvedBlock
@@ -31,16 +27,12 @@ import           Pos.Crypto.Hashing (hash)
 import           Pos.Txp (Utxo)
 import           Serokell.Util (enumerate)
 
+import           Cardano.Wallet.Kernel.DB.InDb
+import           Cardano.Wallet.Kernel.DB.Resolved
+
 {-------------------------------------------------------------------------------
   Input resolution: raw types
 -------------------------------------------------------------------------------}
-
--- | Resolved input
---
--- A transaction input @(h, i)@ points to the @i@th output of the transaction
--- with hash @h@, which is not particularly informative. The corresponding
--- 'ResolvedInput' is obtained by looking up what that output actually is.
-type ResolvedInput = TxOutAux
 
 -- | All resolved inputs of a transaction
 type ResolvedTxInputs = NonEmpty ResolvedInput
@@ -100,40 +92,13 @@ mkRawResolvedBlock block ins =
       else error "mkRawResolvedBlock: invariant violation"
 
 {-------------------------------------------------------------------------------
-  Input resolution: derived types
--------------------------------------------------------------------------------}
-
--- | (Unsigned) transaction with inputs resolved
---
--- NOTE: We cannot recover the original transaction from a 'ResolvedTx'.
--- Any information needed inside the wallet kernel must be explicitly
--- represented here.
-data ResolvedTx = ResolvedTx {
-      -- | Transaction inputs
-      rtxInputs  :: NonEmpty (TxIn, ResolvedInput)
-
-      -- | Transaction outputs
-    , rtxOutputs :: Utxo
-    }
-
--- | (Unsigned block) containing resolved transactions
---
--- NOTE: We cannot recover the original block from a 'ResolvedBlock'.
--- Any information needed inside the wallet kernel must be explicitly
--- represented here.
-data ResolvedBlock = ResolvedBlock {
-      -- | Transactions in the block
-      rbTxs :: [ResolvedTx]
-    }
-
-{-------------------------------------------------------------------------------
   Construct derived types from raw types
 -------------------------------------------------------------------------------}
 
 fromRawResolvedTx :: RawResolvedTx -> ResolvedTx
 fromRawResolvedTx rtx = ResolvedTx {
-      rtxInputs  = NE.zip inps (rawResolvedTxInputs rtx)
-    , rtxOutputs = txUtxo tx
+      _rtxInputs  = InDb $ NE.zip inps (rawResolvedTxInputs rtx)
+    , _rtxOutputs = InDb $ txUtxo tx
     }
   where
     tx :: Tx
@@ -154,7 +119,7 @@ toTxInOut tx (idx, out) = (TxInUtxo (hash tx) idx, TxOutAux out)
 
 fromRawResolvedBlock :: RawResolvedBlock -> ResolvedBlock
 fromRawResolvedBlock rb = ResolvedBlock {
-      rbTxs = zipWith aux (getBlockTxs (rawResolvedBlock rb))
+      _rbTxs = zipWith aux (getBlockTxs (rawResolvedBlock rb))
                           (rawResolvedBlockInputs rb)
     }
   where

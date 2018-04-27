@@ -120,7 +120,7 @@ type BlockLrcMode ctx m = (MonadBlockApply ctx m, LrcModeFull ctx m)
 -- warning that partial application has occurred.
 verifyAndApplyBlocks
     :: forall ctx m. (BlockLrcMode ctx m, MonadMempoolNormalization ctx m)
-    => Bool -> OldestFirst NE Block -> m (Either ApplyBlocksException HeaderHash)
+    => Bool -> OldestFirst NE Block -> m (Either ApplyBlocksException (HeaderHash, NewestFirst [] Blund))
 verifyAndApplyBlocks rollback blocks = runExceptT $ do
     tip <- lift GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
@@ -147,22 +147,28 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
     -- Applies as many blocks from failed prefix as possible. Argument
     -- indicates if at least some progress was done so we should
     -- return tip. Fail otherwise.
-    applyAMAP e (OldestFirst []) True                   = throwError e
-    applyAMAP _ (OldestFirst []) False                  = lift GS.getTip
-    applyAMAP e (OldestFirst (block:xs)) nothingApplied =
+    applyAMAP
+        :: ApplyBlocksException
+        -> OldestFirst [] Block
+        -> NewestFirst [] Blund  -- an accumulator for `Blund`s
+        -> Bool
+        -> ExceptT ApplyBlocksException m (HeaderHash, NewestFirst [] Blund)
+    applyAMAP e (OldestFirst []) _      True                   = throwError e
+    applyAMAP _ (OldestFirst []) blunds False                  = (,blunds) <$> lift GS.getTip
+    applyAMAP e (OldestFirst (block:xs)) blunds nothingApplied =
         lift (verifyBlocksPrefix (one block)) >>= \case
             Left (ApplyBlocksVerifyFailure -> e') ->
-                applyAMAP e' (OldestFirst []) nothingApplied
+                applyAMAP e' (OldestFirst []) blunds nothingApplied
             Right (OldestFirst (undo :| []), pModifier) -> do
                 lift $ applyBlocksUnsafe (ShouldCallBListener True) (one (block, undo)) (Just pModifier)
-                applyAMAP e (OldestFirst xs) False
+                applyAMAP e (OldestFirst xs) (NewestFirst $ (block, undo) : getNewestFirst blunds) False
             Right _ -> error "verifyAndApplyBlocksInternal: applyAMAP: \
                              \verification of one block produced more than one undo"
     -- Rollbacks and returns an error
     failWithRollback
         :: ApplyBlocksException
         -> [NewestFirst NE Blund]
-        -> ExceptT ApplyBlocksException m HeaderHash
+        -> ExceptT ApplyBlocksException m (HeaderHash, NewestFirst [] Blund)
     failWithRollback e toRollback = do
         logDebug "verifyAndapply failed, rolling back"
         lift $ mapM_ rollbackBlocks toRollback
@@ -176,7 +182,7 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
     rollingVerifyAndApply
         :: [NewestFirst NE Blund]
         -> (OldestFirst NE Block, OldestFirst [] Block)
-        -> ExceptT ApplyBlocksException m HeaderHash
+        -> ExceptT ApplyBlocksException m (HeaderHash, NewestFirst [] Blund)
     rollingVerifyAndApply blunds (prefix, suffix) = do
         let prefixHead = prefix ^. _Wrapped . _neHead
         when (isLeft prefixHead) $ do
@@ -192,18 +198,23 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
                       logDebug "Rolling: Applying AMAP"
                       applyAMAP failure
                                    (over _Wrapped toList prefix)
+                                   (NewestFirst [])
                                    (null blunds)
             Right (undos, pModifier) -> do
                 let newBlunds = OldestFirst $ getOldestFirst prefix `NE.zip`
                                               getOldestFirst undos
+                let blunds' = toNewestFirst newBlunds : blunds
                 logDebug "Rolling: Verification done, applying unsafe block"
                 lift $ applyBlocksUnsafe (ShouldCallBListener True) newBlunds (Just pModifier)
                 case getOldestFirst suffix of
-                    [] -> lift GS.getTip
+                    [] -> (,concatNE blunds') <$> lift GS.getTip
                     (genesis:xs) -> do
                         logDebug "Rolling: Applying done, next portion"
-                        rollingVerifyAndApply (toNewestFirst newBlunds : blunds) $
+                        rollingVerifyAndApply blunds' $
                             spanEpoch (OldestFirst (genesis:|xs))
+
+    concatNE :: [NewestFirst NE a] -> NewestFirst [] a
+    concatNE = NewestFirst . foldMap (\(NewestFirst as) -> NE.toList as)
 
 -- | Apply definitely valid sequence of blocks. At this point we must
 -- have verified all predicates regarding block (including txp and ssc
@@ -281,5 +292,5 @@ applyWithRollback toRollback toApply = runExceptT $ do
 
     onGoodRollback =
         verifyAndApplyBlocks True toApply >>= \case
-            Left err      -> applyBack $> Left err
-            Right tipHash -> pure (Right tipHash)
+            Left err           -> applyBack $> Left err
+            Right (tipHash, _) -> pure (Right tipHash)

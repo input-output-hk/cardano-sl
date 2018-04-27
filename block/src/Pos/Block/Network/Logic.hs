@@ -257,7 +257,7 @@ applyWithoutRollback diffusion blocks = do
         :: HeaderHash -> m (HeaderHash, Either ApplyBlocksException HeaderHash)
     applyWithoutRollbackDo curTip = do
         logInfo "Verifying and applying blocks..."
-        res <- verifyAndApplyBlocks False blocks
+        res <- fmap fst <$> verifyAndApplyBlocks False blocks
         logInfo "Verifying and applying blocks done"
         let newTip = either (const curTip) identity res
         pure (newTip, res)

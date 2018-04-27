@@ -33,6 +33,7 @@ import           Pos.Txp.Configuration
 import           Pos.Txp.Logic
 import           Pos.Txp.MemState
 import           Pos.Util
+import           Pos.Util.Chrono
 import           Pos.Util.JsonLog
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.WorkMode

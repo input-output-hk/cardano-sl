@@ -83,9 +83,9 @@ data StateLockMetrics slr = StateLockMetrics
 -- don't care about metrics.
 ignoreStateLockMetrics :: StateLockMetrics ()
 ignoreStateLockMetrics = StateLockMetrics
-    { slmWait = const (pure ())
-    , slmAcquire = const (const (pure ()))
-    , slmRelease = const (const (const (const (pure (toJSON ())))))
+    { slmWait = \_ -> pure ()
+    , slmAcquire = \_ _ -> pure ()
+    , slmRelease = \_ _ _ _ -> pure (toJSON ())
     }
 
 type MonadStateLockBase ctx m

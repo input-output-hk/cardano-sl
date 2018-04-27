@@ -10,9 +10,10 @@ module Cardano.Wallet.Client.Http
 import           Universum
 
 import           Control.Lens (_Left)
+import           Data.Aeson (decode)
 import           Network.HTTP.Client (Manager, defaultManagerSettings, newManager)
 import           Servant ((:<|>) (..), (:>))
-import           Servant.Client (BaseUrl (..), ClientEnv (..), Scheme (..), client, runClientM)
+import           Servant.Client (BaseUrl (..), ClientEnv (..), Scheme (..), client, runClientM, ServantError(..))
 
 import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.Client
@@ -74,7 +75,14 @@ mkHttpClient baseUrl manager = WalletClient
   where
     unNoContent = map void
     clientEnv = ClientEnv manager baseUrl
-    run       = fmap (over _Left ClientHttpError) . (`runClientM` clientEnv)
+    parseJsendError servantErr =
+        case servantErr of
+            FailureResponse resp ->
+                case decode (responseBody resp) of
+                    Just err -> ClientWalletError err
+                    Nothing  -> ClientHttpError servantErr
+            _ -> ClientHttpError servantErr
+    run       = fmap (over _Left parseJsendError) . (`runClientM` clientEnv)
     getAddressIndexR
         :<|> postAddressR
         :<|> getAddressR

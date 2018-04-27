@@ -6,8 +6,7 @@ module WalletSpecs (walletSpecs) where
 import           Universum
 
 import           Cardano.Wallet.Client.Http
-import           Servant (errBody)
-import           Cardano.Wallet.API.V1.Errors (WalletError (WalletAlreadyExists), toServantError)
+import           Cardano.Wallet.API.V1.Errors (WalletError (WalletAlreadyExists))
 import           Control.Lens hiding ((^..), (^?))
 import           Test.Hspec
 
@@ -56,12 +55,4 @@ walletSpecs _ wc = do
             -- Second wallet creation/restoration should rise WalletAlreadyExists
             eresp <- postWallet wc newWallet2
             clientError <- eresp `shouldPrism` _Left
-            let errorBody = errBody $ toServantError WalletAlreadyExists
-            case clientError of
-                ClientHttpError (FailureResponse response) ->
-                    responseBody response `shouldBe` errorBody
-                _ ->
-                    expectationFailure $
-                        "expected (ClientHttpError FailureResponse) but got: "
-                        <> show clientError
-
+            clientError `shouldBe` ClientWalletError WalletAlreadyExists

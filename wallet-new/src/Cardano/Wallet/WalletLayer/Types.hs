@@ -24,6 +24,10 @@ module Cardano.Wallet.WalletLayer.Types
     , getTxs
     , estimateFees
 
+    , getSettings
+
+    , getInfo
+
     ) where
 
 
@@ -33,9 +37,10 @@ import           Control.Lens (makeLenses)
 
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, AddressValidity,
                                               EstimatedFees, NewAccount, NewAddress, NewWallet,
-                                              Payment, Transaction, V1, Wallet, WalletAddress,
-                                              WalletId, WalletUpdate)
+                                              NodeInfo, NodeSettings, Payment, Transaction, V1,
+                                              Wallet, WalletAddress, WalletId, WalletUpdate)
 import           Pos.Core (Address, TxAux)
+import           Ntp.Client (NtpStatus)
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.WalletLayer.Error
@@ -67,6 +72,10 @@ data PassiveWalletLayer m = PassiveWalletLayer
     , _pwlCreateTx       :: (TxAux -> m Bool) -> Payment -> m (Either CreateTxException Transaction)
     , _pwlGetTxs         :: Maybe WalletId -> Maybe AccountIndex -> Maybe (V1 Address) -> m (Either GetTxException [Transaction])
     , _pwlEstimateFees   :: Payment -> m (Either FeeEstimateException EstimatedFees)
+    -- * settings
+    , _pwlGetSettings    :: m (Either GetSettingsException NodeSettings)
+    -- * info
+    , _pwlGetInfo        :: TVar NtpStatus -> m (Either GetInfoException NodeInfo)
     }
 
 makeLenses ''PassiveWalletLayer
@@ -125,6 +134,14 @@ getTxs pwl = pwl ^. pwlGetTxs
 
 estimateFees :: forall m. PassiveWalletLayer m -> Payment -> m (Either FeeEstimateException EstimatedFees)
 estimateFees pwl = pwl ^. pwlEstimateFees
+
+
+getSettings :: forall m. PassiveWalletLayer m -> m (Either GetSettingsException NodeSettings)
+getSettings pwl = pwl ^. pwlGetSettings
+
+
+getInfo :: forall m. PassiveWalletLayer m -> TVar NtpStatus -> m (Either GetInfoException NodeInfo)
+getInfo pwl = pwl ^. pwlGetInfo
 
 ------------------------------------------------------------
 -- Active wallet layer

@@ -16,11 +16,14 @@ import           Data.Coerce (coerce)
 import           Cardano.Wallet.WalletLayer.Error
 import           Cardano.Wallet.WalletLayer.Legacy.Transactions (pwlCreateTx, pwlEstimateFees,
                                                                  pwlGetTxs)
+import           Cardano.Wallet.WalletLayer.Legacy.Settings (getSettings)
+import           Cardano.Wallet.WalletLayer.Legacy.Info (getInfo)
+
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
-import           Cardano.Wallet.API.V1.Migration (migrate)
+import           Cardano.Wallet.API.V1.Migration (HasConfigurations, HasCompileInfo, migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
 import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, AccountUpdate,
                                               AddressValidity (..), NewAccount (..),
@@ -60,6 +63,8 @@ type MonadLegacyWallet ctx m =
     , MonadKeys m
     , MonadWalletTxFull ctx m
     , MonadWalletHistory ctx m
+    , HasConfigurations
+    , HasCompileInfo
     )
 
 
@@ -110,6 +115,10 @@ passiveWalletLayer = PassiveWalletLayer
     , _pwlCreateTx          = try ... pwlCreateTx
     , _pwlGetTxs            = try ... pwlGetTxs
     , _pwlEstimateFees      = try ... pwlEstimateFees
+
+    , _pwlGetSettings       = try ... getSettings
+
+    , _pwlGetInfo           = try ... getInfo
     }
 
 ------------------------------------------------------------

@@ -47,6 +47,10 @@ bracketPassiveWallet logFunction =
             , _pwlCreateTx          = error "Not implemented!"
             , _pwlGetTxs            = error "Not implemented!"
             , _pwlEstimateFees      = error "Not implemented!"
+
+            , _pwlGetSettings       = error "Not implemented!"
+
+            , _pwlGetInfo           = error "Not implemented!"
             }
 
 -- | Initialize the active wallet.

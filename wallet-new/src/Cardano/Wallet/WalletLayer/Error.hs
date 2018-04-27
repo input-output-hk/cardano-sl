@@ -25,6 +25,10 @@ module Cardano.Wallet.WalletLayer.Error
     , CreateTxException (..)
     , GetTxException (..)
     , FeeEstimateException (..)
+    -- settings
+    , GetSettingsException (..)
+    -- info
+    , GetInfoException (..)
     ) where
 
 import           Universum
@@ -290,4 +294,33 @@ instance Buildable FeeEstimateException where
         FeeEstimateWalletNotFound wId       -> build $ WalletNotFound wId
         FeeEstimateAccountNotFound aId      -> build $ AccountNotFound aId
         FeeEstimateAddressNotFound wAddr    -> build $ AddressNotFound wAddr
+
+------------------------------------------------------------
+-- Specific settings error handlers
+------------------------------------------------------------
+
+data GetSettingsException
+    = GetSettingsUndefined UndefinedException
+    deriving (Show, Eq, Generic)
+
+instance Exception GetSettingsException
+
+instance Buildable GetSettingsException where
+    build = \case
+        GetSettingsUndefined ue             -> build ue
+
+------------------------------------------------------------
+-- Specific info error handlers
+------------------------------------------------------------
+
+data GetInfoException
+    = GetInfoUndefined UndefinedException
+    deriving (Show, Eq, Generic)
+
+instance Exception GetInfoException
+
+instance Buildable GetInfoException where
+    build = \case
+        GetInfoUndefined ue                 -> build ue
+
 

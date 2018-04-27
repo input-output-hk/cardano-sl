@@ -44,6 +44,10 @@ bracketPassiveWallet =
         , _pwlCreateTx          = \_ _   -> Right <$> liftedGen
         , _pwlGetTxs            = \_ _ _ -> Right <$> liftedGen
         , _pwlEstimateFees      = \_     -> Right <$> liftedGen
+
+        , _pwlGetSettings       =           Right <$> liftedGen
+
+        , _pwlGetInfo           = \_     -> Right <$> liftedGen
         }
 
     -- | A utility function.

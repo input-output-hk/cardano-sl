@@ -64,10 +64,16 @@ library
 
   other-modules:       Cardano.Wallet.WalletLayer.Types
                        Cardano.Wallet.WalletLayer.Kernel
+
                        Cardano.Wallet.WalletLayer.Legacy
                        Cardano.Wallet.WalletLayer.Legacy.Transactions
+                       Cardano.Wallet.WalletLayer.Legacy.Settings
+                       Cardano.Wallet.WalletLayer.Legacy.Info
+
                        Cardano.Wallet.WalletLayer.QuickCheck
                        Cardano.Wallet.WalletLayer.Error
+
+                       Paths_cardano_sl_wallet_new
   ghc-options:         -Wall
   build-depends:       base
                      , QuickCheck

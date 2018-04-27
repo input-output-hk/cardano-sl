@@ -43,7 +43,6 @@ import           Pos.Txp.Toil
 import           Pos.Update
 import           Pos.Util.Chrono
 
-import           Cardano.Wallet.Kernel.Types
 import           UTxO.Bootstrap
 import           UTxO.Context
 import           UTxO.Crypto

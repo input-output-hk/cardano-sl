@@ -2,15 +2,22 @@ module Cardano.Wallet.API.V1.Swagger.Example where
 
 import           Universum
 
+import           Test.QuickCheck (Arbitrary (..), Gen, listOf1)
+
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
-
+import           Cardano.Wallet.Orphans.Arbitrary ()
+import           Node (NodeId (..))
+import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
+import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
+import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
+
+import qualified Data.Map.Strict as Map
 import qualified Pos.Core.Common as Core
 import qualified Pos.Crypto.Signing as Core
-import           Pos.Util.BackupPhrase (BackupPhrase)
 
-import           Test.QuickCheck (Arbitrary (..), Gen, listOf1)
 
 class Arbitrary a => Example a where
     example :: Gen a
@@ -27,8 +34,12 @@ instance Example a => Example [a] where
 instance Example a => Example (Maybe a) where
     example = Just <$> example
 
-instance Example Core.PassPhrase
-instance Example Core.Coin
+-- NOTE: we don't want to see empty maps in our swagger doc :)
+instance (Ord k, Example k, Example v) => Example (Map k v) where
+    example = Map.fromList <$> listOf1 ((,) <$> example <*> example)
+
+instance Example (V1 Core.PassPhrase)
+instance Example (V1 Core.Coin)
 
 instance Example a => Example (WalletResponse a) where
     example = WalletResponse <$> example
@@ -36,18 +47,21 @@ instance Example a => Example (WalletResponse a) where
                              <*> example
 
 instance Example Address
+instance Example (V1 Address)
 instance Example Metadata
-instance Example AccountId
+instance Example AccountIndex
 instance Example WalletId
 instance Example BackupPhrase
+instance Example (V1 BackupPhrase)
 instance Example AssuranceLevel
-instance Example SyncProgress
+instance Example SyncPercentage
 instance Example BlockchainHeight
 instance Example LocalTimeDifference
 instance Example PaymentDistribution
 instance Example AccountUpdate
 instance Example Wallet
 instance Example WalletUpdate
+instance Example WalletOperation
 instance Example PasswordUpdate
 instance Example EstimatedFees
 instance Example Transaction
@@ -56,14 +70,18 @@ instance Example NodeSettings
 instance Example SlotDuration
 instance Example WalletAddress
 instance Example NewAccount
+instance Example TimeInfo
 instance Example AddressValidity
 instance Example NewAddress
+instance Example CUpdateInfo
+instance Example SubscriptionStatus
+instance Example NodeId
 
 instance Example InputSelectionPolicy where
     example = pure OptimizeForHighThroughput
 
-instance Example TransactionGroupingPolicy where
-    example = pure OptimiseForHighThroughputPolicy
+instance Example (V1 InputSelectionPolicy) where
+    example = pure (V1 OptimizeForHighThroughput)
 
 instance Example Account where
     example = Account <$> example
@@ -77,19 +95,28 @@ instance Example NewWallet where
                         <*> example -- Note: will produce `Just a`
                         <*> example
                         <*> pure "My Wallet"
+                        <*> example
 
 instance Example NodeInfo where
     example = NodeInfo <$> example
                        <*> example  -- NOTE: will produce `Just a`
                        <*> example
                        <*> example
+                       <*> example
+
+instance Example PaymentSource where
+    example = PaymentSource <$> example
+                            <*> example
 
 instance Example Payment where
     example = Payment <$> example
                       <*> example
-                      <*> example
                       <*> example -- TODO: will produce `Just groupingPolicy`
                       <*> example
+
+instance Example WalletStateSnapshot
+
+
 
 -- IMPORTANT: if executing `grep "[]\|null" wallet-new/spec/swagger.json` returns any element - then we have to add Example instances for those objects because we don't want to see [] or null examples in our docs.
 --

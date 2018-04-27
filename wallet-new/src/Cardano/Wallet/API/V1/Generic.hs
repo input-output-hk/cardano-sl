@@ -4,6 +4,7 @@ module Cardano.Wallet.API.V1.Generic
        ( gtoJsend
        , gparseJsend
        , gconsNames
+       , gconsName
        ) where
 
 import           Universum hiding (All, Generic)
@@ -18,6 +19,7 @@ import           Generics.SOP.JSON (JsonInfo (..), JsonOptions (..), Tag (..), d
 
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
 import           Cardano.Wallet.Util (mkJsonKey)
+import           Data.List ((!!))
 import           Pos.Util.Util (aesonError)
 
 --
@@ -144,11 +146,6 @@ unJsendValue (Tag n) f = withObject ("Expected JSend object with message `" <> n
 -- Misc
 --
 
-gconsName' :: forall xs. ConstructorInfo xs -> K ConstructorName xs
-gconsName' (Infix n _ _)   = K n
-gconsName' (Constructor n) = K n
-gconsName' (Record n _)    = K n
-
 gconsInfos
     :: forall a. (HasDatatypeInfo a, SListI (Code a))
     => Proxy a -> NP ConstructorInfo (Code a)
@@ -159,4 +156,11 @@ gconsInfos pa = case datatypeInfo pa of
 gconsNames
     :: forall a. (HasDatatypeInfo a, SListI (Code a))
     => Proxy a -> [Text]
-gconsNames = map toText . hcollapse . hliftA gconsName' . gconsInfos
+gconsNames =
+  map toText . hcollapse . hliftA (K . constructorName) . gconsInfos
+
+gconsName
+  :: forall a. (Generic a, HasDatatypeInfo a, SListI (Code a))
+  => a -> Text
+gconsName a =
+  gconsNames (Proxy @a) !! hindex (from a)

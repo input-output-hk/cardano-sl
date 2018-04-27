@@ -7,11 +7,12 @@ module Test.Pos.Ssc.Identity.SafeCopySpec
 import           Test.Hspec (Spec, describe)
 import           Universum
 
+import           Pos.Arbitrary.Ssc ()
 import qualified Pos.Core.Ssc as Ssc
 import           Pos.SafeCopy ()
 
 import           Test.Pos.Helpers (safeCopyTest)
-import           Test.Pos.Util (withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Ssc" $ do

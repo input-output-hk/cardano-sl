@@ -14,24 +14,20 @@ import           Universum
 import           System.Exit (ExitCode (ExitSuccess))
 import           System.Posix.Process (exitImmediately)
 #endif
+import           Control.Monad.Except (ExceptT (..), withExceptT)
 import           Data.Constraint (Dict (..))
-import           Formatting (float, int, sformat, stext, (%))
+import           Formatting (float, int, sformat, (%))
 import           Mockable (Delay, Mockable, delay)
-import           Node.Conversation (ConversationActions (..))
-import           Node.Message.Class (Message (..))
 import           Serokell.Util (sec)
 import           System.IO (hFlush, stdout)
-import           System.Wlog (CanLog, HasLoggerName, WithLogger, logDebug, logInfo)
+import           System.Wlog (CanLog, HasLoggerName, logInfo)
 
-import           Pos.Communication (Conversation (..), OutSpecs (..), SendActions (..), WorkerSpec,
-                                    delegationRelays, relayPropagateOut, txRelays, usRelays, worker)
+import           Pos.Communication (OutSpecs (..))
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
-import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Txp (genesisUtxo, unGenesisUtxo)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.JsonLog (JLEvent (JLTxReceived))
-import           Pos.Util.TimeWarp (jsonLog)
-import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext)
+import           Pos.Worker.Types (WorkerSpec, worker)
 
 import           AuxxOptions (AuxxOptions (..))
 import           Command (createCommandProcs)
@@ -50,13 +46,10 @@ auxxPlugin ::
     => AuxxOptions
     -> Either WithCommandAction Text
     -> (WorkerSpec m, OutSpecs)
-auxxPlugin auxxOptions repl = worker' runCmdOuts $ \sendActions ->
-    rawExec (Just Dict) auxxOptions (Just sendActions) repl
-  where
-    worker' specs w = worker specs $ \sa -> do
-        logInfo $ sformat ("Length of genesis utxo: " %int)
-                          (length $ unGenesisUtxo genesisUtxo)
-        w (addLogging sa)
+auxxPlugin auxxOptions repl = worker mempty $ \diffusion -> do
+    logInfo $ sformat ("Length of genesis utxo: " %int)
+                      (length $ unGenesisUtxo genesisUtxo)
+    rawExec (Just Dict) auxxOptions (Just diffusion) repl
 
 rawExec ::
        ( HasCompileInfo
@@ -68,15 +61,14 @@ rawExec ::
        )
     => Maybe (Dict (MonadAuxxMode m))
     -> AuxxOptions
-    -> Maybe (SendActions m)
+    -> Maybe (Diffusion m)
     -> Either WithCommandAction Text
     -> m ()
-rawExec mHasAuxxMode AuxxOptions{..} mSendActions = \case
+rawExec mHasAuxxMode AuxxOptions{..} mDiffusion = \case
     Left WithCommandAction{..} -> do
-        printAction <- getPrintAction
         printAction "... the auxx plugin is ready"
-        forever $ withCommand $ runCmd mHasAuxxMode mSendActions printAction
-    Right cmd -> runWalletCmd mHasAuxxMode mSendActions cmd
+        forever $ withCommand $ runCmd mHasAuxxMode mDiffusion printAction
+    Right cmd -> runWalletCmd mHasAuxxMode mDiffusion cmd
 
 runWalletCmd ::
        ( HasCompileInfo
@@ -87,11 +79,11 @@ runWalletCmd ::
        , Mockable Delay m
        )
     => Maybe (Dict (MonadAuxxMode m))
-    -> Maybe (SendActions m)
+    -> Maybe (Diffusion m)
     -> Text
     -> m ()
-runWalletCmd mHasAuxxMode mSendActions line = do
-    runCmd mHasAuxxMode mSendActions printAction line
+runWalletCmd mHasAuxxMode mDiffusion line = do
+    runCmd mHasAuxxMode mDiffusion printAction line
     printAction "Command execution finished"
     printAction " " -- for exit by SIGPIPE
     liftIO $ hFlush stdout
@@ -111,17 +103,21 @@ runCmd ::
        , Mockable Delay m
        )
     => Maybe (Dict (MonadAuxxMode m))
-    -> Maybe (SendActions m)
+    -> Maybe (Diffusion m)
     -> PrintAction m
     -> Text
     -> m ()
-runCmd mHasAuxxMode mSendActions printAction line = do
-    let commandProcs = createCommandProcs mHasAuxxMode printAction mSendActions
-    case Lang.parse line of
-        Left parseError -> printAction (Lang.renderAuxxDoc . Lang.ppParseError $ parseError)
-        Right expr -> Lang.evaluate commandProcs expr >>= \case
-            Left evalError -> printAction (Lang.renderAuxxDoc . Lang.ppEvalError $ evalError)
-            Right value -> withValueText printAction value
+runCmd mHasAuxxMode mDiffusion printAction line = do
+    let commandProcs = createCommandProcs mHasAuxxMode printAction mDiffusion
+        parse = withExceptT Lang.ppParseError . ExceptT . return . Lang.parse
+        resolveCommandProcs =
+            withExceptT Lang.ppResolveErrors . ExceptT . return .
+            Lang.resolveCommandProcs commandProcs
+        evaluate = withExceptT Lang.ppEvalError . ExceptT . Lang.evaluate
+        pipeline = parse >=> resolveCommandProcs >=> evaluate
+    runExceptT (pipeline line) >>= \case
+        Left errDoc -> printAction (Lang.renderAuxxDoc errDoc)
+        Right value -> withValueText printAction value
 
 withValueText :: Monad m => (Text -> m ()) -> Lang.Value -> m ()
 withValueText cont = \case
@@ -142,39 +138,18 @@ withValueText cont = \case
     Lang.ValueAddrDistrPart adp -> cont (show adp)
     Lang.ValueAddrStakeDistribution asd -> cont (pretty asd)
     Lang.ValueFilePath s -> cont (toText s)
-    Lang.ValueSendMode sm -> cont (show sm)
     Lang.ValueList vs -> for_ vs $
         withValueText (cont . mappend "  ")
-
-
-
-----------------------------------------------------------------------------
--- Something hacky
-----------------------------------------------------------------------------
-
--- This solution is hacky, but will work for now
-runCmdOuts :: (HasConfigurations,HasCompileInfo) => OutSpecs
-runCmdOuts =
-    relayPropagateOut $
-    mconcat
-        [ usRelays
-              @(RealModeContext EmptyMempoolExt)
-              @(RealMode EmptyMempoolExt)
-        , delegationRelays
-              @(RealModeContext EmptyMempoolExt)
-              @(RealMode EmptyMempoolExt)
-        , txRelays
-              @(RealModeContext EmptyMempoolExt)
-              @(RealMode EmptyMempoolExt)
-              logTx
-        ]
-  where
-    logTx = jsonLog . JLTxReceived
 
 ----------------------------------------------------------------------------
 -- Extra logging
 ----------------------------------------------------------------------------
 
+-- This addLogging was misplaced to begin with.
+-- A debug-mode diffusion layer could be chosen, which logs absolutely all
+-- network activity. But surely for auxx logging, the logging should go around
+-- the high-level auxx commands, no?
+{-
 addLogging :: forall m. WithLogger m => SendActions m -> SendActions m
 addLogging SendActions{..} = SendActions{
       enqueueMsg = error "unused"
@@ -199,3 +174,4 @@ addLogging SendActions{..} = SendActions{
                  return mRcv
       , sendRaw = sendRaw
       }
+-}

@@ -4,6 +4,7 @@
 module Pos.Diffusion.Full.Txp
        ( sendTx
        , txListeners
+       , txOutSpecs
        ) where
 
 import           Universum
@@ -14,12 +15,13 @@ import           Pos.Binary.Communication ()
 import           Pos.Binary.Core ()
 import           Pos.Binary.Txp ()
 import           Pos.Communication.Message ()
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
+import           Pos.Communication.Limits (mlTxMsgContents)
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..), NodeId,
-                                             MkListeners)
+                                             MkListeners, OutSpecs)
 import           Pos.Communication.Relay (invReqDataFlowTK, resOk, MinRelayWorkMode,
                                           InvReqDataParams (..), invReqMsgType, Relay (..),
-                                          relayListeners, MempoolParams (..))
+                                          relayListeners, MempoolParams (..),
+                                          relayPropagateOut)
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Crypto (hash)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
@@ -32,7 +34,6 @@ import           Pos.Txp.Network.Types (TxMsgContents (..))
 -- Returns 'True' if any peer accepted and applied this transaction.
 sendTx
     :: ( MinRelayWorkMode m
-       , HasAdoptedBlockVersionData m
        )
     => EnqueueMsg m
     -> TxAux
@@ -54,13 +55,23 @@ sendTx enqueue txAux = do
 
 txListeners
     :: ( DiffusionWorkMode m
-       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg m
     -> MkListeners m
 txListeners logic oq enqueue = relayListeners oq enqueue (txRelays logic)
+
+-- | 'OutSpecs' for the tx relays, to keep up with the 'InSpecs'/'OutSpecs'
+-- motif required for communication.
+-- The 'Logic m' isn't *really* needed, it's just an artefact of the design.
+txOutSpecs
+    :: forall m .
+       ( DiffusionWorkMode m
+       )
+    => Logic m
+    -> OutSpecs
+txOutSpecs logic = relayPropagateOut (txRelays logic)
 
 txInvReqDataParams
     :: DiffusionWorkMode m
@@ -73,11 +84,11 @@ txInvReqDataParams logic =
        , handleInv = \_ -> KV.handleInv (postTx logic)
        , handleReq = \_ -> KV.handleReq (postTx logic)
        , handleData = \_ -> KV.handleData (postTx logic)
+       , irdpMkLimit = mlTxMsgContents <$> getAdoptedBVData logic
        }
 
 txRelays
     :: ( DiffusionWorkMode m
-       , HasAdoptedBlockVersionData m
        )
     => Logic m
     -> [Relay m]

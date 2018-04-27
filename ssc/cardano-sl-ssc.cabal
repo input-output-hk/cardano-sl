@@ -9,6 +9,7 @@ maintainer:          hi@serokell.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
@@ -33,8 +34,6 @@ library
     Pos.Ssc.State.Global
 
     Pos.Ssc.Message
-    Pos.Ssc.Listeners
-    Pos.Ssc.Worker
     Pos.Ssc.Lrc
     Pos.Ssc.Mem
     Pos.Ssc.Functions
@@ -55,6 +54,8 @@ library
     Pos.Ssc.Toss.Trans
     Pos.Ssc.Toss.Types
 
+    Pos.Ssc.Worker
+
     Pos.Arbitrary.Ssc
 
     Pos.Binary.Ssc
@@ -73,6 +74,7 @@ library
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-crypto-test
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
@@ -84,7 +86,6 @@ library
                      , ether
                      , ekg-core
                      , exceptions
-                     , safe-exceptions
                      , formatting
                      , generic-arbitrary
                      , lens

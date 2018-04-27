@@ -27,15 +27,16 @@ import           Text.JSON.Canonical (FromJSON (..), FromObjectKey (..), Int54, 
 
 import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Binary.Core.Address ()
-import           Pos.Core.Common (Address, Coeff (..), Coin, CoinPortion, SharedSeed (..),
+import           Pos.Core.Common (Address, Coeff (..), Coin (..), CoinPortion (..), SharedSeed (..),
                                   StakeholderId, TxFeePolicy (..), TxSizeLinear (..), addressF,
-                                  decodeTextAddress, getCoinPortion, mkCoin, mkCoinPortion,
-                                  unsafeGetCoin)
+                                  decodeTextAddress, getCoinPortion, unsafeGetCoin)
+import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
 import           Pos.Core.Genesis.Helpers (recreateGenesisDelegation)
 import           Pos.Core.Genesis.Types (GenesisAvvmBalances (..), GenesisData (..),
                                          GenesisDelegation (..), GenesisNonAvvmBalances (..),
                                          GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
-                                         ProtocolConstants (..))
+                                         GenesisProtocolConstants (..))
+import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting.Types (EpochIndex (..), Timestamp (..))
 import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))
 import           Pos.Core.Ssc.Vss (validateVssCertificatesMap)
@@ -77,6 +78,12 @@ instance Monad m => ToJSON m Word16 where
 
 instance Monad m => ToJSON m Word32 where
     toJSON = pure . JSNum . fromIntegral
+
+instance Monad m => ToJSON m VssMaxTTL where
+    toJSON = toJSON . getVssMaxTTL
+
+instance Monad m => ToJSON m VssMinTTL where
+    toJSON = toJSON . getVssMinTTL
 
 instance Monad m => ToJSON m Word64 where
     toJSON = pure . JSString . show
@@ -159,12 +166,12 @@ instance Monad m => ToObjectKey m Address where
 instance Monad m => ToJSON m Address where
     toJSON = fmap JSString . toObjectKey
 
-instance Monad m => ToJSON m (ProxySecretKey EpochIndex) where
+instance Monad m => ToJSON m ProxySKHeavy where
     toJSON psk =
         -- omega is encoded as a number, because in genesis we always
         -- set it to 0.
         mkObject
-            [ ("omega", pure (JSNum . fromIntegral $ pskOmega psk))
+            [ ("omega", pure (JSNum . fromIntegral . getHeavyDlgIndex $ pskOmega psk))
             , ("issuerPk", toJSON $ pskIssuerPk psk)
             , ("delegatePk", toJSON $ pskDelegatePk psk)
             , ("cert", toJSON $ pskCert psk)
@@ -194,14 +201,14 @@ instance Monad m => ToJSON m GenesisWStakeholders where
 instance Monad m => ToJSON m GenesisDelegation where
     toJSON = toJSON . unGenesisDelegation
 
-instance Monad m => ToJSON m ProtocolConstants where
-    toJSON ProtocolConstants {..} =
+instance Monad m => ToJSON m GenesisProtocolConstants where
+    toJSON GenesisProtocolConstants {..} =
         mkObject
             -- 'k' definitely won't exceed the limit
-            [ ("k", pure . JSNum . fromIntegral $ pcK)
-            , ("protocolMagic", toJSON (getProtocolMagic pcProtocolMagic))
-            , ("vssMaxTTL", toJSON pcVssMaxTTL)
-            , ("vssMinTTL", toJSON pcVssMinTTL)
+            [ ("k", pure . JSNum . fromIntegral $ gpcK)
+            , ("protocolMagic", toJSON (getProtocolMagic gpcProtocolMagic))
+            , ("vssMaxTTL", toJSON gpcVssMaxTTL)
+            , ("vssMinTTL", toJSON gpcVssMinTTL)
             ]
 
 instance Monad m => ToJSON m GenesisAvvmBalances where
@@ -304,6 +311,12 @@ instance (ReportSchemaErrors m) => FromJSON m Word32 where
     fromJSON (JSNum i) = pure . fromIntegral $ i
     fromJSON val       = expectedButGotValue "Word32" val
 
+instance (ReportSchemaErrors m) => FromJSON m VssMaxTTL where
+    fromJSON = fmap VssMaxTTL . fromJSON
+
+instance (ReportSchemaErrors m) => FromJSON m VssMinTTL where
+    fromJSON = fmap VssMinTTL . fromJSON
+
 instance (ReportSchemaErrors m) => FromJSON m Word64 where
     fromJSON = tryParseString readUnsignedDecimal
 
@@ -374,15 +387,13 @@ instance ReportSchemaErrors m => FromJSON m VssCertificatesMap where
 instance ReportSchemaErrors m => FromObjectKey m StakeholderId where
     fromObjectKey = fmap Just . tryParseString (decodeAbstractHash) . JSString
 
--- A bit unsafe because 'mkCoin' is partial, but it is read only on
--- start, so 'error' should be ok.
 instance ReportSchemaErrors m => FromJSON m Coin where
-    fromJSON = fmap mkCoin . fromJSON
+    fromJSON = fmap Coin . fromJSON
 
 instance ReportSchemaErrors m => FromJSON m CoinPortion where
     fromJSON val = do
         number <- fromJSON val
-        wrapConstructor $ mkCoinPortion number
+        pure $ CoinPortion number
 
 instance ReportSchemaErrors m => FromJSON m Timestamp where
     fromJSON =
@@ -395,9 +406,9 @@ instance ReportSchemaErrors m => FromObjectKey m Address where
 instance ReportSchemaErrors m => FromJSON m Address where
     fromJSON = tryParseString decodeTextAddress
 
-instance ReportSchemaErrors m => FromJSON m (ProxySecretKey EpochIndex) where
+instance ReportSchemaErrors m => FromJSON m ProxySKHeavy where
     fromJSON obj = do
-        pskOmega <- fromIntegral @Int54 <$> fromJSField obj "omega"
+        pskOmega <- HeavyDlgIndex . fromIntegral @Int54 <$> fromJSField obj "omega"
         pskIssuerPk <- fromJSField obj "issuerPk"
         pskDelegatePk <- fromJSField obj "delegatePk"
         pskCert <- fromJSField obj "cert"
@@ -427,13 +438,13 @@ instance ReportSchemaErrors m => FromJSON m GenesisDelegation where
         psks <- fromJSON val
         wrapConstructor $ recreateGenesisDelegation psks
 
-instance ReportSchemaErrors m => FromJSON m ProtocolConstants where
+instance ReportSchemaErrors m => FromJSON m GenesisProtocolConstants where
     fromJSON obj = do
-        pcK <- fromIntegral @Int54 <$> fromJSField obj "k"
-        pcProtocolMagic <- ProtocolMagic <$> fromJSField obj "protocolMagic"
-        pcVssMaxTTL <- fromJSField obj "vssMaxTTL"
-        pcVssMinTTL <- fromJSField obj "vssMinTTL"
-        return ProtocolConstants {..}
+        gpcK <- fromIntegral @Int54 <$> fromJSField obj "k"
+        gpcProtocolMagic <- ProtocolMagic <$> fromJSField obj "protocolMagic"
+        gpcVssMaxTTL <- fromJSField obj "vssMaxTTL"
+        gpcVssMinTTL <- fromJSField obj "vssMinTTL"
+        return GenesisProtocolConstants {..}
 
 instance ReportSchemaErrors m => FromJSON m GenesisAvvmBalances where
     fromJSON = fmap GenesisAvvmBalances . fromJSON

@@ -15,9 +15,11 @@ module Pos.Core.Genesis.Types
        , GenesisInitializer (..)
        , GenesisAvvmBalances (..)
        , GenesisNonAvvmBalances (..)
-       , ProtocolConstants (..)
+       , GenesisProtocolConstants (..)
        , GenesisSpec (..)
        , mkGenesisSpec
+       , genesisProtocolConstantsToProtocolConstants
+       , genesisProtocolConstantsFromProtocolConstants
 
        -- * GenesisData
        , GenesisData (..)
@@ -35,7 +37,9 @@ import           Serokell.Util (allDistinct, mapJson)
 
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Common (Address, Coin, CoinPortion, SharedSeed, StakeholderId)
-import           Pos.Core.Delegation.Types (ProxySKHeavy)
+import           Pos.Core.Delegation (ProxySKHeavy)
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
+                                             VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting.Types (Timestamp)
 import           Pos.Core.Ssc.Types (VssCertificatesMap, getVssCertificatesMap)
 import           Pos.Core.Update.Types (BlockVersionData)
@@ -182,19 +186,41 @@ instance (Hashable Address, Buildable Address) =>
 
 deriving instance Hashable Address => Monoid GenesisNonAvvmBalances
 
--- | 'ProtocolConstants' are not really part of genesis global state,
+-- | 'GensisProtocolConstants' are not really part of genesis global state,
 -- but they affect consensus, so they are part of 'GenesisSpec' and
 -- 'GenesisData'.
-data ProtocolConstants = ProtocolConstants
+data GenesisProtocolConstants = GenesisProtocolConstants
     { -- | Security parameter from the paper.
-      pcK             :: !Int
+      gpcK             :: !Int
       -- | Magic constant for separating real/testnet.
-    , pcProtocolMagic :: !ProtocolMagic
+    , gpcProtocolMagic :: !ProtocolMagic
       -- | VSS certificates max timeout to live (number of epochs).
-    , pcVssMaxTTL     :: !Word32
+    , gpcVssMaxTTL     :: !VssMaxTTL
       -- | VSS certificates min timeout to live (number of epochs).
-    , pcVssMinTTL     :: !Word32
+    , gpcVssMinTTL     :: !VssMinTTL
     } deriving (Show, Eq, Generic)
+
+genesisProtocolConstantsToProtocolConstants
+    :: GenesisProtocolConstants
+    -> ProtocolConstants
+genesisProtocolConstantsToProtocolConstants GenesisProtocolConstants {..} =
+    ProtocolConstants
+        { pcK = gpcK
+        , pcVssMinTTL = gpcVssMinTTL
+        , pcVssMaxTTL = gpcVssMaxTTL
+        }
+
+genesisProtocolConstantsFromProtocolConstants
+    :: ProtocolConstants
+    -> ProtocolMagic
+    -> GenesisProtocolConstants
+genesisProtocolConstantsFromProtocolConstants ProtocolConstants {..} pm =
+    GenesisProtocolConstants
+        { gpcK = pcK
+        , gpcProtocolMagic = pm
+        , gpcVssMinTTL = pcVssMinTTL
+        , gpcVssMaxTTL = pcVssMaxTTL
+        }
 
 -- | Specification how to generate full genesis data.
 data GenesisSpec = UnsafeGenesisSpec
@@ -208,7 +234,7 @@ data GenesisSpec = UnsafeGenesisSpec
     -- 'tiUseHeavyDlg' is 'True'.
     , gsBlockVersionData  :: !BlockVersionData
     -- ^ Genesis 'BlockVersionData'.
-    , gsProtocolConstants :: !ProtocolConstants
+    , gsProtocolConstants :: !GenesisProtocolConstants
     -- ^ Other constants which affect consensus.
     , gsInitializer       :: !GenesisInitializer
     -- ^ Other data which depend on genesis type.
@@ -221,7 +247,7 @@ mkGenesisSpec
     -> SharedSeed
     -> GenesisDelegation
     -> BlockVersionData
-    -> ProtocolConstants
+    -> GenesisProtocolConstants
     -> GenesisInitializer
     -> Either String GenesisSpec
 mkGenesisSpec avvmDistr seed delega bvd pc specType = do
@@ -246,7 +272,7 @@ data GenesisData = GenesisData
     , gdVssCerts         :: !GenesisVssCertificatesMap
     , gdNonAvvmBalances  :: !GenesisNonAvvmBalances
     , gdBlockVersionData :: !BlockVersionData
-    , gdProtocolConsts   :: !ProtocolConstants
+    , gdProtocolConsts   :: !GenesisProtocolConstants
     , gdAvvmDistr        :: !GenesisAvvmBalances
     , gdFtsSeed          :: !SharedSeed
     } deriving (Show, Eq)

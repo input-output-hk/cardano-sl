@@ -23,8 +23,9 @@ import           Pos.Core.Ssc (SharesDistribution)
 import           Pos.Lrc (RichmenStakes, RichmenType (RTUsual), findRichmenPure)
 import           Pos.Ssc (SscVerifyError, computeSharesDistrPure, isDistrInaccuracyAcceptable,
                           sharesDistrMaxSumDistr)
+import           Pos.Util.QuickCheck.Property (qcIsLeft)
 
-import           Test.Pos.Util (qcIsLeft, withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "computeSharesDistr" $ do

@@ -3,8 +3,7 @@
 -- | 'MonadWallet' constraint. Like `WorkMode`, but for wallet.
 
 module Pos.Wallet.WalletMode
-       ( MonadBalances (..)
-       , MonadTxHistory (..)
+       ( MonadTxHistory (..)
        , MonadBlockchainInfo (..)
        , MonadUpdates (..)
        , MonadWallet
@@ -17,7 +16,6 @@ import           Control.Monad.Trans (MonadTrans)
 import           Data.Time.Units (Millisecond)
 
 import           Pos.Client.KeyStorage (MonadKeys)
-import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (MonadTxHistory (..))
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Core (ChainDifficulty)

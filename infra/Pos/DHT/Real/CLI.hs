@@ -12,7 +12,7 @@ import           Universum
 import           Control.Exception.Safe (throwString)
 import           Formatting (build, formatToString, shown, (%))
 import qualified Options.Applicative as Opt
-import           Serokell.Util.OptParse (fromParsec)
+import           Pos.Util.OptParse (fromParsec)
 import           Text.Parsec (eof, parse)
 
 import           Pos.DHT.Model.Types (DHTKey, DHTNode, dhtKeyParser, dhtNodeParser)

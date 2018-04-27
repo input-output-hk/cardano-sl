@@ -92,7 +92,7 @@ data Cons = Cons
 
 data Field
     = Field {
-    -- ^ The constructor means that you want
+    -- | The constructor means that you want
     -- a field to participate in serialisation/deserialization
       fFieldAndType :: ExpQ
     -- ^ You're expected to write something like @[|foo :: Bar|]@ here

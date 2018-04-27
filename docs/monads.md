@@ -27,14 +27,14 @@ understand the relationship between classes and records, read the [Scrap your
 type classes](http://www.haskellforall.com/2012/05/scrap-your-type-classes.html)
 article.
 
-## Instrinsic effects and capabilities
+## Intrinsic effects and capabilities
 
 We classify the effects into two categories:
 
 * _intrinsic effects_ provide operations enabled by the additional structure of
   the monad itself. For example, the intrinsic effect of `StateT` is adding
   state to a computation, `ExceptT` adds alternative exit path, `ConduitM` adds
-  streaming, and so on. intrinsic to `[]` and `ConduitM`, etc.
+  streaming, and so on.
 
 * _capabilities_ are effects that can be added to the monad by passing more
   context to the methods (manually or via `ReaderT`). For instance, a capability
@@ -52,7 +52,7 @@ data DatabaseT m a = DatabaseT { runDatabaseT :: DBHandle -> m a }
 ```
 
 These transformers would be always isomorphic to `ReaderT`. On the other hand,
-we cannot reduce instrinsic effects to capabilities.
+we cannot reduce intrinsic effects to capabilities.
 
 We represent all effects as capabilities whenever possible, and as intrinsic
 effects otherwise. For example, to add mutable state to a computation, we have
@@ -95,7 +95,7 @@ There are several reasons for using concrete monads:
   not be instantiated to `IO`
 
 * this enables GHC to optimize the code more aggressively – a recursive
-  computation in the `State` monad can be compiled to a tight loop in machine
+  computation in the `State` monad can be compiled into a tight loop in machine
   code (not too different from what a C++ compiler would produce), while an
   abstract monad with a `MonadState` constraint inhabits inlining and can make
   GHC produce dictionary-passing code
@@ -134,8 +134,8 @@ We can add more monad transformers when we need other intrinsic effects:
 `ConduitM`, `ResourceT`, etc, but this is an exception to the rule. Normally, we
 do not have any monad transformers besides `ReaderT`.
 
-Do: `ReaderT ctx Base`
-Do not: `MonadReader ctx m`, `MonadIO m`, etc
+* Do: `ReaderT ctx Base`
+* Do not: `MonadReader ctx m`, `MonadIO m`, etc
 
 ### The `Base` monad
 
@@ -306,7 +306,7 @@ use.
 
 ## Potentially impure code
 
-These is code that can be instantiated to be either pure or impure:
+This is the code that can be instantiated to be either pure or impure:
 
 ```
 f :: MonadThrow m => m a

@@ -8,7 +8,7 @@ import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Cardano.Crypto.Wallet.Encrypted as CC
-import qualified Crypto.ECC.Edwards25519 as ED25519
+import qualified Crypto.Math.Edwards25519 as ED25519
 import qualified Crypto.Sign.Ed25519 as EDS25519
 import           Data.SafeCopy (Contained, SafeCopy (..), base, contain, deriveSafeCopySimple,
                                 safeGet, safePut)
@@ -25,7 +25,7 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                                   Address' (..), BlockCount (..), ChainDifficulty (..), Coeff (..),
                                   Coin, CoinPortion (..), Script (..), SharedSeed (..),
                                   TxFeePolicy (..), TxSizeLinear (..))
-import           Pos.Core.Delegation (DlgPayload (..))
+import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..), LightDlgIndices (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), LocalSlotIndex (..),
                                     SlotCount (..), SlotId (..))
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SscPayload (..),
@@ -36,6 +36,7 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), Block
                                   BlockVersionModifier (..), SoftforkRule (..),
                                   SoftwareVersion (..), SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..), UpdateVote (..))
+import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (AbstractHash (..), WithHash (..))
 import           Pos.Crypto.HD (HDAddressPayload (..))
 import           Pos.Crypto.SecretSharing (SecretProof)
@@ -47,7 +48,7 @@ import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree (..))
 import qualified Pos.Util.Modifier as MM
-import           Pos.Util.Util (toCerealError, cerealError)
+import           Pos.Util.Util (cerealError, toCerealError)
 
 ----------------------------------------------------------------------------
 -- Bi
@@ -67,6 +68,8 @@ getCopyBi = contain $ do
 ----------------------------------------------------------------------------
 -- Core types
 ----------------------------------------------------------------------------
+
+deriveSafeCopySimple 0 'base ''ProtocolMagic
 
 deriveSafeCopySimple 0 'base ''Script
 deriveSafeCopySimple 0 'base ''ApplicationName
@@ -177,14 +180,16 @@ instance ( SafeCopy (BHeaderHash b)
          SafeCopy (GenericBlockHeader b) where
     getCopy =
         contain $
-        do _gbhPrevBlock <- safeGet
+        do _gbhProtocolMagic <- safeGet
+           _gbhPrevBlock <- safeGet
            _gbhBodyProof <- safeGet
            _gbhConsensus <- safeGet
            _gbhExtra <- safeGet
            return $! UnsafeGenericBlockHeader {..}
     putCopy UnsafeGenericBlockHeader {..} =
         contain $
-        do safePut _gbhPrevBlock
+        do safePut _gbhProtocolMagic
+           safePut _gbhPrevBlock
            safePut _gbhBodyProof
            safePut _gbhConsensus
            safePut _gbhExtra
@@ -362,8 +367,16 @@ instance SafeCopy (AsBinary a) where
     putCopy = contain . safePut . getAsBinary
 
 instance (Typeable a, Bi a) => SafeCopy (WithHash a) where
-    putCopy = putCopyBi
     getCopy = getCopyBi
+    putCopy = putCopyBi
+
+instance SafeCopy HeavyDlgIndex where
+    getCopy = contain $ HeavyDlgIndex <$> safeGet
+    putCopy x = contain $ safePut $ getHeavyDlgIndex x
+
+instance SafeCopy LightDlgIndices where
+    getCopy = contain $ LightDlgIndices <$> safeGet
+    putCopy x = contain $ safePut $ getLightDlgIndices x
 
 ----------------------------------------------------------------------------
 -- Plutus

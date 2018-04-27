@@ -45,14 +45,15 @@ import           Pos.Aeson.Core ()
 import           Pos.Aeson.Crypto ()
 import           Pos.Binary.Core.Address ()
 import           Pos.Core.Common (Address, Coin, StakeholderId, unsafeGetCoin)
-import           Pos.Core.Delegation.Types (ProxySKHeavy)
+import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.Genesis.Helpers (convertNonAvvmDataToBalances, recreateGenesisDelegation)
 import           Pos.Core.Genesis.Types (FakeAvvmOptions, GenesisAvvmBalances (..),
                                          GenesisDelegation, GenesisInitializer,
                                          GenesisNonAvvmBalances (..), GenesisSpec,
                                          GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
-                                         ProtocolConstants, TestnetBalanceOptions,
-                                         unGenesisDelegation)
+                                         GenesisProtocolConstants (..),
+                                         TestnetBalanceOptions, unGenesisDelegation)
+import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Ssc (VssCertificatesMap (..), getVssCertificatesMap,
                                validateVssCertificatesMap)
 import           Pos.Crypto (RedeemPublicKey, fromAvvmPk, redeemPkB64UrlF)
@@ -104,8 +105,20 @@ instance FromJSON GenesisDelegation where
         (elems :: HashMap StakeholderId ProxySKHeavy) <- mapM parseJSON v
         toAesonError $ recreateGenesisDelegation elems
 
+instance ToJSON VssMaxTTL where
+    toJSON = toJSON . getVssMaxTTL
+
+instance FromJSON VssMaxTTL where
+    parseJSON = fmap VssMaxTTL . parseJSON
+
+instance ToJSON VssMinTTL where
+    toJSON = toJSON . getVssMinTTL
+
+instance FromJSON VssMinTTL where
+    parseJSON = fmap VssMinTTL . parseJSON
+
 deriveJSON defaultOptions ''FakeAvvmOptions
 deriveJSON defaultOptions ''TestnetBalanceOptions
 deriveJSON defaultOptions ''GenesisInitializer
-deriveJSON defaultOptions ''ProtocolConstants
+deriveJSON defaultOptions ''GenesisProtocolConstants
 deriveJSON defaultOptions ''GenesisSpec

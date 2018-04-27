@@ -1,0 +1,2 @@
+BenchName,NumberOfMeasures,MinDelayBetweenCalls,MaxDelayBetweenCalls,PathToReportFile,PathToResponseReportsFile
+GetWalletsBench,10,0.0,0.0,/home/denis/Code/cardano-sl/wallet-new/bench/results/GetWalletsBenchReport.csv,/home/denis/Code/cardano-sl/wallet-new/bench/results/GetWalletsResponseReports.txt

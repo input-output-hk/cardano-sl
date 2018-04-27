@@ -20,7 +20,7 @@ echo "**** 2. Change external Haskell-related links to the Hackage-based ones **
 sed -i 's/href="\.\.\/\([^/]*\)\//href="http:\/\/hackage.haskell.org\/package\/\1\/docs\//g' "${PROJECT_DOC_DIR}"/*.html
 
 echo "**** 3. Cloning cardanodocs.com repository ****"
-# Variable ${GITHUB_CARDANO_DOCS_ACCESS} already stored in Travis CI settings for 'cardano-sl' repository.
+# Variable ${GITHUB_CARDANO_DOCS_ACCESS} must be set by the CI system.
 # This token gives us an ability to push into docs repository.
 
 rm -rf "${CARDANO_DOCS_REPO}"

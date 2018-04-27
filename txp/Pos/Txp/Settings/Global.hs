@@ -1,10 +1,12 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE TypeOperators       #-}
 
 -- | Global settings of Txp.
 
 module Pos.Txp.Settings.Global
-       ( TxpGlobalVerifyMode
+       ( TxpCommonMode
+       , TxpGlobalVerifyMode
        , TxpGlobalApplyMode
        , TxpGlobalRollbackMode
        , TxpBlock
@@ -14,7 +16,6 @@ module Pos.Txp.Settings.Global
 
 import           Universum
 
-import           Control.Monad.Except (MonadError)
 import           System.Wlog (WithLogger)
 
 import           Pos.Core (ComponentBlock, HasConfiguration)
@@ -33,7 +34,6 @@ type TxpCommonMode m =
 
 type TxpGlobalVerifyMode m =
     ( TxpCommonMode m
-    , MonadError ToilVerFailure m
     )
 
 type TxpGlobalApplyMode ctx m =
@@ -53,7 +53,8 @@ data TxpGlobalSettings = TxpGlobalSettings
       -- all data from transactions is known (script versions,
       -- attributes, addresses, witnesses).
       tgsVerifyBlocks :: forall m. TxpGlobalVerifyMode m =>
-                         Bool -> OldestFirst NE TxpBlock -> m (OldestFirst NE TxpUndo)
+                         Bool -> OldestFirst NE TxpBlock ->
+                         m $ Either ToilVerFailure $ OldestFirst NE TxpUndo
     , -- | Apply chain of /definitely/ valid blocks to Txp's GState.
       tgsApplyBlocks :: forall ctx m . TxpGlobalApplyMode ctx m =>
                         OldestFirst NE TxpBlund -> m SomeBatchOp

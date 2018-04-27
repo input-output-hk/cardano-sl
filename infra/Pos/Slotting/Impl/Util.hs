@@ -8,7 +8,6 @@ module Pos.Slotting.Impl.Util
 import           Universum
 
 import           Data.Time.Units (Microsecond, convertUnit)
-import           NTP.Example ()
 
 import           Pos.Core.Configuration (HasConfiguration, epochSlots)
 import           Pos.Core.Slotting (EpochIndex, LocalSlotIndex, SlotId (..), Timestamp (..),

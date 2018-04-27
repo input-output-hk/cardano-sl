@@ -60,10 +60,10 @@ mkCTx
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
     -> CPtxCondition      -- ^ State of resubmission
-    -> (CId Addr -> Bool) -- ^ Whether addresses belong to the wallet
+    -> (Address -> Bool) -- ^ Whether addresses belong to the wallet
     -> Either Text CTx
 mkCTx diff THEntry {..} meta pc addrBelongsToWallet = do
-    let isOurTxAddress = addrBelongsToWallet . addressToCId . txOutAddress
+    let isOurTxAddress = addrBelongsToWallet . txOutAddress
 
         ownInputs = filter isOurTxAddress inputs
         ownOutputs = filter isOurTxAddress outputs

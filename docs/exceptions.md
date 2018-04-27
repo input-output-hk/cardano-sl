@@ -182,7 +182,7 @@ they add additional exception mechanisms to the one that `IO` has, and
 Do *not*:
 
 * use `error` or `impureThrow`
-* use `ExceptT`, `MaybeT`, or `CatchT`
+* use `CatchT`
 * use `MonadError`
 * use `throwIO`
 * return `m (Either e a)` if `e` has `Exception` instance
@@ -192,16 +192,15 @@ Do:
 * create a custom exception type
 * use `throwM` (`MonadThrow`)
 
-If you want to return `m (Either e a)` from a function, it's
-recommended to define `instance TypeError "NOT AN EXC" => Exception e`
-for your type `e`. If the meaning of `e` type is not related to
-exceptional situations at all, it's not needed to define such
-instance. But for example if `e` denotes a `ParseError`, please do
-define it.
+If you want to return `m (Either e a)` from a function or to use `ExceptT e m
+a`, it's required to define `instance TypeError "NOT AN EXC" => Exception e` for
+your type `e`. Do not use `ExceptT e m a` in exported top-level functions,
+convert to `m (Either e a)` using `runExceptT`. As of now, using `ExceptT` robs
+us of `bracket`, but this will be fixed in the next release of `exceptions`.
 
 We disallow the use of `throwIO` only because it is redundant in the presence of
 `throwM` and requires a stronger constraint (`MonadIO` rather than
-`MonadThrow`).
+`MonadThrow`). In code which lives directly in `IO` usage of `throwIO` is fine.
 
 Derive prisms for exception types with multiple constructors, so it's convenient
 to use them with `catchJust`.
@@ -245,9 +244,6 @@ with simple `Either`, we should do this replacement. For instance,
 `mkMultiKeyDistr :: MonadError Text m => Map StakeholderId CoinPortion
 -> m AddrStakeDistribution` becomes `mkMultiKeyDistr :: Map
 StakeholderId CoinPortion -> Either Text AddrStakeDistribution`
-
-We should locate all usages of `forkIO` and replace with appropriate functions
-from `async`.
 
 We should find where errors which are not programmer mistakes are thrown with
 `error`, `undefined`, or `impureThrow`, and rewrite them to use correct error

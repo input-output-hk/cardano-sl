@@ -9,6 +9,7 @@ maintainer:          hi@serokell.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
@@ -34,12 +35,14 @@ library
                        Pos.Update.Download
                        Pos.Update.Lrc
                        Pos.Update.Mode
-                       Pos.Update.Worker
 
                        -- Logic
                        Pos.Update.Logic
                        Pos.Update.Logic.Global
                        Pos.Update.Logic.Local
+
+                       Pos.Update.Network
+                       Pos.Update.Network.Listeners
 
                        -- Poll
                        Pos.Update.Poll
@@ -66,13 +69,12 @@ library
                        Pos.Update.MemState.Functions
                        Pos.Update.MemState.Types
 
-                       -- Network
-                       Pos.Update.Network
-                       Pos.Update.Network.Listeners
-
                        -- Context-like things
                        Pos.Update.Context
                        Pos.Update.Params
+
+                       -- Worker
+                       Pos.Update.Worker
 
   other-modules:
                        Pos.Arbitrary.Update.Core
@@ -88,6 +90,7 @@ library
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-crypto-test
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
@@ -122,6 +125,7 @@ library
                      , time-units
                      , transformers
                      , universum
+                     , unliftio
                      , unordered-containers
 
   default-language:    Haskell2010

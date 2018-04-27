@@ -1,7 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeOperators       #-}
 
--- | Block creation logic.
+-- | Functions that retrieve payload from context and create genesis/main blocks
+-- with many validations.
 
 module Pos.Block.Logic.Creation
        ( createGenesisBlockAndApply
@@ -30,8 +31,8 @@ import           Pos.Block.Logic.VAR (verifyBlocksPrefix)
 import           Pos.Block.Slog (HasSlogGState (..), ShouldCallBListener (..))
 import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..), HasConfiguration,
                            HeaderHash, SlotId (..), chainQualityThreshold, epochIndexL, epochSlots,
-                           flattenSlotId, getEpochOrSlot, headerHash)
-import           Pos.Core.Block (BlockHeader, GenesisBlock, MainBlock, MainBlockchain)
+                           flattenSlotId, getEpochOrSlot, headerHash, protocolMagic)
+import           Pos.Core.Block (BlockHeader (..), GenesisBlock, MainBlock, MainBlockchain)
 import qualified Pos.Core.Block as BC
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
 import           Pos.Core.Ssc (SscPayload)
@@ -40,8 +41,8 @@ import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Crypto (SecretKey)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.Delegation (DelegationVar, DlgPayload (getDlgPayload), ProxySKBlockInfo,
-                                 clearDlgMemPool, getDlgMempool, mkDlgPayload)
+import           Pos.Delegation (DelegationVar, DlgPayload (..), ProxySKBlockInfo, clearDlgMemPool,
+                                 getDlgMempool)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Lrc (HasLrcContext, LrcModeFull, lrcSingleShot)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
@@ -53,15 +54,16 @@ import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.Ssc.State (sscResetLocal)
 import           Pos.StateLock (Priority (..), StateLock, StateLockMetrics, modifyStateLock)
 import           Pos.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem, clearTxpMemPool,
-                          txGetPayload)
+                          txGetPayload, withTxpLocalData)
 import           Pos.Txp.Base (emptyTxPayload)
 import           Pos.Update (UpdateContext)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
+                                           lastKnownBlockVersion)
 import qualified Pos.Update.DB as UDB
 import           Pos.Update.Logic (clearUSMemPool, usCanCreateBlock, usPreparePayload)
 import           Pos.Util (_neHead)
 import           Pos.Util.LogSafe (logInfoS)
-import           Pos.Util.Util (HasLens (..), HasLens', leftToPanic)
+import           Pos.Util.Util (HasLens (..), HasLens')
 
 -- | A set of constraints necessary to create a block from mempool.
 type MonadCreateBlock ctx m
@@ -148,7 +150,7 @@ createGenesisBlockDo epoch = do
         lrcSingleShot epoch
         leaders <- lrcActionOnEpochReason epoch "createGenesisBlockDo "
             LrcDB.getLeadersForEpoch
-        let blk = mkGenesisBlock (Just tipHeader) epoch leaders
+        let blk = mkGenesisBlock protocolMagic (Right tipHeader) epoch leaders
         let newTip = headerHash blk
         verifyBlocksPrefix (one (Left blk)) >>= \case
             Left err -> reportFatalError $ pretty err
@@ -173,11 +175,11 @@ needCreateGenesisBlock ::
     -> m Bool
 needCreateGenesisBlock epoch tipHeader = do
     case tipHeader of
-        Left _ -> pure False
+        BlockHeaderGenesis _ -> pure False
         -- This is true iff tip is from 'epoch' - 1 and last
         -- 'blkSecurityParam' blocks fully fit into last
         -- 'slotSecurityParam' slots from 'epoch' - 1.
-        Right mb ->
+        BlockHeaderMain mb ->
             if mb ^. epochIndexL /= epoch - 1
                 then pure False
                 else calcChainQualityM (flattenSlotId $ SlotId epoch minBound) <&> \case
@@ -250,7 +252,7 @@ createMainBlockInternal sId pske = do
         -- 100 bytes is substracted to account for different unexpected
         -- overhead.  You can see that in bitcoin blocks are 1-2kB less
         -- than limit. So i guess it's fine in general.
-        sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> UDB.getMaxBlockSize
+        sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> lift UDB.getMaxBlockSize
         block <- createMainBlockPure sizeLimit prevHeader pske sId sk rawPay
         logInfoS $
             "Created main block of size: " <> sformat memory (biSize block)
@@ -263,7 +265,7 @@ canCreateBlock ::
     -> m (Either Text ())
 canCreateBlock sId tipHeader =
     runExceptT $ do
-        unlessM usCanCreateBlock $
+        unlessM (lift usCanCreateBlock) $
             throwError "this software is obsolete and can't create block"
         unless (EpochOrSlot (Right sId) > tipEOS) $
             throwError "slot id is not greater than one from the tip block"
@@ -303,7 +305,7 @@ createMainBlockPure
 createMainBlockPure limit prevHeader pske sId sk rawPayload = do
     bodyLimit <- execStateT computeBodyLimit limit
     body <- createMainBody bodyLimit sId rawPayload
-    mkMainBlock (Just prevHeader) sId sk pske body
+    pure (mkMainBlock pm bv sv (Right prevHeader) sId sk pske body)
   where
     -- default ssc to put in case we won't fit a normal one
     defSsc :: SscPayload
@@ -312,12 +314,15 @@ createMainBlockPure limit prevHeader pske sId sk rawPayload = do
     computeBodyLimit = do
         -- account for block header and serialization overhead, etc;
         let musthaveBody = BC.MainBody emptyTxPayload defSsc def def
-        musthaveBlock <-
-            mkMainBlock (Just prevHeader) sId sk pske musthaveBody
+        let musthaveBlock =
+                mkMainBlock pm bv sv (Right prevHeader) sId sk pske musthaveBody
         let mhbSize = biSize musthaveBlock
         when (mhbSize > limit) $ throwError $
             "Musthave block size is more than limit: " <> show mhbSize
         identity -= biSize musthaveBlock
+    sv = curSoftwareVersion
+    bv = lastKnownBlockVersion
+    pm = protocolMagic
 
 ----------------------------------------------------------------------------
 -- MainBlock apply
@@ -356,7 +361,7 @@ applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
                 pure blockToApply
     clearMempools :: m ()
     clearMempools = do
-        clearTxpMemPool
+        withTxpLocalData clearTxpMemPool
         sscResetLocal
         clearUSMemPool
         clearDlgMemPool
@@ -447,7 +452,7 @@ createMainBody bodyLimit sId payload =
                 psks' <- takeSome psks
                 usPayload' <- includeUSPayload
                 return (psks', usPayload')
-        let dlgPay' = leftToPanic "createMainBlockPure: " $ mkDlgPayload psks'
+        let dlgPay' = UnsafeDlgPayload psks'
         -- include transactions
         txs' <- takeSome txs
         -- return the resulting block

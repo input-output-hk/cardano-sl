@@ -25,6 +25,7 @@ import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors, ve
 
 import           Pos.Binary.Class (asBinary, serialize')
 import           Pos.Binary.Core.Address ()
+import           Pos.Binary.Core.Delegation ()
 import           Pos.Binary.Core.Slotting ()
 import           Pos.Core.Common (Address, Coin, IsBootstrapEraAddr (..), StakeholderId,
                                   addressHash, applyCoinPortionDown, coinToInteger,
@@ -32,7 +33,7 @@ import           Pos.Core.Common (Address, Coin, IsBootstrapEraAddr (..), Stakeh
                                   unsafeIntegerToCoin)
 import           Pos.Core.Configuration.BlockVersionData (HasGenesisBlockVersionData)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants, vssMaxTTL, vssMinTTL)
-import           Pos.Core.Delegation.Types (ProxySKHeavy)
+import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
 import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
 import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), GenesisAvvmBalances (..),
                                          GenesisDelegation, GenesisInitializer (..),
@@ -40,7 +41,7 @@ import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), GenesisAvvmBalanc
                                          GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
                                          TestnetBalanceOptions (..))
 import           Pos.Core.Ssc.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMap)
-import           Pos.Crypto (EncryptedSecretKey, HasCryptoConfiguration, RedeemPublicKey, SecretKey,
+import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, RedeemPublicKey, SecretKey,
                              VssKeyPair, createPsk, deterministic, emptyPassphrase, encToSecret,
                              keyGen, noPassEncrypt, randomNumberInRange, redeemDeterministicKeyGen,
                              safeKeyGen, toPublic, toVssPublicKey, vssKeyGen)
@@ -91,11 +92,12 @@ data GeneratedSecrets = GeneratedSecrets
     }
 
 generateGenesisData
-    :: (HasCryptoConfiguration, HasGenesisBlockVersionData, HasProtocolConstants)
-    => GenesisInitializer
+    :: (HasGenesisBlockVersionData, HasProtocolConstants)
+    => ProtocolMagic
+    -> GenesisInitializer
     -> GenesisAvvmBalances
     -> GeneratedGenesisData
-generateGenesisData (GenesisInitializer{..}) realAvvmBalances = deterministic (serialize' giSeed) $ do
+generateGenesisData pm (GenesisInitializer{..}) realAvvmBalances = deterministic (serialize' giSeed) $ do
     let TestnetBalanceOptions{..} = giTestBalance
 
     -- apply ggdAvvmBalanceFactor
@@ -133,7 +135,7 @@ generateGenesisData (GenesisInitializer{..}) realAvvmBalances = deterministic (s
     let genesisDlgList :: [ProxySKHeavy]
         genesisDlgList =
             (\(issuerSk, RichSecrets {..}) ->
-                 createPsk issuerSk (toPublic rsPrimaryKey) 0) <$>
+                 createPsk pm issuerSk (toPublic rsPrimaryKey) (HeavyDlgIndex 0)) <$>
             zip dlgIssuersSecrets richmenSecrets
         genesisDlg =
             leftToPanic "generateGenesisData: genesisDlg" $
@@ -149,8 +151,8 @@ generateGenesisData (GenesisInitializer{..}) realAvvmBalances = deterministic (s
             map ((,1) . addressHash . toPublic) bootSecrets
 
     -- VSS certificates
-    vssCertsList <- mapM generateVssCert richmenSecrets
-    let toVss = either error identity . mkVssCertificatesMap
+    vssCertsList <- mapM (generateVssCert pm) richmenSecrets
+    let toVss = mkVssCertificatesMap
         vssCerts = GenesisVssCertificatesMap $ toVss vssCertsList
 
     -- Non AVVM balances
@@ -239,14 +241,15 @@ generateFakeAvvmGenesis FakeAvvmOptions{..} = do
          , faoOneBalance * fromIntegral faoCount)
 
 generateVssCert ::
-       (HasCryptoConfiguration, HasProtocolConstants, MonadRandom m)
-    => RichSecrets
+       (HasProtocolConstants, MonadRandom m)
+    => ProtocolMagic
+    -> RichSecrets
     -> m VssCertificate
-generateVssCert RichSecrets {..} = do
+generateVssCert pm RichSecrets {..} = do
     expiry <- fromInteger <$>
         randomNumberInRange (vssMinTTL - 1) (vssMaxTTL - 1)
     let vssPk = asBinary $ toVssPublicKey rsVssKeyPair
-        vssCert = mkVssCertificate rsPrimaryKey vssPk expiry
+        vssCert = mkVssCertificate pm rsPrimaryKey vssPk expiry
     return vssCert
 
 -- Generates balance distribution for testnet.

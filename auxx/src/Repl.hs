@@ -65,7 +65,7 @@ data WithCommandAction = WithCommandAction
         --
         -- This action blocks until there are commands available.
         --
-    , getPrintAction :: forall m n. (MonadIO m, MonadIO n) => m (PrintAction n)
+    , printAction :: forall m. MonadIO m => PrintAction m
         -- ^ Get the printing action that doesn't disrupt the Haskeline prompt.
         -- The node (and the auxx plugin) should use this action exclusively for printing.
         --
@@ -98,11 +98,13 @@ createAuxxRepl = do
                     (\e -> return $ CommandFailure e)
                     (CommandSuccess <$ cont cmd)
             putMVar lastResultVar res
-        getPrintAction :: forall m n. (MonadIO m, MonadIO n) => m (PrintAction n)
-        getPrintAction = liftIO $ (liftIO .) <$> readMVar printActionVar
         putCommand cmd = do
             putMVar nextCommandVar cmd
             takeMVar lastResultVar
+        printAction :: forall m. MonadIO m => PrintAction m
+        printAction t = do
+            c <- readMVar printActionVar
+            liftIO $ c t
     return (WithCommandAction{..}, auxxReplOn printActionVar putCommand)
 
 -- | Fork a REPL and provide 'WithCommandAction' to a continuation. Under the

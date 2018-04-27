@@ -21,20 +21,21 @@ import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger)
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Types (Blund, undoTx)
-import           Pos.Core (HasConfiguration, HeaderHash, Timestamp, difficultyL, headerHash,
-                           headerSlotL, prevBlockL)
-import           Pos.Core.Block (BlockHeader, blockHeader, getBlockHeader, mainBlockTxPayload)
+import           Pos.Core (HasConfiguration, HeaderHash, Timestamp, difficultyL, headerSlotL,
+                           prevBlockL)
+import           Pos.Core.Block (BlockHeader (..), blockHeader, getBlockHeader, mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux (..), TxUndo)
 import           Pos.DB.BatchOp (SomeBatchOp)
 import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.GState as GS
-import           Pos.Reporting (MonadReporting, reportOrLogW)
+import           Pos.Reporting (MonadReporting, reportOrLogE)
 import           Pos.Slotting (MonadSlots, MonadSlotsData, getCurrentEpochSlotDuration,
                                getSlotStartPure, getSystemStartM)
 import           Pos.Txp.Base (flattenTxPayload)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Util.LogSafe (logInfoS, logWarningS)
+import           Pos.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF, secure)
 import           Pos.Util.TimeLimit (CanLogInParallel, logWarningWaitInf)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 
 import           Pos.Wallet.Web.Account (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
@@ -42,29 +43,36 @@ import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..))
 import           Pos.Wallet.Web.Tracking.Sync (applyModifierToWallet, rollbackModifierFromWallet,
                                                trackingApplyTxs, trackingRollbackTxs)
+import           Pos.Wallet.Web.Tracking.Types (TrackingOperation (..))
+
 
 walletGuard ::
-    ( AccountMode ctx m
-    )
-    => HeaderHash
+       (WithLogger m, MonadIO m)
+    => WS.WalletSnapshot
+    -> HeaderHash
     -> CId Wal
     -> m ()
     -> m ()
-walletGuard curTip wAddr action = WS.getWalletSyncTip wAddr >>= \case
-    Nothing -> logWarningS $ sformat ("There is no syncTip corresponding to wallet #"%build) wAddr
-    Just WS.NotSynced    -> logInfoS $ sformat ("Wallet #"%build%" hasn't been synced yet") wAddr
-    Just (WS.SyncedWith wTip)
-        | wTip /= curTip ->
-            logWarningS $
-                sformat ("Skip wallet #"%build%", because of wallet's tip "%build
-                         %" mismatched with current tip") wAddr wTip
-        | otherwise -> action
+walletGuard ws curTip wAddr action = case WS.getWalletSyncState ws wAddr of
+    Nothing -> logWarningSP $ \sl -> sformat ("There is no syncTip corresponding to wallet #"%secretOnlyF sl build) wAddr
+    Just WS.NotSynced    -> logInfoSP $ \sl -> sformat ("Wallet #"%secretOnlyF sl build%" hasn't been synced yet") wAddr
+    Just (WS.SyncedWith wTip)      -> tipGuard wTip
+    Just (WS.RestoringFrom _ _) -> do
+        logWarningSP $ \sl ->
+            sformat ( "Wallet #"%secretOnlyF sl build%" is restoring, not tracking it just yet...") wAddr
+    where
+        tipGuard wTip
+            | wTip /= curTip =
+                logWarningSP $ \sl ->
+                    sformat ("Skip wallet #"%secretOnlyF sl build%", because of wallet's tip "%build
+                             %" mismatched with current tip") wAddr wTip
+            | otherwise = action
 
 -- Perform this action under block lock.
 onApplyBlocksWebWallet
     :: forall ctx m .
     ( AccountMode ctx m
-    , WS.MonadWalletDB ctx m
+    , WS.WalletDbReader ctx m
     , MonadSlotsData ctx m
     , MonadDBRead m
     , MonadReporting ctx m
@@ -73,40 +81,50 @@ onApplyBlocksWebWallet
     )
     => OldestFirst NE Blund -> m SomeBatchOp
 onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
+    db <- WS.askWalletDB
+    ws <- WS.getWalletSnapshot db
     let oldestFirst = getOldestFirst blunds
         txsWUndo = concatMap gbTxsWUndo oldestFirst
         newTipH = NE.last oldestFirst ^. _1 . blockHeader
     currentTipHH <- GS.getTip
-    mapM_ (catchInSync "apply" $ syncWallet currentTipHH newTipH txsWUndo)
-       =<< WS.getWalletAddresses
+    mapM_ (catchInSync "apply" $ syncWallet db ws currentTipHH newTipH txsWUndo)
+          (WS.getWalletAddresses ws)
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
     -- something a bit more reasonable.
     pure mempty
   where
     syncWallet
-        :: HeaderHash
+        :: WS.WalletDB
+        -> WS.WalletSnapshot
+        -> HeaderHash
         -> BlockHeader
         -> [(TxAux, TxUndo, BlockHeader)]
         -> CId Wal
         -> m ()
-    syncWallet curTip newTipH blkTxsWUndo wAddr = walletGuard curTip wAddr $ do
+    syncWallet db ws curTip newTipH blkTxsWUndo wAddr = walletGuard ws curTip wAddr $ do
         blkHeaderTs <- blkHeaderTsGetter
-        dbUsed <- WS.getCustomAddresses WS.UsedAddr
         encSK <- getSKById wAddr
-        let mapModifier =
-                trackingApplyTxs encSK dbUsed gbDiff blkHeaderTs ptxBlkInfo blkTxsWUndo
-        applyModifierToWallet wAddr (headerHash newTipH) mapModifier
-        logMsg "Applied" (getOldestFirst blunds) wAddr mapModifier
+
+        let credentials = eskToWalletDecrCredentials encSK
+        let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
+        let applyBlockWith trackingOp = do
+              let mapModifier = trackingApplyTxs credentials dbUsed gbDiff blkHeaderTs ptxBlkInfo blkTxsWUndo
+              applyModifierToWallet db trackingOp wAddr newTipH mapModifier
+              logMsg "Applied" (getOldestFirst blunds) wAddr mapModifier
+
+        applyBlockWith SyncWallet
 
     gbDiff = Just . view difficultyL
-    ptxBlkInfo = either (const Nothing) (Just . view difficultyL)
+    ptxBlkInfo = \case
+        BlockHeaderGenesis _ -> Nothing
+        BlockHeaderMain h -> Just $ h ^. difficultyL
 
 -- Perform this action under block lock.
 onRollbackBlocksWebWallet
     :: forall ctx m .
     ( AccountMode ctx m
-    , WS.MonadWalletDB ctx m
+    , WS.WalletDbReader ctx m
     , MonadDBRead m
     , MonadSlots ctx m
     , MonadReporting ctx m
@@ -115,30 +133,38 @@ onRollbackBlocksWebWallet
     )
     => NewestFirst NE Blund -> m SomeBatchOp
 onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
+    db <- WS.askWalletDB
+    ws <- WS.getWalletSnapshot db
     let newestFirst = getNewestFirst blunds
         txs = concatMap (reverse . gbTxsWUndo) newestFirst
         newTip = (NE.last newestFirst) ^. prevBlockL
     currentTipHH <- GS.getTip
-    mapM_ (catchInSync "rollback" $ syncWallet currentTipHH newTip txs)
-        =<< WS.getWalletAddresses
+    mapM_ (catchInSync "rollback" $ syncWallet db ws currentTipHH newTip txs)
+          (WS.getWalletAddresses ws)
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
     -- something a bit more reasonable.
     pure mempty
   where
     syncWallet
-        :: HeaderHash
+        :: WS.WalletDB
+        -> WS.WalletSnapshot
+        -> HeaderHash
         -> HeaderHash
         -> [(TxAux, TxUndo, BlockHeader)]
         -> CId Wal
         -> m ()
-    syncWallet curTip newTip txs wid = walletGuard curTip wid $ do
+    syncWallet db ws curTip newTip txs wid = walletGuard ws curTip wid $ do
         encSK <- getSKById wid
         blkHeaderTs <- blkHeaderTsGetter
-        dbUsed <- WS.getCustomAddresses WS.UsedAddr
-        let mapModifier = trackingRollbackTxs encSK dbUsed gbDiff blkHeaderTs txs
-        rollbackModifierFromWallet wid newTip mapModifier
-        logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
+
+        let rollbackBlockWith trackingOperation = do
+              let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
+                  mapModifier = trackingRollbackTxs (eskToWalletDecrCredentials encSK) dbUsed gbDiff blkHeaderTs txs
+              rollbackModifierFromWallet db trackingOperation wid newTip mapModifier
+              logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
+
+        rollbackBlockWith SyncWallet
 
     gbDiff = Just . view difficultyL
 
@@ -153,7 +179,9 @@ blkHeaderTsGetter = do
     sd <- GS.getSlottingData
     let mainBlkHeaderTs mBlkH =
             getSlotStartPure systemStart (mBlkH ^. headerSlotL) sd
-    return $ either (const Nothing) mainBlkHeaderTs
+    return $ \case
+        BlockHeaderGenesis _ -> Nothing
+        BlockHeaderMain h -> mainBlkHeaderTs h
 
 gbTxsWUndo :: Blund -> [(TxAux, TxUndo, BlockHeader)]
 gbTxsWUndo (Left _, _) = []
@@ -163,7 +191,7 @@ gbTxsWUndo (blk@(Right mb), undo) =
             (repeat $ getBlockHeader blk)
 
 setLogger :: HasLoggerName m => m a -> m a
-setLogger = modifyLoggerName (<> "wallet" <> "blistener")
+setLogger = modifyLoggerName (const "syncWalletBListener")
 
 reportTimeouts
     :: (MonadSlotsData ctx m, CanLogInParallel m)
@@ -183,16 +211,18 @@ logMsg
     -> CAccModifier
     -> m ()
 logMsg action (NE.length -> bNums) wid accModifier =
-    logInfoS $
-        sformat (build%" "%build%" block(s) to wallet "%build%", "%build)
+    logInfoSP $ \sl ->
+        sformat (build%" "%build%" block(s) to wallet "%secretOnlyF sl build%", "%buildSafe sl)
              action bNums wid accModifier
 
 catchInSync
     :: (MonadReporting ctx m)
     => Text -> (CId Wal -> m ()) -> CId Wal -> m ()
 catchInSync desc syncWallet wId =
-    syncWallet wId `catchAny` reportOrLogW prefix
+    syncWallet wId `catchAny` \e -> do
+        reportOrLogE (prefix secure) e
+        logWarningSP $ \sl -> prefix sl <> show e
   where
     -- REPORT:ERROR 'reportOrLogW' in wallet sync.
-    fmt = "Failed to sync wallet "%build%" in BListener ("%build%"): "
-    prefix = sformat fmt wId desc
+    fmt sl = "Failed to sync wallet "%secretOnlyF sl build%" in BListener ("%build%"): "
+    prefix sl = sformat (fmt sl) wId desc

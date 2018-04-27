@@ -16,16 +16,20 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, choose, conjoin, counterexample,
                                   suchThat, vectorOf, (.&&.), (==>))
 
+import           Pos.Arbitrary.Core ()
+import           Pos.Arbitrary.Ssc ()
 import           Pos.Core (EpochIndex (..), EpochOrSlot (..), HasConfiguration, SlotId (..),
                            VssCertificate (..), getCertId, getVssCertificatesMap, mkVssCertificate,
                            slotSecurityParam)
 import           Pos.Core.Slotting (flattenEpochOrSlot, unflattenSlotId)
+import           Pos.Crypto (protocolMagic)
 import           Pos.Ssc (SscGlobalState (..), VssCertData (..), delete, empty, expiryEoS, filter,
                           insert, keys, lookup, member, rollbackSsc, runPureToss, setLastKnownSlot,
                           sgsVssCertificates)
 import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.Util.QuickCheck.Property (qcIsJust)
 
-import           Test.Pos.Util (qcIsJust, withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Ssc.VssCertData" $ do
@@ -181,7 +185,7 @@ instance HasConfiguration => Arbitrary RollbackData where
                 thisEpoch <-
                     siEpoch . unflattenSlotId <$>
                         choose (succ lastKEoSWord, rollbackFrom)
-                return $ mkVssCertificate sk binVssPK thisEpoch
+                return $ mkVssCertificate protocolMagic sk binVssPK thisEpoch
         certsToRollback <- nubOrdOn vcVssKey <$>
             vectorOf @VssCertificate certsToRollbackN rollbackGen
         return $ Rollback (SscGlobalState mempty mempty mempty goodVssCertData)

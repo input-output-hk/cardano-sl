@@ -20,15 +20,16 @@ import           System.Wlog (CanLog, HasLoggerName, logDebug, logError, logInfo
 import           Pos.Binary (Raw)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Update.Network (submitUpdateProposal, submitVote)
-import           Pos.Communication (SendActions, immediateConcurrentConversations)
+import           Pos.Core (protocolMagic)
 import           Pos.Crypto (Hash, emptyPassphrase, hash, hashHexF, unsafeHash, withSafeSigner,
                              withSafeSigners)
+import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Exception (reportFatalError)
 import           Pos.Update (SystemTag, UpId, UpdateData (..), installerHash, mkUpdateProposalWSign,
                              mkUpdateVoteSafe)
 
 import           Lang.Value (ProposeUpdateParams (..), ProposeUpdateSystem (..))
-import           Mode (CmdCtx (..), MonadAuxxMode, getCmdCtx)
+import           Mode (MonadAuxxMode)
 import           Repl (PrintAction)
 
 ----------------------------------------------------------------------------
@@ -37,25 +38,21 @@ import           Repl (PrintAction)
 
 vote
     :: MonadAuxxMode m
-    => SendActions m
+    => Diffusion m
     -> Int
     -> Bool
     -> UpId
     -> m ()
-vote sendActions idx decision upid = do
-    CmdCtx{ccPeers} <- getCmdCtx
+vote diffusion idx decision upid = do
     logDebug $ "Submitting a vote :" <> show (idx, decision, upid)
     skey <- (!! idx) <$> getSecretKeysPlain
     mbVoteUpd <- withSafeSigner skey (pure emptyPassphrase) $ mapM $ \signer ->
-        pure $ mkUpdateVoteSafe signer upid decision
+        pure $ mkUpdateVoteSafe protocolMagic signer upid decision
     case mbVoteUpd of
         Nothing -> logError "Invalid passphrase"
         Just voteUpd -> do
-            if null ccPeers
-                then logError "Error: no addresses specified"
-                else do
-                    submitVote (immediateConcurrentConversations sendActions ccPeers) voteUpd
-                    logInfo "Submitted vote"
+            submitVote diffusion voteUpd
+            logInfo "Submitted vote"
 
 ----------------------------------------------------------------------------
 -- Propose, hash installer
@@ -63,11 +60,10 @@ vote sendActions idx decision upid = do
 
 propose
     :: MonadAuxxMode m
-    => SendActions m
+    => Diffusion m
     -> ProposeUpdateParams
     -> m UpId
-propose sendActions ProposeUpdateParams{..} = do
-    CmdCtx{ccPeers} <- getCmdCtx
+propose diffusion ProposeUpdateParams{..} = do
     logDebug "Proposing update..."
     skey <- (!! puSecretKeyIdx) <$> getSecretKeysPlain
     updateData <- mapM updateDataElement puUpdates
@@ -81,23 +77,20 @@ propose sendActions ProposeUpdateParams{..} = do
         let publisherSS = ss !! if not puVoteAll then 0 else puSecretKeyIdx
         let updateProposal =
                 mkUpdateProposalWSign
+                    protocolMagic
                     puBlockVersion
                     puBlockVersionModifier
                     puSoftwareVersion
                     udata
                     def
                     publisherSS
-        if null ccPeers
-            then reportFatalError "Error: no addresses specified"
-            else do
-                let upid = hash updateProposal
-                let enqueue = immediateConcurrentConversations sendActions ccPeers
-                submitUpdateProposal enqueue ss updateProposal
-                if not puVoteAll then
-                    putText (sformat ("Update proposal submitted, upId: "%hashHexF) upid)
-                else
-                    putText (sformat ("Update proposal submitted along with votes, upId: "%hashHexF) upid)
-                return upid
+        let upid = hash updateProposal
+        submitUpdateProposal diffusion ss updateProposal
+        if not puVoteAll then
+            putText (sformat ("Update proposal submitted, upId: "%hashHexF) upid)
+        else
+            putText (sformat ("Update proposal submitted along with votes, upId: "%hashHexF) upid)
+        return upid
 
 updateDataElement :: MonadAuxxMode m => ProposeUpdateSystem -> m (SystemTag, UpdateData)
 updateDataElement ProposeUpdateSystem{..} = do

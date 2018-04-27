@@ -30,6 +30,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Formatting (sformat, (%))
 import           System.Wlog (WithLogger, logWarning)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HasConfiguration, HeaderHash,
@@ -48,15 +49,16 @@ import           Pos.Update.MemState (LocalVotes, MemPool (..), MemState (..), M
                                       UpdateProposals, addToMemPool, withUSLock)
 import           Pos.Update.Poll (MonadPoll (deactivateProposal), MonadPollRead (getProposal),
                                   PollModifier, PollVerFailure (..), evalPollT, execPollT,
-                                  filterProposalsByThd, modifyPollModifier, normalizePoll,
-                                  refreshPoll, reportUnexpectedError, runDBPoll, runPollT,
-                                  verifyAndApplyUSPayload)
+                                  filterProposalsByThd, getAdoptedBV, modifyPollModifier,
+                                  normalizePoll, refreshPoll, reportUnexpectedError, runDBPoll,
+                                  runPollT, verifyAndApplyUSPayload)
 import           Pos.Update.Poll.Types (canCombineVotes, psVotes)
 import           Pos.Util.Util (HasLens (..), HasLens')
 
 type USLocalLogicMode ctx m =
     ( MonadIO m
     , MonadDBRead m
+    , MonadUnliftIO m
     , WithLogger m
     , MonadReader ctx m
     , HasLens UpdateContext ctx UpdateContext
@@ -127,7 +129,7 @@ processSkeleton payload =
     withUSLock $
     runExceptT $
     modifyMemState $ \ms@MemState {..} -> do
-        dbTip <- DB.getTip
+        dbTip <- lift DB.getTip
         -- We must check tip here, because we can't be sure that tip
         -- in DB is the same as the tip in memory. Normally it will be
         -- the case, but if normalization fails, it won't be true.
@@ -138,24 +140,29 @@ processSkeleton payload =
         unless (dbTip == msTip) $ do
             let err = PollTipMismatch {ptmTipMemory = msTip, ptmTipDB = dbTip}
             throwError err
-        maxBlockSize <- bvdMaxBlockSize <$> DB.getAdoptedBVData
+        maxBlockSize <- bvdMaxBlockSize <$> lift DB.getAdoptedBVData
         msIntermediate <-
             -- TODO: This is a rather arbitrary limit, we should revisit it (see CSL-1664)
-            if | maxBlockSize * 2 <= mpSize msPool -> refreshMemPool ms
+            if | maxBlockSize * 2 <= mpSize msPool -> lift (refreshMemPool ms)
                | otherwise -> pure ms
         processSkeletonDo msIntermediate
   where
     processSkeletonDo ms@MemState {..} = do
-        modifier <-
-            runDBPoll . evalPollT msModifier . execPollT def $
-            verifyAndApplyUSPayload True (Left msSlot) payload
-        let newModifier = modifyPollModifier msModifier modifier
-        let newPool = addToMemPool payload msPool
-        pure $ ms {msModifier = newModifier, msPool = newPool}
+        modifierOrFailure <-
+            lift . runDBPoll . runExceptT . evalPollT msModifier . execPollT def $ do
+                lastAdopted <- getAdoptedBV
+                verifyAndApplyUSPayload lastAdopted True (Left msSlot) payload
+        case modifierOrFailure of
+            Left failure -> throwError failure
+            Right modifier -> do
+                let newModifier = modifyPollModifier msModifier modifier
+                let newPool = addToMemPool payload msPool
+                pure $ ms {msModifier = newModifier, msPool = newPool}
 
 -- Remove most useless data from mem pool to make it smaller.
 refreshMemPool
     :: ( MonadDBRead m
+       , MonadUnliftIO m
        , MonadIO m
        , MonadReader ctx m
        , HasLens UpdateContext ctx UpdateContext

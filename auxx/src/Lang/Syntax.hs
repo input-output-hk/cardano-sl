@@ -17,12 +17,15 @@ import           Lang.Name (Name)
 import           Pos.Core (Address, BlockVersion, SoftwareVersion, StakeholderId)
 import           Pos.Crypto (AHash, PublicKey)
 
-data Expr
+data Expr cmd
     = ExprUnit
-    | ExprGroup (NonEmpty Expr)
-    | ExprProcCall (ProcCall Expr)
+    | ExprGroup (NonEmpty (Expr cmd))
+    | ExprProcCall (ProcCall cmd (Expr cmd))
     | ExprLit Lit
-    deriving (Eq, Ord, Show)
+
+deriving instance Eq cmd => Eq (Expr cmd)
+deriving instance Ord cmd => Ord (Expr cmd)
+deriving instance Show cmd => Show (Expr cmd)
 
 data Lit
     = LitNumber Scientific
@@ -36,12 +39,12 @@ data Lit
     | LitFilePath FilePath
     deriving (Eq, Ord, Show)
 
-data ProcCall a = ProcCall Name [Arg a]
+data ProcCall cmd a = ProcCall cmd [Arg a]
     deriving (Functor, Foldable, Traversable)
 
-deriving instance Eq a => Eq (ProcCall a)
-deriving instance Ord a => Ord (ProcCall a)
-deriving instance Show a => Show (ProcCall a)
+deriving instance (Eq cmd, Eq a) => Eq (ProcCall cmd a)
+deriving instance (Ord cmd, Ord a) => Ord (ProcCall cmd a)
+deriving instance (Show cmd, Show a) => Show (ProcCall cmd a)
 
 data Arg a = ArgPos a | ArgKw Name a
     deriving (Functor, Foldable, Traversable)

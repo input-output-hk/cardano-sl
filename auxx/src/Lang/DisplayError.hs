@@ -5,6 +5,7 @@ module Lang.DisplayError
     , ppTypeName
     , ppParseError
     , ppProcError
+    , ppResolveErrors
     , renderAuxxDoc
     ) where
 
@@ -80,13 +81,14 @@ ppProcError ProcError{..} = ppArgumentError peArgumentError <$> typeErrorsDoc
              (indent 2 . hcat . map ppTypeError . toList) peTypeErrors
 
 ppEvalError :: EvalError -> Doc
-ppEvalError (CommandNotSupported name) =
-        "Command" <+> (squotes . highlight . nameToDoc) name
-    <+> "is unavailable. Try" <+> (squotes . highlight) "help"
 ppEvalError (InvalidArguments name procError) =
         "Invalid arguments for" <+> (squotes . highlight . nameToDoc) name `mappend` ":"
     <$> indent 2 (ppProcError procError)
 
+ppResolveErrors :: NonEmpty Name -> Doc
+ppResolveErrors names =
+    "Commands not available:" <+>
+    hcat (punctuate (text ", ") . map nameToDoc $ toList names)
 
 renderLine :: Int -> Int -> Text -> Doc
 renderLine start end str = text str

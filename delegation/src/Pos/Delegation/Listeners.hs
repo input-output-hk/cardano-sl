@@ -4,7 +4,8 @@
 -- | Server listeners for delegation logic.
 
 module Pos.Delegation.Listeners
-       ( delegationRelays
+       ( handlePsk
+       , DlgListenerConstraint
        ) where
 
 import           Universum
@@ -12,11 +13,11 @@ import           Universum
 import           Formatting (build, sformat, shown, (%))
 import           Mockable (CurrentTime, Delay, Mockable)
 import           System.Wlog (WithLogger, logDebug, logWarning)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Delegation ()
-import           Pos.Communication.Limits.Types (MessageLimited)
-import           Pos.Communication.Protocol (Message, MsgType (..))
-import           Pos.Communication.Relay (DataMsg, DataParams (..), Relay (..))
+import           Pos.Communication.Protocol (Message)
+import           Pos.Communication.Relay (DataMsg)
 import           Pos.Core (ProxySKHeavy)
 import           Pos.DB.Class (MonadBlockDBRead, MonadGState)
 import           Pos.Delegation.Class (MonadDelegation)
@@ -27,14 +28,14 @@ import           Pos.StateLock (StateLock)
 import           Pos.Util (HasLens')
 
 -- Message constraints we need to be defined.
-type DlgMessageConstraint m
+type DlgMessageConstraint
      = ( Message (DataMsg ProxySKHeavy)
-       , MessageLimited (DataMsg ProxySKHeavy) m
        )
 
 -- | This is a subset of 'WorkMode'.
 type DlgListenerConstraint ctx m
      = ( MonadIO m
+       , MonadUnliftIO m
        , MonadDelegation ctx m
        , MonadMask m
        , Mockable Delay m
@@ -44,32 +45,22 @@ type DlgListenerConstraint ctx m
        , HasLens' ctx StateLock
        , HasLrcContext ctx
        , WithLogger m
-       , DlgMessageConstraint m
-       , HasDlgConfiguration)
+       , DlgMessageConstraint
+       , HasDlgConfiguration
+       )
 
--- | Listeners for requests related to delegation processing.
-delegationRelays
-    :: forall ctx m. DlgListenerConstraint ctx m
-    => [Relay m]
-delegationRelays = [ pskHeavyRelay ]
-
-pskHeavyRelay
-    :: forall ctx m . DlgListenerConstraint ctx m
-    => Relay m
-pskHeavyRelay = Data $ DataParams MsgTransaction $ \_ _ -> handlePsk
-  where
-    handlePsk :: DlgListenerConstraint ctx m => ProxySKHeavy -> m Bool
-    handlePsk pSk = do
-        logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
-        verdict <- processProxySKHeavy pSk
-        logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
-        case verdict of
-            PHTipMismatch -> do
-                -- We're probably updating state over epoch, so
-                -- leaders can be calculated incorrectly. This is
-                -- really weird and must not happen. We'll just retry.
-                logWarning "Tip mismatch happened in delegation db!"
-                handlePsk pSk
-            PHAdded -> pure True
-            PHRemoved -> pure True
-            _ -> pure False
+handlePsk :: DlgListenerConstraint ctx m => ProxySKHeavy -> m Bool
+handlePsk pSk = do
+    logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
+    verdict <- processProxySKHeavy pSk
+    logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
+    case verdict of
+        PHTipMismatch -> do
+            -- We're probably updating state over epoch, so
+            -- leaders can be calculated incorrectly. This is
+            -- really weird and must not happen. We'll just retry.
+            logWarning "Tip mismatch happened in delegation db!"
+            handlePsk pSk
+        PHAdded -> pure True
+        PHRemoved -> pure True
+        _ -> pure False

@@ -38,6 +38,7 @@ run
 *#
 .#*
 .dir-locals.el
+.projectile
 GTAGS
 GRTAGS
 GPATH

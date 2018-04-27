@@ -8454,6 +8454,8 @@ inherit (pkgs) mesa;};
            pname = "contravariant";
            version = "1.4.1";
            sha256 = "c93d3d619fa378f3fdf92c53bb8b04b8f47963b88aba7cfa54b57656189ad0ed";
+           revision = "1";
+           editedCabalFile = "0qj5nymccrb9p0cd6hffsy90jidjng14g9yv95z8v6h4q84sbzvx";
            libraryHaskellDepends = [
              base StateVar transformers transformers-compat
            ];
@@ -8913,6 +8915,8 @@ inherit (pkgs) mesa;};
            pname = "crypto-enigma";
            version = "0.0.2.11";
            sha256 = "c1d7b517532749404f71cd8aba67577f0b3792151596002b144d39ce5c94a872";
+           revision = "1";
+           editedCabalFile = "1wh09ma0xr8lgj0a2ybp6kxisi36cl2kiqz2akhy915v6gpkjkyz";
            libraryHaskellDepends = [ base containers MissingH mtl split ];
            doHaddock = false;
            doCheck = false;
@@ -14869,6 +14873,8 @@ inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
            pname = "gl";
            version = "0.8.0";
            sha256 = "aa4d2838157c86da920bda651458a4266fccc7c291ea93a69558ab02540e1439";
+           revision = "1";
+           editedCabalFile = "17m5vagiq1v7zg6409f56qqy28jd0xp13yk44s661rcwj0f4pd14";
            setupHaskellDepends = [
              base Cabal containers directory filepath hxt transformers
            ];
@@ -24160,6 +24166,8 @@ inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
            pname = "mmark";
            version = "0.0.5.6";
            sha256 = "fc036385fd4cea07a490df00d8fe443cc6656a6d090d537d4d5e860564ef1234";
+           revision = "1";
+           editedCabalFile = "02b0ycywjhzx1ll36l38mwp2gy677hgsqpq2mwyi277ykbrwnsdk";
            enableSeparateDataOutput = true;
            libraryHaskellDepends = [
              aeson base case-insensitive containers data-default-class deepseq
@@ -24204,8 +24212,8 @@ inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
            pname = "mmark-ext";
            version = "0.2.0.0";
            sha256 = "33c887800c99db79747a79f66987919f0407453e01a75baae8007d64b56c8eb1";
-           revision = "1";
-           editedCabalFile = "0sql0z4123v5kzqcganfaag6ijl3j7lw52d3c50r9qwwg8q2dydz";
+           revision = "2";
+           editedCabalFile = "0h47hy97mdan3cnxppf0yarmis81irc0c92nm1xv9f6w35li7rkq";
            enableSeparateDataOutput = true;
            libraryHaskellDepends = [
              base foldl lucid microlens mmark modern-uri skylighting text
@@ -36112,6 +36120,8 @@ inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
            pname = "text-format";
            version = "0.3.1.1";
            sha256 = "6de112764446a65370204f35a5fc4b1831106049f90918545d5dcd2ddd7fee0b";
+           revision = "1";
+           editedCabalFile = "1ap2paddh2q1ifs3nwdj0f1r7fypnsa669l7gdvgyfidz3w5vzic";
            libraryHaskellDepends = [
              array base double-conversion ghc-prim integer-gmp old-locale text
              time transformers
@@ -37290,6 +37300,8 @@ inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
            pname = "transformers-either";
            version = "0.0.2";
            sha256 = "aaf4fd14cbe09250e384271b478d51e09a0d4978ff53f876b2837e75f5cb4284";
+           revision = "1";
+           editedCabalFile = "134big9w9307vjmj6p6m3wgmh4lrvv8dyg0iw2nm54p9kg0c6ga8";
            libraryHaskellDepends = [ base text transformers ];
            doHaddock = false;
            doCheck = false;

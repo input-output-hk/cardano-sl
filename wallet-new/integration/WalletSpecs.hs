@@ -42,6 +42,17 @@ walletSpecs _ wc = do
 
         it "RestoreWallet with the same mnemonics throws WalletAlreadyExists" $
             testWalletAlreadyExists RestoreWallet
+
+        it "Can accept Unicode characters" $ do
+            newWallet <- randomWallet CreateWallet
+            wallet <- createWalletCheck wc newWallet
+
+            eresp <- updateWallet wc (walId wallet) WalletUpdate
+                { uwalName = "patate漢patate字patat"
+                , uwalAssuranceLevel = NormalAssurance
+                }
+
+            eresp `shouldPrism_` _Right
   where
     testWalletAlreadyExists action = do
             newWallet1 <- randomWallet action
@@ -52,7 +63,7 @@ walletSpecs _ wc = do
                         }
             -- First wallet creation/restoration should succeed
             result <- postWallet wc newWallet1
-            void $ result `shouldPrism` _Right
+            result `shouldPrism_` _Right
             -- Second wallet creation/restoration should rise WalletAlreadyExists
             eresp <- postWallet wc newWallet2
             clientError <- eresp `shouldPrism` _Left

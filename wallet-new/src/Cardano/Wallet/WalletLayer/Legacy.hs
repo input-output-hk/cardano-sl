@@ -10,11 +10,13 @@ module Cardano.Wallet.WalletLayer.Legacy
 import           Universum
 
 import           Control.Monad.IO.Unlift (MonadUnliftIO)
+import           Control.Exception.Safe (try)
 import           Data.Coerce (coerce)
 
-import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..),
-                                                   monadThrowToEither)
+import           Cardano.Wallet.WalletLayer.Error
+import           Cardano.Wallet.WalletLayer.Legacy.Transactions (pwlCreateTx, pwlEstimateFees,
+                                                                 pwlGetTxs)
+import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
@@ -43,6 +45,9 @@ import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB, askWal
                                              getWalletAddresses, setWalletMeta)
 import           Pos.Wallet.Web.State.Storage (getWalletInfo)
 
+import           Pos.Wallet.Web.Methods.History (MonadWalletHistory)
+import           Pos.Wallet.Web.Methods.Txp (MonadWalletTxFull)
+
 
 -- | Let's unify all the requirements for the legacy wallet.
 type MonadLegacyWallet ctx m =
@@ -53,6 +58,8 @@ type MonadLegacyWallet ctx m =
     , MonadThrow m
     , MonadWalletLogicRead ctx m
     , MonadKeys m
+    , MonadWalletTxFull ctx m
+    , MonadWalletHistory ctx m
     )
 
 
@@ -84,21 +91,25 @@ passiveWalletLayer
     :: forall ctx m. MonadLegacyWallet ctx m
     => PassiveWalletLayer m
 passiveWalletLayer = PassiveWalletLayer
-    { _pwlCreateWallet      = monadThrowToEither ... pwlCreateWallet
-    , _pwlGetWalletIds      = monadThrowToEither ... pwlGetWalletIds
-    , _pwlGetWallet         = monadThrowToEither ... pwlGetWallet
-    , _pwlUpdateWallet      = monadThrowToEither ... pwlUpdateWallet
-    , _pwlDeleteWallet      = monadThrowToEither ... pwlDeleteWallet
+    { _pwlCreateWallet      = try ... pwlCreateWallet
+    , _pwlGetWalletIds      = try ... pwlGetWalletIds
+    , _pwlGetWallet         = try ... pwlGetWallet
+    , _pwlUpdateWallet      = try ... pwlUpdateWallet
+    , _pwlDeleteWallet      = try ... pwlDeleteWallet
 
-    , _pwlCreateAccount     = monadThrowToEither ... pwlCreateAccount
-    , _pwlGetAccounts       = monadThrowToEither ... pwlGetAccounts
-    , _pwlGetAccount        = monadThrowToEither ... pwlGetAccount
-    , _pwlUpdateAccount     = monadThrowToEither ... pwlUpdateAccount
-    , _pwlDeleteAccount     = monadThrowToEither ... pwlDeleteAccount
+    , _pwlCreateAccount     = try ... pwlCreateAccount
+    , _pwlGetAccounts       = try ... pwlGetAccounts
+    , _pwlGetAccount        = try ... pwlGetAccount
+    , _pwlUpdateAccount     = try ... pwlUpdateAccount
+    , _pwlDeleteAccount     = try ... pwlDeleteAccount
 
-    , _pwlCreateAddress     = monadThrowToEither ... pwlCreateAddress
-    , _pwlGetAddresses      = monadThrowToEither ... pwlGetAddresses
-    , _pwlIsAddressValid    = monadThrowToEither ... pwlIsAddressValid
+    , _pwlCreateAddress     = try ... pwlCreateAddress
+    , _pwlGetAddresses      = try ... pwlGetAddresses
+    , _pwlIsAddressValid    = try ... pwlIsAddressValid
+
+    , _pwlCreateTx          = try ... pwlCreateTx
+    , _pwlGetTxs            = try ... pwlGetTxs
+    , _pwlEstimateFees      = try ... pwlEstimateFees
     }
 
 ------------------------------------------------------------
@@ -150,7 +161,7 @@ pwlGetWallet wId = do
     cWId        <- migrate wId
     wallet      <- V0.getWallet cWId
 
-    maybeThrow (WalletNotFound wId) $ do
+    maybeThrow (GetWalletWalletNotFound wId) $ do
         walletInfo  <- getWalletInfo cWId ws
         migrate (wallet, walletInfo, Nothing @ChainDifficulty)
 
@@ -304,5 +315,4 @@ pwlIsAddressValid wAddr = do
     cAddress    <- migrate $ addrId wAddr
     isValid     <- V0.isValidAddress cAddress
     pure AddressValidity{..}
-
 

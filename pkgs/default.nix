@@ -7161,13 +7161,15 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-crypto" = callPackage
-        ({ mkDerivation, aeson, base, binary, bytestring, cardano-crypto
-         , cardano-sl-binary, cardano-sl-util, cborg, cpphs, cryptonite
-         , cryptonite-openssl, data-default, ed25519, formatting
-         , generic-arbitrary, hashable, lens, memory, mtl, pvss
-         , quickcheck-instances, reflection, safe-exceptions, scrypt
-         , serokell-util, stdenv, text, text-format, universum
-         , unordered-containers
+        ({ mkDerivation, aeson, base, binary, bytestring, canonical-json
+         , cardano-crypto, cardano-sl-binary, cardano-sl-util, cborg, cereal
+         , containers, cpphs, cryptonite, cryptonite-openssl, data-default
+         , ed25519, extra, filelock, fmt, formatting, generic-arbitrary
+         , half, hashable, hspec, lens, memory, MonadRandom, mtl, pvss
+         , QuickCheck, quickcheck-instances, random, reflection
+         , safe-exceptions, safecopy, scrypt, serokell-util, stdenv, tagged
+         , text, text-format, time-units, universum, unordered-containers
+         , vector
          }:
          mkDerivation {
            pname = "cardano-sl-crypto";
@@ -7181,6 +7183,15 @@ inherit (pkgs) mesa;};
              serokell-util text text-format universum unordered-containers
            ];
            libraryToolDepends = [ cpphs ];
+           testHaskellDepends = [
+             base bytestring canonical-json cardano-sl-binary cardano-sl-util
+             cborg cereal containers cryptonite data-default extra filelock fmt
+             formatting generic-arbitrary half hspec lens memory MonadRandom mtl
+             pvss QuickCheck quickcheck-instances random reflection safecopy
+             serokell-util tagged text text-format time-units universum
+             unordered-containers vector
+           ];
+           testToolDepends = [ cpphs ];
            doHaddock = false;
            description = "Cardano SL - cryptography primitives";
            license = stdenv.lib.licenses.mit;

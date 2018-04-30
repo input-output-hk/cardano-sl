@@ -1,4 +1,5 @@
-resolver: lts-11.2
+resolver: nightly-2018-04-21
+allow-newer: true
 
 flags:
   ether:
@@ -77,10 +78,12 @@ packages:
       git: https://github.com/avieth/network-transport-inmemory
       commit: 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
   extra-dep: true
+
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 287cc575fafe86af9d24af9d012c47f9d3f04da0
+    commit: 19257956ec6563fa650e591ebd6250acf95a40c9
   extra-dep: true
+
 - location:
     git: https://github.com/haskell-crypto/cryptonite
     commit: 41d610fb18e2924d7aa704c37798e1c197557f3e
@@ -101,12 +104,12 @@ packages:
 # Version of "dns" with proper Windows & Unix multiple-nameservers support
 - location:
     git: https://github.com/kazu-yamamoto/dns.git
-    commit: b106470f0a93672af22cbc7ed6564b53c0f249ed
+    commit: 18ebc30692c71f27746a9faf06c6fc78e19bbe7b
   extra-dep: true
 
 - location:
-    git: https://github.com/well-typed/canonical-json.git
-    commit: 2d261bb971bada1893753b503452d9e6e217bc4a
+    git: https://github.com/angerman/canonical-json.git
+    commit: 37f8140af7b72c794c6293193433fd6dfab7b023
   extra-dep: true
 
 - location:
@@ -116,16 +119,67 @@ packages:
 
 # Because log-warper mainline depends on a lifted-async which depends upon a
 # buggy async
-- location:
-    git: https://github.com/input-output-hk/log-warper.git
-    commit: fa925f9dadf239b38e2ffcc35f9d241a9fcb7d55
-  extra-dep: true
+# - location:
+#    git: https://github.com/input-output-hk/log-warper.git
+#    commit: 5271ab6c33541b8155ca203e714875974ec116be
+#  extra-dep: true
 
 # Because it includes a bunch of safecopy instances that we currently rely upon.
 # Also the 'Serokell.AcidState.ExtendedState' thing.
 - location:
     git: https://github.com/serokell/acid-state.git
     commit: 1049699df411c9584523ba7424cba1f3f82ac419
+  extra-dep: true
+
+# Because OneTuple 0.2.1 does not work with 8.4.1
+- location:
+    git: https://github.com/phadej/OneTuple.git
+    commit: e6e789484d41fc00ad8a0c0f947554216ed6d772
+  extra-dep: true
+
+# Text-Format doesn't work with 8.4.1
+- location:
+    git: https://github.com/ivan-m/graphviz.git
+    commit: b7539aa832f2a66a4bb4b6538cefe704ffd7d21a
+  extra-dep: true
+
+- location:
+    git: https://github.com/diagrams/svg-builder.git
+    commit: 29cbcb3b03727ef1af08a8c262bb7e2c2d6cbc46
+  extra-dep: true
+
+- location:
+    git: https://github.com/diagrams/diagrams-svg.git
+    commit: 90bb22f0b97dee448ae552ed09d0786c8b564f18
+  extra-dep: true
+
+- location:
+    git: https://github.com/diagrams/diagrams-postscript.git
+    commit: 913e1bb83a3ed1213b1da6c3777e0096df562edb
+  extra-dep: true
+
+- location:
+    git: https://github.com/angerman/haskell-chart.git
+    commit: 9be8663c253e2985a0cca629e366b3aa4eeec336
+    subdirs:
+      - chart
+      - chart-diagrams
+  extra-dep: true
+
+- location:
+    git: https://github.com/angerman/serokell-util.git
+    commit: 573a6f7f04d1d3a448b1eb509836ff890c270258
+  extra-dep: true
+
+- location:
+    git: https://github.com/angerman/universum.git
+    commit: edda5f6e52c642d8625ef22e16e6d737b81d9c54
+  extra-dep: true
+
+# aeson-diff with 8.4 compat is only in HEAD
+- location:
+    git: https://github.com/thsutton/aeson-diff.git
+    commit: ec68a6edccff549bc980fdaf51b03e8de59d8953
   extra-dep: true
 
 nix:
@@ -145,10 +199,12 @@ extra-deps:
 - hinotify-0.3.8.1
 
 # Serokell stuff
-- universum-1.1.0
-- serokell-util-0.8.0
+# - universum-1.1.1
+#- serokell-util-0.8.0
 # Because serokell-util
-- formatting-6.2.5
+- formatting-6.3.4
+- o-clock-0.1.1
+- fmt-0.6
 
 # Following 9 are not on stackage.
 - pvss-0.2.0
@@ -177,24 +233,35 @@ extra-deps:
 - gauge-0.2.1
 
 # Servant stuff not found on stackage
-- servant-quickcheck-0.0.6.0
+- servant-quickcheck-0.0.7.0
 - servant-multipart-0.11.1
 
 # Graphics stuff not found on stackage.
-- Chart-diagrams-1.8.2
-- graphviz-2999.19.0.0
-- diagrams-core-1.4.0.1
+# - Chart-diagrams-1.8.3
+- diagrams-core-1.4.1
 # diagrams-core implies lens < 4.16
-- lens-4.15.4
-# lens-4.15.4 implies free < 5
-- free-4.12.4
-- diagrams-lib-1.4.2
-- diagrams-postscript-1.4
-- diagrams-svg-1.4.1.1
+- diagrams-lib-1.4.2.1
 - diagrams-solve-0.1.1
 - SVGFonts-1.6.0.3
 - dual-tree-0.2.1
 
+# lts-2018-04-21
+- ether-0.5.1.0
+- active-0.2.0.13
+- autoexporter-1.1.9
+- fsnotify-0.2.1.2
+- ixset-typed-0.4
+- monoid-extras-0.4.4
+- servant-generic-0.1.0.1
+- servant-swagger-ui-0.3.0.3.13.2
+- statestack-0.2.0.5
+- tuple-0.3.0.2
+- uuid-1.3.13
+- wl-pprint-text-1.1.1.1
+- file-embed-lzma-0
+- groups-0.4.1.0
+- servant-swagger-ui-core-0.3
+- log-warper-1.8.11
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 

@@ -7128,26 +7128,25 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-core" = callPackage
-        ({ mkDerivation, aeson, ansi-terminal, autoexporter, base
-         , base58-bytestring, binary, bytestring, Cabal, canonical-json
-         , cardano-sl-binary, cardano-sl-crypto, cardano-sl-crypto-test
-         , cardano-sl-networking, cardano-sl-util, cborg, cereal, containers
-         , cpphs, cryptonite, data-default, deepseq, deriving-compat
-         , exceptions, extra, filelock, filepath, fmt, formatting
-         , generic-arbitrary, half, hashable, hspec, lens, log-warper
-         , memory, MonadRandom, mtl, plutus-prototype, pvss, QuickCheck
-         , quickcheck-instances, random, reflection, safe-exceptions
-         , safecopy, serokell-util, stdenv, tagged, template-haskell, text
-         , text-format, th-lift-instances, time, time-units, universum
-         , unordered-containers, vector
+        ({ mkDerivation, aeson, ansi-terminal, base, base58-bytestring
+         , binary, bytestring, Cabal, canonical-json, cardano-sl-binary
+         , cardano-sl-crypto, cardano-sl-crypto-test, cardano-sl-networking
+         , cardano-sl-util, cborg, cereal, containers, cpphs, cryptonite
+         , data-default, deepseq, deriving-compat, exceptions, extra
+         , filelock, filepath, fmt, formatting, generic-arbitrary, half
+         , hashable, hspec, lens, log-warper, memory, MonadRandom, mtl
+         , plutus-prototype, pvss, QuickCheck, quickcheck-instances, random
+         , reflection, safe-exceptions, safecopy, serokell-util, stdenv
+         , tagged, template-haskell, text, text-format, th-lift-instances
+         , time, time-units, universum, unordered-containers, vector
          }:
          mkDerivation {
            pname = "cardano-sl-core";
            version = "1.1.1";
            src = ./../core;
            libraryHaskellDepends = [
-             aeson ansi-terminal autoexporter base base58-bytestring binary
-             bytestring Cabal canonical-json cardano-sl-binary cardano-sl-crypto
+             aeson ansi-terminal base base58-bytestring binary bytestring Cabal
+             canonical-json cardano-sl-binary cardano-sl-crypto
              cardano-sl-crypto-test cardano-sl-networking cardano-sl-util cborg
              containers cryptonite data-default deepseq deriving-compat
              exceptions extra filepath fmt formatting generic-arbitrary hashable

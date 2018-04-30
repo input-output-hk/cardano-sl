@@ -337,6 +337,14 @@ getAddressSummary cAddr = do
 
     balance <- mkCCoin . fromMaybe minBound <$> getAddrBalance addr
     txIds <- getNewestFirst <$> getAddrHistory addr
+
+    let nTxs = length txIds
+
+    -- FIXME [CBR-119] Waiting for design discussion
+    when (nTxs > 1000) $
+        throwM $ Internal $ "Response too large: no more than 1000 transactions"
+            <> " can be returned at once. This issue is known and being worked on"
+
     transactions <- forM txIds $ \id -> do
         extra <- getTxExtraOrFail id
         tx <- getTxMain id extra

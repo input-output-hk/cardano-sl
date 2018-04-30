@@ -65,8 +65,7 @@ module UTxO.DSL (
   , utxoAddressForInput
     -- ** Chain
   , Block
-  , Blocks
-  , Chain(..)
+  , Chain
   , chainToLedger
   , utxoApplyBlock
   ) where
@@ -497,14 +496,14 @@ utxoRemoveInputs inps (Utxo utxo) = Utxo (utxo `withoutKeys` inps)
   Additional: chain
 -------------------------------------------------------------------------------}
 
-type Block  h a = OldestFirst [] (Transaction h a)
-type Blocks h a = OldestFirst [] (Block h a)
+-- | Block of transactions
+type Block h a = OldestFirst [] (Transaction h a)
 
 -- | A chain
 --
 -- A chain is just a series of blocks, here modelled simply as the transactions
 -- they contain, since the rest of the block information can then be inferred.
-data Chain h a = Chain { chainBlocks :: Blocks h a }
+type Chain h a = OldestFirst [] (Block h a)
 
 chainToLedger :: Transaction h a -> Chain h a -> Ledger h a
 chainToLedger boot = Ledger
@@ -512,7 +511,6 @@ chainToLedger boot = Ledger
                    . reverse
                    . (boot :)
                    . concatMap toList . toList
-                   . chainBlocks
 
 -- | Compute the UTxO after a block has been applied
 --
@@ -602,12 +600,12 @@ instance (Buildable a, Hash h a) => Buildable (Transaction h a) where
       trExtra
 
 instance (Buildable a, Hash h a) => Buildable (Chain h a) where
-  build Chain{..} = bprint
+  build blocks = bprint
       ( "Chain"
       % "{ blocks: " % listJson
       % "}"
       )
-      chainBlocks
+      blocks
 
 instance ( Buildable a, Hash h a, Foldable f) => Buildable (NewestFirst f (Transaction h a)) where
   build ts = bprint ("NewestFirst " % listJson) (toList ts)

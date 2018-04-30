@@ -18,10 +18,14 @@ module Pos.Wallet.Web.State.Storage
        , CurrentAndRemoved (..)
        , WalletBalances
        , WalBalancesAndUtxo
-       , WalletTip (..)
+       , WalletSyncState (..)
+       , RestorationBlockDepth (..)
+       , SyncThroughput (..)
+       , SyncStatistics (..)
        , PtxMetaUpdate (..)
        , Query
        , Update
+       , noSyncStatistics
        , getWalletStorage
        , flushWalletStorage
        , getProfile
@@ -33,13 +37,14 @@ module Pos.Wallet.Web.State.Storage
        , getWalletMeta
        , getWalletMetaIncludeUnready
        , getWalletPassLU
-       , getWalletSyncTip
+       , getWalletSyncState
        , getWalletAddresses
        , getWalletInfos
        , getWalletInfo
        , getAccountWAddresses
        , getWAddresses
        , doesWAddressExist
+       , isWalletRestoring
        , getTxMeta
        , getNextUpdate
        , getHistoryCache
@@ -58,6 +63,8 @@ module Pos.Wallet.Web.State.Storage
        , setWalletReady
        , setWalletPassLU
        , setWalletSyncTip
+       , setWalletRestorationSyncTip
+       , updateSyncStatistics
        , getWalletTxHistory
        , getWalletUtxo
        , getWalletBalancesAndUtxo
@@ -86,9 +93,12 @@ module Pos.Wallet.Web.State.Storage
        , cancelApplyingPtxs
        , cancelSpecificApplyingPtx
          -- * Exported only for testing purposes
+       , WalletTip_v0 (..)
        , AddressInfo_v0 (..)
        , AccountInfo_v0 (..)
+       , WalletInfo_v0(..)
        , WalletStorage_v2(..)
+       , WalletStorage_v3(..)
        ) where
 
 import           Universum
@@ -107,7 +117,8 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting ((%))
 import qualified Formatting as F
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
-import           Pos.Core (Address, HeaderHash, SlotId, Timestamp)
+import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HeaderHash, SlotId,
+                           Timestamp)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.SafeCopy ()
@@ -178,33 +189,78 @@ data AccountInfo = AccountInfo
 
 makeLenses ''AccountInfo
 
--- | Datatype which stores information about whether
--- or not a wallet has been synced with blockchain and if
--- it has, until which block.
+-- | A 'RestorationBlockDepth' is simply a @newtype@ wrapper over a 'ChainDifficulty',
+-- More specifically, it stores the simple but crucial information of when, relative to the blockchain,
+-- a certain wallet was restored.
+newtype RestorationBlockDepth =
+    RestorationBlockDepth { getRestorationBlockDepth :: ChainDifficulty }
+    deriving (Eq, Show)
+
+-- | Datatype which stores information about the sync state
+-- of this wallet. Syncing here is always relative to the blockchain.
 -- See "Pos.Wallet.Web.Tracking.Sync" for syncing functionality.
-data WalletTip
+data WalletSyncState
     = NotSynced
+    -- ^ A sync state associated with a brand-new, prestine wallet,
+    -- created by the user (or programmatically) to be later used.
+    | RestoringFrom !RestorationBlockDepth !HeaderHash
+    -- ^ This wallet has been restored from 'RestorationBlockDepth',
+    -- and is now tracking the blockchain up to 'HeaderHash'.
+    -- Whilst it might seem that storing the 'RestorationBlockDepth' is
+    -- redundant, it's a necessary evil to cover the case when the user
+    -- closes the wallet whilst the restoration is in progress. When the
+    -- wallet resumes its activity, this distinction (restoration vs normal
+    -- syncing) is important to correctly compute the balance for this wallet.
     | SyncedWith !HeaderHash
+    -- ^ This wallet is tracking the blockchain up to 'HeaderHash'.
     deriving (Eq)
+
+-- The 'SyncThroughput' is computed during the syncing phase in terms of
+-- how many blocks we can sync in one second. This information can be
+-- used by consumers of the API to construct heuristics on the state of the
+-- syncing (e.g. estimated completion time, for example).
+-- We also store the 'ChainDifficulty' we have been syncing up until now so
+-- API consumers can also compute progress in terms of percentage. We don't
+-- store this information in the 'WalletSyncState' directly as we cannot
+-- calculate the 'ChainDifficulty' from a 'HeaderHash', and that requires a
+-- RocksDB lookup, which would make migration harder to perform without
+-- incidents.
+data SyncStatistics = SyncStatistics {
+      wspThroughput             :: !SyncThroughput
+    , wspCurrentBlockchainDepth :: !ChainDifficulty
+    } deriving (Eq)
+
+-- ^ | The 'SyncThroughput', in blocks/sec. This can be roughly computed
+-- during the syncing process, to provide better estimate to the frontend
+-- on how much time the restoration/syncing progress is going to take.
+newtype SyncThroughput = SyncThroughput BlockCount
+     deriving (Eq, Ord, Show)
+
+zeroThroughput :: SyncThroughput
+zeroThroughput = SyncThroughput (BlockCount 0)
+
+noSyncStatistics :: SyncStatistics
+noSyncStatistics = SyncStatistics zeroThroughput (ChainDifficulty $ BlockCount 0)
 
 data WalletInfo = WalletInfo
     { -- | Wallet metadata (name, assurance, etc.)
-      _wiMeta         :: !WebTypes.CWalletMeta
+      _wiMeta           :: !WebTypes.CWalletMeta
       -- | Last time when wallet passphrase was updated.
-    , _wiPassphraseLU :: !WebTypes.PassPhraseLU
+    , _wiPassphraseLU   :: !WebTypes.PassPhraseLU
       -- | Wallet creation time.
-    , _wiCreationTime :: !POSIXTime
-      -- | Header hash until which wallet has been synced
-      -- (or @NotSynced@ if wallet hasn't beed synced at all)
-    , _wiSyncTip      :: !WalletTip
+    , _wiCreationTime   :: !POSIXTime
+      -- | Incapsulate the history of this wallet in terms of "lifecycle".
+    , _wiSyncState      :: !WalletSyncState
+      -- | Syncing statistics for this wallet, if any.
+    , _wiSyncStatistics :: !SyncStatistics
       -- | Pending states for all created transactions (information related
       -- to transaction resubmission).
       -- See "Pos.Wallet.Web.Pending" for resubmission functionality.
-    , _wsPendingTxs   :: !(HashMap TxId PendingTx)
+    , _wsPendingTxs     :: !(HashMap TxId PendingTx)
       -- | Wallets that are being synced are marked as not ready, and
       -- are excluded from api endpoints. This info should not be leaked
       -- into a client facing data structure (for example 'CWalletMeta')
-    , _wiIsReady      :: !Bool
+    , _wiIsReady        :: !Bool
     } deriving (Eq)
 
 makeLenses ''WalletInfo
@@ -356,9 +412,9 @@ getWalletMeta = getWalletMetaIncludeUnready False
 getWalletPassLU :: WebTypes.CId WebTypes.Wal -> Query (Maybe WebTypes.PassPhraseLU)
 getWalletPassLU cWalId = preview (wsWalletInfos . ix cWalId . wiPassphraseLU)
 
--- | Get wallet sync tip.
-getWalletSyncTip :: WebTypes.CId WebTypes.Wal -> Query (Maybe WalletTip)
-getWalletSyncTip cWalId = preview (wsWalletInfos . ix cWalId . wiSyncTip)
+-- | Get wallet sync state.
+getWalletSyncState :: WebTypes.CId WebTypes.Wal -> Query (Maybe WalletSyncState)
+getWalletSyncState cWalId = preview (wsWalletInfos . ix cWalId . wiSyncState)
 
 -- | Get IDs of all existing and /ready/ wallets.
 getWalletAddresses :: Query [WebTypes.CId WebTypes.Wal]
@@ -461,6 +517,17 @@ getCustomAddress t addr = view $ customAddressL t . at addr
 getPendingTxs :: Query [PendingTx]
 getPendingTxs = asks $ toListOf (wsWalletInfos . traversed . wsPendingTxs . traversed)
 
+-- | Returns 'True' if the input @Wallet@ (as identified by its @CId Wal@) is
+-- being restored, i.e. it has its 'WalletSyncState' on @RestoringFrom@.
+isWalletRestoring :: WebTypes.CId WebTypes.Wal -> Query Bool
+isWalletRestoring walletId = do
+    syncState <- getWalletSyncState walletId
+    return $ case syncState of
+         Nothing                  -> False
+         Just (SyncedWith _)      -> False
+         Just NotSynced           -> False
+         Just (RestoringFrom _ _) -> True
+
 -- | Get list of pending transactions related to given wallet.
 getWalletPendingTxs :: WebTypes.CId WebTypes.Wal -> Query (Maybe [PendingTx])
 getWalletPendingTxs wid =
@@ -495,7 +562,7 @@ createAccount accId cAccMeta =
 -- @isReady@ should be set to @False@ when syncing is still needed.
 createWallet :: WebTypes.CId WebTypes.Wal -> WebTypes.CWalletMeta -> Bool -> POSIXTime -> Update ()
 createWallet cWalId cWalMeta isReady curTime = do
-    let info = WalletInfo cWalMeta curTime curTime NotSynced mempty isReady
+    let info = WalletInfo cWalMeta curTime curTime NotSynced noSyncStatistics mempty isReady
     wsWalletInfos . at cWalId %= (<|> Just info)
 
 -- | Add new address given 'CWAddressMeta' (which contains information about
@@ -533,7 +600,20 @@ setWalletPassLU cWalId passLU = wsWalletInfos . ix cWalId . wiPassphraseLU .= pa
 -- | Declare that given wallet has been synced with blockchain up to block with given
 -- header hash.
 setWalletSyncTip :: WebTypes.CId WebTypes.Wal -> HeaderHash -> Update ()
-setWalletSyncTip cWalId hh = wsWalletInfos . ix cWalId . wiSyncTip .= SyncedWith hh
+setWalletSyncTip cWalId hh = wsWalletInfos . ix cWalId . wiSyncState .= SyncedWith hh
+
+-- | Deliberately-verbose transaction to update the 'SyncState' for this wallet during a
+-- restoration.
+setWalletRestorationSyncTip :: WebTypes.CId WebTypes.Wal
+                            -> RestorationBlockDepth
+                            -> HeaderHash
+                            -> Update ()
+setWalletRestorationSyncTip cWalId rhh hh = wsWalletInfos . ix cWalId . wiSyncState .= RestoringFrom rhh hh
+
+updateSyncStatistics :: WebTypes.CId WebTypes.Wal
+                     -> SyncStatistics
+                     -> Update ()
+updateSyncStatistics cWalId stats = wsWalletInfos . ix cWalId . wiSyncStatistics .= stats
 
 -- | Set meta data for transaction only if it hasn't been set already.
 -- FIXME: this will be removed later (temporary solution) (not really =\)
@@ -700,8 +780,8 @@ flushWalletStorage = modify flushDo
         , _wsUsedAddresses = HM.empty
         , _wsChangeAddresses = HM.empty
         }
-    flushWalletInfo wi = wi { _wiSyncTip = NotSynced
-                            , _wiIsReady = False
+    flushWalletInfo wi = wi { _wiSyncState = NotSynced
+                            , _wiIsReady   = False
                             }
 
 deriveSafeCopySimple 0 'base ''WebTypes.CCoin
@@ -730,10 +810,48 @@ deriveSafeCopySimple 0 'base ''PtxSubmitTiming
 deriveSafeCopySimple 0 'base ''PtxMetaUpdate
 deriveSafeCopySimple 0 'base ''PendingTx
 deriveSafeCopySimple 0 'base ''WAddressMeta
-deriveSafeCopySimple 0 'base ''WalletTip
-deriveSafeCopySimple 0 'base ''WalletInfo
+deriveSafeCopySimple 0 'base ''RestorationBlockDepth
+deriveSafeCopySimple 0 'base ''SyncThroughput
+deriveSafeCopySimple 0 'base ''SyncStatistics
 
 -- Legacy versions, for migrations
+
+data WalletTip_v0
+    = V0_NotSynced
+    | V0_SyncedWith !HeaderHash
+    deriving (Eq)
+
+deriveSafeCopySimple 0 'base      ''WalletTip_v0
+deriveSafeCopySimple 1 'extension ''WalletSyncState
+
+instance Migrate WalletSyncState where
+    type MigrateFrom WalletSyncState = WalletTip_v0
+    migrate  V0_NotSynced     = NotSynced
+    migrate (V0_SyncedWith h) = SyncedWith h
+
+data WalletInfo_v0 = WalletInfo_v0
+    { _v0_wiMeta         :: !WebTypes.CWalletMeta
+    , _v0_wiPassphraseLU :: !WebTypes.PassPhraseLU
+    , _v0_wiCreationTime :: !POSIXTime
+    , _v0_wiSyncTip      :: !WalletTip_v0
+    , _v0_wsPendingTxs   :: !(HashMap TxId PendingTx)
+    , _v0_wiIsReady      :: !Bool
+    }
+
+instance Migrate WalletInfo where
+    type MigrateFrom WalletInfo = WalletInfo_v0
+    migrate WalletInfo_v0{..} = WalletInfo
+        { _wiMeta           = _v0_wiMeta
+        , _wiPassphraseLU   = _v0_wiPassphraseLU
+        , _wiCreationTime   = _v0_wiCreationTime
+        , _wiSyncState      = migrate _v0_wiSyncTip
+        , _wiSyncStatistics = noSyncStatistics
+        , _wsPendingTxs     = _v0_wsPendingTxs
+        , _wiIsReady        = _v0_wiIsReady
+        }
+
+deriveSafeCopySimple 0 'base ''WalletInfo_v0
+deriveSafeCopySimple 1 'extension ''WalletInfo
 
 data AddressInfo_v0 = AddressInfo_v0
     { _v0_adiCWAddressMeta :: !WebTypes.CWAddressMeta
@@ -751,7 +869,7 @@ data AccountInfo_v0 = AccountInfo_v0
     }
 
 data WalletStorage_v0 = WalletStorage_v0
-    { _v0_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo)
+    { _v0_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo_v0)
     , _v0_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo_v0)
     , _v0_wsProfile         :: !WebTypes.CProfile
     , _v0_wsReadyUpdates    :: [WebTypes.CUpdateInfo]
@@ -763,7 +881,7 @@ data WalletStorage_v0 = WalletStorage_v0
     }
 
 data WalletStorage_v1 = WalletStorage_v1
-    { _v1_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo)
+    { _v1_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo_v0)
     , _v1_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo_v0)
     , _v1_wsProfile         :: !WebTypes.CProfile
     , _v1_wsReadyUpdates    :: [WebTypes.CUpdateInfo]
@@ -775,18 +893,29 @@ data WalletStorage_v1 = WalletStorage_v1
     }
 
 data WalletStorage_v2 = WalletStorage_v2
-    { _v2_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo)
+    { _v2_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo_v0)
     , _v2_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo_v0)
     , _v2_wsProfile         :: !WebTypes.CProfile
     , _v2_wsReadyUpdates    :: [WebTypes.CUpdateInfo]
     , _v2_wsTxHistory       :: !(HashMap (WebTypes.CId WebTypes.Wal) (HashMap WebTypes.CTxId WebTypes.CTxMeta))
     , _v2_wsHistoryCache    :: !(HashMap (WebTypes.CId WebTypes.Wal) (Map TxId TxHistoryEntry))
     , _v2_wsUtxo            :: !Utxo
-    -- @_wsBalances@ depends on @_wsUtxo@,
-    -- it's forbidden to update @_wsBalances@ without @_wsUtxo@
     , _v2_wsBalances        :: !WalletBalances
     , _v2_wsUsedAddresses   :: !CustomAddresses_v0
     , _v2_wsChangeAddresses :: !CustomAddresses_v0
+    }
+
+data WalletStorage_v3 = WalletStorage_v3
+    { _v3_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo_v0)
+    , _v3_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo)
+    , _v3_wsProfile         :: !WebTypes.CProfile
+    , _v3_wsReadyUpdates    :: [WebTypes.CUpdateInfo]
+    , _v3_wsTxHistory       :: !(HashMap (WebTypes.CId WebTypes.Wal) (HashMap WebTypes.CTxId WebTypes.CTxMeta))
+    , _v3_wsHistoryCache    :: !(HashMap (WebTypes.CId WebTypes.Wal) (Map TxId TxHistoryEntry))
+    , _v3_wsUtxo            :: !Utxo
+    , _v3_wsBalances        :: !WalletBalances
+    , _v3_wsUsedAddresses   :: !CustomAddresses
+    , _v3_wsChangeAddresses :: !CustomAddresses
     }
 
 deriveSafeCopySimple 0 'base ''AddressInfo_v0
@@ -798,7 +927,8 @@ deriveSafeCopySimple 1 'extension ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletStorage_v0
 deriveSafeCopySimple 1 'extension ''WalletStorage_v1
 deriveSafeCopySimple 2 'extension ''WalletStorage_v2
-deriveSafeCopySimple 3 'extension ''WalletStorage
+deriveSafeCopySimple 3 'extension ''WalletStorage_v3
+deriveSafeCopySimple 4 'extension ''WalletStorage
 
 -- | Unsafe address conversion for use in migration. This will throw an error if
 --   the address cannot be migrated.
@@ -860,19 +990,36 @@ instance Migrate WalletStorage_v2 where
         , _v2_wsChangeAddresses = _v1_wsChangeAddresses
         }
 
-instance Migrate WalletStorage where
-    type MigrateFrom WalletStorage = WalletStorage_v2
-    migrate WalletStorage_v2{..} = WalletStorage
-        { _wsWalletInfos     = _v2_wsWalletInfos
-        , _wsAccountInfos    = fmap migrate _v2_wsAccountInfos
-        , _wsProfile         = _v2_wsProfile
-        , _wsReadyUpdates    = _v2_wsReadyUpdates
-        , _wsTxHistory       = _v2_wsTxHistory
-        , _wsHistoryCache    = _v2_wsHistoryCache
-        , _wsUtxo            = _v2_wsUtxo
-        , _wsBalances        = _v2_wsBalances
-        , _wsUsedAddresses   = mapAddrKeys _v2_wsUsedAddresses
-        , _wsChangeAddresses = mapAddrKeys _v2_wsChangeAddresses
+instance Migrate WalletStorage_v3 where
+    type MigrateFrom WalletStorage_v3 = WalletStorage_v2
+    migrate WalletStorage_v2{..} = WalletStorage_v3
+        { _v3_wsWalletInfos     = _v2_wsWalletInfos
+        , _v3_wsAccountInfos    = fmap migrate _v2_wsAccountInfos
+        , _v3_wsProfile         = _v2_wsProfile
+        , _v3_wsReadyUpdates    = _v2_wsReadyUpdates
+        , _v3_wsTxHistory       = _v2_wsTxHistory
+        , _v3_wsHistoryCache    = _v2_wsHistoryCache
+        , _v3_wsUtxo            = _v2_wsUtxo
+        , _v3_wsBalances        = _v2_wsBalances
+        , _v3_wsUsedAddresses   = mapAddrKeys _v2_wsUsedAddresses
+        , _v3_wsChangeAddresses = mapAddrKeys _v2_wsChangeAddresses
         }
       where
-        mapAddrKeys = HM.fromList . fmap (first unsafeCIdToAddress) . HM.toList
+        mapAddrKeys  = HM.fromList . fmap (first unsafeCIdToAddress) . HM.toList
+
+instance Migrate WalletStorage where
+    type MigrateFrom WalletStorage = WalletStorage_v3
+    migrate WalletStorage_v3{..} = WalletStorage
+        { _wsWalletInfos     = migrateMapElements _v3_wsWalletInfos
+        , _wsAccountInfos    = _v3_wsAccountInfos
+        , _wsProfile         = _v3_wsProfile
+        , _wsReadyUpdates    = _v3_wsReadyUpdates
+        , _wsTxHistory       = _v3_wsTxHistory
+        , _wsHistoryCache    = _v3_wsHistoryCache
+        , _wsUtxo            = _v3_wsUtxo
+        , _wsBalances        = _v3_wsBalances
+        , _wsUsedAddresses   = _v3_wsUsedAddresses
+        , _wsChangeAddresses = _v3_wsChangeAddresses
+        }
+      where
+        migrateMapElements = HM.fromList . fmap (second migrate) . HM.toList

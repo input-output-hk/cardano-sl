@@ -11,6 +11,7 @@ import           Cardano.Wallet.API.V1.Types as V1
 
 import           Mockable (MonadMockable)
 import           Ntp.Client (NtpStatus)
+import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo)
 import           Servant
 
@@ -22,7 +23,8 @@ import qualified Pos.Wallet.Web.Methods.Misc as V0
 handlers :: ( HasConfigurations
             , HasCompileInfo
             )
-         => TVar NtpStatus
+         => Diffusion MonadV1
+         -> TVar NtpStatus
          -> ServerT Info.API MonadV1
 handlers = getInfo
 
@@ -35,19 +37,20 @@ getInfo :: ( HasConfigurations
            , MonadMockable m
            , MonadBlockchainInfo m
            )
-        => TVar NtpStatus
+        => Diffusion MonadV1
+        -> TVar NtpStatus
         -> m (WalletResponse NodeInfo)
-getInfo ntpStatus = do
+getInfo Diffusion{..} ntpStatus = do
+    subscribers <- atomically $ readTVar subscriptionStatus
     spV0 <- V0.syncProgress
     syncProgress   <- migrate spV0
     timeDifference <- V0.localTimeDifference ntpStatus
-    return $ single NodeInfo {
-          nfoSyncProgress = syncProgress
-        , nfoBlockchainHeight = V1.mkBlockchainHeight . Core.getChainDifficulty <$> V0._spNetworkCD spV0
+    return $ single NodeInfo
+        { nfoSyncProgress          = syncProgress
+        , nfoSubscriptionStatus    = subscribers
+        , nfoBlockchainHeight      = V1.mkBlockchainHeight . Core.getChainDifficulty <$> V0._spNetworkCD spV0
         , nfoLocalBlockchainHeight = V1.mkBlockchainHeight . Core.getChainDifficulty . V0._spLocalCD $ spV0
-        , nfoLocalTimeInformation =
-            TimeInfo
-                { timeDifferenceFromNtpServer =
-                    fmap V1.mkLocalTimeDifference timeDifference
-                }
+        , nfoLocalTimeInformation  = TimeInfo
+            { timeDifferenceFromNtpServer = fmap V1.mkLocalTimeDifference timeDifference
+            }
         }

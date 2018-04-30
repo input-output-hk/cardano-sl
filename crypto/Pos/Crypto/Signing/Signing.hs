@@ -9,6 +9,7 @@ module Pos.Crypto.Signing.Signing
 
        -- * Signing and verification
        , sign
+       , signEncoded
        , checkSig                      -- reexport
        , fullSignatureHexF
        , parseFullSignature
@@ -42,7 +43,7 @@ import qualified Serokell.Util.Base16 as B16
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.Crypto ()
-import           Pos.Crypto.Configuration (HasCryptoConfiguration)
+import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.Crypto.Signing.Check (checkSig, checkSigRaw, validateProxySecretKey,
                                            verifyProxyCert)
 import           Pos.Crypto.Signing.Tag (signTag)
@@ -94,29 +95,39 @@ parseFullSignature s = do
 
 -- | Encode something with 'Binary' and sign it.
 sign
-    :: (HasCryptoConfiguration, Bi a)
-    => SignTag         -- ^ See docs for 'SignTag'
+    :: (Bi a)
+    => ProtocolMagic
+    -> SignTag         -- ^ See docs for 'SignTag'
     -> SecretKey
     -> a
     -> Signature a
-sign t k = coerce . signRaw (Just t) k . Bi.serialize'
+sign pm t k = coerce . signRaw pm (Just t) k . Bi.serialize'
+
+-- | Like 'sign' but without the 'Bi' constraint.
+signEncoded
+    :: ProtocolMagic
+    -> SignTag
+    -> SecretKey
+    -> ByteString
+    -> Signature a
+signEncoded pm t k = coerce . signRaw pm (Just t) k
 
 -- | Sign a bytestring.
 signRaw
-    :: HasCryptoConfiguration
-    => Maybe SignTag   -- ^ See docs for 'SignTag'. Unlike in 'sign', we
+    :: ProtocolMagic
+    -> Maybe SignTag   -- ^ See docs for 'SignTag'. Unlike in 'sign', we
                        -- allow no tag to be provided just in case you need
                        -- to sign /exactly/ the bytestring you provided
     -> SecretKey
     -> ByteString
     -> Signature Raw
-signRaw mbTag (SecretKey k) x = Signature (CC.sign emptyPass k (tag <> x))
+signRaw pm mbTag (SecretKey k) x = Signature (CC.sign emptyPass k (tag <> x))
   where
-    tag = maybe mempty signTag mbTag
+    tag = maybe mempty (signTag pm) mbTag
 
 -- | Smart constructor for 'Signed' data type with proper signing.
-mkSigned :: (HasCryptoConfiguration, Bi a) => SignTag -> SecretKey -> a -> Signed a
-mkSigned t sk x = Signed x (sign t sk x)
+mkSigned :: (Bi a) => ProtocolMagic -> SignTag -> SecretKey -> a -> Signed a
+mkSigned pm t sk x = Signed x (sign pm t sk x)
 
 ----------------------------------------------------------------------------
 -- Proxy signing
@@ -138,9 +149,9 @@ parseFullProxyCert s = do
 -- certificate inside, we panic. Please check this condition outside
 -- of this function.
 proxySign
-    :: (HasCryptoConfiguration, Bi a)
-    => SignTag -> SecretKey -> ProxySecretKey w -> a -> ProxySignature w a
-proxySign t sk@(SecretKey delegateSk) psk m
+    :: (Bi a)
+    => ProtocolMagic -> SignTag -> SecretKey -> ProxySecretKey w -> a -> ProxySignature w a
+proxySign pm t sk@(SecretKey delegateSk) psk m
     | toPublic sk /= pskDelegatePk psk =
         error $ sformat ("proxySign called with irrelevant certificate "%
                          "(psk delegatePk: "%build%", real delegate pk: "%build%")")
@@ -157,15 +168,15 @@ proxySign t sk@(SecretKey delegateSk) psk m
         mconcat
             -- it's safe to put the tag after issuerPk because `CC.unXPub
             -- issuerPk` always takes 64 bytes
-            ["01", CC.unXPub issuerPk, signTag t, Bi.serialize' m]
+            ["01", CC.unXPub issuerPk, signTag pm t, Bi.serialize' m]
 
 -- CHECK: @proxyVerify
 -- | Verify delegated signature given issuer's pk, signature, message
 -- space predicate and message itself.
 proxyVerify
-    :: (HasCryptoConfiguration, Bi w, Bi a)
-    => SignTag -> ProxySignature w a -> (w -> Bool) -> a -> Bool
-proxyVerify t ProxySignature{..} omegaPred m =
+    :: (Bi w, Bi a)
+    => ProtocolMagic -> SignTag -> ProxySignature w a -> (w -> Bool) -> a -> Bool
+proxyVerify pm t ProxySignature{..} omegaPred m =
     predCorrect && sigValid
   where
     PublicKey issuerPk = pskIssuerPk psigPsk
@@ -177,7 +188,7 @@ proxyVerify t ProxySignature{..} omegaPred m =
             (mconcat
                  [ "01"
                  , CC.unXPub issuerPk
-                 , signTag t
+                 , signTag pm t
                  , Bi.serialize' m
                  ])
             psigSig

@@ -7,6 +7,7 @@ in
 , buildId ? null
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
 # profiling slows down performance by 50% so we don't enable it by default
+, forceDontCheck ? false
 , enableProfiling ? false
 , enableDebugging ? false
 , allowCustomConfig ? true
@@ -54,12 +55,17 @@ let
       cardano-sl-networking = dontCheck super.cardano-sl-networking;
       cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
       cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
-      cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
+      # cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
+      cardano-sl-auxx = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-auxx (drv: {
+        # waiting on load-command size fix in dyld
+        executableHaskellDepends = drv.executableHaskellDepends ++ [self.cabal-install];
+      })));
       cardano-sl-node = addGitRev super.cardano-sl-node;
       cardano-sl-wallet-new = addGitRev (justStaticExecutables super.cardano-sl-wallet-new);
       cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
+        executableHaskellDepends = drv.executableHaskellDepends ++ [self.cabal-install];
       })));
 
       cardano-sl-node-static = justStaticExecutables self.cardano-sl-node;
@@ -87,6 +93,8 @@ let
         # TODO: DEVOPS-355
         dontStrip = true;
         configureFlags = (args.configureFlags or []) ++ [ "--ghc-options=-g --disable-executable-stripping --disable-library-stripping" "--profiling-detail=toplevel-functions"];
+      } // optionalAttrs (forceDontCheck == true) {
+        doCheck = false;
       });
     };
   });
@@ -119,12 +127,17 @@ let
       stagingWallet = mkDocker { environment = "mainnet-staging"; };
     };
 
-    daedalus-bridge = pkgs.runCommand "cardano-daedalus-bridge" {} ''
+    daedalus-bridge = let
+      inherit (cardanoPkgs.cardano-sl-node) version;
+    in pkgs.runCommand "cardano-daedalus-bridge-${version}" {
+      inherit version;
+    } ''
       # Generate daedalus-bridge
       mkdir -p $out/bin $out/config
       cd $out
       ${optionalString (buildId != null) "echo ${buildId} > build-id"}
       echo ${gitrev} > commit-id
+      echo ${version} > version
 
       cp ${./log-configs + "/daedalus.yaml"} config/log-config-prod.yaml
       cp ${./lib}/configuration.yaml config

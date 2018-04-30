@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## Cardano SL 1.1.1 (Mainnet)
+
+Bug fix release.
+
+ - When making a bug report in the wallet, ensure that usable log
+   files exist before packing them into an archive.
+
+ - Update the report-server version used in the Cardano network
+   infrastructure, which fixes some issues in receiving bug reports.
+
+
 ## Cardano SL 1.1.0 (Mainnet)
 
 Most important code changes which made to release 1.1.0.

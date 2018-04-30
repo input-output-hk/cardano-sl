@@ -6,7 +6,8 @@ flags:
 
 extra-package-dbs: []
 
-# networking → [util, binary] → crypto → core → db → [lrc, infra] → [ssc, txp, update, delegation] → block → lib → ...
+# networking → binary → util → crypto → core → db → [lrc, infra]
+#              → [ssc, txp, update, delegation] → block → lib → ...
 # Then we have two branches:
 # ... → client → generator → [auxx, explorer, wallet] → wallet-new
 # ... → [node, tools]
@@ -15,6 +16,7 @@ packages:
 - binary
 - util
 - crypto
+- crypto/tests
 - core
 - db
 - lrc
@@ -64,7 +66,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 19fd5ddf24dab731375a156ce38dcfce4319d1e4 # master 0.4.9
+    commit: 81eea7361a75923f9402fcb7840fb36722dbf88e # master 0.4.10
   extra-dep: true
 # These three are needed for cardano-sl-networking
 - location:
@@ -176,6 +178,7 @@ extra-deps:
 - yaml-0.8.28
 - lzma-0.0.0.3
 - lzma-clib-5.2.2
+- lzma-conduit-1.2.1 # https://github.com/alphaHeavy/lzma-conduit/pull/18
 - wai-extra-3.0.22.0
 - typed-process-0.2.1.0
 - unliftio-0.2.4.0

@@ -60,10 +60,17 @@ module Cardano.Wallet.API.V1.Types (
   , mkBlockchainHeight
   , LocalTimeDifference
   , mkLocalTimeDifference
-  , SyncProgress
-  , mkSyncProgress
+  , EstimatedCompletionTime
+  , mkEstimatedCompletionTime
+  , SyncThroughput
+  , mkSyncThroughput
+  , SyncState (..)
+  , SyncProgress (..)
+  , SyncPercentage
+  , mkSyncPercentage
   , NodeInfo (..)
   , TimeInfo(..)
+  , SubscriptionStatus(..)
   -- * Some types for the API
   , CaptureWalletId
   , CaptureAccountId
@@ -76,16 +83,19 @@ import           Universum
 import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
 import           Data.Aeson.TH as A
-import           Data.Aeson.Types (typeMismatch)
+import           Data.Aeson.Types (toJSONKeyText, typeMismatch)
 import qualified Data.Char as C
 import           Data.Swagger as S hiding (constructorTagModifier)
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Text (Text, dropEnd, toLower)
+import qualified Data.Text as T
 import qualified Data.Text.Buildable
 import           Data.Version (Version)
 import           Formatting (bprint, build, fconst, int, sformat, (%))
 import           GHC.Generics (Generic, Rep)
+import           Network.Transport (EndPointAddress (..))
+import           Node (NodeId (..))
 import qualified Prelude
 import qualified Serokell.Aeson.Options as Serokell
 import           Serokell.Util (listJson)
@@ -107,6 +117,7 @@ import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Cardano.Wallet.Util (showApiUtcTime)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
+import qualified Data.Map.Strict as Map
 import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
 import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
@@ -115,8 +126,10 @@ import           Pos.Core (addressF)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
+import           Pos.Diffusion.Types (SubscriptionStatus (..))
 import           Pos.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe, buildSafeList,
                                    buildSafeMaybe, deriveSafeBuildable, plainOrSecureF)
+import qualified Pos.Wallet.Web.State.Storage as OldStorage
 
 
 
@@ -226,6 +239,8 @@ instance Buildable a => Buildable (V1 a) where
 instance Buildable (SecureLog a) => Buildable (SecureLog (V1 a)) where
     build (SecureLog (V1 x)) = bprint build (SecureLog x)
 
+instance (Buildable a, Buildable b) => Buildable (a, b) where
+    build (a, b) = bprint ("("%build%", "%build%")") a b
 
 --
 -- Benign instances
@@ -237,20 +252,7 @@ instance ByteArray.ByteArrayAccess a => ByteArray.ByteArrayAccess (V1 a) where
 
 -- TODO(adinapoli) Rewrite it properly under CSL-2048.
 instance Arbitrary (V1 BackupPhrase) where
-    arbitrary = pure . V1 . BackupPhrase $ [
-          "shell"
-        , "also"
-        , "throw"
-        , "ramp"
-        , "grape"
-        , "chest"
-        , "setup"
-        , "mandate"
-        , "spare"
-        , "verb"
-        , "lemon"
-        , "test"
-        ]
+    arbitrary = V1 <$> arbitrary
 
 instance ToJSON (V1 BackupPhrase) where
     toJSON (V1 (BackupPhrase wrds)) = toJSON wrds
@@ -538,6 +540,205 @@ instance BuildableSafeGen WalletUpdate where
         uwalAssuranceLevel
         uwalName
 
+-- | The sync progress with the blockchain.
+newtype SyncPercentage = SyncPercentage (MeasuredIn 'Percentage100 Word8)
+                     deriving (Show, Eq)
+
+mkSyncPercentage :: Word8 -> SyncPercentage
+mkSyncPercentage = SyncPercentage . MeasuredIn
+
+instance Ord SyncPercentage where
+    compare (SyncPercentage (MeasuredIn p1))
+            (SyncPercentage (MeasuredIn p2)) = compare p1 p2
+
+instance Arbitrary SyncPercentage where
+    arbitrary = mkSyncPercentage <$> choose (0, 100)
+
+instance ToJSON SyncPercentage where
+    toJSON (SyncPercentage (MeasuredIn w)) =
+        object [ "quantity" .= toJSON w
+               , "unit"     .= String "percent"
+               ]
+
+instance FromJSON SyncPercentage where
+    parseJSON = withObject "SyncPercentage" $ \sl -> mkSyncPercentage <$> sl .: "quantity"
+
+instance ToSchema SyncPercentage where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "SyncPercentage") $ mempty
+            & type_ .~ SwaggerObject
+            & required .~ ["quantity", "unit"]
+            & properties .~ (mempty
+                & at "quantity" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerNumber
+                    & maximum_ .~ Just 100
+                    & minimum_ .~ Just 0
+                    )
+                & at "unit" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerString
+                    & enum_ ?~ ["percent"]
+                    )
+                )
+
+deriveSafeBuildable ''SyncPercentage
+instance BuildableSafeGen SyncPercentage where
+    buildSafeGen _ (SyncPercentage (MeasuredIn w)) =
+        bprint (build%"%") w
+
+
+newtype EstimatedCompletionTime = EstimatedCompletionTime (MeasuredIn 'Milliseconds Word)
+  deriving (Show, Eq)
+
+mkEstimatedCompletionTime :: Word -> EstimatedCompletionTime
+mkEstimatedCompletionTime = EstimatedCompletionTime . MeasuredIn
+
+instance Ord EstimatedCompletionTime where
+    compare (EstimatedCompletionTime (MeasuredIn w1))
+            (EstimatedCompletionTime (MeasuredIn w2)) = compare w1 w2
+
+instance Arbitrary EstimatedCompletionTime where
+    arbitrary = EstimatedCompletionTime . MeasuredIn <$> arbitrary
+
+instance ToJSON EstimatedCompletionTime where
+    toJSON (EstimatedCompletionTime (MeasuredIn w)) =
+        object [ "quantity" .= toJSON w
+               , "unit"     .= String "milliseconds"
+               ]
+
+instance FromJSON EstimatedCompletionTime where
+    parseJSON = withObject "EstimatedCompletionTime" $ \sl -> mkEstimatedCompletionTime <$> sl .: "quantity"
+
+instance ToSchema EstimatedCompletionTime where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "EstimatedCompletionTime") $ mempty
+            & type_ .~ SwaggerObject
+            & required .~ ["quantity", "unit"]
+            & properties .~ (mempty
+                & at "quantity" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerNumber
+                    & minimum_ .~ Just 0
+                    )
+                & at "unit" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerString
+                    & enum_ ?~ ["milliseconds"]
+                    )
+                )
+
+
+newtype SyncThroughput = SyncThroughput (MeasuredIn 'BlocksPerSecond OldStorage.SyncThroughput)
+  deriving (Show, Eq)
+
+mkSyncThroughput :: Core.BlockCount -> SyncThroughput
+mkSyncThroughput = SyncThroughput . MeasuredIn . OldStorage.SyncThroughput
+
+instance Ord SyncThroughput where
+    compare (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount b1))))
+            (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount b2)))) =
+        compare b1 b2
+
+instance Arbitrary SyncThroughput where
+    arbitrary = SyncThroughput . MeasuredIn . OldStorage.SyncThroughput <$> arbitrary
+
+instance ToJSON SyncThroughput where
+    toJSON (SyncThroughput (MeasuredIn (OldStorage.SyncThroughput (Core.BlockCount blocks)))) =
+      object [ "quantity" .= toJSON blocks
+             , "unit"     .= String "blocksPerSecond"
+             ]
+
+instance FromJSON SyncThroughput where
+    parseJSON = withObject "SyncThroughput" $ \sl -> mkSyncThroughput . Core.BlockCount <$> sl .: "quantity"
+
+instance ToSchema SyncThroughput where
+    declareNamedSchema _ = do
+        pure $ NamedSchema (Just "SyncThroughput") $ mempty
+            & type_ .~ SwaggerObject
+            & required .~ ["quantity", "unit"]
+            & properties .~ (mempty
+                & at "quantity" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerNumber
+                    )
+                & at "unit" ?~ (Inline $ mempty
+                    & type_ .~ SwaggerString
+                    & enum_ ?~ ["blocksPerSecond"]
+                    )
+                )
+
+data SyncProgress = SyncProgress {
+    spEstimatedCompletionTime :: !EstimatedCompletionTime
+  , spThroughput              :: !SyncThroughput
+  , spPercentage              :: !SyncPercentage
+  } deriving (Show, Eq, Ord, Generic)
+
+deriveJSON Serokell.defaultOptions ''SyncProgress
+
+instance ToSchema SyncProgress where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "sp" (\(--^) props -> props
+            & "estimatedCompletionTime"
+            --^ "The estimated time the wallet is expected to be fully sync, based on the information available."
+            & "throughput"
+            --^ "The sync throughput, measured in blocks/s."
+            & "percentage"
+            --^ "The sync percentage, from 0% to 100%."
+        )
+
+deriveSafeBuildable ''SyncProgress
+-- Nothing secret to redact for a SyncProgress.
+instance BuildableSafeGen SyncProgress where
+    buildSafeGen _ sp = bprint build sp
+
+instance Arbitrary SyncProgress where
+  arbitrary = SyncProgress <$> arbitrary
+                           <*> arbitrary
+                           <*> arbitrary
+
+data SyncState =
+      Restoring SyncProgress
+    -- ^ Restoring from seed or from backup.
+    | Synced
+    -- ^ Following the blockchain.
+    deriving (Eq, Show, Ord)
+
+instance ToJSON SyncState where
+    toJSON ss = object [ "tag"  .= toJSON (renderAsTag ss)
+                       , "data" .= renderAsData ss
+                       ]
+      where
+        renderAsTag :: SyncState -> Text
+        renderAsTag (Restoring _) = "restoring"
+        renderAsTag Synced        = "synced"
+
+        renderAsData :: SyncState -> Value
+        renderAsData (Restoring sp) = toJSON sp
+        renderAsData Synced         = Null
+
+instance FromJSON SyncState where
+    parseJSON = withObject "SyncState" $ \ss -> do
+        t <- ss .: "tag"
+        case (t :: Text) of
+            "synced"    -> pure Synced
+            "restoring" -> Restoring <$> ss .: "data"
+            _           -> typeMismatch "unrecognised tag" (Object ss)
+
+instance ToSchema SyncState where
+    declareNamedSchema _ = do
+      syncProgress <- declareSchemaRef @SyncProgress Proxy
+      pure $ NamedSchema (Just "SyncState") $ mempty
+          & type_ .~ SwaggerObject
+          & required .~ ["tag"]
+          & properties .~ (mempty
+              & at "tag" ?~ (Inline $ mempty
+                  & type_ .~ SwaggerString
+                  & enum_ ?~ ["restoring", "synced"]
+                  )
+              & at "data" ?~ syncProgress
+              )
+
+instance Arbitrary SyncState where
+  arbitrary = oneof [ Restoring <$> arbitrary
+                    , pure Synced
+                    ]
+
 
 -- | A 'Wallet'.
 data Wallet = Wallet {
@@ -548,6 +749,7 @@ data Wallet = Wallet {
     , walSpendingPasswordLastUpdate :: !(V1 Core.Timestamp)
     , walCreatedAt                  :: !(V1 Core.Timestamp)
     , walAssuranceLevel             :: !AssuranceLevel
+    , walSyncState                  :: !SyncState
     } deriving (Eq, Ord, Show, Generic)
 
 deriveJSON Serokell.defaultOptions ''Wallet
@@ -569,11 +771,14 @@ instance ToSchema Wallet where
             --^ "The timestamp that the wallet was created."
             & "assuranceLevel"
             --^ "The assurance level of the wallet."
+            & "syncState"
+            --^ "The sync state for this wallet."
         )
 
 instance Arbitrary Wallet where
   arbitrary = Wallet <$> arbitrary
                      <*> pure "My wallet"
+                     <*> arbitrary
                      <*> arbitrary
                      <*> arbitrary
                      <*> arbitrary
@@ -850,8 +1055,8 @@ instance BuildableSafeGen EstimatedFees where
 -- | Maps an 'Address' to some 'Coin's, and it's
 -- typically used to specify where to send money during a 'Payment'.
 data PaymentDistribution = PaymentDistribution {
-      pdAddress :: V1 (Core.Address)
-    , pdAmount  :: V1 (Core.Coin)
+      pdAddress :: !(V1 Core.Address)
+    , pdAmount  :: !(V1 Core.Coin)
     } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''PaymentDistribution
@@ -1390,48 +1595,6 @@ instance BuildableSafeGen LocalTimeDifference where
         bprint (build%"μs") w
 
 
--- | The sync progress with the blockchain.
-newtype SyncProgress = SyncProgress (MeasuredIn 'Percentage100 Word8)
-                     deriving (Show, Eq)
-
-mkSyncProgress :: Word8 -> SyncProgress
-mkSyncProgress = SyncProgress . MeasuredIn
-
-instance Arbitrary SyncProgress where
-    arbitrary = mkSyncProgress <$> choose (0, 100)
-
-instance ToJSON SyncProgress where
-    toJSON (SyncProgress (MeasuredIn w)) =
-        object [ "quantity" .= toJSON w
-               , "unit"     .= String "percent"
-               ]
-
-instance FromJSON SyncProgress where
-    parseJSON = withObject "SyncProgress" $ \sl -> mkSyncProgress <$> sl .: "quantity"
-
-instance ToSchema SyncProgress where
-    declareNamedSchema _ = do
-        pure $ NamedSchema (Just "SyncProgress") $ mempty
-            & type_ .~ SwaggerObject
-            & required .~ ["quantity"]
-            & properties .~ (mempty
-                & at "quantity" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerNumber
-                    & maximum_ .~ Just 100
-                    & minimum_ .~ Just 0
-                    )
-                & at "unit" ?~ (Inline $ mempty
-                    & type_ .~ SwaggerString
-                    & enum_ ?~ ["percent"]
-                    )
-                )
-
-deriveSafeBuildable ''SyncProgress
-instance BuildableSafeGen SyncProgress where
-    buildSafeGen _ (SyncProgress (MeasuredIn w)) =
-        bprint (build%"%") w
-
-
 -- | The absolute or relative height of the blockchain, measured in number
 -- of blocks.
 newtype BlockchainHeight = BlockchainHeight (MeasuredIn 'Blocks Core.BlockCount)
@@ -1490,7 +1653,6 @@ instance Arbitrary TimeInfo where
     arbitrary = TimeInfo <$> arbitrary
 
 deriveSafeBuildable ''TimeInfo
-
 instance BuildableSafeGen TimeInfo where
     buildSafeGen _ TimeInfo{..} = bprint ("{"
         %" differenceFromNtpServer="%build
@@ -1499,12 +1661,64 @@ instance BuildableSafeGen TimeInfo where
 
 deriveJSON Serokell.defaultOptions ''TimeInfo
 
+
+availableSubscriptionStatus :: [SubscriptionStatus]
+availableSubscriptionStatus = [Subscribed, Subscribing]
+
+deriveSafeBuildable ''SubscriptionStatus
+instance BuildableSafeGen SubscriptionStatus where
+    buildSafeGen _ = \case
+        Subscribed  -> "Subscribed"
+        Subscribing -> "Subscribing"
+
+deriveJSON Serokell.defaultOptions ''SubscriptionStatus
+
+instance Arbitrary SubscriptionStatus where
+    arbitrary =
+        elements availableSubscriptionStatus
+
+instance ToSchema SubscriptionStatus where
+    declareNamedSchema _ = do
+        let enum = toJSON <$> availableSubscriptionStatus
+        pure $ NamedSchema (Just "SubscriptionStatus") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ ?~ enum
+
+instance FromJSONKey NodeId where
+    fromJSONKey =
+        FromJSONKeyText (NodeId . EndPointAddress . encodeUtf8)
+
+instance ToJSONKey NodeId where
+    toJSONKey =
+        toJSONKeyText (decodeUtf8 . getAddress)
+      where
+        getAddress (NodeId (EndPointAddress x)) = x
+
+instance ToSchema NodeId where
+    declareNamedSchema _ = pure $ NamedSchema (Just "NodeId") $ mempty
+        & type_ .~ SwaggerString
+
+instance Arbitrary NodeId where
+    arbitrary = do
+        ipv4  <- genIPv4
+        port_ <- genPort
+        idx   <- genIdx
+        return . toNodeId $ ipv4 <> ":" <> port_ <> ":" <> idx
+      where
+        toNodeId = NodeId . EndPointAddress . encodeUtf8
+        showT    = show :: Int -> Text
+        genIdx   = showT <$> choose (0, 9)
+        genPort  = showT <$> choose (1000, 8000)
+        genIPv4  = T.intercalate "." <$> replicateM 4 (showT <$> choose (0, 255))
+
+
 -- | The @dynamic@ information for this node.
 data NodeInfo = NodeInfo {
-     nfoSyncProgress          :: !SyncProgress
+     nfoSyncProgress          :: !SyncPercentage
    , nfoBlockchainHeight      :: !(Maybe BlockchainHeight)
    , nfoLocalBlockchainHeight :: !BlockchainHeight
    , nfoLocalTimeInformation  :: !TimeInfo
+   , nfoSubscriptionStatus    :: Map NodeId SubscriptionStatus
    } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''NodeInfo
@@ -1516,10 +1730,12 @@ instance ToSchema NodeInfo where
       & ("blockchainHeight"      --^ "If known, the current blockchain height, in number of blocks.")
       & ("localBlockchainHeight" --^ "Local blockchain height, in number of blocks.")
       & ("localTimeInformation"  --^ "Information about the clock on this node.")
+      & ("subscriptionStatus"    --^ "Is the node connected to the network?")
     )
 
 instance Arbitrary NodeInfo where
     arbitrary = NodeInfo <$> arbitrary
+                         <*> arbitrary
                          <*> arbitrary
                          <*> arbitrary
                          <*> arbitrary
@@ -1531,11 +1747,13 @@ instance BuildableSafeGen NodeInfo where
         %" blockchainHeight="%build
         %" localBlockchainHeight="%build
         %" localTimeDifference="%build
+        %" subscriptionStatus="%listJson
         %" }")
         nfoSyncProgress
         nfoBlockchainHeight
         nfoLocalBlockchainHeight
         nfoLocalTimeInformation
+        (Map.toList nfoSubscriptionStatus)
 
 
 --

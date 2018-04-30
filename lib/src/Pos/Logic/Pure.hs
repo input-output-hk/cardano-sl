@@ -10,7 +10,6 @@ import           Universum
 import           Data.ByteString (ByteString)
 import           Data.Coerce (coerce)
 import           Data.Default (def)
-import           Data.Reflection (give)
 
 import           Pos.Core (ApplicationName (..), Block, BlockHeader (..), BlockVersion (..),
                            BlockVersionData (..), ExtraBodyData, ExtraHeaderData, GenericBlock (..),
@@ -172,7 +171,8 @@ blockHeader = BlockHeaderMain mainBlockHeader
 
 mainBlockHeader :: MainBlockHeader
 mainBlockHeader = UnsafeGenericBlockHeader
-    { _gbhPrevBlock = mainBlockHeaderHash
+    { _gbhProtocolMagic = protocolMagic
+    , _gbhPrevBlock = mainBlockHeaderHash
     , _gbhBodyProof = bodyProof
     , _gbhConsensus = consensusData
     , _gbhExtra     = extraHeaderData
@@ -231,7 +231,10 @@ chainDifficulty = ChainDifficulty
     }
 
 blockSignature :: BlockSignature
-blockSignature = give (ProtocolMagic 0) (BlockSignature (coerce (signRaw Nothing secretKey mempty)))
+blockSignature = BlockSignature (coerce (signRaw protocolMagic Nothing secretKey mempty))
+
+protocolMagic :: ProtocolMagic
+protocolMagic = ProtocolMagic 0
 
 extraHeaderData :: ExtraHeaderData MainBlockchain
 extraHeaderData = MainExtraHeaderData

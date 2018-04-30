@@ -62,7 +62,7 @@ import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..), TxSizeLinear (..),
                            bvdTxFeePolicy, calculateTxSizeLinear, coinToInteger, integerToCoin,
                            isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue,
-                           unsafeIntegerToCoin, unsafeSubCoin)
+                           unsafeIntegerToCoin, unsafeSubCoin, protocolMagic)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (RedeemSecretKey, SafeSigner, SignTag (SignRedeemTx, SignTx),
                              deterministicKeyGen, fakeSigner, hash, redeemSign, redeemToPublic,
@@ -243,7 +243,7 @@ makeMPubKeyTx getSs = makeAbstractTx mkWit
           getSs addr <&> \ss ->
               PkWitness
               { twKey = safeToPublic ss
-              , twSig = safeSign SignTx ss sigData
+              , twSig = safeSign protocolMagic SignTx ss sigData
               }
 
 -- | More specific version of 'makeMPubKeyTx' for convenience
@@ -277,7 +277,7 @@ makeRedemptionTx rsk txInputs txOutputs = either absurd identity $
   where rpk = redeemToPublic rsk
         mkWit _ sigData = Right $ RedeemWitness
             { twRedeemKey = rpk
-            , twRedeemSig = redeemSign SignRedeemTx rsk sigData
+            , twRedeemSig = redeemSign protocolMagic SignRedeemTx rsk sigData
             }
 
 -- | Helper for summing values of `TxOutAux`s
@@ -662,8 +662,8 @@ computeTxFee pendingTx utxo outputs = do
 --       i.e. @ fee_{i+1} <= fee_{i} @.
 --
 --     * Number if input addresses decreased.
---       Is may occur when fee increases more than on current remainder.
---       Is this case fee on next iteration would indeed decrease, because
+--       It may occur when fee increases more than on current remainder.
+--       In this case fee on next iteration would indeed decrease, because
 --       size of single input is much greater than any fluctuations of
 --       remainder size (in bytes).
 --

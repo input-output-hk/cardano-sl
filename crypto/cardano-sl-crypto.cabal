@@ -1,5 +1,5 @@
 name:                cardano-sl-crypto
-version:             1.1.0
+version:             1.1.1
 synopsis:            Cardano SL - cryptography primitives
 description:         This package contains cryptography primitives used in Cardano SL.
 license:             MIT
@@ -15,11 +15,11 @@ cabal-version:       >=1.10
 library
   exposed-modules:
                        Pos.Aeson.Crypto
-                       Pos.Arbitrary.Crypto
                        Pos.Binary.Crypto
 
                        Pos.Crypto
 
+                       Pos.Crypto.AsBinary
                        Pos.Crypto.Configuration
                        Pos.Crypto.Hashing
                        Pos.Crypto.HD
@@ -31,9 +31,6 @@ library
                        Pos.Crypto.Signing.Signing
 
   other-modules:
-                       Pos.Arbitrary.Crypto.Unsafe
-
-                       Pos.Crypto.AsBinary
                        Pos.Crypto.Encryption
                        Pos.Crypto.Scrypt
 
@@ -45,9 +42,7 @@ library
                        Pos.Crypto.Signing.Types.Signing
                        Pos.Crypto.Signing.Types.Tag
 
-  build-depends:       QuickCheck
-                     , aeson
-                     , autoexporter
+  build-depends:       aeson
                      , base
                      , binary
                      , bytestring

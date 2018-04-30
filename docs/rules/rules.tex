@@ -193,10 +193,6 @@ as it is.\improvement{We may want to add something about protocol
 
 \item[Slot] An integer.
 
-\item[Epoch] Let us define $\epoch{n}$ and $\epochslot{n}$, the
-  \emph{epoch decomposition} of a slot, as the unique numbers such
-  that $n=\epoch{n}\cdot 10k+\epochslot{n}$ and $0⩽ \epochslot{n} < 10k$.
-
 \item[Seeds] We assume a set $\seeds$ of \emph{seeds}.
 
 \item[Stake repartition] A stake repartition is a function
@@ -367,6 +363,27 @@ specified in the initial state and can be further modified by updates.
   meaningless.\improvement{We may want to compute the initial
     distribution based on $\txinit$.}\improvement{This doesn't model
     the ATRedeem story. Does it matter?}
+
+\item[Epoch] We assume a pair or functions $\epoch{⋅}∈ℕ⟶ℕ$ and
+  $\epochslot{⋅}∈ℕ⟶ℕ$, the \emph{epoch decomposition} of a slot, such
+  that~--~writing $(\epoch{⋅}, \epochslot{⋅})$ for the function, in
+  $ℕ⟶ℕ×ℕ$, which maps a slot $s$ to
+  $(\epoch{s}, \epochslot{s})$~--~$(\epoch{⋅}, \epochslot{⋅})$ is a
+  strictly increasing function, from the natural ordering of $ℕ$ to
+  the lexicographic product of the natural ordering of $ℕ$ with
+  itself.\improvement{We may want to additionally impose that the
+    inverse image of $e×ℕ$ is downward closed.}\improvement{Layout is
+    broken in this paragraph.}\improvement{It will probably be clearer
+    to give a name to $(\epoch{⋅}, \epochslot{⋅})$ rather than
+    referring to it symbolically. And define the two projection in
+    terms of this function, like is done in the rest of the text,
+    rather than the other way around.}
+
+  For reference, $\epoch{s}$ and $\epochslot{s}$, are defined, in the
+  bootstrap era of Cardano, of as the unique numbers such that
+  $s=\epoch{s}\cdot 10k+\epochslot{s}$ and $0⩽ \epochslot{s} <
+  10k$.\improvement{Make a standardised remark pagraph formatting for
+    this sort of remarks.}
 
 \item[Richmen] We assume a finite set $\richmen ⊆ \agentids$. These
   so-called richmen receive all the stake during the bootstrap

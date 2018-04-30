@@ -16,6 +16,7 @@ import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
 import           Crypto.Hash (Blake2b_224, Blake2b_256)
+import           Data.Bits (shiftL)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Fixed (Nano)
@@ -33,7 +34,6 @@ import qualified Codec.CBOR.FlatTerm as CBOR
 import           Pos.Arbitrary.Block ()
 import           Pos.Arbitrary.Block.Message ()
 import           Pos.Arbitrary.Core ()
-import           Pos.Arbitrary.Crypto ()
 import           Pos.Arbitrary.Delegation ()
 import           Pos.Arbitrary.Infra ()
 import           Pos.Arbitrary.Slotting ()
@@ -50,6 +50,7 @@ import qualified Pos.Block.Types as BT
 import qualified Pos.Communication as C
 import qualified Pos.Communication.Relay as R
 import           Pos.Communication.Types.Relay (DataMsg (..))
+import           Pos.Communication.Limits (mlOpening, mlVssCertificate, mlUpdateVote)
 import qualified Pos.Core as T
 import qualified Pos.Core.Block as BT
 import           Pos.Core.Common (ScriptVersion)
@@ -69,9 +70,32 @@ import           Pos.Util (SmallGenerator)
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Util.QuickCheck.Property (expectationError)
 import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
+import           Test.Pos.Crypto.Arbitrary ()
 import qualified Test.Pos.Cbor.RefImpl as R
-import           Test.Pos.Configuration (withDefConfiguration, withDefInfraConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Helpers (binaryTest, msgLenLimitedTest)
+
+-- | Wrapper for Integer with Arbitrary instance that can generate "proper" big
+-- integers, i.e. ones that don't fit in Int64. This really needs to be fixed
+-- within QuickCheck though (https://github.com/nick8325/quickcheck/issues/213).
+newtype LargeInteger = LargeInteger Integer
+    deriving (Eq, Show)
+
+instance Arbitrary LargeInteger where
+    arbitrary = sized $ \sz -> do
+        n <- choose (1, sz)
+        sign <- arbitrary
+        LargeInteger . (if sign then negate else identity) . foldr f 0
+            <$> replicateM n arbitrary
+      where
+        f :: Word8 -> Integer -> Integer
+        f w acc = (acc `shiftL` 8) + fromIntegral w
+
+instance Bi LargeInteger where
+    encode (LargeInteger n) = encode n
+    decode = LargeInteger <$> decode
+
+----------------------------------------
 
 data User
     = Login { login :: String
@@ -336,7 +360,7 @@ testAgainstFile name x expected =
               Right actual -> x `shouldBe` actual
 
 spec :: Spec
-spec = withDefInfraConfiguration $ withDefConfiguration $ do
+spec = withDefConfiguration $ do
     describe "Reference implementation" $ do
         describe "properties" $ do
             prop "encoding/decoding initial byte"    R.prop_InitialByte
@@ -383,6 +407,7 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
                 binaryTest @Bool
                 binaryTest @Char
                 binaryTest @Integer
+                binaryTest @LargeInteger
                 binaryTest @Word
                 binaryTest @Word8
                 binaryTest @Word16
@@ -400,6 +425,8 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
                 binaryTest @(HashMap Int Int)
                 binaryTest @(Set Int)
                 binaryTest @(HashSet Int)
+                binaryTest @ByteString
+                binaryTest @Text
 
         describe "Types" $ do
           -- 100 is not enough to catch some bugs (e.g. there was a bug with
@@ -442,7 +469,7 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
                   binaryTest @(NewestFirst NE U)
                   binaryTest @(OldestFirst NE U)
           describe "Message length limit" $ do
-              msgLenLimitedTest @T.VssCertificate
+              msgLenLimitedTest @T.VssCertificate mlVssCertificate
         describe "Block types" $ do
             describe "Bi instances" $ do
                 describe "Undo" $ do
@@ -560,10 +587,10 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
                 binaryTest @Ssc.SscTag
                 binaryTest @Ssc.SscSecretStorage
             describe "Message length limit" $ do
-                msgLenLimitedTest @Ssc.Opening
-                msgLenLimitedTest @(R.InvMsg (Tagged Ssc.MCCommitment T.StakeholderId))
-                msgLenLimitedTest @(R.ReqMsg (Tagged Ssc.MCCommitment T.StakeholderId))
-                msgLenLimitedTest @(R.MempoolMsg Ssc.MCCommitment)
+                msgLenLimitedTest @Ssc.Opening mlOpening
+                msgLenLimitedTest @(R.InvMsg (Tagged Ssc.MCCommitment T.StakeholderId)) C.mlInvMsg
+                msgLenLimitedTest @(R.ReqMsg (Tagged Ssc.MCCommitment T.StakeholderId)) C.mlReqMsg
+                msgLenLimitedTest @(R.MempoolMsg Ssc.MCCommitment) C.mlMempoolMsg
                 -- msgLenLimitedTest' @(C.MaxSize (R.DataMsg Ssc.MCCommitment))
                 --     (C.MaxSize . R.DataMsg <$> C.mcCommitmentMsgLenLimit)
                 --     "MCCommitment"
@@ -601,9 +628,9 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
             describe "Bi extension" $ do
                 prop "TxInWitness" (extensionProperty @T.TxInWitness)
             describe "Message length limit" $ do
-                msgLenLimitedTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
-                msgLenLimitedTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))
-                msgLenLimitedTest @(R.MempoolMsg T.TxMsgContents)
+                msgLenLimitedTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId)) C.mlInvMsg
+                msgLenLimitedTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId)) C.mlReqMsg
+                msgLenLimitedTest @(R.MempoolMsg T.TxMsgContents) C.mlMempoolMsg
                 -- No check for (DataMsg T.TxMsgContents) since overal message size
                 -- is forcely limited
         describe "Update system" $ do
@@ -639,15 +666,15 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ do
                     binaryTest @(R.MempoolMsg (U.UpdateProposal, [U.UpdateVote]))
                     binaryTest @(R.DataMsg (U.UpdateProposal, [U.UpdateVote]))
                 describe "Message length limit" $ do
-                    msgLenLimitedTest @(R.InvMsg VoteId')
-                    msgLenLimitedTest @(R.ReqMsg VoteId')
-                    msgLenLimitedTest @(R.MempoolMsg U.UpdateVote)
-                    msgLenLimitedTest @(R.InvMsg UpId')
-                    msgLenLimitedTest @(R.ReqMsg UpId')
-                    msgLenLimitedTest @(R.MempoolMsg (U.UpdateProposal, [U.UpdateVote]))
+                    msgLenLimitedTest @(R.InvMsg VoteId') C.mlInvMsg
+                    msgLenLimitedTest @(R.ReqMsg VoteId') C.mlReqMsg
+                    msgLenLimitedTest @(R.MempoolMsg U.UpdateVote) C.mlMempoolMsg
+                    msgLenLimitedTest @(R.InvMsg UpId') C.mlInvMsg
+                    msgLenLimitedTest @(R.ReqMsg UpId') C.mlReqMsg
+                    msgLenLimitedTest @(R.MempoolMsg (U.UpdateProposal, [U.UpdateVote])) C.mlMempoolMsg
                     -- TODO [CSL-859]
                     -- msgLenLimitedTest @(C.MaxSize (R.DataMsg (U.UpdateProposal, [U.UpdateVote])))
-                    msgLenLimitedTest @(R.DataMsg U.UpdateVote)
+                    msgLenLimitedTest @(R.DataMsg U.UpdateVote) (C.mlDataMsg mlUpdateVote)
                     -- msgLenLimitedTest @U.UpdateProposal
 
 instance {-# OVERLAPPING #-} Arbitrary (Maybe FileLock) where

@@ -122,14 +122,14 @@ instance Bi Bool where
 
 instance Bi Char where
     encode c = E.encodeString (Text.singleton c)
-    decode = do t <- D.decodeString
+    decode = do t <- D.decodeStringCanonical
                 toCborError $ if Text.length t == 1
                   then Right (Text.head t)
                   else Left "expected a single char, found a string"
 
     -- For [Char]/String we have a special encoding
     encodeList cs = E.encodeString (toText cs)
-    decodeList    = do txt <- D.decodeString
+    decodeList    = do txt <- D.decodeStringCanonical
                        return (toString txt) -- unpack lazily
 
 ----------------------------------------------------------------------------
@@ -233,11 +233,11 @@ instance (Bi a, Bi b, Bi c, Bi d) => Bi (a,b,c,d) where
 
 instance Bi BS.ByteString where
     encode = E.encodeBytes
-    decode = D.decodeBytes
+    decode = D.decodeBytesCanonical
 
 instance Bi Text.Text where
     encode = E.encodeString
-    decode = D.decodeString
+    decode = D.decodeStringCanonical
 
 instance Bi BS.Lazy.ByteString where
     encode = encode . BS.Lazy.toStrict

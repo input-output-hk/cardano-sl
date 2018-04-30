@@ -1,5 +1,5 @@
 name:                cardano-sl-infra
-version:             1.1.0
+version:             1.1.1
 synopsis:            Cardano SL - infrastructural
 description:         Cardano SL - infrastructural
 license:             MIT
@@ -40,11 +40,8 @@ library
                         -- Slotting
                         Pos.Slotting
                         Pos.Slotting.Class
-                        Pos.Slotting.Configuration
                         Pos.Slotting.Impl
-                        Pos.Slotting.Impl.Ntp
                         Pos.Slotting.Impl.Simple
-                        Pos.Slotting.Impl.Sum
                         Pos.Slotting.Impl.Util
                         Pos.Slotting.MemState
                         Pos.Slotting.Types
@@ -82,9 +79,6 @@ library
                         -- Health Checks
                         Pos.HealthCheck.Route53
 
-                        -- Configuration
-                        Pos.Infra.Configuration
-
                         -- Known peers
                         Pos.KnownPeers
 
@@ -115,7 +109,7 @@ library
                         Pos.Statistics.Statsd
 
                         -- NTP
-                        Pos.NtpCheck
+                        Pos.Ntp.Configuration
 
                         -- Pos.Binary
                         Pos.Binary.Infra
@@ -146,6 +140,7 @@ library
                       , cardano-sl-networking
                       , cardano-sl-util
                       , cardano-report-server >= 0.4.5
+                      , conduit
                       , containers
                       , directory
                       , dns
@@ -157,7 +152,7 @@ library
                       , filepath
                       , formatting
                       , generic-arbitrary
-                      , lzma
+                      , lzma-conduit
                       , hashable
                       , http-client
                       , http-client-tls
@@ -177,6 +172,7 @@ library
                       , stm
                       , clock
                       , tagged
+                      , template-haskell
                       , tar
                       , text
                       , text-format

@@ -16,11 +16,10 @@ echo "Launch a single node and connect it to '${CLUSTER}' cluster..."
 
 readonly TOPOLOGY_YAML=docs/network/example-topologies/mainnet-staging.yaml
 
-stack exec -- cardano-node                                 \
+LANG=en_GB.UTF-8 LC_ALL=en_GB.UTF-8 stack exec -- cardano-node                                 \
     --tlscert ./scripts/tls-files/server.crt               \
     --tlskey ./scripts/tls-files/server.key                \
     --tlsca ./scripts/tls-files/ca.crt                     \
-    --no-ntp                                               \
     --topology "${TOPOLOGY_YAML}"                          \
     --log-config log-configs/connect-to-cluster.yaml       \
     --logs-prefix "logs/${CLUSTER}"                        \

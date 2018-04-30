@@ -9,7 +9,7 @@ import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.QuickCheck.Property (assertProperty)
 import           Pos.Wallet.Web.ClientTypes (CWallet (..))
-import           Pos.Wallet.Web.Methods.Backup (restoreWalletFromBackup)
+import           Pos.Wallet.Web.Methods.Restore (restoreWalletFromBackup)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.Pos.Configuration (withDefConfigurations)
@@ -19,7 +19,7 @@ import           Test.QuickCheck.Monadic (pick)
 
 spec :: Spec
 spec = withCompileInfo def $
-       withDefConfigurations $
+       withDefConfigurations $ \_ ->
        describe "restoreAddressFromWalletBackup" $ modifyMaxSuccess (const 10) $ do
            restoreWalletAddressFromBackupSpec
 

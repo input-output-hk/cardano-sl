@@ -1,48 +1,218 @@
 # Cardano Wallet API
 
-This is the Wallet Backend for a Cardano node.
+This is the Wallet backend for a Cardano node.
 
 ## Installation
 
-Installation follows the standard approach to installing Stack-based projects.
+Installation follows the standard approach to installing Stack-based projects:
 
 1. Install the [Haskell `stack` tool](http://docs.haskellstack.org/en/stable/README).
 2. Run `stack install cardano-sl-wallet-new` from the project *root* to install this package.
 
-## The API
+## Launching
 
-We describe how to interact with our API via the popular [Swagger](https://swagger.io/) framework & format.
-In order to do so, we export the full Swagger specification inside `spec/swagger.json`. Such JSON file must
-be kept in sync with the current version of the project and is developer responsibility to do so upon
-committing new work.
-This will be made automatic as part of [this issue](https://iohk.myjetbrains.com/youtrack/issue/CSL-1939) but
-for now requires self-enforced discipline.
+A wallet is a part of Cardano node, so from technical point of view if we launch a node -
+we launch a wallet as well. But please note that when we are talking about a node, we mean one
+from two different executables:
 
-Currently the only way to generate an updated `swagger.json` is to run the `cardano-node` node, so that
-the updated Swagger file will be written on disk. For example:
+1. `cardano-node`
+2. `cardano-node-simple`
+
+When we start `cardano-node`, wallet functionality is activated automatically. But when we
+start `cardano-node-simple`, wallet functionality is disabled, in this case node's log will
+contain the following line:
 
 ```
-stack exec cardano-node -- --topology=wallet-new/topology-examples/testnet.yaml --configuration-key mainnet_staging_short_epoch_full --wallet-debug --rebuild-db
+Wallet is disabled, because software is built w/o it
 ```
 
-Running the command above *from the root of the Cardano project* will store an updated `swagger.json` into
-`wallet-new/spec`.
+## Flushing Logs to Disk
 
-### Playing with the API
+Note that by default, logs are only sent to stdout/stderr. If you want to enable flushing on
+disk in rotated log files, use the `--log-config` option and specify a logging configuration 
+yaml file to define what to log and where to log it. 
 
-Once you have your updated `swagger.json` file, the easiest way is to head over to [the online editor](https://editor.swagger.io),
-click "Edit -> Import File" and import the file. Once done that, the API will be rendered in its full glory.
+For instance:
 
-Alternatively (and *recommended*), is also possible to download the editor locally and play with it. This has the advantage
-you can now also *try out* the API, because the `host` of the swagger API points to `localhost`, which won't work, of course,
-in case of the online editor. We won't get too deep into how to setup the editor locally, but generally speaking it should be
-as simple as:
+```yaml
+rotation:
+    logLimit: 104857600 # 100 MB
+    keepFiles: 20
+loggerTree:
+  severity: Debug+
+  files:
+    - node.log
+```
 
-- Downloading [the editor](https://github.com/swagger-api/swagger-editor/archive/v3.1.17.zip) online;
-- Download the [http-server](https://www.npmjs.com/package/http-server) npm package and install it;
-- Serve the editor with something like `http-server swagger-editor-folder` where `swagger-editor-folder` is the folder where
-  you opened/decompressed the downloaded editor.
+You can find more examples and working configurations in _../log-configs_. Using stack, you
+may use _../log-configs/cluster.yaml_ to start a node and dump all logs to a file _node.log_:
+
+```
+$ stack exec cardano-node -- --topology=wallet-new/topology-examples/testnet.yaml \
+                             --configuration-key=mainnet_staging_short_epoch_full \
+                             --log-config=log-configs/cluster.yaml
+```
+
+
+## API
+
+We describe how to interact with our API via the popular [Swagger](https://swagger.io/)
+framework and format. Swagger relies on a single specifications file in a `json` format. From
+this file is derived a handful of tools.
+
+A Cardano node exposes both a Swagger file corresponding to the wallet API and a visualization
+tool that can be used for browsing the specification as well as playing with the API. As a
+first step, start a `cardano-node` using the following command:
+
+```
+$ stack exec cardano-node -- --topology=wallet-new/topology-examples/testnet.yaml \
+                             --configuration-key=mainnet_staging_short_epoch_full \
+                             --wallet-debug                                       \
+                             --rebuild-db
+```
+
+From there, you can browse the API documentation for V0 and V1 through the following URLs:
+
+- http://localhost:8090/docs/v0/index/
+- http://localhost:8090/docs/v1/index/
+
+The visualization at those URLs lets you play with the API by the mean of a _Try it out_ button
+made available for each endpoint. This will seemingly contact the node already running on your
+local machine with actual HTTP requests augmented with the parameters you provide!
+
+### HTTPS
+
+By default, wallet backend only accepts HTTPS connections:
+
+```
+$ curl localhost:8090/docs/v1/index/index.html
+This server only accepts secure HTTPS connections.
+```
+
+We should provide our `ca.crt`:
+
+```
+$ curl --cacert scripts/tls-files/ca.crt https://localhost:8090/docs/v1/index/index.html
+```
+
+But if we launch a node with `--wallet-debug` option, we can send simple `http`-requests.
+
+### Swagger Specification
+
+If needed, you can access the corresponding raw Swagger specification files via these URLs:
+
+- http://localhost:8090/docs/v0/swagger.json
+- http://localhost:8090/docs/v1/swagger.json
+
+### Development Endpoints
+
+If you run the wallet in debug mode (with `--wallet-debug` option), you'll have an access to
+an extra set of endpoints, documented under this URL:
+
+- http://localhost:8090/docs/development/index
+
+### Online API Documentation
+
+Swagger documentation for API V0 and V1 is published on [cardanodocs.com](https://cardanodocs.com/)
+under these URLs:
+
+- https://cardanodocs.com/technical/wallet/api/v0/
+- https://cardanodocs.com/technical/wallet/api/v1/
 
 ## Testing
 
+Wallet tests can be run using this command (from the project *root* directory):
+
+```
+$ stack test cardano-sl-wallet-new
+```
+
 Tests can be run by running `stack test cardano-sl-wallet-new` from the project *root* directory.
+
+## Developing
+
+We have a [`Makefile`](./Makefile) with some helpful commands for development.
+`make ghcid` runs a GHCid daemon with the project, reloading quickly on every save.
+This gives you fast feedback on your changes.
+`make ghcid-test` runs GHCid daemon, which will also run tests if there are no compile errors.
+
+## Import Genesis Wallet
+
+It is possible to import Devnet Genesis wallet from Daedalus.
+
+First of all, clone [Daedalus](https://github.com/input-output-hk/daedalus) repository:
+
+```
+$ git clone git@github.com:input-output-hk/daedalus.git
+```
+
+Now use following command (from the `cardano-sl` *root* directory):
+
+```
+$ curl -X POST                                  \
+       -H "Content-Type: application/json"      \
+       -d '"PATH_TO_SECRET_KEY"'                \
+       --cacert scripts/tls-files/ca.crt
+       https://localhost:8090/api/wallets/keys
+```
+
+where `PATH_TO_SECRET_KEY` is path to `daedalus/features/support/default-wallet.key`.
+
+Please note that `daedalus` is a root directory of Daedalus' repository.
+
+Response:
+
+```
+{
+	"Right": {
+		"cwId": "Ae2tdPwUPEZEK5DvxPMtnTnUfQg8coWAAbNfLEvQ4GqWTe9h8d6AEkBDMce",
+		"cwMeta": {
+			"cwName": "Genesis wallet",
+			"cwAssurance": "CWANormal",
+			"cwUnit": 0
+		},
+		"cwAccountsNumber": 1,
+		"cwAmount": {
+			"getCCoin": "0"
+		},
+		"cwHasPassphrase": false,
+		"cwPassphraseLU": 1.52232831369479818e9
+	}
+}
+```
+
+## Troubleshooting
+
+##### commitAndReleaseBuffer: invalid argument (invalid character)
+
+When running a node directly with stack, you may encounter an unexpected runtime error
+`commitAndReleaseBuffer` if your machine's locale aren't well suitable for managing unicode
+characters. 
+
+On a _*nix_ system, you can view your current locale by doing:
+
+```
+$ locale
+LANG=en_US.UTF-8
+LANGUAGE=en_US
+LC_CTYPE="en_US.UTF-8"
+LC_NUMERIC=nl_NL.UTF-8
+LC_TIME=nl_NL.UTF-8
+LC_COLLATE="en_US.UTF-8"
+LC_MONETARY=nl_NL.UTF-8
+LC_MESSAGES="en_US.UTF-8"
+LC_PAPER=nl_NL.UTF-8
+LC_NAME=nl_NL.UTF-8
+LC_ADDRESS=nl_NL.UTF-8
+LC_TELEPHONE=nl_NL.UTF-8
+LC_MEASUREMENT=nl_NL.UTF-8
+LC_IDENTIFICATION=nl_NL.UTF-8
+LC_ALL=
+```
+
+One way to cope with this is to force different (UTF-8 compatible) locales when starting a node
+using environment variables as follows:
+
+```
+LANG=en_GB.UTF-8 LC_ALL=en_GB.UTF-8 stack exec -- ...
+```

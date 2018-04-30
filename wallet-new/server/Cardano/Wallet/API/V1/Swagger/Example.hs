@@ -2,19 +2,21 @@ module Cardano.Wallet.API.V1.Swagger.Example where
 
 import           Universum
 
+import           Test.QuickCheck (Arbitrary (..), Gen, listOf1)
+
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.Orphans.Arbitrary()
-
+import           Cardano.Wallet.Orphans.Arbitrary ()
+import           Node (NodeId (..))
+import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
+import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
+import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
+
+import qualified Data.Map.Strict as Map
 import qualified Pos.Core.Common as Core
 import qualified Pos.Crypto.Signing as Core
-import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
-import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
-import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
-
-import           Test.QuickCheck (Arbitrary (..), Gen, listOf1)
 
 
 class Arbitrary a => Example a where
@@ -32,6 +34,10 @@ instance Example a => Example [a] where
 instance Example a => Example (Maybe a) where
     example = Just <$> example
 
+-- NOTE: we don't want to see empty maps in our swagger doc :)
+instance (Ord k, Example k, Example v) => Example (Map k v) where
+    example = Map.fromList <$> listOf1 ((,) <$> example <*> example)
+
 instance Example (V1 Core.PassPhrase)
 instance Example (V1 Core.Coin)
 
@@ -48,7 +54,7 @@ instance Example WalletId
 instance Example BackupPhrase
 instance Example (V1 BackupPhrase)
 instance Example AssuranceLevel
-instance Example SyncProgress
+instance Example SyncPercentage
 instance Example BlockchainHeight
 instance Example LocalTimeDifference
 instance Example PaymentDistribution
@@ -64,9 +70,12 @@ instance Example NodeSettings
 instance Example SlotDuration
 instance Example WalletAddress
 instance Example NewAccount
+instance Example TimeInfo
 instance Example AddressValidity
 instance Example NewAddress
 instance Example CUpdateInfo
+instance Example SubscriptionStatus
+instance Example NodeId
 
 instance Example InputSelectionPolicy where
     example = pure OptimizeForHighThroughput
@@ -91,6 +100,7 @@ instance Example NewWallet where
 instance Example NodeInfo where
     example = NodeInfo <$> example
                        <*> example  -- NOTE: will produce `Just a`
+                       <*> example
                        <*> example
                        <*> example
 

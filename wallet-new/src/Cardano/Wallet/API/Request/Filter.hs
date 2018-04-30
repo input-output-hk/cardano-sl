@@ -13,9 +13,15 @@ import           Universum
 
 import qualified Data.List as List
 import qualified Data.Text as T
+import qualified Data.Text.Buildable
 import           Data.Typeable
+import           Formatting (bprint, build, formatToString, sformat, (%))
 import qualified Generics.SOP as SOP
-import           GHC.TypeLits
+import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
+import           Pos.Util.LogSafe (BuildableSafe, BuildableSafeGen (..), SecureLog (..), buildSafe,
+                                   secure, unsecure)
+import           Pos.Util.Servant (ApiCanLogArg (..), ApiHasArgClass (..))
+
 import           Network.HTTP.Types (parseQueryText)
 import           Network.Wai (rawQueryString)
 import           Servant
@@ -35,7 +41,13 @@ import           Cardano.Wallet.API.V1.Types
 -- the inner closure of 'FilterOp'.
 data FilterOperations a where
     NoFilters  :: FilterOperations a
-    FilterOp   :: (IndexRelation a ix, FromHttpApiData ix, ToHttpApiData ix, Eq ix)
+    FilterOp   :: ( IndexRelation a ix
+                  , KnownSymbol (IndexToQueryParam a ix)
+                  , BuildableSafe ix
+                  , FromHttpApiData ix
+                  , ToHttpApiData ix
+                  , Eq ix
+                  )
                => FilterOperation ix a
                -> FilterOperations a
                -> FilterOperations a
@@ -43,7 +55,7 @@ data FilterOperations a where
 infixr 6 `FilterOp`
 
 instance Show (FilterOperations a) where
-    show = show . flattenOperations
+    show = formatToString build
 
 instance Eq (FilterOperations a) where
     NoFilters == NoFilters =
@@ -57,11 +69,20 @@ instance Eq (FilterOperations a) where
     _ == _ =
         False
 
--- | Handy helper function to show opaque 'FilterOperation'(s), mostly for
--- debug purposes.
-flattenOperations :: FilterOperations a -> [String]
-flattenOperations NoFilters       = mempty
-flattenOperations (FilterOp f fs) = show f : flattenOperations fs
+instance BuildableSafeGen (FilterOperations a) where
+    buildSafeGen _ NoFilters =
+        "-"
+    buildSafeGen sl (FilterOp op NoFilters) =
+        bprint (buildSafe sl) op
+    buildSafeGen sl (FilterOp op rest) =
+        bprint (buildSafe sl) op <> ", " <> bprint (buildSafe sl) rest
+
+instance Buildable (FilterOperations a) where
+    build = buildSafeGen unsecure
+
+instance Buildable (SecureLog (FilterOperations a)) where
+    build = buildSafeGen secure . getSecureLog
+
 
 -- A custom ordering for a 'FilterOperation'. Conceptually theh same as 'Ordering' but with the ">=" and "<="
 -- variants.
@@ -74,12 +95,16 @@ data FilterOrdering =
     deriving (Show, Eq, Enum, Bounded)
 
 renderFilterOrdering :: FilterOrdering -> Text
-renderFilterOrdering = \case
-    Equal -> "EQ"
-    GreaterThan -> "GT"
-    GreaterThanEqual -> "GTE"
-    LesserThan -> "LT"
-    LesserThanEqual -> "LTE"
+renderFilterOrdering = sformat build
+
+instance Buildable FilterOrdering where
+    build = \case
+        Equal            -> "EQ"
+        GreaterThan      -> "GT"
+        GreaterThanEqual -> "GTE"
+        LesserThan       -> "LT"
+        LesserThanEqual  -> "LTE"
+
 
 -- A filter operation on the data model
 data FilterOperation ix a =
@@ -89,10 +114,36 @@ data FilterOperation ix a =
     -- ^ Filter by predicate (e.g. lesser than, greater than, etc.)
     | FilterByRange ix ix
     -- ^ Filter by range, in the form [from,to]
+    | FilterIn [ix]
     deriving Eq
+
+instance (BuildableSafe ix, sym ~ IndexToQueryParam a ix, KnownSymbol sym) => Show (FilterOperation ix a) where
+    show = formatToString build
 
 instance ToHttpApiData ix => ToHttpApiData (FilterOperation ix a) where
     toQueryParam = renderFilterOperation
+
+instance (BuildableSafe ix, sym ~ IndexToQueryParam a ix, KnownSymbol sym) =>
+    BuildableSafeGen (FilterOperation ix a) where
+    buildSafeGen sl (FilterByIndex ix) =
+        bprint (build%"="%buildSafe sl) (symbolVal (Proxy @sym)) ix
+    buildSafeGen sl (FilterByPredicate o ix) =
+        bprint (build%"="%build%"["%buildSafe sl%"]") (symbolVal (Proxy @sym)) o ix
+    buildSafeGen sl (FilterByRange lo hi) =
+        bprint (build%"=RANGE["%buildSafe sl%","%buildSafe sl%"]") (symbolVal (Proxy @sym)) lo hi
+    buildSafeGen sl (FilterIn ixs) =
+        bprint (build % "=IN[" % build % "]")
+            (symbolVal (Proxy @sym))
+            bps
+      where
+        bps = mconcat
+            . List.intersperse ","
+            $ map (bprint (buildSafe sl)) ixs
+
+
+
+instance (BuildableSafeGen (FilterOperation ix a)) => Buildable (FilterOperation ix a) where
+    build = buildSafeGen unsecure
 
 renderFilterOperation :: ToHttpApiData ix => FilterOperation ix a -> Text
 renderFilterOperation = \case
@@ -102,6 +153,11 @@ renderFilterOperation = \case
         mconcat [renderFilterOrdering p, "[", toQueryParam ix, "]"]
     FilterByRange lo hi  ->
         mconcat ["RANGE", "[", toQueryParam lo, ",", toQueryParam hi, "]"]
+    FilterIn ixs ->
+        "IN[" <> T.intercalate "," (map toQueryParam ixs) <> "]"
+
+instance (BuildableSafeGen (FilterOperation ix a)) => Buildable (SecureLog (FilterOperation ix a)) where
+    build = buildSafeGen secure . getSecureLog
 
 findMatchingFilterOp
     :: forall needle a
@@ -118,11 +174,6 @@ findMatchingFilterOp filters =
                     pure fop
                 Nothing ->
                     findMatchingFilterOp rest
-
-instance Show (FilterOperation ix a) where
-    show (FilterByIndex _)            = "FilterByIndex"
-    show (FilterByPredicate theOrd _) = "FilterByPredicate[" <> show theOrd <> "]"
-    show (FilterByRange _ _)          = "FilterByRange"
 
 -- | Represents a filter operation on the data model.
 --
@@ -168,6 +219,7 @@ instance Indexable' a => ToFilterOperations ('[]) a where
 instance ( IndexRelation a ix
          , ToHttpApiData ix
          , FromHttpApiData ix
+         , BuildableSafe ix
          , ToFilterOperations ixs a
          , sym ~ IndexToQueryParam a ix
          , KnownSymbol sym
@@ -195,6 +247,15 @@ instance ( HasServer subApi ctx
                           return $ toFilterOperations (parseQueryText $ rawQueryString req) (Proxy @params)
         in route (Proxy :: Proxy subApi) context delayed
 
+-- | Defines name of @FilterBy syms res@
+instance ApiHasArgClass (FilterBy params res) where
+    type ApiArg (FilterBy params res) = FilterOperations res
+    apiArgName _ = "filter_by"
+
+-- | Defines how 'FilterBy' is logged by just refering to instance Buildable FilterOperations.
+instance ApiCanLogArg (FilterBy params res) where
+    toLogParamInfo _ param = \sl -> sformat (buildSafe sl) param
+
 -- | Parse the filter operations, failing silently if the query is malformed.
 -- TODO(adinapoli): we need to improve error handling (and the parsers, for
 -- what is worth).
@@ -220,6 +281,7 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
                ("GT", "]")    -> FilterByPredicate GreaterThan <$> toIndex p ixTxt
                ("GTE", "]")   -> FilterByPredicate GreaterThanEqual <$> toIndex p ixTxt
                ("RANGE", "]") -> parseRangeQuery ixTxt
+               ("IN", "]")    -> parseInQuery ixTxt
                _              -> Nothing
 
     -- Tries to parse a query by index.
@@ -232,6 +294,11 @@ parseFilterOperation p Proxy txt = case parsePredicateQuery <|> parseIndexQuery 
         case bimap identity (T.drop 1) (T.breakOn "," fromTo) of
             (_, "")    -> Nothing
             (from, to) -> FilterByRange <$> toIndex p from <*> toIndex p to
+
+    parseInQuery :: Text -> Maybe (FilterOperation ix a)
+    parseInQuery =
+        fmap FilterIn . traverse (toIndex p) . T.splitOn ","
+
 
 instance
     ( HasClient m next

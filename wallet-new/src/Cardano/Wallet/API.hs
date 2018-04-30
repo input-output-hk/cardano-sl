@@ -11,6 +11,8 @@ module Cardano.Wallet.API
        , walletDevAPI
        ) where
 
+import           Cardano.Wallet.API.Types (WalletLoggingConfig)
+import           Pos.Util.Servant (LoggingApi)
 import           Servant ((:<|>), (:>), Proxy (..))
 import           Servant.Swagger.UI (SwaggerSchemaUI)
 
@@ -49,7 +51,7 @@ type DevAPI = "api" :> "development" :> Dev.API
 devAPI :: Proxy DevAPI
 devAPI = Proxy
 
-type WalletAPI = V0Doc :<|> V1Doc :<|> V0API :<|> V1API
+type WalletAPI = V0Doc :<|> V1Doc :<|> LoggingApi WalletLoggingConfig (V0API :<|> V1API)
 walletAPI :: Proxy WalletAPI
 walletAPI = Proxy
 

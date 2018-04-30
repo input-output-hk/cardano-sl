@@ -1,17 +1,19 @@
-{-# LANGUAGE TypeApplications #-}
-
 module Cardano.Wallet.Client.Http
     ( module Cardano.Wallet.Client.Http
       -- * Abstract Client export
     , module Cardano.Wallet.Client
+    -- * Servant Client Export
+    , module Servant.Client
+    , module Network.HTTP.Client
     ) where
 
 import           Universum
 
 import           Control.Lens (_Left)
-import           Network.HTTP.Client (Manager)
+import           Data.Aeson (decode)
+import           Network.HTTP.Client (Manager, defaultManagerSettings, newManager)
 import           Servant ((:<|>) (..), (:>))
-import           Servant.Client (BaseUrl, ClientEnv (..), client, runClientM)
+import           Servant.Client (BaseUrl (..), ClientEnv (..), Scheme (..), client, runClientM, ServantError(..))
 
 import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.Client
@@ -27,8 +29,8 @@ mkHttpClient baseUrl manager = WalletClient
         = \x -> run . getAddressIndexR x
     , postAddress
         = run . postAddressR
-    , getAddressValidity
-        = run . getAddressValidityR
+    , getAddress
+        = run . getAddressR
     -- wallets endpoints
     , postWallet
         = run . postWalletR
@@ -73,9 +75,18 @@ mkHttpClient baseUrl manager = WalletClient
   where
     unNoContent = map void
     clientEnv = ClientEnv manager baseUrl
-    run       = fmap (over _Left ClientHttpError) . (`runClientM` clientEnv)
-    (getAddressIndexR :<|> postAddressR :<|> getAddressValidityR) =
-        addressesAPI
+    parseJsendError servantErr =
+        case servantErr of
+            FailureResponse resp ->
+                case decode (responseBody resp) of
+                    Just err -> ClientWalletError err
+                    Nothing  -> ClientHttpError servantErr
+            _ -> ClientHttpError servantErr
+    run       = fmap (over _Left parseJsendError) . (`runClientM` clientEnv)
+    getAddressIndexR
+        :<|> postAddressR
+        :<|> getAddressR
+        = addressesAPI
 
     postWalletR
         :<|> getWalletIndexFilterSortsR
@@ -84,19 +95,22 @@ mkHttpClient baseUrl manager = WalletClient
         :<|> getWalletR
         :<|> updateWalletR
         = walletsAPI
+
     deleteAccountR
         :<|> getAccountR
         :<|> getAccountIndexPagedR
         :<|> postAccountR
         :<|> updateAccountR
         = accountsAPI
+
     postTransactionR
         :<|> getTransactionIndexFilterSortsR
         :<|> getTransactionFeeR
         = transactionsAPI
 
     addressesAPI
-        :<|> (walletsAPI :<|> accountsAPI)
+        :<|> walletsAPI
+        :<|> accountsAPI
         :<|> transactionsAPI
         :<|> getNodeSettingsR
         :<|> getNodeInfoR

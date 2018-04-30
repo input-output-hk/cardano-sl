@@ -38,12 +38,12 @@ import qualified Pos.Communication ()
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), EpochIndex (..),
                            HasConfiguration, HeaderHash, LocalSlotIndex (..), SlotId (..),
                            SlotLeaders, StakeholderId, difficultyL, headerHash,
-                           makePubKeyAddressBoot)
+                           makePubKeyAddressBoot, protocolMagic, GenesisHash (..), genesisHash)
 import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock, getBlockHeader)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))
-import           Pos.Crypto (SecretKey, toPublic)
+import           Pos.Crypto (ProtocolMagic, SecretKey, toPublic)
 import           Pos.Delegation (DlgPayload, DlgUndo (..), ProxySKBlockInfo)
 import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
@@ -80,14 +80,14 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
     slotLeaders   <- produceSlotLeaders blocksNumber
     secretKeys    <- produceSecretKeys blocksNumber
 
-    blocks <- withDefConfigurations $
+    blocks <- withDefConfigurations $ \_ ->
         produceBlocksByBlockNumberAndSlots blocksNumber slotsPerEpoch slotLeaders secretKeys
 
     let tipBlock         = Prelude.last blocks
-    let pagedHHs         = withDefConfigurations $ createMapPageHHs blocks
-    let hHsBlunds        = withDefConfigurations $ createMapHHsBlund blocks
-    let epochPageHHs     = withDefConfigurations $ createMapEpochPageHHs blocks slotsPerEpoch
-    let mapEpochMaxPages = withDefConfigurations $ createMapEpochMaxPages $ keys epochPageHHs
+    let pagedHHs         = withDefConfigurations $ const $ createMapPageHHs blocks
+    let hHsBlunds        = withDefConfigurations $ const $ createMapHHsBlund blocks
+    let epochPageHHs     = withDefConfigurations $ const $ createMapEpochPageHHs blocks slotsPerEpoch
+    let mapEpochMaxPages = withDefConfigurations $ const $ createMapEpochMaxPages $ keys epochPageHHs
 
     pure $ ExplorerMockableMode
         { emmGetTipBlock          = pure tipBlock
@@ -192,7 +192,7 @@ basicBlock prevHeader sk slotId =
     producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
 
 emptyBlk
-    :: (HasConfiguration, HasUpdateConfiguration, Testable p)
+    :: (HasConfiguration, HasUpdateConfiguration, Testable p, Arbitrary ProtocolMagic)
     => (Either Text MainBlock -> p)
     -> Property
 emptyBlk testableBlock =
@@ -281,7 +281,10 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
         (epochGenesisBlock, epochBlocks)
       where
         epochGenesisBlock :: GenesisBlock
-        epochGenesisBlock = mkGenesisBlock mBlockHeader epochIndex producedSlotLeaders
+        epochGenesisBlock = mkGenesisBlock protocolMagic
+                                           (maybe (Left (GenesisHash genesisHash)) Right mBlockHeader)
+                                           epochIndex
+                                           producedSlotLeaders
 
         epochBlocks :: [MainBlock]
         epochBlocks = do

@@ -42,11 +42,14 @@ getAccount wId accIdx =
 listAccounts
     :: (MonadThrow m, V0.MonadWalletLogicRead ctx m)
     => WalletId -> RequestParams -> m (WalletResponse [Account])
-listAccounts wId params =
-    let accounts = migrate wId >>= V0.getAccounts . Just >>= migrate @[V0.CAccount] @[Account]
-    in respondWith params (NoFilters :: FilterOperations Account)
-                          (NoSorts :: SortOperations Account)
-                          (IxSet.fromList <$> accounts)
+listAccounts wId params = do
+    wid' <- migrate wId
+    oldAccounts <- V0.getAccounts (Just wid')
+    newAccounts <- migrate @[V0.CAccount] @[Account] oldAccounts
+    respondWith params
+        (NoFilters :: FilterOperations Account)
+        (NoSorts :: SortOperations Account)
+        (IxSet.fromList <$> pure newAccounts)
 
 newAccount
     :: (V0.MonadWalletLogic ctx m)

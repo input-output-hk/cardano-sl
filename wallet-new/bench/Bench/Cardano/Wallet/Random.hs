@@ -9,10 +9,10 @@ module Bench.Cardano.Wallet.Random
 
 import           Universum
 
-import           Control.Concurrent         (threadDelay)
-import qualified Data.List.NonEmpty         as NE
-import           Data.List.NonEmpty         ((!!))
-import           System.Random              (Random (..), randomRIO)
+import           Control.Concurrent (threadDelay)
+import           Data.List.NonEmpty ((!!))
+import qualified Data.List.NonEmpty as NE
+import           System.Random (Random (..), randomRIO)
 
 pickRandomElementFrom
     :: MonadIO m
@@ -44,9 +44,7 @@ pickRandomValueBetween (minValue, maxValue) = liftIO $ randomRIO (minValue, maxV
 -- both are positive and @to@ is greater than @from@.
 waitRandom :: (Double, Double) -> IO ()
 waitRandom (from, to) =
-    if thereIsNoDelay
-        then return ()
-        else randomRIO (fromInMicrosec, toInMicrosec) >>= threadDelay
+    unless thereIsNoDelay $ randomRIO (fromInMicrosec, toInMicrosec) >>= threadDelay
   where
     fromInMicrosec, toInMicrosec :: Int
     fromInMicrosec = truncate $ from * asMicrosec

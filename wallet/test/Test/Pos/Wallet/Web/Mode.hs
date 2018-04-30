@@ -64,7 +64,8 @@ import           Pos.Lrc (LrcContext)
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Reporting (HasReportingContext (..))
 import           Pos.Shutdown (HasShutdownContext (..), ShutdownContext (..))
-import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData)
+import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
+                               SimpleSlottingStateVar, mkSimpleSlottingStateVar)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
@@ -88,11 +89,11 @@ import           Pos.Wallet.Redirect (applyLastUpdateWebWallet, blockchainSlotDu
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..),
                                         WalletMempoolExt)
 import           Pos.Wallet.Web.ClientTypes (AccountId)
-import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
 import           Pos.Wallet.Web.Mode (getBalanceDefault, getNewAddressWebWallet, getOwnUtxosDefault)
-import           Pos.Wallet.Web.State (WalletDbReader, WalletDB, openMemState)
+import           Pos.Wallet.Web.State (WalletDB, WalletDbReader, openMemState)
 import           Pos.Wallet.Web.Tracking.BListener (onApplyBlocksWebWallet,
                                                     onRollbackBlocksWebWallet)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext (..), BlockTestContextTag,
@@ -151,8 +152,10 @@ data WalletTestContext = WalletTestContext
     -- ^ Stub
     , wtcSentTxs          :: !(TVar [TxAux])
     -- ^ Sent transactions via MonadWalletSendActions
-    , wtcHashes           :: !AddrCIdHashes
-    -- ^ Address hashes ref
+    , wtcSyncQueue        :: !SyncQueue
+    -- ^ STM queue for wallet sync requests.
+    , wtcSlottingStateVar :: SimpleSlottingStateVar
+    -- ^ A mutable cell with SlotId
     }
 
 makeLensesWith postfixLFields ''WalletTestContext
@@ -188,7 +191,8 @@ initWalletTestContext WalletTestParams {..} callback =
             wtcConnectedPeers <- ConnectedPeers <$> STM.newTVarIO mempty
             wtcLastKnownHeader <- STM.newTVarIO Nothing
             wtcSentTxs <- STM.newTVarIO mempty
-            wtcHashes <- AddrCIdHashes <$> newIORef mempty
+            wtcSyncQueue <- STM.newTQueueIO
+            wtcSlottingStateVar <- mkSimpleSlottingStateVar
             pure WalletTestContext {..}
         callback wtc
 
@@ -238,11 +242,12 @@ walletPropertySpec description wp = prop description (walletPropertyToProperty a
 ----------------------------------------------------------------------------
 -- Instances derived from BlockTestContext
 ----------------------------------------------------------------------------
-instance HasLens AddrCIdHashes WalletTestContext AddrCIdHashes where
-    lensOf = wtcHashes_L
 
 instance HasLens BlockTestContextTag WalletTestContext BlockTestContext where
     lensOf = wtcBlockTestContext_L
+
+instance HasLens SyncQueue WalletTestContext SyncQueue where
+    lensOf = wtcSyncQueue_L
 
 instance HasAllSecrets WalletTestContext where
     allSecrets = wtcBlockTestContext_L . allSecrets
@@ -299,6 +304,9 @@ instance HasLoggerName' WalletTestContext where
 
 instance HasLens TxpHolderTag WalletTestContext (GenericTxpLocalData WalletMempoolExt) where
     lensOf = wtcBlockTestContext_L . btcTxpMemL
+
+instance HasLens SimpleSlottingStateVar WalletTestContext SimpleSlottingStateVar where
+    lensOf = wtcSlottingStateVar_L
 
 instance {-# OVERLAPPING #-} HasLoggerName WalletTestMode where
     askLoggerName = askLoggerNameDefault

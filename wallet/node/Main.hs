@@ -11,10 +11,13 @@ module Main
 
 import           Universum
 
+import           Control.Concurrent.STM (newTBQueueIO)
 import           Data.Maybe (fromJust)
 import           Formatting (build, sformat, (%))
 import           Mockable (Production, runProduction)
 import           System.Wlog (LoggerName, logInfo, modifyLoggerName)
+
+import           Ntp.Client (NtpStatus, withNtpClient)
 
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
@@ -28,17 +31,20 @@ import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
                                NodeResources (..), bracketNodeResources, loggerBracket, runNode,
                                withConfigurations)
+import           Pos.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
-import           Pos.Util (logException)
+import           Pos.Util (lensOf, logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web (AddrCIdHashes (..), WalletWebMode, bracketWalletWS,
                                  bracketWalletWebDB, getSKById, notifierPlugin, runWRealMode,
-                                 startPendingTxsResubmitter, syncWalletsWithGState,
-                                 walletServeWebFull, walletServerOuts)
+                                 startPendingTxsResubmitter, walletServeWebFull, walletServerOuts)
 import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, cleanupAcidStatePeriodically,
                                        flushWalletStorage, getWalletAddresses)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Sync (processSyncRequest, syncWallet)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Web (serveWeb)
 import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (WorkMode)
@@ -58,48 +64,60 @@ actionWithWallet ::
        )
     => SscParams
     -> NodeParams
+    -> NtpConfiguration
     -> WalletArgs
     -> Production ()
-actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} = do
+actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletArgs {..} = do
     logInfo "Running `actionWithWallet'"
     bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
         bracketWalletWS $ \conn ->
             bracketNodeResources nodeParams sscParams
                 txpGlobalSettings
                 initNodeDBs $ \nr@NodeResources {..} -> do
+                ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
                 ref <- newIORef mempty
+                syncRequestsQueue <- liftIO $ newTBQueueIO 50
                 runWRealMode
                     db
                     conn
                     (AddrCIdHashes ref)
+                    syncRequestsQueue
                     nr
-                    (mainAction nr)
+                    (mainAction ntpStatus nr)
   where
-    mainAction = runNodeWithInit $ do
+    mainAction ntpStatus = runNodeWithInit ntpStatus $ do
         when (walletFlushDb) $ do
             putText "Flushing wallet db..."
             askWalletDB >>= flushWalletStorage
             putText "Resyncing wallets with blockchain..."
             syncWallets
-    runNodeWithInit init nr =
-        let (ActionSpec f, outs) = runNode nr allPlugins
+    runNodeWithInit ntpStatus init nr =
+        let (ActionSpec f, outs) = runNode nr (allPlugins ntpStatus)
          in (ActionSpec $ \s -> init >> f s, outs)
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \_ -> act)
     syncWallets :: WalletWebMode ()
     syncWallets = do
         ws  <- askWalletSnapshot
         sks <- mapM getSKById (getWalletAddresses ws)
-        syncWalletsWithGState sks
+        forM_ sks (syncWallet . eskToWalletDecrCredentials)
     resubmitterPlugins = ([ActionSpec $ \diffusion -> askWalletDB >>=
                             \db -> startPendingTxsResubmitter db (sendTx diffusion)], mempty)
     notifierPlugins = ([ActionSpec $ \_ -> notifierPlugin], mempty)
-    allPlugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
-    allPlugins = mconcat [ convPlugins (plugins wArgs)
-                         , walletProd wArgs
-                         , acidCleanupWorker wArgs
-                         , resubmitterPlugins
-                         , notifierPlugins
-                         ]
+    allPlugins :: HasConfigurations => TVar NtpStatus -> ([WorkerSpec WalletWebMode], OutSpecs)
+    allPlugins ntpStatus =
+        mconcat [ convPlugins (plugins wArgs)
+                , walletProd wArgs ntpStatus
+                , acidCleanupWorker wArgs
+                , syncWalletWorker
+                , resubmitterPlugins
+                , notifierPlugins
+                ]
+
+syncWalletWorker :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
+syncWalletWorker =
+    first one $ worker mempty $ const $
+    modifyLoggerName (const "syncWalletWorker") $
+    (view (lensOf @SyncQueue) >>= processSyncRequest)
 
 acidCleanupWorker :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
 acidCleanupWorker WalletArgs{..} =
@@ -112,14 +130,16 @@ walletProd ::
        , HasCompileInfo
        )
     => WalletArgs
+    -> TVar NtpStatus
     -> ([WorkerSpec WalletWebMode], OutSpecs)
-walletProd WalletArgs {..} = first one $ worker walletServerOuts $ \diffusion -> do
+walletProd WalletArgs {..} ntpStatus = first one $ worker walletServerOuts $ \diffusion -> do
     logInfo $ sformat ("Production mode for API: "%build)
         walletProductionApi
     logInfo $ sformat ("Transaction submission disabled: "%build)
         walletTxCreationDisabled
     walletServeWebFull
         diffusion
+        ntpStatus
         walletDebug
         walletAddress
         (Just walletTLSParams)
@@ -135,8 +155,8 @@ plugins WalletArgs {..}
     | otherwise = []
 
 action :: HasCompileInfo => WalletNodeArgs -> Production ()
-action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
-    withConfigurations conf $ do
+action ntpConfig (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
+    withConfigurations conf $ \ntpConfig -> do
         CLI.printInfoOnStart cArgs
         logInfo $ "Wallet is enabled!"
         currentParams <- getNodeParams loggerName cArgs nodeArgs
@@ -144,7 +164,7 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-        actionWithWallet sscParams currentParams wArgs
+        actionWithWallet sscParams currentParams ntpConfig wArgs
   where
     nodeArgs :: NodeArgs
     nodeArgs = NodeArgs { behaviorConfigPath = Nothing }

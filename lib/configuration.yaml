@@ -60,16 +60,14 @@ dev: &dev
 
     dbSerializeVersion: 0
 
-  infra: &dev_infra
-
-    # NTP slotting
-    ntpResponseTimeout: 7000000 # 7 sec
-    ntpPollDelay: 300000000 # 300 sec
-    ntpMaxError: 120000000 # 2 mins
-
-    # NTP checking
-    timeDifferenceWarnInterval: 14400000000 # 4 hours
-    timeDifferenceWarnThreshold: 5000000 # 5 sec
+  ntp: &dev_ntp
+    # NTP
+    responseTimeout: 30000000 # 30 sec
+    pollDelay:  1800000000 # 30 min
+    servers:
+      - "0.pool.ntp.org"
+      - "2.pool.ntp.org"
+      - "3.pool.ntp.org"
 
   update: &dev_update
     applicationName: cardano-sl
@@ -240,16 +238,13 @@ mainnet_base: &mainnet_base
 
     dbSerializeVersion: 0
 
-  infra:
-
-    # NTP slotting
-    ntpResponseTimeout: 10000000           # 10 sec
-    ntpPollDelay: 60000000                 # 1 min
-    ntpMaxError: 120000000 # 2 mins
-
-    # NTP checking
-    timeDifferenceWarnInterval: 14400000000 # 4 hours
-    timeDifferenceWarnThreshold: 5000000 # 5 sec
+  ntp:
+    responseTimeout: 30000000 # 30 sec
+    pollDelay:  1800000000 # 30 min
+    servers:
+      - "0.pool.ntp.org"
+      - "2.pool.ntp.org"
+      - "3.pool.ntp.org"
 
   update: &mainnet_base_update
     applicationName: cardano-sl
@@ -14741,7 +14736,7 @@ mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 4
+    applicationVersion: 6
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14751,7 +14746,17 @@ mainnet_wallet_macos64: &mainnet_wallet_macos64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 4
+    applicationVersion: 6
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 1
+      bvAlt: 0
+
+mainnet_wallet_linux64: &mainnet_wallet_linux64
+  <<: *mainnet_full
+  update:
+    applicationName: csl-daedalus
+    applicationVersion: 0
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14776,7 +14781,7 @@ mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 6
+    applicationVersion: 9
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14786,7 +14791,17 @@ mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
   <<: *mainnet_dryrun_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 6
+    applicationVersion: 9
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 1
+      bvAlt: 0
+
+mainnet_dryrun_wallet_linux64: &mainnet_dryrun_wallet_linux64
+  <<: *mainnet_dryrun_full
+  update:
+    applicationName: csl-daedalus
+    applicationVersion: 0
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1
@@ -14827,6 +14842,16 @@ mainnet_staging_short_epoch_wallet_win64:
       bvAlt: 0
 
 mainnet_staging_short_epoch_wallet_macos64:
+  <<: *mainnet_staging_short_epoch_full
+  update:
+    applicationName: csl-daedalus
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+
+mainnet_staging_short_epoch_wallet_linux64:
   <<: *mainnet_staging_short_epoch_full
   update:
     applicationName: csl-daedalus
@@ -14913,6 +14938,18 @@ devnet_macos64:
       bvAlt: 0
     systemTag: macos64
 
+devnet_linux64:
+  <<: *devnet
+  update:
+    <<:
+    applicationName: csl-daedalus
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+    systemTag: linux
+
 ##############################################################################
 ##                                                                          ##
 ##   Internal staging configs                                               ##
@@ -14976,6 +15013,16 @@ internal_staging_wallet_win64:
       bvAlt: 0
 
 internal_staging_wallet_macos64:
+  <<: *internal_staging_full
+  update:
+    applicationName: csl-daedalus
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+
+internal_staging_wallet_linux64:
   <<: *internal_staging_full
   update:
     applicationName: csl-daedalus

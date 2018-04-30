@@ -13,8 +13,8 @@ import           Serokell.Util.Text (listJson)
 import           Universum
 
 import           Pos.Core (HeaderHash)
-import           Pos.Core.Block (Block, BlockHeader)
-import           Pos.Util.Chrono (NE, NewestFirst)
+import           Pos.Core.Block (Block, BlockHeader (..))
+import           Pos.Util.Chrono (NE, NewestFirst (..))
 
 -- | 'GetHeaders' message. Behaviour of the response depends on
 -- particular combination of 'mghFrom' and 'mghTo'.

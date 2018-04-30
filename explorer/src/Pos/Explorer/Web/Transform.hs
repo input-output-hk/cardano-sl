@@ -21,11 +21,9 @@ import           Servant.Server (Handler, hoistServer)
 
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import           Pos.Communication (OutSpecs)
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
 import           Pos.Diffusion.Types (Diffusion)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Recovery ()
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..))
@@ -51,18 +49,15 @@ type ExplorerProd = ExtraContextT (ExplorerBListener RealModeE)
 
 type instance MempoolExt ExplorerProd = ExplorerExtraModifier
 
-instance (HasConfiguration, HasInfraConfiguration, HasTxpConfiguration, HasCompileInfo) =>
+instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo) =>
          MonadTxpLocal RealModeE where
     txpNormalize = eTxNormalize
     txpProcessTx = eTxProcessTransaction
 
-instance (HasConfiguration, HasInfraConfiguration, HasTxpConfiguration, HasCompileInfo) =>
+instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo) =>
          MonadTxpLocal ExplorerProd where
     txpNormalize = lift $ lift txpNormalize
     txpProcessTx = lift . lift . txpProcessTx
-
-instance HasAdoptedBlockVersionData RealModeE => HasAdoptedBlockVersionData ExplorerProd where
-    adoptedBVData = lift . lift $ adoptedBVData
 
 runExplorerProd :: ExtraContext -> ExplorerProd a -> RealModeE a
 runExplorerProd extraCtx = runExplorerBListener . runExtraContextT extraCtx
@@ -74,7 +69,6 @@ type HasExplorerConfiguration =
     ( HasConfiguration
     , HasBlockConfiguration
     , HasNodeConfiguration
-    , HasInfraConfiguration
     , HasUpdateConfiguration
     , HasSscConfiguration
     , HasCompileInfo

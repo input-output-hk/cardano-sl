@@ -60,8 +60,8 @@ import           Servant.Swagger.UI (SwaggerSchemaUI)
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import           Pos.Core (Coin, SoftwareVersion)
-import           Pos.Util.Servant (ApiLoggingConfig, CCapture, CQueryParam, CReqBody, DCQueryParam,
-                                   DReqBody, LoggingApi, ModifiesApiRes (..),
+import           Pos.Util.Servant (ApiLoggingConfig (..), CCapture, CQueryParam, CReqBody,
+                                   DCQueryParam, DReqBody, LoggingApi, ModifiesApiRes (..),
                                    ReportDecodeError (..), VerbMod, serverHandlerL')
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit, CAccountMeta,
                                              CAddress, CCoin, CFilePath, CId, CInitialized,
@@ -92,7 +92,7 @@ data WalletLoggingConfig
 -- If logger config will ever be determined in runtime, 'Data.Reflection.reify'
 -- can be used.
 instance Reifies WalletLoggingConfig ApiLoggingConfig where
-    reflect _ = "node" <> "wallet" <> "servant"
+    reflect _ = ApiLoggingConfig ("node" <> "wallet" <> "servant")
 
 -- | Shortcut for common api result types.
 type WRes verbType a = WalletVerb (verbType '[JSON] a)

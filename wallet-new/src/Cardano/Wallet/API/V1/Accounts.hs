@@ -9,26 +9,26 @@ import           Cardano.Wallet.API.V1.Types
 
 
 type API
-    = Tags '["Accounts"] :> "accounts" :> (
-        CaptureWalletId
+    = Tags '["Accounts"] :>
+    (    "wallets" :> CaptureWalletId :> "accounts"
           :> CaptureAccountId
           :> Summary "Deletes an Account."
           :> DeleteNoContent '[ValidJSON] NoContent
-        :<|> CaptureWalletId
+    :<|> "wallets" :> CaptureWalletId :> "accounts"
           :> CaptureAccountId
           :> Summary "Retrieves a specific Account."
           :> Get '[ValidJSON] (WalletResponse Account)
-        :<|> CaptureWalletId
+    :<|> "wallets" :> CaptureWalletId :> "accounts"
           :> WalletRequestParams
           :> Summary "Retrieves the full list of Accounts."
           :> Get '[ValidJSON] (WalletResponse [Account])
-        :<|> CaptureWalletId
+    :<|> "wallets" :> CaptureWalletId :> "accounts"
           :> Summary "Creates a new Account for the given Wallet."
           :> ReqBody '[ValidJSON] (New Account)
           :> Post '[ValidJSON] (WalletResponse Account)
-        :<|> CaptureWalletId
+    :<|> "wallets" :> CaptureWalletId :> "accounts"
           :> CaptureAccountId
           :> Summary "Update an Account for the given Wallet."
           :> ReqBody '[ValidJSON] (Update Account)
           :> Put '[ValidJSON] (WalletResponse Account)
-      )
+    )

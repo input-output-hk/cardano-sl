@@ -10,12 +10,12 @@ import           Data.Time.Units (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), Raw, deriveSimpleBi,
-                                   deriveSimpleBiCxt, encodeListLen, enforceSize)
+                                   encodeListLen, enforceSize)
 import           Pos.Binary.Core.Common ()
 import           Pos.Binary.Core.Fee ()
 import           Pos.Binary.Core.Script ()
+import           Pos.Binary.Core.Slotting ()
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
 import qualified Pos.Core.Update as U
 import           Pos.Core.Update.Types (BlockVersion, BlockVersionData (..), SoftforkRule (..),
@@ -103,7 +103,7 @@ deriveSimpleBi ''U.UpdateProposalToSign [
         Field [| U.upsAttr :: U.UpAttributes                   |]
     ]]
 
-instance HasConfiguration => Bi U.UpdateProposal where
+instance Bi U.UpdateProposal where
     encode up = encodeListLen 7
             <> encode (U.upBlockVersion up)
             <> encode (U.upBlockVersionMod up)
@@ -122,7 +122,7 @@ instance HasConfiguration => Bi U.UpdateProposal where
                                <*> decode
                                <*> decode
 
-instance HasConfiguration => Bi U.UpdateVote where
+instance Bi U.UpdateVote where
     encode uv =  encodeListLen 4
             <> encode (U.uvKey uv)
             <> encode (U.uvProposalId uv)
@@ -136,7 +136,7 @@ instance HasConfiguration => Bi U.UpdateVote where
         uvSignature  <- decode
         pure U.UnsafeUpdateVote{..}
 
-deriveSimpleBiCxt [t|HasConfiguration|] ''U.UpdatePayload [
+deriveSimpleBi ''U.UpdatePayload [
     Cons 'U.UpdatePayload [
         Field [| U.upProposal :: Maybe U.UpdateProposal |],
         Field [| U.upVotes    :: [U.UpdateVote]         |]

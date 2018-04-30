@@ -6,7 +6,8 @@ flags:
 
 extra-package-dbs: []
 
-# networking → [util, binary] → crypto → core → db → [lrc, infra] → [ssc, txp, update, delegation] → block → lib → ...
+# networking → binary → util → crypto → core → db → [lrc, infra]
+#              → [ssc, txp, update, delegation] → block → lib → ...
 # Then we have two branches:
 # ... → client → generator → [auxx, explorer, wallet] → wallet-new
 # ... → [node, tools]
@@ -15,6 +16,7 @@ packages:
 - binary
 - util
 - crypto
+- crypto/tests
 - core
 - db
 - lrc
@@ -37,7 +39,7 @@ packages:
 - location:
     git: https://github.com/well-typed/cborg
     # Has support for canonical cbor
-    commit: 8bddf97abe613d4eb523ed6b0ff8eabbd713c744
+    commit: 3d274c14ca3077c3a081ba7ad57c5182da65c8c1
   subdirs:
   - cborg
   extra-dep: true
@@ -64,7 +66,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 19fd5ddf24dab731375a156ce38dcfce4319d1e4 # master 0.4.9
+    commit: 81eea7361a75923f9402fcb7840fb36722dbf88e # master 0.4.10
   extra-dep: true
 # These three are needed for cardano-sl-networking
 - location:
@@ -83,14 +85,6 @@ packages:
     git: https://github.com/input-output-hk/cardano-crypto
     commit: 287cc575fafe86af9d24af9d012c47f9d3f04da0
   extra-dep: true
-# We're using forked version of 'swagger2' package because of bug in haddock package.
-# Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
-# be fixed, we'll back to Hackage-version.
-- location:
-    git: https://github.com/serokell/swagger2
-    commit: 6693ff91be2f0b015c2ab043292587c1cc9449cf
-  extra-dep: true
-
 - location:
     git: https://github.com/haskell-crypto/cryptonite
     commit: 41d610fb18e2924d7aa704c37798e1c197557f3e
@@ -184,6 +178,7 @@ extra-deps:
 - yaml-0.8.28
 - lzma-0.0.0.3
 - lzma-clib-5.2.2
+- lzma-conduit-1.2.1 # https://github.com/alphaHeavy/lzma-conduit/pull/18
 - wai-extra-3.0.22.0
 - typed-process-0.2.1.0
 - unliftio-0.2.4.0
@@ -197,6 +192,7 @@ extra-deps:
 - gauge-0.2.1
 - statistics-0.14.0.2
 - validation-0.6.1
+- swagger2-2.2.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
@@ -222,3 +218,8 @@ ghc-options:
   cardano-sl-explorer:   -Werror
   cardano-sl-node:       -Werror
   cardano-sl-wallet-new: -Werror
+
+# The 'swagger2' has a broken Haddock with GHC 8.0. We can remove this flag
+# when we have upgraded to GHC >= 8.2
+build:
+  haddock-hyperlink-source: false

@@ -31,7 +31,7 @@ import           Pos.Block.Logic.VAR (verifyBlocksPrefix)
 import           Pos.Block.Slog (HasSlogGState (..), ShouldCallBListener (..))
 import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..), HasConfiguration,
                            HeaderHash, SlotId (..), chainQualityThreshold, epochIndexL, epochSlots,
-                           flattenSlotId, getEpochOrSlot, headerHash)
+                           flattenSlotId, getEpochOrSlot, headerHash, protocolMagic)
 import           Pos.Core.Block (BlockHeader (..), GenesisBlock, MainBlock, MainBlockchain)
 import qualified Pos.Core.Block as BC
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
@@ -57,7 +57,8 @@ import           Pos.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem, clearTxpM
                           txGetPayload, withTxpLocalData)
 import           Pos.Txp.Base (emptyTxPayload)
 import           Pos.Update (UpdateContext)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
+                                           lastKnownBlockVersion)
 import qualified Pos.Update.DB as UDB
 import           Pos.Update.Logic (clearUSMemPool, usCanCreateBlock, usPreparePayload)
 import           Pos.Util (_neHead)
@@ -149,7 +150,7 @@ createGenesisBlockDo epoch = do
         lrcSingleShot epoch
         leaders <- lrcActionOnEpochReason epoch "createGenesisBlockDo "
             LrcDB.getLeadersForEpoch
-        let blk = mkGenesisBlock (Just tipHeader) epoch leaders
+        let blk = mkGenesisBlock protocolMagic (Right tipHeader) epoch leaders
         let newTip = headerHash blk
         verifyBlocksPrefix (one (Left blk)) >>= \case
             Left err -> reportFatalError $ pretty err
@@ -304,7 +305,7 @@ createMainBlockPure
 createMainBlockPure limit prevHeader pske sId sk rawPayload = do
     bodyLimit <- execStateT computeBodyLimit limit
     body <- createMainBody bodyLimit sId rawPayload
-    pure (mkMainBlock (Just prevHeader) sId sk pske body)
+    pure (mkMainBlock pm bv sv (Right prevHeader) sId sk pske body)
   where
     -- default ssc to put in case we won't fit a normal one
     defSsc :: SscPayload
@@ -314,11 +315,14 @@ createMainBlockPure limit prevHeader pske sId sk rawPayload = do
         -- account for block header and serialization overhead, etc;
         let musthaveBody = BC.MainBody emptyTxPayload defSsc def def
         let musthaveBlock =
-                mkMainBlock (Just prevHeader) sId sk pske musthaveBody
+                mkMainBlock pm bv sv (Right prevHeader) sId sk pske musthaveBody
         let mhbSize = biSize musthaveBlock
         when (mhbSize > limit) $ throwError $
             "Musthave block size is more than limit: " <> show mhbSize
         identity -= biSize musthaveBlock
+    sv = curSoftwareVersion
+    bv = lastKnownBlockVersion
+    pm = protocolMagic
 
 ----------------------------------------------------------------------------
 -- MainBlock apply

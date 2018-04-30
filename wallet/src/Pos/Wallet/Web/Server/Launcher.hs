@@ -24,6 +24,9 @@ import           Servant.Server (Handler, Server, serve)
 import           System.Wlog (WithLogger, logInfo)
 
 import qualified Data.ByteString.Char8 as BS8
+
+import           Ntp.Client (NtpStatus)
+
 import           Pos.Client.Txp.Network (sendTxOuts)
 import           Pos.Communication (OutSpecs)
 import           Pos.Core (HasConfiguration)
@@ -41,7 +44,8 @@ import           Pos.Wallet.Web.Sockets (ConnectionsVar, closeWSConnections, get
                                          initWSConnections, upgradeApplicationWS)
 import           Pos.Wallet.Web.State (closeState, openState)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
-import           Pos.Wallet.Web.Tracking (syncWalletsWithGState)
+import           Pos.Wallet.Web.Tracking (syncWallet)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import           Pos.Web (TlsParams, serveImpl)
 
 -- TODO [CSM-407]: Mixture of logic seems to be here
@@ -67,11 +71,12 @@ walletServer
     :: forall ctx m.
        ( MonadFullWalletWebMode ctx m )
     => Diffusion m
+    -> TVar NtpStatus
     -> (forall x. m x -> Handler x)
     -> m (Server WalletSwaggerApi)
-walletServer diffusion nat = do
-    syncWalletsWithGState =<< mapM findKey =<< myRootAddresses
-    return $ servantHandlersWithSwagger submitTx nat
+walletServer diffusion ntpStatus nat = do
+    mapM_ (findKey >=> syncWallet . eskToWalletDecrCredentials) =<< myRootAddresses
+    return $ servantHandlersWithSwagger ntpStatus submitTx nat
   where
     -- Diffusion layer takes care of submitting transactions.
     submitTx = sendTx diffusion

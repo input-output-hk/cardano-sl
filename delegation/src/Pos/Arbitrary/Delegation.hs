@@ -12,21 +12,22 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 
 import           Pos.Arbitrary.Core ()
 import           Pos.Binary.Core ()
-import           Pos.Core (EpochIndex, HasConfiguration, HeavyDlgIndex (..))
-import           Pos.Crypto (ProxySecretKey (..), createPsk)
+import           Pos.Core (EpochIndex, HeavyDlgIndex (..))
+import           Pos.Crypto (ProtocolMagic, HasProtocolMagic, protocolMagic,
+                             ProxySecretKey (..), createPsk)
 import           Pos.Delegation.Types (DlgPayload (..), DlgUndo (..))
 
-genDlgPayload :: HasConfiguration => EpochIndex -> Gen DlgPayload
-genDlgPayload epoch =
+genDlgPayload :: ProtocolMagic -> EpochIndex -> Gen DlgPayload
+genDlgPayload pm epoch =
     UnsafeDlgPayload . toList . HM.fromList . map convert <$> listOf genPSK
   where
     convert psk = (pskIssuerPk psk, psk)
-    genPSK = createPsk <$> arbitrary <*> arbitrary <*> pure (HeavyDlgIndex epoch)
+    genPSK = createPsk pm <$> arbitrary <*> arbitrary <*> pure (HeavyDlgIndex epoch)
 
-instance HasConfiguration => Arbitrary DlgPayload where
-    arbitrary = arbitrary >>= genDlgPayload
+instance HasProtocolMagic => Arbitrary DlgPayload where
+    arbitrary = arbitrary >>= genDlgPayload protocolMagic
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary DlgUndo where
+instance HasProtocolMagic => Arbitrary DlgUndo where
     arbitrary = genericArbitrary
     shrink = genericShrink

@@ -23,22 +23,20 @@ module Pos.Wallet.Web.Tracking.Modifier
 import           Universum
 
 import           Data.DList (DList)
-import qualified Data.Text.Buildable
-import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (bprint, build, (%))
 import           Serokell.Util (listJson, listJsonIndent)
 
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
-import           Pos.Core (HeaderHash)
+import           Pos.Core (Address, HeaderHash)
 import           Pos.Core.Txp (TxId)
 import           Pos.Txp.Toil (UtxoModifier)
-import           Pos.Util.LogSafe (LogSecurityLevel, SecureLog, getSecureLog, secretOnlyF, secure,
-                                   secureListF, unsecure)
+import           Pos.Util.LogSafe (BuildableSafeGen (..), deriveSafeBuildable, secretOnlyF,
+                                   secureListF)
 import           Pos.Util.Modifier (MapModifier)
 import qualified Pos.Util.Modifier as MM
 
-import           Pos.Wallet.Web.ClientTypes (Addr, CId, CWAddressMeta)
 import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo)
+import           Pos.Wallet.Web.State         (WAddressMeta)
 
 -- VoidModifier describes a difference between two states.
 -- It's (set of added k, set of deleted k) essentially.
@@ -64,9 +62,9 @@ instance (Eq a, Hashable a) => Monoid (IndexedMapModifier a) where
     mappend = (<>)
 
 data CAccModifier = CAccModifier
-    { camAddresses            :: !(IndexedMapModifier CWAddressMeta)
-    , camUsed                 :: !(VoidModifier (CId Addr, HeaderHash))
-    , camChange               :: !(VoidModifier (CId Addr, HeaderHash))
+    { camAddresses            :: !(IndexedMapModifier WAddressMeta)
+    , camUsed                 :: !(VoidModifier (Address, HeaderHash))
+    , camChange               :: !(VoidModifier (Address, HeaderHash))
     , camUtxo                 :: !UtxoModifier
     , camAddedHistory         :: !(DList TxHistoryEntry)
     , camDeletedHistory       :: !(DList TxHistoryEntry)
@@ -83,33 +81,29 @@ instance Monoid CAccModifier where
     mempty = CAccModifier mempty mempty mempty mempty mempty mempty mempty mempty
     mappend = (<>)
 
-buildCAccModifier :: LogSecurityLevel -> CAccModifier -> Builder
-buildCAccModifier sl CAccModifier{..} =
-    bprint
-        ( "\n    added addresses: "%secureListF sl (listJsonIndent 8)
-        %",\n    deleted addresses: "%secureListF sl (listJsonIndent 8)
-        %",\n    used addresses: "%secureListF sl listJson
-        %",\n    change addresses: "%secureListF sl listJson
-        %",\n    local utxo (difference): "%secretOnlyF sl build
-        %",\n    added history entries: "%secureListF sl (listJsonIndent 8)
-        %",\n    deleted history entries: "%secureListF sl (listJsonIndent 8)
-        %",\n    added pending candidates: "%secureListF sl listJson
-        %",\n    deleted pending candidates: "%secureListF sl listJson)
-    (sortedInsertions camAddresses)
-    (indexedDeletions camAddresses)
-    (map (fst . fst) $ MM.insertions camUsed)
-    (map (fst . fst) $ MM.insertions camChange)
-    camUtxo
-    camAddedHistory
-    camDeletedHistory
-    (map fst camAddedPtxCandidates)
-    (map fst camDeletedPtxCandidates)
+instance BuildableSafeGen CAccModifier where
+    buildSafeGen sl CAccModifier{..} =
+        bprint
+            ( "\n    added addresses: "%secureListF sl (listJsonIndent 8)
+            %",\n    deleted addresses: "%secureListF sl (listJsonIndent 8)
+            %",\n    used addresses: "%secureListF sl listJson
+            %",\n    change addresses: "%secureListF sl listJson
+            %",\n    local utxo (difference): "%secretOnlyF sl build
+            %",\n    added history entries: "%secureListF sl (listJsonIndent 8)
+            %",\n    deleted history entries: "%secureListF sl (listJsonIndent 8)
+            %",\n    added pending candidates: "%secureListF sl listJson
+            %",\n    deleted pending candidates: "%secureListF sl listJson)
+        (sortedInsertions camAddresses)
+        (indexedDeletions camAddresses)
+        (map (fst . fst) $ MM.insertions camUsed)
+        (map (fst . fst) $ MM.insertions camChange)
+        camUtxo
+        camAddedHistory
+        camDeletedHistory
+        (map fst camAddedPtxCandidates)
+        (map fst camDeletedPtxCandidates)
 
-instance Buildable CAccModifier where
-    build = buildCAccModifier unsecure
-
-instance Buildable (SecureLog CAccModifier) where
-    build = buildCAccModifier secure . getSecureLog
+deriveSafeBuildable ''CAccModifier
 
 -- | `txMempoolToModifier`, once evaluated, is passed around under this type in
 -- scope of single request.

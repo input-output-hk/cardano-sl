@@ -185,7 +185,6 @@ function node_cmd {
   local conf_file=$6
   local st=''
   local reb=''
-  local no_ntp=''
   local web=''
   local configuration=''
 
@@ -198,9 +197,6 @@ function node_cmd {
 
   if [[ $NO_REBUILD == "" ]]; then
     reb=" --rebuild-db "
-  fi
-  if [[ $NO_NTP != "" ]]; then
-    no_ntp=" --no-ntp "
   fi
   if [[ $is_stat != "" ]]; then
     stats=" --stats "
@@ -225,7 +221,7 @@ function node_cmd {
   #local kademlia_file="$config_dir/kademlia$i.yaml"
   local updater_file="$config_dir/updater$i.sh"
 
-  echo -n " --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
+  echo -n " --db-path $run_dir/node-db$i $rts_opts $reb $keys_args"
 
   ekg_server="127.0.0.1:"$((8000+$i))
   statsd_server="127.0.0.1:"$((8125+$i))
@@ -258,7 +254,6 @@ function node_cmd {
   echo -n "  --update-latest-path $updater_file"
   echo -n "  --update-with-package"
   echo -n "  --update-server 'http://127.0.0.1:10228/'"
-  echo -n "  --no-ntp"
   echo ''
   sleep 0.8
 }

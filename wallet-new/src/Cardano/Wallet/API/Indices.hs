@@ -1,8 +1,8 @@
-{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ConstraintKinds           #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FunctionalDependencies    #-}
 {-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE PolyKinds                 #-}
 {-# LANGUAGE RankNTypes                #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans      #-}
@@ -13,9 +13,9 @@ import           Universum
 
 import           Cardano.Wallet.API.V1.Types
 import           Data.String.Conv (toS)
+import           GHC.TypeLits
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash)
-import           GHC.TypeLits
 
 import           Data.IxSet.Typed (Indexable (..), IsIndexOf, IxSet, ixFun, ixList)
 
@@ -38,6 +38,10 @@ instance ToIndex Wallet Core.Coin where
         Just c  -> Just (Core.mkCoin c)
     accessIx Wallet{..} = let (V1 balance) = walBalance in balance
 
+instance ToIndex Wallet (V1 Core.Timestamp) where
+    toIndex _ = fmap V1 . Core.parseTimestamp
+    accessIx = walCreatedAt
+
 instance ToIndex Transaction (V1 Core.TxId) where
     toIndex _ = fmap V1 . rightToMaybe . decodeHash
     accessIx Transaction{..} = txId
@@ -48,10 +52,10 @@ instance ToIndex Transaction (V1 Core.Timestamp) where
 
 -- | A type family mapping a resource 'a' to all its indices.
 type family IndicesOf a :: [*] where
-    IndicesOf Wallet      = WalletIxs
-    IndicesOf Transaction = TransactionIxs
-    IndicesOf Account     = AccountIxs
-
+    IndicesOf Wallet        = WalletIxs
+    IndicesOf Transaction   = TransactionIxs
+    IndicesOf Account       = AccountIxs
+    IndicesOf WalletAddress = WalletAddressIxs
 
 -- | A variant of an 'IxSet' where the indexes are determined statically by the resource type.
 type IxSet' a        = IxSet (IndicesOf a) a
@@ -76,13 +80,15 @@ type IndexRelation a ix =
 --
 
 -- | The indices for each major resource.
-type WalletIxs      = '[WalletId, Core.Coin]
-type TransactionIxs = '[V1 Core.TxId, V1 Core.Timestamp]
-type AccountIxs     = '[AccountIndex]
+type WalletIxs        = '[WalletId, Core.Coin, V1 Core.Timestamp]
+type TransactionIxs   = '[V1 Core.TxId, V1 Core.Timestamp]
+type AccountIxs       = '[AccountIndex]
+type WalletAddressIxs = '[V1 Core.Address]
 
 instance Indexable WalletIxs Wallet where
   indices = ixList (ixFun (\Wallet{..} -> [walId]))
                    (ixFun (\Wallet{..} -> let (V1 balance) = walBalance in [balance]))
+                   (ixFun (\Wallet{..} -> [walCreatedAt]))
 
 instance Indexable TransactionIxs Transaction where
   indices = ixList (ixFun (\Transaction{..} -> [txId]))
@@ -90,6 +96,9 @@ instance Indexable TransactionIxs Transaction where
 
 instance Indexable AccountIxs Account where
   indices = ixList (ixFun (\Account{..} -> [accIndex]))
+
+instance Indexable WalletAddressIxs WalletAddress where
+  indices = ixList (ixFun (\WalletAddress{..} -> [addrId]))
 
 -- | Extract the parameter names from a type leve list with the shape
 type family ParamNames res xs where
@@ -101,10 +110,13 @@ type family ParamNames res xs where
 -- | This type family allows you to recover the query parameter if you know
 -- the resource and index into that resource.
 type family IndexToQueryParam resource ix where
-    IndexToQueryParam Account AccountIndex = "id"
+    IndexToQueryParam Account AccountIndex            = "id"
 
-    IndexToQueryParam Wallet  Core.Coin    = "balance"
-    IndexToQueryParam Wallet  WalletId     = "id"
+    IndexToQueryParam Wallet  Core.Coin               = "balance"
+    IndexToQueryParam Wallet  WalletId                = "id"
+    IndexToQueryParam Wallet  (V1 Core.Timestamp)     = "created_at"
+
+    IndexToQueryParam WalletAddress (V1 Core.Address) = "id"
 
     IndexToQueryParam Transaction (V1 Core.TxId)      = "id"
     IndexToQueryParam Transaction (V1 Core.Timestamp) = "created_at"
@@ -122,4 +134,3 @@ type family IndexToQueryParam resource ix where
         ':$$: 'Text "Perhaps you mismatched a resource and an index?"
         ':$$: 'Text "Or, maybe you need to add a type instance to `IndexToQueryParam'."
         )
-

@@ -55,14 +55,14 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Universum
 
-import           Pos.Arbitrary.Crypto ()
-import           Pos.Binary.Class (Bi (..), decodeFull', encodeListLen, enforceSize, serialize',
-                                   Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull', deriveSimpleBi,
+                                   encodeListLen, enforceSize, serialize')
 import           Pos.Binary.Crypto ()
 import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
                            wAddressGenesisIndex)
 import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
 
+import           Test.Pos.Crypto.Arbitrary ()
 
 #ifdef POSIX
 import           Formatting (oct, sformat)

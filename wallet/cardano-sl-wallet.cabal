@@ -1,5 +1,5 @@
 name:                cardano-sl-wallet
-version:             1.1.0
+version:             1.1.1
 synopsis:            Cardano SL - wallet
 description:         Cardano SL - wallet
 license:             MIT
@@ -93,7 +93,9 @@ library
                       Pos.Wallet.Web.Tracking.BListener
                       Pos.Wallet.Web.Tracking.Decrypt
                       Pos.Wallet.Web.Tracking.Sync
+                      Pos.Wallet.Web.Tracking.Restore
                       Pos.Wallet.Web.Tracking.Modifier
+                      Pos.Wallet.Web.Tracking.Types
 
                       Pos.Wallet.Web.Util
 
@@ -227,6 +229,8 @@ test-suite cardano-wallet-test
 
                        Test.Pos.Wallet.Web.Tracking.SyncSpec
 
+                       Test.Pos.Wallet.MigrationSpec
+
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom
                      , QuickCheck
@@ -254,13 +258,15 @@ test-suite cardano-wallet-test
                      , hspec
                      , lens
                      , log-warper
-                     , MonadRandom
                      , mtl
+                     , safecopy
+                     , safe-exceptions
                      , serokell-util >= 0.1.3.4
+                     , servant-server
                      , stm
-                     , unordered-containers
                      , text-format
                      , universum >= 0.1.11
+                     , unordered-containers
 
   hs-source-dirs:      test
   default-language:    Haskell2010

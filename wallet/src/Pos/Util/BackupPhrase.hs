@@ -12,14 +12,16 @@ import qualified Prelude
 import           Universum
 
 import           Crypto.Hash (Blake2b_256)
+import qualified Data.ByteString as BS
 import           Data.Text.Buildable (Buildable (..))
-import           Test.QuickCheck (Arbitrary (..), elements, genericShrink, vectorOf)
+import           Test.QuickCheck (Arbitrary (..), Gen, genericShrink, vectorOf)
 import           Test.QuickCheck.Instances ()
 
 import           Pos.Binary (Bi (..), serialize')
 import           Pos.Crypto (AbstractHash, EncryptedSecretKey, PassPhrase, SecretKey, VssKeyPair,
                              deterministicKeyGen, deterministicVssKeyGen, safeDeterministicKeyGen,
                              unsafeAbstractHash)
+import           Pos.Util.LogSafe (SecureLog)
 import           Pos.Util.Mnemonics (fromMnemonic, toMnemonic)
 
 -- | Datatype to contain a valid backup phrase
@@ -27,21 +29,52 @@ newtype BackupPhrase = BackupPhrase
     { bpToList :: [Text]
     } deriving (Eq, Generic)
 
+-- | A datatype representing word counts you'd have in
+-- a <https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki BIP39>
+-- mnemonic passphrase.
+data MnemonicWordCount
+    = Nine
+    | Twelve
+    | Fifteen
+    | Eighteen
+    | Twentyone
+    | Twentyfour
+    deriving (Eq, Show)
+
+wordCountToInt :: MnemonicWordCount -> Int
+wordCountToInt wc = case wc of
+    Nine       -> 9
+    Twelve     -> 12
+    Fifteen    -> 15
+    Eighteen   -> 18
+    Twentyone  -> 21
+    Twentyfour -> 24
+
+checksumLength :: MnemonicWordCount -> Int
+checksumLength wc = case wc of
+    Nine       -> 3
+    Twelve     -> 4
+    Fifteen    -> 5
+    Eighteen   -> 6
+    Twentyone  -> 7
+    Twentyfour -> 8
+
+byteCount :: MnemonicWordCount -> Int
+byteCount wc = wordCountToInt wc + checksumLength wc
+
 instance Arbitrary BackupPhrase where
-    arbitrary = BackupPhrase <$> vectorOf 12 (elements englishWords)
+    arbitrary = do
+        em <- arbitraryMnemonic Twelve
+        case em of
+            Left _  -> arbitrary
+            Right a -> pure a
     shrink    = genericShrink
 
--- | (Some) valid English words as taken from <https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki BIP-39>
-englishWords :: [Text]
-englishWords = [ "recycle" , "child" , "universe" , "extend" , "edge" , "tourist"
-               , "swamp" , "rare" , "enhance" , "rabbit" , "blast" , "plastic" , "attitude"
-               , "name" , "skull" , "merit" , "night" , "idle" , "bone" , "exact"
-               , "inflict" , "legal" , "predict" , "certain" , "napkin" , "blood"
-               , "color" , "screen" , "birth" , "detect" , "summer" , "palm"
-               , "entry" , "swing" , "fit" , "garden" , "trick" , "timber"
-               , "toss" , "atom" , "kitten" , "flush" , "master" , "transfer"
-               , "success" , "worry" , "rural" , "silver" , "invest" , "mean"
-               ]
+-- | Generate an arbitrary mnemonic with the given number of words.
+arbitraryMnemonic :: MnemonicWordCount -> Gen (Either Text BackupPhrase)
+arbitraryMnemonic wordCount = do
+    eitherMnemonic <- toMnemonic . BS.pack <$> vectorOf (byteCount wordCount) arbitrary
+    pure . first toText $ BackupPhrase . words <$> eitherMnemonic
 
 -- | Number of words in backup phrase
 backupPhraseWordsNum :: Int
@@ -51,6 +84,9 @@ instance Show BackupPhrase where
     show _ = "<backup phrase>"
 
 instance Buildable BackupPhrase where
+    build _ = "<backup phrase>"
+
+instance Buildable (SecureLog BackupPhrase) where
     build _ = "<backup phrase>"
 
 instance Read BackupPhrase where

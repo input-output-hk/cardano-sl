@@ -47,6 +47,22 @@ import           Pos.DB.GState.Common (getTip, initGStateCommon, setInitialized)
 import           Pos.StateLock (StateLock (..))
 import           Pos.Wallet.Web.Mode (MonadWalletWebMode, WalletWebMode, WalletWebModeContext (..))
 import           Pos.Wallet.Web.State (WalletDB, openState)
+
+import qualified Control.Concurrent.STM as STM
+import qualified Data.ByteString as BS
+import           Data.Default (def)
+import qualified Data.Text.Encoding as Text
+import           Network.HTTP.Client hiding (Proxy)
+import           Network.HTTP.Types
+import           Ntp.Client (withoutNtpClient)
+import qualified Pos.Diffusion.Types as D
+import           Pos.Util.CompileInfo (withCompileInfo)
+import           Pos.Wallet.WalletMode (WalletMempoolExt)
+import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
+import           Pos.Wallet.Web.Sockets (ConnectionsVar)
+import           Pos.Wallet.Web.State (WalletDB)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
+
 import           Pos.WorkMode (RealModeContext (..))
 
 import           Pos.DB.Block (prepareBlockDB, putBlunds)
@@ -66,6 +82,8 @@ import           Pos.Util.UserSecret (usVss)
 import           Servant
 import           Servant.QuickCheck
 import           Servant.QuickCheck.Internal
+
+import           System.Directory
 
 import           Test.Hspec
 import           Test.Pos.Configuration (withDefConfigurations)
@@ -167,7 +185,8 @@ v0Server diffusion = do
   -- TODO(adinapoli): If the monadic stack ends up diverging between V0 and V1,
   -- it's obviously incorrect using 'testV1Context' here.
   ctx <- testV1Context
-  return (V0.handlers (Migration.v1MonadNat ctx) diffusion)
+  withoutNtpClient $ \ntpStatus ->
+    return (V0.handlers (Migration.v1MonadNat ctx) diffusion ntpStatus)
 
 -- | "Lowers" V1 Handlers from our domain-specific monad to a @Servant@ 'Handler'.
 v1Server :: ( Migration.HasConfigurations
@@ -175,7 +194,8 @@ v1Server :: ( Migration.HasConfigurations
             ) => D.Diffusion Migration.MonadV1 -> IO (Server V1.API)
 v1Server diffusion = do
   ctx <- testV1Context
-  return (V1.handlers (Migration.v1MonadNat ctx) diffusion)
+  withoutNtpClient $ \ntpStatus ->
+    return (V1.handlers (Migration.v1MonadNat ctx) diffusion ntpStatus)
 
 -- | Get the current time from the system to provide a @systemStart@.
 getCurrentTime :: MonadIO m => m Microsecond
@@ -397,6 +417,8 @@ walletRunner confOpts dbs secretKeyPath ws = runProduction $ do
     runReaderT insertRequiredData wwmc
     pure wwmc
 
+serverLayout :: ByteString
+serverLayout = Text.encodeUtf8 (layout (Proxy @V1.API))
 
 -- Our API apparently is returning JSON Arrays which is considered bad practice as very old
 -- browsers can be hacked: https://haacked.com/archive/2009/06/25/json-hijacking.aspx/
@@ -404,15 +426,47 @@ walletRunner confOpts dbs secretKeyPath ws = runProduction $ do
 -- stack test cardano-sl-wallet-new --fast --test-arguments '-m "Servant API Properties"'
 spec :: Spec
 spec = withCompileInfo def $ do
-    withDefConfigurations $ do
-      describe "Servant API Properties" $ do
+    withDefConfigurations $ \_ -> do
+        describe "Servant API Properties" $ do
 
-        it "V0 API follows best practices & is RESTful abiding" $ do
-          ddl <- D.dummyDiffusionLayer
-          withServantServer (Proxy @V0.API) (v0Server (D.diffusion ddl)) $ \burl ->
-            serverSatisfies (Proxy @V0.API) burl stdArgs predicates
+            it "V0 API follows best practices & is RESTful abiding" $ do
+                ddl <- D.dummyDiffusionLayer
+                withServantServer (Proxy @V0.API) (v0Server (D.diffusion ddl)) $ \burl ->
+                    serverSatisfies (Proxy @V0.API) burl stdArgs predicates
 
-        it "V1 API follows best practices & is RESTful abiding" $ do
-          ddl <- D.dummyDiffusionLayer
-          withServantServer (Proxy @V1.API) (v1Server (D.diffusion ddl)) $ \burl ->
-            serverSatisfies (Proxy @V1.API) burl stdArgs predicates
+            it "V1 API follows best practices & is RESTful abiding" $ do
+                ddl <- D.dummyDiffusionLayer
+                withServantServer (Proxy @V1.API) (v1Server (D.diffusion ddl)) $ \burl ->
+                    serverSatisfies (Proxy @V1.API) burl stdArgs predicates
+
+    describe "Servant Layout" $ around_ withTestDirectory $ do
+        let layoutPath = "./test/golden/api-layout.txt"
+            newLayoutPath = layoutPath <> ".new"
+        it "has not changed" $ do
+            oldLayout <- BS.readFile layoutPath `catch` \(_err :: SomeException) -> pure ""
+            when (oldLayout /= serverLayout) $ do
+                BS.writeFile newLayoutPath serverLayout
+                expectationFailure $ Prelude.unlines
+                    [ "The API layout has changed!!! The new layout has been written to:"
+                    , "    " <> newLayoutPath
+                    , "If this was intentional and correct, move the new layout path to:"
+                    , "    " <> layoutPath
+                    , "Command:"
+                    , "    mv " <> newLayoutPath <> " " <> layoutPath
+                    ]
+
+-- | This is a hack that sets the CWD to the correct directory to access
+-- golden tests. `stack` will run tests at the top level of the git
+-- project, while `cabal` and the Nix CI will run tests at the `wallet-new`
+-- directory. This function ensures that we are in the `wallet-new`
+-- directory for the execution of this test.
+withTestDirectory :: IO () -> IO ()
+withTestDirectory action = void . runMaybeT $ do
+    dir <- lift getCurrentDirectory
+    entries <- lift $ listDirectory dir
+    guard ("cardano-sl-wallet-new.cabal" `notElem` entries)
+    guard ("wallet-new" `elem` entries)
+    lift $ do
+        bracket_ (setCurrentDirectory =<< makeAbsolute "wallet-new")
+                 (setCurrentDirectory dir)
+                 action

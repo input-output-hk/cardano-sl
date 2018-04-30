@@ -25,10 +25,11 @@ import           Cardano.Wallet.TypeLits (KnownSymbols (..))
 import qualified Pos.Core as Core
 import           Pos.Core.Update (SoftwareVersion)
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
+import           Pos.Util.Servant (LoggingApi)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))
-import           Data.Aeson (ToJSON (..), encode)
+import           Data.Aeson (ToJSON (..))
 import           Data.Aeson.Encode.Pretty
 import qualified Data.ByteString.Lazy as BL
 import           Data.Map (Map)
@@ -65,14 +66,24 @@ fromExampleJSON (_ :: proxy a) = do
     let (randomSample :: a) = genExample
     return $ NamedSchema (Just $ fromString $ show $ typeOf randomSample) (sketchSchema randomSample)
 
-
 -- | Surround a Text with another
 surroundedBy :: Text -> Text -> Text
 surroundedBy wrap context = wrap <> context <> wrap
 
+-- | Display a multi-line code-block inline (e.g. in tables)
+inlineCodeBlock :: Text -> Text
+inlineCodeBlock txt = "<pre>" <> replaceNewLines (replaceWhiteSpaces txt) <> "</pre>"
+  where
+    replaceNewLines    = T.replace "\n" "<br/>"
+    replaceWhiteSpaces = T.replace " " "&nbsp;"
+
+
 --
 -- Instances
 --
+
+instance HasSwagger a => HasSwagger (LoggingApi config a) where
+    toSwagger _ = toSwagger (Proxy @a)
 
 instance HasSwagger (apiType a :> res) =>
          HasSwagger (WithDefaultApiArg apiType a :> res) where
@@ -108,13 +119,27 @@ instance
                 in Param {
                   _paramName = opName
                 , _paramRequired = Nothing
-                , _paramDescription = Just $ "A **FILTER** operation on a " <> typeOfRes <> "."
+                , _paramDescription = Just $ filterDescription typeOfRes
                 , _paramSchema = ParamOther ParamOtherSchema {
                          _paramOtherSchemaIn = ParamQuery
                        , _paramOtherSchemaAllowEmptyValue = Nothing
                        , _paramOtherSchemaParamSchema = mempty
                        }
                 }
+
+filterDescription :: Text -> Text
+filterDescription typeOfRes = mconcat
+    [ "A **FILTER** operation on a " <> typeOfRes <> ". "
+    , "Filters support a variety of queries on the resource. "
+    , "These are: \n\n"
+    , "- `EQ[value]`    : only allow values equal to `value`\n"
+    , "- `LT[value]`    : allow resource with attribute less than the `value`\n"
+    , "- `GT[value]`    : allow objects with an attribute greater than the `value`\n"
+    , "- `GTE[value]`   : allow objects with an attribute at least the `value`\n"
+    , "- `LTE[value]`   : allow objects with an attribute at most the `value`\n"
+    , "- `RANGE[lo,hi]` : allow objects with the attribute in the range between `lo` and `hi`\n"
+    , "- `IN[a,b,c,d]`  : allow objects with the attribute belonging to one provided.\n\n"
+    ]
 
 instance
     ( Typeable res
@@ -196,16 +221,17 @@ A **SORT** operation on this $resource. Allowed keys: `$allowedKeys`.
 
 errorsDescription :: Text
 errorsDescription = [text|
-Error Name | HTTP Error code | Example
------------|-----------------|---------
+Error Name / Description | HTTP Error code | Example
+-------------------------|-----------------|---------
 $errors
 |] where
   errors = T.intercalate "\n" rows
-  rows = map mkRow Errors.sample
-  mkRow err = T.intercalate "|"
-    [ surroundedBy "`" (gconsName err)
+  rows = map (mkRow errToDescription) Errors.sample
+  mkRow fmt err = T.intercalate "|" (fmt err)
+  errToDescription err =
+    [ surroundedBy "`" (gconsName err) <> "<br/>" <> toText (Errors.describe err)
     , show $ errHTTPCode $ Errors.toServantError err
-    , surroundedBy "`" (T.decodeUtf8 $ BL.toStrict $ encode err)
+    , inlineCodeBlock (T.decodeUtf8 $ BL.toStrict $ encodePretty err)
     ]
 
 
@@ -260,7 +286,7 @@ curl -X POST https://localhost:8090/api/v1/wallets                     \
 
 > **Warning**: Those 12 mnemonic words given for the backup phrase act as an example. **Do not** use them on a production system. See the section below about mnemonic codes for more information.
 
-As a response, the API provides you with a wallet `id` used in subsequent requests to uniquely identity the wallet. Make sure to store it / write it down. Note that every API response is [jsend-compliant](https://labs.omniti.com/labs/jsend); Cardano also augments responses with meta-data specific to pagination. More details in the section below about *Pagination*.
+As a response, the API provides you with a unique wallet `id` to be used in subsequent requests. Make sure to store it / write it down. Note that every API response is [jsend-compliant](https://labs.omniti.com/labs/jsend); Cardano also augments responses with meta-data specific to pagination. More details in the section below about *Pagination*.
 
 ```json
 {
@@ -281,7 +307,7 @@ As a response, the API provides you with a wallet `id` used in subsequent reques
 }
 ```
 
-You have just created your first wallet. Information about this wallet can be retrieved using the `GET /api/v1/wallets/{walletId}` endpoint as follow:
+You have just created your first wallet. Information about this wallet can be retrieved using the `GET /api/v1/wallets/{walletId}` endpoint as follows:
 
 ```
 curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}} \
@@ -292,7 +318,7 @@ curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}} \
 Receiving Money
 ---------------
 
-To receive money from other users you should provide your address. This address can be obtained from an account. Each wallet contains at least one account, you can think of account as a pocket inside of your wallet. Besides, you can view all existing accounts of a wallet by using the `GET /api/v1/wallets/{{walletId}}/accounts` endpoint as follow:
+To receive _Ada_ from other users you should provide your address. This address can be obtained from an account. Each wallet contains at least one account. An account is like a pocket inside your wallet. View all existing accounts of a wallet by using the `GET /api/v1/wallets/{{walletId}}/accounts` endpoint:
 
 ```
 curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}}/accounts?page=1&per_page=10 \
@@ -327,13 +353,13 @@ Since you have, for now, only a single wallet, you'll see something like this:
 }
 ```
 
-Each account has at least one address, all listed under the `addresses` field. You can communicate one of these addresses to receive money on the associated account.
+All the wallet's accounts are listed under the `addresses` field. You can communicate one of these addresses to receive _Ada_ on the associated account.
 
 
 Sending Money
 -------------
 
-In order to send money from one of your account to another address, you can create a new payment transaction using the `POST /api/v1/transactions` endpoint as follow:
+In order to send _Ada_ from one of your accounts to another address, you must create a new payment transaction using the `POST /api/v1/transactions` endpoint:
 
 ```
 curl -X POST https://localhost:8090/api/v1/transactions \
@@ -352,9 +378,9 @@ curl -X POST https://localhost:8090/api/v1/transactions \
 }'
 ```
 
-Note that, in order to perform a transaction, you need to have some existing coins on the source account! Beside, the Cardano API is designed to accomodate multiple recipients payments out-of-the-box; notice how `destinations` is a list of addresses.
+Note that, in order to perform a transaction, you need to have enough coins on the source account! The Cardano API is designed to accomodate multiple recipients payments out-of-the-box; notice how `destinations` is a list of addresses (and corresponding amounts).
 
-When the transaction succeeds, funds are becomes unavailable from the sources addresses, and available to the destinations in a short delay.  Note that, you can at any time see the status of your wallets by using the `GET /api/v1/transactions/{{walletId}}` endpoint as follow:
+When the transaction succeeds, funds are no longer available in the sources addresses, and are soon made available to the destinations. Note that, you can at any time see the status of your wallets by using the `GET /api/v1/transactions/{{walletId}}` endpoint:
 
 ```
 curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}}?account_index=0  \
@@ -362,7 +388,7 @@ curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}}?account_index=0  
      --cacert ./scripts/tls-files/ca.crt                                        \
 ```
 
-We have here constrainted the request to a specific account, with our previous transaction the output should look roughly similar to this:
+Here we constrainted the request to a specific account. After our previous transaction the output should look roughly similar to this:
 
 ```json
 {

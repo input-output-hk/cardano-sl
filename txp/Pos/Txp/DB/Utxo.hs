@@ -20,6 +20,7 @@ module Pos.Txp.DB.Utxo
 
        -- * Get utxo
        , getFilteredUtxo
+       , filterUtxo
        , getAllPotentiallyHugeUtxo
 
        -- * Sanity checks
@@ -111,13 +112,17 @@ utxoSink = CL.fold (\u (k,v) -> M.insert k v u) mempty
 
 -- | Retrieves only portion of UTXO related to given addresses list.
 getFilteredUtxo :: (MonadDBRead m, MonadUnliftIO m) => [Address] -> m Utxo
-getFilteredUtxo addrs =
-    runConduitRes $
-    utxoSource .|
-    CL.filter (\(_,out) -> out `addrBelongsToSet` addrsSet) .|
-    utxoSink
+getFilteredUtxo addrs = filterUtxo (\(_,out) -> out `addrBelongsToSet` addrsSet)
   where
     addrsSet = HS.fromList addrs
+
+-- | Retrieves only portion of UTXO matching the given predicate.
+filterUtxo :: (MonadDBRead m, MonadUnliftIO m) => ((TxIn, TxOutAux) -> Bool) -> m Utxo
+filterUtxo predicate =
+    runConduitRes $
+    utxoSource .|
+    CL.filter predicate .|
+    utxoSink
 
 -- | Get full utxo. Use with care – the utxo can be very big (hundreds of
 -- megabytes).

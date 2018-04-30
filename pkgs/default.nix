@@ -7800,10 +7800,11 @@ inherit (pkgs) mesa;};
              cardano-sl-wallet conduit constraints containers data-default
              directory exceptions formatting hspec http-client http-types
              ixset-typed lens log-warper mmorph mtl neat-interpolation
-             optparse-applicative process QuickCheck quickcheck-instances
-             safe-exceptions serokell-util servant servant-quickcheck
-             servant-server servant-swagger stm string-conv swagger2 text
-             text-format time time-units universum unliftio unordered-containers
+             network-transport-tcp optparse-applicative process QuickCheck
+             quickcheck-instances safe-exceptions serokell-util servant
+             servant-quickcheck servant-server servant-swagger stm string-conv
+             swagger2 text text-format time time-units universum unliftio
+             unordered-containers
            ];
            doHaddock = false;
            homepage = "https://github.com/input-output-hk/cardano-sl/#readme";

@@ -104,6 +104,9 @@ let
     in
       args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev; } // walletConfig );
   other = rec {
+    demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; };
+    walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev; };
+    buildWalletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests pkgs; };
     cardano-sl-explorer-frontend = (import ./explorer/frontend {
       inherit system config gitrev pkgs;
       cardano-sl-explorer = cardanoPkgs.cardano-sl-explorer-static;
@@ -120,6 +123,7 @@ let
       mainnetWallet = connect {};
       mainnetExplorer = connect { executable = "explorer"; };
       stagingWallet = connect { environment = "mainnet-staging"; };
+      demoWallet = connect { environment = "demo"; };
       stagingExplorer = connect { executable = "explorer"; environment = "mainnet-staging"; };
     };
     dockerImages = {

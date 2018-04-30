@@ -17,14 +17,24 @@ function find_build_binary {
 }
 
 function ensure_run {
-  run_dir="$base_common/../run"
+  if [[ $1 == "" ]]
+  then
+    local run_dir="$base_common/../run"
+  else
+    run_dir=$1
+  fi
   mkdir -p "$run_dir"
 }
 
 LOGS_TIME=`date '+%F_%H%M%S'`
 
 function ensure_logs {
-  logs_dir="$base_common/../logs/$LOGS_TIME"
+  if [[ $1 == "" ]]
+  then
+    logs_dir="$base_common/../logs/$LOGS_TIME"
+  else
+    logs_dir=$1
+  fi
   mkdir -p "$logs_dir"
 }
 
@@ -34,23 +44,24 @@ function dump_path {
 }
 
 function logs {
-  ensure_logs
+  local log_file=$2
+  ensure_logs $1
 
-  local log_file=$1
   local conf_dir="$logs_dir/conf"
   local template_name="../log-configs/template-demo.yaml"
   if [[ "$LOG_TEMPLATE" != "" ]]; then
-    template_name="$LOG_TEMPLATE"
+    local template="$LOG_TEMPLATE"
+  else
+    local template_name="../log-configs/template-demo.yaml"
+    local template="$base_common/$template_name"
   fi
-  local template="$base_common/$template_name"
 
   mkdir -p "$conf_dir"
   mkdir -p "$logs_dir/dump"
 
   local conf_file="$conf_dir/$log_file.yaml"
   cat "$template" \
-    | sed "s/{{file}}/$log_file/g" \
-    > "$conf_file"
+    | sed "s|{{file}}|$logs_dir/$log_file|g" > "$conf_file"
   echo -n " --json-log=$logs_dir/node$i.json "
   echo -n " --logs-prefix $logs_dir --log-config $conf_file "
 }
@@ -152,7 +163,7 @@ function gen_kademlia_topology {
       # add explorer (as relay node)
       if [[ $j -eq $npred ]]; then
         # count port
-        local exp=($n + 1)
+        local exp=($j + 1)
         # explorers routes
         local exr="["
         for k in $(seq 0 $npred); do
@@ -178,17 +189,18 @@ function gen_kademlia_topology {
 
 function node_cmd {
   local i=$1
-  local is_stat=$2
-  local wallet_args=$3
-  local system_start=$4
-  local config_dir=$5
-  local conf_file=$6
+  local wallet_args=$2
+  local system_start=$3
+  local config_dir=$4
+  local conf_file=$5
+  local log_dir=$6
+  local run_dir=$7
   local st=''
   local reb=''
   local web=''
   local configuration=''
 
-  ensure_run
+  ensure_run $run_dir
 
   keys_args="--genesis-secret $i"
   if [[ "$CSL_PRODUCTION" != "" ]]; then
@@ -197,9 +209,6 @@ function node_cmd {
 
   if [[ $NO_REBUILD == "" ]]; then
     reb=" --rebuild-db "
-  fi
-  if [[ $is_stat != "" ]]; then
-    stats=" --stats "
   fi
   if [[ "$REPORT_SERVER" != "" ]]; then
     report_server=" --report-server $REPORT_SERVER "
@@ -235,7 +244,7 @@ function node_cmd {
   if [[ "$configuration" != "" ]]; then
     echo -n " $configuration "
   fi
-  echo -n " $(logs node$i.log) $time_lord $stats"
+  echo -n " $(logs $log_dir node$i.log) $time_lord $stats"
   echo -n " $web "
   echo -n " $report_server "
   echo -n " $wallet_args "
@@ -270,7 +279,7 @@ function bench_cmd {
   echo -n "$(find_binary cardano-auxx)"
   # This assumes that the n-1 node is the relay
   echo -n " --peer 127.0.0.1:"`get_port $((i-1))`
-  echo -n " $(logs node_auxx.log)"
+  echo -n " $(logs "" node_auxx.log)"
   echo -n " --system-start $system_start"
   echo -n " cmd --commands \"send-to-all-genesis $time $conc $delay $sendmode ./tps-sent.csv\""
   echo -n " --configuration-key bench "

@@ -1,31 +1,54 @@
-# Cardano SL
+# Cardanolite SL
+A fork of [Cardano SL](https://github.com/input-output-hk/cardano-sl)
 
-[![Build status](https://badge.buildkite.com/9c3141d21214ff3ea95d0a38a0e1dab59b206159d2841dee44.svg?branch=master)](https://buildkite.com/input-output-hk/cardano-sl)
-[![Windows build status](https://ci.appveyor.com/api/projects/status/github/input-output-hk/cardano-sl?branch=master&svg=true)](https://ci.appveyor.com/project/input-output/cardano-sl)
-[![Release](https://img.shields.io/github/release/input-output-hk/cardano-sl.svg)](https://github.com/input-output-hk/cardano-sl/releases)
+## Installation 
 
-## What is Cardano SL?
+### Backend
 
-Cardano SL (or Cardano Settlement Layer) is a cryptographic currency designed
-and developed by [IOHK](https://iohk.io/team). Please read [Cardano SL Introduction](https://cardanodocs.com/introduction/)
-for more information.
+Based on [this guide](https://cardanodocs.com/for-contributors/building-from-source/) 
 
-## Supported Platforms
+get repo ```git clone https://github.com/vacuumlabs/cardanolite-sl.git
+cd ./cardanolite-sl
+git checkout master
+```
 
-Please see [Cardano SL Installation](https://cardanodocs.com/installation/) for more
-information.
+Install NixOs `curl https://nixos.org/nix/install | sh`
+append line to your shell profile (~/.bashrc or ~/.zshrc) `/home/jamyUser/.nix-profile/etc/profile.d/nix.sh`
 
-## Building Cardano SL from Source Code
+To employ the signed IOHK binary cache: ```sudo mkdir -p /etc/nix
+sudo vi /etc/nix/nix.conf
+```
+add these lines there ```binary-caches            = https://cache.nixos.org https://hydra.iohk.io
+binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+```
 
-Please see [this guide](https://cardanodocs.com/for-contributors/building-from-source/) for
-more information.
+```source ~/.nix-profile/etc/profile.d/nix.sh
+nix-build -A cardano-sl-explorer-static --cores 0 --max-jobs 2 --no-build-output --out-link master 
+nix-build -A connectScripts.mainnetExplorer -o connect-explorer-to-mainnet
+```
 
-## For Contributors
+### Frontend 
 
-Please see [CONTRIBUTING.md](https://github.com/input-output-hk/cardano-sl/blob/develop/CONTRIBUTING.md)
-for more information.
+Install stack `source ~/.nix-profile/etc/profile.d/nix.sh` (asks for sudo pswd)
 
-## License
+Append ```nix:
+  enable: true
+``` to `~/.stack/config.yaml`
 
-Please see [LICENSE](https://github.com/input-output-hk/cardano-sl/blob/master/LICENSE) for
-more information.
+
+## Run 
+
+### backend
+
+from `cardanolite-sl/` wirh `source ~/.nix-profile/etc/profile.d/nix.sh` run  `./connect-explorer-to-mainnet` 
+
+### frontend
+
+for dev mode: 
+
+from `cardanolite-sl/explorer/frontend` run `./scripts/build.sh server:dev`
+
+
+CardanoLite explorer will be available at `http://localhost:3100` 
+
+e.g. `http://localhost:3100/tx/80032957980f025cb6d8efda9805b20e17b241374c77a5044dc0a4d67ff6944b` 

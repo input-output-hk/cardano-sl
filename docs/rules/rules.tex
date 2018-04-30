@@ -80,7 +80,7 @@
 \newcommand{\delegator}[1]{\mathsf{delegator}(#1)}
 \newcommand{\delegatee}[1]{\mathsf{delegatee}(#1)}
 \newcommand{\delegationcertificates}[1]{\mathsf{certificates}_\mathsf{delegation}(#1)}
-\newcommand{\selectrichman}[1]{\mathsf{select}_\mathsf{richmen}(#1)}
+\newcommand{\selectrichman}[1]{\mathsf{select}_\mathsf{bootstrap}(#1)}
 \newcommand{\stakerepartitions}{\mathcal{R}}
 \newcommand{\repartition}[1]{\mathsf{repartition}(#1)}
 \newcommand{\bootstraprepartition}{r_\mathsf{bootstrap}}
@@ -385,16 +385,17 @@ specified in the initial state and can be further modified by updates.
   10k$.\improvement{Make a standardised remark pagraph formatting for
     this sort of remarks.}
 
-\item[Richmen] We assume a finite set $\richmen ⊆ \agentids$. These
-  so-called richmen receive all the stake during the bootstrap
-  era.\unsure{For the sake of simplicity, I assume, for the time
-    being, that the richmen all get the same share of stake of each
-    output. This is not necessary in cardano, but it is the case in
-    practice. We can refine later if we so wish}
+\item[Bootstrap stakeholders] We assume a finite set
+  $\richmen ⊆ \agentids$. The bootstrap stakeholders receive all the
+  stake during the bootstrap era.\unsure{For the sake of simplicity, I
+    assume, for the time being, that the bootstrap stakeholders all
+    get the same share of stake of each output. This is not necessary
+    in cardano, but it is the case in practice. We can refine later if
+    we so wish}
 
   We assume a stake repartition
   $\bootstraprepartition ∈ \stakerepartitions$ which allocates stake
-  to each richmen in equal proportion. That is\improvement{Define
+  to each bootstrap stakeholder in equal proportion. That is\improvement{Define
     cardinal notation for finite-support functions.}
   $$
   \bootstraprepartition(a) = \left\{
@@ -405,7 +406,7 @@ specified in the initial state and can be further modified by updates.
   $$
 
   We will also assume a function $\selectrichman{⋅} ∈ ℕ ⟶ \richmen$
-  which selects one of the richmen based on the value of an unspent
+  which selects one of the bootstrap stakeholder based on the value of an unspent
   output. In a concrete implementation this function needs to have
   good randomness properties.
 
@@ -509,8 +510,8 @@ $b_1,…,b_n$ if all of the following hold
       bootstrap era. They are, however, not qualified because in the
       current state of the document, only the bootstrap era is documented.}\hfill
     \begin{description}
-    \item[No stake for poormen] For every output $o∈\outputs{τ}$, the
-      stake is delegated in to the richmen:
+    \item[Bootstrap stake delegation] For every output $o∈\outputs{τ}$, the
+      stake is delegated in to the bootstrap stakeholders:
       $\repartition{o} = \bootstraprepartition$.\improvement{This is
         slightly imprecise because the bootstrap repartition has two
         representations in Cardano's block chain: it has a name (a
@@ -576,7 +577,7 @@ $b_1,…,b_n$ if all of the following hold
     That is, the stake contributed by each unspent output $o$ to $a$
     is the proportion of its value specified by the stake repartition
     of $o$ rounded \emph{down} to the nearest integer. The unallocated
-    stake goes to the richman specified by the $\selectrichman{⋅}$
+    stake goes to the bootstrap stakeholder specified by the $\selectrichman{⋅}$
     function, applied to the total value of $o$.  \improvement{The
       treatment of remainder as specified here is only valid for the
       bootstrap era.}

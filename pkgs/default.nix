@@ -7635,14 +7635,14 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-util" = callPackage
-        ({ mkDerivation, aeson, base, binary, bytestring, canonical-json
-         , cardano-sl-binary, cardano-sl-networking, cborg, cereal
-         , concurrent-extra, containers, cpphs, cryptonite, data-default
-         , deepseq, directory, ether, exceptions, extra, filelock, filepath
-         , fmt, formatting, generic-arbitrary, half, hashable, hspec, lens
-         , log-warper, lrucache, megaparsec, mmorph, MonadRandom, mtl
-         , optparse-applicative, parsec, process, pvss, QuickCheck
-         , quickcheck-instances, random, reflection, resourcet
+        ({ mkDerivation, aeson, async, base, binary, bytestring
+         , canonical-json, cardano-sl-binary, cardano-sl-networking, cborg
+         , cereal, concurrent-extra, containers, cpphs, cryptonite
+         , data-default, deepseq, directory, ether, exceptions, extra
+         , filelock, filepath, fmt, formatting, generic-arbitrary, half
+         , hashable, hspec, lens, log-warper, lrucache, megaparsec, mmorph
+         , MonadRandom, mtl, optparse-applicative, parsec, process, pvss
+         , QuickCheck, quickcheck-instances, random, reflection, resourcet
          , safe-exceptions, safecopy, serokell-util, stdenv, stm, tagged
          , template-haskell, text, text-format, th-lift-instances, time
          , time-units, transformers, transformers-base, transformers-lift
@@ -7665,11 +7665,11 @@ inherit (pkgs) mesa;};
            ];
            libraryToolDepends = [ cpphs ];
            testHaskellDepends = [
-             base bytestring canonical-json cardano-sl-binary cborg cereal
+             async base bytestring canonical-json cardano-sl-binary cborg cereal
              containers cryptonite data-default extra filelock fmt formatting
              generic-arbitrary half hspec lens MonadRandom mtl pvss QuickCheck
-             random reflection safecopy serokell-util tagged text text-format
-             time-units universum unordered-containers vector
+             random reflection safecopy serokell-util stm tagged text
+             text-format time time-units universum unordered-containers vector
            ];
            testToolDepends = [ cpphs ];
            doHaddock = false;

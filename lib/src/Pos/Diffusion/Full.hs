@@ -111,8 +111,7 @@ diffusionLayerFull runIO networkConfig lastKnownBlockVersion protocolMagic proto
         -- Subscription status.
         subscriptionStatus <- newTVarIO MS.empty
 
-        -- Timer is in microseconds.
-        keepaliveTimer :: Timer <- newTimer $ convertUnit (20 :: Second)
+        keepaliveTimer <- newTimer
 
         let -- VerInfo is a diffusion-layer-specific thing. It's only used for
             -- negotiating with peers.

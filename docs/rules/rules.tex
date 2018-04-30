@@ -324,13 +324,7 @@ concrete value, which simplifies the specification.
   would be a function of the wall-clock time. The role of the current
   slot is to prevent attacks where a malicious slot leader at slot
   $i+1$ would try to issue a block without acknowledging the block
-  issued by the slot leader at slot $i$.\unsure{Nick: This sentence is
-    unclear to me. As verification hasn't been discussed yet, maybe
-    just leave it out?\\Arnaud: I think it's fair to assume that the
-    reader of this document has a reasonable understanding about how
-    blockchain works, even the Cardano blockchain. It is not a
-    tutorial. I'm trying to make the document easier to read by
-    explaining the reason why things are even there.}
+  issued by the slot leader at slot $i$.
 
 \item[Weight] We assume a weight function
   $\weight{⋅} ∈ \lists{\blocks} ⟶ ℕ$\unsure{We may want to restrict

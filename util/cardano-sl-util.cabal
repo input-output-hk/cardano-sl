@@ -173,6 +173,7 @@ test-suite cardano-test
                      , reflection
                      , safecopy
                      , serokell-util >= 0.1.3.4
+                     , stm
                      , tagged
                      , text
                      , text-format

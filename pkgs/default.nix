@@ -7668,8 +7668,8 @@ inherit (pkgs) mesa;};
              async base bytestring canonical-json cardano-sl-binary cborg cereal
              containers cryptonite data-default extra filelock fmt formatting
              generic-arbitrary half hspec lens MonadRandom mtl pvss QuickCheck
-             random reflection safecopy serokell-util tagged text text-format
-             time time-units universum unordered-containers vector
+             random reflection safecopy serokell-util stm tagged text
+             text-format time time-units universum unordered-containers vector
            ];
            testToolDepends = [ cpphs ];
            doHaddock = false;

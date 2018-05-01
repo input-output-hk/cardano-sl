@@ -549,6 +549,7 @@ executable cardano-x509-certificates
                , asn1-encoding
                , asn1-types
                , bytestring
+               , base64-bytestring
                , cryptonite
                , filepath
                , hourglass

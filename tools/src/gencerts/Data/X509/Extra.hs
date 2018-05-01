@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase        #-}
 
 --
 -- | Cryptographic & Data.X509 specialized methods for RSA with SHA256
@@ -9,7 +10,10 @@ module Data.X509.Extra
     , validateSHA256
     , failIfReasons
     , genRSA256KeyPair
-    , encodeRSAPrivateKey
+    , encodeDERRSAPrivateKey
+    , writeCredentials
+    , writeCertificate
+    , EncodePEM (..)
     ) where
 
 import           Universum
@@ -30,8 +34,9 @@ import           Data.X509.Validation (FailedReason, ServiceID, ValidationChecks
                                        validate)
 
 import qualified Crypto.PubKey.RSA.Types as RSA
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Lazy as BL
-
 
 -- | Algorithm Signature for RSA with SHA256
 signAlgRSA256 :: SignatureALG
@@ -85,8 +90,8 @@ genRSA256KeyPair =
 
 
 -- | Encode a RSA private key as DER (Distinguished Encoding Rule) binary format
-encodeRSAPrivateKey :: PrivateKey -> ByteString
-encodeRSAPrivateKey =
+encodeDERRSAPrivateKey :: PrivateKey -> ByteString
+encodeDERRSAPrivateKey =
     BL.toStrict . encodeASN1 DER . rsaToASN1
   where
     -- | RSA Private Key Syntax, see https://tools.ietf.org/html/rfc3447#appendix-A.1
@@ -104,3 +109,58 @@ encodeRSAPrivateKey =
         , IntVal qInv
         , End Sequence
         ]
+
+-- | Encode an artifact to PEM (i.e. base64 DER with header & footer)
+class EncodePEM a where
+    encodePEM :: a -> ByteString
+    encodePEMRaw :: (ByteString, a -> ByteString, ByteString) -> a -> ByteString
+    encodePEMRaw (header, encodeDER, footer) a =
+        BS.concat
+            [ header
+            , "\n"
+            , BS.intercalate "\n" (mkGroupsOf 64 $ Base64.encode $ encodeDER a)
+            , "\n"
+            , footer
+            ]
+      where
+        mkGroupsOf :: Int -> ByteString -> [ByteString]
+        mkGroupsOf n xs
+            | BS.length xs == 0 = []
+            | otherwise         = (BS.take n xs) : mkGroupsOf n (BS.drop n xs)
+
+instance EncodePEM PrivateKey where
+    encodePEM = encodePEMRaw
+        ( "-----BEGIN RSA PRIVATE KEY-----"
+        , encodeDERRSAPrivateKey
+        , "-----END RSA PRIVATE KEY-----"
+        )
+
+instance EncodePEM (SignedExact Certificate) where
+    encodePEM = encodePEMRaw
+        ( "-----BEGIN CERTIFICATE-----"
+        , encodeSignedObject
+        , "-----END CERTIFICATE-----"
+        )
+
+
+-- | Write a certificate and its private key to the given location
+writeCredentials
+    :: FilePath
+    -> (PrivateKey, SignedCertificate)
+    -> IO ()
+writeCredentials filename (key, cert) = do
+    BS.writeFile (filename <> ".pem") (BS.concat [keyBytes, "\n", certBytes])
+    BS.writeFile (filename <> ".key") keyBytes
+    BS.writeFile (filename <> ".crt") certBytes
+  where
+    keyBytes  = encodePEM key
+    certBytes = encodePEM cert
+
+
+-- | Write a certificate to the given location
+writeCertificate
+    :: FilePath
+    -> SignedCertificate
+    -> IO ()
+writeCertificate filename cert =
+    BS.writeFile (filename <> ".crt") (encodePEM cert)

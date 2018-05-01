@@ -16,8 +16,8 @@ import           Universum hiding (log)
 import           Control.Lens (at, each, filtered, uses, (%=), (+=), (.=), (<>=), (?=))
 import           Data.Coerce (coerce)
 import           Data.List (isInfixOf, nub, (!!), (\\))
-import           Test.Hspec (expectationFailure, shouldContain, shouldBe, hspec, describe, it)
-import           Test.QuickCheck (elements, generate, frequency, choose, arbitrary, suchThat)
+import           Test.Hspec (describe, expectationFailure, hspec, it, shouldBe, shouldContain)
+import           Test.QuickCheck (arbitrary, choose, elements, frequency, generate, suchThat)
 import           Text.Show.Pretty (ppShow)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
@@ -31,7 +31,7 @@ import           Cardano.Wallet.Client (ClientError (..), Response (..), Servant
 import           Pos.Core (getCoin, mkCoin, unsafeAddCoin, unsafeSubCoin)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
-import           Error (WalletTestError(..), showConstr)
+import           Error (WalletTestError (..), showConstr)
 import           Types
 
 newtype RefT s m a
@@ -442,7 +442,8 @@ runAction wc action = do
             -- Some min amount of money so we can send a transaction?
             -- https://github.com/input-output-hk/cardano-sl/blob/develop/lib/configuration.yaml#L228
             let minCoinForTxs = V1 . mkCoin $ 200000
-            let localAccsWithMoney = filter ((> minCoinForTxs) . accAmount) localAccounts
+            let localAccsNotLocked = filter ((/= WalletId "Ae2tdPwUPEZ5YjF9WuDoWfCZLPQ56MdQC6CZa2VKwMVRVqBBfTLPNcPvET4") . accWalletId) localAccounts
+            let localAccsWithMoney = filter ((> minCoinForTxs) . accAmount) localAccsNotLocked
 
             -- From which source to pay.
             accountSource <- pickRandomElement localAccsWithMoney

@@ -4,6 +4,7 @@
 , runWallet ? true
 , runExplorer ? false
 , numCoreNodes ? 4
+, assetLockAddresses ? []
 , system ? builtins.currentSystem
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
@@ -27,6 +28,8 @@ let
   ifKeepAlive = localLib.optionalString (keepAlive);
   iohkPkgs = import ./../../.. { inherit config system pkgs gitrev; };
   src = ./../../..;
+  assetLockFile = pkgs.writeText "asset-lock-file" (localLib.intersperse "\n" assetLockAddresses);
+  ifAssetLock = localLib.optionalString (assetLockAddresses != []);
   configFiles = pkgs.runCommand "cardano-config" {} ''
     mkdir -pv $out
     cd $out
@@ -77,7 +80,7 @@ in pkgs.writeScript "demo-cluster" ''
   echo "Launching a demo cluster..."
   for i in {0..${builtins.toString (numCoreNodes - 1)}}
   do
-    node_args="$(node_cmd $i "" "$system_start" "${stateDir}" "" "${stateDir}/logs" "${stateDir}") --configuration-file ${configFiles}/configuration.yaml"
+    node_args="$(node_cmd $i "" "$system_start" "${stateDir}" "" "${stateDir}/logs" "${stateDir}") --configuration-file ${configFiles}/configuration.yaml ${ifAssetLock "--asset-lock-file ${assetLockFile}"}"
     echo Launching core node $i with args: $node_args
     cardano-node-simple $node_args &> /dev/null &
     core_pid[$i]=$!
@@ -94,7 +97,7 @@ in pkgs.writeScript "demo-cluster" ''
     wallet_args=" --tlscert ${stateDir}/tls-files/server.crt --tlskey ${stateDir}/tls-files/server.key --tlsca ${stateDir}/tls-files/server.crt"
     # TODO: remove wallet-debug and use TLS when the tests support it
     wallet_args="$wallet_args --wallet-address 127.0.0.1:8090 --wallet-db-path ${stateDir}/wallet-db --wallet-debug"
-    node_args="$(node_cmd $i "$wallet_args" "$system_start" "${stateDir}" "" "${stateDir}/logs" "${stateDir}") --configuration-file ${configFiles}/configuration.yaml"
+    node_args="$(node_cmd $i "$wallet_args" "$system_start" "${stateDir}" "" "${stateDir}/logs" "${stateDir}") --configuration-file ${configFiles}/configuration.yaml ${ifAssetLock "--asset-lock-file ${assetLockFile}"}"
     echo Running wallet with args: $node_args
     cardano-node $node_args &> /dev/null &
     wallet_pid=$!

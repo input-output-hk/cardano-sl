@@ -15,6 +15,7 @@ let
   demo-cluster = iohkPkgs.demoCluster.override {
     inherit gitrev numCoreNodes stateDir;
     keepAlive = false;
+    assetLockAddresses = [ "DdzFFzCqrhswMWoTiWaqXUDZJuYUx63qB6Aq8rbVbhFbc8NWqhpZkC7Lhn5eVA7kWf4JwKvJ9PqQF78AewMCzDZLabkzm99rFzpNDKp5" ];
   };
   executables =  {
     integration-test = "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-integration-test";

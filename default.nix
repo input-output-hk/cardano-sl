@@ -33,6 +33,7 @@ let
   });
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     overrides = self: super: {
+      srcroot = ./.;
       cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
         configureFlags = (drv.configureFlags or []) ++ [
           "-f-asserts"
@@ -89,6 +90,30 @@ let
       mkDerivation = args: super.mkDerivation (args // {
         enableLibraryProfiling = enableProfiling;
         enableExecutableProfiling = enableProfiling;
+      } // optionalAttrs (args ? src) {
+        src = let
+           cleanSourceFilter = with pkgs.stdenv;
+             name: type: let baseName = baseNameOf (toString name); in ! (
+               # Filter out .git repo
+               (type == "directory" && baseName == ".git") ||
+               # Filter out editor backup / swap files.
+               lib.hasSuffix "~" baseName ||
+               builtins.match "^\\.sw[a-z]$" baseName != null ||
+               builtins.match "^\\..*\\.sw[a-z]$" baseName != null ||
+
+               # Filter out locally generated/downloaded things.
+               baseName == "dist" ||
+
+               # Filter out the files which I'm editing often.
+               lib.hasSuffix ".nix" baseName ||
+               # Filter out nix-build result symlinks
+               (type == "symlink" && lib.hasPrefix "result" baseName)
+             );
+
+          in
+            if (builtins.typeOf args.src) == "path"
+              then builtins.filterSource cleanSourceFilter args.src
+              else args.src or null;
       } // optionalAttrs enableDebugging {
         # TODO: DEVOPS-355
         dontStrip = true;

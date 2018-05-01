@@ -58,7 +58,7 @@ let
     cp -vi ${iohkPkgs.cardano-sl.src + "/configuration.yaml"} configuration.yaml
     cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis-dryrun-with-stakeholders.json"} mainnet-genesis-dryrun-with-stakeholders.json
     cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
-    cp -vi ${iohkPkgs.cardano-sl.src + "/../log-configs/connect-to-cluster.yaml"} log-config-connect-to-cluster.yaml
+    cp -vi ${iohkPkgs.srcroot + "/log-configs/connect-to-cluster.yaml"} log-config-connect-to-cluster.yaml
     cp -vi ${if topologyFile != null then topologyFile else topologyFileDefault } topology.yaml
   '';
 in pkgs.writeScript "${executable}-connect-to-${environment}" ''

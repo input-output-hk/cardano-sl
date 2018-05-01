@@ -36,10 +36,8 @@ bracketPassiveWallet logFunction f =
     Kernel.bracketPassiveWallet logFunction $ \w -> do
 
       invoke <- Actions.forkWalletWorker $ Actions.WalletActionInterp
-               { Actions.applyBlocks  = \blunds ->
-                   let resolvedBlocks = mapMaybeChrono blundToResolvedBlock blunds
-                   in  liftIO $ Kernel.applyBlocks w resolvedBlocks
-               , Actions.findUtxos    = logFunction Debug "(I'm supposed to be finding my utxos now)"
+               { Actions.applyBlocks  =  \blunds ->
+                   Kernel.applyBlocks w (mapMaybeChrono blundToResolvedBlock blunds)
                , Actions.switchToFork = \_ _ -> logFunction Debug "<switchToFork>"
                , Actions.emit         = logFunction Debug
                }

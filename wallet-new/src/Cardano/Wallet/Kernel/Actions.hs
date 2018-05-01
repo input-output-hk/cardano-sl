@@ -29,8 +29,6 @@ import           Pos.Util.Chrono
 data WalletAction b
   = ApplyBlocks    (OldestFirst NE b)
   | RollbackBlocks (NewestFirst NE b)
-  | FindMyUtxos
-  | SystemReset
   | LogMessage Text
 
 -- | Interface abstraction for the wallet worker.
@@ -39,7 +37,6 @@ data WalletAction b
 --   underlying wallet.
 data WalletActionInterp m b = WalletActionInterp
   { applyBlocks :: OldestFirst NE b -> m
-  , findUtxos :: m
   , switchToFork :: Int -> OldestFirst [] b -> m
   , emit :: Text -> m
   }
@@ -59,7 +56,6 @@ makeLenses ''WalletWorkerState
 asWriter :: (Monoid m, MonadWriter m n) => WalletActionInterp m b -> WalletActionInterp (n ()) b
 asWriter i = WalletActionInterp
   { applyBlocks  = tell . applyBlocks i
-  , findUtxos    = tell (findUtxos i)
   , switchToFork = \n bs -> tell (switchToFork i n bs)
   , emit         = tell . emit i
   }
@@ -125,11 +121,7 @@ interp walletInterp action = runInterp $ do
       lengthPendingBlocks .= 0
       pendingBlocks       .= NewestFirst []
 
-    SystemReset -> emit "==================================================="
-
     LogMessage txt -> emit txt
-
-    FindMyUtxos -> findUtxos
 
  where
    WalletActionInterp{..} = asWriter walletInterp

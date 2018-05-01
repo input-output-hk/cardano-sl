@@ -67,6 +67,7 @@ data Action
 
     | PostTransaction
     | GetTransaction
+    | PostBlackListTransaction
 
     | NoOp
     deriving (Show, Eq, Ord, Enum, Bounded, Generic)

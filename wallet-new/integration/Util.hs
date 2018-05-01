@@ -83,6 +83,24 @@ genesisWallet wc = do
                 then pure wallet
                 else readMVar genesisRef
 
+genesisAssetLockedWallet :: WalletClient IO -> IO Wallet
+genesisAssetLockedWallet wc = do
+    mwallet <- tryTakeMVar genesisRef
+    case mwallet of
+        Just wallet -> do
+            putMVar genesisRef wallet
+            pure wallet
+        Nothing -> do
+            Right allWallets <- fmap wrData <$> getWallets wc
+            wallet <- maybe
+                (fail "Genesis wallet is missing; did you import it prior to executing the test-suite?")
+                return
+                (find (("Ae2tdPwUPEZ5YjF9WuDoWfCZLPQ56MdQC6CZa2VKwMVRVqBBfTLPNcPvET4" ==) . walId) allWallets)
+            didWrite <- tryPutMVar genesisRef wallet
+            if didWrite
+                then pure wallet
+                else readMVar genesisRef
+
 genesisRef :: WalletRef
 genesisRef = unsafePerformIO newEmptyMVar
 {-# NOINLINE genesisRef #-}

@@ -2,7 +2,7 @@
 {-# LANGUAGE TupleSections #-}
 module Util where
 
-import           Universum
+import           Universum hiding ((^?))
 
 import           Cardano.Wallet.Client.Http
 import           Control.Lens

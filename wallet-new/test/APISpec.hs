@@ -9,11 +9,11 @@
 
 module APISpec (spec) where
 
-import qualified Prelude
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
 import qualified Data.ByteString as BS
+import qualified Data.List as List
 import qualified Data.Text.Encoding as Text
 import           Ntp.Client (withoutNtpClient)
 import qualified Pos.Diffusion.Types as D
@@ -44,20 +44,8 @@ import           Servant.QuickCheck
 import           Servant.QuickCheck.Internal
 import           System.Directory
 import           Test.Hspec
-import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.QuickCheck
-import           Test.QuickCheck.Instances ()
 
-import           Cardano.Wallet.API.Request
-import           Cardano.Wallet.API.Response (WalletResponse (..))
-import           Cardano.Wallet.API.Types
-import qualified Cardano.Wallet.API.V1 as V0
 import qualified Cardano.Wallet.API.V1 as V1
-import qualified Cardano.Wallet.API.V1.LegacyHandlers as V0
-import qualified Cardano.Wallet.API.V1.LegacyHandlers as V1
-import qualified Cardano.Wallet.API.V1.Migration as Migration
-import           Cardano.Wallet.API.V1.Parameters
-import           Cardano.Wallet.API.V1.Types (Wallet (..))
 
 --
 -- Instances to allow use of `servant-quickcheck`.
@@ -209,7 +197,7 @@ spec = withCompileInfo def $ do
             oldLayout <- BS.readFile layoutPath `catch` \(_err :: SomeException) -> pure ""
             when (oldLayout /= serverLayout) $ do
                 BS.writeFile newLayoutPath serverLayout
-                expectationFailure $ Prelude.unlines
+                expectationFailure $ List.unlines
                     [ "The API layout has changed!!! The new layout has been written to:"
                     , "    " <> newLayoutPath
                     , "If this was intentional and correct, move the new layout path to:"

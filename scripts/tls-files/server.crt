@@ -1,88 +1,22 @@
-Certificate:
-    Data:
-        Version: 3 (0x2)
-        Serial Number: 2 (0x2)
-    Signature Algorithm: sha256WithRSAEncryption
-        Issuer: DC=io, DC=iohk, O=Input Output HK, OU=Daedalus Self-Signed Root CA, CN=Daedalus Self-Signed Root CA
-        Validity
-            Not Before: Mar 16 08:50:57 2018 GMT
-            Not After : Mar 15 08:50:57 2021 GMT
-        Subject: DC=io, DC=iohk, O=Input Output HK, CN=Cardano Settlement Layer Server Node
-        Subject Public Key Info:
-            Public Key Algorithm: rsaEncryption
-                Public-Key: (2048 bit)
-                Modulus:
-                    00:bb:cc:d7:fa:4d:77:31:11:6c:91:21:ba:3b:28:
-                    1c:00:d5:67:9c:8d:4b:92:da:05:9b:88:de:ed:c3:
-                    e5:1f:86:dd:bd:3e:76:aa:7d:06:da:a6:49:f8:f2:
-                    56:13:09:24:d6:9f:ce:b8:59:3f:ac:7c:f2:6f:3e:
-                    01:d9:2c:8d:d0:ef:f3:40:56:89:09:7c:82:bf:3e:
-                    b2:85:b8:4b:75:ab:17:ef:b6:b8:0e:3b:f2:c1:28:
-                    72:d2:87:a6:e4:b0:e2:02:69:fc:99:7d:fe:45:1d:
-                    13:41:17:06:f6:7e:55:3f:4f:01:c1:35:f7:e8:57:
-                    31:3a:a8:ed:c7:d8:c1:fe:81:17:be:b7:e3:65:d3:
-                    51:9e:3b:6a:e7:8a:ea:ff:e4:cc:42:3c:2b:e6:df:
-                    e2:5e:9e:e9:f1:7d:d2:6f:a6:cf:d6:bf:bc:ca:39:
-                    40:24:e2:c4:6b:76:ce:a2:0d:36:1e:28:9c:54:d0:
-                    2d:16:b0:c3:97:75:b2:6e:b8:73:e8:16:03:0f:9a:
-                    60:ad:fa:7e:a4:dc:43:ca:19:c4:55:4c:12:57:4d:
-                    1e:23:b5:74:e2:28:a0:68:e5:28:f5:ed:27:67:1b:
-                    81:c0:95:5a:ec:fd:56:fe:a8:73:1f:1b:20:6e:68:
-                    b4:c9:c7:c4:ca:fe:e5:80:f0:b1:0e:4a:10:5c:83:
-                    85:fd
-                Exponent: 65537 (0x10001)
-        X509v3 extensions:
-            X509v3 Key Usage: critical
-                Digital Signature, Key Encipherment
-            X509v3 Basic Constraints: 
-                CA:FALSE
-            X509v3 Extended Key Usage: 
-                TLS Web Server Authentication
-            X509v3 Subject Key Identifier: 
-                21:27:9E:C7:FC:C2:E6:99:EB:A5:E9:C3:40:46:DD:63:F6:1A:D6:CB
-            X509v3 Authority Key Identifier: 
-                keyid:9C:46:9F:95:C7:C5:29:97:3A:D9:8A:00:DE:A6:08:AE:6B:A1:53:CD
-
-            X509v3 Subject Alternative Name: 
-                DNS:localhost.localdomain, DNS:localhost, DNS:127.0.0.1, DNS:::1
-    Signature Algorithm: sha256WithRSAEncryption
-         13:9a:06:71:14:1f:39:1f:e2:70:1f:6d:11:5c:00:60:28:31:
-         24:71:9b:25:81:2f:7e:76:a3:d5:69:07:bc:8e:54:31:88:99:
-         47:82:84:cf:e1:5e:52:7d:30:a8:a5:30:b5:a9:79:1b:ee:cc:
-         e8:8f:09:2e:27:59:d8:25:27:ae:f2:1d:94:a7:d8:00:91:38:
-         b9:b4:b3:4c:71:2c:9f:a4:08:bd:e7:93:a9:9b:f9:45:b8:56:
-         b2:20:5b:0a:f6:dd:68:e1:06:44:54:5d:7e:49:74:54:91:3d:
-         cb:38:25:c4:dc:b5:90:90:8b:96:db:34:69:ff:3d:01:28:12:
-         ee:f8:59:52:b3:05:5d:40:e5:2e:6f:1b:83:3e:72:24:f3:08:
-         2b:30:7c:c8:20:35:ce:80:28:50:e2:00:b0:e4:23:5a:da:6a:
-         b7:ec:4e:d4:12:08:81:8d:a4:46:f1:ad:1c:2e:a7:41:95:f7:
-         a0:3f:fc:90:d2:c7:ce:8d:93:26:71:f8:99:84:6b:7c:cc:6b:
-         88:10:04:a5:a9:82:19:0a:69:e3:32:b3:94:25:4f:ab:f9:fd:
-         94:65:59:29:f4:0c:f2:68:9c:25:0c:73:51:f2:54:b4:a0:e2:
-         67:d9:a0:61:7d:16:d0:06:d9:c0:d7:86:88:7d:69:f0:54:72:
-         0f:8a:db:7f
 -----BEGIN CERTIFICATE-----
-MIIEMjCCAxqgAwIBAgIBAjANBgkqhkiG9w0BAQsFADCBkjESMBAGCgmSJomT8ixk
-ARkWAmlvMRQwEgYKCZImiZPyLGQBGRYEaW9oazEYMBYGA1UECgwPSW5wdXQgT3V0
-cHV0IEhLMSUwIwYDVQQLDBxEYWVkYWx1cyBTZWxmLVNpZ25lZCBSb290IENBMSUw
-IwYDVQQDDBxEYWVkYWx1cyBTZWxmLVNpZ25lZCBSb290IENBMB4XDTE4MDMxNjA4
-NTA1N1oXDTIxMDMxNTA4NTA1N1owczESMBAGCgmSJomT8ixkARkWAmlvMRQwEgYK
-CZImiZPyLGQBGRYEaW9oazEYMBYGA1UECgwPSW5wdXQgT3V0cHV0IEhLMS0wKwYD
-VQQDDCRDYXJkYW5vIFNldHRsZW1lbnQgTGF5ZXIgU2VydmVyIE5vZGUwggEiMA0G
-CSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC7zNf6TXcxEWyRIbo7KBwA1WecjUuS
-2gWbiN7tw+Ufht29PnaqfQbapkn48lYTCSTWn864WT+sfPJvPgHZLI3Q7/NAVokJ
-fIK/PrKFuEt1qxfvtrgOO/LBKHLSh6bksOICafyZff5FHRNBFwb2flU/TwHBNffo
-VzE6qO3H2MH+gRe+t+Nl01GeO2rniur/5MxCPCvm3+JenunxfdJvps/Wv7zKOUAk
-4sRrds6iDTYeKJxU0C0WsMOXdbJuuHPoFgMPmmCt+n6k3EPKGcRVTBJXTR4jtXTi
-KKBo5Sj17SdnG4HAlVrs/Vb+qHMfGyBuaLTJx8TK/uWA8LEOShBcg4X9AgMBAAGj
-gbAwga0wDgYDVR0PAQH/BAQDAgWgMAkGA1UdEwQCMAAwEwYDVR0lBAwwCgYIKwYB
-BQUHAwEwHQYDVR0OBBYEFCEnnsf8wuaZ66Xpw0BG3WP2GtbLMB8GA1UdIwQYMBaA
-FJxGn5XHxSmXOtmKAN6mCK5roVPNMDsGA1UdEQQ0MDKCFWxvY2FsaG9zdC5sb2Nh
-bGRvbWFpboIJbG9jYWxob3N0ggkxMjcuMC4wLjGCAzo6MTANBgkqhkiG9w0BAQsF
-AAOCAQEAE5oGcRQfOR/icB9tEVwAYCgxJHGbJYEvfnaj1WkHvI5UMYiZR4KEz+Fe
-Un0wqKUwtal5G+7M6I8JLidZ2CUnrvIdlKfYAJE4ubSzTHEsn6QIveeTqZv5RbhW
-siBbCvbdaOEGRFRdfkl0VJE9yzglxNy1kJCLlts0af89ASgS7vhZUrMFXUDlLm8b
-gz5yJPMIKzB8yCA1zoAoUOIAsOQjWtpqt+xO1BIIgY2kRvGtHC6nQZX3oD/8kNLH
-zo2TJnH4mYRrfMxriBAEpamCGQpp4zKzlCVPq/n9lGVZKfQM8micJQxzUfJUtKDi
-Z9mgYX0W0AbZwNeGiH1p8FRyD4rbfw==
+MIIDjjCCAnagAwIBAgIBAjANBgkqhkiG9w0BAQsFADBDMRgwFgYDVQQKDA9JbnB1
+dCBPdXRwdXQgSEsxJzAlBgNVBAMMHkNhcmRhbm8gU0wgU2VsZi1TaWduZWQgUm9v
+dCBDQTAeFw0xODA1MDQwODQ2MDhaFw0xOTA1MDQwODQ3MDhaMDsxGDAWBgNVBAoM
+D0lucHV0IE91dHB1dCBISzEfMB0GA1UEAwwWQ2FyZGFubyBTTCBTZXJ2ZXIgTm9k
+ZTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMnch4csqRJgl8ph7XVn
+Z5IbZ9OqLjM/FhBjWH6i0pdOIdcPYcMv1v9GUjpwajzBYDO2vRkscgYUl+PltpcJ
+vVAp3msp/ijWrlUAADZu4p0aeK5Unhr7Sv0wyEW+pvi/6xtZ+TgoSfzKFlB/S7iZ
+LBMfUu1kn6/v//stA34pFgI7at1/iLaCHkipJvO0adQ5Ny7V8atsVReS0YtbNf3s
+/B8QVWnQWuuJx96BXGJJEyVAPiO9eGv8oqWzYK0aPltNCJzhZ8ngewx0b5yIVJqD
+T9PvNM/x/s4Lwr8dX3gkjEuD+bTEL7Ow9IfeREmfLk4eCODN0wjh52BWW0I+vALW
+Ws8CAwEAAaOBlDCBkTA7BgNVHREENDAygglsb2NhbGhvc3SCFWxvY2FsaG9zdC5s
+b2NhbGRvbWFpboIJMTI3LjAuMC4xggM6OjEwDwYDVR0PAQH/BAUDAwegADATBgNV
+HSUEDDAKBggrBgEFBQcDATAMBgNVHRMEBTADAQEAMA0GA1UdDgQGBASEXf7CMA8G
+A1UdIwQIMAaABGwLqOgwDQYJKoZIhvcNAQELBQADggEBAHVUyZT97Qt3wCND069E
+5oVIkeDa3QlD5/mgTNlcOsT+IwRCTytItyeYvCZZS925QGlBjZC2dqUUsTIVvS1S
+qCakJx+6SNeWxQtLgUzbBBNanyE4zPo52cndRsQYZSxNJBi/okLyjtgyq1O+uvlX
+Gnr494h/kLdCzJNXMvQmba2QT1JmhbVjs4try4VUf8Pf6loO25SHiPLZpZg8GDtY
+pTWyKPMT4NhSUAroWadH6mGbUTr9e2i5O3+STVpX1xCoU6Iv4uEQqTNyqREamDQe
+UGyRgb2Z7Wfz+yL0f/mqU1NhR3wx3SIJnPTB3jzggq6E3aUMxSR/wI0H4pUsBpB3
+JvI=
 -----END CERTIFICATE-----

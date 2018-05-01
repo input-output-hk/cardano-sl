@@ -95,7 +95,7 @@ genesisAssetLockedWallet wc = do
             wallet <- maybe
                 (fail "Genesis wallet is missing; did you import it prior to executing the test-suite?")
                 return
-                (find (("Ae2tdPwUPEZ5YjF9WuDoWfCZLPQ56MdQC6CZa2VKwMVRVqBBfTLPNcPvET4" ==) . walId) allWallets)
+                (find ((WalletId "Ae2tdPwUPEZ5YjF9WuDoWfCZLPQ56MdQC6CZa2VKwMVRVqBBfTLPNcPvET4" ==) . walId) allWallets)
             didWrite <- tryPutMVar genesisRef wallet
             if didWrite
                 then pure wallet

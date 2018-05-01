@@ -101,7 +101,6 @@ library
                      , stm
                      , tagged
                      , text
-                     , text-format
                      , time-units
                      , transformers
                      , universum

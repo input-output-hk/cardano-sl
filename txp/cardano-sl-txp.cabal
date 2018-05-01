@@ -106,7 +106,6 @@ library
                      , tagged
                      , template-haskell
                      , text
-                     , text-format
                      , transformers
                      , universum
                      , unliftio

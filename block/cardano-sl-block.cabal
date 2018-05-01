@@ -112,7 +112,6 @@ library
                       , serokell-util
                       , stm
                       , text
-                      , text-format
                       , time-units
                       , transformers
                       , universum

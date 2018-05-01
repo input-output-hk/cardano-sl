@@ -65,7 +65,6 @@ library
                      , safe-exceptions
                      , rocksdb-haskell-ng
                      , serokell-util
-                     , text-format
                      , time
                      , time-units
                      , transformers

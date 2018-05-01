@@ -162,7 +162,6 @@ library
                       , swagger2
                       , text
                       , text
-                      , text-format
                       , time
                       , time-units
                       , transformers
@@ -266,7 +265,6 @@ test-suite cardano-wallet-test
                      , serokell-util >= 0.1.3.4
                      , servant-server
                      , stm
-                     , text-format
                      , universum >= 0.1.11
                      , unordered-containers
 

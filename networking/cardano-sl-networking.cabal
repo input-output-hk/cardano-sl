@@ -93,7 +93,6 @@ Library
                       , serokell-util
                       , stm
                       , text
-                      , text-format
                       , time
                       , time-units
                       , transformers
@@ -224,7 +223,6 @@ executable bench-log-reader
                      , resourcet
                      , safe-exceptions
                      , text
-                     , text-format
   hs-source-dirs:      bench/LogReader
   if flag(benchmarks)
     buildable:         True

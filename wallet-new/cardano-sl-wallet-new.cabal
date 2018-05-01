@@ -153,7 +153,6 @@ library
                      , string-conv
                      , swagger2
                      , text
-                     , text-format
                      , time
                      , time-units
                      , transformers
@@ -265,7 +264,6 @@ executable cardano-integration-test
                      , servant-quickcheck
                      , servant-server
                      , text
-                     , text-format
                      , universum
 
   default-language:    Haskell2010
@@ -361,7 +359,6 @@ test-suite wallet-unit-tests
                     , QuickCheck
                     , serokell-util
                     , text
-                    , text-format
                     , universum
                     , unordered-containers
 

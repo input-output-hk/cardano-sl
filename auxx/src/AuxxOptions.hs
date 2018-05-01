@@ -16,9 +16,9 @@ import           Data.Version (showVersion)
 import qualified NeatInterpolation as N
 import           Options.Applicative (CommandFields, Mod, Parser, command, execParser, footerDoc,
                                       fullDesc, header, help, helper, info, infoOption, long,
-                                      maybeReader, metavar, option, progDesc, subparser, value)
+                                      maybeReader, metavar, option, progDesc, subparser, value,
+                                      strOption)
 import           Pos.Communication (NodeId)
-import           Serokell.Util.OptParse (strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl (version)

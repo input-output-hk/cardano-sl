@@ -1,10 +1,12 @@
 {-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE NumDecimals #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module APISpec where

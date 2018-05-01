@@ -270,6 +270,7 @@ executable cardano-integration-test
                        WalletSpecs
                        AddressSpecs
                        TransactionSpecs
+                       QuickCheckSpecs
 
   build-depends:       base
                      , aeson
@@ -308,11 +309,13 @@ executable cardano-integration-test
                      , optparse-applicative
                      , pretty-show
                      , QuickCheck
+                     , quickcheck-instances
                      , serokell-util
                      , servant
                      , servant-client
                      , servant-server
                      , servant-swagger
+                     , servant-quickcheck
                      , stm
                      , string-conv
                      , swagger2

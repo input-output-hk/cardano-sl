@@ -135,9 +135,9 @@ instance Arbitrary AddressesFromSameAccounts where
         -- That predicate allows us to ensure that the output address
         -- ('outAddrs') are disjiont under 'WAddressMeta' equality from the
         -- input addresses, which is essential for the test.
-        let genAddrs pred n = vectorOf n $
+        let genAddrs p n = vectorOf n $
                 (uncurry (WS.WAddressMeta wId accIdx) <$> arbitrary)
-                `suchThat` pred
+                `suchThat` p
         inpAddrs <- choose (1, 5) >>= genAddrs (const True)
         outAddrs <- choose (1, 5) >>= genAddrs (not . flip elem inpAddrs)
         -- Throw on a bunch of arbitrary extra used addresses, but make sure

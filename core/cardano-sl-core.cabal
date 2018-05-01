@@ -122,6 +122,7 @@ library
                        Pos.Core.Update.Util
 
   build-depends:       aeson
+                     , aeson-options
                      , ansi-terminal
                      , base
                      , base58-bytestring

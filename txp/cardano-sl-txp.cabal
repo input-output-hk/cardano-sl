@@ -69,6 +69,7 @@ library
 
   build-depends:       QuickCheck
                      , aeson
+                     , aeson-options
                      , base
                      , bytestring
                      , cardano-sl-binary

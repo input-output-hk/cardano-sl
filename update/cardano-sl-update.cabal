@@ -85,6 +85,7 @@ library
   build-depends:       Cabal
                      , QuickCheck
                      , aeson
+                     , aeson-options
                      , base
                      , bytestring
                      , cardano-sl-binary

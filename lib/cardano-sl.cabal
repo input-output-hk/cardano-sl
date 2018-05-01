@@ -129,6 +129,7 @@ library
                       , acid-state
                       , async
                       , aeson >= 0.11.2.1
+                      , aeson-options
                       , async
                       , ansi-terminal
                       , ansi-wl-pprint

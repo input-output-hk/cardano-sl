@@ -130,6 +130,7 @@ library
   other-modules:        Paths_cardano_sl_infra
 
   build-depends:        aeson
+                      , aeson-options
                       , async
                       , base
                       , parsec

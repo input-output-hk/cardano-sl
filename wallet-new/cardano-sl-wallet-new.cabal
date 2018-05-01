@@ -451,8 +451,6 @@ test-suite wallet-new-specs
                     RequestSpec
                     WalletHandlersSpec
 
-                    TestUtil
-
   default-language: Haskell2010
   default-extensions: BangPatterns
                       ConstraintKinds

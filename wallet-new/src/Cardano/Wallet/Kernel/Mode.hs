@@ -39,8 +39,8 @@ import           Pos.Util.JsonLog
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.WorkMode
 
-import           Cardano.Wallet.Kernel.Actions
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer(..), invokeAction)
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer(..),
+                                             applyBlocks, undoBlocks)
 
 {-------------------------------------------------------------------------------
   The wallet context and monad
@@ -75,7 +75,7 @@ walletApplyBlocks :: HasConfigurations
                   -> OldestFirst NE Blund
                   -> WalletMode SomeBatchOp
 walletApplyBlocks _w _bs = do
-    lift $ invokeAction _w (ApplyBlocks _bs)
+    lift $ applyBlocks _w _bs
 
     -- We don't make any changes to the DB so we always return 'mempty'.
     return mempty
@@ -88,7 +88,7 @@ walletRollbackBlocks :: PassiveWalletLayer Production
                      -> NewestFirst NE Blund
                      -> WalletMode SomeBatchOp
 walletRollbackBlocks _w _bs = do
-    lift $ invokeAction _w (UndoBlocks _bs)
+    lift $ undoBlocks _w _bs
 
     -- We don't make any changes to the DB so we always return 'mempty'.
     return mempty

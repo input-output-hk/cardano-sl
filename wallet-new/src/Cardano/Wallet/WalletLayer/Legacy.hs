@@ -39,7 +39,7 @@ import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB, askWal
 import           Pos.Wallet.Web.State.Storage (getWalletInfo)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
-import           Pos.Util.Chrono (NE, OldestFirst (..))
+import           Pos.Util.Chrono (NE, OldestFirst (..), NewestFirst (..))
 import           Pos.Block.Types (Blund)
 
 
@@ -80,8 +80,8 @@ bracketPassiveWallet =
 
         , _pwlGetAddresses  = pwlGetAddresses
 
-        , _pwlInvokeAction  = error "pwlInvokeAction in Cardano.Wallet.WalletLayer.Legacy"
         , _pwlApplyBlocks   = pwlApplyBlocks
+        , _pwlUndoBlocks    = pwlUndoBlocks
         }
 
 
@@ -259,3 +259,10 @@ pwlGetAddresses = error "Not implemented!"
 
 pwlApplyBlocks :: OldestFirst NE Blund -> m ()
 pwlApplyBlocks = error "Not implemented!"
+
+------------------------------------------------------------
+-- Undo Block
+------------------------------------------------------------
+
+pwlUndoBlocks :: NewestFirst NE Blund -> m ()
+pwlUndoBlocks = error "Not implemented!"

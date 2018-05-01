@@ -39,9 +39,9 @@ bracketPassiveWallet =
 
         , _pwlGetAddresses  = \_     -> liftedGen
 
-        , _pwlInvokeAction  = \_     -> liftedGen
-        , _pwlApplyBlocks   = \_     -> liftedGen
-        }
+        , _pwlApplyBlocks   = \_     -> liftedGen 
+        , _pwlUndoBlocks    = \_     -> liftedGen
+       }
 
     -- | A utility function.
     liftedGen :: forall b. (MonadIO n, Arbitrary b) => n b

@@ -12,7 +12,6 @@ import           System.Wlog (Severity(Debug))
 
 import           Pos.Block.Types (Blund, Undo (..))
 import           Pos.Core (HasConfiguration)
-import           Pos.Util.Chrono (NE, OldestFirst (..))
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
@@ -37,7 +36,9 @@ bracketPassiveWallet logFunction f =
     Kernel.bracketPassiveWallet logFunction $ \w -> do
 
       invoke <- Actions.forkWalletWorker $ Actions.WalletActionInterp
-               { Actions.applyBlocks  = applyBlocks' w
+               { Actions.applyBlocks  = \blunds ->
+                   let resolvedBlocks = mapMaybeChrono blundToResolvedBlock blunds
+                   in  liftIO $ Kernel.applyBlocks w resolvedBlocks
                , Actions.findUtxos    = logFunction Debug "(I'm supposed to be finding my utxos now)"
                , Actions.switchToFork = \_ _ -> logFunction Debug "<switchToFork>"
                , Actions.emit         = logFunction Debug
@@ -45,8 +46,8 @@ bracketPassiveWallet logFunction f =
       _ <- liftIO $ do
         let backup = BackupPhrase
                      { bpToList = ["squirrel", "material", "silly",   "twice",
-                                    "direct",   "slush",   "pistol",  "razor",
-                                    "become",   "junk",    "kingdom", "flee" ]
+                                    "direct",  "slush",    "pistol",  "razor",
+                                    "become",  "junk",     "kingdom", "flee" ]
                      }
             Right (esk, _) = safeKeysFromPhrase emptyPassphrase backup
         Kernel.newWalletHdRnd w esk Map.empty
@@ -71,15 +72,9 @@ bracketPassiveWallet logFunction f =
 
             , _pwlGetAddresses  = error "Not implemented!"
 
-            , _pwlInvokeAction  = inv
-            , _pwlApplyBlocks   = applyBlocks' _wallet
+            , _pwlApplyBlocks   = inv . Actions.ApplyBlocks
+            , _pwlUndoBlocks    = inv . Actions.UndoBlocks
             }
-
-    applyBlocks' :: forall n''. (HasConfiguration, MonadIO n'')
-                 => Kernel.PassiveWallet -> OldestFirst NE Blund -> n'' ()
-    applyBlocks' w blunds
-        = let resolvedBlocks = mapMaybeChrono blundToResolvedBlock blunds
-          in  liftIO $ Kernel.applyBlocks w resolvedBlocks
 
     -- The use of the unsafe constructor 'UnsafeRawResolvedBlock' is justified
     -- by the invariants established in the 'Blund'.

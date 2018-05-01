@@ -23,7 +23,7 @@ import qualified Cardano.Wallet.WalletLayer.Kernel as Kernel
 import qualified Cardano.Wallet.WalletLayer.Legacy as Legacy
 import qualified Cardano.Wallet.WalletLayer.QuickCheck as QuickCheck
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..),
-                                                  invokeAction)
+                                                  applyBlocks, undoBlocks)
 
 import           Pos.Core (HasConfiguration)
 

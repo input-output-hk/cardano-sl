@@ -118,7 +118,7 @@ packages:
 # buggy async
 - location:
     git: https://github.com/input-output-hk/log-warper.git
-    commit: 5271ab6c33541b8155ca203e714875974ec116be
+    commit: fa925f9dadf239b38e2ffcc35f9d241a9fcb7d55
   extra-dep: true
 
 # Because it includes a bunch of safecopy instances that we currently rely upon.

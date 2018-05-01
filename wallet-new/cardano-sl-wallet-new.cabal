@@ -105,7 +105,6 @@ library
 
   build-depends:       base
                      , acid-state
-                     , servant-swagger
                      , aeson
                      , aeson-pretty
                      , bytestring
@@ -115,15 +114,12 @@ library
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
-                     , warp
-                     , wai-cors
                      , cardano-sl-infra
                      , cardano-sl-networking
                      , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl-util
-                     , neat-interpolation
                      , cardano-sl-wallet
                      , conduit
                      , containers
@@ -140,6 +136,7 @@ library
                      , log-warper
                      , memory
                      , mtl
+                     , neat-interpolation
                      , network-transport
                      , optparse-applicative
                      , QuickCheck
@@ -152,6 +149,7 @@ library
                      , servant-client-core
                      , servant-quickcheck
                      , servant-server
+                     , servant-swagger
                      , servant-swagger-ui
                      , stm
                      , string-conv
@@ -167,6 +165,8 @@ library
                      , unordered-containers
                      , vector
                      , wai
+                     , wai-cors
+                     , warp
 
   default-language:    Haskell2010
   default-extensions: TypeOperators
@@ -277,7 +277,6 @@ executable cardano-integration-test
                        AddressSpecs
                        TransactionSpecs
                        QuickCheckSpecs
-                       -- TestUtil
 
   build-depends:       base
                      , aeson

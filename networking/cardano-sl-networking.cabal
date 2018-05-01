@@ -64,6 +64,7 @@ Library
                       , async
                       , attoparsec
                       , base
+                      , cardano-sl-util
                       , containers
                       , contravariant
                       , cryptonite

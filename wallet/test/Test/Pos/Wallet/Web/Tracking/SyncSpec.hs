@@ -1,3 +1,8 @@
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Test.Pos.Wallet.Web.Tracking.SyncSpec
        ( spec
        ) where
@@ -160,6 +165,7 @@ instance Arbitrary AddressesFromSameAccounts where
                 if length outAddrs == 1
                 then pure (mempty, [])
                 else do
+                    -- Problem case is when ext is all of 'outAddrs'.
                     ext <- sublistOf outAddrs `suchThat` (not . null)
                     pure (HS.fromList $ map (view WS.wamAddress) (outAddrs \\ ext), ext)
             ]

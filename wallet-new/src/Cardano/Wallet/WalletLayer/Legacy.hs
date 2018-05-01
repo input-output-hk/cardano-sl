@@ -66,19 +66,19 @@ bracketPassiveWallet =
   where
     passiveWalletLayer :: PassiveWalletLayer m
     passiveWalletLayer = PassiveWalletLayer
-        { _pwlCreateWallet  = pwlCreateWallet
-        , _pwlGetWalletIds  = pwlGetWalletIds
-        , _pwlGetWallet     = pwlGetWallet
-        , _pwlUpdateWallet  = pwlUpdateWallet
-        , _pwlDeleteWallet  = pwlDeleteWallet
+        { _pwlCreateWallet   = pwlCreateWallet
+        , _pwlGetWalletIds   = pwlGetWalletIds
+        , _pwlGetWallet      = pwlGetWallet
+        , _pwlUpdateWallet   = pwlUpdateWallet
+        , _pwlDeleteWallet   = pwlDeleteWallet
 
-        , _pwlCreateAccount = pwlCreateAccount
-        , _pwlGetAccounts   = pwlGetAccounts
-        , _pwlGetAccount    = pwlGetAccount
-        , _pwlUpdateAccount = pwlUpdateAccount
-        , _pwlDeleteAccount = pwlDeleteAccount
+        , _pwlCreateAccount  = pwlCreateAccount
+        , _pwlGetAccounts    = pwlGetAccounts
+        , _pwlGetAccount     = pwlGetAccount
+        , _pwlUpdateAccount  = pwlUpdateAccount
+        , _pwlDeleteAccount  = pwlDeleteAccount
 
-        , _pwlGetAddresses  = pwlGetAddresses
+        , _pwlGetAddresses   = pwlGetAddresses
 
         , _pwlApplyBlocks    = pwlApplyBlocks
         , _pwlRollbackBlocks = pwlRollbackBlocks

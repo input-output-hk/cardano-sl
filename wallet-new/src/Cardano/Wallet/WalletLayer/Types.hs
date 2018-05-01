@@ -37,19 +37,19 @@ import           Pos.Block.Types (Blund)
 data PassiveWalletLayer m = PassiveWalletLayer
     {
     -- * wallets
-      _pwlCreateWallet  :: NewWallet -> m Wallet
-    , _pwlGetWalletIds  :: m [WalletId]
-    , _pwlGetWallet     :: WalletId -> m (Maybe Wallet)
-    , _pwlUpdateWallet  :: WalletId -> WalletUpdate -> m Wallet
-    , _pwlDeleteWallet  :: WalletId -> m Bool
+      _pwlCreateWallet   :: NewWallet -> m Wallet
+    , _pwlGetWalletIds   :: m [WalletId]
+    , _pwlGetWallet      :: WalletId -> m (Maybe Wallet)
+    , _pwlUpdateWallet   :: WalletId -> WalletUpdate -> m Wallet
+    , _pwlDeleteWallet   :: WalletId -> m Bool
     -- * accounts
-    , _pwlCreateAccount :: WalletId -> NewAccount -> m Account
-    , _pwlGetAccounts   :: WalletId -> m [Account]
-    , _pwlGetAccount    :: WalletId -> AccountIndex -> m (Maybe Account)
-    , _pwlUpdateAccount :: WalletId -> AccountIndex -> AccountUpdate -> m Account
-    , _pwlDeleteAccount :: WalletId -> AccountIndex -> m Bool
+    , _pwlCreateAccount  :: WalletId -> NewAccount -> m Account
+    , _pwlGetAccounts    :: WalletId -> m [Account]
+    , _pwlGetAccount     :: WalletId -> AccountIndex -> m (Maybe Account)
+    , _pwlUpdateAccount  :: WalletId -> AccountIndex -> AccountUpdate -> m Account
+    , _pwlDeleteAccount  :: WalletId -> AccountIndex -> m Bool
     -- * addresses
-    , _pwlGetAddresses  :: WalletId -> m [Address]
+    , _pwlGetAddresses   :: WalletId -> m [Address]
     -- * core API
     , _pwlApplyBlocks    :: OldestFirst NE Blund -> m ()
     , _pwlRollbackBlocks :: NewestFirst NE Blund -> m ()

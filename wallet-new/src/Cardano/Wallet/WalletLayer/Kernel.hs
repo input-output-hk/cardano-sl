@@ -56,19 +56,19 @@ bracketPassiveWallet logFunction f =
     -- | TODO(ks): Currently not implemented!
     passiveWalletLayer _wallet inv =
         PassiveWalletLayer
-            { _pwlCreateWallet  = error "Not implemented!"
-            , _pwlGetWalletIds  = error "Not implemented!"
-            , _pwlGetWallet     = error "Not implemented!"
-            , _pwlUpdateWallet  = error "Not implemented!"
-            , _pwlDeleteWallet  = error "Not implemented!"
+            { _pwlCreateWallet   = error "Not implemented!"
+            , _pwlGetWalletIds   = error "Not implemented!"
+            , _pwlGetWallet      = error "Not implemented!"
+            , _pwlUpdateWallet   = error "Not implemented!"
+            , _pwlDeleteWallet   = error "Not implemented!"
 
-            , _pwlCreateAccount = error "Not implemented!"
-            , _pwlGetAccounts   = error "Not implemented!"
-            , _pwlGetAccount    = error "Not implemented!"
-            , _pwlUpdateAccount = error "Not implemented!"
-            , _pwlDeleteAccount = error "Not implemented!"
+            , _pwlCreateAccount  = error "Not implemented!"
+            , _pwlGetAccounts    = error "Not implemented!"
+            , _pwlGetAccount     = error "Not implemented!"
+            , _pwlUpdateAccount  = error "Not implemented!"
+            , _pwlDeleteAccount  = error "Not implemented!"
 
-            , _pwlGetAddresses  = error "Not implemented!"
+            , _pwlGetAddresses   = error "Not implemented!"
 
             , _pwlApplyBlocks    = inv . Actions.ApplyBlocks
             , _pwlRollbackBlocks = inv . Actions.RollbackBlocks

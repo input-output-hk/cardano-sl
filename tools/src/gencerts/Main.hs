@@ -9,7 +9,7 @@ import           Crypto.PubKey.RSA (PrivateKey, PublicKey)
 import           Data.Hourglass (Minutes (..), Period (..), dateAddPeriod, timeAdd)
 import           Data.Semigroup ((<>))
 import           Data.X509 (Certificate (..), Extensions (..), PubKey (PubKeyRSA),
-                            SignedCertificate, encodeSignedObject)
+                            SignedCertificate)
 import           Options.Applicative
 import           System.FilePath.Posix (FilePath, (</>))
 import           Time.System (dateCurrent)
@@ -18,7 +18,6 @@ import           Time.Types (DateTime (..))
 import           Configuration
 import           Data.X509.Extra
 
-import qualified Data.ByteString as BS
 import qualified Data.List.NonEmpty as NonEmpty
 
 
@@ -72,7 +71,7 @@ main =
         let caName =
                 certFilename caDesc
 
-        let (serverHost, serverPort) = -- NOTE We expect at least one alternative name
+        let (serverHost, serverPort) =
                 (NonEmpty.head $ serverAltNames $ tlsServer tlsConfig, "")
 
         (caKey, caCert) <-
@@ -80,13 +79,13 @@ main =
 
         case certOutDir caDesc of
             Nothing  -> return ()
-            Just dir -> writeCertificate (dir </> caName) (caKey, caCert)
+            Just dir -> writeCredentials (dir </> caName) (caKey, caCert)
 
         forM_ descs $ \desc@CertDescription{..} -> do
             (key, cert) <- genCertificate desc
             validateSHA256 caCert certChecks (serverHost, serverPort) cert >>= failIfReasons
-            writeCertificate  (certOutDir </> certFilename) (key, cert)
-            writeCertificate_ (certOutDir </> caName)       caCert
+            writeCredentials (certOutDir </> certFilename) (key, cert)
+            writeCertificate (certOutDir </> caName)       caCert
 
 
 -- | Generate & sign a certificate from a certificate description
@@ -117,22 +116,3 @@ genCertificate CertDescription{..} = do
     addMinutes :: Int -> DateTime -> DateTime
     addMinutes n time =
         timeAdd time (Minutes $ fromIntegral n)
-
-
--- | Write a certificate and its private key to the given location
-writeCertificate
-    :: FilePath
-    -> (PrivateKey, SignedCertificate)
-    -> IO ()
-writeCertificate filename (key, cert) = do
-    BS.writeFile (filename <> ".key") (encodeRSAPrivateKey key)
-    writeCertificate_ filename cert
-
-
--- | Write a certificate to the given location
-writeCertificate_
-    :: FilePath
-    -> SignedCertificate
-    -> IO ()
-writeCertificate_ filename cert =
-    BS.writeFile (filename <> ".crt") (encodeSignedObject cert)

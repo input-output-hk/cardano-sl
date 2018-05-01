@@ -14,10 +14,7 @@ import           Universum
 
 import qualified Control.Concurrent.STM as STM
 import qualified Data.ByteString as BS
-import           Data.Default (def)
 import qualified Data.Text.Encoding as Text
-import           Network.HTTP.Client hiding (Proxy)
-import           Network.HTTP.Types
 import           Ntp.Client (withoutNtpClient)
 import qualified Pos.Diffusion.Types as D
 import           Pos.Util.CompileInfo (withCompileInfo)

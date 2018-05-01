@@ -32,7 +32,7 @@ import           Pos.Block.Types (SlogUndo (..), Undo (..))
 import qualified Pos.Communication ()
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), EpochIndex (..),
                            HasConfiguration, LocalSlotIndex (..), SlotId (..), SlotLeaders,
-                           StakeholderId, difficultyL, makePubKeyAddressBoot)
+                           StakeholderId, difficultyL, makePubKeyAddressBoot, ProtocolMagic, GenesisHash(..), genesisHash)
 import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock, getBlockHeader)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
@@ -141,19 +141,20 @@ leftToCounter x c = either (\t -> counterexample (toString t) False) (property .
 -- | Function that should generate arbitrary blocks that we can use in tests.
 produceBlocksByBlockNumberAndSlots
     :: forall m. (HasConfiguration, HasUpdateConfiguration, MonadIO m, Monad m)
-    => BlockNumber
+    => ProtocolMagic
+    -> BlockNumber
     -> SlotsPerEpoch
     -> SlotLeaders
     -> [SecretKey]
     -> m [Block]
-produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders secretKeys = do
+produceBlocksByBlockNumberAndSlots pm blockNumber slotsNumber producedSlotLeaders secretKeys = do
 
     -- This is just plain wrong and we need to check for it.
     when (blockNumber < slotsNumber) $ error "Illegal argument."
 
     concatForM [0..totalEpochs] $ \currentEpoch -> do
         generateGenericEpochBlocks
-            Nothing
+            (Left (GenesisHash genesisHash))
             slotsNumber
             (EpochIndex . fromIntegral $ currentEpoch)
   where
@@ -165,7 +166,7 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
     remainingSlots = blockNumber `mod` slotsNumber
 
     generateGenericEpochBlocks
-        :: Maybe BlockHeader
+        :: Either GenesisHash BlockHeader
         -> SlotsPerEpoch
         -> EpochIndex
         -> m [Block]
@@ -185,15 +186,16 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
         pure $ [gbToMainBlock] ++ mbToMainBlock
 
     generateEpochBlocks
-        :: Maybe BlockHeader
+        :: Either GenesisHash BlockHeader
         -> SlotsPerEpoch
         -> EpochIndex
         -> (GenesisBlock, [MainBlock])
-    generateEpochBlocks mBlockHeader slotsPerEpoch' epochIndex =
+    generateEpochBlocks eBlockHeader slotsPerEpoch' epochIndex =
         (epochGenesisBlock, epochBlocks)
       where
         epochGenesisBlock :: GenesisBlock
-        epochGenesisBlock = mkGenesisBlock mBlockHeader epochIndex producedSlotLeaders
+        epochGenesisBlock =
+            mkGenesisBlock pm eBlockHeader epochIndex producedSlotLeaders
 
         epochBlocks :: [MainBlock]
         epochBlocks = do

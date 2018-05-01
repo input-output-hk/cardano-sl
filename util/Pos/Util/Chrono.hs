@@ -18,6 +18,7 @@ module Pos.Util.Chrono
        , splitAtOldestFirst
        , filterChrono
        , mapMaybeChrono
+       , toListChrono
        ) where
 
 import           Universum
@@ -55,6 +56,9 @@ makeWrapped ''OldestFirst
 
 deriving instance Semigroup (f a) => Semigroup (NewestFirst f a)
 deriving instance Semigroup (f a) => Semigroup (OldestFirst f a)
+
+deriving instance Monoid (f a) => Monoid (NewestFirst f a)
+deriving instance Monoid (f a) => Monoid (OldestFirst f a)
 
 instance Lens.Each (f a) (f b) a b =>
          Lens.Each (NewestFirst f a) (NewestFirst f b) a b where
@@ -144,3 +148,10 @@ mapMaybeChrono ::
   -> c f a
   -> c [] b
 mapMaybeChrono f = chronologically (mapMaybe f . CC.toList)
+
+toListChrono ::
+  forall c f a.
+     (Chronological c, CC.ToList (f a), a ~ CC.Element (f a))
+  => c f a
+  -> c [] a
+toListChrono = chronologically CC.toList

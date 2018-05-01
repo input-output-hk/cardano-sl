@@ -12,7 +12,7 @@ module Wallet.Abstract.Cardano (
   ) where
 
 import           Universum
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, build, (%))
 import           Pos.Txp (Utxo, formatUtxo)
 import           Pos.Core (HasConfiguration, Coin, unsafeIntegerToCoin)

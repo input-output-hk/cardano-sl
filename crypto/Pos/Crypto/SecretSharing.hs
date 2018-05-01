@@ -42,8 +42,8 @@ import           Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
 import           Data.List (zipWith3)
 import qualified Data.List.NonEmpty as NE
-import           Data.Text.Buildable (Buildable)
-import qualified Data.Text.Buildable as Buildable
+import           Formatting.Buildable (Buildable)
+import qualified Formatting.Buildable as Buildable
 import           Formatting (bprint, (%))
 
 import           Pos.Binary.Class (Bi, serialize')

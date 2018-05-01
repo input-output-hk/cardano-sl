@@ -29,7 +29,7 @@ import           Data.ByteString.Builder (Builder, byteString)
 import qualified Data.ByteString.Builder.Extra as Builder
 import           Data.Coerce (coerce)
 import qualified Data.Foldable as Foldable
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 import qualified Prelude
 
 import           Pos.Binary.Class (Bi, Raw, serializeBuilder)

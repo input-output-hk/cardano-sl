@@ -18,8 +18,8 @@ import qualified Cardano.Crypto.Wallet as CC
 import           Crypto.Random (MonadRandom)
 import           Data.ByteArray (ByteArray, ByteArrayAccess, ScrubbedBytes)
 import           Data.Default (Default (..))
-import           Data.Text.Buildable (build)
-import qualified Data.Text.Buildable as B
+import           Formatting.Buildable (build)
+import qualified Formatting.Buildable as B
 import qualified Prelude
 import           Universum
 

@@ -51,7 +51,7 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import qualified Data.Semigroup as S
 import qualified Data.Set as Set
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Data.Traversable (for)
 import qualified Data.Vector as V
 import           Formatting (bprint, build, sformat, stext, (%))

@@ -20,7 +20,7 @@ import           Data.Aeson.TH
 import qualified Data.Char as Char
 import           Data.Default
 import           Data.Swagger as S
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, build, (%))
 import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck (Arbitrary (..), choose, getPositive)

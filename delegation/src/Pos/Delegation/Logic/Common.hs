@@ -18,7 +18,7 @@ module Pos.Delegation.Logic.Common
 import           Universum
 
 import           Control.Exception.Safe (Exception (..))
-import qualified Data.Text.Buildable as B
+import qualified Formatting.Buildable as B
 import           Formatting (bprint, stext, (%))
 import           UnliftIO (MonadUnliftIO)
 

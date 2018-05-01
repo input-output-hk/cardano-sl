@@ -39,7 +39,7 @@ import qualified Universum
 import           Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, (%))
 import           Serokell.Util (listJson, pairF)
 import           Test.QuickCheck (Arbitrary)

@@ -10,7 +10,7 @@ import           Control.Lens (_Left)
 import           Control.Monad.Except (MonadError (..))
 import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 import qualified Data.Text.Lazy.Builder as Builder (fromText)
 import           Data.Time.Units (Millisecond, Second, convertUnit)
 import           Data.Typeable (typeRep)

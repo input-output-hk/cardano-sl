@@ -21,7 +21,7 @@ import           Universum
 
 import           Control.Lens (makeLensesFor)
 import           Data.Ix (Ix)
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 import           Formatting (Format, bprint, build, int, ords, (%))
 import           System.Random (Random (..))
 

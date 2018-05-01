@@ -19,7 +19,7 @@ import           Universum
 
 import           Control.Monad.Except (MonadError, throwError)
 import           Data.Default (Default (def))
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, build, int, (%))
 import           Serokell.Util (allDistinct, listJson, pairF)
 

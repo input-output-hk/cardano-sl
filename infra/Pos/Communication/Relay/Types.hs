@@ -8,7 +8,7 @@ module Pos.Communication.Relay.Types
 import           Prelude (Show (..))
 import           Universum hiding (Show)
 
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 import           Node (Message)
 

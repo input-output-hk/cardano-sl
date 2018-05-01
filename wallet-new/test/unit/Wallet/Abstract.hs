@@ -46,7 +46,7 @@ import           Universum
 
 import qualified Data.IntMap as IntMap
 import qualified Data.List as List
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, build, sformat, (%))
 import           Pos.Util.Chrono
 import           Pos.Util.QuickCheck.Arbitrary (sublistN)

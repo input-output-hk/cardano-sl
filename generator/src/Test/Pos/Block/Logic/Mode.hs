@@ -48,7 +48,7 @@ import           Universum
 import           Control.Lens (lens, makeClassy, makeLensesWith)
 import           Data.Default (def)
 import qualified Data.Map as Map
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Data.Time.Units (TimeUnit (..))
 import           Formatting (bprint, build, formatToString, shown, (%))
 import           Mockable (Production, currentTime, runProduction)

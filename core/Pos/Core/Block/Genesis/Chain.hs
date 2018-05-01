@@ -11,7 +11,7 @@ module Pos.Core.Block.Genesis.Chain
 
 import           Universum
 
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 
 import           Pos.Core.Block.Blockchain (Blockchain (..))
 import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockchain,

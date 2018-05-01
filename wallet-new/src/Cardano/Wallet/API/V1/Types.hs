@@ -92,7 +92,7 @@ import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text as T
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Data.Version (Version)
 import           Formatting (bprint, build, fconst, int, sformat, (%))
 import           GHC.Generics (Generic, Rep)

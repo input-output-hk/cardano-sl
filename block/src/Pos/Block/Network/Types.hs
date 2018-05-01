@@ -7,7 +7,7 @@ module Pos.Block.Network.Types
        , MsgBlock (..)
        ) where
 
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, build, (%))
 import           Serokell.Util.Text (listJson)
 import           Universum

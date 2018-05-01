@@ -13,7 +13,7 @@ module Util.Validated (
   ) where
 
 import           Control.Monad.Except
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, build, (%))
 import           Serokell.Util (listJson)
 import           Universum

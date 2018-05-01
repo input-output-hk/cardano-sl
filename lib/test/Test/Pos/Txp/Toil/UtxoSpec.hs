@@ -10,7 +10,7 @@ import           Control.Monad.Except (runExceptT)
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
-import qualified Data.Text.Buildable as B
+import qualified Formatting.Buildable as B
 import qualified Data.Vector as V (fromList)
 import           Fmt (blockListF', genericF, nameF, (+|), (|+))
 import           Serokell.Util (allDistinct)

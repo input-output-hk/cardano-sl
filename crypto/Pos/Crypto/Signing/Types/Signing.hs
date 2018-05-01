@@ -30,7 +30,7 @@ module Pos.Crypto.Signing.Types.Signing
 import qualified Cardano.Crypto.Wallet as CC
 import           Data.Hashable (Hashable)
 import qualified Data.Hashable as Hashable
-import qualified Data.Text.Buildable as B
+import qualified Formatting.Buildable as B
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (Format, bprint, build, fitLeft, later, (%), (%.))
 import           Prelude (show)

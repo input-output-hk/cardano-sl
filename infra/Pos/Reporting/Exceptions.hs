@@ -7,7 +7,7 @@ module Pos.Reporting.Exceptions
 import           Universum
 
 import           Control.Exception.Safe (Exception (..))
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, stext, string, (%))
 import           Serokell.Util (listJson)
 

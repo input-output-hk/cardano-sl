@@ -12,7 +12,7 @@ module Pos.Core.Block.Genesis.Types
 
 import           Universum
 
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 
 import           Pos.Core.Block.Blockchain (GenericBlock (..), GenericBlockHeader (..))

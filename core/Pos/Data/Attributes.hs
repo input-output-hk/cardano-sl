@@ -19,8 +19,7 @@ import qualified Data.ByteString.Lazy as LBS
 import           Data.Default (Default (..))
 import qualified Data.Hashable as H
 import qualified Data.Map as M
-import           Data.Text.Buildable (Buildable)
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 import           Formatting (bprint, build, int, (%))
 import qualified Prelude
 

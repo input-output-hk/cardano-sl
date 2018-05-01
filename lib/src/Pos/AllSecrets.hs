@@ -19,7 +19,7 @@ import           Universum
 
 import           Control.Lens.TH (makeClassy)
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, int, (%))
 import           Serokell.Util (listJson, mapJson)
 

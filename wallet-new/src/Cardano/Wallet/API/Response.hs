@@ -22,7 +22,7 @@ import           Data.Aeson.Encode.Pretty (encodePretty)
 import           Data.Aeson.TH
 import qualified Data.Char as Char
 import           Data.Swagger as S
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Data.Typeable
 import           Formatting (bprint, build, (%))
 import           GHC.Generics (Generic)

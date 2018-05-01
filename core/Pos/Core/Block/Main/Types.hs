@@ -14,7 +14,7 @@ module Pos.Core.Block.Main.Types
 
 import           Universum
 
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 import           Formatting (bprint, build, builder, (%))
 
 import           Pos.Binary.Crypto ()

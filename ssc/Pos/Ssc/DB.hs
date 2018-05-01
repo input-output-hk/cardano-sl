@@ -9,7 +9,7 @@ module Pos.Ssc.DB
 import           Universum
 
 import           Data.Default (def)
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, (%))
 

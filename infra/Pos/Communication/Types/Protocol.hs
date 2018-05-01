@@ -50,7 +50,7 @@ import qualified Control.Concurrent.Async as Async
 import qualified Control.Concurrent.STM as STM
 import           Control.Exception (throwIO)
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Text.Buildable as B
+import qualified Formatting.Buildable as B
 import qualified Data.Text.Encoding as Text (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Internal.Builder as B
 import           Formatting (bprint, build, hex, sformat, shown, (%))

@@ -14,7 +14,7 @@ import           Control.Exception.Safe (Exception (..))
 import qualified Data.ByteString as BS
 import           Data.Hashable (Hashable)
 import qualified Data.Text as T
-import qualified Data.Text.Buildable as B
+import qualified Formatting.Buildable as B
 import qualified Data.Text.Lazy.Builder as Builder (fromText)
 import           Formatting (Format, bprint, fitLeft, later, (%), (%.))
 import           Serokell.Util.Base64 (formatBase64)

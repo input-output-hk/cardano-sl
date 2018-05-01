@@ -44,7 +44,7 @@ import           Control.Lens (makeLensesFor, makeWrapped)
 import           Data.Hashable (Hashable (..))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Fmt (genericF)
 import           Formatting (Format, bprint, build, int, (%))

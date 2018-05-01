@@ -30,7 +30,7 @@ import           Universum
 import           Control.Monad.Except (MonadError (throwError))
 import           Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 import           Fmt (genericF)
 import           Formatting (bprint, build, fixed, int, (%))
 import           Serokell.Util (allDistinct, mapJson)

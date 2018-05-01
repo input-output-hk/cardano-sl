@@ -27,7 +27,7 @@ module Pos.DB.GState.Common
 
 import           Universum
 
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, int, sformat, stext, (%))
 

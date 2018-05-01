@@ -62,7 +62,7 @@ import qualified Crypto.Hash as CryptoHash
 import qualified Data.ByteString as BS
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58, encodeBase58)
 import           Data.Hashable (Hashable (..))
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 import           Formatting (Format, bprint, build, builder, int, later, (%))
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (mapJson)

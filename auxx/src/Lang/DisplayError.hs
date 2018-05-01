@@ -17,7 +17,7 @@ import qualified Text.PrettyPrint.ANSI.Leijen
 import           Control.Lens (matching)
 import           Data.Loc (Span, loc, locColumn, locLine, spanEnd, spanFromTo, spanStart, toNat)
 import           Data.Loc.Span (joinAsc)
-import           Data.Text.Buildable (build)
+import           Formatting.Buildable (build)
 import           Data.Text.Lazy.Builder (toLazyText)
 import           Text.Earley (Report (..))
 import           Text.PrettyPrint.ANSI.Leijen (Doc, bold, char, comma, empty, hcat, indent,

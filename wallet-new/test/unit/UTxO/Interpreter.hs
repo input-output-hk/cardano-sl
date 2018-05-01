@@ -27,7 +27,7 @@ import           Control.Arrow ((&&&))
 import           Data.Default (def)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, shown)
 import           Prelude (Show (..))
 

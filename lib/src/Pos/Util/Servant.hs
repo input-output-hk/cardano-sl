@@ -60,7 +60,7 @@ import           Data.Constraint.Forall (Forall, inst)
 import           Data.Default (Default (..))
 import           Data.Reflection (Reifies (..), reflect)
 import qualified Data.Text as T
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Formatting (bprint, build, builder, fconst, formatToString, sformat, shown, stext,
                              string, (%))

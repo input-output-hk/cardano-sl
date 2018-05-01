@@ -111,7 +111,7 @@ import           Data.Default (Default, def)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
 import           Data.SafeCopy (Migrate (..), base, deriveSafeCopySimple, extension)
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting ((%))
 import qualified Formatting as F

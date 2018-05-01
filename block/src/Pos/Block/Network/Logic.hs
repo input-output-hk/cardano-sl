@@ -20,7 +20,7 @@ import           Control.Exception.Safe (Exception (..))
 import           Control.Exception (IOException)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as M
-import qualified Data.Text.Buildable as B
+import qualified Formatting.Buildable as B
 import           Formatting (bprint, build, sformat, shown, stext, (%))
 import           Mockable (forConcurrently)
 import           Serokell.Util.Text (listJson)

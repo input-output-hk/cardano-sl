@@ -15,7 +15,7 @@ import           Data.Conduit.Text (decode, encode, utf8)
 import           Data.List (intersperse)
 import qualified Data.Map as M
 import           Data.Text (Text)
-import           Data.Text.Buildable (Buildable (..))
+import           Formatting.Buildable (Buildable (..))
 import           Data.Typeable (Typeable)
 import           Formatting (bprint, int, right, sformat, (%))
 import qualified Formatting as F

@@ -39,7 +39,7 @@ import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Hashable (Hashable (hashWithSalt))
 import qualified Data.HashMap.Strict as HM
 import           Data.Tagged (Tagged (Tagged))
-import           Data.Text.Buildable (build)
+import           Formatting.Buildable (build)
 import           Data.Time.Units (Attosecond, Day, Femtosecond, Fortnight, Hour, Microsecond,
                                   Millisecond, Minute, Nanosecond, Picosecond, Second, Week,
                                   toMicroseconds)

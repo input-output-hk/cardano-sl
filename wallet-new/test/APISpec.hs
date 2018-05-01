@@ -1,15 +1,13 @@
 {-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE NumDecimals #-}
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE NumDecimals          #-}
 {-# LANGUAGE OverloadedStrings    #-}
 {-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
-module APISpec where
+module APISpec (spec) where
 
 import qualified Prelude
 import           Universum
@@ -235,3 +233,6 @@ withTestDirectory action = void . runMaybeT $ do
         bracket_ (setCurrentDirectory =<< makeAbsolute "wallet-new")
                  (setCurrentDirectory dir)
                  action
+
+serverLayout :: ByteString
+serverLayout = Text.encodeUtf8 (layout (Proxy @V1.API))

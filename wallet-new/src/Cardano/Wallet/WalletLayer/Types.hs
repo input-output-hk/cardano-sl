@@ -16,6 +16,7 @@ module Cardano.Wallet.WalletLayer.Types
 
     , getAddresses
     , applyBlocks
+    , invokeAction
     ) where
 
 import           Universum
@@ -24,6 +25,7 @@ import           Control.Lens (makeLenses)
 
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, Address,
                                               NewAccount, NewWallet, Wallet, WalletId, WalletUpdate)
+import           Cardano.Wallet.Kernel.Actions (WalletAction)
 
 import           Pos.Util.Chrono (NE, OldestFirst (..))
 import           Pos.Block.Types (Blund)
@@ -50,6 +52,7 @@ data PassiveWalletLayer m = PassiveWalletLayer
     -- * addresses
     , _pwlGetAddresses  :: WalletId -> m [Address]
     -- * core API
+    , _pwlInvokeAction  :: WalletAction Blund -> m ()
     , _pwlApplyBlocks   :: OldestFirst NE Blund -> m ()
     }
 
@@ -97,6 +100,9 @@ getAddresses pwl = pwl ^. pwlGetAddresses
 
 applyBlocks :: forall m. PassiveWalletLayer m -> OldestFirst NE Blund -> m ()
 applyBlocks pwl = pwl ^. pwlApplyBlocks
+
+invokeAction :: forall m. PassiveWalletLayer m -> WalletAction Blund -> m ()
+invokeAction pwl = pwl ^. pwlInvokeAction
 
 ------------------------------------------------------------
 -- Active wallet layer

@@ -8,7 +8,7 @@ module Cardano.Wallet.WalletLayer.Kernel
 import           Universum
 
 import           Data.Maybe (fromJust)
-import           System.Wlog (Severity)
+import           System.Wlog (Severity(Debug))
 
 import           Pos.Block.Types (Blund, Undo (..))
 import           Pos.Core (HasConfiguration)
@@ -20,6 +20,13 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..), fromRawResolvedBlock)
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
 
+import           Pos.Util.Chrono (mapMaybeChrono)
+
+import qualified Cardano.Wallet.Kernel.Actions as Actions
+import qualified Data.Map.Strict as Map
+import           Pos.Util.BackupPhrase
+import           Pos.Crypto.Signing
+
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
 bracketPassiveWallet
@@ -27,12 +34,28 @@ bracketPassiveWallet
     => (Severity -> Text -> IO ())
     -> (PassiveWalletLayer n -> m a) -> m a
 bracketPassiveWallet logFunction f =
-    Kernel.bracketPassiveWallet logFunction $ \w ->
-                f (passiveWalletLayer w)
+    Kernel.bracketPassiveWallet logFunction $ \w -> do
+
+      invoke <- Actions.forkWalletWorker $ Actions.WalletActionInterp
+               { Actions.applyBlocks  = applyBlocks' w
+               , Actions.findUtxos    = logFunction Debug "(I'm supposed to be finding my utxos now)"
+               , Actions.switchToFork = \_ _ -> logFunction Debug "<switchToFork>"
+               , Actions.emit         = logFunction Debug
+               }
+      _ <- liftIO $ do
+        let backup = BackupPhrase
+                     { bpToList = ["squirrel", "material", "silly",   "twice",
+                                    "direct",   "slush",   "pistol",  "razor",
+                                    "become",   "junk",    "kingdom", "flee" ]
+                     }
+            Right (esk, _) = safeKeysFromPhrase emptyPassphrase backup
+        Kernel.newWalletHdRnd w esk Map.empty
+
+      f (passiveWalletLayer w invoke)
 
   where
     -- | TODO(ks): Currently not implemented!
-    passiveWalletLayer _wallet =
+    passiveWalletLayer _wallet inv =
         PassiveWalletLayer
             { _pwlCreateWallet  = error "Not implemented!"
             , _pwlGetWalletIds  = error "Not implemented!"
@@ -48,27 +71,26 @@ bracketPassiveWallet logFunction f =
 
             , _pwlGetAddresses  = error "Not implemented!"
 
-            , _pwlApplyBlocks = applyBlocks' _wallet
+            , _pwlInvokeAction  = inv
+            , _pwlApplyBlocks   = applyBlocks' _wallet
             }
 
     applyBlocks' :: forall n''. (HasConfiguration, MonadIO n'')
                  => Kernel.PassiveWallet -> OldestFirst NE Blund -> n'' ()
     applyBlocks' w blunds
-        = do
-            let resolvedBlocks = map blundToResolvedBlock blunds
-            liftIO $ Kernel.applyBlocks w resolvedBlocks
+        = let resolvedBlocks = mapMaybeChrono blundToResolvedBlock blunds
+          in  liftIO $ Kernel.applyBlocks w resolvedBlocks
 
     -- The use of the unsafe constructor 'UnsafeRawResolvedBlock' is justified
     -- by the invariants established in the 'Blund'.
-    blundToResolvedBlock :: Blund -> ResolvedBlock
+    blundToResolvedBlock :: Blund -> Maybe ResolvedBlock
     blundToResolvedBlock (b,u)
-        = case b of
-            Left _ -> error "genesis block, expecting a MainBlock"
-            Right mainBlock ->
-                fromRawResolvedBlock
-              $ UnsafeRawResolvedBlock mainBlock spentOutputs'
+        = rightToJust b <&> \mainBlock ->
+            fromRawResolvedBlock
+            $ UnsafeRawResolvedBlock mainBlock spentOutputs'
         where
             spentOutputs' = map (map fromJust) $ undoTx u
+            rightToJust   = either (const Nothing) Just
 
 -- | Initialize the active wallet.
 -- The active wallet is allowed all.

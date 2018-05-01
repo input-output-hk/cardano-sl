@@ -17,6 +17,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Cardano.Wallet.TypeLits
                        Cardano.Wallet.Kernel
+                       Cardano.Wallet.Kernel.Actions
                        Cardano.Wallet.Kernel.DB.AcidState
                        Cardano.Wallet.Kernel.DB.BlockMeta
                        Cardano.Wallet.Kernel.DB.HdWallet
@@ -89,6 +90,7 @@ library
                      , acid-state
                      , aeson
                      , aeson-pretty
+                     , async
                      , bytestring
                      , containers
                      , data-default

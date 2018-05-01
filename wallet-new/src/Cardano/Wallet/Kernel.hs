@@ -28,6 +28,18 @@ module Cardano.Wallet.Kernel (
   , bracketActiveWallet
   , newPending
   , hasPending
+
+
+  , getWallets
+  , getWalletState
+  , change
+  , findWallet
+  , updateUtxo
+  , updatePending
+  , updateWalletState
+  , walletESK
+
+  , State(..)
   ) where
 
 import           Universum hiding (State)
@@ -49,7 +61,7 @@ import           Pos.Core (HasConfiguration, TxAux, sumCoins)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, hash)
 import           Pos.Txp (Utxo)
-import           Pos.Util.Chrono (NE, OldestFirst)
+import           Pos.Util.Chrono (OldestFirst)
 
 import           Cardano.Wallet.Orphans ()
 
@@ -283,9 +295,9 @@ applyBlock' pw b wid = do
     updateWalletState pw wid $ State utxo'' pending'' balance''
 
 -- | Apply the ResolvedBlocks, one at a time, to all wallets in the PassiveWallet
-applyBlocks :: HasConfiguration
+applyBlocks :: (HasConfiguration, Container (f ResolvedBlock))
               => PassiveWallet
-              -> OldestFirst NE ResolvedBlock
+              -> OldestFirst f ResolvedBlock
               -> IO ()
 applyBlocks pw = mapM_ (applyBlock pw)
 

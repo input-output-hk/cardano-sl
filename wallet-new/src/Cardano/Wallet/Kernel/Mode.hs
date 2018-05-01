@@ -1,5 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE ConstraintKinds            #-}
+{-# LANGUAGE LambdaCase                 #-}
 
 module Cardano.Wallet.Kernel.Mode
     ( WalletMode
@@ -10,7 +12,6 @@ module Cardano.Wallet.Kernel.Mode
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           System.Wlog
 import           Universum
 
 import           Mockable
@@ -38,7 +39,8 @@ import           Pos.Util.JsonLog
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.WorkMode
 
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer)
+import           Cardano.Wallet.Kernel.Actions
+import           Cardano.Wallet.WalletLayer (PassiveWalletLayer(..), invokeAction)
 
 {-------------------------------------------------------------------------------
   The wallet context and monad
@@ -68,13 +70,12 @@ getWallet = view wcWallet_L
 --
 -- TODO: This should wrap the functionality in "Cardano.Wallet.Core" to
 -- wrap things in Cardano specific types.
-walletApplyBlocks :: PassiveWalletLayer Production
+walletApplyBlocks :: HasConfigurations
+                  => PassiveWalletLayer Production
                   -> OldestFirst NE Blund
                   -> WalletMode SomeBatchOp
 walletApplyBlocks _w _bs = do
-    -- TODO: Call into the wallet. This should be an asynchronous operation
-    -- because 'onApplyBlocks' gets called with the block lock held.
-    logError "walletApplyBlocks not implemented"
+    lift $ invokeAction _w (ApplyBlocks _bs)
 
     -- We don't make any changes to the DB so we always return 'mempty'.
     return mempty
@@ -87,14 +88,12 @@ walletRollbackBlocks :: PassiveWalletLayer Production
                      -> NewestFirst NE Blund
                      -> WalletMode SomeBatchOp
 walletRollbackBlocks _w _bs = do
-    -- TODO: Call into the wallet. This should be an asynchronous operation
-    -- because 'onRollbackBlocks' gets called with the block lock held.
-    logError "walletRollbackBlocks not implemented"
+    lift $ invokeAction _w (UndoBlocks _bs)
 
     -- We don't make any changes to the DB so we always return 'mempty'.
     return mempty
 
-instance MonadBListener WalletMode where
+instance HasConfigurations => MonadBListener WalletMode where
   onApplyBlocks    bs = getWallet >>= (`walletApplyBlocks`    bs)
   onRollbackBlocks bs = getWallet >>= (`walletRollbackBlocks` bs)
 

@@ -80,6 +80,7 @@ bracketPassiveWallet =
 
         , _pwlGetAddresses  = pwlGetAddresses
 
+        , _pwlInvokeAction  = error "pwlInvokeAction in Cardano.Wallet.WalletLayer.Legacy"
         , _pwlApplyBlocks   = pwlApplyBlocks
         }
 

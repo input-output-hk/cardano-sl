@@ -39,6 +39,7 @@ bracketPassiveWallet =
 
         , _pwlGetAddresses  = \_     -> liftedGen
 
+        , _pwlInvokeAction  = \_     -> liftedGen
         , _pwlApplyBlocks   = \_     -> liftedGen
         }
 

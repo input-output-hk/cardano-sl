@@ -126,10 +126,9 @@ packages:
     git: https://github.com/serokell/servant-multipart.git
     commit: e7de56b5f7c39f8dc473f1bbaf534bb7affc3cf4
   extra-dep: true
-  # TODO(parsonsmatt): get this in the IOHK repository
 - location:
-    git: https://github.com/parsonsmatt/log-warper.git
-    commit: 66ae935fdf47d1997d95dcc60cee0637a2eb74b1
+    git: https://github.com/input-output-hk/log-warper.git
+    commit: b8c390357b27e7ae3b9b0c5309bf9d0bbbf09852
   extra-dep: true
 
 nix:

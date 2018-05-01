@@ -119,7 +119,7 @@ actionWithNewWallet sscParams nodeParams params =
       -- TODO(ks): Currently using non-implemented layer for wallet layer.
       bracketKernelPassiveWallet logMessage' $ \wallet -> do
         liftIO $ logMessage' Info "Wallet kernel initialized"
-        invokeAction wallet LogSystemReset
+        invokeAction wallet SystemReset
         invokeAction wallet FindMyUtxos
         Kernel.Mode.runWalletMode nr wallet (mainAction wallet nr)
   where

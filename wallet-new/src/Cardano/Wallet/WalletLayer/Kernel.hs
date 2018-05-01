@@ -72,8 +72,8 @@ bracketPassiveWallet logFunction f =
 
             , _pwlGetAddresses  = error "Not implemented!"
 
-            , _pwlApplyBlocks   = inv . Actions.ApplyBlocks
-            , _pwlUndoBlocks    = inv . Actions.UndoBlocks
+            , _pwlApplyBlocks    = inv . Actions.ApplyBlocks
+            , _pwlRollbackBlocks = inv . Actions.RollbackBlocks
             }
 
     -- The use of the unsafe constructor 'UnsafeRawResolvedBlock' is justified

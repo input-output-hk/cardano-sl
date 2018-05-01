@@ -24,11 +24,11 @@ import           Pos.Util.Chrono
 
 -- | Actions that can be invoked on a wallet, via a worker.
 --   Workers may not respond directly to each action; for example,
---   an `UndoBlocks` followed by several `ApplyBlocks` may be
+--   a `RollbackBlocks` followed by several `ApplyBlocks` may be
 --   batched into a single operation on the actual wallet.
 data WalletAction b
-  = ApplyBlocks (OldestFirst NE b)
-  | UndoBlocks  (NewestFirst NE b)
+  = ApplyBlocks    (OldestFirst NE b)
+  | RollbackBlocks (NewestFirst NE b)
   | FindMyUtxos
   | SystemReset
   | LogMessage Text
@@ -111,16 +111,16 @@ interp walletInterp action = runInterp $ do
         pendingBlocks       .= NewestFirst []
 
     -- If we are in the midst of a fork and have seen some new blocks,
-    -- undo some of those blocks. If there are more undos requested
+    -- roll back some of those blocks. If there are more rollbacks requested
     -- than the number of new blocks, see the next case below.
-    UndoBlocks bs | length bs <= numPendingBlocks -> do
-                      lengthPendingBlocks -= length bs
-                      pendingBlocks %= NewestFirst . drop (length bs) . getNewestFirst
+    RollbackBlocks bs | length bs <= numPendingBlocks -> do
+                          lengthPendingBlocks -= length bs
+                          pendingBlocks %= NewestFirst . drop (length bs) . getNewestFirst
               
-    -- If we are in the midst of a fork and are asked to undo more than
+    -- If we are in the midst of a fork and are asked to rollback more than
     -- the number of new blocks seen so far, clear out the list of new
     -- blocks and add any excess to the number of pending rollback operations.
-    UndoBlocks bs -> do
+    RollbackBlocks bs -> do
       pendingRollbacks    += length bs - numPendingBlocks
       lengthPendingBlocks .= 0
       pendingBlocks       .= NewestFirst []

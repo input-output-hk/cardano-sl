@@ -16,7 +16,7 @@ module Cardano.Wallet.WalletLayer.Types
 
     , getAddresses
     , applyBlocks
-    , undoBlocks
+    , rollbackBlocks
     ) where
 
 import           Universum
@@ -51,8 +51,8 @@ data PassiveWalletLayer m = PassiveWalletLayer
     -- * addresses
     , _pwlGetAddresses  :: WalletId -> m [Address]
     -- * core API
-    , _pwlApplyBlocks   :: OldestFirst NE Blund -> m ()
-    , _pwlUndoBlocks    :: NewestFirst NE Blund -> m ()
+    , _pwlApplyBlocks    :: OldestFirst NE Blund -> m ()
+    , _pwlRollbackBlocks :: NewestFirst NE Blund -> m ()
     }
 
 makeLenses ''PassiveWalletLayer
@@ -100,8 +100,8 @@ getAddresses pwl = pwl ^. pwlGetAddresses
 applyBlocks :: forall m. PassiveWalletLayer m -> OldestFirst NE Blund -> m ()
 applyBlocks pwl = pwl ^. pwlApplyBlocks
 
-undoBlocks :: forall m. PassiveWalletLayer m -> NewestFirst NE Blund -> m ()
-undoBlocks pwl = pwl ^. pwlUndoBlocks
+rollbackBlocks :: forall m. PassiveWalletLayer m -> NewestFirst NE Blund -> m ()
+rollbackBlocks pwl = pwl ^. pwlRollbackBlocks
 
 ------------------------------------------------------------
 -- Active wallet layer

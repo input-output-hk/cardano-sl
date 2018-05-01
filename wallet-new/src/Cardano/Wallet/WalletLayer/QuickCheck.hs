@@ -39,8 +39,8 @@ bracketPassiveWallet =
 
         , _pwlGetAddresses  = \_     -> liftedGen
 
-        , _pwlApplyBlocks   = \_     -> liftedGen 
-        , _pwlUndoBlocks    = \_     -> liftedGen
+        , _pwlApplyBlocks    = \_     -> liftedGen 
+        , _pwlRollbackBlocks = \_     -> liftedGen
        }
 
     -- | A utility function.

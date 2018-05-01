@@ -80,8 +80,8 @@ bracketPassiveWallet =
 
         , _pwlGetAddresses  = pwlGetAddresses
 
-        , _pwlApplyBlocks   = pwlApplyBlocks
-        , _pwlUndoBlocks    = pwlUndoBlocks
+        , _pwlApplyBlocks    = pwlApplyBlocks
+        , _pwlRollbackBlocks = pwlRollbackBlocks
         }
 
 
@@ -261,8 +261,8 @@ pwlApplyBlocks :: OldestFirst NE Blund -> m ()
 pwlApplyBlocks = error "Not implemented!"
 
 ------------------------------------------------------------
--- Undo Block
+-- Rollback Block
 ------------------------------------------------------------
 
-pwlUndoBlocks :: NewestFirst NE Blund -> m ()
-pwlUndoBlocks = error "Not implemented!"
+pwlRollbackBlocks :: NewestFirst NE Blund -> m ()
+pwlRollbackBlocks = error "Not implemented!"

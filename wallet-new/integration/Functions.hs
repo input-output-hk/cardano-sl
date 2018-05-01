@@ -32,8 +32,9 @@ import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, Accoun
 
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
 import           Cardano.Wallet.Client (ClientError (..), Response (..), ServantError (..),
-                                        WalletClient (..), getAccounts, getAddressIndex,
-                                        getTransactionIndex, getWallets, hoistClient)
+                                        WalletClient (..), WalletError (..), getAccounts,
+                                        getAddressIndex, getTransactionIndex, getWallets,
+                                        hoistClient)
 
 import           Pos.Core (getCoin, mkCoin, unsafeAddCoin, unsafeSubCoin)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -499,8 +500,7 @@ runAction wc action = do
 
             txFees <- case etxFees of
                 Right a -> pure a
-                Left (ClientHttpError (FailureResponse (Response {..})))
-                    | "not enough money" `isInfixOf` show responseBody -> do
+                Left (ClientWalletError (NotEnoughMoney _)) -> do
                         log "Not enough money to do the transaction."
                         empty
                 Left err -> throwM err

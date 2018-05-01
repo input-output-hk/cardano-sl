@@ -262,6 +262,8 @@ extra-deps:
 - groups-0.4.1.0
 - servant-swagger-ui-core-0.3
 - log-warper-1.8.11
+- aeson-options-0.0.0
+
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 

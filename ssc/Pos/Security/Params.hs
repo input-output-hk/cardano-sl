@@ -11,7 +11,7 @@ import           Control.Lens (_Left)
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as A
 import           Data.Default (Default (..))
-import           Serokell.Aeson.Options (defaultOptions)
+import           Data.Aeson.Options (defaultOptions)
 import qualified Text.Parsec as Parsec
 
 import           Pos.Aeson.Crypto ()

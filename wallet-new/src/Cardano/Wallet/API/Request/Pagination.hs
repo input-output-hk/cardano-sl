@@ -22,7 +22,7 @@ import           Data.Default
 import           Data.Swagger as S
 import qualified Formatting.Buildable
 import           Formatting (bprint, build, (%))
-import qualified Serokell.Aeson.Options as Serokell
+import qualified Data.Aeson.Options as Serokell
 import           Test.QuickCheck (Arbitrary (..), choose, getPositive)
 import           Web.HttpApiData
 

@@ -99,7 +99,7 @@ import           GHC.Generics (Generic, Rep)
 import           Network.Transport (EndPointAddress (..))
 import           Node (NodeId (..))
 import qualified Prelude
-import qualified Serokell.Aeson.Options as Serokell
+import qualified Data.Aeson.Options as Serokell
 import           Serokell.Util (listJson)
 import qualified Serokell.Util.Base16 as Base16
 import           Servant

@@ -106,6 +106,7 @@ library
   build-depends:       base
                      , acid-state
                      , aeson
+                     , aeson-options
                      , aeson-pretty
                      , bytestring
                      , cardano-sl

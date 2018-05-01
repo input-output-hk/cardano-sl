@@ -14,7 +14,7 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
 import           Data.Time.Units (Microsecond, Millisecond, Second)
 import           Formatting (sformat)
-import qualified Serokell.Aeson.Options as S (defaultOptions)
+import qualified Data.Aeson.Options as S (defaultOptions)
 import           Serokell.Util.Base64 (JsonByteString (..))
 
 import           Pos.Aeson.Crypto ()

@@ -26,7 +26,7 @@ import qualified Formatting.Buildable
 import           Data.Typeable
 import           Formatting (bprint, build, (%))
 import           GHC.Generics (Generic)
-import qualified Serokell.Aeson.Options as Serokell
+import qualified Data.Aeson.Options as Serokell
 import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..), MimeUnrender (..),
                                            OctetStream)
 import           Test.QuickCheck

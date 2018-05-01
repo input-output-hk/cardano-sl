@@ -99,12 +99,12 @@ putIdempotency = RequestPredicate $ \req mgr ->
 -- does not have an empty body, but it always returns something.
 noEmptyBody :: RequestPredicate
 noEmptyBody = RequestPredicate $ \req mgr -> do
-  resp <- httpLbs req mgr
-  let body   = responseBody resp
-  let status = responseStatus resp
-  when (status /= status204 && body == mempty) $
-    throwM $ PredicateFailure "noEmptyBody" (Just req) resp
-  return [resp]
+    resp <- httpLbs req mgr
+    let body   = responseBody resp
+    let status = responseStatus resp
+    when (status `notElem` [status204, status404] && body == mempty) $
+        throwM $ PredicateFailure "noEmptyBody" (Just req) resp
+    return [resp]
 
 -- | All the predicates we want to enforce in our API.
 predicates :: Predicates

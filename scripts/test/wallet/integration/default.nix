@@ -15,6 +15,7 @@ let
   demo-cluster = iohkPkgs.demoCluster.override {
     inherit gitrev numCoreNodes stateDir;
     keepAlive = false;
+    assetLockAddresses = [ "DdzFFzCqrhswMWoTiWaqXUDZJuYUx63qB6Aq8rbVbhFbc8NWqhpZkC7Lhn5eVA7kWf4JwKvJ9PqQF78AewMCzDZLabkzm99rFzpNDKp5" ];
   };
   executables =  {
     integration-test = "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-integration-test";
@@ -22,9 +23,10 @@ let
   iohkPkgs = import ./../../../.. { inherit config system pkgs gitrev; };
 in pkgs.writeScript "integration-tests" ''
   source ${demo-cluster}
-  mkdir -p scripts
-  cp -r ${stateDir}/tls-files scripts/tls-files
-  ${executables.integration-test} --tls-ca-cert ${stateDir}/tls-files/ca.crt --tls-client-cert ${stateDir}/tls-files/client.crt --tls-key ${stateDir}/tls-files/client.key
+  echo ${executables.integration-test} --tls-ca-cert ${stateDir}/tls/client/ca.crt --tls-client-cert ${stateDir}/tls/client/client.pem --tls-key ${stateDir}/tls/client/client.key
+  ls -hal ${stateDir}/tls/client
+  ${executables.integration-test} --tls-ca-cert ${stateDir}/tls/client/ca.crt --tls-client-cert ${stateDir}/tls/client/client.pem --tls-key ${stateDir}/tls/client/client.key
+
   EXIT_STATUS=$?
   stop_cardano
 ''

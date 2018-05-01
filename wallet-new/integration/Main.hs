@@ -67,6 +67,7 @@ main = do
     --     Try `cardano-integration-test --help' for more information.
     --
     -- See also: https://github.com/hspec/hspec/issues/135
+    printT "Starting deterministic tests."
     withArgs [] . hspec $ deterministicTests wRef walletClient manager
   where
     orFail :: MonadFail m => Either String a -> m a

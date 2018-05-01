@@ -1,3 +1,6 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Test.Pos.Wallet.Web.Methods.LogicSpec
        ( spec
        ) where

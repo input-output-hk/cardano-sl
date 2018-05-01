@@ -7769,26 +7769,30 @@ inherit (pkgs) mesa;};
              cardano-sl-block cardano-sl-client cardano-sl-core
              cardano-sl-crypto cardano-sl-db cardano-sl-infra
              cardano-sl-networking cardano-sl-ssc cardano-sl-txp
-             cardano-sl-update cardano-sl-util cardano-sl-wallet containers
-             data-default exceptions formatting generics-sop http-api-data
-             http-client http-types ixset-typed json-sop lens log-warper memory
-             mtl network-transport QuickCheck reflection safe-exceptions
-             safecopy serokell-util servant servant-client servant-client-core
-             servant-quickcheck servant-server servant-swagger-ui stm
-             string-conv swagger2 text text-format time time-units transformers
-             universum unliftio-core unordered-containers vector wai
+             cardano-sl-update cardano-sl-util cardano-sl-wallet conduit
+             containers data-default exceptions formatting generics-sop
+             http-api-data http-client http-types ixset-typed json-sop lens
+             log-warper memory mtl neat-interpolation network-transport
+             optparse-applicative QuickCheck reflection safe-exceptions safecopy
+             serokell-util servant servant-client servant-client-core
+             servant-quickcheck servant-server servant-swagger
+             servant-swagger-ui stm string-conv swagger2 text text-format time
+             time-units transformers universum unliftio unliftio-core
+             unordered-containers vector wai wai-cors warp
            ];
            executableHaskellDepends = [
              aeson aeson-diff aeson-pretty base bytestring cardano-sl
-             cardano-sl-client cardano-sl-core cardano-sl-crypto
+             cardano-sl-block cardano-sl-client cardano-sl-core
+             cardano-sl-crypto cardano-sl-db cardano-sl-delegation
              cardano-sl-infra cardano-sl-networking cardano-sl-ssc
              cardano-sl-txp cardano-sl-update cardano-sl-util cardano-sl-wallet
-             conduit containers data-default exceptions formatting hspec
-             http-api-data http-client http-types insert-ordered-containers
-             ixset-typed lens log-warper memory mtl neat-interpolation
-             optparse-applicative pretty-show QuickCheck safe-exceptions
-             serokell-util servant servant-client servant-server servant-swagger
-             servant-swagger-ui stm string-conv swagger2 text text-format
+             conduit containers data-default directory exceptions formatting
+             hspec http-api-data http-client http-types
+             insert-ordered-containers ixset-typed lens log-warper memory mtl
+             neat-interpolation optparse-applicative pretty-show QuickCheck
+             quickcheck-instances safe-exceptions serokell-util servant
+             servant-client servant-quickcheck servant-server servant-swagger
+             servant-swagger-ui stm string-conv swagger2 text text-format time
              time-units universum unliftio unordered-containers wai wai-cors
              wai-extra warp
            ];

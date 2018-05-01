@@ -157,7 +157,7 @@ test-suite test
                      , text
                      , time
                      , time-units
-                     , universum >= 0.1.11
+                     , universum >= 1.1.0
                      , unordered-containers
 
   ghc-options:         -threaded

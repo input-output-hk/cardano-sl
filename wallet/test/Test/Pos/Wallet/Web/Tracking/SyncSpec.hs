@@ -119,6 +119,10 @@ evalChangeDiffAccounts :: AddressesFromDiffAccounts -> Property
 evalChangeDiffAccounts (AddressesFromDiffAccounts InpOutUsedAddresses {..}) =
    changeAddrs === HS.fromList (evalChange usedAddrs inpAddrs outAddrs False)
 
+-- | newtype defined so that its Arbitrary instance can set the stage for
+-- 'evalChangeSameAccounts'. The 'changeAddrs' field will always be set so
+-- that it should equal
+-- 'HS.fromList (evalChange usedAddrs inpAddrs outAddrs True)'.
 newtype AddressesFromSameAccounts = AddressesFromSameAccounts InpOutChangeUsedAddresses
     deriving Show
 
@@ -126,16 +130,35 @@ instance Arbitrary AddressesFromSameAccounts where
     arbitrary = do
         wId <- arbitrary
         accIdx <- arbitrary
-        let genAddrs n = map (uncurry $ WS.WAddressMeta wId accIdx) <$> vectorOf n arbitrary
-        inpAddrs <- choose (1, 5) >>= genAddrs
-        outAddrs <- choose (1, 5) >>= genAddrs
-        usedBase <- (inpAddrs ++) <$> (choose (1, 10) >>= flip vectorOf arbitrary)
+        -- generate n WAddressMeta terms each with the same wallet and account
+        -- identifier ('wId' and 'accIdx' above) subject to a predicate.
+        -- That predicate allows us to ensure that the output address
+        -- ('outAddrs') are disjiont under 'WAddressMeta' equality from the
+        -- input addresses, which is essential for the test.
+        let genAddrs p n = vectorOf n $
+                (uncurry (WS.WAddressMeta wId accIdx) <$> arbitrary)
+                `suchThat` p
+        inpAddrs <- choose (1, 5) >>= genAddrs (const True)
+        outAddrs <- choose (1, 5) >>= genAddrs (not . flip elem inpAddrs)
+        -- Throw on a bunch of arbitrary extra used addresses, but make sure
+        -- they are not 'WAddressMeta'-equal to any existing ones!
+        usedBase <- (inpAddrs ++) <$> (do
+            n <- choose (1, 10)
+            let allAddrs = inpAddrs ++ outAddrs
+                condition = not . flip elem allAddrs
+            vectorOf n $ arbitrary `suchThat` condition)
         (changeAddrs, extraUsed) <- oneof [
             -- Case when all outputs addresses are fresh and
-            -- weren't mentioned in the blockchain
+            -- weren't mentioned in the blockchain.
+            -- Change addresses should be empty.
             pure (mempty, [])
+            -- Otherwise, there's at least one non-change address in the
+            -- outputs. Every address that we don't put into the second
+            -- component (which goes into the set of all used) should appear as
+            -- a change address.
             , do
-                if length outAddrs == 1 then pure (mempty, [])
+                if length outAddrs == 1
+                then pure (mempty, [])
                 else do
                     ext <- sublistOf outAddrs `suchThat` (not . null)
                     pure (HS.fromList $ map (view WS.wamAddress) (outAddrs \\ ext), ext)

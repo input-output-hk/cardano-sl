@@ -26,7 +26,7 @@ import           System.Wlog (HasLoggerName (..), LoggerName (..))
 import           Pos.Block.Types (Blund)
 import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..), NodeArgs (..), getNodeParams,
                                  gtSscParams)
-import           Pos.Core (GenesisBlock, MainBlock, Timestamp (..), headerHash)
+import           Pos.Core (GenesisBlock, MainBlock, Timestamp (..), protocolMagic, ProtocolMagic, headerHash)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Rocks.Functions (openNodeDBs)
 import           Pos.DB.Rocks.Types (NodeDBs)
@@ -34,10 +34,9 @@ import qualified Pos.Diffusion.Types as D
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeResources (..),
                                allocateNodeResources, defaultConfigurationOptions, npBehaviorConfig,
                                npUserSecret, withConfigurations)
-import           Pos.Network.CLI (NetworkConfigOpts (..), intNetworkConfigOpts)
+import           Pos.Network.CLI (NetworkConfigOpts (..))
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
-import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
 
 import           Cardano.Wallet.API.V1.LegacyHandlers.Accounts (newAccount)
 import           Cardano.Wallet.API.V1.LegacyHandlers.Addresses (newAddress)
@@ -50,18 +49,8 @@ import           Pos.Wallet.Web.State (WalletDB, openState)
 
 import qualified Control.Concurrent.STM as STM
 import qualified Data.ByteString as BS
-import           Data.Default (def)
 import qualified Data.Text.Encoding as Text
-import           Network.HTTP.Client hiding (Proxy)
-import           Network.HTTP.Types
 import           Ntp.Client (withoutNtpClient)
-import qualified Pos.Diffusion.Types as D
-import           Pos.Util.CompileInfo (withCompileInfo)
-import           Pos.Wallet.WalletMode (WalletMempoolExt)
-import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
-import           Pos.Wallet.Web.Sockets (ConnectionsVar)
-import           Pos.Wallet.Web.State (WalletDB)
-import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
 import           Pos.WorkMode (RealModeContext (..))
 
@@ -237,7 +226,7 @@ testV1Context = do
     -- Open wallet state. Delete if exists.
     ws <- liftIO $ openState True walletDBPath
 
-    liftIO $ withConfigurations cfg $
+    liftIO $ withConfigurations cfg $ \_ntpConfig ->
         withCompileInfo $(retrieveCompileTimeInfo) $ do
             dbs  <- openNodeDBs False nodeDBPath
 
@@ -250,11 +239,12 @@ testV1Context = do
 -- | Here we have data that we need since we fetch it from the clinet.
 insertRequiredData
     :: forall ctx. MonadWalletWebMode ctx WalletWebMode
-    => WalletWebMode ()
-insertRequiredData = do
+    => ProtocolMagic
+    -> WalletWebMode ()
+insertRequiredData pm = do
 
     -- Generate arbitrary blockchain.
-    (genBlock, mainBlocks) <- liftIO $ generateValidBlocks 10 5
+    (genBlock, mainBlocks) <- liftIO $ generateValidBlocks pm 10 5
 
     -- Insert the data we need in the node database.
     prepareBlockDB genBlock
@@ -288,16 +278,18 @@ insertRequiredData = do
 -- Ideally, we should use wallet-new block generation with something like:
 -- `generate $ int . fpcChain =<< runTranslateT =<< fromPreChain =<< genValidBlockchain`
 generateValidBlocks
-    :: BlockNumber
+    :: ProtocolMagic
+    -> BlockNumber
     -> SlotsPerEpoch
     -> IO (GenesisBlock, [MainBlock])
-generateValidBlocks blocksNumber slotsPerEpoch = do
+generateValidBlocks pm blocksNumber slotsPerEpoch = do
 
     slotLeaders   <- produceSlotLeaders blocksNumber
     secretKeys    <- produceSecretKeys blocksNumber
 
-    blocks        <- withDefConfigurations $
+    blocks        <- withDefConfigurations $ \_ntpConfiguration ->
         produceBlocksByBlockNumberAndSlots
+            pm
             blocksNumber
             slotsPerEpoch
             slotLeaders
@@ -365,7 +357,6 @@ newRealModeContext dbs confOpts secretKeyPath = do
              }
          , updateLatestPath       = "update"
          , updateWithPackage      = False
-         , noNTP                  = True
          , route53Params          = Nothing
          , enableMetrics          = False
          , ekgParams              = Nothing
@@ -380,11 +371,8 @@ newRealModeContext dbs confOpts secretKeyPath = do
     let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
     let gtParams = gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
 
-    networkConfig <- intNetworkConfigOpts networkOps
-
     -- Maybe switch to bracketNodeResources?
     nodeResources <-  allocateNodeResources
-                          networkConfig
                           nodeParams
                           gtParams
                           txpGlobalSettings
@@ -399,7 +387,7 @@ newRealModeContext dbs confOpts secretKeyPath = do
                     <*> pure (nrContext nodeResources)
 
 
--- | The runner we need to retunr out wallet context.
+-- | The runner we need to return out wallet context.
 walletRunner
     :: (HasConfigurations, HasCompileInfo)
     => ConfigurationOptions
@@ -410,11 +398,11 @@ walletRunner
 walletRunner confOpts dbs secretKeyPath ws = runProduction $ do
     wwmc  <- WalletWebModeContext <$> pure ws
                                   <*> newTVarIO def
-                                  <*> (AddrCIdHashes <$> (newIORef mempty))
+                                  <*> liftIO STM.newTQueueIO
                                   <*> newRealModeContext dbs confOpts secretKeyPath
 
     -- Insert the wallet and node data we need to run this test.
-    runReaderT insertRequiredData wwmc
+    runReaderT (insertRequiredData protocolMagic) wwmc
     pure wwmc
 
 serverLayout :: ByteString

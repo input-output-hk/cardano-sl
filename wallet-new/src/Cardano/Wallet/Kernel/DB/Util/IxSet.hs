@@ -33,6 +33,8 @@ import           Data.SafeCopy (SafeCopy (..))
 import qualified Data.Set as Set
 import qualified Data.Traversable
 
+{-# ANN module ("HLint: ignore Unnecessary hiding" :: Text) #-}
+
 {-------------------------------------------------------------------------------
   Primary keys
 -------------------------------------------------------------------------------}

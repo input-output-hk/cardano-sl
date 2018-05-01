@@ -54,9 +54,13 @@ module Pos.Util.LogSafe
        , deriveSafeBuildable
        ) where
 
--- Universum invents its own Rube Goldberg 'Foldable' that we don't want to
--- use.
-import           Universum hiding (length, null)
+-- Universum has its own Rube Goldberg variant of 'Foldable' which we do not
+-- want. It would be great if we could write
+--   import           Universum hiding (toList, foldMap)
+-- but HLint insists that this is not OK because toList and foldMap are never
+-- used unqualified. The hiding in fact makes it clearer for the human reader
+-- what's going on.
+import           Universum
 
 import           Control.Monad.Trans (MonadTrans)
 import           Data.Foldable (Foldable, length, null)
@@ -75,7 +79,6 @@ import           Pos.Binary.Core ()
 import           Pos.Core (Timestamp, TxId)
 import           Pos.Core.Common (Address, Coin)
 import           Pos.Crypto (PassPhrase)
-
 
 ----------------------------------------------------------------------------
 -- Logging

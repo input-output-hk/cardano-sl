@@ -24,7 +24,7 @@ module Test.Pos.Wallet.Web.Util
        , expectedAddrBalance
        ) where
 
-import           Universum hiding (head)
+import           Universum
 
 import           Control.Concurrent.STM (writeTVar)
 import           Control.Monad.Random.Strict (evalRandT)

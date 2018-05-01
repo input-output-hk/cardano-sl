@@ -15,8 +15,12 @@ module Pos.Merkle
        ) where
 
 -- Universum has its own Rube Goldberg variant of 'Foldable' which we do not
--- want.
-import           Universum hiding (toList, foldMap)
+-- want. It would be great if we could write
+--   import           Universum hiding (toList, foldMap)
+-- but HLint insists that this is not OK because toList and foldMap are never
+-- used unqualified. The hiding in fact makes it clearer for the human reader
+-- what's going on.
+import           Universum
 
 import           Data.Bits (Bits (..))
 import           Data.ByteArray (ByteArrayAccess, convert)
@@ -30,6 +34,8 @@ import qualified Prelude
 
 import           Pos.Binary.Class (Bi, Raw, serializeBuilder)
 import           Pos.Crypto (AbstractHash (..), Hash, hashRaw)
+
+{-# ANN module ("HLint : ignore Unnecessary hiding" :: Text) #-}
 
 -- | Data type for root of merkle tree.
 newtype MerkleRoot a = MerkleRoot

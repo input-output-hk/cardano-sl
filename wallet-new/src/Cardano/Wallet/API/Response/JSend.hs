@@ -5,7 +5,7 @@ import           Universum
 import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.Char as Char
-import           Data.Swagger hiding (constructorTagModifier)
+import           Data.Swagger
 import qualified Data.Text.Buildable
 import           Test.QuickCheck (Arbitrary (..), elements)
 

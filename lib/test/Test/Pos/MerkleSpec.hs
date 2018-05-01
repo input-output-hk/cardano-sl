@@ -4,7 +4,8 @@ module Test.Pos.MerkleSpec
        ( spec
        ) where
 
-import           Universum hiding (toList, length)
+
+import           Universum
 
 import qualified Data.Foldable as Foldable (toList, length)
 import           Data.SafeCopy (SafeCopy)

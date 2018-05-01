@@ -29,7 +29,7 @@ module Pos.Wallet.Web.Methods.Misc
        , cancelOneApplyingPtx
        ) where
 
-import           Universum hiding (id)
+import           Universum
 
 import           Data.Aeson (encode)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)

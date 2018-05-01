@@ -5,7 +5,7 @@ module Util where
 import           Universum
 
 import           Cardano.Wallet.Client.Http
-import           Control.Lens hiding ((^..), (^?))
+import           Control.Lens
 import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Hspec
 import           Test.QuickCheck (arbitrary, generate)

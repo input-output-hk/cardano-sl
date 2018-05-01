@@ -2,7 +2,7 @@
 
 module Pos.Binary.Merkle () where
 
-import           Universum hiding (toList)
+import           Universum
 
 import qualified Data.Foldable as Foldable
 

@@ -4,7 +4,7 @@
 
 import Universum hiding (FilePath, die, fold)
 import qualified Data.Text as T
-import Turtle hiding (find)
+import Turtle
 import System.IO (withFile, IOMode(WriteMode))
 import qualified Control.Foldl as Fold
 import Data.Foldable (find)

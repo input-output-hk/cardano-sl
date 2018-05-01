@@ -20,7 +20,54 @@ Available options:
 
 ## How to Use
 
-Considering a configuration file as follows:
+One can generate a server and a client certificates via:
+
+```bash
+$ cardano-x509-certificates \
+  --server-out-dir tls/server \
+  --clients-out-dir tls/client \
+  -k dev \
+  -c ./configuration.yaml
+```
+
+(see below for an example of configuration) 
+
+which generates the following file structure:
+
+```
+.
+|-- tls
+|---- server
+|------ server.crt        # Server public certificate
+|------ server.key        # Server private key
+|------ server.pem        # Server public certificate & private key (portable format)
+|------ ca.crt            # CA public certificate used to sign server and clients certs
+|---- client
+|------ client.crt        # Client public certificate                                   
+|------ client.key        # Client private key
+|------ client.pem        # Client public certificate & private key (portable format)
+|------ ca.crt            # CA public certificate used to sign server and clients certs
+```
+
+Also important to notice that the `--ca-out-dir` option is optional, when provided, an extra
+`ca.key` containing the CA private key will be generated. This is useful if one wants to renew
+certificates once expired. Without that, new certificates must be issued after the expiry
+date.
+
+
+## Configuration
+
+| Configuration Key   | Description                                        |
+| ------------------- | -------------                                      |
+| \*.\*.organization  | Organization name identified by the certificate    |
+| \*.\*.commonName    | Name of the service identified by the certificate  |
+| \*.\*.expiryDays    | Number of days after which the certificate expires |
+| tls.server.altDNS   | Alternative Subject Names for the server           |
+
+Note that the `clients` section requires (and accepts) a list of clients. You may define more
+than one client certificates at once.
+
+For example:
 
 <details>
 <summary><strong>configuration.yaml</strong></summary>
@@ -50,38 +97,13 @@ dev:
 ```
 </details>
 
-One can generate a server and a client certificates via:
-
-```bash
-$ cardano-x509-certificates \
-  --server-out-dir tls/server \
-  --clients-out-dir tls/client \
-  -k dev \
-  -c ./configuration.yaml
-```
-
-which generates the following file structure:
-
-```
-.
-|-- tls
-|---- server
-|------ server.crt
-|------ server.key
-|------ ca.crt
-|---- client
-|------ client.crt
-|------ client.key
-|------ ca.crt
-```
-
 
 ## Human-Readable Output
 
-Certificates & private keys are DER-encoded. `openssl` can be used to view their content if needed using the following commands:
+Certificates & private keys are PEM-encoded. `openssl` can be used to view their content if needed using the following commands:
 
 <details>
-<summary><code>openssl x509 -inform der -in cert.crt -text</code></summary>
+<summary><code>openssl x509 -in cert.crt -text</code></summary>
 
 ```
 Certificate:
@@ -173,7 +195,7 @@ ZXw=
 
 
 <details>
-<summary><code>openssl rsa -inform der -in key.key -text</code></summary>
+<summary><code>openssl rsa -in key.key -text</code></summary>
 
 ```
 Private-Key: (2048 bit)

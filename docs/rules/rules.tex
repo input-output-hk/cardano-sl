@@ -730,7 +730,82 @@ is the same, then the same property also holds of $f$).
   before the blockchain-extension rules. The state is a single chain,
   plus outstanding transactions.}
 
+Let $b₁,…,b_m$ be the selected chain (see
+Section~\ref{sec:chain-selection}). The mempool is a list of
+transactions $τ₁,…,τ_n$.
+
+We define a \emph{valid} mempool by induction:
+\begin{itemize}
+\item The empty mempool $\emptylist$ is valid
+\item $τ₁,…,τ_{n+1}$ is valid if $τ₁,…,τ_n$ is valid, and $τ_{n+1}$ is
+  a \emph{valid extension} of $\transactions{b₁},…,\transactions{b_m}, τ₁,…,τ_n$
+\end{itemize}
+
+A transaction $τ$ is a valid extension of a list $\overline{τ}$ (remember
+that $τ$ contains not only the transaction of the mempool, but also
+those of the selected chain) when
+\begin{description}
+  \item[Stateless]\hfill
+    \begin{description}
+    \item[Valid outputs] All the outputs of the transaction must have
+      amount $a > 0$.
+    \item[No double-spending] The list of inputs contains no duplicate.
+    \end{description}
+  \item[Stateful]\hfill
+    \begin{description}
+    \item[Unspent inputs] Each input of the transaction $τ$ is
+      unspent. That is for each $i ∈ \inputs{τ}$
+      \begin{itemize}
+      \item $\intrans{i}∈\overline{τ}$ or $\intrans{i} ∈ \txinit$
+      \item $\outputs{\intrans{i}}=t₁,…,t_k$, $\inindex{i} ⩽ k$
+      \item for each $t ∈ \overline{τ}$, $i ∉ \inputs{t}$.
+      \end{itemize}
+
+      In these conditions, we can extend the function $\recipient{⋅}$
+      and $\amount{⋅}$, as well as $\repartition{⋅}$, on the $i$ as
+      \begin{itemize}
+      \item $\recipient{i} = \recipient{\pos{\inindex{i}}{\outputs{\intrans{i}}}}$
+      \item $\amount{i} = \amount{\pos{\inindex{i}}{\outputs{\intrans{i}}}}$
+      \item $\repartition{i} = \repartition{\pos{\inindex{i}}{\outputs{\intrans{i}}}}$
+      \end{itemize}
+      \info{Remark: in all this rule, we use implicitly
+        $\overline{τ}$, to cast $\intrans{i}∈\txids$ to an actual
+        transaction. }
+
+    \item[Conservation of value] The total amount of inputs must equal
+      the total amount of outputs.
+      $$
+      \minimumfee{τ} + ∑_{i∈\inputs{τ}} \amount{i}⩽ ∑_{o∈\outputs{τ}} \amount{o}
+      $$
+    \item[Authorised] The list of witnesses has the same length as the
+      list of inputs
+      $$
+      \length{\witnesses{τ}} = \length{\inputs{τ}}
+      $$
+      and for each input, the corresponding witness is the agent id of
+      the input
+      $$
+      ∀ 0<k⩽\length{\inputs{τ}}. \recipient{\pos{k}{\inputs{τ}}} =
+      \pos{k}{\witnesses{τ}}
+      $$
+    \end{description}
+
+    \item[Bootstrap era]\info{These rules are only used during the
+      bootstrap era. They are, however, not qualified because in the
+      current state of the document, only the bootstrap era is documented.}\hfill
+    \begin{description}
+    \item[Bootstrap stake delegation] For every output $o∈\outputs{τ}$, the
+      stake is delegated in to the bootstrap stakeholders:
+      $\repartition{o} = \bootstraprepartition$.\improvement{This is
+        slightly imprecise because the bootstrap repartition has two
+        representations in Cardano's block chain: it has a name (a
+        data constructor), but it can also be represented by a
+        explicit map. Only the former is actually permitted}
+
+\end{description}
+
 \section{Selecting the longest chain}
+\label{sec:chain-selection}
 
 \info{This section is concerned with the purpose of (locally) deciding
   which chain is the longest (\emph{e.g.} if I'm a slot leader, which
@@ -763,9 +838,10 @@ A blockchain datastructure is a pair $(\mathfrak{C},\mathfrak{T}) ∈
   $$
 \end{itemize}
 
-Because a typical height function is the length of the chain,
-$\mathfrak{C}$ is often referred to as the longest chain (despite not
-necessarily being unique at that height).
+We call $\mathfrak{C}$ the \emph{selected chain}. Because a typical
+height function is the length of the chain, $\mathfrak{C}$ is also
+often referred to as the longest chain (despite not necessarily being
+unique at that height).
 
 Rules to add a block $b$ to the blockchain:
 
@@ -864,6 +940,11 @@ proved occasionally to hard a task to perform within the 20s that
 comprise a slot. It would have no effect on compatibility to allow any
 sort of subset of the mempool to be selected to be part a newly issued
 block.
+
+This is also why the rules in Section~\ref{sec:entering-mempool} are
+copies of rules in Section~\ref{sec:adding-block}, rather than try and
+factor them into a common definition: the rules for the mempool are
+likely to change quicker, than block validation.
 
 \subsection{Lightweight delegation}
 \label{sec:lightweight-delegation}

@@ -19,7 +19,6 @@ a class for monads that support JSON logging.
 
 module JsonLog.CanJsonLog
     ( CanJsonLog (..)
-    , jsonLogWrappedM
     ) where
 
 import           Control.Monad.Reader (ReaderT)
@@ -29,7 +28,6 @@ import           Control.Monad.Trans.Identity (IdentityT)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Control.Monad.Writer (WriterT)
 import           Data.Aeson.Types (ToJSON)
-import           Serokell.Util.Lens (WrappedM (..))
 import           System.Wlog.LoggerNameBox (LoggerNameBox)
 
 -- | An instance of class @'CanJsonLog'@ supports the effect of
@@ -55,8 +53,3 @@ instance (Monoid w, CanJsonLog m) => CanJsonLog (WriterT w m)
 instance CanJsonLog m => CanJsonLog (LoggerNameBox m)
 instance CanJsonLog m => CanJsonLog (ResourceT m)
 
--- | @'jsonLogWrappedM'@ is a convenience default implementation
--- of @'jsonLog'@ to facilitate providing instances of class @'CanJsonLog'@
--- for instances of class @'WrappedM'@.
-jsonLogWrappedM :: (WrappedM m, CanJsonLog (UnwrappedM m), ToJSON a) => a -> m ()
-jsonLogWrappedM = unpackM . jsonLog

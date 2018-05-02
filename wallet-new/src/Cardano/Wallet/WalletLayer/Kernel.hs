@@ -35,12 +35,15 @@ bracketPassiveWallet
 bracketPassiveWallet logFunction f =
     Kernel.bracketPassiveWallet logFunction $ \w -> do
 
+      -- Create the wallet worker and its communication endpoint `invoke`.
       invoke <- Actions.forkWalletWorker $ Actions.WalletActionInterp
                { Actions.applyBlocks  =  \blunds ->
                    Kernel.applyBlocks w (mapMaybeChrono blundToResolvedBlock blunds)
                , Actions.switchToFork = \_ _ -> logFunction Debug "<switchToFork>"
                , Actions.emit         = logFunction Debug
                }
+
+      -- TODO (temporary): build a sample wallet from a backup phrase 
       _ <- liftIO $ do
         let backup = BackupPhrase
                      { bpToList = ["squirrel", "material", "silly",   "twice",
@@ -54,7 +57,7 @@ bracketPassiveWallet logFunction f =
 
   where
     -- | TODO(ks): Currently not implemented!
-    passiveWalletLayer _wallet inv =
+    passiveWalletLayer _wallet invoke =
         PassiveWalletLayer
             { _pwlCreateWallet   = error "Not implemented!"
             , _pwlGetWalletIds   = error "Not implemented!"
@@ -70,8 +73,8 @@ bracketPassiveWallet logFunction f =
 
             , _pwlGetAddresses   = error "Not implemented!"
 
-            , _pwlApplyBlocks    = inv . Actions.ApplyBlocks
-            , _pwlRollbackBlocks = inv . Actions.RollbackBlocks
+            , _pwlApplyBlocks    = invoke . Actions.ApplyBlocks
+            , _pwlRollbackBlocks = invoke . Actions.RollbackBlocks
             }
 
     -- The use of the unsafe constructor 'UnsafeRawResolvedBlock' is justified

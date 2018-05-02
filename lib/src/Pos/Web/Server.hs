@@ -87,18 +87,15 @@ application = do
     server <- servantServer
     return $ serve nodeApi server
 
-type TLSServer m =
-    m Application
+serveTLS
+    :: (MonadIO m)
+    => (String -> Word16 -> TlsParams -> TLSSettings)
+    -> m Application
     -> String
     -> Word16
     -> Maybe TlsParams
     -> Maybe Settings
     -> m ()
-
-type GetTLSSettings =
-    String -> Word16 -> TlsParams -> TLSSettings
-
-serveTLS :: (MonadIO m) => GetTLSSettings -> TLSServer m
 serveTLS getTLSSettings app host port mWalletTLSParams mSettings = do
     liftIO . maybe runSettings runTLS mTlsConfig mySettings =<< app
   where
@@ -107,16 +104,30 @@ serveTLS getTLSSettings app host port mWalletTLSParams mSettings = do
                  fromMaybe defaultSettings mSettings
     mTlsConfig = getTLSSettings host port <$> mWalletTLSParams
 
-serveImpl :: (MonadIO m) => TLSServer m
+serveImpl
+    :: (MonadIO m)
+    => m Application
+    -> String
+    -> Word16
+    -> Maybe TlsParams
+    -> Maybe Settings
+    -> m ()
 serveImpl =
     serveTLS tlsWithClientCheck
 
-serveDocImpl :: (MonadIO m) => TLSServer m
+serveDocImpl
+    :: (MonadIO m)
+    => m Application
+    -> String
+    -> Word16
+    -> Maybe TlsParams
+    -> Maybe Settings
+    -> m ()
 serveDocImpl =
     serveTLS tlsWebServerMode
 
 tlsWebServerMode
-    :: GetTLSSettings
+    :: String -> Word16 -> TlsParams -> TLSSettings
 tlsWebServerMode _ _ TlsParams{..} = tlsSettings
     { tlsWantClientCert = False }
   where

@@ -13,7 +13,7 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, shown, (%))
 import           Serokell.Util (mapJson)
 import           Test.Hspec.QuickCheck
-import           Test.QuickCheck (elements)
+import           Test.QuickCheck (elements, frequency, arbitrary, listOf)
 
 import qualified Pos.Block.Error as Cardano
 import           Pos.Core (HasConfiguration)
@@ -277,19 +277,18 @@ testWalletWorker = do
         srState `shouldSatisfy` Actions.isInitialState
         srStack `shouldBe` Stack [1..10]
 
+      it "State invariants are not violated." $ forAll (listOf someAction) $
+        \actions -> Actions.isValidState (srState $ runStackWorker actions $ Stack [1..5])
+ 
       it "Applies blocks immediately from its initial state" $ do
         let actions = [ Actions.ApplyBlocks (OldestFirst $ 1:|[2,3]) ]
             StackResult{..} = runStackWorker actions $ Stack []
-        srState `shouldSatisfy` Actions.isValidState
-        srState `shouldSatisfy` Actions.isInitialState
         srStack `shouldBe` Stack [3,2,1]
 
       it "Applies blocks in the correct order" $ do
         let actions = [ Actions.ApplyBlocks $ OldestFirst $ 1:|[2,3]
                       , Actions.ApplyBlocks $ OldestFirst $ 4:|[5,6] ]
             StackResult{..} = runStackWorker actions $ Stack []
-        srState `shouldSatisfy` Actions.isValidState
-        srState `shouldSatisfy` Actions.isInitialState
         srStack `shouldBe` Stack [6,5,4,3,2,1]
 
       it "Can switch to a new fork" $ do
@@ -297,8 +296,7 @@ testWalletWorker = do
                       , Actions.RollbackBlocks $ NewestFirst $ 3:|[2]
                       , Actions.ApplyBlocks    $ OldestFirst $ 4:|[5,6] ]
             StackResult{..} = runStackWorker actions $ Stack []
-        srState `shouldSatisfy` Actions.isValidState
-        srState `shouldSatisfy` Actions.isInitialState
+        srState `shouldSatisfy` (not . Actions.hasPendingFork)
         srStack `shouldBe` Stack [6,5,4,1]
 
       it "Can switch to a new fork by combining actions" $ do
@@ -307,8 +305,7 @@ testWalletWorker = do
                       , Actions.ApplyBlocks    $ OldestFirst $ 4:|[]
                       , Actions.ApplyBlocks    $ OldestFirst $ 5:|[6] ]
             StackResult{..} = runStackWorker actions $ Stack []
-        srState `shouldSatisfy` Actions.isValidState
-        srState `shouldSatisfy` Actions.isInitialState
+        srState `shouldSatisfy` (not . Actions.hasPendingFork)
         srStack `shouldBe` Stack [6,5,4,1]
 
   where
@@ -317,6 +314,12 @@ testWalletWorker = do
       let (s, stk) = runState (Actions.interpList stackOps actions) stk0
       in StackResult { srState = s, srStack = stk }
 
+    someAction :: Gen (Actions.WalletAction Int)
+    someAction = frequency [ (10, (Actions.ApplyBlocks . OldestFirst)    <$> arbitrary)
+                           , (7,  (Actions.RollbackBlocks . NewestFirst) <$> arbitrary)
+                           , (1,   Actions.LogMessage                    <$> arbitrary)
+                           ]
+      
 data StackResult = StackResult
   { srState :: Actions.WalletWorkerState Int
   , srStack :: Stack

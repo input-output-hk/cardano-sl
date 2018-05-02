@@ -17,7 +17,7 @@ import           Control.Concurrent.Async (async, link)
 import           Control.Concurrent.Chan
 import           Control.Lens (makeLenses, (%=), (.=), (+=), (-=))
 import qualified Data.Text.Buildable
-import           Formatting (bprint, shown, (%))
+import           Formatting (bprint, shown, build, (%))
 
 import           Pos.Util.Chrono
 
@@ -174,3 +174,15 @@ instance Show b => Buildable (WalletWorkerState b) where
     _pendingRollbacks
     _pendingBlocks
     _lengthPendingBlocks
+
+instance Show b => Buildable (WalletAction b) where
+  build wa = case wa of
+    ApplyBlocks bs    -> bprint ("ApplyBlocks " % shown) bs
+    RollbackBlocks bs -> bprint ("RollbackBlocks " % shown) bs
+    LogMessage bs     -> bprint ("LogMessage " % shown) bs
+
+instance Show b => Buildable [WalletAction b] where
+  build was = case was of
+    []     -> bprint "[]"
+    (x:xs) -> bprint (build % ":" % build) x xs
+

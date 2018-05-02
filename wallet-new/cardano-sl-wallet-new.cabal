@@ -147,11 +147,9 @@ library
                      , servant
                      , servant-client
                      , servant-client-core
-                     , servant-quickcheck
                      , servant-server
                      , servant-swagger
                      , servant-swagger-ui
-                     , stm
                      , string-conv
                      , swagger2
                      , text
@@ -195,52 +193,21 @@ executable cardano-node
                        -Wall
                        -O2
   build-depends:       base
-                     , aeson
-                     , aeson-pretty
-                     , bytestring
                      , cardano-sl
                      , cardano-sl-client
-                     , cardano-sl-client
-                     , cardano-sl-core
-                     , cardano-sl-crypto
                      , cardano-sl-infra
                      , cardano-sl-networking
                      , cardano-sl-ssc
                      , cardano-sl-txp
-                     , cardano-sl-update
                      , cardano-sl-util
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
-                     , conduit
-                     , containers
-                     , exceptions
                      , formatting
-                     , formatting
-                     , http-types
-                     , ixset-typed
-                     , lens
                      , log-warper
-                     , mtl
-                     , neat-interpolation
-                     , optparse-applicative
-                     , QuickCheck
-                     , safe-exceptions
-                     , servant
-                     , servant-server
-                     , servant-swagger
-                     , servant-swagger-ui
                      , stm
-                     , string-conv
-                     , swagger2
                      , text
                      , time-units
                      , universum
-                     , unliftio
-                     , unordered-containers
-                     , wai
-                     , wai-cors
-                     , wai-extra
-                     , warp
 
   default-language:    Haskell2010
   default-extensions: TypeOperators
@@ -282,64 +249,29 @@ executable cardano-integration-test
                      , aeson
                      , aeson-diff
                      , aeson-pretty
-                     , bytestring
-                     , time
-                     , cardano-sl
-                     , cardano-sl-client
                      , cardano-sl-client
                      , cardano-sl-core
-                     , cardano-sl-crypto
                      , cardano-sl-delegation
-                     , cardano-sl-infra
                      , cardano-sl-networking
-                     , cardano-sl-ssc
-                     , cardano-sl-txp
-                     , cardano-sl-update
-                     , cardano-sl-util
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
-                     , cardano-sl-db
-                     , cardano-sl-block
                      , containers
-                     , data-default
-                     , directory
                      , exceptions
                      , formatting
-                     , formatting
                      , hspec
-                     , http-api-data
                      , http-client
                      , http-types
-                     , insert-ordered-containers
-                     , ixset-typed
                      , lens
-                     , log-warper
-                     , memory
                      , mtl
-                     , neat-interpolation
                      , optparse-applicative
                      , pretty-show
                      , QuickCheck
-                     , quickcheck-instances
-                     , serokell-util
                      , servant
-                     , servant-client
                      , servant-quickcheck
                      , servant-server
-                     , servant-swagger
-                     , stm
-                     , string-conv
-                     , swagger2
                      , text
                      , text-format
-                     , time-units
                      , universum
-                     , unliftio
-                     , unordered-containers
-                     , wai
-                     , wai-cors
-                     , wai-extra
-                     , warp
 
   default-language:    Haskell2010
   default-extensions: TypeOperators
@@ -480,61 +412,57 @@ test-suite wallet-new-specs
 
   build-depends:      base
                     , aeson
-                    , aeson-pretty
                     , bytestring
                     , cardano-sl
+                    -- , cardano-sl-block
                     , cardano-sl-client
                     , cardano-sl-client
                     , cardano-sl-core
                     , cardano-sl-crypto
-                    , cardano-sl-infra
-                    , cardano-sl-networking
+                    -- , cardano-sl-db
+                    -- , cardano-sl-delegation
+                    -- , cardano-sl-infra
+                    -- , cardano-sl-networking
+                    -- , cardano-sl-ssc
                     , cardano-sl-txp
-                    , cardano-sl-update
+                    -- , cardano-sl-update
                     , cardano-sl-util
                     , cardano-sl-wallet
                     , cardano-sl-wallet-new
-                    , conduit
-                    , containers
+                    -- , conduit
+                    -- , containers
                     , data-default
                     , directory
-                    , exceptions
+                    , directory
+                    -- , exceptions
                     , formatting
                     , hspec
                     , http-client
                     , http-types
                     , ixset-typed
                     , lens
-                    , log-warper
-                    , neat-interpolation
-                    , optparse-applicative
-                    , process
+                    -- , log-warper
+                    -- , neat-interpolation
+                    -- , network-transport-tcp
+                    -- , optparse-applicative
+                    -- , process
                     , QuickCheck
                     , quickcheck-instances
                     , safe-exceptions
-                    , serokell-util
+                    -- , serokell-util
                     , servant
-                    , servant-quickcheck
+                    -- , servant-quickcheck
                     , servant-server
                     , servant-swagger
-                    , stm
+                    -- , stm
                     , string-conv
                     , swagger2
                     , text
                     , time
-                    , time-units
+                    -- , time-units
                     , universum
-                    -- Required for the integration test
-                    , cardano-sl-db
-                    , cardano-sl-block
-                    , cardano-sl-delegation
-                    , cardano-sl-ssc
-                    , network-transport-tcp
-                    , log-warper
-                    , directory
-                    , formatting
-                    , unliftio
-                    , unordered-containers
+                    -- , unliftio
+                    -- , unordered-containers
 
 benchmark cardano-sl-wallet-new-bench
   hs-source-dirs:      bench
@@ -567,11 +495,9 @@ benchmark cardano-sl-wallet-new-bench
                      , async
                      , base
                      , bytestring
-                     , cardano-sl
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-wallet
-                     , cardano-sl-wallet-new
                      , cassava
                      , connection
                      , cryptonite
@@ -581,12 +507,10 @@ benchmark cardano-sl-wallet-new-bench
                      , http-client-tls
                      , optparse-applicative
                      , random
-                     , QuickCheck
                      , semigroups
                      , servant
                      , servant-client
                      , servant-client-core
-                     , servant-generic
                      , text
                      , time
                      , tls

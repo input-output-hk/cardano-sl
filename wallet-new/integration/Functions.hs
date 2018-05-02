@@ -6,7 +6,10 @@
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeApplications           #-}
 
-module Functions where
+module Functions
+    ( runActionCheck
+    , printT
+    ) where
 
 import           Universum hiding (log)
 
@@ -630,19 +633,19 @@ runAction wc action = do
 
 
 -- | Generate action randomly, depending on the action distribution.
-chooseActionGen
-    :: ActionProbabilities
-    -> Gen Action
-chooseActionGen =
-    frequency . map (\(a, p) -> (getWeight p, pure a)) . toList
+-- chooseActionGen
+--     :: ActionProbabilities
+--     -> Gen Action
+-- chooseActionGen =
+--     frequency . map (\(a, p) -> (getWeight p, pure a)) . toList
 
 
 -- | Generate action from the generator.
-chooseAction
-    :: (WalletTestMode m)
-    => ActionProbabilities
-    -> m Action
-chooseAction = liftIO . generate . chooseActionGen
+-- chooseAction
+--     :: (WalletTestMode m)
+--     => ActionProbabilities
+--     -> m Action
+-- chooseAction = liftIO . generate . chooseActionGen
 
 -- | Generate a random sequence of actions with the given size.
 chooseActions

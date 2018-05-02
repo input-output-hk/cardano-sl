@@ -1,3 +1,8 @@
 -- | Reexport of Pos.Client.Update.* modules.
 
-{-# OPTIONS_GHC -F -pgmF autoexporter #-}
+module Pos.Client.Update
+       ( module Pos.Client.Update.Network
+       ) where
+
+import            Pos.Client.Update.Network
+

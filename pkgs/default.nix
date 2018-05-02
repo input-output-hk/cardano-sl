@@ -24854,9 +24854,9 @@ inherit (pkgs) which;};
            pname = "log-warper";
            version = "1.8.0";
            src = fetchgit {
-             url = "https://github.com/serokell/log-warper.git";
-             sha256 = "1rqpkid2c58pk813kb7wjcibsxf97cn7vjf3bv3dma1k5b818ana";
-             rev = "7f95c6990ef93a289678755cb1db71c2a4ecdfb5";
+             url = "https://github.com/input-output-hk/log-warper.git";
+             sha256 = "12jbqj0b0jglr5j5hmn1sc9yrfywd7baf94z3nmklfki5y5fjprg";
+             rev = "b8c390357b27e7ae3b9b0c5309bf9d0bbbf09852";
            };
            libraryHaskellDepends = [
              aeson ansi-terminal base containers deepseq directory dlist errors

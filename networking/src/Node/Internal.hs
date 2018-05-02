@@ -14,6 +14,7 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE CPP                        #-}
 
 module Node.Internal (
     NodeId(..),
@@ -59,7 +60,9 @@ import           Data.Hashable (Hashable)
 import           Data.Int (Int64)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+#if !MIN_VERSION_base(4,8,0)
 import           Data.Monoid
+#endif
 import           Data.NonEmptySet (NonEmptySet)
 import qualified Data.NonEmptySet as NESet
 import           Data.Set (Set)

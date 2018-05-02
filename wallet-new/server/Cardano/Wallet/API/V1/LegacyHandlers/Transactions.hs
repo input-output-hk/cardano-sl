@@ -111,15 +111,19 @@ newUnsignedTransaction
     :: forall ctx m . (V0.MonadWalletTxFull ctx m)
     => Payment
     -> m (WalletResponse Transaction)
-newUnsignedTransaction _ = do
+newUnsignedTransaction Payment {..} = do
     -- We're creating new transaction as usually, but we mustn't sign/publish it.
     -- This transaction will be signed on the client-side (mobile client or
     -- hardware wallet), and after that transaction (with its signature) will be
     -- sent to backend.
-    --
-    -- It's just a stub instead of 'undefined'.
-    fakeTransaction <- liftIO $ generate arbitrary
-    pure $ single fakeTransaction
+
+    let (V1 spendingPw) = fromMaybe (V1 mempty) pmtSpendingPassword
+    cAccountId <- migrate pmtSource
+    addrCoinList <- migrate $ NE.toList pmtDestinations
+    let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) pmtGroupingPolicy
+    let batchPayment = V0.NewBatchPayment cAccountId addrCoinList policy
+    cTx <- V0.newUnsignedTransaction spendingPw batchPayment
+    single <$> migrate cTx
 
 
 newSignedTransaction

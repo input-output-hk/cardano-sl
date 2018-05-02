@@ -9,6 +9,7 @@ module Pos.Wallet.Web.Methods.Payment
        , getMoneySourceUtxo
        , newPayment
        , newPaymentBatch
+       , newUnsignedTransaction
        , getTxFee
        ) where
 
@@ -25,7 +26,7 @@ import           Pos.Client.KeyStorage (getSecretKeys)
 import           Pos.Client.Txp.Addresses (MonadAddresses)
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
-import           Pos.Client.Txp.Network (prepareMTx)
+import           Pos.Client.Txp.Network (prepareMTx, prepareUnsignedTx)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee, runTxCreator)
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (Address, Coin, HasConfiguration, TxAux (..), TxOut (..),
@@ -89,6 +90,20 @@ newPaymentBatch submitTx passphrase NewBatchPayment {..} = do
     notFasterThan (6 :: Second) $ do
       sendMoney
           submitTx
+          passphrase
+          (AccountMoneySource src)
+          npbTo
+          npbInputSelectionPolicy
+
+newUnsignedTransaction
+    :: MonadWalletTxFull ctx m
+    => PassPhrase
+    -> NewBatchPayment
+    -> m CTx
+newUnsignedTransaction passphrase NewBatchPayment {..} = do
+    src <- decodeCTypeOrFail npbFrom
+    notFasterThan (6 :: Second) $ do
+      createNewUnsignedTransaction
           passphrase
           (AccountMoneySource src)
           npbTo
@@ -227,6 +242,55 @@ sendMoney submitTx passphrase moneySource dstDistr policy = do
     let srcWalletAddrsDetector = getWalletAddrsDetector ws' Ever srcWallet
 
     logDebug "sendMoney: constructing response"
+    fst <$> constructCTx ws' srcWallet srcWalletAddrsDetector diff th
+
+createNewUnsignedTransaction
+    :: (MonadWalletTxFull ctx m)
+    => PassPhrase
+    -> MoneySource
+    -> NonEmpty (CId Addr, Coin)
+    -> InputSelectionPolicy
+    -> m CTx
+createNewUnsignedTransaction passphrase moneySource dstDistr policy = do
+    db <- askWalletDB
+    ws <- getWalletSnapshot db
+    when walletTxCreationDisabled $
+        throwM err405
+        { errReasonPhrase = "Transaction creation is disabled by configuration!"
+        }
+    let srcWallet = getMoneySourceWallet moneySource
+    rootSk <- getSKById srcWallet
+    checkPassMatches passphrase rootSk `whenNothing`
+        throwM (RequestError "Passphrase doesn't match")
+
+    addrMetas' <- getMoneySourceAddresses ws moneySource
+    addrMetas <- nonEmpty addrMetas' `whenNothing`
+        throwM (RequestError "Given money source has no addresses!")
+
+    let srcAddrs = map (view wamAddress) addrMetas
+
+    logDebug "createNewUnsignedTransaction: processed addrs"
+
+    relatedAccount <- getSomeMoneySourceAccount ws moneySource
+    outputs <- coinDistrToOutputs dstDistr
+    let pendingAddrs = getPendingAddresses ws policy
+    th <- rewrapTxError "Cannot create unsigned transaction" $ do
+        (tx, inpTxOuts')  <- prepareUnsignedTx pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
+
+        ts <- Just <$> getCurrentTimestamp
+        let 
+            txHash = hash tx
+            inpTxOuts = toList inpTxOuts'
+            dstAddrs  = map txOutAddress . toList $
+                        _txOutputs tx
+            th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
+        return th
+
+    diff <- getCurChainDifficulty
+    ws' <- getWalletSnapshot db
+    let srcWalletAddrsDetector = getWalletAddrsDetector ws' Ever srcWallet
+
+    logDebug "createNewUnsignedTransaction: constructing response"
     fst <$> constructCTx ws' srcWallet srcWalletAddrsDetector diff th
 
 ----------------------------------------------------------------------------

@@ -5,15 +5,14 @@ module Cardano.Wallet.Kernel.Actions
   , WalletActionInterp(..)
   , forkWalletWorker
   , walletWorker
-  , transducer
+  , interp
+  , interpList
   ) where
 
-import           Universum hiding (State, execStateT, runState, evalState)
+import           Universum
 import           Control.Concurrent.Async (async, link)
 import           Control.Concurrent.Chan
 import           Control.Lens (makeLenses, (%=), (.=), (+=), (-=), (<>=))
-import           Control.Monad.State.Lazy hiding (sequence_)
-import           Control.Monad.Writer (runWriter, tell, MonadWriter)
 
 import           Pos.Block.Types
 import           Pos.Util.Chrono
@@ -36,9 +35,9 @@ data WalletAction b
 --   the worker uses these to invoke changes to the
 --   underlying wallet.
 data WalletActionInterp m b = WalletActionInterp
-  { applyBlocks :: OldestFirst NE b -> m
-  , switchToFork :: Int -> OldestFirst [] b -> m
-  , emit :: Text -> m
+  { applyBlocks :: OldestFirst NE b -> m ()
+  , switchToFork :: Int -> OldestFirst [] b -> m ()
+  , emit :: Text -> m ()
   }
 
 -- | A channel for communicating with a wallet worker.
@@ -53,27 +52,19 @@ data WalletWorkerState b = WalletWorkerState
 
 makeLenses ''WalletWorkerState
 
-asWriter :: (Monoid m, MonadWriter m n) => WalletActionInterp m b -> WalletActionInterp (n ()) b
-asWriter i = WalletActionInterp
-  { applyBlocks  = tell . applyBlocks i
-  , switchToFork = \n bs -> tell (switchToFork i n bs)
-  , emit         = tell . emit i
+-- A helper function for lifting a `WalletActionInterp` through a monad transformer.
+lifted :: (Monad m, MonadTrans t) => WalletActionInterp m b -> WalletActionInterp (t m) b
+lifted i = WalletActionInterp
+  { applyBlocks  = lift . applyBlocks i
+  , switchToFork = \n bs -> lift (switchToFork i n bs)
+  , emit         = lift . emit i
   }
 
--- | `interp` is the main interpreter for turning a wallet action into a concrete
---   transformer for the wallet worker's state.
---
---   `interp` can be thought of as defining a finite-state transducer.
---   The inputs to the transducer are actions of typ `WalletAction b`,
---   the internal state of the transducer is represented by `WalletWorkerState b`,
---   and the transducer outputs a value of type `m` in response to each input.
---
---   For simplicity, the transitions are described using the `State` monad, augmented
---   with a primitive "emit a value x :: m". The `Monoid` instance is used to combine
---   several `m`s emitted during a single operation.
-
-interp :: Monoid m => WalletActionInterp m b -> WalletAction b -> State (WalletWorkerState b) m
-interp walletInterp action = runInterp $ do
+-- | `interp` is the main interpreter for converting a wallet action to a concrete
+--   transition on the wallet worker's state, perhaps combined with some effects on
+--   the concrete wallet.
+interp :: Monad m => WalletActionInterp m b -> WalletAction b -> StateT (WalletWorkerState b) m ()
+interp walletInterp action = do
 
   numPendingRollbacks <- use pendingRollbacks
   numPendingBlocks    <- use lengthPendingBlocks
@@ -124,30 +115,31 @@ interp walletInterp action = runInterp $ do
     LogMessage txt -> emit txt
 
  where
-   WalletActionInterp{..} = asWriter walletInterp
-   runInterp = state . fmap (swap . runWriter) . execStateT
+   WalletActionInterp{..} = lifted walletInterp
 
--- | Lazily convert a list of actions to interpreted wallet operations.
-transducer :: Monoid m => WalletActionInterp m b -> [WalletAction b] -> [m]
-transducer ops actions = evalState (mapM (interp ops) actions) initialState
-  where
-    initialState = WalletWorkerState
-                  { _pendingRollbacks    = 0
-                  , _pendingBlocks       = NewestFirst []
-                  , _lengthPendingBlocks = 0
-                  }
-
--- | Connect a wallet interpreter to a channel of actions.
-walletWorker :: Chan (WalletAction b) -> WalletActionInterp (IO ()) b -> IO ()
+-- | Connect a wallet action interpreter to a channel of actions.
+walletWorker :: Chan (WalletAction b) -> WalletActionInterp IO b -> IO ()
 walletWorker chan ops = do
   emit ops "Starting wallet worker."
-  actions <- getChanContents chan
-  sequence_ (transducer ops actions)
+  void $ (`evalStateT` initialWorkerState) $ forever $ 
+    lift (readChan chan) >>= interp ops
   emit ops "Finishing wallet worker."
+
+-- | Connect a wallet action interpreter to a stream of actions.
+interpList :: Monad m => WalletActionInterp m b -> [WalletAction b] -> m ()
+interpList ops actions = void $
+  evalStateT (forM_ actions $ interp ops) initialWorkerState
+
+initialWorkerState :: WalletWorkerState b
+initialWorkerState = WalletWorkerState
+                     { _pendingRollbacks    = 0
+                     , _pendingBlocks       = NewestFirst []
+                     , _lengthPendingBlocks = 0
+                     }
 
 -- | Start up a wallet worker; the worker will respond to actions issued over the
 --   returned channel.
-forkWalletWorker :: (MonadIO m, MonadIO m') => WalletActionInterp (IO ()) b -> m (WalletAction b -> m' ())
+forkWalletWorker :: (MonadIO m, MonadIO m') => WalletActionInterp IO b -> m (WalletAction b -> m' ())
 forkWalletWorker ops = liftIO $ do
   c <- newChan
   link =<< async (walletWorker c ops)

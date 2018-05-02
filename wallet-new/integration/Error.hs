@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE LambdaCase    #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- | Types describing runtime errors related to
 -- wallet integration tests.
@@ -38,7 +39,7 @@ data WalletTestError
     | InvalidTransactionState Transaction
     | InvalidTransactionFee EstimatedFees
     | UnexpectedChangeAddress [WalletAddress]
-    | UnexpectedAccountBalance Account Account
+    | UnexpectedAccountBalance Text Account Account
     | CantFindAddress (V1 Core.Address)
     | LocalTransactionsDiffer [Transaction] [Transaction]
     | LocalTransactionMissing Transaction [Transaction]
@@ -60,7 +61,8 @@ showConstr = \case
     InvalidTransactionState {} -> "InvalidTransactionState"
     InvalidTransactionFee {} -> "InvalidTransactionFee"
     UnexpectedChangeAddress {} -> "UnexpectedChangeAddress"
-    UnexpectedAccountBalance {} -> "UnexpectedAccountBalance"
+    UnexpectedAccountBalance explanation _ _ ->
+        toString ("UnexpectedAccountBalance " <> explanation)
     CantFindAddress {} -> "CantFindAddress"
     LocalTransactionsDiffer {} -> "LocalTransactionsDiffer"
     LocalTransactionMissing {} -> "LocalTransactionMissing"
@@ -85,7 +87,8 @@ instance Buildable WalletTestError where
     build (InvalidTransactionState t)     = bprint ("Transaction state is invalid. Transaction - ("%stext%")") (show t)
     build (InvalidTransactionFee   f)     = bprint ("Transaction fees are invalid - ("%stext%")") (show f)
     build (UnexpectedChangeAddress a)     = bprint ("Unexpected change address after transaction ("%stext%")") (show a)
-    build (UnexpectedAccountBalance b a)  = bprint ("Unexpected account balance before ("%stext%") and after ("%stext%")") (show b) (show a)
+    build (UnexpectedAccountBalance explanation b a) =
+        bprint ("Unexpected account balance "%stext%". Before ("%stext%") and after ("%stext%")") explanation (show b) (show a)
     build (CantFindAddress a)             = bprint ("Can't find address ("%stext%") before and/or after transaction") (show a)
     build (LocalTransactionsDiffer t t')  = bprint ("Local transactions differs - ("%stext%"), ("%stext%")") (show t) (show t')
     build (LocalTransactionMissing t ts)  = bprint ("Local transaction ("%stext%") missing from txs history ("%stext%")") (show t) (show ts)

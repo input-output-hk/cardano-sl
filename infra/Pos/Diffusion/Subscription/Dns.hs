@@ -23,26 +23,26 @@ import           Pos.Communication.Protocol (SendActions)
 import           Pos.Diffusion.Types (SubscriptionStatus (..))
 import           Pos.Diffusion.Subscription.Common
 import           Pos.Network.DnsDomains (NodeAddr)
-import           Pos.Network.Types (Bucket (..), DnsDomains (..), NetworkConfig (..), NodeId (..),
+import           Pos.Network.Types (Bucket (..), DnsDomains (..), NodeId (..),
                                     NodeType (..), resolveDnsDomains)
 import           Pos.Util.Timer (Timer)
 
 dnsSubscriptionWorker
-    :: forall pack kademlia m.
+    :: forall pack m.
      ( SubscriptionMode m
      , Mockable Delay m
      , Mockable SharedAtomic m
      , Mockable Concurrently m
      )
     => OQ.OutboundQ pack NodeId Bucket
-    -> NetworkConfig kademlia
+    -> Word16 -- ^ Default port to use for addresses resolved from DNS domains.
     -> DnsDomains DNS.Domain
     -> Timer
     -> m Millisecond
     -> TVar (Map NodeId SubscriptionStatus)
     -> SendActions m
     -> m ()
-dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer slotDuration subStatus sendActions = do
+dnsSubscriptionWorker oq defaultPort DnsDomains{..} keepaliveTimer slotDuration subStatus sendActions = do
     -- Shared state between the threads which do subscriptions.
     -- It's a 'Map Int (Alts NodeId)' used to determine the current
     -- peers set for our bucket 'BucketBehindNatWorker'. Each thread takes
@@ -134,7 +134,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer slotDuration s
     -- are adjacent.
     findDnsPeers :: Int -> Alts (NodeAddr DNS.Domain) -> m (Alts NodeId)
     findDnsPeers index alts = do
-        mNodeIds <- liftIO $ resolveDnsDomains networkCfg alts
+        mNodeIds <- liftIO $ resolveDnsDomains defaultPort alts
         let (errs, nids_) = partitionEithers mNodeIds
             nids = mconcat nids_
         when (null nids)       $ logError (msgNoRelays index)

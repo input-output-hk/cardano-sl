@@ -271,7 +271,7 @@ testWalletWorker :: Spec
 testWalletWorker = do
     describe "Test wallet worker state machine" $ do
 
-      it "Starts in a valid initial state without no effect on the wallet" $ do
+      it "Starts in a valid initial state with no effect on the wallet" $ do
         let StackResult{..} = runStackWorker [] $ Stack [1..10]
         srState `shouldSatisfy` Actions.isValidState
         srState `shouldSatisfy` Actions.isInitialState

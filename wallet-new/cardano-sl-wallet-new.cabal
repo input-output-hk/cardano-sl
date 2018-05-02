@@ -194,7 +194,6 @@ executable cardano-node
                        -O2
   build-depends:       base
                      , cardano-sl
-                     , cardano-sl-client
                      , cardano-sl-infra
                      , cardano-sl-networking
                      , cardano-sl-ssc
@@ -202,11 +201,9 @@ executable cardano-node
                      , cardano-sl-util
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
-                     , formatting
                      , log-warper
                      , stm
                      , text
-                     , time-units
                      , universum
 
   default-language:    Haskell2010
@@ -249,10 +246,7 @@ executable cardano-integration-test
                      , aeson
                      , aeson-diff
                      , aeson-pretty
-                     , cardano-sl-client
                      , cardano-sl-core
-                     , cardano-sl-delegation
-                     , cardano-sl-networking
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
                      , containers
@@ -414,55 +408,31 @@ test-suite wallet-new-specs
                     , aeson
                     , bytestring
                     , cardano-sl
-                    -- , cardano-sl-block
                     , cardano-sl-client
                     , cardano-sl-client
                     , cardano-sl-core
                     , cardano-sl-crypto
-                    -- , cardano-sl-db
-                    -- , cardano-sl-delegation
-                    -- , cardano-sl-infra
-                    -- , cardano-sl-networking
-                    -- , cardano-sl-ssc
                     , cardano-sl-txp
-                    -- , cardano-sl-update
                     , cardano-sl-util
                     , cardano-sl-wallet
                     , cardano-sl-wallet-new
-                    -- , conduit
-                    -- , containers
                     , data-default
                     , directory
                     , directory
-                    -- , exceptions
                     , formatting
                     , hspec
-                    , http-client
-                    , http-types
-                    , ixset-typed
                     , lens
-                    -- , log-warper
-                    -- , neat-interpolation
-                    -- , network-transport-tcp
-                    -- , optparse-applicative
-                    -- , process
                     , QuickCheck
                     , quickcheck-instances
                     , safe-exceptions
-                    -- , serokell-util
                     , servant
-                    -- , servant-quickcheck
                     , servant-server
                     , servant-swagger
-                    -- , stm
                     , string-conv
                     , swagger2
                     , text
                     , time
-                    -- , time-units
                     , universum
-                    -- , unliftio
-                    -- , unordered-containers
 
 benchmark cardano-sl-wallet-new-bench
   hs-source-dirs:      bench

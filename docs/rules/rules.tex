@@ -76,7 +76,7 @@
 \newcommand{\blocktrees}{\mathcal{G}}
 \newcommand{\blockchains}{\mathcal{D}}
 \newcommand{\maxchains}[1]{\mathcal{M}(#1)}
-\newcommand{\weight}[1]{\mathsf{weight}(#1)}
+\newcommand{\height}[1]{\mathsf{height}(#1)}
 \newcommand{\delegator}[1]{\mathsf{delegator}(#1)}
 \newcommand{\delegatee}[1]{\mathsf{delegatee}(#1)}
 \newcommand{\delegationcertificates}[1]{\mathsf{certificates}_\mathsf{delegation}(#1)}
@@ -322,13 +322,13 @@ concrete value, which simplifies the specification.
   $i+1$ would try to issue a block without acknowledging the block
   issued by the slot leader at slot $i$.
 
-\item[Weight] We assume a weight function
-  $\weight{⋅} ∈ \lists{\blocks} ⟶ ℕ$\unsure{We may want to restrict
-    the parameter of the weight function to be chains, or even valid
+\item[Height] We assume a height function
+  $\height{⋅} ∈ \lists{\blocks} ⟶ ℕ$\unsure{We may want to restrict
+    the parameter of the height function to be chains, or even valid
     chains, but it is probably unnecessary. Which is why I used the
     simpler version for the moment}. It is usually necessary, for the
   sake of good behaviour of the system to assume that
-  $\weight{b₁,…,b_n} < \weight{b₁,…,b_n,b_{n+1}}$, though it is not
+  $\height{b₁,…,b_n} < \height{b₁,…,b_n,b_{n+1}}$, though it is not
   necessary for the specification itself. A typical such function is
   the length of the list, though more refined criterion are usually
   chosen.
@@ -731,16 +731,16 @@ A blockchain datastructure is a pair $(\mathfrak{C},\mathfrak{T}) ∈
   $$
   \mathfrak{C} ∈ \maxchains{\mathfrak{T}}
   $$
-\item $\mathfrak{C}$ is of maximal weight:
+\item $\mathfrak{C}$ is of maximal height:
   $$
-  \weight{\mathfrak{C}} = \max_{\mathfrak{D}∈\maxchains{\mathfrak{T}}}
-  \left( \weight{\mathfrak{D}} \right)
+  \height{\mathfrak{C}} = \max_{\mathfrak{D}∈\maxchains{\mathfrak{T}}}
+  \left( \height{\mathfrak{D}} \right)
   $$
 \end{itemize}
 
-Because a typical weight function is the length of the chain,
+Because a typical height function is the length of the chain,
 $\mathfrak{C}$ is often referred to as the longest chain (despite not
-necessarily being unique at that weight).
+necessarily being unique at that height).
 
 Rules to add a block $b$ to the blockchain:
 
@@ -749,7 +749,7 @@ Rules to add a block $b$ to the blockchain:
   $b_n$ is the predecessor of $b$.
 \item[Validity] $b₁,…,b_n,b$ must be a valid chain, let $\mathfrak{T}'
   = \mathfrak{T}∪\{b₁,…,b_n,b\}$
-\item[Longest chain] if $\weight{b₁,…,b_n,b} > \weight{C}$ (note:
+\item[Longest chain] if $\height{b₁,…,b_n,b} > \height{C}$ (note:
   larger \emph{and not equal}) then let $\mathfrak{C}'=b₁,…,b_n,b$
   else let $\mathfrak{C}'=\mathfrak{C}$.
 \item[Update] The new blockchain is $(\mathfrak{C}', \mathfrak{T}')$

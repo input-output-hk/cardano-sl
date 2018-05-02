@@ -12,7 +12,6 @@ module Error
 import           Universum
 
 import qualified Data.Text.Buildable
-import qualified Data.Text as T (unpack)
 import           Formatting (bprint, stext, (%))
 
 import           Cardano.Wallet.API.V1.Types (Account, Address, EstimatedFees, Transaction, V1,
@@ -63,7 +62,7 @@ showConstr = \case
     InvalidTransactionFee {} -> "InvalidTransactionFee"
     UnexpectedChangeAddress {} -> "UnexpectedChangeAddress"
     UnexpectedAccountBalance explanation _ _ ->
-        T.unpack ("UnexpectedAccountBalance " <> explanation)
+        toString ("UnexpectedAccountBalance " <> explanation)
     CantFindAddress {} -> "CantFindAddress"
     LocalTransactionsDiffer {} -> "LocalTransactionsDiffer"
     LocalTransactionMissing {} -> "LocalTransactionMissing"

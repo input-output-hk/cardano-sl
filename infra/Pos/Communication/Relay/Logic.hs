@@ -48,7 +48,8 @@ import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              EnqueueMsg, ListenerSpec, MkListeners, Msg, NodeId,
                                              Origin (..), OutSpecs, constantListeners, convH,
-                                             toOutSpecs, waitForConversations, recvLimited)
+                                             toOutSpecs, waitForDequeues, waitForConversations,
+                                             recvLimited)
 import           Pos.Communication.Relay.Class (DataParams (..), InvReqDataParams (..),
                                                 MempoolParams (..), Relay (..))
 import           Pos.Communication.Relay.Types (PropagationMsg (..))
@@ -213,7 +214,7 @@ propagateData
     => EnqueueMsg m
     -> PropagationMsg
     -> m (Map NodeId (m ()))
-propagateData enqueue pm = case pm of
+propagateData enqueue pm = waitForDequeues <$> case pm of
     InvReqDataPM msg key contents -> do
         logDebug $ sformat
             ("Propagation data with key: "%build) key
@@ -391,7 +392,7 @@ dataFlow what enqueue msg dt = handleAny handleE $ do
     its <- enqueue msg $
         \_ _ -> pure $ Conversation $ \(conv :: ConversationActions (DataMsg contents) Void m) ->
             send conv $ DataMsg dt
-    void $ waitForConversations its
+    void $ waitForConversations (waitForDequeues its)
   where
     -- TODO: is this function really special that it wants to catch
     -- all exceptions and log them instead of letting higher-level
@@ -472,7 +473,7 @@ invReqDataFlow
 invReqDataFlow what enqueue msg key dt = handleAny handleE $ do
     its <- enqueue msg $
         \addr _ -> pure $ Conversation $ invReqDataFlowDo what key dt addr
-    waitForConversations (fmap try its)
+    waitForConversations (try <$> waitForDequeues its)
   where
     -- TODO: is this function really special that it wants to catch
     -- all exceptions and log them instead of letting higher-level

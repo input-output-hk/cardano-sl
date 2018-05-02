@@ -155,9 +155,7 @@ isValidState :: WalletWorkerState b -> Bool
 isValidState WalletWorkerState{..} =
     _pendingRollbacks >= 0 &&
     length (_pendingBlocks) == _lengthPendingBlocks &&
-    (_lengthPendingBlocks > 0) `implies` (_pendingRollbacks > 0)
-  where
-    p `implies` q = p || not q
+    _lengthPendingBlocks <= _pendingRollbacks
 
 -- | Check if this state represents a pending fork.
 hasPendingFork :: WalletWorkerState b -> Bool

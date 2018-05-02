@@ -7041,21 +7041,21 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-binary" = callPackage
-        ({ mkDerivation, base, binary, bytestring, cborg, containers, cpphs
-         , digest, formatting, half, hashable, lens, mtl, QuickCheck
-         , safe-exceptions, serokell-util, stdenv, tagged, template-haskell
-         , text, th-utilities, time-units, transformers, universum
-         , unordered-containers, vector
+        ({ mkDerivation, autoexporter, base, binary, bytestring, cborg
+         , containers, cpphs, digest, formatting, half, hashable, lens, mtl
+         , QuickCheck, safe-exceptions, serokell-util, stdenv, tagged
+         , template-haskell, text, th-utilities, time-units, transformers
+         , universum, unordered-containers, vector
          }:
          mkDerivation {
            pname = "cardano-sl-binary";
            version = "1.1.1";
            src = ./../binary;
            libraryHaskellDepends = [
-             base binary bytestring cborg containers digest formatting half
-             hashable lens mtl QuickCheck safe-exceptions serokell-util tagged
-             template-haskell text th-utilities time-units transformers
-             universum unordered-containers vector
+             autoexporter base binary bytestring cborg containers digest
+             formatting half hashable lens mtl QuickCheck safe-exceptions
+             serokell-util tagged template-haskell text th-utilities time-units
+             transformers universum unordered-containers vector
            ];
            libraryToolDepends = [ cpphs ];
            doHaddock = false;

@@ -15,7 +15,7 @@ module Cardano.Wallet.Kernel.Actions
 import           Universum
 import           Control.Concurrent.Async (async, link)
 import           Control.Concurrent.Chan
-import           Control.Lens (makeLenses, (%=), (.=), (+=), (-=), (<>=))
+import           Control.Lens (makeLenses, (%=), (.=), (+=), (-=))
 import qualified Data.Text.Buildable
 import           Formatting (bprint, shown, (%))
 
@@ -85,7 +85,7 @@ interp walletInterp action = do
     ApplyBlocks bs -> do
 
       -- Add the blocks
-      pendingBlocks <>= toNewestFirst (toListChrono bs)
+      pendingBlocks %= (toNewestFirst (toListChrono bs) <>)
       lengthPendingBlocks += length bs
 
       -- If we have seen more blocks than rollbacks, switch to the new fork.

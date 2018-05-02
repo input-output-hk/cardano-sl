@@ -553,9 +553,20 @@ $b_1,…,b_n$ if all of the following hold
   \item $\currentdistribution{\emptylist} = \initialdistribution$
   \item Inductively, and writing
     \begin{itemize}
-    \item $\kronecker{⋅}{⋅}$ for Kronecker's delta function
-      (\emph{i.e.} $\kronecker{i}{j}$ is $1$ if $i=j$ and $0$
-      otherwise)
+    \item $⌊x⌋$ for the integral part (aka floor) of $x$; \emph{i.e.}
+      $⌊x⌋$ is the unique integer such that $⌊x⌋ ⩽ x < ⌊x⌋+1$
+    \item $\kronecker{⋅}{⋅}$ for Kronecker's delta function:
+      $$
+      \kronecker{i}{j} = \left\{
+        \begin{array}{ll}
+          1 & \mbox{if $i=j$}\\
+          0 & \mbox{otherwise}
+        \end{array}
+      \right.
+      $$
+      In particular, $\kronecker{i}{j}q = q$ if $i=j$ and $0$
+      otherwise. Kronecker's delta is used to select summands: it is
+      the arithmetician's \verb+ifThenElse+ combinator.
     \item $\stakeof{o}{a} = \repartition{o}(a).\amount{o} ∈ \mathbb{Q}$
     \item For inputs of $τ_{n+1}$, we extend $\stakeof{⋅}{⋅}$ to
       inputs using the validity hypothesis to define $\repartition{i}$ and $\amount{i}$
@@ -575,13 +586,13 @@ $b_1,…,b_n$ if all of the following hold
       & + \stakerepartitionformula{a}{o}{\outputs{τ_{n+1}}}{b}
     \end{align*}
 
-    That is, the stake contributed by each unspent output $o$ to $a$
-    is the proportion of its value specified by the stake repartition
-    of $o$ rounded \emph{down} to the nearest integer. The unallocated
-    stake goes to the bootstrap stakeholder specified by the $\selectrichman{⋅}$
-    function, applied to the total value of $o$.  \improvement{The
-      treatment of remainder as specified here is only valid for the
-      bootstrap era.}
+    That is, the contribution of unspent output $o$ to agent $a$ is
+    the proportion of the value of $o$ specified by the stake
+    repartition of $o$ rounded \emph{down} to the nearest integer. The
+    remaining unallocated stake goes to the bootstrap stakeholder
+    specified by the $\selectrichman{⋅}$ function, applied to the
+    total value of $o$.  \improvement{The treatment of remainder as
+      specified here is only valid for the bootstrap era.}
   \end{itemize}
 
   We can then extend $\currentdistribution{⋅}$ on valid chains by defining
@@ -861,3 +872,5 @@ some mechanism in the specification, to model lightweight delegation
 explicitly.
 
 \end{document}
+
+%  LocalWords:  combinator summands repartition unallocated

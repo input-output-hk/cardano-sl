@@ -308,7 +308,8 @@ concrete value, which simplifies the specification.
 \item[Slot leader] We assume a function
   $\slotleader{⋅}{⋅}{⋅} ∈ \stakedistributions×\seeds×ℕ ⟶ \agentids$,
   which, given a stake distribution and a source of randomness, maps
-  each subsequent slot to an agent id.
+  each subsequent slot to an agent id. This function is defined in
+  Section~\ref{sec:slot-leader}.
 
 \item[Current slot] The current slot is a parameter of the validation
   rules desribed in this document (\emph{i.e.} it doesn't make sense
@@ -331,7 +332,7 @@ concrete value, which simplifies the specification.
   $\height{b₁,…,b_n} < \height{b₁,…,b_n,b_{n+1}}$, though it is not
   necessary for the specification itself. A typical such function is
   the length of the list, though more refined criterion are usually
-  chosen.
+  chosen. This function is defined in Section~\ref{sec:height}.
 \end{description}
 
 \subsection{Chain parameters}

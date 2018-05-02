@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- | Signing done with public/private keys.
 
 module Pos.Crypto.Signing.Types.Signing
@@ -45,6 +46,7 @@ import           Pos.Crypto.Hashing (hash)
 -- Orphan instances
 ----------------------------------------------------------------------------
 
+#if !MIN_VERSION_cardano_crypto(1,1,0)
 instance Eq CC.XPub where
     a == b = CC.unXPub a == CC.unXPub b
 
@@ -56,6 +58,7 @@ instance Show CC.XPub where
 
 instance Hashable CC.XPub where
     hashWithSalt n = Hashable.hashWithSalt n . CC.unXPub
+#endif
 
 ----------------------------------------------------------------------------
 -- Keys, key generation & printing & decoding

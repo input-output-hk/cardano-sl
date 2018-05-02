@@ -27,6 +27,7 @@ library
 
   build-depends:       QuickCheck
                      , base
+                     , autoexporter
                      , binary
                      , bytestring
                      , cborg

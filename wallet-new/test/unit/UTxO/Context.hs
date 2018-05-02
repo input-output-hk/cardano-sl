@@ -348,7 +348,13 @@ initActors CardanoContext{..} = Actors{..}
 -------------------------------------------------------------------------------}
 
 -- | Index the actors by number
-data ActorIx = IxRich Int | IxPoor Int | IxAvvm Int
+data ActorIx
+  = IxRich Int
+  | IxPoor Int
+  | IxAvvm Int
+  -- ^ AVVM refers to the special accounts set up at the start of the Cardano
+  -- blockchain that could then be redeemed from, once, for an initial balance.
+  -- They can never receive a deposit.
   deriving (Show, Eq, Ord)
 
 -- | Address index of a regular actor

@@ -541,8 +541,8 @@ utxoApplyBlock :: forall h a. Hash h a => Block h a -> Utxo h a -> Utxo h a
 utxoApplyBlock = go . getOldestFirst
   where
     go :: [Transaction h a] -> Utxo h a -> Utxo h a
-    go []     = identity
-    go (t:ts) = go ts . utxoApply t
+    go []     u = u
+    go (t:ts) u = go ts (utxoApply t u)
 
 {-------------------------------------------------------------------------------
   Instantiating the hash to the identity

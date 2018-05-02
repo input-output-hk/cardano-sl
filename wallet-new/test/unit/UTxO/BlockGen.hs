@@ -9,7 +9,9 @@ module UTxO.BlockGen
     ( genValidBlockchain
     , genValidBlocktree
     , divvyUp
+    , selectDestination
     , selectDestinations'
+    , estimateFee
     ) where
 
 import           Universum hiding (use, (%~), (.~), (^.))
@@ -143,16 +145,22 @@ selectDestinations :: Hash h Addr => Set (Input h Addr) -> BlockGen h (NonEmpty 
 selectDestinations notThese =
     liftGen . selectDestinations' notThese =<< use currentUtxo
 
+-- | FIXME: This returns just one 'Addr' wrapped in a 'NonEmpty', drop the thing
+-- and use 'selectDestination' instead.
 selectDestinations'
     :: Hash h Addr
     => Set (Input h Addr)
     -> Utxo h Addr
     -> Gen (NonEmpty Addr)
-selectDestinations' notThese =
-    fmap pure . elements
-        . map (outAddr . snd) . utxoToList
-        . utxoRestrictToAddr (not . isAvvmAddr)
-        . utxoRemoveInputs notThese
+selectDestinations' notThese u0 =
+  pure <$> selectDestination (utxoRemoveInputs notThese u0)
+
+selectDestination :: Hash h Addr => Utxo h Addr -> Gen Addr
+selectDestination u0 = do
+  -- AVVM addresses can't ever receive deposits, so we exclude them.
+  let u1 = utxoRestrictToAddr (not . isAvvmAddr) u0
+  elements (map (outAddr . snd) (utxoToList u1))
+
 
 -- | Create a fresh transaction that depends on the fee provided to it.
 newTransaction :: (HasCallStack, Hash h Addr)
@@ -176,7 +184,7 @@ newTransaction = do
 -- evenly over the output addresses.
 divvyUp
     :: (HasCallStack, Hash h Addr)
-    => Int
+    => Int -- ^ hash
     -> NonEmpty (Input h Addr, Output Addr)
     -> NonEmpty Addr
     -> Value

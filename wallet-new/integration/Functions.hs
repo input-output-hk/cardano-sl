@@ -552,17 +552,21 @@ runAction wc action = do
             accountDestinationAfter <-
                 respToRes $ getAccount wc (accWalletId accountDestination) (accIndex accountDestination)
 
-            let checkAccountAmount op accBefore accAfter = checkInvariant
+            let checkAccountAmount explanation op accBefore accAfter = checkInvariant
                     (op (accAmount accBefore) == accAmount accAfter)
-                    (UnexpectedAccountBalance accBefore accAfter)
+                    (UnexpectedAccountBalance explanation accBefore accAfter)
 
             -- Check whether the source account decrease by expected amount after tx
-            checkAccountAmount (\balance -> V1 $ ((unV1 balance) `unsafeSubCoin` moneyAmount) `unsafeSubCoin` (unV1 actualFees))
+            checkAccountAmount
+                "payee decrease"
+                (\balance -> V1 $ ((unV1 balance) `unsafeSubCoin` moneyAmount) `unsafeSubCoin` (unV1 actualFees))
                 accountSource
                 accountSourceAfter
 
             -- Check whether the destination account increased by expected amount after tx
-            checkAccountAmount (\balance -> V1 $ (unV1 balance) `unsafeAddCoin` moneyAmount)
+            checkAccountAmount
+                "payer increase"
+                (\balance -> V1 $ (unV1 balance) `unsafeAddCoin` moneyAmount)
                 accountDestination
                 accountDestinationAfter
 

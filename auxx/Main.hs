@@ -20,9 +20,8 @@ import           Pos.Communication.Util (ActionSpec (..))
 import           Pos.Core (ConfigurationError, protocolConstants, protocolMagic)
 import           Pos.Configuration (networkConnectionTimeout)
 import           Pos.DB.DB (initNodeDBs)
-import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
 import           Pos.Diffusion.Types (DiffusionLayer (..))
-import           Pos.Diffusion.Full (diffusionLayerFull)
+import           Pos.Diffusion.Full (diffusionLayerFull, FullDiffusionConfiguration (..))
 import           Pos.Logic.Full (logicLayerFull)
 import           Pos.Logic.Types (LogicLayer (..))
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
@@ -111,7 +110,15 @@ action opts@AuxxOptions {..} command = do
         CLI.printInfoOnStart aoCommonNodeArgs ntpConfig
         (nodeParams, tempDbUsed) <-
             correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs nArgs
-        let
+
+        let fdconf = FullDiffusionConfiguration
+                { fdcProtocolMagic = protocolMagic
+                , fdcProtocolConstants = protocolConstants
+                , fdcRecoveryHeadersMessage = recoveryHeadersMessage
+                , fdcLastKnownBlockVersion = lastKnownBlockVersion
+                , fdcConvEstablishTimeout = networkConnectionTimeout
+                }
+
             toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
             toRealMode auxxAction = do
                 realModeContext <- ask

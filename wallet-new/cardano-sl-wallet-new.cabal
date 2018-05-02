@@ -73,6 +73,7 @@ library
                        Cardano.Wallet.Kernel.DB.Resolved
                        Cardano.Wallet.Kernel.DB.Spec
                        Cardano.Wallet.Kernel.DB.Spec.Update
+                       Cardano.Wallet.Kernel.DB.Sqlite
                        Cardano.Wallet.Kernel.DB.TxMeta
                        Cardano.Wallet.Kernel.DB.Util.AcidState
                        Cardano.Wallet.Kernel.DB.Util.IxSet
@@ -111,6 +112,8 @@ library
                      , aeson
                      , aeson-pretty
                      , async
+                     , beam-core
+                     , beam-sqlite
                      , bytestring
                      , cardano-sl
                      , cardano-sl-block
@@ -152,12 +155,15 @@ library
                      , safe-exceptions
                      , safecopy
                      , serokell-util
+                     , scientific
                      , servant
                      , servant-client
                      , servant-client-core
                      , servant-server
                      , servant-swagger
                      , servant-swagger-ui
+                     , sqlite-simple
+                     , stm
                      , string-conv
                      , swagger2
                      , text

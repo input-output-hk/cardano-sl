@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-report-server";
-          version = "0.4.9";
+          version = "0.4.10";
         };
         license = "BSD-3-Clause";
         copyright = "2017-2018 IOHK";
@@ -96,7 +96,7 @@ let
     } // {
       src = pkgs.fetchgit {
         url = "https://github.com/input-output-hk/cardano-report-server.git";
-        rev = "19fd5ddf24dab731375a156ce38dcfce4319d1e4";
+        rev = "81eea7361a75923f9402fcb7840fb36722dbf88e";
         sha256 = null;
       };
     }

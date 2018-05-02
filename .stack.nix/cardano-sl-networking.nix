@@ -9,7 +9,7 @@ let
         specVersion = "1.20";
         identifier = {
           name = "cardano-sl-networking";
-          version = "1.1.0";
+          version = "1.1.1";
         };
         license = "MIT";
         copyright = "";
@@ -58,7 +58,6 @@ let
             hsPkgs.serokell-util
             hsPkgs.stm
             hsPkgs.text
-            hsPkgs.text-format
             hsPkgs.time
             hsPkgs.time-units
             hsPkgs.transformers
@@ -138,7 +137,6 @@ let
               hsPkgs.resourcet
               hsPkgs.safe-exceptions
               hsPkgs.text
-              hsPkgs.text-format
             ];
           };
         };

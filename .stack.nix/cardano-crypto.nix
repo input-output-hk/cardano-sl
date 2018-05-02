@@ -1,13 +1,15 @@
 { compiler, flags ? {}, hsPkgs, pkgconfPkgs, pkgs, system }:
 let
-    _flags = {} // flags;
+    _flags = {
+      golden-tests = false;
+    } // flags;
     in {
       flags = _flags;
       package = {
         specVersion = "1.10";
         identifier = {
           name = "cardano-crypto";
-          version = "1.0.0";
+          version = "1.1.0";
         };
         license = "MIT";
         copyright = "2016-2017 IOHK";
@@ -26,10 +28,26 @@ let
             hsPkgs.memory
             hsPkgs.deepseq
             hsPkgs.bytestring
+            hsPkgs.basement
+            hsPkgs.foundation
             hsPkgs.cryptonite
             hsPkgs.cryptonite-openssl
             hsPkgs.hashable
+            hsPkgs.integer-gmp
           ];
+        };
+        exes = {
+          golden-tests = {
+            depends  = [
+              hsPkgs.base
+              hsPkgs.basement
+              hsPkgs.foundation
+              hsPkgs.memory
+              hsPkgs.bytestring
+              hsPkgs.cryptonite
+              hsPkgs.cardano-crypto
+            ] ++ pkgs.lib.optional _flags.golden-tests hsPkgs.inspector;
+          };
         };
         tests = {
           cardano-crypto-test = {
@@ -39,8 +57,32 @@ let
               hsPkgs.memory
               hsPkgs.cryptonite
               hsPkgs.cardano-crypto
-              hsPkgs.tasty
-              hsPkgs.tasty-quickcheck
+              hsPkgs.basement
+              hsPkgs.foundation
+            ];
+          };
+          cardano-crypto-golden-tests = {
+            depends  = [
+              hsPkgs.base
+              hsPkgs.basement
+              hsPkgs.foundation
+              hsPkgs.memory
+              hsPkgs.bytestring
+              hsPkgs.cryptonite
+              hsPkgs.inspector
+              hsPkgs.cardano-crypto
+            ];
+          };
+        };
+        benchmarks = {
+          cardano-crypto-bench = {
+            depends  = [
+              hsPkgs.base
+              hsPkgs.bytestring
+              hsPkgs.memory
+              hsPkgs.cryptonite
+              hsPkgs.cardano-crypto
+              hsPkgs.gauge
             ];
           };
         };
@@ -48,7 +90,7 @@ let
     } // {
       src = pkgs.fetchgit {
         url = "https://github.com/input-output-hk/cardano-crypto";
-        rev = "287cc575fafe86af9d24af9d012c47f9d3f04da0";
+        rev = "19257956ec6563fa650e591ebd6250acf95a40c9";
         sha256 = null;
       };
     }

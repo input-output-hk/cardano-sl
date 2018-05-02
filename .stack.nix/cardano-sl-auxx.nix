@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-auxx";
-          version = "1.1.0";
+          version = "1.1.1";
         };
         license = "MIT";
         copyright = "2016 IOHK";
@@ -68,7 +68,6 @@ let
             hsPkgs.split
             hsPkgs.stm
             hsPkgs.text
-            hsPkgs.text-format
             hsPkgs.time-units
             hsPkgs.transformers
             hsPkgs.universum

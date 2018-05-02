@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "dns";
-          version = "3.0.0";
+          version = "3.0.2";
         };
         license = "BSD-3-Clause";
         copyright = "";
@@ -21,42 +21,25 @@ let
       };
       components = {
         dns = {
-          depends  = (pkgs.lib.optional (compiler.isGhc && compiler.version.lt "8") hsPkgs.semigroups ++ (if compiler.isGhc && compiler.version.ge "7"
-            then [
-              hsPkgs.base
-              hsPkgs.attoparsec
-              hsPkgs.base64-bytestring
-              hsPkgs.binary
-              hsPkgs.bytestring
-              hsPkgs.bytestring-builder
-              hsPkgs.conduit
-              hsPkgs.conduit-extra
-              hsPkgs.containers
-              hsPkgs.iproute
-              hsPkgs.mtl
-              hsPkgs.network
-              hsPkgs.random
-              hsPkgs.resourcet
-              hsPkgs.safe
-            ]
-            else [
-              hsPkgs.base
-              hsPkgs.attoparsec
-              hsPkgs.base64-bytestring
-              hsPkgs.binary
-              hsPkgs.bytestring
-              hsPkgs.bytestring-builder
-              hsPkgs.conduit
-              hsPkgs.conduit-extra
-              hsPkgs.containers
-              hsPkgs.iproute
-              hsPkgs.mtl
-              hsPkgs.network
-              hsPkgs.network-bytestring
-              hsPkgs.random
-              hsPkgs.resourcet
-              hsPkgs.safe
-            ])) ++ pkgs.lib.optional system.isWindows hsPkgs.split;
+          depends  = ([
+            hsPkgs.base
+            hsPkgs.async
+            hsPkgs.auto-update
+            hsPkgs.attoparsec
+            hsPkgs.base64-bytestring
+            hsPkgs.binary
+            hsPkgs.bytestring
+            hsPkgs.conduit
+            hsPkgs.conduit-extra
+            hsPkgs.containers
+            hsPkgs.cryptonite
+            hsPkgs.iproute
+            hsPkgs.mtl
+            hsPkgs.network
+            hsPkgs.psqueues
+            hsPkgs.safe
+            hsPkgs.time
+          ] ++ pkgs.lib.optional (compiler.isGhc && compiler.version.lt "8") hsPkgs.semigroups) ++ pkgs.lib.optional system.isWindows hsPkgs.split;
           libs = pkgs.lib.optional system.isWindows pkgs.iphlpapi;
         };
         tests = {
@@ -65,29 +48,17 @@ let
               hsPkgs.dns
               hsPkgs.base
               hsPkgs.bytestring
-              hsPkgs.bytestring-builder
               hsPkgs.hspec
             ];
           };
           spec = {
             depends  = [
-              hsPkgs.base
-              hsPkgs.attoparsec
-              hsPkgs.binary
-              hsPkgs.bytestring
-              hsPkgs.bytestring-builder
-              hsPkgs.conduit
-              hsPkgs.conduit-extra
-              hsPkgs.containers
               hsPkgs.dns
+              hsPkgs.QuickCheck
+              hsPkgs.base
+              hsPkgs.bytestring
               hsPkgs.hspec
               hsPkgs.iproute
-              hsPkgs.mtl
-              hsPkgs.network
-              hsPkgs.QuickCheck
-              hsPkgs.random
-              hsPkgs.resourcet
-              hsPkgs.safe
               hsPkgs.word8
             ];
           };
@@ -102,7 +73,7 @@ let
     } // {
       src = pkgs.fetchgit {
         url = "https://github.com/kazu-yamamoto/dns.git";
-        rev = "b106470f0a93672af22cbc7ed6564b53c0f249ed";
+        rev = "18ebc30692c71f27746a9faf06c6fc78e19bbe7b";
         sha256 = null;
       };
     }

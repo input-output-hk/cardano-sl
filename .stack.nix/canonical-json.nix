@@ -32,8 +32,8 @@ let
       };
     } // {
       src = pkgs.fetchgit {
-        url = "https://github.com/well-typed/canonical-json.git";
-        rev = "2d261bb971bada1893753b503452d9e6e217bc4a";
+        url = "https://github.com/angerman/canonical-json.git";
+        rev = "37f8140af7b72c794c6293193433fd6dfab7b023";
         sha256 = null;
       };
     }

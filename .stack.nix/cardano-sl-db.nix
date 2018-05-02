@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-db";
-          version = "1.1.0";
+          version = "1.1.1";
         };
         license = "MIT";
         copyright = "2016 IOHK";
@@ -42,7 +42,6 @@ let
             hsPkgs.resourcet
             hsPkgs.rocksdb-haskell-ng
             hsPkgs.serokell-util
-            hsPkgs.text-format
             hsPkgs.transformers
             hsPkgs.universum
           ];

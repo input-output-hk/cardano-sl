@@ -9,7 +9,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-wallet";
-          version = "1.1.0";
+          version = "1.1.1";
         };
         license = "MIT";
         copyright = "2017 IOHK";
@@ -78,7 +78,6 @@ let
             hsPkgs.swagger2
             hsPkgs.text
             hsPkgs.text
-            hsPkgs.text-format
             hsPkgs.time
             hsPkgs.time-units
             hsPkgs.transformers
@@ -121,13 +120,14 @@ let
               hsPkgs.hspec
               hsPkgs.lens
               hsPkgs.log-warper
-              hsPkgs.MonadRandom
               hsPkgs.mtl
+              hsPkgs.safecopy
+              hsPkgs.safe-exceptions
               hsPkgs.serokell-util
+              hsPkgs.servant-server
               hsPkgs.stm
-              hsPkgs.unordered-containers
-              hsPkgs.text-format
               hsPkgs.universum
+              hsPkgs.unordered-containers
             ];
             build-tools = [ hsPkgs.cpphs ];
           };

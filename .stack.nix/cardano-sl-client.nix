@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-client";
-          version = "1.1.0";
+          version = "1.1.1";
         };
         license = "MIT";
         copyright = "2017 IOHK";
@@ -42,7 +42,6 @@ let
             hsPkgs.safe-exceptions
             hsPkgs.serokell-util
             hsPkgs.stm
-            hsPkgs.text-format
             hsPkgs.transformers
             hsPkgs.universum
             hsPkgs.unordered-containers

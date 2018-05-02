@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-crypto";
-          version = "1.1.0";
+          version = "1.1.1";
         };
         license = "MIT";
         copyright = "2016 IOHK";
@@ -22,9 +22,7 @@ let
       components = {
         cardano-sl-crypto = {
           depends  = [
-            hsPkgs.QuickCheck
             hsPkgs.aeson
-            hsPkgs.autoexporter
             hsPkgs.base
             hsPkgs.binary
             hsPkgs.bytestring
@@ -49,7 +47,6 @@ let
             hsPkgs.scrypt
             hsPkgs.serokell-util
             hsPkgs.text
-            hsPkgs.text-format
             hsPkgs.universum
             hsPkgs.unordered-containers
           ];

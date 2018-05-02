@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-delegation";
-          version = "1.1.0";
+          version = "1.1.1";
         };
         license = "MIT";
         copyright = "2017 IOHK";
@@ -24,6 +24,7 @@ let
           depends  = [
             hsPkgs.QuickCheck
             hsPkgs.aeson
+            hsPkgs.aeson-options
             hsPkgs.base
             hsPkgs.cardano-sl-binary
             hsPkgs.cardano-sl-core
@@ -47,7 +48,6 @@ let
             hsPkgs.safe-exceptions
             hsPkgs.rocksdb-haskell-ng
             hsPkgs.serokell-util
-            hsPkgs.text-format
             hsPkgs.time
             hsPkgs.time-units
             hsPkgs.transformers

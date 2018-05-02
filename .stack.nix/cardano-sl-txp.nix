@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-txp";
-          version = "1.1.0";
+          version = "1.1.1";
         };
         license = "MIT";
         copyright = "2016 IOHK";
@@ -24,11 +24,13 @@ let
           depends  = [
             hsPkgs.QuickCheck
             hsPkgs.aeson
+            hsPkgs.aeson-options
             hsPkgs.base
             hsPkgs.bytestring
             hsPkgs.cardano-sl-binary
             hsPkgs.cardano-sl-core
             hsPkgs.cardano-sl-crypto
+            hsPkgs.cardano-sl-crypto-test
             hsPkgs.cardano-sl-db
             hsPkgs.cardano-sl-infra
             hsPkgs.cardano-sl-networking
@@ -60,7 +62,6 @@ let
             hsPkgs.tagged
             hsPkgs.template-haskell
             hsPkgs.text
-            hsPkgs.text-format
             hsPkgs.transformers
             hsPkgs.universum
             hsPkgs.unliftio

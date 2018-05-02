@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl";
-          version = "1.1.0";
+          version = "1.1.1";
         };
         license = "MIT";
         copyright = "2016 IOHK";
@@ -27,6 +27,7 @@ let
             hsPkgs.acid-state
             hsPkgs.async
             hsPkgs.aeson
+            hsPkgs.aeson-options
             hsPkgs.async
             hsPkgs.ansi-terminal
             hsPkgs.ansi-wl-pprint
@@ -37,6 +38,7 @@ let
             hsPkgs.cardano-sl-block
             hsPkgs.cardano-sl-core
             hsPkgs.cardano-sl-crypto
+            hsPkgs.cardano-sl-crypto-test
             hsPkgs.cardano-sl-db
             hsPkgs.cardano-sl-delegation
             hsPkgs.cardano-sl-infra
@@ -88,7 +90,6 @@ let
             hsPkgs.tagged
             hsPkgs.template-haskell
             hsPkgs.text
-            hsPkgs.text-format
             hsPkgs.time
             hsPkgs.time-units
             hsPkgs.transformers
@@ -123,6 +124,7 @@ let
               hsPkgs.cardano-sl-block
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-crypto
+              hsPkgs.cardano-sl-crypto-test
               hsPkgs.cardano-sl-db
               hsPkgs.cardano-sl-delegation
               hsPkgs.cardano-sl-infra
@@ -153,7 +155,6 @@ let
               hsPkgs.serokell-util
               hsPkgs.tagged
               hsPkgs.text
-              hsPkgs.text-format
               hsPkgs.time-units
               hsPkgs.universum
               hsPkgs.unordered-containers

@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-block";
-          version = "1.1.0";
+          version = "1.1.1";
         };
         license = "MIT";
         copyright = "2017 IOHK";
@@ -24,6 +24,7 @@ let
           depends  = [
             hsPkgs.QuickCheck
             hsPkgs.aeson
+            hsPkgs.aeson-options
             hsPkgs.base
             hsPkgs.bytestring
             hsPkgs.cardano-sl-binary
@@ -60,7 +61,6 @@ let
             hsPkgs.serokell-util
             hsPkgs.stm
             hsPkgs.text
-            hsPkgs.text-format
             hsPkgs.time-units
             hsPkgs.transformers
             hsPkgs.universum

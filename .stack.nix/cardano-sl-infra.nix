@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-infra";
-          version = "1.1.0";
+          version = "1.1.1";
         };
         license = "MIT";
         copyright = "2016 IOHK";
@@ -23,6 +23,7 @@ let
         cardano-sl-infra = {
           depends  = [
             hsPkgs.aeson
+            hsPkgs.aeson-options
             hsPkgs.async
             hsPkgs.base
             hsPkgs.parsec
@@ -35,6 +36,7 @@ let
             hsPkgs.cardano-sl-networking
             hsPkgs.cardano-sl-util
             hsPkgs.cardano-report-server
+            hsPkgs.conduit
             hsPkgs.containers
             hsPkgs.directory
             hsPkgs.dns
@@ -46,7 +48,7 @@ let
             hsPkgs.filepath
             hsPkgs.formatting
             hsPkgs.generic-arbitrary
-            hsPkgs.lzma
+            hsPkgs.lzma-conduit
             hsPkgs.hashable
             hsPkgs.http-client
             hsPkgs.http-client-tls
@@ -69,7 +71,6 @@ let
             hsPkgs.template-haskell
             hsPkgs.tar
             hsPkgs.text
-            hsPkgs.text-format
             hsPkgs.time
             hsPkgs.time-units
             hsPkgs.transformers

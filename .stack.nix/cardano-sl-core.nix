@@ -9,7 +9,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-core";
-          version = "1.1.0";
+          version = "1.1.1";
         };
         license = "MIT";
         copyright = "2016 IOHK";
@@ -25,8 +25,8 @@ let
         cardano-sl-core = {
           depends  = [
             hsPkgs.aeson
+            hsPkgs.aeson-options
             hsPkgs.ansi-terminal
-            hsPkgs.autoexporter
             hsPkgs.base
             hsPkgs.base58-bytestring
             hsPkgs.binary
@@ -35,6 +35,7 @@ let
             hsPkgs.canonical-json
             hsPkgs.cardano-sl-binary
             hsPkgs.cardano-sl-crypto
+            hsPkgs.cardano-sl-crypto-test
             hsPkgs.cardano-sl-networking
             hsPkgs.cardano-sl-util
             hsPkgs.cborg
@@ -62,7 +63,6 @@ let
             hsPkgs.serokell-util
             hsPkgs.template-haskell
             hsPkgs.text
-            hsPkgs.text-format
             hsPkgs.th-lift-instances
             hsPkgs.time
             hsPkgs.time-units
@@ -72,6 +72,48 @@ let
             hsPkgs.QuickCheck
           ];
           build-tools = [ hsPkgs.cpphs ];
+        };
+        tests = {
+          test = {
+            depends  = [
+              hsPkgs.MonadRandom
+              hsPkgs.QuickCheck
+              hsPkgs.base
+              hsPkgs.bytestring
+              hsPkgs.canonical-json
+              hsPkgs.cardano-sl-binary
+              hsPkgs.cardano-sl-core
+              hsPkgs.cardano-sl-crypto
+              hsPkgs.cardano-sl-util
+              hsPkgs.cborg
+              hsPkgs.cereal
+              hsPkgs.containers
+              hsPkgs.cryptonite
+              hsPkgs.data-default
+              hsPkgs.extra
+              hsPkgs.filelock
+              hsPkgs.fmt
+              hsPkgs.formatting
+              hsPkgs.generic-arbitrary
+              hsPkgs.half
+              hsPkgs.hspec
+              hsPkgs.lens
+              hsPkgs.mtl
+              hsPkgs.pvss
+              hsPkgs.random
+              hsPkgs.reflection
+              hsPkgs.safecopy
+              hsPkgs.serokell-util
+              hsPkgs.tagged
+              hsPkgs.text
+              hsPkgs.text-format
+              hsPkgs.time-units
+              hsPkgs.universum
+              hsPkgs.unordered-containers
+              hsPkgs.vector
+            ];
+            build-tools = [ hsPkgs.cpphs ];
+          };
         };
       };
     } // rec { src = ../core; }

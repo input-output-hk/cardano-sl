@@ -9,7 +9,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-tools";
-          version = "1.1.0";
+          version = "1.1.1";
         };
         license = "MIT";
         copyright = "2016 IOHK";
@@ -22,6 +22,22 @@ let
         buildType = "Simple";
       };
       components = {
+        cardano-sl-tools = {
+          depends  = [
+            hsPkgs.aeson
+            hsPkgs.base
+            hsPkgs.bytestring
+            hsPkgs.conduit
+            hsPkgs.containers
+            hsPkgs.directory
+            hsPkgs.filepath
+            hsPkgs.parsers
+            hsPkgs.text
+            hsPkgs.trifecta
+            hsPkgs.universum
+            hsPkgs.yaml
+          ];
+        };
         exes = {
           dbgen = {
             depends  = pkgs.lib.optionals (!_flags.for-installer) [
@@ -33,6 +49,7 @@ let
               hsPkgs.containers
               hsPkgs.cryptonite
               hsPkgs.serokell-util
+              hsPkgs.stm
               hsPkgs.text
               hsPkgs.time
               hsPkgs.time-units
@@ -153,6 +170,7 @@ let
           cardano-launcher = {
             depends  = [
               hsPkgs.aeson
+              hsPkgs.aeson-options
               hsPkgs.ansi-wl-pprint
               hsPkgs.async
               hsPkgs.base
@@ -163,8 +181,11 @@ let
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-db
               hsPkgs.cardano-sl-infra
+              hsPkgs.cardano-sl-tools
               hsPkgs.cardano-sl-update
               hsPkgs.cardano-sl-util
+              hsPkgs.conduit
+              hsPkgs.containers
               hsPkgs.directory
               hsPkgs.filepath
               hsPkgs.formatting
@@ -173,12 +194,14 @@ let
               hsPkgs.log-warper
               hsPkgs.neat-interpolation
               hsPkgs.optparse-applicative
+              hsPkgs.parsers
               hsPkgs.process
               hsPkgs.safe-exceptions
               hsPkgs.serokell-util
               hsPkgs.silently
               hsPkgs.text
               hsPkgs.time-units
+              hsPkgs.trifecta
               hsPkgs.universum
               hsPkgs.unordered-containers
               hsPkgs.yaml
@@ -270,6 +293,27 @@ let
               hsPkgs.tabl
               hsPkgs.text
               hsPkgs.universum
+            ];
+            build-tools = [ hsPkgs.cpphs ];
+          };
+        };
+        tests = {
+          cardano-sl-tools-test = {
+            depends  = [
+              hsPkgs.QuickCheck
+              hsPkgs.aeson
+              hsPkgs.base
+              hsPkgs.cardano-sl-tools
+              hsPkgs.directory
+              hsPkgs.filepath
+              hsPkgs.hspec
+              hsPkgs.hspec-discover
+              hsPkgs.parsers
+              hsPkgs.temporary
+              hsPkgs.text
+              hsPkgs.trifecta
+              hsPkgs.universum
+              hsPkgs.yaml
             ];
             build-tools = [ hsPkgs.cpphs ];
           };

@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-explorer";
-          version = "1.1.0";
+          version = "1.1.1";
         };
         license = "MIT";
         copyright = "2017 IOHK";
@@ -45,7 +45,6 @@ let
             hsPkgs.servant-generic
             hsPkgs.stm
             hsPkgs.text
-            hsPkgs.text-format
             hsPkgs.time
             hsPkgs.time-units
             hsPkgs.transformers
@@ -177,7 +176,6 @@ let
               hsPkgs.criterion
               hsPkgs.data-default
               hsPkgs.lens
-              hsPkgs.text-format
               hsPkgs.universum
               hsPkgs.weigh
             ];

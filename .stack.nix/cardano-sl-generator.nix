@@ -7,7 +7,7 @@ let
         specVersion = "1.10";
         identifier = {
           name = "cardano-sl-generator";
-          version = "1.1.0";
+          version = "1.1.1";
         };
         license = "MIT";
         copyright = "2017 IOHK";
@@ -53,7 +53,6 @@ let
             hsPkgs.safe-exceptions
             hsPkgs.serokell-util
             hsPkgs.text
-            hsPkgs.text-format
             hsPkgs.time-units
             hsPkgs.transformers-base
             hsPkgs.universum

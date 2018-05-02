@@ -42,7 +42,7 @@ dnsSubscriptionWorker
     -> TVar (Map NodeId SubscriptionStatus)
     -> SendActions m
     -> m ()
-dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDuration subStatus sendActions = do
+dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer slotDuration subStatus sendActions = do
     -- Shared state between the threads which do subscriptions.
     -- It's a 'Map Int (Alts NodeId)' used to determine the current
     -- peers set for our bucket 'BucketBehindNatWorker'. Each thread takes
@@ -98,7 +98,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     subscribeToOne subDuration dnsPeers = case dnsPeers of
         [] -> return ()
         (peer:peers) -> do
-            void $ subscribeTo keepaliveTimer subStatus subDuration sendActions peer
+            void $ subscribeTo keepaliveTimer slotDuration subStatus subDuration sendActions peer
             subscribeToOne subDuration peers
 
     -- Resolve a name and subscribe to the node(s) at the addresses.
@@ -153,7 +153,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     -- @5@ slots we will try to re-subscribe immediately.
     retryInterval :: Millisecond -> m Millisecond
     retryInterval d = do
-        slotDur <- nextSlotDuration
+        slotDur <- slotDuration
         let -- slot duration in microseconds
             slotDurF :: Float
             slotDurF = fromIntegral $ toMicroseconds slotDur

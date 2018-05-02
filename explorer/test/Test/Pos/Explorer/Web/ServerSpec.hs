@@ -26,6 +26,8 @@ import           Pos.Explorer.Web.Server (getBlockDifficulty, getBlocksLastPage,
                                           getEpochSlot)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (divRoundUp)
+-- Orphan mockable instances.
+import           Pos.Util.Mockable ()
 import           Test.Pos.Configuration (withDefConfigurations)
 
 

@@ -1,4 +1,5 @@
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE LambdaCase    #-}
 
 -- | Wallet unit tests
 --
@@ -13,7 +14,7 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, shown, (%))
 import           Serokell.Util (mapJson)
 import           Test.Hspec.QuickCheck
-import           Test.QuickCheck (elements, frequency, arbitrary, listOf)
+import           Test.QuickCheck (elements, frequency, arbitrary, listOf, suchThat)
 
 import qualified Pos.Block.Error as Cardano
 import           Pos.Core (HasConfiguration)
@@ -308,6 +309,16 @@ testWalletWorker = do
         srState `shouldSatisfy` (not . Actions.hasPendingFork)
         srStack `shouldBe` Stack [6,5,4,1]
 
+      it "Behaves like the simple stack model, when there is no pending fork." $ do
+        let stk0 = Stack [1..100]
+            run = (`runStackWorker` stk0)
+            doesNotResultInFork = not . Actions.hasPendingFork . srState . run
+        forAll (listOf someAction `suchThat` doesNotResultInFork) $
+          \actions -> do
+            let StackResult{..} = run actions
+                expectedStack  = execState (mapM actionToStackOp actions) stk0
+            srStack `shouldBe` expectedStack
+
   where
     runStackWorker :: [Actions.WalletAction Int] -> Stack -> StackResult
     runStackWorker actions stk0 =
@@ -350,6 +361,15 @@ interpStackOp op = modify $ \stk ->
     (Push x, Stack xs)     -> Stack (x:xs)
     (Pop,    Stack (_:xs)) -> Stack xs
     (Pop,    Stack [])     -> Stack []
+
+actionToStackOp :: Actions.WalletAction Int -> State Stack ()
+actionToStackOp = \case
+    Actions.ApplyBlocks    bs -> mapM_ push bs
+    Actions.RollbackBlocks bs -> mapM_ (const pop) bs
+    Actions.LogMessage _      -> return ()
+  where
+    push = interpStackOp . Push
+    pop  = interpStackOp Pop
 
 {-------------------------------------------------------------------------------
   Wallet resource management

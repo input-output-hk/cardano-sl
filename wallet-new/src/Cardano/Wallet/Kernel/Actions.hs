@@ -1,20 +1,24 @@
 
 module Cardano.Wallet.Kernel.Actions
-  ( WalletActions
-  , WalletAction(..)
+  ( WalletAction(..)
   , WalletActionInterp(..)
   , forkWalletWorker
   , walletWorker
   , interp
   , interpList
+  , WalletWorkerState
+  , isInitialState
+  , hasPendingFork
+  , isValidState
   ) where
 
 import           Universum
 import           Control.Concurrent.Async (async, link)
 import           Control.Concurrent.Chan
 import           Control.Lens (makeLenses, (%=), (.=), (+=), (-=), (<>=))
+import qualified Data.Text.Buildable
+import           Formatting (bprint, shown, (%))
 
-import           Pos.Block.Types
 import           Pos.Util.Chrono
 
 {-------------------------------------------------------------------------------
@@ -40,15 +44,13 @@ data WalletActionInterp m b = WalletActionInterp
   , emit :: Text -> m ()
   }
 
--- | A channel for communicating with a wallet worker.
-type WalletActions = Chan (WalletAction Blund)
-
 -- | Internal state of the wallet worker.
 data WalletWorkerState b = WalletWorkerState
   { _pendingRollbacks    :: !Int
   , _pendingBlocks       :: !(NewestFirst [] b)
   , _lengthPendingBlocks :: !Int
   }
+  deriving Eq
 
 makeLenses ''WalletWorkerState
 
@@ -126,9 +128,8 @@ walletWorker chan ops = do
   emit ops "Finishing wallet worker."
 
 -- | Connect a wallet action interpreter to a stream of actions.
-interpList :: Monad m => WalletActionInterp m b -> [WalletAction b] -> m ()
-interpList ops actions = void $
-  evalStateT (forM_ actions $ interp ops) initialWorkerState
+interpList :: Monad m => WalletActionInterp m b -> [WalletAction b] -> m (WalletWorkerState b)
+interpList ops actions = execStateT (forM_ actions $ interp ops) initialWorkerState
 
 initialWorkerState :: WalletWorkerState b
 initialWorkerState = WalletWorkerState
@@ -144,4 +145,32 @@ forkWalletWorker ops = liftIO $ do
   c <- newChan
   link =<< async (walletWorker c ops)
   return (liftIO . writeChan c)
-             
+
+-- | Check if this is the initial worker state.
+isInitialState :: Eq b => WalletWorkerState b -> Bool
+isInitialState = (== initialWorkerState)
+
+-- | Check that the state invariants all hold.
+isValidState :: WalletWorkerState b -> Bool
+isValidState WalletWorkerState{..} =
+    _pendingRollbacks >= 0 &&
+    length (_pendingBlocks) == _lengthPendingBlocks &&
+    (_lengthPendingBlocks > 0) `implies` (_pendingRollbacks > 0)
+  where
+    p `implies` q = p || not q
+
+-- | Check if this state represents a pending fork.
+hasPendingFork :: WalletWorkerState b -> Bool
+hasPendingFork WalletWorkerState{..} = _pendingRollbacks /= 0
+
+instance Show b => Buildable (WalletWorkerState b) where
+  build WalletWorkerState{..} = bprint
+    ( "WalletWorkerState "
+    % "{ _pendingRollbacks:    " % shown
+    % ", _pendingBlocks:       " % shown
+    % ", _lengthPendingBlocks: " % shown
+    % " }"
+    )
+    _pendingRollbacks
+    _pendingBlocks
+    _lengthPendingBlocks

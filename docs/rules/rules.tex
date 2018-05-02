@@ -850,6 +850,9 @@ Rules to add a block $b$ to the blockchain:
   $b_n$ is the predecessor of $b$.
 \item[Validity] $b₁,…,b_n,b$ must be a valid chain, let $\mathfrak{T}'
   = \mathfrak{T}∪\{b₁,…,b_n,b\}$
+\item[Young fork] Let $b₁,…,b_i$ the longest prefix of $b₁,…,b_n$
+  which is also a prefix of $\mathfrak{C}$. We must have
+  $\length{\mathfrak{C}} - i ⩽ k$.
 \item[Longest chain] if $\height{b₁,…,b_n,b} > \height{C}$ (note:
   larger \emph{and not equal}) then let $\mathfrak{C}'=b₁,…,b_n,b$
   else let $\mathfrak{C}'=\mathfrak{C}$.

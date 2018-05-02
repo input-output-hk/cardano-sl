@@ -716,12 +716,14 @@ first component (and actually: if the frequency of each $p$ in $u_n$
 is the same, then the same property also holds of $f$).
 
 \section{Extending the blockchain}
+\label{sec:extending-blockchain}
 
 \info{In this section we will specify the rules used by a slot-leader
   to create a new block. The state is a single chain, plus outstanding
   transactions.}
 
 \section{Entering the mempool}
+\label{sec:entering-mempool}
 
 \info{In this section we want to specify how individual transactions
   are added to or rejected from the mempool. Might have to be moved
@@ -835,6 +837,34 @@ more composable, and make specification better. It is therefore
 recommanded, for future specification document to make as many rules
 as possible into data validation.
 
+\subsection{Of forward compatibility}
+\label{sec:forward-comp}
+
+The different sections of this document have varying importance as far
+as compatibility is concerned. Any change to the specification must
+ensure one prime criterion: blocks which are currently stable
+(\emph{i.e.} there is at least one node which has the block at depth
+$k$), must be valid in the new specification.
+
+This means, in particular, that the rules to validate incoming blocks
+(Section~\ref{sec:adding-block}) must be understood scrupulously and
+any evolution of the specification must make sure that any additional
+criterion only affects later blocks.
+
+At the other hand of the spectrum are the rules for the mempool and
+the issuance of new blocks (Sections~\ref{sec:entering-mempool}
+and~\ref{sec:extending-blockchain}) can be changed arbitrarily, as far
+as compatibility is concerned: their state is completely transient,
+and it won't affect how existing blocks are seen.
+
+For example, it is, at the time of writing, the case that a node
+willing to issue a test must list the entirety of transactions in this
+mempool the block. As it happens, when the mempool is large, it has
+proved occasionally to hard a task to perform within the 20s that
+comprise a slot. It would have no effect on compatibility to allow any
+sort of subset of the mempool to be selected to be part a newly issued
+block.
+
 \subsection{Lightweight delegation}
 \label{sec:lightweight-delegation}
 
@@ -875,4 +905,4 @@ explicitly.
 
 \end{document}
 
-%  LocalWords:  combinator summands repartition unallocated
+%  LocalWords:  combinator summands repartition unallocated mempool

@@ -278,7 +278,7 @@ testWalletWorker = do
         srState `shouldSatisfy` Actions.isInitialState
         srStack `shouldBe` Stack [1..10]
 
-      it "State invariants are not violated." $ forAll (listOf someAction) $
+      it "State invariants are not violated" $ forAll (listOf someAction) $
         \actions -> Actions.isValidState (srState $ runStackWorker actions $ Stack [1..5])
  
       it "Applies blocks immediately from its initial state" $ do
@@ -309,7 +309,7 @@ testWalletWorker = do
         srState `shouldSatisfy` (not . Actions.hasPendingFork)
         srStack `shouldBe` Stack [6,5,4,1]
 
-      it "Behaves like the simple stack model, when there is no pending fork." $ do
+      it "Behaves like the simple stack model, when there is no pending fork" $ do
         let stk0 = Stack [1..100]
             run = (`runStackWorker` stk0)
             doesNotResultInFork = not . Actions.hasPendingFork . srState . run
@@ -325,6 +325,7 @@ testWalletWorker = do
       let (s, stk) = runState (Actions.interpList stackOps actions) stk0
       in StackResult { srState = s, srStack = stk }
 
+    -- Bias the actions slightly towards increasing the blockchain size
     someAction :: Gen (Actions.WalletAction Int)
     someAction = frequency [ (10, (Actions.ApplyBlocks . OldestFirst)    <$> arbitrary)
                            , (7,  (Actions.RollbackBlocks . NewestFirst) <$> arbitrary)
@@ -350,17 +351,17 @@ stackOps = Actions.WalletActionInterp
     
 data StackOp = Push Int | Pop
 newtype Stack = Stack [Int]
-  deriving (Eq, Show)
+    deriving (Eq, Show)
 
 instance Buildable Stack where
-  build (Stack stk) = bprint ("Stack " % shown) stk
+    build (Stack stk) = bprint ("Stack " % shown) stk
 
 interpStackOp :: StackOp -> State Stack ()
 interpStackOp op = modify $ \stk ->
-  case (op, stk) of
-    (Push x, Stack xs)     -> Stack (x:xs)
-    (Pop,    Stack (_:xs)) -> Stack xs
-    (Pop,    Stack [])     -> Stack []
+    case (op, stk) of
+      (Push x, Stack xs)     -> Stack (x:xs)
+      (Pop,    Stack (_:xs)) -> Stack xs
+      (Pop,    Stack [])     -> Stack []
 
 actionToStackOp :: Actions.WalletAction Int -> State Stack ()
 actionToStackOp = \case

@@ -841,7 +841,9 @@ A blockchain datastructure is a pair $(\mathfrak{C},\mathfrak{T}) ∈
 We call $\mathfrak{C}$ the \emph{selected chain}. Because a typical
 height function is the length of the chain, $\mathfrak{C}$ is also
 often referred to as the longest chain (despite not necessarily being
-unique at that height).
+unique at that height).\improvement{In the current state, the block
+  chain should probably also contain the mempool, so that this section
+  can describe the refreshing rules for the mempool}
 
 Rules to add a block $b$ to the blockchain:
 

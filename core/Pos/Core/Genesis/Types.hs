@@ -55,7 +55,7 @@ import           Pos.Crypto.Signing (RedeemPublicKey)
 -- in proportion of 1:3.
 newtype GenesisWStakeholders = GenesisWStakeholders
     { getGenesisWStakeholders :: Map StakeholderId Word16
-    } deriving (Show, Eq, Monoid)
+    } deriving (Show, Eq, Semigroup, Monoid)
 
 instance Buildable GenesisWStakeholders where
     build (GenesisWStakeholders m) =
@@ -64,7 +64,7 @@ instance Buildable GenesisWStakeholders where
 -- | Predefined balances of non avvm entries.
 newtype GenesisVssCertificatesMap = GenesisVssCertificatesMap
     { getGenesisVssCertificatesMap :: VssCertificatesMap
-    } deriving (Show, Eq, Monoid)
+    } deriving (Show, Eq, Semigroup, Monoid)
 
 instance Buildable GenesisVssCertificatesMap where
     build (GenesisVssCertificatesMap m) =
@@ -180,6 +180,7 @@ instance (Hashable Address, Buildable Address) =>
     build (GenesisNonAvvmBalances m) =
         bprint ("GenesisNonAvvmBalances: " %mapJson) m
 
+deriving instance Hashable Address => Semigroup GenesisNonAvvmBalances
 deriving instance Hashable Address => Monoid GenesisNonAvvmBalances
 
 -- | 'GensisProtocolConstants' are not really part of genesis global state,

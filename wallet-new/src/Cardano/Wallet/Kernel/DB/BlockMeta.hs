@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- | Block metadata conform the wallet specification
 module Cardano.Wallet.Kernel.DB.BlockMeta (
     -- * Block metadata
@@ -29,14 +30,19 @@ data BlockMeta = BlockMeta {
 makeLenses ''BlockMeta
 deriveSafeCopy 1 'base ''BlockMeta
 
--- | Monoid instance to update 'BlockMeta' in 'applyBlock' (see wallet spec)
-instance Monoid BlockMeta where
-  mempty = BlockMeta {
-        _blockMetaSlotId = InDb Map.empty
-      }
-  a `mappend` b = BlockMeta {
+instance Semigroup BlockMeta where
+  a <> b = BlockMeta {
         _blockMetaSlotId = combineUsing (liftA2 Map.union) _blockMetaSlotId
       }
     where
       combineUsing :: (a -> a -> a) -> (BlockMeta -> a) -> a
       combineUsing op f = f a `op` f b
+
+-- | Monoid instance to update 'BlockMeta' in 'applyBlock' (see wallet spec)
+instance Monoid BlockMeta where
+  mempty = BlockMeta {
+        _blockMetaSlotId = InDb Map.empty
+      }
+#if !(MIN_VERSION_base(4,11,0))
+  mappend = (<>)
+#endif

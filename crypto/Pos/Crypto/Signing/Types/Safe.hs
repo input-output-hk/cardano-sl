@@ -45,7 +45,7 @@ instance B.Buildable EncryptedSecretKey where
     build _ = "<encrypted key>"
 
 newtype PassPhrase = PassPhrase ScrubbedBytes
-    deriving (Eq, Ord, Monoid, NFData, ByteArray, ByteArrayAccess)
+    deriving (Eq, Ord, Semigroup, Monoid, NFData, ByteArray, ByteArrayAccess)
 
 passphraseLength :: Int
 passphraseLength = 32

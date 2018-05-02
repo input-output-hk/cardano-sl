@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- | Types related to Toss.
 
 module Pos.Ssc.Toss.Types
@@ -56,9 +57,8 @@ data TossModifier = TossModifier
 
 makeLenses ''TossModifier
 
-instance Monoid TossModifier where
-    mempty = TossModifier mempty mempty mempty mempty
-    mappend (TossModifier leftComms leftOpens leftShares leftCerts)
+instance Semigroup TossModifier where
+    (TossModifier leftComms leftOpens leftShares leftCerts) <>
             (TossModifier rightComms rightOpens rightShares rightCerts) =
         TossModifier
         { _tmCommitments = rightComms <> leftComms
@@ -67,4 +67,8 @@ instance Monoid TossModifier where
         , _tmCertificates = rightCerts <> leftCerts
         }
 
-instance Semigroup TossModifier
+instance Monoid TossModifier where
+    mempty = TossModifier mempty mempty mempty mempty
+#if !MIN_VERSION_base(4,11,0)
+    mappend = (<>)
+#endif

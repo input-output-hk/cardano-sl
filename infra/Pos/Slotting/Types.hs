@@ -52,7 +52,7 @@ type NextEpochSlottingData    = EpochSlottingData
 newtype SlottingData = SlottingData
     { getSlottingDataMap :: Map EpochIndex EpochSlottingData
     -- ^ Map containing the @EpochSlottingData@ for all the (known) @Epoch@
-    } deriving (Eq, Show, Generic, Monoid)
+    } deriving (Eq, Show, Generic, Semigroup, Monoid)
 
 instance NFData SlottingData
 

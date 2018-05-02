@@ -84,7 +84,7 @@ type TxWithSpendings = (TxAux, NonEmpty TxOut)
 -- | List of addresses which are refered by at least one output of transaction
 -- which is not yet confirmed i.e. detected in block.
 newtype PendingAddresses = PendingAddresses (Set Address)
-    deriving (Show, Monoid)
+    deriving (Show, Semigroup, Monoid)
 
 instance Buildable TxWithSpendings where
     build (txAux, neTxOut) =

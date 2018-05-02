@@ -241,7 +241,7 @@ instance (MonadTrans t, PowerLift m n, Monad n) => PowerLift m (t n) where
 ----------------------------------------------------------------------------
 
 newtype MinMax a = MinMax (Smg.Option (Smg.Min a, Smg.Max a))
-    deriving (Monoid)
+    deriving (Smg.Semigroup, Monoid)
 
 _MinMax :: Iso' (MinMax a) (Maybe (a, a))
 _MinMax = coerced

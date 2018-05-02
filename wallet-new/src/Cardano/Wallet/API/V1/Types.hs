@@ -7,6 +7,7 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE CPP                        #-}
 
 -- The hlint parser fails on the `pattern` function, so we disable the
 -- language extension here.
@@ -388,9 +389,15 @@ instance ToSchema (V1 Core.Timestamp) where
 -- base16-encoded string.
 type SpendingPassword = V1 Core.PassPhrase
 
+instance Semigroup (V1 Core.PassPhrase) where
+    (V1 a) <> (V1 b) = V1 (a <> b)
+
 instance Monoid (V1 Core.PassPhrase) where
     mempty = V1 mempty
-    mappend (V1 a) (V1 b) = V1 (a `mappend` b)
+#if !MIN_VERSION_base(4,11,0)
+    mappend = (<>)
+#endif
+
 
 type WalletName = Text
 

@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE CPP          #-}
 
 -- | Wrapper for the modifier pattern which is used throughout the code.
 
@@ -39,6 +40,7 @@ import qualified Universum
 import           Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
+import           Data.Semigroup()
 import qualified Formatting.Buildable
 import           Formatting (bprint, (%))
 import           Serokell.Util (listJson, pairF)
@@ -60,14 +62,18 @@ deriving instance (Eq k, Hashable k, Arbitrary k, Arbitrary v) =>
     Arbitrary (MapModifier k v)
 
 instance (Eq k, Hashable k) =>
-         Monoid (MapModifier k v) where
-    mempty = MapModifier mempty
-    mappend m1 (MapModifier m2) = HM.foldlWithKey' step m1 m2
+         Semigroup (MapModifier k v) where
+    m1 <> (MapModifier m2) = HM.foldlWithKey' step m1 m2
       where
         step m k Nothing  = delete k m
         step m k (Just v) = insert k v m
 
-instance (Eq k, Hashable k) => Semigroup (MapModifier k v)
+instance (Eq k, Hashable k) =>
+         Monoid (MapModifier k v) where
+    mempty = MapModifier mempty
+#if !MIN_VERSION_base(4,11,0)
+    mappend = (<>)
+#endif
 
 instance (Buildable k, Buildable v) => Buildable (MapModifier k v) where
     build mm =

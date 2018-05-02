@@ -63,6 +63,9 @@ import qualified Data.Map.Strict as Map
 #if !MIN_VERSION_base(4,8,0)
 import           Data.Monoid
 #endif
+#if !MIN_VERSION_base(4,11,0)
+import           Data.Semigroup
+#endif
 import           Data.NonEmptySet (NonEmptySet)
 import qualified Data.NonEmptySet as NESet
 import           Data.Set (Set)

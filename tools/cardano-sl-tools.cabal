@@ -233,6 +233,7 @@ executable cardano-keygen
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-txp
+                     , cardano-sl-util
                      , containers
                      , cryptonite
                      , data-default

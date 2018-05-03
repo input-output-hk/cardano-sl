@@ -2423,7 +2423,7 @@ somewhat confusing, as it was never in the \texttt{Applying} state in
 in the other wallet, and reporting the transaction as \texttt{WontApply} also in
 this wallet has the benefit that both instances of the wallet will give the same
 status for this transaction.\footnote{If we wanted to extend the invariant that
-`multiple instances of the same wallet'---which we don't currently prove---to
+`multiple instances of the same wallet all eventually converge to the same state'---which we don't currently prove---to
 also include this concrete transaction status, then this is the only possible
 choice. Moreover, the property `has this transaction ever been pending' is not
 a property that we could infer when the recover a wallet's status from the block
@@ -2646,11 +2646,11 @@ fingertree\footnote{Available in Haskell as \texttt{Data.Sequence}.}
 & \in \mathsf{Schedule} = [\mathsf{Tx} \mapsto \mathbb{N}]
 \end{align*}
 %
-\emph{Parameters}
+\emph{Resubmission parameter}
 %
 \begin{align*}
   \varrho
-& \in (\mathsf{Tx} \mapsto \mathbb{N}) \times \mathsf{Schedule} \rightarrow \mathbb{P}(\mathsf{Tx}) \times \mathsf{Schedule} & \text{Resubmission}
+& \in (\mathsf{Tx} \mapsto \mathbb{N}) \times \mathsf{Schedule} \rightarrow \mathbb{P}(\mathsf{Tx}) \times \mathsf{Schedule}
 \end{align*}
 %
 \emph{State}
@@ -2745,7 +2745,7 @@ returning any change back to the wallet. The result of input selection is a
 fully formed transaction which can then be passed to $\mathsf{newPending}$. This
 is summarised more formally in \cref{fig:input_selection_sig}.
 
-\begin{figure}
+\begin{figure}[b]
 \begin{align*}
 & \mathsf{selectInputs} \in \mathsf{UTxO} \to \mathbb{P}(\mathsf{TxOut}) \to \mathsf{Maybe} ~ \mathsf{Tx} \\
 \\

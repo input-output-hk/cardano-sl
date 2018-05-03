@@ -35,7 +35,6 @@ import           Pos.Update (lastKnownBlockVersion)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
-import           Pos.Util.JsonLog.Events (JLEvent (JLTxReceived))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 import           Pos.Worker.Types (WorkerSpec)
@@ -117,6 +116,7 @@ action opts@AuxxOptions {..} command = do
                 , fdcRecoveryHeadersMessage = recoveryHeadersMessage
                 , fdcLastKnownBlockVersion = lastKnownBlockVersion
                 , fdcConvEstablishTimeout = networkConnectionTimeout
+                , fdcTrace = wlogTrace "auxx"
                 }
 
             toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
@@ -129,7 +129,10 @@ action opts@AuxxOptions {..} command = do
                 lift $ runReaderT auxxAction auxxContext
         let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-        bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
+        bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr -> do
+            let runIO = runProduction . elimRealMode nr . toRealMode
+            -- Monad here needs to be 'Production' (bracketNodeResources) so
+            -- take it to real mode and then eliminate it.
             elimRealMode nr $ toRealMode $
                 logicLayerFull (jsonLog.JLTxReceived) $ \logicLayer ->
                     bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->

@@ -4,6 +4,7 @@ module Pos.Util.Trace
     , trace
     , traceWith
     , noTrace
+    , stdoutTrace
     -- TODO put wlog tracing into its own module.
     , wlogTrace
     , Wlog.Severity (..)
@@ -11,7 +12,7 @@ module Pos.Util.Trace
 
 import           Universum hiding (trace)
 import           Data.Functor.Contravariant (Contravariant (..), Op (..))
-import           Formatting (sformat, string, stext, (%))
+import qualified Data.Text.IO as TIO
 import qualified System.Wlog as Wlog
 
 -- | Abstracts logging.
@@ -35,8 +36,11 @@ traceWith = trace
 noTrace :: Applicative m => Trace m a
 noTrace = Trace $ Op $ const (pure ())
 
+-- | 'Trace' to stdout.
+stdoutTrace :: Trace IO Text
+stdoutTrace = Trace $ Op $ TIO.putStrLn
+
 -- | A 'Trace' that uses log-warper.
-wlogTrace :: Wlog.LoggerName -> String -> Trace IO (Wlog.Severity, Text)
-wlogTrace loggerName selfName = Trace $ Op $ \(severity, txt) ->
-  let txtWithName = sformat (string%": "%stext) selfName txt
-  in  Wlog.usingLoggerName loggerName $ Wlog.logMessage severity txtWithName
+wlogTrace :: Wlog.LoggerName -> Trace IO (Wlog.Severity, Text)
+wlogTrace loggerName = Trace $ Op $ \(severity, txt) ->
+    Wlog.usingLoggerName loggerName $ Wlog.logMessage severity txt

@@ -23,6 +23,7 @@ import           JsonLog (jsonLog)
 import           Mockable (race)
 import           Mockable.Production (Production (..))
 import           System.Exit (ExitCode (..))
+import           System.Wlog (askLoggerName)
 
 import           Pos.Binary ()
 import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
@@ -38,7 +39,7 @@ import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Logic.Full (LogicWorkMode, logicLayerFull)
-import           Pos.Logic.Types (LogicLayer (..))
+import           Pos.Logic.Types (LogicLayer (..), hoistLogic)
 import           Pos.Network.Types (NetworkConfig (..), topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance ()
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgMetrics, withEkgServer)
@@ -50,6 +51,7 @@ import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog.Events (JLEvent (JLTxReceived), JsonLogConfig (..), jsonLogConfigFromHandle)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
+import           Pos.Util.Trace (wlogTrace)
 
 ----------------------------------------------------------------------------
 -- High level runners
@@ -74,7 +76,7 @@ runRealMode nr@NodeResources {..} (actionSpec, outSpecs) =
     elimRealMode nr $ runServer
         (runProduction . elimRealMode nr)
         ncNodeParams
-        (EkgNodeMetrics nrEkgStore (runProduction . elimRealMode nr))
+        (EkgNodeMetrics nrEkgStore)
         outSpecs
         actionSpec
   where
@@ -120,8 +122,7 @@ elimRealMode NodeResources {..} action = do
 -- number.
 runServer
     :: forall ctx m t .
-       ( DiffusionWorkMode m
-       , LogicWorkMode ctx m
+       ( LogicWorkMode ctx m
        , HasShutdownContext ctx
        , MonadFix m
        , HasProtocolMagic
@@ -130,8 +131,10 @@ runServer
        , HasNodeConfiguration
        )
     => (forall y . m y -> IO y)
+       -- ^ MonadIO is up in that constraint somewhere. So basically your 'm'
+       -- is a reader or IO itself.
     -> NodeParams
-    -> EkgNodeMetrics m
+    -> EkgNodeMetrics
     -> OutSpecs
     -> ActionSpec m t
     -> m t
@@ -148,12 +151,13 @@ runServer runIO NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
                     maybeWithStatsd $
                     act (diffusion diffusionLayer)
   where
-    fdconf = FullDiffusionConfiguration
+    fdconf lname = FullDiffusionConfiguration
         { fdcProtocolMagic = protocolMagic
         , fdcProtocolConstants = protocolConstants
         , fdcRecoveryHeadersMessage = recoveryHeadersMessage
         , fdcLastKnownBlockVersion = lastKnownBlockVersion
         , fdcConvEstablishTimeout = networkConnectionTimeout
+        , fdcTrace = wlogTrace (lname <> "diffusion")
         }
     exitOnShutdown action = do
         _ <- race waitForShutdown action

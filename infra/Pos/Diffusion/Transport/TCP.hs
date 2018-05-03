@@ -5,45 +5,42 @@ module Pos.Diffusion.Transport.TCP
     ( bracketTransportTCP
     ) where
 
-import           Universum
+import           Universum hiding (bracket)
 
+import           Control.Exception (bracket, throwIO)
 import           Data.Time.Units (Microsecond)
 import           Formatting (sformat, shown, (%))
-import           System.Wlog (WithLogger, logError, usingLoggerName, askLoggerName)
 
 import           Network.QDisc.Fair (fairQDisc)
-import qualified Network.Transport as NT (closeTransport)
-import           Network.Transport.Abstract (Transport)
-import           Network.Transport.Concrete (concrete)
+import qualified Network.Transport as NT
 import qualified Network.Transport.TCP as TCP
+import           Pos.Util.Trace (Trace, traceWith)
 
+-- | Bracket a TCP transport with
+--
+--   - Given connection timeout in us
+--   - Given address (possibly unaddressable)
+--   - A fair QDisc
+--   - Check the peer host against resolved host (prevents easy denial-of-service)
+--   - Do not crash the server if 'accept' fails; instead, use the given
+--     'Trace' to log the reason and continue trying to accept new connections
 bracketTransportTCP
-    :: ( MonadIO m
-       , MonadIO n
-       , MonadThrow m
-       , MonadMask m
-       , WithLogger m
-       )
-    => Microsecond
+    :: Trace IO Text
+    -> Microsecond
     -> TCP.TCPAddr
-    -> (Transport n -> m a)
-    -> m a
-bracketTransportTCP connectionTimeout tcpAddr k = bracket
-    (createTransportTCP connectionTimeout tcpAddr)
-    snd
-    (k . fst)
+    -> (NT.Transport -> IO a)
+    -> IO a
+bracketTransportTCP logTrace connectionTimeout tcpAddr k = bracket
+    (createTransportTCP logTrace connectionTimeout tcpAddr)
+    NT.closeTransport
+    k
 
 createTransportTCP
-    :: ( MonadIO n
-       , MonadIO m
-       , WithLogger m
-       , MonadThrow m
-       )
-    => Microsecond -- ^ Connection timeout
+    :: Trace IO Text -- ^ Whenever there's an error accepting a new connection.
+    -> Microsecond   -- ^ Connection timeout
     -> TCP.TCPAddr
-    -> m (Transport n, m ())
-createTransportTCP connectionTimeout addrInfo = do
-    loggerName <- askLoggerName
+    -> IO NT.Transport
+createTransportTCP logTrace connectionTimeout addrInfo = do
     let tcpParams =
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
@@ -54,12 +51,6 @@ createTransportTCP connectionTimeout addrInfo = do
              -- of service attack.
              , TCP.tcpCheckPeerHost = True
              , TCP.tcpServerExceptionHandler = \e ->
-                     usingLoggerName (loggerName <> "transport") $
-                         logError $ sformat ("Exception in tcp server: " % shown) e
+                   traceWith logTrace (sformat ("Exception in tcp server: " % shown) e)
              })
-    transportE <- liftIO $ TCP.createTransport addrInfo tcpParams
-    case transportE of
-        Left e -> do
-            logError $ sformat ("Error creating TCP transport: " % shown) e
-            throwM e
-        Right transport -> return (concrete transport, liftIO $ NT.closeTransport transport)
+    TCP.createTransport addrInfo tcpParams >>= either throwIO pure

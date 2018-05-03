@@ -3,13 +3,15 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 -- | Sqlite database for the 'TxMeta' portion of the wallet kernel.
 module Cardano.Wallet.Kernel.DB.Sqlite (
+
+    -- * Resource acquisition
       openMetaDB
+    , closeMetaDB
     , MetaDBHandle
+
+    -- * Basic API
     , putTxMeta
     , getTxMeta
-
-    -- * Internal details, testing only
-    , createMetaDB
     ) where
 
 import           Universum
@@ -27,12 +29,13 @@ import qualified Database.SQLite.Simple as Sqlite
 import           Database.SQLite.Simple.FromField (FromField (..), returnError)
 
 import           Data.Time.Units (fromMicroseconds, toMicroseconds)
-import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..), Migration, boolean,
-                                        createTable, field, notNull, unique)
+import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..), Migration,
+                                        MigrationSteps, boolean, createTable, evaluateDatabase,
+                                        field, migrationStep, notNull, unCheckDatabase, unique)
 import           Formatting (sformat)
 import           GHC.Generics (Generic)
 
-import qualified Cardano.Wallet.Kernel.DB.TxMeta as Kernel
+import qualified Cardano.Wallet.Kernel.DB.TxMeta.Types as Kernel
 import qualified Pos.Core as Core
 import           Pos.Crypto.Hashing (decodeAbstractHash, hashHexF)
 
@@ -224,7 +227,7 @@ instance FromBackendRow Sqlite Core.Address
 -- | Creates new 'DatabaseSettings' for the 'MetaDB', locking the backend to
 -- be 'Sqlite'.
 metaDB :: DatabaseSettings Sqlite MetaDB
-metaDB = Beam.defaultDbSettings
+metaDB = unCheckDatabase (evaluateDatabase migrateMetaDB)
 
 -- | 'DataType' declaration to convince @Beam@ treating 'Core.Address'(es) as
 -- varchars of arbitrary length.
@@ -247,8 +250,8 @@ coin :: DataType SqliteDataTypeSyntax Core.Coin
 coin = DataType intType
 
 -- | Beam's 'Migration' to create a new 'MetaDB' Sqlite database.
-createMetaDB :: Migration SqliteCommandSyntax (CheckedDatabaseSettings Sqlite MetaDB)
-createMetaDB = do
+initialMigration :: () -> Migration SqliteCommandSyntax (CheckedDatabaseSettings Sqlite MetaDB)
+initialMigration () = do
     MetaDB <$> createTable "tx_metas"
                  (TxMeta (field "meta_id" txId notNull unique)
                          (field "meta_amount" coin notNull)
@@ -266,10 +269,18 @@ createMetaDB = do
                                                     (TxIdPrimKey (field "meta_id" txId notNull unique))
                            ))
 
+migrateMetaDB :: MigrationSteps SqliteCommandSyntax () (CheckedDatabaseSettings Sqlite MetaDB)
+migrateMetaDB = migrationStep "Initial migration" initialMigration
+
 -- | Opens a new 'Connection' to the @Sqlite@ database identified by the
 -- input 'FilePath'.
 openMetaDB :: FilePath -> IO MetaDBHandle
 openMetaDB fp = MetaDBHandle <$> Sqlite.open fp
+
+-- | Closes an open 'Connection' to the @Sqlite@ database stored in the
+-- input 'MetaDBHandle'.
+closeMetaDB :: MetaDBHandle -> IO ()
+closeMetaDB hdl = Sqlite.close (_mDbHandleConnection hdl)
 
 -- | Inserts a new 'Kernel.TxMeta' in the database, given its opaque
 -- 'MetaDBHandle'.

@@ -51,7 +51,7 @@ import           Pos.Crypto (EncryptedSecretKey, hash)
 import           Pos.Txp (Utxo)
 import           Pos.Util.Chrono (NE, OldestFirst)
 
-import           Cardano.Wallet.Orphans ()
+-- import           Cardano.Wallet.Orphans ()
 
 {-------------------------------------------------------------------------------
   Wallet with State

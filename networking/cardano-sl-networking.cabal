@@ -64,12 +64,12 @@ Library
                       , async
                       , attoparsec
                       , base
+                      , cardano-sl-util
                       , containers
                       , contravariant
                       , cryptonite
                       , binary >= 0.8
                       , bytestring
-                      , data-default
                       , exceptions
                       , formatting
                       , hashable

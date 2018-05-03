@@ -117,7 +117,7 @@ retrievalWorkerImpl diffusion = do
         logDebug $ "handleContinues: " <> pretty hHash
         classifyNewHeader header >>= \case
             CHContinues ->
-                void $ getProcessBlocks diffusion nodeId header [hHash]
+                void $ getProcessBlocks diffusion nodeId (headerHash header) [hHash]
             res -> logDebug $
                 "processContHeader: expected header to " <>
                 "be continuation, but it's " <> show res
@@ -173,7 +173,7 @@ retrievalWorkerImpl diffusion = do
                                         "already present in db"
         logDebug "handleRecovery: fetching blocks"
         checkpoints <- toList <$> getHeadersOlderExp Nothing
-        void $ getProcessBlocks diffusion nodeId rHeader checkpoints
+        void $ getProcessBlocks diffusion nodeId (headerHash rHeader) checkpoints
 
 ----------------------------------------------------------------------------
 -- Entering and exiting recovery mode
@@ -282,7 +282,7 @@ getProcessBlocks
        (BlockWorkMode ctx m)
     => Diffusion m
     -> NodeId
-    -> BlockHeader
+    -> HeaderHash
     -> [HeaderHash]
     -> m ()
 getProcessBlocks diffusion nodeId desired checkpoints = do
@@ -291,7 +291,7 @@ getProcessBlocks diffusion nodeId desired checkpoints = do
       Nothing -> do
           let msg = sformat ("getProcessBlocks: diffusion returned []"%
                              " on request to fetch "%shortHashF%" from peer "%build)
-                            (headerHash desired) nodeId
+                            desired nodeId
           throwM $ DialogUnexpected msg
       Just (blocks :: OldestFirst NE Block) -> do
           recHeaderVar <- view (lensOf @RecoveryHeaderTag)

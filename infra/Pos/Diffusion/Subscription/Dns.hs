@@ -23,26 +23,26 @@ import           Pos.Communication.Protocol (SendActions)
 import           Pos.Diffusion.Types (SubscriptionStatus (..))
 import           Pos.Diffusion.Subscription.Common
 import           Pos.Network.DnsDomains (NodeAddr)
-import           Pos.Network.Types (Bucket (..), DnsDomains (..), NetworkConfig (..), NodeId (..),
+import           Pos.Network.Types (Bucket (..), DnsDomains (..), NodeId (..),
                                     NodeType (..), resolveDnsDomains)
 import           Pos.Util.Timer (Timer)
 
 dnsSubscriptionWorker
-    :: forall pack kademlia m.
+    :: forall pack m.
      ( SubscriptionMode m
      , Mockable Delay m
      , Mockable SharedAtomic m
      , Mockable Concurrently m
      )
     => OQ.OutboundQ pack NodeId Bucket
-    -> NetworkConfig kademlia
+    -> Word16 -- ^ Default port to use for addresses resolved from DNS domains.
     -> DnsDomains DNS.Domain
     -> Timer
     -> m Millisecond
     -> TVar (Map NodeId SubscriptionStatus)
     -> SendActions m
     -> m ()
-dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDuration subStatus sendActions = do
+dnsSubscriptionWorker oq defaultPort DnsDomains{..} keepaliveTimer slotDuration subStatus sendActions = do
     -- Shared state between the threads which do subscriptions.
     -- It's a 'Map Int (Alts NodeId)' used to determine the current
     -- peers set for our bucket 'BucketBehindNatWorker'. Each thread takes
@@ -98,7 +98,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     subscribeToOne subDuration dnsPeers = case dnsPeers of
         [] -> return ()
         (peer:peers) -> do
-            void $ subscribeTo keepaliveTimer subStatus subDuration sendActions peer
+            void $ subscribeTo keepaliveTimer slotDuration subStatus subDuration sendActions peer
             subscribeToOne subDuration peers
 
     -- Resolve a name and subscribe to the node(s) at the addresses.
@@ -134,7 +134,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     -- are adjacent.
     findDnsPeers :: Int -> Alts (NodeAddr DNS.Domain) -> m (Alts NodeId)
     findDnsPeers index alts = do
-        mNodeIds <- liftIO $ resolveDnsDomains networkCfg alts
+        mNodeIds <- liftIO $ resolveDnsDomains defaultPort alts
         let (errs, nids_) = partitionEithers mNodeIds
             nids = mconcat nids_
         when (null nids)       $ logError (msgNoRelays index)
@@ -153,7 +153,7 @@ dnsSubscriptionWorker oq networkCfg DnsDomains{..} keepaliveTimer nextSlotDurati
     -- @5@ slots we will try to re-subscribe immediately.
     retryInterval :: Millisecond -> m Millisecond
     retryInterval d = do
-        slotDur <- nextSlotDuration
+        slotDur <- slotDuration
         let -- slot duration in microseconds
             slotDurF :: Float
             slotDurF = fromIntegral $ toMicroseconds slotDur

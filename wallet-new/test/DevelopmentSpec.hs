@@ -12,7 +12,7 @@
 {-# LANGUAGE UndecidableInstances       #-}
 
 -- Spec for testing `development` endpoints
-module DevelopmentSpec where
+module DevelopmentSpec (spec) where
 
 import           Universum
 

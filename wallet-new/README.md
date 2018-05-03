@@ -216,3 +216,19 @@ using environment variables as follows:
 ```
 LANG=en_GB.UTF-8 LC_ALL=en_GB.UTF-8 stack exec -- ...
 ```
+
+##### API returns `415  Unsupported Media Type`
+
+The wallet's API can be quite picky about media-types and expect both a given type and an
+associated charset. You'll likely get this error when
+
+- The request doesn't provide any `Content-Type` or `Accept` header
+- The base mime-type isn't `application/json`
+- The associated charset is missing or different from `utf-8`
+
+To fix, make sure to provide both a `Content-Type` and `Accept` headers with the following
+value:
+
+```
+application/json;charset=utf-8
+```

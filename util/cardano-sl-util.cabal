@@ -37,11 +37,12 @@ library
                        Pos.Util.Limits
                        Pos.Util.LRU
                        Pos.Util.Modifier
-                       Pos.Util.OptParse
                        Pos.Util.Orphans
+                       Pos.Util.OptParse
                        Pos.Util.Queue
                        Pos.Util.Some
                        Pos.Util.Timer
+                       Pos.Util.Trace
                        Pos.Util.Util
 
   other-modules:
@@ -52,11 +53,11 @@ library
                      , binary
                      , bytestring
                      , cardano-sl-binary
-                     , cardano-sl-networking
                      , cborg
                      , cereal
                      , containers
                      , concurrent-extra
+                     , contravariant
                      , cryptonite
                      , data-default
                      , deepseq
@@ -71,7 +72,6 @@ library
                      , log-warper >= 1.0.3
                      , lrucache
                      , megaparsec
-                     , mmorph
                      , mtl
                      , optparse-applicative
                      , parsec
@@ -133,7 +133,7 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-test-suite cardano-test
+test-suite test
   main-is:             test.hs
   hs-source-dirs:      test
   default-language:    Haskell2010
@@ -143,41 +143,22 @@ test-suite cardano-test
                        Spec
                        Test.Pos.Util.LimitsSpec
                        Test.Pos.Util.ModifierSpec
+                       Test.Pos.Util.TimerSpec
                        Test.Pos.UtilSpec
 
-  build-depends:       MonadRandom
-                     , QuickCheck
-                     , base
-                     , bytestring
-                     , canonical-json
+  build-depends:       base
+                     , async
                      , cardano-sl-binary
                      , cardano-sl-util
-                     , cborg
-                     , cereal
-                     , containers
-                     , cryptonite
-                     , data-default
-                     , extra
-                     , filelock
-                     , fmt
-                     , formatting
-                     , generic-arbitrary
-                     , half
                      , hspec
-                     , lens
-                     , mtl
-                     , pvss
-                     , random
-                     , reflection
-                     , safecopy
+                     , QuickCheck
                      , serokell-util >= 0.1.3.4
-                     , tagged
+                     , stm
                      , text
-                     , text-format
+                     , time
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers
-                     , vector
 
   ghc-options:         -threaded
                        -rtsopts
@@ -216,4 +197,3 @@ test-suite cardano-test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-

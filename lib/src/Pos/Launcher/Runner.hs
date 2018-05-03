@@ -28,12 +28,11 @@ import           Pos.Binary ()
 import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
 import           Pos.Communication (ActionSpec (..), OutSpecs (..))
 import           Pos.Configuration (HasNodeConfiguration, networkConnectionTimeout)
-import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
 import           Pos.Context.Context (NodeContext (..))
+import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
-import           Pos.Diffusion.Full (diffusionLayerFull)
+import           Pos.Diffusion.Full (FullDiffusionConfiguration (..), diffusionLayerFull)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
-import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
 import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
@@ -139,21 +138,25 @@ runServer
     -> m t
 runServer runIO NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
     exitOnShutdown . logicLayerFull (jsonLog . JLTxReceived) $ \logicLayer ->
-        bracketTransportTCP networkConnectionTimeout tcpAddr $ \transport ->
-            diffusionLayerFull runIO npNetworkConfig lastKnownBlockVersion protocolMagic protocolConstants recoveryHeadersMessage transport (Just ekgNodeMetrics) $ \withLogic -> do
-                diffusionLayer <- withLogic (logic logicLayer)
-                when npEnableMetrics (registerEkgMetrics ekgStore)
-                runLogicLayer logicLayer $
-                    runDiffusionLayer diffusionLayer $
-                    maybeWithRoute53 (enmElim ekgNodeMetrics (healthStatus (diffusion diffusionLayer))) $
-                    maybeWithEkg $
-                    maybeWithStatsd $
-                    act (diffusion diffusionLayer)
+        diffusionLayerFull runIO fdconf npNetworkConfig (Just ekgNodeMetrics) (logic logicLayer) $ \diffusionLayer -> do
+            when npEnableMetrics (registerEkgMetrics ekgStore)
+            runLogicLayer logicLayer $
+                runDiffusionLayer diffusionLayer $
+                maybeWithRoute53 (enmElim ekgNodeMetrics (healthStatus (diffusion diffusionLayer))) $
+                maybeWithEkg $
+                maybeWithStatsd $
+                act (diffusion diffusionLayer)
   where
+    fdconf = FullDiffusionConfiguration
+        { fdcProtocolMagic = protocolMagic
+        , fdcProtocolConstants = protocolConstants
+        , fdcRecoveryHeadersMessage = recoveryHeadersMessage
+        , fdcLastKnownBlockVersion = lastKnownBlockVersion
+        , fdcConvEstablishTimeout = networkConnectionTimeout
+        }
     exitOnShutdown action = do
         _ <- race waitForShutdown action
         exitWith (ExitFailure 20) -- special exit code to indicate an update
-    tcpAddr = ncTcpAddr npNetworkConfig
     ekgStore = enmStore ekgNodeMetrics
     (hcHost, hcPort) = case npRoute53Params of
         Nothing         -> ("127.0.0.1", 3030)

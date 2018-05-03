@@ -240,7 +240,7 @@ transactions and the set of transactions in a block.
 \begin{equation*}
 \begin{array}{r@{~=~}lr}
   \mathsf{Addr_{ours}}
-& \{ a \mid a \in Addr, ~ \mathsf{ours} ~ a \}
+& \{ a \mid a \in \mathsf{Addr}, ~ \mathsf{ours} ~ a \}
 \\
   \mathsf{TxOut_{ours}}
 & \mathsf{Addr_{ours}} \times \mathsf{Coin}
@@ -352,15 +352,15 @@ specification.
 %
 \begin{align*}
 & \mathsf{txins} \in \powerset{\mathsf{Tx}} \to \powerset{\mathsf{TxIn}} \\
-& \mathsf{txins} ~ txs = \bigcup \{ inputs \mid (inputs, \_) \in txs \}
+& \mathsf{txins} ~ \mathit{txs} = \bigcup \{ \mathit{inputs} \mid (\mathit{inputs}, \_) \in \mathit{txs} \}
 \\[1em]
 & \mathsf{txouts} \in \powerset{\mathsf{Tx}} \to \mathsf{UTxO} \\
-& \mathsf{txouts} ~ txs =
-  \left\{ (\mathsf{txid} ~ tx, ix) \mapsto txout ~
+& \mathsf{txouts} ~ \mathit{txs} =
+  \left\{ (\mathsf{txid} ~ \mathit{tx}, \mathit{ix}) \mapsto \mathit{txout} ~
   \middle| \begin{array}{l@{~}c@{~}l}
-             tx & \in & txs \\
-             (\_, outputs) & = & tx \\
-             ix \mapsto txout & \in & outputs
+             \mathit{tx} & \in & \mathit{txs} \\
+             (\_, \mathit{outputs}) & = & \mathit{tx} \\
+             \mathit{ix} \mapsto \mathit{txout} & \in & \mathit{outputs}
            \end{array}
   \right\}
 \\[1em]
@@ -470,18 +470,18 @@ preserved by all state updates.
 \emph{Atomic updates}
 %
 \begin{align*}
-    \mathsf{applyBlock} ~ b ~ (utxo, pending)
-& = (\mathsf{updateUTxO} ~ b ~ utxo, ~ \mathsf{updatePending} ~ b ~ pending)
+    \mathsf{applyBlock} ~ b ~ (\mathit{utxo}, \mathit{pending})
+& = (\mathsf{updateUTxO} ~ b ~ \mathit{utxo}, ~ \mathsf{updatePending} ~ b ~ \mathit{pending})
 \\
-  \mathsf{newPending} ~ tx ~ (utxo, pending)
-& = ( utxo, ~ pending \cup \{ tx \} )
+  \mathsf{newPending} ~ \mathit{tx} ~ (\mathit{utxo}, \mathit{pending})
+& = ( \mathit{utxo}, ~ \mathit{pending} \cup \{ \mathit{tx} \} )
 \end{align*}
 %
 \emph{Preconditions}
 %
 \begin{align*}
 & \mathsf{newPending} ~ (\mathit{ins}, \mathit{outs}) ~ (\mathit{utxo}, \mathit{pending}) \\
-& \qquad \mathbf{requires~} \mathit{ins} \subseteq \dom (\mathsf{available} ~ (utxo, pending))
+& \qquad \mathbf{requires~} \mathit{ins} \subseteq \dom (\mathsf{available} ~ (\mathit{utxo}, \mathit{pending}))
 \\
 & \mathsf{applyBlock} ~ b ~ (\mathit{utxo}, \mathit{pending}) \\
 & \qquad \mathbf{requires~} \dom (\mathsf{txouts} ~ b) \cap \dom \mathit{utxo} = \emptyset
@@ -491,17 +491,17 @@ preserved by all state updates.
 %
 \begin{align*}
 & \mathsf{available}, \mathsf{total} \in \mathsf{Wallet} \to \mathsf{UTxO} \\
-& \mathsf{available} ~ (utxo, pending) = \mathsf{txins} ~ pending \subtractdom utxo \\
-& \mathsf{total} ~ (utxo, pending) = \mathsf{available} ~ ~ (utxo, pending) \cup \mathsf{change} ~ pending \\
+& \mathsf{available} ~ (\mathit{utxo}, \mathit{pending}) = \mathsf{txins} ~ \mathit{pending} \subtractdom \mathit{utxo} \\
+& \mathsf{total} ~ (\mathit{utxo}, \mathit{pending}) = \mathsf{available} ~ ~ (\mathit{utxo}, \mathit{pending}) \cup \mathsf{change} ~ \mathit{pending} \\
 \\
 & \mathsf{change} \in \mathsf{Pending} \to \mathsf{UTxO} \\
-& \mathsf{change} ~ pending = \mathsf{txouts} ~ pending \restrictrange \mathsf{TxOut_{ours}} \\
+& \mathsf{change} ~ \mathit{pending} = \mathsf{txouts} ~ \mathit{pending} \restrictrange \mathsf{TxOut_{ours}} \\
 \\
 & \mathsf{updateUTxO} \in \mathsf{Block} \to \mathsf{UTxO} \to \mathsf{UTxO} \\
-& \mathsf{updateUTxO} ~ b ~ utxo = \mathsf{txins} ~ b \subtractdom (utxo \cup (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}})) \\
+& \mathsf{updateUTxO} ~ b ~ \mathit{utxo} = \mathsf{txins} ~ b \subtractdom (\mathit{utxo} \cup (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}})) \\
 \\
 & \mathsf{updatePending} \in \mathsf{Block} \to \mathsf{Pending} \to \mathsf{Pending} \\
-& \mathsf{updatePending} ~ b ~ p = \{ tx \mid tx \in p, (inputs, \_) = tx, inputs \cap \mathsf{txins} ~ b = \emptyset \}
+& \mathsf{updatePending} ~ b ~ p = \{ \mathit{tx} \mid \mathit{tx} \in p, (\mathit{inputs}, \_) = \mathit{tx}, \mathit{inputs} \cap \mathsf{txins} ~ b = \emptyset \}
 \end{align*}
 %
 \caption{\label{fig:basic_model}The basic model}
@@ -521,7 +521,7 @@ from the block, and then removes the inputs spent in the block. It would be
 incorrect to use the definition
 %
 \begin{equation*}
-(\mathsf{txins} ~ b \subtractdom utxo)  \cup (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}})
+(\mathsf{txins} ~ b \subtractdom \mathit{utxo})  \cup (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}})
 \tag{incorrect}
 \end{equation*}
 %
@@ -581,7 +581,7 @@ can only spend outputs in the wallet's current UTxO. Alternatively, we could
 require that
 %
 \begin{equation*}
-\mathit{ins} \subseteq \dom (\mathsf{total}(utxo, pending))
+\mathit{ins} \subseteq \dom (\mathsf{total}(\mathit{utxo}, \mathit{pending}))
 \end{equation*}
 %
 This would allow transactions that spend from change addresses, allowing
@@ -610,7 +610,7 @@ all of these invariants will be true in all models.
 
 \begin{invariant}[Pending transactions only spend from our current UTxO]
 \begin{equation*}
-\mathsf{txins} ~ pending \subseteq \dom utxo
+\mathsf{txins} ~ \mathit{pending} \subseteq \dom \mathit{utxo}
 \end{equation*}
 \label{inv:txins_in_dom_utxo}
 \end{invariant}
@@ -624,7 +624,7 @@ rollback then this invariant no longer holds.
 \begin{invariant}[The wallet UTxO only covers addresses that belongs to the wallet]
 %
 \begin{equation*}
-\range utxo \subseteq \mathsf{TxOut_{ours}}
+\range \mathit{utxo} \subseteq \mathsf{TxOut_{ours}}
 \end{equation*}
 \label{inv:utxo_is_ours}
 \end{invariant}
@@ -653,7 +653,7 @@ Lemma~\ref{lem:utxo_props_subtractdom_subseteq}.
 
 \begin{lemma}[Change not in UTxO]
 \begin{equation*}
-\dom (\mathsf{change} ~ \mathit{pending}) \cap \dom(utxo) = \emptyset
+\dom (\mathsf{change} ~ \mathit{pending}) \cap \dom(\mathit{utxo}) = \emptyset
 \end{equation*}
 \label{lem:change_vs_utxo}
 \end{lemma}
@@ -723,8 +723,8 @@ given in Figure~\ref{fig:basic_model_complexity}.
 \begin{equation*}
 \begin{split}
 \mathsf{balance} ~ u & \in \order{|u|} \\
-\mathsf{txins}   ~ txs  & \in \order{\mathsf{nlogn} ~ |\mathsf{txins}~ txs|} \\
-\mathsf{txouts}  ~ txs  & \in \order{\mathsf{nlogn} ~ |\mathsf{txouts}~ txs|)} \\
+\mathsf{txins}   ~ \mathit{txs}  & \in \order{\mathsf{nlogn} ~ |\mathsf{txins}~ \mathit{txs}|} \\
+\mathsf{txouts}  ~ \mathit{txs}  & \in \order{\mathsf{nlogn} ~ |\mathsf{txouts}~ \mathit{txs}|)} \\
 \mathsf{available} ~ (u,p) & \in \order{\mathsf{join} ~ |\mathsf{txins}~ p| ~ |u|} \\
 \mathsf{change}    ~ p     & \in \order{\mathsf{nlogn} ~ |\mathsf{txouts}~ p| } \\
 \mathsf{total}     ~ (u,p) & \in \order{
@@ -751,7 +751,7 @@ given in Figure~\ref{fig:basic_model_complexity}.
                                 & ~ \mathsf{join} ~ |\mathsf{txins}~ b| ~ |u| \\
                               + & ~ \mathsf{join} ~ |\mathsf{txouts}~ b| ~ |u|
                               \end{split}} \\
-\mathsf{updatePending} ~ b ~ p & \in \order{\mathsf{nlogn} ~ |\mathsf{txins}~ b| + \sum_{(inputs, \_) \in p}{\mathsf{join} ~ |inputs| ~ |\mathsf{txins}~ b|}}
+\mathsf{updatePending} ~ b ~ p & \in \order{\mathsf{nlogn} ~ |\mathsf{txins}~ b| + \sum_{(\mathit{inputs}, \_) \in p}{\mathsf{join} ~ |\mathit{inputs}| ~ |\mathsf{txins}~ b|}}
 \end{split}
 \end{equation*}
 \caption{\label{fig:basic_model_complexity}Algorithmic complexity of the operations in the basic model}
@@ -759,8 +759,8 @@ given in Figure~\ref{fig:basic_model_complexity}.
 
 It is worth knowing that the expected
 order of magnitudes of the sizes of the UTxO and pending sets. The UTxO can be
-quite large, for example $|utxo| \leq 10^6$, while the pending set will
-typically be small, usually around $|pending| \leq 3$, while $|pending| = 100$
+quite large, for example $|\mathit{utxo}| \leq 10^6$, while the pending set will
+typically be small, usually around $|\mathit{pending}| \leq 3$, while $|\mathit{pending}| = 100$
 would be extreme. Similarly, the number of inputs and outputs in any individual
 transaction is not large. The current bound on the total size of a transaction
 is 64Kb.
@@ -797,39 +797,39 @@ balance for the UTxO to address this problem.
 
 \begin{lemma}
 \begin{equation*}
-  \mathsf{availableBalance} ~ (utxo, pending)
-= \mathsf{balance} ~ utxo - \mathsf{balance} ~ (\mathsf{txins} ~ pending \restrictdom utxo)
+  \mathsf{availableBalance} ~ (\mathit{utxo}, \mathit{pending})
+= \mathsf{balance} ~ \mathit{utxo} - \mathsf{balance} ~ (\mathsf{txins} ~ \mathit{pending} \restrictdom \mathit{utxo})
 \end{equation*}
 \label{lem:availableBalance}
 \end{lemma}
 
 \begin{proof}
 \begin{align*}
-  & ~ \mathsf{availableBalance} ~ (utxo, pending) \\
-= & ~ \mathsf{balance} ~ (\mathsf{available} ~ (utxo, pending)) \\
-= & ~ \mathsf{balance} ~ (\mathsf{txins} ~ pending \subtractdom utxo) \\
-= & ~ \mathsf{balance} ~ utxo - \mathsf{balance} ~ (\mathsf{txins} ~ pending \restrictdom utxo)
+  & ~ \mathsf{availableBalance} ~ (\mathit{utxo}, \mathit{pending}) \\
+= & ~ \mathsf{balance} ~ (\mathsf{available} ~ (\mathit{utxo}, \mathit{pending})) \\
+= & ~ \mathsf{balance} ~ (\mathsf{txins} ~ \mathit{pending} \subtractdom \mathit{utxo}) \\
+= & ~ \mathsf{balance} ~ \mathit{utxo} - \mathsf{balance} ~ (\mathsf{txins} ~ \mathit{pending} \restrictdom \mathit{utxo})
   & \text{\{ Lemma~\ref{lem:balance_props_minus} \}}
 \end{align*}
 \end{proof}
 
 \begin{lemma}
 \begin{equation*}
-  \mathsf{totalBalance} ~ (utxo, pending)
-= \mathsf{availableBalance} ~ (utxo, pending)
-+ \mathsf{balance} ~ (\mathsf{change} ~ pending)
+  \mathsf{totalBalance} ~ (\mathit{utxo}, \mathit{pending})
+= \mathsf{availableBalance} ~ (\mathit{utxo}, \mathit{pending})
++ \mathsf{balance} ~ (\mathsf{change} ~ \mathit{pending})
 \end{equation*}
 \label{lem:totalBalance}
 \end{lemma}
 
 \begin{proof}
 \begin{align*}
-   & ~ \mathsf{totalBalance} ~ (utxo, pending) \\
- = & ~ \mathsf{balance} ~ (\mathsf{available} ~ (utxo, pending) \cup \mathsf{change} ~ pending) \\
- = & ~ \mathsf{balance} ~ (\mathsf{available} ~ (utxo, pending))
-     + \mathsf{balance} ~ (\mathsf{change} ~ pending)
+   & ~ \mathsf{totalBalance} ~ (\mathit{utxo}, \mathit{pending}) \\
+ = & ~ \mathsf{balance} ~ (\mathsf{available} ~ (\mathit{utxo}, \mathit{pending}) \cup \mathsf{change} ~ \mathit{pending}) \\
+ = & ~ \mathsf{balance} ~ (\mathsf{available} ~ (\mathit{utxo}, \mathit{pending}))
+     + \mathsf{balance} ~ (\mathsf{change} ~ \mathit{pending})
    & \text{ \{ Lemma~\ref{lem:balance_props_union}, Invariant~\ref{inv:change_vs_available} \}} \\
-=  & ~ \mathsf{availableBalance} ~ (utxo, pending) + \mathsf{balance} ~ (\mathsf{change} ~ pending)
+=  & ~ \mathsf{availableBalance} ~ (\mathit{utxo}, \mathit{pending}) + \mathsf{balance} ~ (\mathsf{change} ~ \mathit{pending})
 \end{align*}
 \end{proof}
 
@@ -838,8 +838,8 @@ Note the complexity of these operations
 \begin{equation*}
 \begin{split}
 \mathsf{balance} ~ utxo & \in \order{|utxo|} \\
-\mathsf{balance} ~ (\mathsf{txins} ~ pending \restrictdom utxo) & \in \order{\mathsf{join} ~ |\mathsf{txins}~ pending| ~ |utxo|} \\
-\mathsf{balance} ~ (\mathsf{change} ~ pending) & \in \order{\mathsf{nlogn} ~ |\mathsf{txouts}~ pending|}
+\mathsf{balance} ~ (\mathsf{txins} ~ \mathit{pending} \restrictdom utxo) & \in \order{\mathsf{join} ~ |\mathsf{txins}~ \mathit{pending}| ~ |utxo|} \\
+\mathsf{balance} ~ (\mathsf{change} ~ \mathit{pending}) & \in \order{\mathsf{nlogn} ~ |\mathsf{txouts}~ \mathit{pending}|}
 \end{split}
 \end{equation*}
 %
@@ -863,7 +863,7 @@ Our starting point is
 \mathsf{applyBlock} & ~ b ~ (utxo, pending, \sigma) = (utxo^\prime, pending^\prime, \sigma^\prime) \\
 \text{where} \quad \\
     utxo^\prime    & = \mathsf{updateUTxO} ~ b ~ utxo \\
-    pending^\prime & = \mathsf{updatePending} ~ b ~ pending \\
+    pending^\prime & = \mathsf{updatePending} ~ b ~ \mathit{pending} \\
     \sigma^\prime  & = \mathsf{balance} ~ utxo^\prime
 \end{align*}
 %
@@ -927,22 +927,22 @@ in Figure~\ref{fig:model_with_cached_balance}.
 %
 \begin{align*}
   \mathsf{availableBalance} ~ (\mathit{utxo}, \mathit{pending}, \sigma)
-& = \sigma - \mathsf{balance} ~ (\mathsf{txins} ~ pending \restrictdom utxo) \\
+& = \sigma - \mathsf{balance} ~ (\mathsf{txins} ~ \mathit{pending} \restrictdom utxo) \\
   \mathsf{totalBalance} ~ (\mathit{utxo}, \mathit{pending}, \sigma)
-& = \mathsf{availableBalance} ~ (\mathit{utxo}, \mathit{pending}, \sigma) + \mathsf{balance} ~ (\mathsf{change} ~ pending)
+& = \mathsf{availableBalance} ~ (\mathit{utxo}, \mathit{pending}, \sigma) + \mathsf{balance} ~ (\mathsf{change} ~ \mathit{pending})
 \end{align*}
 %
 \emph{Atomic updates}
 %
 \begin{align*}
-& \mathsf{applyBlock} ~ b ~ (utxo, pending, \sigma) = (utxo^\prime, pending^\prime, \sigma^\prime) \\
+& \mathsf{applyBlock} ~ b ~ (\mathit{utxo}, \mathit{pending}, \sigma) = (\mathit{utxo}^\prime, \mathit{pending}^\prime, \sigma^\prime) \\
 & \qquad \text{where}
   \begin{array}[t]{rl}
-    pending^\prime & = \mathsf{updatePending} ~ b ~ pending \\
-    utxo^+ & = \mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}} \\
-    utxo^- & = \mathsf{txins} ~ b \restrictdom (utxo \cup utxo^+) \\
-    utxo^\prime & = \mathsf{txins} ~ b \subtractdom (utxo \cup utxo^+) \\
-    \sigma^\prime & = \sigma + \mathsf{balance} ~ utxo^+ - \mathsf{balance} ~ utxo^-
+    \mathit{pending}^\prime & = \mathsf{updatePending} ~ b ~ \mathit{pending} \\
+    \mathit{utxo}^+ & = \mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}} \\
+    \mathit{utxo}^- & = \mathsf{txins} ~ b \restrictdom (\mathit{utxo} \cup \mathit{utxo}^+) \\
+    \mathit{utxo}^\prime & = \mathsf{txins} ~ b \subtractdom (\mathit{utxo} \cup \mathit{utxo}^+) \\
+    \sigma^\prime & = \sigma + \mathsf{balance} ~ \mathit{utxo}^+ - \mathsf{balance} ~ \mathit{utxo}^-
   \end{array}
 \end{align*}
 %
@@ -983,11 +983,11 @@ As in the basic model with cached balance (Figure~\ref{fig:model_with_cached_bal
 & \mathsf{applyBlock'} ~ (\mathit{txins}_b, \mathit{txouts}_b) ~ (\mathit{utxo}, \mathit{pending}, \sigma) = (\mathit{utxo}^\prime, \mathit{pending}^\prime, \sigma^\prime) \\
 & \qquad \text{where}
    \begin{array}[t]{rl}
-     pending^\prime & = \{ tx \mid tx \in pending, (inputs, \_) = tx, inputs \cap \mathit{txins}_b = \emptyset \} \\
-     utxo^+ & = \mathit{txouts}_b \\
-     utxo^- & = \mathit{txins}_b \restrictdom (utxo \cup utxo^+) \\
-     utxo^\prime & = \mathit{txins}_b \subtractdom (utxo \cup utxo^+) \\
-     \sigma^\prime & = \sigma + \mathsf{balance} ~ utxo^+ - \mathsf{balance} ~ utxo^-
+     pending^\prime & = \{ tx \mid tx \in \mathit{pending}, (\mathit{inputs}, \_) = \mathit{tx}, \mathit{inputs} \cap \mathit{txins}_b = \emptyset \} \\
+     \mathit{utxo}^+ & = \mathit{txouts}_b \\
+     \mathit{utxo}^- & = \mathit{txins}_b \restrictdom (\mathit{utxo} \cup \mathit{utxo}^+) \\
+     \mathit{utxo}^\prime & = \mathit{txins}_b \subtractdom (\mathit{utxo} \cup \mathit{utxo}^+) \\
+     \sigma^\prime & = \sigma + \mathsf{balance} ~ \mathit{utxo}^+ - \mathsf{balance} ~ \mathit{utxo}^-
    \end{array}
 \end{align*}
 
@@ -1034,20 +1034,20 @@ $\mathsf{applyBlock}'$, proving Lemma~\ref{lem:prefiltering} boils down
 to showing three things:
 \begin{enumerate}
 
-\item \label{proof:prefiltering:utxo_min} (Definition of $utxo^-$)
+\item \label{proof:prefiltering:utxo_min} (Definition of $\mathit{utxo}^-$)
 \begin{IEEEeqnarray*}{LLL}
   & \mathsf{txins} ~ b
-  & \restrictdom (utxo \cup utxo^+) \\
+  & \restrictdom (\mathit{utxo} \cup \mathit{utxo}^+) \\
 = & \mathsf{txins} ~ b \cap \dom (\mathit{utxo} \cup \mathit{utxo}^+)
-  & \restrictdom (utxo \cup utxo^+)
+  & \restrictdom (\mathit{utxo} \cup \mathit{utxo}^+)
 \end{IEEEeqnarray*}
 
 \item \label{proof:prefiltering:utxo_prime} (Definition of $\mathit{utxo}'$)
 \begin{IEEEeqnarray*}{LLR}
   & \mathsf{txins} ~ b
-  & \subtractdom (utxo \cup utxo^+) \\
+  & \subtractdom (utxo \cup \mathit{utxo}^+) \\
 = & \mathsf{txins} ~ b \cap \dom (\mathit{utxo} \cup \mathit{utxo}^+)
-  & \subtractdom (utxo \cup utxo^+)
+  & \subtractdom (utxo \cup \mathit{utxo}^+)
 \end{IEEEeqnarray*}
 
 \item \label{proof:prefiltering:pending_prime} (Definition of $\mathit{pending'}$)
@@ -1138,8 +1138,8 @@ the pending set but never decrease it.
          )
          : (\mathit{utxo}, \mathit{pending}) : \mathit{checkpoints}
          ) \\
-& \mathsf{newPending} ~ tx ~ ((\mathit{utxo}, \mathit{pending}) : \mathit{checkpoints}) = \\
-& \qquad (\mathit{utxo}, pending \cup \{ tx \} ) : \mathit{checkpoints} \\
+& \mathsf{newPending} ~ \mathit{tx} ~ ((\mathit{utxo}, \mathit{pending}) : \mathit{checkpoints}) = \\
+& \qquad (\mathit{utxo}, \mathit{pending} \cup \{ \mathit{tx} \} ) : \mathit{checkpoints} \\
 & \mathsf{rollback} ~ ((\mathit{utxo}, \mathit{pending}) :  (\mathit{utxo}^\prime, \mathit{pending}^\prime) : \mathit{checkpoints})) = \\
 & \qquad (\mathit{utxo}^\prime, \mathit{pending} \cup \mathit{pending}^\prime) : \mathit{checkpoints}
 \end{align*}
@@ -1203,26 +1203,26 @@ Moreover, we have
 
 \begin{lemma}
 \begin{equation*}
-\mathsf{rollback} \circ \mathsf{newPending} ~ tx \circ \mathsf{applyBlock} ~ b
-= \mathsf{newPending} ~ tx
+\mathsf{rollback} \circ \mathsf{newPending} ~ \mathit{tx} \circ \mathsf{applyBlock} ~ b
+= \mathsf{newPending} ~ \mathit{tx}
 \end{equation*}
 (if we ignore the side condition to $\mathsf{newPending}$).
 \end{lemma}
 
 \begin{proof}
 \begin{align*}
-    & \mathsf{rollback} ~ (\mathsf{newPending} ~ tx ~ (\mathsf{applyBlock} ~ b ~ ((\mathit{u}, \mathit{p}) : \mathit{cs}))) \\
-= ~ & \mathsf{rollback} ~ (\mathsf{newPending} ~ tx ~ (( \mathsf{updateUTxO} ~ b ~ \mathit{u}
+    & \mathsf{rollback} ~ (\mathsf{newPending} ~ \mathit{tx} ~ (\mathsf{applyBlock} ~ b ~ ((\mathit{u}, \mathit{p}) : \mathit{cs}))) \\
+= ~ & \mathsf{rollback} ~ (\mathsf{newPending} ~ \mathit{tx} ~ (( \mathsf{updateUTxO} ~ b ~ \mathit{u}
          , \mathsf{updatePending} ~ b ~ \mathit{p}
          )
          : (\mathit{u}, \mathit{p}) : \mathit{cs}
          )) \\
 = ~ & \mathsf{rollback} ~ (( \mathsf{updateUTxO} ~ b ~ \mathit{u}
-         , (\mathsf{updatePending} ~ b ~ \mathit{p}) \cup \{tx\}
+         , (\mathsf{updatePending} ~ b ~ \mathit{p}) \cup \{\mathit{tx}\}
          )
          : (\mathit{u}, \mathit{p}) : \mathit{cs}
          ) \\
-= ~ & (\mathit{u}, ((\mathsf{updatePending} ~ b ~ \mathit{p}) \cup \{tx\}) \cup \mathit{p}) : \mathit{cs} \\
+= ~ & (\mathit{u}, ((\mathsf{updatePending} ~ b ~ \mathit{p}) \cup \{\mathit{tx}\}) \cup \mathit{p}) : \mathit{cs} \\
 = ~ & (\mathit{u}, \mathit{p} \cup \{tx\}) : \mathit{cs} & \text{\{ Lemma~\ref{lem:updatePending_is_filter} \}}
 \end{align*}
 \end{proof}
@@ -2154,7 +2154,7 @@ well as the actual UTxO.
 & \qquad\qquad (\mathit{utxo}', \mathit{pending}', \mathit{expected}', \sigma') : (\mathit{utxo}, \mathit{pending}, \mathit{expected}, \sigma) : \mathit{checkpoints} \\
 & \qquad \text{where}
    \begin{array}[t]{rl}
-     \mathit{pending}'  & = \{ tx \mid tx \in \mathit{pending}, (\mathit{inputs}, \_) = tx, \mathit{inputs} \cap \mathit{txins}_b = \emptyset \} \\
+     \mathit{pending}'  & = \{ tx \mid tx \in \mathit{pending}, (\mathit{inputs}, \_) = \mathit{tx}, \mathit{inputs} \cap \mathit{txins}_b = \emptyset \} \\
      \mathit{expected}' & = \mathit{txins}_b \subtractdom \mathit{expected} \\
      \mathit{utxo}^+    & = \mathit{txouts}_b \\
      \mathit{utxo}^-    & = \mathit{txins}_b \restrictdom (\mathit{utxo} \cup \mathit{utxo}^+) \\

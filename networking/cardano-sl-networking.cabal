@@ -13,13 +13,10 @@ flag benchmarks
   manual:            True
 
 Library
-  exposed-modules:      Network.Discovery.Abstract
+  exposed-modules:      Network.QDisc.Fair
+
+                        Network.Discovery.Abstract
                         Network.Discovery.Transport.Kademlia
-                        -- TODO remove these
-                        Network.Transport.Abstract
-                        Network.Transport.Concrete
-                        Network.Transport.Concrete.TCP
-                        Network.QDisc.Fair
 
                         Network.Broadcast.OutboundQueue
                         Network.Broadcast.OutboundQueue.Types

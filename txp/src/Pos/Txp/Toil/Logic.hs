@@ -56,12 +56,13 @@ import           Pos.Util (liftEither)
 verifyToil ::
        (HasProtocolMagic)
     => BlockVersionData
+    -> Set Address
     -> EpochIndex
     -> Bool
     -> [TxAux]
     -> ExceptT ToilVerFailure UtxoM TxpUndo
-verifyToil bvd curEpoch verifyAllIsKnown =
-    mapM (verifyAndApplyTx bvd curEpoch verifyAllIsKnown . withTxId)
+verifyToil bvd lockedAssets curEpoch verifyAllIsKnown =
+    mapM (verifyAndApplyTx bvd lockedAssets curEpoch verifyAllIsKnown . withTxId)
 
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
@@ -86,14 +87,15 @@ rollbackToil txun = do
 processTx ::
        (HasTxpConfiguration, HasProtocolMagic)
     => BlockVersionData
+    -> Set Address
     -> EpochIndex
     -> (TxId, TxAux)
     -> ExceptT ToilVerFailure LocalToilM TxUndo
-processTx bvd curEpoch tx@(id, aux) = do
+processTx bvd lockedAssets curEpoch tx@(id, aux) = do
     whenM (lift $ hasTx id) $ throwError ToilKnown
     whenM ((>= memPoolLimitTx) <$> lift memPoolSize) $
         throwError (ToilOverwhelmed memPoolLimitTx)
-    undo <- mapExceptT utxoMToLocalToilM $ verifyAndApplyTx bvd curEpoch True tx
+    undo <- mapExceptT utxoMToLocalToilM $ verifyAndApplyTx bvd lockedAssets curEpoch True tx
     undo <$ lift (putTxWithUndo id aux undo)
 
 -- | Get rid of invalid transactions.
@@ -101,17 +103,21 @@ processTx bvd curEpoch tx@(id, aux) = do
 normalizeToil ::
        (HasTxpConfiguration, HasProtocolMagic)
     => BlockVersionData
+    -> Set Address
     -> EpochIndex
     -> [(TxId, TxAux)]
     -> LocalToilM ()
-normalizeToil bvd curEpoch txs = mapM_ normalize ordered
+normalizeToil bvd lockedAssets curEpoch txs = mapM_ normalize ordered
   where
+    -- If there is a cycle in the tx list, topsortTxs returns Nothing.
+    -- Why is that not an error? And if its not an error, why bother
+    -- top-sorting them anyway?
     ordered = fromMaybe txs $ topsortTxs wHash txs
     wHash (i, txAux) = WithHash (taTx txAux) i
     normalize ::
            (TxId, TxAux)
         -> LocalToilM ()
-    normalize = void . runExceptT . processTx bvd curEpoch
+    normalize = void . runExceptT . processTx bvd lockedAssets curEpoch
 
 ----------------------------------------------------------------------------
 -- Verify and Apply logic
@@ -122,13 +128,14 @@ normalizeToil bvd curEpoch txs = mapM_ normalize ordered
 verifyAndApplyTx ::
        (HasProtocolMagic)
     => BlockVersionData
+    -> Set Address
     -> EpochIndex
     -> Bool
     -> (TxId, TxAux)
     -> ExceptT ToilVerFailure UtxoM TxUndo
-verifyAndApplyTx adoptedBVD curEpoch verifyVersions tx@(_, txAux) = do
+verifyAndApplyTx adoptedBVD lockedAssets curEpoch verifyVersions tx@(_, txAux) = do
     whenLeft (checkTxAux txAux) (throwError . ToilInconsistentTxAux)
-    vtur@VerifyTxUtxoRes {..} <- Utxo.verifyTxUtxo ctx txAux
+    vtur@VerifyTxUtxoRes {..} <- Utxo.verifyTxUtxo ctx lockedAssets txAux
     liftEither $ verifyGState adoptedBVD curEpoch txAux vtur
     lift $ applyTxToUtxo' tx
     pure vturUndo

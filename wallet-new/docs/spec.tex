@@ -7,7 +7,7 @@
 \usepackage{url}
 \usepackage{natbib}
 % \usepackage{parskip} % very ugly with lemmas, invariants, etc without intervening text
-\usepackage{todonotes}
+\usepackage[disable]{todonotes}
 \usepackage{slashed}
 \usepackage{tikz}
 \usepackage{forest}
@@ -44,70 +44,116 @@
 
 \begin{document}
 
-\title{Cardano wallet specification (DRAFT)}
+\title{Formal specification of the Cardano wallet \\ \small{(Version 1.0)}}
 \author{Duncan Coutts \and Edsko de Vries}
-\date{April 12, 2018}
+\date{May 4, 2018}
 
 \maketitle
+
+\begin{abstract}
+This document is a formal specification of a wallet for Cardano (or any
+UTxO-based cryptocurrency). The purpose is to help understand some of the
+subtleties and give a reasonable starting point for tests and implementations.
+
+To the best of our knowledge, no other existing cryptocurrency wallet comes with
+such a formal specification. We have therefore attempted to formalize the core
+functionality of the existing wallet and let our knowledge of the difficulties
+with the current implementation be a guide in deciding which aspects of the
+wallet needed more careful thought. We also state and (partially) prove various
+properties of the wallet models we develop, not only to prove its correctness
+but also to try and capture our intuitions about what a cryptocurrency wallet
+\emph{is}, exactly.
+\end{abstract}
 
 \tableofcontents
 \listoffigures
 
-\section*{Status}
+% \section*{Status}
+%
+% \begin{description}
+% \item[Draft 0, Jan 18, 2018 (Duncan)] Various scraps of paper
+% \item[Draft 1, Jan 24, 2018 (Duncan)] Presented to Alfredo Di Napoli, Philipp Kant,
+%      Edsko de Vries and Bruno Woltzenlogel Paleo.
+% \item[Draft 2, Jan 25, 2018 (Duncan)] Incorporated feedback from Edsko de Vries,
+%      Bruno Woltzenlogel Paleo and Kristijan \v{S}ari\'{c}. Fixed UTxO
+%      definition. Presented to Edsko de Vries.
+% \item[Draft 3, Jan 26, 2018 (Duncan)] Incorporated feedback from Edsko de Vries.
+%      Simplified presentation of change and txins/txouts. Described updateUTxO.
+% \item[Draft 4, Jan 31, 2018 (Duncan)] Added section on efficiency and incrementally
+%      maintaining the balances. Presented at the Well-Typed weekly seminar and
+%      incorporated feedback from Andres L\"oh and Edsko de Vries.
+% \item[Draft 5, Feb 2, 2018 (Duncan)] Completed section on incrementally maintaining the
+%      balances. Slight notation change. Lemmas, invariants and assumptions
+%      clarified. Next steps updated.
+% \item[Draft 6, Feb 12, 2018 (Edsko)] Added section on prefiltering.
+% \item[Draft 7, Feb 14, 2018 (Edsko)] Added section on rollbacks.
+% \item[Draft 8, Feb 27, 2018 (Edsko)] Fixed definition of prefiltering in the presence
+%      of rollbacks, and made the style more consistent with Duncan's.
+% \item[Draft 9, Mar 5, 2018 (Edsko)] First stab at clarifying the computation and
+%      presentation of the wallet's balance in the presence of rollbacks.
+% \item[Draft 10, Mar 16, 2018 (Duncan)] First sketch of input selection
+% \item[Draft 11, Mar 19, 2018 (Edsko)] Computation of minimum balance
+% \item[Draft 12, Mar 30, 2018 (Edsko)] Significantly improved minimum balance computation,
+%      and cleaned up the whole document. Also presented the new treatment of `expected UTxO'
+%      both in the weekly internal Well-Typed meeting and in the IOHK weekly Formal Spec meeting.
+% \item[Draft 13, April 3, 2018 (Edsko)] Once more significantly improved the minimum
+%      balance computation, and pushed this all the way through. I feel that we now
+%      have a clear story for balance in the presence of rollbacks.
+% \item[Draft 14, April 6, 2018 (Duncan)] Reviewed and made minor corrections.
+% \item[Draft 15, April 6, 2018 (Edsko)] Added section on tracking metadata.
+% \item[Draft 16, April 12, 2018 (Edsko)] Improved secion on tracking metadata,
+%      added section on transaction submission layer.
+% \item[Draft 17, May 3, 2018 (Edsko)]. Final corrections to section on
+%      tracking metadata, wrote section in input selection, made ready for publication.
+% \end{description}
 
-\begin{description}
-\item[Draft 0, Jan 18, 2018 (Duncan)] Various scraps of paper
-\item[Draft 1, Jan 24, 2018 (Duncan)] Presented to Alfredo Di Napoli, Philipp Kant,
-     Edsko de Vries and Bruno Woltzenlogel Paleo.
-\item[Draft 2, Jan 25, 2018 (Duncan)] Incorporated feedback from Edsko de Vries,
-     Bruno Woltzenlogel Paleo and Kristijan \v{S}ari\'{c}. Fixed UTxO
-     definition. Presented to Edsko de Vries.
-\item[Draft 3, Jan 26, 2018 (Duncan)] Incorporated feedback from Edsko de Vries.
-     Simplified presentation of change and txins/txouts. Described updateUTxO.
-\item[Draft 4, Jan 31, 2018 (Duncan)] Added section on efficiency and incrementally
-     maintaining the balances. Presented at the Well-Typed weekly seminar and
-     incorporated feedback from Andres L\"oh and Edsko de Vries.
-\item[Draft 5, Feb 2, 2018 (Duncan)] Completed section on incrementally maintaining the
-     balances. Slight notation change. Lemmas, invariants and assumptions
-     clarified. Next steps updated.
-\item[Draft 6, Feb 12, 2018 (Edsko)] Added section on prefiltering.
-\item[Draft 7, Feb 14, 2018 (Edsko)] Added section on rollbacks.
-\item[Draft 8, Feb 27, 2018 (Edsko)] Fixed definition of prefiltering in the presence
-     of rollbacks, and made the style more consistent with Duncan's.
-\item[Draft 9, Mar 5, 2018 (Edsko)] First stab at clarifying the computation and
-     presentation of the wallet's balance in the presence of rollbacks.
-\item[Draft 10, Mar 16, 2018 (Duncan)] First sketch of input selection
-\item[Draft 11, Mar 19, 2018 (Edsko)] Computation of minimum balance
-\item[Draft 12, Mar 30, 2018 (Edsko)] Significantly improved minimum balance computation,
-     and cleaned up the whole document. Also presented the new treatment of `expected UTxO'
-     both in the weekly internal Well-Typed meeting and in the IOHK weekly Formal Spec meeting.
-\item[Draft 13, April 3, 2018 (Edsko)] Once more significantly improved the minimum
-     balance computation, and pushed this all the way through. I feel that we now
-     have a clear story for balance in the presence of rollbacks.
-\item[Draft 14, April 6, 2018 (Duncan)] Reviewed and made minor corrections.
-\item[Draft 15, April 6, 2018 (Edsko)] Added section on tracking metadata.
-\item[Draft 16, April 12, 2018 (Edsko)] Improved secion on tracking metadata,
-     added section on transaction submission layer.
-\end{description}
-
-\section{Introduction}
-
-This document is intended to be a plausible abstract description of a wallet
-for Cardano (or any UTxO-based cryptocurrency). The purpose is to help
-understand some of the subtleties and give a reasonable starting point for
-tests and implementations.
-
-To our knowledge, there is no pre-existing abstract wallet specification so the
-design approach taken here has been to fiddle around to try and find something
-self-consistent, simple and plausible, and also to try to establish high level
-properties that correspond to our intuition of what a wallet is. This is to try
-to give us some confidence that this is not just a collection of definitions
-and rules, but a collection that does correspond to what we believe a wallet is
-or does.
+\pagebreak
 
 \section{Preliminaries}
 
 \subsection{UTxO-style Accounting}
+
+The wallet specification will be based on the formalization of UTxO style
+accounting by \cite{utxo_accounting}. The basic definitions are summarized in
+Figure~\ref{fig:basic_definitions}. A full explanation of UTxO style accounting
+is beyond the scope of this document, and we refer the reader to the
+aforementioned paper. Here we will only comment on some details.
+
+The computation $\mathsf{txid}$ of transaction IDs (hashes) is assumed to be
+`effectively' injective\footnote{A quick counting argument shows this is
+impossible for given finite representations. The assumption is justified on the
+basis that we use cryptographically strong hash functions so that computing
+clashes is computationally impractical.} so that a transaction ID uniquely
+identifies a transaction. Transaction indexes, used to index transaction
+outputs, will typically be natural numbers, but this is not necessary. Currency
+values are numeric values supporting 0 and addition.
+
+Addresses stand for cryptographic public keys. In this presentation we can keep
+them quite abstract, it is merely a large set of distinct values. The predicate
+$\mathsf{ours}$ tells us if a particular address `belongs' to our wallet.
+This corresponds in the real implementation to us being able to identify
+addresses that correspond to our wallet where we can derive the keypair used
+to generate that address, and to sign transactions that pay from that address.
+If it aids comprehension, it may be worth noting that if this specification
+were elaborated to cover public/private key pairs, then we would model this as
+a partial function that returns the keypair as evidence
+$\mathsf{ours} \in \mathsf{Addr} \mapsto (\mathsf{PubKey} \times \mathsf{PrivKey})$.
+
+The intuition behind the unspent transaction outputs type $\mathsf{UTxO}$ is
+that it records all the transaction inputs in our wallet that we have available
+to spend from, and how much cash is available at each one. We will see that it
+will be derived solely from the chain, and not any other wallet state. Moreover,
+the UTxO maintained by the wallet will only include the outputs that are
+available to the wallet to spend (i.e. range within $\mathsf{TxOut_{ours}}$),
+and not the UTxO of the entire blockchain.
+
+Somewhat unusually, we model a block as a \emph{set} of transactions rather than
+a sequence. For \emph{validating} a block it is essential to represent it as a
+sequence, but a wallet does not need to validate blocks; it can rely on its
+associated node to do that. The order of transactions in a block does not turn
+out to matter for any wallet operation, and the choice of set representation
+makes it possible to share useful operations between the set of pending
+transactions and the set of transactions in a block.
 
 \begin{figure}
 
@@ -203,48 +249,6 @@ or does.
 
 \caption{\label{fig:basic_definitions}Basic Definitions}
 \end{figure}
-
-The wallet specification will be based on the formalization of UTxO style
-accounting by \cite{utxo_accounting}. The basic definitions are summarized in
-Figure~\ref{fig:basic_definitions}. A full explanation of UTxO style accounting
-is beyond the scope of this document, and we refer the reader to the
-aforementioned paper. Here we will only comment on some details.
-
-The computation $\mathsf{txid}$ of transaction IDs (hashes) is assumed to be
-`effectively' injective\footnote{A quick counting argument shows this is
-impossible for given finite representations. The assumption is justified on the
-basis that we use cryptographically strong hash functions so that computing
-clashes is computationally impractical.} so that a transaction ID uniquely
-identifies a transaction. Transaction indexes, used to index transaction
-outputs, will typically be natural numbers, but this is not necessary. Currency
-values are numeric values supporting 0 and addition.
-
-Addresses stand for cryptographic public keys. In this presentation we can keep
-them quite abstract, it is merely a large set of distinct values. The predicate
-$\mathsf{ours}$ tells us if a particular address `belongs' to our wallet.
-This corresponds in the real implementation to us being able to identify
-addresses that correspond to our wallet where we can derive the keypair used
-to generate that address, and to sign transactions that pay from that address.
-If it aids comprehension, it may be worth noting that if this specification
-were elaborated to cover public/private key pairs, then we would model this as
-a partial function that returns the keypair as evidence
-$\mathsf{ours} \in \mathsf{Addr} \mapsto (\mathsf{PubKey} \times \mathsf{PrivKey})$.
-
-The intuition behind the unspent transaction outputs type $\mathsf{UTxO}$ is
-that it records all the transaction inputs in our wallet that we have available
-to spend from, and how much cash is available at each one. We will see that it
-will be derived solely from the chain, and not any other wallet state. Moreover,
-the UTxO maintained by the wallet will only include the outputs that are
-available to the wallet to spend (i.e. range within $\mathsf{TxOut_{ours}}$),
-and not the UTxO of the entire blockchain.
-
-Somewhat unusually, we model a block as a \emph{set} of transactions rather than
-a sequence. For \emph{validating} a block it is essential to represent it as a
-sequence, but a wallet does not need to validate blocks; it can rely on its
-associated node to do that. The order of transactions in a block does not turn
-out to matter for any wallet operation, and the choice of set representation
-makes it possible to share useful operations between the set of pending
-transactions and the set of transactions in a block.
 
 \subsection{Operations on UTxO}
 
@@ -402,22 +406,26 @@ other operators.
 \label{sec:wallet_operations}
 
 \begin{figure}
-
-\begin{equation*}
-\begin{split}
+%
+\emph{Queries}
+%
+\begin{align*}
   \mathsf{totalBalance}
 & \in \mathsf{Wallet} \to \mathsf{Coin}
 \\
   \mathsf{availableBalance}
 & \in \mathsf{Wallet} \to \mathsf{Coin}
-\\
+\end{align*}
+%
+\emph{Atomic updates}
+%
+\begin{align*}
   \mathsf{applyBlock}
 & \in \mathsf{Block} \to \mathsf{Wallet} \to \mathsf{Wallet}
 \\
   \mathsf{newPending}
 & \in \mathsf{Tx} \to \mathsf{Wallet} \to \mathsf{Wallet}
-\end{split}
-\end{equation*}
+\end{align*}
 
 \caption{\label{fig:wallet_interface}Wallet interface}
 \end{figure}
@@ -435,7 +443,13 @@ are only a small number of wallet operations of interest. We can:
 %
 We intentionally left the definition of $\mathsf{Wallet}$ abstract in this
 figure, as we will consider various different concrete instantiations throughout
-this specification.
+this specification. We distinguish between queries of the wallet state
+and atomic updates; we emphasize that the latter should be `atomic' because
+although in a purely mathematical specification this is not particularly
+meaningful, in a real implementation if such updates consist of multiple
+smaller updates, the intermediate states should not be observable. For many
+instantiations will will specify state invariants that are expected to be
+preserved by all state updates.
 
 \begin{figure}
 \emph{Wallet state}
@@ -453,7 +467,7 @@ this specification.
 \end{split}
 \end{equation*}
 %
-\emph{Updates}
+\emph{Atomic updates}
 %
 \begin{align*}
     \mathsf{applyBlock} ~ b ~ (utxo, pending)
@@ -493,8 +507,12 @@ this specification.
 \caption{\label{fig:basic_model}The basic model}
 \end{figure}
 
-The most basic model is shown in Figure~\ref{fig:basic_model}. In the remainder of
-this section comment on some its features.
+The most basic model is shown in Figure~\ref{fig:basic_model}. This model, as
+indeed every other model in this specification, is \emph{abstract}. We are not
+concerned with specific data representation formats or low level implementation
+details. Such issues are important, but should be considered only after we
+understand the abstract model: it is not useful to consider implementation
+details until we have a good understanding of the requirements.
 
 \subsection{Updating the UTxO}
 
@@ -671,6 +689,13 @@ Invariant~\ref{inv:change_vs_available}.
 
 \subsection{Complexity}
 \label{sec:basic_model_complexity}
+
+The goal of this specification is not merely to describe what the \emph{correct}
+behaviour of a wallet should be, but also to study the asymptotic complexity  of
+the key operations of the wallet. Put another way, we want to study how the
+performance of the wallet scales when the wallet's state gets larger.
+Specifically, we would like to find out which operations are the most expensive,
+and how we might address that.
 
 The basic model is intended to be comprehensible, not efficient. Let us take the
 initial description as a na\"ive implementation and consider the asymptotic
@@ -907,7 +932,7 @@ in Figure~\ref{fig:model_with_cached_balance}.
 & = \mathsf{availableBalance} ~ (\mathit{utxo}, \mathit{pending}, \sigma) + \mathsf{balance} ~ (\mathsf{change} ~ pending)
 \end{align*}
 %
-\emph{Updates}
+\emph{Atomic updates}
 %
 \begin{align*}
 & \mathsf{applyBlock} ~ b ~ (utxo, pending, \sigma) = (utxo^\prime, pending^\prime, \sigma^\prime) \\
@@ -944,7 +969,7 @@ length of 20 seconds -- would mean a worst-case log growth rate of 360 MB/hour.
 
 As in the basic model with cached balance (Figure~\ref{fig:model_with_cached_balance}).  \\
 
-\emph{Updates}
+\emph{Atomic updates}
 %
 \begin{align*}
 & \mathsf{applyBlock} ~ b
@@ -1104,7 +1129,7 @@ the pending set but never decrease it.
 & w_\emptyset \in \mathsf{Wallet} = [(\emptyset, \emptyset)]
 \end{align*}
 %
-\emph{Updates}
+\emph{Atomic updates}
 %
 \begin{align*}
 & \mathsf{applyBlock} ~ b ~ ((\mathit{utxo}, \mathit{pending}) : \mathit{checkpoints}) = \\
@@ -1212,8 +1237,6 @@ Given a $\mathit{pending}$ set in one of the wallets checkpoints,
 \end{equation*}
 \end{invariant}
 
-
-
 \begin{proof}[Proof (sketch)]
 By induction on the wallet construction. The cases for the empty wallet,
 $\mathsf{applyBlock}$ and $\mathsf{newPending}$ are straight-forward.
@@ -1276,6 +1299,37 @@ trade-off will be to store a few checkpoints in memory and the rest on disk.
 
 \todo[inline]{Check storage requirements with persistent data structures and sharing,
 should be something like a log cost for each change}
+
+\subsection{Switching to a fork}
+
+Although $\mathsf{rollback}$ is a useful primitive operation on the wallet
+state, in practice the wallet will never ever actually rollback, but rather
+switch to a different fork. The disambiguation rule in the underlying blockchain
+protocol (either Ouroboros or Ouroboros Praos) states that this can only happen
+if that other fork is \emph{longer} than the current one.
+
+It will therefore we useful to provide a higher-level operation that combines
+rolling back with applying the blocks in the new fork:
+
+\begin{equation}
+\mathsf{switch} ~ n ~ \mathit{blocks} = \mathsf{applyBlocks} ~ \mathit{blocks} \circ \mathsf{rollbacks} ~ n
+\end{equation}
+
+where $\mathsf{rollbacks} ~ n$ calls $\mathsf{rollback}$ $n$ times, and
+$\mathsf{applyBlocks}$ calls $\mathsf{applyBlock}$ for all blocks in order.
+Such an operation is important because it means that the intermediate state
+of the wallet during the switch is not visible to the user.
+
+\emph{Implementation Note.} The current Cardano API does not provide something
+equivalent to $\mathsf{switch}$, instead providing only hooks that correspond to
+$\mathsf{applyBlocks}$ and $\mathsf{rollbacks}$. The wallet kernel however could
+batch up the calls to $\mathsf{rollbacks}$, and not apply the $n$ rollbacks
+until it has at least $n + m$ ($m \ge 1$) blocks to apply. This solution is not
+ideal, as it is unclear what value to set $m$ to; probably the only workable
+solution is to set a time bound. However, since all these $\mathsf{applyBlocks}$
+will come very close together (\emph{maybe} even as a single call), in practice
+this can probably work reasonably well.
+
 
 \section{Minimum Balance}
 \label{sec:tracking_expected_UTxO}
@@ -1346,7 +1400,7 @@ outputs are removed from $\mathit{expected}$.
 & w_\emptyset \in \mathsf{Wallet} = [(\emptyset, \emptyset, \emptyset)]
 \end{align*}
 %
-\emph{Updates}
+\emph{Atomic updates}
 %
 \begin{align*}
 & \mathsf{applyBlock} ~ b ~ ((\mathit{utxo}, \mathit{pending}, \mathit{expected}) : \mathit{checkpoints}) = \\
@@ -2081,7 +2135,7 @@ well as the actual UTxO.
 & w_\emptyset \in \mathsf{Wallet} = [(\emptyset, \emptyset, \emptyset, 0)]
 \end{align*}
 %
-\emph{Updates}
+\emph{Atomic updates}
 %
 \begin{align*}
 & \mathsf{applyBlock} ~ b
@@ -2164,7 +2218,7 @@ on rollback we simply revert to the previous value of the block metadata.
 & \mathsf{Wallet} = [\mathsf{Utxo} \times \mathsf{Pending} \times \mathsf{BlockMeta}] \times \mathsf{TxInfo}
 \end{align*}
 %
-\emph{Updates}
+\emph{Atomic updates}
 %
 \begin{align*}
 & \mathsf{applyBlock} ~ b ~ ((\mathit{utxo}, \mathit{pending}, \mathit{blockMeta}) : \mathit{checkpoints}, \mathit{txInfo}) = ( \\
@@ -2228,16 +2282,57 @@ this document.}
 \subsubsection{Information dependent on chain status}
 \label{sec:confirmations}
 
-The V1 API also records how deep the transaction lives in the blockchain
-(counting from the tip); somewhat confusingly, it refers to this as the number
-of `confirmations'. We can model this somewhat indirectly by choosing
+The V1 API reports some information that is dependent on the chain status.
 
+\begin{itemize}
+\item How deep the transaction lives in the blockchain (counting from the tip);
+somewhat confusingly, it refers to this as the number of `confirmations'.
+\item Whether or not an address has been \emph{used}. An address
+$\mathit{addr}$ is considered \emph{used} if and only if
+\begin{enumerate}
+  \item $\mathsf{ours} ~ \mathit{addr}$
+  \item There exists \emph{at least one} confirmed transaction $(\mathit{inputs}, \mathit{outputs})$ where $\exists c. (\mathit{addr}, c) \in \mathit{outputs}$
+\end{enumerate}
+\item Whether or not an address \emph{is a change address}. Since this
+information is derived from the blockchain, it can only be approximated. This
+field is currently defined as follows: an address $\mathit{addr}$ is considered
+a change address if and only if
+\begin{enumerate}
+  \item $\mathsf{ours} ~ \mathit{addr}$
+  \item There exists \emph{exactly one} confirmed transaction $(\mathit{inputs},
+  \mathit{outputs})$ where $\exists c_\mathit{change}. (\mathit{addr}, c_\mathit{change}) \in \mathit{outputs}$
+  \item There is at least one other output $(\mathit{addr}_\mathit{other}, c_\mathit{other}) \in \mathit{outputs}$ where $\neg (\mathsf{ours} ~ \mathit{addr}_\mathit{other})$
+  \item All \emph{inputs} $i \in \mathit{inputs}$ refer to outputs $(\mathit{addr}_{\mathit{in}_i}, c_{\mathit{in}_i})$ where $\mathsf{ours} ~ \mathit{addr}_{\mathit{in}_i}$
+\end{enumerate}
+\end{itemize}
+
+We can model this as follows: our block metadata contains the block number that
+each confirmed transactions got confirmed in, as well as a mapping from
+addresses to address metadata. The depth of a confirmation can be derived from
+the block number and the current slot number. The address metadata consisting
+of two booleans indicating whether the address is used and whether or not it is
+a change address.
+%
+\begin{align*}
+\mathsf{BlockMeta} & = (\mathsf{TxId} \mapsto \mathsf{BlockNumber})
+                \times (\mathsf{Addr} \mapsto \mathsf{AddrMeta}) \\
+\mathsf{AddrMeta} & = \mathsf{Bool} \times \mathsf{Bool}
+\end{align*}
+%
+For a single block this information is derived according to the definitions
+above. For the monoidal operator combining the block metadata from two different
+blocks, it suffices to take the union of the block numbers (since a transaction
+ID can only exist in one of the two blocks) and take the pointwise combination
+of the address metadata using
+%
 \begin{equation*}
-\mathsf{BlockMeta} = \mathsf{TxId} \mapsto \mathsf{BlockNumber}
+  (\mathit{isUsed}, \mathit{isChange}) \uplus (\mathit{isUsed}', \mathit{isChange}')
+= (\mathit{isUsed} \vee \mathit{isUsed}', \mathit{isChange} \ovee \mathit{isChange}')
 \end{equation*}
-
-This tells use which block each transaction got confirmed in; the depth
-can then be derived once we know the block number of the current tip.
+%
+An address is used if its used in either of the two blocks, and is considered
+a change address if it's considered a change address in \emph{one} of the
+two blocks, but not both (hence the use of exclusive or $\ovee$).
 
 \subsubsection{Transaction status}
 \label{sec:transaction_status}
@@ -2544,7 +2639,7 @@ fingertree\footnote{Available in Haskell as \texttt{Data.Sequence}.}
 & \in \mathsf{Submission} = \mathsf{Pending} \times \mathsf{Schedule}
 \end{align*}
 %
-\emph{Updates}
+\emph{Atomic updates}
 %
 \begin{align*}
   \mathsf{addPending}
@@ -2785,71 +2880,6 @@ excess into the change address(es).  If we do end up having to use the fallback
 strategies, we will need to iterate this process (indeed, the added fee itself
 might \emph{trigger} the need for a fallback).
 
-\section{TODO: Persistent storage}
-
-Threading (see prefiltering): blocks must be applied in order!
-
-\subsection{Switching to a fork}
-
-Although $\mathsf{rollback}$ is a useful primitive operation on the wallet
-state, in practice the wallet will never ever actually rollback, but rather
-switch to a different fork. The disambiguation rule in the underlying blockchain
-protocol (either Ouroboros or Ouroboros Praos) states that this can only happen
-if that other fork is \emph{longer} than the current one.
-
-It will therefore we useful to provide a higher-level operation that combines
-rolling back with applying the blocks in the new fork:
-
-\begin{equation}
-\mathsf{switch} ~ n ~ \mathit{blocks} = \mathsf{applyBlocks} ~ \mathit{blocks} \circ \mathsf{rollbacks} ~ n
-\end{equation}
-
-where $\mathsf{rollbacks} ~ n$ calls $\mathsf{rollback}$ $n$ times, and
-$\mathsf{applyBlocks}$ calls $\mathsf{applyBlock}$ for all blocks in order.
-Such an operation is important because it means that the intermediate state
-of the wallet during the switch is not visible to the user.
-
-\emph{Implementation Note.} The current Cardano API does not provide something
-equivalent to $\mathsf{switch}$, instead providing only hooks that correspond to
-$\mathsf{applyBlocks}$ and $\mathsf{rollbacks}$. The wallet kernel however could
-batch up the calls to $\mathsf{rollbacks}$, and not apply the $n$ rollbacks
-until it has at least $n + m$ ($m \ge 1$) blocks to apply. This solution is not
-ideal, as it is unclear what value to set $m$ to; probably the only workable
-solution is to set a time bound. However, since all these $\mathsf{applyBlocks}$
-will come very close together (\emph{maybe} even as a single call), in practice
-this can probably work reasonably well.
-
-\section{TODO: Lightweight wallet}
-
-Stateless client (containing keys only) with server-side wallet state
-(one server supporting multiple wallets).
-
-\section{TODO: Wallet recovery}
-
-Efficient wallet recovery
-
-Also very important for the design of the light-weight wallet, where we may
-spin up and tear down wallets very frequently.
-
-\section{Next steps}
-
-Consider confirmations / block depth.
-
-Consider address selection, both how to do it and what information may need to
-be maintained (incrementally) to do it efficiently. Partly this can be specified
-and partly it needs to be simulated to establish the emergent behaviour over a
-long series of transactions.
-
-Look for other properties, e.g. wallet utxo $\subseteq$ chain utxo.
-
-Establish storage/memory requirements.
-
-It should be true that different instances of the `same' wallet (that do not share their pending sets) eventually end up in the same state.
-
-Add pending tx expiry / TTL (would be needed to prove wallets end up in the same state after a finite time).
-
-Prove properties.
-
 \appendix
 
 \section{Appendix: Transaction fees}
@@ -2906,20 +2936,3 @@ serialized size of the transaction
 \bibliography{references}
 
 \end{document}
-
-% isUsed
-%   an address a is _used_ iff
-%     1. it is owned by the wallet, and
-%     2. there is confirmed transaction which outputs to this address
-%   (i.e., pending transactions are _not_ included here)
-%
-% isChange (our definition):
-%   an address a is considered a change address iff
-%     1. ours a
-%     2. there are no _other_ confirmed transactions that output to this address
-%     3. there exists a confirmed transaction which
-%          3a. outputs to that address
-%          3b. there is at least one output that does _not_ belong to the wallet
-%          3c. all of the transaction's inputs belong to the wallet
-%   (redemption?)
-%

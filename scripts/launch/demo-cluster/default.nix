@@ -84,14 +84,18 @@ in pkgs.writeScript "demo-cluster" ''
 
   done
   ${ifWallet ''
-    export LC_ALL=en_GB.UTF-8
+    export LC_ALL=C.UTF-8
+    # TODO: Switch to cardano-x509-certificates and generate proper certs for CA, server and client
     if [ ! -d ${stateDir}/tls-files ]; then
       mkdir -p ${stateDir}/tls-files
       openssl req -x509 -newkey rsa:2048 -keyout ${stateDir}/tls-files/server.key -out ${stateDir}/tls-files/server.crt -days 30 -nodes -subj "/CN=localhost"
+      cp ${stateDir}/tls-files/server.crt ${stateDir}/tls-files/ca.crt
+      cp ${stateDir}/tls-files/server.crt ${stateDir}/tls-files/client.crt
+      cp ${stateDir}/tls-files/server.key ${stateDir}/tls-files/client.key
     fi
     echo Launching wallet node:
     i=${builtins.toString numCoreNodes}
-    wallet_args=" --tlscert ${stateDir}/tls-files/server.crt --tlskey ${stateDir}/tls-files/server.key --tlsca ${stateDir}/tls-files/server.crt"
+    wallet_args=" --tlscert ${stateDir}/tls-files/server.crt --tlskey ${stateDir}/tls-files/server.key --tlsca ${stateDir}/tls-files/ca.crt"
     # TODO: remove wallet-debug and use TLS when the tests support it
     wallet_args="$wallet_args --wallet-address 127.0.0.1:8090 --wallet-db-path ${stateDir}/wallet-db --wallet-debug"
     node_args="$(node_cmd $i "$wallet_args" "$system_start" "${stateDir}" "" "${stateDir}/logs" "${stateDir}") --configuration-file ${configFiles}/configuration.yaml"

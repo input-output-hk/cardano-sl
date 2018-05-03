@@ -44,10 +44,6 @@ optionsParser = do
        <> help      "Server port"
        <> showDefault
 
-    stateless <- switch $
-        long        "stateless"
-        <> help     "If defined - don't persist state between requests."
-
     pure CLOptions{..}
 
 
@@ -67,5 +63,4 @@ data CLOptions = CLOptions
     , tlsCACertPath     :: FilePath
     , serverHost        :: String
     , serverPort        :: Int
-    , stateless         :: Bool
     } deriving (Show, Eq)

@@ -12,10 +12,9 @@ scripts=$(dirname "$0")/../..
 sessionName="integration-tests-"`date +%H%M%S`
 tmpSecrets=$scripts/../temp-secrets
 
-# TODO (@ktorz): Switch to client certificate & key from CSL-2209
-tlsCACert=$scripts/tls-files/ca.crt
-tlsClientCert=$scripts/tls-files/server.crt
-tlsClientKey=$scripts/tls-files/server.key
+tlsCACert=$scripts/../run/tls-files/ca.crt
+tlsClientCert=$scripts/../run/tls-files/client.crt
+tlsClientKey=$scripts/../run/tls-files/client.key
 
 SECONDS=$1
 

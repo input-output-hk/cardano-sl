@@ -57,9 +57,6 @@ makeWrapped ''OldestFirst
 deriving instance Semigroup (f a) => Semigroup (NewestFirst f a)
 deriving instance Semigroup (f a) => Semigroup (OldestFirst f a)
 
-deriving instance Monoid (f a) => Monoid (NewestFirst f a)
-deriving instance Monoid (f a) => Monoid (OldestFirst f a)
-
 instance Lens.Each (f a) (f b) a b =>
          Lens.Each (NewestFirst f a) (NewestFirst f b) a b where
     each = _Wrapped . Lens.each

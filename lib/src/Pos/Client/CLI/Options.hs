@@ -12,6 +12,7 @@ module Pos.Client.CLI.Options
        , portOption
        , webPortOption
        , walletAddressOption
+       , docAddressOption
        , networkAddressOption
        , templateParser
 
@@ -23,8 +24,8 @@ import           Universum
 import           Data.Default (def)
 import qualified Options.Applicative as Opt
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
-import           Serokell.Util (sec)
 import           Pos.Util.OptParse (fromParsec)
+import           Serokell.Util (sec)
 
 import           Pos.Binary.Core ()
 import           Pos.Communication (NodeId)
@@ -156,3 +157,14 @@ walletAddressOption na =
          <> maybe mempty Opt.value na
   where
     helpMsg = "IP and port for backend wallet API."
+
+docAddressOption :: Maybe NetworkAddress -> Opt.Parser NetworkAddress
+docAddressOption na =
+    Opt.option (fromParsec addrParser) $
+            Opt.long "wallet-doc-address"
+         <> Opt.metavar "IP:PORT"
+         <> Opt.help helpMsg
+         <> Opt.showDefault
+         <> maybe mempty Opt.value na
+  where
+    helpMsg = "IP and port for backend wallet API documentation."

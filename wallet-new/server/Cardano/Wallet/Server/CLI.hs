@@ -53,6 +53,8 @@ data WalletBackendParams = WalletBackendParams
     -- ^ The TLS parameters.
     , walletAddress       :: !NetworkAddress
     -- ^ The wallet address.
+    , walletDocAddress    :: !NetworkAddress
+    -- ^ The wallet documentation address.
     , walletRunMode       :: !RunMode
     -- ^ The mode this node is running in.
     , walletDbOptions     :: !WalletDBOptions
@@ -126,6 +128,7 @@ walletBackendParamsParser = WalletBackendParams <$> enableMonitoringApiParser
                                                 <*> monitoringApiPortParser
                                                 <*> tlsParamsParser
                                                 <*> addressParser
+                                                <*> docAddressParser
                                                 <*> runModeParser
                                                 <*> dbOptionsParser
   where
@@ -139,6 +142,9 @@ walletBackendParamsParser = WalletBackendParams <$> enableMonitoringApiParser
 
     addressParser :: Parser NetworkAddress
     addressParser = CLI.walletAddressOption $ Just (localhost, 8090)
+
+    docAddressParser :: Parser NetworkAddress
+    docAddressParser = CLI.docAddressOption $ Just (localhost, 8091)
 
     runModeParser :: Parser RunMode
     runModeParser = (\debugMode -> if debugMode then DebugMode else ProductionMode) <$>
@@ -185,6 +191,7 @@ tlsParamsParser = constructTlsParams <$> certPathParser
                      long "no-tls" <>
                      help "Disable tls. If set, 'tlscert', 'tlskey' \
                           \and 'tlsca' options are ignored"
+
 
 -- | The parser for the @WalletDBOptions@.
 dbOptionsParser :: Parser WalletDBOptions

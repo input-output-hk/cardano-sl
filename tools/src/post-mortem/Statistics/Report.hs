@@ -23,7 +23,7 @@ reportTxFate f m = withFile f WriteMode $ \h -> do
         lost  = M.size m'''
         chains = fst <$> M.toList m''
         forks  = fst <$> M.toList m'
-        losts  = fst <$> M.toList m''
+        losts  = fst <$> M.toList m'''
     hPutStrLn h $ "total transactions: " ++ show total
     hPutStrLn h $ "in blockchain: " ++ show chain
     hPutStrLn h $ "in fork: " ++ show fork

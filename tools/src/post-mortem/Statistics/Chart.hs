@@ -1,5 +1,6 @@
 module Statistics.Chart
     ( chart
+    , getData
     ) where
 
 import           Data.Map.Strict (Map)

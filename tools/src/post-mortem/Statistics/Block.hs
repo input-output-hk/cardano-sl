@@ -19,14 +19,14 @@ import qualified Data.Text as T
 import           Data.Time.Units (Microsecond)
 
 import           JSONLog (IndexedJLTimedEvent (..))
-import           Pos.Util.JsonLog (JLBlock (..), JLEvent (..))
+import           Pos.Util.JsonLog.Events (JLBlock (..), JLEvent (..))
 import           Prelude (id)
 import           Statistics.Tx (txFirstReceivedF)
 import           Types
 import           Universum hiding (fold)
 
 data BlockHeader = BlockHeader
-    { bhNode      :: !NodeIndex
+    { bhNode      :: !NodeId
     , bhTimestamp :: !Timestamp
     , bhHash      :: !BlockHash
     , bhPrevBlock :: !BlockHash
@@ -92,7 +92,7 @@ txBlocksF = Fold step MS.empty id
          -> IndexedJLTimedEvent
          -> SMap Text [(Microsecond, Text)]
     step m IndexedJLTimedEvent{..} = case ijlEvent of
-        JLCreatedBlock JLBlock{..} -> foldl' (f ijlTimestamp jlHash) m [T.take 8 x | x <- jlTxs]
+        JLCreatedBlock JLBlock{..} -> foldl' (f ijlTimestamp jlHash) m [T.take 16 x | x <- jlTxs]
         _                          -> m
 
     f :: Timestamp
@@ -109,10 +109,10 @@ inBlockChainF = f <$> txFateF
     f :: SMap TxHash TxFate -> SMap TxHash Timestamp
     f = MS.map fromJust . MS.filter isJust .  MS.map txInBlockChain
 
-txCntInChainF :: Fold IndexedJLTimedEvent [(NodeIndex, Timestamp, Int)]
+txCntInChainF :: Fold IndexedJLTimedEvent [(NodeId, Timestamp, Int)]
 txCntInChainF = f <$> blockHeadersF <*> blockChainF
   where
-    f :: Map BlockHash BlockHeader -> Set BlockHash -> [(NodeIndex, Timestamp, Int)]
+    f :: Map BlockHash BlockHeader -> Set BlockHash -> [(NodeId, Timestamp, Int)]
     f m cs = [(bhNode, bhTimestamp, bhTxCnt) | (_, BlockHeader{..}) <- MS.toList m, bhHash `S.member` cs]
 
 data TxFate =

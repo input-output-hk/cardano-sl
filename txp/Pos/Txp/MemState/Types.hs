@@ -1,20 +1,12 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Type stored in the Txp holder.
 
 module Pos.Txp.MemState.Types
        ( GenericTxpLocalData (..)
        , TxpLocalData
-       , TransactionProvenance (..)
-       , MemPoolModifyReason (..)
-       , JLTxR (..)
        ) where
 
 import           Universum
 
-import           Data.Aeson.TH (defaultOptions, deriveJSON)
-
-import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.Core.Common (HeaderHash)
 import           Pos.Txp.Toil.Types (MemPool, UndoMap, UtxoModifier)
 
@@ -39,37 +31,3 @@ data GenericTxpLocalData extra = TxpLocalData
 
 -- | Memory state of Txp. This version is used by actual Txp implementation.
 type TxpLocalData = GenericTxpLocalData ()
-
--- TODO COMMENT
-data TransactionProvenance
-    = FromPeer PeerId
-    | History
-    deriving (Show)
-
-$(deriveJSON defaultOptions ''TransactionProvenance)
-
--- | Enumeration of all reasons for modifying the mempool.
-data MemPoolModifyReason =
-      -- | Apply a block created by someone else.
-      ApplyBlock
-      -- | Apply a block created by us.
-    | CreateBlock
-      -- | Include a transaction. It came from this peer.
-    | ProcessTransaction TransactionProvenance
-      -- TODO COMMENT
-    | Custom Text
-      -- TODO COMMENT
-    | Unknown
-    deriving Show
-
-$(deriveJSON defaultOptions ''MemPoolModifyReason)
-
-----------------------------------------------------------------------------
--- Logging
-----------------------------------------------------------------------------
-
--- | Json log of one transaction being received by a node.
-data JLTxR = JLTxR
-    { jlrTxId  :: Text
-    , jlrError :: Maybe Text
-    } deriving Show

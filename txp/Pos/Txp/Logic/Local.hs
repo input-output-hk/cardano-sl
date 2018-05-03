@@ -24,6 +24,7 @@ import           Control.Monad.Morph (generalize, hoist)
 import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
+import           JsonLog (CanJsonLog (..))
 import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog, logDebug, logError,
                               logWarning)
 
@@ -44,13 +45,15 @@ import           Pos.Txp.Toil (ExtendedLocalToilM, LocalToilState (..), MemPool,
                                ToilVerFailure (..), UndoMap, Utxo, UtxoLookup, UtxoModifier,
                                extendLocalToilM, mpLocalTxs, normalizeToil, processTx, utxoToLookup)
 import           Pos.Txp.Topsort (topsortTxs)
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Util.Util (HasLens')
 
 type TxpProcessTransactionMode ctx m =
     ( TxpLocalWorkMode ctx m
     , HasLens' ctx StateLock
-    , HasLens' ctx StateLockMetrics
+    , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
     , MempoolExt m ~ ()
+    , CanJsonLog m
     )
 
 -- | Process transaction. 'TxId' is expected to be the hash of
@@ -60,7 +63,7 @@ txProcessTransaction
     :: TxpProcessTransactionMode ctx m
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txProcessTransaction itw =
-    withStateLock LowPriority "txProcessTransaction" $ \__tip -> txProcessTransactionNoLock itw
+    withStateLock LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.

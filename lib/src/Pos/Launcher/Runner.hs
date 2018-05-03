@@ -28,10 +28,10 @@ import           Pos.Binary ()
 import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
 import           Pos.Communication (ActionSpec (..), OutSpecs (..))
 import           Pos.Configuration (HasNodeConfiguration, networkConnectionTimeout)
-import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
 import           Pos.Context.Context (NodeContext (..))
+import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
-import           Pos.Diffusion.Full (diffusionLayerFull, FullDiffusionConfiguration (..))
+import           Pos.Diffusion.Full (FullDiffusionConfiguration (..), diffusionLayerFull)
 import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
@@ -47,7 +47,8 @@ import           Pos.Shutdown (HasShutdownContext, waitForShutdown)
 import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.JsonLog (JsonLogConfig (..), jsonLogConfigFromHandle)
+import           Pos.Util.JsonLog.Events (JLEvent (JLTxReceived), JsonLogConfig (..),
+                                          jsonLogConfigFromHandle)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 
@@ -136,7 +137,7 @@ runServer
     -> ActionSpec m t
     -> m t
 runServer runIO NodeParams {..} ekgNodeMetrics _ (ActionSpec act) =
-    exitOnShutdown . logicLayerFull jsonLog $ \logicLayer ->
+    exitOnShutdown . logicLayerFull (jsonLog . JLTxReceived) $ \logicLayer ->
         diffusionLayerFull runIO fdconf npNetworkConfig (Just ekgNodeMetrics) (logic logicLayer) $ \diffusionLayer -> do
             when npEnableMetrics (registerEkgMetrics ekgStore)
             runLogicLayer logicLayer $

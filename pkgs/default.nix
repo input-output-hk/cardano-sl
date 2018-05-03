@@ -7528,10 +7528,10 @@ inherit (pkgs) mesa;};
          , cardano-sl-block, cardano-sl-client, cardano-sl-core
          , cardano-sl-crypto, cardano-sl-db, cardano-sl-infra
          , cardano-sl-networking, cardano-sl-txp, cardano-sl-update
-         , cardano-sl-util, cardano-sl-wallet, Chart, Chart-diagrams
-         , containers, cpphs, cryptonite, data-default, directory, fgl
-         , filepath, foldl, formatting, Glob, graphviz, hspec, kademlia
-         , lens, lifted-async, log-warper, MonadRandom, mtl
+         , cardano-sl-util, cardano-sl-wallet, cassava, Chart
+         , Chart-diagrams, containers, cpphs, cryptonite, data-default
+         , directory, fgl, filepath, foldl, formatting, Glob, graphviz
+         , hspec, kademlia, lens, lifted-async, log-warper, MonadRandom, mtl
          , neat-interpolation, network-transport-tcp, optparse-applicative
          , optparse-generic, parsers, pipes, pipes-bytestring
          , pipes-interleave, pipes-safe, process, QuickCheck, random
@@ -7555,14 +7555,15 @@ inherit (pkgs) mesa;};
              cardano-sl cardano-sl-binary cardano-sl-block cardano-sl-client
              cardano-sl-core cardano-sl-crypto cardano-sl-db cardano-sl-infra
              cardano-sl-networking cardano-sl-txp cardano-sl-update
-             cardano-sl-util cardano-sl-wallet Chart Chart-diagrams containers
-             cryptonite data-default directory fgl filepath foldl formatting
-             Glob graphviz kademlia lens lifted-async log-warper MonadRandom mtl
-             neat-interpolation network-transport-tcp optparse-applicative
-             optparse-generic pipes pipes-bytestring pipes-interleave pipes-safe
-             process QuickCheck random safe-exceptions serokell-util silently
-             stm string-conv tabl tar text time time-units universum unix
-             unix-compat unordered-containers yaml
+             cardano-sl-util cardano-sl-wallet cassava Chart Chart-diagrams
+             containers cryptonite data-default directory fgl filepath foldl
+             formatting Glob graphviz kademlia lens lifted-async log-warper
+             MonadRandom mtl neat-interpolation network-transport-tcp
+             optparse-applicative optparse-generic pipes pipes-bytestring
+             pipes-interleave pipes-safe process QuickCheck random
+             safe-exceptions serokell-util silently stm string-conv tabl tar
+             text time time-units universum unix unix-compat
+             unordered-containers yaml
            ];
            executableToolDepends = [ cpphs ];
            testHaskellDepends = [
@@ -7683,8 +7684,8 @@ inherit (pkgs) mesa;};
          , cardano-sl-delegation, cardano-sl-generator, cardano-sl-infra
          , cardano-sl-lrc, cardano-sl-networking, cardano-sl-ssc
          , cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers
-         , cpphs, cryptonite, data-default, directory, dlist, ether
-         , exceptions, filepath, formatting, hashable, hspec, lens
+         , cpphs, cryptonite, data-default, directory, dlist, ekg-core
+         , ether, exceptions, filepath, formatting, hashable, hspec, lens
          , log-warper, memory, monad-control, MonadRandom, mtl, QuickCheck
          , quickcheck-instances, random, reflection, safe-exceptions
          , safecopy, semver, serokell-util, servant, servant-generic
@@ -7703,10 +7704,10 @@ inherit (pkgs) mesa;};
              cardano-sl-crypto cardano-sl-db cardano-sl-delegation
              cardano-sl-generator cardano-sl-infra cardano-sl-networking
              cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
-             containers cryptonite data-default directory dlist ether exceptions
-             filepath formatting hashable hspec lens log-warper memory
-             monad-control mtl QuickCheck quickcheck-instances random reflection
-             safe-exceptions safecopy semver serokell-util servant
+             containers cryptonite data-default directory dlist ekg-core ether
+             exceptions filepath formatting hashable hspec lens log-warper
+             memory monad-control mtl QuickCheck quickcheck-instances random
+             reflection safe-exceptions safecopy semver serokell-util servant
              servant-generic servant-multipart servant-server servant-swagger
              servant-swagger-ui stm swagger2 text text-format time time-units
              transformers universum unix unliftio unordered-containers wai
@@ -7718,8 +7719,8 @@ inherit (pkgs) mesa;};
              cardano-sl-crypto cardano-sl-db cardano-sl-delegation
              cardano-sl-generator cardano-sl-infra cardano-sl-lrc
              cardano-sl-networking cardano-sl-ssc cardano-sl-txp
-             cardano-sl-update cardano-sl-util containers data-default ether
-             formatting hspec lens log-warper MonadRandom mtl QuickCheck
+             cardano-sl-update cardano-sl-util containers data-default ekg-core
+             ether formatting hspec lens log-warper MonadRandom mtl QuickCheck
              safe-exceptions safecopy serokell-util servant-server stm
              text-format universum unordered-containers
            ];

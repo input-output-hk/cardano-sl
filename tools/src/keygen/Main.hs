@@ -165,7 +165,7 @@ main = do
           Log.logInfo "Processing command"
           case koCommand of
               --RearrangeMask msk       -> rearrange msk
-              --GenerateKey path        -> genPrimaryKey path
+              GenerateKey path        -> genPrimaryKey path
               --GenerateVss path        -> genVssCert path
               -- --ReadKey path            -> readKey path
               -- --DumpAvvmSeeds opts      -> dumpAvvmSeeds opts

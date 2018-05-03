@@ -296,11 +296,11 @@ and docker containers. On systems using docker, docker > 17.12 required.
 
 ## How do I export the CA certificate for the API?
 
-The certificate is generated inside the wallet in the file `tls/server.cert`
+The certificate is generated inside the wallet in the file `tls/server/server.crt`
 
 If you are using the docker container, this can be output using the command:
 
-`docker exec -it cardano-mainnet-wallet cat /wallet/state-wallet-mainnet/tls/server.cert`
+`docker exec -it cardano-mainnet-wallet cat /wallet/state-wallet-mainnet/tls/server/server.crt`
 
 Please refer to your OS or browser documentation for how to import the CA
 certificate into your trusted `ca-certificates` file. The rest of this

@@ -7,21 +7,28 @@ module Cardano.Wallet.Kernel.DB.Sqlite (
     , MetaDBHandle
     , putTxMeta
     , getTxMeta
+
+    -- * Internal details, testing only
+    , createMetaDB
     ) where
 
 import           Universum
 
-import           Database.Beam.Backend.SQL (FromBackendRow, HasSqlValueSyntax (..))
+import           Database.Beam.Backend.SQL (FromBackendRow, HasSqlValueSyntax (..),
+                                            IsSql92DataTypeSyntax, intType, varCharType)
 import           Database.Beam.Query (HasSqlEqualityCheck, (==.))
 import qualified Database.Beam.Query as SQL
 import           Database.Beam.Schema (Beamable, Database, DatabaseSettings, PrimaryKey, Table)
 import qualified Database.Beam.Schema as Beam
 import           Database.Beam.Sqlite.Connection (Sqlite, runBeamSqliteDebug)
-import           Database.Beam.Sqlite.Syntax (SqliteExpressionSyntax, SqliteValueSyntax)
+import           Database.Beam.Sqlite.Syntax (SqliteCommandSyntax, SqliteDataTypeSyntax,
+                                              SqliteExpressionSyntax, SqliteValueSyntax)
 import qualified Database.SQLite.Simple as Sqlite
 import           Database.SQLite.Simple.FromField (FromField (..), returnError)
 
 import           Data.Time.Units (fromMicroseconds, toMicroseconds)
+import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..), Migration, boolean,
+                                        createTable, field, notNull, unique)
 import           Formatting (sformat)
 import           GHC.Generics (Generic)
 
@@ -120,11 +127,11 @@ type TxInput = TxInputT Identity
 mkInputs :: Kernel.TxMeta -> [TxInput]
 mkInputs txMeta =
     let inputs = txMeta ^. Kernel.txMetaInputs
-        txId   = txMeta ^. Kernel.txMetaId
-    in map (buildInput txId) (toList inputs)
+        txid   = txMeta ^. Kernel.txMetaId
+    in map (buildInput txid) (toList inputs)
   where
       buildInput :: Core.TxId -> (Core.Address, Core.Coin) -> TxInput
-      buildInput tid (addr, coin) = TxInput (TxCoinDistributionTable addr coin (TxIdPrimKey tid))
+      buildInput tid (addr, amount) = TxInput (TxCoinDistributionTable addr amount (TxIdPrimKey tid))
 
 instance Beamable TxInputT
 
@@ -144,11 +151,11 @@ type TxOutput = TxOutputT Identity
 mkOutputs :: Kernel.TxMeta -> [TxOutput]
 mkOutputs txMeta =
     let outputs = txMeta ^. Kernel.txMetaOutputs
-        txId    = txMeta ^. Kernel.txMetaId
-    in map (buildInput txId) (toList outputs)
+        txid    = txMeta ^. Kernel.txMetaId
+    in map (buildInput txid) (toList outputs)
   where
       buildInput :: Core.TxId -> (Core.Address, Core.Coin) -> TxOutput
-      buildInput tid (addr, coin) = TxOutput (TxCoinDistributionTable addr coin (TxIdPrimKey tid))
+      buildInput tid (addr, amount) = TxOutput (TxCoinDistributionTable addr amount (TxIdPrimKey tid))
 
 instance Beamable TxOutputT
 
@@ -162,7 +169,7 @@ instance Beamable (PrimaryKey TxOutputT)
 -- Orphans & other boilerplate
 
 instance HasSqlValueSyntax SqliteValueSyntax Core.TxId where
-    sqlValueSyntax txId = sqlValueSyntax (sformat hashHexF txId)
+    sqlValueSyntax txid = sqlValueSyntax (sformat hashHexF txid)
 
 instance HasSqlValueSyntax SqliteValueSyntax Core.Coin where
     sqlValueSyntax = sqlValueSyntax . Core.unsafeGetCoin
@@ -219,6 +226,46 @@ instance FromBackendRow Sqlite Core.Address
 metaDB :: DatabaseSettings Sqlite MetaDB
 metaDB = Beam.defaultDbSettings
 
+-- | 'DataType' declaration to convince @Beam@ treating 'Core.Address'(es) as
+-- varchars of arbitrary length.
+address :: DataType SqliteDataTypeSyntax Core.Address
+address = DataType (varCharType Nothing Nothing)
+
+-- | 'DataType' declaration to convince @Beam@ treating 'Core.Timestamp'(s) as
+-- varchars of arbitrary length.
+timestamp :: DataType SqliteDataTypeSyntax Core.Timestamp
+timestamp = DataType (varCharType Nothing Nothing)
+
+-- | 'DataType' declaration to convince @Beam@ treating 'Core.TxId(s) as
+-- varchars of arbitrary length.
+txId :: IsSql92DataTypeSyntax syntax => DataType syntax Core.TxId
+txId = DataType (varCharType Nothing Nothing)
+
+-- | 'DataType' declaration to convince @Beam@ treating 'Core.Coin(s) as
+-- SQL @INTEGER@s.
+coin :: DataType SqliteDataTypeSyntax Core.Coin
+coin = DataType intType
+
+-- | Beam's 'Migration' to create a new 'MetaDB' Sqlite database.
+createMetaDB :: Migration SqliteCommandSyntax (CheckedDatabaseSettings Sqlite MetaDB)
+createMetaDB = do
+    MetaDB <$> createTable "tx_metas"
+                 (TxMeta (field "meta_id" txId notNull unique)
+                         (field "meta_amount" coin notNull)
+                         (field "meta_created_at" timestamp notNull)
+                         (field "meta_is_local" boolean notNull)
+                         (field "meta_is_outgoing" boolean notNull))
+           <*> createTable "tx_metas_inputs"
+                 (TxInput (TxCoinDistributionTable (field "input_address" address notNull)
+                                                   (field "input_coin" coin notNull)
+                                                   (TxIdPrimKey (field "meta_id" txId notNull unique))
+                          ))
+           <*> createTable "tx_metas_outputs"
+                 (TxOutput (TxCoinDistributionTable (field "output_address" address notNull)
+                                                    (field "output_coin" coin notNull)
+                                                    (TxIdPrimKey (field "meta_id" txId notNull unique))
+                           ))
+
 -- | Opens a new 'Connection' to the @Sqlite@ database identified by the
 -- input 'FilePath'.
 openMetaDB :: FilePath -> IO MetaDBHandle
@@ -265,7 +312,7 @@ toTxMeta txMeta inputs outputs = Kernel.TxMeta {
 -- FIXME(adinapoli): Toggle debug/production with the 'WalletMode'.
 -- FIXME(adinapoli): Exception & error handling.
 getTxMeta :: MetaDBHandle -> Core.TxId -> IO (Maybe Kernel.TxMeta)
-getTxMeta dbHandle txId =
+getTxMeta dbHandle txid =
     let conn = _mDbHandleConnection dbHandle
     in runBeamSqliteDebug putStrLn conn $ do
         metas <- SQL.runSelectReturningList txMetaById
@@ -276,12 +323,12 @@ getTxMeta dbHandle txId =
                 pure $ toTxMeta <$> Just txMeta <*> inputs <*> outputs
             _        -> pure Nothing
     where
-        txMetaById = SQL.lookup_ (_mDbMeta metaDB) (TxIdPrimKey txId)
+        txMetaById = SQL.lookup_ (_mDbMeta metaDB) (TxIdPrimKey txid)
         getInputs  = SQL.select $ do
             coinDistr <- SQL.all_ (_mDbInputs metaDB)
-            SQL.guard_ ((_txCoinDistributionTxId . _getTxInput $ coinDistr) ==. (SQL.val_ $ TxIdPrimKey txId))
+            SQL.guard_ ((_txCoinDistributionTxId . _getTxInput $ coinDistr) ==. (SQL.val_ $ TxIdPrimKey txid))
             pure coinDistr
         getOutputs = SQL.select $ do
             coinDistr <- SQL.all_ (_mDbOutputs metaDB)
-            SQL.guard_ ((_txCoinDistributionTxId . _getTxOutput $ coinDistr) ==. (SQL.val_ $ TxIdPrimKey txId))
+            SQL.guard_ ((_txCoinDistributionTxId . _getTxOutput $ coinDistr) ==. (SQL.val_ $ TxIdPrimKey txid))
             pure coinDistr

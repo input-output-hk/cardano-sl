@@ -111,6 +111,7 @@ library
                      , aeson-pretty
                      , async
                      , beam-core
+                     , beam-migrate
                      , beam-sqlite
                      , bytestring
                      , cardano-sl

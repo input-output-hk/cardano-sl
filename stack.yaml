@@ -1,4 +1,4 @@
-resolver: nightly-2018-04-21
+resolver: nightly-2018-05-02
 allow-newer: true
 
 flags:

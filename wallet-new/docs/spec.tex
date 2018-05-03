@@ -1582,7 +1582,7 @@ accurate, but it will still be a lower bound.} estimate the minimum balance as
                   \end{smallmatrix}}
         \right|_{\mathrlap{\mathsf{txins} ~ p \subseteq \dom(\mathit{utxo} \cup e)}}
         ~ \mathsf{totalBalance} ~ (\mathit{utxo} \cup e, p) \\
-=   & ~ \bigsqcup \Bigr\{ \ldots, \mathsf{totalBalance} ~ (\mathit{utxo} \cup \mathit{expected}, \mathit{pending}), \ldots \Bigr\}
+=   & ~ \minimum \Bigr\{ \ldots, \mathsf{totalBalance} ~ (\mathit{utxo} \cup \mathit{expected}, \mathit{pending}), \ldots \Bigr\}
     & \text{\{ Invariant~\ref{inv:txins_in_dom_utxo_expected_pending} \}} \\
 \le & ~ \mathsf{totalBalance} ~ (\mathit{utxo} \cup \mathit{expected}, \mathit{pending})
 \end{align*}

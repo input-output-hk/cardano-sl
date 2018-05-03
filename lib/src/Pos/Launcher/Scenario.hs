@@ -30,6 +30,7 @@ import           Pos.Infra.Slotting (waitSystemStart)
 import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Txp (bootDustThreshold)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
                                            lastKnownBlockVersion, ourSystemTag)
 import           Pos.Util.AssertMode (inAssertMode)
@@ -104,6 +105,7 @@ runNode' NodeResources {..} workers' plugins' = \diffusion -> do
 -- Initialization, running of workers, running of plugins.
 runNode
     :: ( HasCompileInfo
+       , HasTxpConfiguration
        , WorkMode ctx m
        )
     => ProtocolMagic

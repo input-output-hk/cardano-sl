@@ -52,6 +52,7 @@ import           Pos.Lrc.Mode (LrcMode)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1, sscCalculateSeed)
 import           Pos.Ssc.Message (SscMessageConstraints)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import qualified Pos.Txp.DB.Stakes as GS (stakeSource)
 import           Pos.Update.DB (getCompetingBVStates)
 import           Pos.Update.Poll.Types (BlockVersionState (..))
@@ -65,7 +66,8 @@ import           Pos.Util.Util (HasLens (..))
 
 -- | 'LrcModeFull' contains all constraints necessary to launch LRC.
 type LrcModeFull ctx m =
-    ( LrcMode ctx m
+    ( HasTxpConfiguration
+    , LrcMode ctx m
     , MonadSscMem ctx m
     , MonadSlots ctx m
     , MonadBlockApply ctx m

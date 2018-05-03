@@ -98,7 +98,7 @@ eProcessTx
     -> (TxUndo -> TxExtra)
     -> ExceptT ToilVerFailure ELocalToilM ()
 eProcessTx pm bvd curEpoch tx@(id, aux) createExtra = do
-    undo <- mapExceptT extendLocalToilM $ Txp.processTx pm bvd curEpoch tx
+    undo <- mapExceptT extendLocalToilM $ Txp.processTx pm bvd mempty curEpoch tx
     lift $ explorerExtraMToELocalToilM $ do
         let extra = createExtra undo
         putTxExtraWithHistory id extra $ getTxRelatedAddrs aux undo

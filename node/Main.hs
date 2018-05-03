@@ -21,6 +21,7 @@ import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher (HasConfigurations, NodeParams (..), loggerBracket, runNodeReal,
                                withConfigurations)
+import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
@@ -64,5 +65,6 @@ main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     args@(CLI.SimpleNodeArgs commonNodeArgs _) <- CLI.getSimpleNodeOptions
     let loggingParams = CLI.loggingParams loggerName commonNodeArgs
     let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
+    let blPath = AssetLockPath <$> cnaAssetLockPath commonNodeArgs
     loggerBracket loggingParams . logException "node" . runProduction $
-        withConfigurations conf $ action args
+        withConfigurations blPath conf $ action args

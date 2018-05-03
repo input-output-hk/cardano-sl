@@ -300,7 +300,7 @@ main =
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.debugPlus)
     logException loggerName . Log.usingLoggerName loggerName $
-        withConfigurations loConfiguration $ \_ pm -> do
+        withConfigurations Nothing loConfiguration $ \_ pm -> do
 
         -- Generate TLS certificates as needed
         generateTlsCertificates loConfiguration loX509ToolPath loTlsPath
@@ -514,7 +514,7 @@ clientScenario pm ndbp logPrefix logConf node wallet updater nodeTimeout report 
             logWarning "The node didn't die after 'terminateProcess'"
             maybeTrySIGKILL nodeHandle
 
-frontendOnlyScenario :: (HasConfigurations) => NodeDbPath -> NodeData -> NodeData -> UpdaterData -> Bool -> M ()
+frontendOnlyScenario :: HasConfigurations => NodeDbPath -> NodeData -> NodeData -> UpdaterData -> Bool -> M ()
 frontendOnlyScenario ndbp node wallet updater walletLog = do
     runUpdater ndbp updater
     logInfo "Waiting for wallet to finish..."

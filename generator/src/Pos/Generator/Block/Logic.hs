@@ -41,6 +41,7 @@ import           Pos.Generator.Block.Payload (genPayload)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Util (HasLens', maybeThrow, _neHead)
 
 ----------------------------------------------------------------------------
@@ -62,9 +63,8 @@ type BlockTxpGenMode g ctx m =
 -- Intermediate results will be forced. Blocks can be generated, written to
 -- disk, then collected by using '()' as the monoid and 'const ()' as the
 -- injector, for example.
-genBlocks
-    :: forall g ctx m t
-     . (BlockTxpGenMode g ctx m, Semigroup t, Monoid t)
+genBlocks ::
+       forall g ctx m t . (HasTxpConfiguration, BlockTxpGenMode g ctx m, Semigroup t, Monoid t)
     => ProtocolMagic
     -> BlockGenParams
     -> (Maybe Blund -> t)
@@ -95,6 +95,7 @@ genBlock
        , MonadBlockGen ctx m
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
+       , HasTxpConfiguration
        )
     => ProtocolMagic
     -> EpochOrSlot

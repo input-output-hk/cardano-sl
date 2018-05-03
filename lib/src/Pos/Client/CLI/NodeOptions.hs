@@ -34,6 +34,7 @@ import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, com
 data CommonNodeArgs = CommonNodeArgs
     { dbPath                 :: !(Maybe FilePath)
     , rebuildDB              :: !Bool
+    , cnaAssetLockPath       :: !(Maybe FilePath)
     -- these two arguments are only used in development mode
     , devGenesisSecretI      :: !(Maybe Int)
     , keyfilePath            :: !FilePath
@@ -62,6 +63,15 @@ commonNodeArgsParser = do
         long "rebuild-db" <>
         help "If node's database already exists, discard its contents \
              \and create a new one from scratch."
+
+    cnaAssetLockPath <- optional $ strOption $
+        long    "asset-lock-file" <>
+        metavar "FILEPATH" <>
+        help    "Path to list of assetLocked source addresses. Funds at these \
+                \addresses are not able to be spent. This will only be effective \
+                \while Cardano is centrally mined/minted. Addresses should be listed \
+                \one per line. Lines beginning with '#' are comments."
+
     devGenesisSecretI <-
         optional $ option auto $
                   long    "genesis-secret" <>

@@ -18,6 +18,7 @@ import qualified Test.Spec.Models
 import qualified Test.Spec.Submission
 import qualified Test.Spec.Translation
 import qualified Test.Spec.WalletWorker
+import           TxMetaStorageSpecs (txMetaStorageSpecs)
 
 {-------------------------------------------------------------------------------
   Main test driver
@@ -49,3 +50,4 @@ tests = describe "Wallet unit tests" $ do
     Test.Spec.Kernel.spec
     Test.Spec.WalletWorker.spec
     Test.Spec.Submission.spec
+    txMetaStorageSpecs

@@ -75,6 +75,7 @@ library
                        Cardano.Wallet.Kernel.DB.Spec.Update
                        Cardano.Wallet.Kernel.DB.Sqlite
                        Cardano.Wallet.Kernel.DB.TxMeta
+                       Cardano.Wallet.Kernel.DB.TxMeta.Types
                        Cardano.Wallet.Kernel.DB.Util.AcidState
                        Cardano.Wallet.Kernel.DB.Util.IxSet
                        Cardano.Wallet.Kernel.Diffusion
@@ -350,6 +351,7 @@ test-suite wallet-unit-tests
                       Test.Spec.Submission
                       Test.Spec.Translation
                       Test.Spec.WalletWorker
+                      TxMetaStorageSpecs
                       Util
                       Util.Buildable
                       Util.Buildable.Hspec
@@ -423,6 +425,7 @@ test-suite wallet-unit-tests
                     , mtl
                     , QuickCheck
                     , quickcheck-instances
+                    , safe-exceptions
                     , serokell-util
                     , text
                     , text-format

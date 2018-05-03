@@ -154,7 +154,7 @@ verifyTxUtxoSimple ::
     -> Either ToilVerFailure VerifyTxUtxoRes
 verifyTxUtxoSimple ctx utxo txAux =
     evalUtxoM mempty (utxoToLookup utxo) . runExceptT $
-    verifyTxUtxo ctx txAux
+    verifyTxUtxo ctx mempty txAux
 
 type TxVerifyingTools =
     (Tx, Utxo, NonEmpty (Maybe (TxIn, TxOutAux)), TxWitness)
@@ -433,7 +433,7 @@ scriptTxSpec = describe "script transactions" $ do
     tryApplyTx :: HasConfiguration => Utxo -> TxAux -> Either ToilVerFailure ()
     tryApplyTx utxo txa =
         evalUtxoM mempty (utxoToLookup utxo) . runExceptT $
-        () <$ verifyTxUtxo vtxContext txa
+        () <$ verifyTxUtxo vtxContext mempty txa
 
     -- Test tx1 against tx0. Tx0 will be a script transaction with given
     -- validator. Tx1 will be a P2PK transaction spending tx0 (with given

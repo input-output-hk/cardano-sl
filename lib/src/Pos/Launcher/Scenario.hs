@@ -30,6 +30,7 @@ import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Reporting (reportError)
 import           Pos.Slotting (waitSystemStart)
 import           Pos.Txp (bootDustThreshold)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
                                            lastKnownBlockVersion, ourSystemTag)
 import           Pos.Util.AssertMode (inAssertMode)
@@ -107,6 +108,7 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \diffusion -> do
 -- Initialization, running of workers, running of plugins.
 runNode
     :: ( HasCompileInfo
+       , HasTxpConfiguration
        , WorkMode ctx m
        )
     => NodeResources ext

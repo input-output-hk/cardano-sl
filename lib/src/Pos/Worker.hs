@@ -20,6 +20,7 @@ import           Pos.Network.CLI (launchStaticConfigMonitoring)
 import           Pos.Network.Types (NetworkConfig (..))
 import           Pos.Slotting (logNewSlotWorker)
 import           Pos.Ssc.Worker (sscWorkers)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Update.Worker (usWorkers)
 import           Pos.Util (mconcatPair)
 import           Pos.Worker.Types (WorkerSpec, localWorker)
@@ -28,7 +29,7 @@ import           Pos.WorkMode (WorkMode)
 -- | All, but in reality not all, workers used by full node.
 allWorkers
     :: forall ext ctx m .
-       WorkMode ctx m
+       (HasTxpConfiguration, WorkMode ctx m)
     => NodeResources ext -> ([WorkerSpec m], OutSpecs)
 allWorkers NodeResources {..} = mconcatPair
     [ -- Only workers of "onNewSlot" type

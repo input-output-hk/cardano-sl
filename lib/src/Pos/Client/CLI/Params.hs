@@ -90,5 +90,6 @@ getNodeParams defaultLoggerName cArgs@CommonNodeArgs{..} NodeArgs{..} = do
         , npEnableMetrics = enableMetrics
         , npEkgParams = ekgParams
         , npStatsdParams = statsdParams
+        , npAssetLockPath = cnaAssetLockPath
         , ..
         }

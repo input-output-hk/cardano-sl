@@ -29,8 +29,8 @@ data MetaDBHandle = MetaDBHandle {
 
 
 data MetaDB f = MetaDB { _mDbMeta    :: f (Beam.TableEntity TxMetaT)
-                       , _mDbInputs  :: f (Beam.TableEntity TxInputsT)
-                       , _mDbOutputs :: f (Beam.TableEntity TxOutputsT)
+                       , _mDbInputs  :: f (Beam.TableEntity TxInputT)
+                       , _mDbOutputs :: f (Beam.TableEntity TxOutputT)
                        } deriving Generic
 
 instance Database Sqlite MetaDB
@@ -46,13 +46,25 @@ instance Database Sqlite MetaDB
 | Core.TxId  | Core.Coin      | Core.Timestamp     | Bool             | Bool                |
 
 --}
-data TxMetaT f = TxMetaT {
+data TxMetaT f = TxMeta {
       _txMetaTableId         :: Beam.Columnar f Core.TxId
     , _txMetaTableAmount     :: Beam.Columnar f Core.Coin
     , _txMetaTableCreatedAt  :: Beam.Columnar f Core.Timestamp
     , _txMetaTableIsLocal    :: Beam.Columnar f Bool
     , _txMetaTableIsOutgoing :: Beam.Columnar f Bool
     } deriving Generic
+
+type TxMeta = TxMetaT Identity
+
+-- | Creates a storage-specific 'TxMeta' out of a 'Kernel.TxMeta'.
+mkTxMeta :: Kernel.TxMeta -> TxMeta
+mkTxMeta txMeta = TxMeta {
+                  _txMetaTableId         = txMeta ^. Kernel.txMetaId
+                , _txMetaTableAmount     = txMeta ^. Kernel.txMetaAmount
+                , _txMetaTableCreatedAt  = txMeta ^. Kernel.txMetaCreationAt
+                , _txMetaTableIsLocal    = txMeta ^. Kernel.txMetaIsLocal
+                , _txMetaTableIsOutgoing = txMeta ^. Kernel.txMetaIsOutgoing
+                }
 
 instance Beamable TxMetaT
 
@@ -82,7 +94,7 @@ instance Beamable (PrimaryKey TxMetaT)
 
 --}
 
-data TxCoinDistributionTableT f = TxCoinDistributionTableT {
+data TxCoinDistributionTableT f = TxCoinDistributionTable {
       _txCoinDistributionTableAddress :: Beam.Columnar f Core.Address
     , _txCoinDistributionTableCoin    :: Beam.Columnar f Core.Coin
     , _txCoinDistributionTxId         :: Beam.PrimaryKey TxMetaT f
@@ -91,26 +103,51 @@ data TxCoinDistributionTableT f = TxCoinDistributionTableT {
 instance Beamable TxCoinDistributionTableT
 
 -- | The inputs' table.
-newtype TxInputsT  f = TxCoinInputsT  { _getTxInputs  :: (TxCoinDistributionTableT f) } deriving Generic
+newtype TxInputT f = TxInput  { _getTxInput  :: (TxCoinDistributionTableT f) } deriving Generic
 
-instance Beamable TxInputsT
+type TxInput = TxInputT Identity
 
-instance Table TxInputsT where
-    data PrimaryKey TxInputsT f = TxInputsPrimKey (Beam.PrimaryKey TxMetaT f) deriving Generic
-    primaryKey = TxInputsPrimKey . _txCoinDistributionTxId . _getTxInputs
+-- | Convenient constructor of a list of 'TxInput' from a 'Kernel.TxMeta'.
+mkInputs :: Kernel.TxMeta -> [TxInput]
+mkInputs txMeta =
+    let inputs = txMeta ^. Kernel.txMetaInputs
+        txId   = txMeta ^. Kernel.txMetaId
+    in map (buildInput txId) (toList inputs)
+  where
+      buildInput :: Core.TxId -> (Core.Address, Core.Coin) -> TxInput
+      buildInput tid (addr, coin) = TxInput (TxCoinDistributionTable addr coin (TxIdPrimKey tid))
 
-instance Beamable (PrimaryKey TxInputsT)
+instance Beamable TxInputT
+
+instance Table TxInputT where
+    data PrimaryKey TxInputT f = TxInputPrimKey (Beam.PrimaryKey TxMetaT f) deriving Generic
+    primaryKey = TxInputPrimKey . _txCoinDistributionTxId . _getTxInput
+
+instance Beamable (PrimaryKey TxInputT)
 
 -- | The outputs' table.
-newtype TxOutputsT f = TxCoinOutputsT { _getTxOutputs :: (TxCoinDistributionTableT f) } deriving Generic
+newtype TxOutputT f = TxOutput { _getTxOutput :: (TxCoinDistributionTableT f) } deriving Generic
 
-instance Beamable TxOutputsT
+type TxOutput = TxOutputT Identity
 
-instance Table TxOutputsT where
-    data PrimaryKey TxOutputsT f = TxOutputsPrimKey (Beam.PrimaryKey TxMetaT f) deriving Generic
-    primaryKey = TxOutputsPrimKey . _txCoinDistributionTxId . _getTxOutputs
+-- | Convenient constructor of a list of 'TxOutput from a 'Kernel.TxMeta'.
+-- FIXME(adn) Generalise the two smart constructors.
+mkOutputs :: Kernel.TxMeta -> [TxOutput]
+mkOutputs txMeta =
+    let outputs = txMeta ^. Kernel.txMetaOutputs
+        txId    = txMeta ^. Kernel.txMetaId
+    in map (buildInput txId) (toList outputs)
+  where
+      buildInput :: Core.TxId -> (Core.Address, Core.Coin) -> TxOutput
+      buildInput tid (addr, coin) = TxOutput (TxCoinDistributionTable addr coin (TxIdPrimKey tid))
 
-instance Beamable (PrimaryKey TxOutputsT)
+instance Beamable TxOutputT
+
+instance Table TxOutputT where
+    data PrimaryKey TxOutputT f = TxOutputPrimKey (Beam.PrimaryKey TxMetaT f) deriving Generic
+    primaryKey = TxOutputPrimKey . _txCoinDistributionTxId . _getTxOutput
+
+instance Beamable (PrimaryKey TxOutputT)
 
 
 -- Orphans & other boilerplate
@@ -124,6 +161,9 @@ instance HasSqlValueSyntax SqliteValueSyntax Core.Coin where
 instance HasSqlValueSyntax SqliteValueSyntax Core.Timestamp where
     sqlValueSyntax ts = sqlValueSyntax (scientific (toMicroseconds . Core.getTimestamp $ ts) 0)
 
+instance HasSqlValueSyntax SqliteValueSyntax Core.Address where
+    sqlValueSyntax addr = sqlValueSyntax (sformat Core.addressF addr)
+
 
 -- | Creates new 'DatabaseSettings' for the 'MetaDB', locking the backend to
 -- be 'Sqlite'.
@@ -135,15 +175,15 @@ metaDB = Beam.defaultDbSettings
 openMetaDB :: FilePath -> IO MetaDBHandle
 openMetaDB fp = MetaDBHandle <$> Sqlite.open fp
 
-
 -- FIXME(adinapoli): Toggle debug/production with the 'WalletMode'.
 putTxMeta :: MetaDBHandle -> Kernel.TxMeta -> IO ()
-putTxMeta dbHandle _txMeta =
+putTxMeta dbHandle txMeta =
     let conn = _mDbHandleConnection dbHandle
-        tMeta   = mempty @[TxMetaT Identity]
-        --inputs  = mempty @[TxInputsT Identity]
-        --outputs = mempty @[TxOutputsT Identity]
-    in runBeamSqliteDebug putStrLn conn $ SQL.runInsert $ do
-        SQL.insert (_mDbMeta metaDB)    $ SQL.insertValues tMeta
-        -- SQL.insert (_mDbInputs metaDB)  $ SQL.insertValues inputs
-        -- SQL.insert (_mDbOutputs metaDB) $ SQL.insertValues outputs
+        tMeta   = mkTxMeta txMeta
+        inputs  = mkInputs txMeta
+        outputs = mkOutputs txMeta
+    -- TODO(adn): Revisit this bit, it doesn't look transactional.
+    in runBeamSqliteDebug putStrLn conn $ do
+        SQL.runInsert $ SQL.insert (_mDbMeta metaDB)    $ SQL.insertValues [tMeta]
+        SQL.runInsert $ SQL.insert (_mDbInputs metaDB)  $ SQL.insertValues inputs
+        SQL.runInsert $ SQL.insert (_mDbOutputs metaDB) $ SQL.insertValues outputs

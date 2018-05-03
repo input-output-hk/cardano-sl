@@ -12,7 +12,7 @@ module Cardano.Wallet.Kernel.DB.Sqlite (
 import           Universum
 
 import           Database.Beam.Backend.SQL (FromBackendRow, HasSqlValueSyntax (..))
-import           Database.Beam.Query (HasSqlEqualityCheck)
+import           Database.Beam.Query (HasSqlEqualityCheck, (==.))
 import qualified Database.Beam.Query as SQL
 import           Database.Beam.Schema (Beamable, Database, DatabaseSettings, PrimaryKey, Table)
 import qualified Database.Beam.Schema as Beam
@@ -204,6 +204,15 @@ instance FromField Core.Timestamp where
 
 instance FromBackendRow Sqlite Core.Timestamp
 
+instance FromField Core.Address where
+    fromField f = do
+        addr <- Core.decodeTextAddress <$> fromField f
+        case addr of
+           Left _  -> returnError Sqlite.ConversionFailed f "not a valid Address"
+           Right a -> pure a
+
+instance FromBackendRow Sqlite Core.Address
+
 
 -- | Creates new 'DatabaseSettings' for the 'MetaDB', locking the backend to
 -- be 'Sqlite'.
@@ -262,9 +271,17 @@ getTxMeta dbHandle txId =
         metas <- SQL.runSelectReturningList txMetaById
         case metas of
             [txMeta] -> do
-                let inputs  = nonEmpty mempty
-                let outputs = nonEmpty mempty
+                inputs  <- nonEmpty <$> SQL.runSelectReturningList getInputs
+                outputs <- nonEmpty <$> SQL.runSelectReturningList getOutputs
                 pure $ toTxMeta <$> Just txMeta <*> inputs <*> outputs
             _        -> pure Nothing
     where
         txMetaById = SQL.lookup_ (_mDbMeta metaDB) (TxIdPrimKey txId)
+        getInputs  = SQL.select $ do
+            coinDistr <- SQL.all_ (_mDbInputs metaDB)
+            SQL.guard_ ((_txCoinDistributionTxId . _getTxInput $ coinDistr) ==. (SQL.val_ $ TxIdPrimKey txId))
+            pure coinDistr
+        getOutputs = SQL.select $ do
+            coinDistr <- SQL.all_ (_mDbOutputs metaDB)
+            SQL.guard_ ((_txCoinDistributionTxId . _getTxOutput $ coinDistr) ==. (SQL.val_ $ TxIdPrimKey txId))
+            pure coinDistr

@@ -7643,7 +7643,7 @@ inherit (pkgs) mesa;};
          , cardano-sl-binary, cborg, cereal, concurrent-extra, containers
          , contravariant, cpphs, cryptonite, data-default, deepseq
          , directory, ether, exceptions, filepath, formatting, hashable
-         , hspec, lens, log-warper, lrucache, megaparsec, mtl
+         , hspec, katip, lens, log-warper, lrucache, megaparsec, mtl
          , optparse-applicative, parsec, process, QuickCheck
          , quickcheck-instances, reflection, resourcet, safe-exceptions
          , serokell-util, stdenv, stm, tagged, template-haskell, text
@@ -7659,12 +7659,12 @@ inherit (pkgs) mesa;};
              aeson base binary bytestring cardano-sl-binary cborg cereal
              concurrent-extra containers contravariant cryptonite data-default
              deepseq directory ether exceptions filepath formatting hashable
-             hspec lens log-warper lrucache megaparsec mtl optparse-applicative
-             parsec process QuickCheck quickcheck-instances reflection resourcet
-             safe-exceptions serokell-util stm tagged template-haskell text
-             text-format th-lift-instances time time-units transformers
-             transformers-base transformers-lift universum unliftio-core
-             unordered-containers
+             hspec katip lens log-warper lrucache megaparsec mtl
+             optparse-applicative parsec process QuickCheck quickcheck-instances
+             reflection resourcet safe-exceptions serokell-util stm tagged
+             template-haskell text text-format th-lift-instances time time-units
+             transformers transformers-base transformers-lift universum
+             unliftio-core unordered-containers
            ];
            libraryToolDepends = [ cpphs ];
            testHaskellDepends = [
@@ -23365,20 +23365,20 @@ inherit (pkgs) which;};
         ({ mkDerivation, aeson, async, auto-update, base, bytestring
          , containers, either, hostname, microlens, microlens-th
          , monad-control, mtl, old-locale, resourcet, safe-exceptions
-         , semigroups, stdenv, stm, string-conv, template-haskell, text
-         , time, transformers, transformers-base, transformers-compat, unix
-         , unordered-containers
+         , scientific, semigroups, stdenv, stm, string-conv
+         , template-haskell, text, time, transformers, transformers-base
+         , transformers-compat, unix, unliftio-core, unordered-containers
          }:
          mkDerivation {
            pname = "katip";
-           version = "0.5.0.0";
-           sha256 = "8c594f2fcbf9e053b904fc0cefa11bf11ab34615149e070a60d57809492b0e73";
+           version = "0.5.4.0";
+           sha256 = "4d5d3de75fc1217112de4e4eb3c4dffad82ec018c7881560837c73f27f9e8484";
            libraryHaskellDepends = [
              aeson async auto-update base bytestring containers either hostname
              microlens microlens-th monad-control mtl old-locale resourcet
-             safe-exceptions semigroups stm string-conv template-haskell text
-             time transformers transformers-base transformers-compat unix
-             unordered-containers
+             safe-exceptions scientific semigroups stm string-conv
+             template-haskell text time transformers transformers-base
+             transformers-compat unix unliftio-core unordered-containers
            ];
            doHaddock = false;
            doCheck = false;

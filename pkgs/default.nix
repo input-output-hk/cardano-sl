@@ -7456,10 +7456,11 @@ inherit (pkgs) mesa;};
              unliftio-core
            ];
            executableHaskellDepends = [
-             async attoparsec base binary bytestring conduit conduit-extra
-             containers exceptions formatting lens log-warper MonadRandom mtl
-             network-transport network-transport-tcp optparse-simple random
-             resourcet safe-exceptions serokell-util text text-format time-units
+             async attoparsec base binary bytestring cardano-sl-util conduit
+             conduit-extra containers contravariant exceptions formatting lens
+             log-warper MonadRandom mtl network-transport network-transport-tcp
+             optparse-simple random resourcet safe-exceptions serokell-util text
+             text-format time-units
            ];
            testHaskellDepends = [
              base binary bytestring containers hspec lens log-warper mtl

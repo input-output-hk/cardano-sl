@@ -34,10 +34,14 @@
 \DeclareMathOperator*{\maximum}{max}
 
 % Number within sections, and don't have separate counters for separate environments
-\newtheorem{lemma}{Lemma}[section] % Number within sections
-\newtheorem{invariant}[lemma]{Invariant}
-\newtheorem{proofobligation}[lemma]{Proof Obligation}
-\newtheorem{definition}[lemma]{Definition}
+\theoremstyle{definition}{
+  \newtheorem{lemma}{Lemma}[section] % Number within sections
+  \newtheorem{definition}[lemma]{Definition}
+}
+\theoremstyle{theorem}{
+  \newtheorem{invariant}[lemma]{Invariant}
+  \newtheorem{proofobligation}[lemma]{Proof Obligation}
+}
 
 \numberwithin{equation}{lemma}
 

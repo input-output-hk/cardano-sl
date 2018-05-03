@@ -2682,7 +2682,7 @@ fingertree\footnote{Available in Haskell as \texttt{Data.Sequence}.}
 & \mathsf{tick} ~ (\mathit{pending}, \mathit{due} : \mathit{schedule})
 = (\mathit{dropped}, (\mathit{pending}, \mathit{schedule'})) \\
 & \qquad\text{where~} (\mathit{dropped}, \mathit{schedule}')
-= \rho(\mathit{pending} \restrictdom \mathit{due}, \mathit{schedule})
+= \varrho(\mathit{pending} \restrictdom \mathit{due}, \mathit{schedule})
 \end{align*}
 %
 \caption{\label{fig:submission_layer_impl}Submission layer implementation}

@@ -17,6 +17,7 @@ import           Control.Monad (forM, forM_, when)
 import           Data.Binary
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
+import           Data.Functor.Contravariant (contramap)
 import qualified Data.Set as S
 import           Data.Void (Void, absurd)
 import           GHC.Generics (Generic)
@@ -26,6 +27,7 @@ import           Network.Transport (Transport (..))
 import qualified Network.Transport.TCP as TCP
 import           Node
 import           Node.Message.Binary (BinaryP, binaryPacking)
+import           Pos.Util.Trace (stdoutTrace)
 import           System.Environment (getArgs)
 import           System.Random
 
@@ -98,7 +100,7 @@ makeNode transport i = do
         prng1 = mkStdGen (2 * i)
         prng2 = mkStdGen ((2 * i) + 1)
     putStrLn $ "Starting node " ++ show i
-    forkIO $ node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
+    forkIO $ node (contramap snd stdoutTrace) (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
                 prng1 binaryPacking (B8.pack "my peer data!") defaultNodeEnvironment $ \node' ->
         NodeAction (listeners . nodeId $ node') $ \converse -> do
             putStrLn $ "Making discovery for node " ++ show i

@@ -406,7 +406,7 @@ runDiffusionLayerFull logTrace
                       listeners
                       k =
     maybeBracketKademliaInstance logTrace mKademliaParams defaultPort $ \mKademlia ->
-        timeWarpNode transport convEstablishTimeout ourVerInfo listeners $ \nd converse ->
+        timeWarpNode logTrace transport convEstablishTimeout ourVerInfo listeners $ \nd converse ->
             -- TODO use 'concurrently' or similar combinator.
             Async.withAsync (liftIO $ OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \dthread -> do
                 Async.link dthread
@@ -449,15 +449,16 @@ sendMsgFromConverse converse (EnqueuedConversation (_, k)) nodeId =
 
 -- | Bring up a time-warp node. It will come down when the continuation ends.
 timeWarpNode
-    :: Transport
+    :: Trace IO (Severity, Text)
+    -> Transport
     -> Microsecond -- Timeout.
     -> VerInfo
     -> (VerInfo -> [Listener])
     -> (Node -> Converse PackingType PeerData -> IO t)
     -> IO t
-timeWarpNode transport convEstablishTimeout ourVerInfo listeners k = do
+timeWarpNode logTrace transport convEstablishTimeout ourVerInfo listeners k = do
     stdGen <- newStdGen
-    node mkTransport mkReceiveDelay mkConnectDelay stdGen bipPacking ourVerInfo nodeEnv $ \theNode ->
+    node logTrace mkTransport mkReceiveDelay mkConnectDelay stdGen bipPacking ourVerInfo nodeEnv $ \theNode ->
         NodeAction listeners $ k theNode
   where
     mkTransport = simpleNodeEndPoint transport

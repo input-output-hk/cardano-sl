@@ -40,11 +40,7 @@ module Node.Internal (
     stopNode,
     withInOutChannel,
     writeMany,
-    Timeout(..),
-    logInfo,
-    logDebug,
-    logWarning,
-    logError
+    Timeout(..)
   ) where
 
 import           Control.Concurrent (ThreadId, threadDelay)
@@ -78,12 +74,12 @@ import           GHC.Generics (Generic)
 import qualified Network.Transport as NT
 import           Node.Message.Class (Packing, Serializable (..), pack, unpack)
 import           Node.Message.Decoder (Decoder (..), DecoderStep (..), continueDecoding)
+import           Pos.Util.Trace (Trace, Severity (..), traceWith)
 import qualified System.Metrics.Distribution as Metrics (Distribution)
 import qualified System.Metrics.Gauge as Metrics (Gauge)
 import qualified System.Metrics.Distribution as Metrics.Distribution
 import qualified System.Metrics.Gauge as Metrics.Gauge
 import           System.Random (Random, StdGen, random)
-import qualified System.Wlog as Wlog (usingLoggerName, logInfo, logDebug, logError, logWarning)
 
 -- Copied from the old Mockable definition for Production.
 getCurrentTime :: IO Microsecond
@@ -91,18 +87,6 @@ getCurrentTime = round . (* 1000000) <$> getPOSIXTime
 
 delay :: Microsecond -> IO ()
 delay = threadDelay . fromIntegral
-
-logInfo :: Text -> IO ()
-logInfo = Wlog.usingLoggerName "node" . Wlog.logInfo
-
-logDebug :: Text -> IO ()
-logDebug = Wlog.usingLoggerName "node" . Wlog.logDebug
-
-logWarning :: Text -> IO ()
-logWarning = Wlog.usingLoggerName "node" . Wlog.logWarning
-
-logError :: Text -> IO ()
-logError = Wlog.usingLoggerName "node" . Wlog.logError
 
 -- | A 'NodeId' wraps a network-transport endpoint address
 newtype NodeId = NodeId NT.EndPointAddress
@@ -227,6 +211,7 @@ data Node packingType peerData = Node {
        --   so this is a way to delay per-high-level message rather than
        --   lower level events.
      , nodeConnectDelay     :: ReceiveDelay
+     , nodeTrace            :: Trace IO (Severity, Text)
      }
 
 nodeId :: Node packingType peerData -> NodeId
@@ -399,14 +384,15 @@ pstAddHandler provenance map = case provenance of
 -- | Remove a handler for a given peer. Second component is True if there
 --   are no more handlers for that peer.
 pstRemoveHandler
-    :: HandlerProvenance peerData t
+    :: Trace IO (Severity, Text)
+    -> HandlerProvenance peerData t
     -> Map NT.EndPointAddress (MVar PeerStatistics)
     -> IO (Map NT.EndPointAddress (MVar PeerStatistics), Bool)
-pstRemoveHandler provenance map = case provenance of
+pstRemoveHandler logTrace provenance map = case provenance of
 
     Local peer _ -> case Map.lookup peer map of
         Nothing ->  do
-            logWarning $ sformat ("tried to remove handler for "%shown%", but it is not in the map") peer
+            traceWith logTrace (Warning, sformat ("tried to remove handler for "%shown%", but it is not in the map") peer)
             return (map, False)
         Just !statsVar -> modifyMVar statsVar $ \stats ->
             let stats' = stats { pstRunningHandlersLocal = pstRunningHandlersLocal stats - 1 }
@@ -416,7 +402,7 @@ pstRemoveHandler provenance map = case provenance of
 
     Remote peer _ -> case Map.lookup peer map of
         Nothing ->  do
-            logWarning $ sformat ("tried to remove handler for "%shown%", but it is not in the map") peer
+            traceWith logTrace (Warning, sformat ("tried to remove handler for "%shown%", but it is not in the map") peer)
             return (map, False)
         Just !statsVar -> modifyMVar statsVar $ \stats ->
             let stats' = stats { pstRunningHandlersRemote = pstRunningHandlersRemote stats - 1 }
@@ -527,18 +513,19 @@ stAddHandler !provenance !statistics = case provenance of
 -- TODO: revise these computations to make them numerically stable (or maybe
 -- use Rational?).
 stRemoveHandler
-    :: HandlerProvenance peerData t
+    :: Trace IO (Severity, Text)
+    -> HandlerProvenance peerData t
     -> Microsecond
     -> Maybe SomeException
     -> Statistics
     -> IO Statistics
-stRemoveHandler !provenance !elapsed !outcome !statistics = case provenance of
+stRemoveHandler logTrace !provenance !elapsed !outcome !statistics = case provenance of
 
     -- TODO: generalize this computation so we can use the same thing for
     -- both local and remote. It's a copy/paste job right now swapping local
     -- for remote.
     Local !_peer _ -> do
-        (!peerStatistics, !isEndedPeer) <- pstRemoveHandler provenance (stPeerStatistics statistics)
+        (!peerStatistics, !isEndedPeer) <- pstRemoveHandler logTrace provenance (stPeerStatistics statistics)
         when isEndedPeer $ Metrics.Gauge.dec (stPeers statistics)
         Metrics.Gauge.dec (stRunningHandlersLocal statistics)
         !npeers <- Metrics.Gauge.read (stPeers statistics)
@@ -555,7 +542,7 @@ stRemoveHandler !provenance !elapsed !outcome !statistics = case provenance of
             }
 
     Remote !_peer _ -> do
-        (!peerStatistics, !isEndedPeer) <- pstRemoveHandler provenance (stPeerStatistics statistics)
+        (!peerStatistics, !isEndedPeer) <- pstRemoveHandler logTrace provenance (stPeerStatistics statistics)
         when isEndedPeer $ Metrics.Gauge.dec (stPeers statistics)
         Metrics.Gauge.dec (stRunningHandlersRemote statistics)
         !npeers <- Metrics.Gauge.read (stPeers statistics)
@@ -627,7 +614,8 @@ manualNodeEndPoint ep = NodeEndPoint {
 startNode
     :: forall packingType peerData .
        ( Serializable packingType peerData )
-    => Packing packingType IO
+    => Trace IO (Severity, Text)
+    -> Packing packingType IO
     -> peerData
     -> (Node packingType peerData -> NodeEndPoint)
     -> (Node packingType peerData -> ReceiveDelay)
@@ -642,7 +630,7 @@ startNode
     -> (peerData -> NodeId -> ChannelIn -> ChannelOut -> IO ())
     -- ^ Handle incoming bidirectional connections.
     -> IO (Node packingType peerData)
-startNode packing peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
+startNode logTrace packing peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
           prng nodeEnv handlerInOut = do
     rec { let nodeEndPoint = mkNodeEndPoint node
         ; mEndPoint <- newNodeEndPoint nodeEndPoint
@@ -663,6 +651,7 @@ startNode packing peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
                                 , nodePeerData         = peerData
                                 , nodeReceiveDelay     = receiveDelay
                                 , nodeConnectDelay     = connectDelay
+                                , nodeTrace            = logTrace
                                 }
                       ; dispatcherThread <- async $
                             nodeDispatcher node handlerInOut
@@ -671,7 +660,7 @@ startNode packing peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
                       }
                   return node
         }
-    logDebug $ sformat ("startNode, we are " % shown % "") (nodeId node)
+    traceWith logTrace (Debug, sformat ("startNode, we are " % shown % "") (nodeId node))
     return node
 
 -- | Stop a 'Node', closing its network transport and end point.
@@ -771,14 +760,16 @@ waitForRunningHandlers node = do
                 return x
             inbound = Set.toList (_nodeStateInbound st)
             all = outbound_bi ++ inbound
-        logDebug $ sformat ("waiting for " % shown % " outbound bidirectional handlers") (fmap (someHandlerThreadId) outbound_bi)
-        logDebug $ sformat ("waiting for " % shown % " outbound inbound") (fmap (someHandlerThreadId) inbound)
+        traceWith logTrace (Debug, sformat ("waiting for " % shown % " outbound bidirectional handlers") (fmap (someHandlerThreadId) outbound_bi))
+        traceWith logTrace (Debug, sformat ("waiting for " % shown % " outbound inbound") (fmap (someHandlerThreadId) inbound))
         return all
     let waitAndCatch someHandler = do
-            logDebug $ sformat ("waiting on " % shown) (someHandlerThreadId someHandler)
+            traceWith logTrace (Debug, sformat ("waiting on " % shown) (someHandlerThreadId someHandler))
             -- TBD ok to catch SomeException here? If it's async, we still stop.
             (Nothing <$ waitSomeHandler someHandler) `catch` (\(e :: SomeException) -> return (Just e))
     forM handlers waitAndCatch
+  where
+    logTrace = nodeTrace node
 
 -- | The one thread that handles /all/ incoming messages and dispatches them
 -- to various handlers.
@@ -792,6 +783,9 @@ nodeDispatcher node handlerInOut =
     loop initialDispatcherState
 
     where
+
+    logTrace :: Trace IO (Severity, Text)
+    logTrace = nodeTrace node
 
     nstate :: MVar (NodeState peerData)
     nstate = nodeState node
@@ -824,7 +818,7 @@ nodeDispatcher node handlerInOut =
           -- When a heavyweight connection is lost we must close up all of the
           -- lightweight connections which it carried.
           NT.ErrorEvent (NT.TransportError (NT.EventConnectionLost peer bundle) reason) -> do
-              logError $ sformat ("EventConnectionLost received from the network layer: " % shown) reason
+              traceWith logTrace (Error, sformat ("EventConnectionLost received from the network layer: " % shown) reason)
               connectionLost state peer bundle >>= loop
 
           -- End point failure is unrecoverable.
@@ -884,7 +878,7 @@ nodeDispatcher node handlerInOut =
     connectionOpened state connid peer = case Map.lookup connid (dsConnections state) of
 
         Just (peer', _) -> do
-            logWarning $ sformat ("ignoring duplicate connection " % shown % shown % shown) peer peer' connid
+            traceWith logTrace (Warning, sformat ("ignoring duplicate connection " % shown % shown % shown) peer peer' connid)
             return state
 
         Nothing -> do
@@ -926,17 +920,17 @@ nodeDispatcher node handlerInOut =
     received state connid chunks = case Map.lookup connid (dsConnections state) of
 
         Nothing -> do
-            logWarning $ sformat ("ignoring data on unknown connection " % shown) connid
+            traceWith logTrace (Warning, sformat ("ignoring data on unknown connection " % shown) connid)
             return state
 
         -- This connection gave bogus peer data. Ignore the data.
         Just (peer, PeerDataParseFailure) -> do
-            logWarning $ sformat ("ignoring data on failed connection (peer data) from " % shown) peer
+            traceWith logTrace (Warning, sformat ("ignoring data on failed connection (peer data) from " % shown) peer)
             return state
 
         -- This connection gave a bad handshake. Ignore the data.
         Just (peer, HandshakeFailure) -> do
-            logWarning $ sformat ("ignoring data on failed connection (handshake) from " % shown) peer
+            traceWith logTrace (Warning, sformat ("ignoring data on failed connection (handshake) from " % shown) peer)
             return state
 
         -- This connection is awaiting the initial peer data.
@@ -951,7 +945,7 @@ nodeDispatcher node handlerInOut =
                     decoderStep' <- continueDecoding decoderStep (BS.concat chunks)
                     case decoderStep' of
                         Fail _ _ err -> do
-                            logWarning $ sformat ("failed to decode peer data from " % shown % ": got error " % shown) peer err
+                            traceWith logTrace (Warning, sformat ("failed to decode peer data from " % shown % ": got error " % shown) peer err)
                             return $ state {
                                     dsConnections = Map.insert connid (peer, PeerDataParseFailure) (dsConnections state)
                                   }
@@ -971,14 +965,14 @@ nodeDispatcher node handlerInOut =
                     -- Protocol error. We got data from some other lightweight
                     -- connection before the peer data was parsed.
                     False -> do
-                        logWarning $ sformat ("peer data protocol error from " % shown) peer
+                        traceWith logTrace (Warning, sformat ("peer data protocol error from " % shown) peer)
                         return state
 
                     True -> do
                         decoderStep <- runDecoder (decoderContinuation (Just (BS.concat chunks)))
                         case decoderStep of
                             Fail _ _ err -> do
-                                logWarning $ sformat ("failed to decode peer data from " % shown % ": got error " % shown) peer err
+                                traceWith logTrace (Warning, sformat ("failed to decode peer data from " % shown % ": got error " % shown) peer err)
                                 return $ state {
                                         dsConnections = Map.insert connid (peer, PeerDataParseFailure) (dsConnections state)
                                       }
@@ -1061,14 +1055,14 @@ nodeDispatcher node handlerInOut =
                                   modifyMVar chanVar $ \_ -> return (Nothing, ())
                                   case me of
                                       Nothing -> return ()
-                                      Just e -> logError $
-                                          sformat (shown % " error in conversation response " % shown) nonce e
+                                      Just e -> traceWith logTrace (Error,
+                                          sformat (shown % " error in conversation response " % shown) nonce e)
                               handler = bracketWithException
                                   (return ())
                                   (const cleanup)
                                   (const (connectToPeer node (NodeId peer) respondAndHandle))
                           -- Establish the other direction in a separate thread.
-                          (_, incrBytes) <- spawnHandler nstate provenance handler
+                          (_, incrBytes) <- spawnHandler logTrace nstate provenance handler
                           let bs = LBS.toStrict ws'
                           dumpBytes $ Just bs
                           incrBytes $ fromIntegral (BS.length bs)
@@ -1104,14 +1098,14 @@ nodeDispatcher node handlerInOut =
                               -- In any case, say the handshake failed so that
                               -- subsequent data is ignored.
                               Nothing -> do
-                                  logWarning $ sformat ("got unknown nonce " % shown) nonce
+                                  traceWith logTrace (Warning, sformat ("got unknown nonce " % shown) nonce)
                                   return $ state {
                                         dsConnections = Map.insert connid (peer, HandshakeFailure) (dsConnections state)
                                       }
 
                               -- Got a duplicate ACK.
                               Just Nothing -> do
-                                  logWarning $ sformat ("duplicate ACK nonce from " % shown) peer
+                                  traceWith logTrace (Warning, sformat ("duplicate ACK nonce from " % shown) peer)
                                   return $ state {
                                         dsConnections = Map.insert connid (peer, HandshakeFailure) (dsConnections state)
                                       }
@@ -1129,7 +1123,7 @@ nodeDispatcher node handlerInOut =
 
                     -- Handshake failure. Subsequent receives will be ignored.
                     | otherwise -> do
-                          logWarning $ sformat ("unexpected control header from " % shown % " : " % shown) peer w
+                          traceWith logTrace (Warning, sformat ("unexpected control header from " % shown % " : " % shown) peer w)
                           return $ state {
                                 dsConnections = Map.insert connid (peer, HandshakeFailure) (dsConnections state)
                               }
@@ -1152,7 +1146,7 @@ nodeDispatcher node handlerInOut =
     connectionClosed state connid = case Map.lookup connid (dsConnections state) of
 
         Nothing -> do
-            logWarning $ sformat ("closed unknown connection " % shown) connid
+            traceWith logTrace (Warning, sformat ("closed unknown connection " % shown) connid)
             return state
 
         Just (peer, connState) -> do
@@ -1192,7 +1186,7 @@ nodeDispatcher node handlerInOut =
         -- There must always be 0 connections from the peer, for
         -- network-transport must have posted the ConnectionClosed events for
         -- every inbound connection before posting EventConnectionLost.
-        logWarning $ sformat ("lost connection bundle " % shown % " to " % shown) bundle peer
+        traceWith logTrace (Warning, sformat ("lost connection bundle " % shown % " to " % shown) bundle peer)
         state' <- case Map.lookup peer (dsPeers state) of
             Just it -> do
                 -- This is *not* a network-transport bug; a connection lost
@@ -1245,7 +1239,7 @@ nodeDispatcher node handlerInOut =
                     let channelsAndPeerDataVars = Map.foldr folder [] map
                     return (st, channelsAndPeerDataVars)
 
-        logWarning $ sformat ("closing " % shown % " channels on bundle " % shown % " to " % shown) (length channelsAndPeerDataVars) bundle peer
+        traceWith logTrace (Warning, sformat ("closing " % shown % " channels on bundle " % shown % " to " % shown) (length channelsAndPeerDataVars) bundle peer)
 
         forM_ channelsAndPeerDataVars $ \(dumpBytes, peerDataVar) -> do
             _ <- tryPutMVar peerDataVar (error "no peer data because the connection was lost")
@@ -1259,11 +1253,12 @@ nodeDispatcher node handlerInOut =
 --   connections, and also for actions which use outbound connections.
 spawnHandler
     :: forall peerData t .
-       MVar (NodeState peerData)
+       Trace IO (Severity, Text)
+    -> MVar (NodeState peerData)
     -> HandlerProvenance peerData (Maybe BS.ByteString -> IO ())
     -> IO t
     -> IO (Async t, Int -> IO ())
-spawnHandler stateVar provenance action =
+spawnHandler logTrace stateVar provenance action =
     modifyMVar stateVar $ \nodeState -> do
         totalBytes <- newMVar 0
         -- Spawn the thread to get a 'SomeHandler'.
@@ -1331,7 +1326,7 @@ spawnHandler stateVar provenance action =
             -- remove the handler.
             stIncrBytes (handlerProvenancePeer provenance) (-totalBytes) $ _nodeStateStatistics nodeState
             statistics' <-
-                stRemoveHandler provenance elapsed outcome $
+                stRemoveHandler logTrace provenance elapsed outcome $
                 _nodeStateStatistics nodeState
             return (nodeState' { _nodeStateStatistics = statistics' }, ())
 
@@ -1371,7 +1366,7 @@ withInOutChannel
     -> NodeId
     -> (peerData -> ChannelIn -> ChannelOut -> IO a)
     -> IO a
-withInOutChannel node@Node{nodeEnvironment, nodeState} nodeid@(NodeId peer) action = do
+withInOutChannel node@Node{nodeEnvironment, nodeState, nodeTrace} nodeid@(NodeId peer) action = do
     nonce <- modifyMVar nodeState $ \nodeState -> do
                let (nonce, !prng') = random (_nodeStateGen nodeState)
                pure (nodeState { _nodeStateGen = prng' }, nonce)
@@ -1395,7 +1390,7 @@ withInOutChannel node@Node{nodeEnvironment, nodeState} nodeid@(NodeId peer) acti
     -- about this.
     let action' conn = do
             rec { let provenance = Local peer (nonce, peerDataVar, NT.bundle conn, timeoutPromise, dumpBytes)
-                ; (promise, _) <- spawnHandler nodeState provenance $ do
+                ; (promise, _) <- spawnHandler nodeTrace nodeState provenance $ do
                       -- It's essential that we only send the handshake SYN inside
                       -- the handler, because at this point the nonce is guaranteed
                       -- to be known in the node state. If we sent the handhsake
@@ -1548,7 +1543,7 @@ connectToPeer
     -> NodeId
     -> (NT.Connection -> IO r)
     -> IO r
-connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, nodeEnvironment} nid@(NodeId peer) act =
+connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, nodeEnvironment, nodeTrace} nid@(NodeId peer) act =
     -- 'establish' will update shared state indicating the nature of
     -- connections to this peer: how many are coming up, going down, or
     -- established. It's essential to bracket that against 'disconnectFromPeer'
@@ -1595,7 +1590,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
 
                     | otherwise -> throwIO (InternalError "impossible")
                 _ -> do
-                    logError "getPeerDataResponsibility: unexpected peer state"
+                    traceWith nodeTrace (Error, "getPeerDataResponsibility: unexpected peer state")
                     throwIO $ InternalError "connectToPeer: getPeerDataResponsibility: impossible"
 
             let nodeState' = nodeState {
@@ -1630,7 +1625,7 @@ connectToPeer node@Node{nodeEndPoint, nodeState, nodePacking, nodePeerData, node
 
                     | False <- responsibility -> return it
                 _ -> do
-                    logError "dischargePeerDataResponsibility: unexpected peer state"
+                    traceWith nodeTrace (Error, "dischargePeerDataResponsibility: unexpected peer state")
                     throwIO $ InternalError "connectToPeer: dischargePeerDataResponsibility: impossible"
 
             let nodeState' = nodeState {

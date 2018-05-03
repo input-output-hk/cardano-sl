@@ -20,11 +20,13 @@ import           Data.Binary (Binary)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
 import           Data.Data (Data)
+import           Data.Functor.Contravariant (contramap)
 import           GHC.Generics (Generic)
 import           Network.Transport (closeTransport)
 import qualified Network.Transport.TCP as TCP
 import           Node
 import           Node.Message.Binary (BinaryP, binaryPacking)
+import           Pos.Util.Trace (stdoutTrace)
 import           System.Random
 
 -- | Type for messages from the workers to the listeners.
@@ -101,10 +103,10 @@ main = do
     let prng4 = mkStdGen 3
 
     putStrLn $ "Starting nodes"
-    node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
+    node (contramap snd stdoutTrace) (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
          prng1 binaryPacking (B8.pack "I am node 1") defaultNodeEnvironment $ \node1 ->
         NodeAction (listeners . nodeId $ node1) $ \converse1 -> do
-            node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
+            node (contramap snd stdoutTrace) (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
                   prng2 binaryPacking (B8.pack "I am node 2") defaultNodeEnvironment $ \node2 ->
                 NodeAction (listeners . nodeId $ node2) $ \converse2 -> do
                     tid1 <- forkIO $ worker (nodeId node1) prng3 [nodeId node2] converse1

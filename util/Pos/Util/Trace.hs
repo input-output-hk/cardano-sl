@@ -4,6 +4,7 @@ module Pos.Util.Trace
     , trace
     , traceWith
     , noTrace
+    , stdoutTrace
     -- TODO put wlog tracing into its own module.
     , wlogTrace
     , Wlog.Severity (..)
@@ -11,6 +12,7 @@ module Pos.Util.Trace
 
 import           Universum hiding (trace)
 import           Data.Functor.Contravariant (Contravariant (..), Op (..))
+import qualified Data.Text.IO as TIO
 import qualified System.Wlog as Wlog
 
 -- | Abstracts logging.
@@ -33,6 +35,10 @@ traceWith = trace
 -- doesn't force the logged messages.
 noTrace :: Applicative m => Trace m a
 noTrace = Trace $ Op $ const (pure ())
+
+-- | 'Trace' to stdout.
+stdoutTrace :: Trace IO Text
+stdoutTrace = Trace $ Op $ TIO.putStrLn
 
 -- | A 'Trace' that uses log-warper.
 wlogTrace :: Wlog.LoggerName -> Trace IO (Wlog.Severity, Text)

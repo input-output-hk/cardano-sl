@@ -352,20 +352,20 @@ specification.
 %
 \begin{align*}
 & \mathsf{txins} \in \powerset{\mathsf{Tx}} \to \powerset{\mathsf{TxIn}} \\
-& \mathsf{txins} ~ \mathit{txs} = \bigcup \{ \mathit{inputs} \mid (\mathit{inputs}, \_) \in \mathit{txs} \}
+& \mathsf{txins} ~ \mathit{txs} = \bigcup \{ \mathit{inputs} \mid (\mathit{inputs}, \,\underline{\phantom{a}}\,) \in \mathit{txs} \}
 \\[1em]
 & \mathsf{txouts} \in \powerset{\mathsf{Tx}} \to \mathsf{UTxO} \\
 & \mathsf{txouts} ~ \mathit{txs} =
   \left\{ (\mathsf{txid} ~ \mathit{tx}, \mathit{ix}) \mapsto \mathit{txout} ~
   \middle| \begin{array}{l@{~}c@{~}l}
              \mathit{tx} & \in & \mathit{txs} \\
-             (\_, \mathit{outputs}) & = & \mathit{tx} \\
+             (\,\underline{\phantom{a}}\,,\, \mathit{outputs}) & = & \mathit{tx} \\
              \mathit{ix} \mapsto \mathit{txout} & \in & \mathit{outputs}
            \end{array}
   \right\}
 \\[1em]
 & \mathsf{balance} \in \mathsf{UTxO} \to \mathsf{Coin} \\
-& \mathsf{balance} ~ utxo = \sum_{(\_ ~ \mapsto (\_, c)) \in utxo} c
+& \mathsf{balance} ~ utxo = \sum_{(\,\underline{\phantom{a}}\, ~ \mapsto (\,\underline{\phantom{a}}\,, \,c)) \in \mathit{utxo}} c
 \end{align*}
 
 \begin{definition}[Dependence]
@@ -501,7 +501,7 @@ preserved by all state updates.
 & \mathsf{updateUTxO} ~ b ~ \mathit{utxo} = \mathsf{txins} ~ b \subtractdom (\mathit{utxo} \cup (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}})) \\
 \\
 & \mathsf{updatePending} \in \mathsf{Block} \to \mathsf{Pending} \to \mathsf{Pending} \\
-& \mathsf{updatePending} ~ b ~ p = \{ \mathit{tx} \mid \mathit{tx} \in p, (\mathit{inputs}, \_) = \mathit{tx}, \mathit{inputs} \cap \mathsf{txins} ~ b = \emptyset \}
+& \mathsf{updatePending} ~ b ~ p = \{ \mathit{tx} \mid \mathit{tx} \in p, (\mathit{inputs}, \,\underline{\phantom{a}}\,) = \mathit{tx}, \mathit{inputs} \cap \mathsf{txins} ~ b = \emptyset \}
 \end{align*}
 %
 \caption{\label{fig:basic_model}The basic model}
@@ -751,7 +751,7 @@ given in Figure~\ref{fig:basic_model_complexity}.
                                 & ~ \mathsf{join} ~ |\mathsf{txins}~ b| ~ |u| \\
                               + & ~ \mathsf{join} ~ |\mathsf{txouts}~ b| ~ |u|
                               \end{split}} \\
-\mathsf{updatePending} ~ b ~ p & \in \order{\mathsf{nlogn} ~ |\mathsf{txins}~ b| + \sum_{(\mathit{inputs}, \_) \in p}{\mathsf{join} ~ |\mathit{inputs}| ~ |\mathsf{txins}~ b|}}
+\mathsf{updatePending} ~ b ~ p & \in \order{\mathsf{nlogn} ~ |\mathsf{txins}~ b| + \sum_{(\mathit{inputs}, \,\underline{\phantom{a}}\,) \in p}{\mathsf{join} ~ |\mathit{inputs}| ~ |\mathsf{txins}~ b|}}
 \end{split}
 \end{equation*}
 \caption{\label{fig:basic_model_complexity}Algorithmic complexity of the operations in the basic model}
@@ -983,7 +983,7 @@ As in the basic model with cached balance (Figure~\ref{fig:model_with_cached_bal
 & \mathsf{applyBlock'} ~ (\mathit{txins}_b, \mathit{txouts}_b) ~ (\mathit{utxo}, \mathit{pending}, \sigma) = (\mathit{utxo}^\prime, \mathit{pending}^\prime, \sigma^\prime) \\
 & \qquad \text{where}
    \begin{array}[t]{rl}
-     pending^\prime & = \{ tx \mid tx \in \mathit{pending}, (\mathit{inputs}, \_) = \mathit{tx}, \mathit{inputs} \cap \mathit{txins}_b = \emptyset \} \\
+     pending^\prime & = \{ tx \mid tx \in \mathit{pending}, (\mathit{inputs}, \,\underline{\phantom{a}}\,) = \mathit{tx}, \mathit{inputs} \cap \mathit{txins}_b = \emptyset \} \\
      \mathit{utxo}^+ & = \mathit{txouts}_b \\
      \mathit{utxo}^- & = \mathit{txins}_b \restrictdom (\mathit{utxo} \cup \mathit{utxo}^+) \\
      \mathit{utxo}^\prime & = \mathit{txins}_b \subtractdom (\mathit{utxo} \cup \mathit{utxo}^+) \\
@@ -2154,7 +2154,7 @@ well as the actual UTxO.
 & \qquad\qquad (\mathit{utxo}', \mathit{pending}', \mathit{expected}', \sigma') : (\mathit{utxo}, \mathit{pending}, \mathit{expected}, \sigma) : \mathit{checkpoints} \\
 & \qquad \text{where}
    \begin{array}[t]{rl}
-     \mathit{pending}'  & = \{ tx \mid tx \in \mathit{pending}, (\mathit{inputs}, \_) = \mathit{tx}, \mathit{inputs} \cap \mathit{txins}_b = \emptyset \} \\
+     \mathit{pending}'  & = \{ tx \mid tx \in \mathit{pending}, (\mathit{inputs}, \,\underline{\phantom{a}}\,) = \mathit{tx}, \mathit{inputs} \cap \mathit{txins}_b = \emptyset \} \\
      \mathit{expected}' & = \mathit{txins}_b \subtractdom \mathit{expected} \\
      \mathit{utxo}^+    & = \mathit{txouts}_b \\
      \mathit{utxo}^-    & = \mathit{txins}_b \restrictdom (\mathit{utxo} \cup \mathit{utxo}^+) \\
@@ -2907,8 +2907,8 @@ difference between the transactions inputs and outputs:
 where
 %
 \begin{IEEEeqnarray*}{LLLLL}
-\mathsf{totalin}_\mathit{utxo} & ( & \mathit{inputs}, ~ \_  & ) & = \mathsf{balance} ~ (\mathit{inputs} \restrictdom \mathit{utxo}) \\
-\mathsf{totalout}              & ( & \_, ~ \mathit{outputs} & ) & = \sum_{(\_, c) \in \mathit{outputs}} c
+\mathsf{totalin}_\mathit{utxo} & ( & \mathit{inputs}, ~ \,\underline{\phantom{a}}\,  & ) & = \mathsf{balance} ~ (\mathit{inputs} \restrictdom \mathit{utxo}) \\
+\mathsf{totalout}              & ( & \,\underline{\phantom{a}}\,, ~ \mathit{outputs} & ) & = \sum_{(\,\underline{\phantom{a}}\,, c) \in \mathit{outputs}} c
 \end{IEEEeqnarray*}
 %
 where $\mathsf{totalin}$ is a function of the UTxO only because we need the UTxO
@@ -2916,7 +2916,7 @@ to know the size of a particular input (which, after all, is merely a
 transaction hash and an index). It therefore has the precondition
 %
 \begin{align*}
-& \mathsf{totalin}_\mathit{utxo} ~ (\mathit{inputs}, \_) \\
+& \mathsf{totalin}_\mathit{utxo} ~ (\mathit{inputs}, \,\underline{\phantom{a}}\,) \\
 & \qquad \mathbf{requires~} \mathit{inputs} \subseteq \dom \mathit{utxo}
 \end{align*}
 %

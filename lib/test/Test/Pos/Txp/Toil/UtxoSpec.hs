@@ -470,7 +470,7 @@ txShouldFailWithWitnessMismatch = \case
 -- | Transaction should fail with a Plutus error.
 txShouldFailWithPlutus :: Either ToilVerFailure () -> PlutusError -> Expectation
 txShouldFailWithPlutus res err = case res of
-    Left ToilInvalidWitness{..}
+    Left (ToilInvalidWitness _ _ tiwReason)
         | tiwReason == WitnessScriptError err -> pass
         | otherwise -> expectationFailure $
               "expected: " <> show (WitnessScriptError err) <> "\n" <>

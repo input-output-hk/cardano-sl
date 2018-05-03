@@ -31,17 +31,10 @@ main = do
     hSetEncoding stdout utf8
     CLOptions {..} <- getOptions
 
-    -- stateless
-
     -- TODO (akegalj): run server cluster in haskell, instead of using shell scripts
     -- serverThread <- async (runWalletServer options)
 
     printT "Starting the integration testing for wallet."
-
-
-    when stateless $ do
-        printT "The wallet test node is running in stateless mode."
-        printT "Stateless mode not implemented currently!"
 
     let serverId = (serverHost, B8.pack $ show serverPort)
     caChain <- readSignedObject tlsCACertPath

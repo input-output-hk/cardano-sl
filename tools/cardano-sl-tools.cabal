@@ -208,6 +208,9 @@ executable cardano-keygen
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-txp
+                     , cardano-sl-util
+                     , containers
                      , cryptonite
                      , directory
                      , filepath

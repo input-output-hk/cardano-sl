@@ -7067,12 +7067,12 @@ inherit (pkgs) mesa;};
          , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
          , cardano-sl-delegation, cardano-sl-infra, cardano-sl-lrc
          , cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp
-         , cardano-sl-update, cardano-sl-util, cborg, conduit, cpphs
-         , cryptonite, data-default, directory, ekg-core, ether, exceptions
-         , filepath, formatting, generic-arbitrary, lens, log-warper, mtl
-         , QuickCheck, random, reflection, rocksdb-haskell-ng
-         , safe-exceptions, serokell-util, stdenv, stm, text, text-format
-         , time-units, transformers, universum, unliftio
+         , cardano-sl-update, cardano-sl-util, cborg, conduit, containers
+         , cpphs, cryptonite, data-default, directory, ekg-core, ether
+         , exceptions, filepath, formatting, generic-arbitrary, lens
+         , log-warper, mtl, QuickCheck, random, reflection
+         , rocksdb-haskell-ng, safe-exceptions, serokell-util, stdenv, stm
+         , text, text-format, time-units, transformers, universum, unliftio
          , unordered-containers
          }:
          mkDerivation {
@@ -7084,11 +7084,11 @@ inherit (pkgs) mesa;};
              cardano-sl-crypto cardano-sl-db cardano-sl-delegation
              cardano-sl-infra cardano-sl-lrc cardano-sl-networking
              cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
-             cborg conduit cryptonite data-default directory ekg-core ether
-             exceptions filepath formatting generic-arbitrary lens log-warper
-             mtl QuickCheck random reflection rocksdb-haskell-ng safe-exceptions
-             serokell-util stm text text-format time-units transformers
-             universum unliftio unordered-containers
+             cborg conduit containers cryptonite data-default directory ekg-core
+             ether exceptions filepath formatting generic-arbitrary lens
+             log-warper mtl QuickCheck random reflection rocksdb-haskell-ng
+             safe-exceptions serokell-util stm text text-format time-units
+             transformers universum unliftio unordered-containers
            ];
            libraryToolDepends = [ cpphs ];
            doHaddock = false;

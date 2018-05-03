@@ -16,10 +16,14 @@
 \usepackage{hyperref}
 \hypersetup{
   colorlinks=false,
+  linkcolor={blue},
+  citecolor={blue},
+  urlcolor={blue},
   linkbordercolor={white},
   citebordercolor={white},
   urlbordercolor={white}
 }
+\usepackage[capitalise,noabbrev,nameinlink]{cleveref}
 
 \usetikzlibrary{arrows}
 
@@ -127,7 +131,7 @@ but also to try and capture our intuitions about what a cryptocurrency wallet
 
 The wallet specification will be based on the formalisation of UTxO style
 accounting in \citep{utxo_accounting}. The basic definitions are summarised in
-Figure~\ref{fig:basic_definitions}. A full explanation of UTxO style accounting
+\cref{fig:basic_definitions}. A full explanation of UTxO style accounting
 is beyond the scope of this document, and we refer the reader to the
 aforementioned paper. Here we will only comment on some details.
 
@@ -324,7 +328,7 @@ For convenience we will define a number of operations to filter UTxOs:
 We omit proofs for most of these properties, as they are straight-forward.
 Here is just one example:
 %
-\begin{proof}[Proof (Lemma~\ref{lem:utxo_props_restrictdom_union})]
+\begin{proof}[Proof (\cref{lem:utxo_props_restrictdom_union})]
 \begin{align*}
   & ~ \mathit{ins} \restrictdom (u \cup v) \\
 = & ~ \{ i \mapsto o \mid i \mapsto o \in (u \cup v), i \in \mathit{ins} \} \\
@@ -442,7 +446,7 @@ other operators.
 \caption{\label{fig:wallet_interface}Wallet interface}
 \end{figure}
 
-The main wallet interface is shown in Figure~\ref{fig:wallet_interface}. There
+The main wallet interface is shown in \cref{fig:wallet_interface}. There
 are only a small number of wallet operations of interest. We can:
 %
 \begin{itemize}
@@ -519,7 +523,7 @@ preserved by all state updates.
 \caption{\label{fig:basic_model}The basic model}
 \end{figure}
 
-The most basic model is shown in Figure~\ref{fig:basic_model}. This model, as
+The most basic model is shown in \cref{fig:basic_model}. This model, as
 indeed every other model in this specification, is \emph{abstract}. We are not
 concerned with specific data representation formats or low level implementation
 details. Such issues are important, but should be considered only after we
@@ -563,7 +567,7 @@ of a block to the UTxO:
   & ~ \dom u \subtractdom \mathsf{updateUTxO} ~ b ~ u \\
 = & ~ \dom u \subtractdom \Bigl( \mathsf{txins} ~ b \subtractdom (u \cup (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}})) \Bigr) \\
 = & ~ (\dom u \cup \mathsf{txins} ~ b) \subtractdom (u \cup (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}})) \\
-= & ~ (\dom u \cup \mathsf{txins} ~ b) \subtractdom (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}}) & \text{\{ Lemma~\ref{lem:utxo_props_subtractdom_remove_dom} \}} \\
+= & ~ (\dom u \cup \mathsf{txins} ~ b) \subtractdom (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}}) & \text{\{ \cref{lem:utxo_props_subtractdom_remove_dom} \}} \\
 = & ~ \mathsf{txins} ~ b \subtractdom (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}}) = \mathsf{new} ~ b & \text{\{ Precondition to $\mathsf{applyBlock}$ \}}
 \end{align*}
 \end{proof}
@@ -630,7 +634,7 @@ all of these invariants will be true in all models.
 Note that Invariant~\ref{inv:txins_in_dom_utxo} only holds if we do not allow
 dependent in-flight transactions. If we do allow dependent ones then the spent
 set of the pending includes change addresses that are not yet in the wallet
-UTxO. Additionally, as we will see in Section~\ref{sec:rollback}, once we add
+UTxO. Additionally, as we will see in \cref{sec:rollback}, once we add
 rollback then this invariant no longer holds.
 
 \begin{invariant}[The wallet UTxO only covers addresses that belongs to the wallet]
@@ -660,7 +664,7 @@ Given these invariants, we can prove a few simple lemmas.
 
 \begin{proof}
 Follows immediately from
-Lemma~\ref{lem:utxo_props_subtractdom_subseteq}.
+\cref{lem:utxo_props_subtractdom_subseteq}.
 \end{proof}
 
 \begin{lemma}[Change not in UTxO]
@@ -672,10 +676,10 @@ Lemma~\ref{lem:utxo_props_subtractdom_subseteq}.
 
 \begin{proof}
 Follows from Invariant~\ref{inv:change_vs_available}
-and Lemma~\ref{lem:dom_available}.
+and \cref{lem:dom_available}.
 \end{proof}
 
-Lemma~\ref{lem:change_vs_utxo} is not very deep. All new transactions should
+\cref{lem:change_vs_utxo} is not very deep. All new transactions should
 have fresh IDs, and thus cannot be in the existing wallet UTxO.
 
 Finally we can state a lemma that relates $\mathsf{change}$, $\mathsf{available}$,
@@ -693,9 +697,9 @@ Given a wallet $w = (\mathit{utxo}, \mathit{pending})$,
 \end{lemma}
 %
 \begin{proof}
-(\ref{lem:total_props_sets}) follows directly from the definition.
-(\ref{lem:total_props_balance}) follows from (\ref{lem:total_props_sets}) and
-Lemma~\ref{lem:balance_props_union} with
+\cref{lem:total_props_sets} follows directly from the definition.
+\cref{lem:total_props_balance} follows from \ref{lem:total_props_sets} and
+\cref{lem:balance_props_union} with
 Invariant~\ref{inv:change_vs_available}.
 \end{proof}
 
@@ -729,7 +733,7 @@ This $\mathsf{join}$ comes from \cite{join_bound}; observe that when $M = N$,
 $\order{\mathsf{join} ~ M ~ N}$ is is simply $\order{M}$, and when $N$ is much
 larger than $M$ (our typical case), $\order{\mathsf{join} ~ M ~ N}$ is bounded
 by $\order{M \cdot \log N}$. The complexity of the major operations are then as
-given in Figure~\ref{fig:basic_model_complexity}.
+given in \cref{fig:basic_model_complexity}.
 
 \begin{figure}
 \begin{equation*}
@@ -794,7 +798,7 @@ is 64Kb.
 \label{sec:caching_balance}
 
 The asymptotic complexity of the na\"ive implementations
-(Section~\ref{sec:basic_model_complexity}) are in fact mostly good enough. If we
+(\cref{sec:basic_model_complexity}) are in fact mostly good enough. If we
 assume that the number of pending transactions, and the number of inputs and
 outputs for individual transactions is not large, then the only problematic
 operations are $\mathsf{availableBalance}$ and $\mathsf{totalBalance}$, which
@@ -821,7 +825,7 @@ balance for the UTxO to address this problem.
 = & ~ \mathsf{balance} ~ (\mathsf{available} ~ (\mathit{utxo}, \mathit{pending})) \\
 = & ~ \mathsf{balance} ~ (\mathsf{txins} ~ \mathit{pending} \subtractdom \mathit{utxo}) \\
 = & ~ \mathsf{balance} ~ \mathit{utxo} - \mathsf{balance} ~ (\mathsf{txins} ~ \mathit{pending} \restrictdom \mathit{utxo})
-  & \text{\{ Lemma~\ref{lem:balance_props_minus} \}}
+  & \text{\{ \cref{lem:balance_props_minus} \}}
 \end{align*}
 \end{proof}
 
@@ -840,7 +844,7 @@ balance for the UTxO to address this problem.
  = & ~ \mathsf{balance} ~ (\mathsf{available} ~ (\mathit{utxo}, \mathit{pending}) \cup \mathsf{change} ~ \mathit{pending}) \\
  = & ~ \mathsf{balance} ~ (\mathsf{available} ~ (\mathit{utxo}, \mathit{pending}))
      + \mathsf{balance} ~ (\mathsf{change} ~ \mathit{pending})
-   & \text{ \{ Lemma~\ref{lem:balance_props_union}, Invariant~\ref{inv:change_vs_available} \}} \\
+   & \text{ \{ \cref{lem:balance_props_union}, Invariant~\ref{inv:change_vs_available} \}} \\
 =  & ~ \mathsf{availableBalance} ~ (\mathit{utxo}, \mathit{pending}) + \mathsf{balance} ~ (\mathsf{change} ~ \mathit{pending})
 \end{align*}
 \end{proof}
@@ -895,13 +899,13 @@ utxo^+        & = \mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}} \\
 utxo^\prime   & = \mathsf{txins} ~ b \subtractdom (utxo \cup utxo^+) \\
 \sigma^\prime & = \mathsf{balance} ~ (\mathsf{txins} ~ b \subtractdom (utxo \cup utxo^+))
 %
-\intertext{Applying Lemma~\ref{lem:balance_props_minus}
+\intertext{Applying \cref{lem:balance_props_minus}
 to distribute $\mathsf{balance}$ over $\subtractdom$ gives us}
 %
 \sigma^\prime & = \mathsf{balance} ~ (utxo \cup utxo^+) - \mathsf{balance} ~ (\mathsf{txins} ~ b \restrictdom (utxo \cup utxo^+)) \\
 %
 \intertext{Relying on the precondition to $\mathsf{applyBlock}$, we can apply
-Lemma~\ref{lem:balance_props_union} to distribute $\mathsf{balance}$ over $\cup$
+\cref{lem:balance_props_union} to distribute $\mathsf{balance}$ over $\cup$
 to give us}
 %
 \sigma^\prime & = \mathsf{balance} ~ utxo + \mathsf{balance} ~ utxo^+ - \mathsf{balance} ~ (\mathsf{txins} ~ b \restrictdom (utxo \cup utxo^+)) \\
@@ -918,7 +922,7 @@ The extra things we have to compute turn out not to be expensive
 
 Putting everything back together, and defining $utxo^-$ for symmetry, gives
 us an extension of the basic model with a cached UTxO balance, shown
-in Figure~\ref{fig:model_with_cached_balance}.
+in \cref{fig:model_with_cached_balance}.
 
 \begin{figure}[p]
 %
@@ -979,7 +983,7 @@ length of 20 seconds -- would mean a worst-case log growth rate of 360 MB/hour.
 %
 \emph{Wallet state} \\
 
-As in the basic model with cached balance (Figure~\ref{fig:model_with_cached_balance}).  \\
+As in the basic model with cached balance (\cref{fig:model_with_cached_balance}).  \\
 
 \emph{Atomic updates}
 %
@@ -1010,7 +1014,7 @@ The goal is to define an auxiliary function to $\mathsf{applyBlock}$ which only
 needs the `relevant' information from the block. Since
 $\mathsf{applyBlock}$ is only defined in terms of the inputs and outputs
 of the block, we can easily define a variation $\mathsf{applyBlock}'$,
-shown in Figure~\ref{fig:wallet_with_prefiltering}, that accepts these as two
+shown in \cref{fig:wallet_with_prefiltering}, that accepts these as two
 separate arguments.
 
 Letting
@@ -1028,9 +1032,9 @@ we trivially we have that
 %
 but we haven't gained much yet because although we only pass in `our' outputs,
 we still pass in \emph{all} inputs of the block.  However,
-lemma~\ref{lem:prefiltering} shows how we can filter the inputs also, justifying
+\cref{lem:prefiltering} shows how we can filter the inputs also, justifying
 the definition of the wallet with prefiltering
-(Figure~\ref{fig:wallet_with_prefiltering}).
+(\cref{fig:wallet_with_prefiltering}).
 
 \begin{lemma}
 \begin{equation*}
@@ -1042,7 +1046,7 @@ the definition of the wallet with prefiltering
 
 \begin{proof}
 Since there are three separate uses of $\mathit{txins}_b$ in
-$\mathsf{applyBlock}'$, proving Lemma~\ref{lem:prefiltering} boils down
+$\mathsf{applyBlock}'$, proving \cref{lem:prefiltering} boils down
 to showing three things:
 \begin{enumerate}
 
@@ -1080,7 +1084,7 @@ to showing three things:
 
 Equalities~\eqref{proof:prefiltering:utxo_min}
 and~\eqref{proof:prefiltering:utxo_prime} follow immediately from Lemmas
-Lemma~\ref{lem:utxo_props_restrictdom_dom}
+\ref{lem:utxo_props_restrictdom_dom}
 and~\ref{lem:utxo_props_subtractdom_dom}. The backwards direction
 of~\eqref{proof:prefiltering:pending_prime} is trivial; the forwards direction
 follows from Invariant~\ref{inv:txins_in_dom_utxo}.
@@ -1169,7 +1173,7 @@ the pending set but never decrease it.
 \end{figure}
 
 The basic model with support for rollback is shown in
-Figure~\ref{fig:basic_rollback_model}. In this model the wallet state is a list
+\cref{fig:basic_rollback_model}. In this model the wallet state is a list
 of \emph{checkpoints}, the value of the wallet at various times throughout its
 lifetime; each call to $\mathsf{applyBlock}$ introduces a new checkpoint. The
 initial wallet is the singleton list; We cannot roll back a wallet that contains
@@ -1178,7 +1182,7 @@ anyway not make semantic sense).
 
 After a rollback we have transactions in $\mathit{pending}$ that spend inputs
 that are not available in the wallet's UTxO (we will explore this issue in detail in
-Section~\ref{sec:tracking_expected_UTxO}). Nonetheless, the definition of $\mathsf{available}$ can
+\cref{sec:tracking_expected_UTxO}). Nonetheless, the definition of $\mathsf{available}$ can
 remain pretty much unchanged, since that only considers inputs that \emph{are}
 in the UTxO anyway.
 
@@ -1207,7 +1211,7 @@ transactions down.
          : (u, p) : \mathit{cs}
          ) \\
 = ~ & (u, (\mathsf{updatePending} ~ b ~ p) \cup p) : \mathit{cs} \\
-= ~ & (u, p) : \mathit{cs} & \text{\{ Lemma~\ref{lem:updatePending_is_filter} \}}
+= ~ & (u, p) : \mathit{cs} & \text{\{ \cref{lem:updatePending_is_filter} \}}
 \end{align*}
 \end{proof}
 
@@ -1235,7 +1239,7 @@ Moreover, we have
          : (\mathit{u}, \mathit{p}) : \mathit{cs}
          ) \\
 = ~ & (\mathit{u}, ((\mathsf{updatePending} ~ b ~ \mathit{p}) \cup \{\mathit{tx}\}) \cup \mathit{p}) : \mathit{cs} \\
-= ~ & (\mathit{u}, \mathit{p} \cup \{tx\}) : \mathit{cs} & \text{\{ Lemma~\ref{lem:updatePending_is_filter} \}}
+= ~ & (\mathit{u}, \mathit{p} \cup \{tx\}) : \mathit{cs} & \text{\{ \cref{lem:updatePending_is_filter} \}}
 \end{align*}
 \end{proof}
 
@@ -1393,12 +1397,12 @@ It is of course possible that such missing transactions ($t_1$) \emph{never}
 make it into the new fork, in which case dependent pending transaction ($t_2$)
 should eventually be removed from $\mathit{pending}$. This problem may arise
 even without rollbacks, however, and cannot be solved until we introduce a TTL
-value for transactions (Section~\ref{sec:TTL}).
+value for transactions (\cref{sec:TTL}).
 
 In this section we will see how by keeping track of the expected UTxO we can
 give a clearer picture of the wallet's balance, even in the presence of
 rollbacks. The extended model is shown in
-Figure~\ref{fig:model_with_expected_UTxO}. When the wallet rolls back, the
+\cref{fig:model_with_expected_UTxO}. When the wallet rolls back, the
 unspent outputs that are removed from the $\mathit{utxo}$ get added to
 $\mathit{expected}$. Conversely, when the wallet applies a block, any confirmed
 outputs are removed from $\mathit{expected}$.
@@ -1454,7 +1458,7 @@ can, in a sense, `anticipate' what we think the future might look like:
 \end{definition}
 
 We can now formalise the above intuition, providing the moral equivalent
-of Lemma~\ref{lem:rollback_applyBlock_id} in the last section, where we didn't
+of \cref{lem:rollback_applyBlock_id} in the last section, where we didn't
 track the expected UTxO yet.
 
 \begin{lemma}
@@ -1468,8 +1472,8 @@ track the expected UTxO yet.
   & ~ \mathsf{rollback} ~ \Bigl( \mathsf{applyBlock} ~ b ~ ((u, p, e) : \mathit{cs}) \Bigr) \\
 = & ~ \mathsf{rollback} ~ ((\mathsf{updateUTxO} ~ b ~ u, \mathsf{updatePending} ~ b ~ p, \mathsf{updateExpected} ~ b ~ e) : (u, p, e) : \mathit{cs}) \\
 = & ~ ((u, (\mathsf{updatePending} ~ b ~ p) \cup p,  (\mathsf{updateExpected} ~ b ~ e) \cup e \cup (\dom u \subtractdom \mathsf{updateUTxO} ~ b ~ u)) : \mathit{cs}) \\
-= & ~ ((u, p, e \cup (\dom u \subtractdom \mathsf{updateUTxO} ~ b ~ u)) : \mathit{cs}) & \text{\{ Lemma~\ref{lem:updateExpected_is_filter} \} } \\
-= & ~ ((u, p, e \cup \mathsf{new} ~ b) : \mathit{cs}) = \mathsf{anticipate} ~ b ~ ((u, p, e) : \mathit{cs}) & \text{\{ Lemma~\ref{lem:update_remove_dom} \} }
+= & ~ ((u, p, e \cup (\dom u \subtractdom \mathsf{updateUTxO} ~ b ~ u)) : \mathit{cs}) & \text{\{ \cref{lem:updateExpected_is_filter} \} } \\
+= & ~ ((u, p, e \cup \mathsf{new} ~ b) : \mathit{cs}) = \mathsf{anticipate} ~ b ~ ((u, p, e) : \mathit{cs}) & \text{\{ \cref{lem:update_remove_dom} \} }
 \end{align*}
 \end{proof}
 
@@ -1584,7 +1588,7 @@ accurate, but it will still be a lower bound.} estimate the minimum balance as
 \subsection{Bounds on $\mathsf{totalBalance}$}
 
 Now that we keep track of the expected UTxO, we can state the equivalent
-of Lemma~\ref{lem:bounds_in_basic_model} for the wallet with rollback:
+of \cref{lem:bounds_in_basic_model} for the wallet with rollback:
 
 \begin{lemma}[Bounds on $\mathsf{totalBalance}$ in the presence of rollback]
 \begin{align*}
@@ -1598,7 +1602,7 @@ of Lemma~\ref{lem:bounds_in_basic_model} for the wallet with rollback:
 
 \begin{proof}
 The first inequality is trivial. The second was proven in
-Lemma~\ref{lem:minimumBalance_bound}. The final one comes from
+\cref{lem:minimumBalance_bound}. The final one comes from
 Invariant~\ref{inv:txins_in_dom_utxo_expected_pending}.
 \end{proof}
 
@@ -1609,7 +1613,7 @@ While in addition we trivially have that
 \le \mathsf{totalBalance} ~ (\mathit{utxo} \cup \mathit{expected}, \mathit{pending})
 \end{equation*}
 %
-as discussed at the start of Section~\ref{sec:tracking_expected_UTxO}, that expression
+as discussed at the start of \cref{sec:tracking_expected_UTxO}, that expression
 \begin{math}
 \mathsf{totalBalance} ~ (\mathit{utxo}, \mathit{pending})
 \end{math}
@@ -1670,7 +1674,7 @@ to just the inputs from and outputs to addressed owned by the wallet).
 
 In general we can have pending transactions dependent on each other, expected
 transactions dependent on each other, as well as pending transactions depending
-on expected transactions and vice versa. Figure~\ref{fig:trans_deps} shows
+on expected transactions and vice versa. \cref{fig:trans_deps} shows
 some of the possibilities, and computes in which possible future the wallet's
 balance is minimum.
 
@@ -1923,7 +1927,7 @@ The complexity of $\mathsf{minimumBalance}$ is given by
 \order{e + 2^g + p}
 \end{math}
 with $e$ the number of groups of expected transactions
-(Lemma~\ref{lem:group_expected}), $g$ the size of the largest such group,
+(\cref{lem:group_expected}), $g$ the size of the largest such group,
 and $p$ the number of pending transactions.
 \label{lem:complexity_minimize}
 \end{lemma}
@@ -1931,7 +1935,7 @@ and $p$ the number of pending transactions.
 If $g$ is very large, we can always fall back on a more conservative estimate.
 For instance, since it is always sound to forget some dependencies, we can
 forget any dependencies from pending transactions on expected ones. This means
-that we can always use Lemma~\ref{lem:minimumBalance_equal_totalBalance} to
+that we can always use \cref{lem:minimumBalance_equal_totalBalance} to
 approximate $\mathsf{minimumBalance}$ using $\mathsf{totalBalance}$.
 
 \paragraph{Note.}
@@ -1945,7 +1949,7 @@ particular forks is not sufficient to conclude incompatibility.
 
 \subsection{Further efficiency improvements}
 
-In Section~\ref{sec:computing_minimum_balance} we point out that we can group
+In \cref{sec:computing_minimum_balance} we point out that we can group
 the expected transactions such that two expected transactions are in the same
 group if and only if their dependent pending transactions overlap. Then
 decisions in one group clearly cannot affect decisions in another, so that we
@@ -2131,10 +2135,10 @@ but that contradicts \eqref{eq:e1insufficient}.
 
 \subsection{Balance caching and prefiltering}
 
-Balance caching (Section~\ref{sec:caching_balance}) and prefiltering
-(Section~\ref{sec:prefiltering}) translate easily to the wallet with
+Balance caching (\cref{sec:caching_balance}) and prefiltering
+(\cref{sec:prefiltering}) translate easily to the wallet with
 rollback and expected UTxO; the full wallet model is shown in
-Figure~\ref{fig:full_wallet_model}. The only slightly subtle point is
+\cref{fig:full_wallet_model}. The only slightly subtle point is
 that during prefiltering we need to take the expected UTxO into account as
 well as the actual UTxO.
 
@@ -2187,18 +2191,18 @@ know \emph{when} their pending transactions got confirmed in the blockchain
 was of a particular transaction on their balance (rather than merely being
 able to see the current balance).
 
-In Section~\ref{sec:abstract_metadata} we first study this kind of \emph{metadata}
+In \cref{sec:abstract_metadata} we first study this kind of \emph{metadata}
 from an abstract point of view; here the main question we want to answer is
 how this metadata relates to the state of the wallet, and in particular to
-rollbacks. Then in Section~\ref{sec:transaction_history} we will see how
-we can instantiate the abstract model from Section~\ref{sec:abstract_metadata}
+rollbacks. Then in \cref{sec:transaction_history} we will see how
+we can instantiate the abstract model from \cref{sec:abstract_metadata}
 to track the metadata required by the actual Cardano (V1) wallet.
 
 \subsection{Abstract model}
 \label{sec:abstract_metadata}
 
 Our abstract model of tracking metadata is shown in
-Figure~\ref{fig:tracking_metadata}. We distinguish between \emph{block}
+\cref{fig:tracking_metadata}. We distinguish between \emph{block}
 metadata, $\mathsf{BlockMeta}$, and \emph{transaction} metadata,
 $\mathsf{TxMeta}$. The key idea is that the block metadata depends on the
 state of the blockchain, but the transaction metadata does not. Specifically:
@@ -2252,8 +2256,8 @@ on rollback we simply revert to the previous value of the block metadata.
 \end{figure}
 
 \paragraph{Note on prefiltering.} The model we show in
-Figure~\ref{fig:tracking_metadata} does not implement prefiltering
-(Section~\ref{sec:prefiltering}). In order to make metadata tracking work well
+\cref{fig:tracking_metadata} does not implement prefiltering
+(\cref{sec:prefiltering}). In order to make metadata tracking work well
 with prefiltering it suffices to make sure that $\mathsf{blockMeta}$ can take a
 prefiltered block as argument. In an actual implementation, this means that if
 $\mathsf{blockMeta}$ needs any additional information other than the
@@ -2265,7 +2269,7 @@ is included in the prefiltered block.
 
 This section is a bit more technical in nature and studies how the transaction
 metadata reported in the current wallet `V1 REST API' can be defined in terms
-of the abstract model from Figure~\ref{fig:tracking_metadata}.
+of the abstract model from \cref{fig:tracking_metadata}.
 
 The transaction metadata reported in the REST API divides into three categories:
 information that we can model as part of $\mathsf{TxMeta}$, information that
@@ -2370,7 +2374,7 @@ invalidated, or perhaps simply because some time limit has expired.
 %
 For incoming transactions, only $\mathtt{InNewestBlocks}$ and
 $\mathtt{Persisted}$ are applicable. We can derive transaction status from
-the block metadata as described in Section~\ref{sec:confirmations} and
+the block metadata as described in \cref{sec:confirmations} and
 the wallet's state as follows:
 %
 \begin{equation*}
@@ -2404,7 +2408,7 @@ transactions, but rather simply exclude from the wallet's history.
 wallet's balance), it may be that it was pending at some point, but got removed
 from $\mathit{pending}$ (without being included in the blockchain), perhaps
 because it was invalidated by another transaction (or the transaction submission
-layer gave up on it; see Section~\ref{sec:transaction_submission}). We will
+layer gave up on it; see \cref{sec:transaction_submission}). We will
 report a \texttt{WontApply} status for such a transaction.
 \item There is however a second way that we might end up with such an
 outgoing transaction: it may have been created by \emph{another instance} of the
@@ -2421,7 +2425,7 @@ a property that we could infer when the recover a wallet's status from the block
 chain, and hence this property would not be `stable'.}
 \end{itemize}
 %
-The diagram in Figure~\ref{fig:transaction_state} shows visually how the status of
+The diagram in \cref{fig:transaction_state} shows visually how the status of
 transactions can change over dynamically; the left diagram shows outgoing
 transactions, the right shows incoming transactions. The empty circle at the top
 of the diagram means that the transaction is not included in the wallet's
@@ -2488,8 +2492,8 @@ if they don't get included, and perhaps eventually decide to give up on them if
 for some reason they do not get included.
 
 This functionality does not need to be part of the wallet proper. In
-Section~\ref{sec:submission_interface} we will discuss the interface to this
-component, and in Section~\ref{sec:submission_implementation} we will give a
+\cref{sec:submission_interface} we will discuss the interface to this
+component, and in \cref{sec:submission_implementation} we will give a
 concrete simple implementation (which however still ignores any actual
 networking issues).
 
@@ -2497,8 +2501,8 @@ networking issues).
 \label{sec:submission_interface}
 
 The interface to the transaction submission layer is shown in
-Figure~\ref{fig:transaction_submission_layer}. It is of a similar nature as
-interface to the wallet itself (Figure~\ref{fig:wallet_interface}). Just like
+\cref{fig:transaction_submission_layer}. It is of a similar nature as
+interface to the wallet itself (\cref{fig:wallet_interface}). Just like
 the wallet expects to be notified of events such as `new block arrived' and
 `user submitted a new transaction', the submission layer expects to be notified
 when the set of pending transactions grows or shrinks, and whenever a time slot
@@ -2533,7 +2537,7 @@ of view of the wallet model this corresponds to a new function
 & \qquad \text{where} ~ \mathsf{cancel}' ~ (\mathit{utxo}, \mathit{pending}, \mathit{blockMeta}) = (\mathit{utxo}, \mathit{pending} \setminus \mathit{txs}, \mathit{blockMeta})
 \end{align*}
 %
-By the logic of Section~\ref{sec:transaction_status}, such a transaction would
+By the logic of \cref{sec:transaction_status}, such a transaction would
 be reported as $\mathtt{WontApply}$. Since we removed the transaction from the
 $\mathit{pending}$ set in all checkpoints\footnote{If the overhead of traversing
 all checkpoints is too large, an alternative implementation strategy would to be
@@ -2549,7 +2553,7 @@ $\texttt{Applying}$ (arrow $\mathsf{rollback}^*$).
 \subsection{Implementation}
 \label{sec:submission_implementation}
 
-Figure~\ref{fig:submission_layer_impl} shows a simple implementation of the
+\cref{fig:submission_layer_impl} shows a simple implementation of the
 submission layer.  Part of the goal of this section is to show that the
 submission layer has sufficient information and does not need further support
 from the core wallet layer---indeed, does not need to know it exists at all.
@@ -2734,7 +2738,7 @@ process known as \emph{input selection} which, given a set of desired outputs
 inputs from the wallet's UTxO to cover that payment and the transaction fee,
 returning any change back to the wallet. The result of input selection is a
 fully formed transaction which can then be passed to $\mathsf{newPending}$. This
-is summarised more formally in Figure~\ref{fig:input_selection_sig}.
+is summarised more formally in \cref{fig:input_selection_sig}.
 
 \begin{figure}
 \begin{align*}
@@ -2769,7 +2773,7 @@ this process, prioritising some goals over others.
 
 \emph{Low transaction fees.}
 Transactions must include a transaction fee, which is based on the size of the
-transaction (Appendix~\ref{app:transaction_fees}). A good input selection
+transaction (\cref{app:transaction_fees}). A good input selection
 algorithm will attempt to keep these transaction fees low. One complication here
 is that the fee depends on the size of the transaction, but the size of
 the transaction may depend on the fee since we may need to add more inputs to
@@ -2828,7 +2832,7 @@ size; if the UTxO only contains small unspent outputs, then for very large
 payments the resulting transaction might exceed the maximum transaction size.
 Conversely, if the UTxO only contains large outputs, the wallet may be forced to
 rely on unconfirmed transactions to maintain throughput, something we've
-expressly disallowed in this specification (Section~\ref{sec:updatePending})
+expressly disallowed in this specification (\cref{sec:updatePending})
 because it has negative consequences on networking performance.
 The privacy consequences of this kind of UTxO maintenance are far from obvious,
 but we note that some authors claim it may actually \emph{help}
@@ -2901,7 +2905,7 @@ Since this specification is not concerned with blockchain validation, it does
 not require a formal treatment of transaction fees. Even new transactions
 submitted to $\mathsf{newPending}$ are assumed to be fully formed and valid.
 Indeed, the only section where we even need the concept of fees is
-Section~\ref{sec:input_selection} on input selection, where we mention that a
+\cref{sec:input_selection} on input selection, where we mention that a
 transaction constructed by input selection must satisfy the minimum fee
 requirement. For completeness sake, in this appendix we outline how a
 transaction fee is represented in Cardano, and how the minimum fee is computed.

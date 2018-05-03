@@ -7516,23 +7516,25 @@ inherit (pkgs) mesa;};
          }) {};
       "cardano-sl-tools" = callPackage
         ({ mkDerivation, acid-state, aeson, ansi-terminal, ansi-wl-pprint
-         , array, async, attoparsec, base, base58-bytestring, bytestring
-         , canonical-json, cardano-report-server, cardano-sl
-         , cardano-sl-binary, cardano-sl-block, cardano-sl-client
-         , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
-         , cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking
-         , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
-         , cardano-sl-util, cardano-sl-wallet, Chart, Chart-diagrams
-         , conduit, containers, cpphs, cryptonite, data-default, directory
-         , ed25519, fgl, filepath, foldl, formatting, Glob, graphviz, hspec
-         , hspec-discover, kademlia, lens, lifted-async, log-warper
-         , MonadRandom, mtl, neat-interpolation, network-transport-tcp
-         , optparse-applicative, optparse-generic, parsec, parsers, pipes
-         , pipes-bytestring, pipes-interleave, pipes-safe, process
-         , QuickCheck, random, random-shuffle, safe-exceptions
-         , serokell-util, silently, stdenv, stm, string-conv, tabl, tar
-         , temporary, text, time, time-units, trifecta, universum, unix
-         , unix-compat, unordered-containers, vector, yaml
+         , array, asn1-encoding, asn1-types, async, attoparsec, base
+         , base58-bytestring, base64-bytestring, bytestring, canonical-json
+         , cardano-report-server, cardano-sl, cardano-sl-binary
+         , cardano-sl-block, cardano-sl-client, cardano-sl-core
+         , cardano-sl-crypto, cardano-sl-db, cardano-sl-infra
+         , cardano-sl-lrc, cardano-sl-networking, cardano-sl-ssc
+         , cardano-sl-txp, cardano-sl-update, cardano-sl-util
+         , cardano-sl-wallet, Chart, Chart-diagrams, conduit, containers
+         , cpphs, cryptonite, data-default, data-default-class, directory
+         , ed25519, fgl, filepath, foldl, formatting, Glob, graphviz
+         , hourglass, hspec, hspec-discover, kademlia, lens, lifted-async
+         , log-warper, MonadRandom, mtl, neat-interpolation
+         , network-transport-tcp, optparse-applicative, optparse-generic
+         , parsec, parsers, pipes, pipes-bytestring, pipes-interleave
+         , pipes-safe, process, QuickCheck, random, random-shuffle
+         , safe-exceptions, serokell-util, silently, stdenv, stm
+         , string-conv, tabl, tar, temporary, text, time, time-units
+         , trifecta, universum, unix, unix-compat, unordered-containers
+         , vector, x509, x509-store, x509-validation, yaml
          }:
          mkDerivation {
            pname = "cardano-sl-tools";
@@ -7545,21 +7547,23 @@ inherit (pkgs) mesa;};
              text trifecta universum yaml
            ];
            executableHaskellDepends = [
-             acid-state aeson ansi-terminal ansi-wl-pprint array async
-             attoparsec base base58-bytestring bytestring canonical-json
-             cardano-report-server cardano-sl cardano-sl-binary cardano-sl-block
-             cardano-sl-client cardano-sl-core cardano-sl-crypto cardano-sl-db
-             cardano-sl-infra cardano-sl-lrc cardano-sl-networking
-             cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
-             cardano-sl-wallet Chart Chart-diagrams conduit containers
-             cryptonite data-default directory ed25519 fgl filepath foldl
-             formatting Glob graphviz kademlia lens lifted-async log-warper
+             acid-state aeson ansi-terminal ansi-wl-pprint array asn1-encoding
+             asn1-types async attoparsec base base58-bytestring
+             base64-bytestring bytestring canonical-json cardano-report-server
+             cardano-sl cardano-sl-binary cardano-sl-block cardano-sl-client
+             cardano-sl-core cardano-sl-crypto cardano-sl-db cardano-sl-infra
+             cardano-sl-lrc cardano-sl-networking cardano-sl-ssc cardano-sl-txp
+             cardano-sl-update cardano-sl-util cardano-sl-wallet Chart
+             Chart-diagrams conduit containers cryptonite data-default
+             data-default-class directory ed25519 fgl filepath foldl formatting
+             Glob graphviz hourglass kademlia lens lifted-async log-warper
              MonadRandom mtl neat-interpolation network-transport-tcp
              optparse-applicative optparse-generic parsec parsers pipes
              pipes-bytestring pipes-interleave pipes-safe process QuickCheck
              random random-shuffle safe-exceptions serokell-util silently stm
              string-conv tabl tar text time time-units trifecta universum unix
-             unix-compat unordered-containers vector yaml
+             unix-compat unordered-containers vector x509 x509-store
+             x509-validation yaml
            ];
            executableToolDepends = [ cpphs ];
            testHaskellDepends = [

@@ -1,16 +1,16 @@
 
 module Cardano.Wallet.Kernel.Actions
-  ( WalletAction(..)
-  , WalletActionInterp(..)
-  , forkWalletWorker
-  , walletWorker
-  , interp
-  , interpList
-  , WalletWorkerState
-  , isInitialState
-  , hasPendingFork
-  , isValidState
-  ) where
+    ( WalletAction(..)
+    , WalletActionInterp(..)
+    , forkWalletWorker
+    , walletWorker
+    , interp
+    , interpList
+    , WalletWorkerState
+    , isInitialState
+    , hasPendingFork
+    , isValidState
+    ) where
 
 import           Universum
 import           Control.Concurrent.Async (async, link)
@@ -85,7 +85,7 @@ interp walletInterp action = do
       ApplyBlocks bs -> do
 
         -- Add the blocks
-        pendingBlocks %= (toNewestFirst (toListChrono bs) <>)
+        pendingBlocks %= prependNewestFirst (toNewestFirst $ toListChrono bs)
         lengthPendingBlocks += length bs
 
         -- If we have seen more blocks than rollbacks, switch to the new fork.
@@ -118,6 +118,7 @@ interp walletInterp action = do
 
   where
     WalletActionInterp{..} = lifted walletInterp
+    prependNewestFirst bs = \nf -> NewestFirst (getNewestFirst bs <> getNewestFirst nf)
 
 -- | Connect a wallet action interpreter to a channel of actions.
 walletWorker :: Chan (WalletAction b) -> WalletActionInterp IO b -> IO ()

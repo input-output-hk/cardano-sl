@@ -54,6 +54,8 @@
   \newtheorem{proofobligation}[lemma]{Proof Obligation}
 }
 
+\Crefname{invariant}{Invariant}{Invariants}
+
 \numberwithin{equation}{lemma}
 
 \floatstyle{boxed}
@@ -636,7 +638,7 @@ all of these invariants will be true in all models.
 \label{inv:txins_in_dom_utxo}
 \end{invariant}
 
-Note that Invariant~\ref{inv:txins_in_dom_utxo} only holds if we do not allow
+Note that \cref{inv:txins_in_dom_utxo} only holds if we do not allow
 dependent in-flight transactions. If we do allow dependent ones then the spent
 set of the pending includes change addresses that are not yet in the wallet
 UTxO. Additionally, as we will see in \cref{sec:rollback}, once we add
@@ -680,7 +682,7 @@ Follows immediately from
 \end{lemma}
 
 \begin{proof}
-Follows from Invariant~\ref{inv:change_vs_available}
+Follows from \cref{inv:change_vs_available}
 and \cref{lem:dom_available}.
 \end{proof}
 
@@ -705,7 +707,7 @@ Given a wallet $w = (\mathit{utxo}, \mathit{pending})$,
 \eqref{eq:total_props_sets} follows directly from the definition.
 \eqref{eq:total_props_balance} follows from \eqref{eq:total_props_sets} and
 \eqref{eq:balance_props_union} with
-Invariant~\ref{inv:change_vs_available}.
+\cref{inv:change_vs_available}.
 \end{proof}
 
 \subsection{Complexity}
@@ -849,7 +851,7 @@ balance for the UTxO to address this problem.
  = & ~ \mathsf{balance} ~ (\mathsf{available} ~ (\mathit{utxo}, \mathit{pending}) \cup \mathsf{change} ~ \mathit{pending}) \\
  = & ~ \mathsf{balance} ~ (\mathsf{available} ~ (\mathit{utxo}, \mathit{pending}))
      + \mathsf{balance} ~ (\mathsf{change} ~ \mathit{pending})
-   & \text{ \{ \eqref{eq:balance_props_union}, Invariant~\ref{inv:change_vs_available} \}} \\
+   & \text{ \{ \eqref{eq:balance_props_union}, \cref{inv:change_vs_available} \}} \\
 =  & ~ \mathsf{availableBalance} ~ (\mathit{utxo}, \mathit{pending}) + \mathsf{balance} ~ (\mathsf{change} ~ \mathit{pending})
 \end{align*}
 \end{proof}
@@ -1092,7 +1094,7 @@ and~\eqref{proof:prefiltering:utxo_prime} follow immediately from Lemma
 \eqref{eq:utxo_props_restrictdom_dom}
 and~\eqref{eq:utxo_props_subtractdom_dom}. The backwards direction
 of~\eqref{proof:prefiltering:pending_prime} is trivial; the forwards direction
-follows from Invariant~\ref{inv:txins_in_dom_utxo}.
+follows from \cref{inv:txins_in_dom_utxo}.
 \end{proof}
 
 \subsection{Consequences}
@@ -1368,11 +1370,11 @@ In the basic model we have
 
 \begin{proof}[Proof (sketch)]
 The lower bound is trivial. The upper bound follows from
-Invariant~\ref{inv:txins_in_dom_utxo} ($\mathsf{txins} ~ \mathit{pending}
+\cref{inv:txins_in_dom_utxo} ($\mathsf{txins} ~ \mathit{pending}
 \subseteq \dom \mathit{utxo}$).
 \end{proof}
 
-However, Invariant~\ref{inv:txins_in_dom_utxo} no longer holds in the presence
+However, \cref{inv:txins_in_dom_utxo} no longer holds in the presence
 of rollbacks. Suppose an incoming transaction $t_1$ transfers a large sum to the
 wallet, and the wallet subsequently creates a pending transaction $t_2$ that
 transfers a small percentage of that sum to another address. If we now roll
@@ -1503,10 +1505,10 @@ For each checkpoint $(\mathit{utxo}, \mathit{pending}, \mathit{expected})$ in a 
 \end{equation*}
 \end{invariant}
 
-This is the equivalent of Invariant~\ref{inv:utxo_is_ours}, and follows
+This is the equivalent of \cref{inv:utxo_is_ours}, and follows
 straight-forwardly from it because $\mathit{expected}$ is derived from
 $\mathit{utxo}$. Finally, we have to weaken
-Invariant~\ref{inv:txins_in_dom_utxo} to:
+\cref{inv:txins_in_dom_utxo} to:
 
 \begin{invariant}
 \begin{equation*}
@@ -1585,7 +1587,7 @@ accurate, but it will still be a lower bound.} estimate the minimum balance as
         \right|_{\mathrlap{\mathsf{txins} ~ p \subseteq \dom(\mathit{utxo} \cup e)}}
         ~ \mathsf{totalBalance} ~ (\mathit{utxo} \cup e, p) \\
 =   & ~ \minimum \Bigr\{ \ldots, \mathsf{totalBalance} ~ (\mathit{utxo} \cup \mathit{expected}, \mathit{pending}), \ldots \Bigr\}
-    & \text{\{ Invariant~\ref{inv:txins_in_dom_utxo_expected_pending} \}} \\
+    & \text{\{ \cref{inv:txins_in_dom_utxo_expected_pending} \}} \\
 \le & ~ \mathsf{totalBalance} ~ (\mathit{utxo} \cup \mathit{expected}, \mathit{pending})
 \end{align*}
 \end{proof}
@@ -1608,7 +1610,7 @@ of \cref{lem:bounds_in_basic_model} for the wallet with rollback:
 \begin{proof}
 The first inequality is trivial. The second was proven in
 \cref{lem:minimumBalance_bound}. The final one comes from
-Invariant~\ref{inv:txins_in_dom_utxo_expected_pending}.
+\cref{inv:txins_in_dom_utxo_expected_pending}.
 \end{proof}
 
 While in addition we trivially have that

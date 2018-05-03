@@ -125,7 +125,6 @@ library
                      , ansi-terminal
                      , base
                      , base58-bytestring
-                     , binary
                      , bytestring
                      , Cabal
                      , canonical-json
@@ -216,41 +215,18 @@ test-suite test
                        Test.Pos.Core.AddressSpec
                        Test.Pos.Core.CoinSpec
 
-  build-depends:       MonadRandom
-                     , QuickCheck
-                     , base
+  build-depends:       base
                      , bytestring
-                     , canonical-json
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-util
-                     , cborg
-                     , cereal
-                     , containers
-                     , cryptonite
-                     , data-default
-                     , extra
-                     , filelock
-                     , fmt
                      , formatting
-                     , generic-arbitrary
-                     , half
                      , hspec
-                     , lens
-                     , mtl
-                     , pvss
-                     , random
-                     , reflection
-                     , safecopy
+                     , QuickCheck
                      , serokell-util >= 0.1.3.4
-                     , tagged
                      , text
-                     , text-format
-                     , time-units
                      , universum >= 0.1.11
-                     , unordered-containers
-                     , vector
 
   ghc-options:         -threaded
                        -rtsopts

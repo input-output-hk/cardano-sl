@@ -146,42 +146,19 @@ test-suite test
                        Test.Pos.Util.TimerSpec
                        Test.Pos.UtilSpec
 
-  build-depends:       async
-                     , MonadRandom
-                     , QuickCheck
-                     , base
-                     , bytestring
-                     , canonical-json
+  build-depends:       base
+                     , async
                      , cardano-sl-binary
                      , cardano-sl-util
-                     , cborg
-                     , cereal
-                     , containers
-                     , cryptonite
-                     , data-default
-                     , extra
-                     , filelock
-                     , fmt
-                     , formatting
-                     , generic-arbitrary
-                     , half
                      , hspec
-                     , lens
-                     , mtl
-                     , pvss
-                     , random
-                     , reflection
-                     , safecopy
+                     , QuickCheck
                      , serokell-util >= 0.1.3.4
                      , stm
-                     , tagged
                      , text
-                     , text-format
                      , time
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers
-                     , vector
 
   ghc-options:         -threaded
                        -rtsopts

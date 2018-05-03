@@ -55,13 +55,11 @@ library
                      , data-default
                      , ed25519
                      , formatting
-                     , generic-arbitrary
                      , hashable
                      , lens
                      , memory
                      , mtl
                      , pvss
-                     , quickcheck-instances
                      , reflection
                      , safe-exceptions
                      , scrypt

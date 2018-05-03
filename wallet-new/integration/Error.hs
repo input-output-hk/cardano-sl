@@ -39,7 +39,7 @@ data WalletTestError
     | InvalidTransactionState Transaction
     | InvalidTransactionFee EstimatedFees
     | UnexpectedChangeAddress [WalletAddress]
-    | UnexpectedAccountBalance Text Account Account
+    | UnexpectedAccountBalance Text (V1 Core.Coin) (V1 Core.Coin)
     | CantFindAddress (V1 Core.Address)
     | LocalTransactionsDiffer [Transaction] [Transaction]
     | LocalTransactionMissing Transaction [Transaction]
@@ -88,7 +88,7 @@ instance Buildable WalletTestError where
     build (InvalidTransactionFee   f)     = bprint ("Transaction fees are invalid - ("%stext%")") (show f)
     build (UnexpectedChangeAddress a)     = bprint ("Unexpected change address after transaction ("%stext%")") (show a)
     build (UnexpectedAccountBalance explanation b a) =
-        bprint ("Unexpected account balance "%stext%". Before ("%stext%") and after ("%stext%")") explanation (show b) (show a)
+        bprint ("Unexpected account balance "%stext%". Before ("%stext%"), after ("%stext%"))") explanation (show b) (show a)
     build (CantFindAddress a)             = bprint ("Can't find address ("%stext%") before and/or after transaction") (show a)
     build (LocalTransactionsDiffer t t')  = bprint ("Local transactions differs - ("%stext%"), ("%stext%")") (show t) (show t')
     build (LocalTransactionMissing t ts)  = bprint ("Local transaction ("%stext%") missing from txs history ("%stext%")") (show t) (show ts)

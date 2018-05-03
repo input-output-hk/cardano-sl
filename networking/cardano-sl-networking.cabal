@@ -70,7 +70,6 @@ Library
                       , cryptonite
                       , binary >= 0.8
                       , bytestring
-                      , data-default
                       , exceptions
                       , formatting
                       , hashable

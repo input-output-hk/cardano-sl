@@ -17,7 +17,8 @@ with (import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") {
 
 let
   iohkPkgs = import ./. { gitrev = cardano.rev; };
-  stagingWalletdockerImage = (import fixedNixpkgs { config = {}; }).runCommand "${iohkPkgs.dockerImages.stagingWallet.name}-hydra" {} ''
+  pkgs = import fixedNixpkgs { config = {}; };
+  stagingWalletdockerImage = pkgs.runCommand "${iohkPkgs.dockerImages.stagingWallet.name}-hydra" {} ''
     mkdir -pv $out/nix-support/
     cat <<EOF > $out/nix-support/hydra-build-products
     file dockerimage ${iohkPkgs.dockerImages.stagingWallet}
@@ -43,4 +44,9 @@ let
   nixosTests = import ./nixos-tests;
 in (mapTestOn platforms) // {
   inherit stagingWalletdockerImage nixosTests;
+  nixpkgs = let
+    wrapped = pkgs.runCommand "nixpkgs" {} ''
+      ln -sv ${fixedNixpkgs} $out
+    '';
+  in if 0 <= builtins.compareVersions builtins.nixVersion "1.12" then wrapped else fixedNixpkgs;
 }

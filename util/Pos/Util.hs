@@ -10,6 +10,7 @@ module Pos.Util
        , module Pos.Util.Future
        , module Pos.Util.Justify
        , module Pos.Util.Lens
+       , module Pos.Util.Log
        , module Pos.Util.LoggerName
        , module Pos.Util.LRU
        , module Pos.Util.Modifier
@@ -30,6 +31,7 @@ import           Pos.Util.Filesystem
 import           Pos.Util.Future
 import           Pos.Util.Justify
 import           Pos.Util.Lens
+import           Pos.Util.Log
 import           Pos.Util.LoggerName
 import           Pos.Util.LRU
 import           Pos.Util.Modifier

@@ -22,6 +22,7 @@ import qualified Control.Concurrent.STM as STM
 import           Control.Monad.Except (mapExceptT, runExceptT, throwError)
 import           Control.Monad.Morph (generalize, hoist)
 import           Data.Default (Default (def))
+import           Data.Reflection (given)
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
 import           JsonLog (CanJsonLog (..))
@@ -36,6 +37,7 @@ import qualified Pos.DB.GState.Common as GS
 import           Pos.Reporting (reportError)
 import           Pos.Slotting (MonadSlots (..))
 import           Pos.StateLock (Priority (..), StateLock, StateLockMetrics, withStateLock)
+import           Pos.Txp.Configuration (HasTxpConfiguration, TxpConfiguration (..))
 import           Pos.Txp.Logic.Common (buildUtxo)
 import           Pos.Txp.MemState (GenericTxpLocalData (..), MempoolExt, MonadTxpMem,
                                    TxpLocalWorkMode, getLocalTxsMap, getLocalUndos, getMemPool,
@@ -82,7 +84,8 @@ txProcessTransactionNoLock =
         -> EpochIndex
         -> (TxId, TxAux)
         -> ExceptT ToilVerFailure (ExtendedLocalToilM () ()) TxUndo
-    processTxHoisted = mapExceptT extendLocalToilM ... processTx
+    processTxHoisted bvd =
+        mapExceptT extendLocalToilM ... (processTx bvd (tcAssetLockedSrcAddrs given))
 
 txProcessTransactionAbstract ::
        forall extraEnv extraState ctx m a.
@@ -175,12 +178,13 @@ txNormalize =
     buildContext _ _ = pure ()
 
     normalizeToilHoisted ::
-           BlockVersionData
+           HasTxpConfiguration
+        => BlockVersionData
         -> EpochIndex
         -> HashMap TxId TxAux
         -> ExtendedLocalToilM () () ()
     normalizeToilHoisted bvd epoch txs =
-        extendLocalToilM $ normalizeToil bvd epoch $ HM.toList txs
+        extendLocalToilM $ normalizeToil bvd (tcAssetLockedSrcAddrs given) epoch $ HM.toList txs
 
 txNormalizeAbstract ::
        (TxpLocalWorkMode ctx m, MempoolExt m ~ extraState, Default extraState)

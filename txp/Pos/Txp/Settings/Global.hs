@@ -22,6 +22,7 @@ import           Pos.Core (ComponentBlock, HasConfiguration)
 import           Pos.Core.Txp (TxPayload, TxpUndo)
 import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp)
 import           Pos.Slotting (MonadSlots)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 
@@ -33,11 +34,13 @@ type TxpCommonMode m =
     )
 
 type TxpGlobalVerifyMode m =
-    ( TxpCommonMode m
+    ( HasTxpConfiguration
+    , TxpCommonMode m
     )
 
 type TxpGlobalApplyMode ctx m =
-    ( TxpCommonMode m
+    ( HasTxpConfiguration
+    , TxpCommonMode m
     , MonadSlots ctx m  -- TODO: I don't like it (@gromak)
     )
 

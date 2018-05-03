@@ -7463,9 +7463,10 @@ inherit (pkgs) mesa;};
              text-format time-units
            ];
            testHaskellDepends = [
-             base binary bytestring containers hspec lens log-warper mtl
-             network-transport network-transport-inmemory network-transport-tcp
-             QuickCheck random safe-exceptions serokell-util stm time-units
+             async base binary bytestring cardano-sl-util containers hspec lens
+             log-warper mtl network-transport network-transport-inmemory
+             network-transport-tcp QuickCheck random safe-exceptions
+             serokell-util stm time-units
            ];
            doHaddock = false;
            license = stdenv.lib.licenses.mit;

@@ -9,6 +9,10 @@ module Cardano.Wallet.API
        , walletAPI
        , WalletDevAPI
        , walletDevAPI
+       , WalletDocAPI
+       , walletDocAPI
+       , WalletDevDocAPI
+       , walletDevDocAPI
        ) where
 
 import           Cardano.Wallet.API.Types (WalletLoggingConfig)
@@ -51,10 +55,18 @@ type DevAPI = "api" :> "development" :> Dev.API
 devAPI :: Proxy DevAPI
 devAPI = Proxy
 
-type WalletAPI = V0Doc :<|> V1Doc :<|> LoggingApi WalletLoggingConfig (V0API :<|> V1API)
+type WalletAPI = LoggingApi WalletLoggingConfig (V0API :<|> V1API)
 walletAPI :: Proxy WalletAPI
 walletAPI = Proxy
 
-type WalletDevAPI = DevDoc :<|> DevAPI :<|> WalletAPI
+type WalletDevAPI = DevAPI :<|> WalletAPI
 walletDevAPI :: Proxy WalletDevAPI
 walletDevAPI = Proxy
+
+type WalletDocAPI = V0Doc :<|> V1Doc
+walletDocAPI :: Proxy WalletDocAPI
+walletDocAPI = Proxy
+
+type WalletDevDocAPI = DevDoc :<|> WalletDocAPI
+walletDevDocAPI :: Proxy WalletDevDocAPI
+walletDevDocAPI = Proxy

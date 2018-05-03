@@ -10,6 +10,7 @@ module Pos.Wallet.Web.Server.Launcher
        , walletServer
        , walletServeImpl
        , walletServerOuts
+       , walletDocumentationImpl
 
        , bracketWalletWebDB
        , bracketWalletWS
@@ -46,7 +47,7 @@ import           Pos.Wallet.Web.State (closeState, openState)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.Tracking (syncWallet)
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
-import           Pos.Web (TlsParams, serveImpl)
+import           Pos.Web (TlsParams, serveDocImpl, serveImpl)
 
 -- TODO [CSM-407]: Mixture of logic seems to be here
 
@@ -58,6 +59,15 @@ walletServeImpl
     -> Maybe Settings
     -> m ()
 walletServeImpl app (ip, port) = serveImpl app (BS8.unpack ip) port
+
+walletDocumentationImpl
+    :: (HasConfiguration, MonadIO m)
+    => m Application     -- ^ Application getter
+    -> NetworkAddress    -- ^ IP and port to listen
+    -> Maybe TlsParams
+    -> Maybe Settings
+    -> m ()
+walletDocumentationImpl app (ip, port) = serveDocImpl app (BS8.unpack ip) port
 
 walletApplication
     :: (HasCompileInfo, MonadWalletWebMode ctx m, MonadWalletWebSockets ctx m)

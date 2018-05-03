@@ -8,6 +8,7 @@
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
 , walletListen ? "127.0.0.1:8090"
+, walletDocListen ? "127.0.0.1:8091"
 , ekgListen ? "127.0.0.1:8000"
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
@@ -101,6 +102,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db'"}        \
     --keyfile ${stateDir}/secret.key                               \
     ${ ifWallet "--wallet-address ${walletListen}" }               \
+    ${ ifWallet "--wallet-doc-address ${walletDocListen}" }        \
     --ekg-server ${ekgListen} --metrics                            \
     +RTS ${ghcRuntimeArgs} -RTS                                    \
     ${additionalNodeArgs}                                          \

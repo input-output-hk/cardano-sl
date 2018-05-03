@@ -73,8 +73,8 @@ $ stack exec cardano-node -- --topology=wallet-new/topology-examples/testnet.yam
 
 From there, you can browse the API documentation for V0 and V1 through the following URLs:
 
-- http://localhost:8090/docs/v0/index/
-- http://localhost:8090/docs/v1/index/
+- https://localhost:8091/docs/v0/index/
+- https://localhost:8091/docs/v1/index/
 
 The visualization at those URLs lets you play with the API by the mean of a _Try it out_ button
 made available for each endpoint. This will seemingly contact the node already running on your
@@ -82,34 +82,23 @@ local machine with actual HTTP requests augmented with the parameters you provid
 
 ### HTTPS
 
-By default, wallet backend only accepts HTTPS connections:
+By default, wallet backend only accepts HTTPS connections. If we launch a node with
+`--wallet-debug` option, we can send simple `http`-requests.
 
-```
-$ curl localhost:8090/docs/v1/index/index.html
-This server only accepts secure HTTPS connections.
-```
-
-We should provide our `ca.crt`:
-
-```
-$ curl --cacert scripts/tls-files/ca.crt https://localhost:8090/docs/v1/index/index.html
-```
-
-But if we launch a node with `--wallet-debug` option, we can send simple `http`-requests.
 
 ### Swagger Specification
 
 If needed, you can access the corresponding raw Swagger specification files via these URLs:
 
-- http://localhost:8090/docs/v0/swagger.json
-- http://localhost:8090/docs/v1/swagger.json
+- https://localhost:8091/docs/v0/swagger.json
+- https://localhost:8091/docs/v1/swagger.json
 
 ### Development Endpoints
 
 If you run the wallet in debug mode (with `--wallet-debug` option), you'll have an access to
 an extra set of endpoints, documented under this URL:
 
-- http://localhost:8090/docs/development/index
+- https://localhost:8091/docs/development/index
 
 ### Online API Documentation
 

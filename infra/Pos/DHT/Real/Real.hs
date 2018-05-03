@@ -12,10 +12,12 @@ module Pos.DHT.Real.Real
 
 
 import           Nub (ordNub)
-import           Universum
+-- We'll take 'catch' from Control.Exception
+-- Universum uses the one from Control.Exception.Safe
+import           Universum hiding (catch)
 
 import           Control.Concurrent (threadDelay)
-import           Control.Exception (throwIO, try)
+import           Control.Exception (throwIO, try, catch)
 import qualified Data.ByteString.Char8 as B8 (unpack)
 import qualified Data.ByteString.Lazy as BS
 import           Data.List (intersect, (\\))
@@ -82,10 +84,11 @@ startDHTInstance logTrace kconf@KademliaParams {..} defaultBind = do
     kdiKnownPeersCache <- atomically $ newTVar []
     pure $ KademliaDHTInstance {..}
   where
+    catchErrorsHandler :: forall t . SomeException -> IO t
     catchErrorsHandler e = do
         traceWith logTrace (Error, sformat ("Error launching kademlia with options: "%shown%": "%shown) kconf e)
         throwIO e
-    catchErrors x = x `catchAny` catchErrorsHandler
+    catchErrors x = x `catch` catchErrorsHandler
 
     log' sev msg = traceWith logTrace (sev, toText msg)
     createKademlia bA eA key cfg =

@@ -37,6 +37,7 @@ module Cardano.Wallet.API.V1.Types (
   , AddressValidity (..)
   -- * Accounts
   , Account (..)
+  , accountsHaveSameId
   , AccountIndex
   -- * Addresses
   , WalletAddress (..)
@@ -856,6 +857,12 @@ data Account = Account
     , accName      :: !Text
     , accWalletId  :: !WalletId
     } deriving (Show, Ord, Eq, Generic)
+
+accountsHaveSameId :: Account -> Account -> Bool
+accountsHaveSameId a b =
+    accWalletId a == accWalletId b
+    &&
+    accIndex a == accIndex b
 
 deriveJSON Serokell.defaultOptions ''Account
 

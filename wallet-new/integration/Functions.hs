@@ -24,16 +24,8 @@ import           Test.QuickCheck
 import           Text.Show.Pretty (ppShow)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
-import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, AccountUpdate (..),
-                                              AssuranceLevel (..), EstimatedFees (..),
-                                              NewAccount (..), NewAddress (..), NewWallet (..),
-                                              PasswordUpdate (..), Payment (..),
-                                              PaymentDistribution (..), PaymentSource (..),
-                                              SpendingPassword, Transaction (..), V1 (..),
-                                              Wallet (..), WalletAddress (..), WalletId,
-                                              WalletOperation (..), WalletUpdate (..), unV1)
-
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
+import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Client (ClientError (..), Response (..), ServantError (..),
                                         WalletClient (..), WalletError (..), getAccounts,
                                         getAddressIndex, getTransactionIndex, getWallets,
@@ -458,7 +450,8 @@ runAction wc action = do
 
             -- From which source to pay.
             accountSource <- pickRandomElement localAccsWithMoney
-            accountDestination <- pickRandomElement (localAccounts \\ [accountSource])
+            accountDestination <- pickRandomElement
+                (filter (not . accountsHaveSameId accountSource) localAccounts)
 
             let accountSourceMoney = accAmount accountSource
                 reasonableFee = 100

@@ -4,7 +4,9 @@
 module Pos.Logic.Types
     ( LogicLayer (..)
     , Logic (..)
+    , hoistLogic
     , KeyVal (..)
+    , hoistKeyVal
     , dummyLogicLayer
     ) where
 
@@ -93,6 +95,28 @@ data Logic m = Logic
     , securityParams     :: SecurityParams
     }
 
+hoistLogic :: (forall x . m x -> n x) -> Logic m -> Logic n
+hoistLogic nat logic = logic
+    { getBlock = nat . getBlock logic
+    , getBlockHeader = nat . getBlockHeader logic
+    , getHashesRange = \a b c -> nat (getHashesRange logic a b c)
+    , getBlockHeaders = \a b c -> nat (getBlockHeaders logic a b c)
+    , getLcaMainChain = nat . getLcaMainChain logic
+    , getTip = nat $ getTip logic
+    , getTipHeader = nat $ getTipHeader logic
+    , getAdoptedBVData = nat $ getAdoptedBVData logic
+    , postBlockHeader = \a b -> nat (postBlockHeader logic a b)
+    , postTx = hoistKeyVal nat (postTx logic)
+    , postUpdate = hoistKeyVal nat (postUpdate logic)
+    , postVote = hoistKeyVal nat (postVote logic)
+    , postSscCommitment = hoistKeyVal nat (postSscCommitment logic)
+    , postSscOpening = hoistKeyVal nat (postSscOpening logic)
+    , postSscShares = hoistKeyVal nat (postSscShares logic)
+    , postSscVssCert = hoistKeyVal nat (postSscVssCert logic)
+    , postPskHeavy = nat . postPskHeavy logic
+    , recoveryInProgress = nat $ recoveryInProgress logic
+    }
+
 -- | First iteration solution to the inv/req/data/mempool system.
 -- Diffusion layer will set up the relays, but it needs help from the logic
 -- layer in order to figure out what to request after an inv, what to relay
@@ -128,6 +152,14 @@ data KeyVal key val m = KeyVal
     , handleInv  :: key -> m Bool
     , handleReq  :: key -> m (Maybe val)
     , handleData :: val -> m Bool
+    }
+
+hoistKeyVal :: (forall x . m x -> n x) -> KeyVal key val m -> KeyVal key val n
+hoistKeyVal nat kv = kv
+    { toKey = nat . toKey kv
+    , handleInv = nat . handleInv kv
+    , handleReq = nat . handleReq kv
+    , handleData = nat . handleData kv
     }
 
 -- | A diffusion layer: its interface, and a way to run it.

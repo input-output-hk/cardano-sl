@@ -27,7 +27,7 @@
 \DeclareMathOperator*{\minimum}{min}
 \DeclareMathOperator*{\maximum}{max}
 
-% Number within sections, and don't have separate counters for separate envs
+% Number within sections, and don't have separate counters for separate environments
 \newtheorem{lemma}{Lemma}[section] % Number within sections
 \newtheorem{invariant}[lemma]{Invariant}
 \newtheorem{proofobligation}[lemma]{Proof Obligation}
@@ -56,7 +56,7 @@ UTxO-based cryptocurrency). The purpose is to help understand some of the
 subtleties and give a reasonable starting point for tests and implementations.
 
 To the best of our knowledge, no other existing cryptocurrency wallet comes with
-such a formal specification. We have therefore attempted to formalize the core
+such a formal specification. We have therefore attempted to formalise the core
 functionality of the existing wallet and let our knowledge of the difficulties
 with the current implementation be a guide in deciding which aspects of the
 wallet needed more careful thought. We also state and (partially) prove various
@@ -101,7 +101,7 @@ but also to try and capture our intuitions about what a cryptocurrency wallet
 %      have a clear story for balance in the presence of rollbacks.
 % \item[Draft 14, April 6, 2018 (Duncan)] Reviewed and made minor corrections.
 % \item[Draft 15, April 6, 2018 (Edsko)] Added section on tracking metadata.
-% \item[Draft 16, April 12, 2018 (Edsko)] Improved secion on tracking metadata,
+% \item[Draft 16, April 12, 2018 (Edsko)] Improved section on tracking metadata,
 %      added section on transaction submission layer.
 % \item[Draft 17, May 3, 2018 (Edsko)]. Final corrections to section on
 %      tracking metadata, wrote section in input selection, made ready for publication.
@@ -113,8 +113,8 @@ but also to try and capture our intuitions about what a cryptocurrency wallet
 
 \subsection{UTxO-style Accounting}
 
-The wallet specification will be based on the formalization of UTxO style
-accounting by \cite{utxo_accounting}. The basic definitions are summarized in
+The wallet specification will be based on the formalisation of UTxO style
+accounting in \citep{utxo_accounting}. The basic definitions are summarised in
 Figure~\ref{fig:basic_definitions}. A full explanation of UTxO style accounting
 is beyond the scope of this document, and we refer the reader to the
 aforementioned paper. Here we will only comment on some details.
@@ -369,7 +369,7 @@ specification.
 \end{align*}
 
 \begin{definition}[Dependence]
-We say that transaction $t_2$ \emph{depends on} transaction $t_1$ iff
+We say that transaction $t_2$ \emph{depends on} transaction $t_1$ if and only if
 \begin{equation*}
 \exists \mathit{ix} \ldotp (\mathsf{txid} ~ t_1, \mathit{ix}) \in \mathsf{txins} ~ t_2
 \end{equation*}
@@ -444,7 +444,7 @@ are only a small number of wallet operations of interest. We can:
 We intentionally left the definition of $\mathsf{Wallet}$ abstract in this
 figure, as we will consider various different concrete instantiations throughout
 this specification. We distinguish between queries of the wallet state
-and atomic updates; we emphasize that the latter should be `atomic' because
+and atomic updates; we emphasise that the latter should be `atomic' because
 although in a purely mathematical specification this is not particularly
 meaningful, in a real implementation if such updates consist of multiple
 smaller updates, the intermediate states should not be observable. For many
@@ -754,11 +754,11 @@ given in Figure~\ref{fig:basic_model_complexity}.
 \mathsf{updatePending} ~ b ~ p & \in \order{\mathsf{nlogn} ~ |\mathsf{txins}~ b| + \sum_{(inputs, \_) \in p}{\mathsf{join} ~ |inputs| ~ |\mathsf{txins}~ b|}}
 \end{split}
 \end{equation*}
-\caption{\label{fig:basic_model_complexity}Algorithmtic complexity of the operations in the basic model}
+\caption{\label{fig:basic_model_complexity}Algorithmic complexity of the operations in the basic model}
 \end{figure}
 
 It is worth knowing that the expected
-order of magnitudes of the sizes of the utxo and pending sets. The UTxO can be
+order of magnitudes of the sizes of the UTxO and pending sets. The UTxO can be
 quite large, for example $|utxo| \leq 10^6$, while the pending set will
 typically be small, usually around $|pending| \leq 3$, while $|pending| = 100$
 would be extreme. Similarly, the number of inputs and outputs in any individual
@@ -767,14 +767,14 @@ is 64Kb.
 
 \todo[inline]{Justify some of these bounds (see comments in the \TeX{} file).}
 
-% You give the bound `O(nlogn |txins txs|)` for `txins txs`. This is "clearly" correct in that we can first construct this set from a list, and constructing _any_ set from a list is `nlogn` in the size of that list (although a comment to this effect might help the reader). Having said that, I think we take advantage of the assumption stated below that "the number of inputs and outputs in any individual transaction isn not large." If we assume that, for all intents and purposes, the number of % inputs and outputs of a transaction is bounded by some constant, then `O(|txins txs|) = O(|txs|)` and hence we can give the bound `O(nlogn |txs|)`, which is a bit simpler and looks less circular (the current definition gives the complexity in terms of the _output_ of `txins` rather than its input, which, though not incorrect, is a bit confusing
+% You give the bound `O(nlogn |txins txs|)` for `txins txs`. This is "clearly" correct in that we can first construct this set from a list, and constructing _any_ set from a list is `nlogn` in the size of that list (although a comment to this effect might help the reader). Having said that, I think we take advantage of the assumption stated below that "the number of inputs and outputs in any individual transaction is not large." If we assume that, for all intents and purposes, the number of % inputs and outputs of a transaction is bounded by some constant, then `O(|txins txs|) = O(|txs|)` and hence we can give the bound `O(nlogn |txs|)`, which is a bit simpler and looks less circular (the current definition gives the complexity in terms of the _output_ of `txins` rather than its input, which, though not incorrect, is a bit confusing
 % we can then do the exact same for `txouts`, giving the bound `O(nlogn txs)`
 %
-% The bound for `available` is stated as `O(join |txins p| |u|)`. This confused me. I think it'd be clearer to say it's `O(nlogn |txins p| + join |txins p| |u|)` (or possibly `O(nlogn |p| + join |txins p| |u|)`) (we do have to compute `txins p`after all), and then state the bound as given only as a simplificaiton. it's all the more confusing because in `change` this construction of `txouts` _is_ present (because there isn't a larger term to consume it)
+% The bound for `available` is stated as `O(join |txins p| |u|)`. This confused me. I think it'd be clearer to say it's `O(nlogn |txins p| + join |txins p| |u|)` (or possibly `O(nlogn |p| + join |txins p| |u|)`) (we do have to compute `txins p`after all), and then state the bound as given only as a simplification. it's all the more confusing because in `change` this construction of `txouts` _is_ present (because there isn't a larger term to consume it)
 % The bound for `newPending` ignores the calculation of the side condition. may or may not be what we want.
 % Then in `totalBalance`, you do _not_ remove the term `nlogn |txouts p|` from the overall bound, unlike in `available` (and others). I don't know if this is an oversight or whether there is a subtle difference here that I'm missing?
 % I think it'd be better to include these terms everywhere, make it clear how these bounds are established, and then simplify as a separate step. (same in `updateUTxO`, for instance)
-% Finally, for `updatePending`, I think we can use the same simplifying assumption about the number of inputs of a transaction again to give a closed form for that bound, because then `join |inputs| |txins b|` becomes, essentially, `join 1 |txins b| = log(|txins b|)`, and hence we can remove the sum to get `O(|p| * log(|txins b|)`, or, better yet, `O(|p| * log(|b|)`, by applying tghe same assumption once more also to the number of inputs in a block
+% Finally, for `updatePending`, I think we can use the same simplifying assumption about the number of inputs of a transaction again to give a closed form for that bound, because then `join |inputs| |txins b|` becomes, essentially, `join 1 |txins b| = log(|txins b|)`, and hence we can remove the sum to get `O(|p| * log(|txins b|)`, or, better yet, `O(|p| * log(|b|)`, by applying the same assumption once more also to the number of inputs in a block
 %
 % (similar comments about establishing bounds apply also to the computations at the end of section 5.1, especially the second one)
 
@@ -1091,9 +1091,9 @@ Note that there are at least two possible alternative approaches:
 
 \begin{itemize}
 \item The wallet runs as part of a full node, and that full node maintains
-the full UTxO of the blockchain. When the fullnode receives a new block,
+the full UTxO of the blockchain. When the full node receives a new block,
 that block must be consistent with the state of the blockchain, and hence
-the fullnode can decorate all inputs with the corresponding addresses before
+the full node can decorate all inputs with the corresponding addresses before
 passing the block to the wallet. This would make the filtering operation in
 the wallet trivial and stateless. (This is in fact the case for the current
 wallet implementation.)
@@ -1441,7 +1441,7 @@ can, in a sense, `anticipate' what we think the future might look like:
 \end{equation*}
 \end{definition}
 
-We can now formalize the above intuition, providing the moral equivalent
+We can now formalise the above intuition, providing the moral equivalent
 of Lemma~\ref{lem:rollback_applyBlock_id} in the last section, where we didn't
 track the expected UTxO yet.
 
@@ -1536,7 +1536,7 @@ accurate, but it will still be a lower bound.} estimate the minimum balance as
 \begin{equation*}
   \mathsf{minimumBalance} ~ (\mathit{utxo}, \mathit{pending}, \mathit{expected})
 = \left.
-  \bigsqcup_{\begin{smallmatrix}
+  \minimum_{\begin{smallmatrix}
               e & \sqsubseteq & \mathit{expected} \\
               p & \subseteq   & \mathit{pending}
             \end{smallmatrix}}
@@ -1557,7 +1557,7 @@ accurate, but it will still be a lower bound.} estimate the minimum balance as
 \begin{align*}
     & ~ \mathsf{minimumBalance} ~ (\mathit{utxo}, \mathit{pending}, \mathit{expected}) \\
 =   & ~ \left.
-        \bigsqcup_{\begin{smallmatrix}
+        \minimum_{\begin{smallmatrix}
                     e & \sqsubseteq & \mathit{expected} \\
                     p & \subseteq   & \mathit{pending}
                   \end{smallmatrix}}
@@ -1617,14 +1617,14 @@ If $\mathsf{txins} ~ \mathit{pending} \subseteq \mathit{utxo}$,
 \end{lemma}
 %
 Intuitively this makes sense: if the pending transactions only spent outputs
-from the UTxO, the balance is minimized when all pending transactions get
+from the UTxO, the balance is minimised when all pending transactions get
 confirmed and none of the expected ones.
 
 \subsection{Expected UTxO \emph{versus} expected transactions}
 
 In the wallet as specified in this section we keep track of the expected UTxO,
 rather than the expected transactions themselves. At first glance it may seem
-that keeping track of the expected transctions would have some benefits:
+that keeping track of the expected transactions would have some benefits:
 
 \begin{itemize}
 \item We would know the dependencies of the expected transactions.
@@ -1647,7 +1647,7 @@ would be an expensive computation.)
 
 Similarly, since expected transaction may depend on the \emph{entire} blockchain
 up until this point, and that \emph{entire} blockchain might have been rolled
-back, in order to be able to resumbit expected transactions the wallet would
+back, in order to be able to resubmit expected transactions the wallet would
 have to keep track of the entire blockchain. Even if we take into account the
 security parameter $k$, it would mean that in the worst case the wallet would
 have to keep track of the last $k$ blocks \emph{in their entirety} (as opposed
@@ -1671,7 +1671,7 @@ balance is minimum.
 
 \begin{tabular}{lll}
 %%%
-\multicolumn{3}{l}{\emph{Single independent tranasction}} \\
+\multicolumn{3}{l}{\emph{Single independent transaction}} \\
 \begin{forest}
 [$(t_1: c_1)$]
 \end{forest}
@@ -1856,7 +1856,7 @@ As discussed, however, we don't have accurate dependency information available
 for expected transactions. In the definition of $\mathsf{minimumBalance}$ we
 therefore range over all possible selections of expected transactions.
 The goal of an algorithm to compute the minimum balance then is to pick a set
-of expected and pending transactions that minimizes the wallet's balance, such
+of expected and pending transactions that minimises the wallet's balance, such
 that known dependencies of the pending transactions are all satisfied.
 Clearly, we want to pick as many pending transactions as possible (since they
 reduce the balance), but pick expected transactions only when the decrease in
@@ -1868,7 +1868,7 @@ Given an expected UTxO $e$, computing
 %
 \begin{equation*}
   \left.
-  \bigsqcup_{p \subseteq \mathit{pending}}
+  \minimum_{p \subseteq \mathit{pending}}
   \right|_{\mathrlap{\mathsf{txins} ~ p \subseteq \dom(\mathit{utxo} \cup e)}}
   ~ \mathsf{totalBalance} ~ (\mathit{utxo} \cup e, p)
 \end{equation*}
@@ -2556,7 +2556,7 @@ in the next slot, recording a initial submission count of 0.
 no longer pending (because they have been confirmed, because they have become
 invalid, or for other reasons), the submission layer simply removes them
 from its local $\mathit{pending}$ set.
-\item The submission layer is parameterized over a `resubmission function'
+\item The submission layer is parameterised over a `resubmission function'
 $\varrho$. At the start of each time slot, the submission layer calls $\varrho$
 to resubmit the set of transactions that are due, possibly dropping some
 transactions that have reached a maximum submission count.
@@ -2605,7 +2605,7 @@ then (depending on the submission count) the submission layer may resubmit a
 transaction which has already been included in the blockchain, or report the
 transaction as `dropped'. The former is harmless; the latter at worst simply
 confusing. Moreover,  this may happen even if the wallet and the submission
-layer \emph{are} synchronized: it's entirely possible that the transaction has
+layer \emph{are} synchronised: it's entirely possible that the transaction has
 been included in the blockchain but the wallet hasn't been informed of the block
 yet.
 \end{itemize}
@@ -2671,7 +2671,7 @@ fingertree\footnote{Available in Haskell as \texttt{Data.Sequence}.}
 
 The state of the submission layer does not need to be persisted. If the wallet
 is shutdown for some period of time, the submission layer can simply be
-re-initialized from the state of the wallet, starting the submission process
+re-initialised from the state of the wallet, starting the submission process
 afresh for any transactions that the wallet still reports as pending. As long
 as the submission layer is able to report `time until dropped' for still
 pending transactions, so that the user can see that all pending transactions
@@ -2679,7 +2679,7 @@ have been reset to the initial expiry time of say 1 hour, it will be clear to
 the user what happened. This should be sufficient even for exchange nodes
 (especially since they will shutdown the wallet only very rarely).
 
-If this reset to 1 hr (or whatever the expiry time is) is not acceptable,
+If this reset to 1 hour (or whatever the expiry time is) is not acceptable,
 then the state of the submission layer \emph{does} need to be persisted.
 The creation time of the transactions cannot be used, since this is a static
 value and will not change when the transaction gets explicitly resubmitted
@@ -2692,7 +2692,7 @@ Dropping transactions after a certain time has passed is merely a stop-gap
 measure. Once a transaction has been broadcast across the network, it may be
 included at any point, possibly long after the submission layer has given up on
 it (unless the chain includes confirmed transactions that spends one or more of
-the tranasction's inputs).
+the transaction's inputs).
 
 The proper solution to this problem is to introduce a time-to-live (TTL) value
 for transactions, stating that the transaction must be included in the
@@ -2722,7 +2722,7 @@ process known as \emph{input selection} which, given a set of desired outputs
 inputs from the wallet's UTxO to cover that payment and the transaction fee,
 returning any change back to the wallet. The result of input selection is a
 fully formed transaction which can then be passed to $\mathsf{newPending}$. This
-is summarized more formally in Figure~\ref{fig:input_selection_sig}.
+is summarised more formally in Figure~\ref{fig:input_selection_sig}.
 
 \begin{figure}
 \begin{align*}
@@ -2753,7 +2753,7 @@ the asymptotic complexity of input selection is acceptable.
 In this section we list some goals that a particular input selection algorithm
 may have. As is well-known \citep{lopp:challenges}, many of these goals compete
 with each other; it will therefore be important that wallet users can influence
-this process, prioritizing some goals over others.
+this process, prioritising some goals over others.
 
 \emph{Low transaction fees.}
 Transactions must include a transaction fee, which is based on the size of the
@@ -2764,7 +2764,7 @@ the transaction may depend on the fee since we may need to add more inputs to
 the transaction in order to cover the fee. Thus fee calculation and input
 selection are interdependent. There are situations where it is not immediately
 obvious that there is a terminating algorithm for selecting inputs and fees
-optimally. Note that minimizing transaction fees over time does not necessarily
+optimally. Note that minimising transaction fees over time does not necessarily
 mean that every individual transaction will be as small as possible.
 
 \emph{Cryptographic security.}
@@ -2825,7 +2825,7 @@ but we note that some authors claim it may actually \emph{help}
 \subsection{Use cases}
 \label{sec:input_selection_use_cases}
 
-As an example of how different users might prioritize different goals,
+As an example of how different users might prioritise different goals,
 we will consider two use cases, at opposite ends of the spectrum: small end
 users and exchange nodes.
 
@@ -2836,7 +2836,7 @@ with asymptotic complexity (due to the large UTxO) and have a goal of high
 throughput, but we are not overly concerned with the goals of achieving privacy
 or minimising fees. Exchanges tend to follow deposit policies which are
 incompatible with the cryptographic security goal as described above, so this is
-not a goal of the policy. Exchanges may occassionally need to make very large
+not a goal of the policy. Exchanges may occasionally need to make very large
 payments.
 
 \emph{Individual users.}
@@ -2894,8 +2894,8 @@ transaction constructed by input selection must satisfy the minimum fee
 requirement. For completeness sake, in this appendix we outline how a
 transaction fee is represented in Cardano, and how the minimum fee is computed.
 
-Although our formalization of UTxO style accounting is based on that of
-\cite{utxo_accounting}, we diverge slightly from that formalization and do
+Although our formalisation of UTxO style accounting is based on that of
+\cite{utxo_accounting}, we diverge slightly from that formalisation and do
 not represent fees explicitly. Instead, a transaction fee is simply the
 difference between the transactions inputs and outputs:
 %
@@ -2925,7 +2925,7 @@ don't need to reason about fees; moreover, this actually matches how fees are
 represented in the actual Cardano blockchain (as well as in Bitcoin).
 
 The minimum fee of a transaction is given by some linear function $f$ on the
-serialized size of the transaction
+serialised size of the transaction
 %
 \begin{align*}
 \mathsf{minfee} & \in \mathsf{Tx} \to \mathsf{Coin} \\

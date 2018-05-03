@@ -18,7 +18,7 @@ import           Serokell.Util (listJson)
 import           System.Wlog (WithLogger, askLoggerName, logInfo)
 
 import           Pos.Communication (OutSpecs)
-import           Pos.Communication.Util (ActionSpec (..), wrapActionSpec)
+import           Pos.Communication.Util (ActionSpec (..))
 import           Pos.Context (getOurPublicKey)
 import           Pos.Core (GenesisData (gdBootStakeholders, gdHeavyDelegation),
                            GenesisDelegation (..), GenesisWStakeholders (..), addressHash,
@@ -113,10 +113,9 @@ runNode
     -> ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
 runNode nr (plugins, plOuts) =
-    (, plOuts <> wOuts) $ runNode' nr workers' plugins'
+    (, plOuts <> wOuts) $ runNode' nr workers' plugins
   where
     (workers', wOuts) = allWorkers nr
-    plugins' = map (wrapActionSpec "plugin") plugins
 
 -- | This function prints a very useful message when node is started.
 nodeStartMsg :: (HasUpdateConfiguration, WithLogger m) => m ()

@@ -8,16 +8,11 @@ module Pos.Communication.Util
        , mapActionSpec
        , toAction
        , localSpecs
-
-       , wrapListener
-       , wrapActionSpec
        ) where
 
 import           Universum
 
-import           System.Wlog (LoggerName, modifyLoggerName, HasLoggerName)
-
-import           Pos.Communication.Protocol (Listener, mapListener, OutSpecs)
+import           Pos.Communication.Protocol (OutSpecs)
 import           Pos.Diffusion.Types (Diffusion)
 
 type Action m a = Diffusion m -> m a
@@ -36,18 +31,3 @@ toAction h = ActionSpec $ h
 
 localSpecs :: m a -> (ActionSpec m a, OutSpecs)
 localSpecs h = (ActionSpec $ \__sA -> h, mempty)
-
-wrapListener
-  :: ( HasLoggerName m )
-  => LoggerName -> Listener m -> Listener m
-wrapListener lname = modifyLogger lname
-  where
-    modifyLogger _name = mapListener $ modifyLoggerName (<> lname)
-
-wrapActionSpec
-  :: ( HasLoggerName m )
-  => LoggerName -> ActionSpec m a -> ActionSpec m a
-wrapActionSpec lname = modifyLogger lname
-  where
-    modifyLogger _name = mapActionSpec identity $ modifyLoggerName
-                                    (<> lname)

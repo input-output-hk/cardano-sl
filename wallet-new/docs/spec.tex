@@ -2753,8 +2753,8 @@ is summarised more formally in \cref{fig:input_selection_sig}.
 & \qquad \mathbf{ensures~}
 \begin{array}[t]{l@{\;}l@{\;}l}
 \mathit{inputs}          & \subseteq & \dom \mathit{utxo} \\
-\range \mathit{outputs}' & \supseteq & \mathit{outputs}   \\
-\multicolumn{3}{l}{\range \mathit{outputs}' \setminus \mathit{outputs} \subseteq \mathsf{TxOut_{ours}}} \\
+\range ~ \mathit{outputs}' & \supseteq & \mathit{outputs}   \\
+\multicolumn{3}{l}{\range ~ \mathit{outputs}' \setminus \mathit{outputs} \subseteq \mathsf{TxOut_{ours}}} \\
 \end{array}
 \end{align*}
 \caption{\label{fig:input_selection_sig}Specification of input selection}

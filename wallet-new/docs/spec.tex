@@ -293,19 +293,19 @@ For convenience we will define a number of operations to filter UTxOs:
 \begin{IEEEeqnarray}{RLL}
   \mathit{ins} & \restrictdom u
 & \subseteq u
-  \label{lem:utxo_props_restrictdom_subseteq}
+  \label{eq:utxo_props_restrictdom_subseteq}
 \\
   \mathit{ins} & \subtractdom u
 & \subseteq u
-  \label{lem:utxo_props_subtractdom_subseteq}
+  \label{eq:utxo_props_subtractdom_subseteq}
 \\
   u & \restrictrange \mathit{outs}
 & \subseteq u
-  \label{lem:utxo_props_restrictrange_subseteq}
+  \label{eq:utxo_props_restrictrange_subseteq}
 \\
   \mathit{ins} \phantom{)} & \restrictdom (u \cup v)
 & = (\mathit{ins} \restrictdom u) \cup (\mathit{ins} \restrictdom v)
-  \label{lem:utxo_props_restrictdom_union}
+  \label{eq:utxo_props_restrictdom_union}
 \\
   \mathit{ins} \phantom{)} & \subtractdom (u \cup v)
 & = (\mathit{ins} \subtractdom u) \cup (\mathit{ins} \subtractdom v)
@@ -313,15 +313,15 @@ For convenience we will define a number of operations to filter UTxOs:
 \\
   (\dom u \cap \mathit{ins}) & \restrictdom u
 & = \mathit{ins} \restrictdom u
-  \label{lem:utxo_props_restrictdom_dom}
+  \label{eq:utxo_props_restrictdom_dom}
 \\
   (\dom u \cap \mathit{ins}) & \subtractdom u
 & = \mathit{ins} \subtractdom u
-  \label{lem:utxo_props_subtractdom_dom}
+  \label{eq:utxo_props_subtractdom_dom}
 \\
   (\dom u \cup \mathit{ins}) & \subtractdom u \cup v
 & = (\mathit{ins} \cup \dom u) \subtractdom v
-  \label{lem:utxo_props_subtractdom_remove_dom}
+  \label{eq:utxo_props_subtractdom_remove_dom}
 \\
   \mathit{ins} \phantom{)} & \subtractdom u
 & = ( \dom u \setminus \mathit{ins} ) \restrictdom u
@@ -333,7 +333,7 @@ For convenience we will define a number of operations to filter UTxOs:
 We omit proofs for most of these properties, as they are straight-forward.
 Here is just one example:
 %
-\begin{proof}[Proof (\cref{lem:utxo_props_restrictdom_union})]
+\begin{proof}[Proof (\eqref{eq:utxo_props_restrictdom_union})]
 \begin{align*}
   & ~ \mathit{ins} \restrictdom (u \cup v) \\
 = & ~ \{ i \mapsto o \mid i \mapsto o \in (u \cup v), i \in \mathit{ins} \} \\
@@ -413,11 +413,11 @@ other operators.
     \mathsf{balance} ~ (u \cup v)
 & = \mathsf{balance} ~ u + \mathsf{balance} ~ v
 & \qquad \text{if } \dom u \cap \dom v = \emptyset
-  \label{lem:balance_props_minus}
+  \label{eq:balance_props_minus}
 \\
   \mathsf{balance} ~ (\mathit{ins} \subtractdom u)
 & = \mathsf{balance} ~ u - \mathsf{balance} ~ (\mathit{ins} \restrictdom u)
-  \label{lem:balance_props_union}
+  \label{eq:balance_props_union}
 \end{IEEEeqnarray}
 %
 \label{lem:balance_props}
@@ -572,7 +572,7 @@ of a block to the UTxO:
   & ~ \dom u \subtractdom \mathsf{updateUTxO} ~ b ~ u \\
 = & ~ \dom u \subtractdom \Bigl( \mathsf{txins} ~ b \subtractdom (u \cup (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}})) \Bigr) \\
 = & ~ (\dom u \cup \mathsf{txins} ~ b) \subtractdom (u \cup (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}})) \\
-= & ~ (\dom u \cup \mathsf{txins} ~ b) \subtractdom (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}}) & \text{\{ \cref{lem:utxo_props_subtractdom_remove_dom} \}} \\
+= & ~ (\dom u \cup \mathsf{txins} ~ b) \subtractdom (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}}) & \text{\{ \eqref{eq:utxo_props_subtractdom_remove_dom} \}} \\
 = & ~ \mathsf{txins} ~ b \subtractdom (\mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}}) = \mathsf{new} ~ b & \text{\{ Precondition to $\mathsf{applyBlock}$ \}}
 \end{align*}
 \end{proof}
@@ -669,7 +669,7 @@ Given these invariants, we can prove a few simple lemmas.
 
 \begin{proof}
 Follows immediately from
-\cref{lem:utxo_props_subtractdom_subseteq}.
+\eqref{eq:utxo_props_subtractdom_subseteq}.
 \end{proof}
 
 \begin{lemma}[Change not in UTxO]
@@ -694,17 +694,17 @@ and $\mathsf{total}$:
 Given a wallet $w = (\mathit{utxo}, \mathit{pending})$,
 \begin{IEEEeqnarray}{LLCLLLL}
 & \mathsf{change} ~ \mathit{pending} & \cup && \mathsf{available} ~ w & = & \mathsf{total} ~ w
-  \label{lem:total_props_sets} \\
+  \label{eq:total_props_sets} \\
 \mathsf{balance} ~ ( & \mathsf{change} ~ \mathit{pending}) & + & \mathsf{balance} ~ ( & \mathsf{available} ~ w) & = \mathsf{balance} ~ (& \mathsf{total} ~ w)
-  \label{lem:total_props_balance}
+  \label{eq:total_props_balance}
 \end{IEEEeqnarray}
 \label{lem:total_props}
 \end{lemma}
 %
 \begin{proof}
-\cref{lem:total_props_sets} follows directly from the definition.
-\cref{lem:total_props_balance} follows from \cref{lem:total_props_sets} and
-\cref{lem:balance_props_union} with
+\eqref{eq:total_props_sets} follows directly from the definition.
+\eqref{eq:total_props_balance} follows from \eqref{eq:total_props_sets} and
+\eqref{eq:balance_props_union} with
 Invariant~\ref{inv:change_vs_available}.
 \end{proof}
 
@@ -830,7 +830,7 @@ balance for the UTxO to address this problem.
 = & ~ \mathsf{balance} ~ (\mathsf{available} ~ (\mathit{utxo}, \mathit{pending})) \\
 = & ~ \mathsf{balance} ~ (\mathsf{txins} ~ \mathit{pending} \subtractdom \mathit{utxo}) \\
 = & ~ \mathsf{balance} ~ \mathit{utxo} - \mathsf{balance} ~ (\mathsf{txins} ~ \mathit{pending} \restrictdom \mathit{utxo})
-  & \text{\{ \cref{lem:balance_props_minus} \}}
+  & \text{\{ \eqref{eq:balance_props_minus} \}}
 \end{align*}
 \end{proof}
 
@@ -849,7 +849,7 @@ balance for the UTxO to address this problem.
  = & ~ \mathsf{balance} ~ (\mathsf{available} ~ (\mathit{utxo}, \mathit{pending}) \cup \mathsf{change} ~ \mathit{pending}) \\
  = & ~ \mathsf{balance} ~ (\mathsf{available} ~ (\mathit{utxo}, \mathit{pending}))
      + \mathsf{balance} ~ (\mathsf{change} ~ \mathit{pending})
-   & \text{ \{ \cref{lem:balance_props_union}, Invariant~\ref{inv:change_vs_available} \}} \\
+   & \text{ \{ \eqref{eq:balance_props_union}, Invariant~\ref{inv:change_vs_available} \}} \\
 =  & ~ \mathsf{availableBalance} ~ (\mathit{utxo}, \mathit{pending}) + \mathsf{balance} ~ (\mathsf{change} ~ \mathit{pending})
 \end{align*}
 \end{proof}
@@ -904,13 +904,13 @@ utxo^+        & = \mathsf{txouts} ~ b \restrictrange \mathsf{TxOut_{ours}} \\
 utxo^\prime   & = \mathsf{txins} ~ b \subtractdom (utxo \cup utxo^+) \\
 \sigma^\prime & = \mathsf{balance} ~ (\mathsf{txins} ~ b \subtractdom (utxo \cup utxo^+))
 %
-\intertext{Applying \cref{lem:balance_props_minus}
+\intertext{Applying \eqref{eq:balance_props_minus}
 to distribute $\mathsf{balance}$ over $\subtractdom$ gives us}
 %
 \sigma^\prime & = \mathsf{balance} ~ (utxo \cup utxo^+) - \mathsf{balance} ~ (\mathsf{txins} ~ b \restrictdom (utxo \cup utxo^+)) \\
 %
 \intertext{Relying on the precondition to $\mathsf{applyBlock}$, we can apply
-\cref{lem:balance_props_union} to distribute $\mathsf{balance}$ over $\cup$
+\eqref{eq:balance_props_union} to distribute $\mathsf{balance}$ over $\cup$
 to give us}
 %
 \sigma^\prime & = \mathsf{balance} ~ utxo + \mathsf{balance} ~ utxo^+ - \mathsf{balance} ~ (\mathsf{txins} ~ b \restrictdom (utxo \cup utxo^+)) \\
@@ -1089,8 +1089,8 @@ to showing three things:
 
 Equalities~\eqref{proof:prefiltering:utxo_min}
 and~\eqref{proof:prefiltering:utxo_prime} follow immediately from Lemma
-\cref{lem:utxo_props_restrictdom_dom}
-and~\cref{lem:utxo_props_subtractdom_dom}. The backwards direction
+\eqref{eq:utxo_props_restrictdom_dom}
+and~\eqref{eq:utxo_props_subtractdom_dom}. The backwards direction
 of~\eqref{proof:prefiltering:pending_prime} is trivial; the forwards direction
 follows from Invariant~\ref{inv:txins_in_dom_utxo}.
 \end{proof}

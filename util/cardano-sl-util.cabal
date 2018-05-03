@@ -33,6 +33,7 @@ library
                        Pos.Util.Future
                        Pos.Util.Justify
                        Pos.Util.Lens
+                       Pos.Util.Log
                        Pos.Util.LoggerName
                        Pos.Util.Limits
                        Pos.Util.LRU
@@ -68,6 +69,7 @@ library
                      , formatting
                      , hashable
                      , hspec
+                     , katip
                      , lens
                      , log-warper >= 1.0.3
                      , lrucache

@@ -698,7 +698,7 @@ Given a wallet $w = (\mathit{utxo}, \mathit{pending})$,
 %
 \begin{proof}
 \cref{lem:total_props_sets} follows directly from the definition.
-\cref{lem:total_props_balance} follows from \ref{lem:total_props_sets} and
+\cref{lem:total_props_balance} follows from \cref{lem:total_props_sets} and
 \cref{lem:balance_props_union} with
 Invariant~\ref{inv:change_vs_available}.
 \end{proof}
@@ -1083,9 +1083,9 @@ to showing three things:
 \end{enumerate}
 
 Equalities~\eqref{proof:prefiltering:utxo_min}
-and~\eqref{proof:prefiltering:utxo_prime} follow immediately from Lemmas
-\ref{lem:utxo_props_restrictdom_dom}
-and~\ref{lem:utxo_props_subtractdom_dom}. The backwards direction
+and~\eqref{proof:prefiltering:utxo_prime} follow immediately from Lemma
+\cref{lem:utxo_props_restrictdom_dom}
+and~\cref{lem:utxo_props_subtractdom_dom}. The backwards direction
 of~\eqref{proof:prefiltering:pending_prime} is trivial; the forwards direction
 follows from Invariant~\ref{inv:txins_in_dom_utxo}.
 \end{proof}

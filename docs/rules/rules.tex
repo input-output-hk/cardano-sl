@@ -169,10 +169,6 @@ as it is.\improvement{We may want to add something about protocol
 \section{Definitions}
 \label{sec:definitions}
 
-\info{General definitions used in all sections. Like the
-  slot-to-leader function, the global-time-to-slot function, the
-  abstract syntax of transactions and of blocks, \ldots}
-
 \begin{description}
 \item[System of identifiers] A set $A$ is said to \emph{have
     identifiers} if there is a set, written $\idsof{A}$ and an
@@ -209,8 +205,7 @@ as it is.\improvement{We may want to add something about protocol
 \item[Transaction] Transactions have a system of identifiers
   $\txids$.
 
-  A transaction $t∈\txs$ consists of\unsure{Consider using record notation
-  for inputs and outputs.}
+  A transaction $t∈\txs$ consists of
   \begin{record}
   \item[Inputs] A non-empty list of pairs in
     $\nelists{(\txids × ℕ)}$.\improvement{Explain that it represents an
@@ -634,9 +629,6 @@ $b_1,…,b_n$ if all of the following hold
 \section{Instantiating parameters}
 \label{sec:params}
 
-\info{The purpose of this section is to give concrete values to some
-  of the parameters of the algorithm}
-
 \subsection{Height}
 \label{sec:height}
 
@@ -807,11 +799,6 @@ those of the selected chain) when
 
 \section{Selecting the longest chain}
 \label{sec:chain-selection}
-
-\info{This section is concerned with the purpose of (locally) deciding
-  which chain is the longest (\emph{e.g.} if I'm a slot leader, which
-  chain I'm going to extend) among all possible chains produced by the
-  network. The state is a tree of chains rooted in the origin block.}
 
 Let us call a blocktree $\mathfrak{T} ∈
 \blocktrees$\improvement{Clearly, a better notation for the set of

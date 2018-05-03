@@ -149,7 +149,6 @@ library
                      , safecopy
                      , safe-exceptions
                      , serokell-util
-                     , scientific
                      , servant
                      , servant-client
                      , servant-client-core

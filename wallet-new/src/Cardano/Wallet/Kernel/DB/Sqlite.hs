@@ -1,26 +1,33 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 -- | Sqlite database for the 'TxMeta' portion of the wallet kernel.
-module Cardano.Wallet.Kernel.DB.Sqlite (openMetaDB, MetaDB, putTxMeta) where
+module Cardano.Wallet.Kernel.DB.Sqlite (
+      openMetaDB
+    , MetaDBHandle
+    , putTxMeta
+    , getTxMeta
+    ) where
 
 import           Universum
 
-import           Database.Beam.Backend.SQL (HasSqlValueSyntax (..))
+import           Database.Beam.Backend.SQL (FromBackendRow, HasSqlValueSyntax (..))
+import           Database.Beam.Query (HasSqlEqualityCheck)
 import qualified Database.Beam.Query as SQL
 import           Database.Beam.Schema (Beamable, Database, DatabaseSettings, PrimaryKey, Table)
 import qualified Database.Beam.Schema as Beam
 import           Database.Beam.Sqlite.Connection (Sqlite, runBeamSqliteDebug)
-import           Database.Beam.Sqlite.Syntax (SqliteValueSyntax)
+import           Database.Beam.Sqlite.Syntax (SqliteExpressionSyntax, SqliteValueSyntax)
 import qualified Database.SQLite.Simple as Sqlite
+import           Database.SQLite.Simple.FromField (FromField (..), returnError)
 
-import           Data.Scientific (scientific)
-import           Data.Time.Units (toMicroseconds)
+import           Data.Time.Units (fromMicroseconds, toMicroseconds)
 import           Formatting (sformat)
 import           GHC.Generics (Generic)
 
 import qualified Cardano.Wallet.Kernel.DB.TxMeta as Kernel
 import qualified Pos.Core as Core
-import           Pos.Crypto.Hashing (hashHexF)
+import           Pos.Crypto.Hashing (decodeAbstractHash, hashHexF)
 
 
 data MetaDBHandle = MetaDBHandle {
@@ -100,6 +107,8 @@ data TxCoinDistributionTableT f = TxCoinDistributionTable {
     , _txCoinDistributionTxId         :: Beam.PrimaryKey TxMetaT f
     } deriving Generic
 
+type TxCoinDistributionTable = TxCoinDistributionTableT Identity
+
 instance Beamable TxCoinDistributionTableT
 
 -- | The inputs' table.
@@ -120,8 +129,8 @@ mkInputs txMeta =
 instance Beamable TxInputT
 
 instance Table TxInputT where
-    data PrimaryKey TxInputT f = TxInputPrimKey (Beam.PrimaryKey TxMetaT f) deriving Generic
-    primaryKey = TxInputPrimKey . _txCoinDistributionTxId . _getTxInput
+    data PrimaryKey TxInputT f = TxInputPrimKey (Beam.Columnar f Core.Address) (Beam.PrimaryKey TxMetaT f) deriving Generic
+    primaryKey (TxInput i) = TxInputPrimKey (_txCoinDistributionTableAddress i) (_txCoinDistributionTxId i)
 
 instance Beamable (PrimaryKey TxInputT)
 
@@ -144,8 +153,8 @@ mkOutputs txMeta =
 instance Beamable TxOutputT
 
 instance Table TxOutputT where
-    data PrimaryKey TxOutputT f = TxOutputPrimKey (Beam.PrimaryKey TxMetaT f) deriving Generic
-    primaryKey = TxOutputPrimKey . _txCoinDistributionTxId . _getTxOutput
+    data PrimaryKey TxOutputT f = TxOutputPrimKey (Beam.Columnar f Core.Address) (Beam.PrimaryKey TxMetaT f) deriving Generic
+    primaryKey (TxOutput o) = TxOutputPrimKey (_txCoinDistributionTableAddress o) (_txCoinDistributionTxId o)
 
 instance Beamable (PrimaryKey TxOutputT)
 
@@ -158,11 +167,42 @@ instance HasSqlValueSyntax SqliteValueSyntax Core.TxId where
 instance HasSqlValueSyntax SqliteValueSyntax Core.Coin where
     sqlValueSyntax = sqlValueSyntax . Core.unsafeGetCoin
 
+-- NOTE(adn) Terribly inefficient, but removes the pain of dealing with
+-- marshalling and unmarshalling of 'Integer'(s), as there is no 'HasSqlValueSyntax'
+-- defined for them.
+-- Using 'Scientific' would be a possibility, but it breaks down further as
+-- there is no 'FromField' instance for them.
 instance HasSqlValueSyntax SqliteValueSyntax Core.Timestamp where
-    sqlValueSyntax ts = sqlValueSyntax (scientific (toMicroseconds . Core.getTimestamp $ ts) 0)
+    sqlValueSyntax ts = sqlValueSyntax (toText @String . show . toMicroseconds . Core.getTimestamp $ ts)
 
 instance HasSqlValueSyntax SqliteValueSyntax Core.Address where
     sqlValueSyntax addr = sqlValueSyntax (sformat Core.addressF addr)
+
+
+instance HasSqlEqualityCheck SqliteExpressionSyntax Core.TxId
+
+instance FromField Core.TxId where
+    fromField f = do
+        h <- decodeAbstractHash <$> fromField f
+        case h of
+             Left _     -> returnError Sqlite.ConversionFailed f "not a valid hex hash"
+             Right txid -> pure txid
+
+instance FromBackendRow Sqlite Core.TxId
+
+instance FromField Core.Coin where
+    fromField f = Core.Coin <$> fromField f
+
+instance FromBackendRow Sqlite Core.Coin
+
+instance FromField Core.Timestamp where
+    fromField f = do
+        mbNumber <- readEither @Text @Integer <$> fromField f
+        case mbNumber of
+           Left _  -> returnError Sqlite.ConversionFailed f "not a valid Integer"
+           Right n -> pure . Core.Timestamp . fromMicroseconds $ n
+
+instance FromBackendRow Sqlite Core.Timestamp
 
 
 -- | Creates new 'DatabaseSettings' for the 'MetaDB', locking the backend to
@@ -175,15 +215,56 @@ metaDB = Beam.defaultDbSettings
 openMetaDB :: FilePath -> IO MetaDBHandle
 openMetaDB fp = MetaDBHandle <$> Sqlite.open fp
 
+-- | Inserts a new 'Kernel.TxMeta' in the database, given its opaque
+-- 'MetaDBHandle'.
 -- FIXME(adinapoli): Toggle debug/production with the 'WalletMode'.
+-- FIXME(adinapoli): Exception handling.
+-- FIXME(adinapoli): Check invariant violated (attempt to insert empty inputs
+-- or empty outputs).
 putTxMeta :: MetaDBHandle -> Kernel.TxMeta -> IO ()
 putTxMeta dbHandle txMeta =
     let conn = _mDbHandleConnection dbHandle
         tMeta   = mkTxMeta txMeta
         inputs  = mkInputs txMeta
         outputs = mkOutputs txMeta
-    -- TODO(adn): Revisit this bit, it doesn't look transactional.
+    -- TODO(adn): Revisit this bit, it doesn't look transactional, unless
+    -- 'runBeamSqliteDebug' runs the query within a DB transaction.
     in runBeamSqliteDebug putStrLn conn $ do
         SQL.runInsert $ SQL.insert (_mDbMeta metaDB)    $ SQL.insertValues [tMeta]
         SQL.runInsert $ SQL.insert (_mDbInputs metaDB)  $ SQL.insertValues inputs
         SQL.runInsert $ SQL.insert (_mDbOutputs metaDB) $ SQL.insertValues outputs
+
+-- | Converts a database-fetched 'TxMeta' into a domain-specific 'Kernel.TxMeta'.
+toTxMeta :: TxMeta -> NonEmpty TxInput -> NonEmpty TxOutput -> Kernel.TxMeta
+toTxMeta txMeta inputs outputs = Kernel.TxMeta {
+      _txMetaId         = _txMetaTableId txMeta
+    , _txMetaAmount     = _txMetaTableAmount txMeta
+    , _txMetaInputs     = fmap (reify . _getTxInput) inputs
+    , _txMetaOutputs    = fmap (reify . _getTxOutput) outputs
+    , _txMetaCreationAt = _txMetaTableCreatedAt txMeta
+    , _txMetaIsLocal    = _txMetaTableIsLocal txMeta
+    , _txMetaIsOutgoing = _txMetaTableIsOutgoing txMeta
+    }
+    where
+        -- | Reifies the input 'TxCoinDistributionTableT' into a tuple suitable
+        -- for a 'Kernel.TxMeta'.
+        reify :: TxCoinDistributionTable -> (Core.Address, Core.Coin)
+        reify coinDistr = (,) (_txCoinDistributionTableAddress coinDistr)
+                              (_txCoinDistributionTableCoin coinDistr)
+
+-- | Fetches a 'Kernel.TxMeta' from the database, given its 'Core.TxId'.
+-- FIXME(adinapoli): Toggle debug/production with the 'WalletMode'.
+-- FIXME(adinapoli): Exception & error handling.
+getTxMeta :: MetaDBHandle -> Core.TxId -> IO (Maybe Kernel.TxMeta)
+getTxMeta dbHandle txId =
+    let conn = _mDbHandleConnection dbHandle
+    in runBeamSqliteDebug putStrLn conn $ do
+        metas <- SQL.runSelectReturningList txMetaById
+        case metas of
+            [txMeta] -> do
+                let inputs  = nonEmpty mempty
+                let outputs = nonEmpty mempty
+                pure $ toTxMeta <$> Just txMeta <*> inputs <*> outputs
+            _        -> pure Nothing
+    where
+        txMetaById = SQL.lookup_ (_mDbMeta metaDB) (TxIdPrimKey txId)

@@ -11,6 +11,9 @@ module Cardano.Wallet.Kernel.DB.TxMeta.Types (
   , txMetaIsLocal
   , txMetaIsOutgoing
 
+  -- * Domain-specific errors
+  , TxMetaStorageError (..)
+  , InvariantViolation (..)
   ) where
 
 import           Universum
@@ -18,7 +21,7 @@ import           Universum
 import           Control.Lens.TH (makeLenses)
 import qualified Data.List as List
 import           Data.Text.Buildable (build)
-import           Formatting (bprint, (%))
+import           Formatting (bprint, shown, (%))
 import           Pos.Crypto (shortHashF)
 import           Test.QuickCheck (Arbitrary (..), Gen)
 
@@ -65,6 +68,26 @@ data TxMeta = TxMeta {
 
 makeLenses ''TxMeta
 
+data InvariantViolation =
+      DuplicatedTransaction Core.TxId
+      -- ^ When attempting to insert a new 'MetaTx', the 'Core.TxId'
+      -- identifying this transaction was already present in the storage.
+      deriving Show
+
+-- | A domain-specific collection of things which might go wrong when
+-- storing & retrieving 'TxMeta' from a persistent storage.
+data TxMetaStorageError =
+      InvariantViolated InvariantViolation
+    -- ^ One of the invariant was violated.
+    | StorageFailure SomeException
+    -- ^ The underlying storage failed to fulfill the request.
+    deriving Show
+
+instance Exception TxMetaStorageError
+
+instance Buildable TxMetaStorageError where
+    build storageErr = bprint shown storageErr
+
 instance Arbitrary TxMeta where
     arbitrary = TxMeta <$> arbitrary
                        <*> arbitrary
@@ -74,10 +97,11 @@ instance Arbitrary TxMeta where
                        <*> arbitrary
                        <*> arbitrary
 
+-- | Generates 'NonEmpty' collections which do not contain duplicates.
 uniqueElements :: Gen (NonEmpty (Core.Address, Core.Coin))
 uniqueElements = do
     (e :| es) <- arbitrary
-    return (e :| List.nub es)
+    return (e :| (List.filter (/= e) (List.nub es)))
 
 -- TODO(adinapoli): Proper 'Buildable' instance.
 instance Buildable TxMeta where

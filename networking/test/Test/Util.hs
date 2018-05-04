@@ -26,8 +26,6 @@ module Test.Util
        , expected
        , fails
        , modifyTestState
-       , addFail
-       , newWork
 
        , throwLeft
 
@@ -39,13 +37,12 @@ module Test.Util
        ) where
 
 import           Control.Concurrent (threadDelay)
-import           Control.Concurrent.Async (concurrently, forConcurrently, wait, withAsync)
+import           Control.Concurrent.Async (forConcurrently, wait, withAsync)
 import           Control.Concurrent.MVar (newEmptyMVar, putMVar, readMVar, takeMVar)
 import           Control.Concurrent.STM (STM, atomically, check, registerDelay)
-import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, writeTVar)
-import           Control.Exception.Safe (Exception, MonadCatch, SomeException (..), catch, finally,
-                                         throwM)
-import           Control.Lens (makeLenses, (%=))
+import           Control.Concurrent.STM.TVar (TVar, readTVar)
+import           Control.Exception (Exception, SomeException (..), catch, finally, throwIO)
+import           Control.Lens (makeLenses)
 import           Control.Monad (forM_, void)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.State.Strict (StateT)
@@ -56,7 +53,6 @@ import qualified Data.Set as S
 import           Data.Time.Units (Microsecond, Second, TimeUnit, toMicroseconds)
 import           Data.Word (Word32)
 import           GHC.Generics (Generic)
-import           Mockable.Class (Mockable)
 import qualified Network.Transport as NT (Transport)
 import qualified Network.Transport.InMemory as InMemory
 import qualified Network.Transport.TCP as TCP
@@ -97,7 +93,7 @@ timeout str us m = do
         withAsync timeoutAction $ \_ -> do
             choice <- readMVar var
             case choice of
-                Left e  -> throwM e
+                Left e  -> throwIO e
                 Right t -> return t
 
 -- * Parcel
@@ -164,26 +160,13 @@ instance Testable TestState where
 modifyTestState :: MonadIO m => TVar TestState -> StateT TestState STM () -> m ()
 modifyTestState ts how = liftIO . atomically $ modifyTVarS ts how
 
-addFail :: MonadIO m => TVar TestState -> String -> m ()
-addFail testState desc = modifyTestState testState $ fails %= (desc :)
-
-reportingFail :: TVar TestState -> String -> IO () -> IO ()
-reportingFail testState actionName act = do
-    act `catch` \(SomeException e) ->
-        addFail testState $ "Error thrown in " ++ actionName ++ ": " ++ show e
-
-newWork :: TVar TestState -> String -> IO () -> IO ()
-newWork testState workerName act = do
-    reportingFail testState workerName act
-
-
 -- * Misc
 
 -- I guess, errors in network-transport wasn't supposed to be processed in such way ^^
 throwLeft :: Exception e => IO (Either e a) -> IO a
 throwLeft = (>>= f)
   where
-    f (Left e)  = throwM e
+    f (Left e)  = throwIO e
     f (Right a) = return a
 
 -- | Await for predicate to become True, with timeout

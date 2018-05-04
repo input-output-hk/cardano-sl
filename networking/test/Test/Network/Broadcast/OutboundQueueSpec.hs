@@ -14,7 +14,6 @@ import qualified Data.Map.Strict as M
 import           Data.Semigroup ((<>))
 import           Data.Set (Set)
 import qualified Data.Set as Set
-import           Debug.Trace (trace)
 import qualified Network.Broadcast.OutboundQueue as OutQ
 import           Network.Broadcast.OutboundQueue.Demo
 import           Network.Broadcast.OutboundQueue.Types hiding (simplePeers)

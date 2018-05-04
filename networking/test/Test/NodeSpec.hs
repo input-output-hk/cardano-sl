@@ -35,7 +35,7 @@ import           Node.Message.Binary (binaryPacking)
 import           Pos.Util.Trace (wlogTrace)
 import           Test.Util (HeavyParcel (..), Parcel (..), Payload (..), TestState, deliveryTest,
                             expected, makeInMemoryTransport, makeTCPTransport, mkTestState,
-                            modifyTestState, newWork, receiveAll, sendAll, timeout)
+                            modifyTestState, receiveAll, sendAll, timeout)
 
 spec :: Spec
 spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
@@ -193,8 +193,7 @@ plainDeliveryTest transport nodeEnv neparcels = ioProperty $ do
     let parcels = getNonEmpty neparcels
     testState <- prepareDeliveryTestState parcels
 
-    let worker peerId converse = newWork testState "client" $
-            sendAll converse peerId parcels
+    let worker peerId converse = sendAll converse peerId parcels
 
         listener = receiveAll $
             \parcel -> modifyTestState testState $ expected %= sans parcel

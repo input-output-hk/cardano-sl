@@ -47,11 +47,11 @@ import           Pos.Shutdown (HasShutdownContext, waitForShutdown)
 import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.JsonLog.Events (JsonLogConfig (..),
-                                          jsonLogConfigFromHandle)
+import           Pos.Util.JsonLog.Events (JLEvent (JLTxReceived))
+import           Pos.Util.JsonLog.Events (JsonLogConfig (..), jsonLogConfigFromHandle)
+import           Pos.Util.Trace (wlogTrace)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
-import           Pos.Util.Trace (wlogTrace)
 
 ----------------------------------------------------------------------------
 -- High level runners
@@ -140,7 +140,7 @@ runServer
     -> m t
 runServer runIO NodeParams {..} ekgNodeMetrics _ (ActionSpec act) = do
     lname <- askLoggerName
-    exitOnShutdown . logicLayerFull jsonLog $ \logicLayer ->
+    exitOnShutdown . logicLayerFull (jsonLog . JLTxReceived) $ \logicLayer ->
         liftIO $ diffusionLayerFull (fdconf lname) npNetworkConfig (Just ekgNodeMetrics) (hoistLogic runIO (logic logicLayer)) $ \diffusionLayer -> do
             when npEnableMetrics (registerEkgMetrics ekgStore)
             runIO $ runLogicLayer logicLayer $ liftIO $

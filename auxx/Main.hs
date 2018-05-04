@@ -35,8 +35,9 @@ import           Pos.Update (lastKnownBlockVersion)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
-import           Pos.Util.UserSecret (usVss)
+import           Pos.Util.JsonLog.Events (JLEvent (JLTxReceived))
 import           Pos.Util.Trace (wlogTrace)
+import           Pos.Util.UserSecret (usVss)
 import           Pos.Worker.Types (WorkerSpec)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
@@ -137,7 +138,7 @@ action opts@AuxxOptions {..} command = do
             elimRealMode nr $ toRealMode $
                 -- Here's an 'AuxxMode' thing, using a 'Logic AuxxMode' and
                 -- doing a continuation in 'AuxxMode'
-                logicLayerFull jsonLog $ \logicLayer ->
+                logicLayerFull (jsonLog.JLTxReceived) $ \logicLayer ->
                     -- 'diffusionLayerFull' works in 'IO'. Luckily, we have
                     -- AuxxMode ~> IO and vice-versa (liftIO).
                     -- We hoist the 'Logic AuxxMode' using 'runIO' so that

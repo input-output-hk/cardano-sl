@@ -1,6 +1,8 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE RankNTypes    #-}
 {-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Sqlite database for the 'TxMeta' portion of the wallet kernel.
 module Cardano.Wallet.Kernel.DB.Sqlite (
 
@@ -31,7 +33,12 @@ import           Database.Beam.Sqlite.Syntax (SqliteCommandSyntax, SqliteDataTyp
                                               fromSqliteCommand, sqliteRenderSyntaxScript)
 import qualified Database.SQLite.Simple as Sqlite
 import           Database.SQLite.Simple.FromField (FromField (..), returnError)
+import qualified Database.SQLite.SimpleErrors as Sqlite
+import qualified Database.SQLite.SimpleErrors.Types as Sqlite
 
+import           Control.Exception (toException)
+import           Control.Lens (Getter)
+import qualified Data.Text as T
 import           Data.Time.Units (fromMicroseconds, toMicroseconds)
 import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..), Migration,
                                         MigrationSteps, boolean, createTable, evaluateDatabase,
@@ -45,11 +52,12 @@ import qualified Pos.Core as Core
 import           Pos.Crypto.Hashing (decodeAbstractHash, hashHexF)
 
 
+-- | An opaque handle to the underlying 'Sqlite.Connection'.
 data MetaDBHandle = MetaDBHandle {
     _mDbHandleConnection :: Sqlite.Connection
 }
 
-
+-- | A type modelling the underlying SQL database.
 data MetaDB f = MetaDB { _mDbMeta    :: f (Beam.TableEntity TxMetaT)
                        , _mDbInputs  :: f (Beam.TableEntity TxInputT)
                        , _mDbOutputs :: f (Beam.TableEntity TxOutputT)
@@ -127,19 +135,28 @@ type TxCoinDistributionTable = TxCoinDistributionTableT Identity
 instance Beamable TxCoinDistributionTableT
 
 -- | The inputs' table.
-newtype TxInputT f = TxInput  { _getTxInput  :: (TxCoinDistributionTableT f) } deriving Generic
+newtype TxInputT f = TxInput  {
+  _getTxInput  :: (TxCoinDistributionTableT f)
+  } deriving Generic
 
 type TxInput = TxInputT Identity
 
--- | Convenient constructor of a list of 'TxInput' from a 'Kernel.TxMeta'.
-mkInputs :: Kernel.TxMeta -> [TxInput]
-mkInputs txMeta =
-    let inputs = txMeta ^. Kernel.txMetaInputs
-        txid   = txMeta ^. Kernel.txMetaId
-    in map (buildInput txid) (toList inputs)
+-- | Generalisation of 'mkInputs' and 'mkOutputs'.
+mkCoinDistribution :: forall a. Kernel.TxMeta
+                   -> (Getter Kernel.TxMeta (NonEmpty (Core.Address, Core.Coin)))
+                   -> (TxCoinDistributionTable -> a)
+                   -> NonEmpty a
+mkCoinDistribution txMeta getter builder =
+    let distribution  = txMeta ^. getter
+        txid          = txMeta ^. Kernel.txMetaId
+    in fmap (build txid) distribution
   where
-      buildInput :: Core.TxId -> (Core.Address, Core.Coin) -> TxInput
-      buildInput tid (addr, amount) = TxInput (TxCoinDistributionTable addr amount (TxIdPrimKey tid))
+      build :: Core.TxId -> (Core.Address, Core.Coin) -> a
+      build tid (addr, amount) = builder (TxCoinDistributionTable addr amount (TxIdPrimKey tid))
+
+-- | Convenient constructor of a list of 'TxInput' from a 'Kernel.TxMeta'.
+mkInputs :: Kernel.TxMeta -> NonEmpty TxInput
+mkInputs txMeta = mkCoinDistribution txMeta Kernel.txMetaInputs TxInput
 
 instance Beamable TxInputT
 
@@ -150,20 +167,15 @@ instance Table TxInputT where
 instance Beamable (PrimaryKey TxInputT)
 
 -- | The outputs' table.
-newtype TxOutputT f = TxOutput { _getTxOutput :: (TxCoinDistributionTableT f) } deriving Generic
+newtype TxOutputT f = TxOutput {
+  _getTxOutput :: (TxCoinDistributionTableT f)
+  } deriving Generic
 
 type TxOutput = TxOutputT Identity
 
 -- | Convenient constructor of a list of 'TxOutput from a 'Kernel.TxMeta'.
--- FIXME(adn) Generalise the two smart constructors.
-mkOutputs :: Kernel.TxMeta -> [TxOutput]
-mkOutputs txMeta =
-    let outputs = txMeta ^. Kernel.txMetaOutputs
-        txid    = txMeta ^. Kernel.txMetaId
-    in map (buildInput txid) (toList outputs)
-  where
-      buildInput :: Core.TxId -> (Core.Address, Core.Coin) -> TxOutput
-      buildInput tid (addr, amount) = TxOutput (TxCoinDistributionTable addr amount (TxIdPrimKey tid))
+mkOutputs :: Kernel.TxMeta -> NonEmpty TxOutput
+mkOutputs txMeta = mkCoinDistribution txMeta Kernel.txMetaOutputs TxOutput
 
 instance Beamable TxOutputT
 
@@ -302,22 +314,33 @@ closeMetaDB hdl = Sqlite.close (_mDbHandleConnection hdl)
 
 -- | Inserts a new 'Kernel.TxMeta' in the database, given its opaque
 -- 'MetaDBHandle'.
--- FIXME(adinapoli): Toggle debug/production with the 'WalletMode'.
--- FIXME(adinapoli): Exception handling.
--- FIXME(adinapoli): Check invariant violated (attempt to insert empty inputs
--- or empty outputs).
-putTxMeta :: MetaDBHandle -> Kernel.TxMeta -> IO ()
+putTxMeta :: MetaDBHandle -> Kernel.TxMeta -> IO (Either Kernel.TxMetaStorageError ())
 putTxMeta dbHandle txMeta =
     let conn = _mDbHandleConnection dbHandle
         tMeta   = mkTxMeta txMeta
         inputs  = mkInputs txMeta
         outputs = mkOutputs txMeta
-    -- TODO(adn): Revisit this bit, it doesn't look transactional, unless
-    -- 'runBeamSqliteDebug' runs the query within a DB transaction.
-    in runBeamSqlite conn $ do
-        SQL.runInsert $ SQL.insert (_mDbMeta metaDB)    $ SQL.insertValues [tMeta]
-        SQL.runInsert $ SQL.insert (_mDbInputs metaDB)  $ SQL.insertValues inputs
-        SQL.runInsert $ SQL.insert (_mDbOutputs metaDB) $ SQL.insertValues outputs
+    -- TODO(adinapoli): Check this bit, it doesn't look 100% transactional, unless
+    -- 'runBeamSqlite' runs the query within a DB transaction.
+    in do
+        res <- Sqlite.runDBAction $ runBeamSqlite conn $ do
+            SQL.runInsert $ SQL.insert (_mDbMeta metaDB)    $ SQL.insertValues [tMeta]
+            SQL.runInsert $ SQL.insert (_mDbInputs metaDB)  $ SQL.insertValues (toList inputs)
+            SQL.runInsert $ SQL.insert (_mDbOutputs metaDB) $ SQL.insertValues (toList outputs)
+        pure $ bimap toDomainError identity res
+    where
+        toDomainError :: Sqlite.SQLiteResponse -> Kernel.TxMetaStorageError
+        toDomainError e =
+            let txid = txMeta ^. Kernel.txMetaId
+            in case e of
+                -- NOTE(adinapoli): It's probably possible to make this match the
+                -- Beam schema by using something like 'IsDatabaseEntity' from
+                -- 'Database.Beam.Schema.Tables', but we have a test to catch
+                -- regression in this area.
+                (Sqlite.SQLConstraintError Sqlite.Unique "tx_metas.meta_id") ->
+                    Kernel.InvariantViolated (Kernel.DuplicatedTransaction txid)
+                _ -> Kernel.StorageFailure (toException e)
+
 
 -- | Converts a database-fetched 'TxMeta' into a domain-specific 'Kernel.TxMeta'.
 toTxMeta :: TxMeta -> NonEmpty TxInput -> NonEmpty TxOutput -> Kernel.TxMeta
@@ -338,7 +361,6 @@ toTxMeta txMeta inputs outputs = Kernel.TxMeta {
                               (_txCoinDistributionTableCoin coinDistr)
 
 -- | Fetches a 'Kernel.TxMeta' from the database, given its 'Core.TxId'.
--- FIXME(adinapoli): Toggle debug/production with the 'WalletMode'.
 -- FIXME(adinapoli): Exception & error handling.
 getTxMeta :: MetaDBHandle -> Core.TxId -> IO (Maybe Kernel.TxMeta)
 getTxMeta dbHandle txid =

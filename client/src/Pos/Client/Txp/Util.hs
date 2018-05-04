@@ -61,8 +61,8 @@ import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..), TxSizeLinear (..),
                            bvdTxFeePolicy, calculateTxSizeLinear, coinToInteger, integerToCoin,
-                           isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue,
-                           unsafeIntegerToCoin, unsafeSubCoin, protocolMagic)
+                           isRedeemAddress, mkCoin, protocolMagic, sumCoins, txSizeLinearMinValue,
+                           unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (RedeemSecretKey, SafeSigner, SignTag (SignRedeemTx, SignTx),
                              deterministicKeyGen, fakeSigner, hash, redeemSign, redeemToPublic,
@@ -555,7 +555,7 @@ createTx
     -> m (Either TxError TxWithSpendings)
 createTx pendingTx utxo ss outputs addrData =
     createGenericTxSingle pendingTx (\i o -> Right $ makePubKeyTx ss i o)
-    OptimizeForSecurity utxo outputs addrData
+    OptimizeForHighThroughput utxo outputs addrData
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx

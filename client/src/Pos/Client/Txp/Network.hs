@@ -5,7 +5,7 @@
 
 module Pos.Client.Txp.Network
        ( TxMode
-       , submitTx
+    --    , submitTx
        , prepareMTx
        , prepareRedemptionTx
        , submitTxRaw
@@ -22,7 +22,7 @@ import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..), getOwnUtxo, getOwnUtxoForPk)
 import           Pos.Client.Txp.History (MonadTxHistory (..))
 import           Pos.Client.Txp.Util (InputSelectionPolicy, PendingAddresses (..), TxCreateMode,
-                                      TxError (..), createMTx, createRedemptionTx, createTx)
+                                      TxError (..), createMTx, createRedemptionTx)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (OutSpecs)
 import           Pos.Communication.Specs (createOutSpecs)
@@ -101,16 +101,16 @@ sendTxOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK TxId TxMsgContents))
 
 -- | Construct Tx using secret key and given list of desired outputs
 -- BE CAREFUL! Doesn't consider HD wallet addresses
-submitTx
-    :: TxMode m
-    => Diffusion m
-    -> PendingAddresses
-    -> SafeSigner
-    -> NonEmpty TxOutAux
-    -> AddrData m
-    -> m (TxAux, NonEmpty TxOut)
-submitTx diffusion pendingAddrs ss outputs addrData = do
-    let ourPk = safeToPublic ss
-    utxo <- getOwnUtxoForPk ourPk
-    txWSpendings <- eitherToThrow =<< createTx pendingAddrs utxo ss outputs addrData
-    txWSpendings <$ submitAndSave diffusion (fst txWSpendings)
+-- submitTx
+--     :: TxMode m
+--     => Diffusion m
+--     -> PendingAddresses
+--     -> SafeSigner
+--     -> NonEmpty TxOutAux
+--     -> AddrData m
+--     -> m (TxAux, NonEmpty TxOut)
+-- submitTx diffusion pendingAddrs ss outputs addrData = do
+--     let ourPk = safeToPublic ss
+--     utxo <- getOwnUtxoForPk ourPk
+--     txWSpendings <- eitherToThrow =<< createTx pendingAddrs utxo ss outputs addrData
+--     txWSpendings <$ submitAndSave diffusion (fst txWSpendings)

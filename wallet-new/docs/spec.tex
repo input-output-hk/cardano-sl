@@ -88,6 +88,57 @@ but also to try and capture our intuitions about what a cryptocurrency wallet
 \emph{is}, exactly.
 \end{abstract}
 
+\section{Introduction}
+
+Cryptocurrency wallets are vital components of a cryptocurrency system and it
+is worth taking their design seriously. Wallets observe and interact with the
+blockchain ledger to keep track of the currency belonging to a user, and allow
+them to create and submit new transactions.
+
+Wallets answer the critical question of ``what is my balance?''. To do this
+without surprising users we must first establish what the question means, and
+it is not nearly as obvious as it might first appear. What is the meaning of
+your balance when you have pending transactions that you have sent out but
+that have not yet been confirmed? What is the appropriate concept of balance
+in a situation where you have received a large incoming payment, have submitted
+pending transactions based on the incoming payment, and the blockchain has
+subsequently switched fork such that the incoming payment is not yet present?
+
+To build reliable software we must have reasonable and precise answers to these
+questions and our definitions must cover all cases and points in time, even the
+exotic cases. Wallets aimed at casual users may be able to get away without
+addressing these issues, but there are users that use a wallet as part of
+automated systems with high transaction rates and who care deeply about
+exactly what their balance is at every moment, and the exotic cases do
+eventually happen.
+
+The best way to craft definitions that give reasonable and precise answers is
+to take a formal mathematical approach to specification. The art of formal
+specification is to simplify and focus on the essential. This means focusing
+on the hardest parts and ignoring less important aspects. The process of
+crafting a good specification involves thinking carefully about the problems
+and exploring variations to try and find definitions that give a simple
+overall description. The hard work is finding a result that makes it all look
+simple and easy.
+
+In this specification we cover the wallet backend and data model of wallets,
+ignoring the user interface and taking a very abstract view of the cryptography
+and ledger syntax. We focus on the state of the wallet, how that changes as the
+ledger changes and new transactions are created, and what the wallet balance is
+for all such states. To answer the ``what is my balance'' question, we end up
+defining three notions of wallet balance, each appropriate for different purposes.
+
+This document is a combination of specification and design. We start with a
+relatively abstract specification. We define a number of further refinements
+that take into account certain practicalities including: asymptotic complexity
+for large wallets; database practicalities and chain rollback / forking.
+
+The specification style is constructive and executable and each of the
+specification refinements can be run in simulation. This is deliberate as
+it forms the basis of tests for a full implementation.
+
+\pagebreak
+
 \tableofcontents
 \listoffigures
 
@@ -129,8 +180,6 @@ but also to try and capture our intuitions about what a cryptocurrency wallet
 % \item[Draft 17, May 3, 2018 (Edsko)]. Final corrections to section on
 %      tracking metadata, wrote section in input selection, made ready for publication.
 % \end{description}
-
-\pagebreak
 
 \section{Preliminaries}
 

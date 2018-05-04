@@ -38,7 +38,8 @@ import           Options.Applicative (Parser, ParserInfo, ParserResult (..), def
                                       header, help, helper, info, infoOption, long, metavar,
                                       progDesc, renderFailure, short, strOption)
 import           Serokell.Aeson.Options (defaultOptions)
-import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
+import           System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist,
+                                   removeFile)
 import qualified System.Directory as Sys
 import           System.Environment (getExecutablePath, getProgName, setEnv)
 import           System.Exit (ExitCode (..))
@@ -92,6 +93,8 @@ data LauncherOptions = LO
     , loWalletArgs          :: ![Text]
     , loWalletLogging       :: !Bool
     , loWalletLogPath       :: !(Maybe FilePath)
+    , loTlsPath             :: !FilePath
+    , loX509ToolPath        :: !FilePath
     , loUpdaterPath         :: !FilePath
     , loUpdaterArgs         :: ![Text]
     , loUpdateArchive       :: !(Maybe FilePath)
@@ -124,8 +127,7 @@ instance FromJSON LauncherOptions where
 -- | The concrete monad where everything happens
 type M a = (HasConfigurations, HasCompileInfo) => Log.LoggerNameBox IO a
 
--- | Executable can be node, wallet or updater
-data Executable = EWallet | ENode | EUpdater
+data Executable = EWallet | ENode | EUpdater | ECertGen
 
 -- | This datatype holds values for either node or wallet
 --   Node/wallet path, args, log path
@@ -270,6 +272,7 @@ main =
     setEnv "LANG"   "en_GB.UTF-8"
 
     LO {..} <- getLauncherOptions
+
     -- Launcher logs should be in public directory
     let launcherLogsPrefix = (</> "pub") <$> loLogsPrefix
     -- Add options specified in loConfiguration but not in loNodeArgs to loNodeArgs.
@@ -288,7 +291,11 @@ main =
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.debugPlus)
     logException loggerName . Log.usingLoggerName loggerName $
-        withConfigurations loConfiguration $ \_ ->
+        withConfigurations loConfiguration $ \_ -> do
+
+        -- Generate TLS certificates as needed
+        generateTlsCertificates loConfiguration loTlsPath loX509ToolPath
+
         case loWalletPath of
             Nothing -> do
                 logNotice "LAUNCHER STARTED"
@@ -356,6 +363,26 @@ main =
 
     timestampToText (Timestamp ts) =
         pretty @Integer $ fromIntegral $ convertUnit @_ @Second ts
+
+
+generateTlsCertificates :: ConfigurationOptions -> FilePath -> FilePath -> M ()
+generateTlsCertificates ConfigurationOptions{..} tlsPath executable =
+    unlessM (liftIO $ doesDirectoryExist tlsPath) $ do
+        let process = createProc  Process.Inherit executable
+                [ "--server-out-dir"     , toText tlsPath
+                , "--clients-out-dir"    , toText tlsPath
+                , "--configuration-file" , toText cfoFilePath
+                , "--configuration-key"  , cfoKey
+                ]
+
+        exitCode <- liftIO $ do
+            createDirectoryIfMissing True tlsPath
+            phvar <- newEmptyMVar
+            system' phvar process mempty ECertGen
+
+        when (exitCode /= ExitSuccess) $
+            logError "Couldn't generate TLS certificates for Wallet"
+
 
 -- | If we are on server, we want the following algorithm:
 --
@@ -612,6 +639,7 @@ customLogger hndl loggerName logStr = do
             ENode    -> "[node] "
             EWallet  -> "[wallet] "
             EUpdater -> "[updater] "
+            ECertGen -> "[X509-certificates] "
 
 ----------------------------------------------------------------------------
 -- Working with the report server

@@ -20,6 +20,7 @@ import           Control.Lens (sans, (%=), (&~), (.=))
 import           Control.Monad (forM_, when, unless)
 import           Control.Monad.IO.Class (liftIO)
 import qualified Data.Set as S
+import           Data.Text (Text)
 import           Network.QDisc.Fair (fairQDisc)
 import qualified Network.Transport as NT (Transport, address, closeEndPoint,
                                           closeTransport, newEndPoint, receive)
@@ -42,21 +43,27 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
 
     let logTrace = wlogTrace ""
 
-    -- Take at most 25000 bytes for each Received message.
-    -- We want to ensure that the MTU works, but not make the tests too
-    -- painfully slow.
-    let mtu = 25000
-    let tcpTransportUnbounded = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10342" simpleUnboundedQDisc mtu
-    let tcpTransportOnePlace = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10343" simpleOnePlaceQDisc mtu
-    let tcpTransportFair = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10345" (fairQDisc (const (return Nothing))) mtu
-    let memoryTransport = runIO $ makeInMemoryTransport
-    let transports = [
-            --  ("TCP unbounded queueing", tcpTransportUnbounded)
-            --, ("TCP one-place queueing", tcpTransportOnePlace)
-            --, ("TCP fair queueing", tcpTransportFair)
+        -- Take at most 25000 bytes for each Received message.
+        -- We want to ensure that the MTU works, but not make the tests too
+        -- painfully slow.
+        mtu = 25000
+        tcpTransportUnbounded = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10342" simpleUnboundedQDisc mtu
+        tcpTransportOnePlace = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10343" simpleOnePlaceQDisc mtu
+        tcpTransportFair = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10345" (fairQDisc (const (return Nothing))) mtu
+        memoryTransport = runIO $ makeInMemoryTransport
+
+        transports :: [(Text, NT.Transport)]
+        transports = [
+            -- Disable the tests over TCP transport for now, because the CI
+            -- machines apparently cannot run them due to OS network
+            -- configuration problems. They're seq'd so that we don't have to
+            -- remove all the relevant imports (-Wall -Werror).
+              ("TCP unbounded queueing", tcpTransportUnbounded) `seq`
+              ("TCP one-place queueing", tcpTransportOnePlace) `seq`
+              ("TCP fair queueing", tcpTransportFair) `seq`
               ("In-memory", memoryTransport)
             ]
-    let nodeEnv = defaultNodeEnvironment { nodeMtu = mtu }
+        nodeEnv = defaultNodeEnvironment { nodeMtu = mtu }
 
     forM_ transports $ \(name, mkTransport) -> do
 

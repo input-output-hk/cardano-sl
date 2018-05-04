@@ -2,11 +2,10 @@
 
 ## Discussion
 
-The following places are where developers chat about cardano development:
-* The officially sanctioned chat can be found [here](https://chat.cardano.org/channel/developers)
-* Additionally, there is a Telegram channel for developers [here](https://t.me/CardanoDevelopersOfficial)
-* Finally, there is a gitter channel that has been created for this project, that can be found [here](https://gitter.im/cardano-dev),
-however, this one is not as active, but is maintained by the community rather than the official cardano project.
+Developer discussion can be found on the official Telegram channel [here](https://t.me/CardanoDevelopersOfficial).
+This channel is intended as a developer/contribution channel. It should not be used for customer support requests,
+comedy/memes, or price talk. There are already plenty of communication media for that. If Cardano is to become
+a truly decentralized project, contributors from the community need a place to discuss improvements and development.
 
 ## Bug Reports
 

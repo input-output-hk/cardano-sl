@@ -19,6 +19,7 @@ import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), SimpleNodeA
 import qualified Pos.Client.CLI as CLI
 import           Pos.Launcher (HasConfigurations, NodeParams (..), loggerBracket, runNodeReal,
                                withConfigurations)
+import           Pos.Launcher.Configuration (AssetLockPath (..))
 import           Pos.Ntp.Configuration (NtpConfiguration)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Update.Worker (updateTriggerWorker)
@@ -61,5 +62,6 @@ main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     args@(CLI.SimpleNodeArgs commonNodeArgs _) <- CLI.getSimpleNodeOptions
     let loggingParams = CLI.loggingParams loggerName commonNodeArgs
     let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
+    let blPath = AssetLockPath <$> cnaAssetLockPath commonNodeArgs
     loggerBracket loggingParams . logException "node" . runProduction $
-        withConfigurations conf $ action args
+        withConfigurations blPath conf $ action args

@@ -41,6 +41,7 @@ import           Pos.Lrc (lrcSingleShot)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Util (HasLens', maybeThrow, _neHead)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
@@ -64,7 +65,7 @@ type BlockTxpGenMode g ctx m =
 -- disk, then collected by using '()' as the monoid and 'const ()' as the
 -- injector, for example.
 genBlocks ::
-       forall g ctx m t . (BlockTxpGenMode g ctx m, Semigroup t, Monoid t)
+       forall g ctx m t . (HasTxpConfiguration, BlockTxpGenMode g ctx m, Semigroup t, Monoid t)
     => BlockGenParams
     -> (Maybe Blund -> t)
     -> RandT g m t
@@ -94,6 +95,7 @@ genBlock ::
        , MonadBlockGen ctx m
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
+       , HasTxpConfiguration
        )
     => EpochOrSlot
     -> BlockGenRandMode (MempoolExt m) g m (Maybe Blund)

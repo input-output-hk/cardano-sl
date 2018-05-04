@@ -358,7 +358,7 @@ tgsVerifyBlocks newChain = do
     bvd <- gsAdoptedBVData
     let epoch = NE.last (getOldestFirst newChain) ^. epochIndexL
     let verifyPure :: [TxAux] -> Verify ToilVerFailure TxpUndo
-        verifyPure = nat . verifyToil bvd epoch dataMustBeKnown
+        verifyPure = nat . verifyToil bvd mempty epoch dataMustBeKnown
     mapM (verifyPure . convertPayload) newChain
   where
     convertPayload :: TxpBlock -> [TxAux]

@@ -77,6 +77,7 @@ newRealModeContext dbs confOpts secretKeyPath = do
     let cArgs@CommonNodeArgs {..} = CommonNodeArgs {
            dbPath                 = Just "node-db"
          , rebuildDB              = True
+         , cnaAssetLockPath       = Nothing
          , devGenesisSecretI      = Nothing
          , keyfilePath            = secretKeyPath
          , networkConfigOpts      = networkOps
@@ -152,7 +153,7 @@ main = do
     cli@CLI{..} <- getRecord "DBGen"
     let cfg = newConfig cli
 
-    withConfigurations cfg $ \_ ->
+    withConfigurations Nothing cfg $ \_ ->
         withCompileInfo $(retrieveCompileTimeInfo) $ do
             when showStats (showStatsAndExit walletPath)
 

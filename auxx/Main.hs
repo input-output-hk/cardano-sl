@@ -95,10 +95,10 @@ action opts@AuxxOptions {..} command = do
             ->
                 handle @_ @ConfigurationException (\_ -> runWithoutNode pa)
               . handle @_ @ConfigurationError (\_ -> runWithoutNode pa)
-              $ withConfigurations conf (runWithConfig pa)
+              $ withConfigurations Nothing conf (runWithConfig pa)
         Light
             -> runWithoutNode pa
-        _   -> withConfigurations conf (runWithConfig pa)
+        _   -> withConfigurations Nothing conf (runWithConfig pa)
 
   where
     runWithoutNode :: PrintAction Production -> Production ()

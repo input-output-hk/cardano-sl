@@ -288,7 +288,7 @@ main =
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.debugPlus)
     logException loggerName . Log.usingLoggerName loggerName $
-        withConfigurations loConfiguration $ \_ ->
+        withConfigurations Nothing loConfiguration $ \_ ->
         case loWalletPath of
             Nothing -> do
                 logNotice "LAUNCHER STARTED"

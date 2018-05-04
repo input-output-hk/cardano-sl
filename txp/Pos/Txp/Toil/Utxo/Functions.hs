@@ -126,7 +126,7 @@ verifySums ::
 verifySums resolvedInputs outputs =
   case mTxFee of
       Nothing -> throwError $
-          ToilOutGreaterThanIn {tInputSum = inpSum, tOutputSum = outSum}
+          ToilOutGreaterThanIn inpSum outSum
       Just txFee ->
           return txFee
   where

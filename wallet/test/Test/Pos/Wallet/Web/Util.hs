@@ -1,5 +1,11 @@
 -- | Useful functions for testing scenarios.
 
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Test.Pos.Wallet.Web.Util
        (
        -- * Block utils
@@ -54,6 +60,7 @@ import           Pos.Util.UserSecret (mkGenesisWalletUserSecret)
 import           Pos.Wallet.Web.ClientTypes (Addr, CId, Wal, encToCId)
 import           Pos.Wallet.Web.Methods.Restore (importWalletDo)
 
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason (ApplyBlock))
 import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB, genBlockGenParams)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 
@@ -71,7 +78,7 @@ wpGenBlocks
 wpGenBlocks blkCnt enTxPayload inplaceDB = do
     params <- genBlockGenParams blkCnt enTxPayload inplaceDB
     g <- pick $ MkGen $ \qc _ -> qc
-    lift $ modifyStateLock HighPriority "wpGenBlocks" $ \prevTip -> do
+    lift $ modifyStateLock HighPriority ApplyBlock $ \prevTip -> do -- FIXME is ApplyBlock the right one?
         blunds <- OldestFirst <$> evalRandT (genBlocks params maybeToList) g
         case nonEmpty $ getOldestFirst blunds of
             Just nonEmptyBlunds -> do

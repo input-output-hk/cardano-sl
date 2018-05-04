@@ -46,6 +46,7 @@ import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Params (UpdateParams)
 import           Pos.Util (HasLens, HasLens')
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Util.TimeWarp (CanJsonLog)
 
 -- | Bunch of constraints to perform work for real world distributed system.
@@ -70,7 +71,7 @@ type WorkMode ctx m
       , MonadReader ctx m
       , HasLens' ctx StartTime
       , HasLens' ctx StateLock
-      , HasLens' ctx StateLockMetrics
+      , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
       , HasLens' ctx UpdateContext
       , HasLens' ctx UpdateParams
       , HasLens' ctx SecurityParams

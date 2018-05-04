@@ -37,6 +37,7 @@ module Cardano.Wallet.API.V1.Types (
   , AddressValidity (..)
   -- * Accounts
   , Account (..)
+  , accountsHaveSameId
   , AccountIndex
   -- * Addresses
   , WalletAddress (..)
@@ -70,6 +71,7 @@ module Cardano.Wallet.API.V1.Types (
   , mkSyncPercentage
   , NodeInfo (..)
   , TimeInfo(..)
+  , SubscriptionStatus(..)
   -- * Some types for the API
   , CaptureWalletId
   , CaptureAccountId
@@ -82,16 +84,19 @@ import           Universum
 import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
 import           Data.Aeson.TH as A
-import           Data.Aeson.Types (typeMismatch)
+import           Data.Aeson.Types (toJSONKeyText, typeMismatch)
 import qualified Data.Char as C
 import           Data.Swagger as S hiding (constructorTagModifier)
 import           Data.Swagger.Declare (Declare, look)
 import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Text (Text, dropEnd, toLower)
+import qualified Data.Text as T
 import qualified Data.Text.Buildable
 import           Data.Version (Version)
 import           Formatting (bprint, build, fconst, int, sformat, (%))
 import           GHC.Generics (Generic, Rep)
+import           Network.Transport (EndPointAddress (..))
+import           Node (NodeId (..))
 import qualified Prelude
 import qualified Serokell.Aeson.Options as Serokell
 import           Serokell.Util (listJson)
@@ -113,6 +118,7 @@ import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Cardano.Wallet.Util (showApiUtcTime)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
+import qualified Data.Map.Strict as Map
 import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
 import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
@@ -121,6 +127,7 @@ import           Pos.Core (addressF)
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
+import           Pos.Diffusion.Types (SubscriptionStatus (..))
 import           Pos.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe, buildSafeList,
                                    buildSafeMaybe, deriveSafeBuildable, plainOrSecureF)
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
@@ -233,6 +240,8 @@ instance Buildable a => Buildable (V1 a) where
 instance Buildable (SecureLog a) => Buildable (SecureLog (V1 a)) where
     build (SecureLog (V1 x)) = bprint build (SecureLog x)
 
+instance (Buildable a, Buildable b) => Buildable (a, b) where
+    build (a, b) = bprint ("("%build%", "%build%")") a b
 
 --
 -- Benign instances
@@ -819,7 +828,6 @@ instance BuildableSafeGen AddressValidity where
 -- | Summary about single address.
 data WalletAddress = WalletAddress
     { addrId            :: !(V1 Core.Address)
-    , addrBalance       :: !(V1 Core.Coin)
     , addrUsed          :: !Bool
     , addrChangeAddress :: !Bool
     } deriving (Show, Eq, Generic, Ord)
@@ -830,14 +838,12 @@ instance ToSchema WalletAddress where
     declareNamedSchema =
         genericSchemaDroppingPrefix "addr" (\(--^) props -> props
             & ("id"            --^ "Actual address.")
-            & ("balance"       --^ "Associated balance, in ADA.")
             & ("used"          --^ "True if this address has been used.")
             & ("changeAddress" --^ "True if this address stores change from a previous transaction.")
         )
 
 instance Arbitrary WalletAddress where
     arbitrary = WalletAddress <$> arbitrary
-                              <*> arbitrary
                               <*> arbitrary
                               <*> arbitrary
 
@@ -851,6 +857,12 @@ data Account = Account
     , accName      :: !Text
     , accWalletId  :: !WalletId
     } deriving (Show, Ord, Eq, Generic)
+
+accountsHaveSameId :: Account -> Account -> Bool
+accountsHaveSameId a b =
+    accWalletId a == accWalletId b
+    &&
+    accIndex a == accIndex b
 
 deriveJSON Serokell.defaultOptions ''Account
 
@@ -943,12 +955,10 @@ deriveSafeBuildable ''WalletAddress
 instance BuildableSafeGen WalletAddress where
     buildSafeGen sl WalletAddress{..} = bprint ("{"
         %" id="%buildSafe sl
-        %" balance="%buildSafe sl
         %" used="%build
         %" changeAddress="%build
         %" }")
         addrId
-        addrBalance
         addrUsed
         addrChangeAddress
 
@@ -1047,8 +1057,8 @@ instance BuildableSafeGen EstimatedFees where
 -- | Maps an 'Address' to some 'Coin's, and it's
 -- typically used to specify where to send money during a 'Payment'.
 data PaymentDistribution = PaymentDistribution {
-      pdAddress :: V1 (Core.Address)
-    , pdAmount  :: V1 (Core.Coin)
+      pdAddress :: !(V1 Core.Address)
+    , pdAmount  :: !(V1 Core.Coin)
     } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''PaymentDistribution
@@ -1645,7 +1655,6 @@ instance Arbitrary TimeInfo where
     arbitrary = TimeInfo <$> arbitrary
 
 deriveSafeBuildable ''TimeInfo
-
 instance BuildableSafeGen TimeInfo where
     buildSafeGen _ TimeInfo{..} = bprint ("{"
         %" differenceFromNtpServer="%build
@@ -1654,12 +1663,64 @@ instance BuildableSafeGen TimeInfo where
 
 deriveJSON Serokell.defaultOptions ''TimeInfo
 
+
+availableSubscriptionStatus :: [SubscriptionStatus]
+availableSubscriptionStatus = [Subscribed, Subscribing]
+
+deriveSafeBuildable ''SubscriptionStatus
+instance BuildableSafeGen SubscriptionStatus where
+    buildSafeGen _ = \case
+        Subscribed  -> "Subscribed"
+        Subscribing -> "Subscribing"
+
+deriveJSON Serokell.defaultOptions ''SubscriptionStatus
+
+instance Arbitrary SubscriptionStatus where
+    arbitrary =
+        elements availableSubscriptionStatus
+
+instance ToSchema SubscriptionStatus where
+    declareNamedSchema _ = do
+        let enum = toJSON <$> availableSubscriptionStatus
+        pure $ NamedSchema (Just "SubscriptionStatus") $ mempty
+            & type_ .~ SwaggerString
+            & enum_ ?~ enum
+
+instance FromJSONKey NodeId where
+    fromJSONKey =
+        FromJSONKeyText (NodeId . EndPointAddress . encodeUtf8)
+
+instance ToJSONKey NodeId where
+    toJSONKey =
+        toJSONKeyText (decodeUtf8 . getAddress)
+      where
+        getAddress (NodeId (EndPointAddress x)) = x
+
+instance ToSchema NodeId where
+    declareNamedSchema _ = pure $ NamedSchema (Just "NodeId") $ mempty
+        & type_ .~ SwaggerString
+
+instance Arbitrary NodeId where
+    arbitrary = do
+        ipv4  <- genIPv4
+        port_ <- genPort
+        idx   <- genIdx
+        return . toNodeId $ ipv4 <> ":" <> port_ <> ":" <> idx
+      where
+        toNodeId = NodeId . EndPointAddress . encodeUtf8
+        showT    = show :: Int -> Text
+        genIdx   = showT <$> choose (0, 9)
+        genPort  = showT <$> choose (1000, 8000)
+        genIPv4  = T.intercalate "." <$> replicateM 4 (showT <$> choose (0, 255))
+
+
 -- | The @dynamic@ information for this node.
 data NodeInfo = NodeInfo {
      nfoSyncProgress          :: !SyncPercentage
    , nfoBlockchainHeight      :: !(Maybe BlockchainHeight)
    , nfoLocalBlockchainHeight :: !BlockchainHeight
    , nfoLocalTimeInformation  :: !TimeInfo
+   , nfoSubscriptionStatus    :: Map NodeId SubscriptionStatus
    } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''NodeInfo
@@ -1671,10 +1732,12 @@ instance ToSchema NodeInfo where
       & ("blockchainHeight"      --^ "If known, the current blockchain height, in number of blocks.")
       & ("localBlockchainHeight" --^ "Local blockchain height, in number of blocks.")
       & ("localTimeInformation"  --^ "Information about the clock on this node.")
+      & ("subscriptionStatus"    --^ "Is the node connected to the network?")
     )
 
 instance Arbitrary NodeInfo where
     arbitrary = NodeInfo <$> arbitrary
+                         <*> arbitrary
                          <*> arbitrary
                          <*> arbitrary
                          <*> arbitrary
@@ -1686,11 +1749,13 @@ instance BuildableSafeGen NodeInfo where
         %" blockchainHeight="%build
         %" localBlockchainHeight="%build
         %" localTimeDifference="%build
+        %" subscriptionStatus="%listJson
         %" }")
         nfoSyncProgress
         nfoBlockchainHeight
         nfoLocalBlockchainHeight
         nfoLocalTimeInformation
+        (Map.toList nfoSubscriptionStatus)
 
 
 --

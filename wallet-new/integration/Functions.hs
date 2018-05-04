@@ -6,7 +6,10 @@
 {-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE TypeApplications           #-}
 
-module Functions where
+module Functions
+    ( runActionCheck
+    , printT
+    ) where
 
 import           Universum hiding (log)
 
@@ -21,21 +24,14 @@ import           Test.QuickCheck
 import           Text.Show.Pretty (ppShow)
 
 import           Cardano.Wallet.API.Response (WalletResponse (..))
-import           Cardano.Wallet.API.V1.Types (Account (..), AccountIndex, AccountUpdate (..),
-                                              AssuranceLevel (..), EstimatedFees (..),
-                                              NewAccount (..), NewAddress (..), NewWallet (..),
-                                              PasswordUpdate (..), Payment (..),
-                                              PaymentDistribution (..), PaymentSource (..),
-                                              SpendingPassword, Transaction (..), V1 (..),
-                                              Wallet (..), WalletAddress (..), WalletId,
-                                              WalletOperation (..), WalletUpdate (..), unV1)
-
 import           Cardano.Wallet.API.V1.Migration.Types (migrate)
+import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Client (ClientError (..), Response (..), ServantError (..),
-                                        WalletClient (..), getAccounts, getAddressIndex,
-                                        getTransactionIndex, getWallets, hoistClient)
+                                        WalletClient (..), WalletError (..), getAccounts,
+                                        getAddressIndex, getTransactionIndex, getWallets,
+                                        hoistClient)
 
-import           Pos.Core (getCoin, mkCoin)
+import           Pos.Core (getCoin, mkCoin, unsafeAddCoin, unsafeSubCoin)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import           Error
@@ -73,7 +69,7 @@ runActionCheck
     -> ActionProbabilities
     -> m WalletState
 runActionCheck walletClient walletState actionProb = do
-    actions <- chooseActions 10 actionProb
+    actions <- chooseActions 50 actionProb
     log $ "Test will run these actions: " <> show (toList actions)
     let client' = hoistClient lift walletClient
     ws <- execRefT (tryAll (map (runAction client') actions) <|> pure ()) walletState
@@ -138,6 +134,7 @@ runAction wc action = do
     acts <- use actionsNum
     succs <- length <$> use successActions
     log $ "Actions:\t" <> show acts <> "\t\tSuccesses:\t" <> show succs
+
     case action of
         PostWallet -> do
             newPassword <- freshPassword
@@ -415,10 +412,6 @@ runAction wc action = do
             log $ "Posting address: " <> ppShowT newAddress
             result  <-  respToRes $ postAddress wc newAddress
 
-            checkInvariant
-                (addrBalance result == minBound)
-                (AddressBalanceNotZero result)
-
             -- Modify wallet state accordingly.
             addresses  <>= [result]
             accounts . traverse . filtered (== account) %= \acct ->
@@ -450,7 +443,6 @@ runAction wc action = do
         -- Transactions
         PostTransaction -> do
             localAccounts  <- use accounts
-            localAddresses <- use addresses
 
             -- Some min amount of money so we can send a transaction?
             -- https://github.com/input-output-hk/cardano-sl/blob/develop/lib/configuration.yaml#L228
@@ -459,9 +451,12 @@ runAction wc action = do
 
             -- From which source to pay.
             accountSource <- pickRandomElement localAccsWithMoney
+            accountDestination <- pickRandomElement
+                (filter (not . accountsHaveSameId accountSource) localAccounts)
+            log $ "From account: " <> show (accIndex accountSource)  <> "\t\t" <> show (accWalletId accountSource)
+            log $ "To account  : " <> show (accIndex accountDestination) <> "\t\t" <> show (accWalletId accountDestination)
 
             let accountSourceMoney = accAmount accountSource
-                withoutSourceAddresses = filter (`notElem` accAddresses accountSource) localAddresses
                 reasonableFee = 100
 
             -- We should probably have a sensible minimum value.
@@ -478,7 +473,7 @@ runAction wc action = do
                         , psAccountIndex = accIndex    accountSource
                         }
 
-            addressDestination <- pickRandomElement withoutSourceAddresses
+            addressDestination <- pickRandomElement $ accAddresses accountDestination
 
             let paymentDestinations =
                     PaymentDistribution
@@ -499,8 +494,7 @@ runAction wc action = do
 
             txFees <- case etxFees of
                 Right a -> pure a
-                Left (ClientHttpError (FailureResponse (Response {..})))
-                    | "not enough money" `isInfixOf` show responseBody -> do
+                Left (ClientWalletError (NotEnoughMoney _)) -> do
                         log "Not enough money to do the transaction."
                         empty
                 Left err -> throwM err
@@ -512,7 +506,9 @@ runAction wc action = do
 
             -- Check the transaction.
             log $ "postTransaction: " <> ppShowT newPayment
+            addressesBeforeTransaction <- respToRes $ getAddressIndex wc
             newTx  <-  respToRes $ postTransaction wc newPayment
+            addressesAfterTransaction <- respToRes $ getAddressIndex wc
 
             let sumCoins f =
                     sum . map (getCoin . unV1 . pdAmount) . toList $ f newTx
@@ -527,25 +523,62 @@ runAction wc action = do
             let actualFees = V1 . mkCoin $ inputSum - outputSum
 
             -- Estimated fees should correspond to actual fees
-            -- TODO(akegalj): add custom error type
             checkInvariant
                 (feeEstimatedAmount txFees == actualFees)
-                (InvalidTransactionState newTx)
+                (InvalidTransactionFee txFees)
 
             let changeAddress = toList (txOutputs newTx) \\ toList paymentDestinations
                 -- NOTE: instead of this manual conversion we could filter WalletAddress from getAddressIndex
-                pdToChangeAddress PaymentDistribution{..} = WalletAddress pdAddress pdAmount True True
+                pdToChangeAddress PaymentDistribution{..} = WalletAddress pdAddress True True
+                realChangeAddressId = map addrId addressesAfterTransaction \\ map addrId addressesBeforeTransaction
+                changeWalletAddresses = filter ((`elem` realChangeAddressId) . addrId) addressesAfterTransaction
 
-            -- We expect at most one extra PaymentDestination which should be a change address
-            -- TODO(akegalj): add custom error type
+            -- We expect at most one extra PaymentDestination which should be a change address. Also at most one address should be added after transaction - which should be the same change address
+            -- All change addresses should set up a flag addrChangeAddress
             checkInvariant
-                (length changeAddress <= 1)
-                (InvalidTransactionState newTx)
+                ( length changeAddress <= 1
+                  && map pdAddress changeAddress == realChangeAddressId
+                  && all addrChangeAddress changeWalletAddresses
+                )
+                (UnexpectedChangeAddress changeWalletAddresses)
 
-            -- TODO(akegalj): add invariant that checks is there paymentDestinations distributions in newTx
-            -- TODO(akegalj): add invariant that checks is paymentSource the only source of newTx
-            -- TODO(akegalj): add invariant that checks did accounts of all payment destinations increase by expected amount
-            -- TODO(akegalj): add invariant that checks did accounts of all payment sources decrease by expected amount
+            _accountSourceAfter <- respToRes $
+                getAccount wc
+                    (accWalletId accountSource)
+                    (accIndex accountSource)
+
+            _accountDestinationAfter <- respToRes $
+                getAccount wc
+                    (accWalletId accountDestination)
+                    (accIndex accountDestination)
+
+            let _expectedNewBalance =
+                    V1 $
+                        (unV1 (accAmount accountSource) `unsafeSubCoin` moneyAmount)
+                        `unsafeSubCoin` unV1 actualFees
+
+            -- Check whether the source account decrease by expected amount after tx
+            --checkInvariant
+            --    (accAmount accountSourceAfter == expectedNewBalance)
+            --    (UnexpectedAccountBalance
+            --        "Account source should decrease"
+            --        (accAmount accountSourceAfter)
+            --        expectedNewBalance
+            --    )
+
+
+            let _expectedDestinationBalance =
+                    V1 (unV1 (accAmount accountDestination)
+                        `unsafeAddCoin` moneyAmount)
+
+            ---- Check whether the destination account increased by expected amount after tx
+            --checkInvariant
+            --    (accAmount accountDestinationAfter == expectedDestinationBalance)
+            --    (UnexpectedAccountBalance
+            --        "Account destination should increase"
+            --        (accAmount accountDestination)
+            --        expectedDestinationBalance
+            --    )
 
             -- Modify wallet state accordingly.
             transactions  <>= [(accountSource, newTx)]
@@ -608,19 +641,19 @@ runAction wc action = do
 
 
 -- | Generate action randomly, depending on the action distribution.
-chooseActionGen
-    :: ActionProbabilities
-    -> Gen Action
-chooseActionGen =
-    frequency . map (\(a, p) -> (getWeight p, pure a)) . toList
+-- chooseActionGen
+--     :: ActionProbabilities
+--     -> Gen Action
+-- chooseActionGen =
+--     frequency . map (\(a, p) -> (getWeight p, pure a)) . toList
 
 
 -- | Generate action from the generator.
-chooseAction
-    :: (WalletTestMode m)
-    => ActionProbabilities
-    -> m Action
-chooseAction = liftIO . generate . chooseActionGen
+-- chooseAction
+--     :: (WalletTestMode m)
+--     => ActionProbabilities
+--     -> m Action
+-- chooseAction = liftIO . generate . chooseActionGen
 
 -- | Generate a random sequence of actions with the given size.
 chooseActions

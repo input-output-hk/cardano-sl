@@ -55,7 +55,7 @@ import           Pos.Slotting (ActionTerminationPolicy (..), OnNewSlotParams (..
 import           Pos.Update.DB (getAdoptedBVData)
 import           Pos.Util (mconcatPair)
 import           Pos.Util.Chrono (OldestFirst (..))
-import           Pos.Util.JsonLog (jlCreatedBlock)
+import           Pos.Util.JsonLog.Events (jlCreatedBlock)
 import           Pos.Util.LogSafe (logDebugS, logInfoS, logWarningS)
 import           Pos.Util.TimeLimit (logWarningSWaitLinear)
 import           Pos.Util.TimeWarp (CanJsonLog (..))

@@ -157,7 +157,7 @@ verifyGState bvd@BlockVersionData {..} curEpoch txAux vtur = do
     unless (isRedeemTx $ vturUndo vtur) $ whenJust txFeeMB $ \txFee ->
         verifyTxFeePolicy txFee bvdTxFeePolicy txSize
     when (txSize > limit) $
-        throwError ToilTooLargeTx {ttltSize = txSize, ttltLimit = limit}
+        throwError $ ToilTooLargeTx txSize limit
 
 verifyBootEra ::
        BlockVersionData -> EpochIndex -> TxAux -> Either ToilVerFailure ()
@@ -194,17 +194,12 @@ verifyTxFeePolicy (TxFee txFee) policy txSize = case policy of
         -- but in case the result of its evaluation is negative or exceeds
         -- maximum coin value, we throw an error.
         txMinFee <- case mTxMinFee of
-            Left reason -> throwError ToilInvalidMinFee
-                { timfPolicy = policy
-                , timfReason = reason
-                , timfSize = txSize }
+            Left reason -> throwError $
+                ToilInvalidMinFee policy reason txSize
             Right a -> return a
         unless (txMinFee <= txFee) $
-            throwError ToilInsufficientFee
-                { tifSize = txSize
-                , tifFee = TxFee txFee
-                , tifMinFee = TxFee txMinFee
-                , tifPolicy = policy }
+            throwError $
+                ToilInsufficientFee policy (TxFee txFee) (TxFee txMinFee) txSize
     Fee.TxFeePolicyUnknown _ _ ->
         -- The minimal transaction fee policy exists, but the current
         -- version of the node doesn't know how to handle it. There are

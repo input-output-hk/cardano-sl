@@ -22,8 +22,9 @@ import           Pos.Binary.Txp ()
 import qualified Pos.Communication.Relay as Relay
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Crypto (hash)
-import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem, txpProcessTx, JLTxR (..))
+import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem, txpProcessTx)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
+import           Pos.Util.JsonLog.Events (JLTxR (..))
 
 -- Real tx processing
 -- CHECK: @handleTxDo

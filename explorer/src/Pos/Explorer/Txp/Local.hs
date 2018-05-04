@@ -8,6 +8,7 @@ module Pos.Explorer.Txp.Local
        , eTxNormalize
        ) where
 
+import           JsonLog (CanJsonLog (..))
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
@@ -19,6 +20,7 @@ import           Pos.StateLock (Priority (..), StateLock, StateLockMetrics, with
 import           Pos.Txp.Logic.Local (txNormalizeAbstract, txProcessTransactionAbstract)
 import           Pos.Txp.MemState (MempoolExt, TxpLocalWorkMode, getTxpExtra, withTxpLocalData)
 import           Pos.Txp.Toil (ToilVerFailure (..), Utxo)
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..))
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Util (HasLens')
 
@@ -37,12 +39,13 @@ type ETxpLocalWorkMode ctx m =
 eTxProcessTransaction ::
        ( ETxpLocalWorkMode ctx m
        , HasLens' ctx StateLock
-       , HasLens' ctx StateLockMetrics
+       , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
+       , CanJsonLog m
        )
     => (TxId, TxAux)
     -> m (Either ToilVerFailure ())
 eTxProcessTransaction itw =
-    withStateLock LowPriority "eTxProcessTransaction" $ \__tip -> eTxProcessTransactionNoLock itw
+    withStateLock LowPriority ProcessTransaction $ \__tip -> eTxProcessTransactionNoLock itw
 
 eTxProcessTransactionNoLock ::
        forall ctx m. (ETxpLocalWorkMode ctx m)

@@ -27,32 +27,37 @@ library
                        Pos.Util.Concurrent.PriorityLock
                        Pos.Util.Concurrent.RWLock
 
+                       Pos.Util.AssertMode
+                       Pos.Util.Chrono
                        Pos.Util.Filesystem
                        Pos.Util.Future
                        Pos.Util.Justify
                        Pos.Util.Lens
                        Pos.Util.LoggerName
+                       Pos.Util.Limits
                        Pos.Util.LRU
                        Pos.Util.Modifier
-                       Pos.Util.OptParse
                        Pos.Util.Orphans
+                       Pos.Util.OptParse
                        Pos.Util.Queue
                        Pos.Util.Some
                        Pos.Util.Timer
+                       Pos.Util.Trace
                        Pos.Util.Util
 
   other-modules:
 
   build-depends:       QuickCheck
                      , aeson
-                     , autoexporter
                      , base
+                     , binary
                      , bytestring
-                     , cardano-sl-networking
+                     , cardano-sl-binary
                      , cborg
                      , cereal
                      , containers
                      , concurrent-extra
+                     , contravariant
                      , cryptonite
                      , data-default
                      , deepseq
@@ -67,7 +72,6 @@ library
                      , log-warper >= 1.0.3
                      , lrucache
                      , megaparsec
-                     , mmorph
                      , mtl
                      , optparse-applicative
                      , parsec
@@ -125,6 +129,71 @@ library
   ghc-options:         -Wall
                        -fno-warn-orphans
                        -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+test-suite test
+  main-is:             test.hs
+  hs-source-dirs:      test
+  default-language:    Haskell2010
+  type:                exitcode-stdio-1.0
+
+  other-modules:
+                       Spec
+                       Test.Pos.Util.LimitsSpec
+                       Test.Pos.Util.ModifierSpec
+                       Test.Pos.Util.TimerSpec
+                       Test.Pos.UtilSpec
+
+  build-depends:       base
+                     , async
+                     , cardano-sl-binary
+                     , cardano-sl-util
+                     , hspec
+                     , QuickCheck
+                     , serokell-util >= 0.1.3.4
+                     , stm
+                     , text
+                     , time
+                     , time-units
+                     , universum >= 0.1.11
+                     , unordered-containers
+
+  ghc-options:         -threaded
+                       -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+                        GADTs
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

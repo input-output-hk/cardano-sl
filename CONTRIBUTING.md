@@ -4,8 +4,8 @@
 
 Developer discussion can be found on the official Telegram channel [here](https://t.me/CardanoDevelopersOfficial).
 This channel is intended as a developer/contribution channel. It should not be used for customer support requests,
-comedy/memes, or price talk. There are already plenty of communication media for that. If Cardano is to become
-a truly decentralized project, contributors from the community need a place to discuss improvements and development.
+comedy/memes, or price talk. Feel free to discuss current issues, future possibilities, and visions for how you
+think Cardano should progress.
 
 ## Bug Reports
 

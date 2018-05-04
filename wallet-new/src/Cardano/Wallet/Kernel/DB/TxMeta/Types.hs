@@ -16,10 +16,11 @@ module Cardano.Wallet.Kernel.DB.TxMeta.Types (
 import           Universum
 
 import           Control.Lens.TH (makeLenses)
+import qualified Data.List as List
 import           Data.Text.Buildable (build)
 import           Formatting (bprint, (%))
 import           Pos.Crypto (shortHashF)
-import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck (Arbitrary (..), Gen)
 
 import           Pos.Arbitrary.Core ()
 import qualified Pos.Core as Core
@@ -67,12 +68,16 @@ makeLenses ''TxMeta
 instance Arbitrary TxMeta where
     arbitrary = TxMeta <$> arbitrary
                        <*> arbitrary
-                       <*> arbitrary
-                       <*> arbitrary
+                       <*> uniqueElements
+                       <*> uniqueElements
                        <*> arbitrary
                        <*> arbitrary
                        <*> arbitrary
 
+uniqueElements :: Gen (NonEmpty (Core.Address, Core.Coin))
+uniqueElements = do
+    (e :| es) <- arbitrary
+    return (e :| List.nub es)
 
 -- TODO(adinapoli): Proper 'Buildable' instance.
 instance Buildable TxMeta where

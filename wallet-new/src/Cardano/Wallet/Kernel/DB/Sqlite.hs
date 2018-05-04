@@ -12,6 +12,9 @@ module Cardano.Wallet.Kernel.DB.Sqlite (
     -- * Basic API
     , putTxMeta
     , getTxMeta
+
+    -- * Unsafe functions
+    , unsafeMigrate
     ) where
 
 import           Universum
@@ -22,16 +25,18 @@ import           Database.Beam.Query (HasSqlEqualityCheck, (==.))
 import qualified Database.Beam.Query as SQL
 import           Database.Beam.Schema (Beamable, Database, DatabaseSettings, PrimaryKey, Table)
 import qualified Database.Beam.Schema as Beam
-import           Database.Beam.Sqlite.Connection (Sqlite, runBeamSqliteDebug)
+import           Database.Beam.Sqlite.Connection (Sqlite, runBeamSqlite)
 import           Database.Beam.Sqlite.Syntax (SqliteCommandSyntax, SqliteDataTypeSyntax,
-                                              SqliteExpressionSyntax, SqliteValueSyntax)
+                                              SqliteExpressionSyntax, SqliteValueSyntax,
+                                              fromSqliteCommand, sqliteRenderSyntaxScript)
 import qualified Database.SQLite.Simple as Sqlite
 import           Database.SQLite.Simple.FromField (FromField (..), returnError)
 
 import           Data.Time.Units (fromMicroseconds, toMicroseconds)
 import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..), Migration,
                                         MigrationSteps, boolean, createTable, evaluateDatabase,
-                                        field, migrationStep, notNull, unCheckDatabase, unique)
+                                        executeMigration, field, migrationStep, notNull,
+                                        runMigrationSteps, unCheckDatabase, unique)
 import           Formatting (sformat)
 import           GHC.Generics (Generic)
 
@@ -261,16 +266,29 @@ initialMigration () = do
            <*> createTable "tx_metas_inputs"
                  (TxInput (TxCoinDistributionTable (field "input_address" address notNull)
                                                    (field "input_coin" coin notNull)
-                                                   (TxIdPrimKey (field "meta_id" txId notNull unique))
+                                                   (TxIdPrimKey (field "meta_id" txId notNull))
                           ))
            <*> createTable "tx_metas_outputs"
                  (TxOutput (TxCoinDistributionTable (field "output_address" address notNull)
                                                     (field "output_coin" coin notNull)
-                                                    (TxIdPrimKey (field "meta_id" txId notNull unique))
+                                                    (TxIdPrimKey (field "meta_id" txId notNull))
                            ))
 
+--- | The full list of migrations available for this 'MetaDB'.
 migrateMetaDB :: MigrationSteps SqliteCommandSyntax () (CheckedDatabaseSettings Sqlite MetaDB)
 migrateMetaDB = migrationStep "Initial migration" initialMigration
+
+
+-- | Migrates the 'MetaDB', potentially mangling the input database.
+-- TODO(adinapoli): Make it safe.
+unsafeMigrate :: MetaDBHandle -> IO ()
+unsafeMigrate hdl =
+    void $ runMigrationSteps 0 Nothing migrateMetaDB (\_ _ -> executeMigration (Sqlite.execute_ (_mDbHandleConnection hdl) . newSqlQuery))
+    where
+        newSqlQuery :: SqliteCommandSyntax -> Sqlite.Query
+        newSqlQuery syntax =
+            let sqlFragment = sqliteRenderSyntaxScript . fromSqliteCommand $ syntax
+                in Sqlite.Query (decodeUtf8 sqlFragment)
 
 -- | Opens a new 'Connection' to the @Sqlite@ database identified by the
 -- input 'FilePath'.
@@ -296,7 +314,7 @@ putTxMeta dbHandle txMeta =
         outputs = mkOutputs txMeta
     -- TODO(adn): Revisit this bit, it doesn't look transactional, unless
     -- 'runBeamSqliteDebug' runs the query within a DB transaction.
-    in runBeamSqliteDebug putStrLn conn $ do
+    in runBeamSqlite conn $ do
         SQL.runInsert $ SQL.insert (_mDbMeta metaDB)    $ SQL.insertValues [tMeta]
         SQL.runInsert $ SQL.insert (_mDbInputs metaDB)  $ SQL.insertValues inputs
         SQL.runInsert $ SQL.insert (_mDbOutputs metaDB) $ SQL.insertValues outputs
@@ -325,7 +343,7 @@ toTxMeta txMeta inputs outputs = Kernel.TxMeta {
 getTxMeta :: MetaDBHandle -> Core.TxId -> IO (Maybe Kernel.TxMeta)
 getTxMeta dbHandle txid =
     let conn = _mDbHandleConnection dbHandle
-    in runBeamSqliteDebug putStrLn conn $ do
+    in runBeamSqlite conn $ do
         metas <- SQL.runSelectReturningList txMetaById
         case metas of
             [txMeta] -> do

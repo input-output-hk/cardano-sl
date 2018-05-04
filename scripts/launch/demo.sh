@@ -146,6 +146,7 @@ while [[ $i -lt $panesCnt ]]; do
   if [[ $i -lt $n ]]; then
     node_args="$(node_cmd $i "$wallet_args" "$system_start" "$config_dir" "$conf_file" "$run_dir" "$run_dir/logs")"
     node_=$(find_binary $exec_name)
+    x509GenTool=$(find_binary cardano-x509-certificates)
     if [[ $WALLET_TEST != "" ]] && [[ $i == $((n-1)) ]]; then
         updater_file="$config_dir/updater$i.sh"
         launcher_=$(find_binary cardano-launcher)
@@ -168,6 +169,9 @@ while [[ $i -lt $panesCnt ]]; do
           echo "walletArgs:"                              >> $CONFIG_PATH
           echo -e "$(make_yaml_list "$UI_ARGS")"          >> $CONFIG_PATH
         fi
+
+        echo "tlsPath: $config_dir/tls-files"             >> $CONFIG_PATH
+        echo "x509ToolPath: $x509GenTool"                 >> $CONFIG_PATH
 
         echo "updaterPath: /usr/bin/env"                  >> $CONFIG_PATH
         echo "updaterArgs: [bash]"                        >> $CONFIG_PATH

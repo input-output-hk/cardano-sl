@@ -14,7 +14,7 @@ module Pos.Delegation.Cede.Types
        ) where
 
 import           Control.Lens (makeLenses)
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, build, (%))
 import           Universum
 

@@ -76,6 +76,7 @@ library
 
   build-depends:        QuickCheck
                       , aeson
+                      , aeson-options
                       , base
                       , bytestring
                       , cardano-sl-binary
@@ -112,7 +113,6 @@ library
                       , serokell-util
                       , stm
                       , text
-                      , text-format
                       , time-units
                       , transformers
                       , universum

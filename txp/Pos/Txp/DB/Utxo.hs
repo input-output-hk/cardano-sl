@@ -35,7 +35,7 @@ import           Data.Conduit (ConduitT, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
 import qualified Data.HashSet as HS
 import qualified Data.Map as M
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, sformat, (%))
 import           Serokell.Util (Color (Red), colorize)

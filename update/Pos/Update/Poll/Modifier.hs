@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 -- | Functions working with PollModifier.
 
 module Pos.Update.Poll.Modifier
@@ -77,7 +78,10 @@ modifyPollModifier pmOld pmNew = PollModifier
 
 
 instance Semigroup PollModifier where
+    (<>) = modifyPollModifier
 
 instance Monoid PollModifier where
     mempty = def
-    mappend = modifyPollModifier
+#if !MIN_VERSION_base(4,11,0)
+    mappend = (<>)
+#endif

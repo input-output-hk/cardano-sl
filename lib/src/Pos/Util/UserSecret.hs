@@ -42,7 +42,7 @@ import           Control.Exception.Safe (onException, throwString)
 import           Control.Lens (makeLenses, to)
 import qualified Data.ByteString as BS
 import           Data.Default (Default (..))
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (Format, bprint, build, formatToString, later, (%))
 import qualified Prelude
 import           Serokell.Util.Text (listJson)

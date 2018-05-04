@@ -77,7 +77,6 @@ library
                       , servant-generic
                       , stm
                       , text
-                      , text-format
                       , time
                       , time-units
                       , transformers
@@ -423,7 +422,6 @@ benchmark cardano-explorer-bench
                      , criterion
                      , data-default
                      , lens
-                     , text-format
                      , universum >= 0.1.11
                      , weigh
   default-language:    Haskell2010

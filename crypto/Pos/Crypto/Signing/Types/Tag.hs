@@ -4,7 +4,7 @@ module Pos.Crypto.Signing.Types.Tag
 
 import           Universum
 
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, shown)
 
 -- | To protect agains replay attacks (i.e. when an attacker intercepts a

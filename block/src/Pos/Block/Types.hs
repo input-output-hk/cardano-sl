@@ -18,7 +18,7 @@ module Pos.Block.Types
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, build, (%))
 import           Serokell.Util.Text (listJson)
 

@@ -46,7 +46,6 @@ library
                      , safe-exceptions
                      , serokell-util
                      , stm
-                     , text-format
                      , transformers
                      , universum
                      , unordered-containers

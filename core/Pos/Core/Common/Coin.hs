@@ -25,7 +25,7 @@ module Pos.Core.Common.Coin
 
 import           Universum
 
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, float, int, (%))
 
 import           Pos.Core.Common.Types (Coin (..), CoinPortion (..), coinF,

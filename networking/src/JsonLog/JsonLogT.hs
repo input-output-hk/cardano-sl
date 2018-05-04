@@ -40,21 +40,17 @@ import           Control.Monad.Trans.Reader (ReaderT (..))
 import           Data.Aeson (ToJSON, encode)
 import           Data.ByteString.Lazy (hPut)
 import           Formatting (sformat, shown, (%))
-import           Serokell.Util.Lens (WrappedM (..))
 import           System.IO (Handle)
 import           System.Wlog (CanLog, HasLoggerName (..), WithLogger, logWarning)
 import           Universum
 
 import           JsonLog.CanJsonLog (CanJsonLog (..))
 import           JsonLog.Event (JLTimedEvent, timedIO, toEvent)
-import           Mockable.Channel (Channel, ChannelT)
-import           Mockable.Class (Mockable (..))
-import           Mockable.Concurrent (Async, Concurrently, Delay, Fork, Promise, ThreadId)
-import           Mockable.CurrentTime (CurrentTime)
-import           Mockable.Instances (liftMockableWrappedM)
-import           Mockable.Metrics (Counter, Distribution, Gauge, Metrics)
-import           Mockable.SharedAtomic (SharedAtomic, SharedAtomicT)
-import           Mockable.SharedExclusive (SharedExclusive, SharedExclusiveT)
+import           Mockable.Channel (ChannelT)
+import           Mockable.Concurrent (Promise, ThreadId)
+import           Mockable.Metrics (Counter, Distribution, Gauge)
+import           Mockable.SharedAtomic (SharedAtomicT)
+import           Mockable.SharedExclusive (SharedExclusiveT)
 
 data JsonLogConfig
     = JsonLogDisabled
@@ -70,9 +66,9 @@ instance MonadBaseControl b m => MonadBaseControl b (JsonLogT m) where
 
     type StM (JsonLogT m) a = StM m a
 
-    liftBaseWith f = JsonLogT $ liftBaseWith $ \g -> f (g . packM)
+    liftBaseWith f = liftBaseWith f
 
-    restoreM = unpackM . restoreM
+    restoreM = restoreM
 
 instance WithLogger m => CanLog (JsonLogT m) where
 
@@ -82,13 +78,9 @@ instance WithLogger m => HasLoggerName (JsonLogT m) where
 
     modifyLoggerName f = hoist (modifyLoggerName f)
 
-instance Monad m => WrappedM (JsonLogT m) where
 
-    type UnwrappedM (JsonLogT m) = ReaderT JsonLogConfig m
 
-    unpackM = JsonLogT
 
-    packM (JsonLogT m) = m
 
 type instance Gauge (JsonLogT m) = Gauge m
 type instance Counter (JsonLogT m) = Counter m
@@ -99,42 +91,24 @@ type instance SharedAtomicT (JsonLogT m) = SharedAtomicT m
 type instance SharedExclusiveT (JsonLogT m) = SharedExclusiveT m
 type instance ChannelT (JsonLogT m) = ChannelT m
 
-instance Mockable Fork m => Mockable Fork (JsonLogT m) where
-
-    liftMockable = liftMockableWrappedM
-
-instance Mockable Delay m => Mockable Delay (JsonLogT m) where
-
-    liftMockable = liftMockableWrappedM
-
-instance Mockable Async m => Mockable Async (JsonLogT m) where
-
-    liftMockable = liftMockableWrappedM
-
-instance Mockable Concurrently m => Mockable Concurrently (JsonLogT m) where
-
-    liftMockable = liftMockableWrappedM
-
-instance Mockable CurrentTime m => Mockable CurrentTime (JsonLogT m) where
-
-    liftMockable = liftMockableWrappedM
-
-instance Mockable SharedAtomic m => Mockable SharedAtomic (JsonLogT m) where
-
-    liftMockable = liftMockableWrappedM
-
-instance Mockable SharedExclusive m => Mockable SharedExclusive (JsonLogT m) where
-
-    liftMockable = liftMockableWrappedM
-
-instance Mockable Channel m => Mockable Channel (JsonLogT m) where
-
-    liftMockable = liftMockableWrappedM
 
 
-instance Mockable Metrics m => Mockable Metrics (JsonLogT m) where
 
-    liftMockable = liftMockableWrappedM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 jsonLogDefault
     :: (ToJSON a, MonadCatch m, MonadIO m, WithLogger m)

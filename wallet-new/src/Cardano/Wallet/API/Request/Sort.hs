@@ -12,7 +12,7 @@ import qualified Prelude
 import           Universum
 
 import qualified Data.Text as T
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Data.Typeable
 import           Formatting (bprint, build, formatToString, sformat)
 import qualified Generics.SOP as SOP

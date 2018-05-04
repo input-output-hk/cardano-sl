@@ -11,7 +11,7 @@ module Error
 
 import           Universum
 
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, stext, (%))
 
 import           Cardano.Wallet.API.V1.Types (Account, Address, EstimatedFees, Transaction, V1,

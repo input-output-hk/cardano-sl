@@ -46,7 +46,6 @@ library
                      , log-warper
                      , reflection
                      , rocksdb-haskell-ng
-                     , text-format
                      , universum
                      , unliftio
                      , unordered-containers

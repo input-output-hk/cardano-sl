@@ -19,7 +19,7 @@ import           Universum
 import           Data.Default (Default (def))
 import           Data.Reflection (Given (..), give, given)
 import qualified Data.Text as T
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, stext, (%))
 import           Instances.TH.Lift ()
 import qualified Language.Haskell.TH as TH

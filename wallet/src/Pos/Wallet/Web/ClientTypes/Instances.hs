@@ -10,7 +10,7 @@ import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import           Data.List (partition)
 import           Data.Text (splitOn)
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, build, int, sformat, (%))
 import qualified Serokell.Util.Base16 as Base16
 import           Servant.API (FromHttpApiData (..), ToHttpApiData (..))

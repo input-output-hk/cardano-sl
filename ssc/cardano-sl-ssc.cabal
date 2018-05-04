@@ -68,6 +68,7 @@ library
 
   build-depends:       QuickCheck
                      , aeson
+                     , aeson-options
                      , array
                      , base
                      , bytestring
@@ -101,7 +102,6 @@ library
                      , stm
                      , tagged
                      , text
-                     , text-format
                      , time-units
                      , transformers
                      , universum

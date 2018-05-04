@@ -48,7 +48,7 @@ import           Universum
 import           Control.Monad.Except (MonadError(throwError))
 import           Control.Lens (makeLenses, makePrisms)
 import           Data.Hashable (Hashable)
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 import           Data.Vector (Vector)
 import           Fmt (genericF)
 import           Formatting (Format, bprint, build, builder, int, later, sformat, (%))

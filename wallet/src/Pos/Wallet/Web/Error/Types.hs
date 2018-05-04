@@ -10,7 +10,7 @@ module Pos.Wallet.Web.Error.Types
 import           Universum
 
 import           Control.Lens (makePrisms)
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, stext, (%))
 
 data WalletError

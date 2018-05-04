@@ -49,7 +49,7 @@ import           Universum
 
 import           Control.Lens (makeLensesFor)
 import           Data.Default (Default (def))
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Data.Time.Units (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 

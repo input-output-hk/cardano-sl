@@ -11,7 +11,7 @@ module Pos.Core.Block.Main.Chain
 
 import           Universum
 
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Fmt (genericF)
 
 import           Pos.Binary.Class (Bi)

@@ -34,7 +34,7 @@ import           Control.Lens (makeLenses)
 import           Data.Default (Default, def)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Data.Text.Lazy.Builder (Builder, fromText)
 import           Formatting (sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)

@@ -69,6 +69,7 @@ library
 
   build-depends:       QuickCheck
                      , aeson
+                     , aeson-options
                      , base
                      , bytestring
                      , cardano-sl-binary
@@ -106,7 +107,6 @@ library
                      , tagged
                      , template-haskell
                      , text
-                     , text-format
                      , transformers
                      , universum
                      , unliftio

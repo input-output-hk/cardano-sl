@@ -20,7 +20,7 @@ import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, gener
                              withObject, (.:), (.:?))
 import           Data.Default (Default (..))
 import           Data.Time.Units (fromMicroseconds)
-import           Serokell.Aeson.Options (defaultOptions)
+import           Data.Aeson.Options (defaultOptions)
 import           System.FilePath (takeDirectory)
 import           System.Wlog (WithLogger, logInfo)
 

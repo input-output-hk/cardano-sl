@@ -12,8 +12,8 @@ module Pos.Crypto.AsBinary (
 import           Universum
 
 import qualified Data.ByteString as BS
-import           Data.Text.Buildable (Buildable)
-import qualified Data.Text.Buildable as Buildable
+import           Formatting.Buildable (Buildable)
+import qualified Formatting.Buildable as Buildable
 import           Formatting (bprint, int, sformat, stext, (%))
 
 import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi, decodeFull', serialize')
@@ -32,7 +32,7 @@ checkLen :: Text -> Text -> Int -> ByteString -> ByteString
 checkLen action name len bs =
     maybe bs error $ checkLenImpl action name len $ BS.length bs
 
-checkLenImpl :: Integral a => Text -> Text -> a -> a -> Maybe Text
+checkLenImpl :: (Buildable a, Integral a) => Text -> Text -> a -> a -> Maybe Text
 checkLenImpl action name expectedLen len
     | expectedLen == len = Nothing
     | otherwise =

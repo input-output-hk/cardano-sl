@@ -68,7 +68,7 @@ import           Universum
 import           Control.Lens (makeLenses)
 import           Data.Default (Default, def)
 import           Data.Hashable (Hashable (..))
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable (Typeable)
 import           Data.Version (Version)

@@ -22,11 +22,11 @@ import           Data.Aeson.Encode.Pretty (encodePretty)
 import           Data.Aeson.TH
 import qualified Data.Char as Char
 import           Data.Swagger as S
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Data.Typeable
 import           Formatting (bprint, build, (%))
 import           GHC.Generics (Generic)
-import qualified Serokell.Aeson.Options as Serokell
+import qualified Data.Aeson.Options as Serokell
 import           Servant.API.ContentTypes (Accept (..), JSON, MimeRender (..), MimeUnrender (..),
                                            OctetStream)
 import           Test.QuickCheck

@@ -5,6 +5,11 @@
 {-# LANGUAGE Rank2Types                #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeOperators             #-}
+{-# LANGUAGE CPP                       #-}
+
+#if __GLASGOW_HASKELL__ >= 804
+{-# LANGUAGE PolyKinds                 #-}
+#endif
 
 -- | Some utilites for more flexible servant usage.
 
@@ -60,7 +65,7 @@ import           Data.Constraint.Forall (Forall, inst)
 import           Data.Default (Default (..))
 import           Data.Reflection (Reifies (..), reflect)
 import qualified Data.Text as T
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Formatting (bprint, build, builder, fconst, formatToString, sformat, shown, stext,
                              string, (%))
@@ -509,7 +514,8 @@ paramRouteWithLog =
                 \sl -> sformat (string%": "%stext) paramName (paramVal sl)
         in addParamLogInfo paramInfo
 
-instance ( HasServer (subApi :> res) ctx
+instance {-# OVERLAPPABLE #-}
+         ( HasServer (subApi :> res) ctx
          , HasServer (subApi :> LoggingApiRec config res) ctx
          , ApiHasArg subApi res
          , ApiHasArg subApi (LoggingApiRec config res)
@@ -520,11 +526,13 @@ instance ( HasServer (subApi :> res) ctx
          HasLoggingServer config (apiType a :> res) ctx where
     routeWithLog = paramRouteWithLog
 
-instance HasLoggingServer config res ctx =>
+instance {-# OVERLAPPING #-}
+         HasLoggingServer config res ctx =>
          HasLoggingServer config (Summary s :> res) ctx where
     routeWithLog = inRouteServer @(Summary s :> LoggingApiRec config res) route identity
 
-instance HasLoggingServer config res ctx =>
+instance {-# OVERLAPPING #-}
+         HasLoggingServer config res ctx =>
          HasLoggingServer config (Description d :> res) ctx where
     routeWithLog = inRouteServer @(Description d :> LoggingApiRec config res) route identity
 

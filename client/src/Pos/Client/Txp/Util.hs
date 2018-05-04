@@ -51,7 +51,7 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import qualified Data.Semigroup as S
 import qualified Data.Set as Set
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Data.Traversable (for)
 import qualified Data.Vector as V
 import           Formatting (bprint, build, sformat, stext, (%))
@@ -84,7 +84,7 @@ type TxWithSpendings = (TxAux, NonEmpty TxOut)
 -- | List of addresses which are refered by at least one output of transaction
 -- which is not yet confirmed i.e. detected in block.
 newtype PendingAddresses = PendingAddresses (Set Address)
-    deriving (Show, Monoid)
+    deriving (Show, Semigroup, Monoid)
 
 instance Buildable TxWithSpendings where
     build (txAux, neTxOut) =

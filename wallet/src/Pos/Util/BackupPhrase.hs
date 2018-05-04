@@ -13,7 +13,7 @@ import           Universum
 
 import           Crypto.Hash (Blake2b_256)
 import qualified Data.ByteString as BS
-import           Data.Text.Buildable (Buildable (..))
+import           Formatting.Buildable (Buildable (..))
 import           Test.QuickCheck (Arbitrary (..), Gen, genericShrink, vectorOf)
 import           Test.QuickCheck.Instances ()
 

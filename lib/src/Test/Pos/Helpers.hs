@@ -24,7 +24,7 @@ import           Data.Functor.Identity (Identity (..))
 import           Data.SafeCopy (SafeCopy, safeGet, safePut)
 import           Data.Serialize (runGet, runPut)
 import           Data.Typeable (typeRep)
-import           Formatting (formatToString, int, (%))
+import           Formatting (formatToString, int, asInt, (%))
 import           Prelude (read)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, modifyMaxSize, prop)
@@ -160,7 +160,7 @@ msgLenLimitedCheck limit msg =
         then property True
         else flip counterexample False $
             formatToString ("Message size (max found "%int%") exceedes \
-            \limit ("%int%")") sz limit
+            \limit ("%asInt%")") sz limit
 
 msgLenLimitedTest'
     :: forall a. IdTestingRequiredClasses Bi a

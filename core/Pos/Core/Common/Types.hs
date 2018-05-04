@@ -65,7 +65,7 @@ import qualified Data.ByteString.Char8 as BSC (pack)
 import           Data.Data (Data)
 import           Data.Hashable (Hashable (..))
 import qualified Data.Semigroup (Semigroup (..))
-import qualified Data.Text.Buildable as Buildable
+import qualified Formatting.Buildable as Buildable
 import           Formatting (Format, bprint, build, int, later, sformat, (%))
 import qualified PlutusCore.Program as PLCore
 import           Serokell.Util (enumerate, listChunkedJson, pairBuilder)

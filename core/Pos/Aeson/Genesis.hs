@@ -39,7 +39,7 @@ import           Data.Aeson.Encoding (text)
 import           Data.Aeson.TH (deriveJSON)
 import qualified Data.HashMap.Strict as HM
 import           Formatting (sformat)
-import           Serokell.Aeson.Options (defaultOptions)
+import           Data.Aeson.Options (defaultOptions)
 
 import           Pos.Aeson.Core ()
 import           Pos.Aeson.Crypto ()

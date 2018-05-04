@@ -18,8 +18,8 @@ import qualified Cardano.Crypto.Wallet as CC
 import           Crypto.Random (MonadRandom)
 import           Data.ByteArray (ByteArray, ByteArrayAccess, ScrubbedBytes)
 import           Data.Default (Default (..))
-import           Data.Text.Buildable (build)
-import qualified Data.Text.Buildable as B
+import           Formatting.Buildable (build)
+import qualified Formatting.Buildable as B
 import qualified Prelude
 import           Universum
 
@@ -45,7 +45,7 @@ instance B.Buildable EncryptedSecretKey where
     build _ = "<encrypted key>"
 
 newtype PassPhrase = PassPhrase ScrubbedBytes
-    deriving (Eq, Ord, Monoid, NFData, ByteArray, ByteArrayAccess)
+    deriving (Eq, Ord, Semigroup, Monoid, NFData, ByteArray, ByteArrayAccess)
 
 passphraseLength :: Int
 passphraseLength = 32

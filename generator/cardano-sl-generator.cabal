@@ -64,7 +64,6 @@ library
                      , safe-exceptions
                      , serokell-util
                      , text
-                     , text-format
                      , time-units
                      , transformers-base
                      , universum

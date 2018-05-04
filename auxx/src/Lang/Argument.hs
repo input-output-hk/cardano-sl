@@ -3,6 +3,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE CPP                       #-}
 
 module Lang.Argument
        ( ArgumentError(..)
@@ -43,10 +44,15 @@ isEmptyArgumentError :: ArgumentError -> Bool
 isEmptyArgumentError ArgumentError{..} =
     Set.null aeMissingKeys && Set.null aeIrrelevantKeys && aeIrrelevantPos == 0
 
+instance Semigroup ArgumentError where
+    (ArgumentError m1 i1 p1) <> (ArgumentError m2 i2 p2) =
+        ArgumentError (Set.union m1 m2) (Set.union i1 i2) (p1 + p2)
+
 instance Monoid ArgumentError where
     mempty = ArgumentError Set.empty Set.empty 0
-    mappend (ArgumentError m1 i1 p1) (ArgumentError m2 i2 p2) =
-        ArgumentError (Set.union m1 m2) (Set.union i1 i2) (p1 + p2)
+#if !(MIN_VERSION_base(4,11,0))
+    mappend = (<>)
+#endif
 
 data TypeName = TypeName Text | TypeNameEither TypeName TypeName
     deriving (Eq, Ord, Show)
@@ -68,10 +74,15 @@ isEmptyProcError :: ProcError -> Bool
 isEmptyProcError ProcError{..} =
     isEmptyArgumentError peArgumentError && Set.null peTypeErrors
 
+instance Semigroup ProcError where
+    (ProcError a1 t1) <> (ProcError a2 t2) =
+        ProcError (mappend a1 a2) (Set.union t1 t2)
+
 instance Monoid ProcError where
     mempty = ProcError mempty Set.empty
-    mappend (ProcError a1 t1) (ProcError a2 t2) =
-        ProcError (mappend a1 a2) (Set.union t1 t2)
+#if !(MIN_VERSION_base(4,11,0))
+    mappend = (<>)
+#endif
 
 data ArgumentConsumerState = ACS
     { acsRemaining :: ![Arg Value]

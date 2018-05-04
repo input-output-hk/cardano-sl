@@ -7,6 +7,7 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PolyKinds                  #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE CPP                        #-}
 
 -- The hlint parser fails on the `pattern` function, so we disable the
 -- language extension here.
@@ -92,14 +93,14 @@ import           Data.Swagger.Internal.Schema (GToSchema)
 import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text as T
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Data.Version (Version)
 import           Formatting (bprint, build, fconst, int, sformat, (%))
 import           GHC.Generics (Generic, Rep)
 import           Network.Transport (EndPointAddress (..))
 import           Node (NodeId (..))
 import qualified Prelude
-import qualified Serokell.Aeson.Options as Serokell
+import qualified Data.Aeson.Options as Serokell
 import           Serokell.Util (listJson)
 import qualified Serokell.Util.Base16 as Base16
 import           Servant
@@ -388,9 +389,15 @@ instance ToSchema (V1 Core.Timestamp) where
 -- base16-encoded string.
 type SpendingPassword = V1 Core.PassPhrase
 
+instance Semigroup (V1 Core.PassPhrase) where
+    (V1 a) <> (V1 b) = V1 (a <> b)
+
 instance Monoid (V1 Core.PassPhrase) where
     mempty = V1 mempty
-    mappend (V1 a) (V1 b) = V1 (a `mappend` b)
+#if !MIN_VERSION_base(4,11,0)
+    mappend = (<>)
+#endif
+
 
 type WalletName = Text
 

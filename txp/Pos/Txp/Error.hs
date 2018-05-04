@@ -5,7 +5,7 @@ module Pos.Txp.Error
        ) where
 
 import           Control.Exception.Safe (Exception (..))
-import qualified Data.Text.Buildable
+import qualified Formatting.Buildable
 import           Formatting (bprint, stext, (%))
 import           Universum
 

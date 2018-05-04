@@ -38,7 +38,7 @@ import           KeygenOptions (DumpAvvmSeedsOptions (..), GenKeysOptions (..), 
 -- Helpers
 ----------------------------------------------------------------------------
 
-rearrangeKeyfile :: (MonadIO m, MonadThrow m, Log.LogContext m) => FilePath -> m ()
+rearrangeKeyfile :: (MonadIO m, MonadThrow m, Log.WithLogger m) => FilePath -> m ()
 rearrangeKeyfile fp = do
     us <- takeUserSecret fp
     let sk = maybeToList $ us ^. usPrimKey
@@ -49,10 +49,10 @@ rearrangeKeyfile fp = do
 -- Commands
 ----------------------------------------------------------------------------
 
-rearrange :: (MonadIO m, MonadThrow m, Log.LogContext m) => FilePath -> m ()
+rearrange :: (MonadIO m, MonadThrow m, Log.WithLogger m) => FilePath -> m ()
 rearrange msk = mapM_ rearrangeKeyfile =<< liftIO (glob msk)
 
-genPrimaryKey :: (HasConfigurations, MonadIO m, MonadThrow m, Log.LogContext m, MonadRandom m) => FilePath -> m ()
+genPrimaryKey :: (HasConfigurations, MonadIO m, MonadThrow m, Log.WithLogger m, MonadRandom m) => FilePath -> m ()
 genPrimaryKey path = do
     rs <- liftIO generateRichSecrets
     dumpRichSecrets path rs
@@ -66,7 +66,7 @@ genPrimaryKey path = do
             (addressHash pk)
             pk
 
-readKey :: (MonadIO m, MonadThrow m, Log.LogContext m) => FilePath -> m ()
+readKey :: (MonadIO m, MonadThrow m, Log.WithLogger m) => FilePath -> m ()
 readKey path = do
     us <- readUserSecret path
     Log.logInfo $ maybe "No Primary key"
@@ -97,7 +97,7 @@ decryptESK :: EncryptedSecretKey -> SecretKey
 decryptESK (EncryptedSecretKey sk _) = SecretKey sk
 
 dumpAvvmSeeds
-    :: (MonadIO m, Log.LogContext m)
+    :: (MonadIO m, Log.WithLogger m)
     => DumpAvvmSeedsOptions -> m ()
 dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
     Log.logInfo $ "Generating fake avvm data into " <> fromString dasPath
@@ -118,7 +118,7 @@ dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
     Log.logInfo $ "Seeds were generated"
 
 generateKeysByGenesis
-    :: (HasConfigurations, MonadIO m, Log.LogContext m, MonadThrow m, MonadRandom m)
+    :: (HasConfigurations, MonadIO m, Log.WithLogger m, MonadThrow m, MonadRandom m)
     => GenKeysOptions -> m ()
 generateKeysByGenesis GenKeysOptions{..} = do
     case ccGenesis coreConfiguration of
@@ -129,7 +129,7 @@ generateKeysByGenesis GenKeysOptions{..} = do
             Log.logInfo (toText gkoOutDir <> " generated successfully")
 
 genVssCert
-    :: (HasConfigurations, Log.LogContext m, MonadIO m)
+    :: (HasConfigurations, Log.WithLogger m, MonadIO m)
     => FilePath -> m ()
 genVssCert path = do
     us <- readUserSecret path

@@ -40,8 +40,8 @@ import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import qualified Options.Applicative as Opt
 import           Serokell.Util.OptParse (fromParsec)
-import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName, logError,
-                              logNotice, usingLoggerName)
+--import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName, logError,
+--                              logNotice, usingLoggerName)
 
 import qualified Pos.DHT.Real.Param as DHT (KademliaParams (..), MalformedDHTKey (..),
                                             fromYamlConfig)
@@ -52,7 +52,7 @@ import           Pos.Network.Yaml (NodeMetadata (..))
 import qualified Pos.Network.Yaml as Y
 import           Pos.Util.TimeWarp (NetworkAddress, addrParser, addrParserNoWildcard,
                                     addressToNodeId)
-
+import qualified Pos.Util.Log as Log
 #ifdef POSIX
 import           Pos.Util.SigHandler (Signal (..), installHandler)
 #endif
@@ -188,7 +188,7 @@ monitorStaticConfig ::
     -> Peers NodeId -- ^ Initial value
     -> LoggerNameBox IO T.StaticPeers
 monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
-    lname <- askLoggerName
+    lname <- Log.askLoggerName
     events :: Chan MonitorEvent <- liftIO newChan
 
 #ifdef POSIX
@@ -272,7 +272,7 @@ launchStaticConfigMonitoring topology = liftIO action
 -- | Interpreter for the network config opts
 intNetworkConfigOpts ::
        forall m.
-       ( WithLogger m
+       ( Log.WithLogger m
        , MonadIO m
        , MonadCatch m
        )
@@ -287,7 +287,7 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
         Y.TopologyStatic{..} -> do
             (md@NodeMetadata{..}, initPeers, kademliaPeers) <-
                 liftIO $ fromPovOf cfg topologyAllPeers
-            loggerName <- askLoggerName
+            loggerName <- Log.askLoggerName
             topologyStaticPeers <-
                 liftIO . usingLoggerName loggerName $
                 monitorStaticConfig cfg md initPeers

@@ -94,6 +94,8 @@ but also to try and capture our intuitions about what a cryptocurrency wallet
 
 \section{Introduction}
 
+\subsection{Why bother with a formal specification?}
+
 Cryptocurrency wallets are vital components of a cryptocurrency system and
 deserve to be designed carefully. Wallets observe and interact with the
 blockchain ledger to keep track of the currency belonging to a user, and allow
@@ -142,10 +144,68 @@ The specification style is constructive and executable and each of the
 specification refinements can be run in simulation. This is deliberate as
 it forms the basis of tests for a full implementation.
 
-\pagebreak
+\subsection{Overview}
 
+We start by identifying the key wallet operations. We have reduced this to
+just querying the wallet balance, updating as new blocks arrive, and adding
+new outgoing transactions. We initially ignore details like history tracking
+and related queries.
+
+We identify the minimal state as the wallet's UTxO, derived solely from the
+blockchain, and a set of pending transactions. The pending transactions are
+those transactions that we have created and submitted but that have not yet
+appeared in the blockchain.
+
+We identify two notions of balance for this basic version of the specification:
+the total balance and the available balance. The available balance of my wallet
+is what I can include into a transaction right now and spend. Crucially this
+does not include change from pending transactions that have not been committed
+yet. The total balance \emph{does} include the expected change from pending
+transactions.
+
+This initial basic specification, covering the state, operations and balance
+has a formal description that fits on a single page.
+
+Our initial basic specification ignores issues related to blockchain forking.
+It is tempting to hope that because each blockchain is \emph{conceptually}
+always linear, even in the presence of forks, that we can easily extend the
+basic specification with support for forks. Unfortunately, this is not the
+case. While the UTxO of a wallet depends only on the history of the `current'
+blockchain fork, the set of pending transactions depends on the real-world
+history of events, including switching forks. So we must take account of the
+meaning of pending transactions when switching from one blockchain fork to
+another.
+
+It turns out that there can be very complex situations with pending transactions
+once we take forking into account. We define an additional notion of
+\emph{minimum} balance to cover these situations that corresponds roughly to
+the `value at risk': the minimum possible balance across all the known possible
+futures.
+
+We consider the asymptotic complexity of the executable specifications to
+help ensure that practical implementations with reasonable performance can be
+achieved.
+
+Having ignored inessential topics like transaction history tracking in the
+initial basic spec, we extend the spec to cover tracking of metadata in
+general, and allowing for history tracking in particular.
+
+We cover transaction submission, to demonstrate that it can be handled in a
+modular way, without changes to the core wallet state.
+
+Finally we cover the topic of transaction input selection. This is a
+significant topic in its own right as it is a non-trivial problem for UTxO
+based currencies. The wallet design means that input selection can be handled
+independently, without being intertwined with the core wallet specification.
+The design clarifies that input selection and transaction signing can be
+handled asynchronously from the other wallet state changes. This is important
+since transaction signing in particular may need to be handled on a client
+device or special hardware and may require user confirmation.
+
+\pagebreak
 \tableofcontents
 \listoffigures
+\pagebreak
 
 % \section*{Status}
 %

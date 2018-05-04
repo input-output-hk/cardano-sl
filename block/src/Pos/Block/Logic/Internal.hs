@@ -54,6 +54,7 @@ import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Logic (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.Ssc.Types (SscBlock)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Txp.MemState (MonadTxpLocal (..))
 import           Pos.Txp.Settings (TxpBlock, TxpBlund, TxpGlobalSettings (..))
 import           Pos.Update (UpdateBlock)
@@ -140,7 +141,7 @@ normalizeMempool = do
 --
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
-    :: forall ctx m . (MonadBlockApply ctx m)
+    :: forall ctx m . (HasTxpConfiguration, MonadBlockApply ctx m)
     => ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
@@ -171,7 +172,7 @@ applyBlocksUnsafe scb blunds pModifier = do
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
 
 applyBlocksDbUnsafeDo
-    :: forall ctx m . (MonadBlockApply ctx m)
+    :: forall ctx m . (HasTxpConfiguration, MonadBlockApply ctx m)
     => ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier

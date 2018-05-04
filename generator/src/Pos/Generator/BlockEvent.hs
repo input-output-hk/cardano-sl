@@ -67,6 +67,7 @@ import           Pos.Generator.Block (BlockGenParams (..), BlockTxpGenMode, Mona
                                       TxGenParams (..), genBlocks)
 import           Pos.GState (withClonedGState)
 import           Pos.Txp (TxpGlobalSettings)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
                                   toOldestFirst, _OldestFirst)
 import           Pos.Util.Util (lensOf')
@@ -154,7 +155,7 @@ flattenBlockchainTree prePath tree = do
     (prePath, a) : flattenBlockchainForest prePath forest
 
 genBlocksInForest
-    :: BlockTxpGenMode g ctx m
+    :: (HasTxpConfiguration, BlockTxpGenMode g ctx m)
     => AllSecrets
     -> GenesisWStakeholders
     -> BlockchainForest BlockDesc
@@ -164,7 +165,7 @@ genBlocksInForest secrets bootStakeholders =
     genBlocksInTree secrets bootStakeholders
 
 genBlocksInTree
-    :: BlockTxpGenMode g ctx m
+    :: (HasTxpConfiguration, BlockTxpGenMode g ctx m)
     => AllSecrets
     -> GenesisWStakeholders
     -> BlockchainTree BlockDesc
@@ -196,7 +197,8 @@ genBlocksInTree secrets bootStakeholders blockchainTree = do
 
 -- Precondition: paths in the structure are non-empty.
 genBlocksInStructure ::
-       ( BlockTxpGenMode g ctx m
+       ( HasTxpConfiguration
+       , BlockTxpGenMode g ctx m
        , Functor t, Foldable t)
     => AllSecrets
     -> GenesisWStakeholders

@@ -38,6 +38,7 @@ import           Pos.Core (Block, HasGeneratedSecrets, HasGenesisBlockVersionDat
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Logic (dlgVerifyBlocks)
 import           Pos.Reporting (HasMisbehaviorMetrics)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Ssc.Logic (sscVerifyBlocks)
 import           Pos.Txp.Settings (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
 import qualified Pos.Update.DB as GS (getAdoptedBV)
@@ -68,7 +69,9 @@ import           Pos.Util.Util (HasLens (..))
 -- 4.  Return all undos.
 verifyBlocksPrefix
     :: forall ctx m.
-       ( MonadBlockVerify ctx m )
+       ( HasTxpConfiguration
+       , MonadBlockVerify ctx m
+       )
     => OldestFirst NE Block
     -> m (Either VerifyBlocksException (OldestFirst NE Undo, PollModifier))
 verifyBlocksPrefix blocks = runExceptT $ do
@@ -123,7 +126,8 @@ type BlockLrcMode ctx m = (MonadBlockApply ctx m, LrcModeFull ctx m)
 -- warning that partial application has occurred.
 verifyAndApplyBlocks
     :: forall ctx m.
-       ( BlockLrcMode ctx m
+       ( HasTxpConfiguration
+       , BlockLrcMode ctx m
        , MonadMempoolNormalization ctx m
        , HasGeneratedSecrets
        , HasGenesisData

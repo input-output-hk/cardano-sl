@@ -18,7 +18,7 @@ import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingParams,
                                bracketNodeResources, loggerBracket, lpDefaultName, runNode,
                                withConfigurations)
-import           Pos.Launcher.Configuration (ConfigurationOptions, HasConfigurations)
+import           Pos.Launcher.Configuration (AssetLockPath (..), ConfigurationOptions, HasConfigurations)
 import           Pos.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
@@ -152,10 +152,10 @@ actionWithNewWallet sscParams nodeParams params =
 startEdgeNode :: HasCompileInfo
               => WalletStartupOptions
               -> Production ()
-startEdgeNode WalletStartupOptions{..} =
-  withConfigurations conf $ \ntpConfig -> do
+startEdgeNode wso =
+  withConfigurations blPath conf $ \ntpConfig -> do
       (sscParams, nodeParams) <- getParameters ntpConfig
-      case wsoWalletBackendParams of
+      case wsoWalletBackendParams wso of
         WalletLegacy legacyParams ->
           actionWithWallet sscParams nodeParams ntpConfig legacyParams
         WalletNew newParams ->
@@ -164,17 +164,20 @@ startEdgeNode WalletStartupOptions{..} =
     getParameters :: HasConfigurations => NtpConfiguration -> Production (SscParams, NodeParams)
     getParameters ntpConfig = do
 
-      currentParams <- CLI.getNodeParams defaultLoggerName wsoNodeArgs nodeArgs
+      currentParams <- CLI.getNodeParams defaultLoggerName (wsoNodeArgs wso) nodeArgs
       let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-      let gtParams = CLI.gtSscParams wsoNodeArgs vssSK (npBehaviorConfig currentParams)
+      let gtParams = CLI.gtSscParams (wsoNodeArgs wso) vssSK (npBehaviorConfig currentParams)
 
-      CLI.printInfoOnStart wsoNodeArgs ntpConfig
+      CLI.printInfoOnStart (wsoNodeArgs wso) ntpConfig
       logInfo "Wallet is enabled!"
 
       return (gtParams, currentParams)
 
     conf :: ConfigurationOptions
-    conf = CLI.configurationOptions $ CLI.commonArgs wsoNodeArgs
+    conf = CLI.configurationOptions $ CLI.commonArgs (wsoNodeArgs wso)
+
+    blPath :: Maybe AssetLockPath
+    blPath = AssetLockPath <$> CLI.cnaAssetLockPath (wsoNodeArgs wso)
 
     nodeArgs :: CLI.NodeArgs
     nodeArgs = CLI.NodeArgs { CLI.behaviorConfigPath = Nothing }

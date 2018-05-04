@@ -44,6 +44,7 @@ import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockDesc (..)
                                            SnapshotOperation (..), byChance,
                                            enrichWithSnapshotChecking, genBlocksInStructure,
                                            pathSequence)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toOldestFirst,
                                   _NewestFirst)
 
@@ -114,7 +115,7 @@ snapshotEq snapshotId = emitEvent $
     BlkEvSnap (SnapshotEq snapshotId)
 
 runBlockEventGenT
-    :: BlockTxpGenMode g ctx m
+    :: (HasTxpConfiguration, BlockTxpGenMode g ctx m)
     => AllSecrets
     -> GenesisWStakeholders
     -> BlockEventGenT g m ()

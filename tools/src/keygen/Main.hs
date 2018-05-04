@@ -152,7 +152,7 @@ main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
     setupLogging Nothing $ productionB <> termSeveritiesOutB debugPlus
-    usingLoggerName "keygen" $ withConfigurations koConfigurationOptions $ \_ -> do
+    usingLoggerName "keygen" $ withConfigurations Nothing koConfigurationOptions $ \_ -> do
         logInfo "Processing command"
         case koCommand of
             RearrangeMask msk       -> rearrange msk

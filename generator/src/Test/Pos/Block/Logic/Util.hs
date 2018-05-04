@@ -29,7 +29,7 @@ import           Pos.Core (BlockCount, GenesisData (..), HasGenesisData,
 import           Pos.Core.Block (Block)
 import           Pos.Generator.Block (BlockGenMode, BlockGenParams (..), MonadBlockGenInit,
                                       genBlocks, tgpTxCountRange)
-import           Pos.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings, txpGlobalSettings)
+import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal, TxpGlobalSettings, txpGlobalSettings)
 import           Pos.Util (HasLens', _neLast)
 import           Pos.Util.Chrono (NE, OldestFirst (..))
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContext, btcSlotIdL)
@@ -77,6 +77,7 @@ genBlockGenParams blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB)
 bpGenBlocks
     :: ( MonadBlockGenInit ctx m
        , HasLens' ctx TxpGlobalSettings
+       , HasTxpConfiguration
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        , HasAllSecrets ctx
@@ -95,6 +96,7 @@ bpGenBlocks blkCnt enableTxPayload inplaceDB = do
 bpGenBlock
     :: ( MonadBlockGenInit ctx m
        , HasLens' ctx TxpGlobalSettings
+       , HasTxpConfiguration
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        , HasAllSecrets ctx
        , Default (MempoolExt m)

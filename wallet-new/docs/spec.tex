@@ -147,7 +147,7 @@ it forms the basis of tests for a full implementation.
 \subsection{Overview}
 
 We start by identifying the key wallet operations. We have reduced this to
-just querying the wallet balance, updating as new blocks arrive, and adding
+just querying the wallet balance, updating the wallet as new blocks arrive, and adding
 new outgoing transactions. We initially ignore details like history tracking
 and related queries.
 
@@ -187,15 +187,15 @@ help ensure that practical implementations with reasonable performance can be
 achieved.
 
 Having ignored inessential topics like transaction history tracking in the
-initial basic spec, we extend the spec to cover tracking of metadata in
+initial basic specification, we extend the spec to cover tracking of metadata in
 general, and allowing for history tracking in particular.
 
 We cover transaction submission, to demonstrate that it can be handled in a
 modular way, without changes to the core wallet state.
 
 Finally we cover the topic of transaction input selection. This is a
-significant topic in its own right as it is a non-trivial problem for UTxO
-based currencies. The wallet design means that input selection can be handled
+significant topic in its own right as it is a non-trivial problem for UTxO-based
+currencies. The wallet design means that input selection can be handled
 independently, without being intertwined with the core wallet specification.
 The design clarifies that input selection and transaction signing can be
 handled asynchronously from the other wallet state changes. This is important

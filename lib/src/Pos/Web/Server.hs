@@ -21,8 +21,9 @@ import           Data.Aeson.TH (defaultOptions, deriveToJSON)
 import           Data.Default (Default)
 import           Mockable (Production (runProduction))
 import           Network.Wai (Application)
-import           Network.Wai.Handler.Warp (Settings, defaultSettings, runSettings, setHost, setPort)
-import           Network.Wai.Handler.WarpTLS (TLSSettings, runTLS, tlsSettingsChain)
+import           Network.Wai.Handler.Warp (Settings, defaultSettings, setHost, setPort, getHost, runSettingsSocket)
+import           Network.Wai.Handler.WarpTLS (TLSSettings, tlsSettingsChain, runTLSSocket)
+import           Data.Streaming.Network      (bindRandomPortTCP, bindPortTCP)
 import           Servant.API ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server (Handler, HasServer, ServantErr (errBody), Server, ServerT, err404,
                                  err503, hoistServer, serve)
@@ -43,6 +44,8 @@ import           Pos.Txp.MemState (GenericTxpLocalData, MempoolExt, getLocalTxs,
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Web.Mode (WebMode, WebModeContext (..))
 import           Pos.WorkMode.Class (WorkMode)
+import           Network.Socket (close, Socket)
+import           Cardano.NodeIPC (startNodeJsIPC)
 
 import           Pos.Web.Api (HealthCheckApi, NodeApi, healthCheckApi, nodeApi)
 import           Pos.Web.Types (CConfirmedProposalState (..), TlsParams (..))
@@ -88,9 +91,28 @@ serveImpl
     -> Maybe TlsParams
     -> Maybe Settings
     -> m ()
-serveImpl app host port mWalletTLSParams mSettings =
-    liftIO . maybe runSettings runTLS mTlsConfig mySettings =<< app
+serveImpl app host port mWalletTLSParams mSettings = do
+    app' <- app
+    let
+      acquire :: IO (Word16, Socket)
+      acquire = if port == 0 then do
+          (port', socket) <- bindRandomPortTCP (getHost mySettings)
+          pure (fromIntegral port', socket)
+        else do
+          socket <- bindPortTCP (fromIntegral port) (getHost mySettings)
+          pure (port, socket)
+      release :: (Word16, Socket) -> IO ()
+      release (_, socket) = close socket
+      action :: (Word16, Socket) -> IO ()
+      action (port', socket) = do
+        -- TODO: requires warp 3.2.17 setSocketCloseOnExec socket
+        launchServer app' (port', socket)
+    liftIO $ bracket acquire release action
   where
+    launchServer :: Application -> (Word16, Socket) -> IO ()
+    launchServer app'' (port', socket) = do
+      startNodeJsIPC port'
+      maybe runSettingsSocket runTLSSocket mTlsConfig mySettings socket app''
     mySettings = setHost (fromString host) $
                  setPort (fromIntegral port) $
                  fromMaybe defaultSettings mSettings

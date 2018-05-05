@@ -33,7 +33,7 @@ startNodeJsIPC port = do
     thread <- forkIO $ ipcListener fd action
     pure ()
 
-data Packet = QueryPort | ReplyPort Word16 | Ping | Pong | ParseError String deriving (Show, Eq, Generic)
+data Packet = Started | QueryPort | ReplyPort Word16 | Ping | Pong | ParseError String deriving (Show, Eq, Generic)
 
 opts :: Options
 opts = defaultOptions { sumEncoding = ObjectWithSingleField }
@@ -49,6 +49,10 @@ ipcListener fd action = do
   --handle <- mkHandleFromFD fd Stream "IPC" ReadWriteMode False Nothing
   handle <- fdToHandle fd
   let
+    send :: Packet -> IO ()
+    send cmd = do
+      BSL.hPut handle $ (encode cmd) <> "\n"
+      hFlush handle
     loop :: IO ()
     loop = do
       line <- hGetLine handle
@@ -57,14 +61,14 @@ ipcListener fd action = do
         packet = eitherDecode $ BSLC.pack line
         handlePacket (Left err) = send $ ParseError err
         handlePacket (Right cmd) = action cmd send
-        send :: Packet -> IO ()
-        send cmd = do
-          BSL.hPut handle $ (encode cmd) <> "\n"
-          hFlush handle
       handlePacket packet
       loop
     handler :: IOError -> IO ()
     handler err = do
       print "end of file"
       when (isEOFError err) $ print "its an eof"
-  catch loop handler
+    start :: IO ()
+    start = do
+      send Started
+      loop
+  catch start handler

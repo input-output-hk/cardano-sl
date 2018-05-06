@@ -56,6 +56,7 @@ walletServeImpl
     -> NetworkAddress    -- ^ IP and port to listen
     -> Maybe TlsParams
     -> Maybe Settings
+    -> Maybe (Word16 -> IO ())
     -> m ()
 walletServeImpl app (ip, port) = serveImpl app (BS8.unpack ip) port
 

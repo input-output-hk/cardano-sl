@@ -45,7 +45,6 @@ import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Web.Mode (WebMode, WebModeContext (..))
 import           Pos.WorkMode.Class (WorkMode)
 import           Network.Socket (close, Socket)
-import           Cardano.NodeIPC (startNodeJsIPC)
 
 import           Pos.Web.Api (HealthCheckApi, NodeApi, healthCheckApi, nodeApi)
 import           Pos.Web.Types (CConfirmedProposalState (..), TlsParams (..))
@@ -68,7 +67,7 @@ withRoute53HealthCheckApplication
     -> IO x
 withRoute53HealthCheckApplication mStatus host port act = Async.withAsync go (const act)
   where
-    go = serveImpl (pure app) host port Nothing Nothing
+    go = serveImpl (pure app) host port Nothing Nothing Nothing
     app = route53HealthCheckApplication mStatus
 
 route53HealthCheckApplication :: IO HealthStatus -> Application
@@ -76,7 +75,7 @@ route53HealthCheckApplication mStatus =
     serve healthCheckApi (servantServerHealthCheck mStatus)
 
 serveWeb :: MyWorkMode ctx m => Word16 -> Maybe TlsParams -> m ()
-serveWeb port mTlsParams = serveImpl application "127.0.0.1" port mTlsParams Nothing
+serveWeb port mTlsParams = serveImpl application "127.0.0.1" port mTlsParams Nothing Nothing
 
 application :: MyWorkMode ctx m => m Application
 application = do
@@ -88,21 +87,26 @@ serveImpl
     => m Application
     -> String
     -> Word16
+    -- ^ if the port is 0, bind to a random port
     -> Maybe TlsParams
+    -- ^ if isJust, call it with the port after binding
     -> Maybe Settings
+    -> Maybe (Word16 -> IO ())
+    -- ^ if isJust, use https, isNothing, use raw http
     -> m ()
-serveImpl app host port mWalletTLSParams mSettings = do
+serveImpl app host port mWalletTLSParams mSettings mPortCallback = do
     app' <- app
     let
       acquire :: IO (Word16, Socket)
-      acquire = if port == 0 then do
+      acquire = liftIO $ if port == 0
+        then do
           (port', socket) <- bindRandomPortTCP (getHost mySettings)
           pure (fromIntegral port', socket)
         else do
           socket <- bindPortTCP (fromIntegral port) (getHost mySettings)
           pure (port, socket)
       release :: (Word16, Socket) -> IO ()
-      release (_, socket) = close socket
+      release (_, socket) = liftIO $ close socket
       action :: (Word16, Socket) -> IO ()
       action (port', socket) = do
         -- TODO: requires warp 3.2.17 setSocketCloseOnExec socket
@@ -111,7 +115,7 @@ serveImpl app host port mWalletTLSParams mSettings = do
   where
     launchServer :: Application -> (Word16, Socket) -> IO ()
     launchServer app'' (port', socket) = do
-      startNodeJsIPC port'
+      fromMaybe (const (pure ())) mPortCallback port'
       maybe runSettingsSocket runTLSSocket mTlsConfig mySettings socket app''
     mySettings = setHost (fromString host) $
                  setPort (fromIntegral port) $

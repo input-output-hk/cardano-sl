@@ -103,7 +103,7 @@ explorerServeImpl
     => m Application
     -> Word16
     -> m ()
-explorerServeImpl app port = serveImpl loggingApp "*" port Nothing Nothing
+explorerServeImpl app port = serveImpl loggingApp "*" port Nothing Nothing Nothing
   where
     loggingApp = logStdoutDev <$> app
 

@@ -165,6 +165,7 @@ library
                      , wai
                      , wai-cors
                      , warp
+                     , node-ipc
 
   default-language:    Haskell2010
   default-extensions: TypeOperators

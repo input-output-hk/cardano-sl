@@ -7689,13 +7689,14 @@ inherit (pkgs) mesa;};
          , cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers
          , cpphs, cryptonite, data-default, directory, dlist, ekg-core
          , ether, exceptions, filepath, formatting, hashable, hspec, lens
-         , log-warper, memory, monad-control, MonadRandom, mtl, QuickCheck
-         , quickcheck-instances, random, reflection, safe-exceptions
-         , safecopy, semver, serokell-util, servant, servant-generic
-         , servant-multipart, servant-server, servant-swagger
-         , servant-swagger-ui, stdenv, stm, swagger2, text, text-format
-         , time, time-units, transformers, universum, unix, unliftio
-         , unordered-containers, wai, wai-websockets, warp, websockets
+         , log-warper, memory, monad-control, MonadRandom, mtl, node-ipc
+         , QuickCheck, quickcheck-instances, random, reflection
+         , safe-exceptions, safecopy, semver, serokell-util, servant
+         , servant-generic, servant-multipart, servant-server
+         , servant-swagger, servant-swagger-ui, stdenv, stm, swagger2, text
+         , text-format, time, time-units, transformers, universum, unix
+         , unliftio, unordered-containers, wai, wai-websockets, warp
+         , websockets
          }:
          mkDerivation {
            pname = "cardano-sl-wallet";
@@ -7709,12 +7710,12 @@ inherit (pkgs) mesa;};
              cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
              containers cryptonite data-default directory dlist ekg-core ether
              exceptions filepath formatting hashable hspec lens log-warper
-             memory monad-control mtl QuickCheck quickcheck-instances random
-             reflection safe-exceptions safecopy semver serokell-util servant
-             servant-generic servant-multipart servant-server servant-swagger
-             servant-swagger-ui stm swagger2 text text-format time time-units
-             transformers universum unix unliftio unordered-containers wai
-             wai-websockets warp websockets
+             memory monad-control mtl node-ipc QuickCheck quickcheck-instances
+             random reflection safe-exceptions safecopy semver serokell-util
+             servant servant-generic servant-multipart servant-server
+             servant-swagger servant-swagger-ui stm swagger2 text text-format
+             time time-units transformers universum unix unliftio
+             unordered-containers wai wai-websockets warp websockets
            ];
            libraryToolDepends = [ cpphs ];
            testHaskellDepends = [
@@ -7742,14 +7743,14 @@ inherit (pkgs) mesa;};
          , containers, data-default, directory, exceptions, formatting
          , generics-sop, hspec, http-api-data, http-client, http-types
          , ixset-typed, json-sop, lens, log-warper, memory, mmorph, mtl
-         , neat-interpolation, network-transport, optparse-applicative
-         , pretty-show, QuickCheck, quickcheck-instances, reflection
-         , safe-exceptions, safecopy, serokell-util, servant, servant-client
-         , servant-client-core, servant-quickcheck, servant-server
-         , servant-swagger, servant-swagger-ui, stdenv, stm, string-conv
-         , swagger2, text, text-format, time, time-units, transformers
-         , universum, unliftio, unliftio-core, unordered-containers, vector
-         , wai, wai-cors, warp
+         , neat-interpolation, network-transport, node-ipc
+         , optparse-applicative, pretty-show, QuickCheck
+         , quickcheck-instances, reflection, safe-exceptions, safecopy
+         , serokell-util, servant, servant-client, servant-client-core
+         , servant-quickcheck, servant-server, servant-swagger
+         , servant-swagger-ui, stdenv, stm, string-conv, swagger2, text
+         , text-format, time, time-units, transformers, universum, unliftio
+         , unliftio-core, unordered-containers, vector, wai, wai-cors, warp
          }:
          mkDerivation {
            pname = "cardano-sl-wallet-new";
@@ -7765,7 +7766,7 @@ inherit (pkgs) mesa;};
              cardano-sl-update cardano-sl-util cardano-sl-wallet conduit
              containers data-default exceptions formatting generics-sop
              http-api-data http-client http-types ixset-typed json-sop lens
-             log-warper memory mtl neat-interpolation network-transport
+             log-warper memory mtl neat-interpolation network-transport node-ipc
              optparse-applicative QuickCheck reflection safe-exceptions safecopy
              serokell-util servant servant-client servant-client-core
              servant-server servant-swagger servant-swagger-ui string-conv

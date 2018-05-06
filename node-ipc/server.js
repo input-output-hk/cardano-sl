@@ -19,10 +19,22 @@ logfile.on("open", function () {
   subprocess.on("message", function (msg) {
     console.log("got reply",msg);
   });
+  subprocess.on("close", function(code, signal) {
+    console.log("all stdio to child has been closed", code, signal);
+  });
+  subprocess.on("disconnect", function() {
+    console.log("all IPC handles closed");
+  });
+  subprocess.on("error", function (err) {
+    console.log("error:", err);
+  });
+  subprocess.on("exit", function (code, signal) {
+    console.log("child exited", code, signal);
+  });
 
   subprocess.send({ QueryPort:[]})
 
   setTimeout(function () {
     process.exit();
-  }, 10000);
+  }, 30000);
 });

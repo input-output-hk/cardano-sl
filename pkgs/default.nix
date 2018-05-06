@@ -6943,7 +6943,7 @@ inherit (pkgs) mesa;};
          , ed25519, ekg-core, ether, exceptions, extra, filelock, filepath
          , fmt, formatting, generic-arbitrary, half, hashable, hspec, lens
          , log-warper, mmorph, monad-control, MonadRandom, mtl
-         , neat-interpolation, network, network-transport, node-ipc
+         , neat-interpolation, network, network-transport
          , optparse-applicative, parsec, plutus-prototype, pvss, QuickCheck
          , random, reflection, resourcet, safe-exceptions, safecopy
          , serokell-util, servant, servant-client, servant-client-core
@@ -6968,13 +6968,13 @@ inherit (pkgs) mesa;};
              ed25519 ekg-core ether exceptions filelock filepath formatting
              generic-arbitrary hashable hspec lens log-warper mmorph
              monad-control mtl neat-interpolation network network-transport
-             node-ipc optparse-applicative parsec plutus-prototype pvss
-             QuickCheck random reflection resourcet safe-exceptions safecopy
-             serokell-util servant servant-client servant-client-core
-             servant-server servant-swagger stm streaming-commons systemd tagged
-             template-haskell text text-format time time-units transformers
-             transformers-base transformers-lift universum unix unliftio
-             unordered-containers wai warp warp-tls yaml
+             optparse-applicative parsec plutus-prototype pvss QuickCheck random
+             reflection resourcet safe-exceptions safecopy serokell-util servant
+             servant-client servant-client-core servant-server servant-swagger
+             stm streaming-commons systemd tagged template-haskell text
+             text-format time time-units transformers transformers-base
+             transformers-lift universum unix unliftio unordered-containers wai
+             warp warp-tls yaml
            ];
            testHaskellDepends = [
              base bytestring canonical-json cardano-crypto cardano-sl-binary
@@ -27790,15 +27790,16 @@ inherit (pkgs) which;};
            license = stdenv.lib.licenses.bsd3;
          }) {};
       "node-ipc" = callPackage
-        ({ mkDerivation, aeson, base, bytestring, stdenv
-         , unordered-containers
+        ({ mkDerivation, aeson, base, bytestring, cardano-sl-infra
+         , log-warper, mtl, stdenv, universum, unordered-containers
          }:
          mkDerivation {
            pname = "node-ipc";
            version = "0.1.0.0";
            src = ./../node-ipc;
            libraryHaskellDepends = [
-             aeson base bytestring unordered-containers
+             aeson base bytestring cardano-sl-infra log-warper mtl universum
+             unordered-containers
            ];
            doHaddock = false;
            license = stdenv.lib.licenses.mit;

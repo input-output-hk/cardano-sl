@@ -9,11 +9,8 @@ import           Data.Swagger (Swagger)
 import           Options.Applicative
 
 import           Cardano.Wallet.API (devAPI, v0API, v1API)
-import           Pos.Core (SoftwareVersion)
-import           Pos.Launcher.Configuration (Configuration (..), ConfigurationOptions (..))
-import           Pos.Update.Configuration (curSoftwareVersion, withUpdateConfiguration)
+import           Pos.Core (ApplicationName (..), SoftwareVersion (..))
 import           Pos.Util.CompileInfo (CompileTimeInfo, retrieveCompileTimeInfo)
-import           Pos.Util.Config (parseYamlConfig)
 
 import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import qualified Data.Aeson as Aeson
@@ -21,9 +18,8 @@ import qualified Data.ByteString.Lazy as BL
 
 
 data Command = Command
-  { targetAPI            :: TargetAPI
-  , configurationOptions :: ConfigurationOptions
-  , outputFile           :: Maybe FilePath
+  { targetAPI  :: TargetAPI
+  , outputFile :: Maybe FilePath
   } deriving (Show)
 
 
@@ -54,18 +50,6 @@ main =
             <$> targetAPIOption (long "api" <> metavar "API"
                   <> help "Target API with version (e.g. 'wallet@v1', 'wallet@v0', 'wallet@dev'...)")
 
-            <*> (ConfigurationOptions
-                <$> strOption (short 'c' <> long "configuration-file" <> metavar "FILEPATH"
-                    <> help "Configuration file containing for the node")
-
-                <*> fmap toText (strOption (short 'k' <> long "configuration-key" <> metavar "KEY"
-                    <> help "Configuration key within the config file (e.g. 'dev', 'test'...)"))
-
-                <*> pure Nothing
-
-                <*> pure Nothing
-                )
-
             <*> optional (strOption (short 'o' <> long "output-file" <> metavar "FILEPATH"
                     <> help ("Output file, default to: " <> defaultOutputFilename)))
 
@@ -79,10 +63,9 @@ main =
         Command{..} <-
             execParser opts
 
-        swagger <-
-            mkSwagger <$> getSoftwareDetails configurationOptions <*> pure targetAPI
+        let filename = fromMaybe defaultOutputFilename outputFile
 
-        BL.writeFile (fromMaybe defaultOutputFilename outputFile) . Aeson.encode $ swagger
+        BL.writeFile filename . Aeson.encode $ mkSwagger softwareDetails targetAPI
 
 
 mkSwagger :: (CompileTimeInfo, SoftwareVersion) -> TargetAPI -> Swagger
@@ -95,8 +78,14 @@ mkSwagger details = \case
         Swagger.api details v1API  Swagger.highLevelDescription
 
 
-getSoftwareDetails :: ConfigurationOptions -> IO (CompileTimeInfo, SoftwareVersion)
-getSoftwareDetails ConfigurationOptions{..} = do
-    Configuration{..} <- parseYamlConfig cfoFilePath cfoKey
-    return $ withUpdateConfiguration ccUpdate $
-        ($(retrieveCompileTimeInfo), curSoftwareVersion)
+-- NOTE The software version is hard-coded here. Do determine the SoftwareVersion,
+-- we'd have to pull curSoftwareVersion in a `HasUpdateConfiguration` context
+-- which require parsing a configuration file. This only to get a more-or-less
+-- accurate string somewhere in the Swagger description about the software
+-- version (e.g. cardano-sl:0). See previous commit for an example on how to
+-- this if needed but for the sake of this tools, it only clutters its scope.
+softwareDetails :: (CompileTimeInfo, SoftwareVersion)
+softwareDetails =
+    ( $(retrieveCompileTimeInfo)
+    , SoftwareVersion (ApplicationName "cardano-sl") 1
+    )

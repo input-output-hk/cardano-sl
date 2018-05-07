@@ -551,10 +551,8 @@ executable cardano-swagger-file
   build-depends:       base
                      , bytestring
                      , aeson
-                     , cardano-sl
                      , cardano-sl-util
                      , cardano-sl-core
-                     , cardano-sl-update
                      , cardano-sl-wallet-new
                      , optparse-applicative
                      , swagger2

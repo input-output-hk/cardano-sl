@@ -149,10 +149,7 @@ prepareBlockDB blk =
 -- Pure implementation
 ----------------------------------------------------------------------------
 
-decodeOrFailPureDB
-    :: ()
-    => ByteString
-    -> Either Text (Block, Undo)
+decodeOrFailPureDB :: ByteString -> Either Text (Block, Undo)
 decodeOrFailPureDB = decodeFull'
 
 dbGetBlundPureDefault ::

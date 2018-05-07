@@ -241,34 +241,22 @@ toComponentBlock fnc block = case block of
     Left genBlock   -> ComponentBlockGenesis (convertGenesis genBlock)
     Right mainBlock -> ComponentBlockMain (Some $ mainBlock ^. gbHeader) (fnc mainBlock)
 
-toTxpBlock
-    :: ()
-    => Block -> TxpBlock
+toTxpBlock :: Block -> TxpBlock
 toTxpBlock = toComponentBlock (view mainBlockTxPayload)
 
-toUpdateBlock
-    :: ()
-    => Block -> UpdateBlock
+toUpdateBlock :: Block -> UpdateBlock
 toUpdateBlock = toComponentBlock (view mainBlockUpdatePayload)
 
-toTxpBlund
-    :: ()
-    => Blund -> TxpBlund
+toTxpBlund :: Blund -> TxpBlund
 toTxpBlund = bimap toTxpBlock undoTx
 
-toSscBlock
-    :: ()
-    => Block -> SscBlock
+toSscBlock :: Block -> SscBlock
 toSscBlock = toComponentBlock (view mainBlockSscPayload)
 
-toDlgBlund
-    :: ()
-    => Blund -> DlgBlund
+toDlgBlund :: Blund -> DlgBlund
 toDlgBlund = bimap toDlgBlock undoDlg
   where
-    toDlgBlock
-        :: ()
-        => Block -> DlgBlock
+    toDlgBlock :: Block -> DlgBlock
     toDlgBlock = toComponentBlock (view mainBlockDlgPayload)
 
 convertGenesis :: GenesisBlock -> Some IsGenesisHeader

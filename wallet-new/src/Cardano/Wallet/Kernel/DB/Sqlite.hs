@@ -36,9 +36,8 @@ import           Database.SQLite.Simple.FromField (FromField (..), returnError)
 import qualified Database.SQLite.SimpleErrors as Sqlite
 import qualified Database.SQLite.SimpleErrors.Types as Sqlite
 
-import           Control.Exception (toException)
+import           Control.Exception (throwIO, toException)
 import           Control.Lens (Getter)
-import qualified Data.Text as T
 import           Data.Time.Units (fromMicroseconds, toMicroseconds)
 import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..), Migration,
                                         MigrationSteps, boolean, createTable, evaluateDatabase,
@@ -287,6 +286,7 @@ initialMigration () = do
                            ))
 
 --- | The full list of migrations available for this 'MetaDB'.
+-- For a more interesting migration, see: https://github.com/tathougies/beam/blob/d3baf0c77b76b008ad34901b47a818ea79439529/beam-postgres/examples/Pagila/Schema.hs#L17-L19
 migrateMetaDB :: MigrationSteps SqliteCommandSyntax () (CheckedDatabaseSettings Sqlite MetaDB)
 migrateMetaDB = migrationStep "Initial migration" initialMigration
 
@@ -314,32 +314,50 @@ closeMetaDB hdl = Sqlite.close (_mDbHandleConnection hdl)
 
 -- | Inserts a new 'Kernel.TxMeta' in the database, given its opaque
 -- 'MetaDBHandle'.
-putTxMeta :: MetaDBHandle -> Kernel.TxMeta -> IO (Either Kernel.TxMetaStorageError ())
+putTxMeta :: MetaDBHandle -> Kernel.TxMeta -> IO ()
 putTxMeta dbHandle txMeta =
     let conn = _mDbHandleConnection dbHandle
         tMeta   = mkTxMeta txMeta
         inputs  = mkInputs txMeta
         outputs = mkOutputs txMeta
-    -- TODO(adinapoli): Check this bit, it doesn't look 100% transactional, unless
-    -- 'runBeamSqlite' runs the query within a DB transaction.
     in do
-        res <- Sqlite.runDBAction $ runBeamSqlite conn $ do
+        res <- Sqlite.withTransaction conn $ Sqlite.runDBAction $ runBeamSqlite conn $ do
             SQL.runInsert $ SQL.insert (_mDbMeta metaDB)    $ SQL.insertValues [tMeta]
             SQL.runInsert $ SQL.insert (_mDbInputs metaDB)  $ SQL.insertValues (toList inputs)
             SQL.runInsert $ SQL.insert (_mDbOutputs metaDB) $ SQL.insertValues (toList outputs)
-        pure $ bimap toDomainError identity res
+        case res of
+             Left e   -> handleResponse e
+             Right () -> return ()
     where
-        toDomainError :: Sqlite.SQLiteResponse -> Kernel.TxMetaStorageError
-        toDomainError e =
-            let txid = txMeta ^. Kernel.txMetaId
+        -- Handle the 'SQLiteResponse', rethrowing the exception or turning
+        -- \"controlled failures\" (like the presence of a duplicated
+        -- transaction) in a no-op.
+        handleResponse :: Sqlite.SQLiteResponse -> IO ()
+        handleResponse e =
+            let txid    = txMeta ^. Kernel.txMetaId
             in case e of
                 -- NOTE(adinapoli): It's probably possible to make this match the
                 -- Beam schema by using something like 'IsDatabaseEntity' from
                 -- 'Database.Beam.Schema.Tables', but we have a test to catch
                 -- regression in this area.
-                (Sqlite.SQLConstraintError Sqlite.Unique "tx_metas.meta_id") ->
-                    Kernel.InvariantViolated (Kernel.DuplicatedTransaction txid)
-                _ -> Kernel.StorageFailure (toException e)
+                (Sqlite.SQLConstraintError Sqlite.Unique "tx_metas.meta_id") -> do
+                    -- Check if the 'TxMeta' already present has a @different@
+                    -- 'Hash', in which case this is a proper bug there is no
+                    -- recover from. If the 'Hash' is the same, this is effectively
+                    -- a no-op.
+                    consistencyCheck <- fmap ((==) txMeta) <$> getTxMeta dbHandle txid
+                    case consistencyCheck of
+                         Nothing    ->
+                             throwIO $ Kernel.InvariantViolated (Kernel.UndisputableLookupFailed txid)
+                         Just False ->
+                             throwIO $ Kernel.InvariantViolated (Kernel.DuplicatedTransactionWithDifferentHash txid)
+                         Just True  ->
+                             -- both hashes matched, this is genuinely the
+                             -- same 'Tx' being inserted twice, probably as
+                             -- part of a rollback.
+                             return ()
+
+                _ -> throwIO $ Kernel.StorageFailure (toException e)
 
 
 -- | Converts a database-fetched 'TxMeta' into a domain-specific 'Kernel.TxMeta'.

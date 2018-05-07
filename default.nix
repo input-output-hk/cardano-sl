@@ -98,7 +98,6 @@ let
       });
     };
   });
-<<<<<<< HEAD
   connect = let
       walletConfigFile = ./custom-wallet-config.nix;
       walletConfig = if allowCustomConfig then (if builtins.pathExists walletConfigFile then import walletConfigFile else {}) else {};

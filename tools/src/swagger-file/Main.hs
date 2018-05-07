@@ -47,7 +47,7 @@ main =
 
         cmdParser :: Parser Command
         cmdParser = Command
-            <$> targetAPIOption (long "api" <> metavar "API"
+            <$> targetAPIOption (short 't' <> long "target" <> metavar "API"
                   <> help "Target API with version (e.g. 'wallet@v1', 'wallet@v0', 'wallet@dev'...)")
 
             <*> optional (strOption (short 'o' <> long "output-file" <> metavar "FILEPATH"

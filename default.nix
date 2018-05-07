@@ -8,6 +8,7 @@ in
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
 # profiling slows down performance by 50% so we don't enable it by default
 , forceDontCheck ? false
+, enableBenchmark ? true
 , enableProfiling ? false
 , enableDebugging ? false
 , allowCustomConfig ? true
@@ -31,6 +32,13 @@ let
       kill $TAILPID
     '';
   });
+  applyBenchmarks = drv: overrideCabal drv (drv: {
+    configureFlags = (drv.configureFlags or []) ++ [
+      "--enable-benchmarks"
+    ];
+    doBenchmark = true;
+    doCheck = true;
+  });
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     overrides = self: super: {
       cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
@@ -39,7 +47,7 @@ let
         ];
       });
 
-      cardano-sl = overrideCabal super.cardano-sl (drv: {
+      cardano-sl = overrideCabal (applyBenchmarks super.cardano-sl) (drv: {
         # production full nodes shouldn't use wallet as it means different constants
         configureFlags = (drv.configureFlags or []) ++ [
           "-f-asserts"
@@ -52,7 +60,7 @@ let
       });
 
       cardano-sl-wallet-static = justStaticExecutables super.cardano-sl-wallet;
-      cardano-sl-networking = dontCheck super.cardano-sl-networking;
+      cardano-sl-networking = applyBenchmarks super.cardano-sl-networking;
       cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
       cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
       # cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
@@ -61,7 +69,7 @@ let
         executableHaskellDepends = drv.executableHaskellDepends ++ [self.cabal-install];
       })));
       cardano-sl-node = addGitRev super.cardano-sl-node;
-      cardano-sl-wallet-new = addGitRev (justStaticExecutables super.cardano-sl-wallet-new);
+      cardano-sl-wallet-new = addGitRev (justStaticExecutables (applyBenchmarks super.cardano-sl-wallet-new));
       cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
@@ -70,6 +78,7 @@ let
 
       cardano-sl-node-static = justStaticExecutables self.cardano-sl-node;
       cardano-sl-explorer-static = addGitRev (justStaticExecutables self.cardano-sl-explorer);
+      cardano-sl-explorer = applyBenchmarks super.cardano-sl-explorer;
       cardano-report-server-static = justStaticExecutables self.cardano-report-server;
 
       # Undo configuration-nix.nix change to hardcode security binary on darwin

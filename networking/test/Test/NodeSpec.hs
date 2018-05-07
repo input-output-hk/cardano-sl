@@ -20,13 +20,13 @@ import           Control.Lens (sans, (%=), (&~), (.=))
 import           Control.Monad (forM_, when, unless)
 import           Control.Monad.IO.Class (liftIO)
 import qualified Data.Set as S
-import           Data.Text (Text)
 import           Network.QDisc.Fair (fairQDisc)
 import qualified Network.Transport as NT (Transport, address, closeEndPoint,
                                           closeTransport, newEndPoint, receive)
 import           Network.Transport.TCP (simpleOnePlaceQDisc, simpleUnboundedQDisc)
 import           System.Random (newStdGen)
 import           Test.Hspec (Spec, afterAll_, describe, runIO)
+import           Test.Hspec.Core (SpecM)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Property, ioProperty)
 import           Test.QuickCheck.Modifiers (NonEmptyList (..), getNonEmpty)
@@ -52,7 +52,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
         tcpTransportFair = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10345" (fairQDisc (const (return Nothing))) mtu
         memoryTransport = runIO $ makeInMemoryTransport
 
-        transports :: [(Text, NT.Transport)]
+        transports :: [(String, SpecM () NT.Transport)]
         transports = [
             -- Disable the tests over TCP transport for now, because the CI
             -- machines apparently cannot run them due to OS network

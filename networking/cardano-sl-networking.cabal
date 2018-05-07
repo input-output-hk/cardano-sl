@@ -258,6 +258,7 @@ test-suite cardano-sl-networking-test
                      , cardano-sl-util
                      , containers >= 0.5.7
                      , hspec >= 2.1.10
+                     , hspec-core
                      , lens >= 4.14
                      , log-warper
                      , mtl >= 2.2.1

@@ -26,7 +26,7 @@ import qualified Network.Transport as NT (Transport, address, closeEndPoint,
 import           Network.Transport.TCP (simpleOnePlaceQDisc, simpleUnboundedQDisc)
 import           System.Random (newStdGen)
 import           Test.Hspec (Spec, afterAll_, describe, runIO)
-import           Test.Hspec.Core (SpecM)
+import           Test.Hspec.Core.Spec (SpecM)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Property, ioProperty)
 import           Test.QuickCheck.Modifiers (NonEmptyList (..), getNonEmpty)
@@ -52,15 +52,19 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
         tcpTransportFair = runIO $ makeTCPTransport "0.0.0.0" "127.0.0.1" "10345" (fairQDisc (const (return Nothing))) mtu
         memoryTransport = runIO $ makeInMemoryTransport
 
+        -- need this to avoid ambiguous type warnings/errors
+        s :: String -> String
+        s = id
+
         transports :: [(String, SpecM () NT.Transport)]
         transports = [
             -- Disable the tests over TCP transport for now, because the CI
             -- machines apparently cannot run them due to OS network
             -- configuration problems. They're seq'd so that we don't have to
             -- remove all the relevant imports (-Wall -Werror).
-              ("TCP unbounded queueing", tcpTransportUnbounded) `seq`
-              ("TCP one-place queueing", tcpTransportOnePlace) `seq`
-              ("TCP fair queueing", tcpTransportFair) `seq`
+              (s "TCP unbounded queueing", tcpTransportUnbounded) `seq`
+              (s "TCP one-place queueing", tcpTransportOnePlace) `seq`
+              (s "TCP fair queueing", tcpTransportFair) `seq`
               ("In-memory", memoryTransport)
             ]
         nodeEnv = defaultNodeEnvironment { nodeMtu = mtu }

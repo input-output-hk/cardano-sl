@@ -220,14 +220,7 @@ as it is.\improvement{We may want to add something about protocol
   \item[Outputs] A non-empty list of triples in
     $\nelists{(\agentids × ℕ × \stakerepartitions)}$.\improvement{This
       only embodies pay-to-public-key schemes. For pay-to-script and
-      such, we will need further refinements.}\info{As remarked by
-      Manuel Chakravarty and Erik de Castro Lopo, the choice currently
-      made in Cardano, that outputs be necessary non-empty, is
-      dubious. There is no particular reason for it to be: empty
-      output just means that the transaction is pure fees. And Bruno
-      Woltzenlogel Paleo's utxo Chimeric Ledger model allows empty
-      outputs, because of the belief that it is essential for coloured
-      coins.}
+      such, we will need further refinements.}
 
     For an output $out = (id, q, r)$, we write
     \begin{itemize}
@@ -607,7 +600,7 @@ $b_1,…,b_n$ if all of the following hold
 \item[Seed] \info{The shared seed at the last epoch} Define
   $\epochseed{⋅}$\improvement{Todo}
 \item[Delegation graph] Let us define $\delegations{c₁,…,c_n}$, for a
-  list of delegation certificates, by indudction:
+  list of delegation certificates, by induction:
   \begin{itemize}
   \item $\delegations{\emptylist} = \initialdelegation$
   \item $$
@@ -977,6 +970,17 @@ when time comes, we may come to the conclusion that, in fact, we need
 some mechanism in the specification, to model lightweight delegation
 explicitly.
 
+\subsection{Miscelaneous remarks on the current specification}
+\label{sec:misc-remarks}
+\begin{itemize}
+\item As remarked by Manuel Chakravarty and Erik de Castro Lopo, the
+  choice currently made in Cardano, that outputs be necessary
+  non-empty, is dubious. There is no particular reason for it to be:
+  empty output simply means that the transaction is pure
+  fees. Furthermore Bruno Woltzenlogel Paleo's utxo Chimeric Ledger
+  model allows empty outputs, because it is believed to be essential
+  for coloured coins.
+\end{itemize}
 \end{document}
 
 %  LocalWords:  combinator summands repartition unallocated mempool

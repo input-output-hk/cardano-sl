@@ -7436,9 +7436,9 @@ inherit (pkgs) mesa;};
          , monad-control, MonadRandom, mtl, network, network-transport
          , network-transport-inmemory, network-transport-tcp
          , optparse-simple, QuickCheck, random, resourcet, safe-exceptions
-         , serokell-util, stdenv, stm, text, text-format, time, time-units
-         , transformers, transformers-base, transformers-lift, universum
-         , unliftio-core
+         , serokell-util, statistics, stdenv, stm, text, text-format, time
+         , time-units, transformers, transformers-base, transformers-lift
+         , universum, unliftio-core
          }:
          mkDerivation {
            pname = "cardano-sl-networking";
@@ -7466,7 +7466,7 @@ inherit (pkgs) mesa;};
              async base binary bytestring cardano-sl-util containers hspec
              hspec-core lens log-warper mtl network-transport
              network-transport-inmemory network-transport-tcp QuickCheck random
-             safe-exceptions serokell-util stm time-units
+             safe-exceptions serokell-util statistics stm time-units
            ];
            doHaddock = false;
            license = stdenv.lib.licenses.mit;

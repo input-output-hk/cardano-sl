@@ -9,7 +9,7 @@ cabal-version:       >=1.20
 
 flag benchmarks
   description:       Build benchmarks
-  default:           False
+  default:           True
   manual:            True
 
 Library
@@ -269,6 +269,8 @@ test-suite cardano-sl-networking-test
                      , random
                      , safe-exceptions
                      , serokell-util >= 0.1.2.3
+                     -- problem with stack2nix benchmarks
+                     , statistics
                      , stm
                      , time-units
   hs-source-dirs:      test

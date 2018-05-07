@@ -2,6 +2,7 @@
 
 module Pos.Ssc.Error.Verify
        ( SscVerifyError (..)
+       , TossInternalFailure (..)
        , sscIsCriticalVerifyError
        ) where
 
@@ -48,7 +49,12 @@ data SscVerifyError
     | CertificateInvalidTTL !(NonEmpty VssCertificate)
 
     | SscInvalidPayload !Text
-    | TossInternalError !Text
+    | TossInternalError TossInternalFailure
+    deriving (Show, Eq)
+
+data TossInternalFailure
+    = ZeroTotalStake
+    | StakesLessThanThreshold
     deriving (Show, Eq)
 
 instance Buildable SscVerifyError where
@@ -107,8 +113,10 @@ instance Buildable SscVerifyError where
         bprint ("some VSS certificates have VSS keys that already belong to other certificates: "%listJson) stks
     build (SscInvalidPayload msg) =
         bprint ("invalid payload: "%stext) msg
-    build (TossInternalError msg) =
-        bprint ("internal error: "%stext) msg
+    build (TossInternalError ZeroTotalStake) =
+        bprint "internal error: Richmen total stake equals zero"
+    build (TossInternalError StakesLessThanThreshold) =
+        bprint "internal error: Richmen stakes less than threshold"
 
 -- | Returns 'True' if the error must be reported.
 sscIsCriticalVerifyError :: SscVerifyError -> Bool

@@ -193,7 +193,7 @@ type TxCreateMode m
       )
 
 -- | Generic function to create an unsigned transaction, given desired inputs and outputs
-makeUnsignedAbstractTx :: 
+makeUnsignedAbstractTx ::
                   TxOwnedInputs owner
                -> TxOutputs
                -> Either e Tx
@@ -212,9 +212,7 @@ makeAbstractTx :: (owner -> TxSigData -> Either e TxInWitness)
                -> Either e TxAux
 makeAbstractTx mkWit txInputs outputs = do
   let
-    tx = UnsafeTx (map snd txInputs) txOutputs txAttributes
-    txOutputs = map toaOut outputs
-    txAttributes = mkAttributes ()
+    Right tx = makeUnsignedAbstractTx txInputs outputs
     txSigData = TxSigData
         { txSigTxHash = hash tx
         }

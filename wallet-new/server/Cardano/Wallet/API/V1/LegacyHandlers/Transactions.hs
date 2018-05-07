@@ -41,12 +41,9 @@ handlers submitTx =
 newTransaction
     :: forall ctx m . (V0.MonadWalletTxFull ctx m)
     => (TxAux -> m Bool) -> Payment -> m (WalletResponse Transaction)
-newTransaction submitTx Payment {..} = do
+newTransaction submitTx pmt@Payment {..} = do
     let (V1 spendingPw) = fromMaybe (V1 mempty) pmtSpendingPassword
-    cAccountId <- migrate pmtSource
-    addrCoinList <- migrate $ NE.toList pmtDestinations
-    let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) pmtGroupingPolicy
-    let batchPayment = V0.NewBatchPayment cAccountId addrCoinList policy
+    batchPayment <- createBatchPayment pmt
     cTx <- V0.newPaymentBatch submitTx spendingPw batchPayment
     single <$> migrate cTx
 
@@ -111,17 +108,13 @@ newUnsignedTransaction
     :: forall ctx m . (V0.MonadWalletTxFull ctx m)
     => Payment
     -> m (WalletResponse Transaction)
-newUnsignedTransaction Payment {..} = do
+newUnsignedTransaction pmt@Payment {..} = do
     -- We're creating new transaction as usually, but we mustn't sign/publish it.
     -- This transaction will be signed on the client-side (mobile client or
     -- hardware wallet), and after that transaction (with its signature) will be
     -- sent to backend.
-
     let (V1 spendingPw) = fromMaybe (V1 mempty) pmtSpendingPassword
-    cAccountId <- migrate pmtSource
-    addrCoinList <- migrate $ NE.toList pmtDestinations
-    let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) pmtGroupingPolicy
-    let batchPayment = V0.NewBatchPayment cAccountId addrCoinList policy
+    batchPayment <- createBatchPayment pmt
     cTx <- V0.newUnsignedTransaction spendingPw batchPayment
     single <$> migrate cTx
 
@@ -139,3 +132,14 @@ newSignedTransaction _ SignedTransaction {..} = do
     -- It's just a stub instead of 'undefined'.
     fakeTransaction <- liftIO $ generate arbitrary
     pure $ single fakeTransaction
+
+-- | helper function to reduce code duplication
+createBatchPayment
+    :: forall ctx m . (V0.MonadWalletTxFull ctx m)
+    => Payment
+    -> m (V0.NewBatchPayment)
+createBatchPayment Payment {..} = do
+    cAccountId <- migrate pmtSource
+    addrCoinList <- migrate $ NE.toList pmtDestinations
+    let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) pmtGroupingPolicy
+    return (V0.NewBatchPayment cAccountId addrCoinList policy)

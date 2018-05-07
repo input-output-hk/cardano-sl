@@ -23,6 +23,7 @@ module Pos.Client.Txp.Util
        , createGenericTx
        , createTx
        , createMTx
+       , createUnsignedTx
        , createMOfNTx
        , createRedemptionTx
 
@@ -191,6 +192,18 @@ type TxCreateMode m
       , MonadAddresses m
       )
 
+-- | Generic function to create an unsigned transaction, given desired inputs and outputs
+makeUnsignedAbstractTx ::
+                  TxOwnedInputs owner
+               -> TxOutputs
+               -> Either e Tx
+makeUnsignedAbstractTx txInputs outputs = do
+  let
+    tx = UnsafeTx (map snd txInputs) txOutputs txAttributes
+    txOutputs = map toaOut outputs
+    txAttributes = mkAttributes ()
+  pure tx
+
 -- | Generic function to create a transaction, given desired inputs,
 -- outputs and a way to construct witness from signature data
 makeAbstractTx :: (owner -> TxSigData -> Either e TxInWitness)
@@ -199,9 +212,7 @@ makeAbstractTx :: (owner -> TxSigData -> Either e TxInWitness)
                -> Either e TxAux
 makeAbstractTx mkWit txInputs outputs = do
   let
-    tx = UnsafeTx (map snd txInputs) txOutputs txAttributes
-    txOutputs = map toaOut outputs
-    txAttributes = mkAttributes ()
+    Right tx = makeUnsignedAbstractTx txInputs outputs
     txSigData = TxSigData
         { txSigTxHash = hash tx
         }
@@ -556,6 +567,34 @@ createTx
 createTx pendingTx utxo ss outputs addrData =
     createGenericTxSingle pendingTx (\i o -> Right $ makePubKeyTx ss i o)
     OptimizeForSecurity utxo outputs addrData
+
+-- | Create generic unsigned Tx
+createGenericUnsignedTx
+    :: TxCreateMode m
+    => PendingAddresses
+    -> (TxOwnedInputs TxOut -> TxOutputs -> Either TxError Tx)
+    -> InputSelectionPolicy
+    -> Utxo
+    -> TxOutputs
+    -> AddrData m
+    -> m (Either TxError (Tx,NonEmpty TxOut))
+createGenericUnsignedTx pendingTx creator inputSelectionPolicy utxo outputs addrData =
+    runTxCreator inputSelectionPolicy $ do
+        (inps, outs) <- prepareInpsOuts pendingTx utxo outputs addrData
+        tx <- either throwError return $ creator inps outs
+        pure (tx, map fst inps)
+
+-- | Create unsigned Tx
+createUnsignedTx
+    :: TxCreateMode m
+    => PendingAddresses
+    -> InputSelectionPolicy
+    -> Utxo
+    -> TxOutputs
+    -> AddrData m
+    -> m (Either TxError (Tx,NonEmpty TxOut))
+createUnsignedTx pendingTx groupInputs utxo outputs addrData =
+    createGenericUnsignedTx pendingTx makeUnsignedAbstractTx groupInputs utxo outputs addrData
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx

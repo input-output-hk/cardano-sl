@@ -56,6 +56,7 @@ import           Pos.Wallet.Web.Methods.Restore (importWalletDo)
 
 import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB, genBlockGenParams)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
+import           Pos.Txp (MemPoolModifyReason(ApplyBlock))
 
 ----------------------------------------------------------------------------
 -- Block utils
@@ -71,7 +72,7 @@ wpGenBlocks
 wpGenBlocks blkCnt enTxPayload inplaceDB = do
     params <- genBlockGenParams blkCnt enTxPayload inplaceDB
     g <- pick $ MkGen $ \qc _ -> qc
-    lift $ modifyStateLock HighPriority "wpGenBlocks" $ \prevTip -> do
+    lift $ modifyStateLock HighPriority ApplyBlock $ \prevTip -> do -- FIXME is ApplyBlock the right one?
         blunds <- OldestFirst <$> evalRandT (genBlocks params maybeToList) g
         case nonEmpty $ getOldestFirst blunds of
             Just nonEmptyBlunds -> do

@@ -24,8 +24,10 @@ import           Control.Monad.Morph (generalize, hoist)
 import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
+import           JsonLog (CanJsonLog (..))
 import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog, logDebug, logError,
                               logWarning)
+import           System.Wlog (NamedPureLogger, WithLogger, logDebug, logError, logWarning)
 
 import           Pos.Core (BlockVersionData, EpochIndex, HeaderHash, siEpoch)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
@@ -36,9 +38,9 @@ import           Pos.Reporting (reportError)
 import           Pos.Slotting (MonadSlots (..))
 import           Pos.StateLock (Priority (..), StateLock, StateLockMetrics, withStateLock)
 import           Pos.Txp.Logic.Common (buildUtxo)
-import           Pos.Txp.MemState (GenericTxpLocalData (..), MempoolExt, MonadTxpMem,
-                                   TxpLocalWorkMode, getLocalTxsMap, getLocalUndos, getMemPool,
-                                   getTxpExtra, getUtxoModifier, setTxpLocalData, withTxpLocalData,
+import           Pos.Txp.MemState (GenericTxpLocalData (..), MempoolExt, MemPoolModifyReason (..),
+                                   MonadTxpMem,TxpLocalWorkMode, getLocalTxsMap, getLocalUndos,
+                                   getMemPool, getTxpExtra, getUtxoModifier, setTxpLocalData, withTxpLocalData,
                                    withTxpLocalDataLog)
 import           Pos.Txp.Toil (ExtendedLocalToilM, LocalToilState (..), MemPool,
                                ToilVerFailure (..), UndoMap, Utxo, UtxoLookup, UtxoModifier,
@@ -49,8 +51,10 @@ import           Pos.Util.Util (HasLens')
 type TxpProcessTransactionMode ctx m =
     ( TxpLocalWorkMode ctx m
     , HasLens' ctx StateLock
-    , HasLens' ctx StateLockMetrics
+    , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
+    , MonadMask m
     , MempoolExt m ~ ()
+    , CanJsonLog m
     )
 
 -- | Process transaction. 'TxId' is expected to be the hash of
@@ -60,7 +64,7 @@ txProcessTransaction
     :: TxpProcessTransactionMode ctx m
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txProcessTransaction itw =
-    withStateLock LowPriority "txProcessTransaction" $ \__tip -> txProcessTransactionNoLock itw
+    withStateLock LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.

@@ -42,7 +42,7 @@ import           Pos.Slotting.Class (MonadSlots)
 import           Pos.Ssc (HasSscConfiguration)
 import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.StateLock (StateLock, StateLockMetrics)
-import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem)
+import           Pos.Txp.MemState (MempoolExt, MemPoolModifyReason, MonadTxpLocal, MonadTxpMem)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Params (UpdateParams)
@@ -71,7 +71,7 @@ type WorkMode ctx m
       , MonadReader ctx m
       , HasLens' ctx StartTime
       , HasLens' ctx StateLock
-      , HasLens' ctx StateLockMetrics
+      , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
       , HasLens' ctx UpdateContext
       , HasLens' ctx UpdateParams
       , HasLens' ctx SecurityParams

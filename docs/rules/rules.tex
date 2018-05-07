@@ -840,7 +840,7 @@ Rules to add a block $b$ to the blockchain:
   ancestor is at most $k$ block deep).\improvement{This looks
     different than what is done in the actual Cardano implementation:
     instead of rejecting the incoming block, it appears that the
-    \verb+slogRollbackBlocks+ function aborts the node instead.}
+    slogRollbackBlocks function aborts the node instead.}
 \item[Longest chain] if $\height{b₁,…,b_n,b} > \height{C}$ (note:
   larger \emph{and not equal}) then let $\mathfrak{C}'=b₁,…,b_n,b$
   else let $\mathfrak{C}'=\mathfrak{C}$.

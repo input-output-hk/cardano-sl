@@ -834,13 +834,28 @@ Rules to add a block $b$ to the blockchain:
 \item[Validity] $b₁,…,b_n,b$ must be a valid chain, let $\mathfrak{T}'
   = \mathfrak{T}∪\{b₁,…,b_n,b\}$
 \item[Young fork] Let $b₁,…,b_i$ the longest prefix of $b₁,…,b_n$
-  which is also a prefix of $\mathfrak{C}$. We must have
-  $\length{\mathfrak{C}} - i ⩽ k$.
+  which is also a prefix of $\mathfrak{C}$ ($b₁,…,b_i$ is known as the
+  \emph{last common ancestor} of $b₁,…,b_n$ and $\mathfrak{C}$). We
+  must have $\length{\mathfrak{C}} - i ⩽ k$  (that is: the last common
+  ancestor is at most $k$ block deep).\improvement{This looks
+    different than what is done in the actual Cardano implementation:
+    instead of rejecting the incoming block, it appears that the
+    \verb+slogRollbackBlocks+ function aborts the node instead.}
 \item[Longest chain] if $\height{b₁,…,b_n,b} > \height{C}$ (note:
   larger \emph{and not equal}) then let $\mathfrak{C}'=b₁,…,b_n,b$
   else let $\mathfrak{C}'=\mathfrak{C}$.
 \item[Update] The new blockchain is $(\mathfrak{C}', \mathfrak{T}')$
 \end{description}
+
+Note that this set of rules work even if $b$ had previously been
+received and added to the blockchain. In this case, the
+\emph{predecessor} and \emph{validity} rules will always pass (and
+$\mathfrak{T}'=\mathfrak{T}$), the \emph{young fork} rule may reject
+the block, in which case, by definition the blockchain stays
+unchanged, the \emph{longest chain} rule will always rule that
+$\mathfrak{C'}=\mathfrak{C}$. In other words, these rules are
+idempotent in that receiving an already accepted block will leave the
+blockchain unchanged.
 
 \appendix
 

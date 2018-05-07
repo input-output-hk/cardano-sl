@@ -96,8 +96,7 @@ in pkgs.writeScript "demo-cluster" ''
     echo Launching wallet node:
     i=${builtins.toString numCoreNodes}
     wallet_args=" --tlscert ${stateDir}/tls-files/server.crt --tlskey ${stateDir}/tls-files/server.key --tlsca ${stateDir}/tls-files/ca.crt"
-    # TODO: remove wallet-debug and use TLS when the tests support it
-    wallet_args="$wallet_args --wallet-address 127.0.0.1:8090 --wallet-db-path ${stateDir}/wallet-db --wallet-debug"
+    wallet_args="$wallet_args --wallet-address 127.0.0.1:8090 --wallet-db-path ${stateDir}/wallet-db"
     node_args="$(node_cmd $i "$wallet_args" "$system_start" "${stateDir}" "" "${stateDir}/logs" "${stateDir}") --configuration-file ${configFiles}/configuration.yaml"
     echo Running wallet with args: $node_args
     cardano-node $node_args &> /dev/null &
@@ -107,8 +106,7 @@ in pkgs.writeScript "demo-cluster" ''
   SYNCED=0
   while [[ $SYNCED != 100 ]]
   do
-    # TODO: switch to https when wallet-debug is removed
-    PERC=$(curl --silent -k http://localhost:8090/api/v1/node-info | jq .data.syncProgress.quantity)
+    PERC=$(curl --silent -k https://localhost:8090/api/v1/node-info | jq .data.syncProgress.quantity)
     if [[ $PERC == "100" ]]
     then
       echo Blockchain Synced: $PERC%
@@ -132,8 +130,7 @@ in pkgs.writeScript "demo-cluster" ''
   for i in {0..11}
   do
       echo "Importing key$i.sk ..."
-      # TODO: switch to https when wallet-debug is removed
-      curl -k -X POST http://localhost:8090/api/wallets/keys -H 'cache-control: no-cache' -H 'content-type: application/json' -d "\"${stateDir}/genesis-keys/generated-keys/poor/key$i.sk\"" | jq .
+      curl -k -X POST https://localhost:8090/api/wallets/keys -H 'cache-control: no-cache' -H 'content-type: application/json' -d "\"${stateDir}/genesis-keys/generated-keys/poor/key$i.sk\"" | jq .
   done
   ${ifKeepAlive ''
     sleep infinity

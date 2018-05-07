@@ -34,7 +34,6 @@ import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import           Pos.Wallet.Web.Tracking.Sync (syncWallet)
 import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage, usingLoggerName)
 
-import           Cardano.Wallet.Kernel.Actions
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletBackendParams (..),
                                             WalletBackendParams (..), WalletStartupOptions (..),
@@ -118,8 +117,6 @@ actionWithNewWallet sscParams nodeParams params =
       -- TODO(ks): Currently using non-implemented layer for wallet layer.
       bracketKernelPassiveWallet logMessage' $ \wallet -> do
         liftIO $ logMessage' Info "Wallet kernel initialized"
-        invokeAction wallet LogSystemReset
-        invokeAction wallet FindMyUtxos
         Kernel.Mode.runWalletMode nr wallet (mainAction wallet nr)
   where
     mainAction

@@ -66,7 +66,6 @@ import           Pos.Util (_neHead)
 import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Util.LogSafe (logInfoS)
 import           Pos.Util.Util (HasLens (..), HasLens')
-import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..))
 
 -- | A set of constraints necessary to create a block from mempool.
 type MonadCreateBlock ctx m

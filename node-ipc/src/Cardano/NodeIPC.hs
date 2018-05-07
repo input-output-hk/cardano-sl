@@ -23,7 +23,7 @@ import           Pos.Shutdown.Class        (HasShutdownContext (..))
 import           Pos.Shutdown.Types        (ShutdownContext)
 import           System.Environment        (lookupEnv)
 import           System.IO.Error           (IOError, isEOFError)
-import           System.IO                 (hFlush, hGetLine)
+import           System.IO                 (hFlush, hGetLine, hSetNewlineMode, noNewlineTranslation)
 import           System.Wlog               (WithLogger, logInfo, logError)
 import           System.Wlog.LoggerNameBox (usingLoggerName)
 import           Universum
@@ -57,6 +57,7 @@ ipcListener ::
     => CInt -> Word16 -> m ()
 ipcListener fd port = do
   handle <- liftIO $ fdToHandle fd
+  liftIO $ hSetNewlineMode handle noNewlineTranslation
   let
     send :: Packet -> m ()
     send cmd = liftIO $ do

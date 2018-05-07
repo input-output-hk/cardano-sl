@@ -555,7 +555,7 @@ createTx
     -> m (Either TxError TxWithSpendings)
 createTx pendingTx utxo ss outputs addrData =
     createGenericTxSingle pendingTx (\i o -> Right $ makePubKeyTx ss i o)
-    OptimizeForSecurity utxo outputs addrData
+    OptimizeForHighThroughput utxo outputs addrData
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx

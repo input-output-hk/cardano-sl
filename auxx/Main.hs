@@ -7,8 +7,8 @@ import           Unsafe (unsafeFromJust)
 
 import           Control.Exception.Safe (handle)
 import           Formatting (sformat, shown, (%))
-import           Mockable (Production, runProduction)
 import           JsonLog (jsonLog)
+import           Mockable (Production, runProduction)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
 import           System.Wlog (LoggerName, logInfo)
@@ -16,20 +16,20 @@ import           System.Wlog (LoggerName, logInfo)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..))
-import           Pos.Core (ConfigurationError)
 import           Pos.Configuration (networkConnectionTimeout)
+import           Pos.Core (ConfigurationError)
 import           Pos.DB.DB (initNodeDBs)
+import           Pos.Diffusion.Full (diffusionLayerFull)
 import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
 import           Pos.Diffusion.Types (DiffusionLayer (..))
-import           Pos.Diffusion.Full (diffusionLayerFull)
+import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
+                               bracketNodeResources, elimRealMode, loggerBracket, lpConsoleLog,
+                               runNode, withConfigurations)
 import           Pos.Logic.Full (logicLayerFull)
 import           Pos.Logic.Types (LogicLayer (..))
-import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
-                               bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
-                               elimRealMode, withConfigurations)
-import           Pos.Ntp.Configuration (NtpConfiguration)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
                                     topologyEnqueuePolicy, topologyFailurePolicy)
+import           Pos.Ntp.Configuration (NtpConfiguration)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Update (lastKnownBlockVersion)
 import           Pos.Util (logException)
@@ -37,8 +37,8 @@ import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, 
 import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.JsonLog.Events (JLEvent (JLTxReceived))
 import           Pos.Util.UserSecret (usVss)
-import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 import           Pos.Worker.Types (WorkerSpec)
+import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
 import           AuxxOptions (AuxxAction (..), AuxxOptions (..), AuxxStartMode (..), getAuxxOptions)
 import           Mode (AuxxContext (..), AuxxMode)

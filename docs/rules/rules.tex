@@ -484,10 +484,10 @@ $b_1,…,b_n$ if all of the following hold
         $\overline{τ}$, to cast $\intrans{i}∈\txids$ to an actual
         transaction. }
 
-    \item[Conservation of value] The total amount of inputs must not exceed
-      the total amount of outputs. A minimum fee must be paid.
+    \item[Conservation of value] The total amount of outputs must not exceed
+      the total amount of inputs. A minimum fee must be paid.
       $$
-      \minimumfee{τ} + ∑_{i∈\inputs{τ}} \amount{i}⩽ ∑_{o∈\outputs{τ}} \amount{o}
+      \minimumfee{τ} + ∑_{i∈\outputs{τ}} \amount{i}⩽ ∑_{o∈\inputs{τ}} \amount{o}
       $$
     \item[Authorised] The list of witnesses has the same length as the
       list of inputs
@@ -764,10 +764,10 @@ those of the selected chain) when
         $\overline{τ}$, to cast $\intrans{i}∈\txids$ to an actual
         transaction. }
 
-    \item[Conservation of value] The total amount of inputs must not exceed
-      the total amount of outputs. A minimum fee must be paid.
+    \item[Conservation of value] The total amount of outputs must not exceed
+      the total amount of input. A minimum fee must be paid.
       $$
-      \minimumfee{τ} + ∑_{i∈\inputs{τ}} \amount{i}⩽ ∑_{o∈\outputs{τ}} \amount{o}
+      \minimumfee{τ} + ∑_{i∈\outputs{τ}} \amount{i}⩽ ∑_{o∈\inputs{τ}} \amount{o}
       $$
     \item[Authorised] The list of witnesses has the same length as the
       list of inputs

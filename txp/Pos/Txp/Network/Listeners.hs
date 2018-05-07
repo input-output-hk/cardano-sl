@@ -13,7 +13,8 @@ module Pos.Txp.Network.Listeners
        , JLTxR (..)
        ) where
 
-import           Data.Tagged (Tagged (..))
+import qualified Data.HashMap.Strict as HM
+import           Data.Tagged (Tagged (..), tagWith)
 import           Formatting (build, sformat, (%))
 import           Node.Message.Class (Message)
 import           System.Wlog (WithLogger, logInfo)

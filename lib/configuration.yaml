@@ -84,6 +84,7 @@ dev: &dev
 
   txp: &dev_txp
     memPoolLimitTx: 200 # mem pool will be limited to this many transactions
+    assetLockedSrcAddrs: []
 
   dlg: &dev_dlg
     dlgCacheParam: 500
@@ -261,6 +262,7 @@ mainnet_base: &mainnet_base
 
   txp: &mainnet_base_txp
     memPoolLimitTx: 200 # mem pool will be limited to this many transactions
+    assetLockedSrcAddrs: []
 
   dlg: &mainnet_base_dlg
     dlgCacheParam: 500

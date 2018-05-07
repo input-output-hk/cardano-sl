@@ -5,7 +5,6 @@
 
 module Pos.Client.Txp.Network
        ( TxMode
-    --    , submitTx
        , prepareMTx
        , prepareRedemptionTx
        , submitTxRaw
@@ -19,7 +18,7 @@ import           Mockable (MonadMockable)
 import           System.Wlog (logInfo)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Client.Txp.Balances (MonadBalances (..), getOwnUtxo, getOwnUtxoForPk)
+import           Pos.Client.Txp.Balances (MonadBalances (..), getOwnUtxo)
 import           Pos.Client.Txp.History (MonadTxHistory (..))
 import           Pos.Client.Txp.Util (InputSelectionPolicy, PendingAddresses (..), TxCreateMode,
                                       TxError (..), createMTx, createRedemptionTx)
@@ -29,7 +28,7 @@ import           Pos.Communication.Specs (createOutSpecs)
 import           Pos.Communication.Types (InvOrDataTK)
 import           Pos.Core (Address, Coin, makeRedeemAddress, mkCoin, unsafeAddCoin)
 import           Pos.Core.Txp (TxAux (..), TxId, TxOut (..), TxOutAux (..), txaF)
-import           Pos.Crypto (RedeemSecretKey, SafeSigner, hash, redeemToPublic, safeToPublic)
+import           Pos.Crypto (RedeemSecretKey, SafeSigner, hash, redeemToPublic)
 import           Pos.DB.Class (MonadGState)
 import           Pos.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Txp.Network.Types (TxMsgContents (..))
@@ -45,15 +44,6 @@ type TxMode m
       , MonadThrow m
       , TxCreateMode m
       )
-
-submitAndSave
-    :: TxMode m
-    => Diffusion m -> TxAux -> m Bool
-submitAndSave diffusion txAux@TxAux {..} = do
-    let txId = hash taTx
-    accepted <- submitTxRaw diffusion txAux
-    saveTx (txId, txAux)
-    pure accepted
 
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 prepareMTx
@@ -98,19 +88,3 @@ submitTxRaw diffusion txAux@TxAux {..} = do
 
 sendTxOuts :: OutSpecs
 sendTxOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK TxId TxMsgContents))
-
--- | Construct Tx using secret key and given list of desired outputs
--- BE CAREFUL! Doesn't consider HD wallet addresses
--- submitTx
---     :: TxMode m
---     => Diffusion m
---     -> PendingAddresses
---     -> SafeSigner
---     -> NonEmpty TxOutAux
---     -> AddrData m
---     -> m (TxAux, NonEmpty TxOut)
--- submitTx diffusion pendingAddrs ss outputs addrData = do
---     let ourPk = safeToPublic ss
---     utxo <- getOwnUtxoForPk ourPk
---     txWSpendings <- eitherToThrow =<< createTx pendingAddrs utxo ss outputs addrData
---     txWSpendings <$ submitAndSave diffusion (fst txWSpendings)

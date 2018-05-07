@@ -208,6 +208,7 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
     { cpName = name
     , cpArgumentPrepare = identity
     , cpArgumentConsumer = do
+        stagpGenesisTxsPerThread <- getArg tyInt "genesisTxsPerThread"
         stagpTxsPerThread <- getArg tyInt "txsPerThread"
         stagpConc <- getArg tyInt "conc"
         stagpDelay <- getArg tyInt "delay"
@@ -218,8 +219,7 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
         return ValueUnit
     , cpHelp = "create and send transactions from all genesis addresses \
                \ for <duration> seconds, <delay> in ms. <conc> is the \
-               \ number of threads that send transactions concurrently. \
-               \ <mode> is either 'neighbours', 'round-robin', or 'send-random'"
+               \ number of threads that send transactions concurrently."
     },
 
     let name = "send-from-file" in

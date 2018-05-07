@@ -8,12 +8,11 @@ import           Control.Exception.Safe (bracket, catchJust)
 
 import           System.Directory (getTemporaryDirectory, removeFile, withCurrentDirectory)
 import           System.IO.Error (isDoesNotExistError)
-import           Test.HUnit ((@?))
+import           Test.Hspec (shouldThrow)
 import           Test.QuickCheck (arbitrary, generate)
 import           Util.Buildable.Hspec
 
 import qualified Cardano.Wallet.Kernel.DB.Sqlite as Storage
-import qualified Pos.Core as Core
 
 -- | Handy combinator which yields a fresh database to work with on each spec.
 withTemporaryDb :: forall m a. (MonadIO m, MonadMask m) => (MetaDBHandle -> m a) -> m a
@@ -35,11 +34,6 @@ withTemporaryDb action = bracket acquire release action
        release = liftIO . closeMetaDB
 
 
-isDuplicateTxError :: Core.TxId -> Either TxMetaStorageError a -> Bool
-isDuplicateTxError txid (Left (InvariantViolated (DuplicatedTransaction txid'))) =
-  txid == txid'
-isDuplicateTxError _ _ = False
-
 -- | Specs which tests the persistent storage and API provided by 'TxMeta'.
 txMetaStorageSpecs :: Spec
 txMetaStorageSpecs = do
@@ -52,14 +46,24 @@ txMetaStorageSpecs = do
                 mbTx <- getTxMeta hdl (testMeta ^. txMetaId)
                 mbTx `shouldBe` Just testMeta
 
-        it "inserting the same tx twice yields a DuplicatedTransaction error" $ do
+        it "yields Nothing when calling getTxMeta, if a TxMeta is not there" $ do
+            withTemporaryDb $ \hdl -> do
+                testMeta <- liftIO $ generate arbitrary
+                mbTx <- getTxMeta hdl (testMeta ^. txMetaId)
+                mbTx `shouldBe` Nothing
+
+        it "inserting the same tx twice is a no-op" $ do
             withTemporaryDb $ \hdl -> do
                 testMeta <- liftIO $ generate arbitrary
 
-                insert1 <- putTxMeta hdl testMeta
-                isLeft insert1 `shouldBe` False
+                putTxMeta hdl testMeta `shouldReturn` ()
+                putTxMeta hdl testMeta `shouldReturn` ()
 
-                insert2 <- putTxMeta hdl testMeta
-                isLeft insert2 @? "Expecting insert2 to yield Left, but it didn't"
-                isDuplicateTxError (testMeta ^. txMetaId) insert2 @? "Not a DuplicatedTransaction error"
+        it "inserting two tx with the same tx, but different content is an error" $ do
+            withTemporaryDb $ \hdl -> do
+                meta1 <- liftIO $ generate arbitrary
+                let meta2 = set txMetaIsOutgoing (not $ meta1 ^. txMetaIsOutgoing) meta1
 
+                putTxMeta hdl meta1 `shouldReturn` ()
+                putTxMeta hdl meta2 `shouldThrow`
+                    (\(InvariantViolated (DuplicatedTransactionWithDifferentHash _)) -> True)

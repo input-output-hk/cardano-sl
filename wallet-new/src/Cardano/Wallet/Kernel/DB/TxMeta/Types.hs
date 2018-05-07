@@ -33,6 +33,7 @@ import qualified Pos.Core as Core
 -------------------------------------------------------------------------------}
 
 -- | Transaction metadata
+
 --
 -- NOTE: This does /not/ live in the acid-state database (and consequently
 -- does not need a 'SafeCopy' instance), because this will grow without bound.
@@ -68,10 +69,22 @@ data TxMeta = TxMeta {
 
 makeLenses ''TxMeta
 
+
 data InvariantViolation =
-      DuplicatedTransaction Core.TxId
-      -- ^ When attempting to insert a new 'MetaTx', the 'Core.TxId'
-      -- identifying this transaction was already present in the storage.
+        DuplicatedTransactionWithDifferentHash Core.TxId
+        -- ^ When attempting to insert a new 'MetaTx', the 'Core.TxId'
+        -- identifying this transaction was already present in the storage,
+        -- but when computing the 'Hash' of two 'TxMeta', these values were not
+        -- the same, meaning somebody is trying to re-insert the same 'Tx' in
+        -- the storage with different values (i.e. different inputs/outputs etc)
+        -- and this is effectively an invariant violation.
+      | UndisputableLookupFailed Core.TxId
+        -- ^ When looking up a transaction which the storage claims to be
+        -- already present as a duplicate, such lookup failed. This is an
+        -- invariant violation because a 'TxMeta' storage is append-only,
+        -- therefore the data cannot possibly be evicted, and should be there
+        -- by definition (or we wouldn't get a duplicate collision in the
+        -- first place).
       deriving Show
 
 -- | A domain-specific collection of things which might go wrong when

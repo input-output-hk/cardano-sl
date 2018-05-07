@@ -7432,7 +7432,7 @@ inherit (pkgs) mesa;};
         ({ mkDerivation, aeson, async, attoparsec, base, binary, bytestring
          , cardano-sl-util, conduit, conduit-extra, containers
          , contravariant, cryptonite, ekg-core, exceptions, formatting
-         , hashable, hspec, kademlia, lens, log-warper, mmorph
+         , hashable, hspec, hspec-core, kademlia, lens, log-warper, mmorph
          , monad-control, MonadRandom, mtl, network, network-transport
          , network-transport-inmemory, network-transport-tcp
          , optparse-simple, QuickCheck, random, resourcet, safe-exceptions
@@ -7463,10 +7463,10 @@ inherit (pkgs) mesa;};
              text-format time-units
            ];
            testHaskellDepends = [
-             async base binary bytestring cardano-sl-util containers hspec lens
-             log-warper mtl network-transport network-transport-inmemory
-             network-transport-tcp QuickCheck random safe-exceptions
-             serokell-util stm time-units
+             async base binary bytestring cardano-sl-util containers hspec
+             hspec-core lens log-warper mtl network-transport
+             network-transport-inmemory network-transport-tcp QuickCheck random
+             safe-exceptions serokell-util stm time-units
            ];
            doHaddock = false;
            license = stdenv.lib.licenses.mit;

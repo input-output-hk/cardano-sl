@@ -27,8 +27,6 @@ import           Pos.WorkMode (RealModeContext (..))
 import           Pos.DB.Block (prepareBlockDB, putBlunds)
 
 import           Pos.Util.Util (lensOf)
-import           System.Directory (createDirectoryIfMissing, doesPathExist, getCurrentDirectory,
-                                   removeDirectoryRecursive)
 
 import           TestUtil (BlockNumber, SlotsPerEpoch, createEmptyUndo,
                            produceBlocksByBlockNumberAndSlots, produceSecretKeys,
@@ -39,7 +37,8 @@ import           Pos.Util.JsonLog (jsonLogConfigFromHandle)
 import           Pos.Util.UserSecret (usVss)
 
 import           Servant
-import           System.Directory (getCurrentDirectory, listDirectory, makeAbsolute,
+import           System.Directory (createDirectoryIfMissing, doesPathExist, removeDirectoryRecursive,
+                                   getCurrentDirectory, listDirectory, makeAbsolute,
                                    setCurrentDirectory)
 import           Test.Hspec
 

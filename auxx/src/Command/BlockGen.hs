@@ -19,14 +19,13 @@ import           Pos.Generator.Block (BlockGenParams (..), genBlocks, tgpTxCount
 import           Pos.StateLock (Priority (..), withStateLock)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util.CompileInfo (withCompileInfo)
-import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..))
 
 import           Lang.Value (GenBlocksParams (..))
 import           Mode (MonadAuxxMode)
 
 
 generateBlocks :: MonadAuxxMode m => GenBlocksParams -> m ()
-generateBlocks GenBlocksParams{..} = withStateLock HighPriority ApplyBlock $ \_ -> do
+generateBlocks GenBlocksParams{..} = withStateLock HighPriority "auxx" $ \_ -> do
     seed <- liftIO $ maybe randomIO pure bgoSeed
     logInfo $ "Generating with seed " <> show seed
 

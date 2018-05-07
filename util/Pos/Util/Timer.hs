@@ -1,31 +1,60 @@
--- | Restartable, STM-based dynamic timer build on top of `Pos.Util.Timer.Timer`.
+-- | Restartable, STM-based timer for waiting a given number of microseconds.
+--
+-- Consider the following code:
+-- @
+--   main :: IO ()
+--   main = do
+--     delay <- newTimer $ convertUnit (5 :: Second)
+--     tid <- forkIO . forever $ do
+--       startTimer delay
+--       atomically $ waitTimer delay
+--       putStrLn $ "Timer ended"
+--     (`finally` killThread tid) . forever $ do
+--       _ <- getLine
+--       startTimer delay
+-- @
+--
+-- It will print "Timer ended" every 5 seconds after there was no input for 5
+-- seconds.
 module Pos.Util.Timer
-  ( Timer
-  , newTimer
-  , waitTimer
-  , startTimer
-  ) where
+    ( Timer
+    , newTimer
+    , setTimerDuration
+    , waitTimer
+    , startTimer
+    ) where
 
-import           Data.Time.Units (TimeUnit, toMicroseconds)
+import           Data.Time.Units (Microsecond)
+import           Control.Concurrent (modifyMVar_)
 import           Control.Concurrent.STM (readTVar, registerDelay, retry)
 import           Universum
 
-newtype Timer = Timer { timerSemaphore :: TVar (TVar Bool) }
+data Timer = Timer
+  { timerDuration   :: !(MVar Microsecond)
+  , timerSemaphore :: !(TVar (TVar Bool))
+  }
 
--- | Construct new `Timer`.
-newTimer :: MonadIO m => m Timer
-newTimer = Timer <$> (newTVarIO True >>= newTVarIO)
+-- | Create a new, inactive Timer given the number of microseconds. In order to
+-- activate it 'startTimer' needs to be called.
+newTimer :: MonadIO m => Microsecond -> m Timer
+newTimer n = Timer <$> newMVar n <*> (newTVarIO True >>= newTVarIO)
+
+-- | Set the duration of a timer to a specified number of microseconds. Note
+-- that if the timer is already started, calling this function wont't restart
+-- it.
+setTimerDuration :: MonadIO m => Timer -> Microsecond -> m ()
+setTimerDuration Timer{..} n = liftIO $ modifyMVar_ timerDuration $ \_ -> return $! n
 
 -- | Wait for the duration associated with the Timer that passed since the last
--- time `startTimer` was called.
+-- time 'startTimer' was called.
 waitTimer :: Timer -> STM ()
 waitTimer Timer{..} = do
   done <- readTVar =<< readTVar timerSemaphore
   unless done retry
 
--- | Set the time duration of the underlying timer and start the underlying
--- timer.
-startTimer :: (MonadIO m, TimeUnit t) => t -> Timer -> m ()
-startTimer time Timer{..} =
-      (liftIO . registerDelay . fromIntegral . toMicroseconds $ time)
-  >>= atomically . writeTVar timerSemaphore
+-- Start the timer. If the function is called before @t + n@, where @t@ is the
+-- time startTimer was called for the last time and @n@ is the number of
+-- microseconds associated with the Timer, the timer is restarted.
+startTimer :: MonadIO m => Timer -> m ()
+startTimer Timer{..} = liftIO (registerDelay . fromIntegral =<< readMVar timerDuration)
+    >>= atomically . writeTVar timerSemaphore

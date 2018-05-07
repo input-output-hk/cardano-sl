@@ -42,9 +42,8 @@ let
     daedalus-bridge = supportedSystems;
   };
   nixosTests = import ./nixos-tests;
-  walletIntegrationTests = iohkPkgs.buildWalletIntegrationTests;
 in (mapTestOn platforms) // {
-  inherit stagingWalletdockerImage walletIntegrationTests;
+  inherit stagingWalletdockerImage nixosTests;
   nixpkgs = let
     wrapped = pkgs.runCommand "nixpkgs" {} ''
       ln -sv ${fixedNixpkgs} $out

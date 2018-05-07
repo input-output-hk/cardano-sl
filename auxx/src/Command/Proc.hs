@@ -19,7 +19,7 @@ import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Core (AddrStakeDistribution (..), Address, HeavyDlgIndex (..),
                            SoftwareVersion (..), StakeholderId, addressHash, mkMultiKeyDistr,
-                           protocolMagic, unsafeGetCoin)
+                           unsafeGetCoin, protocolMagic)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..), makeAddress)
 import           Pos.Core.Configuration (genesisSecretKeys)
 import           Pos.Core.Txp (TxOut (..))
@@ -208,7 +208,7 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
     { cpName = name
     , cpArgumentPrepare = identity
     , cpArgumentConsumer = do
-        stagpTxsPerThread <- getArg tyInt "txsPerThread"
+        stagpDuration <- getArg tyInt "dur"
         stagpConc <- getArg tyInt "conc"
         stagpDelay <- getArg tyInt "delay"
         stagpTpsSentFile <- getArg tyFilePath "file"

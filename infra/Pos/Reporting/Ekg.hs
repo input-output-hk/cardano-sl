@@ -1,5 +1,9 @@
 -- | EKG monitoring.
 
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
+
 module Pos.Reporting.Ekg
     ( withEkgServer
     , registerEkgMetrics
@@ -10,42 +14,60 @@ module Pos.Reporting.Ekg
 
 import           Universum
 
+import           Mockable (Mockable)
+import qualified Mockable.Metrics as Mockable
 import           Node (Node)
 import           Node.Util.Monitor (registerMetrics)
 
 import qualified System.Metrics as Metrics
+import qualified System.Metrics.Distribution as Metrics
+import qualified System.Metrics.Gauge as Metrics
+import qualified System.Metrics.Counter as Metrics
 import qualified System.Remote.Monitoring.Wai as Monitoring
 
 import           Pos.Util.Monitor (stopMonitor)
 import           Pos.Statistics (EkgParams (..))
 import           Pos.System.Metrics.Constants (cardanoNamespace)
 
--- | All you need in order to register EKG metrics on a time-warp node.
-data EkgNodeMetrics = EkgNodeMetrics
+-- | All you need in order to register EKG metrics on a time-warp node over
+-- 'm'.
+data EkgNodeMetrics m = EkgNodeMetrics
     { enmStore :: Metrics.Store
+    , enmElim  :: forall t . m t -> IO t
     }
 
 -- | Register various network-related EKG metrics (relevant to a Node).
 registerEkgNodeMetrics
-    :: EkgNodeMetrics
-    -> Node
-    -> IO ()
+    :: ( MonadIO m
+       , Mockable Mockable.Metrics m
+       , Mockable.Distribution m ~ Metrics.Distribution
+       , Mockable.Gauge m ~ Metrics.Gauge
+       , Mockable.Counter m ~ Metrics.Counter
+       )
+    => EkgNodeMetrics m
+    -> Node m
+    -> m ()
 registerEkgNodeMetrics ekgNodeMetrics nd =
-    registerMetrics (Just cardanoNamespace) nd (enmStore ekgNodeMetrics)
+    registerMetrics (Just cardanoNamespace) (enmElim ekgNodeMetrics) nd (enmStore ekgNodeMetrics)
 
 -- | Register RTS/GC ekg metrics.
 registerEkgMetrics
-    :: Metrics.Store
-    -> IO ()
-registerEkgMetrics ekgStore = Metrics.registerGcMetrics ekgStore
+    :: ( MonadIO m
+       )
+    => Metrics.Store
+    -> m ()
+registerEkgMetrics ekgStore = liftIO $ Metrics.registerGcMetrics ekgStore
 
 -- | Bracket an EKG web server, so you can look at the metrics in your browser.
 withEkgServer
-    :: EkgParams
+    :: ( MonadIO m
+       , MonadMask m
+       )
+    => EkgParams
     -> Metrics.Store
-    -> IO t
-    -> IO t
+    -> m t
+    -> m t
 withEkgServer EkgParams {..} ekgStore act = bracket acquire release (const act)
   where
-    acquire = Monitoring.forkServerWith ekgStore ekgHost ekgPort
+    acquire = liftIO $ Monitoring.forkServerWith ekgStore ekgHost ekgPort
     release = stopMonitor

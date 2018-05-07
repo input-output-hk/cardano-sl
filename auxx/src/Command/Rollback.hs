@@ -26,7 +26,6 @@ import           Pos.StateLock (Priority (..), withStateLock)
 import           Pos.Txp (flattenTxPayload)
 import           Pos.Util.Chrono (NewestFirst, _NewestFirst)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..))
 
 import           Mode (MonadAuxxMode)
 
@@ -39,7 +38,7 @@ rollbackAndDump
     => Word
     -> FilePath
     -> m ()
-rollbackAndDump numToRollback outFile = withStateLock HighPriority ApplyBlockWithRollback $ \_ -> do
+rollbackAndDump numToRollback outFile = withStateLock HighPriority "auxx" $ \_ -> do
     printTipDifficulty
     blundsMaybeEmpty <- modifyBlunds <$>
         DB.loadBlundsFromTipByDepth (fromIntegral numToRollback)

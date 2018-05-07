@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | Type stored in the Txp holder.
 
 module Pos.Txp.MemState.Types

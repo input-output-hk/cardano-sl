@@ -15,7 +15,6 @@ flag benchmarks
 Library
   exposed-modules:      Network.Discovery.Abstract
                         Network.Discovery.Transport.Kademlia
-                        -- TODO remove these
                         Network.Transport.Abstract
                         Network.Transport.Concrete
                         Network.Transport.Concrete.TCP
@@ -65,12 +64,12 @@ Library
                       , async
                       , attoparsec
                       , base
-                      , cardano-sl-util
                       , containers
                       , contravariant
                       , cryptonite
                       , binary >= 0.8
                       , bytestring
+                      , data-default
                       , exceptions
                       , formatting
                       , hashable
@@ -117,10 +116,7 @@ executable discovery
                       , binary
                       , bytestring
                       , cardano-sl-networking
-                      , cardano-sl-util
                       , containers
-                      , contravariant
-                      , network-transport
                       , network-transport-tcp
                       , random
                       , safe-exceptions
@@ -139,13 +135,9 @@ executable discovery
 executable ping-pong
   main-is:             PingPong.hs
   build-depends:       base >= 4.8 && < 5
-                     , async
                      , binary
                      , bytestring
                      , cardano-sl-networking
-                     , cardano-sl-util
-                     , contravariant
-                     , network-transport
                      , network-transport-tcp
                      , random
                      , safe-exceptions

@@ -42,7 +42,7 @@ eTxProcessTransaction ::
     => (TxId, TxAux)
     -> m (Either ToilVerFailure ())
 eTxProcessTransaction itw =
-    withStateLock LowPriority ProcessTransaction $ \__tip -> eTxProcessTransactionNoLock itw
+    withStateLock LowPriority "eTxProcessTransaction" $ \__tip -> eTxProcessTransactionNoLock itw
 
 eTxProcessTransactionNoLock ::
        forall ctx m. (ETxpLocalWorkMode ctx m)

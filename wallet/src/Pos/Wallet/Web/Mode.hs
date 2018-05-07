@@ -72,7 +72,7 @@ import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..), M
 import qualified Pos.Txp.DB as DB
 import           Pos.Util (postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.JsonLog.Events (HasJsonLogConfig (..), jsonLogDefault)
+import           Pos.Util.JsonLog (HasJsonLogConfig (..), jsonLogDefault)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import qualified Pos.Util.Modifier as MM

@@ -67,26 +67,28 @@ newStateLock tip = StateLock <$> newMVar tip <*> newPriorityLock
 --
 --   TODO: make it type class if we want to use other things we have
 --   in application and to be more consistent with other code. @gromak
-data StateLockMetrics slr = StateLockMetrics
+data StateLockMetrics = StateLockMetrics
     { -- | Called when a thread begins to wait to modify the mempool.
       --   Parameter is the reason for modifying the mempool.
-      slmWait    :: !(slr -> LoggerNameBox IO ())
-      -- | Called when a thread is granted the lock on the mempool. Parameter
-      --   indicates how long it waited.
-    , slmAcquire :: !(slr -> Microsecond -> LoggerNameBox IO ())
-      -- | Called when a thread is finished modifying the mempool and has
-      --   released the lock. Parameters indicates time elapsed since acquiring
-      --   the lock, and new mempool size.
-    , slmRelease :: !(slr -> Microsecond -> Microsecond -> Int64 -> LoggerNameBox IO Value)
+      slmWait    :: !(String -> LoggerNameBox IO ())
+      -- | Called when a thread is granted the lock on the
+      --   mempool. The first parameter is the reason for modifying
+      --   the mempool. The second one indicates how long it waited.
+    , slmAcquire :: !(String -> Microsecond -> LoggerNameBox IO ())
+      -- | Called when a thread is finished modifying the mempool and
+      --   has released the lock. Parameters indicate the reason for
+      --   modifying the mempool, time elapsed since acquiring the
+      --   lock, and new mempool size.
+    , slmRelease :: !(String -> Microsecond -> LoggerNameBox IO ())
     }
 
 -- | A 'StateLockMetrics' that never does any writes. Use it if you
 -- don't care about metrics.
-ignoreStateLockMetrics :: StateLockMetrics ()
+ignoreStateLockMetrics :: StateLockMetrics
 ignoreStateLockMetrics = StateLockMetrics
-    { slmWait = \_ -> pure ()
-    , slmAcquire = \_ _ -> pure ()
-    , slmRelease = \_ _ _ _ -> pure (toJSON ())
+    { slmWait = const (pure ())
+    , slmAcquire = const (const (pure ()))
+    , slmRelease = const (const (pure ()))
     }
 
 type MonadStateLockBase ctx m
@@ -96,27 +98,26 @@ type MonadStateLockBase ctx m
        , HasLens' ctx StateLock
        )
 
-type MonadStateLock ctx slr m
+type MonadStateLock ctx m
      = ( MonadStateLockBase ctx m
        , WithLogger m
        , Mockable CurrentTime m
-       , HasLens' ctx (StateLockMetrics slr)
-       , CanJsonLog m
+       , HasLens' ctx StateLockMetrics
        )
 
 -- | Run an action acquiring 'StateLock' lock. Argument of
 -- action is an old tip, result is put as a new tip.
-modifyStateLock :: forall ctx slr m a.
-       MonadStateLock ctx slr m
+modifyStateLock ::
+       MonadStateLock ctx m
     => Priority
-    -> slr
+    -> String
     -> (HeaderHash -> m (HeaderHash, a))
     -> m a
 modifyStateLock = stateLockHelper modifyMVar
 
 -- | Run an action acquiring 'StateLock' lock without modifying tip.
 withStateLock ::
-       MonadStateLock ctx slr m => Priority -> slr -> (HeaderHash -> m a) -> m a
+       MonadStateLock ctx m => Priority -> String -> (HeaderHash -> m a) -> m a
 withStateLock = stateLockHelper withMVar
 
 -- | Version of 'withStateLock' that does not gather metrics
@@ -126,16 +127,16 @@ withStateLockNoMetrics prio action = do
     StateLock mvar prioLock <- view (lensOf @StateLock)
     withPriorityLock prioLock prio $ withMVar mvar action
 
-stateLockHelper :: forall ctx slr m a b.
-       MonadStateLock ctx slr m
+stateLockHelper ::
+       MonadStateLock ctx m
     => (MVar HeaderHash -> (HeaderHash -> m b) -> m a)
     -> Priority
-    -> slr
+    -> String
     -> (HeaderHash -> m b)
     -> m a
 stateLockHelper doWithMVar prio reason action = do
     StateLock mvar prioLock <- view (lensOf @StateLock)
-    StateLockMetrics {..} <- view (lensOf @(StateLockMetrics slr))
+    StateLockMetrics {..} <- view (lensOf @StateLockMetrics)
     lname <- askLoggerName
     liftIO . usingLoggerName lname $ slmWait reason
     timeBeginWait <- currentTime
@@ -144,15 +145,8 @@ stateLockHelper doWithMVar prio reason action = do
         liftIO . usingLoggerName lname $
             slmAcquire reason (timeEndWait - timeBeginWait)
         timeBeginModify <- currentTime
-        memBeginModify <- liftIO getAllocationCounter
         res <- action hh
         timeEndModify <- currentTime
-        memEndModify <- liftIO getAllocationCounter
-        json <- liftIO . usingLoggerName lname $ slmRelease
-            reason
-            (timeEndWait - timeBeginWait)
-            (timeEndModify - timeBeginModify)
-            -- counter counts "down" memory that has been allocated by the thread
-            (memBeginModify - memEndModify)
-        jsonLog json
+        liftIO . usingLoggerName lname $
+            slmRelease reason (timeEndModify - timeBeginModify)
         pure res

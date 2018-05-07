@@ -16,7 +16,6 @@ module Cardano.Wallet.Client
     , liftClient
     -- * The type of errors that the client might return
     , ClientError(..)
-    , V1Errors.WalletError(..)
     , ServantError(..)
     , Response(..)
     -- * Reexports

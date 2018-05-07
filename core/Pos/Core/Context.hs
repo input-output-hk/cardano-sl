@@ -1,6 +1,3 @@
-module Pos.Core.Context
-       (
-        module Pos.Core.Context.PrimaryKey
-       ) where
+-- | Core runtime context.
 
-import           Pos.Core.Context.PrimaryKey
+{-# OPTIONS_GHC -F -pgmF autoexporter #-}

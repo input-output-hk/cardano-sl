@@ -62,7 +62,7 @@ import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..), t
 import           Pos.Txp.DB.Utxo (getFilteredUtxo)
 import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
-import           Pos.Util.JsonLog.Events (HasJsonLogConfig (..))
+import           Pos.Util.JsonLog (HasJsonLogConfig (..))
 import           Pos.Util.LoggerName (HasLoggerName' (..))
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))

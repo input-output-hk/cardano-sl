@@ -20,7 +20,6 @@ import           Control.Lens (uses, (-=), (.=), _Wrapped)
 import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Data.Default (Default (def))
 import           Formatting (build, fixed, ords, sformat, stext, (%))
-import           JsonLog (CanJsonLog (..))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog (WithLogger, logDebug)
 
@@ -112,9 +111,8 @@ createGenesisBlockAndApply ::
        forall ctx m.
        ( MonadCreateBlock ctx m
        , MonadBlockApply ctx m
-       , CanJsonLog m
        , HasLens StateLock ctx StateLock
-       , HasLens (StateLockMetrics MemPoolModifyReason) ctx (StateLockMetrics MemPoolModifyReason)
+       , HasLens StateLockMetrics ctx StateLockMetrics
        )
     => EpochIndex
     -> m (Maybe GenesisBlock)
@@ -128,15 +126,14 @@ createGenesisBlockAndApply epoch = do
     if needGen
         then modifyStateLock
                  HighPriority
-                 ApplyBlock
+                 "createGenesisBlockAndApply"
                  (\_ -> createGenesisBlockDo epoch)
         else return Nothing
 
 createGenesisBlockDo
     :: forall ctx m.
        ( MonadCreateBlock ctx m
-       , MonadBlockApply ctx m
-       , CanJsonLog m)
+       , MonadBlockApply ctx m)
     => EpochIndex
     -> m (HeaderHash, Maybe GenesisBlock)
 createGenesisBlockDo epoch = do
@@ -212,15 +209,14 @@ createMainBlockAndApply ::
        forall ctx m.
        ( MonadCreateBlock ctx m
        , MonadBlockApply ctx m
-       , CanJsonLog m
        , HasLens' ctx StateLock
-       , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
+       , HasLens' ctx StateLockMetrics
        )
     => SlotId
     -> ProxySKBlockInfo
     -> m (Either Text MainBlock)
 createMainBlockAndApply sId pske =
-    modifyStateLock HighPriority ApplyBlock createAndApply
+    modifyStateLock HighPriority "createMainBlockAndApply" createAndApply
   where
     createAndApply tip =
         createMainBlockInternal sId pske >>= \case
@@ -343,7 +339,6 @@ applyCreatedBlock ::
       forall ctx m.
     ( MonadBlockApply ctx m
     , MonadCreateBlock ctx m
-    , CanJsonLog m
     )
     => ProxySKBlockInfo
     -> MainBlock

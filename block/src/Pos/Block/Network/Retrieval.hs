@@ -21,10 +21,12 @@ import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, getHeadersOlderExp)
-import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlocks, triggerRecovery)
+import           Pos.Block.Network.Logic (BlockNetLogicException (DialogUnexpected), handleBlocks,
+                                          triggerRecovery)
+import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..))
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (RecoveryHeaderTag)
-import           Pos.Communication.Protocol (NodeId, OutSpecs)
+import           Pos.Communication.Protocol (NodeId, OutSpecs, convH, toOutSpecs)
 import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL, isMoreDifficult)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Crypto (shortHashF)
@@ -40,7 +42,11 @@ retrievalWorker
     :: forall ctx m.
        (BlockWorkMode ctx m)
     => (WorkerSpec m, OutSpecs)
-retrievalWorker = worker mempty retrievalWorkerImpl
+retrievalWorker = worker outs retrievalWorkerImpl
+  where
+    outs = toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
+                             (Proxy :: Proxy MsgBlock)
+                      ]
 
 -- I really don't like join
 {-# ANN retrievalWorkerImpl ("HLint: ignore Use join" :: Text) #-}
@@ -111,7 +117,7 @@ retrievalWorkerImpl diffusion = do
         logDebug $ "handleContinues: " <> pretty hHash
         classifyNewHeader header >>= \case
             CHContinues ->
-                void $ getProcessBlocks diffusion nodeId (headerHash header) [hHash]
+                void $ getProcessBlocks diffusion nodeId header [hHash]
             res -> logDebug $
                 "processContHeader: expected header to " <>
                 "be continuation, but it's " <> show res
@@ -167,7 +173,7 @@ retrievalWorkerImpl diffusion = do
                                         "already present in db"
         logDebug "handleRecovery: fetching blocks"
         checkpoints <- toList <$> getHeadersOlderExp Nothing
-        void $ getProcessBlocks diffusion nodeId (headerHash rHeader) checkpoints
+        void $ getProcessBlocks diffusion nodeId rHeader checkpoints
 
 ----------------------------------------------------------------------------
 -- Entering and exiting recovery mode
@@ -276,7 +282,7 @@ getProcessBlocks
        (BlockWorkMode ctx m)
     => Diffusion m
     -> NodeId
-    -> HeaderHash
+    -> BlockHeader
     -> [HeaderHash]
     -> m ()
 getProcessBlocks diffusion nodeId desired checkpoints = do
@@ -285,7 +291,7 @@ getProcessBlocks diffusion nodeId desired checkpoints = do
       Nothing -> do
           let msg = sformat ("getProcessBlocks: diffusion returned []"%
                              " on request to fetch "%shortHashF%" from peer "%build)
-                            desired nodeId
+                            (headerHash desired) nodeId
           throwM $ DialogUnexpected msg
       Just (blocks :: OldestFirst NE Block) -> do
           recHeaderVar <- view (lensOf @RecoveryHeaderTag)

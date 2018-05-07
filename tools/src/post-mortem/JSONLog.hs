@@ -5,7 +5,7 @@ module JSONLog
     , runParseLogs
     ) where
 
-import           Data.Attoparsec.Text (Parser, parseOnly, takeTill)
+import           Data.Attoparsec.Text (Parser, decimal, parseOnly, string)
 import           Pipes
 import           Pipes.ByteString (fromHandle)
 import           Pipes.Interleave (interleave)
@@ -13,30 +13,30 @@ import qualified Pipes.Prelude as P
 import           System.Directory (listDirectory)
 import           System.FilePath ((</>))
 
-import           Pos.Util.JsonLog.Events (JLEvent, JLTimedEvent (..))
+import           Pos.Util.JsonLog (JLEvent, JLTimedEvent (..))
 import           Types
 import           Universum
 import           Util.Aeson (parseJSONP)
 import           Util.Safe (runWithFiles)
 
-jsonLogs :: FilePath -> IO [(Text, FilePath)]
+jsonLogs :: FilePath -> IO [(Int, FilePath)]
 jsonLogs logDir = do
     files <- listDirectory logDir
     return $ map (second (logDir </>)) $ mapMaybe f files
   where
-    f :: FilePath -> Maybe (Text, FilePath)
+    f :: FilePath -> Maybe (Int, FilePath)
     f logFile = case parseOnly nodeIndexParser $ toText logFile of
-        Right name -> Just (name, logFile)
+        Right n -> Just (n, logFile)
         Left _  -> Nothing
 
-nodeIndexParser :: Parser Text
-nodeIndexParser = takeTill (== '.') <* ".json"
+nodeIndexParser :: Parser Int
+nodeIndexParser = string "node" *> decimal <* string ".json"
 
 parseLogP :: MonadIO m => Handle -> Producer JLTimedEvent m ()
 parseLogP h = fromHandle h >-> parseJSONP
 
 data IndexedJLTimedEvent = IndexedJLTimedEvent
-    { ijlNode      :: !NodeId
+    { ijlNode      :: !NodeIndex
     , ijlTimestamp :: !Timestamp
     , ijlEvent     :: !JLEvent
     }
@@ -54,7 +54,7 @@ runParseLogs logDir f = do
     xs <- jsonLogs logDir
     runWithFiles xs ReadMode $ \ys -> f $ interleave (map (uncurry producer) ys)
   where
-    producer :: NodeId -> Handle -> Producer IndexedJLTimedEvent IO ()
+    producer :: Int -> Handle -> Producer IndexedJLTimedEvent IO ()
     producer n h = parseLogP h >-> P.map (\JLTimedEvent{..} ->
         IndexedJLTimedEvent { ijlNode      = n
                             , ijlTimestamp = fromIntegral jlTimestamp

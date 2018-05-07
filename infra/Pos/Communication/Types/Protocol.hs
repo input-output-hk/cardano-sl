@@ -26,7 +26,6 @@ module Pos.Communication.Types.Protocol
        , SendActions (..)
        , EnqueueMsg
        , enqueueMsg'
-       , waitForDequeues
        , waitForConversations
        , toOutSpecs
        , VerInfo (..)
@@ -46,15 +45,13 @@ import           Universum
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value)
 import           Data.Aeson.Types (Parser)
 import qualified Data.ByteString.Base64 as B64 (decode, encode)
-import qualified Control.Concurrent.Async as Async
-import qualified Control.Concurrent.STM as STM
-import           Control.Exception (throwIO)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable as B
 import qualified Data.Text.Encoding as Text (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Internal.Builder as B
 import           Formatting (bprint, build, hex, sformat, shown, (%))
-import qualified Network.Broadcast.OutboundQueue as OQ
+-- TODO should not have to import outboundqueue stuff here. MsgType and
+-- NodeType should be a cardano-sl notion.
 import           Network.Transport (EndPointAddress (..))
 import qualified Node as N
 import           Node.Message.Class (Message (..), MessageCode)
@@ -75,7 +72,7 @@ type Listener = N.Listener PackingType PeerData
 
 type Msg = MsgType NodeId
 
-data SendActions = SendActions {
+data SendActions m = SendActions {
       -- | Establish a bi-direction conversation session with a node.
       --
       -- A NonEmpty of Conversations is given as a sort of multi-version
@@ -87,64 +84,48 @@ data SendActions = SendActions {
       withConnectionTo
           :: forall t .
              NodeId
-          -> (PeerData -> NonEmpty (Conversation t))
-          -> IO t
-
+          -> (PeerData -> NonEmpty (Conversation m t))
+          -> m t
     , enqueueMsg
           :: forall t .
              Msg
-          -> (NodeId -> PeerData -> NonEmpty (Conversation t))
-          -- TOOD may as well change this type while we're at it, to include
-          -- the TVar.
-          -> IO (Map NodeId (IO t))
+          -> (NodeId -> PeerData -> NonEmpty (Conversation m t))
+          -> m (Map NodeId (m t))
     }
 
-type EnqueueMsg =
+type EnqueueMsg m =
        forall t .
        Msg
-    -> (NodeId -> PeerData -> NonEmpty (Conversation t))
-    -> IO (Map NodeId (STM.TVar (OQ.PacketStatus t)))
+    -> (NodeId -> PeerData -> NonEmpty (Conversation m t))
+    -> m (Map NodeId (m t))
 
 -- | Enqueue a conversation with a bunch of peers and then wait for all of
 -- the results.
 enqueueMsg'
-    :: forall t .
-       SendActions
+    :: forall m t .
+       ( Monad m )
+    => SendActions m
     -> Msg
-    -> (NodeId -> PeerData -> NonEmpty (Conversation t))
-    -> IO (Map NodeId t)
+    -> (NodeId -> PeerData -> NonEmpty (Conversation m t))
+    -> m (Map NodeId t)
 enqueueMsg' sendActions msg k =
     enqueueMsg sendActions msg k >>= waitForConversations
-
-waitForDequeues
-    :: forall m t .
-       ( MonadIO m )
-    => Map NodeId (STM.TVar (OQ.PacketStatus t))
-    -> Map NodeId (m t)
-waitForDequeues = fmap waitOne
-
-waitOne :: forall m t . (MonadIO m) => STM.TVar (OQ.PacketStatus t) -> m t
-waitOne statusVar = liftIO . join . atomically $ do
-    st <- readTVar statusVar
-    case st of
-        OQ.PacketEnqueued        -> STM.retry
-        OQ.PacketAborted         -> pure (throwIO OQ.Aborted)
-        OQ.PacketDequeued thread -> pure (Async.wait thread)
 
 -- | Wait for enqueued conversations to complete (useful in a bind with
 -- 'enqueueMsg').
 waitForConversations
-    :: Map NodeId (IO t)
-    -> IO (Map NodeId t)
+    :: ( Applicative m )
+    => Map NodeId (m t)
+    -> m (Map NodeId t)
 waitForConversations = sequenceA
 
 -- FIXME do not demand Message on rcv. That's only done for the benefit of
 -- this in- and out-spec motif. See TW-152.
-data Conversation t where
+data Conversation m t where
     Conversation
         :: ( Bi snd, Message snd, Bi rcv, Message rcv )
-        => (N.ConversationActions snd rcv -> IO t)
-        -> Conversation t
+        => (N.ConversationActions snd rcv m -> m t)
+        -> Conversation m t
 
 newtype PeerId = PeerId ByteString
   deriving (Eq, Ord, Show, Generic, Hashable)
@@ -230,14 +211,14 @@ notInSpecs sp' = not . checkInSpecs sp'
 
 -- ListenerSpec makes no sense like this. Surely the HandlerSpec must also
 -- depend upon the VerInfo.
-data ListenerSpec = ListenerSpec
-    { lsHandler :: VerInfo -> Listener -- ^ Handler accepts out verInfo and returns listener
+data ListenerSpec m = ListenerSpec
+    { lsHandler :: VerInfo -> Listener m -- ^ Handler accepts out verInfo and returns listener
     , lsInSpec  :: (MessageCode, HandlerSpec)
     }
 
 -- | The MessageCode that the listener responds to.
-listenerMessageCode :: Listener -> MessageCode
-listenerMessageCode (N.Listener (_ :: PeerData -> NodeId -> N.ConversationActions snd rcv -> IO ())) =
+listenerMessageCode :: forall m . Listener m -> MessageCode
+listenerMessageCode (N.Listener (_ :: PeerData -> NodeId -> N.ConversationActions snd rcv m -> m ())) =
     messageCode (Proxy @rcv)
 
 newtype InSpecs = InSpecs HandlerSpecs
@@ -284,8 +265,8 @@ toOutSpecs = OutSpecs . merge . fmap (uncurry HM.singleton)
 
 -- | Data type to represent listeners, provided upon our version info and peerData
 -- received from other node, in and out specs for all listeners which may be provided
-data MkListeners = MkListeners
-        { mkListeners :: VerInfo -> PeerData -> [Listener]
+data MkListeners m = MkListeners
+        { mkListeners :: VerInfo -> PeerData -> [Listener m]
         -- ^ Accepts our version info and their peerData and returns set of listeners
         , inSpecs     :: InSpecs
         -- ^ Aggregated specs for what we accept on incoming connections
@@ -293,12 +274,12 @@ data MkListeners = MkListeners
         -- ^ Aggregated specs for which outgoing connections we might initiate
         }
 
-instance Semigroup MkListeners where
+instance Monad m => Semigroup (MkListeners m) where
     a <> b = MkListeners act (inSpecs a <> inSpecs b) (outSpecs a <> outSpecs b)
       where
         act vI pD = (++) (mkListeners a vI pD) (mkListeners b vI pD)
 
-instance Monoid MkListeners where
+instance Monad m => Monoid (MkListeners m) where
     mempty = MkListeners (\_ _ -> []) mempty mempty
     mappend = (<>)
 
@@ -338,6 +319,6 @@ mlMsgSubscribe1 :: Limit MsgSubscribe1
 mlMsgSubscribe1 = 0
 
 recvLimited
-    :: forall rcv snd .
-       N.ConversationActions snd rcv -> Limit rcv -> IO (Maybe rcv)
+    :: forall rcv snd m .
+       N.ConversationActions snd rcv m -> Limit rcv -> m (Maybe rcv)
 recvLimited conv = N.recv conv . getLimit

@@ -26,8 +26,8 @@ library
                        Pos.Binary.Class.TH
 
   build-depends:       QuickCheck
-                     , base
                      , autoexporter
+                     , base
                      , binary
                      , bytestring
                      , cborg

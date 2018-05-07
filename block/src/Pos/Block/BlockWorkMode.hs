@@ -71,7 +71,7 @@ type BlockWorkMode ctx m =
     , HasLens TxpHolderTag ctx (GenericTxpLocalData (MempoolExt m))
     , HasLens' ctx SecurityParams
     , HasLens' ctx StateLock
-    , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
+    , HasLens' ctx StateLockMetrics
     , HasLens' ctx UpdateContext
 
     , CanJsonLog m

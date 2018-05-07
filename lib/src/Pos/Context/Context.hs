@@ -46,7 +46,6 @@ import           Pos.Ssc.Types (HasSscContext (..), SscContext)
 import           Pos.StateLock (StateLock, StateLockMetrics)
 import           Pos.Txp.Settings (TxpGlobalSettings)
 import           Pos.Update.Context (UpdateContext)
-import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util (HasLens (..))
@@ -139,7 +138,7 @@ instance HasLens SimpleSlottingStateVar NodeContext SimpleSlottingStateVar where
 instance HasLens StateLock NodeContext StateLock where
     lensOf = ncStateLock_L
 
-instance HasLens (StateLockMetrics MemPoolModifyReason) NodeContext (StateLockMetrics MemPoolModifyReason) where
+instance HasLens StateLockMetrics NodeContext StateLockMetrics where
     lensOf = ncStateLockMetrics_L
 
 instance HasLens LastKnownHeaderTag NodeContext LastKnownHeader where

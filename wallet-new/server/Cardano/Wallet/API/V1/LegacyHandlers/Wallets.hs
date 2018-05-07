@@ -3,7 +3,6 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Wallets (
 
     -- * Internals, exposed only for testing
     , isNodeSufficientlySynced
-    , newWallet
     ) where
 
 import           Universum

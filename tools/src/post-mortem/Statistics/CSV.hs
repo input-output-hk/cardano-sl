@@ -8,15 +8,16 @@ import qualified Data.Text as T
 import           System.IO (hPutStrLn)
 import           System.Random (mkStdGen)
 
-import           Pos.Util.JsonLog.Events (JLMemPool (..), MemPoolModifyReason (..))
+import           Pos.Txp.MemState.Types (MemPoolModifyReason (..))
+import           Pos.Util.JsonLog (JLMemPool (..))
 import           Statistics.Focus (Focus (..))
 import           Types
 import           Universum
 
 txCntInChainMemPoolToCSV :: FilePath
                          -> Double
-                         -> [(NodeId, Timestamp, Int)]
-                         -> [(NodeId, Timestamp, JLMemPool)]
+                         -> [(NodeIndex, Timestamp, Int)]
+                         -> [(NodeIndex, Timestamp, JLMemPool)]
                          -> IO ()
 txCntInChainMemPoolToCSV f sp txCnt mp =
     flip evalRandT (mkStdGen 918273) $ liftIO $ withFile f WriteMode $ \h -> do
@@ -35,25 +36,27 @@ txCntInChainMemPoolToCSV f sp txCnt mp =
     draw = (<= sp) <$> getRandomR (0, 1)
 
     inSample :: MonadRandom m => MemPoolModifyReason -> m Bool
-    inSample ProcessTransaction = draw
+    inSample (ProcessTransaction _) = draw
     inSample _                      = return True
 
     toTxType :: String -> JLMemPool -> String
     toTxType s JLMemPool{..} =
         let reason = case jlmReason of
-                ApplyBlock             -> "ApplyBlock"
-                ApplyBlockWithRollback -> "ApplyBlockWithRollback"
-                ProcessTransaction     -> "ProcessTransaction"
+                ApplyBlock           -> "ApplyBlock"
+                CreateBlock          -> "CreateBlock"
+                ProcessTransaction _ -> "ProcessTransaction"
+                Custom t             -> toString t
+                Unknown              -> "Unknown"
         in  "mp_" ++ reason ++ "_" ++ s
 
-focusToCSV :: FilePath -> [(Timestamp, NodeId, Focus)] -> IO ()
+focusToCSV :: FilePath -> [(Timestamp, NodeIndex, Focus)] -> IO ()
 focusToCSV f xs = withFile f WriteMode $ \h -> do
     hPutStrLn h "time,delta_first_seconds,delta_step_seconds,node,type,block/error"
     case xs of
         []                -> return ()
         ((ts0, _, _) : _) -> foldM_ (step h ts0) ts0 xs
   where
-    step :: Handle -> Timestamp -> Timestamp -> (Timestamp, NodeId, Focus) -> IO Timestamp
+    step :: Handle -> Timestamp -> Timestamp -> (Timestamp, NodeIndex, Focus) -> IO Timestamp
     step h ts0 ts (ts', n, y) = do
         let dt0 = fromIntegral (ts' - ts0) / 1000000 :: Double
             dt  = fromIntegral (ts' - ts ) / 1000000 :: Double
@@ -63,6 +66,6 @@ focusToCSV f xs = withFile f WriteMode $ \h -> do
             InAdoptedBlock hash -> csvLine h ts' dt0 dt n "adopted" $ T.take 6 hash
         return ts'
 
-    csvLine :: Handle -> Timestamp -> Double -> Double -> NodeId -> String -> BlockHash -> IO ()
+    csvLine :: Handle -> Timestamp -> Double -> Double -> NodeIndex -> String -> BlockHash -> IO ()
     csvLine h ts dt0 dt node t he =
         hPutStrLn h $ show ts ++ "," ++ show dt0 ++ "," ++ show dt ++ "," ++ show node ++ "," ++ t ++ "," ++ toString he

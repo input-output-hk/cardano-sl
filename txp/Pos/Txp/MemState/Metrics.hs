@@ -18,24 +18,12 @@ import           Pos.Util.JsonLog.Events (JLEvent (..), JLMemPool (..), MemPoolM
 import           Pos.Txp.Toil.Types (MemPool (_mpSize))
 
 -- | 'StateLockMetrics' to record txp MemPool metrics.
-recordTxpMetrics :: Metrics.Store -> TVar MemPool -> IO (StateLockMetrics MemPoolModifyReason)
+recordTxpMetrics :: Metrics.Store -> TVar MemPool -> IO StateLockMetrics
 recordTxpMetrics ekgStore memPoolVar = do
-    ekgMemPoolSize <-
-        Metrics.createGauge (withCardanoNamespace "MemPoolSize") ekgStore
-    ekgMemPoolWaitTimeApplyBlock <-
-        Metrics.createGauge (withCardanoNamespace "MemPoolWaitTimeApplyBlock_microseconds") ekgStore
-    ekgMemPoolModifyTimeApplyBlock <-
-        Metrics.createGauge (withCardanoNamespace "MemPoolModifyTimeApplyBlock_microseconds") ekgStore
-    ekgMemPoolWaitTimeApplyBlockWithRollback <-
-        Metrics.createGauge (withCardanoNamespace "MemPoolWaitTimeApplyBlockWithRollback_microseconds") ekgStore
-    ekgMemPoolModifyTimeApplyBlockWithRollback <-
-        Metrics.createGauge (withCardanoNamespace "MemPoolModifyTimeApplyBlockWithRollback_microseconds") ekgStore
-    ekgMemPoolWaitTimeProcessTx <-
-        Metrics.createGauge (withCardanoNamespace "MemPoolWaitTimeProcessTx_microseconds") ekgStore
-    ekgMemPoolModifyTimeProcessTx <-
-        Metrics.createGauge (withCardanoNamespace "MemPoolModifyTimeProcessTx_microseconds") ekgStore
-    ekgMemPoolQueueLength <-
-        Metrics.createGauge (withCardanoNamespace "MemPoolQueueLength") ekgStore
+    ekgMemPoolSize        <- Metrics.createGauge (withCardanoNamespace "MemPoolSize") ekgStore
+    ekgMemPoolWaitTime    <- Metrics.createGauge (withCardanoNamespace "MemPoolWaitTime_microseconds") ekgStore
+    ekgMemPoolModifyTime  <- Metrics.createGauge (withCardanoNamespace "MemPoolModifyTime_microseconds") ekgStore
+    ekgMemPoolQueueLength <- Metrics.createGauge (withCardanoNamespace "MemPoolQueueLength") ekgStore
 
     -- An exponential moving average is used for the time gauges (wait
     -- and modify durations). The parameter alpha is chosen somewhat
@@ -71,9 +59,7 @@ recordTxpMetrics ekgStore memPoolVar = do
               logDebug $ sformat ("MemPool metrics acquire: "%shown
                                   %" wait time was "%shown) reason timeWaited
 
-        , slmRelease = \reason timeWaited timeElapsed memAllocated -> do
-              qlen <- liftIO $ Metrics.Gauge.read ekgMemPoolQueueLength
-              oldMemPoolSize <- liftIO $ Metrics.Gauge.read ekgMemPoolSize
+        , slmRelease = \reason timeElapsed -> do
               newMemPoolSize <- _mpSize <$> readTVarIO memPoolVar
               liftIO $ Metrics.Gauge.set ekgMemPoolSize (fromIntegral newMemPoolSize)
               let ekgMemPoolModifyTime = case reason of
@@ -88,12 +74,4 @@ recordTxpMetrics ekgStore memPoolVar = do
               logDebug $ sformat ("MemPool metrics release: "%shown
                                   %" modify time was "%shown%" size is "%shown)
                          reason timeElapsed newMemPoolSize
-              pure . toJSON . JLMemPoolEvent $ JLMemPool
-                  reason
-                  (fromIntegral timeWaited)
-                  (fromIntegral qlen)
-                  (fromIntegral timeElapsed)
-                  (fromIntegral oldMemPoolSize)
-                  (fromIntegral newMemPoolSize)
-                  (fromIntegral memAllocated)
         }

@@ -35,7 +35,7 @@ import           Pos.Txp.Logic
 import           Pos.Txp.MemState
 import           Pos.Util
 import           Pos.Util.Chrono
-import           Pos.Util.JsonLog.Events
+import           Pos.Util.JsonLog
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.WorkMode
 
@@ -114,6 +114,7 @@ runWalletMode nr wallet (action, outSpecs) =
     ekgNodeMetrics =
         EkgNodeMetrics
           (nrEkgStore nr)
+          (runProduction . elimRealMode nr . walletModeToRealMode wallet)
 
     serverWalletMode :: WalletMode a
     serverWalletMode = runServer

@@ -1,14 +1,6 @@
 {-# LANGUAGE Rank2Types      #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 -- | Module which provides `MonadWalletWebMode` instance for tests
@@ -156,8 +148,6 @@ data WalletTestContext = WalletTestContext
     , wtcStateLock        :: !StateLock
     -- ^ A lock which manages access to shared resources.
     -- Stored hash is a hash of last applied block.
-    , wtcStateLockMetrics :: !(StateLockMetrics MemPoolModifyReason)
-    -- ^ A set of callbacks for 'StateLock'.
     , wtcShutdownContext  :: !ShutdownContext
     -- ^ Stub
     , wtcConnectedPeers   :: !ConnectedPeers
@@ -199,8 +189,6 @@ initWalletTestContext WalletTestParams {..} callback =
             -- some kind of kostil to get tip
             tip <- readTVarIO $ txpTip $ btcTxpMem wtcBlockTestContext
             wtcStateLock <- newStateLock tip
-            store <- liftIO $ Metrics.newStore
-            wtcStateLockMetrics <- liftIO $ recordTxpMetrics store (txpMemPool $ btcTxpMem wtcBlockTestContext)
             wtcShutdownContext <- ShutdownContext <$> STM.newTVarIO False
             wtcConnectedPeers <- ConnectedPeers <$> STM.newTVarIO mempty
             wtcLastKnownHeader <- STM.newTVarIO Nothing
@@ -378,8 +366,14 @@ instance HasNodeType WalletTestContext where
     getNodeType _ = NodeCore -- doesn't really matter, it's for reporting
 
 -- TODO may be used for callback on tx processing in future.
-instance HasLens (StateLockMetrics MemPoolModifyReason) WalletTestContext (StateLockMetrics MemPoolModifyReason) where
-    lensOf = wtcStateLockMetrics_L
+instance HasLens StateLockMetrics WalletTestContext StateLockMetrics where
+    lensOf = lens (const emptyStateMetrics) const
+      where
+        emptyStateMetrics = StateLockMetrics
+            { slmWait = const $ pure ()
+            , slmAcquire = const $ const $ pure ()
+            , slmRelease = const $ const $ pure ()
+            }
 
 instance HasConfigurations => WalletDbReader WalletTestContext WalletTestMode
 

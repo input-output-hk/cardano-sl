@@ -10,33 +10,35 @@ module Pos.Diffusion.Full.Update
        ) where
 
 import           Universum
-
+import           Formatting (sformat, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
+import           System.Wlog (logInfo)
 
 import           Pos.Core.Update (UpId, UpdateVote, UpdateProposal, mkVoteId)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Limits (mlUpdateVote, mlUpdateProposalAndVotes)
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..),
                                              NodeId, MkListeners, OutSpecs)
-import           Pos.Communication.Relay (invReqDataFlowTK,
+import           Pos.Communication.Relay (invReqDataFlowTK, MinRelayWorkMode,
                                           Relay (..), relayListeners,
                                           InvReqDataParams (..), MempoolParams (..),
                                           relayPropagateOut)
+import           Pos.Crypto (hashHexF)
+import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
 import           Pos.Network.Types (Bucket)
 import           Pos.Update ()
-import           Pos.Util.Trace (Trace, Severity)
 
 -- Send UpdateVote to given addresses.
 sendVote
-    :: Trace IO (Severity, Text)
-    -> EnqueueMsg
+    :: ( MinRelayWorkMode m
+       )
+    => EnqueueMsg m
     -> UpdateVote
-    -> IO ()
-sendVote logTrace enqueue vote =
+    -> m ()
+sendVote enqueue vote =
     void $ invReqDataFlowTK
-        logTrace
         "UpdateVote"
         enqueue
         (MsgMPC OriginSender)
@@ -45,15 +47,16 @@ sendVote logTrace enqueue vote =
 
 -- Send UpdateProposal to given address.
 sendUpdateProposal
-    :: Trace IO (Severity, Text)
-    -> EnqueueMsg
+    :: ( MinRelayWorkMode m
+       )
+    => EnqueueMsg m
     -> UpId
     -> UpdateProposal
     -> [UpdateVote]
-    -> IO ()
-sendUpdateProposal logTrace enqueue upid proposal votes = do
+    -> m ()
+sendUpdateProposal enqueue upid proposal votes = do
+    logInfo $ sformat ("Announcing proposal with id "%hashHexF) upid
     void $ invReqDataFlowTK
-        logTrace
         "UpdateProposal"
         enqueue
         (MsgMPC OriginSender)
@@ -61,28 +64,43 @@ sendUpdateProposal logTrace enqueue upid proposal votes = do
         (proposal, votes)
 
 updateListeners
-    :: Trace IO (Severity, Text)
-    -> Logic IO
+    :: ( DiffusionWorkMode m
+       )
+    => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
-    -> EnqueueMsg
-    -> MkListeners
-updateListeners logTrace logic oq enqueue = relayListeners logTrace oq enqueue (usRelays logic)
+    -> EnqueueMsg m
+    -> MkListeners m
+updateListeners logic oq enqueue = relayListeners oq enqueue (usRelays logic)
 
 -- | Relays for data related to update system
-usRelays :: Logic IO -> [Relay]
+usRelays
+    :: forall m .
+       ( DiffusionWorkMode m
+       )
+    => Logic m
+    -> [Relay m]
 usRelays logic = [proposalRelay logic, voteRelay logic]
 
 -- | 'OutSpecs' for the update system, to keep up with the 'InSpecs'/'OutSpecs'
 -- motif required for communication.
 -- The 'Logic m' isn't *really* needed, it's just an artefact of the design.
-updateOutSpecs :: Logic IO -> OutSpecs
+updateOutSpecs
+    :: forall m .
+       ( DiffusionWorkMode m
+       )
+    => Logic m
+    -> OutSpecs
 updateOutSpecs logic = relayPropagateOut (usRelays logic)
 
 ----------------------------------------------------------------------------
 -- UpdateProposal relays
 ----------------------------------------------------------------------------
 
-proposalRelay :: Logic IO -> Relay
+proposalRelay
+    :: ( DiffusionWorkMode m
+       )
+    => Logic m
+    -> Relay m
 proposalRelay logic =
     InvReqData
         NoMempool $
@@ -101,7 +119,10 @@ proposalRelay logic =
 -- UpdateVote listeners
 ----------------------------------------------------------------------------
 
-voteRelay :: Logic IO -> Relay
+voteRelay
+    :: ( DiffusionWorkMode m )
+    => Logic m
+    -> Relay m
 voteRelay logic =
     InvReqData
         NoMempool $

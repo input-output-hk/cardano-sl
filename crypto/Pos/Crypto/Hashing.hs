@@ -23,7 +23,6 @@ module Pos.Crypto.Hashing
        , Hash
        , AHash(..)
        , hashHexF
-       , mediumHashF
        , shortHashF
        , hash
        , hashRaw
@@ -104,7 +103,7 @@ instance Hashable (AbstractHash algo a) where
         !len = ByteArray.length h
 
 instance Buildable.Buildable (AbstractHash algo a) where
-    build = bprint mediumHashF
+    build = bprint shortHashF
 
 hashDigestSize' :: forall algo . HashAlgorithm algo => Int
 hashDigestSize' = hashDigestSize @algo
@@ -177,10 +176,6 @@ unsafeHash = unsafeAbstractHash
 -- | Specialized formatter for 'Hash'.
 hashHexF :: Format r (AbstractHash algo a -> r)
 hashHexF = later $ \(AbstractHash x) -> Buildable.build (show x :: Text)
-
--- | Smart formatter for 'Hash' to show only first @16@ characters of 'Hash'.
-mediumHashF :: Format r (AbstractHash algo a -> r)
-mediumHashF = fitLeft 16 %. hashHexF
 
 -- | Smart formatter for 'Hash' to show only first @8@ characters of 'Hash'.
 shortHashF :: Format r (AbstractHash algo a -> r)

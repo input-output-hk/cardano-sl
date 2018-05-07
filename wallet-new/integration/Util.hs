@@ -94,9 +94,3 @@ shouldPrism a b = do
     pure x
 
 infixr 8 `shouldPrism`
-
-shouldPrism_ :: Show s => s -> Prism' s a -> IO ()
-shouldPrism_ a b =
-    a `shouldSatisfy` has b
-
-infixr 8 `shouldPrism_`

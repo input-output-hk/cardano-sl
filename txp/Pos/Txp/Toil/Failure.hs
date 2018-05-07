@@ -17,7 +17,7 @@ import           GHC.TypeLits (TypeError)
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util (listJson)
 
-import           Pos.Core (Address, HeaderHash, ScriptVersion, TxFeePolicy, addressF,
+import           Pos.Core (Address, HeaderHash, ScriptVersion, TxFeePolicy, addressF, 
                            addressDetailedF)
 import           Pos.Core.Txp (TxIn, TxInWitness, TxOut (..))
 import           Pos.Data.Attributes (UnparsedFields)
@@ -32,31 +32,43 @@ import           Pos.Util (DisallowException)
 -- | Result of transaction processing
 data ToilVerFailure
     = ToilKnown -- ^ Transaction is already in the storage (cache)
-    -- | ToilTipsMismatch oldTip newTip
-    | ToilTipsMismatch !HeaderHash !HeaderHash
+    | ToilTipsMismatch { ttmOldTip :: !HeaderHash
+                       , ttmNewTip :: !HeaderHash}
     | ToilSlotUnknown
     | ToilOverwhelmed !Int -- ^ Local transaction storage is full --
                             -- can't accept more txs. Current limit is attached.
     | ToilNotUnspent !TxIn -- ^ Tx input is not a known unspent input.
-    -- | ToilOutGreaterThanIn inputSum outputSum
-    | ToilOutGreaterThanIn !Integer !Integer
+    | ToilOutGreaterThanIn { tInputSum  :: !Integer
+                           , tOutputSum :: !Integer}
     | ToilInconsistentTxAux !Text
     | ToilInvalidOutput !Word32 !TxOutVerFailure
     | ToilUnknownInput !Word32 !TxIn
+
     -- | The witness can't be used to justify spending an output – either
     --     * it has a wrong type, e.g. PKWitness for a script address, or
     --     * it has the right type but doesn't match the address, e.g. the
     --       hash of key in PKWitness is not equal to the address.
-    | ToilWitnessDoesntMatch !Word32 !TxIn !TxOut !TxInWitness
+    | ToilWitnessDoesntMatch { twdmInputIndex  :: !Word32
+                             , twdmInput       :: !TxIn
+                             , twdmSpentOutput :: !TxOut
+                             , twdmWitness     :: !TxInWitness }
+
     -- | The witness could in theory justify spending an output, but it
     -- simply isn't valid (the signature doesn't pass validation, the
     -- validator–redeemer pair produces 'False' when executed, etc).
-    | ToilInvalidWitness !Word32 !TxInWitness !WitnessVerFailure
-    -- | ToilTooLargeTx acutalSize limit
-    | ToilTooLargeTx !Byte !Byte
-    | ToilInvalidMinFee !TxFeePolicy !Text !Byte
-    -- | ToilInsufficientFee policy actualFee minFee size
-    | ToilInsufficientFee !TxFeePolicy !TxFee !TxFee !Byte
+    | ToilInvalidWitness { tiwInputIndex :: !Word32
+                         , tiwWitness    :: !TxInWitness
+                         , tiwReason     :: !WitnessVerFailure }
+
+    | ToilTooLargeTx { ttltSize  :: !Byte
+                     , ttltLimit :: !Byte}
+    | ToilInvalidMinFee { timfPolicy :: !TxFeePolicy
+                        , timfReason :: !Text
+                        , timfSize   :: !Byte }
+    | ToilInsufficientFee { tifPolicy :: !TxFeePolicy
+                          , tifFee    :: !TxFee
+                          , tifMinFee :: !TxFee
+                          , tifSize   :: !Byte }
     | ToilUnknownAttributes !UnparsedFields
     | ToilNonBootstrapDistr !(NonEmpty Address)
     | ToilRepeatedInput
@@ -78,7 +90,7 @@ instance Buildable ToilVerFailure where
         bprint ("max size of the mem pool is reached which is "%shown) limit
     build (ToilNotUnspent txId) =
         bprint ("input is not a known unspent input: "%build) txId
-    build (ToilOutGreaterThanIn tInputSum tOutputSum) =
+    build (ToilOutGreaterThanIn {..}) =
         bprint ("sum of outputs is greater than sum of inputs ("%int%" < "%int%")")
         tInputSum tOutputSum
     build (ToilInconsistentTxAux msg) =
@@ -100,16 +112,16 @@ instance Buildable ToilVerFailure where
                 "  witness: "%build%"\n"%
                 "  reason: "%build)
             i witness reason
-    build (ToilTooLargeTx ttltSize ttltLimit) =
+    build (ToilTooLargeTx {..}) =
         bprint ("transaction's size exceeds limit "%
                 "("%memory%" > "%memory%")") ttltSize ttltLimit
-    build (ToilInvalidMinFee timfPolicy timfReason timfSize) =
+    build (ToilInvalidMinFee {..}) =
         bprint (build%" generates invalid minimal fee on a "%
                 "transaction of size "%memory%", reason: "%stext)
             timfPolicy
             timfSize
             timfReason
-    build (ToilInsufficientFee tifPolicy tifFee tifMinFee tifSize) =
+    build (ToilInsufficientFee {..}) =
         bprint ("transaction of size "%memory%" does not adhere to "%
                 build%"; it has fee "%build%" but needs "%build)
             tifSize

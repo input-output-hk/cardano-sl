@@ -1,6 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE OverloadedStrings #-}
-
 module Test.Pos.Wallet.Web.AddressSpec
        ( spec
        ) where

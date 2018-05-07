@@ -18,7 +18,6 @@ import           TransactionSpecs (transactionSpecs)
 import           Types
 import           Util (WalletRef, newWalletRef)
 import           WalletSpecs (walletSpecs)
-import qualified QuickCheckSpecs as QuickCheck
 
 -- | Here we want to run main when the (local) nodes
 -- have started.
@@ -92,4 +91,3 @@ deterministicTests wref wc = do
     addressSpecs wref wc
     walletSpecs wref wc
     transactionSpecs wref wc
-    QuickCheck.spec

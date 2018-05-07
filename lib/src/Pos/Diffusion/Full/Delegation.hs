@@ -21,35 +21,41 @@ import           Pos.Communication.Relay (DataParams (..), Relay (..),
                                           relayListeners, dataFlow,
                                           relayPropagateOut)
 import           Pos.Core       (ProxySKHeavy)
+import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Types (Bucket)
-import           Pos.Util.Trace (Trace, Severity)
 
 delegationListeners
-    :: Trace IO (Severity, Text)
-    -> Logic IO
+    :: ( DiffusionWorkMode m )
+    => Logic m
     -> OQ.OutboundQ pack NodeId Bucket
-    -> EnqueueMsg
-    -> MkListeners
-delegationListeners logTrace logic oq enqueue = relayListeners logTrace oq enqueue (delegationRelays logic)
+    -> EnqueueMsg m
+    -> MkListeners m
+delegationListeners logic oq enqueue = relayListeners oq enqueue (delegationRelays logic)
 
 -- | Listeners for requests related to delegation processing.
 delegationRelays
-    :: Logic IO
-    -> [Relay]
+    :: forall m .
+       ( DiffusionWorkMode m )
+    => Logic m
+    -> [Relay m]
 delegationRelays logic = [ pskHeavyRelay logic ]
 
 -- | 'OutSpecs' for the tx relays, to keep up with the 'InSpecs'/'OutSpecs'
 -- motif required for communication.
 -- The 'Logic m' isn't *really* needed, it's just an artefact of the design.
 delegationOutSpecs
-    :: Logic IO
+    :: forall m .
+       ( DiffusionWorkMode m
+       )
+    => Logic m
     -> OutSpecs
 delegationOutSpecs logic = relayPropagateOut (delegationRelays logic)
 
 pskHeavyRelay
-    :: Logic IO
-    -> Relay
+    :: ( DiffusionWorkMode m )
+    => Logic m
+    -> Relay m
 pskHeavyRelay logic = Data $ DataParams
     MsgTransaction
     (\_ _ -> postPskHeavy logic)
@@ -58,8 +64,9 @@ pskHeavyRelay logic = Data $ DataParams
     (pure (mlProxySecretKey mlHeavyDlgIndex))
 
 sendPskHeavy
-    :: Trace IO (Severity, Text)
-    -> EnqueueMsg
+    :: forall m .
+       ( DiffusionWorkMode m )
+    => EnqueueMsg m
     -> ProxySKHeavy
-    -> IO ()
-sendPskHeavy logTrace enqueue = dataFlow logTrace "pskHeavy" enqueue (MsgTransaction OQ.OriginSender)
+    -> m ()
+sendPskHeavy enqueue = dataFlow "pskHeavy" enqueue (MsgTransaction OQ.OriginSender)

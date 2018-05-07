@@ -1,4 +1,4 @@
-module WalletHandlersSpec (spec) where
+module WalletHandlersSpec where
 
 import           Universum
 

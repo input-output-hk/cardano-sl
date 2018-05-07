@@ -5,11 +5,13 @@
 
 module Pos.Communication.Protocol
        ( module Pos.Communication.Types.Protocol
+       , hoistSendActions
        , mapListener
        , mapListener'
        , Message (..)
        , MessageCode
        , unpackLSpecs
+       , hoistMkListeners
        , makeSendActions
        , makeEnqueueMsg
        , checkProtocolMagic
@@ -23,18 +25,15 @@ module Pos.Communication.Protocol
 
 import           Universum
 
-import qualified Control.Concurrent.STM as STM
-import           Control.Exception (throwIO)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, sformat, (%))
 import           Mockable (Async, Delay, Mockable, Mockables, SharedAtomic)
-import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Node as N
 import           Node.Message.Class (Message (..), MessageCode, messageCode)
 import           Serokell.Util.Text (listJson)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
+import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Configuration (HasConfiguration)
@@ -44,37 +43,77 @@ import           Pos.Shutdown (HasShutdownContext)
 import           Pos.Slotting (MonadSlots)
 
 mapListener
-    :: (forall t. IO t -> IO t) -> Listener -> Listener
+    :: (forall t. m t -> m t) -> Listener m -> Listener m
 mapListener = mapListener' $ const identity
 
 mapListener'
     :: (forall snd rcv. Message rcv => N.NodeId
-          -> N.ConversationActions snd rcv
-          -> N.ConversationActions snd rcv)
-    -> (forall t. IO t -> IO t) -> Listener -> Listener
+          -> N.ConversationActions snd rcv m
+          -> N.ConversationActions snd rcv m)
+    -> (forall t. m t -> m t) -> Listener m -> Listener m
 mapListener' caMapper mapper (N.Listener f) =
     N.Listener $ \d nId -> mapper . f d nId . caMapper nId
 
+hoistSendActions
+    :: forall n m .
+       ( Functor m )
+    => (forall a. n a -> m a)
+    -> (forall a. m a -> n a)
+    -> SendActions n
+    -> SendActions m
+hoistSendActions nat rnat SendActions {..} = SendActions withConnectionTo' enqueueMsg''
+  where
+    withConnectionTo'
+        :: forall t . NodeId -> (PeerData -> NonEmpty (Conversation m t)) -> m t
+    withConnectionTo' nodeId k =
+        nat $ withConnectionTo nodeId $ \peerData ->
+            flip map (k peerData) $ \(Conversation l) ->
+                Conversation $ \cactions ->
+                    rnat (l (N.hoistConversationActions nat cactions))
+
+    enqueueMsg''
+        :: forall t .
+           Msg
+        -> (NodeId -> PeerData -> NonEmpty (Conversation m t))
+        -> m (Map NodeId (m t))
+    enqueueMsg'' msg k = (fmap . fmap) nat $
+        nat $ enqueueMsg msg $ \peer pVI ->
+            let convs = k peer pVI
+                convert (Conversation l) = Conversation $ \cactions ->
+                    rnat (l (N.hoistConversationActions nat cactions))
+            in  map convert convs
+
+hoistMkListeners
+    :: (forall a. m a -> n a)
+    -> (forall a. n a -> m a)
+    -> MkListeners m
+    -> MkListeners n
+hoistMkListeners nat rnat (MkListeners act ins outs) = MkListeners act' ins outs
+  where
+    act' v p = let ls = act v p in map (N.hoistListener nat rnat) ls
+
 makeEnqueueMsg
-    :: Trace IO (Severity, Text)
-    -> VerInfo
-    -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType t) -> IO (Map NodeId (STM.TVar (OQ.PacketStatus t))))
-    -> EnqueueMsg
-makeEnqueueMsg logTrace ourVerInfo enqueue = \msg mkConv -> enqueue msg $ \nodeId pVI ->
-    alternativeConversations logTrace nodeId ourVerInfo pVI (mkConv nodeId pVI)
+    :: forall m .
+       ( WithLogger m
+       , MonadThrow m
+       )
+    => VerInfo
+    -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType m t) -> m (Map NodeId (m t)))
+    -> EnqueueMsg m
+makeEnqueueMsg ourVerInfo enqueue = \msg mkConv -> enqueue msg $ \nodeId pVI ->
+    alternativeConversations nodeId ourVerInfo pVI (mkConv nodeId pVI)
 
 alternativeConversations
-    :: Trace IO (Severity, Text)
-    -> NodeId
+    :: forall m t .
+       ( WithLogger m
+       , MonadThrow m
+       )
+    => NodeId
     -> VerInfo -- ^ Ours
     -> VerInfo -- ^ Theirs
-    -> NonEmpty (Conversation t)
-    -> N.Conversation PackingType t
-alternativeConversations logTrace nid ourVerInfo theirVerInfo convs
-    -- FIXME seems dubious: we also have checkProtocolMagic.
-    -- Do we need both?
-    -- Well, in good faith, we don't need either, since the network should not
-    -- be aware of protocol magic.
+    -> NonEmpty (Conversation m t)
+    -> N.Conversation PackingType m t
+alternativeConversations nid ourVerInfo theirVerInfo convs
     | vIMagic ourVerInfo /= vIMagic theirVerInfo =
         throwErrs (one $ MismatchedProtocolMagic (vIMagic ourVerInfo) (vIMagic theirVerInfo)) (NE.head convs)
     | otherwise =
@@ -92,17 +131,19 @@ alternativeConversations logTrace nid ourVerInfo theirVerInfo convs
         :: forall e x .
            ( Exception e, Buildable e )
         => NonEmpty e
-        -> Conversation x
-        -> N.Conversation PackingType x
+        -> Conversation m x
+        -> N.Conversation PackingType m x
     throwErrs errs (Conversation l) = N.Conversation $ \conv -> do
         let _ = l conv
-        traceWith logTrace (Warning, sformat ("Failed to choose appropriate conversation: "%listJson) errs)
-        throwIO $ NE.head errs
+        logWarning $ sformat
+            ("Failed to choose appropriate conversation: "%listJson)
+            errs
+        throwM $ NE.head errs
 
     fstArg :: (a -> b) -> Proxy a
     fstArg _ = Proxy
 
-    logOSNR (Right e@(OutSpecNotReported _ _)) = traceWith logTrace (Warning, sformat build e)
+    logOSNR (Right e@(OutSpecNotReported _ _)) = logWarning $ sformat build e
     logOSNR _                                  = pure ()
 
     checkingOutSpecs' nodeId peerInSpecs conv@(Conversation h) =
@@ -121,19 +162,18 @@ alternativeConversations logTrace nid ourVerInfo theirVerInfo convs
            | otherwise -> Left action
 
 makeSendActions
-    :: Trace IO (Severity, Text)
-    -> VerInfo
-    -> (forall t .
-            Msg
-        -> (NodeId -> VerInfo -> N.Conversation PackingType t)
-        -> IO (Map NodeId (STM.TVar (OQ.PacketStatus t)))
+    :: forall m .
+       ( WithLogger m
+       , MonadThrow m
        )
-    -> Converse PackingType PeerData
-    -> SendActions
-makeSendActions logTrace ourVerInfo enqueue converse = SendActions
+    => VerInfo
+    -> (forall t . Msg -> (NodeId -> VerInfo -> N.Conversation PackingType m t) -> m (Map NodeId (m t)))
+    -> Converse PackingType PeerData m
+    -> SendActions m
+makeSendActions ourVerInfo enqueue converse = SendActions
     { withConnectionTo = \nodeId mkConv -> N.converseWith converse nodeId $ \pVI ->
-          alternativeConversations logTrace nodeId ourVerInfo pVI (mkConv pVI)
-    , enqueueMsg = \msg mkConv -> waitForDequeues <$> (makeEnqueueMsg logTrace ourVerInfo enqueue msg mkConv)
+          alternativeConversations nodeId ourVerInfo pVI (mkConv pVI)
+    , enqueueMsg = makeEnqueueMsg ourVerInfo enqueue
     }
 
 data SpecError
@@ -170,6 +210,7 @@ type LocalOnNewSlotComm ctx m =
     , MonadReader ctx m
     , MonadSlots ctx m
     , MonadMask m
+    , WithLogger m
     , Mockables m [Async, Delay]
     , MonadReporting ctx m
     , HasShutdownContext ctx
@@ -184,47 +225,49 @@ type OnNewSlotComm ctx m =
     , HasConfiguration
     )
 
--- FIXME network layer is not concerned with this.
--- The protocol magic should not even be known to the diffusion layer.
 checkProtocolMagic
-    :: VerInfo
+    :: WithLogger m
+    => VerInfo
     -> VerInfo
-    -> IO ()
-    -> IO ()
+    -> m ()
+    -> m ()
 checkProtocolMagic (vIMagic -> ourMagic) (vIMagic -> theirMagic) action
     -- Check that protocolMagic is the same
     | ourMagic == theirMagic = action
     | otherwise =
-        throwIO $ MismatchedProtocolMagic ourMagic theirMagic
+        logWarning $ sformat ("Mismatched protocolMagic, our: "%build%", their: "%build) ourMagic theirMagic
 
 checkingInSpecs
-    :: Trace IO (Severity, Text)
-    -> VerInfo
+    :: WithLogger m
+    => VerInfo
     -> VerInfo
     -> (MessageCode, HandlerSpec)
     -> NodeId
-    -> IO ()
-    -> IO ()
-checkingInSpecs logTrace ourVerInfo peerVerInfo' spec nodeId action =
+    -> m ()
+    -> m ()
+checkingInSpecs ourVerInfo peerVerInfo' spec nodeId action =
     if | spec `notInSpecs` vIInHandlers ourVerInfo ->
-              traceWith logTrace (Warning, sformat ("Endpoint is served, but not reported " % build) spec)
+              logWarning $ sformat
+                ("Endpoint is served, but not reported " % build) spec
        | spec `notInSpecs` vIOutHandlers peerVerInfo' ->
-              traceWith logTrace (Warning, sformat ("Peer " % build % " attempting to use endpoint he didn't report to use " % build) nodeId spec)
+              logWarning $ sformat
+                ("Peer " % build % " attempting to use endpoint he didn't report to use " % build)
+                nodeId spec
        | otherwise -> action
 
-rcvProxy :: Proxy (ConversationActions snd rcv) -> Proxy rcv
+rcvProxy :: Proxy (ConversationActions snd rcv m) -> Proxy rcv
 rcvProxy _ = Proxy
 
-sndProxy :: Proxy (ConversationActions snd rcv) -> Proxy snd
+sndProxy :: Proxy (ConversationActions snd rcv m) -> Proxy snd
 sndProxy _ = Proxy
 
 -- Provides set of listeners which doesn't depend on PeerData
-constantListeners :: [(ListenerSpec, OutSpecs)] -> MkListeners
+constantListeners :: [(ListenerSpec m, OutSpecs)] -> MkListeners m
 constantListeners = toMkL . unpackLSpecs . second mconcat . unzip
   where
     toMkL (lGet, ins, outs) = MkListeners (\vI _ -> lGet vI) ins outs
 
-unpackLSpecs :: ([ListenerSpec], OutSpecs) -> (VerInfo -> [Listener], InSpecs, OutSpecs)
+unpackLSpecs :: ([ListenerSpec m], OutSpecs) -> (VerInfo -> [Listener m], InSpecs, OutSpecs)
 unpackLSpecs =
     over _1 (\ls verInfo -> fmap ($ verInfo) ls) .
     over _2 (InSpecs . HM.fromList) .

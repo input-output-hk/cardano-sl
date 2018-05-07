@@ -133,7 +133,6 @@ library
                       , data-default
                       , directory
                       , dlist
-                      , ekg-core
                       , ether
                       , exceptions
                       , filepath
@@ -254,7 +253,6 @@ test-suite cardano-wallet-test
                      , cardano-sl-wallet
                      , containers
                      , data-default
-                     , ekg-core
                      , ether
                      , formatting
                      , hspec

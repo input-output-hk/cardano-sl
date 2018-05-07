@@ -3,7 +3,7 @@ module Types
     , BlockHash
     , Timestamp
     , Slot
-    , NodeId
+    , NodeIndex
     ) where
 
 import           Data.Time.Units (Microsecond)
@@ -13,4 +13,4 @@ type TxHash = Text
 type BlockHash = Text
 type Timestamp = Microsecond
 type Slot = (Word64, Word16)
-type NodeId = Text
+type NodeIndex = Int

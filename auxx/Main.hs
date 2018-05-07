@@ -109,16 +109,7 @@ action opts@AuxxOptions {..} command = do
         CLI.printInfoOnStart aoCommonNodeArgs ntpConfig
         (nodeParams, tempDbUsed) <-
             correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs nArgs
-
-        let fdconf = FullDiffusionConfiguration
-                { fdcProtocolMagic = protocolMagic
-                , fdcProtocolConstants = protocolConstants
-                , fdcRecoveryHeadersMessage = recoveryHeadersMessage
-                , fdcLastKnownBlockVersion = lastKnownBlockVersion
-                , fdcConvEstablishTimeout = networkConnectionTimeout
-                , fdcTrace = wlogTrace "auxx"
-                }
-
+        let
             toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
             toRealMode auxxAction = do
                 realModeContext <- ask
@@ -129,10 +120,7 @@ action opts@AuxxOptions {..} command = do
                 lift $ runReaderT auxxAction auxxContext
         let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-        bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr -> do
-            let runIO = runProduction . elimRealMode nr . toRealMode
-            -- Monad here needs to be 'Production' (bracketNodeResources) so
-            -- take it to real mode and then eliminate it.
+        bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
             elimRealMode nr $ toRealMode $
                 logicLayerFull (jsonLog.JLTxReceived) $ \logicLayer ->
                     bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->

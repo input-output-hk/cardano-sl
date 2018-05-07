@@ -5,7 +5,6 @@
 module Pos.Txp.MemState.Types
        ( GenericTxpLocalData (..)
        , TxpLocalData
-       , TxpLocalDataPure
        , MemPoolModifyReason (..)
        , JLEvent (..)
        , JLMemPool (..)

@@ -176,6 +176,10 @@ getLauncherOptions = do
         setEnv "DAEDALUS_DIR" daedalusDir
       _ -> pure ()
     configPath <- maybe defaultConfigPath pure maybeConfigPath
+
+    -- [CSL-2503] remove once cardano-node is capable of finding the file on its own and daedalus no longer needs it
+    setEnv "LAUNCHER_CONFIG" configPath
+
     decoded <- Y.decodeFileEither configPath
     case decoded of
         Left err -> do

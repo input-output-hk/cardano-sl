@@ -8,8 +8,9 @@
 -- with a network.
 
 module Pos.Txp.Network.Listeners
-       ( handleTxDo
-       , TxpMode
+       ( txRelays
+       , txInvReqDataParams
+       , JLTxR (..)
        ) where
 
 import           Data.Tagged (Tagged (..))
@@ -20,6 +21,7 @@ import           Universum
 
 import           Pos.Binary.Txp ()
 import           Pos.Communication.Limits.Types (MessageLimited)
+import           Pos.Communication.Relay (InvReqDataParams (..), MempoolParams (..), Relay (..))
 import qualified Pos.Communication.Relay as Relay
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Crypto (hash)

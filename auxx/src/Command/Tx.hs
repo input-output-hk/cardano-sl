@@ -1,6 +1,5 @@
 {-# LANGUAGE GADTs          #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE GADTs #-}
 
 -- | Tx sending functionality in Auxx.
 

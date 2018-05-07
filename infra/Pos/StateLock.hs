@@ -1,6 +1,5 @@
 {-# LANGUAGE RankNTypes       #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE RankNTypes #-}
 {-|
 Module:      Pos.StateLock
 Description: A lock on the local state of a node

@@ -30,7 +30,7 @@ txCntInChainMemPoolToCSV f sp txCnt mp =
                 csvLine h (toTxType "SizeAfter" p) n ts (fromIntegral jlmSizeAfter)
   where
     csvLine :: MonadIO m => Handle -> String -> NodeId -> Timestamp -> Integer -> m ()
-    csvLine h txType node time txCount = liftIO $ hPutStrLn h $ show (fromIntegral time :: Integer) ++ "," ++ show txCount ++ "," ++ txType ++ "," ++ T.unpack node
+    csvLine h txType node time txCount = liftIO $ hPutStrLn h $ show (fromIntegral time :: Integer) ++ "," ++ show txCount ++ "," ++ txType ++ "," ++ toString node
 
     draw :: MonadRandom m => m Bool
     draw = (<= sp) <$> getRandomR (0, 1)

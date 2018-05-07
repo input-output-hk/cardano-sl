@@ -59,7 +59,6 @@ txRelays logTx = pure $
                (txInvReqDataParams logTx)
   where
     tag = tagWith (Proxy :: Proxy TxMsgContents)
->>>>>>> praxis/benchmarks/1.1.0
 
 -- Real tx processing
 -- CHECK: @handleTxDo

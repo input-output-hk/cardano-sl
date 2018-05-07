@@ -39,15 +39,6 @@ type ETxpLocalWorkMode ctx m =
     , MempoolExt m ~ ExplorerExtraModifier
     )
 
-<<<<<<< HEAD
-eTxProcessTransaction ::
-       ( ETxpLocalWorkMode ctx m
-       , HasLens' ctx StateLock
-       , HasLens' ctx StateLockMetrics
-       )
-    => (TxId, TxAux)
-    -> m (Either ToilVerFailure ())
-=======
 -- Base context for tx processing in explorer.
 type EProcessTxContext = ProcessTxContext ExplorerExtraTxp
 
@@ -69,7 +60,6 @@ eTxProcessTransaction
         HasLens' ctx StateLock, HasLens' ctx (StateLockMetrics MemPoolModifyReason),
         CanJsonLog m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
->>>>>>> praxis/benchmarks/1.1.0
 eTxProcessTransaction itw =
     withStateLock LowPriority ProcessTransaction $ \__tip -> eTxProcessTransactionNoLock itw
 

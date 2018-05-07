@@ -27,8 +27,6 @@ import           Formatting (build, sformat, (%))
 import           JsonLog (CanJsonLog (..))
 import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog, logDebug, logError,
                               logWarning)
-import           System.Wlog (NamedPureLogger, WithLogger, logDebug, logError, logWarning)
-
 import           Pos.Core (BlockVersionData, EpochIndex, HeaderHash, siEpoch)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..))

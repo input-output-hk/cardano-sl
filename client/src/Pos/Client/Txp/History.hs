@@ -51,7 +51,6 @@ import           Pos.Network.Types (HasNodeType)
 import           Pos.Reporting (HasReportingContext)
 import           Pos.Slotting (MonadSlots, getSlotStartPure, getSystemStartM)
 import           Pos.StateLock (StateLock, StateLockMetrics)
-<<<<<<< HEAD
 import           Pos.Txp (MempoolExt, MemPoolModifyReason, MonadTxpLocal, MonadTxpMem, ToilVerFailure, Tx (..),
                           TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..),
                           UtxoLookup, UtxoM, UtxoModifier, applyTxToUtxo, buildUtxo, evalUtxoM,

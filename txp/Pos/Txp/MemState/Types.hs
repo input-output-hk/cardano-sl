@@ -39,6 +39,3 @@ data GenericTxpLocalData extra = TxpLocalData
 
 -- | Memory state of Txp. This version is used by actual Txp implementation.
 type TxpLocalData = GenericTxpLocalData ()
-
--- | Pure version of TxpLocalData.
-type TxpLocalDataPure = GenericTxpLocalDataPure ()

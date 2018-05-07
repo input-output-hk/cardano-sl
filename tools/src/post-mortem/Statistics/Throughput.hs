@@ -10,8 +10,7 @@ import           Graphics.Rendering.Chart.Backend.Diagrams (renderableToFile)
 import           Graphics.Rendering.Chart.Easy
 import           Graphics.Rendering.Chart.Grid
 
-import           Pos.Txp.MemState.Types (MemPoolModifyReason (..))
-import           Pos.Util.JsonLog (JLMemPool (..))
+import           Pos.Util.JsonLog.Events (JLMemPool (..), MemPoolModifyReason (..))
 import           Types
 import           Universum
 
@@ -19,8 +18,8 @@ throughput :: FilePath
            -> Double
            -> Double
            -> Int
-           -> [(NodeIndex, Timestamp, Int)]
-           -> [(NodeIndex, Timestamp, JLMemPool)]
+           -> [(NodeId, Timestamp, Int)]
+           -> [(NodeId, Timestamp, JLMemPool)]
            -> IO ()
 throughput f txW waitW cnt xs ys =
     let xs'    = [(t, c) | (_, t, c) <- xs]
@@ -33,9 +32,9 @@ throughput f txW waitW cnt xs ys =
         ys''   = scaleShift tmin $ sliding waitW times' (lg 100 . average)                         ys'
     in grid f txW waitW xs'' ys''
   where
-    wait :: (NodeIndex, Timestamp, JLMemPool) -> Maybe (Timestamp, Integer)
+    wait :: (NodeId, Timestamp, JLMemPool) -> Maybe (Timestamp, Integer)
     wait (_, t, JLMemPool{..}) = case jlmReason of
-        ProcessTransaction _ -> Just (t, jlmWait)
+        ProcessTransaction -> Just (t, jlmWait)
         _                    -> Nothing
 
     lg :: Double -> Double -> Double

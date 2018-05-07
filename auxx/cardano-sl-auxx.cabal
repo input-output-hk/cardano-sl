@@ -135,7 +135,6 @@ executable cardano-auxx
                      , cardano-sl-txp
                      , cardano-sl-util
                      , cardano-sl-update
-                     , constraints
                      , log-warper
                      , temporary
                      , network-transport-tcp

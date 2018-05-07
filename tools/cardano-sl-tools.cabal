@@ -34,42 +34,38 @@ executable dbgen
                      , QueryMethods
   if !flag(for-installer)
    build-depends:      base >= 4.7 && < 5
-                     , acid-state
                      , aeson
                      , ansi-terminal
-                     , unordered-containers
-                     , containers
-                     , cryptonite
-                     , serokell-util
-                     , stm
-                     , text
-                     , time
-                     , QuickCheck
                      , bytestring
-                     , string-conv
-                     , mtl
-                     , lens
-                     , optparse-generic
-                     , optparse-applicative
                      , cardano-sl
                      , cardano-sl-block
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-db
-                     , cardano-sl-ssc
                      , cardano-sl-infra
                      , cardano-sl-networking
                      , cardano-sl-txp
                      , cardano-sl-util
                      , cardano-sl-wallet
-                     , optparse-generic
-                     , optparse-applicative
-                     , mtl
-                     , network-transport-tcp >= 0.6
-                     , log-warper
+                     , containers
+                     , cryptonite
                      , data-default
                      , lens
+                     , log-warper
+                     , mtl
+                     , network-transport-tcp >= 0.6
+                     , optparse-applicative
+                     , optparse-applicative
+                     , optparse-generic
+                     , optparse-generic
+                     , QuickCheck
+                     , serokell-util
+                     , stm
+                     , string-conv
+                     , text
+                     , time
                      , universum >= 0.1.11
+                     , unordered-containers
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -113,31 +109,15 @@ executable cardano-dht-keygen
   hs-source-dirs:      src/dht-keygen
   main-is:             Main.hs
   if !flag(for-installer)
-   build-depends:      QuickCheck
-                     , aeson
-                     , array
+   build-depends:      base
                      , base
                      , bytestring
                      , cardano-sl
-                     , cardano-sl-core
                      , cardano-sl-crypto
-                     , data-default
-                     , filepath
-                     , formatting
                      , kademlia
-                     , lens
-                     , log-warper
                      , optparse-applicative
-                     , parsec
-                     , random
-                     , random-shuffle
                      , serokell-util >= 0.1.3.4
-                     , stm
-                     , text
-                     , time
                      , universum >= 0.1.11
-                     , unordered-containers
-                     , vector
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -221,38 +201,24 @@ executable cardano-keygen
   other-modules:       KeygenOptions
                      , Dump
   if !flag(for-installer)
-   build-depends:      Glob
-                     , QuickCheck >= 2.9
-                     , aeson
-                     , ansi-wl-pprint
-                     , base
+   build-depends:      base
                      , base58-bytestring
                      , bytestring >= 0.10
                      , canonical-json
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-crypto
-                     , cardano-sl-txp
-                     , containers
                      , cryptonite
-                     , data-default
                      , directory
-                     , ed25519
                      , filepath
                      , formatting
+                     , Glob
                      , lens
                      , log-warper
-                     , neat-interpolation
                      , optparse-applicative >= 0.12
-                     , parsec
-                     , random >= 1.1
-                     , safe-exceptions
                      , serokell-util >= 0.1
-                     , silently
                      , text
                      , universum >= 0.1
-                     , unordered-containers
-                     , yaml
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -310,8 +276,6 @@ executable cardano-launcher
                      , cardano-sl-tools
                      , cardano-sl-update
                      , cardano-sl-util
-                     , conduit
-                     , containers
                      , directory
                      , filepath
                      , formatting
@@ -320,14 +284,12 @@ executable cardano-launcher
                      , log-warper
                      , neat-interpolation
                      , optparse-applicative
-                     , parsers
                      , process
                      , safe-exceptions
                      , serokell-util
                      , silently
                      , text
                      , time-units
-                     , trifecta
                      , universum
                      , unordered-containers
                      , yaml
@@ -405,7 +367,6 @@ executable cardano-cli-docs
   main-is:             Main.hs
   if !flag(for-installer)
    build-depends:      base
-                     , bytestring
                      , cardano-sl
                      , directory
                      , filepath
@@ -466,13 +427,16 @@ executable cardano-post-mortem
                        , aeson
                        , attoparsec
                        , base
+                       , bytestring
                        , cardano-sl
                        , cardano-sl-block
                        , cardano-sl-infra
                        , cardano-sl-core
+                       , cardano-sl-infra
                        , cardano-sl-txp
                        , cardano-sl-util
                        , containers
+                       , cassava
                        , directory
                        , fgl
                        , filepath
@@ -538,12 +502,8 @@ executable cardano-blockchain-analyser
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
-                     , cardano-sl-infra
                      , cardano-sl-networking
-                     , cardano-sl-lrc
-                     , cardano-sl-txp
                      , cardano-sl-util
-                     , data-default
                      , directory
                      , formatting
                      , lens
@@ -588,16 +548,12 @@ library
 
   build-depends:       aeson
                      , base
-                     , bytestring
-                     , conduit
-                     , containers
                      , directory
                      , filepath
                      , parsers
                      , text
                      , trifecta
                      , universum
-                     , yaml
 
 test-suite cardano-sl-tools-test
   main-is:             Test.hs
@@ -609,21 +565,14 @@ test-suite cardano-sl-tools-test
                        Test.Launcher.Environment
 
   type:                exitcode-stdio-1.0
-  build-depends:
-                       QuickCheck
+  build-depends:       base
                      , aeson
-                     , base
                      , cardano-sl-tools
                      , directory
-                     , filepath
                      , hspec
-                     , hspec-discover
-                     , parsers
+                     -- , hspec-discover
                      , temporary
-                     , text
-                     , trifecta
                      , universum >= 0.1.11
-                     , yaml
 
   hs-source-dirs:      test
   default-language:    Haskell2010

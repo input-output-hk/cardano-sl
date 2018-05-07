@@ -32,7 +32,6 @@ library
                         Pos.Diffusion.Full.Block
                         Pos.Diffusion.Full.Delegation
                         Pos.Diffusion.Full.Ssc
-                        Pos.Diffusion.Full.Types
                         Pos.Diffusion.Full.Txp
                         Pos.Diffusion.Full.Update
 
@@ -97,6 +96,7 @@ library
                         -- Util code for tests
                         Test.Pos.Configuration
 
+                        Pos.Util.Mockable
                         Pos.Util.Servant
 
 
@@ -151,6 +151,7 @@ library
                       , conduit >= 1.2.8
                       , constraints
                       , containers
+                      , contravariant
                       , cryptonite >= 0.23 && <= 0.24
                       , data-default
                       , directory
@@ -166,14 +167,17 @@ library
                       , hspec
                       , lens
                       , log-warper >= 1.1.1
+                      , mmorph
                       , monad-control
                       , mtl
                       , neat-interpolation
+                      , network-transport
                       , optparse-applicative
                       , parsec
                       , plutus-prototype
                       , pvss
                       , random
+                      , resourcet
                       , reflection
                       , safe-exceptions
                       , safecopy
@@ -191,6 +195,8 @@ library
                       , time
                       , time-units
                       , transformers
+                      , transformers-base
+                      , transformers-lift
                       , universum >= 0.1.11
                       , unliftio
                       , unordered-containers
@@ -205,8 +211,10 @@ library
 
   if !os(windows)
     build-depends:      unix
-                     -- See: https://github.com/input-output-hk/stack2nix/issues/56
-                     ,  systemd
+
+  if !os(windows) && !os(freebsd)
+    -- See: https://github.com/input-output-hk/stack2nix/issues/56
+    build-depends:      systemd
 
   hs-source-dirs:       src
   default-language:     Haskell2010

@@ -62,9 +62,7 @@ runWRealMode db conn syncRequests res (action, outSpecs) =
     elimRealMode res serverRealMode
   where
     NodeContext {..} = nrContext res
-    ekgNodeMetrics = EkgNodeMetrics
-        (nrEkgStore res)
-        (runProduction . elimRealMode res . walletWebModeToRealMode db conn syncRequests)
+    ekgNodeMetrics = EkgNodeMetrics (nrEkgStore res)
     serverWalletWebMode :: WalletWebMode a
     serverWalletWebMode = runServer
         (runProduction . elimRealMode res . walletWebModeToRealMode db conn syncRequests)

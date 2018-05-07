@@ -39,10 +39,18 @@ import           UTxO.Interpreter
 import           UTxO.Translate
 
 {-------------------------------------------------------------------------------
-  Chain with some information still missing
+  Preliminaries
 -------------------------------------------------------------------------------}
 
--- | A chain with "holes" for the bootstrap transaction and the fees
+-- | Generalization of a chain to an arbitrary collection of blocks
+--
+-- > Chain h a == GChain [] h a
+type GChain t h a = OldestFirst t (UTxO.DSL.Block h a)
+
+-- | Result of interpreting a 'GChain'
+type IntGChain t = OldestFirst t (OldestFirst [] TxAux)
+
+-- | A 'GChain' with " holes " for the bootstrap transaction and the fees
 --
 -- We use the 'DepIndep' monad transformer here to make sure that the
 -- effects can depend on the bootstrap transaction, but not on the fees.
@@ -61,10 +69,25 @@ import           UTxO.Translate
 -- instead, then (thinking @m@ = 'Gen' again) we could not generate different
 -- chains for different bootstrap transactions, which would also be no good.
 --
--- It is still the responsibility of the 'PreChain' author to make sure that the
+-- It is still the responsibility of the 'PreGChain' author to make sure that the
 -- structure of the blockchain does not depend on the fees that are passed.
-type PreChain h m a = DepIndep (Transaction h Addr) [[Fee]] m (Chain h Addr, a)
+type PreGChain t h m a = DepIndep (Transaction h Addr) (t [Fee]) m (GChain t h Addr, a)
 
+-- | Interpret the transactions in a block
+--
+-- (without generating a Cardano 'MainBlock')
+intBlock :: (Monad m, Hash h Addr)
+         => UTxO.DSL.Block h Addr -> IntT h e m (OldestFirst [] TxAux)
+intBlock = mapM (fmap rawResolvedTx . int)
+
+{-------------------------------------------------------------------------------
+  PreGChain instantiation to lists
+-------------------------------------------------------------------------------}
+
+-- | Instantiate 'PreGChain' to '[]', to match 'Chain'
+type PreChain h m a = PreGChain [] h m a
+
+-- | Construct a 'PreChain' with no additional return value
 preChain :: Functor m
          => (Transaction h Addr -> m ([[Fee]] -> Chain h Addr))
          -> PreChain h m ()
@@ -99,16 +122,18 @@ fromPreChain pc = do
     return FromPreChain{..}
 
 {-------------------------------------------------------------------------------
-  Tree with some information still missing.
+  'PreGChain' instantiation to trees
 -------------------------------------------------------------------------------}
 
 -- | Blocks organised in a tree structure.
-type BlockTree h a = OldestFirst Tree (UTxO.DSL.Block h a)
+type BlockTree h a = GChain Tree h a
 
--- | Generalisation of a 'PreChain'.
---   A 'PreChain' is the flattening of a 'PreTree' with a single branch.
-type PreTree h m a = DepIndep (Transaction h Addr) (Tree [Fee]) m (BlockTree h Addr, a)
+-- | Instantiate 'PreGChain' to 'Tree', to match 'BlockTree'
+--
+-- A 'PreChain' is the flattening of a 'PreTree' with a single branch.
+type PreTree h m a = PreGChain Tree h m a
 
+-- | Construct a 'PreTree' with no additional return value
 preTree :: Functor m
         => (Transaction h Addr -> m ((Tree [Fee]) -> BlockTree h Addr))
         -> PreTree h m ()
@@ -116,13 +141,12 @@ preTree = fmap (, ()) . DepIndep
 
 -- | Result of translating a 'PreTree'
 --
--- See 'fromPreTree'
--- Compared to 'FromPreChain':
--- - we do not calculate a ledger, since we have not yet fixed on a single chain.
---   Instead we include the list of all addresses in the tree. Note that this may
---   include addresses which have no transactions to/from them in the final
---   blockchain, because they were in blocks which were rolled back.
--- - the boot transaction is included in the chain.
+-- See 'fromPreTree'.
+--
+-- We do not calculate a ledger, since we have not yet fixed on a single chain.
+-- Instead we include the list of all addresses in the tree. Note that this may
+-- include addresses which have no transactions to/from them in the final
+-- blockchain, because they were in blocks which were rolled back.
 data FromPreTree h a = FromPreTree {
       -- | The resulting tree
       fptTree      :: !(BlockTree h Addr)
@@ -189,69 +213,69 @@ type Fee = Value
 --   be able to address this at the type level with some PHOAS like
 --   representation.)
 --
--- * The function can assume that the list fees it is given contains a fee
---   for each transaction, in order, but it the list may be longer. The reason
---   is that initially we cannot even know how many transactions the function
---   returns, and hence we just provide an infinite list of zeroes.
---   (We could address this at the type level by using vectors.)
+-- * The function can assume that the fees it is given contains a fee
+--   for each transaction, in order, but may contain more. The reason
+--   is that initially we cannot even know /how many/ transactions the function
+--   returns, and hence we just provide an infinite structure of zeroes.
 --
 -- TODO: We should check that the fees of the constructed transactions match the
 -- fees we calculuated. This ought to be true at the moment, but may break when
 -- the size of the fee might change the size of the the transaction.
-calcFees :: forall h m x t blocks
-            . ( Hash h Addr, Monad m, Traversable t
-              , blocks ~ OldestFirst t (UTxO.DSL.Block h Addr)
-              )
-         => Transaction h Addr
-         -> (t [Fee] -> (blocks, x))
+calcFees :: forall h m x t. (Hash h Addr, Monad m, Traversable t)
+         => (t [Fee] -> (GChain t h Addr, x))
          -> t [Fee] -- ^ Initial fees
-         -> ( Transaction h Addr
-              -> blocks
-              -> TranslateT IntException m (OldestFirst t (OldestFirst [] TxAux))
-            )
-         -> TranslateT IntException m (OldestFirst t (UTxO.DSL.Block h Addr), x)
-calcFees boot f initialFees buildFees = do
+         -> (GChain t h Addr -> TranslateT IntException m (IntGChain t))
+         -> TranslateT IntException m (GChain t h Addr, x)
+calcFees f initialFees buildFees = do
     TxFeePolicyTxSizeLinear policy <- bvdTxFeePolicy <$> gsAdoptedBVData
     let txToLinearFee' :: TxAux -> TranslateT IntException m Value
         txToLinearFee' = mapTranslateErrors IntExTx
                        . fmap feeValue
                        . txToLinearFee policy
 
-    txs <- buildFees boot $ fst (f initialFees)
+    txs <- buildFees $ fst (f initialFees)
     fees     <- mapM (mapM txToLinearFee') txs
     return $ f (unmarkOldestFirst fees)
   where
-    int' :: Chain h Addr -> IntT h Void m (OldestFirst [] (OldestFirst [] TxAux))
-    int' = mapM (mapM (fmap rawResolvedTx . int))
-
     unmarkOldestFirst :: OldestFirst t (OldestFirst [] a) -> t [a]
     unmarkOldestFirst = fmap toList . getOldestFirst
 
     feeValue :: TxFee -> Value
     feeValue (TxFee fee) = unsafeGetCoin fee
 
+-- | Specialization of 'calcFees' for chains
 calcChainFees :: forall h m x . (Hash h Addr, Monad m)
               => Transaction h Addr
-              -> ([[Fee]] -> (Blocks h Addr, x))
-              -> TranslateT IntException m (Blocks h Addr, x)
-calcChainFees boot f = calcFees boot f (repeat (repeat 0)) buildFees
+              -> ([[Fee]] -> (Chain h Addr, x))
+              -> TranslateT IntException m (Chain h Addr, x)
+calcChainFees boot f = calcFees f (repeat (repeat 0)) buildFees
   where
-    buildFees boot' blocks = fst <$> runIntBoot boot' blocks
+    buildFees :: GChain [] h Addr -> TranslateT IntException m (IntGChain [])
+    buildFees blocks = fst <$> runIntBoot' boot (mapM intBlock blocks)
 
+-- | Specialization of 'calcFees' for trees
 calcTreeFees  :: forall h m x . (Hash h Addr, Monad m)
               => Transaction h Addr
               -> (Tree [Fee] -> (OldestFirst Tree (UTxO.DSL.Block h Addr), x))
               -> TranslateT IntException m (OldestFirst Tree (UTxO.DSL.Block h Addr), x)
-calcTreeFees boot f = calcFees boot f zeroTree buildFees
+calcTreeFees boot f = do
+    initCtxt <- initIntCtxt boot
+    calcFees f zeroTree (buildFees initCtxt)
   where
     -- When building fees for a tree the usual State monad approach falls over,
     -- since the state needs to fork. Rather than rewriting this interpretation
     -- code, we cheat and unroll the state at each level of the tree, in order
     -- to fork it.
-    buildFees boot' (OldestFirst tree) = OldestFirst
-      <$> Tree.unfoldTreeM go (tree, initIntCtxt boot')
+    buildFees :: IntCtxt h
+              -> GChain Tree h Addr
+              -> TranslateT IntException m (IntGChain Tree)
+    buildFees initCtxt (OldestFirst tree) = OldestFirst
+      <$> Tree.unfoldTreeM go (tree, initCtxt)
+
     go (Tree.Node val children, intCtxt) = do
-      (val', intCtxt') <- runIntT intCtxt val
+      (val', intCtxt') <- runIntT' intCtxt (intBlock val)
       return (val', fmap (, intCtxt') children)
+
     -- An infinite tree of zero fees
+    zeroTree :: Tree [Fee]
     zeroTree = Tree.unfoldTree (\_ -> (repeat 0, repeat ())) ()

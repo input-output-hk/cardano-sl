@@ -213,16 +213,16 @@ testActiveWallet =
   where
     genInductive :: Gen GenInductive
     genInductive = do
-      -- generate a blockchain and capture the translation context
+      -- generate a blocktree and capture the translation context
       (fpc,transCtxt) <- runTranslateT $ do
-                                    transCtxt' <- ask
-                                    fpc' <- fromPreChain genValidBlockchain
-                                    return (fpc',transCtxt')
+         transCtxt' <- ask
+         fpc' <- fromPreTree genValidBlocktree
+         return (fpc',transCtxt')
 
       (poorIx, esk) <- choosePoorActor transCtxt
 
       -- generate an Inductive Wallet for the blockchain, including ourAddrs
-      (InductiveWithOurs ourAddrs ind) <- genFromBlockchainWithOurs (ours' poorIx) fpc
+      InductiveWithOurs ourAddrs ind <- genFromBlocktreeWithOurs (ours' poorIx) fpc
 
       return $ GenInductive ind (mkDSLWallet' transCtxt ourAddrs) esk
 

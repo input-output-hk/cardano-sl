@@ -28,6 +28,7 @@ module Wallet.Abstract (
     -- $generation
   , InductiveWithOurs(..)
   , genFromBlocktree
+  , genFromBlocktreeWithOurs
   , genFromBlocktreePickingAccounts
     -- * Auxiliary operations
   , balance
@@ -607,26 +608,24 @@ data InductiveWithOurs h a = InductiveWithOurs {
 -- | Given a predicate function that selects addresses that
 -- belong to the generated 'Inductive' wallet and the 'FromPreChain' value
 -- that contains the relevant blockchain, this will build a set of addrs and
--- call genFromBlockchain
-genFromBlockchainWithOurs
+-- call genFromBlocktree
+genFromBlocktreeWithOurs
     :: Hash h Addr
     => (Addr -> Bool)
-    -> FromPreChain h ()
+    -> FromPreTree h ()
     -> Gen (InductiveWithOurs h Addr)
-genFromBlockchainWithOurs isOurs fpc = do
-    let allAddrs = toList (ledgerAddresses (fpcLedger fpc))
-        ourAddrs = Set.fromList $ filter isOurs allAddrs
-
-    if null ourAddrs then
-        error
-        $ sformat
+genFromBlocktreeWithOurs isOurs fpt
+     | null ourAddrs =
+        error $ sformat
             ( "None of the addresses are ours!\n\n"
             % "All addresses: " % build
-            ) (intercalate ", " (map show allAddrs))
-        else pure ()
-
-    InductiveWithOurs ourAddrs <$> genFromBlockchain ourAddrs fpc
-
+            ) (intercalate ", " (map show (Set.toList allAddrs)))
+     | otherwise =
+        InductiveWithOurs ourAddrs <$> genFromBlocktree ourAddrs fpt
+  where
+    allAddrs, ourAddrs :: Set Addr
+    allAddrs = fptAddresses fpt
+    ourAddrs = Set.filter isOurs allAddrs
 
 -- | Selects a random subset of addresses to be considered from the
 -- blockchain in the amount given.
@@ -681,7 +680,7 @@ treeToApplyBlocks (OldestFirst root) = reverse . fst $ go root ([], 1)
       foldr go (ApplyBlock' val : acc, lvl + 1) xs
 
 
-blocksToLedger :: Blocks h a -> Ledger h a
+blocksToLedger :: Chain h a -> Ledger h a
 blocksToLedger blocks = Ledger $ NewestFirst $ do
   block <- reverse (toList blocks)
   reverse (toList block)
@@ -690,7 +689,7 @@ actionsToBlocks
   :: forall h a
   .  Transaction h a   -- ^ Boot transaction
   -> [Action h a]
-  -> Blocks h a
+  -> Chain h a
 actionsToBlocks boot =
     OldestFirst . reverse . map OldestFirst . foldl' f [[boot]]
   where
@@ -723,7 +722,7 @@ intersperseTransactions
                           --   not including bootstrap transaction.
     -> InductiveGen h (Inductive h Addr)
 intersperseTransactions boot addrs actions = do
-    let blocks :: Blocks h Addr = actionsToBlocks boot actions
+    let blocks :: Chain h Addr = actionsToBlocks boot actions
     -- Transactions that use outputs listed in `addr`, together with the
     -- block index when those outputs were confirmed.
     let ourTxns :: [(Int, Transaction h Addr)]
@@ -782,7 +781,7 @@ intersperseTransactions boot addrs actions = do
 synthesizeTransactions
     :: forall h. Hash h Addr
     => Set Addr           -- ^ Addresses owned by the wallet
-    -> Blocks h Addr      -- ^ Blockchain (including boot)
+    -> Chain h Addr       -- ^ Blockchain (including boot)
     -> Set (Input h Addr) -- ^ Inputs already spent
     -> InductiveGen h (IntMap [Action h Addr])
 synthesizeTransactions addrs blocks alreadySpent = do
@@ -807,7 +806,7 @@ synthesizeTransactions addrs blocks alreadySpent = do
        -> Utxo h Addr             -- Current utxo
        -> Set (Input h Addr)      -- All inputs already spent
        -> Int                     -- Block index of head of the given 'Blocks'.
-       -> Blocks h Addr           -- Chain yet to process
+       -> Chain h Addr            -- Chain yet to process
        -> Gen (IntMap [Action h Addr])
     go _ 0 _ _ _ _ =
       -- We don't deal with this very unlikely scenario in tests, but we fail
@@ -876,7 +875,7 @@ findOurTransactions
   :: forall h a
   .  (Hash h a, Ord a)
   => Set a
-  -> Blocks h a -- ^ Includes boot transaction.
+  -> Chain h a -- ^ Includes boot transaction.
   -> [(Int, Transaction h a)] -- ^ Block index, transaction.
 findOurTransactions addrs blocks = do
   let ledger = blocksToLedger blocks
@@ -892,7 +891,7 @@ findOurTransactions addrs blocks = do
 -- | This function identifies the index of the block that the input was
 -- received in the ledger, marking the point at which it may be inserted as
 -- a 'NewPending' transaction.
-blockReceivedIndex :: Hash h Addr => Input h Addr -> Blocks h Addr -> Maybe Int
+blockReceivedIndex :: Hash h Addr => Input h Addr -> Chain h Addr -> Maybe Int
 blockReceivedIndex i = List.findIndex (any ((inpTrans i ==) . hash)) . toList
 
 -- | For each 'Input' in the 'Transaction' that belongs to one of the
@@ -905,7 +904,7 @@ transactionFullyConfirmedAt
   .  Hash h Addr
   => Set Addr
   -> Transaction h Addr
-  -> Blocks h Addr
+  -> Chain h Addr
   -> Maybe Int
 transactionFullyConfirmedAt addrs txn blocks = do
   let ledger :: Ledger h Addr = blocksToLedger blocks

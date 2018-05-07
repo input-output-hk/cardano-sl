@@ -538,6 +538,37 @@ executable cardano-blockchain-analyser
   if flag(for-installer)
     buildable: False
 
+
+executable cardano-swagger-file
+  hs-source-dirs:      src/swagger-file
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  build-depends:       base
+                     , bytestring
+                     , aeson
+                     , cardano-sl
+                     , cardano-sl-util
+                     , cardano-sl-core
+                     , cardano-sl-update
+                     , cardano-sl-wallet-new
+                     , optparse-applicative
+                     , swagger2
+                     , universum >= 0.1.11
+
+  default-extensions:  RecordWildCards
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       TypeApplications
+                       ScopedTypeVariables
+                       FlexibleContexts
+                       MonadFailDesugaring
+
+
 library
   hs-source-dirs:      .
   default-language:    Haskell2010

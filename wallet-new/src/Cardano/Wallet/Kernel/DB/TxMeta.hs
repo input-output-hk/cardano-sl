@@ -9,9 +9,13 @@ module Cardano.Wallet.Kernel.DB.TxMeta (
   , closeMetaDB
   , getTxMeta
   , putTxMeta
+  , getTxMetas
+  , Limit (..)
+  , Offset (..)
   ) where
 
-import           Cardano.Wallet.Kernel.DB.Sqlite (MetaDBHandle, closeMetaDB, getTxMeta, openMetaDB,
+import           Cardano.Wallet.Kernel.DB.Sqlite (Limit (..), MetaDBHandle, Offset (..),
+                                                  closeMetaDB, getTxMeta, getTxMetas, openMetaDB,
                                                   putTxMeta)
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types as Types
 

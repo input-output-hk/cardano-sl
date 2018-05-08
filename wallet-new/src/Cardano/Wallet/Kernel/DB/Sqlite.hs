@@ -1,6 +1,7 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE RankNTypes    #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE RankNTypes         #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TupleSections      #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Sqlite database for the 'TxMeta' portion of the wallet kernel.
@@ -14,11 +15,17 @@ module Cardano.Wallet.Kernel.DB.Sqlite (
     -- * Basic API
     , putTxMeta
     , getTxMeta
+    , getTxMetas
+
+    -- * Filtering and sorting primitives
+    , Limit (..)
+    , Offset (..)
 
     -- * Unsafe functions
     , unsafeMigrate
     ) where
 
+import qualified Prelude
 import           Universum
 
 import           Database.Beam.Backend.SQL (FromBackendRow, HasSqlValueSyntax (..),
@@ -38,13 +45,16 @@ import qualified Database.SQLite.SimpleErrors.Types as Sqlite
 
 import           Control.Exception (throwIO, toException)
 import           Control.Lens (Getter)
+import qualified Data.Foldable as Foldable
+import qualified Data.Map as M
 import           Data.Time.Units (fromMicroseconds, toMicroseconds)
 import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..), Migration,
                                         MigrationSteps, boolean, createTable, evaluateDatabase,
                                         executeMigration, field, migrationStep, notNull,
                                         runMigrationSteps, unCheckDatabase, unique)
-import           Formatting (sformat)
+import           Formatting (build, formatToString, sformat, (%))
 import           GHC.Generics (Generic)
+import           Serokell.Util.Text (mapBuilder)
 
 import qualified Cardano.Wallet.Kernel.DB.TxMeta.Types as Kernel
 import qualified Pos.Core as Core
@@ -84,6 +94,9 @@ data TxMetaT f = TxMeta {
     } deriving Generic
 
 type TxMeta = TxMetaT Identity
+
+deriving instance Eq TxMeta
+deriving instance Show TxMeta
 
 -- | Creates a storage-specific 'TxMeta' out of a 'Kernel.TxMeta'.
 mkTxMeta :: Kernel.TxMeta -> TxMeta
@@ -131,6 +144,14 @@ data TxCoinDistributionTableT f = TxCoinDistributionTable {
 
 type TxCoinDistributionTable = TxCoinDistributionTableT Identity
 
+instance Prelude.Show TxCoinDistributionTable where
+    show txCoin =
+      let (TxIdPrimKey txid) = _txCoinDistributionTxId txCoin
+      in formatToString ("id = " % build % ", address = " % build % ", coin = " % build)
+                        txid
+                        (_txCoinDistributionTableAddress txCoin)
+                        (_txCoinDistributionTableCoin txCoin)
+
 instance Beamable TxCoinDistributionTableT
 
 -- | The inputs' table.
@@ -139,6 +160,7 @@ newtype TxInputT f = TxInput  {
   } deriving Generic
 
 type TxInput = TxInputT Identity
+deriving instance Show TxInput
 
 -- | Generalisation of 'mkInputs' and 'mkOutputs'.
 mkCoinDistribution :: forall a. Kernel.TxMeta
@@ -148,10 +170,10 @@ mkCoinDistribution :: forall a. Kernel.TxMeta
 mkCoinDistribution txMeta getter builder =
     let distribution  = txMeta ^. getter
         txid          = txMeta ^. Kernel.txMetaId
-    in fmap (build txid) distribution
+    in fmap (mk txid) distribution
   where
-      build :: Core.TxId -> (Core.Address, Core.Coin) -> a
-      build tid (addr, amount) = builder (TxCoinDistributionTable addr amount (TxIdPrimKey tid))
+      mk :: Core.TxId -> (Core.Address, Core.Coin) -> a
+      mk tid (addr, amount) = builder (TxCoinDistributionTable addr amount (TxIdPrimKey tid))
 
 -- | Convenient constructor of a list of 'TxInput' from a 'Kernel.TxMeta'.
 mkInputs :: Kernel.TxMeta -> NonEmpty TxInput
@@ -171,6 +193,7 @@ newtype TxOutputT f = TxOutput {
   } deriving Generic
 
 type TxOutput = TxOutputT Identity
+deriving instance Show TxOutput
 
 -- | Convenient constructor of a list of 'TxOutput from a 'Kernel.TxMeta'.
 mkOutputs :: Kernel.TxMeta -> NonEmpty TxOutput
@@ -341,18 +364,22 @@ putTxMeta dbHandle txMeta =
                 -- 'Database.Beam.Schema.Tables', but we have a test to catch
                 -- regression in this area.
                 (Sqlite.SQLConstraintError Sqlite.Unique "tx_metas.meta_id") -> do
-                    -- Check if the 'TxMeta' already present has a @different@
-                    -- 'Hash', in which case this is a proper bug there is no
-                    -- recover from. If the 'Hash' is the same, this is effectively
+                    -- Check if the 'TxMeta' already present is a @different@
+                    -- one, in which case this is a proper bug there is no
+                    -- recover from. If the 'TxMeta' is the same, this is effectively
                     -- a no-op.
-                    consistencyCheck <- fmap ((==) txMeta) <$> getTxMeta dbHandle txid
+                    -- NOTE: We use a shallow equality check here because if the
+                    -- input 'TxMeta' has the same inputs & outputs but in a different
+                    -- order, the 'consistencyCheck' would yield 'False', when in
+                    -- reality should be virtually considered the same 'TxMeta'.
+                    consistencyCheck <- fmap (Kernel.shallowEq txMeta) <$> getTxMeta dbHandle txid
                     case consistencyCheck of
                          Nothing    ->
                              throwIO $ Kernel.InvariantViolated (Kernel.UndisputableLookupFailed txid)
                          Just False ->
                              throwIO $ Kernel.InvariantViolated (Kernel.DuplicatedTransactionWithDifferentHash txid)
                          Just True  ->
-                             -- both hashes matched, this is genuinely the
+                             -- both "hashes" matched, this is genuinely the
                              -- same 'Tx' being inserted twice, probably as
                              -- part of a rollback.
                              return ()
@@ -379,18 +406,21 @@ toTxMeta txMeta inputs outputs = Kernel.TxMeta {
                               (_txCoinDistributionTableCoin coinDistr)
 
 -- | Fetches a 'Kernel.TxMeta' from the database, given its 'Core.TxId'.
--- FIXME(adinapoli): Exception & error handling.
 getTxMeta :: MetaDBHandle -> Core.TxId -> IO (Maybe Kernel.TxMeta)
 getTxMeta dbHandle txid =
     let conn = _mDbHandleConnection dbHandle
-    in runBeamSqlite conn $ do
-        metas <- SQL.runSelectReturningList txMetaById
-        case metas of
-            [txMeta] -> do
-                inputs  <- nonEmpty <$> SQL.runSelectReturningList getInputs
-                outputs <- nonEmpty <$> SQL.runSelectReturningList getOutputs
-                pure $ toTxMeta <$> Just txMeta <*> inputs <*> outputs
-            _        -> pure Nothing
+    in do
+        res <- Sqlite.runDBAction $ runBeamSqlite conn $ do
+            metas <- SQL.runSelectReturningList txMetaById
+            case metas of
+                [txMeta] -> do
+                    inputs  <- nonEmpty <$> SQL.runSelectReturningList getInputs
+                    outputs <- nonEmpty <$> SQL.runSelectReturningList getOutputs
+                    pure $ toTxMeta <$> Just txMeta <*> inputs <*> outputs
+                _        -> pure Nothing
+        case res of
+             Left e  -> throwIO $ Kernel.StorageFailure (toException e)
+             Right r -> return r
     where
         txMetaById = SQL.lookup_ (_mDbMeta metaDB) (TxIdPrimKey txid)
         getInputs  = SQL.select $ do
@@ -401,3 +431,64 @@ getTxMeta dbHandle txid =
             coinDistr <- SQL.all_ (_mDbOutputs metaDB)
             SQL.guard_ ((_txCoinDistributionTxId . _getTxOutput $ coinDistr) ==. (SQL.val_ $ TxIdPrimKey txid))
             pure coinDistr
+
+
+-- Temporary placeholders
+newtype Offset = Offset { getOffset :: Integer }
+newtype Limit  = Limit  { getLimit  :: Integer }
+
+newtype OrdByCreationDate = OrdByCreationDate { _ordByCreationDate :: TxMeta } deriving (Show, Eq)
+
+instance Ord OrdByCreationDate where
+    compare a b = compare (_txMetaTableCreatedAt . _ordByCreationDate $ a)
+                          (_txMetaTableCreatedAt . _ordByCreationDate $ b)
+
+-- | TODO(adinapoli) Sorting.
+getTxMetas :: MetaDBHandle -> Offset -> Limit -> IO [Kernel.TxMeta]
+getTxMetas dbHandle (Offset offset) (Limit limit) =
+    let conn = _mDbHandleConnection dbHandle
+    in do
+        res <- Sqlite.runDBAction $ runBeamSqlite conn $ do
+            metasWithInputs  <- nonEmpty <$> SQL.runSelectReturningList paginatedInputs
+            metasWithOutputs <- nonEmpty <$> SQL.runSelectReturningList paginatedOutputs
+            return $ liftM2 (,) metasWithInputs metasWithOutputs
+        case res of
+            Left e  -> throwIO $ Kernel.StorageFailure (toException e)
+            Right Nothing -> return []
+            Right (Just (inputs, outputs)) ->
+              let mapWithInputs  = transform inputs
+                  mapWithOutputs = transform outputs
+              in return $ Foldable.foldl' (toValidKernelTxMeta mapWithInputs) mempty (M.toList mapWithOutputs)
+    where
+        getTx selector = _txCoinDistributionTxId . selector
+
+        -- A query to select a filtered subset of the 'MetaTx' records, including
+        -- all the inputs & outputs belonging to them from the relevant tables.
+        paginatedInputs = SQL.select $ do
+            meta   <- SQL.limit_ limit (SQL.offset_ offset (SQL.all_ (_mDbMeta metaDB)))
+            inputs  <- SQL.oneToMany_ (_mDbInputs metaDB)  (getTx _getTxInput) meta
+            pure (meta, inputs)
+
+        paginatedOutputs = SQL.select $ do
+            meta   <- SQL.limit_ limit (SQL.offset_ offset (SQL.all_ (_mDbMeta metaDB)))
+            outputs <- SQL.oneToMany_ (_mDbOutputs metaDB) (getTx _getTxOutput) meta
+            pure (meta, outputs)
+
+        -- | Groups the inputs or the outputs under the same 'TxMeta'.
+        transform :: NonEmpty (TxMeta, a) -> M.Map OrdByCreationDate (NonEmpty a)
+        transform = Foldable.foldl' updateFn M.empty
+
+        updateFn :: M.Map OrdByCreationDate (NonEmpty a)
+                 -> (TxMeta, a)
+                 -> M.Map OrdByCreationDate (NonEmpty a)
+        updateFn acc (txMeta, new) =
+            M.insertWith (<>) (OrdByCreationDate txMeta) (new :| []) acc
+
+        toValidKernelTxMeta :: M.Map OrdByCreationDate (NonEmpty TxInput)
+                            -> [Kernel.TxMeta]
+                            -> (OrdByCreationDate, NonEmpty TxOutput)
+                            -> [Kernel.TxMeta]
+        toValidKernelTxMeta inputMap acc (OrdByCreationDate t, outputs) =
+            case M.lookup (OrdByCreationDate t) inputMap of
+                 Nothing     -> acc
+                 Just inputs -> toTxMeta t inputs outputs : acc

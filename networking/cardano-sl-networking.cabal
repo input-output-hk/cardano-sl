@@ -161,18 +161,21 @@ executable ping-pong
 executable bench-sender
   main-is:             Main.hs
   other-modules:       SenderOptions
-  build-depends:       base == 4.*
+  build-depends:       async
+                     , base
                      , cardano-sl-networking
                      , cardano-sl-util
+                     , contravariant
                      , lens
-                     , log-warper
                      , MonadRandom
                      , mtl
+                     , network-transport
                      , network-transport-tcp
                      , optparse-simple >= 0.0.3
                      , random
                      , safe-exceptions
                      , serokell-util
+                     , time
                      , time-units
   hs-source-dirs:      bench/Sender
   if flag(benchmarks)
@@ -190,15 +193,15 @@ executable bench-sender
 executable bench-receiver
   main-is:             Main.hs
   other-modules:       ReceiverOptions
-  build-depends:       base == 4.*
+  build-depends:       base
                      , cardano-sl-networking
-                     , log-warper
+                     , cardano-sl-util
+                     , contravariant
                      , network-transport-tcp
                      , optparse-simple
                      , random
                      , safe-exceptions
-                     , serokell-util
-                     , time-units
+                     , text
   hs-source-dirs:      bench/Receiver
   if flag(benchmarks)
     buildable:         True
@@ -218,6 +221,7 @@ executable bench-log-reader
   build-depends:       base == 4.*
                      , attoparsec
                      , cardano-sl-networking
+                     , cardano-sl-util
                      , conduit
                      , conduit-extra
                      , containers
@@ -231,6 +235,7 @@ executable bench-log-reader
                      , safe-exceptions
                      , text
                      , text-format
+                     , unliftio-core
   hs-source-dirs:      bench/LogReader
   if flag(benchmarks)
     buildable:         True

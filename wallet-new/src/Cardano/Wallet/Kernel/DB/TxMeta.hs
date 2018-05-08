@@ -12,10 +12,14 @@ module Cardano.Wallet.Kernel.DB.TxMeta (
   , getTxMetas
   , Limit (..)
   , Offset (..)
+  , Sorting (..)
+  , SortDirection (..)
+  , SortCriteria (..)
   ) where
 
 import           Cardano.Wallet.Kernel.DB.Sqlite (Limit (..), MetaDBHandle, Offset (..),
-                                                  closeMetaDB, getTxMeta, getTxMetas, openMetaDB,
-                                                  putTxMeta)
+                                                  SortCriteria (..), SortDirection (..),
+                                                  Sorting (..), closeMetaDB, getTxMeta, getTxMetas,
+                                                  openMetaDB, putTxMeta)
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types as Types
 

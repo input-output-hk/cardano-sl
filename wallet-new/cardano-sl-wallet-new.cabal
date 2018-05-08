@@ -297,21 +297,24 @@ test-suite wallet-unit-tests
                       Util.Buildable
                       Util.Buildable.Hspec
                       Util.Buildable.QuickCheck
-                      Util.DepIndep
                       Util.Validated
-                      UTxO.BlockGen
                       UTxO.Bootstrap
                       UTxO.Context
                       UTxO.Crypto
                       UTxO.DSL
+                      UTxO.Generator
                       UTxO.Interpreter
-                      UTxO.PreChain
                       UTxO.Translate
                       UTxO.Verify
                       Wallet.Abstract
-                      Wallet.Abstract.Cardano
                       Wallet.Basic
                       Wallet.Incremental
+                      Wallet.Inductive
+                      Wallet.Inductive.Cardano
+                      Wallet.Inductive.Generator
+                      Wallet.Inductive.Interpreter
+                      Wallet.Inductive.Invariants
+                      Wallet.Inductive.Validation
                       Wallet.Prefiltered
                       Wallet.Rollback.Basic
                       Wallet.Rollback.Full

@@ -23,10 +23,13 @@ import           Universum hiding (State)
 
 import           Control.Lens.TH
 import qualified Data.Set as Set
+import qualified Data.Text.Buildable
+import           Formatting (bprint, build, (%))
+import           Serokell.Util (listJson)
 
 import           UTxO.DSL
 import           Wallet.Abstract
-import qualified Wallet.Basic       as Basic
+import qualified Wallet.Basic as Basic
 import qualified Wallet.Incremental as Incr
 
 {-------------------------------------------------------------------------------
@@ -71,7 +74,7 @@ initState = State {
   Construction
 -------------------------------------------------------------------------------}
 
-mkWallet :: (Hash h a, Ord a)
+mkWallet :: (Hash h a, Ord a, Buildable st)
          => Ours a -> Lens' st (State h a) -> WalletConstr h a st
 mkWallet ours l self st = (Incr.mkWallet ours (l . stateIncr) self st) {
       applyBlock = \b ->
@@ -83,11 +86,15 @@ mkWallet ours l self st = (Incr.mkWallet ours (l . stateIncr) self st) {
             filtered   = txIns b `Set.intersection` utxoDomain filterUtxo
         in self (st & l %~ applyBlock' (filtered, utxoPlus))
     , rollback = self (st & l %~ rollback')
+    , change = utxoRemoveInputs (txIns (pending this))
+             $ utxoRestrictToOurs ours
+             $ txOuts (pending this)
+    , expectedUtxo = st ^. l . stateCurrent . checkpointExpected
     }
   where
     this = self st
 
-walletEmpty :: (Hash h a, Ord a) => Ours a -> Wallet h a
+walletEmpty :: (Hash h a, Ord a, Buildable a) => Ours a -> Wallet h a
 walletEmpty ours = fix (mkWallet ours identity) initState
 
 {-------------------------------------------------------------------------------
@@ -131,3 +138,27 @@ rollback' State{ _stateCheckpoints = prev : checkpoints'
         }
     , _stateCheckpoints = checkpoints'
     }
+
+{-------------------------------------------------------------------------------
+  Pretty-printing
+-------------------------------------------------------------------------------}
+
+instance (Hash h a, Buildable a) => Buildable (Checkpoint h a) where
+  build Checkpoint{..} = bprint
+    ( "Checkpoint"
+    % "{ incr:     " % build
+    % ", expected: " % build
+    % "}"
+    )
+    _checkpointIncr
+    _checkpointExpected
+
+instance (Hash h a, Buildable a) => Buildable (State h a) where
+  build State{..} = bprint
+    ( "State"
+    % "{ current:     " % build
+    % ", checkpoints: " % listJson
+    % "}"
+    )
+    _stateCurrent
+    _stateCheckpoints

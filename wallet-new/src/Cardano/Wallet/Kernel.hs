@@ -103,7 +103,7 @@ data WalletId =
     | WalletIdExt ...
     -}
 
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Show)
 
 -- | Wallets
 --

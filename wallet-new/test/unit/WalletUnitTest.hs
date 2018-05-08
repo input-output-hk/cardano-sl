@@ -1,5 +1,5 @@
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE LambdaCase    #-}
+{-# LANGUAGE TupleSections #-}
 
 -- | Wallet unit tests
 --
@@ -8,17 +8,15 @@ module Main (main) where
 
 import           Universum
 
-import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, shown, (%))
 import           Serokell.Util (mapJson)
 import           Test.Hspec.QuickCheck
-import           Test.QuickCheck (elements, frequency, arbitrary, listOf, suchThat)
+import           Test.QuickCheck (Property, arbitrary, frequency, listOf, shuffle, suchThat)
 
 import qualified Pos.Block.Error as Cardano
 import           Pos.Core (HasConfiguration)
-import           Pos.Crypto (EncryptedSecretKey)
 import qualified Pos.Txp.Toil as Cardano
 import           Pos.Util.Chrono
 
@@ -26,20 +24,24 @@ import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
 
-import           UTxO.BlockGen
 import           UTxO.Bootstrap
 import           UTxO.Context
 import           UTxO.Crypto
 import           UTxO.DSL
+import           UTxO.Generator
 import           UTxO.Interpreter
-import           UTxO.PreChain
 import           UTxO.Translate
 
 import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
 import           Util.Validated
 import           Wallet.Abstract
-import           Wallet.Abstract.Cardano
+import           Wallet.Inductive
+import           Wallet.Inductive.Cardano
+import           Wallet.Inductive.Generator
+import           Wallet.Inductive.Invariants
+import           Wallet.Inductive.Validation
+
 import qualified Wallet.Basic as Base
 import qualified Wallet.Incremental as Incr
 import qualified Wallet.Prefiltered as Pref
@@ -52,7 +54,7 @@ import qualified Wallet.Rollback.Full as Full
 
 main :: IO ()
 main = do
---   _showContext
+--    _showContext
     runTranslateNoErrors $ withConfig $
             return $ hspec tests
 
@@ -74,8 +76,106 @@ tests :: HasConfiguration =>Spec
 tests = describe "Wallet unit tests" $ do
     testTranslation
     testPureWallet
-    testActiveWallet
+    testWalletKernel
     testWalletWorker
+
+{-------------------------------------------------------------------------------
+  Generator model
+
+  The generators are polymorphic in the types of addresses we have, and need
+  various parameters. Here we introduce a simple model from which we can
+  derive all of these arguments. We can then instantiate this model to
+
+  * Cardano itself (given the bootstrap transaction).
+    This is a model that results in something that we can translate to Cardano,
+    but since it deals with the " real world " it has all kinds of different
+    actors, large values, etc., and so is a bit difficult to debug when
+    looking at values manually.
+
+  * Simplified model, with small values, simple addresses, and no fees
+-------------------------------------------------------------------------------}
+
+data GeneratorModel h a = GeneratorModel {
+      -- | Bootstrap transaction
+      gmBoot          :: Transaction h a
+
+      -- | Addresses to work with
+      --
+      -- These will be the addresses we can transfers funds from and to
+    , gmAllAddresses  :: [a]
+
+     -- | Which subset of 'gmAllAddresses' can we choose from for @ours@?
+    , gmPotentialOurs :: a -> Bool
+
+      -- | Maximum number of addresses to use for @ours@
+    , gmMaxNumOurs    :: Int
+
+      -- | Estimate fees
+    , gmEstimateFee   :: Int -> Int -> Value
+    }
+
+genChainUsingModel :: (Hash h a, Ord a) => GeneratorModel h a -> Gen (Chain h a)
+genChainUsingModel GeneratorModel{..} =
+    evalStateT (genChain params) initState
+  where
+    params    = defChainParams gmEstimateFee gmAllAddresses
+    initUtxo  = utxoRestrictToAddr (`elem` gmAllAddresses) $ trUtxo gmBoot
+    initState = initTrState initUtxo 1
+
+genInductiveUsingModel :: (Hash h a, Ord a)
+                       => GeneratorModel h a -> Gen (Inductive h a)
+genInductiveUsingModel GeneratorModel{..} = do
+    numOurs <- choose (1, min (length potentialOurs) gmMaxNumOurs)
+    addrs'  <- shuffle potentialOurs
+    let ours = Set.fromList (take numOurs addrs')
+    events  <- evalStateT (genWalletEvents (params ours)) initState
+    return Inductive {
+        inductiveBoot   = gmBoot
+      , inductiveOurs   = ours
+      , inductiveEvents = events
+      }
+  where
+    potentialOurs = filter gmPotentialOurs gmAllAddresses
+    params ours   = defEventsParams gmEstimateFee gmAllAddresses ours initUtxo
+    initUtxo      = utxoRestrictToAddr (`elem` gmAllAddresses) $ trUtxo gmBoot
+    initState     = initEventsGlobalState 1
+
+cardanoModel :: Transaction GivenHash Addr -> GeneratorModel GivenHash Addr
+cardanoModel boot = GeneratorModel {
+      gmBoot          = boot
+    , gmAllAddresses  = filter (not . isAvvmAddr) $ addrsInBoot boot
+    , gmPotentialOurs = \_ -> True
+    , gmEstimateFee   = estimateCardanoFee
+    , gmMaxNumOurs    = 5
+    }
+
+addrsInBoot :: Transaction GivenHash a -> [a]
+addrsInBoot = map outAddr . trOuts
+
+estimateCardanoFee :: Int -> Int -> Value
+estimateCardanoFee ins outs = fromIntegral $ (ins + outs) * 150000
+
+simpleModel :: GeneratorModel GivenHash Char
+simpleModel = GeneratorModel {
+      gmAllAddresses  = addrs
+    , gmPotentialOurs = \_ -> True
+    , gmEstimateFee   = \_ _ -> 0
+    , gmMaxNumOurs    = 3
+    , gmBoot          = Transaction {
+                            trFresh = fromIntegral (length addrs) * initBal
+                          , trIns   = Set.empty
+                          , trOuts  = [Output a initBal | a <- addrs]
+                          , trFee   = 0
+                          , trHash  = 0
+                          , trExtra = ["Simple bootstrap"]
+                          }
+    }
+  where
+    addrs :: [Char]
+    addrs = ['a' .. 'g']
+
+    initBal :: Value
+    initBal = 10000
 
 {-------------------------------------------------------------------------------
   UTxO->Cardano translation tests
@@ -102,82 +202,67 @@ testTranslation = do
     describe "Translation QuickCheck tests" $ do
       prop "can translate randomly generated chains" $
         forAll
-          (intAndVerifyGen genValidBlockchain)
+          (intAndVerifyGen (genChainUsingModel . cardanoModel))
           expectValid
 
 {-------------------------------------------------------------------------------
   Pure wallet tests
 -------------------------------------------------------------------------------}
 
-testPureWallet :: Spec
-testPureWallet = do
-    it "Test pure wallets" $
-      forAll genInductive $ \ind -> conjoin [
-          checkInvariants "base"      ind baseEmpty
-        , checkInvariants "incr"      ind incrEmpty
-        , checkInvariants "pref"      ind prefEmpty
-        , checkInvariants "roll"      ind rollEmpty
-        , checkInvariants "full"      ind fullEmpty
-        , checkEquivalent "base/incr" ind baseEmpty incrEmpty
-        , checkEquivalent "base/pref" ind baseEmpty prefEmpty
-        , checkEquivalent "base/roll" ind baseEmpty rollEmpty
-        , checkEquivalent "base/full" ind baseEmpty fullEmpty
-        ]
+testPureWalletWith :: forall h a. (Hash h a, Ord a, Buildable a)
+                   => Inductive h a -> Property
+testPureWalletWith indWithRoll = conjoin [
+      -- sanity check on the test
+      uptoFirstRollback indDontRoll `shouldBe` indDontRoll
+    , shouldBeValidated (void (inductiveIsValid indWithRoll))
 
-    it "Sanity check rollback" $ do
-      let FromPreChain{..} = runTranslate $ fromPreChain oneTrans
+      -- check that the invariants hold in each model
+    , checkInvariants NoRollback    "base" indDontRoll baseEmpty
+    , checkInvariants NoRollback    "incr" indDontRoll incrEmpty
+    , checkInvariants NoRollback    "pref" indDontRoll prefEmpty
+    , checkInvariants BasicRollback "roll" indWithRoll rollEmpty
+    , checkInvariants FullRollback  "full" indWithRoll fullEmpty
 
-          ours :: Ours Addr
-          ours = oursFromSet $ Set.singleton r1
+      -- check equivalence between the models (no rollbacks)
+    , checkEquivalent "base/incr" indDontRoll baseEmpty incrEmpty
+    , checkEquivalent "base/pref" indDontRoll baseEmpty prefEmpty
+    , checkEquivalent "base/roll" indDontRoll baseEmpty rollEmpty
+    , checkEquivalent "base/full" indDontRoll baseEmpty fullEmpty
 
-          w0, w1 :: Wallet GivenHash Addr
-          w0 = walletBoot Full.walletEmpty ours fpcBoot
-          w1 = applyBlocks w0 fpcChain
-          w2 = rollback w1
-
-      shouldNotBe (utxo w0) (utxo w1)
-      shouldBe    (utxo w0) (utxo w2)
+      -- check equivalence between models (with rollbacks)
+    , checkEquivalent "roll/full" indWithRoll rollEmpty fullEmpty
+    ]
   where
-    transCtxt = runTranslateNoErrors ask
+    -- Prefix of the 'Inductive' without any rollbacks
+    indDontRoll :: Inductive h a
+    indDontRoll = uptoFirstRollback indWithRoll
 
-    genInductive :: Hash h Addr => Gen (InductiveWithOurs h Addr)
-    genInductive = do
-      fpt <- runTranslateT $ fromPreTree genValidBlocktree
-      n <- choose
-        ( 1
-        , length (filter (not . isAvvmAddr) (toList (fptAddresses fpt)))
-        )
-      genFromBlocktreePickingAccounts n fpt
-
-    checkInvariants :: (Hash h a, Eq a, Buildable a)
-                    => Text
-                    -> InductiveWithOurs h a
+    checkInvariants :: ApplicableInvariants
+                    -> Text
+                    -> Inductive h a
                     -> (Set a -> Transaction h a -> Wallet h a)
                     -> Expectation
-    checkInvariants label (InductiveWithOurs addrs ind) w =
+    checkInvariants applicableInvariants label ind@Inductive{..} w =
         shouldBeValidated $
-          walletInvariants label (w addrs) ind
+          walletInvariants applicableInvariants label (w inductiveOurs) ind
 
-    checkEquivalent :: (Hash h a, Eq a, Buildable a)
-                    => Text
-                    -> InductiveWithOurs h a
+    checkEquivalent :: Text
+                    -> Inductive h a
                     -> (Set a -> Transaction h a -> Wallet h a)
                     -> (Set a -> Transaction h a -> Wallet h a)
                     -> Expectation
-    checkEquivalent label (InductiveWithOurs addrs ind) w w' =
+    checkEquivalent label ind@Inductive{..} w w' =
         shouldBeValidated $
-          walletEquivalent label (w addrs) (w' addrs) ind
+          walletEquivalent label (w inductiveOurs) (w' inductiveOurs) ind
 
-    oursFromSet :: Set Addr -> Ours Addr
-    oursFromSet addrs addr = do
-        guard (Set.member addr addrs)
-        return $ fst (resolveAddr addr transCtxt)
+    oursFromSet :: Set a -> Ours a
+    oursFromSet = flip Set.member
 
-    baseEmpty :: Set Addr -> Transaction GivenHash Addr -> Wallet GivenHash Addr
-    incrEmpty :: Set Addr -> Transaction GivenHash Addr -> Wallet GivenHash Addr
-    prefEmpty :: Set Addr -> Transaction GivenHash Addr -> Wallet GivenHash Addr
-    rollEmpty :: Set Addr -> Transaction GivenHash Addr -> Wallet GivenHash Addr
-    fullEmpty :: Set Addr -> Transaction GivenHash Addr -> Wallet GivenHash Addr
+    baseEmpty :: Set a -> Transaction h a -> Wallet h a
+    incrEmpty :: Set a -> Transaction h a -> Wallet h a
+    prefEmpty :: Set a -> Transaction h a -> Wallet h a
+    rollEmpty :: Set a -> Transaction h a -> Wallet h a
+    fullEmpty :: Set a -> Transaction h a -> Wallet h a
 
     baseEmpty = walletBoot Base.walletEmpty . oursFromSet
     incrEmpty = walletBoot Incr.walletEmpty . oursFromSet
@@ -185,83 +270,52 @@ testPureWallet = do
     rollEmpty = walletBoot Roll.walletEmpty . oursFromSet
     fullEmpty = walletBoot Full.walletEmpty . oursFromSet
 
+testPureWallet :: Spec
+testPureWallet = do
+    describe "Test pure wallets" $ do
+      it "Using simple model" $
+        forAll (genInductiveUsingModel simpleModel) $ testPureWalletWith
+      it "Using Cardano model" $
+        forAll (genInductiveUsingModel (cardanoModel boot)) $ testPureWalletWith
+  where
+    transCtxt = runTranslateNoErrors ask
+    boot      = bootstrapTransaction transCtxt
+
 {-------------------------------------------------------------------------------
-  Inductive wallet tests, compares DSL vs Cardano Wallet API results at each
-  inductive step.
+  Compare the wallet kernel with the pure model
 -------------------------------------------------------------------------------}
 
--- | GenInductive
---
--- Contains a Generated Inductive Wallet along with a DSL Wallet Builder
--- (which embeds "ours" in the DSL world) and an ESK
--- used to derive "ours" in the Cardano world.
-data GenInductive
-    = GenInductive (Inductive GivenHash Addr)
-                    -- ^ Generated Inductive Wallet
-                    (Transaction GivenHash Addr -> Wallet GivenHash Addr)
-                    -- ^ DSL Wallet Builder
-                    EncryptedSecretKey
-                    -- ^ ESK of selected poor actor
-
-testActiveWallet :: HasConfiguration => Spec
-testActiveWallet =
-    it "Test Active Wallet API - compare DSL and Cardano wallet state after each Inductive step" $
-      forAll genInductive $ \(GenInductive ind mkDSLWallet esk) ->
-                                (bracketActiveWallet $ \activeWallet -> do
-                                    checkEquivalent activeWallet esk mkDSLWallet ind)
-
+testWalletKernel :: HasConfiguration => Spec
+testWalletKernel =
+    it "Compare wallet kernel to pure model" $
+      forAll (genInductiveUsingModel model) $ \ind -> do
+        -- TODO: remove once we have support for rollback in the kernel
+        let indDontRoll = uptoFirstRollback ind
+        bracketActiveWallet $ \activeWallet -> do
+          checkEquivalent activeWallet indDontRoll
   where
-    genInductive :: Gen GenInductive
-    genInductive = do
-      -- generate a blocktree and capture the translation context
-      (fpc,transCtxt) <- runTranslateT $ do
-         transCtxt' <- ask
-         fpc' <- fromPreTree genValidBlocktree
-         return (fpc',transCtxt')
-
-      (poorIx, esk) <- choosePoorActor transCtxt
-
-      -- generate an Inductive Wallet for the blockchain, including ourAddrs
-      InductiveWithOurs ourAddrs ind <- genFromBlocktreeWithOurs (ours' poorIx) fpc
-
-      return $ GenInductive ind (mkDSLWallet' transCtxt ourAddrs) esk
-
-    ours' :: ActorIx -> Addr -> Bool
-    ours' poorIx@(IxPoor _) addr = addrActorIx addr == poorIx
-    ours' _ _                    = False
-
-    choosePoorActor :: TransCtxt -> Gen (ActorIx, EncryptedSecretKey)
-    choosePoorActor transCtxt' = do
-        let poorActors = Map.elems . actorsPoor . tcActors $ transCtxt'
-        (poorIx, poorActor) <- elements $ zip [0..] poorActors
-        let esk = encKpEnc $ poorKey poorActor
-        return (IxPoor poorIx, esk)
+    transCtxt = runTranslateNoErrors ask
+    boot      = bootstrapTransaction transCtxt
+    model     = (cardanoModel boot) {
+                    gmMaxNumOurs    = 1
+                  , gmPotentialOurs = isPoorAddr
+                  }
 
     checkEquivalent :: forall h. Hash h Addr
                     => Kernel.ActiveWallet
-                    -> EncryptedSecretKey
-                    -> (Transaction h Addr -> Wallet h Addr)
                     -> Inductive h Addr
                     -> Expectation
-    checkEquivalent activeWallet esk mkDSLWallet ind
-        = do
-            res <- runTranslateT $
-                       equivalentT activeWallet esk mkDSLWallet ind
-            case res of
-                Invalid _ts e -> do
-                    putText $ sformat build e
-                    shouldBe True False
-                Valid _res' ->
-                    shouldBe True True
+    checkEquivalent activeWallet ind = do
+       shouldReturnValidated $ runTranslateT $ do
+         equivalentT activeWallet (encKpEnc ekp) (mkWallet (== addr)) ind
+      where
+        [addr]       = Set.toList $ inductiveOurs ind
+        AddrInfo{..} = resolveAddr addr transCtxt
+        Just ekp     = addrInfoMasterKey
 
-    mkDSLWallet' :: forall h. Hash h Addr
-                 => TransCtxt -> Set Addr -> Transaction h Addr -> Wallet h Addr
-    mkDSLWallet' transCtxt = walletBoot Base.walletEmpty . oursFromSet transCtxt
-
-    oursFromSet :: TransCtxt -> Set Addr -> Ours Addr
-    oursFromSet transCtxt addrs addr = do
-        guard (Set.member addr addrs)
-        return $ fst (resolveAddr addr transCtxt)
+    -- TODO: We should move to the full model instead of the base model
+    mkWallet :: Hash h Addr => Ours Addr -> Transaction h Addr -> Wallet h Addr
+    mkWallet = walletBoot Base.walletEmpty
 
 {-------------------------------------------------------------------------------
   Wallet worker state machine tests
@@ -399,68 +453,69 @@ diffusion =  Kernel.WalletDiffusion {
   Example hand-constructed chains
 -------------------------------------------------------------------------------}
 
-emptyBlock :: Hash h Addr => PreChain h Identity ()
-emptyBlock = preChain $ \_boot -> return $ \_fees ->
-    OldestFirst [OldestFirst []]
+emptyBlock :: Hash h Addr => Transaction h Addr -> Chain h a
+emptyBlock _boot = OldestFirst [OldestFirst []]
 
-oneTrans :: Hash h Addr => PreChain h Identity ()
-oneTrans = preChain $ \boot -> return $ \((fee : _) : _) ->
-    let t1 = Transaction {
-                 trFresh = 0
-               , trFee   = fee
-               , trHash  = 1
-               , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
-               , trOuts  = [ Output r1 1000
-                           , Output r0 (initR0 - 1000 - fee)
-                           ]
-               , trExtra = ["t1"]
-               }
-    in OldestFirst [OldestFirst [t1]]
+oneTrans :: Hash h Addr => Transaction h Addr -> Chain h Addr
+oneTrans boot = OldestFirst [OldestFirst [t1]]
+  where
+    fee1 = estimateCardanoFee 1 2
+    t1   = Transaction {
+               trFresh = 0
+             , trFee   = fee1
+             , trHash  = 1
+             , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
+             , trOuts  = [ Output r1 1000
+                         , Output r0 (initR0 - 1000 - fee1)
+                         ]
+             , trExtra = ["t1"]
+             }
 
--- Try to transfer from R0 to R1, but leaving R0's balance the same
-overspend :: Hash h Addr => PreChain h Identity ()
-overspend = preChain $ \boot -> return $ \((fee : _) : _) ->
-    let t1 = Transaction {
-                 trFresh = 0
-               , trFee   = fee
-               , trHash  = 1
-               , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
-               , trOuts  = [ Output r1 1000
-                           , Output r0 initR0
-                           ]
-               , trExtra = ["t1"]
-               }
-    in OldestFirst [OldestFirst [t1]]
+-- | Try to transfer from R0 to R1, but leaving R0's balance the same
+overspend :: Hash h Addr => Transaction h Addr -> Chain h Addr
+overspend boot = OldestFirst [OldestFirst [t1]]
+  where
+    fee1 = estimateCardanoFee 1 2
+    t1   = Transaction {
+               trFresh = 0
+             , trFee   = fee1
+             , trHash  = 1
+             , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
+             , trOuts  = [ Output r1 1000
+                         , Output r0 initR0
+                         ]
+             , trExtra = ["t1"]
+             }
 
--- Try to transfer to R1 and R2 using the same output
--- TODO: in principle this example /ought/ to work without any kind of
--- outputs at all; but in practice this breaks stuff because now we have
--- two identical transactions which would therefore get identical IDs?
-doublespend :: Hash h Addr => PreChain h Identity ()
-doublespend = preChain $ \boot -> return $ \((fee1 : fee2 : _) : _) ->
-    let t1 = Transaction {
-                 trFresh = 0
-               , trFee   = fee1
-               , trHash  = 1
-               , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
-               , trOuts  = [ Output r1 1000
-                           , Output r0 (initR0 - 1000 - fee1)
-                           ]
-               , trExtra = ["t1"]
-               }
-        t2 = Transaction {
-                 trFresh = 0
-               , trFee   = fee2
-               , trHash  = 2
-               , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
-               , trOuts  = [ Output r2 1000
-                           , Output r0 (initR0 - 1000 - fee2)
-                           ]
-               , trExtra = ["t2"]
-               }
-    in OldestFirst [OldestFirst [t1, t2]]
+-- | Try to transfer to R1 and R2 using the same output
+doublespend :: Hash h Addr => Transaction h Addr -> Chain h Addr
+doublespend boot = OldestFirst [OldestFirst [t1, t2]]
+  where
+    fee1 = estimateCardanoFee 1 2
+    t1   = Transaction {
+               trFresh = 0
+             , trFee   = fee1
+             , trHash  = 1
+             , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
+             , trOuts  = [ Output r1 1000
+                         , Output r0 (initR0 - 1000 - fee1)
+                         ]
+             , trExtra = ["t1"]
+             }
 
--- Translation of example 1 of the paper, adjusted to allow for fees
+    fee2 = estimateCardanoFee 1 2
+    t2   = Transaction {
+               trFresh = 0
+             , trFee   = fee2
+             , trHash  = 2
+             , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
+             , trOuts  = [ Output r2 1000
+                         , Output r0 (initR0 - 1000 - fee2)
+                         ]
+             , trExtra = ["t2"]
+             }
+
+-- | Translation of example 1 of the paper, adjusted to allow for fees
 --
 -- Transaction t1 in the example creates new coins, and transaction t2
 -- tranfers this to an ordinary address. In other words, t1 and t2
@@ -473,27 +528,30 @@ doublespend = preChain $ \boot -> return $ \((fee1 : fee2 : _) : _) ->
 -- Transaction 5 in example 1 is a transaction /from/ the treasury /to/ an
 -- ordinary address. This currently has no equivalent in Cardano, so we omit
 -- it.
-example1 :: Hash h Addr => PreChain h Identity ()
-example1 = preChain $ \boot -> return $ \((fee3 : fee4 : _) : _) ->
-    let t3 = Transaction {
-                 trFresh = 0
-               , trFee   = fee3
-               , trHash  = 3
-               , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
-               , trOuts  = [ Output r1 1000
-                           , Output r0 (initR0 - 1000 - fee3)
-                           ]
-               , trExtra = ["t3"]
-               }
-        t4 = Transaction {
-                 trFresh = 0
-               , trFee   = fee4
-               , trHash  = 4
-               , trIns   = Set.fromList [ Input (hash t3) 1 ]
-               , trOuts  = [ Output r2 (initR0 - 1000 - fee3 - fee4) ]
-               , trExtra = ["t4"]
-               }
-    in OldestFirst [OldestFirst [t3, t4]]
+example1 :: Hash h Addr => Transaction h Addr -> Chain h Addr
+example1 boot = OldestFirst [OldestFirst [t3, t4]]
+  where
+    fee3 = estimateCardanoFee 1 2
+    t3   = Transaction {
+               trFresh = 0
+             , trFee   = fee3
+             , trHash  = 3
+             , trIns   = Set.fromList [ Input (hash boot) 0 ] -- rich 0
+             , trOuts  = [ Output r1 1000
+                         , Output r0 (initR0 - 1000 - fee3)
+                         ]
+             , trExtra = ["t3"]
+             }
+
+    fee4 = estimateCardanoFee 1 1
+    t4   = Transaction {
+               trFresh = 0
+             , trFee   = fee4
+             , trHash  = 4
+             , trIns   = Set.fromList [ Input (hash t3) 1 ]
+             , trOuts  = [ Output r2 (initR0 - 1000 - fee3 - fee4) ]
+             , trExtra = ["t4"]
+             }
 
 {-------------------------------------------------------------------------------
   Some initial values
@@ -514,34 +572,36 @@ r2 = Addr (IxRich 2) 0
   Verify chain
 -------------------------------------------------------------------------------}
 
-intAndVerifyPure :: PreChain GivenHash Identity a
+intAndVerifyPure :: (Transaction GivenHash Addr -> Chain GivenHash Addr)
                  -> ValidationResult GivenHash Addr
-intAndVerifyPure = runIdentity . intAndVerify
+intAndVerifyPure pc = runIdentity $ intAndVerify (Identity . pc)
 
-intAndVerifyGen :: PreChain GivenHash Gen a
+-- | Specialization of 'intAndVerify' to 'Gen'
+intAndVerifyGen :: (Transaction GivenHash Addr -> Gen (Chain GivenHash Addr))
                 -> Gen (ValidationResult GivenHash Addr)
 intAndVerifyGen = intAndVerify
 
--- | Interpret and verify a chain, given the bootstrap transactions
-intAndVerify :: (Hash h Addr, Monad m)
-             => PreChain h m a -> m (ValidationResult h Addr)
+-- | Specialization of 'intAndVerifyChain' to 'GivenHash'
+intAndVerify :: Monad m
+             => (Transaction GivenHash Addr -> m (Chain GivenHash Addr))
+             -> m (ValidationResult GivenHash Addr)
 intAndVerify = intAndVerifyChain
 
--- | Interpret and verify a chain, given the bootstrap transactions. Also
--- returns the 'FromPreChain' value, which contains the blockchain, ledger,
--- boot transaction, etc.
+-- | Interpret and verify a chain.
 intAndVerifyChain :: (Hash h Addr, Monad m)
-                  => PreChain h m a
+                  => (Transaction h Addr -> m (Chain h Addr))
                   -> m (ValidationResult h Addr)
 intAndVerifyChain pc = runTranslateT $ do
-    FromPreChain{..} <- fromPreChain pc
-    let dslIsValid = ledgerIsValid fpcLedger
-        dslUtxo    = ledgerUtxo    fpcLedger
-    intResult <- catchTranslateErrors $ runIntBoot' fpcBoot $ int fpcChain
+    boot  <- asks bootstrapTransaction
+    chain <- lift $ pc boot
+    let ledger      = chainToLedger boot chain
+        dslIsValid  = ledgerIsValid ledger
+        dslUtxo     = ledgerUtxo    ledger
+    intResult <- catchTranslateErrors $ runIntBoot' boot $ int chain
     case intResult of
       Left e ->
         case dslIsValid of
-          Valid     () -> return $ Disagreement fpcLedger (UnexpectedError e)
+          Valid     () -> return $ Disagreement ledger (UnexpectedError e)
           Invalid _ e' -> return $ ExpectedInvalid' e' e
       Right (chain', ctxt) -> do
         let chain'' = fromMaybe (error "intAndVerify: Nothing")
@@ -550,13 +610,13 @@ intAndVerifyChain pc = runTranslateT $ do
         isCardanoValid <- verifyBlocksPrefix chain''
         case (dslIsValid, isCardanoValid) of
           (Invalid _ e' , Invalid _ e) -> return $ ExpectedInvalid e' e
-          (Invalid _ e' , Valid     _) -> return $ Disagreement fpcLedger (UnexpectedValid e')
-          (Valid     () , Invalid _ e) -> return $ Disagreement fpcLedger (UnexpectedInvalid e)
+          (Invalid _ e' , Valid     _) -> return $ Disagreement ledger (UnexpectedValid e')
+          (Valid     () , Invalid _ e) -> return $ Disagreement ledger (UnexpectedInvalid e)
           (Valid     () , Valid (_undo, finalUtxo)) -> do
             (finalUtxo', _) <- runIntT' ctxt $ int dslUtxo
             if finalUtxo == finalUtxo'
               then return $ ExpectedValid
-              else return $ Disagreement fpcLedger UnexpectedUtxo {
+              else return $ Disagreement ledger UnexpectedUtxo {
                          utxoDsl     = dslUtxo
                        , utxoCardano = finalUtxo
                        , utxoInt     = finalUtxo'
@@ -678,6 +738,3 @@ instance (Hash h a, Buildable a) => Buildable (Disagreement h a) where
       utxoDsl
       utxoCardano
       utxoInt
-
-instance Buildable GenInductive where
-    build (GenInductive ind _ _) = bprint ("GenInductive " % build) ind

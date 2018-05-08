@@ -11,6 +11,7 @@ module Util.Buildable.Hspec (
     -- * Working with Validated
   , valid
   , shouldBeValidated
+  , shouldReturnValidated
     -- * Re-exports
   , H.Expectation
   , H.Spec
@@ -58,6 +59,10 @@ valid :: (HasCallStack, Buildable e, Buildable a)
       => String -> Validated e a -> H.Spec
 valid s = H.it s . shouldBeValidated
 
-shouldBeValidated :: (Buildable e, Buildable a)
+shouldBeValidated :: (HasCallStack, Buildable e, Buildable a)
                   => Validated e a -> H.Expectation
 shouldBeValidated ma = shouldSatisfy ma isValidated
+
+shouldReturnValidated :: (HasCallStack, Buildable a, Buildable e)
+                      => IO (Validated e a) -> IO ()
+shouldReturnValidated act = shouldBeValidated =<< act

@@ -16,7 +16,10 @@ module UTxO.Context (
   , ActorIx(..)
   , AddrIx
   , Addr(..)
+  , maxAddrSize
   , isAvvmAddr
+  , isPoorAddr
+  , AddrInfo(..)
   , AddrMap(..)
   , initAddrMap
     -- * Our custom context
@@ -370,16 +373,44 @@ data Addr = Addr {
     }
   deriving (Show, Eq, Ord)
 
--- | Returns true if the 'addrActorIx' is the 'IxAvvm' constructor.
+-- | The maximum size in bytes of the serialized Cardano form of these addresses
+--
+-- This is needed for fee estimation.
+maxAddrSize :: Int
+maxAddrSize = error "TODO: maxAddrSize: not defined!"
+
+-- | Returns true if this is the address of an AVVM account
 isAvvmAddr :: Addr -> Bool
 isAvvmAddr addr =
     case addrActorIx addr of
         IxAvvm _ -> True
         _        -> False
 
+-- | Returns true if this is the address of a poor actor
+isPoorAddr :: Addr -> Bool
+isPoorAddr addr =
+    case addrActorIx addr of
+        IxPoor _ -> True
+        _        -> False
+
+-- | Information about the translation of a DSL address
+data AddrInfo = AddrInfo {
+      -- | The master key for the actor owning this address (for HD addresses)
+      addrInfoMasterKey :: Maybe EncKeyPair
+
+      -- | The key for this particular address
+    , addrInfoAddrKey :: SomeKeyPair
+
+      -- | The Cardano address
+    , addrInfoCardano :: Address
+    }
+
 -- | Mapping between our addresses and Cardano addresses
 data AddrMap = AddrMap {
-      addrMap    :: Map Addr (SomeKeyPair, Address)
+      -- | Map from the DSL address to 'AddrInfo'
+      addrMap    :: Map Addr AddrInfo
+
+      -- | Reverse map from Cardano addresses to DSL addresses
     , addrRevMap :: Map Address Addr
     }
 
@@ -387,37 +418,49 @@ data AddrMap = AddrMap {
 initAddrMap :: Actors -> AddrMap
 initAddrMap Actors{..} = AddrMap{
       addrMap    = Map.fromList mkMap
-    , addrRevMap = Map.fromList $ map (swap . second snd) mkMap
+    , addrRevMap = Map.fromList $ map (swap . second addrInfoCardano) mkMap
     }
   where
-    mkMap :: [(Addr, (SomeKeyPair, Address))]
+    mkMap :: [(Addr, AddrInfo)]
     mkMap = concat [
                    zipWith mkRich [0..] (Map.elems actorsRich)
         , concat $ zipWith mkPoor [0..] (Map.elems actorsPoor)
         ,          zipWith mkAvvm [0..] (Map.elems actorsAvvm)
         ]
 
-    mkRich :: Int -> Rich -> (Addr, (SomeKeyPair, Address))
+    mkRich :: Int -> Rich -> (Addr, AddrInfo)
     mkRich actorIx Rich{..} = (
           Addr (IxRich actorIx) 0
-        , (KeyPairRegular richKey, richAddr)
+        , AddrInfo {
+              addrInfoMasterKey = Nothing
+            , addrInfoAddrKey   = KeyPairRegular richKey
+            , addrInfoCardano   = richAddr
+            }
         )
 
-    mkPoor :: Int -> Poor -> [(Addr, (SomeKeyPair, Address))]
+    mkPoor :: Int -> Poor -> [(Addr, AddrInfo)]
     mkPoor actorIx Poor{..} = zipWith poorRawAddr [0..] poorAddrs
       where
         poorRawAddr :: Int
                     -> (EncKeyPair, Address)
-                    -> (Addr, (SomeKeyPair, Address))
+                    -> (Addr, AddrInfo)
         poorRawAddr addrIx (ekp, addr) = (
               Addr (IxPoor actorIx) addrIx
-            , (KeyPairEncrypted ekp, addr)
+            , AddrInfo {
+                  addrInfoMasterKey = Just poorKey
+                , addrInfoAddrKey   = KeyPairEncrypted ekp
+                , addrInfoCardano   = addr
+                }
             )
 
-    mkAvvm :: Int -> Avvm -> (Addr, (SomeKeyPair, Address))
+    mkAvvm :: Int -> Avvm -> (Addr, AddrInfo)
     mkAvvm actorIx Avvm{..} = (
           Addr (IxAvvm actorIx) 0
-        , (KeyPairRedeem avvmKey, avvmAddr)
+        , AddrInfo {
+              addrInfoMasterKey = Nothing
+            , addrInfoAddrKey   = KeyPairRedeem avvmKey
+            , addrInfoCardano   = avvmAddr
+            }
         )
 
 {-------------------------------------------------------------------------------
@@ -443,7 +486,7 @@ initContext tcCardano = TransCtxt{..}
   Derived information
 -------------------------------------------------------------------------------}
 
-resolveAddr :: Addr -> TransCtxt -> (SomeKeyPair, Address)
+resolveAddr :: Addr -> TransCtxt -> AddrInfo
 resolveAddr addr TransCtxt{..} =
     fromMaybe
       (error $ sformat ("resolveAddr: " % build % " not found") addr)
@@ -578,11 +621,13 @@ instance Buildable CardanoContext where
       % "{ leaders:  " % listJson
       % ", stakes:   " % listJson
       % ", balances: " % listJson
+      % ", utxo:     " % mapJson
       % "}"
       )
       ccLeaders
       (map (bprint pairF) (HM.toList ccStakes))
       (map (bprint pairF) ccBalances)
+      ccUtxo
 
 instance Buildable AddrMap where
   build AddrMap{..} = bprint

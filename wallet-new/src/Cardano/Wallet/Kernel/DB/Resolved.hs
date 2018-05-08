@@ -13,7 +13,11 @@ module Cardano.Wallet.Kernel.DB.Resolved (
 import           Universum
 
 import           Control.Lens.TH (makeLenses)
+import qualified Data.Map as Map
 import           Data.SafeCopy (base, deriveSafeCopy)
+import qualified Data.Text.Buildable
+import           Formatting (bprint, (%))
+import           Serokell.Util (listJson, mapJson)
 
 import qualified Pos.Core as Core
 import qualified Pos.Txp as Core
@@ -59,3 +63,25 @@ makeLenses ''ResolvedBlock
 
 deriveSafeCopy 1 'base ''ResolvedTx
 deriveSafeCopy 1 'base ''ResolvedBlock
+
+{-------------------------------------------------------------------------------
+  Pretty-printing
+-------------------------------------------------------------------------------}
+
+instance Buildable ResolvedTx where
+  build ResolvedTx{..} = bprint
+    ( "ResolvedTx "
+    % "{ inputs:  " % mapJson
+    % ", outputs: " % mapJson
+    % "}"
+    )
+    (Map.fromList (toList (_rtxInputs  ^. fromDb)))
+    (_rtxOutputs ^. fromDb)
+
+instance Buildable ResolvedBlock where
+  build ResolvedBlock{..} = bprint
+    ( "ResolvedBlock "
+    % "{ txs: " % listJson
+    % "}"
+    )
+    _rbTxs

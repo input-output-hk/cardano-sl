@@ -8,6 +8,7 @@ module Util.Validated (
   , validatedToEither
   , isValidated
   , addErrorDetail
+  , validatedMapErrors
     -- * Convenience re-exports
   , MonadError(..)
   ) where
@@ -60,3 +61,7 @@ instance (Buildable e, Buildable a) => Buildable (Validated e a) where
 isValidated :: Validated e a -> Bool
 isValidated (Invalid _ _) = False
 isValidated (Valid     _) = True
+
+validatedMapErrors :: (e -> e') -> Validated e a -> Validated e' a
+validatedMapErrors f (Invalid ds e) = Invalid ds (f e)
+validatedMapErrors _ (Valid a)      = Valid a

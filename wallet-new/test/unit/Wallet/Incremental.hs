@@ -23,6 +23,8 @@ import           Universum hiding (State)
 
 import           Control.Lens.TH
 import qualified Data.Set as Set
+import qualified Data.Text.Buildable
+import           Formatting (bprint, build, (%))
 
 import           Util
 import           UTxO.DSL
@@ -59,7 +61,7 @@ initState = State {
   Construction
 -------------------------------------------------------------------------------}
 
-mkWallet :: (Hash h a, Ord a)
+mkWallet :: (Hash h a, Ord a, Buildable st)
          => Ours a -> Lens' st (State h a) -> WalletConstr h a st
 mkWallet ours l self st = (Basic.mkWallet ours (l . stateBasic) self st) {
       applyBlock = \b ->
@@ -73,7 +75,7 @@ mkWallet ours l self st = (Basic.mkWallet ours (l . stateBasic) self st) {
   where
     this = self st
 
-walletEmpty :: (Hash h a, Ord a) => Ours a -> Wallet h a
+walletEmpty :: (Hash h a, Ord a, Buildable a) => Ours a -> Wallet h a
 walletEmpty ours = fix (mkWallet ours identity) initState
 
 {-------------------------------------------------------------------------------
@@ -99,3 +101,17 @@ applyBlock' (ins, outs) State{..} = State{
     balance' = _stateUtxoBalance + balance utxoNew - balance utxoRem
 
     Basic.State{..} = _stateBasic
+
+{-------------------------------------------------------------------------------
+  Pretty-printing
+-------------------------------------------------------------------------------}
+
+instance (Hash h a, Buildable a) => Buildable (State h a) where
+  build State{..} = bprint
+    ( "State"
+    % "{ basic:       " % build
+    % ", utxoBalance: " % build
+    % "}"
+    )
+    _stateBasic
+    _stateUtxoBalance

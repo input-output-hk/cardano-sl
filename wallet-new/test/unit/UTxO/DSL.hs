@@ -42,6 +42,7 @@ module UTxO.DSL (
     -- * Hash
   , Hash(..)
   , GivenHash(..)
+  , givenHash
   , findHash
   , findHash'
     -- * Additional
@@ -570,6 +571,10 @@ instance Buildable (GivenHash a) where
 instance Hash GivenHash a where
   hash = GivenHash . trHash
 
+-- | The given hash is independent from any actual hash function
+givenHash :: Transaction h a -> GivenHash (Transaction h a)
+givenHash = GivenHash . trHash
+
 {-------------------------------------------------------------------------------
   Pretty-printing
 -------------------------------------------------------------------------------}
@@ -604,7 +609,7 @@ instance (Buildable a, Hash h a) => Buildable (Transaction h a) where
       ( "Transaction"
       % "{ fresh: " % build
       % ", ins:   " % listJson
-      % ", outs:  " % listJson
+      % ", outs:  " % mapJson
       % ", fee:   " % build
       % ", hash:  " % build
       % ", extra: " % listJson
@@ -612,10 +617,14 @@ instance (Buildable a, Hash h a) => Buildable (Transaction h a) where
       )
       trFresh
       trIns
-      trOuts
+      (Map.fromList (zip outputIndices trOuts))
       trFee
       trHash
       trExtra
+    where
+      -- The output is easier to read when we see actual indices for outputs
+      outputIndices :: [Int]
+      outputIndices = [0..]
 
 instance (Buildable a, Hash h a) => Buildable (Chain h a) where
   build blocks = bprint

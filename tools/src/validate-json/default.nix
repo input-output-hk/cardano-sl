@@ -1,9 +1,13 @@
-with import <nixpkgs> {};
+{ stdenv, python36 }:
 
-{
-  validateJson = python35.pkgs.buildPythonPackage rec {
-    name = "validateJson";
-    src = ./.;
-    propagatedBuildInputs = with python35.pkgs; [jsonschema docopt];
-  };
+stdenv.mkDerivation {
+  name = "validate-json";
+  buildInputs = [
+    (python36.withPackages (pythonPackages: with pythonPackages; [
+      jsonschema
+      docopt
+    ]))
+  ];
+  unpackPhase = ":";
+  installPhase = "install -m755 -D ${./validate_json.py} $out/bin/validate_json";
 }

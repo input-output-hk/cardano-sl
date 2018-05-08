@@ -32,7 +32,6 @@ import           Control.Lens (makeLenses)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Formatting
-import           Test.QuickCheck as QC
 
 -- | Node types
 data NodeType =
@@ -64,9 +63,6 @@ data NodeType =
   | NodeRelay
   deriving (Show, Eq, Ord, Bounded, Enum)
 
-instance Arbitrary NodeType where
-    arbitrary = QC.elements [minBound .. maxBound]
-
 {-------------------------------------------------------------------------------
   Known peers
 -------------------------------------------------------------------------------}
@@ -83,13 +79,12 @@ data EnqueueTo nid =
 -- | Classification of a set of 'nid's¸ along with routes on a subset of that
 --   classification: every 'nid' in the 'Routes nid' is a key in the
 --   'Map nid NodeType'.
+--   Keep that in mind when, for example, defining an 'Arbitrary' instance on
+--   'Peers nid'.
 data Peers nid = Peers
     { peersRoutes         :: Routes nid
     , peersClassification :: Map nid NodeType
     } deriving (Show, Eq)
-
-instance (Ord nid, Arbitrary nid) => Arbitrary (Peers nid) where
-    arbitrary = Peers <$> arbitrary <*> arbitrary
 
 classifyNode :: Ord nid => Peers nid -> nid -> Maybe NodeType
 classifyNode Peers {..} nid = Map.lookup nid peersClassification
@@ -104,11 +99,6 @@ data Routes nid = Routes {
     , _routesEdge  :: AllOf (Alts nid)
     }
   deriving (Show, Eq)
-
-instance Arbitrary nid => Arbitrary (Routes nid) where
-    arbitrary = Routes <$> arbitrary
-                       <*> arbitrary
-                       <*> arbitrary
 
 -- | List of forwarding sets
 --

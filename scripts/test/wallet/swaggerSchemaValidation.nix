@@ -10,12 +10,12 @@ with localLib;
 let
   iohkPkgs = import ./../../.. { inherit config system pkgs gitrev; };
   gen-swagger-file = "${iohkPkgs.cardano-sl-tools}/bin/cardano-swagger-file";
-  validate-json = pkgs.callPackage ./../../../tools/src/validate-json {};
+  validate-json = "${iohkPkgs.validateJson}";
   schema = ./../../../tools/src/validate-json/swagger-meta-2.0.json;
 in pkgs.writeScript "validate-swagger-schema" ''
-  ${gen-swagger-file} --target wallet@v0 --output-file swagger.v0.json
+  ${generate-swagger-file} --target wallet@v0 --output-file swagger.v0.json
   ${validate-json} --schema ${schema} swagger.v0.json
-  ${gen-swagger-file} --target wallet@v1 --output-file swagger.v1.json
+  ${generate-swagger-file} --target wallet@v1 --output-file swagger.v1.json
   ${validate-json} --schema ${schema} swagger.v1.json
   rm swagger.*.json
 ''

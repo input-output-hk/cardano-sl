@@ -57,9 +57,7 @@ type Block = Either GenesisBlock MainBlock
 -- | Representation of 'Block' passed to a component.
 data ComponentBlock payload =
     ComponentBlockGenesis (Some IsGenesisHeader)
-    | ComponentBlockMain
-       { bcmHeader  :: !(Some IsMainHeader)
-       , bcmPayload :: !payload }
+    | ComponentBlockMain !(Some IsMainHeader) !payload
 
 -- | This function is required because type inference fails in attempts to
 -- hash only @Right@ or @Left@.

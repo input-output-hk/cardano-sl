@@ -1,6 +1,8 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE NumDecimals #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module QuickCheckSpecs (spec) where
 
 import Universum

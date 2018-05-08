@@ -37,6 +37,7 @@ import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..),
                      enrichWithSnapshotChecking, pathSequence,
                      runBlockEventGenT)
 import qualified Pos.GState as GS
+import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Launcher (HasConfigurations)
 
 import           Test.Pos.Block.Logic.Event (BlockScenarioResult (..),
@@ -94,11 +95,13 @@ verifyEmptyMainBlock = do
     emptyBlock <- fst <$> bpGenBlock dummyProtocolMagic
                                      (EnableTxPayload False)
                                      (InplaceDB False)
-    whenLeftM (lift $ verifyBlocksPrefix dummyProtocolMagic (one emptyBlock))
+    curSlot <- getCurrentSlot
+    whenLeftM (lift $ verifyBlocksPrefix dummyProtocolMagic curSlot (one emptyBlock))
         $ stopProperty
         . pretty
 
-verifyValidBlocks :: HasConfigurations => BlockProperty ()
+verifyValidBlocks
+    :: HasConfigurations => BlockProperty ()
 verifyValidBlocks = do
     bpGoToArbitraryState
     blocks <- map fst . toList <$> bpGenBlocks dummyProtocolMagic
@@ -109,11 +112,13 @@ verifyValidBlocks = do
     let blocksToVerify = OldestFirst $ case blocks of
             -- impossible because of precondition (see 'pre' above)
             [] -> error "verifyValidBlocks: impossible"
-            (block0 : otherBlocks) ->
+            (block0:otherBlocks) ->
                 let (otherBlocks', _) = span isRight otherBlocks
-                in  block0 :| otherBlocks'
+                in block0 :| otherBlocks'
+
     verRes <- lift $ satisfySlotCheck blocksToVerify $ verifyBlocksPrefix
         dummyProtocolMagic
+        Nothing
         blocksToVerify
     whenLeft verRes $ stopProperty . pretty
 
@@ -126,10 +131,12 @@ verifyAndApplyBlocksSpec =
     blockPropertySpec applyByOneOrAllAtOnceDesc (applyByOneOrAllAtOnce applier)
   where
     applier :: HasConfiguration => OldestFirst NE Blund -> BlockTestMode ()
-    applier blunds =
+    applier blunds = do
         let blocks = map fst blunds
-        in satisfySlotCheck blocks $
-           whenLeftM (verifyAndApplyBlocks dummyProtocolMagic True blocks) throwM
+        satisfySlotCheck blocks $
+           -- we don't check current SlotId, because the applier is run twice
+           -- and the check will fail the verification
+           whenLeftM (verifyAndApplyBlocks dummyProtocolMagic Nothing True blocks) throwM
     applyByOneOrAllAtOnceDesc =
         "verifying and applying blocks one by one leads " <>
         "to the same GState as verifying and applying them all at once " <>

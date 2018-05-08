@@ -20,6 +20,7 @@ import           Control.Lens (_Wrapped)
 import           Control.Monad.Except (ExceptT (ExceptT),
                      MonadError (throwError), runExceptT, withExceptT)
 import qualified Data.List.NonEmpty as NE
+import           Formatting (sformat, shown, (%))
 import           System.Wlog (logDebug)
 
 import           Pos.Block.Error (ApplyBlocksException (..),
@@ -37,10 +38,12 @@ import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG,
                      prevBlockL)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toNewestFirst, toOldestFirst)
+import           Pos.Core.Slotting (SlotId)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Logic (dlgVerifyBlocks)
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics)
+import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Logic (sscVerifyBlocks)
 import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Txp.Settings
@@ -75,9 +78,10 @@ verifyBlocksPrefix
        , MonadBlockVerify ctx m
        )
     => ProtocolMagic
+    -> Maybe SlotId -- ^ current slot to verify that headers are not from future slots
     -> OldestFirst NE Block
     -> m (Either VerifyBlocksException (OldestFirst NE Undo, PollModifier))
-verifyBlocksPrefix pm blocks = runExceptT $ do
+verifyBlocksPrefix pm currentSlot blocks = runExceptT $ do
     -- This check (about tip) is here just in case, we actually check
     -- it before calling this function.
     tip <- lift GS.getTip
@@ -93,7 +97,7 @@ verifyBlocksPrefix pm blocks = runExceptT $ do
     -- the internal consistency checks formerly done in the 'Bi' instance
     -- 'decode'.
     slogUndos <- withExceptT VerifyBlocksError $
-        ExceptT $ slogVerifyBlocks pm blocks
+        ExceptT $ slogVerifyBlocks pm currentSlot blocks
     _ <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ sscVerifyBlocks pm (map toSscBlock blocks)
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
@@ -134,10 +138,11 @@ verifyAndApplyBlocks
        , HasMisbehaviorMetrics ctx
        )
     => ProtocolMagic
+    -> Maybe SlotId
     -> Bool
     -> OldestFirst NE Block
     -> m (Either ApplyBlocksException (HeaderHash, NewestFirst [] Blund))
-verifyAndApplyBlocks pm rollback blocks = runExceptT $ do
+verifyAndApplyBlocks pm curSlot rollback blocks = runExceptT $ do
     tip <- lift GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
     when (tip /= assumedTip) $
@@ -171,8 +176,8 @@ verifyAndApplyBlocks pm rollback blocks = runExceptT $ do
         -> ExceptT ApplyBlocksException m (HeaderHash, NewestFirst [] Blund)
     applyAMAP e (OldestFirst []) _      True                   = throwError e
     applyAMAP _ (OldestFirst []) blunds False                  = (,blunds) <$> lift GS.getTip
-    applyAMAP e (OldestFirst (block:xs)) blunds nothingApplied =
-        lift (verifyBlocksPrefix pm (one block)) >>= \case
+    applyAMAP e (OldestFirst (block:xs)) blunds nothingApplied = do
+        lift (verifyBlocksPrefix pm curSlot (one block)) >>= \case
             Left (ApplyBlocksVerifyFailure -> e') ->
                 applyAMAP e' (OldestFirst []) blunds nothingApplied
             Right (OldestFirst (undo :| []), pModifier) -> do
@@ -207,11 +212,11 @@ verifyAndApplyBlocks pm rollback blocks = runExceptT $ do
                        <> pretty epochIndex
             lift $ lrcSingleShot pm epochIndex
         logDebug "Rolling: verifying"
-        lift (verifyBlocksPrefix pm prefix) >>= \case
+        lift (verifyBlocksPrefix pm curSlot prefix) >>= \case
             Left (ApplyBlocksVerifyFailure -> failure)
                 | rollback  -> failWithRollback failure blunds
                 | otherwise -> do
-                      logDebug "Rolling: Applying AMAP"
+                      logDebug $ sformat ("Rolling: Applying AMAP: "%shown) failure
                       applyAMAP failure
                                    (over _Wrapped toList prefix)
                                    (NewestFirst [])
@@ -316,7 +321,8 @@ applyWithRollback pm toRollback toApply = runExceptT $ do
     onBadRollback tip =
         applyBack $> Left (ApplyBlocksTipMismatch "applyWithRollback/apply" tip newestToRollback)
 
-    onGoodRollback =
-        verifyAndApplyBlocks pm True toApply >>= \case
+    onGoodRollback = do
+        curSlot <- getCurrentSlot
+        verifyAndApplyBlocks pm curSlot True toApply >>= \case
             Left err           -> applyBack $> Left err
             Right (tipHash, _) -> pure (Right tipHash)

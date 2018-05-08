@@ -18,13 +18,12 @@ import           Mockable.CurrentTime (realTime)
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Block.Logic.VAR (verifyAndApplyBlocks, verifyBlocksPrefix, rollbackBlocks)
 import           Pos.Block.Logic.Integrity (VerifyHeaderParams (..), verifyHeader)
-import           Pos.Core (Block, BlockHeader, getBlockHeader)
+import           Pos.Core (Block, BlockHeader, EpochOrSlot (..), SlotId, getBlockHeader)
 import           Pos.Core.Chrono (OldestFirst (..), NE, nonEmptyNewestFirst)
-import           Pos.Core.Slotting (epochIndexL, getEpochOrSlot)
 import           Pos.Core.Common (BlockCount (..), SlotLeaders, unsafeCoinPortionFromDouble)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisData, genesisSecretKeys, slotSecurityParam)
 import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisData (..), GenesisInitializer (..), TestnetBalanceOptions (..))
-import           Pos.Core.Slotting (Timestamp (..))
+import           Pos.Core.Slotting (Timestamp (..), epochIndexL, getEpochOrSlot)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB (getTipHeader)
@@ -89,14 +88,14 @@ verifyBlocksBenchmark
 verifyBlocksBenchmark !pm !tp !ctx =
     bgroup "block verification"
         [ env (runBlockTestMode tp (genEnv (BlockCount 100)))
-            $ \e -> bench "verifyAndApplyBlocks" (verifyAndApplyBlocksB e)
+            $ \ ~(curSlot, blocks) -> bench "verifyAndApplyBlocks" (verifyAndApplyBlocksB curSlot blocks)
         -- `verifyBlocksPrefix` will succeed only on the first block, it
         -- requires that blocks are applied.
         , env (runBlockTestMode tp (genEnv (BlockCount 1)))
-            $ \e -> bench "verifyBlocksPrefix" (verifyBlocksPrefixB e)
+            $ \ ~(curSlot, blocks) -> bench "verifyBlocksPrefix" (verifyBlocksPrefixB curSlot blocks)
         ]
     where
-    genEnv :: BlockCount -> BlockTestMode (OldestFirst NE Block)
+    genEnv :: BlockCount -> BlockTestMode (Maybe SlotId, OldestFirst NE Block)
     genEnv bCount = do
         initNodeDBs pm slotSecurityParam
         g <- liftIO $ newStdGen
@@ -117,29 +116,37 @@ verifyBlocksBenchmark !pm !tp !ctx =
                     , _bgpTxpGlobalSettings = txpGlobalSettings pm
                     })
                 (maybeToList . fmap fst)
-        return $ (OldestFirst $ NE.fromList bs)
+        let curSlot :: Maybe SlotId
+            curSlot = case catMaybes
+                . map (either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot)
+                $ bs of
+                [] -> Nothing
+                ss -> Just $ maximum ss
+        return $ (curSlot, OldestFirst $ NE.fromList bs)
 
     verifyAndApplyBlocksB
-        :: OldestFirst NE Block
+        :: Maybe SlotId
+        -> OldestFirst NE Block
         -> Benchmarkable
-    verifyAndApplyBlocksB blocks =
+    verifyAndApplyBlocksB curSlot blocks =
         nfIO
             $ runBTM tp ctx
             $ satisfySlotCheck blocks
-            $ verifyAndApplyBlocks pm False blocks >>= \case
+            $ verifyAndApplyBlocks pm curSlot False blocks >>= \case
                     Left err -> return (Just err)
                     Right (_, blunds) -> do
                         whenJust (nonEmptyNewestFirst blunds) (rollbackBlocks pm)
                         return Nothing
 
     verifyBlocksPrefixB
-        :: OldestFirst NE Block
+        :: Maybe SlotId
+        -> OldestFirst NE Block
         -> Benchmarkable
-    verifyBlocksPrefixB blocks =
+    verifyBlocksPrefixB curSlot blocks =
         nfIO
             $ runBTM tp ctx
             $ satisfySlotCheck blocks
-            $ map fst <$> verifyBlocksPrefix pm blocks
+            $ map fst <$> verifyBlocksPrefix pm curSlot blocks
 
 -- | Benchmark which runs `verifyHeader`
 verifyHeaderBenchmark

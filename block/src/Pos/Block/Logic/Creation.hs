@@ -50,6 +50,7 @@ import           Pos.Delegation (DelegationVar, DlgPayload (..),
                      ProxySKBlockInfo, clearDlgMemPool, getDlgMempool)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportError)
+import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Infra.StateLock (Priority (..), StateLock,
                      StateLockMetrics, modifyStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
@@ -163,7 +164,8 @@ createGenesisBlockDo pm epoch = do
             LrcDB.getLeadersForEpoch
         let blk = mkGenesisBlock pm (Right tipHeader) epoch leaders
         let newTip = headerHash blk
-        verifyBlocksPrefix pm (one (Left blk)) >>= \case
+        curSlot <- getCurrentSlot
+        verifyBlocksPrefix pm curSlot (one (Left blk)) >>= \case
             Left err -> reportFatalError $ pretty err
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
@@ -360,8 +362,9 @@ applyCreatedBlock pm pske createdBlock = applyCreatedBlockDo False createdBlock
   where
     slotId = createdBlock ^. BC.mainBlockSlot
     applyCreatedBlockDo :: Bool -> MainBlock -> m MainBlock
-    applyCreatedBlockDo isFallback blockToApply =
-        verifyBlocksPrefix pm (one (Right blockToApply)) >>= \case
+    applyCreatedBlockDo isFallback blockToApply = do
+        curSlot <- getCurrentSlot
+        verifyBlocksPrefix pm curSlot (one (Right blockToApply)) >>= \case
             Left (pretty -> reason)
                 | isFallback -> onFailedFallback reason
                 | otherwise -> fallback reason

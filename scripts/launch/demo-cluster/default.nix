@@ -85,13 +85,13 @@ in pkgs.writeScript "demo-cluster" ''
   done
   ${ifWallet ''
     export LC_ALL=C.UTF-8
-    # TODO: Switch to cardano-x509-certificates and generate proper certs for CA, server and client
     if [ ! -d ${stateDir}/tls-files ]; then
       mkdir -p ${stateDir}/tls-files
-      openssl req -x509 -newkey rsa:2048 -keyout ${stateDir}/tls-files/server.key -out ${stateDir}/tls-files/server.crt -days 30 -nodes -subj "/CN=localhost"
-      cp ${stateDir}/tls-files/server.crt ${stateDir}/tls-files/ca.crt
-      cp ${stateDir}/tls-files/server.crt ${stateDir}/tls-files/client.crt
-      cp ${stateDir}/tls-files/server.key ${stateDir}/tls-files/client.key
+      ${iohkPkgs.cardano-sl-tools}/bin/cardano-x509-certificates   \
+        --server-out-dir ${stateDir}/tls-files                     \
+        --clients-out-dir ${stateDir}/tls-files                    \
+        --configuration-key default                                \
+        --configuration-file ${configFiles}/configuration.yaml
     fi
     echo Launching wallet node:
     i=${builtins.toString numCoreNodes}

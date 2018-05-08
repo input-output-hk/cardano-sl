@@ -132,18 +132,19 @@ while [[ $i -lt $panesCnt ]]; do
   conf_file=$CONFIG
   wallet_args=''
   exec_name='cardano-node-simple'
+  x509GenTool=$(find_binary cardano-x509-certificates)
   if [[ $WALLET_TEST != "" ]] && [[ $i == $((n-1)) ]]; then
       if [[ $WALLET_CONFIG != "" ]]; then
           conf_file=$WALLET_CONFIG
       fi
 
-      # TODO: Switch to cardano-x509-certificates and generate proper certs for CA, server and client
       if [ ! -d ${config_dir}/tls-files ]; then
         mkdir -p ${config_dir}/tls-files
-        openssl req -x509 -newkey rsa:2048 -keyout ${config_dir}/tls-files/server.key -out ${config_dir}/tls-files/server.crt -days 30 -nodes -subj "/CN=localhost"
-        cp ${config_dir}/tls-files/server.crt ${config_dir}/tls-files/ca.crt
-        cp ${config_dir}/tls-files/server.crt ${config_dir}/tls-files/client.crt
-        cp ${config_dir}/tls-files/server.key ${config_dir}/tls-files/client.key
+        $x509GenTool \
+          --server-out-dir ${config_dir}/tls-files \
+          --clients-out-dir ${config_dir}/tls-files \
+          --configuration-key  default \
+          --configuration-file lib/configuration.yaml
       fi
 
       wallet_args=" --tlscert $config_dir/tls-files/server.crt --tlskey $config_dir/tls-files/server.key --tlsca $config_dir/tls-files/ca.crt $wallet_flush" # --wallet-rebuild-db'

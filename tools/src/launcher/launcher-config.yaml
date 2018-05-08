@@ -40,6 +40,12 @@ nodeLogConfig: log-configs/connect-to-cluster.yaml
 # File where node stdout/err will be redirected (def: no redirection).
 # nodeLogPath: node.log
 
+# Path to the cardano-x509-certificates executable
+# x509ToolPath: binaries/cardano-x509-certificates
+
+# Path to where the tls public certificates and private keys are stored
+# tlsPath: ./run/tls-files
+
 # Path to the wallet frontend executable (e. g. Daedalus).
 # If it is provided, the launcher runs in client scenario;
 # otherwise, in server scenario.

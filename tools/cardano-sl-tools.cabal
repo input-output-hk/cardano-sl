@@ -538,6 +538,42 @@ executable cardano-blockchain-analyser
   if flag(for-installer)
     buildable: False
 
+executable cardano-x509-certificates
+  hs-source-dirs: src/gencerts
+  main-is: Main.hs
+  other-modules: Data.X509.Extra
+               , Configuration
+
+  build-depends: base >=4.7 && <5
+               , aeson
+               , asn1-encoding
+               , asn1-types
+               , bytestring
+               , base64-bytestring
+               , cryptonite
+               , filepath
+               , hourglass
+               , optparse-applicative
+               , universum
+               , unordered-containers
+               , x509
+               , x509-validation
+               , x509-store
+               , data-default-class
+               , yaml
+
+  default-extensions:   DeriveGeneric
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TupleSections
+                        TypeApplications
+
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -O2
+
 library
   hs-source-dirs:      .
   default-language:    Haskell2010

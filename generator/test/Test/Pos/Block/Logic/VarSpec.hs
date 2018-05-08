@@ -34,6 +34,7 @@ import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..), BlockEvent
                                                pathSequence, runBlockEventGenT)
 import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
+import           Pos.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmptyNewestFirst,
                                   nonEmptyOldestFirst, splitAtNewestFirst, toNewestFirst,
                                   _NewestFirst)
@@ -90,7 +91,8 @@ verifyEmptyMainBlock
     :: (HasConfigurations,HasCompileInfo) => BlockProperty ()
 verifyEmptyMainBlock = do
     emptyBlock <- fst <$> bpGenBlock (EnableTxPayload False) (InplaceDB False)
-    whenLeftM (lift $ verifyBlocksPrefix (one emptyBlock)) $
+    curSlot <- getCurrentSlot
+    whenLeftM (lift $ verifyBlocksPrefix Nothing (one emptyBlock)) $
         stopProperty . pretty
 
 verifyValidBlocks
@@ -109,9 +111,10 @@ verifyValidBlocks = do
                 (block0:otherBlocks) ->
                     let (otherBlocks', _) = span isRight otherBlocks
                     in block0 :| otherBlocks'
+
     verRes <-
         lift $ satisfySlotCheck blocksToVerify $
-        verifyBlocksPrefix blocksToVerify
+        verifyBlocksPrefix Nothing blocksToVerify
     whenLeft verRes $
         stopProperty . pretty
 
@@ -124,10 +127,11 @@ verifyAndApplyBlocksSpec
 verifyAndApplyBlocksSpec = do
     blockPropertySpec applyByOneOrAllAtOnceDesc (applyByOneOrAllAtOnce applier)
   where
-    applier blunds =
+    applier blunds = do
         let blocks = map fst blunds
-        in satisfySlotCheck blocks $
-           whenLeftM (verifyAndApplyBlocks True blocks) throwM
+        curSlot <- getCurrentSlot
+        satisfySlotCheck blocks $
+           whenLeftM (verifyAndApplyBlocks Nothing True blocks) throwM
     applyByOneOrAllAtOnceDesc =
         "verifying and applying blocks one by one leads " <>
         "to the same GState as verifying and applying them all at once " <>

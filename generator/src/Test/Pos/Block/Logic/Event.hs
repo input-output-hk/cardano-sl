@@ -17,10 +17,12 @@ import           Universum
 import           Control.Exception.Safe (fromException)
 import qualified Data.Map as Map
 import qualified Data.Text as T
+import qualified GHC.Exts as IL
 
 import           Pos.Block.Logic.VAR (BlockLrcMode, rollbackBlocks, verifyAndApplyBlocks)
 import           Pos.Block.Types (Blund)
-import           Pos.Core (HasConfiguration, HeaderHash)
+import           Pos.Core (HasConfiguration, HeaderHash, EpochOrSlot (..), getEpochOrSlot)
+import           Pos.Core.Slotting (SlotId)
 import           Pos.DB.Pure (DBPureDiff, MonadPureDB, dbPureDiff, dbPureDump, dbPureReset)
 import           Pos.Exception (CardanoFatalError (..))
 import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockEvent, BlockEvent' (..),
@@ -61,9 +63,20 @@ verifyAndApplyBlocks' ::
     => OldestFirst NE Blund
     -> m ()
 verifyAndApplyBlocks' blunds = do
+    let -- We cannot simply take `getCurrentSlot` since blocks are generated in
+        --`MonadBlockGen` which locally changes its current slot.  We just take
+        -- the last slot of all generated blocks.
+        curSlot :: Maybe SlotId
+        curSlot
+            = case catMaybes 
+                    . map (either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot . fst)
+                    . IL.toList
+                    $ blunds of
+                [] -> Nothing
+                ss -> Just $ maximum ss
     satisfySlotCheck blocks $ do
         (_ :: HeaderHash, _) <- eitherToThrow =<<
-            verifyAndApplyBlocks True blocks
+            verifyAndApplyBlocks curSlot True blocks
         return ()
   where
     blocks = fst <$> blunds

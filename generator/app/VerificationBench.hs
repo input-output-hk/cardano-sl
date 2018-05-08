@@ -199,7 +199,7 @@ main = do
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
         validate blocks = do
             verStart <- realTime
-            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix blocks
+            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix Nothing blocks
             verEnd <- realTime
             return (verEnd - verStart, either (Just . Left) (const Nothing) res)
 
@@ -211,7 +211,7 @@ main = do
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
         validateAndApply blocks = do
             verStart <- realTime
-            res <- force <$> verifyAndApplyBlocks False blocks
+            res <- force <$> verifyAndApplyBlocks Nothing False blocks
             verEnd <- realTime
             case res of
                 Left _ -> return ()

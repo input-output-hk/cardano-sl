@@ -48,6 +48,7 @@ import           Pos.Lrc (HasLrcContext, LrcModeFull, lrcSingleShot)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Reporting (reportError)
+import           Pos.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Base (defaultSscPayload, stripSscPayload)
 import           Pos.Ssc.Logic (sscGetLocalPayload)
 import           Pos.Ssc.Mem (MonadSscMem)
@@ -152,7 +153,8 @@ createGenesisBlockDo epoch = do
             LrcDB.getLeadersForEpoch
         let blk = mkGenesisBlock protocolMagic (Right tipHeader) epoch leaders
         let newTip = headerHash blk
-        verifyBlocksPrefix (one (Left blk)) >>= \case
+        curSlot <- getCurrentSlot
+        verifyBlocksPrefix curSlot (one (Left blk)) >>= \case
             Left err -> reportFatalError $ pretty err
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
@@ -346,8 +348,9 @@ applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
   where
     slotId = createdBlock ^. BC.mainBlockSlot
     applyCreatedBlockDo :: Bool -> MainBlock -> m MainBlock
-    applyCreatedBlockDo isFallback blockToApply =
-        verifyBlocksPrefix (one (Right blockToApply)) >>= \case
+    applyCreatedBlockDo isFallback blockToApply = do
+        curSlot <- getCurrentSlot
+        verifyBlocksPrefix curSlot (one (Right blockToApply)) >>= \case
             Left (pretty -> reason)
                 | isFallback -> onFailedFallback reason
                 | otherwise -> fallback reason

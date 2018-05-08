@@ -51,7 +51,7 @@ import           Pos.Exception (assertionFailed, reportFatalError)
 import qualified Pos.GState.BlockExtra as GS
 import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
-import           Pos.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Slotting (SlotId, MonadSlots)
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 import           Pos.Util (_neHead, _neLast)
@@ -129,10 +129,10 @@ slogVerifyBlocks
     :: forall ctx m.
     ( MonadSlogVerify ctx m
     )
-    => OldestFirst NE Block
+    => Maybe SlotId -- ^ current slot
+    -> OldestFirst NE Block
     -> m (Either Text (OldestFirst NE SlogUndo))
-slogVerifyBlocks blocks = runExceptT $ do
-    curSlot <- getCurrentSlot
+slogVerifyBlocks curSlot blocks = runExceptT $ do
     (adoptedBV, adoptedBVD) <- lift GS.getAdoptedBVFull
     let dataMustBeKnown = mustDataBeKnown adoptedBV
     let headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL

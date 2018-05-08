@@ -20,6 +20,9 @@ module Cardano.Wallet.Kernel.DB.Sqlite (
     -- * Filtering and sorting primitives
     , Limit (..)
     , Offset (..)
+    , Sorting (..)
+    , SortCriteria (..)
+    , SortDirection (..)
 
     -- * Unsafe functions
     , unsafeMigrate
@@ -30,14 +33,18 @@ import           Universum
 
 import           Database.Beam.Backend.SQL (FromBackendRow, HasSqlValueSyntax (..),
                                             IsSql92DataTypeSyntax, intType, varCharType)
+import           Database.Beam.Backend.SQL.SQL92 (Sql92OrderingExpressionSyntax,
+                                                  Sql92SelectOrderingSyntax)
 import           Database.Beam.Query (HasSqlEqualityCheck, (==.))
 import qualified Database.Beam.Query as SQL
+import qualified Database.Beam.Query.Internal as SQL
 import           Database.Beam.Schema (Beamable, Database, DatabaseSettings, PrimaryKey, Table)
 import qualified Database.Beam.Schema as Beam
 import           Database.Beam.Sqlite.Connection (Sqlite, runBeamSqlite)
 import           Database.Beam.Sqlite.Syntax (SqliteCommandSyntax, SqliteDataTypeSyntax,
-                                              SqliteExpressionSyntax, SqliteValueSyntax,
-                                              fromSqliteCommand, sqliteRenderSyntaxScript)
+                                              SqliteExpressionSyntax, SqliteSelectSyntax,
+                                              SqliteValueSyntax, fromSqliteCommand,
+                                              sqliteRenderSyntaxScript)
 import qualified Database.SQLite.Simple as Sqlite
 import           Database.SQLite.Simple.FromField (FromField (..), returnError)
 import qualified Database.SQLite.SimpleErrors as Sqlite
@@ -54,7 +61,6 @@ import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..), 
                                         runMigrationSteps, unCheckDatabase, unique)
 import           Formatting (build, formatToString, sformat, (%))
 import           GHC.Generics (Generic)
-import           Serokell.Util.Text (mapBuilder)
 
 import qualified Cardano.Wallet.Kernel.DB.TxMeta.Types as Kernel
 import qualified Pos.Core as Core
@@ -437,6 +443,21 @@ getTxMeta dbHandle txid =
 newtype Offset = Offset { getOffset :: Integer }
 newtype Limit  = Limit  { getLimit  :: Integer }
 
+data SortDirection =
+      Ascending
+    | Descending
+
+data Sorting = Sorting {
+      sbCriteria  :: SortCriteria
+    , sbDirection :: SortDirection
+    }
+
+data SortCriteria =
+      SortByCreationAt
+    -- ^ Sort by the creation time of this 'Kernel.TxMeta'.
+    | SortByAmount
+    -- ^ Sort the 'TxMeta' by the amount of money they hold.
+
 newtype OrdByCreationDate = OrdByCreationDate { _ordByCreationDate :: TxMeta } deriving (Show, Eq)
 
 instance Ord OrdByCreationDate where
@@ -444,8 +465,12 @@ instance Ord OrdByCreationDate where
                           (_txMetaTableCreatedAt . _ordByCreationDate $ b)
 
 -- | TODO(adinapoli) Sorting.
-getTxMetas :: MetaDBHandle -> Offset -> Limit -> IO [Kernel.TxMeta]
-getTxMetas dbHandle (Offset offset) (Limit limit) =
+getTxMetas :: MetaDBHandle
+           -> Offset
+           -> Limit
+           -> Maybe Sorting
+           -> IO [Kernel.TxMeta]
+getTxMetas dbHandle (Offset offset) (Limit limit) mbSorting =
     let conn = _mDbHandleConnection dbHandle
     in do
         res <- Sqlite.runDBAction $ runBeamSqlite conn $ do
@@ -462,10 +487,29 @@ getTxMetas dbHandle (Offset offset) (Limit limit) =
     where
         getTx selector = _txCoinDistributionTxId . selector
 
-        -- A query to select a filtered subset of the 'MetaTx' records, including
-        -- all the inputs & outputs belonging to them from the relevant tables.
+        toBeamSortDirection :: SortDirection
+                            -> SQL.QExpr (Sql92OrderingExpressionSyntax (Sql92SelectOrderingSyntax SqliteSelectSyntax)) s a
+                            -> SQL.QOrd (Sql92SelectOrderingSyntax SqliteSelectSyntax) s a
+        toBeamSortDirection dir =
+            case dir of
+                Ascending  -> SQL.asc_
+                Descending -> SQL.desc_
+
+        -- The following two queries are disjointed and both fetches, respectively,
+        -- a list of tuples of type @(TxMeta, TxInput)@ and @(TxMeta, TxOutput)@.
+        -- The rationale behind doing two separate queries is that there is no elegant
+        -- way to express a 3-table join without having 'Maybe's cropping up in the
+        -- Haskell result sets, and furthermore we would have to deal with duplicates.
+        -- Doing two separate queries is yes more I/O taxing, but spares us from doing
+        -- duplicate filtering on the Haskell side.
         paginatedInputs = SQL.select $ do
-            meta   <- SQL.limit_ limit (SQL.offset_ offset (SQL.all_ (_mDbMeta metaDB)))
+            let metaQuery = case mbSorting of
+                    Nothing  -> SQL.all_ (_mDbMeta metaDB)
+                    Just (Sorting SortByCreationAt dir) ->
+                        SQL.orderBy_ (toBeamSortDirection dir . _txMetaTableCreatedAt) $ SQL.all_ (_mDbMeta metaDB)
+                    Just (Sorting SortByAmount     dir) ->
+                        SQL.orderBy_ (toBeamSortDirection dir . _txMetaTableAmount) $ SQL.all_ (_mDbMeta metaDB)
+            meta   <- SQL.limit_ limit (SQL.offset_ offset metaQuery)
             inputs  <- SQL.oneToMany_ (_mDbInputs metaDB)  (getTx _getTxInput) meta
             pure (meta, inputs)
 

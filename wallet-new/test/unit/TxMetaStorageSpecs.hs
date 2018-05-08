@@ -124,12 +124,12 @@ txMetaStorageSpecs = do
             withTemporaryDb $ \hdl -> do
                 metas <- liftIO $ generate (vectorOf 1 arbitrary)
                 forM_ metas (putTxMeta hdl)
-                result <- getTxMetas hdl (Offset 0) (Limit 100)
+                result <- getTxMetas hdl (Offset 0) (Limit 100) Nothing
                 map ShallowEqual result `shouldMatchList` map ShallowEqual metas
 
         it "pagination correctly limit the results" $ do
             withTemporaryDb $ \hdl -> do
                 metas <- liftIO $ generate (vectorOf 100 arbitrary)
                 forM_ metas (putTxMeta hdl)
-                result <- getTxMetas hdl (Offset 0) (Limit 10)
+                result <- getTxMetas hdl (Offset 0) (Limit 10) Nothing
                 length result `shouldBe` 10

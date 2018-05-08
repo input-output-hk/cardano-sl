@@ -89,38 +89,38 @@ serveImpl
     -> Word16
     -- ^ if the port is 0, bind to a random port
     -> Maybe TlsParams
-    -- ^ if isJust, call it with the port after binding
+    -- ^ if isJust, use https, isNothing, use raw http
     -> Maybe Settings
     -> Maybe (Word16 -> IO ())
-    -- ^ if isJust, use https, isNothing, use raw http
+    -- ^ if isJust, call it with the port after binding
     -> m ()
 serveImpl app host port mWalletTLSParams mSettings mPortCallback = do
     app' <- app
     let
-      acquire :: IO (Word16, Socket)
-      acquire = liftIO $ if port == 0
-        then do
-          (port', socket) <- bindRandomPortTCP (getHost mySettings)
-          pure (fromIntegral port', socket)
-        else do
-          socket <- bindPortTCP (fromIntegral port) (getHost mySettings)
-          pure (port, socket)
-      release :: (Word16, Socket) -> IO ()
-      release (_, socket) = liftIO $ close socket
-      action :: (Word16, Socket) -> IO ()
-      action (port', socket) = do
-        -- TODO: requires warp 3.2.17 setSocketCloseOnExec socket
-        launchServer app' (port', socket)
+        acquire :: IO (Word16, Socket)
+        acquire = liftIO $ if port == 0
+            then do
+                (port', socket) <- bindRandomPortTCP (getHost mySettings)
+                pure (fromIntegral port', socket)
+            else do
+                socket <- bindPortTCP (fromIntegral port) (getHost mySettings)
+                pure (port, socket)
+        release :: (Word16, Socket) -> IO ()
+        release (_, socket) = liftIO $ close socket
+        action :: (Word16, Socket) -> IO ()
+        action (port', socket) = do
+            -- TODO: requires warp 3.2.17 setSocketCloseOnExec socket
+            launchServer app' (port', socket)
     liftIO $ bracket acquire release action
   where
-    launchServer :: Application -> (Word16, Socket) -> IO ()
-    launchServer app'' (port', socket) = do
-      fromMaybe (const (pure ())) mPortCallback port'
-      maybe runSettingsSocket runTLSSocket mTlsConfig mySettings socket app''
-    mySettings = setHost (fromString host) $
-                 setPort (fromIntegral port) $
-                 fromMaybe defaultSettings mSettings
-    mTlsConfig = tlsParamsToWai <$> mWalletTLSParams
+        launchServer :: Application -> (Word16, Socket) -> IO ()
+        launchServer app'' (port', socket) = do
+            fromMaybe (const (pure ())) mPortCallback port'
+            maybe runSettingsSocket runTLSSocket mTlsConfig mySettings socket app''
+        mySettings = setHost (fromString host) $
+                      setPort (fromIntegral port) $
+                      fromMaybe defaultSettings mSettings
+        mTlsConfig = tlsParamsToWai <$> mWalletTLSParams
 
 tlsParamsToWai :: TlsParams -> TLSSettings
 tlsParamsToWai TlsParams{..} = tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath

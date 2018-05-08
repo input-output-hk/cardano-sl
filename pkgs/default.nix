@@ -783,7 +783,7 @@ let
            homepage = "http://github.com/ryantm/hdbc-mysql";
            description = "MySQL driver for HDBC";
            license = "LGPL";
-         }) {inherit (pkgs) mysqlclient; inherit (pkgs) openssl;
+         }) {inherit (pkgs) mysqlclient; inherit (pkgs) openssl; 
 inherit (pkgs) zlib;};
       "HDBC-session" = callPackage
         ({ mkDerivation, base, HDBC, stdenv }:
@@ -2028,8 +2028,8 @@ inherit (pkgs) zlib;};
            description = "A binding to part of the Win32 library";
            license = stdenv.lib.licenses.bsd3;
            platforms = stdenv.lib.platforms.none;
-         }) {inherit (pkgs) advapi32; inherit (pkgs) gdi32;
-inherit (pkgs) shell32; inherit (pkgs) shfolder;
+         }) {inherit (pkgs) advapi32; inherit (pkgs) gdi32; 
+inherit (pkgs) shell32; inherit (pkgs) shfolder; 
 inherit (pkgs) user32; inherit (pkgs) winmm;};
       "Win32-extras" = callPackage
         ({ mkDerivation, base, imm32, msimg32, stdenv, Win32 }:
@@ -2099,7 +2099,7 @@ inherit (pkgs) user32; inherit (pkgs) winmm;};
            homepage = "https://github.com/xmonad/X11";
            description = "A binding to the X11 graphics library";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs.xorg) libXext; inherit (pkgs.xorg) libXinerama;
+         }) {inherit (pkgs.xorg) libXext; inherit (pkgs.xorg) libXinerama; 
 inherit (pkgs.xorg) libXrender;};
       "X11-xft" = callPackage
         ({ mkDerivation, base, libXft, stdenv, utf8-string, X11 }:
@@ -5511,7 +5511,7 @@ inherit (pkgs.xorg) libXrender;};
            doCheck = false;
            description = "Low-level bindings to GLFW OpenGL library";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs.xorg) libXext; inherit (pkgs.xorg) libXfixes;
+         }) {inherit (pkgs.xorg) libXext; inherit (pkgs.xorg) libXfixes; 
 inherit (pkgs) mesa;};
       "bindings-libzip" = callPackage
         ({ mkDerivation, base, bindings-DSL, libzip, stdenv }:
@@ -6991,11 +6991,6 @@ inherit (pkgs) mesa;};
              cardano-sl-ssc cardano-sl-txp cardano-sl-util-test criterion
              formatting QuickCheck universum vector
            ];
-           benchmarkHaskellDepends = [
-             aeson base cardano-sl-block cardano-sl-core cardano-sl-crypto
-             cardano-sl-ssc cardano-sl-txp cardano-sl-util containers criterion
-             formatting QuickCheck universum vector
-           ];
            doHaddock = false;
            description = "Cardano SL main implementation";
            license = stdenv.lib.licenses.mit;
@@ -7489,13 +7484,13 @@ inherit (pkgs) mesa;};
              async attoparsec base binary bytestring cardano-sl-util conduit
              conduit-extra containers contravariant formatting lens log-warper
              mtl network-transport network-transport-tcp optparse-simple random
-             resourcet safe-exceptions serokell-util text time-units
+             resourcet safe-exceptions serokell-util text time time-units
            ];
            testHaskellDepends = [
              async base binary bytestring cardano-sl-util containers hspec
              hspec-core lens log-warper mtl network-transport
              network-transport-inmemory network-transport-tcp QuickCheck random
-             serokell-util stm time-units
+             serokell-util statistics stm time-units
            ];
            benchmarkHaskellDepends = [
              async base mwc-random network-transport network-transport-tcp
@@ -7858,13 +7853,6 @@ inherit (pkgs) mesa;};
              http-client http-client-tls optparse-applicative random servant
              servant-client servant-client-core text time tls universum vector
              yaml
-           ];
-           benchmarkHaskellDepends = [
-             aeson async base bytestring cardano-sl-client cardano-sl-core
-             cardano-sl-wallet cassava connection cryptonite data-default gauge
-             http-client http-client-tls optparse-applicative random semigroups
-             servant servant-client servant-client-core text time tls universum
-             vector yaml
            ];
            doHaddock = false;
            homepage = "https://github.com/input-output-hk/cardano-sl/#readme";
@@ -14351,7 +14339,7 @@ inherit (pkgs) mesa;};
            homepage = "https://github.com/chrisdone/freenect";
            description = "Interface to the Kinect device";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs) freenect; inherit (pkgs) freenect_sync;
+         }) {inherit (pkgs) freenect; inherit (pkgs) freenect_sync; 
 inherit (pkgs) libfreenect;};
       "freer" = callPackage
         ({ mkDerivation, base, stdenv }:
@@ -14588,8 +14576,8 @@ inherit (pkgs) libfreenect;};
            doCheck = false;
            description = "A Haskell binding to a subset of the GD graphics library";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs) expat; inherit (pkgs) fontconfig;
-inherit (pkgs) freetype; inherit (pkgs) gd;
+         }) {inherit (pkgs) expat; inherit (pkgs) fontconfig; 
+inherit (pkgs) freetype; inherit (pkgs) gd; 
 inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
       "general-games" = callPackage
         ({ mkDerivation, base, monad-loops, MonadRandom, random
@@ -15460,9 +15448,9 @@ inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
            description = "manage files with git, without checking their contents into git";
            license = stdenv.lib.licenses.gpl3;
            platforms = [ "i686-linux" "x86_64-linux" ];
-         }) {inherit (pkgs) bup; inherit (pkgs) curl; inherit (pkgs) git;
-inherit (pkgs) gnupg; inherit (pkgs) lsof; inherit (pkgs) openssh;
-inherit (pkgs) perl; inherit (pkgs) rsync; inherit (pkgs) wget;
+         }) {inherit (pkgs) bup; inherit (pkgs) curl; inherit (pkgs) git; 
+inherit (pkgs) gnupg; inherit (pkgs) lsof; inherit (pkgs) openssh; 
+inherit (pkgs) perl; inherit (pkgs) rsync; inherit (pkgs) wget; 
 inherit (pkgs) which;};
       "github" = callPackage
         ({ mkDerivation, aeson, aeson-compat, base, base-compat
@@ -44500,3 +44488,4 @@ in compiler.override {
   configurationCommon = { ... }: self: super: {};
   compilerConfig = self: super: {};
 }
+

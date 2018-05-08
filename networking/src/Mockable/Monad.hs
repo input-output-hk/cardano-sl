@@ -10,7 +10,7 @@ module Mockable.Monad
 import           Control.Exception.Safe (MonadMask)
 import           Mockable.Channel (Channel)
 import           Mockable.Class (Mockable)
-import           Mockable.Concurrent (Async, Concurrently, Delay, MyThreadId, ThreadId)
+import           Mockable.Concurrent (Async, Concurrently, Delay, MyThreadId)
 import           Mockable.CurrentTime (CurrentTime)
 import           Mockable.Metrics (Metrics)
 import           Mockable.SharedAtomic (SharedAtomic)
@@ -28,8 +28,8 @@ type MonadMockable m
       , Mockable Async m
       , Mockable Channel m
       , MonadMask m
-      , Ord (ThreadId m)
-      , Show (ThreadId m)
+      -- , Ord (ThreadId m)
+      -- , Show (ThreadId m)
       , Mockable SharedExclusive m
       , Mockable Metrics m
       )

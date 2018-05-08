@@ -163,6 +163,7 @@ executable bench-sender
   other-modules:       SenderOptions
   build-depends:       base == 4.*
                      , cardano-sl-networking
+                     , cardano-sl-util
                      , lens
                      , log-warper
                      , MonadRandom

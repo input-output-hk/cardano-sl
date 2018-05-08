@@ -8,6 +8,7 @@ module Util.Buildable.Hspec (
   , shouldBe
   , shouldNotBe
   , shouldReturn
+  , shouldMatchList
     -- * Working with Validated
   , valid
   , shouldBeValidated
@@ -32,7 +33,7 @@ import           Util.Validated
   Wrappers around Test.HSpec.Expectations
 -------------------------------------------------------------------------------}
 
-infix 1 `shouldSatisfy`, `shouldBe`, `shouldReturn`
+infix 1 `shouldSatisfy`, `shouldBe`, `shouldReturn`, `shouldMatchList`
 
 shouldSatisfy :: (HasCallStack, Buildable a)
               => a -> (a -> Bool) -> H.Expectation
@@ -49,6 +50,10 @@ shouldNotBe a a' = H.shouldNotBe (STB a) (STB a')
 shouldReturn :: (HasCallStack, Buildable a, Eq a)
              => IO a -> a -> H.Expectation
 shouldReturn act a = H.shouldReturn (STB <$> act) (STB a)
+
+shouldMatchList :: (HasCallStack, Buildable a, Eq a)
+                => [a] -> [a] -> H.Expectation
+shouldMatchList a b = H.shouldMatchList (map STB a) (map STB b)
 
 {-------------------------------------------------------------------------------
   Wrappers around Validated

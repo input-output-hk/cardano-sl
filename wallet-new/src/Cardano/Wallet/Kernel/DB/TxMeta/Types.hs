@@ -14,15 +14,22 @@ module Cardano.Wallet.Kernel.DB.TxMeta.Types (
   -- * Domain-specific errors
   , TxMetaStorageError (..)
   , InvariantViolation (..)
+
+  -- * Deep & shallow equality
+  , deepEq
+  , shallowEq
   ) where
 
 import           Universum
 
 import           Control.Lens.TH (makeLenses)
 import qualified Data.List as List
+import qualified Data.List.NonEmpty as NonEmpty
 import           Data.Text.Buildable (build)
 import           Formatting (bprint, shown, (%))
+import qualified Formatting as F
 import           Pos.Crypto (shortHashF)
+import           Serokell.Util.Text (listJsonIndent, mapBuilder)
 import           Test.QuickCheck (Arbitrary (..), Gen)
 
 import           Pos.Arbitrary.Core ()
@@ -65,9 +72,38 @@ data TxMeta = TxMeta {
       --
       -- A transaction is outgoing when it decreases the wallet's balance.
     , _txMetaIsOutgoing :: Bool
-    } deriving Eq
+    }
 
 makeLenses ''TxMeta
+
+-- | Deep equality for two 'TxMeta': two 'TxMeta' are equal if they have
+-- exactly the same data, and inputs & outputs needs to appear in exactly
+-- the same order.
+deepEq :: TxMeta -> TxMeta -> Bool
+deepEq t1 t2 =
+    and [ t1 ^. txMetaId == t2 ^. txMetaId
+        , t1 ^. txMetaAmount == t2 ^. txMetaAmount
+        , t1 ^. txMetaInputs  == t2 ^. txMetaInputs
+        , t1 ^. txMetaOutputs == t2 ^. txMetaOutputs
+        , t1 ^. txMetaCreationAt == t2 ^. txMetaCreationAt
+        , t1 ^. txMetaIsLocal == t2 ^. txMetaIsLocal
+        , t1 ^. txMetaIsOutgoing == t2 ^. txMetaIsOutgoing
+        ]
+
+-- | Shallow equality for two 'TxMeta': two 'TxMeta' are equal if they have
+-- the same data, even if in different order.
+-- NOTE: This 'Eq' check might be slightly expensive as it's logaritmic in the
+-- number of inputs & outputs, as it requires sorting.
+shallowEq :: TxMeta -> TxMeta -> Bool
+shallowEq t1 t2 =
+    and [ t1 ^. txMetaId == t2 ^. txMetaId
+        , t1 ^. txMetaAmount == t2 ^. txMetaAmount
+        , NonEmpty.sort (t1 ^. txMetaInputs)  == NonEmpty.sort (t2 ^. txMetaInputs)
+        , NonEmpty.sort (t1 ^. txMetaOutputs) == NonEmpty.sort (t2 ^. txMetaOutputs)
+        , t1 ^. txMetaCreationAt == t2 ^. txMetaCreationAt
+        , t1 ^. txMetaIsLocal == t2 ^. txMetaIsLocal
+        , t1 ^. txMetaIsOutgoing == t2 ^. txMetaIsOutgoing
+        ]
 
 
 data InvariantViolation =
@@ -111,11 +147,27 @@ instance Arbitrary TxMeta where
                        <*> arbitrary
 
 -- | Generates 'NonEmpty' collections which do not contain duplicates.
+-- Limit the size to ~10 elements
 uniqueElements :: Gen (NonEmpty (Core.Address, Core.Coin))
 uniqueElements = do
     (e :| es) <- arbitrary
-    return (e :| (List.filter (/= e) (List.nub es)))
+    return (e :| (List.take 1 $ List.filter (/= e) (List.nub es)))
 
--- TODO(adinapoli): Proper 'Buildable' instance.
 instance Buildable TxMeta where
-    build txMeta = bprint ("TxMeta: id = "%shortHashF) (txMeta ^. txMetaId)
+    build txMeta = bprint (" id = "%shortHashF%
+                           " amount = " % F.build %
+                           " inputs = " % F.later mapBuilder %
+                           " outputs = " % F.later mapBuilder %
+                           " creationAt = " % F.build %
+                           " isLocal = " % F.build %
+                           " isOutgoing = " % F.build
+                          ) (txMeta ^. txMetaId)
+                            (txMeta ^. txMetaAmount)
+                            (txMeta ^. txMetaInputs)
+                            (txMeta ^. txMetaOutputs)
+                            (txMeta ^. txMetaCreationAt)
+                            (txMeta ^. txMetaIsLocal)
+                            (txMeta ^. txMetaIsOutgoing)
+
+instance Buildable [TxMeta] where
+    build txMeta = bprint ("TxMetas: "%listJsonIndent 4) txMeta

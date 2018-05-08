@@ -155,14 +155,19 @@ executable ping-pong
 executable bench-sender
   main-is:             Main.hs
   other-modules:       SenderOptions
-  build-depends:       base == 4.*
+  build-depends:       async
+                     , base
                      , cardano-sl-networking
+                     , cardano-sl-util
+                     , contravariant
                      , log-warper
+                     , network-transport
                      , network-transport-tcp
                      , optparse-simple >= 0.0.3
                      , random
                      , safe-exceptions
                      , serokell-util
+                     , time
                      , time-units
   hs-source-dirs:      bench/Sender
   if flag(benchmarks)
@@ -180,13 +185,16 @@ executable bench-sender
 executable bench-receiver
   main-is:             Main.hs
   other-modules:       ReceiverOptions
-  build-depends:       base == 4.*
+  build-depends:       base
                      , cardano-sl-networking
+                     , cardano-sl-util
+                     , contravariant
                      , log-warper
                      , network-transport-tcp
                      , optparse-simple
                      , random
-                     , serokell-util
+                     , safe-exceptions
+                     , text
   hs-source-dirs:      bench/Receiver
   if flag(benchmarks)
     buildable:         True
@@ -206,6 +214,7 @@ executable bench-log-reader
   build-depends:       base == 4.*
                      , attoparsec
                      , cardano-sl-networking
+                     , cardano-sl-util
                      , conduit
                      , conduit-extra
                      , containers

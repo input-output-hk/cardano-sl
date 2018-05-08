@@ -23,7 +23,7 @@ import           Pos.Shutdown.Class        (HasShutdownContext (..))
 import           Pos.Shutdown.Types        (ShutdownContext)
 import           System.Environment        (lookupEnv)
 import           System.IO.Error           (IOError, isEOFError)
-import           System.IO                 (hFlush, hGetLine, hSetNewlineMode, noNewlineTranslation)
+import           System.IO                 (hFlush, hGetLine, hSetNewlineMode, noNewlineTranslation, hGetChar)
 import           System.Wlog               (WithLogger, logInfo, logError)
 import           System.Wlog.LoggerNameBox (usingLoggerName)
 import           Universum
@@ -86,4 +86,8 @@ ipcListener fd port = do
       when (isEOFError err) $ logError "its an eof"
       liftIO $ hFlush stdout
       triggerShutdown
-  catch loop handler
+    debugloop :: m ()
+    debugloop = forever $ do
+        char <- liftIO $ hGetChar handle
+        logInfo $ "got char '" <> (show char) <> "' (" <> (show $ ord char) <> ")"
+  catch debugloop handler

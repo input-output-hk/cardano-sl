@@ -115,9 +115,9 @@ data FakeUtxoCoinDistribution
     = NoDistribution
     -- ^ Do not distribute the coins.
     | RangeDistribution
-        AddressRange
+        !AddressRange
         -- ^ Distributes to only XX addresses.
-        DistributionAmount
+        !DistributionAmount
         -- ^ The amount we want to distribute to those addresses.
     -- ^ TODO(adn): For now we KISS, later we can add more type constructors
     deriving (Show, Eq, Generic)

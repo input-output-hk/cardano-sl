@@ -7460,7 +7460,7 @@ inherit (pkgs) mesa;};
              conduit-extra containers contravariant exceptions formatting lens
              log-warper MonadRandom mtl network-transport network-transport-tcp
              optparse-simple random resourcet safe-exceptions serokell-util text
-             text-format time-units
+             text-format time time-units unliftio-core
            ];
            testHaskellDepends = [
              async base binary bytestring cardano-sl-util containers hspec

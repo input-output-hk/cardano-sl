@@ -108,7 +108,10 @@ bpGenBlock
        , HasAllSecrets ctx
        , Default (MempoolExt m)
        )
-    => ProtocolMagic -> EnableTxPayload -> InplaceDB -> PropertyM m Blund
+    => ProtocolMagic
+    -> EnableTxPayload
+    -> InplaceDB
+    -> PropertyM m Blund
 -- 'unsafeHead' is safe because we create exactly 1 block
 bpGenBlock pm = fmap (List.head . toList) ... bpGenBlocks pm (Just 1)
 

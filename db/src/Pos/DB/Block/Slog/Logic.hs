@@ -41,7 +41,7 @@ import           Pos.Core.Block (Block, genBlockLeaders, headerHash,
 import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst),
                      OldestFirst (..), toOldestFirst, _OldestFirst)
 import           Pos.Core.Exception (assertionFailed, reportFatalError)
-import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Core.Slotting (MonadSlots (getCurrentSlot), SlotId)
 import           Pos.Core.Update (BlockVersion (..))
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (SomeBatchOp (..))
@@ -130,11 +130,11 @@ type MonadSlogVerify ctx m =
 slogVerifyBlocks
     :: MonadSlogVerify ctx m
     => ProtocolMagic
+    -> Maybe SlotId -- ^ current slot
     -> OldestFirst NE Block
     -> m (Either Text (OldestFirst NE SlogUndo))
-slogVerifyBlocks pm blocks = runExceptT $ do
-    curSlot <- getCurrentSlot
-    (adoptedBV, adoptedBVD) <- lift getAdoptedBVFull
+slogVerifyBlocks pm curSlot blocks = runExceptT $ do
+    (adoptedBV, adoptedBVD) <- lift GS.getAdoptedBVFull
     let dataMustBeKnown = mustDataBeKnown adoptedBV
     let headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
     leaders <- lift $

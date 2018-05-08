@@ -8,7 +8,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text as T
 import           Data.Time.Units (Microsecond, convertUnit)
-import           Formatting (sformat, shown, int, (%))
+import           Formatting (int, sformat, shown, (%))
 import qualified Options.Applicative as Opts
 import           System.Directory (doesFileExist)
 import           System.Random (newStdGen)
@@ -16,13 +16,11 @@ import           System.Wlog (LoggerConfig, LoggerName (..), consoleActionB,
                      debugPlus, defaultHandleAction, logError, logInfo,
                      setupLogging, termSeveritiesOutB)
 
-import           Mockable.CurrentTime (realTime)
-
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Binary.Class (decodeFull, serialize)
 import           Pos.Block.Error (ApplyBlocksException, VerifyBlocksException)
-import           Pos.Block.Logic.VAR (verifyAndApplyBlocks, verifyBlocksPrefix,
-                     rollbackBlocks)
+import           Pos.Block.Logic.VAR (rollbackBlocks, verifyAndApplyBlocks,
+                     verifyBlocksPrefix)
 import           Pos.Core (Block)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
@@ -40,6 +38,7 @@ import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      withConfigurationsM)
 import           Pos.Txp.Logic.Global (txpGlobalSettings)
 import           Pos.Util.CompileInfo (withCompileInfo)
+import           Pos.Util.Util (realTime)
 
 import           Test.Pos.Block.Logic.Mode (BlockTestMode, TestParams (..),
                      runBlockTestMode)
@@ -257,7 +256,7 @@ main = do
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
         validate pm blocks = do
             verStart <- realTime
-            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix pm blocks
+            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix pm Nothing blocks
             verEnd <- realTime
             return (verEnd - verStart, either (Just . Left) (const Nothing) res)
 
@@ -268,7 +267,7 @@ main = do
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
         validateAndApply pm blocks = do
             verStart <- realTime
-            res <- force <$> verifyAndApplyBlocks pm False blocks
+            res <- force <$> verifyAndApplyBlocks pm Nothing False blocks
             verEnd <- realTime
             case res of
                 Left _ -> return ()

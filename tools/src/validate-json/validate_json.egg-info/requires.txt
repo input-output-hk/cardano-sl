@@ -1,0 +1,2 @@
+docopt==0.6.2
+jsonschema==2.6.0

@@ -1,13 +1,16 @@
 { localLib ? import ./../../../lib.nix
+, pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
+, system ? builtins.currentSystem
+, config ? {}
+, gitrev ? "123456"
 }:
 
 with localLib;
 
 let
-  executable = {
-    gen-swagger-file = "${iohkPkgs.cardano-sl-tools}/bin/cardano-swagger-file";
-    validation-json = import ./../../../tools/src/validate-json;
-  };
+  iohkPkgs = import ./../../.. { inherit config system pkgs gitrev; };
+  gen-swagger-file = "${iohkPkgs.cardano-sl-tools}/bin/cardano-swagger-file";
+  validate-json = pkgs.callPackage ./../../../tools/src/validate-json {};
   schema = ./../../../tools/src/validate-json/swagger-meta-2.0.json;
 in pkgs.writeScript "validate-swagger-schema" ''
   ${gen-swagger-file} --target wallet@v0 --output-file swagger.v0.json

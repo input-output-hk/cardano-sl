@@ -1,3 +1,4 @@
+{-# LANGUAGE GADTs          #-}
 {-# LANGUAGE NamedFieldPuns #-}
 
 -- | Tx sending functionality in Auxx.
@@ -27,6 +28,7 @@ import           Formatting (build, int, sformat, shown, stext, (%))
 import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently, currentTime, delay,
                            forConcurrently, modifySharedAtomic, newSharedAtomic)
 import           Serokell.Util (ms, sec)
+import           System.Environment (lookupEnv)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
 import           System.Wlog (logError, logInfo)
 
@@ -74,11 +76,13 @@ addTxSubmit =
         (\(TxCount submitted failed sending) ->
              pure (TxCount (submitted + 1) failed sending, ()))
 
+{-
 addTxFailed :: Mockable SharedAtomic m => SharedAtomicT m TxCount -> m ()
 addTxFailed =
     flip modifySharedAtomic
         (\(TxCount submitted failed sending) ->
              pure (TxCount submitted (failed + 1) sending, ()))
+-}
 
 sendToAllGenesis
     :: forall m. MonadAuxxMode m
@@ -100,16 +104,26 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentF
         txQueue <- atomically $ newTQueue
         -- prepare a queue with all transactions
         logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
-        forM_ keysToSend $ \secretKey -> do
-            outAddr <- makePubKeyAddressAuxx (toPublic secretKey)
-            let val1 = mkCoin 1
-                txOut1 = TxOut {
-                    txOutAddress = outAddr,
-                    txOutValue = val1
-                    }
-                txOuts = TxOutAux txOut1 :| []
-            atomically $ writeTQueue txQueue (secretKey, txOuts)
-
+        startAtTxt <- liftIO $ lookupEnv "AUXX_START_AT"
+        let startAt = fromMaybe 0 . readMaybe . fromMaybe "" $ startAtTxt :: Int
+        -- construct transaction output
+        outAddr <- makePubKeyAddressAuxx (toPublic (fromMaybe (error "sendToAllGenesis: no keys") $ head keysToSend))
+        let val1 = mkCoin 1
+            txOut1 = TxOut {
+                txOutAddress = outAddr,
+                txOutValue = val1
+                }
+            txOuts = TxOutAux txOut1 :| []
+        -- construct a transaction, and add it to the queue
+        let addTx secretKey = do
+                utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
+                etx <- createTx mempty utxo (fakeSigner secretKey) txOuts (toPublic secretKey)
+                case etx of
+                    Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
+                    Right (tx, _) -> atomically $ writeTQueue txQueue (tx, txOuts)
+        let nTrans = conc * duration -- number of transactions we'll send
+            allTrans = take nTrans (drop startAt keysToSend)
+            (firstBatch, secondBatch) = splitAt ((2 * nTrans) `div` 3) allTrans
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
         let writeTPS :: m ()
             writeTPS = do
@@ -122,8 +136,8 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentF
                     liftIO $ T.hPutStrLn h $ T.intercalate "," [curTime, show $ failed, "failed"]
                     return (TxCount 0 0 sending, sending <= 0)
                 if finished
-                then logInfo "Finished writing TPS samples."
-                else writeTPS
+                    then logInfo "Finished writing TPS samples."
+                    else writeTPS
             -- Repeatedly take transactions from the queue and send them.
             -- Do this n times.
             sendTxs :: Int -> m ()
@@ -133,29 +147,35 @@ sendToAllGenesis diffusion (SendToAllGenesisParams duration conc delay_ tpsSentF
                       modifySharedAtomic tpsMVar $ \(TxCount submitted failed sending) ->
                           return (TxCount submitted failed (sending - 1), ())
                 | otherwise = (atomically $ tryReadTQueue txQueue) >>= \case
-                      Just (key, txOuts) -> do
-                          utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner key)
-                          etx <- createTx mempty utxo (fakeSigner key) txOuts (toPublic key)
-                          case etx of
-                              Left err -> do
-                                  addTxFailed tpsMVar
-                                  logError (sformat ("Error: "%build%" while trying to send") err)
-                              Right (tx, _) -> do
-                                  res <- submitTxRaw diffusion tx
-                                  addTxSubmit tpsMVar
-                                  logInfo $ if res
-                                      then sformat ("Submitted transaction: "%txaF) tx
-                                      else sformat ("Applied transaction "%txaF%", however no neighbour applied it") tx
+                      Just (tx, _) -> do
+                          res <- submitTxRaw diffusion tx
+                          addTxSubmit tpsMVar
+                          logInfo $ if res
+                                    then sformat ("Submitted transaction: "%txaF) tx
+                                    else sformat ("Applied transaction "%txaF%", however no neighbour applied it") tx
                           delay $ ms delay_
                           logInfo "Continuing to send transactions."
                           sendTxs (n - 1)
-                      Nothing -> logInfo "No more transactions in the queue."
+                      Nothing -> do
+                          logInfo "No more transactions in the queue."
+                          sendTxs 0
+
             sendTxsConcurrently n = void $ forConcurrently [1..conc] (const (sendTxs n))
+        -- pre construct the first batch of transactions. Otherwise,
+        -- we'll be CPU bound and will not achieve high transaction
+        -- rates. If we pre construct all the transactions, the
+        -- startup time will be quite long.
+        forM_  firstBatch addTx
         -- Send transactions while concurrently writing the TPS numbers every
         -- slot duration. The 'writeTPS' action takes care to *always* write
         -- after every slot duration, even if it is killed, so as to
         -- guarantee that we don't miss any numbers.
-        void $ concurrently writeTPS (sendTxsConcurrently duration)
+        --
+        -- While we're sending, we're constructing the second batch of
+        -- transactions.
+        void $
+            concurrently (forM_ secondBatch addTx) $
+            concurrently writeTPS (sendTxsConcurrently duration)
 
 ----------------------------------------------------------------------------
 -- Casual sending

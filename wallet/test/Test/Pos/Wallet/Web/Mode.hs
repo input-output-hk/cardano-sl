@@ -71,11 +71,13 @@ import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
 import           Pos.StateLock (StateLock, StateLockMetrics (..), newStateLock)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), TxpGlobalSettings,
-                          TxpHolderTag, txNormalize, txProcessTransactionNoLock, txpTip)
+                          TxpHolderTag, recordTxpMetrics, txNormalize, txProcessTransactionNoLock,
+                          txpMemPool, txpTip)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Util (postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.JsonLog (HasJsonLogConfig (..), JsonLogConfig (..), jsonLogDefault)
+import           Pos.Util.JsonLog.Events (HasJsonLogConfig (..), JsonLogConfig (..),
+                                          MemPoolModifyReason, jsonLogDefault)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
@@ -85,6 +87,7 @@ import           Pos.Wallet.Redirect (applyLastUpdateWebWallet, blockchainSlotDu
                                       connectedPeersWebWallet, localChainDifficultyWebWallet,
                                       networkChainDifficultyWebWallet, txpNormalizeWebWallet,
                                       txpProcessTxWebWallet, waitForUpdateWebWallet)
+import qualified System.Metrics as Metrics
 
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..),
                                         WalletMempoolExt)
@@ -146,6 +149,8 @@ data WalletTestContext = WalletTestContext
     , wtcStateLock        :: !StateLock
     -- ^ A lock which manages access to shared resources.
     -- Stored hash is a hash of last applied block.
+    , wtcStateLockMetrics :: !(StateLockMetrics MemPoolModifyReason)
+    -- ^ A set of callbacks for 'StateLock'.
     , wtcShutdownContext  :: !ShutdownContext
     -- ^ Stub
     , wtcConnectedPeers   :: !ConnectedPeers
@@ -187,6 +192,8 @@ initWalletTestContext WalletTestParams {..} callback =
             -- some kind of kostil to get tip
             tip <- readTVarIO $ txpTip $ btcTxpMem wtcBlockTestContext
             wtcStateLock <- newStateLock tip
+            store <- liftIO $ Metrics.newStore
+            wtcStateLockMetrics <- liftIO $ recordTxpMetrics store (txpMemPool $ btcTxpMem wtcBlockTestContext)
             wtcShutdownContext <- ShutdownContext <$> STM.newTVarIO False
             wtcConnectedPeers <- ConnectedPeers <$> STM.newTVarIO mempty
             wtcLastKnownHeader <- STM.newTVarIO Nothing
@@ -364,14 +371,8 @@ instance HasNodeType WalletTestContext where
     getNodeType _ = NodeCore -- doesn't really matter, it's for reporting
 
 -- TODO may be used for callback on tx processing in future.
-instance HasLens StateLockMetrics WalletTestContext StateLockMetrics where
-    lensOf = lens (const emptyStateMetrics) const
-      where
-        emptyStateMetrics = StateLockMetrics
-            { slmWait = const $ pure ()
-            , slmAcquire = const $ const $ pure ()
-            , slmRelease = const $ const $ pure ()
-            }
+instance HasLens (StateLockMetrics MemPoolModifyReason) WalletTestContext (StateLockMetrics MemPoolModifyReason) where
+    lensOf = wtcStateLockMetrics_L
 
 instance HasConfigurations => WalletDbReader WalletTestContext WalletTestMode
 

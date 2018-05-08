@@ -1,21 +1,22 @@
 {-# LANGUAGE TypeFamilies #-}
 
 -- | Some types for json logging.
-module Pos.Util.JsonLog
-       ( JLEvent(..)
+module Pos.Util.JsonLog.Events
+       ( HasJsonLogConfig (..)
+       , JLEvent(..)
        , JLTxS (..)
        , JLTxR (..)
        , JLMemPool (..)
        , JLBlock (..)
-       , JLTimedEvent(..)
-       , jlCreatedBlock
-       , jlAdoptedBlock
+       , JLTimedEvent (..)
+       , JsonLogConfig (..)
+       , MemPoolModifyReason (..)
        , appendJL
-       , fromJLSlotId
-       , JsonLogConfig(..)
-       , HasJsonLogConfig(..)
+       , jlAdoptedBlock
+       , jlCreatedBlock
        , jsonLogConfigFromHandle
        , jsonLogDefault
+       , fromJLSlotId
        , fromJLSlotIdUnsafe
        ) where
 
@@ -36,8 +37,6 @@ import           Mockable (realTime)
 import           Serokell.Aeson.Options (defaultOptions)
 import           System.Wlog (WithLogger)
 
-import           Pos.Binary.Core ()
-import           Pos.Block.BHelpers ()
 import           Pos.Communication.Relay.Logic (InvReqDataFlowLog)
 import           Pos.Core (EpochIndex (..), HasConfiguration, HeaderHash, SlotId (..), gbHeader,
                            gbhPrevBlock, getSlotIndex, headerHash, headerHashF, mkLocalSlotIndex)
@@ -46,7 +45,6 @@ import           Pos.Core.Block.Genesis (genBlockEpoch)
 import           Pos.Core.Block.Main (mainBlockSlot)
 import           Pos.Core.Txp (txpTxs)
 import           Pos.Crypto (hash, hashHexF)
-import           Pos.Txp (JLTxR (..), MemPoolModifyReason)
 
 type BlockId = Text
 type TxId = Text
@@ -67,15 +65,27 @@ data JLTxS = JLTxS
     , jlsInvReq :: InvReqDataFlowLog
     } deriving Show
 
--- | Get 'SlotId' from 'JLSlotId'.
-fromJLSlotId :: (HasConfiguration, MonadError Text m) => JLSlotId -> m SlotId
-fromJLSlotId (ep, sl) = SlotId (EpochIndex ep) <$> mkLocalSlotIndex sl
+-- | Json log of one transaction being received by a node.
+data JLTxR = JLTxR
+    { jlrTxId  :: Text
+    , jlrError :: Maybe Text
+    } deriving Show
 
--- | Get 'SlotId' from 'JLSlotId'.
-fromJLSlotIdUnsafe :: HasConfiguration => JLSlotId -> SlotId
-fromJLSlotIdUnsafe x = case fromJLSlotId x of
-    Right y -> y
-    Left  _ -> error "illegal slot id"
+-- | Enumeration of all reasons for modifying the mempool.
+data MemPoolModifyReason =
+      -- | Apply a block created by someone else.
+      ApplyBlock
+      -- | Apply a block, with rollback.
+    | ApplyBlockWithRollback
+      -- | Apply a block created by us.
+    -- | CreateBlock
+      -- | Include a transaction. It came from this peer.
+    | ProcessTransaction
+      -- TODO COMMENT
+    -- | Custom Text
+      -- TODO COMMENT
+    -- | Unknown
+    deriving Show
 
 -- | Json log of one mempool modification.
 data JLMemPool = JLMemPool
@@ -93,7 +103,7 @@ data JLMemPool = JLMemPool
       -- | Size of the mempool after the modification.
     , jlmSizeAfter   :: Int
       -- | How much memory was allocated during the modification.
-    , jlmAllocated   :: Int
+    , jlmAllocated   :: Int64
     } deriving Show
 
 -- | Json log event.
@@ -111,12 +121,23 @@ data JLTimedEvent = JLTimedEvent
     , jlEvent     :: JLEvent
     } deriving Show
 
+$(deriveJSON defaultOptions ''MemPoolModifyReason)
 $(deriveJSON defaultOptions ''JLBlock)
 $(deriveJSON defaultOptions ''JLEvent)
 $(deriveJSON defaultOptions ''JLTimedEvent)
 $(deriveJSON defaultOptions ''JLTxS)
 $(deriveJSON defaultOptions ''JLTxR)
 $(deriveJSON defaultOptions ''JLMemPool)
+
+-- | Get 'SlotId' from 'JLSlotId'.
+fromJLSlotId :: (HasConfiguration, MonadError Text m) => JLSlotId -> m SlotId
+fromJLSlotId (ep, sl) = SlotId (EpochIndex ep) <$> mkLocalSlotIndex sl
+
+-- | Get 'SlotId' from 'JLSlotId'.
+fromJLSlotIdUnsafe :: HasConfiguration => JLSlotId -> SlotId
+fromJLSlotIdUnsafe x = case fromJLSlotId x of
+    Right y -> y
+    Left  _ -> error "illegal slot id"
 
 -- | Return event of created block.
 jlCreatedBlock :: HasConfiguration => Block -> JLEvent

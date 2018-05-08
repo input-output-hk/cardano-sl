@@ -48,7 +48,7 @@ import           Pos.Explorer.Txp (ExplorerExtraModifier (..))
 -- Need Emulation because it has instance Mockable CurrentTime
 import           Mockable (Production, currentTime, runProduction)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Util.JsonLog (HasJsonLogConfig (..), jsonLogDefault)
+import           Pos.Util.JsonLog.Events (HasJsonLogConfig (..), jsonLogDefault)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp (CanJsonLog (..))

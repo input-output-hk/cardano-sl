@@ -20,6 +20,7 @@ import           Control.Lens (uses, (-=), (.=), _Wrapped)
 import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Data.Default (Default (def))
 import           Formatting (build, fixed, ords, sformat, stext, (%))
+import           JsonLog (CanJsonLog (..))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog (WithLogger, logDebug)
 
@@ -61,6 +62,7 @@ import           Pos.Update.Configuration (HasUpdateConfiguration)
 import qualified Pos.Update.DB as UDB
 import           Pos.Update.Logic (clearUSMemPool, usCanCreateBlock, usPreparePayload)
 import           Pos.Util (_neHead)
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Util.LogSafe (logInfoS)
 import           Pos.Util.Util (HasLens (..), HasLens')
 
@@ -109,8 +111,9 @@ createGenesisBlockAndApply ::
        forall ctx m.
        ( MonadCreateBlock ctx m
        , MonadBlockApply ctx m
+       , CanJsonLog m
        , HasLens StateLock ctx StateLock
-       , HasLens StateLockMetrics ctx StateLockMetrics
+       , HasLens (StateLockMetrics MemPoolModifyReason) ctx (StateLockMetrics MemPoolModifyReason)
        )
     => EpochIndex
     -> m (Maybe GenesisBlock)
@@ -124,14 +127,15 @@ createGenesisBlockAndApply epoch = do
     if needGen
         then modifyStateLock
                  HighPriority
-                 "createGenesisBlockAndApply"
+                 ApplyBlock
                  (\_ -> createGenesisBlockDo epoch)
         else return Nothing
 
 createGenesisBlockDo
     :: forall ctx m.
        ( MonadCreateBlock ctx m
-       , MonadBlockApply ctx m)
+       , MonadBlockApply ctx m
+       , CanJsonLog m)
     => EpochIndex
     -> m (HeaderHash, Maybe GenesisBlock)
 createGenesisBlockDo epoch = do
@@ -207,14 +211,15 @@ createMainBlockAndApply ::
        forall ctx m.
        ( MonadCreateBlock ctx m
        , MonadBlockApply ctx m
+       , CanJsonLog m
        , HasLens' ctx StateLock
-       , HasLens' ctx StateLockMetrics
+       , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
        )
     => SlotId
     -> ProxySKBlockInfo
     -> m (Either Text MainBlock)
 createMainBlockAndApply sId pske =
-    modifyStateLock HighPriority "createMainBlockAndApply" createAndApply
+    modifyStateLock HighPriority ApplyBlock createAndApply
   where
     createAndApply tip =
         createMainBlockInternal sId pske >>= \case
@@ -334,6 +339,7 @@ applyCreatedBlock ::
       forall ctx m.
     ( MonadBlockApply ctx m
     , MonadCreateBlock ctx m
+    , CanJsonLog m
     )
     => ProxySKBlockInfo
     -> MainBlock

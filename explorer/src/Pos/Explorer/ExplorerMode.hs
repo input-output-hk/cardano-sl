@@ -37,6 +37,7 @@ import qualified Pos.Slotting as Slot
 import           Pos.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem, TxpHolderTag,
                           mkTxpLocalData)
 import           Pos.Util (postfixLFields)
+import           Pos.Util.Mockable () -- need this for orphan instances :\
 import           Pos.Util.Util (HasLens (..))
 
 import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, HasExplorerCSLInterface,

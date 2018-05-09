@@ -100,14 +100,16 @@ instance FromJSON AccountSpec
 instance ToJSON AccountSpec
 
 newtype AddressRange = AddressRange 
-    { unAddressRange :: Integer 
+    { unAddressRange :: Integer
+    -- ^ The amount of addresses to distribute coins to.
     } deriving (Show, Eq, Generic)
 
 instance FromJSON AddressRange
 instance ToJSON AddressRange
 
 newtype DistributionAmount = DistributionAmount 
-    { unDistributionAmount :: Integer 
+    { unDistributionAmount :: Integer
+    -- ^ The amount of coins to distribute.
     } deriving (Show, Eq, Generic)
     
 instance FromJSON DistributionAmount

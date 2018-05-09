@@ -61,6 +61,7 @@ import           Control.Lens (makePrisms)
 import           Control.Monad.Except (MonadError (throwError))
 import           Crypto.Hash (Blake2b_224)
 import qualified Data.ByteString as BS (pack, zipWith)
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.Char8 as BSC (pack)
 import           Data.Data (Data)
 import           Data.Hashable (Hashable (..))
@@ -71,12 +72,16 @@ import qualified PlutusCore.Program as PLCore
 import           Serokell.Util (enumerate, listChunkedJson, pairBuilder)
 import           Serokell.Util.Base16 (formatBase16)
 import           System.Random (Random (..))
+import           Control.Lens (_Left)
 
+import           Pos.Binary.Class (Bi, encode, decode)
+import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Crypto.Hashing (AbstractHash, Hash)
 import           Pos.Crypto.HD (HDAddressPayload)
 import           Pos.Crypto.Signing (PublicKey, RedeemPublicKey)
-import           Pos.Data.Attributes (Attributes)
+import           Pos.Data.Attributes (Attributes(..), encodeAttributes, decodeAttributes)
+import           Pos.Util.Util (cborError, toCborError)
 
 ----------------------------------------------------------------------------
 -- Address, StakeholderId
@@ -112,6 +117,51 @@ data AddrSpendingData
     -- spending data via softfork.
     deriving (Eq, Generic, Typeable, Show)
 
+{- NOTE: Address spending data serialization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+An address is serialized as a tuple consisting of:
+
+1. One-byte tag.
+2. Data dependent on tag.
+
+If tag is 0, 1 or 2, the type of spending data is 'PubKeyASD',
+'ScriptASD' or 'RedeemASD' respectively.
+
+If tag is greater than 2, the data is decoded as a plain 'ByteString'.
+
+This lets us have backwards compatibility. For instance, if a newer
+version of CSL adds a new type of spending data with tag 3, then older
+versions would deserialize it as follows:
+
+    UnknownASD 3 <some bytes>
+-}
+
+-- Helper function to avoid writing `:: Word8`.
+w8 :: Word8 -> Word8
+w8 = identity
+{-# INLINE w8 #-}
+
+instance Bi AddrSpendingData where
+    encode =
+        \case
+            PubKeyASD pk -> encode (w8 0, pk)
+            ScriptASD script -> encode (w8 1, script)
+            RedeemASD redeemPK -> encode (w8 2, redeemPK)
+            UnknownASD tag payload ->
+                -- `encodeListLen 2` is semantically equivalent to encode (x,y)
+                -- but we need to "unroll" it in order to apply CBOR's tag 24 to `payload`.
+                Bi.encodeListLen 2
+                    <> encode tag
+                    <> Bi.encodeUnknownCborDataItem (LBS.fromStrict payload)
+    decode = do
+        Bi.enforceSize "AddrSpendingData" 2
+        decode @Word8 >>= \case
+            0 -> PubKeyASD <$> decode
+            1 -> ScriptASD <$> decode
+            2 -> RedeemASD <$> decode
+            tag -> UnknownASD tag <$> Bi.decodeUnknownCborDataItem
+
 -- | Type of an address. It corresponds to constructors of
 -- 'AddrSpendingData'. It's separated, because 'Address' doesn't store
 -- 'AddrSpendingData', but we want to know its type.
@@ -121,6 +171,20 @@ data AddrType
     | ATRedeem
     | ATUnknown !Word8
     deriving (Eq, Ord, Generic, Typeable, Show)
+
+instance Bi AddrType where
+    encode =
+        encode @Word8 . \case
+            ATPubKey -> 0
+            ATScript -> 1
+            ATRedeem -> 2
+            ATUnknown tag -> tag
+    decode =
+        decode @Word8 <&> \case
+            0 -> ATPubKey
+            1 -> ATScript
+            2 -> ATRedeem
+            tag -> ATUnknown tag
 
 -- | Stake distribution associated with an address.
 data AddrStakeDistribution
@@ -139,6 +203,27 @@ data AddrStakeDistribution
     -- • there must be at least 2 items, because if there is only one item,
     -- 'SingleKeyDistr' can be used instead (which is smaller).
     deriving (Eq, Ord, Show, Generic, Typeable)
+
+instance Bi AddrStakeDistribution where
+    encode =
+        \case
+            BootstrapEraDistr -> Bi.encodeListLen 0
+            SingleKeyDistr id -> encode (w8 0, id)
+            UnsafeMultiKeyDistr distr -> encode (w8 1, distr)
+    decode =
+        Bi.decodeListLenCanonical >>= \case
+            0 -> pure BootstrapEraDistr
+            2 ->
+                decode @Word8 >>= \case
+                    0 -> SingleKeyDistr <$> decode
+                    1 -> toCborError . (_Left %~ toText . displayException) .
+                         mkMultiKeyDistr =<< decode
+                    tag -> cborError $
+                        "decode @AddrStakeDistribution: unexpected tag " <>
+                        pretty tag
+            len -> cborError $
+                "decode @AddrStakeDistribution: unexpected length " <> pretty len
+
 
 data MultiKeyDistrError
     = MkdMapIsEmpty
@@ -182,11 +267,63 @@ data AddrAttributes = AddrAttributes
     , aaStakeDistribution :: !AddrStakeDistribution
     } deriving (Eq, Ord, Show, Generic, Typeable)
 
+{- NOTE: Address attributes serialization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+'Attributes' are conceptually a map, where keys are numbers ('Word8').
+
+For address there are two attributes:
+• 0 — stake distribution, defaults to 'BootstrapEraDistr';
+• 1 — derivation path, defaults to 'Nothing'.
+
+-}
+
+instance Bi (Attributes AddrAttributes) where
+    -- FIXME @avieth it was observed that for a 150kb block, this call to
+    -- encodeAttributes allocated 3.685mb
+    -- Try using serialize rather than serialize', to avoid the
+    -- toStrict call.
+    -- Also consider using a custom builder strategy; serialized attributes are
+    -- probably small, right?
+    encode attrs@(Attributes {attrData = AddrAttributes derivationPath stakeDistr}) =
+        encodeAttributes listWithIndices attrs
+      where
+        listWithIndices :: [(Word8, AddrAttributes -> LBS.ByteString)]
+        listWithIndices =
+            stakeDistributionListWithIndices <> derivationPathListWithIndices
+        stakeDistributionListWithIndices =
+            case stakeDistr of
+                BootstrapEraDistr -> []
+                _                 -> [(0, Bi.serialize . aaStakeDistribution)]
+        derivationPathListWithIndices =
+            case derivationPath of
+                Nothing -> []
+                -- 'unsafeFromJust' is safe, because 'case' ensures
+                -- that derivation path is 'Just'.
+                Just _ ->
+                    [(1, Bi.serialize . unsafeFromJust . aaPkDerivationPath)]
+        unsafeFromJust =
+            fromMaybe
+                (error "Maybe was Nothing in Bi (Attributes AddrAttributes)")
+
+    decode = decodeAttributes initValue go
+      where
+        initValue =
+            AddrAttributes
+            { aaPkDerivationPath = Nothing
+            , aaStakeDistribution = BootstrapEraDistr
+            }
+        go n v acc =
+            case n of
+                0 -> (\distr -> Just $ acc {aaStakeDistribution = distr }    ) <$> Bi.deserialize v
+                1 -> (\deriv -> Just $ acc {aaPkDerivationPath = Just deriv }) <$> Bi.deserialize v
+                _ -> pure Nothing
+
 -- | Hash of this data is stored in 'Address'. This type exists mostly
 -- for internal usage.
 newtype Address' = Address'
     { unAddress' :: (AddrType, AddrSpendingData, Attributes AddrAttributes)
-    } deriving (Eq, Show, Generic, Typeable)
+    } deriving (Eq, Show, Generic, Typeable, Bi)
 
 -- | 'Address' is where you can send coins.
 data Address = Address
@@ -205,6 +342,17 @@ instance NFData AddrSpendingData
 instance NFData AddrAttributes
 instance NFData AddrStakeDistribution
 instance NFData Address
+
+instance Bi Address where
+    encode Address{..} =
+        Bi.encodeCrcProtected (addrRoot, addrAttributes, addrType)
+    decode = do
+        (addrRoot, addrAttributes, addrType) <- Bi.decodeCrcProtected
+        let res = Address {..}
+        pure res
+
+instance Hashable Address where
+    hashWithSalt s = hashWithSalt s . Bi.serialize
 
 ----------------------------------------------------------------------------
 -- ChainDifficulty
@@ -335,6 +483,10 @@ unsafeGetCoin = getCoin
 newtype CoinPortion = CoinPortion
     { getCoinPortion :: Word64
     } deriving (Show, Ord, Eq, Generic, Typeable, NFData, Hashable)
+
+instance Bi CoinPortion where
+    encode = encode . getCoinPortion
+    decode = CoinPortion <$> decode
 
 -- | Denominator used by 'CoinPortion'.
 coinPortionDenominator :: Word64

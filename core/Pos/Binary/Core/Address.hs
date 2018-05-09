@@ -33,20 +33,6 @@ w8 :: Word8 -> Word8
 w8 = identity
 {-# INLINE w8 #-}
 
-instance Bi AddrType where
-    encode =
-        encode @Word8 . \case
-            ATPubKey -> 0
-            ATScript -> 1
-            ATRedeem -> 2
-            ATUnknown tag -> tag
-    decode =
-        decode @Word8 <&> \case
-            0 -> ATPubKey
-            1 -> ATScript
-            2 -> ATRedeem
-            tag -> ATUnknown tag
-
 {- NOTE: Address spending data serialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -104,58 +90,6 @@ instance Bi AddrStakeDistribution where
                         pretty tag
             len -> cborError $
                 "decode @AddrStakeDistribution: unexpected length " <> pretty len
-
-{- NOTE: Address attributes serialization
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-'Attributes' are conceptually a map, where keys are numbers ('Word8').
-
-For address there are two attributes:
-• 0 — stake distribution, defaults to 'BootstrapEraDistr';
-• 1 — derivation path, defaults to 'Nothing'.
-
--}
-
-instance Bi (Attributes AddrAttributes) where
-    -- FIXME @avieth it was observed that for a 150kb block, this call to
-    -- encodeAttributes allocated 3.685mb
-    -- Try using serialize rather than serialize', to avoid the
-    -- toStrict call.
-    -- Also consider using a custom builder strategy; serialized attributes are
-    -- probably small, right?
-    encode attrs@(Attributes {attrData = AddrAttributes derivationPath stakeDistr}) =
-        encodeAttributes listWithIndices attrs
-      where
-        listWithIndices :: [(Word8, AddrAttributes -> LBS.ByteString)]
-        listWithIndices =
-            stakeDistributionListWithIndices <> derivationPathListWithIndices
-        stakeDistributionListWithIndices =
-            case stakeDistr of
-                BootstrapEraDistr -> []
-                _                 -> [(0, serialize . aaStakeDistribution)]
-        derivationPathListWithIndices =
-            case derivationPath of
-                Nothing -> []
-                -- 'unsafeFromJust' is safe, because 'case' ensures
-                -- that derivation path is 'Just'.
-                Just _ ->
-                    [(1, serialize . unsafeFromJust . aaPkDerivationPath)]
-
-    decode = decodeAttributes initValue go
-      where
-        initValue =
-            AddrAttributes
-            { aaPkDerivationPath = Nothing
-            , aaStakeDistribution = BootstrapEraDistr
-            }
-        go n v acc =
-            case n of
-                0 -> (\distr -> Just $ acc {aaStakeDistribution = distr }    ) <$> deserialize v
-                1 -> (\deriv -> Just $ acc {aaPkDerivationPath = Just deriv }) <$> deserialize v
-                _ -> pure Nothing
-
--- We don't need a special encoding for 'Address'', GND is what we want.
-deriving instance Bi Address'
 
 ----------------------------------------------------------------------------
 -- Address serialization

@@ -39,7 +39,8 @@ import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQu
 import           Pos.Block.Types (Blund, LastKnownHeaderTag)
 import           Pos.Communication.Protocol (NodeId)
 import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader, headerHashG, isMoreDifficult,
-                           prevBlockL)
+                           prevBlockL, HasGeneratedSecrets, HasGenesisHash, HasProtocolConstants,
+                           HasGenesisBlockVersionData, HasGenesisData)
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.Block.Load as DB
@@ -216,7 +217,13 @@ updateLastKnownHeader lastKnownH header = do
 
 -- | Carefully apply blocks that came from the network.
 handleBlocks
-    :: forall ctx m. BlockWorkMode ctx m
+    :: forall ctx m . ( BlockWorkMode ctx m
+       , HasGeneratedSecrets
+       , HasGenesisData
+       , HasGenesisHash
+       , HasProtocolConstants
+       , HasGenesisBlockVersionData
+       )
     => NodeId
     -> OldestFirst NE Block
     -> Diffusion m
@@ -245,7 +252,13 @@ handleBlocks nodeId blocks diffusion = do
 
 applyWithoutRollback
     :: forall ctx m.
-       BlockWorkMode ctx m
+       ( BlockWorkMode ctx m
+       , HasGeneratedSecrets
+       , HasGenesisHash
+       , HasGenesisData
+       , HasProtocolConstants
+       , HasGenesisBlockVersionData
+       )
     => Diffusion m
     -> OldestFirst NE Block
     -> m ()
@@ -284,7 +297,13 @@ applyWithoutRollback diffusion blocks = do
         pure (newTip, res)
 
 applyWithRollback
-    :: BlockWorkMode ctx m
+    :: ( BlockWorkMode ctx m
+       , HasGeneratedSecrets
+       , HasGenesisData
+       , HasGenesisHash
+       , HasProtocolConstants
+       , HasGenesisBlockVersionData
+       )
     => NodeId
     -> Diffusion m
     -> OldestFirst NE Block

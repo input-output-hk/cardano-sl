@@ -12,7 +12,7 @@ import           Control.Exception (Exception)
 import           Data.Set (Set)
 import           Data.Typeable (Typeable)
 import           GHC.Generics (Generic)
-import           Network.Transport.Abstract (EndPointAddress)
+import           Network.Transport (EndPointAddress)
 
 -- Note: we'll need a way to be notified of new peers.
 

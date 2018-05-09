@@ -28,18 +28,6 @@ module Cardano.Wallet.Kernel (
   , bracketActiveWallet
   , newPending
   , hasPending
-
-
-  , getWallets
-  , getWalletState
-  , change
-  , findWallet
-  , updateUtxo
-  , updatePending
-  , updateWalletState
-  , walletESK
-
-  , State(..)
   ) where
 
 import           Universum hiding (State)

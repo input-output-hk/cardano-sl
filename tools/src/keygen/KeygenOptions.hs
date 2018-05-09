@@ -36,8 +36,7 @@ data KeygenCommand
     | ReadKey FilePath
     | DumpAvvmSeeds DumpAvvmSeedsOptions
     | GenerateKeysBySpec GenKeysOptions
-    | DumpGenesisData { dgdPath      :: !FilePath
-                      , dgdCanonical :: !Bool }
+    | DumpGenesisData !FilePath !Bool
     deriving (Show)
 
 data DumpAvvmSeedsOptions = DumpAvvmSeedsOptions
@@ -100,7 +99,7 @@ keygenCommandParser =
         dgdCanonical <- switch $
             long "canonical" <>
             help "Whether genesis data should be in canonical json"
-        pure DumpGenesisData {..}
+        pure $ DumpGenesisData dgdPath dgdCanonical
 
 dumpAvvmSeedsParser :: Parser DumpAvvmSeedsOptions
 dumpAvvmSeedsParser = do

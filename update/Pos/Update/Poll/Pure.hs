@@ -16,7 +16,7 @@ import           System.Wlog (CanLog, HasLoggerName (..), LogEvent, NamedPureLog
                               logWarning, runNamedPureLog)
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core (HasConfiguration, SoftwareVersion (..))
+import           Pos.Core (SoftwareVersion (..))
 import           Pos.Core.Update (UpdateProposal (..))
 import           Pos.Crypto (hash)
 import           Pos.Update.BlockVersion (applyBVM)
@@ -41,7 +41,7 @@ evalPurePollWithLogger r = view _1 . runPurePollWithLogger r
 execPurePollWithLogger :: Poll.PollState -> PurePoll a -> Poll.PollState
 execPurePollWithLogger r = view _2 . runPurePollWithLogger r
 
-instance HasConfiguration => MonadPollRead PurePoll where
+instance MonadPollRead PurePoll where
     getBVState bv = PurePoll $ use $ Poll.psBlockVersions . at bv
     getProposedBVs = PurePoll $ use $ Poll.psBlockVersions . to HM.keys
     getEpochProposers = PurePoll $ use $ Poll.psEpochProposers
@@ -88,7 +88,7 @@ instance HasConfiguration => MonadPollRead PurePoll where
         PurePoll $ uses Poll.psIssuersStakes $ HM.lookup si <=< HM.lookup ei
     getSlottingData = PurePoll $ use Poll.psSlottingData
 
-instance (HasConfiguration, Bi UpdateProposal) => MonadPoll PurePoll where
+instance (Bi UpdateProposal) => MonadPoll PurePoll where
     putBVState bv bvs = PurePoll $ Poll.psBlockVersions . at bv .= Just bvs
     delBVState bv = PurePoll $ Poll.psBlockVersions . at bv .= Nothing
     setAdoptedBV bv = do

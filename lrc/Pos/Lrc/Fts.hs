@@ -17,7 +17,7 @@ import           Formatting (int, sformat, (%))
 
 import           Pos.Core.Common (Coin, SharedSeed (..), SlotLeaders, StakeholderId, coinToInteger,
                                   mkCoin, sumCoins, unsafeGetCoin)
-import           Pos.Core.Configuration (HasConfiguration, epochSlots)
+import           Pos.Core.Configuration (HasGeneratedSecrets, epochSlots, HasProtocolConstants)
 import           Pos.Core.Slotting (LocalSlotIndex (..))
 import           Pos.Crypto (deterministic, randomNumber)
 
@@ -49,7 +49,7 @@ coinIndexOffset c = over _CoinIndex (+ unsafeGetCoin c)
 
 -- | Assign a local slot index to each value in a list, starting with
 -- @LocalSlotIndex 0@.
-assignToSlots :: HasConfiguration => [a] -> [(LocalSlotIndex, a)]
+assignToSlots :: HasProtocolConstants => [a] -> [(LocalSlotIndex, a)]
 assignToSlots = zip [minBound..]
 
 -- | Sort values by their local slot indices, then strip the indices.
@@ -225,7 +225,7 @@ previous upper bound (and thus it's more or equal to the current lower bound).
 -- specifies which addresses should count as “owning” funds for the purposes
 -- of follow-the-satoshi.
 followTheSatoshiM
-    :: forall m . (Monad m, HasConfiguration)
+    :: forall m . (Monad m, HasProtocolConstants)
     => SharedSeed
     -> Coin
     -> ConduitT (StakeholderId, Coin) Void m SlotLeaders
@@ -271,11 +271,11 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
 
 -- | A pure version of `followTheSatoshiM` above.
 -- This pure version is used for testing and benchmarking. Its important to
--- note that since the ordering if the input stakes influences ths output,
+-- note that since the ordering of the input stakes influences ths output,
 -- testing this pure version as a proxy for the one above is insufficient.
 -- The monadic version needs to be tested in conjunction with the same conduit
 -- source that will feed it values in the real system.
-followTheSatoshi :: HasConfiguration => SharedSeed -> [(StakeholderId, Coin)] -> SlotLeaders
+followTheSatoshi :: (HasGeneratedSecrets, HasProtocolConstants) => SharedSeed -> [(StakeholderId, Coin)] -> SlotLeaders
 followTheSatoshi seed stakes
     | totalCoins > coinToInteger maxBound =
         error $ sformat

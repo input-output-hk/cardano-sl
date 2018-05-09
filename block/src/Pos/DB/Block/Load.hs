@@ -21,8 +21,8 @@ import           Formatting (sformat, (%))
 
 import           Pos.Binary.Core ()
 import           Pos.Block.Types (Blund)
-import           Pos.Core (BlockCount, HasConfiguration, HasDifficulty (difficultyL),
-                           HasPrevBlock (prevBlockL), HeaderHash)
+import           Pos.Core (BlockCount, HasDifficulty (difficultyL),
+                           HasPrevBlock (prevBlockL), HeaderHash, HasGenesisHash)
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Core.Configuration (genesisHash)
 import           Pos.Crypto (shortHashF)
@@ -35,8 +35,7 @@ import           Pos.Util.Chrono (NewestFirst (..))
 import           Pos.Util.Util (maybeThrow)
 
 type LoadHeadersMode m =
-    ( HasConfiguration
-    , MonadDBRead m
+    ( MonadDBRead m
     )
 
 ----------------------------------------------------------------------------
@@ -45,7 +44,7 @@ type LoadHeadersMode m =
 
 loadDataWhile
     :: forall m a .
-       (Monad m, HasPrevBlock a, HasConfiguration)
+       (Monad m, HasPrevBlock a, HasGenesisHash)
     => (HeaderHash -> m a)
     -> (a -> Bool)
     -> HeaderHash
@@ -66,7 +65,7 @@ loadDataWhile getter predicate start = NewestFirst <$> doIt [] start
 -- (newest one) is assumed to have depth 0.
 loadDataByDepth
     :: forall m a .
-       (Monad m, HasPrevBlock a, HasDifficulty a, HasConfiguration)
+       (Monad m, HasPrevBlock a, HasDifficulty a, HasGenesisHash)
     => (HeaderHash -> m a)
     -> (a -> Bool)
     -> BlockCount
@@ -98,28 +97,28 @@ loadDataByDepth getter extraPredicate depth h = do
 -- | Load blunds starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
 loadBlundsWhile
-    :: MonadDBRead m
+    :: (MonadDBRead m, HasGenesisHash)
     => (Block -> Bool) -> HeaderHash -> m (NewestFirst [] Blund)
 loadBlundsWhile predicate = loadDataWhile getBlundThrow (predicate . fst)
 
 -- | Load blunds which have depth less than given (depth = number of
 -- blocks that will be returned).
 loadBlundsByDepth
-    :: MonadDBRead m
+    :: (MonadDBRead m, HasGenesisHash)
     => BlockCount -> HeaderHash -> m (NewestFirst [] Blund)
 loadBlundsByDepth = loadDataByDepth getBlundThrow (const True)
 
 -- | Load blocks starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
 loadBlocksWhile
-    :: MonadBlockDBRead m
+    :: (MonadBlockDBRead m, HasGenesisHash)
     => (Block -> Bool) -> HeaderHash -> m (NewestFirst [] Block)
 loadBlocksWhile = loadDataWhile getBlockThrow
 
 -- | Load headers starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
 loadHeadersWhile
-    :: LoadHeadersMode m
+    :: ( LoadHeadersMode m, HasGenesisHash )
     => (BlockHeader -> Bool)
     -> HeaderHash
     -> m (NewestFirst [] BlockHeader)
@@ -127,7 +126,7 @@ loadHeadersWhile = loadDataWhile getHeaderThrow
 
 -- | Load headers which have depth less than given.
 loadHeadersByDepth
-    :: LoadHeadersMode m
+    :: ( LoadHeadersMode m, HasGenesisHash )
     => BlockCount -> HeaderHash -> m (NewestFirst [] BlockHeader)
 loadHeadersByDepth = loadDataByDepth getHeaderThrow (const True)
 
@@ -138,14 +137,14 @@ loadHeadersByDepth = loadDataByDepth getHeaderThrow (const True)
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: MonadDBRead m
+    :: (MonadDBRead m, HasGenesisHash)
     => (Block -> Bool) -> m (NewestFirst [] Blund)
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: MonadDBRead m
+    :: (MonadDBRead m, HasGenesisHash)
     => BlockCount -> m (NewestFirst [] Blund)
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 

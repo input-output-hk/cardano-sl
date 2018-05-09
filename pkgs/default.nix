@@ -7432,7 +7432,7 @@ inherit (pkgs) mesa;};
         ({ mkDerivation, aeson, async, attoparsec, base, binary, bytestring
          , cardano-sl-util, conduit, conduit-extra, containers
          , contravariant, cryptonite, ekg-core, exceptions, formatting
-         , hashable, hspec, kademlia, lens, log-warper, mmorph
+         , hashable, hspec, hspec-core, kademlia, lens, log-warper, mmorph
          , monad-control, MonadRandom, mtl, network, network-transport
          , network-transport-inmemory, network-transport-tcp
          , optparse-simple, QuickCheck, random, resourcet, safe-exceptions
@@ -7463,9 +7463,10 @@ inherit (pkgs) mesa;};
              text-format time-units
            ];
            testHaskellDepends = [
-             base binary bytestring containers hspec lens log-warper mtl
-             network-transport network-transport-inmemory network-transport-tcp
-             QuickCheck random safe-exceptions serokell-util stm time-units
+             async base binary bytestring cardano-sl-util containers hspec
+             hspec-core lens log-warper mtl network-transport
+             network-transport-inmemory network-transport-tcp QuickCheck random
+             safe-exceptions serokell-util stm time-units
            ];
            doHaddock = false;
            license = stdenv.lib.licenses.mit;
@@ -7731,8 +7732,8 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-wallet-new" = callPackage
-        ({ mkDerivation, acid-state, aeson, aeson-diff, aeson-pretty, async
-         , base, bytestring, cardano-sl, cardano-sl-block, cardano-sl-client
+        ({ mkDerivation, acid-state, aeson, aeson-diff, aeson-pretty, base
+         , bytestring, cardano-sl, cardano-sl-block, cardano-sl-client
          , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
          , cardano-sl-delegation, cardano-sl-infra, cardano-sl-networking
          , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
@@ -7756,7 +7757,7 @@ inherit (pkgs) mesa;};
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [
-             acid-state aeson aeson-pretty async base bytestring cardano-sl
+             acid-state aeson aeson-pretty base bytestring cardano-sl
              cardano-sl-block cardano-sl-client cardano-sl-core
              cardano-sl-crypto cardano-sl-db cardano-sl-infra
              cardano-sl-networking cardano-sl-ssc cardano-sl-txp

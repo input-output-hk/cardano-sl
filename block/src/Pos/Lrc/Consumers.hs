@@ -12,8 +12,9 @@ import           Pos.Lrc.Mode (LrcMode)
 import           Pos.Ssc.Lrc (sscLrcConsumer)
 import           Pos.Ssc.Message (SscMessageConstraints)
 import           Pos.Update.Lrc (usLrcConsumer)
+import           Pos.Core (HasGenesisBlockVersionData)
 
 allLrcConsumers
-    :: forall ctx m. (SscMessageConstraints, LrcMode ctx m)
+    :: forall ctx m. (SscMessageConstraints, LrcMode ctx m, HasGenesisBlockVersionData)
     => [LrcConsumer m]
 allLrcConsumers = [dlgLrcConsumer, usLrcConsumer, sscLrcConsumer]

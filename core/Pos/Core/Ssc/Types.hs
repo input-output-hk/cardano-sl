@@ -236,17 +236,10 @@ instance Monoid VssCertificatesMap where
 
 -- | Payload included into blocks.
 data SscPayload
-    = CommitmentsPayload
-        { spComms :: !CommitmentsMap
-        , spVss   :: !VssCertificatesMap }
-    | OpeningsPayload
-        { spOpenings :: !OpeningsMap
-        , spVss      :: !VssCertificatesMap }
-    | SharesPayload
-        { spShares :: !SharesMap
-        , spVss    :: !VssCertificatesMap }
-    | CertificatesPayload
-        { spVss    :: !VssCertificatesMap }
+    = CommitmentsPayload !CommitmentsMap !VssCertificatesMap
+    | OpeningsPayload !OpeningsMap !VssCertificatesMap
+    | SharesPayload !SharesMap !VssCertificatesMap
+    | CertificatesPayload !VssCertificatesMap
     deriving (Eq, Show, Generic)
 
 -- Note: we can't use 'VssCertificatesMap', because we serialize it as

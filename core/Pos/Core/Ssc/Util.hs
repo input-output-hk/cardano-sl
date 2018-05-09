@@ -12,7 +12,7 @@ module Pos.Core.Ssc.Util
 
 import           Universum
 
-import           Control.Monad.Except (MonadError)
+import           Control.Monad.Except (MonadError (throwError))
 import           Control.Lens (each, traverseOf)
 import qualified Data.HashMap.Strict as HM
 
@@ -56,4 +56,5 @@ checkSscPayload
     => ProtocolMagic
     -> SscPayload
     -> m ()
-checkSscPayload pm payload = checkVssCertificatesMap pm (spVss payload)
+checkSscPayload pm (CommitmentsPayload _ spVss) = checkVssCertificatesMap pm spVss
+checkSscPayload _ _ = throwError "checkVssPayload: invalid payload"

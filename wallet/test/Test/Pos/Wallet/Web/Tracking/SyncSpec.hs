@@ -13,7 +13,7 @@ import           Data.Default (def)
 import qualified Data.HashSet as HS
 import           Data.List ((\\), intersect)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec (Spec, describe, xdescribe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..), Property, choose, oneof, sublistOf, suchThat,
                                   vectorOf, (===))
@@ -42,7 +42,7 @@ spec :: Spec
 spec = withCompileInfo def $ withDefConfigurations $ \_ -> do
     describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
         describe "Two applications and rollbacks" twoApplyTwoRollbacksSpec
-    describe "Pos.Wallet.Web.Tracking.evalChange" $ do
+    xdescribe "Pos.Wallet.Web.Tracking.evalChange (pending, CSL-2473)" $ do
         prop evalChangeDiffAccountsDesc evalChangeDiffAccounts
         prop evalChangeSameAccountsDesc evalChangeSameAccounts
   where

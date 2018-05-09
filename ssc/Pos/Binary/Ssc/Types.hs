@@ -6,14 +6,13 @@ import           Universum
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi,
                                    deriveSimpleBiCxt, encodeListLen, enforceSize)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Core.Ssc (CommitmentsMap, Opening, OpeningsMap, SharesMap, SignedCommitment,
                                VssCertificatesMap (..))
 import           Pos.Ssc.Types (SscGlobalState (..), SscSecretStorage (..))
 import           Pos.Ssc.VssCertData (VssCertData (..))
 
-instance HasConfiguration => Bi VssCertData where
+instance Bi VssCertData where
     encode VssCertData {..} = mconcat
         [ encodeListLen 6
         , encode lastKnownEoS
@@ -35,7 +34,7 @@ instance HasConfiguration => Bi VssCertData where
         expiredCerts <- decode
         return VssCertData {..}
 
-deriveSimpleBiCxt [t|HasConfiguration|] ''SscGlobalState [
+deriveSimpleBiCxt [t|()|] ''SscGlobalState [
     Cons 'SscGlobalState [
         Field [| _sgsCommitments     :: CommitmentsMap |],
         Field [| _sgsOpenings        :: OpeningsMap    |],

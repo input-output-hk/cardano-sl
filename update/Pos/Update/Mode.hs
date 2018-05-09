@@ -12,7 +12,7 @@ import           System.Wlog (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Update ()
-import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Configuration ()
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Recovery.Info (MonadRecoveryInfo)
@@ -39,7 +39,6 @@ type UpdateMode ctx m
       , HasLens UpdateParams ctx UpdateParams
       , HasLens StateLock ctx StateLock
       , HasShutdownContext ctx
-      , HasConfiguration
       , HasUpdateConfiguration
       , MonadReporting ctx m
       , MonadRecoveryInfo m

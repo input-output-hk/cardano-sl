@@ -45,7 +45,7 @@ instance HasGenesisBlockVersionData => RichmenComponent RCSsc where
 ----------------------------------------------------------------------------
 
 -- | Consumer will be called on every Richmen computation.
-sscLrcConsumer :: (DB.MonadGState m, DB.MonadDB m) => Lrc.LrcConsumer m
+sscLrcConsumer :: (DB.MonadGState m, DB.MonadDB m, HasGenesisBlockVersionData) => Lrc.LrcConsumer m
 sscLrcConsumer = Lrc.lrcConsumerFromComponentSimple @RCSsc bvdMpcThd
 
 ----------------------------------------------------------------------------
@@ -55,7 +55,7 @@ sscLrcConsumer = Lrc.lrcConsumerFromComponentSimple @RCSsc bvdMpcThd
 -- | Wait for LRC results to become available and then get the list of SSC
 -- ricmen for the given epoch.
 getSscRichmen
-    :: (MonadIO m, DB.MonadDBRead m, MonadReader ctx m, Lrc.HasLrcContext ctx)
+    :: (MonadIO m, DB.MonadDBRead m, MonadReader ctx m, Lrc.HasLrcContext ctx, HasGenesisBlockVersionData)
     => Text               -- ^ Function name (to include into error message)
     -> EpochIndex         -- ^ Epoch for which you want to know the richmen
     -> m Lrc.RichmenStakes
@@ -69,6 +69,6 @@ getSscRichmen fname epoch =
 --
 -- Returns a 'Maybe'.
 tryGetSscRichmen
-    :: DB.MonadDBRead m
+    :: (DB.MonadDBRead m, HasGenesisBlockVersionData)
     => EpochIndex -> m (Maybe Lrc.RichmenStakes)
 tryGetSscRichmen = Lrc.getRichmen @RCSsc

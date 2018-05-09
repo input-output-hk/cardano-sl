@@ -36,6 +36,7 @@ restoreWallet :: ( WalletDbReader ctx m
                  , MonadMask m
                  , MonadSlotsData ctx m
                  , MonadUnliftIO m
+                 , HasConfiguration
                  ) => WalletDecrCredentials -> m ()
 restoreWallet credentials = do
     db <- askWalletDB
@@ -71,6 +72,7 @@ restoreWalletBalance :: ( WalletDbReader ctx m
                         , CanLog m
                         , MonadDBRead m
                         , MonadUnliftIO m
+                        , HasConfiguration
                         ) => WalletDB -> WalletDecrCredentials -> m ()
 restoreWalletBalance db credentials = do
     utxo <- filterUtxo walletUtxo

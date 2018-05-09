@@ -56,8 +56,7 @@ module Pos.Core.Common.Types
 import           Universum
 
 import           Control.Exception.Safe (Exception (displayException))
-import           Control.Lens (makePrisms)
-import           Control.Lens (_Left)
+import           Control.Lens (makePrisms, _Left)
 import           Control.Monad.Except (MonadError (throwError))
 import           Crypto.Hash (Blake2b_224)
 import qualified Data.ByteString as BS (pack, zipWith)

@@ -19,8 +19,9 @@ import           Data.X509.CertificateStore (makeCertificateStore)
 import           Network.Connection (TLSSettings (..))
 import           Network.HTTP.Client (Manager, ManagerSettings, defaultManagerSettings, newManager)
 import           Network.HTTP.Client.TLS (mkManagerSettings)
-import           Network.TLS (Bytes, ClientParams (..), Credentials (..), HostName, PrivKey,
-                              Shared (..), Supported (..), credentialLoadX509, noSessionManager)
+import           Network.TLS (Bytes, ClientHooks (..), ClientParams (..), Credentials (..),
+                              HostName, PrivKey, Shared (..), Supported (..), credentialLoadX509,
+                              noSessionManager)
 import           Network.TLS.Extra.Cipher (ciphersuite_default)
 import           Servant ((:<|>) (..), (:>))
 import           Servant.Client (BaseUrl (..), ClientEnv (..), Scheme (..), ServantError (..),
@@ -54,7 +55,7 @@ mkHttpsManagerSettings serverId caChain credentials =
         , clientUseServerNameIndication = True
         , clientWantSessionResume       = Nothing
         , clientShared                  = clientShared
-        , clientHooks                   = def
+        , clientHooks                   = clientHooks
         , clientSupported               = clientSupported
         , clientDebug                   = def
         }
@@ -63,6 +64,9 @@ mkHttpsManagerSettings serverId caChain credentials =
         , sharedCAStore         = makeCertificateStore caChain
         , sharedSessionManager  = noSessionManager
         , sharedValidationCache = def
+        }
+    clientHooks = def
+        { onCertificateRequest = const . return . Just $ credentials
         }
     clientSupported = def
         { supportedCiphers = ciphersuite_default

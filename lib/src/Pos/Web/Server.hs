@@ -169,11 +169,11 @@ tlsWithClientCheck host port TlsParams{..} = tlsSettings
     -- This solely verify that the provided certificate is valid and was signed by authority we
     -- recognize (tpCaPath)
     validateCertificate cert = do
-          mstore <- readCertificateStore tpCaPath
-          maybe
-                (pure $ Just "Cannot init a store, unable to validate client certificates")
-                (fmap fromX509FailedReasons . (\store -> X509.validate HashSHA256 validationHooks validationChecks store def serviceID cert))
-                mstore
+        mstore <- readCertificateStore tpCaPath
+        maybe
+            (pure $ Just "Cannot init a store, unable to validate client certificates")
+            (fmap fromX509FailedReasons . (\store -> X509.validate HashSHA256 validationHooks validationChecks store def serviceID cert))
+            mstore
 
     fromX509FailedReasons reasons =
         case reasons of

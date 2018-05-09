@@ -26,10 +26,10 @@ import           System.Wlog (WithLogger)
 import           Pos.Block.Configuration (HasBlockConfiguration, fixedTimeCQ)
 import           Pos.Block.Slog.Context (slogGetLastSlots)
 import           Pos.Block.Slog.Types (HasSlogGState)
-import           Pos.Core (BlockCount, FlatSlotId, HeaderHash, Timestamp (..), difficultyL,
-                           flattenSlotId, headerHash, prevBlockL)
+import           Pos.Core (BlockCount, FlatSlotId, HasProtocolConstants, HeaderHash, Timestamp (..),
+                           difficultyL, flattenSlotId, headerHash, prevBlockL)
 import           Pos.Core.Block (BlockHeader)
-import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam)
+import           Pos.Core.Configuration (blkSecurityParam)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadBlockDBRead)
 import           Pos.Exception (reportFatalError)
@@ -46,7 +46,7 @@ import           Pos.Util.Chrono (NE, OldestFirst (..))
 -- Though, usually in this method oldest header is LCA, so it can be
 -- optimized by traversing from older to newer.
 lcaWithMainChain
-    :: (HasConfiguration, MonadBlockDBRead m)
+    :: ( MonadBlockDBRead m )
     => OldestFirst NE BlockHeader -> m (Maybe HeaderHash)
 lcaWithMainChain headers =
     lcaProceed Nothing $
@@ -67,7 +67,7 @@ lcaWithMainChain headers =
 -- consistency. FIXME.
 lcaWithMainChainSuffix
     :: forall m .
-       (HasConfiguration, MonadBlockDBRead m)
+       (MonadBlockDBRead m)
     => OldestFirst [] BlockHeader -> m (OldestFirst [] BlockHeader)
 lcaWithMainChainSuffix headers = OldestFirst <$> go (getOldestFirst headers)
   where
@@ -101,7 +101,7 @@ calcChainQualityM ::
        , MonadThrow m
        , WithLogger m
        , Fractional res
-       , HasConfiguration
+       , HasProtocolConstants
        )
     => FlatSlotId
     -> m (Maybe res)
@@ -127,7 +127,7 @@ calcChainQualityM newSlot = do
 -- slot is unknown.
 calcOverallChainQuality ::
        forall ctx m res.
-       (Fractional res, MonadSlots ctx m, MonadBlockDBRead m, HasConfiguration)
+       (Fractional res, MonadSlots ctx m, MonadBlockDBRead m, HasProtocolConstants)
     => m (Maybe res)
 calcOverallChainQuality =
     getCurrentSlotFlat >>= \case
@@ -156,9 +156,9 @@ calcChainQualityFixedTime ::
        forall ctx m res.
        ( Fractional res
        , MonadSlots ctx m
-       , HasConfiguration
        , HasBlockConfiguration
        , HasSlogGState ctx
+       , HasProtocolConstants
        )
     => m (Maybe res)
 calcChainQualityFixedTime = do

@@ -18,6 +18,7 @@ import           Pos.Communication.Protocol (LocalOnNewSlotComm, OnNewSlotComm)
 import           Pos.Communication.Types.Protocol (OutSpecs)
 import           Pos.Communication.Util (Action, ActionSpec (..), localSpecs, toAction)
 import           Pos.Slotting (OnNewSlotParams (..), SlotId, onNewSlot)
+import           Pos.Core (HasProtocolConstants)
 
 type Worker m = Action m ()
 type WorkerSpec m = ActionSpec m ()
@@ -33,7 +34,7 @@ worker' outSpecs h =
     (,outSpecs) $ ActionSpec $ h
 
 onNewSlot'
-    :: OnNewSlotComm ctx m
+    :: (OnNewSlotComm ctx m, HasProtocolConstants)
     => OnNewSlotParams -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
 onNewSlot' params (h, outs) =
     (,outs) . ActionSpec $ \sA ->
@@ -41,12 +42,12 @@ onNewSlot' params (h, outs) =
             \slotId -> let ActionSpec h' = h slotId
                         in h' sA
 onNewSlotWorker
-    :: OnNewSlotComm ctx m
+    :: (OnNewSlotComm ctx m, HasProtocolConstants)
     => OnNewSlotParams -> OutSpecs -> (SlotId -> Worker m) -> (WorkerSpec m, OutSpecs)
 onNewSlotWorker params outs = onNewSlot' params . workerHelper outs
 
 localOnNewSlotWorker
-    :: LocalOnNewSlotComm ctx m
+    :: (LocalOnNewSlotComm ctx m, HasProtocolConstants)
     => OnNewSlotParams -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
 localOnNewSlotWorker params h = (ActionSpec $ \__sA -> onNewSlot params h, mempty)
 

@@ -130,6 +130,7 @@ txpProcessTxWebWallet
     ( TxpProcessTransactionMode ctx m
     , AccountMode ctx m
     , WS.WalletDbReader ctx m
+    , HasConfiguration
     )
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txpProcessTxWebWallet tx@(txId, txAux) = do

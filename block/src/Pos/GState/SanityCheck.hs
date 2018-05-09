@@ -13,6 +13,7 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Stakes (getRealTotalStake)
 import           Pos.Txp.DB (sanityCheckStakes, sanityCheckUtxo)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Core (HasGenesisData)
 
 sanityCheckDB ::
        ( MonadMask m
@@ -20,6 +21,7 @@ sanityCheckDB ::
        , MonadDBRead m
        , MonadUnliftIO m
        , MonadReader ctx m
+       , HasGenesisData
        )
     => m ()
 sanityCheckDB = inAssertMode sanityCheckGStateDB
@@ -32,6 +34,7 @@ sanityCheckGStateDB ::
        , MonadMask m
        , WithLogger m
        , MonadReader ctx m
+       , HasGenesisData
        )
     => m ()
 sanityCheckGStateDB = do

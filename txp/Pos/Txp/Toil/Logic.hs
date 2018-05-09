@@ -22,10 +22,9 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), Address,
                            BlockVersionData (..), EpochIndex, addrAttributesUnwrapped,
-                           isBootstrapEraBVD, isRedeemAddress)
+                           isBootstrapEraBVD, isRedeemAddress, HasProtocolMagic, HasGenesisData)
 import           Pos.Core.Common (integerToCoin)
 import qualified Pos.Core.Common as Fee (TxFeePolicy (..), calculateTxSizeLinear)
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo, TxpUndo, checkTxAux,
                                toaOut, txOutAddress)
 import           Pos.Crypto (WithHash (..), hash)
@@ -55,7 +54,7 @@ import           Pos.Util (liftEither)
 -- witnesses, addresses, attributes) must be known. Otherwise unknown
 -- data is just ignored.
 verifyToil ::
-       (HasConfiguration)
+       (HasProtocolMagic)
     => BlockVersionData
     -> EpochIndex
     -> Bool
@@ -66,14 +65,14 @@ verifyToil bvd curEpoch verifyAllIsKnown =
 
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
-applyToil :: HasConfiguration => [(TxAux, TxUndo)] -> GlobalToilM ()
+applyToil :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
 applyToil [] = pass
 applyToil txun = do
     applyTxsToStakes txun
     utxoMToGlobalToilM $ mapM_ (applyTxToUtxo' . withTxId . fst) txun
 
 -- | Rollback transactions from one block.
-rollbackToil :: HasConfiguration => [(TxAux, TxUndo)] -> GlobalToilM ()
+rollbackToil :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
 rollbackToil txun = do
     rollbackTxsStakes txun
     utxoMToGlobalToilM $ mapM_ Utxo.rollbackTxUtxo $ reverse txun
@@ -85,7 +84,7 @@ rollbackToil txun = do
 -- | Verify one transaction and also add it to mem pool and apply to utxo
 -- if transaction is valid.
 processTx ::
-       (HasTxpConfiguration, HasConfiguration)
+       (HasTxpConfiguration, HasProtocolMagic)
     => BlockVersionData
     -> EpochIndex
     -> (TxId, TxAux)
@@ -100,7 +99,7 @@ processTx bvd curEpoch tx@(id, aux) = do
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
 normalizeToil ::
-       (HasTxpConfiguration, HasConfiguration)
+       (HasTxpConfiguration, HasProtocolMagic)
     => BlockVersionData
     -> EpochIndex
     -> [(TxId, TxAux)]
@@ -110,7 +109,7 @@ normalizeToil bvd curEpoch txs = mapM_ normalize ordered
     ordered = fromMaybe txs $ topsortTxs wHash txs
     wHash (i, txAux) = WithHash (taTx txAux) i
     normalize ::
-           (HasTxpConfiguration, HasConfiguration)
+           (HasTxpConfiguration)
         => (TxId, TxAux)
         -> LocalToilM ()
     normalize = void . runExceptT . processTx bvd curEpoch
@@ -122,7 +121,7 @@ normalizeToil bvd curEpoch txs = mapM_ normalize ordered
 -- Note: it doesn't consider/affect stakes! That's because we don't
 -- care about stakes for local txp.
 verifyAndApplyTx ::
-       (HasConfiguration)
+       (HasProtocolMagic)
     => BlockVersionData
     -> EpochIndex
     -> Bool

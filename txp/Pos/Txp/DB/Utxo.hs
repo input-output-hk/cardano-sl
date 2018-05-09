@@ -42,9 +42,8 @@ import           Serokell.Util (Color (Red), colorize)
 import           System.Wlog (WithLogger, logError)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Binary.Core ()
-import           Pos.Core (Address, Coin, HasConfiguration, coinF, mkCoin, sumCoins, unsafeAddCoin,
-                           unsafeIntegerToCoin)
+import           Pos.Core (Address, Coin, coinF, mkCoin, sumCoins, unsafeAddCoin,
+                           unsafeIntegerToCoin, HasCoreConfiguration, HasGenesisData)
 import           Pos.Core.Txp (TxIn (..), TxOutAux (toaOut))
 import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB), IterType, MonadDB,
                          MonadDBRead, RocksBatchOp (..), dbIterSource, dbSerializeValue,
@@ -75,7 +74,7 @@ instance Buildable UtxoOp where
         bprint ("AddTxOut ("%build%", "%build%")")
         txIn txOutAux
 
-instance HasConfiguration => RocksBatchOp UtxoOp where
+instance HasCoreConfiguration => RocksBatchOp UtxoOp where
     toBatchOp (AddTxOut txIn txOut) =
         [Rocks.Put (txInKey txIn) (dbSerializeValue txOut)]
     toBatchOp (DelTxIn txIn) = [Rocks.Del $ txInKey txIn]
@@ -134,7 +133,7 @@ getAllPotentiallyHugeUtxo = runConduitRes $ utxoSource .| utxoSink
 ----------------------------------------------------------------------------
 
 sanityCheckUtxo
-    :: (MonadDBRead m, WithLogger m, MonadUnliftIO m)
+    :: (MonadDBRead m, WithLogger m, MonadUnliftIO m, HasGenesisData)
     => Coin -> m ()
 sanityCheckUtxo expectedTotalStake = do
     let stakesSource =

@@ -20,8 +20,9 @@ import           Universum
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Binary.Core ()
-import           Pos.Core (EpochIndex, HasConfiguration, HasProtocolConstants, SlotId (SlotId),
-                           SlotLeaders, StakeholderId, flattenSlotId, unsafeMkLocalSlotIndex)
+import           Pos.Core (EpochIndex, HasProtocolConstants, SlotId (SlotId),
+                           SlotLeaders, StakeholderId, flattenSlotId, unsafeMkLocalSlotIndex,
+                           HasGeneratedSecrets, HasGenesisData)
 import           Pos.DB.Class (MonadDB, MonadDBRead)
 import           Pos.Lrc.DB.Common (dbHasKey, getBi, putBatch, putBatchBi, putBi, toRocksOps)
 import           Pos.Lrc.Genesis (genesisLeaders)
@@ -33,7 +34,7 @@ import           Pos.Lrc.Genesis (genesisLeaders)
 getLeadersForEpoch :: MonadDBRead m => EpochIndex -> m (Maybe SlotLeaders)
 getLeadersForEpoch = getBi . leadersForEpochKey
 
-getLeader :: MonadDBRead m => SlotId -> m (Maybe StakeholderId)
+getLeader :: (MonadDBRead m, HasProtocolConstants) => SlotId -> m (Maybe StakeholderId)
 getLeader = getBi . leaderKey
 
 ----------------------------------------------------------------------------
@@ -44,7 +45,7 @@ getLeader = getBi . leaderKey
 -- The DB contains two mappings:
 -- * EpochIndex -> SlotLeaders
 -- * SlotId -> StakeholderId (added in CSE-240)
-putLeadersForEpoch :: MonadDB m => EpochIndex -> SlotLeaders -> m ()
+putLeadersForEpoch :: (MonadDB m, HasProtocolConstants) => EpochIndex -> SlotLeaders -> m ()
 putLeadersForEpoch epoch leaders = do
     let opsAllAtOnce  = toRocksOps $ putLeadersForEpochAllAtOnceOps epoch leaders
         opsSeparately = toRocksOps $ putLeadersForEpochSeparatelyOps epoch leaders
@@ -56,7 +57,9 @@ putLeadersForEpoch epoch leaders = do
 
 prepareLrcLeaders ::
        ( MonadDB m
-       , HasConfiguration
+       , HasProtocolConstants
+       , HasGeneratedSecrets
+       , HasGenesisData
        )
     => m ()
 prepareLrcLeaders =

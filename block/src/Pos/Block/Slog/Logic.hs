@@ -37,9 +37,9 @@ import           Pos.Block.Logic.Integrity (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import           Pos.Block.Slog.Types (HasSlogGState)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
-import           Pos.Core (BlockVersion (..), FlatSlotId, HasConfiguration, blkSecurityParam,
+import           Pos.Core (BlockVersion (..), FlatSlotId, blkSecurityParam, HasProtocolConstants,
                            difficultyL, epochIndexL, flattenSlotId, headerHash, headerHashG,
-                           prevBlockL)
+                           prevBlockL, HasProtocolMagic)
 import           Pos.Core.Block (Block, genBlockLeaders, mainBlockSlot)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block (putBlunds)
@@ -105,7 +105,6 @@ type MonadSlogBase ctx m =
     , MonadIO m
     , MonadDBRead m
     , WithLogger m
-    , HasConfiguration
     , HasUpdateConfiguration
     )
 
@@ -128,6 +127,8 @@ type MonadSlogVerify ctx m =
 slogVerifyBlocks
     :: forall ctx m.
     ( MonadSlogVerify ctx m
+    , HasProtocolConstants
+    , HasProtocolMagic
     )
     => OldestFirst NE Block
     -> m (Either Text (OldestFirst NE SlogUndo))
@@ -212,7 +213,7 @@ newtype ShouldCallBListener = ShouldCallBListener Bool
 --     5. Adding new forward links
 --     6. Setting @inMainChain@ flags
 slogApplyBlocks
-    :: forall ctx m. (MonadSlogApply ctx m)
+    :: forall ctx m. (MonadSlogApply ctx m, HasProtocolConstants)
     => ShouldCallBListener
     -> OldestFirst NE Blund
     -> m SomeBatchOp
@@ -280,7 +281,7 @@ newtype BypassSecurityCheck = BypassSecurityCheck Bool
 --     4. Removing forward links
 --     5. Removing @inMainChain@ flags
 slogRollbackBlocks ::
-       forall ctx m. (MonadSlogApply ctx m)
+       forall ctx m. (MonadSlogApply ctx m, HasProtocolConstants)
     => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
     -> NewestFirst NE Blund

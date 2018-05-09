@@ -21,7 +21,7 @@ import           Data.Conduit (ConduitT, transPipe)
 
 import qualified Database.RocksDB as Rocks
 import           Pos.Binary.Class (Bi)
-import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Configuration (HasCoreConfiguration)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag, IterType)
 import           Pos.DB.Pure (DBPureVar)
 import qualified Pos.DB.Pure as DB
@@ -36,7 +36,6 @@ type MonadDBSum ctx m =
     , HasLens DBSum ctx DBSum
     , MonadMask m
     , MonadIO m
-    , HasConfiguration
     )
 
 eitherDB
@@ -58,6 +57,7 @@ dbIterSourceSumDefault
        , DBIteratorClass i
        , Bi (IterKey i)
        , Bi (IterValue i)
+       , HasCoreConfiguration
        )
     => DBTag -> Proxy i -> ConduitT () (IterType i) m ()
 dbIterSourceSumDefault tag proxy = view (lensOf @DBSum) >>= \case
@@ -65,7 +65,7 @@ dbIterSourceSumDefault tag proxy = view (lensOf @DBSum) >>= \case
     PureDB pdb -> transPipe (flip runReaderT pdb) (DB.dbIterSourcePureDefault tag proxy)
 
 dbPutSumDefault
-    :: MonadDBSum ctx m
+    :: (MonadDBSum ctx m, HasCoreConfiguration)
     => DBTag -> ByteString -> ByteString -> m ()
 dbPutSumDefault tag k v = eitherDB (DB.dbPutDefault tag k v) (DB.dbPutPureDefault tag k v)
 

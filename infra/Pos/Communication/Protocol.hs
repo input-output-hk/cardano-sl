@@ -37,7 +37,6 @@ import           Serokell.Util.Text (listJson)
 import           Pos.Util.Trace (Trace, Severity (..), traceWith)
 
 import           Pos.Communication.Types.Protocol
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Reporting (MonadReporting)
 import           Pos.Shutdown (HasShutdownContext)
@@ -174,14 +173,12 @@ type LocalOnNewSlotComm ctx m =
     , MonadReporting ctx m
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
-    , HasConfiguration
     )
 
 type OnNewSlotComm ctx m =
     ( LocalOnNewSlotComm ctx m
     , MonadThrow m
     , Mockable SharedAtomic m
-    , HasConfiguration
     )
 
 -- FIXME network layer is not concerned with this.

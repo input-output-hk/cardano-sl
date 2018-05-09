@@ -21,11 +21,14 @@ import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, getHeadersOlderExp)
-import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlocks, triggerRecovery)
+import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlocks,
+                                          triggerRecovery)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (RecoveryHeaderTag)
 import           Pos.Communication.Protocol (NodeId, OutSpecs)
-import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL, isMoreDifficult)
+import           Pos.Core (Block, HasGeneratedSecrets, HasGenesisBlockVersionData, HasGenesisData,
+                           HasGenesisHash, HasHeaderHash (..), HasProtocolConstants, HeaderHash,
+                           difficultyL, isMoreDifficult)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.BlockIndex as DB
@@ -37,8 +40,13 @@ import           Pos.Util.Util (HasLens (..))
 import           Pos.Worker.Types (WorkerSpec, worker)
 
 retrievalWorker
-    :: forall ctx m.
-       (BlockWorkMode ctx m)
+    :: ( BlockWorkMode ctx m
+       , HasGeneratedSecrets
+       , HasGenesisHash
+       , HasProtocolConstants
+       , HasGenesisBlockVersionData
+       , HasGenesisData
+       )
     => (WorkerSpec m, OutSpecs)
 retrievalWorker = worker mempty retrievalWorkerImpl
 
@@ -57,7 +65,13 @@ retrievalWorker = worker mempty retrievalWorkerImpl
 --
 retrievalWorkerImpl
     :: forall ctx m.
-       (BlockWorkMode ctx m)
+       ( BlockWorkMode ctx m
+       , HasGeneratedSecrets
+       , HasGenesisHash
+       , HasProtocolConstants
+       , HasGenesisBlockVersionData
+       , HasGenesisData
+       )
     => Diffusion m -> m ()
 retrievalWorkerImpl diffusion = do
     logInfo "Starting retrievalWorker loop"
@@ -273,7 +287,13 @@ dropRecoveryHeaderAndRepeat diffusion nodeId = do
 -- processed. Throws exception if something goes wrong.
 getProcessBlocks
     :: forall ctx m.
-       (BlockWorkMode ctx m)
+       ( BlockWorkMode ctx m
+       , HasGeneratedSecrets
+       , HasGenesisBlockVersionData
+       , HasProtocolConstants
+       , HasGenesisHash
+       , HasGenesisData
+       )
     => Diffusion m
     -> NodeId
     -> HeaderHash

@@ -31,10 +31,11 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.Logic.Integrity (VerifyHeaderParams (..), verifyHeader, verifyHeaders)
 import           Pos.Block.Logic.Util (lcaWithMainChain)
-import           Pos.Core (BlockCount, EpochOrSlot (..), HasConfiguration, HeaderHash, SlotId (..),
+import           Pos.Core (BlockCount, EpochOrSlot (..), HeaderHash, SlotId (..), HasProtocolMagic,
                            blkSecurityParam, bvdMaxHeaderSize, difficultyL, epochIndexL,
                            epochOrSlotG, getChainDifficulty, getEpochOrSlot, headerHash,
-                           headerHashG, headerSlotL, prevBlockL)
+                           headerHashG, headerSlotL, prevBlockL,
+                           HasProtocolConstants, HasGenesisHash)
 import           Pos.Core.Block (BlockHeader (..))
 import           Pos.Crypto (hash)
 import           Pos.DB (MonadDBRead)
@@ -76,12 +77,12 @@ mkCHRinvalid = CHInvalid . T.intercalate "; "
 -- as ClassifyHeaderRes type.
 classifyNewHeader
     :: forall ctx m.
-    ( HasConfiguration
-    , MonadSlots ctx m
+    ( MonadSlots ctx m
     , MonadDBRead m
     , MonadUnliftIO m
     , MonadSlots ctx m
     , HasLrcContext ctx
+    , HasProtocolMagic
     )
     => BlockHeader -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
@@ -172,7 +173,8 @@ classifyHeaders ::
        , HasLrcContext ctx
        , MonadSlots ctx m
        , WithLogger m
-       , HasConfiguration
+       , HasProtocolConstants
+       , HasProtocolMagic
        )
     => Bool -- recovery in progress?
     -> NewestFirst NE BlockHeader
@@ -260,7 +262,6 @@ data GetHeadersFromManyToError = GHFBadInput Text deriving (Show,Generic)
 getHeadersFromManyTo ::
        ( MonadDBRead m
        , WithLogger m
-       , HasConfiguration
        )
     => Maybe Word          -- ^ Optional limit on how many to bring in.
     -> NonEmpty HeaderHash -- ^ Checkpoints; not guaranteed to be
@@ -313,7 +314,7 @@ getHeadersFromManyTo mLimit checkpoints startM = runExceptT $ do
 -- it returns not more than 'blkSecurityParam' blocks distributed
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
-    :: (HasConfiguration, MonadDBRead m)
+    :: ( MonadDBRead m, HasProtocolConstants, HasGenesisHash )
     => Maybe HeaderHash -> m (OldestFirst NE HeaderHash)
 getHeadersOlderExp upto = do
     tip <- GS.getTip
@@ -375,7 +376,7 @@ throwGHR = throwError . GHRBadInput
 -- of headers in the chain (which should be returned) is more than
 -- @depthLimit@, error will be thrown.
 getHashesRange ::
-       forall m. (HasConfiguration, MonadDBRead m)
+       forall m. (MonadDBRead m)
     => Maybe Word
     -> HeaderHash
     -> HeaderHash

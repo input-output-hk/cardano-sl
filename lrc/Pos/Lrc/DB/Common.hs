@@ -28,7 +28,7 @@ import qualified Database.RocksDB as Rocks
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core ()
-import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Configuration (HasGeneratedSecrets, HasCoreConfiguration)
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.DB (dbSerializeValue)
 import           Pos.DB.Class (DBTag (LrcDB), MonadDB (dbDelete, dbWriteBatch), MonadDBRead (dbGet))
@@ -57,14 +57,14 @@ putBatch :: MonadDB m => [Rocks.BatchOp] -> m ()
 putBatch = dbWriteBatch LrcDB
 
 putBatchBi
-     :: (MonadDB m, Bi v)
+     :: (MonadDB m, Bi v, HasGeneratedSecrets)
      => [(ByteString, v)] -> m ()
 putBatchBi = putBatch . toRocksOps
 
 delete :: (MonadDB m) => ByteString -> m ()
 delete = dbDelete LrcDB
 
-toRocksOps :: (HasConfiguration, Bi v) => [(ByteString, v)] -> [Rocks.BatchOp]
+toRocksOps :: (HasCoreConfiguration, Bi v) => [(ByteString, v)] -> [Rocks.BatchOp]
 toRocksOps ops =
     [Rocks.Put key (dbSerializeValue value) | (key, value) <- ops]
 

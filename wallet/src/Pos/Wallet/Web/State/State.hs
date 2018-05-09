@@ -115,6 +115,8 @@ import           Pos.Wallet.Web.State.Storage (AddressInfo (..), AddressLookupMo
 import qualified Pos.Wallet.Web.State.Storage as S
 import           Universum
 
+-- TODO, remove HasConfiguration
+
 -- | The 'WalletDbReader' constraint encapsulates the set of effects which
 -- are able to read the 'WalletDB'.
 type WalletDbReader ctx m =

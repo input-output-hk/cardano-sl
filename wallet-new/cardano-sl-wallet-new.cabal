@@ -251,9 +251,11 @@ executable cardano-integration-test
                        QuickCheckSpecs
 
   build-depends:       base
+                     , QuickCheck
                      , aeson
                      , aeson-diff
                      , aeson-pretty
+                     , bytestring
                      , cardano-sl-core
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
@@ -267,23 +269,19 @@ executable cardano-integration-test
                      , mtl
                      , optparse-applicative
                      , pretty-show
-                     , QuickCheck
                      , servant
                      , servant-quickcheck
                      , servant-server
                      , text
                      , text-format
                      , universum
-<<<<<<< HEAD
-=======
                      , unordered-containers
-                     , x509
-                     , x509-store
                      , wai
                      , wai-cors
                      , wai-extra
                      , warp
->>>>>>> bf4bdd3... [CSL-2492] Use TLS connection for client in integration tests
+                     , x509
+                     , x509-store
 
   default-language:    Haskell2010
   default-extensions: TypeOperators

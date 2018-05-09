@@ -995,6 +995,18 @@ explicitly.
   fees. Furthermore Bruno Woltzenlogel Paleo's utxo Chimeric Ledger
   model allows empty outputs, because it is believed to be essential
   for coloured coins.
+\item The checks in the mempool are expensive, and may not be the most
+  effective way to make the network efficient. It is being considered
+  to restrict the mempool to stateless tests (and correspondingly not
+  tracking a state of the mempool). This allows transactions to flow
+  throughout the Cardano network more freely. It also makes the work
+  of the block issuer somewhat harder, as they have to decide which
+  transactions to include in their new block from a soup of
+  transactions rather than a structured list. It reduces the overall
+  computation effort (as only the block issuer must perform the
+  transaction ordering and stateful checks), however, it may cause
+  concerns for latency, as an issuer must build their block in a 20s
+  time window.
 \end{itemize}
 \end{document}
 

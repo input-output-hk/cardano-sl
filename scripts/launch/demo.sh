@@ -143,10 +143,21 @@ while [[ $i -lt $panesCnt ]]; do
           wallet_args="$wallet_args --wallet-debug"
       fi
   fi
+  if [[ $WALLET_TEST != "" ]] && [[ $i == $((n-2)) ]]; then
+      if [[ $WALLET_CONFIG != "" ]]; then
+          conf_file=$WALLET_CONFIG
+      fi
+      wallet_args=" --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt $wallet_flush" # --wallet-rebuild-db'
+      wallet_args="$WALLET_EXTRA_ARGS --new-wallet $wallet_args --wallet-address 127.0.0.1:8091"
+      exec_name="$WALLET_EXE_NAME"
+      if [[ $WALLET_DEBUG != "" ]]; then
+          wallet_args="$wallet_args --wallet-debug"
+      fi
+  fi
   if [[ $i -lt $n ]]; then
     node_args="$(node_cmd $i "$wallet_args" "$system_start" "$config_dir" "$conf_file" "$run_dir" "$run_dir/logs")"
     node_=$(find_binary $exec_name)
-    if [[ $WALLET_TEST != "" ]] && [[ $i == $((n-1)) ]]; then
+    if [[ $WALLET_TEST != "" ]] && [[ $i -ge $((n-2)) ]]; then
         updater_file="$config_dir/updater$i.sh"
         launcher_=$(find_binary cardano-launcher)
 

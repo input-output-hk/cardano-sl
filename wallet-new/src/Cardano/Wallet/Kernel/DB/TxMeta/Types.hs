@@ -15,9 +15,9 @@ module Cardano.Wallet.Kernel.DB.TxMeta.Types (
   , TxMetaStorageError (..)
   , InvariantViolation (..)
 
-  -- * Deep & shallow equality
-  , deepEq
-  , shallowEq
+  -- * Strict & lenient equalities
+  , exactlyEqualTo
+  , isomorphicTo
   ) where
 
 import           Universum
@@ -76,11 +76,11 @@ data TxMeta = TxMeta {
 
 makeLenses ''TxMeta
 
--- | Deep equality for two 'TxMeta': two 'TxMeta' are equal if they have
+-- | Strict equality for two 'TxMeta': two 'TxMeta' are equal if they have
 -- exactly the same data, and inputs & outputs needs to appear in exactly
 -- the same order.
-deepEq :: TxMeta -> TxMeta -> Bool
-deepEq t1 t2 =
+exactlyEqualTo :: TxMeta -> TxMeta -> Bool
+exactlyEqualTo t1 t2 =
     and [ t1 ^. txMetaId == t2 ^. txMetaId
         , t1 ^. txMetaAmount == t2 ^. txMetaAmount
         , t1 ^. txMetaInputs  == t2 ^. txMetaInputs
@@ -90,12 +90,12 @@ deepEq t1 t2 =
         , t1 ^. txMetaIsOutgoing == t2 ^. txMetaIsOutgoing
         ]
 
--- | Shallow equality for two 'TxMeta': two 'TxMeta' are equal if they have
+-- | Lenient equality for two 'TxMeta': two 'TxMeta' are equal if they have
 -- the same data, even if in different order.
--- NOTE: This 'Eq' check might be slightly expensive as it's logaritmic in the
+-- NOTE: This check might be slightly expensive as it's logaritmic in the
 -- number of inputs & outputs, as it requires sorting.
-shallowEq :: TxMeta -> TxMeta -> Bool
-shallowEq t1 t2 =
+isomorphicTo :: TxMeta -> TxMeta -> Bool
+isomorphicTo t1 t2 =
     and [ t1 ^. txMetaId == t2 ^. txMetaId
         , t1 ^. txMetaAmount == t2 ^. txMetaAmount
         , NonEmpty.sort (t1 ^. txMetaInputs)  == NonEmpty.sort (t2 ^. txMetaInputs)

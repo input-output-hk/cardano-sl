@@ -201,6 +201,7 @@ extra-deps:
 - beam-core-0.7.2.1
 - beam-sqlite-0.3.2.0
 - beam-migrate-0.3.1.0
+- Win32-2.7.0.0
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

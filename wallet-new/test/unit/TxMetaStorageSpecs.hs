@@ -52,43 +52,43 @@ genSimilarTxMetas = liftIO $ do
     return (t1, t2)
 
 
--- | Handy wrapper to be able to compare things with the 'shallowEq'
+-- | Handy wrapper to be able to compare things with the 'isomorphicTo'
 -- combinator, which ignores the different order of the inputs & outputs.
 data DeepEqual = DeepEqual TxMeta
 
 instance Eq DeepEqual where
-    (DeepEqual t1) == (DeepEqual t2) = t1 `deepEq` t2
+    (DeepEqual t1) == (DeepEqual t2) = t1 `exactlyEqualTo` t2
 
 instance Buildable DeepEqual where
     build (DeepEqual t) = build t
 
-data ShallowEqual = ShallowEqual TxMeta
+data Isomorphic = Isomorphic TxMeta
 
-instance Eq ShallowEqual where
-    (ShallowEqual t1) == (ShallowEqual t2) = t1 `shallowEq` t2
+instance Eq Isomorphic where
+    (Isomorphic t1) == (Isomorphic t2) = t1 `isomorphicTo` t2
 
-instance Buildable ShallowEqual where
-    build (ShallowEqual t) = build t
+instance Buildable Isomorphic where
+    build (Isomorphic t) = build t
 
-instance Buildable [ShallowEqual] where
+instance Buildable [Isomorphic] where
     build ts = bprint (listJsonIndent 4) ts
 
-sortByAmount :: SortDirection -> [ShallowEqual] -> [ShallowEqual]
+sortByAmount :: SortDirection -> [Isomorphic] -> [Isomorphic]
 sortByAmount direction = sortBy sortFn
     where
         withDir Ascending  = identity
         withDir Descending = flip
 
-        sortFn (ShallowEqual a) (ShallowEqual b) =
+        sortFn (Isomorphic a) (Isomorphic b) =
             (withDir direction compare) (a ^. txMetaAmount) (b ^. txMetaAmount)
 
-sortByCreationAt :: SortDirection -> [ShallowEqual] -> [ShallowEqual]
+sortByCreationAt :: SortDirection -> [Isomorphic] -> [Isomorphic]
 sortByCreationAt direction = sortBy sortFn
     where
         withDir Ascending  = identity
         withDir Descending = flip
 
-        sortFn (ShallowEqual a) (ShallowEqual b) =
+        sortFn (Isomorphic a) (Isomorphic b) =
             (withDir direction compare) (a ^. txMetaCreationAt) (b ^. txMetaCreationAt)
 
 -- | Specs which tests the persistent storage and API provided by 'TxMeta'.
@@ -97,15 +97,15 @@ txMetaStorageSpecs = do
     describe "TxMeta equality" $ do
         it "should be reflexive" $ do
             (blueprint :: TxMeta) <- liftIO $ generate arbitrary
-            blueprint `deepEq` blueprint `shouldBe` True
+            blueprint `exactlyEqualTo` blueprint `shouldBe` True
 
-        it "should be deep" $ do
+        it "should be strict when needed" $ do
             (t1, t2) <- liftIO genSimilarTxMetas
-            t1 `deepEq` t2 `shouldBe` False
+            t1 `exactlyEqualTo` t2 `shouldBe` False
 
-        it "shallowEq is really shallow" $ do
+        it "isomorphicTo is more lenient" $ do
             (t1, t2) <- liftIO genSimilarTxMetas
-            t1 `shallowEq` t2 `shouldBe` True
+            t1 `isomorphicTo` t2 `shouldBe` True
 
     describe "TxMeta storage" $ do
 
@@ -143,7 +143,7 @@ txMetaStorageSpecs = do
                 metas <- liftIO $ generate (vectorOf 1 arbitrary)
                 forM_ metas (putTxMeta hdl)
                 result <- getTxMetas hdl (Offset 0) (Limit 100) Nothing
-                map ShallowEqual result `shouldMatchList` map ShallowEqual metas
+                map Isomorphic result `shouldMatchList` map Isomorphic metas
 
         it "pagination correctly limit the results" $ do
             withTemporaryDb $ \hdl -> do
@@ -157,11 +157,11 @@ txMetaStorageSpecs = do
                 metas <- liftIO $ generate (vectorOf 10 arbitrary)
                 forM_ metas (putTxMeta hdl)
                 result <- getTxMetas hdl (Offset 0) (Limit 10) (Just $ Sorting SortByAmount Ascending)
-                map ShallowEqual result `shouldBe` sortByAmount Ascending (map ShallowEqual metas)
+                map Isomorphic result `shouldBe` sortByAmount Ascending (map Isomorphic metas)
 
         it "pagination correctly sorts (descending) the results" $ do
             withTemporaryDb $ \hdl -> do
                 metas <- liftIO $ generate (vectorOf 10 arbitrary)
                 forM_ metas (putTxMeta hdl)
                 result <- getTxMetas hdl (Offset 0) (Limit 10) (Just $ Sorting SortByCreationAt Descending)
-                map ShallowEqual result `shouldBe` sortByCreationAt Descending (map ShallowEqual metas)
+                map Isomorphic result `shouldBe` sortByCreationAt Descending (map Isomorphic metas)

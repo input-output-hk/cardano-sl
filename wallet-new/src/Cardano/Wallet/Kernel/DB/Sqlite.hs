@@ -378,7 +378,7 @@ putTxMeta dbHandle txMeta =
                     -- input 'TxMeta' has the same inputs & outputs but in a different
                     -- order, the 'consistencyCheck' would yield 'False', when in
                     -- reality should be virtually considered the same 'TxMeta'.
-                    consistencyCheck <- fmap (Kernel.shallowEq txMeta) <$> getTxMeta dbHandle txid
+                    consistencyCheck <- fmap (Kernel.isomorphicTo txMeta) <$> getTxMeta dbHandle txid
                     case consistencyCheck of
                          Nothing    ->
                              throwIO $ Kernel.InvariantViolated (Kernel.UndisputableLookupFailed txid)
@@ -464,7 +464,6 @@ instance Ord OrdByCreationDate where
     compare a b = compare (_txMetaTableCreatedAt . _ordByCreationDate $ a)
                           (_txMetaTableCreatedAt . _ordByCreationDate $ b)
 
--- | TODO(adinapoli) Sorting.
 getTxMetas :: MetaDBHandle
            -> Offset
            -> Limit

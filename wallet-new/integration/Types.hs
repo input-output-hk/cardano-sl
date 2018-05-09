@@ -3,6 +3,8 @@
 {-# LANGUAGE StrictData      #-}
 {-# LANGUAGE TypeFamilies    #-}
 
+-- {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Types
     ( Weight (..)
     , Action (..)

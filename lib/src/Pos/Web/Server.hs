@@ -25,7 +25,7 @@ import           Data.X509 (ExtKeyUsagePurpose (..), HashALG (..))
 import           Data.X509.CertificateStore (readCertificateStore)
 import           Data.X509.Validation (ValidationChecks (..), ValidationHooks (..))
 import qualified Data.X509.Validation as X509
-import           Mockable (Async, Mockable, Production (runProduction), withAsync)
+import           Mockable (Production (runProduction))
 import           Network.TLS (CertificateRejectReason (..), CertificateUsage (..), ServerHooks (..))
 import           Network.Wai (Application)
 import           Network.Wai.Handler.Warp (Settings, defaultSettings, runSettings, setHost, setPort)

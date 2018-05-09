@@ -25,7 +25,7 @@ import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlo
                                           triggerRecovery)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (RecoveryHeaderTag)
-import           Pos.Communication.Protocol (NodeId, OutSpecs, convH, toOutSpecs)
+import           Pos.Communication.Protocol (NodeId, OutSpecs)
 import           Pos.Core (Block, HasGeneratedSecrets, HasGenesisBlockVersionData, HasGenesisData,
                            HasGenesisHash, HasHeaderHash (..), HasProtocolConstants, HeaderHash,
                            difficultyL, isMoreDifficult)

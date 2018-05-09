@@ -108,23 +108,38 @@ library
   ghc-options:         -Wall
 
   build-depends:       base
+                     , QuickCheck
                      , acid-state
                      , aeson
                      , aeson-pretty
                      , bytestring
                      , cardano-sl
+                     , cardano-sl
+                     , cardano-sl-block
                      , cardano-sl-block
                      , cardano-sl-client
+                     , cardano-sl-client
+                     , cardano-sl-core
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-crypto
+                     , cardano-sl-db
                      , cardano-sl-db
                      , cardano-sl-infra
+                     , cardano-sl-infra
+                     , cardano-sl-networking
                      , cardano-sl-networking
                      , cardano-sl-ssc
+                     , cardano-sl-ssc
+                     , cardano-sl-txp
                      , cardano-sl-txp
                      , cardano-sl-update
+                     , cardano-sl-update
+                     , cardano-sl-util
                      , cardano-sl-util
                      , cardano-sl-wallet
+                     , cardano-sl-wallet
+                     , conduit
                      , conduit
                      , containers
                      , data-default
@@ -141,20 +156,23 @@ library
                      , memory
                      , mtl
                      , neat-interpolation
+                     , neat-interpolation
                      , network-transport
                      , optparse-applicative
-                     , QuickCheck
+                     , optparse-applicative
                      , reflection
-                     , safecopy
+                     , reflection
                      , safe-exceptions
+                     , safecopy
                      , serokell-util
-                     , unliftio-core
                      , servant
                      , servant-client
                      , servant-client-core
                      , servant-server
                      , servant-swagger
+                     , servant-swagger
                      , servant-swagger-ui
+                     , stm
                      , string-conv
                      , swagger2
                      , text
@@ -162,34 +180,16 @@ library
                      , time
                      , time-units
                      , transformers
-                     , reflection
                      , universum
                      , unliftio
+                     , unliftio
+                     , unliftio-core
                      , unliftio-core
                      , unordered-containers
                      , vector
                      , wai
-                     , cardano-sl-block
-                     , cardano-sl-core
-                     , cardano-sl-crypto
-                     , cardano-sl-db
-                     , cardano-sl-util
-                     , cardano-sl-wallet
-                     , cardano-sl-networking
-                     , cardano-sl-txp
-                     , conduit
-                     , neat-interpolation
-                     , optparse-applicative
-                     , servant-swagger
-                     , unliftio
                      , wai-cors
                      , warp
-                     -- Avoidable deps(?)
-                     , cardano-sl
-                     , cardano-sl-client
-                     , cardano-sl-infra
-                     , cardano-sl-ssc
-                     , cardano-sl-update
 
   default-language:    Haskell2010
   default-extensions: TypeOperators

@@ -7745,7 +7745,7 @@ inherit (pkgs) mesa;};
          , pretty-show, QuickCheck, quickcheck-instances, reflection
          , safe-exceptions, safecopy, serokell-util, servant, servant-client
          , servant-client-core, servant-quickcheck, servant-server
-         , servant-swagger, servant-swagger-ui, stdenv, string-conv
+         , servant-swagger, servant-swagger-ui, stdenv, stm, string-conv
          , swagger2, text, text-format, time, time-units, transformers
          , universum, unliftio, unliftio-core, unordered-containers, vector
          , wai, wai-cors, warp
@@ -7767,7 +7767,7 @@ inherit (pkgs) mesa;};
              log-warper memory mtl neat-interpolation network-transport
              optparse-applicative QuickCheck reflection safe-exceptions safecopy
              serokell-util servant servant-client servant-client-core
-             servant-server servant-swagger servant-swagger-ui string-conv
+             servant-server servant-swagger servant-swagger-ui stm string-conv
              swagger2 text text-format time time-units transformers universum
              unliftio unliftio-core unordered-containers vector wai wai-cors
              warp

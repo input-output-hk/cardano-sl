@@ -17,28 +17,29 @@ import           System.Wlog (LoggerName (..))
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Block.Logic.Integrity (VerifyBlockParams (..),
                      VerifyHeaderParams (..), verifyBlock, verifyHeader)
-import           Pos.Block.Logic.VAR (rollbackBlocks, verifyAndApplyBlocks,
-                     verifyBlocksPrefix)
-import           Pos.Core (Block, EpochOrSlot (..), SlotId, getBlockHeader)
+import           Pos.Core.Block (Block, getBlockHeader)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisData,
                      genesisSecretKeys, slotSecurityParam)
 import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisData (..),
                      GenesisInitializer (..), TestnetBalanceOptions (..))
-import           Pos.Core.Slotting (Timestamp (..), epochIndexL, getEpochOrSlot)
+import           Pos.Core.Slotting (EpochOrSlot (..), SlotId, Timestamp (..),
+                     epochIndexL, getEpochOrSlot)
 import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.DB (getTipHeader)
+import           Pos.DB.Block (VerifyBlocksContext,
+                     getVerifyBlocksContext', rollbackBlocks,
+                     verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.DB.DB (initNodeDBs)
+import qualified Pos.DB.Lrc as LrcDB
+import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Generator.Block (BlockGenParams (..), TxGenParams (..),
                      genBlockNoApply, genBlocks, mkBlockGenContext)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      HasConfigurations, defaultConfigurationOptions,
                      withConfigurationsM)
-import           Pos.Lrc.Context (lrcActionOnEpochReason)
-import qualified Pos.Lrc.DB as LrcDB
-import           Pos.Txp.Logic.Global (txpGlobalSettings)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.Util (realTime)
 
@@ -94,14 +95,14 @@ verifyBlocksBenchmark
 verifyBlocksBenchmark !pm !tp !ctx =
     bgroup "block verification"
         [ env (runBlockTestMode tp (genEnv (BlockCount 100)))
-            $ \ ~(curSlot, blocks) -> bench "verifyAndApplyBlocks" (verifyAndApplyBlocksB curSlot blocks)
+            $ \ ~(vctx, blocks) -> bench "verifyAndApplyBlocks" (verifyAndApplyBlocksB vctx blocks)
         -- `verifyBlocksPrefix` will succeed only on the first block, it
         -- requires that blocks are applied.
         , env (runBlockTestMode tp (genEnv (BlockCount 1)))
-            $ \ ~(curSlot, blocks) -> bench "verifyBlocksPrefix" (verifyBlocksPrefixB curSlot blocks)
+            $ \ ~(vctx, blocks) -> bench "verifyBlocksPrefix" (verifyBlocksPrefixB vctx blocks)
         ]
     where
-    genEnv :: BlockCount -> BlockTestMode (Maybe SlotId, OldestFirst NE Block)
+    genEnv :: BlockCount -> BlockTestMode (VerifyBlocksContext, OldestFirst NE Block)
     genEnv bCount = do
         initNodeDBs pm slotSecurityParam
         g <- liftIO $ newStdGen
@@ -128,31 +129,32 @@ verifyBlocksBenchmark !pm !tp !ctx =
                 $ bs of
                 [] -> Nothing
                 ss -> Just $ maximum ss
-        return $ (curSlot, OldestFirst $ NE.fromList bs)
+        vctx <- getVerifyBlocksContext' curSlot
+        return $ ( vctx, OldestFirst $ NE.fromList bs)
 
     verifyAndApplyBlocksB
-        :: Maybe SlotId
+        :: VerifyBlocksContext
         -> OldestFirst NE Block
         -> Benchmarkable
-    verifyAndApplyBlocksB curSlot blocks =
+    verifyAndApplyBlocksB verifyBlocksCtx blocks =
         nfIO
             $ runBTM tp ctx
             $ satisfySlotCheck blocks
-            $ verifyAndApplyBlocks pm curSlot False blocks >>= \case
+            $ verifyAndApplyBlocks pm verifyBlocksCtx False blocks >>= \case
                     Left err -> return (Just err)
                     Right (_, blunds) -> do
                         whenJust (nonEmptyNewestFirst blunds) (rollbackBlocks pm)
                         return Nothing
 
     verifyBlocksPrefixB
-        :: Maybe SlotId
+        :: VerifyBlocksContext
         -> OldestFirst NE Block
         -> Benchmarkable
-    verifyBlocksPrefixB curSlot blocks =
+    verifyBlocksPrefixB verifyBlocksCtx blocks =
         nfIO
             $ runBTM tp ctx
             $ satisfySlotCheck blocks
-            $ map fst <$> verifyBlocksPrefix pm curSlot blocks
+            $ map fst <$> verifyBlocksPrefix pm verifyBlocksCtx blocks
 
 -- | Benchmark which runs `verifyHeader`
 verifyHeaderBenchmark
@@ -190,7 +192,7 @@ verifyHeaderBenchmark !pm !tp = env (runBlockTestMode tp genEnv)
                 , _bgpGenStakeholders = gdBootStakeholders genesisData
                 , _bgpTxpGlobalSettings = txpGlobalSettings pm
                 }
-        leaders <- lrcActionOnEpochReason epoch "genBlock" LrcDB.getLeadersForEpoch
+        leaders <- LrcDB.lrcActionOnEpochReason epoch "genBlock" LrcDB.getLeadersForEpoch
         mblock <- flip evalRandT g $ do
             blockGenCtx <- lift $ mkBlockGenContext blockGenParams
             tipHeader <- lift $ getTipHeader

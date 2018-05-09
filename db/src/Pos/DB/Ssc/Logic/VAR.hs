@@ -29,8 +29,7 @@ import           Pos.Core.Reporting (MonadReporting, reportError)
 import           Pos.Core.Ssc (SscPayload (..))
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (ProtocolMagic)
-import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..),
-                     gsAdoptedBVData)
+import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..))
 import           Pos.DB.Lrc (HasLrcContext, getSscRichmen)
 import qualified Pos.DB.Ssc.GState as DB
 import           Pos.Lrc.Types (RichmenStakes)
@@ -78,9 +77,10 @@ type SscGlobalApplyMode ctx m = SscGlobalVerifyMode ctx m
 sscVerifyBlocks
     :: SscGlobalVerifyMode ctx m
     => ProtocolMagic
+    -> BlockVersionData
     -> OldestFirst NE SscBlock
     -> m (Either SscVerifyError SscGlobalState)
-sscVerifyBlocks pm blocks = do
+sscVerifyBlocks pm bvd blocks = do
     let epoch = blocks ^. _Wrapped . _neHead . epochIndexL
     let lastEpoch = blocks ^. _Wrapped . _neLast . epochIndexL
     let differentEpochsMsg =
@@ -91,7 +91,6 @@ sscVerifyBlocks pm blocks = do
     inAssertMode $ unless (epoch == lastEpoch) $
         assertionFailed differentEpochsMsg
     richmenSet <- getSscRichmen "sscVerifyBlocks" epoch
-    bvd <- gsAdoptedBVData
     globalVar <- sscGlobal <$> askSscMem
     gs <- atomically $ readTVar globalVar
     res <-
@@ -114,18 +113,19 @@ sscVerifyBlocks pm blocks = do
 sscApplyBlocks
     :: SscGlobalApplyMode ctx m
     => ProtocolMagic
+    -> BlockVersionData
     -> OldestFirst NE SscBlock
     -> Maybe SscGlobalState
     -> m [SomeBatchOp]
-sscApplyBlocks pm blocks (Just newState) = do
+sscApplyBlocks pm bvd blocks (Just newState) = do
     inAssertMode $ do
         let hashes = map headerHash blocks
-        expectedState <- sscVerifyValidBlocks pm blocks
+        expectedState <- sscVerifyValidBlocks pm bvd blocks
         if | newState == expectedState -> pass
            | otherwise -> onUnexpectedVerify hashes
     sscApplyBlocksFinish newState
-sscApplyBlocks pm blocks Nothing =
-    sscApplyBlocksFinish =<< sscVerifyValidBlocks pm blocks
+sscApplyBlocks pm bvd blocks Nothing =
+    sscApplyBlocksFinish =<< sscVerifyValidBlocks pm bvd blocks
 
 sscApplyBlocksFinish
     :: (SscGlobalApplyMode ctx m)
@@ -140,10 +140,11 @@ sscApplyBlocksFinish gs = do
 sscVerifyValidBlocks
     :: SscGlobalApplyMode ctx m
     => ProtocolMagic
+    -> BlockVersionData
     -> OldestFirst NE SscBlock
     -> m SscGlobalState
-sscVerifyValidBlocks pm blocks =
-    sscVerifyBlocks pm blocks >>= \case
+sscVerifyValidBlocks pm bvd blocks =
+    sscVerifyBlocks pm bvd blocks >>= \case
         Left e -> onVerifyFailedInApply hashes e
         Right newState -> return newState
   where

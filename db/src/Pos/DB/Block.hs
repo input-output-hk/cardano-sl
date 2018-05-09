@@ -65,6 +65,7 @@ import           Pos.DB.Block.Load as X
 import           Pos.DB.Block.Logic.Creation as X
 import           Pos.DB.Block.Logic.Header as X
 import           Pos.DB.Block.Logic.Internal as X
+import           Pos.DB.Block.Logic.Types as X
 import           Pos.DB.Block.Logic.Util as X
 import           Pos.DB.Block.Logic.VAR as X
 import           Pos.DB.Block.Lrc as X

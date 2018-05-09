@@ -19,9 +19,7 @@ import           System.Wlog (LoggerConfig, LoggerName (..), consoleActionB,
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Binary.Class (decodeFull, serialize)
 import           Pos.Block.Error (ApplyBlocksException, VerifyBlocksException)
-import           Pos.Block.Logic.VAR (rollbackBlocks, verifyAndApplyBlocks,
-                     verifyBlocksPrefix)
-import           Pos.Core (Block)
+import           Pos.Core.Block (Block)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisData,
@@ -31,12 +29,14 @@ import           Pos.Core.Genesis (FakeAvvmOptions (..), GenesisData (..),
 import           Pos.Core.Slotting (Timestamp (..))
 import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
+import           Pos.DB.Block (getVerifyBlocksContext', rollbackBlocks,
+                     verifyAndApplyBlocks, verifyBlocksPrefix)
+import           Pos.DB.Txp.Logic (txpGlobalSettings)
 import           Pos.Generator.Block (BlockGenParams (..), TxGenParams (..),
                      genBlocks)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..),
                      HasConfigurations, defaultConfigurationOptions,
                      withConfigurationsM)
-import           Pos.Txp.Logic.Global (txpGlobalSettings)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.Util (realTime)
 
@@ -256,7 +256,9 @@ main = do
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
         validate pm blocks = do
             verStart <- realTime
-            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix pm Nothing blocks
+            -- omitting current slot for simplicity
+            ctx <- getVerifyBlocksContext' Nothing
+            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix pm ctx blocks
             verEnd <- realTime
             return (verEnd - verStart, either (Just . Left) (const Nothing) res)
 
@@ -267,7 +269,8 @@ main = do
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
         validateAndApply pm blocks = do
             verStart <- realTime
-            res <- force <$> verifyAndApplyBlocks pm Nothing False blocks
+            ctx <- getVerifyBlocksContext' Nothing
+            res <- force <$> verifyAndApplyBlocks pm ctx False blocks
             verEnd <- realTime
             case res of
                 Left _ -> return ()

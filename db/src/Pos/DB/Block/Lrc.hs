@@ -48,7 +48,7 @@ import           Pos.DB.Lrc (IssuersStakes, LrcConsumer (..), LrcContext (..),
 import qualified Pos.DB.Lrc as LrcDB (hasLeaders, putLeadersForEpoch)
 import           Pos.DB.Ssc (sscCalculateSeed)
 import qualified Pos.DB.Txp.Stakes as GS
-import           Pos.DB.Update (getCompetingBVStates)
+import           Pos.DB.Update (getAdoptedBVFull, getCompetingBVStates)
 import           Pos.Lrc.Core (findDelegationStakes, findRichmenStakes)
 import           Pos.Lrc.Error (LrcError (..))
 import           Pos.Lrc.Fts (followTheSatoshiM)
@@ -183,7 +183,9 @@ lrcDo pm epoch consumers = do
         then coerce (nonEmpty @a) l
         else Nothing
 
-    applyBack blunds = applyBlocksUnsafe pm scb blunds Nothing
+    applyBack blunds = do
+        (bv, bvd) <- getAdoptedBVFull
+        applyBlocksUnsafe pm bv bvd scb blunds Nothing
     upToGenesis b = b ^. epochIndexL >= epoch
     whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch

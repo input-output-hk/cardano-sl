@@ -16,7 +16,7 @@ let
     packageOverrides = ps: with ps; rec {
       haskell = lib.recursiveUpdate ps.haskell {
         compiler.ghc842 = (ps.haskell.compiler.ghc842.override {
-          ghcCrossFlavour = "quick-cross-ng";
+          ghcCrossFlavour = "quick-cross-ncg";
           ghcFlavour = "quick";
           enableShared = false;
         }).overrideAttrs (drv: {

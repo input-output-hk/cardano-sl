@@ -27791,16 +27791,17 @@ inherit (pkgs) which;};
            license = stdenv.lib.licenses.bsd3;
          }) {};
       "node-ipc" = callPackage
-        ({ mkDerivation, aeson, base, bytestring, cardano-sl-infra
-         , log-warper, mtl, stdenv, universum, unordered-containers
+        ({ mkDerivation, aeson, base, binary, bytestring, Cabal
+         , cardano-sl-infra, log-warper, mtl, stdenv, universum
+         , unordered-containers
          }:
          mkDerivation {
            pname = "node-ipc";
            version = "0.1.0.0";
            src = ./../node-ipc;
            libraryHaskellDepends = [
-             aeson base bytestring cardano-sl-infra log-warper mtl universum
-             unordered-containers
+             aeson base binary bytestring Cabal cardano-sl-infra log-warper mtl
+             universum unordered-containers
            ];
            doHaddock = false;
            license = stdenv.lib.licenses.mit;

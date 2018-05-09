@@ -7,11 +7,9 @@
 module Cardano.NodeIPC (startNodeJsIPC) where
 
 import           Control.Arrow             ( (>>>) )
-import           Control.Concurrent
-import           Control.Exception ()
-import           Control.Monad.Reader (MonadReader)
-import           Control.Monad.IO.Class
-import           Data.Aeson
+import           Control.Concurrent        (forkIO)
+import           Control.Monad.Reader      (MonadReader)
+import           Data.Aeson                (FromJSON(parseJSON), ToJSON(toEncoding), defaultOptions, genericParseJSON, genericToEncoding, encode, eitherDecode)
 import           Data.Aeson.Types          (Options, SumEncoding(ObjectWithSingleField), sumEncoding)
 import           Data.Binary.Get           (runGet, getWord64le, getWord32le)
 import           Data.Binary.Put           (runPut, putWord32le, putWord64le, putLazyByteString)

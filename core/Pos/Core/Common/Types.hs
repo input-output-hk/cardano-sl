@@ -58,11 +58,12 @@ import           Universum
 
 import           Control.Exception.Safe (Exception (displayException))
 import           Control.Lens (makePrisms)
+import           Control.Lens (_Left)
 import           Control.Monad.Except (MonadError (throwError))
 import           Crypto.Hash (Blake2b_224)
 import qualified Data.ByteString as BS (pack, zipWith)
-import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.Char8 as BSC (pack)
+import qualified Data.ByteString.Lazy as LBS
 import           Data.Data (Data)
 import           Data.Hashable (Hashable (..))
 import qualified Data.Semigroup (Semigroup (..))
@@ -72,15 +73,14 @@ import qualified PlutusCore.Program as PLCore
 import           Serokell.Util (enumerate, listChunkedJson, pairBuilder)
 import           Serokell.Util.Base16 (formatBase16)
 import           System.Random (Random (..))
-import           Control.Lens (_Left)
 
-import           Pos.Binary.Class (Bi, encode, decode)
+import           Pos.Binary.Class (Bi, decode, encode)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Crypto.Hashing (AbstractHash, Hash)
 import           Pos.Crypto.HD (HDAddressPayload)
 import           Pos.Crypto.Signing (PublicKey, RedeemPublicKey)
-import           Pos.Data.Attributes (Attributes(..), encodeAttributes, decodeAttributes)
+import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
 import           Pos.Util.Util (cborError, toCborError)
 
 ----------------------------------------------------------------------------
@@ -558,3 +558,10 @@ newtype BlockCount = BlockCount {getBlockCount :: Word64}
 ----------------------------------------------------------------------------
 
 makePrisms ''Address
+
+Bi.deriveSimpleBi ''Script [
+    Bi.Cons 'Script [
+        Bi.Field [| scrVersion :: ScriptVersion |],
+        Bi.Field [| scrScript  :: ByteString   |]
+    ]]
+

@@ -61,7 +61,6 @@ import           Crypto.Hash (Blake2b_224, Digest, SHA3_256)
 import qualified Crypto.Hash as CryptoHash
 import qualified Data.ByteString as BS
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58, encodeBase58)
-import           Data.Hashable (Hashable (..))
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, builder, int, later, (%))
 import           Serokell.Data.Memory.Units (Byte)
@@ -162,7 +161,7 @@ decodeTextAddress = decodeAddress . encodeUtf8
 ----------------------------------------------------------------------------
 
 -- | Make an 'Address' from spending data and attributes.
-makeAddress :: Address' => AddrSpendingData -> AddrAttributes -> Address
+makeAddress :: AddrSpendingData -> AddrAttributes -> Address
 makeAddress spendingData attributesUnwrapped =
     Address
     { addrRoot = addressHash address'
@@ -377,7 +376,7 @@ isBootstrapEraDistrAddress (addrAttributesUnwrapped -> AddrAttributes {..}) =
 -- | Largest (considering size of serialized data) PubKey address with
 -- BootstrapEra distribution. Actual size depends on CRC32 value which
 -- is serialized using var-length encoding.
-largestPubKeyAddressBoot :: Address' => Address
+largestPubKeyAddressBoot :: Address
 largestPubKeyAddressBoot = makePubKeyAddressBoot goodPk
 
 -- | Maximal size of PubKey address with BootstrapEra

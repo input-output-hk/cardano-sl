@@ -16,7 +16,6 @@ import           Data.Binary.Put           (runPut, putWord32le, putWord64le, pu
 import qualified Data.ByteString.Lazy      as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import           Distribution.System       (buildOS, OS(Windows))
-import           Foreign.C.Types           (CInt)
 import           GHC.IO.Handle.FD          (fdToHandle)
 import           GHC.Generics              (Generic)
 import           Pos.Shutdown.Logic        (triggerShutdown)
@@ -24,7 +23,7 @@ import           Pos.Shutdown.Class        (HasShutdownContext (..))
 import           Pos.Shutdown.Types        (ShutdownContext)
 import           System.Environment        (lookupEnv)
 import           System.IO.Error           (IOError, isEOFError)
-import           System.IO                 (hFlush, hGetLine, hSetNewlineMode, noNewlineTranslation, hGetChar)
+import           System.IO                 (hFlush, hGetLine, hSetNewlineMode, noNewlineTranslation)
 import           System.Wlog               (WithLogger, logInfo, logError)
 import           System.Wlog.LoggerNameBox (usingLoggerName)
 import           Universum
@@ -48,45 +47,78 @@ startNodeJsIPC port = void $ runMaybeT $ do
   fdstring <- liftIO (lookupEnv "NODE_CHANNEL_FD") >>= (pure >>> MaybeT)
   case readEither fdstring of
     Left err -> lift $ logError $ "unable to parse NODE_CHANNEL_FD: " <> err
-    Right fd -> void $ liftIO $ forkIO $ startIpcListener ctx fd port
+    Right fd -> liftIO $ do
+        handle <- fdToHandle fd
+        void $ forkIO $ startIpcListener ctx handle port
 
-startIpcListener :: ShutdownContext -> CInt -> Word16 -> IO ()
-startIpcListener ctx fd port = usingLoggerName "NodeIPC" $ flip runReaderT ctx (ipcListener fd port)
+startIpcListener :: ShutdownContext -> Handle -> Word16 -> IO ()
+startIpcListener ctx handle port = usingLoggerName "NodeIPC" $ flip runReaderT ctx (ipcListener handle port)
+
+readInt64 :: Handle -> IO Word64
+readInt64 hnd = do
+    bs <- BSL.hGet hnd 8
+    pure $ runGet getWord64le bs
+
+readInt32 :: Handle -> IO Word32
+readInt32 hnd = do
+    bs <- BSL.hGet hnd 4
+    pure $ runGet getWord32le bs
+
+readMessage :: (MonadIO m, WithLogger m) => Handle -> m BSL.ByteString
+readMessage handle = do
+    if buildOS == Windows
+        then do
+            (int1, int2, blob) <- liftIO $ windowsReadMessage handle
+            logInfo $ "int is: " <> (show [int1, int2]) <> " and blob is: " <> (show blob)
+            return blob
+        else
+            liftIO $ linuxReadMessage handle
+
+windowsReadMessage :: Handle -> IO (Word32, Word32, BSL.ByteString)
+windowsReadMessage handle = do
+    int1 <- readInt32 handle
+    int2 <- readInt32 handle
+    size <- readInt64 handle
+    blob <- BSL.hGet handle $ fromIntegral size
+    return (int1, int2, blob)
+
+linuxReadMessage :: Handle -> IO BSL.ByteString
+linuxReadMessage handle = do
+    line <- hGetLine handle
+    return $ BSLC.pack line
+
+sendMessage :: Handle -> BSL.ByteString -> IO ()
+sendMessage handle blob = do
+    if buildOS == Windows
+        then sendWindowsMessage handle 1 0 (blob <> "\n")
+        else sendLinuxMessage handle blob
+    hFlush handle
+
+sendWindowsMessage :: Handle -> Word32 -> Word32 -> BSL.ByteString -> IO ()
+sendWindowsMessage handle int1 int2 blob = do
+    BSLC.hPut handle $ runPut $ (putWord32le int1) <> (putWord32le int2) <> (putWord64le $ fromIntegral $ BSL.length blob) <> (putLazyByteString blob)
+
+sendLinuxMessage :: Handle -> BSL.ByteString -> IO ()
+sendLinuxMessage = BSLC.hPutStrLn
 
 ipcListener ::
     forall m ctx . (MonadCatch m, MonadIO m, WithLogger m, MonadReader ctx m, HasShutdownContext ctx)
-    => CInt -> Word16 -> m ()
-ipcListener fd port = do
-  handle <- liftIO $ fdToHandle fd
+    => Handle -> Word16 -> m ()
+ipcListener handle port = do
   liftIO $ hSetNewlineMode handle noNewlineTranslation
   let
     send :: Packet -> m ()
-    send cmd = liftIO $ do
-      sendMessage $ encode cmd
+    send cmd = liftIO $ sendMessage handle $ encode cmd
     action :: Packet -> m ()
-    action QueryPort = do
-      send $ ReplyPort port
+    action QueryPort = send $ ReplyPort port
+    action Ping = send Pong
     action foo = logInfo $ "Unhandled IPC msg: " <> show foo
-    sendMessage :: BSL.ByteString -> IO ()
-    sendMessage blob = do
-      if buildOS == Windows
-        then sendWindowsMessage 1 0 (blob <> "\n")
-        else sendLinuxMessage blob
-      hFlush handle
-    sendWindowsMessage :: Word32 -> Word32 -> BSL.ByteString -> IO ()
-    sendWindowsMessage int1 int2 blob = do
-      let
-        message = runPut $ (putWord32le int1) <> (putWord32le int2) <> (putWord64le $ fromIntegral $ BSL.length blob) <> (putLazyByteString blob)
-      BSLC.hPut handle message
-    sendLinuxMessage :: BSL.ByteString -> IO ()
-    sendLinuxMessage blob = do
-      BSLC.hPutStrLn handle blob
   let
     loop :: m ()
     loop = do
       send Started
       forever $ do
-        line <- readMessage
+        line <- readMessage handle
         let
           handlePacket :: Either String Packet -> m ()
           handlePacket (Left err) = send $ ParseError $ toText err
@@ -98,35 +130,4 @@ ipcListener fd port = do
       when (isEOFError err) $ logError "its an eof"
       liftIO $ hFlush stdout
       triggerShutdown
-    debugloop :: m ()
-    debugloop = forever $ do
-        char <- liftIO $ hGetChar handle
-        logInfo $ "got char '" <> (show char) <> "' (" <> (show $ ord char) <> ")"
-    readMessage :: m BSL.ByteString
-    readMessage = do
-      if buildOS == Windows
-        then do
-          (int1, int2, blob) <- liftIO windowsReadMessage
-          logInfo $ "int is: " <> (show [int1, int2]) <> " and blob is: " <> (show blob)
-          return blob
-        else
-          liftIO linuxReadMessage
-    linuxReadMessage :: IO BSL.ByteString
-    linuxReadMessage = do
-      line <- hGetLine handle
-      return $ BSLC.pack line
-    windowsReadMessage :: IO (Word32, Word32, BSL.ByteString)
-    windowsReadMessage = do
-      int1 <- readInt32 handle
-      int2 <- readInt32 handle
-      size <- readInt64 handle
-      blob <- BSL.hGet handle $ fromIntegral size
-      return (int1, int2, blob)
-    readInt64 :: Handle -> IO Word64
-    readInt64 hnd = do
-      bs <- BSL.hGet hnd 8
-      pure $ runGet getWord64le bs
-    readInt32 hnd = do
-      bs <- BSL.hGet hnd 4
-      pure $ runGet getWord32le bs
   catch loop handler

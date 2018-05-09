@@ -14,6 +14,11 @@ module Pos.Block.Logic.Internal
        , MonadBlockApply
        , MonadMempoolNormalization
 
+         -- Verfication context
+       , VerifyBlocksContext(..)
+       , getVerifyBlocksContext
+       , getVerifyBlocksContext'
+
        , applyBlocksUnsafe
        , normalizeMempool
        , rollbackBlocksUnsafe
@@ -38,10 +43,12 @@ import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply,
                      MonadSlogBase, ShouldCallBListener, slogApplyBlocks,
                      slogRollbackBlocks)
 import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
-import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL,
-                     gbHeader, headerHash, mainBlockDlgPayload,
-                     mainBlockSscPayload, mainBlockTxPayload,
-                     mainBlockUpdatePayload)
+import           Pos.Block.Logic.Types (VerifyBlocksContext (..),
+                     getVerifyBlocksContext, getVerifyBlocksContext')
+import           Pos.Core (BlockVersion, BlockVersionData, ComponentBlock (..),
+                     IsGenesisHeader, epochIndexL, gbHeader, headerHash,
+                     mainBlockDlgPayload, mainBlockSscPayload,
+                     mainBlockTxPayload, mainBlockUpdatePayload)
 import           Pos.Core.Block (Block, GenesisBlock, MainBlock)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Crypto (ProtocolMagic)
@@ -147,11 +154,13 @@ applyBlocksUnsafe
        , HasTxpConfiguration
        )
     => ProtocolMagic
+    -> BlockVersion
+    -> BlockVersionData
     -> ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
     -> m ()
-applyBlocksUnsafe pm scb blunds pModifier = do
+applyBlocksUnsafe pm bv bvd scb blunds pModifier = do
     -- Check that all blunds have the same epoch.
     unless (null nextEpoch) $ assertionFailed $
         sformat ("applyBlocksUnsafe: tried to apply more than we should"%
@@ -171,7 +180,7 @@ applyBlocksUnsafe pm scb blunds pModifier = do
         (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
         _                      -> app blunds
   where
-    app x = applyBlocksDbUnsafeDo pm scb x pModifier
+    app x = applyBlocksDbUnsafeDo pm bv bvd scb x pModifier
     app' = app . OldestFirst
     (thisEpoch, nextEpoch) =
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
@@ -181,22 +190,24 @@ applyBlocksDbUnsafeDo
        , HasTxpConfiguration
        )
     => ProtocolMagic
+    -> BlockVersion
+    -> BlockVersionData
     -> ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
     -> m ()
-applyBlocksDbUnsafeDo pm scb blunds pModifier = do
+applyBlocksDbUnsafeDo pm bv bvd scb blunds pModifier = do
     let blocks = fmap fst blunds
     -- Note: it's important to do 'slogApplyBlocks' first, because it
     -- puts blocks in DB.
     slogBatch <- slogApplyBlocks scb blunds
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
-    usBatch <- SomeBatchOp <$> usApplyBlocks pm (map toUpdateBlock blocks) pModifier
+    usBatch <- SomeBatchOp <$> usApplyBlocks pm bv (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> dlgApplyBlocks (map toDlgBlund blunds)
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
     sscBatch <- SomeBatchOp <$>
         -- TODO: pass not only 'Nothing'
-        sscApplyBlocks pm (map toSscBlock blocks) Nothing
+        sscApplyBlocks pm bvd (map toSscBlock blocks) Nothing
     GS.writeBatchGState
         [ delegateBatch
         , usBatch

@@ -21,8 +21,8 @@ import           Mockable.CurrentTime (realTime)
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Binary.Class (decodeFull, serialize)
 import           Pos.Block.Error (ApplyBlocksException, VerifyBlocksException)
-import           Pos.Block.Logic.VAR (verifyAndApplyBlocks, verifyBlocksPrefix,
-                     rollbackBlocks)
+import           Pos.Block.Logic.VAR (getVerifyBlocksContext',
+                     verifyAndApplyBlocks, verifyBlocksPrefix, rollbackBlocks)
 import           Pos.Core (Block)
 import           Pos.Core.Chrono (NE, OldestFirst (..), nonEmptyNewestFirst)
 import           Pos.Core.Common (BlockCount (..), unsafeCoinPortionFromDouble)
@@ -257,7 +257,9 @@ main = do
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
         validate pm blocks = do
             verStart <- realTime
-            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix pm Nothing blocks
+            -- omitting current slot for simplicity
+            ctx <- getVerifyBlocksContext' Nothing
+            res <- (force . either Left (Right . fst)) <$> verifyBlocksPrefix pm ctx blocks
             verEnd <- realTime
             return (verEnd - verStart, either (Just . Left) (const Nothing) res)
 
@@ -268,7 +270,8 @@ main = do
             -> BlockTestMode (Microsecond, Maybe (Either VerifyBlocksException ApplyBlocksException))
         validateAndApply pm blocks = do
             verStart <- realTime
-            res <- force <$> verifyAndApplyBlocks pm Nothing False blocks
+            ctx <- getVerifyBlocksContext' Nothing
+            res <- force <$> verifyAndApplyBlocks pm ctx False blocks
             verEnd <- realTime
             case res of
                 Left _ -> return ()

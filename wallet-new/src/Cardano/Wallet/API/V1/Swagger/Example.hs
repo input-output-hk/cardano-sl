@@ -46,7 +46,11 @@ instance Example a => Example (WalletResponse a) where
                              <*> pure SuccessStatus
                              <*> example
 
-
+-- | We have a specific 'Example' instance for @'V1' 'Address'@ because we want
+-- to control the length of the examples. It is possible for the encoded length
+-- to become huge, up to 1000+ bytes, if the 'UnsafeMultiKeyDistr' constructor
+-- is used. We do not use this constructor, which keeps the address between
+-- ~80-150 bytes long.
 instance Example (V1 Address) where
     example = fmap V1 . Core.makeAddress
         <$> arbitrary

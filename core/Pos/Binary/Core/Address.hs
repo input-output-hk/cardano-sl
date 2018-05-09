@@ -7,9 +7,6 @@ import           Universum
 import           Codec.CBOR.Encoding (Encoding)
 
 import           Pos.Binary.Class (Bi (..), encodeCrcProtected)
--- import           Pos.Binary.Core.Common ()
--- import           Pos.Binary.Core.Script ()
--- import           Pos.Binary.Crypto ()
 import           Pos.Core.Common.Types (Address (..))
 
 ----------------------------------------------------------------------------

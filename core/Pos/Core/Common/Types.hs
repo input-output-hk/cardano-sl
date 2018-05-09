@@ -564,4 +564,3 @@ Bi.deriveSimpleBi ''Script [
         Bi.Field [| scrVersion :: ScriptVersion |],
         Bi.Field [| scrScript  :: ByteString   |]
     ]]
-

@@ -10,7 +10,6 @@ module Cardano.Wallet.Kernel.Mode
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           System.Wlog
 import           Universum
 
 import           Mockable

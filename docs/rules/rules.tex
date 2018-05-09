@@ -85,6 +85,7 @@
 \newcommand{\repartition}[1]{\mathsf{repartition}(#1)}
 \newcommand{\bootstraprepartition}{r_\mathsf{bootstrap}}
 \newcommand{\stakeof}[2]{\mathsf{stake}(#1,#2)}
+\newcommand{\maxmempoolsize}{\mathsf{max}_{\mathsf{poolsize}}}
 
 %% /macros %%
 
@@ -321,6 +322,20 @@ concrete value, which simplifies the specification.
   necessary for the specification itself. A typical such function is
   the length of the list, though more refined criterion are usually
   chosen. This function is defined in Section~\ref{sec:height}.
+
+\end{description}
+
+\subsection{Configuration parameters}
+\label{sec:conf-param}
+
+This section document parameters of nodes, which are set via
+configuration arguments.
+
+\begin{description}
+\item[Maximum mempool size] We assume a number $\maxmempoolsize ∈ ℕ$(
+  representing the maximum allowed size for a mempool (see
+  Section~\ref{sec:entering-mempool}).
+  \info{The current value is 200}
 \end{description}
 
 \subsection{Chain parameters}
@@ -732,6 +747,9 @@ those of the selected chain) when
 \begin{description}
   \item[Stateless]\hfill
     \begin{description}
+    \item[Mempool size] The addition of the new block mustn't cause
+      the mempool size to increase past its maximum value:
+      $n < \maxmempoolsize$.
     \item[Valid outputs] All the outputs of the transaction must have
       amount $a > 0$.
     \item[No double-spending] The list of inputs contains no duplicate.

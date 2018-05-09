@@ -483,17 +483,26 @@ getTxMetas dbHandle (Offset offset) (Limit limit) mbSorting =
             Right (Just (inputs, outputs)) ->
               let mapWithInputs  = transform inputs
                   mapWithOutputs = transform outputs
-              in return $ Foldable.foldl' (toValidKernelTxMeta mapWithInputs) mempty (M.toList mapWithOutputs)
+              -- Do a final round of in-memory sorting after folding the
+              -- results. Note how this is unavoidable (without complicating
+              -- the implementation consistently) due to the fact we get
+              -- sorted data out of the DB but we need to post-process it to
+              -- construct a real 'Kernel.TxMeta'.
+              -- In practice, this is not as bad as it sounds: even though
+              -- the 'Limit' is basically unbounded as part of this function,
+              -- there exist a hard-limit as part of the wallet API, which would
+              -- ensure that the in-memory sorting will never be too expensive.
+              in return $ maybe identity (sortBy . toOrdering) mbSorting
+                        $ Foldable.foldl' (toValidKernelTxMeta mapWithInputs) mempty (M.toList mapWithOutputs)
     where
         getTx selector = _txCoinDistributionTxId . selector
 
-        toBeamSortDirection :: SortDirection
-                            -> SQL.QExpr (Sql92OrderingExpressionSyntax (Sql92SelectOrderingSyntax SqliteSelectSyntax)) s a
-                            -> SQL.QOrd (Sql92SelectOrderingSyntax SqliteSelectSyntax) s a
-        toBeamSortDirection dir =
-            case dir of
-                Ascending  -> SQL.asc_
-                Descending -> SQL.desc_
+        metaQuery = case mbSorting of
+            Nothing  -> SQL.all_ (_mDbMeta metaDB)
+            Just (Sorting SortByCreationAt dir) ->
+                SQL.orderBy_ (toBeamSortDirection dir . _txMetaTableCreatedAt) $ SQL.all_ (_mDbMeta metaDB)
+            Just (Sorting SortByAmount     dir) ->
+                SQL.orderBy_ (toBeamSortDirection dir . _txMetaTableAmount) $ SQL.all_ (_mDbMeta metaDB)
 
         -- The following two queries are disjointed and both fetches, respectively,
         -- a list of tuples of type @(TxMeta, TxInput)@ and @(TxMeta, TxOutput)@.
@@ -503,18 +512,12 @@ getTxMetas dbHandle (Offset offset) (Limit limit) mbSorting =
         -- Doing two separate queries is yes more I/O taxing, but spares us from doing
         -- duplicate filtering on the Haskell side.
         paginatedInputs = SQL.select $ do
-            let metaQuery = case mbSorting of
-                    Nothing  -> SQL.all_ (_mDbMeta metaDB)
-                    Just (Sorting SortByCreationAt dir) ->
-                        SQL.orderBy_ (toBeamSortDirection dir . _txMetaTableCreatedAt) $ SQL.all_ (_mDbMeta metaDB)
-                    Just (Sorting SortByAmount     dir) ->
-                        SQL.orderBy_ (toBeamSortDirection dir . _txMetaTableAmount) $ SQL.all_ (_mDbMeta metaDB)
             meta   <- SQL.limit_ limit (SQL.offset_ offset metaQuery)
             inputs  <- SQL.oneToMany_ (_mDbInputs metaDB)  (getTx _getTxInput) meta
             pure (meta, inputs)
 
         paginatedOutputs = SQL.select $ do
-            meta   <- SQL.limit_ limit (SQL.offset_ offset (SQL.all_ (_mDbMeta metaDB)))
+            meta   <- SQL.limit_ limit (SQL.offset_ offset metaQuery)
             outputs <- SQL.oneToMany_ (_mDbOutputs metaDB) (getTx _getTxOutput) meta
             pure (meta, outputs)
 
@@ -536,3 +539,25 @@ getTxMetas dbHandle (Offset offset) (Limit limit) mbSorting =
             case M.lookup (OrdByCreationDate t) inputMap of
                  Nothing     -> acc
                  Just inputs -> toTxMeta t inputs outputs : acc
+
+-- | Generates a Beam's AST fragment for use within a SQL query, to order
+-- the results of a @SELECT@.
+toBeamSortDirection :: SortDirection
+                    -> SQL.QExpr (Sql92OrderingExpressionSyntax (Sql92SelectOrderingSyntax SqliteSelectSyntax)) s a
+                    -> SQL.QOrd (Sql92SelectOrderingSyntax SqliteSelectSyntax) s a
+toBeamSortDirection Ascending  = SQL.asc_
+toBeamSortDirection Descending = SQL.desc_
+
+-- | Generates a function suitable for 'sortBy' out of a 'Sorting'.
+toOrdering :: Sorting -> (Kernel.TxMeta -> Kernel.TxMeta -> Ordering)
+toOrdering (Sorting criteria dir) =
+    let comparator Ascending  = compare
+        comparator Descending = flip compare
+    in case criteria of
+            SortByCreationAt ->
+                \t1 t2 -> (comparator dir) (t1 ^. Kernel.txMetaCreationAt)
+                                           (t2 ^. Kernel.txMetaCreationAt)
+            SortByAmount ->
+                \t1 t2 -> (comparator dir) (t1 ^. Kernel.txMetaAmount)
+                                           (t2 ^. Kernel.txMetaAmount)
+

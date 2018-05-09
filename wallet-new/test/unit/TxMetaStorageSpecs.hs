@@ -73,6 +73,24 @@ instance Buildable ShallowEqual where
 instance Buildable [ShallowEqual] where
     build ts = bprint (listJsonIndent 4) ts
 
+sortByAmount :: SortDirection -> [ShallowEqual] -> [ShallowEqual]
+sortByAmount direction = sortBy sortFn
+    where
+        withDir Ascending  = identity
+        withDir Descending = flip
+
+        sortFn (ShallowEqual a) (ShallowEqual b) =
+            (withDir direction compare) (a ^. txMetaAmount) (b ^. txMetaAmount)
+
+sortByCreationAt :: SortDirection -> [ShallowEqual] -> [ShallowEqual]
+sortByCreationAt direction = sortBy sortFn
+    where
+        withDir Ascending  = identity
+        withDir Descending = flip
+
+        sortFn (ShallowEqual a) (ShallowEqual b) =
+            (withDir direction compare) (a ^. txMetaCreationAt) (b ^. txMetaCreationAt)
+
 -- | Specs which tests the persistent storage and API provided by 'TxMeta'.
 txMetaStorageSpecs :: Spec
 txMetaStorageSpecs = do
@@ -133,3 +151,17 @@ txMetaStorageSpecs = do
                 forM_ metas (putTxMeta hdl)
                 result <- getTxMetas hdl (Offset 0) (Limit 10) Nothing
                 length result `shouldBe` 10
+
+        it "pagination correctly sorts (ascending) the results" $ do
+            withTemporaryDb $ \hdl -> do
+                metas <- liftIO $ generate (vectorOf 10 arbitrary)
+                forM_ metas (putTxMeta hdl)
+                result <- getTxMetas hdl (Offset 0) (Limit 10) (Just $ Sorting SortByAmount Ascending)
+                map ShallowEqual result `shouldBe` sortByAmount Ascending (map ShallowEqual metas)
+
+        it "pagination correctly sorts (descending) the results" $ do
+            withTemporaryDb $ \hdl -> do
+                metas <- liftIO $ generate (vectorOf 10 arbitrary)
+                forM_ metas (putTxMeta hdl)
+                result <- getTxMetas hdl (Offset 0) (Limit 10) (Just $ Sorting SortByCreationAt Descending)
+                map ShallowEqual result `shouldBe` sortByCreationAt Descending (map ShallowEqual metas)

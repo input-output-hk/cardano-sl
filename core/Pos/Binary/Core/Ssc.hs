@@ -10,7 +10,8 @@ import qualified Data.HashSet as HS
 import           Serokell.Util (allDistinct)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Decoder, Encoding, Field (..),
-                                   deriveSimpleBi, encodeListLen, enforceSize)
+                                   decodeListLenCanonical, deriveSimpleBi, encodeListLen,
+                                   enforceSize, matchSize)
 import           Pos.Binary.Core.Slotting ()
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Ssc.Types (Commitment (..), CommitmentsMap (..), Opening (..),
@@ -34,6 +35,45 @@ instance Bi Commitment where
 instance Bi CommitmentsMap where
     encode = encodeCommitments
     decode = decodeCommitments
+
+instance Bi SscPayload where
+    encode = \x -> case x of
+        (CommitmentsPayload cMap vCMap) -> encodeListLen 3 <> encode (0 :: Word8)
+                                                           <> encode cMap
+                                                           <> encode vCMap
+        (OpeningsPayload oMap vCMap) -> encodeListLen 3 <> encode (1 :: Word8)
+                                                           <> encode oMap
+                                                           <> encode vCMap
+        (SharesPayload sMap vCMap) -> encodeListLen 3 <> encode (2 :: Word8)
+                                                      <> encode sMap
+                                                      <> encode vCMap
+        (CertificatesPayload vCMap) -> encodeListLen 2 <> encode (3 :: Word8)
+                                                       <> encode vCMap
+
+    decode = do
+        expectedLen <- decodeListLenCanonical
+        tag <- decode @Word8
+        case tag of
+            0 -> do
+                matchSize 3 "CommitmentsPayload" expectedLen
+                cMap <- decode
+                vCMap <- decode
+                pure $ CommitmentsPayload cMap vCMap
+            1 -> do
+                matchSize 3 "OpeningsPayload" expectedLen
+                oMap <- decode
+                vCMap  <- decode
+                pure $ OpeningsPayload oMap vCMap
+            2 -> do
+                matchSize 3 "SharesPayload" expectedLen
+                sMap <- decode
+                vCMap  <- decode
+                pure $ SharesPayload sMap vCMap
+            3 -> do
+                matchSize 3 "CertificatesPayload" expectedLen
+                vCMap  <- decode
+                pure $ CertificatesPayload vCMap
+            _ -> cborError "Found invalid tag while getting SscPayload"
 
 instance Bi VssCertificate where
     encode vssCert = encodeListLen 4 <> encode (vcVssKey vssCert)
@@ -101,20 +141,6 @@ decodeCommitments = do
 ----------------------------------------------------------------------------
 -- TH-generated instances go to the end of the file
 ----------------------------------------------------------------------------
-
-deriveSimpleBi ''SscPayload [
-    Cons 'CommitmentsPayload [
-        Field [| spComms    :: CommitmentsMap     |],
-        Field [| spVss      :: VssCertificatesMap |] ],
-    Cons 'OpeningsPayload [
-        Field [| spOpenings :: OpeningsMap        |],
-        Field [| spVss      :: VssCertificatesMap |] ],
-    Cons 'SharesPayload [
-        Field [| spShares   :: SharesMap          |],
-        Field [| spVss      :: VssCertificatesMap |] ],
-    Cons 'CertificatesPayload [
-        Field [| spVss      :: VssCertificatesMap |] ]
-    ]
 
 deriveSimpleBi ''SscProof [
     Cons 'CommitmentsProof [

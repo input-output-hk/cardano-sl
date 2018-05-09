@@ -16,6 +16,7 @@ module Cardano.Wallet.WalletLayer.Types
 
     , getAddresses
     , applyBlocks
+    , rollbackBlocks
     ) where
 
 import           Universum
@@ -25,7 +26,7 @@ import           Control.Lens (makeLenses)
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, Address,
                                               NewAccount, NewWallet, Wallet, WalletId, WalletUpdate)
 
-import           Pos.Util.Chrono (NE, OldestFirst (..))
+import           Pos.Util.Chrono (NE, OldestFirst (..), NewestFirst (..))
 import           Pos.Block.Types (Blund)
 
 ------------------------------------------------------------
@@ -36,21 +37,22 @@ import           Pos.Block.Types (Blund)
 data PassiveWalletLayer m = PassiveWalletLayer
     {
     -- * wallets
-      _pwlCreateWallet  :: NewWallet -> m Wallet
-    , _pwlGetWalletIds  :: m [WalletId]
-    , _pwlGetWallet     :: WalletId -> m (Maybe Wallet)
-    , _pwlUpdateWallet  :: WalletId -> WalletUpdate -> m Wallet
-    , _pwlDeleteWallet  :: WalletId -> m Bool
+      _pwlCreateWallet   :: NewWallet -> m Wallet
+    , _pwlGetWalletIds   :: m [WalletId]
+    , _pwlGetWallet      :: WalletId -> m (Maybe Wallet)
+    , _pwlUpdateWallet   :: WalletId -> WalletUpdate -> m Wallet
+    , _pwlDeleteWallet   :: WalletId -> m Bool
     -- * accounts
-    , _pwlCreateAccount :: WalletId -> NewAccount -> m Account
-    , _pwlGetAccounts   :: WalletId -> m [Account]
-    , _pwlGetAccount    :: WalletId -> AccountIndex -> m (Maybe Account)
-    , _pwlUpdateAccount :: WalletId -> AccountIndex -> AccountUpdate -> m Account
-    , _pwlDeleteAccount :: WalletId -> AccountIndex -> m Bool
+    , _pwlCreateAccount  :: WalletId -> NewAccount -> m Account
+    , _pwlGetAccounts    :: WalletId -> m [Account]
+    , _pwlGetAccount     :: WalletId -> AccountIndex -> m (Maybe Account)
+    , _pwlUpdateAccount  :: WalletId -> AccountIndex -> AccountUpdate -> m Account
+    , _pwlDeleteAccount  :: WalletId -> AccountIndex -> m Bool
     -- * addresses
-    , _pwlGetAddresses  :: WalletId -> m [Address]
+    , _pwlGetAddresses   :: WalletId -> m [Address]
     -- * core API
-    , _pwlApplyBlocks   :: OldestFirst NE Blund -> m ()
+    , _pwlApplyBlocks    :: OldestFirst NE Blund -> m ()
+    , _pwlRollbackBlocks :: NewestFirst NE Blund -> m ()
     }
 
 makeLenses ''PassiveWalletLayer
@@ -97,6 +99,9 @@ getAddresses pwl = pwl ^. pwlGetAddresses
 
 applyBlocks :: forall m. PassiveWalletLayer m -> OldestFirst NE Blund -> m ()
 applyBlocks pwl = pwl ^. pwlApplyBlocks
+
+rollbackBlocks :: forall m. PassiveWalletLayer m -> NewestFirst NE Blund -> m ()
+rollbackBlocks pwl = pwl ^. pwlRollbackBlocks
 
 ------------------------------------------------------------
 -- Active wallet layer

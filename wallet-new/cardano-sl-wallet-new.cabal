@@ -61,6 +61,7 @@ library
                        Cardano.Wallet.API.V1.Types
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.Kernel
+                       Cardano.Wallet.Kernel.Actions
                        Cardano.Wallet.Kernel.DB.AcidState
                        Cardano.Wallet.Kernel.DB.BlockMeta
                        Cardano.Wallet.Kernel.DB.HdWallet
@@ -107,6 +108,7 @@ library
                      , acid-state
                      , aeson
                      , aeson-pretty
+                     , async
                      , bytestring
                      , cardano-sl
                      , cardano-sl-block

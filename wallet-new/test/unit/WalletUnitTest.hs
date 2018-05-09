@@ -76,7 +76,7 @@ tests = describe "Wallet unit tests" $ do
     testPureWallet
     testActiveWallet
     testWalletWorker
-    
+
 {-------------------------------------------------------------------------------
   UTxO->Cardano translation tests
 -------------------------------------------------------------------------------}
@@ -280,7 +280,7 @@ testWalletWorker = do
 
       it "State invariants are not violated" $ forAll (listOf someAction) $
           \actions -> Actions.isValidState (srState $ runStackWorker actions $ Stack [1..5])
- 
+
       it "Applies blocks immediately from its initial state" $ do
           let actions = [ Actions.ApplyBlocks (OldestFirst $ 1:|[2,3]) ]
               StackResult{..} = runStackWorker actions $ Stack []
@@ -331,12 +331,12 @@ testWalletWorker = do
                            , (7,  (Actions.RollbackBlocks . NewestFirst) <$> arbitrary)
                            , (1,   Actions.LogMessage                    <$> arbitrary)
                            ]
-      
+
 data StackResult = StackResult
     { srState :: Actions.WalletWorkerState Int
     , srStack :: Stack
     }
-  
+
 stackOps :: Actions.WalletActionInterp (State Stack) Int
 stackOps = Actions.WalletActionInterp
     { Actions.applyBlocks  = mapM_ push
@@ -348,7 +348,7 @@ stackOps = Actions.WalletActionInterp
   where
     push = interpStackOp . Push
     pop  = interpStackOp Pop
-    
+
 data StackOp = Push Int | Pop
 newtype Stack = Stack [Int]
     deriving (Eq, Show)

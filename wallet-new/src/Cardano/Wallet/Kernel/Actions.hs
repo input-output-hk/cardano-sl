@@ -70,9 +70,9 @@ interp walletInterp action = do
 
     numPendingRollbacks <- use pendingRollbacks
     numPendingBlocks    <- use lengthPendingBlocks
-  
+
     -- Respond to the incoming action
-    case action of 
+    case action of
 
       -- If we are not in the midst of a rollback, just apply the blocks.
       ApplyBlocks bs | numPendingRollbacks == 0 -> do
@@ -93,7 +93,7 @@ interp walletInterp action = do
 
           pb <- toOldestFirst <$> use pendingBlocks
           switchToFork numPendingRollbacks pb
-        
+
           -- Reset state to "no fork in progress"
           pendingRollbacks    .= 0
           lengthPendingBlocks .= 0
@@ -124,7 +124,7 @@ interp walletInterp action = do
 walletWorker :: Chan (WalletAction b) -> WalletActionInterp IO b -> IO ()
 walletWorker chan ops = do
     emit ops "Starting wallet worker."
-    void $ (`evalStateT` initialWorkerState) $ forever $ 
+    void $ (`evalStateT` initialWorkerState) $ forever $
       lift (readChan chan) >>= interp ops
     emit ops "Finishing wallet worker."
 
@@ -184,4 +184,3 @@ instance Show b => Buildable [WalletAction b] where
     build was = case was of
       []     -> bprint "[]"
       (x:xs) -> bprint (build % ":" % build) x xs
-

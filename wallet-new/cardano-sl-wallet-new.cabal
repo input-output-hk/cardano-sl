@@ -280,9 +280,11 @@ executable cardano-integration-test
                        QuickCheckSpecs
 
   build-depends:       base
+                     , QuickCheck
                      , aeson
                      , aeson-diff
                      , aeson-pretty
+                     , bytestring
                      , cardano-sl-core
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
@@ -296,7 +298,6 @@ executable cardano-integration-test
                      , mtl
                      , optparse-applicative
                      , pretty-show
-                     , QuickCheck
                      , servant
                      , servant-quickcheck
                      , servant-server
@@ -304,12 +305,12 @@ executable cardano-integration-test
                      , text-format
                      , universum
                      , unordered-containers
-                     , x509
-                     , x509-store
                      , wai
                      , wai-cors
                      , wai-extra
                      , warp
+                     , x509
+                     , x509-store
 
   default-language:    Haskell2010
   default-extensions: TypeOperators

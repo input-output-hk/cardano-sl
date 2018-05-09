@@ -1,5 +1,4 @@
 -- | Common core types essential for multiple components.
-
 module Pos.Core.Common.Types
        (
        -- * Address and StakeholderId
@@ -324,6 +323,16 @@ instance Bi (Attributes AddrAttributes) where
 newtype Address' = Address'
     { unAddress' :: (AddrType, AddrSpendingData, Attributes AddrAttributes)
     } deriving (Eq, Show, Generic, Typeable, Bi)
+    -- TODO: We are deriving 'Bi' via 'GeneralizedNewtypeDeriving'. This is
+    -- enabled in the Cabal file. It would be *very bad* if we switched to
+    -- @DeriveAnyClass@ and it was derived via the 'Generic' class instead.
+    --
+    -- When we upgrade to GHC 8.2, we can use @DerivingStrategies@ to write:
+    -- @
+    -- newtype Address' = Address' { ... }
+    --     deriving stock (Eq, Show, Generic, Typeable)
+    --     deriving newtype (Bi)
+    -- @
 
 -- | 'Address' is where you can send coins.
 data Address = Address

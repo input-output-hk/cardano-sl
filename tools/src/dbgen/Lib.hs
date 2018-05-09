@@ -65,7 +65,9 @@ _exampleSpec = GenSpec
     { walletSpec = WalletSpec
         { accounts = 1
         , accountSpec = AccountSpec { addresses = 100 }
-        , fakeUtxoCoinDistr = RangeDistribution 100 1000
+        , fakeUtxoCoinDistr = RangeDistribution
+            AddressRange { unAddressRange = 100 }
+            DistributionAmount { unDistributionAmount = 1000 }
         , fakeTxsHistory = SimpleTxsHistory 100 3
         }
     , wallets = 1
@@ -103,8 +105,19 @@ data AccountSpec = AccountSpec
 instance FromJSON AccountSpec
 instance ToJSON AccountSpec
 
-type AddressRange = Integer
-type DistributionAmount = Integer
+newtype AddressRange = AddressRange
+    { unAddressRange :: Integer
+    } deriving (Show, Eq, Generic)
+
+instance FromJSON AddressRange
+instance ToJSON AddressRange
+
+newtype DistributionAmount = DistributionAmount
+    { unDistributionAmount :: Integer
+    } deriving (Show, Eq, Generic)
+
+instance FromJSON DistributionAmount
+instance ToJSON DistributionAmount
 
 -- TODO(ks): The question here is whether we need to support some other
 -- strategies for distributing money, like maybe using a fixed amount
@@ -115,9 +128,9 @@ data FakeUtxoCoinDistribution
     = NoDistribution
     -- ^ Do not distribute the coins.
     | RangeDistribution
-        !AddressRange
+        AddressRange
         -- ^ Distributes to only XX addresses.
-        !DistributionAmount
+        DistributionAmount
         -- ^ The amount we want to distribute to those addresses.
     -- ^ TODO(adn): For now we KISS, later we can add more type constructors
     deriving (Show, Eq, Generic)
@@ -342,20 +355,20 @@ generateRealTxHistE outputAddresses = do
 
 
 generateFakeUtxo :: FakeUtxoCoinDistribution -> AccountId -> UberMonad ()
-generateFakeUtxo NoDistribution _                     = pure ()
-generateFakeUtxo (RangeDistribution range amount) aId = do
+generateFakeUtxo NoDistribution _              = pure ()
+generateFakeUtxo (RangeDistribution ar da) aId = do
 
     db <- askWalletDB
     ws <- getWalletSnapshot db
 
-    let fromAddr = range
+    let fromAddr = unAddressRange ar
     -- First let's generate the initial addesses where we will fake money from.
     genCAddresses <- timed $ forM [1..fromAddr] (const $ genAddress aId)
 
     let generatedAddresses = rights $ map unwrapCAddress genCAddresses
 
     let coinAmount :: Coin
-        coinAmount = mkCoin $ fromIntegral amount
+        coinAmount = mkCoin $ fromIntegral $ unDistributionAmount da
 
     let txsOut :: [TxOutAux]
         txsOut = map (\address -> TxOutAux $ TxOut address coinAmount) generatedAddresses

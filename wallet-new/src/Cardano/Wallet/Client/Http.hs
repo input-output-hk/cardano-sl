@@ -7,6 +7,7 @@ module Cardano.Wallet.Client.Http
     -- * Helper to load X509 certificates and private key
     , credentialLoadX509
     , newManager
+    , Manager
     ) where
 
 import           Universum

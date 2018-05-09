@@ -10,6 +10,7 @@ import qualified Data.ByteString.Char8 as B8
 import           Data.Map (fromList)
 import           Data.Traversable (for)
 import           Data.X509.File (readSignedObject)
+import           Network.HTTP.Client (Manager)
 import           System.Environment (withArgs)
 import           System.IO (hSetEncoding, stdout, utf8)
 import           Test.Hspec
@@ -17,11 +18,11 @@ import           Test.Hspec
 import           AddressSpecs (addressSpecs)
 import           CLI
 import           Functions
+import qualified QuickCheckSpecs as QuickCheck
 import           TransactionSpecs (transactionSpecs)
 import           Types
 import           Util (WalletRef, newWalletRef)
 import           WalletSpecs (walletSpecs)
-import qualified QuickCheckSpecs as QuickCheck
 
 -- | Here we want to run main when the (local) nodes
 -- have started.
@@ -66,7 +67,7 @@ main = do
     --     Try `cardano-integration-test --help' for more information.
     --
     -- See also: https://github.com/hspec/hspec/issues/135
-    withArgs [] . hspec $ deterministicTests wRef walletClient
+    withArgs [] . hspec $ deterministicTests wRef walletClient manager
   where
     orFail :: MonadFail m => Either String a -> m a
     orFail =
@@ -96,9 +97,9 @@ initialWalletState wc = do
   where
     fromResp = (either throwM (pure . wrData) =<<)
 
-deterministicTests :: WalletRef -> WalletClient IO -> Spec
-deterministicTests wref wc = do
+deterministicTests :: WalletRef -> WalletClient IO -> Manager -> Spec
+deterministicTests wref wc manager = do
     addressSpecs wref wc
     walletSpecs wref wc
     transactionSpecs wref wc
-    QuickCheck.spec
+    QuickCheck.mkSpec manager

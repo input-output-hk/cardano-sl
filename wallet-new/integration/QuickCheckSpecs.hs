@@ -1,11 +1,10 @@
-{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE NumDecimals #-}
-
+{-# LANGUAGE PolyKinds   #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module QuickCheckSpecs (spec) where
+module QuickCheckSpecs (mkSpec) where
 
-import Universum
+import           Universum
 
 import           Network.HTTP.Client hiding (Proxy)
 import           Network.HTTP.Types
@@ -25,19 +24,26 @@ import           Cardano.Wallet.API.V1.Parameters (WalletRequestParams, WithWall
 -- browsers can be hacked: https://haacked.com/archive/2009/06/25/json-hijacking.aspx/
 -- The general consensus, after discussing this with the team, is that we can be moderately safe.
 -- stack test cardano-sl-wallet-new --fast --test-arguments '-m "Servant API Properties"'
-spec :: Spec
-spec = do
+mkSpec :: Manager -> Spec
+mkSpec mgr = do
+    -- NOTE
+    -- We need this because there's currently no way to specify a custom manager
+    -- for the request predicate. The BaseUrl is still needed for the call to
+    -- serverSatisfies but it won't probably reflect the right target for all
+    -- request predicate for in these cases, the url and port will come from the
+    -- Manager itself.
+    -- Have a look at where the Manager is defined (likely Main.hs)
     let burl = BaseUrl
-            { baseUrlScheme = Http
+            { baseUrlScheme = Https
             , baseUrlHost = "localhost"
             , baseUrlPort = 8090
             , baseUrlPath = ""
             }
     describe "Servant API Properties" $ do
         it "V0 API follows best practices & is RESTful abiding" $ do
-            serverSatisfies (Proxy @V0.API) burl stdArgs predicates
+            serverSatisfiesMgr (Proxy @V0.API) mgr burl stdArgs predicates
         it "V1 API follows best practices & is RESTful abiding" $ do
-            serverSatisfies (Proxy @V1.API) burl stdArgs predicates
+            serverSatisfiesMgr (Proxy @V1.API) mgr burl stdArgs predicates
 --
 -- Instances to allow use of `servant-quickcheck`.
 --
@@ -70,7 +76,7 @@ instance HasGenRequest (sub :: *) => HasGenRequest (WalletRequestParams :> sub) 
 
 -- | Checks that every DELETE request should return a 204 NoContent.
 deleteReqShouldReturn204 :: RequestPredicate
-deleteReqShouldReturn204 = RequestPredicate $ \req mgr ->
+deleteReqShouldReturn204 = RequestPredicate $ \req mgr -> do
     if (method req == methodDelete)
         then do
             resp <- httpLbs req mgr

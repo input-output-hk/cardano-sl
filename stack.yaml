@@ -130,6 +130,12 @@ packages:
     git: https://github.com/input-output-hk/log-warper.git
     commit: b8c390357b27e7ae3b9b0c5309bf9d0bbbf09852
   extra-dep: true
+# patched version of servant-quickcheck that allows us to use a custom manager
+# and also handles mvar appropriately
+- location:
+    git: https://github.com/parsonsmatt/servant-quickcheck
+    commit: 38cd86bd2214dcf623b216f90d8fc9657549aed6
+  extra-dep: true
 
 nix:
   shell-file: shell.nix
@@ -151,7 +157,6 @@ extra-deps:
 - servant-swagger-1.1.4           # needed for servant-0.12
 - servant-swagger-ui-0.2.4.3.4.0  # needed for servant-0.12
 - servant-blaze-0.7.1             # needed for servant-0.12
-- servant-quickcheck-0.0.4
 - ether-0.5.1.0
 - pipes-interleave-1.1.1
 - generic-arbitrary-0.1.0

@@ -169,12 +169,14 @@ launcherArgsParser = do
 getLauncherOptions :: IO LauncherOptions
 getLauncherOptions = do
     LauncherArgs {..} <- either parseErrorHandler pure =<< execParserEither programInfo
+    daedalusDir <- takeDirectory <$> getExecutablePath
     case Sys.os of
       "mingw32" -> do
-        daedalusDir <- takeDirectory <$> getExecutablePath
         -- This is used by 'substituteEnvVars', later
         setEnv "DAEDALUS_DIR" daedalusDir
       _ -> pure ()
+    -- linux and windows use DAEDALUS_DIR for different things, but having a single var with the same meaning will help with some issues
+    setEnv "DAEDALUS_INSTALL_DIRECTORY" daedalusDir
     configPath <- maybe defaultConfigPath pure maybeConfigPath
 
     -- [CSL-2503] remove once cardano-node is capable of finding the file on its own and daedalus no longer needs it

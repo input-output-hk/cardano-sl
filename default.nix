@@ -61,7 +61,7 @@ let
         executableHaskellDepends = drv.executableHaskellDepends ++ [self.cabal-install];
       })));
       cardano-sl-node = addGitRev super.cardano-sl-node;
-      cardano-sl-wallet-new = addGitRev (justStaticExecutables super.cardano-sl-wallet-new);
+      cardano-sl-wallet-new-executable = addGitRev (justStaticExecutables super.cardano-sl-wallet-new-executable);
       cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
@@ -89,6 +89,8 @@ let
       mkDerivation = args: super.mkDerivation (args // {
         enableLibraryProfiling = enableProfiling;
         enableExecutableProfiling = enableProfiling;
+        enableSharedExecutables = false;
+        #enableSharedLibraries = false;
       } // optionalAttrs enableDebugging {
         # TODO: DEVOPS-355
         dontStrip = true;
@@ -147,7 +149,7 @@ let
       cp ${./lib}/configuration.yaml config
       cp ${./lib}/*genesis*.json config
       cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-launcher bin
-      cp ${cardanoPkgs.cardano-sl-wallet-new}/bin/cardano-node bin
+      cp ${cardanoPkgs.cardano-sl-wallet-new-executable}/bin/cardano-node bin
 
       # test that binaries exit with 0
       ./bin/cardano-node --help > /dev/null

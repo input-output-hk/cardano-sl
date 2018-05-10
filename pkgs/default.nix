@@ -7767,18 +7767,17 @@ inherit (pkgs) mesa;};
              log-warper memory mtl neat-interpolation network-transport
              optparse-applicative QuickCheck reflection safe-exceptions safecopy
              serokell-util servant servant-client servant-client-core
-             servant-server servant-swagger servant-swagger-ui string-conv
+             servant-server servant-swagger servant-swagger-ui stm string-conv
              swagger2 text text-format time time-units transformers universum
              unliftio unliftio-core unordered-containers vector wai wai-cors
              warp
            ];
            executableHaskellDepends = [
-             aeson aeson-diff aeson-pretty base cardano-sl cardano-sl-core
-             cardano-sl-infra cardano-sl-networking cardano-sl-ssc
-             cardano-sl-txp cardano-sl-util cardano-sl-wallet containers
-             exceptions formatting hspec http-client http-types lens log-warper
-             mtl optparse-applicative pretty-show QuickCheck servant
-             servant-quickcheck servant-server stm text text-format universum
+             aeson aeson-diff aeson-pretty base cardano-sl-core
+             cardano-sl-wallet containers exceptions formatting hspec
+             http-client http-types lens mtl optparse-applicative pretty-show
+             QuickCheck servant servant-quickcheck servant-server text
+             text-format universum
            ];
            testHaskellDepends = [
              aeson base bytestring cardano-sl cardano-sl-block cardano-sl-client
@@ -7789,6 +7788,24 @@ inherit (pkgs) mesa;};
              mmorph mtl QuickCheck quickcheck-instances safe-exceptions
              serokell-util servant servant-server servant-swagger string-conv
              swagger2 text text-format time universum unordered-containers
+           ];
+           doHaddock = false;
+           homepage = "https://github.com/input-output-hk/cardano-sl/#readme";
+           description = "The Wallet Backend for a Cardano node";
+           license = stdenv.lib.licenses.mit;
+         }) {};
+      "cardano-sl-wallet-new-executable" = callPackage
+        ({ mkDerivation, base, cardano-sl-util, cardano-sl-wallet-new
+         , stdenv
+         }:
+         mkDerivation {
+           pname = "cardano-sl-wallet-new-executable";
+           version = "1.1.1";
+           src = ./../wallet-new-executable;
+           isLibrary = false;
+           isExecutable = true;
+           executableHaskellDepends = [
+             base cardano-sl-util cardano-sl-wallet-new
            ];
            doHaddock = false;
            homepage = "https://github.com/input-output-hk/cardano-sl/#readme";

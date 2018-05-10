@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric   #-}
 {-# LANGUAGE StrictData      #-}
 {-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Types
     ( Weight (..)

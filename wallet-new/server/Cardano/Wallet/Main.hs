@@ -4,7 +4,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE RecordWildCards            #-}
-module Main where
+module Cardano.Wallet.Main where
 
 import           Universum
 
@@ -24,7 +24,7 @@ import           Pos.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById, getWalletAddresses,
                                  runWRealMode)
@@ -183,8 +183,8 @@ startEdgeNode WalletStartupOptions{..} =
 
 
 -- | The main entrypoint for the Wallet.
-main :: IO ()
-main = withCompileInfo $(retrieveCompileTimeInfo) $ do
+wallet_main :: HasCompileInfo => IO ()
+wallet_main = do
     cfg <- getWalletNodeOptions
     putText "Wallet is starting..."
     let loggingParams = CLI.loggingParams defaultLoggerName (wsoNodeArgs cfg)

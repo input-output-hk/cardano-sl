@@ -57,7 +57,7 @@ import qualified Pos.Update.Logic.Local as Update (getLocalProposalNVotes, getLo
 import           Pos.Update.Mode (UpdateMode)
 import qualified Pos.Update.Network.Listeners as Update (handleProposal, handleVote)
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Util.JsonLog.Events (JLTxR)
+import           Pos.Util.JsonLog.Events (JLEvent, JLTxR)
 import           Pos.Util.Util (HasLens (..), lensOf)
 
 
@@ -88,7 +88,7 @@ logicLayerFull
     :: forall ctx m x .
        ( LogicWorkMode ctx m
        )
-    => (JLTxR -> m ())
+    => (JLEvent -> m ())
     -> (LogicLayer m -> m x)
     -> m x
 logicLayerFull jsonLogTx k = do

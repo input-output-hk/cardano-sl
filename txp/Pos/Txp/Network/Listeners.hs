@@ -24,20 +24,20 @@ import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Crypto (hash)
 import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem, txpProcessTx)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
-import           Pos.Util.JsonLog.Events (JLTxR (..))
+import           Pos.Util.JsonLog.Events (JLEvent (JLTxReceived), JLTxR (..))
 
 -- Real tx processing
 -- CHECK: @handleTxDo
 -- #txProcessTransaction
 handleTxDo
     :: TxpMode ctx m
-    => (JLTxR -> m ())  -- ^ How to log transactions
+    => (JLEvent -> m ())  -- ^ How to log transactions
     -> TxAux            -- ^ Incoming transaction to be processed
     -> m Bool
 handleTxDo logTx txAux = do
     let txId = hash (taTx txAux)
     res <- txpProcessTx (txId, txAux)
-    let json me = logTx $ JLTxR
+    let json me = logTx $ JLTxReceived $ JLTxR
             { jlrTxId     = sformat build txId
             , jlrError    = me
             }

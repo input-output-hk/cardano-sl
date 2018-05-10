@@ -6943,14 +6943,15 @@ inherit (pkgs) mesa;};
          , ed25519, ekg-core, ether, exceptions, extra, filelock, filepath
          , fmt, formatting, generic-arbitrary, half, hashable, hspec, lens
          , log-warper, mmorph, monad-control, MonadRandom, mtl
-         , neat-interpolation, network-transport, optparse-applicative
-         , parsec, plutus-prototype, pvss, QuickCheck, random, reflection
-         , resourcet, safe-exceptions, safecopy, serokell-util, servant
-         , servant-client, servant-client-core, servant-server
-         , servant-swagger, stdenv, stm, systemd, tagged, template-haskell
-         , text, text-format, time, time-units, transformers
-         , transformers-base, transformers-lift, universum, unix, unliftio
-         , unordered-containers, vector, wai, warp, warp-tls, yaml
+         , neat-interpolation, network, network-transport
+         , optparse-applicative, parsec, plutus-prototype, pvss, QuickCheck
+         , random, reflection, resourcet, safe-exceptions, safecopy
+         , serokell-util, servant, servant-client, servant-client-core
+         , servant-server, servant-swagger, stdenv, stm, streaming-commons
+         , systemd, tagged, template-haskell, text, text-format, time
+         , time-units, transformers, transformers-base, transformers-lift
+         , universum, unix, unliftio, unordered-containers, vector, wai
+         , warp, warp-tls, yaml
          }:
          mkDerivation {
            pname = "cardano-sl";
@@ -6966,13 +6967,14 @@ inherit (pkgs) mesa;};
              containers contravariant cpphs cryptonite data-default directory
              ed25519 ekg-core ether exceptions filelock filepath formatting
              generic-arbitrary hashable hspec lens log-warper mmorph
-             monad-control mtl neat-interpolation network-transport
+             monad-control mtl neat-interpolation network network-transport
              optparse-applicative parsec plutus-prototype pvss QuickCheck random
              reflection resourcet safe-exceptions safecopy serokell-util servant
              servant-client servant-client-core servant-server servant-swagger
-             stm systemd tagged template-haskell text text-format time
-             time-units transformers transformers-base transformers-lift
-             universum unix unliftio unordered-containers wai warp warp-tls yaml
+             stm streaming-commons systemd tagged template-haskell text
+             text-format time time-units transformers transformers-base
+             transformers-lift universum unix unliftio unordered-containers wai
+             warp warp-tls yaml
            ];
            testHaskellDepends = [
              base bytestring canonical-json cardano-crypto cardano-sl-binary
@@ -7688,13 +7690,14 @@ inherit (pkgs) mesa;};
          , cardano-sl-txp, cardano-sl-update, cardano-sl-util, containers
          , cpphs, cryptonite, data-default, directory, dlist, ekg-core
          , ether, exceptions, filepath, formatting, hashable, hspec, lens
-         , log-warper, memory, monad-control, MonadRandom, mtl, QuickCheck
-         , quickcheck-instances, random, reflection, safe-exceptions
-         , safecopy, semver, serokell-util, servant, servant-generic
-         , servant-multipart, servant-server, servant-swagger
-         , servant-swagger-ui, stdenv, stm, swagger2, text, text-format
-         , time, time-units, transformers, universum, unix, unliftio
-         , unordered-containers, wai, wai-websockets, warp, websockets
+         , log-warper, memory, monad-control, MonadRandom, mtl, node-ipc
+         , QuickCheck, quickcheck-instances, random, reflection
+         , safe-exceptions, safecopy, semver, serokell-util, servant
+         , servant-generic, servant-multipart, servant-server
+         , servant-swagger, servant-swagger-ui, stdenv, stm, swagger2, text
+         , text-format, time, time-units, transformers, universum, unix
+         , unliftio, unordered-containers, wai, wai-websockets, warp
+         , websockets
          }:
          mkDerivation {
            pname = "cardano-sl-wallet";
@@ -7708,12 +7711,12 @@ inherit (pkgs) mesa;};
              cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
              containers cryptonite data-default directory dlist ekg-core ether
              exceptions filepath formatting hashable hspec lens log-warper
-             memory monad-control mtl QuickCheck quickcheck-instances random
-             reflection safe-exceptions safecopy semver serokell-util servant
-             servant-generic servant-multipart servant-server servant-swagger
-             servant-swagger-ui stm swagger2 text text-format time time-units
-             transformers universum unix unliftio unordered-containers wai
-             wai-websockets warp websockets
+             memory monad-control mtl node-ipc QuickCheck quickcheck-instances
+             random reflection safe-exceptions safecopy semver serokell-util
+             servant servant-generic servant-multipart servant-server
+             servant-swagger servant-swagger-ui stm swagger2 text text-format
+             time time-units transformers universum unix unliftio
+             unordered-containers wai wai-websockets warp websockets
            ];
            libraryToolDepends = [ cpphs ];
            testHaskellDepends = [
@@ -7741,14 +7744,14 @@ inherit (pkgs) mesa;};
          , containers, data-default, directory, exceptions, formatting
          , generics-sop, hspec, http-api-data, http-client, http-types
          , ixset-typed, json-sop, lens, log-warper, memory, mmorph, mtl
-         , neat-interpolation, network-transport, optparse-applicative
-         , pretty-show, QuickCheck, quickcheck-instances, reflection
-         , safe-exceptions, safecopy, serokell-util, servant, servant-client
-         , servant-client-core, servant-quickcheck, servant-server
-         , servant-swagger, servant-swagger-ui, stdenv, stm, string-conv
-         , swagger2, text, text-format, time, time-units, transformers
-         , universum, unliftio, unliftio-core, unordered-containers, vector
-         , wai, wai-cors, warp
+         , neat-interpolation, network-transport, node-ipc
+         , optparse-applicative, pretty-show, QuickCheck
+         , quickcheck-instances, reflection, safe-exceptions, safecopy
+         , serokell-util, servant, servant-client, servant-client-core
+         , servant-quickcheck, servant-server, servant-swagger
+         , servant-swagger-ui, stdenv, stm, string-conv, swagger2, text
+         , text-format, time, time-units, transformers, universum, unliftio
+         , unliftio-core, unordered-containers, vector, wai, wai-cors, warp
          }:
          mkDerivation {
            pname = "cardano-sl-wallet-new";
@@ -7764,7 +7767,7 @@ inherit (pkgs) mesa;};
              cardano-sl-update cardano-sl-util cardano-sl-wallet conduit
              containers data-default exceptions formatting generics-sop
              http-api-data http-client http-types ixset-typed json-sop lens
-             log-warper memory mtl neat-interpolation network-transport
+             log-warper memory mtl neat-interpolation network-transport node-ipc
              optparse-applicative QuickCheck reflection safe-exceptions safecopy
              serokell-util servant servant-client servant-client-core
              servant-server servant-swagger servant-swagger-ui string-conv
@@ -27787,6 +27790,22 @@ inherit (pkgs) which;};
            homepage = "https://github.com/peti/nix-paths";
            description = "Knowledge of Nix's installation directories";
            license = stdenv.lib.licenses.bsd3;
+         }) {};
+      "node-ipc" = callPackage
+        ({ mkDerivation, aeson, base, binary, bytestring, Cabal
+         , cardano-sl-infra, log-warper, mtl, stdenv, universum
+         , unordered-containers
+         }:
+         mkDerivation {
+           pname = "node-ipc";
+           version = "0.1.0.0";
+           src = ./../node-ipc;
+           libraryHaskellDepends = [
+             aeson base binary bytestring Cabal cardano-sl-infra log-warper mtl
+             universum unordered-containers
+           ];
+           doHaddock = false;
+           license = stdenv.lib.licenses.mit;
          }) {};
       "non-empty" = callPackage
         ({ mkDerivation, base, containers, deepseq, QuickCheck, stdenv

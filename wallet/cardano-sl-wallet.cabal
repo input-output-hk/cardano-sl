@@ -145,6 +145,7 @@ library
                       , memory
                       , monad-control
                       , mtl
+                      , node-ipc
                       , quickcheck-instances
                       , random
                       , reflection

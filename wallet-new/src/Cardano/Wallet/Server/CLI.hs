@@ -24,12 +24,13 @@ import           Pos.Web (TlsParams (..))
 data WalletStartupOptions = WalletStartupOptions {
       wsoNodeArgs            :: !CommonNodeArgs
     , wsoWalletBackendParams :: !ChooseWalletBackend
-    }
+    } deriving Show
 
 -- | TODO: Once we get rid of the legacy wallet, remove this.
 data ChooseWalletBackend =
     WalletLegacy !WalletBackendParams
   | WalletNew    !NewWalletBackendParams
+  deriving Show
 
 -- | DB-specific options.
 data WalletDBOptions = WalletDBOptions {

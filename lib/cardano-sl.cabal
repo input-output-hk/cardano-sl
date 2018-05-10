@@ -203,6 +203,8 @@ library
                       , wai
                       , warp
                       , warp-tls
+                      , streaming-commons
+                      , network
                       , yaml
                       -- https://issues.serokell.io/issue/DEVOPS-230
                       , cpphs

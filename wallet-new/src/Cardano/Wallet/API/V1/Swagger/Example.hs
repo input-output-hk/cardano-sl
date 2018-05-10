@@ -2,7 +2,7 @@ module Cardano.Wallet.API.V1.Swagger.Example where
 
 import           Universum
 
-import           Test.QuickCheck (Arbitrary (..), Gen, listOf1)
+import           Test.QuickCheck (Arbitrary (..), oneof, Gen, listOf1)
 
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
@@ -46,8 +46,25 @@ instance Example a => Example (WalletResponse a) where
                              <*> pure SuccessStatus
                              <*> example
 
+-- | We have a specific 'Example' instance for @'V1' 'Address'@ because we want
+-- to control the length of the examples. It is possible for the encoded length
+-- to become huge, up to 1000+ bytes, if the 'UnsafeMultiKeyDistr' constructor
+-- is used. We do not use this constructor, which keeps the address between
+-- ~80-150 bytes long.
+instance Example (V1 Address) where
+    example = fmap V1 . Core.makeAddress
+        <$> arbitrary
+        <*> arbitraryAttributes
+      where
+        arbitraryAttributes =
+            Core.AddrAttributes
+                <$> arbitrary
+                <*> oneof
+                    [ pure Core.BootstrapEraDistr
+                    , Core.SingleKeyDistr <$> arbitrary
+                    ]
+
 instance Example Address
-instance Example (V1 Address)
 instance Example Metadata
 instance Example AccountIndex
 instance Example WalletId

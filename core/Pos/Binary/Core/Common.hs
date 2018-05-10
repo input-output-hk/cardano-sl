@@ -15,10 +15,6 @@ instance Bi (A.Attributes ()) where
     encode = A.encodeAttributes []
     decode = A.decodeAttributes () $ \_ _ _ -> pure Nothing
 
-instance Bi T.CoinPortion where
-    encode = encode . T.getCoinPortion
-    decode = T.CoinPortion <$> decode
-
 instance Bi T.BlockCount where
     encode = encode . T.getBlockCount
     decode = T.BlockCount <$> decode

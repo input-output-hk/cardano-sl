@@ -5229,8 +5229,8 @@ inherit (pkgs.xorg) libXrender;};
            version = "0.3.2.1";
            src = fetchgit {
              url = "https://github.com/input-output-hk/beam.git";
-             sha256 = "06a4sv0cm0m7rgvxs2pv7pvq5mgl9kknqqrxf8pdymgcfbr3f2r7";
-             rev = "7b55d464d2e80b4f1982f3458e5e4fac582fc806";
+             sha256 = "16zd1mrdcwni5sjyd5dx31kdb9pnvmqnrz4r8g6237plq0aan76b";
+             rev = "f64933932ba86529f53bb217fb303b5b559c74d0";
            };
            postUnpack = "sourceRoot+=/beam-sqlite; echo source root reset to $sourceRoot";
            libraryHaskellDepends = [

@@ -90,8 +90,6 @@ data WalletClient m
          :: WalletId -> Update Wallet -> Resp m Wallet
     , postExternalWallet
          :: New ExternalWallet -> Resp m Wallet
-    , postAddressPath
-        :: WalletId -> Resp m AddressPath
     -- account endpoints
     , deleteAccount
          :: WalletId -> AccountIndex -> m (Either ClientError ())
@@ -105,6 +103,8 @@ data WalletClient m
          :: WalletId -> AccountIndex -> Update Account -> Resp m Account
     , postExternalAccount
         :: WalletId -> New Account -> Resp m Account
+    , postAddressPath
+        :: WalletId -> AccountIndex -> Resp m AddressPath
     -- transactions endpoints
     , postTransaction
          :: Payment -> Resp m Transaction
@@ -181,8 +181,6 @@ hoistClient phi wc = WalletClient
          \x -> phi . updateWallet wc x
     , postExternalWallet =
          phi . postExternalWallet wc
-    , postAddressPath =
-         phi . postAddressPath wc
     , deleteAccount =
          \x -> phi . deleteAccount wc x
     , getAccount =
@@ -195,6 +193,8 @@ hoistClient phi wc = WalletClient
          \x y -> phi . updateAccount wc x y
     , postExternalAccount =
          \x -> phi . postExternalAccount wc x
+    , postAddressPath =
+         \x -> phi . postAddressPath wc x
     , postTransaction =
          phi . postTransaction wc
     , getTransactionIndexFilterSorts =

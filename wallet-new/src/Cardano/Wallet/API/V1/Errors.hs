@@ -58,6 +58,7 @@ data WalletError =
     | WalletNotFound
     | AddressNotFound
     | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
+    | CannotCreateAddress { weMsg :: !Text }
     deriving (Show, Eq)
 
 --
@@ -104,16 +105,17 @@ sample =
 toServantError :: WalletError -> ServantErr
 toServantError err =
   mkServantErr $ case err of
-    NotEnoughMoney{}       -> err403
-    OutputIsRedeem{}       -> err403
-    SomeOtherError{}       -> err418
-    MigrationFailed{}      -> err422
-    JSONValidationFailed{} -> err400
-    UnkownError{}          -> err400
-    WalletNotFound{}       -> err404
-    InvalidAddressFormat{} -> err401
-    AddressNotFound{}      -> err404
+    NotEnoughMoney{}        -> err403
+    OutputIsRedeem{}        -> err403
+    SomeOtherError{}        -> err418
+    MigrationFailed{}       -> err422
+    JSONValidationFailed{}  -> err400
+    UnkownError{}           -> err400
+    WalletNotFound{}        -> err404
+    InvalidAddressFormat{}  -> err401
+    AddressNotFound{}       -> err404
     MissingRequiredParams{} -> err400
+    CannotCreateAddress{}   -> err403
   where
     mkServantErr serr@ServantErr{..} = serr
       { errBody    = encode err

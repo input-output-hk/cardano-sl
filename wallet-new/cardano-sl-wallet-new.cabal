@@ -374,6 +374,7 @@ test-suite wallet-unit-tests
                     , QuickCheck
                     , safe-exceptions
                     , serokell-util
+                    , split
                     , text
                     , text-format
                     , universum

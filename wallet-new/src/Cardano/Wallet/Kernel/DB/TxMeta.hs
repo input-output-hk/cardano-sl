@@ -3,23 +3,23 @@ module Cardano.Wallet.Kernel.DB.TxMeta (
     -- * Transaction metadata
     module Types
 
-  -- * Handy re-exports to not leak our current choice of storage backend.
-  , MetaDBHandle
+  -- * Handy re-export to not leak our current choice of storage backend.
   , openMetaDB
-  , closeMetaDB
-  , getTxMeta
-  , putTxMeta
-  , getTxMetas
-  , Limit (..)
-  , Offset (..)
-  , Sorting (..)
-  , SortDirection (..)
-  , SortCriteria (..)
   ) where
 
-import           Cardano.Wallet.Kernel.DB.Sqlite (Limit (..), MetaDBHandle, Offset (..),
-                                                  SortCriteria (..), SortDirection (..),
-                                                  Sorting (..), closeMetaDB, getTxMeta, getTxMetas,
-                                                  openMetaDB, putTxMeta)
+import qualified Cardano.Wallet.Kernel.DB.Sqlite as ConcreteStorage
 import           Cardano.Wallet.Kernel.DB.TxMeta.Types as Types
+import           Universum
 
+-- Concrete instantiation of 'MetaDBHandle'
+
+openMetaDB :: FilePath -> IO MetaDBHandle
+openMetaDB fp = do
+    conn <- ConcreteStorage.newConnection fp
+    return MetaDBHandle {
+          closeMetaDB   = ConcreteStorage.closeMetaDB conn
+        , migrateMetaDB = ConcreteStorage.unsafeMigrateMetaDB conn
+        , getTxMeta     = ConcreteStorage.getTxMeta conn
+        , putTxMeta     = ConcreteStorage.putTxMeta conn
+        , getTxMetas    = ConcreteStorage.getTxMetas conn
+        }

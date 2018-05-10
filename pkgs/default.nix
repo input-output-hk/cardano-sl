@@ -5221,13 +5221,18 @@ inherit (pkgs.xorg) libXrender;};
          }) {};
       "beam-sqlite" = callPackage
         ({ mkDerivation, aeson, attoparsec, base, beam-core, beam-migrate
-         , bytestring, dlist, free, hashable, mtl, network-uri, scientific
-         , sqlite-simple, stdenv, text, time, unix
+         , bytestring, dlist, fetchgit, free, hashable, mtl, network-uri
+         , scientific, sqlite-simple, stdenv, text, time, unix
          }:
          mkDerivation {
            pname = "beam-sqlite";
-           version = "0.3.2.0";
-           sha256 = "3a65aaed83ab8bac030253bafcbcac2d1108c5e66f5272d1098261daa4d2951a";
+           version = "0.3.2.1";
+           src = fetchgit {
+             url = "https://github.com/input-output-hk/beam.git";
+             sha256 = "06a4sv0cm0m7rgvxs2pv7pvq5mgl9kknqqrxf8pdymgcfbr3f2r7";
+             rev = "7b55d464d2e80b4f1982f3458e5e4fac582fc806";
+           };
+           postUnpack = "sourceRoot+=/beam-sqlite; echo source root reset to $sourceRoot";
            libraryHaskellDepends = [
              aeson attoparsec base beam-core beam-migrate bytestring dlist free
              hashable mtl network-uri scientific sqlite-simple text time unix
@@ -7804,8 +7809,8 @@ inherit (pkgs) mesa;};
          }) {};
       "cardano-sl-wallet-new" = callPackage
         ({ mkDerivation, acid-state, aeson, aeson-diff, aeson-pretty, async
-         , base, beam-core, beam-migrate, beam-sqlite, bytestring, cardano-sl
-         , cardano-sl-block, cardano-sl-client, cardano-sl-core
+         , base, beam-core, beam-migrate, beam-sqlite, bytestring
+         , cardano-sl, cardano-sl-block, cardano-sl-client, cardano-sl-core
          , cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation
          , cardano-sl-infra, cardano-sl-networking, cardano-sl-ssc
          , cardano-sl-txp, cardano-sl-update, cardano-sl-util
@@ -7817,7 +7822,7 @@ inherit (pkgs) mesa;};
          , pretty-show, QuickCheck, quickcheck-instances, reflection
          , safe-exceptions, safecopy, serokell-util, servant, servant-client
          , servant-client-core, servant-quickcheck, servant-server
-         , servant-swagger, servant-swagger-ui, sqlite-simple
+         , servant-swagger, servant-swagger-ui, split, sqlite-simple
          , sqlite-simple-errors, stdenv, stm, string-conv, swagger2, text
          , text-format, time, time-units, transformers, universum, unliftio
          , unliftio-core, unordered-containers, vector, wai, wai-cors, warp
@@ -7860,7 +7865,7 @@ inherit (pkgs) mesa;};
              containers data-default directory formatting hspec HUnit lens
              log-warper mmorph mtl QuickCheck quickcheck-instances
              safe-exceptions serokell-util servant servant-server
-             servant-swagger string-conv swagger2 text text-format time
+             servant-swagger split string-conv swagger2 text text-format time
              universum unordered-containers
            ];
            doHaddock = false;

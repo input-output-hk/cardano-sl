@@ -113,7 +113,7 @@ getSerializedBlock hh = do
         Nothing -> pure Nothing
         Just ser -> eitherToThrow $ bimap DBMalformed (Just . fst)
                     $ decodeFull' @(ByteString, ByteString) ser
-    else getRawData $ bspBlock bsp
+    else fmap fst <$> consolidateBlund hh
 
 -- Get serialization of an undo data for block with given hash from Block DB.
 getSerializedUndo :: MonadRealDB ctx m => HeaderHash -> m (Maybe ByteString)
@@ -127,7 +127,25 @@ getSerializedUndo  hh = do
         Nothing -> pure Nothing
         Just ser -> eitherToThrow $ bimap DBMalformed (Just . snd)
                     $ decodeFull' @(ByteString, ByteString) ser
-    else getRawData $ bspUndo bsp
+    else fmap snd <$> consolidateBlund hh
+
+-- | Read independent block and undo data and consolidate them into a single
+-- blund file.
+consolidateBlund
+    :: MonadRealDB ctx m
+    => HeaderHash
+    -> m (Maybe (ByteString, ByteString))
+consolidateBlund hh = do
+    bsp <- flip getAllPaths hh . view blockDataDir <$> getNodeDBs
+    block <- getRawData $ bspBlock bsp
+    undo <- getRawData $ bspUndo bsp
+    case (,) <$> block <*> undo of
+        Just blund -> do
+            putRawData (bspBlund bsp) $ serialize' blund
+            liftIO . removeFile $ bspBlock bsp
+            liftIO . removeFile $ bspUndo bsp
+            return $ Just blund
+        Nothing -> return Nothing
 
 
 -- For every blund, put given block, its metadata and Undo data into Block DB.
@@ -302,7 +320,7 @@ data BlockStoragePaths = BlockStoragePaths
   { bspRoot :: FilePath
     -- | Block data itself.
   , bspBlock :: FilePath
-    -- | Unfo information for a block.
+    -- | Undo information for a block.
   , bspUndo :: FilePath
     -- | Combined storage format. Either this or a combination of 'Block' and
     -- 'Undo' files will be present.

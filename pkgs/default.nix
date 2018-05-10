@@ -6939,10 +6939,10 @@ inherit (pkgs) mesa;};
          , cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking
          , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
          , cardano-sl-util, cborg, cereal, conduit, constraints, containers
-         , contravariant, cpphs, cryptonite, data-default, directory
-         , ed25519, ekg-core, ether, exceptions, extra, filelock, filepath
-         , fmt, formatting, generic-arbitrary, half, hashable, hspec, lens
-         , log-warper, mmorph, monad-control, MonadRandom, mtl
+         , contravariant, cpphs, criterion, cryptonite, data-default
+         , directory, ed25519, ekg-core, ether, exceptions, extra, filelock
+         , filepath, fmt, formatting, generic-arbitrary, half, hashable
+         , hspec, lens, log-warper, mmorph, monad-control, MonadRandom, mtl
          , neat-interpolation, network-transport, optparse-applicative
          , parsec, plutus-prototype, pvss, QuickCheck, random, reflection
          , resourcet, safe-exceptions, safecopy, serokell-util, servant
@@ -6980,10 +6980,11 @@ inherit (pkgs) mesa;};
              cardano-sl-crypto-test cardano-sl-db cardano-sl-delegation
              cardano-sl-infra cardano-sl-lrc cardano-sl-networking
              cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
-             cborg cereal containers cryptonite data-default extra filelock fmt
-             formatting generic-arbitrary half hspec lens MonadRandom mtl pvss
-             QuickCheck random reflection safecopy serokell-util tagged text
-             text-format time-units universum unordered-containers vector
+             cborg cereal containers criterion cryptonite data-default extra
+             filelock fmt formatting generic-arbitrary half hspec lens
+             MonadRandom mtl pvss QuickCheck random reflection safecopy
+             serokell-util tagged text text-format time-units universum
+             unordered-containers vector
            ];
            doHaddock = false;
            description = "Cardano SL main implementation";

@@ -315,6 +315,9 @@ test-suite cardano-test
                      , cborg
                      , cereal
                      , containers
+                     -- Add criterion here so it gets included in the build dependencies
+                     -- This is a workaround for a bug in stack2nix/cabal2nix
+                     , criterion
                      , cryptonite
                      , data-default
                      , extra

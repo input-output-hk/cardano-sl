@@ -355,6 +355,8 @@ test-suite cardano-explorer-test
                      , cardano-sl-txp
                      , cardano-sl-util
                      , containers
+                     -- Add criteron here so it gets included in the build dependencies
+                     -- This is a workaround for a bug in stack2nix/cabal2nix
                      , cryptonite
                      , data-default
                      , engine-io

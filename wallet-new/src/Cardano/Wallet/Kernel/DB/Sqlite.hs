@@ -24,7 +24,7 @@ import qualified Prelude
 import           Universum
 
 import           Database.Beam.Backend.SQL (FromBackendRow, HasSqlValueSyntax (..),
-                                            IsSql92DataTypeSyntax, intType, varCharType)
+                                            IsSql92DataTypeSyntax, varCharType)
 import           Database.Beam.Backend.SQL.SQL92 (Sql92OrderingExpressionSyntax,
                                                   Sql92SelectOrderingSyntax)
 import           Database.Beam.Query (HasSqlEqualityCheck, (==.))
@@ -36,7 +36,7 @@ import           Database.Beam.Sqlite.Connection (Sqlite, runBeamSqlite)
 import           Database.Beam.Sqlite.Syntax (SqliteCommandSyntax, SqliteDataTypeSyntax,
                                               SqliteExpressionSyntax, SqliteSelectSyntax,
                                               SqliteValueSyntax, fromSqliteCommand,
-                                              sqliteRenderSyntaxScript)
+                                              sqliteBigIntType, sqliteRenderSyntaxScript)
 import qualified Database.SQLite.Simple as Sqlite
 import           Database.SQLite.Simple.FromField (FromField (..), returnError)
 import qualified Database.SQLite.SimpleErrors as Sqlite
@@ -260,9 +260,9 @@ address :: DataType SqliteDataTypeSyntax Core.Address
 address = DataType (varCharType Nothing Nothing)
 
 -- | 'DataType' declaration to convince @Beam@ treating 'Core.Timestamp'(s) as
--- a SQL @INTEGER@.
+-- SQLite BIG INTEGER.
 timestamp :: DataType SqliteDataTypeSyntax Core.Timestamp
-timestamp = DataType intType
+timestamp = DataType sqliteBigIntType
 
 -- | 'DataType' declaration to convince @Beam@ treating 'Core.TxId(s) as
 -- varchars of arbitrary length.
@@ -270,9 +270,9 @@ txId :: IsSql92DataTypeSyntax syntax => DataType syntax Core.TxId
 txId = DataType (varCharType Nothing Nothing)
 
 -- | 'DataType' declaration to convince @Beam@ treating 'Core.Coin(s) as
--- SQL @INTEGER@s.
+-- SQLite BIG INTEGER.
 coin :: DataType SqliteDataTypeSyntax Core.Coin
-coin = DataType intType
+coin = DataType sqliteBigIntType
 
 -- | Beam's 'Migration' to create a new 'MetaDB' Sqlite database.
 initialMigration :: () -> Migration SqliteCommandSyntax (CheckedDatabaseSettings Sqlite MetaDB)
@@ -348,6 +348,14 @@ putTxMeta conn txMeta =
                 -- Beam schema by using something like 'IsDatabaseEntity' from
                 -- 'Database.Beam.Schema.Tables', but we have a test to catch
                 -- regression in this area.
+                (Sqlite.SQLConstraintError Sqlite.Unique "tx_metas_inputs.input_address, tx_metas_inputs.meta_id") -> do
+                   let err = Kernel.DuplicatedInputIn txid
+                   throwIO $ Kernel.InvariantViolated err
+
+                (Sqlite.SQLConstraintError Sqlite.Unique "tx_metas_outputs.output_address, tx_metas_outputs.meta_id") -> do
+                   let err = Kernel.DuplicatedOutputIn txid
+                   throwIO $ Kernel.InvariantViolated err
+
                 (Sqlite.SQLConstraintError Sqlite.Unique "tx_metas.meta_id") -> do
                     -- Check if the 'TxMeta' already present is a @different@
                     -- one, in which case this is a proper bug there is no
@@ -360,7 +368,7 @@ putTxMeta conn txMeta =
                     consistencyCheck <- fmap (Kernel.isomorphicTo txMeta) <$> getTxMeta conn txid
                     case consistencyCheck of
                          Nothing    ->
-                             throwIO $ Kernel.InvariantViolated (Kernel.UndisputableLookupFailed txid)
+                             throwIO $ Kernel.InvariantViolated (Kernel.UndisputableLookupFailed "consistencyCheck" txid)
                          Just False ->
                              throwIO $ Kernel.InvariantViolated (Kernel.DuplicatedTransactionWithDifferentHash txid)
                          Just True  ->

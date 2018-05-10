@@ -9,7 +9,7 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Universum
 
 newtype ShowThroughBuild a = STB { unSTB :: a }
-  deriving (Eq)
+  deriving (Eq, Ord)
 
 instance Buildable a => Show (ShowThroughBuild a) where
   show = toString . sformat build . unSTB

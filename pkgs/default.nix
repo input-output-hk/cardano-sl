@@ -7818,14 +7818,15 @@ inherit (pkgs) mesa;};
          , directory, exceptions, formatting, generics-sop, hspec
          , http-api-data, http-client, http-types, HUnit, ixset-typed
          , json-sop, lens, log-warper, memory, mmorph, mtl
-         , neat-interpolation, network-transport, optparse-applicative
-         , pretty-show, QuickCheck, quickcheck-instances, reflection
-         , safe-exceptions, safecopy, serokell-util, servant, servant-client
-         , servant-client-core, servant-quickcheck, servant-server
-         , servant-swagger, servant-swagger-ui, split, sqlite-simple
-         , sqlite-simple-errors, stdenv, stm, string-conv, swagger2, text
-         , text-format, time, time-units, transformers, universum, unliftio
-         , unliftio-core, unordered-containers, vector, wai, wai-cors, warp
+         , neat-interpolation, network-transport, node-ipc
+         , optparse-applicative, pretty-show, QuickCheck
+         , quickcheck-instances, reflection, safe-exceptions, safecopy
+         , serokell-util, servant, servant-client, servant-client-core
+         , servant-quickcheck, servant-server, servant-swagger
+         , servant-swagger-ui, split, sqlite-simple, sqlite-simple-errors
+         , stdenv, stm, string-conv, swagger2, text, text-format, time
+         , time-units, transformers, universum, unliftio, unliftio-core
+         , unordered-containers, vector, wai, wai-cors, warp
          }:
          mkDerivation {
            pname = "cardano-sl-wallet-new";

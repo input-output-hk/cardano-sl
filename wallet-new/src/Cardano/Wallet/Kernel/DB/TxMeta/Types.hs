@@ -128,7 +128,9 @@ data InvariantViolation =
         -- the same, meaning somebody is trying to re-insert the same 'Tx' in
         -- the storage with different values (i.e. different inputs/outputs etc)
         -- and this is effectively an invariant violation.
-      | UndisputableLookupFailed Core.TxId
+      | DuplicatedInputIn  Core.TxId
+      | DuplicatedOutputIn Core.TxId
+      | UndisputableLookupFailed Text Core.TxId
         -- ^ When looking up a transaction which the storage claims to be
         -- already present as a duplicate, such lookup failed. This is an
         -- invariant violation because a 'TxMeta' storage is append-only,
@@ -150,17 +152,6 @@ instance Exception TxMetaStorageError
 
 instance Buildable TxMetaStorageError where
     build storageErr = bprint shown storageErr
-
-instance Arbitrary TxMeta where
-    arbitrary = TxMeta <$> arbitrary
-                       <*> arbitrary
-                       <*> uniqueElements 10
-                       <*> uniqueElements 10
-                       <*> arbitrary
-                       <*> arbitrary
-                       <*> arbitrary
-
-
 
 -- | Generates 'NonEmpty' collections which do not contain duplicates.
 -- Limit the size to @size@ elements.

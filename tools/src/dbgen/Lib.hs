@@ -60,7 +60,7 @@ _exampleSpec = GenSpec
         { accounts = 1
         , accountSpec = AccountSpec { addresses = 100 }
         , fakeUtxoCoinDistr = RangeDistribution { amount = 1000, range = 100 }
-        , fakeTxsHistory = SimpleTxsHistory { txsCount = 100, numOutgoingAddress = 3 }
+        , fakeTxsHistory = SimpleTxsHistory (100) (3)
         }
     , wallets = 1
     }
@@ -136,15 +136,16 @@ type NumberOfBatches = Int
 
 -- TODO(ks): As with @FakeUtxoCoinDistribution@, we may have different strategies
 -- to generate @FakeTxsHistory@.
+
 data FakeTxsHistory
     = NoHistory
     -- ^ Do not generate fake history.
     | SimpleTxsHistory
-        { txsCount           :: !Integer
+        !Integer
         -- ^ Number of txs we want to generate.
-        , numOutgoingAddress :: !NumOfOutgoingAddresses
+        !NumOfOutgoingAddresses
         -- ^ Number of outgoing addreses of a single @Tx@.
-        }
+
     -- ^ Simple tx history generation.
     -- TODO(ks): For now KISS, we can add more generation strategies.
     deriving (Show, Eq, Generic)
@@ -231,8 +232,9 @@ generateWalletDB CLI{..} spec@GenSpec{..} = do
 
 -- | Here we generate fake txs. For now it's a simple arbitrary generation.
 generateFakeTxs :: FakeTxsHistory -> AccountId -> UberMonad ()
-generateFakeTxs NoHistory _                = pure ()
-generateFakeTxs SimpleTxsHistory{..} aId   = do
+generateFakeTxs NoHistory _ = pure ()
+generateFakeTxs (SimpleTxsHistory txsCount numOutgoingAddress) aId = do
+
     -- Get the number of txs we need to generate.
     let txsNumber = fromIntegral txsCount
 

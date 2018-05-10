@@ -7,25 +7,17 @@
 -- | Sqlite database for the 'TxMeta' portion of the wallet kernel.
 module Cardano.Wallet.Kernel.DB.Sqlite (
 
-    -- * Resource acquisition
-      openMetaDB
+    -- * Resource creation and acquisition
+      newConnection
     , closeMetaDB
-    , MetaDBHandle
 
     -- * Basic API
     , putTxMeta
     , getTxMeta
     , getTxMetas
 
-    -- * Filtering and sorting primitives
-    , Limit (..)
-    , Offset (..)
-    , Sorting (..)
-    , SortCriteria (..)
-    , SortDirection (..)
-
     -- * Unsafe functions
-    , unsafeMigrate
+    , unsafeMigrateMetaDB
     ) where
 
 import qualified Prelude
@@ -59,18 +51,15 @@ import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..), 
                                         MigrationSteps, boolean, createTable, evaluateDatabase,
                                         executeMigration, field, migrationStep, notNull,
                                         runMigrationSteps, unCheckDatabase, unique)
-import           Formatting (build, formatToString, sformat, (%))
+import           Formatting (sformat)
 import           GHC.Generics (Generic)
 
+import           Cardano.Wallet.Kernel.DB.TxMeta.Types (Limit (..), Offset (..), SortCriteria (..),
+                                                        SortDirection (..), Sorting (..))
 import qualified Cardano.Wallet.Kernel.DB.TxMeta.Types as Kernel
 import qualified Pos.Core as Core
 import           Pos.Crypto.Hashing (decodeAbstractHash, hashHexF)
 
-
--- | An opaque handle to the underlying 'Sqlite.Connection'.
-data MetaDBHandle = MetaDBHandle {
-    _mDbHandleConnection :: Sqlite.Connection
-}
 
 -- | A type modelling the underlying SQL database.
 data MetaDB f = MetaDB { _mDbMeta    :: f (Beam.TableEntity TxMetaT)
@@ -150,14 +139,6 @@ data TxCoinDistributionTableT f = TxCoinDistributionTable {
 
 type TxCoinDistributionTable = TxCoinDistributionTableT Identity
 
-instance Prelude.Show TxCoinDistributionTable where
-    show txCoin =
-      let (TxIdPrimKey txid) = _txCoinDistributionTxId txCoin
-      in formatToString ("id = " % build % ", address = " % build % ", coin = " % build)
-                        txid
-                        (_txCoinDistributionTableAddress txCoin)
-                        (_txCoinDistributionTableCoin txCoin)
-
 instance Beamable TxCoinDistributionTableT
 
 -- | The inputs' table.
@@ -166,7 +147,14 @@ newtype TxInputT f = TxInput  {
   } deriving Generic
 
 type TxInput = TxInputT Identity
-deriving instance Show TxInput
+
+instance Beamable TxInputT
+
+instance Table TxInputT where
+    data PrimaryKey TxInputT f = TxInputPrimKey (Beam.Columnar f Core.Address) (Beam.PrimaryKey TxMetaT f) deriving Generic
+    primaryKey (TxInput i) = TxInputPrimKey (_txCoinDistributionTableAddress i) (_txCoinDistributionTxId i)
+
+instance Beamable (PrimaryKey TxInputT)
 
 -- | Generalisation of 'mkInputs' and 'mkOutputs'.
 mkCoinDistribution :: forall a. Kernel.TxMeta
@@ -185,25 +173,12 @@ mkCoinDistribution txMeta getter builder =
 mkInputs :: Kernel.TxMeta -> NonEmpty TxInput
 mkInputs txMeta = mkCoinDistribution txMeta Kernel.txMetaInputs TxInput
 
-instance Beamable TxInputT
-
-instance Table TxInputT where
-    data PrimaryKey TxInputT f = TxInputPrimKey (Beam.Columnar f Core.Address) (Beam.PrimaryKey TxMetaT f) deriving Generic
-    primaryKey (TxInput i) = TxInputPrimKey (_txCoinDistributionTableAddress i) (_txCoinDistributionTxId i)
-
-instance Beamable (PrimaryKey TxInputT)
-
 -- | The outputs' table.
 newtype TxOutputT f = TxOutput {
   _getTxOutput :: (TxCoinDistributionTableT f)
   } deriving Generic
 
 type TxOutput = TxOutputT Identity
-deriving instance Show TxOutput
-
--- | Convenient constructor of a list of 'TxOutput from a 'Kernel.TxMeta'.
-mkOutputs :: Kernel.TxMeta -> NonEmpty TxOutput
-mkOutputs txMeta = mkCoinDistribution txMeta Kernel.txMetaOutputs TxOutput
 
 instance Beamable TxOutputT
 
@@ -212,6 +187,10 @@ instance Table TxOutputT where
     primaryKey (TxOutput o) = TxOutputPrimKey (_txCoinDistributionTableAddress o) (_txCoinDistributionTxId o)
 
 instance Beamable (PrimaryKey TxOutputT)
+
+-- | Convenient constructor of a list of 'TxOutput from a 'Kernel.TxMeta'.
+mkOutputs :: Kernel.TxMeta -> NonEmpty TxOutput
+mkOutputs txMeta = mkCoinDistribution txMeta Kernel.txMetaOutputs TxOutput
 
 
 -- Orphans & other boilerplate
@@ -222,13 +201,18 @@ instance HasSqlValueSyntax SqliteValueSyntax Core.TxId where
 instance HasSqlValueSyntax SqliteValueSyntax Core.Coin where
     sqlValueSyntax = sqlValueSyntax . Core.unsafeGetCoin
 
--- NOTE(adn) Terribly inefficient, but removes the pain of dealing with
--- marshalling and unmarshalling of 'Integer'(s), as there is no 'HasSqlValueSyntax'
--- defined for them.
--- Using 'Scientific' would be a possibility, but it breaks down further as
--- there is no 'FromField' instance for them.
+-- NOTE(adn) As reported by our good lad Matt Parsons, 'Word64' has enough
+-- precision to justify the downcast:
+--
+-- >>> λ> import Data.Time
+-- >>> λ> import Data.Time.Clock.POSIX
+-- >>> λ> import Data.Word
+-- >>> λ> :set -XNumDecimals
+-- >>> λ> posixSecondsToUTCTime (fromIntegral ((maxBound :: Word64) `div` 1e6))
+-- 586524-01-19 08:01:49 UTC
+--
 instance HasSqlValueSyntax SqliteValueSyntax Core.Timestamp where
-    sqlValueSyntax ts = sqlValueSyntax (toText @String . show . toMicroseconds . Core.getTimestamp $ ts)
+    sqlValueSyntax ts = sqlValueSyntax (fromIntegral @Integer @Word64 . toMicroseconds . Core.getTimestamp $ ts)
 
 instance HasSqlValueSyntax SqliteValueSyntax Core.Address where
     sqlValueSyntax addr = sqlValueSyntax (sformat Core.addressF addr)
@@ -251,11 +235,7 @@ instance FromField Core.Coin where
 instance FromBackendRow Sqlite Core.Coin
 
 instance FromField Core.Timestamp where
-    fromField f = do
-        mbNumber <- readEither @Text @Integer <$> fromField f
-        case mbNumber of
-           Left _  -> returnError Sqlite.ConversionFailed f "not a valid Integer"
-           Right n -> pure . Core.Timestamp . fromMicroseconds $ n
+    fromField f = Core.Timestamp . fromMicroseconds . toInteger @Word64 <$> fromField f
 
 instance FromBackendRow Sqlite Core.Timestamp
 
@@ -280,9 +260,9 @@ address :: DataType SqliteDataTypeSyntax Core.Address
 address = DataType (varCharType Nothing Nothing)
 
 -- | 'DataType' declaration to convince @Beam@ treating 'Core.Timestamp'(s) as
--- varchars of arbitrary length.
+-- a SQL @INTEGER@.
 timestamp :: DataType SqliteDataTypeSyntax Core.Timestamp
-timestamp = DataType (varCharType Nothing Nothing)
+timestamp = DataType intType
 
 -- | 'DataType' declaration to convince @Beam@ treating 'Core.TxId(s) as
 -- varchars of arbitrary length.
@@ -322,31 +302,30 @@ migrateMetaDB = migrationStep "Initial migration" initialMigration
 
 -- | Migrates the 'MetaDB', potentially mangling the input database.
 -- TODO(adinapoli): Make it safe.
-unsafeMigrate :: MetaDBHandle -> IO ()
-unsafeMigrate hdl =
-    void $ runMigrationSteps 0 Nothing migrateMetaDB (\_ _ -> executeMigration (Sqlite.execute_ (_mDbHandleConnection hdl) . newSqlQuery))
+unsafeMigrateMetaDB :: Sqlite.Connection -> IO ()
+unsafeMigrateMetaDB conn =
+    void $ runMigrationSteps 0 Nothing migrateMetaDB (\_ _ -> executeMigration (Sqlite.execute_ conn . newSqlQuery))
     where
         newSqlQuery :: SqliteCommandSyntax -> Sqlite.Query
         newSqlQuery syntax =
             let sqlFragment = sqliteRenderSyntaxScript . fromSqliteCommand $ syntax
                 in Sqlite.Query (decodeUtf8 sqlFragment)
 
--- | Opens a new 'Connection' to the @Sqlite@ database identified by the
--- input 'FilePath'.
-openMetaDB :: FilePath -> IO MetaDBHandle
-openMetaDB fp = MetaDBHandle <$> Sqlite.open fp
+-- | Simply a conveniency wrapper to avoid 'Kernel.TxMeta' to explicitly
+-- import Sqlite modules.
+newConnection :: FilePath -> IO Sqlite.Connection
+newConnection = Sqlite.open
 
 -- | Closes an open 'Connection' to the @Sqlite@ database stored in the
 -- input 'MetaDBHandle'.
-closeMetaDB :: MetaDBHandle -> IO ()
-closeMetaDB hdl = Sqlite.close (_mDbHandleConnection hdl)
+closeMetaDB :: Sqlite.Connection -> IO ()
+closeMetaDB = Sqlite.close
 
 -- | Inserts a new 'Kernel.TxMeta' in the database, given its opaque
 -- 'MetaDBHandle'.
-putTxMeta :: MetaDBHandle -> Kernel.TxMeta -> IO ()
-putTxMeta dbHandle txMeta =
-    let conn = _mDbHandleConnection dbHandle
-        tMeta   = mkTxMeta txMeta
+putTxMeta :: Sqlite.Connection -> Kernel.TxMeta -> IO ()
+putTxMeta conn txMeta =
+    let tMeta   = mkTxMeta txMeta
         inputs  = mkInputs txMeta
         outputs = mkOutputs txMeta
     in do
@@ -378,7 +357,7 @@ putTxMeta dbHandle txMeta =
                     -- input 'TxMeta' has the same inputs & outputs but in a different
                     -- order, the 'consistencyCheck' would yield 'False', when in
                     -- reality should be virtually considered the same 'TxMeta'.
-                    consistencyCheck <- fmap (Kernel.isomorphicTo txMeta) <$> getTxMeta dbHandle txid
+                    consistencyCheck <- fmap (Kernel.isomorphicTo txMeta) <$> getTxMeta conn txid
                     case consistencyCheck of
                          Nothing    ->
                              throwIO $ Kernel.InvariantViolated (Kernel.UndisputableLookupFailed txid)
@@ -412,21 +391,19 @@ toTxMeta txMeta inputs outputs = Kernel.TxMeta {
                               (_txCoinDistributionTableCoin coinDistr)
 
 -- | Fetches a 'Kernel.TxMeta' from the database, given its 'Core.TxId'.
-getTxMeta :: MetaDBHandle -> Core.TxId -> IO (Maybe Kernel.TxMeta)
-getTxMeta dbHandle txid =
-    let conn = _mDbHandleConnection dbHandle
-    in do
-        res <- Sqlite.runDBAction $ runBeamSqlite conn $ do
-            metas <- SQL.runSelectReturningList txMetaById
-            case metas of
-                [txMeta] -> do
-                    inputs  <- nonEmpty <$> SQL.runSelectReturningList getInputs
-                    outputs <- nonEmpty <$> SQL.runSelectReturningList getOutputs
-                    pure $ toTxMeta <$> Just txMeta <*> inputs <*> outputs
-                _        -> pure Nothing
-        case res of
-             Left e  -> throwIO $ Kernel.StorageFailure (toException e)
-             Right r -> return r
+getTxMeta :: Sqlite.Connection -> Core.TxId -> IO (Maybe Kernel.TxMeta)
+getTxMeta conn txid = do
+    res <- Sqlite.runDBAction $ runBeamSqlite conn $ do
+        metas <- SQL.runSelectReturningList txMetaById
+        case metas of
+            [txMeta] -> do
+                inputs  <- nonEmpty <$> SQL.runSelectReturningList getInputs
+                outputs <- nonEmpty <$> SQL.runSelectReturningList getOutputs
+                pure $ toTxMeta <$> Just txMeta <*> inputs <*> outputs
+            _        -> pure Nothing
+    case res of
+         Left e  -> throwIO $ Kernel.StorageFailure (toException e)
+         Right r -> return r
     where
         txMetaById = SQL.lookup_ (_mDbMeta metaDB) (TxIdPrimKey txid)
         getInputs  = SQL.select $ do
@@ -439,60 +416,39 @@ getTxMeta dbHandle txid =
             pure coinDistr
 
 
--- Temporary placeholders
-newtype Offset = Offset { getOffset :: Integer }
-newtype Limit  = Limit  { getLimit  :: Integer }
-
-data SortDirection =
-      Ascending
-    | Descending
-
-data Sorting = Sorting {
-      sbCriteria  :: SortCriteria
-    , sbDirection :: SortDirection
-    }
-
-data SortCriteria =
-      SortByCreationAt
-    -- ^ Sort by the creation time of this 'Kernel.TxMeta'.
-    | SortByAmount
-    -- ^ Sort the 'TxMeta' by the amount of money they hold.
-
 newtype OrdByCreationDate = OrdByCreationDate { _ordByCreationDate :: TxMeta } deriving (Show, Eq)
 
 instance Ord OrdByCreationDate where
     compare a b = compare (_txMetaTableCreatedAt . _ordByCreationDate $ a)
                           (_txMetaTableCreatedAt . _ordByCreationDate $ b)
 
-getTxMetas :: MetaDBHandle
+getTxMetas :: Sqlite.Connection
            -> Offset
            -> Limit
            -> Maybe Sorting
            -> IO [Kernel.TxMeta]
-getTxMetas dbHandle (Offset offset) (Limit limit) mbSorting =
-    let conn = _mDbHandleConnection dbHandle
-    in do
-        res <- Sqlite.runDBAction $ runBeamSqlite conn $ do
-            metasWithInputs  <- nonEmpty <$> SQL.runSelectReturningList paginatedInputs
-            metasWithOutputs <- nonEmpty <$> SQL.runSelectReturningList paginatedOutputs
-            return $ liftM2 (,) metasWithInputs metasWithOutputs
-        case res of
-            Left e  -> throwIO $ Kernel.StorageFailure (toException e)
-            Right Nothing -> return []
-            Right (Just (inputs, outputs)) ->
-              let mapWithInputs  = transform inputs
-                  mapWithOutputs = transform outputs
-              -- Do a final round of in-memory sorting after folding the
-              -- results. Note how this is unavoidable (without complicating
-              -- the implementation consistently) due to the fact we get
-              -- sorted data out of the DB but we need to post-process it to
-              -- construct a real 'Kernel.TxMeta'.
-              -- In practice, this is not as bad as it sounds: even though
-              -- the 'Limit' is basically unbounded as part of this function,
-              -- there exist a hard-limit as part of the wallet API, which would
-              -- ensure that the in-memory sorting will never be too expensive.
-              in return $ maybe identity (sortBy . toOrdering) mbSorting
-                        $ Foldable.foldl' (toValidKernelTxMeta mapWithInputs) mempty (M.toList mapWithOutputs)
+getTxMetas conn (Offset offset) (Limit limit) mbSorting = do
+    res <- Sqlite.runDBAction $ runBeamSqlite conn $ do
+        metasWithInputs  <- nonEmpty <$> SQL.runSelectReturningList paginatedInputs
+        metasWithOutputs <- nonEmpty <$> SQL.runSelectReturningList paginatedOutputs
+        return $ liftM2 (,) metasWithInputs metasWithOutputs
+    case res of
+        Left e  -> throwIO $ Kernel.StorageFailure (toException e)
+        Right Nothing -> return []
+        Right (Just (inputs, outputs)) ->
+          let mapWithInputs  = transform inputs
+              mapWithOutputs = transform outputs
+          -- Do a final round of in-memory sorting after folding the
+          -- results. Note how this is unavoidable (without complicating
+          -- the implementation consistently) due to the fact we get
+          -- sorted data out of the DB but we need to post-process it to
+          -- construct a real 'Kernel.TxMeta'.
+          -- In practice, this is not as bad as it sounds: even though
+          -- the 'Limit' is basically unbounded as part of this function,
+          -- there exist a hard-limit as part of the wallet API, which would
+          -- ensure that the in-memory sorting will never be too expensive.
+          in return $ maybe identity (sortBy . toOrdering) mbSorting
+                    $ Foldable.foldl' (toValidKernelTxMeta mapWithInputs) mempty (M.toList mapWithOutputs)
     where
         getTx selector = _txCoinDistributionTxId . selector
 

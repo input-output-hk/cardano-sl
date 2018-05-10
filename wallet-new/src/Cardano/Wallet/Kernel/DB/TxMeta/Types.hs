@@ -11,6 +11,16 @@ module Cardano.Wallet.Kernel.DB.TxMeta.Types (
   , txMetaIsLocal
   , txMetaIsOutgoing
 
+  -- * Transaction storage
+  , MetaDBHandle (..)
+
+  -- * Filtering and sorting primitives
+  , Limit (..)
+  , Offset (..)
+  , Sorting (..)
+  , SortCriteria (..)
+  , SortDirection (..)
+
   -- * Domain-specific errors
   , TxMetaStorageError (..)
   , InvariantViolation (..)
@@ -18,6 +28,9 @@ module Cardano.Wallet.Kernel.DB.TxMeta.Types (
   -- * Strict & lenient equalities
   , exactlyEqualTo
   , isomorphicTo
+
+  -- * Internals useful for testing
+  , uniqueElements
   ) where
 
 import           Universum
@@ -25,12 +38,13 @@ import           Universum
 import           Control.Lens.TH (makeLenses)
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
+import qualified Data.Set as Set
 import           Data.Text.Buildable (build)
 import           Formatting (bprint, shown, (%))
 import qualified Formatting as F
 import           Pos.Crypto (shortHashF)
 import           Serokell.Util.Text (listJsonIndent, mapBuilder)
-import           Test.QuickCheck (Arbitrary (..), Gen)
+import           Test.QuickCheck (Arbitrary (..), Gen, suchThat)
 
 import           Pos.Arbitrary.Core ()
 import qualified Pos.Core as Core
@@ -140,18 +154,21 @@ instance Buildable TxMetaStorageError where
 instance Arbitrary TxMeta where
     arbitrary = TxMeta <$> arbitrary
                        <*> arbitrary
-                       <*> uniqueElements
-                       <*> uniqueElements
+                       <*> uniqueElements 10
+                       <*> uniqueElements 10
                        <*> arbitrary
                        <*> arbitrary
                        <*> arbitrary
 
+
+
 -- | Generates 'NonEmpty' collections which do not contain duplicates.
--- Limit the size to ~10 elements
-uniqueElements :: Gen (NonEmpty (Core.Address, Core.Coin))
-uniqueElements = do
-    (e :| es) <- arbitrary
-    return (e :| (List.take 1 $ List.filter (/= e) (List.nub es)))
+-- Limit the size to @size@ elements.
+uniqueElements :: (Arbitrary a, Ord a) => Int -> Gen (NonEmpty a)
+uniqueElements size = do
+    noDupes <- suchThat arbitrary (\s -> length s >= size)
+    let (e, es) = Set.deleteFindMax noDupes
+    return $ e :| List.take size (Set.toList es)
 
 instance Buildable TxMeta where
     build txMeta = bprint (" id = "%shortHashF%
@@ -171,3 +188,36 @@ instance Buildable TxMeta where
 
 instance Buildable [TxMeta] where
     build txMeta = bprint ("TxMetas: "%listJsonIndent 4) txMeta
+
+
+-- | Basic filtering & sorting types.
+
+newtype Offset = Offset { getOffset :: Integer }
+
+newtype Limit  = Limit  { getLimit  :: Integer }
+
+data SortDirection =
+      Ascending
+    | Descending
+
+data Sorting = Sorting {
+      sbCriteria  :: SortCriteria
+    , sbDirection :: SortDirection
+    }
+
+data SortCriteria =
+      SortByCreationAt
+    -- ^ Sort by the creation time of this 'Kernel.TxMeta'.
+    | SortByAmount
+    -- ^ Sort the 'TxMeta' by the amount of money they hold.
+
+-- | An opaque handle to the underlying storage, which can be easily instantiated
+-- to a more concrete implementation like a Sqlite database, or even a pure
+-- K-V store.
+data MetaDBHandle = MetaDBHandle {
+      closeMetaDB   :: IO ()
+    , migrateMetaDB :: IO ()
+    , getTxMeta     :: Core.TxId -> IO (Maybe TxMeta)
+    , putTxMeta     :: TxMeta -> IO ()
+    , getTxMetas    :: Offset -> Limit -> Maybe Sorting -> IO [TxMeta]
+    }

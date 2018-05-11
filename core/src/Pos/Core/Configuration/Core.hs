@@ -31,7 +31,7 @@ import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), GenesisAvvmBalanc
                                          GenesisInitializer (..), GenesisProtocolConstants (..),
                                          GenesisSpec (..), TestnetBalanceOptions (..),
                                          noGenesisDelegation)
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
+import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting.Types (EpochIndex (..))
 import           Pos.Core.Update.Types (BlockVersionData (..), SoftforkRule (..))
 import           Pos.Crypto (ProtocolMagic (..))

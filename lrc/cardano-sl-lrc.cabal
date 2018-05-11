@@ -85,10 +85,10 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-test-suite cardano-sl-lrc-test
+test-suite test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             Spec.hs
+  main-is:             Test.hs
   other-modules:       Test.Pos.Lrc.FtsSpec
   build-depends:       base
                      , cardano-sl-core

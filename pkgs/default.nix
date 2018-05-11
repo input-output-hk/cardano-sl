@@ -7409,10 +7409,10 @@ inherit (pkgs) mesa;};
       "cardano-sl-lrc" = callPackage
         ({ mkDerivation, base, bytestring, cardano-sl-binary
          , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
-         , cardano-sl-networking, cardano-sl-util, conduit, cpphs, ether
-         , formatting, generic-arbitrary, lens, log-warper, QuickCheck
-         , reflection, rocksdb-haskell-ng, stdenv, text-format, universum
-         , unliftio, unordered-containers
+         , cardano-sl-networking, cardano-sl-util, conduit, containers
+         , cpphs, ether, formatting, generic-arbitrary, hspec, lens
+         , log-warper, QuickCheck, reflection, rocksdb-haskell-ng, stdenv
+         , text-format, universum, unliftio, unordered-containers
          }:
          mkDerivation {
            pname = "cardano-sl-lrc";
@@ -7426,6 +7426,10 @@ inherit (pkgs) mesa;};
              unordered-containers
            ];
            libraryToolDepends = [ cpphs ];
+           testHaskellDepends = [
+             base cardano-sl-core cardano-sl-crypto cardano-sl-db
+             cardano-sl-util containers hspec QuickCheck universum
+           ];
            doHaddock = false;
            description = "Cardano SL - Leaders and Richmen computation";
            license = stdenv.lib.licenses.mit;

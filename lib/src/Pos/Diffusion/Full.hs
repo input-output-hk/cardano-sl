@@ -416,7 +416,7 @@ runDiffusionLayerFull logTrace
                 subscriptionDaemon = subscriptionThread (fst <$> mKademlia) sendActions
                 mainAction = do
                     maybe (pure ()) (flip registerEkgNodeMetrics nd) mEkgNodeMetrics
-                    maybe (pure ()) joinKademlia mKademlia
+                    maybe (pure ()) (joinKademlia logTrace) mKademlia
                     let fdi = FullDiffusionInternals
                             { fdiNode = nd
                             , fdiConverse = converse

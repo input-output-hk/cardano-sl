@@ -4,11 +4,12 @@ module Main where
 
 import           Universum
 
+import           Cardano.Wallet.API.V1.Errors (WalletError (..))
 import           Cardano.Wallet.Client
 import           Control.Lens hiding ((^..), (^?))
 import           System.IO (hSetEncoding, stdout, utf8)
-import           Test.QuickCheck (arbitrary, generate)
 import           Test.Hspec
+import           Test.QuickCheck (arbitrary, generate)
 
 import           CLI
 import           Error
@@ -92,6 +93,40 @@ deterministicTests wc = do
 
             addrs `shouldBe` addrs'
 
+    describe "Accounts" $ do
+        it "Create a new address path for the account" $ do
+            -- create a wallet
+            newWallet <- randomWallet
+            Wallet{..} <- createWalletCheck newWallet
+
+            -- create an account
+            accResp <- postAccount wc walId (NewAccount Nothing "hello")
+            Account{..} <- wrData <$> accResp `shouldPrism` _Right
+
+            -- create an address path
+            pathResp <- postAddressPath wc walId accIndex
+            addrPath <- pathResp `shouldPrism` _Right
+
+            -- create another address path
+            pathResp' <- postAddressPath wc walId accIndex
+            addrPath' <- pathResp' `shouldPrism` _Right
+
+            -- We don't expect a different path unless new addresses have
+            -- actually been created
+            addrPath `shouldBe` addrPath'
+
+        it "Cannot create an address path on a non-hardened account key" $ do
+            -- create a wallet
+            newWallet <- randomWallet
+            Wallet{..} <- createWalletCheck newWallet
+
+            pathResp <- postAddressPath wc walId 0
+            err <- pathResp `shouldPrism` _Left
+            let errMsg = "AddressLevel out-of-bound: must be a 31-byte unsigned integer"
+
+            err `shouldBe` (ClientWalletError (CannotCreateAddress errMsg))
+
+
     describe "Wallets" $ do
         it "Creating a wallet makes it available." $ do
             newWallet <- randomWallet
@@ -124,7 +159,6 @@ deterministicTests wc = do
     createWalletCheck newWallet = do
         result <- fmap wrData <$> postWallet wc newWallet
         result `shouldPrism` _Right
-
 
 shouldPrism :: Show s => s -> Prism' s a -> IO a
 shouldPrism a b = do

@@ -32,7 +32,6 @@ handlers = newWallet
     :<|> getWallet
     :<|> updateWallet
     :<|> newExternalWallet
-    :<|> newAddressPath
 
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored
@@ -132,12 +131,4 @@ newExternalWallet
     => NewExternalWallet
     -> m (WalletResponse Wallet)
 newExternalWallet _ =
-    single <$> (liftIO $ generate arbitrary)
-
--- | Creates a new BIP44 derivation path for an external wallet.
-newAddressPath
-    :: (MonadThrow m, MonadWalletLogic ctx m)
-    => WalletId
-    -> m (WalletResponse AddressPath)
-newAddressPath _ =
     single <$> (liftIO $ generate arbitrary)

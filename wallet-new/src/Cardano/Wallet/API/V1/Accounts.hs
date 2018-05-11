@@ -35,4 +35,9 @@ type API
           :> Summary "Creates a new Account for the given external Wallet."
           :> ReqBody '[ValidJSON] (New Account)
           :> Post '[ValidJSON] (WalletResponse Account)
+    :<|> "external-wallets" :> CaptureWalletId :> "accounts"
+          :> CaptureAccountId
+          :> "address-path"
+          :> Summary "Generates a new BIP44 derivation path for the given external wallet."
+          :> PostCreated '[ValidJSON] (WalletResponse AddressPath)
     )

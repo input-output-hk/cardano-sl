@@ -27,7 +27,6 @@ import           Pos.Logic.Types (hoistLogic)
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
                                bracketNodeResources, elimRealMode, loggerBracket, lpConsoleLog,
                                runNode, withConfigurations)
-import           Pos.Ntp.Configuration (NtpConfiguration)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
                                     topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Ntp.Configuration (NtpConfiguration)

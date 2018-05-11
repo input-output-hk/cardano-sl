@@ -10554,6 +10554,177 @@ description = "Haskell bindings to the bcrypt password hash";
 license = stdenv.lib.licenses.bsd3;
 
 }) {};
+"beam-core" = callPackage
+({
+  mkDerivation
+, aeson
+, base
+, bytestring
+, containers
+, dlist
+, free
+, ghc-prim
+, hashable
+, microlens
+, mtl
+, network-uri
+, stdenv
+, tagged
+, text
+, time
+, vector-sized
+}:
+mkDerivation {
+
+pname = "beam-core";
+version = "0.7.2.1";
+sha256 = "5c8e94dab94248189a53e89d515e696c882ffabb91b777c7b1e59d3cf2d5356d";
+libraryHaskellDepends = [
+aeson
+base
+bytestring
+containers
+dlist
+free
+ghc-prim
+hashable
+microlens
+mtl
+network-uri
+tagged
+text
+time
+vector-sized
+];
+doHaddock = false;
+doCheck = false;
+homepage = "http://travis.athougies.net/projects/beam.html";
+description = "Type-safe, feature-complete SQL query and manipulation interface for Haskell";
+license = stdenv.lib.licenses.mit;
+
+}) {};
+"beam-migrate" = callPackage
+({
+  mkDerivation
+, aeson
+, base
+, beam-core
+, bytestring
+, containers
+, deepseq
+, dependent-map
+, dependent-sum
+, free
+, ghc-prim
+, hashable
+, haskell-src-exts
+, mtl
+, parallel
+, pqueue
+, pretty
+, scientific
+, stdenv
+, text
+, time
+, unordered-containers
+, uuid-types
+, vector
+}:
+mkDerivation {
+
+pname = "beam-migrate";
+version = "0.3.1.0";
+sha256 = "ea23770320dde4b2108f0ef5b1d18c492aaab90cb9ee4d2ac1ec6ebdfa78900d";
+libraryHaskellDepends = [
+aeson
+base
+beam-core
+bytestring
+containers
+deepseq
+dependent-map
+dependent-sum
+free
+ghc-prim
+hashable
+haskell-src-exts
+mtl
+parallel
+pqueue
+pretty
+scientific
+text
+time
+unordered-containers
+uuid-types
+vector
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://travis.athougies.net/projects/beam.html";
+description = "SQL DDL support and migrations support library for Beam";
+license = stdenv.lib.licenses.mit;
+
+}) {};
+"beam-sqlite" = callPackage
+({
+  mkDerivation
+, aeson
+, attoparsec
+, base
+, beam-core
+, beam-migrate
+, bytestring
+, dlist
+, fetchgit
+, free
+, hashable
+, mtl
+, network-uri
+, scientific
+, sqlite-simple
+, stdenv
+, text
+, time
+, unix
+}:
+mkDerivation {
+
+pname = "beam-sqlite";
+version = "0.3.2.1";
+src = fetchgit {
+
+url = "https://github.com/input-output-hk/beam.git";
+sha256 = "16zd1mrdcwni5sjyd5dx31kdb9pnvmqnrz4r8g6237plq0aan76b";
+rev = "f64933932ba86529f53bb217fb303b5b559c74d0";
+
+};
+postUnpack = "sourceRoot+=/beam-sqlite; echo source root reset to $sourceRoot";
+libraryHaskellDepends = [
+aeson
+attoparsec
+base
+beam-core
+beam-migrate
+bytestring
+dlist
+free
+hashable
+mtl
+network-uri
+scientific
+sqlite-simple
+text
+time
+unix
+];
+doHaddock = false;
+doCheck = false;
+homepage = "http://tathougies.github.io/beam/user-guide/backends/beam-sqlite/";
+description = "Beam driver for SQLite";
+license = stdenv.lib.licenses.mit;
+
+}) {};
 "bench" = callPackage
 ({
   mkDerivation
@@ -17110,6 +17281,9 @@ license = stdenv.lib.licenses.mit;
 , aeson-pretty
 , async
 , base
+, beam-core
+, beam-migrate
+, beam-sqlite
 , bytestring
 , cardano-sl
 , cardano-sl-block
@@ -17171,6 +17345,8 @@ license = stdenv.lib.licenses.mit;
 , servant-server
 , servant-swagger
 , servant-swagger-ui
+, sqlite-simple
+, sqlite-simple-errors
 , stdenv
 , stm
 , string-conv
@@ -17211,6 +17387,9 @@ aeson
 aeson-pretty
 async
 base
+beam-core
+beam-migrate
+beam-sqlite
 bytestring
 cardano-sl
 cardano-sl-block
@@ -17258,6 +17437,8 @@ servant-client-core
 servant-server
 servant-swagger
 servant-swagger-ui
+sqlite-simple
+sqlite-simple-errors
 string-conv
 swagger2
 text
@@ -92993,3 +93174,4 @@ in compiler.override {
   configurationCommon = { ... }: self: super: {};
   compilerConfig = self: super: {};
 }
+

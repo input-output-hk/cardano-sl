@@ -7,7 +7,6 @@ import           Cardano.Wallet.Kernel.DB.TxMeta
 import           Control.Exception.Safe (bracket)
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
-import qualified Data.List.Split as Split
 import qualified Data.Set as Set
 import           Data.Text.Buildable (build)
 import qualified Prelude
@@ -22,6 +21,18 @@ import           Test.QuickCheck (Arbitrary, Gen, arbitrary, forAll, vectorOf)
 import           Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 import           Util.Buildable (ShowThroughBuild (..))
 import           Util.Buildable.Hspec
+
+
+
+chunksOf :: Int -> [e] -> [[e]]
+chunksOf i ls = map (take i) (buildCons (splitter ls))
+    where
+        splitter :: [e] -> ([e] -> a -> a) -> a -> a
+        splitter [] _ n = n
+        splitter l c n  = l `c` splitter (drop i l) c n
+
+        buildCons :: ((a -> [a] -> [a]) -> [a] -> [a]) -> [a]
+        buildCons g = g (:) []
 
 
 -- | Handy combinator which yields a fresh database to work with on each spec.
@@ -102,8 +113,8 @@ instance Buildable [TxEntry] where
 genMetas :: Int -> Gen [ShowThroughBuild TxMeta]
 genMetas size = do
     metas  <- map unSTB <$> vectorOf size genMeta
-    inputs  <- Split.chunksOf 3 . toList <$> uniqueElements (length metas * 3)
-    outputs <- Split.chunksOf 3 . toList <$> uniqueElements (length metas * 3)
+    inputs  <- chunksOf 3 . toList <$> uniqueElements (length metas * 3)
+    outputs <- chunksOf 3 . toList <$> uniqueElements (length metas * 3)
     return $ map (STB . mkTx) (Prelude.zip3 metas inputs outputs)
 
     where

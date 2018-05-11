@@ -11,7 +11,6 @@ import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List as List
 import           Servant
 
-
 import           Pos.Core (decodeTextAddress)
 import           Pos.Crypto (emptyPassphrase)
 import qualified Pos.Txp as V0 (withTxpLocalData)

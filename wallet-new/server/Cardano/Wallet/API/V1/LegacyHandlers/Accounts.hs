@@ -89,9 +89,8 @@ newAddressPath
     -> AccountIndex
     -> m (WalletResponse AddressPath)
 newAddressPath wId accIdx = do
-    let getAddressIndex = fromIntegral . length . accAddresses . wrData
-    addrIdx <- getAddressIndex <$> getAccount wId accIdx
-    case mkAddressPathBIP44 (IsChangeAddress False) accIdx addrIdx of
+    account <- wrData <$> getAccount wId accIdx
+    case mkAddressPathBIP44 (IsChangeAddress False) account of
         Left msg ->
             throwM $ CannotCreateAddress msg
         Right path ->

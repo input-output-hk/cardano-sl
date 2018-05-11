@@ -976,18 +976,23 @@ instance BuildableSafeGen AddressPath where
         addrpathAddressIndex
 
 -- Smart constructor to create BIP44 derivation paths
+--
+-- NOTE Our account indexes are already referred to as "hardened" and
+-- are therefore referred to as indexes above 2^31 == maxBound `div` 2 + 1
+-- AddressPath makes it explicit whether a path should be hardened or not
+-- instead of relying on a convention on number.
 mkAddressPathBIP44
-  :: IsChangeAddress  -- ^ Whether this is an internal (for change) or external address (for payments)
-  -> AccountIndex     -- ^ Underlying account index
-  -> AddressIndex     -- ^ Underlying address index, incremental (e.g. length accAddresses)
+  :: IsChangeAddress -- ^ Whether this is an internal (for change) or external address (for payments)
+  -> Account         -- ^ Underlying account
   -> Either Text AddressPath
-mkAddressPathBIP44 (IsChangeAddress isChange) accIdx addrIdx = AddressPath
+mkAddressPathBIP44 (IsChangeAddress isChange) acct = AddressPath
     <$> pure (AddressLevelHardened 44)
     <*> pure (AddressLevelHardened 1815)
-    <*> checkWord31 AddressLevelHardened accIdx
+    <*> pure (word32ToAddressLevel $ accIndex acct)
     <*> pure (AddressLevelNormal $ if isChange then 1 else 0)
-    <*> checkWord31 AddressLevelNormal addrIdx
+    <*> checkWord31 AddressLevelNormal (getAddressIndex acct)
   where
+    getAddressIndex = fromIntegral . length . accAddresses
     checkWord31 mkLevel n =
       if n > maxBound `div` 2 then
           Left "AddressLevel out-of-bound: must be a 31-byte unsigned integer"

@@ -38,8 +38,7 @@ import           Options.Applicative (Parser, ParserInfo, ParserResult (..), def
                                       header, help, helper, info, infoOption, long, metavar,
                                       progDesc, renderFailure, short, strOption)
 import           Serokell.Aeson.Options (defaultOptions)
-import           System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist,
-                                   removeFile)
+import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import qualified System.Directory as Sys
 import           System.Environment (getExecutablePath, getProgName, setEnv)
 import           System.Exit (ExitCode (..))
@@ -93,7 +92,6 @@ data LauncherOptions = LO
     , loWalletArgs          :: ![Text]
     , loWalletLogging       :: !Bool
     , loWalletLogPath       :: !(Maybe FilePath)
-    , loTlsPath             :: !FilePath
     , loX509ToolPath        :: !FilePath
     , loUpdaterPath         :: !FilePath
     , loUpdaterArgs         :: ![Text]
@@ -294,7 +292,7 @@ main =
         withConfigurations loConfiguration $ \_ -> do
 
         -- Generate TLS certificates as needed
-        generateTlsCertificates loConfiguration loTlsPath loX509ToolPath
+        findTlsArgs loNodeArgs >>= generateTlsCertificates loConfiguration loX509ToolPath
 
         case loWalletPath of
             Nothing -> do
@@ -365,9 +363,40 @@ main =
         pretty @Integer $ fromIntegral $ convertUnit @_ @Second ts
 
 
-generateTlsCertificates :: ConfigurationOptions -> FilePath -> FilePath -> M ()
-generateTlsCertificates ConfigurationOptions{..} tlsPath executable =
-    unlessM (liftIO $ doesDirectoryExist tlsPath) $ do
+data TlsPaths = TlsPaths
+    { tlsCaPath     :: FilePath
+    , tlsServerPath :: FilePath
+    , tlsKeyPath    :: FilePath
+    } deriving (Show)
+
+
+findTlsArgs :: [Text] -> M TlsPaths
+findTlsArgs args = do
+    tlsCaPath     <- findArg "--tlsca"   (pure . toString) args
+    tlsServerPath <- findArg "--tlscert" (pure . toString) args
+    tlsKeyPath    <- findArg "--tlskey"  (pure . toString) args
+    return TlsPaths{..}
+  where
+    findArg :: Text -> (Text -> M a) -> [Text] -> M a
+    findArg key parse (k:v:_)  | key == k = parse v
+    findArg key parse (_:rest) = findArg key parse rest
+    findArg key _ _            = liftIO . fail $ "Missing required Node arg: " <> (toString key)
+
+
+generateTlsCertificates :: ConfigurationOptions -> FilePath -> TlsPaths -> M ()
+generateTlsCertificates ConfigurationOptions{..} executable TlsPaths{..} = do
+    alreadyExists <-
+        and <$> mapM (liftIO . doesFileExist) [tlsCaPath, tlsServerPath, tlsKeyPath]
+
+    let tlsPath = takeDirectory tlsServerPath
+
+    when (tlsPath /= takeDirectory tlsCaPath || tlsPath /= takeDirectory tlsKeyPath) $ do
+        logError "--tlsca, --tlscert and --tlskey are in different directories"
+        liftIO . fail $ "cardano-launcher doesn't support having tls files in separate directories"
+
+    unless alreadyExists $ do
+        logInfo $ "Generating new TLS certificates in " <> toText tlsPath
+
         let process = createProc  Process.Inherit executable
                 [ "--server-out-dir"     , toText tlsPath
                 , "--clients-out-dir"    , toText tlsPath
@@ -380,8 +409,9 @@ generateTlsCertificates ConfigurationOptions{..} tlsPath executable =
             phvar <- newEmptyMVar
             system' phvar process mempty ECertGen
 
-        when (exitCode /= ExitSuccess) $
+        when (exitCode /= ExitSuccess) $ do
             logError "Couldn't generate TLS certificates for Wallet"
+            liftIO . fail $ "Wallet won't work without TLS certificates"
 
 
 -- | If we are on server, we want the following algorithm:

@@ -181,7 +181,6 @@ while [[ $i -lt $panesCnt ]]; do
           echo -e "$(make_yaml_list "$UI_ARGS")"          >> $CONFIG_PATH
         fi
 
-        echo "tlsPath: $config_dir/tls-files"             >> $CONFIG_PATH
         echo "x509ToolPath: $x509GenTool"                 >> $CONFIG_PATH
 
         echo "updaterPath: /usr/bin/env"                  >> $CONFIG_PATH

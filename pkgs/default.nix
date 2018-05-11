@@ -7816,17 +7816,16 @@ inherit (pkgs) mesa;};
          , cardano-sl-txp, cardano-sl-update, cardano-sl-util
          , cardano-sl-wallet, conduit, constraints, containers, data-default
          , directory, exceptions, formatting, generics-sop, hspec
-         , http-api-data, http-client, http-types, HUnit, ixset-typed
-         , json-sop, lens, log-warper, memory, mmorph, mtl
-         , neat-interpolation, network-transport, node-ipc
-         , optparse-applicative, pretty-show, QuickCheck
-         , quickcheck-instances, reflection, safe-exceptions, safecopy
-         , serokell-util, servant, servant-client, servant-client-core
-         , servant-quickcheck, servant-server, servant-swagger
-         , servant-swagger-ui, split, sqlite-simple, sqlite-simple-errors
-         , stdenv, stm, string-conv, swagger2, text, text-format, time
-         , time-units, transformers, universum, unliftio, unliftio-core
-         , unordered-containers, vector, wai, wai-cors, warp
+         , http-api-data, http-client, http-types, ixset-typed, json-sop
+         , lens, log-warper, memory, mmorph, mtl, neat-interpolation
+         , network-transport, node-ipc, optparse-applicative, pretty-show
+         , QuickCheck, quickcheck-instances, reflection, safe-exceptions
+         , safecopy, serokell-util, servant, servant-client
+         , servant-client-core, servant-quickcheck, servant-server
+         , servant-swagger, servant-swagger-ui, sqlite-simple
+         , sqlite-simple-errors, stdenv, stm, string-conv, swagger2, text
+         , text-format, time, time-units, transformers, universum, unliftio
+         , unliftio-core, unordered-containers, vector, wai, wai-cors, warp
          }:
          mkDerivation {
            pname = "cardano-sl-wallet-new";
@@ -7846,7 +7845,7 @@ inherit (pkgs) mesa;};
              optparse-applicative QuickCheck reflection safe-exceptions safecopy
              serokell-util servant servant-client servant-client-core
              servant-server servant-swagger servant-swagger-ui sqlite-simple
-             sqlite-simple-errors stm string-conv swagger2 text text-format time
+             sqlite-simple-errors string-conv swagger2 text text-format time
              time-units transformers universum unliftio unliftio-core
              unordered-containers vector wai wai-cors warp
            ];
@@ -7863,11 +7862,10 @@ inherit (pkgs) mesa;};
              cardano-sl-core cardano-sl-crypto cardano-sl-db
              cardano-sl-delegation cardano-sl-ssc cardano-sl-txp
              cardano-sl-update cardano-sl-util cardano-sl-wallet constraints
-             containers data-default directory formatting hspec HUnit lens
-             log-warper mmorph mtl QuickCheck quickcheck-instances
-             safe-exceptions serokell-util servant servant-server
-             servant-swagger split string-conv swagger2 text text-format time
-             universum unordered-containers
+             containers data-default directory formatting hspec lens log-warper
+             mmorph mtl QuickCheck quickcheck-instances safe-exceptions
+             serokell-util servant servant-server servant-swagger string-conv
+             swagger2 text text-format time universum unordered-containers
            ];
            doHaddock = false;
            homepage = "https://github.com/input-output-hk/cardano-sl/#readme";

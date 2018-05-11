@@ -53,8 +53,8 @@ FAILED=0
 
 # run integration tests
 echo "Launching cardano integration tests..."
-stack exec -- cardano-integration-test --help
-stack exec -- cardano-integration-test || {
+stack exec -- wal-integr-test --help
+stack exec -- wal-integr-test || {
     echo "Shutting down cardano cluster... it did a fail"
     cleanState
     FAILED=1

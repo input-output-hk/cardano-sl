@@ -25,7 +25,7 @@ library
                        Pos.Binary.Class.Core
                        Pos.Binary.Class.Primitive
                        Pos.Binary.Class.TH
-
+                
   build-depends:       QuickCheck
                      , autoexporter
                      , base
@@ -46,6 +46,7 @@ library
                      , tagged
                      , template-haskell
                      , text
+                     , text-format
                      , th-utilities
                      , time-units
                      , transformers

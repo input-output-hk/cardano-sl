@@ -14,7 +14,7 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCb
                                    deriveSimpleBi, encodeKnownCborDataItem,
                                    encodedKnownCborDataItemSize, encodeListLen,
                                    encodeUnknownCborDataItem, encodedUnknownCborDataItemSize,
-                                   enforceSize, matchSize)
+                                   enforceSize, matchSize, szCases)
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Merkle ()
 import qualified Pos.Core.Common as Common
@@ -46,7 +46,10 @@ instance Bi T.TxIn where
         in 1 + encodedSize tag
              + encodedUnknownCborDataItemSize (fromBytes len)
 
-
+    encodedSizeExpr size pxy = szCases [ 2 + size ((,) <$> (T.txInHash <$> pxy)
+                                                       <*> (T.txInIndex <$> pxy))
+                                       ]
+    
 deriveSimpleBi ''T.TxOut [
     Cons 'T.TxOut [
         Field [| T.txOutAddress :: Common.Address |],
@@ -72,6 +75,11 @@ instance Bi T.Tx where
         + encodedSize (T._txOutputs tx)
         + encodedSize (T._txAttributes tx)
 
+    encodedSizeExpr size pxy = 1
+        + size (T._txInputs <$> pxy)
+        + size (T._txOutputs <$> pxy)
+        + size (T._txAttributes <$> pxy)
+        
 instance Bi T.TxInWitness where
     encode input = case input of
         T.PkWitness key sig         ->
@@ -123,7 +131,8 @@ instance Bi T.TxSigData where
     encode (T.TxSigData {..}) = encode txSigTxHash
     decode = T.TxSigData <$> decode
     encodedSize (T.TxSigData {..}) = encodedSize txSigTxHash
-
+    encodedSizeExpr size pxy = size (T.txSigTxHash <$> pxy)
+    
 deriveSimpleBi ''T.TxAux [
     Cons 'T.TxAux [
         Field [| T.taTx           :: T.Tx             |],
@@ -146,8 +155,16 @@ instance Bi T.TxProof where
           + encodedSize (T.txpRoot proof)
           + encodedSize (T.txpWitnessesHash proof)
 
+    encodedSizeExpr size pxy =
+      1 + size (T.txpNumber <$> pxy)
+        + size (T.txpRoot <$> pxy)
+        + size (T.txpWitnessesHash <$> pxy)
+      
 instance Bi T.TxPayload where
     encode T.UnsafeTxPayload {..} = encode $ zip (toList _txpTxs) _txpWitnesses
     decode = T.mkTxPayload <$> decode
     encodedSize T.UnsafeTxPayload {..} =
         encodedSize $ zip (toList _txpTxs) _txpWitnesses
+    encodedSizeExpr size pxy =
+      size (zip <$> (toList <$> T._txpTxs <$> pxy)
+                <*> (T._txpWitnesses <$> pxy))

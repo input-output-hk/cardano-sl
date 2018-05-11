@@ -29,12 +29,14 @@ module Pos.Binary.Class.Primitive
        , encodedKnownCborDataItemSize
        , encodeUnknownCborDataItem
        , encodedUnknownCborDataItemSize
+       , unknownCborDataItemSizeExpr
        , decodeKnownCborDataItem
        , decodeUnknownCborDataItem
        -- * Cyclic redundancy check
        , encodeCrcProtected
        , decodeCrcProtected
        , encodedCrcProtectedSize
+       , encodedCrcProtectedSizeExpr
        ) where
 
 import           Universum
@@ -55,7 +57,7 @@ import           Data.Typeable (typeOf)
 import           Formatting (sformat, shown, (%))
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class.Core (Bi (..), cborError, enforceSize, toCborError, withWordSize)
+import           Pos.Binary.Class.Core (Bi (..), Size, cborError, enforceSize, toCborError, withWordSize, szCases)
 
 -- | Serialize a Haskell value to an external binary representation.
 --
@@ -229,6 +231,10 @@ encodedUnknownCborDataItemSize x =
     -- (i.e. encoded size of x plus x)
     2 + withWordSize x + x
 
+
+unknownCborDataItemSizeExpr :: Size -> Size
+unknownCborDataItemSizeExpr x = 2 + szCases [1,9] + x -- MN TODO: compare wordSizeCases; can we get more specific here?
+
 -- | Remove the the semantic tag 24 from the enclosed CBOR data item,
 -- failing if the tag cannot be found.
 decodeCborDataItemTag :: D.Decoder s ()
@@ -271,6 +277,11 @@ encodedCrcProtectedSize x =
     -- bytes.
     2 + encodedUnknownCborDataItemSize (encodedSize x) + 4
 
+encodedCrcProtectedSizeExpr :: forall a. Bi a => (forall t. Bi t => Proxy t -> Size) -> Proxy a -> Size
+encodedCrcProtectedSizeExpr size pxy =
+    2 + unknownCborDataItemSizeExpr (size pxy)
+      + size (pure $ crc32 (serialize (error "unused" :: a)))
+  
 -- | Decodes a CBOR blob into a type `a`, checking the serialised CRC corresponds to the computed one.
 decodeCrcProtected :: forall s a. Bi a => D.Decoder s a
 decodeCrcProtected = do

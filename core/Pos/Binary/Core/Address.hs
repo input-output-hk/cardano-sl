@@ -15,9 +15,10 @@ import           Serokell.Data.Memory.Units (fromBytes)
 import           Pos.Binary.Class (Bi (..), decodeCrcProtected, decodeListLenCanonical,
                                    decodeUnknownCborDataItem, deserialize,
                                    encodeCrcProtected, encodedCrcProtectedSize,
+                                   encodedCrcProtectedSizeExpr,
                                    encodeListLen, encodeUnknownCborDataItem,
                                    encodedUnknownCborDataItemSize, enforceSize,
-                                   serialize)
+                                   serialize, szCases)
 import           Pos.Binary.Core.Common ()
 import           Pos.Binary.Core.Script ()
 import           Pos.Binary.Crypto ()
@@ -53,6 +54,8 @@ instance Bi AddrType where
     encodedSize (ATUnknown tag) = encodedSize @Word8 tag
     encodedSize _ = 1
 
+    encodedSizeExpr _ _ = 1
+    
 {- NOTE: Address spending data serialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -101,6 +104,16 @@ instance Bi AddrSpendingData where
                 in 1 + encodedSize tag
                      + encodedUnknownCborDataItemSize (fromBytes len)
 
+    encodedSizeExpr size _ = szCases
+        [ let PubKeyASD pk = error "unused"
+          in size ((,) <$> pure (w8 0) <*> pure pk)
+        , let ScriptASD script = error "unused"
+          in size ((,) <$> pure (w8 1) <*> pure script)
+        , let RedeemASD redeemPK = error "unused"
+          in size ((,) <$> pure (w8 2) <*> pure redeemPK)
+        ]
+            
+
 instance Bi AddrStakeDistribution where
     encode =
         \case
@@ -127,6 +140,14 @@ instance Bi AddrStakeDistribution where
             SingleKeyDistr id -> encodedSize (w8 0, id)
             UnsafeMultiKeyDistr distr -> encodedSize (w8 1, distr)
 
+    encodedSizeExpr size _ = szCases
+        [ 1
+        , let SingleKeyDistr id = error "unused"
+          in size ((,) <$> pure (w8 0) <*> pure id)
+        , let UnsafeMultiKeyDistr distr = error "unused"
+          in size ((,) <$> pure (w8 1) <*> pure distr)
+        ]
+        
 {- NOTE: Address attributes serialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -232,3 +253,8 @@ instance Bi Address where
         let res = Address {..}
         pure res
     encodedSize Address{..} = encodedCrcProtectedSize (addrRoot, addrAttributes, addrType)
+
+    encodedSizeExpr size pxy =
+      encodedCrcProtectedSizeExpr size ( (,,) <$> (addrRoot <$> pxy)
+                                              <*> (addrAttributes <$> pxy)
+                                              <*> (addrType <$> pxy))

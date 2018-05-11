@@ -8,7 +8,7 @@ import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
 import           Control.Lens (_Left)
-import           Crypto.Hash (digestFromByteString)
+import           Crypto.Hash (digestFromByteString, hashDigestSize)
 import qualified Crypto.PVSS as Pvss
 import qualified Crypto.SCRAPE as Scrape
 import qualified Crypto.Sign.Ed25519 as EdStandard
@@ -21,7 +21,7 @@ import qualified Codec.CBOR.Decoding as D
 import qualified Codec.CBOR.Encoding as E
 import           Pos.Binary.Class (AsBinary (..), Bi (..), Cons (..), Field (..), decodeBinary,
                                    deriveSimpleBi, encodeBinary, encodedSizeBinary,
-                                   encodeListLen, enforceSize)
+                                   encodeListLen, enforceSize, szCases, Length(..), withWordSize)
 import           Pos.Crypto.AsBinary (decShareBytes, encShareBytes, secretBytes, vssPublicKeyBytes)
 import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm, WithHash (..), withHash)
 import           Pos.Crypto.HD (HDAddressPayload (..))
@@ -57,6 +57,10 @@ instance (Typeable algo, Typeable a, HashAlgorithm algo) => Bi (AbstractHash alg
             Just x  -> Right (AbstractHash x)
     encodedSize (AbstractHash digest) = encodedSize (ByteArray.convert digest :: BS.ByteString)
 
+    encodedSizeExpr size _ = let AbstractHash digest = (error "unused" :: AbstractHash algo a)
+                                 realSz = hashDigestSize (error "unused, I hope!" :: algo)
+                             in fromInteger (toInteger (withWordSize realSz + realSz))
+      
 ----------------------------------------------------------------------------
 -- SecretSharing
 ----------------------------------------------------------------------------

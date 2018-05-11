@@ -3,6 +3,10 @@
 {-# LANGUAGE MagicHash        #-}
 {-# LANGUAGE TypeFamilies     #-}
 {-# LANGUAGE TypeOperators    #-}
+{-# LANGUAGE RankNTypes       #-}
+{-# LANGUAGE GADTs            #-}
+{-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE DeriveFunctor    #-}
 
 -- | Bi typeclass and most basic functions.
 
@@ -31,12 +35,28 @@ module Pos.Binary.Class.Core
     , toCborError
     , cborError
     , withWordSize
+    
+    , Range(..)
+    , szEval
+    , Size
+    , Length(..)
+    , punch
+    , plug
+    , isTodo
+    , szCases
+    , szLazy
+    , szGreedy
+    , force1
+    , szWithCtx
+    , simplify
+    , pp
     ) where
 
 #include <MachDeps.h>
 
 import           Universum
 import           Foreign (sizeOf)
+import           Formatting (bprint, build, shown, string, (%))
 import qualified GHC.Integer.GMP.Internals as Gmp
 import           GHC.Prim (int2Word#)
 import           GHC.Types (Int (..), Word (..))
@@ -49,6 +69,7 @@ import qualified Data.Binary as Binary
 import           Data.Bits (finiteBitSize, unsafeShiftR)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BS.Lazy
+import           Data.Coerce
 import           Data.Fixed (Fixed (..), Nano)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
@@ -57,8 +78,9 @@ import           Data.Monoid (Sum (getSum))
 import qualified Data.Set as S
 import           Data.Tagged (Tagged (..))
 import qualified Data.Text as Text
+import qualified Data.Text.Buildable
 import           Data.Time.Units (Microsecond, Millisecond)
-import           Data.Typeable (typeRep)
+import           Data.Typeable (typeRep, TypeRep)
 import qualified Data.Vector as Vector
 import qualified Data.Vector.Generic as Vector.Generic
 import qualified GHC.Generics as G
@@ -118,6 +140,10 @@ withSize s a1 a2 a3 a4 a5 =
 withWordSize :: (Integral s, Integral a) => s -> a
 withWordSize s = withSize s 1 2 3 5 9
 
+wordSizeCases :: forall s. (Bounded s, Integral s) => Proxy s -> Size
+wordSizeCases _ = szCases [ fromInteger $ withWordSize (minBound @s)
+                          , fromInteger $ withWordSize (maxBound @s)]
+
 ----------------------------------------
 
 class Typeable a => Bi a where
@@ -140,6 +166,12 @@ class Typeable a => Bi a where
     encodedListSize :: [a] -> Byte
     encodedListSize = defaultEncodedListSize
 
+    encodedSizeExpr :: (forall t. Bi t => Proxy t -> Size) -> Proxy a -> Size
+    encodedSizeExpr = todo
+    
+    encodedListSizeExpr :: (forall t. Bi t => Proxy t -> Size) -> Proxy [a] -> Size
+    encodedListSizeExpr = defaultEncodedListSizeExpr
+    
 -- | Default @'E.Encoding'@ for list types.
 defaultEncodeList :: Bi a => [a] -> E.Encoding
 defaultEncodeList xs = E.encodeListLenIndef
@@ -149,6 +181,16 @@ defaultEncodeList xs = E.encodeListLenIndef
 defaultEncodedListSize :: Bi a => [a] -> Byte
 defaultEncodedListSize as = (2 :: Byte) + getSum (fold (Sum . encodedSize <$> as))
 
+newtype Length xs = Length xs deriving Typeable
+instance Typeable xs => Bi (Length xs) where
+  encode = error "The `Length` type cannot be encoded!"
+  decode = error "The `Length` type cannot be decoded!"
+  encodedSize _ = error "The `Length` type cannot be encoded!"
+
+-- | Default size expression for a value.
+defaultEncodedListSizeExpr :: forall a. Bi a => (forall t. Bi t => Proxy t -> Size) -> Proxy [a] -> Size
+defaultEncodedListSizeExpr size _ = 2 + size (Proxy @(Length [a])) * size (Proxy @a)
+  
 -- | Default @'D.Decoder'@ for list types.
 defaultDecodeList :: Bi a => D.Decoder s [a]
 defaultDecodeList = do
@@ -162,11 +204,13 @@ defaultDecodeList = do
 instance Bi () where
     encode = const E.encodeNull
     encodedSize _ = 1
+    encodedSizeExpr _ _ = 1
     decode = D.decodeNull
 
 instance Bi Bool where
     encode = E.encodeBool
     encodedSize _ = 1
+    encodedSizeExpr _ _ = 1
     decode = D.decodeBool
 
 instance Bi Char where
@@ -199,6 +243,9 @@ instance Bi Char where
                | c <= chr 0xffff -> acu + 3
                | otherwise -> acu + 4
 
+    encodedSizeExpr _ _  = szCases [2,3,4,5]
+    encodedListSizeExpr size _ = szCases [1,5] + size (Proxy @(Length [Char])) * szCases [1,4]
+
 ----------------------------------------------------------------------------
 -- Numeric data
 ----------------------------------------------------------------------------
@@ -226,26 +273,31 @@ instance Bi Integer where
 instance Bi Word where
     encode = E.encodeWord
     encodedSize w = withWordSize w
+    encodedSizeExpr _ w = wordSizeCases w
     decode = D.decodeWordCanonical
 
 instance Bi Word8 where
     encode = E.encodeWord8
     encodedSize a = encodedSize @Word (fromIntegral a)
+    encodedSizeExpr _ w = wordSizeCases w
     decode = D.decodeWord8Canonical
 
 instance Bi Word16 where
     encode = E.encodeWord16
     encodedSize a = encodedSize @Word (fromIntegral a)
+    encodedSizeExpr _ w = wordSizeCases w
     decode = D.decodeWord16Canonical
 
 instance Bi Word32 where
     encode = E.encodeWord32
     encodedSize a = encodedSize @Word (fromIntegral a)
+    encodedSizeExpr _ w = wordSizeCases w
     decode = D.decodeWord32Canonical
 
 instance Bi Word64 where
     encode = E.encodeWord64
     encodedSize a = encodedSize @Word (fromIntegral a)
+    encodedSizeExpr _ w = wordSizeCases w
     decode = D.decodeWord64Canonical
 
 instance Bi Int where
@@ -264,16 +316,19 @@ instance Bi Float where
     encode = E.encodeFloat
     -- 1 byte header plus encoded @'Float'@.
     encodedSize a = 1 + fromIntegral (sizeOf a)
+    encodedSizeExpr _ _ = 1 + fromIntegral (sizeOf (0 :: Float))
     decode = D.decodeFloatCanonical
 
 instance Bi Int32 where
     encode = E.encodeInt32
     encodedSize a = encodedSize @Int (fromIntegral a)
+    encodedSizeExpr size _ = encodedSizeExpr @Int size (Proxy @Int) -- MN TODO
     decode = D.decodeInt32Canonical
 
 instance Bi Int64 where
     encode = E.encodeInt64
     encodedSize a = encodedSize @Int (fromIntegral a)
+    encodedSizeExpr size _ = encodedSizeExpr @Int size (Proxy @Int) -- MN TODO
     decode = D.decodeInt64Canonical
 
 instance Bi Nano where
@@ -294,6 +349,7 @@ instance Bi Void where
 instance (Typeable s, Bi a) => Bi (Tagged s a) where
     encode (Tagged a) = encode a
     encodedSize (Tagged a) = encodedSize a
+    encodedSizeExpr size _ = encodedSizeExpr size (Proxy @a)
     decode = Tagged <$> decode
 
 ----------------------------------------------------------------------------
@@ -305,6 +361,7 @@ instance (Bi a, Bi b) => Bi (a,b) where
                 <> encode a
                 <> encode b
     encodedSize (a,b) = 1 + encodedSize a + encodedSize b
+    encodedSizeExpr size _ = 1 + size (Proxy @a) + size (Proxy @b)
     decode = do D.decodeListLenCanonicalOf 2
                 !x <- decode
                 !y <- decode
@@ -317,6 +374,8 @@ instance (Bi a, Bi b, Bi c) => Bi (a,b,c) where
                   <> encode c
 
     encodedSize (a,b,c) = 1 + encodedSize a + encodedSize b + encodedSize c
+
+    encodedSizeExpr size _ = 1 + size (Proxy @a) + size (Proxy @b) + size (Proxy @c)
 
     decode = do D.decodeListLenCanonicalOf 3
                 !x <- decode
@@ -333,6 +392,8 @@ instance (Bi a, Bi b, Bi c, Bi d) => Bi (a,b,c,d) where
 
     encodedSize (a,b,c,d) = 1 + encodedSize a + encodedSize b + encodedSize c + encodedSize d
 
+    encodedSizeExpr size _ = 1 + size (Proxy @a) + size (Proxy @b) + size (Proxy @c) + size (Proxy @d)
+
     decode = do D.decodeListLenCanonicalOf 4
                 !a <- decode
                 !b <- decode
@@ -347,13 +408,15 @@ instance Bi BS.ByteString where
         -- size of a header plus length of the @'ByteString'@
         in withWordSize len + fromIntegral len
     decode = D.decodeBytesCanonical
-
+    encodedSizeExpr size _ = szCases [1,9] +  size (Proxy @(Length BS.ByteString))
+    
 instance Bi Text.Text where
     encode = E.encodeString
     -- compute size of `Text` via `String` using `Bi Char` `encodedListSize`
     encodedSize = encodedListSize . Text.unpack
     decode = D.decodeStringCanonical
-
+    encodedSizeExpr size _ = encodedSizeExpr size (Proxy @[Char])
+    
 instance Bi BS.Lazy.ByteString where
     encode = encode . BS.Lazy.toStrict
     encodedSize a =
@@ -361,10 +424,12 @@ instance Bi BS.Lazy.ByteString where
         -- size of a header plus length of the @'ByteString'@
         in withWordSize len + fromIntegral len
     decode = BS.Lazy.fromStrict <$> decode
+    encodedSizeExpr size _ = szCases [1,9] + size (Proxy @(Length BS.Lazy.ByteString))
 
 instance Bi a => Bi [a] where
     encode = encodeList
     encodedSize = encodedListSize
+    encodedSizeExpr size _ = encodedListSizeExpr size (Proxy @[a])
     decode = decodeList
 
 instance (Bi a, Bi b) => Bi (Either a b) where
@@ -372,6 +437,8 @@ instance (Bi a, Bi b) => Bi (Either a b) where
     encode (Right x) = E.encodeListLen 2 <> E.encodeWord 1 <> encode x
 
     encodedSize x = 2 + either encodedSize encodedSize x
+
+    encodedSizeExpr size _ = 2 + szCases [size (Proxy @a), size (Proxy @b)]
 
     decode = do D.decodeListLenCanonicalOf 2
                 t <- D.decodeWordCanonical
@@ -385,6 +452,7 @@ instance (Bi a, Bi b) => Bi (Either a b) where
 instance Bi a => Bi (NonEmpty a) where
     encode = defaultEncodeList . toList
     encodedSize = defaultEncodedListSize . toList
+    encodedSizeExpr size _ = size (Proxy @[a]) -- MN TODO make 0 count impossible
     decode =
         nonEmpty <$> defaultDecodeList >>= toCborError . \case
             Nothing -> Left "Expected a NonEmpty list, but an empty list was found!"
@@ -395,6 +463,8 @@ instance Bi a => Bi (Maybe a) where
     encode (Just x) = E.encodeListLen 1 <> encode x
 
     encodedSize x = 1 + maybe 0 encodedSize x
+
+    encodedSizeExpr size _ = 1 + szCases [0, size (Proxy @a)]
 
     decode = do n <- D.decodeListLenCanonical
                 case n of
@@ -864,3 +934,193 @@ instance (i ~ G.C, GSerialiseProd f) => GSerialiseSum (G.M1 i c f) where
     fieldsForCon _ _ = cborError "Bad constructor number"
     decodeSum      0 = G.M1 <$> gdecodeSeq
     decodeSum      _ = cborError "bad constructor number"
+
+----------------------------------------------------------------------------
+-- Size expressions
+----------------------------------------------------------------------------
+
+(.:) :: (c -> d) -> (a -> b -> c) -> (a -> b -> d)
+f .: g = \x y -> f (g x y)
+
+data SizeF t
+  = AddF t t
+  | MulF t t
+  | SubF t t
+  | AbsF t
+  | NegF t
+  | SgnF t
+  | CasesF [t]
+  | ValueF Byte
+  | forall a. Bi a => TodoF (forall x. Bi x => Proxy x -> Size) (Proxy a)
+  deriving Typeable
+
+instance Functor SizeF where
+  fmap f = \case
+    AddF x y  -> AddF (f x) (f y)
+    MulF x y  -> MulF (f x) (f y)
+    SubF x y  -> SubF (f x) (f y)
+    AbsF x    -> AbsF (f x)
+    NegF x    -> NegF (f x)
+    SgnF x    -> SgnF (f x)
+    CasesF xs -> CasesF (map f xs)
+    ValueF x  -> ValueF x
+    TodoF g x -> TodoF g x
+
+cata :: Functor f => (f t -> t) -> Fix f -> t
+cata phi x = phi (cata phi <$> unfix x)
+
+ana :: Functor f => (t -> f t) -> t -> Fix f
+ana phi x = Fix (ana phi <$> phi x)
+
+newtype Fix f = Fix (f (Fix f))
+
+unfix :: Fix f -> f (Fix f)
+unfix = coerce
+
+type Size = Fix SizeF
+
+instance Num (Fix SizeF) where
+  (+) = Fix .: AddF
+  (*) = Fix .: MulF
+  (-) = Fix .: SubF
+  negate = Fix . NegF
+  abs    = Fix . AbsF
+  signum = Fix . SgnF
+  fromInteger = Fix . ValueF . fromInteger
+
+instance Buildable t => Buildable (SizeF t) where
+  build x_ =
+    let showp2 c x y = bprint ("(" % build % " " % string % " " % build % ")") x c y
+    in case x_ of
+         AddF x y -> showp2 "+" x y
+         MulF x y -> showp2 "*" x y
+         SubF x y -> showp2 "-" x y
+         NegF x   -> bprint ("-" % build) x
+         AbsF x   -> bprint ("|" % build % "|") x
+         SgnF x   -> bprint ("sgn(" % build % ")") x
+         CasesF xs -> bprint ("{ " % build % "}") $ foldMap (bprint (build % " ")) xs
+         ValueF x  -> bprint shown (toInteger x)
+         TodoF _ x -> bprint ("(_ :: " % shown % ")") (typeRep x)
+    
+instance Buildable (Fix SizeF) where
+  build x = bprint build (unfix x)
+
+szCases :: [Size] -> Size
+szCases = Fix . CasesF
+
+data Range b = Range { lo :: b, hi :: b }
+
+instance Num b => Num (Range b) where
+  x + y = Range { lo = lo x + lo y
+                , hi = hi x + hi y }
+  x * y = Range { lo = lo x * lo y
+                , hi = hi x * hi y }
+  x - y = Range { lo = lo x - hi y
+                , hi = hi x - lo y }
+  negate x = Range { lo = negate (hi x)
+                   , hi = negate (lo x) }
+  abs x = x
+  signum x = x
+  fromInteger n = Range { lo = fromInteger n
+                        , hi = fromInteger n }
+
+instance Buildable (Range Byte) where
+  build r = bprint (shown % ".." % shown) (toInteger $ lo r) (toInteger $ hi r)
+
+instance Buildable (Either Size (Range Byte)) where
+  build (Right x) = bprint build x
+  build (Left x)  = bprint build x
+  
+szEval :: (forall t. Bi t => (Proxy t -> Size) -> Proxy t -> Range Byte) -> Size -> Range Byte
+szEval doit = cata $ \case
+  AddF x y -> x + y
+  MulF x y -> x * y
+  SubF x y -> x - y
+  NegF x   -> negate x
+  AbsF x   -> abs x
+  SgnF x   -> signum x
+  CasesF xs -> Range { lo = minimum (map lo xs)
+                    , hi = maximum (map hi xs) }
+  ValueF x -> Range { lo = x, hi = x }
+  TodoF f x -> doit f x
+
+szLazy :: Bi a => (Proxy a -> Size)
+szLazy = todo (encodedSizeExpr szLazy)
+
+szGreedy :: Bi a => (Proxy a -> Size)
+szGreedy = encodedSizeExpr szGreedy
+
+data HoleF f t = HoleF | ExistingF (f t) deriving Functor
+
+type family Holey f
+type instance Holey (Fix f) = Fix (HoleF f)
+
+punch :: Functor f => (Fix f -> Bool) -> Fix f -> Holey (Fix f)
+punch f = ana phi
+  where
+    phi x@(Fix e) = if f x then HoleF else ExistingF e
+
+plug :: Functor f => Fix f -> Holey (Fix f) -> Fix f
+plug x = cata phi
+  where
+    phi HoleF = x
+    phi (ExistingF e) = Fix e
+    
+isTodo :: Size -> Bool
+isTodo (Fix (TodoF _ _)) = True
+isTodo _ = False
+
+todo :: forall a. Bi a => (forall t. Bi t => Proxy t -> Size) -> Proxy a -> Size
+todo f pxy = Fix (TodoF f pxy)
+
+pp :: Buildable a => a -> IO ()
+pp = putStrLn . pretty
+
+szWithCtx :: Bi a => Map TypeRep Size -> Proxy a -> Size
+szWithCtx ctx pxy = case M.lookup (typeRep pxy) ctx of
+  Just ans -> ans
+  Nothing  ->  encodedSizeExpr (szWithCtx ctx) pxy
+
+simplify :: Size -> Either Size (Range Byte)
+simplify = cata $ \case
+    TodoF f pxy -> Left (todo f pxy)
+    ValueF x    -> Right (Range { lo = x, hi = x })
+    CasesF xs   -> case sequence xs of
+                    Right xs' -> Right (Range { lo = minimum (map lo xs')
+                                              , hi = maximum (map hi xs') })
+                    Left _  -> Left (szCases $ map toSize xs)
+    AddF x y  -> binOp (+) x y
+    MulF x y  -> binOp (*) x y
+    SubF x y  -> binOp (-) x y
+    NegF x    -> unOp negate x
+    AbsF x    -> unOp abs x
+    SgnF x    -> unOp signum x
+    
+  where
+    binOp :: (forall a. Num a => a -> a -> a) -> Either Size (Range Byte) -> Either Size (Range Byte) -> Either Size (Range Byte)
+    binOp (#) (Right x) (Right y) = Right (x # y)
+    binOp (#) x y = Left (toSize x # toSize y)
+
+    unOp :: (forall a. Num a => a -> a) -> Either Size (Range Byte) -> Either Size (Range Byte)
+    unOp f = \case
+      Right x -> Right (f x)
+      Left x  -> Left (f x)
+    
+    toSize :: Either Size (Range Byte) -> Size
+    toSize = \case
+      Left x  -> x
+      Right r -> if lo r == hi r
+                 then fromIntegral (lo r)
+                 else szCases [fromIntegral (lo r), fromIntegral (hi r)]
+    
+force1 :: Size -> Size
+force1 = cata $ \case
+  AddF x y -> x + y
+  MulF x y -> x * y
+  SubF x y -> x - y
+  NegF x   -> negate x
+  AbsF x   -> abs x
+  SgnF x   -> signum x
+  CasesF xs -> Fix $ CasesF xs
+  ValueF x ->  Fix (ValueF x)
+  TodoF f x -> f x

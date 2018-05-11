@@ -20,7 +20,7 @@ import           Pos.Core (Address (..), HasConfiguration)
 import           Pos.Core.Txp (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Txp.Toil.Types (Utxo)
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials, eskToWalletDecrCredentials,
+import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials, keyToWalletDecrCredentials,
                                                   selectOwnAddresses)
 
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
@@ -57,7 +57,7 @@ prefilterBlock esk block = PrefilteredBlock {
     (inpss, outss) = unzip $ map (prefilterTx wdc) (block ^. rbTxs)
 
     wdc :: WalletDecrCredentials
-    wdc = eskToWalletDecrCredentials esk
+    wdc = keyToWalletDecrCredentials $ Right esk
 
 prefilterTx :: WalletDecrCredentials
             -> ResolvedTx
@@ -73,7 +73,7 @@ ourResolvedTxPairs :: WalletDecrCredentials
 ourResolvedTxPairs wdc = ours wdc (txOutAddress . toaOut . snd)
 
 ourUtxo :: EncryptedSecretKey -> Utxo -> Utxo
-ourUtxo esk = ourUtxo_ $ eskToWalletDecrCredentials esk
+ourUtxo esk = ourUtxo_ $ keyToWalletDecrCredentials (Right esk)
 
 ourUtxo_ :: WalletDecrCredentials -> Utxo -> Utxo
 ourUtxo_ wdc utxo = Map.fromList $ ourResolvedTxPairs wdc $ Map.toList utxo

@@ -25,11 +25,11 @@ import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById, getWalletAddresses,
+import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getKeyById, getWalletAddresses,
                                  runWRealMode)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, flushWalletStorage)
-import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (keyToWalletDecrCredentials)
 import           Pos.Wallet.Web.Tracking.Sync (syncWallet)
 import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage, usingLoggerName)
 
@@ -87,8 +87,10 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
     syncWallets :: WalletWebMode ()
     syncWallets = do
         addrs <- getWalletAddresses <$> askWalletSnapshot
-        sks <- mapM getSKById addrs
-        forM_ sks (syncWallet . eskToWalletDecrCredentials)
+        keys <- mapM getKeyById addrs
+        -- External wallets doesn't have secret keys here,
+        -- because their secret keys are stored externally.
+        forM_ keys (syncWallet . keyToWalletDecrCredentials)
 
     plugins :: (HasConfigurations, HasCompileInfo) => TVar NtpStatus -> Plugins.Plugin WalletWebMode
     plugins ntpStatus =

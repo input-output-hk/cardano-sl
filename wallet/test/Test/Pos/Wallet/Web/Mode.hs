@@ -47,8 +47,9 @@ import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
 import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag, RecoveryHeader,
                                   RecoveryHeaderTag)
-import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..), getSecretDefault,
-                                        modifySecretPureDefault)
+import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
+                                        getSecretDefault, getPublicDefault,
+                                        modifySecretPureDefault, modifyPublicPureDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDefault,
@@ -88,6 +89,7 @@ import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
+import           Pos.Util.UserPublic (HasUserPublic (..), UserPublic)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.Redirect (applyLastUpdateWebWallet, blockchainSlotDurationWebWallet,
                                       connectedPeersWebWallet, localChainDifficultyWebWallet,
@@ -149,6 +151,8 @@ data WalletTestContext = WalletTestContext
     , wtcWalletState      :: !WalletDB
     , wtcUserSecret       :: !(TVar UserSecret)
     -- ^ Secret keys which are used to send transactions
+    , wtcUserPublic       :: !(TVar UserPublic)
+    -- ^ Public keys which are used to idenify external wallets.
     , wtcRecoveryHeader   :: !RecoveryHeader
     -- ^ Stub empty value, not used for tests for now.
     , wtcLastKnownHeader  :: !LastKnownHeader
@@ -194,6 +198,7 @@ initWalletTestContext WalletTestParams {..} callback =
         wtc <- liftIO $ do
             wtcWalletState <- openMemState
             wtcUserSecret <- STM.newTVarIO def
+            wtcUserPublic <- STM.newTVarIO def
             wtcRecoveryHeader <- STM.newEmptyTMVarIO
             -- some kind of kostil to get tip
             tip <- readTVarIO $ txpTip $ btcTxpMem wtcBlockTestContext
@@ -300,6 +305,9 @@ instance (HasConfiguration, MonadSlotsData ctx WalletTestMode)
 instance HasUserSecret WalletTestContext where
     userSecret = wtcUserSecret_L
 
+instance HasUserPublic WalletTestContext where
+    userPublic = wtcUserPublic_L
+
 instance HasLens UpdateContext WalletTestContext UpdateContext where
       lensOf = wtcBlockTestContext_L . lensOf @UpdateContext
 
@@ -380,9 +388,11 @@ instance HasConfigurations => MonadAddresses WalletTestMode where
 
 instance MonadKeysRead WalletTestMode where
     getSecret = getSecretDefault
+    getPublic = getPublicDefault
 
 instance MonadKeys WalletTestMode where
     modifySecret = modifySecretPureDefault
+    modifyPublic = modifyPublicPureDefault
 
 instance (HasConfigurations) => MonadTxHistory WalletTestMode where
     getBlockHistory = getBlockHistoryDefault

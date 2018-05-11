@@ -35,9 +35,8 @@ import           Pos.Txp.Base (flattenTxPayload)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF, secure)
 import           Pos.Util.TimeLimit (CanLogInParallel, logWarningWaitInf)
-import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
-
-import           Pos.Wallet.Web.Account (AccountMode, getSKById)
+import           Pos.Wallet.Web.Tracking.Decrypt (keyToWalletDecrCredentials)
+import           Pos.Wallet.Web.Account (AccountMode, getKeyById)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..))
@@ -103,9 +102,8 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
         -> m ()
     syncWallet db ws curTip newTipH blkTxsWUndo wAddr = walletGuard ws curTip wAddr $ do
         blkHeaderTs <- blkHeaderTsGetter
-        encSK <- getSKById wAddr
-
-        let credentials = eskToWalletDecrCredentials encSK
+        key <- getKeyById wAddr
+        let credentials = keyToWalletDecrCredentials key
         let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
         let applyBlockWith trackingOp = do
               let mapModifier = trackingApplyTxs credentials dbUsed gbDiff blkHeaderTs ptxBlkInfo blkTxsWUndo
@@ -153,12 +151,12 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
         -> CId Wal
         -> m ()
     syncWallet db ws curTip newTip txs wid = walletGuard ws curTip wid $ do
-        encSK <- getSKById wid
+        key <- getKeyById wid
+        let credentials = keyToWalletDecrCredentials key
         blkHeaderTs <- blkHeaderTsGetter
-
         let rollbackBlockWith trackingOperation = do
               let dbUsed = WS.getCustomAddresses ws WS.UsedAddr
-                  mapModifier = trackingRollbackTxs (eskToWalletDecrCredentials encSK) dbUsed gbDiff blkHeaderTs txs
+                  mapModifier = trackingRollbackTxs credentials dbUsed gbDiff blkHeaderTs txs
               rollbackModifierFromWallet db trackingOperation wid newTip mapModifier
               logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
 

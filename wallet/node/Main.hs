@@ -37,12 +37,12 @@ import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (lensOf, logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (WalletWebMode, bracketWalletWS,
-                                 bracketWalletWebDB, getSKById, notifierPlugin, runWRealMode,
+import           Pos.Wallet.Web (AddrCIdHashes (..), WalletWebMode, bracketWalletWS,
+                                 bracketWalletWebDB, getKeyById, notifierPlugin, runWRealMode,
                                  startPendingTxsResubmitter, walletServeWebFull, walletServerOuts)
 import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, cleanupAcidStatePeriodically,
                                        flushWalletStorage, getWalletAddresses)
-import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (keyToWalletDecrCredentials)
 import           Pos.Wallet.Web.Tracking.Sync (processSyncRequest, syncWallet)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Web (serveWeb)
@@ -80,6 +80,7 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletArgs {..} = do
                 runWRealMode
                     db
                     conn
+                    (AddrCIdHashes ref)
                     syncRequestsQueue
                     nr
                     (mainAction ntpStatus nr)
@@ -97,8 +98,10 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletArgs {..} = do
     syncWallets :: WalletWebMode ()
     syncWallets = do
         ws  <- askWalletSnapshot
-        sks <- mapM getSKById (getWalletAddresses ws)
-        forM_ sks (syncWallet . eskToWalletDecrCredentials)
+        keys <- mapM getKeyById (getWalletAddresses ws)
+        -- External wallets doesn't have secret keys here,
+        -- because their secret keys are stored externally.
+        forM_ keys (syncWallet . keyToWalletDecrCredentials)
     resubmitterPlugins = ([ActionSpec $ \diffusion -> askWalletDB >>=
                             \db -> startPendingTxsResubmitter db (sendTx diffusion)], mempty)
     notifierPlugins = ([ActionSpec $ \_ -> notifierPlugin], mempty)

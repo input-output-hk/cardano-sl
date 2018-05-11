@@ -47,6 +47,7 @@ import           Pos.Update.Context (UpdateContext)
 import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
+import           Pos.Util.UserPublic (HasUserPublic (..), UserPublic)
 import           Pos.Util.Util (HasLens (..))
 
 ----------------------------------------------------------------------------
@@ -81,6 +82,8 @@ data NodeContext = NodeContext
     -- ^ A set of callbacks for 'StateLock'.
     , ncUserSecret          :: !(TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions
+    , ncUserPublic          :: !(TVar UserPublic)
+    -- ^ Public keys (and path to file) which are used to identify external wallets.
     , ncBlockRetrievalQueue :: !BlockRetrievalQueue
     -- ^ Concurrent queue that holds block headers that are to be
     -- downloaded.
@@ -151,6 +154,9 @@ instance HasLens UpdateContext NodeContext UpdateContext where
 
 instance HasUserSecret NodeContext where
     userSecret = ncUserSecret_L
+
+instance HasUserPublic NodeContext where
+    userPublic = ncUserPublic_L
 
 instance HasLens RecoveryHeaderTag NodeContext RecoveryHeader where
     lensOf = ncRecoveryHeader_L

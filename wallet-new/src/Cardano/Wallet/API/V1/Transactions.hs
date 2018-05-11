@@ -28,4 +28,12 @@ type API = Tags '["Transactions"] :>
                         :> Summary "Estimate the fees which would originate from the payment."
                         :> ReqBody '[ValidJSON] Payment
                         :> Post '[ValidJSON] (WalletResponse EstimatedFees)
+    :<|> "external-transactions" :> "unsigned"
+                        :> Summary "Creates a new, raw, unsigned transaction (it will be signed externally)."
+                        :> ReqBody '[ValidJSON] Payment
+                        :> Post '[ValidJSON] (WalletResponse Transaction)
+    :<|> "external-transactions"
+                        :> Summary "Publish an externally-signed transaction."
+                        :> ReqBody '[ValidJSON] SignedTransaction
+                        :> Post '[ValidJSON] (WalletResponse Transaction)
     )

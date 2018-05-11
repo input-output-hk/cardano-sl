@@ -23,6 +23,8 @@ import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (WalletSnapshot, getAccountMeta, getWalletMeta)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
 
+import           Formatting (sformat, build, (%))
+
 currentBackupFormatVersion :: V.Version
 currentBackupFormatVersion = V.initial & V.major .~ 1
 
@@ -59,7 +61,10 @@ getWalletBackup :: AccountMode ctx m
                 -> CId Wal
                 -> m WalletBackup
 getWalletBackup ws wId = do
-    sk <- getSKById wId
+    -- Wallet backup is related to regular (internal) wallets only,
+    -- because we don't store secret keys for external wallets.
+    sk <- maybeThrow (InternalError (sformat ("Backup, no wallet with address "%build%" found") wId))
+                     =<< getSKById wId
     meta <- maybeThrow (InternalError "Wallet have no meta") $
             getWalletMeta ws wId
     let accountIds = getWalletAccountIds ws wId

@@ -44,12 +44,12 @@ import           Pos.Update.Context (UpdateContext (ucDownloadedUpdate))
 import           Pos.Update.Poll.Types (ConfirmedProposalState)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..))
-import           Pos.Wallet.Web.Account (AccountMode, getSKById)
+import           Pos.Wallet.Web.Account (AccountMode, getKeyById)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta)
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking (THEntryExtra, buildTHEntryExtra,
-                                          eskToWalletDecrCredentials, isTxEntryInteresting)
+                                          keyToWalletDecrCredentials, isTxEntryInteresting)
 
 ----------------------------------------------------------------------------
 -- BlockchainInfo
@@ -152,8 +152,9 @@ txpProcessTxWebWallet tx@(txId, txAux) = do
 
     toThee :: (WithHash Tx, TxUndo) -> Timestamp -> CId Wal -> m (CId Wal, THEntryExtra)
     toThee txWithUndo ts wId = do
-        wdc <- eskToWalletDecrCredentials <$> getSKById wId
-        pure (wId, buildTHEntryExtra wdc txWithUndo (Nothing, Just ts))
+        key <- getKeyById wId
+        let credentials = keyToWalletDecrCredentials key
+        pure (wId, buildTHEntryExtra credentials txWithUndo (Nothing, Just ts))
 
 txpNormalizeWebWallet
     :: ( TxpLocalWorkMode ctx m

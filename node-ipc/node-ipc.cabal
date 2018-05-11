@@ -5,7 +5,6 @@ license-file:        LICENSE
 author:              Michael Bishop
 maintainer:          cleverca22@gmail.com
 build-type:          Simple
-extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 
 

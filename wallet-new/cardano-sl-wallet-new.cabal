@@ -159,7 +159,6 @@ library
                      , servant-swagger-ui
                      , sqlite-simple
                      , sqlite-simple-errors
-                     , stm
                      , string-conv
                      , swagger2
                      , text
@@ -363,10 +362,8 @@ test-suite wallet-unit-tests
                     , constraints
                     , containers
                     , data-default
-                    , directory
                     , formatting
                     , hspec
-                    , HUnit
                     , lens
                     , log-warper
                     , mmorph
@@ -374,7 +371,6 @@ test-suite wallet-unit-tests
                     , QuickCheck
                     , safe-exceptions
                     , serokell-util
-                    , split
                     , text
                     , text-format
                     , universum

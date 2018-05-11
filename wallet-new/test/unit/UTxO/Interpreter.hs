@@ -256,10 +256,10 @@ instance Interpret h DSL.Value where
   int = return . mkCoin
 
 instance Interpret h Addr where
-  type Interpreted Addr = (SomeKeyPair, Address)
+  type Interpreted Addr = AddrInfo
 
   int :: (HasCallStack, Monad m)
-      => Addr -> IntT h e m (SomeKeyPair, Address)
+      => Addr -> IntT h e m AddrInfo
   int = asks . resolveAddr
 
 instance DSL.Hash h Addr => Interpret h (DSL.Input h Addr) where
@@ -275,20 +275,20 @@ instance DSL.Hash h Addr => Interpret h (DSL.Input h Addr) where
 
       if isBootstrap
         then do
-          (ownerKey, ownerAddr) <- int $ DSL.outAddr spentOutput
+          AddrInfo{..} <- int $ DSL.outAddr spentOutput
           -- See explanation at 'bootstrapTransaction'
           return ((
-                ownerKey
+                addrInfoAddrKey
               , TxInUtxo {
-                    txInHash  = unsafeHash ownerAddr
+                    txInHash  = unsafeHash addrInfoCardano
                   , txInIndex = 0
                   }
               ), resolvedInput)
         else do
-          (ownerKey, _) <- int     $ DSL.outAddr spentOutput
-          inpTrans'     <- intHash $ inpTrans
+          AddrInfo{..} <- int     $ DSL.outAddr spentOutput
+          inpTrans'    <- intHash $ inpTrans
           return ((
-                ownerKey
+                addrInfoAddrKey
               , TxInUtxo {
                     txInHash  = inpTrans'
                   , txInIndex = inpIndex
@@ -301,11 +301,11 @@ instance Interpret h (DSL.Output Addr) where
   int :: (HasCallStack, Monad m)
       => DSL.Output Addr -> IntT h e m TxOutAux
   int DSL.Output{..} = do
-      (_, outAddr') <- int outAddr
-      outVal'       <- int outVal
+      AddrInfo{..} <- int outAddr
+      outVal'      <- int outVal
       return TxOutAux {
           toaOut = TxOut {
-              txOutAddress = outAddr'
+              txOutAddress = addrInfoCardano
             , txOutValue   = outVal'
             }
         }

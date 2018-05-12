@@ -77,7 +77,7 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, testOnlyEndpoint)
 getUserProfile :: (WalletDbReader ctx m, MonadIO m) => m CProfile
 getUserProfile = getProfile <$> askWalletSnapshot
 
-updateUserProfile :: (HasConfiguration, WalletDbReader ctx m, MonadIO m)
+updateUserProfile :: (WalletDbReader ctx m, MonadIO m)
                   => CProfile
                   -> m CProfile
 updateUserProfile profile = do
@@ -119,12 +119,11 @@ nextUpdate = do
     noUpdates = RequestError "No updates available"
 
 -- | Postpone next update after restart
-postponeUpdate :: (MonadIO m, HasConfiguration, WalletDbReader ctx m) => m NoContent
+postponeUpdate :: (MonadIO m, WalletDbReader ctx m) => m NoContent
 postponeUpdate = askWalletDB >>= removeNextUpdate >> return NoContent
 
 -- | Delete next update info and restart immediately
 applyUpdate :: ( MonadIO m
-               , HasConfiguration
                , WalletDbReader ctx m
                , MonadUpdates m
                )
@@ -139,8 +138,7 @@ applyUpdate = askWalletDB >>= removeNextUpdate
 -- | Triggers shutdown in a short interval after called. Delay is
 -- needed in order for http request to succeed.
 requestShutdown ::
-       ( HasConfiguration
-       , MonadIO m
+       ( MonadIO m
        , MonadReader ctx m
        , WithLogger m
        , HasShutdownContext ctx
@@ -184,7 +182,7 @@ localTimeDifference ntpStatus = diff <$> readTVarIO ntpStatus
 ----------------------------------------------------------------------------
 
 testResetAll ::
-       ( HasConfiguration, HasNodeConfiguration, MonadIO m
+       ( HasNodeConfiguration, MonadIO m
        , MonadThrow m, WalletDbReader ctx m, MonadKeys m)
     => m NoContent
 testResetAll = do
@@ -253,8 +251,7 @@ instance HasTruncateLogPolicy PendingTxsSummary where
     truncateLogPolicy = identity
 
 cancelAllApplyingPtxs
-    :: ( HasConfiguration
-       , HasNodeConfiguration
+    :: ( HasNodeConfiguration
        , MonadIO m
        , MonadThrow m
        , WalletDbReader ctx m
@@ -265,8 +262,7 @@ cancelAllApplyingPtxs = do
   testOnlyEndpoint $ NoContent <$ cancelApplyingPtxs db
 
 cancelOneApplyingPtx ::
-       ( HasConfiguration
-       , HasNodeConfiguration
+       ( HasNodeConfiguration
        , MonadThrow m
        , WalletDbReader ctx m
        , MonadIO m

@@ -181,6 +181,7 @@ library
   ghc-options:         -Wall
                        -fno-warn-orphans
                        -O2
+                       -fwarn-redundant-constraints
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric

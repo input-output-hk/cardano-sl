@@ -118,8 +118,8 @@ import           Formatting ((%))
 import qualified Formatting as F
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HeaderHash, SlotId,
-                           Timestamp)
-import           Pos.Core.Configuration (HasConfiguration)
+                           Timestamp, ProtocolConstants(..), VssMinTTL(..),
+                           VssMaxTTL(..))
 import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.SafeCopy ()
 import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier, applyUtxoModToAddrCoinMap,
@@ -331,7 +331,7 @@ instance Default WalletStorage where
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
-type Update a = forall m. (HasConfiguration, MonadState WalletStorage m) => m a
+type Update a = forall m. (MonadState WalletStorage m) => m a
 
 -- | How to lookup addresses of account
 data AddressLookupMode
@@ -729,14 +729,19 @@ data PtxMetaUpdate
     | PtxMarkAcknowledged         -- ^ Mark tx as acknowledged by some peer
 
 -- | Update meta info of pending transaction atomically.
-ptxUpdateMeta :: WebTypes.CId WebTypes.Wal -> TxId -> PtxMetaUpdate -> Update ()
-ptxUpdateMeta wid txId updType =
+ptxUpdateMeta
+    :: ProtocolConstants
+    -> WebTypes.CId WebTypes.Wal
+    -> TxId
+    -> PtxMetaUpdate
+    -> Update ()
+ptxUpdateMeta pc wid txId updType =
     wsWalletInfos . ix wid . wsPendingTxs . ix txId %=
         case updType of
             PtxIncSubmitTiming ->
-                ptxSubmitTiming %~ incPtxSubmitTimingPure
+                ptxSubmitTiming %~ incPtxSubmitTimingPure pc
             PtxResetSubmitTiming curSlot ->
-                ptxSubmitTiming .~ mkPtxSubmitTiming curSlot
+                ptxSubmitTiming .~ mkPtxSubmitTiming pc curSlot
             PtxMarkAcknowledged ->
                 ptxMarkAcknowledgedPure
 
@@ -758,10 +763,10 @@ addOnlyNewPendingTx ptx =
 
 -- | Move every transaction which is in 'PtxWontApply' state to 'PtxApplying'
 -- state, effectively starting resubmission of failed transactions again.
-resetFailedPtxs :: SlotId -> Update ()
-resetFailedPtxs curSlot =
+resetFailedPtxs :: ProtocolConstants -> SlotId -> Update ()
+resetFailedPtxs pc curSlot =
     wsWalletInfos . traversed .
-    wsPendingTxs . traversed %= resetFailedPtx curSlot
+    wsPendingTxs . traversed %= resetFailedPtx pc curSlot
 
 -- | Gets whole wallet storage. Used primarily for testing and diagnostics.
 getWalletStorage :: Query WalletStorage
@@ -813,6 +818,9 @@ deriveSafeCopySimple 0 'base ''WAddressMeta
 deriveSafeCopySimple 0 'base ''RestorationBlockDepth
 deriveSafeCopySimple 0 'base ''SyncThroughput
 deriveSafeCopySimple 0 'base ''SyncStatistics
+deriveSafeCopySimple 0 'base ''ProtocolConstants
+deriveSafeCopySimple 0 'base ''VssMinTTL
+deriveSafeCopySimple 0 'base ''VssMaxTTL
 
 -- Legacy versions, for migrations
 

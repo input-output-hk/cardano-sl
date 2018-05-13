@@ -66,8 +66,8 @@ import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (AddressInfo (..),
                                        AddressLookupMode (Deleted, Ever, Existing),
                                        CustomAddressType (ChangeAddr, UsedAddr), WAddressMeta,
-                                       WalletDbReader, WalletSnapshot, addWAddress, askWalletDB,
-                                       askWalletSnapshot, createAccountWithAddress,
+                                       WalletDB, WalletDbReader, WalletSnapshot, addWAddress,
+                                       askWalletDB, askWalletSnapshot, createAccountWithAddress,
                                        createAccountWithoutAddresses, createWallet,
                                        doesAccountExist, getAccountIds, getWalletAddresses,
                                        getWalletBalancesAndUtxo, getWalletMetaIncludeUnready,
@@ -259,9 +259,7 @@ newAccountIncludeUnready
     -> CAccountInit
     -> m CAccount
 newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} = do
-    mps <- withTxpLocalData getMempoolSnapshot
-    db <- askWalletDB
-    ws <- getWalletSnapshot db
+    (mps, db, ws) <- getSnapshots
     -- TODO nclarke We read the mempool at this point to be consistent with the previous
     -- behaviour, but we may want to consider whether we should read it _after_ the
     -- account is created, since it's not used until we call 'getAccountMod'
@@ -296,9 +294,7 @@ newExternalAccountIncludeUnready includeUnready (CAccountInit accountMeta wallet
     -- This is an account for external wallet, so there's no 'AddrGenSeed'
     -- (because addresses for external wallets can be generated only on device)
     -- and 'PassPhrase' (because external wallet doesn't have spending password).
-    mps <- withTxpLocalData getMempoolSnapshot
-    db <- askWalletDB
-    ws <- getWalletSnapshot db
+    (mps, db, ws) <- getSnapshots
     accModifier <- txMempoolToModifier ws mps . keyToWalletDecrCredentials =<< findKey walletId
     -- Check that corresponding external wallet exists.
     void $ getWalletIncludeUnready ws mps includeUnready walletId
@@ -323,9 +319,7 @@ createWalletSafe
     => CId Wal -> CWalletMeta -> Bool -> m CWallet
 createWalletSafe cid wsMeta isReady = do
     -- Disallow duplicate wallets (including unready wallets)
-    db <- askWalletDB
-    ws <- getWalletSnapshot db
-    mps <- withTxpLocalData getMempoolSnapshot
+    (mps, db, ws) <- getSnapshots
     let wSetExists = isJust $ getWalletMetaIncludeUnready ws True cid
     when wSetExists $ throwM suchWalletIsAlreadyHere
     curTime <- liftIO getPOSIXTime
@@ -336,6 +330,18 @@ createWalletSafe cid wsMeta isReady = do
   where
     suchWalletIsAlreadyHere = RequestError $
         sformat ("createWalletSafe: Wallet with that id "%build%" already exists") cid
+
+getSnapshots
+    :: MonadWalletLogic ctx m
+    => m ( ([(TxId, TxAux)], UndoMap)
+         , WalletDB
+         , WalletSnapshot
+         )
+getSnapshots = do
+    mps <- withTxpLocalData getMempoolSnapshot
+    db  <- askWalletDB
+    ws  <- getWalletSnapshot db
+    return (mps, db, ws)
 
 markWalletReady
   :: MonadWalletLogic ctx m

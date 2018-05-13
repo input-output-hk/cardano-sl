@@ -21,13 +21,11 @@ import           Pos.Core (TxAux, TxSigData, Tx)
 import qualified Pos.Core as Core
 import           Pos.Crypto (Signature (..), decodeBase58PublicKey)
 import qualified Pos.Util.Servant as V0
-import qualified Pos.Wallet.WalletMode as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.History as V0
 import qualified Pos.Wallet.Web.Methods.Payment as V0
 import qualified Pos.Wallet.Web.Methods.Txp as V0
 import qualified Pos.Wallet.Web.State as V0
-import           Pos.Wallet.Web.State.Storage (WalletInfo (_wiSyncStatistics))
 import qualified Pos.Wallet.Web.Util as V0
 
 import           Servant
@@ -39,33 +37,15 @@ handlers submitTx =
              newTransaction submitTx
         :<|> allTransactions
         :<|> estimateFees
+        :<|> newUnsignedTransaction
+        :<|> newSignedTransaction submitTx
 
 newTransaction
     :: forall ctx m . (V0.MonadWalletTxFull ctx m)
     => (TxAux -> m Bool) -> Payment -> m (WalletResponse Transaction)
-newTransaction submitTx Payment {..} = do
-    ws <- V0.askWalletSnapshot
-    sourceWallet <- migrate (psWalletId pmtSource)
-
-    -- If the wallet is being restored, we need to disallow any @Payment@ from
-    -- being submitted.
-    -- FIXME(adn): make grabbing a 'V1.SyncState' from the old data layer
-    -- easier and less verbose.
-    when (V0.isWalletRestoring ws sourceWallet) $ do
-        let stats    = _wiSyncStatistics <$> V0.getWalletInfo ws sourceWallet
-        currentHeight <- V0.networkChainDifficulty
-        progress <- case liftM2 (,) stats currentHeight  of
-                        Nothing     -> pure $ SyncProgress (mkEstimatedCompletionTime 0)
-                                                           (mkSyncThroughput (Core.BlockCount 0))
-                                                           (mkSyncPercentage 0)
-                        Just (s, h) -> migrate (s, Just h)
-        throwM $ WalletIsNotReadyToProcessPayments progress
-
+newTransaction submitTx pmt@Payment {..} = do
     let (V1 spendingPw) = fromMaybe (V1 mempty) pmtSpendingPassword
-    cAccountId <- migrate pmtSource
-    addrCoinList <- migrate $ NE.toList pmtDestinations
-    let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) pmtGroupingPolicy
-    let batchPayment = V0.NewBatchPayment cAccountId addrCoinList policy
+    batchPayment <- createBatchPayment pmt
     cTx <- V0.newPaymentBatch submitTx spendingPw batchPayment
     single <$> migrate cTx
 
@@ -127,10 +107,6 @@ estimateFees Payment{..} = do
             single <$> migrate fee
         Left err ->
             throwM (convertTxError err)
-<<<<<<< HEAD
-
-=======
->>>>>>> [CHW-8*] Review corrections
 
 newUnsignedTransaction
     :: forall ctx m . (V0.MonadWalletTxFull ctx m)

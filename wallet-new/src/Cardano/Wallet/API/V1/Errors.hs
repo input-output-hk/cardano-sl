@@ -69,9 +69,13 @@ data WalletError =
     | WalletAlreadyExists
     | AddressNotFound
     | TxFailedToStabilize
+<<<<<<< HEAD
     | InvalidPublicKey { weProblem :: !Text }
     | UnsignedTxCreationError
     | SignedTxSubmitError { weProblem :: !Text }
+=======
+    | UnsignedTxCreationError
+>>>>>>> CHW, rebasing to latest develop.
     | TxRedemptionDepleted
     | TxSafeSignerNotFound { weAddress :: V1 Core.Address }
     | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
@@ -101,6 +105,7 @@ convertTxError err = case err of
         TxSafeSignerNotFound (V1 addr)
     TxError.RemainingMoneyError ->
         UnsignedTxCreationError
+<<<<<<< HEAD
     TxError.SignedTxNotBase16Format ->
         SignedTxSubmitError $ sformat build TxError.SignedTxNotBase16Format
     TxError.SignedTxUnableToDecode txt ->
@@ -109,6 +114,8 @@ convertTxError err = case err of
         SignedTxSubmitError $ sformat build TxError.SignedTxSignatureNotBase16Format
     TxError.SignedTxInvalidSignature txt ->
         SignedTxSubmitError $ sformat build (TxError.SignedTxInvalidSignature txt)
+=======
+>>>>>>> CHW, rebasing to latest develop.
     TxError.GeneralTxError txt ->
         UnknownError txt
 
@@ -205,12 +212,17 @@ describe = \case
          "This wallet is restoring, and it cannot send new transactions until restoration completes."
     NodeIsStillSyncing _ ->
          "The node is still syncing with the blockchain, and cannot process the request yet."
+<<<<<<< HEAD
     InvalidPublicKey _ ->
          "Extended public key (for external wallet) is invalid."
     UnsignedTxCreationError ->
          "Unable to create unsigned transaction for an external wallet."
     SignedTxSubmitError _ ->
          "Unable to submit externally-signed transaction."
+=======
+    UnsignedTxCreationError ->
+         "Unable to create unsigned transaction for an external wallet."
+>>>>>>> CHW, rebasing to latest develop.
     TxRedemptionDepleted ->
          "The redemption address was already used."
     TxSafeSignerNotFound _ ->
@@ -251,12 +263,17 @@ toServantError err =
             err412 -- Precondition failed
         TxFailedToStabilize{} ->
             err500
+<<<<<<< HEAD
         InvalidPublicKey{} ->
             err403
         UnsignedTxCreationError{} ->
             err500
         SignedTxSubmitError{} ->
             err500
+=======
+        UnsignedTxCreationError{} ->
+            err500
+>>>>>>> CHW, rebasing to latest develop.
         TxRedemptionDepleted{} ->
             err400
         TxSafeSignerNotFound{} ->

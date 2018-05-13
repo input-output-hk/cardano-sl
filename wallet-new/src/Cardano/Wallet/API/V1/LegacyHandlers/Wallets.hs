@@ -12,9 +12,11 @@ import           Formatting (build, sformat)
 
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods as V0
-import qualified Pos.Wallet.Web.State as V0 (WalletSnapshot, askWalletSnapshot)
+import qualified Pos.Wallet.Web.State as V0 (WalletSnapshot, askWalletSnapshot, askWalletDB)
+import           Pos.Wallet.Web.State (setWalletSyncTip, removeHistoryCache)
 import qualified Pos.Wallet.Web.State.Storage as V0
 
+import           Cardano.Crypto.Wallet (xpub)
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Errors
@@ -25,13 +27,20 @@ import qualified Data.IxSet.Typed as IxSet
 import qualified Pos.Core as Core
 import           Pos.Crypto (decodeBase58PublicKey)
 import           Pos.Update.Configuration ()
+import           Pos.Client.KeyStorage (addPublicKey)
+import           Pos.StateLock (Priority (..), withStateLockNoMetrics)
 
 import           Pos.Util (HasLens (..))
+import           Pos.Util.Servant (encodeCType)
 import qualified Pos.Wallet.WalletMode as V0
 import qualified Pos.Wallet.Web.Error.Types as V0
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
+
 import           Servant
+import           Data.Maybe (fromJust)
+import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58)
+import           Test.QuickCheck (arbitrary, generate)
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: HasConfigurations

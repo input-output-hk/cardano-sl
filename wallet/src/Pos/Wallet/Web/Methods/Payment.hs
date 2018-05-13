@@ -60,8 +60,6 @@ import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (Ever
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
                                       getWalletAccountIds, getWalletAddrsDetector)
 
-{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
-
 newPayment
     :: MonadWalletTxFull ctx m
     => (TxAux -> m Bool)

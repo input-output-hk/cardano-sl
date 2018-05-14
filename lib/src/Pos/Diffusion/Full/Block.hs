@@ -279,20 +279,24 @@ streamBlocks
     -> HeaderHash
     -> [HeaderHash]
     -> ((Maybe Gauge, Conc.TBQueue StreamEntry) -> IO t)
-    -> IO t
+    -> IO (Maybe t)
 streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoints k = do
     blockChan <- atomically $ Conc.newTBQueue $ fromIntegral streamWindow
-    -- TODO if the request ends early, it should signal that via the channel.
-    requestVar <- requestBlocks blockChan
+    -- TODO if the request ends early, it should signal that via the channel
     let wqgM = dhStreamWriteQueue <$> smM
-    k (wqgM, blockChan) `finally` (join $ atomically $ do
+    fallBack <- atomically $ Conc.newTVar False
+    requestVar <- requestBlocks fallBack blockChan
+    r <- k (wqgM, blockChan) `finally` (atomically $ do
         status <- Conc.readTVar requestVar
         case status of
-            OQ.PacketAborted -> pure (pure ())
-            OQ.PacketEnqueued -> do
-                Conc.writeTVar requestVar OQ.PacketAborted
-                pure (pure ())
-            OQ.PacketDequeued asyncIO -> pure (cancel asyncIO))
+             OQ.PacketAborted -> pure (pure ())
+             OQ.PacketEnqueued -> do
+                 Conc.writeTVar requestVar OQ.PacketAborted
+                 pure (pure ())
+             OQ.PacketDequeued asyncIO -> pure (cancel asyncIO))
+    r' <- atomically $ Conc.readTVar fallBack
+    if r' then pure Nothing
+          else pure $ Just r
   where
 
     mkStreamStart :: [HeaderHash] -> HeaderHash -> MsgStream
@@ -303,10 +307,12 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
         , mssWindow = streamWindow
         }
 
-    requestBlocks :: Conc.TBQueue StreamEntry -> IO (Conc.TVar (OQ.PacketStatus ()))
-    requestBlocks blockChan = do
+    requestBlocks :: Conc.TVar Bool -> Conc.TBQueue StreamEntry -> IO (Conc.TVar (OQ.PacketStatus ()))
+    requestBlocks fallBack blockChan = do
         convMap <- enqueue (MsgRequestBlocks (S.singleton nodeId))
-                            (\_ _ -> one $ Conversation $ requestBlocksConversation blockChan)
+                            (\_ _ -> (Conversation $ requestBlocksConversation blockChan) :|
+                                      [(Conversation $ requestBatch fallBack blockChan)]
+                                     )
         case M.lookup nodeId convMap of
             Just tvar -> pure tvar
             -- FIXME shouldn't have to deal with this.
@@ -314,6 +320,19 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
             -- unsolicited header, so that's it's all done in one conversation,
             -- and so there's no need to even track the 'nodeId'.
             Nothing   -> throwM $ DialogUnexpected $ "requestBlocks did not contact given peer"
+
+    requestBatch
+        :: Conc.TVar Bool
+        -> Conc.TBQueue StreamEntry
+        -> ConversationActions MsgGetBlocks MsgBlock
+        -> IO ()
+    requestBatch fallBack blockChan _ = do
+        -- The peer doesn't support streaming, we need to fall back to batching but
+        -- the current conversation is unusable since there is no way for us to learn
+        -- which blocks we shall fetch.
+        atomically $ writeTVar fallBack True
+        atomically $ Conc.writeTBQueue blockChan StreamEnd
+        return ()
 
     requestBlocksConversation
         :: Conc.TBQueue StreamEntry

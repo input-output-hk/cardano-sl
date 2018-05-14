@@ -324,9 +324,14 @@ streamProcessBlocks
     -> m ()
 streamProcessBlocks diffusion nodeId desired checkpoints = do
     logNotice "streaming start"
-    !_ <- Diffusion.streamBlocks diffusion nodeId desired checkpoints (loop (0::Int) [])
-    logNotice "streaming done"
-    return ()
+    r <- Diffusion.streamBlocks diffusion nodeId desired checkpoints (loop (0::Int) [])
+    case r of
+         Nothing -> do
+             logNotice "streaming not supported by peer, reverting to batch mode"
+             getProcessBlocks diffusion nodeId desired checkpoints
+         Just _  -> do
+             logNotice "streaming done"
+             return ()
   where
     loop n blocks (wqgM, blockChan) = do
         streamEntry <- atomically $ readTBQueue blockChan

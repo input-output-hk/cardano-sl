@@ -1,3 +1,15 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE LambdaCase   #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE TypeApplications       #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE DeriveDataTypeable       #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE OverloadedStrings   #-}
+
 -- | Common core types essential for multiple components.
 module Pos.Core.Common.Types
        (

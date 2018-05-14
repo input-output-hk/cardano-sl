@@ -1,3 +1,12 @@
+{-# LANGUAGE LambdaCase  #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeApplications       #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE OverloadedStrings   #-}
+
 -- | Functionality related to 'Address' data type and related types.
 
 module Pos.Core.Common.Address

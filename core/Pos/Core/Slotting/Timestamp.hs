@@ -1,3 +1,11 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE TypeApplications       #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE OverloadedStrings   #-}
+
 -- | Timestamp/diff types and helpers.
 
 module Pos.Core.Slotting.Timestamp

@@ -1,3 +1,9 @@
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE StandaloneDeriving       #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings   #-}
+
 module Pos.Core.Common.Fee
        ( Coeff(..)
        , TxSizeLinear(..)

@@ -1,3 +1,12 @@
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Helper data type for block, tx attributes.
 --
 -- Map with integer 1-byte keys, arbitrary-type polymorph values.

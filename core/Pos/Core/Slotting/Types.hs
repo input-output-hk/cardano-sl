@@ -1,3 +1,9 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE OverloadedStrings   #-}
+
 -- | Core slotting types.
 
 module Pos.Core.Slotting.Types

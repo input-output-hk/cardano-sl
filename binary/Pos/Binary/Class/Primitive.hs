@@ -1,5 +1,7 @@
 -- | Useful functions for serialization/deserialization.
 
+{-# LANGUAGE RankNTypes #-}
+
 module Pos.Binary.Class.Primitive
        ( serialize
        , serializeWith

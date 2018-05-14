@@ -89,8 +89,8 @@ data WalletClient m
          :: WalletId -> Update Wallet -> Resp m Wallet
     , postExternalWallet
          :: New ExternalWallet -> Resp m Wallet
-    , postAddressPath
-        :: WalletId -> Resp m AddressPath
+    , deleteExternalWallet
+         :: Text -> m (Either ClientError ())
     -- account endpoints
     , deleteAccount
          :: WalletId -> AccountIndex -> m (Either ClientError ())
@@ -102,8 +102,10 @@ data WalletClient m
         :: WalletId -> New Account -> Resp m Account
     , updateAccount
          :: WalletId -> AccountIndex -> Update Account -> Resp m Account
-    , postExternalAccount
-        :: WalletId -> New Account -> Resp m Account
+    , postAddressPath
+         :: WalletId -> AccountIndex -> Resp m AddressPath
+    , postStoreAddress
+         :: WalletId -> AccountIndex -> Text -> m (Either ClientError ())
     -- transactions endpoints
     , postTransaction
          :: Payment -> Resp m Transaction
@@ -119,7 +121,7 @@ data WalletClient m
     , getTransactionFee
          :: Payment -> Resp m EstimatedFees
     , postUnsignedTransaction
-         :: Payment -> Resp m Transaction
+         :: Payment -> Resp m RawTransaction
     , postSignedTransaction
          :: SignedTransaction -> Resp m Transaction
     -- settings
@@ -211,8 +213,8 @@ hoistClient phi wc = WalletClient
          \x -> phi . updateWallet wc x
     , postExternalWallet =
          phi . postExternalWallet wc
-    , postAddressPath =
-         phi . postAddressPath wc
+    , deleteExternalWallet =
+         phi . deleteExternalWallet wc
     , deleteAccount =
          \x -> phi . deleteAccount wc x
     , getAccount =
@@ -223,8 +225,10 @@ hoistClient phi wc = WalletClient
          \x -> phi . postAccount wc x
     , updateAccount =
          \x y -> phi . updateAccount wc x y
-    , postExternalAccount =
-         \x -> phi . postExternalAccount wc x
+    , postAddressPath =
+         \x -> phi . postAddressPath wc x
+    , postStoreAddress =
+         \x addr -> phi . postStoreAddress wc x addr
     , postTransaction =
          phi . postTransaction wc
     , getTransactionIndexFilterSorts =

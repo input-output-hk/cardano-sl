@@ -78,6 +78,7 @@ library
                         Pos.Util.OutboundQueue
                         Pos.Util.UserPublic
                         Pos.Util.UserSecret
+                        Pos.Util.UserKeyError
 
                         Pos.Web
                         Pos.Web.Api

@@ -19,9 +19,11 @@ module Pos.Wallet.Web.Methods.Logic
        , newExternalAccountIncludeUnready
        , newAddress
        , newAddress_
+       , storeNewAddress
        , markWalletReady
 
        , deleteWallet
+       , deleteExternalWallet
        , deleteAccount
 
        , updateWallet
@@ -44,12 +46,12 @@ import           Servant.API.ContentTypes (NoContent (..))
 import           System.Wlog (WithLogger)
 
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead,
-                                        addSecretKey, deleteSecretKeyBy)
-import           Pos.Core (Address, Coin, mkCoin, sumCoins, unsafeIntegerToCoin)
+                                        addSecretKey, deleteSecretKeyBy, deletePublicKeyBy)
+import           Pos.Core (Address, Coin, mkCoin, sumCoins, unsafeIntegerToCoin, makePubKeyAddressBoot)
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Infra.Slotting (MonadSlots)
-import           Pos.Crypto (PassPhrase, changeEncPassphrase, checkPassMatches, emptyPassphrase,
+import           Pos.Crypto (PassPhrase, PublicKey, changeEncPassphrase, checkPassMatches, emptyPassphrase,
                              firstHardened)
+import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Txp (GenericTxpLocalData, MonadTxpMem, TxAux, TxId, UndoMap,
                           applyUtxoModToAddrCoinMap, getLocalTxs, getLocalUndos, withTxpLocalData)
 import           Pos.Util (maybeThrow)
@@ -58,14 +60,14 @@ import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Aeson ()
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Account (AddrGenSeed, GenSeed (..), findKey, genUniqueAccountId,
-                                         genUniqueAddress, getSKById)
+                                         genUniqueAddress, genUniqueAddressIndex, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAccountInit (..),
                                              CAccountMeta (..), CAddress (..), CId, CWallet (..),
                                              CWalletMeta (..), Wal, encToCId, mkCCoin)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (AddressInfo (..),
                                        AddressLookupMode (Deleted, Ever, Existing),
-                                       CustomAddressType (ChangeAddr, UsedAddr), WAddressMeta,
+                                       CustomAddressType (ChangeAddr, UsedAddr), WAddressMeta (..),
                                        WalletDB, WalletDbReader, WalletSnapshot, addWAddress,
                                        askWalletDB, askWalletSnapshot, createAccountWithAddress,
                                        createAccountWithoutAddresses, createWallet,
@@ -142,7 +144,7 @@ getAccountsIncludeUnready
     -> Bool -> Maybe (CId Wal) -> m [CAccount]
 getAccountsIncludeUnready ws mps includeUnready mCAddr = do
     whenJust mCAddr $ \cAddr ->
-      void $ maybeThrow (noWallet cAddr) $
+      void $ maybeThrow (noSuchWallet cAddr) $
         getWalletMetaIncludeUnready ws includeUnready cAddr
     let accIds = maybe (getAccountIds ws) (getWalletAccountIds ws) mCAddr
     let groupedAccIds = fmap reverse $ HM.fromListWith mappend $
@@ -151,10 +153,7 @@ getAccountsIncludeUnready ws mps includeUnready mCAddr = do
       accMod <- txMempoolToModifier ws mps . keyToWalletDecrCredentials =<< findKey wid
       mapM (getAccountMod ws accMod) walAccIds
   where
-    noWallet cAddr = RequestError $
-        -- TODO No WALLET with id ...
-        -- dunno whether I can fix and not break compatible w/ daedalus
-        sformat ("No account with id "%build%" found") cAddr
+    noSuchWallet cAddr = NoSuchWalletError $ sformat build cAddr
 
 getAccounts
     :: MonadWalletLogicRead ctx m
@@ -169,7 +168,7 @@ getWalletIncludeUnready :: MonadWalletLogicRead ctx m
                         -> ([(TxId, TxAux)], UndoMap) -- ^ Transactions and UndoMap from mempool
                         -> Bool -> CId Wal -> m CWallet
 getWalletIncludeUnready ws mps includeUnready cAddr = do
-    meta     <- maybeThrow noWallet $ getWalletMetaIncludeUnready ws includeUnready cAddr
+    meta     <- maybeThrow noSuchWallet $ getWalletMetaIncludeUnready ws includeUnready cAddr
     accounts <- getAccountsIncludeUnready ws mps includeUnready (Just cAddr)
     let accountsNum = length accounts
     key      <- findKey cAddr
@@ -178,7 +177,7 @@ getWalletIncludeUnready ws mps includeUnready cAddr = do
     hasPass  <- getSKById cAddr >>= \case
                     Nothing -> return False -- No secret key, it's external wallet, so no password.
                     Just sk -> return $ isNothing . checkPassMatches emptyPassphrase $ sk
-    passLU   <- maybeThrow noWallet (getWalletPassLU ws cAddr)
+    passLU   <- maybeThrow noSuchWallet (getWalletPassLU ws cAddr)
     pure $ CWallet cAddr meta accountsNum balance hasPass passLU
   where
     computeBalance accMod = do
@@ -186,9 +185,7 @@ getWalletIncludeUnready ws mps includeUnready cAddr = do
         let addrIds = map (view wamAddress) waddrIds
         let coins = getBalancesWithMod ws accMod addrIds
         pure . mkCCoin . unsafeIntegerToCoin . sumCoins $ coins
-
-    noWallet = RequestError $
-        sformat ("getWalletIncludeUnready: No wallet with address "%build%" found") cAddr
+    noSuchWallet = NoSuchWalletError $ sformat build cAddr
 
 getWallet :: MonadWalletLogicRead ctx m => CId Wal -> m CWallet
 getWallet wid = do
@@ -250,6 +247,32 @@ newAddress addGenSeed passphrase accId = do
     cwAddrMeta <- newAddress_ ws addGenSeed passphrase accId
     accMod <- txMempoolToModifier ws mps . keyToWalletDecrCredentials =<< findKey accId
     return $ getWAddress ws accMod cwAddrMeta
+
+storeNewAddress
+    :: MonadWalletLogic ctx m
+    => AccountId
+    -> Address
+    -> m NoContent
+storeNewAddress accId newAddr = do
+    (_, db, ws) <- getSnapshots
+
+    -- Check whether this account exists in external wallet.
+    let parentExists = doesAccountExist ws accId
+    unless parentExists $ throwM noAccount
+
+    let walletId      = aiWId accId
+        accIndex      = aiIndex accId
+        fakeAddrIndex = 0
+        wAddrMeta     = WAddressMeta walletId accIndex fakeAddrIndex newAddr
+
+    -- Address already exists, but we have to generate unique index for it.
+    realAddrIndex <- genUniqueAddressIndex ws wAddrMeta
+    let realWAddrMeta = wAddrMeta { _wamAddressIndex = realAddrIndex }
+    addWAddress db realWAddrMeta
+    return NoContent
+  where
+    noAccount = RequestError $ sformat ("storeNewAddress: no account with id "%build%" found")
+                                       accId
 
 newAccountIncludeUnready
     :: MonadWalletLogic ctx m
@@ -321,7 +344,7 @@ createWalletSafe cid wsMeta isReady = do
     -- Disallow duplicate wallets (including unready wallets)
     (mps, db, ws) <- getSnapshots
     let wSetExists = isJust $ getWalletMetaIncludeUnready ws True cid
-    when wSetExists $ throwM suchWalletIsAlreadyHere
+    when wSetExists $ throwM (DuplicateWalletError $ sformat build cid)
     curTime <- liftIO getPOSIXTime
     createWallet db cid wsMeta isReady curTime
     -- Return the newly created wallet irrespective of whether it's ready yet
@@ -349,13 +372,11 @@ markWalletReady
 markWalletReady cid isReady = do
     db <- askWalletDB
     ws <- getWalletSnapshot db
-    _ <- maybeThrow noWallet $ getWalletMetaIncludeUnready ws True cid
+    _ <- maybeThrow noSuchWallet $ getWalletMetaIncludeUnready ws True cid
     setWalletReady db cid isReady
     return NoContent
   where
-    noWallet = RequestError $
-        sformat ("markWalletReady: No wallet with that id "%build%" found") cid
-
+    noSuchWallet = NoSuchWalletError $ sformat build cid
 
 ----------------------------------------------------------------------------
 -- Deleters
@@ -366,6 +387,15 @@ deleteWallet wid = do
     db <- askWalletDB
     removeWallet db wid
     deleteSecretKeyBy ((== wid) . encToCId)
+    return NoContent
+
+deleteExternalWallet :: MonadWalletLogic ctx m => PublicKey -> m NoContent
+deleteExternalWallet publicKey = do
+    let walletId = encodeCType . makePubKeyAddressBoot $ publicKey
+    db <- askWalletDB
+    removeWallet db walletId
+    -- There's no secret key for an external wallet.
+    deletePublicKeyBy (== publicKey)
     return NoContent
 
 deleteAccount :: MonadWalletLogicRead ctx m => AccountId -> m NoContent
@@ -407,7 +437,7 @@ changeWalletPassphrase wid oldPass newPass = do
     return NoContent
   where
     badPass = RequestError "Invalid old passphrase given"
-    noSuchWallet = RequestError $ sformat ("Change password, no wallet with id "%build%" found") wid
+    noSuchWallet = NoSuchWalletError $ sformat build wid
 
 ----------------------------------------------------------------------------
 -- Helper functions

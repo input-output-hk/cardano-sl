@@ -33,10 +33,9 @@ module Pos.Util.UserSecret
        , writeUserSecretRelease
 
        , UserSecretDecodingError (..)
-       , ensureModeIs600
        ) where
 
-import           Control.Exception.Safe (onException, throwString)
+import           Control.Exception.Safe (onException)
 import           Control.Lens (makeLenses, to)
 import qualified Data.ByteString as BS
 import           Data.Default (Default (..))
@@ -65,6 +64,7 @@ import           Pos.Binary.Crypto ()
 import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
                            wAddressGenesisIndex)
 import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
+import           Pos.Util.UserKeyError (UserSecretError (..))
 
 import           Test.Pos.Crypto.Arbitrary ()
 
@@ -226,8 +226,8 @@ setMode600 :: (MonadIO m) => FilePath -> m ()
 setMode600 path = liftIO $ PSX.setFileMode path mode600
 #endif
 
-ensureModeIs600 :: MonadMaybeLog m => FilePath -> m ()
 #ifdef POSIX
+ensureModeIs600 :: (MonadIO m, WithLogger m) => FilePath -> m ()
 ensureModeIs600 path = do
     accessMode <- getAccessMode path
     unless (accessMode == mode600) $ do
@@ -235,9 +235,6 @@ ensureModeIs600 path = do
             sformat ("Key file at "%build%" has access mode "%oct%" instead of 600. Fixing it automatically.")
             path accessMode
         setMode600 path
-#else
-ensureModeIs600 _ = do
-    pure ()
 #endif
 
 -- | Create user secret file at the given path, but only when one doesn't
@@ -295,19 +292,19 @@ takeUserSecret path = do
 -- | Writes user secret .
 writeUserSecret :: (MonadIO m) => UserSecret -> m ()
 writeUserSecret u
-    | canWrite u = liftIO $ throwString "writeUserSecret: UserSecret is already locked"
+    | canWrite u = liftIO $ throwM UserSecretAlreadyLocked
     | otherwise = liftIO $ withFileLock (lockFilePath $ u ^. usPath) Exclusive $ const $ writeRaw u
 
 -- | Writes user secret and releases the lock. UserSecret can't be
 -- used after this function call anymore.
 writeUserSecretRelease :: (MonadIO m, MonadThrow m) => UserSecret -> m ()
 writeUserSecretRelease u
-    | not (canWrite u) = throwString "writeUserSecretRelease: UserSecret is not writable"
+    | not (canWrite u) = throwM UserSecretNotWritable
     | otherwise = liftIO $ do
-          writeRaw u
-          unlockFile
-            (fromMaybe (error "writeUserSecretRelease: incorrect UserSecret") $
-            u ^. usLock)
+        writeRaw u
+        case (u ^. usLock) of
+            Nothing   -> throwM UserSecretIncorrectLock
+            Just lock -> unlockFile lock
 
 -- | Helper for writing secret to file
 writeRaw :: UserSecret -> IO ()

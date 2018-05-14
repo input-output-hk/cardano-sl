@@ -115,6 +115,7 @@ library
                      , bytestring
                      , cardano-crypto
                      , cardano-sl
+                     , cardano-sl-binary
                      , cardano-sl-block
                      , cardano-sl-client
                      , cardano-sl-core
@@ -279,6 +280,7 @@ executable cardano-integration-test
                        Error
                        Util
                        WalletSpecs
+                       AccountSpecs
                        AddressSpecs
                        TransactionSpecs
                        QuickCheckSpecs
@@ -290,6 +292,7 @@ executable cardano-integration-test
                      , aeson-pretty
                      , bytestring
                      , cardano-sl-core
+                     , cardano-sl-crypto
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
                      , containers

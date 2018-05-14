@@ -8,6 +8,7 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Wallets (
 
 import           Universum
 import           UnliftIO (MonadUnliftIO)
+import           Formatting (build, sformat)
 
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods as V0
@@ -22,6 +23,7 @@ import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import qualified Data.IxSet.Typed as IxSet
 import qualified Pos.Core as Core
+import           Pos.Crypto (decodeBase58PublicKey)
 import           Pos.Update.Configuration ()
 
 import           Pos.Util (HasLens (..))
@@ -40,6 +42,8 @@ handlers = newWallet
     :<|> deleteWallet
     :<|> getWallet
     :<|> updateWallet
+    :<|> newExternalWallet
+    :<|> deleteExternalWallet
 
 
 -- | Pure function which returns whether or not the underlying node is
@@ -98,7 +102,7 @@ newWallet NewWallet{..} = do
     --   https://github.com/input-output-hk/cardano-sl/pull/2811#discussion_r183472103
     rethrowDuplicateMnemonic (e :: V0.WalletError) =
         case e of
-            V0.RequestError "Wallet with that mnemonics already exists" -> throwM WalletAlreadyExists
+            V0.DuplicateWalletError _ -> throwM WalletAlreadyExists
             _ -> throwM e
 
 -- | Returns the full (paginated) list of wallets.
@@ -145,8 +149,13 @@ getWallet :: ( MonadThrow m
 getWallet wid = do
     ss <- V0.askWalletSnapshot
     wid' <- migrate wid
-    wallet <- V0.getWallet wid'
+    wallet <- V0.getWallet wid' `catch` rethrowWalletNotFound
     single <$> addWalletInfo ss wallet
+  where
+    rethrowWalletNotFound (e :: V0.WalletError) =
+        case e of
+            V0.NoSuchWalletError _ -> throwM WalletNotFound
+            _ -> throwM e
 
 addWalletInfo
     :: ( MonadThrow m
@@ -184,3 +193,80 @@ updateWallet wid WalletUpdate{..} = do
         -- reacquire the snapshot because we did an update
         ws' <- V0.askWalletSnapshot
         addWalletInfo ws' updated
+
+-- | Creates a new or restores an existing external @wallet@ given a 'NewExternalWallet' payload.
+-- Returns to the client the representation of the created or restored wallet in the 'Wallet' type.
+newExternalWallet
+    :: ( MonadThrow m
+       , V0.MonadBlockchainInfo m
+       , V0.MonadWalletLogic ctx m
+       )
+    => NewExternalWallet
+    -> m (WalletResponse Wallet)
+newExternalWallet NewExternalWallet{..} = do
+    let newWalletHandler CreateWallet  = createNewExternalWallet
+        newWalletHandler RestoreWallet = error "Restore external wallet, TODO"
+    walletMeta <- V0.CWalletMeta <$> pure newewalName
+                                 <*> migrate newewalAssuranceLevel
+                                 <*> pure 0
+    single <$> do
+        v0wallet <- newWalletHandler newewalOperation walletMeta newewalExtPubKey
+        ss <- V0.askWalletSnapshot
+        addWalletInfo ss v0wallet
+
+-- | Creates new external wallet.
+--
+-- There's no spending password, because it's assumed that
+-- extenal wallet has its own security mechanism.
+-- For example, in Ledger Nano S device it's 4 digits PIN-code.
+--
+-- There's no backup phrase as well, because it's assumed that
+-- external wallet already received backup phrase, created
+-- a secret key based on it and stored this key.
+createNewExternalWallet
+    :: ( MonadThrow m
+       , V0.MonadWalletLogic ctx m
+       )
+    => V0.CWalletMeta
+    -> Text
+    -> m V0.CWallet
+createNewExternalWallet walletMeta encodedExtPubKey = do
+    publicKey <- case decodeBase58PublicKey encodedExtPubKey of
+        Left problem    -> throwM (InvalidPublicKey $ sformat build problem)
+        Right publicKey -> return publicKey
+
+    -- Add this public key in the 'public.key' file. Public key will be used during
+    -- synchronization with the blockchain.
+    addPublicKey publicKey
+    let walletId = encodeCType . Core.makePubKeyAddressBoot $ publicKey
+        isReady = True -- A brand new wallet doesn't need syncing with the blockchain.
+
+    -- Create new external wallet.
+    -- This is safe: if the client will try to create an external wallet from the same
+    -- extended public key - error will be thrown.
+    V0.CWallet{..} <- V0.createWalletSafe walletId walletMeta isReady
+
+    -- Add initial account in this external wallet.
+    let accountMeta    = V0.CAccountMeta { caName = "Initial account" }
+        accountInit    = V0.CAccountInit { caInitWId = cwId, caInitMeta = accountMeta }
+        includeUnready = True
+    void $ V0.newExternalAccountIncludeUnready includeUnready accountInit
+
+    db <- V0.askWalletDB
+    removeHistoryCache db walletId
+    -- BListener checks current syncTip before applying update,
+    -- thus setting it up to date manually here
+    withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip db walletId tip
+    V0.getWallet walletId
+
+-- | On disk, once imported or created, there's so far not much difference
+-- between a wallet and an external wallet, except one: node stores a public key
+-- for external wallet, there's no secret key.
+deleteExternalWallet
+    :: (V0.MonadWalletLogic ctx m)
+    => Text
+    -> m NoContent
+deleteExternalWallet encodedExtPubKey =
+    case decodeBase58PublicKey encodedExtPubKey of
+        Left problem    -> throwM (InvalidPublicKey $ sformat build problem)
+        Right publicKey -> V0.deleteExternalWallet publicKey

@@ -1,5 +1,7 @@
 module Cardano.Wallet.API.V1.Wallets where
 
+import           Universum (Text)
+
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
@@ -42,8 +44,7 @@ type API = Tags '["Wallets"] :>
                    :> ReqBody '[ValidJSON] (New ExternalWallet)
                    :> PostCreated '[ValidJSON] (WalletResponse Wallet)
     :<|> "external-wallets"
-                   :> CaptureWalletId
-                   :> "address-path"
-                   :> Summary "Generates a new BIP44 derivation path for the given external wallet."
-                   :> PostCreated '[ValidJSON] (WalletResponse AddressPath)
+                   :> Capture "extPublicKey" Text
+                   :> Summary "Deletes the given external wallet and all its accounts."
+                   :> DeleteNoContent '[ValidJSON] NoContent
     )

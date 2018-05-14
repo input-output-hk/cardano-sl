@@ -43,11 +43,17 @@ import qualified Data.Text.Encoding as T
 import           Data.Typeable
 import           NeatInterpolation
 <<<<<<< HEAD
+<<<<<<< HEAD
 import           Servant (Handler, ServantErr (..), Server)
 import           Servant.API.Sub
 import           Servant.Swagger
 import           Servant.Swagger.UI (SwaggerSchemaUI', swaggerSchemaUIServerImpl)
 import           Servant.Swagger.UI.Internal (mkRecursiveEmbedded)
+=======
+import           Servant (ServantErr (..))
+import           Servant.API.Sub
+import           Servant.Swagger
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 =======
 import           Servant (ServantErr (..))
 import           Servant.API.Sub
@@ -264,9 +270,13 @@ Software Version   | Git Revision
 $deSoftwareVersion | $deGitRevision
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 > **Warning**: This version is currently a **BETA-release** which is still under testing before
 > its final stable release. Should you encounter any issues or have any remarks, please let us
 > know; your feedback is highly appreciated.
+=======
+> **Warning**: This version is currently a **BETA-release** which is still under testing before its final stable release. Should you encounter any issues or have any remarks, please let us know; your feedback is highly appreciated.
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 =======
 > **Warning**: This version is currently a **BETA-release** which is still under testing before its final stable release. Should you encounter any issues or have any remarks, please let us know; your feedback is highly appreciated.
 >>>>>>> Orphan commit, from CHW-82-new-external-wallet.
@@ -278,9 +288,13 @@ Getting Started
 In the following examples, we will use *curl* to illustrate request to an API running on the default port **8090**.
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 Please note that wallet web API uses TLS for secure communication. Requests to the API need to
 send a client CA certificate that was used when launching the node and identifies the client as
 being permitted to invoke the server API.
+=======
+Please note that wallet web API uses TLS for secure communication. Requests to the API need to send a client CA certificate that was used when launching the node and identifies the client as being permitted to invoke the server API.
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 =======
 Please note that wallet web API uses TLS for secure communication. Requests to the API need to send a client CA certificate that was used when launching the node and identifies the client as being permitted to invoke the server API.
 >>>>>>> Orphan commit, from CHW-82-new-external-wallet.
@@ -288,6 +302,7 @@ Please note that wallet web API uses TLS for secure communication. Requests to t
 Creating a New Wallet
 ---------------------
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 You can create your first wallet using the [`POST /api/v1/wallets`](#tag/Wallets%2Fpaths%2F~1api~1v1~1wallets%2Fpost) endpoint as follow:
 
@@ -357,6 +372,8 @@ curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}}/accounts?page=1&p
   -H "Accept: application/json; charset=utf-8" \
   --cacert ./scripts/tls-files/ca.crt
 =======
+=======
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 You can create your first wallet using the `POST /api/v1/wallets` endpoint as follow:
 
 ```
@@ -413,12 +430,16 @@ To receive _Ada_ from other users you should provide your address. This address 
 curl -X GET https://localhost:8090/api/v1/wallets/{{walletId}}/accounts?page=1&per_page=10 \
      -H "Accept: application/json; charset=utf-8"                                          \
      --cacert ./scripts/tls-files/ca.crt                                                   \
+<<<<<<< HEAD
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
+=======
 >>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 ```
 
 Since you have, for now, only a single wallet, you'll see something like this:
 
 ```json
+<<<<<<< HEAD
 <<<<<<< HEAD
 $readAccounts
 ```
@@ -479,6 +500,8 @@ transaction's fees using the [`POST /api/v1/transactions/fees`](#tag/Transaction
 endpoint to get an estimation of those fees.
 See [Estimating Transaction Fees](#section/Common-Use-Cases/Estimating-Transaction-Fees) for more details.
 =======
+=======
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 {
     "status": "success",
     "data": [
@@ -572,12 +595,16 @@ Here we constrainted the request to a specific account. After our previous trans
 ```
 
 In addition, and because it is not possible to _preview_ a transaction, one can lookup a transaction's fees using the `POST /api/v1/transactions/fees` endpoint to get an estimation of those fees.
+<<<<<<< HEAD
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
+=======
 >>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 
 
 Pagination
 ==========
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 **All GET requests of the API are paginated by default**. Whilst this can be a source of
 surprise, is the best way of ensuring the performance of GET requests is not affected by the
@@ -592,10 +619,16 @@ are:
 
 Version `V1` introduced a different way of requesting information to the API. In particular, GET requests which returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be used to modify the shape of the response. In particular, those are:
 >>>>>>> Orphan commit, from CHW-82-new-external-wallet.
+=======
+**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is the best way of ensuring the performance of GET requests is not affected by the size of the data storage.
+
+Version `V1` introduced a different way of requesting information to the API. In particular, GET requests which returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be used to modify the shape of the response. In particular, those are:
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 
 * `page`: (Default value: **1**).
 * `per_page`: (Default value: **$deDefaultPerPage**)
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 For a more accurate description, see the section `Parameters` of each GET request, but as a
 brief overview the first two control how many results and which results to access in a
@@ -612,6 +645,8 @@ quite simple, and it goes this way:
 
 Filter Operators
 =======
+=======
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 For a more accurate description, see the section `Parameters` of each GET request, but as a brief overview the first two control how many results and which results to access in a paginated request.
 
 
@@ -622,6 +657,9 @@ Filtering and sorting
 
 
 Filter operators
+<<<<<<< HEAD
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
+=======
 >>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 ----------------
 
@@ -636,7 +674,11 @@ Filter operators
 | `RANGE`  | Retrieves the resources with index _within the inclusive range_ [k,k].    | `balance=RANGE[10,20]` |
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 Sort Operators
+=======
+Sort operators
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 =======
 Sort operators
 >>>>>>> Orphan commit, from CHW-82-new-external-wallet.
@@ -653,11 +695,15 @@ Errors
 ======
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 In case a request cannot be served by the API, a non-2xx HTTP response will be issued, together
 with a [JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error
 in detail together with a numeric error code which can be used by API consumers to implement
 proper error handling in their application. For example, here's a typical error which might be
 issued:
+=======
+In case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a [JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together with a numeric error code which can be used by API consumers to implement proper error handling in their application. For example, here's a typical error which might be issued:
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 =======
 In case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a [JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together with a numeric error code which can be used by API consumers to implement proper error handling in their application. For example, here's a typical error which might be issued:
 >>>>>>> Orphan commit, from CHW-82-new-external-wallet.
@@ -667,7 +713,11 @@ $deErrorExample
 ```
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 Existing Wallet Errors
+=======
+Existing wallet errors
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 =======
 Existing wallet errors
 >>>>>>> Orphan commit, from CHW-82-new-external-wallet.
@@ -676,6 +726,7 @@ Existing wallet errors
 $deWalletErrorTable
 
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 Monetary Denomination & Units
 =============================
@@ -703,10 +754,15 @@ picking up 12 random words from the list **is not enough** and leads to poor sec
 sure to carefully follow the steps described in the protocol when you generate words for a new
 wallet.
 =======
+=======
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 Mnemonic Codes
 ==============
 
 The full list of accepted mnemonic codes to secure a wallet is defined by the [BIP-39 specifications](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki). Note that picking up 12 random words from the list **is not enough** and leads to poor security. Make sure to carefully follow the steps described in the protocol when you generate words for a new wallet.
+<<<<<<< HEAD
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
+=======
 >>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 
 
@@ -718,9 +774,13 @@ The API is **versioned**, meaning that is possible to access different versions 
 **For the sake of backward compatibility, we expose the legacy version of the API, available simply as unversioned endpoints.**
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 This means that _omitting_ the version number would call the old version of the API. Deprecated
 endpoints are currently grouped under an appropriate section; they would be removed in upcoming
 released, if you're starting a new integration with Cardano-SL, please ignore these.
+=======
+This means that _omitting_ the version number would call the old version of the API. Deprecated endpoints are currently grouped under an appropriate section; they would be removed in upcoming released, if you're starting a new integration with Cardano-SL, please ignore these.
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 =======
 This means that _omitting_ the version number would call the old version of the API. Deprecated endpoints are currently grouped under an appropriate section; they would be removed in upcoming released, if you're starting a new integration with Cardano-SL, please ignore these.
 >>>>>>> Orphan commit, from CHW-82-new-external-wallet.
@@ -732,6 +792,7 @@ Disable TLS (Not Recommended)
 -----------------------------
 
 If needed, you can disable TLS by providing the `--no-tls` flag to the wallet or by running a wallet in debug mode with `--wallet-debug` turned on.
+<<<<<<< HEAD
 <<<<<<< HEAD
 
 
@@ -1032,6 +1093,8 @@ swaggerSchemaUIServer =
 </html>
 =======
 >>>>>>> Orphan commit, from CHW-82-new-external-wallet.
+=======
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 |]
 
 
@@ -1041,18 +1104,24 @@ swaggerSchemaUIServer =
 
 data DescriptionEnvironment = DescriptionEnvironment
 <<<<<<< HEAD
+<<<<<<< HEAD
   { deErrorExample     :: !T.Text
   , deDefaultPerPage   :: !T.Text
   , deWalletErrorTable :: !T.Text
   , deGitRevision      :: !T.Text
   , deSoftwareVersion  :: !T.Text
 =======
+=======
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
   { deErrorExample          :: !T.Text
   , deDefaultPerPage        :: !T.Text
   , deWalletResponseExample :: !T.Text
   , deWalletErrorTable      :: !T.Text
   , deGitRevision           :: !T.Text
   , deSoftwareVersion       :: !T.Text
+<<<<<<< HEAD
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
+=======
 >>>>>>> Orphan commit, from CHW-82-new-external-wallet.
   }
 
@@ -1069,6 +1138,10 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
     { deErrorExample          = toS $ encodePretty Errors.WalletNotFound
     , deDefaultPerPage        = fromString (show defaultPerPageEntries)
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+    , deWalletResponseExample = toS $ encodePretty (genExample @(WalletResponse [Account]))
+>>>>>>> Orphan commit, from CHW-82-new-external-wallet.
 =======
     , deWalletResponseExample = toS $ encodePretty (genExample @(WalletResponse [Account]))
 >>>>>>> Orphan commit, from CHW-82-new-external-wallet.

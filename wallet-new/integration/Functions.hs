@@ -325,28 +325,28 @@ runAction wc action = do
 
         GetAccount    -> do
             -- We choose from the existing wallets AND existing accounts.
-            account <- pickRandomElement =<< use accounts
-            let walletId = accWalletId account
+            acc <- pickRandomElement =<< use accounts
+            let walletId = accWalletId acc
             walletIdIsNotGenesis walletId
 
-            log $ "Getting account: " <> show walletId <> ", " <> show (accIndex account)
-            result  <-  respToRes $ getAccount wc walletId (accIndex account)
+            log $ "Getting account: " <> show walletId <> ", " <> show (accIndex acc)
+            result  <-  respToRes $ getAccount wc walletId (accIndex acc)
 
             -- posting transactions changes the account, so we really want
             -- to check that nothing *but* the amount differs.
             let eqOn :: Eq b => (Account -> b) -> Bool
-                eqOn f = f account == f result
+                eqOn f = f acc == f result
             checkInvariant
                 (and [eqOn accIndex, eqOn (length . accAddresses), eqOn accName, eqOn accWalletId])
-                (LocalAccountDiffers result account)
+                (LocalAccountDiffers result acc)
 
         DeleteAccount -> do
             localAccounts <- use accounts
 
             -- We choose from the existing wallets AND existing accounts.
-            account <-  pickRandomElement localAccounts
-            let walletId = accWalletId account
-                accIdx = accIndex account
+            acc <-  pickRandomElement localAccounts
+            let walletId = accWalletId acc
+                accIdx = accIndex acc
                 withoutAccount = filter (not . chosenAccount) localAccounts
                 chosenAccount acct =
                     accWalletId acct == walletId
@@ -362,21 +362,21 @@ runAction wc action = do
             result  <-  respToRes $ getAccounts wc walletId
 
             checkInvariant
-                (account `notElem` result)
+                (acc `notElem` result)
                 (LocalAccountsDiffers result withoutAccount)
 
             -- Modify wallet state accordingly.
             accounts  .= withoutAccount
-            addresses %= filter (`notElem` accAddresses account)
+            addresses %= filter (`notElem` accAddresses acc)
 
         UpdateAccount -> do
             localAccounts <- use accounts
 
             -- We choose from the existing wallets.
-            account <-  pickRandomElement localAccounts
+            acc <-  pickRandomElement localAccounts
 
-            let walletId  = accWalletId account
-            let accountId = accIndex account
+            let walletId  = accWalletId acc
+            let accountId = accIndex acc
 
             let newAccount =
                     AccountUpdate
@@ -390,7 +390,7 @@ runAction wc action = do
             result  <-  respToRes $ updateAccount wc walletId accountId newAccount
 
             -- Modify wallet state accordingly.
-            accounts . each . filtered (== account) .= result
+            accounts . each . filtered (== acc) .= result
 
 -- Addresses
         PostAddress -> do
@@ -400,11 +400,11 @@ runAction wc action = do
             localAccounts <- use accounts
 
             -- We choose from the existing wallets AND existing accounts.
-            account <-  pickRandomElement localAccounts
-            let walletId = accWalletId account
+            acc <-  pickRandomElement localAccounts
+            let walletId = accWalletId acc
             walletPass <- use (walletsPass . at walletId)
 
-            let newAddress = NewAddress walletPass (accIndex account) walletId
+            let newAddress = NewAddress walletPass (accIndex acc) walletId
 
             -- We don't want to create a new address in genesis wallet (although it should be safe)
             walletIdIsNotGenesis walletId
@@ -414,7 +414,7 @@ runAction wc action = do
 
             -- Modify wallet state accordingly.
             addresses  <>= [result]
-            accounts . traverse . filtered (== account) %= \acct ->
+            accounts . traverse . filtered (== acc) %= \acct ->
                 acct { accAddresses = accAddresses acct <> [result] }
 
         GetAddresses   -> do

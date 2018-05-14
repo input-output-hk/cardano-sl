@@ -66,7 +66,12 @@ getPublicDefault = view userPublic >>= atomically . STM.readTVar
 modifySecretPureDefault :: HasKeysContext ctx m => (UserSecret -> UserSecret) -> m ()
 modifySecretPureDefault f = do
     us <- view userSecret
-    void $ atomically $ modifyTVarS us (identity <%= f)
+    atomically $ STM.modifyTVar' us f
+
+modifyPublicPureDefault :: HasKeysContext ctx m => (UserPublic -> UserPublic) -> m ()
+modifyPublicPureDefault f = do
+    up <- view userPublic
+    atomically $ STM.modifyTVar' up f
 
 modifyPublicPureDefault :: HasKeysContext ctx m => (UserPublic -> UserPublic) -> m ()
 modifyPublicPureDefault f = do

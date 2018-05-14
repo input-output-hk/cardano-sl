@@ -21,7 +21,6 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
-import           Pos.Util.Chrono
 import           Serokell.Util (listJson)
 
 import           Util
@@ -53,7 +52,7 @@ invariant :: forall h a.
           -> Invariant h a
 invariant name e p = void . interpret notChecked ((:[]) . e) p'
   where
-    notChecked :: OldestFirst [] (WalletEvent h a)
+    notChecked :: History h a
                -> InvalidInput h a
                -> InvariantViolation h a
     notChecked history reason = InvariantNotChecked {
@@ -62,7 +61,7 @@ invariant name e p = void . interpret notChecked ((:[]) . e) p'
         , invariantNotCheckedEvents = history
         }
 
-    violation :: OldestFirst [] (WalletEvent h a)
+    violation :: History h a
               -> InvariantViolationEvidence
               -> InvariantViolation h a
     violation history ev = InvariantViolation {
@@ -71,7 +70,7 @@ invariant name e p = void . interpret notChecked ((:[]) . e) p'
         , invariantViolationEvents   = history
         }
 
-    p' :: OldestFirst [] (WalletEvent h a)
+    p' :: History h a
        -> [Wallet h a]
        -> Validated (InvariantViolation h a) ()
     p' history [w] = case p w of
@@ -90,7 +89,7 @@ data InvariantViolation h a =
       , invariantViolationEvidence :: InvariantViolationEvidence
 
         -- | The evens that led to the error
-      , invariantViolationEvents   :: OldestFirst [] (WalletEvent h a)
+      , invariantViolationEvents   :: History h a
       }
 
     -- | The invariant was not checked because the input was invalid
@@ -101,8 +100,8 @@ data InvariantViolation h a =
         -- | Why did we not check the invariant
       , invariantNotCheckedReason :: InvalidInput h a
 
-        -- | The evens that led to the error
-      , invariantNotCheckedEvents :: OldestFirst [] (WalletEvent h a)
+        -- | The events that led to the error
+      , invariantNotCheckedEvents :: History h a
       }
 
 {-------------------------------------------------------------------------------
@@ -286,7 +285,7 @@ walletEquivalent :: forall h a. (Hash h a, Eq a, Buildable a)
 walletEquivalent lbl e e' = void .
     interpret notChecked (\boot -> [e boot, e' boot]) p
   where
-    notChecked :: OldestFirst [] (WalletEvent h a)
+    notChecked :: History h a
                -> InvalidInput h a
                -> InvariantViolation h a
     notChecked history reason = InvariantNotChecked {
@@ -295,7 +294,7 @@ walletEquivalent lbl e e' = void .
         , invariantNotCheckedEvents = history
         }
 
-    violation :: OldestFirst [] (WalletEvent h a)
+    violation :: History h a
               -> InvariantViolationEvidence
               -> InvariantViolation h a
     violation history ev = InvariantViolation {
@@ -304,7 +303,7 @@ walletEquivalent lbl e e' = void .
         , invariantViolationEvents   = history
         }
 
-    p :: OldestFirst [] (WalletEvent h a)
+    p :: History h a
       -> [Wallet h a]
       -> Validated (InvariantViolation h a) ()
     p history [w, w'] = sequence_ [

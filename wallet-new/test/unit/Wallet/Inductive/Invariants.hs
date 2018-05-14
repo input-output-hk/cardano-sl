@@ -17,6 +17,7 @@ module Wallet.Inductive.Invariants (
 
 import           Universum
 
+import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
@@ -125,8 +126,12 @@ data InvariantViolationEvidence =
 
 checkEqual :: (Buildable a, Eq a)
            => (Text, a) -> (Text, a) -> Maybe InvariantViolationEvidence
-checkEqual (labelX, x) (labelY, y) =
-    if x == y
+checkEqual = checkEqualUsing identity
+
+checkEqualUsing :: (Buildable a, Eq b)
+                => (a -> b) -> (Text, a) -> (Text, a) -> Maybe InvariantViolationEvidence
+checkEqualUsing f (labelX, x) (labelY, y) =
+    if f x == f y
       then Nothing
       else Just $ NotEqual (labelX, x) (labelY, y)
 
@@ -277,21 +282,22 @@ walletEquivalent lbl e e' = void .
       -> [Wallet h a]
       -> Validated (InvariantViolation h a) ()
     p history [w, w'] = sequence_ [
-          cmp "pending"          pending
-        , cmp "utxo"             utxo
-        , cmp "availableBalance" availableBalance
-        , cmp "totalBalance"     totalBalance
-        , cmp "available"        available
-        , cmp "change"           change
-        , cmp "total"            total
+          cmp "pending"          pending          Map.keys
+        , cmp "utxo"             utxo             identity
+        , cmp "availableBalance" availableBalance identity
+        , cmp "totalBalance"     totalBalance     identity
+        , cmp "available"        available        identity
+        , cmp "change"           change           identity
+        , cmp "total"            total            identity
         ]
       where
-        cmp :: (Eq b, Buildable b)
-            => Text
-            -> (Wallet h a -> b)
+        cmp :: (Buildable b, Eq c)
+            => Text              -- label
+            -> (Wallet h a -> b) -- field to compare
+            -> (b -> c)          -- what part of the field to compare
             -> Validated (InvariantViolation h a) ()
-        cmp fld f =
-          case checkEqual (fld <> " w", f w) (fld <> " w'", f w') of
+        cmp fld f g =
+          case checkEqualUsing g (fld <> " w", f w) (fld <> " w'", f w') of
             Nothing -> return ()
             Just ev -> throwError $ violation history ev
     p _ _ = error "impossible"

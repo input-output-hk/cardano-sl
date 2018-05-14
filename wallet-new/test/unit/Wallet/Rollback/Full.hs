@@ -22,6 +22,7 @@ module Wallet.Rollback.Full (
 import           Universum hiding (State)
 
 import           Control.Lens.TH
+import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
@@ -124,7 +125,7 @@ rollback' State{ _stateCheckpoints = prev : checkpoints'
           _checkpointIncr = Incr.State {
                _stateBasic = Basic.State {
                    _stateUtxo    = prev ^. checkpointUtxo
-                 , _statePending = (curr ^. checkpointPending) `Set.union`
+                 , _statePending = (curr ^. checkpointPending) `Map.union`
                                    (prev ^. checkpointPending)
                  }
              , _stateUtxoBalance = prev ^. checkpointUtxoBalance

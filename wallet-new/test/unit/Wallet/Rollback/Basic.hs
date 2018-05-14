@@ -15,7 +15,7 @@ module Wallet.Rollback.Basic (
 import           Universum hiding (State)
 
 import           Control.Lens.TH
-import qualified Data.Set as Set
+import qualified Data.Map as Map
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
 import           Serokell.Util (listJson)
@@ -78,7 +78,7 @@ rollback' State{ _stateCheckpoints = prev : checkpoints'
                } = State{
       _stateCurrent = Basic.State{
           _stateUtxo    = prev ^. Basic.stateUtxo
-        , _statePending = (curr ^. Basic.statePending) `Set.union`
+        , _statePending = (curr ^. Basic.statePending) `Map.union`
                           (prev ^. Basic.statePending)
         }
     , _stateCheckpoints = checkpoints'

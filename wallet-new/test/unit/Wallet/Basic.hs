@@ -19,7 +19,7 @@ module Wallet.Basic (
 import           Universum hiding (State)
 
 import           Control.Lens.TH
-import qualified Data.Set as Set
+import qualified Data.Map as Map
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
 
@@ -40,7 +40,7 @@ makeLenses ''State
 initState :: State h a
 initState = State {
       _stateUtxo    = utxoEmpty
-    , _statePending = Set.empty
+    , _statePending = Map.empty
     }
 
 {-------------------------------------------------------------------------------

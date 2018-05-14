@@ -43,8 +43,7 @@ testPureWalletWith :: forall h a. (Hash h a, Ord a, Buildable a)
                    => Inductive h a -> Property
 testPureWalletWith indWithRoll = conjoin [
       -- sanity check on the test
-      uptoFirstRollback indDontRoll `shouldBe` indDontRoll
-    , shouldBeValidated (void (inductiveIsValid indWithRoll))
+      shouldBeValidated (void (inductiveIsValid indWithRoll))
 
       -- check that the invariants hold in each model
     , checkInvariants NoRollback    "base" indDontRoll baseEmpty

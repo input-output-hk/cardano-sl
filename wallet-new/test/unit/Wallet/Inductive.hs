@@ -32,7 +32,6 @@ data WalletEvent h a =
 
     -- | Roll back the last block added to the blockchain
   | Rollback
-  deriving Eq
 
 walletEventIsRollback :: WalletEvent h a -> Bool
 walletEventIsRollback Rollback = True
@@ -53,7 +52,6 @@ data Inductive h a = Inductive {
       -- | Wallet events
     , inductiveEvents :: OldestFirst [] (WalletEvent h a)
     }
-  deriving (Eq)
 
 -- | The prefix of the 'Inductive' that doesn't include any rollbacks
 uptoFirstRollback :: Inductive h a -> Inductive h a

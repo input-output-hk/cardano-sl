@@ -17,6 +17,7 @@ flag asserts
   manual:      True
 
 library
+  hs-source-dirs:      src
   exposed-modules:
                        Pos.Arbitrary.Core
                        Pos.Arbitrary.Core.Unsafe
@@ -265,4 +266,3 @@ test-suite test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-

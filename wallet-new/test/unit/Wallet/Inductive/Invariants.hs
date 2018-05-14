@@ -184,6 +184,7 @@ walletInvariants applicableInvariants l e w = do
       , changeNotInUtxo        l e w
       , changeAvailable        l e w
       , balanceChangeAvailable l e w
+      , pendingInputsDisjoint  l e w
       ]
 
     case applicableInvariants of
@@ -196,7 +197,9 @@ walletInvariants applicableInvariants l e w = do
         ]
 
       FullRollback -> sequence_ [
-          utxoExpectedDisjoint l e w
+          utxoExpectedDisjoint    l e w
+        , expectedUtxoIsOurs      l e w
+        , pendingInUtxoOrExpected l e w
         ]
 
 pendingInUtxo :: WalletInv h a
@@ -241,12 +244,35 @@ balanceChangeAvailable l e = invariant (l <> "/balanceChangeAvailable") e $ \w -
                ("balance (total w)",
                  balance (total w))
 
+pendingInputsDisjoint :: WalletInv h a
+pendingInputsDisjoint l e = invariant (l <> "/pendingInputsDisjoint") e $ \w ->
+    asum [ checkDisjoint ("trIns " <> pretty h1, trIns tx1)
+                         ("trIns " <> pretty h2, trIns tx2)
+         | (h1, tx1) <- Map.toList $ pending w
+         , (h2, tx2) <- Map.toList $ pending w
+         , h1 /= h2
+         ]
+
 utxoExpectedDisjoint :: WalletInv h a
 utxoExpectedDisjoint l e = invariant (l <> "/utxoExpectedDisjoint") e $ \w ->
     checkDisjoint ("utxoDomain (utxo w)",
                     utxoDomain (utxo w))
                   ("utxoDomain (expectedUtxo w)",
                     utxoDomain (expectedUtxo w))
+
+expectedUtxoIsOurs :: WalletInv h a
+expectedUtxoIsOurs l e = invariant (l <> "/expectedUtxoIsOurs") e $ \w ->
+    checkAllSatisfy ("isOurs",
+                      ours w . outAddr)
+                    ("utxoRange (expectedUtxo w)",
+                      utxoRange (expectedUtxo w))
+
+pendingInUtxoOrExpected :: WalletInv h a
+pendingInUtxoOrExpected l e = invariant (l <> "/pendingInUtxoOrExpected") e $ \w ->
+    checkSubsetOf ("txIns (pending w)",
+                    txIns (pending w))
+                  ("utxoDomain (utxo w) `Set.union` utxoDomain (expectedUtxo w)",
+                    utxoDomain (utxo w) `Set.union` utxoDomain (expectedUtxo w))
 
 {-------------------------------------------------------------------------------
   Compare different wallet implementations

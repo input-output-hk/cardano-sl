@@ -44,7 +44,8 @@ library
 
   other-modules:
 
-  build-depends:       aeson
+  build-depends:       QuickCheck
+                     , aeson
                      , base
                      , binary
                      , bytestring
@@ -138,7 +139,9 @@ test-suite test
                        Spec
                        Test.Pos.Util.Chrono
                        Test.Pos.Util.LimitsSpec
+                       Test.Pos.Util.Modifier
                        Test.Pos.Util.ModifierSpec
+                       Test.Pos.Util.QuickCheck.Property
                        Test.Pos.Util.TimerSpec
                        Test.Pos.UtilSpec
 
@@ -148,6 +151,13 @@ test-suite test
                      , cardano-sl-util
                      , hspec
                      , QuickCheck
+                     , lens
+                     , mtl
+                     , pvss
+                     , quickcheck-instances
+                     , random
+                     , reflection
+                     , safecopy
                      , serokell-util >= 0.1.3.4
                      , stm
                      , text

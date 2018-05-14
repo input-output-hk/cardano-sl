@@ -3,10 +3,15 @@
 
 -- | Orphan instances for external types/classes.
 
-module Pos.Util.Orphans where
+module Test.Pos.Util.Orphans where
+
+import           Control.Monad.Reader.Class (MonadReader (..))
+import qualified Crypto.Random as Rand
 
 import qualified Test.QuickCheck as QC
 import           Test.QuickCheck.Monadic (PropertyM (..))
+
+import           Universum
 
 instance MonadReader r m => MonadReader r (PropertyM m) where
     ask = lift ask

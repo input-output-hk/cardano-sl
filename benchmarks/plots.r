@@ -474,10 +474,9 @@ plotOSMetrics <- function(d, run=RUN, labx="", laby="", desc=DESC) {
           , run, sep = ' ')) +
         xlab(if (labx == "") {"t [s] since start of experiment"} else labx) +
         ylab(if (laby == "") {"[??]"} else laby) +
-#        scale_x_date(date_labels = "%H:%M:%S") +
-#        scale_x_datetime() +
         facet_grid(node ~ category, scales = "fixed") +
-        guides(size = "none", colour = "legend", alpha = "none")
+        guides(size = "none", colour = "legend", alpha = "none") +
+        scale_y_continuous(labels = scales::comma)
     }
 
 # first block was written
@@ -560,11 +559,11 @@ prepareOSMetrics4nodes <- function (nodes, target, title) {
       d <- osmetrics$stat %>% filter(nodename == n) %>% arrange_all(c(time))
       if (dim(d)[1] > 50) {
         print(c(dim(d), n))
-        plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=(d$rss / 1024), category='memory (RSS)'))
+        plotdata <- rbind(plotdata, data.frame(node=d$nodename, time=d$time, metrics=(d$rss / 1024 / 1024), category='memory (RSS)'))
       }
     }
 
-    p3 <- plotOSMetrics(plotdata %>% filter(metrics > 0), laby="kilobytes", desc=paste("Memory usage", title, sep=" "))
+    p3 <- plotOSMetrics(plotdata %>% filter(metrics > 0), laby="megabytes", desc=paste("Memory usage", title, sep=" "))
     ggsave(paste('os-mem-', target, "-", RUN, '.png', sep=''))
 
   # prepare plot data (read bytes / sys. calls, wbytes / sys. calls)

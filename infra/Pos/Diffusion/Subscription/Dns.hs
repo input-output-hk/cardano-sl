@@ -86,7 +86,7 @@ resolveOne logTrace defaultPort nodeAddrs = do
     mNodeIds <- resolveDnsDomains defaultPort nodeAddrs
     let (errs, nids_) = partitionEithers mNodeIds
         nids = mconcat nids_
-    when (null nids)       $ traceWith logTrace (Error, msgNoRelays)
+    when (null nids)   $ traceWith logTrace (Error, msgNoRelays)
     unless (null errs) $ traceWith logTrace (Error, msgDnsFailure errs)
     return nids
 
@@ -156,7 +156,6 @@ dnsSubscriptionWorker logTrace oq defaultPort DnsDomains {..} keepaliveTimer slo
             subStatus
             sendActions
             nodeId
-        -- networkSubscribeTo' 
         timeToWait <- retryInterval duration <$> slotDuration
         threadDelay (fromIntegral timeToWait * 1000)
 
@@ -166,7 +165,6 @@ dnsSubscriptionWorker logTrace oq defaultPort DnsDomains {..} keepaliveTimer slo
         time <- slotDuration
         startTimer time keepaliveTimer
         atomically $ waitTimer keepaliveTimer
-        traceWith logTrace (Debug, sformat ("subscriptionWorker: sending keep-alive to "%shown) nid)
 
     -- How long to wait if there's a DNS resolution error.
     -- One slot duration.

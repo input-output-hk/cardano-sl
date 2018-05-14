@@ -2,7 +2,7 @@
 
 -- | Richmen computation for delegation.
 
-module Pos.Delegation.Lrc
+module Pos.Lrc.Consumer.Delegation
        (
        -- * The 'RichmenComponent' instance
          RCDlg
@@ -17,7 +17,8 @@ module Pos.Delegation.Lrc
 
 import           Universum
 
-import           Pos.Core (EpochIndex, bvdHeavyDelThd, genesisBlockVersionData, HasGenesisBlockVersionData)
+import           Pos.Core (EpochIndex, HasGenesisBlockVersionData, bvdHeavyDelThd,
+                           genesisBlockVersionData)
 import qualified Pos.DB as DB
 import qualified Pos.Lrc.Consumer as Lrc
 import qualified Pos.Lrc.Context as Lrc

@@ -16,7 +16,6 @@ module Pos.Ssc
        , module Pos.Ssc.Configuration
        , module Pos.Ssc.DB
        , module Pos.Ssc.Functions
-       , module Pos.Ssc.Lrc
        , module Pos.Ssc.Mem
        , module Pos.Ssc.Message
        , module Pos.Ssc.Mode
@@ -28,22 +27,21 @@ module Pos.Ssc
        , module Pos.Ssc.Worker
        ) where
 
-import           Pos.Ssc.Error
-import           Pos.Ssc.Logic
-import           Pos.Ssc.Toss
+import           Pos.Binary.Ssc ()
 import           Pos.Ssc.Base
 import           Pos.Ssc.Behavior
 import           Pos.Ssc.Configuration
 import           Pos.Ssc.DB
+import           Pos.Ssc.Error
 import           Pos.Ssc.Functions
-import           Pos.Ssc.Lrc
+import           Pos.Ssc.Logic
 import           Pos.Ssc.Mem
 import           Pos.Ssc.Message
 import           Pos.Ssc.Mode
 import           Pos.Ssc.SecretStorage
 import           Pos.Ssc.Seed
 import           Pos.Ssc.State
+import           Pos.Ssc.Toss
 import           Pos.Ssc.Types
 import           Pos.Ssc.VssCertData
 import           Pos.Ssc.Worker
-import           Pos.Binary.Ssc ()

@@ -22,7 +22,7 @@ packages:
 - core
 - db
 - lrc
-- lrc/tests
+- lrc/test
 - infra
 - ssc
 - txp

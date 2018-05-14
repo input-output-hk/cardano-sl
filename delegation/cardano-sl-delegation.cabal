@@ -21,7 +21,6 @@ library
                        Pos.Delegation.DB
                        Pos.Delegation.Listeners
                        Pos.Delegation.Logic
-                       Pos.Delegation.Lrc
                        Pos.Delegation.Types
                        Pos.Delegation.Worker
 

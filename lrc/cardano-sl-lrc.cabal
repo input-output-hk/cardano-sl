@@ -14,17 +14,29 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Pos.Lrc.Fts
+  exposed-modules:     Pos.Lrc
+
+                       Pos.Lrc.Fts
                        Pos.Lrc.Types
                        Pos.Lrc.Error
                        Pos.Lrc.Core
-                       Pos.Lrc.Consumer
+                       Pos.Lrc.Genesis
                        Pos.Lrc.RichmenComponent
                        Pos.Lrc.Context
                        Pos.Lrc.Mode
 
+                       Pos.Lrc.Consumer
+                       Pos.Lrc.Consumer.Delegation
+                       Pos.Lrc.Consumer.Ssc
+                       Pos.Lrc.Consumer.Update
+                       Pos.Lrc.Consumers
+
+                       Pos.Lrc.DB
                        Pos.Lrc.DB.Common
                        Pos.Lrc.DB.Issuers
+                       Pos.Lrc.DB.Leaders
+                       Pos.Lrc.DB.Lrc
+                       Pos.Lrc.DB.Richmen
                        Pos.Lrc.DB.RichmenBase
                        Pos.Lrc.DB.Seed
 
@@ -35,6 +47,7 @@ library
                      , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-networking
+                     , cardano-sl-txp
                      , cardano-sl-util
                      , conduit
                      , ether

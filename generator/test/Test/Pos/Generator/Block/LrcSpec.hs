@@ -1,10 +1,10 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Specification of 'Pos.Lrc.Worker' (actually only
+-- | Specification of 'Pos.Block.Lrc' (actually only
 -- 'lrcSingleShotNoLock' which probably shouldn't be there, but it
 -- doesn't matter now).
 
-module Test.Pos.Lrc.WorkerSpec
+module Test.Pos.Generator.Block.LrcSpec
        ( spec
        ) where
 
@@ -23,6 +23,7 @@ import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Block.Logic (applyBlocksUnsafe)
+import qualified Pos.Block.Lrc as Lrc
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Core (Coin, EpochIndex, GenesisData (..), GenesisInitializer (..),
                            StakeholderId, TestnetBalanceOptions (..), addressHash, blkSecurityParam,

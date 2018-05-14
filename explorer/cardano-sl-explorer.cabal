@@ -94,6 +94,7 @@ library
                       , cardano-sl-delegation
                       , cardano-sl-generator
                       , cardano-sl-infra
+                      , cardano-sl-lrc
                       , cardano-sl-networking
                       , cardano-sl-ssc
                       , cardano-sl-txp

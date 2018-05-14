@@ -29,14 +29,14 @@ import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockA
                                            applyBlocksUnsafe, normalizeMempool,
                                            rollbackBlocksUnsafe, toSscBlock, toTxpBlock,
                                            toUpdateBlock)
+import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.Block.Slog (ShouldCallBListener (..), mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types (Blund, Undo (..))
-import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG, prevBlockL, HasGeneratedSecrets,
-                           HasGenesisData, HasProtocolConstants, HasProtocolMagic,
-                           HasGenesisBlockVersionData, HasGenesisHash)
+import           Pos.Core (Block, HasGeneratedSecrets, HasGenesisBlockVersionData, HasGenesisData,
+                           HasGenesisHash, HasProtocolConstants, HasProtocolMagic, HeaderHash,
+                           epochIndexL, headerHashG, prevBlockL)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Logic (dlgVerifyBlocks)
-import           Pos.Lrc.Worker (LrcModeFull, lrcSingleShot)
 import           Pos.Reporting (HasMisbehaviorMetrics)
 import           Pos.Ssc.Logic (sscVerifyBlocks)
 import           Pos.Txp.Settings (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))

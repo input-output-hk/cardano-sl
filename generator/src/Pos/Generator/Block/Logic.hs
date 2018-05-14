@@ -21,6 +21,7 @@ import           Pos.AllSecrets (HasAllSecrets (..), unInvSecretsMap)
 import           Pos.Block.Base (mkGenesisBlock)
 import           Pos.Block.Logic (applyBlocksUnsafe, createMainBlockInternal, normalizeMempool,
                                   verifyBlocksPrefix)
+import           Pos.Block.Lrc (lrcSingleShot)
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
 import           Pos.Communication.Message ()
@@ -37,7 +38,6 @@ import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode, Monad
                                            withCurrentSlot)
 import           Pos.Generator.Block.Param (BlockGenParams, HasBlockGenParams (..))
 import           Pos.Generator.Block.Payload (genPayload)
-import           Pos.Lrc (lrcSingleShot)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings)

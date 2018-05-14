@@ -5,7 +5,7 @@
 -- reasons.
 -- And actually nowadays there are no workers here.
 
-module Pos.Lrc.Worker
+module Pos.Block.Lrc
        ( LrcModeFull
        , lrcSingleShot
        ) where
@@ -16,33 +16,37 @@ import           Control.Exception.Safe (bracketOnError)
 import           Control.Lens (views)
 import           Control.Monad.STM (retry)
 import           Data.Coerce (coerce)
-import           Data.Conduit (runConduitRes, (.|))
+import           Data.Conduit (ConduitT, runConduitRes, (.|))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Formatting (build, ords, sformat, (%))
 import           Mockable (forConcurrently)
 import qualified System.Metrics.Counter as Metrics
 import           System.Wlog (logDebug, logInfo, logWarning)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Block.Slog.Logic (ShouldCallBListener (..))
-import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId,
-                           blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot,
+import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), HasGeneratedSecrets,
                            HasGenesisBlockVersionData, HasGenesisData, HasGenesisHash,
-                           HasGeneratedSecrets, HasProtocolConstants, HasProtocolMagic)
+                           HasProtocolConstants, HasProtocolMagic, SharedSeed, StakeholderId,
+                           blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot)
 import qualified Pos.DB.Block.Load as DB
+import           Pos.DB.Class (MonadDBRead, MonadGState)
 import qualified Pos.DB.GState.Stakes as GS (getRealStake, getRealTotalStake)
+import           Pos.Delegation (getDelegators, isIssuerByAddressHash)
 import qualified Pos.GState.SanityCheck as DB (sanityCheckDB)
 import           Pos.Lrc.Consumer (LrcConsumer (..))
 import           Pos.Lrc.Consumers (allLrcConsumers)
 import           Pos.Lrc.Context (LrcContext (lcLrcSync), LrcSyncData (..))
+import           Pos.Lrc.Core (findDelegationStakes, findRichmenStakes)
 import           Pos.Lrc.DB (IssuersStakes, getSeed, putEpoch, putIssuersStakes, putSeed)
 import qualified Pos.Lrc.DB as LrcDB (hasLeaders, putLeadersForEpoch)
 import           Pos.Lrc.Error (LrcError (..))
 import           Pos.Lrc.Fts (followTheSatoshiM)
-import           Pos.Lrc.Logic (findAllRichmenMaybe)
 import           Pos.Lrc.Mode (LrcMode)
+import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Slotting (MonadSlots)
 import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1, sscCalculateSeed)
@@ -233,6 +237,10 @@ leadersComputationDo epochId seed =
             runConduitRes $ GS.stakeSource .| followTheSatoshiM seed totalStake
         LrcDB.putLeadersForEpoch epochId leaders
 
+--------------------------------------------------------------------------------
+-- Richmen
+--------------------------------------------------------------------------------
+
 richmenComputationDo
     :: forall ctx m.
        LrcMode ctx m
@@ -263,6 +271,53 @@ richmenComputationDo epochIdx consumers = unless (null consumers) $ do
     safeMinimum a
         | null a = Nothing
         | otherwise = Just $ minimum a
+
+type MonadDBReadFull m = (MonadDBRead m, MonadGState m, MonadUnliftIO m)
+
+-- Can it be improved using conduits?
+-- | Find delegated richmen using precomputed usual richmen.
+-- Do it using one pass by delegation DB.
+findDelRichUsingPrecomp
+    :: forall m.
+       (MonadDBReadFull m)
+    => RichmenStakes -> Coin -> m RichmenStakes
+findDelRichUsingPrecomp precomputed thr = do
+    (old, new) <-
+        runConduitRes $
+        getDelegators .|
+        findDelegationStakes isIssuerByAddressHash GS.getRealStake thr
+    -- attention: order of new and precomputed is important
+    -- we want to use new stakes (computed from delegated) of precomputed richmen
+    pure (new `HM.union` (precomputed `HM.difference` (HS.toMap old)))
+
+-- | Find delegated richmen.
+findDelegatedRichmen
+    :: (MonadDBReadFull m)
+    => Coin -> ConduitT (StakeholderId, Coin) Void m RichmenStakes
+findDelegatedRichmen thr = do
+    st <- findRichmenStakes thr
+    lift $ findDelRichUsingPrecomp st thr
+
+-- | Function considers all variants of computation
+-- and compute using one pass by stake DB and one pass by delegation DB.
+findAllRichmenMaybe
+    :: forall m.
+       (MonadDBReadFull m)
+    => Maybe Coin -- ^ Eligibility threshold (optional)
+    -> Maybe Coin -- ^ Delegation threshold (optional)
+    -> ConduitT (StakeholderId, Coin) Void m (RichmenStakes, RichmenStakes)
+findAllRichmenMaybe maybeT maybeTD
+    | Just t <- maybeT
+    , Just tD <- maybeTD = do
+        let mn = min t tD
+        richmenMin <- findRichmenStakes mn
+        let richmen = HM.filter (>= t) richmenMin
+        let precomputedD = HM.filter (>= tD) richmenMin
+        richmenD <- lift $ findDelRichUsingPrecomp precomputedD tD
+        pure (richmen, richmenD)
+    | Just t <- maybeT = (,mempty) <$> findRichmenStakes t
+    | Just tD <- maybeTD = (mempty,) <$> findDelegatedRichmen tD
+    | otherwise = pure (mempty, mempty)
 
 ----------------------------------------------------------------------------
 -- Worker

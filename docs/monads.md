@@ -1,7 +1,7 @@
-# Guidelines for Effect Handling in Cardano SL
+# Guidelines for Monadic Effect Handling in Cardano SL
 
 A monad comes with two basic operations, ``return`` and ``>>=``, but this
-interface is barely useful on its own. Monadic effects extend the ``Monad``
+interface is rarely used on its own. Monadic effects extend the ``Monad``
 interface with additional operations (such as ``ask``, ``local``, ``get``,
 ``put``, ``throwError``, ``liftIO``, ``tell``, etc).
 
@@ -29,11 +29,11 @@ article.
 
 ## Intrinsic effects and capabilities
 
-We classify the effects into two categories:
+We classify effects into two categories:
 
 * _intrinsic effects_ provide operations enabled by the additional structure of
   the monad itself. For example, the intrinsic effect of `StateT` is adding
-  state to a computation, `ExceptT` adds alternative exit path, `ConduitM` adds
+  state to a computation, `ExceptT` adds the alternative exit path, `ConduitM` adds
   streaming, and so on.
 
 * _capabilities_ are effects that can be added to the monad by passing more
@@ -51,7 +51,7 @@ transformers for them:
 data DatabaseT m a = DatabaseT { runDatabaseT :: DBHandle -> m a }
 ```
 
-These transformers would be always isomorphic to `ReaderT`. On the other hand,
+These transformers are always isomorphic to `ReaderT`. On the other hand,
 we cannot reduce intrinsic effects to capabilities.
 
 We represent all effects as capabilities whenever possible, and as intrinsic
@@ -70,7 +70,7 @@ transformer that adds another intrinsic effect (`StateT`), but reuse the
 existing `IO` base monad and represent the mutable state by passing an `IORef`
 in the `ReaderT` context.
 
-### Identifying effect class
+### Identifying the effect class
 
 Can the effect be reduced to a function argument or a `ReaderT`-isomorphic
 transformer?
@@ -87,7 +87,7 @@ concrete base monad (`Identity`, `ST`) as opposed to MTL-style constraints
 * Do: `ExceptT e (State s) a`
 * Do not: `(MonadState s m, MonadError e m) => m a`
 
-(NB. we still use the methods from MTL-style classes to avoid lifting)
+(Note: It is important to use the methods from MTL-style classes to avoid lifting)
 
 There are several reasons for using concrete monads:
 
@@ -110,7 +110,7 @@ with `StateT`:
 * Do: `StateT w`, `modify (mappend m)`
 * Do not: `WriterT w`, `tell m`
 
-(NB. there are legitimate use cases for `WriterT`, but they involve `listen` and
+(Note: There are legitimate use cases for `WriterT`, but they involve `listen` and
 `pass`)
 
 We do not use nested monad transformers unless necessary:
@@ -118,7 +118,7 @@ We do not use nested monad transformers unless necessary:
 * Do: `StateT (s1, s2)`
 * Do not: `StateT s1 (StateT s2 ...)`
 
-(NB. it is possible to use something like `StateT s1 (ExceptT e (StateT s2))` to
+(Note: It is possible to use something like `StateT s1 (ExceptT e (StateT s2))` to
 have different backtracking behavior for `s1` and `s2`)
 
 ## Impure code
@@ -306,7 +306,7 @@ use.
 
 ## Potentially impure code
 
-This is the code that can be instantiated to be either pure or impure:
+The following code can be instantiated to be either pure or impure:
 
 ```
 f :: MonadThrow m => m a
@@ -317,8 +317,7 @@ fPure = f
 fImpure :: IO a
 fImpure = f
 ```
-
-While our guidelines state to avoid abstract monads, there is one case when
+Note: While our guidelines state to avoid abstract monads, there is one case when
 we allow this style of code: for general-purpose helpers.
 
 Domain-specific code must be either in a concrete pure monad, or in `ReaderT ctx

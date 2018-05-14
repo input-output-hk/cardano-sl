@@ -106,8 +106,8 @@ applyBlock' :: Hash h a
             -> State h a -> State h a
 applyBlock' (ins, outs) State{..} = State{
       _stateCurrent = Checkpoint {
-           _checkpointIncr     = Incr.applyBlock' (ins, outs) _checkpointIncr
-         , _checkpointExpected = utxoRemoveInputs ins _checkpointExpected
+           _checkpointIncr     = Incr.applyBlock' (ins, outs)       _checkpointIncr
+         , _checkpointExpected = utxoRemoveInputs (utxoDomain outs) _checkpointExpected
          }
     , _stateCheckpoints = _stateCurrent : _stateCheckpoints
     }

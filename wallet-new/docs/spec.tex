@@ -664,7 +664,7 @@ incorrect to use the definition
 \end{equation*}
 %
 The difference crops up when one considers transactions within the block $b$
-that depend on each other: that is where the output of one transaction is used
+that depend on each other: that is, where the output of one transaction is used
 as the input of another within the same block. To make this intuition clearer,
 we can define a function that computes only the `new' outputs from a block
 (outputs that are not spent within that same block):
@@ -1527,7 +1527,10 @@ rollbacks. The extended model is shown in
 \cref{fig:model_with_expected_UTxO}. When the wallet rolls back, the
 unspent outputs that are removed from the $\mathit{utxo}$ get added to
 $\mathit{expected}$. Conversely, when the wallet applies a block, any confirmed
-outputs are removed from $\mathit{expected}$.
+outputs are removed from $\mathit{expected}$. Put another way, during rollback
+anything that is removed from the actual UTxO gets added to the expected UTxO,
+and when applying a block anything that is added to the actual UTxO gets
+removed from the expected UTxO.
 
 \begin{figure}
 %
@@ -1553,7 +1556,7 @@ outputs are removed from $\mathit{expected}$.
 \emph{Auxiliary}
 %
 \begin{equation*}
-\mathsf{updateExpected} ~ b ~ \mathit{expected} = \mathsf{txins} ~ b \subtractdom \mathit{expected}
+\mathsf{updateExpected} ~ b ~ \mathit{expected} = \dom (\mathsf{new} ~ b) \subtractdom \mathit{expected}
 \end{equation*}
 %
 \caption{\label{fig:model_with_expected_UTxO}Model with rollback and expected UTxO}
@@ -2293,7 +2296,7 @@ well as the actual UTxO.
 & \qquad \text{where}
    \begin{array}[t]{rl}
      \mathit{pending}'  & = \{ tx \mid tx \in \mathit{pending}, (\mathit{inputs}, \,\underline{\phantom{a}}\,) = \mathit{tx}, \mathit{inputs} \cap \mathit{txins}_b = \emptyset \} \\
-     \mathit{expected}' & = \mathit{txins}_b \subtractdom \mathit{expected} \\
+     \mathit{expected}' & = \dom \mathit{txouts}_b \subtractdom \mathit{expected} \\
      \mathit{utxo}^+    & = \mathit{txouts}_b \\
      \mathit{utxo}^-    & = \mathit{txins}_b \restrictdom (\mathit{utxo} \cup \mathit{utxo}^+) \\
      \mathit{utxo}'     & = \mathit{txins}_b \subtractdom (\mathit{utxo} \cup \mathit{utxo}^+) \\

@@ -7880,13 +7880,13 @@ inherit (pkgs) mesa;};
          }) {};
       "cardano-sl-wallet-new" = callPackage
         ({ mkDerivation, acid-state, aeson, aeson-diff, aeson-pretty, async
-         , base, bytestring, cardano-sl, cardano-sl-block, cardano-sl-client
-         , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
-         , cardano-sl-delegation, cardano-sl-infra, cardano-sl-lrc
-         , cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp
-         , cardano-sl-update, cardano-sl-util, cardano-sl-util-test
-         , cardano-sl-wallet, cassava, conduit, connection, constraints
-         , containers, cryptonite, data-default, data-default-class
+         , base, base58-bytestring, bytestring, cardano-crypto, cardano-sl
+         , cardano-sl-block, cardano-sl-client, cardano-sl-core
+         , cardano-sl-crypto, cardano-sl-db, cardano-sl-delegation
+         , cardano-sl-infra, cardano-sl-networking, cardano-sl-ssc
+         , cardano-sl-txp, cardano-sl-update, cardano-sl-util
+         , cardano-sl-util-test, cardano-sl-wallet, cassava, conduit
+         , connection, constraints, containers, cryptonite, data-default
          , directory, exceptions, formatting, gauge, generics-sop, hspec
          , http-api-data, http-client, http-client-tls, http-types
          , ixset-typed, json-sop, lens, log-warper, memory, mtl
@@ -7908,21 +7908,20 @@ inherit (pkgs) mesa;};
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [
-             acid-state aeson aeson-pretty async base bytestring cardano-sl
-             cardano-sl-block cardano-sl-client cardano-sl-core
-             cardano-sl-crypto cardano-sl-db cardano-sl-infra
-             cardano-sl-networking cardano-sl-ssc cardano-sl-txp
-             cardano-sl-update cardano-sl-util cardano-sl-wallet conduit
-             connection containers data-default data-default-class exceptions
-             formatting generics-sop http-api-data http-client http-client-tls
-             http-types ixset-typed json-sop lens log-warper memory mtl
-             neat-interpolation network-transport node-ipc optparse-applicative
-             QuickCheck reflection safe-exceptions safecopy serokell-util
-             servant servant-client servant-client-core servant-server
-             servant-swagger servant-swagger-ui string-conv swagger2 text
-             text-format time time-units tls transformers universum unliftio
-             unliftio-core unordered-containers vector wai wai-cors warp x509
-             x509-store
+             acid-state aeson aeson-pretty async base base58-bytestring
+             bytestring cardano-crypto cardano-sl cardano-sl-block
+             cardano-sl-client cardano-sl-core cardano-sl-crypto cardano-sl-db
+             cardano-sl-infra cardano-sl-networking cardano-sl-ssc
+             cardano-sl-txp cardano-sl-update cardano-sl-util cardano-sl-wallet
+             conduit containers data-default exceptions formatting generics-sop
+             http-api-data http-client http-types ixset-typed json-sop lens
+             log-warper memory mtl neat-interpolation network-transport node-ipc
+             optparse-applicative QuickCheck reflection safe-exceptions safecopy
+             serokell-util servant servant-client servant-client-core
+             servant-server servant-swagger servant-swagger-ui string-conv
+             swagger2 text text-format time time-units transformers universum
+             unliftio unliftio-core unordered-containers vector wai wai-cors
+             warp
            ];
            executableHaskellDepends = [
              aeson aeson-diff aeson-pretty base bytestring cardano-sl
@@ -7935,9 +7934,9 @@ inherit (pkgs) mesa;};
              x509-store
            ];
            testHaskellDepends = [
-             aeson base bytestring cardano-sl cardano-sl-block cardano-sl-client
-             cardano-sl-core cardano-sl-crypto cardano-sl-db
-             cardano-sl-delegation cardano-sl-lrc cardano-sl-ssc cardano-sl-txp
+             aeson base base58-bytestring bytestring cardano-sl cardano-sl-block
+             cardano-sl-client cardano-sl-core cardano-sl-crypto cardano-sl-db
+             cardano-sl-delegation cardano-sl-ssc cardano-sl-txp
              cardano-sl-update cardano-sl-util cardano-sl-util-test
              cardano-sl-wallet constraints containers data-default directory
              formatting hspec lens log-warper mtl QuickCheck

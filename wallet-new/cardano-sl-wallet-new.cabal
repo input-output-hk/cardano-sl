@@ -147,7 +147,6 @@ library
                      , network-transport
                      , node-ipc
                      , optparse-applicative
-                     , psqueues
                      , QuickCheck
                      , reflection
                      , safe-exceptions
@@ -342,6 +341,7 @@ test-suite wallet-unit-tests
                       Test.Infrastructure.Genesis
                       Test.Spec.Kernel
                       Test.Spec.Models
+                      Test.Spec.Submission
                       Test.Spec.Translation
                       Test.Spec.WalletWorker
                       Util

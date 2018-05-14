@@ -700,9 +700,9 @@ killNode node = do
         if _nodeStateClosed nodeState
         then throwIO $ userError "killNode : already killed"
         else pure (nodeState { _nodeStateClosed = True }, ())
-    nodeCloseEndPoint node
     uninterruptibleCancel (nodeDispatcherThread node)
     killRunningHandlers node
+    nodeCloseEndPoint node
 
 data ConnectionState peerData =
 

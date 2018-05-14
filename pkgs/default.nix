@@ -6991,6 +6991,11 @@ inherit (pkgs) mesa;};
              cardano-sl-ssc cardano-sl-txp cardano-sl-util-test criterion
              formatting QuickCheck universum vector
            ];
+           benchmarkHaskellDepends = [
+             aeson base cardano-sl-block cardano-sl-core cardano-sl-crypto
+             cardano-sl-ssc cardano-sl-txp cardano-sl-util containers criterion
+             formatting QuickCheck universum vector
+           ];
            doHaddock = false;
            description = "Cardano SL main implementation";
            license = stdenv.lib.licenses.mit;
@@ -7853,6 +7858,13 @@ inherit (pkgs) mesa;};
              http-client http-client-tls optparse-applicative random servant
              servant-client servant-client-core text time tls universum vector
              yaml
+           ];
+           benchmarkHaskellDepends = [
+             aeson async base bytestring cardano-sl-client cardano-sl-core
+             cardano-sl-wallet cassava connection cryptonite data-default gauge
+             http-client http-client-tls optparse-applicative random semigroups
+             servant servant-client servant-client-core text time tls universum
+             vector yaml
            ];
            doHaddock = false;
            homepage = "https://github.com/input-output-hk/cardano-sl/#readme";

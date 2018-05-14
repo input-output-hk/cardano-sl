@@ -79,6 +79,7 @@ library
                        Cardano.Wallet.Kernel.Diffusion
                        Cardano.Wallet.Kernel.Mode
                        Cardano.Wallet.Kernel.PrefilterTx
+                       Cardano.Wallet.Kernel.Submission
                        Cardano.Wallet.Kernel.Types
                        Cardano.Wallet.LegacyServer
                        Cardano.Wallet.Orphans
@@ -146,6 +147,8 @@ library
                      , network-transport
                      , node-ipc
                      , optparse-applicative
+                     , psqueues
+                     , QuickCheck
                      , reflection
                      , safe-exceptions
                      , safecopy

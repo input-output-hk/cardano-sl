@@ -4,6 +4,7 @@ module Cardano.Wallet.Kernel.DB.Spec (
     Pending(..)
   , Checkpoint(..)
   , Checkpoints
+  , emptyPending
     -- ** Lenses
   , pendingTransactions
   , checkpointUtxo
@@ -28,8 +29,8 @@ import           Data.SafeCopy (base, deriveSafeCopy)
 import qualified Pos.Core as Core
 import qualified Pos.Txp as Core
 
-import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.BlockMeta
+import           Cardano.Wallet.Kernel.DB.InDb
 
 {-------------------------------------------------------------------------------
   Wallet state as mandated by the spec
@@ -39,6 +40,10 @@ import           Cardano.Wallet.Kernel.DB.BlockMeta
 data Pending = Pending {
       _pendingTransactions :: InDb (Map Core.TxId Core.TxAux)
     }
+
+-- | Returns a new, empty 'Pending' set.
+emptyPending :: Pending
+emptyPending = Pending . InDb $ mempty
 
 -- | Per-wallet state
 --

@@ -783,7 +783,7 @@ let
            homepage = "http://github.com/ryantm/hdbc-mysql";
            description = "MySQL driver for HDBC";
            license = "LGPL";
-         }) {inherit (pkgs) mysqlclient; inherit (pkgs) openssl; 
+         }) {inherit (pkgs) mysqlclient; inherit (pkgs) openssl;
 inherit (pkgs) zlib;};
       "HDBC-session" = callPackage
         ({ mkDerivation, base, HDBC, stdenv }:
@@ -2028,8 +2028,8 @@ inherit (pkgs) zlib;};
            description = "A binding to part of the Win32 library";
            license = stdenv.lib.licenses.bsd3;
            platforms = stdenv.lib.platforms.none;
-         }) {inherit (pkgs) advapi32; inherit (pkgs) gdi32; 
-inherit (pkgs) shell32; inherit (pkgs) shfolder; 
+         }) {inherit (pkgs) advapi32; inherit (pkgs) gdi32;
+inherit (pkgs) shell32; inherit (pkgs) shfolder;
 inherit (pkgs) user32; inherit (pkgs) winmm;};
       "Win32-extras" = callPackage
         ({ mkDerivation, base, imm32, msimg32, stdenv, Win32 }:
@@ -2099,7 +2099,7 @@ inherit (pkgs) user32; inherit (pkgs) winmm;};
            homepage = "https://github.com/xmonad/X11";
            description = "A binding to the X11 graphics library";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs.xorg) libXext; inherit (pkgs.xorg) libXinerama; 
+         }) {inherit (pkgs.xorg) libXext; inherit (pkgs.xorg) libXinerama;
 inherit (pkgs.xorg) libXrender;};
       "X11-xft" = callPackage
         ({ mkDerivation, base, libXft, stdenv, utf8-string, X11 }:
@@ -5511,7 +5511,7 @@ inherit (pkgs.xorg) libXrender;};
            doCheck = false;
            description = "Low-level bindings to GLFW OpenGL library";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs.xorg) libXext; inherit (pkgs.xorg) libXfixes; 
+         }) {inherit (pkgs.xorg) libXext; inherit (pkgs.xorg) libXfixes;
 inherit (pkgs) mesa;};
       "bindings-libzip" = callPackage
         ({ mkDerivation, base, bindings-DSL, libzip, stdenv }:
@@ -6939,24 +6939,25 @@ inherit (pkgs) mesa;};
          , cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking
          , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
          , cardano-sl-util, cardano-sl-util-test, cborg, cereal, conduit
-         , constraints, containers, contravariant, cpphs, cryptonite
-         , data-default, directory, ed25519, ekg-core, ether, exceptions
-         , extra, filelock, filepath, fmt, formatting, generic-arbitrary
-         , half, hashable, hspec, lens, log-warper, mmorph, monad-control
-         , MonadRandom, mtl, neat-interpolation, network, network-transport
-         , optparse-applicative, parsec, plutus-prototype, pvss, QuickCheck
-         , random, reflection, resourcet, safe-exceptions, safecopy
-         , serokell-util, servant, servant-client, servant-client-core
-         , servant-server, servant-swagger, stdenv, stm, streaming-commons
-         , systemd, tagged, template-haskell, text, text-format, time
-         , time-units, transformers, transformers-base, transformers-lift
-         , universum, unix, unliftio, unordered-containers, vector, wai
-         , warp, warp-tls, yaml
+         , constraints, containers, contravariant, cpphs, criterion
+         , cryptonite, data-default, directory, ed25519, ekg-core, ether
+         , exceptions, extra, filelock, filepath, fmt, formatting
+         , generic-arbitrary, half, hashable, hspec, lens, log-warper
+         , mmorph, monad-control, MonadRandom, mtl, neat-interpolation
+         , network, network-transport, optparse-applicative, parsec
+         , plutus-prototype, pvss, QuickCheck, random, reflection, resourcet
+         , safe-exceptions, safecopy, serokell-util, servant, servant-client
+         , servant-client-core, servant-server, servant-swagger, stdenv, stm
+         , streaming-commons, systemd, tagged, template-haskell, text
+         , text-format, time, time-units, transformers, transformers-base
+         , transformers-lift, universum, unix, unliftio
+         , unordered-containers, vector, wai, warp, warp-tls, yaml
          }:
          mkDerivation {
            pname = "cardano-sl";
            version = "1.1.1";
            src = ./../lib;
+           configureFlags = [ "--ghc-option=-Werror" ];
            libraryHaskellDepends = [
              aeson ansi-terminal ansi-wl-pprint async base bytestring
              canonical-json cardano-crypto cardano-sl-binary cardano-sl-block
@@ -6988,6 +6989,11 @@ inherit (pkgs) mesa;};
              safecopy serokell-util tagged text text-format time-units universum
              unordered-containers vector
            ];
+           benchmarkHaskellDepends = [
+             aeson base cardano-sl-block cardano-sl-core cardano-sl-crypto
+             cardano-sl-ssc cardano-sl-txp cardano-sl-util cardano-sl-util-test
+             containers criterion formatting QuickCheck universum vector
+           ];
            doHaddock = false;
            description = "Cardano SL main implementation";
            license = stdenv.lib.licenses.mit;
@@ -7011,6 +7017,7 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-auxx";
            version = "1.1.1";
            src = ./../auxx;
+           configureFlags = [ "--ghc-option=-Werror" ];
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [
@@ -7071,17 +7078,18 @@ inherit (pkgs) mesa;};
          , cardano-sl-delegation, cardano-sl-infra, cardano-sl-lrc
          , cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp
          , cardano-sl-update, cardano-sl-util, cardano-sl-util-test, cborg
-         , conduit, containers, cpphs, cryptonite, data-default, directory
-         , ekg-core, ether, exceptions, filepath, formatting
-         , generic-arbitrary, lens, log-warper, mtl, QuickCheck, random
-         , reflection, rocksdb-haskell-ng, safe-exceptions, serokell-util
-         , stdenv, stm, text, text-format, time-units, transformers
-         , universum, unliftio, unordered-containers
+         , conduit, containers, cpphs, criterion, cryptonite, data-default
+         , deepseq, directory, ekg-core, ether, exceptions, filepath
+         , formatting, generic-arbitrary, lens, log-warper, mtl, QuickCheck
+         , random, reflection, rocksdb-haskell-ng, safe-exceptions
+         , serokell-util, stdenv, stm, text, text-format, time-units
+         , transformers, universum, unliftio, unordered-containers
          }:
          mkDerivation {
            pname = "cardano-sl-block";
            version = "1.1.1";
            src = ./../block;
+           configureFlags = [ "--ghc-option=-Werror" ];
            libraryHaskellDepends = [
              aeson base bytestring cardano-sl-binary cardano-sl-core
              cardano-sl-crypto cardano-sl-db cardano-sl-delegation
@@ -7095,6 +7103,10 @@ inherit (pkgs) mesa;};
              unordered-containers
            ];
            libraryToolDepends = [ cpphs ];
+           benchmarkHaskellDepends = [
+             base bytestring cardano-sl-binary cardano-sl-core cardano-sl-crypto
+             criterion deepseq formatting universum
+           ];
            doHaddock = false;
            description = "Cardano SL - block processing";
            license = stdenv.lib.licenses.mit;
@@ -7113,6 +7125,7 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-client";
            version = "1.1.1";
            src = ./../client;
+           configureFlags = [ "--ghc-option=-Werror" ];
            libraryHaskellDepends = [
              base cardano-sl cardano-sl-block cardano-sl-core cardano-sl-crypto
              cardano-sl-db cardano-sl-infra cardano-sl-networking cardano-sl-txp
@@ -7150,6 +7163,7 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-core";
            version = "1.1.1";
            src = ./../core;
+           configureFlags = [ "--ghc-option=-Werror" ];
            libraryHaskellDepends = [
              aeson ansi-terminal base base58-bytestring bytestring Cabal
              canonical-json cardano-sl-binary cardano-sl-crypto
@@ -7239,6 +7253,7 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-db";
            version = "1.1.1";
            src = ./../db;
+           configureFlags = [ "--ghc-option=-Werror" ];
            libraryHaskellDepends = [
              base bytestring cardano-sl-binary cardano-sl-core cardano-sl-crypto
              cardano-sl-util concurrent-extra conduit containers data-default
@@ -7264,6 +7279,7 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-delegation";
            version = "1.1.1";
            src = ./../delegation;
+           configureFlags = [ "--ghc-option=-Werror" ];
            libraryHaskellDepends = [
              aeson base cardano-sl-binary cardano-sl-core cardano-sl-crypto
              cardano-sl-db cardano-sl-infra cardano-sl-lrc cardano-sl-networking
@@ -7284,8 +7300,8 @@ inherit (pkgs) mesa;};
          , cardano-sl-delegation, cardano-sl-generator, cardano-sl-infra
          , cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp
          , cardano-sl-update, cardano-sl-util, conduit, containers, cpphs
-         , cryptonite, data-default, engine-io, engine-io-wai, ether
-         , exceptions, formatting, free, generic-arbitrary, hspec
+         , criterion, cryptonite, data-default, engine-io, engine-io-wai
+         , ether, exceptions, formatting, free, generic-arbitrary, hspec
          , http-types, lens, log-warper, memory, mmorph, MonadRandom, mtl
          , optparse-applicative, optparse-simple, purescript-bridge
          , QuickCheck, resourcet, rocksdb-haskell-ng, safe-exceptions
@@ -7293,12 +7309,13 @@ inherit (pkgs) mesa;};
          , servant-server, servant-swagger, socket-io, stdenv, stm, swagger2
          , text, text-format, time, time-units, transformers, universum
          , unliftio, unordered-containers, vector, wai, wai-cors, wai-extra
-         , warp
+         , warp, weigh
          }:
          mkDerivation {
            pname = "cardano-sl-explorer";
            version = "1.1.1";
            src = ./../explorer;
+           configureFlags = [ "--ghc-option=-Werror" ];
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [
@@ -7330,6 +7347,10 @@ inherit (pkgs) mesa;};
              mtl QuickCheck universum warp
            ];
            testToolDepends = [ cpphs ];
+           benchmarkHaskellDepends = [
+             base cardano-sl cardano-sl-core cardano-sl-txp criterion
+             data-default lens QuickCheck text-format universum weigh
+           ];
            benchmarkToolDepends = [ cpphs ];
            doHaddock = false;
            description = "Cardano explorer";
@@ -7352,6 +7373,7 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-generator";
            version = "1.1.1";
            src = ./../generator;
+           configureFlags = [ "--ghc-option=-Werror" ];
            libraryHaskellDepends = [
              base bytestring cardano-sl cardano-sl-block cardano-sl-client
              cardano-sl-core cardano-sl-crypto cardano-sl-db
@@ -7395,6 +7417,7 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-infra";
            version = "1.1.1";
            src = ./../infra;
+           configureFlags = [ "--ghc-option=-Werror" ];
            libraryHaskellDepends = [
              aeson async base base64-bytestring bytestring cardano-report-server
              cardano-sl-binary cardano-sl-core cardano-sl-crypto cardano-sl-db
@@ -7425,6 +7448,7 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-lrc";
            version = "1.1.1";
            src = ./../lrc;
+           configureFlags = [ "--ghc-option=-Werror" ];
            libraryHaskellDepends = [
              base bytestring cardano-sl-binary cardano-sl-core cardano-sl-crypto
              cardano-sl-db cardano-sl-networking cardano-sl-util conduit ether
@@ -7447,12 +7471,13 @@ inherit (pkgs) mesa;};
          , cardano-sl-util, conduit, conduit-extra, containers
          , contravariant, cryptonite, ekg-core, exceptions, formatting
          , hashable, hspec, hspec-core, kademlia, lens, log-warper, mmorph
-         , monad-control, MonadRandom, mtl, network, network-transport
-         , network-transport-inmemory, network-transport-tcp
-         , optparse-simple, QuickCheck, random, resourcet, safe-exceptions
-         , serokell-util, stdenv, stm, text, text-format, time, time-units
-         , transformers, transformers-base, transformers-lift, universum
-         , unliftio-core
+         , monad-control, MonadRandom, mtl, mwc-random, network
+         , network-transport, network-transport-inmemory
+         , network-transport-tcp, optparse-simple, QuickCheck, random
+         , resourcet, safe-exceptions, serokell-util, statistics, stdenv
+         , stm, text, text-format, time, time-units, transformers
+         , transformers-base, transformers-lift, universum, unliftio-core
+         , vector
          }:
          mkDerivation {
            pname = "cardano-sl-networking";
@@ -7482,6 +7507,10 @@ inherit (pkgs) mesa;};
              network-transport-inmemory network-transport-tcp QuickCheck random
              safe-exceptions serokell-util stm time-units
            ];
+           benchmarkHaskellDepends = [
+             async base mwc-random network-transport network-transport-tcp
+             statistics stm time time-units vector
+           ];
            doHaddock = false;
            license = stdenv.lib.licenses.mit;
          }) {};
@@ -7494,6 +7523,7 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-node";
            version = "1.1.1";
            src = ./../node;
+           configureFlags = [ "--ghc-option=-Werror" ];
            isLibrary = false;
            isExecutable = true;
            executableHaskellDepends = [
@@ -7522,6 +7552,7 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-ssc";
            version = "1.1.1";
            src = ./../ssc;
+           configureFlags = [ "--ghc-option=-Werror" ];
            libraryHaskellDepends = [
              aeson array base bytestring cardano-sl-binary cardano-sl-core
              cardano-sl-crypto cardano-sl-crypto-test cardano-sl-db
@@ -7561,6 +7592,7 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-tools";
            version = "1.1.1";
            src = ./../tools;
+           configureFlags = [ "--ghc-option=-Werror" ];
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [
@@ -7607,6 +7639,7 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-txp";
            version = "1.1.1";
            src = ./../txp;
+           configureFlags = [ "--ghc-option=-Werror" ];
            libraryHaskellDepends = [
              aeson base bytestring cardano-sl-binary cardano-sl-core
              cardano-sl-crypto cardano-sl-crypto-test cardano-sl-db
@@ -7640,6 +7673,7 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-update";
            version = "1.1.1";
            src = ./../update;
+           configureFlags = [ "--ghc-option=-Werror" ];
            libraryHaskellDepends = [
              aeson base bytestring Cabal cardano-sl-binary cardano-sl-core
              cardano-sl-crypto cardano-sl-crypto-test cardano-sl-db
@@ -7674,6 +7708,7 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-util";
            version = "1.1.1";
            src = ./../util;
+           configureFlags = [ "--ghc-option=-Werror" ];
            libraryHaskellDepends = [
              aeson base binary bytestring cardano-sl-binary cborg cereal
              concurrent-extra containers contravariant cryptonite data-default
@@ -7736,6 +7771,7 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-wallet";
            version = "1.1.1";
            src = ./../wallet;
+           configureFlags = [ "--ghc-option=-Werror" ];
            libraryHaskellDepends = [
              acid-state aeson async base base58-bytestring bytestring cardano-sl
              cardano-sl-block cardano-sl-client cardano-sl-core
@@ -7773,23 +7809,26 @@ inherit (pkgs) mesa;};
          , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
          , cardano-sl-delegation, cardano-sl-infra, cardano-sl-networking
          , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
-         , cardano-sl-util, cardano-sl-util-test, cardano-sl-wallet, conduit
-         , constraints, containers, data-default, directory, exceptions
-         , formatting, generics-sop, hspec, http-api-data, http-client
+         , cardano-sl-util, cardano-sl-util-test, cardano-sl-wallet, cassava
+         , conduit, connection, constraints, containers, cryptonite
+         , data-default, directory, exceptions, formatting, gauge
+         , generics-sop, hspec, http-api-data, http-client, http-client-tls
          , http-types, ixset-typed, json-sop, lens, log-warper, memory
          , mmorph, mtl, neat-interpolation, network-transport, node-ipc
          , optparse-applicative, pretty-show, QuickCheck
-         , quickcheck-instances, reflection, safe-exceptions, safecopy
-         , serokell-util, servant, servant-client, servant-client-core
-         , servant-quickcheck, servant-server, servant-swagger
-         , servant-swagger-ui, stdenv, stm, string-conv, swagger2, text
-         , text-format, time, time-units, transformers, universum, unliftio
-         , unliftio-core, unordered-containers, vector, wai, wai-cors, warp
+         , quickcheck-instances, random, reflection, safe-exceptions
+         , safecopy, semigroups, serokell-util, servant, servant-client
+         , servant-client-core, servant-quickcheck, servant-server
+         , servant-swagger, servant-swagger-ui, stdenv, stm, string-conv
+         , swagger2, text, text-format, time, time-units, tls, transformers
+         , universum, unliftio, unliftio-core, unordered-containers, vector
+         , wai, wai-cors, warp, yaml
          }:
          mkDerivation {
            pname = "cardano-sl-wallet-new";
            version = "1.1.1";
            src = ./../wallet-new;
+           configureFlags = [ "--ghc-option=-Werror" ];
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [
@@ -7826,6 +7865,13 @@ inherit (pkgs) mesa;};
              quickcheck-instances safe-exceptions serokell-util servant
              servant-server servant-swagger string-conv swagger2 text
              text-format time universum unordered-containers
+           ];
+           benchmarkHaskellDepends = [
+             aeson async base bytestring cardano-sl-client cardano-sl-core
+             cardano-sl-wallet cassava connection cryptonite data-default gauge
+             http-client http-client-tls optparse-applicative random semigroups
+             servant servant-client servant-client-core text time tls universum
+             vector yaml
            ];
            doHaddock = false;
            homepage = "https://github.com/input-output-hk/cardano-sl/#readme";
@@ -14312,7 +14358,7 @@ inherit (pkgs) mesa;};
            homepage = "https://github.com/chrisdone/freenect";
            description = "Interface to the Kinect device";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs) freenect; inherit (pkgs) freenect_sync; 
+         }) {inherit (pkgs) freenect; inherit (pkgs) freenect_sync;
 inherit (pkgs) libfreenect;};
       "freer" = callPackage
         ({ mkDerivation, base, stdenv }:
@@ -14549,8 +14595,8 @@ inherit (pkgs) libfreenect;};
            doCheck = false;
            description = "A Haskell binding to a subset of the GD graphics library";
            license = stdenv.lib.licenses.bsd3;
-         }) {inherit (pkgs) expat; inherit (pkgs) fontconfig; 
-inherit (pkgs) freetype; inherit (pkgs) gd; 
+         }) {inherit (pkgs) expat; inherit (pkgs) fontconfig;
+inherit (pkgs) freetype; inherit (pkgs) gd;
 inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
       "general-games" = callPackage
         ({ mkDerivation, base, monad-loops, MonadRandom, random
@@ -15421,9 +15467,9 @@ inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
            description = "manage files with git, without checking their contents into git";
            license = stdenv.lib.licenses.gpl3;
            platforms = [ "i686-linux" "x86_64-linux" ];
-         }) {inherit (pkgs) bup; inherit (pkgs) curl; inherit (pkgs) git; 
-inherit (pkgs) gnupg; inherit (pkgs) lsof; inherit (pkgs) openssh; 
-inherit (pkgs) perl; inherit (pkgs) rsync; inherit (pkgs) wget; 
+         }) {inherit (pkgs) bup; inherit (pkgs) curl; inherit (pkgs) git;
+inherit (pkgs) gnupg; inherit (pkgs) lsof; inherit (pkgs) openssh;
+inherit (pkgs) perl; inherit (pkgs) rsync; inherit (pkgs) wget;
 inherit (pkgs) which;};
       "github" = callPackage
         ({ mkDerivation, aeson, aeson-compat, base, base-compat

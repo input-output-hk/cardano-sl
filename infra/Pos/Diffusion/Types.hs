@@ -64,7 +64,7 @@ data Diffusion m = Diffusion
                          -> HeaderHash
                          -> [HeaderHash]
                          -> ((Maybe Gauge, TBQueue StreamEntry) -> m t)
-                         -> m t
+                         -> m (Maybe t)
       -- | This is needed because there's a security worker which will request
       -- tip-of-chain from the network if it determines it's very far behind.
     , requestTip          :: m (Map NodeId (m BlockHeader))
@@ -150,7 +150,7 @@ dummyDiffusionLayer = do
     dummyDiffusion subscriptionStatus = Diffusion
         { getBlocks          = \_ _ _ -> pure (OldestFirst [])
         , requestTip         = pure mempty
-        , streamBlocks        = \_ _ _ k -> k (error "dummy: no block streaming")
+        , streamBlocks        = \_ _ _ k -> pure Nothing
         , announceBlockHeader = \_ -> pure ()
         , sendTx             = \_ -> pure True
         , sendUpdateProposal = \_ _ _ -> pure ()

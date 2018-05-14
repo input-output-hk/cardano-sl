@@ -350,7 +350,7 @@ diffusionLayerFullExposeInternals fdconf
                      -> HeaderHash
                      -> [HeaderHash]
                      -> ((Maybe Gauge, STM.TBQueue StreamEntry) -> IO t)
-                     -> IO t
+                     -> IO (Maybe t)
         streamBlocks = Diffusion.Block.streamBlocks logTrace diffusionHealth logic streamWindow enqueue
 
         announceBlockHeader :: MainBlockHeader -> IO ()

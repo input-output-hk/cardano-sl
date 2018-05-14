@@ -49,17 +49,10 @@ import qualified Formatting as F
 import qualified Language.Haskell.TH.Syntax as TH
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 import           System.Wlog (CanLog, HasLoggerName (..), LoggerNameBox (..))
-import qualified Test.QuickCheck as QC
-import           Test.QuickCheck.Monadic (PropertyM (..))
 
 ----------------------------------------------------------------------------
 -- Orphan miscellaneous instances
 ----------------------------------------------------------------------------
-
-instance MonadReader r m => MonadReader r (PropertyM m) where
-    ask = lift ask
-    local f (MkPropertyM propertyM) =
-        MkPropertyM $ \hole -> local f <$> propertyM hole
 
 instance (TH.Lift k, TH.Lift v) => TH.Lift (HashMap k v) where
     lift x = let l = HM.toList x in [|HM.fromList l|]
@@ -84,18 +77,6 @@ instance {-# OVERLAPPABLE #-}
          (MonadTrans t, Functor (t m), Monad (t m), Rand.MonadRandom m)
          => Rand.MonadRandom (t m) where
     getRandomBytes = lift . Rand.getRandomBytes
-
--- TODO: use the 'vec' package for traversable N-products
-data Five a = Five a a a a a
-    deriving (Functor, Foldable, Traversable)
-
-five :: a -> Five a
-five a = Five a a a a a
-
-instance Rand.MonadRandom QC.Gen where
-    getRandomBytes n = do
-        Five a b c d e <- sequenceA . five $ QC.choose (minBound, maxBound)
-        pure $ fst $ Rand.randomBytesGenerate n (Rand.drgNewTest (a,b,c,d,e))
 
 ----------------------------------------------------------------------------
 -- Hashable

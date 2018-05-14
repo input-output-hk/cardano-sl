@@ -18,6 +18,9 @@ import           Pos.Util.QuickCheck.Property ((.=.))
 
 import           Test.Hspec (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
+import           Test.Pos.Util.Chrono ()
+import           Test.Pos.Util.Modifier ()
+import           Test.Pos.Util.QuickCheck.Property ((.=.))
 import           Test.QuickCheck (Arbitrary, Property)
 
 spec :: Spec

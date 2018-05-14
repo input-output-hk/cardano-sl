@@ -18,9 +18,6 @@ library
   exposed-modules:
                        Pos.Util
 
-                       Pos.Util.QuickCheck
-                       Pos.Util.QuickCheck.Arbitrary
-                       Pos.Util.QuickCheck.Property
                        Pos.Util.CompileInfo
 
                        Pos.Util.Concurrent
@@ -47,8 +44,7 @@ library
 
   other-modules:
 
-  build-depends:       QuickCheck
-                     , aeson
+  build-depends:       aeson
                      , base
                      , binary
                      , bytestring
@@ -67,7 +63,6 @@ library
                      , filepath
                      , formatting
                      , hashable
-                     , hspec
                      , lens
                      , log-warper >= 1.0.3
                      , lrucache
@@ -141,6 +136,7 @@ test-suite test
 
   other-modules:
                        Spec
+                       Test.Pos.Util.Chrono
                        Test.Pos.Util.LimitsSpec
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.Util.TimerSpec

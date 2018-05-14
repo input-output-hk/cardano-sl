@@ -31,7 +31,6 @@ import           Data.Coerce (coerce)
 import qualified Data.List.NonEmpty as NE
 import           Data.Semigroup (Semigroup)
 import qualified GHC.Exts as IL
-import           Test.QuickCheck (Arbitrary)
 
 import           Pos.Binary.Class (Bi)
 
@@ -40,13 +39,13 @@ newtype NewestFirst f a = NewestFirst {getNewestFirst :: f a}
             Functor, Foldable, Traversable,
             ToList, Container,
             Binary, Bi,
-            Arbitrary, NFData)
+            NFData)
 newtype OldestFirst f a = OldestFirst {getOldestFirst :: f a}
   deriving (Eq, Ord, Show,
             Functor, Foldable, Traversable,
             ToList, Container,
             Binary, Bi,
-            Arbitrary, NFData)
+            NFData)
 
 makePrisms  ''NewestFirst
 makeWrapped ''NewestFirst

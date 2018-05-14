@@ -53,8 +53,8 @@ module Node (
     ) where
 
 import           Control.Concurrent.STM
-import           Control.Exception (Exception (..), SomeException,
-                                    catch, onException, throwIO)
+import           Control.Exception (Exception (..), SomeException, catch,
+                                    mask, throwIO)
 import           Control.Monad (unless, when)
 import qualified Data.ByteString as BS
 import           Data.Map.Strict (Map)
@@ -73,6 +73,7 @@ import           Node.Message.Class (Message (..), MessageCode, Packing, Seriali
 import           Node.Message.Decoder (ByteOffset, Decoder (..), DecoderStep (..), continueDecoding)
 import           Pos.Util.Trace (Trace, Severity (..), traceWith)
 import           System.Random (StdGen)
+
 
 data Node = Node {
       nodeId         :: LL.NodeId
@@ -262,12 +263,6 @@ node logTrace mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nod
               listenerIndices = fmap (fst . makeListenerIndex) mkListeners
               converse :: Converse packing peerData
               converse = nodeConverse llnode packing
-              unexceptional :: IO t
-              unexceptional = do
-                  t <- act converse
-                  logNormalShutdown
-                  (LL.stopNode llnode `catch` logNodeException)
-                  return t
         ; llnode <- LL.startNode
               logTrace
               packing
@@ -279,21 +274,23 @@ node logTrace mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nod
               nodeEnv
               (handlerInOut llnode listenerIndices)
         }
-    unexceptional
-        `catch` logException
-        `onException` (LL.stopNode llnode `catch` logNodeException)
+    -- The node is held open for the duration of the 'act'.
+    -- Any exception in there kills the node, whereas normal termination
+    -- gracefully stops the node. In the latter case, the node will wait for
+    -- any running network handlers to finish.
+    mask $ \restore -> do
+        t <- restore (act converse) `catch` \e -> do
+            logException e
+            LL.killNode llnode
+            throwIO e
+        logNormalShutdown
+        LL.stopNode llnode
+        return t
   where
     logNormalShutdown :: IO ()
-    logNormalShutdown =
-        traceWith logTrace (Info, sformat ("node stopping normally"))
-    logException :: forall s . SomeException -> IO s
-    logException e = do
-        traceWith logTrace (Error, sformat ("node stopped with exception " % shown) e)
-        throwIO e
-    logNodeException :: forall s . SomeException -> IO s
-    logNodeException e = do
-        traceWith logTrace (Error, sformat ("exception while stopping node " % shown) e)
-        throwIO e
+    logNormalShutdown = traceWith logTrace (Info, "stopping normally")
+    logException :: SomeException -> IO ()
+    logException e = traceWith logTrace (Error, sformat ("stopping with exception " % shown) e)
     -- Handle incoming data from a bidirectional connection: try to read the
     -- message name, then choose a listener and fork a thread to run it.
     handlerInOut
@@ -319,7 +316,7 @@ node logTrace mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nod
                     Just (Listener action) ->
                         let cactions = nodeConversationActions nodeUnit peerId packing inchan outchan
                         in  action peerData peerId cactions
-                    Nothing -> error ("handlerInOut : no listener for " ++ show msgCode)
+                    Nothing -> traceWith logTrace (Error, sformat ("no listener for "%shown) msgCode)
 
 -- | Try to receive and parse the next message, subject to a limit on the
 --   number of bytes which will be read.

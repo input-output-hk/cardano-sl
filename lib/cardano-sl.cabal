@@ -265,9 +265,6 @@ test-suite cardano-test
                        Test.Pos.Core.SeedSpec
                        Test.Pos.Core.SlottingSpec
 
-                       -- LRC
-                       Test.Pos.Lrc.FollowTheSatoshiSpec
-
                        -- Ssc
                        Test.Pos.Ssc.ComputeSharesSpec
                        Test.Pos.Ssc.Identity.SafeCopySpec

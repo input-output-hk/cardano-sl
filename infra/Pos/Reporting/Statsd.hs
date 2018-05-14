@@ -13,13 +13,10 @@ import qualified System.Metrics as Metrics
 import           Pos.Statistics (StatsdParams (..))
 
 withStatsd
-    :: ( MonadIO m
-       , MonadMask m
-       )
-    => StatsdParams
+    :: StatsdParams
     -> Metrics.Store
-    -> m t
-    -> m t
+    -> IO t
+    -> IO t
 withStatsd StatsdParams {..} ekgStore act = bracket acquire release (const act)
   where
     acquire = liftIO $ Monitoring.forkStatsd statsdOptions ekgStore

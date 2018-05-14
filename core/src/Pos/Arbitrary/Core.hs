@@ -46,21 +46,22 @@ import           Pos.Core.Configuration (HasGenesisBlockVersionData, HasProtocol
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import qualified Pos.Core.Genesis as G
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..),
-                                             VssMinTTL (..))
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
 import qualified Pos.Core.Slotting as Types
 import           Pos.Core.Slotting.Types (SlotId (..), Timestamp (..))
 import           Pos.Core.Ssc.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
 import           Pos.Core.Update.Types (BlockVersionData (..))
 import qualified Pos.Core.Update.Types as U
-import           Pos.Crypto (HasProtocolMagic, ProtocolMagic, protocolMagic, createPsk,
-                             toPublic)
+import           Pos.Crypto (HasProtocolMagic, ProtocolMagic, createPsk, protocolMagic, toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
+
 import           Pos.Merkle (MerkleTree, mkMerkleTree)
-import           Pos.Util.QuickCheck.Arbitrary (nonrepeating)
 import           Pos.Util.Util (leftToPanic)
 
 import           Test.Pos.Crypto.Arbitrary ()
+
+import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)
+
 
 {- NOTE: Deriving an 'Arbitrary' instance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

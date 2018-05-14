@@ -111,6 +111,7 @@ test-suite cardano-client-test
                      , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl-util
+                     , cardano-sl-util-test
                      , containers
                      , formatting
                      , hspec

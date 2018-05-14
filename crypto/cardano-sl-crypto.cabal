@@ -49,6 +49,7 @@ library
                      , cardano-crypto
                      , cardano-sl-binary
                      , cardano-sl-util
+                     , cardano-sl-util-test
                      , cborg
                      , cryptonite
                      , cryptonite-openssl

@@ -12,7 +12,8 @@ import           Universum
 import           Pos.Core (HasConfiguration)
 import           Pos.Core.Common (Coin, StakeholderId)
 import           Pos.Lrc (followTheSatoshi)
-import           Pos.Util (arbitraryUnsafe)
+
+import           Test.Pos.Util.QuickCheck.Arbitrary (arbitraryUnsafe)
 
 import           Bench.Configuration (giveCoreConf)
 

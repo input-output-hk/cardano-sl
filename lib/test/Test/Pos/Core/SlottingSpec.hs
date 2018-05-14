@@ -13,9 +13,9 @@ import           Test.QuickCheck (NonNegative (..), Positive (..), Property, (==
 import           Pos.Arbitrary.Core (EoSToIntOverflow (..), UnreasonableEoS (..))
 import           Pos.Core (EpochOrSlot, HasConfiguration, SlotId (..), flattenSlotId,
                            unflattenSlotId)
-import           Pos.Util.QuickCheck.Property (shouldThrowException, (.=.))
 
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Util.QuickCheck.Property (shouldThrowException, (.=.))
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Slotting" $ do

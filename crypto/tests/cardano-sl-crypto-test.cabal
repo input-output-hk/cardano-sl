@@ -24,6 +24,7 @@ library
                      , cardano-sl-binary
                      , cardano-sl-crypto
                      , cardano-sl-util
+                     , cardano-sl-util-test
                      , generic-arbitrary
                      , memory
                      , quickcheck-instances

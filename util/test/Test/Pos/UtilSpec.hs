@@ -14,7 +14,6 @@ import qualified Data.List.NonEmpty as NE
 import qualified GHC.Exts as IL (IsList (..))
 
 import           Pos.Util.Chrono (Chrono (..), NewestFirst (..), OldestFirst (..))
-import           Pos.Util.QuickCheck.Property ((.=.))
 
 import           Test.Hspec (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop)

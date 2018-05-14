@@ -54,7 +54,7 @@ import           Pos.Txp.Toil (Utxo)
 import           Pos.Util (HasLens (..), _neLast)
 import           Pos.Util.Chrono (OldestFirst (..))
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.QuickCheck.Property (assertProperty, maybeStopProperty)
+
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.UserSecret (mkGenesisWalletUserSecret)
 import           Pos.Wallet.Web.ClientTypes (Addr, CId, Wal, encToCId)
@@ -62,6 +62,7 @@ import           Pos.Wallet.Web.Methods.Restore (importWalletDo)
 
 import           Pos.Util.JsonLog.Events (MemPoolModifyReason (ApplyBlock))
 import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB, genBlockGenParams)
+import           Test.Pos.Util.QuickCheck.Property (assertProperty, maybeStopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 
 ----------------------------------------------------------------------------

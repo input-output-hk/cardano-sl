@@ -24,6 +24,7 @@ import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposa
                                         DecidedProposalState (..), DpsExtra (..), PrevValue,
                                         ProposalState (..), USUndo, UndecidedProposalState (..),
                                         UpsExtra (..))
+import           Test.Pos.Util.Modifier ()
 
 instance Arbitrary HeaderHash => Arbitrary UpsExtra where
     arbitrary = genericArbitrary

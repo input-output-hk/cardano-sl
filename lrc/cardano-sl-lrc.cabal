@@ -96,6 +96,7 @@ test-suite test
                      , cardano-sl-db
                      , cardano-sl-lrc
                      , cardano-sl-util
+                     , cardano-sl-util-test
                      , containers
                      , hspec
                      , QuickCheck

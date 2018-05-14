@@ -359,6 +359,7 @@ test-suite wallet-unit-tests
                     , cardano-sl-txp
                     , cardano-sl-update
                     , cardano-sl-util
+                    , cardano-sl-util-test
                     , cardano-sl-wallet-new
                     , constraints
                     , containers
@@ -370,6 +371,7 @@ test-suite wallet-unit-tests
                     , mmorph
                     , mtl
                     , QuickCheck
+                    , quickcheck-instances
                     , serokell-util
                     , text
                     , text-format
@@ -426,6 +428,7 @@ test-suite wallet-new-specs
                     , cardano-sl-crypto
                     , cardano-sl-txp
                     , cardano-sl-util
+                    , cardano-sl-util-test
                     , cardano-sl-wallet
                     , cardano-sl-wallet-new
                     , data-default

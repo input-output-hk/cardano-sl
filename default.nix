@@ -89,6 +89,11 @@ let
       mkDerivation = args: super.mkDerivation (args // {
         enableLibraryProfiling = enableProfiling;
         enableExecutableProfiling = enableProfiling;
+        # Static linking for everything to work around
+        # https://ghc.haskell.org/trac/ghc/ticket/14444
+        # This will be the default in nixpkgs since
+        # https://github.com/NixOS/nixpkgs/issues/29011
+        enableSharedExecutables = false;
       } // optionalAttrs enableDebugging {
         # TODO: DEVOPS-355
         dontStrip = true;

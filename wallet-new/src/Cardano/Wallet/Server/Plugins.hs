@@ -47,7 +47,7 @@ import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)
 import qualified Pos.Wallet.Web.Server.Runner as V0
 import           Pos.Wallet.Web.Sockets (getWalletWebSockets, upgradeApplicationWS)
 import qualified Servant
-import           System.Wlog (logInfo, modifyLoggerName)
+import           System.Wlog (logInfo, modifyLoggerName, usingLoggerName)
 
 import           Pos.Communication (OutSpecs)
 import           Pos.Communication.Util (ActionSpec (..))
@@ -65,6 +65,8 @@ import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Web (serveWeb)
 import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (WorkMode)
+import           Pos.Shutdown.Class        (HasShutdownContext (shutdownContext))
+import           Cardano.NodeIPC (startNodeJsIPC)
 
 
 -- A @Plugin@ running in the monad @m@.
@@ -103,12 +105,17 @@ legacyWalletBackend WalletBackendParams {..} ntpStatus =
         logInfo $ sformat ("Transaction submission disabled: "%build)
           walletTxCreationDisabled
 
+        ctx <- view shutdownContext
+        let
+          portCallback :: Word16 -> IO ()
+          portCallback port = usingLoggerName "NodeIPC" $ flip runReaderT ctx $ startNodeJsIPC port
         walletServeImpl
           (getApplication diffusion)
           walletAddress
           -- Disable TLS if in debug mode.
           (if isDebugMode walletRunMode then Nothing else walletTLSParams)
           (Just $ setOnExceptionResponse exceptionHandler defaultSettings)
+          (Just portCallback)
   where
     -- Gets the Wai `Application` to run.
     getApplication :: Diffusion WalletWebMode -> WalletWebMode Application
@@ -176,13 +183,18 @@ walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
     first one $ worker walletServerOuts $ \diffusion -> do
       env <- ask
       let diffusion' = Kernel.fromDiffusion (lower env) diffusion
-      bracketKernelActiveWallet passive diffusion' $ \active ->
+      bracketKernelActiveWallet passive diffusion' $ \active -> do
+        ctx <- view shutdownContext
+        let
+          portCallback :: Word16 -> IO ()
+          portCallback port = usingLoggerName "NodeIPC" $ flip runReaderT ctx $ startNodeJsIPC port
         walletServeImpl
           (getApplication active)
           walletAddress
           -- Disable TLS if in debug modeit .
           (if isDebugMode walletRunMode then Nothing else walletTLSParams)
           Nothing
+          (Just portCallback)
   where
     getApplication :: ActiveWalletLayer Production -> Kernel.WalletMode Application
     getApplication active = do

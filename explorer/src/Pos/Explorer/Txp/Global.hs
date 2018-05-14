@@ -34,7 +34,7 @@ explorerTxpGlobalSettings =
     }
 
 applySettings ::
-       TxpGlobalApplyMode ctx m
+       (TxpGlobalApplyMode ctx m, HasConfiguration)
     => ProcessBlundsSettings ExplorerExtraLookup ExplorerExtraModifier m
 applySettings =
     ProcessBlundsSettings
@@ -45,7 +45,7 @@ applySettings =
         }
 
 rollbackSettings ::
-       TxpGlobalRollbackMode m
+       (TxpGlobalRollbackMode m, HasConfiguration)
     => ProcessBlundsSettings ExplorerExtraLookup ExplorerExtraModifier m
 rollbackSettings =
     ProcessBlundsSettings

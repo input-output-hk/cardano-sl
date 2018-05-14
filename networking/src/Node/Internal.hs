@@ -38,19 +38,20 @@ module Node.Internal (
     ChannelOut(..),
     startNode,
     stopNode,
+    killNode,
     withInOutChannel,
     writeMany,
     Timeout(..)
   ) where
 
-import           Control.Concurrent (ThreadId, threadDelay)
+import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.STM
 import           Control.Concurrent.Async
 import           Control.Concurrent.MVar
-import           Control.Exception (Exception, SomeException, bracket, catch, finally,
-                                    throwIO, mask, uninterruptibleMask_, fromException,
-                                    try)
-import           Control.Monad (forM, forM_, when)
+import           Control.Exception (Exception, SomeException, SomeAsyncException,
+                                    bracket, catch, handle, finally, throwIO,
+                                    mask, uninterruptibleMask_, fromException, try)
+import           Control.Monad (forM_, mapM_, when)
 import           Data.Binary
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BS
@@ -158,11 +159,20 @@ instance Ord SomeHandler where
     SomeHandler as1 `compare` SomeHandler as2 =
         asyncThreadId as1 `compare` asyncThreadId as2
 
+-- | Waits for a handler.
 waitSomeHandler :: SomeHandler -> IO ()
 waitSomeHandler (SomeHandler promise) = () <$ wait promise
 
-someHandlerThreadId :: SomeHandler -> ThreadId
-someHandlerThreadId (SomeHandler promise) = asyncThreadId promise
+-- | Cancels a handler.
+cancelSomeHandler :: SomeHandler -> IO ()
+cancelSomeHandler (SomeHandler promise) = uninterruptibleCancel promise
+
+-- | Waits for it and squelches all (even async) exceptions.
+waitCatchSomeHandler :: SomeHandler -> IO ()
+waitCatchSomeHandler = handle squelch . waitSomeHandler
+  where
+    squelch :: SomeException -> IO ()
+    squelch = const (pure ())
 
 data NodeEnvironment = NodeEnvironment {
       nodeAckTimeout :: !Microsecond
@@ -191,7 +201,8 @@ constantReceiveDelay = pure . Just
 -- | A 'Node' is a network-transport 'EndPoint' with bidirectional connection
 --   state and a thread to dispatch network-transport events.
 data Node packingType peerData = Node {
-       nodeEndPoint         :: NT.EndPoint
+       nodeTrace            :: Trace IO (Severity, Text)
+     , nodeEndPoint         :: NT.EndPoint
      , nodeCloseEndPoint    :: IO ()
      , nodeDispatcherThread :: Async ()
      , nodeEnvironment      :: NodeEnvironment
@@ -211,7 +222,6 @@ data Node packingType peerData = Node {
        --   so this is a way to delay per-high-level message rather than
        --   lower level events.
      , nodeConnectDelay     :: ReceiveDelay
-     , nodeTrace            :: Trace IO (Severity, Text)
      }
 
 nodeId :: Node packingType peerData -> NodeId
@@ -642,7 +652,8 @@ startNode logTrace packing peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
                   sharedState <- initialNodeState prng
                   -- TODO this thread should get exceptions from the dispatcher thread.
                   rec { let node = Node {
-                                  nodeEndPoint         = endPoint
+                                  nodeTrace            = logTrace
+                                , nodeEndPoint         = endPoint
                                 , nodeCloseEndPoint    = closeNodeEndPoint nodeEndPoint endPoint
                                 , nodeDispatcherThread = dispatcherThread
                                 , nodeEnvironment      = nodeEnv
@@ -651,7 +662,6 @@ startNode logTrace packing peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
                                 , nodePeerData         = peerData
                                 , nodeReceiveDelay     = receiveDelay
                                 , nodeConnectDelay     = connectDelay
-                                , nodeTrace            = logTrace
                                 }
                       ; dispatcherThread <- async $
                             nodeDispatcher node handlerInOut
@@ -665,21 +675,34 @@ startNode logTrace packing peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
 
 -- | Stop a 'Node', closing its network transport and end point.
 stopNode :: Node packingType peerData -> IO ()
-stopNode Node {..} = do
-    modifyMVar nodeState $ \nodeState ->
+stopNode node = do
+    modifyMVar (nodeState node) $ \nodeState ->
         if _nodeStateClosed nodeState
         then throwIO $ userError "stopNode : already stopped"
         else pure (nodeState { _nodeStateClosed = True }, ())
     -- This eventually will shut down the dispatcher thread, which in turn
     -- ought to stop the connection handling threads.
     -- It'll also close all TCP connections.
-    nodeCloseEndPoint
+    nodeCloseEndPoint node
     -- Must wait on any handler threads. The dispatcher thread will eventually
     -- see an event indicating that the end point has closed, after which it
     -- will wait on all running handlers. Since the end point has been closed,
     -- no new handler threads will be created, so this will block indefinitely
     -- only if some handler is blocked indefinitely or looping.
-    wait nodeDispatcherThread
+    wait (nodeDispatcherThread node)
+    waitForRunningHandlers node
+
+-- | Kill a 'Node', terminating its dispatcher thread, closing its endpoint,
+-- and killing all of its handlers.
+killNode :: Node packingType peerData -> IO ()
+killNode node = do
+    modifyMVar (nodeState node) $ \nodeState ->
+        if _nodeStateClosed nodeState
+        then throwIO $ userError "killNode : already killed"
+        else pure (nodeState { _nodeStateClosed = True }, ())
+    uninterruptibleCancel (nodeDispatcherThread node)
+    killRunningHandlers node
+    nodeCloseEndPoint node
 
 data ConnectionState peerData =
 
@@ -742,34 +765,28 @@ deriving instance Show (DispatcherState peerData)
 initialDispatcherState :: DispatcherState peerData
 initialDispatcherState = DispatcherState Map.empty Map.empty
 
--- | Wait for every running handler in a node's state to finish. Exceptions are
---   caught and gathered, not re-thrown.
-waitForRunningHandlers
-    :: forall packingType peerData .
-       Node packingType peerData
-    -> IO [Maybe SomeException]
-waitForRunningHandlers node = do
-    -- Gather the promises for all handlers.
-    handlers <- withMVar (nodeState node) $ \st -> do
-        let -- List monad computation: grab the values of the map (ignoring
-            -- peer keys), then for each of those maps grab its values (ignoring
-            -- nonce keys) and then return the promise.
-            outbound_bi = do
-                map <- Map.elems (_nodeStateOutboundBidirectional st)
-                (x, _, _, _, _, _, _) <- Map.elems map
-                return x
-            inbound = Set.toList (_nodeStateInbound st)
-            all = outbound_bi ++ inbound
-        traceWith logTrace (Debug, sformat ("waiting for " % shown % " outbound bidirectional handlers") (fmap (someHandlerThreadId) outbound_bi))
-        traceWith logTrace (Debug, sformat ("waiting for " % shown % " outbound inbound") (fmap (someHandlerThreadId) inbound))
-        return all
-    let waitAndCatch someHandler = do
-            traceWith logTrace (Debug, sformat ("waiting on " % shown) (someHandlerThreadId someHandler))
-            -- TBD ok to catch SomeException here? If it's async, we still stop.
-            (Nothing <$ waitSomeHandler someHandler) `catch` (\(e :: SomeException) -> return (Just e))
-    forM handlers waitAndCatch
-  where
-    logTrace = nodeTrace node
+-- | Get the running handlers for a node.
+getRunningHandlers :: Node packingType peerData -> IO [SomeHandler]
+getRunningHandlers node = withMVar (nodeState node) $ \st -> do
+    let -- List monad computation: grab the values of the map (ignoring
+        -- peer keys), then for each of those maps grab its values (ignoring
+        -- nonce keys) and then return the promise.
+        outbound_bi = do
+            map <- Map.elems (_nodeStateOutboundBidirectional st)
+            (x, _, _, _, _, _, _) <- Map.elems map
+            return x
+        inbound = Set.toList (_nodeStateInbound st)
+    return $ outbound_bi ++ inbound
+
+-- | Wait for every running handler in a node's state to finish.
+-- If they throw an exception, it's not re-thrown. Even async exceptions are
+-- squelched, so be careful.
+waitForRunningHandlers :: Node packingType peerData -> IO ()
+waitForRunningHandlers node = getRunningHandlers node >>= mapM_ waitCatchSomeHandler
+
+-- | Kill every running handler in a node's state.
+killRunningHandlers :: Node packingType peerData -> IO ()
+killRunningHandlers node = getRunningHandlers node >>= mapM_ cancelSomeHandler
 
 -- | The one thread that handles /all/ incoming messages and dispatches them
 -- to various handlers.
@@ -859,12 +876,10 @@ nodeDispatcher node handlerInOut =
                    dumpBytes Nothing
             return (st, ())
 
-        _ <- waitForRunningHandlers node
-
-        -- Check that this node was closed by a call to 'stopNode'. If it
-        -- wasn't, we throw an exception. This is important because the thread
-        -- which runs 'startNode' must *not* continue after the 'EndPoint' is
-        -- closed.
+        -- Check that this node was closed by a call to 'stopNode' or
+        -- 'killNode'. If it wasn't, we throw an exception. This is important
+        -- because the thread which runs 'startNode' must *not* continue after
+        -- the 'EndPoint' is closed.
         withMVar nstate $ \nodeState ->
             if _nodeStateClosed nodeState
             then pure ()
@@ -1388,9 +1403,11 @@ withInOutChannel node@Node{nodeEnvironment, nodeState, nodeTrace} nodeid@(NodeId
     -- An exception may be thrown after the connection is established but
     -- before we register, but that's OK, as disconnectFromPeer is forgiving
     -- about this.
-    let action' conn = do
+    -- But if an exception is thrown to this action while it's waiting for the
+    -- promise, we must cancel that promise (that running handler).
+    let action' conn = mask $ \restore -> do
             rec { let provenance = Local peer (nonce, peerDataVar, NT.bundle conn, timeoutPromise, dumpBytes)
-                ; (promise, _) <- spawnHandler nodeTrace nodeState provenance $ do
+                ; (promise, _) <- restore $ spawnHandler nodeTrace nodeState provenance $ do
                       -- It's essential that we only send the handshake SYN inside
                       -- the handler, because at this point the nonce is guaranteed
                       -- to be known in the node state. If we sent the handhsake
@@ -1412,7 +1429,9 @@ withInOutChannel node@Node{nodeEnvironment, nodeState, nodeTrace} nodeid@(NodeId
                       delay (nodeAckTimeout nodeEnvironment)
                       cancelWith promise Timeout
                 }
-            wait promise
+            restore (wait promise) `catch` \(e :: SomeAsyncException) -> do
+                uninterruptibleCancel promise
+                throwIO e
     connectToPeer node nodeid action' `finally` closeChannel
 
 data OutboundConnectionState =

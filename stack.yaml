@@ -35,6 +35,7 @@ packages:
 - tools
 - wallet
 - wallet-new # The new (unreleased) version of the wallet
+- node-ipc
 
 - location:
     git: https://github.com/well-typed/cborg

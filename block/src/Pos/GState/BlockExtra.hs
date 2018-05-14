@@ -26,8 +26,8 @@ import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
-import           Pos.Core (FlatSlotId, HasConfiguration, HasHeaderHash, HeaderHash, genesisHash,
-                           headerHash, slotIdF, unflattenSlotId)
+import           Pos.Core (FlatSlotId, HasHeaderHash, HeaderHash, genesisHash, HasProtocolConstants,
+                           headerHash, slotIdF, unflattenSlotId, HasGenesisHash, HasCoreConfiguration)
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (..), MonadDB, MonadDBRead (..), RocksBatchOp (..),
@@ -62,7 +62,7 @@ getLastSlots =
     gsGetBi lastSlotsKey
 
 -- | Retrieves first genesis block hash.
-getFirstGenesisBlockHash :: (MonadDBRead m, MonadThrow m) => m HeaderHash
+getFirstGenesisBlockHash :: (MonadDBRead m, MonadThrow m, HasGenesisHash) => m HeaderHash
 getFirstGenesisBlockHash =
     resolveForwardLink (genesisHash :: HeaderHash) >>=
     maybeThrow (DBMalformed "Can't retrieve genesis block, maybe db is not initialized?")
@@ -84,7 +84,7 @@ data BlockExtraOp
       -- ^ Updates list of slots for last blocks.
     deriving (Show)
 
-instance HasConfiguration => Buildable BlockExtraOp where
+instance HasProtocolConstants => Buildable BlockExtraOp where
     build (AddForwardLink from to) =
         bprint ("AddForwardLink from "%shortHashF%" to "%shortHashF) from to
     build (RemoveForwardLink from) =
@@ -95,7 +95,7 @@ instance HasConfiguration => Buildable BlockExtraOp where
         bprint ("SetLastSlots: "%listJson)
         (map (bprint slotIdF . unflattenSlotId) slots)
 
-instance HasConfiguration => RocksBatchOp BlockExtraOp where
+instance HasCoreConfiguration => RocksBatchOp BlockExtraOp where
     toBatchOp (AddForwardLink from to) =
         [Rocks.Put (forwardLinkKey from) (dbSerializeValue to)]
     toBatchOp (RemoveForwardLink from) =
@@ -179,7 +179,7 @@ loadBlocksUpWhile = loadUpWhile getBlock
 -- Initialization
 ----------------------------------------------------------------------------
 
-initGStateBlockExtra :: MonadDB m => HeaderHash -> m ()
+initGStateBlockExtra :: (HasGenesisHash, MonadDB m) => HeaderHash -> m ()
 initGStateBlockExtra firstGenesisHash = do
     gsPutBi (mainChainKey firstGenesisHash) ()
     gsPutBi (forwardLinkKey genesisHash) firstGenesisHash

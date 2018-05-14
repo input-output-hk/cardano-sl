@@ -39,7 +39,7 @@ import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB, askWal
 import           Pos.Wallet.Web.State.Storage (getWalletInfo)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
-import           Pos.Util.Chrono (NE, OldestFirst (..))
+import           Pos.Util.Chrono (NE, OldestFirst (..), NewestFirst (..))
 import           Pos.Block.Types (Blund)
 
 
@@ -66,21 +66,22 @@ bracketPassiveWallet =
   where
     passiveWalletLayer :: PassiveWalletLayer m
     passiveWalletLayer = PassiveWalletLayer
-        { _pwlCreateWallet  = pwlCreateWallet
-        , _pwlGetWalletIds  = pwlGetWalletIds
-        , _pwlGetWallet     = pwlGetWallet
-        , _pwlUpdateWallet  = pwlUpdateWallet
-        , _pwlDeleteWallet  = pwlDeleteWallet
+        { _pwlCreateWallet   = pwlCreateWallet
+        , _pwlGetWalletIds   = pwlGetWalletIds
+        , _pwlGetWallet      = pwlGetWallet
+        , _pwlUpdateWallet   = pwlUpdateWallet
+        , _pwlDeleteWallet   = pwlDeleteWallet
 
-        , _pwlCreateAccount = pwlCreateAccount
-        , _pwlGetAccounts   = pwlGetAccounts
-        , _pwlGetAccount    = pwlGetAccount
-        , _pwlUpdateAccount = pwlUpdateAccount
-        , _pwlDeleteAccount = pwlDeleteAccount
+        , _pwlCreateAccount  = pwlCreateAccount
+        , _pwlGetAccounts    = pwlGetAccounts
+        , _pwlGetAccount     = pwlGetAccount
+        , _pwlUpdateAccount  = pwlUpdateAccount
+        , _pwlDeleteAccount  = pwlDeleteAccount
 
-        , _pwlGetAddresses  = pwlGetAddresses
+        , _pwlGetAddresses   = pwlGetAddresses
 
-        , _pwlApplyBlocks   = pwlApplyBlocks
+        , _pwlApplyBlocks    = pwlApplyBlocks
+        , _pwlRollbackBlocks = pwlRollbackBlocks
         }
 
 
@@ -258,3 +259,10 @@ pwlGetAddresses = error "Not implemented!"
 
 pwlApplyBlocks :: OldestFirst NE Blund -> m ()
 pwlApplyBlocks = error "Not implemented!"
+
+------------------------------------------------------------
+-- Rollback Block
+------------------------------------------------------------
+
+pwlRollbackBlocks :: NewestFirst NE Blund -> m ()
+pwlRollbackBlocks = error "Not implemented!"

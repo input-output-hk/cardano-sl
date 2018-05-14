@@ -23,7 +23,7 @@ import           Mockable (Production, runProduction)
 import           Network.Wai (Application)
 import           Ntp.Client (NtpStatus)
 import           Servant.Server (Handler)
-import           System.Wlog (logInfo)
+import           System.Wlog (logInfo, usingLoggerName)
 
 import           Pos.Communication (ActionSpec (..), OutSpecs)
 import           Pos.Context (NodeContext (..))
@@ -45,6 +45,8 @@ import           Pos.Wallet.Web.State (WalletDB)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Web (TlsParams)
 import           Pos.WorkMode (RealMode)
+import           Cardano.NodeIPC (startNodeJsIPC)
+import           Pos.Shutdown.Class        (HasShutdownContext (shutdownContext))
 
 -- | 'WalletWebMode' runner.
 runWRealMode
@@ -83,8 +85,12 @@ walletServeWebFull
     -> NetworkAddress          -- ^ IP and Port to listen
     -> Maybe TlsParams
     -> WalletWebMode ()
-walletServeWebFull diffusion ntpStatus debug address mTlsParams =
-    walletServeImpl action address mTlsParams Nothing
+walletServeWebFull diffusion ntpStatus debug address mTlsParams = do
+    ctx <- view shutdownContext
+    let
+      portCallback :: Word16 -> IO ()
+      portCallback port = usingLoggerName "NodeIPC" $ flip runReaderT ctx $ startNodeJsIPC port
+    walletServeImpl action address mTlsParams Nothing (Just portCallback)
   where
     action :: WalletWebMode Application
     action = do

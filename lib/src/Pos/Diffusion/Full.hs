@@ -16,7 +16,7 @@ import           Universum
 import           Nub (ordNub)
 
 import qualified Control.Concurrent.STM as STM
-import qualified Control.Concurrent.Async as Async
+import           Control.Concurrent.Async (Concurrently (..))
 import           Data.Functor.Contravariant (contramap)
 import qualified Data.Map as M
 import qualified Data.Map.Strict as MS
@@ -88,8 +88,9 @@ data RunFullDiffusionInternals = RunFullDiffusionInternals
     }
 
 data FullDiffusionInternals = FullDiffusionInternals
-    { fdiNode :: Node
-    , fdiConverse :: Converse PackingType PeerData
+    { fdiNode        :: Node
+    , fdiConverse    :: Converse PackingType PeerData
+    , fdiSendActions :: SendActions
     }
 
 -- | Make a full diffusion layer, filling in many details using a
@@ -407,23 +408,32 @@ runDiffusionLayerFull logTrace
                       k =
     maybeBracketKademliaInstance logTrace mKademliaParams defaultPort $ \mKademlia ->
         timeWarpNode logTrace transport convEstablishTimeout ourVerInfo listeners $ \nd converse ->
-            -- TODO use 'concurrently' or similar combinator.
-            Async.withAsync (liftIO $ OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \dthread -> do
-                Async.link dthread
-                case mEkgNodeMetrics of
-                    Just ekgNodeMetrics -> registerEkgNodeMetrics ekgNodeMetrics nd
-                    Nothing -> pure ()
-                -- Subscription worker bypasses the outbound queue and uses
-                -- send actions directly.
-                let sendActions :: SendActions
-                    sendActions = makeSendActions logTrace ourVerInfo oqEnqueue converse
-                Async.withAsync (subscriptionThread (fst <$> mKademlia) sendActions) $ \sthread -> do
-                    Async.link sthread
+            -- Concurrently run the dequeue thread, subscription thread, and
+            -- main action.
+            let sendActions :: SendActions
+                sendActions = makeSendActions logTrace ourVerInfo oqEnqueue converse
+                dequeueDaemon = OQ.dequeueThread oq (sendMsgFromConverse converse)
+                subscriptionDaemon = subscriptionThread (fst <$> mKademlia) sendActions
+                mainAction = do
+                    maybe (pure ()) (flip registerEkgNodeMetrics nd) mEkgNodeMetrics
                     maybe (pure ()) (joinKademlia logTrace) mKademlia
-                    k $ FullDiffusionInternals
-                        { fdiNode = nd
-                        , fdiConverse = converse
-                        }
+                    let fdi = FullDiffusionInternals
+                            { fdiNode = nd
+                            , fdiConverse = converse
+                            , fdiSendActions = sendActions
+                            }
+                    t <- k fdi
+                    -- If everything went well, stop the outbound queue
+                    -- normally. If 'k fdi' threw an exception, the dequeue
+                    -- thread ('dequeueDaemon') will be killed.
+                    OQ.waitShutdown oq
+                    pure t
+                
+                action = Concurrently dequeueDaemon
+                      *> Concurrently subscriptionDaemon
+                      *> Concurrently mainAction
+
+            in  runConcurrently action
   where
     oqEnqueue :: Msg
               -> (NodeId -> VerInfo -> Conversation PackingType t)

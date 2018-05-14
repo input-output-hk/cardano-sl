@@ -22,7 +22,8 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import qualified Cardano.Wallet.WalletLayer.Kernel as Kernel
 import qualified Cardano.Wallet.WalletLayer.Legacy as Legacy
 import qualified Cardano.Wallet.WalletLayer.QuickCheck as QuickCheck
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
+import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..),
+                                                  applyBlocks, rollbackBlocks)
 
 import           Pos.Core (HasConfiguration)
 

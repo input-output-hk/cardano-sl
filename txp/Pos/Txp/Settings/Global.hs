@@ -18,7 +18,7 @@ import           Universum
 
 import           System.Wlog (WithLogger)
 
-import           Pos.Core (ComponentBlock, HasConfiguration)
+import           Pos.Core (ComponentBlock)
 import           Pos.Core.Txp (TxPayload, TxpUndo)
 import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp)
 import           Pos.Slotting (MonadSlots)
@@ -29,7 +29,6 @@ type TxpCommonMode m =
     ( WithLogger m
     , MonadDBRead m
     , MonadGState m
-    , HasConfiguration
     )
 
 type TxpGlobalVerifyMode m =

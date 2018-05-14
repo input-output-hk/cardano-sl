@@ -25,8 +25,8 @@ import           Pos.Diffusion.Types (DiffusionLayer (..), hoistDiffusion)
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
                                bracketNodeResources, elimRealMode, loggerBracket, lpConsoleLog,
                                runNode, withConfigurations)
-import           Pos.Logic.Full (logicLayerFull)
-import           Pos.Logic.Types (LogicLayer (..), hoistLogic)
+import           Pos.Logic.Full (logicFullM)
+import           Pos.Logic.Types (hoistLogic)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
                                     topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Ntp.Configuration (NtpConfiguration)
@@ -135,20 +135,24 @@ action opts@AuxxOptions {..} command = do
             let runIO = runProduction . elimRealMode nr . toRealMode
             -- Monad here needs to be 'Production' (bracketNodeResources) so
             -- take it to real mode and then eliminate it.
-            elimRealMode nr $ toRealMode $
+            elimRealMode nr $ toRealMode $ do
                 -- Here's an 'AuxxMode' thing, using a 'Logic AuxxMode' and
                 -- doing a continuation in 'AuxxMode'
-                logicLayerFull (jsonLog . JLTxReceived) $ \logicLayer ->
-                    -- 'diffusionLayerFull' works in 'IO'. Luckily, we have
-                    -- AuxxMode ~> IO and vice-versa (liftIO).
-                    -- We hoist the 'Logic AuxxMode' using 'runIO' so that
-                    -- the diffusion layer can use it.
-                    liftIO $ diffusionLayerFull fdconf (npNetworkConfig nodeParams) Nothing (hoistLogic runIO (logic logicLayer)) $ \diffusionLayer -> runIO $ do
-                        let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
-                            (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
-                        -- We're back in 'AuxxMode' again. We run the logic
-                        -- layer using a hoisted diffusion layer (liftIO).
-                        runLogicLayer logicLayer (liftIO (runDiffusionLayer diffusionLayer (runIO (auxxModeAction (hoistDiffusion liftIO (diffusion diffusionLayer))))))
+                logic <- logicFullM (jsonLog . JLTxReceived)
+                -- 'diffusionLayerFull' works in 'IO'. Luckily, we have
+                -- AuxxMode ~> IO and vice-versa (liftIO).
+                -- We hoist the 'Logic AuxxMode' using 'runIO' so that
+                -- the diffusion layer can use it.
+                liftIO $ diffusionLayerFull fdconf
+                                            (npNetworkConfig nodeParams)
+                                            Nothing
+                                            (hoistLogic runIO logic) $ \diffusionLayer -> do
+                    let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
+                        (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
+                    -- We're back in 'AuxxMode' again. We run the logic
+                    -- layer using a hoisted diffusion layer (liftIO).
+                    runDiffusionLayer diffusionLayer $ runIO $
+                        auxxModeAction (hoistDiffusion liftIO (diffusion diffusionLayer))
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
     nArgs =

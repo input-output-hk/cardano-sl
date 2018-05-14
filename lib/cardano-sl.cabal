@@ -203,6 +203,8 @@ library
                       , wai
                       , warp
                       , warp-tls
+                      , streaming-commons
+                      , network
                       , yaml
                       -- https://issues.serokell.io/issue/DEVOPS-230
                       , cpphs
@@ -262,9 +264,6 @@ test-suite cardano-test
                        -- Core
                        Test.Pos.Core.SeedSpec
                        Test.Pos.Core.SlottingSpec
-
-                       -- LRC
-                       Test.Pos.Lrc.FollowTheSatoshiSpec
 
                        -- Ssc
                        Test.Pos.Ssc.ComputeSharesSpec

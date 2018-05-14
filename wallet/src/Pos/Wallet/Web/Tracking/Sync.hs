@@ -56,7 +56,7 @@ import           Data.Time.Units (Microsecond, TimeUnit (..))
 import           Formatting (build, float, sformat, shown, (%))
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HasConfiguration,
+import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HasConfiguration, HasGenesisHash,
                            HasDifficulty (..), HasProtocolConstants, HeaderHash, Timestamp (..),
                            blkSecurityParam, genesisHash, headerHash, headerSlotL, timestampToPosix)
 import           Pos.Core.Block (BlockHeader (..), getBlockHeader, mainBlockTxPayload)
@@ -441,7 +441,7 @@ heightOf = view difficultyL
 
 -- | Retrieves the 'BlockHeader' correspending to the first 'GenesisBlock' of
 -- this blockchain.
-firstGenesisHeader :: MonadDBRead m => m (Either SyncError BlockHeader)
+firstGenesisHeader :: (HasGenesisHash, MonadDBRead m) => m (Either SyncError BlockHeader)
 firstGenesisHeader = runExceptT $ do
     genesisHeaderHash  <- resolveForwardLink (genesisHash @BlockHeader)
     case genesisHeaderHash of

@@ -426,6 +426,8 @@ deriveJSON Serokell.defaultOptions ''WalletId
 instance ToSchema WalletId where
   declareNamedSchema = genericDeclareNamedSchema defaultSchemaOptions
 
+instance ToJSONKey WalletId
+
 instance Arbitrary WalletId where
   arbitrary =
       let wid = "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"

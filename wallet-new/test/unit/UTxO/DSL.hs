@@ -42,6 +42,7 @@ module UTxO.DSL (
     -- * Hash
   , Hash(..)
   , GivenHash(..)
+  , givenHash
   , findHash
   , findHash'
     -- * Additional
@@ -80,6 +81,8 @@ import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, (%))
 import           Pos.Util.Chrono
+                   (NewestFirst(NewestFirst),
+                    OldestFirst(getOldestFirst))
 import           Prelude (Show (..))
 import           Serokell.Util (listJson, mapJson)
 import           Universum
@@ -260,22 +263,38 @@ data Output a = Output {
   Inputs
 -------------------------------------------------------------------------------}
 
-data Input h a = Input {
-      inpTrans :: h (Transaction h a)
+data Input h a = Input
+    { inpTrans :: h (Transaction h a)
+      -- ^ The hash of the 'Transaction' where the 'Output' that this 'Input'
+      -- spends is found.
     , inpIndex :: Index
+      -- ^ Index to a particular 'Output' among the 'trOut' outputs in
+      -- the 'Transaction' idenfified  by 'inpTrans'. Said 'Output' is the one
+      -- that this 'Input' is spending.
     }
 
 deriving instance Hash h a => Eq  (Input h a)
 deriving instance Hash h a => Ord (Input h a)
 
+-- | Obtain the 'Transaction' to which 'Input' refers.
+--
+-- Returns 'Nothing' if the 'Transaction' is missing from the 'Ledger'.
 inpTransaction :: Hash h a => Input h a -> Ledger h a -> Maybe (Transaction h a)
 inpTransaction = findHash . inpTrans
 
+-- | Obtain the 'Output' that the given 'Input' spent.
+--
+-- Returns 'Nothing' if the 'Transaction' to which this 'Input' refers is
+-- missing from the 'Ledger'.
 inpSpentOutput :: Hash h a => Input h a -> Ledger h a -> Maybe (Output a)
 inpSpentOutput i l = do
     t <- inpTransaction i l
     trOuts t `at` fromIntegral (inpIndex i)
 
+-- | Obtain the 'Value' in the 'Output' spent by the given 'Input'.
+--
+-- Returns 'Nothing' if the 'Transaction' to which this 'Input' refers is
+-- missing from the 'Ledger'.
 inpVal :: Hash h a => Input h a -> Ledger h a -> Maybe Value
 inpVal i l = outVal <$> inpSpentOutput i l
 
@@ -521,8 +540,8 @@ utxoApplyBlock :: forall h a. Hash h a => Block h a -> Utxo h a -> Utxo h a
 utxoApplyBlock = go . getOldestFirst
   where
     go :: [Transaction h a] -> Utxo h a -> Utxo h a
-    go []     = identity
-    go (t:ts) = go ts . utxoApply t
+    go []     u = u
+    go (t:ts) u = go ts (utxoApply t u)
 
 {-------------------------------------------------------------------------------
   Instantiating the hash to the identity
@@ -551,6 +570,10 @@ instance Buildable (GivenHash a) where
 
 instance Hash GivenHash a where
   hash = GivenHash . trHash
+
+-- | The given hash is independent from any actual hash function
+givenHash :: Transaction h a -> GivenHash (Transaction h a)
+givenHash = GivenHash . trHash
 
 {-------------------------------------------------------------------------------
   Pretty-printing
@@ -586,7 +609,7 @@ instance (Buildable a, Hash h a) => Buildable (Transaction h a) where
       ( "Transaction"
       % "{ fresh: " % build
       % ", ins:   " % listJson
-      % ", outs:  " % listJson
+      % ", outs:  " % mapJson
       % ", fee:   " % build
       % ", hash:  " % build
       % ", extra: " % listJson
@@ -594,10 +617,14 @@ instance (Buildable a, Hash h a) => Buildable (Transaction h a) where
       )
       trFresh
       trIns
-      trOuts
+      (Map.fromList (zip outputIndices trOuts))
       trFee
       trHash
       trExtra
+    where
+      -- The output is easier to read when we see actual indices for outputs
+      outputIndices :: [Int]
+      outputIndices = [0..]
 
 instance (Buildable a, Hash h a) => Buildable (Chain h a) where
   build blocks = bprint

@@ -17,7 +17,7 @@ module Pos.Delegation.Lrc
 
 import           Universum
 
-import           Pos.Core (EpochIndex, HasConfiguration, bvdHeavyDelThd, genesisBlockVersionData)
+import           Pos.Core (EpochIndex, bvdHeavyDelThd, genesisBlockVersionData, HasGenesisBlockVersionData)
 import qualified Pos.DB as DB
 import qualified Pos.Lrc.Consumer as Lrc
 import qualified Pos.Lrc.Context as Lrc
@@ -32,7 +32,7 @@ import           Pos.Util.Util (getKeys)
 
 data RCDlg
 
-instance HasConfiguration => RichmenComponent RCDlg where
+instance (HasGenesisBlockVersionData) => RichmenComponent RCDlg where
     type RichmenData RCDlg = Lrc.RichmenSet
     rcToData = getKeys . snd
     rcTag Proxy = "dlg"
@@ -44,7 +44,7 @@ instance HasConfiguration => RichmenComponent RCDlg where
 ----------------------------------------------------------------------------
 
 -- | Consumer will be called on every Richmen computation.
-dlgLrcConsumer :: (DB.MonadGState m, DB.MonadDB m) => Lrc.LrcConsumer m
+dlgLrcConsumer :: (HasGenesisBlockVersionData, DB.MonadGState m, DB.MonadDB m) => Lrc.LrcConsumer m
 dlgLrcConsumer = Lrc.lrcConsumerFromComponentSimple @RCDlg bvdHeavyDelThd
 
 ----------------------------------------------------------------------------
@@ -54,7 +54,7 @@ dlgLrcConsumer = Lrc.lrcConsumerFromComponentSimple @RCDlg bvdHeavyDelThd
 -- | Wait for LRC results to become available and then get delegation ricmen
 -- data for the given epoch.
 getDlgRichmen
-    :: (MonadIO m, DB.MonadDBRead m, MonadReader ctx m, Lrc.HasLrcContext ctx)
+    :: (MonadIO m, DB.MonadDBRead m, MonadReader ctx m, Lrc.HasLrcContext ctx, HasGenesisBlockVersionData)
     => Text               -- ^ Function name (to include into error message)
     -> EpochIndex         -- ^ Epoch for which you want to know the richmen
     -> m Lrc.RichmenSet
@@ -68,6 +68,6 @@ getDlgRichmen fname epoch =
 --
 -- Returns a 'Maybe'.
 tryGetDlgRichmen
-    :: DB.MonadDBRead m
+    :: (HasGenesisBlockVersionData, DB.MonadDBRead m)
     => EpochIndex -> m (Maybe Lrc.RichmenSet)
 tryGetDlgRichmen = getRichmen @RCDlg

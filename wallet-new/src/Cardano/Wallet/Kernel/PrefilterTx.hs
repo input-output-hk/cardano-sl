@@ -12,6 +12,9 @@ import           Universum
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.Text.Buildable
+import           Formatting (bprint, (%))
+import           Serokell.Util (listJson, mapJson)
 
 import           Pos.Core (Address (..), HasConfiguration)
 import           Pos.Core.Txp (TxIn (..), TxOut (..), TxOutAux (..))
@@ -80,3 +83,17 @@ ours :: WalletDecrCredentials
      -> [a]
      -> [a]
 ours wdc selectAddr rtxs = map fst $ selectOwnAddresses wdc selectAddr rtxs
+
+{-------------------------------------------------------------------------------
+  Pretty-printing
+-------------------------------------------------------------------------------}
+
+instance Buildable PrefilteredBlock where
+  build PrefilteredBlock{..} = bprint
+    ( "PrefilteredBlock "
+    % "{ inputs:  " % listJson
+    % ", outputs: " % mapJson
+    % "}"
+    )
+    (Set.toList pfbInputs)
+    pfbOutputs

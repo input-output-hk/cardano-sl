@@ -13,13 +13,10 @@ flag benchmarks
   manual:            True
 
 Library
-  exposed-modules:      Network.Discovery.Abstract
+  exposed-modules:      Network.QDisc.Fair
+
+                        Network.Discovery.Abstract
                         Network.Discovery.Transport.Kademlia
-                        -- TODO remove these
-                        Network.Transport.Abstract
-                        Network.Transport.Concrete
-                        Network.Transport.Concrete.TCP
-                        Network.QDisc.Fair
 
                         Network.Broadcast.OutboundQueue
                         Network.Broadcast.OutboundQueue.Types
@@ -253,12 +250,15 @@ test-suite cardano-sl-networking-test
                        Test.Network.Broadcast.OutboundQueueSpec
                        Test.Util
   type:                exitcode-stdio-1.0
-  build-depends:       base >= 4.8 && < 5
+  build-depends:       async
+                     , base >= 4.8 && < 5
                      , binary
                      , bytestring >= 0.10.8
                      , cardano-sl-networking
+                     , cardano-sl-util
                      , containers >= 0.5.7
                      , hspec >= 2.1.10
+                     , hspec-core
                      , lens >= 4.14
                      , log-warper
                      , mtl >= 2.2.1

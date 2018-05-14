@@ -11,7 +11,7 @@ import           Control.Monad.Except (runExceptT, throwError)
 
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Types (RecoveryHeader, RecoveryHeaderTag)
-import           Pos.Core (HasCoreConfiguration, epochOrSlotG, epochOrSlotToSlot, flattenSlotId)
+import           Pos.Core (HasCoreConfiguration, epochOrSlotG, epochOrSlotToSlot, flattenSlotId, HasProtocolConstants)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Recovery.Info (MonadRecoveryInfo (..), SyncStatus (..))
@@ -25,6 +25,7 @@ instance ( Monad m
          , MonadReader ctx m
          , HasLens RecoveryHeaderTag ctx RecoveryHeader
          , HasCoreConfiguration
+         , HasProtocolConstants
          ) =>
          MonadRecoveryInfo m where
     getSyncStatus lagBehindParam =

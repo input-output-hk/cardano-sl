@@ -39,7 +39,7 @@ import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
 import           Pos.Client.Txp.Util (createTx)
 import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAddr (..),
-                           Timestamp (..), deriveFirstHDAddress, getCoin, makePubKeyAddress, mkCoin)
+                           Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretKeys)
 import           Pos.Core.Txp (Tx (_txOutputs), TxAux (..), TxIn (TxInUtxo), TxOut (..),
                                TxOutAux (..), txaF)

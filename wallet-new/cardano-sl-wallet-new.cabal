@@ -61,6 +61,7 @@ library
                        Cardano.Wallet.API.V1.Types
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.Kernel
+                       Cardano.Wallet.Kernel.Actions
                        Cardano.Wallet.Kernel.DB.AcidState
                        Cardano.Wallet.Kernel.DB.BlockMeta
                        Cardano.Wallet.Kernel.DB.HdWallet
@@ -107,6 +108,7 @@ library
                      , acid-state
                      , aeson
                      , aeson-pretty
+                     , async
                      , bytestring
                      , cardano-sl
                      , cardano-sl-block
@@ -165,6 +167,7 @@ library
                      , wai
                      , wai-cors
                      , warp
+                     , node-ipc
 
   default-language:    Haskell2010
   default-extensions: TypeOperators
@@ -290,25 +293,34 @@ test-suite wallet-unit-tests
   ghc-options:        -Wall
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
-  other-modules:      Util
+  other-modules:      Test.Infrastructure.Generator
+                      Test.Infrastructure.Genesis
+                      Test.Spec.Kernel
+                      Test.Spec.Models
+                      Test.Spec.Translation
+                      Test.Spec.WalletWorker
+                      Util
                       Util.Buildable
                       Util.Buildable.Hspec
                       Util.Buildable.QuickCheck
-                      Util.DepIndep
                       Util.Validated
-                      UTxO.BlockGen
                       UTxO.Bootstrap
                       UTxO.Context
                       UTxO.Crypto
                       UTxO.DSL
+                      UTxO.Generator
                       UTxO.Interpreter
-                      UTxO.PreChain
                       UTxO.Translate
                       UTxO.Verify
                       Wallet.Abstract
-                      Wallet.Abstract.Cardano
                       Wallet.Basic
                       Wallet.Incremental
+                      Wallet.Inductive
+                      Wallet.Inductive.Cardano
+                      Wallet.Inductive.Generator
+                      Wallet.Inductive.Interpreter
+                      Wallet.Inductive.Invariants
+                      Wallet.Inductive.Validation
                       Wallet.Prefiltered
                       Wallet.Rollback.Basic
                       Wallet.Rollback.Full

@@ -24,7 +24,7 @@ import           Formatting (build, sformat, (%))
 
 import           Pos.Core.Block.Union (ComponentBlock (..))
 import           Pos.Core.Class (epochIndexL)
-import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core (HasCoreConfiguration, HasGenesisData, HasProtocolMagic)
 import           Pos.Core.Txp (TxAux, TxUndo, TxpUndo)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Class (gsAdoptedBVData)
@@ -50,7 +50,7 @@ import qualified Pos.Util.Modifier as MM
 
 -- | Settings used for global transactions data processing used by a
 -- simple full node.
-txpGlobalSettings :: TxpGlobalSettings
+txpGlobalSettings :: (HasProtocolMagic, HasGenesisData) => TxpGlobalSettings
 txpGlobalSettings =
     TxpGlobalSettings
     { tgsVerifyBlocks = verifyBlocks
@@ -63,7 +63,7 @@ txpGlobalSettings =
 ----------------------------------------------------------------------------
 
 verifyBlocks ::
-       forall m. TxpGlobalVerifyMode m
+       forall m. (TxpGlobalVerifyMode m, HasProtocolMagic)
     => Bool
     -> OldestFirst NE TxpBlock
     -> m $ Either ToilVerFailure $ OldestFirst NE TxpUndo
@@ -159,7 +159,7 @@ processBlunds ProcessBlundsSettings {..} blunds = do
 
 applyBlocksWith ::
        forall extraEnv extraState ctx m.
-       (TxpGlobalApplyMode ctx m, Default extraState)
+       (TxpGlobalApplyMode ctx m, Default extraState, HasProtocolMagic)
     => ProcessBlundsSettings extraEnv extraState m
     -> OldestFirst NE TxpBlund
     -> m SomeBatchOp
@@ -189,7 +189,7 @@ processBlundsSettings isRollback pureAction =
     processSingle = zoom _1 . magnify _1 . pureAction . blundToAuxNUndo
 
 rollbackBlocks ::
-       forall m. TxpGlobalRollbackMode m
+       forall m. (TxpGlobalRollbackMode m, HasGenesisData)
     => NewestFirst NE TxpBlund
     -> m SomeBatchOp
 rollbackBlocks (NewestFirst blunds) =
@@ -200,7 +200,7 @@ rollbackBlocks (NewestFirst blunds) =
 ----------------------------------------------------------------------------
 
 -- | Convert 'GlobalToilState' to batch of database operations.
-globalToilStateToBatch :: HasConfiguration => GlobalToilState -> SomeBatchOp
+globalToilStateToBatch :: HasCoreConfiguration => GlobalToilState -> SomeBatchOp
 globalToilStateToBatch GlobalToilState {..} =
     SomeBatchOp [SomeBatchOp utxoOps, SomeBatchOp stakesOps]
   where

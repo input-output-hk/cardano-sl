@@ -113,9 +113,8 @@ newUnsignedTransaction pmt@Payment {..} = do
     -- This transaction will be signed on the client-side (mobile client or
     -- hardware wallet), and after that transaction (with its signature) will be
     -- sent to backend.
-    let (V1 spendingPw) = fromMaybe (V1 mempty) pmtSpendingPassword
     batchPayment <- createBatchPayment pmt
-    cTx <- V0.newUnsignedTransaction spendingPw batchPayment
+    cTx <- V0.newUnsignedTransaction batchPayment
     single <$> migrate cTx
 
 

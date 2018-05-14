@@ -100,14 +100,12 @@ newPaymentBatch submitTx passphrase NewBatchPayment {..} = do
 
 newUnsignedTransaction
     :: MonadWalletTxFull ctx m
-    => PassPhrase
-    -> NewBatchPayment
+    => NewBatchPayment
     -> m CTx
-newUnsignedTransaction passphrase NewBatchPayment {..} = do
+newUnsignedTransaction NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
     notFasterThan (6 :: Second) $ do
       createNewUnsignedTransaction
-          passphrase
           (AccountMoneySource src)
           npbTo
           npbInputSelectionPolicy
@@ -257,12 +255,11 @@ sendMoney submitTx passphrase moneySource dstDistr policy = do
 
 createNewUnsignedTransaction
     :: (MonadWalletTxFull ctx m)
-    => PassPhrase
-    -> MoneySource
+    => MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> InputSelectionPolicy
     -> m CTx
-createNewUnsignedTransaction passphrase moneySource dstDistr policy = do
+createNewUnsignedTransaction moneySource dstDistr policy = do
     db <- askWalletDB
     ws <- getWalletSnapshot db
     when walletTxCreationDisabled $
@@ -283,7 +280,7 @@ createNewUnsignedTransaction passphrase moneySource dstDistr policy = do
     outputs <- coinDistrToOutputs dstDistr
     let pendingAddrs = getPendingAddresses ws policy
     th <- rewrapTxError "Cannot create unsigned transaction" $ do
-        (tx, inpTxOuts')  <- prepareUnsignedTx pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
+        (tx, inpTxOuts')  <- prepareUnsignedTx pendingAddrs policy srcAddrs outputs
 
         ts <- Just <$> getCurrentTimestamp
         let

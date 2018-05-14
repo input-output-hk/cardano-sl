@@ -77,11 +77,10 @@ prepareUnsignedTx
     -> InputSelectionPolicy
     -> NonEmpty Address
     -> NonEmpty TxOutAux
-    -> AddrData m
     -> m (Tx, NonEmpty TxOut)
-prepareUnsignedTx pendingAddrs inputSelectionPolicy addrs outputs addrData = do
+prepareUnsignedTx pendingAddrs inputSelectionPolicy addrs outputs = do
     utxo <- getOwnUtxos (toList addrs)
-    eitherToThrow =<< createUnsignedTx pendingAddrs inputSelectionPolicy utxo outputs addrData
+    eitherToThrow =<< createUnsignedTx pendingAddrs inputSelectionPolicy utxo outputs
 
 -- | Construct redemption Tx using redemption secret key and a output address
 prepareRedemptionTx

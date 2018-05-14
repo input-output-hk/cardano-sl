@@ -499,6 +499,17 @@ mkOutputsWithRem addrData TxRaw {..}
         let txOut = TxOut changeAddr trRemainingMoney
         pure $ TxOutAux txOut :| toList trOutputs
 
+mkOutputsWithRemForUnsignedTx
+    :: TxCreateMode m
+    => TxRaw
+    -> TxCreator m TxOutputs
+mkOutputsWithRemForUnsignedTx TxRaw {..}
+    | trRemainingMoney == mkCoin 0 = pure trOutputs
+    | otherwise =
+        -- We cannot get a new address here, because we're creating unsigned
+        -- transaction for an external wallet.
+        throwError $ GeneralTxError "mkOutputsWithRemForUnsignedTx: remaining money"
+
 prepareInpsOuts
     :: TxCreateMode m
     => PendingAddresses
@@ -509,6 +520,17 @@ prepareInpsOuts
 prepareInpsOuts pendingTx utxo outputs addrData = do
     txRaw@TxRaw {..} <- prepareTxWithFee pendingTx utxo outputs
     outputsWithRem <- mkOutputsWithRem addrData txRaw
+    pure (trInputs, outputsWithRem)
+
+prepareInpsOutsForUnsignedTx
+    :: TxCreateMode m
+    => PendingAddresses
+    -> Utxo
+    -> TxOutputs
+    -> TxCreator m (TxOwnedInputs TxOut, TxOutputs)
+prepareInpsOutsForUnsignedTx pendingTx utxo outputs = do
+    txRaw@TxRaw {..} <- prepareTxWithFee pendingTx utxo outputs
+    outputsWithRem <- mkOutputsWithRemForUnsignedTx txRaw
     pure (trInputs, outputsWithRem)
 
 createGenericTx
@@ -578,11 +600,10 @@ createGenericUnsignedTx
     -> InputSelectionPolicy
     -> Utxo
     -> TxOutputs
-    -> AddrData m
     -> m (Either TxError (Tx,NonEmpty TxOut))
-createGenericUnsignedTx pendingTx creator inputSelectionPolicy utxo outputs addrData =
+createGenericUnsignedTx pendingTx creator inputSelectionPolicy utxo outputs =
     runTxCreator inputSelectionPolicy $ do
-        (inps, outs) <- prepareInpsOuts pendingTx utxo outputs addrData
+        (inps, outs) <- prepareInpsOutsForUnsignedTx pendingTx utxo outputs
         tx <- either throwError return $ creator inps outs
         pure (tx, map fst inps)
 
@@ -593,10 +614,9 @@ createUnsignedTx
     -> InputSelectionPolicy
     -> Utxo
     -> TxOutputs
-    -> AddrData m
     -> m (Either TxError (Tx,NonEmpty TxOut))
-createUnsignedTx pendingTx groupInputs utxo outputs addrData =
-    createGenericUnsignedTx pendingTx makeUnsignedAbstractTx groupInputs utxo outputs addrData
+createUnsignedTx pendingTx groupInputs utxo outputs =
+    createGenericUnsignedTx pendingTx makeUnsignedAbstractTx groupInputs utxo outputs
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx

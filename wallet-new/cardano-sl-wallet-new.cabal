@@ -293,7 +293,13 @@ test-suite wallet-unit-tests
   ghc-options:        -Wall
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
-  other-modules:      Util
+  other-modules:      Test.Infrastructure.Generator
+                      Test.Infrastructure.Genesis
+                      Test.Spec.Kernel
+                      Test.Spec.Models
+                      Test.Spec.Translation
+                      Test.Spec.WalletWorker
+                      Util
                       Util.Buildable
                       Util.Buildable.Hspec
                       Util.Buildable.QuickCheck

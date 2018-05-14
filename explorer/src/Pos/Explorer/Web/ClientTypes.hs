@@ -105,15 +105,15 @@ import           Pos.Explorer.TestUtil (secretKeyToAddress)
 
 -- | Client hash
 newtype CHash = CHash Text
-  deriving (Show, Eq, Generic, Buildable, Hashable)
+  deriving (Show, Eq, Generic, Buildable, Hashable, NFData)
 
 -- | Client address. The address may be from either Cardano or RSCoin.
 newtype CAddress = CAddress Text
-    deriving (Show, Eq, Generic, Buildable, Hashable)
+    deriving (Show, Eq, Generic, Buildable, Hashable, NFData)
 
 -- | Client transaction id
 newtype CTxId = CTxId CHash
-    deriving (Show, Eq, Generic, Buildable, Hashable)
+    deriving (Show, Eq, Generic, Buildable, Hashable, NFData)
 
 -------------------------------------------------------------------------------------
 -- Client-server, server-client transformation functions

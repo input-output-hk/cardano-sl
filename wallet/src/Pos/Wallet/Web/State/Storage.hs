@@ -145,6 +145,8 @@ data WAddressMeta = WAddressMeta
     , _wamAddress      :: Address
     } deriving (Eq, Ord, Show, Generic, Typeable)
 
+instance NFData WAddressMeta
+
 makeClassy ''WAddressMeta
 instance Hashable WAddressMeta
 instance Buildable WAddressMeta where
@@ -170,6 +172,11 @@ data AddressInfo = AddressInfo
     , adiSortingKey   :: !AddressSortingKey
     } deriving Eq
 
+instance NFData AddressInfo where
+    rnf x = adiWAddressMeta x
+        `deepseq` adiSortingKey x
+        `deepseq` ()
+
 type CAddresses = HashMap Address AddressInfo
 
 -- | Information about existing wallet account.
@@ -187,6 +194,13 @@ data AccountInfo = AccountInfo
     , _aiUnusedKey        :: !AddressSortingKey
     } deriving (Eq)
 
+instance NFData AccountInfo where
+    rnf ai =  _aiMeta ai
+        `deepseq` _aiAddresses ai
+        `deepseq` _aiRemovedAddresses ai
+        `deepseq` _aiUnusedKey ai
+        `deepseq` ()
+
 makeLenses ''AccountInfo
 
 -- | A 'RestorationBlockDepth' is simply a @newtype@ wrapper over a 'ChainDifficulty',
@@ -194,7 +208,7 @@ makeLenses ''AccountInfo
 -- a certain wallet was restored.
 newtype RestorationBlockDepth =
     RestorationBlockDepth { getRestorationBlockDepth :: ChainDifficulty }
-    deriving (Eq, Show)
+    deriving (Eq, Show, NFData)
 
 -- | Datatype which stores information about the sync state
 -- of this wallet. Syncing here is always relative to the blockchain.
@@ -215,6 +229,12 @@ data WalletSyncState
     -- ^ This wallet is tracking the blockchain up to 'HeaderHash'.
     deriving (Eq)
 
+instance NFData WalletSyncState where
+    rnf x = case x of
+        NotSynced -> ()
+        SyncedWith h -> rnf h
+        RestoringFrom a b -> a `deepseq` b `deepseq` ()
+
 -- The 'SyncThroughput' is computed during the syncing phase in terms of
 -- how many blocks we can sync in one second. This information can be
 -- used by consumers of the API to construct heuristics on the state of the
@@ -230,11 +250,16 @@ data SyncStatistics = SyncStatistics {
     , wspCurrentBlockchainDepth :: !ChainDifficulty
     } deriving (Eq)
 
+instance NFData SyncStatistics where
+    rnf ss = wspThroughput ss
+        `deepseq` wspCurrentBlockchainDepth ss
+        `deepseq` ()
+
 -- ^ | The 'SyncThroughput', in blocks/sec. This can be roughly computed
 -- during the syncing process, to provide better estimate to the frontend
 -- on how much time the restoration/syncing progress is going to take.
 newtype SyncThroughput = SyncThroughput BlockCount
-     deriving (Eq, Ord, Show)
+     deriving (Eq, Ord, Show, NFData)
 
 zeroThroughput :: SyncThroughput
 zeroThroughput = SyncThroughput (BlockCount 0)
@@ -262,6 +287,16 @@ data WalletInfo = WalletInfo
       -- into a client facing data structure (for example 'CWalletMeta')
     , _wiIsReady        :: !Bool
     } deriving (Eq)
+
+instance NFData WalletInfo where
+    rnf wi = _wiMeta wi
+        `deepseq` _wiPassphraseLU wi
+        `deepseq` _wiCreationTime wi
+        `deepseq` _wiSyncState wi
+        `deepseq` _wiSyncStatistics wi
+        `deepseq` _wsPendingTxs wi
+        `deepseq` _wiIsReady wi
+        `deepseq` ()
 
 makeLenses ''WalletInfo
 
@@ -312,6 +347,19 @@ data WalletStorage = WalletStorage
       -- | Subset of @_wsUsedAddresses@ which are /change addresses/.
     , _wsChangeAddresses :: !CustomAddresses
     } deriving (Eq)
+
+instance NFData WalletStorage where
+    rnf ws = _wsWalletInfos ws
+        `deepseq` _wsAccountInfos ws
+        `deepseq` _wsProfile ws
+        `deepseq` _wsReadyUpdates ws
+        `deepseq` _wsTxHistory ws
+        `deepseq` _wsHistoryCache ws
+        `deepseq` _wsUtxo ws
+        `deepseq` _wsBalances ws
+        `deepseq` _wsUsedAddresses ws
+        `deepseq` _wsChangeAddresses ws
+        `deepseq` ()
 
 makeClassy ''WalletStorage
 

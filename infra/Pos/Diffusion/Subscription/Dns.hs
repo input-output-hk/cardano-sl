@@ -161,7 +161,7 @@ dnsSubscriptionWorker logTrace oq defaultPort DnsDomains {..} keepaliveTimer slo
 
     -- When to send a keepalive message.
     keepalive :: NodeId -> IO ()
-    keepalive nid = do
+    keepalive _ = do
         time <- slotDuration
         startTimer time keepaliveTimer
         atomically $ waitTimer keepaliveTimer

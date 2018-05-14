@@ -84,6 +84,7 @@ library
                       , cardano-sl-delegation
                       , cardano-sl-infra
                       , cardano-sl-lrc
+                      , cardano-sl-lrc-test
                       , cardano-sl-networking
                       , cardano-sl-ssc
                       , cardano-sl-txp

@@ -22,6 +22,7 @@ packages:
 - core
 - db
 - lrc
+- lrc/tests
 - infra
 - ssc
 - txp
@@ -208,6 +209,7 @@ ghc-options:
   cardano-sl-ssc:        -Werror
   cardano-sl-infra:      -Werror
   cardano-sl-lrc:        -Werror
+  cardano-sl-lrc-test:   -Werror
   cardano-sl-update:     -Werror
   cardano-sl-txp:        -Werror
   cardano-sl-delegation: -Werror

@@ -1,6 +1,6 @@
 -- | Arbitrary instances for Lrc types.
 
-module Pos.Arbitrary.Lrc
+module Test.Pos.Lrc.Arbitrary
        ( GenesisMpcThd
        , InvalidRichmenStakes (..)
        , ValidRichmenStakes (..)

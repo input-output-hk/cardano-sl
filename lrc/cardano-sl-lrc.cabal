@@ -14,9 +14,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Pos.Arbitrary.Lrc
-
-                       Pos.Lrc.Fts
+  exposed-modules:     Pos.Lrc.Fts
                        Pos.Lrc.Types
                        Pos.Lrc.Error
                        Pos.Lrc.Core
@@ -30,8 +28,7 @@ library
                        Pos.Lrc.DB.RichmenBase
                        Pos.Lrc.DB.Seed
 
-  build-depends:       QuickCheck
-                     , base
+  build-depends:       base
                      , bytestring
                      , cardano-sl-binary
                      , cardano-sl-core
@@ -42,7 +39,6 @@ library
                      , conduit
                      , ether
                      , formatting
-                     , generic-arbitrary
                      , lens
                      , log-warper
                      , reflection

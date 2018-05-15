@@ -17,12 +17,12 @@ with localLib;
 let
   executables =  {
     corenode = "${iohkPkgs.cardano-sl-node-static}/bin/cardano-node-simple";
-    wallet = "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-node";
-    integration-test = "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-integration-test";
+    wallet = "${iohkPkgs.cardano-sl-wallet-new-static}/bin/cardano-node";
+    integration-test = "${iohkPkgs.cardano-sl-wallet-new-static}/bin/cardano-integration-test";
     keygen = "${iohkPkgs.cardano-sl-tools}/bin/cardano-keygen";
     explorer = "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
   };
-  demoClusterDeps = with pkgs; (with iohkPkgs; [ jq coreutils pkgs.curl gnused openssl cardano-sl-tools cardano-sl-wallet-new cardano-sl-node-static ]);
+  demoClusterDeps = with pkgs; (with iohkPkgs; [ jq coreutils pkgs.curl gnused openssl cardano-sl-tools cardano-sl-wallet-new-static cardano-sl-node-static ]);
   ifWallet = localLib.optionalString (runWallet);
   ifKeepAlive = localLib.optionalString (keepAlive);
   iohkPkgs = import ./../../.. { inherit config system pkgs gitrev; };

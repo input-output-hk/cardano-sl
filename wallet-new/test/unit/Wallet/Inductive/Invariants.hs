@@ -191,7 +191,7 @@ walletInvariants applicableInvariants l e w = do
         ]
 
       FullRollback -> sequence_ [
---          utxoExpectedDisjoint l e w
+          utxoExpectedDisjoint l e w
         ]
 
 pendingInUtxo :: WalletInv h a
@@ -236,15 +236,12 @@ balanceChangeAvailable l e = invariant (l <> "/balanceChangeAvailable") e $ \w -
                ("balance (total w)",
                  balance (total w))
 
-{-
--- TODO: disabled until we fix the spec
 utxoExpectedDisjoint :: WalletInv h a
 utxoExpectedDisjoint l e = invariant (l <> "/utxoExpectedDisjoint") e $ \w ->
     checkDisjoint ("utxoDomain (utxo w)",
                     utxoDomain (utxo w))
                   ("utxoDomain (expectedUtxo w)",
                     utxoDomain (expectedUtxo w))
--}
 
 {-------------------------------------------------------------------------------
   Compare different wallet implementations

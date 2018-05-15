@@ -24,6 +24,7 @@ library
                         Pos.Diffusion.Subscription.Common
                         Pos.Diffusion.Subscription.Dns
                         Pos.Diffusion.Subscription.Dht
+                        Pos.Diffusion.Subscription.Subscriber
 
                         Pos.DHT.Workers
 

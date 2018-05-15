@@ -12,10 +12,11 @@ extra-package-dbs: []
 # ... → client → generator → [auxx, explorer, wallet] → wallet-new
 # ... → [node, tools]
 packages:
-- networking
-- binary
 - util
 - util/test
+- networking
+- binary
+- binary/test
 - crypto
 - crypto/tests
 - core

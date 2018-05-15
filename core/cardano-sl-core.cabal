@@ -147,7 +147,7 @@ library
                      , generic-arbitrary
                      , hashable
                      , lens
-                     , log-warper >= 1.0.3
+                     --, log-warper >= 1.0.3
                      , memory
                      , mtl
                      , plutus-prototype

@@ -39,6 +39,7 @@ import qualified Mockable.Metrics as Metrics
 import           Mockable.SharedAtomic (SharedAtomic (..), SharedAtomicT)
 import           Mockable.SharedExclusive (SharedExclusive (..), SharedExclusiveT)
 
+
 newtype Production t = Production
     { runProduction :: IO t
     } deriving (Functor, Applicative, Monad)

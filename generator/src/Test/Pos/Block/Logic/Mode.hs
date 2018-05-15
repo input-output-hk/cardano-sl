@@ -96,6 +96,7 @@ import           Pos.Util (newInitFuture, postfixLFields, postfixLFields2)
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
+--import qualified Pos.Util.Log as Log
 import           Pos.Util.Util (HasLens (..))
 import           Pos.WorkMode (EmptyMempoolExt)
 
@@ -512,3 +513,4 @@ instance HasConfigurations => MonadTxpLocal (BlockGenMode EmptyMempoolExt BlockT
 instance HasConfigurations => MonadTxpLocal BlockTestMode where
     txpNormalize = withCompileInfo def $ txNormalize
     txpProcessTx = withCompileInfo def $ txProcessTransactionNoLock
+

@@ -25,6 +25,7 @@ import           Pos.Crypto (hash)
 import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem, txpProcessTx)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 import           Pos.Util.JsonLog.Events (JLTxR (..))
+--import qualified Pos.Util.Log as Log
 
 -- Real tx processing
 -- CHECK: @handleTxDo

@@ -65,6 +65,7 @@ import           Pos.Txp.Toil.Types (MemPool, StakesView, UndoMap, UtxoLookup, U
                                      mpLocalTxs, mpSize, svStakes, svTotal)
 import           Pos.Util (type (~>))
 import qualified Pos.Util.Modifier as MM
+--import qualified Pos.Util.Log as Log
 
 ----------------------------------------------------------------------------
 -- Monadic actions with Utxo.

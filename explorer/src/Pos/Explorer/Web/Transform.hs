@@ -20,7 +20,6 @@ import           Mockable (runProduction)
 import           Servant.Server (Handler, hoistServer)
 
 import           Pos.Block.Configuration (HasBlockConfiguration)
-import           Pos.Communication (OutSpecs)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
 import           Pos.Diffusion.Types (Diffusion)
@@ -30,7 +29,6 @@ import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..))
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.Mockable ()
-import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 
 import           Pos.Explorer.BListener (ExplorerBListener, runExplorerBListener)
@@ -78,17 +76,16 @@ type HasExplorerConfiguration =
 notifierPlugin
     :: HasExplorerConfiguration
     => NotifierSettings
-    -> ([WorkerSpec ExplorerProd], OutSpecs)
-notifierPlugin = first pure . worker mempty .
-    \settings _sa -> notifierApp settings
+    -> Diffusion ExplorerProd
+    -> ExplorerProd ()
+notifierPlugin settings _ = notifierApp settings
 
 explorerPlugin
     :: HasExplorerConfiguration
     => Word16
-    -> ([WorkerSpec ExplorerProd], OutSpecs)
-explorerPlugin port =
-    first pure $ worker mempty $
-    (\sa -> explorerServeWebReal sa port)
+    -> Diffusion ExplorerProd
+    -> ExplorerProd ()
+explorerPlugin = flip explorerServeWebReal
 
 explorerServeWebReal
     :: HasExplorerConfiguration

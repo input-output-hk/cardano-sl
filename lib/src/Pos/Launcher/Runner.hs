@@ -27,7 +27,6 @@ import           System.Wlog (askLoggerName)
 
 import           Pos.Binary ()
 import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
-import           Pos.Communication (ActionSpec (..), OutSpecs (..))
 import           Pos.Configuration (HasNodeConfiguration, networkConnectionTimeout)
 import           Pos.Context.Context (NodeContext (..))
 import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
@@ -70,15 +69,14 @@ runRealMode
        -- though they should use only @RealModeContext@
        )
     => NodeResources ext
-    -> (ActionSpec (RealMode ext) a, OutSpecs)
+    -> (Diffusion (RealMode ext) -> RealMode ext a)
     -> Production a
-runRealMode nr@NodeResources {..} (actionSpec, outSpecs) =
+runRealMode nr@NodeResources {..} action =
     elimRealMode nr $ runServer
         (runProduction . elimRealMode nr)
         ncNodeParams
         (EkgNodeMetrics nrEkgStore)
-        outSpecs
-        actionSpec
+        action
   where
     NodeContext {..} = nrContext
 
@@ -135,10 +133,9 @@ runServer
        -- is a reader or IO itself.
     -> NodeParams
     -> EkgNodeMetrics
-    -> OutSpecs
-    -> ActionSpec m t
+    -> (Diffusion m -> m t)
     -> m t
-runServer runIO NodeParams {..} ekgNodeMetrics _ (ActionSpec act) = do
+runServer runIO NodeParams {..} ekgNodeMetrics act = do
     lname <- askLoggerName
     exitOnShutdown $ do
         logic <- logicFullM jsonLog

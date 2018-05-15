@@ -25,7 +25,7 @@ import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlo
                                           triggerRecovery)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (RecoveryHeaderTag)
-import           Pos.Communication.Protocol (NodeId, OutSpecs)
+import           Pos.Communication.Protocol (NodeId)
 import           Pos.Core (Block, HasGeneratedSecrets, HasGenesisBlockVersionData, HasGenesisData,
                            HasGenesisHash, HasHeaderHash (..), HasProtocolConstants, HeaderHash,
                            difficultyL, isMoreDifficult)
@@ -37,21 +37,9 @@ import qualified Pos.Diffusion.Types as Diffusion (Diffusion (getBlocks))
 import           Pos.Reporting (reportOrLogE, reportOrLogW)
 import           Pos.Util.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Util.Util (HasLens (..))
-import           Pos.Worker.Types (WorkerSpec, worker)
-
-retrievalWorker
-    :: ( BlockWorkMode ctx m
-       , HasGeneratedSecrets
-       , HasGenesisHash
-       , HasProtocolConstants
-       , HasGenesisBlockVersionData
-       , HasGenesisData
-       )
-    => (WorkerSpec m, OutSpecs)
-retrievalWorker = worker mempty retrievalWorkerImpl
 
 -- I really don't like join
-{-# ANN retrievalWorkerImpl ("HLint: ignore Use join" :: Text) #-}
+{-# ANN retrievalWorker ("HLint: ignore Use join" :: Text) #-}
 
 -- | Worker that queries blocks. It has two jobs:
 --
@@ -63,7 +51,7 @@ retrievalWorker = worker mempty retrievalWorkerImpl
 --
 -- If both happen at the same time, 'BlockRetrievalQueue' takes precedence.
 --
-retrievalWorkerImpl
+retrievalWorker
     :: forall ctx m.
        ( BlockWorkMode ctx m
        , HasGeneratedSecrets
@@ -73,7 +61,7 @@ retrievalWorkerImpl
        , HasGenesisData
        )
     => Diffusion m -> m ()
-retrievalWorkerImpl diffusion = do
+retrievalWorker diffusion = do
     logInfo "Starting retrievalWorker loop"
     mainLoop
   where

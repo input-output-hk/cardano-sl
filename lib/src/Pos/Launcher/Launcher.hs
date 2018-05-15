@@ -9,9 +9,9 @@ module Pos.Launcher.Launcher
 
 import           Mockable (Production)
 
-import           Pos.Communication.Protocol (OutSpecs)
 import           Pos.Core (HasConfiguration)
 import           Pos.DB.DB (initNodeDBs)
+import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..), bracketNodeResources)
@@ -20,7 +20,6 @@ import           Pos.Launcher.Scenario (runNode)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Worker.Types (WorkerSpec)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
 -----------------------------------------------------------------------------
@@ -34,7 +33,7 @@ runNodeReal
        )
     => NodeParams
     -> SscParams
-    -> ([WorkerSpec (RealMode EmptyMempoolExt)], OutSpecs)
+    -> [Diffusion (RealMode EmptyMempoolExt) -> RealMode EmptyMempoolExt ()]
     -> Production ()
 runNodeReal np sscnp plugins = bracketNodeResources np sscnp txpGlobalSettings initNodeDBs action
   where

@@ -9,9 +9,15 @@ module Cardano.Wallet.Kernel.Submission (
     , WalletSubmission
     , ResubmissionFunction
     , wsResubmissionFunction
+    , wsState
+    , wssPendingSet
 
     -- * Ready to use resubmission functions
     , constantResubmission
+
+    -- * Testing utilities
+    , genWalletSubmissionState
+    , genWalletSubmission
     ) where
 
 import           Universum
@@ -21,9 +27,15 @@ import           Control.Lens (to)
 import           Control.Lens.TH
 import qualified Data.List as List
 import qualified Data.Map as M
+import           Data.Text.Buildable (build)
+import           Formatting (bprint, (%))
+import qualified Formatting as F
+import           Serokell.Util.Text (mapBuilder, pairF)
+import           Test.QuickCheck
 
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending, pendingTransactions)
+import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending, genPending,
+                                                pendingTransactions)
 import qualified Pos.Core as Core
 
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
@@ -38,11 +50,20 @@ data WalletSubmission = WalletSubmission {
     , _wsState                :: WalletSubmissionState
     }
 
+instance Buildable WalletSubmission where
+    build ws = bprint ("WalletSubmission <rho> " % F.build) (_wsState ws)
+
 data WalletSubmissionState = WalletSubmissionState {
       _wssPendingSet :: Pending
     , _wssScheduler  :: SubmissionScheduler
     , _wssDiffusion  :: WalletDiffusion
     }
+
+instance Buildable WalletSubmissionState where
+    build wss = bprint ("{ pendingSet = " % F.build %
+                        ", scheduler  = " % F.build %
+                        ", diffusion  = <diffusion> } "
+                       ) (_wssPendingSet wss) (_wssScheduler wss)
 
 data SubmissionScheduler = SubmissionScheduler {
     _ssScheduled :: M.Map Core.TxId Schedule
@@ -55,6 +76,9 @@ defaultTTL = 255
 
 newtype Schedule = Schedule (Core.FlatSlotId, TTL)
 
+instance Buildable Schedule where
+    build (Schedule s) = bprint pairF s
+
 type ResubmissionFunction =  Core.FlatSlotId
                           -- ^ The current slot
                           -> Pending
@@ -65,6 +89,33 @@ type ResubmissionFunction =  Core.FlatSlotId
 makeLenses ''SubmissionScheduler
 makeLenses ''WalletSubmission
 makeLenses ''WalletSubmissionState
+
+instance Buildable SubmissionScheduler where
+    build ss =
+        let elems = ss ^. ssScheduled . to M.toList
+        in bprint (F.later mapBuilder) elems
+
+
+instance Arbitrary Schedule where
+    arbitrary = do
+        s <- (,) <$> arbitrary
+                 <*> choose (-10, defaultTTL) -- The system should be able to deal with negative TTLs.
+        pure $ Schedule s
+
+instance Arbitrary SubmissionScheduler where
+    arbitrary = SubmissionScheduler <$> arbitrary
+
+genWalletSubmissionState :: WalletDiffusion -> Gen WalletSubmissionState
+genWalletSubmissionState walletDiffusion =
+    WalletSubmissionState <$> genPending (Core.ProtocolMagic 0)
+                          <*> arbitrary
+                          <*> pure walletDiffusion
+
+genWalletSubmission :: WalletDiffusion
+                    -> ResubmissionFunction
+                    -> Gen WalletSubmission
+genWalletSubmission walletDiffusion rho =
+    WalletSubmission <$> pure rho <*> genWalletSubmissionState walletDiffusion
 
 --
 -- Public API, as written in the spec
@@ -86,18 +137,22 @@ newWalletSubmission resubmissionFunction diffusion = WalletSubmission {
             }
 
 -- | Informs the 'WalletSubmission' layer of the new, updated 'PendingSet'.
-addPending :: Pending -> WalletSubmission -> WalletSubmission
-addPending updatedPending ws =
+addPending :: WalletSubmission -> Pending -> WalletSubmission
+addPending ws updatedPending =
     ws & over (wsState . wssPendingSet) (unionPending updatedPending)
 
-remPending :: Pending -> WalletSubmission -> WalletSubmission
-remPending updatedPending ws =
-    ws & over (wsState . wssPendingSet) (intersectPending updatedPending)
+-- | Removes the input 'Pending' from the local 'WalletSubmission' pending set.
+remPending :: WalletSubmission -> Pending -> WalletSubmission
+remPending ws updatedPending =
+    ws & over (wsState . wssPendingSet) (flip differencePending updatedPending)
 
 -- | A \"tick\" of the scheduler.
 -- Returns the set transactions which needs to be droppped by the system as
 -- they likely exceeded the submission count and they have no chance to be
 -- adopted in a block.
+-- @N.B.@ The returned 'WalletSubmission' comes with an already-pruned
+-- local 'Pending' set.
+--
 -- FIXME(adn) Make it run in any 'Monad' @m@.
 tick :: Core.FlatSlotId
      -- ^ The current 'SlotId', flattened.
@@ -106,14 +161,12 @@ tick :: Core.FlatSlotId
      -> IO (Pending, WalletSubmission)
      -- ^ The set of transactions upper layers will need to drop, together
      -- with the new 'WalletSubmission'.
-     -- N.B. The returned 'WalletSubmission' comes with an already-pruned
-     -- local 'Pending' set.
 tick currentSlot ws = do
     let wss       = ws ^. wsState
         rho       = _wsResubmissionFunction ws
         dueNow    = dueThisSlot currentSlot wss
     (toPrune, wss') <- rho currentSlot dueNow wss
-    return (toPrune , remPending toPrune (ws & wsState .~ wss'))
+    return (toPrune , remPending (ws & wsState .~ wss') toPrune)
 
 
 --
@@ -148,9 +201,9 @@ unionPending :: Pending -> Pending -> Pending
 unionPending (Pending new) (Pending old) =
     Pending (M.union <$> new <*> old)
 
-intersectPending :: Pending -> Pending -> Pending
-intersectPending (Pending new) (Pending old) =
-    Pending (M.intersection <$> new <*> old)
+differencePending :: Pending -> Pending -> Pending
+differencePending (Pending new) (Pending old) =
+    Pending (M.difference <$> new <*> old)
 
 addOneToPending :: Core.TxId -> Core.TxAux -> Pending -> Pending
 addOneToPending txId aux (Pending p) = Pending (M.insert txId aux <$> p)

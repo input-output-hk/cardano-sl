@@ -26,6 +26,7 @@ packages:
 - infra
 - ssc
 - txp
+- txp/test
 - update
 - delegation
 - block

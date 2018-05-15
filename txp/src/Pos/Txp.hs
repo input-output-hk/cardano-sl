@@ -14,8 +14,6 @@ module Pos.Txp
        , module Pos.Txp.GenesisUtxo
        ) where
 
-import           Pos.Arbitrary.Txp ()
-import           Pos.Arbitrary.Txp.Network ()
 import           Pos.Binary.Txp ()
 import           Pos.Core.Txp
 import           Pos.Txp.Base

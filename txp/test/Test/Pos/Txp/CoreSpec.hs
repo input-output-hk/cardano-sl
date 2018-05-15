@@ -17,7 +17,6 @@ import           Test.QuickCheck (NonNegative (..), Positive (..), Property, arb
                                   resize, shuffle, vectorOf, (.&.), (===))
 import           Test.QuickCheck.Gen (Gen)
 
-import           Pos.Arbitrary.Txp ()
 import           Pos.Core (mkCoin)
 import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut (..), checkTx)
 import           Pos.Crypto (hash, whData, withHash)
@@ -25,6 +24,7 @@ import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Txp.Topsort (topsortTxs)
 import           Pos.Util (_neHead)
 
+import           Test.Pos.Txp.Arbitrary ()
 import           Test.Pos.Util.QuickCheck.Arbitrary (sublistN)
 
 spec :: Spec

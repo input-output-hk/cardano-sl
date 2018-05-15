@@ -1,10 +1,10 @@
 -- | Useful functions for testing scenarios.
 
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE TypeApplications           #-}
 
 module Test.Pos.Wallet.Web.Util
        (
@@ -62,6 +62,7 @@ import           Pos.Wallet.Web.Methods.Restore (importWalletDo)
 
 import           Pos.Util.JsonLog.Events (MemPoolModifyReason (ApplyBlock))
 import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB, genBlockGenParams)
+import           Test.Pos.Txp.Arbitrary ()
 import           Test.Pos.Util.QuickCheck.Property (assertProperty, maybeStopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 

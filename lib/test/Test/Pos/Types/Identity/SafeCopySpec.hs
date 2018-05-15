@@ -14,6 +14,7 @@ import           Pos.SafeCopy ()
 
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Helpers (safeCopyTest)
+import           Test.Pos.Txp.Arbitrary ()
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Types" $ do

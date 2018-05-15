@@ -9,13 +9,13 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 
 import           Pos.Arbitrary.Block ()
 import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..))
-import           Pos.Arbitrary.Txp ()
 import           Pos.Arbitrary.Update ()
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Block.Network.Types as T
 import           Pos.Core (HasGenesisHash, HasProtocolConstants, HasProtocolMagic)
 import           Pos.Core.Ssc (SscPayload, SscProof)
 
+import           Test.Pos.Txp.Arbitrary ()
 import           Test.Pos.Util.Chrono ()
 
 ------------------------------------------------------------------------------------------

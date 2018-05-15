@@ -1,6 +1,6 @@
 -- | Common things used in `Pos.Crypto.Arbitrary` and `Pos.Util.Arbitrary`
 
-module Pos.Util.QuickCheck.Arbitrary
+module Test.Pos.Util.QuickCheck.Arbitrary
        ( Nonrepeating (..)
        , ArbitraryUnsafe (..)
        , SmallGenerator (..)

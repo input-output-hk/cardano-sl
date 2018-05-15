@@ -18,9 +18,6 @@ library
   exposed-modules:
                        Pos.Util
 
-                       Pos.Util.QuickCheck
-                       Pos.Util.QuickCheck.Arbitrary
-                       Pos.Util.QuickCheck.Property
                        Pos.Util.CompileInfo
 
                        Pos.Util.Concurrent
@@ -67,7 +64,6 @@ library
                      , filepath
                      , formatting
                      , hashable
-                     , hspec
                      , lens
                      , log-warper >= 1.0.3
                      , lrucache
@@ -141,8 +137,11 @@ test-suite test
 
   other-modules:
                        Spec
+                       Test.Pos.Util.Chrono
                        Test.Pos.Util.LimitsSpec
+                       Test.Pos.Util.Modifier
                        Test.Pos.Util.ModifierSpec
+                       Test.Pos.Util.QuickCheck.Property
                        Test.Pos.Util.TimerSpec
                        Test.Pos.UtilSpec
 
@@ -152,6 +151,13 @@ test-suite test
                      , cardano-sl-util
                      , hspec
                      , QuickCheck
+                     , lens
+                     , mtl
+                     , pvss
+                     , quickcheck-instances
+                     , random
+                     , reflection
+                     , safecopy
                      , serokell-util >= 0.1.3.4
                      , stm
                      , text

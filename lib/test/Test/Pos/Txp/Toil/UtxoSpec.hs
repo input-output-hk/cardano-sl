@@ -23,8 +23,8 @@ import           Pos.Core (HasConfiguration, addressHash, checkPubKeyAddress, ma
                            makeScriptAddress, mkCoin, sumCoins)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
                                TxOutAux (..), TxSigData (..), TxWitness, isTxInUnknown)
-import           Pos.Crypto (SignTag (SignTx), checkSig, fakeSigner, hash, toPublic, unsafeHash,
-                             withHash, protocolMagic)
+import           Pos.Crypto (SignTag (SignTx), checkSig, fakeSigner, hash, protocolMagic, toPublic,
+                             unsafeHash, withHash)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Script (PlutusError (..), Script)
 import           Pos.Script.Examples (alwaysSuccessValidator, badIntRedeemer, goodIntRedeemer,
@@ -32,14 +32,15 @@ import           Pos.Script.Examples (alwaysSuccessValidator, badIntRedeemer, go
                                       intValidator, intValidatorWithBlah, multisigRedeemer,
                                       multisigValidator, shaStressRedeemer, sigStressRedeemer,
                                       stdlibValidator)
+
 import           Pos.Txp (ToilVerFailure (..), Utxo, VTxContext (..), VerifyTxUtxoRes,
                           WitnessVerFailure (..), applyTxToUtxo, evalUtxoM, execUtxoM, utxoGet,
                           utxoToLookup, verifyTxUtxo)
-import           Pos.Util (SmallGenerator (..), nonrepeating, runGen)
 import qualified Pos.Util.Modifier as MM
-import           Pos.Util.QuickCheck.Property (qcIsLeft, qcIsRight)
 
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Util.QuickCheck.Arbitrary (SmallGenerator (..), nonrepeating, runGen)
+import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, qcIsRight)
 
 ----------------------------------------------------------------------------
 -- Spec

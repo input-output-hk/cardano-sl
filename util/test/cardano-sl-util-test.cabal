@@ -1,7 +1,8 @@
-name:                cardano-sl-crypto-test
+name:                cardano-sl-util-test
 version:             1.1.0
-synopsis:            Cardano SL - arbitrary instances for cardano-sl-crypto
-description:         This package contains arbitrary instances for the cryptography primitives used in Cardano SL.
+synopsis:            Cardano SL - general utilities (tests)
+description:         QuickCheck Arbitrary instances for the Cardano SL general
+                     utilities package.
 license:             MIT
 license-file:        LICENSE
 author:              Serokell
@@ -13,27 +14,32 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-                       Test.Pos.Crypto.Arbitrary
-
-  other-modules:
-                       Test.Pos.Crypto.Arbitrary.Unsafe
-
+                       Test.Pos.Util.Chrono
+                       Test.Pos.Util.QuickCheck
+                       Test.Pos.Util.Modifier
+                       Test.Pos.Util.Orphans
+                       Test.Pos.Util.QuickCheck.Property
+                       Test.Pos.Util.QuickCheck.Arbitrary
 
   build-depends:       QuickCheck
                      , base
-                     , cardano-sl-binary
-                     , cardano-sl-crypto
+                     , bytestring
                      , cardano-sl-util
-                     , cardano-sl-util-test
-                     , generic-arbitrary
-                     , memory
+                     , cryptonite
+                     , formatting
+                     , hspec
+                     , mtl
                      , quickcheck-instances
+                     , tagged
                      , universum
 
   default-language:    Haskell2010
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric
+                       DeriveFunctor
+                       DeriveFoldable
+                       DeriveTraversable
                        GeneralizedNewtypeDeriving
                        StandaloneDeriving
                        FlexibleContexts
@@ -55,7 +61,11 @@ library
                        TemplateHaskell
                        ScopedTypeVariables
                        MonadFailDesugaring
+                       GADTs
 
   ghc-options:         -Wall
                        -fno-warn-orphans
                        -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

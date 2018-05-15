@@ -28,8 +28,8 @@ import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), HasConfiguration,
 import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap (..), InnerSharesMap,
                                Opening, OpeningsMap, SharesMap, SignedCommitment,
                                mkCommitmentsMapUnsafe)
-import           Pos.Crypto (DecShare, PublicKey, SecretKey, SignTag (SignCommitment), sign,
-                             toPublic, protocolMagic)
+import           Pos.Crypto (DecShare, PublicKey, SecretKey, SignTag (SignCommitment),
+                             protocolMagic, sign, toPublic)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc (MultiRichmenStakes, PureTossWithEnv, SscGlobalState (..),
                           SscVerifyError (..), VssCertData (..), checkCertificatesPayload,
@@ -38,7 +38,7 @@ import           Pos.Ssc (MultiRichmenStakes, PureTossWithEnv, SscGlobalState (.
                           supplyPureTossEnv)
 import           Pos.Ssc.Base (deleteSignedCommitment, verifyCommitment, verifyCommitmentSignature,
                                verifyOpening)
-import           Pos.Util.QuickCheck.Property (qcElem, qcFail, qcIsRight)
+import           Test.Pos.Util.QuickCheck.Property (qcElem, qcFail, qcIsRight)
 
 import           Test.Pos.Configuration (withDefConfiguration)
 

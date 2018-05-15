@@ -17,19 +17,19 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import           Universum
 
 import           Pos.Binary (AsBinary, Bi)
+import           Pos.Communication.Limits (mlAbstractHash, mlDecShare, mlEncShare, mlPublicKey,
+                                           mlSecret, mlSignature, mlVssPublicKey)
 import           Pos.Core (HasConfiguration, protocolMagic)
-import           Pos.Communication.Limits (mlVssPublicKey, mlAbstractHash, mlDecShare,
-                                           mlEncShare, mlPublicKey, mlSecret,
-                                           mlSignature)
 import qualified Pos.Crypto as Crypto
 import           Pos.SafeCopy ()
 import           Pos.Ssc ()
 
-import           Pos.Util.QuickCheck.Property (qcIsLeft, (.=.))
-import           Test.Pos.Crypto.Arbitrary (SharedSecrets (..))
 import           Test.Pos.Configuration (withDefConfiguration)
-import           Test.Pos.Helpers (msgLenLimitedTest, safeCopyEncodeDecode,
-                                   safeCopyTest, serDeserId)
+import           Test.Pos.Crypto.Arbitrary (SharedSecrets (..))
+
+import           Test.Pos.Helpers (msgLenLimitedTest, safeCopyEncodeDecode, safeCopyTest,
+                                   serDeserId)
+import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, (.=.))
 
 
 

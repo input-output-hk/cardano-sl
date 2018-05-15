@@ -47,8 +47,7 @@ import           Pos.Shutdown (HasShutdownContext, waitForShutdown)
 import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.JsonLog.Events (JLEvent (JLTxReceived), JsonLogConfig (..),
-                                          jsonLogConfigFromHandle)
+import           Pos.Util.JsonLog.Events (JsonLogConfig (..), jsonLogConfigFromHandle)
 import           Pos.Util.Trace (wlogTrace)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
@@ -141,7 +140,7 @@ runServer
 runServer runIO NodeParams {..} ekgNodeMetrics _ (ActionSpec act) = do
     lname <- askLoggerName
     exitOnShutdown $ do
-        logic <- logicFullM (jsonLog . JLTxReceived)
+        logic <- logicFullM jsonLog
         -- Full diffusion layer is in CPS because it brings up a TCP
         -- transport.
         liftIO $ diffusionLayerFull (fdconf lname)

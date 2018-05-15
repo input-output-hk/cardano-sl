@@ -15,13 +15,11 @@ import           System.Wlog (LoggerName, logInfo)
 
 import           Pos.Block.Configuration (recoveryHeadersMessage)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Communication (OutSpecs)
-import           Pos.Communication.Util (ActionSpec (..))
 import           Pos.Configuration (networkConnectionTimeout)
 import           Pos.Core (ConfigurationError, protocolConstants, protocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..), diffusionLayerFull)
-import           Pos.Diffusion.Types (DiffusionLayer (..), hoistDiffusion)
+import           Pos.Diffusion.Types (Diffusion, DiffusionLayer (..), hoistDiffusion)
 import           Pos.Logic.Full (logicFullM)
 import           Pos.Logic.Types (hoistLogic)
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
@@ -37,7 +35,6 @@ import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, 
 import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Util.Trace (wlogTrace)
-import           Pos.Worker.Types (WorkerSpec)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
 import           AuxxOptions (AuxxAction (..), AuxxOptions (..), AuxxStartMode (..), getAuxxOptions)
@@ -82,10 +79,10 @@ correctNodeParams AuxxOptions {..} np = do
 runNodeWithSinglePlugin ::
        (HasConfigurations, HasCompileInfo)
     => NodeResources EmptyMempoolExt
-    -> (WorkerSpec AuxxMode, OutSpecs)
-    -> (WorkerSpec AuxxMode, OutSpecs)
-runNodeWithSinglePlugin nr (plugin, plOuts) =
-    runNode nr ([plugin], plOuts)
+    -> (Diffusion AuxxMode -> AuxxMode ())
+    -> Diffusion AuxxMode -> AuxxMode ()
+runNodeWithSinglePlugin nr plugin =
+    runNode nr [plugin]
 
 action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> Production ()
 action opts@AuxxOptions {..} command = do
@@ -146,8 +143,10 @@ action opts@AuxxOptions {..} command = do
                                             (npNetworkConfig nodeParams)
                                             Nothing
                                             (hoistLogic runIO logic) $ \diffusionLayer -> do
-                    let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
-                        (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
+                    let modifier = if aoStartMode == WithNode
+                                   then runNodeWithSinglePlugin nr
+                                   else identity
+                        auxxModeAction = modifier (auxxPlugin opts command)
                     -- We're back in 'AuxxMode' again. We run the logic
                     -- layer using a hoisted diffusion layer (liftIO).
                     runDiffusionLayer diffusionLayer $ runIO $

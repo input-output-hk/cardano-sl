@@ -16,12 +16,12 @@ import           Mockable
 import           Pos.Block.BListener
 import           Pos.Block.Slog
 import           Pos.Block.Types
-import           Pos.Communication
 import           Pos.Context
 import           Pos.Core
 import           Pos.DB
 import           Pos.DB.Block
 import           Pos.DB.DB
+import           Pos.Diffusion.Types (Diffusion)
 import           Pos.KnownPeers
 import           Pos.Launcher
 import           Pos.Network.Types
@@ -102,9 +102,9 @@ instance HasConfigurations => MonadBListener WalletMode where
 runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
               => NodeResources ()
               -> PassiveWalletLayer Production
-              -> (ActionSpec WalletMode a, OutSpecs)
+              -> (Diffusion WalletMode -> WalletMode a)
               -> Production a
-runWalletMode nr wallet (action, outSpecs) =
+runWalletMode nr wallet action =
     elimRealMode nr serverRealMode
   where
     NodeContext{..} = nrContext nr
@@ -118,7 +118,6 @@ runWalletMode nr wallet (action, outSpecs) =
         (runProduction . elimRealMode nr . walletModeToRealMode wallet)
         ncNodeParams
         ekgNodeMetrics
-        outSpecs
         action
 
     serverRealMode :: RealMode EmptyMempoolExt a

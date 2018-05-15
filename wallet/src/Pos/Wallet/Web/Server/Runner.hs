@@ -25,7 +25,6 @@ import           Ntp.Client (NtpStatus)
 import           Servant.Server (Handler)
 import           System.Wlog (logInfo, usingLoggerName)
 
-import           Pos.Communication (ActionSpec (..), OutSpecs)
 import           Pos.Context (NodeContext (..))
 import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Launcher.Configuration (HasConfigurations)
@@ -58,9 +57,9 @@ runWRealMode
     -> ConnectionsVar
     -> SyncQueue
     -> NodeResources WalletMempoolExt
-    -> (ActionSpec WalletWebMode a, OutSpecs)
+    -> (Diffusion WalletWebMode -> WalletWebMode a)
     -> Production a
-runWRealMode db conn syncRequests res (action, outSpecs) =
+runWRealMode db conn syncRequests res action =
     elimRealMode res serverRealMode
   where
     NodeContext {..} = nrContext res
@@ -70,7 +69,6 @@ runWRealMode db conn syncRequests res (action, outSpecs) =
         (runProduction . elimRealMode res . walletWebModeToRealMode db conn syncRequests)
         ncNodeParams
         ekgNodeMetrics
-        outSpecs
         action
     serverRealMode :: RealMode WalletMempoolExt a
     serverRealMode = walletWebModeToRealMode db conn syncRequests serverWalletWebMode
@@ -81,7 +79,7 @@ walletServeWebFull
        )
     => Diffusion WalletWebMode
     -> TVar NtpStatus
-    -> Bool                    -- whether to include genesis keys
+    -> Bool                    -- ^ whether to include genesis keys
     -> NetworkAddress          -- ^ IP and Port to listen
     -> Maybe TlsParams
     -> WalletWebMode ()

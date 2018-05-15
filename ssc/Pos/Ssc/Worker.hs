@@ -66,7 +66,6 @@ sscWorkers
   :: (SscMode ctx m, HasGenesisBlockVersionData, HasGenesisData, HasProtocolConstants)
   => [Diffusion m -> m ()]
 sscWorkers = [onNewSlotSsc, checkForIgnoredCommitmentsWorker]
-  where
 
 shouldParticipate :: (SscMode ctx m, HasGenesisBlockVersionData) => EpochIndex -> m Bool
 shouldParticipate epoch = do

@@ -8,6 +8,7 @@ module Cardano.Wallet.Kernel.Submission (
     -- * Types and lenses
     , WalletSubmission
     , ResubmissionFunction
+    , Schedule (..)
     , wsResubmissionFunction
     , wsState
     , wssPendingSet
@@ -16,6 +17,7 @@ module Cardano.Wallet.Kernel.Submission (
     , constantResubmission
 
     -- * Testing utilities
+    , unsafeSchedule
     , genWalletSubmissionState
     , genWalletSubmission
     ) where
@@ -154,20 +156,34 @@ remPending ws updatedPending =
 -- local 'Pending' set.
 --
 -- FIXME(adn) Make it run in any 'Monad' @m@.
-tick :: Core.FlatSlotId
-     -- ^ The current 'SlotId', flattened.
-     -> WalletSubmission
+tick :: WalletSubmission
      -- ^ The current 'WalletSubmission'.
+     -> Core.FlatSlotId
+     -- ^ The current 'SlotId', flattened.
      -> IO (Pending, WalletSubmission)
      -- ^ The set of transactions upper layers will need to drop, together
      -- with the new 'WalletSubmission'.
-tick currentSlot ws = do
+tick ws currentSlot = do
     let wss       = ws ^. wsState
         rho       = _wsResubmissionFunction ws
         dueNow    = dueThisSlot currentSlot wss
     (toPrune, wss') <- rho currentSlot dueNow wss
     return (toPrune , remPending (ws & wsState .~ wss') toPrune)
 
+-- | Overrides the 'SubmissionScheduler' with an input transaction and a
+-- custom 'Schedule'. Useful to force dispatching, especially in tests.
+unsafeSchedule :: WalletSubmission
+               -> Core.TxId
+               -> Core.TxAux
+               -> Schedule
+               -> WalletSubmission
+unsafeSchedule ws txId txAux customSchedule =
+    ws & over (wsState . wssPendingSet) (addOneToPending txId txAux)
+       . over (wsState . wssScheduler) overrideSchedule
+    where
+        overrideSchedule :: SubmissionScheduler -> SubmissionScheduler
+        overrideSchedule (SubmissionScheduler s) =
+            SubmissionScheduler (M.insert txId customSchedule s)
 
 --
 -- Internal API

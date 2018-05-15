@@ -7,8 +7,7 @@ module Test.Spec.Submission (
 import           Universum
 
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending, genPending,
-                                                pendingTransactions)
+import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), genPending, pendingTransactions)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Submission
 import qualified Data.Map as M
@@ -18,6 +17,7 @@ import qualified Formatting as F
 import qualified Pos.Core as Core
 
 import           Test.QuickCheck (Gen, Property, forAll, (===))
+import           Test.QuickCheck.Monadic (assert, forAllM, monadicIO, run)
 import           Util.Buildable (ShowThroughBuild (..))
 import           Util.Buildable.Hspec
 
@@ -65,6 +65,22 @@ genSimplePair = do
                 <*> genPending (Core.ProtocolMagic 0)
     pure (STB pair)
 
+unsafeScheduleFrom :: WalletSubmission
+                   -> Pending
+                   -> Schedule
+                   -> WalletSubmission
+unsafeScheduleFrom ws p customSchedule =
+    M.foldlWithKey' updateFn ws (p ^. pendingTransactions . fromDb)
+    where
+        updateFn :: WalletSubmission
+                 -> Core.TxId
+                 -> Core.TxAux
+                 -> WalletSubmission
+        updateFn acc txId txAux = unsafeSchedule acc txId txAux customSchedule
+
+dropImmediately :: Schedule
+dropImmediately = Schedule (0, 0)
+
 spec :: Spec
 spec = do
     describe "Test wallet submission layer" $ do
@@ -83,8 +99,8 @@ spec = do
                   currentlyPending  = remPending (addPending submission pending) pending
               in samePending originallyPending currentlyPending
 
-      -- it "can schedule transactions for submission" $ do
-      --     True `shouldBe` False
-
-      -- it "can submit transactions" $ do
-      --     True `shouldBe` False
+      it "can drop transactions with TTL <= 0" $ monadicIO $ do
+          forAllM genSimplePair $ \(unSTB -> (submission, pending)) -> do
+              let submission' = unsafeScheduleFrom submission pending dropImmediately
+              dropped <- fst <$> run (tick submission' 42)
+              assert (dropped == pending)

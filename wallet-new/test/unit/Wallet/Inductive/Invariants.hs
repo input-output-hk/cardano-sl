@@ -17,10 +17,10 @@ module Wallet.Inductive.Invariants (
 
 import           Universum
 
+import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
-import           Pos.Util.Chrono
 import           Serokell.Util (listJson)
 
 import           Util
@@ -52,7 +52,7 @@ invariant :: forall h a.
           -> Invariant h a
 invariant name e p = void . interpret notChecked ((:[]) . e) p'
   where
-    notChecked :: OldestFirst [] (WalletEvent h a)
+    notChecked :: History h a
                -> InvalidInput h a
                -> InvariantViolation h a
     notChecked history reason = InvariantNotChecked {
@@ -61,7 +61,7 @@ invariant name e p = void . interpret notChecked ((:[]) . e) p'
         , invariantNotCheckedEvents = history
         }
 
-    violation :: OldestFirst [] (WalletEvent h a)
+    violation :: History h a
               -> InvariantViolationEvidence
               -> InvariantViolation h a
     violation history ev = InvariantViolation {
@@ -70,7 +70,7 @@ invariant name e p = void . interpret notChecked ((:[]) . e) p'
         , invariantViolationEvents   = history
         }
 
-    p' :: OldestFirst [] (WalletEvent h a)
+    p' :: History h a
        -> [Wallet h a]
        -> Validated (InvariantViolation h a) ()
     p' history [w] = case p w of
@@ -89,7 +89,7 @@ data InvariantViolation h a =
       , invariantViolationEvidence :: InvariantViolationEvidence
 
         -- | The evens that led to the error
-      , invariantViolationEvents   :: OldestFirst [] (WalletEvent h a)
+      , invariantViolationEvents   :: History h a
       }
 
     -- | The invariant was not checked because the input was invalid
@@ -100,8 +100,8 @@ data InvariantViolation h a =
         -- | Why did we not check the invariant
       , invariantNotCheckedReason :: InvalidInput h a
 
-        -- | The evens that led to the error
-      , invariantNotCheckedEvents :: OldestFirst [] (WalletEvent h a)
+        -- | The events that led to the error
+      , invariantNotCheckedEvents :: History h a
       }
 
 {-------------------------------------------------------------------------------
@@ -125,8 +125,12 @@ data InvariantViolationEvidence =
 
 checkEqual :: (Buildable a, Eq a)
            => (Text, a) -> (Text, a) -> Maybe InvariantViolationEvidence
-checkEqual (labelX, x) (labelY, y) =
-    if x == y
+checkEqual = checkEqualUsing identity
+
+checkEqualUsing :: (Buildable a, Eq b)
+                => (a -> b) -> (Text, a) -> (Text, a) -> Maybe InvariantViolationEvidence
+checkEqualUsing f (labelX, x) (labelY, y) =
+    if f x == f y
       then Nothing
       else Just $ NotEqual (labelX, x) (labelY, y)
 
@@ -179,6 +183,7 @@ walletInvariants applicableInvariants l e w = do
       , changeNotInUtxo        l e w
       , changeAvailable        l e w
       , balanceChangeAvailable l e w
+      , pendingInputsDisjoint  l e w
       ]
 
     case applicableInvariants of
@@ -191,7 +196,9 @@ walletInvariants applicableInvariants l e w = do
         ]
 
       FullRollback -> sequence_ [
-          utxoExpectedDisjoint l e w
+          utxoExpectedDisjoint    l e w
+        , expectedUtxoIsOurs      l e w
+        , pendingInUtxoOrExpected l e w
         ]
 
 pendingInUtxo :: WalletInv h a
@@ -236,12 +243,35 @@ balanceChangeAvailable l e = invariant (l <> "/balanceChangeAvailable") e $ \w -
                ("balance (total w)",
                  balance (total w))
 
+pendingInputsDisjoint :: WalletInv h a
+pendingInputsDisjoint l e = invariant (l <> "/pendingInputsDisjoint") e $ \w ->
+    asum [ checkDisjoint ("trIns " <> pretty h1, trIns tx1)
+                         ("trIns " <> pretty h2, trIns tx2)
+         | (h1, tx1) <- Map.toList $ pending w
+         , (h2, tx2) <- Map.toList $ pending w
+         , h1 /= h2
+         ]
+
 utxoExpectedDisjoint :: WalletInv h a
 utxoExpectedDisjoint l e = invariant (l <> "/utxoExpectedDisjoint") e $ \w ->
     checkDisjoint ("utxoDomain (utxo w)",
                     utxoDomain (utxo w))
                   ("utxoDomain (expectedUtxo w)",
                     utxoDomain (expectedUtxo w))
+
+expectedUtxoIsOurs :: WalletInv h a
+expectedUtxoIsOurs l e = invariant (l <> "/expectedUtxoIsOurs") e $ \w ->
+    checkAllSatisfy ("isOurs",
+                      ours w . outAddr)
+                    ("utxoRange (expectedUtxo w)",
+                      utxoRange (expectedUtxo w))
+
+pendingInUtxoOrExpected :: WalletInv h a
+pendingInUtxoOrExpected l e = invariant (l <> "/pendingInUtxoOrExpected") e $ \w ->
+    checkSubsetOf ("txIns (pending w)",
+                    txIns (pending w))
+                  ("utxoDomain (utxo w) `Set.union` utxoDomain (expectedUtxo w)",
+                    utxoDomain (utxo w) `Set.union` utxoDomain (expectedUtxo w))
 
 {-------------------------------------------------------------------------------
   Compare different wallet implementations
@@ -255,7 +285,7 @@ walletEquivalent :: forall h a. (Hash h a, Eq a, Buildable a)
 walletEquivalent lbl e e' = void .
     interpret notChecked (\boot -> [e boot, e' boot]) p
   where
-    notChecked :: OldestFirst [] (WalletEvent h a)
+    notChecked :: History h a
                -> InvalidInput h a
                -> InvariantViolation h a
     notChecked history reason = InvariantNotChecked {
@@ -264,7 +294,7 @@ walletEquivalent lbl e e' = void .
         , invariantNotCheckedEvents = history
         }
 
-    violation :: OldestFirst [] (WalletEvent h a)
+    violation :: History h a
               -> InvariantViolationEvidence
               -> InvariantViolation h a
     violation history ev = InvariantViolation {
@@ -273,25 +303,26 @@ walletEquivalent lbl e e' = void .
         , invariantViolationEvents   = history
         }
 
-    p :: OldestFirst [] (WalletEvent h a)
+    p :: History h a
       -> [Wallet h a]
       -> Validated (InvariantViolation h a) ()
     p history [w, w'] = sequence_ [
-          cmp "pending"          pending
-        , cmp "utxo"             utxo
-        , cmp "availableBalance" availableBalance
-        , cmp "totalBalance"     totalBalance
-        , cmp "available"        available
-        , cmp "change"           change
-        , cmp "total"            total
+          cmp "pending"          pending          Map.keys
+        , cmp "utxo"             utxo             identity
+        , cmp "availableBalance" availableBalance identity
+        , cmp "totalBalance"     totalBalance     identity
+        , cmp "available"        available        identity
+        , cmp "change"           change           identity
+        , cmp "total"            total            identity
         ]
       where
-        cmp :: (Eq b, Buildable b)
-            => Text
-            -> (Wallet h a -> b)
+        cmp :: (Buildable b, Eq c)
+            => Text              -- label
+            -> (Wallet h a -> b) -- field to compare
+            -> (b -> c)          -- what part of the field to compare
             -> Validated (InvariantViolation h a) ()
-        cmp fld f =
-          case checkEqual (fld <> " w", f w) (fld <> " w'", f w') of
+        cmp fld f g =
+          case checkEqualUsing g (fld <> " w", f w) (fld <> " w'", f w') of
             Nothing -> return ()
             Just ev -> throwError $ violation history ev
     p _ _ = error "impossible"

@@ -68,12 +68,12 @@
 \begin{document}
 
 \title{Formal specification for a Cardano wallet \\
-       {\small (Version 1.0)} \\
+       {\small (Version 1.1)} \\
        {\large \sc An IOHK technical report}}
 \author{Duncan Coutts \\ {\small \texttt{duncan@well-typed.com}} \\
                          {\small \texttt{duncan.coutts@iohk.io}}
    \and Edsko de Vries \\ {\small \texttt{edsko@well-typed.com}}}
-\date{May 4, 2018}
+\date{May 15, 2018}
 
 \maketitle
 
@@ -202,6 +202,17 @@ The design clarifies that input selection and transaction signing can be
 handled asynchronously from the other wallet state changes. This is important
 since transaction signing in particular may need to be handled on a client
 device or special hardware and may require user confirmation.
+
+\subsection{Version history}
+
+\begin{description}
+\item[Version 1.0, May 4, 2018] First public release.
+
+\item[Version 1.1, May 15, 2018] Corrected definition of
+$\mathsf{updateExpected}$ (Figure~\ref{fig:model_with_expected_UTxO}), added
+missing value of $\mathit{txInfo}$ in $\mathsf{rollback}$
+(Figure~\ref{fig:tracking_metadata}), minor corrections to the text.
+\end{description}
 
 \pagebreak
 \tableofcontents
@@ -2927,7 +2938,7 @@ such as Bitcoin there are services known as ``laundry services'', ``mixers'' or
 third-parties that combine payments from various users into a single transaction, to
 break this assumption.}  that of all the transactions inputs belong to the same
 identity \citep{fergal}. On the output side, we may wish to take steps to ensure
-that attackers cannot easily identity which output is the change output
+that attackers cannot easily identify which output is the change output
 \citep{8260674}. For instance, for single payment transactions, we could try to
 ensure that the change output is roughly as large as the payment itself. Some
 systems give users the ability to override input selection on a per-transaction

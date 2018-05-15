@@ -2373,8 +2373,8 @@ on rollback we simply revert to the previous value of the block metadata.
          ) \\
 & \mathsf{newPending} ~ tx ~ ((\mathit{utxo}, \mathit{pending}, \mathit{blockMeta}) : \mathit{checkpoints}, \mathit{txInfo}) = \\
 & \qquad (\mathit{utxo}, pending \cup \{ tx \}, \mathit{blockMeta}) : \mathit{checkpoints}, \mathit{txInfo} \cup \{ \mathsf{txid} ~ \mathit{tx} \mapsto \mathsf{txMeta} ~ \mathit{tx} \}) \\
-& \mathsf{rollback} ~ ((\mathit{utxo}, \mathit{pending}, \mathit{blockMeta}) :  (\mathit{utxo}^\prime, \mathit{pending}^\prime, \mathit{blockMeta}') : \mathit{checkpoints})) = \\
-& \qquad (\mathit{utxo}^\prime, \mathit{pending} \cup \mathit{pending}^\prime, \mathit{blockMeta}') : \mathit{checkpoints}
+& \mathsf{rollback} ~ ((\mathit{utxo}, \mathit{pending}, \mathit{blockMeta}) :  (\mathit{utxo}^\prime, \mathit{pending}^\prime, \mathit{blockMeta}') : \mathit{checkpoints}, \mathit{txInfo}) = \\
+& \qquad ((\mathit{utxo}^\prime, \mathit{pending} \cup \mathit{pending}^\prime, \mathit{blockMeta}') : \mathit{checkpoints}, \mathit{txInfo})
 \end{align*}
 %
 \caption{\label{fig:tracking_metadata}Tracking metadata}
@@ -2665,7 +2665,7 @@ of view of the wallet model this corresponds to a new function
 By the logic of \cref{sec:transaction_status}, such a transaction would
 be reported as $\mathtt{WontApply}$. Since we removed the transaction from the
 $\mathit{pending}$ set in all checkpoints\footnote{If the overhead of traversing
-all checkpoints is too large, an alternative implementation strategy would to be
+all checkpoints is too large, an alternative implementation strategy would be to
 maintain an explicit $\mathit{cancelled}$ set of transaction as part of the
 wallet's state.}, however, a rollback won't reintroduce it into
 $\mathit{pending}$; if the user wants to explicitly tell the wallet to try this
@@ -2884,7 +2884,7 @@ Input selection is a large topic which merits a detailed study in its own right.
 Moreover, since input selection has multiple mutually incompatible goals, there
 is no single one-size-fits-all input selection algorithm.  We will therefore
 defer a detailed and formal discussion of input selection to a separate study.
-Here we will merely list of of the goals of input selection, and list some
+Here we will merely list the goals of input selection, and list some
 properties that a good input selection algorithm will have. We will also
 briefly consider what kind of data structure can be used to make sure that
 the asymptotic complexity of input selection is acceptable.

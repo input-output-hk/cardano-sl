@@ -9,7 +9,7 @@ import           Pos.Binary.Class (Bi)
 import           Pos.Communication.Protocol (ConversationActions, Message, NodeId (..),
                                              SendActions (..))
 import           Pos.Discovery.Model.Class (Discovery (..), withPeersConcurrently)
-import           System.Wlog (WithLogger, logDebug, logWarning)
+import           Pos.Util.Log (WithLogger, logDebug, logWarning)
 import           Universum
 
 sendToNeighbors

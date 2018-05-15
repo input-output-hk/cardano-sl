@@ -31,9 +31,9 @@ import           Universum
 
 import           Control.Monad.Base (MonadBase)
 import           Control.Monad.IO.Unlift (MonadUnliftIO (..), UnliftIO (..), unliftIO, withUnliftIO)
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import           Control.Monad.Trans.Resource (MonadResource (..), ResourceT, transResourceT)
+--import           Control.Monad.Trans.Identity (IdentityT (..))
+--import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
+import           Control.Monad.Trans.Resource (MonadResource (..){-, ResourceT, transResourceT-})
 import qualified Crypto.Random as Rand
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Hashable (Hashable (hashWithSalt))
@@ -48,7 +48,7 @@ import qualified Ether
 import qualified Formatting as F
 import qualified Language.Haskell.TH.Syntax as TH
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
-import           System.Wlog (CanLog, HasLoggerName (..), LoggerNameBox (..))
+--import           Pos.Util.Log (CanLog, HasLoggerName (..), LoggerNameBox (..))
 import qualified Test.QuickCheck as QC
 import           Test.QuickCheck.Monadic (PropertyM (..))
 
@@ -76,9 +76,11 @@ instance FromJSON Byte where
 instance ToJSON Byte where
     toJSON = toJSON . toBytes
 
+{-
 instance Rand.DRG drg => HasLoggerName (Rand.MonadPseudoRandom drg) where
     askLoggerName = pure "MonadPseudoRandom"
     modifyLoggerName = flip const
+-}
 
 instance {-# OVERLAPPABLE #-}
          (MonadTrans t, Functor (t m), Monad (t m), Rand.MonadRandom m)
@@ -158,16 +160,17 @@ instance {-# OVERLAPPABLE #-}
         MonadResource (t m)
   where
     liftResourceT = lift . liftResourceT
-
+{-
 instance CanLog m => CanLog (ResourceT m)
 instance (Monad m, HasLoggerName m) => HasLoggerName (ResourceT m) where
     askLoggerName = lift askLoggerName
     modifyLoggerName = transResourceT . modifyLoggerName
-
+-}
 ----------------------------------------------------------------------------
 -- Instances required by 'ether'
 ----------------------------------------------------------------------------
 
+{-
 instance
     (Monad m, MonadTrans t, Monad (t m), CanLog m) =>
         CanLog (Ether.TaggedTrans tag t m)
@@ -188,6 +191,7 @@ instance
     modifyLoggerName = liftLocal askLoggerName modifyLoggerName
 
 deriving instance LiftLocal LoggerNameBox
+-}
 
 instance MonadUnliftIO (t m) => MonadUnliftIO (Ether.TaggedTrans tag t m) where
     {-# INLINE askUnliftIO #-}

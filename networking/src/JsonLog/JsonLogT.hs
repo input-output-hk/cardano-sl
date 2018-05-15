@@ -42,7 +42,8 @@ import           Data.ByteString.Lazy (hPut)
 import           Formatting (sformat, shown, (%))
 import           Serokell.Util.Lens (WrappedM (..))
 import           System.IO (Handle)
-import           System.Wlog (CanLog, HasLoggerName (..), WithLogger, logWarning)
+--import           Pos.Util.Log (CanLog, HasLoggerName (..), WithLogger, logWarning)
+import           Pos.Util.Log (WithLogger, logWarning)
 import           Universum
 
 import           JsonLog.CanJsonLog (CanJsonLog (..))
@@ -74,6 +75,7 @@ instance MonadBaseControl b m => MonadBaseControl b (JsonLogT m) where
 
     restoreM = unpackM . restoreM
 
+{-  TODO
 instance WithLogger m => CanLog (JsonLogT m) where
 
 instance WithLogger m => HasLoggerName (JsonLogT m) where
@@ -81,6 +83,7 @@ instance WithLogger m => HasLoggerName (JsonLogT m) where
     askLoggerName = lift askLoggerName
 
     modifyLoggerName f = hoist (modifyLoggerName f)
+-}
 
 instance Monad m => WrappedM (JsonLogT m) where
 
@@ -137,7 +140,7 @@ instance Mockable Metrics m => Mockable Metrics (JsonLogT m) where
     liftMockable = liftMockableWrappedM
 
 jsonLogDefault
-    :: (ToJSON a, MonadCatch m, MonadIO m, WithLogger m)
+    :: (ToJSON a, MonadCatch m, WithLogger m)
     => JsonLogConfig
     -> a -> m ()
 jsonLogDefault jlc x =

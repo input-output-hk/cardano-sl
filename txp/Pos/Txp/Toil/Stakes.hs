@@ -15,6 +15,7 @@ import qualified Data.HashSet as HS
 import           Formatting (sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logDebug)
+--import qualified Pos.Util.Log as Log
 
 import           Pos.Core (HasGenesisData, StakesList, coinToInteger, mkCoin, sumCoins,
                            unsafeIntegerToCoin)
@@ -55,7 +56,7 @@ recomputeStakes plusDistr minusDistr = do
     let resolvedStakes = map fst resolvedStakesRaw
     let createdStakes = concatMap snd resolvedStakesRaw
     unless (null createdStakes) $
-        logDebug $ sformat ("Stakes for "%listJson%" will be created in StakesDB") createdStakes
+        {-Log.-}logDebug $ sformat ("Stakes for "%listJson%" will be created in StakesDB") createdStakes
     totalStake <- getTotalStake
     let (positiveDelta, negativeDelta) = (sumCoins plusCoins, sumCoins minusCoins)
         newTotalStake = unsafeIntegerToCoin $

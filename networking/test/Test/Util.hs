@@ -69,7 +69,7 @@ import           Node (Conversation (..), ConversationActions (..), Listener (..
                        nodeId, simpleNodeEndPoint)
 import           Node.Conversation (Converse)
 import           Node.Message.Binary (BinaryP, binaryPacking)
-import           Pos.Util.Trace (wlogTrace)
+import           Pos.Util.Trace (logTrace)
 
 -- | Run a computation, but kill it if it takes more than a given number of
 --   Microseconds to complete. If that happens, log using a given string
@@ -245,7 +245,7 @@ deliveryTest :: NT.Transport
              -> IO Property
 deliveryTest transport nodeEnv testState workers listeners = do
 
-    let logTrace = wlogTrace ""
+    let logTrace' = logTrace ""
 
     let prng1 = mkStdGen 0
     let prng2 = mkStdGen 1
@@ -254,7 +254,7 @@ deliveryTest transport nodeEnv testState workers listeners = do
     clientFinished <- newEmptyMVar
     serverFinished <- newEmptyMVar
 
-    let server = node logTrace (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng1 binaryPacking () nodeEnv $ \serverNode -> do
+    let server = node logTrace' (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng1 binaryPacking () nodeEnv $ \serverNode -> do
             NodeAction (const listeners) $ \_ -> do
                 -- Give our address to the client.
                 putMVar serverAddressVar (nodeId serverNode)
@@ -265,7 +265,7 @@ deliveryTest transport nodeEnv testState workers listeners = do
                 -- Allow the client to stop.
                 putMVar serverFinished ()
 
-    let client = node logTrace (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng2 binaryPacking () nodeEnv $ \_ ->
+    let client = node logTrace' (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng2 binaryPacking () nodeEnv $ \_ ->
             NodeAction (const []) $ \converse -> do
                 serverAddress <- takeMVar serverAddressVar
                 let act = void . forConcurrently workers $ \worker ->

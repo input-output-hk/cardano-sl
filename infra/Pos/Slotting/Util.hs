@@ -30,8 +30,8 @@ import           Data.Time.Units (Millisecond)
 import           Formatting (int, sformat, shown, stext, (%))
 import           Mockable (Async, Delay, Mockable, delay, timeout)
 import           Serokell.Util (sec)
-import           System.Wlog (WithLogger, logDebug, logInfo, logNotice, logWarning,
-                              modifyLoggerName)
+import           Pos.Util.Log (WithLogger, logDebug, logInfo, logNotice, logWarning,
+                               modifyLoggerName)
 
 import           Pos.Core (FlatSlotId, LocalSlotIndex, SlotId (..), HasProtocolConstants,
                            Timestamp (..), flattenSlotId, slotIdF)

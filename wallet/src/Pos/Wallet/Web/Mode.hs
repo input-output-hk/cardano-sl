@@ -156,8 +156,8 @@ instance {-# OVERLAPPABLE #-}
   where
     lensOf = wwmcRealModeContext_L . lensOf @tag
 
-instance HasLoggerName' WalletWebModeContext where
-    loggerName = wwmcRealModeContext_L . loggerName
+--instance HasLoggerName' WalletWebModeContext where
+--    loggerName = wwmcRealModeContext_L . loggerName
 
 instance HasSlogContext WalletWebModeContext where
     slogContext = wwmcRealModeContext_L . slogContext
@@ -229,9 +229,9 @@ instance (HasConfiguration, MonadSlotsData ctx WalletWebMode)
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
     currentTimeSlotting = currentTimeSlottingSimple
 
-instance {-# OVERLAPPING #-} HasLoggerName WalletWebMode where
-    askLoggerName = askLoggerNameDefault
-    modifyLoggerName = modifyLoggerNameDefault
+--instance {-# OVERLAPPING #-} HasLoggerName WalletWebMode where
+--    askLoggerName = askLoggerNameDefault
+--    modifyLoggerName = modifyLoggerNameDefault
 
 instance {-# OVERLAPPING #-} CanJsonLog WalletWebMode where
     jsonLog = jsonLogDefault

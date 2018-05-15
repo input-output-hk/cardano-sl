@@ -48,12 +48,12 @@ main = do
           Log.logInfo ""
           for_ logDirs $ processLogDirThroughput txWindow waitWindow
 
-showLogDirs :: (MonadIO m, Log.LogContext m) => [FilePath] -> m ()
+showLogDirs :: (MonadIO m, Log.WithLogger m) => [FilePath] -> m ()
 showLogDirs logDirs = do
     Log.logInfo "log directories: "
     for_ logDirs $ \d -> Log.logInfo $ " - " ++ show d
 
-processLogDirOverview :: (MonadIO m, Log.LogContext m) => FilePath -> Double -> m (String, Map TxHash (Maybe Timestamp))
+processLogDirOverview :: (MonadIO m, Log.WithLogger m) => FilePath -> Double -> m (String, Map TxHash (Maybe Timestamp))
 processLogDirOverview logDir sampleProb = do
     Log.logInfo $ "processing log directory " ++ show logDir ++ " ..."
 
@@ -87,7 +87,7 @@ processLogDirOverview logDir sampleProb = do
     Log.logInfo ""
     return (dirName, rc)
 
-processLogDirTxRelay :: (MonadIO m, Log.LogContext m) => FilePath -> m ()
+processLogDirTxRelay :: (MonadIO m, Log.WithLogger m) => FilePath -> m ()
 processLogDirTxRelay logDir = do
     Log.logInfo $ "processing log directory " ++ show logDir ++ " ..."
     m <- runJSONFold logDir txReceivedF
@@ -105,7 +105,7 @@ processLogDirTxRelay logDir = do
         for_ hist $ uncurry $ hPrintf h "%4d:%6d\n"
     Log.logInfo $ "wrote histogram to " ++ show histFile
 
-processLogDirThroughput :: (MonadIO m, Log.LogContext m) => Double -> Double -> FilePath -> m ()
+processLogDirThroughput :: (MonadIO m, Log.WithLogger m) => Double -> Double -> FilePath -> m ()
 processLogDirThroughput txWindow waitWindow logDir = do
     Log.logInfo $ "processing log directory " ++ show logDir ++ " ..."
     (xs, ys) <- runJSONFold logDir $ (,) <$> txCntInChainF <*> memPoolF

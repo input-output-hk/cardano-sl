@@ -19,7 +19,7 @@ module Pos.Reporting.Methods
        -- * Internals, exported for custom usages.
        -- E. g. to report crash from launcher.
        , sendReport
-       , retrieveLogFiles
+       --, retrieveLogFiles
        , compressLogs
        ) where
 
@@ -30,7 +30,7 @@ import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Archive.Tar.Entry as Tar
 import           Control.Exception (ErrorCall (..))
 import           Control.Exception.Safe (Exception (..), try)
-import           Control.Lens (each, to)
+--import           Control.Lens (each, to)
 import           Data.Aeson (encode)
 import           Data.Bits (Bits (..))
 import qualified Data.ByteString as BS
@@ -38,7 +38,7 @@ import qualified Data.ByteString.Lazy as BSL
 import           Data.Conduit (runConduitRes, yield, (.|))
 import           Data.Conduit.List (consume)
 import qualified Data.Conduit.Lzma as Lzma
-import qualified Data.HashMap.Strict as HM
+--import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.IO as TIO
@@ -56,10 +56,7 @@ import           System.Directory (canonicalizePath, doesFileExist, getTemporary
 import           System.FilePath (takeFileName)
 import           System.Info (arch, os)
 import           System.IO (IOMode (WriteMode), hClose, hFlush, withFile)
-import           System.Wlog (LoggerConfig (..), Severity (..), WithLogger, hwFilePath, lcTree,
-                              logError, logInfo, logMessage, logWarning, ltFiles, ltSubloggers,
-                              retrieveLogContent)
-
+import qualified Pos.Util.Log as Log
 
 import           Paths_cardano_sl_infra (version)
 import           Pos.Crypto (ProtocolMagic (..), HasProtocolMagic, protocolMagic)
@@ -68,8 +65,7 @@ import           Pos.Exception (CardanoFatalError)
 import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers (..),
-                                         HasReportingContext (..))
+import           Pos.Reporting.MemState (HasLoggerConfig (..), reportServers, HasReportingContext (..))
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Util.Filesystem (withSystemTempFile)
 import           Pos.Util.Util (maybeThrow, (<//>))
@@ -136,6 +132,7 @@ sendReport logFiles reportType appName reportServerUri = do
 -- | Given logger config, retrieves all (logger name, filepath) for
 -- every logger that has file handle. Filepath inside does __not__
 -- contain the common logger config prefix.
+{- TODO   this should not be here ..
 retrieveLogFiles :: LoggerConfig -> [([Text], FilePath)]
 retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
   where
@@ -143,6 +140,7 @@ retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
         let curElems = map ([],) (lt ^.. ltFiles . each . hwFilePath)
             iterNext (part, node) = map (first (part :)) $ fromLogTree node
         in curElems ++ concatMap iterNext (lt ^. ltSubloggers . to HM.toList)
+-}
 
 -- | Pass a list of absolute paths to log files. This function will
 -- archive and compress these files and put resulting file into log
@@ -204,7 +202,7 @@ type MonadReporting ctx m =
        , MonadFormatPeers m
        , HasReportingContext ctx
        , HasNodeType ctx
-       , WithLogger m
+       , Log.WithLogger m
        , HasProtocolMagic
        , HasCompileInfo
        )
@@ -233,7 +231,7 @@ sendReportNodeImpl rawLogs reportType = do
             whenNotNull errors $ throwSE . NE.head
   where
     onNoServers =
-        logInfo $ "sendReportNodeImpl: not sending report " <>
+        Log.logInfo $ "sendReportNodeImpl: not sending report " <>
                   "because no reporting servers are specified"
     throwSE (e :: SomeException) = throwM e
 
@@ -249,7 +247,7 @@ sendReportNode reportType = do
         then onNoServers
         else do
             logConfig <- view (reportingContext . loggerConfig)
-            let allFiles = map snd $ retrieveLogFiles logConfig
+            let allFiles = map snd $ Log.retrieveLogFiles logConfig
             logFile <-
                 maybeThrow
                     NoPubFiles
@@ -259,6 +257,8 @@ sendReportNode reportType = do
                 retrieveLogContent logFile (Just 5000)
             sendReportNodeImpl (Just $ unlines $ reverse logContent) reportType
   where
+    retrieveLogContent :: (MonadIO m) => FilePath -> Maybe Int -> m [Text]
+    retrieveLogContent _ _ = return []
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
     charsConst = 1024 * 1024 * 2
@@ -268,7 +268,7 @@ sendReportNode reportType = do
         let delta = curLimit - length t
         in bool [] (t : (takeGlobalSize delta xs)) (delta > 0)
     onNoServers =
-        logInfo $
+        Log.logInfo $
         "sendReportNode: not sending report " <>
         "because no reporting servers are specified"
 
@@ -295,7 +295,7 @@ reportNode sendLogs extendWithNodeInfo reportType =
            else send' reportType
     handler :: SomeException -> m ()
     handler e =
-        logError $
+        Log.logError $
         sformat ("Didn't manage to report "%shown%
                  " because of exception '"%string%"' raised while sending")
         reportType (displayException e)
@@ -306,18 +306,18 @@ reportNode sendLogs extendWithNodeInfo reportType =
     extendRTDesc text' (RInfo text)                    = RInfo $ text <> text'
     extendRTDesc _ x                                   = x
 
-    logReportType :: WithLogger m => ReportType -> m ()
-    logReportType (RCrash i) = logError $ "Reporting crash with code " <> show i
+    logReportType :: Log.WithLogger m => ReportType -> m ()
+    logReportType (RCrash i) = Log.logError $ "Reporting crash with code " <> show i
     logReportType (RError reason) =
-        logError $ "Reporting error with reason \"" <> reason <> "\""
+        Log.logError $ "Reporting error with reason \"" <> reason <> "\""
     logReportType (RMisbehavior True reason) =
-        logError $ "Reporting critical misbehavior with reason \"" <> reason <> "\""
+        Log.logError $ "Reporting critical misbehavior with reason \"" <> reason <> "\""
     logReportType (RMisbehavior False reason) =
-        logWarning $ "Reporting non-critical misbehavior with reason \"" <> reason <> "\""
+        Log.logWarning $ "Reporting non-critical misbehavior with reason \"" <> reason <> "\""
     logReportType (RInfo text) =
-        logInfo $ "Reporting info with text \"" <> text <> "\""
+        Log.logInfo $ "Reporting info with text \"" <> text <> "\""
     logReportType (RCustomReport{}) =
-        logInfo $ "Reporting custom report"
+        Log.logInfo $ "Reporting custom report"
 
     -- Retrieves node info that we would like to know when analyzing
     -- malicious behavior of node.
@@ -386,11 +386,11 @@ reportError = reportNode True True . RError
 -- you can rethrow it by yourself.
 reportOrLog
     :: forall ctx m . (MonadReporting ctx m)
-    => Severity -> Text -> SomeException -> m ()
+    => Log.Severity -> Text -> SomeException -> m ()
 reportOrLog severity prefix exc =
     case tryCast @CardanoFatalError <|> tryCast @ErrorCall <|> tryCast @DBError of
         Just msg -> reportError $ prefix <> msg
-        Nothing  -> logMessage severity $ prefix <> pretty exc
+        Nothing  -> Log.logMessage severity $ prefix <> pretty exc
   where
     tryCast ::
            forall e. Exception e
@@ -401,10 +401,10 @@ reportOrLog severity prefix exc =
 reportOrLogE
     :: forall ctx m . (MonadReporting ctx m)
     => Text -> SomeException -> m ()
-reportOrLogE = reportOrLog Error
+reportOrLogE = reportOrLog Log.Error
 
 -- | A version of 'reportOrLog' which uses 'Warning' severity.
 reportOrLogW
     :: forall ctx m . (MonadReporting ctx m)
     => Text -> SomeException -> m ()
-reportOrLogW = reportOrLog Warning
+reportOrLogW = reportOrLog Log.Warning

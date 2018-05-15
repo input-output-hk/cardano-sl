@@ -9,7 +9,7 @@ module Pos.Lrc.Mode
 import           Universum
 
 import           Mockable (Async, Concurrently, Delay, Mockables)
-import           System.Wlog (WithLogger)
+import           Pos.Util.Log (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.DB.Class (MonadDB, MonadGState)

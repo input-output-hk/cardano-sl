@@ -28,9 +28,8 @@ import           Bench.Network.Commons (LogMessage (..), MeasureEvent (..), Meas
                                         Payload (..), Timestamp, logMessageParser,
                                         measureInfoParser)
 import           LogReaderOptions (Args (..), argsParser)
-import           System.Wlog (LoggerNameBox, logError, logWarning, productionB, setupLogging,
-                              usingLoggerName)
-import           System.Wlog.Formatter (centiUtcTimeF)
+import qualified Pos.Util.Log as Log -- (LoggerNameBox, logError, logWarning, setupLogging, usingLoggerName)
+--import           System.Wlog.Formatter (centiUtcTimeF)
 
 
 type Measures = M.Map MsgId (Payload, [(MeasureEvent, Timestamp)])
@@ -54,7 +53,7 @@ instance Exception MeasureInfoDuplicateError
 
 type RowId = Int
 
-analyze :: FilePath -> StateT Measures (LoggerNameBox IO) ()
+analyze :: FilePath -> StateT Measures (Log.LoggerNameBox IO) ()
 analyze file =
     catchE . flip evalStateT 0 . runResourceT $
         sourceFile file =$= CB.lines =$= CL.iterM (const $ modify succ)
@@ -65,7 +64,7 @@ analyze file =
         case parseOnly (logMessageParser measureInfoParser) row of
             Left err -> do
                 rowNo <- get
-                logWarning $
+                Log.logWarning $
                     sformat ("Parse error at file "%F.build%" (line "%F.int%"): "%F.build)
                     file rowNo err
             Right (Just (LogMessage MeasureInfo{..})) -> lift $ do
@@ -75,10 +74,10 @@ analyze file =
                 --forM_ mwas $ \was -> throwM $ MeasureInfoDuplicateError (was, mi)
             Right _ -> return ()
 
-    catchE = handle @_ @MeasureInfoDuplicateError $ logError . sformat F.build
+    catchE = handle @_ @MeasureInfoDuplicateError $ Log.logError . sformat F.build
 
 
-printMeasures :: FilePath -> Measures -> LoggerNameBox IO ()
+printMeasures :: FilePath -> Measures -> Log.LoggerNameBox IO ()
 printMeasures file measures = runResourceT $
     source $$ encode utf8 =$= sinkFile file
   where
@@ -123,8 +122,8 @@ getOptions = (\(a, ()) -> a) <$> simpleOptions
     empty
 
 main :: IO ()
-main = usingLoggerName mempty $ do
-    setupLogging (Just centiUtcTimeF) productionB
+main = Log.usingLoggerName Log.Debug "log-reader" $ do
+    --setupLogging (Just centiUtcTimeF) productionB
     Args{..} <- liftIO getOptions
     measures <- flip execStateT M.empty $
         forM_ inputFiles analyze

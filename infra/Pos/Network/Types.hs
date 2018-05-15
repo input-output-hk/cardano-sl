@@ -59,7 +59,8 @@ import qualified Network.Transport.TCP as TCP
 import           Node.Internal (NodeId (..))
 import qualified Prelude
 import qualified System.Metrics as Monitoring
-import           System.Wlog (LoggerName (..))
+import           Pos.Util.Log (LoggerName)
+import qualified Data.Text as T
 
 import           Pos.Network.DnsDomains (DnsDomains (..), NodeAddr)
 import qualified Pos.Network.DnsDomains as DnsDomains
@@ -67,7 +68,7 @@ import qualified Pos.Network.Policy as Policy
 import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.System.Metrics.Constants (cardanoNamespace)
 import           Pos.Util.TimeWarp (addressToNodeId)
-import           Pos.Util.Trace (wlogTrace)
+import           Pos.Util.Trace (logTrace)
 import           Pos.Util.Util (HasLens', lensOf)
 
 {-------------------------------------------------------------------------------
@@ -440,7 +441,7 @@ initQueue :: (MonadIO m, FormatMsg msg)
           -> m (OutboundQ msg NodeId Bucket)
 initQueue NetworkConfig{..} loggerName mStore = liftIO $ do
     let NodeName selfName = fromMaybe (NodeName "self") ncSelfName
-        oqTrace           = wlogTrace (loggerName <> LoggerName selfName)
+        oqTrace           = logTrace (loggerName `T.append` selfName)
     oq <- OQ.new oqTrace
                  ncEnqueuePolicy
                  ncDequeuePolicy

@@ -371,14 +371,6 @@ instance FromHttpApiData CAddressesFilter where
 --     parseUrlPiece = readEither
 
 --------------------------------------------------------------------------------
--- NFData instances
---------------------------------------------------------------------------------
-
-instance NFData CBlockEntry
-instance NFData CHash
-instance NFData CCoin
-
---------------------------------------------------------------------------------
 -- Helper types and conversions
 --------------------------------------------------------------------------------
 

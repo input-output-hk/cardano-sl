@@ -75,7 +75,6 @@ import           Serokell.AcidState (ExtendedState, closeExtendedState, openLoca
                                      openMemoryExtendedState, queryExtended, tidyExtendedState,
                                      updateExtended)
 
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.State.Storage as WS
 import           Pos.Wallet.Web.State.Transactions as WST
@@ -93,12 +92,12 @@ update
 update = updateExtended
 
 -- | Initialize wallet DB in disk mode. Used in production.
-openState :: (MonadIO m, HasConfiguration) => Bool -> FilePath -> m WalletDB
+openState :: (MonadIO m) => Bool -> FilePath -> m WalletDB
 openState deleteIfExists fp = openLocalExtendedState deleteIfExists fp def
 
 -- | Initialize empty wallet DB in pure (in-memory) mode.
 -- Used primarily for testing.
-openMemState :: (MonadIO m, HasConfiguration) => m WalletDB
+openMemState :: (MonadIO m) => m WalletDB
 openMemState = openMemoryExtendedState def
 
 -- | Close wallet DB resource.

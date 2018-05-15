@@ -194,6 +194,8 @@ data TxAux = TxAux
     , taWitness :: !TxWitness
     } deriving (Generic, Show, Eq)
 
+instance NFData TxAux
+
 instance Hashable Tx
 
 instance Bi Tx => Buildable Tx where

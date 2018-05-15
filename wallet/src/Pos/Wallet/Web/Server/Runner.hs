@@ -119,7 +119,7 @@ convertHandler wwmc handler =
     excHandlers = [E.Handler catchServant]
     catchServant = throwError
 
-notifierPlugin :: (HasConfigurations, HasCompileInfo) => WalletWebMode ()
+notifierPlugin :: (HasConfigurations) => WalletWebMode ()
 notifierPlugin = do
     wwmc <- walletWebModeContext
     launchNotifier (convertHandler wwmc)

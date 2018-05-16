@@ -169,6 +169,8 @@ newtype CCoin = CCoin
     { getCoin :: Text
     } deriving (Show, Generic, Eq)
 
+instance NFData CCoin
+
 mkCCoin :: Coin -> CCoin
 mkCCoin = CCoin . show . unsafeGetCoin
 
@@ -194,6 +196,8 @@ data CBlockEntry = CBlockEntry
     , cbeBlockLead  :: !(Maybe Text) -- todo (ks): Maybe CAddress?
     , cbeFees       :: !CCoin
     } deriving (Show, Generic, Eq)
+
+instance NFData CBlockEntry
 
 toBlockEntry
     :: ExplorerMode ctx m

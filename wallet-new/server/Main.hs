@@ -80,9 +80,9 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
         -- server.
         syncWallets
 
-    runNodeWithInit ntpStatus init' nr =
-        let f = runNode nr (plugins ntpStatus)
-         in \s -> init' >> f s
+    runNodeWithInit ntpStatus init' nr diffusion = do
+        _ <- init'
+        runNode nr (plugins ntpStatus) diffusion
 
     syncWallets :: WalletWebMode ()
     syncWallets = do
@@ -129,9 +129,7 @@ actionWithNewWallet sscParams nodeParams params =
         :: PassiveWalletLayer Production
         -> NodeResources ext
         -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
-    runNodeWithInit w nr =
-        let f = runNode nr (plugins w)
-         in \s -> f s
+    runNodeWithInit w nr = runNode nr (plugins w)
 
     -- TODO: Don't know if we need any of the other plugins that are used
     -- in the legacy wallet (see 'actionWithWallet').

@@ -98,7 +98,7 @@ test-suite cardano-client-test
 
   type:                exitcode-stdio-1.0
 
-  build-depends:       
+  build-depends:
                        base
                      , bytestring
                      , cardano-sl
@@ -106,7 +106,6 @@ test-suite cardano-client-test
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
-                     , cardano-sl-infra
                      , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-update

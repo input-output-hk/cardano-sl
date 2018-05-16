@@ -93,9 +93,7 @@ test-suite test
   build-depends:       base
                      , cardano-sl-core
                      , cardano-sl-crypto
-                     , cardano-sl-db
                      , cardano-sl-lrc
-                     , cardano-sl-util
                      , cardano-sl-util-test
                      , containers
                      , hspec

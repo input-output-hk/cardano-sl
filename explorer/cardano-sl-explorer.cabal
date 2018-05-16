@@ -88,7 +88,6 @@ library
                       , cardano-sl
                       , cardano-sl-binary
                       , cardano-sl-block
-                      , cardano-sl-client
                       , cardano-sl-core
                       , cardano-sl-crypto
                       , cardano-sl-db
@@ -161,13 +160,11 @@ executable cardano-explorer
   other-modules:       ExplorerNodeOptions
   build-depends:       base
                      , cardano-sl
-                     , cardano-sl-core
                      , cardano-sl-infra
                      , cardano-sl-explorer
                      , cardano-sl-networking
                      , cardano-sl-update
                      , cardano-sl-util
-                     , formatting
                      , log-warper
                      , optparse-applicative
                      , universum
@@ -262,7 +259,6 @@ executable cardano-explorer-swagger
                      , servant-server
                      , servant-swagger
                      , swagger2
-                     , text
                      , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
@@ -356,13 +352,10 @@ test-suite cardano-explorer-test
                      , cardano-sl-util
                      , containers
                      , cryptonite
-                     , data-default
                      , engine-io
                      , hspec
                      , lens
                      , log-warper
-                     , MonadRandom
-                     , mtl
                      , universum >= 0.1.11
                      , warp
   hs-source-dirs:      test
@@ -412,13 +405,9 @@ benchmark cardano-explorer-bench
   build-depends:       QuickCheck
                      , base
                      , cardano-sl
-                     , cardano-sl-core
                      , cardano-sl-explorer
                      , cardano-sl-txp
                      , criterion
-                     , data-default
-                     , lens
-                     , text-format
                      , universum >= 0.1.11
                      , weigh
   default-language:    Haskell2010

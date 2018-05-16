@@ -359,7 +359,6 @@ test-suite wallet-unit-tests
                     , cardano-sl-txp
                     , cardano-sl-update
                     , cardano-sl-util
-                    , cardano-sl-util-test
                     , cardano-sl-wallet-new
                     , constraints
                     , containers
@@ -368,7 +367,6 @@ test-suite wallet-unit-tests
                     , hspec
                     , lens
                     , log-warper
-                    , mmorph
                     , mtl
                     , QuickCheck
                     , quickcheck-instances
@@ -492,7 +490,6 @@ benchmark cardano-sl-wallet-new-bench
                      , http-client-tls
                      , optparse-applicative
                      , random
-                     , semigroups
                      , servant
                      , servant-client
                      , servant-client-core

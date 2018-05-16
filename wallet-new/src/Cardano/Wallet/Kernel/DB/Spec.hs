@@ -30,9 +30,8 @@ import qualified Data.Map.Strict as M
 import           Data.SafeCopy (base, deriveSafeCopy)
 import           Data.Text.Buildable (build)
 import qualified Data.Vector as V
-import           Formatting (bprint)
-import qualified Formatting as F
-import           Serokell.Util.Text (mapBuilder)
+import           Formatting (bprint, (%))
+import           Serokell.Util.Text (listJsonIndent)
 import           Test.QuickCheck (Gen, listOf)
 
 import qualified Pos.Arbitrary.Txp as Core
@@ -53,7 +52,9 @@ data Pending = Pending {
      } deriving Eq
 
 instance Buildable Pending where
-    build (Pending p) = bprint (F.later mapBuilder) (p ^. fromDb . to M.toList)
+    build (Pending p) =
+      let elems = p ^. fromDb . to M.toList
+      in bprint ("Pending " % listJsonIndent 4) (map fst elems)
 
 genPending :: Core.ProtocolMagic -> Gen Pending
 genPending pMagic = do

@@ -50,4 +50,4 @@ pkgs.haskellPackages.override {
     # FIXME: this doesn't work yet. Overridable logic
     #        for packages is missing I believe.
   };
-}
+} // { pkgs-x = pkgs; }

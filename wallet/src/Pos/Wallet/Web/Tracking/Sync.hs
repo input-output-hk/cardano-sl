@@ -55,7 +55,7 @@ import           Data.Time.Units (Microsecond, TimeUnit (..))
 import           Formatting (build, float, sformat, shown, (%))
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HasConfiguration, HasGenesisHash,
+import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                            HasDifficulty (..), HasProtocolConstants, HeaderHash, Timestamp (..),
                            blkSecurityParam, genesisHash, headerHash, headerSlotL, timestampToPosix)
 import           Pos.Core.Block (BlockHeader (..), getBlockHeader, mainBlockTxPayload)
@@ -112,7 +112,6 @@ syncWallet credentials = submitSyncRequest (newSyncRequest credentials)
 processSyncRequest :: ( WalletDbReader ctx m
                       , BlockLockMode ctx m
                       , MonadSlotsData ctx m
-                      , HasConfiguration
                       ) => SyncQueue -> m ()
 processSyncRequest syncQueue = do
     newRequest <- atomically (readTQueue syncQueue)
@@ -190,7 +189,6 @@ syncWalletWithBlockchain
     ( WalletDbReader ctx m
     , BlockLockMode ctx m
     , MonadSlotsData ctx m
-    , HasConfiguration
     )
     => SyncRequest
     -> m SyncResult
@@ -297,7 +295,6 @@ syncWalletWithBlockchainUnsafe
     , MonadDBRead m
     , WithLogger m
     , MonadSlotsData ctx m
-    , HasConfiguration
     )
     => SyncRequest
     -> BlockHeader
@@ -434,7 +431,7 @@ heightOf = view difficultyL
 
 -- | Retrieves the 'BlockHeader' correspending to the first 'GenesisBlock' of
 -- this blockchain.
-firstGenesisHeader :: (HasGenesisHash, MonadDBRead m) => m (Either SyncError BlockHeader)
+firstGenesisHeader :: MonadDBRead m => m (Either SyncError BlockHeader)
 firstGenesisHeader = runExceptT $ do
     genesisHeaderHash  <- resolveForwardLink (genesisHash @BlockHeader)
     case genesisHeaderHash of

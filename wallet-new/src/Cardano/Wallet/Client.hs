@@ -102,8 +102,6 @@ data WalletClient m
         :: WalletId -> New Account -> Resp m Account
     , updateAccount
          :: WalletId -> AccountIndex -> Update Account -> Resp m Account
-    , postExternalAccount
-        :: WalletId -> New Account -> Resp m Account
     -- transactions endpoints
     , postTransaction
          :: Payment -> Resp m Transaction
@@ -223,8 +221,6 @@ hoistClient phi wc = WalletClient
          \x -> phi . postAccount wc x
     , updateAccount =
          \x y -> phi . updateAccount wc x y
-    , postExternalAccount =
-         \x -> phi . postExternalAccount wc x
     , postTransaction =
          phi . postTransaction wc
     , getTransactionIndexFilterSorts =

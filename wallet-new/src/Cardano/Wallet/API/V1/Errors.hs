@@ -68,6 +68,7 @@ data WalletError =
     | WalletAlreadyExists
     | AddressNotFound
     | TxFailedToStabilize
+    | UnsignedTxCreationError
     | TxRedemptionDepleted
     | TxSafeSignerNotFound { weAddress :: V1 Core.Address }
     | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
@@ -94,6 +95,8 @@ convertTxError err = case err of
         TxRedemptionDepleted
     TxError.SafeSignerNotFound addr ->
         TxSafeSignerNotFound (V1 addr)
+    TxError.RemainingMoneyError ->
+        UnsignedTxCreationError
     TxError.GeneralTxError txt ->
         UnknownError txt
 
@@ -187,12 +190,14 @@ describe = \case
          "This wallet is restoring, and it cannot send new transactions until restoration completes."
     NodeIsStillSyncing _ ->
          "The node is still syncing with the blockchain, and cannot process the request yet."
+    UnsignedTxCreationError ->
+         "Unable to create unsigned transaction for an external wallet."
     TxRedemptionDepleted ->
-        "The redemption address was already used."
+         "The redemption address was already used."
     TxSafeSignerNotFound _ ->
-        "The safe signer at the specified address was not found."
+         "The safe signer at the specified address was not found."
     TxFailedToStabilize ->
-        "We were unable to find a set of inputs to satisfy this transaction."
+         "We were unable to find a set of inputs to satisfy this transaction."
 
 
 -- | Convert wallet errors to Servant errors
@@ -224,6 +229,8 @@ toServantError err =
         NodeIsStillSyncing{} ->
             err412 -- Precondition failed
         TxFailedToStabilize{} ->
+            err500
+        UnsignedTxCreationError{} ->
             err500
         TxRedemptionDepleted{} ->
             err400

@@ -1075,13 +1075,13 @@ data AddressPath = AddressPath
 deriveJSON Serokell.defaultOptions ''AddressPath
 
 instance ToSchema AddressPath where
-  declareNamedSchema =
-    genericSchemaDroppingPrefix "addr" (\(--^) props -> props
-      & ("levels" --^ "BIP44 derivation path's levels.")
-    )
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "addr" (\(--^) props -> props
+            & ("levels" --^ "BIP44 derivation path's levels.")
+        )
 
 instance Arbitrary AddressPath where
-  arbitrary = AddressPath <$> arbitrary
+    arbitrary = AddressPath <$> arbitrary
 
 deriveSafeBuildable ''AddressPath
 instance BuildableSafeGen AddressPath where
@@ -1888,10 +1888,14 @@ type family Update (original :: *) :: * where
   Update WalletAddress = () -- read-only
 
 type family New (original :: *) :: * where
-  New Wallet         = NewWallet
-  New Account        = NewAccount
-  New WalletAddress  = NewAddress
-  New ExternalWallet = NewExternalWallet
+    New Wallet =
+        NewWallet
+    New Account =
+        NewAccount
+    New WalletAddress =
+        NewAddress
+    New ExternalWallet =
+        NewExternalWallet
 
 type CaptureWalletId = Capture "walletId" WalletId
 

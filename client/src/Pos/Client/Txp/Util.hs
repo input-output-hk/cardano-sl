@@ -117,6 +117,8 @@ data TxError =
       -- ^ Redemption address has already been used
     | SafeSignerNotFound !Address
       -- ^ The safe signer at the specified address was not found
+    | RemainingMoneyError
+      -- ^ Problem with remaining money, for new unsigned transaction.
     | GeneralTxError !Text
       -- ^ Parameter: description of the problem
     deriving (Show, Generic)
@@ -143,6 +145,8 @@ instance Buildable TxError where
         bprint "Redemption address balance is 0"
     build (SafeSignerNotFound addr) =
         bprint ("Address "%build%" has no associated safe signer") addr
+    build RemainingMoneyError =
+        "Problem with remaining money, during creation of the new unsigned transaction"
     build (GeneralTxError msg) =
         bprint ("Transaction creation error: "%stext) msg
 
@@ -154,6 +158,7 @@ isCheckedTxError = \case
     OutputIsRedeem{}        -> True
     RedemptionDepleted{}    -> True
     SafeSignerNotFound{}    -> True
+    RemainingMoneyError{}   -> True
     GeneralTxError{}        -> True
 
 -----------------------------------------------------------------------------
@@ -195,16 +200,15 @@ type TxCreateMode m
       )
 
 -- | Generic function to create an unsigned transaction, given desired inputs and outputs
-makeUnsignedAbstractTx ::
-                  TxOwnedInputs owner
-               -> TxOutputs
-               -> Either e Tx
-makeUnsignedAbstractTx txInputs outputs = do
-  let
+makeUnsignedAbstractTx
+    :: TxOwnedInputs owner
+    -> TxOutputs
+    -> Tx
+makeUnsignedAbstractTx txInputs outputs = tx
+  where
     tx = UnsafeTx (map snd txInputs) txOutputs txAttributes
     txOutputs = map toaOut outputs
     txAttributes = mkAttributes ()
-  pure tx
 
 -- | Generic function to create a transaction, given desired inputs,
 -- outputs and a way to construct witness from signature data
@@ -214,7 +218,7 @@ makeAbstractTx :: (owner -> TxSigData -> Either e TxInWitness)
                -> Either e TxAux
 makeAbstractTx mkWit txInputs outputs = do
   let
-    Right tx = makeUnsignedAbstractTx txInputs outputs
+    tx = makeUnsignedAbstractTx txInputs outputs
     txSigData = TxSigData
         { txSigTxHash = hash tx
         }
@@ -508,7 +512,7 @@ mkOutputsWithRemForUnsignedTx TxRaw {..}
     | otherwise =
         -- We cannot get a new address here, because we're creating unsigned
         -- transaction for an external wallet.
-        throwError $ GeneralTxError "mkOutputsWithRemForUnsignedTx: remaining money"
+        throwError RemainingMoneyError
 
 prepareInpsOuts
     :: TxCreateMode m
@@ -592,21 +596,6 @@ createTx pendingTx utxo ss outputs addrData =
     createGenericTxSingle pendingTx (\i o -> Right $ makePubKeyTx ss i o)
     OptimizeForSecurity utxo outputs addrData
 
--- | Create generic unsigned Tx
-createGenericUnsignedTx
-    :: TxCreateMode m
-    => PendingAddresses
-    -> (TxOwnedInputs TxOut -> TxOutputs -> Either TxError Tx)
-    -> InputSelectionPolicy
-    -> Utxo
-    -> TxOutputs
-    -> m (Either TxError (Tx,NonEmpty TxOut))
-createGenericUnsignedTx pendingTx creator inputSelectionPolicy utxo outputs =
-    runTxCreator inputSelectionPolicy $ do
-        (inps, outs) <- prepareInpsOutsForUnsignedTx pendingTx utxo outputs
-        tx <- either throwError return $ creator inps outs
-        pure (tx, map fst inps)
-
 -- | Create unsigned Tx
 createUnsignedTx
     :: TxCreateMode m
@@ -615,8 +604,11 @@ createUnsignedTx
     -> Utxo
     -> TxOutputs
     -> m (Either TxError (Tx,NonEmpty TxOut))
-createUnsignedTx pendingTx groupInputs utxo outputs =
-    createGenericUnsignedTx pendingTx makeUnsignedAbstractTx groupInputs utxo outputs
+createUnsignedTx pendingTx selectionPolicy utxo outputs =
+    runTxCreator selectionPolicy $ do
+        (inps, outs) <- prepareInpsOutsForUnsignedTx pendingTx utxo outputs
+        let tx = makeUnsignedAbstractTx inps outs
+        pure (tx, map fst inps)
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx

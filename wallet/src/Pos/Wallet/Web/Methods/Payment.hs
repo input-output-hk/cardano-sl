@@ -58,8 +58,6 @@ import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (Ever
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
                                       getWalletAccountIds, getWalletAddrsDetector)
 
-{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
-
 newPayment
     :: MonadWalletTxFull ctx m
     => (TxAux -> m Bool)
@@ -187,12 +185,14 @@ sendMoney
     -> InputSelectionPolicy
     -> m CTx
 sendMoney submitTx passphrase moneySource dstDistr policy = do
-    db <- askWalletDB
-    ws <- getWalletSnapshot db
     when walletTxCreationDisabled $
         throwM err405
         { errReasonPhrase = "Transaction creation is disabled by configuration!"
         }
+
+    db <- askWalletDB
+    ws <- getWalletSnapshot db
+
     let srcWallet = getMoneySourceWallet moneySource
     when (isWalletRestoring ws srcWallet) $
         throwM err403
@@ -233,12 +233,11 @@ sendMoney submitTx passphrase moneySource dstDistr policy = do
             prepareMTx getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
 
         ts <- Just <$> getCurrentTimestamp
-        let tx = taTx txAux
-            txHash = hash tx
+        let tx        = taTx txAux
             inpTxOuts = toList inpTxOuts'
-            dstAddrs  = map txOutAddress . toList $
-                        _txOutputs tx
-            th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
+            txHash    = hash tx
+            dstAddrs  = map txOutAddress . toList $ _txOutputs tx
+            th        = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
         ptx <- mkPendingTx ws srcWallet txHash txAux th
 
         th <$ submitAndSaveNewPtx db submitTx ptx
@@ -246,11 +245,11 @@ sendMoney submitTx passphrase moneySource dstDistr policy = do
     -- We add TxHistoryEntry's meta created by us in advance
     -- to make TxHistoryEntry in CTx consistent with entry in history.
     _ <- addHistoryTxMeta db srcWallet th
-    diff <- getCurChainDifficulty
     ws' <- getWalletSnapshot db
     let srcWalletAddrsDetector = getWalletAddrsDetector ws' Ever srcWallet
 
     logDebug "sendMoney: constructing response"
+    diff <- getCurChainDifficulty
     fst <$> constructCTx ws' srcWallet srcWalletAddrsDetector diff th
 
 createNewUnsignedTransaction
@@ -260,42 +259,43 @@ createNewUnsignedTransaction
     -> InputSelectionPolicy
     -> m CTx
 createNewUnsignedTransaction moneySource dstDistr policy = do
-    db <- askWalletDB
-    ws <- getWalletSnapshot db
     when walletTxCreationDisabled $
         throwM err405
-        { errReasonPhrase = "Transaction creation is disabled by configuration!"
+        { errReasonPhrase = "Transaction creation (including unsigned ones) is disabled by configuration!"
         }
-    let srcWallet = getMoneySourceWallet moneySource
+
+    db <- askWalletDB
+    ws <- getWalletSnapshot db
 
     addrMetas' <- getMoneySourceAddresses ws moneySource
     addrMetas <- nonEmpty addrMetas' `whenNothing`
-        throwM (RequestError "Given money source has no addresses!")
+        throwM (RequestError "Unsigned transaction: Given money source has no addresses!")
 
     let srcAddrs = map (view wamAddress) addrMetas
 
     logDebug "createNewUnsignedTransaction: processed addrs"
 
-    relatedAccount <- getSomeMoneySourceAccount ws moneySource
+    _ <- getSomeMoneySourceAccount ws moneySource
     outputs <- coinDistrToOutputs dstDistr
     let pendingAddrs = getPendingAddresses ws policy
-    th <- rewrapTxError "Cannot create unsigned transaction" $ do
-        (tx, inpTxOuts')  <- prepareUnsignedTx pendingAddrs policy srcAddrs outputs
+    th <- rewrapTxError "Cannot create unsigned transaction" $
+        prepareUnsignedTx pendingAddrs policy srcAddrs outputs >>= \case
+            Left txError ->
+                throwM (RequestError $ show txError)
+            Right (tx, inpTxOuts') -> do
+                ts <- Just <$> getCurrentTimestamp
+                let txHash    = hash tx
+                    inpTxOuts = toList inpTxOuts'
+                    dstAddrs  = map txOutAddress . toList $ _txOutputs tx
+                    th        = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
+                return th
 
-        ts <- Just <$> getCurrentTimestamp
-        let
-            txHash = hash tx
-            inpTxOuts = toList inpTxOuts'
-            dstAddrs  = map txOutAddress . toList $
-                        _txOutputs tx
-            th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
-        return th
-
-    diff <- getCurChainDifficulty
     ws' <- getWalletSnapshot db
+    let srcWallet = getMoneySourceWallet moneySource
     let srcWalletAddrsDetector = getWalletAddrsDetector ws' Ever srcWallet
 
     logDebug "createNewUnsignedTransaction: constructing response"
+    diff <- getCurChainDifficulty
     fst <$> constructCTx ws' srcWallet srcWalletAddrsDetector diff th
 
 ----------------------------------------------------------------------------

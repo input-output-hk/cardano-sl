@@ -33,9 +33,7 @@ import           Control.Lens (makeLenses, to)
 import qualified Data.ByteString as BS
 import           Data.Default (Default (..))
 import qualified Data.Text.Buildable
-import           Formatting (Format, bprint, build, formatToString, later, (%))
-import qualified Prelude
-import           Serokell.Util.Text (listJson)
+import           Formatting (Format, bprint, build, later, (%))
 import           System.Directory (doesFileExist)
 import           System.Directory (renameFile)
 import           System.FileLock (FileLock, SharedExclusive (..), lockFile, unlockFile,
@@ -50,7 +48,6 @@ import           Universum
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull', deriveSimpleBi,
                                    encodeListLen, enforceSize, serialize')
 import           Pos.Binary.Crypto ()
-import           Pos.Core (Address, addressF, makeRootPubKeyAddress)
 import           Pos.Crypto (PublicKey, PublicKey)
 
 import           Test.Pos.Crypto.Arbitrary ()
@@ -67,13 +64,10 @@ import           System.Wlog (logWarning)
 
 -- | Describes HD wallets keyfile content
 data WalletUserPublic = WalletUserPublic
-    { _wupKey        :: PublicKey           -- ^ root key of wallet set
-    , _wupWalletName :: Text                -- ^ name of wallet
+    { _wupWalletName :: Text                -- ^ name of wallet
     , _wupAccounts   :: [(Word32, Text)]    -- ^ accounts coordinates and names
     , _wupAddrs      :: [(Word32, Word32)]  -- ^ addresses coordinates
     } deriving (Show, Generic)
-
-deriving instance Eq PublicKey => Eq WalletUserPublic
 
 instance Arbitrary WalletUserPublic where
     arbitrary = genericArbitrary
@@ -83,9 +77,8 @@ makeLenses ''WalletUserPublic
 
 instance Buildable WalletUserPublic where
     build WalletUserPublic{..} =
-        bprint ("{ root address = "%addressF%", name = "%build%
+        bprint ("{ wallet name = "%build%
                 ", accounts = "%pairsF%", addresses = "%pairsF%" }")
-        (makeRootPubKeyAddress _wupKey)
         _wupWalletName
         _wupAccounts
         _wupAddrs
@@ -95,7 +88,6 @@ instance Buildable WalletUserPublic where
 
 deriveSimpleBi ''WalletUserPublic [
     Cons 'WalletUserPublic [
-        Field [| _wupKey        :: PublicKey          |],
         Field [| _wupWalletName :: Text               |],
         Field [| _wupAccounts   :: [(Word32, Text)]   |],
         Field [| _wupAddrs      :: [(Word32, Word32)] |]
@@ -109,8 +101,6 @@ data UserPublic = UserPublic
     , _upLock    :: Maybe FileLock
     } deriving (Generic)
 
-deriving instance Eq PublicKey => Eq UserPublic
-
 instance Arbitrary (Maybe FileLock) => Arbitrary UserPublic where
     arbitrary = genericArbitrary
     shrink = genericShrink
@@ -120,16 +110,6 @@ makeLenses ''UserPublic
 class HasUserPublic ctx where
     -- if you're going to mock this TVar, look how it's done for peer state.
     userPublic :: Lens' ctx (TVar UserPublic)
-
--- | Show instance to be able to include it into NodeParams
-instance Bi Address => Show UserPublic where
-    show UserPublic {..} =
-        formatToString
-            ("UserPublic { _upKeys = "%listJson%
-             ", _upPath = "%build%", _upWallet = "%build%"}")
-            _upKeys
-            _upPath
-            _upWallet
 
 newtype UserPublicDecodingError = UserPublicDecodingError Text
     deriving (Show)
@@ -259,10 +239,10 @@ writeUserPublicRelease :: (MonadIO m, MonadThrow m) => UserPublic -> m ()
 writeUserPublicRelease up
     | not (canWrite up) = throwString "writeUserPublicRelease: UserPublic is not writable"
     | otherwise = liftIO $ do
-          writeRaw up
-          unlockFile
-            (fromMaybe (error "writeUserPublicRelease: incorrect UserPublic") $
-            up ^. upLock)
+        writeRaw up
+        case (up ^. upLock) of
+            Nothing   -> throwString "writeUserPublicRelease: incorrect UserPublic lock"
+            Just lock -> unlockFile lock
 
 -- | Helper for writing public to file
 writeRaw :: UserPublic -> IO ()

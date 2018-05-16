@@ -1003,6 +1003,49 @@ when time comes, we may come to the conclusion that, in fact, we need
 some mechanism in the specification, to model lightweight delegation
 explicitly.
 
+\subsection{Considerations on the mempool}
+\label{sec:appendix-mempool}
+
+The checks in the mempool are expensive, and may not be the most
+effective way to make the network efficient. It is being considered to
+restrict the mempool to stateless tests (and correspondingly not
+tracking a state of the mempool), or at least less restrictive tests.
+
+It would allow transactions to flow throughout the Cardano network
+more freely. For instance, is the network is split (in that there are
+two different selected chains in the network), the two halves of the
+network will not be able to exchange transactions, making the
+gossiping protocol less efficient.
+
+Another issue is that if two transactions $τ_1$ and $τ_2$ are issued,
+such that $τ_2$ depends on $τ_1$, if a node, due to a network delay,
+receives $τ_2$ before $τ_1$, is will reject $τ_2$, instead of keeping
+it in waiting area. The current specification doesn't distinguish
+rejecting or reserving blocks or transaction (maybe it will have to,
+eventually), but it's also how the implementation behaves. This puts
+some burden on the network, and also makes the gossiping protocol less
+efficient.
+
+On the other hand makes the work of the block issuer somewhat harder,
+as they have to decide which transactions to include in their new
+block from a soup of transactions rather than a structured list. It
+reduces the overall computation effort (as only the block issuer must
+perform the transaction ordering and stateful checks), however, it may
+cause concerns for latency, as an issuer must build their block in a
+20s time window. Nevertheless is may not be desirable to make all the
+nodes in the network spend computation power which will be only used
+by a single node (the block issuer).
+
+\improvement{Todo: discuss the fact that a block issuer need not use the
+  whole mempool}
+
+A more flexible mempool implementation would keep a partial ordering
+of transactions (the dependency ordering) rather than the total
+topological ordering of the current mempool (as well as a waiting area
+for reserved transactions which are missing an ancestor). The
+restriction on the block issuer is that the transactions in a block
+must be a downward-closed set of the mempool.
+
 \subsection{Miscelaneous remarks on the current specification}
 \label{sec:misc-remarks}
 \begin{itemize}
@@ -1013,19 +1056,8 @@ explicitly.
   fees. Furthermore Bruno Woltzenlogel Paleo's utxo Chimeric Ledger
   model allows empty outputs, because it is believed to be essential
   for coloured coins.
-\item The checks in the mempool are expensive, and may not be the most
-  effective way to make the network efficient. It is being considered
-  to restrict the mempool to stateless tests (and correspondingly not
-  tracking a state of the mempool). This allows transactions to flow
-  throughout the Cardano network more freely. It also makes the work
-  of the block issuer somewhat harder, as they have to decide which
-  transactions to include in their new block from a soup of
-  transactions rather than a structured list. It reduces the overall
-  computation effort (as only the block issuer must perform the
-  transaction ordering and stateful checks), however, it may cause
-  concerns for latency, as an issuer must build their block in a 20s
-  time window.
 \end{itemize}
 \end{document}
 
 %  LocalWords:  combinator summands repartition unallocated mempool
+%  LocalWords:  stateful

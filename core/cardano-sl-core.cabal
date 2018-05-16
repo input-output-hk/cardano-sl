@@ -222,7 +222,6 @@ test-suite test
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
-                     , cardano-sl-util
                      , cardano-sl-util-test
                      , formatting
                      , hspec

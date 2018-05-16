@@ -64,7 +64,6 @@ Library
                       , base
                       , cardano-sl-util
                       , containers
-                      , contravariant
                       , cryptonite
                       , binary >= 0.8
                       , bytestring
@@ -81,7 +80,6 @@ Library
                       , network-transport
                       , network-transport-tcp
                       , mtl >= 2.2.1
-                      , QuickCheck
                       , random
                       , resourcet
                       , transformers-lift
@@ -120,8 +118,6 @@ executable discovery
                       , network-transport
                       , network-transport-tcp
                       , random
-                      , safe-exceptions
-                      , time-units
 
   hs-source-dirs:       examples
   default-language:     Haskell2010
@@ -145,8 +141,6 @@ executable ping-pong
                      , network-transport
                      , network-transport-tcp
                      , random
-                     , safe-exceptions
-                     , time-units
 
   hs-source-dirs:      examples
   default-language:    Haskell2010
@@ -163,10 +157,7 @@ executable bench-sender
   other-modules:       SenderOptions
   build-depends:       base == 4.*
                      , cardano-sl-networking
-                     , lens
                      , log-warper
-                     , MonadRandom
-                     , mtl
                      , network-transport-tcp
                      , optparse-simple >= 0.0.3
                      , random
@@ -195,9 +186,7 @@ executable bench-receiver
                      , network-transport-tcp
                      , optparse-simple
                      , random
-                     , safe-exceptions
                      , serokell-util
-                     , time-units
   hs-source-dirs:      bench/Receiver
   if flag(benchmarks)
     buildable:         True
@@ -220,7 +209,6 @@ executable bench-log-reader
                      , conduit
                      , conduit-extra
                      , containers
-                     , exceptions
                      , formatting
                      , lens
                      , log-warper
@@ -229,7 +217,6 @@ executable bench-log-reader
                      , resourcet
                      , safe-exceptions
                      , text
-                     , text-format
   hs-source-dirs:      bench/LogReader
   if flag(benchmarks)
     buildable:         True
@@ -267,7 +254,6 @@ test-suite cardano-sl-networking-test
                      , network-transport-inmemory
                      , QuickCheck
                      , random
-                     , safe-exceptions
                      , serokell-util >= 0.1.2.3
                      , stm
                      , time-units

@@ -569,9 +569,7 @@ test-suite cardano-sl-tools-test
                      , cardano-sl-tools
                      , directory
                      , hspec
-                     -- , hspec-discover
                      , temporary
-                     , universum >= 0.1.11
 
   hs-source-dirs:      test
   default-language:    Haskell2010

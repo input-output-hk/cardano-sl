@@ -105,15 +105,15 @@ import           Pos.Explorer.TestUtil (secretKeyToAddress)
 
 -- | Client hash
 newtype CHash = CHash Text
-  deriving (Show, Eq, Generic, Buildable, Hashable)
+  deriving (Show, Eq, Generic, Buildable, Hashable, NFData)
 
 -- | Client address. The address may be from either Cardano or RSCoin.
 newtype CAddress = CAddress Text
-    deriving (Show, Eq, Generic, Buildable, Hashable)
+    deriving (Show, Eq, Generic, Buildable, Hashable, NFData)
 
 -- | Client transaction id
 newtype CTxId = CTxId CHash
-    deriving (Show, Eq, Generic, Buildable, Hashable)
+    deriving (Show, Eq, Generic, Buildable, Hashable, NFData)
 
 -------------------------------------------------------------------------------------
 -- Client-server, server-client transformation functions
@@ -169,6 +169,8 @@ newtype CCoin = CCoin
     { getCoin :: Text
     } deriving (Show, Generic, Eq)
 
+instance NFData CCoin
+
 mkCCoin :: Coin -> CCoin
 mkCCoin = CCoin . show . unsafeGetCoin
 
@@ -194,6 +196,8 @@ data CBlockEntry = CBlockEntry
     , cbeBlockLead  :: !(Maybe Text) -- todo (ks): Maybe CAddress?
     , cbeFees       :: !CCoin
     } deriving (Show, Generic, Eq)
+
+instance NFData CBlockEntry
 
 toBlockEntry
     :: ExplorerMode ctx m
@@ -369,14 +373,6 @@ instance FromHttpApiData CAddressesFilter where
 -- TODO: When we have a generic enough `readEither`
 -- instance FromHttpApiData LocalSlotIndex where
 --     parseUrlPiece = readEither
-
---------------------------------------------------------------------------------
--- NFData instances
---------------------------------------------------------------------------------
-
-instance NFData CBlockEntry
-instance NFData CHash
-instance NFData CCoin
 
 --------------------------------------------------------------------------------
 -- Helper types and conversions

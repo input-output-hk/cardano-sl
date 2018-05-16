@@ -82,6 +82,15 @@ data TxHistoryEntry = THEntry
     , _thTimestamp   :: !(Maybe Timestamp)
     } deriving (Show, Eq, Generic, Ord)
 
+instance NFData TxHistoryEntry where
+    rnf tx = _thTxId tx
+        `deepseq` _thTx tx
+        `deepseq` _thDifficulty tx
+        `deepseq` _thInputAddrs tx
+        `deepseq` _thOutputAddrs tx
+        `deepseq` _thTimestamp tx
+        `deepseq` ()
+
 -- | Remained for compatibility
 _thInputAddrs :: TxHistoryEntry -> [Address]
 _thInputAddrs = map txOutAddress . _thInputs

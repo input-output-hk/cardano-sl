@@ -22,7 +22,7 @@ module Wallet.Incremental (
 import           Universum hiding (State)
 
 import           Control.Lens.TH
-import qualified Data.Set as Set
+import qualified Data.Map as Map
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
 
@@ -93,7 +93,7 @@ applyBlock' (ins, outs) State{..} = State{
     , _stateUtxoBalance = balance'
     }
   where
-    pending' = Set.filter (\t -> disjoint (trIns t) ins) _statePending
+    pending' = Map.filter (\t -> disjoint (trIns t) ins) _statePending
     utxoNew  = outs
     unionNew = _stateUtxo `utxoUnion` utxoNew
     utxoRem  = utxoRestrictToInputs ins unionNew

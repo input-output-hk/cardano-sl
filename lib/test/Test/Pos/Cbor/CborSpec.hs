@@ -48,9 +48,9 @@ import           Pos.Binary.Ssc ()
 import qualified Pos.Block.Network as BT
 import qualified Pos.Block.Types as BT
 import qualified Pos.Communication as C
+import           Pos.Communication.Limits (mlOpening, mlUpdateVote, mlVssCertificate)
 import qualified Pos.Communication.Relay as R
 import           Pos.Communication.Types.Relay (DataMsg (..))
-import           Pos.Communication.Limits (mlOpening, mlVssCertificate, mlUpdateVote)
 import qualified Pos.Core as T
 import qualified Pos.Core.Block as BT
 import           Pos.Core.Common (ScriptVersion)
@@ -66,14 +66,14 @@ import           Pos.Slotting.Types (SlottingData)
 import qualified Pos.Ssc as Ssc
 import qualified Pos.Txp as T
 import qualified Pos.Update as U
-import           Pos.Util (SmallGenerator)
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Util.QuickCheck.Property (expectationError)
 import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
-import           Test.Pos.Crypto.Arbitrary ()
 import qualified Test.Pos.Cbor.RefImpl as R
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Helpers (binaryTest, msgLenLimitedTest)
+import           Test.Pos.Util.QuickCheck (SmallGenerator)
+import           Test.Pos.Util.QuickCheck.Property (expectationError)
 
 -- | Wrapper for Integer with Arbitrary instance that can generate "proper" big
 -- integers, i.e. ones that don't fit in Int64. This really needs to be fixed

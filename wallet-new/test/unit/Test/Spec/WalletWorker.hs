@@ -15,7 +15,7 @@ import           Util.Buildable.QuickCheck
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 
 -- declares Arbitrary instance for Text
-import qualified Pos.Txp.Toil ()
+import           Test.QuickCheck.Instances ()
 
 {-------------------------------------------------------------------------------
   Wallet worker state machine tests

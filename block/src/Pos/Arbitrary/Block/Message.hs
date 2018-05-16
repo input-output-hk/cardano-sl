@@ -15,6 +15,8 @@ import qualified Pos.Block.Network.Types as T
 import           Pos.Core (HasProtocolConstants, HasProtocolMagic, HasGenesisHash)
 import           Pos.Core.Ssc (SscPayload, SscProof)
 
+import           Test.Pos.Util.Chrono ()
+
 ------------------------------------------------------------------------------------------
 -- Block network types
 ------------------------------------------------------------------------------------------

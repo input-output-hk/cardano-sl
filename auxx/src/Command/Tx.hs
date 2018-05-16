@@ -41,8 +41,7 @@ import           Pos.Client.Txp.Util (createTx)
 import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAddr (..),
                            Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretKeys)
-import           Pos.Core.Txp (Tx (_txOutputs), TxAux (..), TxIn (TxInUtxo), TxOut (..),
-                               TxOutAux (..), txaF)
+import           Pos.Core.Txp (TxAux (..), TxIn (TxInUtxo), TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase, encToPublic, fakeSigner, hash,
                              safeToPublic, toPublic, withSafeSigners)
 import           Pos.Diffusion.Types (Diffusion (..))

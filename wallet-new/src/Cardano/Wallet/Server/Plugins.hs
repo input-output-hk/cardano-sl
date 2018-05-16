@@ -49,8 +49,6 @@ import           Pos.Wallet.Web.Sockets (getWalletWebSockets, upgradeApplication
 import qualified Servant
 import           System.Wlog (logInfo, modifyLoggerName, usingLoggerName)
 
-import           Pos.Communication (OutSpecs)
-import           Pos.Communication.Util (ActionSpec (..))
 import           Pos.Context (HasNodeContext)
 import           Pos.Util (lensOf)
 
@@ -58,32 +56,30 @@ import           Pos.Configuration (walletProductionApi, walletTxCreationDisable
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
-import           Pos.Wallet.Web.Server.Launcher (walletServeImpl, walletServerOuts)
+import           Pos.Wallet.Web.Server.Launcher (walletServeImpl)
 import           Pos.Wallet.Web.State (askWalletDB)
 import           Pos.Wallet.Web.Tracking.Sync (processSyncRequest)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Web (serveWeb)
-import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (WorkMode)
 import           Pos.Shutdown.Class        (HasShutdownContext (shutdownContext))
 import           Cardano.NodeIPC (startNodeJsIPC)
 
 
 -- A @Plugin@ running in the monad @m@.
-type Plugin m = ([WorkerSpec m], OutSpecs)
+type Plugin m = [Diffusion m -> m ()]
 
 -- | A @Plugin@ to periodically compact & snapshot the acid-state database.
 acidCleanupWorker :: HasConfigurations
                   => WalletBackendParams
                   -> Plugin WalletWebMode
-acidCleanupWorker WalletBackendParams{..} =
-    first one $ worker mempty $ const $
+acidCleanupWorker WalletBackendParams{..} = pure $ const $
     modifyLoggerName (const "acidcleanup") $
     askWalletDB >>= \db -> cleanupAcidStatePeriodically db (walletAcidInterval walletDbOptions)
 
 -- | The @Plugin@ which defines part of the conversation protocol for this node.
 conversation :: (HasConfigurations, HasCompileInfo) => WalletBackendParams -> Plugin WalletWebMode
-conversation wArgs = (, mempty) $ map (ActionSpec . const) (pluginsMonitoringApi wArgs)
+conversation wArgs = map const (pluginsMonitoringApi wArgs)
   where
     pluginsMonitoringApi :: (WorkMode ctx m , HasNodeContext ctx , HasConfigurations, HasCompileInfo)
                          => WalletBackendParams
@@ -97,25 +93,24 @@ legacyWalletBackend :: (HasConfigurations, HasCompileInfo)
                     => WalletBackendParams
                     -> TVar NtpStatus
                     -> Plugin WalletWebMode
-legacyWalletBackend WalletBackendParams {..} ntpStatus =
-    first one $ worker walletServerOuts $ \diffusion -> do
-      modifyLoggerName (const "legacyServantBackend") $ do
-        logInfo $ sformat ("Production mode for API: "%build)
-          walletProductionApi
-        logInfo $ sformat ("Transaction submission disabled: "%build)
-          walletTxCreationDisabled
+legacyWalletBackend WalletBackendParams {..} ntpStatus = pure $ \diffusion -> do
+    modifyLoggerName (const "legacyServantBackend") $ do
+      logInfo $ sformat ("Production mode for API: "%build)
+        walletProductionApi
+      logInfo $ sformat ("Transaction submission disabled: "%build)
+        walletTxCreationDisabled
 
-        ctx <- view shutdownContext
-        let
-          portCallback :: Word16 -> IO ()
-          portCallback port = usingLoggerName "NodeIPC" $ flip runReaderT ctx $ startNodeJsIPC port
-        walletServeImpl
-          (getApplication diffusion)
-          walletAddress
-          -- Disable TLS if in debug mode.
-          (if isDebugMode walletRunMode then Nothing else walletTLSParams)
-          (Just $ setOnExceptionResponse exceptionHandler defaultSettings)
-          (Just portCallback)
+      ctx <- view shutdownContext
+      let
+        portCallback :: Word16 -> IO ()
+        portCallback port = usingLoggerName "NodeIPC" $ flip runReaderT ctx $ startNodeJsIPC port
+      walletServeImpl
+        (getApplication diffusion)
+        walletAddress
+        -- Disable TLS if in debug mode.
+        (if isDebugMode walletRunMode then Nothing else walletTLSParams)
+        (Just $ setOnExceptionResponse exceptionHandler defaultSettings)
+        (Just portCallback)
   where
     -- Gets the Wai `Application` to run.
     getApplication :: Diffusion WalletWebMode -> WalletWebMode Application
@@ -179,22 +174,21 @@ walletBackend :: (HasConfigurations, HasCompileInfo)
               => NewWalletBackendParams
               -> PassiveWalletLayer Production
               -> Plugin Kernel.WalletMode
-walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
-    first one $ worker walletServerOuts $ \diffusion -> do
-      env <- ask
-      let diffusion' = Kernel.fromDiffusion (lower env) diffusion
-      bracketKernelActiveWallet passive diffusion' $ \active -> do
-        ctx <- view shutdownContext
-        let
-          portCallback :: Word16 -> IO ()
-          portCallback port = usingLoggerName "NodeIPC" $ flip runReaderT ctx $ startNodeJsIPC port
-        walletServeImpl
-          (getApplication active)
-          walletAddress
-          -- Disable TLS if in debug modeit .
-          (if isDebugMode walletRunMode then Nothing else walletTLSParams)
-          Nothing
-          (Just portCallback)
+walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive = pure $ \diffusion -> do
+    env <- ask
+    let diffusion' = Kernel.fromDiffusion (lower env) diffusion
+    bracketKernelActiveWallet passive diffusion' $ \active -> do
+      ctx <- view shutdownContext
+      let
+        portCallback :: Word16 -> IO ()
+        portCallback port = usingLoggerName "NodeIPC" $ flip runReaderT ctx $ startNodeJsIPC port
+      walletServeImpl
+        (getApplication active)
+        walletAddress
+        -- Disable TLS if in debug modeit .
+        (if isDebugMode walletRunMode then Nothing else walletTLSParams)
+        Nothing
+        (Just portCallback)
   where
     getApplication :: ActiveWalletLayer Production -> Kernel.WalletMode Application
     getApplication active = do
@@ -210,17 +204,16 @@ walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive =
 
 -- | A @Plugin@ to resubmit pending transactions.
 resubmitterPlugin :: (HasConfigurations, HasCompileInfo) => Plugin WalletWebMode
-resubmitterPlugin = ([ActionSpec $ \diffusion -> askWalletDB >>= \db ->
-                         startPendingTxsResubmitter db (sendTx diffusion)], mempty)
+resubmitterPlugin = [\diffusion -> askWalletDB >>= \db ->
+                        startPendingTxsResubmitter db (sendTx diffusion)]
 
 -- | A @Plugin@ to notify frontend via websockets.
 notifierPlugin :: (HasConfigurations, HasCompileInfo) => Plugin WalletWebMode
-notifierPlugin = ([ActionSpec $ const V0.notifierPlugin], mempty)
+notifierPlugin = [const V0.notifierPlugin]
 
 -- | The @Plugin@ responsible for the restoration & syncing of a wallet.
 syncWalletWorker :: HasConfigurations => Plugin WalletWebMode
-syncWalletWorker =
-    first one $ worker mempty $ const $
+syncWalletWorker = pure $ const $
     modifyLoggerName (const "syncWalletWorker") $
     (view (lensOf @SyncQueue) >>= processSyncRequest)
 

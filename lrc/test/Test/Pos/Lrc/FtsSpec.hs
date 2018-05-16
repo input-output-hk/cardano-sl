@@ -19,7 +19,7 @@ import           Pos.Core (Coin, HasConfiguration, SharedSeed, StakeholderId, St
                            mkCoin, sumCoins, unsafeAddCoin, unsafeIntegerToCoin, withGenesisSpec)
 import           Pos.Crypto (PublicKey)
 import           Pos.Lrc.Fts (followTheSatoshi)
-import           Pos.Util.QuickCheck.Property (qcNotElem)
+import           Test.Pos.Util.QuickCheck.Property (qcNotElem)
 
 spec :: Spec
 spec = withGenesisSpec 0 defaultCoreConfiguration $ do

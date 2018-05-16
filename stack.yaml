@@ -15,6 +15,7 @@ packages:
 - networking
 - binary
 - util
+- util/test
 - crypto
 - crypto/tests
 - core

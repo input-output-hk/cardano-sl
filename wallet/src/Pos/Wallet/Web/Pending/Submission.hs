@@ -23,7 +23,7 @@ import           System.Wlog (WithLogger, logDebug, logInfo)
 import           Pos.Client.Txp.History (saveTx, thTimestamp)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (walletTxCreationDisabled)
-import           Pos.Core (HasConfiguration, diffTimestamp, getCurrentTimestamp)
+import           Pos.Core (diffTimestamp, getCurrentTimestamp)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF)
 import           Pos.Util.Util (maybeThrow)
@@ -50,7 +50,7 @@ data PtxSubmissionHandlers m = PtxSubmissionHandlers
     }
 
 ptxFirstSubmissionHandler
-    :: (MonadThrow m, WithLogger m)
+    :: (MonadThrow m)
     => PtxSubmissionHandlers m
 ptxFirstSubmissionHandler =
     PtxSubmissionHandlers
@@ -59,7 +59,7 @@ ptxFirstSubmissionHandler =
     }
 
 ptxResubmissionHandler
-    :: forall m. (HasConfiguration, MonadIO m, MonadThrow m, WithLogger m)
+    :: forall m. (MonadIO m, MonadThrow m, WithLogger m)
     => WalletDB
     -> PendingTx
     -> PtxSubmissionHandlers m
@@ -77,7 +77,7 @@ ptxResubmissionHandler db PendingTx{..} =
     }
   where
     cancelPtx
-        :: (Exception e, Buildable e)
+        :: (Buildable e)
         => PtxPoolInfo -> e -> m ()
     cancelPtx poolInfo e = do
         let newCond = PtxWontApply (sformat build e) poolInfo

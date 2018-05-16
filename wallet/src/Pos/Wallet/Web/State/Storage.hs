@@ -118,8 +118,8 @@ import           Formatting ((%))
 import qualified Formatting as F
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HeaderHash, SlotId,
-                           Timestamp)
-import           Pos.Core.Configuration (HasConfiguration)
+                           Timestamp, ProtocolConstants(..), VssMinTTL(..),
+                           VssMaxTTL(..))
 import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.SafeCopy ()
 import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier, applyUtxoModToAddrCoinMap,
@@ -144,6 +144,8 @@ data WAddressMeta = WAddressMeta
     , _wamAddressIndex :: Word32
     , _wamAddress      :: Address
     } deriving (Eq, Ord, Show, Generic, Typeable)
+
+instance NFData WAddressMeta
 
 makeClassy ''WAddressMeta
 instance Hashable WAddressMeta
@@ -170,6 +172,11 @@ data AddressInfo = AddressInfo
     , adiSortingKey   :: !AddressSortingKey
     } deriving Eq
 
+instance NFData AddressInfo where
+    rnf x = adiWAddressMeta x
+        `deepseq` adiSortingKey x
+        `deepseq` ()
+
 type CAddresses = HashMap Address AddressInfo
 
 -- | Information about existing wallet account.
@@ -187,6 +194,13 @@ data AccountInfo = AccountInfo
     , _aiUnusedKey        :: !AddressSortingKey
     } deriving (Eq)
 
+instance NFData AccountInfo where
+    rnf ai =  _aiMeta ai
+        `deepseq` _aiAddresses ai
+        `deepseq` _aiRemovedAddresses ai
+        `deepseq` _aiUnusedKey ai
+        `deepseq` ()
+
 makeLenses ''AccountInfo
 
 -- | A 'RestorationBlockDepth' is simply a @newtype@ wrapper over a 'ChainDifficulty',
@@ -194,7 +208,7 @@ makeLenses ''AccountInfo
 -- a certain wallet was restored.
 newtype RestorationBlockDepth =
     RestorationBlockDepth { getRestorationBlockDepth :: ChainDifficulty }
-    deriving (Eq, Show)
+    deriving (Eq, Show, NFData)
 
 -- | Datatype which stores information about the sync state
 -- of this wallet. Syncing here is always relative to the blockchain.
@@ -215,6 +229,12 @@ data WalletSyncState
     -- ^ This wallet is tracking the blockchain up to 'HeaderHash'.
     deriving (Eq)
 
+instance NFData WalletSyncState where
+    rnf x = case x of
+        NotSynced -> ()
+        SyncedWith h -> rnf h
+        RestoringFrom a b -> a `deepseq` b `deepseq` ()
+
 -- The 'SyncThroughput' is computed during the syncing phase in terms of
 -- how many blocks we can sync in one second. This information can be
 -- used by consumers of the API to construct heuristics on the state of the
@@ -230,11 +250,16 @@ data SyncStatistics = SyncStatistics {
     , wspCurrentBlockchainDepth :: !ChainDifficulty
     } deriving (Eq)
 
+instance NFData SyncStatistics where
+    rnf ss = wspThroughput ss
+        `deepseq` wspCurrentBlockchainDepth ss
+        `deepseq` ()
+
 -- ^ | The 'SyncThroughput', in blocks/sec. This can be roughly computed
 -- during the syncing process, to provide better estimate to the frontend
 -- on how much time the restoration/syncing progress is going to take.
 newtype SyncThroughput = SyncThroughput BlockCount
-     deriving (Eq, Ord, Show)
+     deriving (Eq, Ord, Show, NFData)
 
 zeroThroughput :: SyncThroughput
 zeroThroughput = SyncThroughput (BlockCount 0)
@@ -262,6 +287,16 @@ data WalletInfo = WalletInfo
       -- into a client facing data structure (for example 'CWalletMeta')
     , _wiIsReady        :: !Bool
     } deriving (Eq)
+
+instance NFData WalletInfo where
+    rnf wi = _wiMeta wi
+        `deepseq` _wiPassphraseLU wi
+        `deepseq` _wiCreationTime wi
+        `deepseq` _wiSyncState wi
+        `deepseq` _wiSyncStatistics wi
+        `deepseq` _wsPendingTxs wi
+        `deepseq` _wiIsReady wi
+        `deepseq` ()
 
 makeLenses ''WalletInfo
 
@@ -313,6 +348,19 @@ data WalletStorage = WalletStorage
     , _wsChangeAddresses :: !CustomAddresses
     } deriving (Eq)
 
+instance NFData WalletStorage where
+    rnf ws = _wsWalletInfos ws
+        `deepseq` _wsAccountInfos ws
+        `deepseq` _wsProfile ws
+        `deepseq` _wsReadyUpdates ws
+        `deepseq` _wsTxHistory ws
+        `deepseq` _wsHistoryCache ws
+        `deepseq` _wsUtxo ws
+        `deepseq` _wsBalances ws
+        `deepseq` _wsUsedAddresses ws
+        `deepseq` _wsChangeAddresses ws
+        `deepseq` ()
+
 makeClassy ''WalletStorage
 
 instance Default WalletStorage where
@@ -331,7 +379,7 @@ instance Default WalletStorage where
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
-type Update a = forall m. (HasConfiguration, MonadState WalletStorage m) => m a
+type Update a = forall m. (MonadState WalletStorage m) => m a
 
 -- | How to lookup addresses of account
 data AddressLookupMode
@@ -729,14 +777,19 @@ data PtxMetaUpdate
     | PtxMarkAcknowledged         -- ^ Mark tx as acknowledged by some peer
 
 -- | Update meta info of pending transaction atomically.
-ptxUpdateMeta :: WebTypes.CId WebTypes.Wal -> TxId -> PtxMetaUpdate -> Update ()
-ptxUpdateMeta wid txId updType =
+ptxUpdateMeta
+    :: ProtocolConstants
+    -> WebTypes.CId WebTypes.Wal
+    -> TxId
+    -> PtxMetaUpdate
+    -> Update ()
+ptxUpdateMeta pc wid txId updType =
     wsWalletInfos . ix wid . wsPendingTxs . ix txId %=
         case updType of
             PtxIncSubmitTiming ->
-                ptxSubmitTiming %~ incPtxSubmitTimingPure
+                ptxSubmitTiming %~ incPtxSubmitTimingPure pc
             PtxResetSubmitTiming curSlot ->
-                ptxSubmitTiming .~ mkPtxSubmitTiming curSlot
+                ptxSubmitTiming .~ mkPtxSubmitTiming pc curSlot
             PtxMarkAcknowledged ->
                 ptxMarkAcknowledgedPure
 
@@ -758,10 +811,10 @@ addOnlyNewPendingTx ptx =
 
 -- | Move every transaction which is in 'PtxWontApply' state to 'PtxApplying'
 -- state, effectively starting resubmission of failed transactions again.
-resetFailedPtxs :: SlotId -> Update ()
-resetFailedPtxs curSlot =
+resetFailedPtxs :: ProtocolConstants -> SlotId -> Update ()
+resetFailedPtxs pc curSlot =
     wsWalletInfos . traversed .
-    wsPendingTxs . traversed %= resetFailedPtx curSlot
+    wsPendingTxs . traversed %= resetFailedPtx pc curSlot
 
 -- | Gets whole wallet storage. Used primarily for testing and diagnostics.
 getWalletStorage :: Query WalletStorage
@@ -813,6 +866,9 @@ deriveSafeCopySimple 0 'base ''WAddressMeta
 deriveSafeCopySimple 0 'base ''RestorationBlockDepth
 deriveSafeCopySimple 0 'base ''SyncThroughput
 deriveSafeCopySimple 0 'base ''SyncStatistics
+deriveSafeCopySimple 0 'base ''ProtocolConstants
+deriveSafeCopySimple 0 'base ''VssMinTTL
+deriveSafeCopySimple 0 'base ''VssMaxTTL
 
 -- Legacy versions, for migrations
 

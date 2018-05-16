@@ -1,4 +1,4 @@
-module Pos.Util.QuickCheck.Property
+module Test.Pos.Util.QuickCheck.Property
        ( -- * Various properties and predicates
          qcIsJust
        , qcIsNothing

@@ -26,13 +26,14 @@ import           Pos.Core (AddressHash, HasConfiguration, SharedSeed (..), Stake
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), getCommShares,
                                getCommitmentsMap, mkCommitmentsMap)
 import           Pos.Crypto (DecShare, PublicKey, SecretKey, SignTag (SignCommitment), Threshold,
-                             VssKeyPair, VssPublicKey, decryptShare, sign, toPublic, toVssPublicKey,
-                             protocolMagic)
+                             VssKeyPair, VssPublicKey, decryptShare, protocolMagic, sign, toPublic,
+                             toVssPublicKey)
 import           Pos.Ssc (SscSeedError (..), calculateSeed, genCommitmentAndOpening,
                           secretToSharedSeed, vssThreshold)
-import           Pos.Util (nonrepeating, sublistN)
 
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating, sublistN)
+
 
 getPubAddr :: SecretKey -> AddressHash PublicKey
 getPubAddr = addressHash . toPublic

@@ -96,6 +96,7 @@ library
                      , cardano-sl-lrc
                      , cardano-sl-networking
                      , cardano-sl-util
+                     , cardano-sl-util-test
                      , conduit
                      , containers
                      , data-default

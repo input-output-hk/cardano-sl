@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE RankNTypes         #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TupleSections      #-}
@@ -18,6 +19,8 @@ module Cardano.Wallet.Kernel.DB.Sqlite (
 
     -- * Unsafe functions
     , unsafeMigrateMetaDB
+    , migration0
+    , rawMigrationSql
     ) where
 
 import qualified Prelude
@@ -50,7 +53,8 @@ import           Data.Time.Units (fromMicroseconds, toMicroseconds)
 import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..), Migration,
                                         MigrationSteps, boolean, createTable, evaluateDatabase,
                                         executeMigration, field, migrationStep, notNull,
-                                        runMigrationSteps, unCheckDatabase, unique)
+                                        runMigrationSteps, unCheckDatabase, unique,
+                                        migrateScript)
 import           Formatting (sformat)
 import           GHC.Generics (Generic)
 
@@ -275,8 +279,8 @@ coin :: DataType SqliteDataTypeSyntax Core.Coin
 coin = DataType sqliteBigIntType
 
 -- | Beam's 'Migration' to create a new 'MetaDB' Sqlite database.
-initialMigration :: () -> Migration SqliteCommandSyntax (CheckedDatabaseSettings Sqlite MetaDB)
-initialMigration () = do
+migration0 :: Migration SqliteCommandSyntax (CheckedDatabaseSettings Sqlite MetaDB)
+migration0 = do
     MetaDB <$> createTable "tx_metas"
                  (TxMeta (field "meta_id" txId notNull unique)
                          (field "meta_amount" coin notNull)
@@ -294,22 +298,28 @@ initialMigration () = do
                                                     (TxIdPrimKey (field "meta_id" txId notNull))
                            ))
 
+rawMigrationSql :: Migration SqliteCommandSyntax a -> Sqlite.Query
+rawMigrationSql mig = Sqlite.Query $ migrateScript
+   (\case "irrelevant" -> mempty)
+   (Sqlite.fromQuery . queryFromSqliteCommandSyntax)
+   (migrationStep "irrelevant" (\() -> mig))
+
 --- | The full list of migrations available for this 'MetaDB'.
 -- For a more interesting migration, see: https://github.com/tathougies/beam/blob/d3baf0c77b76b008ad34901b47a818ea79439529/beam-postgres/examples/Pagila/Schema.hs#L17-L19
 migrateMetaDB :: MigrationSteps SqliteCommandSyntax () (CheckedDatabaseSettings Sqlite MetaDB)
-migrateMetaDB = migrationStep "Initial migration" initialMigration
+migrateMetaDB = migrationStep "migration0" (\() -> migration0)
 
 
 -- | Migrates the 'MetaDB', potentially mangling the input database.
 -- TODO(adinapoli): Make it safe.
 unsafeMigrateMetaDB :: Sqlite.Connection -> IO ()
 unsafeMigrateMetaDB conn =
-    void $ runMigrationSteps 0 Nothing migrateMetaDB (\_ _ -> executeMigration (Sqlite.execute_ conn . newSqlQuery))
-    where
-        newSqlQuery :: SqliteCommandSyntax -> Sqlite.Query
-        newSqlQuery syntax =
-            let sqlFragment = sqliteRenderSyntaxScript . fromSqliteCommand $ syntax
-                in Sqlite.Query (decodeUtf8 sqlFragment)
+  void $ runMigrationSteps 0 Nothing migrateMetaDB $ \_ _ ->
+     executeMigration (Sqlite.execute_ conn . queryFromSqliteCommandSyntax)
+
+queryFromSqliteCommandSyntax :: SqliteCommandSyntax -> Sqlite.Query
+queryFromSqliteCommandSyntax =
+  Sqlite.Query .decodeUtf8 . sqliteRenderSyntaxScript . fromSqliteCommand
 
 -- | Simply a conveniency wrapper to avoid 'Kernel.TxMeta' to explicitly
 -- import Sqlite modules.

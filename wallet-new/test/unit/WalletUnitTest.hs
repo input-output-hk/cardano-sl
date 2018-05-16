@@ -36,6 +36,7 @@ import           UTxO.PreChain
 import           UTxO.Translate
 
 import           TxMetaStorageSpecs (txMetaStorageSpecs)
+import           Migrations (migrationsSpec)
 import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
 import           Util.Validated
@@ -73,6 +74,7 @@ _showContext = do
 
 tests :: HasConfiguration =>Spec
 tests = describe "Wallet unit tests" $ do
+    migrationsSpec
     txMetaStorageSpecs
     testTranslation
     testPureWallet

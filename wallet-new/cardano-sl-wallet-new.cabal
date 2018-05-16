@@ -83,6 +83,7 @@ library
                        Cardano.Wallet.Kernel.PrefilterTx
                        Cardano.Wallet.Kernel.Types
                        Cardano.Wallet.LegacyServer
+                       Cardano.Wallet.Migrations
                        Cardano.Wallet.Orphans
                        Cardano.Wallet.Orphans.Aeson
                        Cardano.Wallet.Orphans.Arbitrary
@@ -303,6 +304,7 @@ test-suite wallet-unit-tests
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
   other-modules:      TxMetaStorageSpecs
+                      Migrations
                       Util
                       Util.Buildable
                       Util.Buildable.Hspec
@@ -373,6 +375,7 @@ test-suite wallet-unit-tests
                     , QuickCheck
                     , safe-exceptions
                     , serokell-util
+                    , sqlite-simple
                     , text
                     , text-format
                     , universum

@@ -21,6 +21,7 @@ import           Test.QuickCheck (Arbitrary, Gen, arbitrary, forAll, vectorOf)
 import           Test.QuickCheck.Monadic (assert, monadicIO, pick, run)
 import           Util.Buildable (ShowThroughBuild (..))
 import           Util.Buildable.Hspec
+                   (Spec, shouldBe, it, shouldMatchList, shouldReturn, describe)
 
 
 

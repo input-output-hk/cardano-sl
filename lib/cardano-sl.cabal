@@ -278,6 +278,7 @@ test-suite cardano-test
                        Test.Pos.Ssc.Toss.PureSpec
 
                        -- Everything else
+                       Test.Pos.Binary.CommunicationSpec
                        Test.Pos.Cbor.CborSpec
                        Test.Pos.ConstantsSpec
                        Test.Pos.CryptoSpec
@@ -303,8 +304,10 @@ test-suite cardano-test
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
+                     , cardano-sl-db
                      , cardano-sl-delegation
                      , cardano-sl-infra
+                     , cardano-sl-generator
                      , cardano-sl-lrc
                      , cardano-sl-lrc-test
                      , cardano-sl-networking

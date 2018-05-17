@@ -409,7 +409,7 @@ removeCustomAddress :: (MonadIO m)
                     -> (Address, HeaderHash)
                     -> m Bool
 removeCustomAddress db customAddrType aIdAndHeaderHash =
-    updateDisk (A.RemoveCustomAddress customAddrType aIdAndHeaderHash) db
+    updateDisk (A.RemoveCustomAddress2 customAddrType aIdAndHeaderHash) db
 
 addUpdate :: (MonadIO m)
           => WalletDB

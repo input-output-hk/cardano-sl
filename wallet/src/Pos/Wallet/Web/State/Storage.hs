@@ -57,6 +57,7 @@ module Pos.Wallet.Web.State.Storage
        , addCustomAddress
        , addCustomAddress2
        , removeCustomAddress
+       , removeCustomAddress2
        , createAccount
        , createWallet
        , addWAddress
@@ -612,10 +613,14 @@ addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at (unsafeCIdTo
 addCustomAddress2 :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
 addCustomAddress2 t (addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
 
+-- | Legacy version of `removeCustomAddress2`.
+removeCustomAddress :: CustomAddressType -> (WebTypes.CId WebTypes.Addr, HeaderHash) -> Update Bool
+removeCustomAddress t (cwa, hh) = removeCustomAddress2 t (unsafeCIdToAddress cwa, hh)
+
 -- | Remove given address from set of used\/change addresses only if provided
 -- header hash is equal to one which is stored in database.
-removeCustomAddress :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
-removeCustomAddress t (addr, hh) = do
+removeCustomAddress2 :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
+removeCustomAddress2 t (addr, hh) = do
     mhh' <- use $ customAddressL t . at addr
     let exists = mhh' == Just hh
     when exists $

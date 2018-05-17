@@ -158,7 +158,7 @@ rollbackModifierFromWallet2 pc walId wAddrs custAddrs utxoMod
         (WS.RestoringFrom rhh newSyncTip) -> do
             for_ wAddrs WS.removeWAddress2
             for_ custAddrs $ \(cat, addrs) ->
-                for_ addrs $ WS.removeCustomAddress cat
+                for_ addrs $ WS.removeCustomAddress2 cat
             WS.updateWalletBalancesAndUtxo utxoMod
             WS.removeFromHistoryCache walId historyEntries
             WS.removeWalletTxMetas walId (encodeCType <$> M.keys historyEntries)
@@ -194,7 +194,7 @@ rollbackModifierFromWallet pc walId wAddrs custAddrs utxoMod
                            syncTip = do
     for_ wAddrs WS.removeWAddress2
     for_ custAddrs $ \(cat, addrs) ->
-        for_ addrs $ WS.removeCustomAddress cat
+        for_ addrs $ WS.removeCustomAddress2 cat
     WS.updateWalletBalancesAndUtxo utxoMod
     WS.removeFromHistoryCache walId historyEntries
     WS.removeWalletTxMetas walId (encodeCType <$> M.keys historyEntries)

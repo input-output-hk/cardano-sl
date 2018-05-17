@@ -47,6 +47,7 @@ module Pos.Wallet.Web.State.Acidic
        , RemoveWAddress (..)
        , RemoveWAddress2 (..)
        , RemoveCustomAddress (..)
+       , RemoveCustomAddress2 (..)
        , AddUpdate (..)
        , RemoveNextUpdate (..)
        , InsertIntoHistoryCache (..)
@@ -126,6 +127,7 @@ makeAcidic ''WalletStorage
     , 'WS.addCustomAddress
     , 'WS.addCustomAddress2
     , 'WS.removeCustomAddress
+    , 'WS.removeCustomAddress2
     , 'WS.createAccount
     , 'WS.createWallet
     , 'WS.addWAddress

@@ -29,7 +29,6 @@ module Pos.Util.Orphans
 
 import           Universum
 
-import           Control.Monad.Base (MonadBase)
 import           Control.Monad.IO.Unlift (MonadUnliftIO (..), UnliftIO (..), unliftIO, withUnliftIO)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
@@ -134,8 +133,7 @@ instance (Typeable s, Buildable a) => Buildable (Tagged s a) where
 ----------------------------------------------------------------------------
 
 instance {-# OVERLAPPABLE #-}
-    (MonadResource m, MonadTrans t, Applicative (t m),
-     MonadBase IO (t m), MonadIO (t m), MonadThrow (t m)) =>
+    (MonadResource m, MonadTrans t, MonadIO (t m)) =>
         MonadResource (t m)
   where
     liftResourceT = lift . liftResourceT

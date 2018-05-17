@@ -30,7 +30,7 @@ import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Client.Txp.Network (prepareMTx, prepareUnsignedTx)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee, runTxCreator)
 import           Pos.Configuration (walletTxCreationDisabled)
-import           Pos.Core (Address, Coin, HasConfiguration, TxAux (..), TxOut (..),
+import           Pos.Core (Address, Coin, HasConfiguration, TxAux (..), TxOut (..), Tx (..),
                            getCurrentTimestamp)
 import           Pos.Core.Txp (_txOutputs)
 import           Pos.Crypto (PassPhrase, SafeSigner, ShouldCheckPassphrase (..), checkPassMatches,
@@ -99,7 +99,7 @@ newPaymentBatch submitTx passphrase NewBatchPayment {..} = do
 newUnsignedTransaction
     :: MonadWalletTxFull ctx m
     => NewBatchPayment
-    -> m CTx
+    -> m Tx
 newUnsignedTransaction NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
     notFasterThan (6 :: Second) $ do
@@ -257,7 +257,7 @@ createNewUnsignedTransaction
     => MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> InputSelectionPolicy
-    -> m CTx
+    -> m Tx
 createNewUnsignedTransaction moneySource dstDistr policy = do
     when walletTxCreationDisabled $
         throwM err405
@@ -278,25 +278,13 @@ createNewUnsignedTransaction moneySource dstDistr policy = do
     _ <- getSomeMoneySourceAccount ws moneySource
     outputs <- coinDistrToOutputs dstDistr
     let pendingAddrs = getPendingAddresses ws policy
-    th <- rewrapTxError "Cannot create unsigned transaction" $
+    tx <- rewrapTxError "Cannot create unsigned transaction" $
         prepareUnsignedTx pendingAddrs policy srcAddrs outputs >>= \case
             Left txError ->
                 throwM (RequestError $ show txError)
-            Right (tx, inpTxOuts') -> do
-                ts <- Just <$> getCurrentTimestamp
-                let txHash    = hash tx
-                    inpTxOuts = toList inpTxOuts'
-                    dstAddrs  = map txOutAddress . toList $ _txOutputs tx
-                    th        = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
-                return th
-
-    ws' <- getWalletSnapshot db
-    let srcWallet = getMoneySourceWallet moneySource
-    let srcWalletAddrsDetector = getWalletAddrsDetector ws' Ever srcWallet
-
-    logDebug "createNewUnsignedTransaction: constructing response"
-    diff <- getCurChainDifficulty
-    fst <$> constructCTx ws' srcWallet srcWalletAddrsDetector diff th
+            Right (tx, _) ->
+                return tx
+    return tx
 
 ----------------------------------------------------------------------------
 -- Utilities

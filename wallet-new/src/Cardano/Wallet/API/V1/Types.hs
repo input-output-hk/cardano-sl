@@ -54,6 +54,7 @@ module Cardano.Wallet.API.V1.Types (
   , TransactionDirection (..)
   , TransactionStatus(..)
   , EstimatedFees (..)
+  , RawTransaction (..)
   , SignedTransaction (..)
   -- * Updates
   , WalletSoftwareUpdate (..)
@@ -1484,6 +1485,30 @@ instance BuildableSafeGen Transaction where
 
 instance Buildable [Transaction] where
     build = bprint listJson
+
+-- | A 'Wallet''s 'RawTransaction'. It contains a raw transaction
+-- in hex (Base16) format.
+data RawTransaction = RawTransaction
+  { rtxHex :: !Text  -- ^ Encoded transaction CBOR binary blob.
+  } deriving (Show, Ord, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''RawTransaction
+
+instance ToSchema RawTransaction where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "rtx" (\(--^) props -> props
+      & ("hex" --^ "New raw transaction in hex (Base16) format.")
+    )
+
+instance Arbitrary RawTransaction where
+    arbitrary = RawTransaction <$> arbitrary
+
+deriveSafeBuildable ''RawTransaction
+instance BuildableSafeGen RawTransaction where
+    buildSafeGen sl RawTransaction{..} = bprint ("{"
+        %" hex="%buildSafe sl
+        %" }")
+        rtxHex
 
 -- | A 'Wallet''s 'SignedTransaction'. It is assumed
 -- that this transaction was signed on the client-side

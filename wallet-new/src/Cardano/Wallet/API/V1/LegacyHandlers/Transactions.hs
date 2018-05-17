@@ -1,6 +1,7 @@
 module Cardano.Wallet.API.V1.LegacyHandlers.Transactions where
 
 import           Universum
+import qualified Serokell.Util.Base16 as B16
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
@@ -11,6 +12,7 @@ import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
 import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List.NonEmpty as NE
+import           Pos.Binary.Class (serialize')
 import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
 import qualified Pos.Client.Txp.Util as V0
 import           Pos.Core (TxAux)
@@ -107,15 +109,17 @@ estimateFees Payment{..} = do
 newUnsignedTransaction
     :: forall ctx m . (V0.MonadWalletTxFull ctx m)
     => Payment
-    -> m (WalletResponse Transaction)
+    -> m (WalletResponse RawTransaction)
 newUnsignedTransaction pmt@Payment {..} = do
     -- We're creating new transaction as usually, but we mustn't sign/publish it.
     -- This transaction will be signed on the client-side (mobile client or
     -- hardware wallet), and after that transaction (with its signature) will be
     -- sent to backend.
     batchPayment <- createBatchPayment pmt
-    cTx <- V0.newUnsignedTransaction batchPayment
-    single <$> migrate cTx
+    tx <- V0.newUnsignedTransaction batchPayment
+    let txInHexFormat = B16.encode $ serialize' tx
+        rawTx = RawTransaction txInHexFormat
+    pure $ single rawTx
 
 
 newSignedTransaction

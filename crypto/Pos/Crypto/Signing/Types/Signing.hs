@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Signing done with public/private keys.
 
 module Pos.Crypto.Signing.Types.Signing

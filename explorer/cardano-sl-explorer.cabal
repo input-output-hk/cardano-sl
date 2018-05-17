@@ -119,7 +119,6 @@ library
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
 
   default-extensions:   DeriveDataTypeable
@@ -171,7 +170,6 @@ executable cardano-explorer
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
 
@@ -215,7 +213,6 @@ executable cardano-explorer-hs2purs
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
 
@@ -263,7 +260,6 @@ executable cardano-explorer-swagger
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
 
@@ -291,7 +287,6 @@ executable cardano-explorer-mock
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
 
@@ -363,7 +358,6 @@ test-suite cardano-explorer-test
   ghc-options:         -threaded
                        -rtsopts
                        -Wall
-                       -fno-warn-orphans
 
   -- linker speed up for linux
   if os(linux)
@@ -413,7 +407,6 @@ benchmark cardano-explorer-bench
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -O2
 
   -- linker speed up for linux

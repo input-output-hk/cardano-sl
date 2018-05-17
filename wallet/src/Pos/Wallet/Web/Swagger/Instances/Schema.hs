@@ -1,5 +1,7 @@
 {-# LANGUAGE OverloadedLists #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Instances of `ToSchema` & `ToParamSchema`
 
 module Pos.Wallet.Web.Swagger.Instances.Schema where

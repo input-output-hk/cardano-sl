@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | A module which derives acidic events from actions defined
 -- in "Pos.Wallet.Web.State.Storage".
 module Pos.Wallet.Web.State.Acidic

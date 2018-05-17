@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Arbitrary instances for client types
 
 module Pos.Arbitrary.Wallet.Web.ClientTypes
@@ -7,10 +9,10 @@ module Pos.Arbitrary.Wallet.Web.ClientTypes
 import           Universum
 
 import qualified Data.ByteString.Char8 as B8
+import           Pos.Wallet.Web.ClientTypes.Types (CHash (..), CId (..), CWAddressMeta (..))
+import           Pos.Wallet.Web.State (WAddressMeta (..))
 import qualified Serokell.Util.Base64 as B64
 import           Test.QuickCheck (Arbitrary (..), vectorOf)
-import Pos.Wallet.Web.State (WAddressMeta(..))
-import           Pos.Wallet.Web.ClientTypes.Types (CHash (..), CId (..), CWAddressMeta (..))
 
 instance Arbitrary CHash where
     arbitrary = CHash . B64.encode . B8.pack <$> vectorOf 64 arbitrary

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | United miscellaneous functionality.
 
 module Pos.Core.Block.Union.Instances

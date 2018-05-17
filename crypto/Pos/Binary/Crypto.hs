@@ -1,5 +1,7 @@
 {-# LANGUAGE CPP #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Serializable instances for Pos.Crypto.*
 
 module Pos.Binary.Crypto () where

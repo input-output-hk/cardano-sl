@@ -1,5 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Test.Pos.Util.Modifier where
 
 import           Pos.Util.Modifier
@@ -11,4 +13,3 @@ import           Universum
 
 deriving instance (Eq k, Hashable k, Arbitrary k, Arbitrary v) =>
     Arbitrary (MapModifier k v)
-

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Arbitrary instances and generators for SSC types.
 
 module Pos.Arbitrary.Ssc

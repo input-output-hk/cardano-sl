@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Serialization of core types from 'Pos.Core.Block'.
 
 module Pos.Binary.Core.Block

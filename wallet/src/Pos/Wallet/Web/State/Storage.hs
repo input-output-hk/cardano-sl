@@ -1,6 +1,8 @@
 {-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Module which defines internal structure of `acid-state` wallet database.
 module Pos.Wallet.Web.State.Storage
        (
@@ -122,9 +124,9 @@ import           Data.Time.Clock.POSIX (POSIXTime)
 import           Formatting ((%))
 import qualified Formatting as F
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
-import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HeaderHash, SlotId,
-                           Timestamp, ProtocolConstants(..), VssMinTTL(..),
-                           VssMaxTTL(..))
+import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HeaderHash,
+                           ProtocolConstants (..), SlotId, Timestamp, VssMaxTTL (..),
+                           VssMinTTL (..))
 import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.SafeCopy ()
 import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier, applyUtxoModToAddrCoinMap,
@@ -236,8 +238,8 @@ data WalletSyncState
 
 instance NFData WalletSyncState where
     rnf x = case x of
-        NotSynced -> ()
-        SyncedWith h -> rnf h
+        NotSynced         -> ()
+        SyncedWith h      -> rnf h
         RestoringFrom a b -> a `deepseq` b `deepseq` ()
 
 -- The 'SyncThroughput' is computed during the syncing phase in terms of

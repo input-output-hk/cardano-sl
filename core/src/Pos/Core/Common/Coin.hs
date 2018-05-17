@@ -2,6 +2,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Pos.Core.Common.Coin
        ( coinF
        , sumCoins
@@ -28,8 +30,8 @@ import           Universum
 import qualified Data.Text.Buildable
 import           Formatting (bprint, float, int, (%))
 
-import           Pos.Core.Common.Types (Coin (..), CoinPortion (..), coinF,
-                                        coinPortionDenominator, unsafeGetCoin)
+import           Pos.Core.Common.Types (Coin (..), CoinPortion (..), coinF, coinPortionDenominator,
+                                        unsafeGetCoin)
 import           Pos.Util.Util (leftToPanic)
 
 -- | Compute sum of all coins in container. Result is 'Integer' as a

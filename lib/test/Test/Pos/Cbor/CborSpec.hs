@@ -4,6 +4,8 @@
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE TemplateHaskell           #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Test.Pos.Cbor.CborSpec specification
 
 module Test.Pos.Cbor.CborSpec

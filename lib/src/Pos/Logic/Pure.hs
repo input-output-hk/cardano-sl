@@ -11,6 +11,7 @@ import qualified Data.ByteString as BS
 import           Data.Coerce (coerce)
 import           Data.Default (def)
 
+import           Pos.Binary.Class (serialize')
 import           Pos.Core (ApplicationName (..), Block, BlockHeader (..), BlockVersion (..),
                            BlockVersionData (..), ExtraBodyData, ExtraHeaderData, GenericBlock (..),
                            GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
@@ -31,6 +32,7 @@ import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
 import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..), Signature (..),
                                      deterministicKeyGen, signRaw)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
+import           Pos.DB.Class (SerializedBlock, Serialized (..))
 import           Pos.Merkle (MerkleRoot (..))
 import           Pos.Txp.Base (emptyTxPayload)
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
@@ -44,7 +46,7 @@ pureLogic
     => Logic m
 pureLogic = Logic
     { ourStakeholderId   = stakeholderId
-    , getBlock           = \_ -> pure (Just block)
+    , getSerializedBlock = \_ -> pure (Just serializedBlock)
     , getBlockHeader     = \_ -> pure (Just blockHeader)
     , getHashesRange     = \_ _ _ -> pure (Right (OldestFirst (pure mainBlockHeaderHash)))
     , getBlockHeaders    = \_ _ _ -> pure (Right (NewestFirst (pure blockHeader)))
@@ -125,6 +127,9 @@ blockVersionData = BlockVersionData
 -- | This block is always given by 'getBlock' and 'getTip'
 block :: Block
 block = Right mainBlock
+
+serializedBlock :: SerializedBlock
+serializedBlock = Serialized $ serialize' block
 
 mainBlock :: MainBlock
 mainBlock = UnsafeGenericBlock

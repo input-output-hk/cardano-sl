@@ -35,7 +35,6 @@ import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefaul
                                dbWriteBatchDefault)
 import           Pos.Delegation.Class (DelegationVar)
 import           Pos.DHT.Real.Param (KademliaParams)
-import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Network.Types (HasNodeType (..), getNodeTypeDefault)
 import           Pos.Reporting (HasReportingContext (..))
 import           Pos.Shutdown (HasShutdownContext (..))
@@ -165,9 +164,6 @@ instance HasConfiguration => MonadDB (RealMode ext) where
 instance MonadBListener (RealMode ext) where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
-
-instance MonadFormatPeers (RealMode ext) where
-    formatKnownPeers _ = pure Nothing
 
 type instance MempoolExt (RealMode ext) = ext
 

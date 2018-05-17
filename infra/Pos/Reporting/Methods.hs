@@ -65,7 +65,6 @@ import           Paths_cardano_sl_infra (version)
 import           Pos.Crypto (ProtocolMagic (..), HasProtocolMagic, protocolMagic)
 import           Pos.DB.Error (DBError (..))
 import           Pos.Exception (CardanoFatalError)
-import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Reporting.Exceptions (ReportingError (..))
 import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers (..),
@@ -201,7 +200,6 @@ type MonadReporting ctx m =
        ( MonadIO m
        , MonadMask m
        , MonadReader ctx m
-       , MonadFormatPeers m
        , HasReportingContext ctx
        , HasNodeType ctx
        , WithLogger m
@@ -321,9 +319,13 @@ reportNode sendLogs extendWithNodeInfo reportType =
 
     -- Retrieves node info that we would like to know when analyzing
     -- malicious behavior of node.
-    getNodeInfo :: (MonadIO m, MonadFormatPeers m) => m Text
+    getNodeInfo :: (MonadIO m) => m Text
     getNodeInfo = do
-        peersText <- fromMaybe "unknown" <$> formatKnownPeers sformat
+        -- FIXME we used to put "known peers" here, via a 'MonadFormatPeers'
+        -- constraint. Return that feature, in a more sensible way: by having
+        -- the caller insert it. Also, have the caller come up with the log
+        -- file(s) to include, thereby abstracting the logging backend.
+        let peersText = "unknown"
         (ips :: [Text]) <-
             map show . filter ipExternal . map ipv4 <$>
             liftIO getNetworkInterfaces

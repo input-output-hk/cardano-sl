@@ -50,7 +50,6 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
-import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Network.Types (HasNodeType (..))
 import           Pos.Recovery ()
@@ -191,7 +190,6 @@ type MonadWalletWebMode ctx m =
     , MonadRecoveryInfo m
     , MonadBListener m
     , MonadReader ctx m
-    , MonadFormatPeers m
     , HasLens StateLock ctx StateLock
     , HasNodeType ctx
     , HasReportingContext ctx
@@ -312,10 +310,6 @@ instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo)
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
-
-instance MonadFormatPeers WalletWebMode where
-    -- Use the RealMode instance (ReaderT RealModeContext Production)
-    formatKnownPeers formatter = Mtl.withReaderT wwmcRealModeContext (formatKnownPeers formatter)
 
 type instance MempoolExt WalletWebMode = WalletMempoolExt
 

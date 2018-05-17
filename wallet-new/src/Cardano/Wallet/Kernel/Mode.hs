@@ -9,7 +9,6 @@ module Cardano.Wallet.Kernel.Mode
     ) where
 
 import           Control.Lens (makeLensesWith)
-import qualified Control.Monad.Reader as Mtl
 import           Universum
 
 import           Mockable
@@ -22,7 +21,6 @@ import           Pos.DB
 import           Pos.DB.Block
 import           Pos.DB.DB
 import           Pos.Diffusion.Types (Diffusion)
-import           Pos.KnownPeers
 import           Pos.Launcher
 import           Pos.Network.Types
 import           Pos.Reporting
@@ -202,9 +200,6 @@ instance ( HasConfiguration
 
 instance HasConfiguration => MonadGState WalletMode where
   gsAdoptedBVData = gsAdoptedBVDataDefault
-
-instance MonadFormatPeers WalletMode where
-  formatKnownPeers f = Mtl.withReaderT wcRealModeContext $ formatKnownPeers f
 
 instance {-# OVERLAPPING #-} CanJsonLog WalletMode where
   jsonLog = jsonLogDefault

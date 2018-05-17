@@ -74,7 +74,6 @@ import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegatio
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.Generator.BlockEvent (SnapshotId)
 import qualified Pos.GState as GS
-import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
 import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
@@ -499,9 +498,6 @@ instance HasConfiguration => MonadGState BlockTestMode where
 instance MonadBListener BlockTestMode where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
-
-instance MonadFormatPeers BlockTestMode where
-    formatKnownPeers _ = pure Nothing
 
 type instance MempoolExt BlockTestMode = EmptyMempoolExt
 

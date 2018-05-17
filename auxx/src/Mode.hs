@@ -48,7 +48,6 @@ import           Pos.DB (DBSum (..), MonadGState (..), NodeDBs, gsIsBootstrapEra
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.GState (HasGStateContext (..), getGStateImplicit)
-import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Reporting (HasReportingContext (..))
@@ -201,9 +200,6 @@ instance ( HasConfiguration
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
-
-instance MonadFormatPeers AuxxMode where
-    formatKnownPeers formatter = withReaderT acRealModeContext (formatKnownPeers formatter)
 
 instance (HasConfigurations, HasCompileInfo) =>
          MonadAddresses AuxxMode where

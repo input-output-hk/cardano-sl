@@ -46,7 +46,6 @@ import           Pos.Crypto (WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
 import           Pos.DB.Block (getBlock)
 import qualified Pos.GState as GS
-import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Lrc.Genesis (genesisLeaders)
 import           Pos.Network.Types (HasNodeType)
 import           Pos.Reporting (HasReportingContext)
@@ -204,7 +203,6 @@ type TxHistoryEnv ctx m =
     , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
     , HasReportingContext ctx
     , Mockable CurrentTime m
-    , MonadFormatPeers m
     , HasNodeType ctx
     , CanJsonLog m
     )

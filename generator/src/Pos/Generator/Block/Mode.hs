@@ -48,7 +48,6 @@ import           Pos.Exception (reportFatalError)
 import           Pos.Generator.Block.Param (BlockGenParams (..), HasBlockGenParams (..),
                                             HasTxGenParams (..))
 import qualified Pos.GState as GS
-import           Pos.KnownPeers (MonadFormatPeers)
 import           Pos.Lrc (HasLrcContext, LrcContext (..))
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Reporting (HasReportingContext (..), ReportingContext, emptyReportingContext)
@@ -74,7 +73,6 @@ type MonadBlockGenBase m
        , MonadMask m
        , MonadIO m
        , MonadUnliftIO m
-       , MonadFormatPeers m
        , MonadMockable m
        , Eq (Promise m (Maybe ())) -- are you cereal boyz??1?
        , HasConfiguration

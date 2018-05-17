@@ -66,7 +66,6 @@ import           Pos.DB.Pure (DBPureVar)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Generator.Block (BlockGenMode)
 import qualified Pos.GState as GS
-import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Lrc (LrcContext)
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
@@ -341,9 +340,6 @@ instance HasConfiguration => MonadDB WalletTestMode where
 
 instance HasConfiguration => MonadGState WalletTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
-
-instance MonadFormatPeers WalletTestMode where
-    formatKnownPeers _ = pure Nothing
 
 ----------------------------------------------------------------------------
 -- Wallet instances

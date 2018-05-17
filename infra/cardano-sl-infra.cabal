@@ -79,9 +79,6 @@ library
                         -- Health Checks
                         Pos.HealthCheck.Route53
 
-                        -- Known peers
-                        Pos.KnownPeers
-
                         -- Network topology
                         Pos.Network.DnsDomains
                         Pos.Network.Policy

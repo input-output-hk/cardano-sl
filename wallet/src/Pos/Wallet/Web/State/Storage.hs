@@ -59,6 +59,7 @@ module Pos.Wallet.Web.State.Storage
        , createAccount
        , createWallet
        , addWAddress
+       , addWAddress2
        , setAccountMeta
        , setWalletMeta
        , setWalletReady
@@ -629,8 +630,8 @@ createWallet cWalId cWalMeta isReady curTime = do
 
 -- | Add new address given 'CWAddressMeta' (which contains information about
 -- target wallet and account too).
-addWAddress :: WAddressMeta -> Update ()
-addWAddress addrMeta = do
+addWAddress2 :: WAddressMeta -> Update ()
+addWAddress2 addrMeta = do
     let accInfo :: Traversal' WalletStorage AccountInfo
         accInfo = wsAccountInfos . ix (addrMeta ^. wamAccount)
         addr = addrMeta ^. wamAddress
@@ -642,6 +643,20 @@ addWAddress addrMeta = do
             accInfo . aiUnusedKey += 1
             let key = info ^. aiUnusedKey
             accInfo . aiAddresses . at addr ?= AddressInfo addrMeta key
+
+-- | Legacy version of 'addWAddress2' or backwards compatibility on the event
+-- log.
+addWAddress :: WebTypes.CWAddressMeta -> Update ()
+addWAddress addrMeta@WebTypes.CWAddressMeta{..} = do
+    let accInfo :: Traversal' WalletStorage AccountInfo
+        accInfo = wsAccountInfos . ix (WebTypes.addrMetaToAccount addrMeta)
+        unsafeCid = unsafeCIdToAddress cwamId
+    whenJustM (preuse accInfo) $ \info -> do
+        let mAddr = info ^. aiAddresses . at unsafeCid
+        when (isNothing mAddr) $ do
+            accInfo . aiUnusedKey += 1
+            let key = info ^. aiUnusedKey
+            accInfo . aiAddresses . at unsafeCid ?= AddressInfo (cwamToWam addrMeta) key
 
 -- | Update account metadata.
 setAccountMeta :: WebTypes.AccountId -> WebTypes.CAccountMeta -> Update ()
@@ -858,6 +873,10 @@ unsafeCIdToAddress cId = case WebTypes.cIdToAddress cId of
     Left err -> error $ "unsafeCIdToAddress: " <> err
     Right x  -> x
 
+cwamToWam :: WebTypes.CWAddressMeta -> WAddressMeta
+cwamToWam (WebTypes.CWAddressMeta wid accIdx addrIdx cAddr) =
+    WAddressMeta wid accIdx addrIdx $ unsafeCIdToAddress cAddr
+
 deriveSafeCopySimple 0 'base ''WebTypes.CCoin
 deriveSafeCopySimple 0 'base ''WebTypes.CProfile
 deriveSafeCopySimple 0 'base ''WebTypes.CHash
@@ -1013,9 +1032,6 @@ instance Migrate AddressInfo where
         { adiWAddressMeta = cwamToWam _v0_adiCWAddressMeta
         , adiSortingKey = _v0_adiSortingKey
         }
-      where
-        cwamToWam (WebTypes.CWAddressMeta wid accIdx addrIdx cAddr) =
-            WAddressMeta wid accIdx addrIdx $ unsafeCIdToAddress cAddr
 
 instance Migrate AccountInfo where
     type MigrateFrom AccountInfo = AccountInfo_v0

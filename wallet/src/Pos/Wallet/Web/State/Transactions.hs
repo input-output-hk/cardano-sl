@@ -36,7 +36,7 @@ createAccountWithAddress
     -> Update ()
 createAccountWithAddress accId accMeta addrMeta = do
     WS.createAccount accId accMeta
-    WS.addWAddress addrMeta
+    WS.addWAddress2 addrMeta
 
 -- | Delete a wallet (and all associated data).
 --   Compared to the low-level 'removeWallet', this function:
@@ -74,7 +74,7 @@ applyModifierToWallet2 walId wAddrs custAddrs utxoMod
                       currentBlockchainDepth syncState = do
     case syncState of
         (WS.RestoringFrom rhh newSyncTip) -> do
-            for_ wAddrs WS.addWAddress
+            for_ wAddrs WS.addWAddress2
             for_ custAddrs $ \(cat, addrs) ->
                 for_ addrs $ WS.addCustomAddress cat
             -- Allow the transactions to influence the 'UTXO' and the balance only
@@ -118,7 +118,7 @@ applyModifierToWallet
 applyModifierToWallet walId wAddrs custAddrs utxoMod
                       txMetas historyEntries ptxConditions
                       syncTip = do
-    for_ wAddrs WS.addWAddress
+    for_ wAddrs WS.addWAddress2
     for_ custAddrs $ \(cat, addrs) ->
         for_ addrs $ WS.addCustomAddress cat
     WS.updateWalletBalancesAndUtxo utxoMod

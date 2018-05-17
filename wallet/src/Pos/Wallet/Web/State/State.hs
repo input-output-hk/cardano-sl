@@ -287,7 +287,7 @@ addWAddress :: (MonadIO m)
             => WalletDB
             -> S.WAddressMeta
             -> m ()
-addWAddress db addr = updateDisk (A.AddWAddress addr) db
+addWAddress db addr = updateDisk (A.AddWAddress2 addr) db
 
 addCustomAddress :: (MonadIO m)
                  => WalletDB

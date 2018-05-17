@@ -25,6 +25,7 @@ module Pos.Wallet.Web.State.Acidic
        , AddCustomAddress (..)
        , CreateAccount (..)
        , AddWAddress (..)
+       , AddWAddress2 (..)
        , CreateWallet (..)
        , SetProfile (..)
        , SetAccountMeta (..)
@@ -124,6 +125,7 @@ makeAcidic ''WalletStorage
     , 'WS.createAccount
     , 'WS.createWallet
     , 'WS.addWAddress
+    , 'WS.addWAddress2
     , 'WS.setProfile
     , 'WS.setAccountMeta
     , 'WS.setWalletMeta

@@ -44,6 +44,7 @@ module Pos.Wallet.Web.State.Storage
        , getAccountWAddresses
        , getWAddresses
        , doesWAddressExist
+       , doesWAddressExist2
        , isWalletRestoring
        , getTxMeta
        , getNextUpdate
@@ -54,10 +55,13 @@ module Pos.Wallet.Web.State.Storage
        , getWalletPendingTxs
        , getPendingTx
        , addCustomAddress
+       , addCustomAddress2
        , removeCustomAddress
+       , removeCustomAddress2
        , createAccount
        , createWallet
        , addWAddress
+       , addWAddress2
        , setAccountMeta
        , setWalletMeta
        , setWalletReady
@@ -78,6 +82,7 @@ module Pos.Wallet.Web.State.Storage
        , removeHistoryCache
        , removeAccount
        , removeWAddress
+       , removeWAddress2
        , addUpdate
        , removeNextUpdate
        , testReset
@@ -498,12 +503,12 @@ getWAddresses mode wid =
       return $ HM.elems =<< accs ^.. traverse . which
 
 -- | Check if given address exists.
-doesWAddressExist ::
+doesWAddressExist2 ::
        AddressLookupMode -- ^ Determines where to look for address: in set of existing
                          -- addresses, deleted addresses or both
     -> WAddressMeta     -- ^ Given address
     -> Query Bool
-doesWAddressExist mode addrMeta@(view wamAccount -> wAddr) =
+doesWAddressExist2 mode addrMeta@(view wamAccount -> wAddr) =
     getAny <$>
         withAccLookupMode mode (exists aiAddresses) (exists aiRemovedAddresses)
   where
@@ -511,6 +516,20 @@ doesWAddressExist mode addrMeta@(view wamAccount -> wAddr) =
     exists which =
         Any . isJust <$>
         preview (wsAccountInfos . ix wAddr . which . ix (addrMeta ^. wamAddress))
+
+-- | Legacy version of 'doesWAddressExist2' for backwards compatibility on
+--   the event log.
+doesWAddressExist :: AddressLookupMode -> WebTypes.CWAddressMeta -> Query Bool
+doesWAddressExist mode addrMeta@(WebTypes.addrMetaToAccount -> wAddr) =
+    getAny <$>
+        withAccLookupMode mode (exists aiAddresses) (exists aiRemovedAddresses)
+  where
+    exists :: Lens' AccountInfo CAddresses -> Query Any
+    exists which =
+        Any . isJust <$>
+        preview (wsAccountInfos
+            . ix wAddr . which
+            . ix (unsafeCIdToAddress (WebTypes.cwamId addrMeta)))
 
 -- | Get transaction metadata given wallet ID and transaction ID.
 getTxMeta :: WebTypes.CId WebTypes.Wal -> WebTypes.CTxId -> Query (Maybe WebTypes.CTxMeta)
@@ -586,15 +605,25 @@ getWalletPendingTxs wid =
 getPendingTx :: WebTypes.CId WebTypes.Wal -> TxId -> Query (Maybe PendingTx)
 getPendingTx wid txId = preview $ wsWalletInfos . ix wid . wsPendingTxs . ix txId
 
+-- | Legacy version of 'addCustomAddress2' for backwards compatibility on
+--   the event log.
+addCustomAddress :: CustomAddressType -> (WebTypes.CId WebTypes.Addr, HeaderHash) -> Update Bool
+addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at (unsafeCIdToAddress addr) <<.= Just hh
+
 -- | If given address isn't yet present in set of used\/change addresses, then add it
 -- with given block header hash.
-addCustomAddress :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
-addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
+addCustomAddress2 :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
+addCustomAddress2 t (addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
+
+-- | Legacy version of 'removeCustomAddress2' for backwards compatibility on
+--   the event log.
+removeCustomAddress :: CustomAddressType -> (WebTypes.CId WebTypes.Addr, HeaderHash) -> Update Bool
+removeCustomAddress t (cwa, hh) = removeCustomAddress2 t (unsafeCIdToAddress cwa, hh)
 
 -- | Remove given address from set of used\/change addresses only if provided
 -- header hash is equal to one which is stored in database.
-removeCustomAddress :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
-removeCustomAddress t (addr, hh) = do
+removeCustomAddress2 :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
+removeCustomAddress2 t (addr, hh) = do
     mhh' <- use $ customAddressL t . at addr
     let exists = mhh' == Just hh
     when exists $
@@ -615,8 +644,8 @@ createWallet cWalId cWalMeta isReady curTime = do
 
 -- | Add new address given 'CWAddressMeta' (which contains information about
 -- target wallet and account too).
-addWAddress :: WAddressMeta -> Update ()
-addWAddress addrMeta = do
+addWAddress2 :: WAddressMeta -> Update ()
+addWAddress2 addrMeta = do
     let accInfo :: Traversal' WalletStorage AccountInfo
         accInfo = wsAccountInfos . ix (addrMeta ^. wamAccount)
         addr = addrMeta ^. wamAddress
@@ -628,6 +657,11 @@ addWAddress addrMeta = do
             accInfo . aiUnusedKey += 1
             let key = info ^. aiUnusedKey
             accInfo . aiAddresses . at addr ?= AddressInfo addrMeta key
+
+-- | Legacy version of 'addWAddress2' for backwards compatibility on the event
+-- log.
+addWAddress :: WebTypes.CWAddressMeta -> Update ()
+addWAddress = addWAddress2 . cwamToWam
 
 -- | Update account metadata.
 setAccountMeta :: WebTypes.AccountId -> WebTypes.CAccountMeta -> Update ()
@@ -696,10 +730,15 @@ removeHistoryCache cWalId = wsHistoryCache . at cWalId .= Nothing
 removeAccount :: WebTypes.AccountId -> Update ()
 removeAccount accId = wsAccountInfos . at accId .= Nothing
 
+-- | Legacy version of 'removeWAddress2' for backwards compatibility on
+--   the event log.
+removeWAddress :: WebTypes.CWAddressMeta -> Update ()
+removeWAddress = removeWAddress2 . cwamToWam
+
 -- | Remove given address, not removing it completely, but marking it as `removed` instead.
 -- See also 'addRemovedAccount'.
-removeWAddress :: WAddressMeta -> Update ()
-removeWAddress addrMeta@(view wamAccount -> accId) = do
+removeWAddress2 :: WAddressMeta -> Update ()
+removeWAddress2 addrMeta@(view wamAccount -> accId) = do
     let addrId = addrMeta ^. wamAddress
     -- If the address exists, move it to 'addressesRemoved'
     whenJustM (preuse (accAddresses accId . ix addrId)) $ \addressInfo -> do
@@ -836,6 +875,17 @@ flushWalletStorage = modify flushDo
     flushWalletInfo wi = wi { _wiSyncState = NotSynced
                             , _wiIsReady   = False
                             }
+
+-- | Unsafe address conversion for use in migration. This will throw an error if
+--   the address cannot be migrated.
+unsafeCIdToAddress :: WebTypes.CId WebTypes.Addr -> Address
+unsafeCIdToAddress cId = case WebTypes.cIdToAddress cId of
+    Left err -> error $ "unsafeCIdToAddress: " <> err
+    Right x  -> x
+
+cwamToWam :: WebTypes.CWAddressMeta -> WAddressMeta
+cwamToWam (WebTypes.CWAddressMeta wid accIdx addrIdx cAddr) =
+    WAddressMeta wid accIdx addrIdx $ unsafeCIdToAddress cAddr
 
 deriveSafeCopySimple 0 'base ''WebTypes.CCoin
 deriveSafeCopySimple 0 'base ''WebTypes.CProfile
@@ -986,22 +1036,12 @@ deriveSafeCopySimple 2 'extension ''WalletStorage_v2
 deriveSafeCopySimple 3 'extension ''WalletStorage_v3
 deriveSafeCopySimple 4 'extension ''WalletStorage
 
--- | Unsafe address conversion for use in migration. This will throw an error if
---   the address cannot be migrated.
-unsafeCIdToAddress :: WebTypes.CId WebTypes.Addr -> Address
-unsafeCIdToAddress cId = case WebTypes.cIdToAddress cId of
-    Left err -> error $ "unsafeCIdToAddress: " <> err
-    Right x  -> x
-
 instance Migrate AddressInfo where
     type MigrateFrom AddressInfo = AddressInfo_v0
     migrate AddressInfo_v0{..} = AddressInfo
         { adiWAddressMeta = cwamToWam _v0_adiCWAddressMeta
         , adiSortingKey = _v0_adiSortingKey
         }
-      where
-        cwamToWam (WebTypes.CWAddressMeta wid accIdx addrIdx cAddr) =
-            WAddressMeta wid accIdx addrIdx $ unsafeCIdToAddress cAddr
 
 instance Migrate AccountInfo where
     type MigrateFrom AccountInfo = AccountInfo_v0

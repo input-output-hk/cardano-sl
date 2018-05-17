@@ -12,7 +12,7 @@ module Main
 import           Universum
 
 import           Data.Maybe (fromJust)
-import           Mockable (Production, runProduction)
+import           Mockable (Production (..), runProduction)
 import           System.Wlog (LoggerName, logInfo)
 
 import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
@@ -21,16 +21,15 @@ import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
-import           Pos.Diffusion.Types (Diffusion)
+import           Pos.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket (NotifierSettings (..))
 import           Pos.Explorer.Txp (ExplorerExtraModifier, explorerTxpGlobalSettings)
 import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, notifierPlugin, runExplorerProd)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
-                               NodeResources (..), bracketNodeResources, elimRealMode,
-                               loggerBracket, runNode, runServer, withConfigurations)
-import           Pos.Reporting.Ekg (EkgNodeMetrics (..))
+                               NodeResources (..), bracketNodeResources,
+                               loggerBracket, runNode, runRealMode, withConfigurations)
 import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
@@ -71,7 +70,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         bracketNodeResources currentParams sscParams
             explorerTxpGlobalSettings
             explorerInitDB $ \nr@NodeResources {..} ->
-                runExplorerRealMode nr (runNode nr plugins)
+                Production (runExplorerRealMode nr (runNode nr plugins))
   where
 
     conf :: ConfigurationOptions
@@ -81,20 +80,13 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         :: (HasConfigurations,HasCompileInfo)
         => NodeResources ExplorerExtraModifier
         -> (Diffusion ExplorerProd -> ExplorerProd ())
-        -> Production ()
+        -> IO ()
     runExplorerRealMode nr@NodeResources{..} go =
         let NodeContext {..} = nrContext
             extraCtx = makeExtraCtx
             explorerModeToRealMode  = runExplorerProd extraCtx
-            elim = elimRealMode nr
-            ekgNodeMetrics = EkgNodeMetrics
-                nrEkgStore
-            serverRealMode = explorerModeToRealMode $ runServer
-                (runProduction . elim . explorerModeToRealMode)
-                ncNodeParams
-                ekgNodeMetrics
-                go
-        in  elim serverRealMode
+         in runRealMode nr $ \diffusion ->
+                explorerModeToRealMode (go (hoistDiffusion (lift . lift) diffusion))
 
     nodeArgs :: NodeArgs
     nodeArgs = NodeArgs { behaviorConfigPath = Nothing }

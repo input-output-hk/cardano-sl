@@ -29,7 +29,6 @@ import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Txp ()
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
-import           Pos.Block.Configuration (criticalForkThreshold)
 import           Pos.Block.Error (ApplyBlocksException)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, lcaWithMainChain,
                                   verifyAndApplyBlocks)
@@ -40,7 +39,7 @@ import           Pos.Block.Types (Blund, LastKnownHeaderTag)
 import           Pos.Communication.Protocol (NodeId)
 import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader, headerHashG, isMoreDifficult,
                            prevBlockL, HasGeneratedSecrets, HasGenesisHash, HasProtocolConstants,
-                           HasGenesisBlockVersionData, HasGenesisData)
+                           HasProtocolMagic, HasGenesisBlockVersionData, HasGenesisData)
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.Block.Load as DB
@@ -49,7 +48,6 @@ import qualified Pos.Diffusion.Types as Diffusion (Diffusion (announceBlockHeade
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 import           Pos.Recovery.Info (recoveryInProgress)
 import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
-import           Pos.Reporting.Methods (reportMisbehaviour)
 import           Pos.StateLock (Priority (..), modifyStateLock)
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
@@ -97,7 +95,9 @@ instance Exception BlockNetLogicException where
 -- progress and 'ncRecoveryHeader' is full, we'll be requesting blocks anyway
 -- and until we're finished we shouldn't be asking for new blocks.
 triggerRecovery
-    :: BlockWorkMode ctx m
+    :: ( BlockWorkMode ctx m
+       , HasProtocolMagic
+       )
     => Diffusion m -> m ()
 triggerRecovery diffusion = unlessM recoveryInProgress $ do
     logDebug "Recovery triggered, requesting tips from neighbors"
@@ -129,7 +129,9 @@ triggerRecovery diffusion = unlessM recoveryInProgress $ do
 ----------------------------------------------------------------------------
 
 handleUnsolicitedHeader
-    :: BlockWorkMode ctx m
+    :: ( BlockWorkMode ctx m
+       , HasProtocolMagic
+       )
     => BlockHeader
     -> NodeId
     -> m ()
@@ -217,18 +219,20 @@ updateLastKnownHeader lastKnownH header = do
 
 -- | Carefully apply blocks that came from the network.
 handleBlocks
-    :: forall ctx m . ( BlockWorkMode ctx m
+    :: forall ctx m .
+       ( BlockWorkMode ctx m
        , HasGeneratedSecrets
        , HasGenesisData
        , HasGenesisHash
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGenesisBlockVersionData
+       , HasMisbehaviorMetrics ctx
        )
-    => NodeId
-    -> OldestFirst NE Block
+    => OldestFirst NE Block
     -> Diffusion m
     -> m ()
-handleBlocks nodeId blocks diffusion = do
+handleBlocks blocks diffusion = do
     logDebug "handleBlocks: processing"
     inAssertMode $ logInfo $
         sformat ("Processing sequence of blocks: " % buildListBounds % "...") $
@@ -247,7 +251,7 @@ handleBlocks nodeId blocks diffusion = do
         -- Head blund in result is the youngest one.
         toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
         maybe (applyWithoutRollback diffusion blocks)
-              (applyWithRollback nodeId diffusion blocks lcaHash)
+              (applyWithRollback diffusion blocks lcaHash)
               (_NewestFirst nonEmpty toRollback)
 
 applyWithoutRollback
@@ -257,7 +261,9 @@ applyWithoutRollback
        , HasGenesisHash
        , HasGenesisData
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGenesisBlockVersionData
+       , HasMisbehaviorMetrics ctx
        )
     => Diffusion m
     -> OldestFirst NE Block
@@ -302,15 +308,16 @@ applyWithRollback
        , HasGenesisData
        , HasGenesisHash
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGenesisBlockVersionData
+       , HasMisbehaviorMetrics ctx
        )
-    => NodeId
-    -> Diffusion m
+    => Diffusion m
     -> OldestFirst NE Block
     -> HeaderHash
     -> NewestFirst NE Blund
     -> m ()
-applyWithRollback nodeId diffusion toApply lca toRollback = do
+applyWithRollback diffusion toApply lca toRollback = do
     logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ toApply
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
@@ -331,22 +338,12 @@ applyWithRollback nodeId diffusion toApply lca toRollback = do
             relayBlock diffusion $ toApply ^. _OldestFirst . _neLast
   where
     toRollbackHashes = fmap headerHash toRollback
-    toApplyHashes = fmap headerHash toApply
-    reportF =
-        "Fork happened, data received from "%build%
-        ". Blocks rolled back: "%listJson%
-        ", blocks applied: "%listJson
     reportRollback = do
         let rollbackDepth = length toRollback
-        let isCritical = rollbackDepth >= criticalForkThreshold
 
         -- Commit rollback value to EKG
         whenJustM (view misbehaviorMetrics) $ liftIO .
             flip Metrics.set (fromIntegral rollbackDepth) . _mmRollbacks
-
-        -- REPORT:MISBEHAVIOUR(F/T) Blockchain fork occurred (depends on depth).
-        reportMisbehaviour isCritical $
-            sformat reportF nodeId toRollbackHashes toApplyHashes
 
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =

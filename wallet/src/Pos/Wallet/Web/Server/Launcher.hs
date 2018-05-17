@@ -31,6 +31,7 @@ import           Pos.Client.Txp.Network (sendTxOuts)
 import           Pos.Communication (OutSpecs)
 import           Pos.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Util (bracketWithLogging)
+import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.TimeWarp (NetworkAddress)
 import           Pos.Wallet.Web.Account (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api (WalletSwaggerApi, swaggerWalletApi)
@@ -67,7 +68,7 @@ walletApplication serv = do
 
 walletServer
     :: forall ctx m.
-       ( MonadFullWalletWebMode ctx m )
+       ( MonadFullWalletWebMode ctx m, HasCompileInfo )
     => Diffusion m
     -> TVar NtpStatus
     -> (forall x. m x -> Handler x)

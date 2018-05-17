@@ -31,9 +31,12 @@ library
                         -- Reporting
                         Pos.Reporting
                         Pos.Reporting.Exceptions
+                        Pos.Reporting.Http
                         Pos.Reporting.MemState
                         Pos.Reporting.Methods
                         Pos.Reporting.Metrics
+                        Pos.Reporting.NodeInfo
+                        Pos.Reporting.Wlog
 
                         -- StateLock
                         Pos.StateLock

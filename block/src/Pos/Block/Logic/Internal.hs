@@ -40,7 +40,7 @@ import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
 import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL, HasGeneratedSecrets,
                            gbHeader, headerHash, mainBlockDlgPayload, mainBlockSscPayload, HasGenesisData,
                            mainBlockTxPayload, mainBlockUpdatePayload, HasGenesisBlockVersionData,
-                           HasGenesisData, HasProtocolConstants)
+                           HasGenesisData, HasProtocolConstants, HasProtocolMagic)
 import           Pos.Core.Block (Block, GenesisBlock, MainBlock)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
 import qualified Pos.DB.GState.Common as GS (writeBatchGState)
@@ -82,7 +82,7 @@ type MonadBlockBase ctx m
        -- 'MonadRandom' for crypto.
        , Rand.MonadRandom m
        -- To report bad things.
-       , MonadReporting ctx m
+       , MonadReporting m
        , HasSscConfiguration
        )
 
@@ -116,7 +116,7 @@ type MonadMempoolNormalization ctx m
       , MonadDBRead m
       , MonadGState m
       -- Needed for error reporting.
-      , MonadReporting ctx m
+      , MonadReporting m
       -- 'MonadRandom' for crypto.
       , Rand.MonadRandom m
       , Mockable CurrentTime m
@@ -129,6 +129,7 @@ normalizeMempool :: (
     , HasGenesisBlockVersionData
     , HasGenesisData
     , HasProtocolConstants
+    , HasProtocolMagic
     )
     => m ()
 normalizeMempool = do
@@ -145,7 +146,14 @@ normalizeMempool = do
 --
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
-    :: forall ctx m . (MonadBlockApply ctx m, HasGeneratedSecrets, HasGenesisData, HasGenesisBlockVersionData, HasProtocolConstants)
+    :: forall ctx m .
+       ( MonadBlockApply ctx m
+       , HasGeneratedSecrets
+       , HasGenesisData
+       , HasGenesisBlockVersionData
+       , HasProtocolConstants
+       , HasProtocolMagic
+       )
     => ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
@@ -176,7 +184,14 @@ applyBlocksUnsafe scb blunds pModifier = do
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
 
 applyBlocksDbUnsafeDo
-    :: forall ctx m . (MonadBlockApply ctx m, HasGeneratedSecrets, HasGenesisData, HasGenesisBlockVersionData, HasProtocolConstants)
+    :: forall ctx m .
+       ( MonadBlockApply ctx m
+       , HasGeneratedSecrets
+       , HasGenesisData
+       , HasGenesisBlockVersionData
+       , HasProtocolConstants
+       , HasProtocolMagic
+       )
     => ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
@@ -205,7 +220,14 @@ applyBlocksDbUnsafeDo scb blunds pModifier = do
 -- | Rollback sequence of blocks, head-newest order expected with head being
 -- current tip. It's also assumed that lock on block db is taken already.
 rollbackBlocksUnsafe
-    :: forall ctx m. (MonadBlockApply ctx m, HasGeneratedSecrets, HasGenesisData, HasProtocolConstants, HasGenesisBlockVersionData)
+    :: forall ctx m.
+       ( MonadBlockApply ctx m
+       , HasGeneratedSecrets
+       , HasGenesisData
+       , HasProtocolConstants
+       , HasProtocolMagic
+       , HasGenesisBlockVersionData
+       )
     => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
     -> NewestFirst NE Blund

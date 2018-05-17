@@ -20,7 +20,7 @@ import           Pos.Core
 import           Pos.DB
 import           Pos.DB.Block
 import           Pos.DB.DB
-import           Pos.Diffusion.Types (Diffusion)
+import           Pos.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Launcher
 import           Pos.Network.Types
 import           Pos.Reporting
@@ -103,6 +103,10 @@ runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
               -> (Diffusion WalletMode -> WalletMode a)
               -> Production a
 runWalletMode nr wallet action =
+    Production $ runRealMode nr $ \diffusion ->
+        walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode diffusion))
+
+{-
     elimRealMode nr serverRealMode
   where
     NodeContext{..} = nrContext nr
@@ -120,6 +124,7 @@ runWalletMode nr wallet action =
 
     serverRealMode :: RealMode EmptyMempoolExt a
     serverRealMode = walletModeToRealMode wallet serverWalletMode
+-}
 
 walletModeToRealMode :: forall a. PassiveWalletLayer Production -> WalletMode a -> RealMode () a
 walletModeToRealMode wallet ma = do
@@ -129,6 +134,10 @@ walletModeToRealMode wallet ma = do
                 , wcRealModeContext = rmc
                 }
     lift $ runReaderT ma env
+
+realModeToWalletMode :: RealMode () a -> WalletMode a
+realModeToWalletMode rm = ask >>= \ctx ->
+  lift (runReaderT rm (wcRealModeContext ctx))
 
 {-------------------------------------------------------------------------------
   'WalletContext' instances
@@ -146,8 +155,12 @@ instance HasSlottingVar WalletContext where
 instance HasPrimaryKey WalletContext where
   primaryKey        = wcRealModeContext_L . primaryKey
 
-instance HasReportingContext WalletContext where
-  reportingContext  = wcRealModeContext_L . reportingContext
+instance MonadReporting WalletMode where
+  report ct = ask >>= \ctx ->
+    liftIO (runReporter (rmcReporter (wcRealModeContext ctx)) ct)
+
+instance HasMisbehaviorMetrics WalletContext where
+  misbehaviorMetrics = wcRealModeContext_L . misbehaviorMetrics
 
 instance HasSlogGState WalletContext where
   slogGState        = wcRealModeContext_L . slogGState

@@ -7,7 +7,12 @@ module Pos.Launcher.Launcher
          runNodeReal
        ) where
 
-import           Mockable (Production)
+import           Universum
+
+-- FIXME we use Production in here only because it gives a 'HasLoggerName'
+-- instance so that 'bracketNodeResources' can log.
+-- Get rid of production and use a 'Trace IO' instead.
+import           Mockable.Production (Production (..))
 
 import           Pos.Core (HasConfiguration)
 import           Pos.DB.DB (initNodeDBs)
@@ -34,8 +39,9 @@ runNodeReal
     => NodeParams
     -> SscParams
     -> [Diffusion (RealMode EmptyMempoolExt) -> RealMode EmptyMempoolExt ()]
-    -> Production ()
-runNodeReal np sscnp plugins = bracketNodeResources np sscnp txpGlobalSettings initNodeDBs action
+    -> IO ()
+runNodeReal np sscnp plugins = runProduction $
+    bracketNodeResources np sscnp txpGlobalSettings initNodeDBs (Production . action)
   where
-    action :: HasConfiguration => NodeResources EmptyMempoolExt -> Production ()
+    action :: HasConfiguration => NodeResources EmptyMempoolExt -> IO ()
     action nr@NodeResources {..} = runRealMode nr (runNode nr plugins)

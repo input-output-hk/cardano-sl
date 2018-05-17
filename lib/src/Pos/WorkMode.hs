@@ -36,7 +36,7 @@ import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefaul
 import           Pos.Delegation.Class (DelegationVar)
 import           Pos.DHT.Real.Param (KademliaParams)
 import           Pos.Network.Types (HasNodeType (..), getNodeTypeDefault)
-import           Pos.Reporting (HasReportingContext (..))
+import           Pos.Reporting (HasMisbehaviorMetrics (..), MonadReporting (..), Reporter (..))
 import           Pos.Shutdown (HasShutdownContext (..))
 import           Pos.Slotting.Class (MonadSlots (..))
 import           Pos.Slotting.Impl (currentTimeSlottingSimple,
@@ -65,6 +65,11 @@ data RealModeContext ext = RealModeContext
     , rmcJsonLogConfig :: !JsonLogConfig
     , rmcLoggerName    :: !LoggerName
     , rmcNodeContext   :: !NodeContext
+    , rmcReporter      :: !(Reporter IO)
+      -- ^ How to do reporting. It's in here so that we can have
+      -- 'MonadReporting (RealMode ext)' in the mean-time, until we
+      -- re-architecht the reporting system so that it's not built-in to the
+      -- application's monad.
     }
 
 type EmptyMempoolExt = ()
@@ -103,8 +108,8 @@ instance HasSscContext (RealModeContext ext) where
 instance HasPrimaryKey (RealModeContext ext) where
     primaryKey = rmcNodeContext_L . primaryKey
 
-instance HasReportingContext (RealModeContext ext) where
-    reportingContext = rmcNodeContext_L . reportingContext
+instance HasMisbehaviorMetrics (RealModeContext ext) where
+    misbehaviorMetrics = rmcNodeContext_L . misbehaviorMetrics
 
 instance HasUserSecret (RealModeContext ext) where
     userSecret = rmcNodeContext_L . userSecret
@@ -171,3 +176,6 @@ instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo) =>
          MonadTxpLocal (RealMode ()) where
     txpNormalize = txNormalize
     txpProcessTx = txProcessTransaction
+
+instance MonadReporting (RealMode ext) where
+    report rt = Mtl.ask >>= liftIO . flip runReporter rt . rmcReporter

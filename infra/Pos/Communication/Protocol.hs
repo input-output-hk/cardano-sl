@@ -170,7 +170,7 @@ type LocalOnNewSlotComm ctx m =
     , MonadSlots ctx m
     , MonadMask m
     , Mockables m [Async, Delay]
-    , MonadReporting ctx m
+    , MonadReporting m
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
     )

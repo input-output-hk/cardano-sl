@@ -10,6 +10,7 @@ import           Control.Lens ((%=))
 import           Data.Time.Clock (UTCTime, addUTCTime)
 import           Mockable (CurrentTime, Delay, Mockable, currentTime, delay)
 import           Serokell.Util (sec)
+import           System.Wlog (WithLogger)
 
 import           Pos.Delegation.Class (MonadDelegation, dwMessageCache)
 import           Pos.Delegation.Configuration (HasDlgConfiguration, dlgMessageCacheTimeout)
@@ -28,7 +29,8 @@ type DlgWorkerConstraint ctx m
        , Mockable Delay m
        , HasShutdownContext ctx
        , MonadDelegation ctx m
-       , MonadReporting ctx m
+       , WithLogger m
+       , MonadReporting m
        , MonadReader ctx m
        , Mockable CurrentTime m
        , HasDlgConfiguration)

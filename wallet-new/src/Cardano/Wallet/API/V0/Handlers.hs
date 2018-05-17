@@ -5,6 +5,7 @@ import           Universum
 import qualified Cardano.Wallet.API.V0          as V0
 import           Ntp.Client (NtpStatus)
 import           Pos.Diffusion.Types            (Diffusion(sendTx))
+import           Pos.Util.CompileInfo           (HasCompileInfo)
 import           Pos.Wallet.Web.Mode            (MonadFullWalletWebMode)
 import qualified Pos.Wallet.Web.Server.Handlers as V0
 import           Servant
@@ -15,7 +16,7 @@ import           Servant
 -- "As long as you can give me a function which transforms every
 -- monad @m@ which implements a `MonadFullWalletWebMode` into
 -- a Servant's @Handler@, I can give you back a "plain old" Server.
-handlers :: MonadFullWalletWebMode ctx m
+handlers :: ( MonadFullWalletWebMode ctx m, HasCompileInfo )
          => (forall a. m a -> Handler a)
          -> Diffusion m
          -> TVar NtpStatus

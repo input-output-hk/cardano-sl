@@ -48,7 +48,6 @@ import           Pos.DB.Block (getBlock)
 import qualified Pos.GState as GS
 import           Pos.Lrc.Genesis (genesisLeaders)
 import           Pos.Network.Types (HasNodeType)
-import           Pos.Reporting (HasReportingContext)
 import           Pos.Slotting (MonadSlots, getSlotStartPure, getSystemStartM)
 import           Pos.StateLock (StateLock, StateLockMetrics)
 import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure, Tx (..),
@@ -201,7 +200,6 @@ type TxHistoryEnv ctx m =
     , MonadTxpMem (MempoolExt m) ctx m
     , HasLens' ctx StateLock
     , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
-    , HasReportingContext ctx
     , Mockable CurrentTime m
     , HasNodeType ctx
     , CanJsonLog m

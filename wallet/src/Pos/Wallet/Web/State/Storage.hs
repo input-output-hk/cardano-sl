@@ -658,16 +658,7 @@ addWAddress2 addrMeta = do
 -- | Legacy version of 'addWAddress2' or backwards compatibility on the event
 -- log.
 addWAddress :: WebTypes.CWAddressMeta -> Update ()
-addWAddress addrMeta@WebTypes.CWAddressMeta{..} = do
-    let accInfo :: Traversal' WalletStorage AccountInfo
-        accInfo = wsAccountInfos . ix (WebTypes.addrMetaToAccount addrMeta)
-        unsafeCid = unsafeCIdToAddress cwamId
-    whenJustM (preuse accInfo) $ \info -> do
-        let mAddr = info ^. aiAddresses . at unsafeCid
-        when (isNothing mAddr) $ do
-            accInfo . aiUnusedKey += 1
-            let key = info ^. aiUnusedKey
-            accInfo . aiAddresses . at unsafeCid ?= AddressInfo (cwamToWam addrMeta) key
+addWAddress = addWAddress2 . cwamToWam
 
 -- | Update account metadata.
 setAccountMeta :: WebTypes.AccountId -> WebTypes.CAccountMeta -> Update ()

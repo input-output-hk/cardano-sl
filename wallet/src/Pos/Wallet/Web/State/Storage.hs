@@ -517,7 +517,8 @@ doesWAddressExist2 mode addrMeta@(view wamAccount -> wAddr) =
         Any . isJust <$>
         preview (wsAccountInfos . ix wAddr . which . ix (addrMeta ^. wamAddress))
 
--- | Legacy version of 'doesWAddressExist2'.
+-- | Legacy version of 'doesWAddressExist2' for backwards compatibility on
+--   the event log.
 doesWAddressExist :: AddressLookupMode -> WebTypes.CWAddressMeta -> Query Bool
 doesWAddressExist mode addrMeta@(WebTypes.addrMetaToAccount -> wAddr) =
     getAny <$>
@@ -604,7 +605,8 @@ getWalletPendingTxs wid =
 getPendingTx :: WebTypes.CId WebTypes.Wal -> TxId -> Query (Maybe PendingTx)
 getPendingTx wid txId = preview $ wsWalletInfos . ix wid . wsPendingTxs . ix txId
 
--- | Legacy version of `addCustomAddress2`.
+-- | Legacy version of 'addCustomAddress2' for backwards compatibility on
+--   the event log.
 addCustomAddress :: CustomAddressType -> (WebTypes.CId WebTypes.Addr, HeaderHash) -> Update Bool
 addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at (unsafeCIdToAddress addr) <<.= Just hh
 
@@ -613,7 +615,8 @@ addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at (unsafeCIdTo
 addCustomAddress2 :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
 addCustomAddress2 t (addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
 
--- | Legacy version of `removeCustomAddress2`.
+-- | Legacy version of 'removeCustomAddress2' for backwards compatibility on
+--   the event log.
 removeCustomAddress :: CustomAddressType -> (WebTypes.CId WebTypes.Addr, HeaderHash) -> Update Bool
 removeCustomAddress t (cwa, hh) = removeCustomAddress2 t (unsafeCIdToAddress cwa, hh)
 
@@ -655,7 +658,7 @@ addWAddress2 addrMeta = do
             let key = info ^. aiUnusedKey
             accInfo . aiAddresses . at addr ?= AddressInfo addrMeta key
 
--- | Legacy version of 'addWAddress2' or backwards compatibility on the event
+-- | Legacy version of 'addWAddress2' for backwards compatibility on the event
 -- log.
 addWAddress :: WebTypes.CWAddressMeta -> Update ()
 addWAddress = addWAddress2 . cwamToWam
@@ -727,7 +730,8 @@ removeHistoryCache cWalId = wsHistoryCache . at cWalId .= Nothing
 removeAccount :: WebTypes.AccountId -> Update ()
 removeAccount accId = wsAccountInfos . at accId .= Nothing
 
--- | Legacy version of `removeWAddress2`.
+-- | Legacy version of 'removeWAddress2' for backwards compatibility on
+--   the event log.
 removeWAddress :: WebTypes.CWAddressMeta -> Update ()
 removeWAddress = removeWAddress2 . cwamToWam
 

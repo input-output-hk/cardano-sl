@@ -66,7 +66,7 @@ import           Pos.DB.Pure (DBPureVar)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Generator.Block (BlockGenMode)
 import qualified Pos.GState as GS
-import           Pos.KnownPeers (MonadFormatPeers (..), MonadKnownPeers (..))
+import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Lrc (LrcContext)
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
@@ -344,9 +344,6 @@ instance HasConfiguration => MonadGState WalletTestMode where
 
 instance MonadFormatPeers WalletTestMode where
     formatKnownPeers _ = pure Nothing
-
-instance MonadKnownPeers WalletTestMode where
-    updatePeersBucket _ _ = pure True
 
 ----------------------------------------------------------------------------
 -- Wallet instances

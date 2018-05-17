@@ -1,6 +1,8 @@
 {-# LANGUAGE DataKinds    #-}
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Execution mode used by blockchain generator.
 
 module Pos.Generator.Block.Mode

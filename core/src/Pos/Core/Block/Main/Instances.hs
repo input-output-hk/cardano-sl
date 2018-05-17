@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeOperators #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Miscellaneous instances, etc. Related to the main blockchain of course.
 
 module Pos.Core.Block.Main.Instances

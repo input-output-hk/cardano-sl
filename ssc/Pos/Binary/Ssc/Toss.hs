@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Binary instances for Toss types.
 
 module Pos.Binary.Ssc.Toss

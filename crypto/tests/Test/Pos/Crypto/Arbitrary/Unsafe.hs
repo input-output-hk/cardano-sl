@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Unsafe arbitrary instances for crypto primitives.
 
 module Test.Pos.Crypto.Arbitrary.Unsafe () where

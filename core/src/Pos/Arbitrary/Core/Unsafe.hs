@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | 'Arbitrary' unsafe instances for some types from 'Pos.Core.Types'.
 
 module Pos.Arbitrary.Core.Unsafe () where

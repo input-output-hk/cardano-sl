@@ -98,7 +98,7 @@ Library
 
   hs-source-dirs:       src
   default-language:     Haskell2010
-  ghc-options:          -Wall -fno-warn-orphans -Werror -fwarn-redundant-constraints
+  ghc-options:          -Wall -Werror -fwarn-redundant-constraints
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -121,7 +121,7 @@ executable discovery
 
   hs-source-dirs:       examples
   default-language:     Haskell2010
-  ghc-options:          -threaded -Wall -fno-warn-orphans
+  ghc-options:          -threaded -Wall
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -144,7 +144,7 @@ executable ping-pong
 
   hs-source-dirs:      examples
   default-language:    Haskell2010
-  ghc-options:         -threaded -Wall -fno-warn-orphans
+  ghc-options:         -threaded -Wall
   default-extensions:  DeriveGeneric
                        DeriveDataTypeable
                        GeneralizedNewtypeDeriving
@@ -170,7 +170,7 @@ executable bench-sender
   else
     buildable:         False
   default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -fno-warn-orphans
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   default-extensions:  OverloadedStrings
                        RecordWildCards
                        DeriveDataTypeable
@@ -193,7 +193,7 @@ executable bench-receiver
   else
     buildable:         False
   default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall -fno-warn-orphans
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   default-extensions:  OverloadedStrings
                      , RecordWildCards
                      , DeriveDataTypeable
@@ -223,7 +223,7 @@ executable bench-log-reader
   else
     buildable:         False
   default-language:    Haskell2010
-  ghc-options:         -threaded -Wall -fno-warn-orphans
+  ghc-options:         -threaded -Wall
   default-extensions:  OverloadedStrings
                      , RecordWildCards
                      , DeriveDataTypeable
@@ -262,7 +262,6 @@ test-suite cardano-sl-networking-test
   ghc-options:         -threaded
                        -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -with-rtsopts=-N
   default-extensions:  OverloadedStrings
                      , RecordWildCards

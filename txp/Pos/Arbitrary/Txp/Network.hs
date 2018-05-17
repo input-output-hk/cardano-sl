@@ -1,5 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | 'Arbitrary' instances for 'Pos.Txp.Network' types defined in 'src'
 
 module Pos.Arbitrary.Txp.Network () where

@@ -1,4 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Pos.Binary.Core.Script () where
 
 import           Universum

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Binary serialization of core block types.
 
 module Pos.Binary.Core.Blockchain

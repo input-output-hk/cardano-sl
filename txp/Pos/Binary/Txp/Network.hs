@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Binary serialization of network Txp types.
 
 module Pos.Binary.Txp.Network

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Derived FromJSON instance for Pos.Core.Configuration.Configuration
 
 module Pos.Aeson.Core.Configuration

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Functionality related to 'Address' data type and related types.
 
 module Pos.Core.Common.Address

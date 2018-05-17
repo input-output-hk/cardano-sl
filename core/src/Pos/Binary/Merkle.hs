@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Merkle tree-related serialization
 
 module Pos.Binary.Merkle () where

@@ -2,6 +2,8 @@
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Pos.Explorer.Web.Transform
        ( ExplorerProd
        , runExplorerProd

@@ -1,6 +1,8 @@
--- | `Arbitrary` instances for using in tests and benchmarks
-
 {-# LANGUAGE ScopedTypeVariables #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
+-- | `Arbitrary` instances for using in tests and benchmarks
 
 module Test.Pos.Crypto.Arbitrary
        ( SharedSecrets (..)

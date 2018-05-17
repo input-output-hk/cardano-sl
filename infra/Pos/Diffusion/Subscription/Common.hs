@@ -22,7 +22,7 @@ import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
 import           Formatting (sformat, shown, (%))
 import           Node.Message.Class (Message)
 import           System.Clock (Clock (Monotonic), TimeSpec, getTime, toNanoSecs)
-import           System.Wlog (Severity (..))
+import           Pos.Util.Log (Severity (..))
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Communication.Listener (listenerConv)

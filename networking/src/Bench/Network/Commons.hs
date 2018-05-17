@@ -11,7 +11,7 @@ module Bench.Network.Commons
        , Payload (..)
        , logMeasure
 
-       , loadLogConfig
+       --, loadLogConfig
 
        , Timestamp
        , MeasureEvent (..)
@@ -22,7 +22,7 @@ module Bench.Network.Commons
        ) where
 
 import           Control.Applicative ((<|>))
-import           Control.Lens (zoom, (?=))
+--import           Control.Lens (zoom, (?=))
 import           Control.Monad (join)
 import           Control.Monad.Trans (MonadIO (..))
 
@@ -40,9 +40,10 @@ import           Data.Time.Units (toMicroseconds)
 import qualified Formatting as F
 import           GHC.Generics (Generic)
 import           Prelude hiding (takeWhile)
-import           System.Wlog (LoggerConfig (..), WithLogger, errorPlus, fromScratch, infoPlus,
-                              lcTree, logInfo, ltSeverity, maybeLogsDirB, parseLoggerConfig,
-                              productionB, setupLogging, warningPlus, zoomLogger)
+import qualified Pos.Util.Log as Log
+--import           System.Wlog (LoggerConfig (..), WithLogger, errorPlus, fromScratch, infoPlus,
+--                              lcTree, logInfo, ltSeverity, maybeLogsDirB, parseLoggerConfig,
+--                              productionB, setupLogging, warningPlus, zoomLogger)
 
 import           Mockable.CurrentTime (realTime)
 import           Node (Message (..))
@@ -77,29 +78,32 @@ instance Binary Payload where
 
 -- * Util
 
-logMeasure :: (MonadIO m, WithLogger m) => MeasureEvent -> MsgId -> Payload -> m ()
+logMeasure :: (MonadIO m, Log.WithLogger m) => MeasureEvent -> MsgId -> Payload -> m ()
 logMeasure miEvent miId miPayload = do
     miTime <- toMicroseconds <$> realTime
-    logInfo $ F.sformat F.build $ LogMessage MeasureInfo{..}
+    Log.logInfo $ F.sformat F.build $ LogMessage MeasureInfo{..}
 
-defaultLogConfig :: LoggerConfig
+{-
+defaultLogConfig :: Log.LoggerConfig
 defaultLogConfig = fromScratch $ zoom lcTree $ do
     ltSeverity ?= warningPlus
     zoomLogger "sender" $ do
-        ltSeverity ?= infoPlus
+        ltSeverity ?= Log.Info -- infoPlus
         commLogger
     zoomLogger "receiver" $ do
-        ltSeverity ?= infoPlus
+        ltSeverity ?= Log.Info -- infoPlus
         commLogger
   where
-    commLogger = zoomLogger "comm" $ ltSeverity ?= errorPlus
+    commLogger = zoomLogger "comm" $ ltSeverity ?= Log.Error -- errorPlus
+-}
 
+{-  TODO  move to Pos.Util.LoggerConfig
 loadLogConfig :: MonadIO m => Maybe FilePath -> Maybe FilePath -> m ()
 loadLogConfig logsPrefix configFile = do
     let cfgBuilder = productionB <> maybeLogsDirB logsPrefix
     loggerConfig <- maybe (return defaultLogConfig) parseLoggerConfig configFile
-    setupLogging Nothing $ loggerConfig <> cfgBuilder
-
+    Log.setupLogging Nothing $ loggerConfig <> cfgBuilder
+-}
 
 -- * Logging & parsing
 

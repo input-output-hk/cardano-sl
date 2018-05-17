@@ -40,8 +40,9 @@ import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import qualified Options.Applicative as Opt
 import           Serokell.Util.OptParse (fromParsec)
-import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName, logError,
-                              logNotice, usingLoggerName)
+--import           System.Wlog (LoggerNameBox)
+--import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName, logError,
+--                              logNotice, usingLoggerName)
 
 import qualified Pos.DHT.Real.Param as DHT (KademliaParams (..), MalformedDHTKey (..),
                                             fromYamlConfig)
@@ -52,7 +53,7 @@ import           Pos.Network.Yaml (NodeMetadata (..))
 import qualified Pos.Network.Yaml as Y
 import           Pos.Util.TimeWarp (NetworkAddress, addrParser, addrParserNoWildcard,
                                     addressToNodeId)
-
+import qualified Pos.Util.Log as Log
 #ifdef POSIX
 import           Pos.Util.SigHandler (Signal (..), installHandler)
 #endif
@@ -183,12 +184,13 @@ data MonitorEvent
 
 -- | Monitor for changes to the static config
 monitorStaticConfig ::
+    (MonadCatch m, MonadIO m, Log.WithLogger m) =>
        NetworkConfigOpts
     -> NodeMetadata -- ^ Original metadata (at startup)
     -> Peers NodeId -- ^ Initial value
-    -> LoggerNameBox IO T.StaticPeers
+    -> m T.StaticPeers
 monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
-    lname <- askLoggerName
+    lname <- Log.askLoggerName
     events :: Chan MonitorEvent <- liftIO newChan
 
 #ifdef POSIX
@@ -197,13 +199,14 @@ monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
 
     return T.StaticPeers {
         T.staticPeersOnChange = writeChan events . MonitorRegister
-      , T.staticPeersMonitoring = usingLoggerName lname $ loop events initPeers []
+      , T.staticPeersMonitoring = Log.usingLoggerName Log.Info lname $ loop events initPeers []
       }
   where
-    loop :: Chan MonitorEvent
+    loop :: (MonadCatch m, MonadIO m, Log.WithLogger m) =>
+         Chan MonitorEvent
          -> Peers NodeId
          -> [Peers NodeId -> IO ()]
-         -> LoggerNameBox IO ()
+         -> m ()
     loop events peers handlers = liftIO (readChan events) >>= \case
         MonitorRegister handler -> do
             runHandler peers handler -- Call new handler with current value
@@ -217,27 +220,27 @@ monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
                     liftIO $ fromPovOf cfg allPeers
 
                 unless (nmType newMetadata == nmType origMetadata) $
-                    logError $ changedType fp
+                    Log.logError $ changedType fp
                 unless (nmKademlia newMetadata == nmKademlia origMetadata) $
-                    logError $ changedKademlia fp
+                    Log.logError $ changedKademlia fp
                 unless (nmMaxSubscrs newMetadata == nmMaxSubscrs origMetadata) $
-                    logError $ changedMaxSubscrs fp
+                    Log.logError $ changedMaxSubscrs fp
 
                 mapM_ (runHandler newPeers) handlers
-                logNotice $ sformat "SIGHUP: Re-read topology"
+                Log.logNotice $ sformat "SIGHUP: Re-read topology"
                 loop events newPeers handlers
               Right _otherTopology -> do
-                logError $ changedFormat fp
+                Log.logError $ changedFormat fp
                 loop events peers handlers
               Left ex -> do
-                logError $ readFailed fp ex
+                Log.logError $ readFailed fp ex
                 loop events peers handlers
 
-    runHandler :: forall t . t -> (t -> IO ()) -> LoggerNameBox IO ()
+    runHandler :: (MonadCatch m, MonadIO m, Log.WithLogger m) => forall t . t -> (t -> IO ()) -> m ()
     runHandler it handler = do
         mu <- liftIO $ try (handler it)
         case mu of
-          Left  ex -> logError $ handlerError ex
+          Left  ex -> Log.logError $ handlerError ex
           Right () -> return ()
 
     changedFormat, changedType, changedKademlia :: FilePath -> Text
@@ -272,7 +275,7 @@ launchStaticConfigMonitoring topology = liftIO action
 -- | Interpreter for the network config opts
 intNetworkConfigOpts ::
        forall m.
-       ( WithLogger m
+       ( Log.WithLogger m
        , MonadIO m
        , MonadCatch m
        )
@@ -287,9 +290,9 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
         Y.TopologyStatic{..} -> do
             (md@NodeMetadata{..}, initPeers, kademliaPeers) <-
                 liftIO $ fromPovOf cfg topologyAllPeers
-            loggerName <- askLoggerName
+            loggerName <- Log.askLoggerName
             topologyStaticPeers <-
-                liftIO . usingLoggerName loggerName $
+                liftIO . Log.usingLoggerName Log.Info loggerName $
                 monitorStaticConfig cfg md initPeers
             -- If kademlia is enabled here then we'll try to read the configuration
             -- file. However it's not necessary that the file exists. If it doesn't,

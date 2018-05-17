@@ -15,7 +15,7 @@ module Pos.Lrc.Context
 import           Universum
 
 import           Control.Lens (views)
-import           System.Wlog (WithLogger)
+import           Pos.Util.Log (WithLogger)
 
 import           Pos.Core (EpochIndex)
 import           Pos.DB.Class (MonadDBRead)

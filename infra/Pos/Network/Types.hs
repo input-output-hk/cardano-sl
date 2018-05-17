@@ -59,7 +59,7 @@ import qualified Network.Transport.TCP as TCP
 import           Node.Internal (NodeId (..))
 import qualified Prelude
 import qualified System.Metrics as Monitoring
-import           System.Wlog (LoggerName (..))
+import           Pos.Util.Log (LoggerName (..))
 
 import           Pos.Network.DnsDomains (DnsDomains (..), NodeAddr)
 import qualified Pos.Network.DnsDomains as DnsDomains

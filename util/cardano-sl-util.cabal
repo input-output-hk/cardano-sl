@@ -33,7 +33,7 @@ library
                        Pos.Util.Future
                        Pos.Util.Justify
                        Pos.Util.Lens
-                       Pos.Util.LoggerName
+                       Pos.Util.Log
                        Pos.Util.Limits
                        Pos.Util.LRU
                        Pos.Util.Modifier
@@ -46,6 +46,10 @@ library
                        Pos.Util.Util
 
   other-modules:
+                       Pos.Util.LoggerConfig
+                       Pos.Util.LoggerName
+                       Pos.Util.LogSeverity
+                       Pos.Util.LogStdoutScribe
 
   build-depends:       QuickCheck
                      , aeson
@@ -68,10 +72,11 @@ library
                      , formatting
                      , hashable
                      , hspec
+                     , katip
                      , lens
-                     , log-warper >= 1.0.3
                      , lrucache
                      , megaparsec
+                     , mmorph
                      , mtl
                      , optparse-applicative
                      , parsec

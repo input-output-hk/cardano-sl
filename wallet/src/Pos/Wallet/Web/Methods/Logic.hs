@@ -39,7 +39,7 @@ import qualified Data.Set as S
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Formatting (build, sformat, (%))
 import           Servant.API.ContentTypes (NoContent (..))
-import           System.Wlog (WithLogger)
+--import           System.Wlog (WithLogger)
 
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead, addSecretKey,
                                         deleteSecretKeyBy)
@@ -51,6 +51,7 @@ import           Pos.Txp (GenericTxpLocalData, MonadTxpMem, TxAux, TxId, UndoMap
                           applyUtxoModToAddrCoinMap, getLocalTxs, getLocalUndos, withTxpLocalData)
 import           Pos.Util (maybeThrow)
 import qualified Pos.Util.Modifier as MM
+import qualified Pos.Util.Log as Log
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Aeson ()
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
@@ -83,7 +84,7 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
 type MonadWalletLogicRead ctx m =
     ( MonadIO m
     , MonadThrow m
-    , WithLogger m
+    , Log.WithLogger m        -- new logging context
     , MonadRandom m
     , MonadSlots ctx m
     , MonadKeysRead m

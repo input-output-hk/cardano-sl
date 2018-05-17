@@ -25,8 +25,8 @@ import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
 import           JsonLog (CanJsonLog (..))
-import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog, logDebug, logError,
-                              logWarning)
+import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog,
+                              logDebug, logError, logWarning)
 
 import           Pos.Core (BlockVersionData, EpochIndex, HeaderHash, siEpoch)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
@@ -47,6 +47,7 @@ import           Pos.Txp.Toil (ExtendedLocalToilM, LocalToilState (..), MemPool,
 import           Pos.Txp.Topsort (topsortTxs)
 import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Util.Util (HasLens')
+--import qualified Pos.Util.Log as Log
 
 type TxpProcessTransactionMode ctx m =
     ( TxpLocalWorkMode ctx m
@@ -244,3 +245,4 @@ txGetPayload neededTip = do
         (False, _)       -> [] <$ logWarning tipMismatchMsg
         (True, Nothing)  -> [] <$ logError topsortFailMsg
         (True, Just res) -> return $ map snd res
+

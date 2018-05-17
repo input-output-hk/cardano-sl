@@ -32,7 +32,7 @@ import           Data.Time.Units (Microsecond)
 import           JsonLog (CanJsonLog (..))
 import           Mockable (CurrentTime, Mockable, currentTime)
 import           System.Mem (getAllocationCounter)
-import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName, usingLoggerName)
+import           Pos.Util.Log (LoggerNameBox, WithLogger, askLoggerName, usingLoggerName)
 
 import           Pos.Core (HeaderHash)
 import           Pos.Util.Concurrent (modifyMVar, withMVar)

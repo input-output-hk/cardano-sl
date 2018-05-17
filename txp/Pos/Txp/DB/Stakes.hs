@@ -34,6 +34,7 @@ import           Serokell.Util (Color (Red), colorize)
 import           System.Wlog (WithLogger, logError)
 import           UnliftIO (MonadUnliftIO)
 
+--import qualified Pos.Util.Log as Log
 import           Pos.Core (Coin, StakeholderId, StakesMap, coinF, mkCoin, HasGenesisData,
                            sumCoins, unsafeAddCoin, unsafeIntegerToCoin, HasCoreConfiguration)
 import           Pos.Crypto (shortHashF)

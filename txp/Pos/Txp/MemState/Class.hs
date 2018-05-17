@@ -40,6 +40,7 @@ import           Pos.Txp.Toil.Failure (ToilVerFailure)
 import           Pos.Txp.Toil.Types (MemPool (..), UndoMap, UtxoModifier)
 import           Pos.Util.Util (HasLens (..))
 import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog)
+--import qualified Pos.Util.Log as Log
 
 data TxpHolderTag
 

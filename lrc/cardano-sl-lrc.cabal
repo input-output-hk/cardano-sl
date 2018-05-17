@@ -43,7 +43,6 @@ library
                      , formatting
                      , generic-arbitrary
                      , lens
-                     , log-warper
                      , reflection
                      , rocksdb-haskell-ng
                      , text-format

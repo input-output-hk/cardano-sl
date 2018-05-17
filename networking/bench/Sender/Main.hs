@@ -24,7 +24,7 @@ import qualified Network.Transport.TCP.Internal as TCP (encodeEndPointAddress)
 import           Options.Applicative.Simple (simpleOptions)
 import           Serokell.Util.Concurrent (threadDelay)
 import           System.Random (mkStdGen)
-import           System.Wlog (LoggerNameBox, usingLoggerName)
+import qualified Pos.Util.Log as Log -- (LoggerNameBox, usingLoggerName)
 
 import           Mockable (Production, concurrently, delay, forConcurrently, realTime,
                            runProduction)
@@ -77,7 +77,7 @@ main = do
                    | (host, port) <- recipients ]
     let tasksIds = [[tid, tid + threadNum .. msgNum] | tid <- [1..threadNum]]
 
-    let action :: LoggerNameBox Production ()
+    let action :: Log.LoggerNameBox Production ()
         action = do
             startTime <- realTime
 
@@ -93,7 +93,7 @@ main = do
                         delay (fromIntegral duration :: Second)
                         forM_ drones stopDrone
 
-    runProduction $ usingLoggerName "sender" $ action
+    runProduction $ Log.usingLoggerName Log.Debug "sender" $ action
   where
 
     pingSender gen payloadBound startTimeMcs msgRate msgIds (msgStartId, peerId) converse =

@@ -30,7 +30,7 @@ import           Control.Monad.Trans.Resource (ResourceT)
 import           Control.Monad.Writer (WriterT)
 import           Data.Aeson.Types (ToJSON)
 import           Serokell.Util.Lens (WrappedM (..))
-import           System.Wlog.LoggerNameBox (LoggerNameBox)
+import           Pos.Util.Log (LoggerNameBox)
 
 -- | An instance of class @'CanJsonLog'@ supports the effect of
 -- JSON logging.

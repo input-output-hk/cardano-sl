@@ -14,7 +14,7 @@ import           Universum
 
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, stext, (%))
-import           System.Wlog (WithLogger, logDebug)
+import           Pos.Util.Log (WithLogger, logDebug)
 
 import           Pos.Core (SlotCount, SlotId, slotIdF, slotSecurityParam, HasProtocolConstants)
 

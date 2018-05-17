@@ -35,9 +35,10 @@ import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException, mconcatPair)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
+import qualified Pos.Util.Log as Log
 import           Pos.Worker.Types (WorkerSpec)
 
-loggerName :: LoggerName
+loggerName :: Log.LoggerName
 loggerName = "node"
 
 ----------------------------------------------------------------------------
@@ -49,10 +50,12 @@ main = do
     args <- getExplorerNodeOptions
     let loggingParams = CLI.loggingParams loggerName (enaCommonNodeArgs args)
     loggerBracket loggingParams . logException "node" . runProduction $ do
+    --Log.loggerBracket Log.Info loggerName $ runProduction $ do
         logInfo "[Attention] Software is built with explorer part"
         action args
 
 action :: ExplorerNodeArgs -> Production ()
+--action :: (MonadIO m, Log.WithLogger m) => ExplorerNodeArgs -> m ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
     withConfigurations conf $ \ntpConfig ->
     withCompileInfo $(retrieveCompileTimeInfo) $ do

@@ -18,7 +18,7 @@ import           Mockable (CurrentTime, Mockable, currentTime)
 import qualified System.Metrics as Metrics
 import           System.Metrics.Gauge (Gauge)
 import qualified System.Metrics.Gauge as Gauge
-import           System.Wlog (logDebug)
+import           Pos.Util.Log (logDebug)
 
 import           Pos.Reporting.Methods (MonadReporting, reportMisbehaviour)
 import           Pos.System.Metrics.Constants (withCardanoNamespace)

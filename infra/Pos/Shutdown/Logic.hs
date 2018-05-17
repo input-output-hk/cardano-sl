@@ -6,7 +6,7 @@ module Pos.Shutdown.Logic
 import           Universum
 
 import           Control.Concurrent.STM (check, readTVar, writeTVar)
-import           System.Wlog (WithLogger, logInfo)
+import           Pos.Util.Log (WithLogger, logInfo)
 
 import           Pos.Shutdown.Class (HasShutdownContext (..))
 import           Pos.Shutdown.Types (shdnIsTriggered)

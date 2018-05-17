@@ -9,8 +9,8 @@
 
 module Pos.Util.LogSafe
        ( -- * Logging functions
-         SelectiveLogWrapped(..)
-       , logMessageS
+         --SelectiveLogWrapped(..)
+         logMessageS
        , logDebugS
        , logInfoS
        , logNoticeS
@@ -65,8 +65,8 @@ import           Formatting (bprint, build, fconst, later, mapf, (%))
 import           Formatting.Internal (Format (..))
 import qualified Language.Haskell.TH as TH
 import           Serokell.Util (listJson)
-import           System.Wlog (CanLog (..), HasLoggerName (..), Severity (..), logMCond)
-import           System.Wlog.LogHandler (LogHandlerTag (HandlerFilelike))
+import           Pos.Util.Log (WithLogger, CanLog (..), HasLoggerName (..), Severity (..){-, logMCond-})
+--import           System.Wlog.LogHandler (LogHandlerTag (HandlerFilelike))
 
 import           Pos.Binary.Core ()
 import           Pos.Core (Timestamp, TxId)
@@ -86,18 +86,25 @@ newtype SelectiveLogWrapped s m a = SelectiveLogWrapped
 instance MonadTrans (SelectiveLogWrapped s) where
     lift = SelectiveLogWrapped
 
+-- TODO
+type LogHandlerTag = Text
+
 -- | Whether to log to given log handler.
 type SelectionMode = LogHandlerTag -> Bool
 
 selectPublicLogs :: SelectionMode
 selectPublicLogs = \case
-    HandlerFilelike p -> ".pub" `isSuffixOf` p
+    -- TODO HandlerFilelike p -> ".pub" `isSuffixOf` p
     _ -> False
 
 selectSecretLogs :: SelectionMode
 selectSecretLogs = not . selectPublicLogs
 
-instance (MonadIO m, Reifies s SelectionMode) =>
+-- TODO
+logMCond n s m c =
+    return ()
+
+instance (WithLogger m, Reifies s SelectionMode) =>
          CanLog (SelectiveLogWrapped s m) where
     dispatchMessage name severity msg =
         liftIO $ logMCond name severity msg (reflect (Proxy @s))

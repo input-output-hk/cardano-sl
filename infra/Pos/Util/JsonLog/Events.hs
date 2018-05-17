@@ -35,7 +35,7 @@ import           JsonLog.JsonLogT (JsonLogConfig (..))
 import qualified JsonLog.JsonLogT as JL
 import           Mockable (realTime)
 import           Serokell.Aeson.Options (defaultOptions)
-import           System.Wlog (WithLogger)
+import           Pos.Util.Log (WithLogger)
 
 import           Pos.Communication.Relay.Logic (InvReqDataFlowLog)
 import           Pos.Core (EpochIndex (..), HasConfiguration, HeaderHash, SlotId (..), gbHeader,

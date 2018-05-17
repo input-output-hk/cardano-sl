@@ -56,9 +56,9 @@ import           System.Directory (canonicalizePath, doesFileExist, getTemporary
 import           System.FilePath (takeFileName)
 import           System.Info (arch, os)
 import           System.IO (IOMode (WriteMode), hClose, hFlush, withFile)
-import           System.Wlog (LoggerConfig (..), Severity (..), WithLogger, hwFilePath, lcTree,
-                              logError, logInfo, logMessage, logWarning, ltFiles, ltSubloggers,
-                              retrieveLogContent)
+import           Pos.Util.Log (LoggerConfig (..), Severity (..), WithLogger, hwFilePath, lcTree,
+                               logError, logInfo, logMessage, logWarning, ltFiles, ltSubloggers,
+                               retrieveLogContent)
 
 
 import           Paths_cardano_sl_infra (version)

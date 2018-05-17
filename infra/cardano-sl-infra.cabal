@@ -161,7 +161,6 @@ library
                       , iproute
                       , kademlia
                       , lens
-                      , log-warper >= 1.0.3
                       , mtl
                       , network-info
                       , network-transport

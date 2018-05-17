@@ -7,12 +7,9 @@ module Test.Spec.Submission (
 import           Universum
 
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending, genPending,
-                                                pendingTransactions)
+import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), genPending, pendingTransactions)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Submission
-import qualified Data.IntMap.Strict as IntMap
-import qualified Data.List as List
 import qualified Data.Map as M
 import           Data.Text.Buildable (build)
 import           Formatting (bprint, (%))
@@ -39,26 +36,9 @@ constantWalletDiffusion reply = WalletDiffusion {
     }
 
 constantResubmit :: Bool -> ResubmissionFunction Identity
-constantResubmit success currentSlot scheduled oldScheduler = do
-    let (evicted, newScheduler) = List.foldl' updateFn (emptyPending, oldScheduler) scheduled
-    return (evicted , newScheduler)
-    where
-
-        updateFn :: (Evicted, Scheduler) -> Scheduled -> (Evicted, Scheduler)
-        updateFn (evicted, acc@(Scheduler s)) entry =
-            let Scheduled (txId, txAux, (Schedule retries)) = entry
-                rescheduled = retryWith succ entry
-            in case retries >= maxRetries of
-                   True -> (addOneToPending txId txAux evicted, acc)
-                   False -> case success of
-                       False ->
-                         let s' = IntMap.insertWith mappend
-                                                    (currentSlot + 1)
-                                                    [rescheduled]
-                                                    s
-                         in (evicted, Scheduler s')
-                       True  ->
-                         (addOneToPending txId txAux evicted, acc)
+constantResubmit success currentSlot scheduled oldScheduler =
+    let send _ = return success
+    in defaultResubmitFunction send constantRetry currentSlot scheduled oldScheduler
 
 -- | Checks that all the input 'Pending' shows up in the local pending set of
 -- the given 'WalletSubmission'.
@@ -91,7 +71,7 @@ samePending p ws = (STB (ws ^. localPendingSet)) === (STB p)
 ---
 genWalletSubmissionIO :: Gen (ShowThroughBuild (WalletSubmission IO))
 genWalletSubmissionIO =
-    STB <$> genWalletSubmission (constantBroadcastIO (constantWalletDiffusion True))
+    STB <$> genWalletSubmission (constantResubmitIO (constantWalletDiffusion True))
 
 genPairIO :: Gen (ShowThroughBuild (WalletSubmission IO, Pending))
 genPairIO = do
@@ -154,14 +134,21 @@ spec = do
                   (_, ws') = runIdentity $ tick submission
                   in ws' ^. getCurrentSlot === slotNow + 1
 
-      it "can drop transactions which exceeded the resubmission count" $ do
+      it "can drop transactions which can be successfully transmitted" $ do
           forAll (genPurePair True) $ \(unSTB -> (submission, pending)) ->
+              let slot = submission ^. getCurrentSlot
+                  submission' = unsafeScheduleFrom submission slot pending (Schedule 0)
+                  dropped = fst . runIdentity . tick $ submission'
+              in dropped `shouldContainPending` pending
+
+      it "can drop transactions which exceeded the resubmission count" $ do
+          forAll (genPurePair False) $ \(unSTB -> (submission, pending)) ->
               let slot = submission ^. getCurrentSlot
                   submission' = unsafeScheduleFrom submission slot pending dropImmediately
                   dropped = fst . runIdentity . tick $ submission'
               in dropped `shouldContainPending` pending
 
-      it "constantBroadcastIO works as intended in the happy path scenario" $ monadicIO $ do
+      it "constantResubmitIO works as intended in the happy path scenario" $ monadicIO $ do
           forAllM genPairIO $ \(unSTB -> (submission, pending)) -> do
               let slot = submission ^. getCurrentSlot
                   submission' = unsafeScheduleFrom submission slot pending dropImmediately

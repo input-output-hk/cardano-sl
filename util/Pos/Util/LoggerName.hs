@@ -7,7 +7,7 @@ module Pos.Util.LoggerName
 
 import           Universum
 
-import           System.Wlog (LoggerName)
+import           Pos.Util.Log (LoggerName)
 
 class HasLoggerName' ctx where
     loggerName :: Lens' ctx LoggerName
@@ -23,3 +23,4 @@ modifyLoggerNameDefault
     -> m a
     -> m a
 modifyLoggerNameDefault f = local (loggerName %~ f)
+

@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 module Pos.Crypto.Signing.Types.Redeem
        ( RedeemSecretKey (..)
        , RedeemPublicKey (..)
@@ -13,6 +11,8 @@ module Pos.Crypto.Signing.Types.Redeem
        ) where
 
 import           Control.Exception.Safe (Exception (..))
+import qualified Crypto.Sign.Ed25519 as Ed25519
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.ByteString as BS
 import           Data.Hashable (Hashable)
 import qualified Data.Text as T
@@ -23,19 +23,8 @@ import           Serokell.Util.Base64 (formatBase64)
 import qualified Serokell.Util.Base64 as B64
 import           Universum
 
-import qualified Crypto.Sign.Ed25519 as Ed25519
-
-----------------------------------------------------------------------------
--- Underlying wrappers' instances
-----------------------------------------------------------------------------
-
-instance Hashable Ed25519.PublicKey
-instance Hashable Ed25519.SecretKey
-instance Hashable Ed25519.Signature
-
-instance NFData Ed25519.PublicKey
-instance NFData Ed25519.SecretKey
-instance NFData Ed25519.Signature
+import           Pos.Binary.Class (Bi)
+import           Pos.Crypto.Orphans ()
 
 ----------------------------------------------------------------------------
 -- PK/SK and formatters
@@ -45,9 +34,15 @@ instance NFData Ed25519.Signature
 newtype RedeemPublicKey = RedeemPublicKey Ed25519.PublicKey
     deriving (Eq, Ord, Show, Generic, NFData, Hashable, Typeable)
 
+deriveJSON defaultOptions ''RedeemPublicKey
+
+deriving instance Bi RedeemPublicKey
+
 -- | Wrapper around 'Ed25519.SecretKey'.
 newtype RedeemSecretKey = RedeemSecretKey Ed25519.SecretKey
     deriving (Eq, Ord, Show, Generic, NFData, Hashable)
+
+deriving instance Bi RedeemSecretKey
 
 redeemPkB64F :: Format r (RedeemPublicKey -> r)
 redeemPkB64F =
@@ -61,6 +56,10 @@ redeemPkB64UrlF =
 
 redeemPkB64ShortF :: Format r (RedeemPublicKey -> r)
 redeemPkB64ShortF = fitLeft 8 %. redeemPkB64F
+
+-- | Public key derivation function.
+redeemToPublic :: RedeemSecretKey -> RedeemPublicKey
+redeemToPublic (RedeemSecretKey k) = RedeemPublicKey (Ed25519.secretToPublicKey k)
 
 instance B.Buildable RedeemPublicKey where
     build = bprint ("redeem_pk:"%redeemPkB64F)
@@ -79,9 +78,9 @@ newtype RedeemSignature a = RedeemSignature Ed25519.Signature
 instance B.Buildable (RedeemSignature a) where
     build _ = "<redeem signature>"
 
--- | Public key derivation function.
-redeemToPublic :: RedeemSecretKey -> RedeemPublicKey
-redeemToPublic (RedeemSecretKey k) = RedeemPublicKey (Ed25519.secretToPublicKey k)
+deriveJSON defaultOptions ''RedeemSignature
+
+deriving instance Typeable a => Bi (RedeemSignature a)
 
 data AvvmPkError
     = ApeAddressFormat Text

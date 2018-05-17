@@ -26,11 +26,13 @@ import           Crypto.Error
 import           Crypto.Hash (SHA512 (..))
 import qualified Crypto.KDF.PBKDF2 as PBKDF2
 import qualified Crypto.MAC.Poly1305 as Poly
+import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.ByteArray as BA (convert)
 import           Data.ByteString.Char8 as B
+import           Serokell.Util.Base64 (JsonByteString (..))
 import           Universum
 
-import           Pos.Binary.Class (Bi, decodeFull', serialize')
+import           Pos.Binary.Class (Bi (..), decodeFull', serialize')
 import           Pos.Crypto.Scrypt (EncryptedPass)
 import           Pos.Crypto.Signing.Types (EncryptedSecretKey (..), PassPhrase, PublicKey (..),
                                            checkPassMatches)
@@ -53,6 +55,16 @@ data HDAddressPayload
     } deriving (Eq, Ord, Show, Generic)
 
 instance NFData HDAddressPayload
+
+instance FromJSON HDAddressPayload where
+    parseJSON v = HDAddressPayload . getJsonByteString <$> parseJSON v
+
+instance ToJSON HDAddressPayload where
+    toJSON = toJSON . JsonByteString . getHDAddressPayload
+
+instance Bi HDAddressPayload where
+    encode (HDAddressPayload payload) = encode payload
+    decode = HDAddressPayload <$> decode
 
 -- | Compute passphrase as hash of the root public key.
 deriveHDPassphrase :: PublicKey -> HDPassphrase
@@ -136,7 +148,7 @@ unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
     case unpackCF of
         Left _ -> Nothing
         Right p -> case decodeFull' p of
-            Left _ -> Nothing
+            Left _     -> Nothing
             Right path -> pure path
 
 -- | Take HDPassphrase as symmetric key and serialized derivation path

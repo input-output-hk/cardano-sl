@@ -62,7 +62,6 @@ import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (Bi, biSize)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Binary.Crypto ()
 import           Pos.Core.Common.Coin ()
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
 import           Pos.Crypto.Hashing (hashHexF)

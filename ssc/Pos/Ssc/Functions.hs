@@ -22,10 +22,9 @@ import qualified Data.HashMap.Strict as HM
 import           Serokell.Util.Verify (isVerSuccess)
 
 import           Pos.Binary.Core ()
-import           Pos.Binary.Crypto ()
-import           Pos.Core (EpochIndex (..), HasGenesisData, HasProtocolConstants,
+import           Pos.Core (EpochIndex (..), HasGenesisData, HasProtocolConstants, HasProtocolMagic,
                            IsMainHeader, SlotId (..), StakeholderId, VssCertificatesMap,
-                           genesisVssCerts, headerSlotL, HasProtocolMagic)
+                           genesisVssCerts, headerSlotL)
 import           Pos.Core.Slotting (crucialSlot)
 import           Pos.Core.Ssc (CommitmentsMap (getCommitmentsMap), SscPayload (..))
 import           Pos.Ssc.Base (checkCertTTL, isCommitmentId, isOpeningId, isSharesId,

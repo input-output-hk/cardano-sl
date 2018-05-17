@@ -43,19 +43,24 @@ import           Universum
 import           Control.Lens (makeLensesFor)
 import           Crypto.Hash (Blake2b_256, Digest, HashAlgorithm, hashDigestSize)
 import qualified Crypto.Hash as Hash
+import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..), ToJSON (..),
+                             ToJSONKey (..))
+import           Data.Aeson.Types (toJSONKeyText)
 import qualified Data.ByteArray as ByteArray
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
 import           Data.Hashable (Hashable (hashWithSalt), hashPtrWithSalt)
 import           Data.Reflection (reifyNat)
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (Format, bprint, fitLeft, later, (%.))
+import           Formatting (Format, bprint, fitLeft, later, sformat, (%.))
 import qualified Prelude
 import qualified Serokell.Util.Base16 as B16
 import           System.IO.Unsafe (unsafeDupablePerformIO)
 
-import           Pos.Binary.Class (Bi, Raw)
+import           Pos.Binary.Class (Bi (..), Raw)
 import qualified Pos.Binary.Class as Bi
+import           Pos.Util.Util (parseJSONWithRead, toAesonError, toCborError)
 
 ----------------------------------------------------------------------------
 -- WithHash
@@ -77,6 +82,10 @@ instance Eq a => Eq (WithHash a) where
 
 instance Ord a => Ord (WithHash a) where
     a <= b = whData a <= whData b
+
+instance Bi a => Bi (WithHash a) where
+    encode = encode . whData
+    decode = withHash <$> decode
 
 withHash :: Bi a => a -> WithHash a
 withHash a = WithHash a (force h)
@@ -105,6 +114,30 @@ instance Hashable (AbstractHash algo a) where
 
 instance Buildable.Buildable (AbstractHash algo a) where
     build = bprint mediumHashF
+
+instance ToJSON (AbstractHash algo a) where
+    toJSON = toJSON . sformat hashHexF
+
+instance HashAlgorithm algo => FromJSON (AbstractHash algo a) where
+    parseJSON = parseJSONWithRead
+
+instance (HashAlgorithm algo, FromJSON (AbstractHash algo a))
+         => FromJSONKey (AbstractHash algo a) where
+    fromJSONKey = FromJSONKeyTextParser (toAesonError . decodeAbstractHash)
+
+instance ToJSONKey (AbstractHash algo a) where
+    toJSONKey = toJSONKeyText (sformat hashHexF)
+
+instance (Typeable algo, Typeable a, HashAlgorithm algo) => Bi (AbstractHash algo a) where
+    encode (AbstractHash digest) = encode (ByteArray.convert digest :: BS.ByteString)
+    -- FIXME bad decode: it reads an arbitrary-length byte string.
+    -- Better instance: know the hash algorithm up front, read exactly that
+    -- many bytes, fail otherwise. Then convert to a digest.
+    decode = do
+        bs <- decode @ByteString
+        toCborError $ case Hash.digestFromByteString bs of
+            Nothing -> Left "AbstractHash.decode: invalid digest"
+            Just x  -> Right (AbstractHash x)
 
 hashDigestSize' :: forall algo . HashAlgorithm algo => Int
 hashDigestSize' = hashDigestSize @algo

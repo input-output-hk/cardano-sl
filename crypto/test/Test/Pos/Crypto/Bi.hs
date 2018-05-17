@@ -18,7 +18,6 @@ import           Data.List.NonEmpty (fromList)
 import           Hedgehog (Gen, Property)
 import qualified Hedgehog as H
 
-import           Pos.Aeson.Crypto ()
 import           Pos.Crypto (AbstractHash, EncShare, PassPhrase, ProtocolMagic (..), ProxyCert,
                              ProxySecretKey, PublicKey (..), RedeemSignature,
                              SafeSigner (FakeSigner), Secret, SecretKey (..), SecretProof,

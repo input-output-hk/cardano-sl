@@ -44,6 +44,7 @@ module Pos.Wallet.Web.State.Storage
        , getAccountWAddresses
        , getWAddresses
        , doesWAddressExist
+       , doesWAddressExist2
        , isWalletRestoring
        , getTxMeta
        , getNextUpdate
@@ -498,12 +499,12 @@ getWAddresses mode wid =
       return $ HM.elems =<< accs ^.. traverse . which
 
 -- | Check if given address exists.
-doesWAddressExist ::
+doesWAddressExist2 ::
        AddressLookupMode -- ^ Determines where to look for address: in set of existing
                          -- addresses, deleted addresses or both
     -> WAddressMeta     -- ^ Given address
     -> Query Bool
-doesWAddressExist mode addrMeta@(view wamAccount -> wAddr) =
+doesWAddressExist2 mode addrMeta@(view wamAccount -> wAddr) =
     getAny <$>
         withAccLookupMode mode (exists aiAddresses) (exists aiRemovedAddresses)
   where
@@ -511,6 +512,19 @@ doesWAddressExist mode addrMeta@(view wamAccount -> wAddr) =
     exists which =
         Any . isJust <$>
         preview (wsAccountInfos . ix wAddr . which . ix (addrMeta ^. wamAddress))
+
+-- | Legacy version of 'doesWAddressExist2'.
+doesWAddressExist :: AddressLookupMode -> WebTypes.CWAddressMeta -> Query Bool
+doesWAddressExist mode addrMeta@(WebTypes.addrMetaToAccount -> wAddr) =
+    getAny <$>
+        withAccLookupMode mode (exists aiAddresses) (exists aiRemovedAddresses)
+  where
+    exists :: Lens' AccountInfo CAddresses -> Query Any
+    exists which =
+        Any . isJust <$>
+        preview (wsAccountInfos
+            . ix wAddr . which
+            . ix (unsafeCIdToAddress (WebTypes.cwamId addrMeta)))
 
 -- | Get transaction metadata given wallet ID and transaction ID.
 getTxMeta :: WebTypes.CId WebTypes.Wal -> WebTypes.CTxId -> Query (Maybe WebTypes.CTxMeta)
@@ -837,6 +851,13 @@ flushWalletStorage = modify flushDo
                             , _wiIsReady   = False
                             }
 
+-- | Unsafe address conversion for use in migration. This will throw an error if
+--   the address cannot be migrated.
+unsafeCIdToAddress :: WebTypes.CId WebTypes.Addr -> Address
+unsafeCIdToAddress cId = case WebTypes.cIdToAddress cId of
+    Left err -> error $ "unsafeCIdToAddress: " <> err
+    Right x  -> x
+
 deriveSafeCopySimple 0 'base ''WebTypes.CCoin
 deriveSafeCopySimple 0 'base ''WebTypes.CProfile
 deriveSafeCopySimple 0 'base ''WebTypes.CHash
@@ -985,13 +1006,6 @@ deriveSafeCopySimple 1 'extension ''WalletStorage_v1
 deriveSafeCopySimple 2 'extension ''WalletStorage_v2
 deriveSafeCopySimple 3 'extension ''WalletStorage_v3
 deriveSafeCopySimple 4 'extension ''WalletStorage
-
--- | Unsafe address conversion for use in migration. This will throw an error if
---   the address cannot be migrated.
-unsafeCIdToAddress :: WebTypes.CId WebTypes.Addr -> Address
-unsafeCIdToAddress cId = case WebTypes.cIdToAddress cId of
-    Left err -> error $ "unsafeCIdToAddress: " <> err
-    Right x  -> x
 
 instance Migrate AddressInfo where
     type MigrateFrom AddressInfo = AddressInfo_v0

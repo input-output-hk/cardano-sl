@@ -5,6 +5,7 @@
 --   guarantees for them.
 module Pos.Wallet.Web.State.Transactions
     ( createAccountWithAddress
+    , createAccountWithAddress2
     , removeWallet2
     , applyModifierToWallet
     , applyModifierToWallet2
@@ -23,18 +24,28 @@ import           Pos.Core (Address, ChainDifficulty, ProtocolConstants)
 import           Pos.Core.Common (HeaderHash)
 import           Pos.Txp (TxId, UtxoModifier)
 import           Pos.Util.Servant (encodeCType)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta, CId, CTxId, CTxMeta, Wal)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta, CId, CTxId, CTxMeta, CWAddressMeta, Wal)
 import           Pos.Wallet.Web.Pending.Types (PtxCondition)
 import           Pos.Wallet.Web.State.Storage (Update)
 import qualified Pos.Wallet.Web.State.Storage as WS
 
--- | Create an account with an address.
+-- | Legacy version of `createAccountWithAddress2`.
 createAccountWithAddress
+    :: AccountId
+    -> CAccountMeta
+    -> CWAddressMeta
+    -> Update ()
+createAccountWithAddress accId accMeta addrMeta = do
+    WS.createAccount accId accMeta
+    WS.addWAddress addrMeta
+
+-- | Create an account with an address.
+createAccountWithAddress2
     :: AccountId
     -> CAccountMeta
     -> WS.WAddressMeta
     -> Update ()
-createAccountWithAddress accId accMeta addrMeta = do
+createAccountWithAddress2 accId accMeta addrMeta = do
     WS.createAccount accId accMeta
     WS.addWAddress2 addrMeta
 
@@ -76,7 +87,7 @@ applyModifierToWallet2 walId wAddrs custAddrs utxoMod
         (WS.RestoringFrom rhh newSyncTip) -> do
             for_ wAddrs WS.addWAddress2
             for_ custAddrs $ \(cat, addrs) ->
-                for_ addrs $ WS.addCustomAddress cat
+                for_ addrs $ WS.addCustomAddress2 cat
             -- Allow the transactions to influence the 'UTXO' and the balance only
             -- if we are looking at transactions happened _after_ the point where we
             -- originally restored this wallet.
@@ -120,7 +131,7 @@ applyModifierToWallet walId wAddrs custAddrs utxoMod
                       syncTip = do
     for_ wAddrs WS.addWAddress2
     for_ custAddrs $ \(cat, addrs) ->
-        for_ addrs $ WS.addCustomAddress cat
+        for_ addrs $ WS.addCustomAddress2 cat
     WS.updateWalletBalancesAndUtxo utxoMod
     for_ txMetas $ uncurry $ WS.addOnlyNewTxMeta walId
     WS.insertIntoHistoryCache walId historyEntries

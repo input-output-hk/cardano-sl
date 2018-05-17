@@ -55,6 +55,7 @@ module Pos.Wallet.Web.State.Storage
        , getWalletPendingTxs
        , getPendingTx
        , addCustomAddress
+       , addCustomAddress2
        , removeCustomAddress
        , createAccount
        , createWallet
@@ -601,10 +602,14 @@ getWalletPendingTxs wid =
 getPendingTx :: WebTypes.CId WebTypes.Wal -> TxId -> Query (Maybe PendingTx)
 getPendingTx wid txId = preview $ wsWalletInfos . ix wid . wsPendingTxs . ix txId
 
+-- | Legacy version of `addCustomAddress2`.
+addCustomAddress :: CustomAddressType -> (WebTypes.CId WebTypes.Addr, HeaderHash) -> Update Bool
+addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at (unsafeCIdToAddress addr) <<.= Just hh
+
 -- | If given address isn't yet present in set of used\/change addresses, then add it
 -- with given block header hash.
-addCustomAddress :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
-addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
+addCustomAddress2 :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
+addCustomAddress2 t (addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
 
 -- | Remove given address from set of used\/change addresses only if provided
 -- header hash is equal to one which is stored in database.

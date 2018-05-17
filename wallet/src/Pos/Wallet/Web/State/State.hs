@@ -271,7 +271,7 @@ createAccountWithAddress :: (MonadIO m)
                          -> S.WAddressMeta
                          -> m ()
 createAccountWithAddress db accId accMeta addrMeta =
-    updateDisk (A.CreateAccountWithAddress accId accMeta addrMeta) db
+    updateDisk (A.CreateAccountWithAddress2 accId accMeta addrMeta) db
 
 createWallet :: (MonadIO m)
              => WalletDB
@@ -295,7 +295,7 @@ addCustomAddress :: (MonadIO m)
                  -> (Address, HeaderHash)
                  -> m Bool
 addCustomAddress db customAddrType addrAndHash =
-    updateDisk (A.AddCustomAddress customAddrType addrAndHash) db
+    updateDisk (A.AddCustomAddress2 customAddrType addrAndHash) db
 
 setAccountMeta :: (MonadIO m)
                => WalletDB -> AccountId -> CAccountMeta  -> m ()

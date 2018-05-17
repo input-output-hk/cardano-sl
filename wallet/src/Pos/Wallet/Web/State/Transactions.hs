@@ -156,7 +156,7 @@ rollbackModifierFromWallet2 pc walId wAddrs custAddrs utxoMod
                             syncState = do
     case syncState of
         (WS.RestoringFrom rhh newSyncTip) -> do
-            for_ wAddrs WS.removeWAddress
+            for_ wAddrs WS.removeWAddress2
             for_ custAddrs $ \(cat, addrs) ->
                 for_ addrs $ WS.removeCustomAddress cat
             WS.updateWalletBalancesAndUtxo utxoMod
@@ -192,7 +192,7 @@ rollbackModifierFromWallet
 rollbackModifierFromWallet pc walId wAddrs custAddrs utxoMod
                            historyEntries ptxConditions
                            syncTip = do
-    for_ wAddrs WS.removeWAddress
+    for_ wAddrs WS.removeWAddress2
     for_ custAddrs $ \(cat, addrs) ->
         for_ addrs $ WS.removeCustomAddress cat
     WS.updateWalletBalancesAndUtxo utxoMod

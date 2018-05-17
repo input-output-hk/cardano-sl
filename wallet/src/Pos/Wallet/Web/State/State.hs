@@ -401,7 +401,7 @@ removeWAddress :: (MonadIO m)
                => WalletDB
                -> S.WAddressMeta
                -> m ()
-removeWAddress db addrMeta = updateDisk (A.RemoveWAddress addrMeta) db
+removeWAddress db addrMeta = updateDisk (A.RemoveWAddress2 addrMeta) db
 
 removeCustomAddress :: (MonadIO m)
                     => WalletDB

@@ -81,6 +81,7 @@ module Pos.Wallet.Web.State.Storage
        , removeHistoryCache
        , removeAccount
        , removeWAddress
+       , removeWAddress2
        , addUpdate
        , removeNextUpdate
        , testReset
@@ -730,10 +731,14 @@ removeHistoryCache cWalId = wsHistoryCache . at cWalId .= Nothing
 removeAccount :: WebTypes.AccountId -> Update ()
 removeAccount accId = wsAccountInfos . at accId .= Nothing
 
+-- | Legacy version of `removeWAddress2`.
+removeWAddress :: WebTypes.CWAddressMeta -> Update ()
+removeWAddress = removeWAddress2 . cwamToWam
+
 -- | Remove given address, not removing it completely, but marking it as `removed` instead.
 -- See also 'addRemovedAccount'.
-removeWAddress :: WAddressMeta -> Update ()
-removeWAddress addrMeta@(view wamAccount -> accId) = do
+removeWAddress2 :: WAddressMeta -> Update ()
+removeWAddress2 addrMeta@(view wamAccount -> accId) = do
     let addrId = addrMeta ^. wamAddress
     -- If the address exists, move it to 'addressesRemoved'
     whenJustM (preuse (accAddresses accId . ix addrId)) $ \addressInfo -> do

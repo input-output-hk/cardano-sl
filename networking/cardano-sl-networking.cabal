@@ -73,7 +73,6 @@ Library
                       , hashable
                       , kademlia
                       , lens
-                      , log-warper
                       , mmorph
                       , monad-control
                       , mtl
@@ -163,8 +162,8 @@ executable bench-sender
   other-modules:       SenderOptions
   build-depends:       base == 4.*
                      , cardano-sl-networking
+                     , cardano-sl-util
                      , lens
-                     , log-warper
                      , MonadRandom
                      , mtl
                      , network-transport-tcp
@@ -191,7 +190,7 @@ executable bench-receiver
   other-modules:       ReceiverOptions
   build-depends:       base == 4.*
                      , cardano-sl-networking
-                     , log-warper
+                     , cardano-sl-util
                      , network-transport-tcp
                      , optparse-simple
                      , random
@@ -217,13 +216,13 @@ executable bench-log-reader
   build-depends:       base == 4.*
                      , attoparsec
                      , cardano-sl-networking
+                     , cardano-sl-util
                      , conduit
                      , conduit-extra
                      , containers
                      , exceptions
                      , formatting
                      , lens
-                     , log-warper
                      , mtl
                      , optparse-simple
                      , resourcet
@@ -260,7 +259,6 @@ test-suite cardano-sl-networking-test
                      , hspec >= 2.1.10
                      , hspec-core
                      , lens >= 4.14
-                     , log-warper
                      , mtl >= 2.2.1
                      , network-transport
                      , network-transport-tcp

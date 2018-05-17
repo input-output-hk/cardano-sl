@@ -33,8 +33,7 @@ import           Formatting (sformat, shown, (%))
 import           Network.Socket (AddrInfo, SockAddr (..), Socket, addrAddress, addrFamily, close)
 import           Network.Socket.ByteString (recvFrom, sendTo)
 import           Serokell.Util.Concurrent (modifyTVarS, threadDelay)
-import           System.Wlog (LoggerNameBox)
-import qualified System.Wlog as Wlog
+import qualified Pos.Util.Log as Log
 
 import           Mockable (realTime)
 import           Ntp.Packet (NtpPacket (..), evalClockOffset, mkCliNtpPacket, ntpPacketSize)
@@ -85,20 +84,21 @@ data NoHostResolved = NoHostResolved
 
 instance Exception NoHostResolved
 
-usingNtpLogger :: LoggerNameBox IO a -> IO a
-usingNtpLogger = Wlog.usingLoggerName "NtpClient"
+--usingNtpLogger :: Log.LoggerNameBox IO a -> IO a
+usingNtpLogger :: Log.LogContextT IO a -> IO a
+usingNtpLogger = Log.usingLoggerName Log.Debug "NtpClient"
 
 logError :: Text -> IO ()
-logError = usingNtpLogger . Wlog.logError
+logError = usingNtpLogger . Log.logError
 
 logWarning :: Text -> IO ()
-logWarning = usingNtpLogger . Wlog.logWarning
+logWarning = usingNtpLogger . Log.logWarning
 
 logInfo :: Text -> IO ()
-logInfo = usingNtpLogger . Wlog.logInfo
+logInfo = usingNtpLogger . Log.logInfo
 
 logDebug :: Text -> IO ()
-logDebug = usingNtpLogger . Wlog.logDebug
+logDebug = usingNtpLogger . Log.logDebug
 
 -- |
 -- Handle results.  It is either when all ntp servers responded or when

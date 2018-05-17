@@ -17,7 +17,7 @@ import qualified Data.Set as Set
 import qualified Network.Broadcast.OutboundQueue as OutQ
 import           Network.Broadcast.OutboundQueue.Demo
 import           Network.Broadcast.OutboundQueue.Types hiding (simplePeers)
-import           System.Wlog
+import qualified Pos.Util.Log as Log
 import           Test.Hspec (Spec, describe, it)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck (Gen, Property, choose, forAll, ioProperty, property,
@@ -78,7 +78,7 @@ arbitraryPeers genNid genNodeType = do
 -- "outbound queue".
 testInFlight :: IO Bool
 testInFlight = do
-    removeAllHandlers
+    -- removeAllHandlers   -- TODO
 
     -- Set up some test nodes
     allNodes <- do

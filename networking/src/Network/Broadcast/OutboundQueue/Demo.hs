@@ -19,9 +19,9 @@ import qualified Data.Set as Set
 import           Data.String (fromString)
 import           Data.Text (Text)
 import           Formatting (sformat, shown, (%))
-import           System.Wlog
 
-import           Pos.Util.Trace (wlogTrace)
+import qualified Pos.Util.Log as Log
+import           Pos.Util.Trace (logTrace)
 
 import           Network.Broadcast.OutboundQueue (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue as OutQ
@@ -43,11 +43,11 @@ runEnqueue = id
 
 relayDemo :: IO ()
 relayDemo = do
-    updateGlobalLogger "*production*" (setLevel noticePlus)
+    --updateGlobalLogger "*production*" (setLevel noticePlus)
 
     let block :: Text -> [Node] -> Enqueue () -> Enqueue ()
         block label nodes act = do
-          usingLoggerName (fromString "outboundqueue-production") $ logNotice label
+          Log.usingLoggerName Log.Debug (fromString "outboundqueue-production") $ Log.logNotice label
           act
           mapM_ (OutQ.flush . nodeOutQ) nodes
           threadDelay 500000
@@ -117,7 +117,7 @@ relayDemo = do
         -- Edge nodes can never send to core nodes
         send Asynchronous (nodeEs !! 0) (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC1]))) (MsgId 501)
 
-      usingLoggerName (fromString "outboundqueue-demo") $ logNotice "End of demo"
+      Log.usingLoggerName Log.Debug (fromString "outboundqueue-demo") $ Log.logNotice "End of demo"
 
 {-------------------------------------------------------------------------------
   Model of a node
@@ -139,7 +139,7 @@ instance Eq Node where
 -- | Create a new node, and spawn dequeue worker and forwarding listener
 newNode :: NodeId_ -> NodeType -> CommsDelay -> IO Node
 newNode nodeId_ nodeType commsDelay = do
-    nodeOutQ     <- OutQ.new (wlogTrace (fromString (show nodeId_)))
+    nodeOutQ     <- OutQ.new (logTrace (fromString (show nodeId_)))
                              demoEnqueuePolicy
                              demoDequeuePolicy
                              demoFailurePolicy
@@ -167,9 +167,9 @@ nodeForwardListener node = forever $ do
     added   <- addToMsgPool (nodeMsgPool node) msgData
     let msgObj = mkMsgObj msgData
     if not added then
-      usingLoggerName (fromString "outboundqueue-demo") $ logDebug $ discarded msgObj
+      Log.usingLoggerName Log.Debug (fromString "outboundqueue-demo") $ Log.logDebug $ discarded msgObj
     else do
-      usingLoggerName (fromString "outboundqueue-demo") $ logNotice $ received msgObj
+      Log.usingLoggerName Log.Debug (fromString "outboundqueue-demo") $ Log.logNotice $ received msgObj
       let sender = msgSender msgData
           forwardMsgType = case msgType msgData of
             MsgAnnounceBlockHeader _ -> Just (MsgAnnounceBlockHeader (OriginForward sender))
@@ -210,7 +210,7 @@ instance Exception SendFailed
 -- | Send a message from the specified node
 send :: Sync -> Node -> MsgType NodeId -> MsgId -> Enqueue ()
 send sync from msgType msgId = do
-    usingLoggerName (fromString "outboundqueue-demo") $ logNotice $ sformat (shown % ": send " % formatMsg) (nodeId from) msgObj
+    Log.usingLoggerName Log.Debug (fromString "outboundqueue-demo") $ Log.logNotice $ sformat (shown % ": send " % formatMsg) (nodeId from) msgObj
     added <- addToMsgPool (nodeMsgPool from) msgData
     unless added $ throwIO SendFailedAddToPool
     enqueue (nodeOutQ from) msgType msgObj

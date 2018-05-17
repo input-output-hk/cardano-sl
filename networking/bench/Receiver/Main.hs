@@ -16,7 +16,7 @@ import           GHC.IO.Encoding (setLocaleEncoding, utf8)
 import           Options.Applicative.Simple (simpleOptions)
 import           Serokell.Util.Concurrent (threadDelay)
 import           System.Random (mkStdGen)
-import           System.Wlog (usingLoggerName)
+import qualified Pos.Util.Log as Log --(usingLoggerName)
 
 import           Mockable (Production (runProduction))
 
@@ -39,7 +39,7 @@ main = do
             argsParser
             empty
 
-    loadLogConfig logsPrefix logConfig
+    Log.loadLogConfig logsPrefix logConfig
     setLocaleEncoding utf8
 
     transport_ <- do
@@ -51,7 +51,7 @@ main = do
 
     let prng = mkStdGen 0
 
-    runProduction $ usingLoggerName "receiver" $ do
+    runProduction $ Log.usingLoggerName Log.Debug "receiver" $ do
         node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng binaryPacking () defaultNodeEnvironment $ \_ ->
             NodeAction (const [pingListener noPong]) $ \_ -> do
                 threadDelay (fromIntegral duration :: Second)

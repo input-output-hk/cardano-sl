@@ -12,7 +12,7 @@ module Mockable.Instances
 import           Control.Lens (view)
 import           Control.Monad.Trans.Reader (ReaderT (..))
 import           Serokell.Util.Lens (WrappedM (..), _UnwrappedM)
-import           System.Wlog (LoggerName, LoggerNameBox)
+--import           Pos.Util.Log (LoggerName, LoggerNameBox)
 
 import           Mockable.Channel (ChannelT)
 import           Mockable.Class (MFunctor' (..), Mockable (..))
@@ -31,6 +31,7 @@ liftMockableWrappedM
        ) => d m t -> m t
 liftMockableWrappedM dmt = view _UnwrappedM $ liftMockable $ hoist' (view _WrappedM) dmt
 
+{-  TODO
 instance ( Mockable d m
          , MFunctor' d (LoggerNameBox m) (ReaderT LoggerName m)
          , MFunctor' d (ReaderT LoggerName m) m
@@ -45,6 +46,7 @@ type instance ChannelT (LoggerNameBox m) = ChannelT m
 type instance Gauge (LoggerNameBox m) = Gauge m
 type instance Counter (LoggerNameBox m) = Counter m
 type instance Distribution (LoggerNameBox m) = Distribution m
+-}
 
 type instance ThreadId (ReaderT r m) = ThreadId m
 type instance Promise (ReaderT r m) = Promise m

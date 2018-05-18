@@ -7690,7 +7690,9 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-util";
            version = "1.1.1";
            src = ./../util;
-           configureFlags = [ "--ghc-option=-Werror" ];
+           configureFlags = [
+             "--ghc-option=-fwarn-redundant-constraints" "--ghc-option=-Werror"
+           ];
            libraryHaskellDepends = [
              aeson base binary cardano-sl-binary cborg cereal concurrent-extra
              containers contravariant cryptonite data-default deepseq directory

@@ -93,7 +93,7 @@ mapModifierFormsMonoid = formsMonoid
 -- In fact, them being equal is a case not worth concern because the inner
 -- 'flip HM.lookup newHMap' is going to make the property work in any case.
 insertThenLookup
-    :: (Show k, Show v, Eq k, Eq v, Hashable k)
+    :: (Eq k, Eq v, Hashable k)
     => k
     -> v
     -> v
@@ -106,7 +106,7 @@ insertThenLookup k v1 v2 hm mapMod =
     in v1 /= v2 ==> (== Just v1) $ Core.lookup (flip HM.lookup newHMap) k newMap
 
 insertInHMDeleteThenLookup
-    :: (Show k, Show v, Eq k, Eq v, Hashable k)
+    :: (Eq k, Hashable k)
     => HashMap k v
     -> k
     -> v
@@ -118,7 +118,7 @@ insertInHMDeleteThenLookup m k v mapMod =
     in isNothing $ Core.lookup (flip HM.lookup newMap) k newMapMod
 
 insertInMMDeleteThenLookup
-    :: (Show k, Show v, Eq k, Eq v, Hashable k)
+    :: (Eq k, Eq v, Hashable k)
     => HashMap k v
     -> k
     -> v
@@ -130,7 +130,7 @@ insertInMMDeleteThenLookup m k v mapMod =
     in Just v == Core.lookup (flip HM.lookup newMap) k newMapMod
 
 allKeysAreInMap
-    :: (Ord k, Show k, Show v, Eq k, Eq v, Hashable k)
+    :: (Ord k, Hashable k)
     => HM.HashMap k v
     -> Core.MapModifier k v
     -> Bool
@@ -139,7 +139,7 @@ allKeysAreInMap hm mapMod =
     in all (\k -> (isJust $ Core.lookup (flip HM.lookup hm) k mapMod)) keys
 
 allValsAreInMap
-    :: (Ord k, Show k, Show v, Eq k, Eq v, Hashable k)
+    :: (Ord k, Eq v, Hashable k)
     => [(k, v)]
     -> Core.MapModifier k v
     -> Bool
@@ -150,7 +150,7 @@ allValsAreInMap kvs mapMod =
        vals
 
 allPairsAreInAssocList
-    :: (Ord k, Show k, Show v, Eq k, Eq v, Hashable k)
+    :: (Ord k, Hashable k)
     => HM.HashMap k v
     -> Core.MapModifier k v
     -> Bool
@@ -166,14 +166,14 @@ mapModifierToHashMap inserts =
     in insMap == (HM.fromList inserts)
 
 mapModifierToList
-    :: (Ord k, Show k, Show v, Eq k, Eq v, Hashable k)
+    :: (Ord k, Eq v, Hashable k)
     => Core.MapModifier k v
     -> Bool
 mapModifierToList mapMod =
     Core.insertions mapMod == Core.toList [] mapMod
 
 mapModifierToDeletionList
-    :: (Ord k, Show k, Show v, Eq k, Eq v, Hashable k)
+    :: (Ord k, Hashable k)
     => Core.MapModifier k v
     -> Bool
 mapModifierToDeletionList mapMod =
@@ -182,7 +182,7 @@ mapModifierToDeletionList mapMod =
     in all (not . flip elem keys) deletions && all (not . flip elem deletions) keys
 
 allPairsAreInMaybeList
-    :: (Ord k, Show k, Show v1, Show v2, Eq k, Eq v1, Eq v2, Hashable k, v1 ~ v2)
+    :: (Ord k, Eq v1, Hashable k, v1 ~ v2)
     => (v1 -> Maybe v2)
     -> HM.HashMap k v2
     -> Core.MapModifier k v1

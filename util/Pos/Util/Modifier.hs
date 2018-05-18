@@ -85,10 +85,10 @@ lookup
     => (k -> Maybe v) -> k -> MapModifier k v -> Maybe v
 lookup getter k = runIdentity . lookupM (Identity . getter) k
 
-filter :: (Eq k, Hashable k) => (Maybe v -> Bool) -> MapModifier k v -> MapModifier k v
+filter :: (Maybe v -> Bool) -> MapModifier k v -> MapModifier k v
 filter fil = MapModifier . HM.filter fil . getMapModifier
 
-filterWithKey :: (Eq k, Hashable k) => (k -> Maybe v -> Bool) -> MapModifier k v -> MapModifier k v
+filterWithKey :: (k -> Maybe v -> Bool) -> MapModifier k v -> MapModifier k v
 filterWithKey fil = MapModifier . HM.filterWithKey fil . getMapModifier
 
 -- | Get keys of something map-like in Functor context taking
@@ -227,8 +227,7 @@ modifyMap pm hm =
     deletes = deletions pm
 
 foldlMapModWKey'
-    :: (Eq k, Hashable k)
-    => (a -> k -> Maybe v -> a)
+    :: (a -> k -> Maybe v -> a)
     -> a
     -> MapModifier k v
     -> a

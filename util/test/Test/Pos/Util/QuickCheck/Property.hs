@@ -37,7 +37,7 @@ import           Universum
 
 import qualified Data.Semigroup as Semigroup
 import           Test.Hspec (Expectation, Selector, shouldThrow)
-import           Test.QuickCheck (Arbitrary, Property, counterexample, property, (.&&.), (===))
+import           Test.QuickCheck (Property, counterexample, property, (.&&.), (===))
 import           Test.QuickCheck.Gen (Gen, choose)
 import           Test.QuickCheck.Monadic (PropertyM, pick, stop)
 import           Test.QuickCheck.Property (Result (..), failed)
@@ -171,7 +171,7 @@ formsMonoid :: (Show m, Eq m, Semigroup m, Monoid m) => m -> m -> m -> Property
 formsMonoid m1 m2 m3 =
     (formsSemigroup m1 m2 m3) .&&. (hasIdentity m1)
 
-isCommutative :: (Show m, Eq m, Semigroup m, Monoid m) => m -> m -> Property
+isCommutative :: (Show m, Eq m, Semigroup m) => m -> m -> Property
 isCommutative m1 m2 =
     let comm1 = m1 <> m2
         comm2 = m2 <> m1
@@ -187,14 +187,14 @@ formsCommutativeMonoid m1 m2 m3 =
 
 -- | Extensional equality combinator. Useful to express function properties as functional
 -- equations.
-(.=.) :: (Eq b, Show b, Arbitrary a) => (a -> b) -> (a -> b) -> a -> Property
+(.=.) :: (Eq b, Show b) => (a -> b) -> (a -> b) -> a -> Property
 (.=.) f g a = f a === g a
 
 infixr 5 .=.
 
 -- | Monadic extensional equality combinator.
 (>=.)
-    :: (Show (m b), Arbitrary a, Monad m, Eq (m b))
+    :: (Show (m b), Eq (m b))
     => (a -> m b)
     -> (a -> m b)
     -> a
@@ -204,7 +204,7 @@ infixr 5 .=.
 infixr 5 >=.
 
 shouldThrowException
-    :: (Show a, Eq a, Exception e)
+    :: (Exception e)
     => (a -> b)
     -> Selector e
     -> a

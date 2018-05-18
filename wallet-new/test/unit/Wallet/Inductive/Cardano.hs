@@ -27,7 +27,7 @@ import           Pos.Txp (Utxo, formatUtxo)
 
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 
-import           Util
+import           Cardano.Wallet.Kernel.Util
 import           Util.Validated
 import           UTxO.Context (Addr)
 import           UTxO.DSL (Hash)

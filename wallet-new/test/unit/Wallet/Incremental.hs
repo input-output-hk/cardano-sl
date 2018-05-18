@@ -26,7 +26,8 @@ import qualified Data.Map as Map
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
 
-import           Util
+import           Cardano.Wallet.Kernel.Util (disjoint)
+
 import           UTxO.DSL
 import           Wallet.Abstract
 import qualified Wallet.Basic as Basic
@@ -69,8 +70,8 @@ mkWallet ours l self st = (Basic.mkWallet ours (l . stateBasic) self st) {
         in self (st & l %~ applyBlock' (txIns b, utxoPlus))
     , availableBalance =
           (st ^. l . stateUtxoBalance)
-        - balance (utxoRestrictToInputs (txIns (pending this)) (utxo this))
-    , totalBalance = availableBalance this + balance (change this)
+        - utxoBalance (utxoRestrictToInputs (txIns (pending this)) (utxo this))
+    , totalBalance = availableBalance this + utxoBalance (change this)
     }
   where
     this = self st
@@ -98,7 +99,7 @@ applyBlock' (ins, outs) State{..} = State{
     unionNew = _stateUtxo `utxoUnion` utxoNew
     utxoRem  = utxoRestrictToInputs ins unionNew
     utxo'    = utxoRemoveInputs     ins unionNew
-    balance' = _stateUtxoBalance + balance utxoNew - balance utxoRem
+    balance' = _stateUtxoBalance + utxoBalance utxoNew - utxoBalance utxoRem
 
     Basic.State{..} = _stateBasic
 

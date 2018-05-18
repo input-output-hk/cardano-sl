@@ -18,7 +18,9 @@ module Pos.Core.Common.Coin
        , unsafeAddCoin
        , unsafeSubCoin
        , unsafeMulCoin
+       , addCoin
        , subCoin
+       , mulCoin
        , divCoin
        ) where
 
@@ -88,14 +90,22 @@ coinToInteger :: Coin -> Integer
 coinToInteger = toInteger . unsafeGetCoin
 {-# INLINE coinToInteger #-}
 
--- | Only use if you're sure there'll be no overflow.
-unsafeAddCoin :: Coin -> Coin -> Coin
-unsafeAddCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
-    | res >= a && res >= b && res <= unsafeGetCoin (maxBound @Coin) = Coin res
-    | otherwise =
-      error $ "unsafeAddCoin: overflow when summing " <> show a <> " + " <> show b
+-- Addition of coins. Returns 'Nothing' in case of overflow.
+addCoin :: Coin -> Coin -> Maybe Coin
+addCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
+    | res >= a && res >= b && res <= unsafeGetCoin (maxBound @Coin) = Just (Coin res)
+    | otherwise = Nothing
   where
     res = a+b
+{-# INLINE addCoin #-}
+
+-- | Only use if you're sure there'll be no overflow.
+unsafeAddCoin :: Coin -> Coin -> Coin
+unsafeAddCoin a b =
+    case addCoin a b of
+        Just r -> r
+        Nothing ->
+            error $ "unsafeAddCoin: overflow when summing " <> show a <> " + " <> show b
 {-# INLINE unsafeAddCoin #-}
 
 -- | Subtraction of coins. Returns 'Nothing' when the subtrahend is bigger
@@ -110,17 +120,26 @@ unsafeSubCoin :: Coin -> Coin -> Coin
 unsafeSubCoin a b = fromMaybe (error "unsafeSubCoin: underflow") (subCoin a b)
 {-# INLINE unsafeSubCoin #-}
 
--- | Only use if you're sure there'll be no overflow.
-unsafeMulCoin :: Integral a => Coin -> a -> Coin
-unsafeMulCoin (unsafeGetCoin -> a) b
-    | res <= coinToInteger (maxBound @Coin) = Coin (fromInteger res)
-    | otherwise = error "unsafeMulCoin: overflow"
+-- | Multiplication between 'Coin's. Returns 'Nothing' in case of overflow.
+mulCoin :: Integral a => Coin -> a -> Maybe Coin
+mulCoin (unsafeGetCoin -> a) b
+    | res <= coinToInteger (maxBound @Coin) = Just $ Coin (fromInteger res)
+    | otherwise = Nothing
   where
     res = toInteger a * toInteger b
+{-# INLINE mulCoin #-}
 
-divCoin :: Integral a => Coin -> a -> Coin
-divCoin (unsafeGetCoin -> a) b =
-    Coin (fromInteger (toInteger a `div` toInteger b))
+-- | Only use if you're sure there'll be no overflow.
+unsafeMulCoin :: Integral a => Coin -> a -> Coin
+unsafeMulCoin a b =
+    case mulCoin a b of
+         Just r  -> r
+         Nothing -> error "unsafeMulCoin: overflow"
+{-# INLINE unsafeMulCoin #-}
+
+divCoin :: Integral b => Coin -> b -> Coin
+divCoin (unsafeGetCoin -> a) b = Coin (a `div` fromIntegral b)
+{-# INLINE divCoin #-}
 
 integerToCoin :: Integer -> Either Text Coin
 integerToCoin n

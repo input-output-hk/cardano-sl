@@ -36,7 +36,8 @@ import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, H
                            SlotId (..), Timestamp (Timestamp), addressHash, blkSecurityParam,
                            difficultyL, epochOrSlotToSlot, epochSlots, flattenSlotId, gbHeader,
                            getEpochOrSlot, getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId,
-                           HasGeneratedSecrets, HasGenesisData, HasGenesisHash, HasGenesisBlockVersionData)
+                           HasGeneratedSecrets, HasGenesisData, HasGenesisHash, HasGenesisBlockVersionData,
+                           HasProtocolMagic)
 import           Pos.Crypto (ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import qualified Pos.DB.BlockIndex as DB
@@ -48,7 +49,8 @@ import qualified Pos.Diffusion.Types as Diffusion (Diffusion (announceBlockHeade
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
 import           Pos.Recovery.Info (getSyncStatus, getSyncStatusK, needTriggerRecovery,
                                     recoveryCommGuard)
-import           Pos.Reporting (MetricMonitor (..), MetricMonitorState, noReportMonitor,
+import           Pos.Reporting (MetricMonitor (..), MetricMonitorState,
+                                HasMisbehaviorMetrics, noReportMonitor,
                                 recordValue, reportOrLogE)
 import           Pos.Slotting (ActionTerminationPolicy (..), OnNewSlotParams (..),
                                currentTimeSlotting, defaultOnNewSlotParams,
@@ -71,7 +73,9 @@ blkWorkers
        , HasGenesisHash
        , HasGenesisData
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGenesisBlockVersionData
+       , HasMisbehaviorMetrics ctx
        )
     => [Diffusion m -> m ()]
 blkWorkers =
@@ -110,10 +114,12 @@ informerWorker =
 blkCreatorWorker
     :: ( BlockWorkMode ctx m
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGeneratedSecrets
        , HasGenesisHash
        , HasGenesisData
        , HasGenesisBlockVersionData
+       , HasMisbehaviorMetrics ctx
        ) => Diffusion m -> m ()
 blkCreatorWorker =
     \diffusion -> onNewSlot onsp $ \slotId ->
@@ -130,9 +136,11 @@ blockCreator
     :: ( BlockWorkMode ctx m
        , HasGeneratedSecrets
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGenesisHash
        , HasGenesisData
        , HasGenesisBlockVersionData
+       , HasMisbehaviorMetrics ctx
        )
     => SlotId -> Diffusion m -> m ()
 blockCreator (slotId@SlotId {..}) diffusion = do
@@ -203,6 +211,7 @@ onNewSlotWhenLeader
        , HasGenesisHash
        , HasGenesisBlockVersionData
        , HasProtocolConstants
+       , HasProtocolMagic
        )
     => SlotId
     -> ProxySKBlockInfo
@@ -246,6 +255,7 @@ recoveryTriggerWorker
     :: forall ctx m.
        ( BlockWorkMode ctx m
        , HasProtocolConstants
+       , HasProtocolMagic
        )
     => Diffusion m -> m ()
 recoveryTriggerWorker diffusion = do

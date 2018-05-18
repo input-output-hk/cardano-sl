@@ -141,6 +141,6 @@ type TxpLocalWorkMode ctx m =
     , WithLogger m
     , Mockable CurrentTime m
     , MonadMask m
-    , MonadReporting ctx m
+    , MonadReporting m
     , HasTxpConfiguration
     )

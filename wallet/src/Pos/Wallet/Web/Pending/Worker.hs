@@ -47,7 +47,7 @@ type MonadPendings ctx m =
     , MonadAddresses m
     , MonadDBRead m
     , MonadRecoveryInfo m
-    , MonadReporting ctx m
+    , MonadReporting m
     , HasShutdownContext ctx
     , MonadSlots ctx m
     , HasConfiguration

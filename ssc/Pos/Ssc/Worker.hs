@@ -12,7 +12,7 @@ import           Control.Monad.Except (runExceptT)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond, Millisecond, convertUnit)
-import           Formatting (build, int, ords, sformat, shown, (%))
+import           Formatting (build, ords, sformat, shown, (%))
 import           Mockable (currentTime, delay)
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text (listJson)
@@ -27,7 +27,8 @@ import           Pos.Core (EpochIndex, SlotId (..), StakeholderId, Timestamp (..
                            VssCertificate (..), VssCertificatesMap (..), blkSecurityParam,
                            bvdMpcThd, getOurSecretKey, getOurStakeholderId, getSlotIndex, lookupVss,
                            memberVss, mkLocalSlotIndex, mkVssCertificate, slotSecurityParam,
-                           vssMaxTTL, HasProtocolConstants, HasGenesisData, HasGenesisBlockVersionData)
+                           vssMaxTTL, HasProtocolConstants, HasProtocolMagic, HasGenesisData,
+                           HasGenesisBlockVersionData)
 import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening, SignedCommitment,
                                getCommitmentsMap)
 import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber, runSecureRandom)
@@ -37,15 +38,13 @@ import           Pos.DB (gsAdoptedBVData)
 import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Recovery.Info (recoveryCommGuard)
-import           Pos.Reporting (reportMisbehaviour)
 import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Slotting (defaultOnNewSlotParams, getCurrentSlot, getSlotStartEmpatically,
                                onNewSlot)
 import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentIdx, isOpeningIdx, isSharesIdx,
                                mkSignedCommitment)
 import           Pos.Ssc.Behavior (SscBehavior (..), SscOpeningParams (..), SscSharesParams (..))
-import           Pos.Ssc.Configuration (HasSscConfiguration, mdNoCommitmentsEpochThreshold,
-                                        mpcSendInterval)
+import           Pos.Ssc.Configuration (HasSscConfiguration, mpcSendInterval)
 import           Pos.Ssc.Functions (hasCommitment, hasOpening, hasShares, vssThreshold)
 import           Pos.Ssc.Logic (sscGarbageCollectLocalData, sscProcessCertificate,
                                 sscProcessCommitment, sscProcessOpening, sscProcessShares)
@@ -63,7 +62,13 @@ import           Pos.Util.LogSafe (logDebugS, logErrorS, logInfoS, logWarningS)
 import           Pos.Util.Util (getKeys, leftToPanic)
 
 sscWorkers
-  :: (SscMode ctx m, HasGenesisBlockVersionData, HasGenesisData, HasProtocolConstants)
+  :: ( SscMode ctx m
+     , HasGenesisBlockVersionData
+     , HasGenesisData
+     , HasProtocolConstants
+     , HasProtocolMagic
+     , HasMisbehaviorMetrics ctx
+     )
   => [Diffusion m -> m ()]
 sscWorkers = [onNewSlotSsc, checkForIgnoredCommitmentsWorker]
 
@@ -81,7 +86,12 @@ shouldParticipate epoch = do
 -- CHECK: @onNewSlotSsc
 -- #checkNSendOurCert
 onNewSlotSsc
-    :: (SscMode ctx m, HasGenesisBlockVersionData, HasGenesisData, HasProtocolConstants)
+    :: ( SscMode ctx m
+       , HasGenesisBlockVersionData
+       , HasGenesisData
+       , HasProtocolConstants
+       , HasProtocolMagic
+       )
     => Diffusion m
     -> m ()
 onNewSlotSsc = \diffusion -> onNewSlot defaultOnNewSlotParams $ \slotId ->
@@ -99,7 +109,12 @@ onNewSlotSsc = \diffusion -> onNewSlot defaultOnNewSlotParams $ \slotId ->
 -- Checks whether 'our' VSS certificate has been announced
 checkNSendOurCert
     :: forall ctx m.
-       (SscMode ctx m, HasProtocolConstants, HasGenesisBlockVersionData, HasGenesisData)
+       ( SscMode ctx m
+       , HasProtocolConstants
+       , HasProtocolMagic
+       , HasGenesisBlockVersionData
+       , HasGenesisData
+       )
     => (VssCertificate -> m ())
     -> m ()
 checkNSendOurCert sendCert = do
@@ -154,7 +169,12 @@ getOurVssKeyPair = views sscContext scVssKeyPair
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
-    :: (SscMode ctx m, HasGenesisBlockVersionData, HasGenesisData, HasProtocolConstants)
+    :: ( SscMode ctx m
+       , HasGenesisBlockVersionData
+       , HasGenesisData
+       , HasProtocolConstants
+       , HasProtocolMagic
+       )
     => SlotId
     -> (SignedCommitment -> m ())
     -> m ()
@@ -192,7 +212,12 @@ onNewSlotCommitment slotId@SlotId {..} sendCommitment
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
-    :: (SscMode ctx m, HasGenesisBlockVersionData, HasGenesisData, HasProtocolConstants)
+    :: ( SscMode ctx m
+       , HasGenesisBlockVersionData
+       , HasGenesisData
+       , HasProtocolConstants
+       , HasProtocolMagic
+       )
     => SscOpeningParams
     -> SlotId
     -> (Opening -> m ())
@@ -225,7 +250,12 @@ onNewSlotOpening params SlotId {..} sendOpening
 
 -- Shares-related part of new slot processing
 onNewSlotShares
-    :: (SscMode ctx m, HasProtocolConstants, HasGenesisData, HasGenesisBlockVersionData)
+    :: ( SscMode ctx m
+       , HasProtocolConstants
+       , HasProtocolMagic
+       , HasGenesisData
+       , HasGenesisBlockVersionData
+       )
     => SscSharesParams
     -> SlotId
     -> (InnerSharesMap -> m ())
@@ -294,7 +324,14 @@ sendOurData sendIt msgTag dt epoch slMultiplier = do
 -- synchronized).
 generateAndSetNewSecret
     :: forall ctx m.
-       (HasSscConfiguration, SscMode ctx m, Bi Commitment, HasProtocolConstants, HasGenesisData, HasGenesisBlockVersionData)
+       ( HasSscConfiguration
+       , SscMode ctx m
+       , Bi Commitment
+       , HasProtocolConstants
+       , HasProtocolMagic
+       , HasGenesisData
+       , HasGenesisBlockVersionData
+       )
     => SecretKey
     -> SlotId -- ^ Current slot
     -> m (Maybe SignedCommitment)
@@ -392,6 +429,7 @@ checkForIgnoredCommitmentsWorker
        , SscMode ctx m
        , HasProtocolConstants
        , HasGenesisBlockVersionData
+       , HasMisbehaviorMetrics ctx
        )
     => Diffusion m
     -> m ()
@@ -414,6 +452,7 @@ checkForIgnoredCommitmentsWorkerImpl
        , SscMode ctx m
        , HasProtocolConstants
        , HasGenesisBlockVersionData
+       , HasMisbehaviorMetrics ctx
        )
     => TVar Word -> SlotId -> m ()
 checkForIgnoredCommitmentsWorkerImpl counter SlotId {..}
@@ -434,13 +473,4 @@ checkForIgnoredCommitmentsWorkerImpl counter SlotId {..}
                             x <$ writeTVar counter x
                     whenJustM (view misbehaviorMetrics) $ liftIO .
                         flip Metrics.set (fromIntegral newCounterValue) . _mmIgnoredCommitments
-                    when (newCounterValue > mdNoCommitmentsEpochThreshold) $ do
-    -- REPORT:MISBEHAVIOUR(F) Possible eclipse attack was detected:
-    -- our commitments don't get included into blockchain
-                        let msg = sformat warningFormat newCounterValue
-                        reportMisbehaviour False msg
                 Just _ -> atomically $ writeTVar counter 0
-  where
-    warningFormat =
-        "Our neighbors are likely trying to carry out an eclipse attack! "%
-        "Out commitment didn't appear in blocks for "%int%" epochs in a row :("

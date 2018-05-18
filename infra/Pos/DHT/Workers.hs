@@ -35,7 +35,7 @@ type DhtWorkMode ctx m =
     , Mockable Delay m
     , MonadRecoveryInfo m
     , MonadReader ctx m
-    , MonadReporting ctx m
+    , MonadReporting m
     , HasShutdownContext ctx
     )
 

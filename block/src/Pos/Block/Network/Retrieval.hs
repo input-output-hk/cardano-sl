@@ -27,14 +27,14 @@ import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrieva
 import           Pos.Block.Types (RecoveryHeaderTag)
 import           Pos.Communication.Protocol (NodeId)
 import           Pos.Core (Block, HasGeneratedSecrets, HasGenesisBlockVersionData, HasGenesisData,
-                           HasGenesisHash, HasHeaderHash (..), HasProtocolConstants, HeaderHash,
-                           difficultyL, isMoreDifficult)
+                           HasGenesisHash, HasHeaderHash (..), HasProtocolConstants,
+                           HasProtocolMagic, HeaderHash, difficultyL, isMoreDifficult)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Diffusion.Types (Diffusion)
 import qualified Pos.Diffusion.Types as Diffusion (Diffusion (getBlocks))
-import           Pos.Reporting (reportOrLogE, reportOrLogW)
+import           Pos.Reporting (HasMisbehaviorMetrics, reportOrLogE, reportOrLogW)
 import           Pos.Util.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Util.Util (HasLens (..))
 
@@ -57,8 +57,10 @@ retrievalWorker
        , HasGeneratedSecrets
        , HasGenesisHash
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGenesisBlockVersionData
        , HasGenesisData
+       , HasMisbehaviorMetrics ctx
        )
     => Diffusion m -> m ()
 retrievalWorker diffusion = do
@@ -255,7 +257,9 @@ dropRecoveryHeader nodeId = do
 
 -- | Drops the recovery header and, if it was successful, queries the tips.
 dropRecoveryHeaderAndRepeat
-    :: (BlockWorkMode ctx m)
+    :: ( BlockWorkMode ctx m
+       , HasProtocolMagic
+       )
     => Diffusion m -> NodeId -> m ()
 dropRecoveryHeaderAndRepeat diffusion nodeId = do
     kicked <- dropRecoveryHeader nodeId
@@ -279,8 +283,10 @@ getProcessBlocks
        , HasGeneratedSecrets
        , HasGenesisBlockVersionData
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGenesisHash
        , HasGenesisData
+       , HasMisbehaviorMetrics ctx
        )
     => Diffusion m
     -> NodeId
@@ -300,7 +306,7 @@ getProcessBlocks diffusion nodeId desired checkpoints = do
           logDebug $ sformat
               ("Retrieved "%int%" blocks")
               (blocks ^. _OldestFirst . to NE.length)
-          handleBlocks nodeId blocks diffusion
+          handleBlocks blocks diffusion
           -- If we've downloaded any block with bigger
           -- difficulty than ncRecoveryHeader, we're
           -- gracefully exiting recovery mode.

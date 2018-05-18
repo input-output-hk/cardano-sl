@@ -62,7 +62,7 @@ type USGlobalApplyMode ctx m =
     , DB.MonadDBRead m
     , MonadUnliftIO m
     , MonadSlotsData ctx m
-    , MonadReporting ctx m
+    , MonadReporting m
     )
 
 ----------------------------------------------------------------------------
@@ -88,7 +88,12 @@ withUSLogger = modifyLoggerName (<> "us")
 -- will never change. Also note that we store slotting data for all
 -- epochs in memory, so adding new one can't make anything worse.
 usApplyBlocks
-    :: (MonadThrow m, USGlobalApplyMode ctx m, HasGenesisBlockVersionData, HasProtocolConstants)
+    :: ( MonadThrow m
+       , USGlobalApplyMode ctx m
+       , HasGenesisBlockVersionData
+       , HasProtocolConstants
+       , HasProtocolMagic
+       )
     => OldestFirst NE UpdateBlock
     -> Maybe PollModifier
     -> m [DB.SomeBatchOp]
@@ -152,8 +157,9 @@ usVerifyBlocks ::
        ( USGlobalVerifyMode ctx m
        , DB.MonadDBRead m
        , MonadUnliftIO m
-       , MonadReporting ctx m
+       , MonadReporting m
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGenesisBlockVersionData
        )
     => Bool

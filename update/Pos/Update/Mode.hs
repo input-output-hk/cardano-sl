@@ -40,7 +40,7 @@ type UpdateMode ctx m
       , HasLens StateLock ctx StateLock
       , HasShutdownContext ctx
       , HasUpdateConfiguration
-      , MonadReporting ctx m
+      , MonadReporting m
       , MonadRecoveryInfo m
       , MonadSlots ctx m
       )

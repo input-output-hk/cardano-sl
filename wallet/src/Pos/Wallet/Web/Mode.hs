@@ -11,6 +11,7 @@ module Pos.Wallet.Web.Mode
        , MonadFullWalletWebMode
 
        , walletWebModeToRealMode
+       , realModeToWalletWebMode
 
        , getBalanceDefault
        , getOwnUtxosDefault
@@ -50,12 +51,11 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
-import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Network.Types (HasNodeType (..))
 import           Pos.Recovery ()
 import           Pos.Recovery.Info (MonadRecoveryInfo)
-import           Pos.Reporting (HasReportingContext (..), MonadReporting)
+import           Pos.Reporting (MonadReporting (..), HasMisbehaviorMetrics (..), Reporter (..))
 import           Pos.Shutdown (HasShutdownContext (..))
 import           Pos.Slotting.Class (MonadSlots (..))
 import           Pos.Slotting.Impl (currentTimeSlottingSimple,
@@ -70,7 +70,6 @@ import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..), M
                           withTxpLocalData)
 import qualified Pos.Txp.DB as DB
 import           Pos.Util (postfixLFields)
-import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog.Events (HasJsonLogConfig (..), jsonLogDefault)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
@@ -116,6 +115,13 @@ walletWebModeToRealMode ws cv syncRequests act = do
     rmc <- ask
     lift $ runReaderT act (WalletWebModeContext ws cv syncRequests rmc)
 
+realModeToWalletWebMode
+    :: RealMode WalletMempoolExt t
+    -> WalletWebMode t
+realModeToWalletWebMode rm = Mtl.ask >>= \ctx ->
+    let rmc = wwmcRealModeContext ctx
+     in lift (Mtl.runReaderT rm rmc)
+
 makeLensesWith postfixLFields ''WalletWebModeContext
 
 instance HasLens SyncQueue WalletWebModeContext SyncQueue where
@@ -127,8 +133,14 @@ instance HasSscContext WalletWebModeContext where
 instance HasPrimaryKey WalletWebModeContext where
     primaryKey = wwmcRealModeContext_L . primaryKey
 
-instance HasReportingContext WalletWebModeContext  where
-    reportingContext = wwmcRealModeContext_L . reportingContext
+-- FIXME alter it so that we never send logs for info-level reports, as I
+-- think that's how it was prior.
+instance MonadReporting WalletWebMode where
+    report rt = Mtl.ask >>= \ctx ->
+        liftIO (runReporter (rmcReporter (wwmcRealModeContext ctx)) rt)
+
+instance HasMisbehaviorMetrics WalletWebModeContext where
+  misbehaviorMetrics = wwmcRealModeContext_L . misbehaviorMetrics
 
 instance HasUserSecret WalletWebModeContext where
     userSecret = wwmcRealModeContext_L . userSecret
@@ -191,10 +203,8 @@ type MonadWalletWebMode ctx m =
     , MonadRecoveryInfo m
     , MonadBListener m
     , MonadReader ctx m
-    , MonadFormatPeers m
     , HasLens StateLock ctx StateLock
     , HasNodeType ctx
-    , HasReportingContext ctx
     , HasShutdownContext ctx
     , AccountMode ctx m
     , MonadBlockchainInfo m
@@ -211,7 +221,7 @@ type MonadWalletWebMode ctx m =
 type MonadFullWalletWebMode ctx m =
     ( MonadWalletWebMode ctx m
     , MonadWalletWebSockets ctx m
-    , MonadReporting ctx m
+    , MonadReporting m
     , Mockable LowLevelAsync m
     , HasLens SyncQueue ctx SyncQueue
     )
@@ -250,7 +260,7 @@ instance HasConfiguration => MonadDB WalletWebMode where
 instance HasConfiguration => MonadGState WalletWebMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
-instance (HasConfiguration, HasCompileInfo)
+instance (HasConfiguration)
        => MonadBListener WalletWebMode where
     onApplyBlocks = onApplyBlocksWebWallet
     onRollbackBlocks = onRollbackBlocksWebWallet
@@ -307,19 +317,15 @@ instance HasConfiguration => MonadBalances WalletWebMode where
     getOwnUtxos = getOwnUtxosDefault
     getBalance = getBalanceDefault
 
-instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo)
+instance (HasConfiguration, HasTxpConfiguration)
         => MonadTxHistory WalletWebMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
 
-instance MonadFormatPeers WalletWebMode where
-    -- Use the RealMode instance (ReaderT RealModeContext Production)
-    formatKnownPeers formatter = Mtl.withReaderT wwmcRealModeContext (formatKnownPeers formatter)
-
 type instance MempoolExt WalletWebMode = WalletMempoolExt
 
-instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo) =>
+instance (HasConfiguration, HasTxpConfiguration) =>
          MonadTxpLocal WalletWebMode where
     txpNormalize = txpNormalizeWebWallet
     txpProcessTx = txpProcessTxWebWallet

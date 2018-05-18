@@ -27,9 +27,10 @@ import           System.Wlog (logDebug, logInfo, logWarning)
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Block.Slog.Logic (ShouldCallBListener (..))
-import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId, HasProtocolConstants,
-                           blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot, HasGeneratedSecrets,
-                           HasGenesisBlockVersionData, HasGenesisData, HasGenesisHash)
+import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId,
+                           blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot,
+                           HasGenesisBlockVersionData, HasGenesisData, HasGenesisHash,
+                           HasGeneratedSecrets, HasProtocolConstants, HasProtocolMagic)
 import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.GState.Stakes as GS (getRealStake, getRealTotalStake)
 import qualified Pos.GState.SanityCheck as DB (sanityCheckDB)
@@ -42,7 +43,6 @@ import           Pos.Lrc.Error (LrcError (..))
 import           Pos.Lrc.Fts (followTheSatoshiM)
 import           Pos.Lrc.Logic (findAllRichmenMaybe)
 import           Pos.Lrc.Mode (LrcMode)
-import           Pos.Reporting (reportMisbehaviour)
 import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Slotting (MonadSlots)
 import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1, sscCalculateSeed)
@@ -74,7 +74,16 @@ type LrcModeFull ctx m =
 -- block for this epoch is not known, LrcError will be thrown.
 -- It assumes that 'StateLock' is taken already.
 lrcSingleShot
-    :: forall ctx m. (LrcModeFull ctx m, HasGeneratedSecrets, HasGenesisBlockVersionData, HasProtocolConstants, HasGenesisData, HasGenesisHash)
+    :: forall ctx m.
+       ( LrcModeFull ctx m
+       , HasGeneratedSecrets
+       , HasGenesisBlockVersionData
+       , HasProtocolConstants
+       , HasProtocolMagic
+       , HasGenesisData
+       , HasGenesisHash
+       , HasMisbehaviorMetrics ctx
+       )
     => EpochIndex -> m ()
 lrcSingleShot epoch = do
     lock <- views (lensOf @LrcContext) lcLrcSync
@@ -127,7 +136,15 @@ tryAcquireExclusiveLock epoch lock action =
 
 lrcDo
     :: forall ctx m.
-       (LrcModeFull ctx m, HasGeneratedSecrets, HasGenesisBlockVersionData, HasProtocolConstants, HasGenesisData, HasGenesisHash)
+       ( LrcModeFull ctx m
+       , HasGeneratedSecrets
+       , HasGenesisBlockVersionData
+       , HasProtocolConstants
+       , HasProtocolMagic
+       , HasGenesisData
+       , HasGenesisHash
+       , HasMisbehaviorMetrics ctx
+       )
     => EpochIndex -> [LrcConsumer m] -> m ()
 lrcDo epoch consumers = do
     blundsUpToGenesis <- DB.loadBlundsFromTipWhile upToGenesis
@@ -149,18 +166,12 @@ lrcDo epoch consumers = do
             logInfo $ sformat
                 ("Calculated seed for epoch "%build%" successfully") epoch
             return s
-        Left err -> do
-            let isCritical = True
+        Left _ -> do
             -- Critical error means that the system is in dangerous state.
             -- For now let's consider all errors critical, maybe we'll revise it later.
-            -- REPORT:MISBEHAVIOUR(T) Couldn't compute seed.
             unless (noReportNoSecretsForEpoch1 && epoch == 1) $ do
                 whenJustM (view misbehaviorMetrics) $ liftIO .
                     Metrics.inc . _mmSscFailures
-                reportMisbehaviour isCritical $ sformat
-                    ("SSC couldn't compute seed: "%build%" for epoch "%build%
-                     ", going to reuse seed for previous epoch")
-                    err epoch
             getSeed (epoch - 1) >>=
                 maybeThrow (CanNotReuseSeedForLrc (epoch - 1))
     putSeed epoch seed

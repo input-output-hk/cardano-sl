@@ -71,6 +71,8 @@ library
                         Pos.Client.CLI.Secrets
                         Pos.Client.CLI.Util
 
+                        Pos.Reporting.Production
+
                         -- Utilities/helpers
                         Pos.Util.Config
                         Pos.Util.OutboundQueue

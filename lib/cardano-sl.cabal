@@ -136,6 +136,7 @@ library
                       , canonical-json
                       , cardano-crypto
                       , cardano-sl-binary
+                      , cardano-sl-binary-test
                       , cardano-sl-block
                       , cardano-sl-core
                       , cardano-sl-crypto
@@ -295,6 +296,7 @@ test-suite cardano-test
                      , cardano-crypto
                      , cardano-sl
                      , cardano-sl-binary
+                     , cardano-sl-binary-test
                      , cardano-sl-block
                      , cardano-sl-core
                      , cardano-sl-crypto

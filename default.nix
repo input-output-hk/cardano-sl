@@ -32,6 +32,7 @@ let
     '';
   });
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
+    ghc = if system == "x86_64-darwin" then pkgs.haskell.compiler.ghc802.override { enableShared = false; } else pkgs.haskell.compiler.ghc802;
     overrides = self: super: {
       cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
         configureFlags = (drv.configureFlags or []) ++ [
@@ -94,6 +95,8 @@ let
         # This will be the default in nixpkgs since
         # https://github.com/NixOS/nixpkgs/issues/29011
         enableSharedExecutables = false;
+      } // optionalAttrs (system == "x86_64-darwin") {
+        enableSharedLibraries = false;
       } // optionalAttrs enableDebugging {
         # TODO: DEVOPS-355
         dontStrip = true;

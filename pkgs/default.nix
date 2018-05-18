@@ -7484,13 +7484,13 @@ inherit (pkgs) mesa;};
              async attoparsec base binary bytestring cardano-sl-util conduit
              conduit-extra containers contravariant formatting lens log-warper
              mtl network-transport network-transport-tcp optparse-simple random
-             resourcet safe-exceptions serokell-util text time-units
+             resourcet safe-exceptions serokell-util text time time-units
            ];
            testHaskellDepends = [
              async base binary bytestring cardano-sl-util containers hspec
              hspec-core lens log-warper mtl network-transport
              network-transport-inmemory network-transport-tcp QuickCheck random
-             serokell-util stm time-units
+             serokell-util statistics stm time-units
            ];
            benchmarkHaskellDepends = [
              async base mwc-random network-transport network-transport-tcp

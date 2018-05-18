@@ -34,18 +34,20 @@ import           Data.Data (Data)
 import           Data.Functor (($>))
 import           Data.Int (Int64)
 import           Data.Monoid ((<>))
+import           Data.Text (Text)
 import           Data.Text.Buildable (Buildable (build))
 import           Data.Time.Units (toMicroseconds)
 
 import qualified Formatting as F
 import           GHC.Generics (Generic)
 import           Prelude hiding (takeWhile)
-import           System.Wlog (LoggerConfig (..), WithLogger, errorPlus, fromScratch, infoPlus,
-                              lcTree, logInfo, ltSeverity, maybeLogsDirB, parseLoggerConfig,
+import           System.Wlog (LoggerConfig (..), errorPlus, fromScratch, infoPlus,
+                              lcTree, ltSeverity, maybeLogsDirB, parseLoggerConfig,
                               productionB, setupLogging, warningPlus, zoomLogger)
 
 import           Mockable.CurrentTime (realTime)
 import           Node (Message (..))
+import           Pos.Util.Trace (Trace, traceWith)
 
 -- * Transfered data types
 
@@ -77,10 +79,10 @@ instance Binary Payload where
 
 -- * Util
 
-logMeasure :: (MonadIO m, WithLogger m) => MeasureEvent -> MsgId -> Payload -> m ()
-logMeasure miEvent miId miPayload = do
+logMeasure :: (MonadIO m) => Trace IO Text -> MeasureEvent -> MsgId -> Payload -> m ()
+logMeasure logTrace miEvent miId miPayload = do
     miTime <- toMicroseconds <$> realTime
-    logInfo $ F.sformat F.build $ LogMessage MeasureInfo{..}
+    liftIO $ traceWith logTrace $ F.sformat F.build $ LogMessage MeasureInfo{..}
 
 defaultLogConfig :: LoggerConfig
 defaultLogConfig = fromScratch $ zoom lcTree $ do

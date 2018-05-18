@@ -44,7 +44,6 @@ module Pos.Wallet.Web.State.Storage
        , getAccountWAddresses
        , getWAddresses
        , doesWAddressExist
-       , doesWAddressExist2
        , isWalletRestoring
        , getTxMeta
        , getNextUpdate
@@ -501,12 +500,12 @@ getWAddresses mode wid =
       return $ HM.elems =<< accs ^.. traverse . which
 
 -- | Check if given address exists.
-doesWAddressExist2 ::
+doesWAddressExist ::
        AddressLookupMode -- ^ Determines where to look for address: in set of existing
                          -- addresses, deleted addresses or both
     -> WAddressMeta     -- ^ Given address
     -> Query Bool
-doesWAddressExist2 mode addrMeta@(view wamAccount -> wAddr) =
+doesWAddressExist mode addrMeta@(view wamAccount -> wAddr) =
     getAny <$>
         withAccLookupMode mode (exists aiAddresses) (exists aiRemovedAddresses)
   where
@@ -514,20 +513,6 @@ doesWAddressExist2 mode addrMeta@(view wamAccount -> wAddr) =
     exists which =
         Any . isJust <$>
         preview (wsAccountInfos . ix wAddr . which . ix (addrMeta ^. wamAddress))
-
--- | Legacy version of 'doesWAddressExist2' for backwards compatibility on
---   the event log.
-doesWAddressExist :: AddressLookupMode -> WebTypes.CWAddressMeta -> Query Bool
-doesWAddressExist mode addrMeta@(WebTypes.addrMetaToAccount -> wAddr) =
-    getAny <$>
-        withAccLookupMode mode (exists aiAddresses) (exists aiRemovedAddresses)
-  where
-    exists :: Lens' AccountInfo CAddresses -> Query Any
-    exists which =
-        Any . isJust <$>
-        preview (wsAccountInfos
-            . ix wAddr . which
-            . ix (unsafeCIdToAddress (WebTypes.cwamId addrMeta)))
 
 -- | Get transaction metadata given wallet ID and transaction ID.
 getTxMeta :: WebTypes.CId WebTypes.Wal -> WebTypes.CTxId -> Query (Maybe WebTypes.CTxMeta)

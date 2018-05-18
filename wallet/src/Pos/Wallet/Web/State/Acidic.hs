@@ -20,7 +20,6 @@ module Pos.Wallet.Web.State.Acidic
        , UpdateWalletBalancesAndUtxo (..)
        , SetWalletUtxo (..)
        , DoesWAddressExist (..)
-       , DoesWAddressExist2 (..)
        , TestReset (..)
        , AddCustomAddress (..)
        , CreateAccount (..)
@@ -119,7 +118,6 @@ makeAcidic ''WalletStorage
     , 'WS.updateWalletBalancesAndUtxo
     , 'WS.setWalletUtxo
     , 'WS.doesWAddressExist
-    , 'WS.doesWAddressExist2
     , 'WS.addCustomAddress
     , 'WS.removeCustomAddress
     , 'WS.createAccount

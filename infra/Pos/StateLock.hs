@@ -32,7 +32,8 @@ import           Data.Time.Units (Microsecond)
 import           JsonLog (CanJsonLog (..))
 import           Mockable (CurrentTime, Mockable, currentTime)
 import           System.Mem (getAllocationCounter)
-import           Pos.Util.Log (LoggerNameBox, WithLogger, askLoggerName, usingLoggerName)
+--import           Pos.Util.Log (LoggerNameBox, WithLogger, askLoggerName, usingLoggerName)
+import qualified Pos.Util.Log as Log
 
 import           Pos.Core (HeaderHash)
 import           Pos.Util.Concurrent (modifyMVar, withMVar)
@@ -69,14 +70,17 @@ newStateLock tip = StateLock <$> newMVar tip <*> newPriorityLock
 data StateLockMetrics slr = StateLockMetrics
     { -- | Called when a thread begins to wait to modify the mempool.
       --   Parameter is the reason for modifying the mempool.
-      slmWait    :: !(slr -> LoggerNameBox IO ())
+      --slmWait    :: !(slr -> Log.LoggerNameBox IO ())
+      slmWait    :: !(slr -> Log.LogContextT IO ())
       -- | Called when a thread is granted the lock on the mempool. Parameter
       --   indicates how long it waited.
-    , slmAcquire :: !(slr -> Microsecond -> LoggerNameBox IO ())
+    --, slmAcquire :: !(slr -> Microsecond -> Log.LoggerNameBox IO ())
+    , slmAcquire :: !(slr -> Microsecond -> Log.LogContextT IO ())
       -- | Called when a thread is finished modifying the mempool and has
       --   released the lock. Parameters indicates time elapsed since acquiring
       --   the lock, and new mempool size.
-    , slmRelease :: !(slr -> Microsecond -> Microsecond -> Int64 -> LoggerNameBox IO Value)
+    --, slmRelease :: !(slr -> Microsecond -> Microsecond -> Int64 -> Log.LoggerNameBox IO Value)
+    , slmRelease :: !(slr -> Microsecond -> Microsecond -> Int64 -> Log.LogContextT IO Value)
     }
 
 -- | A 'StateLockMetrics' that never does any writes. Use it if you
@@ -97,7 +101,7 @@ type MonadStateLockBase ctx m
 
 type MonadStateLock ctx slr m
      = ( MonadStateLockBase ctx m
-       , WithLogger m
+       , Log.WithLogger m
        , Mockable CurrentTime m
        , HasLens' ctx (StateLockMetrics slr)
        , CanJsonLog m
@@ -135,19 +139,19 @@ stateLockHelper :: forall ctx slr m a b.
 stateLockHelper doWithMVar prio reason action = do
     StateLock mvar prioLock <- view (lensOf @StateLock)
     StateLockMetrics {..} <- view (lensOf @(StateLockMetrics slr))
-    lname <- askLoggerName
-    liftIO . usingLoggerName lname $ slmWait reason
+    lname <- Log.askLoggerName
+    liftIO . Log.usingLoggerName Log.Debug lname $ slmWait reason
     timeBeginWait <- currentTime
     withPriorityLock prioLock prio $ doWithMVar mvar $ \hh -> do
         timeEndWait <- currentTime
-        liftIO . usingLoggerName lname $
+        liftIO . Log.usingLoggerName Log.Debug lname $
             slmAcquire reason (timeEndWait - timeBeginWait)
         timeBeginModify <- currentTime
         memBeginModify <- liftIO getAllocationCounter
         res <- action hh
         timeEndModify <- currentTime
         memEndModify <- liftIO getAllocationCounter
-        json <- liftIO . usingLoggerName lname $ slmRelease
+        json <- liftIO . Log.usingLoggerName Log.Debug lname $ slmRelease
             reason
             (timeEndWait - timeBeginWait)
             (timeEndModify - timeBeginModify)

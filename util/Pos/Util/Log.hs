@@ -12,6 +12,7 @@ module Pos.Util.Log
        ---
        , LoggerConfig(..)
        , loadLogConfig
+       , retrieveLogFiles
        ---
        , loggerBracket
        ---
@@ -33,7 +34,7 @@ import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Morph (MFunctor(..))
 import           Control.Monad.Writer (WriterT (..))
 
-import           Pos.Util.LoggerConfig (LoggerConfig(..), loadLogConfig)
+import           Pos.Util.LoggerConfig (LoggerConfig(..), loadLogConfig, retrieveLogFiles)
 import           Pos.Util.LogSeverity (Severity(..))
 import           Pos.Util.LogStdoutScribe (mkStdoutScribe)
 
@@ -84,6 +85,8 @@ instance (MonadReader r m, CanLog m) => MonadReader r (LoggerNameBox m) where
     reader = lift . reader
     local f (LoggerNameBox m) = askLoggerName >>= lift . local f . runReaderT m
 -}
+instance CanLog (LogContextT IO)
+instance HasLoggerName (LogContextT IO)
 
 -- | log a Text with severity
 logMessage :: (LogContext m {-, HasCallStack -}) => Severity -> Text -> m ()

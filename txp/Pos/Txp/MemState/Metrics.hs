@@ -10,7 +10,7 @@ import           Data.Aeson.Types (ToJSON (..))
 import           Formatting (sformat, shown, (%))
 import qualified System.Metrics as Metrics
 import qualified System.Metrics.Gauge as Metrics.Gauge
-import           System.Wlog (logDebug)
+import           Pos.Util.Log (logDebug)
 
 import           Pos.StateLock (StateLockMetrics (..))
 import           Pos.System.Metrics.Constants (withCardanoNamespace)

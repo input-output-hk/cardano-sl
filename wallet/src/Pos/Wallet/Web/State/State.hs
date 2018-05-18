@@ -271,7 +271,7 @@ createAccountWithAddress :: (MonadIO m)
                          -> S.WAddressMeta
                          -> m ()
 createAccountWithAddress db accId accMeta addrMeta =
-    updateDisk (A.CreateAccountWithAddress2 accId accMeta addrMeta) db
+    updateDisk (A.CreateAccountWithAddress accId accMeta addrMeta) db
 
 createWallet :: (MonadIO m)
              => WalletDB
@@ -287,7 +287,7 @@ addWAddress :: (MonadIO m)
             => WalletDB
             -> S.WAddressMeta
             -> m ()
-addWAddress db addr = updateDisk (A.AddWAddress2 addr) db
+addWAddress db addr = updateDisk (A.AddWAddress addr) db
 
 addCustomAddress :: (MonadIO m)
                  => WalletDB
@@ -401,7 +401,7 @@ removeWAddress :: (MonadIO m)
                => WalletDB
                -> S.WAddressMeta
                -> m ()
-removeWAddress db addrMeta = updateDisk (A.RemoveWAddress2 addrMeta) db
+removeWAddress db addrMeta = updateDisk (A.RemoveWAddress addrMeta) db
 
 removeCustomAddress :: (MonadIO m)
                     => WalletDB

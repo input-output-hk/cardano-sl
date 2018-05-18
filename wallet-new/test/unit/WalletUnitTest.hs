@@ -8,6 +8,7 @@ import           Test.Hspec (Spec, describe, hspec)
 
 import           Pos.Core (HasConfiguration)
 
+import           InputSelection.Evaluation (evaluateInputPolicies)
 import           UTxO.Bootstrap (bootstrapTransaction)
 import           UTxO.Context (Addr, TransCtxt)
 import           UTxO.DSL (GivenHash, Transaction)
@@ -24,12 +25,18 @@ import qualified Test.Spec.WalletWorker
 
 main :: IO ()
 main = do
---    _showContext
-    runTranslateNoErrors $ withConfig $ return $ hspec tests
+    args <- getArgs
+    case args of
+      ["--show-context"] ->
+        showContext
+      ["--evaluate-input-policies", prefix] ->
+        evaluateInputPolicies prefix
+      _otherwise ->
+        runTranslateNoErrors $ withConfig $ return $ hspec tests
 
 -- | Debugging: show the translation context
-_showContext :: IO ()
-_showContext = do
+showContext :: IO ()
+showContext = do
     putStrLn $ runTranslateNoErrors $ withConfig $
       sformat build <$> ask
     putStrLn $ runTranslateNoErrors $

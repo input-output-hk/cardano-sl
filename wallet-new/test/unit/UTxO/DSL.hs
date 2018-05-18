@@ -54,11 +54,16 @@ module UTxO.DSL (
   , utxoApply
   , utxoFromMap
   , utxoFromList
+  , utxoSingleton
   , utxoToList
   , utxoDomain
   , utxoRange
+  , utxoSize
+  , utxoBalance
   , utxoUnion
   , utxoUnions
+  , utxoInsert
+  , utxoDelete
   , utxoRestrictToAddr
   , utxoRestrictToInputs
   , utxoRemoveInputs
@@ -464,6 +469,10 @@ utxoFromMap = Utxo
 utxoFromList :: Hash h a => [(Input h a, Output a)] -> Utxo h a
 utxoFromList = utxoFromMap . Map.fromList
 
+-- | Singleton UTxO
+utxoSingleton :: Hash h a => Input h a -> Output a -> Utxo h a
+utxoSingleton i o = utxoFromList [(i, o)]
+
 utxoToList :: Utxo h a -> [(Input h a, Output a)]
 utxoToList = Map.toList . utxoToMap
 
@@ -492,11 +501,24 @@ utxoDomain = Map.keysSet . utxoToMap
 utxoRange :: Utxo h a -> [Output a]
 utxoRange = Map.elems . utxoToMap
 
+-- | Number of entries in the UTxO
+utxoSize :: Utxo h a -> Int
+utxoSize = Map.size . utxoToMap
+
+utxoBalance :: Utxo h a -> Value
+utxoBalance = sum . map outVal . Map.elems . utxoToMap
+
 utxoUnion :: Hash h a => Utxo h a -> Utxo h a -> Utxo h a
 utxoUnion (Utxo utxo) (Utxo utxo') = Utxo (utxo `Map.union` utxo')
 
 utxoUnions :: Hash h a => [Utxo h a] -> Utxo h a
 utxoUnions = Utxo . Map.unions . map utxoToMap
+
+utxoInsert :: Hash h a => (Input h a, Output a) -> Utxo h a -> Utxo h a
+utxoInsert (i, o) = Utxo . Map.insert i o . utxoToMap
+
+utxoDelete :: Hash h a => Input h a -> Utxo h a -> Utxo h a
+utxoDelete i = Utxo . Map.delete i . utxoToMap
 
 -- | Filter the 'Utxo' to only contain unspent transaction outputs whose
 -- address satisfy the given predicate.

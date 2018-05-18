@@ -321,7 +321,10 @@ test-suite wallet-unit-tests
   ghc-options:        -Wall
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
-  other-modules:      Test.Infrastructure.Generator
+  other-modules:      InputSelection.Evaluation
+                      InputSelection.Generator
+                      InputSelection.Policy
+                      Test.Infrastructure.Generator
                       Test.Infrastructure.Genesis
                       Test.Spec.Kernel
                       Test.Spec.Models
@@ -331,6 +334,9 @@ test-suite wallet-unit-tests
                       Util.Buildable
                       Util.Buildable.Hspec
                       Util.Buildable.QuickCheck
+                      Util.Histogram
+                      Util.MultiSet
+                      Util.Range
                       Util.Validated
                       UTxO.Bootstrap
                       UTxO.Context
@@ -403,6 +409,12 @@ test-suite wallet-unit-tests
                     , text-format
                     , universum
                     , unordered-containers
+                      -- needed only for input selection evaluation
+                    , conduit
+                    , directory
+                    , filepath
+                    , normaldistribution
+                    , random
 
 test-suite wallet-new-specs
   ghc-options:      -Wall

@@ -8,6 +8,9 @@ module Util (
     -- * Dealing with OldestFirst/NewestFirst
   , liftOldestFirst
   , liftNewestFirst
+    -- * Probabilities
+  , Probability
+  , toss
   ) where
 
 import           Universum
@@ -15,6 +18,7 @@ import           Universum
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import           Pos.Util.Chrono
+import qualified Test.QuickCheck as QC
 
 {-------------------------------------------------------------------------------
   Lists
@@ -51,3 +55,19 @@ liftOldestFirst f = OldestFirst . f . getOldestFirst
 
 liftNewestFirst :: (f a -> f a) -> NewestFirst f a -> NewestFirst f a
 liftNewestFirst f = NewestFirst . f . getNewestFirst
+
+{-------------------------------------------------------------------------------
+  Probabilities
+-------------------------------------------------------------------------------}
+
+-- | Probability (value between 0 and 1)
+type Probability = Double
+
+-- | Weighted coin toss
+--
+-- @toss p@ throws a p-weighted coin and returns whether it came up heads.
+-- @toss 0@ will always return @False@, @toss 1@ will always return @True@.
+toss :: Probability -> QC.Gen Bool
+toss 0 = return False
+toss 1 = return True
+toss p = (< p) <$> QC.choose (0, 1)

@@ -37,9 +37,6 @@ import           Wallet.Inductive
   Wallet event tree
 -------------------------------------------------------------------------------}
 
--- | Probability (value between 0 and 1)
-type Probability = Double
-
 -- | Set of transactions, indexed by their given hash
 --
 -- We can do this because we will use globally unique hashes
@@ -427,16 +424,3 @@ linearise = OldestFirst . stripRollbacks . go
     -- want to do that for the very last branch.
     stripRollbacks :: [WalletEvent h a] -> [WalletEvent h a]
     stripRollbacks = reverse . dropWhile walletEventIsRollback . reverse
-
-{-------------------------------------------------------------------------------
-  Auxiliary
--------------------------------------------------------------------------------}
-
--- | Weighted coin toss
---
--- @toss p@ throws a p-weighted coin and returns whether it came up heads.
--- @toss 0@ will always return @False@, @toss 1@ will always return @True@.
-toss :: Probability -> Gen Bool
-toss 0 = return False
-toss 1 = return True
-toss p = (< p) <$> choose (0, 1)

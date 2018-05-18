@@ -6,6 +6,9 @@ module Cardano.Wallet.Kernel.DB.Spec (
   , Checkpoints
   , genPending
   , emptyPending
+  , singletonPending
+  , unionPending
+  , differencePending
     -- ** Lenses
   , pendingTransactions
   , checkpointUtxo
@@ -51,23 +54,24 @@ data Pending = Pending {
       _pendingTransactions :: InDb (Map Core.TxId Core.TxAux)
      } deriving Eq
 
-instance Buildable Pending where
-    build (Pending p) =
-      let elems = p ^. fromDb . to M.toList
-      in bprint ("Pending " % listJsonIndent 4) (map fst elems)
-
-genPending :: Core.ProtocolMagic -> Gen Pending
-genPending pMagic = do
-    elems <- listOf (do tx  <- Core.genTx
-                        wit <- (V.fromList <$> listOf (Core.genTxInWitness pMagic))
-                        aux <- Core.TxAux <$> pure tx <*> pure wit
-                        pure (hash tx, aux)
-                    )
-    return . Pending . InDb . M.fromList $ elems
 
 -- | Returns a new, empty 'Pending' set.
 emptyPending :: Pending
 emptyPending = Pending . InDb $ mempty
+
+-- | Returns a new, empty 'Pending' set.
+singletonPending :: Core.TxId -> Core.TxAux -> Pending
+singletonPending txId txAux = Pending . InDb $ M.singleton txId txAux
+
+-- | Computes the union between two 'Pending' sets.
+unionPending :: Pending -> Pending -> Pending
+unionPending (Pending new) (Pending old) =
+    Pending (M.union <$> new <*> old)
+
+-- | Computes the difference between two 'Pending' sets.
+differencePending :: Pending -> Pending -> Pending
+differencePending (Pending new) (Pending old) =
+    Pending (M.difference <$> new <*> old)
 
 -- | Per-wallet state
 --
@@ -114,3 +118,25 @@ currentBlockMeta   = currentCheckpoint . checkpointBlockMeta
 
 neHead :: Lens' (NonEmpty a) a
 neHead f (x :| xs) = (:| xs) <$> f x
+
+{-------------------------------------------------------------------------------
+  Pretty-printing
+-------------------------------------------------------------------------------}
+
+instance Buildable Pending where
+    build (Pending p) =
+      let elems = p ^. fromDb . to M.toList
+      in bprint ("Pending " % listJsonIndent 4) (map fst elems)
+
+{-------------------------------------------------------------------------------
+  QuickCheck core-based generators
+-------------------------------------------------------------------------------}
+
+genPending :: Core.ProtocolMagic -> Gen Pending
+genPending pMagic = do
+    elems <- listOf (do tx  <- Core.genTx
+                        wit <- (V.fromList <$> listOf (Core.genTxInWitness pMagic))
+                        aux <- Core.TxAux <$> pure tx <*> pure wit
+                        pure (hash tx, aux)
+                    )
+    return . Pending . InDb . M.fromList $ elems

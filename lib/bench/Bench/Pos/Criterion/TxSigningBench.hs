@@ -22,6 +22,9 @@ signTx (sk, thash) = sign protocolMagic SignTx sk txSigData
   where
     txSigData = TxSigData
         { txSigTxHash = thash
+
+this is a deliberate syntax error to see if the benchmarks get built in CI
+
         }
 
 txSignBench :: HasConfiguration => Benchmark

@@ -256,6 +256,7 @@ test-suite cardano-wallet-test
                      , cardano-sl-wallet
                      , containers
                      , data-default
+                     , deepseq
                      , ekg-core
                      , ether
                      , formatting

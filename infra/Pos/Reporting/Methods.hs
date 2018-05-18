@@ -22,8 +22,7 @@ module Pos.Reporting.Methods
 
 import           Universum
 
-import           Control.Exception (ErrorCall (..))
-import           Control.Exception (Exception (..))
+import           Control.Exception (ErrorCall (..), Exception (..))
 import           Pos.ReportServer.Report (ReportType (..))
 import           System.Wlog (Severity (..), WithLogger, logMessage)
 

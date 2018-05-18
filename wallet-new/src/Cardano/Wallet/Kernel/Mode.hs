@@ -106,26 +106,6 @@ runWalletMode nr wallet action =
     Production $ runRealMode nr $ \diffusion ->
         walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode diffusion))
 
-{-
-    elimRealMode nr serverRealMode
-  where
-    NodeContext{..} = nrContext nr
-
-    ekgNodeMetrics =
-        EkgNodeMetrics
-          (nrEkgStore nr)
-
-    serverWalletMode :: WalletMode a
-    serverWalletMode = runServer
-        (runProduction . elimRealMode nr . walletModeToRealMode wallet)
-        ncNodeParams
-        ekgNodeMetrics
-        action
-
-    serverRealMode :: RealMode EmptyMempoolExt a
-    serverRealMode = walletModeToRealMode wallet serverWalletMode
--}
-
 walletModeToRealMode :: forall a. PassiveWalletLayer Production -> WalletMode a -> RealMode () a
 walletModeToRealMode wallet ma = do
     rmc <- ask

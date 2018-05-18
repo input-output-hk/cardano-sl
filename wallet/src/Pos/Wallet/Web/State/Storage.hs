@@ -792,10 +792,6 @@ unsafeCIdToAddress cId = case WebTypes.cIdToAddress cId of
     Left err -> error $ "unsafeCIdToAddress: " <> err
     Right x  -> x
 
-cwamToWam :: WebTypes.CWAddressMeta -> WAddressMeta
-cwamToWam (WebTypes.CWAddressMeta wid accIdx addrIdx cAddr) =
-    WAddressMeta wid accIdx addrIdx $ unsafeCIdToAddress cAddr
-
 -- | Migration from `CId Addr` to `Address` goes through
 --   this newtype.
 newtype WAddrId = WAddrId Address
@@ -841,7 +837,8 @@ deriveSafeCopySimple 1 'extension ''WAddressMeta
 
 instance Migrate WAddressMeta where
     type MigrateFrom WAddressMeta = WebTypes.CWAddressMeta
-    migrate = cwamToWam
+    migrate (WebTypes.CWAddressMeta wid accIdx addrIdx cAddr) =
+        WAddressMeta wid accIdx addrIdx $ unsafeCIdToAddress cAddr
   
 data WalletTip_v0
     = V0_NotSynced
@@ -960,7 +957,7 @@ deriveSafeCopySimple 4 'extension ''WalletStorage
 instance Migrate AddressInfo where
     type MigrateFrom AddressInfo = AddressInfo_v0
     migrate AddressInfo_v0{..} = AddressInfo
-        { adiWAddressMeta = cwamToWam _v0_adiCWAddressMeta
+        { adiWAddressMeta = migrate _v0_adiCWAddressMeta
         , adiSortingKey = _v0_adiSortingKey
         }
 

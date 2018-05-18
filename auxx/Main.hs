@@ -122,27 +122,6 @@ action opts@AuxxOptions {..} command = do
              in runRealMode nr $ \diffusion ->
                     toRealMode (auxxModeAction (hoistDiffusion realModeToAuxx diffusion))
 
-
-{-
-            let runIO :: forall a . Diffusion IO -> AuxxMode a -> IO a
-                runIO diffusion = elimRealMode nr diffusion . toRealMode
-                nc = nrContext nr
-                np = ncNodeParams nc
-                ourStakeholderId = addressHash (toPublic (npSecretKey np))
-                securityParams = bcSecurityParams (npBehaviorConfig np)
-                logic :: Logic AuxxMode
-                logic = logicFull ourStakeholderId securityParams jsonLog
-                mkLogicIO :: Diffusion IO -> Logic IO
-                mkLogicIO diffusion = hoistLogic (runIO diffusion) logic
-            diffusionLayerFull fdconf (npNetworkConfig nodeParams) Nothing mkLogicIO $ \diffusionLayer -> do
-                let modifier = if aoStartMode == WithNode
-                               then runNodeWithSinglePlugin nr
-                               else identity
-                    auxxModeAction = modifier (auxxPlugin opts command)
-                runDiffusionLayer diffusionLayer $ runIO (diffusion diffusionLayer) $
-                    auxxModeAction (hoistDiffusion liftIO (diffusion diffusionLayer))
--}
-
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
     nArgs =

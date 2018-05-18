@@ -18,6 +18,7 @@ import qualified Formatting as F
 import qualified Pos.Core as Core
 
 import           Test.QuickCheck (Gen, Property, forAll, (===), (==>))
+import           Test.QuickCheck.Property (exception, property)
 import           Util.Buildable (ShowThroughBuild (..))
 import           Util.Buildable.Hspec
 
@@ -28,13 +29,13 @@ import           Util.Buildable.Hspec
 instance (Buildable a, Buildable b) => Buildable (a,b) where
     build (a,b) = bprint ("(" % F.build % "," % F.build % ")") a b
 
-constantResubmit :: Bool -> ResubmissionFunction Identity
+constantResubmit :: Bool -> ResubmissionFunction (Either SomeException)
 constantResubmit success currentSlot scheduled oldScheduler =
     let send _  = return success
         rPolicy = constantRetry 255
     in defaultResubmitFunction send rPolicy currentSlot scheduled oldScheduler
 
-giveUpAfter :: Int -> ResubmissionFunction Identity
+giveUpAfter :: Int -> ResubmissionFunction (Either SomeException)
 giveUpAfter retries currentSlot scheduled oldScheduler =
     let send _  = return False
         rPolicy = constantRetry retries
@@ -70,14 +71,21 @@ samePending :: Pending -> WalletSubmission m -> Property
 samePending p ws = (STB (ws ^. localPendingSet)) === (STB p)
 
 
+checkPendingProperty :: Either SomeException (Pending, WalletSubmission m)
+                     -> ((Pending,WalletSubmission m) -> Property)
+                     -> Property
+checkPendingProperty (Left ex) _       = property $ exception "checkPendingProperty failed!" ex
+checkPendingProperty (Right result) fn = fn result
+
+
 ---
 --- Pure generators, running in Identity
 ---
-genPureWalletSubmission :: Bool -> Gen (ShowThroughBuild (WalletSubmission Identity))
+genPureWalletSubmission :: Bool -> Gen (ShowThroughBuild (WalletSubmission (Either SomeException)))
 genPureWalletSubmission success =
     STB <$> genWalletSubmission (constantResubmit success)
 
-genPurePair :: Bool -> Gen (ShowThroughBuild (WalletSubmission Identity, Pending))
+genPurePair :: Bool -> Gen (ShowThroughBuild (WalletSubmission (Either SomeException), Pending))
 genPurePair success = do
     pair <- (,) <$> (fmap unSTB (genPureWalletSubmission success))
                 <*> genPending (Core.ProtocolMagic 0)
@@ -123,8 +131,8 @@ spec = do
       it "increases its internal slot after ticking" $ do
           forAll (genPureWalletSubmission True) $ \(unSTB -> submission) ->
               let slotNow = submission ^. getCurrentSlot
-                  (_, ws') = runIdentity $ tick submission
-                  in ws' ^. getCurrentSlot === mapSlot succ slotNow
+                  result = tick submission
+                  in checkPendingProperty result (\(_, ws') -> ws' ^. getCurrentSlot === mapSlot succ slotNow)
 
       it "limit retries correctly" $ do
           forAll (genPurePair True) $ \(unSTB -> (ws, pending)) ->
@@ -133,9 +141,11 @@ spec = do
                                                pending
                                                (SubmissionCount 0)
                                                (ws & wsResubmissionFunction .~ giveUpAfter 5)
-                      updateFn (d, newWs) _ = bimap (unionPending d) identity (runIdentity (tick newWs))
-                      (dropped, _) = List.foldl' updateFn (emptyPending, ws') ([1..6] :: [Int])
-                      in dropped `shouldContainPending` pending
+                      updateFn acc _ = case acc of
+                                            Left _ -> acc
+                                            Right (d, newWs) -> (bimap (unionPending d) identity) <$> tick newWs
+                      dropped = List.foldl' updateFn (Right (emptyPending, ws')) ([1..6] :: [Int])
+                      in checkPendingProperty dropped (\(p, _) -> property $ p `shouldContainPending` pending)
 
       -- The evicted set will never contain transactions successfully retransmitted.
       -- It's not this layer's responsibility to keep the pending set consistent, as
@@ -145,12 +155,12 @@ spec = do
               pending /= emptyPending ==>
                   let slot = submission ^. getCurrentSlot
                       submission' = unsafeScheduleFrom slot pending (SubmissionCount 0) submission
-                      dropped = fst . runIdentity . tick $ submission'
-                  in dropped `shouldNotContainPending` pending
+                      dropped = tick submission'
+                  in checkPendingProperty dropped (\(p, _) -> property $ p `shouldNotContainPending` pending)
 
       it "can drop transactions which exceeded the resubmission count" $ do
           forAll (genPurePair False) $ \(unSTB -> (submission, pending)) ->
               let slot = submission ^. getCurrentSlot
                   submission' = unsafeScheduleFrom slot pending dropImmediately submission
-                  dropped = fst . runIdentity . tick $ submission'
-              in dropped `shouldContainPending` pending
+                  dropped = tick submission'
+              in checkPendingProperty dropped (\(p, _) -> property $ p `shouldContainPending` pending)

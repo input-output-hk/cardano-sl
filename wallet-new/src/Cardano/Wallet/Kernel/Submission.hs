@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 module Cardano.Wallet.Kernel.Submission (
     -- * Public API
       newWalletSubmission
@@ -10,10 +9,11 @@ module Cardano.Wallet.Kernel.Submission (
     -- * Types and lenses
     , Evicted
     , ResubmissionFunction
-    , SubmissionCount (..)
+    , Schedule
     , ScheduledTx (..)
-    , Schedule (..)
+    , SchedulingError (..)
     , Slot (..)
+    , SubmissionCount (..)
     , WalletSubmission
     , mapSlot
     , wsResubmissionFunction
@@ -40,12 +40,14 @@ import           Control.Lens.TH
 import           Data.IntMap.Strict (IntMap)
 import qualified Data.IntMap.Strict as IntMap
 import qualified Data.List as List
+import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map.Strict as M
 import           Data.Text.Buildable (build)
-import           Formatting (bprint, (%))
+import           Formatting (bprint, sformat, (%))
 import qualified Formatting as F
 import           Pos.Crypto.Hashing (WithHash (..))
 import           Pos.Txp.Topsort (topsortTxs)
+import qualified Prelude
 import           Serokell.Util.Text (listJsonIndent, mapBuilder, pairF)
 import           Test.QuickCheck
 
@@ -83,8 +85,18 @@ instance Buildable WalletSubmissionState where
 
 -- | A 'Schedule'. Despite modelled as in 'IntMap' it has to be intended
 -- as a mapping between 'Slot' and the list of transactions due that slot.
-newtype Schedule = Schedule {
-    _ssScheduled :: IntMap [ScheduledTx]
+data Schedule = Schedule {
+      _ssScheduled     :: IntMap [ScheduledTx]
+    , _ssUnsentNursery :: [ScheduledTx]
+    -- ^ A list of unsent transactions which couldn't be sent due to dependency
+    -- over transactions scheduled in some other slot. Practical example: Let
+    -- @A@ be a transaction scheduled for slot @N + 3@ and let @B@ be a transaction
+    -- @which depends on A@ scheduled for slot @N@. If we were to send @B@ we
+    -- would make a mistake, as it cannot be adopted before @A@ does. The solution
+    -- is to capture this event in 'dueThisSlot', and putting @B@ into the
+    -- nursery up until it can be sent.
+    -- NOTE(adn): Should we bump the 'SubmissionCount' of 'ScheduledTx' in
+    -- the nursery, to avoid them being stuck forever?
     }
 
 data ScheduledTx = ScheduledTx {
@@ -153,7 +165,7 @@ type ResubmissionFunction m =  Slot
                             -- ^ The transactions to remove together with
                             -- the new 'Schedule'.
 
-makeLenses ''Schedule
+makeLensesFor [("_ssScheduled", "ssScheduled")] ''Schedule
 makeLenses ''WalletSubmission
 makeLenses ''WalletSubmissionState
 
@@ -161,7 +173,6 @@ instance Buildable Schedule where
     build ss =
         let elems = ss ^. ssScheduled . to IntMap.toList
         in bprint (F.later mapBuilder) elems
-
 
 instance Arbitrary SubmissionCount where
     arbitrary = SubmissionCount <$> choose (0, 255)
@@ -174,9 +185,9 @@ instance Arbitrary SubmissionCount where
 genSchedule :: Pending -> Slot -> Gen Schedule
 genSchedule pending (Slot lowerBound) = do
     let pendingTxs  = pending ^. pendingTransactions . fromDb . to M.toList
-    slots <- vectorOf (length pendingTxs) (fmap Slot (choose (lowerBound, lowerBound + 10)))
-    retries    <- vectorOf (length pendingTxs) (choose (0, 255))
-    return $ Schedule $ List.foldl' updateFn mempty (zip3 slots pendingTxs retries)
+    slots    <- vectorOf (length pendingTxs) (fmap Slot (choose (lowerBound, lowerBound + 10)))
+    retries  <- vectorOf (length pendingTxs) (choose (0, 255))
+    return $ Schedule (List.foldl' updateFn mempty (zip3 slots pendingTxs retries)) mempty
     where
         updateFn acc (slot, (txId, txAux), retries) =
             let s = ScheduledTx txId txAux (SubmissionCount retries)
@@ -193,9 +204,8 @@ genWalletSubmission :: ResubmissionFunction m -> Gen (WalletSubmission m)
 genWalletSubmission rho =
     WalletSubmission <$> pure rho <*> arbitrary
 
-
 --
--- Public API, as written in the spec
+-- Public API, as written in the spec or mandated by real-world necessities.
 --
 
 newWalletSubmission :: ResubmissionFunction m -> WalletSubmission m
@@ -208,7 +218,7 @@ newWalletSubmission resubmissionFunction = WalletSubmission {
         newEmptyState = WalletSubmissionState {
               _wssPendingSet  = emptyPending
             , _wssCurrentSlot = Slot 0
-            , _wssSchedule   = Schedule IntMap.empty
+            , _wssSchedule   = Schedule IntMap.empty mempty
             }
 
 -- | Informs the 'WalletSubmission' layer about new 'Pending' transactions.
@@ -230,7 +240,7 @@ remPending updatedPending ws =
 -- local 'Pending' set. It will be caller's responsibility to call 'remPending'
 -- on the 'WalletSubmission'.
 --
-tick :: Monad m
+tick :: MonadThrow m
      => WalletSubmission m
      -- ^ The current 'WalletSubmission'.
      -> m (Evicted, WalletSubmission m)
@@ -239,37 +249,75 @@ tick :: Monad m
 tick ws = do
     let wss               = ws  ^. wsState
         currentSlot       = wss ^. wssCurrentSlot
-        schedule          = ws  ^. getSchedule
         rho               = _wsResubmissionFunction ws
-        dueNow            = dueThisSlot currentSlot ws
-    (toPrune, schedule') <- rho currentSlot dueNow schedule
-    let newState = ws & over (wsState . wssSchedule) (const (purgeSlot currentSlot schedule'))
-                      . over (wsState . wssCurrentSlot) (mapSlot succ)
-    return (toPrune , newState)
+    case dueThisSlot currentSlot ws of
+         Left e -> throwM e
+         Right (dueNow, newSchedule) -> do
+            (toPrune, schedule') <- rho currentSlot dueNow newSchedule
+            let newState = ws & over (wsState . wssSchedule) (const schedule')
+                              . over (wsState . wssCurrentSlot) (mapSlot succ)
+            return (toPrune , newState)
+
+data SchedulingError =
+    LoopDetected Pending
+    -- ^ The transactions in this 'Pending' set forms a cycle and they
+    -- couldn't be top-sorted.
+
+instance Exception SchedulingError
+
+instance Show SchedulingError where
+    show (LoopDetected pending) = toString $ sformat ("LoopDetected " % F.build) pending
 
 -- | Returns a set of 'Pending' transactions which are due in the given
--- 'Slot'. First of all, it looks at the 'ScheduledTx' items (transactions) due
--- this slot, and sorts them topologically, and:
---
--- 1. If a topological order can be found, the 'ScheduledTx' items are returned.
--- 2. TODO(adn) If a topological order can't be found, we will need to deal with it.
+-- 'Slot'.
+-- TODO(adn) Document this.
 --
 dueThisSlot :: Slot
             -- ^ The current 'Slot'.
             -> WalletSubmission m
             -- ^ The 'WalletSubmissionState'.
-            -> [ScheduledTx]
-            -- ^ The filtered set of 'Pending' which are due in the input slot.
+            -> Either SchedulingError ([ScheduledTx], Schedule)
+            -- ^ An error if no schedule can be produced, or the scheduled
+            -- transactions together with the new, updated 'Schedule'.
 dueThisSlot currentSlot ws =
-    let scheduler  = ws ^. getSchedule . to _ssScheduled
-        slotted    = fromMaybe mempty (IntMap.lookup (castSlot currentSlot) scheduler)
-        topSorted  = topsortTxs toTx slotted
+    let localPending = ws ^. wsState . wssPendingSet
+        (dependent, independent) = partitionScheduledTx localPending candidates
+        topSorted  = topsortTxs toTx independent
     in case topSorted of
-            Nothing     -> slotted
-            Just sorted -> sorted
+            Nothing     -> Left (LoopDetected localPending)
+            Just sorted ->
+                let newSchedule = schedule { _ssUnsentNursery = dependent }
+                in Right (sorted, purgeSlot currentSlot newSchedule)
     where
+        candidates :: [ScheduledTx]
+        candidates =
+            let due = fromMaybe mempty (IntMap.lookup (castSlot currentSlot) (_ssScheduled schedule))
+            in due `mappend` _ssUnsentNursery schedule
+
+        -- The current 'Schedule'.
+        schedule :: Schedule
+        schedule = ws ^. getSchedule
+
         toTx :: ScheduledTx -> WithHash Core.Tx
         toTx (ScheduledTx txId txAux _) =  WithHash (Core.taTx txAux) txId
+
+
+partitionScheduledTx :: Pending -> [ScheduledTx] -> ([ScheduledTx], [ScheduledTx])
+partitionScheduledTx pending xs = List.partition dependsOnPendingTx xs
+    where
+        -- | A 'ScheduledTx' is @not@ independent and should not be sent
+        -- over the wire if any of the inputs it consumes are mentioned in
+        -- the 'Pending' set.
+        dependsOnPendingTx :: ScheduledTx -> Bool
+        dependsOnPendingTx (ScheduledTx _ txAux _) =
+            let txs = pending ^. pendingTransactions . fromDb
+                inputs = List.foldl' updateFn mempty $ (Core.taTx txAux) ^. Core.txInputs . to NonEmpty.toList
+            in any (isJust . flip M.lookup txs) inputs
+
+        updateFn :: [Core.TxId] -> Core.TxIn -> [Core.TxId]
+        updateFn acc (Core.TxInUnknown _ _)   = acc
+        updateFn acc (Core.TxInUtxo txHash _) = txHash : acc
+
 
 -- | Overrides the 'Schedule' with an input transaction and a
 -- custom 'Schedule'. Useful to force dispatching, especially in tests.
@@ -280,8 +328,8 @@ overrideSchedule :: WalletSubmission m
 overrideSchedule ws slot scheduled = ws & over (wsState . wssSchedule) override
     where
         override :: Schedule -> Schedule
-        override (Schedule s) =
-            Schedule (IntMap.insertWith mappend (castSlot slot) [scheduled] s)
+        override (Schedule s n) =
+            Schedule (IntMap.insertWith mappend (castSlot slot) [scheduled] s) n
 
 
 -- | A getter to the local pending set stored in this 'WalletSubmission'.
@@ -309,16 +357,16 @@ schedulePending pending ws =
     in ws & over (wsState . wssSchedule) (scheduleNext currentSlot)
     where
         scheduleNext :: Slot -> Schedule -> Schedule
-        scheduleNext currentSlot (Schedule s) =
+        scheduleNext currentSlot (Schedule s n) =
             let txs     = map toEntry (pending ^. pendingTransactions . fromDb . to M.toList)
                 toEntry (txId, txAux) = ScheduledTx txId txAux (SubmissionCount 0)
-            in Schedule (IntMap.insertWith mappend (castSlot $ mapSlot succ currentSlot) txs s)
+            in Schedule (IntMap.insertWith mappend (castSlot $ mapSlot succ currentSlot) txs s) n
 
 -- | Purges all the scheduled transactions in the given 'Slot'. This is
 -- automatically called by 'tick', and it's responsibility of @rho@ to
 -- correctly reschedule all the transaction.
 purgeSlot :: Slot -> Schedule -> Schedule
-purgeSlot slot (Schedule s) = Schedule (IntMap.delete (castSlot slot) s)
+purgeSlot slot (Schedule s n) = Schedule (IntMap.delete (castSlot slot) s) n
 
 -- Ready-to-use 'ResubmissionFunction's.
 
@@ -362,7 +410,7 @@ defaultResubmitFunction send retryPolicy currentSlot scheduled oldSchedule = do
     foldlM updateFn (emptyPending, oldSchedule) scheduled
     where
         updateFn :: (Evicted, Schedule) -> ScheduledTx -> m (Evicted, Schedule)
-        updateFn (evicted, acc@(Schedule s)) entry = do
+        updateFn (evicted, acc@(Schedule s nursery)) entry = do
             let (ScheduledTx txId txAux retries) = entry
                 reschedule targetSlot =
                     IntMap.insertWith mappend
@@ -374,7 +422,7 @@ defaultResubmitFunction send retryPolicy currentSlot scheduled oldSchedule = do
                  Just newSlot -> do
                      result <- send txAux
                      case result of
-                         False -> return (evicted, Schedule (reschedule newSlot))
+                         False -> return (evicted, Schedule (reschedule newSlot) nursery)
                          True  -> return (evicted, acc)
 
 -- | Modifies the 'SubmissionCount' of the given 'ScheduledTx' entry by 1.

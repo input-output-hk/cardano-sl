@@ -62,6 +62,13 @@ library
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.Kernel
                        Cardano.Wallet.Kernel.Actions
+                       Cardano.Wallet.Kernel.CoinSelection
+                       Cardano.Wallet.Kernel.CoinSelection.FromGeneric
+                       Cardano.Wallet.Kernel.CoinSelection.Generic
+                       Cardano.Wallet.Kernel.CoinSelection.Generic.Fees
+                       Cardano.Wallet.Kernel.CoinSelection.Generic.Grouped
+                       Cardano.Wallet.Kernel.CoinSelection.Generic.LargestFirst
+                       Cardano.Wallet.Kernel.CoinSelection.Generic.Random
                        Cardano.Wallet.Kernel.DB.AcidState
                        Cardano.Wallet.Kernel.DB.BlockMeta
                        Cardano.Wallet.Kernel.DB.HdWallet
@@ -86,6 +93,8 @@ library
                        Cardano.Wallet.Kernel.Submission
                        Cardano.Wallet.Kernel.Submission.Worker
                        Cardano.Wallet.Kernel.Types
+                       Cardano.Wallet.Kernel.Util
+                       Cardano.Wallet.Kernel.Util.StrictStateT
                        Cardano.Wallet.LegacyServer
                        Cardano.Wallet.Orphans
                        Cardano.Wallet.Orphans.Aeson
@@ -138,6 +147,7 @@ library
                      , conduit
                      , connection
                      , containers
+                     , cryptonite
                      , data-default
                      , data-default-class
                      , exceptions
@@ -357,8 +367,16 @@ test-suite wallet-unit-tests
   ghc-options:        -Wall
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
-  other-modules:      Test.Infrastructure.Generator
+  other-modules:      InputSelection.Evaluation
+                      InputSelection.Evaluation.Generic
+                      InputSelection.Evaluation.TimeSeries
+                      InputSelection.FromGeneric
+                      InputSelection.Generator
+                      InputSelection.SortedUtxo
+                      InputSelection.TxStats
+                      Test.Infrastructure.Generator
                       Test.Infrastructure.Genesis
+                      Test.Spec.CoinSelection
                       Test.Spec.Kernel
                       Test.Spec.Models
                       Test.Spec.Submission
@@ -369,6 +387,12 @@ test-suite wallet-unit-tests
                       Util.Buildable
                       Util.Buildable.Hspec
                       Util.Buildable.QuickCheck
+                      Util.Distr
+                      Util.GenHash
+                      Util.Histogram
+                      Util.MultiSet
+                      Util.QuickCheck
+                      Util.Range
                       Util.Validated
                       UTxO.Bootstrap
                       UTxO.Context
@@ -432,6 +456,7 @@ test-suite wallet-unit-tests
                     , cardano-sl-wallet-new
                     , constraints
                     , containers
+                    , cryptonite
                     , data-default
                     , formatting
                     , hspec
@@ -442,11 +467,20 @@ test-suite wallet-unit-tests
                     , quickcheck-instances
                     , safe-exceptions
                     , serokell-util
+                    , tabl
                     , text
                     , text-format
                     , universum
                     , unordered-containers
                     , vector
+                      -- needed only for input selection evaluation
+                    , bytestring
+                    , conduit
+                    , directory
+                    , filepath
+                    , normaldistribution
+                    , random
+                    , time
 
 test-suite wallet-new-specs
   ghc-options:      -Wall

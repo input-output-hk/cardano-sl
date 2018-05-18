@@ -76,7 +76,8 @@ applyModifierToWallet2 walId wAddrs custAddrs utxoMod
         (WS.RestoringFrom rhh newSyncTip) -> do
             for_ wAddrs WS.addWAddress
             for_ custAddrs $ \(cat, addrs) ->
-                for_ addrs $ WS.addCustomAddress2 cat
+                for_ addrs $ \(addr, hash) ->
+                               WS.addCustomAddress cat (WS.WAddrId addr, hash)
             -- Allow the transactions to influence the 'UTXO' and the balance only
             -- if we are looking at transactions happened _after_ the point where we
             -- originally restored this wallet.
@@ -120,7 +121,8 @@ applyModifierToWallet walId wAddrs custAddrs utxoMod
                       syncTip = do
     for_ wAddrs WS.addWAddress
     for_ custAddrs $ \(cat, addrs) ->
-        for_ addrs $ WS.addCustomAddress2 cat
+        for_ addrs $ \(addr, hash) ->
+                       WS.addCustomAddress cat (WS.WAddrId addr, hash)
     WS.updateWalletBalancesAndUtxo utxoMod
     for_ txMetas $ uncurry $ WS.addOnlyNewTxMeta walId
     WS.insertIntoHistoryCache walId historyEntries
@@ -147,7 +149,8 @@ rollbackModifierFromWallet2 walId wAddrs custAddrs utxoMod
         (WS.RestoringFrom rhh newSyncTip) -> do
             for_ wAddrs WS.removeWAddress
             for_ custAddrs $ \(cat, addrs) ->
-                for_ addrs $ WS.removeCustomAddress2 cat
+                for_ addrs $ \(addr, hash) ->
+                               WS.removeCustomAddress cat (WS.WAddrId addr, hash)
             WS.updateWalletBalancesAndUtxo utxoMod
             WS.removeFromHistoryCache walId historyEntries
             WS.removeWalletTxMetas walId (encodeCType <$> M.keys historyEntries)
@@ -183,7 +186,8 @@ rollbackModifierFromWallet walId wAddrs custAddrs utxoMod
                            syncTip = do
     for_ wAddrs WS.removeWAddress
     for_ custAddrs $ \(cat, addrs) ->
-        for_ addrs $ WS.removeCustomAddress2 cat
+        for_ addrs $ \(addr, hash) ->
+                       WS.removeCustomAddress cat (WS.WAddrId addr, hash)
     WS.updateWalletBalancesAndUtxo utxoMod
     WS.removeFromHistoryCache walId historyEntries
     WS.removeWalletTxMetas walId (encodeCType <$> M.keys historyEntries)

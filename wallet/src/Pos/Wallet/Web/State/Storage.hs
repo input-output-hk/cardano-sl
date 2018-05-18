@@ -23,6 +23,7 @@ module Pos.Wallet.Web.State.Storage
        , SyncThroughput (..)
        , SyncStatistics (..)
        , PtxMetaUpdate (..)
+       , WAddrId (..)
        , Query
        , Update
        , noSyncStatistics
@@ -55,9 +56,7 @@ module Pos.Wallet.Web.State.Storage
        , getWalletPendingTxs
        , getPendingTx
        , addCustomAddress
-       , addCustomAddress2
        , removeCustomAddress
-       , removeCustomAddress2
        , createAccount
        , createWallet
        , addWAddress
@@ -555,25 +554,15 @@ getWalletPendingTxs wid =
 getPendingTx :: WebTypes.CId WebTypes.Wal -> TxId -> Query (Maybe PendingTx)
 getPendingTx wid txId = preview $ wsWalletInfos . ix wid . wsPendingTxs . ix txId
 
--- | Legacy version of 'addCustomAddress2' for backwards compatibility on
---   the event log.
-addCustomAddress :: CustomAddressType -> (WebTypes.CId WebTypes.Addr, HeaderHash) -> Update Bool
-addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at (unsafeCIdToAddress addr) <<.= Just hh
-
 -- | If given address isn't yet present in set of used\/change addresses, then add it
 -- with given block header hash.
-addCustomAddress2 :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
-addCustomAddress2 t (addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
-
--- | Legacy version of 'removeCustomAddress2' for backwards compatibility on
---   the event log.
-removeCustomAddress :: CustomAddressType -> (WebTypes.CId WebTypes.Addr, HeaderHash) -> Update Bool
-removeCustomAddress t (cwa, hh) = removeCustomAddress2 t (unsafeCIdToAddress cwa, hh)
+addCustomAddress :: CustomAddressType -> (WAddrId, HeaderHash) -> Update Bool
+addCustomAddress t (WAddrId addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
 
 -- | Remove given address from set of used\/change addresses only if provided
 -- header hash is equal to one which is stored in database.
-removeCustomAddress2 :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
-removeCustomAddress2 t (addr, hh) = do
+removeCustomAddress :: CustomAddressType -> (WAddrId, HeaderHash) -> Update Bool
+removeCustomAddress t (WAddrId addr, hh) = do
     mhh' <- use $ customAddressL t . at addr
     let exists = mhh' == Just hh
     when exists $
@@ -822,6 +811,10 @@ cwamToWam :: WebTypes.CWAddressMeta -> WAddressMeta
 cwamToWam (WebTypes.CWAddressMeta wid accIdx addrIdx cAddr) =
     WAddressMeta wid accIdx addrIdx $ unsafeCIdToAddress cAddr
 
+-- | Migration from `CId Addr` to `Address` goes through
+--   this newtype.
+newtype WAddrId = WAddrId Address
+
 deriveSafeCopySimple 0 'base ''WebTypes.CCoin
 deriveSafeCopySimple 0 'base ''WebTypes.CProfile
 deriveSafeCopySimple 0 'base ''WebTypes.CHash
@@ -851,6 +844,12 @@ deriveSafeCopySimple 0 'base ''SyncThroughput
 deriveSafeCopySimple 0 'base ''SyncStatistics
 
 -- Legacy versions, for migrations
+
+deriveSafeCopySimple 1 'extension ''WAddrId
+
+instance Migrate WAddrId where
+    type MigrateFrom WAddrId = WebTypes.CId WebTypes.Addr
+    migrate = WAddrId . unsafeCIdToAddress
 
 deriveSafeCopySimple 0 'base      ''WebTypes.CWAddressMeta
 deriveSafeCopySimple 1 'extension ''WAddressMeta

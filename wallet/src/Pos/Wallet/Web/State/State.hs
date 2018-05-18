@@ -292,8 +292,8 @@ addCustomAddress :: (MonadIO m, HasConfiguration)
                  -> CustomAddressType
                  -> (Address, HeaderHash)
                  -> m Bool
-addCustomAddress db customAddrType addrAndHash =
-    updateDisk (A.AddCustomAddress2 customAddrType addrAndHash) db
+addCustomAddress db customAddrType (addr, hash) =
+    updateDisk (A.AddCustomAddress customAddrType (S.WAddrId addr, hash)) db
 
 setAccountMeta :: (MonadIO m, HasConfiguration)
                => WalletDB -> AccountId -> CAccountMeta  -> m ()
@@ -406,8 +406,8 @@ removeCustomAddress :: (MonadIO m, HasConfiguration)
                     -> CustomAddressType
                     -> (Address, HeaderHash)
                     -> m Bool
-removeCustomAddress db customAddrType aIdAndHeaderHash =
-    updateDisk (A.RemoveCustomAddress2 customAddrType aIdAndHeaderHash) db
+removeCustomAddress db customAddrType (addr, hash) =
+    updateDisk (A.RemoveCustomAddress customAddrType (S.WAddrId addr, hash)) db
 
 addUpdate :: (MonadIO m, HasConfiguration)
           => WalletDB

@@ -43,7 +43,7 @@ i=$AVVM_SEED_COUNT
         echo "Key $i not generated: either .pk or .sk file missing" >&2
         exit 1
     fi
-    key=`cat "$key_i_pk" | sed 's/+/-/g' | sed 's/\//_/g'`
+    key=$(sed 's/+/-/g' < "$key_i_pk" | sed 's/\//_/g')
     echo -n "  \"$key\": \"1000000\""
     if [[ $i -gt 1 ]];then
       echo ','

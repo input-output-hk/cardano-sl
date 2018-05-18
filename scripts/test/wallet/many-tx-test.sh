@@ -11,13 +11,13 @@ acc2="Ae2tdPwUPEZMeiDfNHZ45V7RoaSqd4oSMuG4jo7asvmNHS193EEad1tUkeT@2147483648"
 someAddr1="DdzFFzCqrhtB4QPDzHBCwbgLce3zMMBFf7ZzM8N1zN1vuaZjSLRuberakvfmKhtD9Eb7H3eEwLpsUpmihBzx4kagc13gdhYQJxp1hQXH"
 money=100000000
 
-echo -e "\nLooking for key files $key1"
+echo -e "\\nLooking for key files $key1"
 
 echo -e "\nResetting wallet database..."
 curl -k --cert scripts/tls-files/client.pem https://127.0.0.1:8090/api/test/reset -d "" &> /dev/null
 
 
-echo -e "\nCreating 2 wallets..."
+echo -e "\\nCreating 2 wallets..."
 
 curl -k --request POST \
   --cert scripts/tls-files/client.pem \
@@ -42,9 +42,9 @@ curl -k --request POST \
 }'
 
 
-echo -e "\nCreating $addrsNum addresses on wallet #2..."
+echo -e "\\nCreating $addrsNum addresses on wallet #2..."
 # single address creation is long, running in parallel
-for i in `seq 1 $addrsNum`;
+for ((i=1; i<=addrsNum; i++))
 do
     curl -k --request POST \
       --cert scripts/tls-files/client.pem \
@@ -54,25 +54,26 @@ do
 done;
 
 
+# TODO: Use jq!!!!!!!
 echo "Sending money to wallet #2..."
-addrs2="$(curl -k --cert scripts/tls-files/client.pem https://localhost:8090/api/accounts/$acc2 | grep -o -E \"cadId\":\"[A-Za-z0-9]*\" | cut -c 9- | sed 's/\"//g' )"
+addrs2="$(curl -k --cert scripts/tls-files/client.pem "https://localhost:8090/api/accounts/$acc2" | grep -o -E '"cadId":"[A-Za-z0-9]*"' | cut -c 9- | sed 's/\"//g' )"
 for addr2 in $addrs2
 do
     curl -k --request POST \
          --cert scripts/tls-files/client.pem \
-         --url https://127.0.0.1:8090/api/txs/payments/$acc1/$addr2/$money \
+         --url "https://127.0.0.1:8090/api/txs/payments/$acc1/$addr2/$money" \
          --header 'content-type: application/json' &> /dev/null
 done;
 
 
-echo -e "\nCreated. Press Enter to send final transaction..."
-read -n 1
+echo -e "\\nCreated. Press Enter to send final transaction..."
+read -r -n 1
 
-echo -e "\nMaking transaction #2 -> #1..."
+echo -e "\\nMaking transaction #2 -> #1..."
 curl -k --request POST \
      --cert scripts/tls-files/client.pem \
-     --url https://127.0.0.1:8090/api/txs/payments/$acc2/$someAddr1/$(($money*2)) \
+     --url "https://127.0.0.1:8090/api/txs/payments/$acc2/$someAddr1/$((money*2))" \
   --header 'content-type: application/json' &> /dev/null
 
 
-echo -e "\nDone"
+echo -e "\\nDone"

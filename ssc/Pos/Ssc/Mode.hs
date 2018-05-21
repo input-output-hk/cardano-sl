@@ -40,7 +40,7 @@ type SscMode ctx m
       , HasShutdownContext ctx
       , MonadReader ctx m
       , HasSscContext ctx
-      , MonadReporting ctx m
+      , MonadReporting m
       , HasPrimaryKey ctx
       , HasLens SecurityParams ctx SecurityParams
       , HasLrcContext ctx

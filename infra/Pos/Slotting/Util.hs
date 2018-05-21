@@ -105,7 +105,7 @@ type MonadOnNewSlot ctx m =
     , WithLogger m
     , Mockable Async m
     , Mockable Delay m
-    , MonadReporting ctx m
+    , MonadReporting m
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
     )

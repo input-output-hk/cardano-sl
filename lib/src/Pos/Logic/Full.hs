@@ -4,7 +4,6 @@
 module Pos.Logic.Full
     ( LogicWorkMode
     , logicFull
-    , logicFullM
     ) where
 
 import           Universum
@@ -24,7 +23,6 @@ import           Pos.Communication (NodeId)
 import           Pos.Core (Block, BlockHeader, BlockVersionData, HasConfiguration, HeaderHash,
                            ProxySKHeavy, StakeholderId, TxAux (..), addressHash, getCertId,
                            lookupVss)
-import           Pos.Core.Context (HasPrimaryKey, getOurStakeholderId)
 import           Pos.Core.Ssc (getCommitmentsMap)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (hash)
@@ -59,7 +57,7 @@ import           Pos.Update.Mode (UpdateMode)
 import qualified Pos.Update.Network.Listeners as Update (handleProposal, handleVote)
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Util.JsonLog.Events (JLEvent)
-import           Pos.Util.Util (HasLens (..), lensOf)
+import           Pos.Util.Util (HasLens (..))
 
 -- The full logic layer uses existing pieces from the former monolithic
 -- approach, in which there was no distinction between networking and
@@ -80,34 +78,18 @@ type LogicWorkMode ctx m =
     , HasBlockConfiguration
     , WithLogger m
     , MonadReader ctx m
-    , HasPrimaryKey ctx
     , MonadMask m
     , MonadBlockDBRead m
     , MonadDBRead m
     , MonadGState m
     , MonadRecoveryInfo m
     , MonadSlots ctx m
-    , HasLens SecurityParams ctx SecurityParams
     , HasLens RecoveryHeaderTag ctx RecoveryHeader
     , BlockWorkMode ctx m
     , DlgListenerConstraint ctx m
     , TxpMode ctx m
     , UpdateMode ctx m
     )
-
--- | Uses 'logicFull' but also grabs the stakeholder id and security params
--- from the monad 'm'.
-logicFullM
-    :: forall ctx m .
-       ( LogicWorkMode ctx m )
-    => (JLEvent -> m ())
-    -> m (Logic m)
-logicFullM jsonLogTx = do
-    -- Delivered monadically but in fact is constant (comes from a
-    -- reader context).
-    ourStakeholderId <- getOurStakeholderId
-    securityParams <- view (lensOf @SecurityParams)
-    pure $ logicFull ourStakeholderId securityParams jsonLogTx
 
 -- | A stop-gap full logic layer based on the RealMode. It just uses the
 -- monadX constraints to do most of its work.

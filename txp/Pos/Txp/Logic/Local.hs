@@ -28,7 +28,8 @@ import           JsonLog (CanJsonLog (..))
 import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog, logDebug, logError,
                               logWarning)
 
-import           Pos.Core (BlockVersionData, EpochIndex, HeaderHash, siEpoch)
+import           Pos.Core (BlockVersionData, EpochIndex, HeaderHash, HasProtocolMagic,
+                           siEpoch)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..))
 import           Pos.DB.Class (MonadGState (..))
@@ -60,15 +61,19 @@ type TxpProcessTransactionMode ctx m =
 -- transaction in 'TxAux'. Separation is supported for optimization
 -- only.
 txProcessTransaction
-    :: TxpProcessTransactionMode ctx m
+    :: ( TxpProcessTransactionMode ctx m, HasProtocolMagic )
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txProcessTransaction itw =
     withStateLock LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.
-txProcessTransactionNoLock ::
-       forall ctx m. (TxpLocalWorkMode ctx m, MempoolExt m ~ ())
+txProcessTransactionNoLock
+    :: forall ctx m.
+       ( TxpLocalWorkMode ctx m
+       , MempoolExt m ~ ()
+       , HasProtocolMagic
+       )
     => (TxId, TxAux)
     -> m (Either ToilVerFailure ())
 txProcessTransactionNoLock =
@@ -165,8 +170,12 @@ txProcessTransactionAbstract buildEnv txAction itw@(txId, txAux) = reportTipMism
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool
 -- | 3. Set new tip to txp local data
-txNormalize ::
-       forall ctx m. (TxpLocalWorkMode ctx m, MempoolExt m ~ ())
+txNormalize
+    :: forall ctx m.
+       ( TxpLocalWorkMode ctx m
+       , MempoolExt m ~ ()
+       , HasProtocolMagic
+       )
     => m ()
 txNormalize =
     txNormalizeAbstract buildContext normalizeToilHoisted

@@ -1,6 +1,8 @@
 {-# LANGUAGE DataKinds    #-}
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Execution mode used by blockchain generator.
 
 module Pos.Generator.Block.Mode
@@ -20,6 +22,7 @@ module Pos.Generator.Block.Mode
 
 import           Universum
 
+import           Control.Lens (lens)
 import           Control.Lens.TH (makeLensesWith)
 import qualified Control.Monad.Catch as UnsafeExc
 import           Control.Monad.Random.Strict (RandT)
@@ -48,10 +51,9 @@ import           Pos.Exception (reportFatalError)
 import           Pos.Generator.Block.Param (BlockGenParams (..), HasBlockGenParams (..),
                                             HasTxGenParams (..))
 import qualified Pos.GState as GS
-import           Pos.KnownPeers (MonadFormatPeers)
 import           Pos.Lrc (HasLrcContext, LrcContext (..))
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Reporting (HasReportingContext (..), ReportingContext, emptyReportingContext)
+import           Pos.Reporting (MonadReporting (..), HasMisbehaviorMetrics (..))
 import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
                                currentTimeSlottingSimple)
 import           Pos.Slotting.Types (SlottingData)
@@ -74,7 +76,6 @@ type MonadBlockGenBase m
        , MonadMask m
        , MonadIO m
        , MonadUnliftIO m
-       , MonadFormatPeers m
        , MonadMockable m
        , Eq (Promise m (Maybe ())) -- are you cereal boyz??1?
        , HasConfiguration
@@ -131,7 +132,6 @@ data BlockGenContext ext = BlockGenContext
     -- ^ During block generation we don't want to use real time, but
     -- rather want to set current slot (fake one) by ourselves.
     , bgcTxpGlobalSettings :: !TxpGlobalSettings
-    , bgcReportingContext  :: !ReportingContext
     }
 
 makeLensesWith postfixLFields ''BlockGenContext
@@ -171,7 +171,6 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
     (initSlot, putInitSlot) <- newInitFuture "initSlot"
     let bgcSlotId = Nothing
     let bgcTxpGlobalSettings = _bgpTxpGlobalSettings
-    let bgcReportingContext = emptyReportingContext
     let bgcGenStakeholders = _bgpGenStakeholders
     let initCtx =
             InitBlockGenContext
@@ -285,14 +284,23 @@ instance HasLens SscMemTag (BlockGenContext ext) SscState where
 instance HasLens TxpGlobalSettings (BlockGenContext ext) TxpGlobalSettings where
     lensOf = bgcTxpGlobalSettings_L
 
-instance HasReportingContext (BlockGenContext ext) where
-    reportingContext = bgcReportingContext_L
-
 -- Let's assume that block-gen is core node, though it shouldn't
 -- really matter (needed for reporting, which is not used in block-gen
 -- anyway).
 instance HasNodeType (BlockGenContext ext) where
     getNodeType _ = NodeCore
+
+-- | Ignore reports.
+-- FIXME it's a bad sign that we even need this instance.
+-- The pieces of the software which the block generator uses should never
+-- even try to report.
+instance Applicative m => MonadReporting (BlockGenMode ext m) where
+    report _ = pure ()
+
+-- | Ignore reports.
+-- FIXME it's a bad sign that we even need this instance.
+instance HasMisbehaviorMetrics (BlockGenContext ext) where
+    misbehaviorMetrics = lens (const Nothing) const
 
 instance MonadBlockGenBase m => MonadDBRead (BlockGenMode ext m) where
     dbGet = DB.dbGetSumDefault

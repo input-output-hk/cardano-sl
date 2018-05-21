@@ -19,31 +19,29 @@ import           Universum
 import qualified Control.Exception.Safe as E
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
-import           Mockable (Production, runProduction)
+import           Mockable (Production (..), runProduction)
 import           Network.Wai (Application)
 import           Ntp.Client (NtpStatus)
 import           Servant.Server (Handler)
 import           System.Wlog (logInfo, usingLoggerName)
 
-import           Pos.Context (NodeContext (..))
-import           Pos.Diffusion.Types (Diffusion)
+import           Pos.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Resource (NodeResources (..))
-import           Pos.Launcher.Runner (elimRealMode, runServer)
-import           Pos.Reporting.Ekg (EkgNodeMetrics (..))
+import           Pos.Launcher.Runner (runRealMode)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.TimeWarp (NetworkAddress)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Methods (addInitialRichAccount)
 import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
-                                      WalletWebModeContextTag, walletWebModeToRealMode)
+                                      WalletWebModeContextTag, realModeToWalletWebMode,
+                                      walletWebModeToRealMode)
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Sockets (ConnectionsVar, launchNotifier)
 import           Pos.Wallet.Web.State (WalletDB)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Web (TlsParams)
-import           Pos.WorkMode (RealMode)
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Pos.Shutdown.Class        (HasShutdownContext (shutdownContext))
 
@@ -59,19 +57,10 @@ runWRealMode
     -> NodeResources WalletMempoolExt
     -> (Diffusion WalletWebMode -> WalletWebMode a)
     -> Production a
-runWRealMode db conn syncRequests res action =
-    elimRealMode res serverRealMode
-  where
-    NodeContext {..} = nrContext res
-    ekgNodeMetrics = EkgNodeMetrics (nrEkgStore res)
-    serverWalletWebMode :: WalletWebMode a
-    serverWalletWebMode = runServer
-        (runProduction . elimRealMode res . walletWebModeToRealMode db conn syncRequests)
-        ncNodeParams
-        ekgNodeMetrics
-        action
-    serverRealMode :: RealMode WalletMempoolExt a
-    serverRealMode = walletWebModeToRealMode db conn syncRequests serverWalletWebMode
+runWRealMode db conn syncRequests res action = Production $
+    runRealMode res $ \diffusion ->
+        walletWebModeToRealMode db conn syncRequests $
+            action (hoistDiffusion realModeToWalletWebMode diffusion)
 
 walletServeWebFull
     :: ( HasConfigurations

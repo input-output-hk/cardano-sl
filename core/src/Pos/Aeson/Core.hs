@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Aeson instances for core
 
 module Pos.Aeson.Core

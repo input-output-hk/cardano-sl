@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Serialization of SSC types.
 
 module Pos.Binary.Ssc.Types () where

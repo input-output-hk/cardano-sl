@@ -228,12 +228,40 @@ executable cardano-node
                       UndecidableInstances
                       MonadFailDesugaring
 
+
+executable cardano-generate-swagger-file
+  hs-source-dirs:      generate-swagger-file
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  build-depends:       base
+                     , bytestring
+                     , aeson
+                     , cardano-sl-util
+                     , cardano-sl-core
+                     , cardano-sl-wallet-new
+                     , optparse-applicative
+                     , swagger2
+                     , universum >= 0.1.11
+
+  default-extensions:  RecordWildCards
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       TypeApplications
+                       ScopedTypeVariables
+                       FlexibleContexts
+                       MonadFailDesugaring
+
+
 executable cardano-integration-test
   hs-source-dirs:      integration
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -O2
   other-modules:       CLI
                        Types
@@ -502,7 +530,6 @@ benchmark cardano-sl-wallet-new-bench
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -O2
 
   default-extensions:   DeriveDataTypeable

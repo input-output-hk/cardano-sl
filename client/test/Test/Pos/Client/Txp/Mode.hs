@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Execution mode for tx creation tests.
 
 module Test.Pos.Client.Txp.Mode

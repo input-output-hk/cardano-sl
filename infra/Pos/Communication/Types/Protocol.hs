@@ -2,6 +2,8 @@
 {-# LANGUAGE RankNTypes       #-}
 {-# LANGUAGE TypeApplications #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Protocol/versioning related communication types.
 
 module Pos.Communication.Types.Protocol
@@ -43,12 +45,12 @@ module Pos.Communication.Types.Protocol
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), Value)
-import           Data.Aeson.Types (Parser)
-import qualified Data.ByteString.Base64 as B64 (decode, encode)
 import qualified Control.Concurrent.Async as Async
 import qualified Control.Concurrent.STM as STM
 import           Control.Exception (throwIO)
+import           Data.Aeson (FromJSON (..), ToJSON (..), Value)
+import           Data.Aeson.Types (Parser)
+import qualified Data.ByteString.Base64 as B64 (decode, encode)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable as B
 import qualified Data.Text.Encoding as Text (decodeUtf8, encodeUtf8)

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | SafeCopy serialization of the world, required for wallet. ☕
 
 module Pos.SafeCopy

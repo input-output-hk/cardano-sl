@@ -7033,10 +7033,10 @@ inherit (pkgs) mesa;};
            ];
            libraryToolDepends = [ cpphs ];
            executableHaskellDepends = [
-             cardano-sl cardano-sl-block cardano-sl-core cardano-sl-infra
-             cardano-sl-networking cardano-sl-txp cardano-sl-update
-             cardano-sl-util formatting log-warper network-transport-tcp
-             safe-exceptions temporary universum unix
+             cardano-sl cardano-sl-block cardano-sl-core cardano-sl-crypto
+             cardano-sl-infra cardano-sl-networking cardano-sl-txp
+             cardano-sl-update cardano-sl-util formatting log-warper
+             network-transport-tcp safe-exceptions temporary universum unix
            ];
            executableToolDepends = [ cpphs ];
            testHaskellDepends = [
@@ -7690,7 +7690,9 @@ inherit (pkgs) mesa;};
            pname = "cardano-sl-util";
            version = "1.1.1";
            src = ./../util;
-           configureFlags = [ "--ghc-option=-Werror" ];
+           configureFlags = [
+             "--ghc-option=-fwarn-redundant-constraints" "--ghc-option=-Werror"
+           ];
            libraryHaskellDepends = [
              aeson base binary cardano-sl-binary cborg cereal concurrent-extra
              containers contravariant cryptonite data-default deepseq directory
@@ -7829,12 +7831,13 @@ inherit (pkgs) mesa;};
              warp
            ];
            executableHaskellDepends = [
-             aeson aeson-diff aeson-pretty base cardano-sl cardano-sl-core
-             cardano-sl-infra cardano-sl-networking cardano-sl-ssc
-             cardano-sl-txp cardano-sl-util cardano-sl-wallet containers
-             exceptions formatting hspec http-client http-types lens log-warper
-             mtl optparse-applicative pretty-show QuickCheck servant
-             servant-quickcheck servant-server stm text text-format universum
+             aeson aeson-diff aeson-pretty base bytestring cardano-sl
+             cardano-sl-core cardano-sl-infra cardano-sl-networking
+             cardano-sl-ssc cardano-sl-txp cardano-sl-util cardano-sl-wallet
+             containers exceptions formatting hspec http-client http-types lens
+             log-warper mtl optparse-applicative pretty-show QuickCheck servant
+             servant-quickcheck servant-server stm swagger2 text text-format
+             universum
            ];
            testHaskellDepends = [
              aeson base bytestring cardano-sl cardano-sl-block cardano-sl-client

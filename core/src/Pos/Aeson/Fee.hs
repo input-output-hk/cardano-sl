@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Aeson instances for 'TxFeePolicy' and its subtypes.
 
 module Pos.Aeson.Fee

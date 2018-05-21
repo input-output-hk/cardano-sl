@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | 'Arbitrary' instances for types in 'cardano-sl-infra'
 
 module Pos.Arbitrary.Infra () where
@@ -13,8 +15,8 @@ import           Pos.Arbitrary.Core ()
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), VerInfo (..))
 import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), MempoolMsg (..),
                                                 ReqMsg (..))
-import           Pos.Crypto (HasProtocolMagic)
 import           Pos.Core.Delegation (ProxySKHeavy)
+import           Pos.Crypto (HasProtocolMagic)
 import           Pos.DHT (DHTData (..), DHTKey (..))
 
 deriving instance Arbitrary DHTData

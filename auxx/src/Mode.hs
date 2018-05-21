@@ -48,10 +48,9 @@ import           Pos.DB (DBSum (..), MonadGState (..), NodeDBs, gsIsBootstrapEra
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.GState (HasGStateContext (..), getGStateImplicit)
-import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Reporting (HasReportingContext (..))
+import           Pos.Reporting (MonadReporting (..), HasMisbehaviorMetrics (..))
 import           Pos.Shutdown (HasShutdownContext (..))
 import           Pos.Slotting.Class (MonadSlots (..))
 import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
@@ -112,8 +111,17 @@ instance HasSscContext AuxxContext where
 instance HasPrimaryKey AuxxContext where
     primaryKey = acRealModeContext_L . primaryKey
 
-instance HasReportingContext AuxxContext  where
-    reportingContext = acRealModeContext_L . reportingContext
+-- | Ignore reports.
+-- FIXME it's a bad sign that we even need this instance.
+-- The pieces of the software which the block generator uses should never
+-- even try to report.
+instance MonadReporting AuxxMode where
+    report _ = pure ()
+
+-- | Ignore reports.
+-- FIXME it's a bad sign that we even need this instance.
+instance HasMisbehaviorMetrics AuxxContext where
+    misbehaviorMetrics = lens (const Nothing) const
 
 instance HasUserSecret AuxxContext where
     userSecret = acRealModeContext_L . userSecret
@@ -201,9 +209,6 @@ instance ( HasConfiguration
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
-
-instance MonadFormatPeers AuxxMode where
-    formatKnownPeers formatter = withReaderT acRealModeContext (formatKnownPeers formatter)
 
 instance (HasConfigurations, HasCompileInfo) =>
          MonadAddresses AuxxMode where

@@ -1,4 +1,6 @@
 -- | Exceptions related to error reporting.
+--
+-- FIXME rename. These are log-warper and HTTP specific.
 
 module Pos.Reporting.Exceptions
        ( ReportingError(..)
@@ -8,13 +10,12 @@ import           Universum
 
 import           Control.Exception.Safe (Exception (..))
 import qualified Data.Text.Buildable
-import           Formatting (bprint, stext, string, (%))
-import           Serokell.Util (listJson)
+import           Formatting (bprint, shown, stext, string, (%))
 
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 
 data ReportingError
-    = CantRetrieveLogs [FilePath]
+    = CantRetrieveLogs FilePath
     | SendingError !SomeException
     | NoPubFiles
     | PackingError Text
@@ -28,10 +29,10 @@ instance Exception ReportingError where
 instance Buildable ReportingError where
     build =
         \case
-            CantRetrieveLogs paths ->
+            CantRetrieveLogs path ->
                 bprint
-                    ("Can't retrieve logs from these paths: " %listJson)
-                    paths
+                    ("Can't retrieve logs from theis path: " %shown)
+                    path
             SendingError exc ->
                 bprint
                     ("Failed to send a report, the exception was: " %string)

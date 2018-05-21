@@ -34,7 +34,7 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HeaderHash, HasGenesisBlockVersionData,
-                           SlotId (..), slotIdF, HasProtocolConstants)
+                           SlotId (..), slotIdF, HasProtocolConstants, HasProtocolMagic)
 import           Pos.Core.Update (UpId, UpdatePayload (..), UpdateProposal, UpdateVote (..))
 import           Pos.Crypto (PublicKey, shortHashF)
 import           Pos.DB.Class (MonadDBRead)
@@ -119,8 +119,9 @@ modifyMemState action = do
 
 processSkeleton ::
        ( USLocalLogicModeWithLock ctx m
-       , MonadReporting ctx m
+       , MonadReporting m
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGenesisBlockVersionData
        )
     => UpdatePayload
@@ -216,9 +217,10 @@ getLocalProposalNVotes id = do
 -- sender could be sure that error would happen.
 processProposal
     :: ( USLocalLogicModeWithLock ctx m
-       , MonadReporting ctx m
+       , MonadReporting m
        , HasGenesisBlockVersionData
        , HasProtocolConstants
+       , HasProtocolMagic
        )
     => UpdateProposal -> m (Either PollVerFailure ())
 processProposal proposal = processSkeleton $ UpdatePayload (Just proposal) []
@@ -269,8 +271,9 @@ getLocalVote propId pk decision = do
 -- sender could be sure that error would happen.
 processVote
     :: ( USLocalLogicModeWithLock ctx m
-       , MonadReporting ctx m
+       , MonadReporting m
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGenesisBlockVersionData
        )
     => UpdateVote -> m (Either PollVerFailure ())

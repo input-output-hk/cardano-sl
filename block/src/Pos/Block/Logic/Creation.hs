@@ -50,7 +50,7 @@ import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Lrc (HasLrcContext, LrcModeFull, lrcSingleShot)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
-import           Pos.Reporting (reportError)
+import           Pos.Reporting (HasMisbehaviorMetrics, reportError)
 import           Pos.Ssc.Base (defaultSscPayload, stripSscPayload)
 import           Pos.Ssc.Logic (sscGetLocalPayload)
 import           Pos.Ssc.Mem (MonadSscMem)
@@ -121,6 +121,8 @@ createGenesisBlockAndApply ::
        , HasGenesisData
        , HasGenesisHash
        , HasProtocolConstants
+       , HasProtocolMagic
+       , HasMisbehaviorMetrics ctx
        )
     => EpochIndex
     -> m (Maybe GenesisBlock)
@@ -146,8 +148,10 @@ createGenesisBlockDo
        , HasGeneratedSecrets
        , HasGenesisBlockVersionData
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGenesisData
        , HasGenesisHash
+       , HasMisbehaviorMetrics ctx
        )
     => EpochIndex
     -> m (HeaderHash, Maybe GenesisBlock)
@@ -232,6 +236,7 @@ createMainBlockAndApply ::
        , HasGenesisData
        , HasGenesisBlockVersionData
        , HasProtocolConstants
+       , HasProtocolMagic
        )
     => SlotId
     -> ProxySKBlockInfo
@@ -255,7 +260,12 @@ createMainBlockAndApply sId pske =
 -- block. It only checks whether a block can be created (see
 -- 'createMainBlockAndApply') and creates it checks passes.
 createMainBlockInternal ::
-       forall ctx m. (MonadCreateBlock ctx m, HasProtocolConstants, HasGenesisBlockVersionData)
+       forall ctx m.
+       ( MonadCreateBlock ctx m
+       , HasProtocolConstants
+       , HasProtocolMagic
+       , HasGenesisBlockVersionData
+       )
     => SlotId
     -> ProxySKBlockInfo
     -> m (Either Text MainBlock)
@@ -362,6 +372,7 @@ applyCreatedBlock ::
     , MonadCreateBlock ctx m
     , CanJsonLog m
     , HasProtocolConstants
+    , HasProtocolMagic
     , HasGeneratedSecrets
     , HasGenesisData
     , HasGenesisBlockVersionData

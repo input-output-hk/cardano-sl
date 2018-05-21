@@ -1,6 +1,9 @@
 {-# LANGUAGE RankNTypes    #-}
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Pos.Explorer.Web.Transform
        ( ExplorerProd
@@ -24,6 +27,7 @@ import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
 import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Recovery ()
+import           Pos.Reporting (MonadReporting (..))
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..))
 import           Pos.Update.Configuration (HasUpdateConfiguration)
@@ -57,6 +61,11 @@ instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo) =>
          MonadTxpLocal ExplorerProd where
     txpNormalize = lift $ lift txpNormalize
     txpProcessTx = lift . lift . txpProcessTx
+
+-- | Use the 'RealMode' instance.
+-- FIXME instance on a type synonym.
+instance MonadReporting ExplorerProd where
+    report = lift . lift . report
 
 runExplorerProd :: ExtraContext -> ExplorerProd a -> RealModeE a
 runExplorerProd extraCtx = runExplorerBListener . runExtraContextT extraCtx

@@ -1,5 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Pos.Wallet.Aeson.WalletBackup
        (
        ) where

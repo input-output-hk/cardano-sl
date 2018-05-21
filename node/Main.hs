@@ -11,7 +11,7 @@ module Main
 import           Universum
 
 import           Data.Maybe (fromJust)
-import           Mockable (Production, runProduction)
+import           Mockable (Production (..), runProduction)
 import           System.Wlog (LoggerName, logInfo)
 
 import           Pos.Binary ()
@@ -37,7 +37,7 @@ actionWithoutWallet
     -> NodeParams
     -> Production ()
 actionWithoutWallet sscParams nodeParams =
-    runNodeReal nodeParams sscParams [updateTriggerWorker]
+    Production $ runNodeReal nodeParams sscParams [updateTriggerWorker]
 
 action
     :: ( HasConfigurations

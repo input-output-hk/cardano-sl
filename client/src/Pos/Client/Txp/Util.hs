@@ -2,6 +2,8 @@
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Pure functions for operations with transactions
 
 module Pos.Client.Txp.Util

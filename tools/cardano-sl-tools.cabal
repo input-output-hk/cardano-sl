@@ -69,7 +69,6 @@ executable dbgen
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -O2
 
   -- linker speed up for linux
@@ -121,7 +120,6 @@ executable cardano-dht-keygen
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -O2
 
   -- linker speed up for linux
@@ -222,7 +220,6 @@ executable cardano-keygen
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -O2
 
   -- linker speed up for linux
@@ -378,7 +375,6 @@ executable cardano-cli-docs
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -O2
 
   -- linker speed up for linux
@@ -516,7 +512,6 @@ executable cardano-blockchain-analyser
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -O2
 
   -- linker speed up for linux
@@ -537,6 +532,7 @@ executable cardano-blockchain-analyser
 
   if flag(for-installer)
     buildable: False
+
 
 library
   hs-source-dirs:      .
@@ -576,7 +572,6 @@ test-suite cardano-sl-tools-test
   ghc-options:         -threaded
                        -rtsopts
                        -Wall
-                       -fno-warn-orphans
 
   -- linker speed up for linux
   if os(linux)

@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds    #-}
 {-# LANGUAGE RankNTypes   #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE KindSignatures #-}
 
 -- | Pos.Util specification
 
@@ -62,7 +63,7 @@ spec = describe "Util" $ do
         " a' and back again changes nothing"
 
 toSingleton
-    :: forall f a t. (Arbitrary a,
+    :: forall f a t. (
                   One (f a),
                   Each [Show, Eq, One] '[t f a],
                   OneItem (f a) ~ OneItem (t f a))
@@ -70,7 +71,11 @@ toSingleton
 toSingleton constructor x = (one x) `shouldBe` (constructor . one $ x)
 
 toFromList
-    :: forall f t a. (Each [Arbitrary, Show, Eq, IL.IsList] '[t f a], IL.IsList (f a))
+    :: forall (f :: * -> *) t a.
+       ( Show (t f a)
+       , Eq (t f a)
+       , IL.IsList (t f a)
+       )
     => t f a
     -> Property
 toFromList = IL.fromList . IL.toList .=. identity

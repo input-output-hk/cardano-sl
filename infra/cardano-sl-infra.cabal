@@ -31,9 +31,12 @@ library
                         -- Reporting
                         Pos.Reporting
                         Pos.Reporting.Exceptions
+                        Pos.Reporting.Http
                         Pos.Reporting.MemState
                         Pos.Reporting.Methods
                         Pos.Reporting.Metrics
+                        Pos.Reporting.NodeInfo
+                        Pos.Reporting.Wlog
 
                         -- StateLock
                         Pos.StateLock
@@ -78,9 +81,6 @@ library
 
                         -- Health Checks
                         Pos.HealthCheck.Route53
-
-                        -- Known peers
-                        Pos.KnownPeers
 
                         -- Network topology
                         Pos.Network.DnsDomains
@@ -214,7 +214,6 @@ library
                        MonadFailDesugaring
 
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
 
   build-tools: cpphs >= 1.19

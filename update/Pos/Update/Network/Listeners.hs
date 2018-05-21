@@ -15,13 +15,18 @@ import           Formatting (build, sformat, (%))
 import           System.Wlog (WithLogger, logNotice, logWarning)
 
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
-import           Pos.Core (HasGeneratedSecrets, HasProtocolConstants, HasGenesisBlockVersionData)
+import           Pos.Core (HasGeneratedSecrets, HasProtocolConstants, HasProtocolMagic,
+                           HasGenesisBlockVersionData)
 import           Pos.Update.Logic.Local (processProposal, processVote)
 import           Pos.Update.Mode (UpdateMode)
 
 handleProposal
     :: forall ctx m .
-       (UpdateMode ctx m, HasGenesisBlockVersionData, HasProtocolConstants)
+       ( UpdateMode ctx m
+       , HasGenesisBlockVersionData
+       , HasProtocolConstants
+       , HasProtocolMagic
+       )
     => (UpdateProposal, [UpdateVote])
     -> m Bool
 handleProposal (proposal, votes) = do
@@ -54,7 +59,12 @@ handleProposal (proposal, votes) = do
 
 handleVote
     :: forall ctx m .
-       (UpdateMode ctx m, HasGeneratedSecrets, HasProtocolConstants, HasGenesisBlockVersionData)
+       ( UpdateMode ctx m
+       , HasGeneratedSecrets
+       , HasProtocolConstants
+       , HasProtocolMagic
+       , HasGenesisBlockVersionData
+       )
     => UpdateVote
     -> m Bool
 handleVote uv = do

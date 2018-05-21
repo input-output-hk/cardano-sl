@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Possible failures during SSC verification.
 
 module Pos.Ssc.Error.Verify

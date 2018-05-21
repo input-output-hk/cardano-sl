@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Arbitrary instances for Pos.Slotting types (infra package)
 
 module Pos.Arbitrary.Slotting () where
@@ -18,4 +20,3 @@ instance Arbitrary SlottingData where
     -- Fixed instance since it's impossible to create and instance
     -- where one creates @SlottingData@ without at least two parameters.
     arbitrary = oneof [ createInitSlottingData <$> arbitrary <*> arbitrary ]
-

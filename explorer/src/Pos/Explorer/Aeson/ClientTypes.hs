@@ -1,6 +1,8 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell    #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Pos.Explorer.Aeson.ClientTypes
        (
        ) where

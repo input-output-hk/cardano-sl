@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | 'Arbitrary' unsafe instances for some types from Txp types
 
 module Pos.Arbitrary.Txp.Unsafe () where

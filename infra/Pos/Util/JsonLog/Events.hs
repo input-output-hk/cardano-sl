@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Some types for json logging.
 module Pos.Util.JsonLog.Events
        ( HasJsonLogConfig (..)

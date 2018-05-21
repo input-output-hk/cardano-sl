@@ -32,7 +32,7 @@ import           Pos.Util.JsonLog.Events (JLEvent (..), JLTxR (..))
 handleTxDo
     :: TxpMode ctx m
     => (JLEvent -> m ())  -- ^ How to log transactions
-    -> TxAux            -- ^ Incoming transaction to be processed
+    -> TxAux              -- ^ Incoming transaction to be processed
     -> m Bool
 handleTxDo logTx txAux = do
     let txId = hash (taTx txAux)

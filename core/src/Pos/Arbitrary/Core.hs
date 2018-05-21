@@ -1,5 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Arbitrary instances for core.
 
 module Pos.Arbitrary.Core

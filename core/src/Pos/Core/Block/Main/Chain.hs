@@ -1,6 +1,8 @@
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Definitions of the main blockchain ('Blockchain' class and related).
 
 module Pos.Core.Block.Main.Chain

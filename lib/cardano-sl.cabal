@@ -71,6 +71,8 @@ library
                         Pos.Client.CLI.Secrets
                         Pos.Client.CLI.Util
 
+                        Pos.Reporting.Production
+
                         -- Utilities/helpers
                         Pos.Util.Config
                         Pos.Util.OutboundQueue
@@ -219,7 +221,6 @@ library
   hs-source-dirs:       src
   default-language:     Haskell2010
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
 
   default-extensions:   DeriveDataTypeable
@@ -337,7 +338,6 @@ test-suite cardano-test
   ghc-options:         -threaded
                        -rtsopts
                        -Wall
-                       -fno-warn-orphans
 
   -- linker speed up for linux
   if os(linux)
@@ -396,7 +396,6 @@ benchmark cardano-bench-criterion
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -O2
 
   -- linker speed up for linux

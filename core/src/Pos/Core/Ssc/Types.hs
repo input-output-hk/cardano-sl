@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Core types from SSC.
 
 module Pos.Core.Ssc.Types

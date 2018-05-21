@@ -2,6 +2,8 @@
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Pos.Explorer.Socket.Util
     ( EventName (..)
     , emit

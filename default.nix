@@ -32,6 +32,9 @@ let
     '';
   });
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
+    ghc = overrideDerivation pkgs.haskell.compiler.ghc802 (drv: {
+      patches = drv.patches ++ [ ./ghc-8.0.2-darwin-rec-link.patch ];
+    });
     overrides = self: super: {
       cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
         configureFlags = (drv.configureFlags or []) ++ [

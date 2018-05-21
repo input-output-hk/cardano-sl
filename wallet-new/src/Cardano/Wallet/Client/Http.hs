@@ -4,19 +4,75 @@ module Cardano.Wallet.Client.Http
     , module Cardano.Wallet.Client
     -- * Servant Client Export
     , module Servant.Client
-    , module Network.HTTP.Client
+    -- * Helper to load X509 certificates and private key
+    , credentialLoadX509
+    , newManager
+    , Manager
     ) where
 
 import           Universum
 
 import           Control.Lens (_Left)
 import           Data.Aeson (decode)
-import           Network.HTTP.Client (Manager, defaultManagerSettings, newManager)
+import           Data.Default.Class (Default (..))
+import           Data.X509 (CertificateChain, SignedCertificate)
+import           Data.X509.CertificateStore (makeCertificateStore)
+import           Network.Connection (TLSSettings (..))
+import           Network.HTTP.Client (Manager, ManagerSettings, defaultManagerSettings, newManager)
+import           Network.HTTP.Client.TLS (mkManagerSettings)
+import           Network.TLS (Bytes, ClientHooks (..), ClientParams (..), Credentials (..),
+                              HostName, PrivKey, Shared (..), Supported (..), credentialLoadX509,
+                              noSessionManager)
+import           Network.TLS.Extra.Cipher (ciphersuite_default)
 import           Servant ((:<|>) (..), (:>))
-import           Servant.Client (BaseUrl (..), ClientEnv (..), Scheme (..), client, runClientM, ServantError(..))
+import           Servant.Client (BaseUrl (..), ClientEnv (..), Scheme (..), ServantError (..),
+                                 client, runClientM)
 
 import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.Client
+
+
+type Port = Bytes
+
+
+mkHttpManagerSettings :: ManagerSettings
+mkHttpManagerSettings =
+    defaultManagerSettings
+
+
+mkHttpsManagerSettings
+    :: (HostName, Port)              -- ^ Target server hostname & port
+    -> [SignedCertificate]           -- ^ CA certificate chain
+    -> (CertificateChain, PrivKey)   -- ^ (Client certificate, Client key)
+    -> ManagerSettings
+mkHttpsManagerSettings serverId caChain credentials =
+    mkManagerSettings tlsSettings sockSettings
+  where
+    sockSettings = Nothing
+    tlsSettings  = TLSSettings clientParams
+    clientParams = ClientParams
+        { clientUseMaxFragmentLength    = Nothing
+        , clientServerIdentification    = serverId
+        , clientUseServerNameIndication = True
+        , clientWantSessionResume       = Nothing
+        , clientShared                  = clientShared
+        , clientHooks                   = clientHooks
+        , clientSupported               = clientSupported
+        , clientDebug                   = def
+        }
+    clientShared = Shared
+        { sharedCredentials     = Credentials [credentials]
+        , sharedCAStore         = makeCertificateStore caChain
+        , sharedSessionManager  = noSessionManager
+        , sharedValidationCache = def
+        }
+    clientHooks = def
+        { onCertificateRequest = const . return . Just $ credentials
+        }
+    clientSupported = def
+        { supportedCiphers = ciphersuite_default
+        }
+
 
 -- | Given a 'BaseUrl' and an @http-client@ 'Manager', this returns
 -- a 'WalletClient' that operates in 'IO'.

@@ -23,10 +23,8 @@ import qualified Control.Monad.Reader as Mtl
 import           Data.Aeson.TH (defaultOptions, deriveToJSON)
 import qualified Data.ByteString.Char8 as BSC
 import           Data.Default (Default, def)
-import           Data.List (intersect)
 import           Data.Streaming.Network (bindPortTCP, bindRandomPortTCP)
-import           Data.X509 (Certificate (..), ExtKeyUsagePurpose (..), HashALG (..))
-import qualified Data.X509 as X509
+import           Data.X509 (ExtKeyUsagePurpose (..), HashALG (..))
 import           Data.X509.CertificateStore (readCertificateStore)
 import           Data.X509.Validation (ValidationChecks (..), ValidationHooks (..))
 import qualified Data.X509.Validation as X509
@@ -202,11 +200,11 @@ tlsWithClientCheck host port TlsParams{..} = tlsSettings
     -- This solely verify that the provided certificate is valid and was signed by authority we
     -- recognize (tpCaPath)
     validateCertificate cert = do
-          mstore <- readCertificateStore tpCaPath
-          maybe
-                (pure $ Just "Cannot init a store, unable to validate client certificates")
-                (fmap fromX509FailedReasons . (\store -> X509.validate HashSHA256 validationHooks validationChecks store def serviceID cert))
-                mstore
+        mstore <- readCertificateStore tpCaPath
+        maybe
+            (pure $ Just "Cannot init a store, unable to validate client certificates")
+            (fmap fromX509FailedReasons . (\store -> X509.validate HashSHA256 validationHooks validationChecks store def serviceID cert))
+            mstore
 
     fromX509FailedReasons reasons =
         case reasons of

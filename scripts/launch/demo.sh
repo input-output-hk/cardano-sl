@@ -132,10 +132,21 @@ while [[ $i -lt $panesCnt ]]; do
   conf_file=$CONFIG
   wallet_args=''
   exec_name='cardano-node-simple'
+  x509GenTool=$(find_binary cardano-x509-certificates)
   if [[ $WALLET_TEST != "" ]] && [[ $i == $((n-1)) ]]; then
       if [[ $WALLET_CONFIG != "" ]]; then
           conf_file=$WALLET_CONFIG
       fi
+
+      if [ ! -d ${config_dir}/tls-files ]; then
+        mkdir -p ${config_dir}/tls-files
+        $x509GenTool \
+          --server-out-dir ${config_dir}/tls-files \
+          --clients-out-dir ${config_dir}/tls-files \
+          --configuration-key  default \
+          --configuration-file lib/configuration.yaml
+      fi
+
       wallet_args=" --tlscert $config_dir/tls-files/server.crt --tlskey $config_dir/tls-files/server.key --tlsca $config_dir/tls-files/ca.crt $wallet_flush" # --wallet-rebuild-db'
       wallet_args="$WALLET_EXTRA_ARGS $wallet_args --wallet-address 127.0.0.1:8090"
       exec_name="$WALLET_EXE_NAME"

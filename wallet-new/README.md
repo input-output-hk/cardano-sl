@@ -73,8 +73,8 @@ $ stack exec cardano-node -- --topology=wallet-new/topology-examples/testnet.yam
 
 From there, you can browse the API documentation for V0 and V1 through the following URLs:
 
-- http://localhost:8090/docs/v0/index/
-- http://localhost:8090/docs/v1/index/
+- https://localhost:8090/docs/v0/index/
+- https://localhost:8090/docs/v1/index/
 
 The visualization at those URLs lets you play with the API by the mean of a _Try it out_ button
 made available for each endpoint. This will seemingly contact the node already running on your
@@ -101,8 +101,8 @@ But if we launch a node with `--wallet-debug` option, we can send simple `http`-
 
 If needed, you can access the corresponding raw Swagger specification files via these URLs:
 
-- http://localhost:8090/docs/v0/swagger.json
-- http://localhost:8090/docs/v1/swagger.json
+- https://localhost:8090/docs/v0/swagger.json
+- https://localhost:8090/docs/v1/swagger.json
 
 ### Development Endpoints
 

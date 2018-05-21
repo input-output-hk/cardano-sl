@@ -23,7 +23,7 @@ import           Mockable (Async, Delay, Mockable, delay, withAsyncWithUnmask)
 import           Pos.Util.Log (WithLogger, logWarning)
 
 import           Pos.Crypto.Random (randomNumber)
-import           Pos.Util.LogSafe (logWarningS)
+--import           Pos.Util.LogSafe (logWarningS)
 
 -- | Data type to represent waiting strategy for printing warnings
 -- if action take too much time.
@@ -45,7 +45,7 @@ logWarningLongAction
     :: forall m a.
        CanLogInParallel m
     => Bool -> WaitingDelta -> Text -> m a -> m a
-logWarningLongAction secure delta actionTag action =
+logWarningLongAction {- secure -} _ delta actionTag action =
     -- Previous implementation was
     --
     --   bracket (fork $ waitAndWarn delta) killThread (const action)
@@ -62,9 +62,9 @@ logWarningLongAction secure delta actionTag action =
     -- this function is going to be called under 'mask'.
     withAsyncWithUnmask (\unmask -> unmask $ waitAndWarn delta) (const action)
   where
-    logFunc :: Text -> m ()
-    logFunc = bool logWarning logWarningS secure
-    printWarning t = logFunc $ sformat ("Action `"%stext%"` took more than "%shown)
+    --logFunc :: Text -> m ()
+    --logFunc = bool logWarning logWarningS secure
+    printWarning t = logWarning $ sformat ("Action `"%stext%"` took more than "%shown)
                                        actionTag t
 
     -- [LW-4]: avoid code duplication somehow (during refactoring)

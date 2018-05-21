@@ -119,7 +119,7 @@ library
 
                         -- Pos.Util
                         Pos.Util.JsonLog.Events
-                        Pos.Util.LogSafe
+                        --Pos.Util.LogSafe
                         Pos.Util.Monitor
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp

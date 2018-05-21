@@ -4,6 +4,11 @@ module Pos.Util.LogSeverity
        ) where
 
 
+import           Universum
+
+
+
 -- | abstract libraries' severity
 data Severity = Debug | Info | Warning | Notice | Error
+                deriving (Show)
 

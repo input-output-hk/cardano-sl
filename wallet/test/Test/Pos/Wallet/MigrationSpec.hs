@@ -304,6 +304,10 @@ spec = do
             db <- openState False "test/wallet-db-1.1.1/"
             ws <- runReaderT askWalletSnapshot db
             force ws `shouldNotBe` def
+            -- We force it to ensure there aren't any _|_s hanging around. And
+            -- then we say it shouldn't be def because the thing will give you
+            -- back a Default of the WalletStorage if the file path doesn't
+            -- exist (d'oh)
 
   where
     -- The tests for migrations take an enormous amount of time, so we prune the

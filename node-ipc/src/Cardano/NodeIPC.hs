@@ -24,8 +24,8 @@ import           Pos.Shutdown.Types        (ShutdownContext)
 import           System.Environment        (lookupEnv)
 import           System.IO.Error           (IOError, isEOFError)
 import           System.IO                 (hFlush, hGetLine, hSetNewlineMode, noNewlineTranslation)
-import           System.Wlog               (WithLogger, logInfo, logError)
-import           System.Wlog.LoggerNameBox (usingLoggerName)
+import           Pos.Util.Log              (WithLogger, logInfo, logError, usingLoggerName, Severity(..))
+--import           System.Wlog.LoggerNameBox (usingLoggerName)
 import           Universum
 
 data Packet = Started | QueryPort | ReplyPort Word16 | Ping | Pong | ParseError Text deriving (Show, Eq, Generic)
@@ -52,7 +52,7 @@ startNodeJsIPC port = void $ runMaybeT $ do
         void $ forkIO $ startIpcListener ctx handle port
 
 startIpcListener :: ShutdownContext -> Handle -> Word16 -> IO ()
-startIpcListener ctx handle port = usingLoggerName "NodeIPC" $ flip runReaderT ctx (ipcListener handle port)
+startIpcListener ctx handle port = usingLoggerName Debug "NodeIPC" $ flip runReaderT ctx (ipcListener handle port)
 
 readInt64 :: Handle -> IO Word64
 readInt64 hnd = do

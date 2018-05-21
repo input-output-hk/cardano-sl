@@ -12,6 +12,7 @@ module Test.Pos.Txp.Arbitrary
 
        -- | Standalone generators.
        , genTx
+       , genTxAux
        , genTxIn
        , genTxInWitness
        , genTxOutDist

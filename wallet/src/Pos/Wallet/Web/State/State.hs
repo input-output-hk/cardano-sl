@@ -204,7 +204,7 @@ getWAddresses ws mode wid = queryValue ws (S.getWAddresses mode wid)
 
 doesWAddressExist
     :: WalletSnapshot -> AddressLookupMode -> S.WAddressMeta -> Bool
-doesWAddressExist ws mode addr = queryValue ws (S.doesWAddressExist2 mode addr)
+doesWAddressExist ws mode addr = queryValue ws (S.doesWAddressExist mode addr)
 
 isWalletRestoring :: WalletSnapshot -> CId Wal -> Bool
 isWalletRestoring ws walletId = queryValue ws (S.isWalletRestoring walletId)
@@ -271,7 +271,7 @@ createAccountWithAddress :: (MonadIO m)
                          -> S.WAddressMeta
                          -> m ()
 createAccountWithAddress db accId accMeta addrMeta =
-    updateDisk (A.CreateAccountWithAddress2 accId accMeta addrMeta) db
+    updateDisk (A.CreateAccountWithAddress accId accMeta addrMeta) db
 
 createWallet :: (MonadIO m)
              => WalletDB
@@ -287,15 +287,15 @@ addWAddress :: (MonadIO m)
             => WalletDB
             -> S.WAddressMeta
             -> m ()
-addWAddress db addr = updateDisk (A.AddWAddress2 addr) db
+addWAddress db addr = updateDisk (A.AddWAddress addr) db
 
 addCustomAddress :: (MonadIO m)
                  => WalletDB
                  -> CustomAddressType
                  -> (Address, HeaderHash)
                  -> m Bool
-addCustomAddress db customAddrType addrAndHash =
-    updateDisk (A.AddCustomAddress2 customAddrType addrAndHash) db
+addCustomAddress db customAddrType (addr, hash) =
+    updateDisk (A.AddCustomAddress customAddrType (S.WAddrId addr, hash)) db
 
 setAccountMeta :: (MonadIO m)
                => WalletDB -> AccountId -> CAccountMeta  -> m ()
@@ -401,15 +401,15 @@ removeWAddress :: (MonadIO m)
                => WalletDB
                -> S.WAddressMeta
                -> m ()
-removeWAddress db addrMeta = updateDisk (A.RemoveWAddress2 addrMeta) db
+removeWAddress db addrMeta = updateDisk (A.RemoveWAddress addrMeta) db
 
 removeCustomAddress :: (MonadIO m)
                     => WalletDB
                     -> CustomAddressType
                     -> (Address, HeaderHash)
                     -> m Bool
-removeCustomAddress db customAddrType aIdAndHeaderHash =
-    updateDisk (A.RemoveCustomAddress2 customAddrType aIdAndHeaderHash) db
+removeCustomAddress db customAddrType (addr, hash) =
+    updateDisk (A.RemoveCustomAddress customAddrType (S.WAddrId addr, hash)) db
 
 addUpdate :: (MonadIO m)
           => WalletDB

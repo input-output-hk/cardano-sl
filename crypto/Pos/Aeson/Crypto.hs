@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Pos.Aeson.Crypto
        (
        ) where
@@ -19,7 +21,7 @@ import           Pos.Crypto (AbstractHash, HDAddressPayload (..), ProtocolMagic 
                              Signature (..), decodeAbstractHash, fullProxyCertHexF, fullPublicKeyF,
                              fullSignatureHexF, hashHexF, parseFullProxyCert, parseFullPublicKey,
                              parseFullSignature)
-import           Pos.Util.Util (toAesonError , parseJSONWithRead)
+import           Pos.Util.Util (parseJSONWithRead, toAesonError)
 
 deriving instance ToJSON ProtocolMagic
 deriving instance FromJSON ProtocolMagic

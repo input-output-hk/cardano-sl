@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Union of blockchain types.
 
 module Pos.Core.Block.Union.Types
@@ -19,9 +21,9 @@ import           Control.Lens (LensLike', makePrisms)
 import           Universum
 
 import           Pos.Binary.Class (Bi)
+import           Pos.Core.Block.Blockchain (GenericBlockHeader (..))
 import           Pos.Core.Common (BlockHeader, HeaderHash)
 import           Pos.Crypto (ProtocolMagic, unsafeHash)
-import           Pos.Core.Block.Blockchain (GenericBlockHeader (..))
 -- Re-exports
 import           Pos.Core.Block.Genesis.Types
 import           Pos.Core.Block.Main.Types

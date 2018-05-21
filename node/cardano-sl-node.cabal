@@ -28,7 +28,6 @@ executable cardano-node-simple
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
-                       -fno-warn-orphans
                        -O2
 
   -- linker speed up for linux

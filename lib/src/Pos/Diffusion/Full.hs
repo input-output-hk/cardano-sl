@@ -3,6 +3,7 @@
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecursiveDo         #-}
 
 module Pos.Diffusion.Full
     ( FullDiffusionConfiguration (..)
@@ -105,10 +106,11 @@ diffusionLayerFull
     :: FullDiffusionConfiguration
     -> NetworkConfig KademliaParams
     -> Maybe EkgNodeMetrics
-    -> Logic IO
+    -> (Diffusion IO -> Logic IO)
+       -- ^ The logic layer can use the diffusion layer.
     -> (DiffusionLayer IO -> IO x)
     -> IO x
-diffusionLayerFull fdconf networkConfig mEkgNodeMetrics logic k = do
+diffusionLayerFull fdconf networkConfig mEkgNodeMetrics mkLogic k = do
     -- Make the outbound queue using network policies.
     oq :: OQ.OutboundQ EnqueuedConversation NodeId Bucket <-
         -- NB: <> it's not Text semigroup append, it's LoggerName append, which
@@ -125,17 +127,18 @@ diffusionLayerFull fdconf networkConfig mEkgNodeMetrics logic k = do
         logTrace :: Trace IO Text
         logTrace = contramap ((,) Error) (fdcTrace fdconf)
     bracketTransportTCP logTrace (fdcConvEstablishTimeout fdconf) (ncTcpAddr networkConfig) $ \transport -> do
-        (fullDiffusion, internals) <-
-            diffusionLayerFullExposeInternals fdconf
-                                              transport
-                                              oq
-                                              (ncDefaultPort networkConfig)
-                                              mSubscriptionWorker
-                                              mSubscribers
-                                              mKademliaParams
-                                              healthStatus
-                                              mEkgNodeMetrics
-                                              logic
+        rec (fullDiffusion, internals) <-
+                diffusionLayerFullExposeInternals fdconf
+                                                  transport
+                                                  oq
+                                                  (ncDefaultPort networkConfig)
+                                                  mSubscriptionWorker
+                                                  mSubscribers
+                                                  mKademliaParams
+                                                  healthStatus
+                                                  mEkgNodeMetrics
+                                                  logic
+            let logic = mkLogic fullDiffusion
         k $ DiffusionLayer
             { diffusion = fullDiffusion
             , runDiffusionLayer = \action -> runFullDiffusionInternals internals (const action)
@@ -353,8 +356,9 @@ diffusionLayerFullExposeInternals fdconf
         sendPskHeavy :: ProxySKHeavy -> IO ()
         sendPskHeavy = Diffusion.Delegation.sendPskHeavy logTrace enqueue
 
-        formatPeers :: forall r . (forall a . Format r a -> a) -> IO (Maybe r)
-        formatPeers formatter = Just <$> OQ.dumpState oq formatter
+        -- TODO better status text.
+        formatStatus :: forall r . (forall a . Format r a -> a) -> IO r
+        formatStatus formatter = OQ.dumpState oq formatter
 
         diffusion :: Diffusion IO
         diffusion = Diffusion {..}

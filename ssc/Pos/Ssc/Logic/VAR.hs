@@ -59,7 +59,7 @@ type SscGlobalVerifyMode ctx m =
     (HasSscConfiguration,
      MonadSscMem ctx m,
      MonadReader ctx m, HasLrcContext ctx,
-     MonadDBRead m, MonadGState m, WithLogger m, MonadReporting ctx m,
+     MonadDBRead m, MonadGState m, WithLogger m, MonadReporting m,
      MonadIO m, Rand.MonadRandom m)
 
 type SscGlobalApplyMode ctx m = SscGlobalVerifyMode ctx m
@@ -73,7 +73,12 @@ type SscGlobalApplyMode ctx m = SscGlobalVerifyMode ctx m
 -- this function will return 'Left' with appropriate error.
 -- All blocks must be from the same epoch.
 sscVerifyBlocks ::
-       (SscGlobalVerifyMode ctx m, HasGenesisData, HasProtocolConstants, HasGenesisBlockVersionData)
+       ( SscGlobalVerifyMode ctx m
+       , HasGenesisData
+       , HasProtocolConstants
+       , HasProtocolMagic
+       , HasGenesisBlockVersionData
+       )
     => OldestFirst NE SscBlock
     -> m (Either SscVerifyError SscGlobalState)
 sscVerifyBlocks blocks = do
@@ -108,7 +113,13 @@ sscVerifyBlocks blocks = do
 -- result of application of these blocks can be optionally passed as
 -- argument (it can be calculated in advance using 'sscVerifyBlocks').
 sscApplyBlocks
-    :: (SscGlobalApplyMode ctx m, HasGeneratedSecrets, HasGenesisData, HasProtocolConstants, HasGenesisBlockVersionData)
+    :: ( SscGlobalApplyMode ctx m
+       , HasGeneratedSecrets
+       , HasGenesisData
+       , HasProtocolConstants
+       , HasProtocolMagic
+       , HasGenesisBlockVersionData
+       )
     => OldestFirst NE SscBlock
     -> Maybe SscGlobalState
     -> m [SomeBatchOp]
@@ -123,7 +134,7 @@ sscApplyBlocks blocks Nothing =
     sscApplyBlocksFinish =<< sscVerifyValidBlocks blocks
 
 sscApplyBlocksFinish
-    :: (SscGlobalApplyMode ctx m, HasGeneratedSecrets)
+    :: (SscGlobalApplyMode ctx m, HasGeneratedSecrets, HasProtocolMagic)
     => SscGlobalState -> m [SomeBatchOp]
 sscApplyBlocksFinish gs = do
     sscRunGlobalUpdate (put gs)
@@ -133,7 +144,12 @@ sscApplyBlocksFinish gs = do
     pure $ sscGlobalStateToBatch gs
 
 sscVerifyValidBlocks
-    :: (SscGlobalApplyMode ctx m, HasGenesisData, HasProtocolConstants, HasGenesisBlockVersionData)
+    :: ( SscGlobalApplyMode ctx m
+       , HasGenesisData
+       , HasProtocolConstants
+       , HasGenesisBlockVersionData
+       , HasProtocolMagic
+       )
     => OldestFirst NE SscBlock -> m SscGlobalState
 sscVerifyValidBlocks blocks =
     sscVerifyBlocks blocks >>= \case
@@ -211,7 +227,12 @@ verifyAndApplyMultiRichmen onlyCerts env =
 -- | Rollback application of given sequence of blocks. Bad things can
 -- happen if these blocks haven't been applied before.
 sscRollbackBlocks
-    :: (SscGlobalApplyMode ctx m, HasGeneratedSecrets, HasGenesisData, HasProtocolConstants)
+    :: ( SscGlobalApplyMode ctx m
+       , HasGeneratedSecrets
+       , HasGenesisData
+       , HasProtocolConstants
+       , HasProtocolMagic
+       )
     => NewestFirst NE SscBlock -> m [SomeBatchOp]
 sscRollbackBlocks blocks = sscRunGlobalUpdate $ do
     sscRollbackU blocks

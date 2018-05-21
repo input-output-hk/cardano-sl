@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Binary serialization of Pos.Block.* Types.
 
 module Pos.Binary.Block.Types

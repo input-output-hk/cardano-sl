@@ -32,6 +32,9 @@ let
     '';
   });
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
+    ghc = overrideDerivation pkgs.haskell.compiler.ghc802 (drv: {
+      patches = drv.patches ++ [ ./ghc-8.0.2-darwin-rec-link.patch ];
+    });
     overrides = self: super: {
       cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
         configureFlags = (drv.configureFlags or []) ++ [
@@ -109,7 +112,9 @@ let
     in
       args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev; } // walletConfig );
   other = rec {
+    validateJson = pkgs.callPackage ./tools/src/validate-json {};
     demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; };
+    swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
     walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev; };
     buildWalletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests pkgs; };
     cardano-sl-explorer-frontend = (import ./explorer/frontend {
@@ -120,8 +125,8 @@ let
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";
-      rev = "486a88f161a08df8af42cb4c84f44e99fa9a98d8";
-      sha256 = "0nskf1s51np320ijlf38sxmksk68xmg14cnarg1p9rph03y81m7w";
+      rev = "abd199510eb38c442e14fd82677f9cc1f7430cfb";
+      sha256 = "0rrawm054n9r45jvxmdzwkfl1mvar2wag8nvhqzf3ggnbcds2aj2";
     }) { inherit pkgs; };
     inherit (pkgs) purescript;
     connectScripts = {

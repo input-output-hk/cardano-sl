@@ -12,7 +12,7 @@ module Pos.Diffusion.Types
 import           Universum
 
 import           Data.Map.Strict (Map)
-import           Formatting (Format)
+import           Formatting (Format, stext)
 import           GHC.Generics (Generic)
 
 import           Pos.Communication.Types.Protocol (NodeId)
@@ -84,7 +84,8 @@ data Diffusion m = Diffusion
       -- network topology) and also by the user interface (how's our connection
       -- quality?). [CSL-2147]
     , healthStatus       :: m HealthStatus
-    , formatPeers        :: forall r . (forall a . Format r a -> a) -> m (Maybe r)
+      -- | For debugging/reporting purposes.
+    , formatStatus       :: forall r . (forall a . Format r a -> a) -> m r
       -- | Subscriptin statuses to all nodes.  If the node is not subscribed it
       -- is not in the map.
     , subscriptionStatus :: TVar (Map NodeId SubscriptionStatus)
@@ -110,7 +111,7 @@ hoistDiffusion nat orig = Diffusion
     , sendSscCommitment = nat . sendSscCommitment orig
     , sendPskHeavy = nat . sendPskHeavy orig
     , healthStatus = nat $ healthStatus orig
-    , formatPeers = \fmt -> nat $ formatPeers orig fmt
+    , formatStatus = \fmt -> nat $ formatStatus orig fmt
     , subscriptionStatus = subscriptionStatus orig
     }
 
@@ -137,6 +138,6 @@ dummyDiffusionLayer = do
         , sendSscCommitment  = \_ -> pure ()
         , sendPskHeavy       = \_ -> pure ()
         , healthStatus       = pure (HSUnhealthy "I'm a dummy")
-        , formatPeers        = \_ -> pure Nothing
+        , formatStatus       = \fmt -> pure (fmt stext "")
         , ..
         }

@@ -1,5 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | `Arbitrary` instances for Txp types
 
 module Pos.Arbitrary.Txp
@@ -32,13 +34,12 @@ import           Pos.Core.Common (Coin, IsBootstrapEraAddr (..), makePubKeyAddre
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
                                TxOutAux (..), TxPayload (..), TxProof (..), TxSigData (..),
                                mkTxPayload)
-import           Pos.Crypto (Hash, ProtocolMagic, SecretKey, SignTag (SignTx),
-                             hash, sign, toPublic)
+import           Pos.Crypto (Hash, ProtocolMagic, SecretKey, SignTag (SignTx), hash, sign, toPublic)
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..))
 
-import           Test.Pos.Crypto.Arbitrary (genSignature, genRedeemSignature)
+import           Test.Pos.Crypto.Arbitrary (genRedeemSignature, genSignature)
 
 ----------------------------------------------------------------------------
 -- Arbitrary txp types

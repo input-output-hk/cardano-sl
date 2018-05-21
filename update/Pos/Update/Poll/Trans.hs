@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | PollT monad transformer. Single-threaded.
 
 module Pos.Update.Poll.Trans

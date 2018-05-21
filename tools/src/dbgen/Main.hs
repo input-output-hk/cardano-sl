@@ -5,6 +5,8 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeApplications    #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Main where
 
 import           Universum
@@ -27,6 +29,7 @@ import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, Nod
 import           Pos.Network.CLI (NetworkConfigOpts (..))
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
                                     topologyEnqueuePolicy, topologyFailurePolicy)
+import           Pos.Reporting (noReporter)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.JsonLog.Events (jsonLogConfigFromHandle)
@@ -109,6 +112,7 @@ newRealModeContext dbs confOpts secretKeyPath = do
                         <*> jsonLogConfigFromHandle stdout
                         <*> pure (LoggerName "dbgen")
                         <*> pure nrContext
+                        <*> pure noReporter
                         -- <*> initQueue (defaultNetworkConfig (TopologyAuxx mempty)) Nothing
 
 

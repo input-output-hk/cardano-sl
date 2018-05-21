@@ -76,23 +76,19 @@ From there, you can browse the API documentation for V0 and V1 through the follo
 - http://localhost:8090/docs/v0/index/
 - http://localhost:8090/docs/v1/index/
 
-The visualization at those URLs lets you play with the API by the mean of a _Try it out_ button
-made available for each endpoint. This will seemingly contact the node already running on your
-local machine with actual HTTP requests augmented with the parameters you provide!
-
 ### HTTPS
 
 By default, wallet backend only accepts HTTPS connections:
 
 ```
-$ curl localhost:8090/docs/v1/index/index.html
+$ curl localhost:8090/docs/v1/index/
 This server only accepts secure HTTPS connections.
 ```
 
 We should provide our `ca.crt`:
 
 ```
-$ curl --cacert scripts/tls-files/ca.crt https://localhost:8090/docs/v1/index/index.html
+$ curl --cacert scripts/tls-files/ca.crt https://localhost:8090/docs/v1/index/
 ```
 
 But if we launch a node with `--wallet-debug` option, we can send simple `http`-requests.

@@ -183,8 +183,8 @@ instance Buildable PollVerFailure where
 -- If tips are different, we report error, because it's suspicious and
 -- we want to review logs. If it's internal error, we definitely want
 -- to investigate it.
-reportUnexpectedError ::
-       (MonadReporting ctx m)
+reportUnexpectedError
+    :: ( Monad m, MonadReporting m )
     => m (Either PollVerFailure a)
     -> m (Either PollVerFailure a)
 reportUnexpectedError action = do

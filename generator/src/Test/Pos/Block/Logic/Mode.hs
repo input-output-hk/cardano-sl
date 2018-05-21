@@ -31,7 +31,6 @@ module Test.Pos.Block.Logic.Mode
        , btcTxpGlobalSettingsL
        , btcSlotIdL
        , btcParamsL
-       , btcReportingContextL
        , btcDelegationL
        , btcPureDBSnapshotsL
        , btcAllSecretsL
@@ -74,11 +73,10 @@ import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegatio
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.Generator.BlockEvent (SnapshotId)
 import qualified Pos.GState as GS
-import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
 import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Reporting (HasReportingContext (..), ReportingContext, emptyReportingContext)
+import           Pos.Reporting (MonadReporting (..), HasMisbehaviorMetrics (..))
 import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSimpleSlotting, SimpleSlottingMode,
                                SimpleSlottingStateVar, currentTimeSlottingSimple,
                                getCurrentSlotBlockingSimple, getCurrentSlotBlockingSimple',
@@ -209,7 +207,6 @@ data BlockTestContext = BlockTestContext
     -- ^ If this value is 'Just' we will return it as the current
     -- slot. Otherwise simple slotting is used.
     , btcParams            :: !TestParams
-    , btcReportingContext  :: !ReportingContext
     , btcDelegation        :: !DelegationVar
     , btcPureDBSnapshots   :: !PureDBSnapshotsVar
     , btcAllSecrets        :: !AllSecrets
@@ -264,7 +261,6 @@ initBlockTestContext tp@TestParams {..} callback = do
             _gscSlogGState <- mkSlogGState
             btcTxpMem <- mkTxpLocalData
             let btcTxpGlobalSettings = txpGlobalSettings
-            let btcReportingContext = emptyReportingContext
             let btcSlotId = Nothing
             let btcParams = tp
             let btcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
@@ -420,8 +416,17 @@ instance HasLens TestParams BlockTestContext TestParams where
 instance HasLens SimpleSlottingStateVar BlockTestContext SimpleSlottingStateVar where
       lensOf = btcSSlottingStateVarL
 
-instance HasReportingContext BlockTestContext where
-    reportingContext = btcReportingContextL
+-- | Ignore reports.
+-- FIXME it's a bad sign that we even need this instance.
+-- The pieces of the software which the block generator uses should never
+-- even try to report.
+instance MonadReporting BlockTestMode where
+    report _ = pure ()
+
+-- | Ignore reports.
+-- FIXME it's a bad sign that we even need this instance.
+instance HasMisbehaviorMetrics BlockTestContext where
+    misbehaviorMetrics = lens (const Nothing) const
 
 instance HasSlottingVar BlockTestContext where
     slottingTimestamp = btcSystemStartL
@@ -499,9 +504,6 @@ instance HasConfiguration => MonadGState BlockTestMode where
 instance MonadBListener BlockTestMode where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
-
-instance MonadFormatPeers BlockTestMode where
-    formatKnownPeers _ = pure Nothing
 
 type instance MempoolExt BlockTestMode = EmptyMempoolExt
 

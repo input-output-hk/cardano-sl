@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Canonical encoding of 'GenesisData'.
 
 module Pos.Core.Genesis.Canonical
@@ -34,8 +36,8 @@ import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
 import           Pos.Core.Genesis.Helpers (recreateGenesisDelegation)
 import           Pos.Core.Genesis.Types (GenesisAvvmBalances (..), GenesisData (..),
                                          GenesisDelegation (..), GenesisNonAvvmBalances (..),
-                                         GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
-                                         GenesisProtocolConstants (..))
+                                         GenesisProtocolConstants (..),
+                                         GenesisVssCertificatesMap (..), GenesisWStakeholders (..))
 import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting.Types (EpochIndex (..), Timestamp (..))
 import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))

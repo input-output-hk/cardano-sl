@@ -5,6 +5,7 @@
 --   guarantees for them.
 module Pos.Wallet.Web.State.Transactions
     ( createAccountWithAddress
+    , createAccountWithAddress2
     , removeWallet2
     , applyModifierToWallet
     , applyModifierToWallet2
@@ -23,20 +24,30 @@ import           Pos.Core (Address, ChainDifficulty, ProtocolConstants)
 import           Pos.Core.Common (HeaderHash)
 import           Pos.Txp (TxId, UtxoModifier)
 import           Pos.Util.Servant (encodeCType)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta, CId, CTxId, CTxMeta, Wal)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta, CId, CTxId, CTxMeta, CWAddressMeta, Wal)
 import           Pos.Wallet.Web.Pending.Types (PtxCondition)
 import           Pos.Wallet.Web.State.Storage (Update)
 import qualified Pos.Wallet.Web.State.Storage as WS
 
--- | Create an account with an address.
+-- | Legacy version of `createAccountWithAddress2`.
 createAccountWithAddress
     :: AccountId
     -> CAccountMeta
-    -> WS.WAddressMeta
+    -> CWAddressMeta
     -> Update ()
 createAccountWithAddress accId accMeta addrMeta = do
     WS.createAccount accId accMeta
     WS.addWAddress addrMeta
+
+-- | Create an account with an address.
+createAccountWithAddress2
+    :: AccountId
+    -> CAccountMeta
+    -> WS.WAddressMeta
+    -> Update ()
+createAccountWithAddress2 accId accMeta addrMeta = do
+    WS.createAccount accId accMeta
+    WS.addWAddress2 addrMeta
 
 -- | Delete a wallet (and all associated data).
 --   Compared to the low-level 'removeWallet', this function:
@@ -74,7 +85,7 @@ applyModifierToWallet2 walId wAddrs custAddrs utxoMod
                       currentBlockchainDepth syncState = do
     case syncState of
         (WS.RestoringFrom rhh newSyncTip) -> do
-            for_ wAddrs WS.addWAddress
+            for_ wAddrs WS.addWAddress2
             for_ custAddrs $ \(cat, addrs) ->
                 for_ addrs $ \(addr, hash) ->
                                WS.addCustomAddress cat (WS.WAddrId addr, hash)
@@ -119,7 +130,7 @@ applyModifierToWallet
 applyModifierToWallet walId wAddrs custAddrs utxoMod
                       txMetas historyEntries ptxConditions
                       syncTip = do
-    for_ wAddrs WS.addWAddress
+    for_ wAddrs WS.addWAddress2
     for_ custAddrs $ \(cat, addrs) ->
         for_ addrs $ \(addr, hash) ->
                        WS.addCustomAddress cat (WS.WAddrId addr, hash)
@@ -147,7 +158,7 @@ rollbackModifierFromWallet2 pc walId wAddrs custAddrs utxoMod
                             syncState = do
     case syncState of
         (WS.RestoringFrom rhh newSyncTip) -> do
-            for_ wAddrs WS.removeWAddress
+            for_ wAddrs WS.removeWAddress2
             for_ custAddrs $ \(cat, addrs) ->
                 for_ addrs $ \(addr, hash) ->
                                WS.removeCustomAddress cat (WS.WAddrId addr, hash)
@@ -184,7 +195,7 @@ rollbackModifierFromWallet
 rollbackModifierFromWallet pc walId wAddrs custAddrs utxoMod
                            historyEntries ptxConditions
                            syncTip = do
-    for_ wAddrs WS.removeWAddress
+    for_ wAddrs WS.removeWAddress2
     for_ custAddrs $ \(cat, addrs) ->
         for_ addrs $ \(addr, hash) ->
                        WS.removeCustomAddress cat (WS.WAddrId addr, hash)

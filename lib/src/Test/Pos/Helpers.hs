@@ -1,6 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Test.Pos.Helpers
        (
        -- * From/to
@@ -64,7 +66,10 @@ cborCanonicalRep a = property $ do
     pure $ case out of
         -- perturbCanonicity may have not changed anything. Decoding can
         -- succeed in this case.
-        Right a' -> counterexample (show a') (sa == sa')
+        Right a' ->
+          counterexample (show a') $ counterexample (show sa) $ counterexample
+              (show sa')
+              (sa == sa')
         -- It didn't decode. The error had better be a canonicity violation.
         Left err -> counterexample (show err) (isCanonicityViolation err)
   where

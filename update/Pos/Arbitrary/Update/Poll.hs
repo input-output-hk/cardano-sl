@@ -1,5 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Arbitrary instances for Update System Poll types.
 
 module Pos.Arbitrary.Update.Poll () where

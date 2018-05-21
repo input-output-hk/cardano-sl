@@ -66,11 +66,10 @@ import           Pos.DB.Pure (DBPureVar)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Generator.Block (BlockGenMode)
 import qualified Pos.GState as GS
-import           Pos.KnownPeers (MonadFormatPeers (..), MonadKnownPeers (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Lrc (LrcContext)
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Reporting (HasReportingContext (..))
+import           Pos.Reporting (MonadReporting (..))
 import           Pos.Shutdown (HasShutdownContext (..), ShutdownContext (..))
 import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
                                SimpleSlottingStateVar, mkSimpleSlottingStateVar)
@@ -83,7 +82,6 @@ import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), T
                           txpMemPool, txpTip)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Util (postfixLFields)
-import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog.Events (HasJsonLogConfig (..), JsonLogConfig (..),
                                           MemPoolModifyReason, jsonLogDefault)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
@@ -109,7 +107,7 @@ import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext (..), BlockTestContextTag,
                                             HasTestParams (..), TestParams (..),
-                                            btcReportingContextL, btcSystemStartL, btcTxpMemL,
+                                            btcSystemStartL, btcTxpMemL,
                                             currentTimeSlottingTestDefault,
                                             getCurrentSlotBlockingTestDefault,
                                             getCurrentSlotInaccurateTestDefault,
@@ -305,9 +303,6 @@ instance HasUserSecret WalletTestContext where
 instance HasLens UpdateContext WalletTestContext UpdateContext where
       lensOf = wtcBlockTestContext_L . lensOf @UpdateContext
 
-instance HasReportingContext WalletTestContext where
-    reportingContext = wtcBlockTestContext_L . btcReportingContextL
-
 instance HasJsonLogConfig WalletTestContext where
     jsonLogConfig = lens (const JsonLogDisabled) const
 
@@ -341,12 +336,6 @@ instance HasConfiguration => MonadDB WalletTestMode where
 
 instance HasConfiguration => MonadGState WalletTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
-
-instance MonadFormatPeers WalletTestMode where
-    formatKnownPeers _ = pure Nothing
-
-instance MonadKnownPeers WalletTestMode where
-    updatePeersBucket _ _ = pure True
 
 ----------------------------------------------------------------------------
 -- Wallet instances
@@ -384,8 +373,6 @@ instance HasLens (StateLockMetrics MemPoolModifyReason) WalletTestContext (State
 
 instance WalletDbReader WalletTestContext WalletTestMode
 
--- TODO remove HasCompileInfo here
--- when getNewAddressWebWallet won't require MonadWalletWebMode
 instance HasConfigurations => MonadAddresses WalletTestMode where
     type AddrData WalletTestMode = (AccountId, PassPhrase)
     getNewAddress = getNewAddressWebWallet
@@ -397,7 +384,7 @@ instance MonadKeysRead WalletTestMode where
 instance MonadKeys WalletTestMode where
     modifySecret = modifySecretPureDefault
 
-instance (HasCompileInfo, HasConfigurations) => MonadTxHistory WalletTestMode where
+instance (HasConfigurations) => MonadTxHistory WalletTestMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
@@ -410,7 +397,7 @@ instance MonadUpdates WalletTestMode where
     waitForUpdate = waitForUpdateWebWallet
     applyLastUpdate = applyLastUpdateWebWallet
 
-instance (HasCompileInfo, HasConfigurations) => MonadBListener WalletTestMode where
+instance (HasConfigurations) => MonadBListener WalletTestMode where
     onApplyBlocks = onApplyBlocksWebWallet
     onRollbackBlocks = onRollbackBlocksWebWallet
 
@@ -422,15 +409,18 @@ instance HasConfiguration => MonadBlockchainInfo WalletTestMode where
 
 type instance MempoolExt WalletTestMode = WalletMempoolExt
 
-instance (HasCompileInfo, HasConfigurations)
+instance (HasConfigurations)
         => MonadTxpLocal (BlockGenMode WalletMempoolExt WalletTestMode) where
     txpNormalize = txNormalize
     txpProcessTx = txProcessTransactionNoLock
 
 
-instance (HasCompileInfo, HasConfigurations) => MonadTxpLocal WalletTestMode where
+instance (HasConfigurations) => MonadTxpLocal WalletTestMode where
     txpNormalize = txpNormalizeWebWallet
     txpProcessTx = txpProcessTxWebWallet
 
 submitTxTestMode :: TxAux -> WalletTestMode Bool
 submitTxTestMode txAux = True <$ (asks wtcSentTxs >>= atomically . flip STM.modifyTVar (txAux:))
+
+instance MonadReporting WalletTestMode where
+    report = const (pure ())

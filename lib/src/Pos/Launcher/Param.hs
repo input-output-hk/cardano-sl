@@ -19,7 +19,6 @@ import           Pos.Core (HasPrimaryKey (..))
 import           Pos.Crypto (SecretKey)
 import           Pos.DHT.Real.Param (KademliaParams)
 import           Pos.Network.Types (NetworkConfig)
-import           Pos.Reporting.MemState (HasReportServers (..))
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Ssc.Behavior (SscBehavior)
 import           Pos.Statistics (EkgParams, StatsdParams)
@@ -80,9 +79,6 @@ instance HasLens SscBehavior NodeParams SscBehavior where
 
 instance HasLens (NetworkConfig KademliaParams) NodeParams (NetworkConfig KademliaParams) where
     lensOf = npNetworkConfig_L
-
-instance HasReportServers NodeParams where
-    reportServers = npReportServers_L
 
 instance HasPrimaryKey NodeParams where
     primaryKey = npSecretKey_L

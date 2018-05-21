@@ -1,5 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Swagger instances
 
 module Pos.Wallet.Web.Swagger.Instances.Swagger where

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Slotting functions.
 
 module Pos.Core.Slotting.Util
@@ -30,9 +32,9 @@ import           Control.Monad.Except (MonadError (throwError))
 import           System.Random (Random (..))
 
 import           Pos.Core.Class (HasEpochIndex (..), HasEpochOrSlot (..), getEpochOrSlot)
-import           Pos.Core.ProtocolConstants (ProtocolConstants, pcEpochSlots)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants, epochSlots,
-                                                  slotSecurityParam, protocolConstants)
+                                                  protocolConstants, slotSecurityParam)
+import           Pos.Core.ProtocolConstants (ProtocolConstants, pcEpochSlots)
 import           Pos.Core.Slotting.Types (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
                                           LocalSlotIndex (..), SlotCount, SlotId (..), getSlotIndex)
 import           Pos.Util.Util (leftToPanic)

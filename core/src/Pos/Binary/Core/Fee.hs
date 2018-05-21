@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Binary instances for transaction fee data.
 
 module Pos.Binary.Core.Fee () where

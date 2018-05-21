@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Pos.Wallet.Aeson.ClientTypes
        (
        ) where
@@ -13,6 +15,7 @@ import           Servant.API.ContentTypes (NoContent (..))
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.Util (aesonError)
 import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CAccountId,
                                              CAccountInit, CAccountMeta, CAddress, CCoin,
                                              CFilePath (..), CHash, CId, CInitialized,
@@ -23,7 +26,6 @@ import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CA
                                              NewBatchPayment (..), SyncProgress, Wal)
 import           Pos.Wallet.Web.Error (WalletError)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent)
-import           Pos.Util.Util (aesonError)
 
 deriveJSON defaultOptions ''CAccountId
 deriveJSON defaultOptions ''CWAddressMeta

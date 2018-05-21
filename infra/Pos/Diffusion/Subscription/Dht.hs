@@ -18,8 +18,8 @@ import           Pos.Util.TimeWarp (addressToNodeId)
 import           Pos.Util.Trace (Trace, Severity (..), traceWith)
 
 
--- | This worker will update the known peers (via MonadKnownPeers) every time
--- the Kademlia peers change.
+-- | This worker will update the known peers every time the Kademlia peers
+-- change.
 dhtSubscriptionWorker
     :: forall pack .
        Trace IO (Severity, Text)

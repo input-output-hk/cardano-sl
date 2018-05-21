@@ -14756,7 +14756,7 @@ mainnet_wallet_linux64: &mainnet_wallet_linux64
   <<: *mainnet_full
   update:
     applicationName: csl-daedalus
-    applicationVersion: 0
+    applicationVersion: 6
     lastKnownBlockVersion:
       bvMajor: 0
       bvMinor: 1

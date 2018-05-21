@@ -256,11 +256,7 @@ writeUserPublicRelease up
     | otherwise = liftIO $ do
         writeRaw up
         case (up ^. upLock) of
-<<<<<<< HEAD
             Nothing   -> throwM UserPublicIncorrectLock
-=======
-            Nothing   -> throwString "writeUserPublicRelease: incorrect UserPublic lock"
->>>>>>> CHW, rebasing to latest develop.
             Just lock -> unlockFile lock
 
 -- | Helper for writing public to file

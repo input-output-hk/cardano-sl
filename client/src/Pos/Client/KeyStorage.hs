@@ -76,7 +76,7 @@ modifyPublicPureDefault f = do
 modifyPublicPureDefault :: HasKeysContext ctx m => (UserPublic -> UserPublic) -> m ()
 modifyPublicPureDefault f = do
     up <- view userPublic
-    void $ atomically $ modifyTVarS up (identity <%= f)
+    atomically $ STM.modifyTVar' up f
 
 modifySecretDefault :: HasKeysContext ctx m => (UserSecret -> UserSecret) -> m ()
 modifySecretDefault f = do

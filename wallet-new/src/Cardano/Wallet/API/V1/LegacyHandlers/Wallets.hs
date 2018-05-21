@@ -16,7 +16,6 @@ import qualified Pos.Wallet.Web.State as V0 (WalletSnapshot, askWalletSnapshot, 
 import           Pos.Wallet.Web.State (setWalletSyncTip, removeHistoryCache)
 import qualified Pos.Wallet.Web.State.Storage as V0
 
-import           Cardano.Crypto.Wallet (xpub)
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Errors
@@ -38,8 +37,6 @@ import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogi
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
 import           Servant
-import           Data.Maybe (fromJust)
-import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58)
 import           Test.QuickCheck (arbitrary, generate)
 
 -- | All the @Servant@ handlers for wallet-specific operations.

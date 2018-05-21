@@ -119,7 +119,6 @@ data TxError =
       -- ^ The safe signer at the specified address was not found
     | RemainingMoneyError
       -- ^ Problem with remaining money, for new unsigned transaction.
-<<<<<<< HEAD
     | SignedTxNotBase16Format
       -- ^ Externally-signed transaction is not in Base16-format.
     | SignedTxUnableToDecode !Text
@@ -128,8 +127,6 @@ data TxError =
       -- ^ Signature of externally-signed transaction is not in Base16-format.
     | SignedTxInvalidSignature !Text
       -- ^ Signature of externally-signed transaction is invalid.
-=======
->>>>>>> CHW, rebasing to latest develop.
     | GeneralTxError !Text
       -- ^ Parameter: description of the problem
     deriving (Show, Generic)
@@ -158,7 +155,6 @@ instance Buildable TxError where
         bprint ("Address "%build%" has no associated safe signer") addr
     build RemainingMoneyError =
         "Problem with remaining money, during creation of the new unsigned transaction"
-<<<<<<< HEAD
     build SignedTxNotBase16Format =
         "Externally-signed transaction is not in Base16-format."
     build (SignedTxUnableToDecode msg) =
@@ -167,14 +163,11 @@ instance Buildable TxError where
         "Signature of externally-signed transaction is not in Base16-format."
     build (SignedTxInvalidSignature msg) =
         bprint ("Signature of externally-signed transaction is invalid: "%stext) msg
-=======
->>>>>>> CHW, rebasing to latest develop.
     build (GeneralTxError msg) =
         bprint ("Transaction creation error: "%stext) msg
 
 isCheckedTxError :: TxError -> Bool
 isCheckedTxError = \case
-<<<<<<< HEAD
     NotEnoughMoney{}                   -> True
     NotEnoughAllowedMoney{}            -> True
     FailedToStabilize{}                -> False
@@ -187,16 +180,6 @@ isCheckedTxError = \case
     SignedTxSignatureNotBase16Format{} -> True
     SignedTxInvalidSignature{}         -> True
     GeneralTxError{}                   -> True
-=======
-    NotEnoughMoney{}        -> True
-    NotEnoughAllowedMoney{} -> True
-    FailedToStabilize{}     -> False
-    OutputIsRedeem{}        -> True
-    RedemptionDepleted{}    -> True
-    SafeSignerNotFound{}    -> True
-    RemainingMoneyError{}   -> True
-    GeneralTxError{}        -> True
->>>>>>> CHW, rebasing to latest develop.
 
 -----------------------------------------------------------------------------
 -- Tx creation

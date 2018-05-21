@@ -14287,6 +14287,7 @@ cardano-sl-block
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-crypto-test
+cardano-sl-db
 cardano-sl-delegation
 cardano-sl-infra
 cardano-sl-lrc
@@ -15721,6 +15722,7 @@ cpphs
 ];
 testHaskellDepends = [
 base
+bytestring
 cardano-sl
 cardano-sl-binary
 cardano-sl-block

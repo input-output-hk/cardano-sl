@@ -7847,8 +7847,8 @@ inherit (pkgs) mesa;};
              cardano-sl-wallet constraints containers data-default directory
              formatting hspec lens log-warper mtl QuickCheck
              quickcheck-instances safe-exceptions serokell-util servant
-             servant-server servant-swagger string-conv swagger2 text
-             text-format time universum unordered-containers
+             servant-server servant-swagger servant-swagger-ui string-conv
+             swagger2 text text-format time universum unordered-containers
            ];
            benchmarkHaskellDepends = [
              aeson async base bytestring cardano-sl-client cardano-sl-core

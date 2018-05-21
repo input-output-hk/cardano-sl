@@ -14,6 +14,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+                       Test.Pos.Util.Base16
                        Test.Pos.Util.Chrono
                        Test.Pos.Util.QuickCheck
                        Test.Pos.Util.Modifier
@@ -23,6 +24,7 @@ library
 
   build-depends:       QuickCheck
                      , base
+                     , base16-bytestring
                      , bytestring
                      , cardano-sl-util
                      , cryptonite

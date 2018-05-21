@@ -10,6 +10,7 @@ module Pos.Wallet.Web.Methods.Payment
        , newPayment
        , newPaymentBatch
        , newUnsignedTransaction
+       , submitSignedTransaction
        , getTxFee
        ) where
 
@@ -17,6 +18,7 @@ import           Universum
 
 import           Control.Monad.Except (runExcept)
 import qualified Data.Map as M
+import qualified Data.Vector as V
 import           Data.Time.Units (Second)
 import           Mockable (Concurrently, Delay, Mockable, concurrently, delay)
 import           Servant.Server (err403, err405, errReasonPhrase)
@@ -31,10 +33,10 @@ import           Pos.Client.Txp.Network (prepareMTx, prepareUnsignedTx)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee, runTxCreator)
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (Address, Coin, HasConfiguration, TxAux (..), TxOut (..), Tx (..),
-                           getCurrentTimestamp)
-import           Pos.Core.Txp (_txOutputs)
-import           Pos.Crypto (PassPhrase, SafeSigner, ShouldCheckPassphrase (..), checkPassMatches,
-                             hash, withSafeSignerUnsafe)
+                           TxInWitness (..), TxSigData (..), getCurrentTimestamp)
+import           Pos.Crypto (PassPhrase, PublicKey (..), SafeSigner, Signature (..),
+                             ShouldCheckPassphrase (..),
+                             checkPassMatches, hash, withSafeSignerUnsafe)
 import           Pos.DB (MonadGState)
 import           Pos.Txp (TxFee (..), Utxo)
 import           Pos.Util (eitherToThrow, maybeThrow)
@@ -252,6 +254,7 @@ sendMoney submitTx passphrase moneySource dstDistr policy = do
     diff <- getCurChainDifficulty
     fst <$> constructCTx ws' srcWallet srcWalletAddrsDetector diff th
 
+-- | Create new raw transaction which will be signed externally (for example, by Ledger device).
 createNewUnsignedTransaction
     :: (MonadWalletTxFull ctx m)
     => MoneySource
@@ -278,13 +281,66 @@ createNewUnsignedTransaction moneySource dstDistr policy = do
     _ <- getSomeMoneySourceAccount ws moneySource
     outputs <- coinDistrToOutputs dstDistr
     let pendingAddrs = getPendingAddresses ws policy
-    tx <- rewrapTxError "Cannot create unsigned transaction" $
+    rewrapTxError "Cannot create unsigned transaction" $
         prepareUnsignedTx pendingAddrs policy srcAddrs outputs >>= \case
             Left txError ->
                 throwM (RequestError $ show txError)
             Right (tx, _) ->
                 return tx
-    return tx
+
+-- | Submit externally-signed transaction to the blockchain.
+submitSignedTransaction
+    :: MonadWalletTxFull ctx m
+    => (TxAux -> m Bool)
+    -> PublicKey
+    -> CId Wal
+    -> Tx
+    -> Signature TxSigData
+    -> m CTx
+submitSignedTransaction submitTx publicKey srcWalletId tx signature = do
+    when walletTxCreationDisabled $
+        throwM err405
+        { errReasonPhrase = "Transaction creation (including externally-signed one) is disabled by configuration!"
+        }
+
+    db <- askWalletDB
+    ws <- getWalletSnapshot db
+
+    when (isWalletRestoring ws srcWalletId) $
+        throwM err403
+        { errReasonPhrase = "Transaction creation is disabled when the wallet is restoring."
+        }
+
+    let moneySource = WalletMoneySource srcWalletId
+    addrMetas' <- getMoneySourceAddresses ws moneySource
+    _ <- nonEmpty addrMetas' `whenNothing`
+        throwM (RequestError "Given money source has no addresses!")
+
+    th <- rewrapTxError "Cannot send externally-signed transaction" $ do
+        let outputs = toList $ _txOutputs tx
+            inputs  = toList $ _txInputs tx
+            witness = V.fromList $ map (\_ -> PkWitness publicKey signature) inputs
+            txAux   = TxAux tx witness
+
+        ts <- Just <$> getCurrentTimestamp
+        let dstAddrs = map txOutAddress outputs
+            -- Technically, we don't need a hash because we already have
+            -- a signature (from external wallet), but 'THEntry' requires a hash.
+            txHash   = hash tx
+            th       = THEntry txHash tx Nothing outputs dstAddrs ts
+
+        ptx <- mkPendingTx ws srcWalletId txHash txAux th
+
+        th <$ submitAndSaveNewPtx db submitTx ptx
+
+    -- We add TxHistoryEntry's meta created by us in advance
+    -- to make TxHistoryEntry in CTx consistent with entry in history.
+    _ <- addHistoryTxMeta db srcWalletId th
+    ws' <- getWalletSnapshot db
+    let srcWalletAddrsDetector = getWalletAddrsDetector ws' Ever srcWalletId
+
+    diff <- getCurChainDifficulty
+    fst <$> constructCTx ws' srcWalletId srcWalletAddrsDetector diff th
 
 ----------------------------------------------------------------------------
 -- Utilities

@@ -69,6 +69,7 @@ data WalletError =
     | AddressNotFound
     | TxFailedToStabilize
     | UnsignedTxCreationError
+    | SignedTxSubmitError { weProblem :: !Text }
     | TxRedemptionDepleted
     | TxSafeSignerNotFound { weAddress :: V1 Core.Address }
     | MissingRequiredParams { requiredParams :: NonEmpty (Text, Text) }
@@ -192,6 +193,8 @@ describe = \case
          "The node is still syncing with the blockchain, and cannot process the request yet."
     UnsignedTxCreationError ->
          "Unable to create unsigned transaction for an external wallet."
+    SignedTxSubmitError _ ->
+         "Unable to submit externally-signed transaction."
     TxRedemptionDepleted ->
          "The redemption address was already used."
     TxSafeSignerNotFound _ ->
@@ -231,6 +234,8 @@ toServantError err =
         TxFailedToStabilize{} ->
             err500
         UnsignedTxCreationError{} ->
+            err500
+        SignedTxSubmitError{} ->
             err500
         TxRedemptionDepleted{} ->
             err400

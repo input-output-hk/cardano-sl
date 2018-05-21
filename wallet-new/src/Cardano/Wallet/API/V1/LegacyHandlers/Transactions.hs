@@ -2,7 +2,10 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Transactions where
 
 import           Universum
 import qualified Serokell.Util.Base16 as B16
+import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58)
+import           Data.Maybe (fromJust)
 
+import           Cardano.Crypto.Wallet (xpub, xsignature)
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Errors
@@ -12,11 +15,12 @@ import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import           Cardano.Wallet.API.V1.Types
 import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List.NonEmpty as NE
-import           Pos.Binary.Class (serialize')
+import           Pos.Binary.Class (decodeFull', serialize')
 import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
 import qualified Pos.Client.Txp.Util as V0
-import           Pos.Core (TxAux)
+import           Pos.Core (TxAux, TxSigData, Tx)
 import qualified Pos.Core as Core
+import           Pos.Crypto (Signature (..), PublicKey (..))
 import           Pos.Util (eitherToThrow)
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -26,7 +30,6 @@ import qualified Pos.Wallet.Web.Methods.Txp as V0
 import qualified Pos.Wallet.Web.State as V0
 import qualified Pos.Wallet.Web.Util as V0
 import           Servant
-import           Test.QuickCheck (arbitrary, generate)
 
 handlers :: ( HasConfigurations
             , HasCompileInfo
@@ -122,19 +125,58 @@ newUnsignedTransaction pmt@Payment {..} = do
     pure $ single rawTx
 
 
+-- | It is assumed that we received a transaction which was signed
+-- on the client side (mobile client or hardware wallet).
+-- Now we have to submit this transaction as usually.
 newSignedTransaction
     :: forall ctx m . (V0.MonadWalletTxFull ctx m)
     => (TxAux -> m Bool)
     -> SignedTransaction
     -> m (WalletResponse Transaction)
-newSignedTransaction _ SignedTransaction {..} = do
-    -- It is assumed that we received a transaction which was signed on the
-    -- client side (mobile client or hardware wallet).
-    -- Now we have to submit it as usually.
-    --
-    -- It's just a stub instead of 'undefined'.
-    fakeTransaction <- liftIO $ generate arbitrary
-    pure $ single fakeTransaction
+newSignedTransaction submitTx (SignedTransaction encodedExtPubKey txAsHex signatureAsHex) = do
+    publicKey <- makePublicKeyFrom encodedExtPubKey
+    let walletId = makeWalletIdFrom publicKey
+
+    txRaw <- case B16.decode txAsHex of
+        Left problem ->
+            throwM (SignedTxSubmitError $ "Invalid transaction, it's not Base16 format: " <> toText problem)
+        Right txRaw -> return txRaw
+
+    tx <- case decodeFull' txRaw of
+        Left problem ->
+            throwM (SignedTxSubmitError $ "Invalid transaction, unable to deserialize: " <> toText problem)
+        Right (tx :: Tx) -> return tx
+
+    signature <- case B16.decode signatureAsHex of
+        Left problem ->
+            throwM (SignedTxSubmitError $ "Invalid signature, it's not Base16 format: " <> toText problem)
+        Right signatureItself ->
+            case xsignature signatureItself of
+                Left problem ->
+                    throwM (SignedTxSubmitError $ "Invalid signature: " <> toText problem)
+                Right realSignature -> do
+                    let signature :: Signature TxSigData
+                        signature = Signature realSignature
+                    return signature
+
+    -- Submit signed transaction as pending one.
+    cTx <- V0.submitSignedTransaction submitTx publicKey walletId tx signature
+    single <$> migrate cTx
+  where
+    makePublicKeyFrom encodedXPub = do
+        let rawExtPubKey = decodeBase58 bitcoinAlphabet . encodeUtf8 $ encodedXPub
+        when (isNothing rawExtPubKey) $
+            throwM (UnknownError "Ext public key is not in proper Base58-form.")
+
+        let extPubKey = xpub $ fromJust rawExtPubKey
+        when (isLeft extPubKey) $ do
+            let (problem:_) = lefts [extPubKey]
+            throwM (UnknownError $ "Invalid ext public key: " <> toText problem)
+
+        let (xPub:_) = rights [extPubKey] -- We already know that it's 'Right'.
+        return $ PublicKey xPub
+
+    makeWalletIdFrom pubKey = V0.encodeCType . Core.makePubKeyAddressBoot $ pubKey
 
 -- | helper function to reduce code duplication
 createBatchPayment

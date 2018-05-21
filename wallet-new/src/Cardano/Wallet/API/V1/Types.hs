@@ -1514,8 +1514,9 @@ instance BuildableSafeGen RawTransaction where
 -- that this transaction was signed on the client-side
 -- (mobile client or hardware wallet).
 data SignedTransaction = SignedTransaction
-  { stxTransaction :: !Text  -- ^ Encoded transaction CBOR binary blob.
-  , stxSignature   :: !Text  -- ^ Encoded signature of this transaction (XSignature).
+  { stxExtPubKey   :: !Text  -- ^ Base58-encoded extended public key of the source wallet.
+  , stxTransaction :: !Text  -- ^ Hex-encoded transaction CBOR binary blob.
+  , stxSignature   :: !Text  -- ^ Hex-encoded signature of this transaction (XSignature).
   } deriving (Show, Ord, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''SignedTransaction
@@ -1523,6 +1524,7 @@ deriveJSON Serokell.defaultOptions ''SignedTransaction
 instance ToSchema SignedTransaction where
   declareNamedSchema =
     genericSchemaDroppingPrefix "stx" (\(--^) props -> props
+      & ("extPubKey"   --^ "Extended public key of the wallet we'll send money from.")
       & ("transaction" --^ "New transaction that wasn't published yet.")
       & ("signature"   --^ "Signature of this transaction.")
     )
@@ -1530,13 +1532,16 @@ instance ToSchema SignedTransaction where
 instance Arbitrary SignedTransaction where
   arbitrary = SignedTransaction <$> arbitrary
                                 <*> arbitrary
+                                <*> arbitrary
 
 deriveSafeBuildable ''SignedTransaction
 instance BuildableSafeGen SignedTransaction where
     buildSafeGen sl SignedTransaction{..} = bprint ("{"
+        %" extPubKey="%buildSafe sl
         %" transaction="%buildSafe sl
         %" signature="%buildSafe sl
         %" }")
+        stxExtPubKey
         stxTransaction
         stxSignature
 

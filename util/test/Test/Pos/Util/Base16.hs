@@ -55,4 +55,6 @@ lineWrapBS n s = LB.intercalate "\n" $ chunkBS n s
 chunkBS :: Int64 -> LB.ByteString -> [LB.ByteString]
 chunkBS n xs = case LB.uncons xs of
     Nothing -> []
-    Just _  -> LB.take n xs : chunkBS n (LB.drop n xs)
+    Just _  ->
+        let (taken, dropped) = LB.splitAt n xs
+        in  taken : chunkBS n dropped

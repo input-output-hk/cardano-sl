@@ -125,14 +125,14 @@ signed by the same authority provided to the server.
 Additionally, to try things out on Unix systems, you may use `curl` as follows:
 
 ```
-$ curl -v --ca-cert ./tls/client/ca.crt --cert ./tls/client/client.crt --key ./tls/client/client.key <url>
+$ curl -v --cacert ./tls/client/ca.crt --cert ./tls/client/client.crt --key ./tls/client/client.key <url>
 ```
 
 Alternatively with `curl`, you may use the `.pem` file as a shortcut to provide the key and
 certificate at once:
 
 ```
-$ curl -v --ca-cert ./tls/client/ca.crt --cert ./tls/client/client.pem <url>
+$ curl -v --cacert ./tls/client/ca.crt --cert ./tls/client/client.pem <url>
 ```
 
 Verify that the connection is correctly setup and that TLS is enabled by looking at the output:

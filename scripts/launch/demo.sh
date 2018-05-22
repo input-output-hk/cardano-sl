@@ -168,7 +168,6 @@ while [[ $i -lt $panesCnt ]]; do
   if [[ $i -lt $n ]]; then
     node_args="$(node_cmd $i "$wallet_args" "$system_start" "$config_dir" "$conf_file" "$run_dir" "$run_dir/logs")"
     node_=$(find_binary $exec_name)
-    x509GenTool=$(find_binary cardano-x509-certificates)
     if [[ $WALLET_TEST != "" ]] && [[ $i -ge $((n-2)) ]]; then
         updater_file="$config_dir/updater$i.sh"
         launcher_=$(find_binary cardano-launcher)

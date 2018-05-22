@@ -6934,14 +6934,14 @@ inherit (pkgs) mesa;};
       "cardano-sl" = callPackage
         ({ mkDerivation, aeson, ansi-terminal, ansi-wl-pprint, async, base
          , bytestring, canonical-json, cardano-crypto, cardano-sl-binary
-         , cardano-sl-block, cardano-sl-core, cardano-sl-crypto
-         , cardano-sl-crypto-test, cardano-sl-db, cardano-sl-delegation
-         , cardano-sl-infra, cardano-sl-lrc, cardano-sl-networking
-         , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
-         , cardano-sl-util, cardano-sl-util-test, cborg, cereal, conduit
-         , constraints, containers, contravariant, cpphs, criterion
-         , cryptonite, data-default, directory, ed25519, ekg-core, ether
-         , exceptions, extra, filelock, filepath, fmt, formatting
+         , cardano-sl-binary-test, cardano-sl-block, cardano-sl-core
+         , cardano-sl-crypto, cardano-sl-crypto-test, cardano-sl-db
+         , cardano-sl-delegation, cardano-sl-infra, cardano-sl-lrc
+         , cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp
+         , cardano-sl-update, cardano-sl-util, cardano-sl-util-test, cborg
+         , cereal, conduit, constraints, containers, contravariant, cpphs
+         , criterion, cryptonite, data-default, directory, ed25519, ekg-core
+         , ether, exceptions, extra, filelock, filepath, fmt, formatting
          , generic-arbitrary, hashable, hspec, lens, log-warper, mmorph
          , monad-control, mtl, neat-interpolation, network
          , network-transport, optparse-applicative, parsec, plutus-prototype
@@ -6959,9 +6959,10 @@ inherit (pkgs) mesa;};
            configureFlags = [ "--ghc-option=-Werror" ];
            libraryHaskellDepends = [
              aeson ansi-terminal ansi-wl-pprint async base bytestring
-             canonical-json cardano-crypto cardano-sl-binary cardano-sl-block
-             cardano-sl-core cardano-sl-crypto cardano-sl-crypto-test
-             cardano-sl-db cardano-sl-delegation cardano-sl-infra cardano-sl-lrc
+             canonical-json cardano-crypto cardano-sl-binary
+             cardano-sl-binary-test cardano-sl-block cardano-sl-core
+             cardano-sl-crypto cardano-sl-crypto-test cardano-sl-db
+             cardano-sl-delegation cardano-sl-infra cardano-sl-lrc
              cardano-sl-networking cardano-sl-ssc cardano-sl-txp
              cardano-sl-update cardano-sl-util cardano-sl-util-test cborg cereal
              conduit constraints containers contravariant cpphs cryptonite
@@ -6976,15 +6977,15 @@ inherit (pkgs) mesa;};
              universum unix unliftio unordered-containers wai warp warp-tls yaml
            ];
            testHaskellDepends = [
-             base bytestring cardano-crypto cardano-sl-binary cardano-sl-block
-             cardano-sl-core cardano-sl-crypto cardano-sl-crypto-test
-             cardano-sl-delegation cardano-sl-infra cardano-sl-lrc
-             cardano-sl-networking cardano-sl-ssc cardano-sl-txp
-             cardano-sl-update cardano-sl-util cardano-sl-util-test cborg
-             containers cryptonite data-default extra filelock fmt formatting
-             generic-arbitrary hspec lens mtl pvss QuickCheck random reflection
-             safecopy serokell-util tagged text text-format time-units universum
-             unordered-containers vector
+             base bytestring cardano-crypto cardano-sl-binary
+             cardano-sl-binary-test cardano-sl-block cardano-sl-core
+             cardano-sl-crypto cardano-sl-crypto-test cardano-sl-delegation
+             cardano-sl-infra cardano-sl-lrc cardano-sl-networking
+             cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
+             cardano-sl-util-test cborg containers cryptonite data-default extra
+             filelock fmt formatting generic-arbitrary hspec lens mtl pvss
+             QuickCheck random reflection safecopy serokell-util tagged text
+             text-format time-units universum unordered-containers vector
            ];
            benchmarkHaskellDepends = [
              aeson base cardano-sl-block cardano-sl-core cardano-sl-crypto
@@ -7067,6 +7068,24 @@ inherit (pkgs) mesa;};
            libraryToolDepends = [ cpphs ];
            doHaddock = false;
            description = "Cardano SL - binary serialization";
+           license = stdenv.lib.licenses.mit;
+         }) {};
+      "cardano-sl-binary-test" = callPackage
+        ({ mkDerivation, base, bytestring, cardano-sl-util, cpphs
+         , cryptonite, formatting, half, mtl, QuickCheck
+         , quickcheck-instances, stdenv, tagged, text, universum
+         }:
+         mkDerivation {
+           pname = "cardano-sl-binary-test";
+           version = "1.1.0";
+           src = ./../binary/test;
+           libraryHaskellDepends = [
+             base bytestring cardano-sl-util cryptonite formatting half mtl
+             QuickCheck quickcheck-instances tagged text universum
+           ];
+           libraryToolDepends = [ cpphs ];
+           doHaddock = false;
+           description = "Cardano SL - binary serializarion (tests)";
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-block" = callPackage

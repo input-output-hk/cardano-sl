@@ -482,6 +482,7 @@ test-suite wallet-unit-tests
                     , QuickCheck
                     , quickcheck-instances
                     , safe-exceptions
+                    , reflection
                     , serokell-util
                     , servant-server
                     , tabl

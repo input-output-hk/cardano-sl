@@ -42,7 +42,8 @@ utxoToStakes :: HasGenesisData => Utxo -> StakesMap
 utxoToStakes = foldl' putDistr mempty . M.toList
   where
     plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
-    putDistr hm (_, TxOutAux txOut) = foldl' plusAt hm (txOutStake txOut)
+    putDistr hm (_, TxOutAux txOut) =
+        foldl' plusAt hm (txOutStake (gdBootStakeholders genesisData) txOut)
 
 utxoToAddressCoinPairs :: Utxo -> [(Address, Coin)]
 utxoToAddressCoinPairs utxo = combineWith unsafeAddCoin txOuts

@@ -62,7 +62,7 @@ runNode' NodeResources {..} workers' plugins' = \diffusion -> do
     logInfo $ sformat
         ("Genesis stakeholders ("%int%" addresses, dust threshold "%build%"): "%build)
         (length $ getGenesisWStakeholders genesisStakeholders)
-        bootDustThreshold
+        (bootDustThreshold genesisStakeholders)
         genesisStakeholders
 
     let genesisDelegation = gdHeavyDelegation genesisData

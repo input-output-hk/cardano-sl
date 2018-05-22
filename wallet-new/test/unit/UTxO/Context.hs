@@ -57,11 +57,11 @@ import           UTxO.Crypto
 
 -- | The information returned by core
 data CardanoContext = CardanoContext {
-      ccStakes   :: StakesMap
-    , ccBlock0   :: GenesisBlock
-    , ccData     :: GenesisData
-    , ccUtxo     :: Utxo
-    , ccSecrets  :: GeneratedSecrets
+      ccStakes      :: StakesMap
+    , ccBlock0      :: GenesisBlock
+    , ccData        :: GenesisData
+    , ccUtxo        :: Utxo
+    , ccSecrets     :: GeneratedSecrets
 
       -- | Initial stake distribution
     , ccInitLeaders :: SlotLeaders
@@ -69,12 +69,12 @@ data CardanoContext = CardanoContext {
       -- | Initial balances
       --
       -- Derived from 'ccUtxo'.
-    , ccBalances :: [(Address, Coin)]
+    , ccBalances    :: [(Address, Coin)]
 
       -- | Hash of block0
       --
       -- NOTE: Derived from 'ccBlock0', /not/ the same as 'genesisHash'.
-    , ccHash0    :: HeaderHash
+    , ccHash0       :: HeaderHash
     }
 
 initCardanoContext :: HasConfiguration => ProtocolMagic -> CardanoContext
@@ -87,6 +87,7 @@ initCardanoContext pm = CardanoContext{..}
     ccUtxo     = unGenesisUtxo genesisUtxo
     ccSecrets  = fromMaybe (error "initCardanoContext: secrets unavailable") $
                  generatedSecrets
+    ccInitLeaders = ccLeaders
 
     ccBalances = utxoToAddressCoinPairs ccUtxo
     ccHash0    = (blockHeaderHash . BlockHeaderGenesis . _gbHeader) ccBlock0

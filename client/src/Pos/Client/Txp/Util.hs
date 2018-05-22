@@ -318,21 +318,26 @@ plainInputPicker (PendingAddresses pendingAddrs) utxo _outputs moneyToSpent =
     evalStateT (pickInputs []) (InputPickerState moneyToSpent sortedUnspent)
   where
     onlyConfirmedInputs :: Set.Set Address -> (TxIn, TxOutAux) -> Bool
-    onlyConfirmedInputs addrs (_, (TxOutAux (TxOut addr _))) = not (addr `Set.member` addrs)
+    onlyConfirmedInputs addrs (_, (TxOutAux (TxOut addr _))) =
+        not (addr `Set.member` addrs)
     --
-    -- NOTE (adinapoli, kantp) Under certain circumstances, it's still possible for the `confirmed` set
-    -- to be exhausted and for the utxo to be picked from the `unconfirmed`, effectively allowing for the
-    -- old "slow" behaviour which could create linear chains of dependent transactions which can then be
-    -- submitted to relays and possibly fail to be accepted if they arrive in an out-of-order fashion,
-    -- effectively piling up in the mempool of the edgenode and in need to be resubmitted.
-    -- However, this policy significantly reduce the likelyhood of such edge case to happen, as for exchanges
-    -- the `confirmed` set would tend to be quite big anyway.
-    -- We should revisit such policy and its implications during a proper rewrite.
+    -- NOTE (adinapoli, kantp) Under certain circumstances, it's still possible
+    -- for the `confirmed` set to be exhausted and for the utxo to be picked
+    -- from the `unconfirmed`, effectively allowing for the old "slow" behaviour
+    -- which could create linear chains of dependent transactions which can then
+    -- be submitted to relays and possibly fail to be accepted if they arrive in
+    -- an out-of-order fashion, effectively piling up in the mempool of the
+    -- edgenode and in need to be resubmitted.  However, this policy
+    -- significantly reduce the likelyhood of such edge case to happen, as for
+    -- exchanges the `confirmed` set would tend to be quite big anyway.  We
+    -- should revisit such policy and its implications during a proper rewrite.
     --
-    -- NOTE (adinapoli, kantp) There is another subtle corner case which involves such partitioning; it's now
-    -- in theory (by absurd reasoning) for the `confirmed` set to contain only dust, which would yes involve a
-    -- "high throughput" Tx but also a quite large one, bringing it closely to the "Toil too large" error
-    -- (The same malady the @OptimiseForSecurity@ policy was affected by).
+    -- NOTE (adinapoli, kantp) There is another subtle corner case which
+    -- involves such partitioning; it's now in theory (by absurd reasoning) for
+    -- the `confirmed` set to contain only dust, which would yes involve a "high
+    -- throughput" Tx but also a quite large one, bringing it closely to the
+    -- "Toil too large" error (The same malady the @OptimiseForSecurity@ policy
+    -- was affected by).
     sortedUnspent = confirmed ++ unconfirmed
 
     (confirmed, unconfirmed) =
@@ -349,8 +354,9 @@ plainInputPicker (PendingAddresses pendingAddrs) utxo _outputs moneyToSpent =
             mNextOut <- head <$> use ipsAvailableOutputs
             case mNextOut of
                 Nothing -> throwError $ NotEnoughMoney moneyLeft
-                Just inp@(_, (TxOutAux (TxOut {..}))) -> do
-                    ipsMoneyLeft .= unsafeSubCoin moneyLeft (min txOutValue moneyLeft)
+                Just inp@(_, (TxOutAux txOut)) -> do
+                    let moneyToSubtract = min (txOutValue txOut) moneyLeft
+                    ipsMoneyLeft .= unsafeSubCoin moneyLeft moneyToSubtract
                     ipsAvailableOutputs %= tail
                     pickInputs (inp : inps)
 

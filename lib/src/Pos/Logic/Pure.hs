@@ -130,7 +130,7 @@ mainBlock = UnsafeGenericBlock
     , _gbExtra  = extraBodyData
     }
 
-blockBody :: Body MainBlockchain
+blockBody :: MainBody
 blockBody = MainBody
     { _mbTxPayload     = emptyTxPayload
     , _mbSscPayload    = emptySscPayload
@@ -181,7 +181,7 @@ mainBlockHeader = UnsafeGenericBlockHeader
 mainBlockHeaderHash :: HeaderHash
 mainBlockHeaderHash = unsafeMkAbstractHash mempty
 
-bodyProof :: BodyProof MainBlockchain
+bodyProof :: MainProof
 bodyProof = MainProof
     { mpTxProof       = txProof
     , mpMpcProof      = sscProof
@@ -207,7 +207,7 @@ dlgProof = unsafeMkAbstractHash mempty
 updateProof :: UpdateProof
 updateProof = unsafeMkAbstractHash mempty
 
-consensusData :: ConsensusData MainBlockchain
+consensusData :: MainConsensusData
 consensusData = MainConsensusData
     { _mcdSlot       = slotId
     , _mcdLeaderKey  = publicKey

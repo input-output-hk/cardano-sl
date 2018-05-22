@@ -26,9 +26,9 @@ import           Pos.Core.Block (Block)
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
                                             GenericBlockHeader (..), gbExtra)
 import           Pos.Core.Block.Genesis (GenesisBlockchain)
-import           Pos.Core.Block.Main (Body (..), ConsensusData (..), MainBlockHeader,
-                                      MainBlockchain, MainExtraHeaderData (..), MainToSign (..),
-                                      mainBlockEBDataProof)
+import           Pos.Core.Block.Main (MainBlockHeader, MainBlockchain, MainBody (..),
+                                      MainConsensusData (..), MainExtraHeaderData (..), MainProof,
+                                      MainToSign (..), mainBlockEBDataProof)
 import           Pos.Core.Block.Union (BlockHeader (..), BlockSignature (..))
 import           Pos.Core.Class (IsMainHeader (..))
 import           Pos.Core.Configuration (HasProtocolMagic, protocolMagic, HasProtocolConstants)
@@ -45,7 +45,7 @@ import           Pos.Util.Some (Some (Some))
 -- | Verify a BlockHeader in isolation. There is nothing to be done for
 -- genesis headers.
 verifyBlockHeader
-    :: ( MonadError Text m, Bi (BodyProof MainBlockchain), HasProtocolMagic )
+    :: ( MonadError Text m, Bi MainProof, HasProtocolMagic )
     => BlockHeader
     -> m ()
 verifyBlockHeader (BlockHeaderGenesis _) = pure ()
@@ -55,7 +55,7 @@ verifyBlockHeader (BlockHeaderMain bhm)  = verifyMainBlockHeader bhm
 verifyBlock
     :: ( MonadError Text m
        , Bi BlockHeader
-       , Bi (BodyProof MainBlockchain)
+       , Bi MainProof
        , IsMainHeader MainBlockHeader
        , HasProtocolConstants
        , HasProtocolMagic
@@ -70,12 +70,12 @@ verifyGenesisBlock
     => GenericBlock GenesisBlockchain
     -> m ()
 verifyGenesisBlock UnsafeGenericBlock {..} =
-    checkBodyProof _gbBody (_gbhBodyProof _gbHeader)
+    checkBodyProof @GenesisBlockchain _gbBody (_gbhBodyProof _gbHeader)
 
 verifyMainBlock
     :: ( MonadError Text m
        , Bi BlockHeader
-       , Bi (BodyProof MainBlockchain)
+       , Bi MainProof
        , IsMainHeader MainBlockHeader
        , HasProtocolConstants
        , HasProtocolMagic
@@ -89,7 +89,7 @@ verifyMainBlock block@UnsafeGenericBlock {..} = do
     -- which is valid whenever it's well-formed.
     --
     -- Check internal consistency: the body proofs are all correct.
-    checkBodyProof _gbBody (_gbhBodyProof _gbHeader)
+    checkBodyProof @MainBlockchain _gbBody (_gbhBodyProof _gbHeader)
     -- Check that the headers' extra body data hash is correct.
     -- This isn't subsumed by the body proof check.
     unless (hash (block ^. gbExtra) == (block ^. mainBlockEBDataProof)) $
@@ -105,7 +105,7 @@ verifyMainBlock block@UnsafeGenericBlock {..} = do
 -- it's just a verification of its sub-components (payloads).
 verifyMainBody
     :: ( MonadError Text m, HasProtocolMagic )
-    => Body MainBlockchain
+    => MainBody
     -> m ()
 verifyMainBody MainBody {..} = do
     checkTxPayload _mbTxPayload
@@ -115,7 +115,7 @@ verifyMainBody MainBody {..} = do
 
 -- | Verify a main block header in isolation.
 verifyMainBlockHeader
-    :: ( MonadError Text m, Bi (BodyProof MainBlockchain), HasProtocolMagic )
+    :: ( MonadError Text m, Bi MainProof, HasProtocolMagic )
     => GenericBlockHeader MainBlockchain
     -> m ()
 verifyMainBlockHeader UnsafeGenericBlockHeader {..} = do
@@ -156,7 +156,7 @@ verifyMainBlockHeader UnsafeGenericBlockHeader {..} = do
 -- | Verify the consensus data in isolation.
 verifyMainConsensusData
     :: ( MonadError Text m )
-    => ConsensusData MainBlockchain
+    => MainConsensusData
     -> m ()
 verifyMainConsensusData MainConsensusData {..} = do
     when (selfSignedProxy _mcdSignature) $

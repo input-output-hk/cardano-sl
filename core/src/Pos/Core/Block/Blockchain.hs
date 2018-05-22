@@ -1,5 +1,5 @@
-{-# LANGUAGE Rank2Types   #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE Rank2Types          #-}
 
 -- | This module contains some general definitions related to blocks
 -- and headers. The heart of this module is 'Blockchain' type class.
@@ -48,9 +48,9 @@ import           Pos.Crypto (ProtocolMagic)
 -- different blockchains.
 class Blockchain p where
     -- | Proof of data stored in the body. Ensures immutability.
-    data BodyProof p :: *
+    type BodyProof p :: *
     -- | Consensus data which can be used to check consensus properties.
-    data ConsensusData p :: *
+    type ConsensusData p :: *
     -- | Whatever extra data.
     type ExtraHeaderData p :: *
     type ExtraHeaderData p = ()
@@ -62,7 +62,7 @@ class Blockchain p where
     type BHeaderHash p = HeaderHash
 
     -- | Body contains payload and other heavy data.
-    data Body p :: *
+    type Body p :: *
     -- | Whatever extra data.
     type ExtraBodyData p :: *
     type ExtraBodyData p = ()
@@ -78,7 +78,7 @@ class Blockchain p where
         (MonadError Text m, Buildable (BodyProof p), Eq (BodyProof p)) =>
         Body p -> BodyProof p -> m ()
     checkBodyProof body proof = do
-        let calculatedProof = mkBodyProof body
+        let calculatedProof = mkBodyProof @p body
         let errMsg =
                 sformat ("Incorrect proof of body. "%
                          "Proof in header: "%build%
@@ -99,13 +99,13 @@ class Blockchain p where
 data GenericBlockHeader b = UnsafeGenericBlockHeader
     { _gbhProtocolMagic :: !ProtocolMagic
       -- | Pointer to the header of the previous block.
-    , _gbhPrevBlock :: !(BHeaderHash b)
+    , _gbhPrevBlock     :: !(BHeaderHash b)
     , -- | Proof of body.
-      _gbhBodyProof :: !(BodyProof b)
+      _gbhBodyProof     :: !(BodyProof b)
     , -- | Consensus data to verify consensus algorithm.
-      _gbhConsensus :: !(ConsensusData b)
+      _gbhConsensus     :: !(ConsensusData b)
     , -- | Any extra data.
-      _gbhExtra     :: !(ExtraHeaderData b)
+      _gbhExtra         :: !(ExtraHeaderData b)
     } deriving (Generic)
 
 deriving instance
@@ -184,7 +184,7 @@ mkGenericHeader
 mkGenericHeader pm hashPrev body consensus extra =
     UnsafeGenericBlockHeader pm hashPrev proof (consensus proof) extra
   where
-    proof = mkBodyProof body
+    proof = mkBodyProof @b body
 
 -- | Smart constructor for 'GenericBlock'.
 -- "Smart" because it uses the 'mkGenericHeader' "smart" constructor.

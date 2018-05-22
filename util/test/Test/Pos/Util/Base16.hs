@@ -17,20 +17,29 @@ encode = lineWrapBS lineWrapLength . B16.encode
 -- offset (line wrapped every 16 bytes).
 encodeWithIndex :: LB.ByteString -> LB.ByteString
 encodeWithIndex bs
-    -- If the length of the ByteString is less than 16 (it hasn't been encoded
-    -- to base-16 yet so we're not checking for <= 32), then just 'encode'
-    -- rather than prepending the byte offsets.
+    -- If the length of the ByteString <= 16 (it hasn't been encoded to base-16
+    -- yet so we're not checking for <= 32), then just 'encode' rather than
+    -- prepending the byte offsets.
     | LB.length bs <= (lineWrapLength `div` 2) = encode bs
     | otherwise = LB.concat $ go 0 (chunkBS lineWrapLength $ B16.encode bs)
   where
     go :: Int64 -> [LB.ByteString] -> [LB.ByteString]
     go _   []     = []
     go acc (x:xs) =
-        LB.concat
-            [ (LB.pack $ printf "%08x: " acc)
-            , x
-            , "\n"
-            ] : go (acc + 16) xs
+        let numDigits = numByteOffsetDigits $ LB.length bs
+        in  LB.concat
+                [ (LB.pack $ printf "%0*x: " numDigits acc)
+                , x
+                , "\n"
+                ] : go (acc + 16) xs
+
+-- | Given the number of bytes of data, determine the number of digits required
+-- to represent the base-16 byte offset for a hexdump.
+numByteOffsetDigits :: Int64 -> Int64
+numByteOffsetDigits len
+    | len <= 0  = 0
+    | otherwise =
+        ceiling ((logBase (2 :: Double) $ fromIntegral len) / (4 :: Double))
 
 -- | The length at which our encoding functions will line wrap. We've chosen a
 -- length of 32 because we want only want to display 16 bytes of base-16

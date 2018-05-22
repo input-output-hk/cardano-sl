@@ -73,13 +73,13 @@ chunkBS n xs = case LB.uncons xs of
 
 -- | Decode a given ByteString which was originally encoded using 'encode' or
 -- 'encodeWithIndex'.
-decode :: LB.ByteString -> LB.ByteString
+decode :: LB.ByteString -> Maybe LB.ByteString
 decode bs
     -- No complex parsing is required for data whose length is <= 32.
-    | LB.length bs <= lineWrapLength = fst $ B16.decode bs
-    | otherwise = case PLB.eitherResult $ PLB.parse decodeParser bs of
-        Left l  -> error $ fromString l
-        Right r -> fst $ B16.decode $ LB.fromStrict $ BC.concat r
+    | LB.length bs <= lineWrapLength = Just $ fst $ B16.decode bs
+    | otherwise = case PLB.maybeResult $ PLB.parse decodeParser bs of
+        Nothing -> Nothing
+        Just r  -> Just $ fst $ B16.decode $ LB.fromStrict $ BC.concat r
 
 -- | Parser for several lines of data encoded using 'encode' or
 -- 'encodeWithIndex'.

@@ -86,7 +86,12 @@ instance (MonadReader r m, CanLog m) => MonadReader r (LoggerNameBox m) where
     local f (LoggerNameBox m) = askLoggerName >>= lift . local f . runReaderT m
 -}
 instance CanLog (LogContextT IO)
+instance CanLog m => CanLog (ReaderT s m)
+instance CanLog m => CanLog (StateT s m)
+instance CanLog m => CanLog (ExceptT s m)
+
 instance HasLoggerName (LogContextT IO)
+
 
 -- | log a Text with severity
 logMessage :: (LogContext m {-, HasCallStack -}) => Severity -> Text -> m ()
@@ -154,7 +159,9 @@ setupLogging :: Severity -> Text -> IO K.LogEnv
 setupLogging minSev name = do
     --hScribe <- K.mkHandleScribe K.ColorIfTerminal stdout (sev2klog minSev) K.V0
     hScribe <- mkStdoutScribe (sev2klog minSev) K.V0
-    K.registerScribe "stdout" hScribe K.defaultScribeSettings =<< K.initLogEnv (s2kname name) "production"
+    le <- K.registerScribe "stdout" hScribe K.defaultScribeSettings =<< K.initLogEnv (s2kname name) "production"
+    -- remember this K.LogEnv
+    return le
 
 -- | provide logging in IO
 usingLoggerName :: Severity -> LoggerName -> LogContextT IO a -> IO a

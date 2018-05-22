@@ -116,7 +116,7 @@ instance (MonadPollRead m) =>
             getDeepProposals cd
     getBlockIssuerStake e = lift . getBlockIssuerStake e
     getSlottingData = ether $ do
-        new <- pmSlottingData <$> get
+        new <- gets pmSlottingData
         maybe getSlottingData pure new
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}

@@ -324,8 +324,8 @@ generateRealTxHistE outputAddresses = do
     genTxs txOut = do
 
         _txInputs     <- NE.fromList <$> genTxIn
-        _txOutputs    <- pure $ NE.fromList txOut
-        _txAttributes <- pure (mkAttributes ())
+        let _txOutputs = NE.fromList txOut
+        let _txAttributes = mkAttributes ()
 
         pure $ UnsafeTx {..}
 

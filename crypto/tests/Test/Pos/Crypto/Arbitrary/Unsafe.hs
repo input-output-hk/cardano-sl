@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Unsafe arbitrary instances for crypto primitives.
 
 module Test.Pos.Crypto.Arbitrary.Unsafe () where
@@ -14,8 +16,10 @@ import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Crypto.Hashing (AbstractHash, HashAlgorithm, unsafeAbstractHash)
 import           Pos.Crypto.SecretSharing (VssKeyPair, VssPublicKey, deterministicVssKeyGen,
                                            toVssPublicKey)
+
 import           Pos.Crypto.Signing (PublicKey, SecretKey, SignTag, Signed, mkSigned)
-import           Pos.Util.QuickCheck.Arbitrary (ArbitraryUnsafe (..), arbitrarySizedS)
+
+import           Test.Pos.Util.QuickCheck.Arbitrary (ArbitraryUnsafe (..), arbitrarySizedS)
 
 instance ArbitraryUnsafe PublicKey where
     arbitraryUnsafe = Bi.unsafeDeserialize' . Bi.serialize' <$> arbitrarySizedS 64

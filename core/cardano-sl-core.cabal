@@ -17,6 +17,7 @@ flag asserts
   manual:      True
 
 library
+  hs-source-dirs:      src
   exposed-modules:
                        Pos.Arbitrary.Core
                        Pos.Arbitrary.Core.Unsafe
@@ -133,6 +134,7 @@ library
                      , cardano-sl-crypto-test
                      , cardano-sl-networking
                      , cardano-sl-util
+                     , cardano-sl-util-test
                      , cborg
                      , containers
                      , cryptonite
@@ -195,7 +197,6 @@ library
                        MonadFailDesugaring
 
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
 
   build-tools: cpphs >= 1.19
@@ -219,7 +220,7 @@ test-suite test
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
-                     , cardano-sl-util
+                     , cardano-sl-util-test
                      , formatting
                      , hspec
                      , QuickCheck
@@ -230,7 +231,6 @@ test-suite test
   ghc-options:         -threaded
                        -rtsopts
                        -Wall
-                       -fno-warn-orphans
 
   -- linker speed up for linux
   if os(linux)
@@ -264,4 +264,3 @@ test-suite test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-

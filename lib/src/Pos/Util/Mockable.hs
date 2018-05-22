@@ -1,6 +1,8 @@
 {-# LANGUAGE PolyKinds    #-}
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Orphan instances for mockable stuff.
 
 module Pos.Util.Mockable

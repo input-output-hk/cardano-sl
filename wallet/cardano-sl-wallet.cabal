@@ -179,8 +179,8 @@ library
 
   default-language:     Haskell2010
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
+                       -fwarn-redundant-constraints
 
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
@@ -252,9 +252,11 @@ test-suite cardano-wallet-test
                      , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl-util
+                     , cardano-sl-util-test
                      , cardano-sl-wallet
                      , containers
                      , data-default
+                     , deepseq
                      , ekg-core
                      , ether
                      , formatting
@@ -276,7 +278,6 @@ test-suite cardano-wallet-test
   ghc-options:         -threaded
                        -rtsopts
                        -Wall
-                       -fno-warn-orphans
 
   -- linker speed up for linux
   if os(linux)

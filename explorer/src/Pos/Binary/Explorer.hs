@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Binary instances for explorer types
 
 module Pos.Binary.Explorer () where

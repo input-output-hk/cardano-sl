@@ -1,6 +1,8 @@
--- | `Arbitrary` instances for using in tests and benchmarks
-
 {-# LANGUAGE ScopedTypeVariables #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
+-- | `Arbitrary` instances for using in tests and benchmarks
 
 module Test.Pos.Crypto.Arbitrary
        ( SharedSecrets (..)
@@ -36,8 +38,10 @@ import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey, Re
                                             redeemKeyGen, redeemSign)
 
 import           Pos.Util.Orphans ()
-import           Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), arbitraryUnsafe, runGen,
-                                                sublistN)
+
+import           Test.Pos.Util.Orphans ()
+import           Test.Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), arbitraryUnsafe, runGen,
+                                                     sublistN)
 
 import           Test.Pos.Crypto.Arbitrary.Unsafe ()
 

@@ -25,33 +25,21 @@ import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlo
                                           triggerRecovery)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (RecoveryHeaderTag)
-import           Pos.Communication.Protocol (NodeId, OutSpecs)
+import           Pos.Communication.Protocol (NodeId)
 import           Pos.Core (Block, HasGeneratedSecrets, HasGenesisBlockVersionData, HasGenesisData,
-                           HasGenesisHash, HasHeaderHash (..), HasProtocolConstants, HeaderHash,
-                           difficultyL, isMoreDifficult)
+                           HasGenesisHash, HasHeaderHash (..), HasProtocolConstants,
+                           HasProtocolMagic, HeaderHash, difficultyL, isMoreDifficult)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Diffusion.Types (Diffusion)
 import qualified Pos.Diffusion.Types as Diffusion (Diffusion (getBlocks))
-import           Pos.Reporting (reportOrLogE, reportOrLogW)
+import           Pos.Reporting (HasMisbehaviorMetrics, reportOrLogE, reportOrLogW)
 import           Pos.Util.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Util.Util (HasLens (..))
-import           Pos.Worker.Types (WorkerSpec, worker)
-
-retrievalWorker
-    :: ( BlockWorkMode ctx m
-       , HasGeneratedSecrets
-       , HasGenesisHash
-       , HasProtocolConstants
-       , HasGenesisBlockVersionData
-       , HasGenesisData
-       )
-    => (WorkerSpec m, OutSpecs)
-retrievalWorker = worker mempty retrievalWorkerImpl
 
 -- I really don't like join
-{-# ANN retrievalWorkerImpl ("HLint: ignore Use join" :: Text) #-}
+{-# ANN retrievalWorker ("HLint: ignore Use join" :: Text) #-}
 
 -- | Worker that queries blocks. It has two jobs:
 --
@@ -63,17 +51,19 @@ retrievalWorker = worker mempty retrievalWorkerImpl
 --
 -- If both happen at the same time, 'BlockRetrievalQueue' takes precedence.
 --
-retrievalWorkerImpl
+retrievalWorker
     :: forall ctx m.
        ( BlockWorkMode ctx m
        , HasGeneratedSecrets
        , HasGenesisHash
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGenesisBlockVersionData
        , HasGenesisData
+       , HasMisbehaviorMetrics ctx
        )
     => Diffusion m -> m ()
-retrievalWorkerImpl diffusion = do
+retrievalWorker diffusion = do
     logInfo "Starting retrievalWorker loop"
     mainLoop
   where
@@ -267,7 +257,9 @@ dropRecoveryHeader nodeId = do
 
 -- | Drops the recovery header and, if it was successful, queries the tips.
 dropRecoveryHeaderAndRepeat
-    :: (BlockWorkMode ctx m)
+    :: ( BlockWorkMode ctx m
+       , HasProtocolMagic
+       )
     => Diffusion m -> NodeId -> m ()
 dropRecoveryHeaderAndRepeat diffusion nodeId = do
     kicked <- dropRecoveryHeader nodeId
@@ -291,8 +283,10 @@ getProcessBlocks
        , HasGeneratedSecrets
        , HasGenesisBlockVersionData
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGenesisHash
        , HasGenesisData
+       , HasMisbehaviorMetrics ctx
        )
     => Diffusion m
     -> NodeId
@@ -312,7 +306,7 @@ getProcessBlocks diffusion nodeId desired checkpoints = do
           logDebug $ sformat
               ("Retrieved "%int%" blocks")
               (blocks ^. _OldestFirst . to NE.length)
-          handleBlocks nodeId blocks diffusion
+          handleBlocks blocks diffusion
           -- If we've downloaded any block with bigger
           -- difficulty than ncRecoveryHeader, we're
           -- gracefully exiting recovery mode.

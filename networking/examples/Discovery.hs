@@ -9,10 +9,12 @@
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Main where
 
-import           Control.Concurrent (ThreadId, threadDelay, forkIO, killThread)
-import           Control.Exception (throwIO, finally)
+import           Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
+import           Control.Exception (finally, throwIO)
 import           Control.Monad (forM, forM_, when)
 import           Data.Binary
 import qualified Data.ByteString as BS
@@ -68,7 +70,7 @@ worker anId generator discovery = pingWorker generator
                     received <- recv cactions maxBound
                     case received of
                         Just (Pong _) -> putStrLn $ show anId ++ " heard PONG from " ++ show addr
-                        Nothing -> error "Unexpected end of input"
+                        Nothing       -> error "Unexpected end of input"
             loop gen'
 
 listeners
@@ -117,7 +119,7 @@ main = do
     args <- getArgs
     number <- case args of
         [arg0] | Just number <- read arg0 -> return number
-        _ -> error "Input argument must be a number"
+        _                                 -> error "Input argument must be a number"
 
     when (number > 99 || number < 1) $ error "Give a number in [1,99]"
 

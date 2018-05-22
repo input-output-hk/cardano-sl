@@ -31,7 +31,6 @@ import           Data.Coerce (coerce)
 import qualified Data.List.NonEmpty as NE
 import           Data.Semigroup (Semigroup)
 import qualified GHC.Exts as IL
-import           Test.QuickCheck (Arbitrary)
 
 import           Pos.Binary.Class (Bi)
 
@@ -40,13 +39,13 @@ newtype NewestFirst f a = NewestFirst {getNewestFirst :: f a}
             Functor, Foldable, Traversable,
             ToList, Container,
             Binary, Bi,
-            Arbitrary, NFData)
+            NFData)
 newtype OldestFirst f a = OldestFirst {getOldestFirst :: f a}
   deriving (Eq, Ord, Show,
             Functor, Foldable, Traversable,
             ToList, Container,
             Binary, Bi,
-            Arbitrary, NFData)
+            NFData)
 
 makePrisms  ''NewestFirst
 makeWrapped ''NewestFirst
@@ -132,7 +131,7 @@ instance Chronological NewestFirst where
 
 filterChrono ::
   forall c f a.
-     (Chronological c, CC.ToList (f a), a ~ CC.Element (f a))
+     (Chronological c, CC.ToList (f a))
   => (a -> Bool)
   -> c f a
   -> c [] a
@@ -140,7 +139,7 @@ filterChrono f = chronologically (filter f . CC.toList)
 
 mapMaybeChrono ::
   forall c f a b.
-     (Chronological c, CC.ToList (f a), a ~ CC.Element (f a))
+     (Chronological c, CC.ToList (f a))
   => (a -> Maybe b)
   -> c f a
   -> c [] b
@@ -148,7 +147,7 @@ mapMaybeChrono f = chronologically (mapMaybe f . CC.toList)
 
 toListChrono ::
   forall c f a.
-     (Chronological c, CC.ToList (f a), a ~ CC.Element (f a))
+     (Chronological c, CC.ToList (f a))
   => c f a
   -> c [] a
 toListChrono = chronologically CC.toList

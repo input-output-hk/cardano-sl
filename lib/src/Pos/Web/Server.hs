@@ -2,6 +2,8 @@
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Web server.
 
 module Pos.Web.Server
@@ -19,16 +21,18 @@ import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
 import           Data.Aeson.TH (defaultOptions, deriveToJSON)
 import           Data.Default (Default)
+import           Data.Streaming.Network (bindPortTCP, bindRandomPortTCP)
 import           Mockable (Production (runProduction))
 import           Network.Wai (Application)
-import           Network.Wai.Handler.Warp (Settings, defaultSettings, setHost, setPort, getHost, runSettingsSocket)
-import           Network.Wai.Handler.WarpTLS (TLSSettings, tlsSettingsChain, runTLSSocket)
-import           Data.Streaming.Network      (bindRandomPortTCP, bindPortTCP)
+import           Network.Wai.Handler.Warp (Settings, defaultSettings, getHost, runSettingsSocket,
+                                           setHost, setPort)
+import           Network.Wai.Handler.WarpTLS (TLSSettings, runTLSSocket, tlsSettingsChain)
 import           Servant.API ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server (Handler, HasServer, ServantErr (errBody), Server, ServerT, err404,
                                  err503, hoistServer, serve)
 import           UnliftIO (MonadUnliftIO)
 
+import           Network.Socket (Socket, close)
 import           Pos.Aeson.Txp ()
 import           Pos.Context (HasNodeContext (..), HasSscContext (..), NodeContext, getOurPublicKey)
 import           Pos.Core (EpochIndex (..), SlotLeaders)
@@ -44,7 +48,6 @@ import           Pos.Txp.MemState (GenericTxpLocalData, MempoolExt, getLocalTxs,
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Web.Mode (WebMode, WebModeContext (..))
 import           Pos.WorkMode.Class (WorkMode)
-import           Network.Socket (close, Socket)
 
 import           Pos.Web.Api (HealthCheckApi, NodeApi, healthCheckApi, nodeApi)
 import           Pos.Web.Types (CConfirmedProposalState (..), TlsParams (..))

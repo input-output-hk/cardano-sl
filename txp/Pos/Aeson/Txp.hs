@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | JSON instances for txp datatypes.
 
 module Pos.Aeson.Txp where
@@ -19,7 +21,7 @@ import           Pos.Core (coinToInteger, decodeTextAddress, integerToCoin)
 import           Pos.Core.Txp (Tx, TxAux, TxIn (..), TxInWitness (..), TxOut (..), TxOutAux,
                                TxSigData)
 import           Pos.Crypto (decodeAbstractHash, hashHexF)
-import           Pos.Util.Util (toAesonError, aesonError)
+import           Pos.Util.Util (aesonError, toAesonError)
 
 txInFromText :: Text -> Either Text TxIn
 txInFromText t = case T.splitOn "_" t of

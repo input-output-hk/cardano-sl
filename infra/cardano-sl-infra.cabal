@@ -24,15 +24,19 @@ library
                         Pos.Diffusion.Subscription.Common
                         Pos.Diffusion.Subscription.Dns
                         Pos.Diffusion.Subscription.Dht
+                        Pos.Diffusion.Subscription.Subscriber
 
                         Pos.DHT.Workers
 
                         -- Reporting
                         Pos.Reporting
                         Pos.Reporting.Exceptions
+                        Pos.Reporting.Http
                         Pos.Reporting.MemState
                         Pos.Reporting.Methods
                         Pos.Reporting.Metrics
+                        Pos.Reporting.NodeInfo
+                        Pos.Reporting.Wlog
 
                         -- StateLock
                         Pos.StateLock
@@ -74,13 +78,9 @@ library
                         Pos.Communication.Relay.Logic
                         Pos.Communication.Relay.Types
                         Pos.Communication.Relay.Util
-                        Pos.Communication.Util
 
                         -- Health Checks
                         Pos.HealthCheck.Route53
-
-                        -- Known peers
-                        Pos.KnownPeers
 
                         -- Network topology
                         Pos.Network.DnsDomains
@@ -123,9 +123,6 @@ library
                         Pos.Util.Monitor
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
-
-                        -- Pos.Worker
-                        Pos.Worker.Types
 
   other-modules:        Paths_cardano_sl_infra
 
@@ -216,7 +213,6 @@ library
                        MonadFailDesugaring
 
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
 
   build-tools: cpphs >= 1.19

@@ -32,12 +32,12 @@ import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState,
                                  scCrucialValuesLabel, scDifficultyMonitorState,
                                  scEpochMonitorState, scGlobalSlotMonitorState,
                                  scLocalSlotMonitorState, slogGetLastSlots)
-import           Pos.Communication.Protocol (OutSpecs)
 import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, HasProtocolConstants,
                            SlotId (..), Timestamp (Timestamp), addressHash, blkSecurityParam,
                            difficultyL, epochOrSlotToSlot, epochSlots, flattenSlotId, gbHeader,
                            getEpochOrSlot, getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId,
-                           HasGeneratedSecrets, HasGenesisData, HasGenesisHash, HasGenesisBlockVersionData)
+                           HasGeneratedSecrets, HasGenesisData, HasGenesisHash, HasGenesisBlockVersionData,
+                           HasProtocolMagic)
 import           Pos.Crypto (ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import qualified Pos.DB.BlockIndex as DB
@@ -49,18 +49,18 @@ import qualified Pos.Diffusion.Types as Diffusion (Diffusion (announceBlockHeade
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
 import           Pos.Recovery.Info (getSyncStatus, getSyncStatusK, needTriggerRecovery,
                                     recoveryCommGuard)
-import           Pos.Reporting (MetricMonitor (..), MetricMonitorState, noReportMonitor,
+import           Pos.Reporting (MetricMonitor (..), MetricMonitorState,
+                                HasMisbehaviorMetrics, noReportMonitor,
                                 recordValue, reportOrLogE)
 import           Pos.Slotting (ActionTerminationPolicy (..), OnNewSlotParams (..),
-                               currentTimeSlotting, defaultOnNewSlotParams, getSlotStartEmpatically)
+                               currentTimeSlotting, defaultOnNewSlotParams,
+                               getSlotStartEmpatically, onNewSlot)
 import           Pos.Update.DB (getAdoptedBVData)
-import           Pos.Util (mconcatPair)
 import           Pos.Util.Chrono (OldestFirst (..))
 import           Pos.Util.JsonLog.Events (jlCreatedBlock)
 import           Pos.Util.LogSafe (logDebugS, logInfoS, logWarningS)
 import           Pos.Util.TimeLimit (logWarningSWaitLinear)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
-import           Pos.Worker.Types (Worker, WorkerSpec, onNewSlotWorker, worker)
 
 ----------------------------------------------------------------------------
 -- All workers
@@ -73,24 +73,24 @@ blkWorkers
        , HasGenesisHash
        , HasGenesisData
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGenesisBlockVersionData
+       , HasMisbehaviorMetrics ctx
        )
-    => ([WorkerSpec m], OutSpecs)
+    => [Diffusion m -> m ()]
 blkWorkers =
-    merge $ [ blkCreatorWorker
-            , informerWorker
-            , retrievalWorker
-            , recoveryTriggerWorker
-            ]
-  where
-    merge = mconcatPair . map (first pure)
+    [ blkCreatorWorker
+    , informerWorker
+    , retrievalWorker
+    , recoveryTriggerWorker
+    ]
 
 informerWorker
     :: ( BlockWorkMode ctx m
        , HasProtocolConstants
-    ) => (WorkerSpec m, OutSpecs)
+    ) => Diffusion m -> m ()
 informerWorker =
-    onNewSlotWorker defaultOnNewSlotParams mempty $ \slotId _ ->
+    \_ -> onNewSlot defaultOnNewSlotParams $ \slotId ->
         recoveryCommGuard "onNewSlot worker, informerWorker" $ do
             tipHeader <- DB.getTipHeader
             -- Printe tip header
@@ -114,13 +114,15 @@ informerWorker =
 blkCreatorWorker
     :: ( BlockWorkMode ctx m
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGeneratedSecrets
        , HasGenesisHash
        , HasGenesisData
        , HasGenesisBlockVersionData
-       ) => (WorkerSpec m, OutSpecs)
+       , HasMisbehaviorMetrics ctx
+       ) => Diffusion m -> m ()
 blkCreatorWorker =
-    onNewSlotWorker onsp mempty $ \slotId diffusion ->
+    \diffusion -> onNewSlot onsp $ \slotId ->
         recoveryCommGuard "onNewSlot worker, blkCreatorWorker" $
         blockCreator slotId diffusion `catchAny` onBlockCreatorException
   where
@@ -134,9 +136,11 @@ blockCreator
     :: ( BlockWorkMode ctx m
        , HasGeneratedSecrets
        , HasProtocolConstants
+       , HasProtocolMagic
        , HasGenesisHash
        , HasGenesisData
        , HasGenesisBlockVersionData
+       , HasMisbehaviorMetrics ctx
        )
     => SlotId -> Diffusion m -> m ()
 blockCreator (slotId@SlotId {..}) diffusion = do
@@ -207,10 +211,12 @@ onNewSlotWhenLeader
        , HasGenesisHash
        , HasGenesisBlockVersionData
        , HasProtocolConstants
+       , HasProtocolMagic
        )
     => SlotId
     -> ProxySKBlockInfo
-    -> Worker m
+    -> Diffusion m
+    -> m ()
 onNewSlotWhenLeader slotId pske diffusion = do
     let logReason =
             sformat ("I have a right to create a block for the slot "%slotIdF%" ")
@@ -245,19 +251,14 @@ onNewSlotWhenLeader slotId pske diffusion = do
 -- Recovery trigger worker
 ----------------------------------------------------------------------------
 
-recoveryTriggerWorker ::
-       forall ctx m. ( BlockWorkMode ctx m, HasProtocolConstants )
-    => (WorkerSpec m, OutSpecs)
-recoveryTriggerWorker =
-    worker mempty recoveryTriggerWorkerImpl
-
-recoveryTriggerWorkerImpl
+recoveryTriggerWorker
     :: forall ctx m.
        ( BlockWorkMode ctx m
        , HasProtocolConstants
+       , HasProtocolMagic
        )
     => Diffusion m -> m ()
-recoveryTriggerWorkerImpl diffusion = do
+recoveryTriggerWorker diffusion = do
     -- Initial heuristic delay is needed (the system takes some time
     -- to initialize).
     delay $ sec 3

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Arbitrary instances for Delegation types.
 
 module Pos.Arbitrary.Delegation
@@ -13,8 +15,8 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Arbitrary.Core ()
 import           Pos.Binary.Core ()
 import           Pos.Core (EpochIndex, HeavyDlgIndex (..))
-import           Pos.Crypto (ProtocolMagic, HasProtocolMagic, protocolMagic,
-                             ProxySecretKey (..), createPsk)
+import           Pos.Crypto (HasProtocolMagic, ProtocolMagic, ProxySecretKey (..), createPsk,
+                             protocolMagic)
 import           Pos.Delegation.Types (DlgPayload (..), DlgUndo (..))
 
 genDlgPayload :: ProtocolMagic -> EpochIndex -> Gen DlgPayload

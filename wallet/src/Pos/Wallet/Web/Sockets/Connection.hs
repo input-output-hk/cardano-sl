@@ -1,6 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE TypeFamilies        #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Module for websockets implementation of Daedalus API.
 -- This implements unidirectional sockets from server to client.
 -- Every message received from client will be ignored.
@@ -101,4 +103,3 @@ notifyAll msg = do
   var <- getWalletWebSockets
   conns <- readTVarIO var
   for_ (CS.listConnections conns) $ flip sendWS msg
-

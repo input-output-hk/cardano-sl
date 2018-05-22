@@ -1,4 +1,7 @@
 {-# LANGUAGE Rank2Types #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Proxy transformer for tracking updates for
 -- rollback. Single-threaded.
 

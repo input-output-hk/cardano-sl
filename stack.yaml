@@ -12,9 +12,11 @@ extra-package-dbs: []
 # ... → client → generator → [auxx, explorer, wallet] → wallet-new
 # ... → [node, tools]
 packages:
+- util
+- util/test
 - networking
 - binary
-- util
+- binary/test
 - crypto
 - crypto/tests
 - core
@@ -201,7 +203,7 @@ apply-ghc-options: everything
 
 # If you find it too restrictive, you can use `scripts/build/cardano-sl.sh' script
 ghc-options:
-  cardano-sl-util:       -Werror
+  cardano-sl-util:       -Werror -fwarn-redundant-constraints
   cardano-sl-core:       -Werror
   cardano-sl-db:         -Werror
   cardano-sl-ssc:        -Werror

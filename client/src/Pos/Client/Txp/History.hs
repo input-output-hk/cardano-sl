@@ -46,10 +46,8 @@ import           Pos.Crypto (WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
 import           Pos.DB.Block (getBlock)
 import qualified Pos.GState as GS
-import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Lrc.Genesis (genesisLeaders)
 import           Pos.Network.Types (HasNodeType)
-import           Pos.Reporting (HasReportingContext)
 import           Pos.Slotting (MonadSlots, getSlotStartPure, getSystemStartM)
 import           Pos.StateLock (StateLock, StateLockMetrics)
 import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure, Tx (..),
@@ -81,6 +79,15 @@ data TxHistoryEntry = THEntry
     , _thOutputAddrs :: ![Address]
     , _thTimestamp   :: !(Maybe Timestamp)
     } deriving (Show, Eq, Generic, Ord)
+
+instance NFData TxHistoryEntry where
+    rnf tx = _thTxId tx
+        `deepseq` _thTx tx
+        `deepseq` _thDifficulty tx
+        `deepseq` _thInputAddrs tx
+        `deepseq` _thOutputAddrs tx
+        `deepseq` _thTimestamp tx
+        `deepseq` ()
 
 -- | Remained for compatibility
 _thInputAddrs :: TxHistoryEntry -> [Address]
@@ -193,9 +200,7 @@ type TxHistoryEnv ctx m =
     , MonadTxpMem (MempoolExt m) ctx m
     , HasLens' ctx StateLock
     , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
-    , HasReportingContext ctx
     , Mockable CurrentTime m
-    , MonadFormatPeers m
     , HasNodeType ctx
     , CanJsonLog m
     )

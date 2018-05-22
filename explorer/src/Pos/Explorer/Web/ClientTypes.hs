@@ -1,6 +1,7 @@
-{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
-
 {-# LANGUAGE AllowAmbiguousTypes #-}
+
+{-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Types that arise in the API: mostly simplified representations
 -- of the core types which are easier to serialize.
@@ -77,7 +78,7 @@ import           Pos.Core.Txp (Tx (..), TxId, TxOut (..), TxOutAux (..), TxUndo,
 import           Pos.Crypto (AbstractHash, Hash, HashAlgorithm, hash)
 import qualified Pos.GState as GS
 import qualified Pos.Lrc as Lrc (getLeader)
-import           Pos.Merkle (getMerkleRoot, mtRoot, mkMerkleTree)
+import           Pos.Merkle (getMerkleRoot, mkMerkleTree, mtRoot)
 
 import           Pos.Explorer.Core (TxExtra (..))
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
@@ -105,15 +106,15 @@ import           Pos.Explorer.TestUtil (secretKeyToAddress)
 
 -- | Client hash
 newtype CHash = CHash Text
-  deriving (Show, Eq, Generic, Buildable, Hashable)
+  deriving (Show, Eq, Generic, Buildable, Hashable, NFData)
 
 -- | Client address. The address may be from either Cardano or RSCoin.
 newtype CAddress = CAddress Text
-    deriving (Show, Eq, Generic, Buildable, Hashable)
+    deriving (Show, Eq, Generic, Buildable, Hashable, NFData)
 
 -- | Client transaction id
 newtype CTxId = CTxId CHash
-    deriving (Show, Eq, Generic, Buildable, Hashable)
+    deriving (Show, Eq, Generic, Buildable, Hashable, NFData)
 
 -------------------------------------------------------------------------------------
 -- Client-server, server-client transformation functions
@@ -169,6 +170,8 @@ newtype CCoin = CCoin
     { getCoin :: Text
     } deriving (Show, Generic, Eq)
 
+instance NFData CCoin
+
 mkCCoin :: Coin -> CCoin
 mkCCoin = CCoin . show . unsafeGetCoin
 
@@ -194,6 +197,8 @@ data CBlockEntry = CBlockEntry
     , cbeBlockLead  :: !(Maybe Text) -- todo (ks): Maybe CAddress?
     , cbeFees       :: !CCoin
     } deriving (Show, Generic, Eq)
+
+instance NFData CBlockEntry
 
 toBlockEntry
     :: ExplorerMode ctx m
@@ -369,14 +374,6 @@ instance FromHttpApiData CAddressesFilter where
 -- TODO: When we have a generic enough `readEither`
 -- instance FromHttpApiData LocalSlotIndex where
 --     parseUrlPiece = readEither
-
---------------------------------------------------------------------------------
--- NFData instances
---------------------------------------------------------------------------------
-
-instance NFData CBlockEntry
-instance NFData CHash
-instance NFData CCoin
 
 --------------------------------------------------------------------------------
 -- Helper types and conversions

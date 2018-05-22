@@ -16,7 +16,6 @@ module Pos.Util
        , module Pos.Util.OptParse
        , module Pos.Util.Orphans
        , module Pos.Util.Queue
-       , module Pos.Util.QuickCheck
        , module Pos.Util.Some
        , module Pos.Util.Timer
        , module Pos.Util.Util
@@ -36,7 +35,6 @@ import           Pos.Util.Modifier
 import           Pos.Util.OptParse
 import           Pos.Util.Orphans
 import           Pos.Util.Queue
-import           Pos.Util.QuickCheck
 import           Pos.Util.Some
 import           Pos.Util.Timer
 import           Pos.Util.Util

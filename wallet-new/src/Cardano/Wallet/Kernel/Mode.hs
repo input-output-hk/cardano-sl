@@ -9,20 +9,18 @@ module Cardano.Wallet.Kernel.Mode
     ) where
 
 import           Control.Lens (makeLensesWith)
-import qualified Control.Monad.Reader as Mtl
 import           Universum
 
 import           Mockable
 import           Pos.Block.BListener
 import           Pos.Block.Slog
 import           Pos.Block.Types
-import           Pos.Communication
 import           Pos.Context
 import           Pos.Core
 import           Pos.DB
 import           Pos.DB.Block
 import           Pos.DB.DB
-import           Pos.KnownPeers
+import           Pos.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Launcher
 import           Pos.Network.Types
 import           Pos.Reporting
@@ -102,27 +100,11 @@ instance HasConfigurations => MonadBListener WalletMode where
 runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
               => NodeResources ()
               -> PassiveWalletLayer Production
-              -> (ActionSpec WalletMode a, OutSpecs)
+              -> (Diffusion WalletMode -> WalletMode a)
               -> Production a
-runWalletMode nr wallet (action, outSpecs) =
-    elimRealMode nr serverRealMode
-  where
-    NodeContext{..} = nrContext nr
-
-    ekgNodeMetrics =
-        EkgNodeMetrics
-          (nrEkgStore nr)
-
-    serverWalletMode :: WalletMode a
-    serverWalletMode = runServer
-        (runProduction . elimRealMode nr . walletModeToRealMode wallet)
-        ncNodeParams
-        ekgNodeMetrics
-        outSpecs
-        action
-
-    serverRealMode :: RealMode EmptyMempoolExt a
-    serverRealMode = walletModeToRealMode wallet serverWalletMode
+runWalletMode nr wallet action =
+    Production $ runRealMode nr $ \diffusion ->
+        walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode diffusion))
 
 walletModeToRealMode :: forall a. PassiveWalletLayer Production -> WalletMode a -> RealMode () a
 walletModeToRealMode wallet ma = do
@@ -132,6 +114,10 @@ walletModeToRealMode wallet ma = do
                 , wcRealModeContext = rmc
                 }
     lift $ runReaderT ma env
+
+realModeToWalletMode :: RealMode () a -> WalletMode a
+realModeToWalletMode rm = ask >>= \ctx ->
+  lift (runReaderT rm (wcRealModeContext ctx))
 
 {-------------------------------------------------------------------------------
   'WalletContext' instances
@@ -149,8 +135,12 @@ instance HasSlottingVar WalletContext where
 instance HasPrimaryKey WalletContext where
   primaryKey        = wcRealModeContext_L . primaryKey
 
-instance HasReportingContext WalletContext where
-  reportingContext  = wcRealModeContext_L . reportingContext
+instance MonadReporting WalletMode where
+  report ct = ask >>= \ctx ->
+    liftIO (runReporter (rmcReporter (wcRealModeContext ctx)) ct)
+
+instance HasMisbehaviorMetrics WalletContext where
+  misbehaviorMetrics = wcRealModeContext_L . misbehaviorMetrics
 
 instance HasSlogGState WalletContext where
   slogGState        = wcRealModeContext_L . slogGState
@@ -203,9 +193,6 @@ instance ( HasConfiguration
 
 instance HasConfiguration => MonadGState WalletMode where
   gsAdoptedBVData = gsAdoptedBVDataDefault
-
-instance MonadFormatPeers WalletMode where
-  formatKnownPeers f = Mtl.withReaderT wcRealModeContext $ formatKnownPeers f
 
 instance {-# OVERLAPPING #-} CanJsonLog WalletMode where
   jsonLog = jsonLogDefault

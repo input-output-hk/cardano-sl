@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Pos.Binary.Update.Relay
        (
        ) where

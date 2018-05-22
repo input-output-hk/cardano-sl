@@ -1,6 +1,8 @@
 {-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Module which defines internal structure of `acid-state` wallet database.
 module Pos.Wallet.Web.State.Storage
        (
@@ -23,6 +25,7 @@ module Pos.Wallet.Web.State.Storage
        , SyncThroughput (..)
        , SyncStatistics (..)
        , PtxMetaUpdate (..)
+       , WAddrId (..)
        , Query
        , Update
        , noSyncStatistics
@@ -118,8 +121,8 @@ import           Formatting ((%))
 import qualified Formatting as F
 import           Pos.Client.Txp.History (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HeaderHash, SlotId,
-                           Timestamp)
-import           Pos.Core.Configuration (HasConfiguration)
+                           Timestamp, ProtocolConstants(..), VssMinTTL(..),
+                           VssMaxTTL(..))
 import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.SafeCopy ()
 import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier, applyUtxoModToAddrCoinMap,
@@ -144,6 +147,8 @@ data WAddressMeta = WAddressMeta
     , _wamAddressIndex :: Word32
     , _wamAddress      :: Address
     } deriving (Eq, Ord, Show, Generic, Typeable)
+
+instance NFData WAddressMeta
 
 makeClassy ''WAddressMeta
 instance Hashable WAddressMeta
@@ -170,6 +175,11 @@ data AddressInfo = AddressInfo
     , adiSortingKey   :: !AddressSortingKey
     } deriving Eq
 
+instance NFData AddressInfo where
+    rnf x = adiWAddressMeta x
+        `deepseq` adiSortingKey x
+        `deepseq` ()
+
 type CAddresses = HashMap Address AddressInfo
 
 -- | Information about existing wallet account.
@@ -187,6 +197,13 @@ data AccountInfo = AccountInfo
     , _aiUnusedKey        :: !AddressSortingKey
     } deriving (Eq)
 
+instance NFData AccountInfo where
+    rnf ai =  _aiMeta ai
+        `deepseq` _aiAddresses ai
+        `deepseq` _aiRemovedAddresses ai
+        `deepseq` _aiUnusedKey ai
+        `deepseq` ()
+
 makeLenses ''AccountInfo
 
 -- | A 'RestorationBlockDepth' is simply a @newtype@ wrapper over a 'ChainDifficulty',
@@ -194,7 +211,7 @@ makeLenses ''AccountInfo
 -- a certain wallet was restored.
 newtype RestorationBlockDepth =
     RestorationBlockDepth { getRestorationBlockDepth :: ChainDifficulty }
-    deriving (Eq, Show)
+    deriving (Eq, Show, NFData)
 
 -- | Datatype which stores information about the sync state
 -- of this wallet. Syncing here is always relative to the blockchain.
@@ -215,6 +232,12 @@ data WalletSyncState
     -- ^ This wallet is tracking the blockchain up to 'HeaderHash'.
     deriving (Eq)
 
+instance NFData WalletSyncState where
+    rnf x = case x of
+        NotSynced -> ()
+        SyncedWith h -> rnf h
+        RestoringFrom a b -> a `deepseq` b `deepseq` ()
+
 -- The 'SyncThroughput' is computed during the syncing phase in terms of
 -- how many blocks we can sync in one second. This information can be
 -- used by consumers of the API to construct heuristics on the state of the
@@ -230,11 +253,16 @@ data SyncStatistics = SyncStatistics {
     , wspCurrentBlockchainDepth :: !ChainDifficulty
     } deriving (Eq)
 
+instance NFData SyncStatistics where
+    rnf ss = wspThroughput ss
+        `deepseq` wspCurrentBlockchainDepth ss
+        `deepseq` ()
+
 -- ^ | The 'SyncThroughput', in blocks/sec. This can be roughly computed
 -- during the syncing process, to provide better estimate to the frontend
 -- on how much time the restoration/syncing progress is going to take.
 newtype SyncThroughput = SyncThroughput BlockCount
-     deriving (Eq, Ord, Show)
+     deriving (Eq, Ord, Show, NFData)
 
 zeroThroughput :: SyncThroughput
 zeroThroughput = SyncThroughput (BlockCount 0)
@@ -262,6 +290,16 @@ data WalletInfo = WalletInfo
       -- into a client facing data structure (for example 'CWalletMeta')
     , _wiIsReady        :: !Bool
     } deriving (Eq)
+
+instance NFData WalletInfo where
+    rnf wi = _wiMeta wi
+        `deepseq` _wiPassphraseLU wi
+        `deepseq` _wiCreationTime wi
+        `deepseq` _wiSyncState wi
+        `deepseq` _wiSyncStatistics wi
+        `deepseq` _wsPendingTxs wi
+        `deepseq` _wiIsReady wi
+        `deepseq` ()
 
 makeLenses ''WalletInfo
 
@@ -313,6 +351,19 @@ data WalletStorage = WalletStorage
     , _wsChangeAddresses :: !CustomAddresses
     } deriving (Eq)
 
+instance NFData WalletStorage where
+    rnf ws = _wsWalletInfos ws
+        `deepseq` _wsAccountInfos ws
+        `deepseq` _wsProfile ws
+        `deepseq` _wsReadyUpdates ws
+        `deepseq` _wsTxHistory ws
+        `deepseq` _wsHistoryCache ws
+        `deepseq` _wsUtxo ws
+        `deepseq` _wsBalances ws
+        `deepseq` _wsUsedAddresses ws
+        `deepseq` _wsChangeAddresses ws
+        `deepseq` ()
+
 makeClassy ''WalletStorage
 
 instance Default WalletStorage where
@@ -331,7 +382,7 @@ instance Default WalletStorage where
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
-type Update a = forall m. (HasConfiguration, MonadState WalletStorage m) => m a
+type Update a = forall m. (MonadState WalletStorage m) => m a
 
 -- | How to lookup addresses of account
 data AddressLookupMode
@@ -540,13 +591,13 @@ getPendingTx wid txId = preview $ wsWalletInfos . ix wid . wsPendingTxs . ix txI
 
 -- | If given address isn't yet present in set of used\/change addresses, then add it
 -- with given block header hash.
-addCustomAddress :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
-addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
+addCustomAddress :: CustomAddressType -> (WAddrId, HeaderHash) -> Update Bool
+addCustomAddress t (WAddrId addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
 
 -- | Remove given address from set of used\/change addresses only if provided
 -- header hash is equal to one which is stored in database.
-removeCustomAddress :: CustomAddressType -> (Address, HeaderHash) -> Update Bool
-removeCustomAddress t (addr, hh) = do
+removeCustomAddress :: CustomAddressType -> (WAddrId, HeaderHash) -> Update Bool
+removeCustomAddress t (WAddrId addr, hh) = do
     mhh' <- use $ customAddressL t . at addr
     let exists = mhh' == Just hh
     when exists $
@@ -729,14 +780,19 @@ data PtxMetaUpdate
     | PtxMarkAcknowledged         -- ^ Mark tx as acknowledged by some peer
 
 -- | Update meta info of pending transaction atomically.
-ptxUpdateMeta :: WebTypes.CId WebTypes.Wal -> TxId -> PtxMetaUpdate -> Update ()
-ptxUpdateMeta wid txId updType =
+ptxUpdateMeta
+    :: ProtocolConstants
+    -> WebTypes.CId WebTypes.Wal
+    -> TxId
+    -> PtxMetaUpdate
+    -> Update ()
+ptxUpdateMeta pc wid txId updType =
     wsWalletInfos . ix wid . wsPendingTxs . ix txId %=
         case updType of
             PtxIncSubmitTiming ->
-                ptxSubmitTiming %~ incPtxSubmitTimingPure
+                ptxSubmitTiming %~ incPtxSubmitTimingPure pc
             PtxResetSubmitTiming curSlot ->
-                ptxSubmitTiming .~ mkPtxSubmitTiming curSlot
+                ptxSubmitTiming .~ mkPtxSubmitTiming pc curSlot
             PtxMarkAcknowledged ->
                 ptxMarkAcknowledgedPure
 
@@ -758,10 +814,10 @@ addOnlyNewPendingTx ptx =
 
 -- | Move every transaction which is in 'PtxWontApply' state to 'PtxApplying'
 -- state, effectively starting resubmission of failed transactions again.
-resetFailedPtxs :: SlotId -> Update ()
-resetFailedPtxs curSlot =
+resetFailedPtxs :: ProtocolConstants -> SlotId -> Update ()
+resetFailedPtxs pc curSlot =
     wsWalletInfos . traversed .
-    wsPendingTxs . traversed %= resetFailedPtx curSlot
+    wsPendingTxs . traversed %= resetFailedPtx pc curSlot
 
 -- | Gets whole wallet storage. Used primarily for testing and diagnostics.
 getWalletStorage :: Query WalletStorage
@@ -784,6 +840,17 @@ flushWalletStorage = modify flushDo
                             , _wiIsReady   = False
                             }
 
+-- | Unsafe address conversion for use in migration. This will throw an error if
+--   the address cannot be migrated.
+unsafeCIdToAddress :: WebTypes.CId WebTypes.Addr -> Address
+unsafeCIdToAddress cId = case WebTypes.cIdToAddress cId of
+    Left err -> error $ "unsafeCIdToAddress: " <> err
+    Right x  -> x
+
+-- | Migration from `CId Addr` to `Address` goes through
+--   this newtype.
+newtype WAddrId = WAddrId Address
+
 deriveSafeCopySimple 0 'base ''WebTypes.CCoin
 deriveSafeCopySimple 0 'base ''WebTypes.CProfile
 deriveSafeCopySimple 0 'base ''WebTypes.CHash
@@ -792,7 +859,6 @@ deriveSafeCopySimple 0 'base ''WebTypes.Wal
 deriveSafeCopySimple 0 'base ''WebTypes.Addr
 deriveSafeCopySimple 0 'base ''BackupPhrase
 deriveSafeCopySimple 0 'base ''WebTypes.AccountId
-deriveSafeCopySimple 0 'base ''WebTypes.CWAddressMeta
 deriveSafeCopySimple 0 'base ''WebTypes.CWalletAssurance
 deriveSafeCopySimple 0 'base ''WebTypes.CAccountMeta
 deriveSafeCopySimple 0 'base ''WebTypes.CWalletMeta
@@ -809,12 +875,28 @@ deriveSafeCopySimple 0 'base ''PtxCondition
 deriveSafeCopySimple 0 'base ''PtxSubmitTiming
 deriveSafeCopySimple 0 'base ''PtxMetaUpdate
 deriveSafeCopySimple 0 'base ''PendingTx
-deriveSafeCopySimple 0 'base ''WAddressMeta
 deriveSafeCopySimple 0 'base ''RestorationBlockDepth
 deriveSafeCopySimple 0 'base ''SyncThroughput
 deriveSafeCopySimple 0 'base ''SyncStatistics
+deriveSafeCopySimple 0 'base ''ProtocolConstants
+deriveSafeCopySimple 0 'base ''VssMinTTL
+deriveSafeCopySimple 0 'base ''VssMaxTTL
 
 -- Legacy versions, for migrations
+
+deriveSafeCopySimple 1 'extension ''WAddrId
+
+instance Migrate WAddrId where
+    type MigrateFrom WAddrId = WebTypes.CId WebTypes.Addr
+    migrate = WAddrId . unsafeCIdToAddress
+
+deriveSafeCopySimple 0 'base      ''WebTypes.CWAddressMeta
+deriveSafeCopySimple 1 'extension ''WAddressMeta
+
+instance Migrate WAddressMeta where
+    type MigrateFrom WAddressMeta = WebTypes.CWAddressMeta
+    migrate (WebTypes.CWAddressMeta wid accIdx addrIdx cAddr) =
+        WAddressMeta wid accIdx addrIdx $ unsafeCIdToAddress cAddr
 
 data WalletTip_v0
     = V0_NotSynced
@@ -930,22 +1012,12 @@ deriveSafeCopySimple 2 'extension ''WalletStorage_v2
 deriveSafeCopySimple 3 'extension ''WalletStorage_v3
 deriveSafeCopySimple 4 'extension ''WalletStorage
 
--- | Unsafe address conversion for use in migration. This will throw an error if
---   the address cannot be migrated.
-unsafeCIdToAddress :: WebTypes.CId WebTypes.Addr -> Address
-unsafeCIdToAddress cId = case WebTypes.cIdToAddress cId of
-    Left err -> error $ "unsafeCIdToAddress: " <> err
-    Right x  -> x
-
 instance Migrate AddressInfo where
     type MigrateFrom AddressInfo = AddressInfo_v0
     migrate AddressInfo_v0{..} = AddressInfo
-        { adiWAddressMeta = cwamToWam _v0_adiCWAddressMeta
+        { adiWAddressMeta = migrate _v0_adiCWAddressMeta
         , adiSortingKey = _v0_adiSortingKey
         }
-      where
-        cwamToWam (WebTypes.CWAddressMeta wid accIdx addrIdx cAddr) =
-            WAddressMeta wid accIdx addrIdx $ unsafeCIdToAddress cAddr
 
 instance Migrate AccountInfo where
     type MigrateFrom AccountInfo = AccountInfo_v0

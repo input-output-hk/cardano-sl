@@ -34,7 +34,7 @@ import           Pos.DHT.Real.Param (KademliaParams)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Network.Types (HasNodeType, NetworkConfig)
 import           Pos.Recovery.Info (MonadRecoveryInfo)
-import           Pos.Reporting (HasReportingContext, MonadReporting)
+import           Pos.Reporting (HasMisbehaviorMetrics, MonadReporting)
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Shutdown (HasShutdownContext)
 import           Pos.Slotting.Class (MonadSlots)
@@ -67,7 +67,7 @@ type WorkMode ctx m
       , MonadRecoveryHeader ctx m
       , MonadLastKnownHeader ctx m
       , MonadBListener m
-      , MonadReporting ctx m
+      , MonadReporting m
       , MonadReader ctx m
       , HasLens' ctx StartTime
       , HasLens' ctx StateLock
@@ -80,7 +80,7 @@ type WorkMode ctx m
       , HasLens BlockRetrievalQueueTag ctx BlockRetrievalQueue
       , HasLrcContext ctx
       , HasSscContext ctx
-      , HasReportingContext ctx
+      , HasMisbehaviorMetrics ctx
       , HasPrimaryKey ctx
       , HasShutdownContext ctx
       , HasSlogContext ctx

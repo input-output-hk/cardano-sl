@@ -64,7 +64,7 @@ import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (readLoggerConfig)
-import           Pos.Core (HasConfiguration, Timestamp (..))
+import           Pos.Core (HasConfiguration, Timestamp (..), protocolMagic)
 import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
                                dbPutSerBlundsRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
@@ -72,12 +72,13 @@ import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault, dbGetDefa
                                dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault, openNodeDBs)
 import           Pos.Launcher (HasConfigurations, withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))
-import           Pos.Reporting.Methods (compressLogs, retrieveLogFiles, sendReport)
+import           Pos.Reporting.Wlog (compressLogs, retrieveLogFiles)
+import           Pos.Reporting.Http (sendReport)
 import           Pos.ReportServer.Report (ReportType (..))
 import           Pos.Update (installerHash)
 import           Pos.Update.DB.Misc (affirmUpdateInstalled)
 import           Pos.Util (HasLens (..), directory, logException, postfixLFields)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo, compileInfo)
 
 import           Launcher.Environment (substituteEnvVarsValue)
 import           Launcher.Logging (reportErrorDefault)
@@ -676,12 +677,12 @@ reportNodeCrash exitCode _ logConfPath reportServ = do
             ExitFailure n -> n
         handler = logError . sformat ("Failed to report node crash: "%build)
         sendIt logFiles = bracket (compressLogs logFiles) (liftIO . removeFile) $ \txz ->
-            sendReport [txz] (RCrash ec) "cardano-node" reportServ
+            liftIO $ sendReport protocolMagic compileInfo (Just txz) (RCrash ec) "cardano-node" reportServ
     logFiles <- liftIO $ filterM doesFileExist hyptheticalLogFiles
     -- We catch synchronous exceptions and do not re-throw! This is a crash
     -- handler. It runs if some other part of the system crashed. We wouldn't
     -- want a crash in the crash handler to shadow an existing crash.
-    sendIt logFiles `catchAny` handler
+    liftIO (sendIt logFiles) `catchAny` handler
 
 -- Taken from the 'turtle' library and modified
 system'

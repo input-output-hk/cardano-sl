@@ -19,6 +19,7 @@ import           Servant.Swagger.UI (swaggerSchemaUIServer)
 
 import           Pos.Core.Txp (TxAux)
 import           Pos.Update.Configuration (curSoftwareVersion)
+import           Pos.Util.CompileInfo (HasCompileInfo)
 
 import           Pos.Wallet.WalletMode (blockchainSlotDuration)
 import           Pos.Wallet.Web.Account (GenSeed (RandomSeed))
@@ -31,7 +32,9 @@ import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode)
 ----------------------------------------------------------------------------
 
 servantHandlersWithSwagger
-    :: MonadFullWalletWebMode ctx m
+    :: ( MonadFullWalletWebMode ctx m
+       , HasCompileInfo
+       )
     => TVar NtpStatus
     -> (TxAux -> m Bool)
     -> (forall x. m x -> Handler x)
@@ -45,7 +48,13 @@ servantHandlersWithSwagger ntpStatus submitTx nat =
 -- The wallet API
 ----------------------------------------------------------------------------
 
-servantHandlers :: MonadFullWalletWebMode ctx m => TVar NtpStatus -> (TxAux -> m Bool) -> ServerT A.WalletApi m
+servantHandlers
+    :: ( MonadFullWalletWebMode ctx m
+       , HasCompileInfo
+       )
+    => TVar NtpStatus
+    -> (TxAux -> m Bool)
+    -> ServerT A.WalletApi m
 servantHandlers ntpStatus submitTx = toServant' A.WalletApiRecord
     { _test        = testHandlers
     , _wallets     = walletsHandlers
@@ -147,7 +156,7 @@ backupHandlers = toServant' A.WBackupApiRecord
     , _exportBackupJSON = M.exportWalletJSON
     }
 
-infoHandlers :: MonadFullWalletWebMode ctx m => ServerT A.WInfoApi m
+infoHandlers :: (MonadFullWalletWebMode ctx m, HasCompileInfo) => ServerT A.WInfoApi m
 infoHandlers = toServant' A.WInfoApiRecord
     { _getClientInfo = M.getClientInfo
     }

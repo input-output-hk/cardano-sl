@@ -1,6 +1,9 @@
 {-# LANGUAGE RankNTypes    #-}
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Pos.Explorer.Web.Transform
        ( ExplorerProd
@@ -20,17 +23,16 @@ import           Mockable (runProduction)
 import           Servant.Server (Handler, hoistServer)
 
 import           Pos.Block.Configuration (HasBlockConfiguration)
-import           Pos.Communication (OutSpecs)
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
 import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Recovery ()
+import           Pos.Reporting (MonadReporting (..))
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..))
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.Mockable ()
-import           Pos.Worker.Types (WorkerSpec, worker)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 
 import           Pos.Explorer.BListener (ExplorerBListener, runExplorerBListener)
@@ -60,6 +62,11 @@ instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo) =>
     txpNormalize = lift $ lift txpNormalize
     txpProcessTx = lift . lift . txpProcessTx
 
+-- | Use the 'RealMode' instance.
+-- FIXME instance on a type synonym.
+instance MonadReporting ExplorerProd where
+    report = lift . lift . report
+
 runExplorerProd :: ExtraContext -> ExplorerProd a -> RealModeE a
 runExplorerProd extraCtx = runExplorerBListener . runExtraContextT extraCtx
 
@@ -78,17 +85,16 @@ type HasExplorerConfiguration =
 notifierPlugin
     :: HasExplorerConfiguration
     => NotifierSettings
-    -> ([WorkerSpec ExplorerProd], OutSpecs)
-notifierPlugin = first pure . worker mempty .
-    \settings _sa -> notifierApp settings
+    -> Diffusion ExplorerProd
+    -> ExplorerProd ()
+notifierPlugin settings _ = notifierApp settings
 
 explorerPlugin
     :: HasExplorerConfiguration
     => Word16
-    -> ([WorkerSpec ExplorerProd], OutSpecs)
-explorerPlugin port =
-    first pure $ worker mempty $
-    (\sa -> explorerServeWebReal sa port)
+    -> Diffusion ExplorerProd
+    -> ExplorerProd ()
+explorerPlugin = flip explorerServeWebReal
 
 explorerServeWebReal
     :: HasExplorerConfiguration

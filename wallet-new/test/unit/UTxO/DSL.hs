@@ -42,6 +42,7 @@ module UTxO.DSL (
     -- * Hash
   , Hash(..)
   , GivenHash(..)
+  , IdentityAsHash
   , givenHash
   , findHash
   , findHash'
@@ -133,9 +134,6 @@ data Transaction h a = Transaction {
     , trExtra :: [Text]
     -- ^ Free-form comments, used for debugging
     }
-
-deriving instance (Hash h a, Eq  a) => Eq  (Transaction h a)
-deriving instance (Hash h a, Ord a) => Ord (Transaction h a)
 
 -- | The inputs as a list
 --
@@ -545,18 +543,45 @@ utxoApplyBlock = go . getOldestFirst
 
 {-------------------------------------------------------------------------------
   Instantiating the hash to the identity
-
-  NOTE: A lot of definitions in the DSL rely on comparing 'Input's. When using
-  'Identity' as the " hash ", comparing 'Input's implies comparing their
-  'Transactions', and hence the cost of comparing two inputs grows linearly
-  with their position in the chain.
 -------------------------------------------------------------------------------}
 
-instance (Ord a, Buildable a) => Hash Identity a where
-  hash = Identity
+-- | Instantiate the hash to identity function
+--
+-- NOTE: A lot of definitions in the DSL rely on comparing 'Input's. When using
+-- 'Identity' as the " hash ", comparing 'Input's implies comparing their
+-- 'Transactions', and hence the cost of comparing two inputs grows linearly
+-- with their position in the chain.
+newtype IdentityAsHash a = IdentityAsHash a
 
-instance (Ord a, Buildable a) => Buildable (Identity (Transaction Identity a)) where
-  build (Identity t) = bprint build t
+-- | We define 'Eq' for @IdentityAsHash (Transaction h a)@ instead of
+-- for @Transaction h a@ directly, as we normally don't want to compare
+-- transactions, but rather transaction hashes.
+instance (Hash h a, Eq a) => Eq (IdentityAsHash (Transaction h a)) where
+  IdentityAsHash tx1 == IdentityAsHash tx2 = and [
+        trHash  tx1 == trHash  tx2  -- comparing given hash usually suffices
+      , trFresh tx1 == trFresh tx2
+      , trIns   tx1 == trIns   tx2
+      , trOuts  tx1 == trOuts  tx2
+      , trFee   tx1 == trFee   tx2
+      , trExtra tx1 == trExtra tx2
+      ]
+
+-- | See comments for 'Eq' instance.
+instance (Hash h a, Ord a) => Ord (IdentityAsHash (Transaction h a)) where
+  compare (IdentityAsHash tx1) (IdentityAsHash tx2) = mconcat [
+        compare (trHash  tx1) (trHash  tx2) -- comparing given hash usually suffices
+      , compare (trFresh tx1) (trFresh tx2)
+      , compare (trIns   tx1) (trIns   tx2)
+      , compare (trOuts  tx1) (trOuts  tx2)
+      , compare (trFee   tx1) (trFee   tx2)
+      , compare (trExtra tx1) (trExtra tx2)
+      ]
+
+instance (Ord a, Buildable a) => Hash IdentityAsHash a where
+  hash = IdentityAsHash
+
+instance (Ord a, Buildable a) => Buildable (IdentityAsHash (Transaction IdentityAsHash a)) where
+  build (IdentityAsHash t) = bprint build t
 
 {-------------------------------------------------------------------------------
   Use the specified hash instead

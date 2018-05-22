@@ -75,9 +75,8 @@ onApplyBlocksWebWallet
     , WS.WalletDbReader ctx m
     , MonadSlotsData ctx m
     , MonadDBRead m
-    , MonadReporting ctx m
+    , MonadReporting m
     , CanLogInParallel m
-    , HasConfiguration
     )
     => OldestFirst NE Blund -> m SomeBatchOp
 onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
@@ -127,7 +126,7 @@ onRollbackBlocksWebWallet
     , WS.WalletDbReader ctx m
     , MonadDBRead m
     , MonadSlots ctx m
-    , MonadReporting ctx m
+    , MonadReporting m
     , CanLogInParallel m
     , HasConfiguration
     )
@@ -171,7 +170,6 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
 blkHeaderTsGetter
     :: ( MonadSlotsData ctx m
        , MonadDBRead m
-       , HasConfiguration
        )
     => m (BlockHeader -> Maybe Timestamp)
 blkHeaderTsGetter = do
@@ -216,7 +214,7 @@ logMsg action (NE.length -> bNums) wid accModifier =
              action bNums wid accModifier
 
 catchInSync
-    :: (MonadReporting ctx m)
+    :: (MonadReporting m, MonadIO m, WithLogger m, MonadCatch m)
     => Text -> (CId Wal -> m ()) -> CId Wal -> m ()
 catchInSync desc syncWallet wId =
     syncWallet wId `catchAny` \e -> do

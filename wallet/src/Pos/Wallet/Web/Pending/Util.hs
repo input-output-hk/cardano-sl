@@ -15,10 +15,11 @@ import           Universum
 
 import           Control.Lens ((*=), (+=), (+~), (<<*=), (<<.=))
 import qualified Data.Set as Set
+import Data.Reflection (give)
 
 import           Pos.Client.Txp.Util (PendingAddresses (..))
 import           Pos.Core.Common (Address)
-import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core (ProtocolConstants(..))
 import           Pos.Core.Slotting (FlatSlotId, SlotId, flatSlotId)
 import           Pos.Crypto (WithHash (..))
 import           Pos.Txp (Tx (..), TxAux (..), TxOut (..), topsortTxs)
@@ -27,8 +28,8 @@ import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..)
                                                PtxSubmitTiming (..), pstNextDelay, pstNextSlot,
                                                ptxPeerAck, ptxSubmitTiming)
 
-mkPtxSubmitTiming :: HasConfiguration => SlotId -> PtxSubmitTiming
-mkPtxSubmitTiming creationSlot =
+mkPtxSubmitTiming :: ProtocolConstants -> SlotId -> PtxSubmitTiming
+mkPtxSubmitTiming pc creationSlot = give pc $
     PtxSubmitTiming
     { _pstNextSlot  = creationSlot & flatSlotId +~ initialSubmitDelay
     , _pstNextDelay = 1
@@ -44,9 +45,10 @@ sortPtxsChrono = OldestFirst . sortWith _ptxCreationSlot . tryTopsort
     wHash PendingTx{..} = WithHash (taTx _ptxTxAux) _ptxTxId
 
 incPtxSubmitTimingPure
-    :: HasConfiguration
-    => PtxSubmitTiming -> PtxSubmitTiming
-incPtxSubmitTimingPure = execState $ do
+    :: ProtocolConstants
+    -> PtxSubmitTiming
+    -> PtxSubmitTiming
+incPtxSubmitTimingPure pc = give pc $ execState $ do
     curDelay <- pstNextDelay <<*= 2
     pstNextSlot . flatSlotId += curDelay
 
@@ -56,7 +58,7 @@ ptxMarkAcknowledgedPure = execState $ do
     unless wasAcked $ ptxSubmitTiming . pstNextDelay *= 8
 
 -- | If given pending transaction is not yet confirmed, cancels it.
-cancelApplyingPtx :: HasConfiguration => PendingTx -> PendingTx
+cancelApplyingPtx :: () => PendingTx -> PendingTx
 cancelApplyingPtx ptx@PendingTx{..}
     | PtxApplying poolInfo <- _ptxCond =
           ptx { _ptxCond = PtxWontApply reason poolInfo
@@ -71,11 +73,11 @@ cancelApplyingPtx ptx@PendingTx{..}
 -- again.
 --
 -- Has no effect for transactions in other conditions.
-resetFailedPtx :: HasConfiguration => SlotId -> PendingTx -> PendingTx
-resetFailedPtx curSlot ptx@PendingTx{..}
+resetFailedPtx :: ProtocolConstants -> SlotId -> PendingTx -> PendingTx
+resetFailedPtx pc curSlot ptx@PendingTx{..}
     | PtxWontApply _ poolInfo <- _ptxCond =
           ptx { _ptxCond = PtxApplying poolInfo
-              , _ptxSubmitTiming = mkPtxSubmitTiming curSlot
+              , _ptxSubmitTiming = mkPtxSubmitTiming pc curSlot
               }
     | otherwise = ptx
 

@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Arbitrary instances for Explorer types.
 
 module Pos.Arbitrary.Explorer () where

@@ -20,7 +20,7 @@ import           System.Metrics.Gauge (Gauge)
 import qualified System.Metrics.Gauge as Gauge
 import           Pos.Util.Log (logDebug)
 
-import           Pos.Reporting.Methods (MonadReporting, reportMisbehaviour)
+import           Pos.Reporting.Methods (MonadReporting)
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 
 -- | 'MetricMonitor' is primarily used to parameterize 'recordValue'
@@ -102,7 +102,11 @@ noReportMonitor converter debugFormat st =
 -- | Update the value stored in the 'MetricMonitor's gauge.  Report
 -- this value if it should be reported according to 'MetricMonitor'.
 recordValue ::
-       (MonadReporting ctx m, Mockable CurrentTime m)
+       ( MonadIO m
+       , MonadReporting m
+       , Mockable CurrentTime m
+       , WithLogger m
+       )
     => MetricMonitor value
     -> value
     -> m ()
@@ -115,9 +119,7 @@ recordValue MetricMonitor {..} v = do
     lastReportedValue <- readTVarIO mmsLastReportedValue
     case mmReportMisbehaviour (curTime - lastReportTime) lastReportedValue v of
         Nothing -> whenJust mmDebugFormat $ logDebug . flip sformat v
-        Just isCritical -> do
-            -- REPORT:MISBEHAVIOUR(?) Some metric is bad.
-            reportMisbehaviour isCritical (sformat mmMisbehFormat v)
+        Just _ -> do
             atomically $ do
                 writeTVar mmsLastReportTime curTime
                 writeTVar mmsLastReportedValue (Just v)

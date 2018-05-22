@@ -12,7 +12,9 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, (==>))
 
 import qualified Pos.Util.Modifier as Core
-import           Pos.Util.QuickCheck.Property (formsMonoid)
+
+import           Test.Pos.Util.Modifier ()
+import           Test.Pos.Util.QuickCheck.Property (formsMonoid)
 
 spec :: Spec
 spec = describe "MapModifier" $ do

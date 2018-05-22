@@ -1,6 +1,8 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies  #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Pos.DHT.Real.Types
        ( KademliaDHTInstance (..)
        , DHTHandle

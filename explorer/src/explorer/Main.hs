@@ -20,8 +20,8 @@ import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Communication (OutSpecs)
 import           Pos.Context (NodeContext (..))
+import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket (NotifierSettings (..))
@@ -32,7 +32,7 @@ import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, Nod
                                loggerBracket, runNode, runServer, withConfigurations)
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..))
 import           Pos.Update.Worker (updateTriggerWorker)
-import           Pos.Util (logException, mconcatPair)
+import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
 import qualified Pos.Util.Log as Log
@@ -66,8 +66,8 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-        let plugins :: HasConfigurations => ([WorkerSpec ExplorerProd], OutSpecs)
-            plugins = mconcatPair
+        let plugins :: HasConfigurations => [Diffusion ExplorerProd -> ExplorerProd ()]
+            plugins =
                 [ explorerPlugin webPort
                 , notifierPlugin NotifierSettings{ nsPort = notifierPort }
                 , updateTriggerWorker
@@ -84,9 +84,9 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
     runExplorerRealMode
         :: (HasConfigurations,HasCompileInfo)
         => NodeResources ExplorerExtraModifier
-        -> (WorkerSpec ExplorerProd, OutSpecs)
+        -> (Diffusion ExplorerProd -> ExplorerProd ())
         -> Production ()
-    runExplorerRealMode nr@NodeResources{..} (go, outSpecs) =
+    runExplorerRealMode nr@NodeResources{..} go =
         let NodeContext {..} = nrContext
             extraCtx = makeExtraCtx
             explorerModeToRealMode  = runExplorerProd extraCtx
@@ -97,7 +97,6 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
                 (runProduction . elim . explorerModeToRealMode)
                 ncNodeParams
                 ekgNodeMetrics
-                outSpecs
                 go
         in  elim serverRealMode
 

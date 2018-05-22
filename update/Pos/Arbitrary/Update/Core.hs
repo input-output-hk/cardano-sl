@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Arbitrary instances for Update System core types.
 
 module Pos.Arbitrary.Update.Core
@@ -9,7 +11,7 @@ module Pos.Arbitrary.Update.Core
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
-import           Test.QuickCheck (Arbitrary (..), Gen, listOf, listOf1, oneof, frequency)
+import           Test.QuickCheck (Arbitrary (..), Gen, frequency, listOf, listOf1, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core ()
@@ -18,8 +20,8 @@ import           Pos.Binary.Update ()
 import           Pos.Core.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Core.Update (BlockVersionModifier, SystemTag (..), UpdateData (..),
                                   UpdatePayload (..), UpdateProposal (..),
-                                  UpdateProposalToSign (..), UpdateVote (..),
-                                  mkUpdateProposalWSign, mkUpdateVote)
+                                  UpdateProposalToSign (..), UpdateVote (..), mkUpdateProposalWSign,
+                                  mkUpdateVote)
 import           Pos.Crypto (ProtocolMagic, fakeSigner)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Update.Poll.Types (VoteState (..))

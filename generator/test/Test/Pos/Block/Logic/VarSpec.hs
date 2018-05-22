@@ -39,7 +39,6 @@ import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmp
                                   _NewestFirst)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
-import           Pos.Util.QuickCheck.Property (splitIntoChunks, stopProperty)
 import           Test.Pos.Block.Logic.Event (BlockScenarioResult (..),
                                              DbNotEquivalentToSnapshot (..), runBlockScenario)
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestMode)
@@ -48,6 +47,7 @@ import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..)
                                             satisfySlotCheck)
 import           Test.Pos.Block.Property (blockPropertySpec)
 import           Test.Pos.Configuration (HasStaticConfigurations, withStaticConfigurations)
+import           Test.Pos.Util.QuickCheck.Property (splitIntoChunks, stopProperty)
 
 -- stack test cardano-sl --fast --test-arguments "-m Test.Pos.Block.Logic.Var"
 spec :: Spec

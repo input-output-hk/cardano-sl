@@ -1,5 +1,7 @@
 {-# LANGUAGE CPP #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | AsBinary wrappers for Pos.Crypto.SecretSharing types.
 
 module Pos.Crypto.AsBinary (

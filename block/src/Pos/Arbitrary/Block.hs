@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeOperators #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Pos.Arbitrary.Block
        ( HeaderAndParams (..)
        , BlockHeaderList (..)
@@ -30,13 +32,12 @@ import qualified Pos.Block.Base as T
 import qualified Pos.Block.Logic.Integrity as T
 import           Pos.Block.Slog.Types (SlogUndo)
 import           Pos.Block.Types (Undo (..))
-import           Pos.Core (HasProtocolConstants, HasGenesisHash, HeaderHash,
-                           GenesisHash (..), genesisHash, epochSlots)
+import           Pos.Core (GenesisHash (..), HasGenesisHash, HasProtocolConstants, HeaderHash,
+                           epochSlots, genesisHash)
 import qualified Pos.Core as Core
 import qualified Pos.Core.Block as T
 import           Pos.Core.Ssc (SscPayload, SscProof)
-import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk, hash,
-                             toPublic)
+import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk, hash, toPublic)
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Data.Attributes (areAttributesKnown)
 

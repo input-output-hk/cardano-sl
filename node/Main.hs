@@ -37,7 +37,7 @@ actionWithoutWallet
     -> NodeParams
     -> Production ()
 actionWithoutWallet sscParams nodeParams =
-    runNodeReal nodeParams sscParams updateTriggerWorker
+    runNodeReal nodeParams sscParams [updateTriggerWorker]
 
 action
     :: ( HasConfigurations

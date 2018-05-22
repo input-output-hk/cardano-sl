@@ -23,7 +23,6 @@ import           Pos.Arbitrary.Ssc ()
 import           Pos.Binary.Class (AsBinary, Bi, asBinary, fromBinary)
 import           Pos.Binary.Infra ()
 import           Pos.Binary.Ssc ()
-import           Pos.Communication.Protocol (OutSpecs)
 import           Pos.Core (EpochIndex, SlotId (..), StakeholderId, Timestamp (..),
                            VssCertificate (..), VssCertificatesMap (..), blkSecurityParam,
                            bvdMpcThd, getOurSecretKey, getOurStakeholderId, getSlotIndex, lookupVss,
@@ -62,14 +61,11 @@ import           Pos.Ssc.Types (HasSscContext (..), scBehavior, scParticipateSsc
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.LogSafe (logDebugS, logErrorS, logInfoS, logWarningS)
 import           Pos.Util.Util (getKeys, leftToPanic)
-import           Pos.Worker.Types (WorkerSpec, localWorker, onNewSlotWorker)
 
 sscWorkers
   :: (SscMode ctx m, HasGenesisBlockVersionData, HasGenesisData, HasProtocolConstants)
-  => ([WorkerSpec m], OutSpecs)
-sscWorkers = merge [onNewSlotSsc, checkForIgnoredCommitmentsWorker]
-  where
-    merge = mconcat . map (first pure)
+  => [Diffusion m -> m ()]
+sscWorkers = [onNewSlotSsc, checkForIgnoredCommitmentsWorker]
 
 shouldParticipate :: (SscMode ctx m, HasGenesisBlockVersionData) => EpochIndex -> m Bool
 shouldParticipate epoch = do
@@ -86,8 +82,9 @@ shouldParticipate epoch = do
 -- #checkNSendOurCert
 onNewSlotSsc
     :: (SscMode ctx m, HasGenesisBlockVersionData, HasGenesisData, HasProtocolConstants)
-    => (WorkerSpec m, OutSpecs)
-onNewSlotSsc = onNewSlotWorker defaultOnNewSlotParams mempty $ \slotId diffusion ->
+    => Diffusion m
+    -> m ()
+onNewSlotSsc = \diffusion -> onNewSlot defaultOnNewSlotParams $ \slotId ->
     recoveryCommGuard "onNewSlot worker in SSC" $ do
         sscGarbageCollectLocalData slotId
         whenM (shouldParticipate $ siEpoch slotId) $ do
@@ -396,8 +393,9 @@ checkForIgnoredCommitmentsWorker
        , HasProtocolConstants
        , HasGenesisBlockVersionData
        )
-    => (WorkerSpec m, OutSpecs)
-checkForIgnoredCommitmentsWorker = localWorker $ do
+    => Diffusion m
+    -> m ()
+checkForIgnoredCommitmentsWorker = \_ -> do
     counter <- newTVarIO 0
     onNewSlot defaultOnNewSlotParams (checkForIgnoredCommitmentsWorkerImpl counter)
 

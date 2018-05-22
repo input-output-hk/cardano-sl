@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | DHT types.
 
 module Pos.DHT.Model.Types

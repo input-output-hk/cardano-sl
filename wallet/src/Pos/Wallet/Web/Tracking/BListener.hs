@@ -77,7 +77,6 @@ onApplyBlocksWebWallet
     , MonadDBRead m
     , MonadReporting ctx m
     , CanLogInParallel m
-    , HasConfiguration
     )
     => OldestFirst NE Blund -> m SomeBatchOp
 onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
@@ -171,7 +170,6 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
 blkHeaderTsGetter
     :: ( MonadSlotsData ctx m
        , MonadDBRead m
-       , HasConfiguration
        )
     => m (BlockHeader -> Maybe Timestamp)
 blkHeaderTsGetter = do

@@ -27,7 +27,7 @@ import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import           Formatting (bprint)
 import           Pos.Util.Chrono
-import           Serokell.Util (listJson)
+import           Serokell.Util (mapJson)
 
 import           Util
 import           UTxO.DSL
@@ -40,7 +40,7 @@ import           UTxO.DSL
 type Ours a = a -> Bool
 
 -- | Pending transactions
-type Pending h a = Set (Transaction h a)
+type Pending h a = Map (h (Transaction h a)) (Transaction h a)
 
 -- | Abstract wallet interface
 data Wallet h a = Wallet {
@@ -123,7 +123,7 @@ mkDefaultWallet l self st = Wallet {
           let x = trIns tx :: Set (Input h a)
               y = utxoDomain (available this) :: Set (Input h a)
           case x `Set.isSubsetOf` y of
-             True  -> Just $ self (st & l %~ Set.insert tx)
+             True  -> Just $ self (st & l %~ Map.insert (hash tx) tx)
              False -> Nothing
       -- UTxOs
     , available = utxoRemoveInputs (txIns (pending this)) (utxo this)
@@ -171,7 +171,7 @@ updateUtxo p b = remSpent . addNew
     remSpent = utxoRemoveInputs (txIns b)
 
 updatePending :: forall h a. Hash h a => Block h a -> Pending h a -> Pending h a
-updatePending b = Set.filter $ \t -> disjoint (trIns t) (txIns b)
+updatePending b = Map.filter $ \t -> disjoint (trIns t) (txIns b)
 
 utxoRestrictToOurs :: Ours a -> Utxo h a -> Utxo h a
 utxoRestrictToOurs = utxoRestrictToAddr
@@ -181,4 +181,4 @@ utxoRestrictToOurs = utxoRestrictToAddr
 -------------------------------------------------------------------------------}
 
 instance (Hash h a, Buildable a) => Buildable (Pending h a) where
-  build = bprint listJson . Set.toList
+  build = bprint mapJson

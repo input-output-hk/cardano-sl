@@ -42,11 +42,11 @@ import qualified Codec.CBOR.Read as CBOR.Read
 import qualified Codec.CBOR.Write as CBOR.Write
 import           Control.Exception.Safe (impureThrow)
 import           Control.Monad.ST (ST, runST)
-import           Data.ByteString.Builder (Builder)
 import qualified Data.ByteString as BS
+import           Data.ByteString.Builder (Builder)
+import qualified Data.ByteString.Builder.Extra as Builder
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Internal as BSL
-import qualified Data.ByteString.Builder.Extra as Builder
 import           Data.Digest.CRC32 (CRC32 (..))
 import           Data.Typeable (typeOf)
 import           Formatting (sformat, shown, (%))
@@ -135,8 +135,9 @@ deserializeOrFail
 deserializeOrFail bs0 =
     runST (supplyAllInput bs0 =<< deserializeIncremental)
   where
-    supplyAllInput _bs (CBOR.Read.Done bs _ x) = return (Right (x, bs))
-    supplyAllInput  bs (CBOR.Read.Partial k)  =
+    supplyAllInput bs' (CBOR.Read.Done bs _ x) =
+      return (Right (x, bs <> BSL.toStrict bs'))
+    supplyAllInput bs (CBOR.Read.Partial k)  =
       case bs of
         BSL.Chunk chunk bs' -> k (Just chunk) >>= supplyAllInput bs'
         BSL.Empty           -> k Nothing      >>= supplyAllInput BSL.Empty

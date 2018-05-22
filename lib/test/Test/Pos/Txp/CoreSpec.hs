@@ -23,7 +23,9 @@ import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut (..), checkTx)
 import           Pos.Crypto (hash, whData, withHash)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Txp.Topsort (topsortTxs)
-import           Pos.Util (sublistN, _neHead)
+import           Pos.Util (_neHead)
+
+import           Test.Pos.Util.QuickCheck.Arbitrary (sublistN)
 
 spec :: Spec
 spec = describe "Txp.Core" $ do

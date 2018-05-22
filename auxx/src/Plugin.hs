@@ -22,12 +22,10 @@ import           Serokell.Util (sec)
 import           System.IO (hFlush, stdout)
 import           System.Wlog (CanLog, HasLoggerName, logInfo)
 
-import           Pos.Communication (OutSpecs (..))
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
 import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Txp (genesisUtxo, unGenesisUtxo)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Worker.Types (WorkerSpec, worker)
 
 import           AuxxOptions (AuxxOptions (..))
 import           Command (createCommandProcs)
@@ -45,8 +43,9 @@ auxxPlugin ::
        (HasCompileInfo, MonadAuxxMode m, Mockable Delay m)
     => AuxxOptions
     -> Either WithCommandAction Text
-    -> (WorkerSpec m, OutSpecs)
-auxxPlugin auxxOptions repl = worker mempty $ \diffusion -> do
+    -> Diffusion m
+    -> m ()
+auxxPlugin auxxOptions repl = \diffusion -> do
     logInfo $ sformat ("Length of genesis utxo: " %int)
                       (length $ unGenesisUtxo genesisUtxo)
     rawExec (Just Dict) auxxOptions (Just diffusion) repl

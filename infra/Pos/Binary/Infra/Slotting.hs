@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Binary serialization of types from Slotting.
 
 module Pos.Binary.Infra.Slotting

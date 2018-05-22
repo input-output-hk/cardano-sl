@@ -11,7 +11,7 @@ import           Universum
 
 import           Data.Default (def)
 import qualified Data.HashSet as HS
-import           Data.List ((\\), intersect)
+import           Data.List (intersect, (\\))
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Test.Hspec (Spec, describe, xdescribe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
@@ -26,15 +26,22 @@ import           Pos.Crypto (emptyPassphrase)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.Chrono (nonEmptyOldestFirst, toNewestFirst)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
-import           Pos.Util.QuickCheck.Property (assertProperty)
+
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
 import           Pos.Wallet.Web.Tracking.Sync (evalChange, syncWalletWithBlockchain)
 import           Pos.Wallet.Web.Tracking.Types (newSyncRequest)
+
+-- import           Pos.Wallet.Web.ClientTypes ()
+-- import qualified Pos.Wallet.Web.State.State as WS
+-- import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
+-- import           Pos.Wallet.Web.Tracking.Sync (evalChange)
+
+
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..))
 import           Test.Pos.Configuration (withDefConfigurations)
-
+import           Test.Pos.Util.QuickCheck.Property (assertProperty)
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
 

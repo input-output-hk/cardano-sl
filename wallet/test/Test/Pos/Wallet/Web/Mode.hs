@@ -382,7 +382,7 @@ instance HasNodeType WalletTestContext where
 instance HasLens (StateLockMetrics MemPoolModifyReason) WalletTestContext (StateLockMetrics MemPoolModifyReason) where
     lensOf = wtcStateLockMetrics_L
 
-instance HasConfigurations => WalletDbReader WalletTestContext WalletTestMode
+instance WalletDbReader WalletTestContext WalletTestMode
 
 -- TODO remove HasCompileInfo here
 -- when getNewAddressWebWallet won't require MonadWalletWebMode

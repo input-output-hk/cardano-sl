@@ -12,7 +12,8 @@ import           Pos.Core (HasConfiguration)
 import           Pos.Crypto (SecretKey, SignTag (SignTx), sign, protocolMagic)
 import           Pos.Ssc ()
 import           Pos.Txp (TxId, TxSig, TxSigData (..))
-import           Pos.Util (arbitraryUnsafe)
+
+import           Test.Pos.Util.QuickCheck.Arbitrary (arbitraryUnsafe)
 
 import           Bench.Configuration (giveCoreConf)
 

@@ -63,7 +63,6 @@ import           Pos.Slotting.Impl (currentTimeSlottingSimple,
                                     getCurrentSlotInaccurateSimple,
                                     getCurrentSlotSimple)
 import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc (HasSscConfiguration)
 import           Pos.Ssc.Types (HasSscContext (..))
 import           Pos.StateLock (StateLock)
 import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..), MonadTxpMem, Utxo,
@@ -260,7 +259,7 @@ instance MonadUpdates WalletWebMode where
     waitForUpdate = waitForUpdateWebWallet
     applyLastUpdate = applyLastUpdateWebWallet
 
-instance (HasConfiguration, HasSscConfiguration) =>
+instance (HasConfiguration) =>
          MonadBlockchainInfo WalletWebMode where
     networkChainDifficulty = networkChainDifficultyWebWallet
     localChainDifficulty = localChainDifficultyWebWallet
@@ -308,7 +307,7 @@ instance HasConfiguration => MonadBalances WalletWebMode where
     getOwnUtxos = getOwnUtxosDefault
     getBalance = getBalanceDefault
 
-instance (HasConfiguration, HasSscConfiguration, HasTxpConfiguration, HasCompileInfo)
+instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo)
         => MonadTxHistory WalletWebMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
@@ -339,7 +338,7 @@ getNewAddressWebWallet (accId, passphrase) = do
     cAddrMeta <- newAddress_ ws RandomSeed passphrase accId
     return $ cAddrMeta ^. wamAddress
 
-instance (HasConfigurations, HasCompileInfo)
+instance (HasConfigurations)
       => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
     -- We rely on the fact that Daedalus always uses HD addresses with

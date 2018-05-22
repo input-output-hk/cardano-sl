@@ -2,12 +2,12 @@
 {-# LANGUAGE StandaloneDeriving #-}
 
 module Pos.Logic.Types
-    ( LogicLayer (..)
-    , Logic (..)
+    ( Logic (..)
     , hoistLogic
+    , dummyLogic
     , KeyVal (..)
     , hoistKeyVal
-    , dummyLogicLayer
+    , dummyKeyVal
     ) where
 
 import           Universum
@@ -162,51 +162,35 @@ hoistKeyVal nat kv = kv
     , handleData = nat . handleData kv
     }
 
--- | A diffusion layer: its interface, and a way to run it.
-data LogicLayer m = LogicLayer
-    { runLogicLayer :: forall x . m x -> m x
-    , logic         :: Logic m
+dummyKeyVal :: Applicative m => KeyVal key val m
+dummyKeyVal = KeyVal
+    { toKey      = \_ -> error "dummy: can't make key"
+    , handleInv  = \_ -> pure False
+    , handleReq  = \_ -> pure Nothing
+    , handleData = \_ -> pure False
     }
 
 -- | A diffusion layer that does nothing, and probably crashes the program.
-dummyLogicLayer
-    :: ( Applicative m )
-    => LogicLayer m
-dummyLogicLayer = LogicLayer
-    { runLogicLayer = identity
-    , logic         = dummyLogic
+dummyLogic :: Applicative m => Logic m
+dummyLogic = Logic
+    { ourStakeholderId   = error "dummy: no stakeholder id"
+    , getBlock           = \_ -> pure (error "dummy: can't get block")
+    , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
+    , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get block headers")
+    , getLcaMainChain    = \_ -> pure (OldestFirst [])
+    , getHashesRange     = \_ _ _ -> pure (error "dummy: can't get hashes range")
+    , getTip             = pure (error "dummy: can't get tip")
+    , getTipHeader       = pure (error "dummy: can't get tip header")
+    , getAdoptedBVData   = pure (error "dummy: can't get block version data")
+    , postBlockHeader    = \_ _ -> pure ()
+    , postPskHeavy       = \_ -> pure False
+    , postTx             = dummyKeyVal
+    , postUpdate         = dummyKeyVal
+    , postVote           = dummyKeyVal
+    , postSscCommitment  = dummyKeyVal
+    , postSscOpening     = dummyKeyVal
+    , postSscShares      = dummyKeyVal
+    , postSscVssCert     = dummyKeyVal
+    , recoveryInProgress = pure False
+    , securityParams     = def
     }
-
-  where
-
-    dummyLogic :: Applicative m => Logic m
-    dummyLogic = Logic
-        { ourStakeholderId   = error "dummy: no stakeholder id"
-        , getBlock           = \_ -> pure (error "dummy: can't get block")
-        , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
-        , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get block headers")
-        , getLcaMainChain    = \_ -> pure (OldestFirst [])
-        , getHashesRange     = \_ _ _ -> pure (error "dummy: can't get hashes range")
-        , getTip             = pure (error "dummy: can't get tip")
-        , getTipHeader       = pure (error "dummy: can't get tip header")
-        , getAdoptedBVData   = pure (error "dummy: can't get block version data")
-        , postBlockHeader    = \_ _ -> pure ()
-        , postPskHeavy       = \_ -> pure False
-        , postTx             = dummyKeyVal
-        , postUpdate         = dummyKeyVal
-        , postVote           = dummyKeyVal
-        , postSscCommitment  = dummyKeyVal
-        , postSscOpening     = dummyKeyVal
-        , postSscShares      = dummyKeyVal
-        , postSscVssCert     = dummyKeyVal
-        , recoveryInProgress = pure False
-        , securityParams     = def
-        }
-
-    dummyKeyVal :: Applicative m => KeyVal key val m
-    dummyKeyVal = KeyVal
-        { toKey      = \_ -> error "dummy: can't make key"
-        , handleInv  = \_ -> pure False
-        , handleReq  = \_ -> pure Nothing
-        , handleData = \_ -> pure False
-        }

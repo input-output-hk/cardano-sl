@@ -1,6 +1,8 @@
--- | Infrastructure for parsing the .yaml network topology file
-
 {-# LANGUAGE RankNTypes #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
+-- | Infrastructure for parsing the .yaml network topology file
 
 module Pos.Network.Yaml
        (
@@ -38,9 +40,9 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types
 import qualified Network.DNS as DNS
 
-import           Pos.Network.Types (Fallbacks, NodeName (..), Valency)
 import           Pos.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
-import           Pos.Util.Util (toAesonError, aesonError)
+import           Pos.Network.Types (Fallbacks, NodeName (..), Valency)
+import           Pos.Util.Util (aesonError, toAesonError)
 
 -- | Description of the network topology in a Yaml file
 --

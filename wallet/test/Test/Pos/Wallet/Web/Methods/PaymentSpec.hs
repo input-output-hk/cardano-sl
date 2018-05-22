@@ -1,9 +1,11 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RecordWildCards    #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Test.Pos.Wallet.Web.Methods.PaymentSpec
        ( spec
@@ -37,8 +39,6 @@ import           Pos.Wallet.Web.ClientTypes (Addr, CAccount (..), CId, CTx (..),
                                              NewBatchPayment (..), Wal)
 import           Servant.Server (ServantErr (..), err403)
 
-import           Pos.Util.QuickCheck.Property (assertProperty, expectedOne, maybeStopProperty,
-                                               splitWord, stopProperty)
 import           Pos.Wallet.Web.Methods.Logic (getAccounts)
 import           Pos.Wallet.Web.Methods.Payment (newPaymentBatch)
 import qualified Pos.Wallet.Web.State.State as WS
@@ -47,8 +47,13 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
 
 import           Pos.Util.Servant (encodeCType)
 import           Test.Pos.Configuration (withDefConfigurations)
+
+
+import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne, maybeStopProperty,
+                                                    splitWord, stopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty, getSentTxs, submitTxTestMode,
                                            walletPropertySpec)
+
 import           Test.Pos.Wallet.Web.Util (deriveRandomAddress, expectedAddrBalance,
                                            importSomeWallets, mostlyEmptyPassphrases)
 

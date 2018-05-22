@@ -11,15 +11,14 @@ import           Data.Time.Clock (UTCTime, addUTCTime)
 import           Mockable (CurrentTime, Delay, Mockable, currentTime, delay)
 import           Serokell.Util (sec)
 
-import           Pos.Communication.Protocol (OutSpecs)
 import           Pos.Delegation.Class (MonadDelegation, dwMessageCache)
 import           Pos.Delegation.Configuration (HasDlgConfiguration, dlgMessageCacheTimeout)
 import           Pos.Delegation.Logic (DelegationStateAction, runDelegationStateAction)
+import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Reporting (MonadReporting, reportOrLogE)
 import           Pos.Shutdown (HasShutdownContext)
 import           Pos.Util (microsecondsToUTC)
 import           Pos.Util.LRU (filterLRU)
-import           Pos.Worker.Types (WorkerSpec, localWorker)
 
 -- | This is a subset of 'WorkMode'.
 type DlgWorkerConstraint ctx m
@@ -36,8 +35,8 @@ type DlgWorkerConstraint ctx m
 
 
 -- | All workers specific to proxy sertificates processing.
-dlgWorkers :: (DlgWorkerConstraint ctx m) => ([WorkerSpec m], OutSpecs)
-dlgWorkers = first pure $ localWorker dlgInvalidateCaches
+dlgWorkers :: (DlgWorkerConstraint ctx m) => [Diffusion m -> m ()]
+dlgWorkers = [\_ -> dlgInvalidateCaches]
 
 -- | Runs proxy caches invalidating action every second.
 dlgInvalidateCaches :: DlgWorkerConstraint ctx m => m ()

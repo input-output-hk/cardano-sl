@@ -31,13 +31,13 @@ import           Pos.Crypto (RedeemSecretKey, SafeSigner, SecretKey, decodeHash,
                              redeemToPublic, toPublic)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Txp (Utxo)
-import           Pos.Util.QuickCheck.Arbitrary (nonrepeating)
-import           Pos.Util.QuickCheck.Property (stopProperty)
 import           Pos.Util.Util (leftToPanic)
 import           Test.Pos.Configuration (withDefConfigurations)
 
 import           Test.Pos.Client.Txp.Mode (HasTxpConfigurations, TxpTestMode, TxpTestProperty,
                                            withBVData)
+import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)
+import           Test.Pos.Util.QuickCheck.Property (stopProperty)
 
 ----------------------------------------------------------------------------
 -- Tests

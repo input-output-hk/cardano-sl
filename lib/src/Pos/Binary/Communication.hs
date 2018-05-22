@@ -96,14 +96,16 @@ instance Bi MsgStreamBlock where
     encode = \case
         (MsgStreamBlock b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
         (MsgStreamNoBlock t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
-        MsgStreamEnd -> encodeListLen 2 <> encode (2 :: Word8)
+        MsgStreamEnd -> encodeListLen 2 <> encode (2 :: Word8) <> encode (0 :: Word8)
     decode = do
         enforceSize "MsgBlock" 2
         tag <- decode @Word8
         case tag of
             0 -> MsgStreamBlock <$> decode
             1 -> MsgStreamNoBlock <$> decode
-            2 -> return MsgStreamEnd
+            2 -> do
+                 (_ :: Word8 )<- decode
+                 pure MsgStreamEnd
             t -> cborError $ "MsgStreamBlock wrong tag: " <> show t
 
 -- deriveSimpleBi is not happy with constructors without arguments

@@ -23,6 +23,7 @@ library
                        Test.Pos.Util.QuickCheck.Arbitrary
 
   build-depends:       QuickCheck
+                     , attoparsec
                      , base
                      , base16-bytestring
                      , bytestring

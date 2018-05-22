@@ -1,13 +1,21 @@
 module Test.Pos.Util.Base16
-    ( encode
+    ( decode
+    , encode
     , encodeWithIndex
     ) where
 
 import           Universum
 
+import qualified Data.Attoparsec.ByteString.Char8 as PBC
+import qualified Data.Attoparsec.ByteString.Lazy as PLB
+import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Base16.Lazy as B16
 import qualified Data.ByteString.Lazy.Char8 as LB
 import           Text.Printf (printf)
+
+----------------------------------------------------------------------------
+-- Encoding
+----------------------------------------------------------------------------
 
 -- | Encodes a given ByteString to base-16 and line wraps every 16 bytes.
 encode :: LB.ByteString -> LB.ByteString
@@ -58,3 +66,32 @@ chunkBS n xs = case LB.uncons xs of
     Just _  ->
         let (taken, dropped) = LB.splitAt n xs
         in  taken : chunkBS n dropped
+
+----------------------------------------------------------------------------
+-- Decoding
+----------------------------------------------------------------------------
+
+-- | Decode a given ByteString which was originally encoded using 'encode' or
+-- 'encodeWithIndex'.
+decode :: LB.ByteString -> LB.ByteString
+decode bs
+    -- No complex parsing is required for data whose length is <= 32.
+    | LB.length bs <= lineWrapLength = fst $ B16.decode bs
+    | otherwise = case PLB.eitherResult $ PLB.parse decodeParser bs of
+        Left l  -> error $ fromString l
+        Right r -> fst $ B16.decode $ LB.fromStrict $ BC.concat r
+
+-- | Parser for several lines of data encoded using 'encode' or
+-- 'encodeWithIndex'.
+decodeParser :: PBC.Parser [ByteString]
+decodeParser = many $ encodedEntryParser <* PBC.endOfLine
+
+-- | Parser for a single entry in a series of data encoded using 'encode' or
+-- 'encodeWithIndex'.
+encodedEntryParser :: PBC.Parser ByteString
+encodedEntryParser = do
+    _ <- PBC.hexadecimal :: PBC.Parser Int    -- Read the byte offset
+    PBC.skipWhile (not . PBC.isSpace)         -- Skip until whitespace
+    PBC.skipSpace                             -- Skip the whitespace
+    PBC.takeWhile (not . (`BC.elem` "\n\r"))  -- Consume the data up until LF
+                                              -- or CR.

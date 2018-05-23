@@ -17,14 +17,13 @@ import           Serokell.Util (Color (Magenta), colorize)
 import           Pos.Binary.Class (Bi)
 import           Pos.Core.Block.Blockchain (GenericBlock (..), GenericBlockHeader (..), gbHeader,
                                             gbhConsensus)
-import           Pos.Core.Block.Genesis.Chain ()
 import           Pos.Core.Block.Genesis.Lens (gcdDifficulty, gcdEpoch)
-import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockHeader, GenesisBody (..),
-                                               GenesisConsensusData (..))
-import           Pos.Core.Block.Union.Types (BlockHeader (..), blockHeaderHash)
+import           Pos.Core.Block.Genesis.Types (GenesisBody (..), GenesisConsensusData (..))
+import           Pos.Core.Block.Union.Types (BlockHeader (..), GenesisBlock, GenesisBlockHeader,
+                                             HeaderHash, blockHeaderHash)
 import           Pos.Core.Class (HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
                                  HasHeaderHash (..), IsGenesisHeader, IsHeader)
-import           Pos.Core.Common (HeaderHash, slotLeadersF)
+import           Pos.Core.Common (slotLeadersF)
 import           Pos.Core.Slotting.Types (EpochOrSlot (..))
 import           Pos.Crypto (hashHexF)
 

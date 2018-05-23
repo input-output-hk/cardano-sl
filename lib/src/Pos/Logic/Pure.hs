@@ -16,7 +16,10 @@ import           Pos.Core (ApplicationName (..), Block, BlockHeader (..), BlockV
                            GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
                            SoftwareVersion (..), StakeholderId, TxFeePolicy (..),
                            unsafeCoinPortionFromDouble)
-import           Pos.Core.Block.Main
+import           Pos.Core.Block (BlockHeaderAttributes, BlockSignature (..), MainBlock,
+                                 MainBlockHeader, MainBlockchain, MainBody (..),
+                                 MainConsensusData (..), MainExtraBodyData (..),
+                                 MainExtraHeaderData (..), MainProof (..))
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
 import           Pos.Core.Delegation (DlgPayload (..))
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..), SlotId (..))

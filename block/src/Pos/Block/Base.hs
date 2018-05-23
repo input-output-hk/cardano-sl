@@ -21,12 +21,11 @@ import           Pos.Core (BlockVersion, ChainDifficulty, EpochIndex, GenesisHas
                            HasDifficulty (..), HasProtocolConstants, HeaderHash, LocalSlotIndex,
                            SlotId, SlotLeaders, SoftwareVersion, headerHash)
 import           Pos.Core.Block (BlockHeader, BlockSignature (..), GenericBlock (..), GenesisBlock,
-                                 GenesisBlockHeader, GenesisExtraBodyData (..),
-                                 GenesisExtraHeaderData (..), MainBlock, MainBlockHeader,
+                                 GenesisBlockHeader, GenesisBody (..), GenesisConsensusData (..),
+                                 GenesisExtraBodyData (..), GenesisExtraHeaderData (..), MainBlock,
+                                 MainBlockHeader, MainBody (..), MainConsensusData (..),
                                  MainExtraBodyData (..), MainExtraHeaderData (..), MainToSign (..),
                                  mkGenericHeader)
-import           Pos.Core.Block.Genesis (GenesisBody (..), GenesisConsensusData (..))
-import           Pos.Core.Block.Main (MainBody (..), MainConsensusData (..))
 import           Pos.Crypto (ProtocolMagic, SecretKey, SignTag (..), hash, proxySign, sign,
                              toPublic)
 import           Pos.Data.Attributes (mkAttributes)

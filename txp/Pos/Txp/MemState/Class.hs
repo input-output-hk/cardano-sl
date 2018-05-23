@@ -29,7 +29,7 @@ import qualified Control.Concurrent.STM as STM
 import           Data.Default (Default (..))
 import qualified Data.HashMap.Strict as HM
 import           Mockable (CurrentTime, Mockable)
-import           Pos.Core.Common (HeaderHash)
+import           Pos.Core (HeaderHash)
 import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.DB.Class (MonadDBRead, MonadGState (..))
 import           Pos.Reporting (MonadReporting)

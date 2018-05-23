@@ -42,13 +42,12 @@ import           Control.Lens (makeLenses)
 
 import           Pos.Core.Block.Blockchain (gbBody, gbExtra, gbHeader, gbPrevBlock, gbhBodyProof,
                                             gbhConsensus, gbhExtra, gbhPrevBlock)
-import           Pos.Core.Block.Genesis.Chain ()
-import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockHeader, GenesisBody (..),
-                                               GenesisBodyAttributes, GenesisConsensusData (..),
-                                               GenesisExtraBodyData (..),
+import           Pos.Core.Block.Genesis.Types (GenesisBody (..), GenesisBodyAttributes,
+                                               GenesisConsensusData (..), GenesisExtraBodyData (..),
                                                GenesisExtraHeaderData (..), GenesisHeaderAttributes,
                                                GenesisProof (..))
-import           Pos.Core.Common (ChainDifficulty, HeaderHash, SlotLeaders)
+import           Pos.Core.Block.Union.Types (GenesisBlock, GenesisBlockHeader, HeaderHash)
+import           Pos.Core.Common (ChainDifficulty, SlotLeaders)
 import           Pos.Core.Slotting.Types (EpochIndex (..))
 
 ----------------------------------------------------------------------------

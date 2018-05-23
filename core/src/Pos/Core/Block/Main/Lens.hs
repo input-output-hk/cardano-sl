@@ -70,13 +70,12 @@ import           Control.Lens (makeLenses)
 
 import           Pos.Core.Block.Blockchain (gbBody, gbExtra, gbHeader, gbPrevBlock, gbhBodyProof,
                                             gbhConsensus, gbhExtra, gbhPrevBlock)
-import           Pos.Core.Block.Main.Chain ()
 import           Pos.Core.Block.Main.Types (BlockBodyAttributes, BlockHeaderAttributes,
-                                            BlockSignature, MainBlock, MainBlockHeader,
-                                            MainBody (..), MainConsensusData (..),
-                                            MainExtraBodyData, MainExtraHeaderData, MainProof (..),
-                                            MainToSign (..))
-import           Pos.Core.Common (ChainDifficulty, HeaderHash)
+                                            MainBody (..), MainExtraBodyData, MainExtraHeaderData,
+                                            MainProof (..))
+import           Pos.Core.Block.Union.Types (BlockSignature, HeaderHash, MainBlock, MainBlockHeader,
+                                             MainConsensusData (..), MainToSign (..))
+import           Pos.Core.Common (ChainDifficulty)
 import           Pos.Core.Delegation (DlgPayload)
 import           Pos.Core.Slotting.Types (SlotId)
 import           Pos.Core.Ssc (SscPayload)

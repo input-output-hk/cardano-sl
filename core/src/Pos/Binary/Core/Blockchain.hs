@@ -14,8 +14,6 @@ import           Pos.Binary.Class (Bi (..), decodeListLenCanonicalOf, encodeList
 import           Pos.Binary.Core.Block ()
 import           Pos.Binary.Core.Common ()
 import qualified Pos.Core.Block.Blockchain as T
-import           Pos.Core.Block.Genesis.Chain ()
-import           Pos.Core.Block.Main.Chain ()
 import           Pos.Core.Block.Union.Types (BlockHeader (..))
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Util.Util (cborError)

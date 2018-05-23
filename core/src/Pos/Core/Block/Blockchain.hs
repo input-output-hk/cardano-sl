@@ -36,8 +36,6 @@ import           Control.Lens (makeLenses)
 import           Control.Monad.Except (MonadError (throwError))
 import           Formatting (build, sformat, (%))
 
-import           Pos.Core.Class (HasPrevBlock (..))
-import           Pos.Core.Common (HeaderHash)
 import           Pos.Crypto (ProtocolMagic)
 
 ----------------------------------------------------------------------------
@@ -59,7 +57,6 @@ class Blockchain p where
     type BBlockHeader p = GenericBlockHeader p
     -- | Hash of 'BBlockHeader'. This is something like @Hash (BBlockHeader p)@.
     type BHeaderHash p :: *
-    type BHeaderHash p = HeaderHash
 
     -- | Body contains payload and other heavy data.
     type Body p :: *
@@ -209,14 +206,6 @@ mkGenericBlock pm hashPrev body consensus extraH extra =
 
 makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock
-
-instance (BHeaderHash b ~ HeaderHash) =>
-         HasPrevBlock (GenericBlockHeader b) where
-    prevBlockL = gbhPrevBlock
-
-instance (BHeaderHash b ~ HeaderHash) =>
-         HasPrevBlock (GenericBlock b) where
-    prevBlockL = gbHeader . gbhPrevBlock
 
 -- | Lens from 'GenericBlock' to 'BHeaderHash' of its parent.
 gbPrevBlock :: Lens' (GenericBlock b) (BHeaderHash b)

@@ -16,20 +16,19 @@ import           Serokell.Util (Color (Magenta), colorize, listJson)
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Core.Block.Blockchain (GenericBlock (..), GenericBlockHeader (..))
-import           Pos.Core.Block.Main.Chain ()
 import           Pos.Core.Block.Main.Lens (mainBlockBlockVersion, mainBlockDifficulty,
                                            mainBlockSlot, mainBlockSoftwareVersion,
                                            mainHeaderBlockVersion, mainHeaderDifficulty,
                                            mainHeaderLeaderKey, mainHeaderSlot,
                                            mainHeaderSoftwareVersion, mbTxs, mcdDifficulty,
                                            mehBlockVersion, mehSoftwareVersion)
-import           Pos.Core.Block.Main.Types (MainBlock, MainBlockHeader, MainBody (..),
-                                            MainConsensusData (..), MainExtraHeaderData (..))
-import           Pos.Core.Block.Union.Types (BlockHeader (..), blockHeaderHash)
+import           Pos.Core.Block.Main.Types (MainBody (..), MainExtraHeaderData (..))
+import           Pos.Core.Block.Union.Types (BlockHeader (..), HeaderHash, MainBlock,
+                                             MainBlockHeader, MainConsensusData (..),
+                                             blockHeaderHash)
 import           Pos.Core.Class (HasBlockVersion (..), HasDifficulty (..), HasEpochIndex (..),
                                  HasEpochOrSlot (..), HasHeaderHash (..), HasSoftwareVersion (..),
                                  IsHeader, IsMainHeader (..))
-import           Pos.Core.Common (HeaderHash)
 import           Pos.Core.Slotting.Types (EpochOrSlot (..), slotIdF)
 import           Pos.Crypto (hashHexF)
 

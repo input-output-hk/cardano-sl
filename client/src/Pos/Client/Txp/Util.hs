@@ -65,7 +65,7 @@ import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..), TxSiz
                            bvdTxFeePolicy, calculateTxSizeLinear, coinToInteger, integerToCoin,
                            isRedeemAddress, mkCoin, protocolMagic, sumCoins, txSizeLinearMinValue,
                            unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Configuration (HasConfiguration, HasProtocolMagic)
 import           Pos.Crypto (RedeemSecretKey, SafeSigner, SignTag (SignRedeemTx, SignTx),
                              deterministicKeyGen, fakeSigner, hash, redeemSign, redeemToPublic,
                              safeSign, safeToPublic)
@@ -235,7 +235,7 @@ runTxCreator inputSelectionPolicy action = runExceptT $ do
 
 -- | Like 'makePubKeyTx', but allows usage of different signers
 makeMPubKeyTx
-    :: (HasConfiguration)
+    :: (HasProtocolMagic)
     => (owner -> Either e SafeSigner)
     -> TxOwnedInputs owner
     -> TxOutputs
@@ -250,7 +250,7 @@ makeMPubKeyTx getSs = makeAbstractTx mkWit
 
 -- | More specific version of 'makeMPubKeyTx' for convenience
 makeMPubKeyTxAddrs
-    :: (HasConfiguration)
+    :: (HasProtocolMagic)
     => (Address -> Either e SafeSigner)
     -> TxOwnedInputs TxOut
     -> TxOutputs
@@ -260,7 +260,7 @@ makeMPubKeyTxAddrs hdwSigners = makeMPubKeyTx getSigner
     getSigner (TxOut addr _) = hdwSigners addr
 
 -- | Makes a transaction which use P2PKH addresses as a source
-makePubKeyTx :: HasConfiguration => SafeSigner -> TxInputs -> TxOutputs -> TxAux
+makePubKeyTx :: (HasProtocolMagic) => SafeSigner -> TxInputs -> TxOutputs -> TxAux
 makePubKeyTx ss txInputs txOutputs = either absurd identity $
     makeMPubKeyTx (\_ -> Right ss) (map ((), ) txInputs) txOutputs
 
@@ -304,18 +304,14 @@ type InputPickingWay = Utxo -> TxOutputs -> Coin -> Either TxError FlatUtxo
 -- Simple inputs picking
 -------------------------------------------------------------------------
 
-data InputPickerState = InputPickerState
-    { _ipsMoneyLeft        :: !Coin
-    , _ipsAvailableOutputs :: !FlatUtxo
-    }
-
-makeLenses ''InputPickerState
-
-type InputPicker = StateT InputPickerState (Either TxError)
-
 plainInputPicker :: PendingAddresses -> InputPickingWay
 plainInputPicker (PendingAddresses pendingAddrs) utxo _outputs moneyToSpent =
-    evalStateT (pickInputs []) (InputPickerState moneyToSpent sortedUnspent)
+    case foldr pick ([], moneyToSpent) sortedUnspent of
+        (inps, moneyLeft)
+            | moneyLeft == mkCoin 0 ->
+                pure inps
+            | otherwise ->
+                throwError (NotEnoughMoney moneyLeft)
   where
     onlyConfirmedInputs :: Set.Set Address -> (TxIn, TxOutAux) -> Bool
     onlyConfirmedInputs addrs (_, (TxOutAux (TxOut addr _))) =
@@ -345,20 +341,13 @@ plainInputPicker (PendingAddresses pendingAddrs) utxo _outputs moneyToSpent =
       partition (onlyConfirmedInputs pendingAddrs)
                 (sortOn (Down . txOutValue . toaOut . snd) (M.toList utxo))
 
-    pickInputs :: FlatUtxo -> InputPicker FlatUtxo
-    pickInputs inps = do
-        moneyLeft <- use ipsMoneyLeft
-        if moneyLeft == mkCoin 0
-            then return inps
-            else do
-            mNextOut <- head <$> use ipsAvailableOutputs
-            case mNextOut of
-                Nothing -> throwError $ NotEnoughMoney moneyLeft
-                Just inp@(_, (TxOutAux txOut)) -> do
-                    let moneyToSubtract = min (txOutValue txOut) moneyLeft
-                    ipsMoneyLeft .= unsafeSubCoin moneyLeft moneyToSubtract
-                    ipsAvailableOutputs %= tail
-                    pickInputs (inp : inps)
+    pick inp@(_, TxOutAux txOut) (inps, moneyLeft)
+        | moneyLeft == mkCoin 0 =
+            (inps, moneyLeft)
+        | otherwise =
+            (inp : inps, unsafeSubCoin moneyLeft moneyToSubtract)
+      where
+        moneyToSubtract = min (txOutValue txOut) moneyLeft
 
 -------------------------------------------------------------------------
 -- Grouped inputs picking
@@ -454,10 +443,11 @@ prepareTxRawWithPicker inputPicker utxo outputs (TxFee fee) = do
         Nothing       -> throwError $ GeneralTxError "Failed to prepare inputs!"
         Just inputsNE -> do
             totalTxAmount <- sumTxOuts $ map snd inputsNE
-            let trInputs = map formTxInputs inputsNE
-                trRemainingMoney = totalTxAmount `unsafeSubCoin` moneyToSpent
-            let trOutputs = outputs
-            pure TxRaw {..}
+            pure TxRaw
+                { trInputs = map formTxInputs inputsNE
+                , trRemainingMoney = totalTxAmount `unsafeSubCoin` moneyToSpent
+                , trOutputs = outputs
+                }
   where
     sumTxOuts = either (throwError . GeneralTxError) pure .
         integerToCoin . sumTxOutCoins
@@ -684,7 +674,7 @@ computeTxFee pendingTx utxo outputs = do
 -- valid).
 -- To possibly find better solutions we iterate for several times more.
 stabilizeTxFee
-    :: forall m. (HasConfiguration, MonadAddresses m)
+    :: forall m. (HasProtocolMagic, MonadAddresses m)
     => PendingAddresses
     -> TxSizeLinear
     -> Utxo
@@ -694,8 +684,10 @@ stabilizeTxFee pendingTx linearPolicy utxo outputs = do
     minFee <- fixedToFee (txSizeLinearMinValue linearPolicy)
     mtx <- stabilizeTxFeeDo (False, firstStageAttempts) minFee
     case mtx of
-        Nothing -> throwError FailedToStabilize
-        Just tx -> pure $ tx & \(S.Min (S.Arg _ txRaw)) -> txRaw
+        Nothing ->
+            throwError FailedToStabilize
+        Just (S.Min (S.Arg _ txRaw)) ->
+            pure txRaw
   where
     firstStageAttempts = 2 * length utxo + 5
     secondStageAttempts = 10
@@ -731,7 +723,7 @@ txToLinearFee linearPolicy =
 
 -- | Function is used to calculate intermediate fee amounts
 -- when forming a transaction
-createFakeTxFromRawTx :: HasConfiguration => Address -> TxRaw -> TxAux
+createFakeTxFromRawTx :: (HasProtocolMagic) => Address -> TxRaw -> TxAux
 createFakeTxFromRawTx fakeAddr TxRaw{..} =
     let fakeOutMB
             | trRemainingMoney == mkCoin 0 = Nothing

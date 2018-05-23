@@ -32,7 +32,7 @@ let
     '';
   });
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
-    ghc = overrideDerivation pkgs.haskell.compiler.ghc802 (drv: {
+    ghc = overrideDerivation pkgs.haskell.compiler.ghc822 (drv: {
       patches = drv.patches ++ [ ./ghc-8.0.2-darwin-rec-link.patch ];
     });
     overrides = self: super: {

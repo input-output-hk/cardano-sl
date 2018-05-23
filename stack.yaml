@@ -133,6 +133,11 @@ packages:
     commit: 1049699df411c9584523ba7424cba1f3f82ac419
   extra-dep: true
 
+- location:
+    git: https://github.com/avieth/servant-quickcheck.git
+    commit: e4e879abca99d0d56015765859fb37af59a81dbb
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 
@@ -182,8 +187,12 @@ extra-deps:
 - gauge-0.2.1
 
 # Servant stuff not found on stackage
-- servant-quickcheck-0.0.6.0
 - servant-multipart-0.11.1
+# Because of servant-quickcheck
+# It defines serverSatisfiesMgr, but requires a newer hspec.
+- hspec-2.5.1
+- hspec-core-2.5.1
+- hspec-discover-2.5.1
 
 # Graphics stuff not found on stackage.
 - Chart-diagrams-1.8.2

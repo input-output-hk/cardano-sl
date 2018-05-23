@@ -19,9 +19,10 @@ module Pos.Diffusion.Subscription.Common
     , updatePeersBucketUnsubscribe
     ) where
 
-import           Universum hiding (mask, catch)
+import           Universum hiding (mask)
 
-import           Control.Exception (mask, catch, throwIO)
+import           Control.Exception (mask)
+import qualified Control.Exception.Safe as Safe (try)
 import           Control.Concurrent.Async (concurrently)
 import           Control.Concurrent.MVar (modifyMVar)
 import qualified Data.Map.Strict as Map
@@ -116,33 +117,34 @@ data SubscriptionTerminationReason =
 
 -- | Subscribe via the network protocol, using MsgSubscribe or MsgSubscribe1
 -- depending on the peer's version.
+--
+-- In case there is a synchronous exception, it will be caught and not rethrown,
+-- but passed to the 'after' callback as the 'Exceptional' constructor.
 networkSubscribeTo
     :: ( SubscriptionMessageConstraints )
     => (NodeId -> IO r)  -- ^ Run before attempting to subscribe
     -> (NodeId -> IO ()) -- ^ Run after subscription comes up
     -> (NodeId -> IO ()) -- ^ In case the keepalive version is run, keepalive is sent when
                          --   this returns.
-    -> (NodeId -> SubscriptionTerminationReason -> r -> IO ()) -- ^ Run after subscription ends
+    -> (NodeId -> SubscriptionTerminationReason -> Millisecond -> r -> IO t) -- ^ Run after subscription ends
     -> SendActions
     -> NodeId
-    -> IO Millisecond -- ^ How long the subscription lasted.
+    -> IO t
 networkSubscribeTo before middle keepalive after sendActions peer = mask $ \restore -> do
     r <- before peer
+    timeStarted <- getTime Monotonic
     let networkAction = do
-            timeStarted <- getTime Monotonic
             withConnectionTo sendActions peer $ \_peerData -> NE.fromList
                 -- Sort conversations in descending order based on their version so that
                 -- the highest available version of the conversation is picked.
                 [ Conversation (convMsgSubscribe (middle peer) (keepalive peer))
                 , Conversation (convMsgSubscribe1 (middle peer))
                 ]
-            timeEnded <- getTime Monotonic
-            pure $ timeSpecToMilliseconds (timeEnded - timeStarted)
-    t <- restore networkAction `catch` \e -> do
-        after peer (Exceptional e) r
-        throwIO e
-    after peer Normal r
-    pure t
+    outcome <- Safe.try (restore networkAction)
+    timeEnded <- getTime Monotonic
+    let duration = timeSpecToMilliseconds (timeEnded - timeStarted)
+        reason = either Exceptional (const Normal) outcome
+    after peer reason duration r
 
   where
 
@@ -158,7 +160,7 @@ withNetworkSubscription
     -> (NodeId -> IO ()) -- ^ Run after subscription comes up
     -> (NodeId -> IO ()) -- ^ In case the keepalive version is run, keepalive is sent when
                          --   this returns.
-    -> (NodeId -> SubscriptionTerminationReason -> r -> IO ()) -- ^ Run after subscription ends
+    -> (NodeId -> SubscriptionTerminationReason -> Millisecond -> r -> IO ()) -- ^ Run after subscription ends
     -> SendActions
     -> NodeId
     -> IO t
@@ -221,10 +223,11 @@ networkSubscribeTo' logTrace oq bucket nodeType peersVar keepalive status sendAc
         keepalive nid
         traceWith logTrace (Debug, msgSendKeepalive nid)
 
-    after peer reason _ = do
+    after peer reason duration _ = do
         updatePeersBucketUnsubscribe oq bucket peersVar (nodeType, peer)
         traceWith logTrace (Notice, msgSubscriptionTerminated peer reason)
         alterPeerSubStatus peer Nothing
+        pure duration
 
     msgSubscribingTo :: NodeId -> Text
     msgSubscribingTo = sformat ("subscriptionWorker: subscribing to "%shown)

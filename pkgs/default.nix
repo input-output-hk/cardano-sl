@@ -7458,12 +7458,13 @@ inherit (pkgs) mesa;};
          , cardano-sl-util, conduit, conduit-extra, containers
          , contravariant, cryptonite, ekg-core, exceptions, formatting
          , hashable, hspec, hspec-core, kademlia, lens, log-warper, mmorph
-         , monad-control, mtl, mwc-random, network, network-transport
-         , network-transport-inmemory, network-transport-tcp
-         , optparse-simple, QuickCheck, random, resourcet, safe-exceptions
-         , serokell-util, statistics, stdenv, stm, text, text-format, time
-         , time-units, transformers, transformers-base, transformers-lift
-         , universum, unliftio-core, vector
+         , monad-control, MonadRandom, mtl, mwc-random, network
+         , network-transport, network-transport-inmemory
+         , network-transport-tcp, optparse-simple, QuickCheck, random
+         , resourcet, safe-exceptions, serokell-util, statistics, stdenv
+         , stm, text, text-format, time, time-units, transformers
+         , transformers-base, transformers-lift, universum, unliftio-core
+         , vector
          }:
          mkDerivation {
            pname = "cardano-sl-networking";
@@ -7483,8 +7484,9 @@ inherit (pkgs) mesa;};
            executableHaskellDepends = [
              async attoparsec base binary bytestring cardano-sl-util conduit
              conduit-extra containers contravariant formatting lens log-warper
-             mtl network-transport network-transport-tcp optparse-simple random
-             resourcet safe-exceptions serokell-util text time-units
+             MonadRandom mtl network-transport network-transport-tcp
+             optparse-simple random resourcet safe-exceptions serokell-util text
+             text-format time time-units unliftio-core
            ];
            testHaskellDepends = [
              async base binary bytestring cardano-sl-util containers hspec

@@ -17,7 +17,7 @@ import qualified Data.Set as Set
 import qualified Network.Broadcast.OutboundQueue as OutQ
 import           Network.Broadcast.OutboundQueue.Demo
 import           Network.Broadcast.OutboundQueue.Types hiding (simplePeers)
-import qualified Pos.Util.Log as Log
+--import qualified Pos.Util.Log as Log
 import           Test.Hspec (Spec, describe, it)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 import           Test.QuickCheck (Gen, Property, choose, forAll, ioProperty, property,

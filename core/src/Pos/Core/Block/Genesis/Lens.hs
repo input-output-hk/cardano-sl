@@ -42,11 +42,12 @@ import           Control.Lens (makeLenses)
 
 import           Pos.Core.Block.Blockchain (gbBody, gbExtra, gbHeader, gbPrevBlock, gbhBodyProof,
                                             gbhConsensus, gbhExtra, gbhPrevBlock)
-import           Pos.Core.Block.Genesis.Chain (Body (..), BodyProof (..), ConsensusData (..))
-import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockHeader, GenesisBlockchain,
-                                               GenesisBodyAttributes, GenesisExtraBodyData (..),
-                                               GenesisExtraHeaderData (..), GenesisHeaderAttributes)
-import           Pos.Core.Common (ChainDifficulty, HeaderHash, SlotLeaders)
+import           Pos.Core.Block.Genesis.Types (GenesisBody (..), GenesisBodyAttributes,
+                                               GenesisConsensusData (..), GenesisExtraBodyData (..),
+                                               GenesisExtraHeaderData (..), GenesisHeaderAttributes,
+                                               GenesisProof (..))
+import           Pos.Core.Block.Union.Types (GenesisBlock, GenesisBlockHeader, HeaderHash)
+import           Pos.Core.Common (ChainDifficulty, SlotLeaders)
 import           Pos.Core.Slotting.Types (EpochIndex (..))
 
 ----------------------------------------------------------------------------
@@ -71,8 +72,7 @@ genHeaderPrevBlock :: Lens' GenesisBlockHeader HeaderHash
 genHeaderPrevBlock = gbhPrevBlock
 
 -- | Lens from 'GenesisBlockHeader' to 'GenesisProof'.
-genHeaderProof ::
-       Lens' GenesisBlockHeader (BodyProof GenesisBlockchain)
+genHeaderProof :: Lens' GenesisBlockHeader GenesisProof
 genHeaderProof = gbhBodyProof
 
 -- | Lens from 'GenesisBlockHeader' to 'EpochIndex'.
@@ -84,8 +84,7 @@ genHeaderDifficulty :: Lens' GenesisBlockHeader ChainDifficulty
 genHeaderDifficulty = gbhConsensus . gcdDifficulty
 
 -- | Lens from 'GenesisBlockHeader' to 'GenesisHeaderAttributes'.
-genHeaderAttributes ::
-       Lens' GenesisBlockHeader GenesisHeaderAttributes
+genHeaderAttributes :: Lens' GenesisBlockHeader GenesisHeaderAttributes
 genHeaderAttributes = gbhExtra . gehAttributes
 
 ----------------------------------------------------------------------------
@@ -103,7 +102,7 @@ genBlockPrevBlock :: Lens' GenesisBlock HeaderHash
 genBlockPrevBlock = gbPrevBlock
 
 -- | Lens from 'GenesisBlock' to 'GenesisProof'.
-genBlockProof :: Lens' GenesisBlock (BodyProof GenesisBlockchain)
+genBlockProof :: Lens' GenesisBlock GenesisProof
 genBlockProof = gbHeader . genHeaderProof
 
 -- | Lens from 'GenesisBlock' to 'EpochIndex'.
@@ -115,8 +114,7 @@ genBlockDifficulty :: Lens' GenesisBlock ChainDifficulty
 genBlockDifficulty = gbHeader . genHeaderDifficulty
 
 -- | Lens from 'GenesisBlock' to 'GenesisHeaderAttributes'.
-genBlockHeaderAttributes ::
-       Lens' GenesisBlock GenesisHeaderAttributes
+genBlockHeaderAttributes :: Lens' GenesisBlock GenesisHeaderAttributes
 genBlockHeaderAttributes = gbHeader . genHeaderAttributes
 
 -- | Lens from 'GenesisBlock' to 'SlotLeaders'.

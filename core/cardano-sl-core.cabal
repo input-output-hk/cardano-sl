@@ -74,11 +74,9 @@ library
                        Pos.Binary.Core.Update
 
                        -- Block
-                       Pos.Core.Block.Genesis.Chain
                        Pos.Core.Block.Genesis.Lens
                        Pos.Core.Block.Genesis.Instances
                        Pos.Core.Block.Genesis.Types
-                       Pos.Core.Block.Main.Chain
                        Pos.Core.Block.Main.Lens
                        Pos.Core.Block.Main.Instances
                        Pos.Core.Block.Main.Types

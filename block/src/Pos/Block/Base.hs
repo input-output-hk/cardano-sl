@@ -17,17 +17,17 @@ import           Universum
 import           Data.Default (Default (def))
 
 import           Pos.Block.BHelpers ()
-import           Pos.Core (BlockVersion, EpochIndex, HasDifficulty (..), LocalSlotIndex, SlotId,
-                           SlotLeaders, SoftwareVersion, GenesisHash (..), HasProtocolConstants,
-                           ChainDifficulty, HeaderHash, headerHash)
-import           Pos.Core.Block (BlockHeader, BlockSignature (..), GenesisBlock, GenesisBlockHeader,
-                                 GenesisBlockchain, GenesisExtraBodyData (..),
-                                 GenesisExtraHeaderData (..), MainBlock, MainBlockHeader,
-                                 MainBlockchain, MainExtraBodyData (..), MainExtraHeaderData (..),
-                                 MainToSign (..), mkGenericHeader, GenericBlock (..))
-import           Pos.Core.Block.Genesis (Body (..), ConsensusData (..))
-import           Pos.Core.Block.Main (Body (..), ConsensusData (..))
-import           Pos.Crypto (ProtocolMagic, SecretKey, SignTag (..), hash, proxySign, sign, toPublic)
+import           Pos.Core (BlockVersion, ChainDifficulty, EpochIndex, GenesisHash (..),
+                           HasDifficulty (..), HasProtocolConstants, HeaderHash, LocalSlotIndex,
+                           SlotId, SlotLeaders, SoftwareVersion, headerHash)
+import           Pos.Core.Block (BlockHeader, BlockSignature (..), GenericBlock (..), GenesisBlock,
+                                 GenesisBlockHeader, GenesisBody (..), GenesisConsensusData (..),
+                                 GenesisExtraBodyData (..), GenesisExtraHeaderData (..), MainBlock,
+                                 MainBlockHeader, MainBody (..), MainConsensusData (..),
+                                 MainExtraBodyData (..), MainExtraHeaderData (..), MainToSign (..),
+                                 mkGenericHeader)
+import           Pos.Crypto (ProtocolMagic, SecretKey, SignTag (..), hash, proxySign, sign,
+                             toPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Ssc.Base (defaultSscPayload)
@@ -44,7 +44,7 @@ mkMainHeader
     -> SlotId
     -> SecretKey
     -> ProxySKBlockInfo
-    -> Body MainBlockchain
+    -> MainBody
     -> MainExtraHeaderData
     -> MainBlockHeader
 mkMainHeader pm prevHeader =
@@ -62,7 +62,7 @@ mkMainHeaderExplicit
     -> SlotId
     -> SecretKey
     -> ProxySKBlockInfo
-    -> Body MainBlockchain
+    -> MainBody
     -> MainExtraHeaderData
     -> MainBlockHeader
 mkMainHeaderExplicit pm prevHash difficulty slotId sk pske body extra =
@@ -94,7 +94,7 @@ mkMainBlock
     -> SlotId
     -> SecretKey
     -> ProxySKBlockInfo
-    -> Body MainBlockchain
+    -> MainBody
     -> MainBlock
 mkMainBlock pm bv sv prevHeader = mkMainBlockExplicit pm bv sv prevHash difficulty
   where
@@ -114,7 +114,7 @@ mkMainBlockExplicit
     -> SlotId
     -> SecretKey
     -> ProxySKBlockInfo
-    -> Body MainBlockchain
+    -> MainBody
     -> MainBlock
 mkMainBlockExplicit pm bv sv prevHash difficulty slotId sk pske body =
     UnsafeGenericBlock
@@ -136,7 +136,7 @@ mkMainBlockExplicit pm bv sv prevHash difficulty slotId sk pske body =
 emptyMainBody
     :: HasProtocolConstants
     => LocalSlotIndex
-    -> Body MainBlockchain
+    -> MainBody
 emptyMainBody slot =
     MainBody
     { _mbTxPayload = emptyTxPayload
@@ -154,7 +154,7 @@ mkGenesisHeader
     :: ProtocolMagic
     -> Either GenesisHash BlockHeader
     -> EpochIndex
-    -> Body GenesisBlockchain
+    -> GenesisBody
     -> GenesisBlockHeader
 mkGenesisHeader pm prevHeader epoch body =
     -- here we know that genesis header construction can not fail

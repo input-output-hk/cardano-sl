@@ -12,9 +12,6 @@ module Pos.Core.Common.Types
        , mkMultiKeyDistr
        , Address (..)
 
-       -- * Forward-declared BlockHeader
-       , BlockHeader
-
        -- * Stakeholders
        , StakeholderId
        , StakesMap
@@ -22,10 +19,6 @@ module Pos.Core.Common.Types
 
        -- * ChainDifficulty
        , ChainDifficulty (..)
-
-       -- * HeaderHash related types and functions
-       , HeaderHash
-       , headerHashF
 
        , SharedSeed (..)
        , SlotLeaders
@@ -75,7 +68,7 @@ import           System.Random (Random (..))
 import           Pos.Binary.Class (Bi, decode, encode)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Constants (sharedSeedLength)
-import           Pos.Crypto.Hashing (AbstractHash, Hash)
+import           Pos.Crypto.Hashing (AbstractHash)
 import           Pos.Crypto.HD (HDAddressPayload)
 import           Pos.Crypto.Signing (PublicKey, RedeemPublicKey)
 import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
@@ -371,28 +364,6 @@ instance Hashable Address where
 newtype ChainDifficulty = ChainDifficulty
     { getChainDifficulty :: BlockCount
     } deriving (Show, Eq, Ord, Num, Enum, Real, Integral, Generic, Buildable, Typeable, NFData)
-
-----------------------------------------------------------------------------
--- BlockHeader (forward-declaration)
-----------------------------------------------------------------------------
-
--- We use a data family instead of a data type solely to avoid a module
--- cycle. Grep for @data instance BlockHeader@ to find the definition.
---
--- | Forward-declaration of block headers. See the corresponding type instance
--- for the actual definition.
-data family BlockHeader
-
-----------------------------------------------------------------------------
--- HeaderHash
-----------------------------------------------------------------------------
-
--- | 'Hash' of block header.
-type HeaderHash = Hash BlockHeader
-
--- | Specialized formatter for 'HeaderHash'.
-headerHashF :: Format r (HeaderHash -> r)
-headerHashF = build
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw

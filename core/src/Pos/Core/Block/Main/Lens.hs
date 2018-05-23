@@ -70,12 +70,12 @@ import           Control.Lens (makeLenses)
 
 import           Pos.Core.Block.Blockchain (gbBody, gbExtra, gbHeader, gbPrevBlock, gbhBodyProof,
                                             gbhConsensus, gbhExtra, gbhPrevBlock)
-import           Pos.Core.Block.Main.Chain (Body (..), BodyProof (..), ConsensusData (..))
 import           Pos.Core.Block.Main.Types (BlockBodyAttributes, BlockHeaderAttributes,
-                                            BlockSignature, MainBlock, MainBlockHeader,
-                                            MainBlockchain, MainExtraBodyData, MainExtraHeaderData,
-                                            MainToSign (..))
-import           Pos.Core.Common (ChainDifficulty, HeaderHash)
+                                            MainBody (..), MainExtraBodyData, MainExtraHeaderData,
+                                            MainProof (..))
+import           Pos.Core.Block.Union.Types (BlockSignature, HeaderHash, MainBlock, MainBlockHeader,
+                                             MainConsensusData (..), MainToSign (..))
+import           Pos.Core.Common (ChainDifficulty)
 import           Pos.Core.Delegation (DlgPayload)
 import           Pos.Core.Slotting.Types (SlotId)
 import           Pos.Core.Ssc (SscPayload)
@@ -111,8 +111,7 @@ mainHeaderPrevBlock :: Lens' MainBlockHeader HeaderHash
 mainHeaderPrevBlock = gbhPrevBlock
 
 -- | Lens from 'MainBlockHeader' to 'MainProof'.
-mainHeaderProof ::
-       Lens' MainBlockHeader (BodyProof MainBlockchain)
+mainHeaderProof :: Lens' MainBlockHeader MainProof
 mainHeaderProof = gbhBodyProof
 
 -- | Lens from 'MainBlockHeader' to 'SlotId'.
@@ -132,23 +131,19 @@ mainHeaderSignature :: Lens' MainBlockHeader BlockSignature
 mainHeaderSignature = gbhConsensus . mcdSignature
 
 -- | Lens from 'MainBlockHeader' to 'BlockVersion'.
-mainHeaderBlockVersion ::
-       Lens' MainBlockHeader BlockVersion
+mainHeaderBlockVersion :: Lens' MainBlockHeader BlockVersion
 mainHeaderBlockVersion = gbhExtra . mehBlockVersion
 
 -- | Lens from 'MainBlockHeader' to 'SoftwareVersion'.
-mainHeaderSoftwareVersion ::
-       Lens' MainBlockHeader SoftwareVersion
+mainHeaderSoftwareVersion :: Lens' MainBlockHeader SoftwareVersion
 mainHeaderSoftwareVersion = gbhExtra . mehSoftwareVersion
 
 -- | Lens from 'MainBlockHeader' to 'BlockHeaderAttributes'.
-mainHeaderAttributes ::
-       Lens' MainBlockHeader BlockHeaderAttributes
+mainHeaderAttributes :: Lens' MainBlockHeader BlockHeaderAttributes
 mainHeaderAttributes = gbhExtra . mehAttributes
 
 -- | Lens from 'MainBlockHeader' to 'MainExtraBodyData'
-mainHeaderEBDataProof ::
-       Lens' MainBlockHeader (Hash MainExtraBodyData)
+mainHeaderEBDataProof :: Lens' MainBlockHeader (Hash MainExtraBodyData)
 mainHeaderEBDataProof = gbhExtra . mehEBDataProof
 
 ----------------------------------------------------------------------------
@@ -158,11 +153,11 @@ mainHeaderEBDataProof = gbhExtra . mehEBDataProof
 makeLenses 'MainBody
 
 -- | Lens for transaction tree in main block body.
-mbTxs :: Lens' (Body MainBlockchain) ([Tx])
+mbTxs :: Lens' MainBody ([Tx])
 mbTxs = mbTxPayload . txpTxs
 
 -- | Lens for witness list in main block body.
-mbWitnesses :: Lens' (Body MainBlockchain) [TxWitness]
+mbWitnesses :: Lens' MainBody [TxWitness]
 mbWitnesses = mbTxPayload . txpWitnesses
 
 ----------------------------------------------------------------------------
@@ -174,7 +169,7 @@ mainBlockPrevBlock :: Lens' MainBlock HeaderHash
 mainBlockPrevBlock = gbPrevBlock
 
 -- | Lens from 'MainBlock' to 'MainProof'.
-mainBlockProof :: Lens' MainBlock (BodyProof MainBlockchain)
+mainBlockProof :: Lens' MainBlock MainProof
 mainBlockProof = gbHeader . mainHeaderProof
 
 -- | Lens from 'MainBlock' to 'SlotId'.
@@ -194,23 +189,19 @@ mainBlockSignature :: Lens' MainBlock BlockSignature
 mainBlockSignature = gbHeader . mainHeaderSignature
 
 -- | Lens from 'MainBlock' to 'BlockVersion'.
-mainBlockBlockVersion ::
-       Lens' MainBlock BlockVersion
+mainBlockBlockVersion :: Lens' MainBlock BlockVersion
 mainBlockBlockVersion = gbHeader . mainHeaderBlockVersion
 
 -- | Lens from 'MainBlock' to 'SoftwareVersion'.
-mainBlockSoftwareVersion ::
-       Lens' MainBlock SoftwareVersion
+mainBlockSoftwareVersion :: Lens' MainBlock SoftwareVersion
 mainBlockSoftwareVersion = gbHeader . mainHeaderSoftwareVersion
 
 -- | Lens from 'MainBlock' to 'BlockHeaderAttributes'.
-mainBlockHeaderAttributes ::
-       Lens' MainBlock BlockHeaderAttributes
+mainBlockHeaderAttributes :: Lens' MainBlock BlockHeaderAttributes
 mainBlockHeaderAttributes = gbHeader . mainHeaderAttributes
 
 -- | Lens from 'MainBlock' to proof (hash) of 'MainExtraBodyData'.
-mainBlockEBDataProof ::
-       Lens' MainBlock (Hash MainExtraBodyData)
+mainBlockEBDataProof :: Lens' MainBlock (Hash MainExtraBodyData)
 mainBlockEBDataProof = gbHeader . mainHeaderEBDataProof
 
 -- | Lens from 'MainBlock' to 'TxPayload'.

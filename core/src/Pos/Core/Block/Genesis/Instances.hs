@@ -15,18 +15,19 @@ import           Formatting (bprint, build, int, sformat, stext, (%))
 import           Serokell.Util (Color (Magenta), colorize)
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Binary.Core.Block ()
 import           Pos.Core.Block.Blockchain (GenericBlock (..), GenericBlockHeader (..), gbHeader,
                                             gbhConsensus)
-import           Pos.Core.Block.Genesis.Chain (Body (..), ConsensusData (..))
 import           Pos.Core.Block.Genesis.Lens (gcdDifficulty, gcdEpoch)
-import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockHeader, GenesisBlockchain)
-import           Pos.Core.Block.Union.Types (BlockHeader (..), blockHeaderHash)
+import           Pos.Core.Block.Genesis.Types (GenesisBody (..), GenesisConsensusData (..))
+import           Pos.Core.Block.Union.Types (BlockHeader (..), GenesisBlock, GenesisBlockHeader,
+                                             HeaderHash, blockHeaderHash)
 import           Pos.Core.Class (HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
                                  HasHeaderHash (..), IsGenesisHeader, IsHeader)
-import           Pos.Core.Common (HeaderHash, slotLeadersF)
+import           Pos.Core.Common (slotLeadersF)
 import           Pos.Core.Slotting.Types (EpochOrSlot (..))
 import           Pos.Crypto (hashHexF)
+
+instance NFData GenesisBlock
 
 ----------------------------------------------------------------------------
 -- Buildable
@@ -94,7 +95,7 @@ instance Bi BlockHeader =>
          HasHeaderHash GenesisBlock where
     headerHash = blockHeaderHash . BlockHeaderGenesis . _gbHeader
 
-instance HasDifficulty (ConsensusData GenesisBlockchain) where
+instance HasDifficulty GenesisConsensusData where
     difficultyL = gcdDifficulty
 
 instance HasDifficulty GenesisBlockHeader where

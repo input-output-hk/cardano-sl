@@ -19,26 +19,29 @@ import           Pos.Binary.Core.Script ()
 import           Pos.Binary.Core.Slotting ()
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy)
 import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
-import qualified Pos.Core.Update as U
-import           Pos.Core.Update.Types (BlockVersion, BlockVersionData (..), SoftforkRule (..),
-                                        SoftwareVersion)
+import           Pos.Core.Update.Types (ApplicationName (..), BlockVersion (..),
+                                        BlockVersionData (..), BlockVersionModifier (..),
+                                        NumSoftwareVersion, SoftforkRule (..), SoftwareVersion (..),
+                                        SystemTag (..), UpAttributes, UpdateData (..),
+                                        UpdatePayload (..), UpdateProposal (..),
+                                        UpdateProposalToSign (..), UpdateVote (..))
 import           Pos.Crypto (Hash)
 
-instance Bi U.ApplicationName where
-    encode appName = encode (U.getApplicationName appName)
-    decode = U.ApplicationName <$> decode
+instance Bi ApplicationName where
+    encode appName = encode (getApplicationName appName)
+    decode = ApplicationName <$> decode
 
-deriveSimpleBi ''U.BlockVersion [
-    Cons 'U.BlockVersion [
-        Field [| U.bvMajor :: Word16 |],
-        Field [| U.bvMinor :: Word16 |],
-        Field [| U.bvAlt   :: Word8  |]
+deriveSimpleBi ''BlockVersion [
+    Cons 'BlockVersion [
+        Field [| bvMajor :: Word16 |],
+        Field [| bvMinor :: Word16 |],
+        Field [| bvAlt   :: Word8  |]
     ]]
 
-deriveSimpleBi ''U.SoftwareVersion [
-    Cons 'U.SoftwareVersion [
-        Field [| U.svAppName :: U.ApplicationName    |],
-        Field [| U.svNumber  :: U.NumSoftwareVersion |]
+deriveSimpleBi ''SoftwareVersion [
+    Cons 'SoftwareVersion [
+        Field [| svAppName :: ApplicationName    |],
+        Field [| svNumber  :: NumSoftwareVersion |]
     ]]
 
 deriveSimpleBi ''SoftforkRule [
@@ -66,57 +69,57 @@ deriveSimpleBi ''BlockVersionData [
         Field [| bvdUnlockStakeEpoch  :: EpochIndex    |]
     ]]
 
-deriveSimpleBi ''U.BlockVersionModifier [
-    Cons 'U.BlockVersionModifier [
-        Field [| U.bvmScriptVersion     :: Maybe ScriptVersion |],
-        Field [| U.bvmSlotDuration      :: Maybe Millisecond   |],
-        Field [| U.bvmMaxBlockSize      :: Maybe Byte          |],
-        Field [| U.bvmMaxHeaderSize     :: Maybe Byte          |],
-        Field [| U.bvmMaxTxSize         :: Maybe Byte          |],
-        Field [| U.bvmMaxProposalSize   :: Maybe Byte          |],
-        Field [| U.bvmMpcThd            :: Maybe CoinPortion   |],
-        Field [| U.bvmHeavyDelThd       :: Maybe CoinPortion   |],
-        Field [| U.bvmUpdateVoteThd     :: Maybe CoinPortion   |],
-        Field [| U.bvmUpdateProposalThd :: Maybe CoinPortion   |],
-        Field [| U.bvmUpdateImplicit    :: Maybe FlatSlotId    |],
-        Field [| U.bvmSoftforkRule      :: Maybe SoftforkRule  |],
-        Field [| U.bvmTxFeePolicy       :: Maybe TxFeePolicy   |],
-        Field [| U.bvmUnlockStakeEpoch  :: Maybe EpochIndex    |]
+deriveSimpleBi ''BlockVersionModifier [
+    Cons 'BlockVersionModifier [
+        Field [| bvmScriptVersion     :: Maybe ScriptVersion |],
+        Field [| bvmSlotDuration      :: Maybe Millisecond   |],
+        Field [| bvmMaxBlockSize      :: Maybe Byte          |],
+        Field [| bvmMaxHeaderSize     :: Maybe Byte          |],
+        Field [| bvmMaxTxSize         :: Maybe Byte          |],
+        Field [| bvmMaxProposalSize   :: Maybe Byte          |],
+        Field [| bvmMpcThd            :: Maybe CoinPortion   |],
+        Field [| bvmHeavyDelThd       :: Maybe CoinPortion   |],
+        Field [| bvmUpdateVoteThd     :: Maybe CoinPortion   |],
+        Field [| bvmUpdateProposalThd :: Maybe CoinPortion   |],
+        Field [| bvmUpdateImplicit    :: Maybe FlatSlotId    |],
+        Field [| bvmSoftforkRule      :: Maybe SoftforkRule  |],
+        Field [| bvmTxFeePolicy       :: Maybe TxFeePolicy   |],
+        Field [| bvmUnlockStakeEpoch  :: Maybe EpochIndex    |]
     ]]
 
-instance Bi U.SystemTag where
-    encode = encode . U.getSystemTag
-    decode = U.SystemTag <$> decode
+instance Bi SystemTag where
+    encode = encode . getSystemTag
+    decode = SystemTag <$> decode
 
-deriveSimpleBi ''U.UpdateData [
-    Cons 'U.UpdateData [
-        Field [| U.udAppDiffHash  :: Hash Raw |],
-        Field [| U.udPkgHash      :: Hash Raw |],
-        Field [| U.udUpdaterHash  :: Hash Raw |],
-        Field [| U.udMetadataHash :: Hash Raw |]
+deriveSimpleBi ''UpdateData [
+    Cons 'UpdateData [
+        Field [| udAppDiffHash  :: Hash Raw |],
+        Field [| udPkgHash      :: Hash Raw |],
+        Field [| udUpdaterHash  :: Hash Raw |],
+        Field [| udMetadataHash :: Hash Raw |]
     ]]
 
-deriveSimpleBi ''U.UpdateProposalToSign [
-    Cons 'U.UpdateProposalToSign [
-        Field [| U.upsBV   :: BlockVersion                     |],
-        Field [| U.upsBVM  :: U.BlockVersionModifier           |],
-        Field [| U.upsSV   :: SoftwareVersion                  |],
-        Field [| U.upsData :: HashMap U.SystemTag U.UpdateData |],
-        Field [| U.upsAttr :: U.UpAttributes                   |]
+deriveSimpleBi ''UpdateProposalToSign [
+    Cons 'UpdateProposalToSign [
+        Field [| upsBV   :: BlockVersion                     |],
+        Field [| upsBVM  :: BlockVersionModifier           |],
+        Field [| upsSV   :: SoftwareVersion                  |],
+        Field [| upsData :: HashMap SystemTag UpdateData |],
+        Field [| upsAttr :: UpAttributes                   |]
     ]]
 
-instance Bi U.UpdateProposal where
+instance Bi UpdateProposal where
     encode up = encodeListLen 7
-            <> encode (U.upBlockVersion up)
-            <> encode (U.upBlockVersionMod up)
-            <> encode (U.upSoftwareVersion up)
-            <> encode (U.upData up)
-            <> encode (U.upAttributes up)
-            <> encode (U.upFrom up)
-            <> encode (U.upSignature up)
+            <> encode (upBlockVersion up)
+            <> encode (upBlockVersionMod up)
+            <> encode (upSoftwareVersion up)
+            <> encode (upData up)
+            <> encode (upAttributes up)
+            <> encode (upFrom up)
+            <> encode (upSignature up)
     decode = do
         enforceSize "UpdateProposal" 7
-        U.UnsafeUpdateProposal <$> decode
+        UnsafeUpdateProposal <$> decode
                                <*> decode
                                <*> decode
                                <*> decode
@@ -124,22 +127,22 @@ instance Bi U.UpdateProposal where
                                <*> decode
                                <*> decode
 
-instance Bi U.UpdateVote where
+instance Bi UpdateVote where
     encode uv =  encodeListLen 4
-            <> encode (U.uvKey uv)
-            <> encode (U.uvProposalId uv)
-            <> encode (U.uvDecision uv)
-            <> encode (U.uvSignature uv)
+            <> encode (uvKey uv)
+            <> encode (uvProposalId uv)
+            <> encode (uvDecision uv)
+            <> encode (uvSignature uv)
     decode = do
         enforceSize "UpdateVote" 4
         uvKey        <- decode
         uvProposalId <- decode
         uvDecision   <- decode
         uvSignature  <- decode
-        pure U.UnsafeUpdateVote{..}
+        pure UnsafeUpdateVote{..}
 
-deriveSimpleBi ''U.UpdatePayload [
-    Cons 'U.UpdatePayload [
-        Field [| U.upProposal :: Maybe U.UpdateProposal |],
-        Field [| U.upVotes    :: [U.UpdateVote]         |]
+deriveSimpleBi ''UpdatePayload [
+    Cons 'UpdatePayload [
+        Field [| upProposal :: Maybe UpdateProposal |],
+        Field [| upVotes    :: [UpdateVote]         |]
     ]]

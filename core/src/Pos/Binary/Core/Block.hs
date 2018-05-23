@@ -10,12 +10,14 @@ import           Universum
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi, encodeListLen,
                                    encodeListLen, enforceSize)
+import           Pos.Binary.Core.Delegation ()
+import           Pos.Binary.Core.Slotting ()
+import           Pos.Binary.Core.Ssc ()
 import           Pos.Binary.Core.Txp ()
-import qualified Pos.Core.Block.Blockchain as Core
-import qualified Pos.Core.Block.Genesis.Chain as BC
+import           Pos.Binary.Core.Update ()
 import qualified Pos.Core.Block.Genesis.Types as BC
-import qualified Pos.Core.Block.Main.Chain as BC
 import qualified Pos.Core.Block.Main.Types as BC
+import qualified Pos.Core.Block.Union.Types as BC
 import           Pos.Core.Update.Types (BlockVersion, SoftwareVersion)
 import           Pos.Crypto (Hash)
 import           Pos.Util.Util (cborError)
@@ -24,7 +26,7 @@ import           Pos.Util.Util (cborError)
 -- MainBlock
 ----------------------------------------------------------------------------
 
-instance Bi (Core.BodyProof BC.MainBlockchain) where
+instance Bi BC.MainProof where
     encode bc =  encodeListLen 4
               <> encode (BC.mpTxProof bc)
               <> encode (BC.mpMpcProof bc)
@@ -51,7 +53,7 @@ instance Bi BC.BlockSignature where
           2 -> BC.BlockPSignatureHeavy <$> decode
           _ -> cborError $ "decode@BlockSignature: unknown tag: " <> show tag
 
-instance Bi (BC.ConsensusData BC.MainBlockchain) where
+instance Bi BC.MainConsensusData where
     encode cd =  encodeListLen 4
               <> encode (BC._mcdSlot cd)
               <> encode (BC._mcdLeaderKey cd)
@@ -64,7 +66,7 @@ instance Bi (BC.ConsensusData BC.MainBlockchain) where
                                  decode <*>
                                  decode
 
-instance Bi (BC.Body BC.MainBlockchain) where
+instance Bi BC.MainBody where
     encode bc =  encodeListLen 4
               <> encode (BC._mbTxPayload  bc)
               <> encode (BC._mbSscPayload bc)
@@ -119,11 +121,11 @@ deriveSimpleBi ''BC.GenesisExtraBodyData [
         Field [| BC._gebAttributes :: BC.GenesisBodyAttributes |]
     ]]
 
-instance Bi (BC.BodyProof BC.GenesisBlockchain) where
+instance Bi BC.GenesisProof where
     encode (BC.GenesisProof h) = encode h
     decode = BC.GenesisProof <$> decode
 
-instance Bi (BC.ConsensusData BC.GenesisBlockchain) where
+instance Bi BC.GenesisConsensusData where
     encode bc =  encodeListLen 2
               <> encode (BC._gcdEpoch bc)
               <> encode (BC._gcdDifficulty bc)
@@ -131,6 +133,6 @@ instance Bi (BC.ConsensusData BC.GenesisBlockchain) where
       enforceSize "BC.ConsensusData BC.GenesisBlockchain" 2
       BC.GenesisConsensusData <$> decode <*> decode
 
-instance Bi (BC.Body BC.GenesisBlockchain) where
+instance Bi BC.GenesisBody where
     encode = encode . BC._gbLeaders
     decode = BC.GenesisBody <$> decode

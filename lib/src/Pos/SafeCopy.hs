@@ -219,7 +219,7 @@ instance ( SafeCopy (BHeaderHash b)
 deriveSafeCopySimple 0 'base ''ChainDifficulty
 
 instance SafeCopy SscProof =>
-         SafeCopy (BodyProof MainBlockchain) where
+         SafeCopy MainProof where
     getCopy = contain $ do
         mpTxProof <- safeGet
         mpMpcProof      <- safeGet
@@ -232,7 +232,7 @@ instance SafeCopy SscProof =>
         safePut mpProxySKsProof
         safePut mpUpdateProof
 
-instance SafeCopy (BodyProof GenesisBlockchain) where
+instance SafeCopy GenesisProof where
     getCopy =
         contain $
         do x <- safeGet
@@ -251,7 +251,7 @@ instance SafeCopy BlockSignature where
     putCopy (BlockPSignatureLight proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
     putCopy (BlockPSignatureHeavy proxySig) = contain $ Cereal.putWord8 2 >> safePut proxySig
 
-instance SafeCopy (ConsensusData MainBlockchain) where
+instance SafeCopy MainConsensusData where
     getCopy =
         contain $
         do _mcdSlot <- safeGet
@@ -266,7 +266,7 @@ instance SafeCopy (ConsensusData MainBlockchain) where
            safePut _mcdDifficulty
            safePut _mcdSignature
 
-instance SafeCopy (ConsensusData GenesisBlockchain) where
+instance SafeCopy GenesisConsensusData where
     getCopy =
         contain $
         do _gcdEpoch <- safeGet
@@ -278,7 +278,7 @@ instance SafeCopy (ConsensusData GenesisBlockchain) where
            safePut _gcdDifficulty
 
 instance SafeCopy SscPayload =>
-         SafeCopy (Body MainBlockchain) where
+         SafeCopy MainBody where
     getCopy = contain $ do
         _mbTxPayload     <- safeGet
         _mbSscPayload    <- safeGet
@@ -291,7 +291,7 @@ instance SafeCopy SscPayload =>
         safePut _mbDlgPayload
         safePut _mbUpdatePayload
 
-instance SafeCopy (Body GenesisBlockchain) where
+instance SafeCopy GenesisBody where
     getCopy =
         contain $
         do _gbLeaders <- safeGet

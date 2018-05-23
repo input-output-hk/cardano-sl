@@ -74,18 +74,18 @@ instance Arbitrary T.GenesisBlockHeader where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary (T.BodyProof T.GenesisBlockchain) where
+instance Arbitrary T.GenesisProof where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary (T.ConsensusData T.GenesisBlockchain) where
+instance Arbitrary T.GenesisConsensusData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
 instance Arbitrary (BodyDependsOnSlot T.GenesisBlockchain) where
     arbitrary = pure $ BodyDependsOnSlot $ \_ -> arbitrary
 
-instance Arbitrary (T.Body T.GenesisBlockchain) where
+instance Arbitrary T.GenesisBody where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -112,7 +112,7 @@ genMainBlockHeader
     -> Core.ProtocolConstants
     -> HeaderHash
     -> Core.ChainDifficulty
-    -> T.Body T.MainBlockchain
+    -> T.MainBody
     -> Gen T.MainBlockHeader
 genMainBlockHeader pm pc prevHash difficulty body =
     T.mkMainHeaderExplicit pm <$> pure prevHash
@@ -143,7 +143,7 @@ instance Arbitrary T.MainExtraBodyData where
     shrink = genericShrink
 
 instance (Arbitrary SscProof) =>
-    Arbitrary (T.BodyProof T.MainBlockchain) where
+    Arbitrary T.MainProof where
     arbitrary = genericArbitrary
     shrink T.MainProof {..} =
         [T.MainProof txp mpcp prxp updp
@@ -152,7 +152,7 @@ instance (Arbitrary SscProof) =>
         ]
 
 instance (Arbitrary SscProof, HasProtocolConstants, HasProtocolMagic) =>
-    Arbitrary (T.ConsensusData T.MainBlockchain) where
+    Arbitrary T.MainConsensusData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -178,7 +178,7 @@ instance (Arbitrary SscProof, HasProtocolConstants) => Arbitrary T.MainToSign wh
 genMainBlockBody
     :: ProtocolMagic
     -> Core.EpochIndex -- ^ For the delegation payload.
-    -> Gen (T.Body T.MainBlockchain)
+    -> Gen T.MainBody
 genMainBlockBody pm epoch =
     T.MainBody <$> genTxPayload pm
                <*> genSscPayload pm
@@ -189,7 +189,7 @@ genMainBlockBodyForSlot
     :: ProtocolMagic
     -> Core.ProtocolConstants
     -> Core.SlotId
-    -> Gen (T.Body T.MainBlockchain)
+    -> Gen T.MainBody
 genMainBlockBodyForSlot pm pc slotId = do
     txpPayload <- genTxPayload pm
     sscPayload <- genSscPayloadForSlot pm pc slotId
@@ -208,7 +208,7 @@ instance (Arbitrary SscPayloadDependsOnSlot, HasProtocolConstants, HasProtocolMa
         return $ T.MainBody txPayload mpcData dlgPayload mpcUpload
 
 
-instance (Arbitrary SscPayload, HasProtocolMagic) => Arbitrary (T.Body T.MainBlockchain) where
+instance (Arbitrary SscPayload, HasProtocolMagic) => Arbitrary T.MainBody where
     arbitrary = genericArbitrary
     shrink mb =
         [ T.MainBody txp sscp dlgp updp
@@ -253,7 +253,7 @@ instance ( Arbitrary SscPayload
          Arbitrary T.MainBlock where
     arbitrary = do
         slot <- arbitrary
-        BodyDependsOnSlot {..} <- arbitrary
+        BodyDependsOnSlot {..} <- arbitrary :: Gen (BodyDependsOnSlot T.MainBlockchain)
         body <- genBodyDepsOnSlot slot
         extraBodyData <- arbitrary
         extraHeaderData <- T.MainExtraHeaderData

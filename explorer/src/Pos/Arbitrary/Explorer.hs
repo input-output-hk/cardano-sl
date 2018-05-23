@@ -7,7 +7,7 @@ module Pos.Arbitrary.Explorer () where
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Core.Common (HeaderHash)
+import           Pos.Core (HeaderHash)
 import           Pos.Explorer.Core.Types (TxExtra (..))
 import           Pos.Txp ()
 

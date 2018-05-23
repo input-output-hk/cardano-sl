@@ -306,7 +306,7 @@ type InputPickingWay = Utxo -> TxOutputs -> Coin -> Either TxError FlatUtxo
 
 plainInputPicker :: PendingAddresses -> InputPickingWay
 plainInputPicker (PendingAddresses pendingAddrs) utxo _outputs moneyToSpent =
-    case foldr pick ([], moneyToSpent) sortedUnspent of
+    case foldl' pick ([], moneyToSpent) sortedUnspent of
         (inps, moneyLeft)
             | moneyLeft == mkCoin 0 ->
                 pure inps
@@ -341,7 +341,7 @@ plainInputPicker (PendingAddresses pendingAddrs) utxo _outputs moneyToSpent =
       partition (onlyConfirmedInputs pendingAddrs)
                 (sortOn (Down . txOutValue . toaOut . snd) (M.toList utxo))
 
-    pick inp@(_, TxOutAux txOut) (inps, moneyLeft)
+    pick (inps, moneyLeft) inp@(_, TxOutAux txOut)
         | moneyLeft == mkCoin 0 =
             (inps, moneyLeft)
         | otherwise =

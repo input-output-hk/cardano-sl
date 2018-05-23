@@ -7715,17 +7715,18 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-util-test" = callPackage
-        ({ mkDerivation, base, bytestring, cardano-sl-util, cpphs
-         , cryptonite, formatting, hspec, mtl, QuickCheck
-         , quickcheck-instances, stdenv, tagged, universum
+        ({ mkDerivation, attoparsec, base, base16-bytestring, bytestring
+         , cardano-sl-util, cpphs, cryptonite, formatting, hspec, mtl
+         , QuickCheck, quickcheck-instances, stdenv, tagged, universum
          }:
          mkDerivation {
            pname = "cardano-sl-util-test";
            version = "1.1.0";
            src = ./../util/test;
            libraryHaskellDepends = [
-             base bytestring cardano-sl-util cryptonite formatting hspec mtl
-             QuickCheck quickcheck-instances tagged universum
+             attoparsec base base16-bytestring bytestring cardano-sl-util
+             cryptonite formatting hspec mtl QuickCheck quickcheck-instances
+             tagged universum
            ];
            libraryToolDepends = [ cpphs ];
            doHaddock = false;

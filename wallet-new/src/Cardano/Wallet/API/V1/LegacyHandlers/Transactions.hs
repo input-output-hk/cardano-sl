@@ -67,6 +67,25 @@ newTransaction submitTx Payment {..} = do
     cTx <- V0.newPaymentBatch submitTx spendingPw batchPayment
     single <$> migrate cTx
 
+newTransactionFeesIncluded
+    :: forall ctx m . (V0.MonadWalletTxFull ctx m)
+    => (TxAux -> m Bool) -> Payment -> m (WalletResponse Transaction)
+newTransactionFeesIncluded submitTx pmt = do
+    EstimatedFees (V1 coin) <- wrData <$> estimateFees pmt
+    let outputs = length (pmtDestinations pmt)
+        coinPerOutput = Core.getCoin coin `div` fromIntegral outputs
+        newPayment = pmt
+            { pmtDestinations =
+                map subtractAmount (pmtDestinations pmt)
+            }
+        subtractAmount pmtDistribution = pmtDistribution
+            { pdAmount = V1 $
+                (unV1 (pdAmount pmtDistribution))
+                    `Core.unsafeSubCoin`
+                        Core.mkCoin coinPerOutput
+            }
+
+    newTransaction submitTx newPayment
 
 allTransactions
     :: forall ctx m. (V0.MonadWalletHistory ctx m)

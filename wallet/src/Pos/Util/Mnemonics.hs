@@ -50,6 +50,8 @@ integerToBS i
 -- Output a mnemonic sentence.
 toMnemonic :: Entropy -> Either String Mnemonic
 toMnemonic ent = do
+    when (length ent <= 0) $
+        Left "toMnemonic: entropy must be a non-zero sequence of bytes"
     when (remainder /= 0) $
         Left "toMnemonic: entropy must be a multiple of 4 bytes"
     when (cs_len > 16) $
@@ -67,6 +69,8 @@ toMnemonic ent = do
 -- mnemonic.
 fromMnemonic :: Mnemonic -> Either String Entropy
 fromMnemonic ms = do
+    when (word_count <= 0) $
+        Left "fromMnemonic: empty mnemonic is not allowed"
     when (isJust $ find (not . isAscii) ms) $
         Left "fromMnemonic: non-ASCII characters not supported"
     when (word_count > 48) $

@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Pos.Util.LoggerConfig
        ( LoggerConfig(..)
@@ -35,7 +36,7 @@ data LoggerTree = LoggerTree
     } 
     deriving (Generic, Show)
 
-instance FromJSON LoggerTre
+instance FromJSON LoggerTree
 
 
 -- | 'LoggerConfig' is the top level configuration datatype
@@ -49,8 +50,8 @@ data LoggerConfig = LoggerConfig
 instance FromJSON LoggerConfig
 
 instance Monoid LoggerTree where
-        mempty = LoggerTree { _ltMinSeverity = Debug, _ltFiles = ["node.log"] }
-        mappend = (<>)
+    mempty = LoggerTree { _ltMinSeverity = Debug, _ltFiles = ["node.log"] }
+    mappend = (<>)
 
 instance Semigroup LoggerTree
 
@@ -64,7 +65,7 @@ instance Semigroup LoggerConfig
 -- | 'parseLoggerConfig' parses a file for the standard logging 
 --    configuration. Exceptions about opening the file (non existent/permissions)
 --    are not handled here. Currently porting log-warper's definition
-parseLoggerConfig :: MonadIO m => Filepath -> m LoggerConfig
+parseLoggerConfig :: MonadIO m => FilePath -> m LoggerConfig
 parseLoggerConfig lgPath = 
     liftIO $ join $ either throwIO return <$> decodeFileEither lgPath
 

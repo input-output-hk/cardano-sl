@@ -18,7 +18,7 @@ import           Serokell.Util.Base64 (JsonByteString (..))
 import           Pos.Aeson.Core ()
 import           Pos.Aeson.Crypto ()
 import           Pos.Core (coinToInteger, decodeTextAddress, integerToCoin)
-import           Pos.Core.Txp (Tx, TxAux, TxIn (..), TxInWitness (..), TxOut (..), TxOutAux,
+import           Pos.Core.Txp (MultisigWitness (..), Tx, TxAux, TxIn (..), TxInWitness (..), TxOut (..), TxOutAux,
                                TxSigData)
 import           Pos.Crypto (decodeAbstractHash, hashHexF)
 import           Pos.Util.Util (aesonError, toAesonError)
@@ -56,6 +56,28 @@ instance ToJSON TxOut where
         "coin"    .= coinToInteger txOutValue,
         "address" .= sformat build txOutAddress ]
 
+instance ToJSON MultisigWitness where
+    toJSON = \case
+        MultisigNotSignatory h -> object
+            [ "tag" .= ("MultisigNotSignatory" :: Text)
+            , "hash" .= h
+            ]
+        MultisigSignatory pk sig -> object
+            [ "tag" .= ("MultisigSignatory" :: Text)
+            , "key" .= pk
+            , "sig" .= sig
+            ]
+
+instance FromJSON MultisigWitness where
+    parseJSON = withObject "MultisigWitness" $ \o ->
+        (o .: "tag") >>= \case
+            ("MultisigNotSignatory"::Text) ->
+                MultisigNotSignatory <$> (o .: "hash")
+            "MultisigSignatory" ->
+                MultisigSignatory <$> (o .: "key") <*> (o .: "sig")
+            _  ->
+                aesonError $ "expected 'tag' to be one of 'MultisigNotSignatory', 'MultisigSignatory'"
+
 instance ToJSON TxInWitness where
     toJSON = \case
         PkWitness{..} -> object
@@ -73,6 +95,10 @@ instance ToJSON TxInWitness where
             , "redeemKey" .= twRedeemKey
             , "redeemSig" .= twRedeemSig
             ]
+        MultiPkWitness{..} -> object
+            [ "threshold" .= twThreshold
+            , "multisigs" .= twMultiSigs
+            ]
         UnknownWitnessType a b -> object
             [ "tag" .= ("UnknownWitnessType" :: Text)
             , "contents" .= [toJSON a, toJSON (JsonByteString b)]
@@ -87,6 +113,8 @@ instance FromJSON TxInWitness where
                 ScriptWitness <$> (o .: "validator") <*> (o .: "redeemer")
             "RedeemWitness" ->
                 RedeemWitness <$> (o .: "redeemKey") <*> (o .: "redeemSig")
+            "MultiPkWitness" ->
+                MultiPkWitness <$> (o .: "threshold") <*> (o .: "multisigs")
             "UnknownWitnessType" -> do
                 (o .: "contents") >>= \case
                     [a, b] -> UnknownWitnessType <$> parseJSON a <*> (getJsonByteString <$> parseJSON b)

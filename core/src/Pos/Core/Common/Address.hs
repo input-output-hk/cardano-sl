@@ -7,6 +7,7 @@ module Pos.Core.Common.Address
          -- * Re-exports
          Address (..)
        , StakeholderId
+       , MultisigThreshold
 
        -- * Formatting
        , addressF
@@ -18,6 +19,7 @@ module Pos.Core.Common.Address
        , checkPubKeyAddress
        , checkScriptAddress
        , checkRedeemAddress
+       , checkMultisigAddress
 
        -- * Utilities
        , addrSpendingDataToType
@@ -66,7 +68,7 @@ import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeB
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, builder, int, later, (%))
 import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util (mapJson)
+import           Serokell.Util (listJson, mapJson)
 
 import           Pos.Binary.Class (Bi, biSize)
 import qualified Pos.Binary.Class as Bi
@@ -74,7 +76,8 @@ import           Pos.Binary.Crypto ()
 import           Pos.Core.Common.Coin ()
 import           Pos.Core.Common.Types (AddrAttributes (..), AddrSpendingData (..),
                                         AddrStakeDistribution (..), AddrType (..), Address (..),
-                                        Address' (..), AddressHash, Script, StakeholderId)
+                                        Address' (..), AddressHash, MultisigSpending (..), Script, StakeholderId,
+                                        MultisigThreshold)
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
 import           Pos.Crypto.Hashing (AbstractHash (AbstractHash), hashHexF, shortHashF)
 import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase, ShouldCheckPassphrase (..),
@@ -89,12 +92,20 @@ import           Pos.Data.Attributes (attrData, mkAttributes)
 -- Formatting, pretty-printing
 ----------------------------------------------------------------------------
 
+instance Buildable MultisigSpending where
+    build (MultisigSpending threshold addrs) =
+        bprint
+            ("MultisigSpending { threshold: "%build%", addresshashes: "%listJson%" }")
+            threshold
+            addrs
+
 instance Buildable AddrSpendingData where
     build =
         \case
             PubKeyASD pk -> bprint ("PubKeyASD " %build) pk
             ScriptASD script -> bprint ("ScriptASD "%build) script
             RedeemASD rpk -> bprint ("RedeemASD "%build) rpk
+            MultisigASD multisig -> bprint ("MultisigASD "%build) multisig
             UnknownASD tag _ -> bprint ("UnknownASD with tag "%int) tag
 
 instance Buildable AddrStakeDistribution where
@@ -131,6 +142,7 @@ addressDetailedF =
             ATPubKey      -> "PubKey"
             ATScript      -> "Script"
             ATRedeem      -> "Redeem"
+            ATMultisig    -> "Multisig"
             ATUnknown tag -> "Unknown#" <> Buildable.build tag
 
 -- | Currently we gonna use Bitcoin alphabet for representing addresses in
@@ -292,6 +304,10 @@ checkScriptAddress script = checkAddrSpendingData (ScriptASD script)
 checkRedeemAddress :: RedeemPublicKey -> Address -> Bool
 checkRedeemAddress rpk = checkAddrSpendingData (RedeemASD rpk)
 
+-- | Check if given 'Address' is created from given 'Multisig' structure
+checkMultisigAddress :: MultisigSpending -> Address -> Bool
+checkMultisigAddress ms = checkAddrSpendingData (MultisigASD ms)
+
 ----------------------------------------------------------------------------
 -- Hashing
 ----------------------------------------------------------------------------
@@ -318,6 +334,7 @@ addrSpendingDataToType =
         PubKeyASD {} -> ATPubKey
         ScriptASD {} -> ATScript
         RedeemASD {} -> ATRedeem
+        MultisigASD {} -> ATMultisig
         UnknownASD tag _ -> ATUnknown tag
 
 -- | Get 'AddrAttributes' from 'Address'.

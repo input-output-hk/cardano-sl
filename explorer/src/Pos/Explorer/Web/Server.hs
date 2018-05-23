@@ -364,6 +364,7 @@ getAddressSummary cAddr = do
             ATPubKey     -> CPubKeyAddress
             ATScript     -> CScriptAddress
             ATRedeem     -> CRedeemAddress
+            ATMultisig   -> CMultisigAddress
             ATUnknown {} -> CUnknownAddress
 
 -- | Get transaction summary from transaction id. Looks at both the database

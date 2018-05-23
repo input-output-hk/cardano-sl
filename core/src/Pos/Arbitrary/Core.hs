@@ -195,8 +195,14 @@ instance Arbitrary Types.AddrType where
             [ pure Types.ATPubKey
             , pure Types.ATScript
             , pure Types.ATRedeem
-            , Types.ATUnknown <$> choose (3, maxBound)
+            , pure Types.ATMultisig
+            , Types.ATUnknown <$> choose (4, maxBound)
             ]
+
+instance Arbitrary Types.MultisigSpending where
+    arbitrary = Types.MultisigSpending
+        <$> arbitrary
+        <*> arbitrary
 
 instance Arbitrary Types.AddrSpendingData where
     arbitrary =
@@ -204,9 +210,10 @@ instance Arbitrary Types.AddrSpendingData where
             [ Types.PubKeyASD <$> arbitrary
             , Types.ScriptASD <$> arbitrary
             , Types.RedeemASD <$> arbitrary
+            , Types.MultisigASD <$> arbitrary
             -- For unknown spending data payload will be at most 120
             -- bytes long.
-            , Types.UnknownASD <$> choose (3, 255) <*> scale (min 120) arbitrary
+            , Types.UnknownASD <$> choose (4, 255) <*> scale (min 120) arbitrary
             ]
 
 instance Arbitrary Types.AddrStakeDistribution where

@@ -9,6 +9,7 @@ module Pos.Core.Txp
        , TxWitness
        , TxSigData (..)
        , TxSig
+       , MultisigWitness (..)
 
        -- * Tx parts
        , TxIn (..)
@@ -59,7 +60,7 @@ import           Serokell.Util.Verify (VerificationRes (..), verResSingleF, veri
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Common (Address (..), Coin (..), Script, addressHash, coinF, checkCoin)
+import           Pos.Core.Common (Address (..), AddressHash, Coin (..), Script, addressHash, coinF, checkCoin, MultisigThreshold)
 import           Pos.Crypto (Hash, PublicKey, RedeemPublicKey, RedeemSignature, Signature, hash,
                              shortHashF)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
@@ -82,6 +83,25 @@ data TxSigData = TxSigData
 -- | 'Signature' of addrId.
 type TxSig = Signature TxSigData
 
+-- | Represent whether a multisig owner is signing 'MultisigSignatory'
+-- or is just being represented 'MultisigNotSignatory'.
+--
+-- In case of signing, the public key is published along with the signature
+-- whereas otherwise just the hash public key
+data MultisigWitness =
+      MultisigNotSignatory (AddressHash PublicKey)
+    | MultisigSignatory PublicKey TxSig
+    deriving (Eq, Show, Generic, Typeable)
+
+instance Hashable MultisigWitness
+instance NFData MultisigWitness
+
+instance Buildable MultisigWitness where
+    build (MultisigNotSignatory h) =
+        bprint ("MultisigNotSignatory " %shortHashF) h
+    build (MultisigSignatory pk sig) =
+        bprint ("MultisigSignatory: key = " %shortHashF% " sig= " %build) (hash pk) sig
+
 -- | A witness for a single input.
 data TxInWitness
     = PkWitness { twKey :: !PublicKey
@@ -90,6 +110,9 @@ data TxInWitness
                     , twRedeemer  :: !Script }
     | RedeemWitness { twRedeemKey :: !RedeemPublicKey
                     , twRedeemSig :: !(RedeemSignature TxSigData) }
+    | MultiPkWitness { twThreshold :: !MultisigThreshold
+                     , twMultiSigs :: [MultisigWitness] }
+                     -- ^ this is the list of at least _MultisigThreshold_ of `MultisigSignatory`
     | UnknownWitnessType !Word8 !ByteString
     deriving (Eq, Show, Generic, Typeable)
 
@@ -105,6 +128,8 @@ instance Buildable TxInWitness where
                 "redeemer hash = "%shortHashF) (hash val) (hash red)
     build (RedeemWitness key sig) =
         bprint ("PkWitness: key = "%build%", sig = "%build) key sig
+    build (MultiPkWitness threshold sigs) =
+        bprint ("MultiPkWitness: threshold = "%build%", sighashes = "%listJson) threshold sigs
     build (UnknownWitnessType t bs) =
         bprint ("UnknownWitnessType "%build%" "%base16F) t bs
 

@@ -19,11 +19,11 @@ import           Serokell.Util (allDistinct, enumerate)
 import           Pos.Binary.Core ()
 import           Pos.Core (AddrType (..), Address (..), integerToCoin, isRedeemAddress,
                            isUnknownAddressType, sumCoins)
-import           Pos.Core.Common (checkPubKeyAddress, checkRedeemAddress, checkScriptAddress)
-import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..), TxInWitness (..),
+import           Pos.Core.Common (addressHash, AddressHash, MultisigSpending (..), checkPubKeyAddress, checkRedeemAddress, checkScriptAddress, checkMultisigAddress)
+import           Pos.Core.Txp (MultisigWitness (..), Tx (..), TxAttributes, TxAux (..), TxIn (..), TxInWitness (..),
                                TxOut (..), TxOutAux (..), TxSigData (..), TxUndo, TxWitness,
                                isTxInUnknown)
-import           Pos.Crypto (SignTag (SignRedeemTx, SignTx), WithHash (..), checkSig, hash,
+import           Pos.Crypto (PublicKey, SignTag (SignRedeemTx, SignTx), WithHash (..), checkSig, hash,
                              redeemCheckSig)
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Data.Attributes (Attributes (attrRemain), areAttributesKnown)
@@ -196,6 +196,7 @@ verifyKnownInputs VTxContext {..} resolvedInputs TxAux {..} = do
         PkWitness{..}            -> checkPubKeyAddress twKey addr
         ScriptWitness{..}        -> checkScriptAddress twValidator addr
         RedeemWitness{..}        -> checkRedeemAddress twRedeemKey addr
+        MultiPkWitness{..}       -> checkMultisigAddress (MultisigSpending twThreshold (map multisigWitnessToAddressHash twMultiSigs)) addr
         UnknownWitnessType witTag _ -> case addrType addr of
             ATUnknown addrTag -> addrTag == witTag
             _                 -> False
@@ -218,9 +219,28 @@ verifyKnownInputs VTxContext {..} resolvedInputs TxAux {..} = do
                 throwError $ WitnessUnknownScriptVer valVer
             over _Left WitnessScriptError $
                 txScriptCheck txSigData twValidator twRedeemer
+        MultiPkWitness{..} -> do
+            -- check that:
+            -- * all the signatures presents here are valid
+            -- * that the threshold requested is met
+            let !numberOfSigs = length $ filter isMultisigSignatory twMultiSigs
+            when (numberOfSigs > 255 || fromIntegral numberOfSigs < twThreshold) $ throwError WitnessWrongSignature
+            forM_ twMultiSigs $ \case
+                MultisigNotSignatory _ -> pure ()
+                MultisigSignatory pubKey sig ->
+                    unless (checkSig protocolMagic SignTx pubKey txSigData sig) $
+                        throwError WitnessWrongSignature
         UnknownWitnessType t _ ->
             when vtcVerifyAllIsKnown $
                 throwError $ WitnessUnknownType t
+
+    isMultisigSignatory (MultisigSignatory {}) = True
+    isMultisigSignatory (MultisigNotSignatory {}) = False
+
+    multisigWitnessToAddressHash :: MultisigWitness -> AddressHash PublicKey
+    multisigWitnessToAddressHash (MultisigNotSignatory h) = h
+    multisigWitnessToAddressHash (MultisigSignatory pk _) = addressHash pk
+
 
 verifyAttributesAreKnown
     :: TxAttributes -> Either ToilVerFailure ()

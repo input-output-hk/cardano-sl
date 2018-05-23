@@ -31,7 +31,7 @@ import           Pos.Arbitrary.Core ()
 import           Pos.Binary.Class (Raw)
 import           Pos.Binary.Core ()
 import           Pos.Core.Common (Coin, IsBootstrapEraAddr (..), makePubKeyAddress)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
+import           Pos.Core.Txp (MultisigWitness (..), Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
                                TxOutAux (..), TxPayload (..), TxProof (..), TxSigData (..),
                                mkTxPayload)
 import           Pos.Crypto (Hash, ProtocolMagic, SecretKey, SignTag (SignTx), hash, sign, toPublic)
@@ -57,6 +57,15 @@ instance Arbitrary TxSigData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
+genMultisigWitness :: ProtocolMagic -> Gen MultisigWitness
+genMultisigWitness pm = oneof
+    [ MultisigSignatory <$> arbitrary <*> genSignature pm arbitrary
+    , MultisigNotSignatory <$> arbitrary
+    ]
+
+instance HasProtocolMagic => Arbitrary MultisigWitness where
+    arbitrary = genMultisigWitness protocolMagic
+
 -- | Generator for a 'TxInWitness'. 'ProtocolMagic' is needed because it
 -- contains signatures.
 genTxInWitness :: ProtocolMagic -> Gen TxInWitness
@@ -66,7 +75,8 @@ genTxInWitness pm = oneof
       -- needed and vice-versa, but it doesn't matter
     , ScriptWitness <$> arbitrary <*> arbitrary
     , RedeemWitness <$> arbitrary <*> genRedeemSignature pm arbitrary
-    , UnknownWitnessType <$> choose (3, 255) <*> scale (min 150) arbitrary
+    , MultiPkWitness <$> arbitrary <*> (choose (1,5) >>= flip replicateM (genMultisigWitness pm))
+    , UnknownWitnessType <$> choose (4, 255) <*> scale (min 150) arbitrary
     ]
 
 instance HasProtocolMagic => Arbitrary TxInWitness where

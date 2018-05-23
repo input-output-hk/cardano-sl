@@ -286,6 +286,7 @@ data CAddressType
     = CPubKeyAddress
     | CScriptAddress
     | CRedeemAddress
+    | CMultisigAddress
     | CUnknownAddress
     deriving (Show, Generic)
 

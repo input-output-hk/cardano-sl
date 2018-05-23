@@ -12,6 +12,7 @@ module Pos.Util.Log
        ---
        , LoggerConfig(..)
        , loadLogConfig
+       , parseLoggerConfig
        , retrieveLogFiles
        ---
        , loggerBracket
@@ -34,7 +35,7 @@ import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Morph (MFunctor(..))
 import           Control.Monad.Writer (WriterT (..))
 
-import           Pos.Util.LoggerConfig (LoggerConfig(..), loadLogConfig, retrieveLogFiles)
+import           Pos.Util.LoggerConfig (LoggerConfig(..), parseLoggerConfig, loadLogConfig, retrieveLogFiles)
 import           Pos.Util.LogSeverity (Severity(..))
 import           Pos.Util.LogStdoutScribe (mkStdoutScribe)
 

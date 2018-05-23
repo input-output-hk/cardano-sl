@@ -31,7 +31,7 @@ instance FromJSON RotationParameters
 data LoggerTree = LoggerTree
     {
       _ltMinSeverity :: !Severity
-      _ltFiles       :: ![FilePath]
+    , _ltFiles       :: ![FilePath]
     } 
     deriving (Generic, Show)
 

@@ -26,7 +26,6 @@ import           Data.Time.Units (fromMicroseconds)
 import qualified Options.Applicative as Opt
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
 import           Pos.Util.OptParse (fromParsec)
-import           Serokell.Util (sec)
 
 import           Pos.Binary.Core ()
 import           Pos.Communication (NodeId)

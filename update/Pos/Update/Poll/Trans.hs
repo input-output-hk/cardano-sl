@@ -14,7 +14,6 @@ module Pos.Update.Poll.Trans
 import           Universum hiding (id)
 
 import           Control.Lens (uses, (%=), (.=))
-import           Control.Monad.State (MonadState (..))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Ether

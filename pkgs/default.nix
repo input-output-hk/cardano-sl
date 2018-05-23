@@ -18490,8 +18490,8 @@ inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
          }:
          mkDerivation {
            pname = "hspec";
-           version = "2.4.8";
-           sha256 = "94d4e0d688db1c62791c33b35cffc7b17f5a2d43387e1bb20d2b18f3dd6ceda2";
+           version = "2.5.1";
+           sha256 = "d47b588214dd9c2691a1dc65b27c90d7a505d06391cb616e9b3be77b464237c2";
            libraryHaskellDepends = [
              base call-stack hspec-core hspec-discover hspec-expectations HUnit
              QuickCheck transformers
@@ -18547,19 +18547,19 @@ inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "hspec-core" = callPackage
-        ({ mkDerivation, ansi-terminal, array, base, call-stack, deepseq
-         , directory, filepath, hspec-expectations, HUnit, QuickCheck
-         , quickcheck-io, random, setenv, stdenv, stm, tf-random, time
+        ({ mkDerivation, ansi-terminal, array, base, call-stack, clock
+         , deepseq, directory, filepath, hspec-expectations, HUnit
+         , QuickCheck, quickcheck-io, random, setenv, stdenv, stm, tf-random
          , transformers
          }:
          mkDerivation {
            pname = "hspec-core";
-           version = "2.4.8";
-           sha256 = "24ca82ca29cf9379c24133f510decc5dd1dbe447c3a9bc82dbcc365c8f35f90b";
+           version = "2.5.1";
+           sha256 = "e88e45fe851c976b4703a9c1e481c0e451abbcdcba7e40c9d26020e87b2edc79";
            libraryHaskellDepends = [
-             ansi-terminal array base call-stack deepseq directory filepath
-             hspec-expectations HUnit QuickCheck quickcheck-io random setenv stm
-             tf-random time transformers
+             ansi-terminal array base call-stack clock deepseq directory
+             filepath hspec-expectations HUnit QuickCheck quickcheck-io random
+             setenv stm tf-random transformers
            ];
            doHaddock = false;
            doCheck = false;
@@ -18572,8 +18572,8 @@ inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
         ({ mkDerivation, base, directory, filepath, stdenv }:
          mkDerivation {
            pname = "hspec-discover";
-           version = "2.4.8";
-           sha256 = "6ad28a1f1ae52f71fa9e5c1188abfd58d5b41a75802b86723bf1ba27af6b9c52";
+           version = "2.5.1";
+           sha256 = "3c187d35b400b1e22ba9f98d76c94dad8368e2a915ba087509316dd7252a7228";
            isLibrary = true;
            isExecutable = true;
            libraryHaskellDepends = [ base directory filepath ];
@@ -32609,15 +32609,19 @@ inherit (pkgs) libjpeg; inherit (pkgs) libpng; inherit (pkgs) zlib;};
          }) {};
       "servant-quickcheck" = callPackage
         ({ mkDerivation, aeson, base, base-compat, bytestring
-         , case-insensitive, clock, data-default-class, hspec, http-client
-         , http-media, http-types, mtl, pretty, process, QuickCheck, servant
-         , servant-client, servant-server, split, stdenv, string-conversions
-         , temporary, text, time, warp
+         , case-insensitive, clock, data-default-class, fetchgit, hspec
+         , http-client, http-media, http-types, mtl, pretty, process
+         , QuickCheck, servant, servant-client, servant-server, split
+         , stdenv, string-conversions, temporary, text, time, warp
          }:
          mkDerivation {
            pname = "servant-quickcheck";
-           version = "0.0.6.0";
-           sha256 = "92a31922db44edb5f7a6a07a4d77bf6e3da8c9740c84d67a9eb1f9bc2cee90d2";
+           version = "0.0.7.0";
+           src = fetchgit {
+             url = "https://github.com/avieth/servant-quickcheck.git";
+             sha256 = "1rq493iz8asavjwxfi7vnkrvbxwsnxy1j8w5b3slcg8l7g8ikz6z";
+             rev = "e4e879abca99d0d56015765859fb37af59a81dbb";
+           };
            libraryHaskellDepends = [
              aeson base base-compat bytestring case-insensitive clock
              data-default-class hspec http-client http-media http-types mtl

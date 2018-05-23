@@ -160,9 +160,9 @@ setupLogging :: Severity -> Text -> IO K.LogEnv
 setupLogging minSev name = do
     --hScribe <- K.mkHandleScribe K.ColorIfTerminal stdout (sev2klog minSev) K.V0
     hScribe <- mkStdoutScribe (sev2klog minSev) K.V0
-    le <- K.registerScribe "stdout" hScribe K.defaultScribeSettings =<< K.initLogEnv (s2kname name) "production"
+    K.registerScribe "stdout" hScribe K.defaultScribeSettings =<< 
+        K.initLogEnv (s2kname name) "production"
     -- remember this K.LogEnv
-    return le
 
 -- | provide logging in IO
 usingLoggerName :: Severity -> LoggerName -> LogContextT IO a -> IO a

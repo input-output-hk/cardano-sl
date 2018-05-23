@@ -94,6 +94,7 @@ library
                      , universum
                      , unliftio-core
                      , unordered-containers
+                     , yaml
 
   default-language:    Haskell2010
 

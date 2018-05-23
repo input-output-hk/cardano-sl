@@ -119,10 +119,10 @@ let
     });
     mkDocker = { environment, connectArgs ? {} }: import ./docker.nix { inherit environment connect gitrev pkgs connectArgs; };
     stack2nix = import (pkgs.fetchFromGitHub {
-      owner = "input-output-hk";
+      owner = "avieth";
       repo = "stack2nix";
-      rev = "abd199510eb38c442e14fd82677f9cc1f7430cfb";
-      sha256 = "0rrawm054n9r45jvxmdzwkfl1mvar2wag8nvhqzf3ggnbcds2aj2";
+      rev = "48e0924040ff0fca5793c131e059778b8faeb97c";
+      sha256 = "0xg8kmh4rqskdhvx95kishwny14arb1ilgg0zsdiczprahcjxk0n";
     }) { inherit pkgs; };
     inherit (pkgs) purescript;
     connectScripts = {

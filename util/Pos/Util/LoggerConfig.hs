@@ -1,34 +1,72 @@
+{-# LANGUAGE DeriveGeneric #-}
 
 module Pos.Util.LoggerConfig
        ( LoggerConfig(..)
        , RotationParameters(..)
        , loadLogConfig
+       , parseLoggerConfig
        , retrieveLogFiles
        ) where
 
+
+import           Data.Yaml      as Y
+import           GHC.Generics
 import           Universum
 
 import           Pos.Util.LogSeverity
 
 
--- | a placeholder
+-- | @'RotationParameters'@ one of the two categories  used in the 
+--   logging config, specifying the log rotation parameters
 data RotationParameters = RotationParameters
-    { rpLogLimit  :: !Word64  -- ^ max size of file in bytes
-    , rpKeepFiles :: !Word    -- ^ number of files to keep
-    } deriving (Generic, Show)
+    { _rpLogLimit  :: !Word64  -- ^ max size of file in bytes
+    , _rpKeepFiles :: !Word    -- ^ number of files to keep
+    } 
+    deriving (Generic, Show)
 
--- | a placeholder
+instance FromJSON RotationParameters
+
+-- | 'LoggerTree' contains the actual logging configuration,
+--   only 'Severity' and 'Files' for now
+data LoggerTree = LoggerTree
+    {
+      _ltMinSeverity :: !Severity
+    , _ltFiles       :: ![FilePath]
+    } 
+    deriving (Generic, Show)
+
+instance FromJSON LoggerTre
+
+
+-- | 'LoggerConfig' is the top level configuration datatype
 data LoggerConfig = LoggerConfig
     {
-        _lcRotation     :: Maybe RotationParameters
-    ,   _lcMinSeverity  :: Severity
-    } deriving (Generic, Show)
+        _lcRotation     :: !Maybe RotationParameters
+    ,   _lcLoggerTree   :: !LoggerTree
+    } 
+    deriving (Generic, Show)
+
+instance FromJSON LoggerConfig
+
+instance Monoid LoggerTree where
+        mempty = LoggerTree { _ltMinSeverity = Debug, _ltFiles = ["node.log"] }
+        mappend = (<>)
+
+instance Semigroup LoggerTree
 
 instance Monoid LoggerConfig where
-    mempty = LoggerConfig { _lcRotation = Nothing, _lcMinSeverity = Debug }
+    mempty = LoggerConfig { _lcRotation = Nothing, _lcLoggerTree = mempty }
     mappend = (<>)
 
 instance Semigroup LoggerConfig
+
+
+-- | 'parseLoggerConfig' parses a file for the standard logging 
+--    configuration. Exceptions about opening the file (non existent/permissions)
+--    are not handled here. Currently porting log-warper's definition
+parseLoggerConfig :: MonadIO m => Filepath -> m LoggerConfig
+parseLoggerConfig lgPath = 
+    liftIO $ join $ either throwIO return <$> decodeFileEither lgPath
 
 -- | load log config from file  TODO
 loadLogConfig :: MonadIO m => Maybe FilePath -> Maybe FilePath -> m ()

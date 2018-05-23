@@ -45,9 +45,13 @@ encodeWithIndex bs
 -- to represent the base-16 byte offset for a hexdump.
 numByteOffsetDigits :: Int64 -> Int64
 numByteOffsetDigits len
-    | len <= 0  = 0
-    | otherwise =
-        ceiling ((logBase (2 :: Double) $ fromIntegral len) / (4 :: Double))
+    | len <= 0xff      = 2
+    | len <= 0xfff     = 3
+    | len <= 0xffff    = 4
+    | len <= 0xfffff   = 5
+    | len <= 0xffffff  = 6
+    | len <= 0xfffffff = 7
+    | otherwise        = 8
 
 -- | The length at which our encoding functions will line wrap. We've chosen a
 -- length of 32 because we want only want to display 16 bytes of base-16

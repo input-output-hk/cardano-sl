@@ -154,7 +154,7 @@ extra-deps:
 - servant-swagger-1.1.4           # needed for servant-0.12
 - servant-swagger-ui-0.2.4.3.4.0  # needed for servant-0.12
 - servant-blaze-0.7.1             # needed for servant-0.12
-- servant-quickcheck-0.0.4
+- servant-quickcheck-0.0.4.1      # patched version for using a custom manager + fix mvar behavior
 - ether-0.5.1.0
 - pipes-interleave-1.1.1
 - generic-arbitrary-0.1.0

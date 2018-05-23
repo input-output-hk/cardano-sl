@@ -175,6 +175,7 @@ library
                       , monad-control
                       , mtl
                       , neat-interpolation
+                      , network
                       , network-transport
                       , optparse-applicative
                       , parsec
@@ -191,12 +192,14 @@ library
                       , servant-server >= 0.8.1
                       , servant-swagger
                       , stm
+                      , streaming-commons
                       , tagged
                       , template-haskell
                       , text
                       , text-format
                       , time
                       , time-units
+                      , tls
                       , transformers
                       , universum >= 0.1.11
                       , unliftio
@@ -204,8 +207,9 @@ library
                       , wai
                       , warp
                       , warp-tls
-                      , streaming-commons
-                      , network
+                      , x509
+                      , x509-store
+                      , x509-validation
                       , yaml
                       -- https://issues.serokell.io/issue/DEVOPS-230
                       , cpphs

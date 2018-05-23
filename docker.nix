@@ -12,6 +12,7 @@ let
     inherit gitrev environment;
     stateDir = "/wallet/${environment}";
     walletListen = "0.0.0.0:8090";
+    walletDocListen = "0.0.0.0:8091";
     ekgListen = "0.0.0.0:8000";
   } // connectArgs);
   startScript = pkgs.writeScriptBin "cardano-start" ''
@@ -33,6 +34,7 @@ in pkgs.dockerTools.buildImage {
     ExposedPorts = {
       "3000/tcp" = {}; # protocol
       "8090/tcp" = {}; # wallet
+      "8091/tcp" = {}; # wallet doc
       "8100/tcp" = {}; # explorer api
       "8000/tcp" = {}; # ekg
     };

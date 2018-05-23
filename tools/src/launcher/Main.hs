@@ -72,13 +72,14 @@ import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault, dbGetDefa
                                dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault, openNodeDBs)
 import           Pos.Launcher (HasConfigurations, withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))
-import           Pos.Reporting.Wlog (compressLogs, retrieveLogFiles)
 import           Pos.Reporting.Http (sendReport)
+import           Pos.Reporting.Wlog (compressLogs, retrieveLogFiles)
 import           Pos.ReportServer.Report (ReportType (..))
 import           Pos.Update (installerHash)
 import           Pos.Update.DB.Misc (affirmUpdateInstalled)
 import           Pos.Util (HasLens (..), directory, logException, postfixLFields)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo, compileInfo)
+import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, retrieveCompileTimeInfo,
+                                       withCompileInfo)
 
 import           Launcher.Environment (substituteEnvVarsValue)
 import           Launcher.Logging (reportErrorDefault)
@@ -94,6 +95,7 @@ data LauncherOptions = LO
     , loWalletArgs          :: ![Text]
     , loWalletLogging       :: !Bool
     , loWalletLogPath       :: !(Maybe FilePath)
+    , loX509ToolPath        :: !FilePath
     , loUpdaterPath         :: !FilePath
     , loUpdaterArgs         :: ![Text]
     , loUpdateArchive       :: !(Maybe FilePath)
@@ -127,8 +129,7 @@ instance FromJSON LauncherOptions where
 -- | The concrete monad where everything happens
 type M a = (HasConfigurations, HasCompileInfo) => Log.LoggerNameBox IO a
 
--- | Executable can be node, wallet or updater
-data Executable = EWallet | ENode | EUpdater
+data Executable = EWallet | ENode | EUpdater | ECertGen
 
 -- | This datatype holds values for either node or wallet
 --   Node/wallet path, args, log path
@@ -279,6 +280,7 @@ main =
     setEnv "LANG"   "en_GB.UTF-8"
 
     LO {..} <- getLauncherOptions
+
     -- Launcher logs should be in public directory
     let launcherLogsPrefix = (</> "pub") <$> loLogsPrefix
     -- Add options specified in loConfiguration but not in loNodeArgs to loNodeArgs.
@@ -297,7 +299,11 @@ main =
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.debugPlus)
     logException loggerName . Log.usingLoggerName loggerName $
-        withConfigurations loConfiguration $ \_ ->
+        withConfigurations loConfiguration $ \_ -> do
+
+        -- Generate TLS certificates as needed
+        findTlsArgs loNodeArgs >>= generateTlsCertificates loConfiguration loX509ToolPath
+
         case (loWalletPath, loFrontendOnlyMode) of
             (Nothing, _) -> do
                 logNotice "LAUNCHER STARTED"
@@ -372,6 +378,58 @@ main =
 
     timestampToText (Timestamp ts) =
         pretty @Integer $ fromIntegral $ convertUnit @_ @Second ts
+
+
+data TlsPaths = TlsPaths
+    { tlsCaPath     :: FilePath
+    , tlsServerPath :: FilePath
+    , tlsKeyPath    :: FilePath
+    } deriving (Show)
+
+
+findTlsArgs :: [Text] -> M TlsPaths
+findTlsArgs args = do
+    tlsCaPath     <- findArg "--tlsca"   (pure . toString) args
+    tlsServerPath <- findArg "--tlscert" (pure . toString) args
+    tlsKeyPath    <- findArg "--tlskey"  (pure . toString) args
+    return TlsPaths{..}
+  where
+    findArg :: Text -> (Text -> M a) -> [Text] -> M a
+    findArg key parse (k:v:_)  | key == k = parse v
+    findArg key parse (_:rest) = findArg key parse rest
+    findArg key _ _            = liftIO . fail $ "Missing required Node arg: " <> (toString key)
+
+
+generateTlsCertificates :: ConfigurationOptions -> FilePath -> TlsPaths -> M ()
+generateTlsCertificates ConfigurationOptions{..} executable TlsPaths{..} = do
+    alreadyExists <-
+        and <$> mapM (liftIO . doesFileExist) [tlsCaPath, tlsServerPath, tlsKeyPath]
+
+    let tlsPath = takeDirectory tlsServerPath
+
+    when (tlsPath /= takeDirectory tlsCaPath || tlsPath /= takeDirectory tlsKeyPath) $ do
+        logError "--tlsca, --tlscert and --tlskey are in different directories"
+        liftIO . fail $ "cardano-launcher doesn't support having tls files in separate directories"
+
+    unless alreadyExists $ do
+        logInfo $ "Generating new TLS certificates in " <> toText tlsPath
+
+        let process = createProc  Process.Inherit executable
+                [ "--server-out-dir"     , toText tlsPath
+                , "--clients-out-dir"    , toText tlsPath
+                , "--configuration-file" , toText cfoFilePath
+                , "--configuration-key"  , cfoKey
+                ]
+
+        exitCode <- liftIO $ do
+            createDirectoryIfMissing True tlsPath
+            phvar <- newEmptyMVar
+            system' phvar process mempty ECertGen
+
+        when (exitCode /= ExitSuccess) $ do
+            logError "Couldn't generate TLS certificates for Wallet"
+            liftIO . fail $ "Wallet won't work without TLS certificates"
+
 
 -- | If we are on server, we want the following algorithm:
 --
@@ -642,6 +700,7 @@ customLogger hndl loggerName logStr = do
             ENode    -> "[node] "
             EWallet  -> "[wallet] "
             EUpdater -> "[updater] "
+            ECertGen -> "[X509-certificates] "
 
 ----------------------------------------------------------------------------
 -- Working with the report server

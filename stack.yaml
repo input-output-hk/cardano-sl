@@ -25,6 +25,7 @@ packages:
 - lrc
 - lrc/test
 - infra
+- infra/test
 - ssc
 - txp
 - txp/test

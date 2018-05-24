@@ -14,7 +14,6 @@ import qualified Data.HashMap.Strict as HM
 import           Test.QuickCheck (Arbitrary (..), Gen, frequency, listOf, listOf1, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Slotting ()
 import           Pos.Binary.Update ()
 import           Pos.Core.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Core.Update (BlockVersionModifier, SystemTag (..), UpdateData (..),
@@ -27,6 +26,7 @@ import           Pos.Update.Poll.Types (VoteState (..))
 
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
+import           Test.Pos.Infra.Slotting.Arbitrary ()
 
 instance Arbitrary BlockVersionModifier where
     arbitrary = genericArbitrary

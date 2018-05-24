@@ -2,7 +2,7 @@
 
 -- | Arbitrary instances for Pos.Slotting types (infra package)
 
-module Pos.Arbitrary.Slotting () where
+module Test.Pos.Infra.Slotting.Arbitrary () where
 
 import           Universum
 

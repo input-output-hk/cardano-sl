@@ -93,6 +93,7 @@ library
                      , cardano-sl-crypto-test
                      , cardano-sl-db
                      , cardano-sl-infra
+                     , cardano-sl-infra-test
                      , cardano-sl-lrc
                      , cardano-sl-networking
                      , cardano-sl-util

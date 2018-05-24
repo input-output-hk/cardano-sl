@@ -2,7 +2,7 @@
 
 -- | 'Arbitrary' instances for types in 'cardano-sl-infra'
 
-module Pos.Arbitrary.Infra () where
+module Test.Pos.Infra.Arbitrary () where
 
 import           Universum
 

@@ -28,10 +28,10 @@ instance FromJSON Severity where
         case H.lookup "severity" v of    
             Nothing -> fail ("key " ++ show key ++ " not present")
             Just s -> case s of
-                "Debug+"   -> pure Debug
-                "Info+"    -> pure Info
-                "Notice+"  -> pure Notice
-                "Warning+" -> pure Warning
-                "Error+"   -> pure Error 
+                "Debug+"   -> pure $ Severity $ Debug
+                "Info+"    -> pure $ Severity $ Info
+                "Notice+"  -> pure $ Severity $ Notice
+                "Warning+" -> pure $ Severity $ Warning
+                "Error+"   -> pure $ Severity $ Error 
                 _          -> fail $ toString $ "Unknown Severity"
 

@@ -1,11 +1,11 @@
-{-# LANGUAGE DataKinds    #-}
-{-# LANGUAGE RankNTypes   #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DataKinds      #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE RankNTypes     #-}
+{-# LANGUAGE TypeFamilies   #-}
 
 -- | Pos.Util specification
 
-module Test.Pos.UtilSpec
+module Test.Pos.Core.ChronoSpec
        ( spec
        ) where
 
@@ -14,17 +14,19 @@ import           Universum
 import qualified Data.List.NonEmpty as NE
 import qualified GHC.Exts as IL (IsList (..))
 
-import           Pos.Util.Chrono (Chrono (..), NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Chrono (Chrono (..), NE, NewestFirst (..), OldestFirst (..))
 
 import           Test.Hspec (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.Pos.Util.Chrono ()
+
+import           Test.Pos.Binary.Helpers (U, binaryTest)
+import           Test.Pos.Core.Chrono ()
 import           Test.Pos.Util.Modifier ()
 import           Test.Pos.Util.QuickCheck.Property ((.=.))
 import           Test.QuickCheck (Arbitrary, Property)
 
 spec :: Spec
-spec = describe "Util" $ do
+spec = describe "Chrono" $ do
     describe "One" $ do
         prop description_One (toSingleton @[] @String NewestFirst)
         prop description_One (toSingleton @NE.NonEmpty @String OldestFirst)
@@ -38,13 +40,17 @@ spec = describe "Util" $ do
             prop (description_toFromListOld "[]") (toFromList @[] @OldestFirst @String)
             prop (description_toFromListOld "NonEmpty")
                 (toFromList @NE.NonEmpty @OldestFirst @String)
-    describe "Chrono" $ do
+    describe "Many" $ do
         prop (description_fromOldestToNewest "[]") (fromOldestToNewest @[] @String)
         prop (description_fromOldestToNewest "NonEmpty")
             (fromOldestToNewest @NE.NonEmpty @String)
         prop (description_fromNewestToOldest "[]") (fromNewestToOldest @[] @String)
         prop (description_fromNewestToOldest "NonEmpty")
             (fromNewestToOldest @NE.NonEmpty @String)
+
+    describe "Bi instances" $ do
+        binaryTest @(NewestFirst NE U)
+        binaryTest @(OldestFirst NE U)
   where
     description_One =
         "Turning a single element into a chronological is the same as turning into the\

@@ -4,7 +4,7 @@
 -- serialization size under the certain limit. Used in block creation
 -- and ssc stripping.
 
-module Pos.Util.Limits
+module Pos.Core.Limits
        ( spanHashMap
        , stripHashMap
        ) where

@@ -25,13 +25,11 @@ library
                        Pos.Util.Concurrent.RWLock
 
                        Pos.Util.AssertMode
-                       Pos.Util.Chrono
                        Pos.Util.Filesystem
                        Pos.Util.Future
                        Pos.Util.Justify
                        Pos.Util.Lens
                        Pos.Util.LoggerName
-                       Pos.Util.Limits
                        Pos.Util.LRU
                        Pos.Util.Modifier
                        Pos.Util.Orphans
@@ -47,7 +45,6 @@ library
   build-depends:       aeson
                      , base
                      , binary
-                     , cardano-sl-binary
                      , cborg
                      , cereal
                      , containers
@@ -133,17 +130,13 @@ test-suite test
 
   other-modules:
                        Spec
-                       Test.Pos.Util.Chrono
-                       Test.Pos.Util.LimitsSpec
                        Test.Pos.Util.Modifier
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.Util.QuickCheck.Property
                        Test.Pos.Util.TimerSpec
-                       Test.Pos.UtilSpec
 
   build-depends:       base
                      , async
-                     , cardano-sl-binary
                      , cardano-sl-util
                      , hspec
                      , QuickCheck

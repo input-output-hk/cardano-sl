@@ -123,6 +123,7 @@ library
                       , cardano-sl-generator
                       , cardano-sl-db
                       , cardano-sl-infra
+                      , cardano-sl-lrc
                       , cardano-sl-ssc
                       , cardano-sl-txp
                       , cardano-sl-networking

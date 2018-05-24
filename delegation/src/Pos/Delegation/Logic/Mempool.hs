@@ -26,8 +26,8 @@ import           Mockable (CurrentTime, Mockable, currentTime)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (ProxySKHeavy, addressHash, bvdMaxBlockSize, HasProtocolMagic,
-                           epochIndexL, headerHash, HasGenesisBlockVersionData)
+import           Pos.Core (HasGenesisBlockVersionData, HasProtocolMagic, ProxySKHeavy, addressHash,
+                           bvdMaxBlockSize, epochIndexL, headerHash)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB
@@ -36,8 +36,8 @@ import           Pos.Delegation.Cede (CheckForCycle (..), cmPskMods, dlgVerifyPs
 import           Pos.Delegation.Class (DlgMemPool, MonadDelegation, dwMessageCache, dwPoolSize,
                                        dwProxySKPool, dwTip)
 import           Pos.Delegation.Logic.Common (DelegationStateAction, runDelegationStateAction)
-import           Pos.Delegation.Lrc (getDlgRichmen)
 import           Pos.Delegation.Types (DlgPayload (..), isRevokePsk)
+import           Pos.Lrc.Consumer.Delegation (getDlgRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.StateLock (StateLock, withStateLockNoMetrics)
 import           Pos.Util (HasLens', microsecondsToUTC)

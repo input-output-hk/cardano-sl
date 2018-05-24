@@ -29,6 +29,7 @@ import           Pos.Block.Base (mkGenesisBlock, mkMainBlock)
 import           Pos.Block.Logic.Internal (MonadBlockApply, applyBlocksUnsafe, normalizeMempool)
 import           Pos.Block.Logic.Util (calcChainQualityM)
 import           Pos.Block.Logic.VAR (verifyBlocksPrefix)
+import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.Block.Slog (HasSlogGState (..), ShouldCallBListener (..))
 import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..), HasGeneratedSecrets,
                            HasGenesisBlockVersionData, HasGenesisData, HasGenesisHash,
@@ -47,7 +48,7 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.Delegation (DelegationVar, DlgPayload (..), ProxySKBlockInfo, clearDlgMemPool,
                                  getDlgMempool)
 import           Pos.Exception (assertionFailed, reportFatalError)
-import           Pos.Lrc (HasLrcContext, LrcModeFull, lrcSingleShot)
+import           Pos.Lrc (HasLrcContext)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Reporting (HasMisbehaviorMetrics, reportError)

@@ -34,7 +34,6 @@ library
     Pos.Ssc.State.Global
 
     Pos.Ssc.Message
-    Pos.Ssc.Lrc
     Pos.Ssc.Mem
     Pos.Ssc.Functions
     Pos.Ssc.SecretStorage

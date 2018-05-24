@@ -23,27 +23,34 @@ module Pos.Lrc.DB.Richmen
 
        -- * Exported for tests
        , richmenComponents
+
+       , RichmenType (..)
+       , findRichmenPure
        ) where
 
 import           Universum
 
+import           Data.Conduit (runConduitPure, (.|))
+import qualified Data.Conduit.List as CL
 import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet as HS
 
 import           Pos.Binary.Core ()
-import           Pos.Core (Coin, ProxySKHeavy, StakeholderId, addressHash,
-                           gdHeavyDelegation, genesisData, unGenesisDelegation, HasGenesisBlockVersionData,
-                           HasGenesisData)
+import           Pos.Core (Coin, CoinPortion, HasGenesisBlockVersionData, HasGenesisData,
+                           ProxySKHeavy, StakeholderId, addressHash, applyCoinPortionUp,
+                           gdHeavyDelegation, genesisData, sumCoins, unGenesisDelegation,
+                           unsafeIntegerToCoin)
 import           Pos.Crypto (pskDelegatePk)
 import           Pos.DB.Class (MonadDB)
-import           Pos.Delegation.Lrc (RCDlg, tryGetDlgRichmen)
+import           Pos.Lrc.Consumer.Delegation (RCDlg, tryGetDlgRichmen)
+import           Pos.Lrc.Consumer.Ssc (RCSsc, tryGetSscRichmen)
+import           Pos.Lrc.Consumer.Update (RCUs, tryGetUSRichmen)
+import           Pos.Lrc.Core (findDelegationStakes, findRichmenStakes)
 import           Pos.Lrc.DB.RichmenBase (getRichmenP, putRichmenP)
-import           Pos.Lrc.Logic (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.RichmenComponent (RichmenComponent (..), SomeRichmenComponent (..),
                                            someRichmenComponent)
 import           Pos.Lrc.Types (FullRichmenData)
-import           Pos.Ssc.Lrc (RCSsc, tryGetSscRichmen)
 import           Pos.Txp.GenesisUtxo (genesisStakes)
-import           Pos.Update.Lrc (RCUs, tryGetUSRichmen)
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -99,3 +106,32 @@ richmenComponents =
     , someRichmenComponent @RCUs
     , someRichmenComponent @RCDlg
     ]
+
+data RichmenType
+    = RTUsual
+    -- | A map from delegates to issuers
+    | RTDelegation (HashMap StakeholderId (HashSet StakeholderId))
+
+-- | Pure version of 'findRichmen' which uses a list of stakeholders.
+findRichmenPure :: [(StakeholderId, Coin)]
+                -> CoinPortion    -- ^ Richman eligibility as % of total stake
+                -> RichmenType
+                -> FullRichmenData
+findRichmenPure stakeDistribution threshold computeType
+    | RTDelegation delegationMap <- computeType = do
+        let issuers = mconcat $ HM.elems delegationMap
+            (old, new) =
+                runConduitPure $
+                CL.sourceList (HM.toList delegationMap) .|
+                (findDelegationStakes
+                     (pure . flip HS.member issuers)
+                     (pure . flip HM.lookup stakeMap) thresholdCoin)
+        (total, new `HM.union` (usualRichmen `HM.difference` (HS.toMap old)))
+    | otherwise = (total, usualRichmen)
+  where
+    stakeMap = HM.fromList stakeDistribution
+    usualRichmen =
+        runConduitPure $
+        CL.sourceList stakeDistribution .| findRichmenStakes thresholdCoin
+    total = unsafeIntegerToCoin $ sumCoins $ map snd stakeDistribution
+    thresholdCoin = applyCoinPortionUp threshold total

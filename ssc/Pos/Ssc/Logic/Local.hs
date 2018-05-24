@@ -29,21 +29,21 @@ import           System.Wlog (WithLogger, launchNamedPureLog, logWarning)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Binary.Ssc ()
-import           Pos.Core (BlockVersionData (..), EpochIndex, SlotId (..),
-                           StakeholderId, VssCertificate, epochIndexL, HasProtocolMagic,
-                           mkVssCertificatesMapSingleton, HasGenesisData,
-                           HasProtocolConstants, HasGenesisBlockVersionData)
+import           Pos.Core (BlockVersionData (..), EpochIndex, HasGenesisBlockVersionData,
+                           HasGenesisData, HasProtocolConstants, HasProtocolMagic, SlotId (..),
+                           StakeholderId, VssCertificate, epochIndexL,
+                           mkVssCertificatesMapSingleton)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment, SscPayload (..),
                                mkCommitmentsMap)
 import           Pos.DB (MonadBlockDBRead, MonadDBRead, MonadGState (gsAdoptedBVData))
 import           Pos.DB.BlockIndex (getTipHeader)
+import           Pos.Lrc.Consumer.Ssc (getSscRichmen, tryGetSscRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Error (SscVerifyError (..))
-import           Pos.Ssc.Lrc (getSscRichmen, tryGetSscRichmen)
 import           Pos.Ssc.Mem (MonadSscMem, SscLocalQuery, SscLocalUpdate, askSscMem,
                               sscRunGlobalQuery, sscRunLocalQuery, sscRunLocalSTM, syncingStateWith)
 import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT, evalPureTossWithLogger, evalTossT,

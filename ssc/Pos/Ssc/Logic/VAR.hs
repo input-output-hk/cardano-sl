@@ -21,19 +21,20 @@ import           System.Wlog (WithLogger, logDebug)
 import           Universum
 
 import           Pos.Binary.Ssc ()
-import           Pos.Core (BlockVersionData, ComponentBlock (..), HeaderHash, HasProtocolMagic,
-                           epochIndexL, epochOrSlotG, headerHash, HasGeneratedSecrets, HasGenesisBlockVersionData,
-                           HasCoreConfiguration, HasProtocolConstants, HasGenesisData)
+import           Pos.Core (BlockVersionData, ComponentBlock (..), HasCoreConfiguration,
+                           HasGeneratedSecrets, HasGenesisBlockVersionData, HasGenesisData,
+                           HasProtocolConstants, HasProtocolMagic, HeaderHash, epochIndexL,
+                           epochOrSlotG, headerHash)
 import           Pos.Core.Ssc (SscPayload (..))
 import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..), gsAdoptedBVData)
 import           Pos.Exception (assertionFailed)
+import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Reporting.Methods (MonadReporting, reportError)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import qualified Pos.Ssc.DB as DB
 import           Pos.Ssc.Error (SscVerifyError (..), sscIsCriticalVerifyError)
-import           Pos.Ssc.Lrc (getSscRichmen)
 import           Pos.Ssc.Mem (MonadSscMem, SscGlobalUpdate, askSscMem, sscRunGlobalUpdate)
 import           Pos.Ssc.Toss (MultiRichmenStakes, PureToss, applyGenesisBlock, rollbackSsc,
                                runPureTossWithLogger, supplyPureTossEnv, verifyAndApplySscPayload)

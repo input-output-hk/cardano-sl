@@ -104,6 +104,8 @@
 
 \maketitle
 
+\tableofcontents
+
 \section*{Status}
 \label{sec:status}
 
@@ -244,10 +246,11 @@ as it is.\improvement{We may want to add something about protocol
   A transaction $t∈\txs$ consists of
   \begin{record}
   \item[Inputs] A non-empty list of pairs in
-    $\nelists{(\txids × ℕ)}$.\improvement{Explain that it represents an
-      output identified by its index in the transaction output list}
+    $\nelists{(\txids × ℕ)}$.
 
-    For an input $in = (tx, ix) ∈ \txids × ℕ$ we write
+    An input $in = (tx, ix) ∈ \txids × ℕ$ should be read as a pointer to an (expectedly unspent)
+    output, addressed by the transaction $tx$ in which it was created, and
+    its index $ix$ in the list of outputs of $tx$. We write
     \begin{itemize}
     \item $\intrans{in} = tx$
     \item $\inindex{in} = ix$
@@ -457,13 +460,14 @@ specified in the initial state and can be further modified by updates.
   good randomness properties.
 
 \end{description}
-\section{Adding a block}
+\section{Extending a chain}
 \label{sec:adding-block}
 
-\info{In this section we are interested in specifying what it means to
-  add a block, given by other means, on top of some existing
-  chain. The state is a single chain (aka list). The block must be
-  added on top (aka in front) of it.}
+This section specifies whether a block can extend a given chain. That
+is we have one version of history (forks are handled in
+Section~\ref{sec:chain-selection}), and we are receiving a block. If
+the block passes the validation rules of this section, then the
+history is one block longer.
 
 A chain \improvement{We can replace ``chain'' by sequence and put the
   predecessor condition in the validity rule. Though this opens a question: from
@@ -552,9 +556,10 @@ $b_1,…,b_n$ if all of the following hold
       $$
     \end{description}
 
-    \item[Bootstrap era]\info{These rules are only used during the
-      bootstrap era. They are, however, not qualified because in the
-      current state of the document, only the bootstrap era is documented.}\hfill
+  \item[Bootstrap era] The following conditions must all pass to
+    validate blocks in the bootstrap era. This specification only
+    describes the behaviour during the bootstrap era, hence the
+    following conditions are checked unconditionally.
     \begin{description}
     \item[Bootstrap stake delegation] For every output $o∈\outputs{τ}$, the
       stake is delegated in to the bootstrap stakeholders:
@@ -588,8 +593,11 @@ $b_1,…,b_n$ if all of the following hold
 \section{Derived functions}
 \label{sec:derived-functions}
 
-\info{This function described function which are defined on valid
-  chains. It is mutually recursive with Section~\ref{sec:adding-block}.}
+This section defines functions which are only defined on valid chains,
+per the definition of Section~\ref{sec:adding-block}. The functions
+defined in this sections are also used in
+Section~\ref{sec:adding-block}. Therefore this section and
+Section~\ref{sec:adding-block} are mutually recursive.
 
 \begin{description}
 \item[Stake distribution] Let us define
@@ -764,7 +772,7 @@ some $q$. From which we can deduce that $f(N)$ is surjective on its
 first component (and actually: if the frequency of each $p$ in $u_n$
 is the same, then the same property also holds of $f$).
 
-\section{Extending the blockchain}
+\section{Issuing a block}
 \label{sec:extending-blockchain}
 
 \info{In this section we will specify the rules used by a slot-leader
@@ -774,10 +782,12 @@ is the same, then the same property also holds of $f$).
 \section{Entering the mempool}
 \label{sec:entering-mempool}
 
-\info{In this section we want to specify how individual transactions
-  are added to or rejected from the mempool. Might have to be moved
-  before the blockchain-extension rules. The state is a single chain,
-  plus outstanding transactions.}
+This section specifies the behaviour of the mempool, which is the
+space in which received transactions are stored before they are
+broadcast to the network, and also where the transactions to issue a
+new block (see Section~\ref{sec:extending-blockchain}) are taken
+from. Many changes are considered to this section, and are discussed
+in Appendix~\ref{sec:appendix-mempool}.
 
 Let $b₁,…,b_m$ be the selected chain (see
 Section~\ref{sec:chain-selection}). The mempool is a list of
@@ -842,9 +852,10 @@ those of the selected chain) when
       $$
     \end{description}
 
-    \item[Bootstrap era]\info{These rules are only used during the
-      bootstrap era. They are, however, not qualified because in the
-      current state of the document, only the bootstrap era is documented.}\hfill
+    \item[Bootstrap era] The following conditions must all pass to
+    validate blocks in the bootstrap era. This specification only
+    describes the behaviour during the bootstrap era, hence the
+    following conditions are checked unconditionally.
     \begin{description}
     \item[Bootstrap stake delegation] For every output $o∈\outputs{τ}$, the
       stake is delegated in to the bootstrap stakeholders:

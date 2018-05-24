@@ -121,7 +121,6 @@ import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import qualified Data.Map.Strict as Map
 import           Pos.Aeson.Core ()
-import           Pos.Arbitrary.Core ()
 import qualified Pos.Client.Txp.Util as Core
 import           Pos.Core (addressF)
 import qualified Pos.Core as Core
@@ -132,7 +131,7 @@ import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), 
                                    buildSafeMaybe, deriveSafeBuildable, plainOrSecureF)
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
 
-
+import           Test.Pos.Core.Arbitrary ()
 
 -- | Declare generic schema, while documenting properties
 --   For instance:

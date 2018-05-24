@@ -8,12 +8,12 @@ import           Formatting (int, sformat, (%))
 import           Test.QuickCheck (Arbitrary (..), Gen, generate, infiniteListOf)
 import           Universum
 
-import           Pos.Arbitrary.Core.Unsafe ()
 import           Pos.Core (pcEpochSlots)
 import           Pos.Core.Common (Coin, StakeholderId)
 import           Pos.Lrc (followTheSatoshi)
 
 import           Bench.Configuration (benchProtocolConstants)
+import           Test.Pos.Core.Arbitrary.Unsafe ()
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Util.QuickCheck.Arbitrary (arbitraryUnsafe)
 

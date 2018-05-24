@@ -10,11 +10,11 @@ import           Test.Hspec (Expectation, Spec, anyErrorCall, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (NonNegative (..), Positive (..), Property, (===), (==>))
 
-import           Pos.Arbitrary.Core (EoSToIntOverflow (..), UnreasonableEoS (..))
 import           Pos.Core (EpochOrSlot, HasConfiguration, SlotId (..), flattenSlotId,
                            unflattenSlotId)
 
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Core.Arbitrary (EoSToIntOverflow (..), UnreasonableEoS (..))
 import           Test.Pos.Util.QuickCheck.Property (shouldThrowException, (.=.))
 
 spec :: Spec

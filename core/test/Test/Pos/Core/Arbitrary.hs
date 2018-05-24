@@ -4,7 +4,7 @@
 
 -- | Arbitrary instances for core.
 
-module Pos.Arbitrary.Core
+module Test.Pos.Core.Arbitrary
        ( CoinPairOverflowSum (..)
        , CoinPairOverflowSub (..)
        , CoinPairOverflowMul (..)
@@ -38,29 +38,27 @@ import           Test.QuickCheck.Instances ()
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core ()
-import           Pos.Core.Common (AddrAttributes, AddrSpendingData (..), AddrStakeDistribution (..),
-                                  AddrType (..), Address, Address' (..), BlockCount (..),
-                                  ChainDifficulty (..), Coeff (..), Coin, CoinPortion (..), Script,
-                                  SharedSeed (..), StakeholderId, TxFeePolicy (..), TxSizeLinear,
-                                  coinPortionDenominator, coinToInteger, divCoin, makeAddress,
-                                  maxCoinVal, mkCoin, mkMultiKeyDistr, unsafeCoinPortionFromDouble,
-                                  unsafeGetCoin, unsafeSubCoin)
+import           Pos.Core (AddrAttributes (..), AddrSpendingData (..), AddrStakeDistribution (..),
+                           AddrType (..), Address (..), Address' (..), ApplicationName (..),
+                           BlockCount (..), BlockVersion (..), BlockVersionData (..),
+                           ChainDifficulty (..), Coeff (..), Coin (..), CoinPortion (..),
+                           EpochIndex (..), EpochOrSlot (..), LocalSlotIndex (..), Script (..),
+                           SharedSeed (..), SlotCount (..), SlotId (..), SoftforkRule (..),
+                           SoftwareVersion (..), StakeholderId, TimeDiff (..), Timestamp (..),
+                           TxFeePolicy (..), TxSizeLinear (..), VssCertificate,
+                           applicationNameMaxLength, coinPortionDenominator, coinToInteger, divCoin,
+                           localSlotIndexMaxBound, localSlotIndexMinBound, makeAddress, maxCoinVal,
+                           mkCoin, mkLocalSlotIndex, mkMultiKeyDistr, mkVssCertificate,
+                           mkVssCertificatesMapLossy, unsafeCoinPortionFromDouble, unsafeGetCoin,
+                           unsafeSubCoin)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, HasProtocolConstants,
                                          epochSlots, protocolConstants)
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import qualified Pos.Core.Genesis as G
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
-import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), LocalSlotIndex (..),
-                                    SlotCount (..), SlotId (..), TimeDiff (..), Timestamp (..),
-                                    localSlotIndexMaxBound, localSlotIndexMinBound,
-                                    mkLocalSlotIndex)
-import           Pos.Core.Ssc (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
-import           Pos.Core.Update (BlockVersionData (..))
-import qualified Pos.Core.Update as U
 import           Pos.Crypto (ProtocolMagic, createPsk, toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
-
 import           Pos.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Util.Util (leftToPanic)
 
@@ -445,11 +443,11 @@ instance Arbitrary SharedSeed where
         bs <- replicateM sharedSeedLength (choose (0, 255))
         return $ SharedSeed $ BS.pack bs
 
-instance Arbitrary U.SoftforkRule where
+instance Arbitrary SoftforkRule where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary U.BlockVersionData where
+instance Arbitrary BlockVersionData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -457,20 +455,20 @@ instance Arbitrary U.BlockVersionData where
 -- Arbitrary types from MainExtra[header/body]data
 ----------------------------------------------------------------------------
 
-instance Arbitrary U.ApplicationName where
+instance Arbitrary ApplicationName where
     arbitrary =
-        U.ApplicationName .
-        toText . map selectAlpha . take U.applicationNameMaxLength <$>
+        ApplicationName .
+        toText . map selectAlpha . take applicationNameMaxLength <$>
         arbitrary
       where
         selectAlpha n = alphabet !! (n `mod` length alphabet)
         alphabet = "-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-instance Arbitrary U.BlockVersion where
+instance Arbitrary BlockVersion where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary U.SoftwareVersion where
+instance Arbitrary SoftwareVersion where
     arbitrary = genericArbitrary
     shrink = genericShrink
 

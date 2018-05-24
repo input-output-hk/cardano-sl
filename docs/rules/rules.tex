@@ -214,10 +214,10 @@ as it is.\improvement{We may want to add something about protocol
   
   \begin{currentvalue}
     In Cardano, the total order of $\agentids$ is the lexicographic
-    ordering on the public keys.\unsure{We are actually not completely
+    ordering on the public keys.
+  \end{currentvalue}\unsure{We are actually not completely
       sure about this. This is tracked by
       \href{https://iohk.myjetbrains.com/youtrack/issue/CDEC-163}{CDEC-163}.}
-  \end{currentvalue}
 
 \item[Stake distribution] A \emph{stake distribution} is a function
   $d ∈ \agentids ⟶ ℕ$ with finite support. We write
@@ -894,13 +894,13 @@ $b₁,…,b_n$ such that for any extension $b₁,…,b_n,b ∉ \mathfrak{T}$.
 
   Because it may be slow to retrieve the tip from a set data
   structures, it can be convenient, even in an executable
-  specification, to keep a reference to these tips.\unsure{On the
+  specification, to keep a reference to these tips.
+\end{implementationhint}\unsure{On the
     other hand, we don't seem to need the maximal chains in this
     specification. The only occurrence is to say that the selected
     chain is a maximal chain, but it is subsumed by the maximal-height
     condition (provided that height is monotonic). So we may be able
     to drop the maximal chain story entirely.}
-\end{implementationhint}
 
 A blockchain datastructure is a pair $(\mathfrak{C},\mathfrak{T}) ∈
 \blockchains ⊆ \lists{\blocks}×\blocktrees$. Such that

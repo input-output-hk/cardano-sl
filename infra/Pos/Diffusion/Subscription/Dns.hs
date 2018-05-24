@@ -160,8 +160,8 @@ dnsSubscriptionWorker logTrace oq defaultPort DnsDomains {..} keepaliveTimer slo
         threadDelay (fromIntegral timeToWait * 1000)
 
     -- When to send a keepalive message.
-    keepalive :: NodeId -> IO ()
-    keepalive _ = do
+    keepalive :: IO ()
+    keepalive = do
         time <- slotDuration
         startTimer time keepaliveTimer
         atomically $ waitTimer keepaliveTimer

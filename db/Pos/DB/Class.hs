@@ -33,6 +33,7 @@ module Pos.DB.Class
        , Serialized (..)
        , SerializedBlock
        , SerializedUndo
+       , SerializedBlund
        , MonadBlockDBRead
        , getDeserialized
        , getBlock
@@ -58,8 +59,8 @@ import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (Bi, decodeFull')
 import           Pos.Binary.Core ()
-import           Pos.Core (Block, BlockVersionData (..), EpochIndex, HasCoreConfiguration, HeaderHash,
-                           isBootstrapEra)
+import           Pos.Core (Block, BlockHeader, BlockVersionData (..), EpochIndex, HasConfiguration,
+                           HeaderHash, isBootstrapEra)
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.Util.Util (eitherToThrow)
 
@@ -90,12 +91,14 @@ newtype Serialized a = Serialized
 
 data SerBlock
 data SerUndo
+data SerBlund
 
 type SerializedBlock = Serialized SerBlock
 type SerializedUndo = Serialized SerUndo
+type SerializedBlund = Serialized SerBlund
 
 -- | Pure read-only interface to the database.
-class (HasCoreConfiguration, MonadThrow m) => MonadDBRead m where
+class (HasConfiguration, MonadThrow m) => MonadDBRead m where
     -- | This function takes tag and key and reads value associated
     -- with given key from DB corresponding to given tag.
     dbGet :: DBTag -> ByteString -> m (Maybe ByteString)
@@ -162,7 +165,7 @@ class MonadDBRead m => MonadDB m where
     dbDelete :: DBTag -> ByteString -> m ()
 
     -- | Put given blunds into the Block DB.
-    dbPutSerBlunds :: NonEmpty (Block, SerializedUndo) -> m ()
+    dbPutSerBlunds :: NonEmpty (BlockHeader, SerializedBlund) -> m ()
 
 instance {-# OVERLAPPABLE #-}
     (MonadDB m, MonadTrans t, MonadThrow (t m)) =>

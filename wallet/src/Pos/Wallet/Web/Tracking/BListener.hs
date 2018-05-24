@@ -21,7 +21,7 @@ import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger)
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Types (Blund, undoTx)
-import           Pos.Core (HasConfiguration, HeaderHash, Timestamp, difficultyL, headerSlotL,
+import           Pos.Core (HeaderHash, Timestamp, difficultyL, headerSlotL,
                            prevBlockL)
 import           Pos.Core.Block (BlockHeader (..), blockHeader, getBlockHeader, mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux (..), TxUndo)
@@ -128,7 +128,6 @@ onRollbackBlocksWebWallet
     , MonadSlots ctx m
     , MonadReporting m
     , CanLogInParallel m
-    , HasConfiguration
     )
     => NewestFirst NE Blund -> m SomeBatchOp
 onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do

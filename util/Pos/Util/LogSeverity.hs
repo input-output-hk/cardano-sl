@@ -12,12 +12,7 @@ import          GHC.Generics
 import           Universum
 
 
-data Level = Debug | Info | Warning | Notice | Error
-                deriving (Generic, Show)
-
-instance FromJSON Level
-
-data Severity = Severity { level :: !Level }
+data Severity = Debug | Info | Warning | Notice | Error
                 deriving (Generic, Show)
 
 -- | Handwritten 'FromJSON' instance because the log config files
@@ -28,10 +23,10 @@ instance FromJSON Severity where
         case H.lookup "severity" o of    
             Nothing -> fail "key severity not present"
             Just v -> case v of
-                "Debug+"   -> pure $ Severity { level = Debug  }
-                "Info+"    -> pure $ Severity { level = Info   } 
-                "Notice+"  -> pure $ Severity { level = Notice } 
-                "Warning+" -> pure $ Severity { level = Warning} 
-                "Error+"   -> pure $ Severity { level = Error  }
+                "Debug+"   -> pure Debug
+                "Info+"    -> pure $ Info 
+                "Notice+"  -> pure $ Notice 
+                "Warning+" -> pure $ Warning 
+                "Error+"   -> pure $ Error
                 _          -> fail "Unknown Severity"
 

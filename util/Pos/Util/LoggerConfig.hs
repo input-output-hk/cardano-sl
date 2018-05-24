@@ -14,7 +14,7 @@ import           Data.Yaml      as Y
 import           GHC.Generics
 import           Universum
 
-import           Pos.Util.LogSeverity
+import           Pos.Util.LogSeverity  
 
 
 -- | @'RotationParameters'@ one of the two categories  used in the 
@@ -50,7 +50,7 @@ data LoggerConfig = LoggerConfig
 instance FromJSON LoggerConfig
 
 instance Monoid LoggerTree where
-    mempty = LoggerTree { _ltMinSeverity = Severity { level = Debug }
+    mempty = LoggerTree { _ltMinSeverity = Debug }
                         , _ltFiles = ["node.log"] 
                         }
     mappend = (<>)

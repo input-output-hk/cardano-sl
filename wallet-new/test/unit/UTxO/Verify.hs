@@ -32,7 +32,7 @@ import           Pos.Delegation (DlgUndo (..))
 import           Pos.Txp hiding (tgsVerifyBlocks)
 import           Pos.Update.Poll
 import           Pos.Util (neZipWith4)
-import           Pos.Util.Chrono
+import           Pos.Core.Chrono
 import           Pos.Util.Lens
 import qualified Pos.Util.Modifier as MM
 import           Serokell.Util.Verify

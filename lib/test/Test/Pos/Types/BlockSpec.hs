@@ -22,7 +22,7 @@ import qualified Pos.Core as T
 import           Pos.Crypto (ProtocolMagic (..), ProxySecretKey (pskIssuerPk), SecretKey,
                              SignTag (..), createPsk, protocolMagic, proxySign, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.Core.Chrono (NewestFirst (..))
 
 import           Test.Pos.Configuration (withDefConfiguration)
 

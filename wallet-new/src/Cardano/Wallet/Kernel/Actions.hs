@@ -19,7 +19,7 @@ import           Control.Lens (makeLenses, (%=), (.=), (+=), (-=))
 import qualified Data.Text.Buildable
 import           Formatting (bprint, shown, build, (%))
 
-import           Pos.Util.Chrono
+import           Pos.Core.Chrono
 
 {-------------------------------------------------------------------------------
   Workers and helpers for performing wallet state updates

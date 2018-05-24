@@ -25,7 +25,7 @@ import           Control.Lens.TH (makeLenses)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import           Data.Tree
-import           Pos.Util.Chrono
+import           Pos.Core.Chrono
 import           Test.QuickCheck
 
 import           Util

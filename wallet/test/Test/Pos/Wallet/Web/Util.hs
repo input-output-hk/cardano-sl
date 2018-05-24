@@ -52,7 +52,7 @@ import           Pos.Launcher (HasConfigurations)
 import           Pos.StateLock (Priority (..), modifyStateLock)
 import           Pos.Txp.Toil (Utxo)
 import           Pos.Util (HasLens (..), _neLast)
-import           Pos.Util.Chrono (OldestFirst (..))
+import           Pos.Core.Chrono (OldestFirst (..))
 
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.UserSecret (mkGenesisWalletUserSecret)

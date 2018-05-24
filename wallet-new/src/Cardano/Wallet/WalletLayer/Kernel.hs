@@ -18,7 +18,7 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..), fromRawResolvedBlock)
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
 
-import           Pos.Util.Chrono (mapMaybeChrono)
+import           Pos.Core.Chrono (mapMaybeChrono)
 
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Data.Map.Strict as Map

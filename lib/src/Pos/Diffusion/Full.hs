@@ -66,7 +66,7 @@ import           Pos.Network.Types (NetworkConfig (..), Bucket (..), initQueue,
 import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgNodeMetrics)
 import           Pos.Ssc.Message (MCOpening (..), MCShares (..), MCCommitment (..), MCVssCertificate (..))
-import           Pos.Util.Chrono (OldestFirst)
+import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 import           Pos.Util.Timer (Timer, newTimer)
 import           Pos.Util.Trace (Trace, Severity (Error))

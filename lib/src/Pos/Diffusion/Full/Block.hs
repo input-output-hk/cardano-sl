@@ -49,7 +49,7 @@ import           Pos.Network.Types (Bucket)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..), NodeAttackedError (..),
                                       SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..),
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                                   toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Util.Timer (Timer, startTimer)
 import           Pos.Util.TimeWarp (NetworkAddress, nodeIdToAddress)

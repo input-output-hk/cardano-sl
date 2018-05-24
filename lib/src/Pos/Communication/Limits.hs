@@ -85,7 +85,7 @@ import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (.
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 
 -- Reexports
-import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.Core.Chrono (NewestFirst (..))
 
 ----------------------------------------------------------------------------
 -- Instances (MessageLimited[Pure])

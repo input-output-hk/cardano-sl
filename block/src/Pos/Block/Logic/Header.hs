@@ -47,7 +47,7 @@ import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Slotting.Class (MonadSlots (getCurrentSlot))
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 import           Pos.Util (buildListBounds, _neHead, _neLast)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
                                   toOldestFirst, _NewestFirst, _OldestFirst)
 
 -- | Result of single (new) header classification.

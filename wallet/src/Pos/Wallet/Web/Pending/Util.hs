@@ -23,7 +23,7 @@ import           Pos.Core (ProtocolConstants(..))
 import           Pos.Core.Slotting (FlatSlotId, SlotId, flatSlotId)
 import           Pos.Crypto (WithHash (..))
 import           Pos.Txp (Tx (..), TxAux (..), TxOut (..), topsortTxs)
-import           Pos.Util.Chrono (OldestFirst (..))
+import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), PtxCondition (..),
                                                PtxSubmitTiming (..), pstNextDelay, pstNextSlot,
                                                ptxPeerAck, ptxSubmitTiming)

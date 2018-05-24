@@ -39,7 +39,7 @@ import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB, askWal
 import           Pos.Wallet.Web.State.Storage (getWalletInfo)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
-import           Pos.Util.Chrono (NE, OldestFirst (..), NewestFirst (..))
+import           Pos.Core.Chrono (NE, OldestFirst (..), NewestFirst (..))
 import           Pos.Block.Types (Blund)
 
 

@@ -30,7 +30,7 @@ import           Pos.Reporting (MonadReporting)
 import           Pos.Shutdown (HasShutdownContext)
 import           Pos.Slotting (MonadSlots, OnNewSlotParams (..), defaultOnNewSlotParams,
                                getNextEpochSlotDuration, onNewSlot)
-import           Pos.Util.Chrono (getOldestFirst)
+import           Pos.Core.Chrono (getOldestFirst)
 import           Pos.Util.LogSafe (logInfoSP, secretOnlyF, secureListF)
 import           Pos.Wallet.Web.Pending.Functions (usingPtxCoords)
 import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler, submitAndSavePtx)

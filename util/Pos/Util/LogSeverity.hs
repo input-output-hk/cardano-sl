@@ -17,7 +17,7 @@ data Level = Debug | Info | Warning | Notice | Error
 
 instance FromJSON Level
 
-newtype Severity = Severity { level :: !Level }
+data Severity = Severity { level :: !Level }
                 deriving (Generic, Show)
 
 -- | Handwritten 'FromJSON' instance because the log config files

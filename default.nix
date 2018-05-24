@@ -1,8 +1,19 @@
 let
   localLib = import ./lib.nix;
+  # Make rocksdb use gperftools rather than jemalloc.
+  # jemalloc has a bug that caused cardano-sl-db to fail to link (via
+  # rocksdb, which can use jemalloc).
+  # https://github.com/jemalloc/jemalloc/issues/937
+  # Alternatively, we could use an older jemalloc. Later nixpkgs have
+  # jemalloc450, but 18.03 does not. Shame
+  defaultConfig = {
+    packageOverrides = pkgs: {
+      rocksdb = pkgs.rocksdb.override { jemalloc = null; };
+    };
+  };
 in
 { system ? builtins.currentSystem
-, config ? {}
+, config ? defaultConfig
 , gitrev ? localLib.commitIdFromGitRepo ./.git
 , buildId ? null
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })

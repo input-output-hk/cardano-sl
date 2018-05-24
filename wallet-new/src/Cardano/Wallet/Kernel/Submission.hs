@@ -375,27 +375,24 @@ partitionNotSendable :: Pending
                      -- due to dependencies with future transactions and
                      -- transactions which are ready to be sent.
 partitionNotSendable (view (pendingTransactions . fromDb) -> pending) xs =
-    let allIds = Set.fromList $ map getTxId xs
-    in go allIds (reverse xs) (mempty, mempty)
+    go xs (mempty, (Set.empty, mempty))
     where
-        go :: Set Core.TxId
-           -> [ScheduleSend]
+        go :: [ScheduleSend]
+           -> ([ScheduleSend], (Set Core.TxId, [ScheduleSend]))
            -> ([ScheduleSend], [ScheduleSend])
-           -> ([ScheduleSend], [ScheduleSend])
-        go _ [] acc = bimap reverse reverse acc
-        go notVisited (l : ls) (cannotSend, canSend) =
-            let notVisited' = Set.delete (getTxId l) notVisited
-            in case dependsOnFutureTx notVisited' l of
-                    True  -> go notVisited' ls (l : cannotSend, canSend)
-                    False -> go notVisited' ls (cannotSend, l : canSend)
+        go [] acc = bimap reverse (reverse . snd) acc
+        go (l : ls) (accCannotSend, (accCanSendIds, accCanSend)) =
+            case dependsOnFutureTx accCanSendIds l of
+                 True  -> go ls (l : accCannotSend, (accCanSendIds, accCanSend))
+                 False -> go ls (accCannotSend, (Set.insert (getTxId l) accCanSendIds, l : accCanSend))
 
         -- | A 'ScheduleEvent' is @not@ independent and should not be sent
         -- over the wire if any of the inputs it consumes are mentioned in
         -- the 'Pending' set.
         dependsOnFutureTx :: Set Core.TxId -> ScheduleSend -> Bool
-        dependsOnFutureTx notVisited (ScheduleSend _ txAux _) =
+        dependsOnFutureTx canSendIds (ScheduleSend _ txAux _) =
             let inputs = List.foldl' updateFn mempty $ (Core.taTx txAux) ^. Core.txInputs . to NonEmpty.toList
-            in any (\tid -> isJust (M.lookup tid pending) && not (tid `Set.member` notVisited)) inputs
+            in any (\tid -> isJust (M.lookup tid pending) && not (tid `Set.member` canSendIds)) inputs
 
         getTxId :: ScheduleSend -> Core.TxId
         getTxId (ScheduleSend txId _ _) = txId
@@ -506,11 +503,17 @@ exponentialBackoff maxRetries exponent submissionCount currentSlot =
 -- | A very customisable resubmitter which can be configured with different
 -- retry policies.
 defaultResubmitFunction :: forall m. Monad m
-                        => (Core.TxAux -> m Bool)
+                        => ([Core.TxAux] -> m ())
                         -> RetryPolicy
                         -> ResubmissionFunction m
 defaultResubmitFunction send retryPolicy currentSlot scheduled pendingSet oldSchedule = do
-    foldlM updateFn (Set.empty, oldSchedule) scheduled
+    -- We do not care about the result of 'send', our job
+    -- is only to make sure we retrasmit the given transaction.
+    -- It will be the blockchain to tell us (via adjustment to
+    -- the local 'Pending' set) whether or not the transaction
+    -- has been adopted.
+    send (map (\(ScheduleSend _ txAux _) -> txAux) scheduled)
+    pure (List.foldl' updateFn (Set.empty, oldSchedule) scheduled)
     where
         reschedule :: Either ScheduleSend ScheduleConfirm
                    -> Slot
@@ -522,22 +525,16 @@ defaultResubmitFunction send retryPolicy currentSlot scheduled pendingSet oldSch
                      Right sc -> (\l _ -> l & over seToConfirm ((:) sc), ScheduleEvents mempty [sc])
             in IntMap.insertWith update (castSlot targetSlot) item old
 
-        updateFn :: (Evicted, Schedule) -> ScheduleSend -> m (Evicted, Schedule)
-        updateFn (evicted, (Schedule s nursery)) (ScheduleSend txId txAux submissionCount) = do
-            -- We do not care about the result of 'send', our job
-            -- is only to make sure we retrasmit the given transaction.
-            -- It will be the blockchain to tell us (via adjustment to
-            -- the local 'Pending' set) whether or not the transaction
-            -- has been adopted.
-            _ <- send txAux
+        updateFn :: (Evicted, Schedule) -> ScheduleSend -> (Evicted, Schedule)
+        updateFn (evicted, (Schedule s nursery)) (ScheduleSend txId txAux submissionCount) =
             case needsEviction txs txId of
-                 True -> return (Set.insert txId evicted, Schedule s nursery)
+                 True -> (Set.insert txId evicted, Schedule s nursery)
                  False -> case retryPolicy submissionCount currentSlot of
-                             SendIn newSlot -> do
+                             SendIn newSlot ->
                                  let entry' = ScheduleSend txId txAux (incSubmissionCount submissionCount succ)
-                                 return (evicted, Schedule (reschedule (Left entry') newSlot s) nursery)
+                                 in (evicted, Schedule (reschedule (Left entry') newSlot s) nursery)
                              CheckConfirmedIn newSlot ->
-                                 return (evicted, Schedule (reschedule (Right $ ScheduleConfirm txId) newSlot s) nursery)
+                                 (evicted, Schedule (reschedule (Right $ ScheduleConfirm txId) newSlot s) nursery)
 
         txs :: M.Map Core.TxId Core.TxAux
         txs = pendingSet ^. pendingTransactions . fromDb

@@ -49,7 +49,7 @@ constantResubmit = giveUpAfter 255
 
 giveUpAfter :: Int -> ResubmissionFunction Identity
 giveUpAfter retries currentSlot scheduled oldScheduler =
-    let send _  = return False
+    let send _  = return ()
         rPolicy = constantRetry 1 retries
     in defaultResubmitFunction send rPolicy currentSlot scheduled oldScheduler
 
@@ -315,7 +315,8 @@ spec = do
           -- Then during slot 1 we would send both [A,B], on slot 2 we won't send
           -- anything and finally on slot 3 we would send [C,D].
           it "Given D->C->B->A, can send [A,B] now, [D,C] in the future" $ do
-              let generator = do [b,c,a,d] <- dependentTransactions
+              let generator :: Gen (ShowThroughBuild (WalletSubmission Identity, [Core.TxAux]))
+                  generator = do [b,c,a,d] <- dependentTransactions
                                  ws  <- addPending (pendingFromTxs [a,b]) . unSTB <$> genPureWalletSubmission
                                  return $ STB (addPending (pendingFromTxs [d]) (snd $ tick' ws), [a,b,c,d])
 
@@ -348,7 +349,7 @@ spec = do
                        , slot2 === Slot 2
                        , slot3 === Slot 3
                        , (ScheduleEvents scheduledInSlot1 confirmed1) `includeEvents` [a,b]
-                       , (ScheduleEvents scheduledInSlot2 confirmed2) `mustNotIncludeEvents` [a,b,d]
+                       , (ScheduleEvents scheduledInSlot2 confirmed2) `mustNotIncludeEvents` [a,b,c,d]
                        , (ScheduleEvents scheduledInSlot3 confirmed3) `includeEvents` [c,d]
                        ]
 

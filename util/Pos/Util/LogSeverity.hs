@@ -24,10 +24,10 @@ data Severity = Severity { level :: !Level }
 --   contain a '+' after their severity that has to be dropped to 
 --   be parsed into our Severity datatype.
 instance FromJSON Severity where
-    parseJSON (Object v) =  
-        case H.lookup "severity" v of    
+    parseJSON =  withObject "Severity" $ o -> 
+        case H.lookup "severity" o of    
             Nothing -> fail "key severity not present"
-            Just s -> case s of
+            Just v -> case v of
                 "Debug+"   -> pure $ Severity $ Debug
                 "Info+"    -> pure $ Severity $ Info
                 "Notice+"  -> pure $ Severity $ Notice

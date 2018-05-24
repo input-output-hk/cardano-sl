@@ -44,7 +44,7 @@ import qualified Pos.Update.DB as GS (getAdoptedBV)
 import           Pos.Update.Logic (usVerifyBlocks)
 import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (neZipWith4, spanSafe, _neHead)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
                                   toOldestFirst)
 import           Pos.Util.Util (HasLens (..))
 

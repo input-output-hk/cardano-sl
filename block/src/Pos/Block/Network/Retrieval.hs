@@ -32,7 +32,7 @@ import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (getBlocks))
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportOrLogE, reportOrLogW)
-import           Pos.Util.Chrono (NE, OldestFirst (..), _OldestFirst)
+import           Pos.Core.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Util.Util (HasLens (..))
 
 -- I really don't like join

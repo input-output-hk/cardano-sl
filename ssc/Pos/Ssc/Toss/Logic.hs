@@ -30,7 +30,7 @@ import           Pos.Ssc.Toss.Base (checkPayload)
 import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..))
 import           Pos.Ssc.Toss.Types (TossModifier (..))
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Util.Some (Some)
 import           Pos.Util.Util (sortWithMDesc)
 

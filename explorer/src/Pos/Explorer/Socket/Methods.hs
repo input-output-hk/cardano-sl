@@ -75,7 +75,7 @@ import           Pos.Explorer.Core (TxExtra (..))
 import qualified Pos.Explorer.DB as DB
 import qualified Pos.GState as DB
 import           Pos.Util (maybeThrow)
-import           Pos.Util.Chrono (getOldestFirst)
+import           Pos.Core.Chrono (getOldestFirst)
 import           System.Wlog (WithLogger, logDebug, logWarning, modifyLoggerName)
 
 import           Pos.Explorer.Aeson.ClientTypes ()

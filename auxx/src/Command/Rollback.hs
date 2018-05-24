@@ -18,13 +18,13 @@ import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
 import           Pos.Core (difficultyL, epochIndexL)
 import           Pos.Core.Block (mainBlockTxPayload)
+import           Pos.Core.Chrono (NewestFirst, _NewestFirst)
 import           Pos.Core.Txp (TxAux)
 import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Infra.StateLock (Priority (..), withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Txp (flattenTxPayload)
-import           Pos.Util.Chrono (NewestFirst, _NewestFirst)
 
 import           Mode (MonadAuxxMode)
 

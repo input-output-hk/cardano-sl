@@ -16,7 +16,7 @@ import           Pos.Core.Txp (Tx (..), TxAux (..), toaOut, txOutAddress)
 import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.Explorer.DB as ExDB
 import           Pos.Txp.Toil (Utxo)
-import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.Core.Chrono (NewestFirst (..))
 
 import           Pos.Explorer.Core (AddrHistory)
 import           Pos.Explorer.Txp.Toil (ExplorerExtraLookup (..))

@@ -5,10 +5,7 @@
 {-# LANGUAGE TypeFamilies  #-}
 
 module Pos.Communication.Limits
-       ( module Pos.Infra.Communication.Limits.Types
-       , module Pos.Infra.Communication.Limits.Instances
-
-       , mlAbstractHash
+       ( mlAbstractHash
        , mlXSignature
        , mlSignature
        , mlPublicKey
@@ -86,11 +83,7 @@ import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (.
                                   MCVssCertificate (..))
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 
-import           Pos.Util.Chrono (NewestFirst (..))
-
--- Reexports
-import           Pos.Infra.Communication.Limits.Instances
-import           Pos.Infra.Communication.Limits.Types
+import           Pos.Core.Chrono (NewestFirst (..))
 
 ----------------------------------------------------------------------------
 -- Instances (MessageLimited[Pure])

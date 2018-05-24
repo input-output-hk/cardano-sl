@@ -67,7 +67,7 @@ import           Pos.Crypto (ProtocolMagic, Secret, SecretKey, SignTag (SignComm
                              Threshold, VssPublicKey, checkSig, genSharedSecret,
                              getDhSecret, secretToDhSecret, sign, toPublic, verifySecret)
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
-import           Pos.Util.Limits (stripHashMap)
+import           Pos.Core.Limits (stripHashMap)
 
 -- | Convert Secret to SharedSeed.
 secretToSharedSeed :: Secret -> SharedSeed

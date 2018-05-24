@@ -16,23 +16,24 @@ import           Node.Message.Class (Message)
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Crypto ()
 import           Pos.Binary.Infra ()
+import           Pos.Binary.Limit (Limit)
 import           Pos.Binary.Ssc ()
 -- Message instances for various types.
 -- TODO should move these into the Diffusion module subtree.
+import           Pos.Communication.Limits (mlMCCommitment, mlMCOpening, mlMCShares,
+                                           mlMCVssCertificate)
 import           Pos.Communication.Message ()
-import           Pos.Communication.Limits (Limit, mlMCOpening, mlMCVssCertificate,
-                                           mlMCCommitment, mlMCShares)
 import           Pos.Communication.Relay (DataMsg, InvOrData, InvReqDataParams (..),
                                           MempoolParams (NoMempool), Relay (..), ReqMsg, ReqOrRes,
                                           relayListeners, relayPropagateOut)
-import           Pos.Communication.Types.Protocol (MsgType (..), NodeId, EnqueueMsg,
-                                                   MkListeners, OutSpecs)
+import           Pos.Communication.Types.Protocol (EnqueueMsg, MkListeners, MsgType (..), NodeId,
+                                                   OutSpecs)
 import           Pos.Core (StakeholderId)
-import           Pos.Network.Types (Bucket)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
+import           Pos.Network.Types (Bucket)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
-                                  MCVssCertificate (..))
+                                  MCVssCertificate (..), SscMessageConstraints)
 import           Pos.Util.Trace (Trace, Severity)
 
 sscListeners

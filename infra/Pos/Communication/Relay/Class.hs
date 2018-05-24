@@ -14,7 +14,7 @@ import           Node.Message.Class (Message)
 import           Pos.Binary.Class (Bi)
 import           Universum
 
-import           Pos.Communication.Limits.Types (Limit)
+import           Pos.Binary.Limit (Limit)
 import           Pos.Communication.Types.Protocol (EnqueueMsg, Msg, NodeId)
 import           Pos.Communication.Types.Relay (DataMsg, InvMsg, InvOrData, MempoolMsg, ReqMsg,
                                                 ReqOrRes)

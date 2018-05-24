@@ -51,6 +51,7 @@ import qualified Pos.Block.Network as BT
 import qualified Pos.Block.Types as BT
 import qualified Pos.Communication as C
 import           Pos.Communication.Limits (mlOpening, mlUpdateVote, mlVssCertificate)
+import           Pos.Communication.Limits.Instances (mlMempoolMsg, mlInvMsg, mlReqMsg, mlDataMsg)
 import qualified Pos.Communication.Relay as R
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import qualified Pos.Core as T
@@ -593,9 +594,9 @@ spec = withDefConfiguration $ do
                 binaryTest @Ssc.SscSecretStorage
             describe "Message length limit" $ do
                 msgLenLimitedTest @Ssc.Opening mlOpening
-                msgLenLimitedTest @(R.InvMsg (Tagged Ssc.MCCommitment T.StakeholderId)) C.mlInvMsg
-                msgLenLimitedTest @(R.ReqMsg (Tagged Ssc.MCCommitment T.StakeholderId)) C.mlReqMsg
-                msgLenLimitedTest @(R.MempoolMsg Ssc.MCCommitment) C.mlMempoolMsg
+                msgLenLimitedTest @(R.InvMsg (Tagged Ssc.MCCommitment T.StakeholderId)) mlInvMsg
+                msgLenLimitedTest @(R.ReqMsg (Tagged Ssc.MCCommitment T.StakeholderId)) mlReqMsg
+                msgLenLimitedTest @(R.MempoolMsg Ssc.MCCommitment) mlMempoolMsg
                 -- msgLenLimitedTest' @(C.MaxSize (R.DataMsg Ssc.MCCommitment))
                 --     (C.MaxSize . R.DataMsg <$> C.mcCommitmentMsgLenLimit)
                 --     "MCCommitment"
@@ -633,9 +634,9 @@ spec = withDefConfiguration $ do
             describe "Bi extension" $ do
                 prop "TxInWitness" (extensionProperty @T.TxInWitness)
             describe "Message length limit" $ do
-                msgLenLimitedTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId)) C.mlInvMsg
-                msgLenLimitedTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId)) C.mlReqMsg
-                msgLenLimitedTest @(R.MempoolMsg T.TxMsgContents) C.mlMempoolMsg
+                msgLenLimitedTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId)) mlInvMsg
+                msgLenLimitedTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId)) mlReqMsg
+                msgLenLimitedTest @(R.MempoolMsg T.TxMsgContents) mlMempoolMsg
                 -- No check for (DataMsg T.TxMsgContents) since overal message size
                 -- is forcely limited
         describe "Update system" $ do
@@ -671,15 +672,15 @@ spec = withDefConfiguration $ do
                     binaryTest @(R.MempoolMsg (U.UpdateProposal, [U.UpdateVote]))
                     binaryTest @(R.DataMsg (U.UpdateProposal, [U.UpdateVote]))
                 describe "Message length limit" $ do
-                    msgLenLimitedTest @(R.InvMsg VoteId') C.mlInvMsg
-                    msgLenLimitedTest @(R.ReqMsg VoteId') C.mlReqMsg
-                    msgLenLimitedTest @(R.MempoolMsg U.UpdateVote) C.mlMempoolMsg
-                    msgLenLimitedTest @(R.InvMsg UpId') C.mlInvMsg
-                    msgLenLimitedTest @(R.ReqMsg UpId') C.mlReqMsg
-                    msgLenLimitedTest @(R.MempoolMsg (U.UpdateProposal, [U.UpdateVote])) C.mlMempoolMsg
+                    msgLenLimitedTest @(R.InvMsg VoteId') mlInvMsg
+                    msgLenLimitedTest @(R.ReqMsg VoteId') mlReqMsg
+                    msgLenLimitedTest @(R.MempoolMsg U.UpdateVote) mlMempoolMsg
+                    msgLenLimitedTest @(R.InvMsg UpId') mlInvMsg
+                    msgLenLimitedTest @(R.ReqMsg UpId') mlReqMsg
+                    msgLenLimitedTest @(R.MempoolMsg (U.UpdateProposal, [U.UpdateVote])) mlMempoolMsg
                     -- TODO [CSL-859]
                     -- msgLenLimitedTest @(C.MaxSize (R.DataMsg (U.UpdateProposal, [U.UpdateVote])))
-                    msgLenLimitedTest @(R.DataMsg U.UpdateVote) (C.mlDataMsg mlUpdateVote)
+                    msgLenLimitedTest @(DataMsg U.UpdateVote) (mlDataMsg mlUpdateVote)
                     -- msgLenLimitedTest @U.UpdateProposal
 
 instance {-# OVERLAPPING #-} Arbitrary (Maybe FileLock) where

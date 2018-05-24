@@ -38,15 +38,15 @@ import           Node.Message.Class (Message)
 import           Universum
 
 import           Pos.Binary.Class (Bi (..))
-import           Pos.Communication.Limits.Instances (mlResMsg, mlReqMsg, mlInvMsg,
-                                                     mlDataMsg, mlMempoolMsg)
-import           Pos.Communication.Limits.Types (Limit, mlEither)
+import           Pos.Binary.Limit (Limit, mlEither)
+import           Pos.Communication.Limits.Instances (mlDataMsg, mlInvMsg, mlMempoolMsg, mlReqMsg,
+                                                     mlResMsg)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              EnqueueMsg, ListenerSpec, MkListeners, Msg, NodeId,
                                              Origin (..), OutSpecs, constantListeners, convH,
-                                             toOutSpecs, waitForDequeues, waitForConversations,
-                                             recvLimited)
+                                             recvLimited, toOutSpecs, waitForConversations,
+                                             waitForDequeues)
 import           Pos.Communication.Relay.Class (DataParams (..), InvReqDataParams (..),
                                                 MempoolParams (..), Relay (..))
 import           Pos.Communication.Relay.Types (PropagationMsg (..))
@@ -54,7 +54,7 @@ import           Pos.Communication.Relay.Util (expectData, expectInv)
 import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), InvOrData,
                                                 MempoolMsg (..), ReqMsg (..), ReqOrRes, ResMsg (..))
 import           Pos.Network.Types (Bucket)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
+import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
 data InvReqCommunicationException =
       UnexpectedRequest

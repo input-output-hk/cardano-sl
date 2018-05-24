@@ -31,6 +31,8 @@ library
                        Pos.Binary.Merkle
 
                        Pos.Core
+                       Pos.Core.Chrono
+                       Pos.Core.Limits
 
                        Pos.Core.ProtocolConstants
 
@@ -212,11 +214,15 @@ test-suite test
   other-modules:
                        Spec
                        Test.Pos.Core.AddressSpec
+                       Test.Pos.Core.Chrono
+                       Test.Pos.Core.ChronoSpec
                        Test.Pos.Core.CoinSpec
+                       Test.Pos.Core.LimitsSpec
 
   build-depends:       base
                      , bytestring
                      , cardano-sl-binary
+                     , cardano-sl-binary-test
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-util-test
@@ -226,6 +232,7 @@ test-suite test
                      , serokell-util >= 0.1.3.4
                      , text
                      , universum >= 0.1.11
+                     , unordered-containers
 
   ghc-options:         -threaded
                        -rtsopts

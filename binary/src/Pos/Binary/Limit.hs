@@ -4,7 +4,7 @@
 {-# LANGUAGE Rank2Types    #-}
 {-# LANGUAGE TypeFamilies  #-}
 
-module Pos.Communication.Limits.Types
+module Pos.Binary.Limit
        ( Limit (..)
        , (<+>)
        , mlBool

@@ -5,10 +5,7 @@
 {-# LANGUAGE TypeFamilies  #-}
 
 module Pos.Communication.Limits
-       ( module Pos.Communication.Limits.Types
-       , module Pos.Communication.Limits.Instances
-
-       , mlAbstractHash
+       ( mlAbstractHash
 
        , mlXSignature
        , mlSignature
@@ -69,10 +66,12 @@ import           Data.Coerce (coerce)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (AsBinary (..))
+import           Pos.Binary.Limit (Limit (..), mlBool, mlEither, mlMaybe, mlTriple, mlTuple,
+                                   vectorOf, vectorOfNE, (<+>))
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
                                     MsgHeaders (..))
-import           Pos.Core (BlockCount, BlockVersionData (..), EpochIndex, StakeholderId,
-                           VssCertificate, UpId, coinPortionToDouble)
+import           Pos.Core (BlockCount, BlockVersionData (..), EpochIndex, StakeholderId, UpId,
+                           VssCertificate, coinPortionToDouble)
 import           Pos.Core.Block (Block, BlockHeader (..), GenesisBlock, GenesisBlockHeader,
                                  MainBlock, MainBlockHeader)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
@@ -86,8 +85,6 @@ import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (.
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 
 -- Reexports
-import           Pos.Communication.Limits.Instances
-import           Pos.Communication.Limits.Types
 import           Pos.Util.Chrono (NewestFirst (..))
 
 ----------------------------------------------------------------------------

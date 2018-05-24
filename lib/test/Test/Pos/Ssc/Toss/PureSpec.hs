@@ -6,25 +6,22 @@ module Test.Pos.Ssc.Toss.PureSpec
 
 import           Universum
 
-import qualified Crypto.Random                     as Rand
-import           Data.Default                      (def)
-import           Test.Hspec                        (Spec, describe)
-import           Test.Hspec.QuickCheck             (modifyMaxSuccess, prop)
-import           Test.QuickCheck                   (Arbitrary (..), Gen, Property, forAll,
-                                                    listOf, suchThat, (===))
+import qualified Crypto.Random as Rand
+import           Data.Default (def)
+import           Test.Hspec (Spec, describe)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, listOf, suchThat, (===))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Core                ()
-import           Pos.Arbitrary.Ssc                 ()
-import           Pos.Core                          (InnerSharesMap, EpochOrSlot,
-                                                    HasConfiguration, Opening,
-                                                    SignedCommitment, StakeholderId,
-                                                    VssCertificate (..), addressHash)
-import qualified Pos.Ssc.Toss.Class                as Toss
-import qualified Pos.Ssc.Toss.Pure                 as Toss
-import qualified Pos.Ssc.Types                     as Toss
+import           Pos.Arbitrary.Ssc ()
+import           Pos.Core (EpochOrSlot, HasConfiguration, InnerSharesMap, Opening, SignedCommitment,
+                           StakeholderId, VssCertificate (..), addressHash)
+import qualified Pos.Ssc.Toss.Class as Toss
+import qualified Pos.Ssc.Toss.Pure as Toss
+import qualified Pos.Ssc.Types as Toss
 
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Core.Arbitrary ()
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Toss" $ do

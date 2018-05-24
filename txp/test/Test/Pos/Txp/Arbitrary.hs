@@ -27,7 +27,6 @@ import qualified Data.Vector as V
 import           Test.QuickCheck (Arbitrary (..), Gen, choose, listOf, oneof, scale)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Core ()
 import           Pos.Binary.Class (Raw)
 import           Pos.Binary.Core ()
 import           Pos.Core.Common (Coin, IsBootstrapEraAddr (..), makePubKeyAddress)
@@ -39,6 +38,7 @@ import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..))
 
+import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary (genRedeemSignature, genSignature)
 
 ----------------------------------------------------------------------------

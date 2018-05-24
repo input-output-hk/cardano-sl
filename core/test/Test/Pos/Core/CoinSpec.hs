@@ -11,9 +11,9 @@ import           Test.Hspec (Expectation, Spec, anyErrorCall, describe, it, shou
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, (.||.), (===))
 
-import qualified Pos.Arbitrary.Core as C
 import qualified Pos.Core.Common as C
 
+import           Test.Pos.Core.Arbitrary as C
 import           Test.Pos.Util.QuickCheck.Property (shouldThrowException, (.=.))
 
 spec :: Spec

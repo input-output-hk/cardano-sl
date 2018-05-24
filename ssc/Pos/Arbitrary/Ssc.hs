@@ -23,8 +23,6 @@ import qualified Data.List.NonEmpty as NE
 import           Test.QuickCheck (Arbitrary (..), Gen, choose, elements, listOf, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Core (genVssCertificate)
-import           Pos.Arbitrary.Core.Unsafe ()
 import           Pos.Binary.Ssc ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Core (EpochIndex, SlotId (..), VssCertificate (..), VssCertificatesMap,
@@ -44,9 +42,10 @@ import           Pos.Ssc.Toss.Types (TossModifier (..))
 import           Pos.Ssc.Types (SscGlobalState (..), SscSecretStorage (..))
 import           Pos.Ssc.VssCertData (VssCertData (..))
 
-import           Test.Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), sublistN)
-
+import           Test.Pos.Core.Arbitrary (genVssCertificate)
+import           Test.Pos.Core.Arbitrary.Unsafe ()
 import           Test.Pos.Crypto.Arbitrary (genSignature)
+import           Test.Pos.Util.QuickCheck.Arbitrary (Nonrepeating (..), sublistN)
 
 ----------------------------------------------------------------------------
 -- Types

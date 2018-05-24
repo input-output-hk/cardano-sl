@@ -35,7 +35,6 @@ import qualified Codec.CBOR.FlatTerm as CBOR
 
 import           Pos.Arbitrary.Block ()
 import           Pos.Arbitrary.Block.Message ()
-import           Pos.Arbitrary.Core ()
 import           Pos.Arbitrary.Delegation ()
 import           Pos.Arbitrary.Infra ()
 import           Pos.Arbitrary.Slotting ()
@@ -73,6 +72,7 @@ import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
 
 import qualified Test.Pos.Cbor.RefImpl as R
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Helpers (binaryTest, msgLenLimitedTest)
 import           Test.Pos.Txp.Arbitrary ()

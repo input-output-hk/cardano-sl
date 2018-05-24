@@ -2,7 +2,7 @@
 
 -- | 'Arbitrary' unsafe instances for some types from Txp types
 
-module Pos.Arbitrary.Txp.Unsafe () where
+module Test.Pos.Txp.Arbitrary.Unsafe () where
 
 import           Universum
 

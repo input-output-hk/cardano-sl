@@ -7,12 +7,12 @@ import           Criterion.Types (Config (..))
 import           Test.QuickCheck (generate)
 import           Universum
 
-import           Pos.Arbitrary.Txp.Unsafe ()
 import           Pos.Core (HasConfiguration)
-import           Pos.Crypto (SecretKey, SignTag (SignTx), sign, protocolMagic)
+import           Pos.Crypto (SecretKey, SignTag (SignTx), protocolMagic, sign)
 import           Pos.Ssc ()
 import           Pos.Txp (TxId, TxSig, TxSigData (..))
 
+import           Test.Pos.Txp.Arbitrary.Unsafe ()
 import           Test.Pos.Util.QuickCheck.Arbitrary (arbitraryUnsafe)
 
 import           Bench.Configuration (giveCoreConf)

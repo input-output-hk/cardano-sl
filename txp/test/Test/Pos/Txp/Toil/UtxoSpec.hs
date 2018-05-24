@@ -18,9 +18,9 @@ import           Test.Hspec (Expectation, Spec, describe, expectationFailure, it
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, arbitrary, counterexample, (==>))
 
-import           Pos.Arbitrary.Txp (BadSigsTx (..), DoubleInputTx (..), GoodTx (..))
-import           Pos.Core (HasConfiguration, addressHash, checkPubKeyAddress, makePubKeyAddressBoot,
-                           makeScriptAddress, mkCoin, sumCoins)
+import           Pos.Core (HasConfiguration, addressHash, checkPubKeyAddress,
+                           defaultCoreConfiguration, makePubKeyAddressBoot, makeScriptAddress,
+                           mkCoin, sumCoins, withGenesisSpec)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
                                TxOutAux (..), TxSigData (..), TxWitness, isTxInUnknown)
 import           Pos.Crypto (SignTag (SignTx), checkSig, fakeSigner, hash, protocolMagic, toPublic,
@@ -32,13 +32,12 @@ import           Pos.Script.Examples (alwaysSuccessValidator, badIntRedeemer, go
                                       intValidator, intValidatorWithBlah, multisigRedeemer,
                                       multisigValidator, shaStressRedeemer, sigStressRedeemer,
                                       stdlibValidator)
-
 import           Pos.Txp (ToilVerFailure (..), Utxo, VTxContext (..), VerifyTxUtxoRes,
                           WitnessVerFailure (..), applyTxToUtxo, evalUtxoM, execUtxoM, utxoGet,
                           utxoToLookup, verifyTxUtxo)
 import qualified Pos.Util.Modifier as MM
 
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Txp.Arbitrary (BadSigsTx (..), DoubleInputTx (..), GoodTx (..))
 import           Test.Pos.Util.QuickCheck.Arbitrary (SmallGenerator (..), nonrepeating, runGen)
 import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, qcIsRight)
 
@@ -47,7 +46,7 @@ import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, qcIsRight)
 ----------------------------------------------------------------------------
 
 spec :: Spec
-spec = withDefConfiguration $ describe "Txp.Toil.Utxo" $ do
+spec = withGenesisSpec 0 defaultCoreConfiguration $ describe "Txp.Toil.Utxo" $ do
     describe "utxoGet (no modifier)" $ do
         it "returns Nothing when given empty Utxo" $
             isNothing (utxoGetSimple mempty myTxIn)

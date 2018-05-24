@@ -70,10 +70,13 @@ import qualified Pos.Txp as T
 import qualified Pos.Update as U
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
+
 import qualified Test.Pos.Cbor.RefImpl as R
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Helpers (binaryTest, msgLenLimitedTest)
+import           Test.Pos.Txp.Arbitrary ()
+import           Test.Pos.Txp.Arbitrary.Network ()
 import           Test.Pos.Util.QuickCheck (SmallGenerator)
 import           Test.Pos.Util.QuickCheck.Property (expectationError)
 

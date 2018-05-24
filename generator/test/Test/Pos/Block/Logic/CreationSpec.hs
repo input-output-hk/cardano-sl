@@ -16,7 +16,6 @@ import           Test.QuickCheck (Gen, Property, Testable, arbitrary, choose, co
 import           Pos.Arbitrary.Block ()
 import           Pos.Arbitrary.Delegation (genDlgPayload)
 import           Pos.Arbitrary.Ssc (commitmentMapEpochGen, vssCertificateEpochGen)
-import           Pos.Arbitrary.Txp (GoodTx, goodTxToTxAux)
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
 import qualified Pos.Communication ()
@@ -32,8 +31,8 @@ import           Pos.Delegation (DlgPayload, ProxySKBlockInfo)
 import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 
-
 import           Test.Pos.Configuration (withDefConfiguration, withDefUpdateConfiguration)
+import           Test.Pos.Txp.Arbitrary (GoodTx, goodTxToTxAux)
 import           Test.Pos.Util.QuickCheck (SmallGenerator (..), makeSmall)
 
 spec :: Spec

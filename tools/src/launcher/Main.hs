@@ -381,8 +381,8 @@ generateTlsCertificates ConfigurationOptions{..} executable tlsPath = do
     alreadyExists <-
         and <$> mapM (liftIO . doesFileExist) [tlsPath]
 
-    let tlsServer = takeDirectory (tlsPath </> "server")
-    let tlsClient = takeDirectory (tlsPath </> "client")
+    let tlsServer = tlsPath </> "server"
+    let tlsClient = tlsPath </> "client"
 
     unless alreadyExists $ do
         logInfo $ "Generating new TLS certificates in " <> toText tlsPath

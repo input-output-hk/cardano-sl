@@ -26,7 +26,7 @@ data Severity = Severity { level :: !Level }
 instance FromJSON Severity where
     parseJSON (Object v) =  
         case H.lookup "severity" v of    
-            Nothing -> fail ("key " ++ show key ++ " not present")
+            Nothing -> fail "key severity not present"
             Just s -> case s of
                 "Debug+"   -> pure $ Severity $ Debug
                 "Info+"    -> pure $ Severity $ Info

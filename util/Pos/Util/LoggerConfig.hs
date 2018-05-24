@@ -50,7 +50,7 @@ data LoggerConfig = LoggerConfig
 instance FromJSON LoggerConfig
 
 instance Monoid LoggerTree where
-    mempty = LoggerTree { _ltMinSeverity = Debug }
+    mempty = LoggerTree { _ltMinSeverity = Debug 
                         , _ltFiles = ["node.log"] 
                         }
     mappend = (<>)

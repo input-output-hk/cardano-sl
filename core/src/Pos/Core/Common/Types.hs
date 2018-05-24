@@ -9,6 +9,8 @@ module Pos.Core.Common.Types
        , AddrAttributes (..)
        , AddrStakeDistribution (..)
        , MultiKeyDistrError (..)
+       , MultisigSpending (..)
+       , MultisigThreshold
        , mkMultiKeyDistr
        , Address (..)
 
@@ -90,6 +92,22 @@ type StakesMap = HashMap StakeholderId Coin
 -- | Stakeholders and their stakes.
 type StakesList = [(StakeholderId, Coin)]
 
+-- | Multi signatures threshold to meet for spending.
+type MultisigThreshold = Word8
+
+-- | Multisig spending data structure
+data MultisigSpending = MultisigSpending
+    -- The threshold to meet to allow spending
+    !MultisigThreshold
+    -- An ordered list of all hash public keys for
+    -- this multisig account. we hide public keys
+    -- since they are not necessarily all revealed
+    -- when spending
+    [AddressHash PublicKey]
+    deriving (Eq, Generic, Typeable, Show)
+
+instance NFData MultisigSpending
+
 -- | Data which is bound to an address and must be revealed in order
 -- to spend coins belonging to this address.
 data AddrSpendingData
@@ -102,6 +120,9 @@ data AddrSpendingData
     | RedeemASD !RedeemPublicKey
     -- ^ Funds can be spent by revealing a 'RedeemPublicKey' and providing a
     -- valid signature.
+    | MultisigASD !MultisigSpending
+    -- ^ Funds can be spent by revealing at least the specified number
+    -- ('MultisigThreshold') of 'PublicKey's and providing that many valid signatures.
     | UnknownASD !Word8 !ByteString
     -- ^ Unknown type of spending data. It consists of a tag and
     -- arbitrary 'ByteString'. It allows us to introduce a new type of
@@ -133,12 +154,18 @@ w8 :: Word8 -> Word8
 w8 = identity
 {-# INLINE w8 #-}
 
+
+instance Bi MultisigSpending where
+    encode (MultisigSpending threshold keys) = encode (w8 threshold, keys)
+    decode = uncurry MultisigSpending <$> decode
+
 instance Bi AddrSpendingData where
     encode =
         \case
             PubKeyASD pk -> encode (w8 0, pk)
             ScriptASD script -> encode (w8 1, script)
             RedeemASD redeemPK -> encode (w8 2, redeemPK)
+            MultisigASD multispend -> encode (w8 3, multispend)
             UnknownASD tag payload ->
                 -- `encodeListLen 2` is semantically equivalent to encode (x,y)
                 -- but we need to "unroll" it in order to apply CBOR's tag 24 to `payload`.
@@ -151,6 +178,7 @@ instance Bi AddrSpendingData where
             0 -> PubKeyASD <$> decode
             1 -> ScriptASD <$> decode
             2 -> RedeemASD <$> decode
+            3 -> MultisigASD <$> decode
             tag -> UnknownASD tag <$> Bi.decodeUnknownCborDataItem
 
 -- | Type of an address. It corresponds to constructors of
@@ -160,6 +188,7 @@ data AddrType
     = ATPubKey
     | ATScript
     | ATRedeem
+    | ATMultisig
     | ATUnknown !Word8
     deriving (Eq, Ord, Generic, Typeable, Show)
 
@@ -169,12 +198,14 @@ instance Bi AddrType where
             ATPubKey -> 0
             ATScript -> 1
             ATRedeem -> 2
+            ATMultisig -> 3
             ATUnknown tag -> tag
     decode =
         decode @Word8 <&> \case
             0 -> ATPubKey
             1 -> ATScript
             2 -> ATRedeem
+            3 -> ATMultisig
             tag -> ATUnknown tag
 
 -- | Stake distribution associated with an address.

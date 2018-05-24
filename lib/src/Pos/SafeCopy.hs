@@ -25,14 +25,14 @@ import           Pos.Core.Block
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                                   AddrStakeDistribution (..), AddrType (..), Address (..),
                                   Address' (..), BlockCount (..), ChainDifficulty (..), Coeff (..),
-                                  Coin, CoinPortion (..), Script (..), SharedSeed (..),
+                                  Coin, CoinPortion (..), MultisigSpending (..), Script (..), SharedSeed (..),
                                   TxFeePolicy (..), TxSizeLinear (..))
 import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..), LightDlgIndices (..))
 import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), LocalSlotIndex (..),
                                     SlotCount (..), SlotId (..))
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SscPayload (..),
                                SscProof (..), VssCertificate (..), VssCertificatesMap)
-import           Pos.Core.Txp (Tx (..), TxIn (..), TxInWitness (..), TxOut (..), TxOutAux (..),
+import           Pos.Core.Txp (MultisigWitness (..), Tx (..), TxIn (..), TxInWitness (..), TxOut (..), TxOutAux (..),
                                TxPayload (..), TxProof (..))
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), BlockVersionData (..),
                                   BlockVersionModifier (..), SoftforkRule (..),
@@ -133,10 +133,12 @@ deriveSafeCopySimple 0 'base ''Coin
 deriveSafeCopySimple 0 'base ''HDAddressPayload
 deriveSafeCopySimple 0 'base ''AddrType -- ☃
 deriveSafeCopySimple 0 'base ''AddrStakeDistribution
+deriveSafeCopySimple 0 'base ''MultisigSpending
 deriveSafeCopySimple 0 'base ''AddrSpendingData
 deriveSafeCopySimple 0 'base ''AddrAttributes
 deriveSafeCopySimple 0 'base ''Address'
 deriveSafeCopySimple 0 'base ''Address
+deriveSafeCopySimple 0 'base ''MultisigWitness
 deriveSafeCopySimple 0 'base ''TxInWitness
 deriveSafeCopySimple 0 'base ''TxIn
 deriveSafeCopySimple 0 'base ''TxOut

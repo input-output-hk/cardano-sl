@@ -20,6 +20,7 @@ import           Pos.Binary.Crypto ()
 import           Pos.Binary.Merkle ()
 import qualified Pos.Core.Common as Common
 import qualified Pos.Core.Txp as T
+import           Pos.Util.Util (cborError)
 
 ----------------------------------------------------------------------------
 -- Core
@@ -61,6 +62,30 @@ instance Bi T.Tx where
         enforceSize "Tx" 3
         T.UnsafeTx <$> decode <*> decode <*> decode
 
+instance Bi T.MultisigWitness where
+    encode (T.MultisigNotSignatory h) =
+        encodeListLen 2 <>
+        encode (0 :: Word8) <>
+        encode h
+    encode (T.MultisigSignatory key sig) =
+        encodeListLen 3 <>
+        encode (1 :: Word8) <>
+        encode key <>
+        encode sig
+    decode = do
+        len <- decodeListLenCanonical
+        tag <- decode @Word8
+        case tag of
+            0 -> do
+                matchSize len "MultisigWitness.MultisigNotSignatory" 2
+                T.MultisigNotSignatory <$> decode
+            1 -> do
+                matchSize len "MultisigWitness.MultisigSignatory" 3
+                T.MultisigSignatory <$> decode <*> decode
+            _ ->
+                cborError $ "decode@MultisigWitness: unknown tag " <> pretty tag
+
+
 instance Bi T.TxInWitness where
     encode input = case input of
         T.PkWitness key sig         ->
@@ -75,6 +100,10 @@ instance Bi T.TxInWitness where
             encodeListLen 2 <>
             encode (2 :: Word8) <>
             encodeKnownCborDataItem (key, sig)
+        T.MultiPkWitness threshold sigs ->
+            encodeListLen 2 <>
+            encode (3 :: Word8) <>
+            encodeKnownCborDataItem (threshold, sigs)
         T.UnknownWitnessType tag bs ->
             encodeListLen 2 <>
             encode tag <>
@@ -92,6 +121,9 @@ instance Bi T.TxInWitness where
             2 -> do
                 matchSize len "TxInWitness.RedeemWitness" 2
                 uncurry T.RedeemWitness <$> decodeKnownCborDataItem
+            3 -> do
+                matchSize len "TxInWitness.MultiPkWitness" 2
+                uncurry T.MultiPkWitness <$> decodeKnownCborDataItem
             _ -> do
                 matchSize len "TxInWitness.UnknownWitnessType" 2
                 T.UnknownWitnessType tag <$> decodeUnknownCborDataItem

@@ -5,6 +5,7 @@ module Pos.Util.LogSeverity
        ( Severity(..)
        ) where
 
+import          Data.HashMap.Strict  as H
 import          Data.Yaml   as Y
 import          GHC.Generics
 

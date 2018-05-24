@@ -33,5 +33,5 @@ instance FromJSON Severity where
                 "Notice+"  -> pure $ Severity $ Notice
                 "Warning+" -> pure $ Severity $ Warning
                 "Error+"   -> pure $ Severity $ Error 
-                _          -> fail $ toString $ "Unknown Severity"
+                _          -> fail "Unknown Severity"
 

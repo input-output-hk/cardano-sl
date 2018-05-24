@@ -28,7 +28,7 @@ import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Block.Types (LastKnownHeaderTag, MonadLastKnownHeader)
 import qualified Pos.Context as PC
-import           Pos.Core (ChainDifficulty, HasConfiguration, HasProtocolMagic,
+import           Pos.Core (ChainDifficulty, HasConfiguration,
                            Timestamp, Tx, TxAux (..), TxId, TxUndo, difficultyL,
                            getCurrentTimestamp)
 import           Pos.Core.Block (BlockHeader)
@@ -131,7 +131,6 @@ txpProcessTxWebWallet
     ( TxpProcessTransactionMode ctx m
     , AccountMode ctx m
     , WS.WalletDbReader ctx m
-    , HasProtocolMagic
     )
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txpProcessTxWebWallet tx@(txId, txAux) = do
@@ -160,7 +159,6 @@ txpProcessTxWebWallet tx@(txId, txAux) = do
 txpNormalizeWebWallet
     :: ( TxpLocalWorkMode ctx m
        , MempoolExt m ~ ()
-       , HasProtocolMagic
        )
     => m ()
 txpNormalizeWebWallet = txNormalize

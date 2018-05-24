@@ -341,6 +341,7 @@ test-suite cardano-explorer-test
                      , base
                      , bytestring
                      , cardano-sl
+                     , cardano-sl-binary-test
                      , cardano-sl-block
                      , cardano-sl-core
                      , cardano-sl-crypto

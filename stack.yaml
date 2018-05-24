@@ -20,6 +20,7 @@ packages:
 - crypto
 - crypto/tests
 - core
+- core/test
 - db
 - lrc
 - lrc/test

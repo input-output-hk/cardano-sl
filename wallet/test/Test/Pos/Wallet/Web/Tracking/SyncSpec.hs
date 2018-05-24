@@ -23,7 +23,7 @@ import           Pos.Block.Logic (rollbackBlocks)
 import           Pos.Core (Address, BlockCount (..), blkSecurityParam)
 import           Pos.Crypto (emptyPassphrase)
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Util.Chrono (nonEmptyOldestFirst, toNewestFirst)
+import           Pos.Core.Chrono (nonEmptyOldestFirst, toNewestFirst)
 
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))

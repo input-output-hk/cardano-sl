@@ -1,0 +1,67 @@
+name:                cardano-sl-core-test
+version:             1.1.0
+synopsis:            Cardano SL - core functionalit (tests)
+description:         QuickCheck Arbitrary instances for the Cardano SL core
+                     functionality.
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          hi@serokell.io
+copyright:           2016 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+                       Test.Pos.Core.Chrono
+
+  build-depends:       QuickCheck
+                     , base
+                     , bytestring
+                     , cardano-sl-core
+                     , cardano-sl-util
+                     , cryptonite
+                     , formatting
+                     , hspec
+                     , mtl
+                     , quickcheck-instances
+                     , tagged
+                     , time-units
+                     , universum
+
+  default-language:    Haskell2010
+
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       DeriveFunctor
+                       DeriveFoldable
+                       DeriveTraversable
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
+                       TemplateHaskell
+                       ScopedTypeVariables
+                       MonadFailDesugaring
+                       GADTs
+
+  ghc-options:         -Wall
+                       -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

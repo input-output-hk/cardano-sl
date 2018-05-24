@@ -38,7 +38,7 @@ import           Pos.Core.Block (Block, BlockHeader (..), blockHeaderProtocolMag
                                  mebAttributes, mehAttributes)
 import           Pos.Crypto (ProtocolMagic (getProtocolMagic))
 import           Pos.Data.Attributes (areAttributesKnown)
-import           Pos.Util.Chrono (NewestFirst (..), OldestFirst)
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst)
 
 ----------------------------------------------------------------------------
 -- Header

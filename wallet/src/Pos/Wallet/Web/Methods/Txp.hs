@@ -25,7 +25,7 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy (..), PendingAddresse
 import           Pos.Core.Common (Coin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (PassPhrase, hash)
-import           Pos.Util.Chrono (getNewestFirst, toNewestFirst)
+import           Pos.Core.Chrono (getNewestFirst, toNewestFirst)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CId)
 import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)

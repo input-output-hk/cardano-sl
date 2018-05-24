@@ -6,7 +6,7 @@ import           Universum
 
 import qualified Data.Text.Buildable
 import           Formatting (bprint, shown, (%))
-import           Pos.Util.Chrono
+import           Pos.Core.Chrono
 import           Test.QuickCheck (arbitrary, frequency, listOf, suchThat)
 
 import           Util.Buildable.Hspec

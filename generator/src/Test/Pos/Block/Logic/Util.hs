@@ -31,7 +31,7 @@ import           Pos.Generator.Block (BlockGenMode, BlockGenParams (..), MonadBl
                                       genBlocks, tgpTxCountRange)
 import           Pos.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings, txpGlobalSettings)
 import           Pos.Util (HasLens', _neLast)
-import           Pos.Util.Chrono (NE, OldestFirst (..))
+import           Pos.Core.Chrono (NE, OldestFirst (..))
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContext, btcSlotIdL)
 
 -- | Wrapper for 'bpGenBlocks' to clarify the meaning of the argument.

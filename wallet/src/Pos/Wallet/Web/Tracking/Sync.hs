@@ -71,7 +71,7 @@ import           Pos.Slotting (MonadSlots (..), MonadSlotsData, getSlotStartPure
 import           Pos.Slotting.Types (SlottingData)
 import           Pos.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Txp (UndoMap, flattenTxPayload, topsortTxs, _txOutputs)
-import           Pos.Util.Chrono (getNewestFirst)
+import           Pos.Core.Chrono (getNewestFirst)
 import           Pos.Util.LogSafe (buildSafe, logDebugSP, logErrorSP, logInfoSP, logWarningSP,
                                    secretOnlyF, secure)
 import qualified Pos.Util.Modifier as MM

@@ -27,8 +27,8 @@ import           Pos.Ssc ()
 import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Crypto.Arbitrary (SharedSecrets (..))
 
-import           Test.Pos.Helpers (msgLenLimitedTest, safeCopyEncodeDecode, safeCopyTest,
-                                   serDeserId)
+import           Test.Pos.Binary.Helpers (msgLenLimitedTest, safeCopyEncodeDecode, safeCopyTest,
+                                          serDeserId)
 import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, (.=.))
 
 

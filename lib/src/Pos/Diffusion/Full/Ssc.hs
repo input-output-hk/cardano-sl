@@ -33,7 +33,7 @@ import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
 import           Pos.Network.Types (Bucket)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
-                                  MCVssCertificate (..), SscMessageConstraints)
+                                  MCVssCertificate (..))
 import           Pos.Util.Trace (Trace, Severity)
 
 sscListeners

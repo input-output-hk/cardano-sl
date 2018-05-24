@@ -4,7 +4,6 @@ module Pos.Util.LogSeverity
        ( Severity(..)
        ) where
 
-import          Control.Applicative  (<$>)
 import          Data.Yaml   as Y
 import          GHC.Generics
 

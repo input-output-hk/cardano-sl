@@ -13,18 +13,25 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+                       Test.Pos.Binary.Helpers
                        Test.Pos.Cbor.Canonicity
                        Test.Pos.Cbor.RefImpl
 
   build-depends:       QuickCheck
                      , base
                      , bytestring
+                     , cardano-sl-binary
                      , cardano-sl-util
+                     , cardano-sl-util-test
+                     , cborg
+                     , cereal
                      , cryptonite
                      , formatting
                      , half
+                     , hspec
                      , mtl
                      , quickcheck-instances
+                     , safecopy
                      , text
                      , tagged
                      , universum

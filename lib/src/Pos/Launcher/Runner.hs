@@ -48,7 +48,6 @@ import           Pos.Shutdown (ShutdownContext, waitForShutdown)
 import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
-import           Pos.Util.JsonLog.Events (JsonLogConfig (..), jsonLogConfigFromHandle)
 import           Pos.Util.Trace (wlogTrace)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
@@ -105,11 +104,7 @@ elimRealMode
     -> RealMode ext t
     -> IO t
 elimRealMode NodeResources {..} diffusion action = runProduction $ do
-    jsonLogConfig <- maybe
-        (pure JsonLogDisabled)
-        jsonLogConfigFromHandle
-        nrJLogHandle
-    Mtl.runReaderT action (rmc jsonLogConfig)
+    Mtl.runReaderT action (rmc nrJsonLogConfig)
   where
     NodeContext {..} = nrContext
     NodeParams {..} = ncNodeParams

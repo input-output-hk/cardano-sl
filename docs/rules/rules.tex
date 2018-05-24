@@ -8,6 +8,8 @@
 \usepackage{amssymb}
 \usepackage{enumitem}
 \usepackage{unicode-math}
+\usepackage[dvipsnames]{xcolor}
+\usepackage[tikz]{bclogo}
 
 \usepackage{hyperref}
 
@@ -30,6 +32,10 @@
 %% macros %%
 
 \newenvironment{record}{\begin{description}[font=\it]}{\end{description}}
+\newenvironment{currentvalue}{\begin{bclogo}[noborder=true,
+    logo=\bcinfo, epBarre=3, couleurBarre=YellowOrange]{Value in Cardano}}{\end{bclogo}}
+\newenvironment{implementationhint}{\begin{bclogo}[noborder=true,
+    logo=\bccrayon, epBarre=3, couleurBarre=PineGreen]{Implementation hint}}{\end{bclogo}}
 
 \newcommand{\lists}[1]{{#1}^*}
 \newcommand{\nelists}[1]{{#1}^+}
@@ -142,7 +148,7 @@ as it is.\improvement{We may want to add something about protocol
   elements of $A$, and $\nelists{A}$ for the set of non-empty lists of elements
   of $A$. For an element $a∈A$ we write simply $a$ for the singleton list. For
   two lists $l,r∈\lists{A}$, we write $l,r$ for their concatenation. We write
-  $\emptylist$ for the empty list.For a list $l∈\lists{A}$, we write
+  $\emptylist$ for the empty list. For a list $l∈\lists{A}$, we write
   $\length{l}$ for its length. We write $\pos{i}{l}$ for the $i$-th element of
   the list (the head of the list is $\pos{1}{l}$). We sometimes abuse notation
   and write $x∈l$ for $l = l',x,l''$.
@@ -158,13 +164,15 @@ as it is.\improvement{We may want to add something about protocol
   over the the (finite!) support of $f$, which, as a finite sum, is
   defined.
 
-  Finite support function are typically implemented as finite maps (as
-  in Haskell's \verb+Data.Map+ module). Where we then interpret absent
-  bindings to map to $0$. There are subtleties if we want to test
-  equality as natively, such data structure distinguishes bindings to
-  $0$ and absence of bindings. One way to solve this is to remove any
-  binding to $0$ from the map.
-
+  \begin{implementationhint}
+    Finite support function are typically implemented as finite maps
+    (as in Haskell's \verb+Data.Map+ module). Where we then interpret
+    absent bindings as mapping to $0$ (\emph{e.g.} using
+    \verb+Map.findWithDefault 0+). There are subtleties if we want to
+    test equality as natively, such data structure distinguishes
+    bindings to $0$ and absence of bindings. One way to solve this is
+    to remove any binding to $0$ from the map.
+  \end{implementationhint}
 \item[Remainder] For any $a∈ℤ$ and $b∈ℕ$, let us write $\rem{a}{b}$
   for the unique $0⩽r<b$ such that $a=qb+r$.
 \end{description}
@@ -175,16 +183,30 @@ as it is.\improvement{We may want to add something about protocol
 \begin{description}
 \item[System of identifiers] A set $A$ is said to \emph{have
     identifiers} if there is a set, written $\idsof{A}$ and an
-  injective function $\id ∈ A ⟶ \idsof{A}$. In implementations,
-  identifiers are typically realised by cryptographic hash functions,
-  which are injective for all intent and purposes.
+  injective function $\id ∈ A ⟶ \idsof{A}$.
 
   When an item $a∈A$ such that $\id(a) = h$ is clear from the context,
   we will often identify $a$ and $h$.
 
+  \begin{implementationhint}
+    In implementations, identifiers are typically realised by
+    cryptographic hash functions, which are injective for all intents
+    and purposes.
+  \end{implementationhint}
+
 \item[Agent id] We assume a set $\agentids$ of identifiers
-  representing the agents interacting on the blockchain. In an
-  implementation agent ids would be public cryptographic keys.
+  representing the agents interacting on the blockchain.
+  \begin{implementationhint}
+    In a concrete implementation agent ids would be public
+    cryptographic keys and signatures, depending on how what the id is
+    used for. In an executable specification, agent ids can be
+    anything which uniquely identifies an agent; let's call it an
+    \emph{abstract} agent id. When translating from an executable
+    specification to concrete blocks, we need to maintain a mapping of
+    abstract agent ids to public-private key pairs, so that we can
+    sign what needs to be signed.
+  \end{implementationhint}
+
 
 \item[Stake distribution] A \emph{stake distribution} is a function
   $d ∈ \agentids ⟶ ℕ$ with finite support. We write
@@ -271,9 +293,12 @@ as it is.\improvement{We may want to add something about protocol
   \item $\delegatee{c}=d$
   \end{itemize}
 
-  In a concrete implementation, these certificates would be
-  cryptographically signed by $D$, to ensure that $D$ is indeed
-  authorising $d$ to sign blocks for them.
+  \begin{implementationhint}
+    In a concrete implementation, these certificates would be
+    cryptographically signed by $D$, to ensure that $D$ is indeed
+    authorising $d$ to sign blocks for them.
+  \end{implementationhint}
+
   \end{record}
 
 \item[Chain] A chain is a sequence of blocks $b₁,…,b_n$ such that the
@@ -337,7 +362,10 @@ configuration arguments.
 \item[Maximum mempool size] We assume a number $\maxmempoolsize ∈ ℕ$(
   representing the maximum allowed size for a mempool (see
   Section~\ref{sec:entering-mempool}).
-  \info{The current value is 200}
+  \begin{currentvalue}
+    At time of writing, in the implementation of Cardano, the maximum
+    mempool size is 200.
+  \end{currentvalue}
 \end{description}
 
 \subsection{Chain parameters}
@@ -349,7 +377,11 @@ specified in the initial state and can be further modified by updates.
 \begin{description}
 \item[k] This entire specification is parameterised by a natural
   number $k$. It comes from the Ouroboros paper: it is the depth after
-  which a block is considered stable.\info{In Cardano, $k=2160$}
+  which a block is considered stable.
+
+  \begin{currentvalue}
+    In Cardano, $k=2160$
+  \end{currentvalue}
 
 \item[Initial stake distribution] We assume an \emph{initial stake
     distribution} $\initialdistribution ∈ \stakedistributions$.
@@ -385,11 +417,12 @@ specified in the initial state and can be further modified by updates.
     terms of this function, like is done in the rest of the text,
     rather than the other way around.}
 
-  For reference, $\epoch{s}$ and $\epochslot{s}$, are defined, in the
-  bootstrap era of Cardano, of as the unique numbers such that
-  $s=\epoch{s}\cdot 10k+\epochslot{s}$ and $0⩽ \epochslot{s} <
-  10k$.\improvement{Make a standardised remark pagraph formatting for
-    this sort of remarks.}
+  \begin{currentvalue}
+    For reference, $\epoch{s}$ and $\epochslot{s}$, are defined, in
+    the bootstrap era of Cardano, of as the unique numbers such that
+    $s=\epoch{s}\cdot 10k+\epochslot{s}$ and $0⩽ \epochslot{s} < 10k$.
+  \end{currentvalue}
+
 
 \item[Bootstrap stakeholders] We assume a finite set
   $\richmen ⊆ \agentids$. The bootstrap stakeholders receive all the

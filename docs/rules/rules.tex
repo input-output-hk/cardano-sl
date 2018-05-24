@@ -36,6 +36,8 @@
     logo=\bcinfo, epBarre=3, couleurBarre=YellowOrange]{Value in Cardano}}{\end{bclogo}}
 \newenvironment{implementationhint}{\begin{bclogo}[noborder=true,
     logo=\bccrayon, epBarre=3, couleurBarre=PineGreen]{Implementation hint}}{\end{bclogo}}
+\newenvironment{treacherous}{\begin{bclogo}[noborder=true,
+    logo=\bcdz, epBarre=3, couleurBarre=Red]{Beware}}{\end{bclogo}}
 
 \newcommand{\lists}[1]{{#1}^*}
 \newcommand{\nelists}[1]{{#1}^+}
@@ -157,7 +159,8 @@ as it is.\improvement{We may want to add something about protocol
   (typically $ℕ$, $ℤ$, $ℚ$, $ℝ$, …), the \emph{support} of $f$ is
   $\{ x∈X | f(x)≠0 \}$. We say that $f$ has finite support, or that
   $f$ is a function with finite support, if the support of $f$ is
-  a finite set.
+  a finite set. If $f$ is a finite support function, we write
+  $\supportsize{f} ∈ ℕ$ for the cardinal of the support of $f$.
 
   A notable property of finite-support function, is that they can be
   summed: $∑_{x∈X}f(x)$ is well-defined. Indeed, it suffices to sum
@@ -195,7 +198,9 @@ as it is.\improvement{We may want to add something about protocol
   \end{implementationhint}
 
 \item[Agent id] We assume a set $\agentids$ of identifiers
-  representing the agents interacting on the blockchain.
+  representing the agents interacting on the blockchain. Furthermore
+  $\agentids$ is assumed to come with a total order, which we write as
+  $⩽$.
   \begin{implementationhint}
     In a concrete implementation agent ids would be public
     cryptographic keys and signatures, depending on how what the id is
@@ -206,7 +211,13 @@ as it is.\improvement{We may want to add something about protocol
     abstract agent ids to public-private key pairs, so that we can
     sign what needs to be signed.
   \end{implementationhint}
-
+  
+  \begin{currentvalue}
+    In Cardano, the total order of $\agentids$ is the lexicographic
+    ordering on the public keys.\unsure{We are actually not completely
+      sure about this. This is tracked by
+      \href{https://iohk.myjetbrains.com/youtrack/issue/CDEC-163}{CDEC-163}.}
+  \end{currentvalue}
 
 \item[Stake distribution] A \emph{stake distribution} is a function
   $d ∈ \agentids ⟶ ℕ$ with finite support. We write
@@ -340,10 +351,7 @@ concrete value, which simplifies the specification.
   issued by the slot leader at slot $i$.
 
 \item[Height] We assume a height function
-  $\height{⋅} ∈ \lists{\blocks} ⟶ ℕ$\unsure{We may want to restrict
-    the parameter of the height function to be chains, or even valid
-    chains, but it is probably unnecessary. Which is why I used the
-    simpler version for the moment}. It is usually necessary, for the
+  $\height{⋅} ∈ \lists{\blocks} ⟶ ℕ$. It is usually necessary, for the
   sake of good behaviour of the system to assume that
   $\height{b₁,…,b_n} < \height{b₁,…,b_n,b_{n+1}}$, though it is not
   necessary for the specification itself. A typical such function is
@@ -434,8 +442,7 @@ specified in the initial state and can be further modified by updates.
 
   We assume a stake repartition
   $\bootstraprepartition ∈ \stakerepartitions$ which allocates stake
-  to each bootstrap stakeholder in equal proportion. That is\improvement{Define
-    cardinal notation for finite-support functions.}
+  to each bootstrap stakeholder in equal proportion. That is
   $$
   \bootstraprepartition(a) = \left\{
     \begin{array}{cl}
@@ -551,11 +558,14 @@ $b_1,…,b_n$ if all of the following hold
     \begin{description}
     \item[Bootstrap stake delegation] For every output $o∈\outputs{τ}$, the
       stake is delegated in to the bootstrap stakeholders:
-      $\repartition{o} = \bootstraprepartition$.\improvement{This is
-        slightly imprecise because the bootstrap repartition has two
-        representations in Cardano's block chain: it has a name (a
-        data constructor), but it can also be represented by a
-        explicit map. Only the former is actually permitted}
+      $\repartition{o} = \bootstraprepartition$.
+
+      \begin{treacherous}
+        This is slightly imprecise because the bootstrap repartition
+        has two representations in Cardano's block chain: it has a
+        name (a data constructor), but it can also be represented by a
+        explicit map. Only the former is actually permitted
+      \end{treacherous}
 
     \end{description}
   \end{description}
@@ -631,18 +641,24 @@ $b_1,…,b_n$ if all of the following hold
     repartition of $o$ rounded \emph{down} to the nearest integer. The
     remaining unallocated stake goes to the bootstrap stakeholder
     specified by the $\selectrichman{⋅}$ function, applied to the
-    total value of $o$.  \improvement{The treatment of remainder as
-      specified here is only valid for the bootstrap era.}
+    total value of $o$.
+
+    \begin{treacherous}
+      The treatment of remainder as specified here is only valid for
+      the bootstrap era. Outside of the bootstrap era, the remainder
+      may be different, hence we may have to calculate remainder
+      differently for transactions of the bootstrap eras, and
+      transaction posterior to the bootstrap eras.
+    \end{treacherous}
   \end{itemize}
 
   We can then extend $\currentdistribution{⋅}$ on valid chains by defining
   $$
   \currentdistribution{b₁,…,b_n} = \currentdistribution{\transactions{b₁},…,\transactions{b_n}}
   $$
-  Finally we define\improvement{There are two imprecise points in this
-  definition: first I didn't define $\epoch{⋅}$ on a block, though it
-  is easy to. Secondly, this is only defined after the first block,
-  so we need to explain what happens for the empty list.}
+  Finally we define\improvement{Minor imprecise point in this
+    definition: I didn't define $\epoch{⋅}$ on a block, though it is
+    easy to.}
   $$
   \epochdistribution{b₁,…,b_n} = \currentdistribution{b₁,…,b_{\epoch{b_n}}}
   $$
@@ -701,9 +717,7 @@ Let us define the sequences $(s_n)_{n∈ℕ}$ and $(u_n)_{n>0}$ as
 \item $(u_{n+1}, s_{n+1}) = f(N)(s_n)$
 \end{itemize}
 
-We can then define the slot leader function as\improvement{This relies
-  on a total ordering of $\agentids$. This needs to be
-  specified.}
+We can then define the slot leader function as
 
 $$
 \slotleader{d}{s_0}{n} = \min_{l∈\agentids} \left( u_n < ∑_{a⩽l} d(a) \right)
@@ -834,11 +848,15 @@ those of the selected chain) when
     \begin{description}
     \item[Bootstrap stake delegation] For every output $o∈\outputs{τ}$, the
       stake is delegated in to the bootstrap stakeholders:
-      $\repartition{o} = \bootstraprepartition$.\improvement{This is
-        slightly imprecise because the bootstrap repartition has two
-        representations in Cardano's block chain: it has a name (a
-        data constructor), but it can also be represented by a
-        explicit map. Only the former is actually permitted}
+      $\repartition{o} = \bootstraprepartition$.
+
+      \begin{treacherous}
+        This is slightly imprecise because the bootstrap repartition
+        has two representations in Cardano's block chain: it has a
+        name (a data constructor), but it can also be represented by a
+        explicit map. Only the former is actually permitted
+      \end{treacherous}
+
     \end{description}
 
 \end{description}
@@ -851,12 +869,38 @@ Let us call a blocktree $\mathfrak{T} ∈
   blocktrees and the set of blockchains is necessary}{} a finite set of
 valid chains, closed under prefix (\emph{i.e.} if
 $b₁, …, b_{n+1} ∈ \mathfrak{T}$, then
-$b₁, …, b_n ∈ \mathfrak{T}$)\info{This simply means that
-  $\mathfrak{T}$ is an arbitrarily branching tree, where the nodes are blocks
-  and predecessors point to the parents. And the paths are all valid
-  chains.}. Let us define the maximal chains
+$b₁, …, b_n ∈ \mathfrak{T}$)
+
+\begin{implementationhint}
+  The definition of blocktree is just a convenient and concise way to
+  say that a blocktree is a tree of blocks ($\mathfrak{T}$ is rooted
+  in the genesis state, each block in $\mathfrak{T}$ has its
+  predecessor in $\mathfrak{T}$) and that the path from the root to
+  any block is a valid chain.
+
+  This would typically be implemented as a set of blocks (in the sense
+  of \verb+Data.Set+). With the invariant that each block has a
+  predecessor (possibly the genesis state).
+\end{implementationhint}
+
+Let us define the maximal chains
 $\maxchains{\mathfrak{T}} ⊆ \mathfrak{T}$ to be the set of chains
 $b₁,…,b_n$ such that for any extension $b₁,…,b_n,b ∉ \mathfrak{T}$.
+
+\begin{implementationhint}
+  Maximal chains are the equivalent, in our presentation of blocktrees
+  to the leaves of the tree. In blockchain terminology, the maximal
+  chains represent the tips of all the possible forks.
+
+  Because it may be slow to retrieve the tip from a set data
+  structures, it can be convenient, even in an executable
+  specification, to keep a reference to these tips.\unsure{On the
+    other hand, we don't seem to need the maximal chains in this
+    specification. The only occurrence is to say that the selected
+    chain is a maximal chain, but it is subsumed by the maximal-height
+    condition (provided that height is monotonic). So we may be able
+    to drop the maximal chain story entirely.}
+\end{implementationhint}
 
 A blockchain datastructure is a pair $(\mathfrak{C},\mathfrak{T}) ∈
 \blockchains ⊆ \lists{\blocks}×\blocktrees$. Such that
@@ -890,10 +934,7 @@ Rules to add a block $b$ to the blockchain:
   which is also a prefix of $\mathfrak{C}$ ($b₁,…,b_i$ is known as the
   \emph{last common ancestor} of $b₁,…,b_n$ and $\mathfrak{C}$). We
   must have $\length{\mathfrak{C}} - i ⩽ k$  (that is: the last common
-  ancestor is at most $k$ block deep).\improvement{This looks
-    different than what is done in the actual Cardano implementation:
-    instead of rejecting the incoming block, it appears that the
-    slogRollbackBlocks function aborts the node instead.}
+  ancestor is at most $k$ block deep).
 \item[Longest chain] if $\height{b₁,…,b_n,b} > \height{C}$ (note:
   larger \emph{and not equal}) then let $\mathfrak{C}'=b₁,…,b_n,b$
   else let $\mathfrak{C}'=\mathfrak{C}$.

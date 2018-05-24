@@ -11,7 +11,7 @@ import           Test.QuickCheck.Gen (Gen (..), oneof, vectorOf)
 import           Test.QuickCheck.Random (mkQCGen)
 
 import           Pos.Util.BackupPhrase (BackupPhrase (..), safeKeysFromPhrase)
-import           Pos.Util.Mnemonics (fromMnemonic, toMnemonic)
+import           Pos.Util.Mnemonics (defMnemonic, fromMnemonic, toMnemonic)
 import           Pos.Wallet.Web.ClientTypes.Functions (encToCId)
 import           Pos.Wallet.Web.ClientTypes.Types (CId)
 
@@ -23,6 +23,9 @@ spec = do
     describe "Pos.Util.Mnemonics" $ do
         modifyMaxSuccess (const 10000) $ it "toMnemonic >=> fromMnemonic = Right" $ property $
             \(Entropy ent) -> (toMnemonic ent >>= fromMnemonic) == Right ent
+
+        it "No example mnemonic" $
+            fromMnemonic defMnemonic `shouldSatisfy` isLeft
 
         it "No empty mnemonic" $
             (fromMnemonic "") `shouldSatisfy` isLeft

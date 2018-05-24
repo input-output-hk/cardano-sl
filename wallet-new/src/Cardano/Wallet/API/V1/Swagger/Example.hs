@@ -2,11 +2,12 @@ module Cardano.Wallet.API.V1.Swagger.Example where
 
 import           Universum
 
-import           Test.QuickCheck (Arbitrary (..), oneof, Gen, listOf1)
+import           Test.QuickCheck (Arbitrary (..), Gen, listOf1, oneof)
 
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Orphans.Arbitrary ()
+import           Data.Default (Default (def))
 import           Node (NodeId (..))
 import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
@@ -64,11 +65,13 @@ instance Example (V1 Address) where
                     , Core.SingleKeyDistr <$> arbitrary
                     ]
 
+instance Example BackupPhrase where
+    example = pure def
+
 instance Example Address
 instance Example Metadata
 instance Example AccountIndex
 instance Example WalletId
-instance Example BackupPhrase
 instance Example (V1 BackupPhrase)
 instance Example AssuranceLevel
 instance Example SyncPercentage

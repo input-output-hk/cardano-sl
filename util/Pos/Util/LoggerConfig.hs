@@ -67,7 +67,7 @@ instance Semigroup LoggerConfig
 --    are not handled here. Currently porting log-warper's definition
 parseLoggerConfig :: MonadIO m => FilePath -> m LoggerConfig
 parseLoggerConfig lgPath = 
-    liftIO $ join $ either throwIO return <$> decodeFileEither lgPath
+    liftIO $ join $ either throwM return <$> decodeFileEither lgPath
 
 -- | load log config from file  TODO
 loadLogConfig :: MonadIO m => Maybe FilePath -> Maybe FilePath -> m ()

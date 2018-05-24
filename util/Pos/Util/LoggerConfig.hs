@@ -42,7 +42,7 @@ instance FromJSON LoggerTree
 -- | 'LoggerConfig' is the top level configuration datatype
 data LoggerConfig = LoggerConfig
     {
-        _lcRotation     :: !Maybe RotationParameters
+        _lcRotation     :: !(Maybe RotationParameters)
     ,   _lcLoggerTree   :: !LoggerTree
     } 
     deriving (Generic, Show)

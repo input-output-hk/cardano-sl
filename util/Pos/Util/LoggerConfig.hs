@@ -42,7 +42,7 @@ instance FromJSON LoggerTree
 -- | 'LoggerConfig' is the top level configuration datatype
 data LoggerConfig = LoggerConfig
     {
-        _lcRotation     :: !Maybe RotationParameters
+        _lcRotation     :: !(Maybe RotationParameters)
     ,   _lcLoggerTree   :: !LoggerTree
     } 
     deriving (Generic, Show)
@@ -50,7 +50,9 @@ data LoggerConfig = LoggerConfig
 instance FromJSON LoggerConfig
 
 instance Monoid LoggerTree where
-    mempty = LoggerTree { _ltMinSeverity = Debug, _ltFiles = ["node.log"] }
+    mempty = LoggerTree { _ltMinSeverity = Severity { level = Debug }
+                        , _ltFiles = ["node.log"] 
+                        }
     mappend = (<>)
 
 instance Semigroup LoggerTree
@@ -67,7 +69,7 @@ instance Semigroup LoggerConfig
 --    are not handled here. Currently porting log-warper's definition
 parseLoggerConfig :: MonadIO m => FilePath -> m LoggerConfig
 parseLoggerConfig lgPath = 
-    liftIO $ join $ either throwIO return <$> decodeFileEither lgPath
+    liftIO $ join $ either throwM return <$> decodeFileEither lgPath
 
 -- | load log config from file  TODO
 loadLogConfig :: MonadIO m => Maybe FilePath -> Maybe FilePath -> m ()

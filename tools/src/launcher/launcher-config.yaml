@@ -10,12 +10,8 @@ nodePath: binaries/cardano-node
 
 # Arguments to be passed to the node.
 nodeArgs:
-  - "--tlscert"
-  - "./scripts/tls-files/server.crt"
-  - "--tlskey"
-  - "./scripts/tls-files/server.key"
-  - "--tlsca"
-  - "./scripts/tls-files/ca.crt"
+  - "--tlspath"
+  - "./scripts/tls"
   - "--topology"
   - "docs/network/example-topologies/mainnet-staging.yaml"
   - "--logs-prefix"

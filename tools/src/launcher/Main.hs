@@ -1,10 +1,5 @@
 {-# LANGUAGE ApplicativeDo         #-}
-{-# LANGUAGE CPP                   #-}
-{-# LANGUAGE DeriveGeneric         #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE CPP                   #-} {-# LANGUAGE DeriveGeneric         #-} {-# LANGUAGE FlexibleContexts      #-} {-# LANGUAGE FlexibleInstances     #-} {-# LANGUAGE LambdaCase            #-} {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE QuasiQuotes           #-}
@@ -381,18 +376,13 @@ main =
 
 
 data TlsPaths = TlsPaths
-    { tlsCaPath     :: FilePath
-    , tlsServerPath :: FilePath
-    , tlsKeyPath    :: FilePath
-    } deriving (Show)
+  { tlsPath       :: FilePath } deriving (Show)
 
 
 findTlsArgs :: [Text] -> M TlsPaths
 findTlsArgs args = do
-    tlsCaPath     <- findArg "--tlsca"   (pure . toString) args
-    tlsServerPath <- findArg "--tlscert" (pure . toString) args
-    tlsKeyPath    <- findArg "--tlskey"  (pure . toString) args
-    return TlsPaths{..}
+  tlsPath         <- findArg "--tlspath"   (pure . toString) args
+  return TlsPaths{..}
   where
     findArg :: Text -> (Text -> M a) -> [Text] -> M a
     findArg key parse (k:v:_)  | key == k = parse v
@@ -403,26 +393,24 @@ findTlsArgs args = do
 generateTlsCertificates :: ConfigurationOptions -> FilePath -> TlsPaths -> M ()
 generateTlsCertificates ConfigurationOptions{..} executable TlsPaths{..} = do
     alreadyExists <-
-        and <$> mapM (liftIO . doesFileExist) [tlsCaPath, tlsServerPath, tlsKeyPath]
+        and <$> mapM (liftIO . doesFileExist) [tlsPath]
 
-    let tlsPath = takeDirectory tlsServerPath
-
-    when (tlsPath /= takeDirectory tlsCaPath || tlsPath /= takeDirectory tlsKeyPath) $ do
-        logError "--tlsca, --tlscert and --tlskey are in different directories"
-        liftIO . fail $ "cardano-launcher doesn't support having tls files in separate directories"
+    let tlsServer = takeDirectory (tlsPath </> "server")
+    let tlsClient = takeDirectory (tlsPath </> "client")
 
     unless alreadyExists $ do
         logInfo $ "Generating new TLS certificates in " <> toText tlsPath
 
         let process = createProc  Process.Inherit executable
-                [ "--server-out-dir"     , toText tlsPath
-                , "--clients-out-dir"    , toText tlsPath
+                [ "--server-out-dir"     , toText tlsServer
+                , "--clients-out-dir"    , toText tlsClient
                 , "--configuration-file" , toText cfoFilePath
                 , "--configuration-key"  , cfoKey
                 ]
 
         exitCode <- liftIO $ do
-            createDirectoryIfMissing True tlsPath
+            createDirectoryIfMissing True tlsServer
+            createDirectoryIfMissing True tlsClient
             phvar <- newEmptyMVar
             system' phvar process mempty ECertGen
 

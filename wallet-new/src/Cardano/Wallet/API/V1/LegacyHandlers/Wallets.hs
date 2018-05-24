@@ -7,36 +7,36 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Wallets (
     ) where
 
 import           Universum
-import           UnliftIO (MonadUnliftIO)
-import           Formatting (build, sformat)
 
-import qualified Pos.Wallet.Web.ClientTypes.Types as V0
-import qualified Pos.Wallet.Web.Methods as V0
-import qualified Pos.Wallet.Web.State as V0 (WalletSnapshot, askWalletSnapshot, askWalletDB)
-import           Pos.Wallet.Web.State (setWalletSyncTip, removeHistoryCache)
-import qualified Pos.Wallet.Web.State.Storage as V0
+import           Formatting (build, sformat)
+import           Servant
+import           UnliftIO (MonadUnliftIO)
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Errors
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
+import           Pos.Client.KeyStorage (addPublicKey)
+import           Pos.Crypto (decodeBase58PublicKey)
+import           Pos.StateLock (Priority (..), withStateLockNoMetrics)
+import           Pos.Update.Configuration ()
+import           Pos.Util (HasLens (..))
+import           Pos.Util.Servant (encodeCType)
+import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
+import           Pos.Wallet.Web.State (removeHistoryCache, setWalletSyncTip)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
+
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import qualified Data.IxSet.Typed as IxSet
 import qualified Pos.Core as Core
-import           Pos.Crypto (decodeBase58PublicKey)
-import           Pos.Update.Configuration ()
-import           Pos.Client.KeyStorage (addPublicKey)
-import           Pos.StateLock (Priority (..), withStateLockNoMetrics)
-
-import           Pos.Util (HasLens (..))
-import           Pos.Util.Servant (encodeCType)
 import qualified Pos.Wallet.WalletMode as V0
+import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Error.Types as V0
-import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogicRead)
-import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
+import qualified Pos.Wallet.Web.Methods as V0
+import qualified Pos.Wallet.Web.State as V0 (WalletSnapshot, askWalletDB, askWalletSnapshot)
+import qualified Pos.Wallet.Web.State.Storage as V0
 
-import           Servant
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: ( HasConfigurations
@@ -50,6 +50,7 @@ handlers = newWallet
     :<|> getWallet
     :<|> updateWallet
     :<|> newExternalWallet
+    :<|> deleteExternalWallet
 
 
 -- | Pure function which returns whether or not the underlying node is
@@ -234,7 +235,7 @@ createNewExternalWallet
     -> m V0.CWallet
 createNewExternalWallet walletMeta encodedExtPubKey = do
     publicKey <- case decodeBase58PublicKey encodedExtPubKey of
-        Left problem -> throwM (InvalidPublicKey $ sformat build problem)
+        Left problem    -> throwM (InvalidPublicKey $ sformat build problem)
         Right publicKey -> return publicKey
 
     -- Add this public key in the 'public.key' file. Public key will be used during
@@ -260,3 +261,13 @@ createNewExternalWallet walletMeta encodedExtPubKey = do
     -- thus setting it up to date manually here
     withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip db walletId tip
     V0.getWallet walletId
+
+
+-- | On disk, once imported or created, there's so far not much difference
+-- between a wallet and an external wallet.
+deleteExternalWallet
+    :: (V0.MonadWalletLogic ctx m)
+    => WalletId
+    -> m NoContent
+deleteExternalWallet =
+    deleteWallet

@@ -20,5 +20,5 @@ data Severity = Debug | Info | Warning | Notice | Error
 --   be parsed into our Severity datatype.
 instance FromJSON Severity where
     parseJSON (Object v) = Severity <$>
-        init $ v .: "severity"
+        (init $ v .: "severity")
 

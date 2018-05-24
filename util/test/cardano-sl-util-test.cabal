@@ -15,7 +15,6 @@ cabal-version:       >=1.10
 library
   exposed-modules:
                        Test.Pos.Util.Base16
-                       Test.Pos.Util.Chrono
                        Test.Pos.Util.QuickCheck
                        Test.Pos.Util.Modifier
                        Test.Pos.Util.Orphans

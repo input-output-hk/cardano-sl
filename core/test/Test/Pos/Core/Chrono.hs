@@ -6,11 +6,11 @@
 
 -- | Chronological sequences.
 
-module Test.Pos.Util.Chrono
+module Test.Pos.Core.Chrono
        (
        ) where
 
-import           Pos.Util.Chrono
+import           Pos.Core.Chrono
 
 import           Test.QuickCheck (Arbitrary)
 

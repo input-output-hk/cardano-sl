@@ -1,6 +1,6 @@
 -- | Test on functions trimming data to given limit.
 
-module Test.Pos.Util.LimitsSpec
+module Test.Pos.Core.LimitsSpec
     ( spec
     ) where
 
@@ -14,7 +14,7 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (arbitrary, choose, counterexample, forAll, property, (===))
 
 import qualified Pos.Binary.Class as Bi
-import           Pos.Util.Limits (stripHashMap)
+import           Pos.Core.Limits (stripHashMap)
 
 spec :: Spec
 spec = describe "Limits" $ do

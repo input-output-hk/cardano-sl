@@ -16,6 +16,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:
                        Pos.Binary.Class
+                       Pos.Binary.Limit
 
   other-modules:
                        Pos.Binary.Class.Core

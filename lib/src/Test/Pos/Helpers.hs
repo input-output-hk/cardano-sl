@@ -36,9 +36,8 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Binary (AsBinaryClass (..), Bi (..), decodeFull, serialize, serialize',
                              unsafeDeserialize)
+import           Pos.Binary.Limit (Limit (..))
 import           Pos.Core.Genesis (SchemaError)
-
-import           Pos.Communication (Limit (..))
 
 import           Test.Pos.Cbor.Canonicity (perturbCanonicity)
 import qualified Test.Pos.Cbor.RefImpl as R

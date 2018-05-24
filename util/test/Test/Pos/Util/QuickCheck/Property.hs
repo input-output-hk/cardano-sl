@@ -68,14 +68,14 @@ qcIsRight (Left x)  = qcFail ("expected Right, got Left (" <> show x <> ")")
 --   qcElem :: (Eq a, Show a, Show (t a), Traversable t) => a -> t a -> Property
 --
 qcElem
-    :: (Eq a, Show a, Show t, Container t, Element t ~ a, ElementConstraint t a)
+    :: (Show a, Show t, Container t, Element t ~ a, ElementConstraint t a)
     => a -> t -> Property
 qcElem x xs =
     counterexample ("expected " <> show x <> " to be in " <> show xs) $
     x `elem` xs
 
 qcNotElem
-    :: (Eq a, Show a, Show t, Container t, Element t ~ a, ElementConstraint t a)
+    :: (Show a, Show t, Container t, Element t ~ a, ElementConstraint t a)
     => a -> t -> Property
 qcNotElem x xs =
     counterexample ("expected " <> show x <> " not to be in " <> show xs) $

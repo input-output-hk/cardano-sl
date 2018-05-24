@@ -12,7 +12,10 @@ import           Universum
 
 
 -- | abstract libraries' severity
-data Severity = Debug | Info | Warning | Notice | Error
+data Level = Debug | Info | Warning | Notice | Error
+                deriving (Generic, Show)
+
+newtype Severity = Severity { level :: !Level }
                 deriving (Generic, Show)
 
 -- | Handwritten 'FromJSON' instance because the log config files
@@ -20,5 +23,5 @@ data Severity = Debug | Info | Warning | Notice | Error
 --   be parsed into our Severity datatype.
 instance FromJSON Severity where
     parseJSON (Object v) = Severity <$>
-        (init $ v .: "severity")
+        (init . pack v .: "severity")
 

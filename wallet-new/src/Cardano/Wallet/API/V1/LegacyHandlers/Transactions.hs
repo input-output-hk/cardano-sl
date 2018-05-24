@@ -2,10 +2,9 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Transactions where
 
 import           Universum
 import qualified Serokell.Util.Base16 as B16
-import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58)
-import           Data.Maybe (fromJust)
+import           Formatting (build, sformat)
 
-import           Cardano.Crypto.Wallet (xpub, xsignature)
+import           Cardano.Crypto.Wallet (xsignature)
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Errors
@@ -20,8 +19,7 @@ import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
 import qualified Pos.Client.Txp.Util as V0
 import           Pos.Core (TxAux, TxSigData, Tx)
 import qualified Pos.Core as Core
-import           Pos.Crypto (Signature (..), PublicKey (..))
-import           Pos.Util (eitherToThrow)
+import           Pos.Crypto (Signature (..), decodeBase58PublicKey)
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.History as V0
@@ -104,10 +102,12 @@ estimateFees Payment{..} = do
     cAccountId <- migrate pmtSource
     utxo <- V0.getMoneySourceUtxo ws (V0.AccountMoneySource cAccountId)
     outputs <- V0.coinDistrToOutputs =<< mapM migrate pmtDestinations
-    fee <- V0.rewrapTxError "Cannot compute transaction fee" $
-        eitherToThrow =<< V0.runTxCreator policy (V0.computeTxFee pendingAddrs utxo outputs)
-    single <$> migrate fee
-
+    efee <- V0.runTxCreator policy (V0.computeTxFee pendingAddrs utxo outputs)
+    case efee of
+        Right fee ->
+            single <$> migrate fee
+        Left err ->
+            throwM (convertTxError err)
 
 newUnsignedTransaction
     :: forall ctx m . (V0.MonadWalletTxFull ctx m)
@@ -134,26 +134,25 @@ newSignedTransaction
     -> SignedTransaction
     -> m (WalletResponse Transaction)
 newSignedTransaction submitTx (SignedTransaction encodedExtPubKey txAsHex signatureAsHex) = do
-    publicKey <- makePublicKeyFrom encodedExtPubKey
-    let walletId = makeWalletIdFrom publicKey
+    publicKey <- case decodeBase58PublicKey encodedExtPubKey of
+        Left problem -> throwM (InvalidPublicKey $ sformat build problem)
+        Right publicKey -> return publicKey
+
+    let walletId = V0.encodeCType . Core.makePubKeyAddressBoot $ publicKey
 
     txRaw <- case B16.decode txAsHex of
-        Left problem ->
-            throwM (SignedTxSubmitError $ "Invalid transaction, it's not Base16 format: " <> toText problem)
+        Left _ -> throwM . convertTxError $ V0.SignedTxNotBase16Format
         Right txRaw -> return txRaw
 
     tx <- case decodeFull' txRaw of
-        Left problem ->
-            throwM (SignedTxSubmitError $ "Invalid transaction, unable to deserialize: " <> toText problem)
+        Left problem -> throwM . convertTxError $ (V0.SignedTxUnableToDecode $ toText problem)
         Right (tx :: Tx) -> return tx
 
     signature <- case B16.decode signatureAsHex of
-        Left problem ->
-            throwM (SignedTxSubmitError $ "Invalid signature, it's not Base16 format: " <> toText problem)
+        Left _ -> throwM . convertTxError $ V0.SignedTxSignatureNotBase16Format
         Right signatureItself ->
             case xsignature signatureItself of
-                Left problem ->
-                    throwM (SignedTxSubmitError $ "Invalid signature: " <> toText problem)
+                Left problem -> throwM . convertTxError $ (V0.SignedTxInvalidSignature $ toText problem)
                 Right realSignature -> do
                     let signature :: Signature TxSigData
                         signature = Signature realSignature
@@ -162,21 +161,6 @@ newSignedTransaction submitTx (SignedTransaction encodedExtPubKey txAsHex signat
     -- Submit signed transaction as pending one.
     cTx <- V0.submitSignedTransaction submitTx publicKey walletId tx signature
     single <$> migrate cTx
-  where
-    makePublicKeyFrom encodedXPub = do
-        let rawExtPubKey = decodeBase58 bitcoinAlphabet . encodeUtf8 $ encodedXPub
-        when (isNothing rawExtPubKey) $
-            throwM (UnknownError "Ext public key is not in proper Base58-form.")
-
-        let extPubKey = xpub $ fromJust rawExtPubKey
-        when (isLeft extPubKey) $ do
-            let (problem:_) = lefts [extPubKey]
-            throwM (UnknownError $ "Invalid ext public key: " <> toText problem)
-
-        let (xPub:_) = rights [extPubKey] -- We already know that it's 'Right'.
-        return $ PublicKey xPub
-
-    makeWalletIdFrom pubKey = V0.encodeCType . Core.makePubKeyAddressBoot $ pubKey
 
 -- | helper function to reduce code duplication
 createBatchPayment

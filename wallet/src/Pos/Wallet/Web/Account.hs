@@ -71,7 +71,7 @@ getPKByIdPure
     -> Maybe PublicKey
 getPKByIdPure (AllUserPublics publicKeys) walletId =
     -- If 'walletId' corresponds to classic (internal) wallet, there's no public key for it.
-    find (\pk -> (encodeCType . makePubKeyAddressBoot $ pk) == walletId) publicKeys
+    find (\pk -> walletId == encodeCType (makePubKeyAddressBoot pk)) publicKeys
 
 getSKById
     :: AccountMode ctx m

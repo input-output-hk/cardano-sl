@@ -28,7 +28,7 @@ module Pos.Util.UserPublic
        , ensureModeIs600
        ) where
 
-import           Control.Exception.Safe (onException, throwString)
+import           Control.Exception.Safe (onException)
 import           Control.Lens (makeLenses, to)
 import qualified Data.ByteString as BS
 import           Data.Default (Default (..))
@@ -49,6 +49,7 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull', 
                                    encodeListLen, enforceSize, serialize')
 import           Pos.Binary.Crypto ()
 import           Pos.Crypto (PublicKey, PublicKey)
+import           Pos.Util.UserKeyError (UserPublicError (..))
 
 import           Test.Pos.Crypto.Arbitrary ()
 
@@ -230,18 +231,18 @@ takeUserPublic path = do
 -- | Writes user public.
 writeUserPublic :: (MonadIO m) => UserPublic -> m ()
 writeUserPublic up
-    | canWrite up = liftIO $ throwString "writeUserPublic: UserPublic is already locked"
+    | canWrite up = liftIO $ throwM UserPublicAlreadyLocked
     | otherwise   = liftIO $ withFileLock (lockFilePath $ up ^. upPath) Exclusive $ const $ writeRaw up
 
 -- | Writes user public and releases the lock. UserPublic can't be
 -- used after this function call anymore.
 writeUserPublicRelease :: (MonadIO m, MonadThrow m) => UserPublic -> m ()
 writeUserPublicRelease up
-    | not (canWrite up) = throwString "writeUserPublicRelease: UserPublic is not writable"
+    | not (canWrite up) = throwM UserPublicNotWritable
     | otherwise = liftIO $ do
         writeRaw up
         case (up ^. upLock) of
-            Nothing   -> throwString "writeUserPublicRelease: incorrect UserPublic lock"
+            Nothing   -> throwM UserPublicIncorrectLock
             Just lock -> unlockFile lock
 
 -- | Helper for writing public to file

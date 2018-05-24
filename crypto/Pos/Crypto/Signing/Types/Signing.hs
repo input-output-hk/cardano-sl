@@ -15,6 +15,8 @@ module Pos.Crypto.Signing.Types.Signing
        , fullPublicKeyHexF
        , shortPublicKeyHexF
        , parseFullPublicKey
+       , decodeBase58PublicKey
+       , Base58PublicKeyError (..)
 
        -- * Signing and verification
        , Signature (..)
@@ -32,13 +34,15 @@ module Pos.Crypto.Signing.Types.Signing
 import qualified Cardano.Crypto.Wallet as CC
 import           Data.Hashable (Hashable)
 import qualified Data.Hashable as Hashable
+import           Data.Maybe (fromJust)
 import qualified Data.Text.Buildable as B
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting (Format, bprint, build, fitLeft, later, (%), (%.))
+import           Formatting (Format, bprint, build, fitLeft, later, stext, (%), (%.))
 import           Prelude (show)
 import qualified Serokell.Util.Base16 as B16
 import qualified Serokell.Util.Base64 as Base64 (decode, formatBase64)
 import           Universum hiding (show)
+import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58)
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Crypto.Hashing (hash)
@@ -111,6 +115,30 @@ parseFullPublicKey :: Text -> Either Text PublicKey
 parseFullPublicKey s = do
     b <- Base64.decode s
     PublicKey <$> first fromString (CC.xpub b)
+
+-- | Possible problems with Base58-encoded extended public key.
+data Base58PublicKeyError
+    = PublicKeyNotBase58Form
+    | InvalidPublicKey !Text
+    deriving Show
+
+instance Buildable Base58PublicKeyError where
+    build PublicKeyNotBase58Form =
+        "Extended public key is not in Base58-format."
+    build (InvalidPublicKey msg) =
+        bprint ("Extended public key is invalid: "%stext) msg
+
+-- | Decode extended public key from Base58-encoded form.
+decodeBase58PublicKey :: Text -> Either Base58PublicKeyError PublicKey
+decodeBase58PublicKey encodedXPub = do
+    let rawExtPubKey = decodeBase58 bitcoinAlphabet . encodeUtf8 $ encodedXPub
+    when (isNothing rawExtPubKey) $
+        Left PublicKeyNotBase58Form
+
+    let extPubKey = CC.xpub $ fromJust rawExtPubKey
+    case extPubKey of
+        Left problem -> Left $ InvalidPublicKey (toText problem)
+        Right xPub -> Right $ PublicKey xPub
 
 ----------------------------------------------------------------------------
 -- Signatures

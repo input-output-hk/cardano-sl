@@ -119,6 +119,14 @@ data TxError =
       -- ^ The safe signer at the specified address was not found
     | RemainingMoneyError
       -- ^ Problem with remaining money, for new unsigned transaction.
+    | SignedTxNotBase16Format
+      -- ^ Externally-signed transaction is not in Base16-format.
+    | SignedTxUnableToDecode !Text
+      -- ^ Externally-signed transaction cannot be decoded.
+    | SignedTxSignatureNotBase16Format
+      -- ^ Signature of externally-signed transaction is not in Base16-format.
+    | SignedTxInvalidSignature !Text
+      -- ^ Signature of externally-signed transaction is invalid.
     | GeneralTxError !Text
       -- ^ Parameter: description of the problem
     deriving (Show, Generic)
@@ -147,19 +155,31 @@ instance Buildable TxError where
         bprint ("Address "%build%" has no associated safe signer") addr
     build RemainingMoneyError =
         "Problem with remaining money, during creation of the new unsigned transaction"
+    build SignedTxNotBase16Format =
+        "Externally-signed transaction is not in Base16-format."
+    build (SignedTxUnableToDecode msg) =
+        bprint ("Unable to decode externally-signed transaction: "%stext) msg
+    build SignedTxSignatureNotBase16Format =
+        "Signature of externally-signed transaction is not in Base16-format."
+    build (SignedTxInvalidSignature msg) =
+        bprint ("Signature of externally-signed transaction is invalid: "%stext) msg
     build (GeneralTxError msg) =
         bprint ("Transaction creation error: "%stext) msg
 
 isCheckedTxError :: TxError -> Bool
 isCheckedTxError = \case
-    NotEnoughMoney{}        -> True
-    NotEnoughAllowedMoney{} -> True
-    FailedToStabilize{}     -> False
-    OutputIsRedeem{}        -> True
-    RedemptionDepleted{}    -> True
-    SafeSignerNotFound{}    -> True
-    RemainingMoneyError{}   -> True
-    GeneralTxError{}        -> True
+    NotEnoughMoney{}                   -> True
+    NotEnoughAllowedMoney{}            -> True
+    FailedToStabilize{}                -> False
+    OutputIsRedeem{}                   -> True
+    RedemptionDepleted{}               -> True
+    SafeSignerNotFound{}               -> True
+    RemainingMoneyError{}              -> True
+    SignedTxNotBase16Format{}          -> True
+    SignedTxUnableToDecode{}           -> True
+    SignedTxSignatureNotBase16Format{} -> True
+    SignedTxInvalidSignature{}         -> True
+    GeneralTxError{}                   -> True
 
 -----------------------------------------------------------------------------
 -- Tx creation

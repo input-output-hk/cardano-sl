@@ -7,6 +7,7 @@ module Cardano.Wallet.API.V1.Errors where
 
 import           Universum
 
+import           Formatting (build, sformat)
 import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Data.Aeson
 import           Data.List.NonEmpty (NonEmpty ((:|)))
@@ -68,6 +69,7 @@ data WalletError =
     | WalletAlreadyExists
     | AddressNotFound
     | TxFailedToStabilize
+    | InvalidPublicKey { weProblem :: !Text }
     | UnsignedTxCreationError
     | SignedTxSubmitError { weProblem :: !Text }
     | TxRedemptionDepleted
@@ -98,6 +100,14 @@ convertTxError err = case err of
         TxSafeSignerNotFound (V1 addr)
     TxError.RemainingMoneyError ->
         UnsignedTxCreationError
+    TxError.SignedTxNotBase16Format ->
+        SignedTxSubmitError $ sformat build TxError.SignedTxNotBase16Format
+    TxError.SignedTxUnableToDecode txt ->
+        SignedTxSubmitError $ sformat build (TxError.SignedTxUnableToDecode txt)
+    TxError.SignedTxSignatureNotBase16Format ->
+        SignedTxSubmitError $ sformat build TxError.SignedTxSignatureNotBase16Format
+    TxError.SignedTxInvalidSignature txt ->
+        SignedTxSubmitError $ sformat build (TxError.SignedTxInvalidSignature txt)
     TxError.GeneralTxError txt ->
         UnknownError txt
 
@@ -191,6 +201,8 @@ describe = \case
          "This wallet is restoring, and it cannot send new transactions until restoration completes."
     NodeIsStillSyncing _ ->
          "The node is still syncing with the blockchain, and cannot process the request yet."
+    InvalidPublicKey _ ->
+         "Extended public key (for external wallet) is invalid."
     UnsignedTxCreationError ->
          "Unable to create unsigned transaction for an external wallet."
     SignedTxSubmitError _ ->
@@ -233,6 +245,8 @@ toServantError err =
             err412 -- Precondition failed
         TxFailedToStabilize{} ->
             err500
+        InvalidPublicKey{} ->
+            err403
         UnsignedTxCreationError{} ->
             err500
         SignedTxSubmitError{} ->

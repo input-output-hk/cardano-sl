@@ -8,6 +8,7 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Wallets (
 
 import           Universum
 import           UnliftIO (MonadUnliftIO)
+import           Formatting (build, sformat)
 
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods as V0
@@ -15,7 +16,6 @@ import qualified Pos.Wallet.Web.State as V0 (WalletSnapshot, askWalletSnapshot, 
 import           Pos.Wallet.Web.State (setWalletSyncTip, removeHistoryCache)
 import qualified Pos.Wallet.Web.State.Storage as V0
 
-import           Cardano.Crypto.Wallet (xpub)
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Errors
@@ -24,7 +24,7 @@ import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 import qualified Data.IxSet.Typed as IxSet
 import qualified Pos.Core as Core
-import           Pos.Crypto (PublicKey (..))
+import           Pos.Crypto (decodeBase58PublicKey)
 import           Pos.Update.Configuration ()
 import           Pos.Client.KeyStorage (addPublicKey)
 import           Pos.StateLock (Priority (..), withStateLockNoMetrics)
@@ -37,8 +37,6 @@ import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogi
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
 import           Servant
-import           Data.Maybe (fromJust)
-import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58)
 import           Test.QuickCheck (arbitrary, generate)
 
 -- | All the @Servant@ handlers for wallet-specific operations.
@@ -237,14 +235,15 @@ createNewExternalWallet
     -> Text
     -> m V0.CWallet
 createNewExternalWallet walletMeta encodedExtPubKey = do
-    -- 'encodedExtPubKey' is Base58-encoded binary string that contains extended public key
-    -- of external wallet.
-    publicKey <- makePublicKeyFrom encodedExtPubKey
+    publicKey <- case decodeBase58PublicKey encodedExtPubKey of
+        Left problem -> throwM (InvalidPublicKey $ sformat build problem)
+        Right publicKey -> return publicKey
+
     -- Add this public key in the 'public.key' file. Public key will be used during
     -- synchronization with the blockchain.
     addPublicKey publicKey
-    walletId <- makeWalletIdFrom publicKey
-    let isReady = True -- A brand new wallet doesn't need syncing with the blockchain.
+    let walletId = encodeCType . Core.makePubKeyAddressBoot $ publicKey
+        isReady = True -- A brand new wallet doesn't need syncing with the blockchain.
 
     -- Create new external wallet.
     -- This is safe: if the client will try to create an external wallet from the same
@@ -263,22 +262,6 @@ createNewExternalWallet walletMeta encodedExtPubKey = do
     -- thus setting it up to date manually here
     withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip db walletId tip
     V0.getWallet walletId
-  where
-    makePublicKeyFrom encodedXPub = do
-        let rawExtPubKey = decodeBase58 bitcoinAlphabet . encodeUtf8 $ encodedXPub
-        when (isNothing rawExtPubKey) $
-            throwM (UnknownError "Ext public key is not in proper Base58-form.")
-
-        let extPubKey = xpub $ fromJust rawExtPubKey
-        when (isLeft extPubKey) $ do
-            let (problem:_) = lefts [extPubKey]
-            throwM (UnknownError $ "Invalid ext public key: " <> toText problem)
-
-        let (xPub:_) = rights [extPubKey] -- We already know that it's 'Right'.
-        return $ PublicKey xPub
-
-    makeWalletIdFrom publicKey =
-        return $ encodeCType . Core.makePubKeyAddressBoot $ publicKey
 
 -- | Creates a new BIP44 derivation path for an external wallet.
 newAddressPath

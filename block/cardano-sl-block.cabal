@@ -66,6 +66,7 @@ library
                       , bytestring
                       , cardano-sl-binary
                       , cardano-sl-core
+                      , cardano-sl-core-test
                       , cardano-sl-crypto
                       , cardano-sl-db
                       , cardano-sl-delegation

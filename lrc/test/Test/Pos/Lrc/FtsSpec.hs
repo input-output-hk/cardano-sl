@@ -13,12 +13,13 @@ import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..), Property, choose, infiniteListOf, suchThat, (===))
 
-import           Pos.Arbitrary.Core ()
 import           Pos.Core (Coin, HasConfiguration, SharedSeed, StakeholderId, StakesList,
                            addressHash, blkSecurityParam, defaultCoreConfiguration, epochSlots,
                            mkCoin, sumCoins, unsafeAddCoin, unsafeIntegerToCoin, withGenesisSpec)
 import           Pos.Crypto (PublicKey)
 import           Pos.Lrc.Fts (followTheSatoshi)
+
+import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Util.QuickCheck.Property (qcNotElem)
 
 spec :: Spec

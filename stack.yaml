@@ -20,10 +20,12 @@ packages:
 - crypto
 - crypto/tests
 - core
+- core/test
 - db
 - lrc
 - lrc/test
 - infra
+- infra/test
 - ssc
 - txp
 - txp/test

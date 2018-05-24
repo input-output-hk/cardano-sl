@@ -13,11 +13,8 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
+  hs-source-dirs:      src
   exposed-modules:
-                        -- Arbitrary
-                        Pos.Arbitrary.Slotting
-                        Pos.Arbitrary.Infra
-
                         -- Diffusion layer
                         Pos.Diffusion.Transport.TCP
                         Pos.Diffusion.Types
@@ -134,6 +131,7 @@ library
                       , bytestring
                       , cardano-sl-binary
                       , cardano-sl-core
+                      , cardano-sl-core-test
                       , cardano-sl-crypto
                       , cardano-sl-db
                       , cardano-sl-networking

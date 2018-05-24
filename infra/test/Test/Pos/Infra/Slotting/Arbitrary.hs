@@ -2,15 +2,16 @@
 
 -- | Arbitrary instances for Pos.Slotting types (infra package)
 
-module Pos.Arbitrary.Slotting () where
+module Test.Pos.Infra.Slotting.Arbitrary () where
 
 import           Universum
 
 import           Test.QuickCheck (Arbitrary (..), arbitrary, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Core ()
 import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData, createInitSlottingData)
+
+import           Test.Pos.Core.Arbitrary ()
 
 instance Arbitrary EpochSlottingData where
     arbitrary = genericArbitrary

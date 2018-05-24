@@ -12,8 +12,6 @@ import qualified Data.HashMap.Strict as HM
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Core ()
-import           Pos.Arbitrary.Slotting ()
 import           Pos.Arbitrary.Update.Core ()
 import           Pos.Binary.Core ()
 import           Pos.Binary.Update ()
@@ -26,6 +24,9 @@ import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposa
                                         DecidedProposalState (..), DpsExtra (..), PrevValue,
                                         ProposalState (..), USUndo, UndecidedProposalState (..),
                                         UpsExtra (..))
+
+import           Test.Pos.Core.Arbitrary ()
+import           Test.Pos.Infra.Slotting.Arbitrary ()
 import           Test.Pos.Util.Modifier ()
 
 instance Arbitrary HeaderHash => Arbitrary UpsExtra where

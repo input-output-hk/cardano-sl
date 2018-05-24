@@ -44,6 +44,7 @@ library
                      , bytestring
                      , cardano-sl-binary
                      , cardano-sl-core
+                     , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-networking
@@ -100,6 +101,7 @@ test-suite test
   other-modules:       Test.Pos.Lrc.FtsSpec
   build-depends:       base
                      , cardano-sl-core
+                     , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-lrc
                      , cardano-sl-util-test

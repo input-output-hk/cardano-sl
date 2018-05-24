@@ -5,11 +5,12 @@ module WalletSpecs (walletSpecs) where
 
 import           Universum
 
+import           Cardano.Wallet.API.V1.Errors (WalletError (WalletAlreadyExists, WalletNotFound))
 import           Cardano.Wallet.Client.Http
-import           Cardano.Wallet.API.V1.Errors (WalletError (WalletAlreadyExists))
 import           Control.Lens hiding ((^..), (^?))
 import           Test.Hspec
 
+import qualified Data.List
 import           Util
 
 
@@ -52,6 +53,28 @@ walletSpecs _ wc = do
                 }
 
             eresp `shouldPrism_` _Right
+
+    describe "External-Wallets" $ do
+        it "Creating an external-wallet makes it available" $ do
+            newExtWallet <- randomExternalWallet CreateWallet
+            Wallet{..} <- createExternalWalletCheck wc newExtWallet
+
+            void $ getWallet wc walId
+                >>= (`shouldPrism` _Right)
+
+        it "Delete an external-wallet removes it and its accounts completely" $ do
+            newExtWallet <- randomExternalWallet CreateWallet
+            extWallet@Wallet{..} <- createExternalWalletCheck wc newExtWallet
+            (_, addr) <- firstAccountAndId wc extWallet
+
+            deleteExternalWallet wc walId
+                >>= (`shouldPrism` _Right)
+            getWallet wc walId
+                >>= (`shouldFailWith` (ClientWalletError WalletNotFound))
+            getAddressIndexPaginated wc Nothing (Just 1000)
+                >>= (`shouldPrism` _Right)
+                >>= (`shouldNotSatisfy` (Data.List.elem addr . wrData))
+
   where
     testWalletAlreadyExists action = do
             newWallet1 <- randomWallet action

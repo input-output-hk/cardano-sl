@@ -23,6 +23,15 @@ randomWallet walletOp =
             <*> pure "Wallet"
             <*> pure walletOp
 
+randomExternalWallet :: WalletOperation -> IO NewExternalWallet
+randomExternalWallet walletOp =
+    generate $
+        NewExternalWallet
+            <$> arbitrary -- TODO Generate ExtPubKey
+            <*> arbitrary
+            <*> pure "External Wallet"
+            <*> pure walletOp
+
 randomCreateWallet :: IO NewWallet
 randomCreateWallet = randomWallet CreateWallet
 
@@ -32,6 +41,11 @@ randomRestoreWallet = randomWallet RestoreWallet
 createWalletCheck :: WalletClient IO -> NewWallet -> IO Wallet
 createWalletCheck wc newWallet = do
     result <- fmap wrData <$> postWallet wc newWallet
+    result `shouldPrism` _Right
+
+createExternalWalletCheck :: WalletClient IO -> NewExternalWallet -> IO Wallet
+createExternalWalletCheck wc newExtWallet = do
+    result <- fmap wrData <$> postExternalWallet wc newExtWallet
     result `shouldPrism` _Right
 
 firstAccountAndId :: WalletClient IO -> Wallet -> IO (Account, WalletAddress)
@@ -86,6 +100,11 @@ genesisWallet wc = do
 genesisRef :: WalletRef
 genesisRef = unsafePerformIO newEmptyMVar
 {-# NOINLINE genesisRef #-}
+
+shouldFailWith :: (Show a) => Either ClientError (WalletResponse a) -> ClientError -> IO ()
+shouldFailWith eresp wantErr = do
+    gotErr <- eresp `shouldPrism` _Left
+    gotErr `shouldBe` wantErr
 
 shouldPrism :: Show s => s -> Prism' s a -> IO a
 shouldPrism a b = do

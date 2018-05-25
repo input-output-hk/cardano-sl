@@ -1,14 +1,18 @@
 let
   localLib = import ./lib.nix;
-  # Make rocksdb use gperftools rather than jemalloc.
   # jemalloc has a bug that caused cardano-sl-db to fail to link (via
   # rocksdb, which can use jemalloc).
   # https://github.com/jemalloc/jemalloc/issues/937
-  # Alternatively, we could use an older jemalloc. Later nixpkgs have
-  # jemalloc450, but 18.03 does not. Shame
+  # Using jemalloc 510 with the --disable-initial-exec-tls flag seems to
+  # fix it.
+  jemalloc510 = import ./nix/jemalloc/jemalloc510.nix;
   defaultConfig = {
     packageOverrides = pkgs: {
-      rocksdb = pkgs.rocksdb.override { jemalloc = null; };
+      jemalloc = jemalloc510 {
+          stdenv = pkgs.stdenv;
+          fetchurl = pkgs.fetchurl;
+          fetchpatch = pkgs.fetchpatch;
+        };
     };
   };
 in

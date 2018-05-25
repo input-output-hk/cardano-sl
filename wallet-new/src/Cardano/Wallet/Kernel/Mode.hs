@@ -66,8 +66,7 @@ getWallet = view wcWallet_L
 --
 -- TODO: This should wrap the functionality in "Cardano.Wallet.Core" to
 -- wrap things in Cardano specific types.
-walletApplyBlocks :: HasConfigurations
-                  => PassiveWalletLayer Production
+walletApplyBlocks :: PassiveWalletLayer Production
                   -> OldestFirst NE Blund
                   -> WalletMode SomeBatchOp
 walletApplyBlocks _w _bs = do
@@ -89,7 +88,7 @@ walletRollbackBlocks _w _bs = do
     -- We don't make any changes to the DB so we always return 'mempty'.
     return mempty
 
-instance HasConfigurations => MonadBListener WalletMode where
+instance MonadBListener WalletMode where
   onApplyBlocks    bs = getWallet >>= (`walletApplyBlocks`    bs)
   onRollbackBlocks bs = getWallet >>= (`walletRollbackBlocks` bs)
 
@@ -197,7 +196,7 @@ instance HasConfiguration => MonadGState WalletMode where
 instance {-# OVERLAPPING #-} CanJsonLog WalletMode where
   jsonLog = jsonLogDefault
 
-instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo)
+instance (HasConfiguration, HasTxpConfiguration)
       => MonadTxpLocal WalletMode where
   txpNormalize = txNormalize
   txpProcessTx = txProcessTransaction

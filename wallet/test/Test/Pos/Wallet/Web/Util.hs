@@ -53,7 +53,6 @@ import           Pos.StateLock (Priority (..), modifyStateLock)
 import           Pos.Txp.Toil (Utxo)
 import           Pos.Util (HasLens (..), _neLast)
 import           Pos.Util.Chrono (OldestFirst (..))
-import           Pos.Util.CompileInfo (HasCompileInfo)
 
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.UserSecret (mkGenesisWalletUserSecret)
@@ -72,7 +71,7 @@ import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 
 -- | Gen blocks in WalletProperty
 wpGenBlocks
-    :: (HasCompileInfo, HasConfigurations)
+    :: HasConfigurations
     => Maybe BlockCount
     -> EnableTxPayload
     -> InplaceDB
@@ -91,7 +90,7 @@ wpGenBlocks blkCnt enTxPayload inplaceDB = do
             Nothing -> pure (prevTip, blunds)
 
 wpGenBlock
-    :: (HasCompileInfo, HasConfigurations)
+    :: HasConfigurations
     => EnableTxPayload
     -> InplaceDB
     -> WalletProperty Blund
@@ -104,7 +103,7 @@ wpGenBlock = fmap (unsafeHead . toList) ... wpGenBlocks (Just 1)
 -- | Import some nonempty set, but not bigger than given number of elements, of genesis secrets.
 -- Returns corresponding passphrases.
 importWallets
-    :: (HasConfigurations, HasCompileInfo)
+    :: HasConfigurations
     => Int -> Gen PassPhrase -> WalletProperty [PassPhrase]
 importWallets numLimit passGen = do
     let secrets =
@@ -122,12 +121,12 @@ importWallets numLimit passGen = do
     pure passphrases
 
 importSomeWallets
-    :: (HasConfigurations, HasCompileInfo)
+    :: HasConfigurations
     => Gen PassPhrase -> WalletProperty [PassPhrase]
 importSomeWallets = importWallets 10
 
 importSingleWallet
-    :: (HasConfigurations, HasCompileInfo)
+    :: HasConfigurations
     => Gen PassPhrase -> WalletProperty PassPhrase
 importSingleWallet passGen =
     fromMaybe (error "No wallets imported") . head <$> importWallets 1 passGen

@@ -181,8 +181,7 @@ verifyKnownInputs VTxContext {..} resolvedInputs TxAux {..} = do
     allInputsDifferent = allDistinct (toList (map fst resolvedInputs))
 
     checkInput
-        :: (HasProtocolMagic)
-        => Word32           -- ^ Input index
+        :: Word32           -- ^ Input index
         -> (TxIn, TxOutAux) -- ^ Input and corresponding output data
         -> TxInWitness
         -> Either ToilVerFailure ()
@@ -201,7 +200,7 @@ verifyKnownInputs VTxContext {..} resolvedInputs TxAux {..} = do
             _                 -> False
 
     -- the first argument here includes local context, can be used for scripts
-    checkWitness :: HasProtocolMagic => TxOutAux -> TxInWitness -> Either WitnessVerFailure ()
+    checkWitness :: TxOutAux -> TxInWitness -> Either WitnessVerFailure ()
     checkWitness _txOutAux witness = case witness of
         PkWitness{..} ->
             unless (checkSig protocolMagic SignTx twKey txSigData twSig) $

@@ -23,7 +23,6 @@ import           Pos.Crypto (VssKeyPair)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Network.CLI (intNetworkConfigOpts)
 import           Pos.Ssc (SscParams (..))
-import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Update.Params (UpdateParams (..))
 import           Pos.Util.UserSecret (peekUserSecret)
 import           Pos.Util.Util (eitherToThrow)
@@ -60,7 +59,6 @@ getNodeParams ::
        , WithLogger m
        , MonadCatch m
        , HasConfiguration
-       , HasSscConfiguration
        )
     => LoggerName
     -> CommonNodeArgs

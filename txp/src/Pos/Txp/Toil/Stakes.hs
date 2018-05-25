@@ -40,8 +40,7 @@ rollbackTxsStakes txun = do
 
 -- Compute new stakeholder's stakes by lists of spent and received coins.
 recomputeStakes
-    :: HasGenesisData
-    => StakesList
+    :: StakesList
     -> StakesList
     -> GlobalToilM ()
 recomputeStakes plusDistr minusDistr = do

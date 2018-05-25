@@ -51,10 +51,10 @@ instance HasTxpConfigurations => TxCreateMode TxpTestMode
 -- Boilerplate TxpTestMode instances
 ----------------------------------------------------------------------------
 
-instance HasTxpConfigurations => MonadGState TxpTestMode where
+instance MonadGState TxpTestMode where
     gsAdoptedBVData = ask
 
-instance HasTxpConfigurations => MonadAddresses TxpTestMode where
+instance MonadAddresses TxpTestMode where
     type AddrData TxpTestMode = ()
     getNewAddress _ = pure fakeAddressForMonadAddresses
     getFakeChangeAddress = pure fakeAddressForMonadAddresses
@@ -82,7 +82,7 @@ type TxpTestProperty = PropertyM TxpTestMode
 
 -- Cannot write a general OVERLAPPABLE instance with MonadTrans since
 -- type families cannot be OVERLAPPABLE.
-instance HasTxpConfigurations => MonadAddresses TxpTestProperty where
+instance MonadAddresses TxpTestProperty where
     type AddrData TxpTestProperty = AddrData TxpTestMode
     getNewAddress = lift . getNewAddress
     getFakeChangeAddress = lift getFakeChangeAddress

@@ -106,8 +106,7 @@ actionToMonad (SetSlottingData sd)       = Poll.setSlottingData sd
 actionToMonad (SetEpochProposers hs)     = Poll.setEpochProposers hs
 
 applyActionToModifier
-    :: HasConfiguration
-    => PollAction
+    :: PollAction
     -> Poll.PollState
     -> Poll.PollModifier
     -> Poll.PollModifier
@@ -152,9 +151,7 @@ applyActionToModifier (DeactivateProposal ui) pst = \p ->
 applyActionToModifier (SetSlottingData sd) _   = Poll.pmSlottingDataL .~ (Just sd)
 applyActionToModifier (SetEpochProposers hs) _ = Poll.pmEpochProposersL .~ (Just hs)
 
-applyActions
-    :: HasConfiguration
-    => Poll.PollState -> [PollAction] -> Property
+applyActions :: Poll.PollState -> [PollAction] -> Property
 applyActions ps actionList =
     let pollSts = fmap (actionToMonad @Poll.PurePoll) actionList
         -- 'resultModifiers' has a 'mempty' poll modifier up front, so 'newPollStates'
@@ -186,7 +183,7 @@ emptyPollSt bvInfo = Poll.PollState
     mempty
 
 -- | Apply a sequence of 'PollAction's from left to right.
-perform :: HasConfiguration => [PollAction] -> Poll.PurePoll ()
+perform :: [PollAction] -> Poll.PurePoll ()
 perform = foldl (>>) (return ()) . map actionToMonad
 
 -- | Operational equivalence operator in the 'PurePoll' monad. To be used when

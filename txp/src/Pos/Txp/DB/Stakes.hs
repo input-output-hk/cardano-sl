@@ -34,7 +34,7 @@ import           Serokell.Util (Color (Red), colorize)
 import           System.Wlog (WithLogger, logError)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (Coin, StakeholderId, StakesMap, coinF, mkCoin, HasGenesisData,
+import           Pos.Core (Coin, StakeholderId, StakesMap, coinF, mkCoin,
                            sumCoins, unsafeAddCoin, unsafeIntegerToCoin, HasCoreConfiguration)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (..), DBTag (GStateDB), IterType, MonadDB, MonadDBRead,
@@ -68,10 +68,7 @@ instance HasCoreConfiguration => RocksBatchOp StakesOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-initGStateStakes ::
-       forall m. (MonadDB m, HasGenesisData)
-    => GenesisUtxo
-    -> m ()
+initGStateStakes :: MonadDB m => GenesisUtxo -> m ()
 initGStateStakes (GenesisUtxo genesisUtxo) = do
     putFtsStakes
     putGenesisTotalStake

@@ -36,7 +36,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 
 import           Pos.Binary.Core ()
-import           Pos.Core (Coin, CoinPortion, HasGenesisBlockVersionData, HasGenesisData,
+import           Pos.Core (Coin, CoinPortion, HasGenesisBlockVersionData,
                            ProxySKHeavy, StakeholderId, addressHash, applyCoinPortionUp,
                            gdHeavyDelegation, genesisData, sumCoins, unGenesisDelegation,
                            unsafeIntegerToCoin)
@@ -56,12 +56,7 @@ import           Pos.Txp.GenesisUtxo (genesisStakes)
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareLrcRichmen ::
-       ( HasGenesisBlockVersionData
-       , HasGenesisData
-       , MonadDB m
-       )
-    => m ()
+prepareLrcRichmen :: MonadDB m => m ()
 prepareLrcRichmen = do
     let genesisDistribution = HM.toList genesisStakes
         genesisDelegation   = unGenesisDelegation $

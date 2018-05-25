@@ -97,28 +97,28 @@ loadDataByDepth getter extraPredicate depth h = do
 -- | Load blunds starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
 loadBlundsWhile
-    :: (MonadDBRead m, HasGenesisHash)
+    :: MonadDBRead m
     => (Block -> Bool) -> HeaderHash -> m (NewestFirst [] Blund)
 loadBlundsWhile predicate = loadDataWhile getBlundThrow (predicate . fst)
 
 -- | Load blunds which have depth less than given (depth = number of
 -- blocks that will be returned).
 loadBlundsByDepth
-    :: (MonadDBRead m, HasGenesisHash)
+    :: MonadDBRead m
     => BlockCount -> HeaderHash -> m (NewestFirst [] Blund)
 loadBlundsByDepth = loadDataByDepth getBlundThrow (const True)
 
 -- | Load blocks starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
 loadBlocksWhile
-    :: (MonadBlockDBRead m, HasGenesisHash)
+    :: MonadBlockDBRead m
     => (Block -> Bool) -> HeaderHash -> m (NewestFirst [] Block)
 loadBlocksWhile = loadDataWhile getBlockThrow
 
 -- | Load headers starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
 loadHeadersWhile
-    :: ( LoadHeadersMode m, HasGenesisHash )
+    :: LoadHeadersMode m
     => (BlockHeader -> Bool)
     -> HeaderHash
     -> m (NewestFirst [] BlockHeader)
@@ -126,7 +126,7 @@ loadHeadersWhile = loadDataWhile getHeaderThrow
 
 -- | Load headers which have depth less than given.
 loadHeadersByDepth
-    :: ( LoadHeadersMode m, HasGenesisHash )
+    :: LoadHeadersMode m
     => BlockCount -> HeaderHash -> m (NewestFirst [] BlockHeader)
 loadHeadersByDepth = loadDataByDepth getHeaderThrow (const True)
 
@@ -137,14 +137,14 @@ loadHeadersByDepth = loadDataByDepth getHeaderThrow (const True)
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: (MonadDBRead m, HasGenesisHash)
+    :: MonadDBRead m
     => (Block -> Bool) -> m (NewestFirst [] Blund)
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: (MonadDBRead m, HasGenesisHash)
+    :: MonadDBRead m
     => BlockCount -> m (NewestFirst [] Blund)
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 

@@ -110,7 +110,7 @@ type WalletConstr h a st = (st -> Wallet h a) -> (st -> Wallet h a)
 -- default implementations of some of the wallet methods in terms of the
 -- other methods.
 mkDefaultWallet
-  :: forall h a st. (Hash h a, Ord a, Buildable st)
+  :: forall h a st. (Hash h a, Buildable st)
   => Lens' st (Pending h a)
   -> WalletConstr h a st
 mkDefaultWallet l self st = Wallet {

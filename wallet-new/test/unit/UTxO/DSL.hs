@@ -412,7 +412,7 @@ findHash :: Hash h a
 findHash h l = find (\t -> hash t == h) (ledgerToNewestFirst l)
 
 -- | Variation on 'findHash', assumes hash refers to existing transaction
-findHash' :: (Hash h a, Buildable a, HasCallStack)
+findHash' :: (Hash h a, HasCallStack)
           => h (Transaction h a) -> Ledger h a -> Transaction h a
 findHash' h l = fromJust err (findHash h l)
   where
@@ -619,7 +619,7 @@ instance Buildable a => Buildable (Output a) where
       outAddr
       outVal
 
-instance (Buildable a, Hash h a) => Buildable (Input h a) where
+instance Hash h a => Buildable (Input h a) where
   build Input{..} = bprint
       ( "Input"
       % "{ trans: " % build

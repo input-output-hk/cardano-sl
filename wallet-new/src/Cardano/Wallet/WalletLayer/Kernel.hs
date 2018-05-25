@@ -11,7 +11,6 @@ import           Data.Maybe (fromJust)
 import           System.Wlog (Severity(Debug))
 
 import           Pos.Block.Types (Blund, Undo (..))
-import           Pos.Core (HasConfiguration)
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
@@ -29,7 +28,7 @@ import           Pos.Crypto.Signing
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.
 bracketPassiveWallet
-    :: forall m n a. (HasConfiguration, MonadIO n, MonadIO m, MonadMask m, Monad n)
+    :: forall m n a. (MonadIO n, MonadIO m, MonadMask m)
     => (Severity -> Text -> IO ())
     -> (PassiveWalletLayer n -> m a) -> m a
 bracketPassiveWallet logFunction f =
@@ -91,7 +90,7 @@ bracketPassiveWallet logFunction f =
 -- | Initialize the active wallet.
 -- The active wallet is allowed all.
 bracketActiveWallet
-    :: forall m n a. (MonadIO n, MonadIO m, MonadMask m, Monad n)
+    :: forall m n a. (MonadIO m, MonadMask m)
     => PassiveWalletLayer n
     -> WalletDiffusion
     -> (ActiveWalletLayer n -> m a) -> m a

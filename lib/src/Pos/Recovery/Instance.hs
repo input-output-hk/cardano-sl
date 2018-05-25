@@ -13,7 +13,7 @@ import           Control.Monad.Except (runExceptT, throwError)
 
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Types (RecoveryHeader, RecoveryHeaderTag)
-import           Pos.Core (HasCoreConfiguration, HasProtocolConstants, epochOrSlotG,
+import           Pos.Core (HasProtocolConstants, epochOrSlotG,
                            epochOrSlotToSlot, flattenSlotId)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
@@ -27,7 +27,6 @@ instance ( Monad m
          , MonadSlots ctx m
          , MonadReader ctx m
          , HasLens RecoveryHeaderTag ctx RecoveryHeader
-         , HasCoreConfiguration
          , HasProtocolConstants
          ) =>
          MonadRecoveryInfo m where

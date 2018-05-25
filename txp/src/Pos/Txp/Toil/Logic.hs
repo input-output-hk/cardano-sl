@@ -109,8 +109,7 @@ normalizeToil bvd curEpoch txs = mapM_ normalize ordered
     ordered = fromMaybe txs $ topsortTxs wHash txs
     wHash (i, txAux) = WithHash (taTx txAux) i
     normalize ::
-           (HasTxpConfiguration)
-        => (TxId, TxAux)
+           (TxId, TxAux)
         -> LocalToilM ()
     normalize = void . runExceptT . processTx bvd curEpoch
 

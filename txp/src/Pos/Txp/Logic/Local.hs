@@ -28,8 +28,7 @@ import           JsonLog (CanJsonLog (..))
 import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog, logDebug, logError,
                               logWarning)
 
-import           Pos.Core (BlockVersionData, EpochIndex, HeaderHash, HasProtocolMagic,
-                           siEpoch)
+import           Pos.Core (BlockVersionData, EpochIndex, HeaderHash, siEpoch)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..))
 import           Pos.DB.Class (MonadGState (..))
@@ -61,7 +60,7 @@ type TxpProcessTransactionMode ctx m =
 -- transaction in 'TxAux'. Separation is supported for optimization
 -- only.
 txProcessTransaction
-    :: ( TxpProcessTransactionMode ctx m, HasProtocolMagic )
+    :: ( TxpProcessTransactionMode ctx m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txProcessTransaction itw =
     withStateLock LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock itw
@@ -72,7 +71,6 @@ txProcessTransactionNoLock
     :: forall ctx m.
        ( TxpLocalWorkMode ctx m
        , MempoolExt m ~ ()
-       , HasProtocolMagic
        )
     => (TxId, TxAux)
     -> m (Either ToilVerFailure ())
@@ -174,7 +172,6 @@ txNormalize
     :: forall ctx m.
        ( TxpLocalWorkMode ctx m
        , MempoolExt m ~ ()
-       , HasProtocolMagic
        )
     => m ()
 txNormalize =
@@ -192,7 +189,7 @@ txNormalize =
         extendLocalToilM $ normalizeToil bvd epoch $ HM.toList txs
 
 txNormalizeAbstract ::
-       (TxpLocalWorkMode ctx m, MempoolExt m ~ extraState, Default extraState)
+       (TxpLocalWorkMode ctx m, MempoolExt m ~ extraState)
     => (Utxo -> [TxAux] -> m extraEnv)
     -> (BlockVersionData -> EpochIndex -> HashMap TxId TxAux -> ExtendedLocalToilM extraEnv extraState ())
     -> m ()

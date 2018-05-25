@@ -80,12 +80,6 @@ type LrcModeFull ctx m =
 lrcSingleShot
     :: forall ctx m.
        ( LrcModeFull ctx m
-       , HasGeneratedSecrets
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisData
-       , HasGenesisHash
        , HasMisbehaviorMetrics ctx
        )
     => EpochIndex -> m ()
@@ -225,8 +219,7 @@ issuersComputationDo epochId = do
            hm <$ (logWarning $ sformat ("Stake for issuer "%build% " not found") id)
         Just stake -> pure $ HM.insert id stake hm
 
-leadersComputationDo ::
-       forall ctx m. (LrcMode ctx m, HasProtocolConstants)
+leadersComputationDo :: LrcMode ctx m
     => EpochIndex
     -> SharedSeed
     -> m ()

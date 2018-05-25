@@ -32,9 +32,7 @@ import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Servant
 
 -- | All the @Servant@ handlers for wallet-specific operations.
-handlers :: ( HasConfigurations
-            , HasCompileInfo
-            )
+handlers :: HasConfigurations
          => ServerT Wallets.API MonadV1
 handlers = newWallet
     :<|> listWallets

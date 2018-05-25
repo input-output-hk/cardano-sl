@@ -68,12 +68,7 @@ import           Pos.Util.Util (HasLens (..))
 -- 4.  Return all undos.
 verifyBlocksPrefix
     :: forall ctx m.
-       ( MonadBlockVerify ctx m
-       , HasGenesisBlockVersionData
-       , HasGenesisData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       )
+       ( MonadBlockVerify ctx m )
     => OldestFirst NE Block
     -> m (Either VerifyBlocksException (OldestFirst NE Undo, PollModifier))
 verifyBlocksPrefix blocks = runExceptT $ do
@@ -263,13 +258,7 @@ applyBlocks calculateLrc pModifier blunds = do
 
 -- | Rollbacks blocks. Head must be the current tip.
 rollbackBlocks
-    :: ( MonadBlockApply ctx m
-       , HasGeneratedSecrets
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisData
-       )
+    :: ( MonadBlockApply ctx m )
     => NewestFirst NE Blund -> m ()
 rollbackBlocks blunds = do
     tip <- GS.getTip
@@ -283,12 +272,6 @@ applyWithRollback
     :: forall ctx m.
        ( BlockLrcMode ctx m
        , MonadMempoolNormalization ctx m
-       , HasGeneratedSecrets
-       , HasGenesisData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisBlockVersionData
-       , HasGenesisHash
        , HasMisbehaviorMetrics ctx
        )
     => NewestFirst NE Blund        -- ^ Blocks to rollbck

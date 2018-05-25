@@ -53,7 +53,7 @@ binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
 binaryEncodeDecode a = (unsafeDeserialize . serialize $ a) === a
 
 -- | Machinery to test we perform "flat" encoding.
-cborFlatTermValid :: (Show a, Bi a) => a -> Property
+cborFlatTermValid :: (Bi a) => a -> Property
 cborFlatTermValid = property . validFlatTerm . toFlatTerm . encode
 
 -- Test that serialized 'a' has canonical representation, i.e. if we're able to
@@ -96,9 +96,9 @@ type IdTestingRequiredClassesAlmost a = (Eq a, Show a, Arbitrary a, Typeable a)
 type IdTestingRequiredClasses f a = (Eq a, Show a, Arbitrary a, Typeable a, f a)
 
 identityTest :: forall a. (IdTestingRequiredClassesAlmost a) => (a -> Property) -> Spec
-identityTest fun = prop (typeName @a) fun
+identityTest fun = prop typeName fun
   where
-    typeName :: forall x. Typeable x => String
+    typeName :: String
     typeName = show $ typeRep (Proxy @a)
 
 binaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
@@ -142,8 +142,7 @@ canonicalJsonTest =
                 runIdentity $ CanonicalJSON.toJSON x
         in canonicalJsonDecodeAndCompare x encodedX
     canonicalJsonDecodeAndCompare ::
-           CanonicalJSON.FromJSON (Either SchemaError) a
-        => a
+           a
         -> LByteString
         -> Property
     canonicalJsonDecodeAndCompare x encodedX =
@@ -160,7 +159,7 @@ canonicalJsonTest =
 ----------------------------------------------------------------------------
 
 msgLenLimitedCheck
-    :: (Show a, Bi a) => Limit a -> a -> Property
+    :: (Bi a) => Limit a -> a -> Property
 msgLenLimitedCheck limit msg =
     let sz = BS.length . serialize' $ msg
     in if sz <= fromIntegral limit

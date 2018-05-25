@@ -116,7 +116,7 @@ hoistDiffusion nat orig = Diffusion
     }
 
 -- | A diffusion layer that does nothing.
-dummyDiffusionLayer :: (Monad m, MonadIO m, Applicative d) => m (DiffusionLayer d)
+dummyDiffusionLayer :: (MonadIO m, Applicative d) => m (DiffusionLayer d)
 dummyDiffusionLayer = do
     ss <- newTVarIO Map.empty
     return DiffusionLayer

@@ -35,9 +35,7 @@ import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState,
 import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, HasProtocolConstants,
                            SlotId (..), Timestamp (Timestamp), addressHash, blkSecurityParam,
                            difficultyL, epochOrSlotToSlot, epochSlots, flattenSlotId, gbHeader,
-                           getEpochOrSlot, getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId,
-                           HasGeneratedSecrets, HasGenesisData, HasGenesisHash, HasGenesisBlockVersionData,
-                           HasProtocolMagic)
+                           getEpochOrSlot, getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId)
 import           Pos.Crypto (ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import qualified Pos.DB.BlockIndex as DB
@@ -69,12 +67,6 @@ import           Pos.Util.TimeWarp (CanJsonLog (..))
 -- | All workers specific to block processing.
 blkWorkers
     :: ( BlockWorkMode ctx m
-       , HasGeneratedSecrets
-       , HasGenesisHash
-       , HasGenesisData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisBlockVersionData
        , HasMisbehaviorMetrics ctx
        )
     => [Diffusion m -> m ()]
@@ -87,7 +79,6 @@ blkWorkers =
 
 informerWorker
     :: ( BlockWorkMode ctx m
-       , HasProtocolConstants
     ) => Diffusion m -> m ()
 informerWorker =
     \_ -> onNewSlot defaultOnNewSlotParams $ \slotId ->
@@ -113,12 +104,6 @@ informerWorker =
 
 blkCreatorWorker
     :: ( BlockWorkMode ctx m
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGeneratedSecrets
-       , HasGenesisHash
-       , HasGenesisData
-       , HasGenesisBlockVersionData
        , HasMisbehaviorMetrics ctx
        ) => Diffusion m -> m ()
 blkCreatorWorker =
@@ -134,12 +119,6 @@ blkCreatorWorker =
 
 blockCreator
     :: ( BlockWorkMode ctx m
-       , HasGeneratedSecrets
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisHash
-       , HasGenesisData
-       , HasGenesisBlockVersionData
        , HasMisbehaviorMetrics ctx
        )
     => SlotId -> Diffusion m -> m ()
@@ -206,12 +185,6 @@ blockCreator (slotId@SlotId {..}) diffusion = do
 
 onNewSlotWhenLeader
     :: ( BlockWorkMode ctx m
-       , HasGeneratedSecrets
-       , HasGenesisData
-       , HasGenesisHash
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasProtocolMagic
        )
     => SlotId
     -> ProxySKBlockInfo
@@ -254,8 +227,6 @@ onNewSlotWhenLeader slotId pske diffusion = do
 recoveryTriggerWorker
     :: forall ctx m.
        ( BlockWorkMode ctx m
-       , HasProtocolConstants
-       , HasProtocolMagic
        )
     => Diffusion m -> m ()
 recoveryTriggerWorker diffusion = do
@@ -313,7 +284,7 @@ recoveryTriggerWorker diffusion = do
 --
 -- Apart from chain quality check we also record some generally useful values.
 metricWorker
-    :: forall ctx m. ( BlockWorkMode ctx m, HasProtocolConstants )
+    :: BlockWorkMode ctx m
     => SlotId -> m ()
 metricWorker curSlot = do
     OldestFirst lastSlots <- slogGetLastSlots
@@ -348,7 +319,7 @@ difficultyMonitor ::
        MetricMonitorState ChainDifficulty -> MetricMonitor ChainDifficulty
 difficultyMonitor = noReportMonitor fromIntegral Nothing
 
-reportSlottingData :: (HasProtocolConstants, BlockWorkMode ctx m) => SlotId -> m ()
+reportSlottingData :: BlockWorkMode ctx m => SlotId -> m ()
 reportSlottingData slotId = do
     -- epoch
     let epoch = siEpoch slotId
@@ -368,7 +339,7 @@ reportSlottingData slotId = do
         view scGlobalSlotMonitorState
     recordValue globalSlotMonitor globalSlot
 
-reportCrucialValues :: (HasProtocolConstants, BlockWorkMode ctx m) => m ()
+reportCrucialValues :: BlockWorkMode ctx m => m ()
 reportCrucialValues = do
     label <- view scCrucialValuesLabel
     BlockVersionData {..} <- getAdoptedBVData
@@ -387,7 +358,6 @@ reportCrucialValues = do
 
 chainQualityChecker ::
        ( BlockWorkMode ctx m
-       , HasProtocolConstants
        )
     => SlotId
     -> FlatSlotId

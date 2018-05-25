@@ -61,7 +61,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-        let plugins :: HasConfigurations => [Diffusion ExplorerProd -> ExplorerProd ()]
+        let plugins :: [Diffusion ExplorerProd -> ExplorerProd ()]
             plugins =
                 [ explorerPlugin webPort
                 , notifierPlugin NotifierSettings{ nsPort = notifierPort }

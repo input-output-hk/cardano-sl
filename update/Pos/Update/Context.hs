@@ -7,7 +7,6 @@ module Pos.Update.Context
 
 import           Universum
 
-import           Pos.Core (HasProtocolConstants)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Slotting (MonadSlots)
 import           Pos.Update.MemState.Types (MemVar, newMemVar)
@@ -29,8 +28,7 @@ data UpdateContext = UpdateContext
 -- | Create initial 'UpdateContext'.
 mkUpdateContext
     :: forall ctx m.
-    ( HasProtocolConstants
-    , MonadIO m
+    ( MonadIO m
     , MonadDBRead m
     , MonadSlots ctx m
     )

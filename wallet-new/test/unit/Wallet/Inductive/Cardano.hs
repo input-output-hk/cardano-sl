@@ -18,7 +18,7 @@ import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.Types
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
-import           Pos.Core (Coin, HasConfiguration, unsafeIntegerToCoin)
+import           Pos.Core (Coin, unsafeIntegerToCoin)
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Txp (Utxo, formatUtxo)
 import           Pos.Util.Chrono
@@ -138,7 +138,7 @@ interpretT mkWallet EventCallbacks{..} Inductive{..} =
   Equivalence check between the real implementation and (a) pure wallet
 -------------------------------------------------------------------------------}
 
-equivalentT :: forall h m. (HasConfiguration, Hash h Addr, MonadIO m)
+equivalentT :: forall h m. (Hash h Addr, MonadIO m)
             => Kernel.ActiveWallet
             -> EncryptedSecretKey
             -> (DSL.Transaction h Addr -> Wallet h Addr)

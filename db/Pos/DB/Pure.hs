@@ -38,7 +38,6 @@ module Pos.DB.Pure
 import           Universum
 
 import           Control.Lens (at, makeLenses)
-import           Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.ByteString as BS
 import           Data.Conduit (ConduitT)
 import qualified Data.Conduit.List as CL
@@ -116,7 +115,6 @@ dbGetPureDefault (tagToLens -> l) key =
 dbIterSourcePureDefault ::
        ( MonadPureDB ctx m
        , DBIteratorClass i
-       , MonadResource m
        , Bi (IterKey i)
        , Bi (IterValue i)
        , HasCoreConfiguration)

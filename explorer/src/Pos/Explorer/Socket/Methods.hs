@@ -364,7 +364,7 @@ getBlundsFromTo recentBlock oldBlock =
             Just . catMaybes <$> forM (NE.tail hashes) getBlund
 
 addrsTouchedByTx
-    :: (MonadDBRead m, WithLogger m)
+    :: MonadDBRead m
     => Tx -> m (S.Set Address)
 addrsTouchedByTx tx = do
       -- for each transaction, get its OutTx

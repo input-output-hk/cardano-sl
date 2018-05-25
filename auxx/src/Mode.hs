@@ -54,7 +54,6 @@ import           Pos.Reporting (MonadReporting (..), HasMisbehaviorMetrics (..))
 import           Pos.Shutdown (HasShutdownContext (..))
 import           Pos.Slotting.Class (MonadSlots (..))
 import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Types (HasSscContext (..))
 import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..), txNormalize,
                           txProcessTransaction, txProcessTransactionNoLock)
@@ -192,7 +191,7 @@ instance HasConfiguration => MonadDB AuxxMode where
 instance HasConfiguration => MonadGState AuxxMode where
     gsAdoptedBVData = realModeToAuxx ... gsAdoptedBVData
 
-instance HasConfiguration => MonadBListener AuxxMode where
+instance MonadBListener AuxxMode where
     onApplyBlocks = realModeToAuxx ... onApplyBlocks
     onRollbackBlocks = realModeToAuxx ... onRollbackBlocks
 
@@ -201,9 +200,7 @@ instance HasConfiguration => MonadBalances AuxxMode where
     getBalance = getBalanceFromUtxo
 
 instance ( HasConfiguration
-         , HasSscConfiguration
          , HasTxpConfiguration
-         , HasCompileInfo
          ) =>
          MonadTxHistory AuxxMode where
     getBlockHistory = getBlockHistoryDefault
@@ -230,7 +227,6 @@ type instance MempoolExt AuxxMode = EmptyMempoolExt
 
 instance ( HasConfiguration
          , HasTxpConfiguration
-         , HasCompileInfo
          ) =>
          MonadTxpLocal AuxxMode where
     txpNormalize = withReaderT acRealModeContext txNormalize

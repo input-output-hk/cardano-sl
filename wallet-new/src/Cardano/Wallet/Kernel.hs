@@ -45,7 +45,7 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..), ourUtxo, prefilterBlock)
 import           Cardano.Wallet.Kernel.Types (txUtxo)
 
-import           Pos.Core (HasConfiguration, TxAux, sumCoins)
+import           Pos.Core (TxAux, sumCoins)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, hash)
 import           Pos.Txp (Utxo)
@@ -255,8 +255,7 @@ init PassiveWallet{..} = _walletLogMessage Info "Passive Wallet kernel initializ
 -------------------------------------------------------------------------------}
 
 -- | Notify all the wallets in the PassiveWallet of a new block
-applyBlock :: HasConfiguration
-          => PassiveWallet
+applyBlock :: PassiveWallet
           -> ResolvedBlock
           -> IO ()
 applyBlock pw b
@@ -266,8 +265,7 @@ applyBlock pw b
         mapM_ (applyBlock' pw b) wids
 
 -- | Apply the ResolvedBlock to the PassiveWallet indexed by WalletID @wid@
-applyBlock' :: HasConfiguration
-            => PassiveWallet
+applyBlock' :: PassiveWallet
             -> ResolvedBlock
             -> WalletId
             -> IO ()
@@ -283,7 +281,7 @@ applyBlock' pw b wid = do
     updateWalletState pw wid $ State utxo'' pending'' balance''
 
 -- | Apply the ResolvedBlocks, one at a time, to all wallets in the PassiveWallet
-applyBlocks :: (HasConfiguration, Container (f ResolvedBlock))
+applyBlocks :: Container (f ResolvedBlock)
               => PassiveWallet
               -> OldestFirst f ResolvedBlock
               -> IO ()

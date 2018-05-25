@@ -18,7 +18,7 @@ import qualified Pos.Wallet.Web.Methods.Logic as V0
 import           Servant
 
 handlers
-    :: (HasCompileInfo, HasConfigurations)
+    :: HasConfigurations
     => ServerT Accounts.API MonadV1
 handlers =
          deleteAccount

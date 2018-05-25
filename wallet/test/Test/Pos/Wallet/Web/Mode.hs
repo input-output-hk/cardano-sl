@@ -182,9 +182,7 @@ getSentTxs = atomically . readTVar =<< view wtcSentTxs_L
 
 initWalletTestContext ::
        ( HasConfiguration
-       , HasSscConfiguration
        , HasDlgConfiguration
-       , HasNodeConfiguration
        )
     => WalletTestParams
     -> (WalletTestContext -> Emulation a)
@@ -211,9 +209,7 @@ initWalletTestContext WalletTestParams {..} callback =
 
 runWalletTestMode ::
        ( HasConfiguration
-       , HasSscConfiguration
        , HasDlgConfiguration
-       , HasNodeConfiguration
        )
     => WalletTestParams
     -> WalletTestMode a
@@ -233,7 +229,7 @@ type WalletProperty = PropertyM WalletTestMode
 -- | Convert 'WalletProperty' to 'Property' using given generator of
 -- 'WalletTestParams'.
 walletPropertyToProperty
-    :: (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration)
+    :: (HasConfiguration, HasDlgConfiguration)
     => Gen WalletTestParams
     -> WalletProperty a
     -> Property
@@ -241,7 +237,7 @@ walletPropertyToProperty wtpGen walletProperty =
     forAll wtpGen $ \wtp ->
         monadic (ioProperty . runWalletTestMode wtp) walletProperty
 
-instance (HasConfiguration, HasSscConfiguration, HasDlgConfiguration, HasNodeConfiguration)
+instance (HasConfiguration, HasDlgConfiguration)
         => Testable (WalletProperty a) where
     property = walletPropertyToProperty arbitrary
 

@@ -12,7 +12,6 @@ import           Universum
 
 import           Control.Exception.Safe (try)
 import           Control.Lens (At (at), Index, _Right)
-import           Data.Default (def)
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util (listJson)
@@ -34,7 +33,6 @@ import           Pos.Crypto (SecretKey, toPublic)
 import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
 import qualified Pos.Lrc as Lrc
-import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.Util (getKeys)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..), blockPropertyToProperty)
@@ -46,7 +44,7 @@ import           Test.Pos.Util.QuickCheck (maybeStopProperty, stopProperty)
 
 
 spec :: Spec
-spec = withStaticConfigurations $ \_ -> withCompileInfo def $
+spec = withStaticConfigurations $ \_ ->
     describe "Lrc.Worker" $ modifyMaxSuccess (const 4) $ do
         describe "lrcSingleShot" $ do
             -- Currently we want to run it only 4 times, because there
@@ -115,7 +113,7 @@ genGenesisInitializer = do
 -- Actual correctness test
 ----------------------------------------------------------------------------
 
-lrcCorrectnessProp :: (HasConfigurations, HasCompileInfo) => BlockProperty ()
+lrcCorrectnessProp :: HasConfigurations => BlockProperty ()
 lrcCorrectnessProp = do
     let k = blkSecurityParam
     -- This value is how many blocks we need to generate first. We
@@ -169,9 +167,9 @@ checkRichmen = do
     toStakeholders :: Maybe [SecretKey] -> [StakeholderId]
     toStakeholders = map (addressHash . toPublic) . fromMaybe
         (error "genesis secrets are unknown in tests")
-    poorStakeholders :: HasConfigurations => [StakeholderId]
+    poorStakeholders :: [StakeholderId]
     poorStakeholders = toStakeholders genesisSecretKeysPoor
-    richStakeholders :: HasConfigurations => [StakeholderId]
+    richStakeholders :: [StakeholderId]
     richStakeholders = toStakeholders genesisSecretKeysRich
 
     getRichmen ::
@@ -179,7 +177,7 @@ checkRichmen = do
         -> BlockProperty richmen
     getRichmen getter = maybeStopProperty "No richmen for epoch#1!" =<< getter 1
 
-    checkRichmenFull :: HasConfigurations => Lrc.FullRichmenData -> BlockProperty ()
+    checkRichmenFull :: Lrc.FullRichmenData -> BlockProperty ()
     checkRichmenFull (totalStake, richmenStakes) = do
         realTotalStake <- lift GS.getRealTotalStake
         unless (totalStake == realTotalStake) $
@@ -189,7 +187,7 @@ checkRichmen = do
              totalStake realTotalStake
         checkRichmenStakes richmenStakes
 
-    checkRichmenStakes :: HasConfigurations => Lrc.RichmenStakes -> BlockProperty ()
+    checkRichmenStakes :: Lrc.RichmenStakes -> BlockProperty ()
     checkRichmenStakes richmenStakes = do
         checkRichmenSet (getKeys richmenStakes)
         let checkRich (id, realStake)
@@ -202,7 +200,7 @@ checkRichmen = do
                 | otherwise = pass
         mapM_ checkRich =<< expectedRichmenStakes
 
-    checkRichmenSet :: HasConfigurations => Lrc.RichmenSet -> BlockProperty ()
+    checkRichmenSet :: Lrc.RichmenSet -> BlockProperty ()
     checkRichmenSet richmenSet = do
         mapM_ (checkPoor richmenSet) poorStakeholders
         let checkRich (id, realStake) =
@@ -212,7 +210,7 @@ checkRichmen = do
                  id realStake
         mapM_ checkRich =<< expectedRichmenStakes
 
-    expectedRichmenStakes :: HasConfigurations => BlockProperty [(StakeholderId, Coin)]
+    expectedRichmenStakes :: BlockProperty [(StakeholderId, Coin)]
     expectedRichmenStakes = do
         let resolve id = (id, ) . fromMaybe minBound <$> GS.getRealStake id
         lift $ mapM resolve richStakeholders
@@ -228,7 +226,7 @@ checkRichmen = do
                  %coinF%", total stake is "%coinF)
                 poorGuyStake totalStake
 
-genAndApplyBlockFixedTxs :: (HasConfigurations,HasCompileInfo) => [TxAux] -> BlockProperty ()
+genAndApplyBlockFixedTxs :: HasConfigurations => [TxAux] -> BlockProperty ()
 genAndApplyBlockFixedTxs txs = do
     let txPayload = mkTxPayload txs
     emptyBlund <- bpGenBlock (EnableTxPayload False) (InplaceDB False)
@@ -257,7 +255,7 @@ txsAfterBoundary = pure []
 -- Less than `k` blocks test.
 ----------------------------------------------------------------------------
 
-lessThanKAfterCrucialProp :: (HasConfigurations, HasCompileInfo) => BlockProperty ()
+lessThanKAfterCrucialProp :: HasConfigurations => BlockProperty ()
 lessThanKAfterCrucialProp = do
     let k = blkSecurityParam
     -- We need to generate '8 * k' blocks for first '8 * k' slots.

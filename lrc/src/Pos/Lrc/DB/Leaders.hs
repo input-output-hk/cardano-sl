@@ -21,8 +21,7 @@ import           Universum
 import           Pos.Binary.Class (serialize')
 import           Pos.Binary.Core ()
 import           Pos.Core (EpochIndex, HasProtocolConstants, SlotId (SlotId),
-                           SlotLeaders, StakeholderId, flattenSlotId, unsafeMkLocalSlotIndex,
-                           HasGeneratedSecrets, HasGenesisData)
+                           SlotLeaders, StakeholderId, flattenSlotId, unsafeMkLocalSlotIndex)
 import           Pos.DB.Class (MonadDB, MonadDBRead)
 import           Pos.Lrc.DB.Common (dbHasKey, getBi, putBatch, putBatchBi, putBi, toRocksOps)
 import           Pos.Lrc.Genesis (genesisLeaders)
@@ -34,7 +33,7 @@ import           Pos.Lrc.Genesis (genesisLeaders)
 getLeadersForEpoch :: MonadDBRead m => EpochIndex -> m (Maybe SlotLeaders)
 getLeadersForEpoch = getBi . leadersForEpochKey
 
-getLeader :: (MonadDBRead m, HasProtocolConstants) => SlotId -> m (Maybe StakeholderId)
+getLeader :: MonadDBRead m => SlotId -> m (Maybe StakeholderId)
 getLeader = getBi . leaderKey
 
 ----------------------------------------------------------------------------
@@ -45,7 +44,7 @@ getLeader = getBi . leaderKey
 -- The DB contains two mappings:
 -- * EpochIndex -> SlotLeaders
 -- * SlotId -> StakeholderId (added in CSE-240)
-putLeadersForEpoch :: (MonadDB m, HasProtocolConstants) => EpochIndex -> SlotLeaders -> m ()
+putLeadersForEpoch :: MonadDB m => EpochIndex -> SlotLeaders -> m ()
 putLeadersForEpoch epoch leaders = do
     let opsAllAtOnce  = toRocksOps $ putLeadersForEpochAllAtOnceOps epoch leaders
         opsSeparately = toRocksOps $ putLeadersForEpochSeparatelyOps epoch leaders
@@ -55,13 +54,7 @@ putLeadersForEpoch epoch leaders = do
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareLrcLeaders ::
-       ( MonadDB m
-       , HasProtocolConstants
-       , HasGeneratedSecrets
-       , HasGenesisData
-       )
-    => m ()
+prepareLrcLeaders :: MonadDB m => m ()
 prepareLrcLeaders =
     -- Initialization flag was added with CSE-240.
     unlessM isLrcDbInitialized $ do
@@ -127,7 +120,7 @@ putLeadersForEpochSeparatelyOps epoch leaders =
     [(leaderKey $ mkSlotId epoch i, leader)
     | (i, leader) <- zip [0..] $ toList leaders]
   where
-    mkSlotId :: HasProtocolConstants => EpochIndex -> Word16 -> SlotId
+    mkSlotId :: EpochIndex -> Word16 -> SlotId
     mkSlotId epoch' slot =
         -- Using @unsafeMkLocalSlotIndex@ because we trust the callers.
         SlotId epoch' (unsafeMkLocalSlotIndex slot)

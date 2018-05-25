@@ -88,7 +88,7 @@ bracketPassiveWallet =
 -- | Initialize the active wallet.
 -- The active wallet is allowed all.
 bracketActiveWallet
-    :: forall ctx m n a. (MonadMask n, MonadLegacyWallet ctx m)
+    :: forall m n a. (MonadMask n)
     => PassiveWalletLayer m
     -> WalletDiffusion
     -> (ActiveWalletLayer m -> n a) -> n a

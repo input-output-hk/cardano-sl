@@ -222,7 +222,6 @@ instance ( IndexRelation a ix
          , BuildableSafe ix
          , ToFilterOperations ixs a
          , sym ~ IndexToQueryParam a ix
-         , KnownSymbol sym
          )
          => ToFilterOperations (ix ': ixs) a where
     toFilterOperations params _ =

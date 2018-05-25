@@ -31,7 +31,6 @@ import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyD
                                     topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Reporting (noReporter)
 import           Pos.Txp (txpGlobalSettings)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.JsonLog.Events (jsonLogConfigFromHandle)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
@@ -117,7 +116,7 @@ newRealModeContext dbs confOpts secretKeyPath = do
 
 
 walletRunner
-    :: (HasConfigurations, HasCompileInfo)
+    :: HasConfigurations
     => ConfigurationOptions
     -> NodeDBs
     -> FilePath
@@ -131,7 +130,7 @@ walletRunner confOpts dbs secretKeyPath ws act = runProduction $ do
                                  <*> newRealModeContext dbs confOpts secretKeyPath
     runReaderT act wwmc
 
-newWalletState :: (MonadIO m, HasConfigurations) => Bool -> FilePath -> m WalletDB
+newWalletState :: MonadIO m => Bool -> FilePath -> m WalletDB
 newWalletState recreate walletPath =
     -- If the user passed the `--add-to` option, it means we don't have
     -- to rebuild the DB, but rather append stuff into it.
@@ -156,20 +155,19 @@ main = do
     cli@CLI{..} <- getRecord "DBGen"
     let cfg = newConfig cli
 
-    withConfigurations cfg $ \_ ->
-        withCompileInfo $(retrieveCompileTimeInfo) $ do
-            when showStats (showStatsAndExit walletPath)
+    withConfigurations cfg $ \_ -> do
+        when showStats (showStatsAndExit walletPath)
 
-            say $ bold "Starting the modification of the wallet..."
+        say $ bold "Starting the modification of the wallet..."
 
-            showStatsData "before" walletPath
+        showStatsData "before" walletPath
 
-            dbs  <- openNodeDBs False nodePath -- Do not recreate!
-            spec <- loadGenSpec config
-            ws   <- newWalletState (isJust addTo) walletPath -- Recreate or not
+        dbs  <- openNodeDBs False nodePath -- Do not recreate!
+        spec <- loadGenSpec config
+        ws   <- newWalletState (isJust addTo) walletPath -- Recreate or not
 
-            let generatedWallet = generateWalletDB cli spec
-            walletRunner cfg dbs secretKeyPath ws generatedWallet
-            closeState ws
+        let generatedWallet = generateWalletDB cli spec
+        walletRunner cfg dbs secretKeyPath ws generatedWallet
+        closeState ws
 
-            showStatsData "after" walletPath
+        showStatsData "after" walletPath

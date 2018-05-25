@@ -6,12 +6,11 @@ module Pos.GState.GState
 
 import           Universum
 
-import           Pos.Core (GenesisData (..), HasConfiguration, HeaderHash, genesisData)
+import           Pos.Core (GenesisData (..), HeaderHash, genesisData)
 import           Pos.DB.Class (MonadDB)
 import           Pos.DB.GState.Common (initGStateCommon, isInitialized, setInitialized)
 import           Pos.Delegation.DB (initGStateDlg)
 import           Pos.GState.BlockExtra (initGStateBlockExtra)
-import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.DB (initSscDB)
 import           Pos.Txp.DB (initGStateStakes, initGStateUtxo)
 import           Pos.Txp.GenesisUtxo (genesisUtxo)
@@ -22,8 +21,7 @@ prepareGStateDB ::
        forall ctx m.
        ( MonadReader ctx m
        , MonadDB m
-       , HasConfiguration
-       , HasSscConfiguration)
+       )
     => HeaderHash
     -> m ()
 prepareGStateDB initialTip = unlessM isInitialized $ do

@@ -59,7 +59,6 @@ import           Test.QuickCheck.Monadic (PropertyM, monadic)
 import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..), mkAllSecretsSimple)
 import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub, onRollbackBlocksStub)
 import           Pos.Block.Slog (HasSlogGState (..), mkSlogGState)
-import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (BlockVersionData, CoreConfiguration (..), GenesisConfiguration (..),
                            GenesisInitializer (..), GenesisSpec (..), HasConfiguration, SlotId,
                            Timestamp (..), genesisSecretKeys, withGenesisSpec, HasProtocolConstants)
@@ -85,7 +84,7 @@ import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSimple
                                mkSimpleSlottingStateVar)
 import           Pos.Slotting.MemState (MonadSlotsData)
 import           Pos.Slotting.Types (SlottingData)
-import           Pos.Ssc (HasSscConfiguration, SscMemTag, SscState, mkSscState)
+import           Pos.Ssc (SscMemTag, SscState, mkSscState)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), TxpGlobalSettings,
                           TxpHolderTag, mkTxpLocalData, txNormalize, txProcessTransactionNoLock,
                           txpGlobalSettings)
@@ -227,9 +226,7 @@ instance HasAllSecrets BlockTestContext where
 
 initBlockTestContext ::
        ( HasConfiguration
-       , HasSscConfiguration
        , HasDlgConfiguration
-       , HasNodeConfiguration
        )
     => TestParams
     -> (BlockTestContext -> Emulation a)
@@ -288,9 +285,7 @@ instance HasLens BlockTestContextTag BlockTestContext BlockTestContext where
 type BlockTestMode = ReaderT BlockTestContext Emulation
 
 runBlockTestMode ::
-       ( HasNodeConfiguration
-       , HasSscConfiguration
-       , HasDlgConfiguration
+       ( HasDlgConfiguration
        , HasConfiguration
        )
     => TestParams
@@ -309,7 +304,7 @@ type BlockProperty = PropertyM BlockTestMode
 -- | Convert 'BlockProperty' to 'Property' using given generator of
 -- 'TestParams'.
 blockPropertyToProperty ::
-       (HasNodeConfiguration, HasDlgConfiguration, HasSscConfiguration)
+       (HasDlgConfiguration)
     => Gen TestParams
     -> (HasConfiguration =>
             BlockProperty a)
@@ -332,7 +327,7 @@ blockPropertyToProperty tpGen blockProperty =
 --          => Testable (HasConfiguration => BlockProperty a) where
 --     property = blockPropertyToProperty arbitrary
 blockPropertyTestable ::
-       (HasNodeConfiguration, HasDlgConfiguration, HasSscConfiguration)
+       (HasDlgConfiguration)
     => (HasConfiguration => BlockProperty a)
     -> Property
 blockPropertyTestable = blockPropertyToProperty arbitrary

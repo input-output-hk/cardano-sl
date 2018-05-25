@@ -44,7 +44,7 @@ import           Pos.Util.Some (Some (Some))
 -- | Verify a BlockHeader in isolation. There is nothing to be done for
 -- genesis headers.
 verifyBlockHeader
-    :: ( MonadError Text m, Bi MainProof, HasProtocolMagic )
+    :: ( MonadError Text m, HasProtocolMagic )
     => BlockHeader
     -> m ()
 verifyBlockHeader (BlockHeaderGenesis _) = pure ()
@@ -114,7 +114,7 @@ verifyMainBody MainBody {..} = do
 
 -- | Verify a main block header in isolation.
 verifyMainBlockHeader
-    :: ( MonadError Text m, Bi MainProof, HasProtocolMagic )
+    :: ( MonadError Text m, HasProtocolMagic )
     => GenericBlockHeader MainBlockchain
     -> m ()
 verifyMainBlockHeader UnsafeGenericBlockHeader {..} = do

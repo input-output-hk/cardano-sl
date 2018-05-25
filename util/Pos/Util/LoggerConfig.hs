@@ -9,7 +9,6 @@ module Pos.Util.LoggerConfig
        , retrieveLogFiles
        ) where
 
-
 import           Data.Yaml      as Y
 import           GHC.Generics
 import           Universum

@@ -1,5 +1,10 @@
 {-# LANGUAGE ApplicativeDo         #-}
-{-# LANGUAGE CPP                   #-} {-# LANGUAGE DeriveGeneric         #-} {-# LANGUAGE FlexibleContexts      #-} {-# LANGUAGE FlexibleInstances     #-} {-# LANGUAGE LambdaCase            #-} {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE NoImplicitPrelude     #-}
 {-# LANGUAGE QuasiQuotes           #-}

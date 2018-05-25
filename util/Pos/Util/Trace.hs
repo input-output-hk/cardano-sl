@@ -1,6 +1,7 @@
 
 module Pos.Util.Trace
     ( Trace (..)
+    , TraceIO
     , trace
     , traceWith
     , noTrace
@@ -18,6 +19,8 @@ import qualified Pos.Util.Log as Log
 newtype Trace m s = Trace
     { runTrace :: Op (m ()) s
     }
+
+type TraceIO = Trace IO (Log.Severity, Text)
 
 instance Contravariant (Trace m) where
     contramap f = Trace . contramap f . runTrace
@@ -40,6 +43,6 @@ stdoutTrace :: Trace IO Text
 stdoutTrace = Trace $ Op $ TIO.putStrLn
 
 -- | A 'Trace' that uses logging
-logTrace :: Log.LoggerName -> Trace IO (Log.Severity, Text)
+logTrace :: Log.LoggerName -> TraceIO
 logTrace loggerName = Trace $ Op $ \(severity, txt) ->
-    Log.usingLoggerName Log.Debug loggerName $ Log.logMessage severity txt
+    Log.usingLoggerName loggerName $ Log.logMessage severity txt

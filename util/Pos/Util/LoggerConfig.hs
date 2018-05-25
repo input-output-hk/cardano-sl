@@ -8,7 +8,7 @@ module Pos.Util.LoggerConfig
 
 import           Universum
 
-import           Pos.Util.LogSeverity
+import           Pos.Util.Log.Severity
 
 
 -- | a placeholder

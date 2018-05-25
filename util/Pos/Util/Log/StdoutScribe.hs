@@ -1,12 +1,15 @@
-module Pos.Util.LogStdoutScribe
+
+module Pos.Util.Log.StdoutScribe
        ( mkStdoutScribe
        ) where
 
-import           Universum hiding (fromString)
+import           Universum hiding (fromString) --, newMVar, takeMVar, putMVar)
 
 import           Data.Text.Lazy.Builder
 import qualified Data.Text.Lazy.IO          as T
 import           System.IO
+import           System.IO.Unsafe (unsafePerformIO)
+--import           Control.Concurrent.MVar (newMVar, takeMVar, putMVar)
 
 import           Katip.Core
 import           Katip.Scribes.Handle (getKeys, brackets)
@@ -17,19 +20,23 @@ import           Katip.Format.Time (formatAsIso8601)
 -- | create a katip scribe for stdout logging
 --   (following default scribe in katip source code)
 
+-- | global lock for this scribe
+{-# NOINLINE lock #-}
+lock :: MVar ()
+lock = unsafePerformIO $ newMVar ()
+
 mkStdoutScribe :: Severity -> Verbosity -> IO Scribe
 mkStdoutScribe s v = do
     let h = stdout
         colorize = True
     hSetBuffering h LineBuffering
-    lock <- newMVar ()
     let logger :: forall a. LogItem a => Item a -> IO ()
         logger i@Item{..} = do
           when (permitItem s i) $ bracket_ (takeMVar lock) (putMVar lock ()) $
-            T.hPutStrLn h $ toLazyText $ formatItem colorize v i
+            T.hPutStrLn h $! toLazyText $ formatItem colorize v i
     pure $ Scribe logger (hFlush h)
 
--- | format a log item with subsecond precision
+-- | format a log item with subsecond precision (ISO 8601)
 formatItem :: LogItem a => Bool -> Verbosity -> Item a -> Builder
 formatItem withColor verb Item{..} =
     brackets nowStr <>

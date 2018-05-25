@@ -1,5 +1,5 @@
 
-module Pos.Util.LogSeverity
+module Pos.Util.Log.Severity
        ( Severity(..)
        ) where
 

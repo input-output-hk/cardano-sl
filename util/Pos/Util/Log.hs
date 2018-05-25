@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 
 module Pos.Util.Log
        ( Severity(..)
@@ -14,6 +13,7 @@ module Pos.Util.Log
        , loadLogConfig
        , retrieveLogFiles
        ---
+       , setupLogging
        , loggerBracket
        ---
        , logDebug
@@ -35,11 +35,12 @@ import           Control.Monad.Morph (MFunctor(..))
 import           Control.Monad.Writer (WriterT (..))
 
 import           Pos.Util.LoggerConfig (LoggerConfig(..), loadLogConfig, retrieveLogFiles)
-import           Pos.Util.LogSeverity (Severity(..))
-import           Pos.Util.LogStdoutScribe (mkStdoutScribe)
+import           Pos.Util.Log.Severity (Severity(..))
 
 import           Data.Text (Text{-, unpack-})
 import           Data.Text.Lazy.Builder
+
+import qualified Pos.Util.Log.Internal as Internal
 
 import qualified Katip                      as K
 import qualified Katip.Core                 as KC
@@ -56,7 +57,7 @@ type LoggerName = Text
 -- | compatibility
 class (MonadIO m, LogContext m) => CanLog m where
     dispatchMessage :: LoggerName -> Severity -> Text -> m ()
-    dispatchMessage _ s t = K.logItemM Nothing (sev2klog s) $ K.logStr t
+    dispatchMessage _ s t = K.logItemM Nothing (Internal.sev2klog s) $ K.logStr t
 
 class (MonadIO m, LogContext m) => HasLoggerName m where
     askLoggerName :: m LoggerName
@@ -77,13 +78,13 @@ newtype LoggerNameBox m a = LoggerNameBox
 instance MFunctor LoggerNameBox where
     hoist f = LoggerNameBox . hoist f . loggerNameBoxEntry
 {-
-instance WithLogger m => HasLoggerName (LoggerNameBox m) where
-    askLoggerName = LoggerNameBox ask
-    modifyLoggerName how = LoggerNameBox . local how . loggerNameBoxEntry
-instance (MonadReader r m, CanLog m) => MonadReader r (LoggerNameBox m) where
+instance (MonadIO m, MonadReader r m) => MonadReader r (LoggerNameBox m) where
     ask = lift ask
     reader = lift . reader
     local f (LoggerNameBox m) = askLoggerName >>= lift . local f . runReaderT m
+instance (Monad m, MonadIO m) => HasLoggerName (LoggerNameBox m) where
+    askLoggerName = LoggerNameBox ask
+    modifyLoggerName how = LoggerNameBox . local how . loggerNameBoxEntry
 -}
 instance CanLog (LogContextT IO)
 instance CanLog m => CanLog (ReaderT s m)
@@ -95,7 +96,7 @@ instance HasLoggerName (LogContextT IO)
 
 -- | log a Text with severity
 logMessage :: (LogContext m {-, HasCallStack -}) => Severity -> Text -> m ()
-logMessage sev msg = logMessage' (sev2klog sev) $ K.logStr msg
+logMessage sev msg = logMessage' (Internal.sev2klog sev) $ K.logStr msg
 logMessage' :: (LogContext m {-, HasCallStack -}) => K.Severity -> K.LogStr -> m ()
 logMessage' s m = K.logItemM Nothing s m
 
@@ -141,20 +142,8 @@ newtype NamedPureLogger m a = NamedPureLogger
 -}
 --instance (MonadIO m) => KC.Katip (NamedPureLogger m)
 
--- | translate Severity to Katip.Severity
-sev2klog :: Severity -> K.Severity
-sev2klog = \case
-    Debug   -> K.DebugS
-    Info    -> K.InfoS
-    Notice  -> K.NoticeS
-    Warning -> K.WarningS
-    Error   -> K.ErrorS
-
--- | translate
-s2kname :: Text -> K.Namespace
-s2kname s = K.Namespace [s]
-
 -- | setup logging
+{-
 setupLogging :: Severity -> Text -> IO K.LogEnv
 setupLogging minSev name = do
     --hScribe <- K.mkHandleScribe K.ColorIfTerminal stdout (sev2klog minSev) K.V0
@@ -162,18 +151,27 @@ setupLogging minSev name = do
     le <- K.registerScribe "stdout" hScribe K.defaultScribeSettings =<< K.initLogEnv (s2kname name) "production"
     -- remember this K.LogEnv
     return le
+-}
+setupLogging :: LoggerConfig -> IO ()
+setupLogging = Internal.setConfig
+
 
 -- | provide logging in IO
-usingLoggerName :: Severity -> LoggerName -> LogContextT IO a -> IO a
-usingLoggerName minSev name f = do
-    le <- setupLogging minSev name
-    K.runKatipContextT le () "cardano-sl" $ f
+usingLoggerName :: LoggerName -> LogContextT IO a -> IO a
+usingLoggerName name f = do
+    mayle <- Internal.getLogEnv
+    case mayle of
+            Nothing -> error "logging not yet initialized. Abort."
+            Just le -> K.runKatipContextT le () (Internal.s2kname name) $ f
 
 -- | bracket logging
-loggerBracket :: Severity -> LoggerName -> LogContextT IO a -> IO a
-loggerBracket minSev name f = do
-    bracket (setupLogging minSev name) K.closeScribes $
-      \le -> K.runKatipContextT le () "cardano-sl" $ f
+loggerBracket :: LoggerName -> LogContextT IO a -> IO a
+loggerBracket name f = do
+    mayle <- Internal.getLogEnv
+    case mayle of
+            Nothing -> error "logging not yet initialized. Abort."
+            Just le -> bracket (return le) K.closeScribes $
+                          \le_ -> K.runKatipContextT le_ () (Internal.s2kname name) $ f
 
 
 -- | WIP: tests to run interactively in GHCi

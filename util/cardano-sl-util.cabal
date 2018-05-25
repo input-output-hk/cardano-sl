@@ -45,8 +45,10 @@ library
   other-modules:
                        Pos.Util.LoggerConfig
                        Pos.Util.LoggerName
-                       Pos.Util.LogSeverity
-                       Pos.Util.LogStdoutScribe
+                       Pos.Util.Log.Severity
+                       Pos.Util.Log.StdoutScribe
+                       --Pos.Util.Log.JsonScribe
+                       Pos.Util.Log.Internal
 
   build-depends:       aeson
                      , base
@@ -145,13 +147,16 @@ test-suite test
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.Util.QuickCheck.Property
                        Test.Pos.Util.TimerSpec
+                       Test.Pos.Util.LogSpec
                        Test.Pos.UtilSpec
 
   build-depends:       base
                      , async
                      , cardano-sl-binary
                      , cardano-sl-util
+                     , formatting
                      , hspec
+                     , hspec-core
                      , QuickCheck
                      , quickcheck-instances
                      , serokell-util >= 0.1.3.4

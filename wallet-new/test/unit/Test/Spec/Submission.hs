@@ -8,9 +8,8 @@ module Test.Spec.Submission (
 import           Universum
 
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending, genPending,
-                                                pendingTransactions, removePending,
-                                                singletonPending)
+import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending, pendingTransactions,
+                                                removePending, singletonPending)
 import           Cardano.Wallet.Kernel.Submission
 import           Control.Exception (toException)
 import           Control.Lens (to)
@@ -20,20 +19,68 @@ import qualified Data.Map as M
 import           Data.Set (Set)
 import qualified Data.Set as S
 import           Data.Text.Buildable (build)
+import qualified Data.Vector as V
 import           Formatting (bprint, (%))
 import qualified Formatting as F
-import qualified Pos.Arbitrary.Txp as Core
 import qualified Pos.Core as Core
 import           Pos.Crypto.Hashing (hash)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Serokell.Util.Text (listJsonIndent)
+import qualified Test.Pos.Txp.Arbitrary as Core
 
-import           Test.QuickCheck (Gen, Property, arbitrary, conjoin, forAll, shuffle, vectorOf,
-                                  (===), (==>))
+import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin, forAll, listOf,
+                                  shuffle, vectorOf, (===), (==>))
 import           Test.QuickCheck.Property (counterexample, exception, property)
 import           Util (disjoint)
 import           Util.Buildable (ShowThroughBuild (..))
 import           Util.Buildable.Hspec
+
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
+{-------------------------------------------------------------------------------
+  QuickCheck core-based generators, which cannot be placed in the normal
+  modules without having `wallet-new` depends from `cardano-sl-txp-test`.
+-------------------------------------------------------------------------------}
+
+genPending :: Core.ProtocolMagic -> Gen Pending
+genPending pMagic = do
+    elems <- listOf (do tx  <- Core.genTx
+                        wit <- (V.fromList <$> listOf (Core.genTxInWitness pMagic))
+                        aux <- Core.TxAux <$> pure tx <*> pure wit
+                        pure (hash tx, aux)
+                    )
+    return $ emptyPending & over pendingTransactions (fmap (M.union (M.fromList elems)))
+
+-- Generates a random schedule by picking a slot >= of the input one but
+-- within a 'slot + 10' range, as really generating schedulers which generates
+-- things too far away in the future is not very useful for testing, if not
+-- testing that a scheduler will never reschedule something which cannot be
+-- reached.
+genSchedule :: MaxRetries -> Pending -> Slot -> Gen Schedule
+genSchedule maxRetries pending (Slot lowerBound) = do
+    let pendingTxs  = pending ^. pendingTransactions . fromDb . to M.toList
+    slots    <- vectorOf (length pendingTxs) (fmap Slot (choose (lowerBound, lowerBound + 10)))
+    retries  <- vectorOf (length pendingTxs) (choose (0, maxRetries))
+    let events = List.foldl' updateFn mempty (zip3 slots pendingTxs retries)
+    return $ Schedule events mempty
+    where
+        updateFn acc (slot, (txId, txAux), retries) =
+            let s = ScheduleSend txId txAux (SubmissionCount retries)
+                e = ScheduleEvents [s] mempty
+            in prependEvents slot e acc
+
+genWalletSubmissionState :: MaxRetries -> Gen WalletSubmissionState
+genWalletSubmissionState maxRetries = do
+    pending   <- genPending (Core.ProtocolMagic 0)
+    slot      <- pure (Slot 0) -- Make the layer always start from 0, to make running the specs predictable.
+    scheduler <- genSchedule maxRetries pending slot
+    return $ WalletSubmissionState pending scheduler slot
+
+genWalletSubmission :: MaxRetries
+                    -> ResubmissionFunction m
+                    -> Gen (WalletSubmission m)
+genWalletSubmission maxRetries rho =
+    WalletSubmission <$> pure rho <*> genWalletSubmissionState maxRetries
 
 {-------------------------------------------------------------------------------
   Submission layer tests

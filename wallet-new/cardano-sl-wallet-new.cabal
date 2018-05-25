@@ -403,6 +403,7 @@ test-suite wallet-unit-tests
                     , cardano-sl-lrc
                     , cardano-sl-ssc
                     , cardano-sl-txp
+                    , cardano-sl-txp-test
                     , cardano-sl-update
                     , cardano-sl-util
                     , cardano-sl-wallet-new
@@ -421,6 +422,7 @@ test-suite wallet-unit-tests
                     , text-format
                     , universum
                     , unordered-containers
+                    , vector
 
 test-suite wallet-new-specs
   ghc-options:      -Wall

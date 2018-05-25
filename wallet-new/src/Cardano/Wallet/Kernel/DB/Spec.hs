@@ -4,7 +4,6 @@ module Cardano.Wallet.Kernel.DB.Spec (
     Pending(..)
   , Checkpoint(..)
   , Checkpoints
-  , genPending
   , emptyPending
   , singletonPending
   , unionPending
@@ -32,14 +31,10 @@ import           Control.Lens.TH (makeLenses)
 import qualified Data.Map.Strict as M
 import           Data.SafeCopy (base, deriveSafeCopy)
 import           Data.Text.Buildable (build)
-import qualified Data.Vector as V
 import           Formatting (bprint, (%))
 import           Serokell.Util.Text (listJsonIndent)
-import           Test.QuickCheck (Gen, listOf)
 
-import qualified Pos.Arbitrary.Txp as Core
 import qualified Pos.Core as Core
-import           Pos.Crypto.Hashing (hash)
 import qualified Pos.Txp as Core
 
 import           Cardano.Wallet.Kernel.DB.BlockMeta
@@ -129,16 +124,3 @@ instance Buildable Pending where
     build (Pending p) =
       let elems = p ^. fromDb . to M.toList
       in bprint ("Pending " % listJsonIndent 4) (map fst elems)
-
-{-------------------------------------------------------------------------------
-  QuickCheck core-based generators
--------------------------------------------------------------------------------}
-
-genPending :: Core.ProtocolMagic -> Gen Pending
-genPending pMagic = do
-    elems <- listOf (do tx  <- Core.genTx
-                        wit <- (V.fromList <$> listOf (Core.genTxInWitness pMagic))
-                        aux <- Core.TxAux <$> pure tx <*> pure wit
-                        pure (hash tx, aux)
-                    )
-    return . Pending . InDb . M.fromList $ elems

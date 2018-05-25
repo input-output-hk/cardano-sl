@@ -1,6 +1,9 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE RankNTypes   #-}
 {-# LANGUAGE ViewPatterns #-}
+-- We are exporting Lens' 'Getters', which has a redundant constraint on
+-- \"contravariant\".
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 module Cardano.Wallet.Kernel.Submission (
     -- * Public API
       newWalletSubmission
@@ -13,7 +16,7 @@ module Cardano.Wallet.Kernel.Submission (
     -- * Types and lenses
     , Evicted
     , ResubmissionFunction
-    , Schedule
+    , Schedule (..)
     , ScheduleEvents (..)
     , ScheduleSend (..)
     , NextEvent (..)
@@ -23,13 +26,18 @@ module Cardano.Wallet.Kernel.Submission (
     , SchedulingError (..)
     , Slot (..)
     , SubmissionCount (..)
-    , WalletSubmission
+    , WalletSubmission (..)
+    , WalletSubmissionState (..)
+    , MaxRetries
     , mapSlot
     , wsResubmissionFunction
     , getCurrentSlot
     , localPendingSet
     , getSchedule
+
+    -- * Internal useful function
     , addToSchedule
+    , prependEvents
 
     -- * Resubmitting things to the network
     , defaultResubmitFunction
@@ -37,9 +45,6 @@ module Cardano.Wallet.Kernel.Submission (
     -- * Retry policies
     , constantRetry
     , exponentialBackoff
-
-    -- * Testing utilities
-    , genWalletSubmission
     ) where
 
 import           Universum
@@ -63,8 +68,8 @@ import           Serokell.Util.Text (listJsonIndent, mapBuilder, pairF)
 import           Test.QuickCheck
 
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending, genPending,
-                                                pendingTransactions, removePending, unionPending)
+import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending, pendingTransactions,
+                                                removePending, unionPending)
 import qualified Pos.Core as Core
 
 -- | Wallet Submission Layer
@@ -235,37 +240,6 @@ instance Buildable Schedule where
 
 instance Arbitrary SubmissionCount where
     arbitrary = SubmissionCount <$> choose (0, 255)
-
--- Generates a random schedule by picking a slot >= of the input one but
--- within a 'slot + 10' range, as really generating schedulers which generates
--- things too far away in the future is not very useful for testing, if not
--- testing that a scheduler will never reschedule something which cannot be
--- reached.
-genSchedule :: MaxRetries -> Pending -> Slot -> Gen Schedule
-genSchedule maxRetries pending (Slot lowerBound) = do
-    let pendingTxs  = pending ^. pendingTransactions . fromDb . to M.toList
-    slots    <- vectorOf (length pendingTxs) (fmap Slot (choose (lowerBound, lowerBound + 10)))
-    retries  <- vectorOf (length pendingTxs) (choose (0, maxRetries))
-    let events = List.foldl' updateFn mempty (zip3 slots pendingTxs retries)
-    return $ Schedule events mempty
-    where
-        updateFn acc (slot, (txId, txAux), retries) =
-            let s = ScheduleSend txId txAux (SubmissionCount retries)
-                e = ScheduleEvents [s] mempty
-            in prependEvents slot e acc
-
-genWalletSubmissionState :: MaxRetries -> Gen WalletSubmissionState
-genWalletSubmissionState maxRetries = do
-    pending   <- genPending (Core.ProtocolMagic 0)
-    slot      <- pure (Slot 0) -- Make the layer always start from 0, to make running the specs predictable.
-    scheduler <- genSchedule maxRetries pending slot
-    return $ WalletSubmissionState pending scheduler slot
-
-genWalletSubmission :: MaxRetries
-                    -> ResubmissionFunction m
-                    -> Gen (WalletSubmission m)
-genWalletSubmission maxRetries rho =
-    WalletSubmission <$> pure rho <*> genWalletSubmissionState maxRetries
 
 --
 --

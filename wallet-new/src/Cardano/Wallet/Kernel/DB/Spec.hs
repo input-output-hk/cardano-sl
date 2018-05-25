@@ -8,7 +8,7 @@ module Cardano.Wallet.Kernel.DB.Spec (
   , emptyPending
   , singletonPending
   , unionPending
-  , differencePending
+  , removePending
     -- ** Lenses
   , pendingTransactions
   , checkpointUtxo
@@ -69,9 +69,11 @@ unionPending (Pending new) (Pending old) =
     Pending (M.union <$> new <*> old)
 
 -- | Computes the difference between two 'Pending' sets.
-differencePending :: Pending -> Pending -> Pending
-differencePending (Pending new) (Pending old) =
-    Pending (M.difference <$> new <*> old)
+removePending :: Set Core.TxId -> Pending -> Pending
+removePending ids (Pending (InDb old)) = Pending (InDb $ old `withoutKeys` ids)
+    where
+        withoutKeys :: Ord k => Map k a -> Set k -> Map k a
+        m `withoutKeys` s = m `M.difference` M.fromSet (const ()) s
 
 -- | Per-wallet state
 --

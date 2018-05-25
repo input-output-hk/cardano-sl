@@ -14,6 +14,7 @@ spec = do
         prop "distributeFeesInternal preserves amounts" $ \fee outputs ->
             case distributeFeesInternal fee outputs of
                 Nothing ->
+                    classify True "Inputs did not satisfy invariants" $
                     True === True
                 Just distributed ->
                     sum (map fromIntegral outputs) - (fromIntegral fee)

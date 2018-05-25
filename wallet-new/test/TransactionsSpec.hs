@@ -19,4 +19,6 @@ spec = do
                     sum (map fromIntegral outputs) - (fromIntegral fee)
                     ===
                     sum distributed
+                    .&&.
+                    all (/= (0 :: Integer)) (map round distributed)
 

@@ -163,13 +163,19 @@ newTransactionFeesIncluded submitTx pmt = do
     newTransaction submitTx newPayment
 
 -- | This function implements the fee distribution logic described in the
--- comments of 'newTransactionFeesIncluded'.
+-- comments of 'newTransactionFeesIncluded'. There are two preconditions, and
+-- this function returns 'Nothing' if either are violated:
+--
+-- 1. The fee amount must be less than the total of the outputs. If this is
+--    violated, then it would be impossible for the fee to come entirely from
+--    the outputs, so the transaction is invalid.
+-- 2. None of the outputs may be 0.
 distributeFeesInternal
     :: Word64 -- ^ The fee amount
     -> NonEmpty Word64 -- ^ The outputs of the 'PaymentDistribution'
     -> Maybe (NonEmpty Rational) -- ^ The resulting outputs after subtracting the fee.
 distributeFeesInternal fee outputs
-    | fromIntegral fee > total || any (0 ==) outputs = Nothing
+    | fromIntegral fee >= total || any (0 ==) outputs = Nothing
     | otherwise = Just result
   where
     result =

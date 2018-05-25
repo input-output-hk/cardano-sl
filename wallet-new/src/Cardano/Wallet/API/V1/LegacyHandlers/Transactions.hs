@@ -67,6 +67,81 @@ newTransaction submitTx Payment {..} = do
     cTx <- V0.newPaymentBatch submitTx spendingPw batchPayment
     single <$> migrate cTx
 
+-- | By default, fees are separate from a posted payment. When you submit
+-- a 'Payment' to the API, you are saying "Please send Alice 5 ADA, and the fees
+-- will come out of my balance." The @feesIncluded@ parameter allows us to
+-- include those fees in the payment, allowing us to express "Please send Bob
+-- 3 ADA, and fees will come out of the ADA I am sending."
+--
+-- When fees are "included" in the payment amount, this means that we need to
+-- somehow subtract the fee amount computed for the 'Transaction' from the
+-- outputs in the 'Payment''s 'PaymentDistribution's. For the trivial case (a
+-- single payment), this is easy -- we deduct the entire fee amount from the
+-- transaction.
+--
+-- For payments with multiple outputs, we must consider carefully how to address
+-- the fee. There are a number of possible ways to distribute the fee among
+-- several 'PaymentDistribution's:
+--
+-- 1. Allow the user to specify the precise amount to deduct from each payment.
+--    This would provide a somewhat complicated API for questionable gain.
+-- 2. Deduct a proportion of the fee evenly from each payment. In pseudocode,
+--    this is:
+--
+--    @
+--    newOutputs fee outputs =
+--        map (subtract (fee `div` length outputs)) outputs
+--    @
+--
+--    This runs the risk of draining a 'PaymentDistribution's output to @0@,
+--    which would likely be an error case (there's no reason to ever have an
+--    output of @0@, unless you just really like paying fees for some reason).
+--    For this reason, this mode is unsupported.
+-- 3. Deduct an amount proportional to each payment. In pseudocode, this is:
+--
+--    @
+--    newOutputs fee outputs =
+--        let
+--            total =
+--                sum outputs
+--            subtractProportion output =
+--                output - (fee * (output / total))
+--        in
+--            map subtractProportion outputs
+--    @
+--
+--    This makes the likelihood of zeroing out a payment much less likely -- the
+--    only way we can observe that now is in the strange case of tiny payments
+--    where rounding causes it to zero out. We must still account for this, but
+--    it is less likely.
+--
+-- The astute observer will note that we operate on 'Coin', a wrapper around
+-- 'Word64' representing the number of Lovelace coins, but the operations
+-- require rational numbers. This implies the potential for rounding issues.
+-- Rounding issues give us three options: 'round', 'floor', and 'ceiling'.
+--
+-- Let's consider the strategies with the following data:
+--
+-- >>> outputs = [5, 8, 10]
+-- >>> total = sum outputs
+-- >>> fee = 3
+-- >>> withProportions xs = map (\x -> (x, fromIntegral x / fromIntegral (sum xs)))
+-- >>> withProportions outputs
+-- [(5,0.21739130434782608),(8,0.34782608695652173),(10,0.43478260869565216)]
+-- >>> subtractProportion output = fromIntegral output - (fee * (output / total))
+-- >>> let precise = map (\o -> fromIntegral o - (fee * (o / total))) outputs
+-- >>> precise
+-- [4.875,7.8,9.75]
+--
+-- Our initial total spending was 23, and we want to deduct a fee of 3 from this
+-- amount, for a total disbursement of 20 to these outputs. Let's observe the
+-- result of the different options:
+--
+-- >>> sum (map round precise)
+-- 23
+--
+-- Well, 'round' appears to be precisely what we want! The total lines up
+-- exactly. Is this by chance? We can write a QuickCheck property to test it.
 newTransactionFeesIncluded
     :: forall ctx m . (V0.MonadWalletTxFull ctx m)
     => (TxAux -> m Bool) -> Payment -> m (WalletResponse Transaction)
@@ -86,6 +161,32 @@ newTransactionFeesIncluded submitTx pmt = do
             }
 
     newTransaction submitTx newPayment
+
+-- | This function implements the fee distribution logic described in the
+-- comments of 'newTransactionFeesIncluded'.
+distributeFeesInternal
+    :: Word64 -- ^ The fee amount
+    -> NonEmpty Word64 -- ^ The outputs of the 'PaymentDistribution'
+    -> Maybe (NonEmpty Rational) -- ^ The resulting outputs after subtracting the fee.
+distributeFeesInternal fee outputs
+    | fromIntegral fee > total || any (0 ==) outputs = Nothing
+    | otherwise = Just result
+  where
+    result =
+        map (subtractFee) outputs
+    total =
+        sum (map fromIntegral outputs)
+    subtractFee output =
+        fromIntegral output - (fromIntegral fee * (fromIntegral output / total))
+
+
+-- | This subtraction implementation bottoms out at @0@ instead of underflowing.
+subBottomOut :: Word64 -> Word64 -> Word64
+subBottomOut x y
+    | result > x = 0
+    | otherwise = result
+  where
+    result = x - y
 
 allTransactions
     :: forall ctx m. (V0.MonadWalletHistory ctx m)

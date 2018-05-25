@@ -416,6 +416,7 @@ test-suite wallet-new-specs
                     SwaggerSpec
                     RequestSpec
                     WalletHandlersSpec
+                    TransactionsSpec
 
   default-language: Haskell2010
   default-extensions: BangPatterns

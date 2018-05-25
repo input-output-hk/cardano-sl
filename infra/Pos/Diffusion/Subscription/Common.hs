@@ -44,7 +44,9 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
                                              SendActions, constantListeners,
                                              withConnectionTo, recvLimited,
                                              mlMsgSubscribe, mlMsgSubscribe1)
-import           Pos.Diffusion.Types (SubscriptionStatus (..))
+import           Pos.Diffusion.Subscription.Status (SubscriptionStates)
+import qualified Pos.Diffusion.Subscription.Status as Status (subscribing, subscribed,
+                                                              terminated)
 import           Pos.Network.Types (Bucket (..), NodeType)
 import           Pos.Util.Trace (Trace, traceWith)
 
@@ -168,11 +170,11 @@ networkSubscribeTo'
     -> NodeType -- ^ Type to attribute to the peer that is subscribed to.
     -> MVar (Map (NodeType, NodeId) Int)
     -> IO () -- ^ Keepalive timeout
-    -> TVar (Map NodeId SubscriptionStatus) -- ^ Subscription status per node.
+    -> SubscriptionStates NodeId
     -> SendActions
     -> NodeId
     -> IO Millisecond
-networkSubscribeTo' logTrace oq bucket nodeType peersVar keepalive status sendActions peer =
+networkSubscribeTo' logTrace oq bucket nodeType peersVar keepalive subStates sendActions peer =
     networkSubscribeTo before after doSubscription
 
   where
@@ -182,10 +184,10 @@ networkSubscribeTo' logTrace oq bucket nodeType peersVar keepalive status sendAc
 
     before = do
         updatePeersBucketSubscribe oq bucket peersVar (nodeType, peer)
-        alterPeerSubStatus (Just Subscribing)
+        Status.subscribing subStates peer
         traceWith logTrace (Notice, msgSubscribingTo peer)
 
-    middle = alterPeerSubStatus (Just Subscribed)
+    middle = Status.subscribed subStates peer
 
     keepalive' = do
         keepalive
@@ -194,7 +196,7 @@ networkSubscribeTo' logTrace oq bucket nodeType peersVar keepalive status sendAc
     after reason duration _ = do
         updatePeersBucketUnsubscribe oq bucket peersVar (nodeType, peer)
         traceWith logTrace (Notice, msgSubscriptionTerminated peer reason)
-        alterPeerSubStatus Nothing
+        Status.terminated subStates peer
         pure duration
 
     msgSubscribingTo :: NodeId -> Text
@@ -205,15 +207,6 @@ networkSubscribeTo' logTrace oq bucket nodeType peersVar keepalive status sendAc
 
     msgSubscriptionTerminated :: NodeId -> SubscriptionTerminationReason -> Text
     msgSubscriptionTerminated = sformat ("subscriptionWorker: lost connection to "%shown%" "%shown)
-
-    alterPeerSubStatus :: Maybe SubscriptionStatus -> IO ()
-    alterPeerSubStatus s = atomically $ do
-        stats <- readTVar status
-        let !stats' = Map.alter fn peer stats
-        writeTVar status stats'
-        where
-            fn :: Maybe SubscriptionStatus -> Maybe SubscriptionStatus
-            fn x = getOption (Option x <> Option s)
 
 -- | Instances required in order to do network subscription.
 type SubscriptionMessageConstraints =

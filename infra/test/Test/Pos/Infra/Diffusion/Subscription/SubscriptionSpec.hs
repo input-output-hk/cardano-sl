@@ -12,10 +12,9 @@ import           Pos.Diffusion.Subscription.Common (SubscriptionTerminationReaso
                                                     networkSubscribeTo)
 
 spec :: Spec
-spec = describe "Subscription" $ do
-    describe "Exception handling" $ do
-        it "networkSubscribeTo squelches synchronous exceptions" syncExceptionSpec
-        it "networkSubscribeTo does not squelch asynchronous exceptions" asyncExceptionSpec
+spec = describe "Exception handling" $ do
+    it "networkSubscribeTo squelches synchronous exceptions" syncExceptionSpec
+    it "networkSubscribeTo does not squelch asynchronous exceptions" asyncExceptionSpec
 
 syncExceptionSpec :: Expectation
 syncExceptionSpec = do

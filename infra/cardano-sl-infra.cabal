@@ -24,6 +24,7 @@ library
                         Pos.Diffusion.Subscription.Common
                         Pos.Diffusion.Subscription.Dns
                         Pos.Diffusion.Subscription.Dht
+                        Pos.Diffusion.Subscription.Status
                         Pos.Diffusion.Subscription.Subscriber
 
                         Pos.DHT.Workers
@@ -226,11 +227,14 @@ test-suite test
   type:             exitcode-stdio-1.0
 
   other-modules:    Spec
+                    Test.Pos.Infra.Diffusion.Subscription.StatusSpec
                     Test.Pos.Infra.Diffusion.Subscription.SubscriptionSpec
 
   build-depends:    async
                   , base
                   , cardano-sl-infra
+                  , containers
+                  , QuickCheck
                   , hspec
 
   ghc-options:      -threaded

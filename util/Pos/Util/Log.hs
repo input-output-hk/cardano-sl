@@ -11,6 +11,7 @@ module Pos.Util.Log
        ---
        , LoggerConfig(..)
        , loadLogConfig
+       , parseLoggerConfig
        , retrieveLogFiles
        ---
        , setupLogging
@@ -34,7 +35,7 @@ import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Morph (MFunctor(..))
 import           Control.Monad.Writer (WriterT (..))
 
-import           Pos.Util.LoggerConfig (LoggerConfig(..), loadLogConfig, retrieveLogFiles)
+import           Pos.Util.LoggerConfig (LoggerConfig(..), parseLoggerConfig, loadLogConfig, retrieveLogFiles)
 import           Pos.Util.Log.Severity (Severity(..))
 
 import           Data.Text (Text{-, unpack-})
@@ -143,18 +144,8 @@ newtype NamedPureLogger m a = NamedPureLogger
 --instance (MonadIO m) => KC.Katip (NamedPureLogger m)
 
 -- | setup logging
-{-
-setupLogging :: Severity -> Text -> IO K.LogEnv
-setupLogging minSev name = do
-    --hScribe <- K.mkHandleScribe K.ColorIfTerminal stdout (sev2klog minSev) K.V0
-    hScribe <- mkStdoutScribe (sev2klog minSev) K.V0
-    le <- K.registerScribe "stdout" hScribe K.defaultScribeSettings =<< K.initLogEnv (s2kname name) "production"
-    -- remember this K.LogEnv
-    return le
--}
 setupLogging :: LoggerConfig -> IO ()
 setupLogging = Internal.setConfig
-
 
 -- | provide logging in IO
 usingLoggerName :: LoggerName -> LogContextT IO a -> IO a

@@ -21,7 +21,7 @@ import           Data.Text (Text)
 import           Formatting (sformat, shown, (%))
 
 import qualified Pos.Util.Log as Log
-import           Pos.Util.Trace (logTrace)
+import           Pos.Util.Trace (TraceIO, traceWith, logTrace)
 
 import           Network.Broadcast.OutboundQueue (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue as OutQ
@@ -44,10 +44,11 @@ runEnqueue = id
 relayDemo :: IO ()
 relayDemo = do
     --updateGlobalLogger "*production*" (setLevel noticePlus)
+    Log.setupLogging (mempty :: Log.LoggerConfig)
 
     let block :: Text -> [Node] -> Enqueue () -> Enqueue ()
         block label nodes act = do
-          Log.usingLoggerName Log.Debug (fromString "outboundqueue-production") $ Log.logNotice label
+          Log.usingLoggerName (fromString "outboundqueue-production") $ Log.logNotice label
           act
           mapM_ (OutQ.flush . nodeOutQ) nodes
           threadDelay 500000
@@ -117,7 +118,7 @@ relayDemo = do
         -- Edge nodes can never send to core nodes
         send Asynchronous (nodeEs !! 0) (MsgRequestBlocks (Set.fromList (nodeId <$> [nodeC1]))) (MsgId 501)
 
-      Log.usingLoggerName Log.Debug (fromString "outboundqueue-demo") $ Log.logNotice "End of demo"
+      Log.usingLoggerName (fromString "outboundqueue-demo") $ Log.logNotice "End of demo"
 
 {-------------------------------------------------------------------------------
   Model of a node
@@ -139,7 +140,8 @@ instance Eq Node where
 -- | Create a new node, and spawn dequeue worker and forwarding listener
 newNode :: NodeId_ -> NodeType -> CommsDelay -> IO Node
 newNode nodeId_ nodeType commsDelay = do
-    nodeOutQ     <- OutQ.new (logTrace (fromString (show nodeId_)))
+    let logTrace' = logTrace (fromString (show nodeId_))
+    nodeOutQ     <- OutQ.new logTrace'
                              demoEnqueuePolicy
                              demoDequeuePolicy
                              demoFailurePolicy
@@ -148,28 +150,30 @@ newNode nodeId_ nodeType commsDelay = do
     nodeId       <- NodeId nodeId_ commsDelay <$> newSyncVar
     nodeMsgPool  <- newMsgPool
     let node = Node{..}
-    _worker   <- forkIO $ runDequeue $ nodeDequeueWorker node
-    _listener <- forkIO $ runEnqueue $ nodeForwardListener node
+    _worker   <- forkIO $ runDequeue $ nodeDequeueWorker logTrace' node
+    _listener <- forkIO $ runEnqueue $ nodeForwardListener logTrace' node
     return node
 
 -- | Worker that monitors the queue and sends all enqueued messages
-nodeDequeueWorker :: Node -> Dequeue ()
-nodeDequeueWorker node =
+nodeDequeueWorker :: TraceIO -> Node -> Dequeue ()
+nodeDequeueWorker _ node =
     OutQ.dequeueThread (nodeOutQ node) sendMsg
   where
     sendMsg :: OutQ.SendMsg MsgObj_ NodeId
     sendMsg msg nodeId = msgSend msg nodeId
 
 -- | Listener that forwards any new messages that arrive at the node
-nodeForwardListener :: Node -> Enqueue ()
-nodeForwardListener node = forever $ do
+nodeForwardListener :: TraceIO -> Node -> Enqueue ()
+nodeForwardListener logTrace' node = forever $ do
     msgData <- recvNodeId (nodeId node)
     added   <- addToMsgPool (nodeMsgPool node) msgData
     let msgObj = mkMsgObj msgData
     if not added then
-      Log.usingLoggerName Log.Debug (fromString "outboundqueue-demo") $ Log.logDebug $ discarded msgObj
+      --Log.usingLoggerName (fromString "outboundqueue-demo") $ Log.logDebug $ discarded msgObj
+      traceWith logTrace' (Log.Debug, discarded msgObj)
     else do
-      Log.usingLoggerName Log.Debug (fromString "outboundqueue-demo") $ Log.logNotice $ received msgObj
+      --Log.usingLoggerName (fromString "outboundqueue-demo") $ Log.logNotice $ received msgObj
+      traceWith logTrace' (Log.Notice, received msgObj)
       let sender = msgSender msgData
           forwardMsgType = case msgType msgData of
             MsgAnnounceBlockHeader _ -> Just (MsgAnnounceBlockHeader (OriginForward sender))
@@ -210,7 +214,7 @@ instance Exception SendFailed
 -- | Send a message from the specified node
 send :: Sync -> Node -> MsgType NodeId -> MsgId -> Enqueue ()
 send sync from msgType msgId = do
-    Log.usingLoggerName Log.Debug (fromString "outboundqueue-demo") $ Log.logNotice $ sformat (shown % ": send " % formatMsg) (nodeId from) msgObj
+    Log.usingLoggerName (fromString "outboundqueue-demo") $ Log.logNotice $ sformat (shown % ": send " % formatMsg) (nodeId from) msgObj
     added <- addToMsgPool (nodeMsgPool from) msgData
     unless added $ throwIO SendFailedAddToPool
     enqueue (nodeOutQ from) msgType msgObj

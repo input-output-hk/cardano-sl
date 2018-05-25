@@ -1,0 +1,291 @@
+name:                cardano-sl-networking
+version:             1.1.1
+license:             MIT
+license-file:        LICENSE
+category:            Network
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.20
+
+flag benchmarks
+  description:       Build benchmarks
+  default:           False
+  manual:            True
+
+Library
+  exposed-modules:      Network.QDisc.Fair
+
+                        Network.Discovery.Abstract
+                        Network.Discovery.Transport.Kademlia
+
+                        Network.Broadcast.OutboundQueue
+                        Network.Broadcast.OutboundQueue.Types
+                        Network.Broadcast.OutboundQueue.ConcurrentMultiQueue
+                        Network.Broadcast.OutboundQueue.Demo
+
+                        Node
+
+                        Mockable
+                        Mockable.Channel
+                        Mockable.Class
+                        Mockable.Concurrent
+                        Mockable.CurrentTime
+                        Mockable.Instances
+                        Mockable.Monad
+                        Mockable.Production
+                        Mockable.SharedAtomic
+                        Mockable.SharedExclusive
+                        Mockable.Metrics
+
+                        Node.Internal
+                        Node.Conversation
+                        Node.Message.Decoder
+                        Node.Message.Class
+                        Node.Message.Binary
+
+                        Node.Util.Monitor
+
+                        Ntp.Client
+
+                        Bench.Network.Commons
+
+                        JsonLog
+                        JsonLog.CanJsonLog
+                        JsonLog.Event
+                        JsonLog.JsonLogT
+
+  other-modules:        Ntp.Packet
+                        Ntp.Util
+                        Data.NonEmptySet
+
+  build-depends:        aeson
+                      , async
+                      , attoparsec
+                      , base
+                      , cardano-sl-util
+                      , containers
+                      , cryptonite
+                      , binary >= 0.8
+                      , bytestring
+                      , exceptions
+                      , formatting
+                      , hashable
+                      , kademlia
+                      , lens
+                      , mmorph
+                      , monad-control
+                      , mtl
+                      , network
+                      , network-transport
+                      , network-transport-tcp
+                      , mtl >= 2.2.1
+                      , random
+                      , resourcet
+                      , transformers-lift
+                      , universum
+                      , unliftio-core
+                      , safe-exceptions
+                      , serokell-util
+                      , stm
+                      , text
+                      , text-format
+                      , time
+                      , time-units
+                      , transformers
+                      , transformers-base
+                      , ekg-core
+
+  hs-source-dirs:       src
+  default-language:     Haskell2010
+  ghc-options:          -Wall -Werror -fwarn-redundant-constraints
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        OverloadedStrings
+                        RecordWildCards
+                        MonadFailDesugaring
+
+executable discovery
+  main-is:              Discovery.hs
+  build-depends:        base >= 4.8 && < 5
+                      , binary
+                      , bytestring
+                      , cardano-sl-networking
+                      , cardano-sl-util
+                      , containers
+                      , contravariant
+                      , network-transport
+                      , network-transport-tcp
+                      , random
+
+  hs-source-dirs:       examples
+  default-language:     Haskell2010
+  ghc-options:          -threaded -Wall
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        OverloadedStrings
+                        RecordWildCards
+                        MonadFailDesugaring
+
+executable ping-pong
+  main-is:             PingPong.hs
+  build-depends:       base >= 4.8 && < 5
+                     , async
+                     , binary
+                     , bytestring
+                     , cardano-sl-networking
+                     , cardano-sl-util
+                     , contravariant
+                     , network-transport
+                     , network-transport-tcp
+                     , random
+
+  hs-source-dirs:      examples
+  default-language:    Haskell2010
+  ghc-options:         -threaded -Wall
+  default-extensions:  DeriveGeneric
+                       DeriveDataTypeable
+                       GeneralizedNewtypeDeriving
+                       OverloadedStrings
+                       RecordWildCards
+                       MonadFailDesugaring
+
+executable bench-sender
+  main-is:             Main.hs
+  other-modules:       SenderOptions
+  build-depends:       base == 4.*
+                     , cardano-sl-networking
+                     , cardano-sl-util
+                     , lens
+                     , MonadRandom
+                     , mtl
+                     , network-transport-tcp
+                     , optparse-simple >= 0.0.3
+                     , random
+                     , safe-exceptions
+                     , serokell-util
+                     , time-units
+  hs-source-dirs:      bench/Sender
+  if flag(benchmarks)
+    buildable:         True
+  else
+    buildable:         False
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
+  default-extensions:  OverloadedStrings
+                       RecordWildCards
+                       DeriveDataTypeable
+                       GeneralizedNewtypeDeriving
+                       MonadFailDesugaring
+
+executable bench-receiver
+  main-is:             Main.hs
+  other-modules:       ReceiverOptions
+  build-depends:       base == 4.*
+                     , cardano-sl-networking
+                     , cardano-sl-util
+                     , network-transport-tcp
+                     , optparse-simple
+                     , random
+                     , serokell-util
+  hs-source-dirs:      bench/Receiver
+  if flag(benchmarks)
+    buildable:         True
+  else
+    buildable:         False
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving
+                     , MonadFailDesugaring
+
+executable bench-log-reader
+  main-is:             Main.hs
+  other-modules:       LogReaderOptions
+  build-depends:       base == 4.*
+                     , attoparsec
+                     , cardano-sl-networking
+                     , cardano-sl-util
+                     , conduit
+                     , conduit-extra
+                     , containers
+                     , formatting
+                     , lens
+                     , text-format
+                     , mtl
+                     , optparse-simple
+                     , resourcet
+                     , safe-exceptions
+                     , text
+  hs-source-dirs:      bench/LogReader
+  if flag(benchmarks)
+    buildable:         True
+  else
+    buildable:         False
+  default-language:    Haskell2010
+  ghc-options:         -threaded -Wall
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving
+                     , MonadFailDesugaring
+
+test-suite cardano-sl-networking-test
+  main-is:             Test.hs
+  other-modules:       Spec
+                       Test.NodeSpec
+                       Test.Network.Broadcast.OutboundQueueSpec
+                       Test.Util
+  type:                exitcode-stdio-1.0
+  build-depends:       async
+                     , base >= 4.8 && < 5
+                     , binary
+                     , bytestring >= 0.10.8
+                     , cardano-sl-networking
+                     , cardano-sl-util
+                     , containers >= 0.5.7
+                     , hspec >= 2.1.10
+                     , hspec-core
+                     , lens >= 4.14
+                     , mtl >= 2.2.1
+                     , network-transport
+                     , network-transport-tcp
+                     , network-transport-inmemory
+                     , QuickCheck
+                     , random
+                     , serokell-util >= 0.1.2.3
+                     , stm
+                     , time-units
+  hs-source-dirs:      test
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -rtsopts
+                       -Wall
+                       -with-rtsopts=-N
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
+                     , DeriveDataTypeable
+                     , GeneralizedNewtypeDeriving
+                     , MonadFailDesugaring
+
+benchmark qdisc-simulation
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: src
+  main-is:        Network/QDisc/Simulation.hs
+  other-modules:  Network.QDisc.Fair
+  build-depends:    base
+                  , async
+                  , network-transport-tcp
+                  , network-transport
+                  , time-units
+                  , stm
+                  , mwc-random
+                  , statistics
+                  , vector
+                  , time
+  default-language: Haskell2010
+  ghc-options:    -O3
+                  -threaded

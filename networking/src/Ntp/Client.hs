@@ -86,7 +86,7 @@ instance Exception NoHostResolved
 
 --usingNtpLogger :: Log.LoggerNameBox IO a -> IO a
 usingNtpLogger :: Log.LogContextT IO a -> IO a
-usingNtpLogger = Log.usingLoggerName Log.Debug "NtpClient"
+usingNtpLogger = Log.usingLoggerName "NtpClient"
 
 logError :: Text -> IO ()
 logError = usingNtpLogger . Log.logError

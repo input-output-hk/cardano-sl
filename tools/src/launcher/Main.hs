@@ -103,6 +103,7 @@ data LauncherOptions = LO
     , loNodeTimeoutSec      :: !Int
     , loReportServer        :: !(Maybe String)
     , loConfiguration       :: !ConfigurationOptions
+    , loTlsPath             :: !FilePath
     -- | This prefix will be passed as logs-prefix to the node. Launcher logs
     -- will be written into "pub" subdirectory of the prefix (as well as to
     -- console, except on Windows where we don't output anything to console
@@ -302,7 +303,7 @@ main =
         withConfigurations loConfiguration $ \_ -> do
 
         -- Generate TLS certificates as needed
-        findTlsArgs loNodeArgs >>= generateTlsCertificates loConfiguration loX509ToolPath
+        generateTlsCertificates loConfiguration loX509ToolPath loTlsPath
 
         case (loWalletPath, loFrontendOnlyMode) of
             (Nothing, _) -> do
@@ -380,49 +381,27 @@ main =
         pretty @Integer $ fromIntegral $ convertUnit @_ @Second ts
 
 
-data TlsPaths = TlsPaths
-    { tlsCaPath     :: FilePath
-    , tlsServerPath :: FilePath
-    , tlsKeyPath    :: FilePath
-    } deriving (Show)
-
-
-findTlsArgs :: [Text] -> M TlsPaths
-findTlsArgs args = do
-    tlsCaPath     <- findArg "--tlsca"   (pure . toString) args
-    tlsServerPath <- findArg "--tlscert" (pure . toString) args
-    tlsKeyPath    <- findArg "--tlskey"  (pure . toString) args
-    return TlsPaths{..}
-  where
-    findArg :: Text -> (Text -> M a) -> [Text] -> M a
-    findArg key parse (k:v:_)  | key == k = parse v
-    findArg key parse (_:rest) = findArg key parse rest
-    findArg key _ _            = liftIO . fail $ "Missing required Node arg: " <> (toString key)
-
-
-generateTlsCertificates :: ConfigurationOptions -> FilePath -> TlsPaths -> M ()
-generateTlsCertificates ConfigurationOptions{..} executable TlsPaths{..} = do
+generateTlsCertificates :: ConfigurationOptions -> FilePath -> FilePath -> M ()
+generateTlsCertificates ConfigurationOptions{..} executable tlsPath = do
     alreadyExists <-
-        and <$> mapM (liftIO . doesFileExist) [tlsCaPath, tlsServerPath, tlsKeyPath]
+        and <$> mapM (liftIO . doesFileExist) [tlsPath]
 
-    let tlsPath = takeDirectory tlsServerPath
-
-    when (tlsPath /= takeDirectory tlsCaPath || tlsPath /= takeDirectory tlsKeyPath) $ do
-        logError "--tlsca, --tlscert and --tlskey are in different directories"
-        liftIO . fail $ "cardano-launcher doesn't support having tls files in separate directories"
+    let tlsServer = tlsPath </> "server"
+    let tlsClient = tlsPath </> "client"
 
     unless alreadyExists $ do
         logInfo $ "Generating new TLS certificates in " <> toText tlsPath
 
         let process = createProc  Process.Inherit executable
-                [ "--server-out-dir"     , toText tlsPath
-                , "--clients-out-dir"    , toText tlsPath
+                [ "--server-out-dir"     , toText tlsServer
+                , "--clients-out-dir"    , toText tlsClient
                 , "--configuration-file" , toText cfoFilePath
                 , "--configuration-key"  , cfoKey
                 ]
 
         exitCode <- liftIO $ do
-            createDirectoryIfMissing True tlsPath
+            createDirectoryIfMissing True tlsServer
+            createDirectoryIfMissing True tlsClient
             phvar <- newEmptyMVar
             system' phvar process mempty ECertGen
 

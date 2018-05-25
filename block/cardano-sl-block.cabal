@@ -103,7 +103,6 @@ library
                       , formatting
                       , generic-arbitrary
                       , lens
-                      , log-warper
                       , mtl
                       , random
                       , reflection

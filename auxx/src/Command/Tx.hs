@@ -30,7 +30,7 @@ import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently, 
 import           Serokell.Util (ms, sec)
 import           System.Environment (lookupEnv)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
-import           System.Wlog (logError, logInfo)
+import           Pos.Util.Log (logError, logInfo)
 
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getOwnUtxoForPk)

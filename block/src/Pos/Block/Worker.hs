@@ -17,7 +17,7 @@ import           Mockable (delay)
 import           Serokell.Util (enumerate, listJson, pairF, sec)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
-import           System.Wlog (logDebug, logError, logInfo, logWarning)
+import           Pos.Util.Log (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (networkDiameter)

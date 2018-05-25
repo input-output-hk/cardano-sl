@@ -11,7 +11,7 @@ import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, builder, int, sformat, (%))
-import           System.Wlog (logDebug, logInfo, logNotice)
+import           Pos.Util.Log (logDebug, logInfo, logNotice)
 import           Universum
 
 import           Pos.Binary.Class (biSize)

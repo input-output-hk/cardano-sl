@@ -23,6 +23,7 @@ import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..), MonadTos
 import           Pos.Ssc.Toss.Types (TossModifier (..), tmCertificates, tmCommitments, tmOpenings,
                                      tmShares)
 import           Pos.Util.Util (ether)
+--import           Pos.Util.Log (CanLog(..), HasLoggerName(..), LogContext(..))
 
 ----------------------------------------------------------------------------
 -- Tranformer
@@ -103,3 +104,4 @@ type instance ThreadId (TossT m) = ThreadId m
 type instance Promise (TossT m) = Promise m
 type instance SharedAtomicT (TossT m) = SharedAtomicT m
 type instance ChannelT (TossT m) = ChannelT m
+

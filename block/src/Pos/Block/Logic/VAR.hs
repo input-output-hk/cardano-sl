@@ -20,7 +20,7 @@ import           Control.Lens (_Wrapped)
 import           Control.Monad.Except (ExceptT (ExceptT), MonadError (throwError), runExceptT,
                                        withExceptT)
 import qualified Data.List.NonEmpty as NE
-import           System.Wlog (logDebug)
+import           Pos.Util.Log (logDebug)
 
 import           Pos.Block.Error (ApplyBlocksException (..), RollbackException (..),
                                   VerifyBlocksException (..))

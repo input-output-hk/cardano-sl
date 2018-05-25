@@ -16,8 +16,8 @@ import           Universum
 
 import           Control.Lens (at, uses, (%=), (.=))
 import qualified Crypto.Random as Rand
-import           System.Wlog (CanLog, HasLoggerName (..), LogEvent, NamedPureLogger (..),
-                              WithLogger, dispatchEvents, runNamedPureLog)
+import           Pos.Util.Log (CanLog, HasLoggerName (..), LogEvent, NamedPureLogger (..),
+                               WithLogger, dispatchEvents, runNamedPureLog)
 
 import           Pos.Core (BlockVersionData, EpochIndex, HasGenesisData, HasProtocolConstants,
                            crucialSlot, genesisVssCerts)

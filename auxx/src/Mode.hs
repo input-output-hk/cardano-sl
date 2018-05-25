@@ -28,7 +28,7 @@ import           Control.Monad.Trans.Resource (transResourceT)
 import           Data.Conduit (transPipe)
 import           Data.Default (def)
 import           Mockable (Production)
-import           System.Wlog (HasLoggerName (..))
+import           Pos.Util.Log (HasLoggerName (..))
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))

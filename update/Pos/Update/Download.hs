@@ -23,7 +23,7 @@ import           Network.HTTP.Simple (getResponseBody, getResponseStatus, getRes
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Text (listJsonIndent, mapJson)
 import           System.Directory (doesFileExist)
-import           System.Wlog (WithLogger, logDebug, logInfo, logWarning)
+import           Pos.Util.Log (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class (Raw)
 import           Pos.Binary.Update ()

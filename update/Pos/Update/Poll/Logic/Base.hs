@@ -36,7 +36,7 @@ import qualified Data.Set as S
 import           Data.Tagged (Tagged, untag)
 import           Data.Time.Units (convertUnit)
 import           Formatting (build, int, sformat, (%))
-import           System.Wlog (WithLogger, logDebug, logNotice)
+import           Pos.Util.Log (WithLogger, logDebug, logNotice)
 
 import           Pos.Binary.Update ()
 import           Pos.Core (BlockVersion (..), Coin, EpochIndex, HeaderHash, HasProtocolConstants,

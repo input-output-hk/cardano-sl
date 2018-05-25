@@ -69,7 +69,6 @@ library
                      , haskeline
                      , lens
                      , loc
-                     , log-warper
                      , megaparsec
                      , mtl
                      , neat-interpolation
@@ -135,7 +134,6 @@ executable cardano-auxx
                      , cardano-sl-txp
                      , cardano-sl-util
                      , cardano-sl-update
-                     , log-warper
                      , temporary
                      , network-transport-tcp
                      , safe-exceptions

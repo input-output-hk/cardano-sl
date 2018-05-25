@@ -11,7 +11,7 @@ import           Data.Aeson (encode)
 import qualified Data.ByteString.Lazy as BSL
 import           Data.List (genericTake)
 import           Formatting (build, int, sformat, string, (%))
-import           System.Wlog (logInfo)
+import           Pos.Util.Log (logInfo)
 
 import           Pos.Block.Logic (BypassSecurityCheck (..), rollbackBlocksUnsafe)
 import           Pos.Block.Slog (ShouldCallBListener (..))

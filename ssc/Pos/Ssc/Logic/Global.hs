@@ -8,7 +8,7 @@ module Pos.Ssc.Logic.Global
          sscCalculateSeed
        ) where
 
-import           System.Wlog (WithLogger)
+import           Pos.Util.Log (WithLogger)
 import           Universum
 
 import           Pos.Binary.Ssc ()

@@ -12,7 +12,7 @@ import           Control.Lens (at)
 import           Control.Monad.Except (MonadError, throwError, runExceptT)
 import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
-import           System.Wlog (logError)
+import           Pos.Util.Log (logError)
 import           Universum
 
 import           Pos.Core (EpochIndex, EpochOrSlot (..), IsMainHeader, HasProtocolConstants,

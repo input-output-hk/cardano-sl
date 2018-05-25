@@ -25,7 +25,7 @@ import           Formatting (bprint, build, sformat, shown, stext, (%))
 import           Mockable (forConcurrently)
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
-import           System.Wlog (logDebug, logInfo, logWarning)
+import           Pos.Util.Log (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Txp ()
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
@@ -120,7 +120,7 @@ triggerRecovery diffusion = unlessM recoveryInProgress $ do
     waitAndProcessOne (nodeId, mbh) = do
         -- 'mbh' is an 'm' term that returns when the header has been
         -- downloaded.
-        bh <- mbh 
+        bh <- mbh
         -- I know, it's not unsolicited. TODO rename.
         handleUnsolicitedHeader bh nodeId
 

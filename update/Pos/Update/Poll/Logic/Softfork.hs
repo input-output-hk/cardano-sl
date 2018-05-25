@@ -15,7 +15,7 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Tagged (Tagged (..))
 import           Formatting (build, sformat, (%))
 import           Serokell.Util.Text (listJson)
-import           System.Wlog (logInfo)
+import           Pos.Util.Log (logInfo)
 
 import           Pos.Core (BlockVersion, Coin, EpochIndex, HeaderHash,
                            SlotId (..), SoftforkRule (..), StakeholderId, crucialSlot, sumCoins,

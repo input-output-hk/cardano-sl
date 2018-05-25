@@ -18,7 +18,7 @@ import           Control.Monad.State (MonadState (..))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Ether
-import           System.Wlog (logWarning)
+import           Pos.Util.Log (logWarning)
 
 import           Pos.Binary.Update ()
 import           Pos.Core (SoftwareVersion (..), addressHash)

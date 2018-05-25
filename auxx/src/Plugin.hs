@@ -20,7 +20,7 @@ import           Formatting (float, int, sformat, (%))
 import           Mockable (Delay, Mockable, delay)
 import           Serokell.Util (sec)
 import           System.IO (hFlush, stdout)
-import           System.Wlog (CanLog, HasLoggerName, logInfo)
+import           Pos.Util.Log (CanLog, HasLoggerName, logInfo)
 
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
 import           Pos.Diffusion.Types (Diffusion)

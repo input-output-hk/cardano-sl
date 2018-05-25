@@ -15,7 +15,7 @@ import           Data.Default (def)
 import qualified Data.HashMap.Strict as HM
 import           Data.List ((!!))
 import           Formatting (sformat, string, (%))
-import           System.Wlog (CanLog, HasLoggerName, logDebug, logError, logInfo)
+import           Pos.Util.Log (CanLog, HasLoggerName, logDebug, logError, logInfo)
 
 import           Pos.Binary (Raw)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)

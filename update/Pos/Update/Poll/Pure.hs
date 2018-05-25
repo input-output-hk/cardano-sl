@@ -12,8 +12,8 @@ import           Universum
 import           Control.Lens (at, mapped, to, uses, (%=), (.=))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import           System.Wlog (CanLog, HasLoggerName (..), LogEvent, NamedPureLogger, logDebug,
-                              logWarning, runNamedPureLog)
+import           Pos.Util.Log (CanLog, HasLoggerName (..), LogEvent, NamedPureLogger, logDebug,
+                               logWarning, runNamedPureLog)
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Core (SoftwareVersion (..))

@@ -9,7 +9,7 @@ import           Universum
 
 import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
 import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending, pendingTransactions,
-                                                removePending, singletonPending)
+                                                removePending)
 import           Cardano.Wallet.Kernel.Submission
 import           Control.Exception (toException)
 import           Control.Lens (to)
@@ -29,7 +29,7 @@ import           Serokell.Util.Text (listJsonIndent)
 import qualified Test.Pos.Txp.Arbitrary as Core
 
 import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin, forAll, listOf,
-                                  shuffle, vectorOf, (===), (==>))
+                                  shuffle, vectorOf, (===))
 import           Test.QuickCheck.Property (counterexample, exception, property)
 import           Util (disjoint)
 import           Util.Buildable (ShowThroughBuild (..))
@@ -196,25 +196,6 @@ genPurePair = do
     pending <- genPending (Core.ProtocolMagic 0)
     let pending' = removePending (toTxIdSet $ layer ^. localPendingSet) pending
     pure $ STB (layer, pending')
-
-unsafeScheduleFrom :: forall m. Slot
-                   -> Pending
-                   -> SubmissionCount
-                   -> WalletSubmission m
-                   -> WalletSubmission m
-unsafeScheduleFrom slot p retries ws =
-    M.foldlWithKey' updateFn ws (p ^. pendingTransactions . fromDb)
-    where
-        updateFn :: WalletSubmission m
-                 -> Core.TxId
-                 -> Core.TxAux
-                 -> WalletSubmission m
-        updateFn acc txId txAux =
-            addPending (singletonPending txId txAux)
-                       (addToSchedule acc slot [ScheduleSend txId txAux retries] mempty)
-
-dropImmediately :: SubmissionCount
-dropImmediately = SubmissionCount 255
 
 class ToTxIds a where
     toTxIds :: a -> [Core.TxId]
@@ -420,35 +401,3 @@ spec = do
                        , mustNotIncludeEvents "none of [a,b,c,d] was scheduled" (ScheduleEvents scheduledInSlot2 confirmed2) [a,b,c,d]
                        , includeEvents "[c,d] scheduled slot 3" (ScheduleEvents scheduledInSlot3 confirmed3) [c,d]
                        ]
-
-      it "can drop transactions which exceeded the resubmission count" $ do
-          forAll genPurePair $ \(unSTB -> (submission, pending)) ->
-              let slot = submission ^. getCurrentSlot
-                  submission'  = unsafeScheduleFrom slot pending dropImmediately submission
-                  (dropped, _) = tick' submission'
-              in failIf "pending transactions not evicted after maxretries attempts"
-                        (\d p -> d `S.isSubsetOf` (toTxIdSet p)) dropped pending
-
-      -- The evicted set will never contain transactions successfully retransmitted.
-      -- It's not this layer's responsibility to keep the pending set consistent, as
-      -- the single source of truth for the pending set is the blockchain and the BListener.
-      it "won't drop transactions which has been successfully transmitted" $ do
-          forAll genPurePair $ \(unSTB -> (submission0, pending)) ->
-              pending /= emptyPending ==>
-                  let -- We first schedule some transactions to be submitted during the next slot,
-                      -- and then we tick.
-                      (dropped1, submission1) = tick' (addPending pending submission0)
-                      -- @dropped1@ should be empty, because the wallet didn't notify us of
-                      -- any transactions to remove.
-
-                      -- We are now in Slot = 1.
-                      (dropped2, _) = tick' (remPending (toTxIdSet pending) submission1)
-
-                      -- @dropped2@ should still be disjointed from @pending@, because we are
-                      -- not \"abandoning\" the given transactions via a 'RetryPolicy', but
-                      -- simply by \"adoption\", and therefore the latter should never result
-                      -- into evicted transactions being yielded.
-                  in conjoin [
-                       failIf "dropped1 is not empty" ((==)) dropped1 mempty
-                     , failIf "dropped2 and pending are not disjointed" (\d p -> disjoint d (toTxIdSet p)) dropped2 pending
-                     ]

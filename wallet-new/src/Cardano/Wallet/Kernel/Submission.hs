@@ -91,6 +91,14 @@ data WalletSubmission m = WalletSubmission {
 instance Buildable (WalletSubmission m) where
     build ws = bprint ("WalletSubmission { rho = <function> , state = " % F.build % " }") (_wsState ws)
 
+-- | The wallet internal state. Some useful invariant to check (possibly
+-- via QuickCheck properties):
+-- * Whatever we evict, it should not be in the pending set.
+-- * Ff something is pending, it should also be in the schedule.
+--   If this gets violated, some transaction might get stuck in the nursery forever.
+-- * With a retry policy with MaxRetries == N there shouldn't be an entry in
+--   the schedule with a SubmissionCount >= N
+--
 data WalletSubmissionState = WalletSubmissionState {
       _wssPendingSet  ::  Pending
     , _wssSchedule    ::  Schedule
@@ -319,13 +327,6 @@ tick onError ws = do
         evictedThisSlot toConfirm p =
             List.foldl' (checkConfirmed p) Set.empty toConfirm
 
-        -- Invariant to check: whatever we evict, it should not be in the
-        -- pending set.
-        -- Invariant to check: if something is pending, it should also be
-        -- in the schedule. If this gets violated, some txs might get stuck
-        -- in the nursery forever.
-        -- Invariant to check: with a retry policy with MaxRetries == N there
-        -- shouldn't be an entry in the schedule with a SubmissionCount >= N
         checkConfirmed :: M.Map Core.TxId Core.TxAux -> Evicted -> ScheduleEvictIfNotConfirmed -> Evicted
         checkConfirmed pending acc (ScheduleEvictIfNotConfirmed txId) =
             case M.lookup txId pending of

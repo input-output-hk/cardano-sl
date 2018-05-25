@@ -199,7 +199,7 @@ monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
 
     return T.StaticPeers {
         T.staticPeersOnChange = writeChan events . MonitorRegister
-      , T.staticPeersMonitoring = Log.usingLoggerName Log.Info lname $ loop events initPeers []
+      , T.staticPeersMonitoring = Log.usingLoggerName lname $ loop events initPeers []
       }
   where
     loop :: (MonadCatch m, MonadIO m, Log.WithLogger m) =>
@@ -292,7 +292,7 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
                 liftIO $ fromPovOf cfg topologyAllPeers
             loggerName <- Log.askLoggerName
             topologyStaticPeers <-
-                liftIO . Log.usingLoggerName Log.Info loggerName $
+                liftIO . Log.usingLoggerName loggerName $
                 monitorStaticConfig cfg md initPeers
             -- If kademlia is enabled here then we'll try to read the configuration
             -- file. However it's not necessary that the file exists. If it doesn't,

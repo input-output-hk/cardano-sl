@@ -26,7 +26,7 @@ import qualified Pos.Arbitrary.Txp as Core
 import qualified Pos.Core as Core
 import           Pos.Crypto.Hashing (hash)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
-import           Serokell.Util.Text (listJsonIndent, tripleF)
+import           Serokell.Util.Text (listJsonIndent)
 
 import           Test.QuickCheck (Gen, Property, arbitrary, conjoin, forAll, shuffle, vectorOf,
                                   (===), (==>))
@@ -56,13 +56,6 @@ giveUpAfter retries currentSlot scheduled oldScheduler =
     let send _  = return ()
         rPolicy = constantRetry 1 retries
     in defaultResubmitFunction send rPolicy currentSlot scheduled oldScheduler
-
--- | Checks that all the input 'Pending' shows up in the local pending set of
--- the given 'WalletSubmission'.
-containsPending :: Pending -> WalletSubmission m -> Bool
-containsPending pending ws =
-    let localPending = ws ^. localPendingSet
-    in localPending `shouldContainPending` pending
 
 -- | Checks whether or not the second input is fully contained within the first.
 shouldContainPending :: Pending -> Pending -> Bool
@@ -96,9 +89,9 @@ data LabelledTxAux = LabelledTxAux {
     }
 
 instance Buildable LabelledTxAux where
-    build (LabelledTxAux label txAux) =
-         let tx = Core.taTx txAux
-         in bprint (F.shown % " [" % F.build % "] -> " % listJsonIndent 4) label (hash tx) (inputsOf tx)
+    build labelled =
+         let tx = Core.taTx (labelledTxAux labelled)
+         in bprint (F.shown % " [" % F.build % "] -> " % listJsonIndent 4) (labelledTxLabel labelled) (hash tx) (inputsOf tx)
       where
           inputsOf :: Core.Tx -> [Core.TxIn]
           inputsOf tx = NonEmpty.toList (Core._txInputs tx)
@@ -214,15 +207,15 @@ includeEvents :: String -> ScheduleEvents -> [LabelledTxAux] -> Property
 includeEvents label se txs = failIf (label <> ": not includes all of") checkEvent se txs
     where
         checkEvent :: ScheduleEvents -> [LabelledTxAux] -> Bool
-        checkEvent (ScheduleEvents toSend toConfirm) txs =
-          all (\t -> hash (Core.taTx (labelledTxAux t)) `List.elem` toTxIds toSend) txs
+        checkEvent (ScheduleEvents toSend _) =
+          all (\t -> hash (Core.taTx (labelledTxAux t)) `List.elem` toTxIds toSend)
 
 mustNotIncludeEvents :: String -> ScheduleEvents -> [LabelledTxAux] -> Property
 mustNotIncludeEvents label se txs = failIf (label <> ": does include one of") checkEvent se txs
     where
         checkEvent :: ScheduleEvents -> [LabelledTxAux] -> Bool
-        checkEvent (ScheduleEvents toSend toConfirm) txs =
-          all (\t -> not $ hash (Core.taTx (labelledTxAux t)) `List.elem` toTxIds toSend) txs
+        checkEvent (ScheduleEvents toSend _) =
+          all (\t -> not $ hash (Core.taTx (labelledTxAux t)) `List.elem` toTxIds toSend)
 
 spec :: Spec
 spec = do
@@ -275,7 +268,7 @@ spec = do
                   (evicted3, ws3) = tick' ws2
                   (evicted4, ws4) = tick' ws3
                   (evicted5, ws5) = tick' ws4
-                  (evicted6, ws6) = tick' ws5
+                  (evicted6, _) = tick' ws5
               in conjoin [
                    failIf "evicted1 includes any of pending" (\e p -> disjoint (toTxIdSet p) e) evicted1 pending
                  , failIf "evicted2 includes any of pending" (\e p -> disjoint (toTxIdSet p) e) evicted2 pending
@@ -284,7 +277,6 @@ spec = do
                  , failIf "evicted5 doesn't contain all pending" (\e p -> (toTxIdSet p) `S.isSubsetOf` e) evicted5 pending
                  , failIf "evicted6 contains something from evicted5" (\e6 e5 -> disjoint e5 e6) evicted6 evicted5
                  ]
-
 
       describe "tickSlot" $ do
           -- Given A,B,C,D where D `dependsOn` C `dependsOn` B `dependsOn` A,
@@ -387,7 +379,8 @@ spec = do
               let slot = submission ^. getCurrentSlot
                   submission'  = unsafeScheduleFrom slot pending dropImmediately submission
                   (dropped, _) = tick' submission'
-              in failIf "baz" (\d p -> d `S.isSubsetOf` (toTxIdSet p)) dropped pending
+              in failIf "pending transactions not evicted after maxretries attempts"
+                        (\d p -> d `S.isSubsetOf` (toTxIdSet p)) dropped pending
 
       -- The evicted set will never contain transactions successfully retransmitted.
       -- It's not this layer's responsibility to keep the pending set consistent, as
@@ -395,16 +388,14 @@ spec = do
       it "won't drop transactions which has been successfully transmitted" $ do
           forAll genPurePair $ \(unSTB -> (submission0, pending)) ->
               pending /= emptyPending ==>
-                  let slot0 = submission0 ^. getCurrentSlot
-                      -- We first schedule some transactions to be submitted during the next slot,
+                  let -- We first schedule some transactions to be submitted during the next slot,
                       -- and then we tick.
                       (dropped1, submission1) = tick' (addPending pending submission0)
                       -- @dropped1@ should be empty, because the wallet didn't notify us of
                       -- any transactions to remove.
-                      -- We are not in Slot = 1.
 
-                      slot1 = submission1 ^. getCurrentSlot
-                      (dropped2, submission2) = tick' (remPending (toTxIdSet pending) submission1)
+                      -- We are now in Slot = 1.
+                      (dropped2, _) = tick' (remPending (toTxIdSet pending) submission1)
 
                       -- @dropped2@ should still be disjointed from @pending@, because we are
                       -- not \"abandoning\" the given transactions via a 'RetryPolicy', but

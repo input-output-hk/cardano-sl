@@ -4,11 +4,15 @@ module Util where
 
 import           Universum
 
-import           Cardano.Wallet.Client.Http
 import           Control.Lens hiding ((^..), (^?))
+import           Formatting (build, sformat)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Hspec
-import           Test.QuickCheck (arbitrary, generate)
+import           Test.QuickCheck (Arbitrary (arbitrary), Gen, generate)
+
+import           Cardano.Wallet.Client.Http
+import           Pos.Crypto.Signing (PublicKey, encToPublic)
+import           Pos.Util.BackupPhrase (safeKeysFromPhrase)
 
 
 type WalletRef = MVar Wallet
@@ -27,10 +31,19 @@ randomExternalWallet :: WalletOperation -> IO NewExternalWallet
 randomExternalWallet walletOp =
     generate $
         NewExternalWallet
-            <$> arbitrary -- TODO Generate ExtPubKey
+            <$> (sformat build <$> arbitraryExtPubKey)
             <*> arbitrary
             <*> pure "External Wallet"
             <*> pure walletOp
+  where
+    arbitraryExtPubKey :: Gen PublicKey
+    arbitraryExtPubKey =
+        (encToPublic . fst . orFail . safeKeysFromPhrase mempty) <$> arbitrary
+
+    orFail :: (Show e) => Either e a -> a
+    orFail =
+        either (error . show) identity
+
 
 randomCreateWallet :: IO NewWallet
 randomCreateWallet = randomWallet CreateWallet

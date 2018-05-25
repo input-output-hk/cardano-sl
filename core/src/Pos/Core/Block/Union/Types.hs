@@ -1,3 +1,6 @@
+-- the Getter instances
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+
 -- | Union of blockchain types.
 
 module Pos.Core.Block.Union.Types

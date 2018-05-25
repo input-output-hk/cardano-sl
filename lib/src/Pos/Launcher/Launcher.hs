@@ -14,7 +14,6 @@ import           Universum
 -- Get rid of production and use a 'Trace IO' instead.
 import           Mockable.Production (Production (..))
 
-import           Pos.Core (HasConfiguration)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Launcher.Configuration (HasConfigurations)
@@ -43,5 +42,5 @@ runNodeReal
 runNodeReal np sscnp plugins = runProduction $
     bracketNodeResources np sscnp txpGlobalSettings initNodeDBs (Production . action)
   where
-    action :: HasConfiguration => NodeResources EmptyMempoolExt -> IO ()
+    action :: NodeResources EmptyMempoolExt -> IO ()
     action nr@NodeResources {..} = runRealMode nr (runNode nr plugins)

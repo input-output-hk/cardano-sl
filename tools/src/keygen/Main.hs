@@ -4,7 +4,6 @@ module Main
 
 import           Universum
 
-import           Crypto.Random (MonadRandom)
 import           Data.ByteString.Base58 (bitcoinAlphabet, encodeBase58)
 import qualified Data.List as L
 import qualified Data.Text as T
@@ -50,7 +49,7 @@ rearrangeKeyfile fp = do
 rearrange :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 rearrange msk = mapM_ rearrangeKeyfile =<< liftIO (glob msk)
 
-genPrimaryKey :: (HasConfigurations, MonadIO m, MonadThrow m, WithLogger m, MonadRandom m) => FilePath -> m ()
+genPrimaryKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 genPrimaryKey path = do
     rs <- liftIO generateRichSecrets
     dumpRichSecrets path rs
@@ -64,7 +63,7 @@ genPrimaryKey path = do
             (addressHash pk)
             pk
 
-readKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
+readKey :: (MonadIO m, WithLogger m) => FilePath -> m ()
 readKey path = do
     us <- readUserSecret path
     logInfo $ maybe "No Primary key"
@@ -116,7 +115,7 @@ dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
     logInfo $ "Seeds were generated"
 
 generateKeysByGenesis
-    :: (HasConfigurations, MonadIO m, WithLogger m, MonadThrow m, MonadRandom m)
+    :: (HasConfigurations, MonadIO m, WithLogger m, MonadThrow m)
     => GenKeysOptions -> m ()
 generateKeysByGenesis GenKeysOptions{..} = do
     case ccGenesis coreConfiguration of

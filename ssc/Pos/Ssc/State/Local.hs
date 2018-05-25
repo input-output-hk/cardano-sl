@@ -24,8 +24,6 @@ sscResetLocal ::
        ( MonadDBRead m
        , MonadSscMem ctx m
        , MonadSlots ctx m
-       , MonadIO m
-       , HasProtocolConstants
        )
     => m ()
 sscResetLocal = do
@@ -36,7 +34,7 @@ sscResetLocal = do
 -- | Create new (empty) local data. We are using this function instead of
 -- 'Default' class, because it gives more flexibility. For instance, one
 -- can read something from DB or get current slot.
-sscNewLocalData :: (MonadSlots ctx m, MonadDBRead m, HasProtocolConstants) => m SscLocalData
+sscNewLocalData :: (MonadSlots ctx m, HasProtocolConstants) => m SscLocalData
 sscNewLocalData =
     SscLocalData mempty . siEpoch . fromMaybe slot0 <$> getCurrentSlot <*>
     pure 1

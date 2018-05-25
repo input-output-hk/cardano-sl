@@ -127,7 +127,7 @@ calcChainQualityM newSlot = do
 -- slot is unknown.
 calcOverallChainQuality ::
        forall ctx m res.
-       (Fractional res, MonadSlots ctx m, MonadBlockDBRead m, HasProtocolConstants)
+       (Fractional res, MonadSlots ctx m, MonadBlockDBRead m)
     => m (Maybe res)
 calcOverallChainQuality =
     getCurrentSlotFlat >>= \case

@@ -150,8 +150,7 @@ data GenesisInitializer = GenesisInitializer
       -- to deploy testing cluster.
     } deriving (Show)
 
-instance (Hashable Address, Buildable Address) =>
-         Buildable GenesisInitializer where
+instance Buildable GenesisInitializer where
     build GenesisInitializer {..} = bprint
         ("GenesisInitializer {\n"%
             "  "%build%"\n"%

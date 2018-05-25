@@ -45,7 +45,7 @@ instance (HasGenesisBlockVersionData) => RichmenComponent RCDlg where
 ----------------------------------------------------------------------------
 
 -- | Consumer will be called on every Richmen computation.
-dlgLrcConsumer :: (HasGenesisBlockVersionData, DB.MonadGState m, DB.MonadDB m) => Lrc.LrcConsumer m
+dlgLrcConsumer :: (DB.MonadGState m, DB.MonadDB m) => Lrc.LrcConsumer m
 dlgLrcConsumer = Lrc.lrcConsumerFromComponentSimple @RCDlg bvdHeavyDelThd
 
 ----------------------------------------------------------------------------
@@ -55,7 +55,7 @@ dlgLrcConsumer = Lrc.lrcConsumerFromComponentSimple @RCDlg bvdHeavyDelThd
 -- | Wait for LRC results to become available and then get delegation ricmen
 -- data for the given epoch.
 getDlgRichmen
-    :: (MonadIO m, DB.MonadDBRead m, MonadReader ctx m, Lrc.HasLrcContext ctx, HasGenesisBlockVersionData)
+    :: (MonadIO m, DB.MonadDBRead m, MonadReader ctx m, Lrc.HasLrcContext ctx)
     => Text               -- ^ Function name (to include into error message)
     -> EpochIndex         -- ^ Epoch for which you want to know the richmen
     -> m Lrc.RichmenSet
@@ -68,7 +68,5 @@ getDlgRichmen fname epoch =
 -- | Like 'getDlgRichmen', but doesn't wait and doesn't fail.
 --
 -- Returns a 'Maybe'.
-tryGetDlgRichmen
-    :: (HasGenesisBlockVersionData, DB.MonadDBRead m)
-    => EpochIndex -> m (Maybe Lrc.RichmenSet)
+tryGetDlgRichmen :: DB.MonadDBRead m => EpochIndex -> m (Maybe Lrc.RichmenSet)
 tryGetDlgRichmen = getRichmen @RCDlg

@@ -241,7 +241,7 @@ inpSpentOutput' inp = (DSL.inpSpentOutput' inp . icLedger) <$> get
 class Interpret h a where
   type Interpreted a :: *
 
-  int :: (HasCallStack, Monad m)
+  int :: (Monad m)
       => a -> IntT h e m (Interpreted a)
 
 {-------------------------------------------------------------------------------
@@ -251,21 +251,19 @@ class Interpret h a where
 instance Interpret h DSL.Value where
   type Interpreted DSL.Value = Coin
 
-  int :: (HasCallStack, Monad m)
-      => DSL.Value -> IntT h e m Coin
+  int :: (Monad m) => DSL.Value -> IntT h e m Coin
   int = return . mkCoin
 
 instance Interpret h Addr where
   type Interpreted Addr = AddrInfo
 
-  int :: (HasCallStack, Monad m)
-      => Addr -> IntT h e m AddrInfo
+  int :: (Monad m) => Addr -> IntT h e m AddrInfo
   int = asks . resolveAddr
 
 instance DSL.Hash h Addr => Interpret h (DSL.Input h Addr) where
   type Interpreted (DSL.Input h Addr) = (TxOwnedInput SomeKeyPair, ResolvedInput)
 
-  int :: (HasCallStack, Monad m)
+  int :: (Monad m)
       => DSL.Input h Addr -> IntT h e m (TxOwnedInput SomeKeyPair, ResolvedInput)
   int inp@DSL.Input{..} = do
       -- We figure out who must sign the input by looking at the output
@@ -298,7 +296,7 @@ instance DSL.Hash h Addr => Interpret h (DSL.Input h Addr) where
 instance Interpret h (DSL.Output Addr) where
   type Interpreted (DSL.Output Addr) = TxOutAux
 
-  int :: (HasCallStack, Monad m)
+  int :: (Monad m)
       => DSL.Output Addr -> IntT h e m TxOutAux
   int DSL.Output{..} = do
       AddrInfo{..} <- int outAddr
@@ -313,7 +311,7 @@ instance Interpret h (DSL.Output Addr) where
 instance DSL.Hash h Addr => Interpret h (DSL.Utxo h Addr) where
   type Interpreted (DSL.Utxo h Addr) = Utxo
 
-  int :: forall e m. (HasCallStack, Monad m)
+  int :: forall e m. (Monad m)
       => DSL.Utxo h Addr -> IntT h e m Utxo
   int = fmap Map.fromList . mapM aux . DSL.utxoToList
     where
@@ -336,7 +334,7 @@ instance DSL.Hash h Addr => Interpret h (DSL.Utxo h Addr) where
 instance DSL.Hash h Addr => Interpret h (DSL.Transaction h Addr) where
   type Interpreted (DSL.Transaction h Addr) = RawResolvedTx
 
-  int :: forall e m. (HasCallStack, Monad m)
+  int :: forall e m. (Monad m)
       => DSL.Transaction h Addr -> IntT h e m RawResolvedTx
   int t = do
       (trIns', resolvedInputs) <- unzip <$> mapM int (DSL.trIns' t)
@@ -371,7 +369,7 @@ instance DSL.Hash h Addr => Interpret h (DSL.Transaction h Addr) where
 instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
   type Interpreted (DSL.Block h Addr) = RawResolvedBlock
 
-  int :: forall e m. (HasCallStack, Monad m)
+  int :: forall e m. (Monad m)
       => DSL.Block h Addr -> IntT h e m RawResolvedBlock
   int (OldestFirst txs) = do
       (txs', resolvedTxInputs) <- unpack <$> mapM int txs
@@ -418,7 +416,7 @@ instance DSL.Hash h Addr => Interpret h (DSL.Block h Addr) where
 instance DSL.Hash h Addr => Interpret h (DSL.Chain h Addr) where
   type Interpreted (DSL.Chain h Addr) = OldestFirst [] MainBlock
 
-  int :: forall e m. (HasCallStack, Monad m)
+  int :: forall e m. (Monad m)
       => DSL.Chain h Addr -> IntT h e m (OldestFirst [] MainBlock)
   int (OldestFirst blocks) = OldestFirst <$>
       mapM (fmap rawResolvedBlock . int) blocks

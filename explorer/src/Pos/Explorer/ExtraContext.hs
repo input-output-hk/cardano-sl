@@ -45,7 +45,7 @@ import           Pos.Txp (GenesisUtxo (..), genesisUtxo, utxoToAddressCoinPairs)
 
 type ExtraContextT m = Ether.ReaderT' ExtraContext m
 
-runExtraContextT :: Monad m => ExtraContext -> ExtraContextT m a -> m a
+runExtraContextT :: ExtraContext -> ExtraContextT m a -> m a
 runExtraContextT = flip Ether.runReaderT
 
 data ExtraContext = ExtraContext
@@ -63,7 +63,7 @@ makeExtraCtx =
         }
 
 -- | For mocking we mostly need to replace just the external CSL functions.
-makeMockExtraCtx :: HasConfiguration => ExplorerMockableMode -> ExtraContext
+makeMockExtraCtx :: ExplorerMockableMode -> ExtraContext
 makeMockExtraCtx explorerMockMode =
     ExtraContext
         { ecAddressCoinPairs = V.empty

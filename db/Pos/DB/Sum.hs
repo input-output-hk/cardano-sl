@@ -65,7 +65,7 @@ dbIterSourceSumDefault tag proxy = view (lensOf @DBSum) >>= \case
     PureDB pdb -> transPipe (flip runReaderT pdb) (DB.dbIterSourcePureDefault tag proxy)
 
 dbPutSumDefault
-    :: (MonadDBSum ctx m, HasCoreConfiguration)
+    :: (MonadDBSum ctx m)
     => DBTag -> ByteString -> ByteString -> m ()
 dbPutSumDefault tag k v = eitherDB (DB.dbPutDefault tag k v) (DB.dbPutPureDefault tag k v)
 

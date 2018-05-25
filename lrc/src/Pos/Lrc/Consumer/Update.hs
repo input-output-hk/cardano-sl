@@ -45,7 +45,7 @@ instance HasGenesisBlockVersionData => RichmenComponent RCUs where
 ----------------------------------------------------------------------------
 
 -- | Consumer will be called on every Richmen computation.
-usLrcConsumer :: (HasGenesisBlockVersionData, DB.MonadGState m, DB.MonadDB m) => Lrc.LrcConsumer m
+usLrcConsumer :: (DB.MonadGState m, DB.MonadDB m) => Lrc.LrcConsumer m
 usLrcConsumer = Lrc.lrcConsumerFromComponentSimple @RCUs bvdUpdateVoteThd
 
 ----------------------------------------------------------------------------
@@ -55,7 +55,7 @@ usLrcConsumer = Lrc.lrcConsumerFromComponentSimple @RCUs bvdUpdateVoteThd
 -- | Wait for LRC results to become available and then get update system
 -- ricmen data for the given epoch.
 getUSRichmen
-    :: (MonadIO m, DB.MonadDBRead m, MonadReader ctx m, Lrc.HasLrcContext ctx, HasGenesisBlockVersionData)
+    :: (MonadIO m, DB.MonadDBRead m, MonadReader ctx m, Lrc.HasLrcContext ctx)
     => Text               -- ^ Function name (to include into error message)
     -> EpochIndex         -- ^ Epoch for which you want to know the richmen
     -> m Lrc.FullRichmenData
@@ -68,7 +68,5 @@ getUSRichmen fname epoch =
 -- | Like 'getUSRichmen', but doesn't wait and doesn't fail.
 --
 -- Returns a 'Maybe'.
-tryGetUSRichmen
-    :: (DB.MonadDBRead m, HasGenesisBlockVersionData)
-    => EpochIndex -> m (Maybe Lrc.FullRichmenData)
+tryGetUSRichmen :: DB.MonadDBRead m => EpochIndex -> m (Maybe Lrc.FullRichmenData)
 tryGetUSRichmen = getRichmen @RCUs

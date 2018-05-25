@@ -21,7 +21,6 @@ import qualified Pos.Wallet.Web.Methods.Misc as V0
 
 -- | All the @Servant@ handlers for settings-specific operations.
 handlers :: ( HasConfigurations
-            , HasCompileInfo
             )
          => Diffusion MonadV1
          -> TVar NtpStatus
@@ -31,8 +30,7 @@ handlers = getInfo
 -- | Returns the @dynamic@ settings for this wallet node,
 -- like the local time difference (the NTP drift), the sync progress,
 -- etc.
-getInfo :: ( HasConfigurations
-           , MonadIO m
+getInfo :: ( MonadIO m
            , WithLogger m
            , MonadMockable m
            , MonadBlockchainInfo m

@@ -31,7 +31,6 @@ import           Pos.Core.Common (Address, Coin, IsBootstrapEraAddr (..), Stakeh
                                   addressHash, applyCoinPortionDown, coinToInteger,
                                   deriveFirstHDAddress, makePubKeyAddressBoot, mkCoin, sumCoins,
                                   unsafeIntegerToCoin)
-import           Pos.Core.Configuration.BlockVersionData (HasGenesisBlockVersionData)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants, vssMaxTTL, vssMinTTL)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
 import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
@@ -92,7 +91,7 @@ data GeneratedSecrets = GeneratedSecrets
     }
 
 generateGenesisData
-    :: (HasGenesisBlockVersionData, HasProtocolConstants)
+    :: HasProtocolConstants
     => ProtocolMagic
     -> GenesisInitializer
     -> GenesisAvvmBalances
@@ -254,8 +253,7 @@ generateVssCert pm RichSecrets {..} = do
 
 -- Generates balance distribution for testnet.
 genTestnetDistribution ::
-       HasGenesisBlockVersionData
-    => TestnetBalanceOptions
+       TestnetBalanceOptions
     -> Integer
     -> ([Coin], [Coin])
 genTestnetDistribution TestnetBalanceOptions {..} testBalance =

@@ -144,14 +144,6 @@ createGenesisBlockAndApply epoch = do
 createGenesisBlockDo
     :: forall ctx m.
        ( MonadCreateBlock ctx m
-       , MonadBlockApply ctx m
-       , CanJsonLog m
-       , HasGeneratedSecrets
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisData
-       , HasGenesisHash
        , HasMisbehaviorMetrics ctx
        )
     => EpochIndex
@@ -189,8 +181,6 @@ createGenesisBlockDo epoch = do
 
 needCreateGenesisBlock ::
        ( MonadCreateBlock ctx m
-       , MonadBlockApply ctx m
-       , HasProtocolConstants
        )
     => EpochIndex
     -> BlockHeader
@@ -229,15 +219,9 @@ needCreateGenesisBlock epoch tipHeader = do
 createMainBlockAndApply ::
        forall ctx m.
        ( MonadCreateBlock ctx m
-       , MonadBlockApply ctx m
        , CanJsonLog m
        , HasLens' ctx StateLock
        , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
-       , HasGeneratedSecrets
-       , HasGenesisData
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasProtocolMagic
        )
     => SlotId
     -> ProxySKBlockInfo
@@ -291,8 +275,7 @@ createMainBlockInternal sId pske = do
             "Created main block of size: " <> sformat memory (biSize block)
         block <$ evaluateNF_ block
 
-canCreateBlock ::
-       forall ctx m. (MonadCreateBlock ctx m, HasProtocolConstants, HasGenesisBlockVersionData)
+canCreateBlock :: MonadCreateBlock ctx m
     => SlotId
     -> BlockHeader
     -> m (Either Text ())
@@ -433,8 +416,7 @@ data RawPayload = RawPayload
     , rpUpdate :: !UpdatePayload
     }
 
-getRawPayload ::
-       forall ctx m. (MonadCreateBlock ctx m, HasGenesisBlockVersionData, HasProtocolConstants)
+getRawPayload :: MonadCreateBlock ctx m
     => HeaderHash
     -> SlotId
     -> m RawPayload

@@ -51,7 +51,6 @@ import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB), M
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
-import           Pos.Ssc (HasSscConfiguration)
 import           Pos.Txp.DB (getAllPotentiallyHugeUtxo, utxoSource)
 import           Pos.Txp.GenesisUtxo (genesisUtxo)
 import           Pos.Txp.Toil (GenesisUtxo (..), utxoF, utxoToAddressCoinPairs)
@@ -65,8 +64,6 @@ explorerInitDB
        ( MonadReader ctx m
        , MonadUnliftIO m
        , MonadDB m
-       , HasConfiguration
-       , HasSscConfiguration
        )
     => m ()
 explorerInitDB = initNodeDBs >> prepareExplorerDB
@@ -168,7 +165,7 @@ getLastTransactions = gsGetBi lastTxsPrefix
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareExplorerDB :: (MonadDB m, MonadUnliftIO m, HasConfiguration) => m ()
+prepareExplorerDB :: (MonadDB m, MonadUnliftIO m) => m ()
 prepareExplorerDB = do
     unlessM balancesInitializedM $ do
         let GenesisUtxo utxo = genesisUtxo
@@ -264,7 +261,7 @@ balancesInitializedM = isJust <$> dbGet GStateDB balancesInitFlag
 putInitFlag :: MonadDB m => m ()
 putInitFlag = gsPutBi balancesInitFlag True
 
-putGenesisBalances :: (MonadDB m, HasConfiguration) => [(Address, Coin)] -> m ()
+putGenesisBalances :: (MonadDB m) => [(Address, Coin)] -> m ()
 putGenesisBalances addressCoinPairs = writeBatchGState putAddrBalancesOp
   where
     putAddrBalancesOp :: [ExplorerOp]
@@ -273,7 +270,7 @@ putGenesisBalances addressCoinPairs = writeBatchGState putAddrBalancesOp
 utxoSumInitializedM :: MonadDBRead m => m Bool
 utxoSumInitializedM = isJust <$> dbGet GStateDB utxoSumPrefix
 
-putCurrentUtxoSum :: (MonadDB m, MonadUnliftIO m, HasConfiguration) => m ()
+putCurrentUtxoSum :: (MonadDB m, MonadUnliftIO m) => m ()
 putCurrentUtxoSum = do
     utxoSum <- computeUtxoSum
     writeBatchGState [PutUtxoSum utxoSum]

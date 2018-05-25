@@ -19,7 +19,7 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Core (ApplicationName, BlockVersion, ComponentBlock (..), HasCoreConfiguration,
                            NumSoftwareVersion, SoftwareVersion (..), StakeholderId, addressHash, HasProtocolConstants,
                            blockVersionL, epochIndexL, headerHashG, headerLeaderKeyL, headerSlotL,
-                           HasProtocolMagic, HasGenesisBlockVersionData)
+                           HasProtocolMagic)
 import           Pos.Core.Update (BlockVersionData, UpId, UpdatePayload)
 import qualified Pos.DB.BatchOp as DB
 import qualified Pos.DB.Class as DB
@@ -90,9 +90,6 @@ withUSLogger = modifyLoggerName (<> "us")
 usApplyBlocks
     :: ( MonadThrow m
        , USGlobalApplyMode ctx m
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasProtocolMagic
        )
     => OldestFirst NE UpdateBlock
     -> Maybe PollModifier
@@ -120,8 +117,7 @@ usApplyBlocks blocks modifierMaybe =
 -- data. The caller must ensure that the tip stored in DB is 'headerHash' of
 -- head.
 usRollbackBlocks
-    :: forall ctx m.
-       (USGlobalApplyMode ctx m, HasGenesisBlockVersionData)
+    :: USGlobalApplyMode ctx m
     => NewestFirst NE (UpdateBlock, USUndo) -> m [DB.SomeBatchOp]
 usRollbackBlocks blunds =
     withUSLogger $
@@ -158,9 +154,6 @@ usVerifyBlocks ::
        , DB.MonadDBRead m
        , MonadUnliftIO m
        , MonadReporting m
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisBlockVersionData
        )
     => Bool
     -> OldestFirst NE UpdateBlock
@@ -208,13 +201,11 @@ verifyBlock lastAdopted verifyAllIsKnown (ComponentBlockMain header payload) =
 -- global state.
 usCanCreateBlock ::
        ( WithLogger m
-       , MonadIO m
        , MonadUnliftIO m
        , DB.MonadDBRead m
        , MonadReader ctx m
        , HasLrcContext ctx
        , HasUpdateConfiguration
-       , HasGenesisBlockVersionData
        )
     => m Bool
 usCanCreateBlock =

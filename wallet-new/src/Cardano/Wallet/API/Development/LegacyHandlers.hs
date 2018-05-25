@@ -20,8 +20,6 @@ import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types (V1(..))
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 
-import qualified Pos.Core as V0
-import qualified Pos.Configuration as V0
 import qualified Pos.Wallet.Web.State as V0
 import qualified Pos.Client.KeyStorage as V0
 import qualified Pos.Wallet.Web.Methods.Misc as V0
@@ -30,10 +28,7 @@ import           Servant
 
 -- | Until we depend from V0 logic to implement the each 'Handler' we
 -- still need the natural transformation here.
-handlers :: ( HasConfigurations
-            , HasCompileInfo
-            )
-         => (forall a. MonadV1 a -> Handler a)
+handlers :: (forall a. MonadV1 a -> Handler a)
          -> RunMode
          -> Server Dev.API
 handlers naturalTransformation runMode =
@@ -41,9 +36,7 @@ handlers naturalTransformation runMode =
          where
             -- | @Servant@ handlers needed by test cases.
             -- They are not available in public, but for development mode only.
-            handlers' :: ( HasCompileInfo
-                         , HasConfigurations
-                         , V0.WalletDbReader ctx m
+            handlers' :: ( V0.WalletDbReader ctx m
                          , V0.MonadKeys m
                          , MonadThrow m
                          , MonadIO m
@@ -59,9 +52,7 @@ getWalletState :: ( MonadThrow m, MonadIO m, V0.WalletDbReader ctx m)
 getWalletState runMode =
     developmentOnly runMode (fmap V1 . single <$> V0.dumpState)
 
-deleteSecretKeys :: ( V0.HasNodeConfiguration
-                    , V0.HasConfiguration
-                    , V0.WalletDbReader ctx m
+deleteSecretKeys :: ( V0.WalletDbReader ctx m
                     , V0.MonadKeys m
                     , MonadThrow m
                     , MonadIO m

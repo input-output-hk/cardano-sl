@@ -15,7 +15,7 @@ import           Universum
 import           Data.Default (Default (def))
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core (HeaderHash, SlotId (..), UpdateProposals, HasProtocolConstants)
+import           Pos.Core (HeaderHash, SlotId (..), UpdateProposals)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.GState.Common (getTip)
 import           Pos.Slotting (MonadSlots (getCurrentSlot))
@@ -54,7 +54,7 @@ newtype MemVar = MemVar
 
 -- | Create new 'MemVar' using slotting and read-only access to DB.
 newMemVar
-    :: (HasProtocolConstants, MonadIO m, MonadDBRead m, MonadSlots ctx m)
+    :: (MonadIO m, MonadDBRead m, MonadSlots ctx m)
     => m MemVar
 newMemVar = do
     let slot0 = SlotId 0 minBound

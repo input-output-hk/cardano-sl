@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module Pos.Core.Class
        (

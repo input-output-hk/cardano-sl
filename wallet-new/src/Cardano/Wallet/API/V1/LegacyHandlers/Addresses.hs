@@ -37,7 +37,7 @@ import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types
 
 handlers
-    :: (MonadThrow m, V0.MonadWalletLogic ctx m)
+    :: V0.MonadWalletLogic ctx m
     => ServerT Addresses.API m
 handlers =  listAddresses
        :<|> newAddress

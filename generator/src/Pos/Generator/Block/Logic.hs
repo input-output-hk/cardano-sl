@@ -12,7 +12,7 @@ import           Universum
 
 import           Control.Lens (at, ix, _Wrapped)
 import           Control.Monad.Random.Strict (RandT, mapRandT)
-import           Data.Default (Default (def))
+import           Data.Default (Default)
 import           Formatting (build, sformat, (%))
 import           System.Random (RandomGen (..))
 import           System.Wlog (logWarning)
@@ -42,7 +42,6 @@ import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings)
 import           Pos.Util (HasLens', maybeThrow, _neHead)
-import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
 ----------------------------------------------------------------------------
 -- Block generation
@@ -97,7 +96,7 @@ genBlock ::
        )
     => EpochOrSlot
     -> BlockGenRandMode (MempoolExt m) g m (Maybe Blund)
-genBlock eos = withCompileInfo def $ do
+genBlock eos = do
     let epoch = eos ^. epochIndexL
     lift $ unlessM ((epoch ==) <$> LrcDB.getEpoch) (lrcSingleShot epoch)
     -- We need to know leaders to create any block.
@@ -135,7 +134,6 @@ genBlock eos = withCompileInfo def $ do
                              (lift $ genMainBlock slot (swap <$> transCert))
   where
     genMainBlock ::
-        HasCompileInfo =>
         SlotId ->
         ProxySKBlockInfo ->
         BlockGenMode (MempoolExt m) m Blund
@@ -143,9 +141,7 @@ genBlock eos = withCompileInfo def $ do
         createMainBlockInternal slot proxySkInfo >>= \case
             Left err -> throwM (BGFailedToCreate err)
             Right mainBlock -> verifyAndApply $ Right mainBlock
-    verifyAndApply ::
-        HasCompileInfo =>
-        Block -> BlockGenMode (MempoolExt m) m Blund
+    verifyAndApply :: Block -> BlockGenMode (MempoolExt m) m Blund
     verifyAndApply block =
         verifyBlocksPrefix (one block) >>= \case
             Left err -> throwM (BGCreatedInvalid err)

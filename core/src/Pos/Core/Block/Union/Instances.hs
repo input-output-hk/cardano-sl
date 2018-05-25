@@ -1,4 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+-- the Getter instances from lens cause a redundant Functor
 
 -- | United miscellaneous functionality.
 

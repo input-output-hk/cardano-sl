@@ -14,7 +14,6 @@ import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (allDistinct)
 
-import           Pos.Binary.Class (Bi)
 import           Pos.Core.Common (Address, Coin, StakeholderId, addressHash, decodeTextAddress,
                                   unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Delegation (ProxySKHeavy)
@@ -57,7 +56,7 @@ recreateGenesisDelegation pskMap = do
 -- calling funciton.
 convertNonAvvmDataToBalances
     :: forall m .
-       ( MonadError Text m, Bi Address )
+       ( MonadError Text m )
     => HashMap Text Integer
     -> m GenesisNonAvvmBalances
 convertNonAvvmDataToBalances balances = GenesisNonAvvmBalances <$> balances'

@@ -192,7 +192,7 @@ secureF = mapf SecureLog
 
 -- | Secure Maybe using default value, use this to avoid leaking about whether
 -- a value is present or not.
-secureMaybeF :: Buildable a => a -> Format r (SecureLog a -> r) -> Format r (Maybe a -> r)
+secureMaybeF :: a -> Format r (SecureLog a -> r) -> Format r (Maybe a -> r)
 secureMaybeF def = mapf (SecureLog . fromMaybe def)
 
 -- | Takes one of given items (usually formatters, nonsecure goes first),

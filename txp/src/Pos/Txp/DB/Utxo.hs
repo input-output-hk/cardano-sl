@@ -43,7 +43,7 @@ import           System.Wlog (WithLogger, logError)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (Address, Coin, coinF, mkCoin, sumCoins, unsafeAddCoin,
-                           unsafeIntegerToCoin, HasCoreConfiguration, HasGenesisData)
+                           unsafeIntegerToCoin, HasCoreConfiguration)
 import           Pos.Core.Txp (TxIn (..), TxOutAux (toaOut))
 import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB), IterType, MonadDB,
                          MonadDBRead, RocksBatchOp (..), dbIterSource, dbSerializeValue,
@@ -133,7 +133,7 @@ getAllPotentiallyHugeUtxo = runConduitRes $ utxoSource .| utxoSink
 ----------------------------------------------------------------------------
 
 sanityCheckUtxo
-    :: (MonadDBRead m, WithLogger m, MonadUnliftIO m, HasGenesisData)
+    :: (MonadDBRead m, WithLogger m, MonadUnliftIO m)
     => Coin -> m ()
 sanityCheckUtxo expectedTotalStake = do
     let stakesSource =

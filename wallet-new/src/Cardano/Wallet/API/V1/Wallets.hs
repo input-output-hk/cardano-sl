@@ -41,9 +41,4 @@ type API = Tags '["Wallets"] :>
                    :> Summary "Creates a new or restores an existing external wallet (mobile client or hardware wallet)."
                    :> ReqBody '[ValidJSON] (New ExternalWallet)
                    :> PostCreated '[ValidJSON] (WalletResponse Wallet)
-    :<|> "external-wallets"
-                   :> CaptureWalletId
-                   :> "address-path"
-                   :> Summary "Generates a new BIP44 derivation path for the given external wallet."
-                   :> PostCreated '[ValidJSON] (WalletResponse AddressPath)
     )

@@ -37,7 +37,6 @@ import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogi
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
 import           Servant
-import           Test.QuickCheck (arbitrary, generate)
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: ( HasConfigurations
@@ -51,7 +50,6 @@ handlers = newWallet
     :<|> getWallet
     :<|> updateWallet
     :<|> newExternalWallet
-    :<|> newAddressPath
 
 
 -- | Pure function which returns whether or not the underlying node is
@@ -262,14 +260,3 @@ createNewExternalWallet walletMeta encodedExtPubKey = do
     -- thus setting it up to date manually here
     withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip db walletId tip
     V0.getWallet walletId
-
--- | Creates a new BIP44 derivation path for an external wallet.
-newAddressPath
-    :: ( MonadThrow m
-       , V0.MonadBlockchainInfo m
-       , V0.MonadWalletLogic ctx m
-       )
-    => WalletId
-    -> m (WalletResponse AddressPath)
-newAddressPath _ =
-    single <$> (liftIO $ generate arbitrary)

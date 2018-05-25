@@ -4,11 +4,10 @@ import           Universum
 
 import           Data.ByteString.Char8 (pack)
 import           Data.Set (Set)
-import           Test.Hspec (Spec, describe, it, shouldSatisfy, xit)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import           Test.QuickCheck (Arbitrary (..), property)
-import           Test.QuickCheck.Gen (Gen (..), oneof, vectorOf)
-import           Test.QuickCheck.Random (mkQCGen)
+import           Test.Hspec (Spec, it, shouldSatisfy, xit)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.QuickCheck (Arbitrary (..), forAll, property)
+import           Test.QuickCheck.Gen (oneof, vectorOf)
 
 import           Pos.Util.BackupPhrase (BackupPhrase (..), safeKeysFromPhrase)
 import           Pos.Util.Mnemonics (defMnemonic, fromMnemonic, toMnemonic)
@@ -20,38 +19,40 @@ import qualified Data.Set as Set
 
 spec :: Spec
 spec = do
-    describe "Pos.Util.Mnemonics" $ do
-        modifyMaxSuccess (const 10000) $ it "toMnemonic >=> fromMnemonic = Right" $ property $
-            \(Entropy ent) -> (toMnemonic ent >>= fromMnemonic) == Right ent
+    it "No example mnemonic" $
+        fromMnemonic defMnemonic `shouldSatisfy` isLeft
 
-        it "No example mnemonic" $
-            fromMnemonic defMnemonic `shouldSatisfy` isLeft
+    it "No empty mnemonic" $
+        (fromMnemonic "") `shouldSatisfy` isLeft
 
-        it "No empty mnemonic" $
-            (fromMnemonic "") `shouldSatisfy` isLeft
+    it "No empty entropy" $
+        (toMnemonic "") `shouldSatisfy` isLeft
 
-        it "No empty entropy" $
-            (toMnemonic "") `shouldSatisfy` isLeft
+    modifyMaxSuccess (const 10000) $ prop "toMnemonic >=> fromMnemonic = Right" $
+        \(Entropy ent) -> (toMnemonic ent >>= fromMnemonic) == Right ent
 
-        xit "entropyToWalletId is injective " $
-            let
-                inject :: Ord b => (a -> b) -> [a] -> Set b
-                inject fn xs =
-                    foldl' (\acc x -> Set.insert (fn x) acc) Set.empty xs
+    -- Turn xit -> it to run, and go get a looooong coffee.
+    xit "entropyToWalletId is injective, (very long to run, used for investigation)"
+        $ property
+        $ forAll (vectorOf 1000 arbitrary)
+        $ \inputs -> length (inject entropyToWalletId inputs) == length inputs
+      where
+        inject :: Ord b => (a -> b) -> [a] -> Set b
+        inject fn =
+            Set.fromList . fmap fn
 
-                genList :: Arbitrary a => Int -> [a]
-                genList n =
-                    unGen (vectorOf n arbitrary) (mkQCGen 14) 14
+        entropyToWalletId :: Entropy -> CId w
+        entropyToWalletId (Entropy ent) = cid
+          where
+            backupPhrase = either
+                (error . (<>) "Wrong arbitrary Entropy generated: " . show)
+                (BackupPhrase . words)
+                (toMnemonic ent)
 
-                entropyToWalletId :: Entropy -> CId w
-                entropyToWalletId (Entropy ent) = cid
-                  where
-                    Right backupPhrase = (BackupPhrase . words) <$> toMnemonic ent
-                    Right cid          = (encToCId . fst) <$> safeKeysFromPhrase mempty backupPhrase
-
-                inputs = genList 1000000
-            in
-                length (inject entropyToWalletId inputs) == length inputs
+            cid = either
+                (error . (<>) "Couldn't create keys from generated BackupPhrase" . show)
+                (encToCId . fst)
+                (safeKeysFromPhrase mempty backupPhrase)
 
 
 newtype Entropy = Entropy ByteString deriving (Eq, Show)

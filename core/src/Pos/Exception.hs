@@ -17,9 +17,8 @@ import qualified Data.Text.Buildable
 import           Data.Typeable (cast)
 import           Formatting (bprint, stext, (%))
 import           Serokell.Util (Color (Red), colorize)
---import           System.Wlog (WithLogger, logError)
+import           Pos.Util.Log (WithLogger, logError)
 import qualified Text.Show
-import qualified Pos.Util.Log as Log
 import           Universum
 
 -- | Root of exceptions in cardano-sl.
@@ -66,13 +65,13 @@ instance Exception CardanoFatalError where
 
 -- | Print red message about fatal error and throw exception.
 reportFatalError
-    :: (Log.WithLogger m, MonadThrow m)
+    :: (WithLogger m, MonadThrow m)
     => Text -> m a
 reportFatalError msg = do
-    Log.logError $ colorize Red msg
+    logError $ colorize Red msg
     throwM $ CardanoFatalError msg
 
 -- | Report 'CardanoFatalError' for failed assertions.
-assertionFailed :: (Log.WithLogger m, MonadThrow m) => Text -> m a
+assertionFailed :: (WithLogger m, MonadThrow m) => Text -> m a
 assertionFailed msg =
     reportFatalError $ "assertion failed: " <> msg

@@ -7928,13 +7928,13 @@ inherit (pkgs) mesa;};
            ];
            executableHaskellDepends = [
              aeson aeson-diff aeson-pretty base bytestring cardano-sl
-             cardano-sl-core cardano-sl-infra cardano-sl-networking
-             cardano-sl-ssc cardano-sl-txp cardano-sl-util cardano-sl-wallet
-             containers exceptions formatting hspec http-client http-types lens
-             log-warper mtl optparse-applicative pretty-show QuickCheck servant
-             servant-quickcheck servant-server stm swagger2 text text-format
-             universum unordered-containers wai wai-cors wai-extra warp x509
-             x509-store
+             cardano-sl-core cardano-sl-crypto cardano-sl-infra
+             cardano-sl-networking cardano-sl-ssc cardano-sl-txp cardano-sl-util
+             cardano-sl-wallet containers exceptions formatting hspec
+             http-client http-types lens log-warper mtl optparse-applicative
+             pretty-show QuickCheck servant servant-quickcheck servant-server
+             stm swagger2 text text-format universum unordered-containers wai
+             wai-cors wai-extra warp x509 x509-store
            ];
            testHaskellDepends = [
              aeson base base58-bytestring bytestring cardano-sl cardano-sl-block

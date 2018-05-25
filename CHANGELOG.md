@@ -2,7 +2,72 @@
 
 ## Cardano SL 1.2.0 (Mainnet)
 
-TO BE DONE.
+Most important code changes which made to release 1.2.0.
+
+### Features
+
+- Development and execution of Benchmarking Tools for the Wallet V0 API (CBR-7, CBR-23 & CBR-88).
+
+- Detailed design and documentation of how to test a wallet. Pre-requisite for building regression tests (CBR-24).
+
+- Discriminate between publicly exposed wallet API endpoints and endpoints reserved to an internal IOHK usage (CBR-19).
+
+- Make available to the Exchanges the subset of V1 API endpoints which is critical to their business (CBR-103).
+
+- Design and implementation of the new V1 API endpoints (CBR-16).
+
+- Optimize the way the mempool is used in the Wallet Backend (CBR-6).
+
+- Analyse the usage of database updates and introduce new atomic updates in the Wallet Backend (CBR-8).
+
+- Investigate and solve the balance discrepancy experienced by Bittrex (CBR-135).
+
+- Asynchronous restoration of a wallet from seed (CBR-90).
+
+- Add sorting and filtering capabilities to the wallet V1 API (CBR-20).
+
+
+
+### Bug fixes and improvements
+
+- CBR-282: After current production installer (Daedalus 0.9.1, Cardano 1.1.1) get's RC5 update applied (through the update mechanism) the node is no longer able to start and thus Daedalus remains stuck at "Connecting to network..." screen.
+This issue is confirmed on both macOS and Windows platforms.
+
+
+- The wallet creation and backup should work properly when there are non-latin characters in wallet name (R120-4).
+
+- In the latest Daedalus version new General Settings > Support screen was added.
+This page contains a download logs link. If this option is used then Support Request dialog submit does not work (R120-5).
+
+
+- QR code dimensions had to be slightly altered (width & height reduced from 160px to 152px) in order to make the QR code readable by most of the online QR code readers (R120-7).
+
+
+- Daedalus frontend not launching after installing on OSX 10.11 (R120-8).
+
+
+- Fix AppVeyor signing issue (R120-10).
+
+- The update proposal submitted on 2018-05-08 08:15 UTC had the windows and macos installers swapped around (R120-14).
+
+
+- Second update proposal failure: stakeholder proposed second update in epoch (R120-15).
+
+- After current production installer (Daedalus 0.9.1, Cardano 1.1.1) get's RC5 update applied (through the update mechanism) the node is no longer able to start and thus Daedalus remains stuck at "Connecting to network..." screen.
+This issue is confirmed on both macOS and Windows platforms (R120-17).
+
+- A Hotfix (HF) was requested for Ada recovery service.Daedalus team confirmed that changes will be only on frontend. It is critical to deliver the HF before 1 June (R120-18).
+
+
+- Open lock folder prevents 1.2.0 start on Windows (R120-20).
+
+
+
+
+
+
+
+
 
 ## Cardano SL 1.1.1 (Mainnet)
 
@@ -27,7 +92,7 @@ Most important code changes which made to release 1.1.0.
 
 - Logs are compressed when sent to the reporting server to reduce bandwidth usage.
 
-- The Cardano launcher configuration is improved with support for the YAML format to remove the need for custom scripts for launching the Cardano node. 
+- The Cardano launcher configuration is improved with support for the YAML format to remove the need for custom scripts for launching the Cardano node.
 
 - A new option for launching the Cardano node allows usage of API endpoints without TLS encryption for easier testing while developing integrations.
 
@@ -35,7 +100,7 @@ Most important code changes which made to release 1.1.0.
 
 - Fixed improper node shutdowns, which caused some of the ‘connecting to network’ issues when using Daedalus. Improved Cardano node shutdown behavior by improvements to concurrency and exception handling, providing fixes to rocksdb database bindings.
 
-- Fixed transaction queuing and resubmission logic to remove some of the issues reported by cryptocurrency exchanges. 
+- Fixed transaction queuing and resubmission logic to remove some of the issues reported by cryptocurrency exchanges.
 
 - Several minor fixes to the update system for correctly receiving and installing updates from the blockchain to remove some of the reported cases of failed updates.
 

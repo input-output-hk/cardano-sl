@@ -185,7 +185,6 @@ distributeFeesInternal fee outputs
     subtractFee output =
         fromIntegral output - (fromIntegral fee * (fromIntegral output / total))
 
-
 -- | This subtraction implementation bottoms out at @0@ instead of underflowing.
 subBottomOut :: Word64 -> Word64 -> Word64
 subBottomOut x y

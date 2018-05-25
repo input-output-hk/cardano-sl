@@ -20,5 +20,5 @@ spec = do
                     ===
                     sum distributed
                     .&&.
-                    all (/= (0 :: Integer)) (map round distributed)
+                    all ((0 :: Integer) <) (map round distributed)
 

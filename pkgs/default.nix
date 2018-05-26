@@ -7920,12 +7920,12 @@ inherit (pkgs) mesa;};
          , cardano-sl-core, cardano-sl-crypto, cardano-sl-db
          , cardano-sl-delegation, cardano-sl-infra, cardano-sl-lrc
          , cardano-sl-networking, cardano-sl-ssc, cardano-sl-txp
-         , cardano-sl-update, cardano-sl-util, cardano-sl-util-test
-         , cardano-sl-wallet, cassava, conduit, connection, constraints
-         , containers, cryptonite, data-default, data-default-class
-         , directory, exceptions, formatting, gauge, generics-sop, hspec
-         , http-api-data, http-client, http-client-tls, http-types
-         , ixset-typed, json-sop, lens, log-warper, memory, mtl
+         , cardano-sl-txp-test, cardano-sl-update, cardano-sl-util
+         , cardano-sl-util-test, cardano-sl-wallet, cassava, conduit
+         , connection, constraints, containers, cryptonite, data-default
+         , data-default-class, directory, exceptions, formatting, gauge
+         , generics-sop, hspec, http-api-data, http-client, http-client-tls
+         , http-types, ixset-typed, json-sop, lens, log-warper, memory, mtl
          , neat-interpolation, network-transport, node-ipc
          , optparse-applicative, pretty-show, QuickCheck
          , quickcheck-instances, random, reflection, safe-exceptions
@@ -7976,12 +7976,13 @@ inherit (pkgs) mesa;};
              aeson base bytestring cardano-sl cardano-sl-block cardano-sl-client
              cardano-sl-core cardano-sl-crypto cardano-sl-db
              cardano-sl-delegation cardano-sl-lrc cardano-sl-ssc cardano-sl-txp
-             cardano-sl-update cardano-sl-util cardano-sl-util-test
-             cardano-sl-wallet constraints containers data-default directory
-             formatting hspec lens log-warper mtl QuickCheck
-             quickcheck-instances safe-exceptions serokell-util servant
-             servant-server servant-swagger servant-swagger-ui string-conv
-             swagger2 text text-format time universum unordered-containers
+             cardano-sl-txp-test cardano-sl-update cardano-sl-util
+             cardano-sl-util-test cardano-sl-wallet constraints containers
+             data-default directory formatting hspec lens log-warper mtl
+             QuickCheck quickcheck-instances safe-exceptions serokell-util
+             servant servant-server servant-swagger servant-swagger-ui
+             string-conv swagger2 text text-format time universum
+             unordered-containers vector
            ];
            benchmarkHaskellDepends = [
              aeson async base bytestring cardano-sl-client cardano-sl-core

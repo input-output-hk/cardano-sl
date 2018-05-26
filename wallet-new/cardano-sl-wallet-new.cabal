@@ -79,6 +79,7 @@ library
                        Cardano.Wallet.Kernel.Diffusion
                        Cardano.Wallet.Kernel.Mode
                        Cardano.Wallet.Kernel.PrefilterTx
+                       Cardano.Wallet.Kernel.Submission
                        Cardano.Wallet.Kernel.Types
                        Cardano.Wallet.LegacyServer
                        Cardano.Wallet.Orphans
@@ -146,6 +147,7 @@ library
                      , network-transport
                      , node-ipc
                      , optparse-applicative
+                     , QuickCheck
                      , reflection
                      , safe-exceptions
                      , safecopy
@@ -339,6 +341,7 @@ test-suite wallet-unit-tests
                       Test.Infrastructure.Genesis
                       Test.Spec.Kernel
                       Test.Spec.Models
+                      Test.Spec.Submission
                       Test.Spec.Translation
                       Test.Spec.WalletWorker
                       Util
@@ -400,6 +403,7 @@ test-suite wallet-unit-tests
                     , cardano-sl-lrc
                     , cardano-sl-ssc
                     , cardano-sl-txp
+                    , cardano-sl-txp-test
                     , cardano-sl-update
                     , cardano-sl-util
                     , cardano-sl-wallet-new
@@ -418,6 +422,7 @@ test-suite wallet-unit-tests
                     , text-format
                     , universum
                     , unordered-containers
+                    , vector
 
 test-suite wallet-new-specs
   ghc-options:      -Wall

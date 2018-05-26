@@ -173,13 +173,16 @@ newTransactionFeesIncluded submitTx pmt = do
 distributeFeesInternal
     :: Word64 -- ^ The fee amount
     -> NonEmpty Word64 -- ^ The outputs of the 'PaymentDistribution'
-    -> Maybe (NonEmpty Rational) -- ^ The resulting outputs after subtracting the fee.
+    -> Maybe (NonEmpty Word64) -- ^ The resulting outputs after subtracting the fee.
 distributeFeesInternal fee outputs
-    | fromIntegral fee >= total || any (0 ==) outputs = Nothing
+    | 0 `elem` outputs = Nothing
+    | fromIntegral fee >= total = Nothing
+    | 0 `elem` result = Nothing
     | otherwise = Just result
   where
     result =
-        map (subtractFee) outputs
+        map (round . subtractFee) outputs
+    total :: Rational
     total =
         sum (map fromIntegral outputs)
     subtractFee output =

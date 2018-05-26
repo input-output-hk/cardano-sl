@@ -263,7 +263,7 @@ genTransaction GenTrParams{..} removeUsedInputs makeOutputsAvailable notThese = 
             gos = initOutState inValue
 
         (outputs, gos') <- lift $ (`runStateT` gos) $
-                             replicateAtMostM numOutputs $ genOutput
+                             replicateAtMostM numOutputs $ genOutput gtpOutParams
 
         let fee     = gtpEstimateFee numInputs (map outVal outputs)
 

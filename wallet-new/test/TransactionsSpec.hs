@@ -12,7 +12,9 @@ import Cardano.Wallet.API.V1.LegacyHandlers.Transactions
 spec :: Spec
 spec = do
     describe "feesIncluded distribution logic" $ do
-        prop "distributeFeesInternal preserves amounts" $ \fee outputs' ->
+        modifyMaxSuccess (const 1000)
+            $ prop "distributeFeesInternal preserves amounts"
+            $ \fee outputs' ->
             let
                 -- I suspect there were some infinite lists causing
                 -- nontermination. Or possibly some absolutely massive 'Integer'
@@ -31,9 +33,9 @@ spec = do
                                 sum (map toInteger distributed)
                             difference =
                                 abs (expected - actual)
-                         in counterexample
-                            ("Difference was: " <> show difference)
-                            $ difference <= 5
+                         in
+                            counterexample ("Difference was: " <> show difference)
+                            $ difference <= 6
                               .&&.
                               all (0 <) distributed
                               -- due to rounding error, we currently observe

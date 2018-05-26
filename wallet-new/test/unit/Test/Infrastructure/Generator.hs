@@ -22,6 +22,11 @@ import           UTxO.Generator
 import           Wallet.Inductive
 import           Wallet.Inductive.Generator
 
+import           Pos.Core ( HasGenesisBlockVersionData
+                          , bvdTxFeePolicy, genesisBlockVersionData
+                          , TxFeePolicy(..), calculateTxSizeLinear )
+import           Serokell.Data.Memory.Units (Byte, fromBytes)
+
 {-------------------------------------------------------------------------------
   Generator model
 -------------------------------------------------------------------------------}
@@ -47,7 +52,7 @@ data GeneratorModel h a = GeneratorModel {
     , gmMaxNumOurs    :: Int
 
       -- | Estimate fees
-    , gmEstimateFee   :: Int -> Int -> Value
+    , gmEstimateFee   :: Int -> [Value] -> Value
     }
 
 genChainUsingModel :: (Hash h a, Ord a) => GeneratorModel h a -> Gen (Chain h a)
@@ -115,7 +120,8 @@ simpleModel = GeneratorModel {
 -- but since it deals with the " real world " it has all kinds of different
 -- actors, large values, etc., and so is a bit difficult to debug when
 -- looking at values manually.
-cardanoModel :: Transaction GivenHash Addr -> GeneratorModel GivenHash Addr
+cardanoModel :: HasGenesisBlockVersionData
+             => Transaction GivenHash Addr -> GeneratorModel GivenHash Addr
 cardanoModel boot = GeneratorModel {
       gmBoot          = boot
     , gmAllAddresses  = filter (not . isAvvmAddr) $ addrsInBoot boot
@@ -124,8 +130,48 @@ cardanoModel boot = GeneratorModel {
     , gmMaxNumOurs    = 5
     }
 
-estimateCardanoFee :: Int -> Int -> Value
-estimateCardanoFee ins outs = fromIntegral $ (ins + outs) * 150000
+-- | Estimate the size of a transaction, in bytes.
+estimateSize :: Int      -- ^ Average size of @Attributes AddrAttributes@.
+             -> Int      -- ^ Size of transaction's @Attributes ()@.
+             -> Int      -- ^ Number of inputs to the transaction.
+             -> [Value]  -- ^ Coin value of each output to the transaction.
+             -> Byte     -- ^ Estimated size of the resulting transaction.
+estimateSize saa sta ins outs
+    = fromBytes . fromIntegral $
+      5
+    + 42 * ins
+    + (11 + size (32 + (fromIntegral saa))) * length outs
+    + sum (map coinSize outs)
+    + fromIntegral sta
+  where
+    coinSize s =
+        if | s <= 0x17       -> 1
+           | s <= 0xff       -> 2
+           | s <= 0xffff     -> 3
+           | s <= 0xffffffff -> 5
+           | otherwise      -> 9
+
+    size s =
+        if | s <= 0x17       -> 1 + s
+           | s <= 0xff       -> 2 + s
+           | s <= 0xffff     -> 3 + s
+           | s <= 0xffffffff -> 5 + s
+           | otherwise      -> 9 + s
+
+-- | Estimate the fee for a transaction that has @ins@ inputs
+--   and @length outs@ outputs. The @outs@ lists holds the coin value
+--   of each output.
+--
+--   NOTE: The average size of @Attributes AddrAttributes@ and
+--         the transaction attributes @Attributes ()@ are both hard-coded
+--         to the (unrealistic) value 0.
+estimateCardanoFee :: HasGenesisBlockVersionData => Int -> [Value] -> Value
+estimateCardanoFee ins outs
+    = round (calculateTxSizeLinear linearFeePolicy (estimateSize 0 0 ins outs))
+  where
+    linearFeePolicy = case bvdTxFeePolicy genesisBlockVersionData of
+      TxFeePolicyTxSizeLinear lp -> lp
+      _ -> error "non-linear fee policy"
 
 {-------------------------------------------------------------------------------
   Auxiliary

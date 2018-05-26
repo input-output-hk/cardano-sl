@@ -10,9 +10,11 @@ import           Formatting (bprint, build, shown, (%))
 import           Pos.Util.Chrono
 import           Serokell.Util (mapJson)
 import           Test.Hspec.QuickCheck
+import           Prelude (until)
 
 import qualified Pos.Block.Error as Cardano
 import qualified Pos.Txp.Toil as Cardano
+import           Pos.Core (HasGenesisBlockVersionData)
 
 import           Test.Infrastructure.Generator
 import           Test.Infrastructure.Genesis
@@ -29,7 +31,7 @@ import           UTxO.Translate
   UTxO->Cardano translation tests
 -------------------------------------------------------------------------------}
 
-spec :: Spec
+spec :: HasGenesisBlockVersionData => Spec
 spec = do
     describe "Translation sanity checks" $ do
       it "can construct and verify empty block" $
@@ -63,8 +65,7 @@ emptyBlock _ = OldestFirst [OldestFirst []]
 oneTrans :: Hash h Addr => GenesisValues h -> Chain h Addr
 oneTrans GenesisValues{..} = OldestFirst [OldestFirst [t1]]
   where
-    fee1 = estimateCardanoFee 1 2
-    t1   = Transaction {
+    t1   = feeFixpt txFee $ \fee1 -> Transaction {
                trFresh = 0
              , trFee   = fee1
              , trHash  = 1
@@ -79,8 +80,7 @@ oneTrans GenesisValues{..} = OldestFirst [OldestFirst [t1]]
 overspend :: Hash h Addr => GenesisValues h -> Chain h Addr
 overspend GenesisValues{..} = OldestFirst [OldestFirst [t1]]
   where
-    fee1 = estimateCardanoFee 1 2
-    t1   = Transaction {
+    t1   = feeFixpt txFee $ \fee1 -> Transaction {
                trFresh = 0
              , trFee   = fee1
              , trHash  = 1
@@ -95,8 +95,7 @@ overspend GenesisValues{..} = OldestFirst [OldestFirst [t1]]
 doublespend :: Hash h Addr => GenesisValues h -> Chain h Addr
 doublespend GenesisValues{..} = OldestFirst [OldestFirst [t1, t2]]
   where
-    fee1 = estimateCardanoFee 1 2
-    t1   = Transaction {
+    t1   = feeFixpt txFee $ \fee1 -> Transaction {
                trFresh = 0
              , trFee   = fee1
              , trHash  = 1
@@ -107,8 +106,7 @@ doublespend GenesisValues{..} = OldestFirst [OldestFirst [t1, t2]]
              , trExtra = ["t1"]
              }
 
-    fee2 = estimateCardanoFee 1 2
-    t2   = Transaction {
+    t2   = feeFixpt txFee $ \fee2 -> Transaction {
                trFresh = 0
              , trFee   = fee2
              , trHash  = 2
@@ -135,8 +133,7 @@ doublespend GenesisValues{..} = OldestFirst [OldestFirst [t1, t2]]
 example1 :: Hash h Addr => GenesisValues h -> Chain h Addr
 example1 GenesisValues{..} = OldestFirst [OldestFirst [t3, t4]]
   where
-    fee3 = estimateCardanoFee 1 2
-    t3   = Transaction {
+    t3   = feeFixpt txFee $ \fee3 -> Transaction {
                trFresh = 0
              , trFee   = fee3
              , trHash  = 3
@@ -147,21 +144,29 @@ example1 GenesisValues{..} = OldestFirst [OldestFirst [t3, t4]]
              , trExtra = ["t3"]
              }
 
-    fee4 = estimateCardanoFee 1 1
-    t4   = Transaction {
+    t4   = feeFixpt txFee $ \fee4 -> Transaction {
                trFresh = 0
              , trFee   = fee4
              , trHash  = 4
              , trIns   = Set.fromList [ Input (hash t3) 1 ]
-             , trOuts  = [ Output r2 (initR0 - 1000 - fee3 - fee4) ]
+             , trOuts  = [ Output r2 (initR0 - 1000 - trFee t3 - fee4) ]
              , trExtra = ["t4"]
              }
+
+-- | Use this to construct a transaction where parts of the transaction depend on
+--   the transaction's final fee.
+feeFixpt :: (Int -> [Value] -> Value) -> (Value -> Transaction h a) -> Transaction h a
+feeFixpt getFee make = until (\tx -> trFee tx == computedFee tx) step (make 0)
+  where
+    computedFee tx = getFee (length $ trIns tx) (map outVal $ trOuts tx)
+    step = make . computedFee
 
 {-------------------------------------------------------------------------------
   Verify chain
 -------------------------------------------------------------------------------}
 
-intAndVerifyPure :: (GenesisValues GivenHash -> Chain GivenHash Addr)
+intAndVerifyPure :: HasGenesisBlockVersionData
+                 => (GenesisValues GivenHash -> Chain GivenHash Addr)
                  -> ValidationResult GivenHash Addr
 intAndVerifyPure pc = runIdentity $ intAndVerify (Identity . pc . genesisValues)
 

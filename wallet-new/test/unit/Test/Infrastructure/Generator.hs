@@ -9,6 +9,7 @@ module Test.Infrastructure.Generator (
     -- ** Cardano
   , cardanoModel
   , estimateCardanoFee
+  , estimateSize
   ) where
 
 import           Universum
@@ -164,10 +165,10 @@ estimateSize saa sta ins outs
 --
 --   NOTE: The average size of @Attributes AddrAttributes@ and
 --         the transaction attributes @Attributes ()@ are both hard-coded
---         to the (unrealistic) value 0.
+--         here with some (hopefully) realistic values.
 estimateCardanoFee :: HasGenesisBlockVersionData => Int -> [Value] -> Value
 estimateCardanoFee ins outs
-    = round (calculateTxSizeLinear linearFeePolicy (estimateSize 0 0 ins outs))
+    = round (calculateTxSizeLinear linearFeePolicy (estimateSize 128 16 ins outs))
   where
     linearFeePolicy = case bvdTxFeePolicy genesisBlockVersionData of
       TxFeePolicyTxSizeLinear lp -> lp

@@ -156,10 +156,12 @@ example1 GenesisValues{..} = OldestFirst [OldestFirst [t3, t4]]
 -- | Use this to construct a transaction where parts of the transaction depend on
 --   the transaction's final fee.
 feeFixpt :: (Int -> [Value] -> Value) -> (Value -> Transaction h a) -> Transaction h a
-feeFixpt getFee make = until (\tx -> trFee tx == computedFee tx) step (make 0)
+
+feeFixpt getFee make = fst $
+    until (\(tx, idx) -> trFee tx == computedFee tx || idx >= 100) step (make 0, 0)
   where
     computedFee tx = getFee (length $ trIns tx) (map outVal $ trOuts tx)
-    step = make . computedFee
+    step (tx, idx) = (make $ computedFee tx, idx + 1 :: Int)
 
 {-------------------------------------------------------------------------------
   Verify chain

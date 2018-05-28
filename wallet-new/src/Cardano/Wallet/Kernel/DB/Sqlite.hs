@@ -17,8 +17,6 @@ module Cardano.Wallet.Kernel.DB.Sqlite (
     , getTxMeta
     , getTxMetas
 
-    -- * Unsafe functions
-    , unsafeMigrateMetaDB
     , migration0
     , rawMigrationSql
     ) where
@@ -52,8 +50,8 @@ import qualified Data.Map as M
 import           Data.Time.Units (fromMicroseconds, toMicroseconds)
 import           Database.Beam.Migrate (CheckedDatabaseSettings, DataType (..), Migration,
                                         MigrationSteps, boolean, createTable, evaluateDatabase,
-                                        executeMigration, field, migrationStep, notNull,
-                                        runMigrationSteps, unCheckDatabase, unique,
+                                        field, migrationStep, notNull,
+                                        unCheckDatabase, unique,
                                         migrateScript)
 import           Formatting (sformat)
 import           GHC.Generics (Generic)
@@ -300,22 +298,13 @@ migration0 = do
 
 rawMigrationSql :: Migration SqliteCommandSyntax a -> Sqlite.Query
 rawMigrationSql mig = Sqlite.Query $ migrateScript
-   (\case "irrelevant" -> mempty)
+   (\"irrelevant" -> mempty)
    (Sqlite.fromQuery . queryFromSqliteCommandSyntax)
    (migrationStep "irrelevant" (\() -> mig))
 
 --- | The full list of migrations available for this 'MetaDB'.
--- For a more interesting migration, see: https://github.com/tathougies/beam/blob/d3baf0c77b76b008ad34901b47a818ea79439529/beam-postgres/examples/Pagila/Schema.hs#L17-L19
 migrateMetaDB :: MigrationSteps SqliteCommandSyntax () (CheckedDatabaseSettings Sqlite MetaDB)
 migrateMetaDB = migrationStep "migration0" (\() -> migration0)
-
-
--- | Migrates the 'MetaDB', potentially mangling the input database.
--- TODO(adinapoli): Make it safe.
-unsafeMigrateMetaDB :: Sqlite.Connection -> IO ()
-unsafeMigrateMetaDB conn =
-  void $ runMigrationSteps 0 Nothing migrateMetaDB $ \_ _ ->
-     executeMigration (Sqlite.execute_ conn . queryFromSqliteCommandSyntax)
 
 queryFromSqliteCommandSyntax :: SqliteCommandSyntax -> Sqlite.Query
 queryFromSqliteCommandSyntax =

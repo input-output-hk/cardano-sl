@@ -112,6 +112,7 @@ library
                      , aeson
                      , aeson-pretty
                      , async
+                     , base16-bytestring
                      , beam-core
                      , beam-migrate
                      , beam-sqlite

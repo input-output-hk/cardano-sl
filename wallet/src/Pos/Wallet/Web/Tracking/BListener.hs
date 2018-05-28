@@ -32,7 +32,7 @@ import           Pos.Reporting (MonadReporting, reportOrLogE)
 import           Pos.Slotting (MonadSlots, MonadSlotsData, getCurrentEpochSlotDuration,
                                getSlotStartPure, getSystemStartM)
 import           Pos.Txp.Base (flattenTxPayload)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF, secure)
 import           Pos.Util.TimeLimit (CanLogInParallel, logWarningWaitInf)
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)

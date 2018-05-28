@@ -54,7 +54,7 @@ import           Pos.Slotting (ActionTerminationPolicy (..), OnNewSlotParams (..
                                currentTimeSlotting, defaultOnNewSlotParams,
                                getSlotStartEmpatically, onNewSlot)
 import           Pos.Update.DB (getAdoptedBVData)
-import           Pos.Util.Chrono (OldestFirst (..))
+import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Util.JsonLog.Events (jlCreatedBlock)
 import           Pos.Util.LogSafe (logDebugS, logInfoS, logWarningS)
 import           Pos.Util.TimeLimit (logWarningSWaitLinear)

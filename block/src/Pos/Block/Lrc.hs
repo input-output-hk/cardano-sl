@@ -55,7 +55,7 @@ import qualified Pos.Txp.DB.Stakes as GS (stakeSource)
 import           Pos.Update.DB (getCompetingBVStates)
 import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util (maybeThrow)
-import           Pos.Util.Chrono (NE, NewestFirst (..), toOldestFirst)
+import           Pos.Core.Chrono (NE, NewestFirst (..), toOldestFirst)
 import           Pos.Util.TimeLimit (logWarningWaitLinear)
 import           Pos.Util.Util (HasLens (..))
 

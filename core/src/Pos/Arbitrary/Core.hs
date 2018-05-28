@@ -29,7 +29,7 @@ import           Universum
 import qualified Data.ByteString as BS (pack)
 import           Data.List ((!!))
 import qualified Data.Map as M
-import           Data.Time.Units (Microsecond, Millisecond, Second, TimeUnit (..), convertUnit)
+import           Data.Time.Units (Second, TimeUnit (..), convertUnit)
 import           System.Random (Random)
 import           Test.QuickCheck (Arbitrary (..), Gen, choose, oneof, scale, shrinkIntegral, sized,
                                   suchThat)
@@ -61,7 +61,7 @@ import           Pos.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Util.Util (leftToPanic)
 
 import           Test.Pos.Crypto.Arbitrary ()
-
+import           Test.Pos.Util.Orphans ()
 import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)
 
 
@@ -570,18 +570,6 @@ instance (HasProtocolMagic, HasProtocolConstants) => Arbitrary G.GenesisData whe
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types
 ----------------------------------------------------------------------------
-
-instance Arbitrary Millisecond where
-    arbitrary = fromMicroseconds <$> choose (0, 600 * 1000 * 1000)
-    shrink = shrinkIntegral
-
-instance Arbitrary Microsecond where
-    arbitrary = fromMicroseconds <$> choose (0, 600 * 1000 * 1000)
-    shrink = shrinkIntegral
-
-instance Arbitrary Second where
-    arbitrary = convertUnit @Microsecond <$> arbitrary
-    shrink = shrinkIntegral
 
 instance Arbitrary Types.Timestamp where
     arbitrary = Timestamp . fromMicroseconds <$> choose (0, 2000000000 * 1000 * 1000)

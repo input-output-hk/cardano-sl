@@ -41,7 +41,7 @@ import           Pos.Crypto
 import           Pos.Ssc (defaultSscPayload)
 import           Pos.Txp.Toil
 import           Pos.Update
-import           Pos.Util.Chrono
+import           Pos.Core.Chrono
 
 import           UTxO.Bootstrap
 import           UTxO.Context

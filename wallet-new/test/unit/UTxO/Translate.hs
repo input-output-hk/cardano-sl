@@ -33,7 +33,7 @@ import           Pos.Core
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Txp.Toil
 import           Pos.Update
-import           Pos.Util.Chrono
+import           Pos.Core.Chrono
 
 import           Util.Validated
 import           UTxO.Context

@@ -69,7 +69,6 @@ library
                         Pos.Communication.Types.Protocol
                         Pos.Communication.Types.Relay
                         Pos.Communication.BiP
-                        Pos.Communication.Limits.Types
                         Pos.Communication.Limits.Instances
                         Pos.Communication.Listener
                         Pos.Communication.Protocol

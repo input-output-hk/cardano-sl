@@ -7,7 +7,7 @@ import           Universum
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, shown, (%))
-import           Pos.Util.Chrono
+import           Pos.Core.Chrono
 import           Serokell.Util (mapJson)
 import           Test.Hspec.QuickCheck
 

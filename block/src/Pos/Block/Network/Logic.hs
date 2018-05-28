@@ -50,7 +50,7 @@ import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), Misbehavior
 import           Pos.StateLock (Priority (..), modifyStateLock)
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
                                   _OldestFirst)
 import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..), jlAdoptedBlock)
 import           Pos.Util.TimeWarp (CanJsonLog (..))

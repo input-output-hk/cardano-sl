@@ -31,7 +31,7 @@ import           Pos.DB.BlockIndex (getHeader)
 import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, getBlock)
 import           Pos.DB.Error (DBError (..))
 import           Pos.DB.GState.Common (getTip)
-import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Util.Util (maybeThrow)
 
 type LoadHeadersMode m =

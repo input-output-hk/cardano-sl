@@ -23,7 +23,7 @@ import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.StateLock (Priority (..), withStateLock)
 import           Pos.Txp (flattenTxPayload)
-import           Pos.Util.Chrono (NewestFirst, _NewestFirst)
+import           Pos.Core.Chrono (NewestFirst, _NewestFirst)
 import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..))
 
 import           Mode (MonadAuxxMode)

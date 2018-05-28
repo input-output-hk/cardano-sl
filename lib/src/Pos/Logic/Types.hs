@@ -23,7 +23,7 @@ import           Pos.Core.Txp (TxId)
 import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal, UpdateVote, VoteId)
 import           Pos.Security.Params (SecurityParams (..))
 import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares, MCVssCertificate)
-import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst (..))
+import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..))
 
 -- | The interface to a logic layer, i.e. some component which encapsulates
 -- blockchain / crypto logic.

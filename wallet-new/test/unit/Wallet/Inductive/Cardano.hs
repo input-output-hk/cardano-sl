@@ -21,7 +21,7 @@ import           Formatting (bprint, build, (%))
 import           Pos.Core (Coin, unsafeIntegerToCoin)
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Txp (Utxo, formatUtxo)
-import           Pos.Util.Chrono
+import           Pos.Core.Chrono
 
 import           Util
 import           Util.Validated

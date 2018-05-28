@@ -21,7 +21,7 @@ import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
 import           Pos.Diffusion.Subscription.Status (SubscriptionStates, emptySubscriptionStates)
 import           Pos.Reporting.Health.Types (HealthStatus (..))
-import           Pos.Util.Chrono (OldestFirst (..))
+import           Pos.Core.Chrono (OldestFirst (..))
 
 
 

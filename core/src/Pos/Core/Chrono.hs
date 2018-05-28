@@ -3,7 +3,7 @@
 
 -- | Chronological sequences.
 
-module Pos.Util.Chrono
+module Pos.Core.Chrono
        ( Chrono
        , NewestFirst(..)
        , _NewestFirst
@@ -23,10 +23,9 @@ module Pos.Util.Chrono
 
 import           Universum
 
+import qualified Container.Class as CC
 import           Control.Lens (makePrisms, makeWrapped, _Wrapped)
 import qualified Control.Lens as Lens (Each (..))
-import qualified Container.Class as CC
-import           Data.Binary (Binary)
 import           Data.Coerce (coerce)
 import qualified Data.List.NonEmpty as NE
 import           Data.Semigroup (Semigroup)
@@ -38,13 +37,13 @@ newtype NewestFirst f a = NewestFirst {getNewestFirst :: f a}
   deriving (Eq, Ord, Show,
             Functor, Foldable, Traversable,
             ToList, Container,
-            Binary, Bi,
+            Bi,
             NFData)
 newtype OldestFirst f a = OldestFirst {getOldestFirst :: f a}
   deriving (Eq, Ord, Show,
             Functor, Foldable, Traversable,
             ToList, Container,
-            Binary, Bi,
+            Bi,
             NFData)
 
 makePrisms  ''NewestFirst

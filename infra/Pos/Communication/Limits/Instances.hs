@@ -8,10 +8,10 @@ module Pos.Communication.Limits.Instances
 
 import           Universum
 
+import           Pos.Binary.Limit (Limit (..))
 import qualified Pos.Communication.Constants as Const
-import           Pos.Communication.Limits.Types (Limit (..))
-import           Pos.Communication.Types.Relay (InvMsg, DataMsg (..), MempoolMsg (..),
-                                                ReqMsg, ResMsg)
+import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg, MempoolMsg (..), ReqMsg,
+                                                ResMsg)
 
 ----------------------------------------------------------------------------
 -- Instances of MessageLimited for the relay types.

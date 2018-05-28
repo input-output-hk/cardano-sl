@@ -41,7 +41,7 @@ import           Pos.Txp.Toil (ExtendedGlobalToilM, GlobalToilEnv (..), GlobalTo
                                UtxoModifier, applyToil, defGlobalToilState, gtsUtxoModifier,
                                rollbackToil, runGlobalToilMBase, runUtxoM, utxoToLookup, verifyToil)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Modifier as MM
 
 ----------------------------------------------------------------------------

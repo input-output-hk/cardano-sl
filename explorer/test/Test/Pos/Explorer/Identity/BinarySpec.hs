@@ -10,8 +10,8 @@ import           Test.Hspec (Spec, describe)
 
 import           Pos.Arbitrary.Explorer ()
 import           Pos.Explorer.Core (TxExtra)
+import           Test.Pos.Binary.Helpers (binaryTest)
 import           Test.Pos.Configuration (withDefConfiguration)
-import           Test.Pos.Helpers (binaryTest)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Explorer types" $ do

@@ -6,13 +6,13 @@ These are the most important code changes which were included in release 1.2.0.
 
 ### Features
 
+- Add to the V1 API all endpoints required for Exchanges (CBR-103).
+
 - Development and execution of Benchmarking Tools for the Wallet V0 API (CBR-7, CBR-23 & CBR-88).
 
 - Detailed design and documentation of how to test a wallet. Pre-requisite for building regression tests (CBR-24).
 
 - Discriminate between publicly exposed wallet API endpoints and endpoints reserved to an internal IOHK usage (CBR-19).
-
-- Make available to the Exchanges the subset of V1 API endpoints which is critical to their business (CBR-103).
 
 - Design and implementation of the new V1 API endpoints (CBR-16).
 
@@ -30,7 +30,7 @@ These are the most important code changes which were included in release 1.2.0.
 
 - Fix wallet creation and backup when there are non-latin characters in wallet name (R120-4).
 
-- Fix issue where Daedalus remains stuck at "Connecting to network..." screen after updating version (CBR-282, 120-17).
+- Fix issue where Daedalus remains stuck at "Connecting to network..." screen after updating version (CBR-282, R120-17).
 
 
 ## Cardano SL 1.1.1 (Mainnet)

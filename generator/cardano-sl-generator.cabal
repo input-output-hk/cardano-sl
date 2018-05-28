@@ -121,6 +121,7 @@ test-suite cardano-generator-test
   build-depends:       MonadRandom
                      , QuickCheck
                      , base
+                     , bytestring
                      , cardano-sl
                      , cardano-sl-binary
                      , cardano-sl-block

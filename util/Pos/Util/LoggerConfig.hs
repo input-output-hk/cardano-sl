@@ -13,6 +13,8 @@ import           Data.Yaml      as Y
 import           GHC.Generics
 import           Universum
 
+import           System.FilePath (normalise)
+
 import           Pos.Util.Log.Severity
 
 
@@ -24,18 +26,59 @@ data RotationParameters = RotationParameters
     }
     deriving (Generic, Show)
 
-instance FromJSON RotationParameters
+instance ToJSON RotationParameters
+instance FromJSON RotationParameters where
+    parseJSON = withObject "rotation params" $ \o -> do
+        _rpLogLimit  <- o .: "logLimit"
+        _rpKeepFiles <- o .: "keepFiles"
+        return RotationParameters{..}
+
+-- | @'LogHandler'@ describes the output handler (file, stdout, ..)
+--
+-- | Wrapper over file handler with additional rounding option.
+data LogHandler = LogHandler
+    { _lhName :: !String
+      -- ^ name of the handler
+    , _lhFpath :: !(Maybe FilePath)
+      -- ^ file path
+    , _lhBackend :: !String
+      -- ^ describes the backend (scribe for katip) to be loaded
+    , _lhMinSeverity :: !(Maybe Severity)
+      -- ^ the minimum severity to be logged
+    } deriving (Generic,Show)
+
+instance ToJSON LogHandler
+instance FromJSON LogHandler where
+    parseJSON = withObject "log handler" $ \o -> do
+        (_lhName :: String) <- o .: "name"
+        (_lhFpath :: Maybe FilePath) <- fmap normalise <$> o .:? "filepath"
+        (_lhBackend :: String) <- o .: "backend"
+        (_lhMinSeverity :: Maybe Severity) <- o .:? "severity"
+        pure LogHandler{..}
+
 
 -- | 'LoggerTree' contains the actual logging configuration,
 --   only 'Severity' and 'Files' for now
 data LoggerTree = LoggerTree
     {
       _ltMinSeverity :: !Severity
-    , _ltFiles       :: ![FilePath]
+    , _ltHandlers    :: ![LogHandler]
     }
     deriving (Generic, Show)
 
-instance FromJSON LoggerTree
+instance ToJSON LoggerTree
+instance FromJSON LoggerTree where
+    parseJSON = withObject "logger tree" $ \o -> do
+        (singleFile :: Maybe FilePath) <- fmap normalise <$> o .:? "file"
+        (manyFiles :: [FilePath]) <- map normalise <$> (o .:? "files" .!= [])
+        handlers <- o .:? "handlers" .!= []
+        let fileHandlers =
+              map (\fp -> LogHandler { _lhName=fp, _lhFpath=Just fp
+                                     , _lhBackend="FileTextScribe", _lhMinSeverity=Just Debug }) $
+                maybeToList singleFile ++ manyFiles
+        let _ltHandlers = fileHandlers <> handlers
+        (_ltMinSeverity :: Severity) <- o .: "severity" .!= Debug
+        return LoggerTree{..}
 
 
 -- | 'LoggerConfig' is the top level configuration datatype
@@ -46,18 +89,28 @@ data LoggerConfig = LoggerConfig
     }
     deriving (Generic, Show)
 
-instance FromJSON LoggerConfig
+instance ToJSON LoggerConfig
+instance FromJSON LoggerConfig where
+    parseJSON = withObject "config " $ \o -> do
+        _lcRotation <- o .:? "rotation"
+        _lcLoggerTree <- o .: "loggerTree"
+        return LoggerConfig{..}
 
 instance Monoid LoggerTree where
     mempty = LoggerTree { _ltMinSeverity = Debug
-                        , _ltFiles = ["node.log"]
-                        }
+                   , _ltHandlers = [LogHandler { _lhName="node", _lhFpath=Just "node.log"
+                                               , _lhBackend="FileTextScribe", _lhMinSeverity=Just Debug}]
+                   }
     mappend = (<>)
 
 instance Semigroup LoggerTree
 
 instance Monoid LoggerConfig where
-    mempty = LoggerConfig { _lcRotation = Nothing, _lcLoggerTree = mempty }
+    mempty = LoggerConfig { _lcRotation = Just RotationParameters {
+                                            _rpLogLimit = 10 * 1024 * 1024,
+                                            _rpKeepFiles = 10 }
+                     , _lcLoggerTree = mempty
+                     }
     mappend = (<>)
 
 instance Semigroup LoggerConfig
@@ -68,7 +121,7 @@ instance Semigroup LoggerConfig
 --    are not handled here. Currently porting log-warper's definition
 parseLoggerConfig :: MonadIO m => FilePath -> m LoggerConfig
 parseLoggerConfig lgPath =
-    liftIO $ join $ either throwM return <$> decodeFileEither lgPath
+    liftIO $ join $ either throwM return <$> Y.decodeFileEither lgPath
 
 -- | load log config from file  TODO
 loadLogConfig :: MonadIO m => Maybe FilePath -> Maybe FilePath -> m ()

@@ -141,23 +141,18 @@ estimateSize saa sta ins outs
     = fromBytes . fromIntegral $
       5
     + 42 * ins
-    + (11 + size (32 + (fromIntegral saa))) * length outs
-    + sum (map coinSize outs)
+    + (11 + listSize (32 + (fromIntegral saa))) * length outs
+    + sum (map intSize outs)
     + fromIntegral sta
   where
-    coinSize s =
+    intSize s =
         if | s <= 0x17       -> 1
            | s <= 0xff       -> 2
            | s <= 0xffff     -> 3
            | s <= 0xffffffff -> 5
-           | otherwise      -> 9
+           | otherwise       -> 9
 
-    size s =
-        if | s <= 0x17       -> 1 + s
-           | s <= 0xff       -> 2 + s
-           | s <= 0xffff     -> 3 + s
-           | s <= 0xffffffff -> 5 + s
-           | otherwise      -> 9 + s
+    listSize s = s + intSize s
 
 -- | Estimate the fee for a transaction that has @ins@ inputs
 --   and @length outs@ outputs. The @outs@ lists holds the coin value

@@ -25,7 +25,7 @@ import           Pos.Diffusion.Subscription.Common (SubscriptionMessageConstrain
                                                     networkSubscribeTo')
 import           Pos.Diffusion.Subscription.Subscriber (SubscriptionTarget (..),
                                                         SubscribeTo, subscriber)
-import           Pos.Diffusion.Types (SubscriptionStatus (..))
+import           Pos.Diffusion.Subscription.Status (SubscriptionStates)
 import           Pos.Network.DnsDomains (NodeAddr)
 import           Pos.Network.Types (Bucket (..), DnsDomains (..), NodeId (..),
                                     NodeType (..), resolveDnsDomains)
@@ -130,7 +130,7 @@ dnsSubscriptionWorker
     -> DnsDomains DNS.Domain
     -> Timer
     -> IO Millisecond -- ^ Slot duration.
-    -> TVar (Map NodeId SubscriptionStatus)
+    -> SubscriptionStates NodeId
     -> SendActions
     -> IO ()
 dnsSubscriptionWorker logTrace oq defaultPort DnsDomains {..} keepaliveTimer slotDuration subStatus sendActions = do
@@ -160,8 +160,8 @@ dnsSubscriptionWorker logTrace oq defaultPort DnsDomains {..} keepaliveTimer slo
         threadDelay (fromIntegral timeToWait * 1000)
 
     -- When to send a keepalive message.
-    keepalive :: NodeId -> IO ()
-    keepalive _ = do
+    keepalive :: IO ()
+    keepalive = do
         time <- slotDuration
         startTimer time keepaliveTimer
         atomically $ waitTimer keepaliveTimer

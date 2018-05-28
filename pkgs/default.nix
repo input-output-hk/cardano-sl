@@ -7449,7 +7449,7 @@ inherit (pkgs) mesa;};
          , cardano-sl-crypto, cardano-sl-db, cardano-sl-networking
          , cardano-sl-util, clock, conduit, containers, cpphs, directory
          , dns, ekg-core, ekg-statsd, ekg-wai, ether, exceptions, filepath
-         , formatting, generic-arbitrary, hashable, http-client
+         , formatting, generic-arbitrary, hashable, hspec, http-client
          , http-client-tls, iproute, kademlia, lens, log-warper
          , lzma-conduit, mtl, network-info, network-transport
          , network-transport-tcp, optparse-applicative, parsec, QuickCheck
@@ -7477,6 +7477,7 @@ inherit (pkgs) mesa;};
              universum unix unordered-containers yaml
            ];
            libraryToolDepends = [ cpphs ];
+           testHaskellDepends = [ async base containers hspec QuickCheck ];
            doHaddock = false;
            description = "Cardano SL - infrastructural";
            license = stdenv.lib.licenses.mit;

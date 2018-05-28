@@ -39,7 +39,7 @@ packages:
 - node
 - tools
 - wallet
-- wallet-new # The new (unreleased) version of the wallet
+# - wallet-new # The new (unreleased) version of the wallet
 - node-ipc
 
 - location:

@@ -221,7 +221,7 @@ library
   ghc-options: -pgmP cpphs -optP --cpp
 
 test-suite test
-  main-is:          Test.hs
+  main-is:          test.hs
   hs-source-dirs:   test
   default-language: Haskell2010
   type:             exitcode-stdio-1.0

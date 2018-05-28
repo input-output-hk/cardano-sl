@@ -46,11 +46,6 @@ module Cardano.Wallet.API.V1.Types (
   , WalletAddress (..)
   , NewAddress (..)
   , AddressPath -- Constructor not exposed, use smart constructor & lenses
-<<<<<<< HEAD
-=======
-  , purpose
-  , coinType
->>>>>>> [CHW-83] New derivation path for address
   , change
   , account
   , addressIndex
@@ -100,11 +95,7 @@ module Cardano.Wallet.API.V1.Types (
 
 import           Universum
 
-<<<<<<< HEAD
 import           Control.Lens (At, Index, IxValue, at, ix, makeLensesFor, makePrisms, to,
-=======
-import           Control.Lens (At, Getter, Index, IxValue, at, ix, makeLensesFor, makePrisms, to,
->>>>>>> [CHW-83] New derivation path for address
                                (?~))
 import           Data.Aeson
 import           Data.Aeson.TH as A
@@ -1094,17 +1085,10 @@ addressLevelToWord32 = \case
 
 word32ToAddressLevel :: Word32 -> AddressLevel
 word32ToAddressLevel lvl =
-<<<<<<< HEAD
     if lvl <= (maxBound `div` 2 + 1) then
         AddressLevelNormal lvl
     else
         AddressLevelHardened (lvl - maxBound `div` 2 - 1)
-=======
-  if lvl <= (maxBound `div` 2 + 1) then
-    AddressLevelNormal lvl
-  else
-    AddressLevelHardened (lvl - maxBound `div` 2 - 1)
->>>>>>> [CHW-83] New derivation path for address
 
 data AddressLevel
     = AddressLevelHardened Word32
@@ -1122,28 +1106,16 @@ instance ToSchema AddressLevel where
             ]
 
 instance Arbitrary AddressLevel where
-<<<<<<< HEAD
     arbitrary = oneof
         [ AddressLevelHardened <$> arbitrary
         , AddressLevelNormal   <$> arbitrary
         ]
-=======
-  arbitrary = oneof
-    [ AddressLevelHardened <$> arbitrary
-    , AddressLevelNormal   <$> arbitrary
-    ]
->>>>>>> [CHW-83] New derivation path for address
 
 deriveSafeBuildable ''AddressLevel
 instance BuildableSafeGen AddressLevel where
     buildSafeGen sl = \case
-<<<<<<< HEAD
         AddressLevelNormal lvl   -> bprint (buildSafe sl) lvl
         AddressLevelHardened lvl -> bprint (buildSafe sl%"'") lvl
-=======
-      AddressLevelNormal lvl   -> bprint (buildSafe sl) lvl
-      AddressLevelHardened lvl -> bprint (buildSafe sl%"'") lvl
->>>>>>> [CHW-83] New derivation path for address
 
 instance ToJSON AddressLevel where
     toJSON = toJSON . addressLevelToWord32
@@ -1176,21 +1148,9 @@ makeLensesFor
   , ("addrpathAddressIndex", "addressIndex")
   ] ''AddressPath
 
-<<<<<<< HEAD
 instance ToSchema AddressPath where
     declareNamedSchema =
         genericSchemaDroppingPrefix "addrpath" (\(--^) props -> props
-=======
-purpose :: Getter AddressPath AddressLevel
-purpose = to addrpathPurpose
-
-coinType :: Getter AddressPath AddressLevel
-coinType = to addrpathCoinType
-
-instance ToSchema AddressPath where
-    declareNamedSchema =
-        genericSchemaDroppingPrefix "addr" (\(--^) props -> props
->>>>>>> [CHW-83] New derivation path for address
             & ("purpose"      --^ "44, refers to BIP-44")
             & ("coinType"     --^ "1815 for ADA (Ada Lovelace's birthdate)")
             & ("account"      --^ "Account index, used as child index in BIP-32 derivation")

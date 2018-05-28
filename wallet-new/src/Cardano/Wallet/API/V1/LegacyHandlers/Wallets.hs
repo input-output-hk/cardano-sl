@@ -29,7 +29,6 @@ import           Pos.Update.Configuration ()
 import           Pos.Client.KeyStorage (addPublicKey)
 import           Pos.StateLock (Priority (..), withStateLockNoMetrics)
 
-import           Pos.Update.Configuration ()
 import           Pos.Util (HasLens (..))
 import           Pos.Util.Servant (encodeCType)
 import qualified Pos.Wallet.WalletMode as V0
@@ -38,17 +37,6 @@ import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic, MonadWalletLogi
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
 import           Servant
-
--- import qualified Cardano.Wallet.API.V1.Wallets as Wallets
--- import qualified Data.IxSet.Typed as IxSet
--- import qualified Pos.Core as Core
--- import qualified Pos.Wallet.WalletMode as V0
--- import qualified Pos.Wallet.Web.ClientTypes.Types as V0
--- import qualified Pos.Wallet.Web.Error.Types as V0
--- import qualified Pos.Wallet.Web.Methods as V0
--- import qualified Pos.Wallet.Web.State as V0 (WalletSnapshot, askWalletDB, askWalletSnapshot)
--- import qualified Pos.Wallet.Web.State.Storage as V0
-
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: HasConfigurations

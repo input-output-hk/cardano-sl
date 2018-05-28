@@ -6,11 +6,16 @@ import           Universum
 
 import           Cardano.Wallet.Client.Http
 import           Control.Lens hiding ((^..), (^?))
+import           Formatting (build, sformat)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Hspec
 import           Test.QuickCheck (Arbitrary (arbitrary), Gen, generate)
 
+<<<<<<< HEAD
 import           Pos.Crypto.Signing (PublicKey, encToPublic, encodeBase58PublicKey)
+=======
+import           Pos.Crypto.Signing (PublicKey, encToPublic)
+>>>>>>> [CHW-107] Delete external wallet.
 import           Pos.Util.BackupPhrase (safeKeysFromPhrase)
 
 
@@ -30,7 +35,11 @@ randomExternalWallet :: WalletOperation -> IO NewExternalWallet
 randomExternalWallet walletOp =
     generate $
         NewExternalWallet
+<<<<<<< HEAD
             <$> (encodeBase58PublicKey <$> arbitraryExtPubKey)
+=======
+            <$> (sformat build <$> arbitraryExtPubKey)
+>>>>>>> [CHW-107] Delete external wallet.
             <*> arbitrary
             <*> pure "External Wallet"
             <*> pure walletOp

@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveFunctor #-}
-
 module InputSelection.Generator (
     Event(..)
     -- * Generators
@@ -7,25 +5,20 @@ module InputSelection.Generator (
   , TestParams(..)
   , defTestParams
   , test
-    -- ** Trivial
+    -- ** Simple generators
   , World(..)
   , trivial
-    -- * Auxiliary: normal distribution
-  , Mean(..)
-  , StdDev(..)
-  , drawFromNormal
-  , drawFromNormal'
+  , FromDistrParams(..)
+  , fromDistr
   ) where
 
 import           Universum
 
 import           Data.Conduit
-import           Data.Random.Normal (normal)
-import           System.Random
 import           Test.QuickCheck
-import           Test.QuickCheck.Gen
 
 import           InputSelection.Policy (LiftQuickCheck (..))
+import           Util.Distr
 import           UTxO.DSL
 
 {-------------------------------------------------------------------------------
@@ -97,48 +90,69 @@ data World = Us | Them
 -- | Trivial generator where single deposits drawn from a normal distribution
 -- are followed by single withdrawals from that same distribution.
 trivial :: LiftQuickCheck m
-        => Mean Value    -- ^ Mean
-        -> StdDev Value  -- ^ Standard deviation
-        -> Word32        -- ^ Number of deposit/withdraw/confirm cycles
+        => NormalDistr Value  -- ^ Distribution to draw from
+        -> Int                -- ^ Number of deposit/withdraw/confirm cycles
         -> ConduitT () (Event GivenHash World) m ()
-trivial mean sigma n = do
-    forM_ [1 .. n] $ \i -> do
-      [dep, pay] <- lift $ liftQuickCheck $ replicateM 2 $ drawFromNormal' mean sigma
-      yield $ Deposit (utxoFromList [(Input (GivenHash 1) i, Output Us dep)])
-      yield $ Pay [Output Them pay]
-      yield $ NextSlot
+trivial d n = fromDistr $ FromDistrParams d d (ConstDistr 1) (ConstDistr 1) n
 
 {-------------------------------------------------------------------------------
-  Auxiliary: normal distribution
+  Generalization of 'trivial'
 -------------------------------------------------------------------------------}
 
-newtype Normal a = Normal a
+-- | Parameters for 'fromDistr'
+data FromDistrParams fDep fPay fNumDep fNumPay =
+    ( Distribution fDep
+    , Distribution fPay
+    , Distribution fNumDep
+    , Distribution fNumPay
+    ) => FromDistrParams {
+      -- | Distribution of deposit values
+      fromDistrDep :: fDep Value
 
-instance (Floating a, Random a) => Random (Normal a) where
-  random  = (\ (x, g) -> (Normal x, g)) . normal
-  randomR = error "randomR not defined for Normal"
+      -- | Distribution of payment values
+    , fromDistrPay :: fPay Value
 
-instance (Floating a, Random a) => Arbitrary (Normal a) where
-  arbitrary = chooseAny
+      -- | Distribution of number of deposits
+    , fromDistrNumDep :: fNumDep Int
 
--- | Mean
-newtype Mean a = Mean a
-  deriving (Functor)
+      -- | Distribution of number of payments
+    , fromDistrNumPay :: fNumPay Int
 
--- | Standard derivation
-newtype StdDev a = StdDev a
-  deriving (Functor)
+      -- | Number of cycles
+    , fromDistrCycles :: Int
+    }
 
-drawFromNormal :: forall a. (Floating a, Random a)
-               => Mean a -> StdDev a -> Gen a
-drawFromNormal (Mean mean) (StdDev sigma) = aux <$> chooseAny
-  where
-    aux :: Normal a -> a
-    aux (Normal x) = x * sigma + mean
+-- | Like 'trivial', but with different distributions for payments and deposits,
+-- and generalized to have distributions also for the /number/ of payments
+-- and deposits.
+fromDistr :: LiftQuickCheck m
+          => FromDistrParams fDep fPay fNumDep fNumPay
+          -> ConduitT () (Event GivenHash World) m ()
+fromDistr FromDistrParams{..} = do
+    forM_ [1 .. fromDistrCycles] $ \i -> do
+      events <- lift $ liftQuickCheck $ do
+        let mkDep :: Int -> Gen (Event GivenHash World)
+            mkDep j =
+                Deposit . aux <$> drawFromDistr' fromDistrDep
+              where
+                aux :: Value -> Utxo GivenHash World
+                aux val = utxoSingleton (Input (GivenHash i) j') (Output Us val)
 
-drawFromNormal' :: Mean Value -> StdDev Value -> Gen Value
-drawFromNormal' mean sigma =
-    aux <$> drawFromNormal (fromIntegral <$> mean) (fromIntegral <$> sigma)
-  where
-    aux :: Double -> Value
-    aux = round
+                j' :: Word32
+                j' = fromIntegral j
+
+            mkPay :: Gen (Event GivenHash World)
+            mkPay =
+                Pay . aux <$> drawFromDistr' fromDistrPay
+              where
+                aux :: Value -> [Output World]
+                aux val = [Output Them val]
+
+        numDep <- drawFromDistr' fromDistrNumDep
+        numPay <- drawFromDistr' fromDistrNumPay
+        deps <- forM [1 .. numDep] $ mkDep
+        pays <- replicateM numPay  $ mkPay
+
+        (reverse . (NextSlot :)) <$> shuffle (deps ++ pays)
+
+      mapM_ yield events

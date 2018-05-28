@@ -8,7 +8,7 @@ import           Test.Hspec (Spec, describe, hspec)
 
 import           Pos.Core (HasConfiguration)
 
-import           InputSelection.Evaluation (evaluateInputPolicies)
+import           InputSelection.Evaluation (defaultPlotParams, evaluateInputPolicies)
 import           UTxO.Bootstrap (bootstrapTransaction)
 import           UTxO.Context (Addr, TransCtxt)
 import           UTxO.DSL (GivenHash, Transaction)
@@ -30,7 +30,7 @@ main = do
       ["--show-context"] ->
         showContext
       ["--evaluate-input-policies", prefix] ->
-        evaluateInputPolicies prefix
+        evaluateInputPolicies (defaultPlotParams prefix)
       _otherwise ->
         runTranslateNoErrors $ withConfig $ return $ hspec tests
 

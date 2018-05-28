@@ -2,7 +2,10 @@
 {-# LANGUAGE TemplateHaskell            #-}
 
 module InputSelection.Evaluation (
-    evaluateInputPolicies
+    Resolution(..)
+  , PlotParams(..)
+  , defaultPlotParams
+  , evaluateInputPolicies
   ) where
 
 import           Universum
@@ -20,16 +23,49 @@ import           System.FilePath ((<.>), (</>))
 import qualified System.IO as IO
 import           Text.Printf (printf)
 
-import           InputSelection.Generator (Event (..), Mean (..), StdDev (..), World (..))
+import           InputSelection.Generator (Event (..), World (..))
 import qualified InputSelection.Generator as Gen
 import           InputSelection.Policy (InputSelectionPolicy, PrivacyMode (..), RunPolicy (..),
                                         TxStats (..))
 import qualified InputSelection.Policy as Policy
+import           Util.Distr
 import           Util.Histogram (Bin, BinSize (..), Histogram)
 import qualified Util.Histogram as Histogram
 import qualified Util.MultiSet as MultiSet
 import           Util.Range
 import           UTxO.DSL
+
+{-------------------------------------------------------------------------------
+  Plot parameters
+-------------------------------------------------------------------------------}
+
+-- | Resolution of the resulting file
+data Resolution = Resolution {
+      resolutionWidth  :: Int
+    , resolutionHeight :: Int
+    }
+
+data PlotParams = PlotParams {
+      -- | Prefix (path) for all generated files
+      prefix      :: FilePath
+
+      -- | Binsize for the UTxO histogram
+    , utxoBinSize :: BinSize
+
+      -- | Resolution of the resulting images
+      -- This should have a 2:1 aspect ratio.
+    , resolution  :: Resolution
+    }
+
+defaultPlotParams :: FilePath -> PlotParams
+defaultPlotParams prefix = PlotParams {
+      prefix      = prefix
+    , utxoBinSize = BinSize 10
+    , resolution  = Resolution {
+                        resolutionWidth  = 800
+                      , resolutionHeight = 400
+                      }
+    }
 
 {-------------------------------------------------------------------------------
   Statistics about the current value of the system
@@ -177,14 +213,14 @@ data IntState h a = IntState {
 
 makeLenses ''IntState
 
-initIntState :: BinSize -> Utxo h a -> a -> IntState h a
-initIntState binSize utxo changeAddr = IntState {
+initIntState :: PlotParams -> Utxo h a -> a -> IntState h a
+initIntState PlotParams{..} utxo changeAddr = IntState {
       _stUtxo       = utxo
     , _stPending    = utxoEmpty
     , _stStats      = initAccumulatedStats
     , _stFreshHash  = 1
     , _stChangeAddr = changeAddr
-    , _stBinSize    = binSize
+    , _stBinSize    = utxoBinSize
     }
 
 instance Monad m => RunPolicy (StateT (IntState h a) m) a where
@@ -378,25 +414,19 @@ renderPlotInstr utxoBinSize bounds PlotInstr{..} = sformat
     (bounds ^. boundsMedianRatio . yRange)
     piFrame
 
--- | Resolution of the resulting file
-data Resolution = Resolution {
-      resolutionWidth  :: Int
-    , resolutionHeight :: Int
-    }
-
 -- | Render a complete set of plot instructions
---
--- NOTE: We expect the resolution to have aspect ratio 2:1.
-writePlotInstrs :: FilePath -> Resolution -> BinSize -> Bounds -> [PlotInstr] -> IO ()
-writePlotInstrs fp (Resolution width height) utxoBinSize bounds is = do
-    putStrLn $ sformat ("Writing '" % build % "'") fp
-    withFile fp WriteMode $ \h -> do
+writePlotInstrs :: PlotParams -> FilePath -> Bounds -> [PlotInstr] -> IO ()
+writePlotInstrs PlotParams{..} script bounds is = do
+    putStrLn $ sformat ("Writing '" % build % "'") script
+    withFile (prefix </> script) WriteMode $ \h -> do
       Text.hPutStrLn h $ sformat
           ( "set grid\n"
           % "set term png size " % build % ", " % build % "\n"
           )
           width height
       forM_ is $ Text.hPutStrLn h . renderPlotInstr utxoBinSize bounds
+  where
+    Resolution width height = resolution
 
 {-------------------------------------------------------------------------------
   Render observations
@@ -455,58 +485,43 @@ evaluatePolicy prefix policy ours initState generator = do
         intPolicy policy ours initState `fuseBoth`
         writeStats prefix
 
-evaluateInputPolicies :: FilePath -> IO ()
-evaluateInputPolicies prefix = do
-    --
-    -- The exact match strategy
-    -- This is mostly just for debugging the test infrastructure itself.
-    --
-
-    let exactInitUtxo = utxoEmpty
-    (statsExact, plotExact) <- evaluatePolicy
-      (prefix </> "exact")
-      Policy.exactSingleMatchOnly
-      (const True)
-      (initIntState utxoBinSize exactInitUtxo ())
-      (Gen.test Gen.defTestParams)
-    let exactBounds = deriveBounds statsExact 2000
-    writePlotInstrs
-      (prefix </> "exact" </> "mkframes.gnuplot")
-      resolution
-      utxoBinSize
-      exactBounds
-      plotExact
-
-    --
-    -- Evaluate largest first and random against trivial input stream
-    --
-
-    -- We evaluate largestFirst as well as the random policy (with and without
-    -- privacy protection) against the same initial UTxO
-    let initUtxo = utxoSingleton (Input (GivenHash 0) 0) (Output Us 1000000)
-    (statsTrivial_Largest, plotTrivial_Largest) <- evaluatePolicy
-      (prefix </> "trivial-largest")
+-- | Evaluate various input policies given the specified event stream
+--
+-- We evaluate
+--
+-- * Largest-first
+-- * Random, privacy mode off
+-- * Random, privacy mode on
+evaluateUsingEvents :: Hash h World
+                    => PlotParams
+                    -> String        -- ^ Prefix for this event stream
+                    -> Utxo h World  -- ^ Initial UTxO
+                    -> ConduitT () (Event h World) IO ()  -- ^ Event stream
+                    -> IO ()
+evaluateUsingEvents plotParams@PlotParams{..} eventsPrefix initUtxo events = do
+    (statsLargest, plotLargest) <- evaluatePolicy
+      (prefix </> (eventsPrefix ++ "-largest"))
       Policy.largestFirst
       (== Us)
-      (initIntState utxoBinSize initUtxo Us)
-      (Gen.trivial (Mean 1000) (StdDev 100) 1000)
-    (statsTrivial_RandomOff, plotTrivial_RandomOff) <- evaluatePolicy
-      (prefix </> "trivial-randomOff")
+      (initIntState plotParams initUtxo Us)
+      events
+    (statsRandomOff, plotRandomOff) <- evaluatePolicy
+      (prefix </> (eventsPrefix ++ "-randomOff"))
       (Policy.random PrivacyModeOff)
       (== Us)
-      (initIntState utxoBinSize initUtxo Us)
-      (Gen.trivial (Mean 1000) (StdDev 100) 1000)
-    (statsTrivial_RandomOn, plotTrivial_RandomOn) <- evaluatePolicy
-      (prefix </> "trivial-randomOn")
+      (initIntState plotParams initUtxo Us)
+      events
+    (statsRandomOn, plotRandomOn) <- evaluatePolicy
+      (prefix </> (eventsPrefix ++ "-randomOn"))
       (Policy.random PrivacyModeOn)
       (== Us)
-      (initIntState utxoBinSize initUtxo Us)
-      (Gen.trivial (Mean 1000) (StdDev 100) 1000)
+      (initIntState plotParams initUtxo Us)
+      events
 
     -- Make sure we use the same bounds for the UTxO
-    let boundsTrivial_Largest    = deriveBounds statsTrivial_Largest   2000
-        boundsTrivial_RandomOff  = deriveBounds statsTrivial_RandomOff 2000
-        boundsTrivial_RandomOn   = deriveBounds statsTrivial_RandomOn  2000
+    let boundsTrivial_Largest    = deriveBounds statsLargest   2000
+        boundsTrivial_RandomOff  = deriveBounds statsRandomOff 2000
+        boundsTrivial_RandomOn   = deriveBounds statsRandomOn  2000
 
         commonUtxoBounds = unionBoundsAt (boundsUtxoHistogram . xRange)
                              [ boundsTrivial_Largest
@@ -519,29 +534,59 @@ evaluateInputPolicies prefix = do
         boundsTrivial_RandomOn'  = commonUtxoBounds boundsTrivial_RandomOn
 
     writePlotInstrs
-      (prefix </> "trivial-largest" </> "mkframes.gnuplot")
-      resolution
-      utxoBinSize
+      plotParams
+      ((eventsPrefix ++ "-largest") </> "mkframes.gnuplot")
       boundsTrivial_Largest'
-      plotTrivial_Largest
+      plotLargest
     writePlotInstrs
-      (prefix </> "trivial-randomOff" </> "mkframes.gnuplot")
-      resolution
-      utxoBinSize
+      plotParams
+      ((eventsPrefix ++ "-randomOff") </> "mkframes.gnuplot")
       boundsTrivial_RandomOff'
-      plotTrivial_RandomOff
+      plotRandomOff
     writePlotInstrs
-      (prefix </> "trivial-randomOn" </> "mkframes.gnuplot")
-      resolution
-      utxoBinSize
+      plotParams
+      ((eventsPrefix ++ "-randomOn") </> "mkframes.gnuplot")
       boundsTrivial_RandomOn'
-      plotTrivial_RandomOn
-  where
-    utxoBinSize = BinSize 10
-    resolution  = Resolution {
-                      resolutionWidth  = 800
-                    , resolutionHeight = 400
-                    }
+      plotRandomOn
+
+
+evaluateInputPolicies :: PlotParams -> IO ()
+evaluateInputPolicies plotParams@PlotParams{..} = do
+    --
+    -- The exact match strategy
+    -- This is mostly just for debugging the test infrastructure itself.
+    --
+
+    let exactInitUtxo = utxoEmpty
+    (statsExact, plotExact) <- evaluatePolicy
+      (prefix </> "exact")
+      Policy.exactSingleMatchOnly
+      (const True)
+      (initIntState plotParams exactInitUtxo ())
+      (Gen.test Gen.defTestParams)
+    let exactBounds = deriveBounds statsExact 2000
+    writePlotInstrs
+      plotParams
+      ("exact" </> "mkframes.gnuplot")
+      exactBounds
+      plotExact
+
+    --
+    -- Evaluate largest first and random against various event streams
+    --
+
+    let initUtxo = utxoSingleton (Input (GivenHash 0) 0) (Output Us 1000000)
+    evaluateUsingEvents plotParams "trivial" initUtxo $
+      Gen.trivial (NormalDistr 1000 100) 1000
+    evaluateUsingEvents plotParams "3to1" initUtxo $
+      Gen.fromDistr Gen.FromDistrParams {
+          Gen.fromDistrDep    = NormalDistr 1000 100
+        , Gen.fromDistrPay    = NormalDistr 3000 300
+        , Gen.fromDistrNumDep = ConstDistr 3
+        , Gen.fromDistrNumPay = ConstDistr 1
+        , Gen.fromDistrCycles = 1000
+        }
+
 
 {-
 

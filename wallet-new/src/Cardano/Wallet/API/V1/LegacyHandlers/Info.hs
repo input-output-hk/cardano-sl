@@ -12,6 +12,7 @@ import           Cardano.Wallet.API.V1.Types as V1
 import           Mockable (MonadMockable)
 import           Ntp.Client (NtpStatus)
 import           Pos.Diffusion.Types (Diffusion (..))
+import           Pos.Diffusion.Subscription.Status (ssMap)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo)
 import           Servant
 
@@ -39,7 +40,7 @@ getInfo :: ( MonadIO m
         -> TVar NtpStatus
         -> m (WalletResponse NodeInfo)
 getInfo Diffusion{..} ntpStatus = do
-    subscribers <- atomically $ readTVar subscriptionStatus
+    subscribers <- atomically $ readTVar (ssMap subscriptionStates)
     spV0 <- V0.syncProgress
     syncProgress   <- migrate spV0
     timeDifference <- V0.localTimeDifference ntpStatus

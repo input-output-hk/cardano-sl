@@ -179,12 +179,16 @@ initAccumulatedStats = AccStats {
     }
 
 -- | Construct statistics for the next frame
+--
+-- For the median ratio timeseries, we use a default value of @-1@ as long as
+-- there are no outputs generated yet (since we plot from 0, this will then be
+-- not visible).
 stepFrame :: CurrentStats -> AccStats -> AccStats
 stepFrame CurrentStats{..} st =
     st & accFrame                        %~ succ
        & accUtxoHistogram                %~ Histogram.max currentUtxoHistogram
        & accUtxoSize    . timeSeriesList %~ (currentUtxoSize :)
-       & accMedianRatio . timeSeriesList %~ (MultiSet.medianWithDefault 1 txStatsRatios :)
+       & accMedianRatio . timeSeriesList %~ (MultiSet.medianWithDefault (-1) txStatsRatios :)
   where
     TxStats{..} = st ^. accTxStats
 
@@ -310,8 +314,9 @@ makeLenses ''Bounds
 --   large "initial payments" from the UTxO graph; we typically have only one
 --   such value and if we try to include it in the graph all the other outputs
 --   will be squashed into a tiny corner on the left.
--- * For the change/payment ratio, we use a maximum y value of 3. Anything much
---   above that is not particularly interesting anyway.
+-- * For the change/payment ratio, we use a fixed yrange [0:2]. Anything below
+--   0 doesn't make sense (we use this for absent values); anything above 2
+--   isn't particularly interesting.
 -- * For number of transaciton inputs we set minimum x to 0 always.
 deriveBounds :: AccStats -> Bin -> Bounds
 deriveBounds AccStats{..} maxUtxoBin = Bounds {
@@ -320,7 +325,7 @@ deriveBounds AccStats{..} maxUtxoBin = Bounds {
     , _boundsTxInputs      = Histogram.range (txStatsNumInputs _accTxStats)
                            & xRange . rangeLo .~ 0
     , _boundsMedianRatio   = timeSeriesRange _accMedianRatio
-                           & yRange . rangeHi .~ 2
+                           & yRange .~ Range 0 2
     }
 
 -- | Align a specific range

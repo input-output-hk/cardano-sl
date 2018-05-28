@@ -40,7 +40,7 @@ let
   pkgs = import <nixpkgs> {
     overlays = [ overlay ];
     config = config;
-#    crossSystem = (import <nixpkgs/lib>).systems.examples.mingwW64;
+    crossSystem = (import <nixpkgs/lib>).systems.examples.mingwW64;
   };
 
 in with pkgs.haskellPackages;

@@ -7477,7 +7477,7 @@ inherit (pkgs) mesa;};
              universum unix unordered-containers yaml
            ];
            libraryToolDepends = [ cpphs ];
-           testHaskellDepends = [ async base hspec ];
+           testHaskellDepends = [ async base containers hspec QuickCheck ];
            doHaddock = false;
            description = "Cardano SL - infrastructural";
            license = stdenv.lib.licenses.mit;

@@ -457,73 +457,85 @@ evaluatePolicy prefix policy ours initState generator = do
 
 evaluateInputPolicies :: FilePath -> IO ()
 evaluateInputPolicies prefix = do
+    --
+    -- The exact match strategy
+    -- This is mostly just for debugging the test infrastructure itself.
+    --
+
     let exactInitUtxo = utxoEmpty
-    (exactStats, exactPlot) <- evaluatePolicy
+    (statsExact, plotExact) <- evaluatePolicy
       (prefix </> "exact")
       Policy.exactSingleMatchOnly
       (const True)
       (initIntState utxoBinSize exactInitUtxo ())
       (Gen.test Gen.defTestParams)
-    let exactBounds = deriveBounds exactStats 2000
+    let exactBounds = deriveBounds statsExact 2000
     writePlotInstrs
       (prefix </> "exact" </> "mkframes.gnuplot")
       resolution
       utxoBinSize
       exactBounds
-      exactPlot
+      plotExact
+
+    --
+    -- Evaluate largest first and random against trivial input stream
+    --
 
     -- We evaluate largestFirst as well as the random policy (with and without
     -- privacy protection) against the same initial UTxO
     let initUtxo = utxoSingleton (Input (GivenHash 0) 0) (Output Us 1000000)
-    (largestStats, largestPlot) <- evaluatePolicy
-      (prefix </> "largest")
+    (statsTrivial_Largest, plotTrivial_Largest) <- evaluatePolicy
+      (prefix </> "trivial-largest")
       Policy.largestFirst
       (== Us)
       (initIntState utxoBinSize initUtxo Us)
       (Gen.trivial (Mean 1000) (StdDev 100) 1000)
-    (trivialOffStats, trivialOffPlot) <- evaluatePolicy
-      (prefix </> "trivialOff")
+    (statsTrivial_RandomOff, plotTrivial_RandomOff) <- evaluatePolicy
+      (prefix </> "trivial-randomOff")
       (Policy.random PrivacyModeOff)
       (== Us)
       (initIntState utxoBinSize initUtxo Us)
       (Gen.trivial (Mean 1000) (StdDev 100) 1000)
-    (trivialOnStats, trivialOnPlot) <- evaluatePolicy
-      (prefix </> "trivialOn")
+    (statsTrivial_RandomOn, plotTrivial_RandomOn) <- evaluatePolicy
+      (prefix </> "trivial-randomOn")
       (Policy.random PrivacyModeOn)
       (== Us)
       (initIntState utxoBinSize initUtxo Us)
       (Gen.trivial (Mean 1000) (StdDev 100) 1000)
 
     -- Make sure we use the same bounds for the UTxO
-    let largestBounds     = deriveBounds largestStats    2000
-        trivialOffBounds  = deriveBounds trivialOffStats 2000
-        trivialOnBounds   = deriveBounds trivialOnStats  2000
+    let boundsTrivial_Largest    = deriveBounds statsTrivial_Largest   2000
+        boundsTrivial_RandomOff  = deriveBounds statsTrivial_RandomOff 2000
+        boundsTrivial_RandomOn   = deriveBounds statsTrivial_RandomOn  2000
 
-        commonUtxoBounds  = unionBoundsAt (boundsUtxoHistogram . xRange)
-                              [largestBounds, trivialOffBounds, trivialOnBounds]
+        commonUtxoBounds = unionBoundsAt (boundsUtxoHistogram . xRange)
+                             [ boundsTrivial_Largest
+                             , boundsTrivial_RandomOff
+                             , boundsTrivial_RandomOn
+                             ]
 
-        largestBounds'    = commonUtxoBounds largestBounds
-        trivialOffBounds' = commonUtxoBounds trivialOffBounds
-        trivialOnBounds'  = commonUtxoBounds trivialOnBounds
+        boundsTrivial_Largest'   = commonUtxoBounds boundsTrivial_Largest
+        boundsTrivial_RandomOff' = commonUtxoBounds boundsTrivial_RandomOff
+        boundsTrivial_RandomOn'  = commonUtxoBounds boundsTrivial_RandomOn
 
     writePlotInstrs
-      (prefix </> "largest" </> "mkframes.gnuplot")
+      (prefix </> "trivial-largest" </> "mkframes.gnuplot")
       resolution
       utxoBinSize
-      largestBounds'
-      largestPlot
+      boundsTrivial_Largest'
+      plotTrivial_Largest
     writePlotInstrs
-      (prefix </> "trivialOff" </> "mkframes.gnuplot")
+      (prefix </> "trivial-randomOff" </> "mkframes.gnuplot")
       resolution
       utxoBinSize
-      trivialOffBounds'
-      trivialOffPlot
+      boundsTrivial_RandomOff'
+      plotTrivial_RandomOff
     writePlotInstrs
-      (prefix </> "trivialOn" </> "mkframes.gnuplot")
+      (prefix </> "trivial-randomOn" </> "mkframes.gnuplot")
       resolution
       utxoBinSize
-      trivialOnBounds'
-      trivialOnPlot
+      boundsTrivial_RandomOn'
+      plotTrivial_RandomOn
   where
     utxoBinSize = BinSize 10
     resolution  = Resolution {

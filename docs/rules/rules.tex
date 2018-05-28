@@ -39,6 +39,8 @@
 \newenvironment{treacherous}{\begin{bclogo}[noborder=true,
     logo=\bcdz, epBarre=3, couleurBarre=Red]{Beware}}{\end{bclogo}}
 
+\newcommand{\powerset}[1]{\mathcal{P}(#1)}
+
 \newcommand{\lists}[1]{{#1}^*}
 \newcommand{\nelists}[1]{{#1}^+}
 \newcommand{\emptylist}{ε}
@@ -94,6 +96,10 @@
 \newcommand{\bootstraprepartition}{r_\mathsf{bootstrap}}
 \newcommand{\stakeof}[2]{\mathsf{stake}(#1,#2)}
 \newcommand{\maxmempoolsize}{\mathsf{max}_{\mathsf{poolsize}}}
+\newcommand{\quality}[1]{\mathsf{quality}(#1)}
+\newcommand{\commitphase}{\mathsf{phase}_\mathsf{commit}}
+\newcommand{\openphase}{\mathsf{phase}_\mathsf{open}}
+\newcommand{\recoveryphase}{\mathsf{phase}_\mathsf{recovery}}
 
 %% /macros %%
 
@@ -361,6 +367,29 @@ concrete value, which simplifies the specification.
   the length of the list, though more refined criterion are usually
   chosen. This function is defined in Section~\ref{sec:height}.
 
+\item[Chain quality] We assume a function $\quality{⋅} ∈ ℕ ⟶ ℕ$, which
+  maps a number of blocks into a number of blocks. The meaning of the
+  chain qualitity function is that, assuming that a block at depth $k$
+  will never be rolled back (see Section~\ref{sec:conf-param}), then
+  the chain will never roll back more than $\quality{k}$ slots. This
+  function is defined in Section~\ref{sec:chain-quality}.\unsure{I put
+  the chain quality here because it is at a rather prominent place in
+  the code, it is never directly used in the specification, rather the
+  phases below are. So we may skip this and only introduce chain
+  quality in Section~\ref{sec:params}.}
+
+\item[Secret-sharing phases] We assume three subsets of $ℕ$
+  $$
+  \commitphase, \openphase, \recoveryphase ∈ \powerset{ℕ}
+  $$
+  These are intended as subsets of the slots within an epoch. They are
+  expected to be intervals, in that for all $a<b<c$ such that
+  $a∈\commitphase$ and $c∈\commitphase$, we have $b∈\commitphase$
+  (respectively $\openphase$, $\recoveryphase$). It is also expected
+  that for $x ∈ \commitphase$, $y∈\openphase$, and $z∈\recoveryphase$,
+  we have $x<y<z$. These subsets are defined in
+  Section~\ref{sec:vss-phases}.
+
 \end{description}
 
 \subsection{Configuration parameters}
@@ -388,7 +417,8 @@ specified in the initial state and can be further modified by updates.
 \begin{description}
 \item[k] This entire specification is parameterised by a natural
   number $k$. It comes from the Ouroboros paper: it is the depth after
-  which a block is considered stable.
+  which a block is considered stable, and will never rollback under
+  any circumstance.
 
   \begin{currentvalue}
     In Cardano, $k=2160$
@@ -771,6 +801,23 @@ $\{ p∈ℕ | \rem{2^{kB}}{N} ⩽ u_n < 2^{kB} \}$ has $qN$ elements for
 some $q$. From which we can deduce that $f(N)$ is surjective on its
 first component (and actually: if the frequency of each $p$ in $u_n$
 is the same, then the same property also holds of $f$).
+
+\subsection{Chain quality}
+\label{sec:chain-quality}
+
+The chain qualitity function is defined as
+$$
+\quality{n} = 2n
+$$
+\subsection{Secret-sharing phases}
+\label{sec:vss-phases}
+
+The secret-sharing phases are defined as:
+\begin{itemize}
+\item $\commitphase = \{ n∈ℕ~|~0 ⩽ n < \quality{k} \}$
+\item $\openphase = \{ n∈ℕ~|~2×\quality{k} ⩽ n < 3×\quality{k} \}$
+\item $\recoveryphase = \{ n∈ℕ~|~4×\quality{k} ⩽ n < 5×\quality{k} \}$
+\end{itemize}
 
 \section{Issuing a block}
 \label{sec:extending-blockchain}

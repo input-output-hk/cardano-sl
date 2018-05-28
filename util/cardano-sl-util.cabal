@@ -31,6 +31,10 @@ library
                        Pos.Util.Justify
                        Pos.Util.Lens
                        Pos.Util.Log
+                       Pos.Util.LoggerConfig
+                       Pos.Util.Log.Internal
+                       Pos.Util.Log.Severity
+                       Pos.Util.Log.Scribes
                        Pos.Util.Limits
                        Pos.Util.LRU
                        Pos.Util.Modifier
@@ -43,12 +47,7 @@ library
                        Pos.Util.Util
 
   other-modules:
-                       Pos.Util.LoggerConfig
                        Pos.Util.LoggerName
-                       Pos.Util.Log.Severity
-                       Pos.Util.Log.StdoutScribe
-                       --Pos.Util.Log.JsonScribe
-                       Pos.Util.Log.Internal
 
   build-depends:       aeson
                      , base
@@ -158,6 +157,7 @@ test-suite test
                      , formatting
                      , hspec
                      , hspec-core
+                     , katip
                      , QuickCheck
                      , quickcheck-instances
                      , serokell-util >= 0.1.3.4

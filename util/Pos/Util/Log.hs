@@ -32,19 +32,21 @@ module Pos.Util.Log
 import           Universum
 
 import           Control.Monad.Base (MonadBase)
-import           Control.Monad.Morph (MFunctor(..))
+import           Control.Monad.Morph (MFunctor (..))
 import           Control.Monad.Writer (WriterT (..))
+import           Control.Lens (each)
 
-import           Pos.Util.LoggerConfig (LoggerConfig(..), parseLoggerConfig, loadLogConfig, retrieveLogFiles)
-import           Pos.Util.Log.Severity (Severity(..))
+import           Pos.Util.LoggerConfig --(LoggerConfig (..), LogHandler (..), loadLogConfig, parseLoggerConfig, retrieveLogFiles)
+import           Pos.Util.Log.Severity (Severity (..))
 
-import           Data.Text (Text{-, unpack-})
+import qualified Data.Text as T
 import           Data.Text.Lazy.Builder
 
 import qualified Pos.Util.Log.Internal as Internal
+import           Pos.Util.Log.Scribes
 
-import qualified Katip                      as K
-import qualified Katip.Core                 as KC
+import qualified Katip as K
+import qualified Katip.Core as KC
 
 
 -- | alias - pretend not to depend on katip
@@ -143,9 +145,49 @@ newtype NamedPureLogger m a = NamedPureLogger
 -}
 --instance (MonadIO m) => KC.Katip (NamedPureLogger m)
 
--- | setup logging
+-- | setup logging according to configuration
+--   the backends (scribes) need to be registered with the @LogEnv@
 setupLogging :: LoggerConfig -> IO ()
-setupLogging = Internal.setConfig
+setupLogging lc = do
+
+    scribes <- meta lc
+    Internal.setConfig scribes lc
+      where
+        meta :: LoggerConfig -> IO [(T.Text, K.Scribe)]
+        meta _lc = do
+            -- setup scribes according to configuration
+            let --minSev = _lc ^. lcLoggerTree ^. ltMinSeverity
+                lhs = _lc ^. lcLoggerTree ^. ltHandlers ^.. each
+            scs <- forM lhs (\lh -> case (lh ^. lhBackend) of
+                            FileJsonBE -> do  -- TODO
+                                scribe <- mkFileScribe
+                                              (fromMaybe "<unk>" $ lh ^. lhFpath)
+                                              True
+                                              (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                              K.V0
+                                return (lh ^. lhName, scribe)
+                            FileTextBE -> do
+                                scribe <- mkFileScribe
+                                              (fromMaybe "<unk>" $ lh ^. lhFpath)
+                                              True
+                                              (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                              K.V0
+                                return (lh ^. lhName, scribe)
+                            StdoutBE -> do
+                                scribe <- mkStdoutScribe
+                                              (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                              K.V0
+                                return (lh ^. lhName, scribe)
+                            DevNullBE -> do
+                                scribe <- mkDevNullScribe
+                                              (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                              K.V0
+                                return (lh ^. lhName, scribe)
+                        )
+            return scs
+            --hstdout <- mkStdoutScribe (Internal.sev2klog minSev) K.V0
+            --return (("__stdout", hstdout) : scs)
+
 
 -- | provide logging in IO
 usingLoggerName :: LoggerName -> LogContextT IO a -> IO a
@@ -192,4 +234,3 @@ test4 = do
     usingLoggerName Info "testtest" $ do
         logWarning "This is a warning!"
 -}
-

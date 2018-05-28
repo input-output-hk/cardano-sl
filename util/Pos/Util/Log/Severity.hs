@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
-
 module Pos.Util.Log.Severity
        ( Severity(..)
        ) where

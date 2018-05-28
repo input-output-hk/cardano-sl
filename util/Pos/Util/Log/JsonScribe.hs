@@ -5,7 +5,7 @@ module Pos.Util.LogJsonScribe
 import           Universum
 
 import           Data.Aeson.Text
-import qualified Data.Text.Lazy.IO          as T
+import qualified Data.Text.Lazy.IO as T
 import           System.IO
 
 import           Katip.Core
@@ -24,4 +24,3 @@ mkJsonScribe h s v = do
               bracket_ (takeMVar lock) (putMVar lock ()) $
                 T.hPutStrLn h $ encodeToLazyText $ itemJson v i
     pure $ Scribe logger (hFlush h)
-

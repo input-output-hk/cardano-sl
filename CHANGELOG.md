@@ -2,7 +2,7 @@
 
 ## Cardano SL 1.2.0 (Mainnet)
 
-Most important code changes which made to release 1.2.0.
+These are the most important code changes which were included in release 1.2.0.
 
 ### Features
 
@@ -26,47 +26,11 @@ Most important code changes which made to release 1.2.0.
 
 - Add sorting and filtering capabilities to the wallet V1 API (CBR-20).
 
+### Bug fixes
 
+- Fix wallet creation and backup when there are non-latin characters in wallet name (R120-4).
 
-### Bug fixes and improvements
-
-- CBR-282: After current production installer (Daedalus 0.9.1, Cardano 1.1.1) get's RC5 update applied (through the update mechanism) the node is no longer able to start and thus Daedalus remains stuck at "Connecting to network..." screen.
-This issue is confirmed on both macOS and Windows platforms.
-
-
-- The wallet creation and backup should work properly when there are non-latin characters in wallet name (R120-4).
-
-- In the latest Daedalus version new General Settings > Support screen was added.
-This page contains a download logs link. If this option is used then Support Request dialog submit does not work (R120-5).
-
-
-- QR code dimensions had to be slightly altered (width & height reduced from 160px to 152px) in order to make the QR code readable by most of the online QR code readers (R120-7).
-
-
-- Daedalus frontend not launching after installing on OSX 10.11 (R120-8).
-
-
-- Fix AppVeyor signing issue (R120-10).
-
-- The update proposal submitted on 2018-05-08 08:15 UTC had the windows and macos installers swapped around (R120-14).
-
-
-- Second update proposal failure: stakeholder proposed second update in epoch (R120-15).
-
-- After current production installer (Daedalus 0.9.1, Cardano 1.1.1) get's RC5 update applied (through the update mechanism) the node is no longer able to start and thus Daedalus remains stuck at "Connecting to network..." screen.
-This issue is confirmed on both macOS and Windows platforms (R120-17).
-
-- A Hotfix (HF) was requested for Ada recovery service.Daedalus team confirmed that changes will be only on frontend. It is critical to deliver the HF before 1 June (R120-18).
-
-
-- Open lock folder prevents 1.2.0 start on Windows (R120-20).
-
-
-
-
-
-
-
+- Fix issue where Daedalus remains stuck at "Connecting to network..." screen after updating version (CBR-282, 120-17).
 
 
 ## Cardano SL 1.1.1 (Mainnet)

@@ -110,6 +110,10 @@ test_script:
   - Echo https://ci.appveyor.com/project/%APPVEYOR_ACCOUNT_NAME%/%APPVEYOR_PROJECT_SLUG%/build/%APPVEYOR_BUILD_VERSION% > ci-url
 
 after_test:
+ - xcopy /q /s /e /r /k /i /v /h /y "%WORK_DIR%\daedalus" "%APPVEYOR_BUILD_FOLDER%\daedalus"
+ - cd "%WORK_DIR%/daedalus"
+ - 7z a "%APPVEYOR_REPO_COMMIT%.zip" *
+ - appveyor PushArtifact "%APPVEYOR_REPO_COMMIT%.zip"
  - cd "%WORK_DIR%" # Get back to where cache-s3.exe is located
  - ps: >-
     if ( ($env:CACHE_S3_READY -eq $true) -and (-not $env:APPVEYOR_PULL_REQUEST_NUMBER) ) {
@@ -118,9 +122,19 @@ after_test:
       }
       .\cache-s3 --max-size=$env:CACHE_S3_MAX_SIZE --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -c -v info save stack work
     }
- - xcopy /q /s /e /r /k /i /v /h /y "%WORK_DIR%\daedalus" "%APPVEYOR_BUILD_FOLDER%\daedalus"
-
 artifacts:
   - path: daedalus/
     name: CardanoSL
     type: zip
+
+deploy:
+  provider: S3
+  access_key_id:
+    secure: IEky6PsMzHaKHNBMxR8tQaQI8X7qWRB9+HuEroTVRBk=
+  secret_access_key:
+    secure: cqjzG96hWB1x3JDbVSbF9E+aJ5jKvIGacJRUDWATHaTOYfSt6Rvive/NrF4lKBIm
+  bucket: appveyor-ci-deploy
+  region: ap-northeast-1
+  set_public: true
+  folder: cardano-sl
+  artifact: $(APPVEYOR_REPO_COMMIT).zip

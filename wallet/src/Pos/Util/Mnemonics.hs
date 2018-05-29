@@ -106,7 +106,7 @@ numCS :: Int -> Entropy -> Integer
 numCS len = shiftCS . bsToInteger
   where
     shiftCS = case 8 - len `mod` 8 of
-        0 -> identity
+        8 -> identity
         x -> flip shiftR x
 
 -- | Obtain 'Int' bits from beginning of 'ByteString'. Resulting 'ByteString'

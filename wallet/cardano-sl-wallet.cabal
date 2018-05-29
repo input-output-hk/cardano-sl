@@ -105,8 +105,6 @@ library
                       -- shared test sources needed by tests of wallet-new
                       Test.Pos.Wallet.Web.Mode
 
-                      Pos.Wallet.Web.Tracking.DecryptRefactor
-
   other-modules:        Paths_cardano_sl_wallet
 
   build-depends:        QuickCheck

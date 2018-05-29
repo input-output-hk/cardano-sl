@@ -2,6 +2,8 @@
 module Cardano.Wallet.Kernel.DB.Spec (
     -- * Wallet state as mandated by the spec
     Pending(..)
+  , PendingTxs
+  , Balance
   , Checkpoint(..)
   , Checkpoints
   , emptyPending
@@ -21,6 +23,7 @@ module Cardano.Wallet.Kernel.DB.Spec (
   , currentUtxoBalance
   , currentExpected
   , currentPending
+  , currentPendingTxs
   , currentBlockMeta
   ) where
 
@@ -44,9 +47,13 @@ import           Cardano.Wallet.Kernel.DB.InDb
   Wallet state as mandated by the spec
 -------------------------------------------------------------------------------}
 
+type Balance = Integer
+
+type PendingTxs = Map Core.TxId Core.TxAux
+
 -- | Pending transactions
 data Pending = Pending {
-      _pendingTransactions :: InDb (Map Core.TxId Core.TxAux)
+      _pendingTransactions :: InDb PendingTxs
      } deriving Eq
 
 
@@ -100,14 +107,16 @@ currentCheckpoint = neHead
 currentUtxo        :: Lens' Checkpoints Core.Utxo
 currentUtxoBalance :: Lens' Checkpoints Core.Coin
 currentExpected    :: Lens' Checkpoints Core.Utxo
-currentPending     :: Lens' Checkpoints Pending
 currentBlockMeta   :: Lens' Checkpoints BlockMeta
+currentPending     :: Lens' Checkpoints Pending
+currentPendingTxs  :: Lens' Checkpoints PendingTxs
 
 currentUtxo        = currentCheckpoint . checkpointUtxo        . fromDb
 currentUtxoBalance = currentCheckpoint . checkpointUtxoBalance . fromDb
 currentExpected    = currentCheckpoint . checkpointExpected    . fromDb
-currentPending     = currentCheckpoint . checkpointPending
 currentBlockMeta   = currentCheckpoint . checkpointBlockMeta
+currentPending     = currentCheckpoint . checkpointPending
+currentPendingTxs  = currentPending . pendingTransactions . fromDb
 
 {-------------------------------------------------------------------------------
   Auxiliary

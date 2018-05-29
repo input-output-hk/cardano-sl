@@ -17,6 +17,8 @@ import           Universum
 
 import           System.Wlog (Severity)
 
+import           Pos.Core (HasConfiguration)
+
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
 import qualified Cardano.Wallet.WalletLayer.Kernel as Kernel
@@ -29,7 +31,7 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), Passi
 -- Kernel
 ------------------------------------------------------------
 bracketKernelPassiveWallet
-    :: forall m n a. (MonadIO m, MonadIO n, MonadMask n)
+    :: forall m n a. (HasConfiguration, MonadIO m, MonadIO n, MonadMask n)
     => (Severity -> Text -> IO ())
     -> (PassiveWalletLayer m -> n a) -> n a
 bracketKernelPassiveWallet = Kernel.bracketPassiveWallet

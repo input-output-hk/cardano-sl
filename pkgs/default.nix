@@ -7261,18 +7261,19 @@ inherit (pkgs) mesa;};
            license = stdenv.lib.licenses.mit;
          }) {};
       "cardano-sl-crypto-test" = callPackage
-        ({ mkDerivation, base, cardano-sl-binary, cardano-sl-crypto
-         , cardano-sl-util, cardano-sl-util-test, generic-arbitrary, memory
-         , QuickCheck, quickcheck-instances, stdenv, universum
+        ({ mkDerivation, base, bytestring, cardano-sl-binary
+         , cardano-sl-crypto, cardano-sl-util, cardano-sl-util-test
+         , cryptonite, generic-arbitrary, hedgehog, memory, QuickCheck
+         , quickcheck-instances, stdenv, universum
          }:
          mkDerivation {
            pname = "cardano-sl-crypto-test";
            version = "1.1.0";
            src = ./../crypto/tests;
            libraryHaskellDepends = [
-             base cardano-sl-binary cardano-sl-crypto cardano-sl-util
-             cardano-sl-util-test generic-arbitrary memory QuickCheck
-             quickcheck-instances universum
+             base bytestring cardano-sl-binary cardano-sl-crypto cardano-sl-util
+             cardano-sl-util-test cryptonite generic-arbitrary hedgehog memory
+             QuickCheck quickcheck-instances universum
            ];
            doHaddock = false;
            description = "Cardano SL - arbitrary instances for cardano-sl-crypto";
@@ -19185,21 +19186,20 @@ inherit (pkgs) which;};
         ({ mkDerivation, ansi-terminal, async, base, bytestring
          , concurrent-output, containers, directory, exceptions
          , lifted-async, mmorph, monad-control, mtl, pretty-show, primitive
-         , random, resourcet, stdenv, stm, template-haskell, text, th-lift
-         , time, transformers, transformers-base, unix, wl-pprint-annotated
+         , random, resourcet, semigroups, stdenv, stm, template-haskell
+         , text, th-lift, time, transformers, transformers-base, unix
+         , wl-pprint-annotated
          }:
          mkDerivation {
            pname = "hedgehog";
-           version = "0.5";
-           sha256 = "f3caf8b249012727dc2328b0b595575898f1f2287967748de44fe6caab2bbe09";
-           revision = "1";
-           editedCabalFile = "13079sdirdzch3r199lyxa7xrcq4xpaayxhdvg8v0d27w9z1chln";
+           version = "0.6";
+           sha256 = "b86ffe3cf523d40e77f1547ef79d45edb62762e15328e8152959c440f7237e30";
            libraryHaskellDepends = [
              ansi-terminal async base bytestring concurrent-output containers
              directory exceptions lifted-async mmorph monad-control mtl
-             pretty-show primitive random resourcet stm template-haskell text
-             th-lift time transformers transformers-base unix
-             wl-pprint-annotated
+             pretty-show primitive random resourcet semigroups stm
+             template-haskell text th-lift time transformers transformers-base
+             unix wl-pprint-annotated
            ];
            doHaddock = false;
            doCheck = false;

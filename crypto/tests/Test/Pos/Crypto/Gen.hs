@@ -10,6 +10,7 @@ module Test.Pos.Crypto.Gen
         , genKeypair
         , genPublicKey
         , genSecretKey
+        , genEncryptedSecretKey
 
         -- Redeem Key Generators
         , genRedeemKeypair
@@ -32,6 +33,9 @@ module Test.Pos.Crypto.Gen
         , genRedeemSignature
 
         -- Secret Generators
+        , genSharedSecretData
+        , genSecret
+        , genSecretProof
 
         -- Hash Generators
         , genAbstractHash
@@ -48,6 +52,7 @@ import           Universum
 
 import           Crypto.Hash
 import qualified Data.ByteArray as ByteArray
+import           Data.List.NonEmpty (fromList)
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
@@ -58,6 +63,7 @@ import           Pos.Crypto (AbstractHash (..), SignTag (..), abstractHash,
                              sign, signEncoded)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Crypto.HD (HDAddressPayload (..), HDPassphrase (..))
+import           Pos.Crypto.Random (deterministic)
 import           Pos.Crypto.SecretSharing
 import           Pos.Crypto.Signing (deterministicKeyGen)
 import           Pos.Crypto.Signing.Redeem (redeemDeterministicKeyGen,
@@ -101,6 +107,9 @@ genPublicKey =  fst <$> genKeypair
 
 genSecretKey :: Gen SecretKey
 genSecretKey = snd <$> genKeypair
+
+genEncryptedSecretKey :: Gen EncryptedSecretKey
+genEncryptedSecretKey = noPassEncrypt <$> genSecretKey
 
 ----------------------------------------------------------------------------
 -- Redeem Key Generators
@@ -185,7 +194,25 @@ genRedeemSignature pm genA =
 -- Secret Generators
 ----------------------------------------------------------------------------
 
--- TODO: Look more into how secret sharing works.
+genSharedSecretData :: Gen (Secret, SecretProof, [(VssPublicKey, EncShare)])
+genSharedSecretData = do
+    let numKeys = 128 :: Int
+    parties <-
+        Gen.integral (Range.constant 4 (fromIntegral numKeys)) :: Gen Integer
+    threshold <- Gen.integral (Range.constant 2 (parties - 2)) :: Gen Integer
+    vssKeys <- replicateM numKeys genVssPublicKey
+    let ss = deterministic "ss" $ genSharedSecret threshold (fromList vssKeys)
+    return ss
+
+genSecret :: Gen Secret
+genSecret = do
+    (s, _, _) <- genSharedSecretData
+    return s
+
+genSecretProof :: Gen SecretProof
+genSecretProof = do
+    (_, sp, _) <- genSharedSecretData
+    return sp
 
 ----------------------------------------------------------------------------
 -- Hash Generators

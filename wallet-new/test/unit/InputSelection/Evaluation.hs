@@ -203,39 +203,43 @@ stepFrame CurrentStats{..} st =
 -------------------------------------------------------------------------------}
 
 data IntState h a = IntState {
-      _stUtxo       :: Utxo h a
-    , _stPending    :: Utxo h a
-    , _stStats      :: AccStats
-    , _stFreshHash  :: Int
+      _stUtxo         :: Utxo h a
+    , _stPending      :: Utxo h a
+    , _stStats        :: AccStats
+    , _stFreshHash    :: Int
 
       -- | Change address
       --
       -- NOTE: At the moment we never modify this; we're not evaluating
       -- privacy, so change to a single address is fine.
-    , _stChangeAddr :: a
+    , _stChangeAddr   :: a
+
+    , _stTreasuryAddr :: a
 
       -- | Binsize used for histograms
       --
       -- We cannot actually currently change this as we run the interpreter
       -- because `Histogram.max` only applies to histograms wit equal binsizes.
-    , _stBinSize    :: BinSize
+    , _stBinSize      :: BinSize
     }
 
 makeLenses ''IntState
 
-initIntState :: PlotParams -> Utxo h a -> a -> IntState h a
-initIntState PlotParams{..} utxo changeAddr = IntState {
-      _stUtxo       = utxo
-    , _stPending    = utxoEmpty
-    , _stStats      = initAccumulatedStats
-    , _stFreshHash  = 1
-    , _stChangeAddr = changeAddr
-    , _stBinSize    = utxoBinSize
+initIntState :: PlotParams -> Utxo h a -> a -> a -> IntState h a
+initIntState PlotParams{..} utxo changeAddr treasuryAddr = IntState {
+      _stUtxo         = utxo
+    , _stPending      = utxoEmpty
+    , _stStats        = initAccumulatedStats
+    , _stFreshHash    = 1
+    , _stChangeAddr   = changeAddr
+    , _stTreasuryAddr = treasuryAddr
+    , _stBinSize      = utxoBinSize
     }
 
 instance Monad m => RunPolicy (StateT (IntState h a) m) a where
-  genChangeAddr = use stChangeAddr
-  genFreshHash  = stFreshHash <<+= 1
+  genChangeAddr   = use stChangeAddr
+  genTreasuryAddr = use stTreasuryAddr
+  genFreshHash    = stFreshHash <<+= 1
 
 {-------------------------------------------------------------------------------
   Interpreter proper
@@ -515,19 +519,21 @@ evaluateUsingEvents plotParams@PlotParams{..} eventsPrefix initUtxo events = do
       (prefix </> (eventsPrefix ++ "-largest"))
       (Policy.largestFirst simpleFee)
       (== Us)
-      (initIntState plotParams initUtxo Us)
+      -- NOTE(adn) The use of 'Us' as the treasury address is just a
+      -- placeholder.
+      (initIntState plotParams initUtxo Us Us)
       events
     (statsRandomOff, plotRandomOff) <- evaluatePolicy
       (prefix </> (eventsPrefix ++ "-randomOff"))
       (Policy.random PrivacyModeOff simpleFee)
       (== Us)
-      (initIntState plotParams initUtxo Us)
+      (initIntState plotParams initUtxo Us Us)
       events
     (statsRandomOn, plotRandomOn) <- evaluatePolicy
       (prefix </> (eventsPrefix ++ "-randomOn"))
       (Policy.random PrivacyModeOn simpleFee)
       (== Us)
-      (initIntState plotParams initUtxo Us)
+      (initIntState plotParams initUtxo Us Us)
       events
 
     -- Make sure we use the same bounds for the UTxO
@@ -574,7 +580,7 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
       (prefix </> "exact")
       (Policy.exactSingleMatchOnly simpleFee)
       (const True)
-      (initIntState plotParams exactInitUtxo ())
+      (initIntState plotParams exactInitUtxo () ())
       (Gen.test Gen.defTestParams)
     let exactBounds = deriveBounds statsExact 2000
     writePlotInstrs

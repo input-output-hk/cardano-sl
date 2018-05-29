@@ -1,7 +1,6 @@
 {-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE ViewPatterns               #-}
 
 module InputSelection.Policy (
     -- * Infrastructure
@@ -26,7 +25,8 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import           Test.QuickCheck
 
-import           Cardano.Wallet.Kernel.CoinSelection.Types (ExpenseRegulation, getRegulationRatio)
+import           Cardano.Wallet.Kernel.CoinSelection.Types (ExpenseRegulation, getRegulationRatio,
+                                                            senderPays)
 
 import           Util.Histogram (BinSize (..), Histogram)
 import qualified Util.Histogram as Histogram
@@ -136,6 +136,9 @@ class Monad m => RunPolicy m a | m -> a where
   -- | Generate change address
   genChangeAddr :: m a
 
+  -- | Generate treasury address
+  genTreasuryAddr :: m a
+
   -- | Generate fresh hash
   genFreshHash :: m Int
 
@@ -143,9 +146,11 @@ type InputSelectionPolicy h a m =
       (RunPolicy m a, Hash h a)
    => Utxo h a
    -> [(ExpenseRegulation, Output a)]
-   -> m (Either InputSelectionFailure (Transaction h a, TxStats))
+   -> m (Either (InputSelectionFailure a) (Transaction h a, TxStats))
 
-data InputSelectionFailure = InputSelectionFailure
+data InputSelectionFailure a = InputSelectionFailure
+                             | InsufficientFundsToCoverFee ExpenseRegulation (Output a)
+                             | NeedsExtraInputsToCover (ExpenseRegulation, Output a)
 
 {-------------------------------------------------------------------------------
   Input selection combinator
@@ -172,13 +177,13 @@ initInputPolicyState utxo = InputPolicyState {
 makeLenses ''InputPolicyState
 
 newtype InputPolicyT h a m x = InputPolicyT {
-      unInputPolicyT :: StateT (InputPolicyState h a) (ExceptT InputSelectionFailure m) x
+      unInputPolicyT :: StateT (InputPolicyState h a) (ExceptT (InputSelectionFailure a) m) x
     }
   deriving ( Functor
            , Applicative
            , Monad
            , MonadState (InputPolicyState h a)
-           , MonadError InputSelectionFailure
+           , MonadError (InputSelectionFailure a)
            )
 
 instance MonadTrans (InputPolicyT h a) where
@@ -188,16 +193,17 @@ instance LiftQuickCheck m => LiftQuickCheck (InputPolicyT h a m) where
   liftQuickCheck = lift . liftQuickCheck
 
 instance RunPolicy m a => RunPolicy (InputPolicyT h a m) a where
-  genChangeAddr = lift genChangeAddr
-  genFreshHash  = lift genFreshHash
+  genChangeAddr   = lift genChangeAddr
+  genTreasuryAddr = lift genTreasuryAddr
+  genFreshHash    = lift genFreshHash
 
-runInputPolicyT :: RunPolicy m a
+runInputPolicyT :: (Hash h a, RunPolicy m a)
                 => (Int -> [Value] -> Value)
                 -- ^ Function to compute the estimated fees
                 -> Utxo h a
                 -> InputPolicyT h a m PartialTxStats
-                -> m (Either InputSelectionFailure (Transaction h a, TxStats))
-runInputPolicyT estimateFees utxo policy = do
+                -> m (Either (InputSelectionFailure a) (Transaction h a, TxStats))
+runInputPolicyT estimateFee utxo policy = do
      mx <- runExceptT (runStateT (unInputPolicyT policy) initSt)
      case mx of
        Left err ->
@@ -206,52 +212,76 @@ runInputPolicyT estimateFees utxo policy = do
          let selectedInputs   = finalSt ^. ipsSelectedInputs
              generatedOutputs = finalSt ^. ipsGeneratedOutputs
              inputsLen = length selectedInputs
+             outputsWithFees = distributeFee estimateFee generatedOutputs inputsLen
 
-             outputs = transform estimateFees generatedOutputs inputsLen
-             upperBoundFees = estimateFees inputsLen (map outVal outputs)
-             -- Check if the selected inputs covers the fees
-             -- Calculate the slack
-             -- Amend the goals to find an extra input to cover the Output { value = slack }
-             -- re-run the policy.
-         h <- genFreshHash
-         return $ Right (
-             Transaction {
-                 trFresh = 0
-               , trIns   = finalSt ^. ipsSelectedInputs
-               , trOuts  = outputs
-               , trFee   = upperBoundFees
-               , trHash  = h
-               , trExtra = []
-               }
-           , fromPartialTxStats ptxStats
-           )
+         case outputsWithFees of
+              Left e -> return (Left e)
+              Right outputs -> do
+                 let upperBoundFee = estimateFee inputsLen (map outVal outputs)
+                     -- 'amountNeeded' already includes the fees.
+                     amountNeeded  = foldl' (\acc out -> acc + outVal out) 0 outputs
+                     amountCovered = utxoBalance (utxoRestrictToInputs selectedInputs utxo)
+
+                 -- Check if the selected inputs covers the fees
+                 case amountCovered >= amountNeeded of
+                      False -> do
+                          treasuryAddr <- genTreasuryAddr
+                          -- Calculate how much we need more
+                          let slack = amountNeeded - amountCovered
+                              -- The extra goal @must@ have by construction a
+                              -- 'senderPays' expense regulation, otherwise 'distributeFee'
+                              -- would have failed, as the receivers would have failed
+                              -- to cover the fees themselves. Therefore, if we got any
+                              -- slack we failed to cover, it must come from the sender's side.
+                              newGoal = (senderPays, Output treasuryAddr slack)
+                          -- \"Rerun\" with the amended goals.
+                          return $ Left (NeedsExtraInputsToCover newGoal)
+                      True -> do
+                          h <- genFreshHash
+                          return $ Right (
+                              Transaction {
+                                  trFresh = 0
+                                , trIns   = finalSt ^. ipsSelectedInputs
+                                , trOuts  = outputs
+                                , trFee   = upperBoundFee
+                                , trHash  = h
+                                , trExtra = []
+                                }
+                            , fromPartialTxStats ptxStats
+                            )
   where
     initSt = initInputPolicyState utxo
+
 
 -- | Transforms a list of outputs and their 'ExpenseRegulation's into a
 -- list of 'Output' already amended by the fee, according to the expense
 -- regulation bias. The fee is intended as an upper bound.
-transform :: (Int -> [Value] -> Value)
-          -> [(ExpenseRegulation, Output a)]
-          -> Int
-          -- ^ The number of inputs (from the future).
-          -> [Output a]
-transform estimateFees goals expectedInputsLen =
-    let upperBoundFee = estimateFees expectedInputsLen (map (outVal . snd) goals)
+distributeFee :: (Int -> [Value] -> Value)
+              -> [(ExpenseRegulation, Output a)]
+              -> Int
+              -- ^ The number of inputs (from the future).
+              -> Either (InputSelectionFailure a) [Output a]
+distributeFee estimateFee goals expectedInputsLen =
+    let upperBoundFee = estimateFee expectedInputsLen (map (outVal . snd) goals)
         epsilon       = case goals of
                             [] -> upperBoundFee
                             _  -> upperBoundFee `div` (fromIntegral $ length goals)
-    in map (distributeFee epsilon) goals
+    in case partitionEithers (map (distribute epsilon) goals) of
+            ([], validOutputs) -> Right (map snd validOutputs)
+            (err : _, _)       -> Left err
     where
-        distributeFee :: Value
-                      -- ^ The \"slice\" @ε@ of the total fee each 'Output'
-                      -- needs to be amended for.
-                      -> (ExpenseRegulation, Output a)
-                      -> Output a
-        distributeFee epsilon (getRegulationRatio -> regulationCoefficient, output) =
-            let regulated = regulateBy regulationCoefficient epsilon
+        distribute :: Value
+                   -- ^ The \"slice\" @ε@ of the total fee each 'Output'
+                   -- needs to be amended for.
+                   -> (ExpenseRegulation, Output a)
+                   -> Either (InputSelectionFailure a) (ExpenseRegulation, Output a)
+        distribute epsilon (expenseRegulation, output) =
+            let coefficient = getRegulationRatio expenseRegulation
                 val = outVal output
-            in output { outVal = regulated val }
+                regulated = regulateBy coefficient epsilon val
+            in case regulated of
+                    Nothing     -> Left (InsufficientFundsToCoverFee expenseRegulation output)
+                    Just newVal -> Right (expenseRegulation, output { outVal = newVal })
 
         -- Regulate the fee according to the 'ExpenseRegulation' coefficient.
         -- This function will currently blow up for a coefficient
@@ -259,11 +289,21 @@ transform estimateFees goals expectedInputsLen =
         -- an error. For example, having something like 2.0 would indicate that
         -- the recipient is changed twice for the fees, which might be useful
         -- in some future use cases.
-        regulateBy :: Double -> Value -> (Value -> Value)
-        regulateBy ratio epsilon
-          | ratio <= 0.0                = \amount -> amount + epsilon
-          | ratio > 0.0 && ratio <= 1.0 = \amount -> amount - (round $ (fromIntegral epsilon) * ratio) -- rounding considered harmful?
+        regulateBy :: Double -> Epsilon -> Value -> Maybe Value
+        regulateBy ratio epsilon originalAmount
+          | ratio <= 0.0                = Just (originalAmount + epsilon)
+          | ratio > 0.0 && ratio <= 1.0 =
+              -- Pessimistic rounding, always try to take the ceiling, to make
+              -- sure rounding errors (if any) do not bring the originalAmount below 0.
+              -- In other terms, if we don't get 0 here, we are moderately sure rounding
+              -- errors shouldn't affect later computations.
+              let newAmount = originalAmount - (ceiling $ (fromIntegral epsilon) * ratio)
+              in case newAmount < 0 of
+                      True  -> Nothing
+                      False -> Just newAmount
           | otherwise = error ("epsilon got an invalid expense regulation coefficient: " <> show ratio)
+
+type Epsilon = Value
 
 {-------------------------------------------------------------------------------
   Exact matches only
@@ -273,7 +313,7 @@ transform estimateFees goals expectedInputsLen =
 --
 -- Each goal output must be matched by exactly one available output.
 exactSingleMatchOnly :: forall h a m. (Int -> [Value] -> Value) -> InputSelectionPolicy h a m
-exactSingleMatchOnly estimateFees utxo = \goals -> runInputPolicyT estimateFees utxo $
+exactSingleMatchOnly estimateFee utxo = \goals -> runInputPolicyT estimateFee utxo $
     mconcat <$> mapM go goals
   where
     go :: (ExpenseRegulation, Output a) -> InputPolicyT h a m PartialTxStats
@@ -306,7 +346,7 @@ useExactMatch goalVal = do
 largestFirst :: forall h a m. Monad m
              => (Int -> [Value] -> Value)
              -> InputSelectionPolicy h a m
-largestFirst estimateFees utxo = \goals -> runInputPolicyT estimateFees utxo $
+largestFirst estimateFee utxo = \goals -> runInputPolicyT estimateFee utxo $
     mconcat <$> mapM go goals
   where
     go :: (ExpenseRegulation, Output a) -> InputPolicyT h a m PartialTxStats
@@ -366,7 +406,7 @@ random :: forall h a m. LiftQuickCheck m
        => PrivacyMode
        -> (Int -> [Value] -> Value)
        -> InputSelectionPolicy h a m
-random privacyMode estimateFees utxo = \goals -> runInputPolicyT estimateFees utxo $
+random privacyMode estimateFee utxo = \goals -> runInputPolicyT estimateFee utxo $
     mconcat <$> mapM go goals
   where
     go :: (ExpenseRegulation, Output a) -> InputPolicyT h a m PartialTxStats

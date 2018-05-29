@@ -14330,6 +14330,8 @@ base
 cardano-sl-block
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-crypto-test
+cardano-sl-lrc
 cardano-sl-ssc
 cardano-sl-txp
 cardano-sl-txp-test

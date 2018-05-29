@@ -11,17 +11,24 @@
 \usepackage[dvipsnames]{xcolor}
 \usepackage[tikz]{bclogo}
 
-\usepackage
-[ raiselinks=false
-, breaklinks=true
-, colorlinks=true
-, citecolor=blue
-, urlcolor=blue
-, linkcolor=PineGreen
-, bookmarksopen=true]
-{hyperref}
+\makeatletter
+\AtBeginDocument{
+  \usepackage
+  [ raiselinks=false
+  , breaklinks=true
+  , colorlinks=true
+  , citecolor=blue
+  , urlcolor=blue
+  , linkcolor=PineGreen
   %
   , pdfpagemode=UseOutlines
+  , bookmarksopen=true
+  %
+  , pdftitle={\@title}
+  , pdfauthor={\@author}]
+  {hyperref}
+}
+\makeatother
 
 %% /packages %%
 

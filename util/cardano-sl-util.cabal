@@ -1,5 +1,5 @@
 name:                cardano-sl-util
-version:             1.1.1
+version:             1.2.0
 synopsis:            Cardano SL - general utilities
 description:         This package contains utility functions not specific
                      to Cardano SL which extend 3rd party libraries or implement
@@ -11,13 +11,16 @@ maintainer:          hi@serokell.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
   exposed-modules:
                        Pos.Util
 
-                       Pos.Util.Arbitrary
+                       Pos.Util.QuickCheck
+                       Pos.Util.QuickCheck.Arbitrary
+                       Pos.Util.QuickCheck.Property
                        Pos.Util.CompileInfo
 
                        Pos.Util.Concurrent
@@ -31,6 +34,7 @@ library
                        Pos.Util.LoggerName
                        Pos.Util.LRU
                        Pos.Util.Modifier
+                       Pos.Util.OptParse
                        Pos.Util.Orphans
                        Pos.Util.Queue
                        Pos.Util.Some
@@ -58,20 +62,20 @@ library
                      , filepath
                      , formatting
                      , hashable
+                     , hspec
                      , lens
                      , log-warper >= 1.0.3
                      , lrucache
                      , megaparsec
                      , mmorph
                      , mtl
+                     , optparse-applicative
                      , parsec
                      , process
                      , quickcheck-instances
-                     , random
                      , reflection
                      , resourcet
                      , safe-exceptions
-                     , semigroups
                      , serokell-util
                      , stm
                      , tagged
@@ -85,8 +89,8 @@ library
                      , transformers-base
                      , transformers-lift
                      , universum
+                     , unliftio-core
                      , unordered-containers
-                     , vector
 
   default-language:    Haskell2010
 
@@ -116,6 +120,7 @@ library
                        TemplateHaskell
                        ScopedTypeVariables
                        MonadFailDesugaring
+                       GADTs
 
   ghc-options:         -Wall
                        -fno-warn-orphans

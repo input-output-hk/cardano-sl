@@ -10,16 +10,16 @@ import qualified Data.HashSet as HS
 import           Serokell.Util (allDistinct)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Decoder, Encoding, Field (..),
-                                   deriveSimpleBi, deriveSimpleBiCxt, encodeListLen, enforceSize)
+                                   deriveSimpleBi, encodeListLen, enforceSize)
+import           Pos.Binary.Core.Slotting ()
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Ssc.Types (Commitment (..), CommitmentsMap (..), Opening (..),
                                      OpeningsMap, SharesMap, SignedCommitment, SscPayload (..),
                                      SscProof (..), VssCertificatesHash, mkCommitmentsMap)
 import           Pos.Core.Ssc.Vss (VssCertificate (..), VssCertificatesMap (..),
-                                   mkVssCertificatesMap, recreateVssCertificate)
+                                   mkVssCertificatesMap)
 import           Pos.Crypto (Hash, PublicKey)
-import           Pos.Util.Util (cborError, toCborError)
+import           Pos.Util.Util (cborError)
 
 instance Bi Commitment where
     encode Commitment{..} = encodeListLen 2 <> encode commShares
@@ -35,7 +35,7 @@ instance Bi CommitmentsMap where
     encode = encodeCommitments
     decode = decodeCommitments
 
-instance HasConfiguration => Bi VssCertificate where
+instance Bi VssCertificate where
     encode vssCert = encodeListLen 4 <> encode (vcVssKey vssCert)
                                      <> encode (vcExpiryEpoch vssCert)
                                      <> encode (vcSignature vssCert)
@@ -46,9 +46,9 @@ instance HasConfiguration => Bi VssCertificate where
         epo <- decode
         sig <- decode
         sky <- decode
-        toCborError $ recreateVssCertificate key epo sig sky
+        pure $ UnsafeVssCertificate key epo sig sky
 
-instance HasConfiguration => Bi VssCertificatesMap where
+instance Bi VssCertificatesMap where
     encode = encodeVssCertificates
     decode = decodeVssCertificates
 
@@ -74,18 +74,19 @@ Instead, we serialize those maps as sets, and we make sure to check that
 there are no values with duplicate stakeholder ids.
 -}
 
-encodeVssCertificates :: HasConfiguration => VssCertificatesMap -> Encoding
+encodeVssCertificates :: VssCertificatesMap -> Encoding
 encodeVssCertificates = encode . HS.fromList . toList
 
-decodeVssCertificates :: HasConfiguration => Decoder s VssCertificatesMap
+decodeVssCertificates :: Decoder s VssCertificatesMap
 decodeVssCertificates = do
-    certs <- toList <$> decode @(HashSet VssCertificate)
-    -- If the attacker creates two certs that are different but have the
-    -- same 'vcSigningKey', it's bad because then we lose canonicity (only
-    -- one cert will be present in resulting map and the attacker can set
-    -- the other cert to be anything at all). 'mkVssCertificatesMap' checks
-    -- that all certificates have distinct keys, so we can safely use it.
-    toCborError $ mkVssCertificatesMap certs
+    certs <- decode @(HashSet VssCertificate)
+    let vssMap = mkVssCertificatesMap (toList certs)
+    -- If the set is bigger than the map, then there must be some entires in
+    -- the set which have the same signing key. That means it's a
+    -- non-canonical encoding. The set itself could very well be canonical,
+    -- though, since its values include more than just the signing keys.
+    when (length certs > length vssMap) (cborError "duplicate vss key")
+    pure vssMap
 
 encodeCommitments :: CommitmentsMap -> Encoding
 encodeCommitments = encode . HS.fromList . toList
@@ -101,7 +102,7 @@ decodeCommitments = do
 -- TH-generated instances go to the end of the file
 ----------------------------------------------------------------------------
 
-deriveSimpleBiCxt [t|HasConfiguration|] ''SscPayload [
+deriveSimpleBi ''SscPayload [
     Cons 'CommitmentsPayload [
         Field [| spComms    :: CommitmentsMap     |],
         Field [| spVss      :: VssCertificatesMap |] ],

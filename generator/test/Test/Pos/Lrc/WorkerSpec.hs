@@ -36,16 +36,16 @@ import qualified Pos.Lrc as Lrc
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.Util (getKeys)
 
+import           Pos.Util.QuickCheck (maybeStopProperty, stopProperty)
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..), blockPropertyToProperty)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock,
                                             bpGenBlocks)
-import           Test.Pos.Configuration (defaultTestBlockVersionData)
-import           Test.Pos.Helpers (blockPropertySpec)
-import           Test.Pos.Util (maybeStopProperty, stopProperty, withStaticConfigurations)
+import           Test.Pos.Block.Property (blockPropertySpec)
+import           Test.Pos.Configuration (defaultTestBlockVersionData, withStaticConfigurations)
 
 
 spec :: Spec
-spec = withStaticConfigurations $ withCompileInfo def $
+spec = withStaticConfigurations $ \_ -> withCompileInfo def $
     describe "Lrc.Worker" $ modifyMaxSuccess (const 4) $ do
         describe "lrcSingleShot" $ do
             -- Currently we want to run it only 4 times, because there

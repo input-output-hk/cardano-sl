@@ -36,13 +36,12 @@ import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger, logD
 
 import           Pos.Binary.Class (Bi (..), decodeFull)
 import           Pos.Binary.Infra.DHTModel ()
-import           Pos.DHT.Configuration (enhancedMessageBroadcast, enhancedMessageTimeout,
-                                        neighborsSendThreshold)
+import           Pos.DHT.Constants (enhancedMessageBroadcast, enhancedMessageTimeout,
+                                    neighborsSendThreshold)
 import           Pos.DHT.Model.Types (DHTData, DHTException (..), DHTKey, DHTNode (..),
                                       randomDHTKey)
 import           Pos.DHT.Real.Param (KademliaParams (..))
 import           Pos.DHT.Real.Types (KademliaDHTInstance (..))
-import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Util.LogSafe (logInfoS)
 import           Pos.Util.TimeLimit (runWithRandomIntervals)
 import           Pos.Util.TimeWarp (NetworkAddress)
@@ -57,7 +56,6 @@ foreverRejoinNetwork
     :: ( MonadMockable m
        , MonadIO m
        , WithLogger m
-       , HasInfraConfiguration
        )
     => KademliaDHTInstance
     -> m a
@@ -99,7 +97,7 @@ startDHTInstance kconf@KademliaParams {..} defaultBind = do
             logInfo "Restoring DHT Instance from snapshot"
             catchErrors $
                 createKademliaFromSnapshot bindAddr extAddr kademliaConfig =<<
-                (either error identity . decodeFull . BS.toStrict) <$> BS.readFile dumpFile
+                (either error identity . decodeFull) <$> BS.readFile dumpFile
         Nothing -> do
             logInfo "Creating new DHT instance"
             catchErrors $ createKademlia bindAddr extAddr kdiKey kademliaConfig
@@ -128,7 +126,6 @@ rejoinNetwork
        , WithLogger m
        , Bi DHTData
        , Bi DHTKey
-       , HasInfraConfiguration
        )
     => KademliaDHTInstance
     -> m ()
@@ -151,8 +148,7 @@ withKademliaLogger action = modifyLoggerName (<> "kademlia") action
 --
 -- You can get DHTNode using @toDHTNode@ and Kademlia function @peersToNodeIds@.
 kademliaGetKnownPeers
-    :: HasInfraConfiguration
-    => KademliaDHTInstance
+    :: KademliaDHTInstance
     -> STM [NetworkAddress]
 kademliaGetKnownPeers inst = do
     let kInst = kdiHandle inst

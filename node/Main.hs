@@ -19,8 +19,9 @@ import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), SimpleNodeA
 import qualified Pos.Client.CLI as CLI
 import           Pos.Launcher (HasConfigurations, NodeParams (..), loggerBracket, runNodeReal,
                                withConfigurations)
+import           Pos.Ntp.Configuration (NtpConfiguration)
 import           Pos.Ssc.Types (SscParams)
-import           Pos.Update (updateTriggerWorker)
+import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
@@ -43,9 +44,10 @@ action
        , HasCompileInfo
        )
     => SimpleNodeArgs
+    -> NtpConfiguration
     -> Production ()
-action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
-    CLI.printInfoOnStart cArgs
+action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) ntpConfig = do
+    CLI.printInfoOnStart cArgs ntpConfig
     logInfo "Wallet is disabled, because software is built w/o it"
     currentParams <- CLI.getNodeParams loggerName cArgs nArgs
 

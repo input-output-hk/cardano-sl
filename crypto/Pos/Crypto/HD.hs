@@ -20,7 +20,7 @@ module Pos.Crypto.HD
        , isHardened
        ) where
 
-import           Cardano.Crypto.Wallet (deriveXPrv, deriveXPub, unXPub)
+import           Cardano.Crypto.Wallet (DerivationScheme (..), deriveXPrv, deriveXPub, unXPub)
 import qualified Crypto.Cipher.ChaChaPoly1305 as C
 import           Crypto.Error
 import           Crypto.Hash (SHA512 (..))
@@ -30,7 +30,7 @@ import           Data.ByteArray as BA (convert)
 import           Data.ByteString.Char8 as B
 import           Universum
 
-import           Pos.Binary.Class (Bi, decodeFull, serialize')
+import           Pos.Binary.Class (Bi, decodeFull', serialize')
 import           Pos.Crypto.Scrypt (EncryptedPass)
 import           Pos.Crypto.Signing.Types (EncryptedSecretKey (..), PassPhrase, PublicKey (..),
                                            checkPassMatches)
@@ -87,7 +87,7 @@ deriveHDPublicKey (PublicKey xpub) childIndex
         error "Wrong index for non-hardened derivation"
     | otherwise =
         maybe (error "deriveHDPublicKey: deriveXPub failed") PublicKey $
-          deriveXPub xpub childIndex
+          deriveXPub DerivationScheme1 xpub childIndex
 
 -- | Whether to call @checkPassMatches@
 newtype ShouldCheckPassphrase = ShouldCheckPassphrase Bool
@@ -104,7 +104,7 @@ deriveHDSecretKey (ShouldCheckPassphrase checkPass) passPhrase encSK@(EncryptedS
     when checkPass $ checkPassMatches passPhrase encSK
     pure $
         EncryptedSecretKey
-            (deriveXPrv passPhrase xprv childIndex)
+            (deriveXPrv DerivationScheme1 passPhrase xprv childIndex)
             pph
 
 addrAttrNonce :: ByteString
@@ -135,7 +135,7 @@ unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
               payload
     case unpackCF of
         Left _ -> Nothing
-        Right p -> case decodeFull p of
+        Right p -> case decodeFull' p of
             Left _ -> Nothing
             Right path -> pure path
 

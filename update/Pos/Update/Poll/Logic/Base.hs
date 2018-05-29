@@ -42,7 +42,7 @@ import           Pos.Binary.Update ()
 import           Pos.Core (BlockVersion (..), Coin, EpochIndex, HasConfiguration, HeaderHash,
                            IsMainHeader (..), SlotId, SoftforkRule (..), TimeDiff (..), addressHash,
                            applyCoinPortionUp, coinPortionDenominator, coinToInteger, difficultyL,
-                           epochSlots, getCoinPortion, headerHashG, isBootstrapEra, mkCoinPortion,
+                           epochSlots, getCoinPortion, headerHashG, isBootstrapEra, CoinPortion (..),
                            sumCoins, unsafeAddCoin, unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Update (BlockVersionData (..), BlockVersionModifier (..), UpId,
                                   UpdateProposal (..), UpdateVote (..))
@@ -56,7 +56,6 @@ import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposa
                                         ProposalState (..), UndecidedProposalState (..),
                                         UpsExtra (..), bvsIsConfirmed, combineVotes,
                                         cpsBlockVersion, isPositiveVote, newVoteState)
-import           Pos.Util.Util (leftToPanic)
 
 
 
@@ -82,11 +81,11 @@ confirmBlockVersion confirmedEpoch bv =
 -- Specifically, one of the following conditions must be true.
 -- • Given block version is equal to last adopted block version.
 -- • Given block version is competing
-canCreateBlockBV :: MonadPollRead m => BlockVersion -> m Bool
-canCreateBlockBV bv = do
-    lastAdopted <- getAdoptedBV
+canCreateBlockBV :: MonadPollRead m => BlockVersion -> BlockVersion -> m Bool
+canCreateBlockBV lastAdopted bv = do
     isCompeting <- isCompetingBV bv
     pure (bv == lastAdopted || isCompeting)
+
 
 -- | Check whether given 'BlockVersion' can be proposed according to
 -- current Poll.
@@ -322,15 +321,14 @@ calcSoftforkThreshold SoftforkRule {..} totalStake (untag -> curEpoch) (untag ->
         -- long as 2 'coinPortionDenominator's fit into 'Word64'
         -- (which is true).
         --
-        -- ↓Here↓ 'mkCoinPortion' is safe because:
+        -- ↓Here↓ 'CoinPortion' is safe because:
         -- • 'minued - subtrahend' can't underflow because it's ensured by
         --   the guard;
         -- • the value can't be negative, because the type is unsigned;
         -- • the value can't be greater than max possible one, because
         --   minuend represents a valid coin portion.
         | minuend > subtrahend + getCoinPortion srMinThd =
-            leftToPanic @Text "calcSoftforkThreshold " $
-            mkCoinPortion (minuend - subtrahend)
+            CoinPortion (minuend - subtrahend)
         | otherwise = srMinThd
 
 ----------------------------------------------------------------------------

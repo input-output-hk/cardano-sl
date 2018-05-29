@@ -33,16 +33,16 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Core ()
 import           Pos.Block.BListener (MonadBListener (..))
-import           Pos.Block.Pure (verifyBlocks)
+import           Pos.Block.Logic.Integrity (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
-import           Pos.Block.Slog.Types (HasSlogGState, LastBlkSlots)
+import           Pos.Block.Slog.Types (HasSlogGState)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
 import           Pos.Core (BlockVersion (..), FlatSlotId, HasConfiguration, blkSecurityParam,
                            difficultyL, epochIndexL, flattenSlotId, headerHash, headerHashG,
                            prevBlockL)
 import           Pos.Core.Block (Block, genBlockLeaders, mainBlockSlot)
 import           Pos.DB (SomeBatchOp (..))
-import           Pos.DB.Block (putBlund)
+import           Pos.DB.Block (putBlunds)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDB (..), MonadDBRead)
 import qualified Pos.DB.GState.Common as GS (CommonOp (PutMaxSeenDifficulty, PutTip),
@@ -56,7 +56,8 @@ import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBloc
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Chrono (NE, NewestFirst (getNewestFirst), OldestFirst (..), toOldestFirst)
+import           Pos.Util.Chrono (NE, NewestFirst (getNewestFirst), OldestFirst (..), toOldestFirst,
+                                  _OldestFirst)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -117,19 +118,25 @@ type MonadSlogVerify ctx m =
 
 -- | Verify everything from block that is not checked by other components.
 -- All blocks must be from the same epoch.
+--
+-- The algorithm works as follows:
+--
+-- 1.  If the oldest block is a genesis block, verify that its leaders
+--     match the ones computed by LRC.
+-- 2.  Call pure verification. If it fails, throw.
+-- 3.  Compute 'SlogUndo's and return them.
 slogVerifyBlocks
     :: forall ctx m.
     ( MonadSlogVerify ctx m
-    , MonadError Text m
     )
     => OldestFirst NE Block
-    -> m (OldestFirst NE SlogUndo)
-slogVerifyBlocks blocks = do
+    -> m (Either Text (OldestFirst NE SlogUndo))
+slogVerifyBlocks blocks = runExceptT $ do
     curSlot <- getCurrentSlot
-    (adoptedBV, adoptedBVD) <- GS.getAdoptedBVFull
+    (adoptedBV, adoptedBVD) <- lift GS.getAdoptedBVFull
     let dataMustBeKnown = mustDataBeKnown adoptedBV
     let headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
-    leaders <-
+    leaders <- lift $
         lrcActionOnEpochReason
             headEpoch
             (sformat
@@ -139,17 +146,18 @@ slogVerifyBlocks blocks = do
     -- We take head here, because blocks are in oldest first order and
     -- we know that all of them are from the same epoch. So if there
     -- is a genesis block, it must be head and only head.
-    case blocks ^. _Wrapped . _neHead of
+    case blocks ^. _OldestFirst . _neHead of
         (Left block) ->
             when (block ^. genBlockLeaders /= leaders) $
             throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
+    -- Do pure block verification.
     verResToMonadError formatAllErrors $
         verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocks
-    -- Here we need to compute 'SlogUndo'. When we add apply a block,
-    -- we can remove one of the last slots stored in
-    -- 'BlockExtra'. This removed slot must be put into 'SlogUndo'.
-    lastSlots <- GS.getLastSlots
+    -- Here we need to compute 'SlogUndo'. When we apply a block,
+    -- we can remove one of the last slots stored in 'BlockExtra'.
+    -- This removed slot must be put into 'SlogUndo'.
+    lastSlots <- lift GS.getLastSlots
     let toFlatSlot = fmap (flattenSlotId . view mainBlockSlot) . rightToMaybe
     -- these slots will be added if we apply all blocks
     let newSlots = mapMaybe toFlatSlot (toList blocks)
@@ -186,19 +194,23 @@ type MonadSlogApply ctx m =
     , HasSlogGState ctx
     )
 
--- {-# ANN slogApplyBlocks ("HLint: ignore Reduce duplication" :: Text) #-}
--- ↑ Doesn't work, HALP HALP
--- {-# ANN slogRollbackBlocks ("HLint: ignore Reduce duplication" :: Text) #-}
--- ↑ Doesn't work, HALP HALP
-{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
--- ↑ I reduced duplication by introducing 'slogCommon', but it wants
--- more and I don't.
-
 -- | Flag determining whether to call BListener callback.
 newtype ShouldCallBListener = ShouldCallBListener Bool
 
 -- | This function does everything that should be done when blocks are
 -- applied and is not done in other components.
+--
+-- The algorithm works as follows:
+-- 1.  Put blunds in BlockDB (done first to preserve the invariant that the tip must exist in BlockDB).
+-- 2.  Call 'BListener', get extra 'SomeBatchOp's from it.
+-- 3.  Update @lastBlkSlots@ in-memory.
+-- 4.  Return 'SomeBatchOp's for:
+--     1. Updating tip
+--     2. Updating max seen difficulty
+--     3. 'BListener''s batch
+--     4. Updating @lastBlkSlots@ in the DB
+--     5. Adding new forward links
+--     6. Setting @inMainChain@ flags
 slogApplyBlocks
     :: forall ctx m. (MonadSlogApply ctx m)
     => ShouldCallBListener
@@ -210,9 +222,9 @@ slogApplyBlocks (ShouldCallBListener callBListener) blunds = do
     -- BlockDB. If program is interrupted after we put blunds and
     -- before we update GState, this invariant won't be violated. If
     -- we update GState first, this invariant may be violated.
-    mapM_ putBlund blunds
-    -- If the program is interrupted at this point (after putting on
-    -- block), we will have a garbage block in BlockDB, but it's not a
+    putBlunds $ blunds ^. _OldestFirst
+    -- If the program is interrupted at this point (after putting blunds
+    -- in BlockDB), we will have garbage blunds in BlockDB, but it's not a
     -- problem.
     bListenerBatch <- if callBListener then onApplyBlocks blunds
                       else pure mempty
@@ -221,7 +233,7 @@ slogApplyBlocks (ShouldCallBListener callBListener) blunds = do
         newestDifficulty = newestBlock ^. difficultyL
     let putTip = SomeBatchOp $ GS.PutTip $ headerHash newestBlock
     lastSlots <- slogGetLastSlots
-    slogCommon (newLastSlots lastSlots)
+    slogPutLastSlots (newLastSlots lastSlots)
     putDifficulty <- GS.getMaxSeenDifficulty <&> \x ->
         SomeBatchOp [GS.PutMaxSeenDifficulty newestDifficulty
                         | newestDifficulty > x]
@@ -256,6 +268,17 @@ newtype BypassSecurityCheck = BypassSecurityCheck Bool
 
 -- | This function does everything that should be done when rollback
 -- happens and that is not done in other components.
+--
+-- The algorithm works as follows:
+-- 1.  Assert that we are not rolling back 0th genesis block.
+-- 2.  Check that we are not rolling back more than 'blkSecurityParam' blocks.
+-- 3.  Call 'BListener', get extra 'SomeBatchOp's from it.
+-- 4.  Return 'SomeBatchOp's for:
+--     1. Reverting tip
+--     2. 'BListener''s batch
+--     3. Reverting @lastBlkSlots@
+--     4. Removing forward links
+--     5. Removing @inMainChain@ flags
 slogRollbackBlocks ::
        forall ctx m. (MonadSlogApply ctx m)
     => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
@@ -288,7 +311,7 @@ slogRollbackBlocks (BypassSecurityCheck bypassSecurity) (ShouldCallBListener cal
             SomeBatchOp $ GS.PutTip $
             (NE.last $ getNewestFirst blunds) ^. prevBlockL
     lastSlots <- slogGetLastSlots
-    slogCommon (newLastSlots lastSlots)
+    slogPutLastSlots (newLastSlots lastSlots)
     return $
         SomeBatchOp
             [putTip, bListenerBatch, SomeBatchOp (blockExtraBatch lastSlots)]
@@ -321,11 +344,3 @@ slogRollbackBlocks (BypassSecurityCheck bypassSecurity) (ShouldCallBListener cal
     blockExtraBatch lastSlots =
         GS.SetLastSlots (newLastSlots lastSlots) :
         mconcat [forwardLinksBatch, inMainBatch]
-
--- Common actions for rollback and apply.
-slogCommon
-    :: MonadSlogApply ctx m
-    => LastBlkSlots
-    -> m ()
-slogCommon newLastSlots = do
-    slogPutLastSlots newLastSlots

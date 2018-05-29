@@ -1,7 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds           #-}
 
--- | Some utility functions necessary to implement block processing logic.
+-- | Utilities for finding LCA and calculating chain quality.
 
 module Pos.Block.Logic.Util
        (
@@ -22,10 +22,11 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (int, sformat, (%))
 import           System.Wlog (WithLogger)
 
+import           Pos.Block.Configuration (HasBlockConfiguration, fixedTimeCQ)
 import           Pos.Block.Slog.Context (slogGetLastSlots)
 import           Pos.Block.Slog.Types (HasSlogGState)
 import           Pos.Core (BlockCount, FlatSlotId, HeaderHash, Timestamp (..), difficultyL,
-                           fixedTimeCQ, flattenSlotId, headerHash, prevBlockL)
+                           flattenSlotId, headerHash, prevBlockL)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam)
 import qualified Pos.DB.BlockIndex as DB
@@ -36,11 +37,13 @@ import           Pos.Slotting (MonadSlots (..), getCurrentSlotFlat, slotFromTime
 import           Pos.Util (_neHead)
 import           Pos.Util.Chrono (NE, OldestFirst (..))
 
---- Usually in this method oldest header is LCA, so it can be optimized
--- by traversing from older to newer.
 -- | Find LCA of headers list and main chain, including oldest
--- header's parent hash. Iterates from newest to oldest until meets
--- first header that's in main chain. O(n).
+-- header's parent hash. Acts as it would iterate from newest to
+-- oldest until it meets the first header in the main chain (which is
+-- O(n)).
+--
+-- Though, usually in this method oldest header is LCA, so it can be
+-- optimized by traversing from older to newer.
 lcaWithMainChain
     :: (HasConfiguration, MonadBlockDBRead m)
     => OldestFirst NE BlockHeader -> m (Maybe HeaderHash)
@@ -56,8 +59,6 @@ lcaWithMainChain headers =
             (_, False)   -> pure prevValue
             ([], True)   -> pure $ Just h
             (x:xs, True) -> lcaProceed (Just h) (x :| xs)
-
-
 
 -- | Calculate chain quality using slot of the block which has depth =
 -- 'blocksCount' and another slot after that one for which we
@@ -133,7 +134,13 @@ calcOverallChainQuality =
 -- restrictive at all.
 -- 3. We are able to determine which slot started 'fixedTimeCQ' ago.
 calcChainQualityFixedTime ::
-       forall ctx m res. (Fractional res, MonadSlots ctx m, HasConfiguration, HasSlogGState ctx)
+       forall ctx m res.
+       ( Fractional res
+       , MonadSlots ctx m
+       , HasConfiguration
+       , HasBlockConfiguration
+       , HasSlogGState ctx
+       )
     => m (Maybe res)
 calcChainQualityFixedTime = do
     Timestamp curTime <- currentTimeSlotting

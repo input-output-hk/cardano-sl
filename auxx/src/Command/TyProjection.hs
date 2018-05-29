@@ -5,7 +5,6 @@ module Command.TyProjection
        , tyPublicKey
        , tyTxOut
        , tyAddrStakeDistr
-       , tySendMode
        , tyFilePath
        , tyInt
        , tyWord
@@ -36,19 +35,19 @@ import           Data.Time.Units (TimeUnit, convertUnit)
 import           Serokell.Data.Memory.Units (Byte, fromBytes)
 import           Serokell.Util (sec)
 
-import           Pos.Core (AddrStakeDistribution (..), Address, ApplicationName, BlockVersion, Coin,
+import           Pos.Core (AddrStakeDistribution (..), Address, BlockVersion, Coin,
                            CoinPortion, EpochIndex, ScriptVersion, SoftwareVersion, StakeholderId,
-                           mkApplicationName, mkCoin, unsafeCoinPortionFromDouble, unsafeGetCoin)
+                           mkCoin, unsafeCoinPortionFromDouble, unsafeGetCoin)
 import           Pos.Core.Txp (TxOut (..))
 import           Pos.Crypto (AHash (..), Hash, PublicKey)
-import           Pos.Update (BlockVersionModifier (..), SystemTag (..), mkSystemTag)
+import           Pos.Update (BlockVersionModifier (..), ApplicationName (..), SystemTag (..))
 
 import           Lang.Argument (TyProjection (..), TypeName (..))
-import           Lang.Value (AddrDistrPart (..), ProposeUpdateSystem (..), SendMode (..),
+import           Lang.Value (AddrDistrPart (..), ProposeUpdateSystem (..),
                              Value (..), _ValueAddrDistrPart, _ValueAddrStakeDistribution,
                              _ValueAddress, _ValueBlockVersion, _ValueBlockVersionModifier,
                              _ValueBool, _ValueFilePath, _ValueHash, _ValueNumber,
-                             _ValueProposeUpdateSystem, _ValuePublicKey, _ValueSendMode,
+                             _ValueProposeUpdateSystem, _ValuePublicKey,
                              _ValueSoftwareVersion, _ValueStakeholderId, _ValueString, _ValueTxOut)
 
 tyValue :: TyProjection Value
@@ -75,9 +74,6 @@ tyTxOut = TyProjection "TxOut" (preview _ValueTxOut)
 
 tyAddrStakeDistr :: TyProjection AddrStakeDistribution
 tyAddrStakeDistr = TyProjection "AddrStakeDistribution" (preview _ValueAddrStakeDistribution)
-
-tySendMode :: TyProjection SendMode
-tySendMode = TyProjection "SendMode" (preview _ValueSendMode)
 
 tyFilePath :: TyProjection FilePath
 tyFilePath = TyProjection "FilePath" (preview _ValueFilePath)
@@ -153,16 +149,10 @@ tyProposeUpdateSystem :: TyProjection ProposeUpdateSystem
 tyProposeUpdateSystem = TyProjection "ProposeUpdateSystem" (preview _ValueProposeUpdateSystem)
 
 tySystemTag :: TyProjection SystemTag
-tySystemTag = TyProjection "SystemTag" (mkSystemTag' <=< preview _ValueString)
+tySystemTag = TyProjection "SystemTag" ((fmap . fmap) (SystemTag . fromString) (preview _ValueString))
 
 tyApplicationName :: TyProjection ApplicationName
-tyApplicationName = TyProjection "ApplicationName" (mkApplicationName' <=< preview _ValueString)
-
-mkSystemTag' :: String -> Maybe SystemTag
-mkSystemTag' = rightToMaybe . mkSystemTag . fromString
-
-mkApplicationName' :: String -> Maybe ApplicationName
-mkApplicationName' = rightToMaybe . mkApplicationName . fromString
+tyApplicationName = TyProjection "ApplicationName" ((fmap . fmap) (ApplicationName . fromString) (preview _ValueString))
 
 tyString :: TyProjection String
 tyString = TyProjection "String" (preview _ValueString)

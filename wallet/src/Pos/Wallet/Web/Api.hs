@@ -28,6 +28,16 @@ module Pos.Wallet.Web.Api
        , WBackupApi      , WBackupApiRecord(..)
        , WInfoApi        , WInfoApiRecord(..)
        , WSystemApi      , WSystemApiRecord(..)
+       -- * Types for particular endpoints for benchmarking.
+       , GetAccounts
+       , GetHistory
+       , GetSyncProgress
+       , GetWallet
+       , GetWallets
+       , NewAddress
+       , IsValidAddress
+       , NewPayment
+       , NewWallet
        -- ** Something
        , WalletVerb
 
@@ -50,8 +60,8 @@ import           Servant.Swagger.UI (SwaggerSchemaUI)
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import           Pos.Core (Coin, SoftwareVersion)
-import           Pos.Util.Servant (ApiLoggingConfig, CCapture, CQueryParam, CReqBody, DCQueryParam,
-                                   DReqBody, LoggingApi, ModifiesApiRes (..),
+import           Pos.Util.Servant (ApiLoggingConfig (..), CCapture, CQueryParam, CReqBody,
+                                   DCQueryParam, DReqBody, LoggingApi, ModifiesApiRes (..),
                                    ReportDecodeError (..), VerbMod, serverHandlerL')
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit, CAccountMeta,
                                              CAddress, CCoin, CFilePath, CId, CInitialized,
@@ -82,7 +92,7 @@ data WalletLoggingConfig
 -- If logger config will ever be determined in runtime, 'Data.Reflection.reify'
 -- can be used.
 instance Reifies WalletLoggingConfig ApiLoggingConfig where
-    reflect _ = "node" <> "wallet" <> "servant"
+    reflect _ = ApiLoggingConfig ("node" <> "wallet" <> "servant")
 
 -- | Shortcut for common api result types.
 type WRes verbType a = WalletVerb (verbType '[JSON] a)
@@ -164,23 +174,32 @@ data WTestApiRecord route = WTestApiRecord
 -- | The "/wallets" branch of the API
 type WWalletsApi = "wallets" :> ToServant (WWalletsApiRecord AsApi)
 
-data WWalletsApiRecord route = WWalletsApiRecord
-  {
-    _getWallet :: route
-    :- Summary "Get information about a wallet by its ID (address)."
+type GetWallet =
+    Summary "Get information about a wallet by its ID (address)."
     :> Capture "walletId" (CId Wal)
     :> WRes Get CWallet
 
-  , _getWallets :: route
-    :- Summary "Get information about all available wallets."
+type GetWallets =
+    Summary "Get information about all available wallets."
     :> WRes Get [CWallet]
 
-  , _newWallet :: route
-    :- "new"
+type NewWallet =
+    "new"
     :> Summary "Create a new wallet."
     :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletInit
     :> WRes Post CWallet
+
+data WWalletsApiRecord route = WWalletsApiRecord
+  {
+    _getWallet :: route
+    :- GetWallet
+
+  , _getWallets :: route
+    :- GetWallets
+
+  , _newWallet :: route
+    :- NewWallet
 
   , _updateWallet :: route
     :- Summary "Update wallet's meta information."
@@ -224,6 +243,11 @@ data WWalletsApiRecord route = WWalletsApiRecord
 -- | The "/accounts" branch of the API
 type WAccountsApi = "accounts" :> ToServant (WAccountsApiRecord AsApi)
 
+type GetAccounts =
+    Summary "Get information about all available accounts."
+    :> QueryParam "accountId" (CId Wal)
+    :> WRes Get [CAccount]
+
 data WAccountsApiRecord route = WAccountsApiRecord
   {
     _getAccount :: route
@@ -232,9 +256,7 @@ data WAccountsApiRecord route = WAccountsApiRecord
     :> WRes Get CAccount
 
   , _getAccounts :: route
-    :- Summary "Get information about all available accounts."
-    :> QueryParam "accountId" (CId Wal)
-    :> WRes Get [CAccount]
+    :- GetAccounts
 
   , _updateAccount :: route
     :- Summary "Update account's meta information."
@@ -262,18 +284,24 @@ data WAccountsApiRecord route = WAccountsApiRecord
 -- | The "/addresses" branch of the API
 type WAddressesApi = "addresses" :> ToServant (WAddressesApiRecord AsApi)
 
-data WAddressesApiRecord route = WAddressesApiRecord
-  {
-    _newAddress :: route
-    :- Summary "Create a new address in given account."
+type NewAddress =
+    Summary "Create a new address in given account."
     :> DCQueryParam "passphrase" CPassPhrase
     :> CReqBody '[JSON] CAccountId
     :> WRes Post CAddress
 
-  , _isValidAddress :: route
-    :- Summary "Returns True if given address is valid, False otherwise."
+type IsValidAddress =
+    Summary "Returns True if given address is valid, False otherwise."
     :> Capture "address" (CId Addr)  -- exact type of 'CId' shouldn't matter
     :> WRes Get Bool
+
+data WAddressesApiRecord route = WAddressesApiRecord
+  {
+    _newAddress :: route
+    :- NewAddress
+
+  , _isValidAddress :: route
+    :- IsValidAddress
   }
   deriving (Generic)
 
@@ -304,10 +332,8 @@ data WProfileApiRecord route = WProfileApiRecord
 -- | The "/txs" branch of the API
 type WTxsApi = "txs" :> ToServant (WTxsApiRecord AsApi)
 
-data WTxsApiRecord route = WTxsApiRecord
-  {
-    _newPayment :: route
-    :- "payments"
+type NewPayment =
+    "payments"
     :> Summary "Create a new payment transaction."
     :> DCQueryParam "passphrase" CPassPhrase
     :> CCapture "from" CAccountId
@@ -315,6 +341,21 @@ data WTxsApiRecord route = WTxsApiRecord
     :> Capture "amount" Coin
     :> DReqBody '[JSON] (Maybe InputSelectionPolicy)
     :> WRes Post CTx
+
+type GetHistory =
+    "histories"
+    :> Summary "Get the history of transactions."
+    :> QueryParam "walletId" (CId Wal)
+    :> CQueryParam "accountId" CAccountId
+    :> QueryParam "address" (CId Addr)
+    :> QueryParam "skip" ScrollOffset
+    :> QueryParam "limit" ScrollLimit
+    :> WRes Get ([CTx], Word)
+
+data WTxsApiRecord route = WTxsApiRecord
+  {
+    _newPayment :: route
+    :- NewPayment
 
   , _newPaymentBatch :: route
     :- "payments"
@@ -364,14 +405,7 @@ data WTxsApiRecord route = WTxsApiRecord
     :> WRes Post NoContent
 
   , _getHistory :: route
-    :- "histories"
-    :> Summary "Get the history of transactions."
-    :> QueryParam "walletId" (CId Wal)
-    :> CQueryParam "accountId" CAccountId
-    :> QueryParam "address" (CId Addr)
-    :> QueryParam "skip" ScrollOffset
-    :> QueryParam "limit" ScrollLimit
-    :> WRes Get ([CTx], Word)
+    :- GetHistory
 
   , _pendingSummary :: route
     :- "pending"
@@ -458,6 +492,15 @@ data WReportingApiRecord route = WReportingApiRecord
 -- | The "/settings" branch of the API
 type WSettingsApi = "settings" :> ToServant (WSettingsApiRecord AsApi)
 
+type GetSyncProgress =
+    "sync"
+    :> "progress"
+    :> Summary "Current sync progress"
+    :> Description
+        "Fetch info about local chain difficulty, \
+        \network chain difficulty and connected peers."
+    :> WRes Get SyncProgress
+
 data WSettingsApiRecord route = WSettingsApiRecord
   {
     _getSlotsDuration :: route
@@ -472,19 +515,13 @@ data WSettingsApiRecord route = WSettingsApiRecord
     :> WRes Get SoftwareVersion
 
   , _getSyncProgress :: route
-    :- "sync"
-    :> "progress"
-    :> Summary "Current sync progress"
-    :> Description
-        "Fetch info about local chain difficulty, \
-        \network chain difficulty and connected peers."
-    :> WRes Get SyncProgress
+    :- GetSyncProgress
 
   , _localTimeDifference :: route
     :- "time"
     :> "difference"
-    :> Summary "Get local time difference in milliseconds."
-    :> WRes Get Word
+    :> Summary "Get local time difference in microseconds."
+    :> WRes Get Integer
   }
   deriving (Generic)
 

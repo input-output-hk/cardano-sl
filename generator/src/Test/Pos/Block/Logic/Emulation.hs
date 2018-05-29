@@ -21,17 +21,18 @@ import qualified Crypto.Random as Rand
 import           Data.Coerce (coerce)
 import           Data.Time.Units (Microsecond)
 import           Mockable (Async, Channel, ChannelT, Concurrently, CurrentTime (..), Delay (..),
-                           Fork, MFunctor' (hoist'), Mockable (..), Production (..), Promise,
-                           SharedAtomic (..), SharedAtomicT, SharedExclusive (..), SharedExclusiveT,
-                           ThreadId)
+                           Fork, MFunctor' (hoist'), Mockable (..), MyThreadId (..),
+                           Production (..), Promise, SharedAtomic (..), SharedAtomicT,
+                           SharedExclusive (..), SharedExclusiveT, ThreadId)
 import qualified Mockable.Metrics as Metrics
 import           System.Wlog (CanLog (..))
+import           UnliftIO (MonadUnliftIO)
 
 newtype ClockVar = ClockVar (IORef Microsecond)
 
 newtype Emulation a = Emulation { unEmulation :: ReaderT ClockVar IO a }
   deriving
-    (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadMask)
+    (Functor, Applicative, Monad, MonadThrow, MonadCatch, MonadMask, MonadUnliftIO)
 
 instance Rand.MonadRandom Emulation where
     getRandomBytes = Emulation . lift . Rand.getRandomBytes
@@ -166,6 +167,11 @@ type instance ThreadId Emulation = ThreadId Production
 instance Mockable Fork Emulation where
     {-# INLINABLE liftMockable #-}
     -- {-# SPECIALIZE INLINE liftMockable :: Fork Emulation t -> Fork t #-}
+    liftMockable = liftMockableProduction
+
+instance Mockable MyThreadId Emulation where
+    {-# INLINABLE liftMockable #-}
+    {-# SPECIALIZE INLINE liftMockable :: MyThreadId Emulation t -> Emulation t #-}
     liftMockable = liftMockableProduction
 
 type instance Promise Emulation = Promise Production

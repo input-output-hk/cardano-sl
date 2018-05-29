@@ -9,10 +9,9 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleB
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Core.Ssc (CommitmentsMap, Opening, OpeningsMap, SharesMap, SignedCommitment,
-                               VssCertificatesMap (..), validateVssCertificatesMap)
+                               VssCertificatesMap (..))
 import           Pos.Ssc.Types (SscGlobalState (..), SscSecretStorage (..))
 import           Pos.Ssc.VssCertData (VssCertData (..))
-import           Pos.Util (toCborError)
 
 instance HasConfiguration => Bi VssCertData where
     encode VssCertData {..} = mconcat
@@ -29,10 +28,7 @@ instance HasConfiguration => Bi VssCertData where
     decode = do
         enforceSize "VssCertData" 6
         lastKnownEoS <- decode
-        certs <-
-            toCborError .
-            validateVssCertificatesMap .
-            UnsafeVssCertificatesMap =<< decode
+        certs <- UnsafeVssCertificatesMap <$> decode
         whenInsMap <- decode
         whenInsSet <- decode
         whenExpire <- decode

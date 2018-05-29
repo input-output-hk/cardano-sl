@@ -9,7 +9,11 @@
 -- | Some utilites for more flexible servant usage.
 
 module Pos.Util.Servant
-    ( ModifiesApiRes (..)
+    ( ApiHasArgClass (..)
+    , ApiCanLogArg (..)
+
+
+    , ModifiesApiRes (..)
     , VerbMod
 
     , ReportDecodeError (..)
@@ -22,11 +26,15 @@ module Pos.Util.Servant
     , WithDefaultApiArg
 
     , HasLoggingServer (..)
-    , ApiLoggingConfig
+    , ApiLoggingConfig (..)
+    , ApiParamsLogInfo (..)
     , LoggingApi
     , LoggingApiRec
     , WithTruncatedLog (..)
     , HasTruncateLogPolicy (..)
+    , _ApiParamsLogInfo
+    , _ApiNoParamsLogInfo
+    , addParamLogInfo
 
     , CQueryParam
     , CCapture
@@ -51,15 +59,19 @@ import           Data.Constraint ((\\))
 import           Data.Constraint.Forall (Forall, inst)
 import           Data.Default (Default (..))
 import           Data.Reflection (Reifies (..), reflect)
+import qualified Data.Text as T
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Formatting (bprint, build, builder, fconst, formatToString, sformat, shown, stext,
                              string, (%))
+import           GHC.IO.Unsafe (unsafePerformIO)
 import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Serokell.Util (listJsonIndent)
 import           Serokell.Util.ANSI (Color (..), colorizeDull)
 import           Servant.API ((:<|>) (..), (:>), Capture, Description, QueryParam,
                               ReflectMethod (..), ReqBody, Summary, Verb)
+import           Servant.Client (Client, HasClient (..))
+import           Servant.Client.Core (RunClient)
 import           Servant.Server (Handler (..), HasServer (..), ServantErr (..), Server)
 import qualified Servant.Server.Internal as SI
 import           Servant.Swagger (HasSwagger (toSwagger))
@@ -89,35 +101,40 @@ inRouteServer routing f = \_ ctx delayed -> routing Proxy ctx (fmap f delayed)
 -- General useful families
 -------------------------------------------------------------------------
 
+-- | Extract right side of type application.
+type family ApplicationRS api where
+    ApplicationRS (apiType a) = a
+
 -- | Proves info about argument specifier of servant API.
-class ApiHasArgClass apiType a where
+class ApiHasArgClass api where
     -- | For arguments-specifiers of API, get argument type.
-    type ApiArg (apiType :: * -> *) a :: *
-    type ApiArg apiType a = a
+    -- E.g. @Capture "cap" Int@ -> @Int@.
+    type ApiArg api :: *
+    type ApiArg api = ApplicationRS api
 
     -- | Name of argument.
     -- E.g. name of argument specified by @Capture "nyan"@ is /nyan/.
-    apiArgName :: Proxy (apiType a) -> String
+    apiArgName :: Proxy api -> String
     default apiArgName
-        :: forall n someApiType. (KnownSymbol n, someApiType n ~ apiType)
+        :: forall n someApiType a. (KnownSymbol n, someApiType n a ~ api)
         => Proxy (someApiType n a) -> String
     apiArgName _ = formatToString ("'"%string%"' field") $ symbolVal (Proxy @n)
 
-class ServerT (apiType a :> res) m ~ (ApiArg apiType a -> ServerT res m)
-   => ApiHasArgInvariant apiType a res m
-instance ServerT (apiType a :> res) m ~ (ApiArg apiType a -> ServerT res m)
-      => ApiHasArgInvariant apiType a res m
+class ServerT (subApi :> res) m ~ (ApiArg subApi -> ServerT res m)
+   => ApiHasArgInvariant subApi res m
+instance ServerT (subApi :> res) m ~ (ApiArg subApi -> ServerT res m)
+      => ApiHasArgInvariant subApi res m
 
-type ApiHasArg apiType a res =
-    ( ApiHasArgClass apiType a
-    , ApiHasArgInvariant apiType a res Handler  -- this one for common cases
-    , Forall (ApiHasArgInvariant apiType a res)  -- and this is generalized one
+type ApiHasArg subApi res =
+    ( ApiHasArgClass subApi
+    , ApiHasArgInvariant subApi res Handler   -- this one for common cases
+    , Forall (ApiHasArgInvariant subApi res)  -- and this is generalized one
     )
 
-instance KnownSymbol s => ApiHasArgClass (Capture s) a
-instance KnownSymbol s => ApiHasArgClass (QueryParam s) a where
-    type ApiArg (QueryParam s) a = Maybe a
-instance ApiHasArgClass (ReqBody ct) a where
+instance KnownSymbol s => ApiHasArgClass (Capture s a)
+instance KnownSymbol s => ApiHasArgClass (QueryParam s a) where
+    type ApiArg (QueryParam s a) = Maybe a
+instance ApiHasArgClass (ReqBody ct a) where
     apiArgName _ = "request body"
 
 -------------------------------------------------------------------------
@@ -184,46 +201,46 @@ class ReportDecodeError api where
     reportDecodeError :: Proxy api -> Text -> Server api
 
 instance ( ReportDecodeError res
-         , ApiHasArg argType a res
+         , ApiHasArg subApi res
          ) =>
-         ReportDecodeError (argType a :> res) where
+         ReportDecodeError (subApi :> res) where
     reportDecodeError _ err = \_ -> reportDecodeError (Proxy @res) err
 
 -- | Wrapper over API argument specifier which says to decode specified argument
 -- with 'decodeCType'.
-data CDecodeApiArg (argType :: * -> *) a
+data CDecodeApiArg subApi
 
-instance ApiHasArgClass apiType a =>
-         ApiHasArgClass (CDecodeApiArg apiType) a where
-    type ApiArg (CDecodeApiArg apiType) a = OriginType (ApiArg apiType a)
-    apiArgName _ = apiArgName (Proxy @(apiType a))
+instance ApiHasArgClass subApi =>
+         ApiHasArgClass (CDecodeApiArg subApi) where
+    type ApiArg (CDecodeApiArg subApi) = OriginType (ApiArg subApi)
+    apiArgName _ = apiArgName (Proxy @subApi)
 
-instance ( HasServer (apiType a :> res) ctx
+instance ( HasServer (subApi :> res) ctx
          , HasServer res ctx
-         , ApiHasArg apiType a res
-         , FromCType (ApiArg apiType a)
+         , ApiHasArg subApi res
+         , FromCType (ApiArg subApi)
          , ReportDecodeError res
          ) =>
-         HasServer (CDecodeApiArg apiType a :> res) ctx where
-    type ServerT (CDecodeApiArg apiType a :> res) m =
-         OriginType (ApiArg apiType a) -> ServerT res m
+         HasServer (CDecodeApiArg subApi :> res) ctx where
+    type ServerT (CDecodeApiArg subApi :> res) m =
+         OriginType (ApiArg subApi) -> ServerT res m
 
     route =
-        inRouteServer @(apiType a :> res) route $
+        inRouteServer @(subApi :> res) route $
         \f a -> either reportE f $ decodeCType a
       where
         reportE err =
             reportDecodeError (Proxy @res) $
             sformat ("(in "%string%") "%stext)
-                (apiArgName $ Proxy @(apiType a))
+                (apiArgName $ Proxy @subApi)
                 err
 
     hoistServerWithContext _ pc nt s =
             hoistServerWithContext (Proxy @res) pc nt . s
 
-instance HasSwagger (apiType a :> res) =>
-         HasSwagger (CDecodeApiArg apiType a :> res) where
-    toSwagger _ = toSwagger (Proxy @(apiType a :> res))
+instance HasSwagger (subApi :> res) =>
+         HasSwagger (CDecodeApiArg subApi :> res) where
+    toSwagger _ = toSwagger (Proxy @(subApi :> res))
 
 -------------------------------------------------------------------------
 -- Mapping API arguments: defaults
@@ -235,31 +252,31 @@ type family UnmaybeArg a where
 type family Unmaybe a where
     Unmaybe (Maybe a) = a
 
-data WithDefaultApiArg (argType :: * -> *) a
+data WithDefaultApiArg subApi
 
-instance (ApiHasArgClass apiType a, ApiArg apiType a ~ Maybe b) =>
-         ApiHasArgClass (WithDefaultApiArg apiType) a where
-    type ApiArg (WithDefaultApiArg apiType) a = Unmaybe (ApiArg apiType a)
-    apiArgName _ = apiArgName (Proxy @(apiType a))
+instance (ApiHasArgClass subApi, ApiArg subApi ~ Maybe b) =>
+         ApiHasArgClass (WithDefaultApiArg subApi) where
+    type ApiArg (WithDefaultApiArg subApi) = Unmaybe (ApiArg subApi)
+    apiArgName _ = apiArgName (Proxy @subApi)
 
-instance ( HasServer (apiType a :> res) ctx
+instance ( HasServer (subApi :> res) ctx
          , HasServer res ctx
-         , ApiHasArg (WithDefaultApiArg apiType) a res
-         , Server (apiType a :> res) ~ (Maybe c -> d)
+         , ApiHasArg (WithDefaultApiArg subApi) res
+         , Server (subApi :> res) ~ (Maybe c -> d)
          , Default c
          ) =>
-         HasServer (WithDefaultApiArg apiType a :> res) ctx where
-    type ServerT (WithDefaultApiArg apiType a :> res) m =
-         UnmaybeArg (ServerT (apiType a :> res) m)
+         HasServer (WithDefaultApiArg subApi :> res) ctx where
+    type ServerT (WithDefaultApiArg subApi :> res) m =
+         UnmaybeArg (ServerT (subApi :> res) m)
 
     route =
-        inRouteServer @(apiType a :> res) route $
+        inRouteServer @(subApi :> res) route $
         \f a -> f $ fromMaybe def a
 
     -- The simpliest what we can do here is to delegate to
     -- @hoistServer (Proxy @res)@.
     -- However to perform that we need a knowledge of that
-    -- @ServerT (withDefaultApiArg apiType a :> res) m@ is a /function/
+    -- @ServerT (withDefaultApiArg subApi :> res) m@ is a /function/
     -- regardless of @m@.
     -- I.e. we have to set a constraint
     -- @forall m. ServerT (WithDefaultApiArg apiType :> res) m ~ (e -> d)@
@@ -273,12 +290,31 @@ instance ( HasServer (apiType a :> res) ctx
     -- @m1@ and @m2@ required by this function, getting desired constraints.
     hoistServerWithContext _ pc (nt :: forall x. m1 x -> m2 x) s =
         hoistServerWithContext (Proxy @res) pc nt . s
-        \\ inst @(ApiHasArgInvariant (WithDefaultApiArg apiType) a res) @m1
-        \\ inst @(ApiHasArgInvariant (WithDefaultApiArg apiType) a res) @m2
+        \\ inst @(ApiHasArgInvariant (WithDefaultApiArg subApi) res) @m1
+        \\ inst @(ApiHasArgInvariant (WithDefaultApiArg subApi) res) @m2
 
-instance HasSwagger (apiType a :> res) =>
-    HasSwagger (WithDefaultApiArg apiType a :> res) where
-    toSwagger _ = toSwagger (Proxy @(apiType a :> res))
+instance HasSwagger (subApi :> res) =>
+    HasSwagger (WithDefaultApiArg subApi :> res) where
+    toSwagger _ = toSwagger (Proxy @(subApi :> res))
+
+-------------------------------------------------------------------------
+-- HasClient instances we need for benchmarking.
+-------------------------------------------------------------------------
+
+instance HasClient m (subApi :> res) => HasClient m (CDecodeApiArg subApi :> res) where
+    type Client m (CDecodeApiArg subApi :> res) = Client m (subApi :> res)
+    clientWithRoute p _ req = clientWithRoute p (Proxy @(subApi :> res)) req
+
+instance HasClient m (subApi :> res) =>
+         HasClient m (WithDefaultApiArg subApi :> res) where
+    type Client m (WithDefaultApiArg subApi :> res) = Client m (subApi :> res)
+    clientWithRoute p _ req = clientWithRoute p (Proxy @(subApi :> res)) req
+
+instance (RunClient m, HasClient m (Verb mt st ct $ ApiModifiedRes mod a)) =>
+         HasClient m (VerbMod mod (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
+    type Client m (VerbMod mod (Verb mt st ct a)) = Client m (Verb mt st ct $ ApiModifiedRes mod a)
+    clientWithRoute p _ req =
+        clientWithRoute p (Proxy @(Verb mt st ct $ ApiModifiedRes mod a)) req
 
 -------------------------------------------------------------------------
 -- Logging
@@ -301,13 +337,15 @@ instance HasSwagger (apiType a :> res) =>
 -- If user makes request which can't be processed (e.g. with path to undefined
 -- endpoint which normally terminates with 404) it won't be logged. However,
 -- I don't find it a great problem, it may impede only in development or on
--- getting acknoledged with api.
+-- getting acknowledged with api.
 data LoggingApi config api
 
 -- | Helper to traverse servant api and apply logging.
 data LoggingApiRec config api
 
-type ApiLoggingConfig = LoggerName
+newtype ApiLoggingConfig = ApiLoggingConfig
+    { apiLoggerName :: LoggerName
+    } deriving Show
 
 -- | Used to incrementally collect info about passed parameters.
 data ApiParamsLogInfo
@@ -321,6 +359,9 @@ makePrisms ''ApiParamsLogInfo
 
 instance Default ApiParamsLogInfo where
     def = ApiParamsLogInfo mempty
+
+addParamLogInfo :: SecuredText -> ApiParamsLogInfo -> ApiParamsLogInfo
+addParamLogInfo paramInfo = _ApiParamsLogInfo %~ (paramInfo :)
 
 -- | When it comes to logging responses, returned data may be very large.
 -- Log space is valuable (already in testnet we got truncated logs),
@@ -401,62 +442,79 @@ instance ( KnownSymbol path
         inRouteServer @(path :> LoggingApiRec config res) route $
         first updateParamsInfo
       where
-        updateParamsInfo = do
+        updateParamsInfo =
             let path = const . toText . symbolVal $ Proxy @path
-            _ApiParamsLogInfo %~ (path :)
+            in  addParamLogInfo path
 
 -- | Describes a way to log a single parameter.
-class ApiHasArgClass apiType a =>
-      ApiCanLogArg apiType a where
-    type ApiArgToLog (apiType :: * -> *) a :: *
-    type ApiArgToLog apiType a = ApiArg apiType a
+class ApiHasArgClass subApi =>
+      ApiCanLogArg subApi where
+    type ApiArgToLog subApi :: *
+    type ApiArgToLog subApi = ApiArg subApi
 
     toLogParamInfo
-        :: BuildableSafe (ApiArgToLog apiType a)
-        => Proxy (apiType a) -> ApiArg apiType a -> SecuredText
+        :: BuildableSafe (ApiArgToLog subApi)
+        => Proxy subApi -> ApiArg subApi -> SecuredText
     default toLogParamInfo
-        :: BuildableSafe (ApiArgToLog apiType a)
-        => Proxy (apiType a) -> ApiArgToLog apiType a -> SecuredText
+        :: BuildableSafe (ApiArgToLog subApi)
+        => Proxy subApi -> ApiArgToLog subApi -> SecuredText
     toLogParamInfo _ param = \sl -> sformat (buildSafe sl) param
 
-instance KnownSymbol s => ApiCanLogArg (Capture s) a
+instance KnownSymbol s => ApiCanLogArg (Capture s a)
 
-instance ApiCanLogArg (ReqBody ct) a
+instance ApiCanLogArg (ReqBody ct a)
 
-instance KnownSymbol cs => ApiCanLogArg (QueryParam cs) a where
-    type ApiArgToLog (QueryParam cs) a = a
+instance KnownSymbol cs => ApiCanLogArg (QueryParam cs a) where
+    type ApiArgToLog (QueryParam cs a) = a
     toLogParamInfo _ mparam =
         \sl -> maybe noEntry (sformat $ buildSafe sl) mparam
       where
         noEntry = colorizeDull White "-"
 
-instance ( ApiHasArgClass apiType a
-         , ApiArg apiType a ~ Maybe b
-         , ApiCanLogArg apiType a
+instance ( ApiHasArgClass subApi
+         , ApiArg subApi ~ Maybe b
+         , ApiCanLogArg subApi
          ) =>
-         ApiCanLogArg (WithDefaultApiArg apiType) a where
+         ApiCanLogArg (WithDefaultApiArg subApi) where
 
-instance ( ApiCanLogArg apiType a ) =>
-         ApiCanLogArg (CDecodeApiArg apiType) a where
+instance ( ApiCanLogArg subApi ) =>
+         ApiCanLogArg (CDecodeApiArg subApi) where
 
-instance ( HasServer (apiType a :> res) ctx
-         , HasServer (apiType a :> LoggingApiRec config res) ctx
-         , ApiHasArg apiType a res
-         , ApiHasArg apiType a (LoggingApiRec config res)
-         , ApiCanLogArg apiType a
-         , BuildableSafe (ApiArgToLog apiType a)
+paramRouteWithLog
+    :: forall config api subApi res ctx env.
+       ( api ~ (subApi :> res)
+       , HasServer (subApi :> res) ctx
+       , HasServer (subApi :> LoggingApiRec config res) ctx
+       , ApiHasArg subApi res
+       , ApiHasArg subApi (LoggingApiRec config res)
+       , ApiCanLogArg subApi
+       , BuildableSafe (ApiArgToLog subApi)
+       )
+    => Proxy (LoggingApiRec config api)
+    -> SI.Context ctx
+    -> SI.Delayed env (Server (LoggingApiRec config api))
+    -> SI.Router env
+paramRouteWithLog =
+    inRouteServer @(subApi :> LoggingApiRec config res) route $
+        \(paramsInfo, f) a -> (a `updateParamsInfo` paramsInfo, f a)
+  where
+    updateParamsInfo a =
+        let paramVal = toLogParamInfo (Proxy @subApi) a
+            paramName = apiArgName $ Proxy @subApi
+            paramInfo =
+                \sl -> sformat (string%": "%stext) paramName (paramVal sl)
+        in addParamLogInfo paramInfo
+
+instance ( HasServer (subApi :> res) ctx
+         , HasServer (subApi :> LoggingApiRec config res) ctx
+         , ApiHasArg subApi res
+         , ApiHasArg subApi (LoggingApiRec config res)
+         , ApiCanLogArg subApi
+         , BuildableSafe (ApiArgToLog subApi)
+         , subApi ~ apiType a
          ) =>
          HasLoggingServer config (apiType a :> res) ctx where
-    routeWithLog =
-        inRouteServer @(apiType a :> LoggingApiRec config res) route $
-        \(paramsInfo, f) a -> (a `updateParamsInfo` paramsInfo, f a)
-      where
-        updateParamsInfo a = do
-            let paramVal = toLogParamInfo (Proxy @(apiType a)) a
-                paramName = apiArgName $ Proxy @(apiType a)
-                paramInfo =
-                    \sl -> sformat (string%": "%stext) paramName (paramVal sl)
-            _ApiParamsLogInfo %~ (paramInfo :)
+    routeWithLog = paramRouteWithLog
 
 instance HasLoggingServer config res ctx =>
          HasLoggingServer config (Summary s :> res) ctx where
@@ -465,6 +523,24 @@ instance HasLoggingServer config res ctx =>
 instance HasLoggingServer config res ctx =>
          HasLoggingServer config (Description d :> res) ctx where
     routeWithLog = inRouteServer @(Description d :> LoggingApiRec config res) route identity
+
+
+-- | Unique identifier for request-response pair.
+newtype RequestId = RequestId Integer
+
+instance Buildable RequestId where
+    build (RequestId id) = bprint ("#"%build) id
+
+-- | We want all servant servers to have non-overlapping ids,
+-- so using singleton counter here.
+requestsCounter :: TVar Integer
+requestsCounter = unsafePerformIO $ newTVarIO 0
+{-# NOINLINE requestsCounter #-}
+
+nextRequestId :: MonadIO m => m RequestId
+nextRequestId = atomically $ do
+    modifyTVar' requestsCounter (+1)
+    RequestId <$> readTVar requestsCounter
 
 -- | Modify an action so that it performs all the required logging.
 applyServantLogging
@@ -482,9 +558,11 @@ applyServantLogging
     -> m a
 applyServantLogging configP methodP paramsInfo showResponse action = do
     timer <- mkTimer
-    catchErrors timer $ do
+    reqId <- nextRequestId
+    catchErrors reqId timer $ do
+        reportRequest reqId
         res <- action
-        reportResponse timer res
+        reportResponse reqId timer res
         return res
   where
     method = decodeUtf8 $ reflectMethod methodP
@@ -504,20 +582,18 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
             return $ sformat shown (endTime - startTime)
     inLogCtx :: MonadIO m => LoggerNameBox m a -> m a
     inLogCtx logAction = do
-        let loggerName = reflect configP
-        usingLoggerName loggerName logAction
+        let ApiLoggingConfig{..} = reflect configP
+        usingLoggerName apiLoggerName logAction
     eParamLogs :: Either Text SecuredText
     eParamLogs = case paramsInfo of
         ApiParamsLogInfo info -> Right $ \sl ->
-            let params =
-                  mconcat $ reverse info <&> \securedParamsInfo ->
-                      sformat ("    "%stext%" "%stext%"\n")
-                          (colorizeDull White ":>")
-                          (securedParamsInfo sl)
-            in  sformat ("\n"%stext%"\n"%build) cmethod params
+            T.intercalate "\n" $ reverse info <&> \securedParamsInfo ->
+                sformat ("    "%stext%" "%stext)
+                    (colorizeDull White ":>")
+                    (securedParamsInfo sl)
         ApiNoParamsLogInfo why -> Left why
-    logWithParamInfo :: MonadIO m => SecuredText -> m ()
-    logWithParamInfo securedText =
+    reportRequest :: MonadIO m => RequestId -> m ()
+    reportRequest reqId =
         case eParamLogs of
             Left e ->
                 inLogCtx $ logInfoSP $ \sl ->
@@ -525,34 +601,38 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
                         (colorizeDull Red "Unexecuted request due to error") e
             Right paramLogs -> do
                 inLogCtx $ logInfoSP $ \sl ->
-                    sformat (build%" "%build) (paramLogs sl) (securedText sl)
-    reportResponse timer resp = do
+                    sformat ("\n"%stext%" "%stext%"\n"%build)
+                        cmethod
+                        (colorizeDull White $ "Request " <> pretty reqId)
+                        (paramLogs sl)
+    responseTag reqId = "Response " <> pretty reqId
+    reportResponse reqId timer resp = do
         durationText <- timer
-        logWithParamInfo $ \sl ->
-            sformat ("  "%stext%" "%stext%" "%stext
+        inLogCtx $ logInfoSP $ \sl ->
+            sformat ("\n    "%stext%" "%stext%" "%stext
                     %plainOrSecureF sl (stext%stext) (fconst ""%fconst ""))
-                (colorizeDull White "Status:")
+                (colorizeDull White $ responseTag reqId)
                 (colorizeDull Green "OK")
                 durationText
                 (colorizeDull White " > ")
                 (showResponse resp)
-    catchErrors st =
-        flip catchError (servantErrHandler st) .
-        handleAny (exceptionsHandler st)
-    servantErrHandler timer err@ServantErr{..} = do
+    catchErrors reqId st =
+        flip catchError (servantErrHandler reqId st) .
+        handleAny (exceptionsHandler reqId st)
+    servantErrHandler reqId timer err@ServantErr{..} = do
         durationText <- timer
         let errMsg = sformat (build%" "%string) errHTTPCode errReasonPhrase
-        logWithParamInfo $ \_sl ->
-            sformat ("  "%stext%" "%stext%" "%stext)
-                (colorizeDull White "Status: ")
+        inLogCtx $ logInfoSP $ \_sl ->
+            sformat ("\n    "%stext%" "%stext%" "%stext)
+                (colorizeDull White $ responseTag reqId)
                 (colorizeDull Red errMsg)
                 durationText
         throwError err
-    exceptionsHandler timer e = do
+    exceptionsHandler reqId timer e = do
         durationText <- timer
-        logWithParamInfo $ \_sl ->
-            sformat ("  "%stext%" "%shown%" "%stext)
-                (colorizeDull Red "Error")
+        inLogCtx $ logInfoSP $ \_sl ->
+            sformat ("\n    "%stext%" "%shown%" "%stext)
+                (colorizeDull Red $ responseTag reqId)
                 e
                 durationText
         throwM e
@@ -604,12 +684,12 @@ instance ReportDecodeError api =>
 -- API construction Helpers
 -------------------------------------------------------------------------
 
-type CQueryParam s a = CDecodeApiArg (QueryParam s) a
-type CCapture s a    = CDecodeApiArg (Capture s) a
-type CReqBody c a    = CDecodeApiArg (ReqBody c) a
+type CQueryParam s a = CDecodeApiArg (QueryParam s a)
+type CCapture s a    = CDecodeApiArg (Capture s a)
+type CReqBody c a    = CDecodeApiArg (ReqBody c a)
 
-type DReqBody c a    = WithDefaultApiArg (ReqBody c) a
+type DReqBody c a    = WithDefaultApiArg (ReqBody c a)
 
-type DCQueryParam s a = WithDefaultApiArg (CDecodeApiArg $ QueryParam s) a
+type DCQueryParam s a = WithDefaultApiArg (CDecodeApiArg $ QueryParam s a)
 
-type DQueryParam s a = WithDefaultApiArg (QueryParam s) a
+type DQueryParam s a = WithDefaultApiArg (QueryParam s a)

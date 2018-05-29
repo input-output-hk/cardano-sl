@@ -10,6 +10,6 @@ exports.waypointImpl = function (elementId, callback, offset) {
   });
 }
 
-exports.destroy = function (waypoint) {
+exports.destroyImpl = function (waypoint) {
   return waypoint.destroy();
 }

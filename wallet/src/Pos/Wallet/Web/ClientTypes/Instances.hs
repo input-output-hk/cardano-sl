@@ -13,10 +13,10 @@ import           Data.Text (splitOn)
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, int, sformat, (%))
 import qualified Serokell.Util.Base16 as Base16
-import           Servant.API (FromHttpApiData (..))
+import           Servant.API (FromHttpApiData (..), ToHttpApiData (..))
 import           Servant.Multipart (FromMultipart (..), Mem, lookupFile, lookupInput)
 
-import           Pos.Core (Address, Coin, decodeTextAddress, mkCoin, unsafeGetCoin)
+import           Pos.Core (Address, Coin(..), coinToInteger, decodeTextAddress, checkCoin, mkCoin, unsafeGetCoin)
 import           Pos.Core.Txp (TxId)
 import           Pos.Crypto (PassPhrase, decodeHash, hashHexF, passphraseLength)
 import           Pos.Util.Servant (FromCType (..), HasTruncateLogPolicy (..), OriginType,
@@ -116,8 +116,31 @@ instance ToCType CPtxCondition where
 -- Servant
 ----------------------------------------------------------------------------
 
+-- ToHttpApiData instances are for benchmarking.
+
+instance ToHttpApiData (CId a) where
+    toQueryParam (CId (CHash text)) = text
+
+instance ToHttpApiData CAccountId where
+    toQueryParam (CAccountId text) = text
+
+instance ToHttpApiData ScrollOffset where
+    toQueryParam (ScrollOffset num) = toText (show num :: Text)
+
+instance ToHttpApiData ScrollLimit where
+    toQueryParam (ScrollLimit num) = toText (show num :: Text)
+
+instance ToHttpApiData CPassPhrase where
+    toQueryParam (CPassPhrase text) = text
+
+instance ToHttpApiData Coin where
+    toQueryParam = pretty . coinToInteger
+
 instance FromHttpApiData Coin where
-    parseUrlPiece = fmap mkCoin . parseUrlPiece
+    parseUrlPiece p = do
+        c <- Coin <$> parseQueryParam p
+        checkCoin c
+        pure c
 
 instance FromHttpApiData Address where
     parseUrlPiece = decodeTextAddress

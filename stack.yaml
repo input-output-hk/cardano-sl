@@ -37,7 +37,7 @@ packages:
 - location:
     git: https://github.com/well-typed/cborg
     # Has support for canonical cbor
-    commit: c7db82bfd93923f5b08ed51a4cd53e30bd445924
+    commit: 3d274c14ca3077c3a081ba7ad57c5182da65c8c1
   subdirs:
   - cborg
   extra-dep: true
@@ -47,7 +47,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/acid-state.git
-    commit: 95fce1dbada62020a0b2d6aa2dd7e88eadd7214b
+    commit: 9a8af2440d655e14b802639b0b363be2ffb5a32a
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
@@ -62,8 +62,8 @@ packages:
     # We're waiting on next release
     commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
   extra-dep: true
-- location: 
-    git: https://github.com/input-output-hk/cardano-report-server.git 
+- location:
+    git: https://github.com/input-output-hk/cardano-report-server.git
     commit: 81eea7361a75923f9402fcb7840fb36722dbf88e # master 0.4.10
   extra-dep: true
 # These three are needed for cardano-sl-networking
@@ -81,16 +81,12 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 1cde8e3a8d9093bbf571085920045c05edb3eaa4
+    commit: 287cc575fafe86af9d24af9d012c47f9d3f04da0
   extra-dep: true
-# We're using forked version of 'swagger2' package because of bug in haddock package.
-# Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
-# be fixed, we'll back to Hackage-version.
 - location:
-    git: https://github.com/serokell/swagger2
-    commit: 6693ff91be2f0b015c2ab043292587c1cc9449cf
+    git: https://github.com/haskell-crypto/cryptonite
+    commit: 41d610fb18e2924d7aa704c37798e1c197557f3e
   extra-dep: true
-
 # Required for explorer
 - location:
     git: https://github.com/serokell/engine.io.git
@@ -117,6 +113,22 @@ packages:
     commit: 49f501a082d745f3b880677220a29cafaa181452
   extra-dep: true
 
+# I don't think making a PR to servant is a good idea at this point
+- location:
+    git: https://github.com/serokell/servant.git
+    commit: 5db013cc36894afdff9e748dbc1c05947c54df3d
+  extra-dep: true
+  subdirs:
+    - servant-server
+- location:
+    git: https://github.com/serokell/servant-multipart.git
+    commit: e7de56b5f7c39f8dc473f1bbaf534bb7affc3cf4
+  extra-dep: true
+- location:
+    git: https://github.com/serokell/log-warper.git
+    commit: 7f95c6990ef93a289678755cb1db71c2a4ecdfb5
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 
@@ -127,15 +139,12 @@ extra-deps:
 - serokell-util-0.5.2
 - pvss-0.2.0
 - base58-bytestring-0.1.0
-- log-warper-1.8.0
 - concurrent-extra-0.7.0.10       # not yet on Stackage
 # - purescript-bridge-0.8.0.1
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
 - servant-0.12
-- servant-server-0.12
 - servant-client-0.12
 - servant-client-core-0.12
-- servant-multipart-0.11
 - servant-docs-0.11.1             # needed for servant-0.12
 - servant-swagger-1.1.4           # needed for servant-0.12
 - servant-swagger-ui-0.2.4.3.4.0  # needed for servant-0.12
@@ -159,6 +168,29 @@ extra-deps:
 - lens-sop-0.2.0.2
 - json-sop-0.2.0.3
 - servant-generic-0.1.0.1
+# See CSL-2231
+- conduit-1.3.0
+- conduit-extra-1.3.0
+- mono-traversable-1.0.8.1
+- resourcet-1.2.0
+- yaml-0.8.28
+- lzma-0.0.0.3
+- lzma-clib-5.2.2
+- lzma-conduit-1.2.1 # https://github.com/alphaHeavy/lzma-conduit/pull/18
+- wai-extra-3.0.22.0
+- typed-process-0.2.1.0
+- unliftio-0.2.4.0
+- unliftio-core-0.1.1.0
+- http-conduit-2.3.0
+- simple-sendfile-0.2.27
+- basement-0.0.6
+- foundation-0.0.19
+- memory-0.14.14
+- criterion-1.3.0.0
+- gauge-0.2.1
+- statistics-0.14.0.2
+- validation-0.6.1
+- swagger2-2.2.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
@@ -183,3 +215,9 @@ ghc-options:
   cardano-sl-wallet:     -Werror
   cardano-sl-explorer:   -Werror
   cardano-sl-node:       -Werror
+  cardano-sl-wallet-new: -Werror
+
+# The 'swagger2' has a broken Haddock with GHC 8.0. We can remove this flag
+# when we have upgraded to GHC >= 8.2
+build:
+  haddock-hyperlink-source: false

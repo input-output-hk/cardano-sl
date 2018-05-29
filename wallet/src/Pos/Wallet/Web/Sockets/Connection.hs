@@ -19,14 +19,13 @@ import           Universum
 import           Control.Concurrent.STM.TVar (swapTVar)
 import           Data.Aeson (encode)
 import           Data.Default (Default (def))
-import           Ether.Internal (HasLens (..))
 import           Formatting (build, sformat, (%))
 import           Network.Wai (Application)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
 import qualified Network.WebSockets as WS
 import           System.Wlog (logError, logNotice, usingLoggerName)
 
-import           Pos.Util.Util (HasLens')
+import           Pos.Util.Util (HasLens (..), HasLens')
 import           Pos.Wallet.Aeson ()
 import qualified Pos.Wallet.Web.Sockets.ConnSet as CS
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent (ConnectionClosed, ConnectionOpened),

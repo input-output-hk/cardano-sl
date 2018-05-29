@@ -1,5 +1,5 @@
 name:                cardano-sl-lrc
-version:             1.1.1
+version:             1.2.0
 synopsis:            Cardano SL - Leaders and Richmen computation
 description:         Cardano SL - Leaders and Richmen computation
 license:             MIT
@@ -9,6 +9,7 @@ maintainer:          hi@serokell.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
@@ -47,6 +48,7 @@ library
                      , rocksdb-haskell-ng
                      , text-format
                      , universum
+                     , unliftio
                      , unordered-containers
 
   default-extensions:  DeriveDataTypeable

@@ -6,7 +6,8 @@ import           Universum
 
 import           Data.Default (def)
 import qualified Data.HashSet as HS
-import           Data.List ((\\))
+import           Data.List ((\\), intersect)
+import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..), Property, choose, oneof, sublistOf, suchThat,
@@ -15,23 +16,25 @@ import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
 import           Pos.Block.Logic (rollbackBlocks)
-import           Pos.Core (BlockCount (..), blkSecurityParam)
+import           Pos.Core (Address, BlockCount (..), blkSecurityParam)
 import           Pos.Crypto (emptyPassphrase)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.Chrono (nonEmptyOldestFirst, toNewestFirst)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
-import           Pos.Wallet.Web.ClientTypes (Addr, CId, CWAddressMeta (..))
-import qualified Pos.Wallet.Web.State.State as WS
+import           Pos.Util.QuickCheck.Property (assertProperty)
+import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
-import           Pos.Wallet.Web.Tracking.Sync (evalChange)
+import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Sync (evalChange, syncWalletWithBlockchain)
+import           Pos.Wallet.Web.Tracking.Types (newSyncRequest)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..))
-import           Test.Pos.Util (assertProperty, withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations)
 
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
 
 spec :: Spec
-spec = withCompileInfo def $ withDefConfigurations $ do
+spec = withCompileInfo def $ withDefConfigurations $ \_ -> do
     describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
         describe "Two applications and rollbacks" twoApplyTwoRollbacksSpec
     describe "Pos.Wallet.Web.Tracking.evalChange" $ do
@@ -41,26 +44,32 @@ spec = withCompileInfo def $ withDefConfigurations $ do
     evalChangeDiffAccountsDesc =
       "An outgoing transaction to another account."
     evalChangeSameAccountsDesc =
-      "Outgoing transcation from account to the same account."
+      "Outgoing transaction from account to the same account."
 
 twoApplyTwoRollbacksSpec :: (HasCompileInfo, HasConfigurations) => Spec
 twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     let k = fromIntegral blkSecurityParam :: Word64
+    -- During these tests we need to manually switch back to the old synchronous
+    -- way of restoring.
     void $ importSomeWallets (pure emptyPassphrase)
-    genesisWalletDB <- lift WS.getWalletStorage
+    sks <- lift getSecretKeysPlain
+    lift $ forM_ sks $ \s -> syncWalletWithBlockchain (newSyncRequest (eskToWalletDecrCredentials s))
+
+    -- Testing starts here
+    genesisWalletDB <- lift WS.askWalletSnapshot
     applyBlocksCnt1 <- pick $ choose (1, k `div` 2)
     applyBlocksCnt2 <- pick $ choose (1, k `div` 2)
     blunds1 <- wpGenBlocks (Just $ BlockCount applyBlocksCnt1) (EnableTxPayload True) (InplaceDB True)
-    after1ApplyDB <- lift WS.getWalletStorage
+    after1ApplyDB <- lift WS.askWalletSnapshot
     blunds2 <- wpGenBlocks (Just $ BlockCount applyBlocksCnt2) (EnableTxPayload True) (InplaceDB True)
-    after2ApplyDB <- lift WS.getWalletStorage
+    after2ApplyDB <- lift WS.askWalletSnapshot
     let toNE = fromMaybe (error "sequence of blocks are empty") . nonEmptyOldestFirst
     let to1Rollback = toNewestFirst $ toNE blunds2
     let to2Rollback = toNewestFirst $ toNE blunds1
     lift $ rollbackBlocks to1Rollback
-    after1RollbackDB <- lift WS.getWalletStorage
+    after1RollbackDB <- lift WS.askWalletSnapshot
     lift $ rollbackBlocks to2Rollback
-    after2RollbackDB <- lift WS.getWalletStorage
+    after2RollbackDB <- lift WS.askWalletSnapshot
     assertProperty (after1RollbackDB == after1ApplyDB)
         "wallet-db after first apply doesn't equal to wallet-db after first rollback"
     assertProperty (after2RollbackDB == genesisWalletDB)
@@ -85,10 +94,10 @@ twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
 ----------------------------------------------------------------------------
 
 data InpOutChangeUsedAddresses = InpOutUsedAddresses
-    { inpAddrs    :: [CWAddressMeta]
-    , outAddrs    :: [CWAddressMeta]
-    , changeAddrs :: HashSet (CId Addr)
-    , usedAddrs   :: HashSet (CId Addr)
+    { inpAddrs    :: [WS.WAddressMeta]
+    , outAddrs    :: [WS.WAddressMeta]
+    , changeAddrs :: HashSet Address
+    , usedAddrs   :: HashSet Address
     } deriving Show
 
 newtype AddressesFromDiffAccounts = AddressesFromDiffAccounts InpOutChangeUsedAddresses
@@ -97,12 +106,13 @@ newtype AddressesFromDiffAccounts = AddressesFromDiffAccounts InpOutChangeUsedAd
 instance Arbitrary AddressesFromDiffAccounts where
     arbitrary = do
         (wId1, accIdx1) <- arbitrary
-        let genAddrs1 n = map (uncurry $ CWAddressMeta wId1 accIdx1) <$> vectorOf n arbitrary
+        let genAddrs1 n = map (uncurry $ WS.WAddressMeta wId1 accIdx1) <$> vectorOf n arbitrary
         inpAddrs <- choose (1, 5) >>= genAddrs1
-        changeAddrsL <- choose (1, 3) >>= genAddrs1
+        changeAddrsL <- (choose (1, 3) >>= genAddrs1)
+          `suchThat` (\x -> null $ x `intersect` inpAddrs)
         let outAddrs = changeAddrsL
-        let changeAddrs = HS.fromList $ map cwamId changeAddrsL
-        let usedAddrs = HS.fromList $ map cwamId inpAddrs
+        let changeAddrs = HS.fromList $ map (view WS.wamAddress) changeAddrsL
+        let usedAddrs = HS.fromList $ map (view WS.wamAddress) inpAddrs
         pure $ AddressesFromDiffAccounts $ InpOutUsedAddresses {..}
 
 evalChangeDiffAccounts :: AddressesFromDiffAccounts -> Property
@@ -116,7 +126,7 @@ instance Arbitrary AddressesFromSameAccounts where
     arbitrary = do
         wId <- arbitrary
         accIdx <- arbitrary
-        let genAddrs n = map (uncurry $ CWAddressMeta wId accIdx) <$> vectorOf n arbitrary
+        let genAddrs n = map (uncurry $ WS.WAddressMeta wId accIdx) <$> vectorOf n arbitrary
         inpAddrs <- choose (1, 5) >>= genAddrs
         outAddrs <- choose (1, 5) >>= genAddrs
         usedBase <- (inpAddrs ++) <$> (choose (1, 10) >>= flip vectorOf arbitrary)
@@ -128,9 +138,9 @@ instance Arbitrary AddressesFromSameAccounts where
                 if length outAddrs == 1 then pure (mempty, [])
                 else do
                     ext <- sublistOf outAddrs `suchThat` (not . null)
-                    pure (HS.fromList $ map cwamId (outAddrs \\ ext), ext)
+                    pure (HS.fromList $ map (view WS.wamAddress) (outAddrs \\ ext), ext)
             ]
-        let usedAddrs = HS.fromList $ map cwamId $ usedBase ++ extraUsed
+        let usedAddrs = HS.fromList $ map (view WS.wamAddress) $ usedBase ++ extraUsed
         pure $ AddressesFromSameAccounts $ InpOutUsedAddresses {..}
 
 evalChangeSameAccounts :: AddressesFromSameAccounts -> Property

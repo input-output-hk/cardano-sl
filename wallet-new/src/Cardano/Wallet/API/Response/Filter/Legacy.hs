@@ -5,6 +5,8 @@ module Cardano.Wallet.API.Response.Filter.Legacy (
 
 import           Universum
 
+import qualified Data.Set as Set
+
 import           Cardano.Wallet.API.Indices (Indexable', IsIndexOf', ToIndex (..))
 import qualified Cardano.Wallet.API.Request.Filter as F
 
@@ -26,10 +28,12 @@ applyFilter fltr inputData =
             F.LesserThanEqual  -> filterData (\d -> accessIx d <=  i) inputData
             F.GreaterThanEqual -> filterData (\d -> accessIx d >=  i) inputData
     in case fltr of
-           F.FilterIdentity             -> inputData
            F.FilterByIndex idx          -> byPredicate F.Equal idx
            F.FilterByPredicate ordr idx -> byPredicate ordr idx
            F.FilterByRange from to      -> filterData (\d -> accessIx d >= from && accessIx d <= to) inputData
+           F.FilterIn ixs               ->
+               let ixs' = Set.fromList ixs
+                in filterData (\d -> accessIx d `Set.member` ixs') inputData
 
 -- A simple and unoptimised generic 'filter' function running in 'MonadPlus'
 -- See: http://conal.net/blog/posts/a-handy-generalized-filter

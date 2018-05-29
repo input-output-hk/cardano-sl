@@ -16,8 +16,6 @@ nodeArgs:
   - "./scripts/tls-files/server.key"
   - "--tlsca"
   - "./scripts/tls-files/ca.crt"
-  - "--web"
-  - "--no-ntp"
   - "--topology"
   - "docs/network/example-topologies/mainnet-staging.yaml"
   - "--logs-prefix"
@@ -37,7 +35,7 @@ nodeDbPath: db-mainnet-staging
 
 # Path to log config that will be used by the node. The launcher
 # attaches it to crash reports.
-nodeLogConfig: scripts/log-templates/log-config-qa.yaml
+nodeLogConfig: log-configs/connect-to-cluster.yaml
 
 # File where node stdout/err will be redirected (def: no redirection).
 # nodeLogPath: node.log
@@ -78,8 +76,8 @@ nodeTimeoutSec: 5
 # Where to send logs in case of failure.
 # reportServer: localhost:8080
 
-# Where to put launcher logs (def: console only).
-# launcherLogsPrefix:
+# Log prefix for launcher and node (def: console only).
+# logsPrefix:
 
 # Global constant configuration.
 configuration:

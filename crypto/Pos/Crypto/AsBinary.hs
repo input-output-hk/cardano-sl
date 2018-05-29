@@ -16,7 +16,7 @@ import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, int, sformat, stext, (%))
 
-import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi, decodeFull, serialize')
+import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi, decodeFull', serialize')
 import           Pos.Crypto.Hashing (hash, shortHashF)
 import           Pos.Crypto.SecretSharing (DecShare (..), EncShare (..), Secret (..),
                                            VssPublicKey (..))
@@ -48,7 +48,7 @@ checkLenImpl action name expectedLen len
 #define Ser(B, Bytes, Name) \
   instance (Bi B, Bi (AsBinary B)) => AsBinaryClass B where {\
     asBinary = AsBinary . checkLen "asBinary" Name Bytes . serialize' ;\
-    fromBinary = decodeFull . checkLen "fromBinary" Name Bytes . getAsBinary }; \
+    fromBinary = decodeFull' . checkLen "fromBinary" Name Bytes . getAsBinary }; \
 
 
 vssPublicKeyBytes, secretBytes, decShareBytes, encShareBytes :: Int

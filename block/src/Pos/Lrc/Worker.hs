@@ -19,7 +19,6 @@ import           Data.Coerce (coerce)
 import           Data.Conduit (runConduitRes, (.|))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import           Ether.Internal (HasLens (..))
 import           Formatting (build, ords, sformat, (%))
 import           Mockable (forConcurrently)
 import qualified System.Metrics.Counter as Metrics
@@ -28,9 +27,8 @@ import           System.Wlog (logDebug, logInfo, logWarning)
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Block.Slog.Logic (ShouldCallBListener (..))
-import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, SlotLeaders,
-                           StakeholderId, blkSecurityParam, crucialSlot, epochIndexL,
-                           getEpochOrSlot, slotLeadersF)
+import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId,
+                           blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot)
 import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.GState.Stakes as GS (getRealStake, getRealTotalStake)
 import qualified Pos.GState.SanityCheck as DB (sanityCheckDB)
@@ -54,6 +52,7 @@ import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util (maybeThrow)
 import           Pos.Util.Chrono (NE, NewestFirst (..), toOldestFirst)
 import           Pos.Util.TimeLimit (logWarningWaitLinear)
+import           Pos.Util.Util (HasLens (..))
 
 
 ----------------------------------------------------------------------------
@@ -221,12 +220,6 @@ leadersComputationDo epochId seed =
         leaders <-
             runConduitRes $ GS.stakeSource .| followTheSatoshiM seed totalStake
         LrcDB.putLeadersForEpoch epochId leaders
-        logLeaders leaders
-  where
-    logLeaders :: SlotLeaders -> m ()
-    logLeaders leaders = logInfo $
-        sformat ("Slot leaders for "%build%" are: "%slotLeadersF)
-        epochId (toList leaders)
 
 richmenComputationDo
     :: forall ctx m.

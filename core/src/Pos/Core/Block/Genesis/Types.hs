@@ -16,7 +16,7 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 
 import           Pos.Core.Common (ChainDifficulty, SlotLeaders)
-import           Pos.Core.Slotting.Types (EpochIndex (..))
+import           Pos.Core.Slotting (EpochIndex (..))
 import           Pos.Crypto (Hash)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 

@@ -10,7 +10,7 @@ import           Universum
 import           Control.Lens (each, traverseOf)
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Core.Slotting.Types (EpochIndex)
+import           Pos.Core.Slotting (EpochIndex)
 
 import           Pos.Binary.Class (AsBinary, fromBinary, serialize')
 import           Pos.Crypto (EncShare, PublicKey, SecretProof, Signature, VssPublicKey)

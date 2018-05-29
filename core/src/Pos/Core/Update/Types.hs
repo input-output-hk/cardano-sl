@@ -64,7 +64,7 @@ import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Class (Bi, Raw)
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy, addressHash)
-import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
+import           Pos.Core.Slotting (EpochIndex, FlatSlotId)
 import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, SafeSigner, SecretKey,
                              SignTag (SignUSVote), Signature, hash, safeSign, safeToPublic,
                              shortHashF, sign, toPublic)

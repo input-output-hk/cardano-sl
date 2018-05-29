@@ -24,7 +24,7 @@ import           Pos.Core.Block.Union.Types (Block, BlockHeader (..), blockHeade
 import           Pos.Core.Class (HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
                                  HasHeaderHash (..), HasPrevBlock (..), IsGenesisHeader, IsHeader,
                                  IsMainHeader (..))
-import           Pos.Core.Slotting.Types (EpochOrSlot (..))
+import           Pos.Core.Slotting (EpochOrSlot (..))
 import           Pos.Util.Some (Some)
 
 ----------------------------------------------------------------------------

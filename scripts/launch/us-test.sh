@@ -7,6 +7,7 @@ if ! [ -n "$TMUX" ]; then
 fi
 
 base=$(dirname "$0")
+# shellcheck source=/dev/null
 source "$base"/../common-functions.sh
 
 if [[ "$CONFIG_KEY" == "" ]];then
@@ -23,15 +24,17 @@ fi
 
 rm -R run; mkdir run
 
-export WALLET_CONFIG=run/configuration.wallet.yaml
-export PATH="$(stack path --local-install-root)/bin/:$PATH"
+WALLET_CONFIG=run/configuration.wallet.yaml
+PATH="$(stack path --local-install-root)/bin/:$PATH"
+export PATH
+export WALLET_CONFIG
 
 scripts/launch/Test.hs --configuration-key $CONFIG_KEY --configuration-file $CONFIG gen-wallet-conf -o $WALLET_CONFIG || exit 1
 
 scripts/launch/demo-with-wallet-api.sh
 
 echo -n "Enter 'start' to execute update > "
-while read l; do
+while read -r l; do
   case "$l" in
     start)
       break
@@ -44,7 +47,7 @@ done
 
 scripts/launch/Test.hs --configuration-key $CONFIG_KEY --configuration-file $CONFIG update
 
-cd run/serve-upd
+cd run/serve-upd || exit
 webfsd -F -p 10228
 
 echo "Update executed"

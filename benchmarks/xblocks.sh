@@ -12,4 +12,4 @@ sed -ne '/^MainBlockHeader:/{
           n
           N
           s/hash: \([0-9a-f]\+\).*previous block: \([0-9a-f]\+\)/("\2", "\1")/p
-         }'  $1
+         }'  "$1"

@@ -8,7 +8,7 @@ if ! [ -n "$TMUX" ]; then
   exit 1
 fi
 
-tmux list-windows | \grep demo | awk -F ':' '{ print $1 }' | while read i
+tmux list-windows | grep demo | awk -F ':' '{ print $1 }' | while read -r i
 do
   tmux kill-window -t "$i"
 done

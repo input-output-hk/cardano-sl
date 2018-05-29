@@ -11,7 +11,7 @@ fail_stack2nix_check() {
   # (see https://gist.github.com/anonymous/f52dbb040db16034d303e27056a0a48e), without
   # which the build fails in the 'stack2nix' step.
   git diff -w --text > /tmp/stack2nix.patch
-  buildkite-agent artifact upload /tmp/stack2nix.patch --job $BUILDKITE_JOB_ID
+  buildkite-agent artifact upload /tmp/stack2nix.patch --job "$BUILDKITE_JOB_ID"
   echo "ERROR: you need to (run ./pkgs/generate.sh or apply the patch in the buildkite artifact) and commit the changes" >&2
   exit 1
 }
@@ -19,7 +19,8 @@ fail_stack2nix_check() {
 # Get relative path to script directory
 scriptDir=$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")
 
-source ${scriptDir}/../pkgs/generate.sh
+# shellcheck source=/dev/null
+source "${scriptDir}/../pkgs/generate.sh"
 
 
 git diff -w --text --exit-code || fail_stack2nix_check

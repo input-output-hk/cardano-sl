@@ -37,6 +37,10 @@ let
       relays = "relays.awstest.iohkdev.io";
       confKey = "mainnet_dryrun_full";
     };
+    testnet = {
+      relays = "relays.cardano-testnet.iohkdev.io";
+      confKey = "testnet_full";
+    };
     demo = {
       confKey = "dev";
       relays = "127.0.0.1";

@@ -184,11 +184,16 @@ let
         wallet = connect { environment = "mainnet-staging"; };
         explorer = connect { executable = "explorer"; environment = "mainnet-staging"; };
       };
+      testnet = {
+        wallet = connect { environment = "testnet"; };
+        explorer = connect { executable = "explorer"; environment = "testnet"; };
+      };
       demoWallet = connect { environment = "demo"; };
     };
     dockerImages = {
       mainnet.wallet = mkDocker { environment = "mainnet"; };
       staging.wallet = mkDocker { environment = "mainnet-staging"; };
+      testnet.wallet = mkDocker { environment = "testnet"; };
     };
 
     daedalus-bridge = let

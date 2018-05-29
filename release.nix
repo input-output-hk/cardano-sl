@@ -49,6 +49,8 @@ let
     connectScripts.mainnet.explorer = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.staging.wallet   = [ "x86_64-linux" "x86_64-darwin" ];
     connectScripts.staging.explorer = [ "x86_64-linux" "x86_64-darwin" ];
+    connectScripts.testnet.wallet   = [ "x86_64-linux" "x86_64-darwin" ];
+    connectScripts.testnet.explorer = [ "x86_64-linux" "x86_64-darwin" ];
   };
   mapped = mapTestOn platforms;
   mapped' = mapTestOn platforms';

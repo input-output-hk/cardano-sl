@@ -10,7 +10,7 @@ import           Universum
 
 import           Formatting (build, sformat, (%))
 import           Serokell.Util.Text (listJsonIndent)
-import           System.Wlog (logDebug, logInfo)
+import           Pos.Util.Log (logDebug, logInfo)
 
 import           Pos.Core (SoftwareVersion (..))
 import           Pos.Core.Update (UpdateProposal (..))

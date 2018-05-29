@@ -89,7 +89,6 @@ library
                      , formatting
                      , generic-arbitrary
                      , lens
-                     , log-warper
                      , memory
                      , mmorph
                      , mono-traversable

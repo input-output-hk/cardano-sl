@@ -26,7 +26,7 @@ import qualified Data.Text as T
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess)
-import           System.Wlog (WithLogger, logDebug)
+import           Pos.Util.Log (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Block.Logic.Integrity (VerifyHeaderParams (..), verifyHeader, verifyHeaders)

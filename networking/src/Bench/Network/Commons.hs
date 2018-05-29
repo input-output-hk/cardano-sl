@@ -22,7 +22,6 @@ module Bench.Network.Commons
        ) where
 
 import           Control.Applicative ((<|>))
---import           Control.Lens (zoom, (?=))
 import           Control.Monad (join)
 import           Control.Monad.Trans (MonadIO (..))
 
@@ -41,8 +40,6 @@ import           Data.Time.Units (toMicroseconds)
 import qualified Formatting as F
 import           GHC.Generics (Generic)
 import           Prelude hiding (takeWhile)
-
-import qualified Pos.Util.Log as Log
 
 import           Mockable.CurrentTime (realTime)
 import           Node (Message (..))

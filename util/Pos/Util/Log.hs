@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 
 module Pos.Util.Log
        ( Severity(..)
@@ -12,8 +11,10 @@ module Pos.Util.Log
        ---
        , LoggerConfig(..)
        , loadLogConfig
+       , parseLoggerConfig
        , retrieveLogFiles
        ---
+       , setupLogging
        , loggerBracket
        ---
        , logDebug
@@ -31,18 +32,21 @@ module Pos.Util.Log
 import           Universum
 
 import           Control.Monad.Base (MonadBase)
-import           Control.Monad.Morph (MFunctor(..))
+import           Control.Monad.Morph (MFunctor (..))
 import           Control.Monad.Writer (WriterT (..))
+import           Control.Lens (each)
 
-import           Pos.Util.LoggerConfig (LoggerConfig(..), loadLogConfig, retrieveLogFiles)
-import           Pos.Util.LogSeverity (Severity(..))
-import           Pos.Util.LogStdoutScribe (mkStdoutScribe)
+import           Pos.Util.LoggerConfig --(LoggerConfig (..), LogHandler (..), loadLogConfig, parseLoggerConfig, retrieveLogFiles)
+import           Pos.Util.Log.Severity (Severity (..))
 
-import           Data.Text (Text{-, unpack-})
+import qualified Data.Text as T
 import           Data.Text.Lazy.Builder
 
-import qualified Katip                      as K
-import qualified Katip.Core                 as KC
+import qualified Pos.Util.Log.Internal as Internal
+import           Pos.Util.Log.Scribes
+
+import qualified Katip as K
+import qualified Katip.Core as KC
 
 
 -- | alias - pretend not to depend on katip
@@ -56,7 +60,7 @@ type LoggerName = Text
 -- | compatibility
 class (MonadIO m, LogContext m) => CanLog m where
     dispatchMessage :: LoggerName -> Severity -> Text -> m ()
-    dispatchMessage _ s t = K.logItemM Nothing (sev2klog s) $ K.logStr t
+    dispatchMessage _ s t = K.logItemM Nothing (Internal.sev2klog s) $ K.logStr t
 
 class (MonadIO m, LogContext m) => HasLoggerName m where
     askLoggerName :: m LoggerName
@@ -77,20 +81,25 @@ newtype LoggerNameBox m a = LoggerNameBox
 instance MFunctor LoggerNameBox where
     hoist f = LoggerNameBox . hoist f . loggerNameBoxEntry
 {-
-instance WithLogger m => HasLoggerName (LoggerNameBox m) where
-    askLoggerName = LoggerNameBox ask
-    modifyLoggerName how = LoggerNameBox . local how . loggerNameBoxEntry
-instance (MonadReader r m, CanLog m) => MonadReader r (LoggerNameBox m) where
+instance (MonadIO m, MonadReader r m) => MonadReader r (LoggerNameBox m) where
     ask = lift ask
     reader = lift . reader
     local f (LoggerNameBox m) = askLoggerName >>= lift . local f . runReaderT m
+instance (Monad m, MonadIO m) => HasLoggerName (LoggerNameBox m) where
+    askLoggerName = LoggerNameBox ask
+    modifyLoggerName how = LoggerNameBox . local how . loggerNameBoxEntry
 -}
 instance CanLog (LogContextT IO)
+instance CanLog m => CanLog (ReaderT s m)
+instance CanLog m => CanLog (StateT s m)
+instance CanLog m => CanLog (ExceptT s m)
+
 instance HasLoggerName (LogContextT IO)
+
 
 -- | log a Text with severity
 logMessage :: (LogContext m {-, HasCallStack -}) => Severity -> Text -> m ()
-logMessage sev msg = logMessage' (sev2klog sev) $ K.logStr msg
+logMessage sev msg = logMessage' (Internal.sev2klog sev) $ K.logStr msg
 logMessage' :: (LogContext m {-, HasCallStack -}) => K.Severity -> K.LogStr -> m ()
 logMessage' s m = K.logItemM Nothing s m
 
@@ -136,37 +145,66 @@ newtype NamedPureLogger m a = NamedPureLogger
 -}
 --instance (MonadIO m) => KC.Katip (NamedPureLogger m)
 
--- | translate Severity to Katip.Severity
-sev2klog :: Severity -> K.Severity
-sev2klog = \case
-    Debug   -> K.DebugS
-    Info    -> K.InfoS
-    Notice  -> K.NoticeS
-    Warning -> K.WarningS
-    Error   -> K.ErrorS
+-- | setup logging according to configuration
+--   the backends (scribes) need to be registered with the @LogEnv@
+setupLogging :: LoggerConfig -> IO ()
+setupLogging lc = do
 
--- | translate
-s2kname :: Text -> K.Namespace
-s2kname s = K.Namespace [s]
+    scribes <- meta lc
+    Internal.setConfig scribes lc
+      where
+        meta :: LoggerConfig -> IO [(T.Text, K.Scribe)]
+        meta _lc = do
+            -- setup scribes according to configuration
+            let --minSev = _lc ^. lcLoggerTree ^. ltMinSeverity
+                lhs = _lc ^. lcLoggerTree ^. ltHandlers ^.. each
+            scs <- forM lhs (\lh -> case (lh ^. lhBackend) of
+                            FileJsonBE -> do  -- TODO
+                                scribe <- mkFileScribe
+                                              (fromMaybe "<unk>" $ lh ^. lhFpath)
+                                              True
+                                              (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                              K.V0
+                                return (lh ^. lhName, scribe)
+                            FileTextBE -> do
+                                scribe <- mkFileScribe
+                                              (fromMaybe "<unk>" $ lh ^. lhFpath)
+                                              True
+                                              (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                              K.V0
+                                return (lh ^. lhName, scribe)
+                            StdoutBE -> do
+                                scribe <- mkStdoutScribe
+                                              (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                              K.V0
+                                return (lh ^. lhName, scribe)
+                            DevNullBE -> do
+                                scribe <- mkDevNullScribe
+                                              (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                              K.V0
+                                return (lh ^. lhName, scribe)
+                        )
+            return scs
+            --hstdout <- mkStdoutScribe (Internal.sev2klog minSev) K.V0
+            --return (("__stdout", hstdout) : scs)
 
--- | setup logging
-setupLogging :: Severity -> Text -> IO K.LogEnv
-setupLogging minSev name = do
-    --hScribe <- K.mkHandleScribe K.ColorIfTerminal stdout (sev2klog minSev) K.V0
-    hScribe <- mkStdoutScribe (sev2klog minSev) K.V0
-    K.registerScribe "stdout" hScribe K.defaultScribeSettings =<< K.initLogEnv (s2kname name) "production"
 
 -- | provide logging in IO
-usingLoggerName :: Severity -> LoggerName -> LogContextT IO a -> IO a
-usingLoggerName minSev name f = do
-    le <- setupLogging minSev name
-    K.runKatipContextT le () "cardano-sl" $ f
+usingLoggerName :: LoggerName -> LogContextT IO a -> IO a
+usingLoggerName name f = do
+    mayle <- Internal.getLogEnv
+    case mayle of
+            Nothing -> error "logging not yet initialized. Abort."
+            Just le -> K.runKatipContextT le () (Internal.s2kname name) $ f
 
 -- | bracket logging
-loggerBracket :: Severity -> LoggerName -> LogContextT IO a -> IO a
-loggerBracket minSev name f = do
-    bracket (setupLogging minSev name) K.closeScribes $
-      \le -> K.runKatipContextT le () "cardano-sl" $ f
+loggerBracket :: LoggerName -> LogContextT IO a -> IO a
+loggerBracket name f = do
+    mayle <- Internal.getLogEnv
+    case mayle of
+            Nothing -> error "logging not yet initialized. Abort."
+            Just le -> bracket (return le) K.closeScribes $
+                          \le_ -> K.runKatipContextT le_ () (Internal.s2kname name) $ f
 
 
 -- | WIP: tests to run interactively in GHCi
@@ -196,4 +234,3 @@ test4 = do
     usingLoggerName Info "testtest" $ do
         logWarning "This is a warning!"
 -}
-

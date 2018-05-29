@@ -13,7 +13,7 @@ import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce (coerce)
 import qualified Data.HashMap.Strict as HM
 import qualified Ether
-import           System.Wlog (WithLogger)
+import           Pos.Util.Log (WithLogger)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (Coin, HasGenesisBlockVersionData)

@@ -44,7 +44,7 @@ import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import           Data.STRef (newSTRef, readSTRef, writeSTRef)
 import           Formatting (ords, sformat, (%))
-import           System.Wlog (logWarning)
+import           Pos.Util.Log (logWarning)
 
 import           Pos.Binary.Class (AsBinary, fromBinary)
 import           Pos.Core (CoinPortion, EpochIndex, StakeholderId, VssCertificatesMap (..),

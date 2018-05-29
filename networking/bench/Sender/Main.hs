@@ -24,9 +24,6 @@ import           GHC.IO.Encoding (setLocaleEncoding, utf8)
 import qualified Network.Transport.TCP as TCP
 import qualified Network.Transport.TCP.Internal as TCP (encodeEndPointAddress)
 import           Options.Applicative.Simple (simpleOptions)
-
-import qualified Pos.Util.Log as Log
-
 import           System.Random (mkStdGen, randomR)
 
 import qualified Network.Transport as NT
@@ -36,10 +33,11 @@ import           Node (Conversation (..), ConversationActions (..), Node (Node),
                        simpleNodeEndPoint)
 import           Node.Internal (NodeId (..))
 import           Node.Message.Binary (binaryPacking)
-import           Pos.Util.Trace (Severity (..), wlogTrace)
+import           Pos.Util.Trace (Severity (..), logTrace)
+import qualified Pos.Util.Log as Log
 
 import           Bench.Network.Commons (MeasureEvent (..), Payload (..), Ping (..), Pong (..),
-                                        loadLogConfig, logMeasure)
+                                        logMeasure)
 import           SenderOptions (Args (..), argsParser)
 
 data PingState = PingState
@@ -60,7 +58,7 @@ main = do
             argsParser
             empty
 
-    loadLogConfig logsPrefix logConfig
+    Log.loadLogConfig logsPrefix logConfig
     setLocaleEncoding utf8
 
     transport <- do
@@ -84,7 +82,7 @@ main = do
                                      tasksIds
                                      (zip [0, msgNum..] nodeIds)
 
-            node logTrace (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prngNode binaryPacking () defaultNodeEnvironment $ \node' ->
+            node logTrace' (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prngNode binaryPacking () defaultNodeEnvironment $ \node' ->
                 NodeAction (const []) $ \converse -> () <$ do
                     drones <- forM nodeIds (startDrone node')
                     forConcurrently pingWorkers ($ converse) `concurrently` do
@@ -95,8 +93,8 @@ main = do
 
   where
 
-    logTrace = wlogTrace "sender"
-    logTrace' = contramap ((,) Info) logTrace
+    logTrace' = logTrace "sender"
+    logInfo = contramap ((,) Info) logTrace'
 
     pingSender gen payloadBound startTimeMcs msgRate msgIds (msgStartId, peerId) converse =
         foldlM (pingSenderOnce payloadBound msgRate msgStartId peerId converse)
@@ -107,7 +105,7 @@ main = do
         let sMsgId = msgStartId + msgId
             (i, gen') = randomR (0, payloadBound) gen
             payload = Payload i
-        logMeasure logTrace' PingSent sMsgId payload
+        logMeasure logInfo PingSent sMsgId payload
         converseWith converse peerId $ \_ -> Conversation $ \cactions -> do
             send cactions (Ping sMsgId payload)
             recv cactions maxBound >>= \case

@@ -25,7 +25,7 @@ import qualified Crypto.Random as Rand
 import qualified Data.HashMap.Strict as HM
 import           Formatting (int, sformat, (%))
 import           Serokell.Util (magnify')
-import           System.Wlog (WithLogger, launchNamedPureLog, logWarning)
+import           Pos.Util.Log (WithLogger, launchNamedPureLog, logWarning)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Binary.Ssc ()

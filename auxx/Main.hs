@@ -10,7 +10,7 @@ import           Formatting (sformat, shown, (%))
 import           Mockable (Production (..), runProduction)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
-import           System.Wlog (LoggerName, logInfo)
+import           Pos.Util.Log (LoggerName, logInfo)
 
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))

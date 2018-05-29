@@ -29,8 +29,8 @@
 {-# LANGUAGE RecursiveDo               #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
-module Network.Broadcast.OutboundQueue (
-    OutboundQ -- opaque
+module Network.Broadcast.OutboundQueue
+  ( OutboundQ -- opaque
     -- * Initialization
   , new
     -- ** Enqueueing policy

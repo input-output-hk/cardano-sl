@@ -37,7 +37,7 @@ type Measures = M.Map MsgId (Payload, [(MeasureEvent, Timestamp)])
 type RowId = Int
 
 analyze :: Trace IO (Severity, Text) -> FilePath -> Measures -> IO Measures
-analyze logTrace file initialMeasures = runResourceT $ pipeline
+analyze logTrace_ file initialMeasures = runResourceT $ pipeline
     
   where
 
@@ -60,7 +60,7 @@ analyze logTrace file initialMeasures = runResourceT $ pipeline
     saveMeasure :: Measures -> (Text, RowId) -> ResourceT IO Measures
     saveMeasure !measures (row, rowid) = case parseOnly (logMessageParser measureInfoParser) row of
         Left err -> do
-            liftIO $ traceWith logTrace $ (,) Warning $
+            liftIO $ traceWith logTrace_ $ (,) Warning $
                 sformat ("Parse error at file "%F.build%" (line "%F.int%"): "%F.build)
                 file rowid err
             pure measures
@@ -116,8 +116,8 @@ getOptions = (\(a, ()) -> a) <$> simpleOptions
     empty
 
 main :: IO ()
-main = Log.usingLoggerName Log.Debug "log-reader" $ do
-    let logTrace' = logTrace mempty
+main = do
+    let logTrace' = logTrace "LogReader"
     Args{..} <- liftIO getOptions
     measures <- foldrM (analyze logTrace') M.empty inputFiles
     printMeasures resultFile measures

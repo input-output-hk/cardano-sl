@@ -9,7 +9,7 @@ import           Universum
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.Default (def)
 import           System.Random (mkStdGen, randomIO)
-import           System.Wlog (logInfo)
+import           Pos.Util.Log (logInfo)
 
 import           Pos.AllSecrets (mkAllSecretsSimple)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)

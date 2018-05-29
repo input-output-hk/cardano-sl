@@ -49,6 +49,7 @@ import qualified Ether
 import qualified Formatting as F
 import qualified Language.Haskell.TH.Syntax as TH
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
+
 import           Pos.Util.Log (CanLog, HasLoggerName (..), LoggerNameBox (..))
 
 ----------------------------------------------------------------------------
@@ -70,7 +71,7 @@ instance FromJSON Byte where
 instance ToJSON Byte where
     toJSON = toJSON . toBytes
 
-{-
+{-  TODO
 instance Rand.DRG drg => HasLoggerName (Rand.MonadPseudoRandom drg) where
     askLoggerName = pure "MonadPseudoRandom"
     modifyLoggerName = flip const
@@ -151,7 +152,7 @@ instance (Monad m, HasLoggerName m) => HasLoggerName (ResourceT m) where
 -- Instances required by 'ether'
 ----------------------------------------------------------------------------
 
-{-
+{- TODO
 instance
     (Monad m, MonadTrans t, Monad (t m), CanLog m) =>
         CanLog (Ether.TaggedTrans tag t m)

@@ -19,16 +19,15 @@ import           GHC.IO.Encoding (setLocaleEncoding, utf8)
 import           Options.Applicative.Simple (simpleOptions)
 import           System.Random (mkStdGen)
 
-import qualified Pos.Util.Log as Log
-
-import           Bench.Network.Commons (MeasureEvent (..), Ping (..), Pong (..), loadLogConfig,
+import           Bench.Network.Commons (MeasureEvent (..), Ping (..), Pong (..),
                                         logMeasure)
 import qualified Network.Transport.TCP as TCP
 import           Node (ConversationActions (..), Listener (..), NodeAction (..),
                        defaultNodeEnvironment, noReceiveDelay, node, simpleNodeEndPoint)
 import           Node.Message.Binary (binaryPacking)
 import           ReceiverOptions (Args (..), argsParser)
-import           Pos.Util.Trace (Trace, Severity (..), wlogTrace)
+import           Pos.Util.Trace (Trace, Severity (..), logTrace)
+import qualified Pos.Util.Log as Log
 
 main :: IO ()
 main = do
@@ -51,7 +50,7 @@ main = do
 
     let prng = mkStdGen 0
 
-    node logTrace (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng binaryPacking () defaultNodeEnvironment $ \_ ->
+    node logTrace' (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng binaryPacking () defaultNodeEnvironment $ \_ ->
         NodeAction (const [pingListener noPong]) $ \_ -> do
             threadDelay (duration * 1000000)
   where

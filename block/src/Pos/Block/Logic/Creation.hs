@@ -22,7 +22,7 @@ import           Data.Default (Default (def))
 import           Formatting (build, fixed, ords, sformat, stext, (%))
 import           JsonLog (CanJsonLog (..))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           System.Wlog (WithLogger, logDebug)
+import           Pos.Util.Log (WithLogger, logDebug)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Base (mkGenesisBlock, mkMainBlock)

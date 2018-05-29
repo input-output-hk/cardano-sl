@@ -109,7 +109,6 @@ library
                      , http-client-tls
                      , http-conduit
                      , lens
-                     , log-warper
                      , memory
                      , mtl
                      , reflection

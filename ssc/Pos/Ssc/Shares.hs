@@ -9,7 +9,7 @@ module Pos.Ssc.Shares
 import           Crypto.Random (drgNewSeed, seedNew, withDRG)
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
-import           System.Wlog (WithLogger, launchNamedPureLog, logWarning)
+import           Pos.Util.Log (WithLogger, launchNamedPureLog, logWarning)
 import           Universum
 
 import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)

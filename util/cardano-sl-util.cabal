@@ -31,6 +31,10 @@ library
                        Pos.Util.Justify
                        Pos.Util.Lens
                        Pos.Util.Log
+                       Pos.Util.LoggerConfig
+                       Pos.Util.Log.Internal
+                       Pos.Util.Log.Severity
+                       Pos.Util.Log.Scribes
                        Pos.Util.Limits
                        Pos.Util.LRU
                        Pos.Util.Modifier
@@ -43,10 +47,7 @@ library
                        Pos.Util.Util
 
   other-modules:
-                       Pos.Util.LoggerConfig
                        Pos.Util.LoggerName
-                       Pos.Util.LogSeverity
-                       Pos.Util.LogStdoutScribe
 
   build-depends:       aeson
                      , base
@@ -94,6 +95,7 @@ library
                      , universum
                      , unliftio-core
                      , unordered-containers
+                     , yaml
 
   default-language:    Haskell2010
 
@@ -145,13 +147,17 @@ test-suite test
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.Util.QuickCheck.Property
                        Test.Pos.Util.TimerSpec
+                       Test.Pos.Util.LogSpec
                        Test.Pos.UtilSpec
 
   build-depends:       base
                      , async
                      , cardano-sl-binary
                      , cardano-sl-util
+                     , formatting
                      , hspec
+                     , hspec-core
+                     , katip
                      , QuickCheck
                      , quickcheck-instances
                      , serokell-util >= 0.1.3.4

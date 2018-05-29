@@ -17,7 +17,7 @@ import qualified Crypto.Random as Rand
 import qualified Data.HashMap.Strict as HM
 import           Formatting (build, int, sformat, (%))
 import           Serokell.Util (listJson)
-import           System.Wlog (WithLogger, logDebug)
+import           Pos.Util.Log (WithLogger, logDebug)
 import           Universum
 
 import           Pos.Binary.Ssc ()

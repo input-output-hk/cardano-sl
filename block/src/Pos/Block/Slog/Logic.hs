@@ -29,7 +29,7 @@ import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (Color (Red), colorize)
 import           Serokell.Util.Verify (formatAllErrors, verResToMonadError)
-import           System.Wlog (WithLogger)
+import           Pos.Util.Log (WithLogger)
 
 import           Pos.Binary.Core ()
 import           Pos.Block.BListener (MonadBListener (..))

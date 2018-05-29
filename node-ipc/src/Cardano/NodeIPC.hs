@@ -52,7 +52,7 @@ startNodeJsIPC port = void $ runMaybeT $ do
         void $ forkIO $ startIpcListener ctx handle port
 
 startIpcListener :: ShutdownContext -> Handle -> Word16 -> IO ()
-startIpcListener ctx handle port = usingLoggerName Debug "NodeIPC" $ flip runReaderT ctx (ipcListener handle port)
+startIpcListener ctx handle port = usingLoggerName "NodeIPC" $ flip runReaderT ctx (ipcListener handle port)
 
 readInt64 :: Handle -> IO Word64
 readInt64 hnd = do

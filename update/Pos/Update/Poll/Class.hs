@@ -10,7 +10,7 @@ module Pos.Update.Poll.Class
 import           Universum
 
 import           Control.Monad.Trans (MonadTrans)
-import           System.Wlog (WithLogger)
+import           Pos.Util.Log (WithLogger)
 
 import           Pos.Core (ApplicationName, BlockVersion, BlockVersionData, ChainDifficulty, Coin,
                            EpochIndex, NumSoftwareVersion, SlotId,

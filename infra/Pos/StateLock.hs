@@ -140,18 +140,18 @@ stateLockHelper doWithMVar prio reason action = do
     StateLock mvar prioLock <- view (lensOf @StateLock)
     StateLockMetrics {..} <- view (lensOf @(StateLockMetrics slr))
     lname <- Log.askLoggerName
-    liftIO . Log.usingLoggerName Log.Debug lname $ slmWait reason
+    liftIO . Log.usingLoggerName lname $ slmWait reason
     timeBeginWait <- currentTime
     withPriorityLock prioLock prio $ doWithMVar mvar $ \hh -> do
         timeEndWait <- currentTime
-        liftIO . Log.usingLoggerName Log.Debug lname $
+        liftIO . Log.usingLoggerName lname $
             slmAcquire reason (timeEndWait - timeBeginWait)
         timeBeginModify <- currentTime
         memBeginModify <- liftIO getAllocationCounter
         res <- action hh
         timeEndModify <- currentTime
         memEndModify <- liftIO getAllocationCounter
-        json <- liftIO . Log.usingLoggerName Log.Debug lname $ slmRelease
+        json <- liftIO . Log.usingLoggerName lname $ slmRelease
             reason
             (timeEndWait - timeBeginWait)
             (timeEndModify - timeBeginModify)

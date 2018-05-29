@@ -1,0 +1,17 @@
+# Logging configuration
+# additional output in JSON format
+
+rotation:
+    logLimit: 104857600 # 100MB
+    keepFiles: 100
+loggerTree:
+  severity: Info+
+  files:
+    - node.pub
+    - node
+  handlers:
+    - backend: FileJsonScribe
+      severity: Warning+
+      name: Json_log
+      filepath: node.json
+

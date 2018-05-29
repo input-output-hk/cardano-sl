@@ -22,9 +22,7 @@ import qualified Data.HashSet as HS
 import           Formatting (build, ords, sformat, (%))
 import           Mockable (forConcurrently)
 import qualified System.Metrics.Counter as Metrics
-import           System.Wlog (logDebug, logInfo, logWarning)
-import           UnliftIO (MonadUnliftIO)
-
+import           Pos.Util.Log (logDebug, logInfo, logWarning)
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Block.Slog.Logic (ShouldCallBListener (..))

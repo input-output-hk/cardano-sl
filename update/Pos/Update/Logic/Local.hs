@@ -29,7 +29,7 @@ import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Formatting (sformat, (%))
-import           System.Wlog (WithLogger, logWarning)
+import           Pos.Util.Log (WithLogger, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)

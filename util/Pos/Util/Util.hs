@@ -325,7 +325,7 @@ logException name = E.handleAsync (\e -> handler e >> E.throw e)
     handler :: E.SomeException -> IO ()
     handler exc = do
         let message = "logException: " <> pretty exc
-        Log.usingLoggerName Log.Debug name (Log.logError message) `E.catchAny` \loggingExc -> do
+        Log.usingLoggerName name (Log.logError message) `E.catchAny` \loggingExc -> do
             putStrLn message
             putStrLn $
                 "logException failed to use logging: " <> pretty loggingExc

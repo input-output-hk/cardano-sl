@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module Pos.Core.Class
        (
@@ -9,7 +10,6 @@ module Pos.Core.Class
        , HasBlockVersion (..)
        , HasSoftwareVersion (..)
        , HasHeaderHash (..)
-       , headerHashG
        , HasEpochIndex (..)
        , HasEpochOrSlot (..)
        , epochOrSlotG
@@ -24,7 +24,8 @@ import           Universum
 
 import           Control.Lens (Getter, choosing, to)
 
-import           Pos.Core.Common (ChainDifficulty, HeaderHash)
+import           Pos.Core.Block.Union.Types (HasHeaderHash (..), HasPrevBlock (..))
+import           Pos.Core.Common (ChainDifficulty)
 import           Pos.Core.Slotting.Types (EpochIndex, EpochOrSlot (..), SlotId)
 import           Pos.Core.Update.Types (BlockVersion, SoftwareVersion)
 import           Pos.Crypto.Signing (PublicKey)
@@ -38,22 +39,6 @@ import           Pos.Util.Some (Some, applySome, liftLensSome)
 ----------------------------------------------------------------------------
 -- Classes for overloaded accessors
 ----------------------------------------------------------------------------
-
--- HasPrevBlock
--- | Class for something that has previous block (lens to 'Hash' for this block).
-class HasPrevBlock s where
-    prevBlockL :: Lens' s HeaderHash
-
-SOME_LENS_CLASS(HasPrevBlock, prevBlockL, HasPrevBlock)
-
-instance (HasPrevBlock s, HasPrevBlock s') =>
-         HasPrevBlock (Either s s') where
-    prevBlockL = choosing prevBlockL prevBlockL
-
-
--- Perhaps it is not the best instance.
-instance {-# OVERLAPPABLE #-} HasPrevBlock s => HasPrevBlock (s, z) where
-    prevBlockL = _1 . prevBlockL
 
 -- HasDifficulty
 class HasDifficulty a where
@@ -75,18 +60,6 @@ class HasSoftwareVersion a where
     softwareVersionL :: Lens' a SoftwareVersion
 
 SOME_LENS_CLASS(HasSoftwareVersion, softwareVersionL, HasSoftwareVersion)
-
--- HasHeaderHash
-class HasHeaderHash a where
-    headerHash :: a -> HeaderHash
-
-SOME_FUNC_CLASS(HasHeaderHash, headerHash, HasHeaderHash)
-
-instance HasHeaderHash HeaderHash where
-    headerHash = identity
-
-headerHashG :: HasHeaderHash a => Getter a HeaderHash
-headerHashG = to headerHash
 
 -- HasEpochIndex
 class HasEpochIndex a where

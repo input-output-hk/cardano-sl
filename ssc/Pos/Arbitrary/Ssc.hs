@@ -156,7 +156,7 @@ vssCertificateEpochGen pm pc x = do
 -- SSC types
 ----------------------------------------------------------------------------
 
-instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary SscProof where
+instance Arbitrary SscProof where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -221,7 +221,7 @@ instance HasProtocolMagic => Arbitrary SscSecretStorage where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary TossModifier where
+instance HasProtocolMagic => Arbitrary TossModifier where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -245,7 +245,7 @@ instance Arbitrary MCShares where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary MCVssCertificate where
+instance HasProtocolMagic => Arbitrary MCVssCertificate where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -261,6 +261,6 @@ instance Arbitrary (DataMsg MCShares) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary (DataMsg MCVssCertificate) where
+instance HasProtocolMagic => Arbitrary (DataMsg MCVssCertificate) where
     arbitrary = genericArbitrary
     shrink = genericShrink

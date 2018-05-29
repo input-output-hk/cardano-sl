@@ -50,7 +50,11 @@ import           System.FileLock (FileLock, SharedExclusive (..), lockFile, unlo
                                   withFileLock)
 import           System.FilePath (takeDirectory, takeFileName)
 import           System.IO (hClose, openBinaryTempFile)
---import           System.Wlog (WithLogger)
+#ifdef POSIX
+import           System.Wlog (WithLogger, logWarning, logInfo)
+#else
+import           System.Wlog (WithLogger, logInfo)
+#endif
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Universum
@@ -70,7 +74,6 @@ import qualified Pos.Util.Log as Log
 import           Formatting (oct, sformat)
 import qualified System.Posix.Files as PSX
 import qualified System.Posix.Types as PSX (FileMode)
---import           System.Wlog (logWarning)
 #endif
 
 -- Because of the Formatting import
@@ -202,6 +205,13 @@ instance Bi UserSecret where
         & usKeys .~ keys
         & usWallet .~ wallet
 
+-- | WithLogger is only needed on posix platforms
+#ifdef POSIX
+type MonadMaybeLog m = (MonadIO m, WithLogger m)
+#else
+type MonadMaybeLog m = MonadIO m
+#endif
+
 #ifdef POSIX
 -- | Constant that defines file mode 600 (readable & writable only by owner).
 mode600 :: PSX.FileMode
@@ -218,7 +228,7 @@ setMode600 :: (MonadIO m) => FilePath -> m ()
 setMode600 path = liftIO $ PSX.setFileMode path mode600
 #endif
 
-ensureModeIs600 :: (MonadIO m, Log.WithLogger m) => FilePath -> m ()
+ensureModeIs600 :: MonadMaybeLog m => FilePath -> m ()
 #ifdef POSIX
 ensureModeIs600 path = do
     accessMode <- getAccessMode path
@@ -234,7 +244,7 @@ ensureModeIs600 _ = do
 
 -- | Create user secret file at the given path, but only when one doesn't
 -- already exist.
-initializeUserSecret :: (MonadIO m, Log.WithLogger m) => FilePath -> m ()
+initializeUserSecret :: MonadMaybeLog m => FilePath -> m ()
 initializeUserSecret secretPath = do
     exists <- liftIO $ doesFileExist secretPath
 #ifdef POSIX
@@ -252,7 +262,7 @@ initializeUserSecret secretPath = do
 
 -- | Reads user secret from file, assuming that file exists,
 -- and has mode 600, throws exception in other case
-readUserSecret :: (MonadIO m, Log.WithLogger m) => FilePath -> m UserSecret
+readUserSecret :: MonadMaybeLog m => FilePath -> m UserSecret
 readUserSecret path = do
 #ifdef POSIX
     ensureModeIs600 path
@@ -266,6 +276,7 @@ readUserSecret path = do
 -- If the file does not exist/is empty, returns empty user secret
 peekUserSecret :: (MonadIO m, Log.WithLogger m) => FilePath -> m UserSecret
 peekUserSecret path = do
+    logInfo "initalizing user secret"
     initializeUserSecret path
     takeReadLock path $ do
         econtent <- decodeFull' <$> BS.readFile path
@@ -273,7 +284,7 @@ peekUserSecret path = do
 
 -- | Read user secret putting an exclusive lock on it. To unlock, use
 -- 'writeUserSecretRelease'.
-takeUserSecret :: (MonadIO m, Log.WithLogger m) => FilePath -> m UserSecret
+takeUserSecret :: MonadMaybeLog m => FilePath -> m UserSecret
 takeUserSecret path = do
     initializeUserSecret path
     liftIO $ do

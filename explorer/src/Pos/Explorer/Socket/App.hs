@@ -111,7 +111,7 @@ notifierHandler connVar loggerName = do
         void . usingLoggerName loggerName . withConnState connVar . runNotifierLogger
 
 notifierServer
-    :: (MonadIO m, WithLogger m, MonadCatch m, WithLogger m)
+    :: (MonadIO m, WithLogger m)
     => NotifierSettings
     -> ConnectionsVar
     -> m ()

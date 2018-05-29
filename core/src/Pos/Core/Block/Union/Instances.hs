@@ -1,10 +1,13 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
+-- the Getter instances from lens cause a redundant Functor
 
 -- | United miscellaneous functionality.
 
 module Pos.Core.Block.Union.Instances
        ( getBlockHeader
        , blockHeader
+       , ComponentBlock (..)
        ) where
 
 import           Universum
@@ -16,11 +19,13 @@ import           Pos.Binary.Class (Bi)
 import           Pos.Core.Block.Blockchain (GenericBlock (..))
 import           Pos.Core.Block.Genesis ()
 import           Pos.Core.Block.Main ()
-import           Pos.Core.Block.Union.Types (Block, BlockHeader (..), ComponentBlock (..),
-                                             blockHeaderHash, choosingBlockHeader)
+import           Pos.Core.Block.Union.Types (Block, BlockHeader (..), blockHeaderHash,
+                                             choosingBlockHeader)
 import           Pos.Core.Class (HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
-                                 HasHeaderHash (..), HasPrevBlock (..), IsHeader, IsMainHeader (..))
+                                 HasHeaderHash (..), HasPrevBlock (..), IsGenesisHeader, IsHeader,
+                                 IsMainHeader (..))
 import           Pos.Core.Slotting.Types (EpochOrSlot (..))
+import           Pos.Util.Some (Some)
 
 ----------------------------------------------------------------------------
 -- Buildable
@@ -52,6 +57,13 @@ getBlockHeader = \case
 
 blockHeader :: Getter Block BlockHeader
 blockHeader = to getBlockHeader
+
+-- | Representation of 'Block' passed to a component.
+data ComponentBlock payload =
+    ComponentBlockGenesis (Some IsGenesisHeader)
+    | ComponentBlockMain
+       { bcmHeader  :: !(Some IsMainHeader)
+       , bcmPayload :: !payload }
 
 instance HasHeaderHash (ComponentBlock a) where
     headerHash (ComponentBlockGenesis genesisHeader) = headerHash genesisHeader

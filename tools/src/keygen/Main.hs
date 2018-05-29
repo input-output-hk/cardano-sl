@@ -4,7 +4,6 @@ module Main
 
 import           Universum
 
-import           Crypto.Random (MonadRandom)
 import           Data.ByteString.Base58 (bitcoinAlphabet, encodeBase58)
 import qualified Data.List as L
 import qualified Data.Text as T
@@ -170,5 +169,6 @@ main = do
               -- --ReadKey path            -> readKey path
               -- --DumpAvvmSeeds opts      -> dumpAvvmSeeds opts
               -- GenerateKeysBySpec gkbg -> generateKeysByGenesis gkbg
-              --DumpGenesisData {..}    -> CLI.dumpGenesisData dgdCanonical dgdPath
+              --DumpGenesisData dgdPath dgdCanonical
+                                    -> CLI.dumpGenesisData dgdCanonical dgdPath
               _                       -> Log.logWarning "command not understood"

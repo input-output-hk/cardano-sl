@@ -33,7 +33,6 @@ library
                        Pos.Update.DB
                        Pos.Update.DB.Misc
                        Pos.Update.Download
-                       Pos.Update.Lrc
                        Pos.Update.Mode
 
                        -- Logic

@@ -25,7 +25,6 @@ import           System.Wlog (CanLog, HasLoggerName, logInfo)
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
 import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Txp (genesisUtxo, unGenesisUtxo)
-import           Pos.Util.CompileInfo (HasCompileInfo)
 
 import           AuxxOptions (AuxxOptions (..))
 import           Command (createCommandProcs)
@@ -40,7 +39,7 @@ import           Repl (PrintAction, WithCommandAction (..))
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 auxxPlugin ::
-       (HasCompileInfo, MonadAuxxMode m, Mockable Delay m)
+       (MonadAuxxMode m, Mockable Delay m)
     => AuxxOptions
     -> Either WithCommandAction Text
     -> Diffusion m
@@ -51,8 +50,7 @@ auxxPlugin auxxOptions repl = \diffusion -> do
     rawExec (Just Dict) auxxOptions (Just diffusion) repl
 
 rawExec ::
-       ( HasCompileInfo
-       , MonadIO m
+       ( MonadIO m
        , MonadCatch m
        , CanLog m
        , HasLoggerName m
@@ -70,9 +68,7 @@ rawExec mHasAuxxMode AuxxOptions{..} mDiffusion = \case
     Right cmd -> runWalletCmd mHasAuxxMode mDiffusion cmd
 
 runWalletCmd ::
-       ( HasCompileInfo
-       , MonadIO m
-       , MonadCatch m
+       ( MonadIO m
        , CanLog m
        , HasLoggerName m
        , Mockable Delay m
@@ -94,12 +90,9 @@ runWalletCmd mHasAuxxMode mDiffusion line = do
     printAction = putText
 
 runCmd ::
-       ( HasCompileInfo
-       , MonadIO m
-       , MonadCatch m
+       ( MonadIO m
        , CanLog m
        , HasLoggerName m
-       , Mockable Delay m
        )
     => Maybe (Dict (MonadAuxxMode m))
     -> Maybe (Diffusion m)

@@ -24,7 +24,6 @@ import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening, Sig
                                SscPayload (..), getCommitmentsMap, mkCommitmentsMapUnsafe, spVss,
                                checkSscPayload)
 import           Pos.Crypto.Configuration (protocolMagic)
-import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Error (SscVerifyError (..))
 import           Pos.Ssc.Functions (verifySscPayload)
 import           Pos.Ssc.Toss.Base (checkPayload)
@@ -39,7 +38,7 @@ import           Pos.Util.Util (sortWithMDesc)
 -- MonadToss. If data is valid it is also applied.  Otherwise
 -- SscVerifyError is thrown using 'MonadError' type class.
 verifyAndApplySscPayload
-    :: (HasSscConfiguration, MonadToss m, MonadTossEnv m,
+    :: (MonadToss m, MonadTossEnv m,
         MonadError SscVerifyError m, MonadRandom m, HasProtocolConstants, HasProtocolMagic)
     => Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
 verifyAndApplySscPayload eoh payload = do
@@ -116,7 +115,7 @@ rollbackSsc oldestEOS (NewestFirst payloads)
 
 -- | Apply as much data from given 'TossModifier' as possible.
 normalizeToss
-    :: (HasSscConfiguration, MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants, HasProtocolMagic)
+    :: (MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants, HasProtocolMagic)
     => EpochIndex -> TossModifier -> m ()
 normalizeToss epoch TossModifier {..} =
     normalizeTossDo
@@ -129,7 +128,7 @@ normalizeToss epoch TossModifier {..} =
 -- | Apply the most valuable from given 'TossModifier' and drop the
 -- rest. This function can be used if mempool is exhausted.
 refreshToss
-    :: (HasSscConfiguration, MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants, HasProtocolMagic)
+    :: (MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants, HasProtocolMagic)
     => EpochIndex -> TossModifier -> m ()
 refreshToss epoch TossModifier {..} = do
     comms <-
@@ -159,7 +158,7 @@ type TossModifierLists
 
 normalizeTossDo
     :: forall m.
-       (HasSscConfiguration, MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants, HasProtocolMagic)
+       (MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants, HasProtocolMagic)
     => EpochIndex -> TossModifierLists -> m ()
 normalizeTossDo epoch (comms, opens, shares, certs) = do
     putsUseful $

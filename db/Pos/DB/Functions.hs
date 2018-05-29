@@ -132,7 +132,7 @@ processIterEntry (key,val)
            \key = "%shown%", err: " %string)
            prefix k err
 
-    checkDBVersion :: HasCoreConfiguration => Word8 -> IterType i -> m (Maybe (IterType i))
+    checkDBVersion :: Word8 -> IterType i -> m (Maybe (IterType i))
     checkDBVersion dbV it
         | dbV == dbSerializeVersion = pure (Just it)
         | otherwise = throwM $ DBUnexpectedVersionTag dbSerializeVersion dbV

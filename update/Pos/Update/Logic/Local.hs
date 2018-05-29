@@ -33,8 +33,8 @@ import           System.Wlog (WithLogger, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HeaderHash, HasGenesisBlockVersionData,
-                           SlotId (..), slotIdF, HasProtocolConstants, HasProtocolMagic)
+import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HeaderHash,
+                           SlotId (..), slotIdF)
 import           Pos.Core.Update (UpId, UpdatePayload (..), UpdateProposal, UpdateVote (..))
 import           Pos.Crypto (PublicKey, shortHashF)
 import           Pos.DB.Class (MonadDBRead)
@@ -120,9 +120,6 @@ modifyMemState action = do
 processSkeleton ::
        ( USLocalLogicModeWithLock ctx m
        , MonadReporting m
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisBlockVersionData
        )
     => UpdatePayload
     -> m (Either PollVerFailure ())
@@ -165,13 +162,10 @@ processSkeleton payload =
 refreshMemPool
     :: ( MonadDBRead m
        , MonadUnliftIO m
-       , MonadIO m
        , MonadReader ctx m
-       , HasLens UpdateContext ctx UpdateContext
        , HasLrcContext ctx
        , WithLogger m
        , HasUpdateConfiguration
-       , HasGenesisBlockVersionData
        )
     => MemState -> m MemState
 refreshMemPool ms@MemState {..} = do
@@ -218,9 +212,6 @@ getLocalProposalNVotes id = do
 processProposal
     :: ( USLocalLogicModeWithLock ctx m
        , MonadReporting m
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasProtocolMagic
        )
     => UpdateProposal -> m (Either PollVerFailure ())
 processProposal proposal = processSkeleton $ UpdatePayload (Just proposal) []
@@ -236,7 +227,7 @@ lookupVote propId pk locVotes = HM.lookup propId locVotes >>= HM.lookup pk
 -- identifier issued by stakeholder with given PublicKey and with
 -- given decision should be requested.
 isVoteNeeded
-    :: (USLocalLogicMode ctx m, HasGenesisBlockVersionData)
+    :: USLocalLogicMode ctx m
     => UpId -> PublicKey -> Bool -> m Bool
 isVoteNeeded propId pk decision = do
     modifier <- getPollModifier
@@ -272,9 +263,6 @@ getLocalVote propId pk decision = do
 processVote
     :: ( USLocalLogicModeWithLock ctx m
        , MonadReporting m
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisBlockVersionData
        )
     => UpdateVote -> m (Either PollVerFailure ())
 processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
@@ -287,7 +275,7 @@ processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 -- current GState.  This function assumes that GState is locked. It
 -- tries to leave as much data as possible. It assumes that
 -- 'stateLock' is taken.
-usNormalize :: (USLocalLogicMode ctx m, HasGenesisBlockVersionData) => m ()
+usNormalize :: USLocalLogicMode ctx m => m ()
 usNormalize = do
     tip <- DB.getTip
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
@@ -298,7 +286,7 @@ usNormalize = do
 -- from mempool and apply it to empty mempool, so it depends only on
 -- GState.
 usNormalizeDo
-    :: (USLocalLogicMode ctx m, HasGenesisBlockVersionData)
+    :: USLocalLogicMode ctx m
     => Maybe HeaderHash -> Maybe SlotId -> m MemState
 usNormalizeDo tip slot = do
     stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
@@ -324,10 +312,10 @@ usNormalizeDo tip slot = do
     return newMS
 
 -- | Update memory state to make it correct for given slot.
-processNewSlot :: (USLocalLogicModeWithLock ctx m, HasGenesisBlockVersionData) => SlotId -> m ()
+processNewSlot :: USLocalLogicModeWithLock ctx m => SlotId -> m ()
 processNewSlot slotId = withUSLock $ processNewSlotNoLock slotId
 
-processNewSlotNoLock :: (USLocalLogicMode ctx m, HasGenesisBlockVersionData) => SlotId -> m ()
+processNewSlotNoLock :: USLocalLogicMode ctx m => SlotId -> m ()
 processNewSlotNoLock slotId = modifyMemState $ \ms@MemState{..} -> do
     if | msSlot >= slotId -> pure ms
        -- Crucial changes happen only when epoch changes.
@@ -346,7 +334,7 @@ processNewSlotNoLock slotId = modifyMemState $ \ms@MemState{..} -> do
 -- payload, because it's important to create blocks for system
 -- maintenance (empty blocks are better than no blocks).
 usPreparePayload ::
-       (USLocalLogicMode ctx m, HasGenesisBlockVersionData)
+       USLocalLogicMode ctx m
     => HeaderHash
     -> SlotId
     -> m UpdatePayload

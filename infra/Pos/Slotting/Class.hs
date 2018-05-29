@@ -34,7 +34,7 @@ class (MonadSlotsData ctx m) => MonadSlots ctx m where
 
 
 instance {-# OVERLAPPABLE #-}
-    (MonadSlots ctx m, MonadTrans t, MonadReader ctx (t m), MonadIO (t m), Monad (t m)) =>
+    (MonadSlots ctx m, MonadTrans t, MonadReader ctx (t m), MonadIO (t m)) =>
       MonadSlots ctx (t m)
   where
     getCurrentSlot           = lift getCurrentSlot

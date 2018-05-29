@@ -103,6 +103,7 @@ test_script:
   - copy lib\*genesis*.json daedalus\
   - copy cardano-launcher.exe daedalus\
   - copy cardano-node.exe daedalus\
+  - copy cardano-x509-certificates.exe daedalus\
   - cd daedalus
   - Echo %APPVEYOR_BUILD_VERSION% > build-id
   - Echo %APPVEYOR_REPO_COMMIT% > commit-id

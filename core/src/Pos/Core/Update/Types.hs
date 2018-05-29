@@ -40,6 +40,7 @@ module Pos.Core.Update.Types
          -- * Payload and proof
        , UpdatePayload (..)
        , UpdateProof
+       , mkUpdateProof
        ) where
 
 import           Universum
@@ -64,9 +65,9 @@ import           Serokell.Util.Text (listJson)
 import           Pos.Binary.Class (Bi, Raw)
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy, addressHash)
 import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
-import           Pos.Crypto (ProtocolMagic, Hash, PublicKey, SafeSigner, SecretKey,
-                             SignTag (SignUSVote), Signature, hash, safeSign,
-                             safeToPublic, shortHashF, sign, toPublic)
+import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, SafeSigner, SecretKey,
+                             SignTag (SignUSVote), Signature, hash, safeSign, safeToPublic,
+                             shortHashF, sign, toPublic)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 import           Pos.Util.Orphans ()
 
@@ -508,3 +509,8 @@ instance Default UpdatePayload where
 
 -- | Proof that body of update message contains 'UpdatePayload'.
 type UpdateProof = Hash UpdatePayload
+
+mkUpdateProof
+    :: Bi UpdatePayload
+    => UpdatePayload -> UpdateProof
+mkUpdateProof = hash

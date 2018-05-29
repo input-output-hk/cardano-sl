@@ -53,7 +53,7 @@ import           Pos.Binary.Infra ()
 import           Pos.Binary.Update ()
 import           Pos.Core (ApplicationName, BlockVersion, ChainDifficulty, NumSoftwareVersion,
                            SlotId, SoftwareVersion (..), StakeholderId, TimeDiff (..), epochSlots,
-                           HasProtocolConstants, HasGenesisBlockVersionData, HasCoreConfiguration)
+                           HasCoreConfiguration)
 import           Pos.Core.Configuration (genesisBlockVersionData)
 import           Pos.Core.Update (BlockVersionData (..), UpId, UpdateProposal (..))
 import           Pos.Crypto (hash)
@@ -166,7 +166,7 @@ instance HasCoreConfiguration => RocksBatchOp UpdateOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-initGStateUS :: (HasProtocolConstants, HasGenesisBlockVersionData, MonadDB m) => m ()
+initGStateUS :: MonadDB m => m ()
 initGStateUS = do
     writeBatchGState $
         PutSlottingData genesisSlottingData :

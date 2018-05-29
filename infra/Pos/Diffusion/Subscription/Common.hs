@@ -19,9 +19,10 @@ module Pos.Diffusion.Subscription.Common
     , updatePeersBucketUnsubscribe
     ) where
 
-import           Universum hiding (mask, catch)
+import           Universum hiding (mask)
 
-import           Control.Exception (mask, catch, throwIO)
+import           Control.Exception (mask)
+import qualified Control.Exception.Safe as Safe (try)
 import           Control.Concurrent.Async (concurrently)
 import           Control.Concurrent.MVar (modifyMVar)
 import qualified Data.Map.Strict as Map
@@ -43,7 +44,9 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
                                              SendActions, constantListeners,
                                              withConnectionTo, recvLimited,
                                              mlMsgSubscribe, mlMsgSubscribe1)
-import           Pos.Diffusion.Types (SubscriptionStatus (..))
+import           Pos.Diffusion.Subscription.Status (SubscriptionStates)
+import qualified Pos.Diffusion.Subscription.Status as Status (subscribing, subscribed,
+                                                              terminated)
 import           Pos.Network.Types (Bucket (..), NodeType)
 import           Pos.Util.Trace (Trace, traceWith)
 
@@ -98,15 +101,6 @@ updatePeersBucketUnsubscribe = updatePeersBucket alterationRemove
     alterationRemove (Just 1) = Nothing
     alterationRemove (Just n) = Just (n - 1)
 
--- | Instances required in order to do network subscription.
-type SubscriptionMessageConstraints =
-    ( Message MsgSubscribe
-    , Message MsgSubscribe1
-    , Bi MsgSubscribe
-    , Bi MsgSubscribe1
-    , Message Void
-    )
-
 -- | A subscription ends normally (remote shut it down) or exceptionally
 -- (network issues etc.).
 data SubscriptionTerminationReason =
@@ -116,33 +110,22 @@ data SubscriptionTerminationReason =
 
 -- | Subscribe via the network protocol, using MsgSubscribe or MsgSubscribe1
 -- depending on the peer's version.
+--
+-- In case there is a synchronous exception, it will be caught and not rethrown,
+-- but passed to the 'after' callback as the 'Exceptional' constructor.
 networkSubscribeTo
-    :: ( SubscriptionMessageConstraints )
-    => (NodeId -> IO r)  -- ^ Run before attempting to subscribe
-    -> (NodeId -> IO ()) -- ^ Run after subscription comes up
-    -> (NodeId -> IO ()) -- ^ In case the keepalive version is run, keepalive is sent when
-                         --   this returns.
-    -> (NodeId -> SubscriptionTerminationReason -> r -> IO ()) -- ^ Run after subscription ends
-    -> SendActions
-    -> NodeId
-    -> IO Millisecond -- ^ How long the subscription lasted.
-networkSubscribeTo before middle keepalive after sendActions peer = mask $ \restore -> do
-    r <- before peer
-    let networkAction = do
-            timeStarted <- getTime Monotonic
-            withConnectionTo sendActions peer $ \_peerData -> NE.fromList
-                -- Sort conversations in descending order based on their version so that
-                -- the highest available version of the conversation is picked.
-                [ Conversation (convMsgSubscribe (middle peer) (keepalive peer))
-                , Conversation (convMsgSubscribe1 (middle peer))
-                ]
-            timeEnded <- getTime Monotonic
-            pure $ timeSpecToMilliseconds (timeEnded - timeStarted)
-    t <- restore networkAction `catch` \e -> do
-        after peer (Exceptional e) r
-        throwIO e
-    after peer Normal r
-    pure t
+    :: IO r  -- ^ Run before attempting to subscribe
+    -> (SubscriptionTerminationReason -> Millisecond -> r -> IO t) -- ^ Run after subscription ends
+    -> IO () -- ^ Do the subscription
+    -> IO t
+networkSubscribeTo before after doSubscription = mask $ \restore -> do
+    r <- before 
+    timeStarted <- getTime Monotonic
+    outcome <- Safe.try (restore doSubscription)
+    timeEnded <- getTime Monotonic
+    let duration = timeSpecToMilliseconds (timeEnded - timeStarted)
+        reason = either Exceptional (const Normal) outcome
+    after reason duration r
 
   where
 
@@ -154,21 +137,100 @@ networkSubscribeTo before middle keepalive after sendActions peer = mask $ \rest
 -- vice-versa (they are run 'concurrently').
 withNetworkSubscription
     :: ( SubscriptionMessageConstraints )
-    => (NodeId -> IO r)  -- ^ Run before attempting to subscribe
-    -> (NodeId -> IO ()) -- ^ Run after subscription comes up
-    -> (NodeId -> IO ()) -- ^ In case the keepalive version is run, keepalive is sent when
-                         --   this returns.
-    -> (NodeId -> SubscriptionTerminationReason -> r -> IO ()) -- ^ Run after subscription ends
+    => IO r    -- ^ Run before attempting to subscribe
+    -> IO ()   -- ^ Run after subscription comes up
+    -> IO ()   -- ^ In case the keepalive version is run, keepalive is sent when
+               --   this returns.
+    -> (SubscriptionTerminationReason -> Millisecond -> r -> IO ()) -- ^ Run after subscription ends
     -> SendActions
     -> NodeId
     -> IO t
     -> IO t
 withNetworkSubscription before middle keepalive after sendActions peer action = do
+
     control <- newEmptyMVar
+    let middle' = putMVar control () >> middle
+        doSubscription :: IO ()
+        doSubscription = subscriptionEstablish middle' keepalive sendActions peer
     (_, t) <- concurrently
-        (networkSubscribeTo before (\r -> putMVar control () >> middle r) keepalive after sendActions peer)
+        (networkSubscribeTo before after doSubscription)
         (takeMVar control >> action)
     pure t
+
+-- | Network subscription with some bells and whistles.
+--   - Updates a 'TVar' with the subscription status for the given 'NodeId'.
+--   - Keeps an outbound queue up-to-date.
+--   - Returns the duration of the subscription in 'Milliseconds', after it
+--     ends.
+networkSubscribeTo'
+    :: ( SubscriptionMessageConstraints )
+    => Trace IO (Severity, Text)
+    -> OQ.OutboundQ pack NodeId bucket
+    -> bucket
+    -> NodeType -- ^ Type to attribute to the peer that is subscribed to.
+    -> MVar (Map (NodeType, NodeId) Int)
+    -> IO () -- ^ Keepalive timeout
+    -> SubscriptionStates NodeId
+    -> SendActions
+    -> NodeId
+    -> IO Millisecond
+networkSubscribeTo' logTrace oq bucket nodeType peersVar keepalive subStates sendActions peer =
+    networkSubscribeTo before after doSubscription
+
+  where
+
+    doSubscription :: IO ()
+    doSubscription = subscriptionEstablish middle keepalive' sendActions peer
+
+    before = do
+        updatePeersBucketSubscribe oq bucket peersVar (nodeType, peer)
+        Status.subscribing subStates peer
+        traceWith logTrace (Notice, msgSubscribingTo peer)
+
+    middle = Status.subscribed subStates peer
+
+    keepalive' = do
+        keepalive
+        traceWith logTrace (Debug, msgSendKeepalive peer)
+
+    after reason duration _ = do
+        updatePeersBucketUnsubscribe oq bucket peersVar (nodeType, peer)
+        traceWith logTrace (Notice, msgSubscriptionTerminated peer reason)
+        Status.terminated subStates peer
+        pure duration
+
+    msgSubscribingTo :: NodeId -> Text
+    msgSubscribingTo = sformat ("subscriptionWorker: subscribing to "%shown)
+
+    msgSendKeepalive :: NodeId -> Text
+    msgSendKeepalive = sformat ("subscriptionWorker: sending keep-alive to "%shown)
+
+    msgSubscriptionTerminated :: NodeId -> SubscriptionTerminationReason -> Text
+    msgSubscriptionTerminated = sformat ("subscriptionWorker: lost connection to "%shown%" "%shown)
+
+-- | Instances required in order to do network subscription.
+type SubscriptionMessageConstraints =
+    ( Message MsgSubscribe
+    , Message MsgSubscribe1
+    , Bi MsgSubscribe
+    , Bi MsgSubscribe1
+    , Message Void
+    )
+
+subscriptionEstablish
+    :: ( SubscriptionMessageConstraints )
+    => IO () -- ^ Run when subscription is up
+    -> IO () -- ^ Send keepalive when this returns
+    -> SendActions
+    -> NodeId
+    -> IO ()
+subscriptionEstablish middle keepalive sendActions peer = withConnectionTo sendActions peer $
+    \_peerData -> NE.fromList
+        -- Sort conversations in descending order based on their version so that
+        -- the highest available version of the conversation is picked.
+        [ Conversation (convMsgSubscribe middle keepalive)
+        , Conversation (convMsgSubscribe1 middle)
+        ]
 
 convMsgSubscribe
     :: IO ()
@@ -187,62 +249,6 @@ convMsgSubscribe1 subscribed conv = do
     subscribed
     send conv MsgSubscribe1
     maybe () absurd <$> recv conv 0 -- Other side will never send
-
--- | Network subscription with some bells and whistles.
---   - Updates a 'TVar' with the subscription status for the given 'NodeId'.
---   - Keeps an outbound queue up-to-date.
---   - Returns the duration of the subscription in 'Milliseconds', after it
---     ends.
-networkSubscribeTo'
-    :: ( SubscriptionMessageConstraints )
-    => Trace IO (Severity, Text)
-    -> OQ.OutboundQ pack NodeId bucket
-    -> bucket
-    -> NodeType -- ^ Type to attribute to the peer that is subscribed to.
-    -> MVar (Map (NodeType, NodeId) Int)
-    -> (NodeId -> IO ()) -- ^ Keepalive timeout
-    -> TVar (Map NodeId SubscriptionStatus) -- ^ Subscription status per node.
-    -> SendActions
-    -> NodeId
-    -> IO Millisecond
-networkSubscribeTo' logTrace oq bucket nodeType peersVar keepalive status sendActions =
-    networkSubscribeTo before middle keepalive' after sendActions
-
-  where
-
-    before peer = do
-        updatePeersBucketSubscribe oq bucket peersVar (nodeType, peer)
-        alterPeerSubStatus peer (Just Subscribing)
-        traceWith logTrace (Notice, msgSubscribingTo peer)
-
-    middle peer = alterPeerSubStatus peer (Just Subscribed)
-
-    keepalive' nid = do
-        keepalive nid
-        traceWith logTrace (Debug, msgSendKeepalive nid)
-
-    after peer reason _ = do
-        updatePeersBucketUnsubscribe oq bucket peersVar (nodeType, peer)
-        traceWith logTrace (Notice, msgSubscriptionTerminated peer reason)
-        alterPeerSubStatus peer Nothing
-
-    msgSubscribingTo :: NodeId -> Text
-    msgSubscribingTo = sformat ("subscriptionWorker: subscribing to "%shown)
-
-    msgSendKeepalive :: NodeId -> Text
-    msgSendKeepalive = sformat ("subscriptionWorker: sending keep-alive to "%shown)
-
-    msgSubscriptionTerminated :: NodeId -> SubscriptionTerminationReason -> Text
-    msgSubscriptionTerminated = sformat ("subscriptionWorker: lost connection to "%shown%" "%shown)
-
-    alterPeerSubStatus :: NodeId -> Maybe SubscriptionStatus -> IO ()
-    alterPeerSubStatus peer s = atomically $ do
-        stats <- readTVar status
-        let !stats' = Map.alter fn peer stats
-        writeTVar status stats'
-        where
-            fn :: Maybe SubscriptionStatus -> Maybe SubscriptionStatus
-            fn x = getOption (Option x <> Option s)
 
 -- | A listener for subscriptions: add the subscriber to the set of known
 -- peers, annotating it with a given NodeType. Remove that peer from the set

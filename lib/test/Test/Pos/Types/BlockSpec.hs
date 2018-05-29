@@ -17,11 +17,10 @@ import           Pos.Arbitrary.Block as T
 import           Pos.Binary (Bi)
 import qualified Pos.Block.Base as T
 import qualified Pos.Block.Logic.Integrity as T
-import           Pos.Core (HasConfiguration, GenesisHash (..), genesisHash)
+import           Pos.Core (GenesisHash (..), HasConfiguration, genesisHash)
 import qualified Pos.Core as T
 import           Pos.Crypto (ProtocolMagic (..), ProxySecretKey (pskIssuerPk), SecretKey,
-                             SignTag (..), createPsk, proxySign, sign, toPublic,
-                             protocolMagic)
+                             SignTag (..), createPsk, protocolMagic, proxySign, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Util.Chrono (NewestFirst (..))
 
@@ -66,7 +65,7 @@ genesisHeaderFormation
     :: HasConfiguration
     => Maybe T.BlockHeader
     -> T.EpochIndex
-    -> T.Body T.GenesisBlockchain
+    -> T.GenesisBody
     -> Property
 genesisHeaderFormation prevHeader epoch body =
     header === manualHeader
@@ -81,7 +80,7 @@ genesisHeaderFormation prevHeader epoch body =
         , T._gbhExtra = T.GenesisExtraHeaderData $ mkAttributes ()
         }
     h = maybe genesisHash T.headerHash prevHeader
-    proof = T.mkBodyProof body
+    proof = T.mkBodyProof @T.GenesisBlockchain body
     difficulty = maybe 0 (view T.difficultyL) prevHeader
     consensus _ _ =
         T.GenesisConsensusData {T._gcdEpoch = epoch, T._gcdDifficulty = difficulty}
@@ -91,7 +90,7 @@ mainHeaderFormation
     => Maybe T.BlockHeader
     -> T.SlotId
     -> Either SecretKey (SecretKey, SecretKey, Bool)
-    -> T.Body T.MainBlockchain
+    -> T.MainBody
     -> T.MainExtraHeaderData
     -> Property
 mainHeaderFormation prevHeader slotId signer body extra =
@@ -99,7 +98,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
   where
     correctSigner (Left _)        = True
     correctSigner (Right (i,d,_)) = i /= d
-    header = T.mkGenericHeader protocolMagic prevHash body consensus extra
+    header = T.mkGenericHeader @T.MainBlockchain protocolMagic prevHash body consensus extra
     manualHeader =
         T.UnsafeGenericBlockHeader
         { T._gbhProtocolMagic = protocolMagic
@@ -109,7 +108,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
         , T._gbhExtra = extra
         }
     prevHash = maybe genesisHash T.headerHash prevHeader
-    proof = T.mkBodyProof body
+    proof = T.mkBodyProof @T.MainBlockchain body
     (sk, pSk) = either (, Nothing) mkProxySk signer
     mkProxySk (issuerSK, delegateSK, isSigEpoch) =
         let epoch = T.siEpoch slotId

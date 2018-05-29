@@ -18,7 +18,6 @@ import           Test.QuickCheck (Arbitrary (..), Gen, NonEmptyList (..), Proper
                                   listOf, property, sublistOf, suchThat, vector, (.&&.), (===),
                                   (==>))
 
-import           Pos.Arbitrary.Lrc (GenesisMpcThd, ValidRichmenStakes (..))
 import           Pos.Arbitrary.Ssc (BadCommAndOpening (..), BadSignedCommitment (..),
                                     CommitmentOpening (..))
 import           Pos.Binary (AsBinary)
@@ -38,6 +37,7 @@ import           Pos.Ssc (MultiRichmenStakes, PureTossWithEnv, SscGlobalState (.
                           supplyPureTossEnv)
 import           Pos.Ssc.Base (deleteSignedCommitment, verifyCommitment, verifyCommitmentSignature,
                                verifyOpening)
+import           Test.Pos.Lrc.Arbitrary (GenesisMpcThd, ValidRichmenStakes (..))
 import           Test.Pos.Util.QuickCheck.Property (qcElem, qcFail, qcIsRight)
 
 import           Test.Pos.Configuration (withDefConfiguration)

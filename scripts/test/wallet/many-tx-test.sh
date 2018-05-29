@@ -14,20 +14,22 @@ money=100000000
 echo -e "\nLooking for key files $key1"
 
 echo -e "\nResetting wallet database..."
-curl -k https://127.0.0.1:8090/api/test/reset -d "" &> /dev/null
+curl -k --cert scripts/tls-files/client.pem https://127.0.0.1:8090/api/test/reset -d "" &> /dev/null
 
 
 echo -e "\nCreating 2 wallets..."
 
 curl -k --request POST \
+  --cert scripts/tls-files/client.pem \
   --url https://127.0.0.1:8090/api/wallets/keys \
   --header 'content-type: application/json' \
   --data "\"$key1\"" &> /dev/null
 
 curl -k --request POST \
+     --cert scripts/tls-files/client.pem \
      --url https://127.0.0.1:8090/api/wallets/new \
      --header 'content-type: application/json' \
-     --data '{ 
+     --data '{
   "cwInitMeta": {
     "cwName": "My lovely wallet",
     "cwAssurance": "CWANormal",
@@ -45,6 +47,7 @@ echo -e "\nCreating $addrsNum addresses on wallet #2..."
 for i in `seq 1 $addrsNum`;
 do
     curl -k --request POST \
+      --cert scripts/tls-files/client.pem \
       --url https://127.0.0.1:8090/api/addresses/ \
       --header 'content-type: application/json' \
       --data "\"$acc2\"" &> /dev/null
@@ -52,10 +55,11 @@ done;
 
 
 echo "Sending money to wallet #2..."
-addrs2="$(curl -k https://localhost:8090/api/accounts/$acc2 | grep -o -E \"cadId\":\"[A-Za-z0-9]*\" | cut -c 9- | sed 's/\"//g' )"
+addrs2="$(curl -k --cert scripts/tls-files/client.pem https://localhost:8090/api/accounts/$acc2 | grep -o -E \"cadId\":\"[A-Za-z0-9]*\" | cut -c 9- | sed 's/\"//g' )"
 for addr2 in $addrs2
 do
     curl -k --request POST \
+         --cert scripts/tls-files/client.pem \
          --url https://127.0.0.1:8090/api/txs/payments/$acc1/$addr2/$money \
          --header 'content-type: application/json' &> /dev/null
 done;
@@ -66,6 +70,7 @@ read -n 1
 
 echo -e "\nMaking transaction #2 -> #1..."
 curl -k --request POST \
+     --cert scripts/tls-files/client.pem \
      --url https://127.0.0.1:8090/api/txs/payments/$acc2/$someAddr1/$(($money*2)) \
   --header 'content-type: application/json' &> /dev/null
 

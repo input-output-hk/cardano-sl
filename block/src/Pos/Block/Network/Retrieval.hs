@@ -21,14 +21,11 @@ import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, getHeadersOlderExp)
-import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlocks,
-                                          triggerRecovery)
+import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlocks, triggerRecovery)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (RecoveryHeaderTag)
 import           Pos.Communication.Protocol (NodeId)
-import           Pos.Core (Block, HasGeneratedSecrets, HasGenesisBlockVersionData, HasGenesisData,
-                           HasGenesisHash, HasHeaderHash (..), HasProtocolConstants,
-                           HasProtocolMagic, HeaderHash, difficultyL, isMoreDifficult)
+import           Pos.Core (Block, HasHeaderHash (..),  HeaderHash, difficultyL, isMoreDifficult)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.BlockIndex as DB
@@ -54,12 +51,6 @@ import           Pos.Util.Util (HasLens (..))
 retrievalWorker
     :: forall ctx m.
        ( BlockWorkMode ctx m
-       , HasGeneratedSecrets
-       , HasGenesisHash
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisBlockVersionData
-       , HasGenesisData
        , HasMisbehaviorMetrics ctx
        )
     => Diffusion m -> m ()
@@ -257,9 +248,7 @@ dropRecoveryHeader nodeId = do
 
 -- | Drops the recovery header and, if it was successful, queries the tips.
 dropRecoveryHeaderAndRepeat
-    :: ( BlockWorkMode ctx m
-       , HasProtocolMagic
-       )
+    :: BlockWorkMode ctx m
     => Diffusion m -> NodeId -> m ()
 dropRecoveryHeaderAndRepeat diffusion nodeId = do
     kicked <- dropRecoveryHeader nodeId
@@ -280,12 +269,6 @@ dropRecoveryHeaderAndRepeat diffusion nodeId = do
 getProcessBlocks
     :: forall ctx m.
        ( BlockWorkMode ctx m
-       , HasGeneratedSecrets
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisHash
-       , HasGenesisData
        , HasMisbehaviorMetrics ctx
        )
     => Diffusion m

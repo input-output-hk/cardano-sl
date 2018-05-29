@@ -12,6 +12,10 @@ scripts=$(dirname "$0")/../..
 sessionName="integration-tests-"`date +%H%M%S`
 tmpSecrets=$scripts/../temp-secrets
 
+tlsCACert=$scripts/../run/tls-files/ca.crt
+tlsClientCert=$scripts/../run/tls-files/client.crt
+tlsClientKey=$scripts/../run/tls-files/client.key
+
 SECONDS=$1
 
 # remove generated keys and shut down cardano cluster
@@ -34,7 +38,7 @@ stack exec -- cardano-keygen --system-start 0 generate-keys-by-spec --genesis-ou
 
 # run cluster
 echo "Starting local cardano cluster..."
-tmux new-session -s $sessionName -d "WALLET_DEBUG=1 scripts/launch/demo-with-wallet-api.sh"
+tmux new-session -s $sessionName -d "scripts/launch/demo-with-wallet-api.sh"
 
 # wait until cluster is fully up and running
 echo "Waiting $SECONDS seconds until local cluster is ready..."
@@ -46,7 +50,13 @@ echo "Importing poor HD keys/wallet..."
 for i in {0..11}
 do
     echo "Imporing key$i.sk ..."
-    curl -X POST http://localhost:8090/api/wallets/keys -H 'cache-control: no-cache' -H 'content-type: application/json' -d "\"$tmpSecrets/generated-keys/poor/key$i.sk\""
+    curl -X POST https://localhost:8090/api/wallets/keys \
+      --cacert $tlsCACert \
+      --cert $tlsClientCert \
+      --key $tlsClientKey \
+      -H 'cache-control: no-cache' \
+      -H 'content-type: application/json' \
+      -d "\"$tmpSecrets/generated-keys/poor/key$i.sk\""
 done
 
 FAILED=0
@@ -54,7 +64,7 @@ FAILED=0
 # run integration tests
 echo "Launching cardano integration tests..."
 stack exec -- cardano-integration-test --help
-stack exec -- cardano-integration-test || {
+stack exec -- cardano-integration-test --tls-ca-cert $tlsCACert --tls-client-cert $tlsClientCert --tls-key $tlsClientKey || {
     echo "Shutting down cardano cluster... it did a fail"
     cleanState
     FAILED=1

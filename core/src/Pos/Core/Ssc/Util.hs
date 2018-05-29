@@ -32,8 +32,7 @@ getCommShares =
 
 -- | Create proof (for inclusion into block header) from 'SscPayload'.
 mkSscProof
-    :: ( Bi VssCertificatesMap
-       , Bi CommitmentsMap
+    :: ( Bi CommitmentsMap
        , Bi Opening
        , Bi VssCertificate
        ) => SscPayload -> SscProof

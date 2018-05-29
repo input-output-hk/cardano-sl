@@ -29,6 +29,7 @@ import           Pos.Block.Base (mkGenesisBlock, mkMainBlock)
 import           Pos.Block.Logic.Internal (MonadBlockApply, applyBlocksUnsafe, normalizeMempool)
 import           Pos.Block.Logic.Util (calcChainQualityM)
 import           Pos.Block.Logic.VAR (verifyBlocksPrefix)
+import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.Block.Slog (HasSlogGState (..), ShouldCallBListener (..))
 import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..), HasGeneratedSecrets,
                            HasGenesisBlockVersionData, HasGenesisData, HasGenesisHash,
@@ -47,7 +48,7 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.Delegation (DelegationVar, DlgPayload (..), ProxySKBlockInfo, clearDlgMemPool,
                                  getDlgMempool)
 import           Pos.Exception (assertionFailed, reportFatalError)
-import           Pos.Lrc (HasLrcContext, LrcModeFull, lrcSingleShot)
+import           Pos.Lrc (HasLrcContext)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Reporting (HasMisbehaviorMetrics, reportError)
@@ -143,14 +144,6 @@ createGenesisBlockAndApply epoch = do
 createGenesisBlockDo
     :: forall ctx m.
        ( MonadCreateBlock ctx m
-       , MonadBlockApply ctx m
-       , CanJsonLog m
-       , HasGeneratedSecrets
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisData
-       , HasGenesisHash
        , HasMisbehaviorMetrics ctx
        )
     => EpochIndex
@@ -188,8 +181,6 @@ createGenesisBlockDo epoch = do
 
 needCreateGenesisBlock ::
        ( MonadCreateBlock ctx m
-       , MonadBlockApply ctx m
-       , HasProtocolConstants
        )
     => EpochIndex
     -> BlockHeader
@@ -228,15 +219,9 @@ needCreateGenesisBlock epoch tipHeader = do
 createMainBlockAndApply ::
        forall ctx m.
        ( MonadCreateBlock ctx m
-       , MonadBlockApply ctx m
        , CanJsonLog m
        , HasLens' ctx StateLock
        , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
-       , HasGeneratedSecrets
-       , HasGenesisData
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasProtocolMagic
        )
     => SlotId
     -> ProxySKBlockInfo
@@ -290,8 +275,7 @@ createMainBlockInternal sId pske = do
             "Created main block of size: " <> sformat memory (biSize block)
         block <$ evaluateNF_ block
 
-canCreateBlock ::
-       forall ctx m. (MonadCreateBlock ctx m, HasProtocolConstants, HasGenesisBlockVersionData)
+canCreateBlock :: MonadCreateBlock ctx m
     => SlotId
     -> BlockHeader
     -> m (Either Text ())
@@ -432,8 +416,7 @@ data RawPayload = RawPayload
     , rpUpdate :: !UpdatePayload
     }
 
-getRawPayload ::
-       forall ctx m. (MonadCreateBlock ctx m, HasGenesisBlockVersionData, HasProtocolConstants)
+getRawPayload :: MonadCreateBlock ctx m
     => HeaderHash
     -> SlotId
     -> m RawPayload

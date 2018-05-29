@@ -111,10 +111,10 @@ test-suite cardano-generator-test
   other-modules:
                        Spec
 
-                       Test.Pos.Lrc.WorkerSpec
                        Test.Pos.Block.Logic.CreationSpec
                        Test.Pos.Block.Logic.VarSpec
                        Test.Pos.Block.Property
+                       Test.Pos.Generator.Block.LrcSpec
 
   type:                exitcode-stdio-1.0
 
@@ -129,8 +129,10 @@ test-suite cardano-generator-test
                      , cardano-sl-db
                      , cardano-sl-delegation
                      , cardano-sl-generator
+                     , cardano-sl-lrc
                      , cardano-sl-ssc
                      , cardano-sl-txp
+                     , cardano-sl-txp-test
                      , cardano-sl-update
                      , cardano-sl-util
                      , cardano-sl-util-test

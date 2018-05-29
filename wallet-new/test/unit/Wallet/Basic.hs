@@ -47,7 +47,7 @@ initState = State {
   Construction
 -------------------------------------------------------------------------------}
 
-mkWallet :: (Hash h a, Ord a, Buildable st)
+mkWallet :: (Hash h a, Buildable st)
          => Ours a -> Lens' st (State h a) -> WalletConstr h a st
 mkWallet ours l self st = (mkDefaultWallet (l . statePending) self st) {
       utxo       = st ^. l . stateUtxo
@@ -55,7 +55,7 @@ mkWallet ours l self st = (mkDefaultWallet (l . statePending) self st) {
     , applyBlock = \b -> self (st & l %~ applyBlock' ours b)
     }
 
-walletEmpty :: (Hash h a, Ord a, Buildable a) => Ours a -> Wallet h a
+walletEmpty :: (Hash h a, Buildable a) => Ours a -> Wallet h a
 walletEmpty ours = fix (mkWallet ours identity) initState
 
 {-------------------------------------------------------------------------------

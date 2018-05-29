@@ -11,10 +11,6 @@ import           Weigh (io, mainWith)
 
 import           Test.QuickCheck (arbitrary, generate)
 
-import           Pos.Arbitrary.Txp.Unsafe ()
-
-import           Test.Pos.Configuration (withDefConfigurations)
-
 import           Pos.Explorer.DB (defaultPageSize)
 import           Pos.Explorer.ExplorerMode (ExplorerTestParams, runExplorerTestMode)
 import           Pos.Explorer.ExtraContext (ExtraContext (..), makeMockExtraCtx)
@@ -23,6 +19,8 @@ import           Pos.Explorer.TestUtil (BlockNumber, SlotsPerEpoch,
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
 import           Pos.Explorer.Web.Server (getBlocksPage, getBlocksTotal)
 
+import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Txp.Arbitrary.Unsafe ()
 
 ----------------------------------------------------------------
 -- Mocked functions

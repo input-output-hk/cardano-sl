@@ -11,7 +11,6 @@ module Pos.Core.Update.Util
 
        , mkUpdateProposalWSign
        , mkVoteId
-       , mkUpdateProof
 
        -- * Formatters
        , softforkRuleF
@@ -40,11 +39,11 @@ import           Pos.Core.Slotting (EpochIndex, isBootstrapEra)
 import           Pos.Core.Update.Types (BlockVersion, BlockVersionData (..),
                                         BlockVersionModifier (..), SoftforkRule (..),
                                         SoftwareVersion, SystemTag, UpAttributes, UpdateData,
-                                        UpdatePayload (..), UpdateProof, UpdateProposal (..),
+                                        UpdatePayload (..), UpdateProposal (..),
                                         UpdateProposalToSign (..), UpdateVote (..), VoteId,
                                         checkSoftwareVersion, checkSystemTag)
 import           Pos.Crypto (ProtocolMagic, SafeSigner, SignTag (SignUSProposal, SignUSVote),
-                             checkSig, hash, safeSign, safeToPublic)
+                             checkSig, safeSign, safeToPublic)
 
 checkUpdatePayload
     :: (MonadError Text m, Bi UpdateProposalToSign)
@@ -137,11 +136,6 @@ mkUpdateProposalWSign pm upBlockVersion upBlockVersionMod upSoftwareVersion upDa
 
 mkVoteId :: UpdateVote -> VoteId
 mkVoteId vote = (uvProposalId vote, uvKey vote, uvDecision vote)
-
-mkUpdateProof
-    :: Bi UpdatePayload
-    => UpdatePayload -> UpdateProof
-mkUpdateProof = hash
 
 -- | Helper to turn an @OS@ into a @String@ compatible with the @systemTag@ previously
 -- used in 'configuration.yaml'.

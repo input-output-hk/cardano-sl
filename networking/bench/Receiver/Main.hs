@@ -7,27 +7,28 @@
 
 module Main where
 
-import           Control.Exception.Safe (throwString, throwM)
+import           Control.Concurrent (threadDelay)
+import           Control.Exception (throwIO)
+import           Control.Exception.Safe (throwString)
 import           Control.Applicative (empty)
 import           Control.Monad (unless)
 
-import           Data.Time.Units (Second)
+import           Data.Functor.Contravariant (contramap)
+import           Data.Text (Text)
 import           GHC.IO.Encoding (setLocaleEncoding, utf8)
 import           Options.Applicative.Simple (simpleOptions)
-import           Serokell.Util.Concurrent (threadDelay)
 import           System.Random (mkStdGen)
-import qualified Pos.Util.Log as Log --(usingLoggerName)
 
-import           Mockable (Production (runProduction))
+import qualified Pos.Util.Log as Log
 
 import           Bench.Network.Commons (MeasureEvent (..), Ping (..), Pong (..), loadLogConfig,
                                         logMeasure)
-import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP as TCP
 import           Node (ConversationActions (..), Listener (..), NodeAction (..),
                        defaultNodeEnvironment, noReceiveDelay, node, simpleNodeEndPoint)
 import           Node.Message.Binary (binaryPacking)
 import           ReceiverOptions (Args (..), argsParser)
+import           Pos.Util.Trace (Trace, Severity (..), wlogTrace)
 
 main :: IO ()
 main = do
@@ -42,26 +43,31 @@ main = do
     Log.loadLogConfig logsPrefix logConfig
     setLocaleEncoding utf8
 
-    transport_ <- do
+    transport <- do
         transportOrError <-
             TCP.createTransport (TCP.defaultTCPAddr "127.0.0.1" (show port))
             TCP.defaultTCPParameters
-        either throwM return transportOrError
-    let transport = concrete transport_
+        either throwIO return transportOrError
 
     let prng = mkStdGen 0
 
-    runProduction $ Log.usingLoggerName Log.Debug "receiver" $ do
-        node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng binaryPacking () defaultNodeEnvironment $ \_ ->
-            NodeAction (const [pingListener noPong]) $ \_ -> do
-                threadDelay (fromIntegral duration :: Second)
+    node logTrace (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng binaryPacking () defaultNodeEnvironment $ \_ ->
+        NodeAction (const [pingListener noPong]) $ \_ -> do
+            threadDelay (duration * 1000000)
   where
+
+    logTrace' :: Trace IO (Severity, Text)
+    logTrace' = logTrace "receiver"
+
+    logInfo :: Trace IO Text
+    logInfo = contramap ((,) Info) logTrace'
+
     pingListener noPong =
         Listener $ \_ _ cactions -> do
             (mid, payload) <- recv cactions maxBound >>= \case
                 Just (Ping mid payload) -> return (mid, payload)
                 _ -> throwString "Expected a ping"
-            logMeasure PingReceived mid payload
+            logMeasure logInfo PingReceived mid payload
             unless noPong $ do
-                logMeasure PongSent mid payload
+                logMeasure logInfo PongSent mid payload
                 send cactions (Pong mid payload)

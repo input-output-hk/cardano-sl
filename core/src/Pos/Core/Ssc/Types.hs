@@ -52,7 +52,7 @@ import           Fmt (genericF)
 import           Formatting (Format, bprint, build, int, (%))
 import           Serokell.Util (listJson)
 
-import           Pos.Binary.Class (AsBinary (..), Bi, serialize')
+import           Pos.Binary.Class (AsBinary (..), serialize')
 import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Core.Slotting.Types (EpochIndex)
 import           Pos.Crypto (DecShare, EncShare, Hash, PublicKey, Secret, SecretProof, Signature,
@@ -198,7 +198,7 @@ instance Ord VssCertificate where
         toTuple UnsafeVssCertificate {..} =
             (vcExpiryEpoch, vcVssKey, vcSigningKey, vcSignature)
 
-instance Bi PublicKey => Buildable VssCertificate where
+instance Buildable VssCertificate where
     build UnsafeVssCertificate {..} = bprint
         ("vssCert:"%build%":"%int) vcSigningKey vcExpiryEpoch
 

@@ -15,7 +15,6 @@ import qualified Data.HashSet as HS
 import           System.Wlog (CanLog, HasLoggerName (..), LogEvent, NamedPureLogger, logDebug,
                               logWarning, runNamedPureLog)
 
-import           Pos.Binary.Class (Bi)
 import           Pos.Core (SoftwareVersion (..))
 import           Pos.Core.Update (UpdateProposal (..))
 import           Pos.Crypto (hash)
@@ -88,7 +87,7 @@ instance MonadPollRead PurePoll where
         PurePoll $ uses Poll.psIssuersStakes $ HM.lookup si <=< HM.lookup ei
     getSlottingData = PurePoll $ use Poll.psSlottingData
 
-instance (Bi UpdateProposal) => MonadPoll PurePoll where
+instance MonadPoll PurePoll where
     putBVState bv bvs = PurePoll $ Poll.psBlockVersions . at bv .= Just bvs
     delBVState bv = PurePoll $ Poll.psBlockVersions . at bv .= Nothing
     setAdoptedBV bv = do

@@ -1,0 +1,62 @@
+name:                cardano-sl-txp-test
+version:             1.0.0
+synopsis:            Cardano SL - arbitrary instances for cardano-sl-txp
+description:         Cardano SL - arbitrary instances for cardano-sl-txp
+license:             MIT
+license-file:        LICENSE
+author:              Rupert Horlick
+maintainer:          rupert.horlick@iohk.io
+copyright:           2018 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+                       Test.Pos.Txp.Arbitrary
+                       Test.Pos.Txp.Arbitrary.Network
+                       Test.Pos.Txp.Arbitrary.Unsafe
+
+  build-depends:       QuickCheck
+                     , base
+                     , cardano-sl-binary
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-crypto-test
+                     , cardano-sl-infra
+                     , cardano-sl-txp
+                     , cardano-sl-util-test
+                     , data-default
+                     , generic-arbitrary
+                     , universum
+                     , vector
+
+  default-language:    Haskell2010
+
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
+                       TemplateHaskell
+                       ScopedTypeVariables
+                       MonadFailDesugaring
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2

@@ -29,14 +29,14 @@ import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockA
                                            applyBlocksUnsafe, normalizeMempool,
                                            rollbackBlocksUnsafe, toSscBlock, toTxpBlock,
                                            toUpdateBlock)
+import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.Block.Slog (ShouldCallBListener (..), mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Types (Blund, Undo (..))
-import           Pos.Core (Block, HeaderHash, epochIndexL, headerHashG, prevBlockL, HasGeneratedSecrets,
-                           HasGenesisData, HasProtocolConstants, HasProtocolMagic,
-                           HasGenesisBlockVersionData, HasGenesisHash)
+import           Pos.Core (Block, HasGeneratedSecrets, HasGenesisBlockVersionData, HasGenesisData,
+                           HasGenesisHash, HasProtocolConstants, HasProtocolMagic, HeaderHash,
+                           epochIndexL, headerHashG, prevBlockL)
 import qualified Pos.DB.GState.Common as GS (getTip)
 import           Pos.Delegation.Logic (dlgVerifyBlocks)
-import           Pos.Lrc.Worker (LrcModeFull, lrcSingleShot)
 import           Pos.Reporting (HasMisbehaviorMetrics)
 import           Pos.Ssc.Logic (sscVerifyBlocks)
 import           Pos.Txp.Settings (TxpGlobalSettings (TxpGlobalSettings, tgsVerifyBlocks))
@@ -68,12 +68,7 @@ import           Pos.Util.Util (HasLens (..))
 -- 4.  Return all undos.
 verifyBlocksPrefix
     :: forall ctx m.
-       ( MonadBlockVerify ctx m
-       , HasGenesisBlockVersionData
-       , HasGenesisData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       )
+       ( MonadBlockVerify ctx m )
     => OldestFirst NE Block
     -> m (Either VerifyBlocksException (OldestFirst NE Undo, PollModifier))
 verifyBlocksPrefix blocks = runExceptT $ do
@@ -263,13 +258,7 @@ applyBlocks calculateLrc pModifier blunds = do
 
 -- | Rollbacks blocks. Head must be the current tip.
 rollbackBlocks
-    :: ( MonadBlockApply ctx m
-       , HasGeneratedSecrets
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisData
-       )
+    :: ( MonadBlockApply ctx m )
     => NewestFirst NE Blund -> m ()
 rollbackBlocks blunds = do
     tip <- GS.getTip
@@ -283,12 +272,6 @@ applyWithRollback
     :: forall ctx m.
        ( BlockLrcMode ctx m
        , MonadMempoolNormalization ctx m
-       , HasGeneratedSecrets
-       , HasGenesisData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisBlockVersionData
-       , HasGenesisHash
        , HasMisbehaviorMetrics ctx
        )
     => NewestFirst NE Blund        -- ^ Blocks to rollbck

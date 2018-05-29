@@ -200,8 +200,7 @@ onRollbackLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
 
 -- Return a map from @Page@ to @HeaderHash@es for all non-empty blocks.
 pageBlocksMap
-    :: HasConfiguration
-    => NE Block
+    :: NE Block
     -> M.Map Page [HeaderHash]
 pageBlocksMap neBlocks = blocksPages
   where
@@ -218,8 +217,7 @@ pageBlocksMap neBlocks = blocksPages
 -- | Creates paged @HeaderHash@es @SlotId@ pair.
 -- TODO(ks): Yes, we can extract both these functions in one common function for paging.
 createPagedHeaderHashesSlotIdPair
-    :: (HasConfiguration)
-    => [Block]
+    :: [Block]
     -> [(Page, HeaderHash)]
 createPagedHeaderHashesSlotIdPair blocks = blockIndexBlock
   where
@@ -253,8 +251,7 @@ createPagedHeaderHashesSlotIdPair blocks = blockIndexBlock
 -- | Creates paged @HeaderHash@es pair.
 -- TODO(ks): Yes, we can extract both these functions in one common function for paging.
 createPagedHeaderHashesPair
-    :: (HasConfiguration)
-    => [Block]
+    :: [Block]
     -> [(Page, HeaderHash)]
 createPagedHeaderHashesPair blocks = blockIndexBlock
   where
@@ -498,8 +495,7 @@ generalLastTxsExplorer blocksNE getTopTxsDiff = do
 
 -- Return a map from @Epoch@ to @HeaderHash@es for all non-empty blocks.
 epochPagedBlocksMap
-    :: (HasConfiguration)
-    => NE (Block)
+    :: NE (Block)
     -> M.Map EpochPagedBlocksKey [HeaderHash]
 epochPagedBlocksMap neBlocks = getPagedEpochHeaderHashesMap
   where

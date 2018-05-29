@@ -1,6 +1,8 @@
 module Cardano.Wallet.Server
     ( walletServer
     , walletDevServer
+    , walletDocServer
+    , walletDevDocServer
     ) where
 
 import           Servant
@@ -20,28 +22,33 @@ import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 --
 -- NOTE: Unlike the legacy server, the handlers will not run in a special
 -- Cardano monad because they just interfact with the Wallet object.
-walletServer :: forall m. (HasCompileInfo, HasUpdateConfiguration)
-             => ActiveWalletLayer m
+walletServer :: ActiveWalletLayer m
              -> Server WalletAPI
-walletServer w = v0DocHandler :<|> v1DocHandler :<|> v0Handler :<|> v1Handler
+walletServer w = v0Handler :<|> v1Handler
   where
     -- TODO: Not sure if we want to support the V0 API with the new wallet.
     -- For now I'm assuming we're not going to.
     --
     -- TODO: It'd be nicer to not throw an exception here, but servant doesn't
     -- make this very easy at the moment.
-    v0DocHandler = error "V0 API no longer supported"
-    v0Handler    = v0DocHandler
-    v1DocHandler = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v1API Swagger.highLevelDescription)
+    v0Handler    = error "V0 API no longer supported"
     v1Handler    = V1.handlers w
 
-
-walletDevServer :: forall m. (HasCompileInfo, HasUpdateConfiguration)
-                => ActiveWalletLayer m
-                -> RunMode
-                -> Server WalletDevAPI
-walletDevServer w runMode = devDocHandler :<|> devHandler :<|> walletHandler
+walletDevServer :: ActiveWalletLayer m
+             -> RunMode
+             -> Server WalletDevAPI
+walletDevServer w runMode = devHandler :<|> walletHandler
   where
-    devDocHandler = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) devAPI Swagger.highLevelShortDescription)
     devHandler    = Dev.handlers runMode
     walletHandler = walletServer w
+
+walletDocServer :: (HasCompileInfo, HasUpdateConfiguration) => Server WalletDocAPI
+walletDocServer = v0DocHandler :<|> v1DocHandler
+  where
+    v0DocHandler = error "V0 API no longer supported"
+    v1DocHandler = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) v1API Swagger.highLevelDescription)
+
+walletDevDocServer :: (HasCompileInfo, HasUpdateConfiguration) => Server WalletDevDocAPI
+walletDevDocServer = devDocHandler :<|> walletDocServer
+  where
+    devDocHandler = swaggerSchemaUIServer (Swagger.api (compileInfo, curSoftwareVersion) devAPI Swagger.highLevelShortDescription)

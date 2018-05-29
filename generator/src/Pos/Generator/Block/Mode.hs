@@ -155,9 +155,6 @@ instance MonadThrow m => MonadThrow (RandT g m) where
 mkBlockGenContext
     :: forall ext ctx m.
        ( MonadBlockGenInit ctx m
-       , HasSscConfiguration
-       , HasNodeConfiguration
-       , HasDlgConfiguration
        , Default ext
        )
     => BlockGenParams

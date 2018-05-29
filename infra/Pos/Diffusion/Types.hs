@@ -4,7 +4,6 @@
 module Pos.Diffusion.Types
     ( DiffusionLayer (..)
     , Diffusion (..)
-    , SubscriptionStatus (..)
     , hoistDiffusion
     , dummyDiffusionLayer
     ) where
@@ -13,7 +12,6 @@ import           Universum
 
 import           Data.Map.Strict (Map)
 import           Formatting (Format, stext)
-import           GHC.Generics (Generic)
 
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.Core (HeaderHash, ProxySKHeavy)
@@ -21,22 +19,11 @@ import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment, VssCertificate)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
+import           Pos.Diffusion.Subscription.Status (SubscriptionStates, emptySubscriptionStates)
 import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Util.Chrono (OldestFirst (..))
 
-import qualified Data.Map.Strict as Map
 
-
-data SubscriptionStatus =
-    -- | Established a subscription to a node
-    Subscribed
-    -- | Establishing a TCP connection to a node
-  | Subscribing
-  deriving (Eq, Ord, Show, Generic)
-
-instance Semigroup SubscriptionStatus where
-    Subscribed <> _     = Subscribed
-    Subscribing <> s    = s
 
 -- | The interface to a diffusion layer, i.e. some component which takes care
 -- of getting data in from and pushing data out to a network.
@@ -88,7 +75,7 @@ data Diffusion m = Diffusion
     , formatStatus       :: forall r . (forall a . Format r a -> a) -> m r
       -- | Subscriptin statuses to all nodes.  If the node is not subscribed it
       -- is not in the map.
-    , subscriptionStatus :: TVar (Map NodeId SubscriptionStatus)
+    , subscriptionStates :: SubscriptionStates NodeId
     }
 
 -- | A diffusion layer: its interface, and a way to run it.
@@ -112,20 +99,20 @@ hoistDiffusion nat orig = Diffusion
     , sendPskHeavy = nat . sendPskHeavy orig
     , healthStatus = nat $ healthStatus orig
     , formatStatus = \fmt -> nat $ formatStatus orig fmt
-    , subscriptionStatus = subscriptionStatus orig
+    , subscriptionStates = subscriptionStates orig
     }
 
 -- | A diffusion layer that does nothing.
-dummyDiffusionLayer :: (Monad m, MonadIO m, Applicative d) => m (DiffusionLayer d)
+dummyDiffusionLayer :: Applicative d => IO (DiffusionLayer d)
 dummyDiffusionLayer = do
-    ss <- newTVarIO Map.empty
+    ss <- emptySubscriptionStates
     return DiffusionLayer
         { runDiffusionLayer = identity
         , diffusion         = dummyDiffusion ss
         }
   where
-    dummyDiffusion :: Applicative m => TVar (Map NodeId SubscriptionStatus) -> Diffusion m
-    dummyDiffusion subscriptionStatus = Diffusion
+    dummyDiffusion :: Applicative m => SubscriptionStates NodeId -> Diffusion m
+    dummyDiffusion subscriptionStates = Diffusion
         { getBlocks          = \_ _ _ -> pure (OldestFirst [])
         , requestTip         = pure mempty
         , announceBlockHeader = \_ -> pure ()

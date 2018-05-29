@@ -4,6 +4,10 @@ module Cardano.Wallet.Kernel.DB.Spec (
     Pending(..)
   , Checkpoint(..)
   , Checkpoints
+  , emptyPending
+  , singletonPending
+  , unionPending
+  , removePending
     -- ** Lenses
   , pendingTransactions
   , checkpointUtxo
@@ -22,14 +26,19 @@ module Cardano.Wallet.Kernel.DB.Spec (
 
 import           Universum
 
+import           Control.Lens (to)
 import           Control.Lens.TH (makeLenses)
+import qualified Data.Map.Strict as M
 import           Data.SafeCopy (base, deriveSafeCopy)
+import           Data.Text.Buildable (build)
+import           Formatting (bprint, (%))
+import           Serokell.Util.Text (listJsonIndent)
 
 import qualified Pos.Core as Core
 import qualified Pos.Txp as Core
 
-import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.BlockMeta
+import           Cardano.Wallet.Kernel.DB.InDb
 
 {-------------------------------------------------------------------------------
   Wallet state as mandated by the spec
@@ -38,7 +47,28 @@ import           Cardano.Wallet.Kernel.DB.BlockMeta
 -- | Pending transactions
 data Pending = Pending {
       _pendingTransactions :: InDb (Map Core.TxId Core.TxAux)
-    }
+     } deriving Eq
+
+
+-- | Returns a new, empty 'Pending' set.
+emptyPending :: Pending
+emptyPending = Pending . InDb $ mempty
+
+-- | Returns a new, empty 'Pending' set.
+singletonPending :: Core.TxId -> Core.TxAux -> Pending
+singletonPending txId txAux = Pending . InDb $ M.singleton txId txAux
+
+-- | Computes the union between two 'Pending' sets.
+unionPending :: Pending -> Pending -> Pending
+unionPending (Pending new) (Pending old) =
+    Pending (M.union <$> new <*> old)
+
+-- | Computes the difference between two 'Pending' sets.
+removePending :: Set Core.TxId -> Pending -> Pending
+removePending ids (Pending (InDb old)) = Pending (InDb $ old `withoutKeys` ids)
+    where
+        withoutKeys :: Ord k => Map k a -> Set k -> Map k a
+        m `withoutKeys` s = m `M.difference` M.fromSet (const ()) s
 
 -- | Per-wallet state
 --
@@ -85,3 +115,12 @@ currentBlockMeta   = currentCheckpoint . checkpointBlockMeta
 
 neHead :: Lens' (NonEmpty a) a
 neHead f (x :| xs) = (:| xs) <$> f x
+
+{-------------------------------------------------------------------------------
+  Pretty-printing
+-------------------------------------------------------------------------------}
+
+instance Buildable Pending where
+    build (Pending p) =
+      let elems = p ^. fromDb . to M.toList
+      in bprint ("Pending " % listJsonIndent 4) (map fst elems)

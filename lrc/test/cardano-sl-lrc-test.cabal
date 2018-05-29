@@ -1,0 +1,41 @@
+name:                cardano-sl-lrc-test
+version:             1.0.0
+synopsis:            Testing modules for the Cardano SL lrc package
+description:         Testing modules for the Cardano SL lrc package
+license:             MIT
+license-file:        LICENSE
+author:              Rupert Horlick
+maintainer:          rupert.horlick@iohk.io
+copyright:           2018 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:     Test.Pos.Lrc.Arbitrary
+  build-depends:       base
+                     , cardano-sl-core
+                     , cardano-sl-lrc
+                     , generic-arbitrary
+                     , QuickCheck
+                     , reflection
+                     , universum
+                     , unordered-containers
+
+  default-extensions:  DeriveGeneric
+                       NoImplicitPrelude
+                       FlexibleContexts
+                       MultiParamTypeClasses
+                       OverloadedStrings
+                       ScopedTypeVariables
+                       TypeApplications
+                       UndecidableInstances
+
+  default-language:    Haskell2010
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

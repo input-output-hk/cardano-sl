@@ -33,6 +33,7 @@ library
                      , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-infra
+                     , cardano-sl-lrc
                      , cardano-sl-networking
                      , cardano-sl-txp
                      , cardano-sl-update

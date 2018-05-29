@@ -43,7 +43,7 @@ import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock, ge
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))
-import           Pos.Crypto (ProtocolMagic, SecretKey, toPublic)
+import           Pos.Crypto (SecretKey, toPublic)
 import           Pos.Delegation (DlgPayload, DlgUndo (..), ProxySKBlockInfo)
 import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
@@ -100,11 +100,11 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
         }
 
   where
-    createMapPageHHs :: (HasConfiguration) => [Block] -> Map Page [HeaderHash]
+    createMapPageHHs :: [Block] -> Map Page [HeaderHash]
     createMapPageHHs blocks =
         fromListWith (++) [ (page, [hHash]) | (page, hHash) <- createPagedHeaderHashesPair blocks]
 
-    createMapHHsBlund :: (HasConfiguration) => [Block] -> Map HeaderHash Blund
+    createMapHHsBlund :: [Block] -> Map HeaderHash Blund
     createMapHHsBlund blocks = fromList $ map blockHH blocks
       where
         blockHH :: Block -> (HeaderHash, Blund)
@@ -112,8 +112,7 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
 
     -- | TODO(ks): Need to add `getSlotIndex $ siSlot $ fst blund ^. mainBlockSlot`.
     createMapEpochPageHHs
-        :: (HasConfiguration)
-        => [Block]
+        :: [Block]
         -> SlotsPerEpoch
         -> Map EpochPagedBlocksKey [HeaderHash]
     createMapEpochPageHHs blocks slotsPerEpoch' =
@@ -135,8 +134,7 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
                 (as,bs) = splitAt n xs
 
     createMapEpochMaxPages
-        :: (HasConfiguration)
-        => [EpochPagedBlocksKey]
+        :: [EpochPagedBlocksKey]
         -> Map Epoch Page
     createMapEpochMaxPages epochPages = do
         let groupedEpochPages :: [[(Epoch, Page)]]
@@ -192,7 +190,7 @@ basicBlock prevHeader sk slotId =
     producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
 
 emptyBlk
-    :: (HasConfiguration, HasUpdateConfiguration, Testable p, Arbitrary ProtocolMagic)
+    :: (HasConfiguration, HasUpdateConfiguration, Testable p)
     => (Either Text MainBlock -> p)
     -> Property
 emptyBlk testableBlock =
@@ -228,7 +226,7 @@ leftToCounter x c = either (\t -> counterexample (toString t) False) (property .
 
 -- | Function that should generate arbitrary blocks that we can use in tests.
 produceBlocksByBlockNumberAndSlots
-    :: forall m. (HasConfiguration, HasUpdateConfiguration, MonadIO m, Monad m)
+    :: forall m. (HasConfiguration, HasUpdateConfiguration, MonadIO m)
     => BlockNumber
     -> SlotsPerEpoch
     -> SlotLeaders
@@ -317,8 +315,7 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
             getPrevBlockHeader = getBlockHeader . Left $ epochGenesisBlock
 
             generateBlocks
-                :: (HasConfiguration, HasUpdateConfiguration)
-                => BlockHeader
+                :: BlockHeader
                 -> BlockNumber
                 -> MainBlock
             generateBlocks previousBlockHeader blockNumber' =
@@ -360,7 +357,7 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
 
 
 -- | Produce N slot leaders so we can test it realistically.
-produceSlotLeaders :: (MonadIO m, Monad m) => SlotLeadersNumber -> m SlotLeaders
+produceSlotLeaders :: MonadIO m => SlotLeadersNumber -> m SlotLeaders
 produceSlotLeaders slotLeadersNumber = liftIO $ NE.fromList <$> stakeholders
   where
     stakeholders :: IO [StakeholderId]
@@ -370,7 +367,7 @@ produceSlotLeaders slotLeadersNumber = liftIO $ NE.fromList <$> stakeholders
         generatedStakeHolder = generate arbitrary
 
 -- | Produce N secret keys so we can test it realistically.
-produceSecretKeys :: (MonadIO m, Monad m) => BlockNumber -> m [SecretKey]
+produceSecretKeys :: MonadIO m => BlockNumber -> m [SecretKey]
 produceSecretKeys blocksNumber = liftIO $ secretKeys
   where
     secretKeys :: IO [SecretKey]

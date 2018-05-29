@@ -98,7 +98,7 @@ addMicrosecondsToTimestamp m t = Timestamp { getTimestamp = (getTimestamp t) + m
 -- >>> (1 :: Double) ^. from timestampSeconds :: Timestamp
 -- 1000000
 timestampSeconds
-    :: (Eq a, RealFrac a)
+    :: (RealFrac a)
     => Iso' Timestamp a
 timestampSeconds = _Timestamp . iso fromIntegral round . dividing 1e6
 

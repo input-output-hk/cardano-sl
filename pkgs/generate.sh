@@ -26,6 +26,6 @@ pushd "${scriptDir}"
      https://github.com/luite/hfsevents.git > hfsevents.nix
 
   # Generate cardano-sl package set
-  runInShell "cabal2nix glibcLocales" $(nix-build -A stack2nix --no-out-link -Q ../)/bin/stack2nix --platform x86_64-linux --hackage-snapshot 2018-03-22T11:56:04Z -j8 --test --bench ./.. > default.nix.new
+  runInShell "cabal2nix glibcLocales" $(nix-build -A stack2nix --no-out-link -Q ../)/bin/stack2nix --platform x86_64-linux --hackage-snapshot 2018-05-22T09:58:14Z -j8 --test --bench --no-indent ./.. > default.nix.new
   mv default.nix.new default.nix
 popd

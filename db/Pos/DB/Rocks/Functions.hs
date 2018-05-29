@@ -199,8 +199,7 @@ rocksIterSource tag _ = do
                 Rocks.iterNext it
                 produce it
     processRes ::
-           (Bi (IterKey i), Bi (IterValue i))
-        => Maybe (ByteString, ByteString)
+           Maybe (ByteString, ByteString)
         -> ConduitT () (IterType i) m (Maybe (IterType i))
     processRes Nothing   = pure Nothing
     processRes (Just kv) = processIterEntry @i kv

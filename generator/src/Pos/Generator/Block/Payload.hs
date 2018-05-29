@@ -110,7 +110,7 @@ data GenTxData = GenTxData
 
 makeLenses ''GenTxData
 
--- TODO: move to txp, think how to unite it with 'Pos.Arbitrary.Txp'.
+-- TODO: move to txp, think how to unite it with 'Test.Pos.Txp.Arbitrary'.
 -- | Generate valid 'TxPayload' using current global state.
 genTxPayload ::
        forall ext g m.

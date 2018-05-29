@@ -28,7 +28,7 @@ import qualified Database.RocksDB as Rocks
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core ()
-import           Pos.Core.Configuration (HasGeneratedSecrets, HasCoreConfiguration)
+import           Pos.Core.Configuration (HasCoreConfiguration)
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.DB (dbSerializeValue)
 import           Pos.DB.Class (DBTag (LrcDB), MonadDB (dbDelete, dbWriteBatch), MonadDBRead (dbGet))
@@ -57,7 +57,7 @@ putBatch :: MonadDB m => [Rocks.BatchOp] -> m ()
 putBatch = dbWriteBatch LrcDB
 
 putBatchBi
-     :: (MonadDB m, Bi v, HasGeneratedSecrets)
+     :: (MonadDB m, Bi v)
      => [(ByteString, v)] -> m ()
 putBatchBi = putBatch . toRocksOps
 
@@ -90,7 +90,7 @@ putEpoch = putBi epochKey
 ----------------------------------------------------------------------------
 
 -- | Put missing initial common data into LRC DB.
-prepareLrcCommon :: (MonadDB m, MonadDBRead m) => m ()
+prepareLrcCommon :: (MonadDB m) => m ()
 prepareLrcCommon =
     whenNothingM_ getEpochMaybe $
         putEpoch 0

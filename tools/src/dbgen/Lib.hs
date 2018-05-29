@@ -49,6 +49,8 @@ import           CLI (CLI (..))
 import           Rendering (green, renderAccountId, say)
 import           Types (UberMonad)
 
+import           Test.Pos.Txp.Arbitrary ()
+
 --
 -- Types
 --

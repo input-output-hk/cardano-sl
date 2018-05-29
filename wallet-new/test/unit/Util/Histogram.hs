@@ -13,6 +13,8 @@ module Util.Histogram (
   , Histogram  -- opaque
     -- * Output
   , writeFile
+  , SplitRanges(..)
+  , splitRanges
   , range
     -- * Construction
   , BinSize(..)
@@ -23,16 +25,20 @@ module Util.Histogram (
   , max
   , add
   , unionWith
-  , pruneAbove
+  , filterBins
+  , filterCounts
+  , nLargestBins
   ) where
 
 import           Universum hiding (empty, max, writeFile)
 import qualified Universum
 
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import qualified System.IO as IO
 
-import           Util.Range
+import           Util.Range (Range (..), Ranges (..), SplitRanges (..))
+import qualified Util.Range as Range
 
 {-------------------------------------------------------------------------------
   Basic definitions
@@ -130,28 +136,71 @@ unionWith f (Histogram bz a) (Histogram bz' b) =
       then error "Cannot union two histograms with different bin sizes"
       else Histogram bz (Map.unionWith f a b)
 
--- | Prune any bins at or above the given threshold
-pruneAbove :: Bin -> Histogram -> Histogram
-pruneAbove _ Empty = Empty
-pruneAbove b (Histogram bz m) = Histogram bz (aux m)
+-- | Filter bins
+filterBins :: (Bin -> Bool) -> Histogram -> Histogram
+filterBins _ Empty            = Empty
+filterBins p (Histogram bz m) = Histogram bz (aux m)
   where
     aux :: Map Bin Count -> Map Bin Count
-    aux = Map.filterWithKey $ \b' _c -> b' < b
+    aux = Map.filterWithKey $ \b _c -> p b
 
--- | X-range (bins) and Y-range (counts) for the given histogram
---
--- Calls 'error' if the histogram is empty.
-range :: Histogram -> Ranges
-range Empty = error "range: empty histogram"
-range (Histogram (BinSize bz) m) = Ranges {
-      _xRange = Range (fromIntegral xLo) (fromIntegral xHi)
-    , _yRange = Range (fromIntegral yLo) (fromIntegral yHi)
-    }
+-- | Filter counts
+filterCounts :: (Count -> Bool) -> Histogram -> Histogram
+filterCounts _ Empty            = Empty
+filterCounts p (Histogram bz m) = Histogram bz (aux m)
   where
-    xLo, xHi :: Int
-    xLo = fst (Map.findMin m) - (bz `div` 2)
-    xHi = fst (Map.findMax m) + (bz `div` 2)
+    aux :: Map Bin Count -> Map Bin Count
+    aux = Map.filter p
 
-    yLo, yHi :: Int
-    yLo = 0
-    yHi = maximum m + 1
+-- | Keep a percentage of the bins, prioritizing bins with more elements
+nLargestBins :: Double -> Histogram -> Histogram
+nLargestBins _ Empty            = Empty
+nLargestBins p (Histogram bz m) = Histogram bz (aux m)
+  where
+    allBins  = sortBy (flip (comparing snd)) $ Map.toList m
+    keep     = ceiling $ p * fromIntegral (length allBins)
+    nLargest = Set.fromList $ map fst $ take keep allBins
+    aux      = Map.filterWithKey $ \b _c -> b `Set.member` nLargest
+
+{-------------------------------------------------------------------------------
+  Split ranges
+-------------------------------------------------------------------------------}
+
+-- | Compute the range in bins and counts
+--
+-- The bin ranges are split whenever the gap between two specified bins
+-- is larger than the specified maximum gap. We use the number of bins
+-- in each subrange as the weight of that subrange, so that when we render
+-- it the number of bins determines how much space of the x-axis we allocate.
+--
+-- We make sure that the first range starts at bin 0.
+splitRanges :: Int -> Histogram -> SplitRanges Bin Count
+splitRanges _   Empty = error "splitRanges: empty histogram"
+splitRanges gap (Histogram _ m) =
+    case Map.toList m of
+      []           -> error "splitRanges: empty histogram"
+      (b,c) : bins -> go ([(Range 0 b, 1)], Range.singleton c) b bins
+  where
+    go :: ([(Range Bin, Int)], Range Count)  -- Accumulator
+       -> Bin                                -- Previous bin
+       -> [(Bin, Count)]                     -- To do
+       -> SplitRanges Bin Count
+    go (xRanges, yRange) _ [] = SplitRanges {
+          _splitXRanges = reverse xRanges
+        , _splitYRange  = yRange
+        }
+    go (xRanges, yRange) prev ((b, c) : bins) =
+        go (xRanges'', yRange') b bins
+      where
+        (xRange, numBins) : xRanges' = xRanges -- cannot be empty
+        xRanges'' = if b - prev > gap
+                     then (Range.singleton b, 1)             : xRanges
+                     else (Range.with b xRange, numBins + 1) : xRanges'
+        yRange'   = Range.with c yRange
+
+
+-- | Specialization of 'splitRanges' with no maximum gap.
+range :: Histogram -> Ranges Bin Count
+range h =
+    let SplitRanges [(xRange, _numBins)] yRange = splitRanges maxBound h
+    in Ranges xRange yRange

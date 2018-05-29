@@ -29,10 +29,11 @@ import           InputSelection.Policy (InputSelectionPolicy, PrivacyMode (..), 
                                         TxStats (..))
 import qualified InputSelection.Policy as Policy
 import           Util.Distr
-import           Util.Histogram (Bin, BinSize (..), Histogram)
+import           Util.Histogram (Bin, BinSize (..), Count, Histogram)
 import qualified Util.Histogram as Histogram
 import qualified Util.MultiSet as MultiSet
-import           Util.Range
+import           Util.Range (Range (..), Ranges (..), SplitRanges (..))
+import qualified Util.Range as Range
 import           UTxO.DSL
 
 {-------------------------------------------------------------------------------
@@ -123,10 +124,10 @@ timeSeriesList :: Iso' (TimeSeries a) [a]
 timeSeriesList = _Wrapped . _Wrapped
 
 -- | Bounds for a time series
-timeSeriesRange :: TimeSeries Double -> Ranges
+timeSeriesRange :: (Num a, Ord a) => TimeSeries a -> Ranges Int a
 timeSeriesRange (TimeSeries (NewestFirst xs)) = Ranges {
-      _xRange = Range 0 (fromIntegral (length xs))
-    , _yRange = Range 0 (maximum xs)
+      _x = Range 0 (length xs)
+    , _y = Range 0 (maximum xs)
     }
 
 -- | Write time series to a format gnuplot can read
@@ -145,37 +146,37 @@ data AccStats = AccStats {
       -- | Frame
       --
       -- This is just a simple counter
-      _accFrame          :: !Int
+      _accFrame            :: !Int
 
       -- | Number of payment requests we failed to satisfy
-    , _accFailedPayments :: !Int
+    , _accFailedPayments   :: !Int
 
       -- | Size of the UTxO over time
-    , _accUtxoSize       :: !(TimeSeries Int)
+    , _accUtxoSize         :: !(TimeSeries Int)
 
       -- | Maximum UTxO histogram
       --
       -- While not particularly meaningful as statistic to display, this is
       -- useful to determine bounds for rendering.
-    , _accUtxoHistogram  :: !Histogram
+    , _accUtxoMaxHistogram :: !Histogram
 
       -- | Transaction statistics
-    , _accTxStats        :: !TxStats
+    , _accTxStats          :: !TxStats
 
       -- | Time series of the median change/payment ratio
-    , _accMedianRatio    :: !(TimeSeries Double)
+    , _accMedianRatio      :: !(TimeSeries Double)
     }
 
 makeLenses ''AccStats
 
 initAccumulatedStats :: AccStats
 initAccumulatedStats = AccStats {
-      _accFrame          = 0
-    , _accFailedPayments = 0
-    , _accUtxoSize       = [] ^. from timeSeriesList
-    , _accUtxoHistogram  = Histogram.empty
-    , _accTxStats        = mempty
-    , _accMedianRatio    = [] ^. from timeSeriesList
+      _accFrame            = 0
+    , _accFailedPayments   = 0
+    , _accUtxoSize         = [] ^. from timeSeriesList
+    , _accUtxoMaxHistogram = Histogram.empty
+    , _accTxStats          = mempty
+    , _accMedianRatio      = [] ^. from timeSeriesList
     }
 
 -- | Construct statistics for the next frame
@@ -186,7 +187,7 @@ initAccumulatedStats = AccStats {
 stepFrame :: CurrentStats -> AccStats -> AccStats
 stepFrame CurrentStats{..} st =
     st & accFrame                        %~ succ
-       & accUtxoHistogram                %~ Histogram.max currentUtxoHistogram
+       & accUtxoMaxHistogram             %~ Histogram.max currentUtxoHistogram
        & accUtxoSize    . timeSeriesList %~ (currentUtxoSize :)
        & accMedianRatio . timeSeriesList %~ (MultiSet.medianWithDefault (-1) txStatsRatios :)
   where
@@ -292,47 +293,46 @@ intPolicy policy ours initState =
 -- _different_ policies use the same bounds.
 data Bounds = Bounds {
       -- | Range of the UTxO
-      _boundsUtxoHistogram :: Ranges
+      _boundsUtxoHistogram :: SplitRanges Bin Count
 
       -- | Range of the UTxO size time series
-    , _boundsUtxoSize      :: Ranges
+    , _boundsUtxoSize      :: Ranges Int Int
 
       -- | Range of the transaction inputs
-    , _boundsTxInputs      :: Ranges
+    , _boundsTxInputs      :: Ranges Int Int
 
       -- | Range of the median change/payment time series
-    , _boundsMedianRatio   :: Ranges
+    , _boundsMedianRatio   :: Ranges Int Double
     }
 
 makeLenses ''Bounds
 
 -- | Derive compute final bounds from accumulated statistics
 --
--- We make some adjustments:
+-- We hardcode some decisions:
 --
--- * We prune the UTxO above the specified bin. This allows us to filter out any
---   large "initial payments" from the UTxO graph; we typically have only one
---   such value and if we try to include it in the graph all the other outputs
---   will be squashed into a tiny corner on the left.
+-- * For the UTxO we set the minimum count to 0, always.
+--   (We don't really have a choice since we can only look at the "maximum"
+--   UTxO here, for which the minimum Y values aren't very interesting).
+-- * The same goes for the number of transaction inputs: here we only have
+--   the final counts.
+-- * For number of transaciton inputs we set minimum x to 0 always.
+-- * We split the X-range of the UTxO for gaps larger than 100k. This separates
+--   the "very large UTxO" from everything else.
 -- * For the change/payment ratio, we use a fixed yrange [0:2]. Anything below
 --   0 doesn't make sense (we use this for absent values); anything above 2
 --   isn't particularly interesting.
--- * For number of transaciton inputs we set minimum x to 0 always.
-deriveBounds :: AccStats -> Bin -> Bounds
-deriveBounds AccStats{..} maxUtxoBin = Bounds {
-      _boundsUtxoHistogram = Histogram.range (Histogram.pruneAbove maxUtxoBin _accUtxoHistogram)
-    , _boundsUtxoSize      = timeSeriesRange (fromIntegral <$> _accUtxoSize)
+deriveBounds :: AccStats -> Bounds
+deriveBounds AccStats{..} = Bounds {
+      _boundsUtxoHistogram = Histogram.splitRanges 100000 _accUtxoMaxHistogram
+                           & Range.splitYRange . Range.lo .~ 0
     , _boundsTxInputs      = Histogram.range (txStatsNumInputs _accTxStats)
-                           & xRange . rangeLo .~ 0
+                           & Range.x . Range.lo .~ 0
+                           & Range.y . Range.lo .~ 0
+    , _boundsUtxoSize      = timeSeriesRange (fromIntegral <$> _accUtxoSize)
     , _boundsMedianRatio   = timeSeriesRange _accMedianRatio
-                           & yRange .~ Range 0 2
+                           & Range.y .~ Range 0 2
     }
-
--- | Align a specific range
---
--- This is useful when aligning graphs.
-unionBoundsAt :: Monoid a => Lens' Bounds a -> [Bounds] -> Bounds -> Bounds
-unionBoundsAt l bs = l %~ mappend (mconcat (map (view l) bs))
 
 {-------------------------------------------------------------------------------
   Gnuplot output
@@ -353,22 +353,32 @@ data PlotInstr = PlotInstr {
     }
 
 -- | Render in gnuplot syntax
-renderPlotInstr :: BinSize -> Bounds -> PlotInstr -> Text
-renderPlotInstr utxoBinSize bounds PlotInstr{..} = sformat
+renderPlotInstr :: BinSize    -- ^ Bin size (for width of the boxes)
+                -> Bounds     -- ^ Derived bounds
+                -> Text       -- ^ Set up the split X-axis
+                -> Text       -- ^ Reset the split X-axis
+                -> PlotInstr  -- ^ Plot instruction
+                -> Text
+renderPlotInstr utxoBinSize
+                bounds
+                setupSplitAxis
+                resetSplitAxis
+                PlotInstr{..} = sformat
     ( "# Frame " % build % "\n"
     % "set output '" % build % ".png'\n"
     % "set multiplot\n"
 
     -- Plot the current UTxO
-    % "set xrange " % build % "\n"
+    % build
     % "set yrange " % build % "\n"
     % "set size 0.7,1\n"
     % "set origin 0,0\n"
-    % "set xtics autofreq\n"
+    % "set xtics autofreq rotate by -45\n"
     % "set label 1 'failed: " % build % "' at graph 0.95, 0.90 front right\n"
     % "set boxwidth " % build % "\n"
     % "plot '" % build % ".histogram' using 1:2 with boxes\n"
     % "unset label 1\n"
+    % build
 
     -- Plot UTxO size time series
     % "set xrange " % build % "\n"
@@ -401,22 +411,23 @@ renderPlotInstr utxoBinSize bounds PlotInstr{..} = sformat
     piFrame
     piFrame
 
-    (bounds ^. boundsUtxoHistogram . xRange)
-    (bounds ^. boundsUtxoHistogram . yRange)
+    setupSplitAxis
+    (bounds ^. boundsUtxoHistogram . Range.splitYRange)
     piFailedPayments
     utxoBinSize
     piFrame
+    resetSplitAxis
 
-    (bounds ^. boundsUtxoSize . xRange)
-    (bounds ^. boundsUtxoSize . yRange)
+    (bounds ^. boundsUtxoSize . Range.x)
+    (bounds ^. boundsUtxoSize . Range.y)
     piFrame
 
-    (bounds ^. boundsTxInputs . xRange)
-    (bounds ^. boundsTxInputs . yRange)
+    (bounds ^. boundsTxInputs . Range.x)
+    (bounds ^. boundsTxInputs . Range.y)
     piFrame
 
-    (bounds ^. boundsMedianRatio . xRange)
-    (bounds ^. boundsMedianRatio . yRange)
+    (bounds ^. boundsMedianRatio . Range.x)
+    (bounds ^. boundsMedianRatio . Range.y)
     piFrame
 
 -- | Render a complete set of plot instructions
@@ -427,11 +438,21 @@ writePlotInstrs PlotParams{..} script bounds is = do
       Text.hPutStrLn h $ sformat
           ( "set grid\n"
           % "set term png size " % build % ", " % build % "\n"
+          % build
           )
           width height
-      forM_ is $ Text.hPutStrLn h . renderPlotInstr utxoBinSize bounds
+          splitPrelude
+      forM_ is $ Text.hPutStrLn h
+               . renderPlotInstr
+                   utxoBinSize
+                   bounds
+                   setupSplitAxis
+                   resetSplitAxis
   where
     Resolution width height = resolution
+    (splitPrelude, setupSplitAxis, resetSplitAxis) =
+        Range.renderSplitAxis 25
+          (bounds ^. boundsUtxoHistogram . Range.splitXRanges)
 
 {-------------------------------------------------------------------------------
   Render observations
@@ -524,34 +545,24 @@ evaluateUsingEvents plotParams@PlotParams{..} eventsPrefix initUtxo events = do
       events
 
     -- Make sure we use the same bounds for the UTxO
-    let boundsTrivial_Largest    = deriveBounds statsLargest   2000
-        boundsTrivial_RandomOff  = deriveBounds statsRandomOff 2000
-        boundsTrivial_RandomOn   = deriveBounds statsRandomOn  2000
-
-        commonUtxoBounds = unionBoundsAt (boundsUtxoHistogram . xRange)
-                             [ boundsTrivial_Largest
-                             , boundsTrivial_RandomOff
-                             , boundsTrivial_RandomOn
-                             ]
-
-        boundsTrivial_Largest'   = commonUtxoBounds boundsTrivial_Largest
-        boundsTrivial_RandomOff' = commonUtxoBounds boundsTrivial_RandomOff
-        boundsTrivial_RandomOn'  = commonUtxoBounds boundsTrivial_RandomOn
+    let boundsTrivial_Largest   = deriveBounds statsLargest
+        boundsTrivial_RandomOff = deriveBounds statsRandomOff
+        boundsTrivial_RandomOn  = deriveBounds statsRandomOn
 
     writePlotInstrs
       plotParams
       ((eventsPrefix ++ "-largest") </> "mkframes.gnuplot")
-      boundsTrivial_Largest'
+      boundsTrivial_Largest
       plotLargest
     writePlotInstrs
       plotParams
       ((eventsPrefix ++ "-randomOff") </> "mkframes.gnuplot")
-      boundsTrivial_RandomOff'
+      boundsTrivial_RandomOff
       plotRandomOff
     writePlotInstrs
       plotParams
       ((eventsPrefix ++ "-randomOn") </> "mkframes.gnuplot")
-      boundsTrivial_RandomOn'
+      boundsTrivial_RandomOn
       plotRandomOn
 
 
@@ -569,7 +580,7 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
       (const True)
       (initIntState plotParams exactInitUtxo ())
       (Gen.test Gen.defTestParams)
-    let exactBounds = deriveBounds statsExact 2000
+    let exactBounds = deriveBounds statsExact
     writePlotInstrs
       plotParams
       ("exact" </> "mkframes.gnuplot")
@@ -582,14 +593,14 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
 
     let initUtxo = utxoSingleton (Input (GivenHash 0) 0) (Output Us 1000000)
     evaluateUsingEvents plotParams "trivial" initUtxo $
-      Gen.trivial (NormalDistr 1000 100) 1000
+      Gen.trivial (NormalDistr 1000 100) 500
     evaluateUsingEvents plotParams "3to1" initUtxo $
       Gen.fromDistr Gen.FromDistrParams {
           Gen.fromDistrDep    = NormalDistr 1000 100
         , Gen.fromDistrPay    = NormalDistr 3000 300
         , Gen.fromDistrNumDep = ConstDistr 3
         , Gen.fromDistrNumPay = ConstDistr 1
-        , Gen.fromDistrCycles = 1000
+        , Gen.fromDistrCycles = 500
         }
 
 

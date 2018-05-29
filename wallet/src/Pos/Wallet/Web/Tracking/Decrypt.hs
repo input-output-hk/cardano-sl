@@ -2,7 +2,7 @@
 -- Also utils to create THEntryExtra which based on
 -- decrypting of HDPayload.
 
-module Pos.Wallet.Web.Tracking.DecryptRefactor
+module Pos.Wallet.Web.Tracking.Decrypt
        ( THEntryExtra (..)
        , isTxEntryInteresting
        , buildTHEntryExtra

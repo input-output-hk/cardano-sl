@@ -1,6 +1,7 @@
 module TransactionsSpec where
 
 import Universum
+import qualified Prelude
 
 import Test.Hspec
 import Test.Hspec.QuickCheck
@@ -20,6 +21,7 @@ spec = do
                 -- nontermination. Or possibly some absolutely massive 'Integer'
                 -- values doing the same.
                 outputs = NE.fromList (NE.take 1000 outputs')
+                count = fromIntegral (length outputs) :: Double
                 distr = distributeFeesInternal fee outputs
              in
                 cover (isJust distr) 75 "Inputs did not satisfy invariants" $
@@ -33,15 +35,22 @@ spec = do
                                 sum (map toInteger distributed)
                             difference =
                                 abs (expected - actual)
+                            msg = Prelude.unlines
+                                [ "Difference was:   " <> show difference
+                                , "Count of outputs: " <> show count
+                                , "Fee / count:      " <>
+                                    show (fromIntegral fee / count)
+                                , "Fee:              " <> show fee
+                                ]
                          in
-                            counterexample ("Difference was: " <> show difference)
-                            $ difference <= 6
-                              .&&.
-                              all (0 <) distributed
-                              -- due to rounding error, we currently observe
-                              -- a maximum difference of 5 Lovelace between what
-                              -- we expect and the actual value. This amount
-                              -- would go to extra fees.
+                            counterexample msg $
+                                difference <= 4
+                                .&&.
+                                all (0 <) distributed
+                                -- due to rounding error, we currently observe
+                                -- a maximum difference of 5 Lovelace between what
+                                -- we expect and the actual value. This amount
+                                -- would go to extra fees.
 
         it "in case of fee that divides to X.5, goes to both" $ do
             let outputs = 21 :| [21]

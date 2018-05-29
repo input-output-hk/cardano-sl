@@ -181,12 +181,13 @@ distributeFeesInternal fee outputs
     | otherwise = Just result
   where
     result =
-        map (round . subtractFee) outputs
+        map (round . subtractFee . fromIntegral) outputs
+    fee' = fromIntegral fee
     total :: Rational
     total =
-        sum (map fromIntegral outputs)
+        foldl' (+) 0 (map fromIntegral outputs)
     subtractFee output =
-        fromIntegral output - (fromIntegral fee * (fromIntegral output / total))
+        output - (fee' * (output / total))
 
 -- | This subtraction implementation bottoms out at @0@ instead of underflowing.
 subBottomOut :: Word64 -> Word64 -> Word64

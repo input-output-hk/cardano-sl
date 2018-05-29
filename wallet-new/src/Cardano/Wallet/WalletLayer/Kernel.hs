@@ -13,6 +13,7 @@ import           System.Wlog (Severity(Debug))
 import           Pos.Block.Types (Blund, Undo (..))
 
 import qualified Cardano.Wallet.Kernel as Kernel
+import qualified Cardano.Wallet.Kernel.DB.HdWallet as HD
 import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
 import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..), fromRawResolvedBlock)
@@ -50,12 +51,19 @@ bracketPassiveWallet logFunction f =
                                     "direct",  "slush",    "pistol",  "razor",
                                     "become",  "junk",     "kingdom", "flee" ]
                      }
-            Right (esk, _) = safeKeysFromPhrase emptyPassphrase backup
-        Kernel.newWalletHdRnd w esk Map.empty
+            Right (esk, _keyPair) = safeKeysFromPhrase emptyPassphrase backup
+            pk = error "TODO: need `AddressHash PublicKey` along with ESK to create a wallet"
+
+        Kernel.createWalletHdRnd w walletName spendingPassword assuranceLevel (pk, esk) Map.empty
 
       f (passiveWalletLayer w invoke)
 
   where
+    -- TODO consider defaults
+    walletName       = HD.WalletName "(new wallet)"
+    spendingPassword = HD.NoSpendingPassword
+    assuranceLevel   = HD.AssuranceLevelNormal
+
     -- | TODO(ks): Currently not implemented!
     passiveWalletLayer _wallet invoke =
         PassiveWalletLayer

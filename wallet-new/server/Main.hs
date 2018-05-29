@@ -35,6 +35,7 @@ import           Pos.Wallet.Web.Tracking.Sync (syncWallet)
 import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage, usingLoggerName)
 
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
+
 import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletBackendParams (..),
                                             WalletBackendParams (..), WalletStartupOptions (..),
                                             getWalletNodeOptions, walletDbPath, walletFlushDb,
@@ -42,14 +43,13 @@ import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletB
 import qualified Cardano.Wallet.Server.Plugins as Plugins
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer, bracketKernelPassiveWallet)
 
-
 -- | Default logger name when one is not provided on the command line
 defaultLoggerName :: LoggerName
 defaultLoggerName = "node"
 
 {-
    Most of the code below has been copied & adapted from wallet/node/Main.hs as a path
-   of least resistance to make the wallet-new prototype independent (to an extend)
+   of least resistance to make the wallet-new prototype independent (to an extent)
    from breaking changes to the current wallet.
 -}
 

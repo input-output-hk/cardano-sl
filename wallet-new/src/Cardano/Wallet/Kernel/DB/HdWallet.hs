@@ -15,6 +15,8 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , HdRoot(..)
   , HdAccount(..)
   , HdAddress(..)
+    -- ** Initialiser
+  , initHdWallets
     -- ** Lenses
   , hdWalletsRoots
   , hdWalletsAccounts
@@ -30,6 +32,7 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , hdRootCreatedAt
   , hdAccountId
   , hdAccountName
+  , hdAccountCurrentCheckpoint
   , hdAccountCheckpoints
   , hdAddressId
   , hdAddressAddress
@@ -57,6 +60,9 @@ import           Control.Lens (at)
 import           Control.Lens.TH (makeLenses)
 import qualified Data.IxSet.Typed as IxSet
 import           Data.SafeCopy (base, deriveSafeCopy)
+
+import qualified Data.Text.Buildable
+import           Formatting (bprint, (%), build)
 
 import qualified Pos.Core as Core
 import qualified Pos.Crypto as Core
@@ -221,6 +227,9 @@ hdAddressAccountId = hdAddressId . hdAddressIdParent
 hdAddressRootId :: Lens' HdAddress HdRootId
 hdAddressRootId = hdAddressAccountId . hdAccountIdParent
 
+hdAccountCurrentCheckpoint :: Lens' HdAccount Checkpoint
+hdAccountCurrentCheckpoint = hdAccountCheckpoints . currentCheckpoint
+
 {-------------------------------------------------------------------------------
   Unknown identifiers
 -------------------------------------------------------------------------------}
@@ -282,7 +291,7 @@ instance HasPrimKey HdAddress where
 
 type HdRootIxs    = '[]
 type HdAccountIxs = '[HdRootId]
-type HdAddressIxs = '[HdRootId, HdAccountId]
+type HdAddressIxs = '[HdRootId, HdAccountId, Core.Address]
 
 type instance IndicesOf HdRoot    = HdRootIxs
 type instance IndicesOf HdAccount = HdAccountIxs
@@ -302,6 +311,7 @@ instance IxSet.Indexable (HdAddressId ': HdAddressIxs)
     indices = ixList
                 (ixFun ((:[]) . view hdAddressRootId))
                 (ixFun ((:[]) . view hdAddressAccountId))
+                (ixFun ((:[]) . view (hdAddressAddress . fromDb)))
 
 {-------------------------------------------------------------------------------
   Zoom to parts of a HD wallet
@@ -319,6 +329,9 @@ data HdWallets = HdWallets {
 
 deriveSafeCopy 1 'base ''HdWallets
 makeLenses ''HdWallets
+
+initHdWallets :: HdWallets
+initHdWallets = HdWallets emptyIxSet emptyIxSet emptyIxSet
 
 zoomHdRootId :: forall e a.
                 (UnknownHdRoot -> e)
@@ -357,3 +370,33 @@ zoomHdAddressId embedErr addrId =
 
     embedErr' :: UnknownHdAccount -> e
     embedErr' = embedErr . embedUnknownHdAccount
+
+{-------------------------------------------------------------------------------
+  Pretty printing
+-------------------------------------------------------------------------------}
+
+instance Buildable HdRootId where
+    build (HdRootId keyInDb)
+        = bprint ("HdRootId: "%build) (_fromDb keyInDb)
+
+instance Buildable HdAccountIx where
+    build (HdAccountIx ix)
+        = bprint ("HdAccountIx: "%build) ix
+
+instance Buildable HdAccountId where
+    build (HdAccountId parentId accountIx)
+        = bprint ("HdAccountId: "%build%", "%build) parentId accountIx
+
+instance Buildable HdAddressIx where
+    build (HdAddressIx ix)
+        = bprint ("HdAddressIx: "%build) ix
+
+instance Buildable HdAddressId where
+    build (HdAddressId parentId addressIx)
+        = bprint ("HdAddressId: "%build%", "%build) parentId addressIx
+
+instance Buildable UnknownHdAccount where
+    build (UnknownHdAccountRoot rootId)
+        = bprint ("UnknownHdAccountRoot: "%build) rootId
+    build (UnknownHdAccount accountId)
+        = bprint ("UnknownHdAccount accountId: "%build) accountId

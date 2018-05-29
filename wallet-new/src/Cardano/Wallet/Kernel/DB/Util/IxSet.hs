@@ -21,6 +21,7 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , fromList
   , omap
   , otraverse
+  , emptyIxSet
   ) where
 
 import           Universum hiding (Foldable)
@@ -171,3 +172,8 @@ omap f =
 otraverse :: (Applicative f, Indexable a)
           => (a -> f a) -> IxSet a -> f (IxSet a)
 otraverse f = fmap fromList . Data.Traversable.traverse f . Data.Foldable.toList
+
+emptyIxSet :: forall a.
+              Indexable a
+           => IxSet a
+emptyIxSet = WrapIxSet IxSet.empty

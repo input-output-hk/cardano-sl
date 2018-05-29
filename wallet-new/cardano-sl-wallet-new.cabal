@@ -72,7 +72,9 @@ library
                        Cardano.Wallet.Kernel.DB.InDb
                        Cardano.Wallet.Kernel.DB.Resolved
                        Cardano.Wallet.Kernel.DB.Spec
+                       Cardano.Wallet.Kernel.DB.Spec.Read
                        Cardano.Wallet.Kernel.DB.Spec.Update
+                       Cardano.Wallet.Kernel.DB.Spec.Util
                        Cardano.Wallet.Kernel.DB.Sqlite
                        Cardano.Wallet.Kernel.DB.TxMeta
                        Cardano.Wallet.Kernel.DB.TxMeta.Types
@@ -210,6 +212,11 @@ executable cardano-node
                        -Wall
                        -O2
   build-depends:       base
+                     , QuickCheck
+                     , acid-state
+                     , aeson
+                     , aeson-pretty
+                     , bytestring
                      , cardano-sl
                      , cardano-sl-crypto
                      , cardano-sl-infra
@@ -219,6 +226,7 @@ executable cardano-node
                      , cardano-sl-util
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
+                     , conduit
                      , log-warper
                      , stm
                      , text
@@ -403,6 +411,7 @@ test-suite wallet-unit-tests
   hs-source-dirs:     server test/unit
 
   build-depends:      base
+                    , acid-state
                     , cardano-sl
                     , cardano-sl-block
                     , cardano-sl-client

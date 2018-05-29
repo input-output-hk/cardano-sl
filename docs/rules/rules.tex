@@ -535,15 +535,15 @@ $b_1,…,b_n$ if all of the following hold
 \item[Issuer] Let $i$ be the issuer of $b$, and let $l$ be the slot
   leader at the slot of $b$:
   $$
-  b = \slotleader{\epochdistribution{b_1,…,b_n}}{\epochseed{b_1,…,b_n}}{\epochslot{slot}}
+  l = \slotleader{\epochdistribution{b_1,…,b_n}}{\epochseed{b_1,…,b_n}}{\epochslot{slot}}
   $$
   See Section~\ref{sec:derived-functions} for the definitions of
   $\epochdistribution{⋅}$ and $\epochseed{⋅}$.
   \improvement{this doesn't read too well, improve.}
 
-  Then, $i$ must be transitively authorised by $b$ in that:
+  Then, $i$ must be transitively authorised by $l$ in that:
   $$
-  i = \transitivefix{\delegations{b₁,…,b_n}}(b)
+  i = \transitivefix{\delegations{b₁,…,b_n}}(l)
   $$
   Note that, by definition, there is (at most) a single agent
   autorised by $b$ (it may be $b$ itself, if no delegation certificate
@@ -843,6 +843,43 @@ The secret-sharing phases are defined as:
 \info{In this section we will specify the rules used by a slot-leader
   to create a new block. The state is a single chain, plus outstanding
   transactions.}
+
+In this section we are parametrised by the current slot, a valid chain
+$b₁,…,b_n$, as well as the agent id $a$ of the node attempting to issue
+the block (or rather \emph{an} agent id, as it is customary in Cardano
+to have many public keys for a single agent).
+
+In order to issue a new block check that:
+\begin{description}
+\item[Authorised] Let $s$ be the current slot, and $l$ be the slot
+  leader at $s$:
+  $$
+  l = \slotleader{\epochdistribution{b_1,…,b_n}}{\epochseed{b_1,…,b_n}}{\epochslot{s}}
+  $$
+
+  Then, $a$ must be transitively authorised by $l$ in that:
+  $$
+  i = \transitivefix{\delegations{b₁,…,b_n}}(l)
+  $$
+\end{description}
+
+And build the following block:
+\begin{record}
+\item[predecessor] The predecessor is the (block id of) $b_n$
+\item[slot number] The slot number is set to the current slot
+\item[issuer] The block issuer is $a$
+\item[transactions] The list of transactions is set to be the entire
+  mempool\improvement{In fact this is limited by the block size
+    somehow. See
+    \href{https://iohk.myjetbrains.com/youtrack/issue/CDEC-170}{CDEC-170}.}
+\item[delegation certificates] \improvement{Specify where the delegation
+    certificates come from.}
+\end{record}
+\improvement{TODO: updates, ssc messages, and where they come from}
+\improvement{TODO: block size limits}
+\improvement{Should we specify the state of the mempool, and the
+  various message pools as well?}
+\unsure{Maybe this section should move to after the longest-chain selection}
 
 \section{Entering the mempool}
 \label{sec:entering-mempool}

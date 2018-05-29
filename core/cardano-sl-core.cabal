@@ -128,8 +128,19 @@ library
                        Pos.Core.Ssc.VssCertificatesMap
 
                        -- Update
-                       Pos.Core.Update.Types
-                       Pos.Core.Update.Util
+                       Pos.Core.Update.ApplicationName
+                       Pos.Core.Update.BlockVersion
+                       Pos.Core.Update.BlockVersionData
+                       Pos.Core.Update.BlockVersionModifier
+                       Pos.Core.Update.Data
+                       Pos.Core.Update.Payload
+                       Pos.Core.Update.Proof
+                       Pos.Core.Update.Proposal
+                       Pos.Core.Update.SoftforkRule
+                       Pos.Core.Update.SoftwareVersion
+                       Pos.Core.Update.SystemTag
+                       Pos.Core.Update.Vote
+                       Pos.Core.Update.VoteId
 
   build-depends:       aeson
                      , ansi-terminal

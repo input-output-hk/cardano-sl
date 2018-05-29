@@ -52,8 +52,8 @@ import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (
 import           Pos.Core.Slotting (SlotId (..), Timestamp (..))
 import qualified Pos.Core.Slotting as Types
 import           Pos.Core.Ssc (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
-import           Pos.Core.Update.Types (BlockVersionData (..))
-import qualified Pos.Core.Update.Types as U
+import           Pos.Core.Update (BlockVersionData (..))
+import qualified Pos.Core.Update as U
 import           Pos.Crypto (HasProtocolMagic, ProtocolMagic, createPsk, protocolMagic, toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 

@@ -50,7 +50,7 @@ import qualified Formatting as F
 import qualified Language.Haskell.TH.Syntax as TH
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 
-import           Pos.Util.Log (CanLog, HasLoggerName (..), LoggerNameBox (..))
+--import           Pos.Util.Log (CanLog, HasLoggerName (..), LoggerNameBox (..))
 
 ----------------------------------------------------------------------------
 -- Orphan miscellaneous instances

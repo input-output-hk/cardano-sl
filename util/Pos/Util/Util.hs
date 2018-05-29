@@ -427,7 +427,7 @@ sleep :: MonadIO m => NominalDiffTime -> m ()
 sleep n = liftIO (threadDelay (truncate (n * 10^(6::Int))))
 
 -- | 'tMeasure' with 'logDebug'.
-tMeasureLog :: (MonadIO m, Log.WithLogger m) => Text -> m a -> m a
+tMeasureLog :: (Log.WithLogger m) => Text -> m a -> m a
 tMeasureLog label = fmap fst . tMeasure Log.logDebug label
 
 -- | 'tMeasure' with 'putText'. For places you don't have
@@ -435,7 +435,7 @@ tMeasureLog label = fmap fst . tMeasure Log.logDebug label
 tMeasureIO :: (MonadIO m) => Text -> m a -> m a
 tMeasureIO label = fmap fst . tMeasure putText label
 
-timed :: (MonadIO m, Log.WithLogger m) => Text -> m a -> m (a, Microsecond)
+timed :: (Log.WithLogger m) => Text -> m a -> m (a, Microsecond)
 timed = tMeasure Log.logDebug
 
 -- | Takes the first time sample, executes action (forcing its

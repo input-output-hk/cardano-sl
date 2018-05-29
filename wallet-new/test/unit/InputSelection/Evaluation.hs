@@ -23,6 +23,8 @@ import           System.FilePath ((<.>), (</>))
 import qualified System.IO as IO
 import           Text.Printf (printf)
 
+import           Test.Infrastructure.Generator (estimateCardanoFee)
+
 import           InputSelection.Generator (Event (..), World (..))
 import qualified InputSelection.Generator as Gen
 import           InputSelection.Policy (InputSelectionPolicy, PrivacyMode (..), RunPolicy (..),
@@ -66,6 +68,10 @@ defaultPlotParams prefix = PlotParams {
                       , resolutionHeight = 400
                       }
     }
+
+-- Waiting for https://github.com/input-output-hk/cardano-sl/pull/2999
+simpleFee :: Int -> [Value] -> Value
+simpleFee inputs outputs = estimateCardanoFee inputs (length outputs)
 
 {-------------------------------------------------------------------------------
   Statistics about the current value of the system
@@ -280,6 +286,7 @@ intPolicy policy ours initState =
             stStats . accTxStats %= mappend txStats
           Left _err ->
             stStats . accFailedPayments += 1
+
 
 {-------------------------------------------------------------------------------
   Compute bounds
@@ -506,19 +513,19 @@ evaluateUsingEvents :: Hash h World
 evaluateUsingEvents plotParams@PlotParams{..} eventsPrefix initUtxo events = do
     (statsLargest, plotLargest) <- evaluatePolicy
       (prefix </> (eventsPrefix ++ "-largest"))
-      Policy.largestFirst
+      (Policy.largestFirst simpleFee)
       (== Us)
       (initIntState plotParams initUtxo Us)
       events
     (statsRandomOff, plotRandomOff) <- evaluatePolicy
       (prefix </> (eventsPrefix ++ "-randomOff"))
-      (Policy.random PrivacyModeOff)
+      (Policy.random PrivacyModeOff simpleFee)
       (== Us)
       (initIntState plotParams initUtxo Us)
       events
     (statsRandomOn, plotRandomOn) <- evaluatePolicy
       (prefix </> (eventsPrefix ++ "-randomOn"))
-      (Policy.random PrivacyModeOn)
+      (Policy.random PrivacyModeOn simpleFee)
       (== Us)
       (initIntState plotParams initUtxo Us)
       events
@@ -565,7 +572,7 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
     let exactInitUtxo = utxoEmpty
     (statsExact, plotExact) <- evaluatePolicy
       (prefix </> "exact")
-      Policy.exactSingleMatchOnly
+      (Policy.exactSingleMatchOnly simpleFee)
       (const True)
       (initIntState plotParams exactInitUtxo ())
       (Gen.test Gen.defTestParams)

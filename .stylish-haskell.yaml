@@ -245,3 +245,4 @@ language_extensions:
   - TypeApplications
   - TypeFamilies
   - ViewPatterns
+  - ExistentialQuantification

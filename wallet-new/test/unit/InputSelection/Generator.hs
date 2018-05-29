@@ -17,9 +17,12 @@ import           Universum
 import           Data.Conduit
 import           Test.QuickCheck
 
+import           Cardano.Wallet.Kernel.CoinSelection.Types
+
 import           InputSelection.Policy (LiftQuickCheck (..))
 import           Util.Distr
 import           UTxO.DSL
+
 
 {-------------------------------------------------------------------------------
   Events
@@ -27,8 +30,11 @@ import           UTxO.DSL
 
 data Event h a =
     Deposit (Utxo h a)
-  | Pay [Output a]
+  | Pay [(ExpenseRegulation, Output a)]
+  -- ^ A list of 'Output' we want to pay together with an 'ExpenseRegulation'
+  -- policy for each of them.
   | NextSlot
+
 
 {-------------------------------------------------------------------------------
   Testing
@@ -71,7 +77,7 @@ test TestParams{..} = do
 
     forM_ vals $ \n ->
       forM_ ixs $ \_m ->
-        yield $ Pay [Output () n]
+        yield $ Pay [(senderPays, Output () n)]
   where
     vals :: [Value]
     vals = [testParamsMin, testParamsMin + testParamsIncr .. testParamsMax]
@@ -107,10 +113,10 @@ data FromDistrParams fDep fPay fNumDep fNumPay =
     , Distribution fNumPay
     ) => FromDistrParams {
       -- | Distribution of deposit values
-      fromDistrDep :: fDep Value
+      fromDistrDep    :: fDep Value
 
       -- | Distribution of payment values
-    , fromDistrPay :: fPay Value
+    , fromDistrPay    :: fPay Value
 
       -- | Distribution of number of deposits
     , fromDistrNumDep :: fNumDep Int
@@ -145,8 +151,8 @@ fromDistr FromDistrParams{..} = do
             mkPay =
                 Pay . aux <$> drawFromDistr' fromDistrPay
               where
-                aux :: Value -> [Output World]
-                aux val = [Output Them val]
+                aux :: Value -> [(ExpenseRegulation, Output World)]
+                aux val = [(senderPays, Output Them val)]
 
         numDep <- drawFromDistr' fromDistrNumDep
         numPay <- drawFromDistr' fromDistrNumPay

@@ -117,6 +117,9 @@
 \newcommand{\commitphase}{\mathsf{phase}_\mathsf{commit}}
 \newcommand{\openphase}{\mathsf{phase}_\mathsf{open}}
 \newcommand{\recoveryphase}{\mathsf{phase}_\mathsf{recovery}}
+\newcommand{\epochcommitments}{\mathsf{commitments}}
+\newcommand{\epochopens}{\mathsf{opens}}
+\newcommand{\epochrecoveries}{\mathsf{recoveries}}
 
 %% /macros %%
 
@@ -201,6 +204,40 @@ as it is.\improvement{We may want to add something about protocol
     bindings to $0$ and absence of bindings. One way to solve this is
     to remove any binding to $0$ from the map.
   \end{implementationhint}
+
+\item[Partial functions] A partial function $f$ from $A$ to $B$ is a
+  pair of a subset $U∈\powerset{A}$, called the \emph{support} of $f$
+  (this overloads the meaning defined in the paragraph above), and a
+  function $U⟶B$. The set of partial functions from $A$ to $B$ is
+  written $A ⇀ B$. We write $f(a)$ for the image of $a∈U$.
+
+  For two partial functions $f$ and $g$ with respective supports $U$
+  and $V$, such that $∀a∈U∩V. f(a)=g(a)$, we write $f⊎g$ for the partial function
+  of support $U∪V$ defined as:
+  $$
+  f⊎g(a) = \left\{
+    \begin{array}{ll}
+      f(a) & \mbox{if }a∈U\\
+      g(a) & \mbox{if }a∈V
+    \end{array}
+    \right.
+  $$
+  Note that if $U∩V=∅$, the condition $∀a∈U∩V. f(a)=g(a)$ holds
+  vacuously, hence $f⊎g$ is defined.\unsure{Maybe a better symbol for
+    this ``gluing'' union.}
+
+  We say that a partial function has finite support if its support is
+  a finite subset.
+
+  \begin{implementationhint}
+    A partial function $A⇀B$ can be implemented as a function \verb+A -> Maybe B+.
+    Provided that its support is decidable. Mostly we are
+    interested in finite support partial function which are faithfully
+    represented by finite maps (in the sense of \verb+Data.Map+). The
+    $f⊎g$ gluing union can be implemented using \verb+Data.Map.Merge.mergeA+.
+  \end{implementationhint}
+
+
 \item[Remainder] For any $a∈ℤ$ and $b∈ℕ$, let us write $\rem{a}{b}$
   for the unique $0⩽r<b$ such that $a=qb+r$.
 \end{description}
@@ -337,7 +374,11 @@ as it is.\improvement{We may want to add something about protocol
     authorising $d$ to sign blocks for them.
   \end{implementationhint}
 
-  \end{record}
+  \item[seed computation]
+  \end{record}\improvement{Commitment (\emph{i.e.} finite map of agent
+    ids to seeds, plus something for the proof part), or openings
+    (\emph{i.e.}, finite map from agent ids to seeds), or recovery
+    (I'm not sure what it should look like yet)}
 
 \item[Chain] A chain is a sequence of blocks $b₁,…,b_n$ such that the
   predecessor of $b₁$ is the genesis block, and for every $i$, the

@@ -392,6 +392,8 @@ benchmark cardano-bench-criterion
                      , cardano-sl-block
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-crypto-test
+                     , cardano-sl-lrc
                      , cardano-sl-txp
                      , cardano-sl-txp-test
                      , cardano-sl-ssc

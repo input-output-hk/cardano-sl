@@ -9,12 +9,13 @@ import           Formatting (int, sformat, (%))
 import           Test.QuickCheck (Arbitrary (..), Gen, generate, infiniteListOf)
 import           Universum
 
+import           Pos.Arbitrary.Core.Unsafe ()
 import           Pos.Core (HasConfiguration)
 import           Pos.Core.Common (Coin, StakeholderId)
 import           Pos.Lrc (followTheSatoshi)
 
 import           Test.Pos.Util.QuickCheck.Arbitrary (arbitraryUnsafe)
-
+import           Test.Pos.Crypto.Arbitrary ()
 import           Bench.Configuration (giveCoreConf)
 
 type UtxoSize = Int

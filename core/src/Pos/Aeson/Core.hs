@@ -30,7 +30,7 @@ import           Pos.Core.Common (Address, BlockCount (..), ChainDifficulty, Coi
 import           Pos.Core.Delegation (HeavyDlgIndex (..))
 import           Pos.Core.Slotting.Types (EpochIndex (..), LocalSlotIndex, SlotCount (..), SlotId,
                                           Timestamp (..))
-import           Pos.Core.Ssc.Types (VssCertificate)
+import           Pos.Core.Ssc (VssCertificate)
 import           Pos.Core.Update.Types (ApplicationName (..), BlockVersion, BlockVersionData,
                                         SoftforkRule, SoftwareVersion (..))
 import           Pos.Data.Attributes (Attributes, UnparsedFields (..))

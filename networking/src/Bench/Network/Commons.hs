@@ -98,9 +98,9 @@ defaultLogConfig = fromScratch $ zoom lcTree $ do
 loadLogConfig :: MonadIO m => Maybe FilePath -> Maybe FilePath -> m ()
 loadLogConfig logsPrefix configFile = do
     let cfgBuilder = productionB <> maybeLogsDirB logsPrefix
-    loggerConfig <- maybe (return defaultLogConfig) parseLoggerConfig configFile
+    loggerConfig <- maybe (return defaultLogConfig) Log.parseLoggerConfig configFile
     Log.setupLogging Nothing $ loggerConfig <> cfgBuilder
--}
+ -}
 
 -- * Logging & parsing
 

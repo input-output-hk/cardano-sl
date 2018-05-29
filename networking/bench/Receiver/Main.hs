@@ -13,7 +13,7 @@ import           Control.Exception.Safe (throwString)
 import           Control.Applicative (empty)
 import           Control.Monad (unless)
 
-import           Data.Functor.Contravariant (contramap)
+--import           Data.Functor.Contravariant (contramap)
 import           Data.Text (Text)
 import           GHC.IO.Encoding (setLocaleEncoding, utf8)
 import           Options.Applicative.Simple (simpleOptions)
@@ -26,7 +26,7 @@ import           Node (ConversationActions (..), Listener (..), NodeAction (..),
                        defaultNodeEnvironment, noReceiveDelay, node, simpleNodeEndPoint)
 import           Node.Message.Binary (binaryPacking)
 import           ReceiverOptions (Args (..), argsParser)
-import           Pos.Util.Trace (Trace, Severity (..), logTrace)
+import           Pos.Util.Trace (Trace, TraceIO, logTrace, logInfo)
 import qualified Pos.Util.Log as Log
 
 main :: IO ()
@@ -55,18 +55,18 @@ main = do
             threadDelay (duration * 1000000)
   where
 
-    logTrace' :: Trace IO (Severity, Text)
+    logTrace' :: TraceIO
     logTrace' = logTrace "receiver"
 
-    logInfo :: Trace IO Text
-    logInfo = contramap ((,) Info) logTrace'
+    logInfo_ :: Trace IO Text
+    logInfo_ = logInfo logTrace'
 
     pingListener noPong =
         Listener $ \_ _ cactions -> do
             (mid, payload) <- recv cactions maxBound >>= \case
                 Just (Ping mid payload) -> return (mid, payload)
                 _ -> throwString "Expected a ping"
-            logMeasure logInfo PingReceived mid payload
+            logMeasure logInfo_ PingReceived mid payload
             unless noPong $ do
-                logMeasure logInfo PongSent mid payload
+                logMeasure logInfo_ PongSent mid payload
                 send cactions (Pong mid payload)

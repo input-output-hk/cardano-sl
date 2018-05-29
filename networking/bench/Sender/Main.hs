@@ -17,7 +17,8 @@ import           Control.Exception.Safe (throwString)
 import           Control.Monad (forM, forM_)
 
 import           Data.Foldable (foldlM)
-import           Data.Functor.Contravariant (contramap)
+--import           Data.Functor.Contravariant (contramap)
+import           Data.Text (Text)
 import           Data.Time.Units (Microsecond)
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           GHC.IO.Encoding (setLocaleEncoding, utf8)
@@ -32,7 +33,7 @@ import           Node (Conversation (..), ConversationActions (..), Node (Node),
                        simpleNodeEndPoint)
 import           Node.Internal (NodeId (..))
 import           Node.Message.Binary (binaryPacking)
-import           Pos.Util.Trace (Severity (..), logTrace)
+import           Pos.Util.Trace (Trace, TraceIO, logTrace, logInfo)
 import qualified Pos.Util.Log as Log
 
 import           Bench.Network.Commons (MeasureEvent (..), Payload (..), Ping (..), Pong (..),
@@ -92,8 +93,11 @@ main = do
 
   where
 
+    logTrace' :: TraceIO
     logTrace' = logTrace "sender"
-    logInfo = contramap ((,) Info) logTrace'
+
+    logInfo_ :: Trace IO Text
+    logInfo_ = logInfo logTrace'
 
     pingSender gen payloadBound startTimeMcs msgRate msgIds (msgStartId, peerId) converse =
         foldlM (pingSenderOnce payloadBound msgRate msgStartId peerId converse)
@@ -104,7 +108,7 @@ main = do
         let sMsgId = msgStartId + msgId
             (i, gen') = randomR (0, payloadBound) gen
             payload = Payload i
-        logMeasure logInfo PingSent sMsgId payload
+        logMeasure logInfo_ PingSent sMsgId payload
         converseWith converse peerId $ \_ -> Conversation $ \cactions -> do
             send cactions (Ping sMsgId payload)
             recv cactions maxBound >>= \case

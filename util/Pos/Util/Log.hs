@@ -36,7 +36,7 @@ import           Control.Monad.Morph (MFunctor (..))
 import           Control.Monad.Writer (WriterT (..))
 import           Control.Lens (each)
 
-import           Pos.Util.LoggerConfig --(LoggerConfig (..), LogHandler (..), loadLogConfig, parseLoggerConfig, retrieveLogFiles)
+import           Pos.Util.LoggerConfig
 import           Pos.Util.Log.Severity (Severity (..))
 
 import qualified Data.Text as T
@@ -125,13 +125,13 @@ logError msg = K.logItemM Nothing K.ErrorS $ K.logStr msg
 
 
 -- | get current stack of logger names
-askLoggerName0 :: (MonadIO m, LogContext m) => m LoggerName
+askLoggerName0 :: (LogContext m) => m LoggerName
 askLoggerName0 = do
     ns <- K.getKatipNamespace
     return $ toStrict $ toLazyText $ mconcat $ map fromText $ KC.intercalateNs ns
 
 -- | push a local name
-addLoggerName :: (MonadIO m, LogContext m) => LoggerName -> m a -> m a
+addLoggerName :: (LogContext m) => LoggerName -> m a -> m a
 addLoggerName t f =
     K.katipAddNamespace (KC.Namespace [t]) $ f
 
@@ -185,8 +185,6 @@ setupLogging lc = do
                                 return (lh ^. lhName, scribe)
                         )
             return scs
-            --hstdout <- mkStdoutScribe (Internal.sev2klog minSev) K.V0
-            --return (("__stdout", hstdout) : scs)
 
 
 -- | provide logging in IO
@@ -206,6 +204,16 @@ loggerBracket name f = do
             Just le -> bracket (return le) K.closeScribes $
                           \le_ -> K.runKatipContextT le_ () (Internal.s2kname name) $ f
 
+setLogPrefix :: Maybe FilePath -> LoggerConfig -> IO (LoggerConfig)
+setLogPrefix Nothing lc = return lc
+setLogPrefix (Just _) lc = return lc   -- TODO
+
+loadLogConfig :: Maybe FilePath -> Maybe FilePath -> IO ()
+loadLogConfig pre cfg = do
+    lc0 <- case cfg of
+              Nothing -> return (mempty :: LoggerConfig)
+              Just fp -> parseLoggerConfig fp
+    setLogPrefix pre lc0 >>= setupLogging
 
 -- | WIP: tests to run interactively in GHCi
 --

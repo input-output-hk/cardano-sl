@@ -168,6 +168,7 @@ executable bench-sender
                      , random
                      , safe-exceptions
                      , serokell-util
+                     , text
                      , time
                      , time-units
   hs-source-dirs:      bench/Sender

@@ -5,8 +5,15 @@ module Pos.Util.Trace
     , trace
     , traceWith
     , noTrace
+    -- * log messages
     , stdoutTrace
     , logTrace
+    , logDebug
+    , logInfo
+    , logWarning
+    , logNotice
+    , logError
+    -- * Pos.Util.Log reexport
     , Log.Severity (..)
     ) where
 
@@ -46,3 +53,19 @@ stdoutTrace = Trace $ Op $ TIO.putStrLn
 logTrace :: Log.LoggerName -> TraceIO
 logTrace loggerName = Trace $ Op $ \(severity, txt) ->
     Log.usingLoggerName loggerName $ Log.logMessage severity txt
+
+logDebug :: TraceIO -> Trace IO Text
+logDebug lt = contramap ((,) Log.Debug) lt
+
+logInfo :: TraceIO -> Trace IO Text
+logInfo lt = contramap ((,) Log.Info) lt
+
+logWarning :: TraceIO -> Trace IO Text
+logWarning lt = contramap ((,) Log.Warning) lt
+
+logNotice :: TraceIO -> Trace IO Text
+logNotice lt = contramap ((,) Log.Notice) lt
+
+logError :: TraceIO -> Trace IO Text
+logError lt = contramap ((,) Log.Error) lt
+

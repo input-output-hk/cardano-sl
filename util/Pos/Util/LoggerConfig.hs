@@ -20,7 +20,6 @@ module Pos.Util.LoggerConfig
        , lhFpath
        , lhMinSeverity
        -- * functions
-       , loadLogConfig
        , parseLoggerConfig
        , retrieveLogFiles
        ) where
@@ -153,9 +152,6 @@ parseLoggerConfig :: MonadIO m => FilePath -> m LoggerConfig
 parseLoggerConfig lcPath =
     liftIO $ join $ either throwM return <$> Y.decodeFileEither lcPath
 
--- | load log config from file  TODO
-loadLogConfig :: MonadIO m => Maybe FilePath -> Maybe FilePath -> m ()
-loadLogConfig _ _ = return ()
 
 -- | Given logger config, retrieves all (logger name, filepath) for
 -- every logger that has file handle. Filepath inside does __not__
@@ -169,6 +165,8 @@ retrieveLogFiles lc =
         lhs = lc ^. lcLoggerTree ^. ltHandlers ^.. each
 
 
+-- | @LoggerConfig@ used in testing
+-- no output and minimum Debug severity
 defaultTestConfiguration :: LoggerConfig
 defaultTestConfiguration =
     let _lcRotation = Nothing

@@ -10,7 +10,7 @@ loggerTree:
     - node.pub
     - node
   handlers:
-    - backend: FileJsonScribe
+    - backend: FileJsonBE
       severity: Warning+
       name: Json_log
       filepath: node.json

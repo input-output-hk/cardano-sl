@@ -1,26 +1,19 @@
 let
   localLib = import ./lib.nix;
-  # jemalloc has a bug that caused cardano-sl-db to fail to link (via
-  # rocksdb, which can use jemalloc).
-  # https://github.com/jemalloc/jemalloc/issues/937
-  # Using jemalloc 510 with the --disable-initial-exec-tls flag seems to
-  # fix it.
-  jemalloc510 = import ./nix/jemalloc/jemalloc510.nix;
-  defaultConfig = {
-    packageOverrides = pkgs: {
-      jemalloc = jemalloc510 {
-          stdenv = pkgs.stdenv;
-          fetchurl = pkgs.fetchurl;
-          fetchpatch = pkgs.fetchpatch;
-        };
-    };
+  jemallocOverlay = self: super: {
+    # jemalloc has a bug that caused cardano-sl-db to fail to link (via
+    # rocksdb, which can use jemalloc).
+    # https://github.com/jemalloc/jemalloc/issues/937
+    # Using jemalloc 510 with the --disable-initial-exec-tls flag seems to
+    # fix it.
+    jemalloc = self.callPackage ./nix/jemalloc/jemalloc510.nix {};
   };
 in
 { system ? builtins.currentSystem
-, config ? defaultConfig
+, config ? {}
 , gitrev ? localLib.commitIdFromGitRepo ./.git
 , buildId ? null
-, pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
+, pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; overlays = [ jemallocOverlay ]; })
 # profiling slows down performance by 50% so we don't enable it by default
 , forceDontCheck ? false
 , enableProfiling ? false

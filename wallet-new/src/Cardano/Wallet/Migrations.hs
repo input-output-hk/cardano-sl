@@ -3,7 +3,6 @@
 
 module Cardano.Wallet.Migrations where
 
-
 import Universum
 import Data.Traversable (for)
 import qualified Control.Exception as Ex
@@ -26,8 +25,12 @@ import Pos.Crypto.Hashing (decodeAbstractHash)
 import qualified Pos.Wallet.Web.State.Storage as WS
 import qualified Pos.Wallet.Web.ClientTypes as WebTypes
 import qualified Cardano.Wallet.Kernel.DB.TxMeta.Types as TxMeta
+import qualified Cardano.Wallet.Kernel.DB.HdWallet as Hdw
+import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as Hdw
+import qualified Cardano.Wallet.Kernel.DB.Util.AcidState as AS
+import Cardano.Wallet.Kernel.DB.InDb (InDb(InDb))
 
-import qualified Cardano.Wallet.Kernel.DB.Sqlite
+--import qualified Cardano.Wallet.Kernel.DB.Sqlite
 
 --------------------------------------------------------------------------------
 
@@ -68,10 +71,72 @@ txMetaFromWalletStorage ws = fmap join $ do
                       ours (Set.fromList (toList (fmap fst ins)))))
               })
 
+--------------------------------------------------------------------------------
+{-
+data HdWallets = HdWallets {
+    _hdWalletsRoots     :: IxSet HdRoot
+  , _hdWalletsAccounts  :: IxSet HdAccount
+  , _hdWalletsAddresses :: IxSet HdAddress
+  }
+   HdRoot {
+      -- | Wallet ID
+      _hdRootId          :: HdRootId
+      -- | Wallet name
+    , _hdRootName        :: WalletName
+      -- | Does this wallet have a spending password?
+      --
+      -- NOTE: We do not store the spending password itself, but merely record
+      -- whether there is one. Updates to the spending password affect only the
+      -- external key storage, not the wallet DB proper.
+    , _hdRootHasPassword :: HasSpendingPassword
+      -- | Assurance level
+    , _hdRootAssurance   :: AssuranceLevel
+      -- | When was this wallet created?
+    , _hdRootCreatedAt   :: InDb Core.Timestamp
+    -}
+
+hdWalletsFromWalletStorage
+  :: WS.WalletStorage -> AS.Update' Hdw.HdWallets String ()
+hdWalletsFromWalletStorage ws = do
+  for_ (HM.toList (WS._wsWalletInfos ws)) $ \(cwalID, wi) -> do
+     let wMeta = WS._wiMeta wi :: WebTypes.CWalletMeta
+     AS.mapUpdateErrors (const "createHdRoot") $ Hdw.createHdRoot
+        (undefined :: Hdw.HdRootId)
+        (Hdw.WalletName (WebTypes.cwName wMeta))
+        (Hdw.HasSpendingPassword
+           (InDb (review Core.timestampSeconds (WS._wiPassphraseLU wi))))
+        (case WebTypes.cwAssurance wMeta of
+            WebTypes.CWAStrict -> Hdw.AssuranceLevelStrict
+            WebTypes.CWANormal -> Hdw.AssuranceLevelNormal)
+        (InDb (review Core.timestampSeconds (WS._wiCreationTime wi)))
+     pure ()
+
+
+--
+--   {
+--   :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo)
+--   createHdRootId
+--       _wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo)
+-- createHdRoot :: HdRootId
+--              -> WalletName
+--              -> HasSpendingPassword
+--              -> AssuranceLevel
+--              -> InDb Core.Timestamp
+--              -> Update' HdWallets CreateHdRootError ()
+
+--------------------------------------------------------------------------------
+
 fromCTxId :: WebTypes.CTxId -> Maybe Core.TxId
 fromCTxId (WebTypes.CTxId (WebTypes.CHash t0)) = do
    bs0 <- decodeBase16 (T.encodeUtf8 t0)
    t1 <- either (const Nothing) Just (T.decodeUtf8' bs0)
+   either (const Nothing) Just (decodeAbstractHash t1)
+
+hdRootIdFromCIdWal :: WebTypes.CId WebTypes.Wal -> Maybe Hdw.HdRootId
+hdRootIdFromCIdWal (WebTypes.CHash t0) = do
+   undefined
+
+unsafeAddressHash :: Bi a => a -> AddressHash b
    either (const Nothing) Just (decodeAbstractHash t1)
 
 decodeBase16 :: B.ByteString -> Maybe B.ByteString

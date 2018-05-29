@@ -50,6 +50,7 @@ module Pos.Binary.Class.Core
     , szWithCtx
     , simplify
     , pp
+    , apMono
     ) where
 
 #include <MachDeps.h>
@@ -139,10 +140,6 @@ withSize s a1 a2 a3 a4 a5 =
 -- @'Word32'@ encoded size.
 withWordSize :: (Integral s, Integral a) => s -> a
 withWordSize s = withSize s 1 2 3 5 9
-
-wordSizeCases :: forall s. (Bounded s, Integral s) => Proxy s -> Size
-wordSizeCases _ = szCases [ fromInteger $ withWordSize (minBound @s)
-                          , fromInteger $ withWordSize (maxBound @s)]
 
 ----------------------------------------
 
@@ -243,8 +240,11 @@ instance Bi Char where
                | c <= chr 0xffff -> acu + 3
                | otherwise -> acu + 4
 
-    encodedSizeExpr _ _  = szCases [2,3,4,5]
-    encodedListSizeExpr size _ = szCases [1,5] + size (Proxy @(Length [Char])) * szCases [1,4]
+    encodedSizeExpr _ pxy = encodedSizeRange pxy
+    encodedListSizeExpr size _ =
+        let bsLength = size (Proxy @(Length [Char])) * size (Proxy @Char)
+        in bsLength + apMono "(withSize _ 1 2 3 4 5)" (\x -> withSize x 1 2 3 4 5) bsLength
+
 
 ----------------------------------------------------------------------------
 -- Numeric data
@@ -270,34 +270,39 @@ instance Bi Integer where
                     sizeW# = Gmp.sizeInBaseBigNat bigNat' 256#
                 in 1 + encodedSize (W# sizeW#) + fromIntegral (W# sizeW#)
 
+encodedSizeRange :: forall a. (Bi a, Bounded a) => Proxy a -> Size
+encodedSizeRange _ = szCases
+    [ fromIntegral $ encodedSize (minBound @a)
+    , fromIntegral $ encodedSize (maxBound @a) ]
+
 instance Bi Word where
     encode = E.encodeWord
     encodedSize w = withWordSize w
-    encodedSizeExpr _ w = wordSizeCases w
+    encodedSizeExpr _ w = encodedSizeRange w
     decode = D.decodeWordCanonical
 
 instance Bi Word8 where
     encode = E.encodeWord8
     encodedSize a = encodedSize @Word (fromIntegral a)
-    encodedSizeExpr _ w = wordSizeCases w
+    encodedSizeExpr _ w = encodedSizeRange w
     decode = D.decodeWord8Canonical
 
 instance Bi Word16 where
     encode = E.encodeWord16
     encodedSize a = encodedSize @Word (fromIntegral a)
-    encodedSizeExpr _ w = wordSizeCases w
+    encodedSizeExpr _ w = encodedSizeRange w
     decode = D.decodeWord16Canonical
 
 instance Bi Word32 where
     encode = E.encodeWord32
     encodedSize a = encodedSize @Word (fromIntegral a)
-    encodedSizeExpr _ w = wordSizeCases w
+    encodedSizeExpr _ w = encodedSizeRange w
     decode = D.decodeWord32Canonical
 
 instance Bi Word64 where
     encode = E.encodeWord64
     encodedSize a = encodedSize @Word (fromIntegral a)
-    encodedSizeExpr _ w = wordSizeCases w
+    encodedSizeExpr size w = encodedSizeRange w
     decode = D.decodeWord64Canonical
 
 instance Bi Int where
@@ -311,6 +316,7 @@ instance Bi Int where
             intBits = finiteBitSize (0 :: Int) - 1
             ui   :: Word
             ui   = fromIntegral n `xor` sign
+    encodedSizeExpr _ w = encodedSizeRange w
 
 instance Bi Float where
     encode = E.encodeFloat
@@ -322,13 +328,13 @@ instance Bi Float where
 instance Bi Int32 where
     encode = E.encodeInt32
     encodedSize a = encodedSize @Int (fromIntegral a)
-    encodedSizeExpr size _ = encodedSizeExpr @Int size (Proxy @Int) -- MN TODO
+    encodedSizeExpr _ w = encodedSizeRange w
     decode = D.decodeInt32Canonical
 
 instance Bi Int64 where
     encode = E.encodeInt64
     encodedSize a = encodedSize @Int (fromIntegral a)
-    encodedSizeExpr size _ = encodedSizeExpr @Int size (Proxy @Int) -- MN TODO
+    encodedSizeExpr _ w = encodedSizeRange w
     decode = D.decodeInt64Canonical
 
 instance Bi Nano where
@@ -408,7 +414,8 @@ instance Bi BS.ByteString where
         -- size of a header plus length of the @'ByteString'@
         in withWordSize len + fromIntegral len
     decode = D.decodeBytesCanonical
-    encodedSizeExpr size _ = szCases [1,9] +  size (Proxy @(Length BS.ByteString))
+    encodedSizeExpr size pxy = let len = size (Proxy @(Length BS.ByteString))
+        in apMono "withWordSize@Int" (withWordSize @Int . fromIntegral) len + len
     
 instance Bi Text.Text where
     encode = E.encodeString
@@ -424,7 +431,8 @@ instance Bi BS.Lazy.ByteString where
         -- size of a header plus length of the @'ByteString'@
         in withWordSize len + fromIntegral len
     decode = BS.Lazy.fromStrict <$> decode
-    encodedSizeExpr size _ = szCases [1,9] + size (Proxy @(Length BS.Lazy.ByteString))
+    encodedSizeExpr size _ = let len = size (Proxy @(Length BS.Lazy.ByteString))
+        in apMono "withWordSize@Int" (withWordSize @Int . fromIntegral) len + len
 
 instance Bi a => Bi [a] where
     encode = encodeList
@@ -951,6 +959,7 @@ data SizeF t
   | SgnF t
   | CasesF [t]
   | ValueF Byte
+  | ApF String (Byte -> Byte) t
   | forall a. Bi a => TodoF (forall x. Bi x => Proxy x -> Size) (Proxy a)
   deriving Typeable
 
@@ -964,6 +973,7 @@ instance Functor SizeF where
     SgnF x    -> SgnF (f x)
     CasesF xs -> CasesF (map f xs)
     ValueF x  -> ValueF x
+    ApF n g x -> ApF n g (f x)
     TodoF g x -> TodoF g x
 
 cata :: Functor f => (f t -> t) -> Fix f -> t
@@ -1000,8 +1010,9 @@ instance Buildable t => Buildable (SizeF t) where
          SgnF x   -> bprint ("sgn(" % build % ")") x
          CasesF xs -> bprint ("{ " % build % "}") $ foldMap (bprint (build % " ")) xs
          ValueF x  -> bprint shown (toInteger x)
+         ApF n _ x -> bprint (string % "(" % build % ")") n x
          TodoF _ x -> bprint ("(_ :: " % shown % ")") (typeRep x)
-    
+
 instance Buildable (Fix SizeF) where
   build x = bprint build (unfix x)
 
@@ -1030,7 +1041,7 @@ instance Buildable (Range Byte) where
 instance Buildable (Either Size (Range Byte)) where
   build (Right x) = bprint build x
   build (Left x)  = bprint build x
-  
+
 szEval :: (forall t. Bi t => (Proxy t -> Size) -> Proxy t -> Range Byte) -> Size -> Range Byte
 szEval doit = cata $ \case
   AddF x y -> x + y
@@ -1042,6 +1053,7 @@ szEval doit = cata $ \case
   CasesF xs -> Range { lo = minimum (map lo xs)
                     , hi = maximum (map hi xs) }
   ValueF x -> Range { lo = x, hi = x }
+  ApF _ f x -> Range { lo = f (lo x), hi = f (hi x) }
   TodoF f x -> doit f x
 
 szLazy :: Bi a => (Proxy a -> Size)
@@ -1065,7 +1077,7 @@ plug x = cata phi
   where
     phi HoleF = x
     phi (ExistingF e) = Fix e
-    
+
 isTodo :: Size -> Bool
 isTodo (Fix (TodoF _ _)) = True
 isTodo _ = False
@@ -1075,6 +1087,12 @@ todo f pxy = Fix (TodoF f pxy)
 
 pp :: Buildable a => a -> IO ()
 pp = putStrLn . pretty
+
+apMono :: String -> (Byte -> Byte) -> Size -> Size
+apMono n f = \case
+  Fix (ValueF x)  -> Fix (ValueF (f x))
+  Fix (CasesF cs) -> Fix (CasesF (map (apMono n f) cs))
+  x               -> Fix (ApF n f x)
 
 szWithCtx :: Bi a => Map TypeRep Size -> Proxy a -> Size
 szWithCtx ctx pxy = case M.lookup (typeRep pxy) ctx of
@@ -1095,7 +1113,9 @@ simplify = cata $ \case
     NegF x    -> unOp negate x
     AbsF x    -> unOp abs x
     SgnF x    -> unOp signum x
-    
+    ApF _ f (Right x) -> Right (Range { lo = f (lo x), hi = f (hi x) })
+    ApF n f (Left x)  -> Left  (apMono n f x)
+
   where
     binOp :: (forall a. Num a => a -> a -> a) -> Either Size (Range Byte) -> Either Size (Range Byte) -> Either Size (Range Byte)
     binOp (#) (Right x) (Right y) = Right (x # y)
@@ -1105,14 +1125,14 @@ simplify = cata $ \case
     unOp f = \case
       Right x -> Right (f x)
       Left x  -> Left (f x)
-    
+
     toSize :: Either Size (Range Byte) -> Size
     toSize = \case
       Left x  -> x
       Right r -> if lo r == hi r
                  then fromIntegral (lo r)
                  else szCases [fromIntegral (lo r), fromIntegral (hi r)]
-    
+
 force1 :: Size -> Size
 force1 = cata $ \case
   AddF x y -> x + y
@@ -1122,5 +1142,6 @@ force1 = cata $ \case
   AbsF x   -> abs x
   SgnF x   -> signum x
   CasesF xs -> Fix $ CasesF xs
-  ValueF x ->  Fix (ValueF x)
+  ValueF x  -> Fix (ValueF x)
+  ApF n f x -> apMono n f x
   TodoF f x -> f x

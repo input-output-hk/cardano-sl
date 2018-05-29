@@ -230,8 +230,8 @@ deriveSimpleBiInternal predsMB headTy constrs = do
 
     biEncodedSizeExprExpr :: Q Exp
     biEncodedSizeExprExpr = do
-      size <- newName "size"
-      pxy  <- newName "pxy"
+      size <- newName "_size"
+      pxy  <- newName "_"
       lam1E (varP size) $
         lam1E (varP pxy) $ do
           [| $(return $ LitE $ IntegerL $ if length filteredConstrs > 1 then 1 else 0) + Bi.szCases $(fmap ListE (sequence $ imap encodedSizeExprConstr filteredConstrs)) |]
@@ -264,13 +264,13 @@ deriveSimpleBiInternal predsMB headTy constrs = do
     encodedSizeExprConstr idx (Cons cName cFields) = do
       let fields = mapM encodedSizeExprField cFields
           count = length cFields + (if length filteredConstrs > 1 then 1 else 0)
-          extraBytes = error "MN TODO"
+          extraBytes = 2 -- error "MN TODO"
       [| $((pure . LitE . IntegerL) extraBytes) + sum $(ListE <$> fields) |] -- MN TODO: also add length and, when needed, Word8 tag
       
     encodedSizeExprField :: Field -> Q Exp
     encodedSizeExprField Field{..} = do
         (_, fTy) <- expToNameAndType fFieldAndType
-        [| size (Proxy :: Proxy $(pure fTy)) |]
+        [| _size (Proxy :: Proxy $(pure fTy)) |]
 
     actualLen :: Name
     actualLen = mkName "actualLen"

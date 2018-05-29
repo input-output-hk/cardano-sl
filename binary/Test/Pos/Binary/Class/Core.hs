@@ -38,6 +38,16 @@ encodedListSizeProp :: forall a. (Bi a, Show a) => Gen a -> Property
 encodedListSizeProp gen = forAll (listOf gen) $ \as ->
     encodedListSize as === fromIntegral (length $ serialize as)
 
+encodedSizeBoundProp :: forall a. (Bi a, Show a) => (a -> Map TypeRep Size) -> Gen a -> Property
+encodedSizeBoundProp ctx gen = forAll gen encodedSizeBoundProp'
+
+encodedSizeBoundProp' :: forall a. (Bi a, Show a) => (a -> Map TypeRep Size) -> a -> Property
+encodedSizeBoundProp' ctx a =
+  fromIntegral (length $ serialize a) `boundedBy` sizeBounds @a (ctx a)
+
+sizeBounds :: forall a. Bi a => Map TypeRep Size -> Either Size (Range Byte)
+sizeBounds ctx = simplify (szWithCtx ctx (Proxy @a))
+
 -- Like @'==='@ but for @'>='@ rather than @'=='@.
 greaterEqual :: (Ord a, Show a) => a -> a -> Property
 greaterEqual a b =

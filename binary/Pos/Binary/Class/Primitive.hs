@@ -59,7 +59,8 @@ import           Data.Typeable (typeOf)
 import           Formatting (sformat, shown, (%))
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class.Core (Bi (..), Size, cborError, enforceSize, toCborError, withWordSize, szCases)
+import           Pos.Binary.Class.Core (Bi (..), Size, cborError, enforceSize, toCborError,
+                                        apMono, withWordSize, szCases)
 
 -- | Serialize a Haskell value to an external binary representation.
 --
@@ -235,7 +236,7 @@ encodedUnknownCborDataItemSize x =
 
 
 unknownCborDataItemSizeExpr :: Size -> Size
-unknownCborDataItemSizeExpr x = 2 + szCases [1,9] + x -- MN TODO: compare wordSizeCases; can we get more specific here?
+unknownCborDataItemSizeExpr x = 2 + apMono "withWordSize" withWordSize x + x
 
 -- | Remove the the semantic tag 24 from the enclosed CBOR data item,
 -- failing if the tag cannot be found.

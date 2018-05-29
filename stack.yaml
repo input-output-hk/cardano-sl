@@ -46,10 +46,13 @@ packages:
     git: https://github.com/serokell/time-units.git
     commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
   extra-dep: true
-- location:
-    git: https://github.com/serokell/acid-state.git
-    commit: 9a8af2440d655e14b802639b0b363be2ffb5a32a
-  extra-dep: true
+- /home/mnoonan/iohk/acid-state
+#- location:
+#    git: https://github.com/input-output-hk/acid-state.git
+#    commit: d601339c95d7b79be3a58a192fc8c394f0b7fc94
+#  extra-dep: true
+#    git: https://github.com/serokell/acid-state.git
+#    commit: 9a8af2440d655e14b802639b0b363be2ffb5a32a
 - location:
     git: https://github.com/serokell/kademlia.git
     commit: 7120bb4d28e708acd52dfd61d3dca7914fac7d7f # master
@@ -193,6 +196,7 @@ extra-deps:
 - validation-0.6.1
 - swagger2-2.2.1
 - bytestring-arbitrary-0.1.1
+- cryptonite-openssl-0.7
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

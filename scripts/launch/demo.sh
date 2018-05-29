@@ -74,7 +74,7 @@ fi
 wallet_flush=""
 # Argument for testing wallet db flushing
 if [[ "$WALLET_FLUSH" != "" ]]; then
-  wallet_flush="--flush-wallet-db"
+  wallet_flush=""
 fi
 
 # System start time in seconds (time since epoch).

@@ -32,7 +32,14 @@ with pkgs.lib;
 with pkgs.haskell.lib;
 
 let
-  addGitRev = subject: subject.overrideAttrs (drv: { GITREV = gitrev; });
+  addGitRev = subject:
+    subject.overrideAttrs (
+      drv: {
+        GITREV = gitrev;
+        librarySystemDepends = (drv.librarySystemDepends or []) ++ [ pkgs.git ];
+        executableSystemDepends = (drv.executableSystemDepends or []) ++ [ pkgs.git ];
+      }
+    );
   addRealTimeTestLogs = drv: overrideCabal drv (attrs: {
     testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
     preCheck = ''

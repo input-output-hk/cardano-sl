@@ -131,15 +131,19 @@ let
     }) { inherit pkgs; };
     inherit (pkgs) purescript;
     connectScripts = {
-      mainnetWallet = connect {};
-      mainnetExplorer = connect { executable = "explorer"; };
-      stagingWallet = connect { environment = "mainnet-staging"; };
+      mainnet = {
+        wallet = connect {};
+        explorer = connect { executable = "explorer"; };
+      };
+      staging = {
+        wallet = connect { environment = "mainnet-staging"; };
+        explorer = connect { executable = "explorer"; environment = "mainnet-staging"; };
+      };
       demoWallet = connect { environment = "demo"; };
-      stagingExplorer = connect { executable = "explorer"; environment = "mainnet-staging"; };
     };
     dockerImages = {
-      mainnetWallet = mkDocker { environment = "mainnet"; };
-      stagingWallet = mkDocker { environment = "mainnet-staging"; };
+      mainnet.wallet = mkDocker { environment = "mainnet"; };
+      staging.wallet = mkDocker { environment = "mainnet-staging"; };
     };
 
     daedalus-bridge = let

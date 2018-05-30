@@ -99,6 +99,7 @@
 \newcommand{\delegations}[1]{\mathsf{deleg}(#1)}
 \newcommand{\epoch}[1]{\mathsf{epoch}(#1)}
 \newcommand{\epochslot}[1]{\mathsf{slot}_\mathsf{epoch}(#1)}
+\newcommand{\epochindex}[1]{\mathsf{epoch}_\mathsf{index}(#1)}
 \newcommand{\epochseed}[1]{\mathsf{seed}(#1)}
 \newcommand{\epochdistribution}[1]{\mathsf{distr}(#1)}
 \newcommand{\currentdistribution}[1]{\mathsf{distr}_0(#1)}
@@ -824,14 +825,11 @@ Section~\ref{sec:adding-block} are mutually recursive.
   $$
   \currentdistribution{b₁,…,b_n} = \currentdistribution{\transactions{b₁},…,\transactions{b_n}}
   $$
-  Finally we define\improvement{Minor imprecise point in this
-    definition: I didn't define $\epoch{⋅}$ on a block, though it is
-    easy to. Major imprecise point: I shouldn't use $\epoch{⋅}$ as an
-    block index, since it's an epoch number, we should be searching for
-    the last possible block index whose slot is before
-    $\epoch{b_n}$. I should introduce a new function for this purpose.}
+  Finally we define\improvement{$\epochindex{⋅}$ needs to be defined
+    precisely. It is the index of the block whose slot is in the
+    previous epoch.}
   $$
-  \epochdistribution{b₁,…,b_n} = \currentdistribution{b₁,…,b_{\epoch{b_n}}}
+  \epochdistribution{b₁,…,b_n} = \currentdistribution{b₁,…,b_{\epochindex{b_1,…,b_n}}}
   $$
 
 \item[Seed] \info{The shared seed at the last epoch} Define

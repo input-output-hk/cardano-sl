@@ -18,7 +18,7 @@ import           Pos.Binary.Core.Update ()
 import qualified Pos.Core.Block.Genesis.Types as BC
 import qualified Pos.Core.Block.Main.Types as BC
 import qualified Pos.Core.Block.Union.Types as BC
-import           Pos.Core.Update.Types (BlockVersion, SoftwareVersion)
+import           Pos.Core.Update (BlockVersion, SoftwareVersion)
 import           Pos.Crypto (Hash)
 import           Pos.Util.Util (cborError)
 

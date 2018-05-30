@@ -42,7 +42,7 @@ import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting (EpochIndex (..), Timestamp (..))
 import           Pos.Core.Ssc (VssCertificate (..), VssCertificatesMap (..),
                                validateVssCertificatesMap)
-import           Pos.Core.Update.Types (BlockVersionData (..), SoftforkRule (..))
+import           Pos.Core.Update (BlockVersionData (..), SoftforkRule (..))
 import           Pos.Crypto (ProxyCert, ProxySecretKey (..), PublicKey, RedeemPublicKey, Signature,
                              decodeAbstractHash, fromAvvmPk, fullProxyCertHexF, fullPublicKeyF,
                              fullSignatureHexF, hashHexF, parseFullProxyCert, parseFullPublicKey,

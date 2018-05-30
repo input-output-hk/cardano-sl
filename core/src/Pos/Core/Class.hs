@@ -25,7 +25,7 @@ import           Universum
 import           Pos.Core.Block.Union.Types (HasHeaderHash (..), HasPrevBlock (..))
 import           Pos.Core.Common (ChainDifficulty)
 import           Pos.Core.Slotting (HasEpochIndex (..), HasEpochOrSlot (..), SlotId, epochOrSlotG)
-import           Pos.Core.Update.Types (BlockVersion, SoftwareVersion)
+import           Pos.Core.Update (BlockVersion, SoftwareVersion)
 import           Pos.Crypto.Signing (PublicKey)
 import           Pos.Util.Some (Some, applySome, liftLensSome)
 

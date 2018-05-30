@@ -54,6 +54,7 @@ Most important code changes which made to release 1.1.0.
 
 - An API endpoint for creating transactions is improved to support multiple destination addresses (transaction batching).
 
+
 - Logs are compressed when sent to the reporting server to reduce bandwidth usage.
 
 - The Cardano launcher configuration is improved with support for the YAML format to remove the need for custom scripts for launching the Cardano node.

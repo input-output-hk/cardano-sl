@@ -15023,7 +15023,7 @@ devnet: &devnet
           useHeavyDlg: True
           seed: 0
 
-  update:
+  update: &devnet_update
     applicationName: cardano-sl
     applicationVersion: 0
     lastKnownBlockVersion:
@@ -15040,7 +15040,7 @@ devnet: &devnet
 devnet_win64:
   <<: *devnet
   update:
-    <<:
+    <<: *devnet_update
     applicationName: csl-daedalus
     applicationVersion: 0
     lastKnownBlockVersion:
@@ -15052,7 +15052,7 @@ devnet_win64:
 devnet_macos64:
   <<: *devnet
   update:
-    <<:
+    <<: *devnet_update
     applicationName: csl-daedalus
     applicationVersion: 0
     lastKnownBlockVersion:
@@ -15064,7 +15064,7 @@ devnet_macos64:
 devnet_linux64:
   <<: *devnet
   update:
-    <<:
+    <<: *devnet_update
     applicationName: csl-daedalus
     applicationVersion: 0
     lastKnownBlockVersion:

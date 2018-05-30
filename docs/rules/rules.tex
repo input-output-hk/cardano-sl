@@ -297,7 +297,7 @@ as it is.\improvement{We may want to add something about protocol
 
 \item[Slot] An integer.
 
-\item[Seeds] We assume a monoid $\seeds$ of \emph{seeds}. The monoid
+\item[Seeds] We assume a commutative monoid $\seeds$ of \emph{seeds}. The monoid
   operations are written multiplicatively.
 
 \item[Stake repartition] A stake repartition is a function
@@ -390,9 +390,9 @@ as it is.\improvement{We may want to add something about protocol
     \item[Commitment] A finite-domain partial function $\agentids⇀\seeds×\seeds$.
       \begin{implementationhint}
         The idea here is that the first seed is the commitment, in the
-        form of a partial function from agent id to shares (in the
-        sense of secret sharing), while the second message is a proof
-        that the shares are correct.
+        form of a partial function from agent id to encrypted shares
+        (in the sense of secret sharing), while the second message is
+        a proof that the shares are correct.
 
         In this specification, we intend the two messages to be equal,
         but this would be replaced, in the implementation, by the
@@ -401,7 +401,20 @@ as it is.\improvement{We may want to add something about protocol
     \item[Opening] A finite-domain partial function $\agentids⇀\seeds$.
     \item[Recovery] A finite-domain partial function
       $r∈\agentids⇀\agentids⇀\seeds$, such that for all $a$ in the
-      domain, $r(a)$ has finite domain.
+      domain, $r(a)$ has finite domain.\improvement{I think that the
+        first function shouldn't be a partial function but a
+        finite-support function. This requires extending the
+        characterisation of supports to partial commutative monoids
+        ($∅, ⊎$ here). The spec would work better this way.}
+
+      \begin{implementationhint}
+        We want to understand $r(a)(a')$ as the decrypted share of agent $a$
+        from the secret seed of agent $a'$. So $r(a)$ is the set of
+        all the shares that $a$ decrypted.
+
+        In the specification, we, again, implement the decrypted
+        shares as the whole, plain text, seed.
+      \end{implementationhint}
     \end{description}
 
   \end{record}\improvement{Commitment (\emph{i.e.} finite map of agent
@@ -1381,4 +1394,4 @@ requirement of Cardano. Therefore this constraint should be weakened.
 \end{document}
 
 %  LocalWords:  combinator summands repartition unallocated mempool
-%  LocalWords:  stateful
+%  LocalWords:  stateful decrypted monoid

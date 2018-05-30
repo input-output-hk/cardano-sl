@@ -13,7 +13,7 @@ import           Formatting (Format, bprint, int, (%))
 import           Serokell.Util (listJson)
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core.Slotting.Types (EpochIndex)
+import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 
 import           Pos.Core.Ssc.CommitmentsMap

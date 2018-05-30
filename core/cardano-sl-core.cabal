@@ -107,9 +107,13 @@ library
                        Pos.Core.Genesis.Types
 
                        -- Slotting
+                       Pos.Core.Slotting.EpochIndex
+                       Pos.Core.Slotting.EpochOrSlot
+                       Pos.Core.Slotting.LocalSlotIndex
+                       Pos.Core.Slotting.SlotCount
+                       Pos.Core.Slotting.SlotId
+                       Pos.Core.Slotting.TimeDiff
                        Pos.Core.Slotting.Timestamp
-                       Pos.Core.Slotting.Types
-                       Pos.Core.Slotting.Util
 
                        -- SSC
                        Pos.Core.Ssc.Commitment

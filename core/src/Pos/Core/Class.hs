@@ -22,11 +22,9 @@ module Pos.Core.Class
 
 import           Universum
 
-import           Control.Lens (Getter, choosing, to)
-
 import           Pos.Core.Block.Union.Types (HasHeaderHash (..), HasPrevBlock (..))
 import           Pos.Core.Common (ChainDifficulty)
-import           Pos.Core.Slotting.Types (EpochIndex, EpochOrSlot (..), SlotId)
+import           Pos.Core.Slotting (HasEpochIndex (..), HasEpochOrSlot (..), SlotId, epochOrSlotG)
 import           Pos.Core.Update.Types (BlockVersion, SoftwareVersion)
 import           Pos.Crypto.Signing (PublicKey)
 import           Pos.Util.Some (Some, applySome, liftLensSome)
@@ -60,35 +58,6 @@ class HasSoftwareVersion a where
     softwareVersionL :: Lens' a SoftwareVersion
 
 SOME_LENS_CLASS(HasSoftwareVersion, softwareVersionL, HasSoftwareVersion)
-
--- HasEpochIndex
-class HasEpochIndex a where
-    epochIndexL :: Lens' a EpochIndex
-
-SOME_LENS_CLASS(HasEpochIndex, epochIndexL, HasEpochIndex)
-
-instance (HasEpochIndex a, HasEpochIndex b) =>
-         HasEpochIndex (Either a b) where
-    epochIndexL = choosing epochIndexL epochIndexL
-
--- HasEpochOrSlot
-class HasEpochOrSlot a where
-    getEpochOrSlot :: a -> EpochOrSlot
-
-SOME_FUNC_CLASS(HasEpochOrSlot, getEpochOrSlot, HasEpochOrSlot)
-
-epochOrSlotG :: HasEpochOrSlot a => Getter a EpochOrSlot
-epochOrSlotG = to getEpochOrSlot
-
-instance HasEpochOrSlot EpochIndex where
-    getEpochOrSlot = EpochOrSlot . Left
-instance HasEpochOrSlot SlotId where
-    getEpochOrSlot = EpochOrSlot . Right
-instance HasEpochOrSlot EpochOrSlot where
-    getEpochOrSlot = identity
-instance (HasEpochOrSlot a, HasEpochOrSlot b) =>
-         HasEpochOrSlot (Either a b) where
-    getEpochOrSlot = either getEpochOrSlot getEpochOrSlot
 
 ----------------------------------------------------------------------------
 -- Classes for headers

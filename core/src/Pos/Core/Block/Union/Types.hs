@@ -55,7 +55,7 @@ import           Pos.Core.Block.Genesis.Types
 import           Pos.Core.Block.Main.Types
 import           Pos.Core.Common (ChainDifficulty)
 import           Pos.Core.Delegation (ProxySigHeavy, ProxySigLight)
-import           Pos.Core.Slotting.Types (SlotId (..))
+import           Pos.Core.Slotting (SlotId (..))
 import           Pos.Core.Ssc (mkSscProof)
 import           Pos.Core.Txp (mkTxProof)
 import           Pos.Core.Update.Types (mkUpdateProof)

@@ -23,7 +23,7 @@ import           Formatting (bprint, build, int, (%))
 import           Pos.Core.Common (StakeholderId, addressHash)
 
 import           Pos.Binary.Class (AsBinary, Bi)
-import           Pos.Core.Slotting.Types (EpochIndex)
+import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, SignTag (SignVssCert), Signature,
                              VssPublicKey, checkSig, sign, toPublic)
 

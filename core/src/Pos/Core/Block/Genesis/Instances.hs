@@ -24,7 +24,7 @@ import           Pos.Core.Block.Union.Types (BlockHeader (..), GenesisBlock, Gen
 import           Pos.Core.Class (HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
                                  HasHeaderHash (..), IsGenesisHeader, IsHeader)
 import           Pos.Core.Common (slotLeadersF)
-import           Pos.Core.Slotting.Types (EpochOrSlot (..))
+import           Pos.Core.Slotting (EpochOrSlot (..))
 import           Pos.Crypto (hashHexF)
 
 instance NFData GenesisBlock

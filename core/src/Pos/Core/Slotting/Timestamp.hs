@@ -1,5 +1,3 @@
--- | Timestamp/diff types and helpers.
-
 module Pos.Core.Slotting.Timestamp
        ( Timestamp (..)
        , _Timestamp
@@ -11,15 +9,11 @@ module Pos.Core.Slotting.Timestamp
        , timestampToPosix
        , timestampSeconds
        , timestampToUTCTimeL
-
-       , TimeDiff (..)
-       , addTimeDiffToTimestamp
-       , subTimeDiffSafe
        ) where
 
 import           Universum
 
-import           Control.Lens (Iso', iso, makePrisms, from)
+import           Control.Lens (Iso', from, iso, makePrisms)
 import qualified Data.Text.Buildable as Buildable
 import           Data.Time (UTCTime, defaultTimeLocale, iso8601DateFormat, parseTimeM)
 import           Data.Time.Clock.POSIX (POSIXTime, posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
@@ -111,28 +105,3 @@ timestampToUTCTimeL :: Iso' Timestamp UTCTime
 timestampToUTCTimeL = timestampSeconds . posixSecondsToUTCTimeL
   where
     posixSecondsToUTCTimeL = iso posixSecondsToUTCTime utcTimeToPOSIXSeconds
-
--- | Difference between two timestamps
-newtype TimeDiff = TimeDiff
-    { getTimeDiff :: Microsecond
-    } deriving (Eq, Ord, Num, Enum, Real, Integral)
-
-instance Show TimeDiff where
-    show = show . toInteger . getTimeDiff
-
-instance Read TimeDiff where
-    readsPrec i = fmap (first (TimeDiff . fromInteger)) . Prelude.readsPrec i
-
-instance Buildable TimeDiff where
-    build = Buildable.build . toInteger
-
-instance NFData TimeDiff where
-    rnf TimeDiff{..} = rnf (toInteger getTimeDiff)
-
-addTimeDiffToTimestamp :: TimeDiff -> Timestamp -> Timestamp
-addTimeDiffToTimestamp = addMicrosecondsToTimestamp . getTimeDiff
-
-subTimeDiffSafe :: TimeDiff -> TimeDiff -> TimeDiff
-subTimeDiffSafe (TimeDiff t1) (TimeDiff t2)
-    | t1 >= t2  = TimeDiff (t1 - t2)
-    | otherwise = error "subTimeDiffSafe: first TimeDiff must be more or equal second TimeDiff"

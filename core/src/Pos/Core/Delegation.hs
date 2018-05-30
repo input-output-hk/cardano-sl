@@ -24,9 +24,9 @@ import           Formatting (bprint, build, int, (%))
 import           Serokell.Util (allDistinct, listJson, pairF)
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core.Slotting.Types (EpochIndex)
-import           Pos.Crypto (Hash, ProxySecretKey (..), ProxySignature,
-                             ProtocolMagic, hash, validateProxySecretKey)
+import           Pos.Core.Slotting (EpochIndex)
+import           Pos.Crypto (Hash, ProtocolMagic, ProxySecretKey (..), ProxySignature, hash,
+                             validateProxySecretKey)
 
 ----------------------------------------------------------------------------
 -- Proxy signatures and signing keys

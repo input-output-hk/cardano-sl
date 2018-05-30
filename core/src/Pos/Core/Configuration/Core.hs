@@ -32,7 +32,7 @@ import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), GenesisAvvmBalanc
                                          GenesisSpec (..), TestnetBalanceOptions (..),
                                          noGenesisDelegation)
 import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
-import           Pos.Core.Slotting.Types (EpochIndex (..))
+import           Pos.Core.Slotting (EpochIndex (..))
 import           Pos.Core.Update.Types (BlockVersionData (..), SoftforkRule (..))
 import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash)

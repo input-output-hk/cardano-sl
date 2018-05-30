@@ -1,5 +1,5 @@
 name:                cardano-sl-binary
-version:             1.1.1
+version:             1.2.0
 synopsis:            Cardano SL - binary serialization
 description:         This package defines a type class for binary serialization,
                      helpers and instances.
@@ -10,11 +10,15 @@ maintainer:          hi@serokell.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
   exposed-modules:
                        Pos.Binary.Class
+
+                       Test.Pos.Cbor.Canonicity
+                       Test.Pos.Cbor.RefImpl
 
   other-modules:
                        Pos.Binary.Class.Core
@@ -30,26 +34,18 @@ library
                      , containers
                      , digest
                      , formatting
+                     , half
                      , hashable
                      , lens
                      , mtl
-                     , parsec
-                     , process
-                     , quickcheck-instances
                      , safe-exceptions
-                     , semigroups
                      , serokell-util
-                     , stm
                      , tagged
                      , template-haskell
                      , text
-                     , th-lift-instances
                      , th-utilities
-                     , time
                      , time-units
                      , transformers
-                     , transformers-base
-                     , transformers-lift
                      , universum
                      , unordered-containers
                      , vector

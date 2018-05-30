@@ -12,7 +12,7 @@ import qualified Pos.Core.Block as BT
 import           Pos.SafeCopy ()
 
 import           Test.Pos.Helpers (safeCopyTest)
-import           Test.Pos.Util (withDefConfiguration)
+import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Block types" $ do

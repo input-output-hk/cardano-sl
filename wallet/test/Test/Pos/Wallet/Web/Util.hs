@@ -21,7 +21,7 @@ module Test.Pos.Wallet.Web.Util
 import           Universum
 import           Unsafe (unsafeHead)
 
-import           Control.Concurrent.STM (putTMVar, tryTakeTMVar, writeTVar)
+import           Control.Concurrent.STM (writeTVar)
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.List ((!!))
 import qualified Data.Map as M
@@ -30,14 +30,14 @@ import           Test.QuickCheck (Arbitrary (..), choose, frequency, sublistOf, 
 import           Test.QuickCheck.Gen (Gen (MkGen))
 import           Test.QuickCheck.Monadic (assert, pick)
 
-import           Pos.Block.Types (Blund, LastKnownHeaderTag, ProgressHeaderTag)
+import           Pos.Block.Types (Blund, LastKnownHeaderTag)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Core (Address, BlockCount, Coin, HasConfiguration, genesisSecretsPoor,
                            headerHashG)
 import           Pos.Core.Block (blockHeader)
-import           Pos.Core.Genesis (poorSecretToEncKey)
 import           Pos.Core.Common (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
+import           Pos.Core.Genesis (poorSecretToEncKey)
 import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..),
                              emptyPassphrase, firstHardened)
@@ -48,13 +48,13 @@ import           Pos.Txp.Toil (Utxo)
 import           Pos.Util (HasLens (..), _neLast)
 import           Pos.Util.Chrono (OldestFirst (..))
 import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.QuickCheck.Property (assertProperty, maybeStopProperty)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.UserSecret (mkGenesisWalletUserSecret)
 import           Pos.Wallet.Web.ClientTypes (Addr, CId, Wal, encToCId)
 import           Pos.Wallet.Web.Methods.Restore (importWalletDo)
 
 import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB, genBlockGenParams)
-import           Test.Pos.Util (assertProperty, maybeStopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 
 ----------------------------------------------------------------------------
@@ -78,10 +78,6 @@ wpGenBlocks blkCnt enTxPayload inplaceDB = do
                 let tipBlockHeader = nonEmptyBlunds ^. _neLast . _1 . blockHeader
                 lastKnownHeader <- view (lensOf @LastKnownHeaderTag)
                 atomically $ writeTVar lastKnownHeader (Just tipBlockHeader)
-                progressHeader <- view (lensOf @ProgressHeaderTag)
-                atomically $ do
-                    void $ tryTakeTMVar progressHeader
-                    putTMVar progressHeader tipBlockHeader
                 pure (tipBlockHeader ^. headerHashG, blunds)
             Nothing -> pure (prevTip, blunds)
 

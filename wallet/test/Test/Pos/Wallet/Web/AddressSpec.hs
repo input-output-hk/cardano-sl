@@ -19,19 +19,20 @@ import           Pos.Crypto (PassPhrase)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
+import           Pos.Util.QuickCheck.Property (assertProperty, expectedOne)
 import           Pos.Wallet.Web.Account (GenSeed (..), genUniqueAddress)
-import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountInit (..), caId, cwamId)
+import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountInit (..), caId)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.Logic (newAccount)
-import           Pos.Wallet.Web.State (getWalletAddresses)
+import           Pos.Wallet.Web.State (askWalletSnapshot, getWalletAddresses, wamAddress)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
-import           Test.Pos.Util (assertProperty, expectedOne, withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 import           Test.Pos.Wallet.Web.Util (importSingleWallet, mostlyEmptyPassphrases)
 
 spec :: Spec
 spec = withCompileInfo def $
-       withDefConfigurations $
+       withDefConfigurations $ \_ ->
     describe "Fake address has maximal possible size" $
     modifyMaxSuccess (const 10) $ do
         prop "getNewAddress" $
@@ -46,7 +47,8 @@ fakeAddressHasMaxSizeTest
     => AddressGenerator -> Word32 -> WalletProperty ()
 fakeAddressHasMaxSizeTest generator accSeed = do
     passphrase <- importSingleWallet mostlyEmptyPassphrases
-    wid <- expectedOne "wallet addresses" =<< getWalletAddresses
+    ws <- askWalletSnapshot
+    wid <- expectedOne "wallet addresses" $ getWalletAddresses ws
     accId <- lift $ decodeCTypeOrFail . caId
          =<< newAccount (DeterminedSeed accSeed) passphrase (CAccountInit def wid)
     address <- generator accId passphrase
@@ -66,12 +68,13 @@ changeAddressGenerator accId passphrase = lift $ getNewAddress (accId, passphras
 -- | Generator which is directly used in endpoints.
 commonAddressGenerator :: HasConfigurations => AddressGenerator
 commonAddressGenerator accId passphrase = do
+    ws <- askWalletSnapshot
     addrSeed <- pick arbitrary
-    let genAddress = genUniqueAddress (DeterminedSeed addrSeed) passphrase accId
+    let genAddress = genUniqueAddress ws (DeterminedSeed addrSeed) passphrase accId
     -- can't catch under 'PropertyM', workarounding
     maddr <- lift $ (Just <$> genAddress) `catch` seedBusyHandler
     addr <- maybe (stop Discard) pure maddr
-    lift $ decodeCTypeOrFail (cwamId addr)
+    return $ addr ^. wamAddress
   where
     seedBusyHandler (InternalError "address generation: this index is already taken")
                       = pure Nothing

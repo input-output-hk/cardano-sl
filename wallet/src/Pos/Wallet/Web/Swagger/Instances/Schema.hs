@@ -11,8 +11,8 @@ import           Data.Aeson (toJSON)
 import           Data.Swagger (NamedSchema (..), SwaggerType (..), ToParamSchema (..),
                                ToSchema (..), declareNamedSchema, declareSchema, declareSchemaRef,
                                defaultSchemaOptions, description, example, format,
-                               genericDeclareNamedSchema, minItems, name, properties, required,
-                               sketchSchema, type_)
+                               genericDeclareNamedSchema, name, properties, required, sketchSchema,
+                               type_)
 import           Data.Swagger.Internal.Schema (named)
 import qualified Data.Swagger.Lens as Swagger
 import           Data.Typeable (Typeable, typeRep)
@@ -147,9 +147,3 @@ instance {-# OVERLAPPING #-}
     declareNamedSchema proxy =
         genericDeclareNamedSchema defaultSchemaOptions proxy
             & mapped . name ?~ show (typeRep $ Proxy @(Either ET.WalletError a))
-
-instance ToSchema a => ToSchema (NonEmpty a) where
-    declareNamedSchema _ = do
-        schema <- declareSchema (Proxy :: Proxy [a])
-        pure $ NamedSchema Nothing $ schema
-            & minItems ?~ 1

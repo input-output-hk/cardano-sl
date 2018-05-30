@@ -1,5 +1,5 @@
 name:                cardano-sl-txp
-version:             1.1.1
+version:             1.2.0
 synopsis:            Cardano SL - transaction processing
 description:         Cardano SL - transaction processing
 license:             MIT
@@ -9,6 +9,7 @@ maintainer:          hi@serokell.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
@@ -19,27 +20,27 @@ library
     Pos.Txp.DB.Stakes
     Pos.Txp.DB.Utxo
 
+    Pos.Txp.Configuration
+
     Pos.Txp.GenesisUtxo
     Pos.Txp.Toil
-    Pos.Txp.Toil.Stakes
-    Pos.Txp.Toil.Class
-    Pos.Txp.Toil.DBToil
     Pos.Txp.Toil.Failure
     Pos.Txp.Toil.Logic
-    Pos.Txp.Toil.Trans
+    Pos.Txp.Toil.Monad
+    Pos.Txp.Toil.Stakes
     Pos.Txp.Toil.Types
     Pos.Txp.Toil.Utxo
     Pos.Txp.Toil.Utxo.Functions
-    Pos.Txp.Toil.Utxo.Pure
     Pos.Txp.Toil.Utxo.Util
 
     Pos.Txp.Logic
+    Pos.Txp.Logic.Common
     Pos.Txp.Logic.Global
     Pos.Txp.Logic.Local
 
     Pos.Txp.Network
-    Pos.Txp.Network.Listeners
     Pos.Txp.Network.Types
+    Pos.Txp.Network.Listeners
 
     Pos.Txp.MemState
     Pos.Txp.MemState.Class
@@ -85,6 +86,7 @@ library
                      , exceptions
                      , fmt >= 0.4
                      , formatting
+                     , free
                      , generic-arbitrary
                      , hashable
                      , lens
@@ -99,12 +101,14 @@ library
                      , safe-exceptions
                      , serokell-util
                      , stm
+                     , reflection
                      , tagged
                      , template-haskell
                      , text
                      , text-format
                      , transformers
                      , universum
+                     , unliftio
                      , unordered-containers
                      , vector
 

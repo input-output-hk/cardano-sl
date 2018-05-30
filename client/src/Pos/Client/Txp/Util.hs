@@ -8,6 +8,7 @@ module Pos.Client.Txp.Util
        (
        -- * Tx creation params
          InputSelectionPolicy (..)
+       , defaultInputSelectionPolicy
        , PendingAddresses (..)
 
        -- * Tx creation
@@ -51,6 +52,7 @@ import qualified Data.Map as M
 import qualified Data.Semigroup as S
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
+import           Data.Traversable (for)
 import qualified Data.Vector as V
 import           Formatting (bprint, build, sformat, stext, (%))
 import           Serokell.Util (listJson)
@@ -110,6 +112,8 @@ data TxError =
       -- ^ One of the tx outputs is a redemption address
     | RedemptionDepleted
       -- ^ Redemption address has already been used
+    | SafeSignerNotFound !Address
+      -- ^ The safe signer at the specified address was not found
     | GeneralTxError !Text
       -- ^ Parameter: description of the problem
     deriving (Show, Generic)
@@ -134,6 +138,8 @@ instance Buildable TxError where
         bprint ("Output address "%build%" is a redemption address") addr
     build RedemptionDepleted =
         bprint "Redemption address balance is 0"
+    build (SafeSignerNotFound addr) =
+        bprint ("Address "%build%" has no associated safe signer") addr
     build (GeneralTxError msg) =
         bprint ("Transaction creation error: "%stext) msg
 
@@ -144,6 +150,7 @@ isCheckedTxError = \case
     FailedToStabilize{}     -> False
     OutputIsRedeem{}        -> True
     RedemptionDepleted{}    -> True
+    SafeSignerNotFound{}    -> True
     GeneralTxError{}        -> True
 
 -----------------------------------------------------------------------------
@@ -165,7 +172,10 @@ instance Buildable (SecureLog InputSelectionPolicy) where
     build = buildUnsecure
 
 instance Default InputSelectionPolicy where
-    def = OptimizeForSecurity
+    def = defaultInputSelectionPolicy
+
+defaultInputSelectionPolicy :: InputSelectionPolicy
+defaultInputSelectionPolicy = OptimizeForSecurity
 
 instance Arbitrary InputSelectionPolicy where
     arbitrary = elements [minBound .. maxBound]
@@ -183,20 +193,21 @@ type TxCreateMode m
 
 -- | Generic function to create a transaction, given desired inputs,
 -- outputs and a way to construct witness from signature data
-makeAbstractTx :: (owner -> TxSigData -> TxInWitness)
+makeAbstractTx :: (owner -> TxSigData -> Either e TxInWitness)
                -> TxOwnedInputs owner
                -> TxOutputs
-               -> TxAux
-makeAbstractTx mkWit txInputs outputs = TxAux tx txWitness
-  where
+               -> Either e TxAux
+makeAbstractTx mkWit txInputs outputs = do
+  let
     tx = UnsafeTx (map snd txInputs) txOutputs txAttributes
     txOutputs = map toaOut outputs
     txAttributes = mkAttributes ()
-    txWitness = V.fromList $ toList $ txInputs <&>
-        \(addr, _) -> mkWit addr txSigData
     txSigData = TxSigData
         { txSigTxHash = hash tx
         }
+  txWitness <- V.fromList . toList <$>
+      for txInputs (\(addr, _) -> mkWit addr txSigData)
+  pure $ TxAux tx txWitness
 
 -- | Datatype which contains all data from DB which is necessary
 -- to create transactions
@@ -222,46 +233,49 @@ runTxCreator inputSelectionPolicy action = runExceptT $ do
 
 -- | Like 'makePubKeyTx', but allows usage of different signers
 makeMPubKeyTx
-    :: HasConfiguration
-    => (owner -> SafeSigner)
+    :: (HasConfiguration)
+    => (owner -> Either e SafeSigner)
     -> TxOwnedInputs owner
     -> TxOutputs
-    -> TxAux
+    -> Either e TxAux
 makeMPubKeyTx getSs = makeAbstractTx mkWit
   where mkWit addr sigData =
-          let ss = getSs addr
-          in PkWitness
+          getSs addr <&> \ss ->
+              PkWitness
               { twKey = safeToPublic ss
               , twSig = safeSign SignTx ss sigData
               }
 
 -- | More specific version of 'makeMPubKeyTx' for convenience
 makeMPubKeyTxAddrs
-    :: HasConfiguration
-    => (Address -> SafeSigner)
+    :: (HasConfiguration)
+    => (Address -> Either e SafeSigner)
     -> TxOwnedInputs TxOut
     -> TxOutputs
-    -> TxAux
+    -> Either e TxAux
 makeMPubKeyTxAddrs hdwSigners = makeMPubKeyTx getSigner
   where
     getSigner (TxOut addr _) = hdwSigners addr
 
 -- | Makes a transaction which use P2PKH addresses as a source
 makePubKeyTx :: HasConfiguration => SafeSigner -> TxInputs -> TxOutputs -> TxAux
-makePubKeyTx ss txInputs =
-    makeMPubKeyTx (const ss) (map ((), ) txInputs)
+makePubKeyTx ss txInputs txOutputs = either absurd identity $
+    makeMPubKeyTx (\_ -> Right ss) (map ((), ) txInputs) txOutputs
 
 makeMOfNTx :: HasConfiguration => Script -> [Maybe SafeSigner] -> TxInputs -> TxOutputs -> TxAux
-makeMOfNTx validator sks txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
-  where mkWit _ sigData = ScriptWitness
+makeMOfNTx validator sks txInputs txOutputs = either absurd identity $
+    makeAbstractTx mkWit (map ((), ) txInputs) txOutputs
+  where
+    mkWit _ sigData = Right $ ScriptWitness
             { twValidator = validator
             , twRedeemer = multisigRedeemer sigData sks
             }
 
 makeRedemptionTx :: HasConfiguration => RedeemSecretKey -> TxInputs -> TxOutputs -> TxAux
-makeRedemptionTx rsk txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
+makeRedemptionTx rsk txInputs txOutputs = either absurd identity $
+    makeAbstractTx mkWit (map ((), ) txInputs) txOutputs
   where rpk = redeemToPublic rsk
-        mkWit _ sigData = RedeemWitness
+        mkWit _ sigData = Right $ RedeemWitness
             { twRedeemKey = rpk
             , twRedeemSig = redeemSign SignRedeemTx rsk sigData
             }
@@ -487,7 +501,7 @@ prepareInpsOuts pendingTx utxo outputs addrData = do
 createGenericTx
     :: TxCreateMode m
     => PendingAddresses
-    -> (TxOwnedInputs TxOut -> TxOutputs -> TxAux)
+    -> (TxOwnedInputs TxOut -> TxOutputs -> Either TxError TxAux)
     -> InputSelectionPolicy
     -> Utxo
     -> TxOutputs
@@ -496,12 +510,13 @@ createGenericTx
 createGenericTx pendingTx creator inputSelectionPolicy utxo outputs addrData =
     runTxCreator inputSelectionPolicy $ do
         (inps, outs) <- prepareInpsOuts pendingTx utxo outputs addrData
-        pure (creator inps outs, map fst inps)
+        txAux <- either throwError return $ creator inps outs
+        pure (txAux, map fst inps)
 
 createGenericTxSingle
     :: TxCreateMode m
     => PendingAddresses
-    -> (TxInputs -> TxOutputs -> TxAux)
+    -> (TxInputs -> TxOutputs -> Either TxError TxAux)
     -> InputSelectionPolicy
     -> Utxo
     -> TxOutputs
@@ -516,13 +531,17 @@ createMTx
     => PendingAddresses
     -> InputSelectionPolicy
     -> Utxo
-    -> (Address -> SafeSigner)
+    -> (Address -> Maybe SafeSigner)
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
 createMTx pendingTx groupInputs utxo hdwSigners outputs addrData =
-    createGenericTx pendingTx (makeMPubKeyTxAddrs hdwSigners)
+    createGenericTx pendingTx (makeMPubKeyTxAddrs getSigner)
         groupInputs utxo outputs addrData
+  where
+    getSigner address =
+        note (SafeSignerNotFound address) $
+        hdwSigners address
 
 -- | Make a multi-transaction using given secret key and info for
 -- outputs.
@@ -535,7 +554,7 @@ createTx
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
 createTx pendingTx utxo ss outputs addrData =
-    createGenericTxSingle pendingTx (makePubKeyTx ss)
+    createGenericTxSingle pendingTx (\i o -> Right $ makePubKeyTx ss i o)
     OptimizeForSecurity utxo outputs addrData
 
 -- | Make a transaction, using M-of-N script as a source
@@ -548,7 +567,7 @@ createMOfNTx
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
 createMOfNTx pendingTx utxo keys outputs addrData =
-    createGenericTxSingle pendingTx (makeMOfNTx validator sks)
+    createGenericTxSingle pendingTx (\i o -> Right $ makeMOfNTx validator sks i o)
     OptimizeForSecurity utxo outputs addrData
   where
     ids = map fst keys
@@ -643,8 +662,8 @@ computeTxFee pendingTx utxo outputs = do
 --       i.e. @ fee_{i+1} <= fee_{i} @.
 --
 --     * Number if input addresses decreased.
---       Is may occur when fee increases more than on current remainder.
---       Is this case fee on next iteration would indeed decrease, because
+--       It may occur when fee increases more than on current remainder.
+--       In this case fee on next iteration would indeed decrease, because
 --       size of single input is much greater than any fluctuations of
 --       remainder size (in bytes).
 --
@@ -719,4 +738,7 @@ createFakeTxFromRawTx fakeAddr TxRaw{..} =
         -- Fee depends on size of tx in bytes, sign of a tx has the fixed size
         -- so we can use arbitrary signer.
         (_, fakeSK) = deterministicKeyGen "patakbardaqskovoroda228pva1488kk"
-    in makeMPubKeyTxAddrs (const (fakeSigner fakeSK)) trInputs txOutsWithRem
+    in either absurd identity $ makeMPubKeyTxAddrs
+           (\_ -> Right $ fakeSigner fakeSK)
+           trInputs
+           txOutsWithRem

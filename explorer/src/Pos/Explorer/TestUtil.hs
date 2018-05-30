@@ -47,7 +47,7 @@ import           Pos.Crypto (SecretKey, toPublic)
 import           Pos.Delegation (DlgPayload, DlgUndo (..), ProxySKBlockInfo)
 import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Test.Pos.Util (withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations)
 
 import           Pos.Explorer.BListener (createPagedHeaderHashesPair)
 import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page, convertToPagedMap)
@@ -80,14 +80,14 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
     slotLeaders   <- produceSlotLeaders blocksNumber
     secretKeys    <- produceSecretKeys blocksNumber
 
-    blocks <- withDefConfigurations $
+    blocks <- withDefConfigurations $ \_ ->
         produceBlocksByBlockNumberAndSlots blocksNumber slotsPerEpoch slotLeaders secretKeys
 
     let tipBlock         = Prelude.last blocks
-    let pagedHHs         = withDefConfigurations $ createMapPageHHs blocks
-    let hHsBlunds        = withDefConfigurations $ createMapHHsBlund blocks
-    let epochPageHHs     = withDefConfigurations $ createMapEpochPageHHs blocks slotsPerEpoch
-    let mapEpochMaxPages = withDefConfigurations $ createMapEpochMaxPages $ keys epochPageHHs
+    let pagedHHs         = withDefConfigurations $ const $ createMapPageHHs blocks
+    let hHsBlunds        = withDefConfigurations $ const $ createMapHHsBlund blocks
+    let epochPageHHs     = withDefConfigurations $ const $ createMapEpochPageHHs blocks slotsPerEpoch
+    let mapEpochMaxPages = withDefConfigurations $ const $ createMapEpochMaxPages $ keys epochPageHHs
 
     pure $ ExplorerMockableMode
         { emmGetTipBlock          = pure tipBlock

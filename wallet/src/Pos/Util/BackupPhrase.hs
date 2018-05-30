@@ -12,14 +12,16 @@ import qualified Prelude
 import           Universum
 
 import           Crypto.Hash (Blake2b_256)
+import qualified Data.ByteString as BS
 import           Data.Text.Buildable (Buildable (..))
-import           Test.QuickCheck (Arbitrary (..), elements, genericShrink, vectorOf)
+import           Test.QuickCheck (Arbitrary (..), Gen, genericShrink, vectorOf)
 import           Test.QuickCheck.Instances ()
 
 import           Pos.Binary (Bi (..), serialize')
 import           Pos.Crypto (AbstractHash, EncryptedSecretKey, PassPhrase, SecretKey, VssKeyPair,
                              deterministicKeyGen, deterministicVssKeyGen, safeDeterministicKeyGen,
                              unsafeAbstractHash)
+import           Pos.Util.LogSafe (SecureLog)
 import           Pos.Util.Mnemonics (fromMnemonic, toMnemonic)
 
 -- | Datatype to contain a valid backup phrase
@@ -28,20 +30,17 @@ newtype BackupPhrase = BackupPhrase
     } deriving (Eq, Generic)
 
 instance Arbitrary BackupPhrase where
-    arbitrary = BackupPhrase <$> vectorOf 12 (elements englishWords)
+    arbitrary = do
+        em <- arbitraryMnemonic 16
+        case em of
+            Left _  -> arbitrary
+            Right a -> pure a
     shrink    = genericShrink
 
--- | (Some) valid English words as taken from <https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki BIP-39>
-englishWords :: [Text]
-englishWords = [ "recycle" , "child" , "universe" , "extend" , "edge" , "tourist"
-               , "swamp" , "rare" , "enhance" , "rabbit" , "blast" , "plastic" , "attitude"
-               , "name" , "skull" , "merit" , "night" , "idle" , "bone" , "exact"
-               , "inflict" , "legal" , "predict" , "certain" , "napkin" , "blood"
-               , "color" , "screen" , "birth" , "detect" , "summer" , "palm"
-               , "entry" , "swing" , "fit" , "garden" , "trick" , "timber"
-               , "toss" , "atom" , "kitten" , "flush" , "master" , "transfer"
-               , "success" , "worry" , "rural" , "silver" , "invest" , "mean"
-               ]
+arbitraryMnemonic :: Int -> Gen (Either Text BackupPhrase)
+arbitraryMnemonic len = do
+    eitherMnemonic <- toMnemonic . BS.pack <$> vectorOf len arbitrary
+    pure . first toText $ BackupPhrase . words <$> eitherMnemonic
 
 -- | Number of words in backup phrase
 backupPhraseWordsNum :: Int
@@ -51,6 +50,9 @@ instance Show BackupPhrase where
     show _ = "<backup phrase>"
 
 instance Buildable BackupPhrase where
+    build _ = "<backup phrase>"
+
+instance Buildable (SecureLog BackupPhrase) where
     build _ = "<backup phrase>"
 
 instance Read BackupPhrase where

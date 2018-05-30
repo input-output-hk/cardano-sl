@@ -10,6 +10,7 @@ import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunctio
                              ToJSON (toJSON), ToJSONKey (..), object, withObject, (.:), (.=))
 import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Aeson.Types (toJSONKeyText)
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Map as Map
 import           Data.Time.Units (Microsecond, Millisecond, Second)
 import           Formatting (sformat)
@@ -24,11 +25,12 @@ import           Pos.Core.Common (Address, BlockCount (..), ChainDifficulty, Coi
                                   Script (..), SharedSeed (..), addressF, coinPortionToDouble,
                                   decodeTextAddress, mkCoin, unsafeCoinPortionFromDouble,
                                   unsafeGetCoin)
+import           Pos.Core.Delegation (HeavyDlgIndex (..))
 import           Pos.Core.Slotting.Types (EpochIndex (..), LocalSlotIndex, SlotCount (..), SlotId,
                                           Timestamp (..))
 import           Pos.Core.Ssc.Types (VssCertificate)
 import           Pos.Core.Update.Types (ApplicationName (..), BlockVersion, BlockVersionData,
-                                        SoftforkRule, SoftwareVersion (..), mkApplicationName)
+                                        SoftforkRule, SoftwareVersion (..))
 import           Pos.Data.Attributes (Attributes, UnparsedFields (..))
 import           Pos.Util.Util (toAesonError)
 
@@ -75,10 +77,10 @@ instance FromJSON Script where
         pure $ Script {..}
 
 instance FromJSON UnparsedFields where
-    parseJSON v = UnparsedFields . Map.map getJsonByteString <$> parseJSON v
+    parseJSON v = UnparsedFields . Map.map (LBS.fromStrict . getJsonByteString) <$> parseJSON v
 
 instance ToJSON UnparsedFields where
-    toJSON (UnparsedFields fields) = toJSON (Map.map JsonByteString fields)
+    toJSON (UnparsedFields fields) = toJSON (Map.map (JsonByteString . LBS.toStrict) fields)
 
 deriveJSON defaultOptions ''Attributes
 
@@ -103,11 +105,9 @@ instance ToJSON Address where
 deriveJSON defaultOptions ''BlockCount
 
 instance FromJSON ApplicationName where
-    -- mkApplicationName will validate the text to be an appropriate app name
-    --
     -- FIXME does the defaultOptions derived JSON encode directly as text? Or
     -- as an object with a single key?
-    parseJSON v = parseJSON v >>= toAesonError . mkApplicationName
+    parseJSON v = ApplicationName <$> parseJSON v
 
 deriveToJSON defaultOptions ''ApplicationName
 
@@ -123,3 +123,9 @@ instance ToJSON Coin where
 
 deriving instance FromJSON EpochIndex
 deriving instance ToJSON EpochIndex
+
+instance FromJSON HeavyDlgIndex where
+    parseJSON v = HeavyDlgIndex <$> parseJSON v
+
+instance ToJSON HeavyDlgIndex where
+    toJSON = toJSON . getHeavyDlgIndex

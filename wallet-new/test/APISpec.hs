@@ -1,10 +1,12 @@
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE PolyKinds            #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module APISpec where
 
 import           Universum
@@ -13,20 +15,21 @@ import qualified Control.Concurrent.STM as STM
 import           Data.Default (def)
 import           Network.HTTP.Client hiding (Proxy)
 import           Network.HTTP.Types
-import           Pos.Communication (SendActions)
+import           Ntp.Client (withoutNtpClient)
+import qualified Pos.Diffusion.Types as D
 import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
-import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
-import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..))
+import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
 import           Pos.Wallet.Web.Sockets (ConnectionsVar)
-import           Pos.Wallet.Web.State (WalletState)
+import           Pos.Wallet.Web.State (WalletDB)
+import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.WorkMode (RealModeContext (..))
 import           Serokell.AcidState.ExtendedState
 import           Servant
 import           Servant.QuickCheck
 import           Servant.QuickCheck.Internal
 import           Test.Hspec
-import           Test.Pos.Util (withDefConfigurations)
+import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
@@ -34,10 +37,11 @@ import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1 as V0
 import qualified Cardano.Wallet.API.V1 as V1
-import qualified Cardano.Wallet.API.V1.Handlers as V0
-import qualified Cardano.Wallet.API.V1.Handlers as V1
+import qualified Cardano.Wallet.API.V1.LegacyHandlers as V0
+import qualified Cardano.Wallet.API.V1.LegacyHandlers as V1
 import qualified Cardano.Wallet.API.V1.Migration as Migration
 import           Cardano.Wallet.API.V1.Parameters
+import           Cardano.Wallet.API.V1.Types ()
 
 --
 -- Instances to allow use of `servant-quickcheck`.
@@ -62,7 +66,7 @@ instance HasGenRequest sub => HasGenRequest (FilterBy syms res :> sub) where
 instance HasGenRequest sub => HasGenRequest (Tags tags :> sub) where
     genRequest _ = genRequest (Proxy :: Proxy sub)
 
-instance HasGenRequest sub => HasGenRequest (WalletRequestParams :> sub) where
+instance HasGenRequest (sub :: *) => HasGenRequest (WalletRequestParams :> sub) where
     genRequest _ = genRequest (Proxy @(WithWalletRequestParams sub))
 
 --
@@ -118,20 +122,22 @@ predicates = not500
 -- | "Lowers" V0 Handlers from our domain-specific monad to a @Servant@ 'Handler'.
 v0Server :: ( Migration.HasConfigurations
             , Migration.HasCompileInfo
-            ) => IO (Server V0.API)
-v0Server = do
+            ) => D.Diffusion Migration.MonadV1 -> IO (Server V0.API)
+v0Server diffusion = do
   -- TODO(adinapoli): If the monadic stack ends up diverging between V0 and V1,
   -- it's obviously incorrect using 'testV1Context' here.
   ctx <- testV1Context
-  return (V0.handlers (Migration.v1MonadNat ctx))
+  withoutNtpClient $ \ntpStatus ->
+    return (V0.handlers (Migration.v1MonadNat ctx) diffusion ntpStatus)
 
 -- | "Lowers" V1 Handlers from our domain-specific monad to a @Servant@ 'Handler'.
 v1Server :: ( Migration.HasConfigurations
             , Migration.HasCompileInfo
-            ) => IO (Server V1.API)
-v1Server = do
+            ) => D.Diffusion Migration.MonadV1 -> IO (Server V1.API)
+v1Server diffusion = do
   ctx <- testV1Context
-  return (V1.handlers (Migration.v1MonadNat ctx))
+  withoutNtpClient $ \ntpStatus ->
+    return (V1.handlers (Migration.v1MonadNat ctx) diffusion ntpStatus)
 
 -- | Returns a test 'V1Context' which can be used for the API specs.
 -- Such context will use an in-memory database.
@@ -139,21 +145,17 @@ testV1Context :: Migration.HasConfiguration => IO Migration.V1Context
 testV1Context =
     WalletWebModeContext <$> testStorage
                          <*> testConnectionsVar
-                         <*> testAddrCIdHashes
-                         <*> testSendActions
+                         <*> testSyncQueue
                          <*> testRealModeContext
   where
-    testStorage :: IO WalletState
+    testStorage :: IO WalletDB
     testStorage = openMemoryExtendedState def
 
     testConnectionsVar :: IO ConnectionsVar
     testConnectionsVar = STM.newTVarIO def
 
-    testAddrCIdHashes :: IO AddrCIdHashes
-    testAddrCIdHashes = AddrCIdHashes <$> newIORef mempty
-
-    testSendActions :: IO (STM.TMVar (SendActions WalletWebMode))
-    testSendActions = STM.newEmptyTMVarIO
+    testSyncQueue :: IO SyncQueue
+    testSyncQueue = STM.newTQueueIO
 
     -- For some categories of tests we won't hit the 'RealModeContext', so that's safe
     -- for now to leave it unimplemented.
@@ -165,11 +167,13 @@ testV1Context =
 -- The general consensus, after discussing this with the team, is that we can be moderately safe.
 spec :: Spec
 spec = withCompileInfo def $ do
-    withDefConfigurations $ do
+    withDefConfigurations $ \_ -> do
       xdescribe "Servant API Properties" $ do
         it "V0 API follows best practices & is RESTful abiding" $ do
-          withServantServer (Proxy @V0.API) v0Server $ \burl ->
+          ddl <- D.dummyDiffusionLayer
+          withServantServer (Proxy @V0.API) (v0Server (D.diffusion ddl)) $ \burl ->
             serverSatisfies (Proxy @V0.API) burl stdArgs predicates
         it "V1 API follows best practices & is RESTful abiding" $ do
-          withServantServer (Proxy @V1.API) v1Server $ \burl ->
+          ddl <- D.dummyDiffusionLayer
+          withServantServer (Proxy @V1.API) (v1Server (D.diffusion ddl)) $ \burl ->
             serverSatisfies (Proxy @V1.API) burl stdArgs predicates

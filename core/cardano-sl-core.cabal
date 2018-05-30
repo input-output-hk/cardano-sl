@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             1.1.1
+version:             1.2.0
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -9,6 +9,7 @@ maintainer:          hi@serokell.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 flag asserts
@@ -102,10 +103,6 @@ library
                        -- Context
                        Pos.Core.Context.PrimaryKey
 
-                       -- Delegation
-                       Pos.Core.Delegation.Types
-                       Pos.Core.Delegation.Util
-
                        -- Genesis
                        Pos.Core.Genesis.Canonical
                        Pos.Core.Genesis.Generate
@@ -142,12 +139,9 @@ library
                      , cborg
                      , containers
                      , cryptonite
-                     , cryptonite-openssl >= 0.5
                      , data-default
                      , deepseq
                      , deriving-compat
-                     , digest
-                     , directory
                      , exceptions
                      , extra
                      , filepath
@@ -159,15 +153,12 @@ library
                      , log-warper >= 1.0.3
                      , memory
                      , mtl
-                     , parsec
                      , plutus-prototype
                      , quickcheck-instances
                      , random
                      , reflection
                      , safe-exceptions
-                     , scrypt >= 0.5
                      , serokell-util
-                     , tagged
                      , template-haskell
                      , text
                      , text-format
@@ -192,8 +183,10 @@ library
                        DefaultSignatures
                        NoImplicitPrelude
                        OverloadedStrings
+                       RankNTypes
                        RecordWildCards
                        TypeApplications
+                       TypeFamilies
                        TupleSections
                        ViewPatterns
                        LambdaCase

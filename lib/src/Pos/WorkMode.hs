@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP           #-}
+{-# LANGUAGE RankNTypes    #-}
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
 {-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
@@ -11,16 +12,12 @@ module Pos.WorkMode
        , RealMode
        , RealModeContext(..)
        , EmptyMempoolExt
-
-       , OQ
-       , EnqueuedConversation (..)
        ) where
 
 import           Universum
 
 import           Control.Lens (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           Ether.Internal (HasLens (..))
 import           Mockable (Production)
 import           System.Wlog (HasLoggerName (..), LoggerName)
 
@@ -32,37 +29,35 @@ import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..), HasSscCon
 import           Pos.Core (HasConfiguration)
 import           Pos.DB (MonadGState (..), NodeDBs)
 import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
-                               dbPutSerBlundRealDefault)
+                               dbPutSerBlundsRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
 import           Pos.Delegation.Class (DelegationVar)
-import           Pos.DHT.Real.Types (KademliaDHTInstance)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.KnownPeers (MonadFormatPeers (..), MonadKnownPeers (..))
+import           Pos.DHT.Real.Param (KademliaParams)
+import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Network.Types (HasNodeType (..), getNodeTypeDefault)
 import           Pos.Reporting (HasReportingContext (..))
 import           Pos.Shutdown (HasShutdownContext (..))
 import           Pos.Slotting.Class (MonadSlots (..))
-import           Pos.Slotting.Impl.Sum (currentTimeSlottingSum, getCurrentSlotBlockingSum,
-                                        getCurrentSlotInaccurateSum, getCurrentSlotSum)
+import           Pos.Slotting.Impl (currentTimeSlottingSimple,
+                                    getCurrentSlotBlockingSimple,
+                                    getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
 import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
-import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), TxpHolderTag,
-                          txNormalize, txProcessTransaction)
+import           Pos.Txp (GenericTxpLocalData, HasTxpConfiguration, MempoolExt, MonadTxpLocal (..),
+                          TxpHolderTag, txNormalize, txProcessTransaction)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (HasJsonLogConfig (..), JsonLogConfig, jsonLogDefault)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
-import           Pos.Util.OutboundQueue (EnqueuedConversation (..), OQ)
-import qualified Pos.Util.OutboundQueue as OQ.Reader
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
+import           Pos.Util.Util (HasLens (..))
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
-
 
 data RealModeContext ext = RealModeContext
     { rmcNodeDBs       :: !NodeDBs
@@ -72,7 +67,6 @@ data RealModeContext ext = RealModeContext
     , rmcJsonLogConfig :: !JsonLogConfig
     , rmcLoggerName    :: !LoggerName
     , rmcNodeContext   :: !NodeContext
-    , rmcOutboundQ     :: !(OQ (RealMode ext))
     }
 
 type EmptyMempoolExt = ()
@@ -97,7 +91,7 @@ instance HasLens DelegationVar (RealModeContext ext) DelegationVar where
     lensOf = rmcDelegationVar_L
 
 instance HasNodeType (RealModeContext ext) where
-    getNodeType = getNodeTypeDefault @KademliaDHTInstance
+    getNodeType = getNodeTypeDefault @KademliaParams
 
 instance {-# OVERLAPPABLE #-}
     HasLens tag NodeContext r =>
@@ -146,13 +140,13 @@ instance {-# OVERLAPPING #-} HasLoggerName (RealMode ext) where
 instance {-# OVERLAPPING #-} CanJsonLog (RealMode ext) where
     jsonLog = jsonLogDefault
 
-instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx (RealMode ext))
+instance (HasConfiguration, MonadSlotsData ctx (RealMode ext))
       => MonadSlots ctx (RealMode ext)
   where
-    getCurrentSlot = getCurrentSlotSum
-    getCurrentSlotBlocking = getCurrentSlotBlockingSum
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
-    currentTimeSlotting = currentTimeSlottingSum
+    getCurrentSlot = getCurrentSlotSimple
+    getCurrentSlotBlocking = getCurrentSlotBlockingSimple
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
+    currentTimeSlotting = currentTimeSlottingSimple
 
 instance HasConfiguration => MonadGState (RealMode ext) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
@@ -170,21 +164,18 @@ instance HasConfiguration => MonadDB (RealMode ext) where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
-    dbPutSerBlund = dbPutSerBlundRealDefault
+    dbPutSerBlunds = dbPutSerBlundsRealDefault
 
 instance MonadBListener (RealMode ext) where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
 
-instance MonadKnownPeers (RealMode ext) where
-    updatePeersBucket = OQ.Reader.updatePeersBucketReader rmcOutboundQ
-
 instance MonadFormatPeers (RealMode ext) where
-    formatKnownPeers = OQ.Reader.formatKnownPeersReader rmcOutboundQ
+    formatKnownPeers _ = pure Nothing
 
 type instance MempoolExt (RealMode ext) = ext
 
-instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) =>
+instance (HasConfiguration, HasTxpConfiguration, HasCompileInfo) =>
          MonadTxpLocal (RealMode ()) where
     txpNormalize = txNormalize
     txpProcessTx = txProcessTransaction

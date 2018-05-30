@@ -3,9 +3,7 @@
 -- | Explorer's version of Toil logic.
 
 module Pos.Explorer.Txp.Toil.Logic
-       ( EGlobalApplyToilMode
-       , EGlobalVerifyToilMode
-       , eApplyToil
+       ( eApplyToil
        , eRollbackToil
        , eNormalizeToil
        , eProcessTx
@@ -13,21 +11,28 @@ module Pos.Explorer.Txp.Toil.Logic
 
 import           Universum
 
-import           Control.Monad.Except (MonadError (..))
+import           Control.Monad.Except (mapExceptT)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List (delete)
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
-import           System.Wlog (WithLogger, logError)
+import           System.Wlog (logError)
 
-import           Pos.Core (Address, Coin, EpochIndex, HeaderHash, Timestamp, mkCoin, sumCoins,
-                           unsafeAddCoin, unsafeSubCoin)
+import           Pos.Core (Address, BlockVersionData, Coin, EpochIndex, HasConfiguration,
+                           HeaderHash, Timestamp, mkCoin, sumCoins, unsafeAddCoin, unsafeSubCoin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxOutAux (..), TxUndo, _TxOut)
 import           Pos.Crypto (WithHash (..), hash)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
-import           Pos.Explorer.Txp.Toil.Class (MonadTxExtra (..), MonadTxExtraRead (..))
-import           Pos.Txp.Toil (ToilVerFailure (..))
+import           Pos.Explorer.Txp.Toil.Monad (EGlobalToilM, ELocalToilM, ExplorerExtraM,
+                                              delAddrBalance, delTxExtra,
+                                              explorerExtraMToEGlobalToilM,
+                                              explorerExtraMToELocalToilM, getAddrBalance,
+                                              getAddrHistory, getTxExtra, getUtxoSum,
+                                              putAddrBalance, putTxExtra, putUtxoSum,
+                                              updateAddrHistory)
+import           Pos.Txp.Configuration (HasTxpConfiguration)
+import           Pos.Txp.Toil (ToilVerFailure (..), extendGlobalToilM, extendLocalToilM)
 import qualified Pos.Txp.Toil as Txp
 import           Pos.Txp.Topsort (topsortTxs)
 import           Pos.Util.Chrono (NewestFirst (..))
@@ -37,28 +42,19 @@ import           Pos.Util.Util (Sign (..))
 -- Global
 ----------------------------------------------------------------------------
 
-type EGlobalApplyToilMode m =
-    ( Txp.GlobalApplyToilMode m
-    , MonadTxExtra m
-    )
-
-type EGlobalVerifyToilMode m =
-    ( Txp.GlobalVerifyToilMode m
-    , MonadTxExtra m
-    )
-
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
-eApplyToil
-    :: EGlobalApplyToilMode m
+eApplyToil ::
+       HasConfiguration
     => Maybe Timestamp
     -> [(TxAux, TxUndo)]
     -> HeaderHash
-    -> m ()
+    -> EGlobalToilM ()
 eApplyToil mTxTimestamp txun hh = do
-    Txp.applyToil txun
-    mapM_ applier $ zip [0..] txun
+    extendGlobalToilM $ Txp.applyToil txun
+    explorerExtraMToEGlobalToilM $ mapM_ applier $ zip [0..] txun
   where
+    applier :: (Word32, (TxAux, TxUndo)) -> ExplorerExtraM ()
     applier (i, (txAux, txUndo)) = do
         let tx = taTx txAux
             id = hash tx
@@ -70,11 +66,12 @@ eApplyToil mTxTimestamp txun hh = do
         updateUtxoSumFromBalanceUpdate balanceUpdate
 
 -- | Rollback transactions from one block.
-eRollbackToil :: EGlobalApplyToilMode m => [(TxAux, TxUndo)] -> m ()
+eRollbackToil :: HasConfiguration => [(TxAux, TxUndo)] -> EGlobalToilM ()
 eRollbackToil txun = do
-    Txp.rollbackToil txun
-    mapM_ extraRollback $ reverse txun
+    extendGlobalToilM $ Txp.rollbackToil txun
+    explorerExtraMToEGlobalToilM $ mapM_ extraRollback $ reverse txun
   where
+    extraRollback :: (TxAux, TxUndo) -> ExplorerExtraM ()
     extraRollback (txAux, txUndo) = do
         delTxExtraWithHistory (hash (taTx txAux)) $
           getTxRelatedAddrs txAux txUndo
@@ -90,36 +87,37 @@ eRollbackToil txun = do
 -- Local
 ----------------------------------------------------------------------------
 
-type ELocalToilMode m =
-    ( Txp.LocalToilMode m
-    , MonadTxExtra m
-    )
-
 -- | Verify one transaction and also add it to mem pool and apply to utxo
 -- if transaction is valid.
-eProcessTx
-    :: (ELocalToilMode m, MonadError ToilVerFailure m)
-    => EpochIndex -> (TxId, TxAux) -> (TxUndo -> TxExtra) -> m ()
-eProcessTx curEpoch tx@(id, aux) createExtra = do
-    undo <- Txp.processTx curEpoch tx
-    let extra = createExtra undo
-    putTxExtraWithHistory id extra $ getTxRelatedAddrs aux undo
-    let balanceUpdate = getBalanceUpdate aux undo
-    updateAddrBalances balanceUpdate
-    updateUtxoSumFromBalanceUpdate balanceUpdate
+eProcessTx ::
+       (HasTxpConfiguration, HasConfiguration)
+    => BlockVersionData
+    -> EpochIndex
+    -> (TxId, TxAux)
+    -> (TxUndo -> TxExtra)
+    -> ExceptT ToilVerFailure ELocalToilM ()
+eProcessTx bvd curEpoch tx@(id, aux) createExtra = do
+    undo <- mapExceptT extendLocalToilM $ Txp.processTx bvd curEpoch tx
+    lift $ explorerExtraMToELocalToilM $ do
+        let extra = createExtra undo
+        putTxExtraWithHistory id extra $ getTxRelatedAddrs aux undo
+        let balanceUpdate = getBalanceUpdate aux undo
+        updateAddrBalances balanceUpdate
+        updateUtxoSumFromBalanceUpdate balanceUpdate
 
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
-eNormalizeToil
-    :: ELocalToilMode m
-    => EpochIndex
+eNormalizeToil ::
+       (HasTxpConfiguration, HasConfiguration)
+    => BlockVersionData
+    -> EpochIndex
     -> [(TxId, (TxAux, TxExtra))]
-    -> m ()
-eNormalizeToil curEpoch txs = mapM_ normalize ordered
+    -> ELocalToilM ()
+eNormalizeToil bvd curEpoch txs = mapM_ normalize ordered
   where
     ordered = fromMaybe txs $ topsortTxs wHash txs
     wHash (i, (txAux, _)) = WithHash (taTx txAux) i
-    normalize = runExceptT . uncurry (eProcessTx curEpoch) . repair
+    normalize = runExceptT . uncurry (eProcessTx bvd curEpoch) . repair
     repair (i, (txAux, extra)) = ((i, txAux), const extra)
 
 ----------------------------------------------------------------------------
@@ -131,36 +129,22 @@ data BalanceUpdate = BalanceUpdate
     , plusBalance  :: [(Address, Coin)]
     }
 
-modifyAddrHistory
-    :: MonadTxExtra m
-    => (AddrHistory -> AddrHistory)
-    -> Address
-    -> m ()
-modifyAddrHistory f addr =
-    updateAddrHistory addr . f =<< getAddrHistory addr
+modifyAddrHistory :: (AddrHistory -> AddrHistory) -> Address -> ExplorerExtraM ()
+modifyAddrHistory f addr = updateAddrHistory addr . f =<< getAddrHistory addr
 
-putTxExtraWithHistory
-    :: MonadTxExtra m
-    => TxId
-    -> TxExtra
-    -> NonEmpty Address
-    -> m ()
+putTxExtraWithHistory :: TxId -> TxExtra -> NonEmpty Address -> ExplorerExtraM ()
 putTxExtraWithHistory id extra addrs = do
     putTxExtra id extra
     for_ addrs $ modifyAddrHistory $
         NewestFirst . (id :) . getNewestFirst
 
-delTxExtraWithHistory
-    :: MonadTxExtra m
-    => TxId
-    -> NonEmpty Address
-    -> m ()
+delTxExtraWithHistory :: TxId -> NonEmpty Address -> ExplorerExtraM ()
 delTxExtraWithHistory id addrs = do
     delTxExtra id
     for_ addrs $ modifyAddrHistory $
         NewestFirst . delete id . getNewestFirst
 
-updateUtxoSumFromBalanceUpdate :: MonadTxExtra m => BalanceUpdate -> m ()
+updateUtxoSumFromBalanceUpdate :: BalanceUpdate -> ExplorerExtraM ()
 updateUtxoSumFromBalanceUpdate balanceUpdate = do
     let plusChange  = sumCoins $ map snd $ plusBalance  balanceUpdate
         minusChange = sumCoins $ map snd $ minusBalance balanceUpdate
@@ -205,10 +189,10 @@ combineBalanceUpdates BalanceUpdate {..} =
     reducer (Nothing, Just minus) | minus /= mkCoin 0 = Just (Minus, minus)
     reducer _ = Nothing
 
-updateAddrBalances :: (MonadTxExtra m, WithLogger m) => BalanceUpdate -> m ()
+updateAddrBalances :: BalanceUpdate -> ExplorerExtraM ()
 updateAddrBalances (combineBalanceUpdates -> updates) = mapM_ updater updates
   where
-    updater :: (MonadTxExtra m, WithLogger m) => (Address, (Sign, Coin)) -> m ()
+    updater :: (Address, (Sign, Coin)) -> ExplorerExtraM ()
     updater (addr, (Plus, coin)) = do
         currentBalance <- fromMaybe (mkCoin 0) <$> getAddrBalance addr
         let newBalance = unsafeAddCoin currentBalance coin
@@ -218,12 +202,14 @@ updateAddrBalances (combineBalanceUpdates -> updates) = mapM_ updater updates
         case maybeBalance of
             Nothing ->
                 logError $
-                    sformat ("updateAddrBalances: attempted to subtract "%build%" from unknown address "%build)
+                    sformat ("updateAddrBalances: attempted to subtract "%build%
+                             " from unknown address "%build)
                     coin addr
             Just currentBalance
                 | currentBalance < coin ->
                     logError $
-                        sformat ("updateAddrBalances: attempted to subtract "%build%" from address "%build%" which only has "%build)
+                        sformat ("updateAddrBalances: attempted to subtract "%build%
+                                 " from address "%build%" which only has "%build)
                         coin addr currentBalance
                 | otherwise -> do
                     let newBalance = unsafeSubCoin currentBalance coin

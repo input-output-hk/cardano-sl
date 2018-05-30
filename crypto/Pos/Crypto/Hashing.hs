@@ -17,6 +17,7 @@ module Pos.Crypto.Hashing
        , decodeHash
        , abstractHash
        , unsafeAbstractHash
+       , unsafeMkAbstractHash
 
          -- * Common Hash
        , Hash
@@ -25,6 +26,7 @@ module Pos.Crypto.Hashing
        , shortHashF
        , hash
        , hashRaw
+       , hashRaw'
        , unsafeHash
        , unsafeCheatingHashCoerce
 
@@ -41,6 +43,7 @@ import           Control.Lens (makeLensesFor)
 import           Crypto.Hash (Blake2b_256, Digest, HashAlgorithm, hashDigestSize)
 import qualified Crypto.Hash as Hash
 import qualified Data.ByteArray as ByteArray
+import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
 import           Data.Hashable (Hashable (hashWithSalt), hashPtrWithSalt)
 import           Data.Reflection (reifyNat)
@@ -60,7 +63,7 @@ import qualified Pos.Binary.Class as Bi
 data WithHash a = WithHash
     { whData :: a
     , whHash :: Hash a
-    } deriving (Show, Typeable)
+    } deriving (Show, Typeable, Generic)
 
 instance Hashable (WithHash a) where
     hashWithSalt s = hashWithSalt s . whHash
@@ -141,7 +144,16 @@ abstractHash = unsafeAbstractHash
 unsafeAbstractHash
     :: (HashAlgorithm algo, Bi a)
     => a -> AbstractHash algo b
-unsafeAbstractHash = AbstractHash . Hash.hash . Bi.serialize'
+unsafeAbstractHash = AbstractHash . Hash.hashlazy . Bi.serialize
+
+-- | Make an AbstractHash from a lazy ByteString. You can choose the phantom
+-- type, hence the "unsafe".
+-- The other 'unsafeAbstractHash' actually serializes the thing, fulfilling
+-- the purpose of the second type parameter, and so is not actually "unsafe".
+unsafeMkAbstractHash
+    :: (HashAlgorithm algo)
+    => LBS.ByteString -> AbstractHash algo anything
+unsafeMkAbstractHash = AbstractHash . Hash.hashlazy
 
 -- | Type alias for commonly used hash
 type Hash = AbstractHash Blake2b_256
@@ -151,8 +163,11 @@ hash :: Bi a => a -> Hash a
 hash = unsafeHash
 
 -- | Raw constructor application.
-hashRaw :: ByteString -> Hash Raw
-hashRaw = AbstractHash . Hash.hash
+hashRaw :: LBS.ByteString -> Hash Raw
+hashRaw = AbstractHash . Hash.hashlazy
+
+hashRaw' :: ByteString -> Hash Raw
+hashRaw' = AbstractHash . Hash.hash
 
 -- | Encode thing as 'Bi' data and then wrap into constructor.
 unsafeHash :: Bi a => a -> Hash b

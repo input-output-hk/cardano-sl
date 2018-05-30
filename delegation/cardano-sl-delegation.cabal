@@ -1,5 +1,5 @@
 name:                cardano-sl-delegation
-version:             1.1.1
+version:             1.2.0
 synopsis:            Cardano SL - delegation
 description:         Cardano SL - delegation
 license:             MIT
@@ -9,6 +9,7 @@ maintainer:          hi@serokell.io
 copyright:           2017 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
@@ -18,7 +19,6 @@ library
                        Pos.Delegation.Class
                        Pos.Delegation.Configuration
                        Pos.Delegation.DB
-                       Pos.Delegation.Helpers
                        Pos.Delegation.Listeners
                        Pos.Delegation.Logic
                        Pos.Delegation.Lrc
@@ -69,6 +69,7 @@ library
                      , time
                      , transformers
                      , universum
+                     , unliftio
                      , unordered-containers
 
   default-extensions:  DeriveDataTypeable

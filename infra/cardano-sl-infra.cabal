@@ -1,5 +1,5 @@
 name:                cardano-sl-infra
-version:             1.1.1
+version:             1.2.0
 synopsis:            Cardano SL - infrastructural
 description:         Cardano SL - infrastructural
 license:             MIT
@@ -9,6 +9,7 @@ maintainer:          hi@serokell.io
 copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
@@ -16,6 +17,15 @@ library
                         -- Arbitrary
                         Pos.Arbitrary.Slotting
                         Pos.Arbitrary.Infra
+
+                        -- Diffusion layer
+                        Pos.Diffusion.Transport.TCP
+                        Pos.Diffusion.Types
+                        Pos.Diffusion.Subscription.Common
+                        Pos.Diffusion.Subscription.Dns
+                        Pos.Diffusion.Subscription.Dht
+
+                        Pos.DHT.Workers
 
                         -- Reporting
                         Pos.Reporting
@@ -30,11 +40,8 @@ library
                         -- Slotting
                         Pos.Slotting
                         Pos.Slotting.Class
-                        Pos.Slotting.Configuration
                         Pos.Slotting.Impl
-                        Pos.Slotting.Impl.Ntp
                         Pos.Slotting.Impl.Simple
-                        Pos.Slotting.Impl.Sum
                         Pos.Slotting.Impl.Util
                         Pos.Slotting.MemState
                         Pos.Slotting.Types
@@ -43,7 +50,7 @@ library
 
                         -- Pos.DHT
                         Pos.DHT
-                        Pos.DHT.Configuration
+                        Pos.DHT.Constants
                         Pos.DHT.Model
                         Pos.DHT.Model.Types
                         Pos.DHT.Real
@@ -51,10 +58,9 @@ library
                         Pos.DHT.Real.Types
                         Pos.DHT.Real.Param
                         Pos.DHT.Real.CLI
-                        Pos.DHT.Workers
 
                         -- Pos.Communication
-                        Pos.Communication.Configuration
+                        Pos.Communication.Constants
                         Pos.Communication.Types.Protocol
                         Pos.Communication.Types.Relay
                         Pos.Communication.BiP
@@ -70,8 +76,8 @@ library
                         Pos.Communication.Relay.Util
                         Pos.Communication.Util
 
-                        -- Configuration
-                        Pos.Infra.Configuration
+                        -- Health Checks
+                        Pos.HealthCheck.Route53
 
                         -- Known peers
                         Pos.KnownPeers
@@ -86,19 +92,24 @@ library
                         -- Recovery
                         Pos.Recovery.Info
 
+                        -- Reporting
+                        Pos.Reporting.Health.Types
+                        Pos.Reporting.Ekg
+                        Pos.Reporting.Statsd
+
                         -- Pos.Shutdown
                         Pos.Shutdown
                         Pos.Shutdown.Class
                         Pos.Shutdown.Logic
                         Pos.Shutdown.Types
 
-                        -- Subscription
-                        Pos.Subscription.Common
-                        Pos.Subscription.Dns
-                        Pos.Subscription.Dht
+                        -- Statistics
+                        Pos.Statistics
+                        Pos.Statistics.Ekg
+                        Pos.Statistics.Statsd
 
                         -- NTP
-                        Pos.NtpCheck
+                        Pos.Ntp.Configuration
 
                         -- Pos.Binary
                         Pos.Binary.Infra
@@ -108,8 +119,12 @@ library
 
                         -- Pos.Util
                         Pos.Util.LogSafe
+                        Pos.Util.Monitor
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
+
+                        -- Pos.Worker
+                        Pos.Worker.Types
 
   other-modules:        Paths_cardano_sl_infra
 
@@ -130,6 +145,8 @@ library
                       , directory
                       , dns
                       , ekg-core
+                      , ekg-statsd
+                      , ekg-wai
                       , ether >= 0.5
                       , exceptions
                       , filepath
@@ -143,7 +160,6 @@ library
                       , kademlia
                       , lens
                       , log-warper >= 1.0.3
-                      , monad-control
                       , mtl
                       , network-info
                       , network-transport
@@ -154,7 +170,9 @@ library
                       , safe-exceptions
                       , serokell-util >= 0.1.3.4
                       , stm
+                      , clock
                       , tagged
+                      , template-haskell
                       , tar
                       , text
                       , text-format

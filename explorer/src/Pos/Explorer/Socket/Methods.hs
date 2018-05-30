@@ -343,12 +343,12 @@ notifyEpochsLastPageSubscribers
     :: forall ctx m . ExplorerMode ctx m
     => EpochIndex -> ExplorerSockets m ()
 notifyEpochsLastPageSubscribers currentEpoch = do
+    -- subscriber
     recipients <- view $ csEpochsLastPageSubscribers
-    -- ^ subscriber
+    -- last epoch page
     lastPage <- lift $ getEpochPagesOrThrow currentEpoch
-    -- ^ last epoch page
+    -- epochs of last page
     epochs <- lift $ getEpochPage @ctx currentEpoch $ Just lastPage
-    -- ^ epochs of last page
     broadcast @ctx EpochsLastPageUpdated epochs recipients
 
 -- * Helpers
@@ -358,10 +358,10 @@ getBlundsFromTo
     :: forall ctx m . ExplorerMode ctx m
     => HeaderHash -> HeaderHash -> m (Maybe [Blund])
 getBlundsFromTo recentBlock oldBlock =
-    DB.getHeadersRange Nothing oldBlock recentBlock >>= \case
+    DB.getHashesRange Nothing oldBlock recentBlock >>= \case
         Left _ -> pure Nothing
-        Right (getOldestFirst -> headers) ->
-            Just . catMaybes <$> forM (NE.tail headers) getBlund
+        Right (getOldestFirst -> hashes) ->
+            Just . catMaybes <$> forM (NE.tail hashes) getBlund
 
 addrsTouchedByTx
     :: (MonadDBRead m, WithLogger m)
@@ -370,7 +370,7 @@ addrsTouchedByTx tx = do
       -- for each transaction, get its OutTx
       -- and transactions from InTx
       inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
-      -- ^ inTxs :: NonEmpty [TxOut]
+      -- inTxs :: NonEmpty [TxOut]
           -- TODO [CSM-153]: lookup mempool as well
           Nothing       -> return mempty
           Just txOutAux -> return . one $ toaOut txOutAux

@@ -20,12 +20,13 @@ import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, pol
                                                        withAsync, withAsyncWithUnmask)
 import           Control.Exception.Safe (catchAny, handle, mask_, tryAny)
 import           Control.Lens (makeLensesWith)
-import           Data.Aeson (FromJSON, Value (Array, Bool, Object), genericParseJSON, withObject)
+import           Data.Aeson (FromJSON, Value (Array, Bool, Object), fromJSON, genericParseJSON,
+                             withObject)
+import qualified Data.Aeson as AE
 import qualified Data.ByteString.Lazy as BS.L
 import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
 import           Data.Maybe (isNothing)
-import qualified Data.Text as T (replace)
 import qualified Data.Text.IO as T
 import           Data.Time.Units (Second, convertUnit)
 import           Data.Version (showVersion)
@@ -38,10 +39,13 @@ import           Options.Applicative (Parser, ParserInfo, ParserResult (..), def
                                       progDesc, renderFailure, short, strOption)
 import           Serokell.Aeson.Options (defaultOptions)
 import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
-import           System.Environment (getEnv, getExecutablePath, getProgName)
+import qualified System.Directory as Sys
+import           System.Environment (getExecutablePath, getProgName, setEnv)
 import           System.Exit (ExitCode (..))
 import           System.FilePath (takeDirectory, (</>))
+import qualified System.Info as Sys
 import qualified System.IO as IO
+import qualified System.IO.Silently as Silently
 import           System.Process (ProcessHandle, waitForProcess)
 import qualified System.Process as Process
 import           System.Timeout (timeout)
@@ -49,9 +53,7 @@ import           System.Wlog (logError, logInfo, logNotice, logWarning)
 import qualified System.Wlog as Log
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
-#ifdef mingw32_HOST_OS
-import qualified System.IO.Silently as Silently
-#else
+#ifndef mingw32_HOST_OS
 import           System.Posix.Signals (sigKILL, signalProcess)
 import qualified System.Process.Internals as Process
 #endif
@@ -64,7 +66,7 @@ import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (readLoggerConfig)
 import           Pos.Core (HasConfiguration, Timestamp (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
-                               dbPutSerBlundRealDefault)
+                               dbPutSerBlundsRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault, dbGetDefault,
                                dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault, openNodeDBs)
@@ -74,8 +76,11 @@ import           Pos.Reporting.Methods (compressLogs, retrieveLogFiles, sendRepo
 import           Pos.ReportServer.Report (ReportType (..))
 import           Pos.Update (installerHash)
 import           Pos.Update.DB.Misc (affirmUpdateInstalled)
-import           Pos.Util (HasLens (..), directory, postfixLFields, sleep)
+import           Pos.Util (HasLens (..), directory, logException, postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+
+import           Launcher.Environment (substituteEnvVarsValue)
+import           Launcher.Logging (reportErrorDefault)
 
 data LauncherOptions = LO
     { loNodePath            :: !FilePath
@@ -94,10 +99,11 @@ data LauncherOptions = LO
     , loNodeTimeoutSec      :: !Int
     , loReportServer        :: !(Maybe String)
     , loConfiguration       :: !ConfigurationOptions
-    -- | Launcher logs will be written into this directory (as well as to
+    -- | This prefix will be passed as logs-prefix to the node. Launcher logs
+    -- will be written into "pub" subdirectory of the prefix (as well as to
     -- console, except on Windows where we don't output anything to console
     -- because it crashes).
-    , loLauncherLogsPrefix  :: !(Maybe FilePath)
+    , loLogsPrefix          :: !(Maybe FilePath)
     } deriving (Generic)
 
 instance FromJSON LauncherOptions where
@@ -158,35 +164,30 @@ launcherArgsParser = do
         metavar "PATH"
     pure $ LauncherArgs {..}
 
-getDefaultLogDir :: IO FilePath
-getDefaultLogDir =
-#ifdef mingw32_HOST_OS
-    (</> "Daedalus\\Logs") <$> getEnv "APPDATA"
-#else
-    (</> "Library/Application Support/Daedalus/Logs") <$> getEnv "HOME"
-#endif
-
--- | Write @contents@ into @filename@ under default logging directory.
---
--- This function is only intended to be used before normal logging
--- is initialized. Its purpose is to provide at least some information
--- in cases where normal reporting methods don't work yet.
-reportErrorDefault :: FilePath -> Text -> IO ()
-reportErrorDefault filename contents = do
-    logDir <- getDefaultLogDir
-    createDirectoryIfMissing True logDir
-    writeFile (logDir </> filename) contents
-
 getLauncherOptions :: IO LauncherOptions
 getLauncherOptions = do
     LauncherArgs {..} <- either parseErrorHandler pure =<< execParserEither programInfo
+    case Sys.os of
+      "mingw32" -> do
+        daedalusDir <- takeDirectory <$> getExecutablePath
+        -- This is used by 'substituteEnvVars', later
+        setEnv "DAEDALUS_DIR" daedalusDir
+      _ -> pure ()
     configPath <- maybe defaultConfigPath pure maybeConfigPath
     decoded <- Y.decodeFileEither configPath
     case decoded of
         Left err -> do
             reportErrorDefault "config-parse-error.log" $ show err
             throwM $ ConfigParseError configPath err
-        Right op -> expandVars op
+        Right value -> do
+          let contextDesc = "Substituting environment vars in '"<>toText configPath<>"'"
+          substituted <- substituteEnvVarsValue contextDesc value
+          case fromJSON $ substituted of
+            AE.Error err -> do
+              reportErrorDefault "config-parse-error.log" $ show err
+              error $ toText err
+            AE.Success op -> pure op
+
   where
     execParserEither :: ParserInfo a -> IO (Either (Text, ExitCode) a)
     execParserEither pinfo = do
@@ -218,43 +219,6 @@ getLauncherOptions = do
         launcherDir <- takeDirectory <$> getExecutablePath
         pure $ launcherDir </> "launcher-config.yaml"
 
-    -- Poor man's environment variable expansion.
-    expandVars :: LauncherOptions -> IO LauncherOptions
-#ifdef mingw32_HOST_OS
-    expandVars lo@(LO {..}) = do
-        -- %APPDATA%: nodeArgs, nodeDbPath,
-        --     nodeLogPath, updaterPath,
-        --     updateWindowsRunner, launcherLogsPrefix
-        -- %DAEDALUS_DIR%: nodePath, walletPath
-        appdata <- toText <$> getEnv "APPDATA"
-        daedalusDir <- (toText . takeDirectory) <$> getExecutablePath
-        let replaceAppdata = replace "%APPDATA%" appdata
-            replaceDaedalusDir = replace "%DAEDALUS_DIR%" daedalusDir
-        pure lo
-            { loNodeArgs            = map (T.replace "%APPDATA%" appdata) loNodeArgs
-            , loNodeDbPath          = replaceAppdata loNodeDbPath
-            , loNodeLogPath         = replaceAppdata <$> loNodeLogPath
-            , loUpdaterPath         = replaceAppdata loUpdaterPath
-            , loUpdateWindowsRunner = replaceAppdata <$> loUpdateWindowsRunner
-            , loLauncherLogsPrefix  = replaceAppdata <$> loLauncherLogsPrefix
-            , loNodePath            = replaceDaedalusDir loNodePath
-            , loWalletPath          = replaceDaedalusDir <$> loWalletPath
-            }
-#else
-    expandVars lo@(LO {..}) = do
-        home <- toText <$> getEnv "HOME"
-        let replaceHome = replace "$HOME" home
-        pure lo
-            { loNodeArgs           = map (T.replace "$HOME" home) loNodeArgs
-            , loNodeDbPath         = replaceHome loNodeDbPath
-            , loNodeLogPath        = replaceHome <$> loNodeLogPath
-            , loUpdateArchive      = replaceHome <$> loUpdateArchive
-            , loLauncherLogsPrefix = replaceHome <$> loLauncherLogsPrefix
-            }
-#endif
-    replace :: Text -> Text -> FilePath -> FilePath
-    replace from to = toString . T.replace from to . toText
-
 usageExample :: Maybe Doc
 usageExample = (Just . fromString @Doc . toString @Text) [Q.text|
 Command example:
@@ -283,7 +247,7 @@ instance HasConfiguration => MonadDB LauncherMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
-    dbPutSerBlund = dbPutSerBlundRealDefault
+    dbPutSerBlunds = dbPutSerBlundsRealDefault
 
 newtype NodeDbPath = NodeDbPath FilePath
 
@@ -293,47 +257,57 @@ bracketNodeDBs (NodeDbPath dbPath) = bracket (openNodeDBs False dbPath) closeNod
 main :: IO ()
 main =
   withCompileInfo $(retrieveCompileTimeInfo) $
-#ifdef mingw32_HOST_OS
-  -- We don't output anything to console on Windows because on Windows the
-  -- launcher is considered a “GUI application” and so stdout and stderr
-  -- don't even exist.
-  Silently.hSilence [stdout, stderr] $
-#endif
-  do
+  case Sys.os of
+    "mingw32" ->
+      -- We don't output anything to console on Windows because on Windows the
+      -- launcher is considered a “GUI application” and so stdout and stderr
+      -- don't even exist.
+      Silently.hSilence [stdout, stderr]
+    _ -> identity
+  $ do
+    Sys.getXdgDirectory Sys.XdgData "" >>= setEnv "XDG_DATA_HOME"
+    setEnv "LC_ALL" "en_GB.UTF-8"
+    setEnv "LANG"   "en_GB.UTF-8"
+
     LO {..} <- getLauncherOptions
+    -- Launcher logs should be in public directory
+    let launcherLogsPrefix = (</> "pub") <$> loLogsPrefix
     -- Add options specified in loConfiguration but not in loNodeArgs to loNodeArgs.
-    let realNodeArgs = propagateOptions loReportServer loNodeDbPath loConfiguration $
+    let realNodeArgs = propagateOptions loReportServer loNodeDbPath loLogsPrefix loConfiguration $
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
     Log.setupLogging Nothing $
         Log.productionB
             & Log.lcTermSeverityOut .~ Just Log.debugPlus
-            & Log.lcLogsDirectory .~ loLauncherLogsPrefix
-            & Log.lcTree %~ case loLauncherLogsPrefix of
+            & Log.lcLogsDirectory .~ launcherLogsPrefix
+            & Log.lcTree %~ case launcherLogsPrefix of
                   Nothing ->
                       identity
                   Just _  ->
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.debugPlus)
-    Log.usingLoggerName "launcher" $
-        withConfigurations loConfiguration $
+    logException loggerName . Log.usingLoggerName loggerName $
+        withConfigurations loConfiguration $ \_ ->
         case loWalletPath of
             Nothing -> do
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the server scenario"
                 serverScenario
                     (NodeDbPath loNodeDbPath)
+                    loLogsPrefix
                     loNodeLogConfig
                     (NodeData loNodePath realNodeArgs loNodeLogPath)
                     (UpdaterData
                         loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
                     loReportServer
+                logNotice "Finished serverScenario"
             Just wpath -> do
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the client scenario"
                 clientScenario
                     (NodeDbPath loNodeDbPath)
+                    loLogsPrefix
                     loNodeLogConfig
                     (NodeData loNodePath realNodeArgs loNodeLogPath)
                     (NodeData wpath loWalletArgs loWalletLogPath)
@@ -342,6 +316,7 @@ main =
                     loNodeTimeoutSec
                     loReportServer
                     loWalletLogging
+                logNotice "Finished clientScenario"
   where
     -- We propagate some options to the node executable, because
     -- we almost certainly want to use the same configuration and
@@ -349,14 +324,17 @@ main =
     -- user passes these options to the node explicitly, then we
     -- leave their choice. It doesn't cover all cases
     -- (e. g. `--system-start=10`), but it's better than nothing.
-    propagateOptions :: Maybe String -> FilePath -> ConfigurationOptions -> [Text] -> [Text]
-    propagateOptions maybeReportServer nodeDbPath (ConfigurationOptions path key systemStart seed) =
+    loggerName = "launcher"
+    propagateOptions
+        :: Maybe String -> FilePath -> Maybe FilePath -> ConfigurationOptions -> [Text] -> [Text]
+    propagateOptions maybeReportServer nodeDbPath logPrefix (ConfigurationOptions path key systemStart seed) =
         addReportServerOption maybeReportServer .
         addNodeDbPath nodeDbPath .
         addConfFileOption path .
         addConfKeyOption key .
         addSystemStartOption systemStart .
-        addSeedOption seed
+        addSeedOption seed .
+        addLogPrefix logPrefix
 
     addReportServerOption =
         maybe identity (maybeAddOption "--report-server" . toText)
@@ -369,6 +347,7 @@ main =
         maybe identity (maybeAddOption "--system-start" . timestampToText)
     addSeedOption =
         maybe identity (maybeAddOption "--configuration-seed" . show)
+    addLogPrefix = maybe identity (maybeAddOption "--logs-prefix" . toText)
 
     maybeAddOption :: Text -> Text -> [Text] -> [Text]
     maybeAddOption optionName optionValue options
@@ -385,24 +364,25 @@ main =
 -- * If it exits with code 20, then update and restart, else quit.
 serverScenario
     :: NodeDbPath
+    -> Maybe FilePath     -- ^ Log prefix
     -> Maybe FilePath     -- ^ Logger config
     -> NodeData           -- ^ Node, args, log path
     -> UpdaterData        -- ^ Updater, args, updater runner, archive path
     -> Maybe String       -- ^ Report server
     -> M ()
-serverScenario ndbp logConf node updater report = do
+serverScenario ndbp logPrefix logConf node updater report = do
     runUpdater ndbp updater
     -- TODO: the updater, too, should create a log if it fails
     (_, nodeAsync) <- spawnNode node False
     exitCode <- wait nodeAsync
     if exitCode == ExitFailure 20 then do
         logNotice $ sformat ("The node has exited with "%shown) exitCode
-        serverScenario ndbp logConf node updater report
+        serverScenario ndbp logPrefix logConf node updater report
     else do
         logWarning $ sformat ("The node has exited with "%shown) exitCode
         whenJust report $ \repServ -> do
             logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
-            reportNodeCrash exitCode logConf repServ
+            reportNodeCrash exitCode logPrefix logConf repServ
 
 -- | If we are on desktop, we want the following algorithm:
 --
@@ -411,6 +391,7 @@ serverScenario ndbp logConf node updater report = do
 -- * If the wallet exits with code 20, then update and restart, else quit.
 clientScenario
     :: NodeDbPath
+    -> Maybe FilePath    -- ^ Log prefix
     -> Maybe FilePath    -- ^ Logger config
     -> NodeData          -- ^ Node, args, node log path
     -> NodeData          -- ^ Wallet, args, wallet log path
@@ -419,41 +400,46 @@ clientScenario
     -> Maybe String      -- ^ Report server
     -> Bool              -- ^ Wallet logging
     -> M ()
-clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog = do
+clientScenario ndbp logPrefix logConf node wallet updater nodeTimeout report walletLog = do
     runUpdater ndbp updater
     let doesWalletLogToConsole = isNothing (ndLogPath wallet) && walletLog
     (nodeHandle, nodeAsync) <- spawnNode node doesWalletLogToConsole
     walletAsync <- async (runWallet walletLog wallet (ndLogPath node))
+    logInfo "Waiting for wallet or node to finish..."
     (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
-    let restart = clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog
-    if | someAsync == nodeAsync -> do
-             logWarning $ sformat ("The node has exited with "%shown) exitCode
-             whenJust report $ \repServ -> do
-                 logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
-                 reportNodeCrash exitCode logConf repServ
+    logInfo "Wallet or node has finished!"
+    let restart
+            = clientScenario ndbp logPrefix logConf node wallet updater nodeTimeout report walletLog
+    (walletExitCode, nodeExitCode) <- if
+       | someAsync == nodeAsync -> do
+             unless (exitCode == ExitFailure 20) $ do
+                 logWarning $ sformat ("The node has exited with "%shown) exitCode
+                 whenJust report $ \repServ -> do
+                     logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
+                     reportNodeCrash exitCode logPrefix logConf repServ
              logInfo "Waiting for the wallet to die"
              walletExitCode <- wait walletAsync
              logInfo $ sformat ("The wallet has exited with "%shown) walletExitCode
-             when (walletExitCode == ExitFailure 20) $
-                 case exitCode of
-                     ExitSuccess{} -> restart
-                     ExitFailure{} ->
-                         -- -- Commented out because shutdown is broken and node
-                         -- -- returns non-zero codes even for valid scenarios (CSL-1855)
-                         -- TL.putStrLn $
-                         --   "The wallet has exited with code 20, but\
-                         --   \ we won't update due to node crash"
-                         restart -- remove this after CSL-1855
+             return (walletExitCode, Just exitCode)
        | exitCode == ExitFailure 20 -> do
              logNotice "The wallet has exited with code 20"
-             logInfo $ sformat ("Killing the node in "%int%" seconds") nodeTimeout
-             sleep (fromIntegral nodeTimeout)
-             killNode nodeHandle nodeAsync
-             restart
+             logInfo $ sformat
+                 ("Waiting for the node to shut down or killing it in "%int%" seconds otherwise")
+                 nodeTimeout
+             nodeExitCode <- liftIO $ timeout (fromIntegral nodeTimeout * 1000000) (wait nodeAsync)
+             return (exitCode, nodeExitCode)
        | otherwise -> do
              logWarning $ sformat ("The wallet has exited with "%shown) exitCode
              -- TODO: does the wallet have some kind of log?
-             killNode nodeHandle nodeAsync
+             return (exitCode, Nothing)
+    when (isNothing nodeExitCode) $ do
+        logWarning "The wallet has exited, but the node is still up."
+        killNode nodeHandle nodeAsync
+    when (walletExitCode == ExitFailure 20) $
+        case nodeExitCode of
+            Just (ExitFailure 20) -> restart
+            _ -> logWarning $
+                "The wallet has exited with code 20, but we won't update due to node crash"
   where
     killNode nodeHandle nodeAsync = do
         logInfo "Killing the node"
@@ -588,11 +574,13 @@ runWallet shouldLog nd nLogPath = do
             cr <- createLogFileProc wpath wargs lp
             system' phvar cr mempty EWallet
         Nothing ->
-           -- if nLog is Nothing and shouldLog is True
-           -- we want to CreatePipe otherwise Inherit
-           let cr = if shouldLog && isNothing nLogPath then
-                        Process.CreatePipe
-                    else Process.Inherit
+           let cr = if | not shouldLog -> Process.NoStream
+                       -- If node's output is not redirected, we want
+                       -- to receive node's output and modify it.
+                       | isNothing nLogPath -> Process.CreatePipe
+                       -- If node's output is redirected, it's ok to
+                       -- let wallet log to launcher's standard streams.
+                       | otherwise -> Process.Inherit
            in system' phvar (createProc cr wpath wargs) mempty EWallet
 
 createLogFileProc :: FilePath -> [Text] -> FilePath -> IO Process.CreateProcess
@@ -639,10 +627,11 @@ customLogger hndl loggerName logStr = do
 -- logs (and so the user never actually sees the process or waits for it).
 reportNodeCrash
     :: ExitCode        -- ^ Exit code of the node
+    -> Maybe FilePath  -- ^ Log prefix
     -> Maybe FilePath  -- ^ Path to the logger config
     -> String          -- ^ URL of the server
     -> M ()
-reportNodeCrash exitCode logConfPath reportServ = do
+reportNodeCrash exitCode _ logConfPath reportServ = do
     logConfig <- readLoggerConfig (toString <$> logConfPath)
     let logFileNames =
             map ((fromMaybe "" (logConfig ^. Log.lcLogsDirectory) </>) . snd) $

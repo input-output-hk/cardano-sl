@@ -1,5 +1,5 @@
 name:                cardano-sl-block
-version:             1.1.1
+version:             1.2.0
 synopsis:            Cardano SL - block processing
 description:         Cardano SL - block processing
 license:             MIT
@@ -9,25 +9,30 @@ maintainer:          hi@serokell.io
 copyright:           2017 IOHK
 category:            Currency
 build-type:          Simple
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
   exposed-modules:
                         Pos.Arbitrary.Block
+                        Pos.Arbitrary.Block.Message
+                        Pos.Arbitrary.Block.Generate
 
                         Pos.Block.Base
                         Pos.Block.BHelpers
                         Pos.Block.BListener
+                        Pos.Block.BlockWorkMode
                         Pos.Block.Configuration
                         Pos.Block.Error
-                        Pos.Block.Genesis
                         Pos.Block.Logic
-                        Pos.Block.Network
-                        Pos.Block.Pure
                         Pos.Block.RetrievalQueue
                         Pos.Block.Slog
                         Pos.Block.Types
-                        Pos.Block.Worker
+
+                        Pos.Block.Network
+                        Pos.Block.Network.Logic
+                        Pos.Block.Network.Retrieval
+                        Pos.Block.Network.Types
 
                         Pos.DB.Block
                         Pos.DB.Block.Load
@@ -38,7 +43,6 @@ library
                         -- LRC
                         Pos.Lrc
                         Pos.Lrc.DB
-                        Pos.Lrc.FtsPure
                         Pos.Lrc.Genesis
 
                         -- Binary serialization
@@ -50,18 +54,15 @@ library
 
                         -- Exposed for tests
                         Pos.Block.Logic.VAR
+                        Pos.Block.Logic.Integrity
+
+                        Pos.Block.Worker
 
   other-modules:
-                        Pos.Block.BlockWorkMode
                         Pos.Block.Logic.Creation
                         Pos.Block.Logic.Header
                         Pos.Block.Logic.Internal
                         Pos.Block.Logic.Util
-                        Pos.Block.Network.Announce
-                        Pos.Block.Network.Listeners
-                        Pos.Block.Network.Logic
-                        Pos.Block.Network.Retrieval
-                        Pos.Block.Network.Types
                         Pos.Block.Slog.Context
                         Pos.Block.Slog.Logic
                         Pos.Block.Slog.Types
@@ -73,6 +74,7 @@ library
                         Pos.Lrc.DB.Richmen
                         Pos.Lrc.Logic
                         Pos.Lrc.Worker
+
 
   build-depends:        QuickCheck
                       , aeson
@@ -92,7 +94,6 @@ library
                       , cardano-sl-util
                       , cborg
                       , conduit
-                      , containers
                       , cryptonite
                       , data-default
                       , directory
@@ -116,6 +117,7 @@ library
                       , time-units
                       , transformers
                       , universum
+                      , unliftio
                       , unordered-containers
 
 
@@ -152,3 +154,23 @@ library
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+
+Benchmark bench-block
+    type: exitcode-stdio-1.0
+    main-is: Block.hs
+    hs-source-dirs: bench
+    ghc-options: -O2
+    build-depends:   base
+                   , bytestring
+                   , criterion >= 1.3.0.0
+                   , cardano-sl-binary
+                   , cardano-sl-block
+                   , cardano-sl-crypto
+                   , cardano-sl-core
+                   , cardano-sl-txp
+                   , cardano-sl-update
+                   , cardano-sl-ssc
+                   , cardano-sl-delegation
+                   , formatting
+                   , universum
+                   , deepseq

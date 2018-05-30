@@ -10,6 +10,7 @@ module Pos.Wallet.Web.Tracking.Decrypt
        , WalletDecrCredentials
        , eskToWalletDecrCredentials
        , selectOwnAddresses
+       , decryptAddress
        ) where
 
 import           Universum
@@ -26,10 +27,10 @@ import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut, TxOutAux (..), TxUndo,
 import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, WithHash (..), deriveHDPassphrase,
                              encToPublic, unpackHDAddressAttr)
 import           Pos.Util.Servant (encodeCType)
+import           Pos.Wallet.Web.ClientTypes (CId, Wal)
+import           Pos.Wallet.Web.State (WAddressMeta(..))
 
-import           Pos.Wallet.Web.ClientTypes (CId, CWAddressMeta (..), Wal)
-
-type OwnTxInOuts = [((TxIn, TxOutAux), CWAddressMeta)]
+type OwnTxInOuts = [((TxIn, TxOutAux), WAddressMeta)]
 
 -- | Auxiliary datatype which holds TxIns and TxOuts
 -- belonging to some wallet.
@@ -63,9 +64,9 @@ buildTHEntryExtra wdc (WithHash tx txId, NE.toList -> undoL) (mDiff, mTs) =
         txOutgoings = map txOutAddress outs
         txInputs = map (toaOut . snd) resolvedInputs
 
-        theeInputs :: [((TxIn, TxOutAux), CWAddressMeta)]
+        theeInputs :: [((TxIn, TxOutAux), WAddressMeta)]
         theeInputs = selectOwnAddresses wdc (txOutAddress . toaOut . snd) resolvedInputs
-        theeOutputsRaw :: [((Word32, TxOut), CWAddressMeta)]
+        theeOutputsRaw :: [((Word32, TxOut), WAddressMeta)]
         theeOutputsRaw = selectOwnAddresses wdc (txOutAddress . snd) (enumerate outs)
         theeOutputs = map (first toTxInOut) theeOutputsRaw
         theeTxEntry = THEntry txId tx mDiff txInputs txOutgoings mTs in
@@ -84,13 +85,13 @@ selectOwnAddresses
     :: WalletDecrCredentials
     -> (a -> Address)
     -> [a]
-    -> [(a, CWAddressMeta)]
+    -> [(a, WAddressMeta)]
 selectOwnAddresses wdc getAddr =
     mapMaybe (\a -> (a,) <$> decryptAddress wdc (getAddr a))
 
-decryptAddress :: WalletDecrCredentials -> Address -> Maybe CWAddressMeta
+decryptAddress :: WalletDecrCredentials -> Address -> Maybe WAddressMeta
 decryptAddress (hdPass, wCId) addr = do
     hdPayload <- aaPkDerivationPath $ addrAttributesUnwrapped addr
     derPath <- unpackHDAddressAttr hdPass hdPayload
     guard $ length derPath == 2
-    pure $ CWAddressMeta wCId (derPath !! 0) (derPath !! 1) (encodeCType addr)
+    pure $ WAddressMeta wCId (derPath !! 0) (derPath !! 1) addr

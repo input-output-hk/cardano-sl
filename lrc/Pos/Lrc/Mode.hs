@@ -10,6 +10,7 @@ import           Universum
 
 import           Mockable (Async, Concurrently, Delay, Mockables)
 import           System.Wlog (WithLogger)
+import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (HasConfiguration)
 import           Pos.DB.Class (MonadDB, MonadGState)
@@ -22,6 +23,7 @@ type LrcMode ctx m
        , MonadGState m
        , MonadDB m
        , MonadIO m
+       , MonadUnliftIO m
        , Mockables m [Async, Concurrently, Delay]
        , MonadReader ctx m
        , HasLrcContext ctx

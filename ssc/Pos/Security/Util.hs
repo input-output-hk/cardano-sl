@@ -5,11 +5,11 @@ module Pos.Security.Util
 
 import           Universum
 
-import           Ether.Internal (HasLens (..))
 
 import           Pos.Core (StakeholderId)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..), SecurityParams (..))
 import           Pos.Util.TimeWarp (NetworkAddress)
+import           Pos.Util.Util (HasLens (..))
 
 shouldIgnoreAddress
     :: (MonadReader ctx m, HasLens SecurityParams ctx SecurityParams)

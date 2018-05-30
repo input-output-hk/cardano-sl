@@ -47,6 +47,7 @@ data SscVerifyError
     | CertificateInvalidSign !(NonEmpty (StakeholderId, VssCertificate))
     | CertificateInvalidTTL !(NonEmpty VssCertificate)
 
+    | SscInvalidPayload !Text
     | TossInternalError !Text
     deriving (Show, Eq)
 
@@ -104,6 +105,8 @@ instance Buildable SscVerifyError where
         bprint ("some VSS certificates users are not passing stake threshold: "%listJson) stks
     build (CertificateDuplicateVssKey stks) =
         bprint ("some VSS certificates have VSS keys that already belong to other certificates: "%listJson) stks
+    build (SscInvalidPayload msg) =
+        bprint ("invalid payload: "%stext) msg
     build (TossInternalError msg) =
         bprint ("internal error: "%stext) msg
 

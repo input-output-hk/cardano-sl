@@ -17,16 +17,16 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
-import           Pos.Communication (MsgType (..), Origin (..), SendActions, dataFlow,
-                                    immediateConcurrentConversations)
-import           Pos.Core (AddrStakeDistribution (..), Address, SoftwareVersion (..), StakeholderId,
-                           addressHash, mkMultiKeyDistr, unsafeGetCoin)
+import           Pos.Core (AddrStakeDistribution (..), Address, HeavyDlgIndex (..),
+                           SoftwareVersion (..), StakeholderId, addressHash, mkMultiKeyDistr,
+                           unsafeGetCoin)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..), makeAddress)
 import           Pos.Core.Configuration (genesisSecretKeys)
 import           Pos.Core.Txp (TxOut (..))
 import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic, fullPublicKeyF, hashHexF,
                              noPassEncrypt, safeCreatePsk, unsafeCheatingHashCoerce, withSafeSigner)
 import           Pos.DB.Class (MonadGState (..))
+import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Update (BlockVersionModifier (..))
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret, usKeys, usPrimKey,
@@ -42,26 +42,25 @@ import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddr
                                        tyBool, tyByte, tyCoin, tyCoinPortion, tyEither,
                                        tyEpochIndex, tyFilePath, tyHash, tyInt,
                                        tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
-                                       tySecond, tySendMode, tySoftwareVersion, tyStakeholderId,
-                                       tySystemTag, tyTxOut, tyValue, tyWord, tyWord32)
+                                       tySecond, tySoftwareVersion, tyStakeholderId, tySystemTag,
+                                       tyTxOut, tyValue, tyWord, tyWord32)
 import qualified Command.Update as Update
 import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
 import           Lang.Command (CommandProc (..), UnavailableCommand (..))
 import           Lang.Name (Name)
 import           Lang.Value (AddKeyParams (..), AddrDistrPart (..), GenBlocksParams (..),
                              ProposeUpdateParams (..), ProposeUpdateSystem (..),
-                             RollbackParams (..), SendMode (..), Value (..))
-import           Mode (CmdCtx (..), MonadAuxxMode, deriveHDAddressAuxx, getCmdCtx,
-                       makePubKeyAddressAuxx)
+                             RollbackParams (..), Value (..))
+import           Mode (MonadAuxxMode, deriveHDAddressAuxx, makePubKeyAddressAuxx)
 import           Repl (PrintAction)
 
 createCommandProcs ::
        forall m. (HasCompileInfo, MonadIO m, CanLog m, HasLoggerName m)
     => Maybe (Dict (MonadAuxxMode m))
     -> PrintAction m
-    -> Maybe (SendActions m)
+    -> Maybe (Diffusion m)
     -> [CommandProc m]
-createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \commands -> [
+createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands -> [
 
     return CommandProc
     { cpName = "L"
@@ -174,10 +173,6 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpHelp = "construct an address distribution (use 'dp' for each part)"
     },
 
-    return . procConst "neighbours" $ ValueSendMode SendNeighbours,
-    return . procConst "round-robin" $ ValueSendMode SendRoundRobin,
-    return . procConst "send-random" $ ValueSendMode SendRandom,
-
     return . procConst "boot" $ ValueAddrStakeDistribution BootstrapEraDistr,
 
     return . procConst "true" $ ValueBool True,
@@ -207,7 +202,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     },
 
     let name = "send-to-all-genesis" in
-    needsSendActions name >>= \sendActions ->
+    needsDiffusion name >>= \diffusion ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
@@ -216,11 +211,10 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         stagpDuration <- getArg tyInt "dur"
         stagpConc <- getArg tyInt "conc"
         stagpDelay <- getArg tyInt "delay"
-        stagpMode <- getArg tySendMode "mode"
         stagpTpsSentFile <- getArg tyFilePath "file"
         return Tx.SendToAllGenesisParams{..}
     , cpExec = \stagp -> do
-        Tx.sendToAllGenesis sendActions stagp
+        Tx.sendToAllGenesis diffusion stagp
         return ValueUnit
     , cpHelp = "create and send transactions from all genesis addresses \
                \ for <duration> seconds, <delay> in ms. <conc> is the \
@@ -229,20 +223,20 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     },
 
     let name = "send-from-file" in
-    needsSendActions name >>= \sendActions ->
+    needsDiffusion name >>= \diffusion ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArg tyFilePath "file"
     , cpExec = \filePath -> do
-        Tx.sendTxsFromFile sendActions filePath
+        Tx.sendTxsFromFile diffusion filePath
         return ValueUnit
     , cpHelp = ""
     },
 
     let name = "send" in
-    needsSendActions name >>= \sendActions ->
+    needsDiffusion name >>= \diffusion ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
@@ -251,14 +245,14 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         (,) <$> getArg tyInt "i"
             <*> getArgSome tyTxOut "out"
     , cpExec = \(i, outputs) -> do
-        Tx.send sendActions i outputs
+        Tx.send diffusion i outputs
         return ValueUnit
     , cpHelp = "send from #i to specified transaction outputs \
                \ (use 'tx-out' to build them)"
     },
 
     let name = "vote" in
-    needsSendActions name >>= \sendActions ->
+    needsDiffusion name >>= \diffusion ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
@@ -268,7 +262,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
              <*> getArg tyBool "agree"
              <*> getArg tyHash "up-id"
     , cpExec = \(i, decision, upId) -> do
-        Update.vote sendActions i decision upId
+        Update.vote diffusion i decision upId
         return ValueUnit
     , cpHelp = "send vote for update proposal <up-id> and \
                \ decision <agree> ('true' or 'false'), \
@@ -324,7 +318,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     },
 
     let name = "propose-update" in
-    needsSendActions name >>= \sendActions ->
+    needsDiffusion name >>= \diffusion ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
@@ -345,7 +339,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         -- FIXME: confuses existential/universal. A better solution
         -- is to have two ValueHash constructors, one with universal and
         -- one with existential (relevant via singleton-style GADT) quantification.
-        ValueHash . unsafeCheatingHashCoerce <$> Update.propose sendActions params
+        ValueHash . unsafeCheatingHashCoerce <$> Update.propose diffusion params
     , cpHelp = "propose an update with one positive vote for it \
                \ using secret key #i"
     },
@@ -361,7 +355,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     },
 
     let name = "delegate-heavy" in
-    needsSendActions name >>= \sendActions ->
+    needsDiffusion name >>= \diffusion ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
@@ -372,12 +366,11 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
             <*> getArg tyEpochIndex "cur"
             <*> getArg tyBool "dry"
     , cpExec = \(i, delegatePk, curEpoch, dry) -> do
-        CmdCtx {ccPeers} <- getCmdCtx
         issuerSk <- (!! i) <$> getSecretKeysPlain
         withSafeSigner issuerSk (pure emptyPassphrase) $ \case
             Nothing -> logError "Invalid passphrase"
             Just ss -> do
-                let psk = safeCreatePsk ss delegatePk curEpoch
+                let psk = safeCreatePsk ss delegatePk (HeavyDlgIndex curEpoch)
                 if dry
                 then do
                     printAction $
@@ -388,11 +381,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
                                 runIdentity $
                                 CanonicalJSON.toJSON psk)
                 else do
-                    dataFlow
-                        "pskHeavy"
-                        (immediateConcurrentConversations sendActions ccPeers)
-                        (MsgTransaction OriginSender)
-                        psk
+                    sendPskHeavy diffusion psk
                     logInfo "Sent heavyweight cert"
         return ValueUnit
     , cpHelp = ""
@@ -421,7 +410,6 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpArgumentConsumer = getArgMany tyInt "i"
     , cpExec = \is -> do
         when (null is) $ logWarning "Not adding keys from pool (list is empty)"
-        CmdCtx {..} <- getCmdCtx
         let secrets = fromMaybe (error "Secret keys are unknown") genesisSecretKeys
         forM_ is $ \i -> do
             key <- evaluateNF $ secrets !! i
@@ -510,9 +498,9 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     needsAuxxMode :: Name -> Either UnavailableCommand (Dict (MonadAuxxMode m))
     needsAuxxMode name =
         maybe (Left $ UnavailableCommand name "AuxxMode is not available") Right hasAuxxMode
-    needsSendActions :: Name -> Either UnavailableCommand (SendActions m)
-    needsSendActions name =
-        maybe (Left $ UnavailableCommand name "SendActions are not available") Right mSendActions
+    needsDiffusion :: Name -> Either UnavailableCommand (Diffusion m)
+    needsDiffusion name =
+        maybe (Left $ UnavailableCommand name "Diffusion layer is not available") Right mDiffusion
 
 procConst :: Applicative m => Name -> Value -> CommandProc m
 procConst name value =

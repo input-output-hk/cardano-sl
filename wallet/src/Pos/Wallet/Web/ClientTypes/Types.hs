@@ -69,7 +69,6 @@ import           Control.Lens (makeLenses)
 import           Data.Default (Default, def)
 import           Data.Hashable (Hashable (..))
 import qualified Data.Text.Buildable
-import           Data.Text.Lazy.Builder (Builder)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable (Typeable)
 import           Data.Version (Version)
@@ -82,8 +81,8 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import           Pos.Core (BlockVersion, ChainDifficulty, Coin, ScriptVersion, SoftwareVersion,
                            unsafeGetCoin)
 import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Util.LogSafe (LogSecurityLevel, SecureLog (..), buildUnsecure, secretOnlyF,
-                                   secure, secureListF, unsecure)
+import           Pos.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildUnsecure,
+                                   deriveSafeBuildable, secretOnlyF, secureListF)
 import           Pos.Util.Servant (HasTruncateLogPolicy, WithTruncatedLog (..))
 
 data SyncProgress = SyncProgress
@@ -218,7 +217,12 @@ instance Buildable CWalletAssurance where
 data CWalletMeta = CWalletMeta
     { cwName      :: !Text
     , cwAssurance :: !CWalletAssurance
-    , cwUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
+    , cwUnit      :: !Int
+    -- ^ The unit of currency. A 0 indicates a large currency (bitcoin,
+    -- ada) and a 1 indicates a small currency (satoshi, lovelace).
+    --
+    -- See <https://iohk.myjetbrains.com/youtrack/issue/CSM-163 this
+    -- ticket> for more information.
     } deriving (Show, Eq, Generic)
 
 instance Buildable CWalletMeta where
@@ -503,22 +507,18 @@ data NewBatchPayment = NewBatchPayment
     , npbInputSelectionPolicy :: InputSelectionPolicy
     } deriving (Show, Generic)
 
-buildNewBatchPayment :: LogSecurityLevel -> NewBatchPayment -> Builder
-buildNewBatchPayment sl NewBatchPayment {..} =
-    bprint ("{ from="%secretOnlyF sl build
-            -- TODO: use https://github.com/serokell/serokell-util/pull/19 instead of `later mapBuilder`
-            %" to="%secureListF sl (later mapBuilder)
-            %" inputSelectionPolicy="%secretOnlyF sl build
-            %" }")
-    npbFrom
-    npbTo
-    npbInputSelectionPolicy
+instance BuildableSafeGen NewBatchPayment where
+    buildSafeGen sl NewBatchPayment {..} =
+        bprint ("{ from="%secretOnlyF sl build
+                -- TODO: use https://github.com/serokell/serokell-util/pull/19 instead of `later mapBuilder`
+                %" to="%secureListF sl (later mapBuilder)
+                %" inputSelectionPolicy="%secretOnlyF sl build
+                %" }")
+        npbFrom
+        npbTo
+        npbInputSelectionPolicy
 
-instance Buildable NewBatchPayment where
-    build = buildNewBatchPayment unsecure
-
-instance Buildable (SecureLog NewBatchPayment) where
-    build = buildNewBatchPayment secure . getSecureLog
+deriveSafeBuildable ''NewBatchPayment
 
 -- | Update system data
 data CUpdateInfo = CUpdateInfo

@@ -58,7 +58,7 @@ main = do
         programInfo = Opt.info (helper <*> versionOption) $
             fullDesc <> progDesc "Generate Swagger specification for Explorer web API."
                      <> header   "Cardano SL Explorer web API docs generator."
-                     <> footer   ("This program runs during 'cardano-sl' building on Travis CI. " <>
+                     <> footer   ("This program runs during 'cardano-sl' building on CI. " <>
                                   "Generated file '" <> generatedJSON <> "' will be used to produce HTML documentation. " <>
                                   "This documentation will be published at cardanodocs.com using 'update-explorer-web-api-docs.sh'.")
 
@@ -96,7 +96,6 @@ instance ToSchema      ExplorerError
 instance ToParamSchema C.CAddressesFilter
 
 deriving instance Generic Micro
-instance ToSchema      Micro
 
 -- | Instance for Either-based types (types we return as 'Right') in responses.
 -- Due 'typeOf' these types must be 'Typeable'.

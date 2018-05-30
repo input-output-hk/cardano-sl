@@ -29,7 +29,7 @@ import           Pos.Core.Block.Union.Types (BlockHeader (..), HeaderHash, MainB
 import           Pos.Core.Class (HasBlockVersion (..), HasDifficulty (..), HasEpochIndex (..),
                                  HasEpochOrSlot (..), HasHeaderHash (..), HasSoftwareVersion (..),
                                  IsHeader, IsMainHeader (..))
-import           Pos.Core.Slotting.Types (EpochOrSlot (..), slotIdF)
+import           Pos.Core.Slotting (EpochOrSlot (..), slotIdF)
 import           Pos.Crypto (hashHexF)
 
 instance NFData MainBlock

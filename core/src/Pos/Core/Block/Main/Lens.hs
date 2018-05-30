@@ -77,7 +77,7 @@ import           Pos.Core.Block.Union.Types (BlockSignature, HeaderHash, MainBlo
                                              MainConsensusData (..), MainToSign (..))
 import           Pos.Core.Common (ChainDifficulty)
 import           Pos.Core.Delegation (DlgPayload)
-import           Pos.Core.Slotting.Types (SlotId)
+import           Pos.Core.Slotting (SlotId)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (Tx, TxPayload, TxWitness, txpTxs, txpWitnesses)
 import           Pos.Core.Update (BlockVersion, SoftwareVersion, UpdatePayload)

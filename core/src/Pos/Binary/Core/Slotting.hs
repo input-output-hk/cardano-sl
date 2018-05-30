@@ -9,7 +9,7 @@ module Pos.Binary.Core.Slotting
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi)
-import qualified Pos.Core.Slotting.Types as T
+import qualified Pos.Core.Slotting as T
 
 instance Bi T.Timestamp where
     encode (T.Timestamp ms) = encode . toInteger $ ms

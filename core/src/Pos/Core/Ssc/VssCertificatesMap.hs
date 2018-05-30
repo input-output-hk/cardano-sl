@@ -1,22 +1,12 @@
--- | VSS related functions.
+module Pos.Core.Ssc.VssCertificatesMap
+       ( VssCertificatesMap (..)
 
-module Pos.Core.Ssc.Vss
-       (
-         -- * Types
-         VssCertificate (..)
-       , VssCertificatesMap (..)
-       -- * Certificates
-       , mkVssCertificate
-       , checkVssCertificate
-       , checkCertSign
-       , getCertId
-
-       -- * Certificate maps
        -- ** Creating maps
        , checkVssCertificatesMap
        , mkVssCertificatesMap
        , mkVssCertificatesMapLossy
        , mkVssCertificatesMapSingleton
+
        -- ** Working with maps
        , validateVssCertificatesMap
        , memberVss
@@ -27,56 +17,47 @@ module Pos.Core.Ssc.Vss
 
 import           Universum
 
+import           Control.Lens (makeWrapped)
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet as HS
 import           Data.List.Extra (nubOrdOn)
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (allDistinct)
 
-import           Pos.Binary.Class (AsBinary (..), Bi)
-import           Pos.Core.Common (StakeholderId, addressHash)
-import           Pos.Core.Slotting.Types (EpochIndex)
-import           Pos.Core.Ssc.Types (VssCertificate (..), VssCertificatesMap (..))
-import           Pos.Crypto (ProtocolMagic, SecretKey, SignTag (SignVssCert),
-                             VssPublicKey, checkSig, sign, toPublic)
+import           Pos.Binary.Class (Bi)
+import           Pos.Core.Common (StakeholderId)
+import           Pos.Core.Slotting (EpochIndex)
+import           Pos.Crypto (ProtocolMagic)
 
--- | Make VssCertificate valid up to given epoch using 'SecretKey' to sign
--- data.
-mkVssCertificate
-    :: (Bi EpochIndex)
-    => ProtocolMagic
-    -> SecretKey
-    -> AsBinary VssPublicKey
-    -> EpochIndex
-    -> VssCertificate
-mkVssCertificate pm sk vk expiry =
-    UnsafeVssCertificate vk expiry signature (toPublic sk)
-  where
-    signature = sign pm SignVssCert sk (vk, expiry)
+import           Pos.Core.Ssc.VssCertificate (VssCertificate (..), checkVssCertificate, getCertId,
+                                              toCertPair)
 
--- | Check a 'VssCertificate' for validity.
-checkVssCertificate
-    :: (Bi EpochIndex, MonadError Text m)
-    => ProtocolMagic
-    -> VssCertificate
-    -> m ()
-checkVssCertificate pm it =
-    unless (checkCertSign pm it) $ throwError "checkVssCertificate: invalid sign"
+-- | VssCertificatesMap contains all valid certificates collected
+-- during some period of time.
+--
+-- Invariants:
+--   * stakeholder ids correspond to 'vcSigningKey's of associated certs
+--   * no two certs have the same 'vcVssKey'
+newtype VssCertificatesMap = UnsafeVssCertificatesMap
+    { getVssCertificatesMap :: HashMap StakeholderId VssCertificate }
+    deriving (Eq, Show, Generic, NFData, ToList, Container)
 
--- CHECK: @checkCertSign
--- | Check that the VSS certificate is signed properly
--- #checkPubKeyAddress
--- #checkSig
-checkCertSign :: (Bi EpochIndex) => ProtocolMagic -> VssCertificate -> Bool
-checkCertSign pm UnsafeVssCertificate {..} =
-    checkSig pm SignVssCert vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
+type instance Element VssCertificatesMap = VssCertificate
 
-getCertId :: VssCertificate -> StakeholderId
-getCertId = addressHash . vcSigningKey
+makeWrapped ''VssCertificatesMap
 
--- Unexported but useful in the three functions below
-toCertPair :: VssCertificate -> (StakeholderId, VssCertificate)
-toCertPair vc = (getCertId vc, vc)
+-- | A left-biased instance
+instance Semigroup VssCertificatesMap where
+    (UnsafeVssCertificatesMap a) <> (UnsafeVssCertificatesMap b) =
+        UnsafeVssCertificatesMap $
+        a <> HM.filter (not . (`HS.member` lVssKeys) . vcVssKey) b
+      where
+        lVssKeys = HS.fromList (map vcVssKey (toList a))
+
+instance Monoid VssCertificatesMap where
+    mempty = UnsafeVssCertificatesMap mempty
+    mappend = (<>)
 
 -- | Construct a 'VssCertificatesMap' from a list of certs by making a
 -- hashmap on certificate identifiers.

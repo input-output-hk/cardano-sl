@@ -49,9 +49,9 @@ import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import qualified Pos.Core.Genesis as G
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
+import           Pos.Core.Slotting (SlotId (..), Timestamp (..))
 import qualified Pos.Core.Slotting as Types
-import           Pos.Core.Slotting.Types (SlotId (..), Timestamp (..))
-import           Pos.Core.Ssc.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
+import           Pos.Core.Ssc (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
 import           Pos.Core.Update.Types (BlockVersionData (..))
 import qualified Pos.Core.Update.Types as U
 import           Pos.Crypto (HasProtocolMagic, ProtocolMagic, createPsk, protocolMagic, toPublic)

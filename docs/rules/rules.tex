@@ -826,7 +826,10 @@ Section~\ref{sec:adding-block} are mutually recursive.
   $$
   Finally we define\improvement{Minor imprecise point in this
     definition: I didn't define $\epoch{⋅}$ on a block, though it is
-    easy to.}
+    easy to. Major imprecise point: I shouldn't use $\epoch{⋅}$ as an
+    block index, since it's an epoch number, we should be searching for
+    the last possible block index whose slot is before
+    $\epoch{b_n}$. I should introduce a new function for this purpose.}
   $$
   \epochdistribution{b₁,…,b_n} = \currentdistribution{b₁,…,b_{\epoch{b_n}}}
   $$

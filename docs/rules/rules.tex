@@ -845,6 +845,34 @@ Section~\ref{sec:adding-block} are mutually recursive.
   \epochdistribution{b₁,…,b_n} = \currentdistribution{b₁,…,b_{\epochindex{b_1,…,b_n}}}
   $$
 
+\item[Richmen] \improvement{TODO: define the $\richmen{⋅}$ function,
+    listing the agents allowed to participate in the shared seed
+    computation}
+
+\item[Seed computation]\hfill
+  \begin{itemize}
+  \item Let $c_1,…,c_k$ be the list of partial functions
+    $\agentids⇀\seeds×\seeds$ extracted from the seed computation
+    field of the blocks in $b_{\epochindex{b_1,…,b_n}+1},…,b_n$ which
+    are commitment messages, then define
+    $$
+    \epochcommitments{b_1,…,b_n} = c_1 ⊎ … ⊎ c_k
+    $$
+  \item Let $o_1,…,o_k$ be the list of partial functions
+    $\agentids⇀\seeds$ extracted from the seed computation
+    field of the blocks in $b_{\epochindex{b_1,…,b_n}+1},…,b_n$ which
+    are opening messages, then define
+    $$
+    \epochopens{b_1,…,b_n} = o_1 ⊎ … ⊎ o_k
+    $$
+  \item Let $r_1,…,r_k$ be the list of partial functions
+    $\agentids⇀\agentids⇀\seeds$ extracted from the seed computation
+    field of the blocks in $b_{\epochindex{b_1,…,b_n}+1},…,b_n$ which
+    are recovery messages, then define
+    $$
+    \epochrecoveries{b_1,…,b_n} = r_1 ⊎ … ⊎ r_k
+    $$
+  \end{itemize}
 \item[Seed] Let $U$ be the domain of the partial function
   $\epochrecoveries{b_1,…,b_{\epochindex{b_1,…,b_n}}}$, and $V$ be the
   domain of the partial function $\epochopens{b_1,…,b_{\epochindex{b_1,…,b_n}}}$.
@@ -858,7 +886,8 @@ Section~\ref{sec:adding-block} are mutually recursive.
     \epochseed{b_1,…,b_n}&=&∏_{a∈V}\epochopens{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a)\\
                          &×&∏_{a∈W}\epochrecoveries{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a_0)(a)
   \end{array}
-  $$
+  $$\improvement{Missing: when we are in the first epoch, the seed in
+    the initial seed which is found in the initial state.}
 \item[Delegation graph] Let us define $\delegations{c₁,…,c_n}$, for a
   list of delegation certificates, by induction:
   \begin{itemize}

@@ -17,10 +17,6 @@ import qualified DevelopmentSpec as Dev
 import qualified MarshallingSpec as Marshalling
 import qualified RequestSpec as ReqSpec
 import qualified SwaggerSpec as Swagger
-<<<<<<< HEAD
-=======
-import           Test.Hspec
->>>>>>> release/1.2.0
 import qualified WalletHandlersSpec as WalletHandlers
 
 -- | Tests whether or not some instances (JSON, Bi, etc) roundtrips.
@@ -31,7 +27,6 @@ main = hspec $ do
     API.spec
     Swagger.spec
     ReqSpec.spec
-<<<<<<< HEAD
 
     eqProps @WalletAddress
     eqProps @Address
@@ -45,6 +40,3 @@ eqProps = do
     describe ("Equality for " ++ show (typeRep (Proxy @a))) $ do
         prop "should be reflexive" $ \(x :: a) ->
             x === x
-=======
-    WalletHandlers.spec
->>>>>>> release/1.2.0

@@ -12,6 +12,10 @@ import           Data.Aeson
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import           Generics.SOP.TH (deriveGeneric)
 import qualified Network.HTTP.Types as HTTP
+<<<<<<< HEAD
+=======
+import qualified Pos.Core as Core
+>>>>>>> release/1.2.0
 import           Servant
 import           Test.QuickCheck (Arbitrary (..), oneof)
 
@@ -21,7 +25,11 @@ import qualified Pos.Crypto.Hashing as Crypto
 import qualified Pos.Data.Attributes as Core
 
 import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
+<<<<<<< HEAD
 import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..), V1 (..),
+=======
+import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
+>>>>>>> release/1.2.0
                                               mkEstimatedCompletionTime, mkSyncPercentage,
                                               mkSyncThroughput)
 
@@ -163,6 +171,7 @@ sample =
 -- | Give a short description of an error
 describe :: WalletError -> String
 describe = \case
+<<<<<<< HEAD
     NotEnoughMoney _ ->
          "Not enough available coins to proceed."
     OutputIsRedeem _ ->
@@ -193,11 +202,25 @@ describe = \case
         "The safe signer at the specified address was not found."
     TxFailedToStabilize ->
         "We were unable to find a set of inputs to satisfy this transaction."
+=======
+  NotEnoughMoney _                    -> "Not enough available coins to proceed."
+  OutputIsRedeem  _                   -> "One of the TX outputs is a redemption address."
+  MigrationFailed  _                  -> "Error while migrating a legacy type into the current version."
+  JSONValidationFailed _              -> "Couldn't decode a JSON input."
+  UnknownError        _                -> "Unexpected internal error."
+  InvalidAddressFormat _              -> "Provided address format is not valid."
+  WalletNotFound                      -> "Reference to an unexisting wallet was given."
+  AddressNotFound                     -> "Reference to an unexisting address was given."
+  MissingRequiredParams _             -> "Missing required parameters in the request payload."
+  WalletIsNotReadyToProcessPayments _ -> "This wallet is restoring, and it cannot send new transactions until restoration completes."
+  NodeIsStillSyncing _                -> "The node is still syncing with the blockchain, and cannot process the request yet."
+>>>>>>> release/1.2.0
 
 
 -- | Convert wallet errors to Servant errors
 toServantError :: WalletError -> ServantErr
 toServantError err =
+<<<<<<< HEAD
     mkServantErr $ case err of
         NotEnoughMoney{} ->
             err403
@@ -229,6 +252,20 @@ toServantError err =
             err400
         TxSafeSignerNotFound{} ->
             err400
+=======
+  mkServantErr $ case err of
+    NotEnoughMoney{}                    -> err403
+    OutputIsRedeem{}                    -> err403
+    MigrationFailed{}                   -> err422
+    JSONValidationFailed{}              -> err400
+    UnknownError{}                      -> err500
+    WalletNotFound{}                    -> err404
+    InvalidAddressFormat{}              -> err401
+    AddressNotFound{}                   -> err404
+    MissingRequiredParams{}             -> err400
+    WalletIsNotReadyToProcessPayments{} -> err403
+    NodeIsStillSyncing{}                -> err412 -- Precondition failed
+>>>>>>> release/1.2.0
   where
     mkServantErr serr@ServantErr{..} = serr
         { errBody    = encode err

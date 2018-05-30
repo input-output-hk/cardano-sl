@@ -796,7 +796,11 @@ instance BuildableSafeGen Wallet where
     %" balance="%buildSafe sl
     %" }")
     walId
-    walName
+    -- TODO(parsons.matt): remove this when we find out *why* this is
+    -- causing it to fail.
+    --
+    -- https://iohk.myjetbrains.com/youtrack/issue/R120-4#comment=93-20855
+    (T.filter C.isAscii walName)
     walBalance
 
 instance Buildable [Wallet] where

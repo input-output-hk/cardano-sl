@@ -46,7 +46,11 @@ let
   swaggerSchemaValidation = iohkPkgs.swaggerSchemaValidation;
   walletIntegrationTests = iohkPkgs.buildWalletIntegrationTests;
 in (mapTestOn platforms) // {
+<<<<<<< HEAD
   inherit stagingWalletdockerImage walletIntegrationTests swaggerSchemaValidation shellcheckTests;
+=======
+  inherit stagingWalletdockerImage nixosTests;
+>>>>>>> release/1.2.0
   nixpkgs = let
     wrapped = pkgs.runCommand "nixpkgs" {} ''
       ln -sv ${fixedNixpkgs} $out

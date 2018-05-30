@@ -22,10 +22,18 @@ scriptDir="$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")"
 
 pushd "${scriptDir}"
   # https://github.com/NixOS/cabal2nix/issues/146
+<<<<<<< HEAD
   runInShell "cabal2nix glibcLocales" cabal2nix --system x86_64-darwin --revision 25a53d417d7c7a8fc3116b63e3ba14ca7c8f188f \
      https://github.com/luite/hfsevents.git > hfsevents.nix
 
   # Generate cardano-sl package set
   runInShell "cabal2nix glibcLocales" "$(nix-build -A stack2nix --no-out-link -Q ../)/bin/stack2nix" --platform x86_64-linux --hackage-snapshot 2018-05-22T09:58:14Z -j8 --test --bench --no-indent ./.. > default.nix.new
+=======
+  runInShell "nix cabal2nix glibcLocales" cabal2nix --system x86_64-darwin --revision 25a53d417d7c7a8fc3116b63e3ba14ca7c8f188f \
+     https://github.com/luite/hfsevents.git > hfsevents.nix
+
+  # Generate cardano-sl package set
+  runInShell "nix cabal2nix glibcLocales" $(nix-build -A stack2nix --no-out-link -Q ../)/bin/stack2nix --platform x86_64-linux --hackage-snapshot 2018-03-22T11:56:04Z -j8 --test ./.. > default.nix.new
+>>>>>>> release/1.2.0
   mv default.nix.new default.nix
 popd

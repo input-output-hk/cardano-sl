@@ -897,7 +897,11 @@ instance Migrate WAddressMeta where
     type MigrateFrom WAddressMeta = WebTypes.CWAddressMeta
     migrate (WebTypes.CWAddressMeta wid accIdx addrIdx cAddr) =
         WAddressMeta wid accIdx addrIdx $ unsafeCIdToAddress cAddr
+<<<<<<< HEAD
 
+=======
+  
+>>>>>>> release/1.2.0
 data WalletTip_v0
     = V0_NotSynced
     | V0_SyncedWith !HeaderHash

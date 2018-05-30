@@ -59,7 +59,11 @@ import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Shutdown.Class (HasShutdownContext (shutdownContext))
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
+<<<<<<< HEAD:wallet-new/src/Cardano/Wallet/Server/Plugins.hs
 import           Pos.Wallet.Web.Server.Launcher (walletDocumentationImpl, walletServeImpl)
+=======
+import           Pos.Wallet.Web.Server.Launcher (walletServeImpl, walletServerOuts)
+>>>>>>> release/1.2.0:wallet-new/server/Cardano/Wallet/Server/Plugins.hs
 import           Pos.Wallet.Web.State (askWalletDB)
 import           Pos.Wallet.Web.Tracking.Sync (processSyncRequest)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)

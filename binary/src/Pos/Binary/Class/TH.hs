@@ -1,3 +1,27 @@
+module Pos.Binary.Class.TH
+       ( deriveSimpleBi
+       , deriveSimpleBiCxt
+       , deriveIndexedBi
+       , deriveIndexedBiCxt
+       , Cons (..)
+       , Field (Field)
+       ) where
+
+import           Universum
+
+import qualified Codec.CBOR.Decoding as Cbor
+import qualified Codec.CBOR.Encoding as Cbor
+import           Control.Lens (imap)
+import           Data.Function (on)
+import           Data.List (nubBy, (!!), (\\))
+import           Data.Maybe (listToMaybe)
+import           Formatting (sformat, shown, (%))
+import           Language.Haskell.TH
+import           TH.ReifySimple (DataCon (..), DataType (..), reifyDataType)
+import           TH.Utilities (plainInstanceD)
+
+import qualified Pos.Binary.Class.Core as Bi
+
 {-
 TH helpers for Bi.
 
@@ -59,30 +83,6 @@ instance Bi User where
 -- deriveSimpleBiInternal. I (Michael Hueschen) am unable to get a function
 -- specific HLint ignore to work, so am ignoring global to the module.
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
-
-module Pos.Binary.Class.TH
-       ( deriveSimpleBi
-       , deriveSimpleBiCxt
-       , deriveIndexedBi
-       , deriveIndexedBiCxt
-       , Cons (..)
-       , Field (Field)
-       ) where
-
-import           Universum
-
-import qualified Codec.CBOR.Decoding as Cbor
-import qualified Codec.CBOR.Encoding as Cbor
-import           Control.Lens (imap)
-import           Data.Function (on)
-import           Data.List (nubBy, (!!), (\\))
-import           Data.Maybe (listToMaybe)
-import           Formatting (sformat, shown, (%))
-import           Language.Haskell.TH
-import           TH.ReifySimple (DataCon (..), DataType (..), reifyDataType)
-import           TH.Utilities (plainInstanceD)
-
-import qualified Pos.Binary.Class.Core as Bi
 
 -- | This function must match the one from 'Pos.Util.Util'. It is copied here
 -- to avoid a dependency and facilitate parallel builds.

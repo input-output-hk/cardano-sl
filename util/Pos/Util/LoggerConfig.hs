@@ -25,12 +25,12 @@ module Pos.Util.LoggerConfig
        , retrieveLogFiles
        ) where
 
-import           Data.Yaml      as Y
+import           Data.Yaml as Y
 import           GHC.Generics
 import           Universum
 
+import           Control.Lens (each, makeLenses)
 import qualified Data.Text as T
-import           Control.Lens (makeLenses, each)
 
 import           System.FilePath (normalise)
 
@@ -66,11 +66,11 @@ makeLenses ''RotationParameters
 -- | @'LogHandler'@ describes the output handler (file, stdout, ..)
 --
 data LogHandler = LogHandler
-    { _lhName :: !T.Text
+    { _lhName        :: !T.Text
       -- ^ name of the handler
-    , _lhFpath :: !(Maybe FilePath)
+    , _lhFpath       :: !(Maybe FilePath)
       -- ^ file path
-    , _lhBackend :: !BackendKind   -- T.Text
+    , _lhBackend     :: !BackendKind   -- T.Text
       -- ^ describes the backend (scribe for katip) to be loaded
     , _lhMinSeverity :: !(Maybe Severity)
       -- ^ the minimum severity to be logged
@@ -121,9 +121,9 @@ makeLenses ''LoggerTree
 
 -- | @'LoggerConfig'@ is the top level configuration datatype
 data LoggerConfig = LoggerConfig
-    { _lcRotation     :: !(Maybe RotationParameters)
-    , _lcLoggerTree   :: !LoggerTree
-    , _lcBasePath     :: !(Maybe FilePath)
+    { _lcRotation   :: !(Maybe RotationParameters)
+    , _lcLoggerTree :: !LoggerTree
+    , _lcBasePath   :: !(Maybe FilePath)
     } deriving (Generic, Show)
 
 instance ToJSON LoggerConfig
@@ -171,8 +171,8 @@ retrieveLogFiles lc =
 
 -- | @LoggerConfig@ used in testing
 -- no output and minimum Debug severity
-defaultTestConfiguration :: LoggerConfig
-defaultTestConfiguration =
+defaultTestConfiguration :: Severity -> LoggerConfig
+defaultTestConfiguration minSeverity =
     let _lcRotation = Nothing
         _lcBasePath = Nothing
         _lcLoggerTree = LoggerTree {
@@ -181,7 +181,7 @@ defaultTestConfiguration =
                 _lhBackend = DevNullBE,
                 _lhName = "devnull",
                 _lhFpath = Nothing,
-                _lhMinSeverity = Just Debug } ]
+                _lhMinSeverity = Just minSeverity } ]
           }
     in
     LoggerConfig{..}

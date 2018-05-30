@@ -32,13 +32,13 @@ module Pos.Util.Log
 
 import           Universum
 
+import           Control.Lens (each)
 import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Morph (MFunctor (..))
 import           Control.Monad.Writer (WriterT (..))
-import           Control.Lens (each)
 
-import           Pos.Util.LoggerConfig
 import           Pos.Util.Log.Severity (Severity (..))
+import           Pos.Util.LoggerConfig
 
 import qualified Data.Text as T
 import           Data.Text.Lazy.Builder
@@ -206,7 +206,7 @@ loggerBracket name f = do
                           \le_ -> K.runKatipContextT le_ () (Internal.s2kname name) $ f
 
 setLogPrefix :: Maybe FilePath -> LoggerConfig -> IO (LoggerConfig)
-setLogPrefix Nothing lc = return lc
+setLogPrefix Nothing lc     = return lc
 setLogPrefix bp@(Just _) lc = return lc{ _lcBasePath = bp }
 
 loadLogConfig :: Maybe FilePath -> Maybe FilePath -> IO ()
@@ -223,7 +223,7 @@ setLogBasePath :: FilePath -> IO ()
 setLogBasePath fp = do
     maycfg <- Internal.getConfig
     case maycfg of
-              Nothing -> return ()
+              Nothing  -> return ()
               Just cfg -> Internal.updateConfig cfg{ _lcBasePath = Just fp}
 
 

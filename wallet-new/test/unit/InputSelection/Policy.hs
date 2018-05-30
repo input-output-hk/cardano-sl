@@ -233,8 +233,16 @@ runInputPolicyT estimateFee utxo policy = do
                               -- would have failed, as the receivers would have failed
                               -- to cover the fees themselves. Therefore, if we got any
                               -- slack we failed to cover, it must come from the sender's side.
+                              -- NOTE(adn) I don't think this is true, due to the
+                              -- fact we might have things like 'sharedCost', which makes
+                              -- the process of attribution of the fee not trivial.
                               newGoal = (senderPays, Output treasuryAddr slack)
                           -- \"Rerun\" with the amended goals.
+                          -- NOTE(adn) the problem with this approach is that if we
+                          -- add the new treasury address to the new set of goals without
+                          -- filtering it at some point, it will end up in the 'generatedOutputs',
+                          -- which is not correct, but it would also concur in the fee calculation,
+                          -- which is also not correct.
                           return $ Left (NeedsExtraInputsToCover newGoal)
                       True -> do
                           h <- genFreshHash

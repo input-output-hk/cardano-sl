@@ -19,7 +19,7 @@ import           Test.QuickCheck
 
 import           Cardano.Wallet.Kernel.CoinSelection.Types
 
-import           InputSelection.Policy (LiftQuickCheck (..))
+import           InputSelection.Policy (HasTreasuryAddress (..), LiftQuickCheck (..))
 import           Util.Distr
 import           UTxO.DSL
 
@@ -77,7 +77,7 @@ test TestParams{..} = do
 
     forM_ vals $ \n ->
       forM_ ixs $ \_m ->
-        yield $ Pay [(senderPays, Output () n)]
+        yield $ Pay [(SenderPaysFees, Output () n)]
   where
     vals :: [Value]
     vals = [testParamsMin, testParamsMin + testParamsIncr .. testParamsMax]
@@ -90,8 +90,11 @@ test TestParams{..} = do
 -------------------------------------------------------------------------------}
 
 -- | It is well-known that the world divides into us versus them.
-data World = Us | Them
+data World = Us | Them | Treasury
   deriving (Eq)
+
+instance HasTreasuryAddress World where
+  getTreasuryAddr = Treasury
 
 -- | Trivial generator where single deposits drawn from a normal distribution
 -- are followed by single withdrawals from that same distribution.
@@ -152,7 +155,7 @@ fromDistr FromDistrParams{..} = do
                 Pay . aux <$> drawFromDistr' fromDistrPay
               where
                 aux :: Value -> [(ExpenseRegulation, Output World)]
-                aux val = [(senderPays, Output Them val)]
+                aux val = [(SenderPaysFees, Output Them val)]
 
         numDep <- drawFromDistr' fromDistrNumDep
         numPay <- drawFromDistr' fromDistrNumPay

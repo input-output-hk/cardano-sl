@@ -27,7 +27,8 @@ import           Test.Infrastructure.Generator (estimateCardanoFee)
 
 import           InputSelection.Generator (Event (..), World (..))
 import qualified InputSelection.Generator as Gen
-import           InputSelection.Policy (InputSelectionPolicy, PrivacyMode (..), RunPolicy (..),
+import           InputSelection.Policy (HasTreasuryAddress (..), InputSelectionFailure (..),
+                                        InputSelectionPolicy, PrivacyMode (..), RunPolicy (..),
                                         TxStats (..))
 import qualified InputSelection.Policy as Policy
 import           Util.Distr
@@ -203,42 +204,38 @@ stepFrame CurrentStats{..} st =
 -------------------------------------------------------------------------------}
 
 data IntState h a = IntState {
-      _stUtxo         :: Utxo h a
-    , _stPending      :: Utxo h a
-    , _stStats        :: AccStats
-    , _stFreshHash    :: Int
+      _stUtxo       :: Utxo h a
+    , _stPending    :: Utxo h a
+    , _stStats      :: AccStats
+    , _stFreshHash  :: Int
 
       -- | Change address
       --
       -- NOTE: At the moment we never modify this; we're not evaluating
       -- privacy, so change to a single address is fine.
-    , _stChangeAddr   :: a
-
-    , _stTreasuryAddr :: a
+    , _stChangeAddr :: a
 
       -- | Binsize used for histograms
       --
       -- We cannot actually currently change this as we run the interpreter
       -- because `Histogram.max` only applies to histograms wit equal binsizes.
-    , _stBinSize      :: BinSize
+    , _stBinSize    :: BinSize
     }
 
 makeLenses ''IntState
 
-initIntState :: PlotParams -> Utxo h a -> a -> a -> IntState h a
-initIntState PlotParams{..} utxo changeAddr treasuryAddr = IntState {
+initIntState :: PlotParams -> Utxo h a -> a -> IntState h a
+initIntState PlotParams{..} utxo changeAddr = IntState {
       _stUtxo         = utxo
     , _stPending      = utxoEmpty
     , _stStats        = initAccumulatedStats
     , _stFreshHash    = 1
     , _stChangeAddr   = changeAddr
-    , _stTreasuryAddr = treasuryAddr
     , _stBinSize      = utxoBinSize
     }
 
 instance Monad m => RunPolicy (StateT (IntState h a) m) a where
   genChangeAddr   = use stChangeAddr
-  genTreasuryAddr = use stTreasuryAddr
   genFreshHash    = stFreshHash <<+= 1
 
 {-------------------------------------------------------------------------------
@@ -261,7 +258,7 @@ mkFrame = state aux
 -- statistics.
 --
 -- Returns the final state
-intPolicy :: forall h a m. (Hash h a, Monad m)
+intPolicy :: forall h a m. (Hash h a, Monad m, HasTreasuryAddress a)
           => InputSelectionPolicy h a (StateT (IntState h a) m)
           -> (a -> Bool)
           -> IntState h a -- Initial state
@@ -288,6 +285,8 @@ intPolicy policy ours initState =
             stUtxo               %= utxoRemoveInputs (trIns tx)
             stPending            %= utxoUnion (utxoRestrictToAddr ours (trUtxo tx))
             stStats . accTxStats %= mappend txStats
+          Left (NeedsExtraInputsToCover newGoal) ->
+            go $ Pay (newGoal : outs)
           Left _err ->
             stStats . accFailedPayments += 1
 
@@ -486,7 +485,7 @@ writeStats prefix =
 -- Returns the accumulated statistics and the plot instructions; we return these
 -- separately so that we combine bounds of related plots and draw them with the
 -- same scales.
-evaluatePolicy :: Hash h a
+evaluatePolicy :: (Hash h a, HasTreasuryAddress a)
                => FilePath
                -> InputSelectionPolicy h a (StateT (IntState h a) IO)
                -> (a -> Bool)
@@ -519,21 +518,19 @@ evaluateUsingEvents plotParams@PlotParams{..} eventsPrefix initUtxo events = do
       (prefix </> (eventsPrefix ++ "-largest"))
       (Policy.largestFirst simpleFee)
       (== Us)
-      -- NOTE(adn) The use of 'Us' as the treasury address is just a
-      -- placeholder.
-      (initIntState plotParams initUtxo Us Us)
+      (initIntState plotParams initUtxo Us)
       events
     (statsRandomOff, plotRandomOff) <- evaluatePolicy
       (prefix </> (eventsPrefix ++ "-randomOff"))
       (Policy.random PrivacyModeOff simpleFee)
       (== Us)
-      (initIntState plotParams initUtxo Us Us)
+      (initIntState plotParams initUtxo Us)
       events
     (statsRandomOn, plotRandomOn) <- evaluatePolicy
       (prefix </> (eventsPrefix ++ "-randomOn"))
       (Policy.random PrivacyModeOn simpleFee)
       (== Us)
-      (initIntState plotParams initUtxo Us Us)
+      (initIntState plotParams initUtxo Us)
       events
 
     -- Make sure we use the same bounds for the UTxO
@@ -580,7 +577,7 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
       (prefix </> "exact")
       (Policy.exactSingleMatchOnly simpleFee)
       (const True)
-      (initIntState plotParams exactInitUtxo () ())
+      (initIntState plotParams exactInitUtxo ())
       (Gen.test Gen.defTestParams)
     let exactBounds = deriveBounds statsExact 2000
     writePlotInstrs

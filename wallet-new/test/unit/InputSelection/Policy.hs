@@ -6,8 +6,10 @@ module InputSelection.Policy (
     -- * Infrastructure
     LiftQuickCheck(..)
   , RunPolicy(..)
+  , HasTreasuryAddress(..)
   , InputSelectionPolicy
   , PrivacyMode(..)
+  , InputSelectionFailure (..)
     -- * Transaction statistics
   , TxStats(..)
     -- * Specific policies
@@ -25,8 +27,8 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import           Test.QuickCheck
 
-import           Cardano.Wallet.Kernel.CoinSelection.Types (ExpenseRegulation, getRegulationRatio,
-                                                            senderPays)
+import           Cardano.Wallet.Kernel.CoinSelection.Types (ExpenseRegulation (..),
+                                                            getRegulationRatio)
 
 import           Util.Histogram (BinSize (..), Histogram)
 import qualified Util.Histogram as Histogram
@@ -131,19 +133,23 @@ fromPartialTxStats PartialTxStats{..} = TxStats{
   Policy
 -------------------------------------------------------------------------------}
 
+class Eq a => HasTreasuryAddress a where
+  -- | Generate treasury address
+    getTreasuryAddr :: a
+
+instance HasTreasuryAddress () where
+  getTreasuryAddr = ()
+
 -- | Monads in which we can run input selection policies
 class Monad m => RunPolicy m a | m -> a where
   -- | Generate change address
   genChangeAddr :: m a
 
-  -- | Generate treasury address
-  genTreasuryAddr :: m a
-
   -- | Generate fresh hash
   genFreshHash :: m Int
 
 type InputSelectionPolicy h a m =
-      (RunPolicy m a, Hash h a)
+      (HasTreasuryAddress a, RunPolicy m a, Hash h a)
    => Utxo h a
    -> [(ExpenseRegulation, Output a)]
    -> m (Either (InputSelectionFailure a) (Transaction h a, TxStats))
@@ -151,6 +157,7 @@ type InputSelectionPolicy h a m =
 data InputSelectionFailure a = InputSelectionFailure
                              | InsufficientFundsToCoverFee ExpenseRegulation (Output a)
                              | NeedsExtraInputsToCover (ExpenseRegulation, Output a)
+
 
 {-------------------------------------------------------------------------------
   Input selection combinator
@@ -194,10 +201,9 @@ instance LiftQuickCheck m => LiftQuickCheck (InputPolicyT h a m) where
 
 instance RunPolicy m a => RunPolicy (InputPolicyT h a m) a where
   genChangeAddr   = lift genChangeAddr
-  genTreasuryAddr = lift genTreasuryAddr
   genFreshHash    = lift genFreshHash
 
-runInputPolicyT :: (Hash h a, RunPolicy m a)
+runInputPolicyT :: (Hash h a, HasTreasuryAddress a, RunPolicy m a)
                 => (Int -> [Value] -> Value)
                 -- ^ Function to compute the estimated fees
                 -> Utxo h a
@@ -209,10 +215,18 @@ runInputPolicyT estimateFee utxo policy = do
        Left err ->
          return $ Left err
        Right (ptxStats, finalSt) -> do
-         let selectedInputs   = finalSt ^. ipsSelectedInputs
-             generatedOutputs = finalSt ^. ipsGeneratedOutputs
-             inputsLen = length selectedInputs
-             outputsWithFees = distributeFee estimateFee generatedOutputs inputsLen
+         let selectedInputs = finalSt ^. ipsSelectedInputs
+             treasuryAddr   = getTreasuryAddr
+             -- Filter any treasury address, as they should concur in the input
+             -- selection, but not in the calculation of the fee and should not
+             -- be visible in the final outputs of the transaction.
+             -- NOTE(adn) Is the last sentenced true? As far as the DSL is
+             -- concerned, should be perfectly fine to have outputs which
+             -- target the treasury address, I guess much less so for the
+             -- actual translation to Cardano.
+             generatedOutputs = filter ((/=) treasuryAddr . outAddr . snd) (finalSt ^. ipsGeneratedOutputs)
+             inputsLen        = length selectedInputs
+             outputsWithFees  = distributeFee estimateFee generatedOutputs inputsLen
 
          case outputsWithFees of
               Left e -> return (Left e)
@@ -225,7 +239,6 @@ runInputPolicyT estimateFee utxo policy = do
                  -- Check if the selected inputs covers the fees
                  case amountCovered >= amountNeeded of
                       False -> do
-                          treasuryAddr <- genTreasuryAddr
                           -- Calculate how much we need more
                           let slack = amountNeeded - amountCovered
                               -- The extra goal @must@ have by construction a
@@ -236,13 +249,8 @@ runInputPolicyT estimateFee utxo policy = do
                               -- NOTE(adn) I don't think this is true, due to the
                               -- fact we might have things like 'sharedCost', which makes
                               -- the process of attribution of the fee not trivial.
-                              newGoal = (senderPays, Output treasuryAddr slack)
+                              newGoal = (SenderPaysFees, Output treasuryAddr slack)
                           -- \"Rerun\" with the amended goals.
-                          -- NOTE(adn) the problem with this approach is that if we
-                          -- add the new treasury address to the new set of goals without
-                          -- filtering it at some point, it will end up in the 'generatedOutputs',
-                          -- which is not correct, but it would also concur in the fee calculation,
-                          -- which is also not correct.
                           return $ Left (NeedsExtraInputsToCover newGoal)
                       True -> do
                           h <- genFreshHash
@@ -275,7 +283,12 @@ distributeFee estimateFee goals expectedInputsLen =
                             [] -> upperBoundFee
                             _  -> upperBoundFee `div` (fromIntegral $ length goals)
     in case partitionEithers (map (distribute epsilon) goals) of
-            ([], validOutputs) -> Right (map snd validOutputs)
+            ([], validOutputs) ->
+                -- Filter outputs which has a final 'outVal' of @exactly@ 0.
+                -- It's something quite rare but it can happen, and we probably
+                -- don't want them to contribute to the final Tx size and fee
+                -- calculation.
+                Right (filter ((== 0) . outVal) . map snd $ validOutputs)
             (err : _, _)       -> Left err
     where
         distribute :: Value
@@ -299,7 +312,7 @@ distributeFee estimateFee goals expectedInputsLen =
         -- in some future use cases.
         regulateBy :: Double -> Epsilon -> Value -> Maybe Value
         regulateBy ratio epsilon originalAmount
-          | ratio <= 0.0                = Just (originalAmount + epsilon)
+          | ratio == 0.0                = Just (originalAmount + epsilon)
           | ratio > 0.0 && ratio <= 1.0 =
               -- Pessimistic rounding, always try to take the ceiling, to make
               -- sure rounding errors (if any) do not bring the originalAmount below 0.

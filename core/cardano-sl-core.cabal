@@ -100,6 +100,12 @@ library
                        -- Context
                        Pos.Core.Context.PrimaryKey
 
+                       -- Delegation
+                       Pos.Core.Delegation.HeavyDlgIndex
+                       Pos.Core.Delegation.LightDlgIndices
+                       Pos.Core.Delegation.Payload
+                       Pos.Core.Delegation.Proof
+
                        -- Genesis
                        Pos.Core.Genesis.Canonical
                        Pos.Core.Genesis.Generate

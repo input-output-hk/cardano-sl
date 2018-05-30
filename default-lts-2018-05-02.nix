@@ -22,7 +22,14 @@ let
         }).overrideAttrs (drv: {
           dontStrip = true;
           hardeningDisable = [ "stackprotector" ];
-          patches = (drv.patches or []) ++ [ ./move-iserv-8.4.2.patch ];
+          patches = (drv.patches or []) ++ [
+            ./move-iserv-8.4.2.patch
+            ./hsc2hs-8.4.2.patch
+            ./various-8.4.2.patch
+          ];
+          postPatch = (drv.postPath or "") + ''
+          autoreconf
+          ''; 
         });
         packages.ghc842 = (ps.haskell.packages.ghc842.override {
           overrides = self: super: rec {

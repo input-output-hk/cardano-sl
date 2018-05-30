@@ -194,12 +194,15 @@ renderSplitAxis gap xRanges = (
         projWidth = fraction * realToFrac (width r)
 
     -- Check if a point is in the given range
-    checkInRange :: Buildable x => Range x -> Text
+    --
+    -- We grow the range ever so slightly so that we don't miss points in the
+    -- mapping due to rounding errors.
+    checkInRange :: Real x => Range x -> Text
     checkInRange Range{..} =
         sformat
           ("(" % build % " <= x && x <= " % build % ")")
-          _lo
-          _hi
+          ((ceiling :: Double -> Int) (realToFrac _lo - 1))
+          ((floor   :: Double -> Int) (realToFrac _hi + 1))
 
     -- Project a point from the original number line to the split number line
     projectToSplit :: (Range a, Range Double, Double) -> Text

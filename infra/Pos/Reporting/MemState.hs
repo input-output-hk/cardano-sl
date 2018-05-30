@@ -17,7 +17,6 @@ import           Control.Lens (makeLenses)
 import qualified System.Metrics as Metrics
 import           System.Metrics.Counter (Counter)
 import           System.Metrics.Gauge (Gauge)
-import           Pos.Util.Log (LoggerConfig)
 import           Universum
 
 import           Pos.System.Metrics.Constants (withCardanoNamespace)

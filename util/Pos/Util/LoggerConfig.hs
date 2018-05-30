@@ -11,6 +11,7 @@ module Pos.Util.LoggerConfig
        -- * access
        , lcLoggerTree
        , lcRotation
+       , lcBasePath
        , ltHandlers
        , ltMinSeverity
        , rpKeepFiles
@@ -36,7 +37,7 @@ import           System.FilePath (normalise)
 import           Pos.Util.Log.Severity
 
 
--- | @'ScribeKind@ defines the available backends
+-- | @'BackendKind@ defines the available backends
 data BackendKind = FileTextBE
                  | FileJsonBE
                  | StdoutBE
@@ -107,21 +108,6 @@ instance FromJSON LoggerTree where
         (_ltMinSeverity :: Severity) <- o .: "severity" .!= Debug
         return LoggerTree{..}
 
-makeLenses ''LoggerTree
-
--- | @'LoggerConfig'@ is the top level configuration datatype
-data LoggerConfig = LoggerConfig
-    { _lcRotation     :: !(Maybe RotationParameters)
-    , _lcLoggerTree   :: !LoggerTree
-    } deriving (Generic, Show)
-
-instance ToJSON LoggerConfig
-instance FromJSON LoggerConfig where
-    parseJSON = withObject "config " $ \o -> do
-        _lcRotation <- o .:? "rotation"
-        _lcLoggerTree <- o .: "loggerTree"
-        return LoggerConfig{..}
-
 instance Semigroup LoggerTree
 instance Monoid LoggerTree where
     mempty = LoggerTree { _ltMinSeverity = Debug
@@ -131,6 +117,23 @@ instance Monoid LoggerTree where
         -- ^ default value
     mappend = (<>)
 
+makeLenses ''LoggerTree
+
+-- | @'LoggerConfig'@ is the top level configuration datatype
+data LoggerConfig = LoggerConfig
+    { _lcRotation     :: !(Maybe RotationParameters)
+    , _lcLoggerTree   :: !LoggerTree
+    , _lcBasePath     :: !(Maybe FilePath)
+    } deriving (Generic, Show)
+
+instance ToJSON LoggerConfig
+instance FromJSON LoggerConfig where
+    parseJSON = withObject "config " $ \o -> do
+        _lcRotation <- o .:? "rotation"
+        _lcLoggerTree <- o .: "loggerTree"
+        _lcBasePath <- o .:? "logdir"
+        return LoggerConfig{..}
+
 
 instance Semigroup LoggerConfig
 instance Monoid LoggerConfig where
@@ -138,6 +141,7 @@ instance Monoid LoggerConfig where
                                             _rpLogLimit = 10 * 1024 * 1024,
                                             _rpKeepFiles = 10 }
                      , _lcLoggerTree = mempty
+                     , _lcBasePath = Nothing
                      }
         -- ^ default value
     mappend = (<>)
@@ -170,6 +174,7 @@ retrieveLogFiles lc =
 defaultTestConfiguration :: LoggerConfig
 defaultTestConfiguration =
     let _lcRotation = Nothing
+        _lcBasePath = Nothing
         _lcLoggerTree = LoggerTree {
             _ltMinSeverity = Debug,
             _ltHandlers = [ LogHandler {

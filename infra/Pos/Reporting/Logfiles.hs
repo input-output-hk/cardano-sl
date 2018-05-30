@@ -1,28 +1,29 @@
--- | Log file retrieval using log-warper, for the purpose of reporting.
+-- | Log file retrieval from @LoggerConfig@, for the purpose of reporting.
 
-module Pos.Reporting.Wlog
-    ( withWlogTempFile
-    , readWlogFile
-    , retrieveLogFiles
+module Pos.Reporting.LogFiles
+    ( withLogTempFile
+    --, readLogFile
+    --, retrieveLogFiles
     , compressLogs
-    , withTempLogFile
-    , LoggerConfig (..)
+    --, withTempLogFile
+    --, LoggerConfig (..)
     ) where
 
 import           Universum
 
 import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Archive.Tar.Entry as Tar
-import           System.Wlog (LoggerConfig (..), hwFilePath, lcTree, ltFiles,
-                              ltSubloggers, retrieveLogContent)
-import           Control.Lens (each, to)
+--import           System.Wlog (LoggerConfig (..), hwFilePath, lcTree, ltFiles,
+--                              ltSubloggers, retrieveLogContent)
+--import           Control.Lens (each, to)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Conduit (runConduitRes, yield, (.|))
 import           Data.Conduit.List (consume)
 import qualified Data.Conduit.Lzma as Lzma
-import qualified Data.HashMap.Strict as HM
+--import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
+import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
@@ -36,34 +37,35 @@ import           System.IO (IOMode (WriteMode), hClose, hFlush, withFile)
 import           Pos.Reporting.Exceptions (ReportingError (..))
 import           Pos.Util.Filesystem (withSystemTempFile)
 import           Pos.Util.Util ((<//>))
+import qualified Pos.Util.Log as Log
 
 
 -- | Use a 'LoggerConfig' to get logs, write them to a temporary file,
 -- tar and compress that file, canonicalize its path, run the continuation
 -- with that path (or 'Nothing' if there are no logs), then clean up the
 -- temporary files after the continuation has finished.
-withWlogTempFile :: LoggerConfig -> (Maybe FilePath -> IO t) -> IO t
-withWlogTempFile logConfig k = do
-    mRawLogs <- readWlogFile logConfig
+withLogTempFile :: Log.LoggerConfig -> (Maybe FilePath -> IO t) -> IO t
+withLogTempFile logConfig k = do
+    mRawLogs <- readLogFile logConfig
     case mRawLogs of
         Nothing -> k Nothing
         Just rawLogs -> withTempLogFile rawLogs $ \fp -> k (Just fp)
 
 -- | Use a 'LoggerConfig' to get logs.
-readWlogFile :: LoggerConfig -> IO (Maybe Text)
-readWlogFile logConfig = case mLogFile of
+readLogFile :: Log.LoggerConfig -> IO (Maybe Text)
+readLogFile logConfig = case mLogFile of
     Nothing -> pure Nothing
     Just logFile -> do
         -- TBD will 'retrieveLogContent' fail if the file doesn't
         -- exist?
         logContent <-
             takeGlobalSize charsConst <$>
-            retrieveLogContent logFile (Just 5000)
+            retrieveLogEnd logFile (Just 5000)
         pure (Just (unlines (reverse logContent)))
   where
     -- Grab all public log files, using the 'LoggerConfig', and take the
-    -- first one.
-    allFiles = map snd $ retrieveLogFiles logConfig
+    -- first one.   new: absolute filepaths
+    allFiles = map snd $ Log.retrieveLogFiles logConfig
     mLogFile = head $ filter (".pub" `isSuffixOf`) allFiles
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
@@ -73,10 +75,15 @@ readWlogFile logConfig = case mLogFile of
     takeGlobalSize curLimit (t:xs) =
         let delta = curLimit - length t
         in bool [] (t : (takeGlobalSize delta xs)) (delta > 0)
+    retrieveLogEnd :: FilePath -> Maybe Int -> IO [Text]
+    retrieveLogEnd fp maylines = do
+      let nlines = fromMaybe 9999 maylines
+      ((take nlines) . reverse . T.lines) <$> TIO.readFile fp
 
 -- | Given logger config, retrieves all (logger name, filepath) for
 -- every logger that has file handle. Filepath inside does __not__
 -- contain the common logger config prefix.
+{-  moved to Pos.Util.Log
 retrieveLogFiles :: LoggerConfig -> [([Text], FilePath)]
 retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
   where
@@ -84,6 +91,7 @@ retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
         let curElems = map ([],) (lt ^.. ltFiles . each . hwFilePath)
             iterNext (part, node) = map (first (part :)) $ fromLogTree node
         in curElems ++ concatMap iterNext (lt ^. ltSubloggers . to HM.toList)
+-}
 
 -- | Pass a list of absolute paths to log files. This function will
 -- archive and compress these files and put resulting file into log

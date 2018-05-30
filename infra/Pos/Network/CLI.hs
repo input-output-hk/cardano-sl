@@ -184,7 +184,7 @@ data MonitorEvent
 
 -- | Monitor for changes to the static config
 monitorStaticConfig ::
-    (MonadCatch m, MonadIO m, Log.WithLogger m) =>
+    (MonadCatch m, Log.WithLogger m) =>
        NetworkConfigOpts
     -> NodeMetadata -- ^ Original metadata (at startup)
     -> Peers NodeId -- ^ Initial value
@@ -202,7 +202,7 @@ monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
       , T.staticPeersMonitoring = Log.usingLoggerName lname $ loop events initPeers []
       }
   where
-    loop :: (MonadCatch m, MonadIO m, Log.WithLogger m) =>
+    loop :: (MonadCatch m, Log.WithLogger m) =>
          Chan MonitorEvent
          -> Peers NodeId
          -> [Peers NodeId -> IO ()]
@@ -236,7 +236,7 @@ monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
                 Log.logError $ readFailed fp ex
                 loop events peers handlers
 
-    runHandler :: (MonadCatch m, MonadIO m, Log.WithLogger m) => forall t . t -> (t -> IO ()) -> m ()
+    runHandler :: (MonadCatch m, Log.WithLogger m) => forall t . t -> (t -> IO ()) -> m ()
     runHandler it handler = do
         mu <- liftIO $ try (handler it)
         case mu of
@@ -276,7 +276,6 @@ launchStaticConfigMonitoring topology = liftIO action
 intNetworkConfigOpts ::
        forall m.
        ( Log.WithLogger m
-       , MonadIO m
        , MonadCatch m
        )
     => NetworkConfigOpts

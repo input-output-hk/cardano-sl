@@ -24,7 +24,7 @@ import           Universum
 
 import           Control.Exception (ErrorCall (..), Exception (..))
 import           Pos.ReportServer.Report (ReportType (..))
-import           System.Wlog (Severity (..), WithLogger, logMessage)
+import qualified Pos.Util.Log as Log
 
 import           Pos.DB.Error (DBError (..))
 import           Pos.Exception (CardanoFatalError)
@@ -65,7 +65,7 @@ reportError = report . RError
 --
 -- NOTE: it doesn't rethrow an exception. If you are sure you need it,
 -- you can rethrow it by yourself.
-reportOrLog :: (WithLogger m, MonadReporting m) => Severity -> Text -> SomeException -> m ()
+reportOrLog :: (Log.WithLogger m, MonadReporting m) => Log.Severity -> Text -> SomeException -> m ()
 reportOrLog severity prefix exc =
     case tryCast @CardanoFatalError <|> tryCast @ErrorCall <|> tryCast @DBError of
         Just msg -> reportError $ prefix <> msg
@@ -77,9 +77,9 @@ reportOrLog severity prefix exc =
     tryCast = toText . displayException <$> fromException @e exc
 
 -- | A version of 'reportOrLog' which uses 'Error' severity.
-reportOrLogE :: (WithLogger m, MonadReporting m) => Text -> SomeException -> m ()
-reportOrLogE = reportOrLog Error
+reportOrLogE :: (Log.WithLogger m, MonadReporting m) => Text -> SomeException -> m ()
+reportOrLogE = reportOrLog Log.Error
 
 -- | A version of 'reportOrLog' which uses 'Warning' severity.
-reportOrLogW :: (WithLogger m, MonadReporting m) => Text -> SomeException -> m ()
-reportOrLogW = reportOrLog Warning
+reportOrLogW :: (Log.WithLogger m, MonadReporting m) => Text -> SomeException -> m ()
+reportOrLogW = reportOrLog Log.Warning

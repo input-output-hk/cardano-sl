@@ -2,6 +2,7 @@ module Pos.Util.Log.Internal
        ( setConfig
        , s2kname
        , sev2klog
+       , updateConfig
        , getConfig
        , getLogEnv
        , getLinesLogged
@@ -64,6 +65,10 @@ modifyLinesLogged :: (Integer -> Integer) -> IO ()
 modifyLinesLogged f = do
     LoggingStateInternal cfg env counter <- takeMVar makeLSI
     putMVar makeLSI $ LoggingStateInternal cfg env $ f counter
+
+updateConfig :: LoggerConfig -> IO ()
+updateConfig lc = modifyMVar_ makeLSI $ \LoggingStateInternal{..} -> do
+  return $ LoggingStateInternal (Just lc) lsiLogEnv lsiLinesLogged
 
 setConfig :: [(T.Text, K.Scribe)] -> LoggerConfig -> IO ()
 setConfig scribes lc = modifyMVar_ makeLSI $ \LoggingStateInternal{..} -> do

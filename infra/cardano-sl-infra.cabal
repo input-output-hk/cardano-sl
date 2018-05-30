@@ -37,7 +37,7 @@ library
                         Pos.Reporting.Methods
                         Pos.Reporting.Metrics
                         Pos.Reporting.NodeInfo
-                        Pos.Reporting.Wlog
+                        Pos.Reporting.Logfiles
 
                         -- StateLock
                         Pos.StateLock

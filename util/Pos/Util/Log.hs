@@ -13,6 +13,7 @@ module Pos.Util.Log
        , loadLogConfig
        , parseLoggerConfig
        , retrieveLogFiles
+       , setLogBasePath
        ---
        , setupLogging
        , loggerBracket
@@ -206,7 +207,7 @@ loggerBracket name f = do
 
 setLogPrefix :: Maybe FilePath -> LoggerConfig -> IO (LoggerConfig)
 setLogPrefix Nothing lc = return lc
-setLogPrefix (Just _) lc = return lc   -- TODO
+setLogPrefix bp@(Just _) lc = return lc{ _lcBasePath = bp }
 
 loadLogConfig :: Maybe FilePath -> Maybe FilePath -> IO ()
 loadLogConfig pre cfg = do
@@ -214,6 +215,17 @@ loadLogConfig pre cfg = do
               Nothing -> return (mempty :: LoggerConfig)
               Just fp -> parseLoggerConfig fp
     setLogPrefix pre lc0 >>= setupLogging
+
+
+
+-- | set base path of logging in @LoggerConfig@
+setLogBasePath :: FilePath -> IO ()
+setLogBasePath fp = do
+    maycfg <- Internal.getConfig
+    case maycfg of
+              Nothing -> return ()
+              Just cfg -> Internal.updateConfig cfg{ _lcBasePath = Just fp}
+
 
 -- | WIP: tests to run interactively in GHCi
 --

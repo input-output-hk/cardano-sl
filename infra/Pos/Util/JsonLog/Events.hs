@@ -179,7 +179,7 @@ class HasJsonLogConfig ctx where
 
 jsonLogDefault
     :: (ToJSON a, MonadReader ctx m, HasJsonLogConfig ctx, MonadCatch m,
-        MonadIO m, WithLogger m)
+        WithLogger m)
     => a -> m ()
 jsonLogDefault x = do
     jlc <- view jsonLogConfig

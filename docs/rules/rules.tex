@@ -1340,15 +1340,22 @@ cause concerns for latency, as an issuer must build their block in a
 nodes in the network spend computation power which will be only used
 by a single node (the block issuer).
 
-\improvement{Todo: discuss the fact that a block issuer need not use the
-  whole mempool}
-
 A more flexible mempool implementation would keep a partial ordering
 of transactions (the dependency ordering) rather than the total
 topological ordering of the current mempool (as well as a waiting area
 for reserved transactions which are missing an ancestor). The
 restriction on the block issuer is that the transactions in a block
 must be a downward-closed set of the mempool.
+
+Independently of changing the mempool, this is the only real
+restriction on the issuer. In the current mempool, where the
+transactions in the mempool are totally ordered in a list, it means
+taking a prefix of the list. The current system, specified in this
+document, will add all the transactions from the mempool to a new
+block. This is overly restrictive, and maybe too computationally
+expensive to complete within a slot's time. Especially on low-power
+hardware. Having low-power nodes issuing node is, however, a business
+requirement of Cardano. Therefore this constraint should be weakened.
 
 \subsection{Miscelaneous remarks on the current specification}
 \label{sec:misc-remarks}

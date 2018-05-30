@@ -10,7 +10,7 @@ projects=("util" "binary" "crypto" "core" "db" "lrc" "infra" "ssc" "txp" "update
 if [ -d "src/core" ]; then
   hlint src
 else
-  hlint lib/src lib/test lib/bench ${projects[@]}
+  hlint lib/src lib/test lib/bench "${projects[@]}"
 fi
 
 ex=$?

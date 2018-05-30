@@ -1,6 +1,6 @@
 -- | Log file retrieval from @LoggerConfig@, for the purpose of reporting.
 
-module Pos.Reporting.LogFiles
+module Pos.Reporting.Logfiles
     ( withLogTempFile
     --, readLogFile
     --, retrieveLogFiles

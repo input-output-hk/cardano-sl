@@ -206,14 +206,16 @@ as it is.\improvement{We may want to add something about protocol
   \end{implementationhint}
 
 \item[Partial functions] A partial function $f$ from $A$ to $B$ is a
-  pair of a subset $U∈\powerset{A}$, called the \emph{support} of $f$
-  (this overloads the meaning defined in the paragraph above), and a
-  function $U⟶B$. The set of partial functions from $A$ to $B$ is
-  written $A ⇀ B$. We write $f(a)$ for the image of $a∈U$.
+  pair of a subset $U∈\powerset{A}$, called the \emph{domain} of $f$,
+  and a function $U⟶B$. The set of partial functions from $A$ to $B$
+  is written $A ⇀ B$. We write $f(a)$ for the image of $a∈U$.
 
-  For two partial functions $f$ and $g$ with respective supports $U$
+  We write $f⊆g$, for partial functions $f$ and $g$ with respective domains $U$
+  and $V$, if $U ⊆ V$ and $∀a∈U. f(a)=g(a)$.
+
+  For two partial functions $f$ and $g$ with respective domains $U$
   and $V$, such that $∀a∈U∩V. f(a)=g(a)$, we write $f⊎g$ for the partial function
-  of support $U∪V$ defined as:
+  of domain $U∪V$ defined as:
   $$
   f⊎g(a) = \left\{
     \begin{array}{ll}
@@ -226,13 +228,13 @@ as it is.\improvement{We may want to add something about protocol
   vacuously, hence $f⊎g$ is defined.\unsure{Maybe a better symbol for
     this ``gluing'' union.}
 
-  We say that a partial function has finite support if its support is
+  We say that a partial function has finite domain if its domain is
   a finite subset.
 
   \begin{implementationhint}
     A partial function $A⇀B$ can be implemented as a function \verb+A -> Maybe B+.
-    Provided that its support is decidable. Mostly we are
-    interested in finite support partial function which are faithfully
+    Provided that its domain is decidable. Mostly we are
+    interested in finite domain partial function which are faithfully
     represented by finite maps (in the sense of \verb+Data.Map+). The
     $f⊎g$ gluing union can be implemented using \verb+Data.Map.Merge.mergeA+.
   \end{implementationhint}

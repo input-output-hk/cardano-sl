@@ -8,6 +8,7 @@
 \usepackage{amssymb}
 \usepackage{enumitem}
 \usepackage{unicode-math}
+\usepackage{newunicodechar}
 \usepackage[dvipsnames]{xcolor}
 \usepackage[tikz]{bclogo}
 
@@ -120,6 +121,7 @@
 \newcommand{\epochcommitments}{\mathsf{commitments}}
 \newcommand{\epochopens}{\mathsf{opens}}
 \newcommand{\epochrecoveries}{\mathsf{recoveries}}
+\newunicodechar{⧵}{\ensuremath{\smallsetminus}}
 
 %% /macros %%
 
@@ -211,7 +213,11 @@ as it is.\improvement{We may want to add something about protocol
   is written $A ⇀ B$. We write $f(a)$ for the image of $a∈U$.
 
   We write $f⊆g$, for partial functions $f$ and $g$ with respective domains $U$
-  and $V$, if $U ⊆ V$ and $∀a∈U. f(a)=g(a)$.
+  and $V$, if $U ⊆ V$ and $∀a∈U. f(a)=g(a)$. When $f⊆g$, we write
+  $f⧵g$ for the partial function with support $U⧵A $ defined as:
+  $$
+  f⧵g(a) = f(a)
+  $$
 
   For two partial functions $f$ and $g$ with respective domains $U$
   and $V$, such that $∀a∈U∩V. f(a)=g(a)$, we write $f⊎g$ for the partial function

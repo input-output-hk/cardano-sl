@@ -7,7 +7,7 @@ stdenv.mkDerivation {
 
                       # libraries
                       unicode-math lm-math amsmath
-                      enumitem bclogo xcolor
+                      enumitem bclogo xcolor newunicodechar
 
                       # libraries for marginal notes
                       xargs todonotes

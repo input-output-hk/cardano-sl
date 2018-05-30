@@ -832,8 +832,20 @@ Section~\ref{sec:adding-block} are mutually recursive.
   \epochdistribution{b₁,…,b_n} = \currentdistribution{b₁,…,b_{\epochindex{b_1,…,b_n}}}
   $$
 
-\item[Seed] \info{The shared seed at the last epoch} Define
-  $\epochseed{⋅}$\improvement{Todo}
+\item[Seed] Let $U$ be the domain of the partial function
+  $\epochrecoveries{b_1,…,b_{\epochindex{b_1,…,b_n}}}$, and $V$ be the
+  domain of the partial function $\epochopens{b_1,…,b_{\epochindex{b_1,…,b_n}}}$.
+
+  If $U=∅$, then $\epochseed{b_1,…,b_n}=∏_{a∈V}\epochopens{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a)$
+
+  Otherwise, pick any $a_0∈U$, and let $W$ be the domain of
+  $\epochrecoveries{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a_0)$. Then define
+  $$
+  \begin{array}{lcl}
+    \epochseed{b_1,…,b_n}&=&∏_{a∈V}\epochopens{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a)\\
+                         &×&∏_{a∈W}\epochrecoveries{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a_0)(a)
+  \end{array}
+  $$
 \item[Delegation graph] Let us define $\delegations{c₁,…,c_n}$, for a
   list of delegation certificates, by induction:
   \begin{itemize}

@@ -13,35 +13,45 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Pos.Arbitrary.Lrc
+  hs-source-dirs:      src
+  exposed-modules:     Pos.Lrc
 
                        Pos.Lrc.Fts
                        Pos.Lrc.Types
                        Pos.Lrc.Error
                        Pos.Lrc.Core
-                       Pos.Lrc.Consumer
+                       Pos.Lrc.Genesis
                        Pos.Lrc.RichmenComponent
                        Pos.Lrc.Context
                        Pos.Lrc.Mode
 
+                       Pos.Lrc.Consumer
+                       Pos.Lrc.Consumer.Delegation
+                       Pos.Lrc.Consumer.Ssc
+                       Pos.Lrc.Consumer.Update
+                       Pos.Lrc.Consumers
+
+                       Pos.Lrc.DB
                        Pos.Lrc.DB.Common
                        Pos.Lrc.DB.Issuers
+                       Pos.Lrc.DB.Leaders
+                       Pos.Lrc.DB.Lrc
+                       Pos.Lrc.DB.Richmen
                        Pos.Lrc.DB.RichmenBase
                        Pos.Lrc.DB.Seed
 
-  build-depends:       QuickCheck
-                     , base
+  build-depends:       base
                      , bytestring
                      , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-networking
+                     , cardano-sl-txp
                      , cardano-sl-util
                      , conduit
                      , ether
                      , formatting
-                     , generic-arbitrary
                      , lens
                      , log-warper
                      , reflection
@@ -78,8 +88,29 @@ library
   default-language:    Haskell2010
 
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+
+test-suite test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Test.hs
+  other-modules:       Test.Pos.Lrc.FtsSpec
+  build-depends:       base
+                     , cardano-sl-core
+                     , cardano-sl-crypto
+                     , cardano-sl-lrc
+                     , cardano-sl-util-test
+                     , containers
+                     , hspec
+                     , QuickCheck
+                     , universum
+  default-language:    Haskell2010
+  default-extensions:  BangPatterns
+                       FlexibleContexts
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       UndecidableInstances
+                       ViewPatterns

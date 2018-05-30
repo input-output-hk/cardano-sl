@@ -1,6 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Test.Pos.Helpers
        (
        -- * From/to
@@ -27,18 +29,20 @@ import           Data.Typeable (typeRep)
 import           Formatting (formatToString, int, (%))
 import           Prelude (read)
 import           Test.Hspec (Spec, describe)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, modifyMaxSize, prop)
+import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (arbitrary), Property, conjoin, counterexample, forAll,
                                   property, resize, suchThat, vectorOf, (.&&.), (===))
 import qualified Text.JSON.Canonical as CanonicalJSON
 
-import           Pos.Core.Genesis (SchemaError)
 import           Pos.Binary (AsBinaryClass (..), Bi (..), decodeFull, serialize, serialize',
                              unsafeDeserialize)
+import           Pos.Core.Genesis (SchemaError)
+
 import           Pos.Communication (Limit (..))
-import           Pos.Util.QuickCheck.Arbitrary (SmallGenerator (..))
+
 import           Test.Pos.Cbor.Canonicity (perturbCanonicity)
 import qualified Test.Pos.Cbor.RefImpl as R
+import           Test.Pos.Util.QuickCheck.Arbitrary (SmallGenerator (..))
 
 ----------------------------------------------------------------------------
 -- From/to tests
@@ -49,7 +53,7 @@ binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
 binaryEncodeDecode a = (unsafeDeserialize . serialize $ a) === a
 
 -- | Machinery to test we perform "flat" encoding.
-cborFlatTermValid :: (Show a, Bi a) => a -> Property
+cborFlatTermValid :: (Bi a) => a -> Property
 cborFlatTermValid = property . validFlatTerm . toFlatTerm . encode
 
 -- Test that serialized 'a' has canonical representation, i.e. if we're able to
@@ -62,7 +66,10 @@ cborCanonicalRep a = property $ do
     pure $ case out of
         -- perturbCanonicity may have not changed anything. Decoding can
         -- succeed in this case.
-        Right a' -> counterexample (show a') (sa == sa')
+        Right a' ->
+          counterexample (show a') $ counterexample (show sa) $ counterexample
+              (show sa')
+              (sa == sa')
         -- It didn't decode. The error had better be a canonicity violation.
         Left err -> counterexample (show err) (isCanonicityViolation err)
   where
@@ -89,9 +96,9 @@ type IdTestingRequiredClassesAlmost a = (Eq a, Show a, Arbitrary a, Typeable a)
 type IdTestingRequiredClasses f a = (Eq a, Show a, Arbitrary a, Typeable a, f a)
 
 identityTest :: forall a. (IdTestingRequiredClassesAlmost a) => (a -> Property) -> Spec
-identityTest fun = prop (typeName @a) fun
+identityTest fun = prop typeName fun
   where
-    typeName :: forall x. Typeable x => String
+    typeName :: String
     typeName = show $ typeRep (Proxy @a)
 
 binaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
@@ -135,8 +142,7 @@ canonicalJsonTest =
                 runIdentity $ CanonicalJSON.toJSON x
         in canonicalJsonDecodeAndCompare x encodedX
     canonicalJsonDecodeAndCompare ::
-           CanonicalJSON.FromJSON (Either SchemaError) a
-        => a
+           a
         -> LByteString
         -> Property
     canonicalJsonDecodeAndCompare x encodedX =
@@ -153,7 +159,7 @@ canonicalJsonTest =
 ----------------------------------------------------------------------------
 
 msgLenLimitedCheck
-    :: (Show a, Bi a) => Limit a -> a -> Property
+    :: (Bi a) => Limit a -> a -> Property
 msgLenLimitedCheck limit msg =
     let sz = BS.length . serialize' $ msg
     in if sz <= fromIntegral limit

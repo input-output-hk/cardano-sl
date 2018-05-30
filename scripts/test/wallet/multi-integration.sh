@@ -10,5 +10,5 @@ mkdir integration-logs
 for i in {1..100}
 do
    echo "Running test $i... "
-   ./scripts/test/wallet/integration.sh $1 &> integration-logs/run-$i
+   ./scripts/test/wallet/integration.sh "$1" &> "integration-logs/run-$i"
 done

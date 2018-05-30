@@ -10,6 +10,7 @@ module Pos.Wallet.Web.Server.Launcher
        , walletServer
        , walletServeImpl
        , walletServerOuts
+       , walletDocumentationImpl
 
        , bracketWalletWebDB
        , bracketWalletWS
@@ -29,9 +30,7 @@ import           Ntp.Client (NtpStatus)
 
 import           Pos.Client.Txp.Network (sendTxOuts)
 import           Pos.Communication (OutSpecs)
-import           Pos.Core (HasConfiguration)
 import           Pos.Diffusion.Types (Diffusion (sendTx))
-import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (bracketWithLogging)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.TimeWarp (NetworkAddress)
@@ -46,21 +45,32 @@ import           Pos.Wallet.Web.State (closeState, openState)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.Tracking (syncWallet)
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
-import           Pos.Web (TlsParams, serveImpl)
+import           Pos.Web (TlsParams, serveDocImpl, serveImpl)
 
 -- TODO [CSM-407]: Mixture of logic seems to be here
 
 walletServeImpl
-    :: (HasConfiguration, MonadIO m)
+    :: (MonadIO m)
     => m Application     -- ^ Application getter
     -> NetworkAddress    -- ^ IP and port to listen
     -> Maybe TlsParams
     -> Maybe Settings
+    -> Maybe (Word16 -> IO ())
     -> m ()
 walletServeImpl app (ip, port) = serveImpl app (BS8.unpack ip) port
 
+walletDocumentationImpl
+    :: (MonadIO m)
+    => m Application     -- ^ Application getter
+    -> NetworkAddress    -- ^ IP and port to listen
+    -> Maybe TlsParams
+    -> Maybe Settings
+    -> Maybe (Word16 -> IO ())
+    -> m ()
+walletDocumentationImpl app (ip, port) = serveDocImpl app (BS8.unpack ip) port
+
 walletApplication
-    :: (HasCompileInfo, MonadWalletWebMode ctx m, MonadWalletWebSockets ctx m)
+    :: (MonadWalletWebMode ctx m, MonadWalletWebSockets ctx m)
     => m (Server WalletSwaggerApi)
     -> m Application
 walletApplication serv = do
@@ -69,7 +79,7 @@ walletApplication serv = do
 
 walletServer
     :: forall ctx m.
-       ( MonadFullWalletWebMode ctx m )
+       ( MonadFullWalletWebMode ctx m, HasCompileInfo )
     => Diffusion m
     -> TVar NtpStatus
     -> (forall x. m x -> Handler x)
@@ -84,7 +94,6 @@ walletServer diffusion ntpStatus nat = do
 bracketWalletWebDB
     :: ( MonadIO m
        , MonadMask m
-       , HasConfigurations
        , WithLogger m
        )
     => FilePath  -- ^ Path to wallet acid-state

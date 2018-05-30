@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Pos.Arbitrary.Block.Message
        (
@@ -8,38 +9,38 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 
 import           Pos.Arbitrary.Block ()
 import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..))
-import           Pos.Arbitrary.Txp ()
 import           Pos.Arbitrary.Update ()
-import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Block.Network.Types as T
-import           Pos.Core (HasConfiguration)
-import           Pos.Core.Ssc (SscPayload, SscProof)
+import           Pos.Core (HasGenesisHash, HasProtocolConstants, HasProtocolMagic)
+import           Pos.Core.Ssc (SscPayload)
+
+import           Test.Pos.Txp.Arbitrary ()
+import           Test.Pos.Util.Chrono ()
 
 ------------------------------------------------------------------------------------------
 -- Block network types
 ------------------------------------------------------------------------------------------
 
-instance HasConfiguration => Arbitrary T.MsgGetHeaders where
+instance Arbitrary T.MsgGetHeaders where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary T.MsgGetBlocks where
+instance Arbitrary T.MsgGetBlocks where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance ( Arbitrary SscPayload
-         , Arbitrary SscProof
-         , Bi Raw
-         , HasConfiguration
+instance ( HasProtocolConstants
+         , HasProtocolMagic
          ) =>
          Arbitrary T.MsgHeaders where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
 instance ( Arbitrary SscPayload
-         , Arbitrary SscProof
          , Arbitrary SscPayloadDependsOnSlot
-         , HasConfiguration
+         , HasProtocolConstants
+         , HasProtocolMagic
+         , HasGenesisHash
          ) =>
          Arbitrary T.MsgBlock where
     arbitrary = genericArbitrary

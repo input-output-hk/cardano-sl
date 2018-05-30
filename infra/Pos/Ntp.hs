@@ -1,3 +1,6 @@
 -- | Reexports of error reporting functionality
+module Pos.Ntp
+       ( module Pos.Ntp.Configuration
+       ) where
 
-{-# OPTIONS_GHC -F -pgmF autoexporter #-}
+import           Pos.Ntp.Configuration

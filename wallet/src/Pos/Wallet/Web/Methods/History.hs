@@ -25,7 +25,7 @@ import           Serokell.Util (listChunkedJson, listJsonIndent)
 import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Client.Txp.History (MonadTxHistory, TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core (Address, ChainDifficulty, HasConfiguration, timestampToPosix)
+import           Pos.Core (Address, ChainDifficulty, timestampToPosix)
 import           Pos.Core.Txp (TxId)
 import           Pos.Util.LogSafe (logInfoSP, secureListF)
 import           Pos.Util.Servant (encodeCType)
@@ -180,7 +180,7 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
         "Please do not specify both walletId and accountId at the same time"
 
 addHistoryTxMeta
-    :: (MonadIO m, HasConfiguration)
+    :: (MonadIO m)
     => WalletDB
     -> CId Wal
     -> TxHistoryEntry
@@ -192,7 +192,7 @@ addHistoryTxMeta db cWalId txhe = do
 -- This functions is helper to do @addHistoryTx@ for
 -- all txs from mempool as one Acidic transaction.
 addHistoryTxsMeta
-    :: (MonadIO m, HasConfiguration)
+    :: (MonadIO m)
     => WalletDB
     -> CId Wal
     -> Map TxId TxHistoryEntry

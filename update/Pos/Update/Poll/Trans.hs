@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | PollT monad transformer. Single-threaded.
 
 module Pos.Update.Poll.Trans
@@ -119,7 +121,7 @@ instance (MonadPollRead m) =>
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
-instance MonadPollRead m =>
+instance (MonadPollRead m) =>
          MonadPoll (PollT m) where
     putBVState bv st = ether $ pmBVsL %= MM.insert bv st
     delBVState bv = ether $ pmBVsL %= MM.delete bv

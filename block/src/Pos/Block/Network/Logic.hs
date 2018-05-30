@@ -8,7 +8,6 @@ module Pos.Block.Network.Logic
        (
          BlockNetLogicException (..)
        , triggerRecovery
-
        , handleBlocks
 
        , handleUnsolicitedHeader
@@ -18,16 +17,18 @@ import           Universum
 
 import           Control.Concurrent.STM (isFullTBQueue, readTVar, writeTBQueue, writeTVar)
 import           Control.Exception.Safe (Exception (..))
+import           Control.Exception (IOException)
 import qualified Data.List.NonEmpty as NE
+import qualified Data.Map.Strict as M
 import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, sformat, shown, stext, (%))
+import           Mockable (forConcurrently)
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
 import           System.Wlog (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Txp ()
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
-import           Pos.Block.Configuration (criticalForkThreshold)
 import           Pos.Block.Error (ApplyBlocksException)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, lcaWithMainChain,
                                   verifyAndApplyBlocks)
@@ -46,13 +47,12 @@ import qualified Pos.Diffusion.Types as Diffusion (Diffusion (announceBlockHeade
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 import           Pos.Recovery.Info (recoveryInProgress)
 import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
-import           Pos.Reporting.Methods (reportMisbehaviour)
 import           Pos.StateLock (Priority (..), modifyStateLock)
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
                                   _OldestFirst)
-import           Pos.Util.JsonLog (jlAdoptedBlock)
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..), jlAdoptedBlock)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.Util (lensOf)
 
@@ -60,6 +60,9 @@ import           Pos.Util.Util (lensOf)
 -- Exceptions
 ----------------------------------------------------------------------------
 
+-- FIXME this same thing is defined in full diffusion layer.
+-- Must finish the proper factoring. There should be no 'Block.Network'
+-- in cardano-sl-block; it should just use the Diffusion and Logic interfaces.
 data BlockNetLogicException
     = DialogUnexpected Text
       -- ^ Node's response in any network/block related logic was
@@ -91,23 +94,41 @@ instance Exception BlockNetLogicException where
 -- progress and 'ncRecoveryHeader' is full, we'll be requesting blocks anyway
 -- and until we're finished we shouldn't be asking for new blocks.
 triggerRecovery
-    :: BlockWorkMode ctx m
+    :: ( BlockWorkMode ctx m
+       )
     => Diffusion m -> m ()
 triggerRecovery diffusion = unlessM recoveryInProgress $ do
     logDebug "Recovery triggered, requesting tips from neighbors"
-    -- I know, it's not unsolicited. TODO rename.
-    void (Diffusion.requestTip diffusion $ handleUnsolicitedHeader) `catch`
+    -- The 'catch' here is for an exception when trying to enqueue the request.
+    -- In 'requestTipsAndProcess', IO exceptions are caught, for each
+    -- individual request per-peer. Those are not re-thrown.
+    void requestTipsAndProcess `catch`
         \(e :: SomeException) -> do
            logDebug ("Error happened in triggerRecovery: " <> show e)
            throwM e
     logDebug "Finished requesting tips for recovery"
+  where
+    requestTipsAndProcess = do
+        requestsMap <- Diffusion.requestTip diffusion
+        forConcurrently (M.toList requestsMap) $ \it@(nodeId, _) -> waitAndProcessOne it `catch`
+            -- Catch and squelch IOExceptions so that one failed request to one
+            -- particlar peer does not stop the others.
+            \(e :: IOException) ->
+                logDebug $ sformat ("Error requesting tip from "%shown%": "%shown) nodeId e
+    waitAndProcessOne (nodeId, mbh) = do
+        -- 'mbh' is an 'm' term that returns when the header has been
+        -- downloaded.
+        bh <- mbh 
+        -- I know, it's not unsolicited. TODO rename.
+        handleUnsolicitedHeader bh nodeId
 
 ----------------------------------------------------------------------------
 -- Headers processing
 ----------------------------------------------------------------------------
 
 handleUnsolicitedHeader
-    :: BlockWorkMode ctx m
+    :: ( BlockWorkMode ctx m
+       )
     => BlockHeader
     -> NodeId
     -> m ()
@@ -195,12 +216,14 @@ updateLastKnownHeader lastKnownH header = do
 
 -- | Carefully apply blocks that came from the network.
 handleBlocks
-    :: forall ctx m. BlockWorkMode ctx m
-    => NodeId
-    -> OldestFirst NE Block
+    :: forall ctx m .
+       ( BlockWorkMode ctx m
+       , HasMisbehaviorMetrics ctx
+       )
+    => OldestFirst NE Block
     -> Diffusion m
     -> m ()
-handleBlocks nodeId blocks diffusion = do
+handleBlocks blocks diffusion = do
     logDebug "handleBlocks: processing"
     inAssertMode $ logInfo $
         sformat ("Processing sequence of blocks: " % buildListBounds % "...") $
@@ -219,19 +242,21 @@ handleBlocks nodeId blocks diffusion = do
         -- Head blund in result is the youngest one.
         toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
         maybe (applyWithoutRollback diffusion blocks)
-              (applyWithRollback nodeId diffusion blocks lcaHash)
+              (applyWithRollback diffusion blocks lcaHash)
               (_NewestFirst nonEmpty toRollback)
 
 applyWithoutRollback
     :: forall ctx m.
-       BlockWorkMode ctx m
+       ( BlockWorkMode ctx m
+       , HasMisbehaviorMetrics ctx
+       )
     => Diffusion m
     -> OldestFirst NE Block
     -> m ()
 applyWithoutRollback diffusion blocks = do
     logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ blocks
-    modifyStateLock HighPriority "applyWithoutRollback" applyWithoutRollbackDo >>= \case
+    modifyStateLock HighPriority ApplyBlock applyWithoutRollbackDo >>= \case
         Left (pretty -> err) ->
             onFailedVerifyBlocks (getOldestFirst blocks) err
         Right newTip -> do
@@ -263,18 +288,19 @@ applyWithoutRollback diffusion blocks = do
         pure (newTip, res)
 
 applyWithRollback
-    :: BlockWorkMode ctx m
-    => NodeId
-    -> Diffusion m
+    :: ( BlockWorkMode ctx m
+       , HasMisbehaviorMetrics ctx
+       )
+    => Diffusion m
     -> OldestFirst NE Block
     -> HeaderHash
     -> NewestFirst NE Blund
     -> m ()
-applyWithRollback nodeId diffusion toApply lca toRollback = do
+applyWithRollback diffusion toApply lca toRollback = do
     logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ toApply
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
-    res <- modifyStateLock HighPriority "applyWithRollback" $ \curTip -> do
+    res <- modifyStateLock HighPriority ApplyBlockWithRollback $ \curTip -> do
         res <- L.applyWithRollback toRollback toApplyAfterLca
         pure (either (const curTip) identity res, res)
     case res of
@@ -291,22 +317,12 @@ applyWithRollback nodeId diffusion toApply lca toRollback = do
             relayBlock diffusion $ toApply ^. _OldestFirst . _neLast
   where
     toRollbackHashes = fmap headerHash toRollback
-    toApplyHashes = fmap headerHash toApply
-    reportF =
-        "Fork happened, data received from "%build%
-        ". Blocks rolled back: "%listJson%
-        ", blocks applied: "%listJson
     reportRollback = do
         let rollbackDepth = length toRollback
-        let isCritical = rollbackDepth >= criticalForkThreshold
 
         -- Commit rollback value to EKG
         whenJustM (view misbehaviorMetrics) $ liftIO .
             flip Metrics.set (fromIntegral rollbackDepth) . _mmRollbacks
-
-        -- REPORT:MISBEHAVIOUR(F/T) Blockchain fork occurred (depends on depth).
-        reportMisbehaviour isCritical $
-            sformat reportF nodeId toRollbackHashes toApplyHashes
 
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =

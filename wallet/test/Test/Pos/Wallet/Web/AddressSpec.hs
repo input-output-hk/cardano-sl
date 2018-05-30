@@ -1,3 +1,6 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Test.Pos.Wallet.Web.AddressSpec
        ( spec
        ) where
@@ -17,9 +20,7 @@ import           Pos.Client.Txp.Addresses (getFakeChangeAddress, getNewAddress)
 import           Pos.Core.Common (Address)
 import           Pos.Crypto (PassPhrase)
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
-import           Pos.Util.QuickCheck.Property (assertProperty, expectedOne)
 import           Pos.Wallet.Web.Account (GenSeed (..), genUniqueAddress)
 import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountInit (..), caId)
 import           Pos.Wallet.Web.Error (WalletError (..))
@@ -27,12 +28,12 @@ import           Pos.Wallet.Web.Methods.Logic (newAccount)
 import           Pos.Wallet.Web.State (askWalletSnapshot, getWalletAddresses, wamAddress)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
 import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 import           Test.Pos.Wallet.Web.Util (importSingleWallet, mostlyEmptyPassphrases)
 
 spec :: Spec
-spec = withCompileInfo def $
-       withDefConfigurations $ \_ ->
+spec = withDefConfigurations $ \_ ->
     describe "Fake address has maximal possible size" $
     modifyMaxSuccess (const 10) $ do
         prop "getNewAddress" $
@@ -43,7 +44,7 @@ spec = withCompileInfo def $
 type AddressGenerator = AccountId -> PassPhrase -> WalletProperty Address
 
 fakeAddressHasMaxSizeTest
-    :: (HasConfigurations, HasCompileInfo)
+    :: HasConfigurations
     => AddressGenerator -> Word32 -> WalletProperty ()
 fakeAddressHasMaxSizeTest generator accSeed = do
     passphrase <- importSingleWallet mostlyEmptyPassphrases
@@ -66,7 +67,7 @@ changeAddressGenerator :: HasConfigurations => AddressGenerator
 changeAddressGenerator accId passphrase = lift $ getNewAddress (accId, passphrase)
 
 -- | Generator which is directly used in endpoints.
-commonAddressGenerator :: HasConfigurations => AddressGenerator
+commonAddressGenerator :: AddressGenerator
 commonAddressGenerator accId passphrase = do
     ws <- askWalletSnapshot
     addrSeed <- pick arbitrary

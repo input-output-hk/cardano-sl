@@ -103,7 +103,7 @@ explorerServeImpl
     => m Application
     -> Word16
     -> m ()
-explorerServeImpl app port = serveImpl loggingApp "*" port Nothing Nothing
+explorerServeImpl app port = serveImpl loggingApp "*" port Nothing Nothing Nothing
   where
     loggingApp = logStdoutDev <$> app
 
@@ -508,7 +508,7 @@ getGenesisSummary = do
         }
   where
     getRedeemAddressInfo
-        :: (MonadDBRead m, MonadThrow m)
+        :: MonadDBRead m
         => Address -> Coin -> m GenesisSummaryInternal
     getRedeemAddressInfo address initialBalance = do
         currentBalance <- fromMaybe minBound <$> getAddrBalance address

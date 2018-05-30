@@ -43,7 +43,6 @@ library
                        Pos.Crypto.Signing.Types.Tag
 
   build-depends:       aeson
-                     , autoexporter
                      , base
                      , binary
                      , bytestring
@@ -56,13 +55,11 @@ library
                      , data-default
                      , ed25519
                      , formatting
-                     , generic-arbitrary
                      , hashable
                      , lens
                      , memory
                      , mtl
                      , pvss
-                     , quickcheck-instances
                      , reflection
                      , safe-exceptions
                      , scrypt
@@ -99,8 +96,65 @@ library
                        MonadFailDesugaring
 
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+test-suite test
+  main-is:             test.hs
+  hs-source-dirs:      test
+  default-language:    Haskell2010
+  type:                exitcode-stdio-1.0
+
+  other-modules:
+                       Spec
+                       Test.Pos.Crypto.CryptoSpec
+
+  build-depends:       QuickCheck
+                     , base
+                     , bytestring
+                     , cardano-sl-binary
+                     , cardano-sl-crypto
+                     , formatting
+                     , hspec
+                     , text
+                     , universum >= 0.1.11
+                     , unordered-containers
+
+  ghc-options:         -threaded
+                       -rtsopts
+                       -Wall
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+                        GADTs
+                        MonadFailDesugaring
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

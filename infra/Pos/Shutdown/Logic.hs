@@ -9,7 +9,7 @@ import           Control.Concurrent.STM (check, readTVar, writeTVar)
 import           System.Wlog (WithLogger, logInfo)
 
 import           Pos.Shutdown.Class (HasShutdownContext (..))
-import           Pos.Shutdown.Types (shdnIsTriggered)
+import           Pos.Shutdown.Types (ShutdownContext (..), shdnIsTriggered)
 
 triggerShutdown
     :: (MonadIO m, MonadReader ctx m, WithLogger m, HasShutdownContext ctx)
@@ -19,11 +19,5 @@ triggerShutdown = do
     view (shutdownContext . shdnIsTriggered) >>= atomically . flip writeTVar True
 
 -- | Wait for the shutdown var to be true.
-waitForShutdown
-  :: (MonadIO m, MonadReader ctx m, WithLogger m, HasShutdownContext ctx)
-  => m ()
-waitForShutdown = do
-  v <- view (shutdownContext . shdnIsTriggered)
-  atomically
-    (do shutdown <- readTVar v
-        check shutdown)
+waitForShutdown :: ShutdownContext -> IO ()
+waitForShutdown (ShutdownContext v) = atomically (readTVar v >>= check)

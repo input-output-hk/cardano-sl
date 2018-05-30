@@ -19,8 +19,7 @@ import           Pos.Update.Logic.Local (processProposal, processVote)
 import           Pos.Update.Mode (UpdateMode)
 
 handleProposal
-    :: forall ctx m .
-       UpdateMode ctx m
+    :: forall ctx m . UpdateMode ctx m
     => (UpdateProposal, [UpdateVote])
     -> m Bool
 handleProposal (proposal, votes) = do
@@ -52,8 +51,7 @@ handleProposal (proposal, votes) = do
 ----------------------------------------------------------------------------
 
 handleVote
-    :: forall ctx m .
-       UpdateMode ctx m
+    :: UpdateMode ctx m
     => UpdateVote
     -> m Bool
 handleVote uv = do

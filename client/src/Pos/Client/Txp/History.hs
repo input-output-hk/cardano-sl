@@ -33,6 +33,7 @@ import           Control.Monad.Trans (MonadTrans)
 import qualified Data.Map.Strict as M (fromList, insert)
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
+import           JsonLog (CanJsonLog (..))
 import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (WithLogger)
@@ -45,10 +46,8 @@ import           Pos.Crypto (WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
 import           Pos.DB.Block (getBlock)
 import qualified Pos.GState as GS
-import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Lrc.Genesis (genesisLeaders)
 import           Pos.Network.Types (HasNodeType)
-import           Pos.Reporting (HasReportingContext)
 import           Pos.Slotting (MonadSlots, getSlotStartPure, getSystemStartM)
 import           Pos.StateLock (StateLock, StateLockMetrics)
 import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure, Tx (..),
@@ -58,6 +57,7 @@ import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure
                           txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet, utxoToLookup,
                           withTxpLocalData)
 import           Pos.Util (eitherToThrow, maybeThrow)
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Util.Util (HasLens')
 
 ----------------------------------------------------------------------
@@ -79,6 +79,15 @@ data TxHistoryEntry = THEntry
     , _thOutputAddrs :: ![Address]
     , _thTimestamp   :: !(Maybe Timestamp)
     } deriving (Show, Eq, Generic, Ord)
+
+instance NFData TxHistoryEntry where
+    rnf tx = _thTxId tx
+        `deepseq` _thTx tx
+        `deepseq` _thDifficulty tx
+        `deepseq` _thInputAddrs tx
+        `deepseq` _thOutputAddrs tx
+        `deepseq` _thTimestamp tx
+        `deepseq` ()
 
 -- | Remained for compatibility
 _thInputAddrs :: TxHistoryEntry -> [Address]
@@ -190,11 +199,10 @@ type TxHistoryEnv ctx m =
     , MonadReader ctx m
     , MonadTxpMem (MempoolExt m) ctx m
     , HasLens' ctx StateLock
-    , HasLens' ctx StateLockMetrics
-    , HasReportingContext ctx
+    , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
     , Mockable CurrentTime m
-    , MonadFormatPeers m
     , HasNodeType ctx
+    , CanJsonLog m
     )
 
 getBlockHistoryDefault

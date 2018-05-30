@@ -32,6 +32,9 @@ let
     '';
   });
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
+    ghc = overrideDerivation pkgs.haskell.compiler.ghc802 (drv: {
+      patches = drv.patches ++ [ ./ghc-8.0.2-darwin-rec-link.patch ];
+    });
     overrides = self: super: {
       cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
         configureFlags = (drv.configureFlags or []) ++ [
@@ -89,6 +92,11 @@ let
       mkDerivation = args: super.mkDerivation (args // {
         enableLibraryProfiling = enableProfiling;
         enableExecutableProfiling = enableProfiling;
+        # Static linking for everything to work around
+        # https://ghc.haskell.org/trac/ghc/ticket/14444
+        # This will be the default in nixpkgs since
+        # https://github.com/NixOS/nixpkgs/issues/29011
+        enableSharedExecutables = false;
       } // optionalAttrs enableDebugging {
         # TODO: DEVOPS-355
         dontStrip = true;
@@ -104,6 +112,12 @@ let
     in
       args: pkgs.callPackage ./scripts/launch/connect-to-cluster (args // { inherit gitrev; } // walletConfig );
   other = rec {
+    validateJson = pkgs.callPackage ./tools/src/validate-json {};
+    demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; };
+    shellcheckTests = pkgs.callPackage ./scripts/test/shellcheck.nix { src = ./.; };
+    swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
+    walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev; };
+    buildWalletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests pkgs; };
     cardano-sl-explorer-frontend = (import ./explorer/frontend {
       inherit system config gitrev pkgs;
       cardano-sl-explorer = cardanoPkgs.cardano-sl-explorer-static;
@@ -112,14 +126,15 @@ let
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";
-      rev = "486a88f161a08df8af42cb4c84f44e99fa9a98d8";
-      sha256 = "0nskf1s51np320ijlf38sxmksk68xmg14cnarg1p9rph03y81m7w";
+      rev = "9070f9173ae32f0be6f7830c41c8cfb8e780fdbf";
+      sha256 = "1qz7yfd6icl5sddpsij6fqn2dmzxwawm7cb8aw4diqh71drr1p29";
     }) { inherit pkgs; };
     inherit (pkgs) purescript;
     connectScripts = {
       mainnetWallet = connect {};
       mainnetExplorer = connect { executable = "explorer"; };
       stagingWallet = connect { environment = "mainnet-staging"; };
+      demoWallet = connect { environment = "demo"; };
       stagingExplorer = connect { executable = "explorer"; environment = "mainnet-staging"; };
     };
     dockerImages = {
@@ -143,6 +158,7 @@ let
       cp ${./lib}/configuration.yaml config
       cp ${./lib}/*genesis*.json config
       cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-launcher bin
+      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-x509-certificates bin
       cp ${cardanoPkgs.cardano-sl-wallet-new}/bin/cardano-node bin
 
       # test that binaries exit with 0

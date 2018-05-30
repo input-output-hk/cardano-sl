@@ -155,5 +155,9 @@ txpProcessTxWebWallet tx@(txId, txAux) = do
         wdc <- eskToWalletDecrCredentials <$> getSKById wId
         pure (wId, buildTHEntryExtra wdc txWithUndo (Nothing, Just ts))
 
-txpNormalizeWebWallet :: (TxpLocalWorkMode ctx m, MempoolExt m ~ ()) => m ()
+txpNormalizeWebWallet
+    :: ( TxpLocalWorkMode ctx m
+       , MempoolExt m ~ ()
+       )
+    => m ()
 txpNormalizeWebWallet = txNormalize

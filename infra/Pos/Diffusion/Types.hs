@@ -1,37 +1,29 @@
+{-# LANGUAGE RankNTypes         #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE RankNTypes #-}
 
 module Pos.Diffusion.Types
     ( DiffusionLayer (..)
     , Diffusion (..)
-    , SubscriptionStatus (..)
+    , hoistDiffusion
     , dummyDiffusionLayer
     ) where
 
 import           Universum
-import           Data.Map.Strict                  (Map)
-import qualified Data.Map.Strict                  as Map
-import           Formatting                       (Format)
+
+import           Data.Map.Strict (Map)
+import           Formatting (Format, stext)
+
 import           Pos.Communication.Types.Protocol (NodeId)
-import           Pos.Core.Block                   (Block, BlockHeader, MainBlockHeader)
-import           Pos.Core                         (HeaderHash, ProxySKHeavy)
-import           Pos.Core.Txp                     (TxAux)
-import           Pos.Core.Update                  (UpId, UpdateVote, UpdateProposal)
-import           Pos.Reporting.Health.Types       (HealthStatus (..))
-import           Pos.Core.Ssc                     (Opening, InnerSharesMap, SignedCommitment,
-                                                   VssCertificate)
-import           Pos.Util.Chrono                  (OldestFirst (..))
+import           Pos.Core (HeaderHash, ProxySKHeavy)
+import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
+import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment, VssCertificate)
+import           Pos.Core.Txp (TxAux)
+import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
+import           Pos.Diffusion.Subscription.Status (SubscriptionStates, emptySubscriptionStates)
+import           Pos.Reporting.Health.Types (HealthStatus (..))
+import           Pos.Util.Chrono (OldestFirst (..))
 
-data SubscriptionStatus =
-    -- | Established a subscription to a node
-    Subscribed
-    -- | Establishing a TCP connection to a node
-  | Subscribing
-  deriving (Eq, Ord, Show)
 
-instance Semigroup SubscriptionStatus where
-    Subscribed <> _     = Subscribed
-    Subscribing <> s    = s
 
 -- | The interface to a diffusion layer, i.e. some component which takes care
 -- of getting data in from and pushing data out to a network.
@@ -40,15 +32,12 @@ data Diffusion m = Diffusion
       -- The blocks come in oldest first, and form a chain (prev header of
       -- {n}'th is the header of {n-1}th.
       getBlocks          :: NodeId
-                         -> BlockHeader
+                         -> HeaderHash
                          -> [HeaderHash]
                          -> m (OldestFirst [] Block)
       -- | This is needed because there's a security worker which will request
       -- tip-of-chain from the network if it determines it's very far behind.
-      -- This type is chosen so that it fits with the current implementation:
-      -- for each header received, dump it into the block retrieval queue and
-      -- let the retrieval worker figure out all the recovery mode business.
-    , requestTip         :: forall t . (BlockHeader -> NodeId -> m t) -> m (Map NodeId (m t))
+    , requestTip          :: m (Map NodeId (m BlockHeader))
       -- | Announce a block header.
     , announceBlockHeader :: MainBlockHeader -> m ()
       -- | Returns a Bool iff at least one peer accepted the transaction.
@@ -82,10 +71,11 @@ data Diffusion m = Diffusion
       -- network topology) and also by the user interface (how's our connection
       -- quality?). [CSL-2147]
     , healthStatus       :: m HealthStatus
-    , formatPeers        :: forall r . (forall a . Format r a -> a) -> m (Maybe r)
+      -- | For debugging/reporting purposes.
+    , formatStatus       :: forall r . (forall a . Format r a -> a) -> m r
       -- | Subscriptin statuses to all nodes.  If the node is not subscribed it
       -- is not in the map.
-    , subscriptionStatus :: TVar (Map NodeId SubscriptionStatus)
+    , subscriptionStates :: SubscriptionStates NodeId
     }
 
 -- | A diffusion layer: its interface, and a way to run it.
@@ -94,19 +84,37 @@ data DiffusionLayer m = DiffusionLayer
     , diffusion         :: Diffusion m
     }
 
+hoistDiffusion :: Functor m => (forall t . m t -> n t) -> Diffusion m -> Diffusion n
+hoistDiffusion nat orig = Diffusion
+    { getBlocks = \nid bh hs -> nat $ getBlocks orig nid bh hs
+    , requestTip = nat $ (fmap . fmap) nat (requestTip orig)
+    , announceBlockHeader = nat . announceBlockHeader orig
+    , sendTx = nat . sendTx orig
+    , sendUpdateProposal = \upid upp upvs -> nat $ sendUpdateProposal orig upid upp upvs
+    , sendVote = nat . sendVote orig
+    , sendSscCert = nat . sendSscCert orig
+    , sendSscOpening = nat . sendSscOpening orig
+    , sendSscShares = nat . sendSscShares orig
+    , sendSscCommitment = nat . sendSscCommitment orig
+    , sendPskHeavy = nat . sendPskHeavy orig
+    , healthStatus = nat $ healthStatus orig
+    , formatStatus = \fmt -> nat $ formatStatus orig fmt
+    , subscriptionStates = subscriptionStates orig
+    }
+
 -- | A diffusion layer that does nothing.
-dummyDiffusionLayer :: (Monad m, MonadIO m, Applicative d) => m (DiffusionLayer d)
+dummyDiffusionLayer :: Applicative d => IO (DiffusionLayer d)
 dummyDiffusionLayer = do
-    ss <- newTVarIO Map.empty 
+    ss <- emptySubscriptionStates
     return DiffusionLayer
         { runDiffusionLayer = identity
         , diffusion         = dummyDiffusion ss
         }
   where
-    dummyDiffusion :: Applicative m => TVar (Map NodeId SubscriptionStatus) -> Diffusion m
-    dummyDiffusion subscriptionStatus = Diffusion
+    dummyDiffusion :: Applicative m => SubscriptionStates NodeId -> Diffusion m
+    dummyDiffusion subscriptionStates = Diffusion
         { getBlocks          = \_ _ _ -> pure (OldestFirst [])
-        , requestTip         = \_ -> pure mempty
+        , requestTip         = pure mempty
         , announceBlockHeader = \_ -> pure ()
         , sendTx             = \_ -> pure True
         , sendUpdateProposal = \_ _ _ -> pure ()
@@ -117,6 +125,6 @@ dummyDiffusionLayer = do
         , sendSscCommitment  = \_ -> pure ()
         , sendPskHeavy       = \_ -> pure ()
         , healthStatus       = pure (HSUnhealthy "I'm a dummy")
-        , formatPeers        = \_ -> pure Nothing
+        , formatStatus       = \fmt -> pure (fmt stext "")
         , ..
         }

@@ -34,7 +34,6 @@ library
     Pos.Ssc.State.Global
 
     Pos.Ssc.Message
-    Pos.Ssc.Lrc
     Pos.Ssc.Mem
     Pos.Ssc.Functions
     Pos.Ssc.SecretStorage
@@ -80,6 +79,7 @@ library
                      , cardano-sl-lrc
                      , cardano-sl-networking
                      , cardano-sl-util
+                     , cardano-sl-util-test
                      , containers
                      , cryptonite
                      , data-default
@@ -134,7 +134,6 @@ library
                        MonadFailDesugaring
 
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
 
   build-tools: cpphs >= 1.19

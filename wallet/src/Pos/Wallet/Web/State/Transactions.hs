@@ -19,8 +19,7 @@ import           Data.Foldable (for_)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
 import           Pos.Client.Txp.History (TxHistoryEntry)
-import           Pos.Core (Address, ChainDifficulty, HasProtocolConstants)
-import           Pos.Core.Common (HeaderHash)
+import           Pos.Core (Address, ChainDifficulty, HeaderHash, ProtocolConstants)
 import           Pos.Txp (TxId, UtxoModifier)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta, CId, CTxId, CTxMeta, Wal)
@@ -76,7 +75,8 @@ applyModifierToWallet2 walId wAddrs custAddrs utxoMod
         (WS.RestoringFrom rhh newSyncTip) -> do
             for_ wAddrs WS.addWAddress
             for_ custAddrs $ \(cat, addrs) ->
-                for_ addrs $ WS.addCustomAddress cat
+                for_ addrs $ \(addr, hash) ->
+                               WS.addCustomAddress cat (WS.WAddrId addr, hash)
             -- Allow the transactions to influence the 'UTXO' and the balance only
             -- if we are looking at transactions happened _after_ the point where we
             -- originally restored this wallet.
@@ -120,7 +120,8 @@ applyModifierToWallet walId wAddrs custAddrs utxoMod
                       syncTip = do
     for_ wAddrs WS.addWAddress
     for_ custAddrs $ \(cat, addrs) ->
-        for_ addrs $ WS.addCustomAddress cat
+        for_ addrs $ \(addr, hash) ->
+                       WS.addCustomAddress cat (WS.WAddrId addr, hash)
     WS.updateWalletBalancesAndUtxo utxoMod
     for_ txMetas $ uncurry $ WS.addOnlyNewTxMeta walId
     WS.insertIntoHistoryCache walId historyEntries
@@ -129,8 +130,8 @@ applyModifierToWallet walId wAddrs custAddrs utxoMod
 
 -- | Like 'rollbackModifierFromWallet', but it takes into account the given 'WalletSyncState'.
 rollbackModifierFromWallet2
-    :: HasProtocolConstants -- Needed for ptxUpdateMeta
-    => CId Wal
+    :: ProtocolConstants -- Needed for ptxUpdateMeta
+    -> CId Wal
     -> [WS.WAddressMeta] -- ^ Addresses to remove
     -> [(WS.CustomAddressType, [(Address, HeaderHash)])] -- ^ Custom addresses to remove
     -> UtxoModifier
@@ -140,23 +141,24 @@ rollbackModifierFromWallet2
     -> [(TxId, PtxCondition, WS.PtxMetaUpdate)] -- ^ Deleted PTX candidates
     -> WS.WalletSyncState -- ^ New 'WalletSyncState'
     -> Update ()
-rollbackModifierFromWallet2 walId wAddrs custAddrs utxoMod
+rollbackModifierFromWallet2 pc walId wAddrs custAddrs utxoMod
                             historyEntries ptxConditions
                             syncState = do
     case syncState of
         (WS.RestoringFrom rhh newSyncTip) -> do
             for_ wAddrs WS.removeWAddress
             for_ custAddrs $ \(cat, addrs) ->
-                for_ addrs $ WS.removeCustomAddress cat
+                for_ addrs $ \(addr, hash) ->
+                               WS.removeCustomAddress cat (WS.WAddrId addr, hash)
             WS.updateWalletBalancesAndUtxo utxoMod
             WS.removeFromHistoryCache walId historyEntries
             WS.removeWalletTxMetas walId (encodeCType <$> M.keys historyEntries)
             for_ ptxConditions $ \(txId, cond, meta) -> do
-                WS.ptxUpdateMeta walId txId meta
+                WS.ptxUpdateMeta pc walId txId meta
                 WS.setPtxCondition walId txId cond
             WS.setWalletRestorationSyncTip walId rhh newSyncTip
         (WS.SyncedWith newSyncTip) ->
-            rollbackModifierFromWallet walId wAddrs custAddrs utxoMod
+            rollbackModifierFromWallet pc walId wAddrs custAddrs utxoMod
                                        historyEntries ptxConditions
                                        newSyncTip
         -- See similar comment as for 'applyModifierToWallet2'.
@@ -167,8 +169,8 @@ rollbackModifierFromWallet2 walId wAddrs custAddrs utxoMod
 -- | Rollback some set of modifiers to a wallet.
 --   TODO Find out the significance of this set of modifiers and document.
 rollbackModifierFromWallet
-    :: HasProtocolConstants -- Needed for ptxUpdateMeta
-    => CId Wal
+    :: ProtocolConstants
+    -> CId Wal
     -> [WS.WAddressMeta] -- ^ Addresses to remove
     -> [(WS.CustomAddressType, [(Address, HeaderHash)])] -- ^ Custom addresses to remove
     -> UtxoModifier
@@ -178,16 +180,17 @@ rollbackModifierFromWallet
     -> [(TxId, PtxCondition, WS.PtxMetaUpdate)] -- ^ Deleted PTX candidates
     -> HeaderHash -- ^ New sync tip
     -> Update ()
-rollbackModifierFromWallet walId wAddrs custAddrs utxoMod
+rollbackModifierFromWallet pc walId wAddrs custAddrs utxoMod
                            historyEntries ptxConditions
                            syncTip = do
     for_ wAddrs WS.removeWAddress
     for_ custAddrs $ \(cat, addrs) ->
-        for_ addrs $ WS.removeCustomAddress cat
+        for_ addrs $ \(addr, hash) ->
+                       WS.removeCustomAddress cat (WS.WAddrId addr, hash)
     WS.updateWalletBalancesAndUtxo utxoMod
     WS.removeFromHistoryCache walId historyEntries
     WS.removeWalletTxMetas walId (encodeCType <$> M.keys historyEntries)
     for_ ptxConditions $ \(txId, cond, meta) -> do
-        WS.ptxUpdateMeta walId txId meta
+        WS.ptxUpdateMeta pc walId txId meta
         WS.setPtxCondition walId txId cond
     WS.setWalletSyncTip walId syncTip

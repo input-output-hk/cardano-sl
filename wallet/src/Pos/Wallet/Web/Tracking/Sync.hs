@@ -42,7 +42,6 @@ module Pos.Wallet.Web.Tracking.Sync
 
 import           Control.Monad.Except (MonadError (throwError))
 import           Universum
-import           UnliftIO (MonadUnliftIO)
 import           Unsafe (unsafeLast)
 
 import           Control.Concurrent.STM (readTQueue)
@@ -56,7 +55,7 @@ import           Data.Time.Units (Microsecond, TimeUnit (..))
 import           Formatting (build, float, sformat, shown, (%))
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), HasConfiguration,
+import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
                            HasDifficulty (..), HasProtocolConstants, HeaderHash, Timestamp (..),
                            blkSecurityParam, genesisHash, headerHash, headerSlotL, timestampToPosix)
 import           Pos.Core.Block (BlockHeader (..), getBlockHeader, mainBlockTxPayload)
@@ -70,7 +69,7 @@ import qualified Pos.GState as GS
 import           Pos.GState.BlockExtra (resolveForwardLink)
 import           Pos.Slotting (MonadSlots (..), MonadSlotsData, getSlotStartPure, getSystemStartM)
 import           Pos.Slotting.Types (SlottingData)
-import           Pos.StateLock (Priority (..), StateLock, withStateLockNoMetrics)
+import           Pos.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Txp (UndoMap, flattenTxPayload, topsortTxs, _txOutputs)
 import           Pos.Util.Chrono (getNewestFirst)
 import           Pos.Util.LogSafe (buildSafe, logDebugSP, logErrorSP, logInfoSP, logWarningSP,
@@ -103,13 +102,8 @@ import           Pos.Wallet.Web.Tracking.Types
 -- The update of the balance will be done immediately and synchronously, the transaction history
 -- will instead be recovered asynchronously.
 syncWallet :: ( WalletDbReader ctx m
-              , MonadDBRead m
-              , WithLogger m
-              , HasLens StateLock ctx StateLock
               , HasLens SyncQueue ctx SyncQueue
-              , MonadMask m
               , MonadSlotsData ctx m
-              , MonadUnliftIO m
               ) => WalletDecrCredentials -> m ()
 syncWallet credentials = submitSyncRequest (newSyncRequest credentials)
 
@@ -118,8 +112,6 @@ syncWallet credentials = submitSyncRequest (newSyncRequest credentials)
 processSyncRequest :: ( WalletDbReader ctx m
                       , BlockLockMode ctx m
                       , MonadSlotsData ctx m
-                      , HasConfiguration
-                      , MonadIO m
                       ) => SyncQueue -> m ()
 processSyncRequest syncQueue = do
     newRequest <- atomically (readTQueue syncQueue)
@@ -197,7 +189,6 @@ syncWalletWithBlockchain
     ( WalletDbReader ctx m
     , BlockLockMode ctx m
     , MonadSlotsData ctx m
-    , HasConfiguration
     )
     => SyncRequest
     -> m SyncResult
@@ -304,7 +295,6 @@ syncWalletWithBlockchainUnsafe
     , MonadDBRead m
     , WithLogger m
     , MonadSlotsData ctx m
-    , HasConfiguration
     )
     => SyncRequest
     -> BlockHeader
@@ -466,8 +456,7 @@ constructAllUsed usedAddresses modif =
 -- Addresses are used in TxIn's will be deleted,
 -- in TxOut's will be added.
 trackingApplyTxs
-    :: HasConfiguration
-    => WalletDecrCredentials                 -- ^ Wallet's decryption credentials
+    :: WalletDecrCredentials                 -- ^ Wallet's decryption credentials
     -> [(Address, HeaderHash)]               -- ^ All used addresses from db along with their HeaderHashes
     -> (BlockHeader -> Maybe ChainDifficulty) -- ^ Function to determine tx chain difficulty
     -> (BlockHeader -> Maybe Timestamp)       -- ^ Function to determine tx timestamp in history
@@ -516,8 +505,7 @@ trackingApplyTxs credentials usedAddresses getDiff getTs getPtxBlkInfo txs =
 -- Process transactions on block rollback.
 -- Like @trackingApplyTxs@, but vise versa.
 trackingRollbackTxs
-    :: HasConfiguration
-    => WalletDecrCredentials                  -- ^ Wallet's decryption credentials
+    :: WalletDecrCredentials                  -- ^ Wallet's decryption credentials
     -> [(Address, HeaderHash)]                -- ^ All used addresses from db along with their HeaderHashes
     -> (BlockHeader -> Maybe ChainDifficulty) -- ^ Function to determine tx chain difficulty
     -> (BlockHeader -> Maybe Timestamp)       -- ^ Function to determine tx timestamp in history
@@ -597,7 +585,6 @@ applyModifierToWallet
     :: ( CanLog m
        , HasLoggerName m
        , MonadIO m
-       , HasConfiguration
        )
     => WalletDB
     -> TrackingOperation
@@ -638,7 +625,6 @@ rollbackModifierFromWallet
        , HasLoggerName m
        , MonadSlots ctx m
        , HasProtocolConstants
-       , HasConfiguration
        )
     => WalletDB
     -> TrackingOperation

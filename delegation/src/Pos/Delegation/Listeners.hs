@@ -49,7 +49,7 @@ type DlgListenerConstraint ctx m
        , HasDlgConfiguration
        )
 
-handlePsk :: DlgListenerConstraint ctx m => ProxySKHeavy -> m Bool
+handlePsk :: (DlgListenerConstraint ctx m) => ProxySKHeavy -> m Bool
 handlePsk pSk = do
     logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
     verdict <- processProxySKHeavy pSk

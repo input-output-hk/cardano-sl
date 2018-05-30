@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | These instances are used for `test/printDB` method.
 -- Only for debugging and testing purposes.
 
@@ -21,8 +23,8 @@ import           Pos.Util.Util (toAesonError)
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CHash (..), CId (..), CTxId (..))
 import           Pos.Wallet.Web.Pending.Types (PendingTx, PtxCondition, PtxSubmitTiming)
-import           Pos.Wallet.Web.State.Storage (AccountInfo, AddressInfo, WAddressMeta,
-                                               RestorationBlockDepth, SyncStatistics, SyncThroughput,
+import           Pos.Wallet.Web.State.Storage (AccountInfo, AddressInfo, RestorationBlockDepth,
+                                               SyncStatistics, SyncThroughput, WAddressMeta,
                                                WalletInfo, WalletStorage, WalletSyncState)
 
 instance FromJSON (CId a) => FromJSONKey (CId a) where

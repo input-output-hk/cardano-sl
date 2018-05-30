@@ -37,7 +37,7 @@ import           Pos.Block.Logic.Integrity (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import           Pos.Block.Slog.Types (HasSlogGState)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
-import           Pos.Core (BlockVersion (..), FlatSlotId, HasConfiguration, blkSecurityParam,
+import           Pos.Core (BlockVersion (..), FlatSlotId, blkSecurityParam,
                            difficultyL, epochIndexL, flattenSlotId, headerHash, headerHashG,
                            prevBlockL)
 import           Pos.Core.Block (Block, genBlockLeaders, mainBlockSlot)
@@ -105,7 +105,6 @@ type MonadSlogBase ctx m =
     , MonadIO m
     , MonadDBRead m
     , WithLogger m
-    , HasConfiguration
     , HasUpdateConfiguration
     )
 
@@ -126,9 +125,7 @@ type MonadSlogVerify ctx m =
 -- 2.  Call pure verification. If it fails, throw.
 -- 3.  Compute 'SlogUndo's and return them.
 slogVerifyBlocks
-    :: forall ctx m.
-    ( MonadSlogVerify ctx m
-    )
+    :: MonadSlogVerify ctx m
     => OldestFirst NE Block
     -> m (Either Text (OldestFirst NE SlogUndo))
 slogVerifyBlocks blocks = runExceptT $ do
@@ -212,7 +209,7 @@ newtype ShouldCallBListener = ShouldCallBListener Bool
 --     5. Adding new forward links
 --     6. Setting @inMainChain@ flags
 slogApplyBlocks
-    :: forall ctx m. (MonadSlogApply ctx m)
+    :: MonadSlogApply ctx m
     => ShouldCallBListener
     -> OldestFirst NE Blund
     -> m SomeBatchOp
@@ -280,7 +277,7 @@ newtype BypassSecurityCheck = BypassSecurityCheck Bool
 --     4. Removing forward links
 --     5. Removing @inMainChain@ flags
 slogRollbackBlocks ::
-       forall ctx m. (MonadSlogApply ctx m)
+       MonadSlogApply ctx m
     => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
     -> NewestFirst NE Blund

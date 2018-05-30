@@ -31,13 +31,13 @@ import           Pos.Crypto (RedeemSecretKey, SafeSigner, SecretKey, decodeHash,
                              redeemToPublic, toPublic)
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Txp (Utxo)
-import           Pos.Util.QuickCheck.Arbitrary (nonrepeating)
-import           Pos.Util.QuickCheck.Property (stopProperty)
 import           Pos.Util.Util (leftToPanic)
 import           Test.Pos.Configuration (withDefConfigurations)
 
 import           Test.Pos.Client.Txp.Mode (HasTxpConfigurations, TxpTestMode, TxpTestProperty,
                                            withBVData)
+import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)
+import           Test.Pos.Util.QuickCheck.Property (stopProperty)
 
 ----------------------------------------------------------------------------
 -- Tests
@@ -359,8 +359,7 @@ makeManyAddressesTo1Params inputSelectionPolicy numFrom amountEachFrom amountEac
     makeManyAddressesToManyParams inputSelectionPolicy numFrom amountEachFrom 1 amountEachTo
 
 ensureTxMakesSense
-  :: HasTxpConfigurations
-  => TxWithSpendings -> Utxo -> TxOutputs -> TxpTestProperty ()
+  :: TxWithSpendings -> Utxo -> TxOutputs -> TxpTestProperty ()
 ensureTxMakesSense (_, neTxOut) utxo _ = do
     unless (S.fromList txOutUsed `S.isSubsetOf` S.fromList txOutAvailable) $
         stopProperty $
@@ -398,8 +397,7 @@ makeSigner :: SecretKey -> (SafeSigner, Address)
 makeSigner sk = (fakeSigner sk, secretKeyToAddress sk)
 
 withTxFeePolicy
-  :: HasTxpConfigurations
-  => Coeff -> Coeff -> TxpTestProperty () -> TxpTestProperty ()
+  :: Coeff -> Coeff -> TxpTestProperty () -> TxpTestProperty ()
 withTxFeePolicy a b action = do
     let policy = TxFeePolicyTxSizeLinear $ TxSizeLinear a b
     bvd <- gsAdoptedBVData

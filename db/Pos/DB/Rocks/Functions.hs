@@ -41,7 +41,7 @@ import           System.Directory (createDirectoryIfMissing, doesDirectoryExist,
 import           System.FilePath ((</>))
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Configuration (HasCoreConfiguration)
 import           Pos.DB.BatchOp (rocksWriteBatch)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), IterType)
 import           Pos.DB.Functions (dbSerializeValue, processIterEntry)
@@ -139,7 +139,7 @@ rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
 -- garbage, should be abstracted and hidden
 
 -- | Write serializable value to RocksDb for given key.
-rocksPutBi :: (HasConfiguration, Bi v, MonadIO m) => ByteString -> v -> DB -> m ()
+rocksPutBi :: (HasCoreConfiguration, Bi v, MonadIO m) => ByteString -> v -> DB -> m ()
 rocksPutBi k v = rocksPutBytes k (dbSerializeValue v)
 
 ----------------------------------------------------------------------------
@@ -175,6 +175,7 @@ rocksIterSource ::
        , DBIteratorClass i
        , Bi (IterKey i)
        , Bi (IterValue i)
+       , HasCoreConfiguration
        )
     => DBTag
     -> Proxy i
@@ -198,8 +199,7 @@ rocksIterSource tag _ = do
                 Rocks.iterNext it
                 produce it
     processRes ::
-           (Bi (IterKey i), Bi (IterValue i))
-        => Maybe (ByteString, ByteString)
+           Maybe (ByteString, ByteString)
         -> ConduitT () (IterType i) m (Maybe (IterType i))
     processRes Nothing   = pure Nothing
     processRes (Just kv) = processIterEntry @i kv
@@ -227,6 +227,7 @@ dbIterSourceDefault ::
        , DBIteratorClass i
        , Bi (IterKey i)
        , Bi (IterValue i)
+       , HasCoreConfiguration
        )
     => DBTag
     -> Proxy i

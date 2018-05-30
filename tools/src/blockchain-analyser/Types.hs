@@ -40,8 +40,7 @@ runBlockchainInspector :: BlockchainInspectorContext -> BlockchainInspector a ->
 runBlockchainInspector = flip Mtl.runReaderT
 
 initBlockchainAnalyser ::
-    HasConfiguration
-    => DB.NodeDBs
+       DB.NodeDBs
     -> BlockchainInspector a
     -> Production a
 initBlockchainAnalyser nodeDBs action = do
@@ -62,5 +61,5 @@ instance HasConfiguration => MonadDBRead BlockchainInspector where
     dbGetSerBlock = BDB.dbGetSerBlockRealDefault
     dbGetSerUndo = BDB.dbGetSerUndoRealDefault
 
-prevBlock :: HasConfiguration => Block -> HeaderHash
+prevBlock :: Block -> HeaderHash
 prevBlock = view prevBlockL

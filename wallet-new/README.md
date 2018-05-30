@@ -73,43 +73,27 @@ $ stack exec cardano-node -- --topology=wallet-new/topology-examples/testnet.yam
 
 From there, you can browse the API documentation for V0 and V1 through the following URLs:
 
-- http://localhost:8090/docs/v0/index/
-- http://localhost:8090/docs/v1/index/
-
-The visualization at those URLs lets you play with the API by the mean of a _Try it out_ button
-made available for each endpoint. This will seemingly contact the node already running on your
-local machine with actual HTTP requests augmented with the parameters you provide!
+- https://localhost:8091/docs/v0/index/
+- https://localhost:8091/docs/v1/index/
 
 ### HTTPS
 
-By default, wallet backend only accepts HTTPS connections:
-
-```
-$ curl localhost:8090/docs/v1/index/index.html
-This server only accepts secure HTTPS connections.
-```
-
-We should provide our `ca.crt`:
-
-```
-$ curl --cacert scripts/tls-files/ca.crt https://localhost:8090/docs/v1/index/index.html
-```
-
-But if we launch a node with `--wallet-debug` option, we can send simple `http`-requests.
+By default, wallet backend only accepts HTTPS connections. If we launch a node with
+`--wallet-debug` option, we can send simple `http`-requests.
 
 ### Swagger Specification
 
 If needed, you can access the corresponding raw Swagger specification files via these URLs:
 
-- http://localhost:8090/docs/v0/swagger.json
-- http://localhost:8090/docs/v1/swagger.json
+- https://localhost:8091/docs/v0/swagger.json
+- https://localhost:8091/docs/v1/swagger.json
 
 ### Development Endpoints
 
 If you run the wallet in debug mode (with `--wallet-debug` option), you'll have an access to
 an extra set of endpoints, documented under this URL:
 
-- http://localhost:8090/docs/development/index
+- https://localhost:8091/docs/development/index
 
 ### Online API Documentation
 
@@ -179,4 +163,56 @@ Response:
 		"cwPassphraseLU": 1.52232831369479818e9
 	}
 }
+```
+
+## Troubleshooting
+
+##### commitAndReleaseBuffer: invalid argument (invalid character)
+
+When running a node directly with stack, you may encounter an unexpected runtime error
+`commitAndReleaseBuffer` if your machine's locale aren't well suitable for managing unicode
+characters. 
+
+On a _*nix_ system, you can view your current locale by doing:
+
+```
+$ locale
+LANG=en_US.UTF-8
+LANGUAGE=en_US
+LC_CTYPE="en_US.UTF-8"
+LC_NUMERIC=nl_NL.UTF-8
+LC_TIME=nl_NL.UTF-8
+LC_COLLATE="en_US.UTF-8"
+LC_MONETARY=nl_NL.UTF-8
+LC_MESSAGES="en_US.UTF-8"
+LC_PAPER=nl_NL.UTF-8
+LC_NAME=nl_NL.UTF-8
+LC_ADDRESS=nl_NL.UTF-8
+LC_TELEPHONE=nl_NL.UTF-8
+LC_MEASUREMENT=nl_NL.UTF-8
+LC_IDENTIFICATION=nl_NL.UTF-8
+LC_ALL=
+```
+
+One way to cope with this is to force different (UTF-8 compatible) locales when starting a node
+using environment variables as follows:
+
+```
+LANG=en_GB.UTF-8 LC_ALL=en_GB.UTF-8 stack exec -- ...
+```
+
+##### API returns `415  Unsupported Media Type`
+
+The wallet's API can be quite picky about media-types and expect both a given type and an
+associated charset. You'll likely get this error when
+
+- The request doesn't provide any `Content-Type` or `Accept` header
+- The base mime-type isn't `application/json`
+- The associated charset is missing or different from `utf-8`
+
+To fix, make sure to provide both a `Content-Type` and `Accept` headers with the following
+value:
+
+```
+application/json;charset=utf-8
 ```

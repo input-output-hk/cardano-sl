@@ -1,5 +1,7 @@
 {-# LANGUAGE BinaryLiterals #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Communication-related serialization -- messages mostly.
 
 module Pos.Binary.Communication

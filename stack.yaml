@@ -6,22 +6,27 @@ flags:
 
 extra-package-dbs: []
 
-# networking → [util, binary] → crypto → core → db → [lrc, infra] → [ssc, txp, update, delegation] → block → lib → ...
+# util -> networking → binary →  crypto → core → db → [lrc, infra]
+#              → [ssc, txp, update, delegation] → block → lib → ...
 # Then we have two branches:
 # ... → client → generator → [auxx, explorer, wallet] → wallet-new
 # ... → [node, tools]
 packages:
+- util
+- util/test
 - networking
 - binary
-- util
+- binary/test
 - crypto
 - crypto/tests
 - core
 - db
 - lrc
+- lrc/test
 - infra
 - ssc
 - txp
+- txp/test
 - update
 - delegation
 - block
@@ -34,6 +39,7 @@ packages:
 - tools
 - wallet
 - wallet-new # The new (unreleased) version of the wallet
+- node-ipc
 
 - location:
     git: https://github.com/well-typed/cborg
@@ -126,8 +132,8 @@ packages:
     commit: e7de56b5f7c39f8dc473f1bbaf534bb7affc3cf4
   extra-dep: true
 - location:
-    git: https://github.com/serokell/log-warper.git
-    commit: 7f95c6990ef93a289678755cb1db71c2a4ecdfb5
+    git: https://github.com/input-output-hk/log-warper.git
+    commit: b8c390357b27e7ae3b9b0c5309bf9d0bbbf09852
   extra-dep: true
 
 nix:
@@ -150,7 +156,7 @@ extra-deps:
 - servant-swagger-1.1.4           # needed for servant-0.12
 - servant-swagger-ui-0.2.4.3.4.0  # needed for servant-0.12
 - servant-blaze-0.7.1             # needed for servant-0.12
-- servant-quickcheck-0.0.4
+- servant-quickcheck-0.0.4.1      # patched version for using a custom manager + fix mvar behavior
 - ether-0.5.1.0
 - pipes-interleave-1.1.1
 - generic-arbitrary-0.1.0
@@ -198,25 +204,26 @@ apply-ghc-options: everything
 
 # If you find it too restrictive, you can use `scripts/build/cardano-sl.sh' script
 ghc-options:
-  cardano-sl-util:       -Werror
-  cardano-sl-core:       -Werror
-  cardano-sl-db:         -Werror
-  cardano-sl-ssc:        -Werror
-  cardano-sl-infra:      -Werror
-  cardano-sl-lrc:        -Werror
-  cardano-sl-update:     -Werror
-  cardano-sl-txp:        -Werror
-  cardano-sl-delegation: -Werror
-  cardano-sl-block:      -Werror
-  cardano-sl:            -Werror
-  cardano-sl-client:     -Werror
-  cardano-sl-generator:  -Werror
-  cardano-sl-tools:      -Werror
-  cardano-sl-auxx:       -Werror
-  cardano-sl-wallet:     -Werror
-  cardano-sl-explorer:   -Werror
-  cardano-sl-node:       -Werror
-  cardano-sl-wallet-new: -Werror
+  cardano-sl-auxx:       -Werror -fwarn-redundant-constraints
+  cardano-sl-block:      -Werror -fwarn-redundant-constraints
+  cardano-sl-client:     -Werror -fwarn-redundant-constraints
+  cardano-sl-core:       -Werror -fwarn-redundant-constraints
+  cardano-sl-db:         -Werror -fwarn-redundant-constraints
+  cardano-sl-delegation: -Werror -fwarn-redundant-constraints
+  cardano-sl-explorer:   -Werror -fwarn-redundant-constraints
+  cardano-sl-generator:  -Werror -fwarn-redundant-constraints
+  cardano-sl-infra:      -Werror -fwarn-redundant-constraints
+  cardano-sl-lrc-test:   -Werror
+  cardano-sl-lrc:        -Werror -fwarn-redundant-constraints
+  cardano-sl-node:       -Werror -fwarn-redundant-constraints
+  cardano-sl-ssc:        -Werror -fwarn-redundant-constraints
+  cardano-sl-tools:      -Werror -fwarn-redundant-constraints
+  cardano-sl-txp:        -Werror -fwarn-redundant-constraints
+  cardano-sl-update:     -Werror -fwarn-redundant-constraints
+  cardano-sl-util:       -Werror -fwarn-redundant-constraints
+  cardano-sl-wallet-new: -Werror -fwarn-redundant-constraints
+  cardano-sl-wallet:     -Werror -fwarn-redundant-constraints
+  cardano-sl:            -Werror -fwarn-redundant-constraints
 
 # The 'swagger2' has a broken Haddock with GHC 8.0. We can remove this flag
 # when we have upgraded to GHC >= 8.2

@@ -116,7 +116,7 @@ class ApiHasArgClass api where
     -- E.g. name of argument specified by @Capture "nyan"@ is /nyan/.
     apiArgName :: Proxy api -> String
     default apiArgName
-        :: forall n someApiType a. (KnownSymbol n, someApiType n a ~ api)
+        :: forall n someApiType a. (KnownSymbol n)
         => Proxy (someApiType n a) -> String
     apiArgName _ = formatToString ("'"%string%"' field") $ symbolVal (Proxy @n)
 
@@ -483,7 +483,6 @@ instance ( ApiCanLogArg subApi ) =>
 paramRouteWithLog
     :: forall config api subApi res ctx env.
        ( api ~ (subApi :> res)
-       , HasServer (subApi :> res) ctx
        , HasServer (subApi :> LoggingApiRec config res) ctx
        , ApiHasArg subApi res
        , ApiHasArg subApi (LoggingApiRec config res)
@@ -580,7 +579,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
         return $ do
             endTime <- liftIO getPOSIXTime
             return $ sformat shown (endTime - startTime)
-    inLogCtx :: MonadIO m => LoggerNameBox m a -> m a
+    inLogCtx :: LoggerNameBox m a -> m a
     inLogCtx logAction = do
         let ApiLoggingConfig{..} = reflect configP
         usingLoggerName apiLoggerName logAction

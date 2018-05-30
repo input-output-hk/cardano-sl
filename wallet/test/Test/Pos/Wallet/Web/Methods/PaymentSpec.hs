@@ -1,3 +1,12 @@
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE StandaloneDeriving #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Test.Pos.Wallet.Web.Methods.PaymentSpec
        ( spec
        ) where
@@ -30,8 +39,6 @@ import           Pos.Wallet.Web.ClientTypes (Addr, CAccount (..), CId, CTx (..),
                                              NewBatchPayment (..), Wal)
 import           Servant.Server (ServantErr (..), err403)
 
-import           Pos.Util.QuickCheck.Property (assertProperty, expectedOne, maybeStopProperty,
-                                               splitWord, stopProperty)
 import           Pos.Wallet.Web.Methods.Logic (getAccounts)
 import           Pos.Wallet.Web.Methods.Payment (newPaymentBatch)
 import qualified Pos.Wallet.Web.State.State as WS
@@ -40,8 +47,13 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
 
 import           Pos.Util.Servant (encodeCType)
 import           Test.Pos.Configuration (withDefConfigurations)
+
+
+import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne, maybeStopProperty,
+                                                    splitWord, stopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty, getSentTxs, submitTxTestMode,
                                            walletPropertySpec)
+
 import           Test.Pos.Wallet.Web.Util (deriveRandomAddress, expectedAddrBalance,
                                            importSomeWallets, mostlyEmptyPassphrases)
 
@@ -70,7 +82,7 @@ data PaymentFixture = PaymentFixture {
 }
 
 -- | Generic block of code to be reused across all the different payment specs.
-newPaymentFixture :: (HasCompileInfo, HasConfigurations) => WalletProperty PaymentFixture
+newPaymentFixture :: HasConfigurations => WalletProperty PaymentFixture
 newPaymentFixture = do
     passphrases <- importSomeWallets mostlyEmptyPassphrases
     let l = length passphrases
@@ -117,7 +129,7 @@ rejectPaymentIfRestoringSpec = walletPropertySpec "should fail with 403" $ do
 
 
 -- | Test one single, successful payment.
-oneNewPaymentBatchSpec :: (HasCompileInfo, HasConfigurations) => Spec
+oneNewPaymentBatchSpec :: HasConfigurations => Spec
 oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     PaymentFixture{..} <- newPaymentFixture
 

@@ -1,28 +1,37 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE UndecidableInstances       #-}
+
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Test.Pos.Wallet.MigrationSpec (spec) where
 
+import           Universum
+
 import           Control.Arrow ((***))
+import           Control.DeepSeq (force)
 import           Data.Default (def)
 import qualified Data.HashMap.Strict as HM
 import           Data.SafeCopy
+import           Test.Hspec (Spec, describe, it, shouldNotBe)
+import           Test.Hspec.QuickCheck (modifyMaxSize, prop)
+import           Test.QuickCheck (Arbitrary (..), Property, oneof, (===))
+
 import           Pos.Arbitrary.Core ()
-import           Pos.Core (HasConfiguration)
-import           Pos.Util.CompileInfo (withCompileInfo)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccountMeta (..), CCoin (..),
                                              CHash (..), CId (..), CProfile (..), CTxId (..),
                                              CTxMeta (..), CUpdateInfo (..), CWAddressMeta (..),
                                              CWalletAssurance (..), CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId)
+import           Pos.Wallet.Web.State.Acidic (openState)
+import           Pos.Wallet.Web.State.State (askWalletSnapshot)
 import           Pos.Wallet.Web.State.Storage
-import           Test.Hspec (Spec, describe, it)
-import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.QuickCheck
-import           Universum
+
+import           Test.Pos.Txp.Arbitrary ()
 
 --------------------------------------------------------------------------------
 -- Reverse migrations
@@ -130,6 +139,7 @@ deriving instance Show WalletInfo_v0
 deriving instance Show WalletTip_v0
 deriving instance Show WalletStorage_v2
 deriving instance Show WalletStorage_v3
+deriving instance Show WalletStorage
 
 deriving instance Arbitrary CHash
 deriving instance Arbitrary (CId Wal)
@@ -193,13 +203,13 @@ instance Arbitrary AccountId where
 instance Arbitrary RestorationBlockDepth where
     arbitrary = RestorationBlockDepth <$> arbitrary
 
-instance HasConfiguration => Arbitrary WalletTip_v0 where
+instance Arbitrary WalletTip_v0 where
   arbitrary = oneof
     [ pure V0_NotSynced
     , V0_SyncedWith <$> arbitrary
     ]
 
-instance HasConfiguration => Arbitrary WalletSyncState where
+instance Arbitrary WalletSyncState where
   arbitrary = oneof
     [ pure NotSynced
     , SyncedWith <$> arbitrary
@@ -235,7 +245,7 @@ instance Arbitrary AccountInfo_v0 where
     <*> arbitrary
     <*> arbitrary
 
-instance HasConfiguration => Arbitrary WalletInfo_v0 where
+instance Arbitrary WalletInfo_v0 where
   arbitrary = WalletInfo_v0
     <$> arbitrary
     <*> arbitrary
@@ -244,7 +254,7 @@ instance HasConfiguration => Arbitrary WalletInfo_v0 where
     <*> pure HM.empty
     <*> arbitrary
 
-instance HasConfiguration => Arbitrary WalletInfo where
+instance Arbitrary WalletInfo where
   arbitrary = WalletInfo
     <$> arbitrary
     <*> arbitrary
@@ -254,7 +264,7 @@ instance HasConfiguration => Arbitrary WalletInfo where
     <*> pure HM.empty
     <*> arbitrary
 
-instance HasConfiguration => Arbitrary WalletStorage_v2 where
+instance Arbitrary WalletStorage_v2 where
   arbitrary = WalletStorage_v2
     <$> arbitrary
     <*> arbitrary
@@ -267,7 +277,7 @@ instance HasConfiguration => Arbitrary WalletStorage_v2 where
     <*> arbitrary
     <*> arbitrary
 
-instance HasConfiguration => Arbitrary WalletStorage_v3 where
+instance Arbitrary WalletStorage_v3 where
   arbitrary = WalletStorage_v3
     <$> arbitrary
     <*> arbitrary
@@ -282,20 +292,38 @@ instance HasConfiguration => Arbitrary WalletStorage_v3 where
 
 
 spec :: Spec
-spec = withCompileInfo def $ withDefConfigurations $ \_ ->
-    describe "Migration to latest version can be reversed" $ do
-      it "(WalletStorage_v2) migrating back results in the original" $ property prop_backMigrate_v2
-      it "(WalletStorage_v3) migrating back results in the original" $ property prop_backMigrate_v3
+spec = do
+    resizeTests $ do
+        describe "Migration to latest version can be reversed" $ do
+            prop
+                "(WalletStorage_v2) migrating back results in the original"
+                prop_backMigrate_v2
+            prop
+                "(WalletStorage_v3) migrating back results in the original"
+                prop_backMigrate_v3
+    describe "Can load the 1.1.0 database" $ do
+        it "can load" $ do
+            db <- openState False "test/wallet-db-1.1.1/"
+            ws <- runReaderT askWalletSnapshot db
+            force ws `shouldNotBe` def
+            -- We force it to ensure there aren't any _|_s hanging around. And
+            -- then we say it shouldn't be def because the thing will give you
+            -- back a Default of the WalletStorage if the file path doesn't
+            -- exist (d'oh)
+
   where
+    -- The tests for migrations take an enormous amount of time, so we prune the
+    -- size down a bit to make it more manageable.
+    resizeTests = modifyMaxSize (const 15)
     -- This test verifies that the migration to version 2 of the wallet storage is
     -- reversible, and as such that we don't accidentally cause any data loss in
     -- the conversion.
-    prop_backMigrate_v2 :: WalletStorage_v2 -> Bool
+    prop_backMigrate_v2 :: WalletStorage_v2 -> Property
     prop_backMigrate_v2 ws = let
         WalletStorage_Back_v2 ws' = migrate . migrate $ ws
-      in ws == ws'
+      in ws === ws'
 
-    prop_backMigrate_v3 :: WalletStorage_v3 -> Bool
+    prop_backMigrate_v3 :: WalletStorage_v3 -> Property
     prop_backMigrate_v3 ws = let
         WalletStorage_Back_v3 ws' = migrate . migrate $ ws
-      in ws == ws'
+      in ws === ws'

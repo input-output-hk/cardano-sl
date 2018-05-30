@@ -15,7 +15,10 @@ module Wallet.Rollback.Basic (
 import           Universum hiding (State)
 
 import           Control.Lens.TH
-import qualified Data.Set as Set
+import qualified Data.Map as Map
+import qualified Data.Text.Buildable
+import           Formatting (bprint, build, (%))
+import           Serokell.Util (listJson)
 
 import           UTxO.DSL
 import           Wallet.Abstract
@@ -42,7 +45,7 @@ initState = State {
   Implementation
 -------------------------------------------------------------------------------}
 
-mkWallet :: (Hash h a, Ord a)
+mkWallet :: (Hash h a, Buildable st)
          => Ours a -> Lens' st (State h a) -> WalletConstr h a st
 mkWallet ours l self st = (Basic.mkWallet ours (l . stateCurrent) self st) {
       applyBlock = \b -> self (st & l %~ applyBlock' ours b)
@@ -54,7 +57,7 @@ mkWallet ours l self st = (Basic.mkWallet ours (l . stateCurrent) self st) {
   where
     this = self st
 
-walletEmpty :: (Hash h a, Ord a) => Ours a -> Wallet h a
+walletEmpty :: (Hash h a, Buildable a) => Ours a -> Wallet h a
 walletEmpty ours = fix (mkWallet ours identity) initState
 
 {-------------------------------------------------------------------------------
@@ -68,15 +71,29 @@ applyBlock' ours b State{..} = State{
     , _stateCheckpoints = _stateCurrent : _stateCheckpoints
     }
 
-rollback' :: (Hash h a, Ord a) => State h a -> State h a
+rollback' :: (Hash h a) => State h a -> State h a
 rollback' State{ _stateCheckpoints = [] } = error "rollback': no checkpoints"
 rollback' State{ _stateCheckpoints = prev : checkpoints'
                , _stateCurrent     = curr
                } = State{
       _stateCurrent = Basic.State{
           _stateUtxo    = prev ^. Basic.stateUtxo
-        , _statePending = (curr ^. Basic.statePending) `Set.union`
+        , _statePending = (curr ^. Basic.statePending) `Map.union`
                           (prev ^. Basic.statePending)
         }
     , _stateCheckpoints = checkpoints'
     }
+
+{-------------------------------------------------------------------------------
+  Pretty-printing
+-------------------------------------------------------------------------------}
+
+instance (Hash h a, Buildable a) => Buildable (State h a) where
+  build State{..} = bprint
+    ( "State"
+    % "{ current:     " % build
+    % ", checkpoints: " % listJson
+    % "}"
+    )
+    _stateCurrent
+    _stateCheckpoints

@@ -16,7 +16,7 @@ applyFilters F.NoFilters inputData        = inputData
 applyFilters (F.FilterOp f fop) inputData = applyFilters fop (applyFilter f inputData)
 
 -- | Applies a single 'FilterOperation' on the input data, producing filtered data as output.
-applyFilter :: forall ix a m. (IsIndexOf' a ix, MonadPlus m, Indexable' a , ToIndex a ix)
+applyFilter :: forall ix a m. (IsIndexOf' a ix, MonadPlus m, ToIndex a ix)
             => F.FilterOperation ix a
             -> m a
             -> m a

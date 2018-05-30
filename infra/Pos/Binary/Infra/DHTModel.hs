@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Provides functionality of representing `Bi` instances as correct
 -- `Message`s used by time-warp.
 

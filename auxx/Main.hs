@@ -7,41 +7,31 @@ import           Unsafe (unsafeFromJust)
 
 import           Control.Exception.Safe (handle)
 import           Formatting (sformat, shown, (%))
-import           Mockable (Production, runProduction)
-import           JsonLog (jsonLog)
+import           Mockable (Production (..), runProduction)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
 import           System.Wlog (LoggerName, logInfo)
 
-import           Pos.Block.Configuration (recoveryHeadersMessage)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Communication (OutSpecs)
-import           Pos.Communication.Util (ActionSpec (..))
-import           Pos.Core (ConfigurationError, protocolConstants, protocolMagic)
-import           Pos.Configuration (networkConnectionTimeout)
+import           Pos.Context (NodeContext (..))
+import           Pos.Core (ConfigurationError)
 import           Pos.DB.DB (initNodeDBs)
-import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
-import           Pos.Diffusion.Types (DiffusionLayer (..))
-import           Pos.Diffusion.Full (diffusionLayerFull)
-import           Pos.Logic.Full (logicLayerFull)
-import           Pos.Logic.Types (LogicLayer (..))
-import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
-                               bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
-                               elimRealMode, withConfigurations)
-import           Pos.Ntp.Configuration (NtpConfiguration)
+import           Pos.Diffusion.Types (Diffusion, hoistDiffusion)
+import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources (..),
+                               bracketNodeResources, runRealMode, loggerBracket, lpConsoleLog,
+                               runNode, withConfigurations)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
                                     topologyEnqueuePolicy, topologyFailurePolicy)
+import           Pos.Ntp.Configuration (NtpConfiguration)
 import           Pos.Txp (txpGlobalSettings)
-import           Pos.Update (lastKnownBlockVersion)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
-import           Pos.Worker.Types (WorkerSpec)
 
 import           AuxxOptions (AuxxAction (..), AuxxOptions (..), AuxxStartMode (..), getAuxxOptions)
-import           Mode (AuxxContext (..), AuxxMode)
+import           Mode (AuxxContext (..), AuxxMode, realModeToAuxx)
 import           Plugin (auxxPlugin, rawExec)
 import           Repl (PrintAction, WithCommandAction (..), withAuxxRepl)
 
@@ -82,10 +72,10 @@ correctNodeParams AuxxOptions {..} np = do
 runNodeWithSinglePlugin ::
        (HasConfigurations, HasCompileInfo)
     => NodeResources EmptyMempoolExt
-    -> (WorkerSpec AuxxMode, OutSpecs)
-    -> (WorkerSpec AuxxMode, OutSpecs)
-runNodeWithSinglePlugin nr (plugin, plOuts) =
-    runNode nr ([plugin], plOuts)
+    -> (Diffusion AuxxMode -> AuxxMode ())
+    -> Diffusion AuxxMode -> AuxxMode ()
+runNodeWithSinglePlugin nr plugin =
+    runNode nr [plugin]
 
 action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> Production ()
 action opts@AuxxOptions {..} command = do
@@ -110,8 +100,8 @@ action opts@AuxxOptions {..} command = do
         CLI.printInfoOnStart aoCommonNodeArgs ntpConfig
         (nodeParams, tempDbUsed) <-
             correctNodeParams opts =<< CLI.getNodeParams loggerName cArgs nArgs
-        let
-            toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
+
+        let toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
             toRealMode auxxAction = do
                 realModeContext <- ask
                 let auxxContext =
@@ -119,17 +109,18 @@ action opts@AuxxOptions {..} command = do
                         { acRealModeContext = realModeContext
                         , acTempDbUsed = tempDbUsed }
                 lift $ runReaderT auxxAction auxxContext
-        let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
-        let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-        bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
-            elimRealMode nr $ toRealMode $
-                logicLayerFull jsonLog $ \logicLayer ->
-                    bracketTransportTCP networkConnectionTimeout (ncTcpAddr (npNetworkConfig nodeParams)) $ \transport ->
-                        diffusionLayerFull (runProduction . elimRealMode nr . toRealMode) (npNetworkConfig nodeParams) lastKnownBlockVersion protocolMagic protocolConstants recoveryHeadersMessage transport Nothing $ \withLogic -> do
-                            diffusionLayer <- withLogic (logic logicLayer)
-                            let modifier = if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity
-                                (ActionSpec auxxModeAction, _) = modifier (auxxPlugin opts command)
-                            runLogicLayer logicLayer (runDiffusionLayer diffusionLayer (auxxModeAction (diffusion diffusionLayer)))
+
+            vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
+            sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
+
+        bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr -> Production $
+            let NodeContext {..} = nrContext nr
+                modifier = if aoStartMode == WithNode
+                           then runNodeWithSinglePlugin nr
+                           else identity
+                auxxModeAction = modifier (auxxPlugin opts command)
+             in runRealMode nr $ \diffusion ->
+                    toRealMode (auxxModeAction (hoistDiffusion realModeToAuxx diffusion))
 
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)

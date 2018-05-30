@@ -2,8 +2,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Logic.Full
-    ( logicLayerFull
-    , LogicWorkMode
+    ( LogicWorkMode
+    , logicFull
     ) where
 
 import           Universum
@@ -17,13 +17,12 @@ import           System.Wlog (WithLogger, logDebug)
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Configuration (HasBlockConfiguration)
 import qualified Pos.Block.Logic as Block
-import qualified Pos.Block.Network.Logic as Block
+import qualified Pos.Block.Network as Block
 import           Pos.Block.Types (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Communication (NodeId)
 import           Pos.Core (Block, BlockHeader, BlockVersionData, HasConfiguration, HeaderHash,
                            ProxySKHeavy, StakeholderId, TxAux (..), addressHash, getCertId,
                            lookupVss)
-import           Pos.Core.Context (HasPrimaryKey, getOurStakeholderId)
 import           Pos.Core.Ssc (getCommitmentsMap)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (hash)
@@ -33,7 +32,7 @@ import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..))
 import qualified Pos.DB.Class as DB (getBlock)
 import           Pos.Delegation.Listeners (DlgListenerConstraint)
 import qualified Pos.Delegation.Listeners as Delegation (handlePsk)
-import           Pos.Logic.Types (KeyVal (..), Logic (..), LogicLayer (..))
+import           Pos.Logic.Types (KeyVal (..), Logic (..))
 import           Pos.Recovery (MonadRecoveryInfo)
 import qualified Pos.Recovery as Recovery
 import           Pos.Security.Params (SecurityParams)
@@ -48,7 +47,7 @@ import           Pos.Ssc.Toss (SscTag (..), TossModifier, tmCertificates, tmComm
                                tmShares)
 import           Pos.Ssc.Types (ldModifier)
 import           Pos.Txp (MemPool (..))
-import           Pos.Txp.MemState (JLTxR, getMemPool, withTxpLocalData)
+import           Pos.Txp.MemState (getMemPool, withTxpLocalData)
 import           Pos.Txp.Network.Listeners (TxpMode)
 import qualified Pos.Txp.Network.Listeners as Txp (handleTxDo)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
@@ -57,23 +56,34 @@ import qualified Pos.Update.Logic.Local as Update (getLocalProposalNVotes, getLo
 import           Pos.Update.Mode (UpdateMode)
 import qualified Pos.Update.Network.Listeners as Update (handleProposal, handleVote)
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Util.Util (HasLens (..), lensOf)
+import           Pos.Util.JsonLog.Events (JLTxR)
+import           Pos.Util.Util (HasLens (..))
 
-
+-- The full logic layer uses existing pieces from the former monolithic
+-- approach, in which there was no distinction between networking and
+-- blockchain logic (any piece could use the network via some class constraint
+-- on the monad). The class-based approach is not problematic for
+-- integration with a diffusion layer, because in practice the concrete
+-- monad which satisfies these constraints is a reader form over IO, so we
+-- always have
+--
+--   runIO  :: m x -> IO x
+--   liftIO :: IO x -> m x
+--
+-- thus a diffusion layer which is in IO can be made to work with a logic
+-- layer which uses the more complicated monad, and vice-versa.
 
 type LogicWorkMode ctx m =
     ( HasConfiguration
     , HasBlockConfiguration
     , WithLogger m
     , MonadReader ctx m
-    , HasPrimaryKey ctx
     , MonadMask m
     , MonadBlockDBRead m
     , MonadDBRead m
     , MonadGState m
     , MonadRecoveryInfo m
     , MonadSlots ctx m
-    , HasLens SecurityParams ctx SecurityParams
     , HasLens RecoveryHeaderTag ctx RecoveryHeader
     , BlockWorkMode ctx m
     , DlgListenerConstraint ctx m
@@ -83,20 +93,14 @@ type LogicWorkMode ctx m =
 
 -- | A stop-gap full logic layer based on the RealMode. It just uses the
 -- monadX constraints to do most of its work.
-logicLayerFull
-    :: forall ctx m x .
-       ( LogicWorkMode ctx m
-       )
-    => (JLTxR -> m ())
-    -> (LogicLayer m -> m x)
-    -> m x
-logicLayerFull jsonLogTx k = do
-
-    -- Delivered monadically but in fact is constant (comes from a
-    -- reader context).
-    ourStakeholderId <- getOurStakeholderId
-    securityParams <- view (lensOf @SecurityParams)
-
+logicFull
+    :: forall ctx m .
+       ( LogicWorkMode ctx m )
+    => StakeholderId
+    -> SecurityParams
+    -> (JLTxR -> m ()) -- ^ JSON log callback. FIXME replace by structured logging solution
+    -> Logic m
+logicFull ourStakeholderId securityParams jsonLogTx =
     let
         getBlock :: HeaderHash -> m (Maybe Block)
         getBlock = DB.getBlock
@@ -130,8 +134,8 @@ logicLayerFull jsonLogTx k = do
             -> m (Either Block.GetHeadersFromManyToError (NewestFirst NE BlockHeader))
         getBlockHeaders = Block.getHeadersFromManyTo
 
-        getLcaMainChain :: OldestFirst NE BlockHeader -> m (Maybe HeaderHash)
-        getLcaMainChain = Block.lcaWithMainChain
+        getLcaMainChain :: OldestFirst [] BlockHeader -> m (OldestFirst [] BlockHeader)
+        getLcaMainChain = Block.lcaWithMainChainSuffix
 
         postBlockHeader :: BlockHeader -> NodeId -> m ()
         postBlockHeader = Block.handleUnsolicitedHeader
@@ -219,10 +223,4 @@ logicLayerFull jsonLogTx k = do
                     Left err -> False <$ logDebug (sformat ("Data is rejected, reason: "%build) err)
                     Right () -> return True
 
-        logic :: Logic m
-        logic = Logic {..}
-
-        runLogicLayer :: forall y . m y -> m y
-        runLogicLayer = identity
-
-    k (LogicLayer {..})
+    in Logic {..}

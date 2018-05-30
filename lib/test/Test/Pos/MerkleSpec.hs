@@ -6,7 +6,6 @@ module Test.Pos.MerkleSpec
 
 import           Universum
 
-import           Data.SafeCopy (SafeCopy)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, (===))
@@ -34,5 +33,5 @@ generateAndFoldProp xs = toList (mkMerkleTree xs) === xs
 sizeProp :: (Bi a) => [a] -> Property
 sizeProp xs = length (mkMerkleTree xs) === fromIntegral (length xs)
 
-safeProp :: (Eq a, Typeable a, Show a, Bi a, SafeCopy a) => [a] -> Property
+safeProp :: (Eq a, Show a, Bi a) => [a] -> Property
 safeProp xs = let m = mkMerkleTree xs in safeCopyEncodeDecode m

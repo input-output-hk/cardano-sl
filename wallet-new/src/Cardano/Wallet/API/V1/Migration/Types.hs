@@ -99,7 +99,7 @@ instance Migrate (OldStorage.SyncStatistics, Maybe Core.ChainDifficulty) V1.Sync
                                                  (calculateEstimatedRemainingTime wspThroughput)
                                                  remainingBlocks))
                            <*> pure (tput wspThroughput)
-                           <*> pure (V1.mkSyncPercentage (round @Double $ percentage))
+                           <*> pure (V1.mkSyncPercentage (floor @Double $ percentage))
 
 -- NOTE: Migrate V1.Wallet V0.CWallet unable to do - not idempotent
 
@@ -145,7 +145,6 @@ instance Migrate (V1.WalletId, V1.NewAccount) V0.CAccountInit where
 instance Migrate V0.CAddress V1.WalletAddress where
     eitherMigrate V0.CAddress{..} = do
         addrId <- eitherMigrate cadId
-        addrBalance <- eitherMigrate cadAmount
         let addrUsed = cadIsUsed
         let addrChangeAddress = cadIsChange
         return V1.WalletAddress{..}
@@ -157,7 +156,7 @@ instance Migrate V0.SyncProgress V1.SyncPercentage where
         let percentage = case _spNetworkCD of
                 Nothing -> (0 :: Word8)
                 Just nd | _spLocalCD >= nd -> 100
-                Just nd -> round @Double $ (fromIntegral _spLocalCD / max 1.0 (fromIntegral nd)) * 100.0
+                Just nd -> floor @Double $ (fromIntegral _spLocalCD / max 1.0 (fromIntegral nd)) * 100.0
         in pure $ V1.mkSyncPercentage (fromIntegral percentage)
 
 -- NOTE: Migrate V1.SyncProgress V0.SyncProgress unable to do - not idempotent

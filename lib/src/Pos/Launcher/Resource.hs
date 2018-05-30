@@ -50,7 +50,7 @@ import           Pos.Reporting (initializeMisbehaviorMetrics)
 import           Pos.Shutdown.Types (ShutdownContext (..))
 import           Pos.Slotting (SimpleSlottingStateVar, mkSimpleSlottingStateVar)
 import           Pos.Slotting.Types (SlottingData)
-import           Pos.Ssc (HasSscConfiguration, SscParams, SscState, createSscContext, mkSscState)
+import           Pos.Ssc (SscParams, SscState, createSscContext, mkSscState)
 import           Pos.StateLock (newStateLock)
 import           Pos.Txp (GenericTxpLocalData (..), TxpGlobalSettings, mkTxpLocalData,
                           recordTxpMetrics)
@@ -94,7 +94,6 @@ allocateNodeResources
        ( Default ext
        , HasConfiguration
        , HasNodeConfiguration
-       , HasSscConfiguration
        , HasDlgConfiguration
        , HasBlockConfiguration
        )
@@ -181,7 +180,6 @@ bracketNodeResources :: forall ext a.
       ( Default ext
       , HasConfiguration
       , HasNodeConfiguration
-      , HasSscConfiguration
       , HasDlgConfiguration
       , HasBlockConfiguration
       )
@@ -316,13 +314,14 @@ mkSlottingVar = newTVarIO =<< GState.getSlottingData
 -- | Notify process manager tools like systemd the node is ready.
 -- Available only on Linux for systems where `libsystemd-dev` is installed.
 -- It defaults to a noop for all the other platforms.
-notifyReady :: (MonadIO m, WithLogger m) => m ()
 #ifdef linux_HOST_OS
+notifyReady :: (MonadIO m, WithLogger m) => m ()
 notifyReady = do
     res <- liftIO Systemd.notifyReady
     case res of
         Just () -> return ()
         Nothing -> Logger.logWarning "notifyReady failed to notify systemd."
 #else
-notifyReady = return ()
+notifyReady :: (WithLogger m) => m ()
+notifyReady = logInfo "notifyReady: no systemd support enabled"
 #endif

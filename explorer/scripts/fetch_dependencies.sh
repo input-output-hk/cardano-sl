@@ -20,6 +20,6 @@ https://github.com/input-output-hk/cardano-sl.git
 
 for item in $items
 do
-  revision=$(git ls-remote $item | grep refs/heads/master | cut -f 1)
-  echo $item $revision
+  revision=$(git ls-remote "$item" | grep refs/heads/master | cut -f 1)
+  echo "$item $revision"
 done

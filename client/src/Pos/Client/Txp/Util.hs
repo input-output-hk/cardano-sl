@@ -2,6 +2,8 @@
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Pure functions for operations with transactions
 
 module Pos.Client.Txp.Util
@@ -61,8 +63,8 @@ import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..), TxSizeLinear (..),
                            bvdTxFeePolicy, calculateTxSizeLinear, coinToInteger, integerToCoin,
-                           isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue,
-                           unsafeIntegerToCoin, unsafeSubCoin, protocolMagic)
+                           isRedeemAddress, mkCoin, protocolMagic, sumCoins, txSizeLinearMinValue,
+                           unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (RedeemSecretKey, SafeSigner, SignTag (SignRedeemTx, SignTx),
                              deterministicKeyGen, fakeSigner, hash, redeemSign, redeemToPublic,

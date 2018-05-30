@@ -33,7 +33,6 @@ library
                        Pos.Update.DB
                        Pos.Update.DB.Misc
                        Pos.Update.Download
-                       Pos.Update.Lrc
                        Pos.Update.Mode
 
                        -- Logic
@@ -96,6 +95,7 @@ library
                      , cardano-sl-lrc
                      , cardano-sl-networking
                      , cardano-sl-util
+                     , cardano-sl-util-test
                      , conduit
                      , containers
                      , data-default
@@ -155,7 +155,6 @@ library
                        MonadFailDesugaring
 
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
 
   build-tools: cpphs >= 1.19

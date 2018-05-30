@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Delegation types serialization.
 
 module Pos.Binary.Delegation

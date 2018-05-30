@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -eo xtrace
 
+declare WALLET_FLUSH
+
 # Make sure we're in a tmux session.
 if ! [ -n "$TMUX" ]; then
   echo "You must run this script from the tmux session!"
@@ -10,7 +12,7 @@ fi
 # Make sure we're using proper version of tmux.
 tmux_actual_version=$(tmux -V | awk '{print $2}')
 # All tmux versions contain two numbers only.
-tmux_proper_versions=("2.3" "2.4" "2.5" "2.6" "master")
+tmux_proper_versions=("2.3" "2.4" "2.5" "2.6" "2.7" "master")
 checker=""
 for version in "${tmux_proper_versions[@]}"; do
     if [ "${version}" == "${tmux_actual_version}" ]; then
@@ -24,6 +26,7 @@ if [ "${checker}" == "" ]; then
 fi
 
 base=$(dirname "$0")
+# shellcheck disable=SC1090
 source "$base"/../common-functions.sh
 
 # If stack-work doesn't exist use function
@@ -53,13 +56,14 @@ if [[ $config_dir == "" ]]; then
   if [[ ! -d $config_dir ]]; then
     mkdir $config_dir
   fi
-  echo $(pwd)
+  pwd
   gen_kademlia_topology $n
 fi
-
+run_dir=$config_dir
 
 # Stats are not mandatory either
 stats=$4
+export stats
 
 panesCnt=$n
 
@@ -82,7 +86,7 @@ fi
 # and start processing the first slot.
 if [ -z "$system_start" ]
   then
-    system_start=$((`date +%s` + 15))
+    system_start=$(($(date +%s) + 15))
 fi
 
 # This enables to select different wallet executables, since we have a
@@ -100,14 +104,14 @@ echo "Number of panes: $panesCnt"
 function prefix_args {
   local args="$1"
   local prefix="$2"
-  echo "$args" | sed 's/+RTS.*-RTS//g' | tr " " "\n" | grep -vE '^$' | while read l; do
+  echo "$args" | sed 's/+RTS.*-RTS//g' | tr " " "\\n" | grep -vE '^$' | while read -r l; do
     echo -n " $prefix $l"
   done
 }
 
 function make_yaml_list {
   local items="$1"
-  echo "$items" | sed 's/+RTS.*-RTS//g' | tr " " "\n" | grep -vE '^$' | while read l; do
+  echo "$items" | sed 's/+RTS.*-RTS//g' | tr " " "\\n" | grep -vE '^$' | while read -r l; do
     echo "- \"$l\""
   done
 }
@@ -119,7 +123,7 @@ while [[ $i -lt $panesCnt ]]; do
 
   if [[ $im == 0 ]]; then
     # TODO (akegalj): use `tmux new-session -s seassion-name` instead
-    tmux new-window -n "demo-"`date +%H%M%S`-"$ir"
+    tmux new-window -n "demo-$(date +%H%M%S)-$ir"
     tmux split-window -h
     tmux split-window -v
     tmux select-pane -t 0
@@ -132,54 +136,80 @@ while [[ $i -lt $panesCnt ]]; do
   conf_file=$CONFIG
   wallet_args=''
   exec_name='cardano-node-simple'
+  x509GenTool=$(find_binary cardano-x509-certificates)
   if [[ $WALLET_TEST != "" ]] && [[ $i == $((n-1)) ]]; then
       if [[ $WALLET_CONFIG != "" ]]; then
           conf_file=$WALLET_CONFIG
       fi
-      wallet_args=" --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt $wallet_flush" # --wallet-rebuild-db'
+
+      if [ ! -d ${config_dir}/tls-files ]; then
+        mkdir -p ${config_dir}/tls-files
+        $x509GenTool \
+          --server-out-dir ${config_dir}/tls-files \
+          --clients-out-dir ${config_dir}/tls-files \
+          --configuration-key  default \
+          --configuration-file lib/configuration.yaml
+      fi
+
+      wallet_args=" --tlscert $config_dir/tls-files/server.crt --tlskey $config_dir/tls-files/server.key --tlsca $config_dir/tls-files/ca.crt $wallet_flush" # --wallet-rebuild-db'
       wallet_args="$WALLET_EXTRA_ARGS $wallet_args --wallet-address 127.0.0.1:8090"
       exec_name="$WALLET_EXE_NAME"
       if [[ $WALLET_DEBUG != "" ]]; then
           wallet_args="$wallet_args --wallet-debug"
       fi
   fi
+  if [[ $WALLET_TEST != "" ]] && [[ $i == $((n-2)) ]]; then
+      if [[ $WALLET_CONFIG != "" ]]; then
+          conf_file=$WALLET_CONFIG
+      fi
+      wallet_args=" --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt $wallet_flush" # --wallet-rebuild-db'
+      wallet_args="$WALLET_EXTRA_ARGS --new-wallet $wallet_args --wallet-address 127.0.0.1:8091"
+      exec_name="$WALLET_EXE_NAME"
+      if [[ $WALLET_DEBUG != "" ]]; then
+          wallet_args="$wallet_args --wallet-debug"
+      fi
+  fi
   if [[ $i -lt $n ]]; then
-    node_args="$(node_cmd $i "$stats" "$wallet_args" "$system_start" "$config_dir" "$conf_file")"
+    node_args="$(node_cmd $i "$wallet_args" "$system_start" "$config_dir" "$conf_file" "$run_dir" "$run_dir/logs")"
     node_=$(find_binary $exec_name)
-    if [[ $WALLET_TEST != "" ]] && [[ $i == $((n-1)) ]]; then
+    if [[ $WALLET_TEST != "" ]] && [[ $i -ge $((n-2)) ]]; then
         updater_file="$config_dir/updater$i.sh"
         launcher_=$(find_binary cardano-launcher)
 
-        ensure_run
+        ensure_run $run_dir
 
+        # shellcheck disable=SC2154
         full_node_args="$node_args $reb $no_ntp $keys_args $rts_opts"
 
         CONFIG_PATH="$run_dir/launcher-config-$i.yaml"
 
-        echo "nodePath: $node_"                           > $CONFIG_PATH
-        echo "nodeArgs:"                                  >> $CONFIG_PATH
-        echo -e "$(make_yaml_list "$full_node_args")"     >> $CONFIG_PATH
+        {
+            echo "nodePath: $node_"
+            echo "nodeArgs:"
+            echo -e "$(make_yaml_list "$full_node_args")"
 
-        echo "nodeDbPath: $run_dir/node-db$i"             >> $CONFIG_PATH
+            echo "nodeDbPath: $run_dir/node-db$i"
 
-        if [[ "$UI" != "" ]]; then
-          echo "walletLogging: true"                      >> $CONFIG_PATH
-          echo "walletPath: $UI"                          >> $CONFIG_PATH
-          echo "walletArgs:"                              >> $CONFIG_PATH
-          echo -e "$(make_yaml_list "$UI_ARGS")"          >> $CONFIG_PATH
-        fi
+            if [[ "$UI" != "" ]]; then
+              echo "walletLogging: true"
+              echo "walletPath: $UI"
+              echo "walletArgs:"
+              echo -e "$(make_yaml_list "$UI_ARGS")"
+            fi
+            echo "x509ToolPath: $x509GenTool"
 
-        echo "updaterPath: /usr/bin/env"                  >> $CONFIG_PATH
-        echo "updaterArgs: [bash]"                        >> $CONFIG_PATH
-        echo "updateArchive: $updater_file"               >> $CONFIG_PATH
-        echo "nodeTimeoutSec: 5"                          >> $CONFIG_PATH
-        echo "configuration:"                             >> $CONFIG_PATH
-        echo "  filePath: lib/configuration.yaml"         >> $CONFIG_PATH
-        echo "  key: default"                             >> $CONFIG_PATH
-        # The following is required by `withConfigurations`
-        # (specifically, `withCoreConfigurations`). See
-        # Pos.Core.Configuration for more details.
-        echo "  systemStart: 0"                           >> $CONFIG_PATH
+            echo "updaterPath: /usr/bin/env"
+            echo "updaterArgs: [bash]"
+            echo "updateArchive: $updater_file"
+            echo "nodeTimeoutSec: 5"
+            echo "configuration:"
+            echo "  filePath: lib/configuration.yaml"
+            echo "  key: default"
+            # The following is required by `withConfigurations`
+            # (specifically, `withCoreConfigurations`). See
+            # Pos.Core.Configuration for more details.
+            echo "  systemStart: 0"
+        } > $CONFIG_PATH
 
         launcher_args="-c $CONFIG_PATH"
         tmux send-keys "$launcher_ $launcher_args" C-m
@@ -191,7 +221,7 @@ while [[ $i -lt $panesCnt ]]; do
     # Number of transactions to send per-thread: 300
     # Concurrency (number of threads sending transactions); $CONC
     # Delay between sends on each thread: 500 milliseconds
-    tmux send-keys "sleep 40s && $(bench_cmd $i "$system_start" $NUM_TXS $CONC 500 neighbours)" C-m
+    tmux send-keys "sleep 40s && $(bench_cmd "$i" "$system_start" "$NUM_TXS" "$CONC" 500 neighbours)" C-m
   fi
   i=$((i+1))
 done

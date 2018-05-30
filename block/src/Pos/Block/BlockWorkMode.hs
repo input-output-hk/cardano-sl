@@ -15,6 +15,7 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Block.Configuration (HasBlockConfiguration)
+import           Pos.Block.Lrc (LrcModeFull)
 import           Pos.Block.Network.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders, MsgHeaders)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag)
 import           Pos.Block.Slog (HasSlogContext)
@@ -22,13 +23,13 @@ import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag, RecoveryH
                                   RecoveryHeaderTag)
 import           Pos.Communication.Protocol (Message)
 import           Pos.Core.Context (HasPrimaryKey)
-import           Pos.Lrc (LrcModeFull)
 import           Pos.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Shutdown.Class (HasShutdownContext)
 import           Pos.StateLock (StateLock, StateLockMetrics)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal, TxpHolderTag)
 import           Pos.Update.Context (UpdateContext)
+import           Pos.Util.JsonLog.Events (MemPoolModifyReason)
 import           Pos.Util.TimeWarp (CanJsonLog)
 import           Pos.Util.Util (HasLens, HasLens')
 
@@ -70,7 +71,7 @@ type BlockWorkMode ctx m =
     , HasLens TxpHolderTag ctx (GenericTxpLocalData (MempoolExt m))
     , HasLens' ctx SecurityParams
     , HasLens' ctx StateLock
-    , HasLens' ctx StateLockMetrics
+    , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
     , HasLens' ctx UpdateContext
 
     , CanJsonLog m

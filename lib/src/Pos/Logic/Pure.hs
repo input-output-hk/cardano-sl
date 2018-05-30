@@ -7,7 +7,7 @@ module Pos.Logic.Pure
 
 import           Universum
 
-import           Data.ByteString (ByteString)
+import qualified Data.ByteString as BS
 import           Data.Coerce (coerce)
 import           Data.Default (def)
 
@@ -16,7 +16,10 @@ import           Pos.Core (ApplicationName (..), Block, BlockHeader (..), BlockV
                            GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
                            SoftwareVersion (..), StakeholderId, TxFeePolicy (..),
                            unsafeCoinPortionFromDouble)
-import           Pos.Core.Block.Main
+import           Pos.Core.Block (BlockHeaderAttributes, BlockSignature (..), MainBlock,
+                                 MainBlockHeader, MainBlockchain, MainBody (..),
+                                 MainConsensusData (..), MainExtraBodyData (..),
+                                 MainExtraHeaderData (..), MainProof (..))
 import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
 import           Pos.Core.Delegation (DlgPayload (..))
 import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..), SlotId (..))
@@ -45,7 +48,7 @@ pureLogic = Logic
     , getBlockHeader     = \_ -> pure (Just blockHeader)
     , getHashesRange     = \_ _ _ -> pure (Right (OldestFirst (pure mainBlockHeaderHash)))
     , getBlockHeaders    = \_ _ _ -> pure (Right (NewestFirst (pure blockHeader)))
-    , getLcaMainChain    = \_ -> pure Nothing
+    , getLcaMainChain    = \_ -> pure (OldestFirst [])
     , getTip             = pure block
     , getTipHeader       = pure blockHeader
     , getAdoptedBVData   = pure blockVersionData
@@ -130,7 +133,7 @@ mainBlock = UnsafeGenericBlock
     , _gbExtra  = extraBodyData
     }
 
-blockBody :: Body MainBlockchain
+blockBody :: MainBody
 blockBody = MainBody
     { _mbTxPayload     = emptyTxPayload
     , _mbSscPayload    = emptySscPayload
@@ -181,7 +184,7 @@ mainBlockHeader = UnsafeGenericBlockHeader
 mainBlockHeaderHash :: HeaderHash
 mainBlockHeaderHash = unsafeMkAbstractHash mempty
 
-bodyProof :: BodyProof MainBlockchain
+bodyProof :: MainProof
 bodyProof = MainProof
     { mpTxProof       = txProof
     , mpMpcProof      = sscProof
@@ -207,7 +210,7 @@ dlgProof = unsafeMkAbstractHash mempty
 updateProof :: UpdateProof
 updateProof = unsafeMkAbstractHash mempty
 
-consensusData :: ConsensusData MainBlockchain
+consensusData :: MainConsensusData
 consensusData = MainConsensusData
     { _mcdSlot       = slotId
     , _mcdLeaderKey  = publicKey
@@ -221,9 +224,10 @@ slotId = SlotId
     , siSlot  = UnsafeLocalSlotIndex { getSlotIndex = 0 }
     }
 
+-- Trivia: the seed has to be at least 32 bytes.
 publicKey :: PublicKey
 secretKey :: SecretKey
-(publicKey, secretKey) = deterministicKeyGen (mempty :: ByteString)
+(publicKey, secretKey) = deterministicKeyGen (BS.pack (replicate 32 0))
 
 chainDifficulty :: ChainDifficulty
 chainDifficulty = ChainDifficulty

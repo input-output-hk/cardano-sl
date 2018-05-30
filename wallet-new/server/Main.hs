@@ -13,9 +13,8 @@ import           Data.Maybe (fromJust)
 import           Mockable (Production (..), runProduction)
 import           Ntp.Client (NtpStatus, withNtpClient)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Communication (ActionSpec (..))
-import           Pos.Communication.Types.Protocol (OutSpecs)
 import           Pos.DB.DB (initNodeDBs)
+import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingParams,
                                bracketNodeResources, loggerBracket, lpDefaultName, runNode,
                                withConfigurations)
@@ -81,9 +80,9 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
         -- server.
         syncWallets
 
-    runNodeWithInit ntpStatus init' nr =
-        let (ActionSpec f, outs) = runNode nr (plugins ntpStatus)
-         in (ActionSpec $ \s -> init' >> f s, outs)
+    runNodeWithInit ntpStatus init' nr diffusion = do
+        _ <- init'
+        runNode nr (plugins ntpStatus) diffusion
 
     syncWallets :: WalletWebMode ()
     syncWallets = do
@@ -91,10 +90,11 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
         sks <- mapM getSKById addrs
         forM_ sks (syncWallet . eskToWalletDecrCredentials)
 
-    plugins :: (HasConfigurations, HasCompileInfo) => TVar NtpStatus -> Plugins.Plugin WalletWebMode
+    plugins :: TVar NtpStatus -> Plugins.Plugin WalletWebMode
     plugins ntpStatus =
         mconcat [ Plugins.conversation wArgs
                 , Plugins.legacyWalletBackend wArgs ntpStatus
+                , Plugins.walletDocumentation wArgs
                 , Plugins.acidCleanupWorker wArgs
                 , Plugins.syncWalletWorker
                 , Plugins.resubmitterPlugin
@@ -123,16 +123,14 @@ actionWithNewWallet sscParams nodeParams params =
     mainAction
         :: PassiveWalletLayer Production
         -> NodeResources ext
-        -> (ActionSpec Kernel.Mode.WalletMode (), OutSpecs)
+        -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
     mainAction w nr = runNodeWithInit w nr
 
     runNodeWithInit
         :: PassiveWalletLayer Production
         -> NodeResources ext
-        -> (ActionSpec Kernel.Mode.WalletMode (), OutSpecs)
-    runNodeWithInit w nr =
-        let (ActionSpec f, outs) = runNode nr (plugins w)
-         in (ActionSpec $ \s -> f s, outs)
+        -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
+    runNodeWithInit w nr = runNode nr (plugins w)
 
     -- TODO: Don't know if we need any of the other plugins that are used
     -- in the legacy wallet (see 'actionWithWallet').

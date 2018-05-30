@@ -31,7 +31,6 @@ module Test.Pos.Block.Logic.Mode
        , btcTxpGlobalSettingsL
        , btcSlotIdL
        , btcParamsL
-       , btcReportingContextL
        , btcDelegationL
        , btcPureDBSnapshotsL
        , btcAllSecretsL
@@ -60,10 +59,9 @@ import           Test.QuickCheck.Monadic (PropertyM, monadic)
 import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..), mkAllSecretsSimple)
 import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub, onRollbackBlocksStub)
 import           Pos.Block.Slog (HasSlogGState (..), mkSlogGState)
-import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (BlockVersionData, CoreConfiguration (..), GenesisConfiguration (..),
                            GenesisInitializer (..), GenesisSpec (..), HasConfiguration, SlotId,
-                           Timestamp (..), genesisSecretKeys, withGenesisSpec)
+                           Timestamp (..), genesisSecretKeys, withGenesisSpec, HasProtocolConstants)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, withGenesisBlockVersionData)
 import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..), MonadGState (..))
 import qualified Pos.DB as DB
@@ -74,11 +72,10 @@ import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegatio
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.Generator.BlockEvent (SnapshotId)
 import qualified Pos.GState as GS
-import           Pos.KnownPeers (MonadFormatPeers (..))
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
 import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Reporting (HasReportingContext (..), ReportingContext, emptyReportingContext)
+import           Pos.Reporting (MonadReporting (..), HasMisbehaviorMetrics (..))
 import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSimpleSlotting, SimpleSlottingMode,
                                SimpleSlottingStateVar, currentTimeSlottingSimple,
                                getCurrentSlotBlockingSimple, getCurrentSlotBlockingSimple',
@@ -87,7 +84,7 @@ import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSimple
                                mkSimpleSlottingStateVar)
 import           Pos.Slotting.MemState (MonadSlotsData)
 import           Pos.Slotting.Types (SlottingData)
-import           Pos.Ssc (HasSscConfiguration, SscMemTag, SscState, mkSscState)
+import           Pos.Ssc (SscMemTag, SscState, mkSscState)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), TxpGlobalSettings,
                           TxpHolderTag, mkTxpLocalData, txNormalize, txProcessTransactionNoLock,
                           txpGlobalSettings)
@@ -209,7 +206,6 @@ data BlockTestContext = BlockTestContext
     -- ^ If this value is 'Just' we will return it as the current
     -- slot. Otherwise simple slotting is used.
     , btcParams            :: !TestParams
-    , btcReportingContext  :: !ReportingContext
     , btcDelegation        :: !DelegationVar
     , btcPureDBSnapshots   :: !PureDBSnapshotsVar
     , btcAllSecrets        :: !AllSecrets
@@ -230,9 +226,7 @@ instance HasAllSecrets BlockTestContext where
 
 initBlockTestContext ::
        ( HasConfiguration
-       , HasSscConfiguration
        , HasDlgConfiguration
-       , HasNodeConfiguration
        )
     => TestParams
     -> (BlockTestContext -> Emulation a)
@@ -264,7 +258,6 @@ initBlockTestContext tp@TestParams {..} callback = do
             _gscSlogGState <- mkSlogGState
             btcTxpMem <- mkTxpLocalData
             let btcTxpGlobalSettings = txpGlobalSettings
-            let btcReportingContext = emptyReportingContext
             let btcSlotId = Nothing
             let btcParams = tp
             let btcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
@@ -292,9 +285,7 @@ instance HasLens BlockTestContextTag BlockTestContext BlockTestContext where
 type BlockTestMode = ReaderT BlockTestContext Emulation
 
 runBlockTestMode ::
-       ( HasNodeConfiguration
-       , HasSscConfiguration
-       , HasDlgConfiguration
+       ( HasDlgConfiguration
        , HasConfiguration
        )
     => TestParams
@@ -313,7 +304,7 @@ type BlockProperty = PropertyM BlockTestMode
 -- | Convert 'BlockProperty' to 'Property' using given generator of
 -- 'TestParams'.
 blockPropertyToProperty ::
-       (HasNodeConfiguration, HasDlgConfiguration, HasSscConfiguration)
+       (HasDlgConfiguration)
     => Gen TestParams
     -> (HasConfiguration =>
             BlockProperty a)
@@ -336,7 +327,7 @@ blockPropertyToProperty tpGen blockProperty =
 --          => Testable (HasConfiguration => BlockProperty a) where
 --     property = blockPropertyToProperty arbitrary
 blockPropertyTestable ::
-       (HasNodeConfiguration, HasDlgConfiguration, HasSscConfiguration)
+       (HasDlgConfiguration)
     => (HasConfiguration => BlockProperty a)
     -> Property
 blockPropertyTestable = blockPropertyToProperty arbitrary
@@ -420,8 +411,17 @@ instance HasLens TestParams BlockTestContext TestParams where
 instance HasLens SimpleSlottingStateVar BlockTestContext SimpleSlottingStateVar where
       lensOf = btcSSlottingStateVarL
 
-instance HasReportingContext BlockTestContext where
-    reportingContext = btcReportingContextL
+-- | Ignore reports.
+-- FIXME it's a bad sign that we even need this instance.
+-- The pieces of the software which the block generator uses should never
+-- even try to report.
+instance MonadReporting BlockTestMode where
+    report _ = pure ()
+
+-- | Ignore reports.
+-- FIXME it's a bad sign that we even need this instance.
+instance HasMisbehaviorMetrics BlockTestContext where
+    misbehaviorMetrics = lens (const Nothing) const
 
 instance HasSlottingVar BlockTestContext where
     slottingTimestamp = btcSystemStartL
@@ -462,13 +462,13 @@ testSlottingHelper targetF alternative = do
         Nothing   -> targetF btcSSlottingStateVar
         Just slot -> pure $ alternative slot
 
-getCurrentSlotTestDefault :: TestSlottingContext ctx m => m (Maybe SlotId)
+getCurrentSlotTestDefault :: (TestSlottingContext ctx m, HasProtocolConstants) => m (Maybe SlotId)
 getCurrentSlotTestDefault = testSlottingHelper getCurrentSlotSimple' Just
 
-getCurrentSlotBlockingTestDefault :: TestSlottingContext ctx m => m SlotId
+getCurrentSlotBlockingTestDefault :: (TestSlottingContext ctx m, HasProtocolConstants) => m SlotId
 getCurrentSlotBlockingTestDefault = testSlottingHelper getCurrentSlotBlockingSimple' identity
 
-getCurrentSlotInaccurateTestDefault :: TestSlottingContext ctx m => m SlotId
+getCurrentSlotInaccurateTestDefault :: (TestSlottingContext ctx m, HasProtocolConstants) => m SlotId
 getCurrentSlotInaccurateTestDefault = testSlottingHelper getCurrentSlotInaccurateSimple' identity
 
 currentTimeSlottingTestDefault :: SimpleSlottingMode ctx m => m Timestamp
@@ -499,9 +499,6 @@ instance HasConfiguration => MonadGState BlockTestMode where
 instance MonadBListener BlockTestMode where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
-
-instance MonadFormatPeers BlockTestMode where
-    formatKnownPeers _ = pure Nothing
 
 type instance MempoolExt BlockTestMode = EmptyMempoolExt
 

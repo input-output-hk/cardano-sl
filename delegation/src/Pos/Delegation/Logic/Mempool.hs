@@ -26,8 +26,8 @@ import           Mockable (CurrentTime, Mockable, currentTime)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (HasConfiguration, ProxySKHeavy, addressHash, bvdMaxBlockSize,
-                           epochIndexL, headerHash)
+import           Pos.Core (ProxySKHeavy, addressHash,
+                           bvdMaxBlockSize, epochIndexL, headerHash)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB
@@ -36,8 +36,8 @@ import           Pos.Delegation.Cede (CheckForCycle (..), cmPskMods, dlgVerifyPs
 import           Pos.Delegation.Class (DlgMemPool, MonadDelegation, dwMessageCache, dwPoolSize,
                                        dwProxySKPool, dwTip)
 import           Pos.Delegation.Logic.Common (DelegationStateAction, runDelegationStateAction)
-import           Pos.Delegation.Lrc (getDlgRichmen)
 import           Pos.Delegation.Types (DlgPayload (..), isRevokePsk)
+import           Pos.Lrc.Consumer.Delegation (getDlgRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.StateLock (StateLock, withStateLockNoMetrics)
 import           Pos.Util (HasLens', microsecondsToUTC)
@@ -49,13 +49,13 @@ import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 
 -- | Retrieves current mempool of heavyweight psks plus undo part.
 getDlgMempool
-    :: (MonadIO m, MonadDBRead m, MonadDelegation ctx m, MonadMask m)
+    :: (MonadIO m, MonadDelegation ctx m)
     => m DlgPayload
 getDlgMempool = UnsafeDlgPayload <$> (runDelegationStateAction $ uses dwProxySKPool HM.elems)
 
 -- | Clears delegation mempool.
 clearDlgMemPool
-    :: (MonadIO m, MonadDelegation ctx m, MonadMask m)
+    :: (MonadIO m, MonadDelegation ctx m)
     => m ()
 clearDlgMemPool = runDelegationStateAction clearDlgMemPoolAction
 
@@ -67,16 +67,12 @@ clearDlgMemPoolAction = do
 -- Put value into Proxy SK Pool. Value must not exist in pool.
 -- Caller must ensure it.
 -- Caller must also ensure that size limit allows to put more data.
-putToDlgMemPool
-    :: HasConfiguration
-    => PublicKey -> ProxySKHeavy -> DelegationStateAction ()
+putToDlgMemPool :: PublicKey -> ProxySKHeavy -> DelegationStateAction ()
 putToDlgMemPool pk psk = do
     dwProxySKPool . at pk .= Just psk
     dwPoolSize += biSize pk + biSize psk
 
-deleteFromDlgMemPool
-    :: HasConfiguration
-    => PublicKey -> DelegationStateAction ()
+deleteFromDlgMemPool :: PublicKey -> DelegationStateAction ()
 deleteFromDlgMemPool pk =
     use (dwProxySKPool . at pk) >>= \case
         Nothing -> pass
@@ -86,9 +82,7 @@ deleteFromDlgMemPool pk =
 
 -- Caller must ensure that there won't be too much data (more than limit) as
 -- a result of transformation.
-modifyDlgMemPool
-    :: HasConfiguration
-    => (DlgMemPool -> DlgMemPool) -> DelegationStateAction ()
+modifyDlgMemPool :: (DlgMemPool -> DlgMemPool) -> DelegationStateAction ()
 modifyDlgMemPool f = do
     memPool <- use dwProxySKPool
     let newPool = f memPool
@@ -114,14 +108,12 @@ data PskHeavyVerdict
 type ProcessHeavyConstraint ctx m =
        ( MonadIO m
        , MonadUnliftIO m
-       , MonadMask m
        , MonadDBRead m
        , MonadGState m
        , MonadDelegation ctx m
        , MonadReader ctx m
        , HasLrcContext ctx
        , Mockable CurrentTime m
-       , HasConfiguration
        )
 
 -- | Processes heavyweight psk. Puts it into the mempool
@@ -131,6 +123,7 @@ processProxySKHeavy
     :: forall ctx m.
        ( ProcessHeavyConstraint ctx m
        , HasLens' ctx StateLock
+       , MonadMask m
        )
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk =

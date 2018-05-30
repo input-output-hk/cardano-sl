@@ -9,6 +9,8 @@
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeOperators       #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | This program builds Swagger specification for Explorer web API and converts it to JSON.
 -- We run this program during CI build.
 -- Produced JSON will be used to create online

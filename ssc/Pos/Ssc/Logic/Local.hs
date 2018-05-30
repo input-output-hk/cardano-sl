@@ -29,20 +29,21 @@ import           System.Wlog (WithLogger, launchNamedPureLog, logWarning)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Binary.Ssc ()
-import           Pos.Core (BlockVersionData (..), EpochIndex, HasConfiguration, SlotId (..),
+import           Pos.Core (BlockVersionData (..), EpochIndex,
+                           HasGenesisData, HasProtocolConstants, HasProtocolMagic, SlotId (..),
                            StakeholderId, VssCertificate, epochIndexL,
                            mkVssCertificatesMapSingleton)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment, SscPayload (..),
                                mkCommitmentsMap)
 import           Pos.DB (MonadBlockDBRead, MonadDBRead, MonadGState (gsAdoptedBVData))
 import           Pos.DB.BlockIndex (getTipHeader)
+import           Pos.Lrc.Consumer.Ssc (getSscRichmen, tryGetSscRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Error (SscVerifyError (..))
-import           Pos.Ssc.Lrc (getSscRichmen, tryGetSscRichmen)
 import           Pos.Ssc.Mem (MonadSscMem, SscLocalQuery, SscLocalUpdate, askSscMem,
                               sscRunGlobalQuery, sscRunLocalQuery, sscRunLocalSTM, syncingStateWith)
 import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT, evalPureTossWithLogger, evalTossT,
@@ -58,12 +59,12 @@ import           Pos.Ssc.Types (SscGlobalState, SscLocalData (..), ldEpoch, ldMo
 -- empty payload can be returned.
 sscGetLocalPayload
     :: forall ctx m.
-       (HasConfiguration, MonadIO m, MonadSscMem ctx m, WithLogger m)
+       (MonadIO m, MonadSscMem ctx m, WithLogger m, HasProtocolConstants)
     => SlotId -> m SscPayload
 sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ
 
 sscGetLocalPayloadQ
-  :: HasConfiguration
+  :: (HasProtocolConstants)
   => SlotId -> SscLocalQuery SscPayload
 sscGetLocalPayloadQ SlotId {..} = do
     expectedEpoch <- view ldEpoch
@@ -93,12 +94,10 @@ sscNormalize
        ( MonadGState m
        , MonadBlockDBRead m
        , MonadSscMem ctx m
-       , MonadReader ctx m
        , HasLrcContext ctx
        , WithLogger m
        , MonadIO m
        , Rand.MonadRandom m
-       , HasSscConfiguration
        )
     => m ()
 sscNormalize = do
@@ -119,7 +118,7 @@ sscNormalize = do
     executeMonadBaseRandom seed = hoist $ hoist (pure . fst . Rand.withDRG seed)
 
 sscNormalizeU
-    :: (HasSscConfiguration, HasConfiguration)
+    :: (HasProtocolConstants, HasGenesisData, HasProtocolMagic)
     => (EpochIndex, RichmenStakes)
     -> BlockVersionData
     -> SscGlobalState
@@ -142,12 +141,11 @@ sscNormalizeU (epoch, stake) bvd gs = do
 -- to current local data.
 sscIsDataUseful
     :: ( WithLogger m
-       , MonadIO m
        , MonadSlots ctx m
        , MonadSscMem ctx m
        , Rand.MonadRandom m
-       , HasConfiguration
-       , HasSscConfiguration
+       , HasGenesisData
+       , HasProtocolConstants
        )
     => SscTag -> StakeholderId -> m Bool
 sscIsDataUseful tag id =
@@ -185,50 +183,37 @@ type SscDataProcessingMode ctx m =
     , MonadGState m       -- to get block size limit
     , MonadSlots ctx m
     , MonadSscMem ctx m
-    , HasConfiguration
     , HasSscConfiguration
     )
 
 -- | Process 'SignedCommitment' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
-sscProcessCommitment
-    :: forall ctx m.
-       SscDataProcessingMode ctx m
-    => SignedCommitment -> m (Either SscVerifyError ())
+sscProcessCommitment :: SscDataProcessingMode ctx m => SignedCommitment -> m (Either SscVerifyError ())
 sscProcessCommitment comm =
     sscProcessData CommitmentMsg $
     CommitmentsPayload (mkCommitmentsMap [comm]) mempty
 
 -- | Process 'Opening' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
-sscProcessOpening
-    :: SscDataProcessingMode ctx m
-    => StakeholderId -> Opening -> m (Either SscVerifyError ())
+sscProcessOpening :: SscDataProcessingMode ctx m => StakeholderId -> Opening -> m (Either SscVerifyError ())
 sscProcessOpening id opening =
     sscProcessData OpeningMsg $
     OpeningsPayload (HM.fromList [(id, opening)]) mempty
 
 -- | Process 'InnerSharesMap' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
-sscProcessShares
-    :: SscDataProcessingMode ctx m
-    => StakeholderId -> InnerSharesMap -> m (Either SscVerifyError ())
+sscProcessShares :: SscDataProcessingMode ctx m => StakeholderId -> InnerSharesMap -> m (Either SscVerifyError ())
 sscProcessShares id shares =
     sscProcessData SharesMsg $ SharesPayload (HM.fromList [(id, shares)]) mempty
 
 -- | Process 'VssCertificate' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
-sscProcessCertificate
-    :: SscDataProcessingMode ctx m
-    => VssCertificate -> m (Either SscVerifyError ())
+sscProcessCertificate :: SscDataProcessingMode ctx m => VssCertificate -> m (Either SscVerifyError ())
 sscProcessCertificate cert =
     sscProcessData VssCertificateMsg $
     CertificatesPayload (mkVssCertificatesMapSingleton cert)
 
-sscProcessData
-    :: forall ctx m.
-       SscDataProcessingMode ctx m
-    => SscTag -> SscPayload -> m (Either SscVerifyError ())
+sscProcessData :: SscDataProcessingMode ctx m => SscTag -> SscPayload -> m (Either SscVerifyError ())
 sscProcessData tag payload =
     runExceptT $ do
         getCurrentSlot >>= checkSlot
@@ -256,8 +241,9 @@ sscProcessData tag payload =
     executeMonadBaseRandom seed = hoist $ hoist (pure . fst . Rand.withDRG seed)
 
 sscProcessDataDo
-    :: (HasSscConfiguration, HasConfiguration, MonadState SscLocalData m,
-        WithLogger m, Rand.MonadRandom m)
+    :: (MonadState SscLocalData m, HasGenesisData
+      , WithLogger m, Rand.MonadRandom m, HasProtocolConstants
+      , HasProtocolMagic)
     => (EpochIndex, RichmenStakes)
     -> BlockVersionData
     -> SscGlobalState

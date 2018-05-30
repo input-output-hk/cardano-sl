@@ -17,16 +17,12 @@ library
   exposed-modules:
                        Pos.Binary.Class
 
-                       Test.Pos.Cbor.Canonicity
-                       Test.Pos.Cbor.RefImpl
-
   other-modules:
                        Pos.Binary.Class.Core
                        Pos.Binary.Class.Primitive
                        Pos.Binary.Class.TH
 
   build-depends:       QuickCheck
-                     , autoexporter
                      , base
                      , binary
                      , bytestring
@@ -49,8 +45,6 @@ library
                      , universum
                      , unordered-containers
                      , vector
-
-  default-language:    Haskell2010
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric
@@ -76,8 +70,10 @@ library
                        ScopedTypeVariables
                        MonadFailDesugaring
 
+  hs-source-dirs:       src
+  default-language:     Haskell2010
+
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
 
   build-tools: cpphs >= 1.19

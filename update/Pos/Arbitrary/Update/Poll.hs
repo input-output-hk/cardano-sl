@@ -1,5 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Arbitrary instances for Update System Poll types.
 
 module Pos.Arbitrary.Update.Poll () where
@@ -15,7 +17,7 @@ import           Pos.Arbitrary.Slotting ()
 import           Pos.Arbitrary.Update.Core ()
 import           Pos.Binary.Core ()
 import           Pos.Binary.Update ()
-import           Pos.Core.Common (HeaderHash)
+import           Pos.Core (HeaderHash)
 import           Pos.Core.Configuration (HasProtocolConstants)
 import           Pos.Crypto (HasProtocolMagic)
 import           Pos.Update.Poll.Modifier (PollModifier (..))
@@ -24,6 +26,7 @@ import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposa
                                         DecidedProposalState (..), DpsExtra (..), PrevValue,
                                         ProposalState (..), USUndo, UndecidedProposalState (..),
                                         UpsExtra (..))
+import           Test.Pos.Util.Modifier ()
 
 instance Arbitrary HeaderHash => Arbitrary UpsExtra where
     arbitrary = genericArbitrary

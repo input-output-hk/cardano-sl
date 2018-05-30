@@ -24,15 +24,20 @@ library
                         Pos.Diffusion.Subscription.Common
                         Pos.Diffusion.Subscription.Dns
                         Pos.Diffusion.Subscription.Dht
+                        Pos.Diffusion.Subscription.Status
+                        Pos.Diffusion.Subscription.Subscriber
 
                         Pos.DHT.Workers
 
                         -- Reporting
                         Pos.Reporting
                         Pos.Reporting.Exceptions
+                        Pos.Reporting.Http
                         Pos.Reporting.MemState
                         Pos.Reporting.Methods
                         Pos.Reporting.Metrics
+                        Pos.Reporting.NodeInfo
+                        Pos.Reporting.Wlog
 
                         -- StateLock
                         Pos.StateLock
@@ -74,13 +79,9 @@ library
                         Pos.Communication.Relay.Logic
                         Pos.Communication.Relay.Types
                         Pos.Communication.Relay.Util
-                        Pos.Communication.Util
 
                         -- Health Checks
                         Pos.HealthCheck.Route53
-
-                        -- Known peers
-                        Pos.KnownPeers
 
                         -- Network topology
                         Pos.Network.DnsDomains
@@ -118,17 +119,16 @@ library
                         Pos.Binary.Infra.Relay
 
                         -- Pos.Util
+                        Pos.Util.JsonLog.Events
                         Pos.Util.LogSafe
                         Pos.Util.Monitor
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
 
-                        -- Pos.Worker
-                        Pos.Worker.Types
-
   other-modules:        Paths_cardano_sl_infra
 
   build-depends:        aeson
+                      , async
                       , base
                       , parsec
                       , base64-bytestring
@@ -215,8 +215,26 @@ library
                        MonadFailDesugaring
 
   ghc-options:         -Wall
-                       -fno-warn-orphans
                        -O2
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+
+test-suite test
+  main-is:          test.hs
+  hs-source-dirs:   test
+  default-language: Haskell2010
+  type:             exitcode-stdio-1.0
+
+  other-modules:    Spec
+                    Test.Pos.Infra.Diffusion.Subscription.StatusSpec
+                    Test.Pos.Infra.Diffusion.Subscription.SubscriptionSpec
+
+  build-depends:    async
+                  , base
+                  , cardano-sl-infra
+                  , containers
+                  , QuickCheck
+                  , hspec
+
+  ghc-options:      -threaded

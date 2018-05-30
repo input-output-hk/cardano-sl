@@ -51,7 +51,7 @@ import           Formatting (build, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (VerificationRes, verifyGeneric)
 
-import           Pos.Binary.Class (Bi, asBinary, biSize, fromBinary)
+import           Pos.Binary.Class (asBinary, biSize, fromBinary)
 import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
 import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..), SlotCount, SlotId (..),
@@ -104,8 +104,7 @@ genCommitmentAndOpening t pks
 
 -- | Make signed commitment from commitment and epoch index using secret key.
 mkSignedCommitment
-    :: (Bi Commitment)
-    => ProtocolMagic -> SecretKey -> EpochIndex -> Commitment -> SignedCommitment
+    :: ProtocolMagic -> SecretKey -> EpochIndex -> Commitment -> SignedCommitment
 mkSignedCommitment pm sk i c = (toPublic sk, c, sign pm SignCommitment sk (i, c))
 
 toLocalSlotIndex :: ProtocolConstants -> SlotCount -> LocalSlotIndex
@@ -212,7 +211,7 @@ verifyCommitment Commitment {..} = fromMaybe False $ do
 --
 -- #checkSig
 verifyCommitmentSignature
-    :: (HasProtocolMagic, Bi Commitment)
+    :: (HasProtocolMagic)
     => EpochIndex
     -> SignedCommitment
     -> Bool
@@ -225,7 +224,7 @@ verifyCommitmentSignature epoch (pk, comm, commSig) =
 -- #verifyCommitmentSignature
 -- #verifyCommitment
 verifySignedCommitment
-    :: (HasProtocolMagic, Bi Commitment)
+    :: (HasProtocolMagic)
     => EpochIndex
     -> SignedCommitment
     -> VerificationRes
@@ -264,7 +263,7 @@ checkCertTTL curEpochIndex vc =
 -- | Removes parts of payload so its binary representation length
 -- fits into passed limit. If limit is too low (0), we can return
 -- 'Nothing'.
-stripSscPayload :: HasProtocolConstants => Byte -> SscPayload -> Maybe SscPayload
+stripSscPayload :: Byte -> SscPayload -> Maybe SscPayload
 stripSscPayload lim payload | biSize payload <= lim = Just payload
 stripSscPayload lim payload = case payload of
     (CertificatesPayload vssmap) ->

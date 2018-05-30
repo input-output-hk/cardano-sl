@@ -21,35 +21,22 @@ import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, getHeadersOlderExp)
-import           Pos.Block.Network.Logic (BlockNetLogicException (DialogUnexpected), handleBlocks,
-                                          triggerRecovery)
-import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..))
+import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlocks, triggerRecovery)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (RecoveryHeaderTag)
-import           Pos.Communication.Protocol (NodeId, OutSpecs, convH, toOutSpecs)
-import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL, isMoreDifficult)
+import           Pos.Communication.Protocol (NodeId)
+import           Pos.Core (Block, HasHeaderHash (..),  HeaderHash, difficultyL, isMoreDifficult)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Diffusion.Types (Diffusion)
 import qualified Pos.Diffusion.Types as Diffusion (Diffusion (getBlocks))
-import           Pos.Reporting (reportOrLogE, reportOrLogW)
+import           Pos.Reporting (HasMisbehaviorMetrics, reportOrLogE, reportOrLogW)
 import           Pos.Util.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Util.Util (HasLens (..))
-import           Pos.Worker.Types (WorkerSpec, worker)
-
-retrievalWorker
-    :: forall ctx m.
-       (BlockWorkMode ctx m)
-    => (WorkerSpec m, OutSpecs)
-retrievalWorker = worker outs retrievalWorkerImpl
-  where
-    outs = toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
-                             (Proxy :: Proxy MsgBlock)
-                      ]
 
 -- I really don't like join
-{-# ANN retrievalWorkerImpl ("HLint: ignore Use join" :: Text) #-}
+{-# ANN retrievalWorker ("HLint: ignore Use join" :: Text) #-}
 
 -- | Worker that queries blocks. It has two jobs:
 --
@@ -61,11 +48,13 @@ retrievalWorker = worker outs retrievalWorkerImpl
 --
 -- If both happen at the same time, 'BlockRetrievalQueue' takes precedence.
 --
-retrievalWorkerImpl
+retrievalWorker
     :: forall ctx m.
-       (BlockWorkMode ctx m)
+       ( BlockWorkMode ctx m
+       , HasMisbehaviorMetrics ctx
+       )
     => Diffusion m -> m ()
-retrievalWorkerImpl diffusion = do
+retrievalWorker diffusion = do
     logInfo "Starting retrievalWorker loop"
     mainLoop
   where
@@ -117,7 +106,7 @@ retrievalWorkerImpl diffusion = do
         logDebug $ "handleContinues: " <> pretty hHash
         classifyNewHeader header >>= \case
             CHContinues ->
-                void $ getProcessBlocks diffusion nodeId header [hHash]
+                void $ getProcessBlocks diffusion nodeId (headerHash header) [hHash]
             res -> logDebug $
                 "processContHeader: expected header to " <>
                 "be continuation, but it's " <> show res
@@ -173,7 +162,7 @@ retrievalWorkerImpl diffusion = do
                                         "already present in db"
         logDebug "handleRecovery: fetching blocks"
         checkpoints <- toList <$> getHeadersOlderExp Nothing
-        void $ getProcessBlocks diffusion nodeId rHeader checkpoints
+        void $ getProcessBlocks diffusion nodeId (headerHash rHeader) checkpoints
 
 ----------------------------------------------------------------------------
 -- Entering and exiting recovery mode
@@ -259,7 +248,7 @@ dropRecoveryHeader nodeId = do
 
 -- | Drops the recovery header and, if it was successful, queries the tips.
 dropRecoveryHeaderAndRepeat
-    :: (BlockWorkMode ctx m)
+    :: BlockWorkMode ctx m
     => Diffusion m -> NodeId -> m ()
 dropRecoveryHeaderAndRepeat diffusion nodeId = do
     kicked <- dropRecoveryHeader nodeId
@@ -279,10 +268,12 @@ dropRecoveryHeaderAndRepeat diffusion nodeId = do
 -- processed. Throws exception if something goes wrong.
 getProcessBlocks
     :: forall ctx m.
-       (BlockWorkMode ctx m)
+       ( BlockWorkMode ctx m
+       , HasMisbehaviorMetrics ctx
+       )
     => Diffusion m
     -> NodeId
-    -> BlockHeader
+    -> HeaderHash
     -> [HeaderHash]
     -> m ()
 getProcessBlocks diffusion nodeId desired checkpoints = do
@@ -291,14 +282,14 @@ getProcessBlocks diffusion nodeId desired checkpoints = do
       Nothing -> do
           let msg = sformat ("getProcessBlocks: diffusion returned []"%
                              " on request to fetch "%shortHashF%" from peer "%build)
-                            (headerHash desired) nodeId
+                            desired nodeId
           throwM $ DialogUnexpected msg
       Just (blocks :: OldestFirst NE Block) -> do
           recHeaderVar <- view (lensOf @RecoveryHeaderTag)
           logDebug $ sformat
               ("Retrieved "%int%" blocks")
               (blocks ^. _OldestFirst . to NE.length)
-          handleBlocks nodeId blocks diffusion 
+          handleBlocks blocks diffusion
           -- If we've downloaded any block with bigger
           -- difficulty than ncRecoveryHeader, we're
           -- gracefully exiting recovery mode.

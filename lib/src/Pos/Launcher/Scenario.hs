@@ -13,18 +13,17 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import           Formatting (bprint, build, int, sformat, shown, (%))
-import           Mockable (Mockable, Async, mapConcurrently)
+import           Mockable (mapConcurrently)
 import           Serokell.Util (listJson)
 import           System.Wlog (WithLogger, askLoggerName, logInfo)
 
-import           Pos.Communication (OutSpecs)
-import           Pos.Communication.Util (ActionSpec (..), wrapActionSpec)
 import           Pos.Context (getOurPublicKey)
 import           Pos.Core (GenesisData (gdBootStakeholders, gdHeavyDelegation),
                            GenesisDelegation (..), GenesisWStakeholders (..), addressHash,
                            gdFtsSeed, genesisData)
 import           Pos.Crypto (pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
+import           Pos.Diffusion.Types (Diffusion)
 import qualified Pos.GState as GS
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Reporting (reportError)
@@ -36,7 +35,6 @@ import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Util.LogSafe (logInfoS)
 import           Pos.Worker (allWorkers)
-import           Pos.Worker.Types (WorkerSpec)
 import           Pos.WorkMode.Class (WorkMode)
 
 -- | Entry point of full node.
@@ -45,13 +43,12 @@ runNode'
     :: forall ext ctx m.
        ( HasCompileInfo
        , WorkMode ctx m
-       , Mockable Async m
        )
     => NodeResources ext
-    -> [WorkerSpec m]
-    -> [WorkerSpec m]
-    -> WorkerSpec m
-runNode' NodeResources {..} workers' plugins' = ActionSpec $ \diffusion -> do
+    -> [Diffusion m -> m ()]
+    -> [Diffusion m -> m ()]
+    -> Diffusion m -> m ()
+runNode' NodeResources {..} workers' plugins' = \diffusion -> do
     logInfo $ "Built with: " <> pretty compileInfo
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
@@ -85,10 +82,10 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \diffusion -> do
     logInfo $ sformat ("Current tip header: "%build) tipHeader
 
     waitSystemStart
-    let unpackPlugin (ActionSpec action) =
+    let runWithReportHandler action =
             action diffusion `catch` reportHandler
 
-    void (mapConcurrently (unpackPlugin) $ workers' ++ plugins')
+    void (mapConcurrently runWithReportHandler (workers' ++ plugins'))
 
     exitFailure
 
@@ -110,13 +107,11 @@ runNode
        , WorkMode ctx m
        )
     => NodeResources ext
-    -> ([WorkerSpec m], OutSpecs)
-    -> (WorkerSpec m, OutSpecs)
-runNode nr (plugins, plOuts) =
-    (, plOuts <> wOuts) $ runNode' nr workers' plugins'
+    -> [Diffusion m -> m ()]
+    -> Diffusion m -> m ()
+runNode nr plugins = runNode' nr workers' plugins
   where
-    (workers', wOuts) = allWorkers nr
-    plugins' = map (wrapActionSpec "plugin") plugins
+    workers' = allWorkers nr
 
 -- | This function prints a very useful message when node is started.
 nodeStartMsg :: (HasUpdateConfiguration, WithLogger m) => m ()

@@ -12,7 +12,7 @@ import           Test.Pos.Helpers ()
 import           Test.QuickCheck (Property, (.&&.))
 
 import           Pos.Core (SharedSeed)
-import           Pos.Util.QuickCheck.Property (formsCommutativeMonoid)
+import           Test.Pos.Util.QuickCheck.Property (formsCommutativeMonoid)
 
 spec :: Spec
 spec = describe "SharedSeed" $ do

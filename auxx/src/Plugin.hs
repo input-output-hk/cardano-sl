@@ -22,12 +22,9 @@ import           Serokell.Util (sec)
 import           System.IO (hFlush, stdout)
 import           System.Wlog (CanLog, HasLoggerName, logInfo)
 
-import           Pos.Communication (OutSpecs (..))
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
 import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Txp (genesisUtxo, unGenesisUtxo)
-import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Worker.Types (WorkerSpec, worker)
 
 import           AuxxOptions (AuxxOptions (..))
 import           Command (createCommandProcs)
@@ -42,18 +39,18 @@ import           Repl (PrintAction, WithCommandAction (..))
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 auxxPlugin ::
-       (HasCompileInfo, MonadAuxxMode m, Mockable Delay m)
+       (MonadAuxxMode m, Mockable Delay m)
     => AuxxOptions
     -> Either WithCommandAction Text
-    -> (WorkerSpec m, OutSpecs)
-auxxPlugin auxxOptions repl = worker mempty $ \diffusion -> do
+    -> Diffusion m
+    -> m ()
+auxxPlugin auxxOptions repl = \diffusion -> do
     logInfo $ sformat ("Length of genesis utxo: " %int)
                       (length $ unGenesisUtxo genesisUtxo)
     rawExec (Just Dict) auxxOptions (Just diffusion) repl
 
 rawExec ::
-       ( HasCompileInfo
-       , MonadIO m
+       ( MonadIO m
        , MonadCatch m
        , CanLog m
        , HasLoggerName m
@@ -71,9 +68,7 @@ rawExec mHasAuxxMode AuxxOptions{..} mDiffusion = \case
     Right cmd -> runWalletCmd mHasAuxxMode mDiffusion cmd
 
 runWalletCmd ::
-       ( HasCompileInfo
-       , MonadIO m
-       , MonadCatch m
+       ( MonadIO m
        , CanLog m
        , HasLoggerName m
        , Mockable Delay m
@@ -95,12 +90,9 @@ runWalletCmd mHasAuxxMode mDiffusion line = do
     printAction = putText
 
 runCmd ::
-       ( HasCompileInfo
-       , MonadIO m
-       , MonadCatch m
+       ( MonadIO m
        , CanLog m
        , HasLoggerName m
-       , Mockable Delay m
        )
     => Maybe (Dict (MonadAuxxMode m))
     -> Maybe (Diffusion m)

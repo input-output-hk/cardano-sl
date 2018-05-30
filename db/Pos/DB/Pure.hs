@@ -38,7 +38,6 @@ module Pos.DB.Pure
 import           Universum
 
 import           Control.Lens (at, makeLenses)
-import           Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.ByteString as BS
 import           Data.Conduit (ConduitT)
 import qualified Data.Conduit.List as CL
@@ -48,7 +47,7 @@ import qualified Data.Set as S
 import qualified Database.RocksDB as Rocks
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core (HasConfiguration, HeaderHash)
+import           Pos.Core (HeaderHash, HasCoreConfiguration)
 import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), IterType, iterKeyPrefix)
 import           Pos.DB.Functions (processIterEntry)
 import           Pos.Util.Util (HasLens (..))
@@ -95,7 +94,6 @@ type MonadPureDB ctx m =
     , HasLens DBPureVar ctx DBPureVar
     , MonadMask m
     , MonadIO m
-    , HasConfiguration
     )
 
 dbPureDump :: MonadPureDB ctx m => m DBPure
@@ -117,9 +115,9 @@ dbGetPureDefault (tagToLens -> l) key =
 dbIterSourcePureDefault ::
        ( MonadPureDB ctx m
        , DBIteratorClass i
-       , MonadResource m
        , Bi (IterKey i)
-       , Bi (IterValue i))
+       , Bi (IterValue i)
+       , HasCoreConfiguration)
     => DBTag
     -> Proxy i
     -> ConduitT () (IterType i) m ()

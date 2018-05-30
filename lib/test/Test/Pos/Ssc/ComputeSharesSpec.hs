@@ -14,8 +14,6 @@ import           Test.Hspec (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Property, (.&&.), (===))
 
-import           Pos.Arbitrary.Lrc (GenesisMpcThd, InvalidRichmenStakes (..),
-                                    ValidRichmenStakes (..))
 import           Pos.Core (Coin, CoinPortion, StakeholderId, mkCoin, unsafeAddressHash,
                            unsafeCoinPortionFromDouble, unsafeGetCoin, unsafeSubCoin)
 import           Pos.Core.Common (applyCoinPortionDown, sumCoins)
@@ -23,9 +21,11 @@ import           Pos.Core.Ssc (SharesDistribution)
 import           Pos.Lrc (RichmenStakes, RichmenType (RTUsual), findRichmenPure)
 import           Pos.Ssc (SscVerifyError, computeSharesDistrPure, isDistrInaccuracyAcceptable,
                           sharesDistrMaxSumDistr)
-import           Pos.Util.QuickCheck.Property (qcIsLeft)
 
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Lrc.Arbitrary (GenesisMpcThd, InvalidRichmenStakes (..),
+                                         ValidRichmenStakes (..))
+import           Test.Pos.Util.QuickCheck.Property (qcIsLeft)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "computeSharesDistr" $ do

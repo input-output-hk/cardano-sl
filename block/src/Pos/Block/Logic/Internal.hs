@@ -37,7 +37,7 @@ import           Pos.Block.BListener (MonadBListener)
 import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply, MonadSlogBase,
                                  ShouldCallBListener, slogApplyBlocks, slogRollbackBlocks)
 import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
-import           Pos.Core (ComponentBlock (..), HasConfiguration, IsGenesisHeader, epochIndexL,
+import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL,
                            gbHeader, headerHash, mainBlockDlgPayload, mainBlockSscPayload,
                            mainBlockTxPayload, mainBlockUpdatePayload)
 import           Pos.Core.Block (Block, GenesisBlock, MainBlock)
@@ -81,7 +81,7 @@ type MonadBlockBase ctx m
        -- 'MonadRandom' for crypto.
        , Rand.MonadRandom m
        -- To report bad things.
-       , MonadReporting ctx m
+       , MonadReporting m
        , HasSscConfiguration
        )
 
@@ -115,7 +115,7 @@ type MonadMempoolNormalization ctx m
       , MonadDBRead m
       , MonadGState m
       -- Needed for error reporting.
-      , MonadReporting ctx m
+      , MonadReporting m
       -- 'MonadRandom' for crypto.
       , Rand.MonadRandom m
       , Mockable CurrentTime m
@@ -123,9 +123,7 @@ type MonadMempoolNormalization ctx m
       )
 
 -- | Normalize mempool.
-normalizeMempool
-    :: forall ctx m . (MonadMempoolNormalization ctx m)
-    => m ()
+normalizeMempool :: MonadMempoolNormalization ctx m => m ()
 normalizeMempool = do
     -- We normalize all mempools except the delegation one.
     -- That's because delegation mempool normalization is harder and is done
@@ -140,7 +138,7 @@ normalizeMempool = do
 --
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
-    :: forall ctx m . (MonadBlockApply ctx m)
+    :: MonadBlockApply ctx m
     => ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
@@ -171,7 +169,7 @@ applyBlocksUnsafe scb blunds pModifier = do
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
 
 applyBlocksDbUnsafeDo
-    :: forall ctx m . (MonadBlockApply ctx m)
+    :: MonadBlockApply ctx m
     => ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
@@ -200,7 +198,7 @@ applyBlocksDbUnsafeDo scb blunds pModifier = do
 -- | Rollback sequence of blocks, head-newest order expected with head being
 -- current tip. It's also assumed that lock on block db is taken already.
 rollbackBlocksUnsafe
-    :: forall ctx m. (MonadBlockApply ctx m)
+    :: MonadBlockApply ctx m
     => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
     -> NewestFirst NE Blund
@@ -231,40 +229,28 @@ rollbackBlocksUnsafe bsc scb toRollback = do
     sanityCheckDB
 
 
-toComponentBlock :: HasConfiguration => (MainBlock -> payload) -> Block -> ComponentBlock payload
+toComponentBlock :: (MainBlock -> payload) -> Block -> ComponentBlock payload
 toComponentBlock fnc block = case block of
     Left genBlock   -> ComponentBlockGenesis (convertGenesis genBlock)
     Right mainBlock -> ComponentBlockMain (Some $ mainBlock ^. gbHeader) (fnc mainBlock)
 
-toTxpBlock
-    :: HasConfiguration
-    => Block -> TxpBlock
+toTxpBlock :: Block -> TxpBlock
 toTxpBlock = toComponentBlock (view mainBlockTxPayload)
 
-toUpdateBlock
-    :: HasConfiguration
-    => Block -> UpdateBlock
+toUpdateBlock :: Block -> UpdateBlock
 toUpdateBlock = toComponentBlock (view mainBlockUpdatePayload)
 
-toTxpBlund
-    :: HasConfiguration
-    => Blund -> TxpBlund
+toTxpBlund :: Blund -> TxpBlund
 toTxpBlund = bimap toTxpBlock undoTx
 
-toSscBlock
-    :: HasConfiguration
-    => Block -> SscBlock
+toSscBlock :: Block -> SscBlock
 toSscBlock = toComponentBlock (view mainBlockSscPayload)
 
-toDlgBlund
-    :: HasConfiguration
-    => Blund -> DlgBlund
+toDlgBlund :: Blund -> DlgBlund
 toDlgBlund = bimap toDlgBlock undoDlg
   where
-    toDlgBlock
-        :: HasConfiguration
-        => Block -> DlgBlock
+    toDlgBlock :: Block -> DlgBlock
     toDlgBlock = toComponentBlock (view mainBlockDlgPayload)
 
-convertGenesis :: HasConfiguration => GenesisBlock -> Some IsGenesisHeader
+convertGenesis :: GenesisBlock -> Some IsGenesisHeader
 convertGenesis = Some . view gbHeader

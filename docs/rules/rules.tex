@@ -879,8 +879,14 @@ Section~\ref{sec:adding-block} are mutually recursive.
 
   If $U=∅$, then $\epochseed{b_1,…,b_n}=∏_{a∈V}\epochopens{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a)$
 
-  Otherwise, pick any $a_0∈U$, and let $W$ be the domain of
-  $\epochrecoveries{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a_0)$. Then define
+  Otherwise, pick any $a_0∈U$\improvement{This is well defined because
+    $r(a_0)$ is the same, whatever the choice of $a_0$, per the
+    validity hypothesis. However, this is a bit of a hack. A more
+    realistic way to compute shares needs to perform some kind of
+    reduction along all the $r(a)$ rather than picking one. This can
+    be improved}, and let $W$ be the domain of
+  $\epochrecoveries{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a_0)$. Then
+  define
   $$
   \begin{array}{lcl}
     \epochseed{b_1,…,b_n}&=&∏_{a∈V}\epochopens{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a)\\

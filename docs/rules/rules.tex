@@ -58,6 +58,7 @@
     logo=\bcdz, epBarre=3, couleurBarre=Red]{Beware}}{\end{bclogo}}
 
 \newcommand{\powerset}[1]{\mathcal{P}(#1)}
+\newunicodechar{⧵}{\ensuremath{\smallsetminus}}
 
 \newcommand{\lists}[1]{{#1}^*}
 \newcommand{\nelists}[1]{{#1}^+}
@@ -78,7 +79,7 @@
 \newcommand{\blocks}{\mathcal{B}}
 \newcommand{\blockids}{\idsof{\blocks}}
 \newcommand{\agentids}{\idsof{\mathcal{A}}}
-\newcommand{\richmen}{\mathcal{A}_{\mathsf{bootstrap}}}
+\newcommand{\bootstrapstakeholders}{\mathcal{A}_{\mathsf{bootstrap}}}
 \newcommand{\slotleader}[3]{\mathsf{sl}(#1,#2,#3)}
 \newcommand{\recipient}[1]{\mathsf{recipient}(#1)}
 \newcommand{\amount}[1]{\mathsf{amount}(#1)}
@@ -115,13 +116,13 @@
 \newcommand{\stakeof}[2]{\mathsf{stake}(#1,#2)}
 \newcommand{\maxmempoolsize}{\mathsf{max}_{\mathsf{poolsize}}}
 \newcommand{\quality}[1]{\mathsf{quality}(#1)}
-\newcommand{\commitphase}{\mathsf{phase}_\mathsf{commit}}
+\newcommand{\commitphase}{\mathsf{phase}_\mathsf{commitment}}
 \newcommand{\openphase}{\mathsf{phase}_\mathsf{open}}
 \newcommand{\recoveryphase}{\mathsf{phase}_\mathsf{recovery}}
-\newcommand{\epochcommitments}{\mathsf{commitments}}
-\newcommand{\epochopens}{\mathsf{opens}}
-\newcommand{\epochrecoveries}{\mathsf{recoveries}}
-\newunicodechar{⧵}{\ensuremath{\smallsetminus}}
+\newcommand{\epochcommitments}[1]{\mathsf{commitments}(#1)}
+\newcommand{\epochopens}[1]{\mathsf{opens}(#1)}
+\newcommand{\epochrecoveries}[1]{\mathsf{recoveries}(#1)}
+\newcommand{\richmen}[1]{\mathsf{richmen}(#1)}
 
 %% /macros %%
 
@@ -382,7 +383,26 @@ as it is.\improvement{We may want to add something about protocol
     authorising $d$ to sign blocks for them.
   \end{implementationhint}
 
-  \item[seed computation]
+  \item[seed computation] Any of the following
+    \begin{description}
+    \item[Nothing] An element of the singleton type $\{⋆\}$.
+    \item[Commitment] A finite-domain partial function $\agentids⇀\seeds×\seeds$.
+      \begin{implementationhint}
+        The idea here is that the first seed is the commitment, in the
+        form of a partial function from agent id to shares (in the
+        sense of secret sharing), while the second message is a proof
+        that the shares are correct.
+
+        In this specification, we intend the two messages to be equal,
+        but this would be replaced, in the implementation, by the
+        statement that the proof validates the shares.
+      \end{implementationhint}
+    \item[Opening] A finite-domain partial function $\agentids⇀\seeds$.
+    \item[Recovery] A finite-domain partial function
+      $r∈\agentids⇀\agentids⇀\seeds$, such that for all $a$ in the
+      domain, $r(a)$ has finite domain.
+    \end{description}
+
   \end{record}\improvement{Commitment (\emph{i.e.} finite map of agent
     ids to seeds, plus something for the proof part), or openings
     (\emph{i.e.}, finite map from agent ids to seeds), or recovery
@@ -533,7 +553,7 @@ specified in the initial state and can be further modified by updates.
 
 
 \item[Bootstrap stakeholders] We assume a finite set
-  $\richmen ⊆ \agentids$. The bootstrap stakeholders receive all the
+  $\bootstrapstakeholders ⊆ \agentids$. The bootstrap stakeholders receive all the
   stake during the bootstrap era.\unsure{For the sake of simplicity, I
     assume, for the time being, that the bootstrap stakeholders all
     get the same share of stake of each output. This is not necessary
@@ -546,12 +566,12 @@ specified in the initial state and can be further modified by updates.
   $$
   \bootstraprepartition(a) = \left\{
     \begin{array}{cl}
-      \displaystyle{\frac{1}{\supportsize{r}}}& \mbox{if $a∈\richmen$}\\
+      \displaystyle{\frac{1}{\supportsize{r}}}& \mbox{if $a∈\bootstrapstakeholders$}\\
       0 & \mbox{otherwise}
     \end{array}\right.
   $$
 
-  We will also assume a function $\selectrichman{⋅} ∈ ℕ ⟶ \richmen$
+  We will also assume a function $\selectrichman{⋅} ∈ ℕ ⟶ \bootstrapstakeholders$
   which selects one of the bootstrap stakeholder based on the value of an unspent
   output. In a concrete implementation this function needs to have
   good randomness properties.
@@ -684,6 +704,49 @@ $b_1,…,b_n$ if all of the following hold
   new delegation certificate to itself, which, in effect, revokes any
   previous delegation certificate. See also the definition of
   $\transitivefix{g}$ in Section~\ref{sec:definitions}.
+
+\item[Seed computation] This rule divides into different cases,
+  depending on the content seed computation field of the block $b$
+  (the functions $\richmen{⋅}$, $\epochcommitments{⋅}$,
+  $\epochopens{⋅}$, and $\epochrecoveries{⋅}$ are defined in
+  Section~\ref{sec:derived-functions}).
+  \begin{description}
+  \item[Nothing] If there is no message, then no further rule must be
+    enforced.
+  \item[Commitment] If there is a commitment message $c ∈
+    \agentids⇀\seeds×\seeds$ then, and calling its domain $U$,
+    \begin{description}
+    \item[Commitment phase] Let $s$ be the current slot, then we must
+      have $\epochslot{s}∈\commitphase$.
+    \item[Richmen] We must have $U⊆\richmen{b_1,…,b_n}$.
+    \item[Valid] For every $a∈U$, let $(m,p) = f(a)$, we must have
+      $m=p$.
+    \item[Fresh] Let $V$ be the domain of $\epochcommitments{b_1,…,b_n}$,
+      we must have $U∩V=∅$.
+    \end{description}
+  \item[Open] If there is an opening message $o ∈
+    \agentids⇀\seeds$ then, calling its domain $U$,
+    \begin{description}
+    \item[Opening phase] Let $s$ be the current slot, then we must
+      have $\epochslot{s}∈\openphase$.
+    \item[Valid] We must have that $o ⊆ π_1 ∘
+      \epochcommitments{b_1,…,b_n}$.\improvement{I haven't defined
+        $π_1$ (first projection on cartesian product) anywhere.}
+    \item[Fresh] Let $V$ be the domain of $\epochopens{b_1,…,b_n}$,
+      we must have $U∩V=∅$.
+    \end{description}
+  \item[Recovery] If there is a recovery message $r ∈
+    \agentids⇀\seeds$ then, calling its domain $U$,
+    \begin{description}
+    \item[Opening phase] Let $s$ be the current slot, then we must
+      have $\epochslot{s}∈\recoveryphase$.
+    \item[Valid] For every $a∈U$, we must have that $r(a) = (π_1 ∘ \epochcommitments{b_1,…,b_n})⧵\epochopens{b_1,…,b_n}$.
+    \item[Fresh] Let $V$ be the domain of $\epochrecoveries{b_1,…,b_n}$,
+      we must have $U∩V=∅$.
+    \end{description}
+
+  \end{description}
+
 
 \end{description}
 

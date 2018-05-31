@@ -7494,15 +7494,16 @@ inherit (pkgs) mesa;};
          , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
          , cardano-sl-util, cardano-sl-wallet, Chart, Chart-diagrams
          , conduit, containers, cpphs, cryptonite, data-default, directory
-         , ed25519, fgl, filepath, foldl, formatting, Glob, graphviz, hspec
-         , hspec-discover, kademlia, lens, lifted-async, log-warper
-         , MonadRandom, mtl, neat-interpolation, network-transport-tcp
-         , optparse-applicative, optparse-generic, parsec, parsers, pipes
-         , pipes-bytestring, pipes-interleave, pipes-safe, process
-         , QuickCheck, random, random-shuffle, safe-exceptions
-         , serokell-util, silently, stdenv, stm, string-conv, tabl, tar
-         , temporary, text, time, time-units, trifecta, universum, unix
-         , unix-compat, unordered-containers, vector, yaml
+         , ed25519, fgl, filelock, filepath, foldl, formatting, Glob
+         , graphviz, hspec, hspec-discover, kademlia, lens, lifted-async
+         , log-warper, MonadRandom, mtl, neat-interpolation
+         , network-transport-tcp, optparse-applicative, optparse-generic
+         , parsec, parsers, pipes, pipes-bytestring, pipes-interleave
+         , pipes-safe, process, QuickCheck, random, random-shuffle
+         , safe-exceptions, serokell-util, silently, stdenv, stm
+         , string-conv, tabl, tar, temporary, text, time, time-units
+         , trifecta, universum, unix, unix-compat, unordered-containers
+         , vector, yaml
          }:
          mkDerivation {
            pname = "cardano-sl-tools";
@@ -7522,9 +7523,9 @@ inherit (pkgs) mesa;};
              cardano-sl-infra cardano-sl-lrc cardano-sl-networking
              cardano-sl-ssc cardano-sl-txp cardano-sl-update cardano-sl-util
              cardano-sl-wallet Chart Chart-diagrams conduit containers
-             cryptonite data-default directory ed25519 fgl filepath foldl
-             formatting Glob graphviz kademlia lens lifted-async log-warper
-             MonadRandom mtl neat-interpolation network-transport-tcp
+             cryptonite data-default directory ed25519 fgl filelock filepath
+             foldl formatting Glob graphviz kademlia lens lifted-async
+             log-warper MonadRandom mtl neat-interpolation network-transport-tcp
              optparse-applicative optparse-generic parsec parsers pipes
              pipes-bytestring pipes-interleave pipes-safe process QuickCheck
              random random-shuffle safe-exceptions serokell-util silently stm

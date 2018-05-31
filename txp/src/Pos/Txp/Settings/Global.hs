@@ -16,7 +16,7 @@ module Pos.Txp.Settings.Global
 
 import           Universum
 
-import           System.Wlog (WithLogger)
+import           Pos.Util.Log (WithLogger)
 
 import           Pos.Core (ComponentBlock)
 import           Pos.Core.Txp (TxPayload, TxpUndo)

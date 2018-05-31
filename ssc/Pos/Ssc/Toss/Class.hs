@@ -10,7 +10,7 @@ module Pos.Ssc.Toss.Class
 
 import           Control.Monad.Except (ExceptT)
 import           Control.Monad.Trans (MonadTrans)
-import           Pos.Util.Log (WithLogger)
+--import           Pos.Util.Log (WithLogger)
 import           Universum
 
 import           Pos.Core (BlockVersionData, EpochIndex, EpochOrSlot, StakeholderId, VssCertificate,
@@ -25,7 +25,7 @@ import           Pos.Lrc.Types (RichmenStakes)
 
 -- | Type class which provides functions necessary for read-only
 -- verification of SSC data.
-class (Monad m, WithLogger m) =>
+class (Monad m {-, WithLogger m -}) =>
       MonadTossRead m where
     -- | Get 'CommitmentsMap' with all commitments.
     getCommitments :: m CommitmentsMap

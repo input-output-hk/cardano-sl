@@ -12,7 +12,7 @@ import           Control.Lens (at)
 import           Control.Monad.Except (MonadError, throwError, runExceptT)
 import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
-import           Pos.Util.Log (logError)
+import           Pos.Util.Trace (TraceIO, logTrace, traceWith, logError)
 import           Universum
 
 import           Pos.Core (EpochIndex, EpochOrSlot (..), IsMainHeader, HasProtocolConstants,
@@ -52,8 +52,9 @@ verifyAndApplySscPayload eoh payload = do
     inAssertMode $
         whenRight eoh $ const $ verifySscPayload eoh payload
     let blockCerts = spVss payload
-    let curEpoch = either identity (^. epochIndexL) eoh
-    checkPayload curEpoch payload
+        curEpoch = either identity (^. epochIndexL) eoh
+        tr = logTrace "verifyAndApplySscPayload"
+    checkPayload tr curEpoch payload
 
     -- Apply
     case eoh of
@@ -93,13 +94,14 @@ applyGenesisBlock epoch = do
 
 -- | Rollback application of 'SscPayload's in 'Toss'. First argument is
 -- 'EpochOrSlot' of oldest block which is subject to rollback.
-rollbackSsc :: (MonadToss m, HasProtocolConstants) =>
-    EpochOrSlot
+rollbackSsc :: (MonadIO m, MonadToss m, HasProtocolConstants)
+    => TraceIO
+    -> EpochOrSlot
     -> NewestFirst [] SscPayload
     -> m ()
-rollbackSsc oldestEOS (NewestFirst payloads)
+rollbackSsc tr oldestEOS (NewestFirst payloads)
     | oldestEOS == toEnum 0 = do
-        logError "rollbackSsc: most genesis block is passed to rollback"
+        liftIO $ traceWith (logError tr) "rollbackSsc: most genesis block is passed to rollback"
         setEpochOrSlot oldestEOS
         resetCO
         resetShares

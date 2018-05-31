@@ -13,7 +13,9 @@ import qualified Data.Text.Lazy.IO as T
 import           Katip.Core
 import           Katip.Format.Time (formatAsIso8601)
 import           Katip.Scribes.Handle (brackets, getKeys)
-import           System.IO (Handle, BufferMode (LineBuffering), IOMode (WriteMode), hFlush, hSetBuffering,
+import           System.FilePath ((</>))
+import           System.IO (Handle, BufferMode (LineBuffering),
+                            IOMode (WriteMode), hFlush, hSetBuffering,
                             stdout)
 import           System.IO.Unsafe (unsafePerformIO)
 
@@ -32,12 +34,12 @@ lock = unsafePerformIO $ newMVar ()
 
 -- | create a katip scribe for logging
 --   (following default scribe in katip source code)
-mkFileScribe :: FilePath -> Bool -> Severity -> Verbosity -> IO Scribe
-mkFileScribe fp colorize s v = do
-    h <- catchIO (openFile fp WriteMode) $
+mkFileScribe :: FilePath -> FilePath -> Bool -> Severity -> Verbosity -> IO Scribe
+mkFileScribe bp fp colorize s v = do
+    h <- catchIO (openFile (bp </> fp) WriteMode) $
             \e -> do
-                putStrLn $ "error while opening log @ " ++ fp
-                putStrLn $ "exception: " ++ (show e)
+                putStrLn $ "error while opening log @ " ++ (bp </> fp)
+                putStrLn $ "exception: " ++ show e
                 return stdout    -- fallback to standard output in case of exception
     mkFileScribe' h colorize s v
 
@@ -45,13 +47,13 @@ mkFileScribe' :: Handle -> Bool -> Severity -> Verbosity -> IO Scribe
 mkFileScribe' h colorize s v = do
     hSetBuffering h LineBuffering
     let logger :: forall a. LogItem a => Item a -> IO ()
-        logger item = do
-          when (permitItem s item) $ bracket_ (takeMVar lock) (putMVar lock ()) $
-            T.hPutStrLn h $! toLazyText $ formatItem colorize v item
+        logger item = when (permitItem s item) $
+            bracket_ (takeMVar lock) (putMVar lock ()) $
+                T.hPutStrLn h $! toLazyText $ formatItem colorize v item
     pure $ Scribe logger (hFlush h)
 
 mkStdoutScribe :: Severity -> Verbosity -> IO Scribe
-mkStdoutScribe s v = mkFileScribe' stdout True s v
+mkStdoutScribe = mkFileScribe' stdout True
 {- mkStdoutScribe s v = do
     let h = stdout
         colorize = True
@@ -70,9 +72,9 @@ mkDevNullScribe s v = do
     let colorize = False
     hSetBuffering h LineBuffering
     let logger :: forall a. LogItem a => Item a -> IO ()
-        logger item = do
-          when (permitItem s item) $ Internal.modifyLinesLogged succ
-            >> (T.hPutStrLn h $! toLazyText $ formatItem colorize v item)
+        logger item = when (permitItem s item) $
+            Internal.modifyLinesLogged succ
+                >> (T.hPutStrLn h $! toLazyText $ formatItem colorize v item)
     pure $ Scribe logger (hFlush h)
 
 
@@ -87,7 +89,8 @@ formatItem withColor verb Item{..} =
     brackets (fromText (getThreadIdText _itemThread)) <>
     mconcat ks <>
     maybe mempty (brackets . fromString . locationToString) _itemLoc <>
-    fromText " " <> (unLogStr _itemMessage)
+    fromText " " <>
+    unLogStr _itemMessage
   where
     nowStr = fromText (formatAsIso8601 _itemTime)
     ks = map brackets $ getKeys verb _itemPayload

@@ -1,27 +1,19 @@
 -- | Log file retrieval from @LoggerConfig@, for the purpose of reporting.
 
-module Pos.Reporting.LogFiles
+module Pos.Reporting.Logfiles
     ( withLogTempFile
-    --, readLogFile
-    --, retrieveLogFiles
     , compressLogs
-    --, withTempLogFile
-    --, LoggerConfig (..)
     ) where
 
 import           Universum
 
 import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Archive.Tar.Entry as Tar
---import           System.Wlog (LoggerConfig (..), hwFilePath, lcTree, ltFiles,
---                              ltSubloggers, retrieveLogContent)
---import           Control.Lens (each, to)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Conduit (runConduitRes, yield, (.|))
 import           Data.Conduit.List (consume)
 import qualified Data.Conduit.Lzma as Lzma
---import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -29,15 +21,16 @@ import           Data.Time.Clock (getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           System.Directory (canonicalizePath, doesFileExist, getTemporaryDirectory,
                                    removeFile)
-import           System.FilePath (takeFileName)
+import           System.FilePath (takeFileName, (</>))
 import           System.IO (IOMode (WriteMode), hClose, hFlush, withFile)
 
 -- FIXME we get PackingError from here, but it should defined locally, since
 -- it's log-warper specific.
 import           Pos.Reporting.Exceptions (ReportingError (..))
 import           Pos.Util.Filesystem (withSystemTempFile)
-import           Pos.Util.Util ((<//>))
 import qualified Pos.Util.Log as Log
+import           Pos.Util.LoggerConfig (lcBasePath)
+import           Pos.Util.Util ((<//>))
 
 
 -- | Use a 'LoggerConfig' to get logs, write them to a temporary file,
@@ -64,8 +57,9 @@ readLogFile logConfig = case mLogFile of
         pure (Just (unlines (reverse logContent)))
   where
     -- Grab all public log files, using the 'LoggerConfig', and take the
-    -- first one.   new: absolute filepaths
-    allFiles = map snd $ Log.retrieveLogFiles logConfig
+    -- first one.
+    basepath = fromMaybe "./" $ logConfig ^. lcBasePath
+    allFiles = map ((</> basepath) . snd) $ Log.retrieveLogFiles logConfig
     mLogFile = head $ filter (".pub" `isSuffixOf`) allFiles
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int

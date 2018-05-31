@@ -57,13 +57,13 @@ import           Control.Monad.Reader (mapReaderT)
 import           Control.Monad.State.Strict (mapStateT)
 import           Data.Default (def)
 import           Fmt ((+|), (|+))
-import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog)
 
 import           Pos.Core.Common (Coin, StakeholderId)
 import           Pos.Core.Txp (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import           Pos.Txp.Toil.Types (MemPool, StakesView, UndoMap, UtxoLookup, UtxoModifier,
                                      mpLocalTxs, mpSize, svStakes, svTotal)
 import           Pos.Util (type (~>))
+import           Pos.Util.Log --({-NamedPureLogger, -}WithLogger, usingLoggerName)
 import qualified Pos.Util.Modifier as MM
 --import qualified Pos.Util.Log as Log
 
@@ -148,9 +148,10 @@ memPoolSize = use $ ltsMemPool . mpSize
 -- transaction processing.
 type ExtendedLocalToilM extraEnv extraState =
     ReaderT (UtxoLookup, extraEnv) (
-        StateT (LocalToilState, extraState) (
+        StateT (LocalToilState, extraState) IO {-(
             NamedPureLogger Identity
-    ))
+    )-}
+    )
 
 -- | Natural transformation from 'LocalToilM to 'ExtendedLocalToilM'.
 extendLocalToilM :: LocalToilM a -> ExtendedLocalToilM extraEnv extraState a
@@ -188,7 +189,7 @@ data GlobalToilEnv = GlobalToilEnv
 makeLenses ''GlobalToilEnv
 
 -- | Base monad in which global Toil happens.
-type GlobalToilMBase = NamedPureLogger (F StakesLookupF)
+type GlobalToilMBase = {-NamedPureLogger-} CanLog (F StakesLookupF)
 
 -- | Monad in which global Toil happens.
 type GlobalToilM
@@ -201,7 +202,7 @@ runGlobalToilMBase ::
     => (StakeholderId -> m (Maybe Coin))
     -> GlobalToilMBase a
     -> m a
-runGlobalToilMBase stakeGetter = launchNamedPureLog foldF'
+runGlobalToilMBase stakeGetter = {-launchNamedPureLog-}usingLoggerName "toil" foldF'
   where
     foldF' :: forall x. F StakesLookupF x -> m x
     foldF' =
@@ -268,5 +269,5 @@ utxoMToGlobalToilM :: UtxoM ~> GlobalToilM
 utxoMToGlobalToilM = mapReaderT f . magnify gteUtxo
   where
     f :: State UtxoModifier
-      ~> StateT GlobalToilState (NamedPureLogger (F StakesLookupF))
+      ~> StateT GlobalToilState ({-NamedPureLogger-} IO (F StakesLookupF))
     f = state . runState . zoom gtsUtxoModifier

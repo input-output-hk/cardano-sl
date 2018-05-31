@@ -61,7 +61,7 @@ import           Pos.Txp.DB.Utxo (getFilteredUtxo)
 import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.JsonLog.Events (HasJsonLogConfig (..))
-import           Pos.Util.LoggerName (HasLoggerName' (..))
+--import           Pos.Util.LoggerName (HasLoggerName' (..))
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext (..))
@@ -144,9 +144,10 @@ instance {-# OVERLAPPABLE #-}
   where
     lensOf = acRealModeContext_L . lensOf @tag
 
+{-
 instance HasLoggerName' AuxxContext where
     loggerName = acRealModeContext_L . loggerName
-
+-}
 instance HasSlogContext AuxxContext where
     slogContext = acRealModeContext_L . slogContext
 

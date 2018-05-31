@@ -170,5 +170,5 @@ main = do
               -- --DumpAvvmSeeds opts      -> dumpAvvmSeeds opts
               -- GenerateKeysBySpec gkbg -> generateKeysByGenesis gkbg
               --DumpGenesisData dgdPath dgdCanonical
-                                    -> CLI.dumpGenesisData dgdCanonical dgdPath
+                                    -- -> CLI.dumpGenesisData dgdCanonical dgdPath
               _                       -> Log.logWarning "command not understood"

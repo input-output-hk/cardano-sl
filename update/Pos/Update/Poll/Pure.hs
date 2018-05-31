@@ -2,9 +2,9 @@
 
 module Pos.Update.Poll.Pure
        ( PurePoll (..)
-       , evalPurePollWithLogger
+       --, evalPurePollWithLogger
        , execPurePollWithLogger
-       , runPurePollWithLogger
+       --, runPurePollWithLogger
        ) where
 
 import           Universum
@@ -12,8 +12,9 @@ import           Universum
 import           Control.Lens (at, mapped, to, uses, (%=), (.=))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import           Pos.Util.Log (CanLog, HasLoggerName (..), LogEvent, NamedPureLogger, logDebug,
-                               logWarning, runNamedPureLog)
+--import           Pos.Util.Log (CanLog, HasLoggerName (..), LogEvent, NamedPureLogger, logDebug,
+--                               logWarning, runNamedPureLog)
+import qualified Pos.Util.Log as Log
 
 import           Pos.Core (SoftwareVersion (..))
 import           Pos.Core.Update (UpdateProposal (..))
@@ -32,10 +33,12 @@ newtype PurePoll a = PurePoll
 runPurePollWithLogger :: Poll.PollState -> PurePoll a -> (a, Poll.PollState, [LogEvent])
 runPurePollWithLogger ps pp =
     let innerMonad = usingStateT ps . getPurePoll $ pp
-    in  (\((a, finalState), logs) -> (a, finalState, logs)) . runIdentity . runNamedPureLog $ innerMonad
+    in  (\((a, finalState), logs) -> (a, finalState, logs)) . runIdentity . {-runNamedPureLog-}Log.usingLoggerName $ innerMonad
 
+{-
 evalPurePollWithLogger :: Poll.PollState -> PurePoll a -> a
 evalPurePollWithLogger r = view _1 . runPurePollWithLogger r
+-}
 
 execPurePollWithLogger :: Poll.PollState -> PurePoll a -> Poll.PollState
 execPurePollWithLogger r = view _2 . runPurePollWithLogger r

@@ -159,33 +159,35 @@ setupLogging lc = do
             -- setup scribes according to configuration
             let --minSev = _lc ^. lcLoggerTree ^. ltMinSeverity
                 lhs = _lc ^. lcLoggerTree ^. ltHandlers ^.. each
-            scs <- forM lhs (\lh -> case (lh ^. lhBackend) of
-                            FileJsonBE -> do  -- TODO
-                                scribe <- mkFileScribe
-                                              (fromMaybe "<unk>" $ lh ^. lhFpath)
-                                              True
-                                              (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
-                                              K.V0
-                                return (lh ^. lhName, scribe)
-                            FileTextBE -> do
-                                scribe <- mkFileScribe
-                                              (fromMaybe "<unk>" $ lh ^. lhFpath)
-                                              True
-                                              (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
-                                              K.V0
-                                return (lh ^. lhName, scribe)
-                            StdoutBE -> do
-                                scribe <- mkStdoutScribe
-                                              (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
-                                              K.V0
-                                return (lh ^. lhName, scribe)
-                            DevNullBE -> do
-                                scribe <- mkDevNullScribe
-                                              (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
-                                              K.V0
-                                return (lh ^. lhName, scribe)
-                        )
-            return scs
+                basepath = _lc ^. lcBasePath
+            forM lhs (\lh -> case (lh ^. lhBackend) of
+                    FileJsonBE -> do  -- TODO
+                        scribe <- mkFileScribe
+                                      (fromMaybe "" basepath)
+                                      (fromMaybe "<unk>" $ lh ^. lhFpath)
+                                      True
+                                      (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                      K.V0
+                        return (lh ^. lhName, scribe)
+                    FileTextBE -> do
+                        scribe <- mkFileScribe
+                                      (fromMaybe "" basepath)
+                                      (fromMaybe "<unk>" $ lh ^. lhFpath)
+                                      True
+                                      (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                      K.V0
+                        return (lh ^. lhName, scribe)
+                    StdoutBE -> do
+                        scribe <- mkStdoutScribe
+                                      (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                      K.V0
+                        return (lh ^. lhName, scribe)
+                    DevNullBE -> do
+                        scribe <- mkDevNullScribe
+                                      (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                      K.V0
+                        return (lh ^. lhName, scribe)
+                 )
 
 
 -- | provide logging in IO

@@ -1,6 +1,7 @@
 
 module Pos.Util.Trace
     ( Trace (..)
+    , setupLogging
     , TraceIO
     , trace
     , traceWith
@@ -31,6 +32,12 @@ type TraceIO = Trace IO (Log.Severity, Text)
 
 instance Contravariant (Trace m) where
     contramap f = Trace . contramap f . runTrace
+
+
+-- | setup logging and return a Trace
+setupLogging :: LoggerConfig -> TraceIO
+setupLogging _ = logTrace "something"
+
 
 trace :: Trace m s -> s -> m ()
 trace = getOp . runTrace

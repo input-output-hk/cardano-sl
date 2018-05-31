@@ -19,6 +19,7 @@ environment:
       secure: m5sQYd16K8HA0zoZaD0gOl4EEWUso1D51L5rp+kT3hLaIE3tt4iT+b+iW8F4F0FU
 
 init:
+- set PATH=C:\ghc-8.2.2\bin;%PATH%
 - ps: $env:CACHE_S3_READY = (("$env:CACHE_S3_VERSION" -ne "") -and ("$env:S3_BUCKET" -ne "") -and ("$env:AWS_ACCESS_KEY_ID" -ne "") -and ("$env:AWS_SECRET_ACCESS_KEY" -ne ""))
 
 before_test:
@@ -30,6 +31,13 @@ before_test:
 - REG QUERY HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled
 # Restore cache
 - Echo %APPVEYOR_BUILD_VERSION% > build-id
+# Download and unpack GHC
+- ps: >-
+    $file = "ghc-8.2.2-x86_64-unknown-mingw32";
+    $url = "https://s3.eu-central-1.amazonaws.com/ci-static/$file.tar.xz";
+    (New-Object Net.WebClient).DownloadFile($url, "$env:temp\\$file.tar.xz");
+    7z x "$env:temp\\$file.tar.xz" -o"$env:temp";
+    7z x "$env:temp\\$file.tar" -oc:\;
 - ps: >-
     if ( $env:CACHE_S3_READY -eq $true ) {
       Start-FileDownload https://github.com/fpco/cache-s3/releases/download/$env:CACHE_S3_VERSION/cache-s3-$env:CACHE_S3_VERSION-windows-x86_64.zip -FileName cache-s3.zip
@@ -65,6 +73,7 @@ before_test:
 
 test_script:
   - cd "%WORK_DIR%"
+  - stack config --system-ghc set system-ghc --global true
   - stack exec -- ghc-pkg recache
   - stack --verbosity warn setup --no-reinstall > nul
   # Install happy separately: https://github.com/commercialhaskell/stack/issues/3151#issuecomment-310642487. Also install cpphs because it's a build-tool and Stack can't figure out by itself that it should be installed

@@ -1,6 +1,7 @@
 {-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE ViewPatterns               #-}
 
 module InputSelection.Policy (
     -- * Infrastructure
@@ -151,8 +152,7 @@ data InputSelectionFailure a = InputSelectionFailure
                              -- ^ We need extra funds to cover the fee.
 
 type InputSelectionPolicy h a m =
-      (HasTreasuryAddress a, RunPolicy m a, Hash h a)
-   => (Int -> [Value] -> Value)
+      (Int -> [Value] -> Value)
       -- ^ Function to estimate the fee
    -> ExpenseRegulation
       -- ^ The expense regulation (i.e. how pays for the fee)
@@ -160,7 +160,7 @@ type InputSelectionPolicy h a m =
       -- ^ The initial UTXO
    -> [Output a]
       -- ^ The initial outputs we need to pay.
-   -> m (Either (InputSelectionFailure a) (Transaction h a, TxStats))
+   -> m (Either [InputSelectionFailure a] (Transaction h a, TxStats))
 
 {-------------------------------------------------------------------------------
   Input selection combinator
@@ -168,32 +168,43 @@ type InputSelectionPolicy h a m =
 
 data InputPolicyState h a = InputPolicyState {
       -- | Available entries in the UTxO
-      _ipsUtxo             :: Utxo h a
+      _ipsUtxo           :: Utxo h a
 
       -- | Selected inputs
-    , _ipsSelectedInputs   :: Set (Input h a)
+    , _ipsSelectedInputs :: Set (Input h a)
 
-      -- | Generated outputs (e.g. change addresses)
-    , _ipsGeneratedOutputs :: [Output a]
+      -- | Generated change outputs
+    , _ipsChangeOutputs  :: [Output a]
     }
 
 initInputPolicyState :: Utxo h a -> InputPolicyState h a
 initInputPolicyState utxo = InputPolicyState {
       _ipsUtxo             = utxo
     , _ipsSelectedInputs   = Set.empty
-    , _ipsGeneratedOutputs = []
+    , _ipsChangeOutputs = []
     }
+
+
+-- | Merges two 'InputPolicyState' together.
+-- The final 'Utxo' is taken from the last passed as input, as we need to
+-- pick the \"most recent\" one.
+mergeInputPolicyState :: Hash h a
+                      => InputPolicyState h a
+                      -> InputPolicyState h a
+                      -> InputPolicyState h a
+mergeInputPolicyState (InputPolicyState _ s1 c1) (InputPolicyState u2 s2 c2) =
+    InputPolicyState u2 (s1 `Set.union` s2) (c1 `mappend` c2)
 
 makeLenses ''InputPolicyState
 
 newtype InputPolicyT h a m x = InputPolicyT {
-      unInputPolicyT :: StateT (InputPolicyState h a) (ExceptT (InputSelectionFailure a) m) x
+      unInputPolicyT :: StateT (InputPolicyState h a) (ExceptT [InputSelectionFailure a] m) x
     }
   deriving ( Functor
            , Applicative
            , Monad
            , MonadState (InputPolicyState h a)
-           , MonadError (InputSelectionFailure a)
+           , MonadError [InputSelectionFailure a]
            )
 
 {-
@@ -213,7 +224,9 @@ instance RunPolicy m a => RunPolicy (InputPolicyT h a m) a where
   genChangeAddr = lift genChangeAddr
   genFreshHash  = lift genFreshHash
 
-runInputPolicyT :: forall h a m. RunPolicy m a
+type RunPolicyResult a r = Either [InputSelectionFailure a] r
+
+runInputPolicyT :: forall h a m. (HasTreasuryAddress a, Hash h a, RunPolicy m a)
                 => (Int -> [Value] -> Value)
                 -- ^ A function to estimate the fee.
                 -> ExpenseRegulation
@@ -222,88 +235,155 @@ runInputPolicyT :: forall h a m. RunPolicy m a
                 -- ^ The original UTXO.
                 -> [Output a]
                 -- ^ The original outputs we need to pay to.
-                -> InputPolicyT h a m PartialTxStats
+                -> ([Output a] -> InputPolicyT h a m PartialTxStats)
                 -- ^ The input policy
-                -> m (Either (InputSelectionFailure a) (Transaction h a, TxStats))
+                -> m (RunPolicyResult a (Transaction h a, TxStats))
 runInputPolicyT estimateFee expenseRegulation originalUtxo originalOutputs policyT = do
-     mx <- runExceptT (runStateT (unInputPolicyT policyT) initSt)
+     mx <- runExceptT (runStateT (unInputPolicyT (policyT originalOutputs)) initSt)
      case mx of
-       Left err ->
-         return $ Left err
+       Left errs ->
+         return $ Left errs
        Right (ptxStats, finalSt) -> do
-         let selectedInputs   = finalSt ^. ipsSelectedInputs
-             generatedOutputs = finalSt ^. ipsGeneratedOutputs
-             inputsLen = length selectedInputs
-             allOutputs = generatedOutputs <> originalOutputs
-             upperBoundFee = estimateFee inputsLen (map outVal allOutputs)
-         case handleFee upperBoundFee selectedInputs of
-            Left e -> return (Left e)
-            Right (finalInputs, finalOutputs) -> do
-              h <- genFreshHash
-              return $ Right (
-                  Transaction {
-                      trFresh = 0
-                    , trIns   = finalInputs
-                    , trOuts  = finalOutputs <> generatedOutputs
-                    , trFee   = upperBoundFee
-                    , trHash  = h
-                    , trExtra = []
-                    }
-                , fromPartialTxStats ptxStats
-                )
+         let changeOutputs  = finalSt ^. ipsChangeOutputs
+             inputsLen      = length (finalSt ^. ipsSelectedInputs)
+             allOutputs     = changeOutputs <> originalOutputs
+             upperBoundFee  = estimateFee inputsLen (map outVal allOutputs)
+
+         -- Regulates the inputs & outputs based on the 'ExpenseRegulation' and
+         -- an upper bound fee. For 'ReceiverPaysFee' it's quite simple as the
+         -- number of inputs will never increase (because the receivers are paying
+         -- for the fee). For the 'SenderPaysFee' the extra cost might not be
+         -- covered by the selected inputs alone, to which we react by re-running
+         -- the input 'policyT' adding the \"slack\" to cover as the (only) goal
+         -- to satisfy.
+         case expenseRegulation of
+             ReceiverPaysFee ->
+                 regulateReceivers (ptxStats, finalSt) upperBoundFee
+             SenderPaysFee  ->
+                 regulateSender (ptxStats, finalSt) upperBoundFee
   where
     initSt = initInputPolicyState originalUtxo
 
-    -- Calculates the \"slice\" each Output has to pay.
-    -- TODO(adn) avoid division by 0.
-    -- TODO(adn) Rounding errors?
+    -- Calculates the \"slice\" of the fee each sender or receiver has to pay.
+    -- Such slice is proportional to the size of the original output in case of
+    -- 'ReceiverPaysFee', and proportional to the size of the change outputs in
+    -- case of a 'SenderPaysFee'.
+    -- NOTE(adn) Not dealing with divisions by 0 here to not complicate the
+    -- code too much, but in a real implementation we should have 'NonEmpty (Output a)'
+    -- being passed as input.
     epsilon :: Value -> Output a -> Value
-    epsilon totalFee o = ceiling $ (fromIntegral (outVal o) / fromIntegral totalOutputValue) * ((fromIntegral totalFee) :: Double)
+    epsilon upperBoundFee (outVal -> val) =
+        let (tf :: Double) = fromIntegral upperBoundFee
+        -- Round the fee pessimistically. This might result in receivers paying
+        -- a slightly higher fee.
+        in floor $ (fromIntegral val / fromIntegral totalOutputValue) * tf
 
+    -- | Calculates the total 'Value' from all the original outputs.
     totalOutputValue :: Value
-    totalOutputValue = foldl' (\acc o -> acc + (outVal o)) 0 originalOutputs
+    totalOutputValue = sum . map outVal $ originalOutputs
 
-    handleFee :: Value -> Set (Input h a) -> RegulationResult h a
-    handleFee totalFee selectedInputs =
-        case expenseRegulation of
-            ReceiverPaysFee ->
-                case foldl' (receiverCanAfford totalFee) ([], []) originalOutputs of
-                     ([], amendedOutputs) ->
-                         Right (selectedInputs, amendedOutputs)
-                     (e : _, _) -> Left e
-            SenderPaysFee  -> checkSenderCanAffordFee selectedInputs
+    -- | Try regulating an output using the 'ExpenseRegulation' provided as
+    -- part of 'runPolicyT'.
+    tryRegulate :: Value -> Output a -> Either (InputSelectionFailure a) (Output a)
+    tryRegulate upperBoundFee output =
+        let original = outVal output
+            amended  = original - (epsilon upperBoundFee output)
+        in case amended > original of -- We underflowed
+               True  -> Left (InsufficientFundsToCoverFee expenseRegulation output)
+               False -> Right (output { outVal = amended })
 
-    receiverCanAfford :: Value
-                      -> ([InputSelectionFailure a], [Output a])
-                      -> Output a
-                      -> ([InputSelectionFailure a], [Output a])
-    receiverCanAfford totalFee (!ls, !rs) o =
-        case canCover o of
-            Left l  -> (l : ls, rs)
-            Right r -> (ls, r : rs)
-        where
-            canCover :: Output a -> Either (InputSelectionFailure a) (Output a)
-            canCover output =
-                let original = outVal output
-                    amended  = original - (epsilon totalFee output)
-                in case amended > original of -- We underflowed
-                       True  -> Left (InsufficientFundsToCoverFee ReceiverPaysFee output)
-                       False -> Right (output { outVal = amended })
+    -- | Regulates the receivers, by substracting epsilon from their original
+    -- 'Output' value.
+    regulateReceivers :: (PartialTxStats, InputPolicyState h a)
+                      -> Value
+                      -> m (RunPolicyResult a (Transaction h a, TxStats))
+    regulateReceivers (ptxStats, st) upperBoundFee = do
+        case partitionEithers (map (tryRegulate upperBoundFee) originalOutputs) of
+            ([], amendedOutputs) -> do
+                let inputs = st ^. ipsSelectedInputs
+                    changeOutputs = st ^. ipsChangeOutputs
+                tx <- mkTxFreshHash inputs (amendedOutputs <> changeOutputs) upperBoundFee
+                return $ Right (tx, fromPartialTxStats ptxStats)
+            (errs, _) -> return (Left errs)
 
-    -- TODO.
-    checkSenderCanAffordFee :: Set (Input h a) -> RegulationResult h a
-    checkSenderCanAffordFee selectedInputs = Right (selectedInputs, originalOutputs)
+    -- | Regulates the sender, by substracting epsilon from the change
+    -- addresses, trying to cover the fee.
+    regulateSender :: (PartialTxStats, InputPolicyState h a)
+                   -> Value
+                   -> m (RunPolicyResult a (Transaction h a, TxStats))
+    regulateSender (ptxStats, st) upperBoundFee = do
+        res <- tryCoverFee (ptxStats, st) upperBoundFee
+        case res of
+            Left errs -> return (Left errs)
+            Right (finalStats, finalSt, finalFee) -> do
+                case partitionEithers (map (tryRegulate finalFee) (finalSt ^. ipsChangeOutputs)) of
+                     ([], amendedChange) -> do
+                         -- Filter the change addresses which, after being amended,
+                         -- are completely empty.
+                         let finalChangeOutputs = filter ((== 0) . outVal) amendedChange
+                         tx <- mkTxFreshHash (finalSt ^. ipsSelectedInputs)
+                                             (originalOutputs <> finalChangeOutputs)
+                                             finalFee
+                         return $ Right (tx, fromPartialTxStats finalStats)
+                     (_, _) ->
+                         -- If we get an error here, by the virtue of the fact
+                         -- that by construction the fee should be totally
+                         -- covered by the selected inputs, we flag the
+                         -- invariant with an exception
+                         error $ "regulateSender: failed to regulate the final change outputs! "
 
-type RegulationResult h a =
-    Either (InputSelectionFailure a) (Set (Input h a), [Output a])
+    -- Iteratively try to cover the fee by picking \"one more input\" reusing
+    -- the externally-passed policy.
+    tryCoverFee :: (PartialTxStats, InputPolicyState h a)
+                -> Value
+                -> m (RunPolicyResult a (PartialTxStats, InputPolicyState h a, Value))
+    tryCoverFee (ptxStats, st) fee = do
+        let change = sum . map outVal $ (st ^. ipsChangeOutputs)
+        case change >= fee of
+            True  -> return $ Right (ptxStats, st, fee)
+            False -> do
+                let feeAsOutput = Output treasuryAddr fee
+                mx <- runExceptT (runStateT (unInputPolicyT (policyT [feeAsOutput])) (initInputPolicyState (st ^. ipsUtxo)))
+                case mx of
+                  Left errs -> return $ Left errs
+                  Right (ptxStats', st') -> do
+                      let newState = st `mergeInputPolicyState` st'
+                          newPtxStats = ptxStats `mappend` ptxStats'
+                          allOutputs  = originalOutputs <> newState ^. ipsChangeOutputs
+                          newFee = estimateFee (length $ newState ^. ipsSelectedInputs)
+                                               (map outVal allOutputs)
+                      tryCoverFee (newPtxStats, newState) newFee
+
+-- | Creates a new 'Transaction' given a 'Set' of inputs, a list of outputs,
+-- a fee and a fresh hash.
+mkTx :: Set (Input h a) -> [Output a] -> Value -> Int -> Transaction h a
+mkTx inputs outputs fee freshHash =
+    Transaction {
+      trFresh = 0
+    , trIns   = inputs
+    , trOuts  = outputs
+    , trFee   = fee
+    , trHash  = freshHash
+    , trExtra = []
+    }
+
+-- | Like 'mkTx', but runs in the 'RunPolicy' monad and automatically generates
+-- a fresh hash.
+mkTxFreshHash :: RunPolicy m a
+              => Set (Input h a)
+              -> [Output a]
+              -> Value
+              -> m (Transaction h a)
+mkTxFreshHash inputs outputs fee = mkTx inputs outputs fee <$> genFreshHash
 
 {-------------------------------------------------------------------------------
   Always find the largest UTxO possible
 -------------------------------------------------------------------------------}
 
-largestFirst :: forall h a m. InputSelectionPolicy h a m
+largestFirst :: forall h a m. (RunPolicy m a, Hash h a, HasTreasuryAddress a)
+             => InputSelectionPolicy h a m
 largestFirst estimateFee expenseRegulation utxo goals =
-  runInputPolicyT estimateFee expenseRegulation utxo goals (largestFirstT goals)
+  runInputPolicyT estimateFee expenseRegulation utxo goals largestFirstT
 
 -- | Always use largest UTxO possible
 --
@@ -318,7 +398,7 @@ largestFirstT goals = mconcat <$> mapM go goals
     go (Output _a val) = do
         sorted   <- sortBy sortKey . utxoToList <$> use ipsUtxo
         selected <- case select sorted utxoEmpty 0 of
-                      Nothing -> throwError InputSelectionFailure
+                      Nothing -> throwError [InputSelectionFailure]
                       Just u  -> return u
 
         ipsUtxo             %= utxoRemoveInputs (utxoDomain selected)
@@ -329,7 +409,7 @@ largestFirstT goals = mconcat <$> mapM go goals
 
         unless (change == 0) $ do
           changeAddr <- genChangeAddr
-          ipsGeneratedOutputs %= (Output changeAddr change :)
+          ipsChangeOutputs %= (Output changeAddr change :)
 
         return PartialTxStats {
             ptxStatsNumInputs = utxoSize selected
@@ -355,11 +435,11 @@ largestFirstT goals = mconcat <$> mapM go goals
 
 data PrivacyMode = PrivacyModeOn | PrivacyModeOff
 
-random :: forall h a m. LiftQuickCheck m
+random :: forall h a m. (LiftQuickCheck m, RunPolicy m a, Hash h a, HasTreasuryAddress a)
        => PrivacyMode
        -> InputSelectionPolicy h a m
 random privacyMode estimateFee expenseRegulation utxo goals =
-  runInputPolicyT estimateFee expenseRegulation utxo goals (randomT privacyMode goals)
+  runInputPolicyT estimateFee expenseRegulation utxo goals (randomT privacyMode)
 
 -- | Random input selection
 --
@@ -394,7 +474,7 @@ randomT privacyMode goals = mconcat <$> mapM go goals
             change      = selectedSum - val
         unless (change == 0) $ do
           changeAddr <- genChangeAddr
-          ipsGeneratedOutputs %= (Output changeAddr change :)
+          ipsChangeOutputs %= (Output changeAddr change :)
         return PartialTxStats {
             ptxStatsNumInputs = utxoSize selected
           , ptxStatsRatios    = MultiSet.singleton (fromIntegral change / fromIntegral val)

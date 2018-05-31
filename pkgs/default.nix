@@ -7814,11 +7814,11 @@ inherit (pkgs) mesa;};
          , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
          , cardano-sl-util, cardano-sl-util-test, cardano-sl-wallet, cassava
          , conduit, connection, constraints, containers, cryptonite
-         , data-default, directory, exceptions, formatting, gauge
+         , data-default, directory, exceptions, filepath, formatting, gauge
          , generics-sop, hspec, http-api-data, http-client, http-client-tls
          , http-types, ixset-typed, json-sop, lens, log-warper, memory, mtl
          , neat-interpolation, network-transport, node-ipc
-         , optparse-applicative, pretty-show, QuickCheck
+         , normaldistribution, optparse-applicative, pretty-show, QuickCheck
          , quickcheck-instances, random, reflection, safe-exceptions
          , safecopy, serokell-util, servant, servant-client
          , servant-client-core, servant-quickcheck, servant-server
@@ -7864,11 +7864,12 @@ inherit (pkgs) mesa;};
              cardano-sl-core cardano-sl-crypto cardano-sl-db
              cardano-sl-delegation cardano-sl-ssc cardano-sl-txp
              cardano-sl-update cardano-sl-util cardano-sl-util-test
-             cardano-sl-wallet constraints containers data-default directory
-             formatting hspec lens log-warper mtl QuickCheck
-             quickcheck-instances safe-exceptions serokell-util servant
-             servant-server servant-swagger servant-swagger-ui string-conv
-             swagger2 text text-format time universum unordered-containers
+             cardano-sl-wallet conduit constraints containers data-default
+             directory filepath formatting hspec lens log-warper mtl
+             normaldistribution QuickCheck quickcheck-instances random
+             safe-exceptions serokell-util servant servant-server
+             servant-swagger servant-swagger-ui string-conv swagger2 text
+             text-format time universum unordered-containers
            ];
            benchmarkHaskellDepends = [
              aeson async base bytestring cardano-sl-client cardano-sl-core
@@ -27961,6 +27962,19 @@ inherit (pkgs) which;};
            doCheck = false;
            description = "A monad and monad transformer for nondeterministic computations";
            license = "LGPL";
+         }) {};
+      "normaldistribution" = callPackage
+        ({ mkDerivation, base, random, stdenv }:
+         mkDerivation {
+           pname = "normaldistribution";
+           version = "1.1.0.3";
+           sha256 = "6d7ba381946f76f3bd848c90e5bcc6f6ae5c418f7ae294cfc2559541fa02f7e0";
+           libraryHaskellDepends = [ base random ];
+           doHaddock = false;
+           doCheck = false;
+           homepage = "https://github.com/bjornbm/normaldistribution";
+           description = "Minimum fuss normally distributed random values";
+           license = stdenv.lib.licenses.bsd3;
          }) {};
       "nsis" = callPackage
         ({ mkDerivation, base, stdenv, transformers, uniplate }:

@@ -18,7 +18,7 @@ packages:
 - binary
 - binary/test
 - crypto
-- crypto/tests
+- crypto/test
 - core
 - core/test
 - db

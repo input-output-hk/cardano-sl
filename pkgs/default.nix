@@ -6940,17 +6940,18 @@ inherit (pkgs) mesa;};
          , cardano-sl-ssc, cardano-sl-txp, cardano-sl-update
          , cardano-sl-util, cardano-sl-util-test, cborg, cereal, conduit
          , constraints, containers, contravariant, cpphs, criterion
-         , cryptonite, data-default, directory, ed25519, ekg-core, ether
-         , exceptions, extra, filelock, filepath, fmt, formatting
+         , cryptonite, data-default, deepseq, directory, ed25519, ekg-core
+         , ether, exceptions, extra, filelock, filepath, fmt, formatting
          , generic-arbitrary, hashable, hspec, lens, log-warper, mmorph
          , monad-control, mtl, neat-interpolation, network
-         , network-transport, optparse-applicative, parsec, pipes
-         , plutus-prototype, pvss, QuickCheck, random, reflection
-         , safe-exceptions, safecopy, serokell-util, servant, servant-client
-         , servant-client-core, servant-server, servant-swagger, stdenv, stm
-         , streaming-commons, systemd, tagged, template-haskell, text
-         , text-format, time, time-units, transformers, universum, unix
-         , unliftio, unordered-containers, vector, wai, warp, warp-tls, yaml
+         , network-transport, network-transport-tcp, optparse-applicative
+         , parsec, pipes, plutus-prototype, pvss, QuickCheck, random
+         , reflection, safe-exceptions, safecopy, serokell-util, servant
+         , servant-client, servant-client-core, servant-server
+         , servant-swagger, stdenv, stm, streaming-commons, systemd, tagged
+         , template-haskell, text, text-format, time, time-units
+         , transformers, universum, unix, unliftio, unordered-containers
+         , vector, wai, warp, warp-tls, yaml
          }:
          mkDerivation {
            pname = "cardano-sl";
@@ -6987,9 +6988,12 @@ inherit (pkgs) mesa;};
              unordered-containers vector
            ];
            benchmarkHaskellDepends = [
-             aeson base cardano-sl-block cardano-sl-core cardano-sl-crypto
-             cardano-sl-ssc cardano-sl-txp cardano-sl-util-test criterion
-             formatting QuickCheck universum vector
+             aeson base bytestring cardano-sl-block cardano-sl-core
+             cardano-sl-crypto cardano-sl-infra cardano-sl-networking
+             cardano-sl-ssc cardano-sl-txp cardano-sl-util cardano-sl-util-test
+             criterion deepseq formatting log-warper network network-transport
+             network-transport-tcp optparse-applicative pipes QuickCheck stm
+             time-units transformers universum vector
            ];
            doHaddock = false;
            description = "Cardano SL main implementation";

@@ -1,12 +1,15 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Test.Pos.Crypto.TempHelpers
        ( goldenTestBi
        , embedGoldenTest
        , discoverGolden
+       , discoverRoundTrip
        , runTests
-       , trippingBiBuildable
+       , roundTripsBiBuildable
        , trippingBiShow
        , compareHexDump
+       , eachOf
        ) where
 
 -- These helpers really belong in the `binary` package and then be exported via
@@ -38,8 +41,8 @@ import           Language.Haskell.TH.Syntax (qLocation)
 import           System.Directory (canonicalizePath)
 import           System.FilePath (takeDirectory, (</>))
 
-import           Hedgehog (MonadTest, (===))
-import qualified Hedgehog as H
+import           Hedgehog (Gen, Group, MonadTest, Property, PropertyT, discoverPrefix, eval, forAll,
+                           property, success, tripping, withTests, (===))
 import           Hedgehog.Internal.Property (Diff (..), failWith)
 import           Hedgehog.Internal.Show (LineDiff, lineDiff, mkValue, renderLineDiff, showPretty,
                                          valueDiff)
@@ -82,8 +85,8 @@ zipWithPadding _ b xs     []     = zip xs (repeat b)
 -- | A custom version of @(===)@ for @HexDump@s to get prettier diffs
 compareHexDump :: (MonadTest m, HasCallStack) => HexDump -> HexDump -> m ()
 compareHexDump x y = do
-    ok <- withFrozenCallStack $ H.eval (x == y)
-    if ok then H.success else withFrozenCallStack $ failHexDumpDiff x y
+    ok <- withFrozenCallStack $ eval (x == y)
+    if ok then success else withFrozenCallStack $ failHexDumpDiff x y
 
 -- | Fail with a nice line diff of the two HexDumps
 failHexDumpDiff :: (MonadTest m, HasCallStack) => HexDump -> HexDump -> m ()
@@ -121,17 +124,24 @@ embedGoldenTest :: FilePath -> ExpQ
 embedGoldenTest path =
     makeRelativeToTestDir ("golden/" <> path) >>= embedStringFile
 
-discoverGolden :: TExpQ H.Group
-discoverGolden = H.discoverPrefix "golden_"
+discoverGolden :: TExpQ Group
+discoverGolden = discoverPrefix "golden_"
 
-goldenTestBi :: (Bi a, Eq a, Show a, HasCallStack) => a -> FilePath -> H.Property
+discoverRoundTrip :: TExpQ Group
+discoverRoundTrip = discoverPrefix "roundTrip"
+
+goldenTestBi :: (Bi a, Eq a, Show a, HasCallStack) => a -> FilePath -> Property
 goldenTestBi x path = withFrozenCallStack $ do
     let bs' = B16.encodeWithIndex . serialize $ x
-    H.withTests 1 . H.property $ do
+    withTests 1 . property $ do
         bs <- liftIO $ BS.readFile path
         let target = B16.decode bs
         compareHexDump bs bs'
         fmap decodeFull target === Just (Right x)
+
+eachOf :: (Show a) => Gen a -> (a -> PropertyT IO ()) -> Property
+eachOf things hasProperty =
+  withTests 1000 . property $ forAll things >>= hasProperty
 
 -- | Round trip test a value (any instance of both the 'Bi' and 'Show' classes)
 -- by serializing it to a ByteString and back again and
@@ -140,17 +150,17 @@ goldenTestBi x path = withFrozenCallStack $ do
 -- use this version.
 trippingBiShow :: (Bi a, Eq a, MonadTest m, Show a) => a -> m ()
 trippingBiShow x =
-    H.tripping x serialize decodeFull
+    tripping x serialize decodeFull
 
 -- | Round trip (via ByteString) any instance of the 'Bi' class
 -- that also has a 'Buildable' instance.
-trippingBiBuildable :: (Bi a, Buildable a, Eq a, MonadTest m) => a -> m ()
-trippingBiBuildable x =
+roundTripsBiBuildable :: (Bi a, Buildable a, Eq a, MonadTest m) => a -> m ()
+roundTripsBiBuildable x =
   let mx = pure x
       i = serialize x
       my = decodeFull i
   in if mx == my
-        then H.success
+        then success
         else case valueDiff <$> buildValue mx <*> buildValue my of
             Nothing ->
                 withFrozenCallStack $
@@ -171,7 +181,6 @@ trippingBiBuildable x =
                             [ "━━━ Intermediate ━━━"
                             , BS.unpack i
                             ]
-
 
 instance Buildable a => Buildable (Either Text a) where
     build (Left t)  = fromText t

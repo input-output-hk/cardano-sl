@@ -41,7 +41,7 @@ import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Slotting (Timestamp)
 import           Pos.Core.Ssc (VssCertificatesMap, getVssCertificatesMap)
-import           Pos.Core.Update.Types (BlockVersionData)
+import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.Crypto.Signing (RedeemPublicKey)
 

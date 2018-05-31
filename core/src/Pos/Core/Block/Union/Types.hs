@@ -58,7 +58,7 @@ import           Pos.Core.Delegation (ProxySigHeavy, ProxySigLight)
 import           Pos.Core.Slotting (SlotId (..))
 import           Pos.Core.Ssc (mkSscProof)
 import           Pos.Core.Txp (mkTxProof)
-import           Pos.Core.Update.Types (mkUpdateProof)
+import           Pos.Core.Update (mkUpdateProof)
 import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, Signature, hash, unsafeHash)
 import           Pos.Util.Some (Some, applySome, liftLensSome)
 

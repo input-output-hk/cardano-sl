@@ -8,6 +8,7 @@ module Test.Pos.Crypto.TempHelpers
        , runTests
        , roundTripsBiShow
        , roundTripsBiBuildable
+       , roundTripsAesonShow
        , roundTripsAesonBuildable
        , compareHexDump
        , eachOf
@@ -34,10 +35,8 @@ import qualified Data.Aeson as JSON (decode, encode)
 import qualified Data.ByteString.Lazy.Char8 as BS
 import           Data.FileEmbed (embedStringFile)
 import qualified Data.List as List
-import qualified Data.Text as Text
 import           Data.Text.Buildable (Buildable (..))
 import           Data.Text.Internal.Builder (fromText, toLazyText)
-import qualified Data.Text.Lazy as LazyText
 import           Language.Haskell.TH (ExpQ, Q, loc_filename, runIO)
 import           Language.Haskell.TH.Syntax (qLocation)
 import           System.Directory (canonicalizePath)
@@ -110,14 +109,14 @@ makeRelativeToTestDir rel = do
     fp  <- runIO $ canonicalizePath $ loc_filename loc
     case findTestDir fp of
         Nothing ->
-            error $ "Couldn't find directory 'test' in path: " <> Text.pack fp
+            error $ "Couldn't find directory 'test' in path: " <> toText fp
         Just testDir -> pure $ testDir </> rel
   where
     findTestDir f =
         let dir = takeDirectory f
         in  if dir == f
                 then Nothing
-                else if List.isSuffixOf "/test" dir
+                else if "/test" `List.isSuffixOf` dir
                     then Just dir
                     else findTestDir dir
 
@@ -159,9 +158,13 @@ roundTripsBiShow x =
 roundTripsBiBuildable :: (Bi a, Eq a, MonadTest m, Buildable a) => a -> m ()
 roundTripsBiBuildable a = trippingBuildable a serialize decodeFull
 
+roundTripsAesonShow
+    :: (Eq a, MonadTest m, ToJSON a, FromJSON a, Show a) => a -> m ()
+roundTripsAesonShow a = tripping a JSON.encode JSON.decode
+
 -- | Round trip any `a` with both `ToJSON` and `FromJSON` instances
 roundTripsAesonBuildable
-    :: (Bi a, Eq a, MonadTest m, ToJSON a, FromJSON a, Buildable a) => a -> m ()
+    :: (Eq a, MonadTest m, ToJSON a, FromJSON a, Buildable a) => a -> m ()
 roundTripsAesonBuildable a = trippingBuildable a JSON.encode JSON.decode
 
 -- | Round trip using given encode and decode functions for types with a
@@ -198,6 +201,9 @@ instance Buildable a => Buildable (Either Text a) where
     build (Left t)  = fromText t
     build (Right a) = build a
 
+instance Buildable () where
+    build () = "()"
+
 buildPretty :: Buildable a => a -> String
 buildPretty = show . buildValue
 
@@ -205,5 +211,4 @@ buildValue :: Buildable a => a -> Maybe Value
 buildValue = parseValue . stringBuild
 
 stringBuild :: Buildable a => a -> String
-stringBuild =
-    LazyText.unpack . toLazyText  . build
+stringBuild = toString . toLazyText  . build

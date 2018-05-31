@@ -116,6 +116,7 @@ test-suite test
 
   build-depends:       QuickCheck
                      , base
+                     , aeson
                      , bytestring
                      , cardano-crypto
                      , cardano-sl-binary

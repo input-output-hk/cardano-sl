@@ -451,7 +451,7 @@ writePlotInstrs PlotParams{..} script bounds is = do
   where
     Resolution width height = resolution
     (splitPrelude, setupSplitAxis, resetSplitAxis) =
-        Range.renderSplitAxis 25
+        Range.renderSplitAxis (binSizeToInt utxoBinSize) 25
           (bounds ^. boundsUtxoHistogram . Range.splitXRanges)
 
 {-------------------------------------------------------------------------------

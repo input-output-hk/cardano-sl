@@ -137,9 +137,13 @@ instance Buildable a => Buildable (Range a) where
 -- * Instructions to tear it down again
 --
 -- See 'SplitRanges' for an explanation of the weight.
+--
+-- We take the binwidth as an additional parameter and extend the ranges
+-- with half the binwidth, to avoid glitches when there are bins rendered
+-- right at the edges of the ranges of the axis.
 renderSplitAxis :: forall a. (Real a, Buildable a)
-                => Double -> [(Range a, Int)] -> (Text, Text, Text)
-renderSplitAxis gap xRanges = (
+                => Int -> Double -> [(Range a, Int)] -> (Text, Text, Text)
+renderSplitAxis binWidth gap xRanges = (
       sformat
         ( "f(x) = " % build % "\n"
         % "g(x) = " % build % "\n"
@@ -201,8 +205,11 @@ renderSplitAxis gap xRanges = (
     checkInRange Range{..} =
         sformat
           ("(" % build % " <= x && x <= " % build % ")")
-          ((ceiling :: Double -> Int) (realToFrac _lo - 1))
-          ((floor   :: Double -> Int) (realToFrac _hi + 1))
+          ((ceiling :: Double -> Int) (realToFrac _lo - margin))
+          ((floor   :: Double -> Int) (realToFrac _hi + margin))
+      where
+        -- see comment above regarding the binWidth argument
+        margin = fromIntegral binWidth / 2
 
     -- Project a point from the original number line to the split number line
     projectToSplit :: (Range a, Range Double, Double) -> Text

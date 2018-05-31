@@ -88,7 +88,7 @@ writeFile fp hist =
   Construction
 -------------------------------------------------------------------------------}
 
-newtype BinSize = BinSize Int
+newtype BinSize = BinSize { binSizeToInt :: Int }
   deriving (Eq, Buildable)
 
 -- | Construct histogram by counting all the doubles per bin

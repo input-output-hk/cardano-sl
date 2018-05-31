@@ -58,15 +58,25 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Crypto.Signing
-import           Pos.Crypto (AbstractHash (..), SignTag (..), abstractHash,
-                             sign, signEncoded)
+import           Pos.Crypto (AbstractHash (..), PassPhrase,
+                             abstractHash)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Crypto.HD (HDAddressPayload (..), HDPassphrase (..))
 import           Pos.Crypto.Random (deterministic)
-import           Pos.Crypto.SecretSharing
-import           Pos.Crypto.Signing (deterministicKeyGen)
-import           Pos.Crypto.Signing.Redeem (redeemDeterministicKeyGen,
+import           Pos.Crypto.SecretSharing (EncShare, Secret, SecretProof,
+                                           VssKeyPair, VssPublicKey,
+                                           deterministicVssKeyGen,
+                                           genSharedSecret, toVssPublicKey)
+import           Pos.Crypto.Signing (EncryptedSecretKey, ProxyCert,
+                                     ProxySecretKey, ProxySignature, PublicKey,
+                                     SafeSigner (..), SecretKey, Signature,
+                                     Signed, SignTag (..), deterministicKeyGen,
+                                     mkSigned, noPassEncrypt, proxySign,
+                                     safeCreateProxyCert, safeCreatePsk, sign,
+                                     signEncoded)
+import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey,
+                                            RedeemSignature,
+                                            redeemDeterministicKeyGen,
                                             redeemSign)
 
 ----------------------------------------------------------------------------

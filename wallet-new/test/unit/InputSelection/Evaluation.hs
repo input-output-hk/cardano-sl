@@ -143,12 +143,12 @@ writeTimeSeries fp (TimeSeries (NewestFirst ss)) =
   Accumulated statistics
 -------------------------------------------------------------------------------}
 
--- | Accumulated statistics at a given frame
+-- | Accumulated statistics at a given step
 data AccStats = AccStats {
-      -- | Frame
+      -- | Step counter
       --
-      -- This is just a simple counter
-      _accFrame            :: !Int
+      -- This is just a simple counter, incremented after each 'Event'
+      _accStep             :: !Int
 
       -- | Number of payment requests we failed to satisfy
     , _accFailedPayments   :: !Int
@@ -173,7 +173,7 @@ makeLenses ''AccStats
 
 initAccumulatedStats :: AccStats
 initAccumulatedStats = AccStats {
-      _accFrame            = 0
+      _accStep             = 0
     , _accFailedPayments   = 0
     , _accUtxoSize         = [] ^. from timeSeriesList
     , _accUtxoMaxHistogram = Histogram.empty
@@ -181,14 +181,14 @@ initAccumulatedStats = AccStats {
     , _accMedianRatio      = [] ^. from timeSeriesList
     }
 
--- | Construct statistics for the next frame
+-- | Construct statistics for the next step
 --
 -- For the median ratio timeseries, we use a default value of @-1@ as long as
 -- there are no outputs generated yet (since we plot from 0, this will then be
 -- not visible).
-stepFrame :: CurrentStats -> AccStats -> AccStats
-stepFrame CurrentStats{..} st =
-    st & accFrame                        %~ succ
+stepAccStats :: CurrentStats -> AccStats -> AccStats
+stepAccStats CurrentStats{..} st =
+    st & accStep                         %~ succ
        & accUtxoMaxHistogram             %~ Histogram.max currentUtxoHistogram
        & accUtxoSize    . timeSeriesList %~ (currentUtxoSize :)
        & accMedianRatio . timeSeriesList %~ (MultiSet.medianWithDefault (-1) txStatsRatios :)
@@ -238,7 +238,7 @@ instance Monad m => RunPolicy (StateT (IntState h a) m) a where
   Interpreter proper
 -------------------------------------------------------------------------------}
 
--- | Current UTxO statistics and accumulated statistics for each frame
+-- | Current UTxO statistics and accumulated statistics for each step
 mkFrame :: Monad m => StateT (IntState h a) m (CurrentStats, AccStats)
 mkFrame = state aux
   where
@@ -246,7 +246,7 @@ mkFrame = state aux
     aux st = ((currentStats, accStats), st & stStats .~ accStats)
       where
         currentStats = deriveCurrentStats (st ^. stBinSize) (st ^. stUtxo)
-        accStats     = stepFrame currentStats (st ^. stStats)
+        accStats     = stepAccStats currentStats (st ^. stStats)
 
 -- | Interpreter for events, evaluating a policy
 --
@@ -395,7 +395,7 @@ renderPlotInstr utxoBinSize
     % "set yrange " % build % "\n"
     % "set size 0.25,0.4\n"
     % "set origin 0.65,0.55\n"
-    % "set xtics 1\n"
+    % "set xtics autofreq rotate by -90\n"
     % "set boxwidth 1\n"
     % "plot '" % build % ".txinputs' using 1:2 with boxes fillstyle solid notitle\n"
 
@@ -462,20 +462,28 @@ writePlotInstrs PlotParams{..} script bounds is = do
 
 -- | Sink that writes statistics to disk
 writeStats :: forall m. MonadIO m
-           => FilePath -- ^ Prefix for the files to create
+           => FilePath      -- ^ Prefix for the files to create
+           -> (Int -> Bool) -- ^ Which steps should we render?
            -> ConduitT (CurrentStats, AccStats) Void m [PlotInstr]
-writeStats prefix =
-    loop []
+writeStats prefix shouldRender =
+    loop [] 0
   where
-    loop :: [PlotInstr] -> ConduitT (CurrentStats, AccStats) Void m [PlotInstr]
-    loop acc = do
+    loop :: [PlotInstr]  -- ^ Accumulator
+         -> Int          -- ^ Rendered frame counter
+         -> ConduitT (CurrentStats, AccStats) Void m [PlotInstr]
+    loop acc frame = do
         mObs <- await
         case mObs of
-          Nothing  -> return $ reverse acc
-          Just obs -> loop . (: acc) =<< liftIO (go obs)
+          Nothing ->
+            return $ reverse acc
+          Just (curStats, accStats) -> do
+            if shouldRender (accStats ^. accStep)
+              then do instr <- liftIO $ go frame curStats accStats
+                      loop (instr : acc) (frame + 1)
+              else loop acc frame
 
-    go :: (CurrentStats, AccStats) -> IO PlotInstr
-    go (CurrentStats{..}, accStats) = do
+    go :: Int -> CurrentStats -> AccStats -> IO PlotInstr
+    go frame CurrentStats{..} accStats = do
         Histogram.writeFile (filepath <.> "histogram") currentUtxoHistogram
         Histogram.writeFile (filepath <.> "txinputs") (txStatsNumInputs txStats)
         writeTimeSeries (filepath <.> "growth") (accStats ^. accUtxoSize)
@@ -485,7 +493,7 @@ writeStats prefix =
           , piFailedPayments = accStats ^. accFailedPayments
           }
       where
-        filename = printf "%08d" (accStats ^. accFrame)
+        filename = printf "%08d" frame
         filepath = prefix </> filename
         txStats  = accStats ^. accTxStats
 
@@ -499,18 +507,19 @@ writeStats prefix =
 -- separately so that we combine bounds of related plots and draw them with the
 -- same scales.
 evaluatePolicy :: Hash h a
-               => FilePath
+               => FilePath       -- ^ Path to write to
+               -> (Int -> Bool)  -- ^ Frames to render
                -> InputSelectionPolicy h a (StateT (IntState h a) IO)
-               -> (a -> Bool)
-               -> IntState h a
+               -> (a -> Bool)    -- ^ Our addresses
+               -> IntState h a   -- ^ Initial state
                -> ConduitT () (Event h a) IO ()
                -> IO (AccStats, [PlotInstr])
-evaluatePolicy prefix policy ours initState generator =
+evaluatePolicy prefix shouldRender policy ours initState generator =
     fmap (first (view stStats)) $
       runConduit $
         generator                       `fuse`
         intPolicy policy ours initState `fuseBoth`
-        writeStats prefix
+        writeStats prefix shouldRender
 
 type NamedPolicies h = [
     ( String
@@ -531,12 +540,14 @@ evaluateUsingEvents :: forall h. Hash h World
                     -> FilePath        -- ^ Prefix for this event stream
                     -> Utxo h World    -- ^ Initial UTxO
                     -> NamedPolicies h -- ^ Policies to evaluate
+                    -> (Int -> Bool)   -- ^ Frames to render
                     -> ConduitT () (Event h World) IO ()  -- ^ Event stream
                     -> IO ()
 evaluateUsingEvents plotParams@PlotParams{..}
                     eventsPrefix
                     initUtxo
                     policies
+                    shouldRender
                     events =
     forM_ policies $ \(suffix, policy) -> do
       let prefix' = prefix </> (eventsPrefix ++ suffix)
@@ -553,6 +564,7 @@ evaluateUsingEvents plotParams@PlotParams{..}
         createDirectory prefix'
         (stats, plotInstr) <- evaluatePolicy
           prefix'
+          shouldRender
           policy
           (== Us)
           (initIntState plotParams initUtxo Us)
@@ -565,12 +577,19 @@ evaluateUsingEvents plotParams@PlotParams{..}
 
 evaluateInputPolicies :: PlotParams -> IO ()
 evaluateInputPolicies plotParams@PlotParams{..} = do
-    evaluateUsingEvents plotParams "1to1"        initUtxo allPolicies  $ nTo1  1 False
-    evaluateUsingEvents plotParams "3to1"        initUtxo chosenPolicy $ nTo1  3 False
-    evaluateUsingEvents plotParams "3to1-narrow" initUtxo chosenPolicy $ nTo1  3 True
-    evaluateUsingEvents plotParams "10to1"       initUtxo chosenPolicy $ nTo1 10 False
-    evaluateUsingEvents plotParams "20to1"       initUtxo chosenPolicy $ nTo1 20 False
+    go "1to1"        initUtxo allPolicies  (renderEvery (10 *   3)) $ nTo1   1 False
+    go "3to1"        initUtxo chosenPolicy (renderEvery (10 *   5)) $ nTo1   3 False
+    go "3to1-narrow" initUtxo chosenPolicy (renderEvery (10 *   5)) $ nTo1   3 True
+    go "10to1"       initUtxo chosenPolicy (renderEvery (10 *  12)) $ nTo1  10 False
+    go "20to1"       initUtxo chosenPolicy (renderEvery (10 *  22)) $ nTo1  20 False
+    go "100to1"      initUtxo chosenPolicy (renderEvery (10 * 102)) $ nTo1 100 False
   where
+    go = evaluateUsingEvents plotParams
+
+    -- Render every n steps
+    renderEvery :: Int -> Int -> Bool
+    renderEvery n step = step `mod` n == 0
+
     -- Event stream with a ratio of N:1 deposits:withdrawals
     nTo1 :: Int -> Bool -> ConduitT () (Event GivenHash World) IO ()
     nTo1 n narrow = Gen.fromDistr Gen.FromDistrParams {
@@ -580,7 +599,7 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
                                   (100  * if narrow then 1 else fromIntegral n)
         , Gen.fromDistrNumDep = ConstDistr n
         , Gen.fromDistrNumPay = ConstDistr 1
-        , Gen.fromDistrCycles = 500
+        , Gen.fromDistrCycles = 10000
         }
 
     -- Initial UTxO for all these tests

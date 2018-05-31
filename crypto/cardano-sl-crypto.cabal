@@ -109,16 +109,30 @@ test-suite test
 
   other-modules:
                        Spec
+                       Test.Pos.Crypto.Bi
                        Test.Pos.Crypto.CryptoSpec
+                       Test.Pos.Crypto.Gen
+                       Test.Pos.Crypto.TempHelpers
 
   build-depends:       QuickCheck
                      , base
                      , bytestring
+                     , cardano-crypto
                      , cardano-sl-binary
                      , cardano-sl-crypto
+                     , cardano-sl-util-test
+                     , cryptonite
+                     , directory
+                     , filepath
+                     , file-embed
                      , formatting
+                     , hedgehog
                      , hspec
+                     , memory
+                     , pretty-show
                      , text
+                     , text-format
+                     , template-haskell
                      , universum >= 0.1.11
                      , unordered-containers
 

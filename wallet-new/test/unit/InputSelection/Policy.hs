@@ -137,8 +137,7 @@ class Monad m => RunPolicy m a | m -> a where
   genFreshHash :: m Int
 
 type InputSelectionPolicy h a m =
-      (RunPolicy m a, Hash h a)
-   => Utxo h a
+      Utxo h a
    -> [Output a]
    -> m (Either InputSelectionFailure (Transaction h a, TxStats))
 
@@ -220,7 +219,8 @@ runInputPolicyT utxo policy = do
 -- | Look for exact single matches only
 --
 -- Each goal output must be matched by exactly one available output.
-exactSingleMatchOnly :: forall h a m. InputSelectionPolicy h a m
+exactSingleMatchOnly :: forall h a m. (RunPolicy m a, Hash h a)
+                     => InputSelectionPolicy h a m
 exactSingleMatchOnly utxo = \goals -> runInputPolicyT utxo $
     mconcat <$> mapM go goals
   where
@@ -251,7 +251,8 @@ useExactMatch goalVal = do
 --
 -- NOTE: This is a very efficient implementation. Doesn't really matter, this
 -- is just for testing; we're not actually considering using such a policy.
-largestFirst :: forall h a m. Monad m => InputSelectionPolicy h a m
+largestFirst :: forall h a m. (RunPolicy m a, Hash h a)
+             => InputSelectionPolicy h a m
 largestFirst utxo = \goals -> runInputPolicyT utxo $
     mconcat <$> mapM go goals
   where
@@ -308,7 +309,7 @@ data PrivacyMode = PrivacyModeOn | PrivacyModeOff
 -- benefit of introducing another self-correction: if there are frequent
 -- requests for payments around certain size, the UTxO will contain lots of
 -- available change outputs of around that size.
-random :: forall h a m. LiftQuickCheck m
+random :: forall h a m. (RunPolicy m a, LiftQuickCheck m, Hash h a)
        => PrivacyMode -> InputSelectionPolicy h a m
 random privacyMode utxo = \goals -> runInputPolicyT utxo $
     mconcat <$> mapM go goals

@@ -518,53 +518,35 @@ evaluatePolicy prefix policy ours initState generator = do
 -- * Largest-first
 -- * Random, privacy mode off
 -- * Random, privacy mode on
-evaluateUsingEvents :: Hash h World
+evaluateUsingEvents :: forall h. Hash h World
                     => PlotParams
                     -> String        -- ^ Prefix for this event stream
                     -> Utxo h World  -- ^ Initial UTxO
                     -> ConduitT () (Event h World) IO ()  -- ^ Event stream
                     -> IO ()
-evaluateUsingEvents plotParams@PlotParams{..} eventsPrefix initUtxo events = do
-    (statsLargest, plotLargest) <- evaluatePolicy
-      (prefix </> (eventsPrefix ++ "-largest"))
-      Policy.largestFirst
-      (== Us)
-      (initIntState plotParams initUtxo Us)
-      events
-    (statsRandomOff, plotRandomOff) <- evaluatePolicy
-      (prefix </> (eventsPrefix ++ "-randomOff"))
-      (Policy.random PrivacyModeOff)
-      (== Us)
-      (initIntState plotParams initUtxo Us)
-      events
-    (statsRandomOn, plotRandomOn) <- evaluatePolicy
-      (prefix </> (eventsPrefix ++ "-randomOn"))
-      (Policy.random PrivacyModeOn)
-      (== Us)
-      (initIntState plotParams initUtxo Us)
-      events
-
-    -- Make sure we use the same bounds for the UTxO
-    let boundsTrivial_Largest   = deriveBounds statsLargest
-        boundsTrivial_RandomOff = deriveBounds statsRandomOff
-        boundsTrivial_RandomOn  = deriveBounds statsRandomOn
-
-    writePlotInstrs
-      plotParams
-      ((eventsPrefix ++ "-largest") </> "mkframes.gnuplot")
-      boundsTrivial_Largest
-      plotLargest
-    writePlotInstrs
-      plotParams
-      ((eventsPrefix ++ "-randomOff") </> "mkframes.gnuplot")
-      boundsTrivial_RandomOff
-      plotRandomOff
-    writePlotInstrs
-      plotParams
-      ((eventsPrefix ++ "-randomOn") </> "mkframes.gnuplot")
-      boundsTrivial_RandomOn
-      plotRandomOn
-
+evaluateUsingEvents plotParams@PlotParams{..} eventsPrefix initUtxo events =
+    forM_ policies $ \(suffix, policy) -> do
+      (stats, plotInstr) <- evaluatePolicy
+        (prefix </> (eventsPrefix ++ suffix))
+        policy
+        (== Us)
+        (initIntState plotParams initUtxo Us)
+        events
+      writePlotInstrs
+        plotParams
+        ((eventsPrefix ++ suffix) </> "mkframes.gnuplot")
+        (deriveBounds stats)
+        plotInstr
+  where
+    policies :: [ ( String
+                  , InputSelectionPolicy h World (StateT (IntState h World) IO)
+                  )
+                ]
+    policies = [
+        ("-largest",   Policy.largestFirst)
+      , ("-randomOff", Policy.random PrivacyModeOff)
+      , ("-randomOn",  Policy.random PrivacyModeOn)
+      ]
 
 evaluateInputPolicies :: PlotParams -> IO ()
 evaluateInputPolicies plotParams@PlotParams{..} = do

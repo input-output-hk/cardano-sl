@@ -30,9 +30,9 @@ import           UTxO.DSL
 
 data Event h a =
     Deposit (Utxo h a)
-  | Pay [(ExpenseRegulation, Output a)]
+  | Pay ExpenseRegulation [Output a]
   -- ^ A list of 'Output' we want to pay together with an 'ExpenseRegulation'
-  -- policy for each of them.
+  -- policy for all of them.
   | NextSlot
 
 
@@ -77,7 +77,7 @@ test TestParams{..} = do
 
     forM_ vals $ \n ->
       forM_ ixs $ \_m ->
-        yield $ Pay [(SenderPaysFees, Output () n)]
+        yield $ Pay SenderPaysFees [Output () n]
   where
     vals :: [Value]
     vals = [testParamsMin, testParamsMin + testParamsIncr .. testParamsMax]
@@ -94,7 +94,7 @@ data World = Us | Them | Treasury
   deriving (Eq)
 
 instance HasTreasuryAddress World where
-  getTreasuryAddr = Treasury
+  treasuryAddr = Treasury
 
 -- | Trivial generator where single deposits drawn from a normal distribution
 -- are followed by single withdrawals from that same distribution.
@@ -152,10 +152,10 @@ fromDistr FromDistrParams{..} = do
 
             mkPay :: Gen (Event GivenHash World)
             mkPay =
-                Pay . aux <$> drawFromDistr' fromDistrPay
+                Pay SenderPaysFees . aux <$> drawFromDistr' fromDistrPay
               where
-                aux :: Value -> [(ExpenseRegulation, Output World)]
-                aux val = [(SenderPaysFees, Output Them val)]
+                aux :: Value -> [Output World]
+                aux val = [Output Them val]
 
         numDep <- drawFromDistr' fromDistrNumDep
         numPay <- drawFromDistr' fromDistrNumPay

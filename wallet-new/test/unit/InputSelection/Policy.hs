@@ -23,12 +23,12 @@ import           Universum
 import           Control.Lens ((%=), (.=))
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except (MonadError (..))
+import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import           Test.QuickCheck
 
-import           Cardano.Wallet.Kernel.CoinSelection.Types (ExpenseRegulation (..),
-                                                            getRegulationRatio)
+import           Cardano.Wallet.Kernel.CoinSelection.Types (ExpenseRegulation (..))
 
 import           Util.Histogram (BinSize (..), Histogram)
 import qualified Util.Histogram as Histogram
@@ -134,11 +134,11 @@ fromPartialTxStats PartialTxStats{..} = TxStats{
 -------------------------------------------------------------------------------}
 
 class Eq a => HasTreasuryAddress a where
-  -- | Generate treasury address
-    getTreasuryAddr :: a
+  -- | The treasury address
+    treasuryAddr :: a
 
 instance HasTreasuryAddress () where
-  getTreasuryAddr = ()
+  treasuryAddr = ()
 
 -- | Monads in which we can run input selection policies
 class Monad m => RunPolicy m a | m -> a where
@@ -151,12 +151,13 @@ class Monad m => RunPolicy m a | m -> a where
 type InputSelectionPolicy h a m =
       (HasTreasuryAddress a, RunPolicy m a, Hash h a)
    => Utxo h a
-   -> [(ExpenseRegulation, Output a)]
+   -> ExpenseRegulation
+   -> [Output a]
    -> m (Either (InputSelectionFailure a) (Transaction h a, TxStats))
 
 data InputSelectionFailure a = InputSelectionFailure
                              | InsufficientFundsToCoverFee ExpenseRegulation (Output a)
-                             | NeedsExtraInputsToCover (ExpenseRegulation, Output a)
+                             | NeedsExtraInputsToCover ExpenseRegulation (Output a)
 
 
 {-------------------------------------------------------------------------------
@@ -170,15 +171,18 @@ data InputPolicyState h a = InputPolicyState {
       -- | Selected inputs
     , _ipsSelectedInputs   :: Set (Input h a)
 
-      -- | Generated outputs
-    , _ipsGeneratedOutputs :: [(ExpenseRegulation, Output a)]
+      -- | The original outputs (that we need to pay)
+    , _ipsOriginalOutputs  :: [Output a]
+
+      -- | Generated outputs (for example change addresses)
+    , _ipsGeneratedOutputs :: [Output a]
     }
 
 initInputPolicyState :: Utxo h a -> InputPolicyState h a
 initInputPolicyState utxo = InputPolicyState {
-      _ipsUtxo             = utxo
-    , _ipsSelectedInputs   = Set.empty
-    , _ipsGeneratedOutputs = []
+      _ipsUtxo              = utxo
+    , _ipsSelectedInputs    = Set.empty
+    , _ipsGeneratedOutputs  = []
     }
 
 makeLenses ''InputPolicyState
@@ -206,125 +210,108 @@ instance RunPolicy m a => RunPolicy (InputPolicyT h a m) a where
 runInputPolicyT :: (Hash h a, HasTreasuryAddress a, RunPolicy m a)
                 => (Int -> [Value] -> Value)
                 -- ^ Function to compute the estimated fees
+                -> ExpenseRegulation
                 -> Utxo h a
                 -> InputPolicyT h a m PartialTxStats
                 -> m (Either (InputSelectionFailure a) (Transaction h a, TxStats))
-runInputPolicyT estimateFee utxo policy = do
+runInputPolicyT estimateFee expenseRegulation utxo policy = do
      mx <- runExceptT (runStateT (unInputPolicyT policy) initSt)
      case mx of
        Left err ->
          return $ Left err
        Right (ptxStats, finalSt) -> do
-         let selectedInputs = finalSt ^. ipsSelectedInputs
-             treasuryAddr   = getTreasuryAddr
-             -- Filter any treasury address, as they should concur in the input
-             -- selection, but not in the calculation of the fee and should not
-             -- be visible in the final outputs of the transaction.
-             -- NOTE(adn) Is the last sentenced true? As far as the DSL is
-             -- concerned, should be perfectly fine to have outputs which
-             -- target the treasury address, I guess much less so for the
-             -- actual translation to Cardano.
-             generatedOutputs = filter ((/=) treasuryAddr . outAddr . snd) (finalSt ^. ipsGeneratedOutputs)
-             inputsLen        = length selectedInputs
-             outputsWithFees  = distributeFee estimateFee generatedOutputs inputsLen
+         let selectedInputs    = finalSt ^. ipsSelectedInputs
 
-         case outputsWithFees of
-              Left e -> return (Left e)
-              Right outputs -> do
-                 let upperBoundFee = estimateFee inputsLen (map outVal outputs)
-                     -- 'amountNeeded' already includes the fees.
-                     amountNeeded  = foldl' (\acc out -> acc + outVal out) 0 outputs
-                     amountCovered = utxoBalance (utxoRestrictToInputs selectedInputs utxo)
+             -- These are the original outputs to pay to (\"goals\") together
+             -- with any freshly-created 'Output' (e.g. a change address).
+             -- Both 'Output' types concurs for the calculation of the final fee.
+             generatedOutputs  = finalSt ^. ipsGeneratedOutputs
+             inputsLen         = length selectedInputs
 
-                 -- Check if the selected inputs covers the fees
-                 case amountCovered >= amountNeeded of
-                      False -> do
-                          -- Calculate how much we need more
-                          let slack = amountNeeded - amountCovered
-                              -- The extra goal @must@ have by construction a
-                              -- 'senderPays' expense regulation, otherwise 'distributeFee'
-                              -- would have failed, as the receivers would have failed
-                              -- to cover the fees themselves. Therefore, if we got any
-                              -- slack we failed to cover, it must come from the sender's side.
-                              -- NOTE(adn) I don't think this is true, due to the
-                              -- fact we might have things like 'sharedCost', which makes
-                              -- the process of attribution of the fee not trivial.
-                              newGoal = (SenderPaysFees, Output treasuryAddr slack)
-                          -- \"Rerun\" with the amended goals.
-                          return $ Left (NeedsExtraInputsToCover newGoal)
-                      True -> do
-                          h <- genFreshHash
-                          return $ Right (
-                              Transaction {
-                                  trFresh = 0
-                                , trIns   = finalSt ^. ipsSelectedInputs
-                                , trOuts  = outputs
-                                , trFee   = upperBoundFee
-                                , trHash  = h
-                                , trExtra = []
-                                }
-                            , fromPartialTxStats ptxStats
-                            )
+             upperBoundFee = estimateFee inputsLen (map (outVal . snd) generatedOutputs)
+
+             -- Epsilon is the "slice" of the total fee, evenly distributed
+             -- between all the outputs.
+             e = epsilon upperBoundFee (length generatedOutputs)
+
+             -- We partition the outputs according to their 'ExpenseRegulation', to
+             -- handle both cases separately. Change addresses will always have a
+             -- 'SenderPaysFees' regulation associated, as it's stake which goes
+             -- back to the senders, and thus it's their responsibility to pay fees
+             -- on them.
+             (senderPays, receiverPays) = bimap addEpsilon identity
+               List.partition ((== SenderPaysFees) . fst) designatedOutputs
+             receiversCanCover = checkReceiversCanCover epsilon receiverPays
+
+         case receiversCanCover of
+           Left e -> return (Left e)
+           Right amendedReceiverOutputs -> do
+             let amountCovered = utxoBalance (utxoRestrictToInputs selectedInputs utxo)
+
+                 -- It's actually fine to include change addresses inside the 'amountNeeded'
+                 -- computation, as adding the fees won't substantially change anything as
+                 -- the stake manipulated is the same.
+                 amountNeeded  = foldl' (\acc (_, o) -> acc + outVal o) 0 senderPays
+
+             -- Check if the selected inputs covers the fees
+             case amountCovered >= amountNeeded of
+               False -> do
+                   -- Calculate how much we need more
+                   let slack = amountNeeded - amountCovered
+                       newGoal = (SenderPaysFees, Output treasuryAddr slack)
+                   return $ Left (NeedsExtraInputsToCover newGoal)
+
+               True -> do
+                   h <- genFreshHash
+                   return $ Right (
+                       Transaction {
+                           trFresh = 0
+                         , trIns   = finalSt ^. ipsSelectedInputs
+                         , trOuts  = senderPays <> amendedReceiverOutputs
+                         , trFee   = upperBoundFee
+                         , trHash  = h
+                         , trExtra = []
+                         }
+                     , fromPartialTxStats ptxStats
+                     )
   where
     initSt = initInputPolicyState utxo
-
-
--- | Transforms a list of outputs and their 'ExpenseRegulation's into a
--- list of 'Output' already amended by the fee, according to the expense
--- regulation bias. The fee is intended as an upper bound.
-distributeFee :: (Int -> [Value] -> Value)
-              -> [(ExpenseRegulation, Output a)]
-              -> Int
-              -- ^ The number of inputs (from the future).
-              -> Either (InputSelectionFailure a) [Output a]
-distributeFee estimateFee goals expectedInputsLen =
-    let upperBoundFee = estimateFee expectedInputsLen (map (outVal . snd) goals)
-        epsilon       = case goals of
-                            [] -> upperBoundFee
-                            _  -> upperBoundFee `div` (fromIntegral $ length goals)
-    in case partitionEithers (map (distribute epsilon) goals) of
-            ([], validOutputs) ->
-                -- Filter outputs which has a final 'outVal' of @exactly@ 0.
-                -- It's something quite rare but it can happen, and we probably
-                -- don't want them to contribute to the final Tx size and fee
-                -- calculation.
-                Right (filter ((== 0) . outVal) . map snd $ validOutputs)
-            (err : _, _)       -> Left err
-    where
-        distribute :: Value
-                   -- ^ The \"slice\" @ε@ of the total fee each 'Output'
-                   -- needs to be amended for.
-                   -> (ExpenseRegulation, Output a)
-                   -> Either (InputSelectionFailure a) (ExpenseRegulation, Output a)
-        distribute epsilon (expenseRegulation, output) =
-            let coefficient = getRegulationRatio expenseRegulation
-                val = outVal output
-                regulated = regulateBy coefficient epsilon val
-            in case regulated of
-                    Nothing     -> Left (InsufficientFundsToCoverFee expenseRegulation output)
-                    Just newVal -> Right (expenseRegulation, output { outVal = newVal })
-
-        -- Regulate the fee according to the 'ExpenseRegulation' coefficient.
-        -- This function will currently blow up for a coefficient
-        -- greater than 1.0, but it's not totally obvious if this ought to be
-        -- an error. For example, having something like 2.0 would indicate that
-        -- the recipient is changed twice for the fees, which might be useful
-        -- in some future use cases.
-        regulateBy :: Double -> Epsilon -> Value -> Maybe Value
-        regulateBy ratio epsilon originalAmount
-          | ratio == 0.0                = Just (originalAmount + epsilon)
-          | ratio > 0.0 && ratio <= 1.0 =
-              -- Pessimistic rounding, always try to take the ceiling, to make
-              -- sure rounding errors (if any) do not bring the originalAmount below 0.
-              -- In other terms, if we don't get 0 here, we are moderately sure rounding
-              -- errors shouldn't affect later computations.
-              let newAmount = originalAmount - (ceiling $ (fromIntegral epsilon) * ratio)
-              in case newAmount < 0 of
-                      True  -> Nothing
-                      False -> Just newAmount
-          | otherwise = error ("epsilon got an invalid expense regulation coefficient: " <> show ratio)
+    addEpsilon (er, o) e = (er, o { outVal = (outVal o) + e })
 
 type Epsilon = Value
+
+epsilon :: Value -> Int -> Epsilon
+epsilon totalFee 0            = totalFee
+epsilon totalFee totalOutputs = totalFee `div` totalOutputs
+
+-- NOTE(adn) Should drained outputs be removed from the final transaction?
+checkReceiversCanCover :: Epsilon
+                       -> [(ExpenseRegulation, Output a)]
+                       -- ^ All the outputs associated to the receivers
+                       -> Either (InputSelectionFailure a) [(ExpenseRegulation, Output a)]
+                       -- ^ A failure or the amended list of outputs.
+checkReceiversCanCover epsilon outputs =
+    case List.foldl' updateFn (mempty, mempty) outputs of
+        ([], outs)   -> Right outs
+        (err : _, _) -> Left err
+  where
+      updateFn :: ([InputSelectionFailure a], [(ExpenseRegulation, Output a)])
+               -> (ExpenseRegulation, Output a)
+               -> ([InputSelectionFailure a], [(ExpenseRegulation, Output a)])
+      updateFn (!lefts, !right) o =
+          case canCover o of
+              Left l  -> (l : lefts, rights)
+              Right r -> (lefts, r : rights)
+
+      canCover :: (ExpenseRegulation, Output a)
+               -> Either (InputSelectionFailure a) (ExpenseRegulation, Output a)
+      canCover (er, output) =
+          let original = outVal output
+              amended  = original - epsilon
+          in case amended > original of -- We underflowed
+                 True  -> Left (InsufficientFundsToCoverFee er output)
+                 False -> Right (er, output { outVal = amended })
+
 
 {-------------------------------------------------------------------------------
   Exact matches only
@@ -334,11 +321,11 @@ type Epsilon = Value
 --
 -- Each goal output must be matched by exactly one available output.
 exactSingleMatchOnly :: forall h a m. (Int -> [Value] -> Value) -> InputSelectionPolicy h a m
-exactSingleMatchOnly estimateFee utxo = \goals -> runInputPolicyT estimateFee utxo $
+exactSingleMatchOnly estimateFee ExpenseRegulation utxo = \goals -> runInputPolicyT estimateFee utxo $
     mconcat <$> mapM go goals
   where
-    go :: (ExpenseRegulation, Output a) -> InputPolicyT h a m PartialTxStats
-    go goal@(_, Output _a val) = do
+    go :: Output a -> InputPolicyT h a m PartialTxStats
+    go goal@(Output _a val) = do
       i <- useExactMatch val
       ipsSelectedInputs   %= Set.insert i
       ipsGeneratedOutputs %= (goal :)
@@ -371,7 +358,7 @@ largestFirst estimateFee utxo = \goals -> runInputPolicyT estimateFee utxo $
     mconcat <$> mapM go goals
   where
     go :: (ExpenseRegulation, Output a) -> InputPolicyT h a m PartialTxStats
-    go goal@(expenseRegulation, Output _a val) = do
+    go goal@(_, Output _a val) = do
         sorted   <- sortBy sortKey . utxoToList <$> use ipsUtxo
         selected <- case select sorted utxoEmpty 0 of
                       Nothing -> throwError InputSelectionFailure
@@ -386,7 +373,7 @@ largestFirst estimateFee utxo = \goals -> runInputPolicyT estimateFee utxo $
 
         unless (change == 0) $ do
           changeAddr <- genChangeAddr
-          ipsGeneratedOutputs %= ((expenseRegulation, Output changeAddr change) :)
+          ipsGeneratedOutputs %= (Output changeAddr change :)
 
         return PartialTxStats {
             ptxStatsNumInputs = utxoSize selected
@@ -427,11 +414,12 @@ random :: forall h a m. LiftQuickCheck m
        => PrivacyMode
        -> (Int -> [Value] -> Value)
        -> InputSelectionPolicy h a m
-random privacyMode estimateFee utxo = \goals -> runInputPolicyT estimateFee utxo $
-    mconcat <$> mapM go goals
+random privacyMode estimateFee utxo expenseRegulation =
+    \goals -> runInputPolicyT estimateFee utxo expenseRegulation $
+        mconcat <$> mapM go goals
   where
-    go :: (ExpenseRegulation, Output a) -> InputPolicyT h a m PartialTxStats
-    go goal@(expenseRegulation, Output _a val) = do
+    go :: Output a -> InputPolicyT h a m PartialTxStats
+    go goal@(Output _a val) = do
         -- First attempt to find a change output in the ideal range.
         -- Failing that, try to at least cover the value.
         --
@@ -447,7 +435,7 @@ random privacyMode estimateFee utxo = \goals -> runInputPolicyT estimateFee utxo
             change      = selectedSum - val
         unless (change == 0) $ do
           changeAddr <- genChangeAddr
-          ipsGeneratedOutputs %= ((expenseRegulation, Output changeAddr change) :)
+          ipsGeneratedOutputs %= (Output changeAddr change :)
         return PartialTxStats {
             ptxStatsNumInputs = utxoSize selected
           , ptxStatsRatios    = MultiSet.singleton (fromIntegral change / fromIntegral val)

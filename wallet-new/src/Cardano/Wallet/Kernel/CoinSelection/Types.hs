@@ -1,6 +1,5 @@
 module Cardano.Wallet.Kernel.CoinSelection.Types (
       ExpenseRegulation (..)
-    , getRegulationRatio
     ) where
 
 import           Universum
@@ -17,10 +16,3 @@ data ExpenseRegulation =
     | ReceiverPaysFees
     -- ^ The recipient pays for the fees entirely.
     deriving Eq
-
--- | A value of 0 means that 0% of the fee will be payed by the recipient.
--- Conversely, a value of 1.0 means that the recipient will pay for the fee
--- entirely.
-getRegulationRatio :: ExpenseRegulation -> Double
-getRegulationRatio SenderPaysFees   = 0.0
-getRegulationRatio ReceiverPaysFees = 1.0

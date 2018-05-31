@@ -27,9 +27,8 @@ import           Test.Infrastructure.Generator (estimateCardanoFee)
 
 import           InputSelection.Generator (Event (..), World (..))
 import qualified InputSelection.Generator as Gen
-import           InputSelection.Policy (HasTreasuryAddress (..), InputSelectionFailure (..),
-                                        InputSelectionPolicy, PrivacyMode (..), RunPolicy (..),
-                                        TxStats (..))
+import           InputSelection.Policy (HasTreasuryAddress (..), InputSelectionPolicy,
+                                        PrivacyMode (..), RunPolicy (..), TxStats (..))
 import qualified InputSelection.Policy as Policy
 import           Util.Distr
 import           Util.Histogram (Bin, BinSize (..), Histogram)
@@ -285,8 +284,6 @@ intPolicy policy ours initState =
             stUtxo               %= utxoRemoveInputs (trIns tx)
             stPending            %= utxoUnion (utxoRestrictToAddr ours (trUtxo tx))
             stStats . accTxStats %= mappend txStats
-          Left (NeedsExtraInputsToCover newGoal) ->
-            go $ Pay (newGoal : outs)
           Left _err ->
             stStats . accFailedPayments += 1
 

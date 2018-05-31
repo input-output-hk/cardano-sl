@@ -577,12 +577,11 @@ evaluateUsingEvents plotParams@PlotParams{..}
 
 evaluateInputPolicies :: PlotParams -> IO ()
 evaluateInputPolicies plotParams@PlotParams{..} = do
-    go "1to1"        initUtxo allPolicies  (renderEvery (10 *   3)) $ nTo1   1 False
-    go "3to1"        initUtxo chosenPolicy (renderEvery (10 *   5)) $ nTo1   3 False
-    go "3to1-narrow" initUtxo chosenPolicy (renderEvery (10 *   5)) $ nTo1   3 True
-    go "10to1"       initUtxo chosenPolicy (renderEvery (10 *  12)) $ nTo1  10 False
-    go "20to1"       initUtxo chosenPolicy (renderEvery (10 *  22)) $ nTo1  20 False
-    go "100to1"      initUtxo chosenPolicy (renderEvery (10 * 102)) $ nTo1 100 False
+    go "1to1"        initUtxo allPolicies  (renderEvery (10 *   3)) $ nTo1  1 False
+    go "3to1"        initUtxo chosenPolicy (renderEvery (10 *   5)) $ nTo1  3 False
+    go "3to1-narrow" initUtxo chosenPolicy (renderEvery (10 *   5)) $ nTo1  3 True
+    go "10to1"       initUtxo chosenPolicy (renderEvery (10 *  12)) $ nTo1 10 False
+    go "20to1"       initUtxo chosenPolicy (renderEvery (10 *  22)) $ nTo1 20 False
   where
     go = evaluateUsingEvents plotParams
 

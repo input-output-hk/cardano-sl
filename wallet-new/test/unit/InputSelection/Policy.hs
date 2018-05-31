@@ -176,6 +176,13 @@ newtype InputPolicyT h a m x = InputPolicyT {
            , MonadError InputSelectionFailure
            )
 
+{-
+inputPolicyT :: (   InputPolicyState h a
+                 -> m (Either InputSelectionFailure (x, InputPolicyState h a)))
+             -> InputPolicyT h a m x
+inputPolicyT f = InputPolicyT (StateT (\st -> ExceptT (f st)))
+-}
+
 instance MonadTrans (InputPolicyT h a) where
   lift = InputPolicyT . lift . lift
 
@@ -305,45 +312,123 @@ random privacyMode utxo = \goals -> runInputPolicyT utxo $
           , ptxStatsRatios    = MultiSet.singleton (fromIntegral change / fromIntegral val)
           }
       where
-        changeMin = val `div` 2
-        changeMax = val *     2
-        ideal     = (val + changeMin, val + changeMax)
-        fallback  = (val, maxBound)
+        fallback, ideal :: TargetRange
+        fallback = AtLeast val
+        ideal    = InRange {
+                       targetMin = val + (val `div` 2)
+                     , targetAim = val + val
+                     , targetMax = val + (val * 2)
+                     }
+
+-- | Target range for picking inputs
+data TargetRange =
+    -- | Cover at least the specified value, with no upper bound
+    AtLeast {
+        targetMin :: Value
+      }
+
+    -- | Find inputs in the specified range, aiming for the ideal value
+  | InRange {
+        targetMin :: Value
+      , targetAim :: Value
+      , targetMax :: Value
+      }
 
 -- | Random input selection: core algorithm
 --
 -- Select random inputs until we reach a value in the given bounds.
 -- Returns the selected outputs.
 randomInRange :: forall h a m. (Hash h a, LiftQuickCheck m)
-              => (Value, Value) -> InputPolicyT h a m (Utxo h a)
-randomInRange (lo, hi) =
-    go 0 utxoEmpty utxoEmpty
+              => TargetRange -> InputPolicyT h a m (Utxo h a)
+randomInRange AtLeast{..} = go 0 utxoEmpty
   where
-    -- Returns the UTxO that we used to cover the range if successful
-    go :: Value    -- ^ Accumulated value
-       -> Utxo h a -- ^ Discarded UTxO (not used, but not useable either)
-       -> Utxo h a -- ^ Used UTxO
-       -> InputPolicyT h a m (Utxo h a)
-    go acc discarded used =
-      if lo <= acc && acc <= hi
-        then do
-          ipsUtxo %= utxoUnion discarded -- make discarded available again
-          return used
-        else do
-          io@(_, out) <- useRandomOutput
-          let acc' = acc + outVal out
-          if acc' <= hi -- should we pick this value?
-            then go acc' discarded (utxoInsert io used)
-            else go acc  (utxoInsert io discarded) used
+    -- Invariant:
+    --
+    -- > acc == utxoBalance selected
+    go :: Value -> Utxo h a -> InputPolicyT h a m (Utxo h a)
+    go acc selected
+      | acc >= targetMin = return selected
+      | otherwise        = do io@(_, out) <- findRandomOutput
+                              go (acc + outVal out) (utxoInsert io selected)
+randomInRange InRange{..} = go 0 utxoEmpty
+  where
+    -- Preconditions
+    --
+    -- > 0 <= acc < tAim
+    --
+    -- Invariant:
+    --
+    -- > acc == utxoBalance selected
+    --
+    -- Relies on the following self-correcting property: if the UTxO
+    -- has many small entries, then we should be able to reach close
+    -- to the aim value. BUT if this is the case, then the probability
+    -- that when we pick a random value from the UTxO that we overshoot
+    -- the upper end of the range is low. Here we terminate early if we
+    -- happen to pick a value from the UTxO that overshoots the upper
+    -- of the range; this is likely to happen precisely when we have
+    -- a low probability of finding a value close to the aim.
+    go :: Value -> Utxo h a -> InputPolicyT h a m (Utxo h a)
+    go acc selected = do
+        mIO <- tryFindRandomOutput isImprovement
+        case mIO of
+          Nothing
+            | acc  >= targetMin -> return selected
+            | otherwise         -> throwError InputSelectionFailure
+          Just (i, o)
+            | acc' >= targetAim -> return selected'
+            | otherwise         -> go acc' selected'
+            where
+              acc'      = acc + outVal o
+              selected' = utxoInsert (i, o) selected
+     where
+       -- A new value is an improvement if
+       --
+       -- * We don't overshoot the upper end of the range
+       -- * We get closer to the aim.
+       --
+       -- Note that the second property is a bit subtle: it is trivially
+       -- true if both @acc@ and @acc + val@ are smaller than @targetAim@
+       --
+       -- > value | ------|------------|----------------|-------------
+       -- >              acc      (acc + val)      targetAim
+       --
+       -- but if @acc + val@ exceeds the aim, we are comparing (absolute)
+       -- distance to the aim
+       --
+       -- > value | ------|-----------|---------------|--------
+       -- >              acc      targetAim      (acc + val)
+       isImprovement :: (Input h a, Output a) -> Bool
+       isImprovement (_, Output _ val) =
+              (acc + val) <= targetMax
+           && distance targetAim (acc + val) < distance targetAim acc
 
-useRandomOutput :: LiftQuickCheck m
-                => InputPolicyT h a m (Input h a, Output a)
-useRandomOutput = do
+       distance :: Value -> Value -> Value
+       distance a b | a < b     = b - a
+                    | otherwise = a - b
+
+-- | Select a random output
+findRandomOutput :: LiftQuickCheck m => InputPolicyT h a m (Input h a, Output a)
+findRandomOutput = do
+    mIO <- tryFindRandomOutput (const True)
+    case mIO of
+      Just io -> return io
+      Nothing -> throwError InputSelectionFailure
+
+-- | Find a random output, and return it if it satisfies the predicate
+--
+-- If the predicate is not satisfied, state is not changed.
+tryFindRandomOutput :: LiftQuickCheck m
+                    => ((Input h a, Output a) -> Bool)
+                    -> InputPolicyT h a m (Maybe (Input h a, Output a))
+tryFindRandomOutput p = do
     utxo <- utxoToMap <$> use ipsUtxo
     mIO  <- liftQuickCheck $ randomElement utxo
     case mIO of
-      Nothing          -> throwError InputSelectionFailure
-      Just (io, utxo') -> ipsUtxo .= utxoFromMap utxo' >> return io
+      Nothing       -> return Nothing
+      Just (io, utxo')
+        | p io      -> do ipsUtxo .= utxoFromMap utxo' ; return $ Just io
+        | otherwise -> return Nothing
 
 {-------------------------------------------------------------------------------
   Auxiliary

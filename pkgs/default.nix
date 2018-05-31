@@ -12467,7 +12467,6 @@ version = "1.1.1";
 src = ./../lib;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 acid-state
@@ -12700,7 +12699,6 @@ version = "1.1.1";
 src = ./../auxx;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 isLibrary = true;
 isExecutable = true;
@@ -12973,7 +12971,6 @@ version = "1.1.1";
 src = ./../block;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 aeson
@@ -13087,7 +13084,6 @@ version = "1.1.1";
 src = ./../client;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 base
@@ -13208,7 +13204,6 @@ version = "1.1.1";
 src = ./../core;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 aeson
@@ -13444,7 +13439,6 @@ version = "1.1.1";
 src = ./../db;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 base
@@ -13524,7 +13518,6 @@ version = "1.1.1";
 src = ./../delegation;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 aeson
@@ -13649,7 +13642,6 @@ version = "1.1.1";
 src = ./../explorer;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 isLibrary = true;
 isExecutable = true;
@@ -13834,7 +13826,6 @@ version = "1.1.1";
 src = ./../generator;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 base
@@ -13984,7 +13975,6 @@ version = "1.1.1";
 src = ./../infra;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 aeson
@@ -14096,7 +14086,6 @@ version = "1.1.1";
 src = ./../lrc;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 base
@@ -14157,9 +14146,6 @@ mkDerivation {
 pname = "cardano-sl-lrc-test";
 version = "1.0.0";
 src = ./../lrc/test;
-configureFlags = [
-"--ghc-option=-Werror"
-];
 libraryHaskellDepends = [
 base
 cardano-sl-core
@@ -14343,7 +14329,6 @@ version = "1.1.1";
 src = ./../node;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 isLibrary = false;
 isExecutable = true;
@@ -14420,7 +14405,6 @@ version = "1.1.1";
 src = ./../ssc;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 aeson
@@ -14568,7 +14552,6 @@ version = "1.1.1";
 src = ./../tools;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 isLibrary = true;
 isExecutable = true;
@@ -14740,7 +14723,6 @@ version = "1.1.1";
 src = ./../txp;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 aeson
@@ -14921,7 +14903,6 @@ version = "1.1.1";
 src = ./../update;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 aeson
@@ -15040,7 +15021,6 @@ version = "1.1.1";
 src = ./../util;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 aeson
@@ -15246,7 +15226,6 @@ version = "1.1.1";
 src = ./../wallet;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 libraryHaskellDepends = [
 acid-state
@@ -15469,7 +15448,6 @@ version = "1.1.1";
 src = ./../wallet-new;
 configureFlags = [
 "--ghc-option=-fwarn-redundant-constraints"
-"--ghc-option=-Werror"
 ];
 isLibrary = true;
 isExecutable = true;

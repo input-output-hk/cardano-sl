@@ -11,7 +11,6 @@ module InputSelection.Policy (
     -- * Transaction statistics
   , TxStats(..)
     -- * Specific policies
-  , exactSingleMatchOnly
   , largestFirst
   , random
   ) where
@@ -211,37 +210,6 @@ runInputPolicyT utxo policy = do
            )
   where
     initSt = initInputPolicyState utxo
-
-{-------------------------------------------------------------------------------
-  Exact matches only
--------------------------------------------------------------------------------}
-
--- | Look for exact single matches only
---
--- Each goal output must be matched by exactly one available output.
-exactSingleMatchOnly :: forall h a m. (RunPolicy m a, Hash h a)
-                     => InputSelectionPolicy h a m
-exactSingleMatchOnly utxo = \goals -> runInputPolicyT utxo $
-    mconcat <$> mapM go goals
-  where
-    go :: Output a -> InputPolicyT h a m PartialTxStats
-    go goal@(Output _a val) = do
-      i <- useExactMatch val
-      ipsSelectedInputs   %= Set.insert i
-      ipsGeneratedOutputs %= (goal :)
-      return PartialTxStats {
-          ptxStatsNumInputs = 1
-        , ptxStatsRatios    = MultiSet.singleton 0
-        }
-
--- | Look for an input in the UTxO that matches the specified value exactly
-useExactMatch :: (Monad m, Hash h a)
-              => Value -> InputPolicyT h a m (Input h a)
-useExactMatch goalVal = do
-    utxo <- utxoToList <$> use ipsUtxo
-    case filter (\(_inp, Output _a val) -> val == goalVal) utxo of
-      (i, _o) : _ -> ipsUtxo %= utxoDelete i >> return i
-      _otherwise  -> throwError InputSelectionFailure
 
 {-------------------------------------------------------------------------------
   Always find the largest UTxO possible

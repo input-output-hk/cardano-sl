@@ -5,9 +5,8 @@ module InputSelection.Generator (
   , TestParams(..)
   , defTestParams
   , test
-    -- ** Simple generators
+    -- ** Configurable event stream
   , World(..)
-  , trivial
   , FromDistrParams(..)
   , fromDistr
   ) where
@@ -80,24 +79,12 @@ test TestParams{..} = do
     ixs = [1 .. fromIntegral testParamsCount]
 
 {-------------------------------------------------------------------------------
-  Trivial generator
+  Configurable event stream
 -------------------------------------------------------------------------------}
 
 -- | It is well-known that the world divides into us versus them.
 data World = Us | Them
   deriving (Eq)
-
--- | Trivial generator where single deposits drawn from a normal distribution
--- are followed by single withdrawals from that same distribution.
-trivial :: LiftQuickCheck m
-        => NormalDistr Value  -- ^ Distribution to draw from
-        -> Int                -- ^ Number of deposit/withdraw/confirm cycles
-        -> ConduitT () (Event GivenHash World) m ()
-trivial d n = fromDistr $ FromDistrParams d d (ConstDistr 1) (ConstDistr 1) n
-
-{-------------------------------------------------------------------------------
-  Generalization of 'trivial'
--------------------------------------------------------------------------------}
 
 -- | Parameters for 'fromDistr'
 data FromDistrParams fDep fPay fNumDep fNumPay =

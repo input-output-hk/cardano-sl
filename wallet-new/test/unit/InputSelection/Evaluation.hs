@@ -10,6 +10,7 @@ module InputSelection.Evaluation (
 
 import           Universum
 
+import           Control.Exception (throwIO)
 import           Control.Lens (Iso', from, (%=), (+=), (.=), (<<+=))
 import           Control.Lens.TH (makeLenses, makePrisms, makeWrapped)
 import           Control.Lens.Wrapped (_Wrapped)
@@ -18,9 +19,10 @@ import qualified Data.Conduit.Lift as Conduit
 import qualified Data.Text.IO as Text
 import           Formatting (build, sformat, (%))
 import           Pos.Util.Chrono
-import           System.Directory (createDirectoryIfMissing)
+import           System.Directory (createDirectory)
 import           System.FilePath ((<.>), (</>))
 import qualified System.IO as IO
+import qualified System.IO.Error as IO
 import           Text.Printf (printf)
 
 import           InputSelection.Generator (Event (..), World (..))
@@ -434,7 +436,7 @@ renderPlotInstr utxoBinSize
 writePlotInstrs :: PlotParams -> FilePath -> Bounds -> [PlotInstr] -> IO ()
 writePlotInstrs PlotParams{..} script bounds is = do
     putStrLn $ sformat ("Writing '" % build % "'") script
-    withFile (prefix </> script) WriteMode $ \h -> do
+    withFile script WriteMode $ \h -> do
       Text.hPutStrLn h $ sformat
           ( "set grid\n"
           % "set term png size " % build % ", " % build % "\n"
@@ -503,13 +505,19 @@ evaluatePolicy :: Hash h a
                -> IntState h a
                -> ConduitT () (Event h a) IO ()
                -> IO (AccStats, [PlotInstr])
-evaluatePolicy prefix policy ours initState generator = do
-    createDirectoryIfMissing False prefix
+evaluatePolicy prefix policy ours initState generator =
     fmap (first (view stStats)) $
       runConduit $
         generator                       `fuse`
         intPolicy policy ours initState `fuseBoth`
         writeStats prefix
+
+type NamedPolicies h = [
+    ( String
+    , InputSelectionPolicy h World (StateT (IntState h World) IO)
+    )
+  ]
+
 
 -- | Evaluate various input policies given the specified event stream
 --
@@ -520,70 +528,79 @@ evaluatePolicy prefix policy ours initState generator = do
 -- * Random, privacy mode on
 evaluateUsingEvents :: forall h. Hash h World
                     => PlotParams
-                    -> String        -- ^ Prefix for this event stream
-                    -> Utxo h World  -- ^ Initial UTxO
+                    -> FilePath        -- ^ Prefix for this event stream
+                    -> Utxo h World    -- ^ Initial UTxO
+                    -> NamedPolicies h -- ^ Policies to evaluate
                     -> ConduitT () (Event h World) IO ()  -- ^ Event stream
                     -> IO ()
-evaluateUsingEvents plotParams@PlotParams{..} eventsPrefix initUtxo events =
+evaluateUsingEvents plotParams@PlotParams{..}
+                    eventsPrefix
+                    initUtxo
+                    policies
+                    events =
     forM_ policies $ \(suffix, policy) -> do
-      (stats, plotInstr) <- evaluatePolicy
-        (prefix </> (eventsPrefix ++ suffix))
-        policy
-        (== Us)
-        (initIntState plotParams initUtxo Us)
-        events
-      writePlotInstrs
-        plotParams
-        ((eventsPrefix ++ suffix) </> "mkframes.gnuplot")
-        (deriveBounds stats)
-        plotInstr
+      let prefix' = prefix </> (eventsPrefix ++ suffix)
+      go prefix' policy `catch` \e ->
+        if IO.isAlreadyExistsError e then
+          putStrLn $ "Skipping " ++ prefix' ++ " (directory already exists)"
+        else
+          throwIO e
   where
-    policies :: [ ( String
-                  , InputSelectionPolicy h World (StateT (IntState h World) IO)
-                  )
-                ]
-    policies = [
-        ("-largest",   Policy.largestFirst)
-      , ("-randomOff", Policy.random PrivacyModeOff)
-      , ("-randomOn",  Policy.random PrivacyModeOn)
-      ]
+    go :: FilePath
+       -> InputSelectionPolicy h World (StateT (IntState h World) IO)
+       -> IO ()
+    go prefix' policy = do
+        createDirectory prefix'
+        (stats, plotInstr) <- evaluatePolicy
+          prefix'
+          policy
+          (== Us)
+          (initIntState plotParams initUtxo Us)
+          events
+        writePlotInstrs
+          plotParams
+          (prefix' </> "mkframes.gnuplot")
+          (deriveBounds stats)
+          plotInstr
 
 evaluateInputPolicies :: PlotParams -> IO ()
 evaluateInputPolicies plotParams@PlotParams{..} = do
-    --
-    -- The exact match strategy
-    -- This is mostly just for debugging the test infrastructure itself.
-    --
-
-    let exactInitUtxo = utxoEmpty
-    (statsExact, plotExact) <- evaluatePolicy
-      (prefix </> "exact")
-      Policy.exactSingleMatchOnly
-      (const True)
-      (initIntState plotParams exactInitUtxo ())
-      (Gen.test Gen.defTestParams)
-    let exactBounds = deriveBounds statsExact
-    writePlotInstrs
-      plotParams
-      ("exact" </> "mkframes.gnuplot")
-      exactBounds
-      plotExact
-
-    --
-    -- Evaluate largest first and random against various event streams
-    --
-
-    let initUtxo = utxoSingleton (Input (GivenHash 0) 0) (Output Us 1000000)
-    evaluateUsingEvents plotParams "trivial" initUtxo $
-      Gen.trivial (NormalDistr 1000 100) 500
-    evaluateUsingEvents plotParams "3to1" initUtxo $
-      Gen.fromDistr Gen.FromDistrParams {
+    evaluateUsingEvents plotParams "1to1"        initUtxo allPolicies  $ nTo1  1 False
+    evaluateUsingEvents plotParams "3to1"        initUtxo chosenPolicy $ nTo1  3 False
+    evaluateUsingEvents plotParams "3to1-narrow" initUtxo chosenPolicy $ nTo1  3 True
+    evaluateUsingEvents plotParams "10to1"       initUtxo chosenPolicy $ nTo1 10 False
+    evaluateUsingEvents plotParams "20to1"       initUtxo chosenPolicy $ nTo1 20 False
+  where
+    -- Event stream with a ratio of N:1 deposits:withdrawals
+    nTo1 :: Int -> Bool -> ConduitT () (Event GivenHash World) IO ()
+    nTo1 n narrow = Gen.fromDistr Gen.FromDistrParams {
           Gen.fromDistrDep    = NormalDistr 1000 100
-        , Gen.fromDistrPay    = NormalDistr 3000 300
-        , Gen.fromDistrNumDep = ConstDistr 3
+        , Gen.fromDistrPay    = NormalDistr
+                                  (1000 * fromIntegral n)
+                                  (100  * if narrow then 1 else fromIntegral n)
+        , Gen.fromDistrNumDep = ConstDistr n
         , Gen.fromDistrNumPay = ConstDistr 1
         , Gen.fromDistrCycles = 500
         }
+
+    -- Initial UTxO for all these tests
+    initUtxo :: Utxo GivenHash World
+    initUtxo = utxoSingleton (Input (GivenHash 0) 0) (Output Us 1000000)
+
+    -- all policies we want to compare
+    allPolicies :: Hash h World => NamedPolicies h
+    allPolicies = [
+          ("-largest",   Policy.largestFirst)
+        , ("-randomOff", Policy.random PrivacyModeOff)
+        , ("-randomOn",  Policy.random PrivacyModeOn)
+        ]
+
+    -- the policy we're actually using and want to evaluate
+    chosenPolicy :: Hash h World => NamedPolicies h
+    chosenPolicy = [
+          ("-randomOn", Policy.random PrivacyModeOn)
+        ]
+
 
 
 {-

@@ -17,9 +17,7 @@ import           Pos.Core.Ssc.Commitment (SignedCommitment)
 -- from 'SignedCommitment' corresponds to key which is 'StakeholderId'.
 newtype CommitmentsMap = CommitmentsMap
     { getCommitmentsMap :: HashMap StakeholderId SignedCommitment
-    } deriving (Generic, Semigroup, Monoid, Show, Eq, ToList, NFData)
-
-type instance Element CommitmentsMap = SignedCommitment
+    } deriving (Generic, Semigroup, Monoid, Show, Eq, NFData, Container)
 
 -- | Safe constructor of 'CommitmentsMap'.
 mkCommitmentsMap :: [SignedCommitment] -> CommitmentsMap

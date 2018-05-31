@@ -41,9 +41,7 @@ import           Pos.Core.Ssc.VssCertificate (VssCertificate (..), checkVssCerti
 --   * no two certs have the same 'vcVssKey'
 newtype VssCertificatesMap = UnsafeVssCertificatesMap
     { getVssCertificatesMap :: HashMap StakeholderId VssCertificate }
-    deriving (Eq, Show, Generic, NFData, ToList, Container)
-
-type instance Element VssCertificatesMap = VssCertificate
+    deriving (Eq, Show, Generic, NFData, Container)
 
 makeWrapped ''VssCertificatesMap
 

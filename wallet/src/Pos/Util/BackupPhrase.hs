@@ -22,7 +22,7 @@ import           Pos.Binary (Bi (..), serialize')
 import           Pos.Crypto (AbstractHash, EncryptedSecretKey, PassPhrase, SecretKey, VssKeyPair,
                              deterministicKeyGen, deterministicVssKeyGen, safeDeterministicKeyGen,
                              unsafeAbstractHash)
-import           Pos.Util.LogSafe (SecureLog)
+import           Pos.Infra.Util.LogSafe (SecureLog)
 import           Pos.Util.Mnemonics (defMnemonic, fromMnemonic, toMnemonic)
 
 -- | Datatype to contain a valid backup phrase

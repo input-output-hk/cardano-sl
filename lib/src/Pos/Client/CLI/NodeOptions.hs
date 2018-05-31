@@ -25,11 +25,11 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Paths_cardano_sl (version)
 
 import           Pos.Client.CLI.Options (CommonArgs (..), commonArgsParser, optionalJSONPath)
-import           Pos.HealthCheck.Route53 (route53HealthCheckOption)
-import           Pos.Network.CLI (NetworkConfigOpts, networkConfigOption)
-import           Pos.Statistics (EkgParams, StatsdParams, ekgParamsOption, statsdParamsOption)
+import           Pos.Infra.HealthCheck.Route53 (route53HealthCheckOption)
+import           Pos.Infra.Network.CLI (NetworkConfigOpts, networkConfigOption)
+import           Pos.Infra.Statistics (EkgParams, StatsdParams, ekgParamsOption, statsdParamsOption)
+import           Pos.Infra.Util.TimeWarp (NetworkAddress)
 import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, compileInfo)
-import           Pos.Util.TimeWarp (NetworkAddress)
 
 data CommonNodeArgs = CommonNodeArgs
     { dbPath                 :: !(Maybe FilePath)

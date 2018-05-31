@@ -66,27 +66,32 @@ import           Pos.DB.Pure (DBPureVar)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration)
 import           Pos.Generator.Block (BlockGenMode)
 import qualified Pos.GState as GS
+import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
+import           Pos.Infra.Reporting (MonadReporting (..))
+import           Pos.Infra.Shutdown (HasShutdownContext (..),
+                                     ShutdownContext (..))
+import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
+                                     MonadSlotsData, SimpleSlottingStateVar,
+                                     mkSimpleSlottingStateVar)
+import           Pos.Infra.StateLock (StateLock, StateLockMetrics (..),
+                                     newStateLock)
+import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
+                                                JsonLogConfig (..),
+                                                MemPoolModifyReason,
+                                                jsonLogDefault)
+import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Lrc (LrcContext)
-import           Pos.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Reporting (MonadReporting (..))
-import           Pos.Shutdown (HasShutdownContext (..), ShutdownContext (..))
-import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
-                               SimpleSlottingStateVar, mkSimpleSlottingStateVar)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
-import           Pos.StateLock (StateLock, StateLockMetrics (..), newStateLock)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), TxpGlobalSettings,
                           TxpHolderTag, recordTxpMetrics, txNormalize, txProcessTransactionNoLock,
                           txpMemPool, txpTip)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Util (postfixLFields)
-import           Pos.Util.JsonLog.Events (HasJsonLogConfig (..), JsonLogConfig (..),
-                                          MemPoolModifyReason, jsonLogDefault)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
-import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.Redirect (applyLastUpdateWebWallet, blockchainSlotDurationWebWallet,

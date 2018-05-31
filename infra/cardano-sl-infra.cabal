@@ -19,111 +19,108 @@ library
                         Pos.Arbitrary.Infra
 
                         -- Diffusion layer
-                        Pos.Diffusion.Transport.TCP
-                        Pos.Diffusion.Types
-                        Pos.Diffusion.Subscription.Common
-                        Pos.Diffusion.Subscription.Dns
-                        Pos.Diffusion.Subscription.Dht
-                        Pos.Diffusion.Subscription.Status
-                        Pos.Diffusion.Subscription.Subscriber
-
-                        Pos.DHT.Workers
+                        Pos.Infra.Diffusion.Transport.TCP
+                        Pos.Infra.Diffusion.Types
+                        Pos.Infra.Diffusion.Subscription.Common
+                        Pos.Infra.Diffusion.Subscription.Dns
+                        Pos.Infra.Diffusion.Subscription.Dht
+                        Pos.Infra.Diffusion.Subscription.Status
+                        Pos.Infra.Diffusion.Subscription.Subscriber
 
                         -- Reporting
-                        Pos.Reporting
-                        Pos.Reporting.Exceptions
-                        Pos.Reporting.Http
-                        Pos.Reporting.MemState
-                        Pos.Reporting.Methods
-                        Pos.Reporting.Metrics
-                        Pos.Reporting.NodeInfo
-                        Pos.Reporting.Wlog
+                        Pos.Infra.Reporting
+                        Pos.Infra.Reporting.Ekg
+                        Pos.Infra.Reporting.Exceptions
+                        Pos.Infra.Reporting.Health.Types
+                        Pos.Infra.Reporting.Http
+                        Pos.Infra.Reporting.MemState
+                        Pos.Infra.Reporting.Methods
+                        Pos.Infra.Reporting.Metrics
+                        Pos.Infra.Reporting.NodeInfo
+                        Pos.Infra.Reporting.Statsd
+                        Pos.Infra.Reporting.Wlog
 
                         -- StateLock
-                        Pos.StateLock
+                        Pos.Infra.StateLock
 
                         -- Slotting
-                        Pos.Slotting
-                        Pos.Slotting.Class
-                        Pos.Slotting.Impl
-                        Pos.Slotting.Impl.Simple
-                        Pos.Slotting.Impl.Util
-                        Pos.Slotting.MemState
-                        Pos.Slotting.Types
-                        Pos.Slotting.Error
-                        Pos.Slotting.Util
+                        Pos.Infra.Slotting
+                        Pos.Infra.Slotting.Class
+                        Pos.Infra.Slotting.Impl
+                        Pos.Infra.Slotting.Impl.Simple
+                        Pos.Infra.Slotting.Impl.Util
+                        Pos.Infra.Slotting.MemState
+                        Pos.Infra.Slotting.Types
+                        Pos.Infra.Slotting.Error
+                        Pos.Infra.Slotting.Util
 
-                        -- Pos.DHT
-                        Pos.DHT
-                        Pos.DHT.Constants
-                        Pos.DHT.Model
-                        Pos.DHT.Model.Types
-                        Pos.DHT.Real
-                        Pos.DHT.Real.Real
-                        Pos.DHT.Real.Types
-                        Pos.DHT.Real.Param
-                        Pos.DHT.Real.CLI
+                        -- Pos.Infra.DHT
+                        Pos.Infra.DHT
+                        Pos.Infra.DHT.Constants
+                        Pos.Infra.DHT.Model
+                        Pos.Infra.DHT.Model.Types
+                        Pos.Infra.DHT.Real
+                        Pos.Infra.DHT.Real.Real
+                        Pos.Infra.DHT.Real.Types
+                        Pos.Infra.DHT.Real.Param
+                        Pos.Infra.DHT.Real.CLI
+                        Pos.Infra.DHT.Workers
 
-                        -- Pos.Communication
-                        Pos.Communication.Constants
-                        Pos.Communication.Types.Protocol
-                        Pos.Communication.Types.Relay
-                        Pos.Communication.BiP
-                        Pos.Communication.Limits.Types
-                        Pos.Communication.Limits.Instances
-                        Pos.Communication.Listener
-                        Pos.Communication.Protocol
-                        Pos.Communication.Specs
-                        Pos.Communication.Relay
-                        Pos.Communication.Relay.Class
-                        Pos.Communication.Relay.Logic
-                        Pos.Communication.Relay.Types
-                        Pos.Communication.Relay.Util
+                        -- Pos.Infra.Communication
+                        Pos.Infra.Communication.Constants
+                        Pos.Infra.Communication.Types.Protocol
+                        Pos.Infra.Communication.Types.Relay
+                        Pos.Infra.Communication.BiP
+                        Pos.Infra.Communication.Limits.Types
+                        Pos.Infra.Communication.Limits.Instances
+                        Pos.Infra.Communication.Listener
+                        Pos.Infra.Communication.Protocol
+                        Pos.Infra.Communication.Specs
+                        Pos.Infra.Communication.Relay
+                        Pos.Infra.Communication.Relay.Class
+                        Pos.Infra.Communication.Relay.Logic
+                        Pos.Infra.Communication.Relay.Types
+                        Pos.Infra.Communication.Relay.Util
 
                         -- Health Checks
-                        Pos.HealthCheck.Route53
+                        Pos.Infra.HealthCheck.Route53
 
                         -- Network topology
-                        Pos.Network.DnsDomains
-                        Pos.Network.Policy
-                        Pos.Network.Types
-                        Pos.Network.Yaml
-                        Pos.Network.CLI
+                        Pos.Infra.Network.DnsDomains
+                        Pos.Infra.Network.Policy
+                        Pos.Infra.Network.Types
+                        Pos.Infra.Network.Yaml
+                        Pos.Infra.Network.CLI
 
                         -- Recovery
-                        Pos.Recovery.Info
+                        Pos.Infra.Recovery.Info
 
-                        -- Reporting
-                        Pos.Reporting.Health.Types
-                        Pos.Reporting.Ekg
-                        Pos.Reporting.Statsd
-
-                        -- Pos.Shutdown
-                        Pos.Shutdown
-                        Pos.Shutdown.Class
-                        Pos.Shutdown.Logic
-                        Pos.Shutdown.Types
+                        -- Pos.Infra.Shutdown
+                        Pos.Infra.Shutdown
+                        Pos.Infra.Shutdown.Class
+                        Pos.Infra.Shutdown.Logic
+                        Pos.Infra.Shutdown.Types
 
                         -- Statistics
-                        Pos.Statistics
-                        Pos.Statistics.Ekg
-                        Pos.Statistics.Statsd
+                        Pos.Infra.Statistics
+                        Pos.Infra.Statistics.Ekg
+                        Pos.Infra.Statistics.Statsd
 
                         -- NTP
-                        Pos.Ntp.Configuration
+                        Pos.Infra.Ntp.Configuration
 
-                        -- Pos.Binary
-                        Pos.Binary.Infra
-                        Pos.Binary.Infra.DHTModel
-                        Pos.Binary.Infra.Slotting
-                        Pos.Binary.Infra.Relay
+                        -- Pos.Infra.Binary
+                        Pos.Infra.Binary
+                        Pos.Infra.Binary.DHTModel
+                        Pos.Infra.Binary.Slotting
+                        Pos.Infra.Binary.Relay
 
                         -- Pos.Util
-                        Pos.Util.JsonLog.Events
-                        Pos.Util.LogSafe
-                        Pos.Util.Monitor
-                        Pos.Util.TimeLimit
-                        Pos.Util.TimeWarp
+                        Pos.Infra.Util.JsonLog.Events
+                        Pos.Infra.Util.LogSafe
+                        Pos.Infra.Util.Monitor
+                        Pos.Infra.Util.TimeLimit
+                        Pos.Infra.Util.TimeWarp
 
   other-modules:        Paths_cardano_sl_infra
 
@@ -185,7 +182,7 @@ library
                       , yaml
 
   if !os(windows)
-    exposed-modules:   Pos.Util.SigHandler
+    exposed-modules:   Pos.Infra.Util.SigHandler
     build-depends:     unix
 
   default-language:    Haskell2010

@@ -23,8 +23,8 @@ import qualified Options.Applicative as Opt
 import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (CommonNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
+import           Pos.Infra.Util.TimeWarp (NetworkAddress, localhost)
 import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, compileInfo)
-import           Pos.Util.TimeWarp (NetworkAddress, localhost)
 import           Pos.Web.Types (TlsParams (..))
 
 data WalletNodeArgs = WalletNodeArgs

@@ -5,7 +5,7 @@ module Statistics.MemPool
 import           Control.Foldl (Fold (..))
 
 import           JSONLog (IndexedJLTimedEvent (..))
-import           Pos.Util.JsonLog.Events (JLEvent (..), JLMemPool (..))
+import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLMemPool (..))
 import           Prelude (id)
 import           Types
 

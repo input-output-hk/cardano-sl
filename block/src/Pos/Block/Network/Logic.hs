@@ -36,24 +36,26 @@ import qualified Pos.Block.Logic as L
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag,
                                            BlockRetrievalTask (..))
 import           Pos.Block.Types (Blund, LastKnownHeaderTag)
-import           Pos.Communication.Protocol (NodeId)
 import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader, headerHashG, isMoreDifficult,
                            prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.Block.Load as DB
-import           Pos.Diffusion.Types (Diffusion)
-import qualified Pos.Diffusion.Types as Diffusion (Diffusion (announceBlockHeader, requestTip))
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
-import           Pos.Recovery.Info (recoveryInProgress)
-import           Pos.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
-import           Pos.StateLock (Priority (..), modifyStateLock)
+import           Pos.Infra.Communication.Protocol (NodeId)
+import           Pos.Infra.Diffusion.Types (Diffusion)
+import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (announceBlockHeader, requestTip))
+import           Pos.Infra.Recovery.Info (recoveryInProgress)
+import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..),
+                                               MisbehaviorMetrics (..))
+import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
+import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..),
+                                                jlAdoptedBlock)
+import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
                                   _OldestFirst)
-import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..), jlAdoptedBlock)
-import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.Util (lensOf)
 
 ----------------------------------------------------------------------------
@@ -118,7 +120,7 @@ triggerRecovery diffusion = unlessM recoveryInProgress $ do
     waitAndProcessOne (nodeId, mbh) = do
         -- 'mbh' is an 'm' term that returns when the header has been
         -- downloaded.
-        bh <- mbh 
+        bh <- mbh
         -- I know, it's not unsolicited. TODO rename.
         handleUnsolicitedHeader bh nodeId
 

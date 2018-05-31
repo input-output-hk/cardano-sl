@@ -19,7 +19,7 @@ import qualified Data.Text as T
 import           Data.Time.Units (Microsecond)
 
 import           JSONLog (IndexedJLTimedEvent (..))
-import           Pos.Util.JsonLog.Events (JLBlock (..), JLEvent (..))
+import           Pos.Infra.Util.JsonLog.Events (JLBlock (..), JLEvent (..))
 import           Prelude (id)
 import           Statistics.Tx (txFirstReceivedF)
 import           Types

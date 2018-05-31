@@ -25,13 +25,14 @@ import           Pos.Core (ChainDifficulty (..), SlotId (..), TxAux, difficultyL
 import           Pos.Core.Configuration (HasConfiguration)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.Recovery.Info (MonadRecoveryInfo)
-import           Pos.Reporting (MonadReporting)
-import           Pos.Shutdown (HasShutdownContext)
-import           Pos.Slotting (MonadSlots, OnNewSlotParams (..), defaultOnNewSlotParams,
-                               getNextEpochSlotDuration, onNewSlot)
+import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
+import           Pos.Infra.Reporting (MonadReporting)
+import           Pos.Infra.Shutdown (HasShutdownContext)
+import           Pos.Infra.Slotting (MonadSlots, OnNewSlotParams (..),
+                                     defaultOnNewSlotParams,
+                                     getNextEpochSlotDuration, onNewSlot)
+import           Pos.Infra.Util.LogSafe (logInfoSP, secretOnlyF, secureListF)
 import           Pos.Util.Chrono (getOldestFirst)
-import           Pos.Util.LogSafe (logInfoSP, secretOnlyF, secureListF)
 import           Pos.Wallet.Web.Pending.Functions (usingPtxCoords)
 import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler, submitAndSavePtx)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), ptxNextSubmitSlot,

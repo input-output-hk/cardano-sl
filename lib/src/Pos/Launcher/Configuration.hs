@@ -34,7 +34,7 @@ import           Pos.Block.Configuration
 import           Pos.Configuration
 import           Pos.Core.Configuration
 import           Pos.Delegation.Configuration
-import           Pos.Ntp.Configuration
+import           Pos.Infra.Ntp.Configuration
 import           Pos.Ssc.Configuration
 import           Pos.Txp.Configuration
 import           Pos.Update.Configuration

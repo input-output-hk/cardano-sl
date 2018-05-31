@@ -51,30 +51,33 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
+import           Pos.Infra.Network.Types (HasNodeType (..))
+import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
+import           Pos.Infra.Reporting (MonadReporting (..),
+                                      HasMisbehaviorMetrics (..),
+                                      Reporter (..))
+import           Pos.Infra.Shutdown (HasShutdownContext (..))
+import           Pos.Infra.Slotting.Class (MonadSlots (..))
+import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
+                                          getCurrentSlotBlockingSimple,
+                                          getCurrentSlotInaccurateSimple,
+                                          getCurrentSlotSimple)
+import           Pos.Infra.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
+import           Pos.Infra.StateLock (StateLock)
+import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
+                                                jsonLogDefault)
+import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Network.Types (HasNodeType (..))
 import           Pos.Recovery ()
-import           Pos.Recovery.Info (MonadRecoveryInfo)
-import           Pos.Reporting (MonadReporting (..), HasMisbehaviorMetrics (..), Reporter (..))
-import           Pos.Shutdown (HasShutdownContext (..))
-import           Pos.Slotting.Class (MonadSlots (..))
-import           Pos.Slotting.Impl (currentTimeSlottingSimple,
-                                    getCurrentSlotBlockingSimple,
-                                    getCurrentSlotInaccurateSimple,
-                                    getCurrentSlotSimple)
-import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Types (HasSscContext (..))
-import           Pos.StateLock (StateLock)
 import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..), MonadTxpMem, Utxo,
                           addrBelongsToSet, applyUtxoModToAddrCoinMap, getUtxoModifier,
                           withTxpLocalData)
 import qualified Pos.Txp.DB as DB
 import           Pos.Util (postfixLFields)
-import           Pos.Util.JsonLog.Events (HasJsonLogConfig (..), jsonLogDefault)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import qualified Pos.Util.Modifier as MM
-import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
 import           Pos.WorkMode (MinWorkMode, RealMode, RealModeContext (..))

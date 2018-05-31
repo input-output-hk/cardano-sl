@@ -16,15 +16,17 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import           Pos.Core.Update (UpId, UpdateVote, UpdateProposal, mkVoteId)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Limits (mlUpdateVote, mlUpdateProposalAndVotes)
-import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..),
-                                             NodeId, MkListeners, OutSpecs)
-import           Pos.Communication.Relay (invReqDataFlowTK,
-                                          Relay (..), relayListeners,
-                                          InvReqDataParams (..), MempoolParams (..),
-                                          relayPropagateOut)
+import           Pos.Infra.Communication.Protocol (EnqueueMsg, MsgType (..),
+                                                   Origin (..), NodeId,
+                                                   MkListeners, OutSpecs)
+import           Pos.Infra.Communication.Relay (invReqDataFlowTK,
+                                                Relay (..), relayListeners,
+                                                InvReqDataParams (..),
+                                                MempoolParams (..),
+                                                relayPropagateOut)
+import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
-import           Pos.Network.Types (Bucket)
 import           Pos.Update ()
 import           Pos.Util.Trace (Trace, Severity)
 

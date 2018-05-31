@@ -28,23 +28,29 @@ import           Serokell.Util.Text (listJson)
 import           Pos.Binary.Communication ()
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
                                     MsgHeaders (..))
-import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Limits (mlMsgGetBlocks, mlMsgHeaders, mlMsgBlock,
                                            mlMsgGetHeaders)
-import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
-                                             EnqueueMsg, ListenerSpec, MkListeners (..),
-                                             MsgType (..), NodeId, Origin (..), OutSpecs,
-                                             constantListeners, waitForConversations,
-                                             waitForDequeues, recvLimited)
 import           Pos.Core (BlockVersionData, HeaderHash, ProtocolConstants (..),
                            headerHash, bvdSlotDuration, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
+import           Pos.Infra.Communication.Listener (listenerConv)
+import           Pos.Infra.Communication.Protocol (Conversation (..),
+                                                   ConversationActions (..),
+                                                   EnqueueMsg, ListenerSpec,
+                                                   MkListeners (..),
+                                                   MsgType (..), NodeId,
+                                                   Origin (..), OutSpecs,
+                                                   constantListeners,
+                                                   waitForConversations,
+                                                   waitForDequeues,
+                                                   recvLimited)
+import           Pos.Infra.Network.Types (Bucket)
+import           Pos.Infra.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
 import           Pos.Logic.Types (Logic (..))
-import           Pos.Network.Types (Bucket)
 -- Dubious having this security stuff in here.
 import           Pos.Security.Params (AttackTarget (..), AttackType (..), NodeAttackedError (..),
                                       SecurityParams (..))
@@ -52,7 +58,6 @@ import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..),
                                   toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Util.Timer (Timer, startTimer)
-import           Pos.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
 import           Pos.Util.Trace (Trace, Severity (..), traceWith)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}

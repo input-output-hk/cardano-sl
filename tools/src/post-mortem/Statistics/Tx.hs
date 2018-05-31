@@ -8,7 +8,7 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 
 import           JSONLog
-import           Pos.Util.JsonLog.Events (JLEvent (..), JLTxR (..))
+import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLTxR (..))
 import           Prelude (head, id)
 import           Types
 import           Universum hiding (head)

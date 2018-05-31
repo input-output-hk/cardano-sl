@@ -35,14 +35,14 @@ import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
 import           Pos.Core.Genesis (gdStartTime)
 import           Pos.Crypto (decodeAbstractHash)
 import           Pos.Delegation.Configuration (dlgConfiguration)
-import           Pos.Ntp.Configuration (NtpConfiguration)
+import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
+import           Pos.Infra.Util.TimeWarp (addrParser)
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.Configuration (sscConfiguration)
 import           Pos.Txp.Configuration (txpConfiguration)
 import           Pos.Update.Configuration (updateConfiguration)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.TimeWarp (addrParser)
 
 printFlags :: WithLogger m => m ()
 printFlags = do

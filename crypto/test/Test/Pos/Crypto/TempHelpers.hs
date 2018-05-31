@@ -6,8 +6,9 @@ module Test.Pos.Crypto.TempHelpers
        , discoverGolden
        , discoverRoundTrip
        , runTests
-       , roundTripsBiBuildable
        , roundTripsBiShow
+       , roundTripsBiBuildable
+       , roundTripsAesonBuildable
        , compareHexDump
        , eachOf
        ) where
@@ -28,7 +29,8 @@ module Test.Pos.Crypto.TempHelpers
 import           Universum
 
 import           Control.Monad.IO.Class (liftIO)
-
+import           Data.Aeson (FromJSON, ToJSON)
+import qualified Data.Aeson as JSON (decode, encode)
 import qualified Data.ByteString.Lazy.Char8 as BS
 import           Data.FileEmbed (embedStringFile)
 import qualified Data.List as List
@@ -154,11 +156,21 @@ roundTripsBiShow x =
 
 -- | Round trip (via ByteString) any instance of the 'Bi' class
 -- that also has a 'Buildable' instance.
-roundTripsBiBuildable :: (Bi a, Buildable a, Eq a, MonadTest m) => a -> m ()
-roundTripsBiBuildable x =
+roundTripsBiBuildable :: (Bi a, Eq a, MonadTest m, Buildable a) => a -> m ()
+roundTripsBiBuildable a = trippingBuildable a serialize decodeFull
+
+-- | Round trip any `a` with both `ToJSON` and `FromJSON` instances
+roundTripsAesonBuildable
+    :: (Bi a, Eq a, MonadTest m, ToJSON a, FromJSON a, Buildable a) => a -> m ()
+roundTripsAesonBuildable a = trippingBuildable a JSON.encode JSON.decode
+
+-- | Round trip using given encode and decode functions for types with a
+--   `Buildable` instance
+trippingBuildable :: (Buildable (f a), Eq (f a), Show b, Applicative f, MonadTest m) => a -> (a -> b) -> (b -> f a) -> m ()
+trippingBuildable x enc dec =
   let mx = pure x
-      i = serialize x
-      my = decodeFull i
+      i = enc x
+      my = dec i
   in if mx == my
         then success
         else case valueDiff <$> buildValue mx <*> buildValue my of
@@ -168,7 +180,7 @@ roundTripsBiBuildable x =
                         [ "━━━ Original ━━━"
                         , buildPretty mx
                         , "━━━ Intermediate ━━━"
-                        , BS.unpack i
+                        , show i
                         , "━━━ Roundtrip ━━━"
                         , buildPretty my
                         ]
@@ -179,7 +191,7 @@ roundTripsBiBuildable x =
                         (Just $ Diff "━━━ " "- Original" "/" "+ Roundtrip" " ━━━" diff) $
                             Prelude.unlines
                             [ "━━━ Intermediate ━━━"
-                            , BS.unpack i
+                            , show i
                             ]
 
 instance Buildable a => Buildable (Either Text a) where

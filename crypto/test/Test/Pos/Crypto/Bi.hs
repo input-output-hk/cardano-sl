@@ -14,12 +14,14 @@ import qualified Data.ByteString as BS
 import           Hedgehog (Property)
 import qualified Hedgehog as H
 
+import           Pos.Aeson.Crypto ()
 import           Pos.Crypto (HDAddressPayload, PassPhrase, PublicKey (..), RedeemPublicKey,
                              RedeemSecretKey, Secret, SecretKey (..), SecretProof, VssPublicKey)
 
 import           Test.Pos.Crypto.Gen
 import           Test.Pos.Crypto.TempHelpers (discoverGolden, discoverRoundTrip, eachOf,
-                                              goldenTestBi, roundTripsBiBuildable, roundTripsBiShow)
+                                              goldenTestBi, roundTripsAesonBuildable,
+                                              roundTripsBiBuildable, roundTripsBiShow)
 
 --------------------------------------------------------------------------------
 -- PublicKey
@@ -32,6 +34,9 @@ golden_PublicKey = goldenTestBi pkey "test/golden/PublicKey"
 
 roundTripPublicKeyBi :: Property
 roundTripPublicKeyBi = eachOf 1000 genPublicKey roundTripsBiBuildable
+
+roundTripPublicKeyAeson :: Property
+roundTripPublicKeyAeson = eachOf 1000 genPublicKey roundTripsAesonBuildable
 
 --------------------------------------------------------------------------------
 -- SecretKey

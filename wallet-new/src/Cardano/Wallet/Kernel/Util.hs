@@ -1,7 +1,6 @@
-module Util (
+module Cardano.Wallet.Kernel.Util (
     -- * Lists
     at
-  , mergeBy
     -- * Maps and sets
   , disjoint
   , withoutKeys
@@ -16,7 +15,7 @@ module Util (
 
 import           Universum
 
-import qualified Data.Map.Strict as Map
+import qualified Data.Map as Map
 import qualified Data.Set as Set
 import           Pos.Util.Chrono
 import qualified Test.QuickCheck as QC
@@ -31,21 +30,13 @@ at []     _ = Nothing
 at (x:_)  0 = Just x
 at (_:xs) i = at xs (i - 1)
 
--- | Merge two sorted lists
-mergeBy :: (a -> a -> Ordering) -> [a] -> [a] -> [a]
-mergeBy _  [] ys  = ys
-mergeBy _ xs []   = xs
-mergeBy f (x:xs) (y:ys)
-    | f x y == LT = x : mergeBy f xs (y:ys)
-    | otherwise   = y : mergeBy f (x:xs) ys
-
 {-------------------------------------------------------------------------------
   Maps and sets
 -------------------------------------------------------------------------------}
 
 -- | Check that two sets are disjoint
 --
--- This is available out of the box from @containters >= 0.5.11@
+-- This is available out of the box from containters >= 0.5.11
 disjoint :: Ord a => Set a -> Set a -> Bool
 disjoint a b = Set.null (a `Set.intersection` b)
 

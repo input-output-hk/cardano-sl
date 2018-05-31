@@ -23,7 +23,7 @@ import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Txp (Utxo, formatUtxo)
 import           Pos.Util.Chrono
 
-import           Util
+import           Cardano.Wallet.Kernel.Util
 import           Util.Validated
 import           UTxO.Context (Addr)
 import           UTxO.DSL (Hash)

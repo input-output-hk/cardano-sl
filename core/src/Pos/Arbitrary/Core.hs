@@ -359,7 +359,7 @@ newtype CoinPairOverflowMul = TwoCoinsM
 instance Arbitrary CoinPairOverflowMul where
     arbitrary = do
         c1 <- arbitrary
-        let integralC1 = coinToInteger c1
+        let integralC1 = Types.getCoin c1
             lowerBound =
                 1 + (coinToInteger $ (maxBound @Types.Coin) `divCoin` integralC1)
             upperBound = coinToInteger (maxBound @Types.Coin)

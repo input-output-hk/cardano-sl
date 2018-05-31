@@ -86,14 +86,12 @@ import           Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, (%))
-import           Pos.Util.Chrono
-                   (NewestFirst(NewestFirst),
-                    OldestFirst(getOldestFirst))
+import           Pos.Util.Chrono (NewestFirst (NewestFirst), OldestFirst (getOldestFirst))
 import           Prelude (Show (..))
 import           Serokell.Util (listJson, mapJson)
 import           Universum
 
-import           Util
+import           Cardano.Wallet.Kernel.Util
 import           Util.Validated
 
 {-------------------------------------------------------------------------------

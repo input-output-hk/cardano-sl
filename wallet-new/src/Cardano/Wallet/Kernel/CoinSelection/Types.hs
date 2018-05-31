@@ -3,5 +3,5 @@ module Cardano.Wallet.Kernel.CoinSelection.Types (
     ) where
 
 data ExpenseRegulation =
-    SenderPaysFees
-  | ReceiverPaysFees
+    SenderPaysFee
+  | ReceiverPaysFee

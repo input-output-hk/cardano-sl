@@ -208,7 +208,7 @@ instance RunPolicy m a => RunPolicy (InputPolicyT h a m) a where
   genChangeAddr = lift genChangeAddr
   genFreshHash  = lift genFreshHash
 
-runInputPolicyT :: RunPolicy m a
+runInputPolicyT :: forall h a m. RunPolicy m a
                 => (Int -> [Value] -> Value)
                 -- ^ A function to estimate the fee.
                 -> ExpenseRegulation
@@ -220,27 +220,77 @@ runInputPolicyT :: RunPolicy m a
                 -> InputPolicyT h a m PartialTxStats
                 -- ^ The input policy
                 -> m (Either (InputSelectionFailure a) (Transaction h a, TxStats))
-runInputPolicyT _estimateFee _expenseRegulation originalUtxo _originalOutputs policy = do
-     mx <- runExceptT (runStrictStateT (unInputPolicyT policy) initSt)
+runInputPolicyT estimateFee expenseRegulation originalUtxo originalOutputs policyT = do
+     mx <- runExceptT (runStrictStateT (unInputPolicyT policyT) initSt)
      case mx of
        Left err ->
          return $ Left err
        Right (ptxStats, finalSt) -> do
-         h <- genFreshHash
-         return $ Right (
-             Transaction {
-                 trFresh = 0
-               , trIns   = finalSt ^. ipsSelectedInputs
-               , trOuts  = finalSt ^. ipsGeneratedOutputs
-               , trFee   = 0 -- TODO: deal with fees
-               , trHash  = h
-               , trExtra = []
-               }
-           , fromPartialTxStats ptxStats
-           )
+         let selectedInputs   = finalSt ^. ipsSelectedInputs
+             generatedOutputs = finalSt ^. ipsGeneratedOutputs
+             inputsLen = length selectedInputs
+             allOutputs = generatedOutputs <> originalOutputs
+             upperBoundFee = estimateFee inputsLen (map outVal allOutputs)
+         case handleFee upperBoundFee selectedInputs of
+            Left e -> return (Left e)
+            Right (finalInputs, finalOutputs) -> do
+              h <- genFreshHash
+              return $ Right (
+                  Transaction {
+                      trFresh = 0
+                    , trIns   = finalInputs
+                    , trOuts  = finalOutputs <> generatedOutputs
+                    , trFee   = upperBoundFee
+                    , trHash  = h
+                    , trExtra = []
+                    }
+                , fromPartialTxStats ptxStats
+                )
   where
     initSt = initInputPolicyState originalUtxo
 
+    -- Calculates the \"slice\" each Output has to pay.
+    -- TODO(adn) avoid division by 0.
+    -- TODO(adn) Rounding errors?
+    epsilon :: Value -> Output a -> Value
+    epsilon totalFee o = ceiling $ (fromIntegral (outVal o) / fromIntegral totalOutputValue) * ((fromIntegral totalFee) :: Double)
+
+    totalOutputValue :: Value
+    totalOutputValue = foldl' (\acc o -> acc + (outVal o)) 0 originalOutputs
+
+    handleFee :: Value -> Set (Input h a) -> RegulationResult h a
+    handleFee totalFee selectedInputs =
+        case expenseRegulation of
+            ReceiverPaysFee ->
+                case foldl' (receiverCanAfford totalFee) ([], []) originalOutputs of
+                     ([], amendedOutputs) ->
+                         Right (selectedInputs, amendedOutputs)
+                     (e : _, _) -> Left e
+            SenderPaysFee  -> checkSenderCanAffordFee selectedInputs
+
+    receiverCanAfford :: Value
+                      -> ([InputSelectionFailure a], [Output a])
+                      -> Output a
+                      -> ([InputSelectionFailure a], [Output a])
+    receiverCanAfford totalFee (!ls, !rs) o =
+        case canCover o of
+            Left l  -> (l : ls, rs)
+            Right r -> (ls, r : rs)
+        where
+            canCover :: Output a -> Either (InputSelectionFailure a) (Output a)
+            canCover output =
+                let original = outVal output
+                    amended  = original - (epsilon totalFee output)
+                in case amended > original of -- We underflowed
+                       True  -> Left (InsufficientFundsToCoverFee ReceiverPaysFee output)
+                       False -> Right (output { outVal = amended })
+
+    -- TODO.
+    checkSenderCanAffordFee :: Set (Input h a) -> RegulationResult h a
+    checkSenderCanAffordFee selectedInputs = Right (selectedInputs, originalOutputs)
+
+type RegulationResult h a =
+    Either (InputSelectionFailure a) (Set (Input h a), [Output a])
 
 {-------------------------------------------------------------------------------
   Always find the largest UTxO possible

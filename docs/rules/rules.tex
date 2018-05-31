@@ -203,7 +203,7 @@ as it is.\improvement{We may want to add something about protocol
 
   \begin{implementationhint}
     Finite support function are typically implemented as finite maps
-    (as in Haskell's \verb+Data.Map+ module). Where we then interpret
+    (as in Haskell's \verb+Data.Map+ module), where we then interpret
     absent bindings as mapping to $0$ (\emph{e.g.} using
     \verb+Map.findWithDefault 0+). There are subtleties if we want to
     test equality as natively, such data structure distinguishes
@@ -242,11 +242,11 @@ as it is.\improvement{We may want to add something about protocol
   a finite subset.
 
   \begin{implementationhint}
-    A partial function $A⇀B$ can be implemented as a function \verb+A -> Maybe B+.
-    Provided that its domain is decidable. Mostly we are
+    A partial function $A⇀B$ can be implemented as a function
+    \verb+A -> Maybe B+, provided that its domain is decidable. Mostly we are
     interested in finite domain partial function which are faithfully
-    represented by finite maps (in the sense of \verb+Data.Map+). The
-    $f⊎g$ gluing union can be implemented using \verb+Data.Map.Merge.mergeA+.
+    represented by finite maps (in the sense of \verb+Data.Map+). The $f⊎g$
+    gluing union can be implemented using \verb+Data.Map.Merge.mergeA+.
   \end{implementationhint}
 
 
@@ -309,7 +309,7 @@ as it is.\improvement{We may want to add something about protocol
 
   Repartition are used as part of transaction output to allocate stake
   to parties which are not necessarily the recipient of the
-  output. Agent $a$ receive stake in proportion $r(a)$ (with
+  output. Agent $a$ will receive stake in proportion $r(a)$ (with
   subtleties due to rounding, see
   Section~\ref{sec:derived-functions}).
 
@@ -410,8 +410,8 @@ as it is.\improvement{We may want to add something about protocol
         ($∅, ⊎$ here). The spec would work better this way.}
 
       \begin{implementationhint}
-        We want to understand $r(a)(a')$ as the decrypted share of agent $a$
-        from the secret seed of agent $a'$. So $r(a)$ is the set of
+        We want to understand $r(a)(a')$ as the decrypted share of agent $a'$
+        from the secret seed of agent $a$. So $r(a)$ is the set of
         all the shares that $a$ decrypted.
 
         In the specification, we, again, implement the decrypted

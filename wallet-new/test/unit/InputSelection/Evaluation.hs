@@ -26,9 +26,10 @@ import           Text.Printf (printf)
 
 import           InputSelection.Generator (Event (..), World (..))
 import qualified InputSelection.Generator as Gen
-import           InputSelection.Policy (InputSelectionPolicy, PrivacyMode (..), RunPolicy (..),
-                                        TxStats (..))
+import           InputSelection.Policy (HasTreasuryAddress (..), InputSelectionPolicy,
+                                        PrivacyMode (..), RunPolicy (..), TxStats (..))
 import qualified InputSelection.Policy as Policy
+import           Test.Infrastructure.Generator (estimateCardanoFee)
 import           Util.Distr
 import           Util.Histogram (Bin, BinSize (..), Count, Histogram)
 import qualified Util.Histogram as Histogram
@@ -272,7 +273,7 @@ mkFrame = state aux
 -- statistics.
 --
 -- Returns the final state
-intPolicy :: forall h a m. (Hash h a, Monad m)
+intPolicy :: forall h a m. (HasTreasuryAddress a, Hash h a, Monad m)
           => InputSelectionPolicy h a (StrictStateT (IntState h a) m)
           -> (a -> Bool)
           -> IntState h a -- Initial state
@@ -291,9 +292,10 @@ intPolicy policy ours initState =
         pending <- use stPending
         stUtxo    %= utxoUnion pending
         stPending .= utxoEmpty
-    go (Pay outs) = do
+    go (Pay expenseRegulation outs) = do
         utxo <- use stUtxo
-        mtx  <- policy utxo outs
+        -- TODO(adn) Make the fee estimation formula configurable
+        mtx  <- policy simpleFeeEstimate expenseRegulation utxo outs
         case mtx of
           Right (tx, txStats) -> do
             stUtxo               %= utxoRemoveInputs (trIns tx)
@@ -301,6 +303,10 @@ intPolicy policy ours initState =
             stStats . accTxStats %= mappend txStats
           Left _err ->
             stStats . accFailedPayments += 1
+
+simpleFeeEstimate :: Int -> [Value] -> Value
+simpleFeeEstimate inputLen outputs =
+    estimateCardanoFee inputLen (length outputs)
 
 {-------------------------------------------------------------------------------
   Compute bounds
@@ -537,9 +543,10 @@ writeStats prefix shouldRender =
 -- Returns the accumulated statistics and the plot instructions; we return these
 -- separately so that we combine bounds of related plots and draw them with the
 -- same scales.
-evaluatePolicy :: Hash h a
+evaluatePolicy :: (Hash h a, HasTreasuryAddress a)
                => FilePath       -- ^ Path to write to
                -> (Int -> Bool)  -- ^ Frames to render
+               => FilePath
                -> InputSelectionPolicy h a (StrictStateT (IntState h a) IO)
                -> (a -> Bool)    -- ^ Our addresses
                -> IntState h a   -- ^ Initial state

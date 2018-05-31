@@ -62,6 +62,7 @@ library
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.Kernel
                        Cardano.Wallet.Kernel.Actions
+                       Cardano.Wallet.Kernel.CoinSelection.Types
                        Cardano.Wallet.Kernel.DB.AcidState
                        Cardano.Wallet.Kernel.DB.BlockMeta
                        Cardano.Wallet.Kernel.DB.HdWallet

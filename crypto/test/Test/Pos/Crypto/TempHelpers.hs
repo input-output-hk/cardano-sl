@@ -7,7 +7,7 @@ module Test.Pos.Crypto.TempHelpers
        , discoverRoundTrip
        , runTests
        , roundTripsBiBuildable
-       , trippingBiShow
+       , roundTripsBiShow
        , compareHexDump
        , eachOf
        ) where
@@ -41,8 +41,8 @@ import           Language.Haskell.TH.Syntax (qLocation)
 import           System.Directory (canonicalizePath)
 import           System.FilePath (takeDirectory, (</>))
 
-import           Hedgehog (Gen, Group, MonadTest, Property, PropertyT, discoverPrefix, eval, forAll,
-                           property, success, tripping, withTests, (===))
+import           Hedgehog (Gen, Group, MonadTest, Property, PropertyT, TestLimit, discoverPrefix,
+                           eval, forAll, property, success, tripping, withTests, (===))
 import           Hedgehog.Internal.Property (Diff (..), failWith)
 import           Hedgehog.Internal.Show (LineDiff, lineDiff, mkValue, renderLineDiff, showPretty,
                                          valueDiff)
@@ -139,17 +139,17 @@ goldenTestBi x path = withFrozenCallStack $ do
         compareHexDump bs bs'
         fmap decodeFull target === Just (Right x)
 
-eachOf :: (Show a) => Gen a -> (a -> PropertyT IO ()) -> Property
-eachOf things hasProperty =
-  withTests 1000 . property $ forAll things >>= hasProperty
+eachOf :: (Show a) => TestLimit -> Gen a -> (a -> PropertyT IO ()) -> Property
+eachOf testLimit things hasProperty =
+  withTests testLimit . property $ forAll things >>= hasProperty
 
 -- | Round trip test a value (any instance of both the 'Bi' and 'Show' classes)
 -- by serializing it to a ByteString and back again and
 --   that also has a 'Show' instance.
 -- If the 'a' type has both 'Show' and 'Buildable' instances, its best to
 -- use this version.
-trippingBiShow :: (Bi a, Eq a, MonadTest m, Show a) => a -> m ()
-trippingBiShow x =
+roundTripsBiShow :: (Bi a, Eq a, MonadTest m, Show a) => a -> m ()
+roundTripsBiShow x =
     tripping x serialize decodeFull
 
 -- | Round trip (via ByteString) any instance of the 'Bi' class

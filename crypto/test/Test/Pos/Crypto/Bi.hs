@@ -14,11 +14,12 @@ import qualified Data.ByteString as BS
 import           Hedgehog (Property)
 import qualified Hedgehog as H
 
-import           Pos.Crypto (PassPhrase, PublicKey (..), SecretKey (..))
+import           Pos.Crypto (HDAddressPayload, PassPhrase, PublicKey (..), RedeemPublicKey,
+                             RedeemSecretKey, Secret, SecretKey (..), SecretProof, VssPublicKey)
 
 import           Test.Pos.Crypto.Gen
 import           Test.Pos.Crypto.TempHelpers (discoverGolden, discoverRoundTrip, eachOf,
-                                              goldenTestBi, roundTripsBiBuildable)
+                                              goldenTestBi, roundTripsBiBuildable, roundTripsBiShow)
 
 --------------------------------------------------------------------------------
 -- PublicKey
@@ -30,7 +31,7 @@ golden_PublicKey = goldenTestBi pkey "test/golden/PublicKey"
     Right pkey = PublicKey <$> xpub (getBytes 0 64)
 
 roundTripPublicKeyBi :: Property
-roundTripPublicKeyBi = eachOf genPublicKey roundTripsBiBuildable
+roundTripPublicKeyBi = eachOf 1000 genPublicKey roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- SecretKey
@@ -42,7 +43,7 @@ golden_SecretKey = goldenTestBi skey "test/golden/SecretKey"
     Right skey = SecretKey <$> xprv (getBytes 10 128)
 
 roundTripSecretKeyBi :: Property
-roundTripSecretKeyBi = eachOf genSecretKey roundTripsBiBuildable
+roundTripSecretKeyBi = eachOf 1000 genSecretKey roundTripsBiBuildable
 
 --------------------------------------------------------------------------------
 -- EncryptedSecretKey
@@ -63,6 +64,66 @@ roundTripEncryptedSecretKeysBi = eachOf genEncryptedSecretKey roundTripsBiBuilda
 -}
 
 --------------------------------------------------------------------------------
+-- RedeemPublicKey
+--------------------------------------------------------------------------------
+
+todo_golden_RedeemPublicKey :: Property
+todo_golden_RedeemPublicKey = goldenTestBi
+    (error "golden_RedeemPublicKey not yet defined" :: RedeemPublicKey)
+    "test/golden/RedeemPublicKey"
+
+roundTripRedeemPublicKeyBi :: Property
+roundTripRedeemPublicKeyBi = eachOf 1000 genRedeemPublicKey roundTripsBiBuildable
+
+--------------------------------------------------------------------------------
+-- RedeemSecretKey
+--------------------------------------------------------------------------------
+
+todo_golden_RedeemSecretKey :: Property
+todo_golden_RedeemSecretKey = goldenTestBi
+    (error "golden_RedeemSecretKey not yet defined" :: RedeemSecretKey)
+    "test/golden/RedeemSecretKey"
+
+roundTripRedeemSecretKeyBi :: Property
+roundTripRedeemSecretKeyBi = eachOf 1000 genRedeemSecretKey roundTripsBiBuildable
+
+--------------------------------------------------------------------------------
+-- VssPublicKey
+--------------------------------------------------------------------------------
+
+todo_golden_VssPublicKey :: Property
+todo_golden_VssPublicKey = goldenTestBi
+    (error "golden_VssPublicKey not yet defined" :: VssPublicKey)
+    "test/golden/VssPublicKey"
+
+roundTripVssPublicKeyBi :: Property
+roundTripVssPublicKeyBi = eachOf 1000 genVssPublicKey roundTripsBiShow
+
+--------------------------------------------------------------------------------
+-- Secret
+--------------------------------------------------------------------------------
+
+todo_golden_Secret :: Property
+todo_golden_Secret = goldenTestBi
+    (error "golden_Secret not yet defined" :: Secret)
+    "test/golden/Secret"
+
+roundTripSecretBi :: Property
+roundTripSecretBi = eachOf 100 genSecret roundTripsBiShow
+
+--------------------------------------------------------------------------------
+-- SecretProof
+--------------------------------------------------------------------------------
+
+todo_golden_SecretProof :: Property
+todo_golden_SecretProof = goldenTestBi
+    (error "golden_SecretProof not yet defined" :: SecretProof)
+    "test/golden/SecretProof"
+
+roundTripSecretProofBi :: Property
+roundTripSecretProofBi = eachOf 100 genSecretProof roundTripsBiShow
+
+--------------------------------------------------------------------------------
 -- PassPhrase
 --------------------------------------------------------------------------------
 
@@ -73,7 +134,19 @@ golden_PassPhrase = goldenTestBi passphrase "test/golden/PassPhrase"
     passphrase = ByteArray.pack (BS.unpack $ getBytes 3 32) :: PassPhrase
 
 roundTripPassPhraseBi :: Property
-roundTripPassPhraseBi = eachOf genPassPhrase roundTripsBiBuildable
+roundTripPassPhraseBi = eachOf 1000 genPassPhrase roundTripsBiBuildable
+
+--------------------------------------------------------------------------------
+-- HDAddressPayload
+--------------------------------------------------------------------------------
+
+todo_golden_HDAddressPayload :: Property
+todo_golden_HDAddressPayload = goldenTestBi
+    (error "golden_HDAddressPayload not yet defined" :: HDAddressPayload)
+    "test/golden/HDAddressPayload"
+
+roundTripHDAddressPayloadBi :: Property
+roundTripHDAddressPayloadBi = eachOf 1000 genHDAddressPayload roundTripsBiShow
 
 --------------------------------------------------------------------------------
 

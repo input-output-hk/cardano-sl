@@ -8,7 +8,7 @@ fi
 newVersion=$1
 
 function updateVersion() {
-  sed -E -i -e "s/^(version\:\s+)(.+)/\1$newVersion/" $1
+  sed -E -i -e "s/^(version\:\s+)(.+)/\1$newVersion/" "$1"
 }
 
 updateVersion auxx/cardano-sl-auxx.cabal

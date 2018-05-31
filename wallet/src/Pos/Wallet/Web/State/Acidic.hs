@@ -22,13 +22,10 @@ module Pos.Wallet.Web.State.Acidic
        , UpdateWalletBalancesAndUtxo (..)
        , SetWalletUtxo (..)
        , DoesWAddressExist (..)
-       , DoesWAddressExist2 (..)
        , TestReset (..)
        , AddCustomAddress (..)
-       , AddCustomAddress2 (..)
        , CreateAccount (..)
        , AddWAddress (..)
-       , AddWAddress2 (..)
        , CreateWallet (..)
        , SetProfile (..)
        , SetAccountMeta (..)
@@ -47,9 +44,7 @@ module Pos.Wallet.Web.State.Acidic
        , RemoveHistoryCache (..)
        , RemoveAccount (..)
        , RemoveWAddress (..)
-       , RemoveWAddress2 (..)
        , RemoveCustomAddress (..)
-       , RemoveCustomAddress2 (..)
        , AddUpdate (..)
        , RemoveNextUpdate (..)
        , InsertIntoHistoryCache (..)
@@ -67,7 +62,6 @@ module Pos.Wallet.Web.State.Acidic
        , UpdateHistoryCache (..)
        -- * Grouped transactions
        , CreateAccountWithAddress (..)
-       , CreateAccountWithAddress2 (..)
        , RemoveWallet2 (..)
        , ApplyModifierToWallet (..)
        , ApplyModifierToWallet2 (..)
@@ -125,15 +119,11 @@ makeAcidic ''WalletStorage
     , 'WS.updateWalletBalancesAndUtxo
     , 'WS.setWalletUtxo
     , 'WS.doesWAddressExist
-    , 'WS.doesWAddressExist2
     , 'WS.addCustomAddress
-    , 'WS.addCustomAddress2
     , 'WS.removeCustomAddress
-    , 'WS.removeCustomAddress2
     , 'WS.createAccount
     , 'WS.createWallet
     , 'WS.addWAddress
-    , 'WS.addWAddress2
     , 'WS.setProfile
     , 'WS.setAccountMeta
     , 'WS.setWalletMeta
@@ -151,7 +141,6 @@ makeAcidic ''WalletStorage
     , 'WS.removeHistoryCache
     , 'WS.removeAccount
     , 'WS.removeWAddress
-    , 'WS.removeWAddress2
     , 'WS.addUpdate
     , 'WS.removeNextUpdate
     , 'WS.updateHistoryCache
@@ -168,7 +157,6 @@ makeAcidic ''WalletStorage
     , 'WS.flushWalletStorage
     , 'WS.getWalletStorage
     , 'WST.createAccountWithAddress
-    , 'WST.createAccountWithAddress2
     , 'WST.removeWallet2
     , 'WST.applyModifierToWallet
     , 'WST.applyModifierToWallet2

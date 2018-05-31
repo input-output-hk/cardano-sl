@@ -508,7 +508,7 @@ getGenesisSummary = do
         }
   where
     getRedeemAddressInfo
-        :: (MonadDBRead m, MonadThrow m)
+        :: MonadDBRead m
         => Address -> Coin -> m GenesisSummaryInternal
     getRedeemAddressInfo address initialBalance = do
         currentBalance <- fromMaybe minBound <$> getAddrBalance address

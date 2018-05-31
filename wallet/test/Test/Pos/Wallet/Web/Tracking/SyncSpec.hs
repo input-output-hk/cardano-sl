@@ -9,7 +9,6 @@ module Test.Pos.Wallet.Web.Tracking.SyncSpec
 
 import           Universum
 
-import           Data.Default (def)
 import qualified Data.HashSet as HS
 import           Data.List (intersect, (\\))
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
@@ -25,7 +24,6 @@ import           Pos.Core (Address, BlockCount (..), blkSecurityParam)
 import           Pos.Crypto (emptyPassphrase)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.Chrono (nonEmptyOldestFirst, toNewestFirst)
-import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
@@ -46,7 +44,7 @@ import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
 
 spec :: Spec
-spec = withCompileInfo def $ withDefConfigurations $ \_ -> do
+spec = withDefConfigurations $ \_ -> do
     describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
         describe "Two applications and rollbacks" twoApplyTwoRollbacksSpec
     xdescribe "Pos.Wallet.Web.Tracking.evalChange (pending, CSL-2473)" $ do
@@ -58,7 +56,7 @@ spec = withCompileInfo def $ withDefConfigurations $ \_ -> do
     evalChangeSameAccountsDesc =
       "Outgoing transaction from account to the same account."
 
-twoApplyTwoRollbacksSpec :: (HasCompileInfo, HasConfigurations) => Spec
+twoApplyTwoRollbacksSpec :: HasConfigurations => Spec
 twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     let k = fromIntegral blkSecurityParam :: Word64
     -- During these tests we need to manually switch back to the old synchronous

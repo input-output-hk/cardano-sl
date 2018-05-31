@@ -46,3 +46,5 @@ scripts/bench                   @kantp @avieth
 wallet/                         @adinapoli-iohk @akegalj
 wallet/web-api-swagger          @adinapoli-iohk
 wallet-new/                     @adinapoli-iohk @parsonsmatt @denisshevchenko
+wallet-new/coq-formal-spec/*    @edsko @polinavino
+wallet-new/docs/spec.*          @edsko @dcoutts

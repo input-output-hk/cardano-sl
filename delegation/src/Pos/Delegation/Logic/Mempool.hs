@@ -26,8 +26,8 @@ import           Mockable (CurrentTime, Mockable, currentTime)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (ProxySKHeavy, addressHash, bvdMaxBlockSize, HasProtocolMagic,
-                           epochIndexL, headerHash, HasGenesisBlockVersionData)
+import           Pos.Core (ProxySKHeavy, addressHash,
+                           bvdMaxBlockSize, epochIndexL, headerHash)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB
@@ -36,8 +36,8 @@ import           Pos.Delegation.Cede (CheckForCycle (..), cmPskMods, dlgVerifyPs
 import           Pos.Delegation.Class (DlgMemPool, MonadDelegation, dwMessageCache, dwPoolSize,
                                        dwProxySKPool, dwTip)
 import           Pos.Delegation.Logic.Common (DelegationStateAction, runDelegationStateAction)
-import           Pos.Delegation.Lrc (getDlgRichmen)
 import           Pos.Delegation.Types (DlgPayload (..), isRevokePsk)
+import           Pos.Lrc.Consumer.Delegation (getDlgRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.StateLock (StateLock, withStateLockNoMetrics)
 import           Pos.Util (HasLens', microsecondsToUTC)
@@ -49,13 +49,13 @@ import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 
 -- | Retrieves current mempool of heavyweight psks plus undo part.
 getDlgMempool
-    :: (MonadIO m, MonadDBRead m, MonadDelegation ctx m, MonadMask m)
+    :: (MonadIO m, MonadDelegation ctx m)
     => m DlgPayload
 getDlgMempool = UnsafeDlgPayload <$> (runDelegationStateAction $ uses dwProxySKPool HM.elems)
 
 -- | Clears delegation mempool.
 clearDlgMemPool
-    :: (MonadIO m, MonadDelegation ctx m, MonadMask m)
+    :: (MonadIO m, MonadDelegation ctx m)
     => m ()
 clearDlgMemPool = runDelegationStateAction clearDlgMemPoolAction
 
@@ -108,7 +108,6 @@ data PskHeavyVerdict
 type ProcessHeavyConstraint ctx m =
        ( MonadIO m
        , MonadUnliftIO m
-       , MonadMask m
        , MonadDBRead m
        , MonadGState m
        , MonadDelegation ctx m
@@ -124,8 +123,7 @@ processProxySKHeavy
     :: forall ctx m.
        ( ProcessHeavyConstraint ctx m
        , HasLens' ctx StateLock
-       , HasGenesisBlockVersionData
-       , HasProtocolMagic
+       , MonadMask m
        )
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk =
@@ -136,7 +134,7 @@ processProxySKHeavy psk =
 -- synchronization. Should be called __only__ if you are sure that
 -- 'StateLock' is taken already.
 processProxySKHeavyInternal ::
-       forall ctx m. (ProcessHeavyConstraint ctx m, HasGenesisBlockVersionData, HasProtocolMagic)
+       forall ctx m. (ProcessHeavyConstraint ctx m)
     => ProxySKHeavy
     -> m PskHeavyVerdict
 processProxySKHeavyInternal psk = do

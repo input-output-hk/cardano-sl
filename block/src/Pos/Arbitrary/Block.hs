@@ -25,7 +25,6 @@ import           Pos.Arbitrary.Core (genSlotId)
 import           Pos.Arbitrary.Delegation (genDlgPayload)
 import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..), genSscPayload,
                                     genSscPayloadForSlot)
-import           Pos.Arbitrary.Txp (genTxPayload)
 import           Pos.Arbitrary.Update (genUpdatePayload)
 import           Pos.Binary.Class (biSize)
 import qualified Pos.Block.Base as T
@@ -40,6 +39,8 @@ import           Pos.Core.Ssc (SscPayload, SscProof)
 import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk, hash, toPublic)
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Data.Attributes (areAttributesKnown)
+
+import           Test.Pos.Txp.Arbitrary (genTxPayload)
 
 newtype BodyDependsOnSlot b = BodyDependsOnSlot
     { genBodyDepsOnSlot :: Core.SlotId -> Gen (T.Body b)
@@ -74,24 +75,22 @@ instance Arbitrary T.GenesisBlockHeader where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary (T.BodyProof T.GenesisBlockchain) where
+instance Arbitrary T.GenesisProof where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary (T.ConsensusData T.GenesisBlockchain) where
+instance Arbitrary T.GenesisConsensusData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
 instance Arbitrary (BodyDependsOnSlot T.GenesisBlockchain) where
     arbitrary = pure $ BodyDependsOnSlot $ \_ -> arbitrary
 
-instance Arbitrary (T.Body T.GenesisBlockchain) where
+instance Arbitrary T.GenesisBody where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance ( Arbitrary SscProof
-         , Arbitrary SscPayload
-         , HasProtocolMagic
+instance ( HasProtocolMagic
          , HasProtocolConstants
          , HasGenesisHash
          ) =>
@@ -112,7 +111,7 @@ genMainBlockHeader
     -> Core.ProtocolConstants
     -> HeaderHash
     -> Core.ChainDifficulty
-    -> T.Body T.MainBlockchain
+    -> T.MainBody
     -> Gen T.MainBlockHeader
 genMainBlockHeader pm pc prevHash difficulty body =
     T.mkMainHeaderExplicit pm <$> pure prevHash
@@ -143,7 +142,7 @@ instance Arbitrary T.MainExtraBodyData where
     shrink = genericShrink
 
 instance (Arbitrary SscProof) =>
-    Arbitrary (T.BodyProof T.MainBlockchain) where
+    Arbitrary T.MainProof where
     arbitrary = genericArbitrary
     shrink T.MainProof {..} =
         [T.MainProof txp mpcp prxp updp
@@ -152,7 +151,7 @@ instance (Arbitrary SscProof) =>
         ]
 
 instance (Arbitrary SscProof, HasProtocolConstants, HasProtocolMagic) =>
-    Arbitrary (T.ConsensusData T.MainBlockchain) where
+    Arbitrary T.MainConsensusData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -178,7 +177,7 @@ instance (Arbitrary SscProof, HasProtocolConstants) => Arbitrary T.MainToSign wh
 genMainBlockBody
     :: ProtocolMagic
     -> Core.EpochIndex -- ^ For the delegation payload.
-    -> Gen (T.Body T.MainBlockchain)
+    -> Gen T.MainBody
 genMainBlockBody pm epoch =
     T.MainBody <$> genTxPayload pm
                <*> genSscPayload pm
@@ -189,7 +188,7 @@ genMainBlockBodyForSlot
     :: ProtocolMagic
     -> Core.ProtocolConstants
     -> Core.SlotId
-    -> Gen (T.Body T.MainBlockchain)
+    -> Gen T.MainBody
 genMainBlockBodyForSlot pm pc slotId = do
     txpPayload <- genTxPayload pm
     sscPayload <- genSscPayloadForSlot pm pc slotId
@@ -208,7 +207,7 @@ instance (Arbitrary SscPayloadDependsOnSlot, HasProtocolConstants, HasProtocolMa
         return $ T.MainBody txPayload mpcData dlgPayload mpcUpload
 
 
-instance (Arbitrary SscPayload, HasProtocolMagic) => Arbitrary (T.Body T.MainBlockchain) where
+instance (Arbitrary SscPayload, HasProtocolMagic) => Arbitrary T.MainBody where
     arbitrary = genericArbitrary
     shrink mb =
         [ T.MainBody txp sscp dlgp updp
@@ -244,7 +243,6 @@ genMainBlock pm pc prevHash difficulty = do
     pure $ T.UnsafeGenericBlock header body extraBodyData
 
 instance ( Arbitrary SscPayload
-         , Arbitrary SscProof
          , Arbitrary SscPayloadDependsOnSlot
          , HasProtocolConstants
          , HasProtocolMagic
@@ -253,7 +251,7 @@ instance ( Arbitrary SscPayload
          Arbitrary T.MainBlock where
     arbitrary = do
         slot <- arbitrary
-        BodyDependsOnSlot {..} <- arbitrary
+        BodyDependsOnSlot {..} <- arbitrary :: Gen (BodyDependsOnSlot T.MainBlockchain)
         body <- genBodyDepsOnSlot slot
         extraBodyData <- arbitrary
         extraHeaderData <- T.MainExtraHeaderData

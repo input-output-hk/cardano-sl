@@ -28,7 +28,6 @@ import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic, fullPublic
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Update (BlockVersionModifier (..))
-import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret, usKeys, usPrimKey,
                                       usWallet, userSecret)
 import           Pos.Util.Util (eitherToThrow)
@@ -55,7 +54,7 @@ import           Mode (MonadAuxxMode, deriveHDAddressAuxx, makePubKeyAddressAuxx
 import           Repl (PrintAction)
 
 createCommandProcs ::
-       forall m. (HasCompileInfo, MonadIO m, CanLog m, HasLoggerName m)
+       forall m. (MonadIO m, CanLog m, HasLoggerName m)
     => Maybe (Dict (MonadAuxxMode m))
     -> PrintAction m
     -> Maybe (Diffusion m)

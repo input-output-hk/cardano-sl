@@ -16,12 +16,10 @@ module DevelopmentSpec (spec) where
 
 import           Universum
 
-import           Data.Default (def)
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Util.BackupPhrase (BackupPhrase (..), safeKeysFromPhrase)
-import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty)
 
 import           Test.Hspec (Spec, describe)
@@ -37,12 +35,11 @@ import           Servant
 
 spec :: Spec
 spec =
-    withCompileInfo def $
     withDefConfigurations $ \_ ->
         describe "development endpoint" $
         describe "secret-keys" $ modifyMaxSuccess (const 10) deleteAllSecretKeysSpec
 
-deleteAllSecretKeysSpec :: (HasCompileInfo, HasConfigurations) => Spec
+deleteAllSecretKeysSpec :: (HasConfigurations) => Spec
 deleteAllSecretKeysSpec = do
     -- TODO: Use an arbitrary instance of `BackupPhrase` if available
     let phrase = BackupPhrase [ "truly", "enact", "setup", "session"

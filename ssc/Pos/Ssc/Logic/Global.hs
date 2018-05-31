@@ -8,16 +8,15 @@ module Pos.Ssc.Logic.Global
          sscCalculateSeed
        ) where
 
-import           System.Wlog (WithLogger)
 import           Universum
 
 import           Pos.Binary.Ssc ()
-import           Pos.Core (EpochIndex (..), SharedSeed, VssCertificatesMap (..), vcVssKey, HasGenesisBlockVersionData)
+import           Pos.Core (EpochIndex (..), SharedSeed, VssCertificatesMap (..), vcVssKey)
 import           Pos.DB (MonadDBRead)
+import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc.Error (SscSeedError)
-import           Pos.Ssc.Lrc (getSscRichmen)
 import           Pos.Ssc.Mem (MonadSscMem, SscGlobalQuery, sscRunGlobalQuery)
 import           Pos.Ssc.Seed (calculateSeed)
 import           Pos.Ssc.Types (sgsCommitments, sgsOpenings, sgsShares, sgsVssCertificates)
@@ -32,11 +31,8 @@ sscCalculateSeed
     :: forall ctx m.
        ( MonadSscMem ctx m
        , MonadDBRead m
-       , MonadReader ctx m
        , HasLrcContext ctx
        , MonadIO m
-       , WithLogger m
-       , HasGenesisBlockVersionData
        )
     => EpochIndex
     -> m (Either SscSeedError SharedSeed)

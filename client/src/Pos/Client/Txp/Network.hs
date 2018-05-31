@@ -29,7 +29,6 @@ import           Pos.Communication.Types (InvOrDataTK)
 import           Pos.Core (Address, Coin, makeRedeemAddress, mkCoin, unsafeAddCoin)
 import           Pos.Core.Txp (TxAux (..), TxId, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto (RedeemSecretKey, SafeSigner, hash, redeemToPublic)
-import           Pos.DB.Class (MonadGState)
 import           Pos.Diffusion.Types (Diffusion (sendTx))
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 import           Pos.Util.Util (eitherToThrow)
@@ -78,7 +77,7 @@ prepareRedemptionTx rsk output = do
 
 -- | Send the ready-to-use transaction
 submitTxRaw
-    :: (MinWorkMode m, MonadGState m)
+    :: (MinWorkMode m)
     => Diffusion m -> TxAux -> m Bool
 submitTxRaw diffusion txAux@TxAux {..} = do
     let txId = hash taTx

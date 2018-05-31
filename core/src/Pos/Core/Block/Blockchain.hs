@@ -1,5 +1,5 @@
-{-# LANGUAGE Rank2Types   #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE Rank2Types          #-}
 
 -- | This module contains some general definitions related to blocks
 -- and headers. The heart of this module is 'Blockchain' type class.
@@ -36,8 +36,6 @@ import           Control.Lens (makeLenses)
 import           Control.Monad.Except (MonadError (throwError))
 import           Formatting (build, sformat, (%))
 
-import           Pos.Core.Class (HasPrevBlock (..))
-import           Pos.Core.Common (HeaderHash)
 import           Pos.Crypto (ProtocolMagic)
 
 ----------------------------------------------------------------------------
@@ -48,9 +46,9 @@ import           Pos.Crypto (ProtocolMagic)
 -- different blockchains.
 class Blockchain p where
     -- | Proof of data stored in the body. Ensures immutability.
-    data BodyProof p :: *
+    type BodyProof p :: *
     -- | Consensus data which can be used to check consensus properties.
-    data ConsensusData p :: *
+    type ConsensusData p :: *
     -- | Whatever extra data.
     type ExtraHeaderData p :: *
     type ExtraHeaderData p = ()
@@ -59,10 +57,9 @@ class Blockchain p where
     type BBlockHeader p = GenericBlockHeader p
     -- | Hash of 'BBlockHeader'. This is something like @Hash (BBlockHeader p)@.
     type BHeaderHash p :: *
-    type BHeaderHash p = HeaderHash
 
     -- | Body contains payload and other heavy data.
-    data Body p :: *
+    type Body p :: *
     -- | Whatever extra data.
     type ExtraBodyData p :: *
     type ExtraBodyData p = ()
@@ -78,7 +75,7 @@ class Blockchain p where
         (MonadError Text m, Buildable (BodyProof p), Eq (BodyProof p)) =>
         Body p -> BodyProof p -> m ()
     checkBodyProof body proof = do
-        let calculatedProof = mkBodyProof body
+        let calculatedProof = mkBodyProof @p body
         let errMsg =
                 sformat ("Incorrect proof of body. "%
                          "Proof in header: "%build%
@@ -99,13 +96,13 @@ class Blockchain p where
 data GenericBlockHeader b = UnsafeGenericBlockHeader
     { _gbhProtocolMagic :: !ProtocolMagic
       -- | Pointer to the header of the previous block.
-    , _gbhPrevBlock :: !(BHeaderHash b)
+    , _gbhPrevBlock     :: !(BHeaderHash b)
     , -- | Proof of body.
-      _gbhBodyProof :: !(BodyProof b)
+      _gbhBodyProof     :: !(BodyProof b)
     , -- | Consensus data to verify consensus algorithm.
-      _gbhConsensus :: !(ConsensusData b)
+      _gbhConsensus     :: !(ConsensusData b)
     , -- | Any extra data.
-      _gbhExtra     :: !(ExtraHeaderData b)
+      _gbhExtra         :: !(ExtraHeaderData b)
     } deriving (Generic)
 
 deriving instance
@@ -184,7 +181,7 @@ mkGenericHeader
 mkGenericHeader pm hashPrev body consensus extra =
     UnsafeGenericBlockHeader pm hashPrev proof (consensus proof) extra
   where
-    proof = mkBodyProof body
+    proof = mkBodyProof @b body
 
 -- | Smart constructor for 'GenericBlock'.
 -- "Smart" because it uses the 'mkGenericHeader' "smart" constructor.
@@ -209,14 +206,6 @@ mkGenericBlock pm hashPrev body consensus extraH extra =
 
 makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock
-
-instance (BHeaderHash b ~ HeaderHash) =>
-         HasPrevBlock (GenericBlockHeader b) where
-    prevBlockL = gbhPrevBlock
-
-instance (BHeaderHash b ~ HeaderHash) =>
-         HasPrevBlock (GenericBlock b) where
-    prevBlockL = gbHeader . gbhPrevBlock
 
 -- | Lens from 'GenericBlock' to 'BHeaderHash' of its parent.
 gbPrevBlock :: Lens' (GenericBlock b) (BHeaderHash b)

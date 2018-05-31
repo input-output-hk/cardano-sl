@@ -2,14 +2,16 @@
 
 set -xe
 
+# shellcheck disable=SC1091
 source scripts/set_nixpath.sh
 
-OS_NAME=$(uname -s | tr A-Z a-z)
+OS_NAME=$(uname -s | tr '[:upper:]' '[:lower:]')
 
 if [[ ("$OS_NAME" == "linux") && ("$BUILDKITE_BRANCH" == "master") ]];
   then with_haddock=true
   else with_haddock=false
 fi
+export with_haddock
 
 targets="cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-wallet-new daedalus-bridge"
 
@@ -33,7 +35,7 @@ for trgt in $targets; do
   #         echo "Prebuild failed!"
 
   echo "Building $trgt verbosely.."
-  nix-build -A $trgt -o $trgt.root --argstr gitrev $BUILDKITE_COMMIT --argstr buildId $BUILDKITE_BUILD_NUMBER
+  nix-build -A "$trgt" -o "$trgt.root" --argstr gitrev "$BUILDKITE_COMMIT" --argstr buildId "$BUILDKITE_BUILD_NUMBER"
 #    TODO: CSL-1133
 #    if [[ "$trgt" == "cardano-sl" ]]; then
 #      stack test --nix --fast --jobs=2 --coverage \

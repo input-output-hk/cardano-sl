@@ -82,7 +82,7 @@ data PaymentFixture = PaymentFixture {
 }
 
 -- | Generic block of code to be reused across all the different payment specs.
-newPaymentFixture :: (HasCompileInfo, HasConfigurations) => WalletProperty PaymentFixture
+newPaymentFixture :: HasConfigurations => WalletProperty PaymentFixture
 newPaymentFixture = do
     passphrases <- importSomeWallets mostlyEmptyPassphrases
     let l = length passphrases
@@ -129,7 +129,7 @@ rejectPaymentIfRestoringSpec = walletPropertySpec "should fail with 403" $ do
 
 
 -- | Test one single, successful payment.
-oneNewPaymentBatchSpec :: (HasCompileInfo, HasConfigurations) => Spec
+oneNewPaymentBatchSpec :: HasConfigurations => Spec
 oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     PaymentFixture{..} <- newPaymentFixture
 

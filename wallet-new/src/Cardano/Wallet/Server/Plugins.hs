@@ -12,6 +12,7 @@ module Cardano.Wallet.Server.Plugins (
     , conversation
     , legacyWalletBackend
     , walletBackend
+    , walletDocumentation
     , resubmitterPlugin
     , notifierPlugin
     ) where
@@ -52,41 +53,64 @@ import           System.Wlog (logInfo, modifyLoggerName, usingLoggerName)
 import           Pos.Context (HasNodeContext)
 import           Pos.Util (lensOf)
 
+import           Cardano.NodeIPC (startNodeJsIPC)
 import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
 import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Shutdown.Class (HasShutdownContext (shutdownContext))
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
-import           Pos.Wallet.Web.Server.Launcher (walletServeImpl)
+import           Pos.Wallet.Web.Server.Launcher (walletDocumentationImpl, walletServeImpl)
 import           Pos.Wallet.Web.State (askWalletDB)
 import           Pos.Wallet.Web.Tracking.Sync (processSyncRequest)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Web (serveWeb)
 import           Pos.WorkMode (WorkMode)
-import           Pos.Shutdown.Class        (HasShutdownContext (shutdownContext))
-import           Cardano.NodeIPC (startNodeJsIPC)
 
 
 -- A @Plugin@ running in the monad @m@.
 type Plugin m = [Diffusion m -> m ()]
 
 -- | A @Plugin@ to periodically compact & snapshot the acid-state database.
-acidCleanupWorker :: HasConfigurations
-                  => WalletBackendParams
+acidCleanupWorker :: WalletBackendParams
                   -> Plugin WalletWebMode
 acidCleanupWorker WalletBackendParams{..} = pure $ const $
     modifyLoggerName (const "acidcleanup") $
     askWalletDB >>= \db -> cleanupAcidStatePeriodically db (walletAcidInterval walletDbOptions)
 
 -- | The @Plugin@ which defines part of the conversation protocol for this node.
-conversation :: (HasConfigurations, HasCompileInfo) => WalletBackendParams -> Plugin WalletWebMode
+conversation :: HasConfigurations => WalletBackendParams -> Plugin WalletWebMode
 conversation wArgs = map const (pluginsMonitoringApi wArgs)
   where
-    pluginsMonitoringApi :: (WorkMode ctx m , HasNodeContext ctx , HasConfigurations, HasCompileInfo)
+    pluginsMonitoringApi :: (WorkMode ctx m , HasNodeContext ctx)
                          => WalletBackendParams
                          -> [m ()]
     pluginsMonitoringApi WalletBackendParams {..}
         | enableMonitoringApi = [serveWeb monitoringApiPort walletTLSParams]
         | otherwise = []
+
+walletDocumentation
+    :: (HasConfigurations, HasCompileInfo)
+    => WalletBackendParams
+    -> Plugin WalletWebMode
+walletDocumentation WalletBackendParams {..} = pure $ \_ ->
+    walletDocumentationImpl
+        application
+        walletDocAddress
+        tls
+        (Just defaultSettings)
+        Nothing
+  where
+    application :: WalletWebMode Application
+    application = do
+        let app =
+                if isDebugMode walletRunMode then
+                    Servant.serve API.walletDevDocAPI LegacyServer.walletDevDocServer
+                else
+                    Servant.serve API.walletDocAPI LegacyServer.walletDocServer
+        return $ withMiddleware walletRunMode app
+
+    tls =
+        if isDebugMode walletRunMode then Nothing else walletTLSParams
 
 -- | A @Plugin@ to start the wallet backend API.
 legacyWalletBackend :: (HasConfigurations, HasCompileInfo)
@@ -170,8 +194,7 @@ legacyWalletBackend WalletBackendParams {..} ntpStatus = pure $ \diffusion -> do
 -- | A 'Plugin' to start the wallet REST server
 --
 -- TODO: no web socket support in the new wallet for now
-walletBackend :: (HasConfigurations, HasCompileInfo)
-              => NewWalletBackendParams
+walletBackend :: NewWalletBackendParams
               -> PassiveWalletLayer Production
               -> Plugin Kernel.WalletMode
 walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive = pure $ \diffusion -> do
@@ -203,12 +226,12 @@ walletBackend (NewWalletBackendParams WalletBackendParams{..}) passive = pure $ 
     lower env = runProduction . (`runReaderT` env)
 
 -- | A @Plugin@ to resubmit pending transactions.
-resubmitterPlugin :: (HasConfigurations, HasCompileInfo) => Plugin WalletWebMode
+resubmitterPlugin :: HasConfigurations => Plugin WalletWebMode
 resubmitterPlugin = [\diffusion -> askWalletDB >>= \db ->
                         startPendingTxsResubmitter db (sendTx diffusion)]
 
 -- | A @Plugin@ to notify frontend via websockets.
-notifierPlugin :: (HasConfigurations, HasCompileInfo) => Plugin WalletWebMode
+notifierPlugin :: HasConfigurations => Plugin WalletWebMode
 notifierPlugin = [const V0.notifierPlugin]
 
 -- | The @Plugin@ responsible for the restoration & syncing of a wallet.

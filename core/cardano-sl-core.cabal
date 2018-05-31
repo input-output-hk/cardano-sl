@@ -74,11 +74,9 @@ library
                        Pos.Binary.Core.Update
 
                        -- Block
-                       Pos.Core.Block.Genesis.Chain
                        Pos.Core.Block.Genesis.Lens
                        Pos.Core.Block.Genesis.Instances
                        Pos.Core.Block.Genesis.Types
-                       Pos.Core.Block.Main.Chain
                        Pos.Core.Block.Main.Lens
                        Pos.Core.Block.Main.Instances
                        Pos.Core.Block.Main.Types
@@ -109,18 +107,40 @@ library
                        Pos.Core.Genesis.Types
 
                        -- Slotting
+                       Pos.Core.Slotting.EpochIndex
+                       Pos.Core.Slotting.EpochOrSlot
+                       Pos.Core.Slotting.LocalSlotIndex
+                       Pos.Core.Slotting.SlotCount
+                       Pos.Core.Slotting.SlotId
+                       Pos.Core.Slotting.TimeDiff
                        Pos.Core.Slotting.Timestamp
-                       Pos.Core.Slotting.Types
-                       Pos.Core.Slotting.Util
 
                        -- SSC
-                       Pos.Core.Ssc.Types
-                       Pos.Core.Ssc.Util
-                       Pos.Core.Ssc.Vss
+                       Pos.Core.Ssc.Commitment
+                       Pos.Core.Ssc.CommitmentsMap
+                       Pos.Core.Ssc.Opening
+                       Pos.Core.Ssc.OpeningsMap
+                       Pos.Core.Ssc.Payload
+                       Pos.Core.Ssc.Proof
+                       Pos.Core.Ssc.SharesDistribution
+                       Pos.Core.Ssc.SharesMap
+                       Pos.Core.Ssc.VssCertificate
+                       Pos.Core.Ssc.VssCertificatesMap
 
                        -- Update
-                       Pos.Core.Update.Types
-                       Pos.Core.Update.Util
+                       Pos.Core.Update.ApplicationName
+                       Pos.Core.Update.BlockVersion
+                       Pos.Core.Update.BlockVersionData
+                       Pos.Core.Update.BlockVersionModifier
+                       Pos.Core.Update.Data
+                       Pos.Core.Update.Payload
+                       Pos.Core.Update.Proof
+                       Pos.Core.Update.Proposal
+                       Pos.Core.Update.SoftforkRule
+                       Pos.Core.Update.SoftwareVersion
+                       Pos.Core.Update.SystemTag
+                       Pos.Core.Update.Vote
+                       Pos.Core.Update.VoteId
 
   build-depends:       aeson
                      , ansi-terminal

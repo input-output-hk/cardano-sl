@@ -90,10 +90,11 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
         sks <- mapM getSKById addrs
         forM_ sks (syncWallet . eskToWalletDecrCredentials)
 
-    plugins :: (HasConfigurations, HasCompileInfo) => TVar NtpStatus -> Plugins.Plugin WalletWebMode
+    plugins :: TVar NtpStatus -> Plugins.Plugin WalletWebMode
     plugins ntpStatus =
         mconcat [ Plugins.conversation wArgs
                 , Plugins.legacyWalletBackend wArgs ntpStatus
+                , Plugins.walletDocumentation wArgs
                 , Plugins.acidCleanupWorker wArgs
                 , Plugins.syncWalletWorker
                 , Plugins.resubmitterPlugin

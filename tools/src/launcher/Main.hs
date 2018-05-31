@@ -72,13 +72,14 @@ import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault, dbGetDefa
                                dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault, openNodeDBs)
 import           Pos.Launcher (HasConfigurations, withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))
-import           Pos.Reporting.Wlog (compressLogs, retrieveLogFiles)
 import           Pos.Reporting.Http (sendReport)
+import           Pos.Reporting.Wlog (compressLogs, retrieveLogFiles)
 import           Pos.ReportServer.Report (ReportType (..))
 import           Pos.Update (installerHash)
 import           Pos.Update.DB.Misc (affirmUpdateInstalled)
 import           Pos.Util (HasLens (..), directory, logException, postfixLFields)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo, compileInfo)
+import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, retrieveCompileTimeInfo,
+                                       withCompileInfo)
 
 import           Launcher.Environment (substituteEnvVarsValue)
 import           Launcher.Logging (reportErrorDefault)
@@ -94,6 +95,7 @@ data LauncherOptions = LO
     , loWalletArgs          :: ![Text]
     , loWalletLogging       :: !Bool
     , loWalletLogPath       :: !(Maybe FilePath)
+    , loX509ToolPath        :: !FilePath
     , loUpdaterPath         :: !FilePath
     , loUpdaterArgs         :: ![Text]
     , loUpdateArchive       :: !(Maybe FilePath)
@@ -101,6 +103,7 @@ data LauncherOptions = LO
     , loNodeTimeoutSec      :: !Int
     , loReportServer        :: !(Maybe String)
     , loConfiguration       :: !ConfigurationOptions
+    , loTlsPath             :: !FilePath
     -- | This prefix will be passed as logs-prefix to the node. Launcher logs
     -- will be written into "pub" subdirectory of the prefix (as well as to
     -- console, except on Windows where we don't output anything to console
@@ -125,10 +128,9 @@ instance FromJSON LauncherOptions where
                 ]
 
 -- | The concrete monad where everything happens
-type M a = (HasConfigurations, HasCompileInfo) => Log.LoggerNameBox IO a
+type M a = Log.LoggerNameBox IO a
 
--- | Executable can be node, wallet or updater
-data Executable = EWallet | ENode | EUpdater
+data Executable = EWallet | ENode | EUpdater | ECertGen
 
 -- | This datatype holds values for either node or wallet
 --   Node/wallet path, args, log path
@@ -279,6 +281,7 @@ main =
     setEnv "LANG"   "en_GB.UTF-8"
 
     LO {..} <- getLauncherOptions
+
     -- Launcher logs should be in public directory
     let launcherLogsPrefix = (</> "pub") <$> loLogsPrefix
     -- Add options specified in loConfiguration but not in loNodeArgs to loNodeArgs.
@@ -297,7 +300,11 @@ main =
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.debugPlus)
     logException loggerName . Log.usingLoggerName loggerName $
-        withConfigurations loConfiguration $ \_ ->
+        withConfigurations loConfiguration $ \_ -> do
+
+        -- Generate TLS certificates as needed
+        generateTlsCertificates loConfiguration loX509ToolPath loTlsPath
+
         case (loWalletPath, loFrontendOnlyMode) of
             (Nothing, _) -> do
                 logNotice "LAUNCHER STARTED"
@@ -373,13 +380,44 @@ main =
     timestampToText (Timestamp ts) =
         pretty @Integer $ fromIntegral $ convertUnit @_ @Second ts
 
+
+generateTlsCertificates :: ConfigurationOptions -> FilePath -> FilePath -> M ()
+generateTlsCertificates ConfigurationOptions{..} executable tlsPath = do
+    alreadyExists <-
+        and <$> mapM (liftIO . doesFileExist) [tlsPath]
+
+    let tlsServer = tlsPath </> "server"
+    let tlsClient = tlsPath </> "client"
+
+    unless alreadyExists $ do
+        logInfo $ "Generating new TLS certificates in " <> toText tlsPath
+
+        let process = createProc  Process.Inherit executable
+                [ "--server-out-dir"     , toText tlsServer
+                , "--clients-out-dir"    , toText tlsClient
+                , "--configuration-file" , toText cfoFilePath
+                , "--configuration-key"  , cfoKey
+                ]
+
+        exitCode <- liftIO $ do
+            createDirectoryIfMissing True tlsServer
+            createDirectoryIfMissing True tlsClient
+            phvar <- newEmptyMVar
+            system' phvar process mempty ECertGen
+
+        when (exitCode /= ExitSuccess) $ do
+            logError "Couldn't generate TLS certificates for Wallet"
+            liftIO . fail $ "Wallet won't work without TLS certificates"
+
+
 -- | If we are on server, we want the following algorithm:
 --
 -- * Update (if we are already up-to-date, nothing will happen).
 -- * Launch the node.
 -- * If it exits with code 20, then update and restart, else quit.
 serverScenario
-    :: NodeDbPath
+    :: (HasCompileInfo, HasConfigurations)
+    => NodeDbPath
     -> Maybe FilePath     -- ^ Log prefix
     -> Maybe FilePath     -- ^ Logger config
     -> NodeData           -- ^ Node, args, log path
@@ -406,7 +444,8 @@ serverScenario ndbp logPrefix logConf node updater report = do
 -- * Launch the node and the wallet.
 -- * If the wallet exits with code 20, then update and restart, else quit.
 clientScenario
-    :: NodeDbPath
+    :: (HasCompileInfo, HasConfigurations)
+    => NodeDbPath
     -> Maybe FilePath    -- ^ Log prefix
     -> Maybe FilePath    -- ^ Logger config
     -> NodeData          -- ^ Node, args, node log path
@@ -471,7 +510,7 @@ clientScenario ndbp logPrefix logConf node wallet updater nodeTimeout report wal
             logWarning "The node didn't die after 'terminateProcess'"
             maybeTrySIGKILL nodeHandle
 
-frontendOnlyScenario :: NodeDbPath -> NodeData -> NodeData -> UpdaterData -> Bool -> M ()
+frontendOnlyScenario :: (HasConfigurations) => NodeDbPath -> NodeData -> NodeData -> UpdaterData -> Bool -> M ()
 frontendOnlyScenario ndbp node wallet updater walletLog = do
     runUpdater ndbp updater
     logInfo "Waiting for wallet to finish..."
@@ -487,7 +526,7 @@ frontendOnlyScenario ndbp node wallet updater walletLog = do
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: NodeDbPath -> UpdaterData -> M ()
+runUpdater :: HasConfigurations => NodeDbPath -> UpdaterData -> M ()
 runUpdater ndbp ud = do
     let path = udPath ud
         args = udArgs ud
@@ -523,7 +562,7 @@ runUpdater ndbp ud = do
             ExitFailure code ->
                 logWarning $ sformat ("The updater has failed (exit code "%int%")") code
 
-runUpdaterProc :: HasConfigurations => FilePath -> [Text] -> M ExitCode
+runUpdaterProc :: FilePath -> [Text] -> M ExitCode
 runUpdaterProc path args = do
     logNotice $ sformat ("    "%string%" "%stext) path (unwords $ map quote args)
     liftIO $ do
@@ -642,6 +681,7 @@ customLogger hndl loggerName logStr = do
             ENode    -> "[node] "
             EWallet  -> "[wallet] "
             EUpdater -> "[updater] "
+            ECertGen -> "[X509-certificates] "
 
 ----------------------------------------------------------------------------
 -- Working with the report server
@@ -656,7 +696,8 @@ customLogger hndl loggerName logStr = do
 -- ...Or maybe we don't care because we don't restart anything after sending
 -- logs (and so the user never actually sees the process or waits for it).
 reportNodeCrash
-    :: ExitCode        -- ^ Exit code of the node
+    :: (HasCompileInfo, HasConfigurations)
+    => ExitCode        -- ^ Exit code of the node
     -> Maybe FilePath  -- ^ Log prefix
     -> Maybe FilePath  -- ^ Path to the logger config
     -> String          -- ^ URL of the server
@@ -686,7 +727,7 @@ reportNodeCrash exitCode _ logConfPath reportServ = do
 
 -- Taken from the 'turtle' library and modified
 system'
-    :: (HasConfigurations, MonadIO io)
+    :: MonadIO io
     => MVar ProcessHandle
     -- ^ Where to put process handle
     -> Process.CreateProcess

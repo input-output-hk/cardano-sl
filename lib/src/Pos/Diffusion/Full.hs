@@ -20,7 +20,6 @@ import qualified Control.Concurrent.STM as STM
 import           Control.Concurrent.Async (Concurrently (..))
 import           Data.Functor.Contravariant (contramap)
 import qualified Data.Map as M
-import qualified Data.Map.Strict as MS
 import           Data.Time.Units (Microsecond, Millisecond, Second)
 import           Formatting (Format)
 import qualified Network.Broadcast.OutboundQueue as OQ
@@ -56,8 +55,9 @@ import qualified Pos.Diffusion.Full.Update as Diffusion.Update
 import           Pos.Diffusion.Subscription.Common (subscriptionListeners)
 import           Pos.Diffusion.Subscription.Dht (dhtSubscriptionWorker)
 import           Pos.Diffusion.Subscription.Dns (dnsSubscriptionWorker)
+import           Pos.Diffusion.Subscription.Status (SubscriptionStates, emptySubscriptionStates)
 import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
-import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..), SubscriptionStatus)
+import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.Types (NetworkConfig (..), Bucket (..), initQueue,
                                     topologySubscribers, SubscriptionWorker (..),
@@ -178,8 +178,8 @@ diffusionLayerFullExposeInternals fdconf
         recoveryHeadersMessage = fdcRecoveryHeadersMessage fdconf
         logTrace = fdcTrace fdconf
 
-    -- Subscription status.
-    subscriptionStatus <- newTVarIO MS.empty
+    -- Subscription states.
+    subscriptionStates <- emptySubscriptionStates
 
     keepaliveTimer <- newTimer
 
@@ -311,7 +311,7 @@ diffusionLayerFullExposeInternals fdconf
             mEkgNodeMetrics
             keepaliveTimer
             currentSlotDuration
-            subscriptionStatus
+            subscriptionStates
             listeners
 
         enqueue :: EnqueueMsg
@@ -383,7 +383,7 @@ runDiffusionLayerFull
     -> Maybe EkgNodeMetrics
     -> Timer -- ^ Keepalive timer.
     -> IO Millisecond -- ^ Slot duration; may change over time.
-    -> TVar (MS.Map NodeId SubscriptionStatus) -- ^ Subscription status.
+    -> SubscriptionStates NodeId
     -> (VerInfo -> [Listener])
     -> (FullDiffusionInternals -> IO x)
     -> IO x
@@ -398,7 +398,7 @@ runDiffusionLayerFull logTrace
                       mEkgNodeMetrics
                       keepaliveTimer
                       slotDuration
-                      subscriptionStatus
+                      subscriptionStates
                       listeners
                       k =
     maybeBracketKademliaInstance logTrace mKademliaParams defaultPort $ \mKademlia ->
@@ -438,7 +438,7 @@ runDiffusionLayerFull logTrace
         return (M.fromList itList)
     subscriptionThread mKademliaInst sactions = case mSubscriptionWorker of
         Just (SubscriptionWorkerBehindNAT dnsDomains) ->
-            dnsSubscriptionWorker logTrace oq defaultPort dnsDomains keepaliveTimer slotDuration subscriptionStatus sactions
+            dnsSubscriptionWorker logTrace oq defaultPort dnsDomains keepaliveTimer slotDuration subscriptionStates sactions
         Just (SubscriptionWorkerKademlia nodeType valency fallbacks) -> case mKademliaInst of
             -- Caller wanted a DHT subscription worker, but not a Kademlia
             -- instance. Shouldn't be allowed, but oh well FIXME later.

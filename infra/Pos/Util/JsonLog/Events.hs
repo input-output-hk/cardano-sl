@@ -166,7 +166,7 @@ appendJL path ev = liftIO $ do
   LBS.appendFile path . encode $ JLTimedEvent (fromIntegral time) ev
 
 -- | Returns event of created 'Block'.
-jlAdoptedBlock :: HasConfiguration => Block -> JLEvent
+jlAdoptedBlock :: Block -> JLEvent
 jlAdoptedBlock = JLAdoptedBlock . showHeaderHash . headerHash
 
 jsonLogConfigFromHandle :: MonadIO m => Handle -> m JsonLogConfig

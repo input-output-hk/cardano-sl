@@ -44,13 +44,13 @@ bracketPassiveWallet =
        }
 
     -- | A utility function.
-    liftedGen :: forall b. (MonadIO n, Arbitrary b) => n b
+    liftedGen :: forall b. (Arbitrary b) => n b
     liftedGen = liftIO . generate $ arbitrary
 
 -- | Initialize the active wallet.
 -- The active wallet is allowed all.
 bracketActiveWallet
-    :: forall m n a. (MonadMask m, MonadIO n)
+    :: forall m n a. (MonadMask m)
     => PassiveWalletLayer n
     -> WalletDiffusion
     -> (ActiveWalletLayer n -> m a) -> m a

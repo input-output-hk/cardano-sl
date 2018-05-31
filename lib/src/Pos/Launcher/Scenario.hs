@@ -13,7 +13,7 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import           Formatting (bprint, build, int, sformat, shown, (%))
-import           Mockable (Mockable, Async, mapConcurrently)
+import           Mockable (mapConcurrently)
 import           Serokell.Util (listJson)
 import           System.Wlog (WithLogger, askLoggerName, logInfo)
 
@@ -43,7 +43,6 @@ runNode'
     :: forall ext ctx m.
        ( HasCompileInfo
        , WorkMode ctx m
-       , Mockable Async m
        )
     => NodeResources ext
     -> [Diffusion m -> m ()]

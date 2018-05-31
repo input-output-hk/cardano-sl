@@ -32,7 +32,7 @@ import           Pos.Network.Types (Bucket)
 import           Pos.Logic.Types (Logic (..))
 import qualified Pos.Logic.Types as KV (KeyVal (..))
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
-                                  MCVssCertificate (..), SscMessageConstraints)
+                                  MCVssCertificate (..))
 import           Pos.Util.Trace (Trace, Severity)
 
 sscListeners
@@ -44,8 +44,7 @@ sscListeners
 sscListeners logTrace logic oq enqueue = relayListeners logTrace oq enqueue (sscRelays logic)
 
 sscRelays
-    :: ( SscMessageConstraints )
-    => Logic IO
+    :: Logic IO
     -> [Relay]
 sscRelays logic =
     [ commitmentRelay logic (postSscCommitment logic)
@@ -61,29 +60,24 @@ sscOutSpecs :: Logic IO -> OutSpecs
 sscOutSpecs logic = relayPropagateOut (sscRelays logic)
 
 commitmentRelay
-    :: ( SscMessageConstraints )
-    => Logic IO
+    :: Logic IO
     -> KV.KeyVal (Tagged MCCommitment StakeholderId) MCCommitment IO
     -> Relay
 commitmentRelay logic kv = sscRelay kv (mlMCCommitment <$> getAdoptedBVData logic)
 
 openingRelay
-    :: ( SscMessageConstraints )
-    => KV.KeyVal (Tagged MCOpening StakeholderId) MCOpening IO
+    :: KV.KeyVal (Tagged MCOpening StakeholderId) MCOpening IO
     -> Relay
 openingRelay kv = sscRelay kv (pure mlMCOpening)
 
 sharesRelay
-    :: ( SscMessageConstraints
-       )
-    => Logic IO
+    :: Logic IO
     -> KV.KeyVal (Tagged MCShares StakeholderId) MCShares IO
     -> Relay
 sharesRelay logic kv = sscRelay kv (mlMCShares <$> getAdoptedBVData logic)
 
 vssCertRelay
-    :: ( SscMessageConstraints )
-    => KV.KeyVal (Tagged MCVssCertificate StakeholderId) MCVssCertificate IO
+    :: KV.KeyVal (Tagged MCVssCertificate StakeholderId) MCVssCertificate IO
     -> Relay
 vssCertRelay kv = sscRelay kv (pure mlMCVssCertificate)
 

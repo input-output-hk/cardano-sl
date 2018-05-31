@@ -120,7 +120,7 @@ freshPassword = do
 -- NOTE: ordNub is available in latest universum, but current universum-0.9 doesn't have it.
 {-# ANN module ("HLint: ignore Use ordNub" :: Text) #-}
 runAction
-    :: (WalletTestMode m, HasCallStack, MonadState WalletState m)
+    :: (WalletTestMode m, MonadState WalletState m)
     => WalletClient m
     -> Action
     -> m ()

@@ -160,8 +160,7 @@ checkDisjoint (labelXs, xs) (labelYs, ys) =
 -------------------------------------------------------------------------------}
 
 -- | Wallet invariant, parameterized by a function to construct the wallet
-type WalletInv h a = (Hash h a, Buildable a, Eq a)
-                  => Text -> (Transaction h a -> Wallet h a) -> Invariant h a
+type WalletInv h a = Text -> (Transaction h a -> Wallet h a) -> Invariant h a
 
 -- | Which invariants are applicable to this wallet?
 data ApplicableInvariants =
@@ -174,7 +173,7 @@ data ApplicableInvariants =
     -- | We are working in the full model (including support for expected UTxO)
   | FullRollback
 
-walletInvariants :: ApplicableInvariants -> WalletInv h a
+walletInvariants :: (Hash h a, Buildable a, Eq a) => ApplicableInvariants -> WalletInv h a
 walletInvariants applicableInvariants l e w = do
     -- Invariants applicable in all models
     sequence_ [
@@ -201,35 +200,35 @@ walletInvariants applicableInvariants l e w = do
         , pendingInUtxoOrExpected l e w
         ]
 
-pendingInUtxo :: WalletInv h a
+pendingInUtxo :: Hash h a => WalletInv h a
 pendingInUtxo l e = invariant (l <> "/pendingInUtxo") e $ \w ->
     checkSubsetOf ("txIns (pending w)",
                     txIns (pending w))
                   ("utxoDomain (utxo w)",
                     utxoDomain (utxo w))
 
-utxoIsOurs :: WalletInv h a
+utxoIsOurs :: Buildable a => WalletInv h a
 utxoIsOurs l e = invariant (l <> "/utxoIsOurs") e $ \w ->
     checkAllSatisfy ("isOurs",
                       ours w . outAddr)
                     ("utxoRange (utxo w)",
                       utxoRange (utxo w))
 
-changeNotAvailable :: WalletInv h a
+changeNotAvailable :: Hash h a => WalletInv h a
 changeNotAvailable l e = invariant (l <> "/changeNotAvailable") e $ \w ->
     checkDisjoint ("utxoDomain (change w)",
                     utxoDomain (change w))
                   ("utxoDomain (available w)",
                     utxoDomain (available w))
 
-changeNotInUtxo :: WalletInv h a
+changeNotInUtxo :: Hash h a => WalletInv h a
 changeNotInUtxo l e = invariant (l <> "/changeNotInUtxo") e $ \w ->
     checkDisjoint ("utxoDomain (change w)",
                     utxoDomain (change w))
                   ("utxoDomain (utxo w)",
                     utxoDomain (utxo w))
 
-changeAvailable :: WalletInv h a
+changeAvailable :: (Hash h a, Buildable a, Eq a) => WalletInv h a
 changeAvailable l e = invariant (l <> "/changeAvailable") e $ \w ->
     checkEqual ("change w `utxoUnion` available w" ,
                  change w `utxoUnion` available w)
@@ -243,7 +242,7 @@ balanceChangeAvailable l e = invariant (l <> "/balanceChangeAvailable") e $ \w -
                ("balance (total w)",
                  balance (total w))
 
-pendingInputsDisjoint :: WalletInv h a
+pendingInputsDisjoint :: Hash h a => WalletInv h a
 pendingInputsDisjoint l e = invariant (l <> "/pendingInputsDisjoint") e $ \w ->
     asum [ checkDisjoint ("trIns " <> pretty h1, trIns tx1)
                          ("trIns " <> pretty h2, trIns tx2)
@@ -252,21 +251,21 @@ pendingInputsDisjoint l e = invariant (l <> "/pendingInputsDisjoint") e $ \w ->
          , h1 /= h2
          ]
 
-utxoExpectedDisjoint :: WalletInv h a
+utxoExpectedDisjoint :: Hash h a => WalletInv h a
 utxoExpectedDisjoint l e = invariant (l <> "/utxoExpectedDisjoint") e $ \w ->
     checkDisjoint ("utxoDomain (utxo w)",
                     utxoDomain (utxo w))
                   ("utxoDomain (expectedUtxo w)",
                     utxoDomain (expectedUtxo w))
 
-expectedUtxoIsOurs :: WalletInv h a
+expectedUtxoIsOurs :: Buildable a => WalletInv h a
 expectedUtxoIsOurs l e = invariant (l <> "/expectedUtxoIsOurs") e $ \w ->
     checkAllSatisfy ("isOurs",
                       ours w . outAddr)
                     ("utxoRange (expectedUtxo w)",
                       utxoRange (expectedUtxo w))
 
-pendingInUtxoOrExpected :: WalletInv h a
+pendingInUtxoOrExpected :: Hash h a => WalletInv h a
 pendingInUtxoOrExpected l e = invariant (l <> "/pendingInUtxoOrExpected") e $ \w ->
     checkSubsetOf ("txIns (pending w)",
                     txIns (pending w))

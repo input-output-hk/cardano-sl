@@ -57,7 +57,7 @@ spec = do
   Example hand-constructed chains
 -------------------------------------------------------------------------------}
 
-emptyBlock :: Hash h Addr => GenesisValues h -> Chain h a
+emptyBlock :: GenesisValues h -> Chain h a
 emptyBlock _ = OldestFirst [OldestFirst []]
 
 oneTrans :: Hash h Addr => GenesisValues h -> Chain h Addr

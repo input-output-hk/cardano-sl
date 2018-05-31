@@ -12,6 +12,7 @@ module NodeOptions
 
 import           Universum
 
+import           Data.Text (splitOn)
 import           Data.Time.Units (Minute)
 import           Data.Version (showVersion)
 import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc, header, help,

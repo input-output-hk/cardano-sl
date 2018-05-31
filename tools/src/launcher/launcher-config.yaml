@@ -10,12 +10,8 @@ nodePath: binaries/cardano-node
 
 # Arguments to be passed to the node.
 nodeArgs:
-  - "--tlscert"
-  - "./scripts/tls-files/server.crt"
-  - "--tlskey"
-  - "./scripts/tls-files/server.key"
-  - "--tlsca"
-  - "./scripts/tls-files/ca.crt"
+  - "--tlspath"
+  - "./scripts/tls"
   - "--topology"
   - "docs/network/example-topologies/mainnet-staging.yaml"
   - "--logs-prefix"
@@ -39,6 +35,9 @@ nodeLogConfig: log-configs/connect-to-cluster.yaml
 
 # File where node stdout/err will be redirected (def: no redirection).
 # nodeLogPath: node.log
+
+# Path to the cardano-x509-certificates executable
+# x509ToolPath: binaries/cardano-x509-certificates
 
 # Path to the wallet frontend executable (e. g. Daedalus).
 # If it is provided, the launcher runs in client scenario;

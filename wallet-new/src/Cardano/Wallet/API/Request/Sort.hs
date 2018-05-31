@@ -5,6 +5,8 @@
 {-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE PolyKinds                 #-}
 {-# LANGUAGE RankNTypes                #-}
+-- TODO, temporary
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module Cardano.Wallet.API.Request.Sort where
 
@@ -200,8 +202,7 @@ instance ApiCanLogArg (SortBy params res) where
 -- | Parse the incoming HTTP query param into a 'SortOperation', failing if the input is not a valid operation.
 parseSortOperation
     :: forall a ix sym
-    . ( ToIndex a ix
-      , IndexToQueryParam a ix ~ sym
+    . ( IndexToQueryParam a ix ~ sym
       , KnownSymbol sym
       )
     => Proxy a

@@ -25,7 +25,7 @@ import qualified Wallet.Incremental as Incr
   Construction
 -------------------------------------------------------------------------------}
 
-mkWallet :: (Hash h a, Ord a, Buildable st)
+mkWallet :: (Hash h a, Buildable st)
          => Ours a -> Lens' st (Incr.State h a) -> WalletConstr h a st
 mkWallet ours l self st = (Incr.mkWallet ours l self st) {
       applyBlock = \b ->
@@ -37,5 +37,5 @@ mkWallet ours l self st = (Incr.mkWallet ours l self st) {
   where
     this = self st
 
-walletEmpty :: (Hash h a, Ord a, Buildable a) => Ours a -> Wallet h a
+walletEmpty :: (Hash h a, Buildable a) => Ours a -> Wallet h a
 walletEmpty ours = fix (mkWallet ours identity) Incr.initState

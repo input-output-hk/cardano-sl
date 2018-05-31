@@ -12,6 +12,7 @@ import           Cardano.Wallet.API.V1.Types as V1
 import           Mockable (MonadMockable)
 import           Ntp.Client (NtpStatus)
 import           Pos.Diffusion.Types (Diffusion (..))
+import           Pos.Diffusion.Subscription.Status (ssMap)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo)
 import           Servant
 
@@ -21,7 +22,6 @@ import qualified Pos.Wallet.Web.Methods.Misc as V0
 
 -- | All the @Servant@ handlers for settings-specific operations.
 handlers :: ( HasConfigurations
-            , HasCompileInfo
             )
          => Diffusion MonadV1
          -> TVar NtpStatus
@@ -31,8 +31,7 @@ handlers = getInfo
 -- | Returns the @dynamic@ settings for this wallet node,
 -- like the local time difference (the NTP drift), the sync progress,
 -- etc.
-getInfo :: ( HasConfigurations
-           , MonadIO m
+getInfo :: ( MonadIO m
            , WithLogger m
            , MonadMockable m
            , MonadBlockchainInfo m
@@ -41,7 +40,7 @@ getInfo :: ( HasConfigurations
         -> TVar NtpStatus
         -> m (WalletResponse NodeInfo)
 getInfo Diffusion{..} ntpStatus = do
-    subscribers <- atomically $ readTVar subscriptionStatus
+    subscribers <- atomically $ readTVar (ssMap subscriptionStates)
     spV0 <- V0.syncProgress
     syncProgress   <- migrate spV0
     timeDifference <- V0.localTimeDifference ntpStatus

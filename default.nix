@@ -114,6 +114,7 @@ let
   other = rec {
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
     demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; };
+    shellcheckTests = pkgs.callPackage ./scripts/test/shellcheck.nix { src = ./.; };
     swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
     walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev; };
     buildWalletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration/build-test.nix { inherit walletIntegrationTests pkgs; };
@@ -125,8 +126,8 @@ let
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";
-      rev = "abd199510eb38c442e14fd82677f9cc1f7430cfb";
-      sha256 = "0rrawm054n9r45jvxmdzwkfl1mvar2wag8nvhqzf3ggnbcds2aj2";
+      rev = "9070f9173ae32f0be6f7830c41c8cfb8e780fdbf";
+      sha256 = "1qz7yfd6icl5sddpsij6fqn2dmzxwawm7cb8aw4diqh71drr1p29";
     }) { inherit pkgs; };
     inherit (pkgs) purescript;
     connectScripts = {
@@ -157,6 +158,7 @@ let
       cp ${./lib}/configuration.yaml config
       cp ${./lib}/*genesis*.json config
       cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-launcher bin
+      cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-x509-certificates bin
       cp ${cardanoPkgs.cardano-sl-wallet-new}/bin/cardano-node bin
 
       # test that binaries exit with 0

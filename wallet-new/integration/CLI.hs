@@ -9,28 +9,42 @@ module CLI
 
 import           Universum
 
-import           Options.Applicative -- (Parser, execParser, fullDesc, header, help, helper, info,
-                                      --long, metavar, progDesc, strOption, switch)
+import           Options.Applicative
+
 
 -- | Parser for command-line options.
 optionsParser :: Parser CLOptions
 optionsParser = do
-    tlsPubCertPath <- pure "./scripts/tls-files/server.crt"
---        <- strOption $
---           long        "tls-pub-cert"
---        <> metavar     "PUB_CERT"
---        <> help        "Path to TLS public certificate"
-    tlsPrivKeyPath <- pure "./scripts/tls-files/server.key"
---        <- strOption $
---           long        "tls-priv-key"
---        <> metavar     "PRIV_KEY"
---        <> help        "Path to TLS private key"
-    stateless
-        <- switch $
-           long        "stateless"
-        <> help        "If defined - don't persist state between requests."
+    tlsClientCertPath <- strOption $
+        long        "tls-client-cert"
+        <> metavar  "FILEPATH"
+        <> help     "Path to TLS client public certificate"
 
-    return CLOptions{..}
+    tlsPrivKeyPath <- strOption $
+        long        "tls-key"
+        <> metavar  "FILEPATH"
+        <> help     "Path to TLS client private key"
+
+    tlsCACertPath <- strOption $
+        long        "tls-ca-cert"
+        <> metavar  "FILEPATH"
+        <> help     "Path to TLS CA public certificate"
+
+    serverHost <- strOption $
+        long        "server-host"
+        <> metavar  "HOSTNAME"
+        <> value    "localhost"
+        <> help     "Server hostname"
+        <> showDefault
+
+    serverPort <- option auto $
+        long        "server-port"
+       <> metavar   "PORT"
+       <> value     8090
+       <> help      "Server port"
+       <> showDefault
+
+    pure CLOptions{..}
 
 
 -- | Get command-line options.
@@ -44,7 +58,9 @@ getOptions = execParser programInfo
 
 -- | The configuration for the application.
 data CLOptions = CLOptions
-    { tlsPubCertPath :: FilePath
-    , tlsPrivKeyPath :: FilePath
-    , stateless      :: Bool
+    { tlsClientCertPath :: FilePath
+    , tlsPrivKeyPath    :: FilePath
+    , tlsCACertPath     :: FilePath
+    , serverHost        :: String
+    , serverPort        :: Int
     } deriving (Show, Eq)

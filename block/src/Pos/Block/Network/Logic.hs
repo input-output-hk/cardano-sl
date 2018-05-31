@@ -38,8 +38,7 @@ import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQu
 import           Pos.Block.Types (Blund, LastKnownHeaderTag)
 import           Pos.Communication.Protocol (NodeId)
 import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader, headerHashG, isMoreDifficult,
-                           prevBlockL, HasGeneratedSecrets, HasGenesisHash, HasProtocolConstants,
-                           HasProtocolMagic, HasGenesisBlockVersionData, HasGenesisData)
+                           prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.Block.Load as DB
@@ -96,7 +95,6 @@ instance Exception BlockNetLogicException where
 -- and until we're finished we shouldn't be asking for new blocks.
 triggerRecovery
     :: ( BlockWorkMode ctx m
-       , HasProtocolMagic
        )
     => Diffusion m -> m ()
 triggerRecovery diffusion = unlessM recoveryInProgress $ do
@@ -130,7 +128,6 @@ triggerRecovery diffusion = unlessM recoveryInProgress $ do
 
 handleUnsolicitedHeader
     :: ( BlockWorkMode ctx m
-       , HasProtocolMagic
        )
     => BlockHeader
     -> NodeId
@@ -221,12 +218,6 @@ updateLastKnownHeader lastKnownH header = do
 handleBlocks
     :: forall ctx m .
        ( BlockWorkMode ctx m
-       , HasGeneratedSecrets
-       , HasGenesisData
-       , HasGenesisHash
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisBlockVersionData
        , HasMisbehaviorMetrics ctx
        )
     => OldestFirst NE Block
@@ -257,12 +248,6 @@ handleBlocks blocks diffusion = do
 applyWithoutRollback
     :: forall ctx m.
        ( BlockWorkMode ctx m
-       , HasGeneratedSecrets
-       , HasGenesisHash
-       , HasGenesisData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisBlockVersionData
        , HasMisbehaviorMetrics ctx
        )
     => Diffusion m
@@ -304,12 +289,6 @@ applyWithoutRollback diffusion blocks = do
 
 applyWithRollback
     :: ( BlockWorkMode ctx m
-       , HasGeneratedSecrets
-       , HasGenesisData
-       , HasGenesisHash
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisBlockVersionData
        , HasMisbehaviorMetrics ctx
        )
     => Diffusion m

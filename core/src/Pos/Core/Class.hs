@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module Pos.Core.Class
        (
@@ -9,7 +10,6 @@ module Pos.Core.Class
        , HasBlockVersion (..)
        , HasSoftwareVersion (..)
        , HasHeaderHash (..)
-       , headerHashG
        , HasEpochIndex (..)
        , HasEpochOrSlot (..)
        , epochOrSlotG
@@ -22,11 +22,10 @@ module Pos.Core.Class
 
 import           Universum
 
-import           Control.Lens (Getter, choosing, to)
-
-import           Pos.Core.Common (ChainDifficulty, HeaderHash)
-import           Pos.Core.Slotting.Types (EpochIndex, EpochOrSlot (..), SlotId)
-import           Pos.Core.Update.Types (BlockVersion, SoftwareVersion)
+import           Pos.Core.Block.Union.Types (HasHeaderHash (..), HasPrevBlock (..))
+import           Pos.Core.Common (ChainDifficulty)
+import           Pos.Core.Slotting (HasEpochIndex (..), HasEpochOrSlot (..), SlotId, epochOrSlotG)
+import           Pos.Core.Update (BlockVersion, SoftwareVersion)
 import           Pos.Crypto.Signing (PublicKey)
 import           Pos.Util.Some (Some, applySome, liftLensSome)
 
@@ -38,22 +37,6 @@ import           Pos.Util.Some (Some, applySome, liftLensSome)
 ----------------------------------------------------------------------------
 -- Classes for overloaded accessors
 ----------------------------------------------------------------------------
-
--- HasPrevBlock
--- | Class for something that has previous block (lens to 'Hash' for this block).
-class HasPrevBlock s where
-    prevBlockL :: Lens' s HeaderHash
-
-SOME_LENS_CLASS(HasPrevBlock, prevBlockL, HasPrevBlock)
-
-instance (HasPrevBlock s, HasPrevBlock s') =>
-         HasPrevBlock (Either s s') where
-    prevBlockL = choosing prevBlockL prevBlockL
-
-
--- Perhaps it is not the best instance.
-instance {-# OVERLAPPABLE #-} HasPrevBlock s => HasPrevBlock (s, z) where
-    prevBlockL = _1 . prevBlockL
 
 -- HasDifficulty
 class HasDifficulty a where
@@ -75,47 +58,6 @@ class HasSoftwareVersion a where
     softwareVersionL :: Lens' a SoftwareVersion
 
 SOME_LENS_CLASS(HasSoftwareVersion, softwareVersionL, HasSoftwareVersion)
-
--- HasHeaderHash
-class HasHeaderHash a where
-    headerHash :: a -> HeaderHash
-
-SOME_FUNC_CLASS(HasHeaderHash, headerHash, HasHeaderHash)
-
-instance HasHeaderHash HeaderHash where
-    headerHash = identity
-
-headerHashG :: HasHeaderHash a => Getter a HeaderHash
-headerHashG = to headerHash
-
--- HasEpochIndex
-class HasEpochIndex a where
-    epochIndexL :: Lens' a EpochIndex
-
-SOME_LENS_CLASS(HasEpochIndex, epochIndexL, HasEpochIndex)
-
-instance (HasEpochIndex a, HasEpochIndex b) =>
-         HasEpochIndex (Either a b) where
-    epochIndexL = choosing epochIndexL epochIndexL
-
--- HasEpochOrSlot
-class HasEpochOrSlot a where
-    getEpochOrSlot :: a -> EpochOrSlot
-
-SOME_FUNC_CLASS(HasEpochOrSlot, getEpochOrSlot, HasEpochOrSlot)
-
-epochOrSlotG :: HasEpochOrSlot a => Getter a EpochOrSlot
-epochOrSlotG = to getEpochOrSlot
-
-instance HasEpochOrSlot EpochIndex where
-    getEpochOrSlot = EpochOrSlot . Left
-instance HasEpochOrSlot SlotId where
-    getEpochOrSlot = EpochOrSlot . Right
-instance HasEpochOrSlot EpochOrSlot where
-    getEpochOrSlot = identity
-instance (HasEpochOrSlot a, HasEpochOrSlot b) =>
-         HasEpochOrSlot (Either a b) where
-    getEpochOrSlot = either getEpochOrSlot getEpochOrSlot
 
 ----------------------------------------------------------------------------
 -- Classes for headers

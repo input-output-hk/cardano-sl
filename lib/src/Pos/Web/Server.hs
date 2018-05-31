@@ -8,6 +8,7 @@
 
 module Pos.Web.Server
        ( serveImpl
+       , serveDocImpl
        , withRoute53HealthCheckApplication
        , serveWeb
        , application
@@ -20,13 +21,19 @@ import qualified Control.Exception.Safe as E
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
 import           Data.Aeson.TH (defaultOptions, deriveToJSON)
-import           Data.Default (Default)
+import qualified Data.ByteString.Char8 as BSC
+import           Data.Default (Default, def)
 import           Data.Streaming.Network (bindPortTCP, bindRandomPortTCP)
+import           Data.X509 (ExtKeyUsagePurpose (..), HashALG (..))
+import           Data.X509.CertificateStore (readCertificateStore)
+import           Data.X509.Validation (ValidationChecks (..), ValidationHooks (..))
+import qualified Data.X509.Validation as X509
 import           Mockable (Production (runProduction))
+import           Network.TLS (CertificateRejectReason (..), CertificateUsage (..), ServerHooks (..))
 import           Network.Wai (Application)
 import           Network.Wai.Handler.Warp (Settings, defaultSettings, getHost, runSettingsSocket,
                                            setHost, setPort)
-import           Network.Wai.Handler.WarpTLS (TLSSettings, runTLSSocket, tlsSettingsChain)
+import           Network.Wai.Handler.WarpTLS (TLSSettings (..), runTLSSocket, tlsSettingsChain)
 import           Servant.API ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server (Handler, HasServer, ServantErr (errBody), Server, ServerT, err404,
                                  err503, hoistServer, serve)
@@ -85,9 +92,10 @@ application = do
     server <- servantServer
     return $ serve nodeApi server
 
-serveImpl
+serveTLS
     :: (MonadIO m)
-    => m Application
+    => (String -> Word16 -> TlsParams -> TLSSettings)
+    -> m Application
     -> String
     -> Word16
     -- ^ if the port is 0, bind to a random port
@@ -97,7 +105,7 @@ serveImpl
     -> Maybe (Word16 -> IO ())
     -- ^ if isJust, call it with the port after binding
     -> m ()
-serveImpl app host port mWalletTLSParams mSettings mPortCallback = do
+serveTLS getTLSSettings app host port mWalletTLSParams mSettings mPortCallback = do
     app' <- app
     let
         acquire :: IO (Word16, Socket)
@@ -121,12 +129,87 @@ serveImpl app host port mWalletTLSParams mSettings mPortCallback = do
             fromMaybe (const (pure ())) mPortCallback port'
             maybe runSettingsSocket runTLSSocket mTlsConfig mySettings socket app''
         mySettings = setHost (fromString host) $
-                      setPort (fromIntegral port) $
-                      fromMaybe defaultSettings mSettings
-        mTlsConfig = tlsParamsToWai <$> mWalletTLSParams
+                     setPort (fromIntegral port) $
+                     fromMaybe defaultSettings mSettings
+        mTlsConfig = getTLSSettings host port <$> mWalletTLSParams
 
-tlsParamsToWai :: TlsParams -> TLSSettings
-tlsParamsToWai TlsParams{..} = tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath
+serveImpl
+    :: (MonadIO m)
+    => m Application
+    -> String
+    -> Word16
+    -> Maybe TlsParams
+    -> Maybe Settings
+    -> Maybe (Word16 -> IO ())
+    -> m ()
+serveImpl =
+    serveTLS tlsWithClientCheck
+
+serveDocImpl
+    :: (MonadIO m)
+    => m Application
+    -> String
+    -> Word16
+    -> Maybe TlsParams
+    -> Maybe Settings
+    -> Maybe (Word16 -> IO ())
+    -> m ()
+serveDocImpl =
+    serveTLS tlsWebServerMode
+
+tlsWebServerMode
+    :: String -> Word16 -> TlsParams -> TLSSettings
+tlsWebServerMode _ _ TlsParams{..} = tlsSettings
+    { tlsWantClientCert = False }
+  where
+    tlsSettings =
+      tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath
+
+tlsWithClientCheck
+    :: String -> Word16 -> TlsParams -> TLSSettings
+tlsWithClientCheck host port TlsParams{..} = tlsSettings
+    { tlsWantClientCert = True
+    , tlsServerHooks    = def
+        { onClientCertificate = fmap certificateUsageFromValidations . validateCertificate }
+    }
+  where
+    tlsSettings =
+        tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath
+
+    serviceID =
+        (host, BSC.pack (show port))
+
+    certificateUsageFromValidations =
+        maybe CertificateUsageAccept (CertificateUsageReject . CertificateRejectOther)
+
+    -- By default, X509.Validation validates the certificate names against the host
+    -- which is irrelevant when checking the client certificate (but relevant for
+    -- the client when checking the server's certificate).
+    validationHooks = def
+        { hookValidateName = \_ _ -> [] }
+
+    -- Here we add extra checks as the ones performed by default to enforce that
+    -- the client certificate is actually _meant_ to be used for client auth.
+    -- This should prevent server certificates to be used to authenticate
+    -- against the server.
+    validationChecks = def
+        { checkStrictOrdering = True
+        , checkLeafKeyPurpose = [KeyUsagePurpose_ClientAuth]
+        }
+
+    -- This solely verify that the provided certificate is valid and was signed by authority we
+    -- recognize (tpCaPath)
+    validateCertificate cert = do
+        mstore <- readCertificateStore tpCaPath
+        maybe
+            (pure $ Just "Cannot init a store, unable to validate client certificates")
+            (fmap fromX509FailedReasons . (\store -> X509.validate HashSHA256 validationHooks validationChecks store def serviceID cert))
+            mstore
+
+    fromX509FailedReasons reasons =
+        case reasons of
+            [] -> Nothing
+            _  -> Just (show reasons)
 
 ----------------------------------------------------------------------------
 -- Servant infrastructure

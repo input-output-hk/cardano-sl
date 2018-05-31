@@ -21,7 +21,7 @@ import           Pos.Explorer.Web.ClientTypes (CAddress (..), decodeHashHex, enc
 import           Pos.Txp (Tx, TxId)
 import           Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary, Gen, Property, arbitrary, forAll, (===))
+import           Test.QuickCheck (Gen, Property, arbitrary, forAll, (===))
 
 
 ----------------------------------------------------------------------------
@@ -30,7 +30,7 @@ import           Test.QuickCheck (Arbitrary, Gen, Property, arbitrary, forAll, (
 
 -- | Generalized property for any @AbstractHash@. Original copied from @CborSpec@.
 soundAbstractHashInstanceProperty
-    :: forall algo a. (Arbitrary a, Typeable algo, HashAlgorithm algo, Bi a)
+    :: forall algo a. (HashAlgorithm algo, Bi a)
     => (AbstractHash algo a -> Either Text (AbstractHash algo a))
     -> Property
 soundAbstractHashInstanceProperty reversableFunction =
@@ -144,7 +144,7 @@ quickcheckTests =
   where
     -- | This is the most general abstract hash function from source to client and back.
     reversableAbstractHashFunction
-        :: forall a algo. (Typeable algo, HashAlgorithm algo, Bi a)
+        :: forall a algo. (HashAlgorithm algo)
         => AbstractHash algo a
         -> Either Text (AbstractHash algo a)
     reversableAbstractHashFunction = decodeHashHex . encodeHashHex
@@ -152,8 +152,7 @@ quickcheckTests =
     -- | This is a more specific hash function that deals with @Hash a@ which is
     -- actually @forall a. AbstractHash Blake2b_256 a@.
     reversableCHashFunction
-        :: forall a. (Bi a)
-        => Hash a
+        :: Hash a
         -> Either Text (Hash a)
     reversableCHashFunction = fromCHash . toCHash
 

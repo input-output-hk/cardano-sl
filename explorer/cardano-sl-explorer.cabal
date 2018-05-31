@@ -94,9 +94,11 @@ library
                       , cardano-sl-delegation
                       , cardano-sl-generator
                       , cardano-sl-infra
+                      , cardano-sl-lrc
                       , cardano-sl-networking
                       , cardano-sl-ssc
                       , cardano-sl-txp
+                      , cardano-sl-txp-test
                       , cardano-sl-update
                       , cardano-sl-util
 
@@ -401,6 +403,7 @@ benchmark cardano-explorer-bench
                      , cardano-sl
                      , cardano-sl-explorer
                      , cardano-sl-txp
+                     , cardano-sl-txp-test
                      , criterion
                      , universum >= 0.1.11
                      , weigh

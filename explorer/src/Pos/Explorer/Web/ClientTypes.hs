@@ -66,7 +66,7 @@ import           Serokell.Util.Base16 as SB16
 import           Servant.API (FromHttpApiData (..))
 import           Test.QuickCheck (Arbitrary (..))
 
-import           Pos.Binary (Bi, biSize)
+import           Pos.Binary (biSize)
 import           Pos.Block.Types (Undo (..))
 import           Pos.Core (Address, Coin, EpochIndex, LocalSlotIndex, SlotId (..), StakeholderId,
                            Timestamp, addressF, coinToInteger, decodeTextAddress, gbHeader,
@@ -122,8 +122,7 @@ newtype CTxId = CTxId CHash
 
 -- | Transformation of core hash-types to client representation.
 encodeHashHex
-    :: forall algo a. (Bi a)
-    => AbstractHash algo a
+    :: AbstractHash algo a
     -> Text
 encodeHashHex = SB16.encode . BA.convert
 
@@ -133,7 +132,7 @@ instance ToString ByteString where
 
 -- | Decoding the text to the original form.
 decodeHashHex
-    :: forall algo a. (HashAlgorithm algo, Bi (AbstractHash algo a))
+    :: forall algo a. (HashAlgorithm algo)
     => Text
     -> Either Text (AbstractHash algo a)
 decodeHashHex hashText = do
@@ -144,10 +143,10 @@ decodeHashHex hashText = do
 -- Client hashes functions
 -------------------------------------------------------------------------------------
 
-toCHash :: forall a. (Bi a) => Hash a -> CHash
+toCHash :: Hash a -> CHash
 toCHash = CHash . encodeHashHex
 
-fromCHash :: forall a. (Bi (Hash a)) => CHash -> Either Text (Hash a)
+fromCHash :: CHash -> Either Text (Hash a)
 fromCHash (CHash h) = decodeHashHex h
 
 toCAddress :: Address -> CAddress

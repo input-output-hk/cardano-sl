@@ -61,7 +61,7 @@ initState = State {
   Construction
 -------------------------------------------------------------------------------}
 
-mkWallet :: (Hash h a, Ord a, Buildable st)
+mkWallet :: (Hash h a, Buildable st)
          => Ours a -> Lens' st (State h a) -> WalletConstr h a st
 mkWallet ours l self st = (Basic.mkWallet ours (l . stateBasic) self st) {
       applyBlock = \b ->
@@ -75,7 +75,7 @@ mkWallet ours l self st = (Basic.mkWallet ours (l . stateBasic) self st) {
   where
     this = self st
 
-walletEmpty :: (Hash h a, Ord a, Buildable a) => Ours a -> Wallet h a
+walletEmpty :: (Hash h a, Buildable a) => Ours a -> Wallet h a
 walletEmpty ours = fix (mkWallet ours identity) initState
 
 {-------------------------------------------------------------------------------

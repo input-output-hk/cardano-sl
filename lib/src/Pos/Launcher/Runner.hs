@@ -99,7 +99,6 @@ elimRealMode
     :: forall t ext .
        ( HasConfigurations
        , HasCompileInfo
-       , MonadTxpLocal (RealMode ext)
        )
     => NodeResources ext
     -> Diffusion IO

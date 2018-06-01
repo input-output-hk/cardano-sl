@@ -1,5 +1,6 @@
 {-# LANGUAGE FunctionalDependencies     #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE ViewPatterns               #-}
 
@@ -26,6 +27,7 @@ import           Control.Monad.Except (MonadError (..))
 import           Data.Fixed (Fixed, E2)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
+import           Formatting (sformat, shown, (%))
 import           Test.QuickCheck hiding (Fixed)
 
 import           Cardano.Wallet.Kernel.CoinSelection.Types (ExpenseRegulation (..))
@@ -150,7 +152,7 @@ class Monad m => RunPolicy m a | m -> a where
 
 data InputSelectionFailure a = InputSelectionFailure
                              -- ^ A generic failure
-                             | InsufficientFundsToCoverFee ExpenseRegulation (Output a)
+                             | InsufficientFundsToCoverFee ExpenseRegulation Value (Output a)
                              -- ^ We need extra funds to cover the fee.
 
 type InputSelectionPolicy h a m =
@@ -222,6 +224,9 @@ instance RunPolicy m a => RunPolicy (InputPolicyT h a m) a where
 
 type RunPolicyResult a r = Either [InputSelectionFailure a] r
 
+newtype TotalOutput = TotalOutput { getTotal :: Value }
+
+
 runInputPolicyT :: forall h a m. (HasTreasuryAddress a, Hash h a, RunPolicy m a)
                 => (Int -> [Value] -> Value)
                 -- ^ A function to estimate the fee.
@@ -267,25 +272,41 @@ runInputPolicyT estimateFee expenseRegulation originalUtxo originalOutputs polic
     -- NOTE(adn) Not dealing with divisions by 0 here to not complicate the
     -- code too much, but in a real implementation we should have 'NonEmpty (Output a)'
     -- being passed as input.
-    epsilon :: Value -> Output a -> Value
-    epsilon upperBoundFee (outVal -> val) =
+    epsilon :: Value -> Output a -> TotalOutput -> Value
+    epsilon upperBoundFee (outVal -> val) totalOutput =
         let (tf :: Double) = fromIntegral upperBoundFee
         -- Round the fee pessimistically. This might result in receivers paying
         -- a slightly higher fee.
-        in floor $ (fromIntegral val / fromIntegral totalOutputValue) * tf
+        in case getTotal totalOutput of
+               0     -> floor (tf * fromIntegral val)
+               total -> floor $ tf * (fromIntegral val / fromIntegral total)
 
-    -- | Calculates the total 'Value' from all the original outputs.
-    totalOutputValue :: Value
-    totalOutputValue = sum . map outVal $ originalOutputs
+    -- | Calculates the total 'Value' from all the @original@ outputs.
+    totalOriginalOutputValue :: TotalOutput
+    totalOriginalOutputValue =
+        TotalOutput (sum . map outVal $ originalOutputs)
+
+    -- | Calculates the total 'Value' from @all@ the outputs, including
+    -- change addresses.
+    totalChangeOutputValue :: [Output a] -> TotalOutput
+    totalChangeOutputValue changeOutputs =
+        TotalOutput (sum . map outVal $ changeOutputs)
 
     -- | Try regulating an output using the 'ExpenseRegulation' provided as
     -- part of 'runPolicyT'.
-    tryRegulate :: Value -> Output a -> Either (InputSelectionFailure a) (Output a)
-    tryRegulate upperBoundFee output =
+    tryRegulate :: Value
+                -- ^ The upper bound fee
+                -> TotalOutput
+                -- ^ Some notion of \"total output\"
+                -> Output a
+                -- ^ The output we need to regulate
+                -> Either (InputSelectionFailure a) (Output a)
+    tryRegulate upperBoundFee totalOutput output =
         let original = outVal output
-            amended  = original - (epsilon upperBoundFee output)
+            e        = epsilon upperBoundFee output totalOutput
+            amended  = original - e
         in case amended > original of -- We underflowed
-               True  -> Left (InsufficientFundsToCoverFee expenseRegulation output)
+               True  -> Left (InsufficientFundsToCoverFee expenseRegulation e output)
                False -> Right (output { outVal = amended })
 
     -- | Regulates the receivers, by substracting epsilon from their original
@@ -294,7 +315,7 @@ runInputPolicyT estimateFee expenseRegulation originalUtxo originalOutputs polic
                       -> Value
                       -> m (RunPolicyResult a (Transaction h a, TxStats))
     regulateReceivers (ptxStats, st) upperBoundFee = do
-        case partitionEithers (map (tryRegulate upperBoundFee) originalOutputs) of
+        case partitionEithers (map (tryRegulate upperBoundFee totalOriginalOutputValue) originalOutputs) of
             ([], amendedOutputs) -> do
                 let inputs = st ^. ipsSelectedInputs
                     changeOutputs = st ^. ipsChangeOutputs
@@ -312,21 +333,38 @@ runInputPolicyT estimateFee expenseRegulation originalUtxo originalOutputs polic
         case res of
             Left errs -> return (Left errs)
             Right (finalStats, finalSt, finalFee) -> do
-                case partitionEithers (map (tryRegulate finalFee) (finalSt ^. ipsChangeOutputs)) of
+                let totalOutput = totalChangeOutputValue (finalSt ^. ipsChangeOutputs)
+                case partitionEithers (map (tryRegulate finalFee totalOutput) (finalSt ^. ipsChangeOutputs)) of
                      ([], amendedChange) -> do
                          -- Filter the change addresses which, after being amended,
                          -- are completely empty.
-                         let finalChangeOutputs = filter ((== 0) . outVal) amendedChange
+                         let finalChangeOutputs = filter ((/= 0) . outVal) amendedChange
                          tx <- mkTxFreshHash (finalSt ^. ipsSelectedInputs)
                                              (originalOutputs <> finalChangeOutputs)
                                              finalFee
                          return $ Right (tx, fromPartialTxStats finalStats)
-                     (_, _) ->
+                     (err : _, _) ->
                          -- If we get an error here, by the virtue of the fact
                          -- that by construction the fee should be totally
                          -- covered by the selected inputs, we flag the
                          -- invariant with an exception
-                         error $ "regulateSender: failed to regulate the final change outputs! "
+                         case err of
+                              InsufficientFundsToCoverFee _ e erroredOutput ->
+                                 let msg = sformat (("regulateSender: " %
+                                                     "failed to regulate the final change outputs! " %
+                                                     "{ finalFee = ") % shown %
+                                                     ", availableChange = " % shown %
+                                                     ", totalOutputValue = " % shown %
+                                                     ", epsilon = " % shown %
+                                                     ", erroredOutput = " % shown %
+                                                     "}")
+                                                   finalFee
+                                                   (sum $ map outVal $ finalSt ^. ipsChangeOutputs)
+                                                   (getTotal totalOriginalOutputValue)
+                                                   e
+                                                   (outVal erroredOutput)
+                                 in error msg
+                              _ -> error "regulateSender: tryRegulate fee failed in an unexpected way."
 
     -- Iteratively try to cover the fee by picking \"one more input\" reusing
     -- the externally-passed policy.
@@ -538,7 +576,7 @@ randomInRange InRange{..} = go 0 utxoEmpty
         case mIO of
           Nothing
             | acc  >= targetMin -> return selected
-            | otherwise         -> throwError InputSelectionFailure
+            | otherwise         -> throwError [InputSelectionFailure]
           Just (i, o)
             | acc' >= targetAim -> return selected'
             | otherwise         -> go acc' selected'
@@ -577,7 +615,7 @@ findRandomOutput = do
     mIO <- tryFindRandomOutput (const True)
     case mIO of
       Just io -> return io
-      Nothing -> throwError InputSelectionFailure
+      Nothing -> throwError [InputSelectionFailure]
 
 -- | Find a random output, and return it if it satisfies the predicate
 --

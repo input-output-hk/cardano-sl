@@ -234,17 +234,17 @@ blockDownloadBatch serverAddress client ~(blockHeader, checkpoints) batches =  d
 blockDownloadStream :: NodeId -> (Int -> IO ()) -> Diffusion IO -> (HeaderHash, [HeaderHash]) -> Int -> IO ()
 blockDownloadStream serverAddress setStreamIORef client ~(blockHeader, checkpoints) batches = do
     setStreamIORef numBlocks
-    _ <- Diffusion.streamBlocks client serverAddress blockHeader checkpoints (loop (0::Int) [])
+    _ <- Diffusion.streamBlocks client serverAddress blockHeader checkpoints (loop (0::Word32) [])
     return ()
   where
     numBlocks = batches * 2200
 
-    loop n _ (wqgM, blockChan) = do
+    loop n _ (streamWindow, wqgM, blockChan) = do
         streamEntry <- atomically $ readTBQueue blockChan
         case streamEntry of
           StreamEnd         -> return ()
           StreamBlock !_ -> do
-              loop n [] (wqgM, blockChan)
+              loop n [] (streamWindow, wqgM, blockChan)
 
 blockDownloadBenchmarks :: NodeId -> (Int -> IO ()) -> Diffusion IO -> [Criterion.Benchmark]
 blockDownloadBenchmarks serverAddress setStreamIORef client =

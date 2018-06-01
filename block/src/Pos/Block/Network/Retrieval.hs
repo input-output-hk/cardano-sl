@@ -337,7 +337,7 @@ streamProcessBlocks
     -> m ()
 streamProcessBlocks diffusion nodeId desired checkpoints = do
     logNotice "streaming start"
-    r <- Diffusion.streamBlocks diffusion nodeId desired checkpoints (loop (0::Int) [])
+    r <- Diffusion.streamBlocks diffusion nodeId desired checkpoints (loop (0::Word32) [])
     case r of
          Nothing -> do
              logNotice "streaming not supported by peer, reverting to batch mode"
@@ -346,11 +346,12 @@ streamProcessBlocks diffusion nodeId desired checkpoints = do
              logNotice "streaming done"
              return ()
   where
-    loop n blocks (wqgM, blockChan) = do
+    loop n blocks (streamWindow, wqgM, blockChan) = do
         streamEntry <- atomically $ readTBQueue blockChan
         case streamEntry of
           StreamEnd         -> addBlocks blocks
           StreamBlock block -> do
+              let batchSize = min 64 streamWindow
               let !n' = n + 1
               when (n' `mod` 256 == 0) $
                      logInfo $ sformat ("Read block "%shortHashF%" difficulty "%int) (headerHash block)
@@ -359,12 +360,12 @@ streamProcessBlocks diffusion nodeId desired checkpoints = do
                    Nothing -> pure ()
                    Just wqg -> liftIO $ Gauge.dec wqg
 
-              if n' `mod` 64 == 0
+              if n' `mod` batchSize == 0
                  then do
                      addBlocks (block : blocks)
-                     loop n' [] (wqgM, blockChan)
+                     loop n' [] (streamWindow, wqgM, blockChan)
                  else
-                     loop n' (block : blocks) (wqgM, blockChan)
+                     loop n' (block : blocks) (streamWindow, wqgM, blockChan)
 
     addBlocks [] = return ()
     addBlocks (block : blocks) =

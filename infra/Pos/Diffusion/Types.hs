@@ -63,7 +63,7 @@ data Diffusion m = Diffusion
                             NodeId
                          -> HeaderHash
                          -> [HeaderHash]
-                         -> ((Maybe Gauge, TBQueue StreamEntry) -> m t)
+                         -> ((Word32, Maybe Gauge, TBQueue StreamEntry) -> m t)
                          -> m (Maybe t)
       -- | This is needed because there's a security worker which will request
       -- tip-of-chain from the network if it determines it's very far behind.

@@ -277,7 +277,7 @@ streamBlocks
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]
-    -> ((Maybe Gauge, Conc.TBQueue StreamEntry) -> IO t)
+    -> ((Word32, Maybe Gauge, Conc.TBQueue StreamEntry) -> IO t)
     -> IO (Maybe t)
 streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoints k = do
     blockChan <- atomically $ Conc.newTBQueue $ fromIntegral streamWindow
@@ -285,7 +285,7 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
     let wqgM = dhStreamWriteQueue <$> smM
     fallBack <- atomically $ Conc.newTVar False
     requestVar <- requestBlocks fallBack blockChan
-    r <- k (wqgM, blockChan) `finally` (atomically $ do
+    r <- k (streamWindow, wqgM, blockChan) `finally` (atomically $ do
         status <- Conc.readTVar requestVar
         case status of
              OQ.PacketAborted -> pure (pure ())
@@ -348,7 +348,7 @@ streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoint
         retrieveBlocks bvd blockChan conv streamWindow
         return ()
 
-    halfStreamWindow = streamWindow `div` 2
+    halfStreamWindow = max 1 $ streamWindow `div` 2
 
     -- A piece of the block retrieval conversation in which the blocks are
     -- pulled in one-by-one.

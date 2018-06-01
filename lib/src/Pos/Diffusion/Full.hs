@@ -349,7 +349,7 @@ diffusionLayerFullExposeInternals fdconf
                         NodeId
                      -> HeaderHash
                      -> [HeaderHash]
-                     -> ((Maybe Gauge, STM.TBQueue StreamEntry) -> IO t)
+                     -> ((Word32, Maybe Gauge, STM.TBQueue StreamEntry) -> IO t)
                      -> IO (Maybe t)
         streamBlocks = Diffusion.Block.streamBlocks logTrace diffusionHealth logic streamWindow enqueue
 

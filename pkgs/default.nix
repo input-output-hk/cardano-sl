@@ -16551,6 +16551,43 @@ description = "Cardano SL - infrastructural";
 license = stdenv.lib.licenses.mit;
 
 }) {};
+"cardano-sl-infra-test" = callPackage
+({
+  mkDerivation
+, base
+, bytestring
+, cardano-sl-core
+, cardano-sl-core-test
+, cardano-sl-infra
+, hedgehog
+, kademlia
+, memory
+, stdenv
+, time-units
+, universum
+}:
+mkDerivation {
+
+pname = "cardano-sl-infra-test";
+version = "1.1.0";
+src = ./../infra/test;
+libraryHaskellDepends = [
+base
+bytestring
+cardano-sl-core
+cardano-sl-core-test
+cardano-sl-infra
+hedgehog
+kademlia
+memory
+time-units
+universum
+];
+doHaddock = false;
+description = "Cardano SL - generators for cardano-sl-infra";
+license = stdenv.lib.licenses.mit;
+
+}) {};
 "cardano-sl-lrc" = callPackage
 ({
   mkDerivation

@@ -24,6 +24,7 @@ import           Formatting (build, sformat, (%))
 import           System.Random (randomRIO)
 import           System.Wlog (WithLogger)
 
+import           Pos.Binary (serialize')
 import           Pos.Client.KeyStorage (AllUserSecrets (..), MonadKeys, MonadKeysRead, addSecretKey,
                                         getSecretKeys, getSecretKeysPlain)
 import           Pos.Core (Address (..), IsBootstrapEraAddr (..), deriveLvl2KeyPair)
@@ -105,7 +106,7 @@ genSaveRootKey passphrase mnemonic = do
   where
     esk :: Either Text (PublicKey, EncryptedSecretKey)
     esk = safeDeterministicKeyGen
-        <$> mnemonicToSeed mnemonic
+        <$> mnemonicToSeed serialize' mnemonic
         <*> pure passphrase
 
     keyFromPhraseFailed msg =

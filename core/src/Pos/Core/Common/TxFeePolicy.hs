@@ -1,46 +1,13 @@
-module Pos.Core.Common.Fee
-       ( Coeff(..)
-       , TxSizeLinear(..)
-       , calculateTxSizeLinear
-       , txSizeLinearMinValue
-       , TxFeePolicy(..)
+module Pos.Core.Common.TxFeePolicy
+       ( TxFeePolicy (..)
        ) where
 
 import           Universum
 
-import           Data.Fixed (Fixed (..), Nano, showFixed)
-import           Data.Hashable (Hashable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, shown, (%))
-import           Serokell.Data.Memory.Units (Byte, toBytes)
 
--- | A fractional coefficient of fixed precision.
-newtype Coeff = Coeff Nano
-    deriving (Eq, Ord, Show, Generic, NFData, Num)
-
-instance Buildable Coeff where
-    build (Coeff x) = fromString (showFixed True x)
-
--- | A linear equation on the transaction size. Represents the @\s -> a + b*s@
--- function where @s@ is the transaction size in bytes, @a@ and @b@ are
--- constant coefficients.
-data TxSizeLinear = TxSizeLinear !Coeff !Coeff
-    deriving (Eq, Ord, Show, Generic)
-
-instance NFData TxSizeLinear
-
-instance Buildable TxSizeLinear where
-    build (TxSizeLinear a b) =
-        bprint (build%" + "%build%"*s") a b
-
-calculateTxSizeLinear :: TxSizeLinear -> Byte -> Nano
-calculateTxSizeLinear
-    (TxSizeLinear (Coeff a) (Coeff b))
-    (fromInteger . toBytes -> txSize) =
-        a + b * txSize
-
-txSizeLinearMinValue :: TxSizeLinear -> Nano
-txSizeLinearMinValue (TxSizeLinear (Coeff minVal) _) = minVal
+import           Pos.Core.Common.TxSizeLinear
 
 -- | Transaction fee policy represents a formula to compute the minimal allowed
 -- fee for a transaction. Transactions with lesser fees won't be accepted. The
@@ -71,5 +38,3 @@ instance Buildable TxFeePolicy where
         bprint ("policy(unknown:"%build%"): "%shown) v bs
 
 instance Hashable TxFeePolicy
-instance Hashable TxSizeLinear
-instance Hashable Coeff

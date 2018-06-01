@@ -84,10 +84,23 @@ library
                        Pos.Core.Block.Union.Types
 
                        -- Common
+                       Pos.Core.Common.AddrAttributes
                        Pos.Core.Common.Address
+                       Pos.Core.Common.AddressHash
+                       Pos.Core.Common.AddrSpendingData
+                       Pos.Core.Common.AddrStakeDistribution
+                       Pos.Core.Common.BlockCount
+                       Pos.Core.Common.ChainDifficulty
+                       Pos.Core.Common.Coeff
                        Pos.Core.Common.Coin
-                       Pos.Core.Common.Fee
-                       Pos.Core.Common.Types
+                       Pos.Core.Common.CoinPortion
+                       Pos.Core.Common.Script
+                       Pos.Core.Common.SharedSeed
+                       Pos.Core.Common.SlotLeaders
+                       Pos.Core.Common.StakeholderId
+                       Pos.Core.Common.Stakes
+                       Pos.Core.Common.TxFeePolicy
+                       Pos.Core.Common.TxSizeLinear
 
                        -- Configuration
                        Pos.Core.Configuration.BlockVersionData

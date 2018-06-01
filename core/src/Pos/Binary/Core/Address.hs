@@ -7,7 +7,7 @@ import           Universum
 import           Codec.CBOR.Encoding (Encoding)
 
 import           Pos.Binary.Class (Bi (..), encodeCrcProtected)
-import           Pos.Core.Common.Types (Address (..))
+import           Pos.Core.Common (Address (..))
 
 ----------------------------------------------------------------------------
 -- Helper types serialization

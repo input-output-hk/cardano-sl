@@ -14,7 +14,6 @@ module Pos.Util.Mnemonic
        -- * Converting from and to @Mnemonic@ (resp. @Entropy@)
        , mnemonicToEntropy
        , mnemonicToSeed
-       , mnemonicToAesKey
        , entropyToMnemonic
        , entropyToByteString
        ) where
@@ -30,9 +29,6 @@ import           Data.Default (Default (def))
 import           Data.Text.Buildable (Buildable (build))
 import           Test.QuickCheck (Arbitrary (arbitrary))
 import           Test.QuickCheck.Gen (oneof, vectorOf)
-
-import           Pos.Binary (Bi (..), serialize')
-import           Pos.Crypto (AbstractHash, unsafeAbstractHash)
 
 import           Pos.Util.LogSafe (SecureLog)
 
@@ -126,25 +122,19 @@ emptyMnemonic =
 --    - We do not use the password to produce the seed
 --    - We rely on a fast blake2b hashing function rather than a slow PKBDF2
 --
-mnemonicToSeed :: Mnemonic -> Either Text ByteString
-mnemonicToSeed =
-    fmap (serialize' . blake2b . getEntropy) . mnemonicToEntropy
-  where
-    blake2b :: Bi a => a -> AbstractHash Blake2b_256 ()
-    blake2b = unsafeAbstractHash
-
-
 -- Somehow, we also convert mnemonic to raw bytes using a Blake2b_256 but with
--- a slightly different process that yields completely different results.
--- FIXME Ideally, I'd like this to be the same as above, one small conversion
--- function away perhaps.
-mnemonicToAesKey :: Mnemonic -> Either Text ByteString
-mnemonicToAesKey =
-    fmap blake2b . mnemonicToEntropy
+-- a slightly different approach when converting them to aesKey when redeeming
+-- paper wallets... In this case, we do not serialize the inputs and outputs.
+mnemonicToSeed
+    :: (ByteString -> ByteString) -- ^ Extra serialization function, applied twice
+    -> Mnemonic                   -- ^ Actual mnemonic
+    -> Either Text ByteString
+mnemonicToSeed serialize =
+    fmap (serialize . blake2b . serialize . getEntropy) . mnemonicToEntropy
   where
-    blake2b :: Entropy -> ByteString
+    blake2b :: ByteString -> ByteString
     blake2b =
-        convert @(Digest Blake2b_256) . hash . getEntropy
+        convert @(Digest Blake2b_256) . hash
 
 
 -- | Decode a big endian Integer from a bytestring.

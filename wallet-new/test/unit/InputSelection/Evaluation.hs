@@ -27,8 +27,8 @@ import           Text.Printf (printf)
 
 import           InputSelection.Generator (Event (..), World (..))
 import qualified InputSelection.Generator as Gen
-import           InputSelection.Policy (InputSelectionPolicy, PrivacyMode (..), RunPolicy (..),
-                                        TxStats (..))
+import           InputSelection.Policy (HasTreasuryAddress (..), InputSelectionPolicy,
+                                        PrivacyMode (..), RunPolicy (..), TxStats (..))
 import qualified InputSelection.Policy as Policy
 import           Util.Distr
 import           Util.Histogram (Bin, BinSize (..), Count, Histogram)
@@ -254,12 +254,13 @@ mkFrame = state aux
 -- statistics.
 --
 -- Returns the final state
-intPolicy :: forall h a m. (Hash h a, Monad m)
-          => InputSelectionPolicy h a (StateT (IntState h a) m)
+intPolicy :: forall h a m. (HasTreasuryAddress a, Hash h a, Monad m)
+          => (Int -> [Value] -> Value)
+          -> InputSelectionPolicy h a (StateT (IntState h a) m)
           -> (a -> Bool)
           -> IntState h a -- Initial state
           -> ConduitT (Event h a) (CurrentStats, AccStats) m (IntState h a)
-intPolicy policy ours initState =
+intPolicy estimateFee policy ours initState =
     Conduit.execStateC initState $
       awaitForever $ \event -> do
         lift $ go event
@@ -273,9 +274,9 @@ intPolicy policy ours initState =
         pending <- use stPending
         stUtxo    %= utxoUnion pending
         stPending .= utxoEmpty
-    go (Pay outs) = do
+    go (Pay expenseRegulation outs) = do
         utxo <- use stUtxo
-        mtx  <- policy utxo outs
+        mtx  <- policy estimateFee expenseRegulation utxo outs
         case mtx of
           Right (tx, txStats) -> do
             stUtxo               %= utxoRemoveInputs (trIns tx)
@@ -283,6 +284,10 @@ intPolicy policy ours initState =
             stStats . accTxStats %= mappend txStats
           Left _err ->
             stStats . accFailedPayments += 1
+
+-- Yields transactions without fees.
+noFee :: Int -> [Value] -> Value
+noFee _ _ = 0
 
 {-------------------------------------------------------------------------------
   Compute bounds
@@ -506,23 +511,25 @@ writeStats prefix shouldRender =
 -- Returns the accumulated statistics and the plot instructions; we return these
 -- separately so that we combine bounds of related plots and draw them with the
 -- same scales.
-evaluatePolicy :: Hash h a
+evaluatePolicy :: (Hash h a, HasTreasuryAddress a)
                => FilePath       -- ^ Path to write to
                -> (Int -> Bool)  -- ^ Frames to render
+               -> (Int -> [Value] -> Value) -- ^ Function to estimate the fees
                -> InputSelectionPolicy h a (StateT (IntState h a) IO)
                -> (a -> Bool)    -- ^ Our addresses
                -> IntState h a   -- ^ Initial state
                -> ConduitT () (Event h a) IO ()
                -> IO (AccStats, [PlotInstr])
-evaluatePolicy prefix shouldRender policy ours initState generator =
+evaluatePolicy prefix shouldRender estimateFee policy ours initState generator =
     fmap (first (view stStats)) $
       runConduit $
         generator                       `fuse`
-        intPolicy policy ours initState `fuseBoth`
+        intPolicy estimateFee policy ours initState `fuseBoth`
         writeStats prefix shouldRender
 
 type NamedPolicies h = [
     ( String
+    , Int -> [Value] -> Value
     , InputSelectionPolicy h World (StateT (IntState h World) IO)
     )
   ]
@@ -549,22 +556,24 @@ evaluateUsingEvents plotParams@PlotParams{..}
                     policies
                     shouldRender
                     events =
-    forM_ policies $ \(suffix, policy) -> do
+    forM_ policies $ \(suffix, estimateFee, policy) -> do
       let prefix' = prefix </> (eventsPrefix ++ suffix)
-      go prefix' policy `catch` \e ->
+      go prefix' estimateFee policy `catch` \e ->
         if IO.isAlreadyExistsError e then
           putStrLn $ "Skipping " ++ prefix' ++ " (directory already exists)"
         else
           throwIO e
   where
     go :: FilePath
+       -> (Int -> [Value] -> Value)
        -> InputSelectionPolicy h World (StateT (IntState h World) IO)
        -> IO ()
-    go prefix' policy = do
+    go prefix' estimateFee policy = do
         createDirectory prefix'
         (stats, plotInstr) <- evaluatePolicy
           prefix'
           shouldRender
+          estimateFee
           policy
           (== Us)
           (initIntState plotParams initUtxo Us)
@@ -608,15 +617,15 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
     -- all policies we want to compare
     allPolicies :: Hash h World => NamedPolicies h
     allPolicies = [
-          ("-largest",   Policy.largestFirst)
-        , ("-randomOff", Policy.random PrivacyModeOff)
-        , ("-randomOn",  Policy.random PrivacyModeOn)
+          ("-largest",   noFee, Policy.largestFirst)
+        , ("-randomOff", noFee, Policy.random PrivacyModeOff)
+        , ("-randomOn",  noFee, Policy.random PrivacyModeOn)
         ]
 
     -- the policy we're actually using and want to evaluate
     chosenPolicy :: Hash h World => NamedPolicies h
     chosenPolicy = [
-          ("-randomOn", Policy.random PrivacyModeOn)
+          ("-randomOn", noFee, Policy.random PrivacyModeOn)
         ]
 
 

@@ -10,7 +10,6 @@ import           Cardano.Wallet.Client.Http
 import           Control.Lens hiding ((^..), (^?))
 import           Test.Hspec
 
-import qualified Data.List
 import           Util
 
 

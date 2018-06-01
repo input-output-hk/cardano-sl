@@ -87,6 +87,8 @@ data WalletClient m
          :: WalletId -> Resp m Wallet
     , updateWallet
          :: WalletId -> Update Wallet -> Resp m Wallet
+    , postCheckExternalWallet
+         :: Text -> Resp m Wallet
     , postExternalWallet
          :: New ExternalWallet -> Resp m Wallet
     , deleteExternalWallet
@@ -211,6 +213,8 @@ hoistClient phi wc = WalletClient
          phi . getWallet wc
     , updateWallet =
          \x -> phi . updateWallet wc x
+    , postCheckExternalWallet =
+         phi . postCheckExternalWallet wc
     , postExternalWallet =
          phi . postExternalWallet wc
     , deleteExternalWallet =

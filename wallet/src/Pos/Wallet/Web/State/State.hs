@@ -104,7 +104,7 @@ import           Pos.Txp (TxId, Utxo, UtxoModifier)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens', lensOf)
 import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountMeta, CId, CProfile, CTxId, CTxMeta,
-                                             CUpdateInfo, CWalletMeta, PassPhraseLU, Wal)
+                                             CUpdateInfo, CWalletMeta, CWalletType, PassPhraseLU, Wal)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition)
 import           Pos.Wallet.Web.State.Acidic (WalletDB, closeState, openMemState, openState)
 import           Pos.Wallet.Web.State.Acidic as A
@@ -288,10 +288,11 @@ createWallet :: (MonadIO m)
              -> CId Wal
              -> CWalletMeta
              -> Bool
+             -> CWalletType
              -> PassPhraseLU
              -> m ()
-createWallet db cWalId cwMeta isReady lastUpdate =
-    updateDisk (A.CreateWallet cWalId cwMeta isReady lastUpdate) db
+createWallet db cWalId cwMeta isReady cWalType lastUpdate =
+    updateDisk (A.CreateWallet cWalId cwMeta isReady cWalType lastUpdate) db
 
 addWAddress :: (MonadIO m)
             => WalletDB

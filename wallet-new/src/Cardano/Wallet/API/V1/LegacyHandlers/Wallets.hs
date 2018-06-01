@@ -27,7 +27,7 @@ import qualified Pos.Core as Core
 import           Pos.Crypto (decodeBase58PublicKey)
 import           Pos.Update.Configuration ()
 import           Pos.Client.KeyStorage (addPublicKey)
-import           Pos.StateLock (Priority (..), withStateLockNoMetrics)
+import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
 
 import           Pos.Util (HasLens (..))
 import           Pos.Util.Servant (encodeCType)
@@ -47,6 +47,7 @@ handlers = newWallet
     :<|> deleteWallet
     :<|> getWallet
     :<|> updateWallet
+    :<|> checkExternalWallet
     :<|> newExternalWallet
     :<|> deleteExternalWallet
 
@@ -199,10 +200,48 @@ updateWallet wid WalletUpdate{..} = do
         ws' <- V0.askWalletSnapshot
         addWalletInfo ws' updated
 
+-- | Check if external wallet is presented in node's wallet db.
+checkExternalWallet
+    :: ( V0.MonadWalletLogic ctx m
+       , V0.MonadBlockchainInfo m
+       , MonadUnliftIO m
+       , HasLens SyncQueue ctx SyncQueue
+       )
+    => Text
+    -> m (WalletResponse Wallet)
+checkExternalWallet encodedExtPubKey = do
+    publicKey <- case decodeBase58PublicKey encodedExtPubKey of
+        Left problem    -> throwM (InvalidPublicKey $ sformat build problem)
+        Right publicKey -> return publicKey
+
+    let walletId = encodeCType . Core.makePubKeyAddressBoot $ publicKey
+    walletExists <- V0.doesWalletExist walletId
+    v0wallet <- if walletExists
+        then
+            -- Wallet is here, it means that user already used this wallet (for example,
+            -- hardware device) on this computer, so we have to return stored information
+            -- about this wallet.
+            V0.getWallet walletId
+        else do
+            -- No such wallet in db, it means that this wallet (for example, hardware
+            -- device) was not used on this computer. But since this wallet _could_ be
+            -- used on another computer, we have to (try to) restore this wallet.
+            -- Since there's no wallet meta-data, we use default one.
+            let largeCurrencyUnit = 0
+                defaultMeta = V0.CWalletMeta "ADA external wallet"
+                                             V0.CWAStrict
+                                             largeCurrencyUnit
+            restoreExternalWallet defaultMeta encodedExtPubKey
+
+    ws <- V0.askWalletSnapshot
+    single <$> addWalletInfo ws v0wallet
+
 -- | Creates a new or restores an existing external @wallet@ given a 'NewExternalWallet' payload.
 -- Returns to the client the representation of the created or restored wallet in the 'Wallet' type.
 newExternalWallet
     :: ( MonadThrow m
+       , MonadUnliftIO m
+       , HasLens SyncQueue ctx SyncQueue
        , V0.MonadBlockchainInfo m
        , V0.MonadWalletLogic ctx m
        )
@@ -210,7 +249,7 @@ newExternalWallet
     -> m (WalletResponse Wallet)
 newExternalWallet NewExternalWallet{..} = do
     let newWalletHandler CreateWallet  = createNewExternalWallet
-        newWalletHandler RestoreWallet = error "Restore external wallet, TODO"
+        newWalletHandler RestoreWallet = restoreExternalWallet
     walletMeta <- V0.CWalletMeta <$> pure newewalName
                                  <*> migrate newewalAssuranceLevel
                                  <*> pure 0
@@ -243,13 +282,14 @@ createNewExternalWallet walletMeta encodedExtPubKey = do
     -- Add this public key in the 'public.key' file. Public key will be used during
     -- synchronization with the blockchain.
     addPublicKey publicKey
-    let walletId = encodeCType . Core.makePubKeyAddressBoot $ publicKey
-        isReady = True -- A brand new wallet doesn't need syncing with the blockchain.
+    let walletId   = encodeCType . Core.makePubKeyAddressBoot $ publicKey
+        isReady    = True -- A brand new wallet doesn't need syncing with the blockchain.
+        walletType = V0.CWalletExternal
 
     -- Create new external wallet.
     -- This is safe: if the client will try to create an external wallet from the same
     -- extended public key - error will be thrown.
-    V0.CWallet{..} <- V0.createWalletSafe walletId walletMeta isReady
+    V0.CWallet{..} <- V0.createWalletSafe walletId walletMeta isReady walletType
 
     -- Add initial account in this external wallet.
     let accountMeta    = V0.CAccountMeta { caName = "Initial account" }
@@ -263,6 +303,41 @@ createNewExternalWallet walletMeta encodedExtPubKey = do
     -- thus setting it up to date manually here
     withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip db walletId tip
     V0.getWallet walletId
+
+-- | Restore external wallet using it's extended public key and meta-data.
+restoreExternalWallet
+    :: ( MonadThrow m
+       , MonadUnliftIO m
+       , HasLens SyncQueue ctx SyncQueue
+       , V0.MonadWalletLogic ctx m
+       )
+    => V0.CWalletMeta
+    -> Text
+    -> m V0.CWallet
+restoreExternalWallet walletMeta encodedExtPubKey = do
+    publicKey <- case decodeBase58PublicKey encodedExtPubKey of
+        Left problem    -> throwM (InvalidPublicKey $ sformat build problem)
+        Right publicKey -> return publicKey
+
+    let walletId = encodeCType . Core.makePubKeyAddressBoot $ publicKey
+
+    -- Add this public key in the 'public.key' file. Public key will be used during
+    -- synchronization with the blockchain.
+    addPublicKey publicKey
+
+    let isReady = False -- Because we want to sync this wallet with the blockchain!
+
+    -- Create new external wallet.
+    V0.CWallet{..} <- V0.createWalletSafe walletId walletMeta isReady V0.CWalletExternal
+
+    -- Add initial account in this external wallet.
+    let accountMeta    = V0.CAccountMeta { caName = "Initial account" }
+        accountInit    = V0.CAccountInit { caInitWId = cwId, caInitMeta = accountMeta }
+        includeUnready = True
+    void $ V0.newExternalAccountIncludeUnready includeUnready accountInit
+
+    -- Restoring this wallet...
+    V0.restoreExternalWallet publicKey
 
 -- | On disk, once imported or created, there's so far not much difference
 -- between a wallet and an external wallet, except one: node stores a public key

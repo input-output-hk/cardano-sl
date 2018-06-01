@@ -12,6 +12,7 @@ module Pos.Wallet.Web.Methods.Logic
        , getAccount
        , getAccounts
 
+       , doesWalletExist
        , createWalletSafe
        , newAccount
        , newAccountIncludeUnready
@@ -63,7 +64,7 @@ import           Pos.Wallet.Web.Account (AddrGenSeed, GenSeed (..), findKey, gen
                                          genUniqueAddress, genUniqueAddressIndex, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAccountInit (..),
                                              CAccountMeta (..), CAddress (..), CId, CWallet (..),
-                                             CWalletMeta (..), Wal, encToCId, mkCCoin)
+                                             CWalletMeta (..), CWalletType (..), Wal, encToCId, mkCCoin)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (AddressInfo (..),
                                        AddressLookupMode (Deleted, Ever, Existing),
@@ -178,7 +179,7 @@ getWalletIncludeUnready ws mps includeUnready cAddr = do
                     Nothing -> return False -- No secret key, it's external wallet, so no password.
                     Just sk -> return $ isNothing . checkPassMatches emptyPassphrase $ sk
     passLU   <- maybeThrow noSuchWallet (getWalletPassLU ws cAddr)
-    pure $ CWallet cAddr meta accountsNum balance hasPass passLU
+    pure $ CWallet cAddr meta accountsNum balance hasPass passLU CWalletRegular
   where
     computeBalance accMod = do
         let waddrIds = getWalletWAddrsWithMod ws Existing accMod cAddr
@@ -339,20 +340,24 @@ newExternalAccount = newExternalAccountIncludeUnready False
 
 createWalletSafe
     :: MonadWalletLogic ctx m
-    => CId Wal -> CWalletMeta -> Bool -> m CWallet
-createWalletSafe cid wsMeta isReady = do
+    => CId Wal -> CWalletMeta -> Bool -> CWalletType -> m CWallet
+createWalletSafe cid wsMeta isReady walletType = do
     -- Disallow duplicate wallets (including unready wallets)
     (mps, db, ws) <- getSnapshots
     let wSetExists = isJust $ getWalletMetaIncludeUnready ws True cid
     when wSetExists $ throwM (DuplicateWalletError $ sformat build cid)
     curTime <- liftIO getPOSIXTime
-    createWallet db cid wsMeta isReady curTime
+    createWallet db cid wsMeta isReady walletType curTime
     -- Return the newly created wallet irrespective of whether it's ready yet
     ws' <- getWalletSnapshot db
     getWalletIncludeUnready ws' mps True cid
-  where
-    suchWalletIsAlreadyHere = RequestError $
-        sformat ("createWalletSafe: Wallet with that id "%build%" already exists") cid
+
+doesWalletExist
+    :: MonadWalletLogic ctx m
+    => CId Wal -> m Bool
+doesWalletExist wId = do
+    (_, _, ws) <- getSnapshots
+    return $ isJust $ getWalletMetaIncludeUnready ws True wId
 
 getSnapshots
     :: MonadWalletLogic ctx m

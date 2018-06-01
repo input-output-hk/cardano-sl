@@ -101,6 +101,8 @@ mkHttpClient baseUrl manager = WalletClient
         = run . getWalletR
     , updateWallet
         = \x -> run . updateWalletR x
+    , postCheckExternalWallet
+        = run . postCheckExternalWalletR
     , postExternalWallet
         = run . postExternalWalletR
     , deleteExternalWallet
@@ -162,6 +164,7 @@ mkHttpClient baseUrl manager = WalletClient
         :<|> deleteWalletR
         :<|> getWalletR
         :<|> updateWalletR
+        :<|> postCheckExternalWalletR
         :<|> postExternalWalletR
         :<|> deleteExternalWalletR
         = walletsAPI

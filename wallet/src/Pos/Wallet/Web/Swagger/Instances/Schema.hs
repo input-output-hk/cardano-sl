@@ -62,6 +62,7 @@ instance ToSchema      CT.CWalletMeta
 instance ToSchema      CT.CAccountInit
 instance ToSchema      CT.CWalletInit
 instance ToSchema      CT.CWalletRedeem
+instance ToSchema      CT.CWalletType
 instance ToSchema      CT.CWallet
 instance ToSchema      CT.CAccount
 instance ToSchema      CT.CAddress

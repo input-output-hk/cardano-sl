@@ -76,6 +76,7 @@ instance Migrate (V0.CWallet, OldStorage.WalletInfo, Maybe Core.ChainDifficulty)
                   <*> eitherMigrate _wiCreationTime
                   <*> eitherMigrate (V0.cwAssurance _wiMeta)
                   <*> eitherMigrate (_wiSyncState, _wiSyncStatistics, currentBlockchainHeight)
+                  <*> eitherMigrate cwType
 
 instance Migrate (OldStorage.WalletSyncState, OldStorage.SyncStatistics, Maybe Core.ChainDifficulty) V1.SyncState where
     eitherMigrate (wss, stats, currentBlockchainHeight) =
@@ -317,3 +318,7 @@ instance Migrate V0.CWalletMeta V1.WalletUpdate where
             { uwalName              = cwName
             , uwalAssuranceLevel    = migratedAssurance
             }
+
+instance Migrate V0.CWalletType (V1.WalletType) where
+    eitherMigrate V0.CWalletRegular  = pure (V1.WalletRegular)
+    eitherMigrate V0.CWalletExternal = pure (V1.WalletExternal)

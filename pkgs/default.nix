@@ -17055,6 +17055,7 @@ cpphs
 ];
 testHaskellDepends = [
 base
+bytestring
 cardano-sl
 cardano-sl-block
 cardano-sl-client

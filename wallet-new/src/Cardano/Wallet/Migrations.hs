@@ -24,9 +24,11 @@ import qualified Pos.Core as Core
 import Pos.Crypto.Hashing (decodeAbstractHash)
 import qualified Pos.Wallet.Web.State.Storage as WS
 import qualified Pos.Wallet.Web.ClientTypes as WebTypes
-import qualified Cardano.Wallet.Kernel.DB.TxMeta.Types as TxMeta
+import qualified Pos.Wallet.Web.Pending.Types as Pending
 import qualified Cardano.Wallet.Kernel.DB.HdWallet as Hdw
 import qualified Cardano.Wallet.Kernel.DB.HdWallet.Create as Hdw
+import qualified Cardano.Wallet.Kernel.DB.Spec as Kspec
+import qualified Cardano.Wallet.Kernel.DB.TxMeta.Types as TxMeta
 import qualified Cardano.Wallet.Kernel.DB.Util.AcidState as AS
 import Cardano.Wallet.Kernel.DB.InDb (InDb(InDb))
 
@@ -100,8 +102,15 @@ hdWalletsFromWalletStorage
 hdWalletsFromWalletStorage ws = do
   for_ (HM.toList (WS._wsWalletInfos ws)) $ \(cwalID, wi) -> do
      let wMeta = WS._wiMeta wi :: WebTypes.CWalletMeta
+     rId <- case hdRootIdFromCIdWal cwalID of
+        Nothing -> AS.throwError "hdRootIdFromCIdWal"
+        Just x -> pure x
+     mHist <- case HM.lookup cwalId (WS._wsHistoryCache ws) of
+        Nothing -> AS.throwError "Missing wallet id from _wsHistoryCache"
+        Just x -> pure (x :: Map Core.TxId TxHist.TxHistoryEntry)
+    , _wsHistoryCache    :: !(HashMap (WebTypes.CId WebTypes.Wal) (Map TxId TxHistoryEntry))
      AS.mapUpdateErrors (const "createHdRoot") $ Hdw.createHdRoot
-        (undefined :: Hdw.HdRootId)
+        rId
         (Hdw.WalletName (WebTypes.cwName wMeta))
         (Hdw.HasSpendingPassword
            (InDb (review Core.timestampSeconds (WS._wiPassphraseLU wi))))
@@ -109,9 +118,27 @@ hdWalletsFromWalletStorage ws = do
             WebTypes.CWAStrict -> Hdw.AssuranceLevelStrict
             WebTypes.CWANormal -> Hdw.AssuranceLevelNormal)
         (InDb (review Core.timestampSeconds (WS._wiCreationTime wi)))
+let chk = Kspec.Checkpoint
+          { _checkpointUtxo        = undefined :: InDb Core.Utxo
+          , _checkpointUtxoBalance = undefined :: InDb Core.Coin
+          , _checkpointExpected    = undefined :: InDb Core.Utxo
+          , _checkpointBlockMeta   = undefined :: BlockMeta
+          , _checkpointPending =
+              Kspec.Pending (InDb (Map.fromList
+                 (map (over _2 Pending._ptxTxAux)
+                      (HM.toList (WS._wsPendingTxs wi)))))
+          }
      pure ()
 
 
+
+--     acId :: Hdw.HdAccountId <-
+--        AS.mapUpdateErrors (const "createHdAccount") $ Hdw.createHdAccount
+--           rId
+--           (undefined :: Hdw.AccountName)
+--           (undefined :: Hdw.Checkpoint)
+--     pure ()
+--
 --
 --   {
 --   :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo)
@@ -126,18 +153,21 @@ hdWalletsFromWalletStorage ws = do
 
 --------------------------------------------------------------------------------
 
+-- | TODO VERIFY THAT THIS IS OK
 fromCTxId :: WebTypes.CTxId -> Maybe Core.TxId
 fromCTxId (WebTypes.CTxId (WebTypes.CHash t0)) = do
    bs0 <- decodeBase16 (T.encodeUtf8 t0)
    t1 <- either (const Nothing) Just (T.decodeUtf8' bs0)
    either (const Nothing) Just (decodeAbstractHash t1)
 
-hdRootIdFromCIdWal :: WebTypes.CId WebTypes.Wal -> Maybe Hdw.HdRootId
-hdRootIdFromCIdWal (WebTypes.CHash t0) = do
-   undefined
 
-unsafeAddressHash :: Bi a => a -> AddressHash b
-   either (const Nothing) Just (decodeAbstractHash t1)
+-- | TODO VERIFY THAT THIS IS OK
+hdRootIdFromCIdWal :: WebTypes.CId WebTypes.Wal -> Maybe Hdw.HdRootId
+hdRootIdFromCIdWal (WebTypes.CId (WebTypes.CHash t0)) = do
+   bs0 <- decodeBase16 (T.encodeUtf8 t0)
+   t1 <- either (const Nothing) Just (T.decodeUtf8' bs0)
+   addrh <- either (const Nothing) Just (decodeAbstractHash t1)
+   pure (Hdw.HdRootId (InDb addrh))
 
 decodeBase16 :: B.ByteString -> Maybe B.ByteString
 decodeBase16 = \x ->

@@ -279,6 +279,7 @@ streamBlocks
     -> [HeaderHash]
     -> ((Word32, Maybe Gauge, Conc.TBQueue StreamEntry) -> IO t)
     -> IO (Maybe t)
+streamBlocks _        _   _     0            _       _      _         _           _ = return Nothing -- Fallback to batch mode
 streamBlocks logTrace smM logic streamWindow enqueue nodeId tipHeader checkpoints k = do
     blockChan <- atomically $ Conc.newTBQueue $ fromIntegral streamWindow
     -- TODO if the request ends early, it should signal that via the channel

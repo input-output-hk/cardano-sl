@@ -70,23 +70,22 @@ import           Universum
 import           Control.Lens (makeLenses)
 import           Data.Default (Default, def)
 import           Data.Hashable (Hashable (..))
-import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable (Typeable)
 import           Data.Version (Version)
 import           Formatting (bprint, build, builder, later, shown, (%))
-import qualified Prelude
-import           Serokell.Util (listJsonIndent, mapBuilder)
-import           Servant.Multipart (FileData, Mem)
-
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import           Pos.Core (BlockVersion, ChainDifficulty, Coin, ScriptVersion, SoftwareVersion,
                            unsafeGetCoin)
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
-                                         buildUnsecure, deriveSafeBuildable,
-                                         secretOnlyF, secureListF)
-import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildUnsecure,
+                                         deriveSafeBuildable, secretOnlyF, secureListF)
+import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Util.Servant (HasTruncateLogPolicy, WithTruncatedLog (..))
+import           Serokell.Util (listJsonIndent, mapBuilder)
+import           Servant.Multipart (FileData, Mem)
+
+import qualified Data.Text.Buildable
+import qualified Prelude
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty
@@ -270,7 +269,7 @@ instance Default CAccountMeta where
 -- | Query data for wallet creation
 data CWalletInit = CWalletInit
     { cwInitMeta     :: !CWalletMeta
-    , cwBackupPhrase :: !BackupPhrase
+    , cwBackupPhrase :: !Mnemonic
     } deriving (Eq, Show, Generic)
 
 instance Buildable CWalletInit where
@@ -297,7 +296,7 @@ instance Buildable (SecureLog CWalletRedeem) where
 data CPaperVendWalletRedeem = CPaperVendWalletRedeem
     { pvWalletId     :: !CAccountId
     , pvSeed         :: !Text -- TODO: newtype!
-    , pvBackupPhrase :: !BackupPhrase
+    , pvBackupPhrase :: !Mnemonic
     } deriving (Show, Generic)
 
 instance Buildable CPaperVendWalletRedeem where

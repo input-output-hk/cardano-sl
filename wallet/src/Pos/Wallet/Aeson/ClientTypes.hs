@@ -14,7 +14,7 @@ import           Data.Version (showVersion)
 import           Servant.API.ContentTypes (NoContent (..))
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
-import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Util.Util (aesonError)
 import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CAccountId,
                                              CAccountInit, CAccountMeta, CAddress, CCoin,
@@ -38,7 +38,7 @@ deriveJSON defaultOptions ''CWalletInit
 deriveJSON defaultOptions ''CPaperVendWalletRedeem
 deriveJSON defaultOptions ''CTxMeta
 deriveJSON defaultOptions ''CProfile
-deriveJSON defaultOptions ''BackupPhrase
+deriveJSON defaultOptions ''Mnemonic
 deriveJSON defaultOptions ''CId
 deriveJSON defaultOptions ''Wal
 deriveJSON defaultOptions ''Addr

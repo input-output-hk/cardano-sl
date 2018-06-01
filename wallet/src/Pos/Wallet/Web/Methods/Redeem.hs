@@ -15,10 +15,10 @@ import qualified Serokell.Util.Base64 as B64
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Client.Txp.Network (prepareRedemptionTx)
 import           Pos.Core (TxAux (..), TxOut (..), getCurrentTimestamp)
-import           Pos.Crypto (PassPhrase, ProtocolMagic, aesDecrypt, deriveAesKeyBS, hash,
+import           Pos.Crypto (AesKey (..), PassPhrase, ProtocolMagic, aesDecrypt, hash,
                              redeemDeterministicKeyGen)
 import           Pos.Util (maybeThrow)
-import           Pos.Util.BackupPhrase (toSeed)
+import           Pos.Util.Mnemonic (mnemonicToAesKey)
 import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountId (..), CAddress (..),
                                              CPaperVendWalletRedeem (..), CTx (..),
@@ -58,7 +58,7 @@ redeemAdaPaperVend pm submitTx passphrase CPaperVendWalletRedeem {..} = do
     seedEncBs <- maybe invalidBase58 pure
         $ decodeBase58 bitcoinAlphabet $ encodeUtf8 pvSeed
     aesKey <- either invalidMnemonic pure
-        $ deriveAesKeyBS <$> toSeed pvBackupPhrase
+        $ AesKey <$> mnemonicToAesKey pvBackupPhrase
     seedDecBs <- either decryptionFailed pure
         $ aesDecrypt seedEncBs aesKey
     redeemAdaInternal pm submitTx passphrase pvWalletId seedDecBs

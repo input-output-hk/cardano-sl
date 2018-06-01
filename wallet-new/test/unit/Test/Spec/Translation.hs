@@ -13,6 +13,7 @@ import           Test.Hspec.QuickCheck
 
 import qualified Pos.Block.Error as Cardano
 import qualified Pos.Txp.Toil as Cardano
+import           Pos.Core (HasGenesisBlockVersionData, getCoin)
 
 import           Test.Infrastructure.Generator
 import           Test.Infrastructure.Genesis
@@ -29,7 +30,7 @@ import           UTxO.Translate
   UTxO->Cardano translation tests
 -------------------------------------------------------------------------------}
 
-spec :: Spec
+spec :: HasGenesisBlockVersionData => Spec
 spec = do
     describe "Translation sanity checks" $ do
       it "can construct and verify empty block" $
@@ -63,7 +64,7 @@ emptyBlock _ = OldestFirst [OldestFirst []]
 oneTrans :: Hash h Addr => GenesisValues h -> Chain h Addr
 oneTrans GenesisValues{..} = OldestFirst [OldestFirst [t1]]
   where
-    fee1 = estimateCardanoFee 1 2
+    fee1 = overestimate txFee 1 2
     t1   = Transaction {
                trFresh = 0
              , trFee   = fee1
@@ -79,7 +80,7 @@ oneTrans GenesisValues{..} = OldestFirst [OldestFirst [t1]]
 overspend :: Hash h Addr => GenesisValues h -> Chain h Addr
 overspend GenesisValues{..} = OldestFirst [OldestFirst [t1]]
   where
-    fee1 = estimateCardanoFee 1 2
+    fee1 = overestimate txFee 1 2
     t1   = Transaction {
                trFresh = 0
              , trFee   = fee1
@@ -95,7 +96,7 @@ overspend GenesisValues{..} = OldestFirst [OldestFirst [t1]]
 doublespend :: Hash h Addr => GenesisValues h -> Chain h Addr
 doublespend GenesisValues{..} = OldestFirst [OldestFirst [t1, t2]]
   where
-    fee1 = estimateCardanoFee 1 2
+    fee1 = overestimate txFee 1 2
     t1   = Transaction {
                trFresh = 0
              , trFee   = fee1
@@ -107,7 +108,7 @@ doublespend GenesisValues{..} = OldestFirst [OldestFirst [t1, t2]]
              , trExtra = ["t1"]
              }
 
-    fee2 = estimateCardanoFee 1 2
+    fee2 = overestimate txFee 1 2
     t2   = Transaction {
                trFresh = 0
              , trFee   = fee2
@@ -135,7 +136,7 @@ doublespend GenesisValues{..} = OldestFirst [OldestFirst [t1, t2]]
 example1 :: Hash h Addr => GenesisValues h -> Chain h Addr
 example1 GenesisValues{..} = OldestFirst [OldestFirst [t3, t4]]
   where
-    fee3 = estimateCardanoFee 1 2
+    fee3 = overestimate txFee 1 2
     t3   = Transaction {
                trFresh = 0
              , trFee   = fee3
@@ -147,7 +148,7 @@ example1 GenesisValues{..} = OldestFirst [OldestFirst [t3, t4]]
              , trExtra = ["t3"]
              }
 
-    fee4 = estimateCardanoFee 1 1
+    fee4 = overestimate txFee 1 1
     t4   = Transaction {
                trFresh = 0
              , trFee   = fee4
@@ -157,11 +158,17 @@ example1 GenesisValues{..} = OldestFirst [OldestFirst [t3, t4]]
              , trExtra = ["t4"]
              }
 
+-- | Over-estimate the total fee, by assuming the resulting transaction is
+--   as large as possible for the given number of inputs and outputs.
+overestimate :: (Int -> [Value] -> Value) -> Int -> Int -> Value
+overestimate getFee ins outs = getFee ins (replicate outs (getCoin maxBound))
+
 {-------------------------------------------------------------------------------
   Verify chain
 -------------------------------------------------------------------------------}
 
-intAndVerifyPure :: (GenesisValues GivenHash -> Chain GivenHash Addr)
+intAndVerifyPure :: HasGenesisBlockVersionData
+                 => (GenesisValues GivenHash -> Chain GivenHash Addr)
                  -> ValidationResult GivenHash Addr
 intAndVerifyPure pc = runIdentity $ intAndVerify (Identity . pc . genesisValues)
 

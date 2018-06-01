@@ -138,3 +138,7 @@ artifacts:
   - path: daedalus/
     name: CardanoSL
     type: zip
+
+  - path: C:\w\.w\logs\cardano-sl-1.1.1-test.log
+    name: cardano-sl-1.1.1-test.log
+    type: txt

@@ -24,7 +24,7 @@ import           Servant.Multipart (FileData (..))
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import           Pos.Core (ApplicationName, BlockCount (..), BlockVersion, ChainDifficulty, Coin,
                            SlotCount (..), SoftwareVersion, mkCoin)
-import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.Mnemonic (Mnemonic)
 
 import qualified Pos.Wallet.Web.ClientTypes as CT
 import qualified Pos.Wallet.Web.Error.Types as ET
@@ -77,7 +77,7 @@ instance ToSchema      BlockCount
 instance ToSchema      SlotCount
 instance ToSchema      ChainDifficulty
 instance ToSchema      BlockVersion
-instance ToSchema      BackupPhrase
+instance ToSchema      Mnemonic
 instance ToParamSchema CT.CPassPhrase
 instance ToParamSchema CT.ScrollOffset
 instance ToParamSchema CT.ScrollLimit

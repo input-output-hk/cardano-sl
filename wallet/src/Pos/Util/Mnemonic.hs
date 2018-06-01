@@ -1,34 +1,150 @@
-{-# LANGUAGE OverloadedStrings #-}
+-- | Module providing restoring from backup phrase functionality
 
--- Taken and slightly modified from https://github.com/input-output-hk/postvend-app/blob/master/src/Mnemonics.hs
-
-module Pos.Util.Mnemonics
+module Pos.Util.Mnemonic
        (
-         -- * Data types
-         Entropy
-       , Mnemonic
-       , defMnemonic
-       , Seed
+       -- * Types
+         Mnemonic
+       , Entropy
 
-         -- * Entropy encoding and decoding
-       , toMnemonic
-       , fromMnemonic
+       -- * Creating @Mnemonic@ (resp. @Entropy@)
+       , emptyMnemonic
+       , def
+       , mkEntropy
+
+       -- * Converting from and to @Mnemonic@ (resp. @Entropy@)
+       , mnemonicToEntropy
+       , mnemonicToSeed
+       , mnemonicToAesKey
+       , entropyToMnemonic
+       , entropyToByteString
        ) where
 
-import           Crypto.Hash (Digest, SHA256, hash)
+import           Universum
+
+import           Crypto.Hash (Blake2b_256, Digest, SHA256, hash)
 import           Data.Bits (shiftL, shiftR, (.&.), (.|.))
 import           Data.ByteArray (convert)
 import           Data.ByteString (ByteString)
-import qualified Data.ByteString as BS
 import           Data.Char (isAscii)
-import qualified Data.List as L
-import           Universum
+import           Data.Default (Default (def))
+import           Data.Text.Buildable (Buildable (build))
+import           Test.QuickCheck (Arbitrary (arbitrary))
+import           Test.QuickCheck.Gen (oneof, vectorOf)
 
--- TODO: use newtypes!
-type Entropy = ByteString
-type Mnemonic = Text
-type Seed = ByteString
-type Checksum = ByteString
+import           Pos.Binary (Bi (..), serialize')
+import           Pos.Crypto (AbstractHash, unsafeAbstractHash)
+
+import           Pos.Util.LogSafe (SecureLog)
+
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as B8
+import qualified Data.List as L
+
+
+-- | A backup-phrase in the form of a non-empty of Mnemonic words
+-- Constructor isn't exposed.
+newtype Mnemonic = Mnemonic
+    { getMnemonic :: [Text]
+    } deriving (Eq, Show, Generic)
+
+-- | Entropy as a non-empty sequence of bytes, multiple of 4 bytes
+newtype Entropy = Entropy
+    { getEntropy :: ByteString
+    } deriving (Eq, Show)
+
+
+-- | Initial seed has to be vector or length multiple of 4 bytes and shorter
+-- than 64 bytes. Not that this is good for testing or examples, but probably
+-- not for generating truly random Mnemonic words.
+instance Arbitrary Entropy where
+    arbitrary =
+        Entropy . B8.pack <$> oneof [ vectorOf (4 * n) arbitrary | n <- [1..16] ]
+
+-- FIXME: Suggestion, we could -- when certain flags are turned on -- display
+-- a fingerprint of the Mnemonic, like a PKBDF2 over n iterations. This could be
+-- useful for debug to know whether two users are using the same mnemonic words
+-- and relatively benign EVEN THOUGH, it will permit to somewhat tight requests
+-- to a specific identity (since mnemonic words are 'unique', they are supposed
+-- to uniquely identify users, hence the privacy issue). For debbugging only and
+-- with the user consent, that's something we could do.
+instance Buildable Mnemonic where
+    build _ =
+        "<mnemonic>"
+
+instance Buildable (SecureLog Mnemonic) where
+    build _ =
+        "<mnemonic>"
+
+-- | To use everytime we need to show an example of a Mnemonic. This particular
+-- mnemonic is rejected to prevent users from using it on a real wallet.
+instance Default Mnemonic where
+    def = Mnemonic
+        [ "squirrel"
+        , "material"
+        , "silly"
+        , "twice"
+        , "direct"
+        , "slush"
+        , "pistol"
+        , "razor"
+        , "become"
+        , "junk"
+        , "kingdom"
+        , "flee"
+        ]
+
+
+-- | Smart-constructor for the Entropy
+mkEntropy :: ByteString -> Either Text Entropy
+mkEntropy bytes = do
+    when (length bytes <= 0) $
+        Left "mkEntropy: Entropy must be a non-zero sequence of bytes"
+    when (BS.length bytes `rem` 4 /= 0) $
+        Left "toMnemonic: entropy must be a multiple of 4 bytes"
+    when (BS.length bytes `quot` 4 > 16) $
+        Left "toMnemonic: maximum entropy is 64 bytes (512 bits)"
+    -- when (isJust $ find (not . isAscii) (L.unwords ms)) $
+    --     Left "fromMnemonic: non-ASCII characters not supported"
+    Right (Entropy bytes)
+
+
+-- | An accessor because we don't want to expose the data-type constructor
+entropyToByteString :: Entropy -> ByteString
+entropyToByteString =
+    getEntropy
+
+
+-- | The empty mnemonic, for testing
+emptyMnemonic :: Mnemonic
+emptyMnemonic =
+    Mnemonic []
+
+
+-- | Convert a mnemonic to a seed that can be used to initiate a HD wallet.
+-- Note that our current implementation deviates from BIP-39 as:
+--
+--    - We do not use the password to produce the seed
+--    - We rely on a fast blake2b hashing function rather than a slow PKBDF2
+--
+mnemonicToSeed :: Mnemonic -> Either Text ByteString
+mnemonicToSeed =
+    fmap (serialize' . blake2b . getEntropy) . mnemonicToEntropy
+  where
+    blake2b :: Bi a => a -> AbstractHash Blake2b_256 ()
+    blake2b = unsafeAbstractHash
+
+
+-- Somehow, we also convert mnemonic to raw bytes using a Blake2b_256 but with
+-- a slightly different process that yields completely different results.
+-- FIXME Ideally, I'd like this to be the same as above, one small conversion
+-- function away perhaps.
+mnemonicToAesKey :: Mnemonic -> Either Text ByteString
+mnemonicToAesKey =
+    fmap blake2b . mnemonicToEntropy
+  where
+    blake2b :: Entropy -> ByteString
+    blake2b =
+        convert @(Digest Blake2b_256) . hash . getEntropy
 
 
 -- | Decode a big endian Integer from a bytestring.
@@ -47,62 +163,56 @@ integerToBS i
     f 0 = Nothing
     f x = Just (fromInteger x :: Word8, x `shiftR` 8)
 
--- | A default mnemonic that can be advertised as an example. Rejected by
--- fromMnemonic.
-defMnemonic :: Mnemonic
-defMnemonic =
-    "squirrel material silly twice direct slush pistol razor become junk kingdom flee"
-
 -- | Provide intial entropy as a 'ByteString' of length multiple of 4 bytes.
 -- Output a mnemonic sentence.
-toMnemonic :: Entropy -> Either String Mnemonic
-toMnemonic ent = do
+entropyToMnemonic :: Entropy -> Either Text Mnemonic
+entropyToMnemonic (Entropy ent) = do
     when (length ent <= 0) $
         Left "toMnemonic: entropy must be a non-zero sequence of bytes"
     when (remainder /= 0) $
         Left "toMnemonic: entropy must be a multiple of 4 bytes"
     when (cs_len > 16) $
         Left "toMnemonic: maximum entropy is 64 bytes (512 bits)"
-    when (isJust $ find (not . isAscii) ms) $
+    when (isJust $ find (not . isAscii) (L.unwords ms)) $
         Left "fromMnemonic: non-ASCII characters not supported"
-    return $ toText ms
+    return $ Mnemonic (map toText ms)
   where
     (cs_len, remainder) = BS.length ent `quotRem` 4
-    cs = calcCS cs_len ent
+    cs = calcCS cs_len (Entropy ent)
     indices = bsToIndices $ ent `BS.append` cs
-    ms = L.unwords $ map (wl L.!!) indices
+    ms = map (enWordList L.!!) indices
 
 -- | Revert 'toMnemonic'. Do not use this to generate seeds. This outputs the original entropy used to generate a
 -- mnemonic.
-fromMnemonic :: Mnemonic -> Either String Entropy
-fromMnemonic ms = do
-    when (ms == defMnemonic) $
+mnemonicToEntropy :: Mnemonic -> Either Text Entropy
+mnemonicToEntropy ms = do
+    when (ms == def) $
         Left "fromMnemonic: forbidden mnemonic: an example mnemonic has been submitted. Please generate a fresh and private mnemonic from a trusted source."
     when (word_count <= 0) $
         Left "fromMnemonic: empty mnemonic is not allowed"
-    when (isJust $ find (not . isAscii) ms) $
+    when (isJust $ find (not . isAscii) (L.unwords ms_words)) $
         Left "fromMnemonic: non-ASCII characters not supported"
     when (word_count > 48) $
-        Left $ "fromMnemonic: too many words: " ++ show word_count
+        Left $ "fromMnemonic: too many words: " <> show word_count
     when (word_count `mod` 3 /= 0) $
-        Left $ "fromMnemonic: wrong number of words: " ++ show word_count
+        Left $ "fromMnemonic: wrong number of words: " <> show word_count
     ms_bs <- indicesToBS =<< getIndices ms_words
     let (ms_ent, ms_cs) = BS.splitAt (ent_len * 4) ms_bs
         ms_cs_num = numCS cs_len ms_cs
-        ent_cs_num = numCS cs_len $ calcCS cs_len ms_ent
+        ent_cs_num = numCS cs_len $ calcCS cs_len (Entropy ms_ent)
     when (ent_cs_num /= ms_cs_num) $
-        Left $ "fromMnemonic: checksum failed: " ++ sh ent_cs_num ms_cs_num
-    return ms_ent
+        Left $ "fromMnemonic: checksum failed: " <> sh ent_cs_num ms_cs_num
+    return $ Entropy ms_ent
   where
-    ms_words = L.words $ toString ms
+    ms_words = map toString (getMnemonic ms)
     word_count = length ms_words
     (ent_len, cs_len) = (word_count * 11) `quotRem` 32
-    sh cs_a cs_b = show cs_a ++ " /= " ++ show cs_b
+    sh cs_a cs_b = show cs_a <> " /= " <> show cs_b
 
-calcCS :: Int -> Entropy -> Checksum
-calcCS len = getBits len . convert . (hash :: Entropy -> Digest SHA256)
+calcCS :: Int -> Entropy -> ByteString
+calcCS len = getBits len . convert @(Digest SHA256) . hash . getEntropy
 
-numCS :: Int -> Entropy -> Integer
+numCS :: Int -> ByteString -> Integer
 numCS len = shiftCS . bsToInteger
   where
     shiftCS = case 8 - len `mod` 8 of
@@ -123,16 +233,16 @@ getBits b bs
     l = BS.last s .&. (0xff `shiftL` (8 - r))    -- zero unneeded bits
 
 -- | Get indices of words in word list.
-getIndices :: [String] -> Either String [Int]
+getIndices :: [String] -> Either Text [Int]
 getIndices ws
     | null n = return $ catMaybes i
-    | otherwise = Left $ "getIndices: words not found: " ++ w
+    | otherwise = Left $ "getIndices: words not found: " <> toText w
   where
-    i = map (flip L.elemIndex wl) ws
+    i = map (flip L.elemIndex enWordList) ws
     n = L.elemIndices Nothing i
     w = L.unwords $ map (ws L.!!) n
 
-indicesToBS :: [Int] -> Either String ByteString
+indicesToBS :: [Int] -> Either Text ByteString
 indicesToBS is = do
     when lrg $ Left "indicesToBS: index larger or equal than 2048"
     return . pad . integerToBS $ (foldl' f 0 is) `shiftL` shift_width
@@ -151,8 +261,8 @@ bsToIndices bs = reverse . go q $ bsToInteger bs `shiftR` r
     go 0 _ = []
     go n i = (fromIntegral $ i `mod` 2048) : go (n - 1) (i `shiftR` 11)
 
-wl :: [String]
-wl =
+enWordList :: [String]
+enWordList =
     [ "abandon", "ability", "able", "about", "above", "absent"
     , "absorb", "abstract", "absurd", "abuse", "access", "accident"
     , "account", "accuse", "achieve", "acid", "acoustic", "acquire"

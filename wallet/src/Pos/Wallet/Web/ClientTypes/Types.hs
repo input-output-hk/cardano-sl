@@ -82,9 +82,9 @@ import           Servant.Multipart (FileData, Mem)
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import           Pos.Core (BlockVersion, ChainDifficulty, Coin, ScriptVersion, SoftwareVersion,
                            unsafeGetCoin)
-import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildUnsecure,
                                    deriveSafeBuildable, secretOnlyF, secureListF)
+import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Util.Servant (HasTruncateLogPolicy, WithTruncatedLog (..))
 
 data SyncProgress = SyncProgress
@@ -269,7 +269,7 @@ instance Default CAccountMeta where
 -- | Query data for wallet creation
 data CWalletInit = CWalletInit
     { cwInitMeta     :: !CWalletMeta
-    , cwBackupPhrase :: !BackupPhrase
+    , cwBackupPhrase :: !Mnemonic
     } deriving (Eq, Show, Generic)
 
 instance Buildable CWalletInit where
@@ -296,7 +296,7 @@ instance Buildable (SecureLog CWalletRedeem) where
 data CPaperVendWalletRedeem = CPaperVendWalletRedeem
     { pvWalletId     :: !CAccountId
     , pvSeed         :: !Text -- TODO: newtype!
-    , pvBackupPhrase :: !BackupPhrase
+    , pvBackupPhrase :: !Mnemonic
     } deriving (Show, Generic)
 
 instance Buildable CPaperVendWalletRedeem where

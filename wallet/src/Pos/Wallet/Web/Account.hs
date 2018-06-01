@@ -17,19 +17,20 @@ module Pos.Wallet.Web.Account
        , MonadKeySearch (..)
        ) where
 
+import           Universum
+
 import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Formatting (build, sformat, (%))
 import           System.Random (randomRIO)
 import           System.Wlog (WithLogger)
-import           Universum
 
 import           Pos.Client.KeyStorage (AllUserSecrets (..), MonadKeys, MonadKeysRead, addSecretKey,
                                         getSecretKeys, getSecretKeysPlain)
 import           Pos.Core (Address (..), IsBootstrapEraAddr (..), deriveLvl2KeyPair)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..),
-                             firstHardened)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey, ShouldCheckPassphrase (..),
+                             firstHardened, safeDeterministicKeyGen)
 import           Pos.Util (eitherToThrow)
-import           Pos.Util.BackupPhrase (BackupPhrase, safeKeysFromPhrase)
+import           Pos.Util.Mnemonic (Mnemonic, mnemonicToSeed)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, Wal, encToCId)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever), HasWAddressMeta (..),
@@ -95,14 +96,18 @@ getSKByAddressPure secrets scp passphrase addrMeta = do
 genSaveRootKey
     :: (AccountMode ctx m, MonadKeys m)
     => PassPhrase
-    -> BackupPhrase
+    -> Mnemonic
     -> m EncryptedSecretKey
-genSaveRootKey passphrase ph = do
-    sk <- either keyFromPhraseFailed (pure . fst) $
-        safeKeysFromPhrase passphrase ph
+genSaveRootKey passphrase mnemonic = do
+    sk <- either keyFromPhraseFailed (pure . snd) esk
     addSecretKey sk
     return sk
   where
+    esk :: Either Text (PublicKey, EncryptedSecretKey)
+    esk = safeDeterministicKeyGen
+        <$> mnemonicToSeed mnemonic
+        <*> pure passphrase
+
     keyFromPhraseFailed msg =
         throwM . RequestError $ "Key creation from phrase failed: " <> msg
 

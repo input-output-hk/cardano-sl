@@ -1,6 +1,6 @@
 -- | Module providing restoring from backup phrase functionality
 
-module Pos.Util.BackupPhrase
+module Test.Pos.Util.BackupPhraseOld
        ( BackupPhrase(..)
        , backupPhraseWordsNum
        , toSeed
@@ -23,7 +23,8 @@ import           Pos.Crypto (AbstractHash, EncryptedSecretKey, PassPhrase, Secre
                              deterministicKeyGen, deterministicVssKeyGen, safeDeterministicKeyGen,
                              unsafeAbstractHash)
 import           Pos.Util.LogSafe (SecureLog)
-import           Pos.Util.Mnemonics (defMnemonic, fromMnemonic, toMnemonic)
+
+import           Test.Pos.Util.MnemonicOld (defMnemonic, fromMnemonic, toMnemonic)
 
 -- | Datatype to contain a valid backup phrase
 newtype BackupPhrase = BackupPhrase

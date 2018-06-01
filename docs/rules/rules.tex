@@ -71,7 +71,7 @@
 
 \newcommand{\kronecker}[2]{[#1 = #2]}
 
-\newcommand{\idsof}[1]{\mathcal{I}\!_#1}
+\newcommand{\idsof}[1]{\mathcal{I}\!_{#1}}
 \newcommand{\id}{\mathsf{id}}
 \newcommand{\txs}{\mathcal{T}}
 \newcommand{\txids}{\idsof{\txs}}
@@ -98,28 +98,28 @@
 \newcommand{\transitivefix}[1]{{#1}^ω}
 \newcommand{\delegations}[1]{\mathsf{deleg}(#1)}
 \newcommand{\epoch}[1]{\mathsf{epoch}(#1)}
-\newcommand{\epochslot}[1]{\mathsf{slot}_\mathsf{epoch}(#1)}
-\newcommand{\epochindex}[1]{\mathsf{epoch}_\mathsf{index}(#1)}
+\newcommand{\epochslot}[1]{\mathsf{slot}_{\mathsf{epoch}(#1)}}
+\newcommand{\epochindex}[1]{\mathsf{epoch}_{\mathsf{index}(#1)}}
 \newcommand{\epochseed}[1]{\mathsf{seed}(#1)}
 \newcommand{\epochdistribution}[1]{\mathsf{distr}(#1)}
-\newcommand{\currentdistribution}[1]{\mathsf{distr}_0(#1)}
+\newcommand{\currentdistribution}[1]{\mathsf{distr}_{0(#1)}}
 \newcommand{\blocktrees}{\mathcal{G}}
 \newcommand{\blockchains}{\mathcal{D}}
 \newcommand{\maxchains}[1]{\mathcal{M}(#1)}
 \newcommand{\height}[1]{\mathsf{height}(#1)}
 \newcommand{\delegator}[1]{\mathsf{delegator}(#1)}
 \newcommand{\delegatee}[1]{\mathsf{delegatee}(#1)}
-\newcommand{\delegationcertificates}[1]{\mathsf{certificates}_\mathsf{delegation}(#1)}
-\newcommand{\selectrichman}[1]{\mathsf{select}_\mathsf{bootstrap}(#1)}
+\newcommand{\delegationcertificates}[1]{\mathsf{certificates}_{\mathsf{delegation}(#1)}}
+\newcommand{\selectrichman}[1]{\mathsf{select}_{\mathsf{bootstrap}(#1)}}
 \newcommand{\stakerepartitions}{\mathcal{R}}
 \newcommand{\repartition}[1]{\mathsf{repartition}(#1)}
-\newcommand{\bootstraprepartition}{r_\mathsf{bootstrap}}
+\newcommand{\bootstraprepartition}{r_{\mathsf{bootstrap}}}
 \newcommand{\stakeof}[2]{\mathsf{stake}(#1,#2)}
 \newcommand{\maxmempoolsize}{\mathsf{max}_{\mathsf{poolsize}}}
 \newcommand{\quality}[1]{\mathsf{quality}(#1)}
-\newcommand{\commitphase}{\mathsf{phase}_\mathsf{commitment}}
-\newcommand{\openphase}{\mathsf{phase}_\mathsf{open}}
-\newcommand{\recoveryphase}{\mathsf{phase}_\mathsf{recovery}}
+\newcommand{\commitphase}{\mathsf{phase}_{\mathsf{commitment}}}
+\newcommand{\openphase}{\mathsf{phase}_{\mathsf{open}}}
+\newcommand{\recoveryphase}{\mathsf{phase}_{\mathsf{recovery}}}
 \newcommand{\epochcommitments}[1]{\mathsf{commitments}(#1)}
 \newcommand{\epochopens}[1]{\mathsf{opens}(#1)}
 \newcommand{\epochrecoveries}[1]{\mathsf{recoveries}(#1)}

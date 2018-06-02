@@ -13442,16 +13442,12 @@ license = stdenv.lib.licenses.mit;
 , base
 , bytestring
 , cardano-sl-core
-, cardano-sl-util
+, cardano-sl-crypto
+, cardano-sl-crypto-test
 , cpphs
 , cryptonite
-, formatting
-, hspec
-, mtl
-, QuickCheck
-, quickcheck-instances
+, hedgehog
 , stdenv
-, tagged
 , time-units
 , universum
 }:
@@ -13464,14 +13460,10 @@ libraryHaskellDepends = [
 base
 bytestring
 cardano-sl-core
-cardano-sl-util
+cardano-sl-crypto
+cardano-sl-crypto-test
 cryptonite
-formatting
-hspec
-mtl
-QuickCheck
-quickcheck-instances
-tagged
+hedgehog
 time-units
 universum
 ];

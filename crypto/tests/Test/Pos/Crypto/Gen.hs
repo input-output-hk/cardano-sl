@@ -156,24 +156,30 @@ genVssPublicKey = toVssPublicKey <$> genVssKeyPair
 -- Proxy Cert and Key Generators
 ----------------------------------------------------------------------------
 
-genProxyCert :: Bi w => ProtocolMagic -> Gen w -> Gen (ProxyCert w)
-genProxyCert pm genW =
-    safeCreateProxyCert pm <$> genSafeSigner <*> genPublicKey <*> genW
+genProxyCert :: Bi w => Gen w -> Gen (ProxyCert w)
+genProxyCert genW = safeCreateProxyCert <$> gpm <*> gss <*> gpk <*> genW
+  where
+    gpm = genProtocolMagic
+    gss = genSafeSigner
+    gpk = genPublicKey
 
-genProxySecretKey :: Bi w => ProtocolMagic -> Gen w -> Gen (ProxySecretKey w)
-genProxySecretKey pm genW =
-    safeCreatePsk pm <$> genSafeSigner <*> genPublicKey <*> genW
+genProxySecretKey :: Bi w => Gen w -> Gen (ProxySecretKey w)
+genProxySecretKey genW = safeCreatePsk <$> gpm <*> gss <*> gpk <*> genW
+  where
+    gpm = genProtocolMagic
+    gss = genSafeSigner
+    gpk = genPublicKey
 
 genProxySignature
     :: (Bi w, Bi a)
-    => ProtocolMagic
-    -> Gen a
+    => Gen a
     -> Gen w
     -> Gen (ProxySignature w a)
-genProxySignature pm genA genW = do
+genProxySignature genA genW = do
+    pm  <- genProtocolMagic
     st  <- genSignTag
     sk  <- genSecretKey
-    psk <- genProxySecretKey pm genW
+    psk <- genProxySecretKey genW
     a   <- genA
     return $ proxySign pm st sk psk a
 
@@ -181,24 +187,28 @@ genProxySignature pm genA genW = do
 -- Signature Generators
 ----------------------------------------------------------------------------
 
-genSignature :: Bi a => ProtocolMagic -> Gen a -> Gen (Signature a)
-genSignature pm genA = sign pm <$> genSignTag <*> genSecretKey <*> genA
+genSignature :: Bi a => Gen a -> Gen (Signature a)
+genSignature genA =
+    sign <$> genProtocolMagic <*> genSignTag <*> genSecretKey <*> genA
 
-genSignatureEncoded :: ProtocolMagic -> Gen ByteString -> Gen (Signature a)
-genSignatureEncoded pm genB =
-    signEncoded pm <$> genSignTag <*> genSecretKey <*> genB
+genSignatureEncoded :: Gen ByteString -> Gen (Signature a)
+genSignatureEncoded genB =
+    signEncoded <$> genProtocolMagic <*> genSignTag <*> genSecretKey <*> genB
 
-genSigned :: Bi a => ProtocolMagic -> Gen a -> Gen (Signed a)
-genSigned pm genA =
-    mkSigned pm <$> genSignTag <*> genSecretKey <*> genA
+genSigned :: Bi a => Gen a -> Gen (Signed a)
+genSigned genA =
+    mkSigned <$> genProtocolMagic <*> genSignTag <*> genSecretKey <*> genA
 
 genRedeemSignature
     ::  Bi a
-    => ProtocolMagic
-    -> Gen a
+    => Gen a
     -> Gen (RedeemSignature a)
-genRedeemSignature pm genA =
-    redeemSign pm <$> genSignTag <*> genRedeemSecretKey <*> genA
+genRedeemSignature genA =
+    redeemSign <$> gpm <*> gst <*> grsk <*> genA
+  where
+    gpm  = genProtocolMagic
+    gst  = genSignTag
+    grsk = genRedeemSecretKey
 
 ----------------------------------------------------------------------------
 -- Secret Generators

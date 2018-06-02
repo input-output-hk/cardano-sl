@@ -50,7 +50,6 @@ module Test.Pos.Crypto.Gen
 
 import           Universum
 
-import           Crypto.Hash
 import qualified Data.ByteArray as ByteArray
 import           Data.List.NonEmpty (fromList)
 import           Hedgehog
@@ -58,9 +57,10 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Crypto (AbstractHash (..), PassPhrase,
-                             abstractHash)
+import           Pos.Crypto (PassPhrase)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
+import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm,
+                                     abstractHash)
 import           Pos.Crypto.HD (HDAddressPayload (..), HDPassphrase (..))
 import           Pos.Crypto.Random (deterministic)
 import           Pos.Crypto.SecretSharing (EncShare, Secret, SecretProof,
@@ -238,7 +238,10 @@ genSecretProof = do
 -- Hash Generators
 ----------------------------------------------------------------------------
 
-genAbstractHash :: Bi a => Gen a -> Gen (AbstractHash Blake2b_256 a)
+genAbstractHash
+    :: (Bi a, HashAlgorithm algo)
+    => Gen a
+    -> Gen (AbstractHash algo a)
 genAbstractHash genA = abstractHash <$> genA
 
 ----------------------------------------------------------------------------

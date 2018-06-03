@@ -109,6 +109,9 @@ test_script:
       --extra-lib-dirs="C:\xz_extracted\bin_x86-64"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
+
+  - tree c:\\w\
+
   # Cardano pieces, modulo the frontend
   - mkdir daedalus
     # log config is called `log-config-prod.yaml` just in case, it's the old name

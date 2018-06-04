@@ -24,11 +24,10 @@ import           Formatting (build, sformat, (%))
 import           System.Random (randomRIO)
 import           System.Wlog (WithLogger)
 
-import           Pos.Binary (serialize')
 import           Pos.Client.KeyStorage (AllUserSecrets (..), MonadKeys, MonadKeysRead, addSecretKey,
                                         getSecretKeys, getSecretKeysPlain)
 import           Pos.Core (Address (..), IsBootstrapEraAddr (..), deriveLvl2KeyPair)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey, ShouldCheckPassphrase (..),
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..),
                              firstHardened, safeDeterministicKeyGen)
 import           Pos.Util (eitherToThrow)
 import           Pos.Util.Mnemonic (Mnemonic, mnemonicToSeed)
@@ -99,18 +98,12 @@ genSaveRootKey
     => PassPhrase
     -> Mnemonic
     -> m EncryptedSecretKey
-genSaveRootKey passphrase mnemonic = do
-    sk <- either keyFromPhraseFailed (pure . snd) esk
-    addSecretKey sk
-    return sk
-  where
-    esk :: Either Text (PublicKey, EncryptedSecretKey)
-    esk = safeDeterministicKeyGen
-        <$> mnemonicToSeed serialize' mnemonic
-        <*> pure passphrase
-
-    keyFromPhraseFailed msg =
-        throwM . RequestError $ "Key creation from phrase failed: " <> msg
+genSaveRootKey passphrase mnemonic =
+    let
+        (_, key) =
+            safeDeterministicKeyGen (mnemonicToSeed mnemonic) passphrase
+    in
+        addSecretKey key >> return key
 
 data GenSeed a
     = DeterminedSeed a

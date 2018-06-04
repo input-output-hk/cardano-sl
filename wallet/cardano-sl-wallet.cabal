@@ -239,10 +239,10 @@ test-suite cardano-wallet-test
                        Test.Pos.Wallet.MigrationSpec
 
   type:                exitcode-stdio-1.0
-  build-depends:       MonadRandom
+  build-depends:       base
+                     , MonadRandom
                      , QuickCheck
-                     , quickcheck-instances
-                     , base
+                     , aeson
                      , bytestring
                      , cardano-crypto
                      , cardano-sl
@@ -275,6 +275,7 @@ test-suite cardano-wallet-test
                      , log-warper
                      , memory
                      , mtl
+                     , quickcheck-instances
                      , safe-exceptions
                      , safecopy
                      , serokell-util >= 0.1.3.4

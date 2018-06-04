@@ -66,6 +66,7 @@ library
                        Cardano.Wallet.Kernel.DB.BlockMeta
                        Cardano.Wallet.Kernel.DB.HdWallet
                        Cardano.Wallet.Kernel.DB.HdWallet.Create
+                       Cardano.Wallet.Kernel.DB.HdWallet.Compat
                        Cardano.Wallet.Kernel.DB.HdWallet.Delete
                        Cardano.Wallet.Kernel.DB.HdWallet.Read
                        Cardano.Wallet.Kernel.DB.HdWallet.Update

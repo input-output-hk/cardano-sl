@@ -20,7 +20,7 @@ import           Universum
 import           Control.Lens ((%=), (.=))
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except (MonadError (..))
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Test.QuickCheck
 
@@ -28,6 +28,7 @@ import           Util.Histogram (BinSize (..), Histogram)
 import qualified Util.Histogram as Histogram
 import           Util.MultiSet (MultiSet)
 import qualified Util.MultiSet as MultiSet
+import           Util.StrictStateT
 import           UTxO.DSL
 
 {-------------------------------------------------------------------------------
@@ -44,7 +45,7 @@ class Monad m => LiftQuickCheck m where
 instance LiftQuickCheck IO where
   liftQuickCheck = generate
 
-instance LiftQuickCheck m => LiftQuickCheck (StateT s m) where
+instance LiftQuickCheck m => LiftQuickCheck (StrictStateT s m) where
   liftQuickCheck = lift . liftQuickCheck
 
 {-------------------------------------------------------------------------------
@@ -148,10 +149,10 @@ data InputSelectionFailure = InputSelectionFailure
 
 data InputPolicyState h a = InputPolicyState {
       -- | Available entries in the UTxO
-      _ipsUtxo             :: Utxo h a
+      _ipsUtxo             :: !(Utxo h a)
 
       -- | Selected inputs
-    , _ipsSelectedInputs   :: Set (Input h a)
+    , _ipsSelectedInputs   :: !(Set (Input h a))
 
       -- | Generated outputs
     , _ipsGeneratedOutputs :: [Output a]
@@ -167,7 +168,7 @@ initInputPolicyState utxo = InputPolicyState {
 makeLenses ''InputPolicyState
 
 newtype InputPolicyT h a m x = InputPolicyT {
-      unInputPolicyT :: StateT (InputPolicyState h a) (ExceptT InputSelectionFailure m) x
+      unInputPolicyT :: StrictStateT (InputPolicyState h a) (ExceptT InputSelectionFailure m) x
     }
   deriving ( Functor
            , Applicative
@@ -175,13 +176,6 @@ newtype InputPolicyT h a m x = InputPolicyT {
            , MonadState (InputPolicyState h a)
            , MonadError InputSelectionFailure
            )
-
-{-
-inputPolicyT :: (   InputPolicyState h a
-                 -> m (Either InputSelectionFailure (x, InputPolicyState h a)))
-             -> InputPolicyT h a m x
-inputPolicyT f = InputPolicyT (StateT (\st -> ExceptT (f st)))
--}
 
 instance MonadTrans (InputPolicyT h a) where
   lift = InputPolicyT . lift . lift
@@ -198,7 +192,7 @@ runInputPolicyT :: RunPolicy m a
                 -> InputPolicyT h a m PartialTxStats
                 -> m (Either InputSelectionFailure (Transaction h a, TxStats))
 runInputPolicyT utxo policy = do
-     mx <- runExceptT (runStateT (unInputPolicyT policy) initSt)
+     mx <- runExceptT (runStrictStateT (unInputPolicyT policy) initSt)
      case mx of
        Left err ->
          return $ Left err

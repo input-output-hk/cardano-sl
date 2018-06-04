@@ -1,5 +1,5 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE DeriveFunctor   #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module InputSelection.Evaluation (
     Resolution(..)
@@ -11,14 +11,11 @@ module InputSelection.Evaluation (
 import           Universum
 
 import           Control.Exception (throwIO)
-import           Control.Lens (Iso', from, (%=), (+=), (.=), (<<+=))
-import           Control.Lens.TH (makeLenses, makePrisms, makeWrapped)
-import           Control.Lens.Wrapped (_Wrapped)
+import           Control.Lens ((%=), (+=), (.=), (<<+=))
+import           Control.Lens.TH (makeLenses)
 import           Data.Conduit
-import qualified Data.Conduit.Lift as Conduit
 import qualified Data.Text.IO as Text
 import           Formatting (build, sformat, (%))
-import           Pos.Util.Chrono
 import           System.Directory (createDirectory)
 import           System.FilePath ((<.>), (</>))
 import qualified System.IO as IO
@@ -36,6 +33,7 @@ import qualified Util.Histogram as Histogram
 import qualified Util.MultiSet as MultiSet
 import           Util.Range (Range (..), Ranges (..), SplitRanges (..))
 import qualified Util.Range as Range
+import           Util.StrictStateT
 import           UTxO.DSL
 
 {-------------------------------------------------------------------------------
@@ -81,10 +79,10 @@ defaultPlotParams prefix = PlotParams {
 -- instance.
 data CurrentStats = CurrentStats {
       -- | Current UTxO size
-      currentUtxoSize      :: Int
+      currentUtxoSize      :: !Int
 
       -- | Current UTxO histogram
-    , currentUtxoHistogram :: Histogram
+    , currentUtxoHistogram :: !Histogram
     }
 
 deriveCurrentStats :: BinSize -> Utxo h a -> CurrentStats
@@ -116,28 +114,34 @@ utxoHistogram binSize =
 --   for example, we show the UTxO growth over time
 --
 -- The 'TimeSeries' is meant to record the third kind of variable.
-newtype TimeSeries a = TimeSeries (NewestFirst [] a)
+--
+-- NOTE: This is isomorphic to @NewestFirst []@ but is strict.
+data TimeSeries a = StartOfTime | MostRecent !a !(TimeSeries a)
   deriving (Functor)
 
-makePrisms  ''TimeSeries
-makeWrapped ''TimeSeries
-
-timeSeriesList :: Iso' (TimeSeries a) [a]
-timeSeriesList = _Wrapped . _Wrapped
+timeSeriesOldestFirst :: TimeSeries a -> [a]
+timeSeriesOldestFirst = go []
+  where
+    go acc StartOfTime       = acc
+    go acc (MostRecent x xs) = go (x:acc) xs
 
 -- | Bounds for a time series
-timeSeriesRange :: (Num a, Ord a) => TimeSeries a -> Ranges Int a
-timeSeriesRange (TimeSeries (NewestFirst xs)) = Ranges {
-      _x = Range 0 (length xs)
-    , _y = Range 0 (maximum xs)
-    }
+timeSeriesRange :: forall a. (Num a, Ord a)
+                => TimeSeries a -> Ranges Int a
+timeSeriesRange = go . timeSeriesOldestFirst
+  where
+    go :: [a] -> Ranges Int a
+    go xs = Ranges {
+          _x = Range 0 (length  xs)
+        , _y = Range 0 (maximum xs)
+        }
 
 -- | Write time series to a format gnuplot can read
-writeTimeSeries :: Show a => FilePath -> TimeSeries a -> IO ()
-writeTimeSeries fp (TimeSeries (NewestFirst ss)) =
-    withFile fp WriteMode $ \h ->
-      forM_ (reverse ss) $
-        IO.hPrint h
+writeTimeSeries :: forall a. Show a => FilePath -> TimeSeries a -> IO ()
+writeTimeSeries fp = go . timeSeriesOldestFirst
+  where
+    go :: [a] -> IO ()
+    go xs = withFile fp WriteMode $ \h -> forM_ xs $ IO.hPrint h
 
 {-------------------------------------------------------------------------------
   Accumulated statistics
@@ -175,10 +179,10 @@ initAccumulatedStats :: AccStats
 initAccumulatedStats = AccStats {
       _accStep             = 0
     , _accFailedPayments   = 0
-    , _accUtxoSize         = [] ^. from timeSeriesList
+    , _accUtxoSize         = StartOfTime
     , _accUtxoMaxHistogram = Histogram.empty
     , _accTxStats          = mempty
-    , _accMedianRatio      = [] ^. from timeSeriesList
+    , _accMedianRatio      = StartOfTime
     }
 
 -- | Construct statistics for the next step
@@ -188,10 +192,10 @@ initAccumulatedStats = AccStats {
 -- not visible).
 stepAccStats :: CurrentStats -> AccStats -> AccStats
 stepAccStats CurrentStats{..} st =
-    st & accStep                         %~ succ
-       & accUtxoMaxHistogram             %~ Histogram.max currentUtxoHistogram
-       & accUtxoSize    . timeSeriesList %~ (currentUtxoSize :)
-       & accMedianRatio . timeSeriesList %~ (MultiSet.medianWithDefault (-1) txStatsRatios :)
+    st & accStep              %~ succ
+       & accUtxoMaxHistogram  %~ Histogram.max currentUtxoHistogram
+       & accUtxoSize          %~ MostRecent currentUtxoSize
+       & accMedianRatio       %~ MostRecent (MultiSet.medianWithDefault (-1) txStatsRatios)
   where
     TxStats{..} = st ^. accTxStats
 
@@ -200,22 +204,22 @@ stepAccStats CurrentStats{..} st =
 -------------------------------------------------------------------------------}
 
 data IntState h a = IntState {
-      _stUtxo       :: Utxo h a
-    , _stPending    :: Utxo h a
-    , _stStats      :: AccStats
-    , _stFreshHash  :: Int
+      _stUtxo       :: !(Utxo h a)
+    , _stPending    :: !(Utxo h a)
+    , _stStats      :: !AccStats
+    , _stFreshHash  :: !Int
 
       -- | Change address
       --
       -- NOTE: At the moment we never modify this; we're not evaluating
       -- privacy, so change to a single address is fine.
-    , _stChangeAddr :: a
+    , _stChangeAddr :: !a
 
       -- | Binsize used for histograms
       --
       -- We cannot actually currently change this as we run the interpreter
       -- because `Histogram.max` only applies to histograms wit equal binsizes.
-    , _stBinSize    :: BinSize
+    , _stBinSize    :: !BinSize
     }
 
 makeLenses ''IntState
@@ -230,7 +234,7 @@ initIntState PlotParams{..} utxo changeAddr = IntState {
     , _stBinSize    = utxoBinSize
     }
 
-instance Monad m => RunPolicy (StateT (IntState h a) m) a where
+instance Monad m => RunPolicy (StrictStateT (IntState h a) m) a where
   genChangeAddr = use stChangeAddr
   genFreshHash  = stFreshHash <<+= 1
 
@@ -239,14 +243,14 @@ instance Monad m => RunPolicy (StateT (IntState h a) m) a where
 -------------------------------------------------------------------------------}
 
 -- | Current UTxO statistics and accumulated statistics for each step
-mkFrame :: Monad m => StateT (IntState h a) m (CurrentStats, AccStats)
+mkFrame :: Monad m => StrictStateT (IntState h a) m (CurrentStats, AccStats)
 mkFrame = state aux
   where
     aux :: IntState h a -> ((CurrentStats, AccStats), IntState h a)
     aux st = ((currentStats, accStats), st & stStats .~ accStats)
       where
-        currentStats = deriveCurrentStats (st ^. stBinSize) (st ^. stUtxo)
-        accStats     = stepAccStats currentStats (st ^. stStats)
+        !currentStats = deriveCurrentStats (st ^. stBinSize) (st ^. stUtxo)
+        !accStats     = stepAccStats currentStats (st ^. stStats)
 
 -- | Interpreter for events, evaluating a policy
 --
@@ -255,17 +259,17 @@ mkFrame = state aux
 --
 -- Returns the final state
 intPolicy :: forall h a m. (Hash h a, Monad m)
-          => InputSelectionPolicy h a (StateT (IntState h a) m)
+          => InputSelectionPolicy h a (StrictStateT (IntState h a) m)
           -> (a -> Bool)
           -> IntState h a -- Initial state
           -> ConduitT (Event h a) (CurrentStats, AccStats) m (IntState h a)
 intPolicy policy ours initState =
-    Conduit.execStateC initState $
+    execStrictStateC initState $
       awaitForever $ \event -> do
         lift $ go event
         yield =<< lift mkFrame
   where
-    go :: Event h a -> StateT (IntState h a) m ()
+    go :: Event h a -> StrictStateT (IntState h a) m ()
     go (Deposit new) =
         stUtxo %= utxoUnion new
     go NextSlot = do
@@ -509,7 +513,7 @@ writeStats prefix shouldRender =
 evaluatePolicy :: Hash h a
                => FilePath       -- ^ Path to write to
                -> (Int -> Bool)  -- ^ Frames to render
-               -> InputSelectionPolicy h a (StateT (IntState h a) IO)
+               -> InputSelectionPolicy h a (StrictStateT (IntState h a) IO)
                -> (a -> Bool)    -- ^ Our addresses
                -> IntState h a   -- ^ Initial state
                -> ConduitT () (Event h a) IO ()
@@ -523,7 +527,7 @@ evaluatePolicy prefix shouldRender policy ours initState generator =
 
 type NamedPolicies h = [
     ( String
-    , InputSelectionPolicy h World (StateT (IntState h World) IO)
+    , InputSelectionPolicy h World (StrictStateT (IntState h World) IO)
     )
   ]
 
@@ -558,7 +562,7 @@ evaluateUsingEvents plotParams@PlotParams{..}
           throwIO e
   where
     go :: FilePath
-       -> InputSelectionPolicy h World (StateT (IntState h World) IO)
+       -> InputSelectionPolicy h World (StrictStateT (IntState h World) IO)
        -> IO ()
     go prefix' policy = do
         createDirectory prefix'

@@ -338,6 +338,7 @@ test-suite wallet-unit-tests
                       Util.Histogram
                       Util.MultiSet
                       Util.Range
+                      Util.StrictStateT
                       Util.Validated
                       UTxO.Bootstrap
                       UTxO.Context

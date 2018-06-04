@@ -22,8 +22,8 @@ import qualified Data.Map.Strict as Map
 
 -- | Multiset modelled as a map from elements to counts
 data MultiSet a = MultiSet {
-      multiSetSize  :: Int
-    , multiSetElems :: Map a Int
+      multiSetSize  :: !Int
+    , multiSetElems :: !(Map a Int)
     }
 
 empty :: MultiSet a

@@ -33,7 +33,7 @@ module Util.Histogram (
 import           Universum hiding (empty, max, writeFile)
 import qualified Universum
 
-import qualified Data.Map as Map
+import qualified Data.IntMap.Strict as Map
 import qualified Data.Set as Set
 import qualified System.IO as IO
 
@@ -49,7 +49,7 @@ type Count     = Int
 
 data Histogram =
     -- | Non-empty histogram (known binsize)
-    Histogram BinSize (Map Bin Count)
+    Histogram !BinSize !(IntMap Count)
 
     -- | Empty histogram
     --
@@ -57,7 +57,7 @@ data Histogram =
     -- knowing the binsize.
   | Empty
 
-histogramToMap :: Histogram -> Map Bin Count
+histogramToMap :: Histogram -> IntMap Count
 histogramToMap (Histogram _ m) = m
 histogramToMap Empty           = Map.empty
 
@@ -96,7 +96,7 @@ discretize :: BinSize -> [Double] -> Histogram
 discretize (BinSize binSize) =
     Histogram (BinSize binSize) . go Map.empty
   where
-    go :: Map Bin Count -> [Double] -> Map Bin Count
+    go :: IntMap Count -> [Double] -> IntMap Count
     go acc []     = acc
     go acc (d:ds) = let bin = floor (d / fromIntegral binSize) * binSize
                     in go (Map.alter incr bin acc) ds
@@ -141,7 +141,7 @@ filterBins :: (Bin -> Bool) -> Histogram -> Histogram
 filterBins _ Empty            = Empty
 filterBins p (Histogram bz m) = Histogram bz (aux m)
   where
-    aux :: Map Bin Count -> Map Bin Count
+    aux :: IntMap Count -> IntMap Count
     aux = Map.filterWithKey $ \b _c -> p b
 
 -- | Filter counts
@@ -149,7 +149,7 @@ filterCounts :: (Count -> Bool) -> Histogram -> Histogram
 filterCounts _ Empty            = Empty
 filterCounts p (Histogram bz m) = Histogram bz (aux m)
   where
-    aux :: Map Bin Count -> Map Bin Count
+    aux :: IntMap Count -> IntMap Count
     aux = Map.filter p
 
 -- | Keep a percentage of the bins, prioritizing bins with more elements

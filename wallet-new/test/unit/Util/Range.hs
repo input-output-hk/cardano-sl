@@ -38,11 +38,11 @@ import           Formatting (bprint, build, sformat, (%))
 -------------------------------------------------------------------------------}
 
 -- | Range with a 'Buildable' instance that produces valid gnuplot output
-data Range a = Range { _lo :: a, _hi :: a }
+data Range a = Range { _lo :: !a, _hi :: !a }
   deriving (Show, Functor)
 
 -- | X-range and y-range
-data Ranges a b = Ranges { _x :: Range a , _y :: Range b }
+data Ranges a b = Ranges { _x :: !(Range a) , _y :: !(Range b) }
   deriving (Show)
 
 instance Bifunctor Ranges where
@@ -96,6 +96,9 @@ width Range{..} = _hi - _lo
 -------------------------------------------------------------------------------}
 
 -- | Split ranges (for a broken x-axis)
+--
+-- NOTE: These fields are not strict; it's not a big deal since we don't
+-- compose 'SplitRanges'.
 data SplitRanges a b = SplitRanges {
       -- The pieces of the X range
       --

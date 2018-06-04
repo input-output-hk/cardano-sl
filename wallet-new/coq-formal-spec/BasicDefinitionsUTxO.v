@@ -19,18 +19,38 @@ Axiom prf_prop_ex : prop_extensionality .
 (* transaction id *)
 Variable TxId : Type.
 
+Variable id1 : TxId.
+Variable id2 : TxId.
+Variable id3 : TxId.
+Variable id4 : TxId.
+Variable id5 : TxId.
+
+
+(* transaction id's 1 to 3 are distinct *)
+Variable txid_distinct : 
+~(id1 = id2) /\ ~(id1 = id3) /\ ~(id2 = id3).
+
 (* index*)
 Variable Ix : Type.
+
+Variable ix1 : Ix.
+Variable ix2 : Ix.
+Variable ix3 : Ix.
+Variable ix4 : Ix.
+Variable ix5 : Ix.
 
 (* address *)
 Variable Addr : Type.
 
-(* currency value *)
-Variable Coin : Type. 
+Variable a1 : Addr.
+Variable a2 : Addr.
+Variable a3 : Addr.
+Variable a4 : Addr.
+Variable a5 : Addr.
 
-(* key pair stand-in *)
-(* what should this type be? *)
-Variable Bk : Type.
+
+(* currency value *)
+Definition Coin := nat.
 
 
 (* DERIVED TYPES *)
@@ -43,12 +63,16 @@ Definition TxIn : Type := TxId * Ix.
 Definition TxOut : Type := Addr * Coin.
 
 (* collection of finite subsets of A represented by membership predicates *)
-Definition Pow (A : Type) := A -> Prop.
+Definition Pow (A:Type) := A -> Prop.
+
 
 (* finite map as a supsed of A*B *)  
-Definition FinMap (A B : Type) := Pow (A*B).
-(* note *)
-(* should have the property that ((f (a, b)) /\ (f (a, c))) -> b=c *)
+Definition FinMap (A B : Type) := @Pow (A*B).
+
+(* a finite map A to B is well-defined whenever for each input there is a single output *)
+Definition well_defined (A B: Type) (f : FinMap A B) := 
+  (forall a b c, ((f (a, b)) /\ (f (a, c))) -> b=c).
+
 
 (* transaction *)
 Definition Tx : Type := (Pow TxIn) * (FinMap Ix TxOut).
@@ -56,26 +80,30 @@ Definition Tx : Type := (Pow TxIn) * (FinMap Ix TxOut).
 (* unspent transaction outputs represented as a finite map *)
 Definition UTxO := FinMap TxIn TxOut.
 
+(* NOTE: an arbitrary UTxO's are assumed to be well-defined for now! *)
 
 
 (* sanity check examples where TxIn and TxOut are nat's *)
 Definition add_coin_type : Type := nat*nat.
 
-Definition utxo1 (inpf : TxIn = nat) (outpf : TxOut = add_coin_type): UTxO.
-unfold UTxO. unfold FinMap. unfold Pow. rewrite inpf. rewrite outpf.
-unfold add_coin_type. intro io. 
-exact ((io = (0,(0,10))) \/ (io = (1,(0,15))) \/ (io = (2,(0,20))) 
-  \/ (io = (3,(1,11))) \/ (io = (4,(2,12)))).
-Defined.
+(* finite map representing utxo1 is well-defined *)
+Example utxo1_well_def : forall (a : TxIn) (b c : TxOut),
+((a, b) = (id1, ix1, (a1, 10)) \/
+ (a, b) = (id2, ix2, (a2, 20)) \/ (a, b) = (id3, ix3, (a3, 30))) /\
+((a, c) = (id1, ix1, (a1, 10)) \/
+ (a, c) = (id2, ix2, (a2, 20)) \/ (a, c) = (id3, ix3, (a3, 30))) ->
+b = c.
+Proof.
+  Admitted.
 
-Definition outs1 (outpf : TxOut = add_coin_type) : Pow TxOut.
-unfold Pow. unfold add_coin_type in outpf. rewrite outpf. intro o. 
-exact ((o=(0,10)) \/ (o=(1,11))).
-Defined.
+(* utxo1 example *)
+Example utxo1: UTxO :=
+ (fun io => 
+     io = ((id1, ix1), (a1, 10))
+  \/ io = ((id2, ix2), (a2, 20))
+  \/ io = ((id3, ix3), (a3, 30))).
 
-Definition ins1 (inpf : TxIn = nat) : Pow TxIn.
-unfold Pow. rewrite inpf. intro i. exact ((i=1) \/ (i=4)).
-Defined.
+
 
 (* block *)
 Definition Block := Pow Tx.
@@ -86,31 +114,50 @@ Definition Pending := Pow Tx.
 
 (* FUNCTIONS *)
 
+
+(* hash map assumed to be the identity in the following module! *)
+Module Type TxTxId_identity.
+
+Axiom TxTxId_identity_assm : Tx = TxId.
+
 (* computes transaction id *)
-(* hash map assumed to be the identity! *)
-Variable txid : Tx -> TxId.
+Definition txid (tx : Tx): TxId.
+  rewrite <- TxTxId_identity_assm. exact tx.
+Defined.
 
-Variable get_tx_with_id : TxId -> Tx.
+(* fetches transaction with given txid - defined here because Tx = TxId *)
+Definition get_tx (txid : TxId): Tx.
+  rewrite TxTxId_identity_assm. exact txid.
+Defined.
 
-Axiom unique_id : forall tx, get_tx_with_id (txid tx) = tx.
+(* allows to treat a tx as a txid *)
+Coercion txid : Tx >-> TxId.
 
-Axiom unique_id_get : forall id, txid (get_tx_with_id id) = id.
+(* allows to treat a txid as a tx *)
+Coercion get_tx : TxId >-> Tx.
+
+End TxTxId_identity.
+
  
-(* addresses that belong to the wallet *)
-Variable ours : Addr -> Bk.
+
+Module WithIdHash (TxTxId_id : TxTxId_identity).
+
+(* NOTE: hash map is the identity is a proof obligation in this module *)
+Import TxTxId_id.
 
 (* FILTERED SETS *)
 
 (* our addresses *)
-Definition OurAddr (ours : Addr -> Prop) := { a : Addr | ours a}.
+Definition OurAddr := Pow Addr.
 
 (* our unspent transaction outputs *)
-Definition OurOuts (ours : Addr -> Prop) : Type := (OurAddr ours) * Coin.
+Definition OurOuts := Pow (OurAddr * Coin).
 
 (* OPERATIONS ON UTxO *)
 
 (* OR for predicates *)
-Definition orPP' (A : Type) (P P' : A -> Prop) := (fun a => (P a) \/ (P' a)).
+Definition orPP' (A : Type) (u v : A -> Prop) :=
+  (fun a => (u a) \/ (v a)).
 
 (* NOT for predicates *)
 Definition notP (A : Type) (P : A -> Prop) := (fun a => ~(P a)).
@@ -122,82 +169,79 @@ Definition andPP' (A : Type) (P P' : A -> Prop) := (fun a => (P a) /\ (P' a)).
 Definition minusPP' (A : Type) (P P' : A -> Prop) := (fun a => (P a) /\ ~(P' a)).
 
 (* domain of a utxo *)
-Definition dom `{A : Type} `{B : Type} (f : FinMap A B) : Pow A.
-  unfold FinMap in f. unfold Pow; unfold Pow in f. intro a.
-  exact (exists b, f (a,b)).
-Defined.
+Definition dom `{A : Type} `{B : Type} (f : FinMap A B) : Pow A := fun a => exists b : B, f (a, b).
+
+(* any subset of a UTxO is still a finite map *)
+Definition UTxO_r (p p' : Prop) (utxo : UTxO) :
+  (forall a b c, (((utxo (a, b))) /\ ((utxo (a, c))) -> b=c))  ->
+  (forall a b c, (((utxo (a, b)) /\ p) /\ ((utxo (a, c)) /\ p')-> b=c)).
+Proof.
+  intros. apply (H a b c). tauto.
+Qed.
 
 (* domain restriction *)
-Definition d_r (ins : Pow TxIn ) (utxo : UTxO) :=
-  fun io => utxo io /\ ins (fst io).
+(* needs to be finite map *)
+Definition d_r (ins : Pow TxIn ) (utxo : UTxO) : UTxO :=
+  (fun io => (utxo io) /\ ins (fst io)).  
 
 (* domain exclusion *)
-Definition d_e (ins : Pow TxIn ) (utxo : UTxO) :=
-  fun io => utxo io /\ ~(ins (fst io)).
+Definition d_e (ins : Pow TxIn ) (utxo : UTxO) : UTxO :=
+  (fun io => utxo io /\ ~(ins (fst io))).
+
 
 (* range restriction *)
-Definition r_r (utxo : UTxO) (outs : Pow TxOut) :=
-  fun io => utxo io /\ outs (snd io). 
+Definition r_r (utxo : UTxO) (outs : Pow TxOut) : UTxO :=
+  (fun io => utxo io /\ outs (snd io)).
 
 (* sanity checks assuming all primitive types are nat's *)
 (* domain of utxo1 *)
-Definition dom_utxo1 (A : Type) (Anat: A = nat) : Pow A.
-rewrite Anat.
-unfold Pow. intro i. exact ((i=0) \/ (i=1) \/ (i=2) \/ (i=3) \/ (i=4)).
-Defined.
+Example dom_utxo1 : Pow TxIn := fun i =>
+     i = (id1, ix1)
+  \/ i = (id2, ix2)
+  \/ i = (id3, ix3).
 
 (* domain defined in dom_utxo1 is the same as computed by dom function *)
-Definition dom_utxo1_pf (inpf : TxIn = nat) (outpf : TxOut = add_coin_type) :
-  dom (utxo1 inpf outpf) = (dom_utxo1 TxIn inpf).
-unfold dom. unfold dom_utxo1. unfold utxo1. unfold add_coin_type in outpf. 
-rewrite inpf. rewrite outpf. 
-apply functional_extensionality. intros. compute.
-apply prf_prop_ex. split; intro. destruct H. inversion H;
-try (inversion H0); auto;
-try (inversion H1); auto;
-try (inversion H2); auto;
-try (inversion H3); auto. inversion H. exists (0, 10). rewrite H0. auto.
-inversion H0. exists (0, 15). rewrite H1. auto.
-inversion H1. exists (0, 20). rewrite H2. auto.
-inversion H2. exists (1, 11). rewrite H3. auto.
-rewrite H3. exists (2, 12). auto.
+Fact dom_utxo1_pf :
+  dom utxo1 = dom_utxo1.
+Proof.
+  unfold dom ; unfold dom_utxo1 ; unfold utxo1.
+  apply functional_extensionality ; intro i.
+  apply prf_prop_ex ; split ; intro H.
+  inversion H as [b Hb] ; inversion Hb as [Hb' | [Hb' | Hb']] ; inversion Hb' ; auto.
+  inversion H as [Hi | [Hi | Hi]] ; rewrite Hi; simpl;  eauto.
 Qed.
 
-(* ins 1 which maps to |-> (0,15) and 2 which maps to |-> (0,20) *)
-Definition d_r_utxo1_ins12 (A : Type) (inpf : TxIn = nat) (outpf : TxOut = add_coin_type) : 
-  TxIn * TxOut -> Prop.
-unfold UTxO. rewrite inpf. rewrite outpf. unfold add_coin_type.
-intro io. exact ((io = (1,(0,15))) \/ (io = (2,(0,20)))).
-Defined.
 
-(* domain restriction of utxo1 to ins 0 and 2 *)
-Definition drutxo1_ins (inpf : TxIn = nat) : TxIn -> Prop.
-rewrite inpf. exact (fun (i:nat) => ((i=1) \/ (i=2))).
-Defined.
+
+(* ins (id1, ix1) which maps to |-> (a1, 10) and (id3, ix3) which maps to |-> (a3, 30) *)
+Example d_r_utxo1_ins12 : UTxO :=
+  (fun io => (io = ((id1, ix1), (a1, 10)) \/ (io = ((id3, ix3), (a3, 30))))).
+
+
+
+(* domain restriction of utxo1 to ins 0 and 3 *)
+Example drutxo1_ins : Pow TxIn :=
+ (fun i => ((i=(id1, ix1)) \/ (i=(id3, ix3)))).
+
 
 (* domain restriction defined by drutxo1_ins for ins defined by d_r_utxo1_ins12 
    the same as computed by d_r function *)
-Definition d_r_utxo1_ins12_pf (inpf : TxIn = nat) (outpf : TxOut = add_coin_type) :
-   (d_r_utxo1_ins12 TxIn inpf outpf) = (d_r (drutxo1_ins inpf) (utxo1 inpf outpf)).
-unfold UTxO. unfold d_r_utxo1_ins12. unfold d_r. unfold drutxo1_ins.
-apply functional_extensionality. unfold utxo1. rewrite inpf. rewrite outpf.
-unfold add_coin_type. intro. apply prf_prop_ex. split; compute; intro. 
-inversion H. rewrite H0. tauto. destruct x. rewrite H0. inversion H0. tauto.
-destruct x. destruct H. inversion H0. rewrite H1. rewrite H1 in H. 
-apply or_introl. assert (~((1, p) = (0, (0, 10)))). intro. inversion H2.
-assert (~((1, p) = (2, (0, 20)))). intro. inversion H3.
-assert (~((1, p) = (3, (1, 11)))). intro. inversion H4.
-assert (~((1, p) = (4, (2, 12)))). intro. inversion H5. tauto.
-rewrite H1. rewrite H1 in H.
-apply or_intror. assert (~((2, p) = (0, (0, 10)))). intro. inversion H2.
-assert (~((2, p) = (1, (0, 15)))). intro. inversion H3.
-assert (~((2, p) = (3, (1, 11)))). intro. inversion H4.
-assert (~((2, p) = (4, (2, 12)))). intro. inversion H5. tauto.
-Defined.
+Example d_r_utxo1_ins12_pf :
+   d_r_utxo1_ins12 = (d_r drutxo1_ins utxo1).
+Proof.
+  compute. apply functional_extensionality. intro. apply prf_prop_ex. destruct x; simpl.
+  split; try split; try tauto.
+  inversion H; try (inversion H0); try tauto. intro.
+  inversion H as [[H1 | [H2 | H2']] [H3 | H4]]; try tauto; 
+  destruct txid_distinct; inversion H2; destruct p; 
+  inversion H5 as [(H7,H8)]; try (inversion H3 as [(H9, H10)]);
+  try (inversion H4 as [(H9, H10)]);
+  rewrite H9 in H7; try tauto; symmetry in H7; try tauto.
+Qed.
 
 (* subset of outputs in a UTxO, ie. forall io : (tx,i) |-> (addr, c) \in u , io \in v *)
 Definition UTxOinc (u v : UTxO) : Prop :=
-  forall (io : _), u io -> v io.
+  forall io, u io -> v io.
 
 (* subset of the transactions in the UTxO *)
 Definition S_UTxOinc (u v : UTxO) : Prop :=
@@ -246,7 +290,7 @@ Qed.
 
 (* property 4 *)
 Definition UTxO_prop4 : forall (ins : Pow TxIn) (u v : UTxO),  
-  d_r ins (orPP' _ u v) = orPP' _ (d_r ins u) (d_r ins v).
+  (d_r ins (orPP' _ u v)) = orPP' _ (d_r ins u) (d_r ins v).
 Proof.
   prove_prop.
 Qed.
@@ -286,9 +330,100 @@ Proof.
     prove_prop. generalize (fstx_in_dom u x); intro; try tauto.
 Qed.
 
+(* property 10 added *)
+Definition UTxO_prop10 : forall (ins : Pow TxIn) (u : UTxO), 
+  (orPP' (TxIn * TxOut) (d_e ins u) (d_r ins u)) = u.
+Proof. 
+  prove_prop.
+Qed.
+
+(* property 11 added *)
+Definition UTxO_prop11 : forall (ins : Pow TxIn) (u : UTxO), 
+  andPP' TxIn (dom (d_e ins u)) (dom (d_r ins u)) = (fun _ : TxIn => False).
+Proof.
+  prove_prop. split; intro H. 
+  destruct H as [[(H1, H1')] [(H2, H2')]]. tauto.
+  tauto. 
+Qed.
+
 (* AUXILIARY OPERATIONS *)
 
 
 Definition txins (txs : Pow Tx) : (Pow TxIn) := 
   fun (t_in : TxIn) => (exists (b : (FinMap Ix TxOut)), 
     exists (t_in_set : Pow TxIn), txs (t_in_set, b)).
+
+
+Definition txouts (txs : Pow Tx) : UTxO :=
+  fun (io : TxIn * TxOut) => txs (get_tx (fst (fst io))) /\
+    ((snd (get_tx (fst (fst io)))) (snd (fst io), snd io)).
+
+Open Scope nat_scope.
+
+(* subtraction lemma *)
+Lemma subt_comp (a b c:nat) : (a + b = c -> a = c - b).
+Proof.
+  Admitted.
+(*
+  induction b.
+(* case 0 *) replace (a+0) with a. 
+  replace (c-0) with c. tauto. compute.
+*)
+
+Variable balance : UTxO -> Coin.
+
+(* use property 2.6.1 as the invariant property defining balance *) 
+Variable balance_calc :  (balance (fun u => False) = 0) /\
+  (forall u v, (andPP' TxIn (dom u) (dom v) = (fun _ : TxIn => False) ->
+  balance (orPP' (TxIn * TxOut) u v) = balance u + balance v)).
+
+
+
+(* define balance calculation for a UTxO presented as a list *)
+Fixpoint coin_sum (utxo_list : list (TxIn*TxOut)) : Coin :=
+  match utxo_list with 
+  | nil => 0
+  | u :: l => (snd (snd u)) + (coin_sum l)
+  end.
+
+(* cannot prove this propery directly by induction from the coin_sum and balance_calc definitions *)
+(* the balance of a utxo represented by the list a::utxo_list is the balance of the utxo 
+   excluding a plus the coin value of a *)
+Variable balance_with_a : forall (utxo_list : list (TxIn*TxOut)) a (utxo:UTxO), 
+  utxo a -> balance utxo = snd (snd a) + coin_sum utxo_list.
+
+
+(* any balance calculation for a utxo satisfying the balance_calc invariant property must coincide
+  with the coin_sum balace calculation of this utxo presented as a list *)
+Lemma coin_sum_balance :
+  forall (utxo : UTxO) (l : list (TxIn*TxOut)), (forall t, utxo t <-> In t l) -> 
+    coin_sum l = (balance utxo).
+Proof.
+  intros. induction l; simpl; simpl in H; destruct balance_calc as [b0 b_c]. 
+(* empty wallet *)
+  replace utxo with (fun (u:TxIn * TxOut) => False).
+  auto. apply functional_extensionality.
+  intro x. symmetry. apply prf_prop_ex. exact (H x).
+(* a :: l wallet *)
+  symmetry. apply balance_with_a. apply H. tauto.
+Qed.
+
+(* dependence *)
+Definition depends (t2 t1 : Tx) :=  
+  exists ix, (txins (fun t => t=t2)) (txid t1, ix).
+
+(* set of independent transactions *)
+Definition independednt (txs : Pow Tx) :=
+  andPP' _ (txins txs) (dom (txouts txs)) = (fun t => False).
+
+
+
+(* property 2.6.2' *)
+Definition balance_prop2 (u : UTxO) (ins : Pow TxIn) :
+  balance (d_e ins u) = (balance u) -(balance (d_r ins u)).
+Proof.
+  destruct balance_calc as [b0 b_c]. generalize (b_c (d_e ins u) (d_r ins u)).
+  simpl. intro. apply subt_comp. rewrite <- H. 
+  rewrite UTxO_prop10. auto.
+  apply UTxO_prop11.
+Qed.

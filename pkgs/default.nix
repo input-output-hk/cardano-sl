@@ -16902,6 +16902,7 @@ license = stdenv.lib.licenses.mit;
 , base
 , base58-bytestring
 , bytestring
+, cardano-crypto
 , cardano-sl
 , cardano-sl-block
 , cardano-sl-client
@@ -17054,8 +17055,10 @@ libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
+aeson
 base
 bytestring
+cardano-crypto
 cardano-sl
 cardano-sl-block
 cardano-sl-client
@@ -17074,6 +17077,7 @@ cardano-sl-update
 cardano-sl-util
 cardano-sl-util-test
 containers
+cryptonite
 data-default
 deepseq
 ekg-core
@@ -17082,9 +17086,11 @@ formatting
 hspec
 lens
 log-warper
+memory
 MonadRandom
 mtl
 QuickCheck
+quickcheck-instances
 safe-exceptions
 safecopy
 serokell-util

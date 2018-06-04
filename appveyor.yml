@@ -143,6 +143,6 @@ artifacts:
 on_finish:
   - appveyor PushArtifact c:\w\.w\logs\cardano-sl-1.1.1-test.log
   - appveyor PushArtifact c:\w\.w\logs\cardano-sl-wallet-new-1.1.1-test.log
-  - tree c:\w\.w
-  - dir /s /b c:\w\.w
-  - appveyor PushArtifact c:\w\.w\dist\x86_64-linux\Cabal-1.24.2.0\build\wallet-unit-tests.exe
+  - dir /s /b c:\w
+  - 7z a binaries.zip c:\w\.w\install\*\bin\*
+  - appveyor PushArtifact binaries.zip

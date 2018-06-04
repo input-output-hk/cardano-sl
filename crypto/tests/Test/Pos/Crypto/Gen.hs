@@ -157,18 +157,12 @@ genVssPublicKey = toVssPublicKey <$> genVssKeyPair
 ----------------------------------------------------------------------------
 
 genProxyCert :: Bi w => Gen w -> Gen (ProxyCert w)
-genProxyCert genW = safeCreateProxyCert <$> gpm <*> gss <*> gpk <*> genW
-  where
-    gpm = genProtocolMagic
-    gss = genSafeSigner
-    gpk = genPublicKey
+genProxyCert genW =
+    safeCreateProxyCert <$> genProtocolMagic <*> genSafeSigner <*> genPublicKey <*> genW
 
 genProxySecretKey :: Bi w => Gen w -> Gen (ProxySecretKey w)
-genProxySecretKey genW = safeCreatePsk <$> gpm <*> gss <*> gpk <*> genW
-  where
-    gpm = genProtocolMagic
-    gss = genSafeSigner
-    gpk = genPublicKey
+genProxySecretKey genW =
+    safeCreatePsk <$> genProtocolMagic <*> genSafeSigner <*> genPublicKey <*> genW
 
 genProxySignature
     :: (Bi w, Bi a)

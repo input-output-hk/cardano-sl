@@ -18,7 +18,7 @@ import           Pos.Core (TxAux (..), TxOut (..), getCurrentTimestamp)
 import           Pos.Crypto (AesKey (..), PassPhrase, ProtocolMagic, aesDecrypt, hash,
                              redeemDeterministicKeyGen)
 import           Pos.Util (maybeThrow)
-import           Pos.Util.Mnemonic (mnemonicToSeed)
+import           Pos.Util.Mnemonic (mnemonicToAESKey)
 import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountId (..), CAddress (..),
                                              CPaperVendWalletRedeem (..), CTx (..),
@@ -57,16 +57,13 @@ redeemAdaPaperVend
 redeemAdaPaperVend pm submitTx passphrase CPaperVendWalletRedeem {..} = do
     seedEncBs <- maybe invalidBase58 pure
         $ decodeBase58 bitcoinAlphabet $ encodeUtf8 pvSeed
-    aesKey <- either invalidMnemonic pure
-        $ AesKey <$> mnemonicToSeed identity pvBackupPhrase
+    let aesKey = AesKey (mnemonicToAESKey pvBackupPhrase)
     seedDecBs <- either decryptionFailed pure
         $ aesDecrypt seedEncBs aesKey
     redeemAdaInternal pm submitTx passphrase pvWalletId seedDecBs
   where
     invalidBase58 =
         throwM . RequestError $ "Seed is invalid base58 string: " <> pvSeed
-    invalidMnemonic e =
-        throwM . RequestError $ "Invalid mnemonic: " <> toText e
     decryptionFailed e =
         throwM . RequestError $ "Decryption failed: " <> show e
 

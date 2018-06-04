@@ -151,7 +151,8 @@ Import TxTxId_id.
 Definition OurAddr := Pow Addr.
 
 (* our unspent transaction outputs *)
-Definition OurOuts := Pow (OurAddr * Coin).
+Definition OurOuts (ours : OurAddr) := 
+  fun (txout:TxOut) => (ours (fst txout)).
 
 (* OPERATIONS ON UTxO *)
 

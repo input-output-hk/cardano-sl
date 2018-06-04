@@ -45,7 +45,7 @@ before_test:
 
     7z x C:\ghc\ghc.tar -oC:\ghc
 
-    $env:PATH="$env:PATH;C:\ghc\ghc-8.0.2\bin"
+    $env:PATH="$env:PATH;C:\ghc\ghc-8.0.2\bin;C:\mingw\bin"
 
 # Install OpenSSL 1.0.2 (see https://github.com/appveyor/ci/issues/1665)
 - ps: (New-Object Net.WebClient).DownloadFile('https://slproweb.com/download/Win64OpenSSL-1_0_2o.exe', "$($env:USERPROFILE)\Win64OpenSSL.exe")

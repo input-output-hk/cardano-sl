@@ -1,5 +1,5 @@
 -- | Reexports of error reporting functionality
-module Pos.Ntp
+module Pos.Infra.Ntp
        ( module Pos.Infra.Ntp.Configuration
        ) where
 

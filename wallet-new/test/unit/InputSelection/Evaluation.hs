@@ -29,6 +29,8 @@ import qualified InputSelection.Generator as Gen
 import           InputSelection.Policy (HasTreasuryAddress (..), InputSelectionPolicy,
                                         PrivacyMode (..), RunPolicy (..), TxStats (..))
 import qualified InputSelection.Policy as Policy
+import           Pos.Core (Coeff (..), TxSizeLinear (..), calculateTxSizeLinear)
+import           Serokell.Data.Memory.Units (Byte, fromBytes)
 import           Util.Distr
 import           Util.Histogram (Bin, BinSize (..), Count, Histogram)
 import qualified Util.Histogram as Histogram
@@ -303,9 +305,39 @@ intPolicy estimateFee policy ours initState =
           Left _err ->
             stStats . accFailedPayments += 1
 
--- Yields transactions without fees.
-noFee :: Int -> [Value] -> Value
-noFee _ _ = 0
+-- | Stolen from https://github.com/input-output-hk/cardano-sl/pull/2999/files
+estimateSize :: Int      -- ^ Average size of @Attributes AddrAttributes@.
+             -> Int      -- ^ Size of transaction's @Attributes ()@.
+             -> Int      -- ^ Number of inputs to the transaction.
+             -> [Value]  -- ^ Coin value of each output to the transaction.
+             -> Byte     -- ^ Estimated size of the resulting transaction.
+estimateSize saa sta ins outs
+    = fromBytes . fromIntegral $
+      5
+    + 42 * ins
+    + (11 + listSize (32 + (fromIntegral saa))) * length outs
+    + sum (map intSize outs)
+    + fromIntegral sta
+  where
+    intSize s =
+        if | s <= 0x17       -> 1
+           | s <= 0xff       -> 2
+           | s <= 0xffff     -> 3
+           | s <= 0xffffffff -> 5
+           | otherwise       -> 9
+
+    listSize s = s + intSize s
+
+-- | Estimate the fee for a transaction that has @ins@ inputs
+--   and @length outs@ outputs. The @outs@ lists holds the coin value
+--   of each output.
+--
+--   NOTE: The average size of @Attributes AddrAttributes@ and
+--         the transaction attributes @Attributes ()@ are both hard-coded
+--         here with some (hopefully) realistic values.
+estimateCardanoFee :: Int -> [Value] -> Value
+estimateCardanoFee ins outs
+    = round (calculateTxSizeLinear (TxSizeLinear (Coeff 0.155381) (Coeff 0.000043946)) (estimateSize 128 16 ins outs))
 
 {-------------------------------------------------------------------------------
   Compute bounds
@@ -666,9 +698,9 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
     initUtxo = utxoSingleton (Input (GivenHash 0) 0) (Output Us 1000000)
 
     largest, randomOff, randomOn :: Hash h World => NamedPolicy h
-    largest   = ("-largest",   noFee, Policy.largestFirst)
-    randomOff = ("-randomOff", noFee, Policy.random PrivacyModeOff)
-    randomOn  = ("-randomOn",  noFee, Policy.random PrivacyModeOn)
+    largest   = ("-largest",   estimateCardanoFee, Policy.largestFirst)
+    randomOff = ("-randomOff", estimateCardanoFee, Policy.random PrivacyModeOff)
+    randomOn  = ("-randomOn",  estimateCardanoFee, Policy.random PrivacyModeOn)
 
 
 

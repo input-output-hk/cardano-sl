@@ -124,7 +124,7 @@ sendToAllGenesis diffusion (SendToAllGenesisParams genesisTxsPerThread txsPerThr
         let genesisTxs  = conc * genesisTxsPerThread
             nTxs        = conc * txsPerThread
             genesisKeys = take genesisTxs (drop startAt keysToSend)
-            -- construct transactions whose inputs does not belong in genesis
+            -- Construct transactions whose inputs does not belong in genesis
             -- block. Send as many coins as were received in the previous round
             -- back to yourself.
             prepareTxs :: Int -> m ()
@@ -135,6 +135,8 @@ sendToAllGenesis diffusion (SendToAllGenesisParams genesisTxsPerThread txsPerThr
                         let txInp = TxInUtxo (hash (taTx tx)) 0
                             utxo' = M.fromList [(txInp, TxOutAux txOut1')]
                             txOuts2 = TxOutAux txOut1' :| []
+                        -- It is expected that the output from the previously sent transaction is
+                        -- included in the UTxO by the time this transaction will actually be sent.
                         etx' <- createTx mempty utxo' (fakeSigner senderKey) txOuts2 (toPublic senderKey)
                         case etx' of
                             Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)

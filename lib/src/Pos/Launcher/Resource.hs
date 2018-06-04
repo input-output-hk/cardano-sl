@@ -177,15 +177,15 @@ allocateNodeResources np@NodeParams {..} sscnp txpSettings initDB = do
 -- | Release all resources used by node. They must be released eventually.
 releaseNodeResources ::
        NodeResources ext -> Production ()
-releaseNodeResources NodeResources {..} =
+releaseNodeResources NodeResources {..} = do
     case nrJsonLogConfig of
         JsonLogDisabled -> return ()
         JsonLogConfig mVarHandle _ -> do
             h <- takeMVar mVarHandle
             (liftIO . hClose) h
             putMVar mVarHandle h
-            closeNodeDBs nrDBs
-            releaseNodeContext nrContext
+    closeNodeDBs nrDBs
+    releaseNodeContext nrContext
 
 -- | Run computation which requires 'NodeResources' ensuring that
 -- resources will be released eventually.

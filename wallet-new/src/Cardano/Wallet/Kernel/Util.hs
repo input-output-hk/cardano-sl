@@ -1,4 +1,4 @@
-module Util (
+module Cardano.Wallet.Kernel.Util (
     -- * Lists
     at
     -- * Maps and sets

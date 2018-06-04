@@ -24,7 +24,7 @@ import           Universum
 import           Control.Lens ((%=), (.=))
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except (MonadError (..))
-import           Data.Fixed (Fixed, E2)
+import           Data.Fixed (E2, Fixed)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Formatting (sformat, shown, (%))
@@ -172,7 +172,7 @@ type InputSelectionPolicy h a m =
 
 data InputPolicyState h a = InputPolicyState {
       -- | Available entries in the UTxO
-      _ipsUtxo             :: !(Utxo h a)
+      _ipsUtxo           :: !(Utxo h a)
 
 
       -- | Selected inputs
@@ -377,7 +377,7 @@ runInputPolicyT estimateFee expenseRegulation originalUtxo originalOutputs polic
             True  -> return $ Right (ptxStats, st, fee)
             False -> do
                 let feeAsOutput = Output treasuryAddr fee
-                mx <- runExceptT (runStateT (unInputPolicyT (policyT [feeAsOutput])) (initInputPolicyState (st ^. ipsUtxo)))
+                mx <- runExceptT (runStrictStateT (unInputPolicyT (policyT [feeAsOutput])) (initInputPolicyState (st ^. ipsUtxo)))
                 case mx of
                   Left errs -> return $ Left errs
                   Right (ptxStats', st') -> do

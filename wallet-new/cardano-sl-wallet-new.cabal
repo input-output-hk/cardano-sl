@@ -62,6 +62,8 @@ library
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.Kernel
                        Cardano.Wallet.Kernel.Actions
+                       Cardano.Wallet.Kernel.CoinSelection
+                       Cardano.Wallet.Kernel.CoinSelection.Policies
                        Cardano.Wallet.Kernel.CoinSelection.Types
                        Cardano.Wallet.Kernel.DB.AcidState
                        Cardano.Wallet.Kernel.DB.BlockMeta
@@ -81,6 +83,7 @@ library
                        Cardano.Wallet.Kernel.Mode
                        Cardano.Wallet.Kernel.PrefilterTx
                        Cardano.Wallet.Kernel.Types
+                       Cardano.Wallet.Kernel.Util
                        Cardano.Wallet.LegacyServer
                        Cardano.Wallet.Orphans
                        Cardano.Wallet.Orphans.Aeson
@@ -126,6 +129,7 @@ library
                      , cardano-sl-wallet
                      , conduit
                      , containers
+                     , cryptonite
                      , data-default
                      , exceptions
                      , formatting
@@ -331,7 +335,6 @@ test-suite wallet-unit-tests
                       Test.Spec.Models
                       Test.Spec.Translation
                       Test.Spec.WalletWorker
-                      Util
                       Util.Buildable
                       Util.Buildable.Hspec
                       Util.Buildable.QuickCheck

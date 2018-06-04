@@ -65,7 +65,7 @@ import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..), TxSiz
                            bvdTxFeePolicy, calculateTxSizeLinear, coinToInteger, integerToCoin,
                            isRedeemAddress, mkCoin, protocolMagic, sumCoins, txSizeLinearMinValue,
                            unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Configuration (HasConfiguration, HasProtocolMagic)
 import           Pos.Crypto (RedeemSecretKey, SafeSigner, SignTag (SignRedeemTx, SignTx),
                              deterministicKeyGen, fakeSigner, hash, redeemSign, redeemToPublic,
                              safeSign, safeToPublic)
@@ -235,7 +235,7 @@ runTxCreator inputSelectionPolicy action = runExceptT $ do
 
 -- | Like 'makePubKeyTx', but allows usage of different signers
 makeMPubKeyTx
-    :: (HasConfiguration)
+    :: HasProtocolMagic
     => (owner -> Either e SafeSigner)
     -> TxOwnedInputs owner
     -> TxOutputs
@@ -250,7 +250,7 @@ makeMPubKeyTx getSs = makeAbstractTx mkWit
 
 -- | More specific version of 'makeMPubKeyTx' for convenience
 makeMPubKeyTxAddrs
-    :: (HasConfiguration)
+    :: HasProtocolMagic
     => (Address -> Either e SafeSigner)
     -> TxOwnedInputs TxOut
     -> TxOutputs
@@ -260,7 +260,7 @@ makeMPubKeyTxAddrs hdwSigners = makeMPubKeyTx getSigner
     getSigner (TxOut addr _) = hdwSigners addr
 
 -- | Makes a transaction which use P2PKH addresses as a source
-makePubKeyTx :: HasConfiguration => SafeSigner -> TxInputs -> TxOutputs -> TxAux
+makePubKeyTx :: HasProtocolMagic => SafeSigner -> TxInputs -> TxOutputs -> TxAux
 makePubKeyTx ss txInputs txOutputs = either absurd identity $
     makeMPubKeyTx (\_ -> Right ss) (map ((), ) txInputs) txOutputs
 

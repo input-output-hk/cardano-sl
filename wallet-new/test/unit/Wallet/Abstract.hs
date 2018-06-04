@@ -28,7 +28,7 @@ import           Formatting (bprint)
 import           Pos.Util.Chrono
 import           Serokell.Util (mapJson)
 
-import           Util
+import           Cardano.Wallet.Kernel.Util
 import           UTxO.DSL
 
 {-------------------------------------------------------------------------------

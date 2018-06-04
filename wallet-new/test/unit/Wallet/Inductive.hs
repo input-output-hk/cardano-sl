@@ -15,7 +15,7 @@ import           Formatting (bprint, build, (%))
 import           Pos.Util.Chrono
 import           Serokell.Util (listJson)
 
-import           Util
+import           Cardano.Wallet.Kernel.Util
 import           UTxO.DSL
 
 {-------------------------------------------------------------------------------

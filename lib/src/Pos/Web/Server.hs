@@ -168,7 +168,7 @@ tlsWebServerMode _ _ TlsParams{..} = tlsSettings
 tlsWithClientCheck
     :: String -> Word16 -> TlsParams -> TLSSettings
 tlsWithClientCheck host port TlsParams{..} = tlsSettings
-    { tlsWantClientCert = True
+    { tlsWantClientCert = tpClientAuth
     , tlsServerHooks    = def
         { onClientCertificate = fmap certificateUsageFromValidations . validateCertificate }
     }

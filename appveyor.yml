@@ -20,7 +20,6 @@ environment:
 
 init:
 - ps: $env:CACHE_S3_READY = (("$env:CACHE_S3_VERSION" -ne "") -and ("$env:S3_BUCKET" -ne "") -and ("$env:AWS_ACCESS_KEY_ID" -ne "") -and ("$env:AWS_SECRET_ACCESS_KEY" -ne ""))
-- dir /s /b c:\msys64
 
 before_test:
 # Avoid long paths not to each MAX_PATH of 260 chars
@@ -46,7 +45,7 @@ before_test:
 
     7z x C:\ghc\ghc.tar -oC:\ghc
 
-    $env:PATH="$env:PATH;C:\ghc\ghc-8.0.2\bin"
+    $env:PATH="$env:PATH;C:\msys64\mingw64\bin;C:\msys64\mingw64\lib;C:\ghc\ghc-8.0.2\bin"
 
 # Install OpenSSL 1.0.2 (see https://github.com/appveyor/ci/issues/1665)
 - ps: (New-Object Net.WebClient).DownloadFile('https://slproweb.com/download/Win64OpenSSL-1_0_2o.exe', "$($env:USERPROFILE)\Win64OpenSSL.exe")

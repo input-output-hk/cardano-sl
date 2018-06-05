@@ -23,7 +23,6 @@ module Util.Range (
   , with
   , width
     -- * Gnuplot support
-  , Reverse(..)
   , renderSplitAxis
   ) where
 
@@ -121,14 +120,6 @@ makeLenses ''SplitRanges
 {-------------------------------------------------------------------------------
   Gnuplit support
 -------------------------------------------------------------------------------}
-
--- | Output a range in reverse order
---
--- Useful for creating reverse axes
-newtype Reverse a = Reverse (Range a)
-
-instance Buildable a => Buildable (Reverse a) where
-  build (Reverse Range{..}) = bprint ("[" % build % ":" % build % "]") _hi _lo
 
 -- | Render range in gnuplot compatible syntax
 instance Buildable a => Buildable (Range a) where

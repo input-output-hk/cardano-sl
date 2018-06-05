@@ -137,19 +137,25 @@ timeSeriesRange = go . timeSeriesNewestFirst
         }
 
 -- | Write out a time series to disk
---
--- NOTE: Writes the time series in reverse order!
--- (Use reverse axes in gnuplot.)
-writeTimeSeries :: forall a. Show a => FilePath -> TimeSeries a -> IO ()
-writeTimeSeries fp = go . timeSeriesNewestFirst
+writeTimeSeries :: forall a. Show a
+                => FilePath       -- ^ File to write to
+                -> (Int -> Bool)  -- ^ Steps to render
+                -> TimeSeries a   -- ^ Time series to render
+                -> IO ()
+writeTimeSeries fp shouldRender =
+       go
+     . filter (shouldRender . fst)
+     . zip [0..]
+     . reverse
+     . timeSeriesNewestFirst
   where
     -- We go through LBS to take advantage of it's chunking policy, avoiding
     -- hPutStr and co's excessive lock taking and releasing.
-    go :: [a] -> IO ()
+    go :: [(Int, a)] -> IO ()
     go = LBS.writeFile fp
        . LBS.pack
        . Prelude.unlines
-       . map (Prelude.show)
+       . map (\(step, a) -> Prelude.show step ++ "\t" ++ Prelude.show a)
 
 {-------------------------------------------------------------------------------
   Accumulated statistics
@@ -359,8 +365,17 @@ deriveBounds AccStats{..} = Bounds {
 -- a priori which ranges we should use for the graphs (and it is important
 -- that we use the same range for all frames).
 data PlotInstr = PlotInstr {
-      -- | Filename of the frame
-      piFrame          :: FilePath
+      -- | File prefix for current-step data
+      --
+      -- I.e., this is data like the UTxO and number of transaction inputs
+      -- histogram (but not time series data, see 'piStep').
+      piFilePrefix :: FilePath
+
+      -- | Frame counter
+      --
+      -- This is used to determine how much of the time series data
+      -- we want to display.
+    , piFrame :: Int
 
       -- | Number of failed payment attempts
     , piFailedPayments :: Int
@@ -397,10 +412,10 @@ renderPlotInstr utxoBinSize
     -- Plot UTxO size time series
     % "set xrange " % build % "\n"
     % "set yrange " % build % "\n"
-    % "set size 0.25,0.4\n"
+    % "set size 0.50,0.4\n"
     % "set origin 0.05,0.55\n"
     % "unset xtics\n"
-    % "plot '" % build % ".growth' notitle\n"
+    % "plot 'growth' using 1:2 every ::0::" % build % " notitle\n"
 
     -- Plot transaction number of inputs distribution
     % "set xrange " % build % "\n"
@@ -417,35 +432,35 @@ renderPlotInstr utxoBinSize
     % "set size 0.25,0.4\n"
     % "set origin 0.65,0.15\n"
     % "unset xtics\n"
-    % "plot '" % build % ".ratio' notitle\n"
+    % "plot 'ratio' using 1:2 every ::0::" % build % " notitle\n"
 
     % "unset multiplot\n"
     )
 
     -- header
     piFrame
-    piFrame
+    piFilePrefix
 
     -- current UTxO
     setupSplitAxis
     (bounds ^. boundsUtxoHistogram . Range.splitYRange)
     piFailedPayments
     utxoBinSize
-    piFrame
+    piFilePrefix
     resetSplitAxis
 
     -- UTxO time series
-    (Range.Reverse (bounds ^. boundsUtxoSize . Range.x))
+    (bounds ^. boundsUtxoSize . Range.x)
     (bounds ^. boundsUtxoSize . Range.y)
     piFrame
 
     -- number of inputs
     (bounds ^. boundsTxInputs . Range.x)
     (bounds ^. boundsTxInputs . Range.y)
-    piFrame
+    piFilePrefix
 
     -- change:payment ratio time series
-    (Range.Reverse (bounds ^. boundsMedianRatio . Range.x))
+    (bounds ^. boundsMedianRatio . Range.x)
     (bounds ^. boundsMedianRatio . Range.y)
     piFrame
 
@@ -503,10 +518,9 @@ writeStats prefix shouldRender =
     go frame CurrentStats{..} accStats = do
         Histogram.writeFile (filepath <.> "histogram") currentUtxoHistogram
         Histogram.writeFile (filepath <.> "txinputs") (txStatsNumInputs txStats)
-        writeTimeSeries (filepath <.> "growth") (accStats ^. accUtxoSize)
-        writeTimeSeries (filepath <.> "ratio")  (accStats ^. accMedianRatio)
         return PlotInstr {
-            piFrame          = filename
+            piFilePrefix     = filename
+          , piFrame          = frame
           , piFailedPayments = accStats ^. accFailedPayments
           }
       where
@@ -538,11 +552,10 @@ evaluatePolicy prefix shouldRender policy ours initState generator =
         intPolicy policy ours initState `fuseBoth`
         writeStats prefix shouldRender
 
-type NamedPolicies h = [
+type NamedPolicy h =
     ( String
     , InputSelectionPolicy h World (StrictStateT (IntState h World) IO)
     )
-  ]
 
 
 -- | Evaluate various input policies given the specified event stream
@@ -556,7 +569,7 @@ evaluateUsingEvents :: forall h. Hash h World
                     => PlotParams
                     -> FilePath        -- ^ Prefix for this event stream
                     -> Utxo h World    -- ^ Initial UTxO
-                    -> NamedPolicies h -- ^ Policies to evaluate
+                    -> [NamedPolicy h] -- ^ Policies to evaluate
                     -> (Int -> Bool)   -- ^ Frames to render
                     -> ConduitT () (Event h World) IO ()  -- ^ Event stream
                     -> IO ()
@@ -586,6 +599,8 @@ evaluateUsingEvents plotParams@PlotParams{..}
           (== Us)
           (initIntState plotParams initUtxo Us)
           events
+        writeTimeSeries (prefix' </> "growth") shouldRender (stats ^. accUtxoSize)
+        writeTimeSeries (prefix' </> "ratio")  shouldRender (stats ^. accMedianRatio)
         writePlotInstrs
           plotParams
           (prefix' </> "mkframes.gnuplot")
@@ -594,9 +609,11 @@ evaluateUsingEvents plotParams@PlotParams{..}
 
 evaluateInputPolicies :: PlotParams -> IO ()
 evaluateInputPolicies plotParams@PlotParams{..} = do
-    go "1to1"  initUtxo allPolicies  (renderEvery (10 *   3)) $ nTo1  1
-    go "3to1"  initUtxo chosenPolicy (renderEvery (10 *   5)) $ nTo1  3
-    go "10to1" initUtxo chosenPolicy (renderEvery (10 *  12)) $ nTo1 10
+    go "1to1"  initUtxo [largest]   (renderEvery (10 *   3)) $ nTo1  1 500
+    go "1to1"  initUtxo [randomOff] (renderEvery (10 *   3)) $ nTo1  1 30000
+    go "1to1"  initUtxo [randomOn]  (renderEvery (10 *   3)) $ nTo1  1 30000
+    go "3to1"  initUtxo [randomOn]  (renderEvery (10 *   5)) $ nTo1  3 30000
+    go "10to1" initUtxo [randomOn]  (renderEvery (10 *  12)) $ nTo1 10 30000
   where
     go = evaluateUsingEvents plotParams
 
@@ -605,34 +622,26 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
     renderEvery n step = step `mod` n == 0
 
     -- Event stream with a ratio of N:1 deposits:withdrawals
-    nTo1 :: Int -> ConduitT () (Event GivenHash World) IO ()
-    nTo1 n = Gen.fromDistr Gen.FromDistrParams {
+    nTo1 :: Int -> Int -> ConduitT () (Event GivenHash World) IO ()
+    nTo1 n m = Gen.fromDistr Gen.FromDistrParams {
           Gen.fromDistrDep    = NormalDistr 1000 100
         , Gen.fromDistrPay    = NormalDistr
                                   (1000 * fromIntegral n)
                                   (100  * fromIntegral n)
         , Gen.fromDistrNumDep = ConstDistr n
         , Gen.fromDistrNumPay = ConstDistr 1
-        , Gen.fromDistrCycles = 10000
+        , Gen.fromDistrCycles = m
         }
 
     -- Initial UTxO for all these tests
     initUtxo :: Utxo GivenHash World
     initUtxo = utxoSingleton (Input (GivenHash 0) 0) (Output Us 1000000)
 
-    -- all policies we want to compare
-    allPolicies :: Hash h World => NamedPolicies h
-    allPolicies = [
-          ("-largest",   Policy.largestFirst)
-        , ("-randomOff", Policy.random PrivacyModeOff)
-        , ("-randomOn",  Policy.random PrivacyModeOn)
-        ]
+    largest, randomOff, randomOn :: Hash h World => NamedPolicy h
+    largest   = ("-largest",   Policy.largestFirst)
+    randomOff = ("-randomOff", Policy.random PrivacyModeOff)
+    randomOn  = ("-randomOn",  Policy.random PrivacyModeOn)
 
-    -- the policy we're actually using and want to evaluate
-    chosenPolicy :: Hash h World => NamedPolicies h
-    chosenPolicy = [
-          ("-randomOn", Policy.random PrivacyModeOn)
-        ]
 
 
 

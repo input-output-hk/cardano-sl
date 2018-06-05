@@ -45,7 +45,7 @@ projects="networking binary util crypto core db lrc infra ssc txp update delegat
 
 # Returns name of a stack project to build, given the alias.
 function pkgNameToProject {
-  if [[ $1 == "lib" ]]; then
+  if [[ "$1" == "lib" ]]; then
     echo "cardano-sl"
   else
     echo "cardano-sl-$1"
@@ -84,45 +84,45 @@ fi
 for var in "$@"
 do
   # -t = run tests
-  if [[ $var == "-t" ]]; then
+  if [[ "$var" == "-t" ]]; then
     test=true
   # --coverage = Produce test coverage report
-  elif [[ $var == "--coverage" ]]; then
+  elif [[ "$var" == "--coverage" ]]; then
       coverage=true
   # -c = clean
-  elif [[ $var == "-c" ]]; then
+  elif [[ "$var" == "-c" ]]; then
     clean=true
   # -k = -fno-code
-  elif [[ $var == "-k" ]]; then
+  elif [[ "$var" == "-k" ]]; then
     no_code=true
   # --no-nix = don't use Nix
-  elif [[ $var == "--no-nix" ]]; then
+  elif [[ "$var" == "--no-nix" ]]; then
     no_nix=true
-  elif [[ $var == "--watch" ]]; then
+  elif [[ "$var" == "--watch" ]]; then
     file_watch=true
   # --ram = use more RAM
-  elif [[ $var == "--ram" ]]; then
+  elif [[ "$var" == "--ram" ]]; then
     ram=true
-  elif [[ $var == "--limit-ram-2G" ]]; then
+  elif [[ "$var" == "--limit-ram-2G" ]]; then
     limit_ram_2G=true
-  elif [[ $var == "--limit-ram-4G" ]]; then
+  elif [[ "$var" == "--limit-ram-4G" ]]; then
     limit_ram_4G=true
-  elif [[ $var == "--limit-ram-6G" ]]; then
+  elif [[ "$var" == "--limit-ram-6G" ]]; then
     limit_ram_6G=true
   # -Werror = compile with -Werror
-  elif [[ $var == "-Werror" ]]; then
+  elif [[ "$var" == "-Werror" ]]; then
     werror=true
   # --for-installer = build with for-installer flag
-  elif [[ $var == "--for-installer" ]]; then
+  elif [[ "$var" == "--for-installer" ]]; then
     for_installer=true
   # disabling --fast
-  elif [[ $var == "-O2" ]]; then
+  elif [[ "$var" == "-O2" ]]; then
     no_fast=true
   # disabling asserts
-  elif [[ $var == "--no-asserts" ]]; then
+  elif [[ "$var" == "--no-asserts" ]]; then
     asserts=false
   # benchmarks config
-  elif [[ $var == "--bench-mode" ]]; then
+  elif [[ "$var" == "--bench-mode" ]]; then
     # We want:
     # • --flag cardano-sl-core:-asserts ($asserts)
     # • compiler optimizations ($no_fast)
@@ -132,8 +132,8 @@ do
   # package name = build only the package
   elif [[ $var == "sl" ]] || [[ $var == "all" ]]; then
     spec_prj="all"
-  elif [[ " $projects " =~ " $var " ]]; then
-    spec_prj=$var
+  elif [[ " $projects " =~ $var ]]; then
+    spec_prj="$var"
   # otherwise pass the arg to stack
   else
     args="$args $var"
@@ -143,39 +143,39 @@ done
 commonargs='--test --no-haddock-deps --bench --jobs=4'
 norun='--no-run-tests --no-run-benchmarks'
 
-if [[ $no_nix == true ]]; then
+if [[ "$no_nix" == true ]]; then
   commonargs="$commonargs --no-nix"
 fi
 
-if [[ $for_installer == true ]]; then
+if [[ "$for_installer" == true ]]; then
   commonargs="$commonargs --flag cardano-sl-tools:for-installer"
 fi
 
-if [[ $asserts == false ]]; then
+if [[ "$asserts" == false ]]; then
   commonargs="$commonargs --flag cardano-sl-core:-asserts"
 fi
 
-if [[ $file_watch == true ]]; then
+if [[ "$file_watch" == true ]]; then
   watch="--file-watch"
 fi
 
-if [[ $no_fast == true ]]; then
+if [[ "$no_fast" == true ]]; then
   fast=""
 else
   fast="--fast"
 fi
 
-if [[ $werror == true ]];
+if [[ "$werror" == true ]];
   then ghc_opts="$ghc_opts -Werror"
   else ghc_opts="$ghc_opts -Wwarn"
 fi
 
-if [[ $ram == true ]];
+if [[ "$ram" == true ]];
   then ghc_opts="$ghc_opts +RTS -A2G -n4m -RTS"
   else
-    if   [[ $limit_ram_2G == true ]]; then ghc_opts="$ghc_opts +RTS -A256m -n2m -M2G -RTS"
-    elif [[ $limit_ram_4G == true ]]; then ghc_opts="$ghc_opts +RTS -A256m -n2m -M4G -RTS"
-    elif [[ $limit_ram_6G == true ]]; then ghc_opts="$ghc_opts +RTS -A256m -n2m -M6G -RTS"
+    if   [[ "$limit_ram_2G" == true ]]; then ghc_opts="$ghc_opts +RTS -A256m -n2m -M2G -RTS"
+    elif [[ "$limit_ram_4G" == true ]]; then ghc_opts="$ghc_opts +RTS -A256m -n2m -M4G -RTS"
+    elif [[ "$limit_ram_6G" == true ]]; then ghc_opts="$ghc_opts +RTS -A256m -n2m -M6G -RTS"
     fi
 fi
 
@@ -185,33 +185,33 @@ xperl_pretty='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
 xperl="$xperl_pretty"
 xgrep="((^.*warning.*$|^.*error.*$|^    .*$|^.*can't find source.*$|^Module imports form a cycle.*$|^  which imports.*$)|^)"
 
-function cleanPackage () { echo "Cleaning $1"; stack clean $1 ; };
-if [[ $clean == true ]]; then
+function cleanPackage () { echo "Cleaning $1"; stack clean "$1" ; };
+if [[ "$clean" == true ]]; then
   for prj in $projects; do
-    cleanPackage "$(pkgNameToProject $prj)"
+    cleanPackage "$(pkgNameToProject "$prj")"
   done
   exit
 fi
 
 to_build=''
-if [[ $spec_prj == "" ]]; then
+if [[ "$spec_prj" == "" ]]; then
   for prj in $projects; do
-    pkgName=$(pkgNameToProject $prj)
+    pkgName=$(pkgNameToProject "$prj")
     to_build="$to_build $pkgName"
   done
-elif [[ $spec_prj == "wallet" ]]; then
+elif [[ "$spec_prj" == "wallet" ]]; then
   to_build="cardano-sl-node cardano-sl-wallet"
-elif [[ $spec_prj == "wallet-new" ]]; then
+elif [[ "$spec_prj" == "wallet-new" ]]; then
   to_build="cardano-sl-node cardano-sl-wallet-new"
-elif [[ $spec_prj == "explorer" ]]; then
+elif [[ "$spec_prj" == "explorer" ]]; then
   to_build="cardano-sl-node cardano-sl-explorer"
-elif [[ $spec_prj == "all" ]]; then
+elif [[ "$spec_prj" == "all" ]]; then
   to_build="" # build everything concurrently
 else
-  to_build=$(pkgNameToProject $spec_prj)
+  to_build=$(pkgNameToProject "$spec_prj")
 fi
 
-if [[ $to_build == "" ]]; then
+if [[ "$to_build" == "" ]]; then
   echo "Going to build: everything, concurrently"
 else
   echo "Going to build: $to_build"
@@ -219,52 +219,52 @@ fi
 
 for prj in $to_build; do
 
-  echo -e "Building $prj\n"
+  echo -e "Building $prj\\n"
 
   # Building deps
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun --dependencies-only $args $prj"
-  echo -e "$sbuild\n"
-  eval $sbuild 2>&1
+  echo -e "$sbuild\\n"
+  eval "$sbuild" 2>&1
 
-  if [[ $no_code == true ]]; then
-    ghc_opts_2="$ghc_opts -fwrite-interface -fno-code"
+  if [[ "$no_code" == true ]]; then
+    export ghc_opts_2="$ghc_opts -fwrite-interface -fno-code"
   else
-    ghc_opts_2="$ghc_opts"
+    export ghc_opts_2="$ghc_opts"
   fi
 
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun $fast $watch $args $prj"
-  echo -e "$sbuild\n"
+  echo -e "$sbuild\\n"
 
-  eval $sbuild 2>&1                         \
+  eval "$sbuild" 2>&1                         \
     | perl -pe "$xperl"                     \
     | { grep -E --color "$xgrep" || true; }
 done
 
 if [[ $to_build == "" ]]; then
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun $fast $watch $args"
-  echo -e "$sbuild\n"
-  eval $sbuild 2>&1                         \
+  echo -e "$sbuild\\n"
+  eval "$sbuild" 2>&1                         \
     | perl -pe "$xperl"                     \
     | { grep -E --color "$xgrep" || true; }
 fi
 
-if [[ $test == true ]]; then
+if [[ "$test" == true ]]; then
   stack build                               \
       --ghc-options="$ghc_opts"             \
-      $commonargs                           \
+      "$commonargs"                           \
       --no-run-benchmarks                   \
-      $fast                                 \
-      $args                                 \
+      "$fast"                                 \
+      "$args"                                 \
       cardano-sl
 fi
 
-if [[ $coverage == true ]]; then
+if [[ "$coverage" == true ]]; then
   stack build                               \
       --ghc-options="$ghc_opts"             \
-      $commonargs                           \
+      "$commonargs"                           \
       --no-run-benchmarks                   \
-      $fast                                 \
-      $args                                 \
+      "$fast"                                 \
+      "$args"                                 \
       --coverage;
-  stack hpc report $to_build
+  stack hpc report "$to_build"
 fi

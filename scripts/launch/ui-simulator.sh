@@ -18,7 +18,7 @@ if [[ "$1" == "" ]]; then
       ;;
   esac
 else
-  while read l; do
+  while read -r l; do
     case "$l" in
       update)
         echo "Starting update.."

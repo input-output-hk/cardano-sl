@@ -3,30 +3,30 @@
 base_common="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 function find_binary {
-  pushd $base_common/.. > /dev/null
+  pushd "$base_common/.." > /dev/null || exit
   binpath=$(stack path --local-install-root)/bin
-  popd > /dev/null
-  echo "$binpath"/$1
+  popd > /dev/null || exit
+  echo "$binpath/$1"
 }
 
 function find_build_binary {
-  pushd $base_common/.. > /dev/null
+  pushd "$base_common/.." > /dev/null || exit
   binpath=$(stack path --dist-dir)/build
-  popd > /dev/null
-  echo "$binpath"/$1/$1
+  popd > /dev/null || exit
+  echo "$binpath/$1/$1"
 }
 
 function ensure_run {
-  if [[ $1 == "" ]]
+  if [[ "$1" == "" ]]
   then
     local run_dir="$base_common/../run"
   else
-    run_dir=$1
+    run_dir="$1"
   fi
   mkdir -p "$run_dir"
 }
 
-LOGS_TIME=`date '+%F_%H%M%S'`
+LOGS_TIME=$(date '+%F_%H%M%S')
 
 function ensure_logs {
   if [[ $1 == "" ]]
@@ -45,7 +45,7 @@ function dump_path {
 
 function logs {
   local log_file=$2
-  ensure_logs $1
+  ensure_logs "$1"
 
   local conf_dir="$logs_dir/conf"
   local template_name="../log-configs/template-demo.yaml"
@@ -60,8 +60,7 @@ function logs {
   mkdir -p "$logs_dir/dump"
 
   local conf_file="$conf_dir/$log_file.yaml"
-  cat "$template" \
-    | sed "s|{{file}}|$logs_dir/$log_file|g" > "$conf_file"
+  sed "s|{{file}}|$logs_dir/$log_file|g" "$template" > "$conf_file"
   echo -n " --json-log=$logs_dir/node$i.json "
   echo -n " --logs-prefix $logs_dir --log-config $conf_file "
 }
@@ -82,14 +81,14 @@ function dht_key {
     i2="0$i"
   fi
 
-  $(find_binary cardano-dht-keygen) -n 000000000000$i2 | tr -d '\n'
+  $(find_binary cardano-dht-keygen) -n "000000000000$i2" | tr -d '\n'
 }
 
 # Generates kademliaN.yaml and topologyN.yaml for demo setup
 # for N \in {0..n-1} where n is number of nodes specified.
 function gen_kademlia_topology {
   local total_nodes=$1
-  local npred=$(($total_nodes-1))
+  local npred=$((total_nodes-1))
 
   if [[ $total_nodes -le 0 ]]; then
     echo "gen_kademlia_topology: n should be positive, but is $total_nodes"
@@ -99,88 +98,94 @@ function gen_kademlia_topology {
   if [[ "$2" == "" ]]; then
     local out_dir="./run/"
   else
-    local out_dir=$2
+    local out_dir="$2"
   fi
 
   echo "Cleaning up topology/kademlia files"
-  rm -fv $out_dir/topology*.yaml
-  rm -fv $out_dir/kademlia*.yaml
+  rm -fv "$out_dir/topology*.yaml"
+  rm -fv "$out_dir/kademlia*.yaml"
 
   echo "Generating new topology/kademlia files"
-  for i in $(seq 0 $total_nodes); do
+  for ((i=0; i<=total_nodes; i++)); do
 
     # generate kademlia config
 
-    if [[ $i -eq $total_nodes ]]; then
-      local kfile=$out_dir/kademlia_explorer.yaml
-      local others_n=$total_nodes
+    if [[ "$i" -eq "$total_nodes" ]]; then
+      local kfile="$out_dir/kademlia_explorer.yaml"
+      local others_n="$total_nodes"
     else
-      local kfile=$out_dir/kademlia$i.yaml
-      local others_n=$npred
+      local kfile="$out_dir/kademlia$i.yaml"
+      local others_n="$npred"
     fi
 
-    touch $kfile
-    if [[ $total_nodes -eq 1 ]]; then
-      echo "peers: []" > $kfile
+    touch "$kfile"
+    if [[ "$total_nodes" -eq 1 ]]; then
+      echo "peers: []" > "$kfile"
     else
-      echo "peers: " > $kfile
+      echo "peers: " > "$kfile"
     fi
 
-    for j in $(seq 0 $others_n); do
+    for ((j=0; j<=others_n; j++)); do
       if [[ $j -eq $i ]]; then continue; fi
-      echo "  - host: '127.0.0.1'" >> $kfile
-      echo "    port: 300$j"       >> $kfile
+      {
+      echo "  - host: '127.0.0.1'"
+      echo "    port: 300$j"
+      } >> "$kfile"
     done
-
-    echo "address:" >> $kfile
-    echo "  host: '127.0.0.1'" >> $kfile
-    echo "  port: 300$i" >> $kfile
+    {
+    echo "address:"
+    echo "  host: '127.0.0.1'"
+    echo "  port: 300$i"
+    } >> "$kfile"
 
 
     # generate topology config (it's the same for all nodes)
 
     # we generate n-1 topology configs, there's no explorer topology (should there be?)
     if [[ $i -eq $total_nodes ]]; then continue; fi
-    local tfile=$out_dir/topology$i.yaml
-    echo "nodes: " > $tfile
-    for j in $(seq 0 $npred); do
+    local tfile="$out_dir/topology$i.yaml"
+    echo "nodes: " > "$tfile"
+    for ((j=0; j<=npred; j++)); do
 
       local routes="["
-      for k in $(seq 0 $npred); do
-        if [ $k -eq $j ]; then continue; fi
+      for ((k=0; k<=npred; k++)); do
+        if [ "$k" -eq "$j" ]; then continue; fi
         routes="$routes[\"node$k\"], "
       done
       # If we have explorer add it so that the other nodes converse with it.
       routes="$routes[\"explorer\"]]"
-
-      echo "  \"node$j\":"              >> $tfile
-      echo "    type: core"             >> $tfile
-      echo "    region: undefined"      >> $tfile
-      echo "    static-routes: $routes" >> $tfile
-      echo "    addr: 127.0.0.1"        >> $tfile
-      echo "    port: 300$j"            >> $tfile
+      {
+      echo "  \"node$j\":"
+      echo "    type: core"
+      echo "    region: undefined"
+      echo "    static-routes: $routes"
+      echo "    addr: 127.0.0.1"
+      echo "    port: 300$j"
+      } >> "$tfile"
 
       # add explorer (as relay node)
       if [[ $j -eq $npred ]]; then
         # count port
-        local exp=($j + 1)
+        local exp=$((j + 1))
         # explorers routes
         local exr="["
-        for k in $(seq 0 $npred); do
+        for ((k=0; k<=npred; k++)); do
           exr="$exr[\"node$k\"]"
           # don't put comma after last element and after pre-last element of last list item
-          if ! ([ $k -eq $npred ]); then
+          if ! ([ "$k" -eq "$npred" ]); then
             exr=$exr", "
           fi
         done
         exr="$exr]"
 
-        echo "  \"explorer\":"            >> $tfile
-        echo "    type: relay"            >> $tfile
-        echo "    region: undefined"      >> $tfile
-        echo "    static-routes: $exr"    >> $tfile
-        echo "    addr: 127.0.0.1"        >> $tfile
-        echo "    port: 300$exp"          >> $tfile
+        {
+          echo '  "explorer":'
+          echo "    type: relay"
+          echo "    region: undefined"
+          echo "    static-routes: $exr"
+          echo "    addr: 127.0.0.1"
+          echo "    port: 300${exp[0]}"
+        } >> "$tfile"
       fi
     done
   done
@@ -195,12 +200,11 @@ function node_cmd {
   local conf_file=$5
   local log_dir=$6
   local run_dir=$7
-  local st=''
   local reb=''
   local web=''
   local configuration=''
 
-  ensure_run $run_dir
+  ensure_run "$run_dir"
 
   keys_args="--genesis-secret $i"
   if [[ "$CSL_PRODUCTION" != "" ]]; then
@@ -210,6 +214,7 @@ function node_cmd {
   if [[ $NO_REBUILD == "" ]]; then
     reb=" --rebuild-db "
   fi
+  #shellcheck disable=SC2153
   if [[ "$REPORT_SERVER" != "" ]]; then
     report_server=" --report-server $REPORT_SERVER "
   fi
@@ -232,19 +237,22 @@ function node_cmd {
 
   echo -n " --db-path $run_dir/node-db$i $rts_opts $reb $keys_args"
 
-  ekg_server="127.0.0.1:"$((8000+$i))
-  statsd_server="127.0.0.1:"$((8125+$i))
+  ekg_server="127.0.0.1:$((8000+i))"
+  export statsd_server="127.0.0.1:$((8125+i))"
 
   # A sloppy test but it'll do for now.
-  local topology_first_six_bytes=`cat $topology_file | head -c 6`
+  topology_first_six_bytes=$(head -c 6 "$topology_file" )
+  local topology_first_six_bytes
   if [[ "$topology_first_six_bytes" != "wallet" ]]; then
     #echo -n " --address 127.0.0.1:"`get_port $i`
-    echo -n " --listen 127.0.0.1:"`get_port $i`
+    echo -n " --listen 127.0.0.1:$(get_port "$i")"
   fi
   if [[ "$configuration" != "" ]]; then
     echo -n " $configuration "
   fi
-  echo -n " $(logs $log_dir node$i.log) $time_lord $stats"
+  declare time_lord
+  declare stats
+  echo -n " $(logs "$log_dir" "node$i.log") ${time_lord} ${stats}"
   echo -n " $web "
   echo -n " $report_server "
   echo -n " $wallet_args "
@@ -278,7 +286,7 @@ function bench_cmd {
 
   echo -n "$(find_binary cardano-auxx)"
   # This assumes that the n-1 node is the relay
-  echo -n " --peer 127.0.0.1:"`get_port $((i-1))`
+  echo -n " --peer 127.0.0.1:$(get_port $((i-1)))"
   echo -n " $(logs "" node_auxx.log)"
   echo -n " --system-start $system_start"
   echo -n " cmd --commands \"send-to-all-genesis $time $conc $delay $sendmode ./tps-sent.csv\""
@@ -291,16 +299,16 @@ function bench_cmd {
 
 
 function has_nix {
-    which nix-shell 2> /dev/null
-    return $?
+  which nix-shell 2> /dev/null
+  return $?
 }
 
 function stack_build {
-    if [[ `has_nix` == 0 ]]; then
-        echo "Building with nix-shell"
-        stack --nix build --test --no-run-tests --bench --no-run-benchmarks --fast
-    else
-        echo "Building normally"
-        stack build --test --no-run-tests --bench --no-run-benchmarks --fast
-    fi
+  if [[ $(has_nix) == 0 ]]; then
+    echo "Building with nix-shell"
+    stack --nix build --test --no-run-tests --bench --no-run-benchmarks --fast
+  else
+    echo "Building normally"
+    stack build --test --no-run-tests --bench --no-run-benchmarks --fast
+  fi
 }

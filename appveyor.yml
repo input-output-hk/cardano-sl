@@ -40,7 +40,6 @@ before_test:
     mkdir C:\ghc
 
     Invoke-WebRequest "http://releases.mobilehaskell.org/ghc-8.0.2-x86_64-unknown-mingw32.tar.xz" -OutFile "C:\ghc\ghc.tar.xz" -UserAgent "Curl"
-#    Invoke-WebRequest "https://s3.eu-central-1.amazonaws.com/ci-static/ghc-8.0.2-x86_64-unknown-mingw32.tar.xz" -OutFile "C:\ghc\ghc.tar.xz" -UserAgent "Curl"
 
     7z x C:\ghc\ghc.tar.xz -oC:\ghc
 

@@ -1,0 +1,170 @@
+\documentclass{article}
+
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{appendix}
+\usepackage{float}
+\usepackage{enumitem}
+
+\floatstyle{boxed}
+\restylefloat{figure}
+
+\newlist{record}{description}{3}
+\setlist[record]{itemsep=0pt, format=$-$\bfseries}
+\newlist{variant}{description}{3}
+\setlist[variant]{itemsep=0pt, format=$|$\bfseries}
+\newcommand{\N}{\mathbb{N}}
+
+\newcommand{\idsof}[1]{\mathcal{I}\!_#1}
+
+\newcommand{\txs}{\mathcal{T}}
+\newcommand{\blocks}{\mathcal{B}}
+\newcommand{\bbodies}{\blocks_{\textbf{body}}}
+\newcommand{\bheads}{\blocks_{\textbf{head}}}
+\newcommand{\txins}{\txs_{\textbf{in}}}
+
+\newcommand{\txids}{\idsof{\txs}}
+\newcommand{\blockids}{\idsof{\blocks}}
+\newcommand{\agentids}{\idsof{\mathcal{A}}}
+
+\newcommand{\hstype}[1]{\textbf{#1}}
+\newcommand{\String}{\hstype{String}}
+\newcommand{\Word}[1]{\hstype{Word#1}}
+
+
+\title{Cardano on-the-wire specification}
+\author{Nicholas Clarke}
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Introduction}
+
+This document describes the binary serialisation formats used for the Cardano
+blockchain.
+
+It proceeds as follows: section \ref{sec:types} describes the core types which
+must be serialised for the purposes of Cardano communication. We then detail the
+requirements on the binary format in \ref{sec:reqs}. In section \ref{sec:binfmt}
+we describe the explicit binary serialisation of the core types satisfying these
+requirements.
+
+Appendix \ref{sec:currentfmt} details the current binary format.
+
+\subsection{Notation}
+
+\begin{description}
+  \item[Records] We denote records as:
+    \begin{record}
+      \item[field1] Field description
+      \item[field2] Field description
+    \end{record}
+
+  \item[Variants] We denote variants as:
+    \begin{variant}
+      \item[Option1] Description
+      \item[Option2] Description
+    \end{variant}
+\end{description}
+
+Typically we will use capitalised words for variant constructors and lower-case
+terms for field names, as per standard Haskell syntax.
+
+\section{Core datatypes}
+\label{sec:types}
+
+The types in this section are derived from a combination of the blockchain spec
+and Haskell datatypes in the codebase.
+
+\subsection{Primitives}
+
+Primitive types:
+
+\begin{description}
+\item [$\Word{8}$] 8-bit word
+\item [$\Word{32}$] 32-bit word
+\item [$\Word{64}$] 64-bit word
+\item [$\String$] Arbitrary string type. We do not draw any distinctions as to
+  whether this is implemented as a $\hstype{String}$, $\hstype{ByteString}$ or
+  $\hstype{Text}$.
+\end{description}
+
+\subsection{Identifiers}
+
+We start with sets of identifiers. These are represented in code as Blake2b-256
+hashes.
+
+\begin{itemize}
+\item{Transaction identifiers $\txids$}
+\item{Agent identifiers $\agentids$}
+\item{Block identifiers $\blockids$}
+\end{itemize}
+
+\subsection{Transactions}
+
+We have a set of transactions $\txs$.
+
+\begin{figure}[H]
+\caption{Transaction input $\in \txins$.}
+\label{fig:txin}
+\begin{variant}
+  \item [Valid] a pair in $\txids\times\Word{32}$.
+  \item [Invalid] a pair in $\Word{8}\times\String$.
+\end{variant}
+\end{figure}
+
+\begin{figure}[H]
+  \caption{Transaction $\in\txs$.}
+  \label{fig:transaction}
+  \begin{record}
+    \item[inputs] A list of transaction inputs in $\txins$.
+    \item[outputs] A non-empty list of pairs in $\agentids\times\Word{64}$.
+  \end{record}
+\end{figure}
+
+\subsection{Blocks}
+
+A block consists of a block header and a block body. The block header consists
+of verification for the various components in the block body.
+
+\begin{figure}[H]
+  \caption{Block body $\in\bbodies$}
+  \begin{record}
+    \item [txPayload] \hfill
+      \begin{record}
+        \item [transactions] A list of transactions in $\txs$.
+        \item [witnesses] A list of transaction witnesses.
+      \end{record}
+
+    \item [sscPayload] \hfill
+      \begin{variant}
+        \item [Commitments]
+        \item [Openings]
+        \item [Shares]
+        \item [Certificates]
+      \end{variant}
+
+    \item [dlgPayload]
+    \item [updatePayload]
+  \end{record}
+  \label{fig:blockbody}
+\end{figure}
+
+\section{Requirements on the binary format}
+\label{sec:reqs}
+
+\subsection{Cryptographic properties}
+
+\subsection{Dependencies on the binary format}
+
+\section{Binary specification}
+\label{sec:binfmt}
+
+\begin{appendices}
+  \section{Current binary format}
+  \label{sec:currentfmt}
+
+  This section documents the current binary serialisation format, as of
+  2018-06-03.
+\end{appendices}
+\end{document}

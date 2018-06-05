@@ -1,0 +1,36 @@
+# Use the build system
+
+Build this article: a one-liner
+
+``` shell
+$ nix-shell --run make
+```
+
+## Further `make` targets
+
+``` shell
+$ make rules.pdf
+$ make <name>.pdf
+```
+
+Will make `rules.pdf` (resp. `<name>.pdf`)specifically
+
+``` shell
+$ make rules
+$ make <name>
+```
+
+Will run `latexmk` in continuous preview mode. From `latexmk`'s man
+page:
+
+> The second previewing option is the powerful -pvc option (mnemonic:
+> "preview continuously").  In this case, latexmk runs continuously,
+> regularly monitoring all the source files to see if any have
+> changed.  Every time a change is detected, latexmk runs all the
+> programs necessary to generate a new version of the document.  A
+> good previewer (like gv) will then automatically update its display.
+> Thus the user can simply edit a file and, when the changes are
+> written to disk, latexmk completely automates the cycle of
+> updating the .dvi (and possibly the .ps and .pdf) file, and
+> refreshing the previewer's display.  It's not quite WYSIWYG, but
+> usefully close.

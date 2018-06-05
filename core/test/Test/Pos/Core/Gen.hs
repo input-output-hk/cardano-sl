@@ -1,7 +1,11 @@
 module Test.Pos.Core.Gen
        (
+        -- Pos.Core.Block Generators
+          genGenesisHash
+        , genGenesisHeader
+
         -- Pos.Core.Common Generators
-          genAddrAttributes
+        , genAddrAttributes
         , genAddress
         , genAddrType
         , genAddrSpendingData
@@ -10,9 +14,21 @@ module Test.Pos.Core.Gen
         , genCoinPortion
         , genScript
         , genScriptVersion
+        , genSlotLeaders
         , genStakeholderId
 
+        -- Pos.Core.Delegation Generators
+        , genHeavyDlgIndex
+        , genProxySKBlockInfo
+        , genProxySKHeavy
+
+        -- Pos.Core.Slotting Generators
+        , genEpochIndex
+        , genLocalSlotIndex
+        , genSlotId
+
         -- Pos.Core.Txp Generators
+        , genPkWitness
         , genRedeemWitness
         , genScriptWitness
         , genTx
@@ -31,22 +47,51 @@ module Test.Pos.Core.Gen
 
 import           Universum
 
+
+import           Data.Coerce (coerce)
+import           Data.Maybe
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
-
-import           Pos.Binary.Core ()
+import           Pos.Block.Base (mkGenesisHeader)
+import           Pos.Core.Block (GenesisBlockHeader, GenesisBody (..))
 import           Pos.Core.Common (Address (..), AddrAttributes (..),
-                                  AddrSpendingData (..),
-                                  AddrStakeDistribution (..), AddrType (..),
-                                  Coin (..), CoinPortion (..), Script (..),
-                                  ScriptVersion, StakeholderId, makeAddress)
-import           Pos.Crypto (Hash, sign, unsafeHash)
-import           Pos.Core.Txp (Tx (..), TxAttributes, TxId, TxIn (..),
+                                  AddrSpendingData (..), AddrStakeDistribution (..),
+                                  AddrType (..), Coin (..), CoinPortion (..),
+                                  Script (..), ScriptVersion, SlotLeaders,
+                                  StakeholderId, makeAddress)
+import           Pos.Core.Configuration (GenesisHash (..))
+import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
+import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..), SlotId (..))
+import           Pos.Core.Txp (TxAttributes, Tx (..), TxId, TxIn (..),
                                TxInWitness (..), TxOut (..), TxSig,
                                TxSigData (..))
+import           Pos.Crypto (Hash, hash, safeCreatePsk, sign)
 import           Pos.Data.Attributes (mkAttributes)
-import           Test.Pos.Crypto.Gen
+import           Pos.Delegation.Types (ProxySKBlockInfo)
+import           Test.Pos.Crypto.Gen (genAbstractHash, genHDAddressPayload,
+                                      genProtocolMagic, genPublicKey,
+                                      genRedeemPublicKey, genRedeemSignature,
+                                      genSafeSigner, genSecretKey, genSignTag)
+
+
+
+----------------------------------------------------------------------------
+-- Pos.Core.Block Generators
+----------------------------------------------------------------------------
+
+genGenesisHash :: Gen GenesisHash
+genGenesisHash = do
+  sampleText <- Gen.text Range.constantBounded Gen.alphaNum
+  return $ GenesisHash (coerce (hash sampleText :: Hash Text))
+
+genGenesisHeader :: Gen GenesisBlockHeader
+genGenesisHeader =
+    mkGenesisHeader
+        <$> genProtocolMagic
+        <*> (Left <$> genGenesisHash) -- need to consider `Right` case
+        <*> genEpochIndex
+        <*> (GenesisBody <$> genSlotLeaders)
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Common Generators
@@ -73,7 +118,7 @@ genAddrSpendingData = Gen.choice gens
     gens = [ PubKeyASD <$> genPublicKey
            , ScriptASD <$> genScript
            , RedeemASD <$> genRedeemPublicKey
-           , UnknownASD <$> (Gen.word8 Range.constantBounded) <*> gen32Bytes
+           , UnknownASD <$> Gen.word8 Range.constantBounded <*> gen32Bytes
            ]
 
 genAddrStakeDistribution :: Gen AddrStakeDistribution
@@ -101,21 +146,52 @@ genScript = Script <$> genScriptVersion <*> gen32Bytes
 genScriptVersion :: Gen ScriptVersion
 genScriptVersion = Gen.word16 Range.constantBounded
 
+genSlotLeaders :: Gen SlotLeaders
+genSlotLeaders = do
+    stakeHolderList <- Gen.list (Range.constant 0 10) genStakeholderId
+    return (fromJust $ nonEmpty stakeHolderList)
+
 genStakeholderId :: Gen StakeholderId
 genStakeholderId = genAbstractHash genPublicKey
 
 ----------------------------------------------------------------------------
--- Pos.Core.Txp Generators
+-- Pos.Core.Delegation Generators
 ----------------------------------------------------------------------------
 
-genTxInWitness :: Gen TxInWitness
-genTxInWitness = Gen.choice gens
-  where
-    gens = [ genPkWitness
-           , genRedeemWitness
-           , genScriptWitness
-           , genUnknownWitnessType
-           ]
+genHeavyDlgIndex :: Gen HeavyDlgIndex
+genHeavyDlgIndex = HeavyDlgIndex <$> genEpochIndex
+
+genProxySKBlockInfo :: Gen ProxySKBlockInfo
+genProxySKBlockInfo = do
+    pSKHeavy <- genProxySKHeavy
+    pubKey <- genPublicKey
+    return $ Just (pSKHeavy,pubKey)
+
+genProxySKHeavy :: Gen ProxySKHeavy
+genProxySKHeavy =
+    safeCreatePsk
+        <$> genProtocolMagic
+        <*> genSafeSigner
+        <*> genPublicKey
+        <*> genHeavyDlgIndex
+
+----------------------------------------------------------------------------
+-- Pos.Core.Slotting Generators
+----------------------------------------------------------------------------
+
+genEpochIndex :: Gen EpochIndex
+genEpochIndex = EpochIndex <$> Gen.word64 Range.constantBounded
+
+
+genLocalSlotIndex :: Gen LocalSlotIndex
+genLocalSlotIndex = UnsafeLocalSlotIndex <$> Gen.word16 (Range.constant 0 21599)
+
+genSlotId :: Gen SlotId
+genSlotId = SlotId <$> genEpochIndex <*> genLocalSlotIndex
+
+----------------------------------------------------------------------------
+-- Pos.Core.Txp Generators
+----------------------------------------------------------------------------
 
 genPkWitness :: Gen TxInWitness
 genPkWitness = PkWitness <$> genPublicKey <*> genTxSig
@@ -134,10 +210,7 @@ genTxAttributes :: Gen TxAttributes
 genTxAttributes = return $ mkAttributes ()
 
 genTxHash :: Gen (Hash Tx)
-genTxHash = unsafeHash <$> genTx
-
-genTxId :: Gen TxId
-genTxId = unsafeHash <$> genPublicKey
+genTxHash = hash <$> genTx
 
 genTxIn :: Gen TxIn
 genTxIn = Gen.choice gens
@@ -155,12 +228,24 @@ genTxOut = TxOut <$> genAddress <*> genCoin
 genTxOutList :: Gen (NonEmpty TxOut)
 genTxOutList = Gen.nonEmpty (Range.constant 1 100) genTxOut
 
+genTxId :: Gen TxId
+genTxId = hash <$> genTx
+
 genTxSig :: Gen TxSig
 genTxSig =
-  sign <$> genProtocolMagic <*> genSignTag <*> genSecretKey <*> genTxSigData
+    sign <$> genProtocolMagic <*> genSignTag <*> genSecretKey <*> genTxSigData
 
 genTxSigData :: Gen TxSigData
 genTxSigData = TxSigData <$> genTxHash
+
+genTxInWitness :: Gen TxInWitness
+genTxInWitness = Gen.choice gens
+  where
+    gens = [ genPkWitness
+           , genRedeemWitness
+           , genScriptWitness
+           , genUnknownWitnessType
+           ]
 
 genUnknownWitnessType :: Gen TxInWitness
 genUnknownWitnessType =

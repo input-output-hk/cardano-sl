@@ -13441,10 +13441,11 @@ license = stdenv.lib.licenses.mit;
   mkDerivation
 , base
 , bytestring
-, cardano-sl-binary
+, cardano-sl-block
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-crypto-test
+, cardano-sl-delegation
 , cpphs
 , cryptonite
 , hedgehog
@@ -13460,10 +13461,11 @@ src = ./../core/test;
 libraryHaskellDepends = [
 base
 bytestring
-cardano-sl-binary
+cardano-sl-block
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-crypto-test
+cardano-sl-delegation
 cryptonite
 hedgehog
 time-units

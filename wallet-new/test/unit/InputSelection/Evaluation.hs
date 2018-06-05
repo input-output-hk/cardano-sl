@@ -609,13 +609,32 @@ evaluateUsingEvents plotParams@PlotParams{..}
 
 evaluateInputPolicies :: PlotParams -> IO ()
 evaluateInputPolicies plotParams@PlotParams{..} = do
-    go "1to1"  initUtxo [largest]   (renderEvery (10 *   3)) $ nTo1  1 500
-    go "1to1"  initUtxo [randomOff] (renderEvery (10 *   3)) $ nTo1  1 30000
-    go "1to1"  initUtxo [randomOn]  (renderEvery (10 *   3)) $ nTo1  1 30000
-    go "3to1"  initUtxo [randomOn]  (renderEvery (10 *   5)) $ nTo1  3 30000
-    go "10to1" initUtxo [randomOn]  (renderEvery (10 *  12)) $ nTo1 10 30000
+    go "1to1"  [largest]    3   500 $ nTo1  1
+    go "1to1"  [randomOff]  3 10000 $ nTo1  1
+    go "1to1"  [randomOn]   3 10000 $ nTo1  1
+    go "3to1"  [randomOn]   5 10000 $ nTo1  3
+    go "10to1" [randomOn]  12 10000 $ nTo1 10
   where
-    go = evaluateUsingEvents plotParams
+    go :: FilePath  -- Prefix for this event stream
+       -> [NamedPolicy GivenHash] -- Policies to evaluate
+       -> Int       -- Number of steps we have per cycle on average
+                    -- (Used to determine sampling rate)
+       -> Int       -- Total number of cycles
+       -> (Int -> ConduitT () (Event GivenHash World) IO ())
+                    -- Event stream (parameterized by number of cycles)
+       -> IO ()
+    go eventsPrefix policies stepsPerCycle numCycles events =
+      evaluateUsingEvents
+        plotParams
+        eventsPrefix
+        initUtxo
+        policies
+        (renderEvery ((numCycles `div` numFrames) * stepsPerCycle))
+        (events numCycles)
+
+    -- Number of frames we want for each animation
+    numFrames :: Int
+    numFrames = 200
 
     -- Render every n steps
     renderEvery :: Int -> Int -> Bool

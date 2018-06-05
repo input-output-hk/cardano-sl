@@ -48,13 +48,12 @@ import           Pos.Aeson.Crypto ()
 import           Pos.Binary.Core.Address ()
 import           Pos.Core.Common (Address, Coin, StakeholderId, unsafeGetCoin)
 import           Pos.Core.Delegation (ProxySKHeavy)
-import           Pos.Core.Genesis.Helpers (convertNonAvvmDataToBalances, recreateGenesisDelegation)
-import           Pos.Core.Genesis.Types (FakeAvvmOptions, GenesisAvvmBalances (..),
-                                         GenesisDelegation, GenesisInitializer,
-                                         GenesisNonAvvmBalances (..), GenesisProtocolConstants (..),
-                                         GenesisSpec, GenesisVssCertificatesMap (..),
-                                         GenesisWStakeholders (..), TestnetBalanceOptions,
-                                         unGenesisDelegation)
+import           Pos.Core.Genesis (FakeAvvmOptions, GenesisAvvmBalances (..), GenesisDelegation,
+                                   GenesisInitializer, GenesisNonAvvmBalances (..),
+                                   GenesisProtocolConstants (..), GenesisSpec,
+                                   GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
+                                   TestnetBalanceOptions, convertNonAvvmDataToBalances,
+                                   recreateGenesisDelegation, unGenesisDelegation)
 import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Ssc (VssCertificatesMap (..), getVssCertificatesMap,
                                validateVssCertificatesMap)

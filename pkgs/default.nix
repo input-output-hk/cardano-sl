@@ -25380,51 +25380,44 @@ license = stdenv.lib.licenses.bsd3;
 "dns" = callPackage
 ({
   mkDerivation
+, async
 , attoparsec
+, auto-update
 , base
 , base64-bytestring
 , binary
 , bytestring
-, bytestring-builder
-, conduit
-, conduit-extra
 , containers
-, fetchgit
+, cryptonite
 , iproute
 , mtl
 , network
-, random
-, resourcet
+, psqueues
 , safe
 , stdenv
+, time
 }:
 mkDerivation {
 
 pname = "dns";
-version = "3.0.0";
-src = fetchgit {
-
-url = "https://github.com/kazu-yamamoto/dns.git";
-sha256 = "0fx57y06c6dsypbdf4820nlzfpvzb0xf0c9cjpy621acxms3wwmc";
-rev = "b106470f0a93672af22cbc7ed6564b53c0f249ed";
-
-};
+version = "3.0.4";
+sha256 = "7b3433b536b7d225914d7b8495c7af1927d9554538d7d86c2644ccf9d3fa44a9";
 libraryHaskellDepends = [
+async
 attoparsec
+auto-update
 base
 base64-bytestring
 binary
 bytestring
-bytestring-builder
-conduit
-conduit-extra
 containers
+cryptonite
 iproute
 mtl
 network
-random
-resourcet
+psqueues
 safe
+time
 ];
 doHaddock = false;
 doCheck = false;

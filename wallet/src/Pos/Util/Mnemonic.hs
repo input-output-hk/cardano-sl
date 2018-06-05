@@ -29,7 +29,7 @@ import           Data.ByteString (ByteString)
 import           Data.Char (isAscii)
 import           Data.Default (Default (def))
 import           Data.List (elemIndex, (!!))
-import           Data.Swagger (ToSchema (..))
+import           Data.Swagger (NamedSchema (..), ToSchema (..))
 import           Data.Text.Buildable (Buildable (build))
 import           Test.QuickCheck (Arbitrary (arbitrary))
 import           Test.QuickCheck.Gen (oneof, vectorOf)
@@ -52,7 +52,8 @@ data Mnemonic = Mnemonic
 -- | Entropy as a non-empty sequence of bytes, multiple of 4 bytes
 newtype Entropy = Entropy ByteString deriving (Eq, Show, Generic)
 
--- Type Alias for readability
+-- Type Alias for readability. A bit can only be 1 or 0, but we
+-- use Word8 instead of Bool to leverage some available type-classes.
 type Bit = Word8
 
 -- Type Alias for readability
@@ -62,6 +63,8 @@ type Word11 = Int
 -- | Initial seed has to be vector or length multiple of 4 bytes and shorter
 -- than 64 bytes. Not that this is good for testing or examples, but probably
 -- not for generating truly random Mnemonic words.
+--
+-- See 'Crypto.Random.Entropy (getEntropy)'
 instance Arbitrary Entropy where
     arbitrary =
         Entropy . B8.pack <$> oneof [ vectorOf (4 * n) arbitrary | n <- [1..16] ]
@@ -102,6 +105,11 @@ instance Default Mnemonic where
             ]
         }
 
+-- Same remark from 'Arbitrary Entropy' applies here.
+instance Arbitrary Mnemonic where
+    arbitrary =
+        entropyToMnemonic <$> arbitrary
+
 instance FromJSON Mnemonic where
     parseJSON =
         parseJSON >=> (eitherToParser . mkMnemonic)
@@ -115,8 +123,9 @@ instance ToJSON Mnemonic where
         toJSON . map snd . getWords
 
 instance ToSchema Mnemonic where
-    declareNamedSchema _ =
-        declareNamedSchema (Proxy @[Text])
+    declareNamedSchema _ = do
+        NamedSchema _ schema <- declareNamedSchema (Proxy @[Text])
+        return $ NamedSchema (Just "Mnemonic") schema
 
 
 -- | Smart-constructor for the Entropy
@@ -128,8 +137,6 @@ mkEntropy bytes = do
         Left "Maximum entropy is 64 bytes (512 bits)"
     when (BS.length bytes `rem` 4 /= 0) $
         Left "Entropy must be a multiple of 4 bytes"
-    --when (isJust $ B8.find (not . isAscii) bytes) $
-    --    Left "Non-ASCII characters not supported"
     Right (Entropy bytes)
 
 

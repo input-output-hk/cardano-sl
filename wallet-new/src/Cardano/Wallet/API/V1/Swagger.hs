@@ -24,13 +24,13 @@ import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols (..))
 import qualified Pos.Core as Core
 import           Pos.Core.Update (SoftwareVersion)
-import           Pos.Util.BackupPhrase (BackupPhrase (bpToList))
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
+import           Pos.Util.Mnemonic (Mnemonic)
 import           Pos.Util.Servant (LoggingApi)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
 import           Control.Lens ((?~))
-import           Data.Aeson (ToJSON (..))
+import           Data.Aeson (ToJSON (..), encode)
 import           Data.Aeson.Encode.Pretty
 import qualified Data.ByteString.Lazy as BL
 import           Data.Map (Map)
@@ -844,7 +844,7 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
   & host ?~ "127.0.0.1:8090"
   & info.description ?~ (mkDescription $ DescriptionEnvironment
     { deErrorExample          = decodeUtf8 $ encodePretty Errors.WalletNotFound
-    , deMnemonicExample       = T.intercalate ", " . map (surroundedBy "\"") . bpToList $ genExample
+    , deMnemonicExample       = decodeUtf8 $ encode (genExample @Mnemonic)
     , deDefaultPerPage        = fromString (show defaultPerPageEntries)
     , deWalletErrorTable      = errorsDescription
     , deGitRevision           = ctiGitRevision compileInfo

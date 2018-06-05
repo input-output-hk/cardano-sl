@@ -1,5 +1,6 @@
 module Pos.Core.Update.SoftwareVersion
        ( SoftwareVersion (..)
+       , HasSoftwareVersion (..)
        , NumSoftwareVersion
        , checkSoftwareVersion
        ) where
@@ -10,6 +11,8 @@ import           Control.Monad.Except (MonadError)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, int, stext, (%))
 import qualified Prelude
+
+import           Pos.Util.Some (Some, liftLensSome)
 
 import           Pos.Core.Update.ApplicationName
 
@@ -36,3 +39,9 @@ instance NFData SoftwareVersion
 -- | A software version is valid iff its application name is valid.
 checkSoftwareVersion :: MonadError Text m => SoftwareVersion -> m ()
 checkSoftwareVersion sv = checkApplicationName (svAppName sv)
+
+class HasSoftwareVersion a where
+    softwareVersionL :: Lens' a SoftwareVersion
+
+instance HasSoftwareVersion (Some HasSoftwareVersion) where
+    softwareVersionL = liftLensSome softwareVersionL

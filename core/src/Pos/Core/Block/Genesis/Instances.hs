@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeOperators #-}
-
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Miscellaneous instances, etc. Related to the genesis blockchain of course.
@@ -20,11 +18,10 @@ import           Pos.Core.Block.Blockchain (GenericBlock (..), GenericBlockHeade
 import           Pos.Core.Block.Genesis.Lens (gcdDifficulty, gcdEpoch)
 import           Pos.Core.Block.Genesis.Types (GenesisBody (..), GenesisConsensusData (..))
 import           Pos.Core.Block.Union.Types (BlockHeader (..), GenesisBlock, GenesisBlockHeader,
-                                             HeaderHash, blockHeaderHash)
-import           Pos.Core.Class (HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
-                                 HasHeaderHash (..), IsGenesisHeader, IsHeader)
-import           Pos.Core.Common (slotLeadersF)
-import           Pos.Core.Slotting (EpochOrSlot (..))
+                                             HasHeaderHash (..), HeaderHash, IsGenesisHeader,
+                                             IsHeader, blockHeaderHash)
+import           Pos.Core.Common (HasDifficulty (..), slotLeadersF)
+import           Pos.Core.Slotting (EpochOrSlot (..), HasEpochIndex (..), HasEpochOrSlot (..))
 import           Pos.Crypto (hashHexF)
 
 instance NFData GenesisBlock
@@ -66,10 +63,6 @@ instance Bi BlockHeader => Buildable GenesisBlock where
         formatIfNotNull formatter l = if null l then mempty else sformat formatter l
         formatLeaders = formatIfNotNull
             ("  leaders: "%slotLeadersF%"\n") (toList _gbLeaders)
-
-----------------------------------------------------------------------------
--- Pos.Core.Class
-----------------------------------------------------------------------------
 
 instance HasEpochIndex GenesisBlock where
     epochIndexL = gbHeader . gbhConsensus . gcdEpoch

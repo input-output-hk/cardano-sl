@@ -29,8 +29,8 @@ Wallet is disabled, because software is built w/o it
 ## Flushing Logs to Disk
 
 Note that by default, logs are only sent to stdout/stderr. If you want to enable flushing on
-disk in rotated log files, use the `--log-config` option and specify a logging configuration 
-yaml file to define what to log and where to log it. 
+disk in rotated log files, use the `--log-config` option and specify a logging configuration
+yaml file to define what to log and where to log it.
 
 For instance:
 
@@ -73,13 +73,25 @@ $ stack exec cardano-node -- --topology=wallet-new/topology-examples/testnet.yam
 
 From there, you can browse the API documentation for V0 and V1 through the following URLs:
 
-- https://localhost:8091/docs/v0/index/
-- https://localhost:8091/docs/v1/index/
+- http://localhost:8090/docs/v0/index/
+- http://localhost:8090/docs/v1/index/
 
 ### HTTPS
 
-By default, wallet backend only accepts HTTPS connections. If we launch a node with
-`--wallet-debug` option, we can send simple `http`-requests.
+By default, wallet backend only accepts HTTPS connections:
+
+```
+$ curl localhost:8090/docs/v1/index/
+This server only accepts secure HTTPS connections.
+```
+
+We should provide our `ca.crt`:
+
+```
+$ curl --cacert scripts/tls-files/ca.crt https://localhost:8090/docs/v1/index/
+```
+
+But if we launch a node with `--wallet-debug` option, we can send simple `http`-requests.
 
 ### Swagger Specification
 
@@ -171,7 +183,7 @@ Response:
 
 When running a node directly with stack, you may encounter an unexpected runtime error
 `commitAndReleaseBuffer` if your machine's locale aren't well suitable for managing unicode
-characters. 
+characters.
 
 On a _*nix_ system, you can view your current locale by doing:
 

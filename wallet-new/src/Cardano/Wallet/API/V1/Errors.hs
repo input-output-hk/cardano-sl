@@ -7,7 +7,6 @@ module Cardano.Wallet.API.V1.Errors where
 
 import           Universum
 
-import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Data.Aeson
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import           Generics.SOP.TH (deriveGeneric)
@@ -20,6 +19,7 @@ import qualified Pos.Core as Core
 import qualified Pos.Crypto.Hashing as Crypto
 import qualified Pos.Data.Attributes as Core
 
+import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
 import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
 import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..), V1 (..),
                                               mkEstimatedCompletionTime, mkSyncPercentage,

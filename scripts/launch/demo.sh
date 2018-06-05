@@ -198,6 +198,7 @@ while [[ $i -lt $panesCnt ]]; do
             fi
             echo "x509ToolPath: $x509GenTool"
 
+            echo "tlsPath: ${config_dir}/tls-files"
             echo "updaterPath: /usr/bin/env"
             echo "updaterArgs: [bash]"
             echo "updateArchive: $updater_file"

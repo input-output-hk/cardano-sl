@@ -146,6 +146,15 @@ library
                        Pos.Core.Ssc.VssCertificate
                        Pos.Core.Ssc.VssCertificatesMap
 
+                       -- Txp
+                       Pos.Core.Txp.Tx
+                       Pos.Core.Txp.TxAux
+                       Pos.Core.Txp.TxOutAux
+                       Pos.Core.Txp.TxPayload
+                       Pos.Core.Txp.TxProof
+                       Pos.Core.Txp.TxWitness
+                       Pos.Core.Txp.Undo
+
                        -- Update
                        Pos.Core.Update.ApplicationName
                        Pos.Core.Update.BlockVersion

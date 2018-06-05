@@ -64,7 +64,8 @@ let
         executableHaskellDepends = drv.executableHaskellDepends ++ [self.cabal-install];
       })));
       cardano-sl-node = addGitRev super.cardano-sl-node;
-      cardano-sl-wallet-new = addGitRev (justStaticExecutables super.cardano-sl-wallet-new);
+      cardano-sl-wallet-new = addGitRev super.cardano-sl-wallet-new;
+      cardano-sl-wallet-new-static = justStaticExecutables cardano-sl-wallet-new;
       cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
@@ -92,10 +93,30 @@ let
       mkDerivation = args: super.mkDerivation (args // {
         enableLibraryProfiling = enableProfiling;
         enableExecutableProfiling = enableProfiling;
-        # Static linking for everything to work around
-        # https://ghc.haskell.org/trac/ghc/ticket/14444
-        # This will be the default in nixpkgs since
-        # https://github.com/NixOS/nixpkgs/issues/29011
+      } // optionalAttrs (args ? src) {
+        src = let
+           cleanSourceFilter = with pkgs.stdenv;
+             name: type: let baseName = baseNameOf (toString name); in ! (
+               # Filter out .git repo
+               (type == "directory" && baseName == ".git") ||
+               # Filter out editor backup / swap files.
+               lib.hasSuffix "~" baseName ||
+               builtins.match "^\\.sw[a-z]$" baseName != null ||
+               builtins.match "^\\..*\\.sw[a-z]$" baseName != null ||
+
+               # Filter out locally generated/downloaded things.
+               baseName == "dist" ||
+
+               # Filter out the files which I'm editing often.
+               lib.hasSuffix ".nix" baseName ||
+               # Filter out nix-build result symlinks
+               (type == "symlink" && lib.hasPrefix "result" baseName)
+             );
+
+          in
+            if (builtins.typeOf args.src) == "path"
+              then builtins.filterSource cleanSourceFilter args.src
+              else args.src or null;
         enableSharedExecutables = false;
       } // optionalAttrs enableDebugging {
         # TODO: DEVOPS-355

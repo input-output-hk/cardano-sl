@@ -23,8 +23,8 @@ let
         cardano-sl-binary = {
           depends  = [
             hsPkgs.QuickCheck
-            hsPkgs.autoexporter
             hsPkgs.base
+            hsPkgs.autoexporter
             hsPkgs.binary
             hsPkgs.bytestring
             hsPkgs.cborg

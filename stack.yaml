@@ -182,6 +182,11 @@ packages:
     commit: ec68a6edccff549bc980fdaf51b03e8de59d8953
   extra-dep: true
 
+- location:
+    git: https://github.com/corsis/clock.git
+    commit: 00435ddf926b3603a3576d98e44763d165d2ec2c
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 

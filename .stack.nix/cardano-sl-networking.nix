@@ -34,7 +34,6 @@ let
             hsPkgs.cryptonite
             hsPkgs.binary
             hsPkgs.bytestring
-            hsPkgs.data-default
             hsPkgs.exceptions
             hsPkgs.formatting
             hsPkgs.hashable

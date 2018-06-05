@@ -23,12 +23,25 @@ let
         cardano-sl-wallet-new = {
           depends  = [
             hsPkgs.base
-            hsPkgs.QuickCheck
             hsPkgs.acid-state
             hsPkgs.aeson
             hsPkgs.aeson-options
             hsPkgs.aeson-pretty
             hsPkgs.bytestring
+            hsPkgs.cardano-sl
+            hsPkgs.cardano-sl-block
+            hsPkgs.cardano-sl-client
+            hsPkgs.cardano-sl-core
+            hsPkgs.cardano-sl-crypto
+            hsPkgs.cardano-sl-db
+            hsPkgs.cardano-sl-infra
+            hsPkgs.cardano-sl-networking
+            hsPkgs.cardano-sl-ssc
+            hsPkgs.cardano-sl-txp
+            hsPkgs.cardano-sl-update
+            hsPkgs.cardano-sl-util
+            hsPkgs.cardano-sl-wallet
+            hsPkgs.conduit
             hsPkgs.containers
             hsPkgs.data-default
             hsPkgs.exceptions
@@ -37,157 +50,86 @@ let
             hsPkgs.http-api-data
             hsPkgs.http-client
             hsPkgs.http-types
-            hsPkgs.json-sop
             hsPkgs.ixset-typed
+            hsPkgs.json-sop
             hsPkgs.lens
             hsPkgs.log-warper
             hsPkgs.memory
             hsPkgs.mtl
+            hsPkgs.neat-interpolation
             hsPkgs.network-transport
-            hsPkgs.unliftio-core
+            hsPkgs.optparse-applicative
+            hsPkgs.QuickCheck
+            hsPkgs.reflection
             hsPkgs.safecopy
             hsPkgs.safe-exceptions
+            hsPkgs.serokell-util
             hsPkgs.servant
             hsPkgs.servant-client
             hsPkgs.servant-client-core
-            hsPkgs.servant-quickcheck
             hsPkgs.servant-server
+            hsPkgs.servant-swagger
             hsPkgs.servant-swagger-ui
-            hsPkgs.stm
             hsPkgs.string-conv
             hsPkgs.swagger2
+            hsPkgs.text
             hsPkgs.time
             hsPkgs.time-units
-            hsPkgs.text
             hsPkgs.transformers
-            hsPkgs.reflection
             hsPkgs.universum
+            hsPkgs.unliftio
+            hsPkgs.unliftio-core
             hsPkgs.unordered-containers
             hsPkgs.vector
-            hsPkgs.serokell-util
             hsPkgs.wai
-            hsPkgs.cardano-sl-block
-            hsPkgs.cardano-sl-core
-            hsPkgs.cardano-sl-crypto
-            hsPkgs.cardano-sl-db
-            hsPkgs.cardano-sl-util
-            hsPkgs.cardano-sl-wallet
-            hsPkgs.cardano-sl-networking
-            hsPkgs.cardano-sl-txp
-            hsPkgs.cardano-sl
-            hsPkgs.cardano-sl-client
-            hsPkgs.cardano-sl-infra
-            hsPkgs.cardano-sl-ssc
-            hsPkgs.cardano-sl-update
+            hsPkgs.wai-cors
+            hsPkgs.warp
           ];
         };
         exes = {
           cardano-node = {
             depends  = [
               hsPkgs.base
-              hsPkgs.QuickCheck
-              hsPkgs.aeson
-              hsPkgs.aeson-pretty
-              hsPkgs.bytestring
-              hsPkgs.conduit
               hsPkgs.cardano-sl
-              hsPkgs.cardano-sl-client
-              hsPkgs.cardano-sl-core
-              hsPkgs.cardano-sl-crypto
-              hsPkgs.cardano-sl-client
-              hsPkgs.cardano-sl-util
-              hsPkgs.cardano-sl-update
               hsPkgs.cardano-sl-infra
               hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-ssc
               hsPkgs.cardano-sl-txp
+              hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-wallet
               hsPkgs.cardano-sl-wallet-new
-              hsPkgs.containers
-              hsPkgs.exceptions
-              hsPkgs.formatting
-              hsPkgs.formatting
-              hsPkgs.http-types
-              hsPkgs.ixset-typed
-              hsPkgs.lens
               hsPkgs.log-warper
-              hsPkgs.mtl
-              hsPkgs.neat-interpolation
-              hsPkgs.optparse-applicative
-              hsPkgs.safe-exceptions
-              hsPkgs.servant
-              hsPkgs.servant-server
-              hsPkgs.servant-swagger
-              hsPkgs.servant-swagger-ui
               hsPkgs.stm
-              hsPkgs.string-conv
-              hsPkgs.swagger2
               hsPkgs.text
-              hsPkgs.time-units
               hsPkgs.universum
-              hsPkgs.unliftio
-              hsPkgs.unordered-containers
-              hsPkgs.wai
-              hsPkgs.wai-cors
-              hsPkgs.wai-extra
-              hsPkgs.warp
             ];
           };
           cardano-integration-test = {
             depends  = [
               hsPkgs.base
               hsPkgs.aeson
-              hsPkgs.aeson-pretty
               hsPkgs.aeson-diff
-              hsPkgs.bytestring
-              hsPkgs.cardano-sl
-              hsPkgs.cardano-sl-client
-              hsPkgs.cardano-sl-client
+              hsPkgs.aeson-pretty
               hsPkgs.cardano-sl-core
-              hsPkgs.cardano-sl-crypto
-              hsPkgs.cardano-sl-infra
-              hsPkgs.cardano-sl-networking
-              hsPkgs.cardano-sl-ssc
-              hsPkgs.cardano-sl-txp
-              hsPkgs.cardano-sl-update
-              hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-wallet
               hsPkgs.cardano-sl-wallet-new
               hsPkgs.containers
-              hsPkgs.data-default
               hsPkgs.exceptions
               hsPkgs.formatting
-              hsPkgs.formatting
               hsPkgs.hspec
-              hsPkgs.http-api-data
               hsPkgs.http-client
               hsPkgs.http-types
-              hsPkgs.insert-ordered-containers
-              hsPkgs.ixset-typed
               hsPkgs.lens
-              hsPkgs.log-warper
-              hsPkgs.memory
               hsPkgs.mtl
-              hsPkgs.neat-interpolation
               hsPkgs.optparse-applicative
               hsPkgs.pretty-show
               hsPkgs.QuickCheck
-              hsPkgs.serokell-util
               hsPkgs.servant
               hsPkgs.servant-client
+              hsPkgs.servant-quickcheck
               hsPkgs.servant-server
-              hsPkgs.servant-swagger
-              hsPkgs.stm
-              hsPkgs.string-conv
-              hsPkgs.swagger2
               hsPkgs.text
-              hsPkgs.time-units
               hsPkgs.universum
-              hsPkgs.unordered-containers
-              hsPkgs.wai
-              hsPkgs.wai-cors
-              hsPkgs.wai-extra
-              hsPkgs.warp
             ];
           };
         };
@@ -228,52 +170,33 @@ let
               hsPkgs.base
               hsPkgs.acid-state
               hsPkgs.aeson
-              hsPkgs.aeson-pretty
               hsPkgs.bytestring
               hsPkgs.cardano-sl
               hsPkgs.cardano-sl-client
               hsPkgs.cardano-sl-client
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-crypto
-              hsPkgs.cardano-sl-infra
-              hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-txp
-              hsPkgs.cardano-sl-update
               hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-wallet
               hsPkgs.cardano-sl-wallet-new
-              hsPkgs.conduit
-              hsPkgs.containers
               hsPkgs.data-default
               hsPkgs.directory
-              hsPkgs.exceptions
+              hsPkgs.directory
               hsPkgs.formatting
               hsPkgs.hspec
-              hsPkgs.http-client
-              hsPkgs.http-types
-              hsPkgs.ixset-typed
               hsPkgs.lens
-              hsPkgs.log-warper
-              hsPkgs.neat-interpolation
-              hsPkgs.optparse-applicative
-              hsPkgs.process
               hsPkgs.QuickCheck
               hsPkgs.quickcheck-instances
               hsPkgs.safe-exceptions
-              hsPkgs.serokell-util
               hsPkgs.servant
-              hsPkgs.servant-quickcheck
               hsPkgs.servant-server
               hsPkgs.servant-swagger
-              hsPkgs.stm
               hsPkgs.string-conv
               hsPkgs.swagger2
               hsPkgs.text
               hsPkgs.time
-              hsPkgs.time-units
               hsPkgs.universum
-              hsPkgs.unliftio
-              hsPkgs.unordered-containers
             ];
           };
         };
@@ -284,11 +207,9 @@ let
               hsPkgs.async
               hsPkgs.base
               hsPkgs.bytestring
-              hsPkgs.cardano-sl
               hsPkgs.cardano-sl-client
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-wallet
-              hsPkgs.cardano-sl-wallet-new
               hsPkgs.cassava
               hsPkgs.connection
               hsPkgs.cryptonite
@@ -298,12 +219,10 @@ let
               hsPkgs.http-client-tls
               hsPkgs.optparse-applicative
               hsPkgs.random
-              hsPkgs.QuickCheck
               hsPkgs.semigroups
               hsPkgs.servant
               hsPkgs.servant-client
               hsPkgs.servant-client-core
-              hsPkgs.servant-generic
               hsPkgs.text
               hsPkgs.time
               hsPkgs.tls

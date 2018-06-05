@@ -73,44 +73,21 @@ let
           build-tools = [ hsPkgs.cpphs ];
         };
         tests = {
-          cardano-test = {
+          test = {
             depends  = [
-              hsPkgs.async
-              hsPkgs.MonadRandom
-              hsPkgs.QuickCheck
               hsPkgs.base
-              hsPkgs.bytestring
-              hsPkgs.canonical-json
+              hsPkgs.async
               hsPkgs.cardano-sl-binary
               hsPkgs.cardano-sl-util
-              hsPkgs.cborg
-              hsPkgs.cereal
-              hsPkgs.containers
-              hsPkgs.cryptonite
-              hsPkgs.data-default
-              hsPkgs.extra
-              hsPkgs.filelock
-              hsPkgs.fmt
-              hsPkgs.formatting
-              hsPkgs.generic-arbitrary
-              hsPkgs.half
               hsPkgs.hspec
-              hsPkgs.lens
-              hsPkgs.mtl
-              hsPkgs.pvss
-              hsPkgs.random
-              hsPkgs.reflection
-              hsPkgs.safecopy
+              hsPkgs.QuickCheck
               hsPkgs.serokell-util
               hsPkgs.stm
-              hsPkgs.tagged
               hsPkgs.text
-              hsPkgs.text-format
               hsPkgs.time
               hsPkgs.time-units
               hsPkgs.universum
               hsPkgs.unordered-containers
-              hsPkgs.vector
             ];
             build-tools = [ hsPkgs.cpphs ];
           };

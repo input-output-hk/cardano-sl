@@ -15,7 +15,7 @@
       "lens-sop" = hsPkgs.lens-sop."0.2.0.2";
       "json-sop" = hsPkgs.json-sop."0.2.0.3";
       "lzma-clib" = hsPkgs.lzma-clib."5.2.2";
-      "directory" = hsPkgs.directory."1.3.1.1";
+      #"directory" = hsPkgs.directory."1.3.1.1";
       "happy" = hsPkgs.happy."1.19.5";
       "entropy" = hsPkgs.entropy."0.3.7";
       "ekg-statsd" = hsPkgs.ekg-statsd."0.2.2.0";
@@ -97,5 +97,10 @@
       serokell-util = ./.stack.nix/serokell-util.nix;
       universum = ./.stack.nix/universum.nix;
       aeson-diff = ./.stack.nix/aeson-diff.nix;
+      clock = ./.stack.nix/clock.nix;
+      # hack libiserv in...
+      libiserv = ./libiserv-8.5;
+      remote-iserv = ./remote-iserv-8.5;
+      iserv-proxy = ./iserv-proxy-8.5;
     };
 }

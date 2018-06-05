@@ -1,0 +1,78 @@
+Name: iserv-proxy
+Version: 8.5
+Copyright: XXX
+License: BSD3
+-- XXX License-File: LICENSE
+Author: XXX
+Maintainer: XXX
+Synopsis: iserv allows GHC to delegate Tempalte Haskell computations
+Description:
+  GHC can be provided with a path to the iserv binary with
+  @-pgmi=/path/to/iserv-bin@, and will in combination with
+  @-fexternal-interpreter@, compile Template Haskell though the
+  @iserv-bin@ delegate. This is very similar to how ghcjs has been
+  compiling Template Haskell, by spawning a separate delegate (so
+  called runner on the javascript vm) and evaluating the splices
+  there.
+  .
+  iserv can also be used in combination with cross compilation. For
+  this, the @iserv-proxy@ needs to be built on the host, targeting the
+  host (as it is running on the host). @cabal install -flibrary
+  -fproxy@ will yield the proxy.
+  .
+  Using the cabal for the target @arch-platform-target-cabal install
+  -flibrary@ will build the required library that contains the ffi
+  @startSlave@ function, which needs to be invoked on the target
+  (e.g. in an iOS application) to start the remote iserv slave.
+  .
+  calling the GHC cross compiler with @-fexternal-interpreter
+  -pgmi=$HOME/.cabal/bin/iserv-proxy -opti\<ip address\> -opti\<port\>@
+  will cause it to compile Template Haskell via the remote at \<ip address\>.
+  .
+  Thus to get cross compilation with Template Haskell follow the
+  following receipt:
+  .
+  * compile the iserv library for your target
+  .
+      > iserv $ arch-platform-target-cabal install -flibrary
+  .
+  * setup an application for your target that calls the
+  * startSlave function. This could be either haskell or your
+  * targets ffi capable language, if needed.
+  .
+      >  void startSlave(false /* verbose */, 5000 /* port */,
+      >                  "/path/to/storagelocation/on/target");
+  .
+  * build the iserv-proxy
+  .
+      > iserv $ cabal install -flibrary -fproxy
+  * Start your iserv-slave app on your target running on say @10.0.0.1:5000@
+  * compiler your sources with -fexternal-interpreter and the proxy
+  .
+      > project $ arch-platform-target-ghc ModuleContainingTH.hs \
+      >             -fexternal-interpreter \
+      >             -pgmi=$HOME/.cabal/bin/iserv-proxy \
+      >             -opti10.0.0.1 -opti5000
+  .
+  Should something not work as expected, provide @-opti-v@ for verbose
+  logging of the @iserv-proxy@.
+
+Category: Development
+build-type: Simple
+cabal-version: >=1.10
+
+Executable iserv-proxy
+   Default-Language: Haskell2010
+   Main-Is: Main.hs
+   Hs-Source-Dirs: src
+   Build-Depends: array      >= 0.5 && < 0.6,
+                  base       >= 4   && < 5,
+                  binary     >= 0.7 && < 0.9,
+                  bytestring >= 0.10 && < 0.11,
+                  containers >= 0.5 && < 0.6,
+                  deepseq    >= 1.4 && < 1.5,
+                  ghci       == 8.5,
+                  directory  >= 1.3 && < 1.4,
+                  network    >= 2.6,
+                  filepath   >= 1.4 && < 1.5,
+                  libiserv   == 8.5

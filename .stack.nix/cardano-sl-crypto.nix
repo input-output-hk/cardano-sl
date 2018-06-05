@@ -35,13 +35,11 @@ let
             hsPkgs.data-default
             hsPkgs.ed25519
             hsPkgs.formatting
-            hsPkgs.generic-arbitrary
             hsPkgs.hashable
             hsPkgs.lens
             hsPkgs.memory
             hsPkgs.mtl
             hsPkgs.pvss
-            hsPkgs.quickcheck-instances
             hsPkgs.reflection
             hsPkgs.safe-exceptions
             hsPkgs.scrypt
@@ -51,6 +49,49 @@ let
             hsPkgs.unordered-containers
           ];
           build-tools = [ hsPkgs.cpphs ];
+        };
+        tests = {
+          test = {
+            depends  = [
+              hsPkgs.MonadRandom
+              hsPkgs.QuickCheck
+              hsPkgs.base
+              hsPkgs.bytestring
+              hsPkgs.canonical-json
+              hsPkgs.cardano-sl-binary
+              hsPkgs.cardano-sl-crypto
+              hsPkgs.cardano-sl-util
+              hsPkgs.cborg
+              hsPkgs.cereal
+              hsPkgs.containers
+              hsPkgs.cryptonite
+              hsPkgs.data-default
+              hsPkgs.extra
+              hsPkgs.filelock
+              hsPkgs.fmt
+              hsPkgs.formatting
+              hsPkgs.generic-arbitrary
+              hsPkgs.half
+              hsPkgs.hspec
+              hsPkgs.lens
+              hsPkgs.memory
+              hsPkgs.mtl
+              hsPkgs.pvss
+              hsPkgs.quickcheck-instances
+              hsPkgs.random
+              hsPkgs.reflection
+              hsPkgs.safecopy
+              hsPkgs.serokell-util
+              hsPkgs.tagged
+              hsPkgs.text
+              hsPkgs.text-format
+              hsPkgs.time-units
+              hsPkgs.universum
+              hsPkgs.unordered-containers
+              hsPkgs.vector
+            ];
+            build-tools = [ hsPkgs.cpphs ];
+          };
         };
       };
     } // rec { src = ../crypto; }

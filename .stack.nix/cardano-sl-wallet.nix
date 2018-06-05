@@ -50,6 +50,7 @@ let
             hsPkgs.data-default
             hsPkgs.directory
             hsPkgs.dlist
+            hsPkgs.ekg-core
             hsPkgs.ether
             hsPkgs.exceptions
             hsPkgs.filepath
@@ -115,6 +116,7 @@ let
               hsPkgs.cardano-sl-wallet
               hsPkgs.containers
               hsPkgs.data-default
+              hsPkgs.ekg-core
               hsPkgs.ether
               hsPkgs.formatting
               hsPkgs.hspec

@@ -79,10 +79,6 @@ let
               hsPkgs.cardano-sl-block
               hsPkgs.cardano-sl-crypto
               hsPkgs.cardano-sl-core
-              hsPkgs.cardano-sl-txp
-              hsPkgs.cardano-sl-update
-              hsPkgs.cardano-sl-ssc
-              hsPkgs.cardano-sl-delegation
               hsPkgs.formatting
               hsPkgs.universum
               hsPkgs.deepseq

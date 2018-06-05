@@ -89,7 +89,6 @@ let
               hsPkgs.cardano-sl-txp
               hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-update
-              hsPkgs.constraints
               hsPkgs.log-warper
               hsPkgs.temporary
               hsPkgs.network-transport-tcp

@@ -26,16 +26,12 @@ let
           depends  = [
             hsPkgs.aeson
             hsPkgs.base
-            hsPkgs.bytestring
-            hsPkgs.conduit
-            hsPkgs.containers
             hsPkgs.directory
             hsPkgs.filepath
             hsPkgs.parsers
             hsPkgs.text
             hsPkgs.trifecta
             hsPkgs.universum
-            hsPkgs.yaml
           ];
         };
         exes = {
@@ -45,70 +41,51 @@ let
               hsPkgs.acid-state
               hsPkgs.aeson
               hsPkgs.ansi-terminal
-              hsPkgs.unordered-containers
-              hsPkgs.containers
-              hsPkgs.cryptonite
-              hsPkgs.serokell-util
-              hsPkgs.stm
-              hsPkgs.text
-              hsPkgs.time
-              hsPkgs.time-units
-              hsPkgs.QuickCheck
               hsPkgs.bytestring
-              hsPkgs.string-conv
-              hsPkgs.mtl
-              hsPkgs.lens
-              hsPkgs.optparse-generic
-              hsPkgs.optparse-applicative
               hsPkgs.cardano-sl
               hsPkgs.cardano-sl-block
               hsPkgs.cardano-sl-client
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-db
-              hsPkgs.cardano-sl-ssc
               hsPkgs.cardano-sl-infra
               hsPkgs.cardano-sl-networking
               hsPkgs.cardano-sl-txp
               hsPkgs.cardano-sl-util
               hsPkgs.cardano-sl-wallet
-              hsPkgs.optparse-generic
-              hsPkgs.optparse-applicative
-              hsPkgs.mtl
-              hsPkgs.network-transport-tcp
-              hsPkgs.log-warper
+              hsPkgs.containers
+              hsPkgs.cryptonite
               hsPkgs.data-default
               hsPkgs.lens
+              hsPkgs.log-warper
+              hsPkgs.mtl
+              hsPkgs.network-transport-tcp
+              hsPkgs.optparse-applicative
+              hsPkgs.optparse-applicative
+              hsPkgs.optparse-generic
+              hsPkgs.optparse-generic
+              hsPkgs.QuickCheck
+              hsPkgs.serokell-util
+              hsPkgs.stm
+              hsPkgs.string-conv
+              hsPkgs.text
+              hsPkgs.time
+              hsPkgs.time-units
               hsPkgs.universum
+              hsPkgs.unordered-containers
             ];
             build-tools = [ hsPkgs.cpphs ];
           };
           cardano-dht-keygen = {
             depends  = pkgs.lib.optionals (!_flags.for-installer) [
-              hsPkgs.QuickCheck
-              hsPkgs.aeson
-              hsPkgs.array
+              hsPkgs.base
               hsPkgs.base
               hsPkgs.bytestring
               hsPkgs.cardano-sl
-              hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-crypto
-              hsPkgs.data-default
-              hsPkgs.filepath
-              hsPkgs.formatting
               hsPkgs.kademlia
-              hsPkgs.lens
-              hsPkgs.log-warper
               hsPkgs.optparse-applicative
-              hsPkgs.parsec
-              hsPkgs.random
-              hsPkgs.random-shuffle
               hsPkgs.serokell-util
-              hsPkgs.stm
-              hsPkgs.text
-              hsPkgs.time
               hsPkgs.universum
-              hsPkgs.unordered-containers
-              hsPkgs.vector
             ];
             build-tools = [ hsPkgs.cpphs ];
           };
@@ -133,10 +110,6 @@ let
           };
           cardano-keygen = {
             depends  = pkgs.lib.optionals (!_flags.for-installer) [
-              hsPkgs.Glob
-              hsPkgs.QuickCheck
-              hsPkgs.aeson
-              hsPkgs.ansi-wl-pprint
               hsPkgs.base
               hsPkgs.base58-bytestring
               hsPkgs.bytestring
@@ -144,27 +117,17 @@ let
               hsPkgs.cardano-sl
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-crypto
-              hsPkgs.cardano-sl-txp
-              hsPkgs.containers
               hsPkgs.cryptonite
-              hsPkgs.data-default
               hsPkgs.directory
-              hsPkgs.ed25519
               hsPkgs.filepath
               hsPkgs.formatting
+              hsPkgs.Glob
               hsPkgs.lens
               hsPkgs.log-warper
-              hsPkgs.neat-interpolation
               hsPkgs.optparse-applicative
-              hsPkgs.parsec
-              hsPkgs.random
-              hsPkgs.safe-exceptions
               hsPkgs.serokell-util
-              hsPkgs.silently
               hsPkgs.text
               hsPkgs.universum
-              hsPkgs.unordered-containers
-              hsPkgs.yaml
             ];
           };
           cardano-launcher = {
@@ -184,8 +147,6 @@ let
               hsPkgs.cardano-sl-tools
               hsPkgs.cardano-sl-update
               hsPkgs.cardano-sl-util
-              hsPkgs.conduit
-              hsPkgs.containers
               hsPkgs.directory
               hsPkgs.filepath
               hsPkgs.formatting
@@ -194,14 +155,12 @@ let
               hsPkgs.log-warper
               hsPkgs.neat-interpolation
               hsPkgs.optparse-applicative
-              hsPkgs.parsers
               hsPkgs.process
               hsPkgs.safe-exceptions
               hsPkgs.serokell-util
               hsPkgs.silently
               hsPkgs.text
               hsPkgs.time-units
-              hsPkgs.trifecta
               hsPkgs.universum
               hsPkgs.unordered-containers
               hsPkgs.yaml
@@ -224,7 +183,6 @@ let
           cardano-cli-docs = {
             depends  = pkgs.lib.optionals (!_flags.for-installer) [
               hsPkgs.base
-              hsPkgs.bytestring
               hsPkgs.cardano-sl
               hsPkgs.directory
               hsPkgs.filepath
@@ -244,12 +202,15 @@ let
               hsPkgs.aeson
               hsPkgs.attoparsec
               hsPkgs.base
+              hsPkgs.bytestring
               hsPkgs.cardano-sl
               hsPkgs.cardano-sl-block
               hsPkgs.cardano-sl-core
+              hsPkgs.cardano-sl-infra
               hsPkgs.cardano-sl-txp
               hsPkgs.cardano-sl-util
               hsPkgs.containers
+              hsPkgs.cassava
               hsPkgs.directory
               hsPkgs.fgl
               hsPkgs.filepath
@@ -277,12 +238,8 @@ let
               hsPkgs.cardano-sl-core
               hsPkgs.cardano-sl-crypto
               hsPkgs.cardano-sl-db
-              hsPkgs.cardano-sl-infra
               hsPkgs.cardano-sl-networking
-              hsPkgs.cardano-sl-lrc
-              hsPkgs.cardano-sl-txp
               hsPkgs.cardano-sl-util
-              hsPkgs.data-default
               hsPkgs.directory
               hsPkgs.formatting
               hsPkgs.lens
@@ -300,20 +257,13 @@ let
         tests = {
           cardano-sl-tools-test = {
             depends  = [
-              hsPkgs.QuickCheck
-              hsPkgs.aeson
               hsPkgs.base
+              hsPkgs.aeson
               hsPkgs.cardano-sl-tools
               hsPkgs.directory
-              hsPkgs.filepath
               hsPkgs.hspec
-              hsPkgs.hspec-discover
-              hsPkgs.parsers
               hsPkgs.temporary
-              hsPkgs.text
-              hsPkgs.trifecta
               hsPkgs.universum
-              hsPkgs.yaml
             ];
             build-tools = [ hsPkgs.cpphs ];
           };

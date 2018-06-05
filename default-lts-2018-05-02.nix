@@ -26,6 +26,8 @@ let
             ./move-iserv-8.4.2.patch
             ./hsc2hs-8.4.2.patch
             ./various-8.4.2.patch
+            ./lowercase-8.4.2.patch
+            ./cabal-exe-ext-8.4.2.patch
           ];
           postPatch = (drv.postPath or "") + ''
           autoreconf
@@ -53,8 +55,17 @@ let
 in with pkgs.haskellPackages;
 # pkgs.lib.mapAttrs (_: x: callPackage x {})
 pkgs.haskellPackages.override {
-  overrides = self: super: {
-    # FIXME: this doesn't work yet. Overridable logic
-    #        for packages is missing I believe.
+  overrides = self: super: builtins.trace super {
+    #fetch a package candidate from hackage and return the cabal2nix expression.
+    hackageCandidate = name: ver: args: self.callCabal2nix name (fetchTarball "https://hackage.haskell.org/package/${name}-${ver}/candidate/${name}-${ver}.tar.gz") args;
+    #libiserv = with haskell.lib; addExtraLibrary (enableCabalFlag (self.hackageCandidate "libiserv" "8.5" {}) "network") self.network;
+    #iserv-proxy = self.hackageCandidate "iserv-proxy" "8.5" { libiserv = self.libiserv; };
+    # TODO: Why is `network` not properly propagated from `libiserv`?
+    remote-iserv = with pkgs.haskell.lib; let pkg = addExtraLibrary super.remote-iserv self.network; in
+      overrideCabal (addBuildDepends pkg [ windows.mingw_w64_pthreads ]) (drv: {
+        postInstall = ''
+          cp ${windows.mingw_w64_pthreads}/bin/libwinpthread-1.dll $out/bin/
+        '';
+      });
   };
 } // { pkgs-x = pkgs; }

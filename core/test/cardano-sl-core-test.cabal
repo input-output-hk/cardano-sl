@@ -18,6 +18,7 @@ library
 
   build-depends:       base
                      , bytestring
+                     , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test

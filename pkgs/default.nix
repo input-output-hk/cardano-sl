@@ -13441,6 +13441,7 @@ license = stdenv.lib.licenses.mit;
   mkDerivation
 , base
 , bytestring
+, cardano-sl-binary
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-crypto-test
@@ -13459,6 +13460,7 @@ src = ./../core/test;
 libraryHaskellDepends = [
 base
 bytestring
+cardano-sl-binary
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-crypto-test

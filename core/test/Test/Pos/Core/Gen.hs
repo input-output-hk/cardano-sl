@@ -11,6 +11,22 @@ module Test.Pos.Core.Gen
         , genScript
         , genScriptVersion
         , genStakeholderId
+
+        -- Pos.Core.Txp Generators
+        , genRedeemWitness
+        , genScriptWitness
+        , genTx
+        , genTxAttributes
+        , genTxHash
+        , genTxId
+        , genTxIn
+        , genTxInList
+        , genTxInWitness
+        , genTxOut
+        , genTxOutList
+        , genTxSig
+        , genTxSigData
+        , genUnknownWitnessType
        ) where
 
 import           Universum
@@ -25,6 +41,11 @@ import           Pos.Core.Common (Address (..), AddrAttributes (..),
                                   AddrStakeDistribution (..), AddrType (..),
                                   Coin (..), CoinPortion (..), Script (..),
                                   ScriptVersion, StakeholderId, makeAddress)
+import           Pos.Crypto (Hash, sign, unsafeHash)
+import           Pos.Core.Txp (Tx (..), TxAttributes, TxId, TxIn (..),
+                               TxInWitness (..), TxOut (..), TxSig,
+                               TxSigData (..))
+import           Pos.Data.Attributes (mkAttributes)
 import           Test.Pos.Crypto.Gen
 
 ----------------------------------------------------------------------------
@@ -84,6 +105,68 @@ genStakeholderId :: Gen StakeholderId
 genStakeholderId = genAbstractHash genPublicKey
 
 ----------------------------------------------------------------------------
+-- Pos.Core.Txp Generators
+----------------------------------------------------------------------------
+
+genTxInWitness :: Gen TxInWitness
+genTxInWitness = Gen.choice gens
+  where
+    gens = [ genPkWitness
+           , genRedeemWitness
+           , genScriptWitness
+           , genUnknownWitnessType
+           ]
+
+genPkWitness :: Gen TxInWitness
+genPkWitness = PkWitness <$> genPublicKey <*> genTxSig
+
+genRedeemWitness :: Gen TxInWitness
+genRedeemWitness =
+    RedeemWitness <$> genRedeemPublicKey <*> genRedeemSignature genTxSigData
+
+genScriptWitness :: Gen TxInWitness
+genScriptWitness = ScriptWitness <$> genScript <*> genScript
+
+genTx :: Gen Tx
+genTx = UnsafeTx <$> genTxInList <*> genTxOutList <*> genTxAttributes
+
+genTxAttributes :: Gen TxAttributes
+genTxAttributes = return $ mkAttributes ()
+
+genTxHash :: Gen (Hash Tx)
+genTxHash = unsafeHash <$> genTx
+
+genTxId :: Gen TxId
+genTxId = unsafeHash <$> genPublicKey
+
+genTxIn :: Gen TxIn
+genTxIn = Gen.choice gens
+  where
+    gens = [ TxInUtxo <$> genTxId <*> genWord32
+           , TxInUnknown <$> genWord8 <*> gen32Bytes
+           ]
+
+genTxInList :: Gen (NonEmpty TxIn)
+genTxInList = Gen.nonEmpty (Range.constant 1 100) genTxIn
+
+genTxOut :: Gen TxOut
+genTxOut = TxOut <$> genAddress <*> genCoin
+
+genTxOutList :: Gen (NonEmpty TxOut)
+genTxOutList = Gen.nonEmpty (Range.constant 1 100) genTxOut
+
+genTxSig :: Gen TxSig
+genTxSig =
+  sign <$> genProtocolMagic <*> genSignTag <*> genSecretKey <*> genTxSigData
+
+genTxSigData :: Gen TxSigData
+genTxSigData = TxSigData <$> genTxHash
+
+genUnknownWitnessType :: Gen TxInWitness
+genUnknownWitnessType =
+    UnknownWitnessType <$> Gen.word8 Range.constantBounded <*> gen32Bytes
+
+----------------------------------------------------------------------------
 -- Helper Generators
 ----------------------------------------------------------------------------
 
@@ -92,3 +175,9 @@ genBytes n = Gen.bytes (Range.singleton n)
 
 gen32Bytes :: Gen ByteString
 gen32Bytes = genBytes 32
+
+genWord32 :: Gen Word32
+genWord32 = Gen.word32 Range.constantBounded
+
+genWord8 :: Gen Word8
+genWord8 = Gen.word8 Range.constantBounded

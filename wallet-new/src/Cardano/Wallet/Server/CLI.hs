@@ -158,9 +158,10 @@ tlsParamsParser :: Parser (Maybe TlsParams)
 tlsParamsParser = constructTlsParams <$> certPathParser
                                      <*> keyPathParser
                                      <*> caPathParser
+                                     <*> (not <$> noClientAuthParser)
                                      <*> disabledParser
   where
-    constructTlsParams tpCertPath tpKeyPath tpCaPath disabled =
+    constructTlsParams tpCertPath tpKeyPath tpCaPath tpClientAuth disabled =
         guard (not disabled) $> TlsParams{..}
 
     certPathParser :: Parser FilePath
@@ -186,6 +187,13 @@ tlsParamsParser = constructTlsParams <$> certPathParser
                               "Path to file with TLS certificate authority"
                               <> value "scripts/tls-files/ca.crt"
                              )
+
+    noClientAuthParser :: Parser Bool
+    noClientAuthParser = switch $
+                         long "no-client-auth" <>
+                         help "Disable TLS client verification. If turned on, \
+                              \no client certificate is required to talk to \
+                              \the API."
 
     disabledParser :: Parser Bool
     disabledParser = switch $

@@ -13,6 +13,7 @@ import           Universum
 
 import           Crypto.Hash (Blake2b_256)
 import qualified Data.ByteString as BS
+import           Data.Default (Default (def))
 import           Data.Text.Buildable (Buildable (..))
 import           Test.QuickCheck (Arbitrary (..), Gen, genericShrink, vectorOf)
 import           Test.QuickCheck.Instances ()
@@ -22,12 +23,19 @@ import           Pos.Crypto (AbstractHash, EncryptedSecretKey, PassPhrase, Secre
                              deterministicKeyGen, deterministicVssKeyGen, safeDeterministicKeyGen,
                              unsafeAbstractHash)
 import           Pos.Util.LogSafe (SecureLog)
-import           Pos.Util.Mnemonics (fromMnemonic, toMnemonic)
+import           Pos.Util.Mnemonics (defMnemonic, fromMnemonic, toMnemonic)
 
 -- | Datatype to contain a valid backup phrase
 newtype BackupPhrase = BackupPhrase
     { bpToList :: [Text]
     } deriving (Eq, Generic)
+
+
+-- | To use everytime we need to show an example of a Mnemonic. This particular
+-- mnemonic is rejected to prevent users from using it on a real wallet.
+instance Default BackupPhrase where
+    def =
+        BackupPhrase (words defMnemonic)
 
 -- | A datatype representing word counts you'd have in
 -- a <https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki BIP39>

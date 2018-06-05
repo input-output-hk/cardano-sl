@@ -219,6 +219,9 @@ test-suite cardano-wallet-test
                        -- Standard module with some magic
                        Spec
 
+                       -- Basic QC checks
+                       Test.Pos.Util.MnemonicsSpec
+
                        -- Basic mocks and instances
                        Test.Pos.Wallet.Web.Mode
                        Test.Pos.Wallet.Web.Util
@@ -238,6 +241,7 @@ test-suite cardano-wallet-test
   build-depends:       MonadRandom
                      , QuickCheck
                      , base
+                     , bytestring
                      , cardano-sl
                      , cardano-sl-block
                      , cardano-sl-client

@@ -1,11 +1,11 @@
-{-# LANGUAGE RankNTypes   #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE ViewPatterns #-}
-
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
+{-# LANGUAGE RankNTypes #-}
 module Pos.Core.Common.Coin
-       ( coinF
+       ( Coin (..)
+       , mkCoin
+       , checkCoin
+       , coinF
+
+       , maxCoinVal
        , sumCoins
 
        -- * Conversions
@@ -13,7 +13,6 @@ module Pos.Core.Common.Coin
        , coinToInteger
        , integerToCoin
        , unsafeIntegerToCoin
-       , coinPortionToDouble
 
        -- * Arithmetic operations
        , unsafeAddCoin
@@ -21,18 +20,55 @@ module Pos.Core.Common.Coin
        , unsafeMulCoin
        , subCoin
        , divCoin
-       , applyCoinPortionDown
-       , applyCoinPortionUp
        ) where
 
 import           Universum
 
+import           Control.Monad.Except (MonadError (throwError))
+import           Data.Data (Data)
 import qualified Data.Text.Buildable
-import           Formatting (bprint, float, int, (%))
+import           Formatting (Format, bprint, build, int, (%))
 
-import           Pos.Core.Common.Types (Coin (..), CoinPortion (..), coinF, coinPortionDenominator,
-                                        unsafeGetCoin)
 import           Pos.Util.Util (leftToPanic)
+
+-- | Coin is the least possible unit of currency.
+newtype Coin = Coin
+    { getCoin :: Word64
+    } deriving (Show, Ord, Eq, Generic, Hashable, Data, NFData)
+
+instance Buildable Coin where
+    build (Coin n) = bprint (int%" coin(s)") n
+
+instance Bounded Coin where
+    minBound = Coin 0
+    maxBound = Coin maxCoinVal
+
+-- | Maximal possible value of 'Coin'.
+maxCoinVal :: Word64
+maxCoinVal = 45000000000000000
+
+-- | Makes a 'Coin' but is _|_ if that coin exceeds 'maxCoinVal'.
+-- You can also use 'checkCoin' to do that check.
+mkCoin :: Word64 -> Coin
+mkCoin c = either error (const coin) (checkCoin coin)
+  where
+    coin = (Coin c)
+{-# INLINE mkCoin #-}
+
+checkCoin :: MonadError Text m => Coin -> m ()
+checkCoin (Coin c)
+    | c <= maxCoinVal = pure ()
+    | otherwise       = throwError $ "Coin: " <> show c <> " is too large"
+
+-- | Coin formatter which restricts type.
+coinF :: Format r (Coin -> r)
+coinF = build
+
+-- | Unwraps 'Coin'. It's called “unsafe” so that people wouldn't use it
+-- willy-nilly if they want to sum coins or something. It's actually safe.
+unsafeGetCoin :: Coin -> Word64
+unsafeGetCoin = getCoin
+{-# INLINE unsafeGetCoin #-}
 
 -- | Compute sum of all coins in container. Result is 'Integer' as a
 -- protection against possible overflow. If you are sure overflow is
@@ -93,35 +129,3 @@ unsafeIntegerToCoin n = leftToPanic "unsafeIntegerToCoin: " (integerToCoin n)
 ----------------------------------------------------------------------------
 -- CoinPortion
 ----------------------------------------------------------------------------
-
-instance Buildable CoinPortion where
-    build cp@(getCoinPortion -> x) =
-        bprint
-            (int%"/"%int%" (approx. "%float%")")
-            x
-            coinPortionDenominator
-            (coinPortionToDouble cp)
-
-coinPortionToDouble :: CoinPortion -> Double
-coinPortionToDouble (getCoinPortion -> x) =
-    realToFrac @_ @Double x / realToFrac coinPortionDenominator
-{-# INLINE coinPortionToDouble #-}
-
--- | Apply CoinPortion to Coin (with rounding down).
---
--- Use it for calculating coin amounts.
-applyCoinPortionDown :: CoinPortion -> Coin -> Coin
-applyCoinPortionDown (getCoinPortion -> p) (unsafeGetCoin -> c) =
-    Coin . fromInteger $
-        (toInteger p * toInteger c) `div`
-        (toInteger coinPortionDenominator)
-
--- | Apply CoinPortion to Coin (with rounding up).
---
--- Use it for calculating thresholds.
-applyCoinPortionUp :: CoinPortion -> Coin -> Coin
-applyCoinPortionUp (getCoinPortion -> p) (unsafeGetCoin -> c) =
-    let (d, m) = divMod (toInteger p * toInteger c)
-                        (toInteger coinPortionDenominator)
-    in if m > 0 then Coin (fromInteger (d + 1))
-                else Coin (fromInteger d)

@@ -24,6 +24,7 @@ import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.TypeLits (KnownSymbols (..))
 import qualified Pos.Core as Core
 import           Pos.Core.Update (SoftwareVersion)
+import           Pos.Util.BackupPhrase (BackupPhrase (bpToList))
 import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
 import           Pos.Util.Servant (LoggingApi)
 import           Pos.Wallet.Web.Swagger.Instances.Schema ()
@@ -283,8 +284,7 @@ curl -X POST https://localhost:8090/api/v1/wallets \
   --cacert ./scripts/tls-files/ca.crt \
   -d '{
   "operation": "create",
-  "backupPhrase": ["squirrel", "material", "silly", "twice", "direct",
-    "slush", "pistol", "razor", "become", "junk", "kingdom", "flee"],
+  "backupPhrase": [$deMnemonicExample],
   "assuranceLevel": "normal",
   "name": "MyFirstWallet",
   "spendingPassword": "5416b2988745725998907addf4613c9b0764f04959030e1b81c603b920a115d0"
@@ -831,6 +831,7 @@ data DescriptionEnvironment = DescriptionEnvironment
   , deWalletErrorTable :: !T.Text
   , deGitRevision      :: !T.Text
   , deSoftwareVersion  :: !T.Text
+  , deMnemonicExample  :: !T.Text
   }
 
 api :: HasSwagger a
@@ -844,6 +845,7 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
   & host ?~ "127.0.0.1:8090"
   & info.description ?~ (mkDescription $ DescriptionEnvironment
     { deErrorExample          = toS $ encodePretty Errors.WalletNotFound
+    , deMnemonicExample       = T.intercalate ", " . map (surroundedBy "\"") . bpToList $ genExample
     , deDefaultPerPage        = fromString (show defaultPerPageEntries)
     , deWalletErrorTable      = errorsDescription
     , deGitRevision           = ctiGitRevision compileInfo

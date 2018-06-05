@@ -18,6 +18,7 @@ import qualified MarshallingSpec as Marshalling
 import qualified RequestSpec as ReqSpec
 import qualified SwaggerSpec as Swagger
 import qualified WalletHandlersSpec as WalletHandlers
+import qualified TransactionsSpec as Transactions
 
 -- | Tests whether or not some instances (JSON, Bi, etc) roundtrips.
 main :: IO ()
@@ -34,6 +35,7 @@ main = hspec $ do
     eqProps @Transaction
 
     WalletHandlers.spec
+    describe "Transactions" Transactions.spec
 
 eqProps :: forall a. (Typeable a, Eq a, Arbitrary a, Show a) => Spec
 eqProps = do

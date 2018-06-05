@@ -1055,7 +1055,6 @@ instance BuildableSafeGen EstimatedFees where
         %" }")
         feeEstimatedAmount
 
-
 -- | Maps an 'Address' to some 'Coin's, and it's
 -- typically used to specify where to send money during a 'Payment'.
 data PaymentDistribution = PaymentDistribution {
@@ -1066,15 +1065,15 @@ data PaymentDistribution = PaymentDistribution {
 deriveJSON Serokell.defaultOptions ''PaymentDistribution
 
 instance ToSchema PaymentDistribution where
-  declareNamedSchema =
-    genericSchemaDroppingPrefix "pd" (\(--^) props -> props
-      & ("address" --^ "Address to map coins to.")
-      & ("amount"  --^ "Amount of coin to bind, in Lovelace.")
-    )
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "pd" (\(--^) props -> props
+            & ("address" --^ "Address to map coins to.")
+            & ("amount"  --^ "Amount of coin to bind, in Lovelace.")
+        )
 
 instance Arbitrary PaymentDistribution where
-  arbitrary = PaymentDistribution <$> arbitrary
-                                  <*> arbitrary
+    arbitrary = PaymentDistribution <$> arbitrary
+                                    <*> arbitrary
 
 deriveSafeBuildable ''PaymentDistribution
 instance BuildableSafeGen PaymentDistribution where
@@ -1084,7 +1083,6 @@ instance BuildableSafeGen PaymentDistribution where
         %" }")
         pdAddress
         pdAmount
-
 
 -- | A 'PaymentSource' encapsulate two essentially piece of data to reach for some funds:
 -- a 'WalletId' and an 'AccountIndex' within it.

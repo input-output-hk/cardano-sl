@@ -36,16 +36,16 @@ instance Eq CC.XPrv where
 spec :: Spec
 spec = do
     describe "Old and New implementation behave identically" $ do
-        modifyMaxSuccess (const 1000) $ prop "entropyToESK (no passphrase)" $
+        modifyMaxSuccess (const 10000) $ prop "entropyToESK (no passphrase)" $
             \ent -> entropyToESK mempty ent === entropyToESKOld mempty ent
 
-        modifyMaxSuccess (const 1000) $ prop "entropyToESK (no passphrase)" $
+        modifyMaxSuccess (const 10000) $ prop "entropyToESK (with passphrase)" $
             \ent -> entropyToESK defPwd ent === entropyToESKOld defPwd ent
 
-        modifyMaxSuccess (const 1000) $ prop "entropyToAESKEy" $
+        modifyMaxSuccess (const 1000000) $ prop "entropyToAESKEy" $
             \ent -> entropyToAESKey ent === entropyToAESKeyOld ent
 
-    modifyMaxSuccess (const 10000) $ prop "entropyToMnemonic . mnemonicToEntropy == identity" $
+    modifyMaxSuccess (const 1000000) $ prop "entropyToMnemonic . mnemonicToEntropy == identity" $
         \e -> (mnemonicToEntropy . entropyToMnemonic) e == e
 
     it "No example mnemonic" $

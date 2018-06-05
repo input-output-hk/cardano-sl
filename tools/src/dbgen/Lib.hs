@@ -27,8 +27,7 @@ import           Pos.DB.GState.Common (getTip)
 import           Pos.StateLock (StateLock (..))
 import           Pos.Txp (Tx (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil.Types (utxoToModifier)
-import           Pos.Util.BackupPhrase (BackupPhrase (..))
-import           Pos.Util.Mnemonics (toMnemonic)
+import           Pos.Util.Mnemonic (Mnemonic, entropyToMnemonic, mkEntropy)
 import           Pos.Util.Servant (decodeCType)
 import           Pos.Util.Util (lensOf)
 import           Pos.Wallet.Web.Account (GenSeed (..))
@@ -403,7 +402,7 @@ genWallet walletNum = do
     mnemonic  <- newRandomMnemonic
     newWallet mempty (walletInit mnemonic)
   where
-    walletInit :: BackupPhrase -> CWalletInit
+    walletInit :: Mnemonic -> CWalletInit
     walletInit backupPhrase = CWalletInit {
       cwInitMeta      = CWalletMeta
           { cwName      = "Wallet #" <> show walletNum
@@ -414,19 +413,12 @@ genWallet walletNum = do
       }
 
 
--- | Generates a new 'BackupPhrase'.
-newRandomMnemonic :: UberMonad BackupPhrase
+-- | Generates a new 'Mnemonic'.
+newRandomMnemonic :: UberMonad Mnemonic
 newRandomMnemonic = do
-
-    -- The size 16 should give you 12 words after bip39 encoding.
-    let mnemonic :: IO ByteString
-        mnemonic = getEntropy 16
-
-    genMnemonic  <- liftIO mnemonic
-
-    let newMnemonic = either (error . show) id (toMnemonic genMnemonic)
-
-    pure $ BackupPhrase $ words newMnemonic
+    bytes <- liftIO $ getEntropy 16
+    let mnemonic = either (error . show) entropyToMnemonic (mkEntropy bytes)
+    pure mnemonic
 
 
 -- | Creates a new 'CAccount'.

@@ -7,8 +7,9 @@ module Cardano.Wallet.WalletLayer.Kernel
 
 import           Universum
 
+import           Data.Default (def)
 import           Data.Maybe (fromJust)
-import           System.Wlog (Severity(Debug))
+import           System.Wlog (Severity (Debug))
 
 import           Pos.Block.Types (Blund, Undo (..))
 
@@ -18,11 +19,12 @@ import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..), fromRawResolvedBlock)
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
 
+import           Pos.Crypto (safeDeterministicKeyGen)
 import           Pos.Util.Chrono (mapMaybeChrono)
+import           Pos.Util.Mnemonic (mnemonicToSeed)
 
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Data.Map.Strict as Map
-import           Pos.Util.BackupPhrase
 import           Pos.Crypto.Signing
 
 -- | Initialize the passive wallet.
@@ -44,12 +46,7 @@ bracketPassiveWallet logFunction f =
 
       -- TODO (temporary): build a sample wallet from a backup phrase
       _ <- liftIO $ do
-        let backup = BackupPhrase
-                     { bpToList = ["squirrel", "material", "silly",   "twice",
-                                    "direct",  "slush",    "pistol",  "razor",
-                                    "become",  "junk",     "kingdom", "flee" ]
-                     }
-            Right (esk, _) = safeKeysFromPhrase emptyPassphrase backup
+        let (_, esk) = safeDeterministicKeyGen (mnemonicToSeed def) emptyPassphrase
         Kernel.newWalletHdRnd w esk Map.empty
 
       f (passiveWalletLayer w invoke)

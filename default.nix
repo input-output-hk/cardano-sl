@@ -55,7 +55,6 @@ let
       });
 
       cardano-sl-wallet-static = justStaticExecutables super.cardano-sl-wallet;
-      cardano-sl-networking = dontCheck super.cardano-sl-networking;
       cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
       cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
       # cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);

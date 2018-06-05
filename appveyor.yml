@@ -35,6 +35,17 @@ before_test:
       .\cache-s3 --max-size=$env:CACHE_S3_MAX_SIZE --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -v info -c restore stack work --base-branch=develop
     }
 
+# Grab the mingw libs
+
+- ps: >-
+    mkdir C:\mingw\bin
+
+    Invoke-WebRequest "https://s3-us-west-2.amazonaws.com/appveyor-ci-dependencies/mingw-libs.zip" -OutFile "C:\mingw\mingw-libs.zip" -UserAgent "Curl"
+
+    7z x C:\mingw\mingw-libs.zip -oC:\mingw\bin
+
+    $env:PATH="$env:PATH;C:\mingw\bin"
+
 # Get custom GHC
 - ps: >-
     mkdir C:\ghc
@@ -45,7 +56,7 @@ before_test:
 
     7z x C:\ghc\ghc.tar -oC:\ghc
 
-    $env:PATH="$env:PATH;C:\ghc\ghc-8.0.2\bin;C:\mingw\bin"
+    $env:PATH="$env:PATH;C:\ghc\ghc-8.0.2\bin"
 
 # Install OpenSSL 1.0.2 (see https://github.com/appveyor/ci/issues/1665)
 - ps: (New-Object Net.WebClient).DownloadFile('https://slproweb.com/download/Win64OpenSSL-1_0_2o.exe', "$($env:USERPROFILE)\Win64OpenSSL.exe")

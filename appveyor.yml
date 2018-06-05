@@ -20,6 +20,7 @@ environment:
 
 init:
 - ps: $env:CACHE_S3_READY = (("$env:CACHE_S3_VERSION" -ne "") -and ("$env:S3_BUCKET" -ne "") -and ("$env:AWS_ACCESS_KEY_ID" -ne "") -and ("$env:AWS_SECRET_ACCESS_KEY" -ne ""))
+- dir /s /b c:\msys64
 
 before_test:
 # Avoid long paths not to each MAX_PATH of 260 chars
@@ -34,17 +35,6 @@ before_test:
       .\cache-s3 --max-size=$env:CACHE_S3_MAX_SIZE --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -v info -c restore stack --base-branch=develop
       .\cache-s3 --max-size=$env:CACHE_S3_MAX_SIZE --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -v info -c restore stack work --base-branch=develop
     }
-
-# Grab the mingw libs
-
-- ps: >-
-    mkdir C:\mingw\bin
-
-    Invoke-WebRequest "https://s3-us-west-2.amazonaws.com/appveyor-ci-dependencies/mingw-libs.zip" -OutFile "C:\mingw\mingw-libs.zip" -UserAgent "Curl"
-
-    7z x C:\mingw\mingw-libs.zip -oC:\mingw\bin
-
-    $env:PATH="$env:PATH;C:\mingw\bin"
 
 # Get custom GHC
 - ps: >-

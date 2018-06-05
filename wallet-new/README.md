@@ -29,8 +29,8 @@ Wallet is disabled, because software is built w/o it
 ## Flushing Logs to Disk
 
 Note that by default, logs are only sent to stdout/stderr. If you want to enable flushing on
-disk in rotated log files, use the `--log-config` option and specify a logging configuration 
-yaml file to define what to log and where to log it. 
+disk in rotated log files, use the `--log-config` option and specify a logging configuration
+yaml file to define what to log and where to log it.
 
 For instance:
 
@@ -193,7 +193,7 @@ Response:
 
 When running a node directly with stack, you may encounter an unexpected runtime error
 `commitAndReleaseBuffer` if your machine's locale aren't well suitable for managing unicode
-characters. 
+characters.
 
 On a _*nix_ system, you can view your current locale by doing:
 
@@ -222,7 +222,6 @@ using environment variables as follows:
 ```
 LANG=en_GB.UTF-8 LC_ALL=en_GB.UTF-8 stack exec -- ...
 ```
-<<<<<<< HEAD
 
 ##### API returns `415  Unsupported Media Type`
 
@@ -239,5 +238,3 @@ value:
 ```
 application/json;charset=utf-8
 ```
-=======
->>>>>>> release/1.2.0

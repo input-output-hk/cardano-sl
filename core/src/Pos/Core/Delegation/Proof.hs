@@ -3,7 +3,6 @@ module Pos.Core.Delegation.Proof
        , mkDlgProof
        ) where
 
-import           Pos.Binary.Class (Bi)
 import           Pos.Crypto (Hash, hash)
 
 import           Pos.Core.Delegation.Payload
@@ -12,5 +11,5 @@ import           Pos.Core.Delegation.Payload
 type DlgProof = Hash DlgPayload
 
 -- | Creates 'DlgProof' out of delegation payload.
-mkDlgProof :: Bi DlgPayload => DlgPayload -> DlgProof
+mkDlgProof :: DlgPayload -> DlgProof
 mkDlgProof = hash

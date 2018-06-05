@@ -11,7 +11,7 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, int, (%))
 import           Serokell.Util (allDistinct, listJson)
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class (Bi (..))
 import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), validateProxySecretKey)
 
 import           Pos.Core.Delegation.HeavyDlgIndex
@@ -31,8 +31,12 @@ instance Buildable DlgPayload where
             ("proxy signing keys ("%int%" items): "%listJson%"\n")
             (length psks) psks
 
-checkDlgPayload ::
-       (MonadError Text m, Bi HeavyDlgIndex)
+instance Bi DlgPayload where
+    encode = encode . getDlgPayload
+    decode = UnsafeDlgPayload <$> decode
+
+checkDlgPayload
+    :: MonadError Text m
     => ProtocolMagic
     -> DlgPayload
     -> m ()

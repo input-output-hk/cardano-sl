@@ -10,6 +10,7 @@ import qualified Data.Semigroup (Semigroup (..))
 import qualified Data.Text.Buildable as Buildable
 import           Serokell.Util.Base16 (formatBase16)
 
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Constants (sharedSeedLength)
 
 -- | This is a shared seed used for follow-the-satoshi. This seed is
@@ -30,3 +31,8 @@ instance Monoid SharedSeed where
     mempty = SharedSeed $ BSC.pack $ replicate sharedSeedLength '\NUL'
     mappend = (Data.Semigroup.<>)
     mconcat = foldl' mappend mempty
+
+deriveSimpleBi ''SharedSeed [
+    Cons 'SharedSeed [
+        Field [| getSharedSeed :: ByteString |]
+    ]]

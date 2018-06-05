@@ -20,13 +20,17 @@ import           Universum
 
 import           Control.Lens (makeLenses, makePrisms)
 import           Control.Monad.Except (MonadError (throwError))
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, builder, int, sformat, (%))
 import           Serokell.Util.Base16 (base16F)
 import           Serokell.Util.Text (listJson)
 import           Serokell.Util.Verify (VerificationRes (..), verResSingleF, verifyGeneric)
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), 
+                                   encodeListLen, encodeKnownCborDataItem, enforceSize,
+                                   encodeUnknownCborDataItem, decodeKnownCborDataItem,
+                                   decodeUnknownCborDataItem, deriveSimpleBi)
 import           Pos.Core.Common (Address (..), Coin (..), checkCoin, coinF)
 import           Pos.Crypto (Hash, hash, shortHashF)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
@@ -46,7 +50,7 @@ data Tx = UnsafeTx
 
 instance Hashable Tx
 
-instance Bi Tx => Buildable Tx where
+instance Buildable Tx where
     build tx@(UnsafeTx{..}) =
         bprint
             ("Tx "%build%
@@ -57,10 +61,19 @@ instance Bi Tx => Buildable Tx where
         attrsBuilder | areAttributesKnown attrs = mempty
                      | otherwise = bprint (", attributes: "%build) attrs
 
+instance Bi Tx where
+    encode tx = encodeListLen 3
+                <> encode (_txInputs tx)
+                <> encode (_txOutputs tx)
+                <> encode (_txAttributes tx)
+    decode = do
+        enforceSize "Tx" 3
+        UnsafeTx <$> decode <*> decode <*> decode
+
 instance NFData Tx
 
 -- | Specialized formatter for 'Tx'.
-txF :: Bi Tx => Format r (Tx -> r)
+txF :: Format r (Tx -> r)
 txF = build
 
 -- | Verify inputs and outputs are non empty; have enough coins.
@@ -126,6 +139,22 @@ instance Buildable TxIn where
     build TxInUtxo {..}        = bprint ("TxInUtxo "%shortHashF%" #"%int) txInHash txInIndex
     build (TxInUnknown tag bs) = bprint ("TxInUnknown "%int%" "%base16F) tag bs
 
+instance Bi TxIn where
+    encode TxInUtxo{..} =
+        encodeListLen 2 <>
+        encode (0 :: Word8) <>
+        encodeKnownCborDataItem (txInHash, txInIndex)
+    encode (TxInUnknown tag bs) =
+        encodeListLen 2 <>
+        encode tag <>
+        encodeUnknownCborDataItem (BSL.fromStrict bs)
+    decode = do
+        enforceSize "TxIn" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> uncurry TxInUtxo <$> decodeKnownCborDataItem
+            _ -> TxInUnknown tag  <$> decodeUnknownCborDataItem
+
 instance NFData TxIn
 
 isTxInUnknown :: TxIn -> Bool
@@ -157,3 +186,9 @@ makePrisms ''TxOut
 --------------------------------------------------------------------------------
 
 makeLenses ''Tx
+
+deriveSimpleBi ''TxOut [
+    Cons 'TxOut [
+        Field [| txOutAddress :: Address |],
+        Field [| txOutValue   :: Coin    |]
+    ]]

@@ -29,6 +29,7 @@ import           Data.Data (Data)
 import qualified Data.Text.Buildable
 import           Formatting (Format, bprint, build, int, (%))
 
+import           Pos.Binary.Class (Bi (..))
 import           Pos.Util.Util (leftToPanic)
 
 -- | Coin is the least possible unit of currency.
@@ -42,6 +43,10 @@ instance Buildable Coin where
 instance Bounded Coin where
     minBound = Coin 0
     maxBound = Coin maxCoinVal
+
+instance Bi Coin where
+    encode = encode . unsafeGetCoin
+    decode = Coin <$> decode
 
 -- | Maximal possible value of 'Coin'.
 maxCoinVal :: Word64

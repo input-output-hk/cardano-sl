@@ -22,7 +22,7 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, int, (%))
 import           Pos.Core.Common (StakeholderId, addressHash)
 
-import           Pos.Binary.Class (AsBinary, Bi)
+import           Pos.Binary.Class (AsBinary)
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, SignTag (SignVssCert), Signature,
                              VssPublicKey, checkSig, sign, toPublic)
@@ -74,8 +74,7 @@ instance Hashable VssCertificate where
 -- | Make VssCertificate valid up to given epoch using 'SecretKey' to sign
 -- data.
 mkVssCertificate
-    :: (Bi EpochIndex)
-    => ProtocolMagic
+    :: ProtocolMagic
     -> SecretKey
     -> AsBinary VssPublicKey
     -> EpochIndex
@@ -87,7 +86,7 @@ mkVssCertificate pm sk vk expiry =
 
 -- | Check a 'VssCertificate' for validity.
 checkVssCertificate
-    :: (Bi EpochIndex, MonadError Text m)
+    :: (MonadError Text m)
     => ProtocolMagic
     -> VssCertificate
     -> m ()
@@ -98,7 +97,7 @@ checkVssCertificate pm it =
 -- | Check that the VSS certificate is signed properly
 -- #checkPubKeyAddress
 -- #checkSig
-checkCertSign :: (Bi EpochIndex) => ProtocolMagic -> VssCertificate -> Bool
+checkCertSign :: ProtocolMagic -> VssCertificate -> Bool
 checkCertSign pm UnsafeVssCertificate {..} =
     checkSig pm SignVssCert vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
 

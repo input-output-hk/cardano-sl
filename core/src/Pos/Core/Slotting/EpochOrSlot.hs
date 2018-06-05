@@ -19,6 +19,7 @@ import           Control.Lens (Getter, lens, to)
 import qualified Data.Text.Buildable as Buildable
 import           Pos.Util.Some (Some, applySome)
 
+import           Pos.Binary.Class (Bi (..))
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants, epochSlots)
 import           Pos.Util.Util (leftToPanic)
 
@@ -46,6 +47,11 @@ instance Ord EpochOrSlot where
 
 instance Buildable EpochOrSlot where
     build = either Buildable.build Buildable.build . unEpochOrSlot
+
+instance Bi EpochOrSlot where
+    encode (EpochOrSlot e) = encode e
+    decode = EpochOrSlot <$> decode @(Either EpochIndex SlotId)
+
 
 instance HasEpochIndex EpochOrSlot where
     epochIndexL = lens (epochOrSlot identity siEpoch) setter

@@ -12,8 +12,6 @@ import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (Format, bprint, int, (%))
 import           Serokell.Util (listJson)
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProtocolMagic, shortHashF)
 
 import           Pos.Core.Ssc.CommitmentsMap
@@ -86,7 +84,7 @@ isEmptySscPayload (SharesPayload shares certs)     = null shares && null certs
 isEmptySscPayload (CertificatesPayload certs)      = null certs
 
 checkSscPayload
-    :: ( MonadError Text m, Bi EpochIndex )
+    :: MonadError Text m
     => ProtocolMagic
     -> SscPayload
     -> m ()

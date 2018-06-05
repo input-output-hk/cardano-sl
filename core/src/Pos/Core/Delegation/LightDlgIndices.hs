@@ -10,6 +10,7 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint)
 import           Serokell.Util (pairF)
 
+import           Pos.Binary.Class (Bi (..))
 import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProxySecretKey (..), ProxySignature)
 
@@ -28,6 +29,10 @@ instance NFData LightDlgIndices
 
 instance Buildable LightDlgIndices where
     build (LightDlgIndices p) = bprint pairF p
+
+instance Bi LightDlgIndices where
+    encode = encode . getLightDlgIndices
+    decode = LightDlgIndices <$> decode
 
 -- | Light delegation proxy signature, that holds a pair of epoch
 -- indices.

@@ -11,6 +11,7 @@ import           Universum
 import           Control.Lens (makeLenses)
 import           Control.Monad.Except (MonadError)
 
+import           Pos.Binary.Class (Bi (..))
 import           Pos.Core.Txp.Tx
 import           Pos.Core.Txp.TxAux
 import           Pos.Core.Txp.TxWitness
@@ -42,6 +43,10 @@ mkTxPayload txws = do
     (txs, _txpWitnesses) =
             unzip . map (liftA2 (,) taTx taWitness) $ txws
     _txpTxs = txs
+
+instance Bi TxPayload where
+    encode UnsafeTxPayload {..} = encode $ zip (toList _txpTxs) _txpWitnesses
+    decode = mkTxPayload <$> decode
 
 -- | Check a TxPayload by checking all of the Txs it contains.
 checkTxPayload :: MonadError Text m => TxPayload -> m ()

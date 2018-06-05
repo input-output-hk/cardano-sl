@@ -23,6 +23,8 @@ import           Mockable (CurrentTime, Mockable, currentTime)
 import           Numeric.Lens (dividing)
 import qualified Prelude
 
+import           Pos.Binary.Class (Bi (..))
+
 -- | Timestamp is a number which represents some point in time. It is
 -- used in MonadSlots and its meaning is up to implementation of this
 -- type class. The only necessary knowledge is that difference between
@@ -48,6 +50,10 @@ instance Buildable Timestamp where
 
 instance NFData Timestamp where
     rnf Timestamp{..} = rnf (toInteger getTimestamp)
+
+instance Bi Timestamp where
+    encode (Timestamp ms) = encode . toInteger $ ms
+    decode = Timestamp . fromIntegral <$> decode @Integer
 
 -- | Specialized formatter for 'Timestamp' data type.
 timestampF :: Format r (Timestamp -> r)

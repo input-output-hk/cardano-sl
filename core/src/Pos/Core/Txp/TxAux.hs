@@ -11,7 +11,7 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, later, (%))
 import           Serokell.Util.Text (listJsonIndent)
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 
 import           Pos.Core.Txp.Tx
 import           Pos.Core.Txp.TxWitness
@@ -25,11 +25,11 @@ data TxAux = TxAux
 instance NFData TxAux
 
 -- | Specialized formatter for 'TxAux'.
-txaF :: Bi Tx => Format r (TxAux -> r)
+txaF :: Format r (TxAux -> r)
 txaF = later $ \(TxAux tx w) ->
     bprint (build%"\n"%"witnesses: "%listJsonIndent 4) tx w
 
-instance Bi Tx => Buildable TxAux where
+instance Buildable TxAux where
     build = bprint txaF
 
 -- | Check that a 'TxAux' is internally valid (checks that its 'Tx' is valid
@@ -39,3 +39,9 @@ checkTxAux
     => TxAux
     -> m ()
 checkTxAux TxAux{..} = checkTx taTx
+
+deriveSimpleBi ''TxAux [
+    Cons 'TxAux [
+        Field [| taTx       :: Tx        |],
+        Field [| taWitness  :: TxWitness |]
+    ]]

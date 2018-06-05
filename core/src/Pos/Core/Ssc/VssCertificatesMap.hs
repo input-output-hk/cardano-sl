@@ -25,9 +25,7 @@ import           Data.List.Extra (nubOrdOn)
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (allDistinct)
 
-import           Pos.Binary.Class (Bi)
 import           Pos.Core.Common (StakeholderId)
-import           Pos.Core.Slotting (EpochIndex)
 import           Pos.Crypto (ProtocolMagic)
 
 import           Pos.Core.Ssc.VssCertificate (VssCertificate (..), checkVssCertificate, getCertId,
@@ -66,7 +64,7 @@ mkVssCertificatesMap = UnsafeVssCertificatesMap . HM.fromList . map toCertPair
 -- 'vcVssKey's. Also checks every VssCertificate in the map (see
 -- 'checkVssCertificate').
 checkVssCertificatesMap
-    :: (Bi EpochIndex, MonadError Text m)
+    :: (MonadError Text m)
     => ProtocolMagic
     -> VssCertificatesMap
     -> m ()

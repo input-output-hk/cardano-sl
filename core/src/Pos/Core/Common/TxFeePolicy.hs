@@ -4,9 +4,14 @@ module Pos.Core.Common.TxFeePolicy
 
 import           Universum
 
+import qualified Data.ByteString.Lazy as LBS
+import           Data.Hashable (Hashable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, shown, (%))
 
+import           Pos.Binary.Class (Bi (..), decodeKnownCborDataItem, decodeUnknownCborDataItem,
+                                   encodeKnownCborDataItem, encodeUnknownCborDataItem,
+                                   encodeListLen, enforceSize)
 import           Pos.Core.Common.TxSizeLinear
 
 -- | Transaction fee policy represents a formula to compute the minimal allowed
@@ -36,5 +41,20 @@ instance Buildable TxFeePolicy where
         bprint ("policy(tx-size-linear): "%build) tsp
     build (TxFeePolicyUnknown v bs) =
         bprint ("policy(unknown:"%build%"): "%shown) v bs
+
+instance Bi TxFeePolicy where
+    encode policy = case policy of
+        TxFeePolicyTxSizeLinear txSizeLinear ->
+            encodeListLen 2 <> encode (0 :: Word8)
+                            <> encodeKnownCborDataItem txSizeLinear
+        TxFeePolicyUnknown word8 bs          ->
+            encodeListLen 2 <> encode word8
+                            <> encodeUnknownCborDataItem (LBS.fromStrict bs)
+    decode = do
+        enforceSize "TxFeePolicy" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> TxFeePolicyTxSizeLinear <$> decodeKnownCborDataItem
+            _ -> TxFeePolicyUnknown tag  <$> decodeUnknownCborDataItem
 
 instance Hashable TxFeePolicy

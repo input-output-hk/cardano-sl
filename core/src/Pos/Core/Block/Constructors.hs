@@ -13,7 +13,6 @@ module Pos.Core.Block.Constructors
 
 import           Universum
 
-import           Pos.Binary.Core.Blockchain () -- Bi instances
 import           Pos.Core.Block.Blockchain (GenericBlock (..), mkGenericHeader)
 import           Pos.Core.Block.Genesis (GenesisBody (..), GenesisConsensusData (..),
                                          GenesisExtraBodyData (..), GenesisExtraHeaderData (..))

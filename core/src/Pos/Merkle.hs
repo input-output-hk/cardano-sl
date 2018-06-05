@@ -32,7 +32,7 @@ import qualified Data.Foldable as Foldable
 import qualified Data.Text.Buildable as Buildable
 import qualified Prelude
 
-import           Pos.Binary.Class (Bi, Raw, serializeBuilder)
+import           Pos.Binary.Class (Bi (..), Raw, serializeBuilder)
 import           Pos.Crypto (AbstractHash (..), Hash, hashRaw)
 
 {-# ANN module ("HLint : ignore Unnecessary hiding" :: Text) #-}
@@ -44,6 +44,10 @@ newtype MerkleRoot a = MerkleRoot
 
 instance Buildable (MerkleRoot a) where
     build (MerkleRoot h) = "MerkleRoot|" <> Buildable.build h
+
+instance (Bi a, Bi (Hash Raw)) => Bi (MerkleRoot a) where
+    encode = encode . getMerkleRoot
+    decode = MerkleRoot <$> decode
 
 -- | Straightforward merkle tree representation in Haskell.
 data MerkleTree a = MerkleEmpty | MerkleTree Word32 (MerkleNode a)
@@ -63,6 +67,12 @@ instance Foldable MerkleTree where
 
 instance Show a => Show (MerkleTree a) where
   show tree = "Merkle tree: " <> show (Foldable.toList tree)
+
+-- This instance is both faster and more space-efficient (as confirmed by a
+-- benchmark). Hashing turns out to be faster than decoding extra data.
+instance (Bi a, Bi (Hash Raw)) => Bi (MerkleTree a) where
+    encode = encode . Foldable.toList
+    decode = mkMerkleTree <$> decode
 
 data MerkleNode a
     = MerkleBranch { mRoot  :: MerkleRoot a

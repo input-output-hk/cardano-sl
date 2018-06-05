@@ -11,8 +11,8 @@ import           Universum
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Core (HasProtocolMagic)
+import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 
 import           Test.Pos.Txp.Arbitrary ()

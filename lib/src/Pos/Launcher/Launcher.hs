@@ -15,7 +15,7 @@ import           Universum
 import           Mockable.Production (Production (..))
 
 import           Pos.DB.DB (initNodeDBs)
-import           Pos.Diffusion.Types (Diffusion)
+import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..), bracketNodeResources)

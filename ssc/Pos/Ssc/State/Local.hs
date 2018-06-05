@@ -12,7 +12,7 @@ import           Universum
 
 import           Pos.Core (SlotId (..), HasProtocolConstants)
 import           Pos.DB (MonadDBRead)
-import           Pos.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Mem (MonadSscMem, askSscMem)
 import           Pos.Ssc.Types (SscLocalData (..), sscLocal)
 

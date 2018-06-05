@@ -32,12 +32,13 @@ import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..))
 import qualified Pos.DB.Class as DB (getBlock)
 import           Pos.Delegation.Listeners (DlgListenerConstraint)
 import qualified Pos.Delegation.Listeners as Delegation (handlePsk)
+import           Pos.Infra.Slotting (MonadSlots)
+import           Pos.Infra.Util.JsonLog.Events (JLTxR)
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
 import           Pos.Recovery (MonadRecoveryInfo)
 import qualified Pos.Recovery as Recovery
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Security.Util (shouldIgnorePkAddress)
-import           Pos.Slotting (MonadSlots)
 import           Pos.Ssc.Logic (sscIsDataUseful, sscProcessCertificate, sscProcessCommitment,
                                 sscProcessOpening, sscProcessShares)
 import           Pos.Ssc.Mem (sscRunLocalQuery)
@@ -56,7 +57,6 @@ import qualified Pos.Update.Logic.Local as Update (getLocalProposalNVotes, getLo
 import           Pos.Update.Mode (UpdateMode)
 import qualified Pos.Update.Network.Listeners as Update (handleProposal, handleVote)
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Util.JsonLog.Events (JLTxR)
 import           Pos.Util.Util (HasLens (..))
 
 -- The full logic layer uses existing pieces from the former monolithic

@@ -34,24 +34,28 @@ import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
 import           Pos.Delegation.Class (DelegationVar)
-import           Pos.DHT.Real.Param (KademliaParams)
-import           Pos.Network.Types (HasNodeType (..), getNodeTypeDefault)
-import           Pos.Reporting (HasMisbehaviorMetrics (..), MonadReporting (..), Reporter (..))
-import           Pos.Shutdown (HasShutdownContext (..))
-import           Pos.Slotting.Class (MonadSlots (..))
-import           Pos.Slotting.Impl (currentTimeSlottingSimple,
-                                    getCurrentSlotBlockingSimple,
-                                    getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
-import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
+import           Pos.Infra.DHT.Real.Param (KademliaParams)
+import           Pos.Infra.Network.Types (HasNodeType (..), getNodeTypeDefault)
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
+                                      MonadReporting (..), Reporter (..))
+import           Pos.Infra.Shutdown (HasShutdownContext (..))
+import           Pos.Infra.Slotting.Class (MonadSlots (..))
+import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
+                                          getCurrentSlotBlockingSimple,
+                                          getCurrentSlotInaccurateSimple,
+                                          getCurrentSlotSimple)
+import           Pos.Infra.Slotting.MemState (HasSlottingVar (..),
+                                              MonadSlotsData)
+import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
+                                                JsonLogConfig, jsonLogDefault)
+import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Ssc.Mem (SscMemTag)
 import           Pos.Ssc.Types (SscState)
 import           Pos.Txp (GenericTxpLocalData, HasTxpConfiguration, MempoolExt, MonadTxpLocal (..),
                           TxpHolderTag, txNormalize, txProcessTransaction)
-import           Pos.Util.JsonLog.Events (HasJsonLogConfig (..), JsonLogConfig, jsonLogDefault)
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
-import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)

@@ -37,9 +37,9 @@ import           Pos.Delegation.Class (DlgMemPool, MonadDelegation, dwMessageCac
                                        dwProxySKPool, dwTip)
 import           Pos.Delegation.Logic.Common (DelegationStateAction, runDelegationStateAction)
 import           Pos.Delegation.Types (DlgPayload (..), isRevokePsk)
+import           Pos.Infra.StateLock (StateLock, withStateLockNoMetrics)
 import           Pos.Lrc.Consumer.Delegation (getDlgRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
-import           Pos.StateLock (StateLock, withStateLockNoMetrics)
 import           Pos.Util (HasLens', microsecondsToUTC)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
 

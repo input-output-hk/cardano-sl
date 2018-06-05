@@ -49,7 +49,6 @@ import           Serokell.Data.Memory.Units (Byte)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Binary.Infra ()
 import           Pos.Binary.Update ()
 import           Pos.Core (ApplicationName, BlockVersion, ChainDifficulty, NumSoftwareVersion,
                            SlotId, SoftwareVersion (..), StakeholderId, TimeDiff (..), epochSlots,
@@ -61,7 +60,10 @@ import           Pos.DB (DBIteratorClass (..), DBTag (..), IterType, MonadDB, Mo
                          RocksBatchOp (..), dbSerializeValue, encodeWithKeyPrefix)
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
-import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData, createInitSlottingData)
+import           Pos.Infra.Binary ()
+import           Pos.Infra.Slotting.Types (EpochSlottingData (..),
+                                           SlottingData,
+                                           createInitSlottingData)
 import           Pos.Update.Configuration (HasUpdateConfiguration, ourAppName, ourSystemTag)
 import           Pos.Update.Constants (genesisBlockVersion, genesisSoftwareVersions)
 import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposalState (..),

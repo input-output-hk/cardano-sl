@@ -30,10 +30,10 @@ import           Ntp.Client (NtpStatus)
 
 import           Pos.Client.Txp.Network (sendTxOuts)
 import           Pos.Communication (OutSpecs)
-import           Pos.Diffusion.Types (Diffusion (sendTx))
+import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
+import           Pos.Infra.Util.TimeWarp (NetworkAddress)
 import           Pos.Util (bracketWithLogging)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.TimeWarp (NetworkAddress)
 import           Pos.Wallet.Web.Account (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api (WalletSwaggerApi, swaggerWalletApi)
 import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode, MonadWalletWebMode,

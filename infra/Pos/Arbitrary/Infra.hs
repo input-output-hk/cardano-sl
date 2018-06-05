@@ -12,12 +12,15 @@ import           Test.QuickCheck (Arbitrary (..), choose, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core ()
-import           Pos.Communication.Types.Protocol (HandlerSpec (..), VerInfo (..))
-import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), MempoolMsg (..),
-                                                ReqMsg (..))
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Crypto (HasProtocolMagic)
-import           Pos.DHT (DHTData (..), DHTKey (..))
+import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..),
+                                                         VerInfo (..))
+import           Pos.Infra.Communication.Types.Relay (DataMsg (..),
+                                                      InvMsg (..),
+                                                      MempoolMsg (..),
+                                                      ReqMsg (..))
+import           Pos.Infra.DHT (DHTData (..), DHTKey (..))
 
 deriving instance Arbitrary DHTData
 

@@ -4,7 +4,7 @@ module Cardano.Wallet.API.V0.Handlers where
 import           Universum
 import qualified Cardano.Wallet.API.V0          as V0
 import           Ntp.Client (NtpStatus)
-import           Pos.Diffusion.Types            (Diffusion(sendTx))
+import           Pos.Infra.Diffusion.Types      (Diffusion(sendTx))
 import           Pos.Util.CompileInfo           (HasCompileInfo)
 import           Pos.Wallet.Web.Mode            (MonadFullWalletWebMode)
 import qualified Pos.Wallet.Web.Server.Handlers as V0

@@ -18,8 +18,9 @@ import           Data.Typeable
 import           Formatting (bprint, build, formatToString, sformat, (%))
 import qualified Generics.SOP as SOP
 import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
-import           Pos.Util.LogSafe (BuildableSafe, BuildableSafeGen (..), SecureLog (..), buildSafe,
-                                   secure, unsecure)
+import           Pos.Infra.Util.LogSafe (BuildableSafe, BuildableSafeGen (..),
+                                         SecureLog (..), buildSafe,
+                                         secure, unsecure)
 import           Pos.Util.Servant (ApiCanLogArg (..), ApiHasArgClass (..))
 
 import           Network.HTTP.Types (parseQueryText)

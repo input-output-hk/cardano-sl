@@ -51,12 +51,13 @@ import           Pos.Exception (reportFatalError)
 import           Pos.Generator.Block.Param (BlockGenParams (..), HasBlockGenParams (..),
                                             HasTxGenParams (..))
 import qualified Pos.GState as GS
+import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
+import           Pos.Infra.Reporting (MonadReporting (..),
+                                      HasMisbehaviorMetrics (..))
+import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
+                                     MonadSlotsData, currentTimeSlottingSimple)
+import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Lrc (HasLrcContext, LrcContext (..))
-import           Pos.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Reporting (MonadReporting (..), HasMisbehaviorMetrics (..))
-import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
-                               currentTimeSlottingSimple)
-import           Pos.Slotting.Types (SlottingData)
 import           Pos.Ssc (HasSscConfiguration, SscMemTag, SscState, mkSscState)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, TxpGlobalSettings, TxpHolderTag,
                           mkTxpLocalData)

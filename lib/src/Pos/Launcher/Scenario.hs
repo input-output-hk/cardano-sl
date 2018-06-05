@@ -23,17 +23,17 @@ import           Pos.Core (GenesisData (gdBootStakeholders, gdHeavyDelegation),
                            gdFtsSeed, genesisData)
 import           Pos.Crypto (pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
-import           Pos.Diffusion.Types (Diffusion)
 import qualified Pos.GState as GS
+import           Pos.Infra.Diffusion.Types (Diffusion)
+import           Pos.Infra.Reporting (reportError)
+import           Pos.Infra.Slotting (waitSystemStart)
+import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Launcher.Resource (NodeResources (..))
-import           Pos.Reporting (reportError)
-import           Pos.Slotting (waitSystemStart)
 import           Pos.Txp (bootDustThreshold)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
                                            lastKnownBlockVersion, ourSystemTag)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
-import           Pos.Util.LogSafe (logInfoS)
 import           Pos.Worker (allWorkers)
 import           Pos.WorkMode.Class (WorkMode)
 

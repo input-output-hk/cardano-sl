@@ -13,8 +13,8 @@ import           Options.Applicative (Parser, auto, execParser, footerDoc, fullD
 import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (CommonNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
+import           Pos.Infra.Util.TimeWarp (NetworkAddress, localhost)
 import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, compileInfo)
-import           Pos.Util.TimeWarp (NetworkAddress, localhost)
 import           Pos.Web (TlsParams (..))
 
 

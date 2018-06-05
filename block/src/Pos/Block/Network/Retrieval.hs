@@ -24,14 +24,14 @@ import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, get
 import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlocks, triggerRecovery)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (RecoveryHeaderTag)
-import           Pos.Communication.Protocol (NodeId)
 import           Pos.Core (Block, HasHeaderHash (..),  HeaderHash, difficultyL, isMoreDifficult)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.BlockIndex as DB
-import           Pos.Diffusion.Types (Diffusion)
-import qualified Pos.Diffusion.Types as Diffusion (Diffusion (getBlocks))
-import           Pos.Reporting (HasMisbehaviorMetrics, reportOrLogE, reportOrLogW)
+import           Pos.Infra.Communication.Protocol (NodeId)
+import           Pos.Infra.Diffusion.Types (Diffusion)
+import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (getBlocks))
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportOrLogE, reportOrLogW)
 import           Pos.Util.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Util.Util (HasLens (..))
 

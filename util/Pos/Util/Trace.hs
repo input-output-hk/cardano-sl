@@ -1,19 +1,19 @@
+{-# LANGUAGE RankNTypes #-}
 
 module Pos.Util.Trace
     ( Trace (..)
+    , natTrace
     , trace
     , traceWith
     , noTrace
     , stdoutTrace
-    -- TODO put wlog tracing into its own module.
-    , wlogTrace
-    , Wlog.Severity (..)
+    , stdoutTraceConcurrent
     ) where
 
-import           Universum hiding (trace)
+import           Universum hiding (trace, newEmptyMVar)
+import           Control.Concurrent.MVar (newEmptyMVar, withMVar)
 import           Data.Functor.Contravariant (Contravariant (..), Op (..))
 import qualified Data.Text.IO as TIO
-import qualified System.Wlog as Wlog
 
 -- | Abstracts logging.
 newtype Trace m s = Trace
@@ -22,6 +22,9 @@ newtype Trace m s = Trace
 
 instance Contravariant (Trace m) where
     contramap f = Trace . contramap f . runTrace
+
+natTrace :: (forall x . m x -> n x) -> Trace m s -> Trace n s
+natTrace nat (Trace (Op tr)) = Trace $ Op $ nat . tr
 
 trace :: Trace m s -> s -> m ()
 trace = getOp . runTrace
@@ -36,11 +39,13 @@ traceWith = trace
 noTrace :: Applicative m => Trace m a
 noTrace = Trace $ Op $ const (pure ())
 
--- | 'Trace' to stdout.
+-- | Trace lines to stdout, without concurrency control.
 stdoutTrace :: Trace IO Text
 stdoutTrace = Trace $ Op $ TIO.putStrLn
 
--- | A 'Trace' that uses log-warper.
-wlogTrace :: Wlog.LoggerName -> Trace IO (Wlog.Severity, Text)
-wlogTrace loggerName = Trace $ Op $ \(severity, txt) ->
-    Wlog.usingLoggerName loggerName $ Wlog.logMessage severity txt
+-- | Trace lines to stdout, with concurrency control.
+stdoutTraceConcurrent :: IO (Trace IO Text)
+stdoutTraceConcurrent = do
+    mv <- newEmptyMVar :: IO (MVar ())
+    let traceIt = \txt -> withMVar mv $ \_ -> TIO.putStrLn txt
+    pure $ Trace $ Op $ traceIt

@@ -13,12 +13,14 @@ import           Universum
 import           Control.Exception (throwIO)
 import           Control.Lens ((%=), (+=), (.=), (<<+=))
 import           Control.Lens.TH (makeLenses)
+import qualified Data.ByteString.Lazy.Char8 as LBS
 import           Data.Conduit
+import           Data.Fixed (E2, Fixed)
 import qualified Data.Text.IO as Text
 import           Formatting (build, sformat, (%))
+import qualified Prelude
 import           System.Directory (createDirectory)
 import           System.FilePath ((<.>), (</>))
-import qualified System.IO as IO
 import qualified System.IO.Error as IO
 import           Text.Printf (printf)
 
@@ -119,16 +121,14 @@ utxoHistogram binSize =
 data TimeSeries a = StartOfTime | MostRecent !a !(TimeSeries a)
   deriving (Functor)
 
-timeSeriesOldestFirst :: TimeSeries a -> [a]
-timeSeriesOldestFirst = go []
-  where
-    go acc StartOfTime       = acc
-    go acc (MostRecent x xs) = go (x:acc) xs
+timeSeriesNewestFirst :: TimeSeries a -> [a]
+timeSeriesNewestFirst StartOfTime       = []
+timeSeriesNewestFirst (MostRecent x xs) = x : timeSeriesNewestFirst xs
 
 -- | Bounds for a time series
 timeSeriesRange :: forall a. (Num a, Ord a)
                 => TimeSeries a -> Ranges Int a
-timeSeriesRange = go . timeSeriesOldestFirst
+timeSeriesRange = go . timeSeriesNewestFirst
   where
     go :: [a] -> Ranges Int a
     go xs = Ranges {
@@ -136,12 +136,20 @@ timeSeriesRange = go . timeSeriesOldestFirst
         , _y = Range 0 (maximum xs)
         }
 
--- | Write time series to a format gnuplot can read
+-- | Write out a time series to disk
+--
+-- NOTE: Writes the time series in reverse order!
+-- (Use reverse axes in gnuplot.)
 writeTimeSeries :: forall a. Show a => FilePath -> TimeSeries a -> IO ()
-writeTimeSeries fp = go . timeSeriesOldestFirst
+writeTimeSeries fp = go . timeSeriesNewestFirst
   where
+    -- We go through LBS to take advantage of it's chunking policy, avoiding
+    -- hPutStr and co's excessive lock taking and releasing.
     go :: [a] -> IO ()
-    go xs = withFile fp WriteMode $ \h -> forM_ xs $ IO.hPrint h
+    go = LBS.writeFile fp
+       . LBS.pack
+       . Prelude.unlines
+       . map (Prelude.show)
 
 {-------------------------------------------------------------------------------
   Accumulated statistics
@@ -170,7 +178,7 @@ data AccStats = AccStats {
     , _accTxStats          :: !TxStats
 
       -- | Time series of the median change/payment ratio
-    , _accMedianRatio      :: !(TimeSeries Double)
+    , _accMedianRatio      :: !(TimeSeries (Fixed E2))
     }
 
 makeLenses ''AccStats
@@ -414,9 +422,11 @@ renderPlotInstr utxoBinSize
     % "unset multiplot\n"
     )
 
+    -- header
     piFrame
     piFrame
 
+    -- current UTxO
     setupSplitAxis
     (bounds ^. boundsUtxoHistogram . Range.splitYRange)
     piFailedPayments
@@ -424,15 +434,18 @@ renderPlotInstr utxoBinSize
     piFrame
     resetSplitAxis
 
-    (bounds ^. boundsUtxoSize . Range.x)
+    -- UTxO time series
+    (Range.Reverse (bounds ^. boundsUtxoSize . Range.x))
     (bounds ^. boundsUtxoSize . Range.y)
     piFrame
 
+    -- number of inputs
     (bounds ^. boundsTxInputs . Range.x)
     (bounds ^. boundsTxInputs . Range.y)
     piFrame
 
-    (bounds ^. boundsMedianRatio . Range.x)
+    -- change:payment ratio time series
+    (Range.Reverse (bounds ^. boundsMedianRatio . Range.x))
     (bounds ^. boundsMedianRatio . Range.y)
     piFrame
 
@@ -581,11 +594,9 @@ evaluateUsingEvents plotParams@PlotParams{..}
 
 evaluateInputPolicies :: PlotParams -> IO ()
 evaluateInputPolicies plotParams@PlotParams{..} = do
-    go "1to1"        initUtxo allPolicies  (renderEvery (10 *   3)) $ nTo1  1 False
-    go "3to1"        initUtxo chosenPolicy (renderEvery (10 *   5)) $ nTo1  3 False
-    go "3to1-narrow" initUtxo chosenPolicy (renderEvery (10 *   5)) $ nTo1  3 True
-    go "10to1"       initUtxo chosenPolicy (renderEvery (10 *  12)) $ nTo1 10 False
-    go "20to1"       initUtxo chosenPolicy (renderEvery (10 *  22)) $ nTo1 20 False
+    go "1to1"  initUtxo allPolicies  (renderEvery (10 *   3)) $ nTo1  1
+    go "3to1"  initUtxo chosenPolicy (renderEvery (10 *   5)) $ nTo1  3
+    go "10to1" initUtxo chosenPolicy (renderEvery (10 *  12)) $ nTo1 10
   where
     go = evaluateUsingEvents plotParams
 
@@ -594,12 +605,12 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
     renderEvery n step = step `mod` n == 0
 
     -- Event stream with a ratio of N:1 deposits:withdrawals
-    nTo1 :: Int -> Bool -> ConduitT () (Event GivenHash World) IO ()
-    nTo1 n narrow = Gen.fromDistr Gen.FromDistrParams {
+    nTo1 :: Int -> ConduitT () (Event GivenHash World) IO ()
+    nTo1 n = Gen.fromDistr Gen.FromDistrParams {
           Gen.fromDistrDep    = NormalDistr 1000 100
         , Gen.fromDistrPay    = NormalDistr
                                   (1000 * fromIntegral n)
-                                  (100  * if narrow then 1 else fromIntegral n)
+                                  (100  * fromIntegral n)
         , Gen.fromDistrNumDep = ConstDistr n
         , Gen.fromDistrNumPay = ConstDistr 1
         , Gen.fromDistrCycles = 10000

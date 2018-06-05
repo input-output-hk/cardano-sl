@@ -20,9 +20,10 @@ import           Universum
 import           Control.Lens ((%=), (.=))
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except (MonadError (..))
+import           Data.Fixed (Fixed, E2)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import           Test.QuickCheck
+import           Test.QuickCheck hiding (Fixed)
 
 import           Util.Histogram (BinSize (..), Histogram)
 import qualified Util.Histogram as Histogram
@@ -68,7 +69,7 @@ data TxStats = TxStats {
       txStatsNumInputs :: !Histogram
 
       -- | Change/payment ratios
-    , txStatsRatios    :: !(MultiSet Double)
+    , txStatsRatios    :: !(MultiSet (Fixed E2))
     }
 
 instance Monoid TxStats where
@@ -101,7 +102,7 @@ data PartialTxStats = PartialTxStats {
       ptxStatsNumInputs :: !Int
 
       -- | Change/payment ratios
-    , ptxStatsRatios    :: !(MultiSet Double)
+    , ptxStatsRatios    :: !(MultiSet (Fixed E2))
     }
 
 instance Monoid PartialTxStats where

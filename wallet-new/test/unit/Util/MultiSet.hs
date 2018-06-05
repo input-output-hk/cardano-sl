@@ -7,7 +7,6 @@ module Util.MultiSet (
   , union
   , singleton
   , size
-  , toList
   , findMin
   , medianWithDefault
   ) where
@@ -39,9 +38,6 @@ singleton a = MultiSet 1 (Map.singleton a 1)
 size :: MultiSet a -> Int
 size = multiSetSize
 
-toList :: MultiSet a -> [a]
-toList = concatMap (uncurry (flip replicate)) . Map.toList . multiSetElems
-
 findMin :: MultiSet a -> a
 findMin (MultiSet _ m) = fst (Map.findMin m)
 
@@ -51,6 +47,12 @@ findMin (MultiSet _ m) = fst (Map.findMin m)
 
 medianWithDefault :: a -> MultiSet a -> a
 medianWithDefault def s =
-    case drop (size s `div` 2) (toList s) of
-      []  -> def
-      a:_ -> a
+    case drop' (size s `div` 2) (Map.toList (multiSetElems s)) of
+      []      -> def
+      (a,_):_ -> a
+  where
+    drop' :: Int -> [(a, Int)] -> [(a, Int)]
+    drop' _ []           = []
+    drop' n ((a,m) : as) | n == m    = as
+                         | n <  m    = (a, m - n) : as
+                         | otherwise = drop' (n - m) as

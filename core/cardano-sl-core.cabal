@@ -40,7 +40,6 @@ library
                        Pos.Core.Block.Main
                        Pos.Core.Block.Union
 
-                       Pos.Core.Class
                        Pos.Core.Common
                        Pos.Core.Configuration
                        Pos.Core.Constants

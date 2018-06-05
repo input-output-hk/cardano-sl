@@ -22,9 +22,8 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
 
+import           Pos.Core (HasCoreConfiguration, HasGenesisData, epochIndexL)
 import           Pos.Core.Block.Union (ComponentBlock (..))
-import           Pos.Core.Class (epochIndexL)
-import           Pos.Core (HasCoreConfiguration, HasGenesisData)
 import           Pos.Core.Txp (TxAux, TxUndo, TxpUndo)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Class (gsAdoptedBVData)

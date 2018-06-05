@@ -1,5 +1,6 @@
 module Pos.Core.Update.BlockVersion
        ( BlockVersion (..)
+       , HasBlockVersion (..)
        ) where
 
 import           Universum
@@ -7,6 +8,8 @@ import           Universum
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, shown)
 import qualified Prelude
+
+import           Pos.Util.Some (Some, liftLensSome)
 
 -- | Communication protocol version.
 data BlockVersion = BlockVersion
@@ -25,3 +28,9 @@ instance Buildable BlockVersion where
 instance Hashable BlockVersion
 
 instance NFData BlockVersion
+
+class HasBlockVersion a where
+    blockVersionL :: Lens' a BlockVersion
+
+instance HasBlockVersion (Some HasBlockVersion) where
+    blockVersionL = liftLensSome blockVersionL

@@ -74,23 +74,27 @@ defaultPlotParams prefix = PlotParams {
   Statistics about the current value of the system
 -------------------------------------------------------------------------------}
 
--- | Statistics about the /current/ value of the system
+-- | Statistics about the /current/ value of the system at the end of a slot
 --
 -- This information is solely based on the current value of the system, and not
 -- affected by the system history. Consequently this does /NOT/ have a 'Monoid'
 -- instance.
-data CurrentStats = CurrentStats {
+data SlotStats = SlotStats {
       -- | Current UTxO size
-      currentUtxoSize      :: !Int
+      slotUtxoSize      :: !Int
+
+      -- | Current UTxO balance
+    , slotUtxoBalance   :: !Value
 
       -- | Current UTxO histogram
-    , currentUtxoHistogram :: !Histogram
+    , slotUtxoHistogram :: !Histogram
     }
 
-deriveCurrentStats :: BinSize -> Utxo h a -> CurrentStats
-deriveCurrentStats binSize utxo = CurrentStats {
-      currentUtxoSize      = utxoSize utxo
-    , currentUtxoHistogram = utxoHistogram binSize utxo
+deriveSlotStats :: BinSize -> Utxo h a -> SlotStats
+deriveSlotStats binSize utxo = SlotStats {
+      slotUtxoSize      = utxoSize              utxo
+    , slotUtxoBalance   = utxoBalance           utxo
+    , slotUtxoHistogram = utxoHistogram binSize utxo
     }
 
 utxoHistogram :: BinSize -> Utxo h a -> Histogram
@@ -161,41 +165,49 @@ writeTimeSeries fp shouldRender =
   Accumulated statistics
 -------------------------------------------------------------------------------}
 
--- | Accumulated statistics at a given step
-data AccStats = AccStats {
-      -- | Step counter
-      --
-      -- This is just a simple counter, incremented after each 'Event'
-      _accStep             :: !Int
-
+-- | Overall statistics that aren't related to slots
+data OverallStats = OverallStats {
       -- | Number of payment requests we failed to satisfy
-    , _accFailedPayments   :: !Int
+      _overallFailedPayments :: !Int
 
-      -- | Size of the UTxO over time
-    , _accUtxoSize         :: !(TimeSeries Int)
+      -- | Transaction statistics
+    , _overallTxStats        :: !TxStats
+    }
 
+makeLenses ''OverallStats
+
+initOverallStats :: OverallStats
+initOverallStats = OverallStats {
+      _overallFailedPayments = 0
+    , _overallTxStats        = mempty
+    }
+
+-- | Accumulated statistics at the end of each slot
+data AccSlotStats = AccSlotStats {
       -- | Maximum UTxO histogram
       --
       -- While not particularly meaningful as statistic to display, this is
       -- useful to determine bounds for rendering.
-    , _accUtxoMaxHistogram :: !Histogram
+      _accUtxoMaxHistogram :: !Histogram
 
-      -- | Transaction statistics
-    , _accTxStats          :: !TxStats
+      -- | Size of the UTxO over time
+    , _accUtxoSize         :: !(TimeSeries Int)
+
+      -- | Total balance of the UTxO over time
+    , _accUtxoBalance      :: !(TimeSeries Value)
 
       -- | Time series of the median change/payment ratio
     , _accMedianRatio      :: !(TimeSeries (Fixed E2))
     }
 
-makeLenses ''AccStats
 
-initAccumulatedStats :: AccStats
-initAccumulatedStats = AccStats {
-      _accStep             = 0
-    , _accFailedPayments   = 0
+makeLenses ''AccSlotStats
+
+initAccSlotStats :: AccSlotStats
+initAccSlotStats = AccSlotStats {
+      _accUtxoMaxHistogram = Histogram.empty
     , _accUtxoSize         = StartOfTime
-    , _accUtxoMaxHistogram = Histogram.empty
-    , _accTxStats          = mempty
+    , _accUtxoBalance      = StartOfTime
     , _accMedianRatio      = StartOfTime
     }
 
@@ -204,14 +216,14 @@ initAccumulatedStats = AccStats {
 -- For the median ratio timeseries, we use a default value of @-1@ as long as
 -- there are no outputs generated yet (since we plot from 0, this will then be
 -- not visible).
-stepAccStats :: CurrentStats -> AccStats -> AccStats
-stepAccStats CurrentStats{..} st =
-    st & accStep              %~ succ
-       & accUtxoMaxHistogram  %~ Histogram.max currentUtxoHistogram
-       & accUtxoSize          %~ MostRecent currentUtxoSize
-       & accMedianRatio       %~ MostRecent (MultiSet.medianWithDefault (-1) txStatsRatios)
+stepAccStats :: OverallStats -> SlotStats -> AccSlotStats -> AccSlotStats
+stepAccStats OverallStats{..} SlotStats{..} acc =
+    acc & accUtxoMaxHistogram %~ Histogram.max slotUtxoHistogram
+        & accUtxoSize         %~ MostRecent slotUtxoSize
+        & accUtxoBalance      %~ MostRecent slotUtxoBalance
+        & accMedianRatio      %~ MostRecent (MultiSet.medianWithDefault (-1) txStatsRatios)
   where
-    TxStats{..} = st ^. accTxStats
+    TxStats{..} = _overallTxStats
 
 {-------------------------------------------------------------------------------
   Interpreter state
@@ -220,7 +232,7 @@ stepAccStats CurrentStats{..} st =
 data IntState h a = IntState {
       _stUtxo       :: !(Utxo h a)
     , _stPending    :: !(Utxo h a)
-    , _stStats      :: !AccStats
+    , _stStats      :: !OverallStats
     , _stFreshHash  :: !Int
 
       -- | Change address
@@ -242,7 +254,7 @@ initIntState :: PlotParams -> Utxo h a -> a -> IntState h a
 initIntState PlotParams{..} utxo changeAddr = IntState {
       _stUtxo       = utxo
     , _stPending    = utxoEmpty
-    , _stStats      = initAccumulatedStats
+    , _stStats      = initOverallStats
     , _stFreshHash  = 1
     , _stChangeAddr = changeAddr
     , _stBinSize    = utxoBinSize
@@ -256,16 +268,6 @@ instance Monad m => RunPolicy (StrictStateT (IntState h a) m) a where
   Interpreter proper
 -------------------------------------------------------------------------------}
 
--- | Current UTxO statistics and accumulated statistics for each step
-mkFrame :: Monad m => StrictStateT (IntState h a) m (CurrentStats, AccStats)
-mkFrame = state aux
-  where
-    aux :: IntState h a -> ((CurrentStats, AccStats), IntState h a)
-    aux st = ((currentStats, accStats), st & stStats .~ accStats)
-      where
-        !currentStats = deriveCurrentStats (st ^. stBinSize) (st ^. stUtxo)
-        !accStats     = stepAccStats currentStats (st ^. stStats)
-
 -- | Interpreter for events, evaluating a policy
 --
 -- Turns a stream of events into a stream of observations and accumulated
@@ -276,31 +278,42 @@ intPolicy :: forall h a m. (Hash h a, Monad m)
           => InputSelectionPolicy h a (StrictStateT (IntState h a) m)
           -> (a -> Bool)
           -> IntState h a -- Initial state
-          -> ConduitT (Event h a) (CurrentStats, AccStats) m (IntState h a)
+          -> ConduitT (Event h a) (OverallStats, SlotStats) m (IntState h a)
 intPolicy policy ours initState =
     execStrictStateC initState $
       awaitForever $ \event -> do
-        lift $ go event
-        yield =<< lift mkFrame
+        isEndOfSlot <- lift $ go event
+        when isEndOfSlot $ do
+          slotStats <- deriveSlotStats' <$> get
+          yield slotStats
   where
-    go :: Event h a -> StrictStateT (IntState h a) m ()
-    go (Deposit new) =
+    deriveSlotStats' :: IntState h a -> (OverallStats, SlotStats)
+    deriveSlotStats' st = (
+          st ^. stStats
+        , deriveSlotStats (st ^. stBinSize) (st ^. stUtxo)
+        )
+
+    go :: Event h a -> StrictStateT (IntState h a) m Bool
+    go (Deposit new) = do
         stUtxo %= utxoUnion new
+        return False
     go NextSlot = do
         -- TODO: May want to commit only part of the pending transactions
         pending <- use stPending
         stUtxo    %= utxoUnion pending
         stPending .= utxoEmpty
+        return True
     go (Pay outs) = do
         utxo <- use stUtxo
         mtx  <- policy utxo outs
         case mtx of
           Right (tx, txStats) -> do
-            stUtxo               %= utxoRemoveInputs (trIns tx)
-            stPending            %= utxoUnion (utxoRestrictToAddr ours (trUtxo tx))
-            stStats . accTxStats %= mappend txStats
+            stUtxo    %= utxoRemoveInputs (trIns tx)
+            stPending %= utxoUnion (utxoRestrictToAddr ours (trUtxo tx))
+            stStats . overallTxStats %= mappend txStats
           Left _err ->
-            stStats . accFailedPayments += 1
+            stStats . overallFailedPayments += 1
+        return False
 
 {-------------------------------------------------------------------------------
   Compute bounds
@@ -317,6 +330,9 @@ data Bounds = Bounds {
 
       -- | Range of the UTxO size time series
     , _boundsUtxoSize      :: Ranges Int Int
+
+      -- | Range of the UTxO balance time series
+    , _boundsUtxoBalance   :: Ranges Int Value
 
       -- | Range of the transaction inputs
     , _boundsTxInputs      :: Ranges Int Int
@@ -342,14 +358,15 @@ makeLenses ''Bounds
 -- * For the change/payment ratio, we use a fixed yrange [0:2]. Anything below
 --   0 doesn't make sense (we use this for absent values); anything above 2
 --   isn't particularly interesting.
-deriveBounds :: AccStats -> Bounds
-deriveBounds AccStats{..} = Bounds {
+deriveBounds :: OverallStats -> AccSlotStats -> Bounds
+deriveBounds OverallStats{..} AccSlotStats{..} = Bounds {
       _boundsUtxoHistogram = Histogram.splitRanges 100000 _accUtxoMaxHistogram
                            & Range.splitYRange . Range.lo .~ 0
-    , _boundsTxInputs      = Histogram.range (txStatsNumInputs _accTxStats)
+    , _boundsTxInputs      = Histogram.range (txStatsNumInputs _overallTxStats)
                            & Range.x . Range.lo .~ 0
                            & Range.y . Range.lo .~ 0
     , _boundsUtxoSize      = timeSeriesRange (fromIntegral <$> _accUtxoSize)
+    , _boundsUtxoBalance   = timeSeriesRange _accUtxoBalance
     , _boundsMedianRatio   = timeSeriesRange _accMedianRatio
                            & Range.y .~ Range 0 2
     }
@@ -369,13 +386,13 @@ data PlotInstr = PlotInstr {
       --
       -- I.e., this is data like the UTxO and number of transaction inputs
       -- histogram (but not time series data, see 'piStep').
-      piFilePrefix :: FilePath
+      piFilePrefix     :: FilePath
 
       -- | Frame counter
       --
       -- This is used to determine how much of the time series data
       -- we want to display.
-    , piFrame :: Int
+    , piFrame          :: Int
 
       -- | Number of failed payment attempts
     , piFailedPayments :: Int
@@ -409,13 +426,17 @@ renderPlotInstr utxoBinSize
     % "unset label 1\n"
     % build
 
-    -- Plot UTxO size time series
+    -- Superimpose UTxO size and balance time seriess
     % "set xrange " % build % "\n"
     % "set yrange " % build % "\n"
+    % "set y2range " % build % "\n"
     % "set size 0.50,0.4\n"
     % "set origin 0.05,0.55\n"
     % "unset xtics\n"
-    % "plot 'growth' using 1:2 every ::0::" % build % " notitle\n"
+    % "set y2tics autofreq\n"
+    % "plot 'growth'  using 1:2 every ::0::" % build % " notitle axes x1y1 with points\n"
+    % "plot 'balance' using 1:2 every ::0::" % build % " notitle axes x1y2 with points linecolor rgbcolor 'blue'\n"
+    % "unset y2tics\n"
 
     -- Plot transaction number of inputs distribution
     % "set xrange " % build % "\n"
@@ -449,9 +470,11 @@ renderPlotInstr utxoBinSize
     piFilePrefix
     resetSplitAxis
 
-    -- UTxO time series
+    -- Superimposed UTxO size and balance time series
     (bounds ^. boundsUtxoSize . Range.x)
     (bounds ^. boundsUtxoSize . Range.y)
+    (bounds ^. boundsUtxoBalance . Range.y)
+    piFrame
     piFrame
 
     -- number of inputs
@@ -495,38 +518,43 @@ writePlotInstrs PlotParams{..} script bounds is = do
 -- | Sink that writes statistics to disk
 writeStats :: forall m. MonadIO m
            => FilePath      -- ^ Prefix for the files to create
-           -> (Int -> Bool) -- ^ Which steps should we render?
-           -> ConduitT (CurrentStats, AccStats) Void m [PlotInstr]
+           -> (Int -> Bool) -- ^ Which slots should we render?
+           -> ConduitT (OverallStats, SlotStats) Void m (AccSlotStats, [PlotInstr])
 writeStats prefix shouldRender =
-    loop [] 0
+    loop initAccSlotStats [] 0 0
   where
-    loop :: [PlotInstr]  -- ^ Accumulator
+    loop :: AccSlotStats -- ^ Accumulated slot statistics
+         -> [PlotInstr]  -- ^ Accumulated plot instructions
+         -> Int          -- ^ Slot number
          -> Int          -- ^ Rendered frame counter
-         -> ConduitT (CurrentStats, AccStats) Void m [PlotInstr]
-    loop acc frame = do
+         -> ConduitT (OverallStats, SlotStats) Void m (AccSlotStats, [PlotInstr])
+    loop accSlotStats accInstrs slot frame = do
         mObs <- await
         case mObs of
           Nothing ->
-            return $ reverse acc
-          Just (curStats, accStats) -> do
-            if shouldRender (accStats ^. accStep)
-              then do instr <- liftIO $ go frame curStats accStats
-                      loop (instr : acc) (frame + 1)
-              else loop acc frame
+            return (accSlotStats, reverse accInstrs)
+          Just (overallStats, slotStats) -> do
+            let accSlotStats' = stepAccStats overallStats slotStats accSlotStats
+                slot'         = slot + 1
+            (frame', accInstrs') <-
+              if shouldRender slot
+                then do instr <- liftIO $ go frame overallStats slotStats
+                        return (frame + 1, instr : accInstrs)
+                else return (frame, accInstrs)
+            loop accSlotStats' accInstrs' slot' frame'
 
-    go :: Int -> CurrentStats -> AccStats -> IO PlotInstr
-    go frame CurrentStats{..} accStats = do
-        Histogram.writeFile (filepath <.> "histogram") currentUtxoHistogram
-        Histogram.writeFile (filepath <.> "txinputs") (txStatsNumInputs txStats)
+    go :: Int -> OverallStats -> SlotStats -> IO PlotInstr
+    go frame OverallStats{..} SlotStats{..} = do
+        Histogram.writeFile (filepath <.> "histogram") slotUtxoHistogram
+        Histogram.writeFile (filepath <.> "txinputs") (txStatsNumInputs _overallTxStats)
         return PlotInstr {
             piFilePrefix     = filename
           , piFrame          = frame
-          , piFailedPayments = accStats ^. accFailedPayments
+          , piFailedPayments = _overallFailedPayments
           }
       where
         filename = printf "%08d" frame
         filepath = prefix </> filename
-        txStats  = accStats ^. accTxStats
 
 {-------------------------------------------------------------------------------
   Run evaluation
@@ -544,13 +572,16 @@ evaluatePolicy :: Hash h a
                -> (a -> Bool)    -- ^ Our addresses
                -> IntState h a   -- ^ Initial state
                -> ConduitT () (Event h a) IO ()
-               -> IO (AccStats, [PlotInstr])
+               -> IO (OverallStats, AccSlotStats, [PlotInstr])
 evaluatePolicy prefix shouldRender policy ours initState generator =
-    fmap (first (view stStats)) $
-      runConduit $
+      fmap aux $ runConduit $
         generator                       `fuse`
         intPolicy policy ours initState `fuseBoth`
         writeStats prefix shouldRender
+  where
+    aux :: (IntState h a, (AccSlotStats, [PlotInstr]))
+        -> (OverallStats, AccSlotStats, [PlotInstr])
+    aux (st, (acc, plot)) = (st ^. stStats, acc, plot)
 
 type NamedPolicy h =
     ( String
@@ -592,44 +623,43 @@ evaluateUsingEvents plotParams@PlotParams{..}
        -> IO ()
     go prefix' policy = do
         createDirectory prefix'
-        (stats, plotInstr) <- evaluatePolicy
+        (overallStats, accStats, plotInstr) <- evaluatePolicy
           prefix'
           shouldRender
           policy
           (== Us)
           (initIntState plotParams initUtxo Us)
           events
-        writeTimeSeries (prefix' </> "growth") shouldRender (stats ^. accUtxoSize)
-        writeTimeSeries (prefix' </> "ratio")  shouldRender (stats ^. accMedianRatio)
+        writeTimeSeries (prefix' </> "growth")  shouldRender (accStats ^. accUtxoSize)
+        writeTimeSeries (prefix' </> "balance") shouldRender (accStats ^. accUtxoBalance)
+        writeTimeSeries (prefix' </> "ratio")   shouldRender (accStats ^. accMedianRatio)
         writePlotInstrs
           plotParams
           (prefix' </> "mkframes.gnuplot")
-          (deriveBounds stats)
+          (deriveBounds overallStats accStats)
           plotInstr
 
 evaluateInputPolicies :: PlotParams -> IO ()
 evaluateInputPolicies plotParams@PlotParams{..} = do
-    go "1to1"  [largest]    3   500 $ nTo1  1
-    go "1to1"  [randomOff]  3 10000 $ nTo1  1
-    go "1to1"  [randomOn]   3 10000 $ nTo1  1
-    go "3to1"  [randomOn]   5 10000 $ nTo1  3
-    go "10to1" [randomOn]  12 10000 $ nTo1 10
+    go "1to1"  [largest]     600 $ nTo1  1
+    go "1to1"  [randomOff] 10000 $ nTo1  1
+    go "1to1"  [randomOn]  10000 $ nTo1  1
+    go "3to1"  [randomOn]  10000 $ nTo1  3
+    go "10to1" [randomOn]  10000 $ nTo1 10
   where
-    go :: FilePath  -- Prefix for this event stream
+    go :: FilePath                -- Prefix for this event stream
        -> [NamedPolicy GivenHash] -- Policies to evaluate
-       -> Int       -- Number of steps we have per cycle on average
-                    -- (Used to determine sampling rate)
-       -> Int       -- Total number of cycles
+       -> Int                     -- Total number of cycles
        -> (Int -> ConduitT () (Event GivenHash World) IO ())
                     -- Event stream (parameterized by number of cycles)
        -> IO ()
-    go eventsPrefix policies stepsPerCycle numCycles events =
+    go eventsPrefix policies numCycles events =
       evaluateUsingEvents
         plotParams
         eventsPrefix
         initUtxo
         policies
-        (renderEvery ((numCycles `div` numFrames) * stepsPerCycle))
+        (renderEvery (numCycles `div` numFrames))
         (events numCycles)
 
     -- Number of frames we want for each animation

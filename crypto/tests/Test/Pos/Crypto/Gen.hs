@@ -43,7 +43,7 @@ module Test.Pos.Crypto.Gen
         -- SafeSigner Generators
         , genSafeSigner
 
-        -- Passphrase Generators
+        -- PassPhrase Generators
         , genPassPhrase
 
         -- HD Generators
@@ -242,7 +242,7 @@ genAbstractHash
 genAbstractHash genA = abstractHash <$> genA
 
 ----------------------------------------------------------------------------
--- Passphrase Generators
+-- PassPhrase Generators
 ----------------------------------------------------------------------------
 
 genPassPhrase :: Gen PassPhrase
@@ -276,6 +276,7 @@ genHDAddressPayload = HDAddressPayload <$> gen32Bytes
 ----------------------------------------------------------------------------
 -- Helper Generators
 ----------------------------------------------------------------------------
+
 genBytes :: Int -> Gen ByteString
 genBytes n = Gen.bytes (Range.singleton n)
 

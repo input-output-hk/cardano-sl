@@ -16,8 +16,8 @@ import           Universum
 
 import           Control.Lens (at, uses, (%=), (.=))
 import qualified Crypto.Random as Rand
-import           Pos.Util.Log (CanLog, HasLoggerName (..), LogEvent, NamedPureLogger (..),
-                               WithLogger, dispatchEvents, runNamedPureLog)
+--import           Pos.Util.Log (CanLog, HasLoggerName (..), LogEvent, NamedPureLogger (..),
+--                               WithLogger, dispatchEvents, runNamedPureLog)
 
 import           Pos.Core (BlockVersionData, EpochIndex, HasGenesisData, HasProtocolConstants,
                            crucialSlot, genesisVssCerts)
@@ -36,16 +36,14 @@ type MultiRichmenSet   = HashMap EpochIndex RichmenSet
 -- them with the same seed every time is insecure and must not be done.
 newtype PureToss a = PureToss
     { getPureToss :: StateT SscGlobalState (
-                     NamedPureLogger (
+                     {-NamedPureLogger-} (
                      Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
-    } deriving (Functor, Applicative, Monad,
-                CanLog, HasLoggerName, Rand.MonadRandom)
+    } deriving (Functor, Applicative, Monad, Rand.MonadRandom)
 
 newtype PureTossWithEnv a = PureTossWithEnv
     { getPureTossWithEnv ::
           ReaderT (MultiRichmenStakes, BlockVersionData) PureToss a
-    } deriving (Functor, Applicative, Monad, Rand.MonadRandom,
-                CanLog, HasLoggerName)
+    } deriving (Functor, Applicative, Monad, Rand.MonadRandom)
 
 deriving instance (HasProtocolConstants, HasGenesisData) => MonadTossRead PureTossWithEnv
 deriving instance (HasProtocolConstants, HasGenesisData) => MonadToss PureTossWithEnv
@@ -86,33 +84,34 @@ runPureToss
     :: Rand.MonadRandom m
     => SscGlobalState
     -> PureToss a
-    -> m (a, SscGlobalState, [LogEvent])
+    -> m (a, SscGlobalState {-, [LogEvent] -})
 runPureToss gs (PureToss act) = do
     seed <- Rand.drgNew
-    let ((res, newGS), events) =
+    let ((res, newGS) {-, events -}) =
             fst . Rand.withDRG seed $    -- run MonadRandom
-            runNamedPureLog $            -- run NamedPureLogger
+            --runNamedPureLog $            -- run NamedPureLogger
             runStateT act gs             -- run State
-    pure (res, newGS, events)
+    pure (res, newGS {-, events -})
 
 runPureTossWithLogger
-    :: (WithLogger m, Rand.MonadRandom m)
+    :: Rand.MonadRandom m
     => SscGlobalState
     -> PureToss a
     -> m (a, SscGlobalState)
 runPureTossWithLogger gs act = do
-    (res, newGS, events) <- runPureToss gs act
-    (res, newGS) <$ dispatchEvents events
+    (res, newGS {-, events -}) <- runPureToss gs act
+    --(res, newGS) <$ dispatchEvents events
+    return (res, newGS)
 
 evalPureTossWithLogger
-    :: (WithLogger m, Rand.MonadRandom m)
+    :: Rand.MonadRandom m
     => SscGlobalState
     -> PureToss a
     -> m a
 evalPureTossWithLogger g = fmap fst . runPureTossWithLogger g
 
 execPureTossWithLogger
-    :: (WithLogger m, Rand.MonadRandom m)
+    :: Rand.MonadRandom m
     => SscGlobalState
     -> PureToss a
     -> m SscGlobalState

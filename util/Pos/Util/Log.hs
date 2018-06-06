@@ -25,20 +25,20 @@ module Pos.Util.Log
        , logError
        , logMessage
        ---
-       , LoggerName
+       , LoggerName 
        , addLoggerName
        , usingLoggerName
        ) where
 
 import           Universum
 
+import           Control.Lens (each)
 import           Control.Monad.Base (MonadBase)
 import           Control.Monad.Morph (MFunctor (..))
 import           Control.Monad.Writer (WriterT (..))
-import           Control.Lens (each)
 
-import           Pos.Util.LoggerConfig
 import           Pos.Util.Log.Severity (Severity (..))
+import           Pos.Util.LoggerConfig
 
 import qualified Data.Text as T
 import           Data.Text.Lazy.Builder
@@ -96,7 +96,6 @@ instance CanLog m => CanLog (StateT s m)
 instance CanLog m => CanLog (ExceptT s m)
 
 instance HasLoggerName (LogContextT IO)
-
 
 -- | log a Text with severity
 logMessage :: (LogContext m {-, HasCallStack -}) => Severity -> Text -> m ()
@@ -159,33 +158,35 @@ setupLogging lc = do
             -- setup scribes according to configuration
             let --minSev = _lc ^. lcLoggerTree ^. ltMinSeverity
                 lhs = _lc ^. lcLoggerTree ^. ltHandlers ^.. each
-            scs <- forM lhs (\lh -> case (lh ^. lhBackend) of
-                            FileJsonBE -> do  -- TODO
-                                scribe <- mkFileScribe
-                                              (fromMaybe "<unk>" $ lh ^. lhFpath)
-                                              True
-                                              (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
-                                              K.V0
-                                return (lh ^. lhName, scribe)
-                            FileTextBE -> do
-                                scribe <- mkFileScribe
-                                              (fromMaybe "<unk>" $ lh ^. lhFpath)
-                                              True
-                                              (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
-                                              K.V0
-                                return (lh ^. lhName, scribe)
-                            StdoutBE -> do
-                                scribe <- mkStdoutScribe
-                                              (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
-                                              K.V0
-                                return (lh ^. lhName, scribe)
-                            DevNullBE -> do
-                                scribe <- mkDevNullScribe
-                                              (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
-                                              K.V0
-                                return (lh ^. lhName, scribe)
-                        )
-            return scs
+                basepath = _lc ^. lcBasePath
+            forM lhs (\lh -> case (lh ^. lhBackend) of
+                    FileJsonBE -> do  -- TODO
+                        scribe <- mkFileScribe
+                                      (fromMaybe "" basepath)
+                                      (fromMaybe "<unk>" $ lh ^. lhFpath)
+                                      True
+                                      (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                      K.V0
+                        return (lh ^. lhName, scribe)
+                    FileTextBE -> do
+                        scribe <- mkFileScribe
+                                      (fromMaybe "" basepath)
+                                      (fromMaybe "<unk>" $ lh ^. lhFpath)
+                                      True
+                                      (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                      K.V0
+                        return (lh ^. lhName, scribe)
+                    StdoutBE -> do
+                        scribe <- mkStdoutScribe
+                                      (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                      K.V0
+                        return (lh ^. lhName, scribe)
+                    DevNullBE -> do
+                        scribe <- mkDevNullScribe
+                                      (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
+                                      K.V0
+                        return (lh ^. lhName, scribe)
+                 )
 
 
 -- | provide logging in IO
@@ -206,7 +207,7 @@ loggerBracket name f = do
                           \le_ -> K.runKatipContextT le_ () (Internal.s2kname name) $ f
 
 setLogPrefix :: Maybe FilePath -> LoggerConfig -> IO (LoggerConfig)
-setLogPrefix Nothing lc = return lc
+setLogPrefix Nothing lc     = return lc
 setLogPrefix bp@(Just _) lc = return lc{ _lcBasePath = bp }
 
 loadLogConfig :: Maybe FilePath -> Maybe FilePath -> IO ()
@@ -223,7 +224,7 @@ setLogBasePath :: FilePath -> IO ()
 setLogBasePath fp = do
     maycfg <- Internal.getConfig
     case maycfg of
-              Nothing -> return ()
+              Nothing  -> return ()
               Just cfg -> Internal.updateConfig cfg{ _lcBasePath = Just fp}
 
 

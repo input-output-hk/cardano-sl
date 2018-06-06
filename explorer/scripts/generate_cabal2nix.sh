@@ -29,7 +29,7 @@ set -xe
 
 for item in $items
 do
-  revision=$(git ls-remote $item | grep refs/heads/master | cut -f 1)
-  project_name=$(echo $item | sed -n 's#.*/\([^.]*\)\.git#\1#p')
+  revision=$(git ls-remote "$item" | grep refs/heads/master | cut -f 1)
+  project_name=$(echo "$item" | sed -n 's#.*/\([^.]*\)\.git#\1#p')
   echo "cabal2nix $item --revision $revision > $project_name.nix"
 done

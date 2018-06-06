@@ -5,4 +5,4 @@ echo "Wait for 50 sec while gathering results..."
 echo "Analysing logs..."
 stack exec bench-log-reader -- -i sender.log -i receiver0.log -i receiver1.log -i receiver2.log
 echo "Copying results to clipboard"
-cat measures.csv | xclip -selection clipboard
+xclip -selection clipboard < measures.csv

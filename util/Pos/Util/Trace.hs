@@ -1,23 +1,26 @@
+{-# LANGUAGE RankNTypes #-}
 
 module Pos.Util.Trace
     ( Trace (..)
     , TraceIO
+    , natTrace
     , trace
     , traceWith
     , noTrace
     -- * log messages
     , stdoutTrace
+    , stdoutTraceConcurrent
     , logTrace
     , logDebug
     , logInfo
     , logWarning
     , logNotice
     , logError
-    -- * Pos.Util.Log reexport
     , Log.Severity (..)
     ) where
 
-import           Universum hiding (trace)
+import           Universum hiding (trace, newEmptyMVar)
+import           Control.Concurrent.MVar (newEmptyMVar, withMVar)
 import           Data.Functor.Contravariant (Contravariant (..), Op (..))
 import qualified Data.Text.IO as TIO
 import qualified Pos.Util.Log as Log
@@ -32,6 +35,9 @@ type TraceIO = Trace IO (Log.Severity, Text)
 instance Contravariant (Trace m) where
     contramap f = Trace . contramap f . runTrace
 
+natTrace :: (forall x . m x -> n x) -> Trace m s -> Trace n s
+natTrace nat (Trace (Op tr)) = Trace $ Op $ nat . tr
+
 trace :: Trace m s -> s -> m ()
 trace = getOp . runTrace
 
@@ -45,9 +51,16 @@ traceWith = trace
 noTrace :: Applicative m => Trace m a
 noTrace = Trace $ Op $ const (pure ())
 
--- | 'Trace' to stdout.
+-- | Trace lines to stdout, without concurrency control.
 stdoutTrace :: Trace IO Text
 stdoutTrace = Trace $ Op $ TIO.putStrLn
+
+-- | Trace lines to stdout, with concurrency control.
+stdoutTraceConcurrent :: IO (Trace IO Text)
+stdoutTraceConcurrent = do
+    mv <- newEmptyMVar :: IO (MVar ())
+    let traceIt = \txt -> withMVar mv $ \_ -> TIO.putStrLn txt
+    pure $ Trace $ Op $ traceIt
 
 -- | A 'Trace' that uses logging
 logTrace :: Log.LoggerName -> TraceIO
@@ -68,4 +81,3 @@ logNotice lt = contramap ((,) Log.Notice) lt
 
 logError :: TraceIO -> Trace IO Text
 logError lt = contramap ((,) Log.Error) lt
-

@@ -5,7 +5,7 @@ set -o pipefail
 echo "Cleaning all databases and artifacts..."
 
 echo "Are you sure you want to remove .stack-work directory? You will have to rebuild Cardano SL completely. Type 'yes' to continue..."
-read DECISION
+read -r DECISION
 if [ "${DECISION}" == "yes" ]; then
     echo "Cleaning Cardano SL stack-work..."
     rm -rf .stack-work

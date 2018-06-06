@@ -33,7 +33,7 @@ import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..), Signature (
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 import           Pos.Merkle (MerkleRoot (..))
 import           Pos.Txp.Base (emptyTxPayload)
-import           Pos.Util.Chrono (NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
 
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
 

@@ -44,7 +44,7 @@ import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page, defaultPageS
 import qualified Pos.Explorer.DB as DB
 import           Pos.Txp (topsortTxs)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst)
 
 
 ----------------------------------------------------------------------------

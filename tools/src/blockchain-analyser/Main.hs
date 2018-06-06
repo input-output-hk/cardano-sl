@@ -18,7 +18,7 @@ import qualified Pos.DB.Block.Load as DB
 import           Pos.DB.Class (getBlock)
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Launcher (withConfigurations)
-import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.Core.Chrono (NewestFirst (..))
 
 import           Options (CLIOptions (..), getOptions)
 import           Rendering (render, renderBlock, renderBlocks, renderHeader)

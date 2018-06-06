@@ -49,7 +49,7 @@ import           Pos.Lrc.Consumer.Delegation (getDlgRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenSet)
 import           Pos.Util (getKeys, _neHead)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 
 
 -- Copied from 'these' library.

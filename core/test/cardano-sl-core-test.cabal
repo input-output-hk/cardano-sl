@@ -1,8 +1,8 @@
-name:                cardano-sl-util-test
+name:                cardano-sl-core-test
 version:             1.1.0
-synopsis:            Cardano SL - general utilities (tests)
-description:         QuickCheck Arbitrary instances for the Cardano SL general
-                     utilities package.
+synopsis:            Cardano SL - core functionalit (tests)
+description:         QuickCheck Arbitrary instances for the Cardano SL core
+                     functionality.
 license:             MIT
 license-file:        LICENSE
 author:              Serokell
@@ -14,18 +14,12 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-                       Test.Pos.Util.Base16
-                       Test.Pos.Util.QuickCheck
-                       Test.Pos.Util.Modifier
-                       Test.Pos.Util.Orphans
-                       Test.Pos.Util.QuickCheck.Property
-                       Test.Pos.Util.QuickCheck.Arbitrary
+                       Test.Pos.Core.Chrono
 
   build-depends:       QuickCheck
-                     , attoparsec
                      , base
-                     , base16-bytestring
                      , bytestring
+                     , cardano-sl-core
                      , cardano-sl-util
                      , cryptonite
                      , formatting

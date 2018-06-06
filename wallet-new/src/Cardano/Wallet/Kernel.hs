@@ -49,7 +49,7 @@ import           Pos.Core (TxAux, sumCoins)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey, hash)
 import           Pos.Txp (Utxo)
-import           Pos.Util.Chrono (OldestFirst)
+import           Pos.Core.Chrono (OldestFirst)
 
 -- import           Cardano.Wallet.Orphans ()
 

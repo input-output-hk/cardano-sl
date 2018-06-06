@@ -64,11 +64,10 @@ import           Serokell.Util.Base16 (base16F)
 import           Serokell.Util.Text (listJson, mapJson)
 
 import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Limit (Limit (..))
 import           Pos.Core.Update (BlockVersion)
 import           Pos.Infra.Communication.BiP (BiP)
-import           Pos.Infra.Communication.Limits.Types (Limit (..))
-import           Pos.Infra.Network.Types (MsgType (..), NodeId (..),
-                                          NodeType (..), Origin (..))
+import           Pos.Infra.Network.Types (MsgType (..), NodeId (..), NodeType (..), Origin (..))
 import           Pos.Util.Util (toAesonError)
 
 type PackingType = BiP

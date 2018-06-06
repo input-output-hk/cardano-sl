@@ -54,7 +54,7 @@ import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..),
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
                                   _OldestFirst)
 import           Pos.Util.Util (lensOf)
 

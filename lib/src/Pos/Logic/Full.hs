@@ -23,6 +23,7 @@ import           Pos.Communication (NodeId)
 import           Pos.Core (Block, BlockHeader, BlockVersionData, HasConfiguration, HeaderHash,
                            ProxySKHeavy, StakeholderId, TxAux (..), addressHash, getCertId,
                            lookupVss)
+import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Ssc (getCommitmentsMap)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (hash)
@@ -56,7 +57,6 @@ import qualified Pos.Update.Logic.Local as Update (getLocalProposalNVotes, getLo
                                                    isProposalNeeded, isVoteNeeded)
 import           Pos.Update.Mode (UpdateMode)
 import qualified Pos.Update.Network.Listeners as Update (handleProposal, handleVote)
-import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Util.Util (HasLens (..))
 
 -- The full logic layer uses existing pieces from the former monolithic

@@ -11,7 +11,7 @@ module Cardano.Wallet.API.Request (
 
 
 import           Formatting (bprint, build, (%))
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), deriveSafeBuildable)
+import           Pos.Util.Log.LogSafe (BuildableSafeGen (..), deriveSafeBuildable)
 
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination (PaginationMetadata (..), PaginationParams)

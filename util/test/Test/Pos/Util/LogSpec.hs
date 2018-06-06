@@ -6,7 +6,7 @@ import           Universum hiding (replicate)
 
 import           Control.Concurrent (threadDelay)
 
-import           Data.Text (replicate, append)
+import           Data.Text (append, replicate)
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import           Data.Time.Units (Microsecond, fromMicroseconds)
 import           Test.Hspec (Spec, describe, it)
@@ -16,6 +16,7 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import           Pos.Util.Log
 import           Pos.Util.Log.Internal (getLinesLogged)
+import           Pos.Util.Log.LogSafe (logDebugS, logErrorS, logInfoS, logNoticeS, logWarningS)
 import           Pos.Util.Log.Severity (Severity (..))
 import           Pos.Util.LoggerConfig (defaultTestConfiguration)
 
@@ -77,6 +78,40 @@ run_logging sev n n0 n1= do
         return (diffTime, linesLogged)
         where msg :: Text
               msg = replicate n "abcdefghijklmnopqrstuvwxyz"
+----
+prop_sevS :: Property
+prop_sevS =
+    monadicIO $ do
+        let n0 = 200
+            n1 = 1
+        (_, linesLogged) <- run (run_loggingS Warning 10 n0 n1)
+        -- multiply by 2 because Debug, Info and Notice messages must not be logged
+        assert (linesLogged == n0 * n1 * 2)
+
+run_loggingS :: Severity -> Int -> Integer -> Integer-> IO (Microsecond, Integer)
+run_loggingS sev n n0 n1= do
+        startTime <- getPOSIXTime
+{- -}
+        setupLogging $ defaultTestConfiguration sev
+        forM_ [1..n0] $ \_ ->
+            usingLoggerName "test_log" $
+                forM_ [1..n1] $ \_ -> do
+                    logDebugS   msg
+                    logInfoS    msg
+                    logNoticeS  msg
+                    logWarningS msg
+                    logErrorS   msg
+
+{- -}
+        endTime <- getPOSIXTime
+        threadDelay 0500000
+        diffTime <- return $ nominalDiffTimeToMicroseconds (endTime - startTime)
+        putStrLn $ "  time for " ++ (show (n0*n1)) ++ " iterations: " ++ (show diffTime)
+        linesLogged <- getLinesLogged
+        putStrLn $ "  lines logged :" ++ (show linesLogged)
+        return (diffTime, linesLogged)
+        where msg :: Text
+              msg = replicate n "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 -- | example: setup logging
 example_setup :: IO ()

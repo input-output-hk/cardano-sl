@@ -48,9 +48,9 @@ import           Pos.Util.LoggerConfig
 import qualified Data.Text as T
 import           Data.Text.Lazy.Builder
 
+import           Pos.Util.Log.Internal (LoggingHandler)
 import qualified Pos.Util.Log.Internal as Internal
 import           Pos.Util.Log.Scribes
-import           Pos.Util.Log.Internal (LoggingHandler)
 
 import qualified Katip as K
 import qualified Katip.Core as KC
@@ -64,10 +64,13 @@ type WithLogger m = (CanLog m, HasLoggerName m)
 
 type LoggerName = Text
 
--- | compatibility
+-- -- | compatibility
 class (MonadIO m, LogContext m) => CanLog m where
     dispatchMessage :: LoggerName -> Severity -> Text -> m ()
     dispatchMessage _ s t = K.logItemM Nothing (Internal.sev2klog s) $ K.logStr t
+
+-- class (MonadIO m, LogContext m) => CanLog m where
+--     dispatchMessage :: LoggerName -> Severity -> Text -> m ()
 
 class (MonadIO m, LogContext m) => HasLoggerName m where
     askLoggerName' :: m LoggerName

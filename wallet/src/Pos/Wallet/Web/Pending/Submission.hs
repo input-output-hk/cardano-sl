@@ -25,7 +25,7 @@ import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (diffTimestamp, getCurrentTimestamp)
 import           Pos.Core.Txp (TxAux)
-import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF)
+import           Pos.Util.Log.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Error (WalletError (InternalError))
 import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure, ptxPoolInfo,

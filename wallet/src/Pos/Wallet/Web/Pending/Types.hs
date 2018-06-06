@@ -37,8 +37,7 @@ import           Pos.Client.Txp.History (TxHistoryEntry)
 import           Pos.Core.Common (ChainDifficulty)
 import           Pos.Core.Slotting (FlatSlotId, SlotId)
 import           Pos.Core.Txp (TxAux, TxId)
-import           Pos.Infra.Util.LogSafe (LogSecurityLevel, SecureLog,
-                                         getSecureLog, secure, unsecure)
+import           Pos.Util.Log.LogSafe (LogSecurityLevel, SecureLog, getSecureLog, secure, unsecure)
 import           Pos.Wallet.Web.ClientTypes.Types (CId, Wal)
 
 -- | Required information about block where given pending transaction is sited
@@ -94,11 +93,11 @@ data PtxCondition
 
 instance NFData PtxCondition where
     rnf x = case x of
-        PtxApplying n -> rnf n
+        PtxApplying n       -> rnf n
         PtxInNewestBlocks n -> rnf n
-        PtxPersisted -> ()
-        PtxWontApply n m -> n `deepseq` m `deepseq` ()
-        PtxCreating n -> rnf n
+        PtxPersisted        -> ()
+        PtxWontApply n m    -> n `deepseq` m `deepseq` ()
+        PtxCreating n       -> rnf n
 
 makePrisms ''PtxCondition
 

@@ -22,9 +22,9 @@ import           Pos.Exception (reportFatalError)
 import           Pos.Lrc.DB.Common (getEpoch)
 import           Pos.Lrc.Error (LrcError (..))
 import           Pos.Util.Concurrent (readTVarConditional)
-import           Pos.Util.Util (HasLens (..), HasLens', maybeThrow)
 import           Pos.Util.Trace (Trace)
 import           Pos.Util.Trace.Unstructured (Severity)
+import           Pos.Util.Util (HasLens (..), HasLens', maybeThrow)
 
 data LrcContext = LrcContext
     { -- | Primitive for synchronization with LRC.
@@ -36,7 +36,7 @@ type HasLrcContext ctx = HasLens' ctx LrcContext
 -- | Create a new 'LrcContext' with the same contents as the given
 -- context has.
 cloneLrcContext ::
-       (MonadIO m, MonadThrow m) => 
+       (MonadIO m, MonadThrow m) =>
        Trace m (Severity, Text) -> LrcContext -> m LrcContext
 cloneLrcContext logTrace LrcContext {..} = do
     readTVarIO lcLrcSync >>= \case

@@ -23,6 +23,8 @@ import           Mockable (CurrentTime, Mockable, currentTime)
 import           Numeric.Lens (dividing)
 import qualified Prelude
 
+import           Pos.Util.Log.LogSafe (SecureLog)
+
 -- | Timestamp is a number which represents some point in time. It is
 -- used in MonadSlots and its meaning is up to implementation of this
 -- type class. The only necessary knowledge is that difference between
@@ -45,6 +47,9 @@ instance Read Timestamp where
 
 instance Buildable Timestamp where
     build = Buildable.build . toInteger
+
+instance Buildable (SecureLog Timestamp) where
+    build _ = "<timestamp>"
 
 instance NFData Timestamp where
     rnf Timestamp{..} = rnf (toInteger getTimestamp)

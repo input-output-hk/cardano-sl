@@ -45,8 +45,8 @@ module Pos.Core.Txp
 
 import           Universum
 
-import           Control.Monad.Except (MonadError(throwError))
 import           Control.Lens (makeLenses, makePrisms)
+import           Control.Monad.Except (MonadError (throwError))
 import           Data.Hashable (Hashable)
 import qualified Data.Text.Buildable as Buildable
 import           Data.Vector (Vector)
@@ -59,14 +59,18 @@ import           Serokell.Util.Verify (VerificationRes (..), verResSingleF, veri
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Common (Address (..), Coin (..), Script, addressHash, coinF, checkCoin)
+import           Pos.Core.Common (Address (..), Coin (..), Script, addressHash, checkCoin, coinF)
 import           Pos.Crypto (Hash, PublicKey, RedeemPublicKey, RedeemSignature, Signature, hash,
                              shortHashF)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 import           Pos.Merkle (MerkleRoot, mkMerkleTree, mtRoot)
+import           Pos.Util.Log.LogSafe (SecureLog)
 
 -- | Represents transaction identifier as 'Hash' of 'Tx'.
 type TxId = Hash Tx
+
+instance Buildable (SecureLog TxId) where
+    build _ = "<txid>"
 
 ----------------------------------------------------------------------------
 -- Witness

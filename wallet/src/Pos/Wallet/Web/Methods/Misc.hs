@@ -49,10 +49,10 @@ import           Pos.Core (HasConfiguration, SlotId, SoftwareVersion (..))
 import           Pos.Crypto (hashHexF)
 import           Pos.Infra.Shutdown (HasShutdownContext, triggerShutdown)
 import           Pos.Infra.Slotting (MonadSlots, getCurrentSlotBlocking)
-import           Pos.Infra.Util.LogSafe (logInfoUnsafeP)
 import           Pos.Txp (TxId, TxIn, TxOut)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util (maybeThrow)
+import           Pos.Util.Log.LogSafe (logInfoUnsafeP)
 import           Pos.Util.Servant (HasTruncateLogPolicy (..))
 import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Aeson.Storage ()
@@ -66,8 +66,7 @@ import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (WalletDbReader, WalletSnapshot, askWalletDB,
                                        askWalletSnapshot, cancelApplyingPtxs,
                                        cancelSpecificApplyingPtx, getNextUpdate, getProfile,
-                                       removeNextUpdate, resetFailedPtxs,
-                                       setProfile, testReset)
+                                       removeNextUpdate, resetFailedPtxs, setProfile, testReset)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, testOnlyEndpoint)
 
 ----------------------------------------------------------------------------

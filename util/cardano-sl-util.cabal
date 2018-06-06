@@ -33,6 +33,7 @@ library
                        Pos.Util.Log
                        Pos.Util.LoggerConfig
                        Pos.Util.Log.Internal
+                       Pos.Util.Log.LogSafe
                        Pos.Util.Log.Severity
                        Pos.Util.Log.Scribes
                        Pos.Util.Limits
@@ -167,6 +168,7 @@ test-suite test
                      , serokell-util >= 0.1.3.4
                      , stm
                      , text
+                     , text-format
                      , time
                      , time-units
                      , universum >= 0.1.11

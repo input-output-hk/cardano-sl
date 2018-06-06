@@ -22,11 +22,11 @@ import qualified Test.QuickCheck as QC
 import           Pos.Arbitrary.Ssc ()
 import           Pos.Binary.Class (AsBinary, asBinary, fromBinary)
 import           Pos.Binary.Ssc ()
-import           Pos.Core (EpochIndex, SlotId (..), StakeholderId,
-                           Timestamp (..), VssCertificate (..), VssCertificatesMap (..),
-                           blkSecurityParam, bvdMpcThd, getOurSecretKey, getOurStakeholderId,
-                           getSlotIndex, lookupVss, memberVss, mkLocalSlotIndex, mkVssCertificate,
-                           slotSecurityParam, vssMaxTTL)
+import           Pos.Core (EpochIndex, SlotId (..), StakeholderId, Timestamp (..),
+                           VssCertificate (..), VssCertificatesMap (..), blkSecurityParam,
+                           bvdMpcThd, getOurSecretKey, getOurStakeholderId, getSlotIndex, lookupVss,
+                           memberVss, mkLocalSlotIndex, mkVssCertificate, slotSecurityParam,
+                           vssMaxTTL)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment, getCommitmentsMap)
 import           Pos.Crypto (SecretKey, VssKeyPair, VssPublicKey, randomNumber, runSecureRandom)
 import           Pos.Crypto.Configuration (protocolMagic)
@@ -35,12 +35,9 @@ import           Pos.DB (gsAdoptedBVData)
 import           Pos.Infra.Binary ()
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Infra.Recovery.Info (recoveryCommGuard)
-import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..),
-                                               MisbehaviorMetrics (..))
+import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Infra.Slotting (defaultOnNewSlotParams, getCurrentSlot,
                                      getSlotStartEmpatically, onNewSlot)
-import           Pos.Infra.Util.LogSafe (logDebugS, logErrorS, logInfoS,
-                                         logWarningS)
 import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentIdx, isOpeningIdx, isSharesIdx,
@@ -59,6 +56,7 @@ import           Pos.Ssc.Toss (computeParticipants, computeSharesDistrPure)
 import           Pos.Ssc.Types (HasSscContext (..), scBehavior, scParticipateSsc, scVssKeyPair,
                                 sgsCommitments)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Log.LogSafe (logDebugS, logErrorS, logInfoS, logWarningS)
 import           Pos.Util.Util (getKeys, leftToPanic)
 
 sscWorkers

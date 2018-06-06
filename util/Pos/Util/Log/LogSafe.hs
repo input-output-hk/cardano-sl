@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds                 #-}
+-- {-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE KindSignatures            #-}
@@ -9,10 +10,10 @@
 
 -- | Safe/secure logging
 
-module Pos.Infra.Util.LogSafe
+module Pos.Util.Log.LogSafe
        ( -- * Logging functions
-         --SelectiveLogWrapped(..)
-         logMessageS
+         SelectiveLogWrapped(..)
+       , logMessageS
        , logDebugS
        , logInfoS
        , logNoticeS
@@ -58,23 +59,25 @@ module Pos.Infra.Util.LogSafe
 
 import           Universum
 
+import           Control.Concurrent (myThreadId)
+import           Control.Lens (each)
 import           Control.Monad.Trans (MonadTrans)
-import           Data.List (isSuffixOf)
+import           Data.Map.Strict (lookup)
 import           Data.Reflection (Reifies (..), reify)
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (bprint, build, fconst, later, mapf, (%))
 import           Formatting.Internal (Format (..))
 import qualified Language.Haskell.TH as TH
-import           Serokell.Util (listJson)
-import           Pos.Util.Log (WithLogger, CanLog (..), HasLoggerName (..), Severity (..){-, logMCond-})
---import           System.Wlog.LogHandler (LogHandlerTag (HandlerFilelike))
 
-import           Pos.Binary.Core ()
-import           Pos.Core (Timestamp, TxId)
-import           Pos.Core.Common (Address, Coin)
-import           Pos.Crypto (PassPhrase)
+import           Pos.Util.Log (CanLog (..), HasLoggerName (..), LogContext, Severity (..),
+                               WithLogger)
+import           Pos.Util.Log.Internal (getConfig, getLogEnv, sev2klog)
+import           Pos.Util.LoggerConfig (LogHandler (..), LogSecurityLevel (..), lcLoggerTree,
+                                        lhName, ltHandlers)
 
+import qualified Katip as K
+import qualified Katip.Core as KC
 
 ----------------------------------------------------------------------------
 -- Logging
@@ -88,40 +91,101 @@ newtype SelectiveLogWrapped s m a = SelectiveLogWrapped
 instance MonadTrans (SelectiveLogWrapped s) where
     lift = SelectiveLogWrapped
 
--- TODO
-type LogHandlerTag = Text
-
 -- | Whether to log to given log handler.
-type SelectionMode = LogHandlerTag -> Bool
+type SelectionMode = LogSecurityLevel -> Bool
 
 selectPublicLogs :: SelectionMode
+-- selectPublicLogs = const False
 selectPublicLogs = \case
-    -- TODO HandlerFilelike p -> ".pub" `isSuffixOf` p
-    _ -> False
+    PublicLogLevel -> True
+    _              -> False
 
 selectSecretLogs :: SelectionMode
 selectSecretLogs = not . selectPublicLogs
 
--- TODO
-logMCond n s m c =
-    return ()
+logMCond :: (LogContext m) => Severity -> Text -> SelectionMode -> m ()
+logMCond sev msg cond = do
+    ctx <- K.getKatipContext
+    ns  <- K.getKatipNamespace
+    logItemS ctx ns Nothing (sev2klog sev) cond $ K.logStr msg
+
+logItemS
+    :: (K.LogItem a, K.Katip m)
+    => a
+    -> K.Namespace
+    -> Maybe TH.Loc
+    -> K.Severity
+    -> SelectionMode
+    -> K.LogStr
+    -> m ()
+logItemS a ns loc sev cond msg = do
+    mayle <- liftIO getLogEnv
+    case mayle of
+        Nothing              -> error "logging not yet initialized. Abort."
+        Just le@K.LogEnv{..} -> do
+            maycfg <- liftIO getConfig
+            let cfg = case maycfg of
+                    Nothing -> error "No Configuration for logging found. Abort."
+                    Just c  -> c
+            liftIO $ do
+                item <- K.Item
+                    <$> pure (K._logEnvApp le)
+                    <*> pure (K._logEnvEnv le)
+                    <*> pure sev
+                    <*> (KC.mkThreadIdText <$> myThreadId)
+                    <*> pure (K._logEnvHost le)
+                    <*> pure (K._logEnvPid le)
+                    <*> pure a
+                    <*> pure msg
+                    <*> (K._logEnvTimer le)
+                    <*> pure ((K._logEnvApp le) <> ns)
+                    <*> pure loc
+                -- forM_ (filter cond (elems (K._logEnvScribes le))) $ \ KC.ScribeHandle {..} -> atomically (KC.tryWriteTBQueue KC.shChan (NewItem item))
+                let lhs = cfg ^. lcLoggerTree ^. ltHandlers ^.. each
+                forM_ (filterWithSafety cond lhs) (\ lh -> do
+                    case lookup (lh ^. lhName) (K._logEnvScribes le) of
+                        Nothing -> error ("Not found Scribe with name: " <> lh ^. lhName)
+                        Just scribeH -> atomically
+                            (KC.tryWriteTBQueue (KC.shChan scribeH) (KC.NewItem item)))
+            where
+              filterWithSafety :: SelectionMode -> [LogHandler] -> [LogHandler]
+              filterWithSafety condition = filter (\lh -> case _lhSecurityLevel lh of
+                  Nothing -> False
+                  Just s  -> condition s)
 
 instance (WithLogger m, Reifies s SelectionMode) =>
          CanLog (SelectiveLogWrapped s m) where
-    dispatchMessage name severity msg =
-        liftIO $ logMCond name severity msg (reflect (Proxy @s))
+    dispatchMessage _ severity msg =
+        lift $ logMCond severity msg (reflect (Proxy @s))
+
+instance (K.Katip m) => K.Katip (SelectiveLogWrapped s m) where
+    getLogEnv = lift K.getLogEnv
+
+    localLogEnv f a = lift $ K.localLogEnv f $ getSecureLogWrapped a
+
+instance (K.KatipContext m) => K.KatipContext (SelectiveLogWrapped s m) where
+  getKatipContext = lift K.getKatipContext
+
+  localKatipContext f a = lift $ K.localKatipContext f $ getSecureLogWrapped a
+
+  getKatipNamespace = lift K.getKatipNamespace
+
+  localKatipNamespace f a = lift $ K.localKatipNamespace f $ getSecureLogWrapped a
 
 instance (HasLoggerName m) => HasLoggerName (SelectiveLogWrapped s m) where
     askLoggerName = SelectiveLogWrapped askLoggerName
     modifyLoggerName foo (SelectiveLogWrapped m) =
         SelectiveLogWrapped (modifyLoggerName foo m)
 
+-- instance (CanLog m) => CanLog (SelectiveLogWrapped s m) where
+--     dispatchMessage n s t = lift $ dispatchMessage n s t
+
 execSecureLogWrapped :: Proxy s -> SelectiveLogWrapped s m a -> m a
 execSecureLogWrapped _ (SelectiveLogWrapped act) = act
 
 -- | Shortcut for 'logMessage' to use according severity.
 logDebugS, logInfoS, logNoticeS, logWarningS, logErrorS
-    :: (HasLoggerName m, MonadIO m)
+    :: (WithLogger m)
     => Text -> m ()
 logDebugS   = logMessageS Debug
 logInfoS    = logMessageS Info
@@ -129,10 +193,9 @@ logNoticeS  = logMessageS Notice
 logWarningS = logMessageS Warning
 logErrorS   = logMessageS Error
 
--- | Same as 'logMesssage', but log to secret logs, put only insecure
--- version to memmode (to terminal).
+-- | Same as 'logMesssage', but log to secret logs.
 logMessageS
-    :: (HasLoggerName m, MonadIO m)
+    :: (HasLoggerName m, CanLog m)
     => Severity
     -> Text
     -> m ()
@@ -176,11 +239,6 @@ logMessageS severity t =
 newtype SecureLog a = SecureLog
     { getSecureLog :: a
     } deriving (Eq, Ord)
-
-data LogSecurityLevel
-    = SecretLogLevel
-    | PublicLogLevel
-    deriving (Eq)
 
 secure :: LogSecurityLevel
 secure = PublicLogLevel
@@ -278,7 +336,7 @@ deriveSafeBuildable typeName =
 -- to terminal). Use it along with 'logMessageS' when want to specify
 -- secret and public log alternatives manually.
 logMessageUnsafeP
-    :: (HasLoggerName m, MonadIO m)
+    :: (WithLogger m)
     => Severity
     -> Text
     -> m ()
@@ -290,7 +348,7 @@ logMessageUnsafeP severity t =
 
 -- | Shortcut for 'logMessageUnsafeP' to use according severity.
 logDebugUnsafeP, logInfoUnsafeP, logNoticeUnsafeP, logWarningUnsafeP, logErrorUnsafeP
-    :: (HasLoggerName m, MonadIO m)
+    :: (WithLogger m)
     => Text -> m ()
 logDebugUnsafeP   = logMessageUnsafeP Debug
 logInfoUnsafeP    = logMessageUnsafeP Info
@@ -306,7 +364,7 @@ getSecuredText = (&)
 
 -- | Same as 'logMesssageSP', put to public and secret logs securely.
 logMessageSP
-    :: (HasLoggerName m, MonadIO m)
+    :: (WithLogger m)
     => Severity -> SecuredText -> m ()
 logMessageSP severity securedText = do
     logMessageS severity $ securedText SecretLogLevel
@@ -314,7 +372,7 @@ logMessageSP severity securedText = do
 
 -- | Shortcut for 'logMessage' to use according severity.
 logDebugSP, logInfoSP, logNoticeSP, logWarningSP, logErrorSP
-    :: (HasLoggerName m, MonadIO m)
+    :: (WithLogger m)
     => SecuredText -> m ()
 logDebugSP   = logMessageSP Debug
 logInfoSP    = logMessageSP Info
@@ -322,30 +380,11 @@ logNoticeSP  = logMessageSP Notice
 logWarningSP = logMessageSP Warning
 logErrorSP   = logMessageSP Error
 
-instance Buildable [Address] where
-    build = bprint listJson
-
 instance BuildableSafe a => Buildable (SecureLog [a]) where
     build = bprint (buildSafeList secure) . getSecureLog
 
 instance Buildable (SecureLog Text) where
     build _ = "<hidden>"
 
-instance Buildable (SecureLog PassPhrase) where
-    build _ = "<passphrase>"
-
--- maybe I'm wrong here, but currently masking it important for wallet servant logs
-instance Buildable (SecureLog Coin) where
-    build _ = "? coin(s)"
-
-instance Buildable (SecureLog Address) where
-    build _ = "<address>"
-
 instance Buildable (SecureLog Word32) where
     build _ = "<bytes>"
-
-instance Buildable (SecureLog TxId) where
-    build _ = "<txid>"
-
-instance Buildable (SecureLog Timestamp) where
-    build _ = "<timestamp>"

@@ -28,11 +28,10 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
 import           Pos.Infra.Reporting (MonadReporting)
 import           Pos.Infra.Shutdown (HasShutdownContext)
-import           Pos.Infra.Slotting (MonadSlots, OnNewSlotParams (..),
-                                     defaultOnNewSlotParams,
+import           Pos.Infra.Slotting (MonadSlots, OnNewSlotParams (..), defaultOnNewSlotParams,
                                      getNextEpochSlotDuration, onNewSlot)
-import           Pos.Infra.Util.LogSafe (logInfoSP, secretOnlyF, secureListF)
 import           Pos.Util.Chrono (getOldestFirst)
+import           Pos.Util.Log.LogSafe (logInfoSP, secretOnlyF, secureListF)
 import           Pos.Wallet.Web.Pending.Functions (usingPtxCoords)
 import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler, submitAndSavePtx)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), ptxNextSubmitSlot,

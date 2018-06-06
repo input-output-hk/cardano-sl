@@ -29,6 +29,7 @@ import           Data.Data (Data)
 import qualified Data.Text.Buildable
 import           Formatting (Format, bprint, build, int, (%))
 
+import           Pos.Util.Log.LogSafe (SecureLog)
 import           Pos.Util.Util (leftToPanic)
 
 -- | Coin is the least possible unit of currency.
@@ -38,6 +39,9 @@ newtype Coin = Coin
 
 instance Buildable Coin where
     build (Coin n) = bprint (int%" coin(s)") n
+
+instance Buildable (SecureLog Coin) where
+    build _ = "? coin(s)"
 
 instance Bounded Coin where
     minBound = Coin 0

@@ -117,7 +117,6 @@ library
 
                         -- Pos.Util
                         Pos.Infra.Util.JsonLog.Events
-                        --Pos.Infra.Util.LogSafe
                         Pos.Infra.Util.Monitor
                         Pos.Infra.Util.TimeLimit
                         Pos.Infra.Util.TimeWarp

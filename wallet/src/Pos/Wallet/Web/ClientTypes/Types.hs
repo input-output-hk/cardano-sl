@@ -82,10 +82,9 @@ import           Servant.Multipart (FileData, Mem)
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import           Pos.Core (BlockVersion, ChainDifficulty, Coin, ScriptVersion, SoftwareVersion,
                            unsafeGetCoin)
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
-                                         buildUnsecure, deriveSafeBuildable,
-                                         secretOnlyF, secureListF)
 import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.Log.LogSafe (BuildableSafeGen (..), SecureLog (..), buildUnsecure,
+                                       deriveSafeBuildable, secretOnlyF, secureListF)
 import           Pos.Util.Servant (HasTruncateLogPolicy, WithTruncatedLog (..))
 
 data SyncProgress = SyncProgress

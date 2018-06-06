@@ -38,7 +38,6 @@ import           Pos.Infra.Network.Types (NetworkConfig (..), topologyRoute53Hea
 import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..), registerEkgMetrics, withEkgServer)
 import           Pos.Infra.Reporting.Statsd (withStatsd)
 import           Pos.Infra.Shutdown (ShutdownContext, waitForShutdown)
-import           Pos.Infra.Util.JsonLog.Events (JsonLogConfig (..), jsonLogConfigFromHandle)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..))
@@ -49,6 +48,7 @@ import           Pos.Reporting.Production (ProductionReporterParams (..), produc
 import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
+import           Pos.Util.Trace (wlogTrace)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
 

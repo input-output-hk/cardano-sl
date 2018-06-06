@@ -38,7 +38,7 @@ import           Control.Monad.Trans.Control (MonadBaseControl (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal)
 import           Control.Monad.Trans.Reader (ReaderT (..))
 import           Data.Aeson (ToJSON, encode)
-import           Data.ByteString.Lazy (hPut)
+import           Data.ByteString.Lazy.Char8 (hPutStrLn)
 import           Formatting (sformat, shown, (%))
 import           Serokell.Util.Lens (WrappedM (..))
 import           System.IO (Handle, hFlush)
@@ -149,7 +149,7 @@ jsonLogDefault jlc x =
                 `catchAny` \e -> do
                     logWarning $ sformat ("error in deciding whether to json log: "%shown) e
                     return False
-            when b $ liftIO (withMVar v $ \h -> (hPut h (encode event) >> hFlush h))
+            when b $ liftIO (withMVar v $ \h -> (hPutStrLn h (encode event) >> hFlush h))
                 `catchAny` \e ->
                     logWarning $ sformat ("can't write json log: "%shown) e
 

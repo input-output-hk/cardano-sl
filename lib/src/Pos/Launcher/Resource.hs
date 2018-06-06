@@ -21,6 +21,7 @@ module Pos.Launcher.Resource
 import           Universum
 
 import           Control.Concurrent.STM (newEmptyTMVarIO, newTBQueueIO)
+import           Control.Exception.Base (ErrorCall (..))
 import           Data.Default (Default)
 import qualified Data.Time as Time
 import           Formatting (sformat, shown, (%))
@@ -47,16 +48,15 @@ import           Pos.Infra.DHT.Real (KademliaParams (..))
 import           Pos.Infra.Network.Types (NetworkConfig (..))
 import           Pos.Infra.Reporting (initializeMisbehaviorMetrics)
 import           Pos.Infra.Shutdown.Types (ShutdownContext (..))
-import           Pos.Infra.Slotting (SimpleSlottingStateVar,
-                                     mkSimpleSlottingStateVar)
+import           Pos.Infra.Slotting (SimpleSlottingStateVar, mkSimpleSlottingStateVar)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Infra.StateLock (newStateLock)
+import           Pos.Infra.Util.JsonLog.Events (JsonLogConfig (..), jsonLogConfigFromHandle)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Lrc.Context (LrcContext (..), mkLrcSyncData)
 import           Pos.Ssc (SscParams, SscState, createSscContext, mkSscState)
 import           Pos.Txp (GenericTxpLocalData (..), TxpGlobalSettings, mkTxpLocalData,
                           recordTxpMetrics)
-import           Pos.Util.JsonLog.Events (JsonLogConfig (..), jsonLogConfigFromHandle)
 
 import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
 import           Pos.Update.Context (mkUpdateContext)
@@ -156,7 +156,7 @@ allocateNodeResources np@NodeParams {..} sscnp txpSettings initDB = do
                 Nothing -> pure Nothing
                 Just fp -> do
                     h <- openFile fp WriteMode
-                    liftIO $ hSetBuffering h NoBuffering
+                    liftIO $ hSetBuffering h LineBuffering
                     return $ Just h
         jsonLogConfig <- maybe
             (pure JsonLogDisabled)
@@ -304,11 +304,11 @@ allocateNodeContext ancd txpSettings ekgStore = do
     mm <- initializeMisbehaviorMetrics ekgStore
 
     logDebug ("Dequeue policy to core:  " <> (show ((ncDequeuePolicy networkConfig) NodeCore)))
-        `catch` \(e :: SomeException) -> logDebug $ show e
+        `catch` \(ErrorCall msg) -> logDebug (toText msg)
     logDebug ("Dequeue policy to relay: " <> (show ((ncDequeuePolicy networkConfig) NodeRelay)))
-        `catch` \(e :: SomeException) -> logDebug $ show e
+        `catch` \(ErrorCall msg) -> logDebug (toText msg)
     logDebug ("Dequeue policy to edge: " <> (show ((ncDequeuePolicy networkConfig) NodeEdge)))
-        `catch` \(e :: SomeException) -> logDebug $ show e
+        `catch` \(ErrorCall msg) -> logDebug (toText msg)
 
 
     logDebug "Finished allocating node context!"

@@ -8,14 +8,7 @@ stdenv.mkDerivation {
                       # libraries
                       unicode-math lm-math amsmath
                       enumitem bclogo xcolor newunicodechar
-                      appendix
-
-                      # libraries for marginal notes
-                      xargs todonotes
-
-                      # bclogo dependencies
-                      mdframed xkeyval etoolbox needspace
-                      pgf
+                      appendix syntax
 
                       # build tools
                       latexmk

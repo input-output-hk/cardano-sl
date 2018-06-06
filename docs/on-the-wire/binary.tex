@@ -5,27 +5,48 @@
 \usepackage{appendix}
 \usepackage{float}
 \usepackage{enumitem}
+\usepackage{syntax}
+\usepackage{hyperref}
 
 \floatstyle{boxed}
 \restylefloat{figure}
 
+\setlength{\grammarindent}{7em}
+%% Define a'' `field' separator for records.
+\def\fld{\\\llap{,\quad}}%
+
 \newlist{record}{description}{3}
 \setlist[record]{itemsep=0pt, format=$-$\bfseries}
-\newlist{variant}{description}{3}
-\setlist[variant]{itemsep=0pt, format=$|$\bfseries}
+
+\newcommand{\rhu}{\rightharpoonup}
 \newcommand{\N}{\mathbb{N}}
 
-\newcommand{\idsof}[1]{\mathcal{I}\!_#1}
+\newcommand{\lists}[1]{\left[{#1}\right]}
+\newcommand{\nelists}[1]{\left[{#1}\right]^+}
+\newcommand{\sets}[1]{\{{#1}\}}
 
+\newcommand{\idsof}[1]{\mathcal{I}\!_#1}
+\newcommand{\txids}{\idsof{\txs}}
+\newcommand{\blockids}{\idsof{\blocks}}
+\newcommand{\agentids}{\idsof{\agents}}
+\newcommand{\epochids}{\idsof{\mathcal{E}}}
+\newcommand{\pubkey}{\chi_{\textbf{pub}}}
+\newcommand{\signature}{\chi_{\textbf{sig}}}
+
+
+\newcommand{\vsspubkey}{\mathcal{VSS}_{\chi_{\textbf{pub}}}}
+\newcommand{\agents}{\mathcal{A}}
 \newcommand{\txs}{\mathcal{T}}
+\newcommand{\txins}{\txs_{\textbf{in}}}
 \newcommand{\blocks}{\mathcal{B}}
 \newcommand{\bbodies}{\blocks_{\textbf{body}}}
 \newcommand{\bheads}{\blocks_{\textbf{head}}}
-\newcommand{\txins}{\txs_{\textbf{in}}}
+\newcommand{\ssc}{\mathcal{SSC}}
+\newcommand{\ssccomm}{\ssc_{\textbf{comm}}}
+\newcommand{\sscopen}{\ssc_{\textbf{open}}}
+\newcommand{\sscshare}{\ssc_{\textbf{share}}}
+\newcommand{\ssccert}{\ssc_{\textbf{cert}}}
 
-\newcommand{\txids}{\idsof{\txs}}
-\newcommand{\blockids}{\idsof{\blocks}}
-\newcommand{\agentids}{\idsof{\mathcal{A}}}
 
 \newcommand{\hstype}[1]{\textbf{#1}}
 \newcommand{\String}{\hstype{String}}
@@ -54,21 +75,59 @@ Appendix \ref{sec:currentfmt} details the current binary format.
 \subsection{Notation}
 
 \begin{description}
-  \item[Records] We denote records as:
-    \begin{record}
-      \item[field1] Field description
-      \item[field2] Field description
-    \end{record}
-
-  \item[Variants] We denote variants as:
-    \begin{variant}
-      \item[Option1] Description
-      \item[Option2] Description
-    \end{variant}
+\item[Lists] Lists of type $A$ are written as $\lists{A}$.
+\item[Non-empty lists] Non-empty lists of type $A$ are written as $\nelists{A}$.
+\item[Sets] Sets of type $A$ are written as $\sets{A}$.
+\item[Maps] A map from items of type $A$ to items of type $B$ is written as
+  $A\rhu B$.\footnote{We use this terminology for consistency with
+    \cite{spiwack}, where these are partial functions.}
+\item[Records] We denote records as:
+  \begin{grammar}
+    <record> = \{
+    \fld fieldName :: type
+    \fld fieldName2 :: type2
+    \}
+  \end{grammar}
+\item[Variants] We denote variants as:
+  \begin{grammar}
+    <variant> = Option1 \alt Option2 \alt Option3.
+  \end{grammar}
+\item[Optional values] We denote an optional value of type $A$ as a variant $\emptyset|A$
 \end{description}
 
 Typically we will use capitalised words for variant constructors and lower-case
 terms for field names, as per standard Haskell syntax.
+
+\subsection{Relation to the abstract specification and to the Cardano implementation}
+
+This document straddles the middle-ground between the rule-based specification
+given in \cite{spiwack} and the concrete implementation at \cite{cardano}. As
+such, it tries to comprimise between the differing presentations of how the
+blockchain is constructed.
+
+In general, we take the following approach:
+
+\begin{itemize}
+\item Where possible, we take our nomenclature from \cite{spiwack}. So, for
+  example, we refer to the type of transactions as $\txs$ rather than
+  $\textbf{Tx}$. Where there is no name given in \cite{spiwack} we generally
+  invent a new identifier in the similar style.
+\item Structure, on the other hand, typically derives from the code in
+  \cite{cardano}, with some exceptions:
+  \begin{itemize}
+  \item We drop \verb|newtype| wrappers.
+  \item We flatten nested records where doing so would not lead to significant
+    confusion (for example, by requiring convoluted or length names to
+    contextualise fields).
+  \item In general, we tend to be fairly free with translating between
+    isomorphic representations where it increases the readability of this spec.
+  \item We monomorphize any polymorphic variables to the type they are
+    instantiated to when they are serialised.
+  \item We ignore \verb|AsBinary| and its ilk. These provide `typed' wrappers
+    around \verb|ByteString| in order to defer encoding/decoding. They only
+    confuse an abstract definition.
+  \end{itemize}
+\end{itemize}
 
 \section{Core datatypes}
 \label{sec:types}
@@ -89,65 +148,138 @@ Primitive types:
   $\hstype{Text}$.
 \end{description}
 
-\subsection{Identifiers}
+\subsection{Basic Cardano Types}
 
 We start with sets of identifiers. These are represented in code as Blake2b-256
 hashes.
 
 \begin{itemize}
 \item{Transaction identifiers $\txids$}
-\item{Agent identifiers $\agentids$}
 \item{Block identifiers $\blockids$}
 \end{itemize}
+
+We also have addresses, which are represented as Blake2b-224 hashes.
+
+\begin{itemize}
+\item{Address (agent) identifiers $\agentids$}
+\end{itemize}
+
+Epochs are identified by their index as a $\Word{64}$.
+
+\begin{itemize}
+\item Epoch indices $\epochids$
+\end{itemize}
+
+Cardano public keys are elliptic curve DH keys on curve 25519.
+
+\begin{itemize}
+\item Public keys $\pubkey$
+\item Signatures $\signature$
+\end{itemize}
+\subsection{Addresses}
+
+We have a set of addresses $\agents$. An address has an identifier, a type, and
+some additional data held in an \verb|attributes| field. In particular, each
+address contains a stake distribution $\agents_{\textbf{distr}}$.
+
+\begin{figure}[H]
+  \begin{grammar}
+    <$\agents_{\textbf{distr}}$> = Bootstrap
+      \alt SingleKey $\agentids$
+      \alt MultiKey $\agentids \rhu \Word{64}$.
+
+    <$\agents_{\textbf{type}}$> = PubKey \alt Script \alt Redeem \alt Unknown $\Word{8}$.
+
+    <$\agents_{\textbf{attr}}$> = \{
+    \fld pkDerivationPath :: $\emptyset \| \String$
+    \fld stakeDistr :: $\agents_{\textbf{distr}}$
+    \fld unparsed :: $\Word{8}\rhu\String$
+    \}.
+
+    <$\agents$> = \{
+    \fld root :: $\agentids$
+    \fld attributes :: $\agents_{\textbf{attr}}$
+    \fld type :: $\agents_{\textbf{type}}$
+    \}.
+  \end{grammar}
+
+  \caption{Address Types}
+\end{figure}
 
 \subsection{Transactions}
 
 We have a set of transactions $\txs$.
 
 \begin{figure}[H]
-\caption{Transaction input $\in \txins$.}
-\label{fig:txin}
-\begin{variant}
-  \item [Valid] a pair in $\txids\times\Word{32}$.
-  \item [Invalid] a pair in $\Word{8}\times\String$.
-\end{variant}
+  \caption{Transactions}
+  \label{fig:txin}
+  \begin{grammar}
+    <$\txins$> = Valid $\txids\times\Word{32}$.
+    \alt Invalid $\Word{8}\times\String$.
+
+    <$\txs$> = \{
+    \fld inputs :: $\lists{\txins}$
+    \fld outputs :: $\nelists{\agentids \times \Word{64}}$
+    \}
+  \end{grammar}
 \end{figure}
+
+\subsection{Shared Seed Computation}
+
+Shared seed computation deals with commitments, openings, shares and
+certificates.
+
+We start with some basic types used for VSS. VSS uses its own public key
+cryptography scheme.
+
+\begin{itemize}
+\item VSS public keys $\vsspubkey$
+\end{itemize}
 
 \begin{figure}[H]
-  \caption{Transaction $\in\txs$.}
-  \label{fig:transaction}
-  \begin{record}
-    \item[inputs] A list of transaction inputs in $\txins$.
-    \item[outputs] A non-empty list of pairs in $\agentids\times\Word{64}$.
-  \end{record}
-\end{figure}
+ \caption{Shared seed computation}
+ \begin{grammar}
+   <$\ssccomm$> = ?
 
+   <$\sscopen$> = \{
+   \fld openings :: $\agentids \rhu \verb|Opening|$
+   \fld certificates :: $\agentids \rhu \ssccert$
+   \}
+
+   <$\sscshare$> = \{
+   \fld shares :: $\agentids \rhu (\agentids \rhu \nelists{\verb|DecShare|})$
+   \fld certificates :: $\agentids \rhu \ssccert$
+   \}
+
+   <$\ssccert$> = \{
+   \fld vsskey :: $\vsspubkey$
+   \fld signingKey :: $\pubkey$
+   \fld expiry :: $\epochids$
+   \fld signature :: $\signature$
+   \}
+
+   <$\ssc$> = Commitments $\agentids \rhu (\pubkey \times \ssccomm \times \verb|CS|)\times \agentids \rhu \ssccert$
+   \alt Openings $\sscopen$
+   \alt Shares $\sscshare$
+   \alt Certificates $\agentids \rhu \ssccert$
+ \end{grammar}
+\end{figure}
 \subsection{Blocks}
 
 A block consists of a block header and a block body. The block header consists
 of verification for the various components in the block body.
 
 \begin{figure}[H]
-  \caption{Block body $\in\bbodies$}
-  \begin{record}
-    \item [txPayload] \hfill
-      \begin{record}
-        \item [transactions] A list of transactions in $\txs$.
-        \item [witnesses] A list of transaction witnesses.
-      \end{record}
-
-    \item [sscPayload] \hfill
-      \begin{variant}
-        \item [Commitments]
-        \item [Openings]
-        \item [Shares]
-        \item [Certificates]
-      \end{variant}
-
-    \item [dlgPayload]
-    \item [updatePayload]
-  \end{record}
-  \label{fig:blockbody}
+  \caption{Blocks}
+  \label{fig:block}
+  \begin{grammar}
+    <$\bbodies$> = \{
+    \fld txPayload :: $\lists{\txs}\times\lists{\verb|TxWitness|}$
+    \fld sscPayload :: $\ssc$
+    \fld dlgPayload :: \verb|DlgPayload|
+    \fld updPayload :: \verb|UpdatePayload|
+    \}
+  \end{grammar}
 \end{figure}
 
 \section{Requirements on the binary format}
@@ -159,6 +291,17 @@ of verification for the various components in the block body.
 
 \section{Binary specification}
 \label{sec:binfmt}
+
+\begin{thebibliography}{9}
+\bibitem{spiwack}
+  \textit{Rule-based specification of the blockchain logic}.
+  Erik de Castro Lopo, Nicholas Clarke \& Arnaud Spiwack.
+
+\bibitem{cardano}
+  \textit{Cryptographic currency implementing Ouroboros PoS protocol}.
+  \url{https://github.com/input-output-hk/cardano-sl/}
+
+\end{thebibliography}
 
 \begin{appendices}
   \section{Current binary format}

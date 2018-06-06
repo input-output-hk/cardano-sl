@@ -1,9 +1,8 @@
--- | Helper functions related to genesis types.
-
-module Pos.Core.Genesis.Helpers
-       ( mkGenesisDelegation
+module Pos.Core.Genesis.Delegation
+       ( GenesisDelegation (..)
+       , noGenesisDelegation
+       , mkGenesisDelegation
        , recreateGenesisDelegation
-       , convertNonAvvmDataToBalances
        ) where
 
 import           Universum
@@ -14,11 +13,27 @@ import qualified Data.HashMap.Strict as HM
 import           Formatting (build, sformat, (%))
 import           Serokell.Util (allDistinct)
 
-import           Pos.Core.Common (Address, Coin, StakeholderId, addressHash, decodeTextAddress,
-                                  unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Core.Common (StakeholderId, addressHash)
 import           Pos.Core.Delegation (ProxySKHeavy)
-import           Pos.Core.Genesis.Types (GenesisDelegation (..), GenesisNonAvvmBalances (..))
 import           Pos.Crypto.Signing (ProxySecretKey (..), isSelfSignedPsk)
+
+-- | This type contains genesis state of heavyweight delegation. It
+-- wraps a map where keys are issuers (i. e. stakeholders who
+-- delegated) and values are proxy signing keys. There are some invariants:
+-- 1. In each pair delegate must differ from issuer, i. e. no revocations.
+-- 2. PSKs must be consistent with keys in the map, i. e. issuer's ID must be
+--    equal to the key in the map.
+-- 3. Delegates can't be issuers, i. e. transitive delegation is not supported.
+--    It's not needed in genesis, it can always be reduced.
+newtype GenesisDelegation = UnsafeGenesisDelegation
+    { unGenesisDelegation :: HashMap StakeholderId ProxySKHeavy
+    } deriving (Show, Eq, ToList, Container)
+
+type instance Element GenesisDelegation = ProxySKHeavy
+
+-- | Empty 'GenesisDelegation'.
+noGenesisDelegation :: GenesisDelegation
+noGenesisDelegation = UnsafeGenesisDelegation mempty
 
 -- | Safe constructor of 'GenesisDelegation' from a list of PSKs.
 mkGenesisDelegation ::
@@ -50,20 +65,3 @@ recreateGenesisDelegation pskMap = do
     when (any isIssuer pskMap) $
         throwError "one of the delegates is also an issuer, don't do it"
     return $ UnsafeGenesisDelegation pskMap
-
--- | Generate genesis address distribution out of avvm
--- parameters. Txdistr of the utxo is all empty. Redelegate it in
--- calling funciton.
-convertNonAvvmDataToBalances
-    :: forall m .
-       ( MonadError Text m )
-    => HashMap Text Integer
-    -> m GenesisNonAvvmBalances
-convertNonAvvmDataToBalances balances = GenesisNonAvvmBalances <$> balances'
-  where
-    balances' :: m (HashMap Address Coin)
-    balances' = HM.fromListWith unsafeAddCoin <$> traverse convert (HM.toList balances)
-    convert :: (Text, Integer) -> m (Address, Coin)
-    convert (txt, i) = do
-        addr <- either throwError pure $ decodeTextAddress txt
-        return (addr, unsafeIntegerToCoin i)

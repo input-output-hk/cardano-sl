@@ -26,13 +26,11 @@ import           Pos.Core.Configuration.GeneratedSecrets as E
 import           Pos.Core.Configuration.GenesisData as E
 import           Pos.Core.Configuration.GenesisHash as E
 import           Pos.Core.Configuration.Protocol as E
+import           Pos.Core.Genesis (GenesisData (..), GenesisDelegation, GenesisInitializer (..),
+                                   GenesisProtocolConstants (..), GenesisSpec (..),
+                                   genesisProtocolConstantsToProtocolConstants, mkGenesisDelegation)
 import           Pos.Core.Genesis.Canonical (SchemaError)
 import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..), generateGenesisData)
-import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
-import           Pos.Core.Genesis.Types (GenesisData (..), GenesisDelegation,
-                                         GenesisInitializer (..), GenesisProtocolConstants (..),
-                                         GenesisSpec (..),
-                                         genesisProtocolConstantsToProtocolConstants)
 import           Pos.Core.Slotting (Timestamp)
 import           Pos.Crypto.Configuration as E
 import           Pos.Crypto.Hashing (Hash, hashRaw, unsafeHash)

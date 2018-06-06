@@ -123,8 +123,15 @@ library
                        -- Genesis
                        Pos.Core.Genesis.Canonical
                        Pos.Core.Genesis.Generate
-                       Pos.Core.Genesis.Helpers
-                       Pos.Core.Genesis.Types
+                       Pos.Core.Genesis.AvvmBalances
+                       Pos.Core.Genesis.Data
+                       Pos.Core.Genesis.Delegation
+                       Pos.Core.Genesis.Initializer
+                       Pos.Core.Genesis.NonAvvmBalances
+                       Pos.Core.Genesis.ProtocolConstants
+                       Pos.Core.Genesis.Spec
+                       Pos.Core.Genesis.VssCertificatesMap
+                       Pos.Core.Genesis.WStakeholders
 
                        -- Slotting
                        Pos.Core.Slotting.EpochIndex

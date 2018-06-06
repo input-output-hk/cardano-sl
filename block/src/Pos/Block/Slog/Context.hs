@@ -19,7 +19,7 @@ import           Pos.Block.Slog.Types (HasSlogGState (..), LastBlkSlots, SlogCon
 import           Pos.Core (blkSecurityParam)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.GState.BlockExtra (getLastSlots)
-import           Pos.Reporting (MetricMonitorState, mkMetricMonitorState)
+import           Pos.Infra.Reporting (MetricMonitorState, mkMetricMonitorState)
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 
 -- | Make new 'SlogGState' using data from DB.

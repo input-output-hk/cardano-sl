@@ -1,6 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeFamilies        #-}
-
 -- | Richmen part of LRC DB.
 
 module Pos.Lrc.DB.Richmen
@@ -10,19 +7,13 @@ module Pos.Lrc.DB.Richmen
 
        -- * Concrete instances
        -- ** Ssc
-       , RCSsc
        , tryGetSscRichmen
 
        -- ** US
-       , RCUs
        , tryGetUSRichmen
 
        -- ** Delegation
-       , RCDlg
        , tryGetDlgRichmen
-
-       -- * Exported for tests
-       , richmenComponents
 
        , RichmenType (..)
        , findRichmenPure
@@ -35,20 +26,22 @@ import qualified Data.Conduit.List as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 
+import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core ()
-import           Pos.Core (Coin, CoinPortion, HasGenesisBlockVersionData,
-                           ProxySKHeavy, StakeholderId, addressHash, applyCoinPortionUp,
-                           gdHeavyDelegation, genesisData, sumCoins, unGenesisDelegation,
-                           unsafeIntegerToCoin)
+import           Pos.Core (Coin, CoinPortion, ProxySKHeavy, StakeholderId, addressHash,
+                           applyCoinPortionUp, gdHeavyDelegation, genesisData, sumCoins,
+                           unGenesisDelegation, unsafeIntegerToCoin)
 import           Pos.Crypto (pskDelegatePk)
 import           Pos.DB.Class (MonadDB)
-import           Pos.Lrc.Consumer.Delegation (RCDlg, tryGetDlgRichmen)
-import           Pos.Lrc.Consumer.Ssc (RCSsc, tryGetSscRichmen)
-import           Pos.Lrc.Consumer.Update (RCUs, tryGetUSRichmen)
+import           Pos.Lrc.Consumer.Delegation (tryGetDlgRichmen)
+import qualified Pos.Lrc.Consumer.Delegation as Dlg (richmenComponent)
+import           Pos.Lrc.Consumer.Ssc (tryGetSscRichmen)
+import qualified Pos.Lrc.Consumer.Ssc as Ssc (richmenComponent)
+import           Pos.Lrc.Consumer.Update (tryGetUSRichmen)
+import qualified Pos.Lrc.Consumer.Update as Update (richmenComponent)
 import           Pos.Lrc.Core (findDelegationStakes, findRichmenStakes)
-import           Pos.Lrc.DB.RichmenBase (getRichmenP, putRichmenP)
-import           Pos.Lrc.RichmenComponent (RichmenComponent (..), SomeRichmenComponent (..),
-                                           someRichmenComponent)
+import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
+import           Pos.Lrc.RichmenComponent (RichmenComponent (..))
 import           Pos.Lrc.Types (FullRichmenData)
 import           Pos.Txp.GenesisUtxo (genesisStakes)
 
@@ -58,26 +51,30 @@ import           Pos.Txp.GenesisUtxo (genesisStakes)
 
 prepareLrcRichmen :: MonadDB m => m ()
 prepareLrcRichmen = do
-    let genesisDistribution = HM.toList genesisStakes
-        genesisDelegation   = unGenesisDelegation $
-                              gdHeavyDelegation genesisData
-    mapM_ (prepareLrcRichmenDo genesisDistribution genesisDelegation)
-          richmenComponents
+    prepareLrcRichmenDo Ssc.richmenComponent
+    prepareLrcRichmenDo Update.richmenComponent
+    prepareLrcRichmenDo Dlg.richmenComponent
+
+prepareLrcRichmenDo
+    :: (Bi richmenData, MonadDB m) => RichmenComponent richmenData -> m ()
+prepareLrcRichmenDo rc =
+    whenNothingM_ (getRichmen rc 0) . putRichmen rc 0 $ computeInitial
+        genesisDistribution
+        genesisDelegation
+        rc
   where
-    prepareLrcRichmenDo distr deleg (SomeRichmenComponent proxy) =
-        whenNothingM_ (getRichmenP proxy 0) $
-            putRichmenP proxy 0 (computeInitial distr deleg proxy)
+    genesisDistribution = HM.toList genesisStakes
+    genesisDelegation   = unGenesisDelegation $ gdHeavyDelegation genesisData
 
 computeInitial
-    :: RichmenComponent c
-    => [(StakeholderId, Coin)]              -- ^ Genesis distribution
+    :: [(StakeholderId, Coin)]              -- ^ Genesis distribution
     -> HashMap StakeholderId ProxySKHeavy   -- ^ Genesis delegation
-    -> Proxy c
+    -> RichmenComponent c
     -> FullRichmenData
-computeInitial initialDistr initialDeleg proxy =
+computeInitial initialDistr initialDeleg rc =
     findRichmenPure
         initialDistr
-        (rcInitialThreshold proxy)
+        (rcInitialThreshold rc)
         richmenType
   where
     -- A reverse delegation map (keys = delegates, values = issuers).
@@ -88,19 +85,8 @@ computeInitial initialDistr initialDeleg proxy =
         map (\(issuer, delegate) -> (delegate, one issuer)) $
         HM.toList $ map (addressHash . pskDelegatePk) initialDeleg
     richmenType
-        | rcConsiderDelegated proxy = RTDelegation revDelegationMap
+        | rcConsiderDelegated rc = RTDelegation revDelegationMap
         | otherwise = RTUsual
-
-----------------------------------------------------------------------------
--- Instances. They are here, because we want to have a DB schema in Pos.DB
-----------------------------------------------------------------------------
-
-richmenComponents :: HasGenesisBlockVersionData => [SomeRichmenComponent]
-richmenComponents =
-    [ someRichmenComponent @RCSsc
-    , someRichmenComponent @RCUs
-    , someRichmenComponent @RCDlg
-    ]
 
 data RichmenType
     = RTUsual

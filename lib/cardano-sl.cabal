@@ -1,5 +1,5 @@
 name:                cardano-sl
-version:             1.1.1
+version:             1.2.0
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT
@@ -283,7 +283,7 @@ test-suite cardano-test
                        Test.Pos.CryptoSpec
                        Test.Pos.Genesis.CanonicalSpec
                        Test.Pos.MerkleSpec
-                       Test.Pos.Slotting.TypesSpec
+                       Test.Pos.Infra.Slotting.TypesSpec
                        Test.Pos.Types.BlockSpec
                        Test.Pos.Types.Identity.SafeCopySpec
                        Test.Pos.Types.Identity.ShowReadSpec

@@ -23,12 +23,14 @@ import qualified Wallet.Prefiltered as Pref
 import qualified Wallet.Rollback.Basic as Roll
 import qualified Wallet.Rollback.Full as Full
 
+import           Pos.Core (HasGenesisBlockVersionData)
+
 {-------------------------------------------------------------------------------
   Pure wallet tests
 -------------------------------------------------------------------------------}
 
 -- | Test the pure wallet models
-spec :: Spec
+spec :: HasGenesisBlockVersionData => Spec
 spec = do
     describe "Test pure wallets" $ do
       it "Using simple model" $

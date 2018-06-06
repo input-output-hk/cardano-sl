@@ -42,7 +42,7 @@ import           Network.Wai.Handler.Warp (defaultSettings, setOnExceptionRespon
 import           Network.Wai.Middleware.Cors (cors, corsMethods, corsRequestHeaders,
                                               simpleCorsResourcePolicy, simpleMethods)
 import           Ntp.Client (NtpStatus)
-import           Pos.Diffusion.Types (Diffusion (..))
+import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Wallet.Web (cleanupAcidStatePeriodically)
 import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)
 import qualified Pos.Wallet.Web.Server.Runner as V0
@@ -55,8 +55,8 @@ import           Pos.Util (lensOf)
 
 import           Cardano.NodeIPC (startNodeJsIPC)
 import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
+import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Shutdown.Class (HasShutdownContext (shutdownContext))
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.Server.Launcher (walletDocumentationImpl, walletServeImpl)

@@ -22,7 +22,7 @@ import           System.Metrics.Label (Label)
 
 import           Pos.Core (ChainDifficulty, EpochIndex, FlatSlotId, HasProtocolConstants,
                            LocalSlotIndex, slotIdF, unflattenSlotId)
-import           Pos.Reporting.Metrics (MetricMonitorState)
+import           Pos.Infra.Reporting.Metrics (MetricMonitorState)
 import           Pos.Util.Chrono (OldestFirst (..))
 
 -- | This type contains 'FlatSlotId's of the blocks whose depth is

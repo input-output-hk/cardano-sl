@@ -22,11 +22,11 @@ import           Formatting (bprint, build, (%))
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Block.Slog.Types (SlogUndo (..))
-import           Pos.Communication.Protocol (NodeId)
 import           Pos.Core (HasConfiguration, HasDifficulty (..), HasHeaderHash (..))
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Core.Txp (TxpUndo)
 import           Pos.Delegation.Types (DlgUndo)
+import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Update.Poll.Types (USUndo)
 import           Pos.Util.Util (HasLens (..))
 

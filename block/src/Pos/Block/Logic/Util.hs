@@ -34,7 +34,8 @@ import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadBlockDBRead)
 import           Pos.Exception (reportFatalError)
 import           Pos.GState.BlockExtra (isBlockInMainChain)
-import           Pos.Slotting (MonadSlots (..), getCurrentSlotFlat, slotFromTimestamp)
+import           Pos.Infra.Slotting (MonadSlots (..), getCurrentSlotFlat,
+                                     slotFromTimestamp)
 import           Pos.Util (_neHead)
 import           Pos.Util.Chrono (NE, OldestFirst (..))
 

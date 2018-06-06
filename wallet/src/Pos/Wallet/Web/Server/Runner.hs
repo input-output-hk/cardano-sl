@@ -25,12 +25,12 @@ import           Ntp.Client (NtpStatus)
 import           Servant.Server (Handler)
 import           System.Wlog (logInfo, usingLoggerName)
 
-import           Pos.Diffusion.Types (Diffusion, hoistDiffusion)
+import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
+import           Pos.Infra.Util.TimeWarp (NetworkAddress)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Launcher.Runner (runRealMode)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.TimeWarp (NetworkAddress)
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.WalletMode (WalletMempoolExt)
 import           Pos.Wallet.Web.Methods (addInitialRichAccount)
@@ -43,7 +43,7 @@ import           Pos.Wallet.Web.State (WalletDB)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Web (TlsParams)
 import           Cardano.NodeIPC (startNodeJsIPC)
-import           Pos.Shutdown.Class        (HasShutdownContext (shutdownContext))
+import           Pos.Infra.Shutdown.Class (HasShutdownContext (shutdownContext))
 
 -- | 'WalletWebMode' runner.
 runWRealMode

@@ -25,8 +25,8 @@ import           Data.Reflection (Given (..), give)
 
 import qualified Data.HashMap.Strict as HM
 import           Pos.Binary.Class (Raw)
-import           Pos.Core.Common.Fee (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
-import           Pos.Core.Common.Types (SharedSeed (..), unsafeCoinPortionFromDouble)
+import           Pos.Core.Common (Coeff (..), SharedSeed (..), TxFeePolicy (..), TxSizeLinear (..),
+                                  unsafeCoinPortionFromDouble)
 import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), GenesisAvvmBalances (..),
                                          GenesisInitializer (..), GenesisProtocolConstants (..),
                                          GenesisSpec (..), TestnetBalanceOptions (..),

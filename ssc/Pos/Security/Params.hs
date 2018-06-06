@@ -16,7 +16,7 @@ import qualified Text.Parsec as Parsec
 
 import           Pos.Aeson.Crypto ()
 import           Pos.Core.Common (StakeholderId)
-import           Pos.Util.TimeWarp (NetworkAddress, addrParser)
+import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser)
 import           Pos.Util.Util (toAesonError, aesonError)
 
 -- | Network attack settings (a part of the behavior config).

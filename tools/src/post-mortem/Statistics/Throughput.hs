@@ -10,7 +10,7 @@ import           Graphics.Rendering.Chart.Backend.Diagrams (renderableToFile)
 import           Graphics.Rendering.Chart.Easy
 import           Graphics.Rendering.Chart.Grid
 
-import           Pos.Util.JsonLog.Events (JLMemPool (..), MemPoolModifyReason (..))
+import           Pos.Infra.Util.JsonLog.Events (JLMemPool (..), MemPoolModifyReason (..))
 import           Types
 import           Universum
 

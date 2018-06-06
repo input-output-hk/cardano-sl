@@ -12,7 +12,7 @@ import           Data.Fixed (Nano)
 import           Pos.Binary.Class (Bi (..), decode, decodeKnownCborDataItem,
                                    decodeUnknownCborDataItem, encode, encodeKnownCborDataItem,
                                    encodeListLen, encodeUnknownCborDataItem, enforceSize)
-import           Pos.Core.Common.Fee (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
+import           Pos.Core.Common (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
 
 instance Bi Coeff where
     encode (Coeff n) = encode n

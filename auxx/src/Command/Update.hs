@@ -23,8 +23,8 @@ import           Pos.Client.Update.Network (submitUpdateProposal, submitVote)
 import           Pos.Core (protocolMagic)
 import           Pos.Crypto (Hash, emptyPassphrase, hash, hashHexF, unsafeHash, withSafeSigner,
                              withSafeSigners)
-import           Pos.Diffusion.Types (Diffusion (..))
 import           Pos.Exception (reportFatalError)
+import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Update (SystemTag, UpId, UpdateData (..), installerHash, mkUpdateProposalWSign,
                              mkUpdateVoteSafe)
 

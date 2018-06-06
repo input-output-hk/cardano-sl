@@ -1,5 +1,3 @@
-{-# LANGUAGE TypeOperators #-}
-
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Miscellaneous instances, etc. Related to the main blockchain of course.
@@ -23,13 +21,14 @@ import           Pos.Core.Block.Main.Lens (mainBlockBlockVersion, mainBlockDiffi
                                            mainHeaderSoftwareVersion, mbTxs, mcdDifficulty,
                                            mehBlockVersion, mehSoftwareVersion)
 import           Pos.Core.Block.Main.Types (MainBody (..), MainExtraHeaderData (..))
-import           Pos.Core.Block.Union.Types (BlockHeader (..), HeaderHash, MainBlock,
+import           Pos.Core.Block.Union.Types (BlockHeader (..), HasHeaderHash (..), HeaderHash,
+                                             IsHeader, IsMainHeader (..), MainBlock,
                                              MainBlockHeader, MainConsensusData (..),
                                              blockHeaderHash)
-import           Pos.Core.Class (HasBlockVersion (..), HasDifficulty (..), HasEpochIndex (..),
-                                 HasEpochOrSlot (..), HasHeaderHash (..), HasSoftwareVersion (..),
-                                 IsHeader, IsMainHeader (..))
-import           Pos.Core.Slotting (EpochOrSlot (..), slotIdF)
+import           Pos.Core.Common (HasDifficulty (..))
+import           Pos.Core.Slotting (EpochOrSlot (..), HasEpochIndex (..), HasEpochOrSlot (..),
+                                    slotIdF)
+import           Pos.Core.Update (HasBlockVersion (..), HasSoftwareVersion (..))
 import           Pos.Crypto (hashHexF)
 
 instance NFData MainBlock

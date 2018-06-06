@@ -20,19 +20,19 @@ import           Pos.Core
 import           Pos.DB
 import           Pos.DB.Block
 import           Pos.DB.DB
-import           Pos.Diffusion.Types (Diffusion, hoistDiffusion)
+import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
+import           Pos.Infra.Network.Types
+import           Pos.Infra.Reporting
+import           Pos.Infra.Shutdown
+import           Pos.Infra.Slotting
+import           Pos.Infra.Util.JsonLog.Events
+import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher
-import           Pos.Network.Types
-import           Pos.Reporting
-import           Pos.Shutdown
-import           Pos.Slotting
 import           Pos.Txp.Configuration
 import           Pos.Txp.Logic
 import           Pos.Txp.MemState
 import           Pos.Util
 import           Pos.Util.Chrono
-import           Pos.Util.JsonLog.Events
-import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.WorkMode
 
 import           Cardano.Wallet.WalletLayer (PassiveWalletLayer(..),

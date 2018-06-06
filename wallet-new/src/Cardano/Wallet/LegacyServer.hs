@@ -14,7 +14,7 @@ import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 import           Cardano.Wallet.Server.CLI (RunMode (..))
 
 import           Ntp.Client (NtpStatus)
-import           Pos.Diffusion.Types (Diffusion (..))
+import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Util.CompileInfo (compileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)

@@ -36,7 +36,6 @@ import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType,
                                     OutSpecs (..), createOutSpecs, toOutSpecs, convH,
                                     InvOrDataTK, MsgSubscribe, MsgSubscribe1,
                                     makeSendActions, SendActions, Msg)
-import           Pos.Communication.Relay.Logic (invReqDataFlowTK)
 import           Pos.Core (BlockVersionData (..), BlockVersion, HeaderHash, ProxySKHeavy,
                            StakeholderId, ProtocolConstants (..))
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader)
@@ -44,27 +43,35 @@ import           Pos.Core.Ssc (Opening, InnerSharesMap, SignedCommitment, VssCer
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateProposal, UpdateVote)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
-import           Pos.DHT.Real (KademliaDHTInstance (..), KademliaParams (..),
-                               startDHTInstance, stopDHTInstance,
-                               kademliaJoinNetworkNoThrow, kademliaJoinNetworkRetry)
 import qualified Pos.Diffusion.Full.Block as Diffusion.Block
 import qualified Pos.Diffusion.Full.Delegation as Diffusion.Delegation
 import qualified Pos.Diffusion.Full.Ssc as Diffusion.Ssc
 import qualified Pos.Diffusion.Full.Txp as Diffusion.Txp
 import qualified Pos.Diffusion.Full.Update as Diffusion.Update
-import           Pos.Diffusion.Subscription.Common (subscriptionListeners)
-import           Pos.Diffusion.Subscription.Dht (dhtSubscriptionWorker)
-import           Pos.Diffusion.Subscription.Dns (dnsSubscriptionWorker)
-import           Pos.Diffusion.Subscription.Status (SubscriptionStates, emptySubscriptionStates)
-import           Pos.Diffusion.Transport.TCP (bracketTransportTCP)
-import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
+import           Pos.Infra.DHT.Real (KademliaDHTInstance (..),
+                                     KademliaParams (..),
+                                     startDHTInstance, stopDHTInstance,
+                                     kademliaJoinNetworkNoThrow,
+                                     kademliaJoinNetworkRetry)
+import           Pos.Infra.Diffusion.Subscription.Common (subscriptionListeners)
+import           Pos.Infra.Diffusion.Subscription.Dht (dhtSubscriptionWorker)
+import           Pos.Infra.Diffusion.Subscription.Dns (dnsSubscriptionWorker)
+import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStates,
+                                                          emptySubscriptionStates)
+import           Pos.Infra.Diffusion.Transport.TCP (bracketTransportTCP)
+import           Pos.Infra.Diffusion.Types (Diffusion (..), DiffusionLayer (..))
+import           Pos.Infra.Communication.Relay.Logic (invReqDataFlowTK)
+import           Pos.Infra.Network.Types (NetworkConfig (..), Bucket (..),
+                                          initQueue, topologySubscribers,
+                                          SubscriptionWorker (..),
+                                          NodeType,
+                                          topologySubscriptionWorker,
+                                          topologyRunKademlia,
+                                          topologyHealthStatus)
+import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
+import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..),
+                                          registerEkgNodeMetrics)
 import           Pos.Logic.Types (Logic (..))
-import           Pos.Network.Types (NetworkConfig (..), Bucket (..), initQueue,
-                                    topologySubscribers, SubscriptionWorker (..),
-                                    NodeType,  topologySubscriptionWorker,
-                                    topologyRunKademlia, topologyHealthStatus)
-import           Pos.Reporting.Health.Types (HealthStatus (..))
-import           Pos.Reporting.Ekg (EkgNodeMetrics (..), registerEkgNodeMetrics)
 import           Pos.Ssc.Message (MCOpening (..), MCShares (..), MCCommitment (..), MCVssCertificate (..))
 import           Pos.Util.Chrono (OldestFirst)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
@@ -157,7 +164,7 @@ diffusionLayerFullExposeInternals
        -- operation, as opposed to passively trying to join.
     -> IO HealthStatus
        -- ^ Amazon Route53 health check support (stopgap measure, see note
-       --   in Pos.Diffusion.Types, above 'healthStatus' record field).
+       --   in Pos.Infra.Diffusion.Types, above 'healthStatus' record field).
     -> Maybe EkgNodeMetrics
     -> Logic IO
     -> IO (Diffusion IO, RunFullDiffusionInternals)
@@ -423,7 +430,7 @@ runDiffusionLayerFull logTrace
                     -- thread ('dequeueDaemon') will be killed.
                     OQ.waitShutdown oq
                     pure t
-                
+
                 action = Concurrently dequeueDaemon
                       *> Concurrently subscriptionDaemon
                       *> Concurrently mainAction

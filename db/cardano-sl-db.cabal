@@ -1,5 +1,5 @@
 name:                cardano-sl-db
-version:             1.1.1
+version:             1.2.0
 synopsis:            Cardano SL - basic DB interfaces
 description:         Cardano SL - basic DB interfaces
 license:             MIT

@@ -1,5 +1,19 @@
-with import ((import ./lib.nix).fetchNixPkgs) { };
-
+let
+  localLib = import ./lib.nix;
+  jemallocOverlay = self: super: {
+    # jemalloc has a bug that caused cardano-sl-db to fail to link (via
+    # rocksdb, which can use jemalloc).
+    # https://github.com/jemalloc/jemalloc/issues/937
+    # Using jemalloc 510 with the --disable-initial-exec-tls flag seems to
+    # fix it.
+    jemalloc = self.callPackage ./nix/jemalloc/jemalloc510.nix {};
+  };
+in
+{ system ? builtins.currentSystem
+, config ? {}
+, pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; overlays = [ jemallocOverlay ]; })
+}:
+with pkgs;
 let
   hsPkgs = haskell.packages.ghc822;
 in

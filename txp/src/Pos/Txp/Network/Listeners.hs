@@ -24,7 +24,6 @@ import qualified Pos.Infra.Communication.Relay as Relay
 import           Pos.Infra.Util.JsonLog.Events (JLTxR (..))
 import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem, txpProcessTx)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
-import           Pos.Util.JsonLog.Events (JLTxR (..))
 import           Pos.Util.Trace (Trace, traceWith)
 import           Pos.Util.Trace.Unstructured (LogItem, logInfo)
 
@@ -33,7 +32,7 @@ import           Pos.Util.Trace.Unstructured (LogItem, logInfo)
 -- #txProcessTransaction
 handleTxDo
     :: TxpMode ctx m
-    => Trace m LogItem 
+    => Trace m LogItem
     -> Trace m JLTxR    -- ^ How to log transactions
     -> TxAux            -- ^ Incoming transaction to be processed
     -> m Bool

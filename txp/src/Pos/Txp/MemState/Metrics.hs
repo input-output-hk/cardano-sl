@@ -17,7 +17,6 @@ import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLMemPool (..),
                                                 MemPoolModifyReason (..))
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 import           Pos.Txp.Toil.Types (MemPool (_mpSize))
-import           Pos.Util.JsonLog.Events (JLEvent (..), JLMemPool (..), MemPoolModifyReason (..))
 import           Pos.Util.Trace (Trace)
 import           Pos.Util.Trace.Unstructured (LogItem, logDebug)
 

@@ -541,11 +541,11 @@ other operators.
     \mathsf{balance} ~ (u \cup v)
 & = \mathsf{balance} ~ u + \mathsf{balance} ~ v
 & \qquad \text{if } \dom u \cap \dom v = \emptyset
-  \label{eq:balance_props_minus}
+  \label{eq:balance_props_union}
 \\
   \mathsf{balance} ~ (\mathit{ins} \subtractdom u)
 & = \mathsf{balance} ~ u - \mathsf{balance} ~ (\mathit{ins} \restrictdom u)
-  \label{eq:balance_props_union}
+  \label{eq:balance_props_minus}
 \end{IEEEeqnarray}
 %
 \label{lem:balance_props}
@@ -2745,8 +2745,16 @@ perfect sync:
 \begin{math}
 t \in    \mathit{pending}_\mathsf{Wallet} \text{ but }
 t \notin \mathit{pending}_\mathsf{Submission}
-\end{math}
-(yet), transaction $t$ will just be submitted a little bit later.
+\end{math},
+it might mean that the wallet hasn't informed the submission layer yet of a
+new transaction, and it will just be submitted a little bit later, or it might
+mean that the submission layer removed a transaction from its pending set
+because it's given up on it, but the wallet hasn't reacted to the notification
+from the submission layer yet.\footnote{We could alternatively insist that the
+submission layer doesn't remove any transactions from its pending set until
+the wallet tells it so. Relaxing that restriction however allows us to state
+an invariant that anything in the submission layer's pending set must also
+be scheduled.}
 
 \item If
 \begin{math}

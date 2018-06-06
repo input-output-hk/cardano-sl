@@ -13,7 +13,7 @@ import qualified Pipes.Prelude as P
 import           System.Directory (listDirectory)
 import           System.FilePath ((</>))
 
-import           Pos.Util.JsonLog.Events (JLEvent, JLTimedEvent (..))
+import           Pos.Infra.Util.JsonLog.Events (JLEvent, JLTimedEvent (..))
 import           Types
 import           Universum
 import           Util.Aeson (parseJSONP)

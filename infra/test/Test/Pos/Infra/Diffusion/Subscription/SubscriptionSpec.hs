@@ -8,8 +8,8 @@ import           Control.Exception (AsyncException (ThreadKilled), throwIO, from
 import           System.IO.Error (userError)
 import           Test.Hspec (Expectation, Spec, describe, it, shouldBe, expectationFailure)
 
-import           Pos.Diffusion.Subscription.Common (SubscriptionTerminationReason (..),
-                                                    networkSubscribeTo)
+import           Pos.Infra.Diffusion.Subscription.Common (SubscriptionTerminationReason (..),
+                                                          networkSubscribeTo)
 
 spec :: Spec
 spec = describe "Exception handling" $ do

@@ -34,8 +34,8 @@ import           Pos.Explorer.DB (Epoch, Page, getEpochBlocks, getEpochPages, ge
 
 import           Pos.Core (Address, Coin, EpochIndex, HasConfiguration, HeaderHash, SlotId (..),
                            SlotLeaders, Timestamp, isRedeemAddress)
+import           Pos.Infra.Slotting (MonadSlotsData, getSlotStart)
 import           Pos.Lrc (getLeadersForEpoch)
-import           Pos.Slotting (MonadSlotsData, getSlotStart)
 import           Pos.Txp (GenesisUtxo (..), genesisUtxo, utxoToAddressCoinPairs)
 
 

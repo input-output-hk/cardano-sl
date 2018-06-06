@@ -48,7 +48,7 @@ import           Pos.Core.Block.Genesis.Types (GenesisBody (..), GenesisBodyAttr
                                                GenesisProof (..))
 import           Pos.Core.Block.Union.Types (GenesisBlock, GenesisBlockHeader, HeaderHash)
 import           Pos.Core.Common (ChainDifficulty, SlotLeaders)
-import           Pos.Core.Slotting.Types (EpochIndex (..))
+import           Pos.Core.Slotting (EpochIndex (..))
 
 ----------------------------------------------------------------------------
 -- Extra types

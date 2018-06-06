@@ -52,7 +52,7 @@ import           Pos.Crypto (WithHash (..), hash, redeemPkBuild, withHash)
 import           Pos.DB.Block (getBlund)
 import           Pos.DB.Class (MonadDBRead)
 
-import           Pos.Diffusion.Types (Diffusion)
+import           Pos.Infra.Diffusion.Types (Diffusion)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Types (Blund, Undo)
@@ -63,7 +63,7 @@ import           Pos.Core (AddrType (..), Address (..), Coin, EpochIndex, Header
 import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPayload, mcdSlot)
 import           Pos.Core.Txp (Tx (..), TxAux, TxId, TxOutAux (..), taTx, txOutValue, txpTxs,
                                _txOutputs)
-import           Pos.Slotting (MonadSlots (..), getSlotStart)
+import           Pos.Infra.Slotting (MonadSlots (..), getSlotStart)
 import           Pos.Txp (MonadTxpMem, TxMap, getLocalTxs, getMemPool, mpLocalTxs, topsortTxs,
                           withTxpLocalData)
 import           Pos.Util (divRoundUp, maybeThrow)

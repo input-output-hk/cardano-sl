@@ -11,7 +11,7 @@ import           Universum
 
 import           Data.Reflection (Given (..), give)
 import           Pos.Core.Genesis.Types (GenesisData (..), getGenesisVssCertificatesMap)
-import           Pos.Core.Ssc.Types (VssCertificatesMap)
+import           Pos.Core.Ssc (VssCertificatesMap)
 
 type HasGenesisData = Given GenesisData
 

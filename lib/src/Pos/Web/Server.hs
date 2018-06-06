@@ -47,8 +47,8 @@ import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB as DB
 import qualified Pos.GState as GS
+import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 import qualified Pos.Lrc.DB as LrcDB
-import           Pos.Reporting.Health.Types (HealthStatus (..))
 import           Pos.Ssc (scParticipateSsc)
 import           Pos.Txp (TxOut (..), toaOut)
 import           Pos.Txp.MemState (GenericTxpLocalData, MempoolExt, getLocalTxs, withTxpLocalData)
@@ -168,7 +168,7 @@ tlsWebServerMode _ _ TlsParams{..} = tlsSettings
 tlsWithClientCheck
     :: String -> Word16 -> TlsParams -> TLSSettings
 tlsWithClientCheck host port TlsParams{..} = tlsSettings
-    { tlsWantClientCert = True
+    { tlsWantClientCert = tpClientAuth
     , tlsServerHooks    = def
         { onClientCertificate = fmap certificateUsageFromValidations . validateCertificate }
     }

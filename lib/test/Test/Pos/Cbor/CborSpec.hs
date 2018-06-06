@@ -45,14 +45,11 @@ import           Pos.Binary.Class
 import           Pos.Binary.Communication ()
 import           Pos.Binary.Core ()
 import           Pos.Binary.Crypto ()
-import           Pos.Binary.Infra ()
 import           Pos.Binary.Ssc ()
 import qualified Pos.Block.Network as BT
 import qualified Pos.Block.Types as BT
 import qualified Pos.Communication as C
 import           Pos.Communication.Limits (mlOpening, mlUpdateVote, mlVssCertificate)
-import qualified Pos.Communication.Relay as R
-import           Pos.Communication.Types.Relay (DataMsg (..))
 import qualified Pos.Core as T
 import qualified Pos.Core.Block as BT
 import           Pos.Core.Common (ScriptVersion)
@@ -62,9 +59,12 @@ import           Pos.Crypto.Hashing (WithHash)
 import           Pos.Crypto.Signing (EncryptedSecretKey)
 import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
 import           Pos.Delegation (DlgPayload, DlgUndo)
-import qualified Pos.DHT.Model as DHT
+import           Pos.Infra.Binary ()
+import qualified Pos.Infra.Communication.Relay as R
+import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
+import qualified Pos.Infra.DHT.Model as DHT
 import           Pos.Merkle (MerkleTree)
-import           Pos.Slotting.Types (SlottingData)
+import           Pos.Infra.Slotting.Types (SlottingData)
 import qualified Pos.Ssc as Ssc
 import qualified Pos.Txp as T
 import qualified Pos.Update as U

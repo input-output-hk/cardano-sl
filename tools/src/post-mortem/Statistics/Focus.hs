@@ -9,7 +9,7 @@ import qualified Data.Set as S
 import qualified Data.Text as T
 
 import           JSONLog
-import           Pos.Util.JsonLog.Events (JLBlock (..), JLEvent (..), JLTxR (..))
+import           Pos.Infra.Util.JsonLog.Events (JLBlock (..), JLEvent (..), JLTxR (..))
 import           Prelude (id)
 import           Types
 import           Universum

@@ -10,7 +10,7 @@ module Cardano.Wallet.API.V1.LegacyHandlers where
 import           Universum
 
 import           Ntp.Client (NtpStatus)
-import           Pos.Diffusion.Types (Diffusion (sendTx))
+import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
 
 import qualified Cardano.Wallet.API.V1 as V1
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts

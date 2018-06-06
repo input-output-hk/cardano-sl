@@ -20,10 +20,12 @@ import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
                                     MsgHeaders (..))
-import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
-                                                   MsgSubscribe (..), MsgSubscribe1 (..),
-                                                   VerInfo (..))
 import           Pos.Core (BlockVersion, HeaderHash)
+import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..),
+                                                         HandlerSpecs,
+                                                         MsgSubscribe (..),
+                                                         MsgSubscribe1 (..),
+                                                         VerInfo (..))
 import           Pos.Util.Util (cborError)
 
 -- TODO: move into each component

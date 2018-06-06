@@ -3,10 +3,8 @@
 -- | Functionality related to 'Address' data type and related types.
 
 module Pos.Core.Common.Address
-       (
-         -- * Re-exports
-         Address (..)
-       , StakeholderId
+       ( Address (..)
+       , Address' (..)
 
        -- * Formatting
        , addressF
@@ -20,7 +18,6 @@ module Pos.Core.Common.Address
        , checkRedeemAddress
 
        -- * Utilities
-       , addrSpendingDataToType
        , addrAttributesUnwrapped
        , deriveLvl2KeyPair
        , deriveFirstHDAddress
@@ -51,73 +48,85 @@ module Pos.Core.Common.Address
        , largestHDAddressBoot
        , maxHDAddressSizeBoot
 
-         -- * Internals
-       , AddressHash
-       , addressHash
-       , unsafeAddressHash
        ) where
 
 import           Universum
 
-import           Crypto.Hash (Blake2b_224, Digest, SHA3_256)
-import qualified Crypto.Hash as CryptoHash
+import           Control.Lens (makePrisms)
 import qualified Data.ByteString as BS
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58, encodeBase58)
+import           Data.Hashable (Hashable (..))
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (Format, bprint, build, builder, int, later, (%))
+import           Formatting (Format, bprint, build, builder, later, (%))
 import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util (mapJson)
 
 import           Pos.Binary.Class (Bi, biSize)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Common.Coin ()
-import           Pos.Core.Common.Types (AddrAttributes (..), AddrSpendingData (..),
-                                        AddrStakeDistribution (..), AddrType (..), Address (..),
-                                        Address' (..), AddressHash, Script, StakeholderId)
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
-import           Pos.Crypto.Hashing (AbstractHash (AbstractHash), hashHexF, shortHashF)
+import           Pos.Crypto.Hashing (hashHexF)
 import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase, ShouldCheckPassphrase (..),
                                 deriveHDPassphrase, deriveHDPublicKey, deriveHDSecretKey,
                                 packHDAddressAttr)
 import           Pos.Crypto.Signing (EncryptedSecretKey, PassPhrase, PublicKey, RedeemPublicKey,
                                      SecretKey, deterministicKeyGen, emptyPassphrase, encToPublic,
                                      noPassEncrypt)
-import           Pos.Data.Attributes (attrData, mkAttributes)
+import           Pos.Data.Attributes (Attributes (..), attrData, mkAttributes)
+
+import           Pos.Core.Common.AddrAttributes
+import           Pos.Core.Common.AddressHash
+import           Pos.Core.Common.AddrSpendingData
+import           Pos.Core.Common.AddrStakeDistribution
+import           Pos.Core.Common.Script
+import           Pos.Core.Common.StakeholderId
+
+-- | Hash of this data is stored in 'Address'. This type exists mostly
+-- for internal usage.
+newtype Address' = Address'
+    { unAddress' :: (AddrType, AddrSpendingData, Attributes AddrAttributes)
+    } deriving (Eq, Show, Generic, Typeable, Bi)
+    -- TODO: We are deriving 'Bi' via 'GeneralizedNewtypeDeriving'. This is
+    -- enabled in the Cabal file. It would be *very bad* if we switched to
+    -- @DeriveAnyClass@ and it was derived via the 'Generic' class instead.
+    --
+    -- When we upgrade to GHC 8.2, we can use @DerivingStrategies@ to write:
+    -- @
+    -- newtype Address' = Address' { ... }
+    --     deriving stock (Eq, Show, Generic, Typeable)
+    --     deriving newtype (Bi)
+    -- @
+
+-- | 'Address' is where you can send coins.
+data Address = Address
+    { addrRoot       :: !(AddressHash Address')
+    -- ^ Root of imaginary pseudo Merkle tree stored in this address.
+    , addrAttributes :: !(Attributes AddrAttributes)
+    -- ^ Attributes associated with this address.
+    , addrType       :: !AddrType
+    -- ^ The type of this address. Should correspond to
+    -- 'AddrSpendingData', but it can't be checked statically, because
+    -- spending data is hashed.
+    } deriving (Eq, Ord, Generic, Typeable, Show)
+
+instance NFData Address
+
+instance Bi Address where
+    encode Address{..} =
+        Bi.encodeCrcProtected (addrRoot, addrAttributes, addrType)
+    decode = do
+        (addrRoot, addrAttributes, addrType) <- Bi.decodeCrcProtected
+        let res = Address {..}
+        pure res
+
+instance Hashable Address where
+    hashWithSalt s = hashWithSalt s . Bi.serialize
+
+makePrisms ''Address
 
 ----------------------------------------------------------------------------
 -- Formatting, pretty-printing
 ----------------------------------------------------------------------------
-
-instance Buildable AddrSpendingData where
-    build =
-        \case
-            PubKeyASD pk -> bprint ("PubKeyASD " %build) pk
-            ScriptASD script -> bprint ("ScriptASD "%build) script
-            RedeemASD rpk -> bprint ("RedeemASD "%build) rpk
-            UnknownASD tag _ -> bprint ("UnknownASD with tag "%int) tag
-
-instance Buildable AddrStakeDistribution where
-    build =
-        \case
-            BootstrapEraDistr -> "Bootstrap era distribution"
-            SingleKeyDistr id ->
-                bprint ("Single key distribution ("%shortHashF%")") id
-            UnsafeMultiKeyDistr distr ->
-                bprint ("Multi key distribution: "%mapJson) distr
-
-instance Buildable AddrAttributes where
-    build (AddrAttributes {..}) =
-        bprint
-            ("AddrAttributes { stake distribution: "%build%
-             ", derivation path: "%builder%" }")
-            aaStakeDistribution
-            derivationPathBuilder
-      where
-        derivationPathBuilder =
-            case aaPkDerivationPath of
-                Nothing -> "{}"
-                Just _  -> "{path is encrypted}"
 
 -- | A formatter showing guts of an 'Address'.
 addressDetailedF :: Format r (Address -> r)
@@ -293,32 +302,8 @@ checkRedeemAddress :: RedeemPublicKey -> Address -> Bool
 checkRedeemAddress rpk = checkAddrSpendingData (RedeemASD rpk)
 
 ----------------------------------------------------------------------------
--- Hashing
-----------------------------------------------------------------------------
-
-unsafeAddressHash :: Bi a => a -> AddressHash b
-unsafeAddressHash = AbstractHash . secondHash . firstHash
-  where
-    firstHash :: Bi a => a -> Digest SHA3_256
-    firstHash = CryptoHash.hashlazy . Bi.serialize
-    secondHash :: Digest SHA3_256 -> Digest Blake2b_224
-    secondHash = CryptoHash.hash
-
-addressHash :: Bi a => a -> AddressHash a
-addressHash = unsafeAddressHash
-
-----------------------------------------------------------------------------
 -- Utils
 ----------------------------------------------------------------------------
-
--- | Convert 'AddrSpendingData' to the corresponding 'AddrType'.
-addrSpendingDataToType :: AddrSpendingData -> AddrType
-addrSpendingDataToType =
-    \case
-        PubKeyASD {} -> ATPubKey
-        ScriptASD {} -> ATScript
-        RedeemASD {} -> ATRedeem
-        UnknownASD tag _ -> ATUnknown tag
 
 -- | Get 'AddrAttributes' from 'Address'.
 addrAttributesUnwrapped :: Address -> AddrAttributes

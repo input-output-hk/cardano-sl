@@ -98,7 +98,7 @@ data GenEventsParams h a = GenEventsParams {
     , gepMaxNumForks          :: Int
     }
 
-defEventsParams :: (Int -> Int -> Value) -- ^ Fee model
+defEventsParams :: (Int -> [Value] -> Value) -- ^ Fee model
                 -> [a]             -- ^ Addresses we can generate outputs to
                 -> Set a           -- ^ Addresses that belong to the wallet
                 -> Utxo h a        -- ^ Initial UTxO

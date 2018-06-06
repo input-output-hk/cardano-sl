@@ -24,9 +24,9 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 import           Node.Message.Class (Message)
 
-import           Pos.Communication.Types.Relay (InvOrData, ReqMsg, ReqOrRes)
 import           Pos.Core (StakeholderId, VssCertificate, addressHash, getCertId)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment)
+import           Pos.Infra.Communication.Types.Relay (InvOrData, ReqMsg, ReqOrRes)
 import           Pos.Ssc.Toss.Types (SscTag (..))
 
 class HasSscTag a where

@@ -70,10 +70,10 @@ import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault, dbGetDefault,
                                dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault, openNodeDBs)
+import           Pos.Infra.Reporting.Http (sendReport)
+import           Pos.Infra.Reporting.Wlog (compressLogs, retrieveLogFiles)
 import           Pos.Launcher (HasConfigurations, withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))
-import           Pos.Reporting.Http (sendReport)
-import           Pos.Reporting.Wlog (compressLogs, retrieveLogFiles)
 import           Pos.ReportServer.Report (ReportType (..))
 import           Pos.Update (installerHash)
 import           Pos.Update.DB.Misc (affirmUpdateInstalled)

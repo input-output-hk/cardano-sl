@@ -10,6 +10,7 @@ module Pos.Lrc.Consumer
 
 import           Universum
 
+import           Pos.Binary.Class (Bi)
 import           Pos.Core (BlockVersionData, Coin, CoinPortion, EpochIndex, applyCoinPortionUp)
 import           Pos.DB.Class (MonadDB, MonadGState, gsAdoptedBVData)
 import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
@@ -34,31 +35,31 @@ data LrcConsumer m = LrcConsumer
 -- | Create LrcConsumer using constants from RichmenComponent and
 -- given actions.
 lrcConsumerFromComponent
-    :: forall c m.
-       RichmenComponent c
-    => (Coin -> m Coin)
+    :: RichmenComponent c
+    -> (Coin -> m Coin)
     -> (EpochIndex -> m Bool)
     -> (EpochIndex -> Coin -> RichmenStakes -> m ())
     -> LrcConsumer m
-lrcConsumerFromComponent thd ifNeedCompute callback =
+lrcConsumerFromComponent rc thd ifNeedCompute callback =
     LrcConsumer
     { lcThreshold = thd
     , lcIfNeedCompute = ifNeedCompute
     , lcComputedCallback = callback
-    , lcConsiderDelegated = rcConsiderDelegated $ Proxy @c
+    , lcConsiderDelegated = rcConsiderDelegated rc
     }
 
 -- | Create simple LrcConsumer using constants from RichmenComponent
 -- which uses only LRC DB.
 lrcConsumerFromComponentSimple
-    :: forall c m.
-       (RichmenComponent c, MonadGState m, MonadDB m)
-    => (BlockVersionData -> CoinPortion) -> LrcConsumer m
-lrcConsumerFromComponentSimple thresholdGetter =
-    lrcConsumerFromComponent @c toThreshold ifNeedCompute onComputed
+    :: (Bi richmenData, MonadGState m, MonadDB m)
+    => RichmenComponent richmenData
+    -> (BlockVersionData -> CoinPortion)
+    -> LrcConsumer m
+lrcConsumerFromComponentSimple rc thresholdGetter =
+    lrcConsumerFromComponent rc toThreshold ifNeedCompute onComputed
   where
     toThreshold total =
         flip applyCoinPortionUp total . thresholdGetter <$> gsAdoptedBVData
-    ifNeedCompute epoch = isNothing <$> getRichmen @c epoch
+    ifNeedCompute epoch = isNothing <$> getRichmen rc epoch
     onComputed epoch totalStake stakes =
-        putRichmen @c epoch (totalStake, stakes)
+        putRichmen rc epoch (totalStake, stakes)

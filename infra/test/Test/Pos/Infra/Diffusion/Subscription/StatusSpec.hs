@@ -14,10 +14,10 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Gen, Property, elements, forAllShrink, ioProperty,
                                   listOf, shrinkList, sized, (===))
 
-import           Pos.Diffusion.Subscription.Status (SubscriptionStatus (..),
-                                                    SubscriptionStates, Changes, changes, 
-                                                    withChanges, subscribing, subscribed,
-                                                    terminated, emptySubscriptionStates)
+import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStatus (..),
+                                                          SubscriptionStates, Changes, changes,
+                                                          withChanges, subscribing, subscribed,
+                                                          terminated, emptySubscriptionStates)
 
 data Key = A | B | C | D
   deriving (Eq, Ord, Show)

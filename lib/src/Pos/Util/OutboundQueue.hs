@@ -17,7 +17,7 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.Broadcast.OutboundQueue.Types as OQ
 import           Node.Conversation (Conversation)
 import           Pos.Communication (Msg, NodeId, PackingType, PeerData)
-import           Pos.Network.Types (Bucket)
+import           Pos.Infra.Network.Types (Bucket)
 
 -- | Specialization of OutboundQ for use in cardano-sl. Peers are identified
 -- by 'NodeId' and the data to be enqueued is an 'EnqueuedConversation'.

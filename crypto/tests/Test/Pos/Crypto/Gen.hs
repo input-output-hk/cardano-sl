@@ -40,6 +40,9 @@ module Test.Pos.Crypto.Gen
         -- Hash Generators
         , genAbstractHash
 
+        -- SafeSigner Generators
+        , genSafeSigner
+
         -- Passphrase Generators
         , genPassPhrase
 
@@ -250,6 +253,17 @@ genPassPhrase = ByteArray.pack <$> genWord8List
         Gen.list (Range.singleton 32) (Gen.word8 Range.constantBounded)
 
 ----------------------------------------------------------------------------
+-- SafeSigner Generators
+----------------------------------------------------------------------------
+
+genSafeSigner :: Gen SafeSigner
+genSafeSigner = Gen.choice gens
+  where
+    gens = [ SafeSigner <$> genEncryptedSecretKey <*> genPassPhrase
+           , FakeSigner <$> genSecretKey
+           ]
+
+----------------------------------------------------------------------------
 -- HD Generators
 ----------------------------------------------------------------------------
 
@@ -267,6 +281,3 @@ genBytes n = Gen.bytes (Range.singleton n)
 
 gen32Bytes :: Gen ByteString
 gen32Bytes = genBytes 32
-
-genSafeSigner :: Gen SafeSigner
-genSafeSigner = FakeSigner <$> genSecretKey

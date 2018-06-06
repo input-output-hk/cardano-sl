@@ -33,12 +33,15 @@ module Test.Pos.Crypto.Gen
         , genRedeemSignature
 
         -- Secret Generators
+        , genDecShare
+        , genEncShare
         , genSharedSecretData
         , genSecret
         , genSecretProof
 
         -- Hash Generators
         , genAbstractHash
+        , genWithHash
 
         -- SafeSigner Generators
         , genSafeSigner
@@ -63,11 +66,12 @@ import           Pos.Binary.Class (Bi)
 import           Pos.Crypto (PassPhrase)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm,
-                                     abstractHash)
+                                     WithHash, abstractHash, withHash)
 import           Pos.Crypto.HD (HDAddressPayload (..), HDPassphrase (..))
 import           Pos.Crypto.Random (deterministic)
-import           Pos.Crypto.SecretSharing (EncShare, Secret, SecretProof,
-                                           VssKeyPair, VssPublicKey,
+import           Pos.Crypto.SecretSharing (DecShare, EncShare, Secret,
+                                           SecretProof, VssKeyPair,
+                                           VssPublicKey, decryptShare,
                                            deterministicVssKeyGen,
                                            genSharedSecret, toVssPublicKey)
 import           Pos.Crypto.Signing (EncryptedSecretKey, ProxyCert,
@@ -75,8 +79,9 @@ import           Pos.Crypto.Signing (EncryptedSecretKey, ProxyCert,
                                      SafeSigner (..), SecretKey, Signature,
                                      Signed, SignTag (..), deterministicKeyGen,
                                      mkSigned, noPassEncrypt, proxySign,
-                                     safeCreateProxyCert, safeCreatePsk, sign,
-                                     signEncoded)
+                                     pskDelegatePk, safeCreateProxyCert,
+                                     safeCreatePsk, sign, signEncoded,
+                                     toPublic)
 import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey,
                                             RedeemSignature,
                                             redeemDeterministicKeyGen,
@@ -178,7 +183,7 @@ genProxySignature genA genW = do
     sk  <- genSecretKey
     psk <- genProxySecretKey genW
     a   <- genA
-    return $ proxySign pm st sk psk a
+    return $ proxySign pm st sk (psk {pskDelegatePk = toPublic sk}) a
 
 ----------------------------------------------------------------------------
 -- Signature Generators
@@ -211,15 +216,30 @@ genRedeemSignature genA =
 -- Secret Generators
 ----------------------------------------------------------------------------
 
-genSharedSecretData :: Gen (Secret, SecretProof, [(VssPublicKey, EncShare)])
+genDecShare :: Gen DecShare
+genDecShare = do
+    (_, _, xs) <- genSharedSecretData
+    case head xs of
+        Just (vkp, es) -> return $ deterministic "ds" $ decryptShare vkp es
+        Nothing        -> error "Error generating a DecShare."
+
+genEncShare :: Gen EncShare
+genEncShare = do
+    (_, _, xs) <- genSharedSecretData
+    case head xs of
+        Just (_, es) -> return es
+        Nothing      -> error "Error generating an EncShare."
+
+genSharedSecretData :: Gen (Secret, SecretProof, [(VssKeyPair, EncShare)])
 genSharedSecretData = do
     let numKeys = 128 :: Int
-    parties <-
-        Gen.integral (Range.constant 4 (fromIntegral numKeys)) :: Gen Integer
-    threshold <- Gen.integral (Range.constant 2 (parties - 2)) :: Gen Integer
-    vssKeys <- replicateM numKeys genVssPublicKey
-    let ss = deterministic "ss" $ genSharedSecret threshold (fromList vssKeys)
-    return ss
+    parties     <- Gen.integral (Range.constant 4 (fromIntegral numKeys)) :: Gen Integer
+    threshold   <- Gen.integral (Range.constant 2 (parties - 2)) :: Gen Integer
+    vssKeyPairs <- replicateM numKeys genVssKeyPair
+    let vssPublicKeys = map toVssPublicKey vssKeyPairs
+        (s, sp, xs)   = deterministic "ss" $ genSharedSecret threshold (fromList vssPublicKeys)
+        ys            = zipWith (\(_, y) x -> (x, y)) xs vssKeyPairs
+    return (s, sp, ys)
 
 genSecret :: Gen Secret
 genSecret = do
@@ -240,6 +260,9 @@ genAbstractHash
     => Gen a
     -> Gen (AbstractHash algo a)
 genAbstractHash genA = abstractHash <$> genA
+
+genWithHash :: Bi a => Gen a -> Gen (WithHash a)
+genWithHash genA = withHash <$> genA
 
 ----------------------------------------------------------------------------
 -- PassPhrase Generators

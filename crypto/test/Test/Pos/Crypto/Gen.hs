@@ -65,27 +65,20 @@ import qualified Hedgehog.Range as Range
 import           Pos.Binary.Class (Bi)
 import           Pos.Crypto (PassPhrase)
 import           Pos.Crypto.Configuration (ProtocolMagic (..))
-import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm,
-                                     WithHash, abstractHash, withHash)
+import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm, WithHash, abstractHash,
+                                     withHash)
 import           Pos.Crypto.HD (HDAddressPayload (..), HDPassphrase (..))
 import           Pos.Crypto.Random (deterministic)
-import           Pos.Crypto.SecretSharing (DecShare, EncShare, Secret,
-                                           SecretProof, VssKeyPair,
-                                           VssPublicKey, decryptShare,
-                                           deterministicVssKeyGen,
+import           Pos.Crypto.SecretSharing (DecShare, EncShare, Secret, SecretProof, VssKeyPair,
+                                           VssPublicKey, decryptShare, deterministicVssKeyGen,
                                            genSharedSecret, toVssPublicKey)
-import           Pos.Crypto.Signing (EncryptedSecretKey, ProxyCert,
-                                     ProxySecretKey, ProxySignature, PublicKey,
-                                     SafeSigner (..), SecretKey, Signature,
-                                     Signed, SignTag (..), deterministicKeyGen,
-                                     mkSigned, noPassEncrypt, proxySign,
-                                     pskDelegatePk, safeCreateProxyCert,
-                                     safeCreatePsk, sign, signEncoded,
-                                     toPublic)
-import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey,
-                                            RedeemSignature,
-                                            redeemDeterministicKeyGen,
-                                            redeemSign)
+import           Pos.Crypto.Signing (EncryptedSecretKey, ProxyCert, ProxySecretKey, ProxySignature,
+                                     PublicKey, SafeSigner (..), SecretKey, SignTag (..), Signature,
+                                     Signed, deterministicKeyGen, mkSigned, noPassEncrypt,
+                                     proxySign, pskDelegatePk, safeCreateProxyCert, safeCreatePsk,
+                                     sign, signEncoded, toPublic)
+import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey, RedeemSignature,
+                                            redeemDeterministicKeyGen, redeemSign)
 
 ----------------------------------------------------------------------------
 -- Protocol Magic Generator

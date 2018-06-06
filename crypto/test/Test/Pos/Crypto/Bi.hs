@@ -13,16 +13,18 @@ import           Cardano.Crypto.Wallet (XPrv, unXPrv, xprv, xpub)
 import           Crypto.Hash (Blake2b_256)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
+import           Data.List.NonEmpty (fromList)
 
 import           Hedgehog (Gen, Property)
 import qualified Hedgehog as H
 
 import           Pos.Aeson.Crypto ()
-import           Pos.Crypto (AbstractHash, PassPhrase, ProtocolMagic (..), ProxyCert,
+import           Pos.Crypto (AbstractHash, EncShare, PassPhrase, ProtocolMagic (..), ProxyCert,
                              ProxySecretKey, PublicKey (..), RedeemSignature,
                              SafeSigner (FakeSigner), Secret, SecretKey (..), SecretProof,
-                             SignTag (SignForTestingOnly), Signature, WithHash, deriveHDPassphrase,
-                             deterministicVssKeyGen, hash, mkSigned, noPassEncrypt,
+                             SignTag (SignForTestingOnly), Signature, VssKeyPair, WithHash,
+                             decryptShare, deriveHDPassphrase, deterministic,
+                             deterministicVssKeyGen, genSharedSecret, hash, mkSigned, noPassEncrypt,
                              packHDAddressAttr, proxySign, redeemDeterministicKeyGen, redeemSign,
                              safeCreateProxyCert, safeCreatePsk, sign, toPublic, toVssPublicKey)
 
@@ -234,8 +236,32 @@ roundTripProxySignatureBi = eachOf 100
     where genUnitProxySignature = genProxySignature (pure ()) (pure ())
 
 --------------------------------------------------------------------------------
+-- SharedSecretData
+--------------------------------------------------------------------------------
+
+sharedSecretData :: (Secret, SecretProof, [(VssKeyPair, EncShare)])
+sharedSecretData = (s, sp, ys)
+  where
+    vssKeyPairs =
+        [ deterministicVssKeyGen $ getBytes 0 32
+        , deterministicVssKeyGen $ getBytes 32 32
+        , deterministicVssKeyGen $ getBytes 64 32
+        , deterministicVssKeyGen $ getBytes 96 32
+        ]
+    vssPublicKeys = map toVssPublicKey vssKeyPairs
+    (s, sp, xs) =
+        deterministic "ss" $ genSharedSecret 2 (fromList vssPublicKeys)
+    ys = zipWith (\(_, y) x -> (x, y)) xs vssKeyPairs
+
+--------------------------------------------------------------------------------
 -- DecShare
 --------------------------------------------------------------------------------
+
+golden_DecShare :: Property
+golden_DecShare = goldenTestBi decShare "test/golden/DecShare"
+  where
+    Just decShare = case sharedSecretData of
+        (_, _, xs) -> deterministic "ds" . uncurry decryptShare <$> head xs
 
 roundTripDecShareBi :: Property
 roundTripDecShareBi = eachOf 20 genDecShare roundTripsBiShow
@@ -244,6 +270,12 @@ roundTripDecShareBi = eachOf 20 genDecShare roundTripsBiShow
 -- EncShare
 --------------------------------------------------------------------------------
 
+golden_EncShare :: Property
+golden_EncShare = goldenTestBi encShare "test/golden/EncShare"
+  where
+    Just encShare = case sharedSecretData of
+        (_, _, xs) -> snd <$> head xs
+
 roundTripEncShareBi :: Property
 roundTripEncShareBi = eachOf 20 genEncShare roundTripsBiShow
 
@@ -251,12 +283,11 @@ roundTripEncShareBi = eachOf 20 genEncShare roundTripsBiShow
 -- Secret
 --------------------------------------------------------------------------------
 
--- | Not done because the constructor for the underlying `Point` type is not
---   exposed and there is no deterministic generation function
-todo_golden_Secret :: Property
-todo_golden_Secret = goldenTestBi
-    (error "golden_Secret not yet defined" :: Secret)
-    "test/golden/Secret"
+golden_Secret :: Property
+golden_Secret = goldenTestBi secret "test/golden/Secret"
+  where
+    secret = case sharedSecretData of
+        (s, _, _) -> s
 
 roundTripSecretBi :: Property
 roundTripSecretBi = eachOf 20 genSecret roundTripsBiShow
@@ -265,11 +296,11 @@ roundTripSecretBi = eachOf 20 genSecret roundTripsBiShow
 -- SecretProof
 --------------------------------------------------------------------------------
 
--- | We have a similar problem for this
-todo_golden_SecretProof :: Property
-todo_golden_SecretProof = goldenTestBi
-    (error "golden_SecretProof not yet defined" :: SecretProof)
-    "test/golden/SecretProof"
+golden_SecretProof :: Property
+golden_SecretProof = goldenTestBi secretProof "test/golden/SecretProof"
+  where
+    secretProof = case sharedSecretData of
+        (_, sp, _) -> sp
 
 roundTripSecretProofBi :: Property
 roundTripSecretProofBi = eachOf 20 genSecretProof roundTripsBiShow

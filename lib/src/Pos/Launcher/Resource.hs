@@ -41,17 +41,18 @@ import           Pos.Core (HasConfiguration, Timestamp, gdStartTime, genesisData
 import           Pos.DB (MonadDBRead, NodeDBs)
 import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegationVar)
-import           Pos.DHT.Real (KademliaParams (..))
 import qualified Pos.GState as GS
+import           Pos.Infra.DHT.Real (KademliaParams (..))
+import           Pos.Infra.Network.Types (NetworkConfig (..))
+import           Pos.Infra.Reporting (initializeMisbehaviorMetrics)
+import           Pos.Infra.Shutdown.Types (ShutdownContext (..))
+import           Pos.Infra.Slotting (SimpleSlottingStateVar,
+                                     mkSimpleSlottingStateVar)
+import           Pos.Infra.Slotting.Types (SlottingData)
+import           Pos.Infra.StateLock (newStateLock)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Lrc.Context (LrcContext (..), mkLrcSyncData)
-import           Pos.Network.Types (NetworkConfig (..))
-import           Pos.Reporting (initializeMisbehaviorMetrics)
-import           Pos.Shutdown.Types (ShutdownContext (..))
-import           Pos.Slotting (SimpleSlottingStateVar, mkSimpleSlottingStateVar)
-import           Pos.Slotting.Types (SlottingData)
 import           Pos.Ssc (SscParams, SscState, createSscContext, mkSscState)
-import           Pos.StateLock (newStateLock)
 import           Pos.Txp (GenericTxpLocalData (..), TxpGlobalSettings, mkTxpLocalData,
                           recordTxpMetrics)
 

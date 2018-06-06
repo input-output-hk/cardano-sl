@@ -19,7 +19,7 @@ import           Formatting (bprint, build, builder, (%))
 import           Pos.Core.Delegation (DlgPayload)
 import           Pos.Core.Ssc (SscPayload, SscProof)
 import           Pos.Core.Txp (TxPayload, TxProof)
-import           Pos.Core.Update.Types (BlockVersion, SoftwareVersion, UpdatePayload, UpdateProof)
+import           Pos.Core.Update (BlockVersion, SoftwareVersion, UpdatePayload, UpdateProof)
 import           Pos.Crypto (Hash)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 

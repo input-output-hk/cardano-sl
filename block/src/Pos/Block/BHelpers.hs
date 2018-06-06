@@ -28,8 +28,7 @@ import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
                                             GenericBlockHeader (..), gbExtra)
 import           Pos.Core.Block.Main (MainBody (..), MainExtraHeaderData (..), MainProof,
                                       mainBlockEBDataProof)
-import           Pos.Core.Block.Union (BlockHeader (..), BlockSignature (..))
-import           Pos.Core.Class (IsMainHeader (..))
+import           Pos.Core.Block.Union (BlockHeader (..), BlockSignature (..), IsMainHeader (..))
 import           Pos.Core.Configuration (HasProtocolConstants, HasProtocolMagic, protocolMagic)
 import           Pos.Core.Delegation (LightDlgIndices (..), checkDlgPayload)
 import           Pos.Core.Slotting (SlotId (..))

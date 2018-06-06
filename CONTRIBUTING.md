@@ -1,5 +1,12 @@
 # Contributors Guide
 
+## Discussion
+
+Developer discussion can be found on the official Telegram channel [here](https://t.me/CardanoDevelopersOfficial).
+This channel is intended as a developer/contribution channel. It should not be used for customer support requests,
+comedy/memes, or price talk. Feel free to discuss current issues, future possibilities, and visions for how you
+think Cardano should progress.
+
 ## Bug Reports
 
 Please [open an issue](https://github.com/input-output-hk/cardano-sl/issues/new)

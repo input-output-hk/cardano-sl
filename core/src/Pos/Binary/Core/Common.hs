@@ -5,8 +5,8 @@ module Pos.Binary.Core.Common () where
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Core.Common.Types (Coin (..), unsafeGetCoin)
-import qualified Pos.Core.Common.Types as T
+import           Pos.Core.Common (Coin (..), unsafeGetCoin)
+import qualified Pos.Core.Common as T
 import qualified Pos.Data.Attributes as A
 import           Pos.Util.Orphans ()
 

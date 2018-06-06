@@ -17,8 +17,9 @@ import           Pos.Core (HasProtocolConstants, epochOrSlotG,
                            epochOrSlotToSlot, flattenSlotId)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
-import           Pos.Recovery.Info (MonadRecoveryInfo (..), SyncStatus (..))
-import           Pos.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Infra.Recovery.Info (MonadRecoveryInfo (..),
+                                          SyncStatus (..))
+import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Util.Util (HasLens (..))
 
 instance ( Monad m

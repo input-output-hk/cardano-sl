@@ -35,7 +35,7 @@ import           Pos.Core.Update (ApplicationName, BlockVersion, BlockVersionDat
                                   UpdateProposal (..))
 import           Pos.Lrc.DB.Issuers (IssuersStakes)
 import           Pos.Lrc.Types (FullRichmenData)
-import           Pos.Slotting.Types (SlottingData)
+import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Update.Poll.Modifier (PollModifier (..))
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState, ProposalState,
                                         psProposal)

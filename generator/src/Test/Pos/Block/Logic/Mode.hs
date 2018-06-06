@@ -72,18 +72,24 @@ import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegatio
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.Generator.BlockEvent (SnapshotId)
 import qualified Pos.GState as GS
+import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
+import           Pos.Infra.Reporting (MonadReporting (..),
+                                      HasMisbehaviorMetrics (..))
+import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
+                                     MonadSimpleSlotting, SimpleSlottingMode,
+                                     SimpleSlottingStateVar,
+                                     currentTimeSlottingSimple,
+                                     getCurrentSlotBlockingSimple,
+                                     getCurrentSlotBlockingSimple',
+                                     getCurrentSlotInaccurateSimple,
+                                     getCurrentSlotInaccurateSimple',
+                                     getCurrentSlotSimple,
+                                     getCurrentSlotSimple',
+                                     mkSimpleSlottingStateVar)
+import           Pos.Infra.Slotting.MemState (MonadSlotsData)
+import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
 import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
-import           Pos.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Reporting (MonadReporting (..), HasMisbehaviorMetrics (..))
-import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSimpleSlotting, SimpleSlottingMode,
-                               SimpleSlottingStateVar, currentTimeSlottingSimple,
-                               getCurrentSlotBlockingSimple, getCurrentSlotBlockingSimple',
-                               getCurrentSlotInaccurateSimple, getCurrentSlotInaccurateSimple',
-                               getCurrentSlotSimple, getCurrentSlotSimple',
-                               mkSimpleSlottingStateVar)
-import           Pos.Slotting.MemState (MonadSlotsData)
-import           Pos.Slotting.Types (SlottingData)
 import           Pos.Ssc (SscMemTag, SscState, mkSscState)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), TxpGlobalSettings,
                           TxpHolderTag, mkTxpLocalData, txNormalize, txProcessTransactionNoLock,

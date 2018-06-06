@@ -23,7 +23,7 @@ import           System.IO (hFlush, stdout)
 import           Pos.Util.Log (CanLog, HasLoggerName, logInfo)
 
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
-import           Pos.Diffusion.Types (Diffusion)
+import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Txp (genesisUtxo, unGenesisUtxo)
 
 import           AuxxOptions (AuxxOptions (..))

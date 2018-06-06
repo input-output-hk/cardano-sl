@@ -8,7 +8,7 @@ module Pos.Wallet.Web.Methods.Reporting
 
 import           Universum
 
-import           Pos.Reporting.Methods (MonadReporting, reportInfo)
+import           Pos.Infra.Reporting.Methods (MonadReporting, reportInfo)
 import           Pos.Wallet.Web.ClientTypes (CInitialized)
 import           Servant.API.ContentTypes (NoContent (..))
 

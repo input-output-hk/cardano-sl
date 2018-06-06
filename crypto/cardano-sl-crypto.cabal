@@ -1,5 +1,5 @@
 name:                cardano-sl-crypto
-version:             1.1.1
+version:             1.2.0
 synopsis:            Cardano SL - cryptography primitives
 description:         This package contains cryptography primitives used in Cardano SL.
 license:             MIT

@@ -15,11 +15,10 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Decoder, Encoding, Field 
                                    deriveSimpleBi, encodeListLen, enforceSize)
 import           Pos.Binary.Core.Slotting ()
 import           Pos.Binary.Crypto ()
-import           Pos.Core.Ssc.Types (Commitment (..), CommitmentsMap (..), Opening (..),
-                                     OpeningsMap, SharesMap, SignedCommitment, SscPayload (..),
-                                     SscProof (..), VssCertificatesHash, mkCommitmentsMap)
-import           Pos.Core.Ssc.Vss (VssCertificate (..), VssCertificatesMap (..),
-                                   mkVssCertificatesMap)
+import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (..), Opening (..), OpeningsMap,
+                               SharesMap, SignedCommitment, SscPayload (..), SscProof (..),
+                               VssCertificate (..), VssCertificatesHash, VssCertificatesMap (..),
+                               mkCommitmentsMap, mkVssCertificatesMap)
 import           Pos.Crypto (Hash, PublicKey)
 import           Pos.Util.Util (cborError)
 

@@ -14,12 +14,12 @@ import           Mockable (Production (..), runProduction)
 import           Ntp.Client (NtpStatus, withNtpClient)
 import qualified Pos.Client.CLI as CLI
 import           Pos.DB.DB (initNodeDBs)
-import           Pos.Diffusion.Types (Diffusion)
+import           Pos.Infra.Diffusion.Types (Diffusion)
+import           Pos.Infra.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
 import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingParams,
                                bracketNodeResources, loggerBracket, lpDefaultName, runNode,
                                withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions, HasConfigurations)
-import           Pos.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)

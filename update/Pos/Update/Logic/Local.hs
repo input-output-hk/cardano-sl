@@ -39,9 +39,9 @@ import           Pos.Core.Update (UpId, UpdatePayload (..), UpdateProposal, Upda
 import           Pos.Crypto (PublicKey, shortHashF)
 import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.DB.GState.Common as DB
+import           Pos.Infra.Reporting (MonadReporting)
+import           Pos.Infra.StateLock (StateLock)
 import           Pos.Lrc.Context (HasLrcContext)
-import           Pos.Reporting (MonadReporting)
-import           Pos.StateLock (StateLock)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext (..))
 import qualified Pos.Update.DB as DB

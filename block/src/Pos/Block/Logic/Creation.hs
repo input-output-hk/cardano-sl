@@ -48,15 +48,18 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.Delegation (DelegationVar, DlgPayload (..), ProxySKBlockInfo, clearDlgMemPool,
                                  getDlgMempool)
 import           Pos.Exception (assertionFailed, reportFatalError)
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportError)
+import           Pos.Infra.StateLock (Priority (..), StateLock,
+                                      StateLockMetrics, modifyStateLock)
+import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
+import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Lrc (HasLrcContext)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
-import           Pos.Reporting (HasMisbehaviorMetrics, reportError)
 import           Pos.Ssc.Base (defaultSscPayload, stripSscPayload)
 import           Pos.Ssc.Logic (sscGetLocalPayload)
 import           Pos.Ssc.Mem (MonadSscMem)
 import           Pos.Ssc.State (sscResetLocal)
-import           Pos.StateLock (Priority (..), StateLock, StateLockMetrics, modifyStateLock)
 import           Pos.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem, clearTxpMemPool,
                           txGetPayload, withTxpLocalData)
 import           Pos.Txp.Base (emptyTxPayload)
@@ -66,8 +69,6 @@ import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVe
 import qualified Pos.Update.DB as UDB
 import           Pos.Update.Logic (clearUSMemPool, usCanCreateBlock, usPreparePayload)
 import           Pos.Util (_neHead)
-import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..))
-import           Pos.Util.LogSafe (logInfoS)
 import           Pos.Util.Util (HasLens (..), HasLens')
 
 -- | A set of constraints necessary to create a block from mempool.

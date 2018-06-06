@@ -23,15 +23,17 @@ import           Pos.Core (Timestamp (..))
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Rocks.Functions (openNodeDBs)
 import           Pos.DB.Rocks.Types (NodeDBs)
+import           Pos.Infra.Network.CLI (NetworkConfigOpts (..))
+import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..),
+                                          topologyDequeuePolicy,
+                                          topologyEnqueuePolicy,
+                                          topologyFailurePolicy)
+import           Pos.Infra.Reporting (noReporter)
+import           Pos.Infra.Util.JsonLog.Events (jsonLogConfigFromHandle)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeResources (..),
                                bracketNodeResources, defaultConfigurationOptions, npBehaviorConfig,
                                npUserSecret, withConfigurations)
-import           Pos.Network.CLI (NetworkConfigOpts (..))
-import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
-                                    topologyEnqueuePolicy, topologyFailurePolicy)
-import           Pos.Reporting (noReporter)
 import           Pos.Txp (txpGlobalSettings)
-import           Pos.Util.JsonLog.Events (jsonLogConfigFromHandle)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
 import           Pos.Wallet.Web.State.Acidic (closeState, openState)

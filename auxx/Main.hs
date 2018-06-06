@@ -16,13 +16,15 @@ import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
 import           Pos.Core (ConfigurationError)
 import           Pos.DB.DB (initNodeDBs)
-import           Pos.Diffusion.Types (Diffusion, hoistDiffusion)
+import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
+import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..),
+                                          topologyDequeuePolicy,
+                                          topologyEnqueuePolicy,
+                                          topologyFailurePolicy)
+import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources (..),
                                bracketNodeResources, runRealMode, loggerBracket, lpConsoleLog,
                                runNode, withConfigurations)
-import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
-                                    topologyEnqueuePolicy, topologyFailurePolicy)
-import           Pos.Ntp.Configuration (NtpConfiguration)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)

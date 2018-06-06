@@ -5,8 +5,8 @@
 {-# LANGUAGE TypeFamilies  #-}
 
 module Pos.Communication.Limits
-       ( module Pos.Communication.Limits.Types
-       , module Pos.Communication.Limits.Instances
+       ( module Pos.Infra.Communication.Limits.Types
+       , module Pos.Infra.Communication.Limits.Instances
 
        , mlAbstractHash
 
@@ -86,8 +86,8 @@ import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (.
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 
 -- Reexports
-import           Pos.Communication.Limits.Instances
-import           Pos.Communication.Limits.Types
+import           Pos.Infra.Communication.Limits.Instances
+import           Pos.Infra.Communication.Limits.Types
 import           Pos.Util.Chrono (NewestFirst (..))
 
 ----------------------------------------------------------------------------

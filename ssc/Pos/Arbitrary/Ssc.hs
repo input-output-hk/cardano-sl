@@ -26,7 +26,6 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Arbitrary.Core (genVssCertificate)
 import           Pos.Arbitrary.Core.Unsafe ()
 import           Pos.Binary.Ssc ()
-import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Core (EpochIndex, SlotId (..), VssCertificate (..), VssCertificatesMap,
                            mkVssCertificate, mkVssCertificatesMapLossy)
 import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
@@ -36,6 +35,7 @@ import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), Si
 import           Pos.Crypto (ProtocolMagic, SecretKey, deterministic, randomNumberInRange,
                              toVssPublicKey, vssKeyGen)
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
+import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentIdExplicit, isOpeningIdExplicit,
                                isSharesIdExplicit, mkSignedCommitment)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),

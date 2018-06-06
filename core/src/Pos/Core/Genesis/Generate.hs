@@ -39,7 +39,7 @@ import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), GenesisAvvmBalanc
                                          GenesisNonAvvmBalances (..),
                                          GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
                                          TestnetBalanceOptions (..))
-import           Pos.Core.Ssc.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMap)
+import           Pos.Core.Ssc (VssCertificate, mkVssCertificate, mkVssCertificatesMap)
 import           Pos.Crypto (EncryptedSecretKey, ProtocolMagic, RedeemPublicKey, SecretKey,
                              VssKeyPair, createPsk, deterministic, emptyPassphrase, encToSecret,
                              keyGen, noPassEncrypt, randomNumberInRange, redeemDeterministicKeyGen,

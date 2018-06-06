@@ -7,7 +7,7 @@ module Pos.Binary.Ssc.Relay
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
-import           Pos.Communication.Types.Relay (DataMsg (..))
+import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 import qualified Pos.Ssc.Message as T
 
 instance Bi (DataMsg T.MCCommitment) where

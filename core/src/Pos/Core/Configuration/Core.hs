@@ -25,15 +25,15 @@ import           Data.Reflection (Given (..), give)
 
 import qualified Data.HashMap.Strict as HM
 import           Pos.Binary.Class (Raw)
-import           Pos.Core.Common.Fee (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
-import           Pos.Core.Common.Types (SharedSeed (..), unsafeCoinPortionFromDouble)
+import           Pos.Core.Common (Coeff (..), SharedSeed (..), TxFeePolicy (..), TxSizeLinear (..),
+                                  unsafeCoinPortionFromDouble)
 import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), GenesisAvvmBalances (..),
                                          GenesisInitializer (..), GenesisProtocolConstants (..),
                                          GenesisSpec (..), TestnetBalanceOptions (..),
                                          noGenesisDelegation)
 import           Pos.Core.ProtocolConstants (VssMaxTTL (..), VssMinTTL (..))
-import           Pos.Core.Slotting.Types (EpochIndex (..))
-import           Pos.Core.Update.Types (BlockVersionData (..), SoftforkRule (..))
+import           Pos.Core.Slotting (EpochIndex (..))
+import           Pos.Core.Update (BlockVersionData (..), SoftforkRule (..))
 import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Crypto.Hashing (Hash)
 

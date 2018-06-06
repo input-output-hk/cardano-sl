@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## Cardano SL 1.2.0 (Mainnet)
+
+These are the most important code changes which were included in release 1.2.0.
+
+### Features
+
+- Add to the V1 API all endpoints required for Exchanges (CBR-103).
+
+- Development and execution of Benchmarking Tools for the Wallet V0 API (CBR-7, CBR-23 & CBR-88).
+
+- Detailed design and documentation of how to test a wallet. Pre-requisite for building regression tests (CBR-24).
+
+- Discriminate between publicly exposed wallet API endpoints and endpoints reserved to an internal IOHK usage (CBR-19).
+
+- Design and implementation of the new V1 API endpoints (CBR-16).
+
+- Optimize the way the mempool is used in the Wallet Backend (CBR-6).
+
+- Analyse the usage of database updates and introduce new atomic updates in the Wallet Backend (CBR-8).
+
+- Investigate and solve the balance discrepancy experienced by Bittrex (CBR-135).
+
+- Asynchronous restoration of a wallet from seed (CBR-90).
+
+- Add sorting and filtering capabilities to the wallet V1 API (CBR-20).
+
+### Bug fixes
+
+- Fix wallet creation and backup when there are non-latin characters in wallet name (R120-4).
+
+- Fix issue where Daedalus remains stuck at "Connecting to network..." screen after updating version (CBR-282, R120-17).
+
+
 ## Cardano SL 1.1.1 (Mainnet)
 
 Bug fix release.
@@ -23,7 +56,7 @@ Most important code changes which made to release 1.1.0.
 
 - Logs are compressed when sent to the reporting server to reduce bandwidth usage.
 
-- The Cardano launcher configuration is improved with support for the YAML format to remove the need for custom scripts for launching the Cardano node. 
+- The Cardano launcher configuration is improved with support for the YAML format to remove the need for custom scripts for launching the Cardano node.
 
 - A new option for launching the Cardano node allows usage of API endpoints without TLS encryption for easier testing while developing integrations.
 
@@ -31,7 +64,7 @@ Most important code changes which made to release 1.1.0.
 
 - Fixed improper node shutdowns, which caused some of the ‘connecting to network’ issues when using Daedalus. Improved Cardano node shutdown behavior by improvements to concurrency and exception handling, providing fixes to rocksdb database bindings.
 
-- Fixed transaction queuing and resubmission logic to remove some of the issues reported by cryptocurrency exchanges. 
+- Fixed transaction queuing and resubmission logic to remove some of the issues reported by cryptocurrency exchanges.
 
 - Several minor fixes to the update system for correctly receiving and installing updates from the blockchain to remove some of the reported cases of failed updates.
 

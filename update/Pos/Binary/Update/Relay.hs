@@ -8,10 +8,10 @@ import           Universum
 
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Binary.Core ()
-import           Pos.Binary.Infra ()
-import           Pos.Communication.Types.Relay (DataMsg (..))
 import qualified Pos.Core.Update as U
 import           Pos.Crypto (hash)
+import           Pos.Infra.Binary ()
+import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 import           Pos.Util.Util (cborError)
 
 ----------------------------------------------------------------------------

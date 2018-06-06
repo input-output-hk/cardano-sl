@@ -31,9 +31,11 @@ import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..))
 import           Pos.DB.Class (MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
-import           Pos.Reporting (reportError)
-import           Pos.Slotting (MonadSlots (..))
-import           Pos.StateLock (Priority (..), StateLock, StateLockMetrics, withStateLock)
+import           Pos.Infra.Reporting (reportError)
+import           Pos.Infra.Slotting (MonadSlots (..))
+import           Pos.Infra.StateLock (Priority (..), StateLock,
+                                      StateLockMetrics, withStateLock)
+import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Txp.Logic.Common (buildUtxo)
 import           Pos.Txp.MemState (GenericTxpLocalData (..), MempoolExt, MonadTxpMem,
                                    TxpLocalWorkMode, getLocalTxsMap, getLocalUndos, getMemPool,
@@ -42,7 +44,6 @@ import           Pos.Txp.Toil (ExtendedLocalToilM, LocalToilState (..), MemPool,
                                ToilVerFailure (..), UndoMap, Utxo, UtxoLookup, UtxoModifier,
                                extendLocalToilM, mpLocalTxs, normalizeToil, processTx, utxoToLookup)
 import           Pos.Txp.Topsort (topsortTxs)
-import           Pos.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Util.Util (HasLens')
 import           Pos.Util.Trace (Trace)
 import           Pos.Util.Trace.Unstructured (LogItem, logDebug, logError, logWarning)

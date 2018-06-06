@@ -35,8 +35,8 @@ import           Pos.Crypto (WithHash (..))
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import qualified Pos.DB.GState.Common as GS
-import           Pos.Shutdown (HasShutdownContext, triggerShutdown)
-import           Pos.Slotting (MonadSlots (..), getNextEpochSlotDuration)
+import           Pos.Infra.Shutdown (HasShutdownContext, triggerShutdown)
+import           Pos.Infra.Slotting (MonadSlots (..), getNextEpochSlotDuration)
 import           Pos.Txp (MempoolExt, MonadTxpLocal (..), ToilVerFailure, TxpLocalWorkMode,
                           TxpProcessTransactionMode, getLocalUndos, txNormalize,
                           txProcessTransaction, withTxpLocalData)

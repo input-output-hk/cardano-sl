@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             1.1.1
+version:             1.2.0
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -40,7 +40,6 @@ library
                        Pos.Core.Block.Main
                        Pos.Core.Block.Union
 
-                       Pos.Core.Class
                        Pos.Core.Common
                        Pos.Core.Configuration
                        Pos.Core.Constants
@@ -84,10 +83,23 @@ library
                        Pos.Core.Block.Union.Types
 
                        -- Common
+                       Pos.Core.Common.AddrAttributes
                        Pos.Core.Common.Address
+                       Pos.Core.Common.AddressHash
+                       Pos.Core.Common.AddrSpendingData
+                       Pos.Core.Common.AddrStakeDistribution
+                       Pos.Core.Common.BlockCount
+                       Pos.Core.Common.ChainDifficulty
+                       Pos.Core.Common.Coeff
                        Pos.Core.Common.Coin
-                       Pos.Core.Common.Fee
-                       Pos.Core.Common.Types
+                       Pos.Core.Common.CoinPortion
+                       Pos.Core.Common.Script
+                       Pos.Core.Common.SharedSeed
+                       Pos.Core.Common.SlotLeaders
+                       Pos.Core.Common.StakeholderId
+                       Pos.Core.Common.Stakes
+                       Pos.Core.Common.TxFeePolicy
+                       Pos.Core.Common.TxSizeLinear
 
                        -- Configuration
                        Pos.Core.Configuration.BlockVersionData
@@ -100,6 +112,12 @@ library
                        -- Context
                        Pos.Core.Context.PrimaryKey
 
+                       -- Delegation
+                       Pos.Core.Delegation.HeavyDlgIndex
+                       Pos.Core.Delegation.LightDlgIndices
+                       Pos.Core.Delegation.Payload
+                       Pos.Core.Delegation.Proof
+
                        -- Genesis
                        Pos.Core.Genesis.Canonical
                        Pos.Core.Genesis.Generate
@@ -107,18 +125,40 @@ library
                        Pos.Core.Genesis.Types
 
                        -- Slotting
+                       Pos.Core.Slotting.EpochIndex
+                       Pos.Core.Slotting.EpochOrSlot
+                       Pos.Core.Slotting.LocalSlotIndex
+                       Pos.Core.Slotting.SlotCount
+                       Pos.Core.Slotting.SlotId
+                       Pos.Core.Slotting.TimeDiff
                        Pos.Core.Slotting.Timestamp
-                       Pos.Core.Slotting.Types
-                       Pos.Core.Slotting.Util
 
                        -- SSC
-                       Pos.Core.Ssc.Types
-                       Pos.Core.Ssc.Util
-                       Pos.Core.Ssc.Vss
+                       Pos.Core.Ssc.Commitment
+                       Pos.Core.Ssc.CommitmentsMap
+                       Pos.Core.Ssc.Opening
+                       Pos.Core.Ssc.OpeningsMap
+                       Pos.Core.Ssc.Payload
+                       Pos.Core.Ssc.Proof
+                       Pos.Core.Ssc.SharesDistribution
+                       Pos.Core.Ssc.SharesMap
+                       Pos.Core.Ssc.VssCertificate
+                       Pos.Core.Ssc.VssCertificatesMap
 
                        -- Update
-                       Pos.Core.Update.Types
-                       Pos.Core.Update.Util
+                       Pos.Core.Update.ApplicationName
+                       Pos.Core.Update.BlockVersion
+                       Pos.Core.Update.BlockVersionData
+                       Pos.Core.Update.BlockVersionModifier
+                       Pos.Core.Update.Data
+                       Pos.Core.Update.Payload
+                       Pos.Core.Update.Proof
+                       Pos.Core.Update.Proposal
+                       Pos.Core.Update.SoftforkRule
+                       Pos.Core.Update.SoftwareVersion
+                       Pos.Core.Update.SystemTag
+                       Pos.Core.Update.Vote
+                       Pos.Core.Update.VoteId
 
   build-depends:       aeson
                      , ansi-terminal

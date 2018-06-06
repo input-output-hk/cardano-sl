@@ -59,7 +59,7 @@ import           Pos.Core.Update (ApplicationName, BlockVersion, BlockVersionMod
                                   NumSoftwareVersion, SoftwareVersion, UpId, UpdateProposal (..),
                                   UpdateVote)
 import           Pos.Crypto (PublicKey)
-import           Pos.Slotting.Types (SlottingData)
+import           Pos.Infra.Slotting.Types (SlottingData)
 
 ----------------------------------------------------------------------------
 -- VoteState

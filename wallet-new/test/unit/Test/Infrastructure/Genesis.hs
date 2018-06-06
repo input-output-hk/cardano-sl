@@ -10,6 +10,9 @@ import           Data.Maybe (fromJust)
 import           UTxO.Context
 import           UTxO.DSL
 
+import           Pos.Core (HasGenesisBlockVersionData)
+import           Test.Infrastructure.Generator (estimateCardanoFee)
+
 {-------------------------------------------------------------------------------
   Convenient access to some values in the Cardano genesis block
 -------------------------------------------------------------------------------}
@@ -30,10 +33,13 @@ data GenesisValues h = GenesisValues {
 
       -- | Hash of the bootstrap transaction
     , hashBoot :: h (Transaction h Addr)
+
+      -- | Fee policy
+    , txFee :: Int -> [Value] -> Value
     }
 
 -- | Compute genesis values from the bootstrap transaction
-genesisValues :: Hash h Addr => Transaction h Addr -> GenesisValues h
+genesisValues :: (HasGenesisBlockVersionData, Hash h Addr) => Transaction h Addr -> GenesisValues h
 genesisValues boot@Transaction{..} = GenesisValues{..}
   where
     initR0 = unsafeHead [val | Output a val <- trOuts, a == r0]
@@ -45,6 +51,8 @@ genesisValues boot@Transaction{..} = GenesisValues{..}
     r2 = Addr (IxRich 2) 0
 
     hashBoot = hash boot
+
+    txFee = estimateCardanoFee
 
 {-------------------------------------------------------------------------------
   Auxiliary

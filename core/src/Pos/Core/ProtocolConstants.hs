@@ -14,16 +14,16 @@ module Pos.Core.ProtocolConstants
 import           Universum
 
 import           Pos.Core.Common (BlockCount (..))
-import           Pos.Core.Slotting.Types (SlotCount)
+import           Pos.Core.Slotting.SlotCount (SlotCount)
 
 -- | The 'k' parameter and TTLs for VSS certificates.
 data ProtocolConstants = ProtocolConstants
     { -- | Security parameter from the paper.
-      pcK             :: !Int
+      pcK         :: !Int
       -- | VSS certificates min timeout to live (number of epochs).
-    , pcVssMinTTL     :: !VssMinTTL
+    , pcVssMinTTL :: !VssMinTTL
       -- | VSS certificates max timeout to live (number of epochs).
-    , pcVssMaxTTL     :: !VssMaxTTL
+    , pcVssMaxTTL :: !VssMaxTTL
     } deriving (Show, Eq, Generic)
 
 -- | Minimum time-to-live for a VSS certificate.

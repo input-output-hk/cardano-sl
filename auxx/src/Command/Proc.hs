@@ -26,7 +26,7 @@ import           Pos.Core.Txp (TxOut (..))
 import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic, fullPublicKeyF, hashHexF,
                              noPassEncrypt, safeCreatePsk, unsafeCheatingHashCoerce, withSafeSigner)
 import           Pos.DB.Class (MonadGState (..))
-import           Pos.Diffusion.Types (Diffusion (..))
+import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Update (BlockVersionModifier (..))
 import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret, usKeys, usPrimKey,
                                       usWallet, userSecret)

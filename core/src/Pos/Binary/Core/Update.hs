@@ -18,13 +18,12 @@ import           Pos.Binary.Core.Fee ()
 import           Pos.Binary.Core.Script ()
 import           Pos.Binary.Core.Slotting ()
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy)
-import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
-import           Pos.Core.Update.Types (ApplicationName (..), BlockVersion (..),
-                                        BlockVersionData (..), BlockVersionModifier (..),
-                                        NumSoftwareVersion, SoftforkRule (..), SoftwareVersion (..),
-                                        SystemTag (..), UpAttributes, UpdateData (..),
-                                        UpdatePayload (..), UpdateProposal (..),
-                                        UpdateProposalToSign (..), UpdateVote (..))
+import           Pos.Core.Slotting (EpochIndex, FlatSlotId)
+import           Pos.Core.Update (ApplicationName (..), BlockVersion (..), BlockVersionData (..),
+                                  BlockVersionModifier (..), NumSoftwareVersion, SoftforkRule (..),
+                                  SoftwareVersion (..), SystemTag (..), UpAttributes,
+                                  UpdateData (..), UpdatePayload (..), UpdateProposal (..),
+                                  UpdateProposalToSign (..), UpdateVote (..))
 import           Pos.Crypto (Hash)
 
 instance Bi ApplicationName where

@@ -21,16 +21,16 @@ import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQu
 import           Pos.Block.Slog (HasSlogContext)
 import           Pos.Block.Types (LastKnownHeader, LastKnownHeaderTag, RecoveryHeader,
                                   RecoveryHeaderTag)
-import           Pos.Communication.Protocol (Message)
 import           Pos.Core.Context (HasPrimaryKey)
-import           Pos.Recovery.Info (MonadRecoveryInfo)
+import           Pos.Infra.Communication.Protocol (Message)
+import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
+import           Pos.Infra.Shutdown.Class (HasShutdownContext)
+import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
+import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
+import           Pos.Infra.Util.TimeWarp (CanJsonLog)
 import           Pos.Security.Params (SecurityParams)
-import           Pos.Shutdown.Class (HasShutdownContext)
-import           Pos.StateLock (StateLock, StateLockMetrics)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal, TxpHolderTag)
 import           Pos.Update.Context (UpdateContext)
-import           Pos.Util.JsonLog.Events (MemPoolModifyReason)
-import           Pos.Util.TimeWarp (CanJsonLog)
 import           Pos.Util.Util (HasLens, HasLens')
 
 -- | These instances are implemented in @Pos.Binary.Communication@,

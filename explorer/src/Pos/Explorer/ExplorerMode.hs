@@ -31,9 +31,10 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.DB as DB
 import qualified Pos.GState as GS
 import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
-import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
-                               SimpleSlottingStateVar, mkSimpleSlottingStateVar)
-import qualified Pos.Slotting as Slot
+import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
+                                     MonadSlotsData, SimpleSlottingStateVar,
+                                     mkSimpleSlottingStateVar)
+import qualified Pos.Infra.Slotting as Slot
 import           Pos.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem, TxpHolderTag,
                           mkTxpLocalData)
 import           Pos.Util (postfixLFields)
@@ -49,10 +50,11 @@ import           Pos.Explorer.Txp (ExplorerExtraModifier (..))
 -- Need Emulation because it has instance Mockable CurrentTime
 import           Mockable (Production, currentTime, runProduction)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Util.JsonLog.Events (HasJsonLogConfig (..), jsonLogDefault)
+import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
+                                                jsonLogDefault)
+import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
-import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.WorkMode (MinWorkMode)
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (TestParams (..))

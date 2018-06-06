@@ -12,13 +12,15 @@ import qualified System.Metrics as Metrics
 import qualified System.Metrics.Gauge as Metrics.Gauge
 --import           Pos.Util.Log (logDebug)
 
-import           Pos.StateLock (StateLockMetrics (..))
+import           Pos.Infra.StateLock (StateLockMetrics (..))
+import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLMemPool (..),
+                                                MemPoolModifyReason (..))
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 import           Pos.Txp.Toil.Types (MemPool (_mpSize))
 import           Pos.Util.JsonLog.Events (JLEvent (..), JLMemPool (..), MemPoolModifyReason (..))
 import           Pos.Util.Trace (Trace)
 import           Pos.Util.Trace.Unstructured (LogItem, logDebug)
---import qualified Pos.Util.Log as Log
+
 
 -- | 'StateLockMetrics' to record txp MemPool metrics.
 recordTxpMetrics :: Trace IO LogItem -> Metrics.Store -> TVar MemPool -> IO (StateLockMetrics MemPoolModifyReason)

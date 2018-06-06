@@ -3,9 +3,9 @@
 module Pos.Context
        ( module Pos.Context.Context
        , module Pos.Core.Context
-       , module Pos.Recovery.Info
+       , module Pos.Infra.Recovery.Info
        ) where
 
 import           Pos.Context.Context
 import           Pos.Core.Context
-import           Pos.Recovery.Info
+import           Pos.Infra.Recovery.Info

@@ -104,12 +104,6 @@ packages:
     - engine-io
     - engine-io-wai
 
-# Version of "dns" with proper Windows & Unix multiple-nameservers support
-- location:
-    git: https://github.com/kazu-yamamoto/dns.git
-    commit: b106470f0a93672af22cbc7ed6564b53c0f249ed
-  extra-dep: true
-
 - location:
     git: https://github.com/well-typed/canonical-json.git
     commit: 2d261bb971bada1893753b503452d9e6e217bc4a
@@ -199,6 +193,7 @@ extra-deps:
 - statistics-0.14.0.2
 - validation-0.6.1
 - swagger2-2.2.1
+- dns-3.0.4
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

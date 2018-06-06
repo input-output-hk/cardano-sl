@@ -156,6 +156,7 @@ extra-deps:
 - pipes-interleave-1.1.1
 - generic-arbitrary-0.1.0
 - happy-1.19.5                    # https://github.com/commercialhaskell/stack/issues/3151
+- hedgehog-0.6                    # not yet on Stackage
 - entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151
 - fmt-0.5.0.0
 - systemd-1.1.2

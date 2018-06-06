@@ -10,17 +10,19 @@ import           Data.Aeson.Types (ToJSON (..))
 import           Formatting (sformat, shown, (%))
 import qualified System.Metrics as Metrics
 import qualified System.Metrics.Gauge as Metrics.Gauge
-import           Pos.Util.Log (logDebug)
+--import           Pos.Util.Log (logDebug)
 
 import           Pos.StateLock (StateLockMetrics (..))
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 import           Pos.Txp.Toil.Types (MemPool (_mpSize))
 import           Pos.Util.JsonLog.Events (JLEvent (..), JLMemPool (..), MemPoolModifyReason (..))
+import           Pos.Util.Trace (Trace)
+import           Pos.Util.Trace.Unstructured (LogItem, logDebug)
 --import qualified Pos.Util.Log as Log
 
 -- | 'StateLockMetrics' to record txp MemPool metrics.
-recordTxpMetrics :: Metrics.Store -> TVar MemPool -> IO (StateLockMetrics MemPoolModifyReason)
-recordTxpMetrics ekgStore memPoolVar = do
+recordTxpMetrics :: Trace IO LogItem -> Metrics.Store -> TVar MemPool -> IO (StateLockMetrics MemPoolModifyReason)
+recordTxpMetrics logTrace ekgStore memPoolVar = do
     ekgMemPoolSize <-
         Metrics.createGauge (withCardanoNamespace "MemPoolSize") ekgStore
     ekgMemPoolWaitTimeApplyBlock <-
@@ -54,7 +56,7 @@ recordTxpMetrics ekgStore memPoolVar = do
         { slmWait = \reason -> do
               liftIO $ Metrics.Gauge.inc ekgMemPoolQueueLength
               qlen <- liftIO $ Metrics.Gauge.read ekgMemPoolQueueLength
-              logDebug $ sformat ("MemPool metrics wait: "%shown%" queue length is "%shown) reason qlen
+              logDebug logTrace (sformat ("MemPool metrics wait: "%shown%" queue length is "%shown) reason qlen)
 
         , slmAcquire = \reason timeWaited -> do
               liftIO $ Metrics.Gauge.dec ekgMemPoolQueueLength
@@ -69,7 +71,7 @@ recordTxpMetrics ekgStore memPoolVar = do
                         then fromIntegral timeWaited
                         else round $ alpha * fromIntegral timeWaited + (1 - alpha) * fromIntegral timeWaited'
               liftIO $ Metrics.Gauge.set ekgMemPoolWaitTime new_
-              logDebug $ sformat ("MemPool metrics acquire: "%shown
+              logDebug logTrace $ sformat ("MemPool metrics acquire: "%shown
                                   %" wait time was "%shown) reason timeWaited
 
         , slmRelease = \reason timeWaited timeElapsed memAllocated -> do
@@ -86,7 +88,7 @@ recordTxpMetrics ekgStore memPoolVar = do
                         then fromIntegral timeElapsed
                         else round $ alpha * fromIntegral timeElapsed + (1 - alpha) * fromIntegral timeElapsed'
               liftIO $ Metrics.Gauge.set ekgMemPoolModifyTime new_
-              logDebug $ sformat ("MemPool metrics release: "%shown
+              logDebug logTrace $ sformat ("MemPool metrics release: "%shown
                                   %" modify time was "%shown%" size is "%shown)
                          reason timeElapsed newMemPoolSize
               pure . toJSON . JLMemPoolEvent $ JLMemPool

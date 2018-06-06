@@ -12,12 +12,8 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import           Formatting (sformat, (%))
-import           Serokell.Util.Text (listJson)
-import           System.Wlog (logDebug)
---import qualified Pos.Util.Log as Log
 
-import           Pos.Core (HasGenesisData, StakesList, coinToInteger, mkCoin, sumCoins,
+import           Pos.Core (HasGenesisData, StakesList, StakeholderId, coinToInteger, mkCoin, sumCoins,
                            unsafeIntegerToCoin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxOutAux (..), TxUndo)
 import           Pos.Txp.Base (txOutStake)
@@ -27,13 +23,13 @@ import           Pos.Txp.Toil.Monad (GlobalToilM, getStake, getTotalStake, setSt
 applyTxsToStakes :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
 applyTxsToStakes txun = do
     let (txOutPlus, txInMinus) = concatStakes txun
-    recomputeStakes txOutPlus txInMinus
+    void $ recomputeStakes txOutPlus txInMinus
 
 -- | Rollback application of transactions to stakes.
 rollbackTxsStakes :: HasGenesisData => [(TxAux, TxUndo)] -> GlobalToilM ()
 rollbackTxsStakes txun = do
     let (txOutMinus, txInPlus) = concatStakes txun
-    recomputeStakes txInPlus txOutMinus
+    void $ recomputeStakes txInPlus txOutMinus
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -43,7 +39,7 @@ rollbackTxsStakes txun = do
 recomputeStakes
     :: StakesList
     -> StakesList
-    -> GlobalToilM ()
+    -> GlobalToilM [StakeholderId]
 recomputeStakes plusDistr minusDistr = do
     let (plusStakeHolders, plusCoins) = unzip plusDistr
         (minusStakeHolders, minusCoins) = unzip minusDistr
@@ -54,8 +50,6 @@ recomputeStakes plusDistr minusDistr = do
     resolvedStakesRaw <- mapM resolve needResolve
     let resolvedStakes = map fst resolvedStakesRaw
     let createdStakes = concatMap snd resolvedStakesRaw
-    unless (null createdStakes) $
-        {-Log.-}logDebug $ sformat ("Stakes for "%listJson%" will be created in StakesDB") createdStakes
     totalStake <- getTotalStake
     let (positiveDelta, negativeDelta) = (sumCoins plusCoins, sumCoins minusCoins)
         newTotalStake = unsafeIntegerToCoin $
@@ -70,6 +64,7 @@ recomputeStakes plusDistr minusDistr = do
                 (calcPosStakes $ zip needResolve resolvedStakes ++ plusDistr)
     setTotalStake newTotalStake
     mapM_ (uncurry setStake) newStakes
+    pure createdStakes
   where
     resolve ad = getStake ad >>= \case
         Just x -> pure (x, [])

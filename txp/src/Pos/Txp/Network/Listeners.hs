@@ -15,7 +15,6 @@ module Pos.Txp.Network.Listeners
 import           Data.Tagged (Tagged (..))
 import           Formatting (build, sformat, (%))
 import           Node.Message.Class (Message)
-import           System.Wlog (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Binary.Txp ()
@@ -25,6 +24,8 @@ import           Pos.Crypto (hash)
 import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem, txpProcessTx)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 import           Pos.Util.JsonLog.Events (JLTxR (..))
+import           Pos.Util.Trace (Trace, traceWith)
+import           Pos.Util.Trace.Unstructured (LogItem, logInfo)
 --import qualified Pos.Util.Log as Log
 
 -- Real tx processing
@@ -32,24 +33,25 @@ import           Pos.Util.JsonLog.Events (JLTxR (..))
 -- #txProcessTransaction
 handleTxDo
     :: TxpMode ctx m
-    => (JLTxR -> m ())  -- ^ How to log transactions
+    => Trace m LogItem 
+    -> Trace m JLTxR    -- ^ How to log transactions
     -> TxAux            -- ^ Incoming transaction to be processed
     -> m Bool
-handleTxDo logTx txAux = do
+handleTxDo logTrace jsonLogTrace txAux = do
     let txId = hash (taTx txAux)
     res <- txpProcessTx (txId, txAux)
-    let json me = logTx $ JLTxR
+    let json me = traceWith jsonLogTrace $ JLTxR
             { jlrTxId     = sformat build txId
             , jlrError    = me
             }
     case res of
         Right _ -> do
-            logInfo $
+            logInfo logTrace $
                 sformat ("Transaction has been added to storage: "%build) txId
             json Nothing
             pure True
         Left er -> do
-            logInfo $
+            logInfo logTrace $
                 sformat ("Transaction hasn't been added to storage: "%build%" , reason: "%build) txId er
             json $ Just $ sformat build er
             pure False
@@ -60,7 +62,6 @@ handleTxDo logTx txAux = do
 
 type TxpMode ctx m =
     ( MonadIO m
-    , WithLogger m
     , MonadTxpLocal m
     , MonadTxpMem (MempoolExt m) ctx m
     , Each '[Message]

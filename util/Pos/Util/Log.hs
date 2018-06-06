@@ -25,7 +25,7 @@ module Pos.Util.Log
        , logError
        , logMessage
        ---
-       , LoggerName
+       , LoggerName 
        , addLoggerName
        , usingLoggerName
        ) where
@@ -96,7 +96,6 @@ instance CanLog m => CanLog (StateT s m)
 instance CanLog m => CanLog (ExceptT s m)
 
 instance HasLoggerName (LogContextT IO)
-
 
 -- | log a Text with severity
 logMessage :: (LogContext m {-, HasCallStack -}) => Severity -> Text -> m ()

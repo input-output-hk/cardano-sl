@@ -2,23 +2,35 @@
 
 module Pos.Util.Trace
     ( Trace (..)
+    , TraceIO
     , natTrace
     , trace
     , traceWith
     , noTrace
+    -- * log messages
     , stdoutTrace
     , stdoutTraceConcurrent
+    , logTrace
+    , logDebug
+    , logInfo
+    , logWarning
+    , logNotice
+    , logError
+    , Log.Severity (..)
     ) where
 
 import           Universum hiding (trace, newEmptyMVar)
 import           Control.Concurrent.MVar (newEmptyMVar, withMVar)
 import           Data.Functor.Contravariant (Contravariant (..), Op (..))
 import qualified Data.Text.IO as TIO
+import qualified Pos.Util.Log as Log
 
 -- | Abstracts logging.
 newtype Trace m s = Trace
     { runTrace :: Op (m ()) s
     }
+
+type TraceIO = Trace IO (Log.Severity, Text)
 
 instance Contravariant (Trace m) where
     contramap f = Trace . contramap f . runTrace
@@ -49,3 +61,23 @@ stdoutTraceConcurrent = do
     mv <- newEmptyMVar :: IO (MVar ())
     let traceIt = \txt -> withMVar mv $ \_ -> TIO.putStrLn txt
     pure $ Trace $ Op $ traceIt
+
+-- | A 'Trace' that uses logging
+logTrace :: Log.LoggerName -> TraceIO
+logTrace loggerName = Trace $ Op $ \(severity, txt) ->
+    Log.usingLoggerName loggerName $ Log.logMessage severity txt
+
+logDebug :: TraceIO -> Trace IO Text
+logDebug lt = contramap ((,) Log.Debug) lt
+
+logInfo :: TraceIO -> Trace IO Text
+logInfo lt = contramap ((,) Log.Info) lt
+
+logWarning :: TraceIO -> Trace IO Text
+logWarning lt = contramap ((,) Log.Warning) lt
+
+logNotice :: TraceIO -> Trace IO Text
+logNotice lt = contramap ((,) Log.Notice) lt
+
+logError :: TraceIO -> Trace IO Text
+logError lt = contramap ((,) Log.Error) lt

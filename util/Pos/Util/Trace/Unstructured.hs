@@ -48,14 +48,17 @@ module Pos.Util.Trace.Unstructured
 import           Universum
 import qualified Control.Exception as E
 
+import           Pos.Util.Log   (Severity (..))
 import           Pos.Util.Trace (Trace (..), traceWith)
 
+{-}
 data Severity where
     Debug   :: Severity
     Info    :: Severity
     Notice  :: Severity
     Warning :: Severity
     Error   :: Severity
+-}
 
 data LogPrivacy where
     -- | Only to public logs.

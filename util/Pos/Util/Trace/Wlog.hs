@@ -5,8 +5,8 @@
 
 module Pos.Util.Trace.Wlog
     ( LogNamed (..)
-    , LoggerName (..)
-    , wlogTrace
+    , LoggerName  
+    {-, wlogTrace-}
     , modifyName
     , appendName
     , setName
@@ -14,15 +14,19 @@ module Pos.Util.Trace.Wlog
     ) where
 
 import           Universum
-import           Data.Functor.Contravariant (Op (..), contramap)
+import           Data.Functor.Contravariant ({-Op (..), -}contramap)
 -- Trivia: Universum exports isPrefixOf, but not isSuffixOf.
-import           Data.List (isSuffixOf)
+--import           Data.List (isSuffixOf)
+-- FIXME needs exporting of 'LogHandlerTag' and 'logMCond '
+-- or rewriting of wlogTrace
+import           Pos.Util.Log (LoggerName)
+{-import qualified Pos.Util.Log as Log (Severity (..))
 import           System.Wlog (LoggerName (..), logMCond)
 import           System.Wlog.LogHandler (LogHandlerTag (..))
-import qualified System.Wlog as Wlog (Severity (..))
-
+import           System.Wlog as Wlog (Severity (..))
+-}
 import           Pos.Util.Trace (Trace (..))
-import           Pos.Util.Trace.Unstructured (Severity (..), LogItem (..), LogPrivacy (..))
+--import           Pos.Util.Trace.Unstructured (Severity (..), LogItem (..), LogPrivacy (..))
 
 -- | Attach a 'LoggerName' to something.
 data LogNamed item = LogNamed
@@ -54,13 +58,19 @@ setName name = modifyName (const name)
 named :: Trace m (LogNamed i) -> Trace m i
 named = contramap (LogNamed mempty)
 
-wlogSeverity :: Severity -> Wlog.Severity
-wlogSeverity Debug = Wlog.Debug
-wlogSeverity Warning = Wlog.Warning
-wlogSeverity Error = Wlog.Error
-wlogSeverity Info = Wlog.Info
-wlogSeverity Notice = Wlog.Notice
+-- FIXME needs exporting of 'logMCond' and 'LogHandlerTag' from Pos.Util.Log
+-- Also 'wlogSeverity' is overlapping with 'sev2klog' from Pos.Util.Log.Internal
+{-
+wlogSeverity :: Severity -> Log.Severity
+wlogSeverity Debug = Log.Debug
+wlogSeverity Warning = Log.Warning
+wlogSeverity Error = Log.Error
+wlogSeverity Info = Log.Info
+wlogSeverity Notice = Log.Notice
 
+-- FIXME needs exporting of 'logMCond' and 'LogHandlerTag' from 
+-- Pos.Util.Log or rewriting wlogTrace according to Katip API. 
+-- This removal breaks only 'lib/src/Pos/Launcher/Runner.hs'.
 -- | A general log-warper-backed 'Trace', which allows for logging to public,
 -- private, or both, and the choice of a 'LoggerName'.
 -- NB: log-warper uses global shared mutable state. You have to initialize it
@@ -84,3 +94,4 @@ wlogTrace = Trace $ Op $ \namedLogItem ->
         _ -> False
     selectBoth :: LogHandlerTag -> Bool
     selectBoth = const True
+-}

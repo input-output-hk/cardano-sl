@@ -63,9 +63,7 @@ import           Pos.Core.Txp (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import           Pos.Txp.Toil.Types (MemPool, StakesView, UndoMap, UtxoLookup, UtxoModifier,
                                      mpLocalTxs, mpSize, svStakes, svTotal)
 import           Pos.Util (type (~>))
-import           Pos.Util.Log --({-NamedPureLogger, -}WithLogger, usingLoggerName)
 import qualified Pos.Util.Modifier as MM
---import qualified Pos.Util.Log as Log
 
 ----------------------------------------------------------------------------
 -- Monadic actions with Utxo.
@@ -148,14 +146,13 @@ memPoolSize = use $ ltsMemPool . mpSize
 -- transaction processing.
 type ExtendedLocalToilM extraEnv extraState =
     ReaderT (UtxoLookup, extraEnv) (
-        StateT (LocalToilState, extraState) IO {-(
-            NamedPureLogger Identity
-    )-}
-    )
+        StateT (LocalToilState, extraState) (
+            Identity
+    ))
 
 -- | Natural transformation from 'LocalToilM to 'ExtendedLocalToilM'.
 extendLocalToilM :: LocalToilM a -> ExtendedLocalToilM extraEnv extraState a
-extendLocalToilM = mapReaderT (mapStateT lift . zoom _1) . magnify _1
+extendLocalToilM = mapReaderT (mapStateT identity . zoom _1) . magnify _1
 
 ----------------------------------------------------------------------------
 -- Monad used for global Toil and some actions.
@@ -189,7 +186,7 @@ data GlobalToilEnv = GlobalToilEnv
 makeLenses ''GlobalToilEnv
 
 -- | Base monad in which global Toil happens.
-type GlobalToilMBase = {-NamedPureLogger-} CanLog (F StakesLookupF)
+type GlobalToilMBase = F StakesLookupF
 
 -- | Monad in which global Toil happens.
 type GlobalToilM
@@ -198,11 +195,11 @@ type GlobalToilM
 -- | Run given action in some monad capable of getting stakeholders'
 -- stakes and logging.
 runGlobalToilMBase ::
-       forall m a. (WithLogger m)
+       forall m a. ( Monad m )
     => (StakeholderId -> m (Maybe Coin))
     -> GlobalToilMBase a
     -> m a
-runGlobalToilMBase stakeGetter = {-launchNamedPureLog-}usingLoggerName "toil" foldF'
+runGlobalToilMBase stakeGetter = foldF'
   where
     foldF' :: forall x. F StakesLookupF x -> m x
     foldF' =
@@ -212,7 +209,7 @@ runGlobalToilMBase stakeGetter = {-launchNamedPureLog-}usingLoggerName "toil" fo
 -- | Run 'GlobalToilM' action in some monad capable of getting
 -- stakeholders' stakes and logging.
 runGlobalToilM ::
-       forall m a. (WithLogger m)
+       forall m a. ( Monad m )
     => GlobalToilEnv
     -> GlobalToilState
     -> (StakeholderId -> m (Maybe Coin))
@@ -228,7 +225,7 @@ getStake id =
   where
     baseLookup :: StakeholderId -> GlobalToilM (Maybe Coin)
     baseLookup i =
-        lift $ lift $ lift $ F $ \kPure kFree -> kFree (StakesLookupF i kPure)
+        lift $ lift $ F $ \kPure kFree -> kFree (StakesLookupF i kPure)
 
 -- | Get total stake of all stakeholders.
 getTotalStake :: GlobalToilM Coin
@@ -269,5 +266,5 @@ utxoMToGlobalToilM :: UtxoM ~> GlobalToilM
 utxoMToGlobalToilM = mapReaderT f . magnify gteUtxo
   where
     f :: State UtxoModifier
-      ~> StateT GlobalToilState ({-NamedPureLogger-} IO (F StakesLookupF))
+      ~> StateT GlobalToilState (F StakesLookupF)
     f = state . runState . zoom gtsUtxoModifier

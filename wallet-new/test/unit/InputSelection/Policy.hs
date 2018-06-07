@@ -3,13 +3,23 @@
 {-# LANGUAGE TemplateHaskell            #-}
 
 module InputSelection.Policy (
-    -- * Infrastructure
-    LiftQuickCheck(..)
-  , RunPolicy(..)
-  , InputSelectionPolicy
+    InputSelectionPolicy
   , InputSelectionFailure(..)
+    -- * Monad constriants
+  , LiftQuickCheck(..)
+  , RunPolicy(..)
+    -- * UTxO constraints
+  , IsUtxo(..)
+  , fromUtxo
     -- * Transaction statistics
   , TxStats(..)
+    -- * Convenience re-exports
+  , DSL.GivenHash(..)
+  , DSL.Hash(..)
+  , DSL.Input(..)
+  , DSL.Output(..)
+  , DSL.Transaction(..)
+  , DSL.Value
   ) where
 
 import           Universum
@@ -22,16 +32,25 @@ import qualified Util.Histogram as Histogram
 import           Util.MultiSet (MultiSet)
 import qualified Util.MultiSet as MultiSet
 import           Util.StrictStateT
-import           UTxO.DSL
+import           UTxO.DSL (Hash, Input, Output, Transaction, Utxo, Value)
+import qualified UTxO.DSL as DSL
 
 {-------------------------------------------------------------------------------
-  Auxiliary: lift QuickCheck computations
+  Constraints on the monad in which we run the input selection policy
 -------------------------------------------------------------------------------}
 
 -- | Monads in which we can run QuickCheck generators
 class Monad m => LiftQuickCheck m where
    -- | Run a QuickCheck computation
   liftQuickCheck :: Gen x -> m x
+
+-- | Monads in which we can run input selection policies
+class Monad m => RunPolicy m a | m -> a where
+  -- | Generate change address
+  genChangeAddr :: m a
+
+  -- | Generate fresh hash
+  genFreshHash :: m Int
 
 -- | TODO: We probably don't want this instance (or abstract in a different
 -- way over "can generate random numbers")
@@ -40,6 +59,48 @@ instance LiftQuickCheck IO where
 
 instance LiftQuickCheck m => LiftQuickCheck (StrictStateT s m) where
   liftQuickCheck = lift . liftQuickCheck
+
+{-------------------------------------------------------------------------------
+  Generalization over different UTxO representations
+-------------------------------------------------------------------------------}
+
+-- | Abstract from UTxO representation
+--
+-- Different policies need to maintain the UTxO in different forms, to support
+-- their operation efficiently. For example, the largest first policy may want
+-- to store the UTxO as a sorted list.
+class IsUtxo utxo where
+  -- | Construct empty
+  utxoEmpty :: utxo h a
+
+  -- | Add in entries from a "normal" UTxO
+  utxoUnion  :: Hash h a => Utxo h a -> utxo h a -> utxo h a
+
+  -- | Number of entries in the UTxO
+  utxoSize :: utxo h a -> Int
+
+  -- | Total balance
+  utxoBalance :: utxo h a -> Value
+
+  -- | List of all output values
+  --
+  -- The length of this list should be equal to 'utxoSize'
+  utxoOutputs :: utxo h a -> [Value]
+
+  -- | Remove inputs from the domain
+  utxoRemoveInputs :: Hash h a => Set (Input h a) -> utxo h a -> utxo h a
+
+-- | Convert "normal" UTxO into this policy-specific representation
+fromUtxo :: (IsUtxo utxo, Hash h a) => Utxo h a -> utxo h a
+fromUtxo = flip utxoUnion utxoEmpty
+
+instance IsUtxo Utxo where
+  utxoEmpty        = DSL.utxoEmpty
+  utxoUnion        = DSL.utxoUnion
+  utxoSize         = DSL.utxoSize
+  utxoBalance      = DSL.utxoBalance
+  utxoRemoveInputs = DSL.utxoRemoveInputs
+  utxoOutputs      = map (DSL.outVal . snd) . DSL.utxoToList
 
 {-------------------------------------------------------------------------------
   Transaction statistics
@@ -81,17 +142,13 @@ instance Monoid TxStats where
   Policy
 -------------------------------------------------------------------------------}
 
--- | Monads in which we can run input selection policies
-class Monad m => RunPolicy m a | m -> a where
-  -- | Generate change address
-  genChangeAddr :: m a
-
-  -- | Generate fresh hash
-  genFreshHash :: m Int
-
-type InputSelectionPolicy h a m =
-      Utxo h a
+type InputSelectionPolicy utxo h a m =
+      utxo h a
    -> [Output a]
    -> m (Either InputSelectionFailure (Transaction h a, TxStats))
+
+{-------------------------------------------------------------------------------
+  Failures
+-------------------------------------------------------------------------------}
 
 data InputSelectionFailure = InputSelectionFailure

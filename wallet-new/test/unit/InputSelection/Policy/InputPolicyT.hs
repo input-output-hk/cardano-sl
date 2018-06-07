@@ -31,9 +31,9 @@ import           UTxO.DSL
   Internal state
 -------------------------------------------------------------------------------}
 
-data InputPolicyState h a = InputPolicyState {
+data InputPolicyState utxo h a = InputPolicyState {
       -- | Available entries in the UTxO
-      _ipsUtxo             :: !(Utxo h a)
+      _ipsUtxo             :: !(utxo h a)
 
       -- | Selected inputs
     , _ipsSelectedInputs   :: !(Set (Input h a))
@@ -42,7 +42,7 @@ data InputPolicyState h a = InputPolicyState {
     , _ipsGeneratedOutputs :: [Output a]
     }
 
-initInputPolicyState :: Utxo h a -> InputPolicyState h a
+initInputPolicyState :: utxo h a -> InputPolicyState utxo h a
 initInputPolicyState utxo = InputPolicyState {
       _ipsUtxo             = utxo
     , _ipsSelectedInputs   = Set.empty
@@ -100,29 +100,32 @@ fromPartialTxStats PartialTxStats{..} = TxStats{
 -------------------------------------------------------------------------------}
 
 -- | Monad that can be uesd to define input selection policies
-newtype InputPolicyT h a m x = InputPolicyT {
-      unInputPolicyT :: StrictStateT (InputPolicyState h a) (ExceptT InputSelectionFailure m) x
+newtype InputPolicyT utxo h a m x = InputPolicyT {
+      unInputPolicyT :: StrictStateT
+                          (InputPolicyState utxo h a)
+                          (ExceptT InputSelectionFailure m)
+                          x
     }
   deriving ( Functor
            , Applicative
            , Monad
-           , MonadState (InputPolicyState h a)
+           , MonadState (InputPolicyState utxo h a)
            , MonadError InputSelectionFailure
            )
 
-instance MonadTrans (InputPolicyT h a) where
+instance MonadTrans (InputPolicyT utxo h a) where
   lift = InputPolicyT . lift . lift
 
-instance LiftQuickCheck m => LiftQuickCheck (InputPolicyT h a m) where
+instance LiftQuickCheck m => LiftQuickCheck (InputPolicyT utxo h a m) where
   liftQuickCheck = lift . liftQuickCheck
 
-instance RunPolicy m a => RunPolicy (InputPolicyT h a m) a where
+instance RunPolicy m a => RunPolicy (InputPolicyT utxo h a m) a where
   genChangeAddr = lift genChangeAddr
   genFreshHash  = lift genFreshHash
 
 runInputPolicyT :: RunPolicy m a
-                => Utxo h a
-                -> InputPolicyT h a m PartialTxStats
+                => utxo h a
+                -> InputPolicyT utxo h a m PartialTxStats
                 -> m (Either InputSelectionFailure (Transaction h a, TxStats))
 runInputPolicyT utxo policy = do
      mx <- runExceptT (runStrictStateT (unInputPolicyT policy) initSt)

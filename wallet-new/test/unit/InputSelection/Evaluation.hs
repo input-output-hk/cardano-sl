@@ -27,7 +27,7 @@ import           Text.Printf (printf)
 
 import           InputSelection.Generator (Event (..), World (..))
 import qualified InputSelection.Generator as Gen
-import           InputSelection.Policy (InputSelectionPolicy, RunPolicy (..), TxStats (..))
+import           InputSelection.Policy
 import           InputSelection.Policy.LargestFirst
 import           InputSelection.Policy.Random
 import           Util.Distr
@@ -37,7 +37,8 @@ import qualified Util.MultiSet as MultiSet
 import           Util.Range (Range (..), Ranges (..), SplitRanges (..))
 import qualified Util.Range as Range
 import           Util.StrictStateT
-import           UTxO.DSL
+import           UTxO.DSL (Utxo)
+import qualified UTxO.DSL as DSL
 
 {-------------------------------------------------------------------------------
   Plot parameters
@@ -91,19 +92,16 @@ data SlotStats = SlotStats {
     , slotUtxoHistogram :: !Histogram
     }
 
-deriveSlotStats :: BinSize -> Utxo h a -> SlotStats
+deriveSlotStats :: IsUtxo utxo => BinSize -> utxo h a -> SlotStats
 deriveSlotStats binSize utxo = SlotStats {
       slotUtxoSize      = utxoSize              utxo
     , slotUtxoBalance   = utxoBalance           utxo
     , slotUtxoHistogram = utxoHistogram binSize utxo
     }
 
-utxoHistogram :: BinSize -> Utxo h a -> Histogram
+utxoHistogram :: IsUtxo utxo => BinSize -> utxo h a -> Histogram
 utxoHistogram binSize =
-    Histogram.discretize binSize . map fromIntegral . outputs
-  where
-    outputs :: Utxo h a -> [Value]
-    outputs = map (outVal . snd) . utxoToList
+    Histogram.discretize binSize . map fromIntegral . utxoOutputs
 
 {-------------------------------------------------------------------------------
   Auxiliary: time series
@@ -229,10 +227,23 @@ stepAccStats slotNr OverallStats{..} SlotStats{..} acc =
   Interpreter state
 -------------------------------------------------------------------------------}
 
-data IntState h a = IntState {
-      _stUtxo       :: !(Utxo h a)
+data IntState (utxo :: (* -> *) -> * -> *) h a = IntState {
+      -- | Available UTxO
+      _stUtxo       :: !(utxo h a)
+
+      -- | Pending UTxO
+      --
+      -- NOTE: Unlike in the wallet, we don't care about the transactions here.
+      -- In the simulation, when we "construct a transaction", its inputs are
+      -- immediately removed from '_stUtxo', and the change outputs are added
+      -- to '_stPending'. Then at the end of a slot we just add all these
+      -- new outputs to 'stUxo'.
     , _stPending    :: !(Utxo h a)
+
+      -- | Running statistics
     , _stStats      :: !OverallStats
+
+      -- | Next hash
     , _stFreshHash  :: !Int
 
       -- | Change address
@@ -250,9 +261,10 @@ data IntState h a = IntState {
 
 makeLenses ''IntState
 
-initIntState :: PlotParams -> Utxo h a -> a -> IntState h a
+initIntState :: (IsUtxo utxo, Hash h a)
+             => PlotParams -> Utxo h a -> a -> IntState utxo h a
 initIntState PlotParams{..} utxo changeAddr = IntState {
-      _stUtxo       = utxo
+      _stUtxo       = fromUtxo utxo
     , _stPending    = utxoEmpty
     , _stStats      = initOverallStats
     , _stFreshHash  = 1
@@ -260,7 +272,7 @@ initIntState PlotParams{..} utxo changeAddr = IntState {
     , _stBinSize    = utxoBinSize
     }
 
-instance Monad m => RunPolicy (StrictStateT (IntState h a) m) a where
+instance Monad m => RunPolicy (StrictStateT (IntState utxo h a) m) a where
   genChangeAddr = use stChangeAddr
   genFreshHash  = stFreshHash <<+= 1
 
@@ -274,16 +286,21 @@ instance Monad m => RunPolicy (StrictStateT (IntState h a) m) a where
 -- statistics.
 --
 -- Returns the final state
-intPolicy :: forall h a m. (Hash h a, Monad m)
-          => InputSelectionPolicy h a (StrictStateT (IntState h a) m)
-          -> (a -> Bool)      -- Our addresses
-          -> (SlotNr -> Bool) -- Slots to render
-          -> IntState h a     -- Initial state
-          -> ConduitT (Event h a) (SlotNr, OverallStats, SlotStats) m (IntState h a)
+intPolicy :: forall utxo h a m. (IsUtxo utxo, Hash h a, Monad m)
+          => InputSelectionPolicy utxo h a (StrictStateT (IntState utxo h a) m)
+          -> (a -> Bool)         -- Our addresses
+          -> (SlotNr -> Bool)    -- Slots to render
+          -> IntState utxo h a   -- Initial state
+          -> ConduitT (Event h a)
+                      (SlotNr, OverallStats, SlotStats)
+                      m
+                      (IntState utxo h a)
 intPolicy policy ours shouldRender initState =
     execStrictStateC initState $ loop 0
   where
-    deriveSlotStats' :: SlotNr -> IntState h a -> (SlotNr, OverallStats, SlotStats)
+    deriveSlotStats' :: SlotNr
+                     -> IntState utxo h a
+                     -> (SlotNr, OverallStats, SlotStats)
     deriveSlotStats' slot st = (
           slot
         , st ^. stStats
@@ -291,7 +308,10 @@ intPolicy policy ours shouldRender initState =
         )
 
     loop :: SlotNr
-         -> ConduitT (Event h a) (SlotNr, OverallStats, SlotStats) (StrictStateT  (IntState h a) m) ()
+         -> ConduitT (Event h a)
+                     (SlotNr, OverallStats, SlotStats)
+                     (StrictStateT  (IntState utxo h a) m)
+                     ()
     loop slot = do
         mEvent <- await
         case mEvent of
@@ -307,7 +327,7 @@ intPolicy policy ours shouldRender initState =
                   yield slotStats
                 loop (slot + 1)
 
-    go :: Event h a -> StrictStateT (IntState h a) m Bool
+    go :: Event h a -> StrictStateT (IntState utxo h a) m Bool
     go (Deposit new) = do
         stUtxo %= utxoUnion new
         return False
@@ -323,7 +343,7 @@ intPolicy policy ours shouldRender initState =
         case mtx of
           Right (tx, txStats) -> do
             stUtxo    %= utxoRemoveInputs (trIns tx)
-            stPending %= utxoUnion (utxoRestrictToAddr ours (trUtxo tx))
+            stPending %= utxoUnion (DSL.utxoRestrictToAddr ours (DSL.trUtxo tx))
             stStats . overallTxStats %= mappend txStats
           Left _err ->
             stStats . overallFailedPayments += 1
@@ -575,12 +595,13 @@ writeStats prefix =
 -- Returns the accumulated statistics and the plot instructions; we return these
 -- separately so that we combine bounds of related plots and draw them with the
 -- same scales.
-evaluatePolicy :: Hash h a
+evaluatePolicy :: (IsUtxo utxo, Hash h a)
                => FilePath          -- ^ Path to write to
                -> (SlotNr -> Bool)  -- ^ Slots to render
-               -> InputSelectionPolicy h a (StrictStateT (IntState h a) IO)
+               -> InputSelectionPolicy utxo h a
+                    (StrictStateT (IntState utxo h a) IO)
                -> (a -> Bool)       -- ^ Our addresses
-               -> IntState h a      -- ^ Initial state
+               -> IntState utxo h a -- ^ Initial state
                -> ConduitT () (Event h a) IO ()
                -> IO (OverallStats, AccSlotStats, [PlotInstr])
 evaluatePolicy prefix shouldRender policy ours initState generator =
@@ -589,15 +610,15 @@ evaluatePolicy prefix shouldRender policy ours initState generator =
         intPolicy policy ours shouldRender initState `fuseBoth`
         writeStats prefix
   where
-    aux :: (IntState h a, (AccSlotStats, [PlotInstr]))
+    aux :: (IntState utxo h a, (AccSlotStats, [PlotInstr]))
         -> (OverallStats, AccSlotStats, [PlotInstr])
     aux (st, (acc, plot)) = (st ^. stStats, acc, plot)
 
-type NamedPolicy h =
-    ( String
-    , InputSelectionPolicy h World (StrictStateT (IntState h World) IO)
-    )
-
+data NamedPolicy h = forall utxo. IsUtxo utxo => NamedPolicy {
+      namedPolicyName :: String
+    , namedPolicy     :: InputSelectionPolicy utxo h World
+                           (StrictStateT (IntState utxo h World) IO)
+    }
 
 -- | Evaluate various input policies given the specified event stream
 --
@@ -620,16 +641,19 @@ evaluateUsingEvents plotParams@PlotParams{..}
                     policies
                     shouldRender
                     events =
-    forM_ policies $ \(suffix, policy) -> do
-      let prefix' = prefix </> (eventsPrefix ++ suffix)
-      go prefix' policy `catch` \e ->
-        if IO.isAlreadyExistsError e then
-          putStrLn $ "Skipping " ++ prefix' ++ " (directory already exists)"
-        else
-          throwIO e
+    forM_ policies $ \case
+      NamedPolicy{..} -> do
+        let prefix' = prefix </> (eventsPrefix ++ "-" ++ namedPolicyName)
+        go prefix' namedPolicy `catch` \e ->
+          if IO.isAlreadyExistsError e then
+            putStrLn $ "Skipping " ++ prefix' ++ " (directory already exists)"
+          else
+            throwIO e
   where
-    go :: FilePath
-       -> InputSelectionPolicy h World (StrictStateT (IntState h World) IO)
+    go :: IsUtxo utxo
+       => FilePath
+       -> InputSelectionPolicy utxo h World
+            (StrictStateT (IntState utxo h World) IO)
        -> IO ()
     go prefix' policy = do
         createDirectory prefix'
@@ -694,12 +718,12 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
 
     -- Initial UTxO for all these tests
     initUtxo :: Utxo GivenHash World
-    initUtxo = utxoSingleton (Input (GivenHash 0) 0) (Output Us 1000000)
+    initUtxo = DSL.utxoSingleton (Input (GivenHash 0) 0) (Output Us 1000000)
 
     largest, randomOff, randomOn :: Hash h World => NamedPolicy h
-    largest   = ("-largest",   largestFirst)
-    randomOff = ("-randomOff", random PrivacyModeOff)
-    randomOn  = ("-randomOn",  random PrivacyModeOn)
+    largest   = NamedPolicy "largest"   $ largestFirst
+    randomOff = NamedPolicy "randomOff" $ random PrivacyModeOff
+    randomOn  = NamedPolicy "randomOn"  $ random PrivacyModeOn
 
 
 

@@ -14,7 +14,8 @@ import           Test.QuickCheck hiding (Fixed)
 import           InputSelection.Policy
 import           InputSelection.Policy.InputPolicyT
 import qualified Util.MultiSet as MultiSet
-import           UTxO.DSL
+import           UTxO.DSL (Utxo)
+import qualified UTxO.DSL as DSL
 
 {-------------------------------------------------------------------------------
   Random
@@ -34,11 +35,11 @@ data PrivacyMode = PrivacyModeOn | PrivacyModeOff
 -- requests for payments around certain size, the UTxO will contain lots of
 -- available change outputs of around that size.
 random :: forall h a m. (RunPolicy m a, LiftQuickCheck m, Hash h a)
-       => PrivacyMode -> InputSelectionPolicy h a m
+       => PrivacyMode -> InputSelectionPolicy Utxo h a m
 random privacyMode utxo = \goals -> runInputPolicyT utxo $
     mconcat <$> mapM go goals
   where
-    go :: Output a -> InputPolicyT h a m PartialTxStats
+    go :: Output a -> InputPolicyT Utxo h a m PartialTxStats
     go goal@(Output _a val) = do
         -- First attempt to find a change output in the ideal range.
         -- Failing that, try to at least cover the value.
@@ -49,7 +50,7 @@ random privacyMode utxo = \goals -> runInputPolicyT utxo $
           PrivacyModeOff -> randomInRange fallback
           PrivacyModeOn  -> randomInRange ideal `catchError` \_err ->
                             randomInRange fallback
-        ipsSelectedInputs   %= Set.union (utxoDomain selected)
+        ipsSelectedInputs   %= Set.union (DSL.utxoDomain selected)
         ipsGeneratedOutputs %= (goal :)
         let selectedSum = utxoBalance selected
             change      = selectedSum - val
@@ -88,18 +89,18 @@ data TargetRange =
 -- Select random inputs until we reach a value in the given bounds.
 -- Returns the selected outputs.
 randomInRange :: forall h a m. (Hash h a, LiftQuickCheck m)
-              => TargetRange -> InputPolicyT h a m (Utxo h a)
-randomInRange AtLeast{..} = go 0 utxoEmpty
+              => TargetRange -> InputPolicyT Utxo h a m (Utxo h a)
+randomInRange AtLeast{..} = go 0 DSL.utxoEmpty
   where
     -- Invariant:
     --
     -- > acc == utxoBalance selected
-    go :: Value -> Utxo h a -> InputPolicyT h a m (Utxo h a)
+    go :: Value -> Utxo h a -> InputPolicyT Utxo h a m (Utxo h a)
     go acc selected
       | acc >= targetMin = return selected
       | otherwise        = do io@(_, out) <- findRandomOutput
-                              go (acc + outVal out) (utxoInsert io selected)
-randomInRange InRange{..} = go 0 utxoEmpty
+                              go (acc + outVal out) (DSL.utxoInsert io selected)
+randomInRange InRange{..} = go 0 DSL.utxoEmpty
   where
     -- Preconditions
     --
@@ -117,7 +118,7 @@ randomInRange InRange{..} = go 0 utxoEmpty
     -- happen to pick a value from the UTxO that overshoots the upper
     -- of the range; this is likely to happen precisely when we have
     -- a low probability of finding a value close to the aim.
-    go :: Value -> Utxo h a -> InputPolicyT h a m (Utxo h a)
+    go :: Value -> Utxo h a -> InputPolicyT Utxo h a m (Utxo h a)
     go acc selected = do
         mIO <- tryFindRandomOutput isImprovement
         case mIO of
@@ -129,7 +130,7 @@ randomInRange InRange{..} = go 0 utxoEmpty
             | otherwise         -> go acc' selected'
             where
               acc'      = acc + outVal o
-              selected' = utxoInsert (i, o) selected
+              selected' = DSL.utxoInsert (i, o) selected
      where
        -- A new value is an improvement if
        --
@@ -157,7 +158,8 @@ randomInRange InRange{..} = go 0 utxoEmpty
                     | otherwise = a - b
 
 -- | Select a random output
-findRandomOutput :: LiftQuickCheck m => InputPolicyT h a m (Input h a, Output a)
+findRandomOutput :: LiftQuickCheck m
+                 => InputPolicyT Utxo h a m (Input h a, Output a)
 findRandomOutput = do
     mIO <- tryFindRandomOutput (const True)
     case mIO of
@@ -169,14 +171,14 @@ findRandomOutput = do
 -- If the predicate is not satisfied, state is not changed.
 tryFindRandomOutput :: LiftQuickCheck m
                     => ((Input h a, Output a) -> Bool)
-                    -> InputPolicyT h a m (Maybe (Input h a, Output a))
+                    -> InputPolicyT Utxo h a m (Maybe (Input h a, Output a))
 tryFindRandomOutput p = do
-    utxo <- utxoToMap <$> use ipsUtxo
+    utxo <- DSL.utxoToMap <$> use ipsUtxo
     mIO  <- liftQuickCheck $ randomElement utxo
     case mIO of
       Nothing       -> return Nothing
       Just (io, utxo')
-        | p io      -> do ipsUtxo .= utxoFromMap utxo' ; return $ Just io
+        | p io      -> do ipsUtxo .= DSL.utxoFromMap utxo' ; return $ Just io
         | otherwise -> return Nothing
 
 {-------------------------------------------------------------------------------

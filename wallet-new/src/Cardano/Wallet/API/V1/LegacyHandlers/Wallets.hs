@@ -315,10 +315,7 @@ createNewExternalWallet walletMeta encodedExtPubKey = do
     V0.CWallet{..} <- V0.createWalletSafe walletId walletMeta isReady walletType
 
     -- Add initial account in this external wallet.
-    let accountMeta    = V0.CAccountMeta { caName = "Initial account" }
-        accountInit    = V0.CAccountInit { caInitWId = cwId, caInitMeta = accountMeta }
-        includeUnready = True
-    void $ V0.newExternalAccountIncludeUnready includeUnready accountInit
+    addInitialAccount cwId
 
     db <- V0.askWalletDB
     removeHistoryCache db walletId
@@ -350,17 +347,24 @@ restoreExternalWallet walletMeta encodedExtPubKey = do
 
     let isReady = False -- Because we want to sync this wallet with the blockchain!
 
-    -- Create new external wallet.
+    -- Create new external wallet with initial account.
     V0.CWallet{..} <- V0.createWalletSafe walletId walletMeta isReady V0.CWalletExternal
+    addInitialAccount cwId
 
-    -- Add initial account in this external wallet.
+    -- Restoring this wallet...
+    V0.restoreExternalWallet publicKey
+
+addInitialAccount
+    :: ( MonadThrow m
+       , V0.MonadWalletLogic ctx m
+       )
+    => V0.CId V0.Wal
+    -> m ()
+addInitialAccount cwId = do
     let accountMeta    = V0.CAccountMeta { caName = "Initial account" }
         accountInit    = V0.CAccountInit { caInitWId = cwId, caInitMeta = accountMeta }
         includeUnready = True
     void $ V0.newExternalAccountIncludeUnready includeUnready accountInit
-
-    -- Restoring this wallet...
-    V0.restoreExternalWallet publicKey
 
 -- | On disk, once imported or created, there's so far not much difference
 -- between a wallet and an external wallet, except one: node stores a public key

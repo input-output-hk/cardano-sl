@@ -55,7 +55,7 @@ data NtpClientSettings = NtpClientSettings
       -- ^ delay between making requests and response collection
     , ntpPollDelay       :: Microsecond
       -- ^ how long to wait between to send requests to the servers
-    , ntpSelection       :: NonEmpty (NtpOffset, Microsecond) -> (NtpOffset, Microsecond)
+    , ntpSelection       :: NonEmpty NtpOffset -> NtpOffset
       -- ^ way to sumarize results received from different servers.
       -- this may accept list of lesser size than @length ntpServers@ in case
       -- some servers failed to respond in time, but never an empty list
@@ -64,7 +64,7 @@ data NtpClientSettings = NtpClientSettings
 data NtpClient = NtpClient
     { ncSockets  :: TVar Sockets
       -- ^ Ntp client sockets: ipv4 / ipv6 / both.
-    , ncState    :: TVar (Maybe [(NtpOffset, Microsecond)])
+    , ncState    :: TVar (Maybe [NtpOffset])
       -- ^ List of ntp offsets and origin times (i.e. time when a request was
       -- send) received from ntp servers since last polling interval.
     , ncStatus   :: TVar NtpStatus
@@ -115,11 +115,8 @@ handleCollectedResponses cli = do
             atomically $ writeTVar (ncStatus cli) NtpSyncUnavailable
             logWarning "No server responded"
         Just responses -> handleE `handleAny` do
-            let (ntpOffset, originTime) = ntpSelection (ncSettings cli) $ NE.fromList $ responses
-            logInfo $ sformat ("Evaluated clock offset "%shown%
-                "mcs for request at "%shown%"mcs")
-                (toMicroseconds ntpOffset)
-                (toMicroseconds originTime)
+            let ntpOffset = ntpSelection (ncSettings cli) $ NE.fromList $ responses
+            logInfo $ sformat ("Evaluated clock offset "%shown%"mcs") (toMicroseconds ntpOffset)
             atomically $ writeTVar (ncStatus cli) (NtpDrift $ ntpOffset)
   where
     handleE = logError . sformat ("ntpSelection: "%shown)
@@ -221,7 +218,7 @@ handleNtpPacket cli packet = do
         (toMicroseconds clockOffset)
 
     late <- atomically $ do
-        modifyTVar' (ncState cli) $ fmap ((clockOffset, ntpOriginTime packet) : )
+        modifyTVar' (ncState cli) $ fmap (clockOffset : )
         isNothing <$> readTVar (ncState cli)
 
     when late $

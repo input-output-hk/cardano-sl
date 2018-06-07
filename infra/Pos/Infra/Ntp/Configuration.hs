@@ -34,6 +34,6 @@ ntpClientSettings NtpConfiguration {..} = NtpClientSettings
     { ntpServers         = ntpcServers
     , ntpResponseTimeout = fromMicroseconds $ ntpcResponseTimeout
     , ntpPollDelay       = fromMicroseconds $ ntpcPollDelay
-    , ntpSelection       = NE.head . NE.sortWith (abs . fst)
+    , ntpSelection       = minimum . NE.map abs
     -- ^ Take minmum of received offsets.
     }

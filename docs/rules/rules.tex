@@ -358,7 +358,7 @@ as it is.\improvement{We may want to add something about protocol
 
 \item[Block] Blocks have a system of identifier $\blockids$. There is
   a distinguished $b_0∈ \blockids$, called the genesis identifier,
-  which is not in the image of $\id$.
+  which is not in the image of $\id∈ \blocks ⟶ \blockids$.
 
   A block $b∈\blocks$
   consists of\improvement{I'm ignoring epoch boundary blocks, and the
@@ -425,9 +425,8 @@ as it is.\improvement{We may want to add something about protocol
     (I'm not sure what it should look like yet)}
 
 \item[Chain] A chain is a sequence of blocks $b₁,…,b_n$ such that the
-  predecessor of $b₁$ is the genesis block, and for every $i$, the
-  predecessor of $b_{i+1}$ is $b_i$, and the predecessor of $b₁$ is
-  $b₀$.
+  predecessor of $b₁$ is the genesis identifier $b₀$, and for every $i$, the
+  predecessor of $b_{i+1}$ is $b_i$.
 
 \end{description}
 
@@ -631,7 +630,7 @@ $b_1,…,b_n$ if all of the following hold
   i = \transitivefix{\delegations{b₁,…,b_n}}(l)
   $$
   Note that, by definition, there is (at most) a single agent
-  autorised by $b$ (it may be $b$ itself, if no delegation certificate
+  authorised by $l$ (it may be $l$ itself, if no delegation certificate
   has been issued). See Section~\ref{sec:derived-functions} for the
   definition of $\delegations{⋅}$.
 \item[Transactions] Each transaction in the block's transactions is
@@ -1376,16 +1375,16 @@ restrict the mempool to stateless tests (and correspondingly not
 tracking a state of the mempool), or at least less restrictive tests.
 
 It would allow transactions to flow throughout the Cardano network
-more freely. For instance, is the network is split (in that there are
+more freely. For instance, if the network is split (in that there are
 two different selected chains in the network), the two halves of the
 network will not be able to exchange transactions, making the
 gossiping protocol less efficient.
 
 Another issue is that if two transactions $τ_1$ and $τ_2$ are issued,
 such that $τ_2$ depends on $τ_1$, if a node, due to a network delay,
-receives $τ_2$ before $τ_1$, is will reject $τ_2$, instead of keeping
-it in waiting area. The current specification doesn't distinguish
-rejecting or reserving blocks or transaction (maybe it will have to,
+receives $τ_2$ before $τ_1$, it will reject $τ_2$, instead of keeping
+it in the waiting area. The current specification doesn't distinguish
+rejecting or reserving blocks or transactions (maybe it will have to,
 eventually), but it's also how the implementation behaves. This puts
 some burden on the network, and also makes the gossiping protocol less
 efficient.
@@ -1396,7 +1395,7 @@ block from a soup of transactions rather than a structured list. It
 reduces the overall computation effort (as only the block issuer must
 perform the transaction ordering and stateful checks), however, it may
 cause concerns for latency, as an issuer must build their block in a
-20s time window. Nevertheless is may not be desirable to make all the
+20s time window. Nevertheless it may not be desirable to make all the
 nodes in the network spend computation power which will be only used
 by a single node (the block issuer).
 

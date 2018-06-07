@@ -16784,7 +16784,6 @@ license = stdenv.lib.licenses.mit;
 , stm
 , tagged
 , template-haskell
-, text
 , text-format
 , time-units
 , transformers
@@ -16841,7 +16840,6 @@ serokell-util
 stm
 tagged
 template-haskell
-text
 text-format
 time-units
 transformers

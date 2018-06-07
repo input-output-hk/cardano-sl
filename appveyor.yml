@@ -125,7 +125,7 @@ test_script:
   - git -C submods/network-transport checkout 018a50b9042c2115c3ec9c9fd5ca5f28737dd29c
 
   - git clone https://github.com/avieth/network-transport-inmemory submods/network-transport-inmemory
-    - git -C submods/network-transport-inmemory checkout 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
+  - git -C submods/network-transport-inmemory checkout 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
 
   - git clone https://github.com/input-output-hk/cardano-crypto submods/cardano-crypto
   - git -C submods/cardano-crypto checkout 287cc575fafe86af9d24af9d012c47f9d3f04da0

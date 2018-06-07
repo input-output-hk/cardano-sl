@@ -42,7 +42,7 @@ type API = Tags '["Wallets"] :>
     :<|> "external-wallets"
                    :> Capture "extPublicKey" Text
                    :> Summary "Check if this external wallet is presented in the node."
-                   :> PostCreated '[ValidJSON] (WalletResponse Wallet)
+                   :> PostCreated '[ValidJSON] (WalletResponse WalletAndTxHistory)
     :<|> "external-wallets"
                    :> Summary "Creates a new or restores an existing external wallet (mobile client or hardware wallet)."
                    :> ReqBody '[ValidJSON] (New ExternalWallet)

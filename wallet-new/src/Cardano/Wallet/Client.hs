@@ -88,7 +88,7 @@ data WalletClient m
     , updateWallet
          :: WalletId -> Update Wallet -> Resp m Wallet
     , postCheckExternalWallet
-         :: Text -> Resp m Wallet
+         :: Text -> Resp m WalletAndTxHistory
     , postExternalWallet
          :: New ExternalWallet -> Resp m Wallet
     , deleteExternalWallet

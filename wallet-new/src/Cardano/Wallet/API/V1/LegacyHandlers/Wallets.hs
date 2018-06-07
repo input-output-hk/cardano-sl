@@ -9,12 +9,14 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Wallets (
 import           Universum
 import           UnliftIO (MonadUnliftIO)
 import           Formatting (build, sformat)
+import qualified Data.Map.Strict as Map
 
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods as V0
 import qualified Pos.Wallet.Web.State as V0 (WalletSnapshot, askWalletSnapshot, askWalletDB)
 import           Pos.Wallet.Web.State (setWalletSyncTip, removeHistoryCache)
 import qualified Pos.Wallet.Web.State.Storage as V0
+import           Pos.Wallet.Web.Util (getWalletAccountIds)
 
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
@@ -203,25 +205,41 @@ updateWallet wid WalletUpdate{..} = do
 -- | Check if external wallet is presented in node's wallet db.
 checkExternalWallet
     :: ( V0.MonadWalletLogic ctx m
-       , V0.MonadBlockchainInfo m
+       , V0.MonadWalletHistory ctx m
        , MonadUnliftIO m
        , HasLens SyncQueue ctx SyncQueue
        )
     => Text
-    -> m (WalletResponse Wallet)
+    -> m (WalletResponse WalletAndTxHistory)
 checkExternalWallet encodedExtPubKey = do
     publicKey <- case decodeBase58PublicKey encodedExtPubKey of
         Left problem    -> throwM (InvalidPublicKey $ sformat build problem)
         Right publicKey -> return publicKey
 
+    ws <- V0.askWalletSnapshot
     let walletId = encodeCType . Core.makePubKeyAddressBoot $ publicKey
     walletExists <- V0.doesWalletExist walletId
-    v0wallet <- if walletExists
-        then
+    (v0wallet, transactions) <- if walletExists
+        then do
             -- Wallet is here, it means that user already used this wallet (for example,
             -- hardware device) on this computer, so we have to return stored information
-            -- about this wallet.
-            V0.getWallet walletId
+            -- about this wallet and history of transactions (if any transactions was made).
+            --
+            -- By default we have to specify account and address for getting transactions
+            -- history. But currently all we have is 'encodedExtPubKey', so we return
+            -- complete history of transactions, for all accounts and addresses.
+            let allAccounts = getWalletAccountIds ws walletId
+                -- We want to get a complete history, so we shouldn't specify an address.
+                address = Nothing
+
+            (V0.WalletHistory history, _) <- V0.getHistory walletId
+                                                           (const allAccounts)
+                                                           address
+
+            v1Transactions <- mapM (\(_, (v0Tx, _)) -> migrate v0Tx) $ Map.toList history
+
+            (,) <$> V0.getWallet walletId
+                <*> pure v1Transactions
         else do
             -- No such wallet in db, it means that this wallet (for example, hardware
             -- device) was not used on this computer. But since this wallet _could_ be
@@ -231,10 +249,15 @@ checkExternalWallet encodedExtPubKey = do
                 defaultMeta = V0.CWalletMeta "ADA external wallet"
                                              V0.CWAStrict
                                              largeCurrencyUnit
-            restoreExternalWallet defaultMeta encodedExtPubKey
+                -- This is a new wallet, currently un-synchronized, so there's no
+                -- history of transactions yet.
+                transactions = []
+            (,) <$> restoreExternalWallet defaultMeta encodedExtPubKey
+                <*> pure transactions
 
-    ws <- V0.askWalletSnapshot
-    single <$> addWalletInfo ws v0wallet
+    v1wallet <- addWalletInfo ws v0wallet
+    let walletAndTxs = WalletAndTxHistory v1wallet transactions
+    single <$> pure walletAndTxs
 
 -- | Creates a new or restores an existing external @wallet@ given a 'NewExternalWallet' payload.
 -- Returns to the client the representation of the created or restored wallet in the 'Wallet' type.

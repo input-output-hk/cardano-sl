@@ -36,6 +36,7 @@ module Cardano.Wallet.API.V1.Types (
   , SpendingPassword
   , ExternalWallet (..)
   , NewExternalWallet (..)
+  , WalletAndTxHistory (..)
   -- * Addresses
   , AddressValidity (..)
   -- * Accounts
@@ -1687,6 +1688,37 @@ instance BuildableSafeGen SignedTransaction where
         stxExtPubKey
         stxTransaction
         stxSignature
+
+-- | We use it for external wallets: if it's already presented in wallet db,
+-- we return a wallet info and complete transactions history as well.
+data WalletAndTxHistory = WalletAndTxHistory
+    { waltxsWallet       :: !Wallet
+    , waltxsTransactions :: ![Transaction]
+    } deriving (Eq, Ord, Show, Generic)
+
+deriveJSON Serokell.defaultOptions ''WalletAndTxHistory
+
+instance ToSchema WalletAndTxHistory where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "waltxs" (\(--^) props -> props
+            & "wallet"
+            --^ "Wallet information."
+            & "transactions"
+            --^ "List of transactions related to this wallet (including all accounts and addresses)."
+        )
+
+instance Arbitrary WalletAndTxHistory where
+  arbitrary = WalletAndTxHistory <$> arbitrary
+                                 <*> arbitrary
+
+deriveSafeBuildable ''WalletAndTxHistory
+instance BuildableSafeGen WalletAndTxHistory where
+  buildSafeGen sl WalletAndTxHistory{..} = bprint ("{"
+    %" wallet="%buildSafe sl
+    %" transactions="%buildSafe sl
+    %" }")
+    waltxsWallet
+    waltxsTransactions
 
 -- | A type representing an upcoming wallet update.
 data WalletSoftwareUpdate = WalletSoftwareUpdate

@@ -314,6 +314,7 @@ executable cardano-launcher
                      , containers
                      , directory
                      , filepath
+                     , filelock
                      , formatting
                      , lens
                      , lifted-async

@@ -35,22 +35,35 @@
 
 
 \newcommand{\vsspubkey}{\mathcal{VSS}_{\chi_{\textbf{pub}}}}
+\newcommand{\vssproof}{\mathcal{VSS}_{\textbf{proof}}}
+\newcommand{\vsssec}{\mathcal{VSS}_{\textbf{sec}}}
+\newcommand{\vssencshare}{\mathcal{VSS}_{\textbf{enc}}}
+\newcommand{\vssdecshare}{\mathcal{VSS}_{\textbf{dec}}}
 \newcommand{\agents}{\mathcal{A}}
 \newcommand{\txs}{\mathcal{T}}
 \newcommand{\txins}{\txs_{\textbf{in}}}
-\newcommand{\blocks}{\mathcal{B}}
-\newcommand{\bbodies}{\blocks_{\textbf{body}}}
-\newcommand{\bheads}{\blocks_{\textbf{head}}}
+\newcommand{\twit}{\mathcal{TW}}
+\newcommand{\twitpk}{\twit_{\textbf{pk}}}
+\newcommand{\twitscript}{\twit_{\textbf{script}}}
+\newcommand{\twitredeem}{\twit_{\textbf{redeem}}}
 \newcommand{\ssc}{\mathcal{SSC}}
 \newcommand{\ssccomm}{\ssc_{\textbf{comm}}}
 \newcommand{\sscopen}{\ssc_{\textbf{open}}}
 \newcommand{\sscshare}{\ssc_{\textbf{share}}}
 \newcommand{\ssccert}{\ssc_{\textbf{cert}}}
-
+\newcommand{\dlg}{\mathcal{DLG}}
+\newcommand{\upd}{\mathcal{UP}}
+\newcommand{\updprop}{\upd_{\textbf{prop}}}
+\newcommand{\upddata}{\upd_{\textbf{data}}}
+\newcommand{\blocks}{\mathcal{B}}
+\newcommand{\blockver}{\blocks_{\textbf{ver}}}
+\newcommand{\bbodies}{\blocks_{\textbf{body}}}
+\newcommand{\bheads}{\blocks_{\textbf{head}}}
 
 \newcommand{\hstype}[1]{\textbf{#1}}
 \newcommand{\String}{\hstype{String}}
 \newcommand{\Word}[1]{\hstype{Word#1}}
+\newcommand{\hash}{\hstype{Hash}}
 
 
 \title{Cardano on-the-wire specification}
@@ -92,10 +105,11 @@ Appendix \ref{sec:currentfmt} details the current binary format.
   \begin{grammar}
     <variant> = Option1 \alt Option2 \alt Option3.
   \end{grammar}
-\item[Optional values] We denote an optional value of type $A$ as a variant $\emptyset|A$
+\item[Optional values] We denote an optional value of type $A$ as a variant
+  $\emptyset \ |A$
 \end{description}
 
-Typically we will use capitalised words for variant constructors and lower-case
+We will use capitalised words for variant constructors and lower-case
 terms for field names, as per standard Haskell syntax.
 
 \subsection{Relation to the abstract specification and to the Cardano implementation}
@@ -151,11 +165,12 @@ Primitive types:
 \subsection{Basic Cardano Types}
 
 We start with sets of identifiers. These are represented in code as Blake2b-256
-hashes.
+hashes. We also sometimes deal with these hashes directly.
 
 \begin{itemize}
 \item{Transaction identifiers $\txids$}
 \item{Block identifiers $\blockids$}
+\item Concrete hashes $\hash$
 \end{itemize}
 
 We also have addresses, which are represented as Blake2b-224 hashes.
@@ -176,6 +191,7 @@ Cardano public keys are elliptic curve DH keys on curve 25519.
 \item Public keys $\pubkey$
 \item Signatures $\signature$
 \end{itemize}
+
 \subsection{Addresses}
 
 We have a set of addresses $\agents$. An address has an identifier, a type, and
@@ -224,6 +240,34 @@ We have a set of transactions $\txs$.
   \end{grammar}
 \end{figure}
 
+We also have transaction witnesses, which provide proof that the transaction has
+authority to spend its inputs.
+
+\begin{figure}[H]
+  \caption{Transaction witnesses}
+  \begin{grammar}
+    <$\twitpk$> = \{
+    \fld key :: $\pubkey$
+    \fld signature :: $\signature$
+    \}
+
+    <$\twitscript$> = \{
+    \fld validator :: $\Word{16}\times\String$
+    \fld redeemer :: $\Word{16}\times\String$
+    \}
+
+    <$\twitredeem$> = \{
+    \fld key :: $\pubkey$
+    \fld signature :: $\signature$
+    \}
+
+    <$\twit$> = PublicKey $\twitpk$
+    \alt Script $\twitscript$
+    \alt Redeem $\twitredeem$
+    \alt Unknown $\Word{8}$ \String
+  \end{grammar}
+\end{figure}
+
 \subsection{Shared Seed Computation}
 
 Shared seed computation deals with commitments, openings, shares and
@@ -234,20 +278,26 @@ cryptography scheme.
 
 \begin{itemize}
 \item VSS public keys $\vsspubkey$
+\item VSS secret $\vsssec$
+\item VSS encrypted and decrypted shares $\vssencshare$ and $\vssdecshare$
+\item VSS secret proof $\vssproof$
 \end{itemize}
 
 \begin{figure}[H]
  \caption{Shared seed computation}
  \begin{grammar}
-   <$\ssccomm$> = ?
+   <$\ssccomm$> = \{
+   \fld proof :: $\vssproof$
+   \fld shares :: $\pubkey \rhu \vssencshare$
+   \}
 
    <$\sscopen$> = \{
-   \fld openings :: $\agentids \rhu \verb|Opening|$
+   \fld openings :: $\agentids \rhu \vsssec$
    \fld certificates :: $\agentids \rhu \ssccert$
    \}
 
    <$\sscshare$> = \{
-   \fld shares :: $\agentids \rhu (\agentids \rhu \nelists{\verb|DecShare|})$
+   \fld shares :: $\agentids \rhu (\agentids \rhu \nelists{\vssdecshare})$
    \fld certificates :: $\agentids \rhu \ssccert$
    \}
 
@@ -258,11 +308,65 @@ cryptography scheme.
    \fld signature :: $\signature$
    \}
 
-   <$\ssc$> = Commitments $\agentids \rhu (\pubkey \times \ssccomm \times \verb|CS|)\times \agentids \rhu \ssccert$
+   <$\ssc$> = Commitments $\agentids \rhu (\pubkey \times \ssccomm \times \signature)\times \agentids \rhu \ssccert$
    \alt Openings $\sscopen$
    \alt Shares $\sscshare$
    \alt Certificates $\agentids \rhu \ssccert$
  \end{grammar}
+\end{figure}
+
+\subsection{Delegation}
+
+The heavyweight delegation system is used to allow stakeholders to authorise
+other parties to issue blocks on their behalf.
+
+\begin{figure}[H]
+  \begin{grammar}
+    <$\dlg$> = \{
+    \fld epoch :: $\epochids$
+    \fld issuer :: $\pubkey$
+    \fld delegate :: $\pubkey$
+    \fld certificate :: $\signature$
+    \}
+  \end{grammar}
+  \caption{Delegation}
+  \label{fig:dlgtypes}
+\end{figure}
+
+\subsection{Updates}
+
+This section covers the types used to orchestrate updates of the system. We also
+introduce the block version in this section, since it is primarily concerned
+with updates.
+
+\begin{figure}[H]
+  \begin{grammar}
+    <$\blockver$> = $\Word{16}\times\Word{16}\times\Word{8}$
+
+    <$\upddata$> = \{
+    \fld appDiffHash :: \hash
+    \fld pkgHash :: \hash
+    \fld updaterHash :: \hash
+    \fld mdHash :: \hash
+    \}
+
+    <$\updprop$> = \{
+    \fld blockVersion :: $\blockver$
+    \fld blockVersionMod :: ?
+    \fld softwareVersion :: ?
+    \fld data :: $? \rhu ?$
+    \fld attributes :: ?
+    \fld from :: $\pubkey$
+    \fld signature :: $\signature$
+    \}
+
+    <$\upd$> = \{
+    \fld proposal :: $\emptyset | \updprop$
+    \fld votes :: $\lists{\verb|UpdateVote|}$
+    \}
+  \end{grammar}
+  \caption{Updates}
+  \label{fig:updtypes}
 \end{figure}
 \subsection{Blocks}
 
@@ -274,10 +378,10 @@ of verification for the various components in the block body.
   \label{fig:block}
   \begin{grammar}
     <$\bbodies$> = \{
-    \fld txPayload :: $\lists{\txs}\times\lists{\verb|TxWitness|}$
+    \fld txPayload :: $\lists{\txs}\times\lists{\lists{\twit}}$
     \fld sscPayload :: $\ssc$
-    \fld dlgPayload :: \verb|DlgPayload|
-    \fld updPayload :: \verb|UpdatePayload|
+    \fld dlgPayload ::$\dlg$
+    \fld updPayload :: $\upd$
     \}
   \end{grammar}
 \end{figure}

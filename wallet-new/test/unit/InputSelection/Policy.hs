@@ -74,7 +74,7 @@ class IsUtxo utxo where
   utxoEmpty :: utxo h a
 
   -- | Add in entries from a "normal" UTxO
-  utxoUnion  :: Hash h a => Utxo h a -> utxo h a -> utxo h a
+  utxoUnion :: Hash h a => Utxo h a -> utxo h a -> utxo h a
 
   -- | Number of entries in the UTxO
   utxoSize :: utxo h a -> Int
@@ -85,10 +85,12 @@ class IsUtxo utxo where
   -- | List of all output values
   --
   -- The length of this list should be equal to 'utxoSize'
-  utxoOutputs :: utxo h a -> [Value]
+  utxoOutputs :: Hash h a => utxo h a -> [Value]
 
   -- | Remove inputs from the domain
-  utxoRemoveInputs :: Hash h a => Set (Input h a) -> utxo h a -> utxo h a
+  --
+  -- We take the inputs as a UTxO so that we know what their balance is.
+  utxoRemoveInputs :: Hash h a => Utxo h a -> utxo h a -> utxo h a
 
 -- | Convert "normal" UTxO into this policy-specific representation
 fromUtxo :: (IsUtxo utxo, Hash h a) => Utxo h a -> utxo h a
@@ -99,7 +101,7 @@ instance IsUtxo Utxo where
   utxoUnion        = DSL.utxoUnion
   utxoSize         = DSL.utxoSize
   utxoBalance      = DSL.utxoBalance
-  utxoRemoveInputs = DSL.utxoRemoveInputs
+  utxoRemoveInputs = DSL.utxoRemoveInputs . DSL.utxoDomain
   utxoOutputs      = map (DSL.outVal . snd) . DSL.utxoToList
 
 {-------------------------------------------------------------------------------
@@ -142,10 +144,18 @@ instance Monoid TxStats where
   Policy
 -------------------------------------------------------------------------------}
 
+-- | Input selection policy
+--
+-- An input selection policy is a function that given a UTxO and a bunch
+-- of outputs constructs a transaction with at least those outputs.
+--
+-- In addition to the generated transaction, we also return the UTxO that
+-- we used (which must be a subset of the UTxO that was passed in), as well
+-- as some statistics about this transaction.
 type InputSelectionPolicy utxo h a m =
       utxo h a
    -> [Output a]
-   -> m (Either InputSelectionFailure (Transaction h a, TxStats))
+   -> m (Either InputSelectionFailure (Transaction h a, TxStats, Utxo h a))
 
 {-------------------------------------------------------------------------------
   Failures

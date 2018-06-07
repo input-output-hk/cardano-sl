@@ -1,6 +1,7 @@
 module Util (
     -- * Lists
     at
+  , mergeBy
     -- * Maps and sets
   , disjoint
   , withoutKeys
@@ -29,6 +30,14 @@ at :: [a] -> Int -> Maybe a
 at []     _ = Nothing
 at (x:_)  0 = Just x
 at (_:xs) i = at xs (i - 1)
+
+-- | Merge two sorted lists
+mergeBy :: (a -> a -> Ordering) -> [a] -> [a] -> [a]
+mergeBy _  [] ys  = ys
+mergeBy _ xs []   = xs
+mergeBy f (x:xs) (y:ys)
+    | f x y == LT = x : mergeBy f xs (y:ys)
+    | otherwise   = y : mergeBy f (x:xs) ys
 
 {-------------------------------------------------------------------------------
   Maps and sets

@@ -17,7 +17,6 @@ import           Universum
 import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Except (MonadError (..))
 import           Data.Fixed (E2, Fixed)
-import qualified Data.Set as Set
 
 import           InputSelection.Policy
 import           Util.Histogram (BinSize (..))
@@ -25,7 +24,7 @@ import qualified Util.Histogram as Histogram
 import           Util.MultiSet (MultiSet)
 import qualified Util.MultiSet as MultiSet
 import           Util.StrictStateT
-import           UTxO.DSL
+import qualified UTxO.DSL as DSL
 
 {-------------------------------------------------------------------------------
   Internal state
@@ -36,7 +35,7 @@ data InputPolicyState utxo h a = InputPolicyState {
       _ipsUtxo             :: !(utxo h a)
 
       -- | Selected inputs
-    , _ipsSelectedInputs   :: !(Set (Input h a))
+    , _ipsSelectedInputs   :: !(DSL.Utxo h a)
 
       -- | Generated outputs
     , _ipsGeneratedOutputs :: [Output a]
@@ -45,7 +44,7 @@ data InputPolicyState utxo h a = InputPolicyState {
 initInputPolicyState :: utxo h a -> InputPolicyState utxo h a
 initInputPolicyState utxo = InputPolicyState {
       _ipsUtxo             = utxo
-    , _ipsSelectedInputs   = Set.empty
+    , _ipsSelectedInputs   = DSL.utxoEmpty
     , _ipsGeneratedOutputs = []
     }
 
@@ -126,7 +125,8 @@ instance RunPolicy m a => RunPolicy (InputPolicyT utxo h a m) a where
 runInputPolicyT :: RunPolicy m a
                 => utxo h a
                 -> InputPolicyT utxo h a m PartialTxStats
-                -> m (Either InputSelectionFailure (Transaction h a, TxStats))
+                -> m (Either InputSelectionFailure
+                             (Transaction h a, TxStats, DSL.Utxo h a))
 runInputPolicyT utxo policy = do
      mx <- runExceptT (runStrictStateT (unInputPolicyT policy) initSt)
      case mx of
@@ -137,13 +137,14 @@ runInputPolicyT utxo policy = do
          return $ Right (
              Transaction {
                  trFresh = 0
-               , trIns   = finalSt ^. ipsSelectedInputs
+               , trIns   = DSL.utxoDomain (finalSt ^. ipsSelectedInputs)
                , trOuts  = finalSt ^. ipsGeneratedOutputs
                , trFee   = 0 -- TODO: deal with fees
                , trHash  = h
                , trExtra = []
                }
            , fromPartialTxStats ptxStats
+           , finalSt ^. ipsSelectedInputs
            )
   where
     initSt = initInputPolicyState utxo

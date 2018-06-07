@@ -327,6 +327,7 @@ test-suite wallet-unit-tests
                       InputSelection.Policy.InputPolicyT
                       InputSelection.Policy.LargestFirst
                       InputSelection.Policy.Random
+                      InputSelection.SortedUtxo
                       Test.Infrastructure.Generator
                       Test.Infrastructure.Genesis
                       Test.Spec.Kernel
@@ -387,7 +388,6 @@ test-suite wallet-unit-tests
   hs-source-dirs:     server test/unit
 
   build-depends:      base
-                    , bytestring
                     , cardano-sl
                     , cardano-sl-block
                     , cardano-sl-client
@@ -416,11 +416,13 @@ test-suite wallet-unit-tests
                     , universum
                     , unordered-containers
                       -- needed only for input selection evaluation
+                    , bytestring
                     , conduit
                     , directory
                     , filepath
                     , normaldistribution
                     , random
+                    , time
 
 test-suite wallet-new-specs
   ghc-options:      -Wall

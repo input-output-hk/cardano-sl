@@ -50,7 +50,7 @@ random privacyMode utxo = \goals -> runInputPolicyT utxo $
           PrivacyModeOff -> randomInRange fallback
           PrivacyModeOn  -> randomInRange ideal `catchError` \_err ->
                             randomInRange fallback
-        ipsSelectedInputs   %= Set.union (DSL.utxoDomain selected)
+        ipsSelectedInputs   %= utxoUnion selected
         ipsGeneratedOutputs %= (goal :)
         let selectedSum = utxoBalance selected
             change      = selectedSum - val

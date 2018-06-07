@@ -1,5 +1,6 @@
-{-# LANGUAGE DeriveFunctor   #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveFunctor             #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TemplateHaskell           #-}
 
 module InputSelection.Evaluation (
     Resolution(..)
@@ -18,10 +19,13 @@ import           Data.Conduit
 import           Data.Fixed (E2, Fixed)
 import qualified Data.Map.Strict as Map
 import qualified Data.Text.IO as Text
+import           Data.Time
 import           Formatting (build, sformat, (%))
 import qualified Prelude
+import           Serokell.Util (listJson)
 import           System.Directory (createDirectory)
 import           System.FilePath ((<.>), (</>))
+import           System.IO (hFlush, stdout)
 import qualified System.IO.Error as IO
 import           Text.Printf (printf)
 
@@ -92,14 +96,14 @@ data SlotStats = SlotStats {
     , slotUtxoHistogram :: !Histogram
     }
 
-deriveSlotStats :: IsUtxo utxo => BinSize -> utxo h a -> SlotStats
+deriveSlotStats :: (IsUtxo utxo, Hash h a) => BinSize -> utxo h a -> SlotStats
 deriveSlotStats binSize utxo = SlotStats {
       slotUtxoSize      = utxoSize              utxo
     , slotUtxoBalance   = utxoBalance           utxo
     , slotUtxoHistogram = utxoHistogram binSize utxo
     }
 
-utxoHistogram :: IsUtxo utxo => BinSize -> utxo h a -> Histogram
+utxoHistogram :: (IsUtxo utxo, Hash h a) => BinSize -> utxo h a -> Histogram
 utxoHistogram binSize =
     Histogram.discretize binSize . map fromIntegral . utxoOutputs
 
@@ -341,8 +345,8 @@ intPolicy policy ours shouldRender initState =
         utxo <- use stUtxo
         mtx  <- policy utxo outs
         case mtx of
-          Right (tx, txStats) -> do
-            stUtxo    %= utxoRemoveInputs (trIns tx)
+          Right (tx, txStats, selected) -> do
+            stUtxo    %= utxoRemoveInputs selected
             stPending %= utxoUnion (DSL.utxoRestrictToAddr ours (DSL.trUtxo tx))
             stStats . overallTxStats %= mappend txStats
           Left _err ->
@@ -525,7 +529,6 @@ renderPlotInstr utxoBinSize
 -- | Render a complete set of plot instructions
 writePlotInstrs :: PlotParams -> FilePath -> Bounds -> [PlotInstr] -> IO ()
 writePlotInstrs PlotParams{..} script bounds is = do
-    putStrLn $ sformat ("Writing '" % build % "'") script
     withFile script WriteMode $ \h -> do
       Text.hPutStrLn h $ sformat
           ( "set grid\n"
@@ -678,6 +681,7 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
     go "1to1"  [largest]      600 $ nTo1  1
     go "1to1"  [randomOff] 100000 $ nTo1  1
     go "1to1"  [randomOn]  100000 $ nTo1  1
+    go "3to1"  [largest]   100000 $ nTo1  3
     go "3to1"  [randomOn]  100000 $ nTo1  3
     go "10to1" [randomOn]  100000 $ nTo1 10
   where
@@ -687,7 +691,12 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
        -> (Int -> ConduitT () (Event GivenHash World) IO ())
                     -- Event stream (parameterized by number of cycles)
        -> IO ()
-    go eventsPrefix policies numCycles events =
+    go eventsPrefix policies numCycles events = do
+      putStr $ sformat ("Running " % build % " " % listJson % ".. ")
+                 eventsPrefix
+                 (map namedPolicyName policies)
+      hFlush stdout
+      start <- getCurrentTime
       evaluateUsingEvents
         plotParams
         eventsPrefix
@@ -695,6 +704,8 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
         policies
         (renderEvery (numCycles `div` numFrames))
         (events numCycles)
+      finish <- getCurrentTime
+      putStrLn $ sformat ("ok (" % build % ")") (finish `diffUTCTime` start)
 
     -- Number of frames we want for each animation
     numFrames :: Int

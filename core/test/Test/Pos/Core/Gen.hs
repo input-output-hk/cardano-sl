@@ -3,6 +3,7 @@ module Test.Pos.Core.Gen
         -- Pos.Core.Block Generators
           genGenesisHash
         , genGenesisHeader
+        , genMainBody
 
         -- Pos.Core.Common Generators
         , genAddrAttributes
@@ -71,8 +72,11 @@ module Test.Pos.Core.Gen
         , genSystemTag
         , genUpAttributes
         , genUpdateData
+        , genUpdatePayload
         , genUpdateProposal
         , genUpdateProposalToSign
+        , genUpdateVote
+        , genUpId
         , genUpsData
        ) where
 
@@ -90,7 +94,8 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import           Pos.Binary.Class (asBinary, Raw (..))
 import           Pos.Block.Base (mkGenesisHeader)
-import           Pos.Core.Block (GenesisBlockHeader, GenesisBody (..))
+import           Pos.Core.Block (GenesisBlockHeader, GenesisBody (..),
+                                 MainBody (..))
 import           Pos.Core.Common (Address (..), AddrAttributes (..),
                                   AddrSpendingData (..), AddrStakeDistribution (..),
                                   AddrType (..), Coeff (..), Coin (..),
@@ -111,8 +116,9 @@ import           Pos.Core.Txp (TxAttributes, Tx (..), TxId, TxIn (..),
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                                   BlockVersionModifier (..), SoftforkRule(..),
                                   SoftwareVersion (..), SystemTag (..), UpAttributes,
-                                  UpdateData (..), UpdateProposal (..),
-                                  UpdateProposalToSign  (..))
+                                  UpdateData (..), UpdatePayload (..), UpdateProposal (..),
+                                  UpdateProposalToSign  (..), UpdateVote (..),
+                                  UpId)
 import           Pos.Crypto (deterministic, Hash, hash, safeCreatePsk, sign)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Delegation.Types (DlgPayload (..), ProxySKBlockInfo)
@@ -147,6 +153,13 @@ genGenesisHeader =
            -- , Right <$> genBlockHeader
            ]
 
+genMainBody :: Gen MainBody
+genMainBody =
+    MainBody
+        <$> genTxPayload
+        <*> genSscPayload
+        <*> genDlgPayload
+        <*> genUpdatePayload
 ----------------------------------------------------------------------------
 -- Pos.Core.Common Generators
 ----------------------------------------------------------------------------
@@ -451,6 +464,12 @@ genUpdateData =
         <*> genHashRaw
         <*> genHashRaw
 
+genUpdatePayload :: Gen UpdatePayload
+genUpdatePayload =
+    UpdatePayload
+        <$> Gen.maybe genUpdateProposal
+        <*> Gen.list (Range.constant 0 10) genUpdateVote
+
 genUpdateProposal :: Gen UpdateProposal
 genUpdateProposal =
     UnsafeUpdateProposal
@@ -471,6 +490,9 @@ genUpdateProposalToSign =
         <*> genUpsData
         <*> genUpAttributes
 
+genUpId :: Gen UpId
+genUpId = genAbstractHash genUpdateProposal
+
 genUpsData :: Gen (HM.HashMap SystemTag UpdateData)
 genUpsData = do
     hMapSize <- Gen.int (Range.constant 0 20)
@@ -478,6 +500,13 @@ genUpsData = do
     upDataList <- Gen.list (Range.singleton hMapSize) genUpdateData
     pure $ HM.fromList $ zip sysTagList upDataList
 
+genUpdateVote :: Gen UpdateVote
+genUpdateVote =
+    UnsafeUpdateVote
+        <$> genPublicKey
+        <*> genUpId
+        <*> Gen.bool
+        <*> (genSignature $ (,) <$> genUpId <*> Gen.bool)
 ----------------------------------------------------------------------------
 -- Helper Generators
 ----------------------------------------------------------------------------

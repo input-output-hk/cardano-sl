@@ -20,8 +20,6 @@ import           Test.QuickCheck (Arbitrary (..), Gen, elements, oneof, vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi, Raw)
-import           Pos.Binary.Crypto ()
-import           Pos.Crypto.AsBinary ()
 import           Pos.Crypto.Configuration (HasProtocolMagic, ProtocolMagic (..), protocolMagic)
 import           Pos.Crypto.Hashing (AHash (..), AbstractHash (..), HashAlgorithm, WithHash (..),
                                      unsafeCheatingHashCoerce, withHash)

@@ -17,15 +17,19 @@ module Pos.Crypto.Signing.Types.Safe
 import qualified Cardano.Crypto.Wallet as CC
 import           Crypto.Random (MonadRandom)
 import           Data.ByteArray (ByteArray, ByteArrayAccess, ScrubbedBytes)
+import qualified Data.ByteArray as ByteArray
+import qualified Data.ByteString as BS
 import           Data.Default (Default (..))
 import           Data.Text.Buildable (build)
 import qualified Data.Text.Buildable as B
+import           Formatting (int, sformat, (%))
 import qualified Prelude
 import           Universum
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize, toCborError)
 import qualified Pos.Crypto.Scrypt as S
-import           Pos.Crypto.Signing.Types.Signing (PublicKey (..), SecretKey (..), toPublic)
+import           Pos.Crypto.Signing.Types.Signing (PublicKey (..), SecretKey (..), decodeXPrv,
+                                                   encodeXPrv, toPublic)
 
 -- | Encrypted HD secret key.
 data EncryptedSecretKey = EncryptedSecretKey
@@ -43,6 +47,15 @@ instance Show EncryptedSecretKey where
 
 instance B.Buildable EncryptedSecretKey where
     build _ = "<encrypted key>"
+
+instance Bi EncryptedSecretKey where
+    encode (EncryptedSecretKey sk pph) = encodeListLen 2
+                                      <> encodeXPrv sk
+                                      <> encode pph
+    decode = EncryptedSecretKey
+         <$  enforceSize "EncryptedSecretKey" 2
+         <*> decodeXPrv
+         <*> decode
 
 newtype PassPhrase = PassPhrase ScrubbedBytes
     deriving (Eq, Ord, Monoid, NFData, ByteArray, ByteArrayAccess)
@@ -62,6 +75,19 @@ instance Buildable PassPhrase where
 
 instance Default PassPhrase where
     def = emptyPassphrase
+
+instance Bi PassPhrase where
+    encode pp = encode (ByteArray.convert pp :: ByteString)
+    decode = do
+        bs <- decode @ByteString
+        let bl = BS.length bs
+        -- Currently passphrase may be either 32-byte long or empty (for
+        -- unencrypted keys).
+        toCborError $ if bl == 0 || bl == passphraseLength
+            then Right $ ByteArray.convert bs
+            else Left $ sformat
+                 ("put@PassPhrase: expected length 0 or "%int%", not "%int)
+                 passphraseLength bl
 
 {-instance Monoid PassPhrase where
     mempty = PassPhrase mempty

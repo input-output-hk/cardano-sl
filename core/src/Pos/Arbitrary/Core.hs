@@ -39,7 +39,6 @@ import           Test.QuickCheck.Instances ()
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core ()
-import           Pos.Binary.Crypto ()
 import           Pos.Core.Common (AddrAttributes, AddrSpendingData (..), AddrStakeDistribution (..),
                                   AddrType (..), Address, Address' (..), BlockCount (..),
                                   ChainDifficulty (..), Coeff (..), Coin, CoinPortion (..), Script,

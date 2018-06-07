@@ -14,15 +14,12 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-                       Pos.Aeson.Crypto
-                       Pos.Binary.Crypto
-
                        Pos.Crypto
 
-                       Pos.Crypto.AsBinary
                        Pos.Crypto.Configuration
                        Pos.Crypto.Hashing
                        Pos.Crypto.HD
+                       Pos.Crypto.Orphans
                        Pos.Crypto.Random
                        Pos.Crypto.SecretSharing
                        Pos.Crypto.Signing

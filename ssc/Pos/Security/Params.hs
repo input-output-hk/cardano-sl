@@ -14,10 +14,9 @@ import           Data.Default (Default (..))
 import           Serokell.Aeson.Options (defaultOptions)
 import qualified Text.Parsec as Parsec
 
-import           Pos.Aeson.Crypto ()
 import           Pos.Core.Common (StakeholderId)
 import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser)
-import           Pos.Util.Util (toAesonError, aesonError)
+import           Pos.Util.Util (aesonError, toAesonError)
 
 -- | Network attack settings (a part of the behavior config).
 --

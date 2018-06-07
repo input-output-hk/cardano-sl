@@ -16,7 +16,6 @@ import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Base64 (JsonByteString (..))
 
 import           Pos.Aeson.Core ()
-import           Pos.Aeson.Crypto ()
 import           Pos.Core (coinToInteger, decodeTextAddress, integerToCoin)
 import           Pos.Core.Txp (Tx, TxAux, TxIn (..), TxInWitness (..), TxOut (..), TxOutAux,
                                TxSigData)

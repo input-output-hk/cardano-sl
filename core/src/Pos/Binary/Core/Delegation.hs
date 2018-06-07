@@ -8,7 +8,6 @@ import           Universum
 
 import           Pos.Binary.Class (Bi (..))
 import           Pos.Binary.Core.Slotting ()
-import           Pos.Binary.Crypto ()
 import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..), LightDlgIndices (..))
 
 instance Bi HeavyDlgIndex where

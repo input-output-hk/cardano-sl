@@ -14,7 +14,6 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node.Message.Class (Message)
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Binary.Crypto ()
 import           Pos.Binary.Limit (Limit)
 import           Pos.Binary.Ssc ()
 -- Message instances for various types.

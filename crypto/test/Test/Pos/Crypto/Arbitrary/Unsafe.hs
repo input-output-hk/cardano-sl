@@ -11,7 +11,6 @@ import           Test.QuickCheck.Instances ()
 
 import           Pos.Binary.Class (Bi)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Binary.Crypto ()
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Crypto.Hashing (AbstractHash, HashAlgorithm, unsafeAbstractHash)
 import           Pos.Crypto.SecretSharing (VssKeyPair, VssPublicKey, deterministicVssKeyGen,

@@ -84,9 +84,15 @@ data WalletClient m
     , deleteWallet
          :: WalletId -> m (Either ClientError ())
     , getWallet
-        :: WalletId -> Resp m Wallet
+         :: WalletId -> Resp m Wallet
     , updateWallet
          :: WalletId -> Update Wallet -> Resp m Wallet
+    , postCheckExternalWallet
+         :: Text -> Resp m WalletAndTxHistory
+    , postExternalWallet
+         :: New ExternalWallet -> Resp m Wallet
+    , deleteExternalWallet
+         :: Text -> m (Either ClientError ())
     -- account endpoints
     , deleteAccount
          :: WalletId -> AccountIndex -> m (Either ClientError ())
@@ -98,6 +104,10 @@ data WalletClient m
         :: WalletId -> New Account -> Resp m Account
     , updateAccount
          :: WalletId -> AccountIndex -> Update Account -> Resp m Account
+    , postAddressPath
+         :: WalletId -> AccountIndex -> Resp m AddressPath
+    , postStoreAddress
+         :: WalletId -> AccountIndex -> Text -> m (Either ClientError ())
     -- transactions endpoints
     , postTransaction
          :: Payment -> Resp m Transaction
@@ -112,6 +122,10 @@ data WalletClient m
          -> Resp m [Transaction]
     , getTransactionFee
          :: Payment -> Resp m EstimatedFees
+    , postUnsignedTransaction
+         :: Payment -> Resp m RawTransaction
+    , postSignedTransaction
+         :: SignedTransaction -> Resp m Transaction
     -- settings
     , getNodeSettings
          :: Resp m NodeSettings
@@ -199,6 +213,12 @@ hoistClient phi wc = WalletClient
          phi . getWallet wc
     , updateWallet =
          \x -> phi . updateWallet wc x
+    , postCheckExternalWallet =
+         phi . postCheckExternalWallet wc
+    , postExternalWallet =
+         phi . postExternalWallet wc
+    , deleteExternalWallet =
+         phi . deleteExternalWallet wc
     , deleteAccount =
          \x -> phi . deleteAccount wc x
     , getAccount =
@@ -209,6 +229,10 @@ hoistClient phi wc = WalletClient
          \x -> phi . postAccount wc x
     , updateAccount =
          \x y -> phi . updateAccount wc x y
+    , postAddressPath =
+         \x -> phi . postAddressPath wc x
+    , postStoreAddress =
+         \x addr -> phi . postStoreAddress wc x addr
     , postTransaction =
          phi . postTransaction wc
     , getTransactionIndexFilterSorts =
@@ -216,6 +240,10 @@ hoistClient phi wc = WalletClient
              phi . getTransactionIndexFilterSorts wc wid maid maddr mp mpp f
     , getTransactionFee =
          phi . getTransactionFee wc
+    , postUnsignedTransaction =
+         phi . postUnsignedTransaction wc
+    , postSignedTransaction =
+         phi . postSignedTransaction wc
     , getNodeSettings =
          phi (getNodeSettings wc)
     , getNodeInfo =

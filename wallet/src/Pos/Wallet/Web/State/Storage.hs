@@ -44,6 +44,7 @@ module Pos.Wallet.Web.State.Storage
        , getWalletAddresses
        , getWalletInfos
        , getWalletInfo
+       , getWalletType
        , getAccountWAddresses
        , getWAddresses
        , doesWAddressExist
@@ -289,6 +290,9 @@ data WalletInfo = WalletInfo
       -- are excluded from api endpoints. This info should not be leaked
       -- into a client facing data structure (for example 'CWalletMeta')
     , _wiIsReady        :: !Bool
+      -- | Wallet type: regular one (classic Cardano wallet) or external one
+      -- (mobile app or hardware wallet).
+    , _wiType           :: !WebTypes.CWalletType
     } deriving (Eq)
 
 instance NFData WalletInfo where
@@ -299,6 +303,7 @@ instance NFData WalletInfo where
         `deepseq` _wiSyncStatistics wi
         `deepseq` _wsPendingTxs wi
         `deepseq` _wiIsReady wi
+        `deepseq` _wiType wi
         `deepseq` ()
 
 makeLenses ''WalletInfo
@@ -478,6 +483,10 @@ getWalletInfos =
     sortOn (view wiCreationTime . snd) . filter (view wiIsReady . snd) . HM.toList <$>
     view wsWalletInfos
 
+-- | Get if the wallet is regular or external one.
+getWalletType :: WebTypes.CId WebTypes.Wal -> Query (Maybe WebTypes.CWalletType)
+getWalletType cWalId = preview (wsWalletInfos . ix cWalId . wiType)
+
 -- | Get addresses of given account by account ID in the same order they were created.
 getAccountWAddresses ::
        AddressLookupMode           -- ^ Determines which addresses to include: existing, deleted or both
@@ -611,9 +620,22 @@ createAccount accId cAccMeta =
 
 -- | Create a new wallet with given parameters.
 -- @isReady@ should be set to @False@ when syncing is still needed.
-createWallet :: WebTypes.CId WebTypes.Wal -> WebTypes.CWalletMeta -> Bool -> POSIXTime -> Update ()
-createWallet cWalId cWalMeta isReady curTime = do
-    let info = WalletInfo cWalMeta curTime curTime NotSynced noSyncStatistics mempty isReady
+createWallet
+    :: WebTypes.CId WebTypes.Wal
+    -> WebTypes.CWalletMeta
+    -> Bool
+    -> WebTypes.CWalletType
+    -> POSIXTime
+    -> Update ()
+createWallet cWalId cWalMeta isReady cWalType curTime = do
+    let info = WalletInfo cWalMeta
+                          curTime
+                          curTime
+                          NotSynced
+                          noSyncStatistics
+                          mempty
+                          isReady
+                          cWalType
     wsWalletInfos . at cWalId %= (<|> Just info)
 
 -- | Add new address given 'CWAddressMeta' (which contains information about
@@ -862,6 +884,7 @@ deriveSafeCopySimple 0 'base ''WebTypes.AccountId
 deriveSafeCopySimple 0 'base ''WebTypes.CWalletAssurance
 deriveSafeCopySimple 0 'base ''WebTypes.CAccountMeta
 deriveSafeCopySimple 0 'base ''WebTypes.CWalletMeta
+deriveSafeCopySimple 0 'base ''WebTypes.CWalletType
 deriveSafeCopySimple 0 'base ''WebTypes.CTxId
 deriveSafeCopySimple 0 'base ''Timestamp
 deriveSafeCopySimple 0 'base ''TxHistoryEntry
@@ -918,6 +941,7 @@ data WalletInfo_v0 = WalletInfo_v0
     , _v0_wiSyncTip      :: !WalletTip_v0
     , _v0_wsPendingTxs   :: !(HashMap TxId PendingTx)
     , _v0_wiIsReady      :: !Bool
+    , _v0_wiType         :: !WebTypes.CWalletType
     }
 
 instance Migrate WalletInfo where
@@ -930,6 +954,7 @@ instance Migrate WalletInfo where
         , _wiSyncStatistics = noSyncStatistics
         , _wsPendingTxs     = _v0_wsPendingTxs
         , _wiIsReady        = _v0_wiIsReady
+        , _wiType           = _v0_wiType
         }
 
 deriveSafeCopySimple 0 'base ''WalletInfo_v0

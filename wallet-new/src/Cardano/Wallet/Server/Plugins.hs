@@ -180,9 +180,11 @@ legacyWalletBackend WalletBackendParams {..} ntpStatus = pure $ \diffusion -> do
     handleV0Errors se =
         let maskSensitive err =
                 case err of
-                    V0.RequestError _  -> err
-                    V0.InternalError _ -> V0.RequestError "InternalError"
-                    V0.DecodeError _   -> V0.RequestError "DecodeError"
+                    V0.RequestError _         -> err
+                    V0.DuplicateWalletError _ -> V0.RequestError "DuplicateWalletError"
+                    V0.NoSuchWalletError _    -> V0.RequestError "NoSuchWalletError"
+                    V0.InternalError _        -> V0.RequestError "InternalError"
+                    V0.DecodeError _          -> V0.RequestError "DecodeError"
             reify (re :: V0.WalletError) = V1.UnknownError (sformat build . maskSensitive $ re)
         in fmap (responseLBS badRequest400 [V1.applicationJson] .  encode . reify) (fromException se)
 

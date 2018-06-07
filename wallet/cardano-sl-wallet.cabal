@@ -171,6 +171,7 @@ library
                       , universum >= 0.1.11
                       , unliftio
                       , unordered-containers
+                      , vector
                       , wai
                       , wai-websockets
                       , warp

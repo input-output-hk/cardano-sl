@@ -15121,6 +15121,7 @@ license = stdenv.lib.licenses.mit;
   mkDerivation
 , aeson
 , base
+, base58-bytestring
 , binary
 , bytestring
 , cardano-crypto
@@ -15165,6 +15166,7 @@ src = ./../crypto;
 libraryHaskellDepends = [
 aeson
 base
+base58-bytestring
 binary
 bytestring
 cardano-crypto
@@ -17111,6 +17113,7 @@ license = stdenv.lib.licenses.mit;
 , unix
 , unliftio
 , unordered-containers
+, vector
 , wai
 , wai-websockets
 , warp
@@ -17190,6 +17193,7 @@ universum
 unix
 unliftio
 unordered-containers
+vector
 wai
 wai-websockets
 warp
@@ -17256,8 +17260,11 @@ license = stdenv.lib.licenses.mit;
 , aeson-pretty
 , async
 , base
+, base58-bytestring
 , bytestring
+, cardano-crypto
 , cardano-sl
+, cardano-sl-binary
 , cardano-sl-block
 , cardano-sl-client
 , cardano-sl-core
@@ -17357,8 +17364,11 @@ aeson
 aeson-pretty
 async
 base
+base58-bytestring
 bytestring
+cardano-crypto
 cardano-sl
+cardano-sl-binary
 cardano-sl-block
 cardano-sl-client
 cardano-sl-core
@@ -17431,6 +17441,7 @@ base
 bytestring
 cardano-sl
 cardano-sl-core
+cardano-sl-crypto
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-ssc
@@ -17468,6 +17479,7 @@ x509-store
 testHaskellDepends = [
 aeson
 base
+base58-bytestring
 bytestring
 cardano-sl
 cardano-sl-block

@@ -32,16 +32,17 @@ import           System.Wlog (HasLoggerName (..))
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
-import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..), getSecretDefault,
-                                        modifySecretDefault)
+import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
+                                        getSecretDefault, getPublicDefault,
+                                        modifySecretDefault, modifyPublicDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Client.Txp.Balances (MonadBalances (..), getBalanceFromUtxo,
+import           Pos.Client.Txp.Balances (MonadBalances(..), getBalanceFromUtxo,
                                           getOwnUtxosGenesis)
 import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDefault,
                                          getLocalHistoryDefault, saveTxDefault)
 import           Pos.Context (HasNodeContext (..))
-import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..), IsBootstrapEraAddr (..),
-                           deriveFirstHDAddress, largestPubKeyAddressBoot,
+import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..),
+                           IsBootstrapEraAddr (..), deriveFirstHDAddress, largestPubKeyAddressBoot,
                            largestPubKeyAddressSingleKey, makePubKeyAddress, siEpoch)
 import           Pos.Crypto (EncryptedSecretKey, PublicKey, emptyPassphrase)
 import           Pos.DB (DBSum (..), MonadGState (..), NodeDBs, gsIsBootstrapEra)
@@ -66,6 +67,7 @@ import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.LoggerName (HasLoggerName' (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
+import           Pos.Util.UserPublic (HasUserPublic (..))
 import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext (..))
 
 type AuxxMode = ReaderT AuxxContext Production
@@ -126,6 +128,9 @@ instance HasMisbehaviorMetrics AuxxContext where
 
 instance HasUserSecret AuxxContext where
     userSecret = acRealModeContext_L . userSecret
+
+instance HasUserPublic AuxxContext where
+    userPublic = acRealModeContext_L . userPublic
 
 instance HasShutdownContext AuxxContext where
     shutdownContext = acRealModeContext_L . shutdownContext
@@ -221,9 +226,11 @@ instance (HasConfigurations, HasCompileInfo) =>
 
 instance MonadKeysRead AuxxMode where
     getSecret = getSecretDefault
+    getPublic = getPublicDefault
 
 instance MonadKeys AuxxMode where
     modifySecret = modifySecretDefault
+    modifyPublic = modifyPublicDefault
 
 type instance MempoolExt AuxxMode = EmptyMempoolExt
 

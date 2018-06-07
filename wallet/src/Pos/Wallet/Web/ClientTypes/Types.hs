@@ -26,6 +26,7 @@ module Pos.Wallet.Web.ClientTypes.Types
         -- ** Structure & metas
       , CWalletAssurance (..)
       , CWalletMeta (..)
+      , CWalletType (..)
       , AccountId (..)
       , CAccountMeta (..)
       , CWAddressMeta (..)
@@ -245,6 +246,24 @@ instance Buildable (SecureLog CWalletMeta) where
 instance Default CWalletMeta where
     def = CWalletMeta "Personal Wallet Set" CWANormal 0
 
+-- | 'Wallet' type.
+data CWalletType
+    = CWalletRegular  -- | Regular (classic) Cardano wallet.
+    | CWalletExternal -- | External wallet (mobile app or hardware wallet).
+    deriving (Eq, Show, Generic)
+
+instance Buildable CWalletType where
+    build CWalletRegular  = "regular"
+    build CWalletExternal = "external"
+
+instance Buildable (SecureLog CWalletType) where
+    build = buildUnsecure
+
+instance NFData CWalletType
+
+instance Default CWalletType where
+    def = CWalletRegular
+
 -- | Metadata for an account.
 -- Includes data which is not provided by Cardano
 data CAccountMeta = CAccountMeta
@@ -332,6 +351,7 @@ data CWallet = CWallet
     , cwAmount         :: !CCoin
     , cwHasPassphrase  :: !Bool
     , cwPassphraseLU   :: !PassPhraseLU  -- last update time
+    , cwType           :: !CWalletType
     } deriving (Eq, Show, Generic)
 
 instance Buildable CWallet where
@@ -342,6 +362,7 @@ instance Buildable CWallet where
                 %" amount="%build
                 %" pass="%build
                 %" passlu="%build
+                %" type="%build
                 %" }")
         cwId
         cwMeta
@@ -349,6 +370,7 @@ instance Buildable CWallet where
         cwAmount
         cwHasPassphrase
         cwPassphraseLU
+        cwType
 
 -- | Client Account (CA)
 -- (Flow type: accountType)

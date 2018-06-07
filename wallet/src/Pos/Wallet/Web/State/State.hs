@@ -57,6 +57,7 @@ module Pos.Wallet.Web.State.State
        , testReset
        , createAccount
        , createAccountWithAddress
+       , createAccountWithoutAddresses
        , createWallet
        , addWAddress
        , addCustomAddress
@@ -103,7 +104,7 @@ import           Pos.Txp (TxId, Utxo, UtxoModifier)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens', lensOf)
 import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountMeta, CId, CProfile, CTxId, CTxMeta,
-                                             CUpdateInfo, CWalletMeta, PassPhraseLU, Wal)
+                                             CUpdateInfo, CWalletMeta, CWalletType, PassPhraseLU, Wal)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition)
 import           Pos.Wallet.Web.State.Acidic (WalletDB, closeState, openMemState, openState)
 import           Pos.Wallet.Web.State.Acidic as A
@@ -273,15 +274,25 @@ createAccountWithAddress :: (MonadIO m)
 createAccountWithAddress db accId accMeta addrMeta =
     updateDisk (A.CreateAccountWithAddress accId accMeta addrMeta) db
 
+createAccountWithoutAddresses
+    :: (MonadIO m)
+    => WalletDB
+    -> AccountId
+    -> CAccountMeta
+    -> m ()
+createAccountWithoutAddresses db accId accMeta =
+    updateDisk (A.CreateAccountWithoutAddresses accId accMeta) db
+
 createWallet :: (MonadIO m)
              => WalletDB
              -> CId Wal
              -> CWalletMeta
              -> Bool
+             -> CWalletType
              -> PassPhraseLU
              -> m ()
-createWallet db cWalId cwMeta isReady lastUpdate =
-    updateDisk (A.CreateWallet cWalId cwMeta isReady lastUpdate) db
+createWallet db cWalId cwMeta isReady cWalType lastUpdate =
+    updateDisk (A.CreateWallet cWalId cwMeta isReady cWalType lastUpdate) db
 
 addWAddress :: (MonadIO m)
             => WalletDB

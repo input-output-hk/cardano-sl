@@ -7,6 +7,7 @@ module Pos.Wallet.Web.Methods.Restore
        , importWallet
        , restoreWalletFromSeed
        , restoreWalletFromBackup
+       , restoreExternalWallet
        , addInitialRichAccount
 
        -- For testing
@@ -26,7 +27,7 @@ import qualified Data.HashMap.Strict as HM
 import           Pos.Client.KeyStorage (addSecretKey)
 import           Pos.Core.Configuration (genesisSecretsPoor)
 import           Pos.Core.Genesis (poorSecretToEncKey)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase, firstHardened)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey, emptyPassphrase, firstHardened)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Util (HasLens (..), maybeThrow)
 import           Pos.Util.UserSecret (UserSecretDecodingError (..), WalletUserSecret (..),
@@ -37,14 +38,14 @@ import           Pos.Wallet.Web.Backup (AccountMetaBackup (..), WalletBackup (..
                                         WalletMetaBackup (..))
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountInit (..), CAccountMeta (..),
                                              CFilePath (..), CId, CWallet (..), CWalletInit (..),
-                                             CWalletMeta (..), Wal, encToCId)
+                                             CWalletMeta (..), CWalletType (..), Wal, encToCId)
 import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever), askWalletDB, askWalletSnapshot,
                                        createAccount, getAccountWAddresses, getWalletMeta,
                                        removeHistoryCache, setWalletSyncTip)
-import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Decrypt (keyToWalletDecrCredentials)
 import qualified Pos.Wallet.Web.Tracking.Restore as Restore
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 import           Pos.Wallet.Web.Util (getWalletAccountIds)
@@ -64,7 +65,7 @@ mkWallet passphrase CWalletInit {..} isReady = do
     skey <- genSaveRootKey passphrase cwBackupPhrase
     let cAddr = encToCId skey
 
-    CWallet{..} <- L.createWalletSafe cAddr cwInitMeta isReady
+    CWallet{..} <- L.createWalletSafe cAddr cwInitMeta isReady CWalletRegular
     -- can't return this result, since balances can change
 
     let accMeta = CAccountMeta { caName = "Initial account" }
@@ -101,10 +102,23 @@ restoreWallet :: ( L.MonadWalletLogic ctx m
                  , MonadUnliftIO m
                  , HasLens SyncQueue ctx SyncQueue
                  ) => EncryptedSecretKey -> m CWallet
-restoreWallet sk = do
-    db <- WS.askWalletDB
-    let credentials@(_, wId) = eskToWalletDecrCredentials sk
+restoreWallet secretKey = restoreUsing $ Right secretKey
+
+-- | Restore a history related to given external wallet, using 'extPublicKey'.
+restoreExternalWallet :: ( L.MonadWalletLogic ctx m
+                         , MonadUnliftIO m
+                         , HasLens SyncQueue ctx SyncQueue
+                         ) => PublicKey -> m CWallet
+restoreExternalWallet publicKey = restoreUsing $ Left publicKey
+
+restoreUsing :: ( L.MonadWalletLogic ctx m
+                , MonadUnliftIO m
+                , HasLens SyncQueue ctx SyncQueue
+                ) => Either PublicKey EncryptedSecretKey -> m CWallet
+restoreUsing key = do
+    let credentials@(_, wId) = keyToWalletDecrCredentials key
     Restore.restoreWallet credentials
+    db <- WS.askWalletDB
     WS.setWalletReady db wId True
     L.getWallet wId
 
@@ -142,7 +156,7 @@ restoreWalletFromBackup WalletBackup {..} = do
                     createAccount db accId meta
 
             -- TODO(adn): Review the readyness story.
-            void $ L.createWalletSafe wId wMeta False
+            void $ L.createWalletSafe wId wMeta False CWalletRegular
 
             ws' <- askWalletSnapshot
 
@@ -204,9 +218,10 @@ importWalletSecret passphrase WalletUserSecret{..} = do
     let key    = _wusRootKey
         wid    = encToCId key
         wMeta  = def { cwName = _wusWalletName }
+
     addSecretKey key
     -- TODO(adinapoli): Review the readiness story.
-    void $ L.createWalletSafe wid wMeta False
+    void $ L.createWalletSafe wid wMeta False CWalletRegular
 
     db <- askWalletDB
     for_ _wusAccounts $ \(walletIndex, walletName) -> do

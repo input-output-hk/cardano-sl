@@ -25,7 +25,8 @@ import           Pos.Arbitrary.Core ()
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccountMeta (..), CCoin (..),
                                              CHash (..), CId (..), CProfile (..), CTxId (..),
                                              CTxMeta (..), CUpdateInfo (..), CWAddressMeta (..),
-                                             CWalletAssurance (..), CWalletMeta (..), Wal)
+                                             CWalletAssurance (..), CWalletMeta (..), CWalletType (..),
+                                             Wal)
 import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId)
 import           Pos.Wallet.Web.State.Acidic (openState)
 import           Pos.Wallet.Web.State.State (askWalletSnapshot)
@@ -80,6 +81,7 @@ instance Migrate WalletInfo_v0 where
         , _v0_wiSyncTip        = migrate _wiSyncState
         , _v0_wsPendingTxs     = _wsPendingTxs
         , _v0_wiIsReady        = _wiIsReady
+        , _v0_wiType           = _wiType
         }
 
 newtype WalletStorage_Back_v2 = WalletStorage_Back_v2 WalletStorage_v2
@@ -195,6 +197,12 @@ instance Arbitrary CWalletMeta where
     <*> arbitrary
     <*> arbitrary
 
+instance Arbitrary CWalletType where
+  arbitrary = oneof
+    [ pure CWalletRegular
+    , pure CWalletExternal
+    ]
+
 instance Arbitrary AccountId where
   arbitrary = AccountId
     <$> arbitrary
@@ -253,6 +261,7 @@ instance Arbitrary WalletInfo_v0 where
     <*> arbitrary
     <*> pure HM.empty
     <*> arbitrary
+    <*> arbitrary
 
 instance Arbitrary WalletInfo where
   arbitrary = WalletInfo
@@ -262,6 +271,7 @@ instance Arbitrary WalletInfo where
     <*> arbitrary
     <*> arbitrary
     <*> pure HM.empty
+    <*> arbitrary
     <*> arbitrary
 
 instance Arbitrary WalletStorage_v2 where

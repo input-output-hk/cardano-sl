@@ -8,7 +8,7 @@ module Pos.Wallet.Web.Tracking.Decrypt
        , buildTHEntryExtra
 
        , WalletDecrCredentials
-       , eskToWalletDecrCredentials
+       , keyToWalletDecrCredentials
        , selectOwnAddresses
        , decryptAddress
        ) where
@@ -24,8 +24,8 @@ import           Pos.Core (Address (..), ChainDifficulty, Timestamp, aaPkDerivat
                            addrAttributesUnwrapped, makeRootPubKeyAddress)
 import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut, TxOutAux (..), TxUndo, toaOut,
                                txOutAddress)
-import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, WithHash (..), deriveHDPassphrase,
-                             encToPublic, unpackHDAddressAttr)
+import           Pos.Crypto (EncryptedSecretKey, PublicKey, HDPassphrase, WithHash (..),
+                             deriveHDPassphrase, encToPublic, unpackHDAddressAttr)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import           Pos.Wallet.Web.State (WAddressMeta(..))
@@ -74,12 +74,16 @@ buildTHEntryExtra wdc (WithHash tx txId, NE.toList -> undoL) (mDiff, mTs) =
 
 type WalletDecrCredentials = (HDPassphrase, CId Wal)
 
-eskToWalletDecrCredentials :: EncryptedSecretKey -> WalletDecrCredentials
-eskToWalletDecrCredentials encSK = do
-    let pubKey = encToPublic encSK
-    let hdPass = deriveHDPassphrase pubKey
-    let wCId = encodeCType $ makeRootPubKeyAddress pubKey
-    (hdPass, wCId)
+-- | There's a secret key for regular (internal) wallet or a public key for external one.
+keyToWalletDecrCredentials :: Either PublicKey EncryptedSecretKey -> WalletDecrCredentials
+keyToWalletDecrCredentials key = case key of
+    Right encSecretKey -> credentialsFromPublicKey $ encToPublic encSecretKey
+    Left publicKey     -> credentialsFromPublicKey publicKey
+  where
+    credentialsFromPublicKey publicKey =
+        let hdPassword = deriveHDPassphrase publicKey
+            walletCId  = encodeCType $ makeRootPubKeyAddress publicKey
+        in (hdPassword, walletCId)
 
 selectOwnAddresses
     :: WalletDecrCredentials

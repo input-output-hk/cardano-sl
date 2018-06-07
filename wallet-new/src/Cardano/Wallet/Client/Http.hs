@@ -101,6 +101,12 @@ mkHttpClient baseUrl manager = WalletClient
         = run . getWalletR
     , updateWallet
         = \x -> run . updateWalletR x
+    , postCheckExternalWallet
+        = run . postCheckExternalWalletR
+    , postExternalWallet
+        = run . postExternalWalletR
+    , deleteExternalWallet
+        = unNoContent . run . deleteExternalWalletR
     -- account endpoints
     , deleteAccount
         = \x -> unNoContent . run . deleteAccountR x
@@ -112,6 +118,10 @@ mkHttpClient baseUrl manager = WalletClient
         = \w -> run . postAccountR w
     , updateAccount
         = \x y -> run . updateAccountR x y
+    , postAddressPath
+        = \x -> run . postAddressPathR x
+    , postStoreAddress
+        = \x addr -> unNoContent . run . postStoreAddressR x addr
     -- transactions endpoints
     , postTransaction
         = run . postTransactionR
@@ -120,6 +130,10 @@ mkHttpClient baseUrl manager = WalletClient
              run . getTransactionIndexFilterSortsR walletId mAccountIndex mAddress mPage mpp filters
     , getTransactionFee
         = run . getTransactionFeeR
+    , postUnsignedTransaction
+        = run . postUnsignedTransactionR
+    , postSignedTransaction
+        = run . postSignedTransactionR
     -- settings
     , getNodeSettings
         = run getNodeSettingsR
@@ -150,6 +164,9 @@ mkHttpClient baseUrl manager = WalletClient
         :<|> deleteWalletR
         :<|> getWalletR
         :<|> updateWalletR
+        :<|> postCheckExternalWalletR
+        :<|> postExternalWalletR
+        :<|> deleteExternalWalletR
         = walletsAPI
 
     deleteAccountR
@@ -157,11 +174,15 @@ mkHttpClient baseUrl manager = WalletClient
         :<|> getAccountIndexPagedR
         :<|> postAccountR
         :<|> updateAccountR
+        :<|> postAddressPathR
+        :<|> postStoreAddressR
         = accountsAPI
 
     postTransactionR
         :<|> getTransactionIndexFilterSortsR
         :<|> getTransactionFeeR
+        :<|> postUnsignedTransactionR
+        :<|> postSignedTransactionR
         = transactionsAPI
 
     addressesAPI

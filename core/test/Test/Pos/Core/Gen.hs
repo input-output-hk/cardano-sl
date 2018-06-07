@@ -27,6 +27,15 @@ module Test.Pos.Core.Gen
         , genLocalSlotIndex
         , genSlotId
 
+        -- Pos.Core.Ssc Generators
+        , genCommitment
+        , genCommitmentsMap
+        , genCommitmentSignature
+        , genOpening
+        , genSignedCommitment
+        , genVssCertificate
+        , genVssCertificatesMap
+
         -- Pos.Core.Txp Generators
         , genPkWitness
         , genRedeemWitness
@@ -49,32 +58,43 @@ import           Universum
 
 
 import           Data.Coerce (coerce)
+import           Data.List.NonEmpty (fromList)
 import           Data.Maybe
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
+
+import           Pos.Binary.Class (asBinary)
 import           Pos.Block.Base (mkGenesisHeader)
 import           Pos.Core.Block (GenesisBlockHeader, GenesisBody (..))
 import           Pos.Core.Common (Address (..), AddrAttributes (..),
-                                  AddrSpendingData (..), AddrStakeDistribution (..),
-                                  AddrType (..), Coin (..), CoinPortion (..),
-                                  Script (..), ScriptVersion, SlotLeaders,
-                                  StakeholderId, makeAddress)
+                                  AddrSpendingData (..),
+                                  AddrStakeDistribution (..), AddrType (..),
+                                  Coin (..), CoinPortion (..), Script (..),
+                                  ScriptVersion, SlotLeaders, StakeholderId,
+                                  makeAddress)
 import           Pos.Core.Configuration (GenesisHash (..))
 import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
-import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..), SlotId (..))
+import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
+                                    SlotId (..))
+import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
+                               Opening, SignedCommitment, VssCertificate,
+                               VssCertificatesMap, mkCommitmentsMap,
+                               mkVssCertificate, mkVssCertificatesMap)
 import           Pos.Core.Txp (TxAttributes, Tx (..), TxId, TxIn (..),
                                TxInWitness (..), TxOut (..), TxSig,
                                TxSigData (..))
 import           Pos.Crypto (Hash, hash, safeCreatePsk, sign)
+import           Pos.Crypto.Random (deterministic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
+import           Pos.Ssc.Base (genCommitmentAndOpening)
 import           Test.Pos.Crypto.Gen (genAbstractHash, genHDAddressPayload,
                                       genProtocolMagic, genPublicKey,
                                       genRedeemPublicKey, genRedeemSignature,
-                                      genSafeSigner, genSecretKey, genSignTag)
-
-
+                                      genSafeSigner, genSecretKey,
+                                      genSignature, genSignTag,
+                                      genVssPublicKey)
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Block Generators
@@ -89,9 +109,13 @@ genGenesisHeader :: Gen GenesisBlockHeader
 genGenesisHeader =
     mkGenesisHeader
         <$> genProtocolMagic
-        <*> (Left <$> genGenesisHash) -- need to consider `Right` case
+        <*> Gen.choice gens
         <*> genEpochIndex
         <*> (GenesisBody <$> genSlotLeaders)
+  where
+    gens = [ Left <$> genGenesisHash
+           -- , Right <$> genBlockHeader
+           ]
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Common Generators
@@ -182,12 +206,64 @@ genProxySKHeavy =
 genEpochIndex :: Gen EpochIndex
 genEpochIndex = EpochIndex <$> Gen.word64 Range.constantBounded
 
-
 genLocalSlotIndex :: Gen LocalSlotIndex
 genLocalSlotIndex = UnsafeLocalSlotIndex <$> Gen.word16 (Range.constant 0 21599)
 
 genSlotId :: Gen SlotId
 genSlotId = SlotId <$> genEpochIndex <*> genLocalSlotIndex
+
+----------------------------------------------------------------------------
+-- Pos.Core.Ssc Generators
+----------------------------------------------------------------------------
+
+data CommitmentOpening = CommitmentOpening
+    { unCommitment :: !Commitment
+    , unOpening :: !Opening
+    }
+
+genCommitment :: Gen Commitment
+genCommitment = unCommitment <$> genCommitmentOpening
+
+genCommitmentOpening :: Gen CommitmentOpening
+genCommitmentOpening = do
+    let numKeys = 128 :: Int
+    parties <-
+        Gen.integral (Range.constant 4 (fromIntegral numKeys)) :: Gen Integer
+    threshold <- Gen.integral (Range.constant 2 (parties - 2)) :: Gen Integer
+    vssKeys <- replicateM numKeys genVssPublicKey
+    pure
+        $ uncurry CommitmentOpening
+        $ deterministic "commitmentOpening"
+        $ genCommitmentAndOpening threshold (fromList vssKeys)
+
+genCommitmentSignature :: Gen CommitmentSignature
+genCommitmentSignature = genSignature $ (,) <$> genEpochIndex <*> genCommitment
+
+genCommitmentsMap :: Gen CommitmentsMap
+genCommitmentsMap = mkCommitmentsMap <$> Gen.list range genSignedCommitment
+  where
+    range = Range.constant 1 100
+
+genOpening :: Gen Opening
+genOpening = unOpening <$> genCommitmentOpening
+
+genSignedCommitment :: Gen SignedCommitment
+genSignedCommitment =
+    (,,) <$> genPublicKey <*> genCommitment <*> genCommitmentSignature
+
+genVssCertificate :: Gen VssCertificate
+genVssCertificate = do
+    gpm  <- genProtocolMagic
+    gsk  <- genSecretKey
+    gvpk <- genVssPublicKey
+    gei  <- genEpochIndex
+    return $ mkVssCertificate gpm gsk (asBinary gvpk) gei
+
+genVssCertificatesMap :: Gen VssCertificatesMap
+genVssCertificatesMap =
+    mkVssCertificatesMap <$> Gen.list range genVssCertificate
+  where
+    range = Range.constant 1 100
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Txp Generators

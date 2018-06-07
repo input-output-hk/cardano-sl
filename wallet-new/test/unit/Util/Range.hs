@@ -172,33 +172,75 @@ renderSplitAxis binWidth gap xRanges = (
     totalWeight :: Int
     totalWeight = sum (map snd xRanges)
 
-    -- Total width of all subranges
-    totalWidth :: a
-    totalWidth = sum (map (width . fst) xRanges)
-
     -- Pair each subrange with its projected range on the split axis,
     -- as well as the portion that the projected range should take up
-    -- on the number line
+    -- on the number line.
     zipWithProjRange :: [(Range a, Range Double, Double)]
                      -> [(Range a, Int)]
                      -> [(Range a, Range Double, Double)]
     zipWithProjRange acc []               = reverse acc
     zipWithProjRange acc ((r, weight):rs) =
-        zipWithProjRange ((r,pr,fraction):acc) rs
+        let sf   = scalingFactor (width r)
+            pr   = rangeWithWidth projLeft (sf * realToFrac (width r))
+            acc' = (r, pr, sf) : acc
+        in zipWithProjRange acc' rs
       where
-        -- projected range
-        pr :: Range Double
-        pr = case acc of
-               []              -> rangeWithWidth 0                   projWidth
-               ((_, pr', _):_) -> rangeWithWidth ((pr' ^. hi) + gap) projWidth
+        -- Projected left margin
+        projLeft :: Double
+        projLeft = case acc of
+                     []            -> 0
+                     (_, pr', _):_ -> pr' ^. hi + gap
 
-        -- TODO: This doesn't account for the gaps
-        fraction :: Double
-        fraction = (realToFrac totalWidth / realToFrac (width r))
-                 * (fromIntegral weight / fromIntegral totalWeight)
+        -- Scaling factor
+        --
+        -- We map all (non-singleton) ranges to a portion of the [0..1000]
+        -- range, allocated proportionally to their weight.
+        --
+        -- We don't scale singleton ranges.
+        --
+        -- NOTE: The actual resulting number line will be a little larger than
+        -- 1000, because of the gaps between the ranges.
+        scalingFactor :: a -> Double
+        scalingFactor 0 = 1
+        scalingFactor w = (1 / realToFrac w) -- normalize width to 1
+                        * (fromIntegral weight / fromIntegral totalWeight)
+                        * 1000
 
-        projWidth :: Double
-        projWidth = fraction * realToFrac (width r)
+    -- Gnuplot projection function
+    fnProj :: Text
+    fnProj = mconcat (map aux (zipWithProjRange [] xRanges) ++ ["NaN"])
+      where
+        aux :: (Range a, Range Double, Double) -> Text
+        aux (r, pr, sf) =
+            sformat (build % " ? " % build % " : ")
+              (checkInRange r)
+              (projectTo (r, pr, sf))
+
+    -- Gnuplot inverse function
+    fnInv :: Text
+    fnInv = mconcat (map aux (zipWithProjRange [] xRanges) ++ ["NaN"])
+      where
+        aux :: (Range a, Range Double, Double) -> Text
+        aux (r, pr, sf) =
+            sformat (build % " ? " % build % " : ")
+              (checkInRange pr)
+              (projectFrom (r, pr, sf))
+
+    -- Project a point to the split axis
+    projectTo :: (Range a, Range Double, Double) -> Text
+    projectTo (r, pr, sf) =
+        sformat ("((x - " % build % ") * " % build % " + " % build % ")")
+          (r  ^. lo)
+          sf
+          (pr ^. lo)
+
+    -- Project a point from the split axis
+    projectFrom :: (Range a, Range Double, Double) -> Text
+    projectFrom (r, pr, sf) =
+        sformat ("((x - " % build % ") / " % build % " + " % build % ")")
+          (pr ^. lo)
+          sf
+          (r  ^. lo)
 
     -- Check if a point is in the given range
     --
@@ -213,46 +255,6 @@ renderSplitAxis binWidth gap xRanges = (
       where
         -- see comment above regarding the binWidth argument
         margin = fromIntegral binWidth / 2
-
-    -- Project a point from the original number line to the split number line
-    projectToSplit :: (Range a, Range Double, Double) -> Text
-    projectToSplit (r, pr, f) =
-        sformat ("((x - " % build % ") * " % build % " + " % build % ")")
-          (r  ^. lo)
-          f
-          (pr ^. lo)
-
-    -- Project a point from the split number line to the original number line
-    projectFromSplit :: (Range a, Range Double, Double) -> Text
-    projectFromSplit (r, pr, f) =
-        sformat ("((x - " % build % ") / " % build % " + " % build % ")")
-          (pr ^. lo)
-          f
-          (r ^. lo)
-
-    -- Gnuplot projection function
-    fnProj :: Text
-    fnProj =
-        foldr
-          (\(r, pr, f) alts ->
-              sformat (build % " ? " % build % " : " % build)
-                (checkInRange r)
-                (projectToSplit (r, pr, f))
-                alts)
-          "NaN"
-          (zipWithProjRange [] xRanges)
-
-    -- Gnuplot inverse function
-    fnInv :: Text
-    fnInv =
-        foldr
-          (\(r, pr, f) alts ->
-              sformat (build % " ? " % build % " : " % build)
-                (checkInRange pr)
-                (projectFromSplit (r, pr, f))
-                alts)
-          "NaN"
-          (zipWithProjRange [] xRanges)
 
     -- Visually show break on the x-axzis
     showBreak :: Int -> Range a -> Text

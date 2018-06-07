@@ -16,6 +16,7 @@ import           Control.Lens.TH (makeLenses)
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import           Data.Conduit
 import           Data.Fixed (E2, Fixed)
+import qualified Data.Map.Strict as Map
 import qualified Data.Text.IO as Text
 import           Formatting (build, sformat, (%))
 import qualified Prelude
@@ -108,6 +109,8 @@ utxoHistogram binSize =
   Auxiliary: time series
 -------------------------------------------------------------------------------}
 
+type SlotNr = Int
+
 -- | Time series of values
 --
 -- When we render a single frame,
@@ -121,45 +124,42 @@ utxoHistogram binSize =
 --
 -- The 'TimeSeries' is meant to record the third kind of variable.
 --
--- NOTE: This is isomorphic to @NewestFirst []@ but is strict.
-data TimeSeries a = StartOfTime | MostRecent !a !(TimeSeries a)
+-- Since we don't same at each slot, we store this as a spare mapping form
+-- slot numbers to values.
+newtype TimeSeries a = TimeSeries {
+      timeSeriesToMap :: Map SlotNr a
+    }
   deriving (Functor)
 
-timeSeriesNewestFirst :: TimeSeries a -> [a]
-timeSeriesNewestFirst StartOfTime       = []
-timeSeriesNewestFirst (MostRecent x xs) = x : timeSeriesNewestFirst xs
+timeSeriesToList :: TimeSeries a -> [(SlotNr, a)]
+timeSeriesToList = Map.toList . timeSeriesToMap
+
+emptyTimeSeries :: TimeSeries a
+emptyTimeSeries = TimeSeries Map.empty
+
+insertTimeSeries :: SlotNr -> a -> TimeSeries a -> TimeSeries a
+insertTimeSeries slotNr a (TimeSeries m) = TimeSeries (Map.insert slotNr a m)
 
 -- | Bounds for a time series
 timeSeriesRange :: forall a. (Num a, Ord a)
-                => TimeSeries a -> Ranges Int a
-timeSeriesRange = go . timeSeriesNewestFirst
-  where
-    go :: [a] -> Ranges Int a
-    go xs = Ranges {
-          _x = Range 0 (length  xs)
-        , _y = Range 0 (maximum xs)
-        }
+                => TimeSeries a -> Ranges SlotNr a
+timeSeriesRange (TimeSeries m) = Ranges {
+      _x = Range 0 (fst (Map.findMax m))
+    , _y = Range 0 (maximum (Map.elems m))
+    }
 
 -- | Write out a time series to disk
+--
+-- Implementation note: go through LBS to take advantage of it's chunking
+-- policy, avoiding hPutStr and co's excessive lock taking and releasing.
 writeTimeSeries :: forall a. Show a
-                => FilePath       -- ^ File to write to
-                -> (Int -> Bool)  -- ^ Steps to render
-                -> TimeSeries a   -- ^ Time series to render
-                -> IO ()
-writeTimeSeries fp shouldRender =
-       go
-     . filter (shouldRender . fst)
-     . zip [0..]
-     . reverse
-     . timeSeriesNewestFirst
-  where
-    -- We go through LBS to take advantage of it's chunking policy, avoiding
-    -- hPutStr and co's excessive lock taking and releasing.
-    go :: [(Int, a)] -> IO ()
-    go = LBS.writeFile fp
-       . LBS.pack
-       . Prelude.unlines
-       . map (\(step, a) -> Prelude.show step ++ "\t" ++ Prelude.show a)
+                => FilePath -> TimeSeries a -> IO ()
+writeTimeSeries fp =
+       LBS.writeFile fp
+     . LBS.pack
+     . Prelude.unlines
+     . map (\(step, a) -> Prelude.show step ++ "\t" ++ Prelude.show a)
+     . timeSeriesToList
 
 {-------------------------------------------------------------------------------
   Accumulated statistics
@@ -206,9 +206,9 @@ makeLenses ''AccSlotStats
 initAccSlotStats :: AccSlotStats
 initAccSlotStats = AccSlotStats {
       _accUtxoMaxHistogram = Histogram.empty
-    , _accUtxoSize         = StartOfTime
-    , _accUtxoBalance      = StartOfTime
-    , _accMedianRatio      = StartOfTime
+    , _accUtxoSize         = emptyTimeSeries
+    , _accUtxoBalance      = emptyTimeSeries
+    , _accMedianRatio      = emptyTimeSeries
     }
 
 -- | Construct statistics for the next step
@@ -216,12 +216,12 @@ initAccSlotStats = AccSlotStats {
 -- For the median ratio timeseries, we use a default value of @-1@ as long as
 -- there are no outputs generated yet (since we plot from 0, this will then be
 -- not visible).
-stepAccStats :: OverallStats -> SlotStats -> AccSlotStats -> AccSlotStats
-stepAccStats OverallStats{..} SlotStats{..} acc =
+stepAccStats :: SlotNr -> OverallStats -> SlotStats -> AccSlotStats -> AccSlotStats
+stepAccStats slotNr OverallStats{..} SlotStats{..} acc =
     acc & accUtxoMaxHistogram %~ Histogram.max slotUtxoHistogram
-        & accUtxoSize         %~ MostRecent slotUtxoSize
-        & accUtxoBalance      %~ MostRecent slotUtxoBalance
-        & accMedianRatio      %~ MostRecent (MultiSet.medianWithDefault (-1) txStatsRatios)
+        & accUtxoSize         %~ insertTimeSeries slotNr slotUtxoSize
+        & accUtxoBalance      %~ insertTimeSeries slotNr slotUtxoBalance
+        & accMedianRatio      %~ insertTimeSeries slotNr (MultiSet.medianWithDefault (-1) txStatsRatios)
   where
     TxStats{..} = _overallTxStats
 
@@ -276,22 +276,36 @@ instance Monad m => RunPolicy (StrictStateT (IntState h a) m) a where
 -- Returns the final state
 intPolicy :: forall h a m. (Hash h a, Monad m)
           => InputSelectionPolicy h a (StrictStateT (IntState h a) m)
-          -> (a -> Bool)
-          -> IntState h a -- Initial state
-          -> ConduitT (Event h a) (OverallStats, SlotStats) m (IntState h a)
-intPolicy policy ours initState =
-    execStrictStateC initState $
-      awaitForever $ \event -> do
-        isEndOfSlot <- lift $ go event
-        when isEndOfSlot $ do
-          slotStats <- deriveSlotStats' <$> get
-          yield slotStats
+          -> (a -> Bool)      -- Our addresses
+          -> (SlotNr -> Bool) -- Slots to render
+          -> IntState h a     -- Initial state
+          -> ConduitT (Event h a) (SlotNr, OverallStats, SlotStats) m (IntState h a)
+intPolicy policy ours shouldRender initState =
+    execStrictStateC initState $ loop 0
   where
-    deriveSlotStats' :: IntState h a -> (OverallStats, SlotStats)
-    deriveSlotStats' st = (
-          st ^. stStats
+    deriveSlotStats' :: SlotNr -> IntState h a -> (SlotNr, OverallStats, SlotStats)
+    deriveSlotStats' slot st = (
+          slot
+        , st ^. stStats
         , deriveSlotStats (st ^. stBinSize) (st ^. stUtxo)
         )
+
+    loop :: SlotNr
+         -> ConduitT (Event h a) (SlotNr, OverallStats, SlotStats) (StrictStateT  (IntState h a) m) ()
+    loop slot = do
+        mEvent <- await
+        case mEvent of
+          Nothing ->
+            return ()
+          Just event -> do
+            isEndOfSlot <- lift $ go event
+            if not isEndOfSlot
+              then loop slot
+              else do
+                when (shouldRender slot) $ do
+                  slotStats <- deriveSlotStats' slot <$> get
+                  yield slotStats
+                loop (slot + 1)
 
     go :: Event h a -> StrictStateT (IntState h a) m Bool
     go (Deposit new) = do
@@ -329,16 +343,16 @@ data Bounds = Bounds {
       _boundsUtxoHistogram :: SplitRanges Bin Count
 
       -- | Range of the UTxO size time series
-    , _boundsUtxoSize      :: Ranges Int Int
+    , _boundsUtxoSize      :: Ranges SlotNr Int
 
       -- | Range of the UTxO balance time series
-    , _boundsUtxoBalance   :: Ranges Int Value
+    , _boundsUtxoBalance   :: Ranges SlotNr Value
 
       -- | Range of the transaction inputs
     , _boundsTxInputs      :: Ranges Int Int
 
       -- | Range of the median change/payment time series
-    , _boundsMedianRatio   :: Ranges Int Double
+    , _boundsMedianRatio   :: Ranges SlotNr Double
     }
 
 makeLenses ''Bounds
@@ -367,6 +381,7 @@ deriveBounds OverallStats{..} AccSlotStats{..} = Bounds {
                            & Range.y . Range.lo .~ 0
     , _boundsUtxoSize      = timeSeriesRange (fromIntegral <$> _accUtxoSize)
     , _boundsUtxoBalance   = timeSeriesRange _accUtxoBalance
+                           & Range.y . Range.hi %~ (\v -> v + v `div` 100)
     , _boundsMedianRatio   = timeSeriesRange _accMedianRatio
                            & Range.y .~ Range 0 2
     }
@@ -422,7 +437,7 @@ renderPlotInstr utxoBinSize
     % "set xtics autofreq rotate by -45\n"
     % "set label 1 'failed: " % build % "' at graph 0.95, 0.90 front right\n"
     % "set boxwidth " % build % "\n"
-    % "plot '" % build % ".histogram' using 1:2 with boxes\n"
+    % "plot '" % build % ".histogram' using 1:2 notitle with boxes\n"
     % "unset label 1\n"
     % build
 
@@ -434,8 +449,8 @@ renderPlotInstr utxoBinSize
     % "set origin 0.05,0.55\n"
     % "unset xtics\n"
     % "set y2tics autofreq\n"
-    % "plot 'growth'  using 1:2 every ::0::" % build % " notitle axes x1y1 with points\n"
-    % "plot 'balance' using 1:2 every ::0::" % build % " notitle axes x1y2 with points linecolor rgbcolor 'blue'\n"
+    % "plot 'growth'  using 1:2 every ::0::" % build % " notitle axes x1y1 with lines\n"
+    % "plot 'balance' using 1:2 every ::0::" % build % " notitle axes x1y2 with lines linecolor rgbcolor 'blue'\n"
     % "unset y2tics\n"
 
     -- Plot transaction number of inputs distribution
@@ -518,30 +533,25 @@ writePlotInstrs PlotParams{..} script bounds is = do
 -- | Sink that writes statistics to disk
 writeStats :: forall m. MonadIO m
            => FilePath      -- ^ Prefix for the files to create
-           -> (Int -> Bool) -- ^ Which slots should we render?
-           -> ConduitT (OverallStats, SlotStats) Void m (AccSlotStats, [PlotInstr])
-writeStats prefix shouldRender =
-    loop initAccSlotStats [] 0 0
+           -> ConduitT (SlotNr, OverallStats, SlotStats) Void m (AccSlotStats, [PlotInstr])
+writeStats prefix =
+    loop initAccSlotStats [] 0
   where
     loop :: AccSlotStats -- ^ Accumulated slot statistics
          -> [PlotInstr]  -- ^ Accumulated plot instructions
-         -> Int          -- ^ Slot number
          -> Int          -- ^ Rendered frame counter
-         -> ConduitT (OverallStats, SlotStats) Void m (AccSlotStats, [PlotInstr])
-    loop accSlotStats accInstrs slot frame = do
+         -> ConduitT (SlotNr, OverallStats, SlotStats) Void m (AccSlotStats, [PlotInstr])
+    loop !accSlotStats accInstrs frame = do
         mObs <- await
         case mObs of
           Nothing ->
             return (accSlotStats, reverse accInstrs)
-          Just (overallStats, slotStats) -> do
-            let accSlotStats' = stepAccStats overallStats slotStats accSlotStats
-                slot'         = slot + 1
-            (frame', accInstrs') <-
-              if shouldRender slot
-                then do instr <- liftIO $ go frame overallStats slotStats
-                        return (frame + 1, instr : accInstrs)
-                else return (frame, accInstrs)
-            loop accSlotStats' accInstrs' slot' frame'
+          Just (slotNr, overallStats, slotStats) -> do
+            instr <- liftIO $ go frame overallStats slotStats
+            let accSlotStats' = stepAccStats slotNr overallStats slotStats accSlotStats
+                accInstrs'    = instr : accInstrs
+                frame'        = frame + 1
+            loop accSlotStats' accInstrs' frame'
 
     go :: Int -> OverallStats -> SlotStats -> IO PlotInstr
     go frame OverallStats{..} SlotStats{..} = do
@@ -566,18 +576,18 @@ writeStats prefix shouldRender =
 -- separately so that we combine bounds of related plots and draw them with the
 -- same scales.
 evaluatePolicy :: Hash h a
-               => FilePath       -- ^ Path to write to
-               -> (Int -> Bool)  -- ^ Frames to render
+               => FilePath          -- ^ Path to write to
+               -> (SlotNr -> Bool)  -- ^ Slots to render
                -> InputSelectionPolicy h a (StrictStateT (IntState h a) IO)
-               -> (a -> Bool)    -- ^ Our addresses
-               -> IntState h a   -- ^ Initial state
+               -> (a -> Bool)       -- ^ Our addresses
+               -> IntState h a      -- ^ Initial state
                -> ConduitT () (Event h a) IO ()
                -> IO (OverallStats, AccSlotStats, [PlotInstr])
 evaluatePolicy prefix shouldRender policy ours initState generator =
       fmap aux $ runConduit $
-        generator                       `fuse`
-        intPolicy policy ours initState `fuseBoth`
-        writeStats prefix shouldRender
+        generator                                    `fuse`
+        intPolicy policy ours shouldRender initState `fuseBoth`
+        writeStats prefix
   where
     aux :: (IntState h a, (AccSlotStats, [PlotInstr]))
         -> (OverallStats, AccSlotStats, [PlotInstr])
@@ -598,10 +608,10 @@ type NamedPolicy h =
 -- * Random, privacy mode on
 evaluateUsingEvents :: forall h. Hash h World
                     => PlotParams
-                    -> FilePath        -- ^ Prefix for this event stream
-                    -> Utxo h World    -- ^ Initial UTxO
-                    -> [NamedPolicy h] -- ^ Policies to evaluate
-                    -> (Int -> Bool)   -- ^ Frames to render
+                    -> FilePath          -- ^ Prefix for this event stream
+                    -> Utxo h World      -- ^ Initial UTxO
+                    -> [NamedPolicy h]   -- ^ Policies to evaluate
+                    -> (SlotNr -> Bool)  -- ^ Slots to render
                     -> ConduitT () (Event h World) IO ()  -- ^ Event stream
                     -> IO ()
 evaluateUsingEvents plotParams@PlotParams{..}
@@ -630,9 +640,9 @@ evaluateUsingEvents plotParams@PlotParams{..}
           (== Us)
           (initIntState plotParams initUtxo Us)
           events
-        writeTimeSeries (prefix' </> "growth")  shouldRender (accStats ^. accUtxoSize)
-        writeTimeSeries (prefix' </> "balance") shouldRender (accStats ^. accUtxoBalance)
-        writeTimeSeries (prefix' </> "ratio")   shouldRender (accStats ^. accMedianRatio)
+        writeTimeSeries (prefix' </> "growth")  (accStats ^. accUtxoSize)
+        writeTimeSeries (prefix' </> "balance") (accStats ^. accUtxoBalance)
+        writeTimeSeries (prefix' </> "ratio")   (accStats ^. accMedianRatio)
         writePlotInstrs
           plotParams
           (prefix' </> "mkframes.gnuplot")
@@ -641,11 +651,11 @@ evaluateUsingEvents plotParams@PlotParams{..}
 
 evaluateInputPolicies :: PlotParams -> IO ()
 evaluateInputPolicies plotParams@PlotParams{..} = do
-    go "1to1"  [largest]     600 $ nTo1  1
-    go "1to1"  [randomOff] 10000 $ nTo1  1
-    go "1to1"  [randomOn]  10000 $ nTo1  1
-    go "3to1"  [randomOn]  10000 $ nTo1  3
-    go "10to1" [randomOn]  10000 $ nTo1 10
+    go "1to1"  [largest]      600 $ nTo1  1
+    go "1to1"  [randomOff] 100000 $ nTo1  1
+    go "1to1"  [randomOn]  100000 $ nTo1  1
+    go "3to1"  [randomOn]  100000 $ nTo1  3
+    go "10to1" [randomOn]  100000 $ nTo1 10
   where
     go :: FilePath                -- Prefix for this event stream
        -> [NamedPolicy GivenHash] -- Policies to evaluate
@@ -667,7 +677,7 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
     numFrames = 200
 
     -- Render every n steps
-    renderEvery :: Int -> Int -> Bool
+    renderEvery :: Int -> SlotNr -> Bool
     renderEvery n step = step `mod` n == 0
 
     -- Event stream with a ratio of N:1 deposits:withdrawals

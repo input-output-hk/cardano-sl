@@ -47,7 +47,7 @@ let
             hsPkgs.unordered-containers
             hsPkgs.vector
           ];
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [ hsPkgs.buildPackages.cpphs hsPkgs.buildPackages.autoexporter ];
         };
       };
     } // rec { src = ../binary; }

@@ -82,4 +82,62 @@ before_test:
 
 test_script:
   - cd "%WORK_DIR%"
+
+  - mkdir submods
+
+  - git clone https://github.com/well-typed/cborg submods/cborg
+  - git -C submods/cborg checkout 3d274c14ca3077c3a081ba7ad57c5182da65c8c1
+
+  - git clone https://github.com/serokell/time-units.git submods/time-units
+  - git -C submods/time-units checkout 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
+
+  - git clone https://github.com/serokell/acid-state.git submods/acid-state
+  - git -C submods/acid-state checkout 9a8af2440d655e14b802639b0b363be2ffb5a32a
+
+  - git clone https://github.com/serokell/kademlia.git submods/kademlia
+  - git -C submods/kademlia checkout 7120bb4d28e708acd52dfd61d3dca7914fac7d7f
+
+  - git clone https://github.com/input-output-hk/plutus-prototype submods/plutus-prototype
+  - git -C submods/plutus-prototype checkout d4aa461fc69fc6957aab46b41a670c2144aefb77
+
+  - git clone https://github.com/thoughtpolice/hs-ed25519 submods/hs-ed25518
+  - git -C submods/hs-ed25518 checkout da4247b5b3420120e20451e6a252e2a2ca15b43c
+
+  - git clone https://github.com/input-output-hk/cardano-report-server.git submods/cardano-report-server
+  - git -C submods/cardano-report-server checkout 81eea7361a75923f9402fcb7840fb36722dbf88e
+
+  - git clone https://github.com/serokell/network-transport-tcp submods/network-transport-tcp
+  - git -C submods/network-transport-tcp checkout 3d56652123bd296dc759cd31947eb2a17924e68a
+
+  - git clone https://github.com/serokell/network-transport submods/network-transport
+  - git -C submods/network-transport checkout 018a50b9042c2115c3ec9c9fd5ca5f28737dd29c
+
+  - git clone https://github.com/avieth/network-transport-inmemory submods/network-transport-inmemory
+    - git -C submods/network-transport-inmemory checkout 5d8ff2b07b9df35cf61329a3d975e2c8cf95c12a
+
+  - git clone https://github.com/input-output-hk/cardano-crypto submods/cardano-crypto
+  - git -C submods/cardano-crypto checkout 287cc575fafe86af9d24af9d012c47f9d3f04da0
+
+  - git clone https://github.com/haskell-crypto/cryptonite submods/cryptonite
+  - git -C submods/cryptonite checkout 41d610fb18e2924d7aa704c37798e1c197557f3e
+
+  - git clone https://github.com/serokell/engine.io.git submods/engine-io
+  - git -C submods/engine-io checkout a594e402fd450f11ad60d09ddbd93db500000632
+
+  - git clone https://github.com/well-typed/canonical-json.git submods/canonical-json
+  - git -C submods/canonical-json checkout 2d261bb971bada1893753b503452d9e6e217bc4a
+
+  - git clone https://github.com/input-output-hk/rocksdb-haskell-ng.git submods/rocksdb-haskell-ng
+  - git -C submods/rocksdb-haskell-ng checkout 49f501a082d745f3b880677220a29cafaa181452
+
+  - git clone https://github.com/serokell/servant.git submods/servant
+  - git -C submods/servant checkout 5db013cc36894afdff9e748dbc1c05947c54df3d
+
+  - git clone https://github.com/serokell/servant-multipart.git submods/servant-multipart
+  - git -C submods/servant-multipart checkout e7de56b5f7c39f8dc473f1bbaf534bb7affc3cf4
+
+  - git clone https://github.com/input-output-hk/log-warper.git submods/log-warper
+  - git -C submods/log-warper checkout b8c390357b27e7ae3b9b0c5309bf9d0bbbf09852
+
+
   - cabal new-build all

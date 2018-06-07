@@ -398,7 +398,7 @@ makeLenses ''Bounds
 --   isn't particularly interesting.
 deriveBounds :: OverallStats -> AccSlotStats -> Bounds
 deriveBounds OverallStats{..} AccSlotStats{..} = Bounds {
-      _boundsUtxoHistogram = Histogram.splitRanges 100000 _accUtxoMaxHistogram
+      _boundsUtxoHistogram = Histogram.splitRanges 5 5 _accUtxoMaxHistogram
                            & Range.splitYRange . Range.lo .~ 0
     , _boundsTxInputs      = Histogram.range (txStatsNumInputs _overallTxStats)
                            & Range.x . Range.lo .~ 0

@@ -168,32 +168,37 @@ nLargestBins p (Histogram bz m) = Histogram bz (aux m)
 
 -- | Compute the range in bins and counts
 --
--- The bin ranges are split whenever the gap between two specified bins
--- is larger than the specified maximum gap. We use the number of bins
--- in each subrange as the weight of that subrange, so that when we render
--- it the number of bins determines how much space of the x-axis we allocate.
+-- @splitRanges n m@ splits the histogram into different ranges at " markers ",
+-- where a marker is a consecutive series of bins of exactly length @m@ where
+-- each of the bin has a value at or less than the threshold @n@.
 --
 -- We make sure that the first range starts at bin 0.
-splitRanges :: Int -> Histogram -> SplitRanges Bin Count
-splitRanges _   Empty = error "splitRanges: empty histogram"
-splitRanges gap (Histogram _ m) =
-    case Map.toList m of
+splitRanges :: Int -> Int -> Histogram -> SplitRanges Bin Count
+splitRanges _ _ Empty           = error "splitRanges: empty histogram"
+splitRanges n m (Histogram _ h) =
+    case Map.toList h of
       []           -> error "splitRanges: empty histogram"
-      (b,c) : bins -> go ([(Range 0 b, 1)], Range.singleton c) b bins
+      (b,c) : bins -> go ([(Range 0 b, 1)], Range.singleton c) 0 False bins
   where
     go :: ([(Range Bin, Int)], Range Count)  -- Accumulator
-       -> Bin                                -- Previous bin
+       -> Int  -- Number of consecutive bins below the threshold
+       -> Bool -- Have we ever exceeded the threshold?
        -> [(Bin, Count)]                     -- To do
        -> SplitRanges Bin Count
-    go (xRanges, yRange) _ [] = SplitRanges {
+    go (xRanges, yRange) _ _ [] = SplitRanges {
           _splitXRanges = reverse xRanges
         , _splitYRange  = yRange
         }
-    go (xRanges, yRange) prev ((b, c) : bins) =
-        go (xRanges'', yRange') b bins
+    go (xRanges, yRange) numBelowThreshold haveExceeded ((b, c) : bins) =
+        go (xRanges'', yRange') numBelowThreshold' haveExceeded' bins
       where
+        numBelowThreshold' = if c <= n
+                               then numBelowThreshold + 1
+                               else 0
+        haveExceeded'      = haveExceeded || c > n
+
         (xRange, numBins) : xRanges' = xRanges -- cannot be empty
-        xRanges'' = if b - prev > gap
+        xRanges'' = if haveExceeded && numBelowThreshold' == m
                      then (Range.singleton b, 1)             : xRanges
                      else (Range.with b xRange, numBins + 1) : xRanges'
         yRange'   = Range.with c yRange
@@ -202,5 +207,5 @@ splitRanges gap (Histogram _ m) =
 -- | Specialization of 'splitRanges' with no maximum gap.
 range :: Histogram -> Ranges Bin Count
 range h =
-    let SplitRanges [(xRange, _numBins)] yRange = splitRanges maxBound h
+    let SplitRanges [(xRange, _numBins)] yRange = splitRanges 0 maxBound h
     in Ranges xRange yRange

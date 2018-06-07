@@ -22,6 +22,11 @@ module Test.Pos.Core.Gen
         , genProxySKBlockInfo
         , genProxySKHeavy
 
+        -- Pos.Core.Ssc Generators
+        , genVssCertificate
+        , genVssCertificatesMap
+        , genSscPayload
+
         -- Pos.Core.Slotting Generators
         , genEpochIndex
         , genLocalSlotIndex
@@ -45,25 +50,27 @@ module Test.Pos.Core.Gen
         , genTxHash
         , genTxId
         , genTxIn
+        , genTxIndex
         , genTxInList
         , genTxInWitness
         , genTxOut
         , genTxOutList
+        , genTxPayload
         , genTxSig
         , genTxSigData
+        , genTxWitness
         , genUnknownWitnessType
        ) where
 
 import           Universum
 
-
 import           Data.Coerce (coerce)
 import           Data.List.NonEmpty (fromList)
 import           Data.Maybe
+import           Data.Vector (singleton)
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
-
 import           Pos.Binary.Class (asBinary)
 import           Pos.Block.Base (mkGenesisHeader)
 import           Pos.Core.Block (GenesisBlockHeader, GenesisBody (..))
@@ -82,8 +89,8 @@ import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
                                VssCertificatesMap, mkCommitmentsMap,
                                mkVssCertificate, mkVssCertificatesMap)
 import           Pos.Core.Txp (TxAttributes, Tx (..), TxId, TxIn (..),
-                               TxInWitness (..), TxOut (..), TxSig,
-                               TxSigData (..))
+                               TxInWitness (..), TxOut (..), TxPayload (..),
+                               TxSig, TxSigData (..), TxWitness)
 import           Pos.Crypto (Hash, hash, safeCreatePsk, sign)
 import           Pos.Crypto.Random (deterministic)
 import           Pos.Data.Attributes (mkAttributes)
@@ -251,19 +258,20 @@ genSignedCommitment :: Gen SignedCommitment
 genSignedCommitment =
     (,,) <$> genPublicKey <*> genCommitment <*> genCommitmentSignature
 
+genSscPayload :: Gen SscPayload
+genSscPayload = CertificatesPayload <$> genVssCertificatesMap
+
 genVssCertificate :: Gen VssCertificate
-genVssCertificate = do
-    gpm  <- genProtocolMagic
-    gsk  <- genSecretKey
-    gvpk <- genVssPublicKey
-    gei  <- genEpochIndex
-    pure $ mkVssCertificate gpm gsk (asBinary gvpk) gei
+genVssCertificate =
+    mkVssCertificate
+        <$> genProtocolMagic
+        <*> genSecretKey
+        <*> (asBinary <$> genVssPublicKey)
+        <*> genEpochIndex
 
 genVssCertificatesMap :: Gen VssCertificatesMap
 genVssCertificatesMap =
-    mkVssCertificatesMap <$> Gen.list range genVssCertificate
-  where
-    range = Range.constant 1 100
+    mkVssCertificatesMap <$> Gen.list (Range.constant 0 10) genVssCertificate
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Txp Generators
@@ -307,6 +315,15 @@ genTxOutList = Gen.nonEmpty (Range.constant 1 100) genTxOut
 genTxId :: Gen TxId
 genTxId = hash <$> genTx
 
+genTxIndex :: Gen Word32
+genTxIndex = Gen.word32 (Range.constant 1 10)
+
+genTxPayload :: Gen TxPayload
+genTxPayload =
+    UnsafeTxPayload
+        <$> Gen.list (Range.constant 1 10) genTx
+        <*> Gen.list (Range.constant 1 10) genTxWitness
+
 genTxSig :: Gen TxSig
 genTxSig =
     sign <$> genProtocolMagic <*> genSignTag <*> genSecretKey <*> genTxSigData
@@ -322,6 +339,9 @@ genTxInWitness = Gen.choice gens
            , genScriptWitness
            , genUnknownWitnessType
            ]
+
+genTxWitness :: Gen TxWitness
+genTxWitness = singleton <$> genTxInWitness
 
 genUnknownWitnessType :: Gen TxInWitness
 genUnknownWitnessType =

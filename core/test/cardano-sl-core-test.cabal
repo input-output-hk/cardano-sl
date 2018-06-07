@@ -26,9 +26,12 @@ library
                      , cardano-sl-delegation
                      , cardano-sl-ssc
                      , cryptonite
+                     , cryptonite-openssl >= 0.5
                      , hedgehog
+                     , pvss
                      , time-units
                      , universum
+                     , vector
 
   default-language:    Haskell2010
 

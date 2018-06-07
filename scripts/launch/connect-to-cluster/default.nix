@@ -15,6 +15,7 @@
 , confKey ? null
 , relays ? null
 , debug ? false
+, disableClientAuth ? false
 , extraParams ? ""
 }:
 
@@ -26,6 +27,7 @@ with localLib;
 
 let
   ifDebug = localLib.optionalString (debug);
+  ifDisableClientAuth = localLib.optionalString (disableClientAuth);
   environments = {
     mainnet = {
       relays = "relays.cardano-mainnet.iohk.io";
@@ -109,6 +111,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     --db-path "${stateDir}/db"   ${extraParams}                    \
     ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db'"}        \
     ${ ifDebug "--wallet-debug"}                                   \
+    ${ ifDisableClientAuth "--no-client-auth"}                     \
     --keyfile ${stateDir}/secret.key                               \
     ${ ifWallet "--wallet-address ${walletListen}" }               \
     ${ ifWallet "--wallet-doc-address ${walletDocListen}" }        \

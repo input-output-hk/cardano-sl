@@ -29,8 +29,10 @@ library
                      , cryptonite-openssl >= 0.5
                      , hedgehog
                      , pvss
+                     , serokell-util
                      , time-units
                      , universum
+                     , unordered-containers
                      , vector
 
   default-language:    Haskell2010

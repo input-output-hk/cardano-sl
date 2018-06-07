@@ -10,27 +10,28 @@ module Test.Pos.Core.Gen
         , genAddrType
         , genAddrSpendingData
         , genAddrStakeDistribution
+        , genCoeff
         , genCoin
         , genCoinPortion
         , genScript
         , genScriptVersion
         , genSlotLeaders
         , genStakeholderId
+        , genTxFeePolicy
+        , genTxSizeLinear
 
         -- Pos.Core.Delegation Generators
+        , genDlgPayload
         , genHeavyDlgIndex
         , genProxySKBlockInfo
         , genProxySKHeavy
 
-        -- Pos.Core.Ssc Generators
-        , genVssCertificate
-        , genVssCertificatesMap
-        , genSscPayload
-
         -- Pos.Core.Slotting Generators
         , genEpochIndex
+        , genFlatSlotId
         , genLocalSlotIndex
         , genSlotId
+        , genSscPayload
 
         -- Pos.Core.Ssc Generators
         , genCommitment
@@ -60,41 +61,61 @@ module Test.Pos.Core.Gen
         , genTxSigData
         , genTxWitness
         , genUnknownWitnessType
+
+        -- Pos.Core.Update Generators
+        , genBlockVersion
+        , genBlockVersionModifier
+        , genHashRaw
+        , genSoftforkRule
+        , genSoftwareVersion
+        , genSystemTag
+        , genUpAttributes
+        , genUpdateData
+        , genUpdateProposal
+        , genUpdateProposalToSign
+        , genUpsData
        ) where
 
 import           Universum
 
 import           Data.Coerce (coerce)
+import           Data.Fixed (Fixed (..))
+import qualified Data.HashMap.Strict as HM
 import           Data.List.NonEmpty (fromList)
 import           Data.Maybe
+import           Data.Time.Units (fromMicroseconds, Millisecond)
 import           Data.Vector (singleton)
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
-import           Pos.Binary.Class (asBinary)
+import           Pos.Binary.Class (asBinary, Raw (..))
 import           Pos.Block.Base (mkGenesisHeader)
 import           Pos.Core.Block (GenesisBlockHeader, GenesisBody (..))
 import           Pos.Core.Common (Address (..), AddrAttributes (..),
-                                  AddrSpendingData (..),
-                                  AddrStakeDistribution (..), AddrType (..),
-                                  Coin (..), CoinPortion (..), Script (..),
+                                  AddrSpendingData (..), AddrStakeDistribution (..),
+                                  AddrType (..), Coeff (..), Coin (..),
+                                  CoinPortion (..), makeAddress, Script (..),
                                   ScriptVersion, SlotLeaders, StakeholderId,
-                                  makeAddress)
+                                  TxFeePolicy (..), TxSizeLinear (..))
 import           Pos.Core.Configuration (GenesisHash (..))
 import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
-import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..),
-                                    SlotId (..))
+import           Pos.Core.Slotting (EpochIndex (..), FlatSlotId,
+                                    LocalSlotIndex (..), SlotId (..))
 import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
-                               Opening, SignedCommitment, VssCertificate,
-                               VssCertificatesMap, mkCommitmentsMap,
-                               mkVssCertificate, mkVssCertificatesMap)
+                               mkCommitmentsMap,mkVssCertificate, mkVssCertificatesMap, Opening,
+                               SignedCommitment, SscPayload (..), VssCertificate (..),
+                               VssCertificatesMap (..))
 import           Pos.Core.Txp (TxAttributes, Tx (..), TxId, TxIn (..),
                                TxInWitness (..), TxOut (..), TxPayload (..),
                                TxSig, TxSigData (..), TxWitness)
-import           Pos.Crypto (Hash, hash, safeCreatePsk, sign)
-import           Pos.Crypto.Random (deterministic)
+import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
+                                  BlockVersionModifier (..), SoftforkRule(..),
+                                  SoftwareVersion (..), SystemTag (..), UpAttributes,
+                                  UpdateData (..), UpdateProposal (..),
+                                  UpdateProposalToSign  (..))
+import           Pos.Crypto (deterministic, Hash, hash, safeCreatePsk, sign)
 import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Delegation.Types (ProxySKBlockInfo)
+import           Pos.Delegation.Types (DlgPayload (..), ProxySKBlockInfo)
 import           Pos.Ssc.Base (genCommitmentAndOpening)
 import           Test.Pos.Crypto.Gen (genAbstractHash, genHDAddressPayload,
                                       genProtocolMagic, genPublicKey,
@@ -102,6 +123,8 @@ import           Test.Pos.Crypto.Gen (genAbstractHash, genHDAddressPayload,
                                       genSafeSigner, genSecretKey,
                                       genSignature, genSignTag,
                                       genVssPublicKey)
+import           Serokell.Data.Memory.Units (Byte)
+
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Block Generators
@@ -131,7 +154,7 @@ genGenesisHeader =
 genAddrAttributes :: Gen AddrAttributes
 genAddrAttributes = AddrAttributes <$> hap <*> genAddrStakeDistribution
   where
-    hap = Just <$> genHDAddressPayload
+    hap = Gen.maybe genHDAddressPayload
 
 genAddress :: Gen Address
 genAddress = makeAddress <$> genAddrSpendingData <*> genAddrAttributes
@@ -165,6 +188,11 @@ genAddrStakeDistribution = Gen.choice gens
       cp <- genCoinPortion
       pure (si, cp)
 
+genCoeff :: Gen Coeff
+genCoeff = do
+    integer <- Gen.integral (Range.constant 0 10)
+    pure $ Coeff (MkFixed integer)
+
 genCoin :: Gen Coin
 genCoin = Coin <$> Gen.word64 Range.constantBounded
 
@@ -185,12 +213,24 @@ genSlotLeaders = do
 genStakeholderId :: Gen StakeholderId
 genStakeholderId = genAbstractHash genPublicKey
 
+genTxFeePolicy :: Gen TxFeePolicy
+genTxFeePolicy =
+    Gen.choice [ TxFeePolicyTxSizeLinear <$> genTxSizeLinear
+               , TxFeePolicyUnknown <$> genWord8 <*> gen32Bytes
+               ]
+
+genTxSizeLinear :: Gen TxSizeLinear
+genTxSizeLinear = TxSizeLinear <$> genCoeff <*> genCoeff
 ----------------------------------------------------------------------------
 -- Pos.Core.Delegation Generators
 ----------------------------------------------------------------------------
 
 genHeavyDlgIndex :: Gen HeavyDlgIndex
 genHeavyDlgIndex = HeavyDlgIndex <$> genEpochIndex
+
+genDlgPayload :: Gen DlgPayload
+genDlgPayload =
+    UnsafeDlgPayload <$> Gen.list (Range.constant 0 10) genProxySKHeavy
 
 genProxySKBlockInfo :: Gen ProxySKBlockInfo
 genProxySKBlockInfo = do
@@ -212,6 +252,9 @@ genProxySKHeavy =
 
 genEpochIndex :: Gen EpochIndex
 genEpochIndex = EpochIndex <$> Gen.word64 Range.constantBounded
+
+genFlatSlotId :: Gen FlatSlotId
+genFlatSlotId = Gen.word64 Range.constantBounded
 
 genLocalSlotIndex :: Gen LocalSlotIndex
 genLocalSlotIndex = UnsafeLocalSlotIndex <$> Gen.word16 (Range.constant 0 21599)
@@ -348,14 +391,108 @@ genUnknownWitnessType =
     UnknownWitnessType <$> Gen.word8 Range.constantBounded <*> gen32Bytes
 
 ----------------------------------------------------------------------------
+-- Pos.Core.Update Generators
+----------------------------------------------------------------------------
+
+genApplicationName :: Gen ApplicationName
+genApplicationName =
+    ApplicationName <$> Gen.text (Range.constant 0 10) Gen.alphaNum
+
+genBlockVersion :: Gen BlockVersion
+genBlockVersion =
+    BlockVersion
+        <$> Gen.word16 Range.constantBounded
+        <*> Gen.word16 Range.constantBounded
+        <*> Gen.word8 Range.constantBounded
+
+genBlockVersionModifier :: Gen BlockVersionModifier
+genBlockVersionModifier =
+    BlockVersionModifier
+        <$> (Gen.maybe genScriptVersion)
+        <*> (Gen.maybe genMillisecond)
+        <*> (Gen.maybe genByte)
+        <*> (Gen.maybe genByte)
+        <*> (Gen.maybe genByte)
+        <*> (Gen.maybe genByte)
+        <*> (Gen.maybe genCoinPortion)
+        <*> (Gen.maybe genCoinPortion)
+        <*> (Gen.maybe genCoinPortion)
+        <*> (Gen.maybe genCoinPortion)
+        <*> (Gen.maybe genFlatSlotId)
+        <*> (Gen.maybe genSoftforkRule)
+        <*> (Gen.maybe genTxFeePolicy)
+        <*> (Gen.maybe genEpochIndex)
+
+
+genHashRaw :: Gen (Hash Raw)
+genHashRaw = genAbstractHash $ Raw <$> gen32Bytes
+
+genSoftforkRule :: Gen SoftforkRule
+genSoftforkRule =
+    SoftforkRule <$> genCoinPortion <*> genCoinPortion <*> genCoinPortion
+
+genSoftwareVersion :: Gen SoftwareVersion
+genSoftwareVersion =
+    SoftwareVersion
+        <$> genApplicationName
+        <*> Gen.word32 Range.constantBounded
+
+genSystemTag :: Gen SystemTag
+genSystemTag = SystemTag <$> Gen.text (Range.constant 0 10) Gen.alphaNum
+
+genUpAttributes :: Gen UpAttributes
+genUpAttributes = pure $ mkAttributes ()
+
+genUpdateData :: Gen UpdateData
+genUpdateData =
+    UpdateData
+        <$> genHashRaw
+        <*> genHashRaw
+        <*> genHashRaw
+        <*> genHashRaw
+
+genUpdateProposal :: Gen UpdateProposal
+genUpdateProposal =
+    UnsafeUpdateProposal
+        <$> genBlockVersion
+        <*> genBlockVersionModifier
+        <*> genSoftwareVersion
+        <*> genUpsData
+        <*> genUpAttributes
+        <*> genPublicKey
+        <*> genSignature genUpdateProposalToSign
+
+genUpdateProposalToSign :: Gen UpdateProposalToSign
+genUpdateProposalToSign =
+    UpdateProposalToSign
+        <$> genBlockVersion
+        <*> genBlockVersionModifier
+        <*> genSoftwareVersion
+        <*> genUpsData
+        <*> genUpAttributes
+
+genUpsData :: Gen (HM.HashMap SystemTag UpdateData)
+genUpsData = do
+    hMapSize <- Gen.int (Range.constant 0 20)
+    sysTagList <- Gen.list (Range.singleton hMapSize) genSystemTag
+    upDataList <- Gen.list (Range.singleton hMapSize) genUpdateData
+    pure $ HM.fromList $ zip sysTagList upDataList
+
+----------------------------------------------------------------------------
 -- Helper Generators
 ----------------------------------------------------------------------------
 
 genBytes :: Int -> Gen ByteString
 genBytes n = Gen.bytes (Range.singleton n)
 
+genByte :: Gen Byte
+genByte = Gen.integral (Range.constant 0 10)
+
 gen32Bytes :: Gen ByteString
 gen32Bytes = genBytes 32
+
+genMillisecond :: Gen Millisecond
+genMillisecond = fromMicroseconds <$> Gen.integral (Range.constant 0 1000000)
 
 genWord32 :: Gen Word32
 genWord32 = Gen.word32 Range.constantBounded

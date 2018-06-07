@@ -35,5 +35,5 @@ ntpClientSettings NtpConfiguration {..} = NtpClientSettings
     { ntpServers         = ntpcServers
     , ntpResponseTimeout = fromMicroseconds $ ntpcResponseTimeout
     , ntpPollDelay       = fromMicroseconds $ ntpcPollDelay
-    , ntpMeanSelection   = median . NE.fromList
+    , ntpSelection       = median . NE.fromList
     }

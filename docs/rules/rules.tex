@@ -618,9 +618,7 @@ A block $b$ is said to be a valid extension of a valid chain
 $b_1,…,b_n$ if all of the following hold
 \begin{description}
 \item[Predecessor] The predecessor of $b$ is $b_n$ or, if $n=0$, the predecessor
-  of $b$ is the genesis identifier $b₀$. \improvement{This doesn't strictly make
-    sense, because we would be extending the chain $b_1, b_0$, but maybe we
-    don't care since it's obvious what the intention is.}
+  of $b$ is the genesis identifier $b₀$.
 \item[Not future slot] The slot number is no larger than the current
   slot.
 \item[Not past slot] The slot number of $b$ is larger than the slot.

@@ -22698,7 +22698,6 @@ license = stdenv.lib.licenses.bsd3;
 , basement
 , bytestring
 , deepseq
-, fetchgit
 , ghc-prim
 , integer-gmp
 , memory
@@ -22707,14 +22706,8 @@ license = stdenv.lib.licenses.bsd3;
 mkDerivation {
 
 pname = "cryptonite";
-version = "0.24";
-src = fetchgit {
-
-url = "https://github.com/haskell-crypto/cryptonite";
-sha256 = "1fd9swq1akngngg9ygf15yzj38cwgbk50fq53hckfjrgkwg34v7x";
-rev = "41d610fb18e2924d7aa704c37798e1c197557f3e";
-
-};
+version = "0.25";
+sha256 = "89be1a18af8730a7bfe4d718d7d5f6ce858e9df93a411566d15bf992db5a3c8c";
 libraryHaskellDepends = [
 base
 basement

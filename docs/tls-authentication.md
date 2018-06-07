@@ -43,7 +43,7 @@ usurp either the server or the clients identities**.
 
 > **NOTE** If you build the application using Nix 
 > 
-> e.g. `$ nix-build -A connectScripts.stagingWallet -o connect-to-staging`
+> e.g. `$ nix-build -A connectScripts.staging.wallet -o connect-to-staging`
 >
 > There's nothing to do, certificates will be generated upon launching the cluster
 > if they're missing, using the default configuration. 

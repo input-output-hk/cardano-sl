@@ -27,9 +27,9 @@ import           Text.Printf (printf)
 
 import           InputSelection.Generator (Event (..), World (..))
 import qualified InputSelection.Generator as Gen
-import           InputSelection.Policy (InputSelectionPolicy, PrivacyMode (..), RunPolicy (..),
-                                        TxStats (..))
-import qualified InputSelection.Policy as Policy
+import           InputSelection.Policy (InputSelectionPolicy, RunPolicy (..), TxStats (..))
+import           InputSelection.Policy.LargestFirst
+import           InputSelection.Policy.Random
 import           Util.Distr
 import           Util.Histogram (Bin, BinSize (..), Count, Histogram)
 import qualified Util.Histogram as Histogram
@@ -697,9 +697,9 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
     initUtxo = utxoSingleton (Input (GivenHash 0) 0) (Output Us 1000000)
 
     largest, randomOff, randomOn :: Hash h World => NamedPolicy h
-    largest   = ("-largest",   Policy.largestFirst)
-    randomOff = ("-randomOff", Policy.random PrivacyModeOff)
-    randomOn  = ("-randomOn",  Policy.random PrivacyModeOn)
+    largest   = ("-largest",   largestFirst)
+    randomOff = ("-randomOff", random PrivacyModeOff)
+    randomOn  = ("-randomOn",  random PrivacyModeOn)
 
 
 

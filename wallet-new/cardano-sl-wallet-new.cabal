@@ -324,6 +324,9 @@ test-suite wallet-unit-tests
   other-modules:      InputSelection.Evaluation
                       InputSelection.Generator
                       InputSelection.Policy
+                      InputSelection.Policy.InputPolicyT
+                      InputSelection.Policy.LargestFirst
+                      InputSelection.Policy.Random
                       Test.Infrastructure.Generator
                       Test.Infrastructure.Genesis
                       Test.Spec.Kernel

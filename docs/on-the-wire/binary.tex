@@ -24,12 +24,14 @@
 \newcommand{\lists}[1]{\left[{#1}\right]}
 \newcommand{\nelists}[1]{\left[{#1}\right]^+}
 \newcommand{\sets}[1]{\{{#1}\}}
+\newcommand{\maybe}[1]{\emptyset | {#1}}
 
 \newcommand{\idsof}[1]{\mathcal{I}\!_#1}
 \newcommand{\txids}{\idsof{\txs}}
 \newcommand{\blockids}{\idsof{\blocks}}
 \newcommand{\agentids}{\idsof{\agents}}
 \newcommand{\epochids}{\idsof{\mathcal{E}}}
+\newcommand{\updids}{\idsof{\mathcal{UP}}}
 \newcommand{\pubkey}{\chi_{\textbf{pub}}}
 \newcommand{\signature}{\chi_{\textbf{sig}}}
 
@@ -42,6 +44,7 @@
 \newcommand{\agents}{\mathcal{A}}
 \newcommand{\txs}{\mathcal{T}}
 \newcommand{\txins}{\txs_{\textbf{in}}}
+\newcommand{\txfeepol}{\txs_{\textbf{feepol}}}
 \newcommand{\twit}{\mathcal{TW}}
 \newcommand{\twitpk}{\twit_{\textbf{pk}}}
 \newcommand{\twitscript}{\twit_{\textbf{script}}}
@@ -55,8 +58,10 @@
 \newcommand{\upd}{\mathcal{UP}}
 \newcommand{\updprop}{\upd_{\textbf{prop}}}
 \newcommand{\upddata}{\upd_{\textbf{data}}}
+\newcommand{\updvote}{\upd_{\textbf{vote}}}
 \newcommand{\blocks}{\mathcal{B}}
 \newcommand{\blockver}{\blocks_{\textbf{ver}}}
+\newcommand{\blockvermod}{\blocks_{\textbf{ver}\Delta}}
 \newcommand{\bbodies}{\blocks_{\textbf{body}}}
 \newcommand{\bheads}{\blocks_{\textbf{head}}}
 
@@ -64,6 +69,8 @@
 \newcommand{\String}{\hstype{String}}
 \newcommand{\Word}[1]{\hstype{Word#1}}
 \newcommand{\hash}{\hstype{Hash}}
+\newcommand{\Integer}{\mathbb{I}}
+\newcommand{\Bool}{\mathbb{B}}
 
 
 \title{Cardano on-the-wire specification}
@@ -105,8 +112,7 @@ Appendix \ref{sec:currentfmt} details the current binary format.
   \begin{grammar}
     <variant> = Option1 \alt Option2 \alt Option3.
   \end{grammar}
-\item[Optional values] We denote an optional value of type $A$ as a variant
-  $\emptyset \ |A$
+\item[Optional values] We denote an optional value of type $A$ as $\maybe{A}$
 \end{description}
 
 We will use capitalised words for variant constructors and lower-case
@@ -154,12 +160,14 @@ and Haskell datatypes in the codebase.
 Primitive types:
 
 \begin{description}
+\item [$\Bool$] Boolean value
 \item [$\Word{8}$] 8-bit word
 \item [$\Word{32}$] 32-bit word
 \item [$\Word{64}$] 64-bit word
 \item [$\String$] Arbitrary string type. We do not draw any distinctions as to
   whether this is implemented as a $\hstype{String}$, $\hstype{ByteString}$ or
   $\hstype{Text}$.
+\item [$\Integer$] arbitrary precision integers.
 \end{description}
 
 \subsection{Basic Cardano Types}
@@ -170,6 +178,7 @@ hashes. We also sometimes deal with these hashes directly.
 \begin{itemize}
 \item{Transaction identifiers $\txids$}
 \item{Block identifiers $\blockids$}
+\item Update identifiers $\updids$
 \item Concrete hashes $\hash$
 \end{itemize}
 
@@ -207,7 +216,7 @@ address contains a stake distribution $\agents_{\textbf{distr}}$.
     <$\agents_{\textbf{type}}$> = PubKey \alt Script \alt Redeem \alt Unknown $\Word{8}$.
 
     <$\agents_{\textbf{attr}}$> = \{
-    \fld pkDerivationPath :: $\emptyset \| \String$
+    \fld pkDerivationPath :: $\maybe{\String}$
     \fld stakeDistr :: $\agents_{\textbf{distr}}$
     \fld unparsed :: $\Word{8}\rhu\String$
     \}.
@@ -336,12 +345,32 @@ other parties to issue blocks on their behalf.
 \subsection{Updates}
 
 This section covers the types used to orchestrate updates of the system. We also
-introduce the block version in this section, since it is primarily concerned
-with updates.
+introduce the block version and transaction fee policy in this section, since
+they are only serialised as part of the update system.
 
 \begin{figure}[H]
   \begin{grammar}
     <$\blockver$> = $\Word{16}\times\Word{16}\times\Word{8}$
+
+    <$\txfeepol$> = Linear $\Integer$ $\Integer$
+    \alt Unknown \Word{8} \String
+
+    <$\blockvermod$> = \{
+    \fld scriptVersion     :: $\maybe{\Word{16}}$
+    \fld slotDuration      :: $\maybe{\Integer}$
+    \fld maxBlockSize      :: $\maybe{\Integer}$
+    \fld maxHeaderSize     :: $\maybe{\Integer}$
+    \fld maxTxSize         :: $\maybe{\Integer}$
+    \fld maxProposalSize   :: $\maybe{\Integer}$
+    \fld mpcThd            :: $\maybe{\Word{64}}$
+    \fld heavyDelThd       :: $\maybe{\Word{64}}$
+    \fld updateVoteThd     :: $\maybe{\Word{64}}$
+    \fld updateProposalThd :: $\maybe{\Word{64}}$
+    \fld updateImplicit    :: $\maybe{\Word{64}}$
+    \fld softforkRule      :: $\maybe{(\Word64\times\Word64\times\Word64)}$
+    \fld txFeePolicy       :: $\maybe{\txfeepol}$
+    \fld unlockStakeEpoch  :: $\maybe{\epochids}$
+    \}
 
     <$\upddata$> = \{
     \fld appDiffHash :: \hash
@@ -352,17 +381,24 @@ with updates.
 
     <$\updprop$> = \{
     \fld blockVersion :: $\blockver$
-    \fld blockVersionMod :: ?
-    \fld softwareVersion :: ?
-    \fld data :: $? \rhu ?$
-    \fld attributes :: ?
+    \fld blockVersionMod :: $\blockvermod$
+    \fld softwareVersion :: $\String \times \Word{32}$
+    \fld data :: $\String \rhu \upddata$
+    \fld attributes :: $\String \rhu \emptyset$
     \fld from :: $\pubkey$
     \fld signature :: $\signature$
     \}
 
+    <$\updvote$> = \{
+    \fld voter :: $\pubkey$
+    \fld proposalId :: $\updids$
+    \fld vote :: $\Bool$
+    \fld signature :: $\signature$
+    \}
+
     <$\upd$> = \{
-    \fld proposal :: $\emptyset | \updprop$
-    \fld votes :: $\lists{\verb|UpdateVote|}$
+    \fld proposal :: $\maybe{\updprop}$
+    \fld votes :: $\lists{\updvote}$
     \}
   \end{grammar}
   \caption{Updates}

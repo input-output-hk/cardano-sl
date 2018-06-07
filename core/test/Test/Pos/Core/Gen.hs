@@ -103,7 +103,7 @@ import           Test.Pos.Crypto.Gen (genAbstractHash, genHDAddressPayload,
 genGenesisHash :: Gen GenesisHash
 genGenesisHash = do
   sampleText <- Gen.text Range.constantBounded Gen.alphaNum
-  return $ GenesisHash (coerce (hash sampleText :: Hash Text))
+  pure $ GenesisHash (coerce (hash sampleText :: Hash Text))
 
 genGenesisHeader :: Gen GenesisBlockHeader
 genGenesisHeader =
@@ -130,9 +130,9 @@ genAddress :: Gen Address
 genAddress = makeAddress <$> genAddrSpendingData <*> genAddrAttributes
 
 genAddrType :: Gen AddrType
-genAddrType = Gen.choice [ return ATPubKey
-                         , return ATScript
-                         , return ATRedeem
+genAddrType = Gen.choice [ pure ATPubKey
+                         , pure ATScript
+                         , pure ATRedeem
                          , ATUnknown <$> Gen.word8 Range.constantBounded
                          ]
 
@@ -148,7 +148,7 @@ genAddrSpendingData = Gen.choice gens
 genAddrStakeDistribution :: Gen AddrStakeDistribution
 genAddrStakeDistribution = Gen.choice gens
   where
-    gens = [ return BootstrapEraDistr
+    gens = [ pure BootstrapEraDistr
            , SingleKeyDistr <$> genStakeholderId
            , UnsafeMultiKeyDistr <$> genMap
            ]
@@ -156,7 +156,7 @@ genAddrStakeDistribution = Gen.choice gens
     genPair = do
       si <- genStakeholderId
       cp <- genCoinPortion
-      return (si, cp)
+      pure (si, cp)
 
 genCoin :: Gen Coin
 genCoin = Coin <$> Gen.word64 Range.constantBounded
@@ -173,7 +173,7 @@ genScriptVersion = Gen.word16 Range.constantBounded
 genSlotLeaders :: Gen SlotLeaders
 genSlotLeaders = do
     stakeHolderList <- Gen.list (Range.constant 0 10) genStakeholderId
-    return (fromJust $ nonEmpty stakeHolderList)
+    pure $ fromJust $ nonEmpty stakeHolderList
 
 genStakeholderId :: Gen StakeholderId
 genStakeholderId = genAbstractHash genPublicKey
@@ -189,7 +189,7 @@ genProxySKBlockInfo :: Gen ProxySKBlockInfo
 genProxySKBlockInfo = do
     pSKHeavy <- genProxySKHeavy
     pubKey <- genPublicKey
-    return $ Just (pSKHeavy,pubKey)
+    pure $ Just (pSKHeavy,pubKey)
 
 genProxySKHeavy :: Gen ProxySKHeavy
 genProxySKHeavy =
@@ -257,7 +257,7 @@ genVssCertificate = do
     gsk  <- genSecretKey
     gvpk <- genVssPublicKey
     gei  <- genEpochIndex
-    return $ mkVssCertificate gpm gsk (asBinary gvpk) gei
+    pure $ mkVssCertificate gpm gsk (asBinary gvpk) gei
 
 genVssCertificatesMap :: Gen VssCertificatesMap
 genVssCertificatesMap =
@@ -283,7 +283,7 @@ genTx :: Gen Tx
 genTx = UnsafeTx <$> genTxInList <*> genTxOutList <*> genTxAttributes
 
 genTxAttributes :: Gen TxAttributes
-genTxAttributes = return $ mkAttributes ()
+genTxAttributes = pure $ mkAttributes ()
 
 genTxHash :: Gen (Hash Tx)
 genTxHash = hash <$> genTx

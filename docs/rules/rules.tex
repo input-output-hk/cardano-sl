@@ -152,6 +152,7 @@
   description of parameter, various accuracy improvement, appendix
 \item[Draft 7, May 31st, 2018 (Arnaud)] Specification of block
   issuance, specification of secret sharing
+\item[Draft 8, Jun 01, 2018 (Nicholas)] Editing
 \end{description}
 
 \section{Introduction}
@@ -203,7 +204,7 @@ as it is.\improvement{We may want to add something about protocol
 
   \begin{implementationhint}
     Finite support function are typically implemented as finite maps
-    (as in Haskell's \verb+Data.Map+ module). Where we then interpret
+    (as in Haskell's \verb+Data.Map+ module), where we then interpret
     absent bindings as mapping to $0$ (\emph{e.g.} using
     \verb+Map.findWithDefault 0+). There are subtleties if we want to
     test equality as natively, such data structure distinguishes
@@ -242,16 +243,20 @@ as it is.\improvement{We may want to add something about protocol
   a finite subset.
 
   \begin{implementationhint}
-    A partial function $A⇀B$ can be implemented as a function \verb+A -> Maybe B+.
-    Provided that its domain is decidable. Mostly we are
+    A partial function $A⇀B$ can be implemented as a function
+    \verb+A -> Maybe B+, provided that its domain is decidable. Mostly we are
     interested in finite domain partial function which are faithfully
-    represented by finite maps (in the sense of \verb+Data.Map+). The
-    $f⊎g$ gluing union can be implemented using \verb+Data.Map.Merge.mergeA+.
+    represented by finite maps (in the sense of \verb+Data.Map+). The $f⊎g$
+    gluing union can be implemented using \verb+Data.Map.Merge.mergeA+.
   \end{implementationhint}
 
 
 \item[Remainder] For any $a∈ℤ$ and $b∈ℕ$, let us write $\rem{a}{b}$
   for the unique $0⩽r<b$ such that $a=qb+r$.
+
+\item[Projection] For a cartesian product $X=\bigtimes X_i$ with element $x =
+  (x_1, \dots, x_n)$, we define the \textit{projection onto the $i^{th}$ component}
+  $\pi_i$ as \[\pi_i(x)=x_i,\] for all $i \leq n$.
 \end{description}
 
 \section{Definitions}
@@ -309,7 +314,7 @@ as it is.\improvement{We may want to add something about protocol
 
   Repartition are used as part of transaction output to allocate stake
   to parties which are not necessarily the recipient of the
-  output. Agent $a$ receive stake in proportion $r(a)$ (with
+  output. Agent $a$ will receive stake in proportion $r(a)$ (with
   subtleties due to rounding, see
   Section~\ref{sec:derived-functions}).
 
@@ -410,9 +415,9 @@ as it is.\improvement{We may want to add something about protocol
         ($∅, ⊎$ here). The spec would work better this way.}
 
       \begin{implementationhint}
-        We want to understand $r(a)(a')$ as the decrypted share of agent $a$
-        from the secret seed of agent $a'$. So $r(a)$ is the set of
-        all the shares that $a$ decrypted.
+        We want to understand $r(a)(a')$ as the decryption (by agent $a$) of the
+        share created by agent $a'$ and sent to agent $a$. So $r(a)$ is the set
+        of all the shares that $a$ decrypted.
 
         In the specification, we, again, implement the decrypted
         shares as the whole, plain text, seed.
@@ -492,6 +497,8 @@ concrete value, which simplifies the specification.
   we have $x<y<z$. These subsets are defined in
   Section~\ref{sec:vss-phases}.
 
+  \improvement{This paragraph is pretty horrible to read, just because the
+    subscripts are so long.}
 \end{description}
 
 \subsection{Configuration parameters}
@@ -610,11 +617,13 @@ and $b_n$ is a \emph{valid extension} of $b₁,…,b_{n-1}$.
 A block $b$ is said to be a valid extension of a valid chain
 $b_1,…,b_n$ if all of the following hold
 \begin{description}
-\item[Predecessor] The predecessor of $b$ is $b_n$ or, if $n=0$, the
-  predecessor of $b$ is the genesis identifier $b₀$.
+\item[Predecessor] The predecessor of $b$ is $b_n$ or, if $n=0$, the predecessor
+  of $b$ is the genesis identifier $b₀$. \improvement{This doesn't strictly make
+    sense, because we would be extending the chain $b_1, b_0$, but maybe we
+    don't care since it's obvious what the intention is.}
 \item[Not future slot] The slot number is no larger than the current
   slot.
-\item[Not past slot] the slot number of $b$ is larger than the slot
+\item[Not past slot] The slot number of $b$ is larger than the slot.
   number of $b_n$
 \item[Issuer] Let $i$ be the issuer of $b$, and let $l$ be the slot
   leader at the slot of $b$:
@@ -655,7 +664,7 @@ $b_1,…,b_n$ if all of the following hold
       unspent. That is for each $i ∈ \inputs{τ}$
       \begin{itemize}
       \item $\intrans{i}∈\overline{τ}$ or $\intrans{i} ∈ \txinit$
-      \item $\outputs{\intrans{i}}=t₁,…,t_k$, $\inindex{i} ⩽ k$
+      \item $\inindex{i} ⩽ \length{\outputs{\intrans{i}}}$
       \item for each $t ∈ \overline{τ}$, $i ∉ \inputs{t}$.
       \end{itemize}
 
@@ -673,7 +682,7 @@ $b_1,…,b_n$ if all of the following hold
     \item[Conservation of value] The total amount of outputs must not exceed
       the total amount of inputs. A minimum fee must be paid.
       $$
-      \minimumfee{τ} + ∑_{i∈\outputs{τ}} \amount{i}⩽ ∑_{o∈\inputs{τ}} \amount{o}
+      \minimumfee{τ} + ∑_{o∈\outputs{τ}} \amount{o}⩽ ∑_{i∈\inputs{τ}} \amount{i}
       $$
     \item[Authorised] The list of witnesses has the same length as the
       list of inputs
@@ -712,19 +721,17 @@ $b_1,…,b_n$ if all of the following hold
   certificates of $b$. Then for any two $c₁,c₂∈\overline{c}$, it must
   hold that $\delegator{c₁}≠\delegator{c₂}$.
 
-  Note that this prevents any agent which has issued a delegation
-  certificate to another party to issue any block: they \emph{must} be
-  signed by the delegatee (or, transitively, by the agent authorised
-  to sign instead of the delegatee). That is, until the agent issues a
-  new delegation certificate to itself, which, in effect, revokes any
-  previous delegation certificate. See also the definition of
-  $\transitivefix{g}$ in Section~\ref{sec:definitions}.
+  Note that this prevents any agent which has issued a delegation certificate to
+  another party from issuing any block: they \emph{must} be signed by the
+  delegatee (or, transitively, by the agent authorised to sign instead of the
+  delegatee). That is, until the agent issues a new delegation certificate to
+  itself, which, in effect, revokes any previous delegation certificate. See
+  also the definition of $\transitivefix{g}$ in Section~\ref{sec:definitions}.
 
-\item[Seed computation] This rule divides into different cases,
-  depending on the content seed computation field of the block $b$
-  (the functions $\richmen{⋅}$, $\epochcommitments{⋅}$,
-  $\epochopens{⋅}$, and $\epochrecoveries{⋅}$ are defined in
-  Section~\ref{sec:derived-functions}).
+\item[Seed computation] This rule divides into different cases, depending on the
+  content of the seed computation field of the block $b$ (the functions
+  $\richmen{⋅}$, $\epochcommitments{⋅}$, $\epochopens{⋅}$, and
+  $\epochrecoveries{⋅}$ are defined in Section~\ref{sec:derived-functions}).
   \begin{description}
   \item[Nothing] If there is no message, then no further rule must be
     enforced.
@@ -745,15 +752,14 @@ $b_1,…,b_n$ if all of the following hold
     \item[Opening phase] Let $s$ be the current slot, then we must
       have $\epochslot{s}∈\openphase$.
     \item[Valid] We must have that $o ⊆ π_1 ∘
-      \epochcommitments{b_1,…,b_n}$.\improvement{I haven't defined
-        $π_1$ (first projection on cartesian product) anywhere.}
+      \epochcommitments{b_1,…,b_n}$.
     \item[Fresh] Let $V$ be the domain of $\epochopens{b_1,…,b_n}$,
       we must have $U∩V=∅$.
     \end{description}
   \item[Recovery] If there is a recovery message $r ∈
     \agentids⇀\seeds$ then, calling its domain $U$,
     \begin{description}
-    \item[Opening phase] Let $s$ be the current slot, then we must
+    \item[Recovery phase] Let $s$ be the current slot, then we must
       have $\epochslot{s}∈\recoveryphase$.
     \item[Valid] For every $a∈U$, we must have that $r(a) = (π_1 ∘ \epochcommitments{b_1,…,b_n})⧵\epochopens{b_1,…,b_n}$.
     \item[Fresh] Let $V$ be the domain of $\epochrecoveries{b_1,…,b_n}$,
@@ -800,7 +806,7 @@ Section~\ref{sec:adding-block} are mutually recursive.
       In particular, $\kronecker{i}{j}q = q$ if $i=j$ and $0$
       otherwise. Kronecker's delta is used to select summands: it is
       the arithmetician's \verb+ifThenElse+ combinator.
-    \item $\stakeof{o}{a} = \repartition{o}(a).\amount{o} ∈ \mathbb{Q}$
+    \item $\stakeof{o}{a} = \repartition{o}(a)\cdot\amount{o} ∈ \mathbb{Q}$
     \item For inputs of $τ_{n+1}$, we extend $\stakeof{⋅}{⋅}$ to
       inputs using the validity hypothesis to define $\repartition{i}$ and $\amount{i}$
     \end{itemize}
@@ -965,10 +971,10 @@ some set $S$, such that for every $n$ and $s$,
 $(i,s') = f(n)(s) ⟹ 0 ⩽ i < 2^{kn}$ for some $k$. A typical example is
 to have $k=8$ for a generator which produces a byte at a time.
 
-Our goal is to construct a general number generator $f$ as in
-Section~\ref{sec:number-generator}. With the additional requirement
-that $f(N)$ must be surjective on its first component, and assuming that $g(N)$ is
-surjective on its first component\improvement{I think it's better to just put the surjective
+Given a binary number generator $g$ such that $g(N)$ is surjective on its first
+component, our goal is to construct a general number generator $f$ as in
+Section~\ref{sec:slot-leader}, such that $f(N)$ must also be surjective on its
+first component.\improvement{I think it's better to just put the surjective
   requirement in the definition of (binary) random generators.}
 
 Let us fix $N∈ℕ$ and $s₀∈S$. And define $B = \min_{n∈ℕ}N < 2^{kn}$,
@@ -1113,7 +1119,7 @@ those of the selected chain) when
     \item[Conservation of value] The total amount of outputs must not exceed
       the total amount of input. A minimum fee must be paid.
       $$
-      \minimumfee{τ} + ∑_{i∈\outputs{τ}} \amount{i}⩽ ∑_{o∈\inputs{τ}} \amount{o}
+      \minimumfee{τ} + ∑_{o∈\outputs{τ}} \amount{o}⩽ ∑_{i∈\inputs{τ}} \amount{i}
       $$
     \item[Authorised] The list of witnesses has the same length as the
       list of inputs
@@ -1251,14 +1257,14 @@ it can be expanded to meet future requirements.
 \label{sec:data-validation-vs}
 
 This is a general consideration for specification and implementation
-design. The input received by a Cardano node is a piece of serialise
+design. The input received by a Cardano node is a piece of serialised
 data, that is a string of bits. But validation rules for block are
 done on \textsc{ast}s.
 
-There are necessarily some validation done in the conversion from
-string of bits to \textsc{ast}: not all string of bits decode to an
+There is necessarily some validation done in the conversion from
+strings of bits to \textsc{ast}: not all strings of bits decode to an
 \textsc{ast}. This document refers to the rules which reject strings
-of bit or make an \textsc{ast} as \emph{data validation}.
+of bits or make an \textsc{ast} as \emph{data validation}.
 
 The rules to validate data which is already in \textsc{ast} form are
 referred to, by contrast, as \emph{logic validation rules}.
@@ -1285,14 +1291,14 @@ validation.
 Data validation rules are invisible to specification, making
 specification shorter, clearer, and easier to reason about. One may
 fear that turning logic rules into validation rule may make errors
-harder to spot in testing. But the contrary hold, at least in a typed
-language like Haskell: validation rules can be enforced by abstract
+harder to spot in testing. But the contrary holds, at least in a typed
+language like Haskell: data validation rules can be enforced by abstract
 data types, which can be tested in isolation.
 
 So, having as many data validation rules and as few logic validation
 rules as possible makes it easier to write property-based tests, is
 more composable, and make specification better. It is therefore
-recommanded, for future specification document to make as many rules
+recommended, for future specification documents to make as many rules
 as possible into data validation.
 
 \subsection{Of forward compatibility}
@@ -1326,7 +1332,7 @@ block.
 This is also why the rules in Section~\ref{sec:entering-mempool} are
 copies of rules in Section~\ref{sec:adding-block}, rather than try and
 factor them into a common definition: the rules for the mempool are
-likely to change quicker, than block validation.
+likely to change quicker than those for than block validation.
 
 \subsection{Lightweight delegation}
 \label{sec:lightweight-delegation}
@@ -1342,7 +1348,7 @@ certificate (since we don't benefit from the blockchain as a broadcast
 channel: if we broadcast a revocation message, it can be received only
 partially by the network and new blocks will issued which still accept
 the subkey. The subkey is still technically valid. Plus, the economic
-insentive probably don't apply, and make it costless to ignore a
+incentives probably don't apply, and make it costless to ignore a
 revocation).
 
 Lightweight delegation is currently implemented in Cardano, but hasn't
@@ -1374,22 +1380,22 @@ effective way to make the network efficient. It is being considered to
 restrict the mempool to stateless tests (and correspondingly not
 tracking a state of the mempool), or at least less restrictive tests.
 
+This would allow transactions to flow throughout the Cardano network
 It would allow transactions to flow throughout the Cardano network
 more freely. For instance, if the network is split (in that there are
 two different selected chains in the network), the two halves of the
-network will not be able to exchange transactions, making the
+network are not currently able to exchange transactions, making the
 gossiping protocol less efficient.
 
-Another issue is that if two transactions $τ_1$ and $τ_2$ are issued,
-such that $τ_2$ depends on $τ_1$, if a node, due to a network delay,
-receives $τ_2$ before $τ_1$, it will reject $τ_2$, instead of keeping
-it in the waiting area. The current specification doesn't distinguish
-rejecting or reserving blocks or transactions (maybe it will have to,
-eventually), but it's also how the implementation behaves. This puts
-some burden on the network, and also makes the gossiping protocol less
-efficient.
+Another issue arises due to race conditions. If two transactions $τ_1$ and $τ_2$
+are issued, such that $τ_2$ depends on $τ_1$, and a node, due to a network
+delay, receives $τ_2$ before $τ_1$, it will reject $τ_2$ instead of keeping it
+in the waiting area. The current specification doesn't distinguish rejecting or
+reserving blocks or transactions (maybe it will have to, eventually), but it's
+also how the implementation behaves. This puts some burden on the network, and
+also makes the gossiping protocol less efficient.
 
-On the other hand makes the work of the block issuer somewhat harder,
+On the other hand this makes the work of the block issuer somewhat harder,
 as they have to decide which transactions to include in their new
 block from a soup of transactions rather than a structured list. It
 reduces the overall computation effort (as only the block issuer must
@@ -1413,7 +1419,7 @@ taking a prefix of the list. The current system, specified in this
 document, will add all the transactions from the mempool to a new
 block. This is overly restrictive, and maybe too computationally
 expensive to complete within a slot's time. Especially on low-power
-hardware. Having low-power nodes issuing node is, however, a business
+hardware. Having low-power nodes issuing blocks is, however, a business
 requirement of Cardano. Therefore this constraint should be weakened.
 
 \subsection{Miscelaneous remarks on the current specification}
@@ -1423,7 +1429,7 @@ requirement of Cardano. Therefore this constraint should be weakened.
   choice currently made in Cardano, that outputs be necessary
   non-empty, is dubious. There is no particular reason for it to be:
   empty output simply means that the transaction is pure
-  fees. Furthermore Bruno Woltzenlogel Paleo's utxo Chimeric Ledger
+  fees. Furthermore Bruno Woltzenlogel Paleo's UTxO Chimeric Ledger
   model allows empty outputs, because it is believed to be essential
   for coloured coins.
 \end{itemize}

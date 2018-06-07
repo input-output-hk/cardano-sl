@@ -108,7 +108,9 @@ let
             hsPkgs.unix
             hsPkgs.systemd
           ];
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [
+            hsPkgs.buildPackages.cpphs
+          ];
         };
         tests = {
           cardano-test = {
@@ -160,7 +162,9 @@ let
               hsPkgs.unordered-containers
               hsPkgs.vector
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
         benchmarks = {
@@ -182,7 +186,9 @@ let
               hsPkgs.universum
               hsPkgs.vector
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
       };

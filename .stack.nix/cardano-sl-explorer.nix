@@ -79,7 +79,9 @@ let
             hsPkgs.wai-cors
             hsPkgs.warp
           ];
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [
+            hsPkgs.buildPackages.cpphs
+          ];
         };
         exes = {
           cardano-explorer = {
@@ -97,7 +99,9 @@ let
               hsPkgs.optparse-applicative
               hsPkgs.universum
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
           cardano-explorer-hs2purs = {
             depends  = [
@@ -107,7 +111,9 @@ let
               hsPkgs.universum
               hsPkgs.optparse-simple
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
           cardano-explorer-swagger = {
             depends  = [
@@ -124,7 +130,9 @@ let
               hsPkgs.text
               hsPkgs.universum
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
           cardano-explorer-mock = {
             depends  = [
@@ -133,7 +141,9 @@ let
               hsPkgs.optparse-applicative
               hsPkgs.universum
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
         tests = {
@@ -161,7 +171,9 @@ let
               hsPkgs.universum
               hsPkgs.warp
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
         benchmarks = {
@@ -179,7 +191,9 @@ let
               hsPkgs.universum
               hsPkgs.weigh
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
       };

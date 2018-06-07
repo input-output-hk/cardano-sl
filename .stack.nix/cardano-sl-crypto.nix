@@ -48,7 +48,9 @@ let
             hsPkgs.universum
             hsPkgs.unordered-containers
           ];
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [
+            hsPkgs.buildPackages.cpphs
+          ];
         };
         tests = {
           test = {
@@ -90,7 +92,9 @@ let
               hsPkgs.unordered-containers
               hsPkgs.vector
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
       };

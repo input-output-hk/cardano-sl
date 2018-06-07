@@ -68,7 +68,9 @@ let
             hsPkgs.unordered-containers
             hsPkgs.vector
           ];
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [
+            hsPkgs.buildPackages.cpphs
+          ];
         };
       };
     } // rec { src = ../txp; }

@@ -60,7 +60,9 @@ let
             hsPkgs.unordered-containers
             hsPkgs.vector
           ];
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [
+            hsPkgs.buildPackages.cpphs
+          ];
         };
         tests = {
           cardano-generator-test = {
@@ -89,7 +91,9 @@ let
               hsPkgs.universum
               hsPkgs.unordered-containers
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
       };

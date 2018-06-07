@@ -79,7 +79,9 @@ let
             hsPkgs.unordered-containers
             hsPkgs.yaml
           ] ++ pkgs.lib.optional (!system.isWindows) hsPkgs.unix;
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [
+            hsPkgs.buildPackages.cpphs
+          ];
         };
       };
     } // rec { src = ../infra; }

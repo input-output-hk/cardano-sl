@@ -63,7 +63,9 @@ let
             hsPkgs.universum
             hsPkgs.unordered-containers
           ];
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [
+            hsPkgs.buildPackages.cpphs
+          ];
         };
       };
     } // rec { src = ../ssc; }

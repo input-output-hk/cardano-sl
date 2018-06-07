@@ -90,7 +90,9 @@ let
             hsPkgs.warp
             hsPkgs.websockets
           ] ++ pkgs.lib.optional (!system.isWindows) hsPkgs.unix;
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [
+            hsPkgs.buildPackages.cpphs
+          ];
         };
         tests = {
           cardano-wallet-test = {
@@ -131,7 +133,9 @@ let
               hsPkgs.universum
               hsPkgs.unordered-containers
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
       };

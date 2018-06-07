@@ -70,7 +70,9 @@ let
             hsPkgs.vector
             hsPkgs.QuickCheck
           ];
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [
+            hsPkgs.buildPackages.cpphs
+          ];
         };
         tests = {
           test = {
@@ -88,7 +90,9 @@ let
               hsPkgs.text
               hsPkgs.universum
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
       };

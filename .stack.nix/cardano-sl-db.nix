@@ -45,7 +45,9 @@ let
             hsPkgs.transformers
             hsPkgs.universum
           ];
-          build-tools = [ hsPkgs.cpphs ];
+          build-tools = [
+            hsPkgs.buildPackages.cpphs
+          ];
         };
       };
     } // rec { src = ../db; }

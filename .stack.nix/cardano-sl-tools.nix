@@ -73,7 +73,9 @@ let
               hsPkgs.universum
               hsPkgs.unordered-containers
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
           cardano-dht-keygen = {
             depends  = pkgs.lib.optionals (!_flags.for-installer) [
@@ -87,7 +89,9 @@ let
               hsPkgs.serokell-util
               hsPkgs.universum
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
           cardano-genupdate = {
             depends  = [
@@ -192,7 +196,9 @@ let
               hsPkgs.text
               hsPkgs.universum
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
           cardano-post-mortem = {
             depends  = pkgs.lib.optionals (!_flags.for-installer) [
@@ -251,7 +257,9 @@ let
               hsPkgs.text
               hsPkgs.universum
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
         tests = {
@@ -265,7 +273,9 @@ let
               hsPkgs.temporary
               hsPkgs.universum
             ];
-            build-tools = [ hsPkgs.cpphs ];
+            build-tools = [
+              hsPkgs.buildPackages.cpphs
+            ];
           };
         };
       };

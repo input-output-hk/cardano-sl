@@ -1,5 +1,5 @@
 version: 1.0.{build}
-image: Visual Studio 2015
+image: Visual Studio 2017
 
 build: off
 
@@ -95,6 +95,7 @@ test_script:
       --extra-lib-dirs="C:\xz_extracted\bin_x86-64"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
+
   # Cardano pieces, modulo the frontend
   - mkdir daedalus
     # log config is called `log-config-prod.yaml` just in case, it's the old name
@@ -124,3 +125,10 @@ artifacts:
   - path: daedalus/
     name: CardanoSL
     type: zip
+
+on_finish:
+  - appveyor PushArtifact c:\w\.w\logs\cardano-sl-1.1.1-test.log
+  - appveyor PushArtifact c:\w\.w\logs\cardano-sl-wallet-new-1.1.1-test.log
+  - dir /s /b c:\w
+  - 7z a binaries.zip c:\w\.w\install\*\bin\*
+  - appveyor PushArtifact binaries.zip

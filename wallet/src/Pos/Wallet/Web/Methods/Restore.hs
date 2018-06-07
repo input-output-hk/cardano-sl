@@ -102,22 +102,23 @@ restoreWallet :: ( L.MonadWalletLogic ctx m
                  , MonadUnliftIO m
                  , HasLens SyncQueue ctx SyncQueue
                  ) => EncryptedSecretKey -> m CWallet
-restoreWallet sk = do
-    db <- WS.askWalletDB
-    let credentials@(_, wId) = keyToWalletDecrCredentials $ Right sk
-    Restore.restoreWallet credentials
-    WS.setWalletReady db wId True
-    L.getWallet wId
+restoreWallet secretKey = restoreUsing $ Right secretKey
 
 -- | Restore a history related to given external wallet, using 'extPublicKey'.
 restoreExternalWallet :: ( L.MonadWalletLogic ctx m
                          , MonadUnliftIO m
                          , HasLens SyncQueue ctx SyncQueue
                          ) => PublicKey -> m CWallet
-restoreExternalWallet publicKey = do
-    db <- WS.askWalletDB
-    let credentials@(_, wId) = keyToWalletDecrCredentials $ Left publicKey
+restoreExternalWallet publicKey = restoreUsing $ Left publicKey
+
+restoreUsing :: ( L.MonadWalletLogic ctx m
+                , MonadUnliftIO m
+                , HasLens SyncQueue ctx SyncQueue
+                ) => Either PublicKey EncryptedSecretKey -> m CWallet
+restoreUsing key = do
+    let credentials@(_, wId) = keyToWalletDecrCredentials key
     Restore.restoreWallet credentials
+    db <- WS.askWalletDB
     WS.setWalletReady db wId True
     L.getWallet wId
 

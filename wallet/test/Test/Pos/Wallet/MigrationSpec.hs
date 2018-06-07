@@ -25,7 +25,8 @@ import           Pos.Arbitrary.Core ()
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccountMeta (..), CCoin (..),
                                              CHash (..), CId (..), CProfile (..), CTxId (..),
                                              CTxMeta (..), CUpdateInfo (..), CWAddressMeta (..),
-                                             CWalletAssurance (..), CWalletMeta (..), Wal)
+                                             CWalletAssurance (..), CWalletMeta (..), CWalletType (..),
+                                             Wal)
 import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId)
 import           Pos.Wallet.Web.State.Acidic (openState)
 import           Pos.Wallet.Web.State.State (askWalletSnapshot)
@@ -72,14 +73,28 @@ instance Migrate WalletTip_v0 where
     migrate (SyncedWith h)      = V0_SyncedWith h
 
 instance Migrate WalletInfo_v0 where
-    type MigrateFrom WalletInfo_v0 = WalletInfo
-    migrate WalletInfo{..} = WalletInfo_v0
-        { _v0_wiMeta           = _wiMeta
-        , _v0_wiPassphraseLU   = _wiPassphraseLU
-        , _v0_wiCreationTime   = _wiCreationTime
-        , _v0_wiSyncTip        = migrate _wiSyncState
-        , _v0_wsPendingTxs     = _wsPendingTxs
-        , _v0_wiIsReady        = _wiIsReady
+    type MigrateFrom WalletInfo_v0 = WalletInfo_v1
+    migrate WalletInfo_v1{..} = WalletInfo_v0
+        { _v0_wiMeta           = _v1_wiMeta
+        , _v0_wiPassphraseLU   = _v1_wiPassphraseLU
+        , _v0_wiCreationTime   = _v1_wiCreationTime
+        , _v0_wiSyncTip        = migrate _v1_wiSyncState
+        , _v0_wsPendingTxs     = _v1_wsPendingTxs
+        , _v0_wiIsReady        = _v1_wiIsReady
+        }
+
+newtype WalletInfo_Back_v1 = WalletInfo_Back_v1 WalletInfo_v1
+
+instance Migrate WalletInfo_Back_v1 where
+    type MigrateFrom WalletInfo_Back_v1 = WalletInfo
+    migrate WalletInfo{..} = WalletInfo_Back_v1 $ WalletInfo_v1
+        { _v1_wiMeta           = _wiMeta
+        , _v1_wiPassphraseLU   = _wiPassphraseLU
+        , _v1_wiCreationTime   = _wiCreationTime
+        , _v1_wiSyncState      = _wiSyncState
+        , _v1_wiSyncStatistics = _wiSyncStatistics
+        , _v1_wsPendingTxs     = _wsPendingTxs
+        , _v1_wiIsReady        = _wiIsReady
         }
 
 newtype WalletStorage_Back_v2 = WalletStorage_Back_v2 WalletStorage_v2
@@ -87,15 +102,15 @@ newtype WalletStorage_Back_v2 = WalletStorage_Back_v2 WalletStorage_v2
 instance Migrate WalletStorage_Back_v2 where
   type MigrateFrom WalletStorage_Back_v2 = WalletStorage_v3
   migrate WalletStorage_v3{..} = WalletStorage_Back_v2 $ WalletStorage_v2
-      { _v2_wsWalletInfos = _v3_wsWalletInfos
-      , _v2_wsAccountInfos = fmap migrate _v3_wsAccountInfos
-      , _v2_wsProfile = _v3_wsProfile
-      , _v2_wsReadyUpdates = _v3_wsReadyUpdates
-      , _v2_wsTxHistory = _v3_wsTxHistory
-      , _v2_wsHistoryCache = _v3_wsHistoryCache
-      , _v2_wsUtxo = _v3_wsUtxo
-      , _v2_wsBalances = _v3_wsBalances
-      , _v2_wsUsedAddresses = mapAddrKeys _v3_wsUsedAddresses
+      { _v2_wsWalletInfos     = _v3_wsWalletInfos
+      , _v2_wsAccountInfos    = fmap migrate _v3_wsAccountInfos
+      , _v2_wsProfile         = _v3_wsProfile
+      , _v2_wsReadyUpdates    = _v3_wsReadyUpdates
+      , _v2_wsTxHistory       = _v3_wsTxHistory
+      , _v2_wsHistoryCache    = _v3_wsHistoryCache
+      , _v2_wsUtxo            = _v3_wsUtxo
+      , _v2_wsBalances        = _v3_wsBalances
+      , _v2_wsUsedAddresses   = mapAddrKeys _v3_wsUsedAddresses
       , _v2_wsChangeAddresses = mapAddrKeys _v3_wsChangeAddresses
       }
     where
@@ -104,21 +119,45 @@ instance Migrate WalletStorage_Back_v2 where
 newtype WalletStorage_Back_v3 = WalletStorage_Back_v3 WalletStorage_v3
 
 instance Migrate WalletStorage_Back_v3 where
-  type MigrateFrom WalletStorage_Back_v3 = WalletStorage
-  migrate WalletStorage{..} = WalletStorage_Back_v3 $ WalletStorage_v3
-      { _v3_wsWalletInfos = migrateMapElements _wsWalletInfos
-      , _v3_wsAccountInfos = _wsAccountInfos
-      , _v3_wsProfile = _wsProfile
-      , _v3_wsReadyUpdates = _wsReadyUpdates
-      , _v3_wsTxHistory = _wsTxHistory
-      , _v3_wsHistoryCache = _wsHistoryCache
-      , _v3_wsUtxo = _wsUtxo
-      , _v3_wsBalances = _wsBalances
-      , _v3_wsUsedAddresses = _wsUsedAddresses
-      , _v3_wsChangeAddresses = _wsChangeAddresses
+  type MigrateFrom WalletStorage_Back_v3 = WalletStorage_v4
+  migrate WalletStorage_v4{..} = WalletStorage_Back_v3 $ WalletStorage_v3
+      { _v3_wsWalletInfos     = migrateMapElements _v4_wsWalletInfos
+      , _v3_wsAccountInfos    = _v4_wsAccountInfos
+      , _v3_wsProfile         = _v4_wsProfile
+      , _v3_wsReadyUpdates    = _v4_wsReadyUpdates
+      , _v3_wsTxHistory       = _v4_wsTxHistory
+      , _v3_wsHistoryCache    = _v4_wsHistoryCache
+      , _v3_wsUtxo            = _v4_wsUtxo
+      , _v3_wsBalances        = _v4_wsBalances
+      , _v3_wsUsedAddresses   = _v4_wsUsedAddresses
+      , _v3_wsChangeAddresses = _v4_wsChangeAddresses
       }
     where
       migrateMapElements = HM.fromList . fmap (second migrate) . HM.toList
+
+newtype WalletStorage_Back_v4 = WalletStorage_Back_v4 WalletStorage_v4
+
+instance Migrate WalletStorage_Back_v4 where
+  type MigrateFrom WalletStorage_Back_v4 = WalletStorage
+  migrate WalletStorage{..} = WalletStorage_Back_v4 $ WalletStorage_v4
+      { _v4_wsWalletInfos     = migratedWalletInfos _wsWalletInfos
+      , _v4_wsAccountInfos    = _wsAccountInfos
+      , _v4_wsProfile         = _wsProfile
+      , _v4_wsReadyUpdates    = _wsReadyUpdates
+      , _v4_wsTxHistory       = _wsTxHistory
+      , _v4_wsHistoryCache    = _wsHistoryCache
+      , _v4_wsUtxo            = _wsUtxo
+      , _v4_wsBalances        = _wsBalances
+      , _v4_wsUsedAddresses   = _wsUsedAddresses
+      , _v4_wsChangeAddresses = _wsChangeAddresses
+      }
+    where
+      migratedWalletInfos = HM.fromList . fmap migrateWalletInfo . HM.toList
+
+      migrateWalletInfo :: (CId Wal, WalletInfo) -> (CId Wal, WalletInfo_v1)
+      migrateWalletInfo (walletId, walletInfo) = (walletId, walletInfoV1)
+        where
+          WalletInfo_Back_v1 walletInfoV1 = migrate walletInfo
 
 --------------------------------------------------------------------------------
 
@@ -126,7 +165,9 @@ deriving instance Eq AccountInfo_v0
 deriving instance Eq AddressInfo_v0
 deriving instance Eq WalletStorage_v2
 deriving instance Eq WalletStorage_v3
+deriving instance Eq WalletStorage_v4
 deriving instance Eq WalletInfo_v0
+deriving instance Eq WalletInfo_v1
 
 deriving instance Show WalletSyncState
 deriving instance Show SyncStatistics
@@ -136,9 +177,11 @@ deriving instance Show AccountInfo
 deriving instance Show AddressInfo_v0
 deriving instance Show AddressInfo
 deriving instance Show WalletInfo_v0
+deriving instance Show WalletInfo_v1
 deriving instance Show WalletTip_v0
 deriving instance Show WalletStorage_v2
 deriving instance Show WalletStorage_v3
+deriving instance Show WalletStorage_v4
 deriving instance Show WalletStorage
 
 deriving instance Arbitrary CHash
@@ -194,6 +237,12 @@ instance Arbitrary CWalletMeta where
     <$> arbitrary
     <*> arbitrary
     <*> arbitrary
+
+instance Arbitrary CWalletType where
+  arbitrary = oneof
+    [ pure CWalletRegular
+    , pure CWalletExternal
+    ]
 
 instance Arbitrary AccountId where
   arbitrary = AccountId
@@ -254,6 +303,16 @@ instance Arbitrary WalletInfo_v0 where
     <*> pure HM.empty
     <*> arbitrary
 
+instance Arbitrary WalletInfo_v1 where
+  arbitrary = WalletInfo_v1
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> pure HM.empty
+    <*> arbitrary
+
 instance Arbitrary WalletInfo where
   arbitrary = WalletInfo
     <$> arbitrary
@@ -262,6 +321,7 @@ instance Arbitrary WalletInfo where
     <*> arbitrary
     <*> arbitrary
     <*> pure HM.empty
+    <*> arbitrary
     <*> arbitrary
 
 instance Arbitrary WalletStorage_v2 where
@@ -290,6 +350,18 @@ instance Arbitrary WalletStorage_v3 where
     <*> arbitrary
     <*> arbitrary
 
+instance Arbitrary WalletStorage_v4 where
+  arbitrary = WalletStorage_v4
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> pure HM.empty
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
 
 spec :: Spec
 spec = do
@@ -301,7 +373,10 @@ spec = do
             prop
                 "(WalletStorage_v3) migrating back results in the original"
                 prop_backMigrate_v3
-    describe "Can load the 1.1.0 database" $ do
+            prop
+                "(WalletStorage_v4) migrating back results in the original"
+                prop_backMigrate_v4
+    describe "Can load the 1.1.1 database" $ do
         it "can load" $ do
             db <- openState False "test/wallet-db-1.1.1/"
             ws <- runReaderT askWalletSnapshot db
@@ -326,4 +401,9 @@ spec = do
     prop_backMigrate_v3 :: WalletStorage_v3 -> Property
     prop_backMigrate_v3 ws = let
         WalletStorage_Back_v3 ws' = migrate . migrate $ ws
+      in ws === ws'
+
+    prop_backMigrate_v4 :: WalletStorage_v4 -> Property
+    prop_backMigrate_v4 ws = let
+        WalletStorage_Back_v4 ws' = migrate . migrate $ ws
       in ws === ws'

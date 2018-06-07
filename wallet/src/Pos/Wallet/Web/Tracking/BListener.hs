@@ -34,7 +34,6 @@ import           Pos.Infra.Slotting (MonadSlots, MonadSlotsData, getCurrentEpoch
 import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF, secure)
 import           Pos.Infra.Util.TimeLimit (CanLogInParallel, logWarningWaitInf)
 import           Pos.Txp.Base (flattenTxPayload)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (keyToWalletDecrCredentials)
 import           Pos.Wallet.Web.Account (AccountMode, getKeyById)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)

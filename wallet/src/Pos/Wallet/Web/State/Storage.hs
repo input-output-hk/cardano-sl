@@ -101,8 +101,10 @@ module Pos.Wallet.Web.State.Storage
        , AddressInfo_v0 (..)
        , AccountInfo_v0 (..)
        , WalletInfo_v0(..)
+       , WalletInfo_v1(..)
        , WalletStorage_v2(..)
        , WalletStorage_v3(..)
+       , WalletStorage_v4(..)
        ) where
 
 import           Universum
@@ -941,24 +943,46 @@ data WalletInfo_v0 = WalletInfo_v0
     , _v0_wiSyncTip      :: !WalletTip_v0
     , _v0_wsPendingTxs   :: !(HashMap TxId PendingTx)
     , _v0_wiIsReady      :: !Bool
-    , _v0_wiType         :: !WebTypes.CWalletType
     }
 
+data WalletInfo_v1 = WalletInfo_v1
+    { _v1_wiMeta           :: !WebTypes.CWalletMeta
+    , _v1_wiPassphraseLU   :: !WebTypes.PassPhraseLU
+    , _v1_wiCreationTime   :: !POSIXTime
+    , _v1_wiSyncState      :: !WalletSyncState
+    , _v1_wiSyncStatistics :: !SyncStatistics
+    , _v1_wsPendingTxs     :: !(HashMap TxId PendingTx)
+    , _v1_wiIsReady        :: !Bool
+    }
+
+instance Migrate WalletInfo_v1 where
+    type MigrateFrom WalletInfo_v1 = WalletInfo_v0
+    migrate WalletInfo_v0{..} = WalletInfo_v1
+        { _v1_wiMeta           = _v0_wiMeta
+        , _v1_wiPassphraseLU   = _v0_wiPassphraseLU
+        , _v1_wiCreationTime   = _v0_wiCreationTime
+        , _v1_wiSyncState      = migrate _v0_wiSyncTip
+        , _v1_wiSyncStatistics = noSyncStatistics
+        , _v1_wsPendingTxs     = _v0_wsPendingTxs
+        , _v1_wiIsReady        = _v0_wiIsReady
+        }
+
 instance Migrate WalletInfo where
-    type MigrateFrom WalletInfo = WalletInfo_v0
-    migrate WalletInfo_v0{..} = WalletInfo
-        { _wiMeta           = _v0_wiMeta
-        , _wiPassphraseLU   = _v0_wiPassphraseLU
-        , _wiCreationTime   = _v0_wiCreationTime
-        , _wiSyncState      = migrate _v0_wiSyncTip
-        , _wiSyncStatistics = noSyncStatistics
-        , _wsPendingTxs     = _v0_wsPendingTxs
-        , _wiIsReady        = _v0_wiIsReady
-        , _wiType           = _v0_wiType
+    type MigrateFrom WalletInfo = WalletInfo_v1
+    migrate WalletInfo_v1{..} = WalletInfo
+        { _wiMeta           = _v1_wiMeta
+        , _wiPassphraseLU   = _v1_wiPassphraseLU
+        , _wiCreationTime   = _v1_wiCreationTime
+        , _wiSyncState      = _v1_wiSyncState
+        , _wiSyncStatistics = _v1_wiSyncStatistics
+        , _wsPendingTxs     = _v1_wsPendingTxs
+        , _wiIsReady        = _v1_wiIsReady
+        , _wiType           = WebTypes.CWalletRegular
         }
 
 deriveSafeCopySimple 0 'base ''WalletInfo_v0
-deriveSafeCopySimple 1 'extension ''WalletInfo
+deriveSafeCopySimple 1 'extension ''WalletInfo_v1
+deriveSafeCopySimple 2 'extension ''WalletInfo
 
 data AddressInfo_v0 = AddressInfo_v0
     { _v0_adiCWAddressMeta :: !WebTypes.CWAddressMeta
@@ -1025,6 +1049,19 @@ data WalletStorage_v3 = WalletStorage_v3
     , _v3_wsChangeAddresses :: !CustomAddresses
     }
 
+data WalletStorage_v4 = WalletStorage_v4
+    { _v4_wsWalletInfos     :: !(HashMap (WebTypes.CId WebTypes.Wal) WalletInfo_v1)
+    , _v4_wsAccountInfos    :: !(HashMap WebTypes.AccountId AccountInfo)
+    , _v4_wsProfile         :: !WebTypes.CProfile
+    , _v4_wsReadyUpdates    :: [WebTypes.CUpdateInfo]
+    , _v4_wsTxHistory       :: !(HashMap (WebTypes.CId WebTypes.Wal) (HashMap WebTypes.CTxId WebTypes.CTxMeta))
+    , _v4_wsHistoryCache    :: !(HashMap (WebTypes.CId WebTypes.Wal) (Map TxId TxHistoryEntry))
+    , _v4_wsUtxo            :: !Utxo
+    , _v4_wsBalances        :: !WalletBalances
+    , _v4_wsUsedAddresses   :: !CustomAddresses
+    , _v4_wsChangeAddresses :: !CustomAddresses
+    }
+
 deriveSafeCopySimple 0 'base ''AddressInfo_v0
 deriveSafeCopySimple 1 'extension ''AddressInfo
 
@@ -1035,7 +1072,8 @@ deriveSafeCopySimple 0 'base ''WalletStorage_v0
 deriveSafeCopySimple 1 'extension ''WalletStorage_v1
 deriveSafeCopySimple 2 'extension ''WalletStorage_v2
 deriveSafeCopySimple 3 'extension ''WalletStorage_v3
-deriveSafeCopySimple 4 'extension ''WalletStorage
+deriveSafeCopySimple 4 'extension ''WalletStorage_v4
+deriveSafeCopySimple 5 'extension ''WalletStorage
 
 instance Migrate AddressInfo where
     type MigrateFrom AddressInfo = AddressInfo_v0
@@ -1104,19 +1142,36 @@ instance Migrate WalletStorage_v3 where
       where
         mapAddrKeys  = HM.fromList . fmap (first unsafeCIdToAddress) . HM.toList
 
+instance Migrate WalletStorage_v4 where
+    type MigrateFrom WalletStorage_v4 = WalletStorage_v3
+    migrate WalletStorage_v3{..} = WalletStorage_v4
+        { _v4_wsWalletInfos     = migrateMapElements _v3_wsWalletInfos
+        , _v4_wsAccountInfos    = _v3_wsAccountInfos
+        , _v4_wsProfile         = _v3_wsProfile
+        , _v4_wsReadyUpdates    = _v3_wsReadyUpdates
+        , _v4_wsTxHistory       = _v3_wsTxHistory
+        , _v4_wsHistoryCache    = _v3_wsHistoryCache
+        , _v4_wsUtxo            = _v3_wsUtxo
+        , _v4_wsBalances        = _v3_wsBalances
+        , _v4_wsUsedAddresses   = _v3_wsUsedAddresses
+        , _v4_wsChangeAddresses = _v3_wsChangeAddresses
+        }
+      where
+        migrateMapElements = HM.fromList . fmap (second migrate) . HM.toList
+
 instance Migrate WalletStorage where
-    type MigrateFrom WalletStorage = WalletStorage_v3
-    migrate WalletStorage_v3{..} = WalletStorage
-        { _wsWalletInfos     = migrateMapElements _v3_wsWalletInfos
-        , _wsAccountInfos    = _v3_wsAccountInfos
-        , _wsProfile         = _v3_wsProfile
-        , _wsReadyUpdates    = _v3_wsReadyUpdates
-        , _wsTxHistory       = _v3_wsTxHistory
-        , _wsHistoryCache    = _v3_wsHistoryCache
-        , _wsUtxo            = _v3_wsUtxo
-        , _wsBalances        = _v3_wsBalances
-        , _wsUsedAddresses   = _v3_wsUsedAddresses
-        , _wsChangeAddresses = _v3_wsChangeAddresses
+    type MigrateFrom WalletStorage = WalletStorage_v4
+    migrate WalletStorage_v4{..} = WalletStorage
+        { _wsWalletInfos     = migrateMapElements _v4_wsWalletInfos
+        , _wsAccountInfos    = _v4_wsAccountInfos
+        , _wsProfile         = _v4_wsProfile
+        , _wsReadyUpdates    = _v4_wsReadyUpdates
+        , _wsTxHistory       = _v4_wsTxHistory
+        , _wsHistoryCache    = _v4_wsHistoryCache
+        , _wsUtxo            = _v4_wsUtxo
+        , _wsBalances        = _v4_wsBalances
+        , _wsUsedAddresses   = _v4_wsUsedAddresses
+        , _wsChangeAddresses = _v4_wsChangeAddresses
         }
       where
         migrateMapElements = HM.fromList . fmap (second migrate) . HM.toList

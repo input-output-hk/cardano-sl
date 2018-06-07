@@ -13,7 +13,7 @@ import           Test.Hspec.QuickCheck
 
 import qualified Pos.Block.Error as Cardano
 import qualified Pos.Txp.Toil as Cardano
-import           Pos.Core (HasGenesisBlockVersionData, getCoin)
+import           Pos.Core (Coeff (..), TxSizeLinear (..), getCoin)
 
 import           Test.Infrastructure.Generator
 import           Test.Infrastructure.Genesis
@@ -30,29 +30,33 @@ import           UTxO.Translate
   UTxO->Cardano translation tests
 -------------------------------------------------------------------------------}
 
-spec :: HasGenesisBlockVersionData => Spec
+spec :: Spec
 spec = do
     describe "Translation sanity checks" $ do
       it "can construct and verify empty block" $
-        intAndVerifyPure emptyBlock `shouldSatisfy` expectValid
+        intAndVerifyPure linearFeePolicy emptyBlock `shouldSatisfy` expectValid
 
       it "can construct and verify block with one transaction" $
-        intAndVerifyPure oneTrans `shouldSatisfy` expectValid
+        intAndVerifyPure linearFeePolicy oneTrans `shouldSatisfy` expectValid
 
       it "can construct and verify example 1 from the UTxO paper" $
-        intAndVerifyPure example1 `shouldSatisfy` expectValid
+        intAndVerifyPure linearFeePolicy example1 `shouldSatisfy` expectValid
 
       it "can reject overspending" $
-        intAndVerifyPure overspend `shouldSatisfy` expectInvalid
+        intAndVerifyPure linearFeePolicy overspend `shouldSatisfy` expectInvalid
 
       it "can reject double spending" $
-        intAndVerifyPure doublespend `shouldSatisfy` expectInvalid
+        intAndVerifyPure linearFeePolicy doublespend `shouldSatisfy` expectInvalid
 
     describe "Translation QuickCheck tests" $ do
       prop "can translate randomly generated chains" $
         forAll
-          (intAndVerifyGen (genChainUsingModel . cardanoModel))
+          (intAndVerifyGen (genChainUsingModel . cardanoModel linearFeePolicy))
           expectValid
+
+  where
+
+    linearFeePolicy = TxSizeLinear (Coeff 155381) (Coeff 43.946)
 
 {-------------------------------------------------------------------------------
   Example hand-constructed chains
@@ -167,10 +171,10 @@ overestimate getFee ins outs = getFee ins (replicate outs (getCoin maxBound))
   Verify chain
 -------------------------------------------------------------------------------}
 
-intAndVerifyPure :: HasGenesisBlockVersionData
-                 => (GenesisValues GivenHash -> Chain GivenHash Addr)
+intAndVerifyPure :: TxSizeLinear
+                 -> (GenesisValues GivenHash -> Chain GivenHash Addr)
                  -> ValidationResult GivenHash Addr
-intAndVerifyPure pc = runIdentity $ intAndVerify (Identity . pc . genesisValues)
+intAndVerifyPure txSizeLinear pc = runIdentity $ intAndVerify (Identity . pc . genesisValues txSizeLinear)
 
 -- | Specialization of 'intAndVerify' to 'Gen'
 intAndVerifyGen :: (Transaction GivenHash Addr -> Gen (Chain GivenHash Addr))

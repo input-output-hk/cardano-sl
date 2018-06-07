@@ -10,7 +10,7 @@ import qualified Data.List (head)
 import           UTxO.Context
 import           UTxO.DSL
 
-import           Pos.Core (HasGenesisBlockVersionData)
+import           Pos.Core (TxSizeLinear)
 import           Test.Infrastructure.Generator (estimateCardanoFee)
 
 {-------------------------------------------------------------------------------
@@ -39,8 +39,8 @@ data GenesisValues h = GenesisValues {
     }
 
 -- | Compute genesis values from the bootstrap transaction
-genesisValues :: (HasGenesisBlockVersionData, Hash h Addr) => Transaction h Addr -> GenesisValues h
-genesisValues boot@Transaction{..} = GenesisValues{..}
+genesisValues :: (Hash h Addr) => TxSizeLinear -> Transaction h Addr -> GenesisValues h
+genesisValues txSizeLinear boot@Transaction{..} = GenesisValues{..}
   where
     initR0 = unsafeHead [val | Output a val <- trOuts, a == r0]
 
@@ -52,7 +52,7 @@ genesisValues boot@Transaction{..} = GenesisValues{..}
 
     hashBoot = hash boot
 
-    txFee = estimateCardanoFee
+    txFee = estimateCardanoFee  txSizeLinear
 
 {-------------------------------------------------------------------------------
   Auxiliary

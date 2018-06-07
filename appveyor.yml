@@ -130,8 +130,8 @@ test_script:
   - git clone https://github.com/haskell-crypto/cryptonite submods/cryptonite
   - git -C submods/cryptonite checkout 41d610fb18e2924d7aa704c37798e1c197557f3e
 
-  - git clone https://github.com/serokell/engine.io.git submods/engine-io
-  - git -C submods/engine-io checkout a594e402fd450f11ad60d09ddbd93db500000632
+  - git clone https://github.com/serokell/engine.io.git submods/engine.io
+  - git -C submods/engine.io checkout a594e402fd450f11ad60d09ddbd93db500000632
 
   - git clone https://github.com/well-typed/canonical-json.git submods/canonical-json
   - git -C submods/canonical-json checkout 2d261bb971bada1893753b503452d9e6e217bc4a

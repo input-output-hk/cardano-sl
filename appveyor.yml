@@ -39,9 +39,6 @@ before_test:
 - ps: (New-Object Net.WebClient).DownloadFile('https://slproweb.com/download/Win64OpenSSL-1_0_2o.exe', "$($env:USERPROFILE)\Win64OpenSSL.exe")
 - ps: cmd /c start /wait "$($env:USERPROFILE)\Win64OpenSSL.exe" /silent /verysilent /sp- /suppressmsgboxes /DIR=C:\OpenSSL-Win64-v102
 - ps: Install-Product node 6
-# Install stack
-- ps: Start-FileDownload http://www.stackage.org/stack/windows-x86_64 -FileName stack.zip
-- 7z x stack.zip stack.exe
 
 
 # Install rocksdb

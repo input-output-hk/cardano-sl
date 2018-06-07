@@ -21,9 +21,7 @@ import           Universum
 import           Control.Concurrent.Async (withAsync, async, concurrently, forConcurrently, race)
 import           Control.Concurrent.STM (TVar, check, modifyTVar')
 import           Control.Exception.Safe (Exception, catchAny, handleAny)
-import           Control.Lens ((%=), (.=), _Just)
 import           Control.Monad (forever)
-import           Control.Monad.State (gets)
 import           Data.Binary (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.Maybe (catMaybes, isNothing)
@@ -32,18 +30,17 @@ import           Data.Typeable (Typeable)
 import           Formatting (sformat, shown, (%))
 import           Network.Socket (AddrInfo, SockAddr (..), Socket, addrAddress, addrFamily, close)
 import           Network.Socket.ByteString (recvFrom, sendTo)
-import           Serokell.Util.Concurrent (modifyTVarS, threadDelay)
+import           Serokell.Util.Concurrent (threadDelay)
 import           System.Wlog (LoggerNameBox)
 import qualified System.Wlog as Wlog
 
-import           Mockable (realTime)
-import           Ntp.Packet (NtpPacket (..), evalClockOffset, mkCliNtpPacket, ntpPacketSize)
+import           Ntp.Packet (NtpPacket (..), NtpOffset, evalClockOffset, mkCliNtpPacket, ntpPacketSize)
 import           Ntp.Util (createAndBindSock, resolveNtpHost, selectIPv4, selectIPv6,
                            udpLocalAddresses, withSocketsDoLifted)
 
 data NtpStatus =
       -- | The difference between ntp time and local system time
-      NtpDrift Microsecond
+      NtpDrift NtpOffset
       -- | NTP client has send requests to the servers
     | NtpSyncPending
       -- | NTP is not available: the client has not received any respond within
@@ -57,7 +54,7 @@ data NtpClientSettings = NtpClientSettings
       -- ^ delay between making requests and response collection
     , ntpPollDelay       :: Microsecond
       -- ^ how long to wait between to send requests to the servers
-    , ntpMeanSelection   :: [(Microsecond, Microsecond)] -> (Microsecond, Microsecond)
+    , ntpSelection       :: [(NtpOffset, Microsecond)] -> (NtpOffset, Microsecond)
       -- ^ way to sumarize results received from different servers.
       -- this may accept list of lesser size than @length ntpServers@ in case
       -- some servers failed to respond in time, but never an empty list
@@ -65,13 +62,16 @@ data NtpClientSettings = NtpClientSettings
 
 data NtpClient = NtpClient
     { ncSockets  :: TVar Sockets
-      -- ^ ntp client sockets: ipv4 / ipv6 / both
-    , ncState    :: TVar (Maybe [(Microsecond, Microsecond)])
-      -- ^ ntp client state, list of received values
-    , ncStatus          :: TVar NtpStatus
-      -- ^ got time callback (margin, time when client sent request)
+      -- ^ Ntp client sockets: ipv4 / ipv6 / both.
+    , ncState    :: TVar (Maybe [(NtpOffset, Microsecond)])
+      -- ^ List of ntp offsets and origin times (i.e. time when a request was
+      -- send) received from ntp servers since last polling interval.
+    , ncStatus   :: TVar NtpStatus
+      -- ^ Ntp status: holds `NtpOffset` or a status of ntp client:
+      -- `NtpSyncPending`, `NtpSyncUnavailable`.  It is computed from `ncState`
+      -- once all responses arrived.
     , ncSettings :: NtpClientSettings
-      -- ^ client configuration
+      -- ^ Ntp client configuration.
     }
 
 mkNtpClient :: MonadIO m => NtpClientSettings -> TVar NtpStatus -> Sockets -> m NtpClient
@@ -112,22 +112,16 @@ handleCollectedResponses cli = do
             logError "Protocol error: responses are not awaited"
         Just []        -> do
             atomically $ writeTVar (ncStatus cli) NtpSyncUnavailable
-            logWarning "No servers responded"
+            logWarning "No server responded"
         Just responses -> handleE `handleAny` do
-            let time = ntpMeanSelection (ncSettings cli) responses
+            let (ntpOffset, originTime) = ntpSelection (ncSettings cli) responses
             logInfo $ sformat ("Evaluated clock offset "%shown%
-                " mcs for request at "%shown%" mcs")
-                (toMicroseconds $ fst time)
-                (toMicroseconds $ snd time)
-            handler time
+                "mcs for request at "%shown%"mcs")
+                (toMicroseconds ntpOffset)
+                (toMicroseconds originTime)
+            atomically $ writeTVar (ncStatus cli) (NtpDrift $ ntpOffset)
   where
-    handleE = logError . sformat ("ntpMeanSelection: "%shown)
-
-    handler :: (Microsecond, Microsecond) -> IO ()
-    handler (newMargin, transmitTime) = do
-        let ntpTime = transmitTime + newMargin
-        localTime <- realTime
-        atomically $ writeTVar (ncStatus cli) (NtpDrift $ ntpTime - localTime)
+    handleE = logError . sformat ("ntpSelection: "%shown)
 
 
 allResponsesGathered :: NtpClient -> STM Bool
@@ -173,7 +167,7 @@ startSend cli addrs = do
 
     _ <- concurrently (threadDelay poll) $ do
         logDebug "Sending requests"
-        atomically . modifyTVarS (ncState cli) $ identity .= Just []
+        atomically . modifyTVar' (ncState cli) $ (const $ Just [])
         let sendRequests = forConcurrently addrs (doSend cli)
         let waitTimeout = void $ timeout respTimeout
                     (atomically $ check =<< allResponsesGathered cli)
@@ -182,7 +176,7 @@ startSend cli addrs = do
 
         logDebug "Collecting responses"
         handleCollectedResponses cli
-        atomically . modifyTVarS (ncState cli) $ identity .= Nothing
+        atomically $ modifyTVar' (ncState cli) (const Nothing)
 
     startSend cli addrs
 
@@ -222,12 +216,13 @@ handleNtpPacket cli packet = do
 
     clockOffset <- evalClockOffset packet
 
-    logDebug $ sformat ("Received time delta "%shown%" mcs")
+    logDebug $ sformat ("Received time delta "%shown%"mcs")
         (toMicroseconds clockOffset)
 
-    late <- atomically . modifyTVarS (ncState cli) $ do
-        _Just %= ((clockOffset, ntpOriginTime packet) :)
-        gets isNothing
+    late <- atomically $ do
+        modifyTVar' (ncState cli) $ fmap ((clockOffset, ntpOriginTime packet) : )
+        isNothing <$> readTVar (ncState cli)
+
     when late $
         logWarning "Response was too late"
 

@@ -212,14 +212,14 @@ genRedeemSignature genA =
 genDecShare :: Gen DecShare
 genDecShare = do
     (_, _, xs) <- genSharedSecretData
-    case head xs of
+    case fmap fst (uncons xs) of
         Just (vkp, es) -> return $ deterministic "ds" $ decryptShare vkp es
         Nothing        -> error "Error generating a DecShare."
 
 genEncShare :: Gen EncShare
 genEncShare = do
     (_, _, xs) <- genSharedSecretData
-    case head xs of
+    case fmap fst (uncons xs) of
         Just (_, es) -> return es
         Nothing      -> error "Error generating an EncShare."
 

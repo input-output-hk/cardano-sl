@@ -165,7 +165,7 @@ decodeAbstractHash prettyHash = do
         Just digest -> return (AbstractHash digest)
 
 -- | Parses given hash in base16 form.
-decodeHash :: Bi (Hash a) => Text -> Either Text (Hash a)
+decodeHash :: Text -> Either Text (Hash a)
 decodeHash = decodeAbstractHash @Blake2b_256
 
 -- | Encode thing as 'Binary' data and then wrap into constructor.

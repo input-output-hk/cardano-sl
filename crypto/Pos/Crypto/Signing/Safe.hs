@@ -27,7 +27,7 @@ import           Data.Coerce (coerce)
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Configuration (ProtocolMagic)
-import           Pos.Crypto.Hashing (Hash, hash)
+import           Pos.Crypto.Hashing (hash)
 import qualified Pos.Crypto.Scrypt as S
 import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..), PublicKey (..),
                                              SecretKey (..), Signature (..), sign, toPublic)

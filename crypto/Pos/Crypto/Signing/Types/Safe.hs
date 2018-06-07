@@ -110,8 +110,7 @@ passScryptParam =
 -- Hash is evaluated using given salt.
 -- This function assumes that passphrase matches with secret key.
 mkEncSecretWithSaltUnsafe
-    :: Bi PassPhrase
-    => S.Salt -> PassPhrase -> CC.XPrv -> EncryptedSecretKey
+    :: S.Salt -> PassPhrase -> CC.XPrv -> EncryptedSecretKey
 mkEncSecretWithSaltUnsafe salt pp payload =
     EncryptedSecretKey payload $ S.encryptPassWithSalt passScryptParam salt pp
 
@@ -119,7 +118,7 @@ mkEncSecretWithSaltUnsafe salt pp payload =
 -- Hash is evaluated using generated salt.
 -- This function assumes that passphrase matches with secret key.
 mkEncSecretUnsafe
-    :: (Bi PassPhrase, MonadRandom m)
+    :: (MonadRandom m)
     => PassPhrase -> CC.XPrv -> m EncryptedSecretKey
 mkEncSecretUnsafe pp payload =
     EncryptedSecretKey payload <$> S.encryptPass passScryptParam pp
@@ -135,14 +134,13 @@ encToPublic = toPublic . encToSecret
 -- | Re-wrap unencrypted secret key as an encrypted one.
 -- NB: for testing purposes only
 noPassEncrypt
-    :: Bi PassPhrase
-    => SecretKey -> EncryptedSecretKey
+    :: SecretKey -> EncryptedSecretKey
 noPassEncrypt (SecretKey k) =
     mkEncSecretWithSaltUnsafe S.emptySalt emptyPassphrase k
 
 -- Here with types to avoid module import cycles:
 checkPassMatches
-    :: (Bi PassPhrase, Alternative f)
+    :: (Alternative f)
     => PassPhrase -> EncryptedSecretKey -> f ()
 checkPassMatches pp (EncryptedSecretKey _ pph) =
     guard (S.verifyPass passScryptParam pp pph)

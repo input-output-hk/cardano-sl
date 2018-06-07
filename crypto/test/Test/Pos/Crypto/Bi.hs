@@ -260,7 +260,7 @@ golden_DecShare :: Property
 golden_DecShare = goldenTestBi decShare "test/golden/DecShare"
   where
     Just decShare = case sharedSecretData of
-        (_, _, xs) -> deterministic "ds" . uncurry decryptShare <$> head xs
+        (_, _, xs) -> deterministic "ds" . uncurry decryptShare <$> fmap fst (uncons xs)
 
 roundTripDecShareBi :: Property
 roundTripDecShareBi = eachOf 20 genDecShare roundTripsBiShow
@@ -273,7 +273,7 @@ golden_EncShare :: Property
 golden_EncShare = goldenTestBi encShare "test/golden/EncShare"
   where
     Just encShare = case sharedSecretData of
-        (_, _, xs) -> snd <$> head xs
+        (_, _, xs) -> snd <$> fmap fst (uncons xs)
 
 roundTripEncShareBi :: Property
 roundTripEncShareBi = eachOf 20 genEncShare roundTripsBiShow

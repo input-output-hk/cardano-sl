@@ -1,9 +1,14 @@
 module Test.Pos.Core.Gen
        (
         -- Pos.Core.Block Generators
-          genGenesisHash
+          genBlockBodyAttributes
+        , genBlockHeaderAttributes
+        , genGenesisHash
         , genGenesisHeader
+        , genMainBlockHeader
         , genMainBody
+        , genMainExtraBodyData
+        , genMainExtraHeaderData
 
         -- Pos.Core.Common Generators
         , genAddrAttributes
@@ -32,13 +37,13 @@ module Test.Pos.Core.Gen
         , genFlatSlotId
         , genLocalSlotIndex
         , genSlotId
-        , genSscPayload
 
         -- Pos.Core.Ssc Generators
         , genCommitment
         , genCommitmentsMap
         , genCommitmentSignature
         , genOpening
+        , genSscPayload
         , genSignedCommitment
         , genVssCertificate
         , genVssCertificatesMap
@@ -93,9 +98,10 @@ import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import           Pos.Binary.Class (asBinary, Raw (..))
-import           Pos.Block.Base (mkGenesisHeader)
-import           Pos.Core.Block (GenesisBlockHeader, GenesisBody (..),
-                                 MainBody (..))
+import           Pos.Block.Base (mkMainHeader, mkGenesisHeader)
+import           Pos.Core.Block (BlockBodyAttributes, BlockHeaderAttributes,
+                                 GenesisBlockHeader, GenesisBody (..), MainBlockHeader,
+                                 MainBody (..), MainExtraBodyData (..), MainExtraHeaderData (..))
 import           Pos.Core.Common (Address (..), AddrAttributes (..),
                                   AddrSpendingData (..), AddrStakeDistribution (..),
                                   AddrType (..), Coeff (..), Coin (..),
@@ -136,6 +142,12 @@ import           Serokell.Data.Memory.Units (Byte)
 -- Pos.Core.Block Generators
 ----------------------------------------------------------------------------
 
+genBlockBodyAttributes :: Gen BlockBodyAttributes
+genBlockBodyAttributes = pure $ mkAttributes ()
+
+genBlockHeaderAttributes :: Gen BlockHeaderAttributes
+genBlockHeaderAttributes = pure $ mkAttributes ()
+
 genGenesisHash :: Gen GenesisHash
 genGenesisHash = do
   sampleText <- Gen.text Range.constantBounded Gen.alphaNum
@@ -160,6 +172,29 @@ genMainBody =
         <*> genSscPayload
         <*> genDlgPayload
         <*> genUpdatePayload
+
+genMainExtraBodyData :: Gen MainExtraBodyData
+genMainExtraBodyData = MainExtraBodyData <$> genBlockBodyAttributes
+
+genMainExtraHeaderData :: Gen MainExtraHeaderData
+genMainExtraHeaderData =
+    MainExtraHeaderData
+        <$> genBlockVersion
+        <*> genSoftwareVersion
+        <*> genBlockHeaderAttributes
+        <*> genAbstractHash genMainExtraBodyData
+
+genMainBlockHeader :: Gen MainBlockHeader
+genMainBlockHeader =
+    mkMainHeader
+        <$> genProtocolMagic
+        <*> (Left <$> genGenesisHash)
+        <*> genSlotId
+        <*> genSecretKey
+        <*> genProxySKBlockInfo
+        <*> genMainBody
+        <*> genMainExtraHeaderData
+
 ----------------------------------------------------------------------------
 -- Pos.Core.Common Generators
 ----------------------------------------------------------------------------
@@ -314,8 +349,15 @@ genSignedCommitment :: Gen SignedCommitment
 genSignedCommitment =
     (,,) <$> genPublicKey <*> genCommitment <*> genCommitmentSignature
 
+-- `SscPayload` gen needs two more constructors to be complete.
+-- Generators from `crypto` are needed for these constructors.
+
 genSscPayload :: Gen SscPayload
-genSscPayload = CertificatesPayload <$> genVssCertificatesMap
+genSscPayload =
+    Gen.choice
+        [ CertificatesPayload <$> genVssCertificatesMap
+        , CommitmentsPayload <$> genCommitmentsMap <*> genVssCertificatesMap
+        ]
 
 genVssCertificate :: Gen VssCertificate
 genVssCertificate =

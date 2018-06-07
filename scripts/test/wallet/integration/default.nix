@@ -22,9 +22,8 @@ let
   iohkPkgs = import ./../../../.. { inherit config system pkgs gitrev; };
 in pkgs.writeScript "integration-tests" ''
   source ${demo-cluster}
-  mkdir -p scripts
-  cp -r ${stateDir}/tls-files scripts/tls-files
-  ${executables.integration-test} --tls-ca-cert ${stateDir}/tls-files/ca.crt --tls-client-cert ${stateDir}/tls-files/client.crt --tls-key ${stateDir}/tls-files/client.key
+  ${executables.integration-test} --tls-ca-cert ${stateDir}/tls/client/ca.crt --tls-client-cert ${stateDir}/tls/client/client.pem --tls-key ${stateDir}/tls/client/client.key
+
   EXIT_STATUS=$?
   stop_cardano
 ''

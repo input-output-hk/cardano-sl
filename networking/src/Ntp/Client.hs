@@ -24,6 +24,7 @@ import           Control.Exception.Safe (Exception, catchAny, handleAny)
 import           Control.Monad (forever)
 import           Data.Binary (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy as LBS
+import qualified Data.List.NonEmpty as NE
 import           Data.Maybe (catMaybes, isNothing)
 import           Data.Time.Units (TimeUnit, Microsecond, Second, toMicroseconds)
 import           Data.Typeable (Typeable)
@@ -54,7 +55,7 @@ data NtpClientSettings = NtpClientSettings
       -- ^ delay between making requests and response collection
     , ntpPollDelay       :: Microsecond
       -- ^ how long to wait between to send requests to the servers
-    , ntpSelection       :: [(NtpOffset, Microsecond)] -> (NtpOffset, Microsecond)
+    , ntpSelection       :: NonEmpty (NtpOffset, Microsecond) -> (NtpOffset, Microsecond)
       -- ^ way to sumarize results received from different servers.
       -- this may accept list of lesser size than @length ntpServers@ in case
       -- some servers failed to respond in time, but never an empty list
@@ -114,7 +115,7 @@ handleCollectedResponses cli = do
             atomically $ writeTVar (ncStatus cli) NtpSyncUnavailable
             logWarning "No server responded"
         Just responses -> handleE `handleAny` do
-            let (ntpOffset, originTime) = ntpSelection (ncSettings cli) responses
+            let (ntpOffset, originTime) = ntpSelection (ncSettings cli) $ NE.fromList $ responses
             logInfo $ sformat ("Evaluated clock offset "%shown%
                 "mcs for request at "%shown%"mcs")
                 (toMicroseconds ntpOffset)

@@ -11,7 +11,6 @@ import           Data.List.NonEmpty as NE
 import           Data.Time.Units (fromMicroseconds)
 import           Ntp.Client (NtpClientSettings (..))
 import           Serokell.Aeson.Options (defaultOptions)
-import           Pos.Util.Util (median)
 
 data NtpConfiguration = NtpConfiguration
     {
@@ -35,5 +34,6 @@ ntpClientSettings NtpConfiguration {..} = NtpClientSettings
     { ntpServers         = ntpcServers
     , ntpResponseTimeout = fromMicroseconds $ ntpcResponseTimeout
     , ntpPollDelay       = fromMicroseconds $ ntpcPollDelay
-    , ntpSelection       = median . NE.fromList
+    , ntpSelection       = NE.head . NE.sortWith (abs . fst)
+    -- ^ Take minmum of received offsets.
     }

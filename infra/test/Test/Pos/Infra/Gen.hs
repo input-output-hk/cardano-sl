@@ -21,7 +21,6 @@ import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 
-import           Pos.Arbitrary.Core ()
 import           Pos.Core (EpochIndex)
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..),
                                                       InvMsg (..),
@@ -49,7 +48,7 @@ genResMsg :: Gen a -> Gen (ResMsg a)
 genResMsg genA = ResMsg <$> genA <*> Gen.bool
 
 genMempoolMsg :: Gen (MempoolMsg a)
-genMempoolMsg = return MempoolMsg
+genMempoolMsg = pure MempoolMsg
 
 genDataMsg :: Gen a -> Gen (DataMsg a)
 genDataMsg genA = DataMsg <$> genA
@@ -60,10 +59,10 @@ genDHTKey = do
     let k = bytesToDHTKey b :: Either String DHTKey
     case k of
         Left _   -> error "Failed to generate a DHTKey."
-        Right dk -> return dk
+        Right dk -> pure dk
 
 genDHTData :: Gen DHTData
-genDHTData = return $ DHTData ()
+genDHTData = pure $ DHTData ()
 
 ----------------------------------------------------------------------------
 -- Slotting Generators
@@ -82,7 +81,7 @@ genEpochIndexDataPair :: Gen (EpochIndex, EpochSlottingData)
 genEpochIndexDataPair = do
     i <- genEpochIndex
     sd <- genEpochSlottingData
-    return (i, sd)
+    pure (i, sd)
 
 ----------------------------------------------------------------------------
 -- Helper Generators

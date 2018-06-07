@@ -15126,18 +15126,24 @@ license = stdenv.lib.licenses.mit;
 , cardano-crypto
 , cardano-sl-binary
 , cardano-sl-util
+, cardano-sl-util-test
 , cborg
 , cpphs
 , cryptonite
 , cryptonite-openssl
 , data-default
+, directory
 , ed25519
+, file-embed
+, filepath
 , formatting
 , hashable
+, hedgehog
 , hspec
 , lens
 , memory
 , mtl
+, pretty-show
 , pvss
 , QuickCheck
 , reflection
@@ -15145,6 +15151,7 @@ license = stdenv.lib.licenses.mit;
 , scrypt
 , serokell-util
 , stdenv
+, template-haskell
 , text
 , text-format
 , universum
@@ -15187,13 +15194,25 @@ libraryToolDepends = [
 cpphs
 ];
 testHaskellDepends = [
+aeson
 base
 bytestring
+cardano-crypto
 cardano-sl-binary
+cardano-sl-util-test
+cryptonite
+directory
+file-embed
+filepath
 formatting
+hedgehog
 hspec
+memory
+pretty-show
 QuickCheck
+template-haskell
 text
+text-format
 universum
 unordered-containers
 ];
@@ -15227,7 +15246,7 @@ mkDerivation {
 
 pname = "cardano-sl-crypto-test";
 version = "1.1.0";
-src = ./../crypto/tests;
+src = ./../crypto/test;
 libraryHaskellDepends = [
 base
 bytestring
@@ -40181,6 +40200,7 @@ license = stdenv.lib.licenses.mit;
 , containers
 , directory
 , exceptions
+, fetchgit
 , lifted-async
 , mmorph
 , monad-control
@@ -40205,7 +40225,14 @@ mkDerivation {
 
 pname = "hedgehog";
 version = "0.6";
-sha256 = "b86ffe3cf523d40e77f1547ef79d45edb62762e15328e8152959c440f7237e30";
+src = fetchgit {
+
+url = "https://github.com/input-output-hk/haskell-hedgehog.git";
+sha256 = "07pvrslv6h3rz053lfxp0racnqj70yazik6mrn612i09vfaxis6b";
+rev = "2c9e51804e8217dff89f5c32cbe0d79ce20bc508";
+
+};
+postUnpack = "sourceRoot+=/hedgehog; echo source root reset to $sourceRoot";
 libraryHaskellDepends = [
 ansi-terminal
 async

@@ -18,7 +18,7 @@ packages:
 - binary
 - binary/test
 - crypto
-- crypto/tests
+- crypto/test
 - core
 - core/test
 - db
@@ -131,6 +131,13 @@ packages:
     commit: b8c390357b27e7ae3b9b0c5309bf9d0bbbf09852
   extra-dep: true
 
+- location:
+    git: https://github.com/input-output-hk/haskell-hedgehog.git
+    commit: 2c9e51804e8217dff89f5c32cbe0d79ce20bc508
+    subdirs:
+      - hedgehog
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 
@@ -156,7 +163,6 @@ extra-deps:
 - pipes-interleave-1.1.1
 - generic-arbitrary-0.1.0
 - happy-1.19.5                    # https://github.com/commercialhaskell/stack/issues/3151
-- hedgehog-0.6                    # not yet on Stackage
 - entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151
 - fmt-0.5.0.0
 - systemd-1.1.2

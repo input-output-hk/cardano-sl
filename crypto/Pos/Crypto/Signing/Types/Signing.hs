@@ -105,7 +105,7 @@ instance Show SecretKey where
 instance Bi PublicKey => B.Buildable PublicKey where
     build = bprint ("pub:"%shortPublicKeyHexF)
 
-instance Bi PublicKey => B.Buildable SecretKey where
+instance B.Buildable SecretKey where
     build = bprint ("sec:"%shortPublicKeyHexF) . toPublic
 
 encodeXPrv :: CC.XPrv -> E.Encoding
@@ -238,7 +238,7 @@ data ProxySecretKey w = UnsafeProxySecretKey
 instance NFData w => NFData (ProxySecretKey w)
 instance Hashable w => Hashable (ProxySecretKey w)
 
-instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey w) where
+instance (B.Buildable w) => B.Buildable (ProxySecretKey w) where
     build (UnsafeProxySecretKey w iPk dPk _) =
         bprint ("ProxySk { w = "%build%", iPk = "%build%", dPk = "%build%" }") w iPk dPk
 
@@ -274,7 +274,7 @@ data ProxySignature w a = ProxySignature
 instance NFData w => NFData (ProxySignature w a)
 instance Hashable w => Hashable (ProxySignature w a)
 
-instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature w a) where
+instance (B.Buildable w) => B.Buildable (ProxySignature w a) where
     build ProxySignature{..} = bprint ("Proxy signature { psk = "%build%" }") psigPsk
 
 instance (Typeable a, Bi w) =>

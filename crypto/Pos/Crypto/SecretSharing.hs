@@ -374,7 +374,7 @@ checkLenImpl action name expectedLen len
             expectedLen
 
 #define Ser(B, Bytes, Name) \
-  instance (Bi B, Bi (AsBinary B)) => AsBinaryClass B where {\
+  instance (Bi (AsBinary B)) => AsBinaryClass B where {\
     asBinary = AsBinary . checkLen "asBinary" Name Bytes . serialize' ;\
     fromBinary = decodeFull' . checkLen "fromBinary" Name Bytes . getAsBinary }; \
 

@@ -106,8 +106,7 @@ newtype ShouldCheckPassphrase = ShouldCheckPassphrase Bool
 
 -- | Derive child's secret key from parent's secret key using user's passphrase.
 deriveHDSecretKey
-    :: (Bi PassPhrase, Bi EncryptedPass)
-    => ShouldCheckPassphrase
+    :: ShouldCheckPassphrase
     -> PassPhrase
     -> EncryptedSecretKey
     -> Word32

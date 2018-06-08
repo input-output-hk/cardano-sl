@@ -7,7 +7,7 @@ import           Universum
 
 import           Cardano.Wallet.API.V1.Errors hiding (describe)
 import           Cardano.Wallet.Client.Http
-import           Control.Lens hiding ((^..), (^?))
+import           Control.Lens
 import qualified Pos.Core as Core
 import           Test.Hspec
 

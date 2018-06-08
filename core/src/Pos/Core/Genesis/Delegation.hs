@@ -27,9 +27,7 @@ import           Pos.Crypto.Signing (ProxySecretKey (..), isSelfSignedPsk)
 --    It's not needed in genesis, it can always be reduced.
 newtype GenesisDelegation = UnsafeGenesisDelegation
     { unGenesisDelegation :: HashMap StakeholderId ProxySKHeavy
-    } deriving (Show, Eq, ToList, Container)
-
-type instance Element GenesisDelegation = ProxySKHeavy
+    } deriving (Show, Eq, Container)
 
 -- | Empty 'GenesisDelegation'.
 noGenesisDelegation :: GenesisDelegation

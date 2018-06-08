@@ -18,8 +18,7 @@ import           Data.Aeson (FromJSON (..), ToJSON (..), genericParseJSON, gener
 import           Data.Reflection (Given (..), give)
 import           Serokell.Aeson.Options (defaultOptions)
 
-import           Data.Time.Units (Microsecond)
-import           Serokell.Util (sec)
+import           Data.Time.Units (Microsecond, fromMicroseconds)
 
 type HasSscConfiguration = Given SscConfiguration
 
@@ -51,7 +50,7 @@ instance ToJSON SscConfiguration where
 
 -- | Length of interval during which node should send her MPC message.
 mpcSendInterval :: HasSscConfiguration => Microsecond
-mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ sscConfiguration
+mpcSendInterval = fromMicroseconds . (*) 1000000 . fromIntegral . ccMpcSendInterval $ sscConfiguration
 
 -- | Number of epochs used by malicious actions detection to check if
 -- our commitments are not included in blockchain.

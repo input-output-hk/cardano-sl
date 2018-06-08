@@ -74,6 +74,7 @@ module UTxO.DSL (
 
 import           Control.Exception (throw)
 import           Control.Monad.Except (MonadError (..))
+import           Data.Foldable (Foldable (..), foldr, sum)
 import           Data.List (tail)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -86,7 +87,7 @@ import           Pos.Core.Chrono
                     OldestFirst(getOldestFirst))
 import           Prelude (Show (..))
 import           Serokell.Util (listJson, mapJson)
-import           Universum
+import           Universum hiding (Foldable, tail, toList, foldr, sum)
 
 import           Util
 import           Util.Validated
@@ -205,7 +206,7 @@ trIsAcceptable t l = sequence_ [
             inp
 
 -- | The effect this transaction has on the balance of an address
-trBalance :: forall h a. (Hash h a, Eq a, Buildable a)
+trBalance :: forall h a. (Hash h a, Eq a)
           => Address a -> Transaction h a -> Ledger h a -> Value
 trBalance a t l = received - spent
   where
@@ -301,18 +302,18 @@ inpVal i l = outVal <$> inpSpentOutput i l
   transaction is known and the input index is correct
 -------------------------------------------------------------------------------}
 
-inpTransaction' :: (Hash h a, Buildable a)
+inpTransaction' :: (Hash h a)
                 => Input h a -> Ledger h a -> Transaction h a
 inpTransaction' = findHash' . inpTrans
 
-inpSpentOutput' :: (Hash h a, Buildable a, HasCallStack)
+inpSpentOutput' :: (Hash h a, HasCallStack)
                 => Input h a -> Ledger h a -> Output a
 inpSpentOutput' i l = fromJust err $
       trOuts (inpTransaction' i l) `at` fromIntegral (inpIndex i)
   where
     err = sformat ("Input index out of bounds: " % build) i
 
-inpVal' :: (Hash h a, Buildable a) => Input h a -> Ledger h a -> Value
+inpVal' :: (Hash h a) => Input h a -> Ledger h a -> Value
 inpVal' i = outVal . inpSpentOutput' i
 
 {-------------------------------------------------------------------------------
@@ -351,7 +352,7 @@ ledgerTails :: Ledger h a -> [(Transaction h a, Ledger h a)]
 ledgerTails (Ledger (NewestFirst l)) =
     zipWith (\t ts -> (t, Ledger (NewestFirst ts))) l (tail (tails l))
 
-ledgerBalance :: forall h a. (Hash h a, Eq a, Buildable a)
+ledgerBalance :: forall h a. (Hash h a, Eq a)
               => Address a -> Ledger h a -> Value
 ledgerBalance a l = sum $ map (uncurry (trBalance a)) (ledgerTails l)
 

@@ -18,7 +18,7 @@ module Pos.Explorer.TestUtil
     ) where
 
 import qualified Prelude
-import           Universum
+import           Universum hiding (keys)
 
 import           Control.Lens (at)
 import           Data.Default (def)

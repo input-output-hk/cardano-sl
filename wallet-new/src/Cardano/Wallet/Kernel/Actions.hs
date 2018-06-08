@@ -85,7 +85,8 @@ interp walletInterp action = do
       ApplyBlocks bs -> do
 
         -- Add the blocks
-        pendingBlocks %= prependNewestFirst (toNewestFirst $ toListChrono bs)
+        let bsList = toNewestFirst (OldestFirst (toList (getOldestFirst bs)))
+        pendingBlocks %= prependNewestFirst bsList
         lengthPendingBlocks += length bs
 
         -- If we have seen more blocks than rollbacks, switch to the new fork.

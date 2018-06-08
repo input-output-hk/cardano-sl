@@ -378,7 +378,7 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
     createTcpAddr :: Maybe DHT.KademliaParams -> m TCP.TCPAddr
     createTcpAddr kademliaBind = do
         let kademliaExternal :: Maybe NetworkAddress
-            kademliaExternal = join $ DHT.kpExternalAddress <$> kademliaBind
+            kademliaExternal = DHT.kpExternalAddress =<< kademliaBind
         bindAddr@(bindHost, bindPort) <-
             maybe (throwM MissingBindAddress) pure ncoBindAddress
         whenJust ((,) <$> kademliaExternal <*> ncoExternalAddress) $ \(kademliaEx::NetworkAddress,paramEx::NetworkAddress) ->

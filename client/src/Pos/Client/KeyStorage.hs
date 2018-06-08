@@ -75,9 +75,7 @@ getPrimaryKey = view usPrimKey <$> getSecret
 
 newtype AllUserSecrets = AllUserSecrets
     { getAllUserSecrets :: [EncryptedSecretKey]
-    } deriving (ToList, Container)
-
-type instance Element AllUserSecrets = EncryptedSecretKey
+    } deriving (Container)
 
 getSecretKeys :: MonadKeysRead m => m AllUserSecrets
 getSecretKeys = AllUserSecrets . view usKeys <$> getSecret

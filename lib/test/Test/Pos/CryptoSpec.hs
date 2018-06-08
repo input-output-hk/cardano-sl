@@ -419,6 +419,14 @@ verifyEncSharesWrongKeys SharedSecrets {..} =
     (headMay ssVssKeys /= lastMay ssVssKeys) ==>
     not <$> Crypto.verifyEncShares @Gen ssSecProof ssThreshold
                (zip (reverse ssVssKeys) ssEncShares)
+  where
+    headMay :: [a] -> Maybe a
+    headMay []    = Nothing
+    headMay (x:_) = Just x
+    lastMay :: [a] -> Maybe a
+    lastMay []     = Nothing
+    lastMay [x]    = Just x
+    lastMay (_:xs) = lastMay xs
 
 verifyShareGoodData :: SharedSecrets -> Bool
 verifyShareGoodData SharedSecrets {..} =
@@ -469,20 +477,20 @@ verifyProofBadSecProof SharedSecrets {..} secProof =
 
 recoverSecretSuccessfully :: SharedSecrets -> Property
 recoverSecretSuccessfully SharedSecrets {..} =
-    Crypto.recoverSecret ssThreshold keys shares === Just ssSecret
+    Crypto.recoverSecret ssThreshold keys' shares === Just ssSecret
   where
-    keys = map (,1) ssVssKeys
+    keys' = map (,1) ssVssKeys
     shares = HM.fromList $ zip ssVssKeys (map one ssDecShares)
 
 recoverSecBadThreshold :: SharedSecrets -> Integer -> Property
 recoverSecBadThreshold SharedSecrets {..} rnd =
     (badThreshold > ssThreshold) ==>
-    isNothing (Crypto.recoverSecret badThreshold keys shares)
+    isNothing (Crypto.recoverSecret badThreshold keys' shares)
   where
     maxThreshold = genericLength ssEncShares
     -- badThreshold is in ]actualThreshold, actualThreshold * 2]
     badThreshold = maxThreshold + (succ . abs $ rnd `mod` maxThreshold)
-    keys = map (,1) ssVssKeys
+    keys' = map (,1) ssVssKeys
     shares = HM.fromList $ zip ssVssKeys (map one ssDecShares)
 
 matchingPassphraseWorks :: Crypto.PassPhrase -> Property

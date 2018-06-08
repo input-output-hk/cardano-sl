@@ -301,6 +301,7 @@ executable cardano-integration-test
                      , optparse-applicative
                      , pretty-show
                      , servant
+                     , servant-client
                      , servant-quickcheck
                      , servant-server
                      , text
@@ -465,6 +466,7 @@ test-suite wallet-new-specs
                       MonadFailDesugaring
 
   build-depends:      base
+                    , acid-state
                     , aeson
                     , bytestring
                     , cardano-sl

@@ -23,23 +23,24 @@ import qualified Wallet.Prefiltered as Pref
 import qualified Wallet.Rollback.Basic as Roll
 import qualified Wallet.Rollback.Full as Full
 
-import           Pos.Core (HasGenesisBlockVersionData)
+import           Pos.Core (Coeff (..), TxSizeLinear (..))
 
 {-------------------------------------------------------------------------------
   Pure wallet tests
 -------------------------------------------------------------------------------}
 
 -- | Test the pure wallet models
-spec :: HasGenesisBlockVersionData => Spec
+spec :: Spec
 spec = do
     describe "Test pure wallets" $ do
       it "Using simple model" $
         forAll (genInductiveUsingModel simpleModel) $ testPureWalletWith
       it "Using Cardano model" $
-        forAll (genInductiveUsingModel (cardanoModel boot)) $ testPureWalletWith
+        forAll (genInductiveUsingModel (cardanoModel linearFeePolicy boot)) $ testPureWalletWith
   where
     transCtxt = runTranslateNoErrors ask
     boot      = bootstrapTransaction transCtxt
+    linearFeePolicy = TxSizeLinear (Coeff 155381) (Coeff 43.946)
 
 testPureWalletWith :: forall h a. (Hash h a, Ord a, Buildable a)
                    => Inductive h a -> Property

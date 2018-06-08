@@ -5,7 +5,7 @@ packages:
   , util/cardano-sl-util.cabal
   , util/test/cardano-sl-util-test.cabal
   , crypto/cardano-sl-crypto.cabal
-  , crypto/tests/cardano-sl-crypto-test.cabal
+  , crypto/test/cardano-sl-crypto-test.cabal
   , core/cardano-sl-core.cabal
   , core/test/cardano-sl-core-test.cabal
   , db/cardano-sl-db.cabal

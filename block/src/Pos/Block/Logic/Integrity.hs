@@ -27,18 +27,16 @@ import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.Core ()
 import           Pos.Binary.Update ()
 import qualified Pos.Block.BHelpers as BHelpers
-import           Pos.Core (BlockVersionData (..), ChainDifficulty, EpochOrSlot,
-                           HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
-                           HasHeaderHash (..), HeaderHash, SlotId (..), SlotLeaders,
-                           protocolMagic, addressHash, gbExtra, gbhExtra, getSlotIndex,
-                           headerSlotL, prevBlockL, HasProtocolConstants, HasProtocolMagic)
-import           Pos.Core.Block (Block, BlockHeader (..), blockHeaderProtocolMagic,
-                                 gebAttributes, gehAttributes, genBlockLeaders,
-                                 getBlockHeader, mainHeaderLeaderKey,
-                                 mebAttributes, mehAttributes)
+import           Pos.Core (BlockVersionData (..), ChainDifficulty, EpochOrSlot, HasDifficulty (..),
+                           HasEpochIndex (..), HasEpochOrSlot (..), HasHeaderHash (..),
+                           HasProtocolConstants, HeaderHash, SlotId (..), SlotLeaders, addressHash,
+                           gbExtra, gbhExtra, getSlotIndex, headerSlotL, prevBlockL)
+import           Pos.Core.Block (Block, BlockHeader (..), blockHeaderProtocolMagic, gebAttributes,
+                                 gehAttributes, genBlockLeaders, getBlockHeader,
+                                 mainHeaderLeaderKey, mebAttributes, mehAttributes)
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst)
 import           Pos.Crypto (ProtocolMagic (getProtocolMagic))
 import           Pos.Data.Attributes (areAttributesKnown)
-import           Pos.Core.Chrono (NewestFirst (..), OldestFirst)
 
 ----------------------------------------------------------------------------
 -- Header
@@ -64,8 +62,8 @@ data VerifyHeaderParams = VerifyHeaderParams
     } deriving (Eq, Show)
 
 verifyFromEither :: Text -> Either Text b -> VerificationRes
-verifyFromEither txt (Left reason)  = verifyGeneric [(False, txt <> ": " <> reason)]
-verifyFromEither txt (Right _) = verifyGeneric [(True, txt)]
+verifyFromEither txt (Left reason) = verifyGeneric [(False, txt <> ": " <> reason)]
+verifyFromEither txt (Right _)     = verifyGeneric [(True, txt)]
 
 -- CHECK: @verifyHeader
 -- | Check some predicates (determined by 'VerifyHeaderParams') about
@@ -86,10 +84,9 @@ verifyFromEither txt (Right _) = verifyGeneric [(True, txt)]
 -- 4.  Header size does not exceed `bvdMaxHeaderSize`.
 -- 5.  (Optional) Header has no unknown attributes.
 verifyHeader
-    :: HasProtocolMagic
-    => VerifyHeaderParams -> BlockHeader -> VerificationRes
-verifyHeader VerifyHeaderParams {..} h =
-       verifyFromEither "internal header consistency" (BHelpers.verifyBlockHeader h)
+    :: ProtocolMagic -> VerifyHeaderParams -> BlockHeader -> VerificationRes
+verifyHeader pm VerifyHeaderParams {..} h =
+       verifyFromEither "internal header consistency" (BHelpers.verifyBlockHeader pm h)
     <> verifyGeneric checks
   where
     checks =
@@ -127,14 +124,12 @@ verifyHeader VerifyHeaderParams {..} h =
               ("two adjacent blocks are from different epochs ("%build%" != "%build%")")
               oldEpoch newEpoch
         )
-    -- FIXME do not use 'HasConfigurations' 'protocolMagic'. Take it as a
-    -- parameter instead.
     checkProtocolMagic =
-        [ ( protocolMagic == blockHeaderProtocolMagic h
+        [ ( pm == blockHeaderProtocolMagic h
           , sformat
                 ("protocol magic number mismatch: got "%int%" but expected "%int)
                 (getProtocolMagic (blockHeaderProtocolMagic h))
-                (getProtocolMagic protocolMagic)
+                (getProtocolMagic pm)
           )
         ]
     checkSize =
@@ -204,12 +199,12 @@ verifyHeader VerifyHeaderParams {..} h =
 -- | Verifies a set of block headers. Only basic consensus check and
 -- linking checks are performed!
 verifyHeaders ::
-       HasProtocolMagic
-    => Maybe SlotLeaders
+       ProtocolMagic
+    -> Maybe SlotLeaders
     -> NewestFirst [] BlockHeader
     -> VerificationRes
-verifyHeaders _ (NewestFirst []) = mempty
-verifyHeaders leaders (NewestFirst (headers@(_:xh))) =
+verifyHeaders _ _ (NewestFirst []) = mempty
+verifyHeaders pm leaders (NewestFirst (headers@(_:xh))) =
     snd $
     foldr foldFoo (leaders,mempty) $ headers `zip` (map Just xh ++ [Nothing])
   where
@@ -219,7 +214,7 @@ verifyHeaders leaders (NewestFirst (headers@(_:xh))) =
                              BlockHeaderGenesis _ -> Nothing
                              _                    -> prevLeaders
 
-        in (curLeaders, verifyHeader (toVHP curLeaders prev) cur <> res)
+        in (curLeaders, verifyHeader pm (toVHP curLeaders prev) cur <> res)
     toVHP l p =
         VerifyHeaderParams
         { vhpPrevHeader = p
@@ -257,11 +252,14 @@ data VerifyBlockParams = VerifyBlockParams
 -- 2.  The size of each block does not exceed `bvdMaxBlockSize`.
 -- 3.  (Optional) No block has any unknown attributes.
 verifyBlock
-    :: (HasProtocolConstants, HasProtocolMagic)
-    => VerifyBlockParams -> Block -> VerificationRes
-verifyBlock VerifyBlockParams {..} blk = mconcat
-    [ verifyFromEither "internal block consistency" (BHelpers.verifyBlock blk)
-    , verifyHeader vbpVerifyHeader (getBlockHeader blk)
+    :: HasProtocolConstants
+    => ProtocolMagic
+    -> VerifyBlockParams
+    -> Block
+    -> VerificationRes
+verifyBlock pm VerifyBlockParams {..} blk = mconcat
+    [ verifyFromEither "internal block consistency" (BHelpers.verifyBlock pm blk)
+    , verifyHeader pm vbpVerifyHeader (getBlockHeader blk)
     , checkSize vbpMaxSize
     , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
     ]
@@ -303,16 +301,15 @@ type VerifyBlocksIter = (SlotLeaders, Maybe BlockHeader, VerificationRes)
 -- laziness of 'VerificationRes' which is good because laziness for this data
 -- type is crucial.
 verifyBlocks
-    :: ( HasProtocolConstants
-       , HasProtocolMagic
-       )
-    => Maybe SlotId
+    :: HasProtocolConstants
+    => ProtocolMagic
+    -> Maybe SlotId
     -> Bool
     -> BlockVersionData
     -> SlotLeaders
     -> OldestFirst [] Block
     -> VerificationRes
-verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
+verifyBlocks pm curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
   where
     start :: VerifyBlocksIter
     -- Note that here we never know previous header before this
@@ -341,4 +338,4 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step s
                 , vbpMaxSize = bvdMaxBlockSize bvd
                 , vbpVerifyNoUnknown = verifyNoUnknown
                 }
-        in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)
+        in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock pm vbp blk)

@@ -18,7 +18,7 @@ import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Util.QuickCheck.Property (shouldThrowException, (.=.))
 
 spec :: Spec
-spec = withDefConfiguration $ describe "Slotting" $ do
+spec = withDefConfiguration $ \_ -> describe "Slotting" $ do
     describe "SlotId" $ do
         describe "Ord" $ do
             prop "is consistent with flatten/unflatten"

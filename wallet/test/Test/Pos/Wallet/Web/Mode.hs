@@ -1,14 +1,14 @@
-{-# LANGUAGE Rank2Types      #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE Rank2Types            #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE UndecidableInstances  #-}
 {-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 -- | Module which provides `MonadWalletWebMode` instance for tests
@@ -67,17 +67,12 @@ import           Pos.Generator.Block (BlockGenMode)
 import qualified Pos.GState as GS
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Infra.Reporting (MonadReporting (..))
-import           Pos.Infra.Shutdown (HasShutdownContext (..),
-                                     ShutdownContext (..))
-import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
-                                     MonadSlotsData, SimpleSlottingStateVar,
-                                     mkSimpleSlottingStateVar)
-import           Pos.Infra.StateLock (StateLock, StateLockMetrics (..),
-                                     newStateLock)
-import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
-                                                JsonLogConfig (..),
-                                                MemPoolModifyReason,
-                                                jsonLogDefault)
+import           Pos.Infra.Shutdown (HasShutdownContext (..), ShutdownContext (..))
+import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
+                                     SimpleSlottingStateVar, mkSimpleSlottingStateVar)
+import           Pos.Infra.StateLock (StateLock, StateLockMetrics (..), newStateLock)
+import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..), JsonLogConfig (..),
+                                                MemPoolModifyReason, jsonLogDefault)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Lrc (LrcContext)
@@ -109,9 +104,8 @@ import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext (..), BlockTestContextTag,
-                                            HasTestParams (..), TestParams (..),
-                                            btcSystemStartL, btcTxpMemL,
-                                            currentTimeSlottingTestDefault,
+                                            HasTestParams (..), TestParams (..), btcSystemStartL,
+                                            btcTxpMemL, currentTimeSlottingTestDefault,
                                             getCurrentSlotBlockingTestDefault,
                                             getCurrentSlotInaccurateTestDefault,
                                             getCurrentSlotTestDefault, initBlockTestContext)
@@ -249,7 +243,8 @@ walletPropertySpec ::
     => String
     -> (HasConfiguration => WalletProperty a)
     -> Spec
-walletPropertySpec description wp = prop description (walletPropertyToProperty arbitrary wp)
+walletPropertySpec description wp =
+    prop description (walletPropertyToProperty arbitrary wp)
 
 ----------------------------------------------------------------------------
 -- Instances derived from BlockTestContext

@@ -39,7 +39,7 @@ import           Pos.Binary.Core ()
 import           Pos.Core (StakeholderId, TxSigData)
 import           Pos.Crypto (SafeSigner, SignTag (SignTx), deterministicKeyGen, fullPublicKeyHexF,
                              fullSignatureHexF, hashHexF, safeSign, safeToPublic, signRaw, signTag)
-import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
+import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.Script (Script, parseRedeemer, parseValidator)
 
 fromE :: Either String Script -> Script
@@ -124,8 +124,8 @@ goodStdlibRedeemer = fromE $ parseRedeemer [text|
 
 
 -- #5820 is prefix for encoded bytestrings (of length 32)
-multisigValidator :: HasProtocolMagic => Int -> [StakeholderId] -> Script
-multisigValidator n ids = fromE $ parseValidator [text|
+multisigValidator :: ProtocolMagic -> Int -> [StakeholderId] -> Script
+multisigValidator protocolMagic n ids = fromE $ parseValidator [text|
     validator : List (Maybe (Pair ByteString ByteString)) -> Comp Unit {
         validator sigs = verifyMultiSig
             ${shownN} ${shownIds}
@@ -141,8 +141,8 @@ multisigValidator n ids = fromE $ parseValidator [text|
     shownIds = foldr mkCons "Nil" ids
     shownTag = sformat ("#"%base16F) (signTag protocolMagic SignTx)
 
-multisigRedeemer :: HasProtocolMagic => TxSigData -> [Maybe SafeSigner] -> Script
-multisigRedeemer txSigData sks = fromE $ parseRedeemer [text|
+multisigRedeemer :: ProtocolMagic -> TxSigData -> [Maybe SafeSigner] -> Script
+multisigRedeemer protocolMagic txSigData sks = fromE $ parseRedeemer [text|
     redeemer : Comp (List (Maybe (Pair ByteString ByteString))) {
         redeemer = success ${shownSigs} }
     |]
@@ -209,8 +209,8 @@ shaStressRedeemer n = fromE $ parseRedeemer [text|
     ns = show (n `div` 10)
 
 -- | Checks a signature N times. Should be used with 'idValidator'.
-sigStressRedeemer :: HasProtocolMagic => Int -> Script
-sigStressRedeemer n = fromE $ parseRedeemer [text|
+sigStressRedeemer :: ProtocolMagic -> Int -> Script
+sigStressRedeemer protocolMagic n = fromE $ parseRedeemer [text|
     sigLoop : Int -> Bool {
       sigLoop i = case !equalsInt i 0 of {
         True  -> True ;

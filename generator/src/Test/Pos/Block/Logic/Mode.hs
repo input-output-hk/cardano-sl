@@ -54,16 +54,18 @@ import           Mockable (Production, currentTime, runProduction)
 import qualified Prelude
 import           System.Wlog (HasLoggerName (..), LoggerName)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, ioProperty)
-import           Test.QuickCheck.Property (Testable)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
+import           Test.QuickCheck.Property (Testable)
 
 import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..), mkAllSecretsSimple)
 import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub, onRollbackBlocksStub)
 import           Pos.Block.Slog (HasSlogGState (..), mkSlogGState)
 import           Pos.Core (BlockVersionData, CoreConfiguration (..), GenesisConfiguration (..),
-                           GenesisInitializer (..), GenesisSpec (..), HasConfiguration, SlotId,
-                           Timestamp (..), genesisSecretKeys, withGenesisSpec, HasProtocolConstants)
+                           GenesisInitializer (..), GenesisSpec (..), HasConfiguration,
+                           HasProtocolConstants, SlotId, Timestamp (..), genesisSecretKeys,
+                           withGenesisSpec)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, withGenesisBlockVersionData)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..), MonadGState (..))
 import qualified Pos.DB as DB
 import qualified Pos.DB.Block as DB
@@ -74,19 +76,13 @@ import           Pos.Generator.Block (BlockGenMode)
 import           Pos.Generator.BlockEvent (SnapshotId)
 import qualified Pos.GState as GS
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Infra.Reporting (MonadReporting (..),
-                                      HasMisbehaviorMetrics (..))
-import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
-                                     MonadSimpleSlotting, SimpleSlottingMode,
-                                     SimpleSlottingStateVar,
-                                     currentTimeSlottingSimple,
-                                     getCurrentSlotBlockingSimple,
-                                     getCurrentSlotBlockingSimple',
-                                     getCurrentSlotInaccurateSimple,
-                                     getCurrentSlotInaccurateSimple',
-                                     getCurrentSlotSimple,
-                                     getCurrentSlotSimple',
-                                     mkSimpleSlottingStateVar)
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..), MonadReporting (..))
+import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSimpleSlotting, MonadSlots (..),
+                                     SimpleSlottingMode, SimpleSlottingStateVar,
+                                     currentTimeSlottingSimple, getCurrentSlotBlockingSimple,
+                                     getCurrentSlotBlockingSimple', getCurrentSlotInaccurateSimple,
+                                     getCurrentSlotInaccurateSimple', getCurrentSlotSimple,
+                                     getCurrentSlotSimple', mkSimpleSlottingStateVar)
 import           Pos.Infra.Slotting.MemState (MonadSlotsData)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
@@ -106,6 +102,7 @@ import           Pos.WorkMode (EmptyMempoolExt)
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, sudoLiftIO)
 import           Test.Pos.Configuration (defaultTestBlockVersionData, defaultTestConf,
                                          defaultTestGenesisSpec)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 ----------------------------------------------------------------------------
 -- Parameters
@@ -158,7 +155,7 @@ genGenesisInitializer = do
 
 -- This function creates 'CoreConfiguration' from 'TestParams' and
 -- uses it to satisfy 'HasConfiguration'.
-withTestParams :: TestParams -> (HasConfiguration => r) -> r
+withTestParams :: TestParams -> (HasConfiguration => ProtocolMagic -> r) -> r
 withTestParams TestParams {..} = withGenesisSpec _tpStartTime coreConfiguration
   where
     defaultCoreConf :: CoreConfiguration
@@ -253,7 +250,7 @@ initBlockTestContext tp@TestParams {..} callback = do
                 systemStart
                 futureLrcCtx
         initBlockTestContextDo = do
-            initNodeDBs
+            initNodeDBs dummyProtocolMagic
             _gscSlottingVar <- newTVarIO =<< GS.getSlottingData
             putSlottingVar _gscSlottingVar
             let btcLoggerName = "testing"
@@ -264,7 +261,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             btcSscState <- mkSscState
             _gscSlogGState <- mkSlogGState
             btcTxpMem <- mkTxpLocalData
-            let btcTxpGlobalSettings = txpGlobalSettings
+            let btcTxpGlobalSettings = txpGlobalSettings dummyProtocolMagic
             let btcSlotId = Nothing
             let btcParams = tp
             let btcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
@@ -310,15 +307,14 @@ type BlockProperty = PropertyM BlockTestMode
 
 -- | Convert 'BlockProperty' to 'Property' using given generator of
 -- 'TestParams'.
-blockPropertyToProperty ::
-       (HasDlgConfiguration, Testable a)
+blockPropertyToProperty
+    :: (HasDlgConfiguration, Testable a)
     => Gen TestParams
-    -> (HasConfiguration =>
-            BlockProperty a)
+    -> (HasConfiguration => BlockProperty a)
     -> Property
 blockPropertyToProperty tpGen blockProperty =
     forAll tpGen $ \tp ->
-        withTestParams tp $
+        withTestParams tp $ \_ ->
         monadic (ioProperty . runBlockTestMode tp) blockProperty
 
 -- | Simplified version of 'blockPropertyToProperty' which uses

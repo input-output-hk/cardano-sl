@@ -11,9 +11,8 @@ import           Test.Hspec (Spec, describe)
 import           Pos.Arbitrary.Explorer ()
 import           Pos.Explorer.Core (TxExtra)
 import           Test.Pos.Binary.Helpers (binaryTest)
-import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec
-spec = withDefConfiguration $ describe "Explorer types" $ do
+spec = describe "Explorer types" $ do
     describe "Bi instances" $ do
         binaryTest @TxExtra

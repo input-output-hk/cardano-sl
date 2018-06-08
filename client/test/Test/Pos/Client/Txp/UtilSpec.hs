@@ -32,10 +32,11 @@ import           Pos.Crypto (RedeemSecretKey, SafeSigner, SecretKey, decodeHash,
 import           Pos.DB (gsAdoptedBVData)
 import           Pos.Txp (Utxo)
 import           Pos.Util.Util (leftToPanic)
-import           Test.Pos.Configuration (withDefConfigurations)
 
 import           Test.Pos.Client.Txp.Mode (HasTxpConfigurations, TxpTestMode, TxpTestProperty,
                                            withBVData)
+import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)
 import           Test.Pos.Util.QuickCheck.Property (stopProperty)
 
@@ -44,7 +45,7 @@ import           Test.Pos.Util.QuickCheck.Property (stopProperty)
 ----------------------------------------------------------------------------
 
 spec :: Spec
-spec = withDefConfigurations $ \_ ->
+spec = withDefConfigurations $ \_ _ ->
     describe "Client.Txp.Util" $ do
         describe "createMTx" $ createMTxSpec
 
@@ -112,10 +113,13 @@ testCreateMTx
     => CreateMTxParams
     -> TxpTestProperty (Either TxError (TxAux, NonEmpty TxOut))
 testCreateMTx CreateMTxParams{..} = lift $
-    createMTx mempty cmpInputSelectionPolicy cmpUtxo (getSignerFromList cmpSigners)
+    createMTx dummyProtocolMagic mempty cmpInputSelectionPolicy cmpUtxo (getSignerFromList cmpSigners)
     cmpOutputs cmpAddrData
 
-createMTxWorksWhenWeAreRichSpec :: HasTxpConfigurations => InputSelectionPolicy -> TxpTestProperty ()
+createMTxWorksWhenWeAreRichSpec
+    :: HasTxpConfigurations
+    => InputSelectionPolicy
+    -> TxpTestProperty ()
 createMTxWorksWhenWeAreRichSpec inputSelectionPolicy =
     forAllM gen $ \txParams@CreateMTxParams{..} -> do
         txOrError <- testCreateMTx txParams
@@ -125,7 +129,10 @@ createMTxWorksWhenWeAreRichSpec inputSelectionPolicy =
   where
     gen = makeManyAddressesToManyParams inputSelectionPolicy 1 1000000 1 1
 
-stabilizationDoesNotFailSpec :: HasTxpConfigurations => InputSelectionPolicy -> TxpTestProperty ()
+stabilizationDoesNotFailSpec
+    :: HasTxpConfigurations
+    => InputSelectionPolicy
+    -> TxpTestProperty ()
 stabilizationDoesNotFailSpec inputSelectionPolicy = do
     forAllM gen $ \txParams@CreateMTxParams{..} -> do
         txOrError <- testCreateMTx txParams
@@ -136,7 +143,10 @@ stabilizationDoesNotFailSpec inputSelectionPolicy = do
   where
     gen = makeManyAddressesToManyParams inputSelectionPolicy 1 200000 1 1
 
-feeIsNonzeroSpec :: HasTxpConfigurations => InputSelectionPolicy -> TxpTestProperty ()
+feeIsNonzeroSpec
+    :: HasTxpConfigurations
+    => InputSelectionPolicy
+    -> TxpTestProperty ()
 feeIsNonzeroSpec inputSelectionPolicy = do
     forAllM gen $ \txParams@CreateMTxParams{..} -> do
         txOrError <- testCreateMTx txParams
@@ -149,7 +159,10 @@ feeIsNonzeroSpec inputSelectionPolicy = do
   where
     gen = makeManyAddressesToManyParams inputSelectionPolicy 1 100000 1 1
 
-manyUtxoTo1Spec :: HasTxpConfigurations => InputSelectionPolicy -> TxpTestProperty ()
+manyUtxoTo1Spec
+    :: HasTxpConfigurations
+    => InputSelectionPolicy
+    -> TxpTestProperty ()
 manyUtxoTo1Spec inputSelectionPolicy = do
     forAllM gen $ \txParams@CreateMTxParams{..} -> do
         txOrError <- testCreateMTx txParams
@@ -159,7 +172,10 @@ manyUtxoTo1Spec inputSelectionPolicy = do
   where
     gen = makeManyUtxoTo1Params inputSelectionPolicy 10 100000 1
 
-manyAddressesTo1Spec :: HasTxpConfigurations => InputSelectionPolicy -> TxpTestProperty ()
+manyAddressesTo1Spec
+    :: HasTxpConfigurations
+    => InputSelectionPolicy
+    -> TxpTestProperty ()
 manyAddressesTo1Spec inputSelectionPolicy = do
     forAllM gen $ \txParams@CreateMTxParams{..} -> do
         txOrError <- testCreateMTx txParams
@@ -169,7 +185,10 @@ manyAddressesTo1Spec inputSelectionPolicy = do
   where
     gen = makeManyAddressesToManyParams inputSelectionPolicy 10 100000 1 1
 
-manyAddressesToManySpec :: HasTxpConfigurations => InputSelectionPolicy -> TxpTestProperty ()
+manyAddressesToManySpec
+    :: HasTxpConfigurations
+    => InputSelectionPolicy
+    -> TxpTestProperty ()
 manyAddressesToManySpec inputSelectionPolicy = do
     forAllM gen $ \txParams@CreateMTxParams{..} -> do
         txOrError <- testCreateMTx txParams
@@ -182,7 +201,7 @@ manyAddressesToManySpec inputSelectionPolicy = do
 redemptionSpec :: HasTxpConfigurations => TxpTestProperty ()
 redemptionSpec = do
     forAllM genParams $ \(CreateRedemptionTxParams {..}) -> do
-        txOrError <- createRedemptionTx crpUtxo crpRsk crpOutputs
+        txOrError <- createRedemptionTx dummyProtocolMagic crpUtxo crpRsk crpOutputs
         case txOrError of
             Left err -> stopProperty $ pretty err
             Right _  -> return ()
@@ -198,11 +217,14 @@ redemptionSpec = do
 
         pure CreateRedemptionTxParams {..}
 
-txWithRedeemOutputFailsSpec :: HasTxpConfigurations => InputSelectionPolicy -> TxpTestProperty ()
+txWithRedeemOutputFailsSpec
+    :: HasTxpConfigurations
+    => InputSelectionPolicy
+    -> TxpTestProperty ()
 txWithRedeemOutputFailsSpec inputSelectionPolicy = do
     forAllM genParams $ \(CreateMTxParams {..}) -> do
         txOrError <-
-            createMTx mempty cmpInputSelectionPolicy cmpUtxo
+            createMTx dummyProtocolMagic mempty cmpInputSelectionPolicy cmpUtxo
                       (getSignerFromList cmpSigners)
                       cmpOutputs cmpAddrData
         case txOrError of

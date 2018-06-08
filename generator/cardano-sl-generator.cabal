@@ -42,6 +42,7 @@ library
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-crypto-test
                      , cardano-sl-db
                      , cardano-sl-delegation
                      , cardano-sl-infra
@@ -129,6 +130,7 @@ test-suite cardano-generator-test
                      , cardano-sl-block-test
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-crypto-test
                      , cardano-sl-db
                      , cardano-sl-delegation
                      , cardano-sl-generator

@@ -25,10 +25,11 @@ import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..), TxI
                                isTxInUnknown)
 import           Pos.Crypto (SignTag (SignRedeemTx, SignTx), WithHash (..), checkSig, hash,
                              redeemCheckSig)
-import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
+import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.Data.Attributes (Attributes (attrRemain), areAttributesKnown)
 import           Pos.Script (Script (..), isKnownScriptVersion, txScriptCheck)
-import           Pos.Txp.Toil.Failure (ToilVerFailure (..), TxOutVerFailure (..), WitnessVerFailure (..))
+import           Pos.Txp.Toil.Failure (ToilVerFailure (..), TxOutVerFailure (..),
+                                       WitnessVerFailure (..))
 import           Pos.Txp.Toil.Monad (UtxoM, utxoDel, utxoGet, utxoPut)
 import           Pos.Txp.Toil.Types (TxFee (..))
 import           Pos.Util (liftEither)
@@ -77,11 +78,11 @@ data VerifyTxUtxoRes = VerifyTxUtxoRes
 -- inclusion into blocks are verified with 'vtcVerifyAllIsKnown'
 -- set to 'True', so unknown script versions are rejected).
 verifyTxUtxo
-    :: ( HasProtocolMagic )
-    => VTxContext
+    :: ProtocolMagic
+    -> VTxContext
     -> TxAux
     -> ExceptT ToilVerFailure UtxoM VerifyTxUtxoRes
-verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses) = do
+verifyTxUtxo protocolMagic ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses) = do
     let unknownTxInMB = find (isTxInUnknown . snd) $ zip [0..] (toList _txInputs)
     case (vtcVerifyAllIsKnown, unknownTxInMB) of
         (True, Just (inpId, txIn)) -> throwError $
@@ -103,7 +104,7 @@ verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses) = do
             resolvedInputs <- mapM resolveInput _txInputs
             liftEither $ do
                 txFee <- verifySums resolvedInputs _txOutputs
-                verifyKnownInputs ctx resolvedInputs ta
+                verifyKnownInputs protocolMagic ctx resolvedInputs ta
                 when vtcVerifyAllIsKnown $ verifyAttributesAreKnown _txAttributes
                 pure VerifyTxUtxoRes
                     { vturUndo = map (Just . snd) resolvedInputs
@@ -162,12 +163,12 @@ verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _) =
 -- Verify inputs of a transaction after they have been resolved
 -- (implies that they are known).
 verifyKnownInputs ::
-       (HasProtocolMagic)
-    => VTxContext
+       ProtocolMagic
+    -> VTxContext
     -> NonEmpty (TxIn, TxOutAux)
     -> TxAux
     -> Either ToilVerFailure ()
-verifyKnownInputs VTxContext {..} resolvedInputs TxAux {..} = do
+verifyKnownInputs protocolMagic VTxContext {..} resolvedInputs TxAux {..} = do
     unless allInputsDifferent $ throwError ToilRepeatedInput
     mapM_ (uncurry3 checkInput) $
         zip3 [0 ..] (toList resolvedInputs) (toList witnesses)

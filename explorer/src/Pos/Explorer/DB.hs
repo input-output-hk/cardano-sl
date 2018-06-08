@@ -44,7 +44,9 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Binary.Class (serialize')
 import           Pos.Core (Address, Coin, EpochIndex (..), HasConfiguration, HeaderHash,
                            coinToInteger, unsafeAddCoin)
+import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (Tx, TxId, TxOut (..), TxOutAux (..))
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB), MonadDB,
                          MonadDBRead (dbGet), RocksBatchOp (..), dbIterSource, dbSerializeValue,
                          encodeWithKeyPrefix)
@@ -54,7 +56,6 @@ import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
 import           Pos.Txp.DB (getAllPotentiallyHugeUtxo, utxoSource)
 import           Pos.Txp.GenesisUtxo (genesisUtxo)
 import           Pos.Txp.Toil (GenesisUtxo (..), utxoF, utxoToAddressCoinPairs)
-import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Util.Util (maybeThrow)
 
 
@@ -65,8 +66,8 @@ explorerInitDB
        , MonadUnliftIO m
        , MonadDB m
        )
-    => m ()
-explorerInitDB = initNodeDBs >> prepareExplorerDB
+    => ProtocolMagic -> m ()
+explorerInitDB pm = initNodeDBs pm >> prepareExplorerDB
 
 ----------------------------------------------------------------------------
 -- Types

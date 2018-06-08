@@ -16,7 +16,7 @@ executable cardano-node-simple
   hs-source-dirs:      .
   main-is:             Main.hs
   build-depends:       base
-                     , cardano-sl-update
+                     , cardano-sl-crypto
                      , cardano-sl-ssc
                      , cardano-sl-infra
                      , cardano-sl-networking

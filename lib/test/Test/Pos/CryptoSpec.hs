@@ -19,16 +19,14 @@ import           Universum
 import           Pos.Binary (AsBinary, Bi)
 import           Pos.Communication.Limits (mlAbstractHash, mlDecShare, mlEncShare, mlPublicKey,
                                            mlSecret, mlSignature, mlVssPublicKey)
-import           Pos.Core (HasConfiguration, protocolMagic)
 import qualified Pos.Crypto as Crypto
 import           Pos.SafeCopy ()
 import           Pos.Ssc ()
 
-import           Test.Pos.Configuration (withDefConfiguration)
-import           Test.Pos.Crypto.Arbitrary (SharedSecrets (..))
-
 import           Test.Pos.Binary.Helpers (msgLenLimitedTest, safeCopyEncodeDecode, safeCopyTest,
                                           serDeserId)
+import           Test.Pos.Crypto.Arbitrary (SharedSecrets (..))
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, (.=.))
 
 
@@ -36,7 +34,7 @@ import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, (.=.))
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 spec :: Spec
-spec = withDefConfiguration $ describe "Crypto" $ do
+spec = describe "Crypto" $ do
     describe "Hashing" $ do
         describe "Hash instances" $ do
             prop "SafeCopy" (safeCopyEncodeDecode @(Crypto.Hash Word64))
@@ -208,95 +206,171 @@ keyDerivation = do
 keyParsing :: Crypto.PublicKey -> Property
 keyParsing pk = Crypto.parseFullPublicKey (sformat Crypto.fullPublicKeyF pk) === Right pk
 
-signThenVerify
-    :: Bi a
-    => HasConfiguration => Crypto.SignTag -> Crypto.SecretKey -> a -> Bool
-signThenVerify t sk a = Crypto.checkSig protocolMagic t (Crypto.toPublic sk) a $ Crypto.sign protocolMagic t sk a
+signThenVerify :: Bi a => Crypto.SignTag -> Crypto.SecretKey -> a -> Bool
+signThenVerify t sk a =
+    Crypto.checkSig dummyProtocolMagic t (Crypto.toPublic sk) a
+        $ Crypto.sign dummyProtocolMagic t sk a
 
 signThenVerifyDifferentKey
     :: Bi a
-    => HasConfiguration => Crypto.SignTag -> Crypto.SecretKey -> Crypto.PublicKey -> a -> Property
+    => Crypto.SignTag
+    -> Crypto.SecretKey
+    -> Crypto.PublicKey
+    -> a
+    -> Property
 signThenVerifyDifferentKey t sk1 pk2 a =
-    (Crypto.toPublic sk1 /= pk2) ==> not (Crypto.checkSig protocolMagic t pk2 a $ Crypto.sign protocolMagic t sk1 a)
+    (Crypto.toPublic sk1 /= pk2) ==> not (Crypto.checkSig dummyProtocolMagic t pk2 a $ Crypto.sign dummyProtocolMagic t sk1 a)
 
 signThenVerifyDifferentData
-    :: (Eq a, Bi a)
-    => HasConfiguration => Crypto.SignTag -> Crypto.SecretKey -> a -> a -> Property
-signThenVerifyDifferentData t sk a b =
-    (a /= b) ==> not (Crypto.checkSig protocolMagic t (Crypto.toPublic sk) b $ Crypto.sign protocolMagic t sk a)
+    :: (Eq a, Bi a) => Crypto.SignTag -> Crypto.SecretKey -> a -> a -> Property
+signThenVerifyDifferentData t sk a b = (a /= b) ==> not
+    ( Crypto.checkSig dummyProtocolMagic t (Crypto.toPublic sk) b
+    $ Crypto.sign     dummyProtocolMagic t sk                   a
+    )
 
 proxySecretKeyCheckCorrect
-    :: (HasConfiguration, Bi w) => Crypto.SecretKey -> Crypto.SecretKey -> w -> Bool
-proxySecretKeyCheckCorrect issuerSk delegateSk w =
-    isRight (Crypto.validateProxySecretKey protocolMagic proxySk)
+    :: Bi w => Crypto.SecretKey -> Crypto.SecretKey -> w -> Bool
+proxySecretKeyCheckCorrect issuerSk delegateSk w = isRight
+    (Crypto.validateProxySecretKey dummyProtocolMagic proxySk)
   where
-    proxySk = Crypto.createPsk protocolMagic issuerSk (Crypto.toPublic delegateSk) w
+    proxySk = Crypto.createPsk dummyProtocolMagic
+                               issuerSk
+                               (Crypto.toPublic delegateSk)
+                               w
 
 proxySecretKeyCheckIncorrect
-    :: (HasConfiguration, Bi w) => Crypto.SecretKey -> Crypto.SecretKey -> Crypto.PublicKey -> w -> Property
+    :: Bi w
+    => Crypto.SecretKey
+    -> Crypto.SecretKey
+    -> Crypto.PublicKey
+    -> w
+    -> Property
 proxySecretKeyCheckIncorrect issuerSk delegateSk pk2 w = do
-    let Crypto.UnsafeProxySecretKey{..} =
-            Crypto.createPsk protocolMagic issuerSk (Crypto.toPublic delegateSk) w
-        wrongPsk = Crypto.UnsafeProxySecretKey { Crypto.pskIssuerPk = pk2, ..}
-    (Crypto.toPublic issuerSk /= pk2) ==>
-        isLeft (Crypto.validateProxySecretKey protocolMagic wrongPsk)
+    let Crypto.UnsafeProxySecretKey {..} = Crypto.createPsk
+            dummyProtocolMagic
+            issuerSk
+            (Crypto.toPublic delegateSk)
+            w
+        wrongPsk = Crypto.UnsafeProxySecretKey {Crypto.pskIssuerPk = pk2, ..}
+    (Crypto.toPublic issuerSk /= pk2) ==> isLeft
+        (Crypto.validateProxySecretKey dummyProtocolMagic wrongPsk)
 
 proxySignVerify
-    :: (HasConfiguration, Bi a, Bi w, Eq w)
+    :: (Bi a, Bi w, Eq w)
     => Crypto.SecretKey
     -> Crypto.SecretKey
     -> w
     -> a
     -> Bool
-proxySignVerify issuerSk delegateSk w m =
-    Crypto.proxyVerify protocolMagic Crypto.SignForTestingOnly signature (== w) m
+proxySignVerify issuerSk delegateSk w m = Crypto.proxyVerify
+    dummyProtocolMagic
+    Crypto.SignForTestingOnly
+    signature
+    (== w)
+    m
   where
-    proxySk = Crypto.createPsk protocolMagic issuerSk (Crypto.toPublic delegateSk) w
-    signature = Crypto.proxySign protocolMagic Crypto.SignForTestingOnly delegateSk proxySk m
+    proxySk = Crypto.createPsk dummyProtocolMagic
+                               issuerSk
+                               (Crypto.toPublic delegateSk)
+                               w
+    signature = Crypto.proxySign dummyProtocolMagic
+                                 Crypto.SignForTestingOnly
+                                 delegateSk
+                                 proxySk
+                                 m
 
 proxySignVerifyDifferentKey
-    :: (HasConfiguration, Bi a, Bi w, Eq w)
-    => Crypto.SecretKey -> Crypto.SecretKey -> Crypto.PublicKey -> w -> a -> Property
+    :: (Bi a, Bi w, Eq w)
+    => Crypto.SecretKey
+    -> Crypto.SecretKey
+    -> Crypto.PublicKey
+    -> w
+    -> a
+    -> Property
 proxySignVerifyDifferentKey issuerSk delegateSk pk2 w m =
-    (Crypto.toPublic issuerSk /= pk2) ==>
-    not (Crypto.proxyVerify protocolMagic Crypto.SignForTestingOnly sigBroken (== w) m)
+    (Crypto.toPublic issuerSk /= pk2) ==> not
+        (Crypto.proxyVerify dummyProtocolMagic
+                            Crypto.SignForTestingOnly
+                            sigBroken
+                            (== w)
+                            m
+        )
   where
-    proxySk = Crypto.createPsk protocolMagic issuerSk (Crypto.toPublic delegateSk) w
-    signature = Crypto.proxySign protocolMagic Crypto.SignForTestingOnly delegateSk proxySk m
-    sigBroken = signature { Crypto.psigPsk = proxySk { Crypto.pskIssuerPk = pk2 } }
+    proxySk = Crypto.createPsk dummyProtocolMagic
+                               issuerSk
+                               (Crypto.toPublic delegateSk)
+                               w
+    signature = Crypto.proxySign dummyProtocolMagic
+                                 Crypto.SignForTestingOnly
+                                 delegateSk
+                                 proxySk
+                                 m
+    sigBroken =
+        signature { Crypto.psigPsk = proxySk { Crypto.pskIssuerPk = pk2 } }
 
 proxySignVerifyDifferentData
-    :: (HasConfiguration, Bi a, Eq a, Bi w, Eq w)
-    => Crypto.SecretKey -> Crypto.SecretKey -> w -> a -> a -> Property
-proxySignVerifyDifferentData issuerSk delegateSk w m m2 =
-    (m /= m2) ==>
-    not (Crypto.proxyVerify protocolMagic Crypto.SignForTestingOnly signature (== w) m2)
+    :: (Bi a, Eq a, Bi w, Eq w)
+    => Crypto.SecretKey
+    -> Crypto.SecretKey
+    -> w
+    -> a
+    -> a
+    -> Property
+proxySignVerifyDifferentData issuerSk delegateSk w m m2 = (m /= m2) ==> not
+    (Crypto.proxyVerify dummyProtocolMagic
+                        Crypto.SignForTestingOnly
+                        signature
+                        (== w)
+                        m2
+    )
   where
-    proxySk = Crypto.createPsk protocolMagic issuerSk (Crypto.toPublic delegateSk) w
-    signature = Crypto.proxySign protocolMagic Crypto.SignForTestingOnly delegateSk proxySk m
+    proxySk = Crypto.createPsk dummyProtocolMagic
+                               issuerSk
+                               (Crypto.toPublic delegateSk)
+                               w
+    signature = Crypto.proxySign dummyProtocolMagic
+                                 Crypto.SignForTestingOnly
+                                 delegateSk
+                                 proxySk
+                                 m
 
-redeemSignCheck :: (HasConfiguration, Bi a) => Crypto.RedeemSecretKey -> a -> Bool
+redeemSignCheck :: Bi a => Crypto.RedeemSecretKey -> a -> Bool
 redeemSignCheck redeemerSK a =
-    Crypto.redeemCheckSig protocolMagic Crypto.SignForTestingOnly redeemerPK a $
-    Crypto.redeemSign protocolMagic Crypto.SignForTestingOnly redeemerSK a
-  where
-    redeemerPK = Crypto.redeemToPublic redeemerSK
+    Crypto.redeemCheckSig dummyProtocolMagic
+                          Crypto.SignForTestingOnly
+                          redeemerPK
+                          a
+        $ Crypto.redeemSign
+              dummyProtocolMagic
+              Crypto.SignForTestingOnly
+              redeemerSK
+              a
+    where redeemerPK = Crypto.redeemToPublic redeemerSK
 
 redeemThenCheckDifferentKey
-    :: Bi a
-    => HasConfiguration => Crypto.RedeemSecretKey -> Crypto.RedeemPublicKey -> a -> Property
+    :: Bi a => Crypto.RedeemSecretKey -> Crypto.RedeemPublicKey -> a -> Property
 redeemThenCheckDifferentKey sk1 pk2 a =
-    (Crypto.redeemToPublic sk1 /= pk2) ==>
-    not (Crypto.redeemCheckSig protocolMagic Crypto.SignForTestingOnly pk2 a $
-         Crypto.redeemSign protocolMagic Crypto.SignForTestingOnly sk1 a)
+    (Crypto.redeemToPublic sk1 /= pk2) ==> not
+        ( Crypto.redeemCheckSig dummyProtocolMagic
+                                Crypto.SignForTestingOnly
+                                pk2
+                                a
+        $ Crypto.redeemSign
+              dummyProtocolMagic
+              Crypto.SignForTestingOnly
+              sk1
+              a
+        )
 
 redeemThenCheckDifferentData
-    :: (HasConfiguration, Eq a, Bi a)
-    => Crypto.RedeemSecretKey -> a -> a -> Property
-redeemThenCheckDifferentData sk a b =
-    (a /= b) ==>
-    not (Crypto.redeemCheckSig protocolMagic Crypto.SignForTestingOnly (Crypto.redeemToPublic sk) b $
-         Crypto.redeemSign protocolMagic Crypto.SignForTestingOnly sk a)
+    :: (Eq a, Bi a) => Crypto.RedeemSecretKey -> a -> a -> Property
+redeemThenCheckDifferentData sk a b = (a /= b) ==> not
+    ( Crypto.redeemCheckSig dummyProtocolMagic
+                            Crypto.SignForTestingOnly
+                            (Crypto.redeemToPublic sk)
+                            b
+    $ Crypto.redeemSign dummyProtocolMagic Crypto.SignForTestingOnly sk a
+    )
 
 packUnpackHDAddress :: Crypto.HDPassphrase -> [Word32] -> Bool
 packUnpackHDAddress passphrase path =

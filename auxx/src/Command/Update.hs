@@ -20,9 +20,8 @@ import           System.Wlog (CanLog, HasLoggerName, logDebug, logError, logInfo
 import           Pos.Binary (Raw)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
 import           Pos.Client.Update.Network (submitUpdateProposal, submitVote)
-import           Pos.Core (protocolMagic)
-import           Pos.Crypto (Hash, emptyPassphrase, hash, hashHexF, unsafeHash, withSafeSigner,
-                             withSafeSigners)
+import           Pos.Crypto (Hash, ProtocolMagic, emptyPassphrase, hash, hashHexF, unsafeHash,
+                             withSafeSigner, withSafeSigners)
 import           Pos.Exception (reportFatalError)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Update (SystemTag, UpId, UpdateData (..), installerHash, mkUpdateProposalWSign,
@@ -38,16 +37,17 @@ import           Repl (PrintAction)
 
 vote
     :: MonadAuxxMode m
-    => Diffusion m
+    => ProtocolMagic
+    -> Diffusion m
     -> Int
     -> Bool
     -> UpId
     -> m ()
-vote diffusion idx decision upid = do
+vote pm diffusion idx decision upid = do
     logDebug $ "Submitting a vote :" <> show (idx, decision, upid)
     skey <- (!! idx) <$> getSecretKeysPlain
     mbVoteUpd <- withSafeSigner skey (pure emptyPassphrase) $ mapM $ \signer ->
-        pure $ mkUpdateVoteSafe protocolMagic signer upid decision
+        pure $ mkUpdateVoteSafe pm signer upid decision
     case mbVoteUpd of
         Nothing -> logError "Invalid passphrase"
         Just voteUpd -> do
@@ -60,10 +60,11 @@ vote diffusion idx decision upid = do
 
 propose
     :: MonadAuxxMode m
-    => Diffusion m
+    => ProtocolMagic
+    -> Diffusion m
     -> ProposeUpdateParams
     -> m UpId
-propose diffusion ProposeUpdateParams{..} = do
+propose pm diffusion ProposeUpdateParams{..} = do
     logDebug "Proposing update..."
     skey <- (!! puSecretKeyIdx) <$> getSecretKeysPlain
     updateData <- mapM updateDataElement puUpdates
@@ -77,7 +78,7 @@ propose diffusion ProposeUpdateParams{..} = do
         let publisherSS = ss !! if not puVoteAll then 0 else puSecretKeyIdx
         let updateProposal =
                 mkUpdateProposalWSign
-                    protocolMagic
+                   pm
                     puBlockVersion
                     puBlockVersionModifier
                     puSoftwareVersion
@@ -85,7 +86,7 @@ propose diffusion ProposeUpdateParams{..} = do
                     def
                     publisherSS
         let upid = hash updateProposal
-        submitUpdateProposal diffusion ss updateProposal
+        submitUpdateProposal pm diffusion ss updateProposal
         if not puVoteAll then
             putText (sformat ("Update proposal submitted, upId: "%hashHexF) upid)
         else

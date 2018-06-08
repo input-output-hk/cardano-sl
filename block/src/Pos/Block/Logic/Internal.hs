@@ -37,10 +37,12 @@ import           Pos.Block.BListener (MonadBListener)
 import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply, MonadSlogBase,
                                  ShouldCallBListener, slogApplyBlocks, slogRollbackBlocks)
 import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
-import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL,
-                           gbHeader, headerHash, mainBlockDlgPayload, mainBlockSscPayload,
-                           mainBlockTxPayload, mainBlockUpdatePayload)
+import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL, gbHeader, headerHash,
+                           mainBlockDlgPayload, mainBlockSscPayload, mainBlockTxPayload,
+                           mainBlockUpdatePayload)
 import           Pos.Core.Block (Block, GenesisBlock, MainBlock)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
 import qualified Pos.DB.GState.Common as GS (writeBatchGState)
 import           Pos.Delegation.Class (MonadDelegation)
@@ -61,7 +63,6 @@ import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Logic (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (Some (..), spanSafe)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Util (HasLens', lensOf)
 
 -- | Set of basic constraints used by high-level block processing.
@@ -123,13 +124,13 @@ type MonadMempoolNormalization ctx m
       )
 
 -- | Normalize mempool.
-normalizeMempool :: MonadMempoolNormalization ctx m => m ()
-normalizeMempool = do
+normalizeMempool :: MonadMempoolNormalization ctx m => ProtocolMagic -> m ()
+normalizeMempool pm = do
     -- We normalize all mempools except the delegation one.
     -- That's because delegation mempool normalization is harder and is done
     -- within block application.
-    sscNormalize
-    txpNormalize
+    sscNormalize pm
+    txpNormalize pm
     usNormalize
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
@@ -139,11 +140,12 @@ normalizeMempool = do
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
     :: MonadBlockApply ctx m
-    => ShouldCallBListener
+    => ProtocolMagic
+    -> ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
     -> m ()
-applyBlocksUnsafe scb blunds pModifier = do
+applyBlocksUnsafe pm scb blunds pModifier = do
     -- Check that all blunds have the same epoch.
     unless (null nextEpoch) $ assertionFailed $
         sformat ("applyBlocksUnsafe: tried to apply more than we should"%
@@ -163,29 +165,30 @@ applyBlocksUnsafe scb blunds pModifier = do
         (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
         _                      -> app blunds
   where
-    app x = applyBlocksDbUnsafeDo scb x pModifier
+    app x = applyBlocksDbUnsafeDo pm scb x pModifier
     app' = app . OldestFirst
     (thisEpoch, nextEpoch) =
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
 
 applyBlocksDbUnsafeDo
     :: MonadBlockApply ctx m
-    => ShouldCallBListener
+    => ProtocolMagic
+    -> ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
     -> m ()
-applyBlocksDbUnsafeDo scb blunds pModifier = do
+applyBlocksDbUnsafeDo pm scb blunds pModifier = do
     let blocks = fmap fst blunds
     -- Note: it's important to do 'slogApplyBlocks' first, because it
     -- puts blocks in DB.
     slogBatch <- slogApplyBlocks scb blunds
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
-    usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
+    usBatch <- SomeBatchOp <$> usApplyBlocks pm (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> dlgApplyBlocks (map toDlgBlund blunds)
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
     sscBatch <- SomeBatchOp <$>
         -- TODO: pass not only 'Nothing'
-        sscApplyBlocks (map toSscBlock blocks) Nothing
+        sscApplyBlocks pm (map toSscBlock blocks) Nothing
     GS.writeBatchGState
         [ delegateBatch
         , usBatch
@@ -199,11 +202,12 @@ applyBlocksDbUnsafeDo scb blunds pModifier = do
 -- current tip. It's also assumed that lock on block db is taken already.
 rollbackBlocksUnsafe
     :: MonadBlockApply ctx m
-    => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
+    => ProtocolMagic
+    -> BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
     -> NewestFirst NE Blund
     -> m ()
-rollbackBlocksUnsafe bsc scb toRollback = do
+rollbackBlocksUnsafe pm bsc scb toRollback = do
     slogRoll <- slogRollbackBlocks bsc scb toRollback
     dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks (map toDlgBlund toRollback)
     usRoll <- SomeBatchOp <$> usRollbackBlocks
@@ -225,7 +229,7 @@ rollbackBlocksUnsafe bsc scb toRollback = do
     -- We don't normalize other mempools, because they are normalized
     -- in 'applyBlocksUnsafe' and we always ensure that some blocks
     -- are applied after rollback.
-    dlgNormalizeOnRollback
+    dlgNormalizeOnRollback pm
     sanityCheckDB
 
 

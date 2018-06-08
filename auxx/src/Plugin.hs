@@ -22,7 +22,7 @@ import           Mockable (Delay, Mockable, delay)
 import           System.IO (hFlush, stdout)
 import           System.Wlog (CanLog, HasLoggerName, logInfo)
 
-import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
+import           Pos.Crypto (AHash (..), ProtocolMagic, fullPublicKeyF, hashHexF)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Txp (genesisUtxo, unGenesisUtxo)
 
@@ -40,14 +40,15 @@ import           Repl (PrintAction, WithCommandAction (..))
 
 auxxPlugin ::
        (MonadAuxxMode m, Mockable Delay m)
-    => AuxxOptions
+    => ProtocolMagic
+    -> AuxxOptions
     -> Either WithCommandAction Text
     -> Diffusion m
     -> m ()
-auxxPlugin auxxOptions repl = \diffusion -> do
+auxxPlugin pm auxxOptions repl = \diffusion -> do
     logInfo $ sformat ("Length of genesis utxo: " %int)
                       (length $ unGenesisUtxo genesisUtxo)
-    rawExec (Just Dict) auxxOptions (Just diffusion) repl
+    rawExec (Just pm) (Just Dict) auxxOptions (Just diffusion) repl
 
 rawExec ::
        ( MonadIO m
@@ -56,16 +57,17 @@ rawExec ::
        , HasLoggerName m
        , Mockable Delay m
        )
-    => Maybe (Dict (MonadAuxxMode m))
+    => Maybe ProtocolMagic
+    -> Maybe (Dict (MonadAuxxMode m))
     -> AuxxOptions
     -> Maybe (Diffusion m)
     -> Either WithCommandAction Text
     -> m ()
-rawExec mHasAuxxMode AuxxOptions{..} mDiffusion = \case
+rawExec pm mHasAuxxMode AuxxOptions{..} mDiffusion = \case
     Left WithCommandAction{..} -> do
         printAction "... the auxx plugin is ready"
-        forever $ withCommand $ runCmd mHasAuxxMode mDiffusion printAction
-    Right cmd -> runWalletCmd mHasAuxxMode mDiffusion cmd
+        forever $ withCommand $ runCmd pm mHasAuxxMode mDiffusion printAction
+    Right cmd -> runWalletCmd pm mHasAuxxMode mDiffusion cmd
 
 runWalletCmd ::
        ( MonadIO m
@@ -73,12 +75,13 @@ runWalletCmd ::
        , HasLoggerName m
        , Mockable Delay m
        )
-    => Maybe (Dict (MonadAuxxMode m))
+    => Maybe ProtocolMagic
+    -> Maybe (Dict (MonadAuxxMode m))
     -> Maybe (Diffusion m)
     -> Text
     -> m ()
-runWalletCmd mHasAuxxMode mDiffusion line = do
-    runCmd mHasAuxxMode mDiffusion printAction line
+runWalletCmd pm mHasAuxxMode mDiffusion line = do
+    runCmd pm mHasAuxxMode mDiffusion printAction line
     printAction "Command execution finished"
     printAction " " -- for exit by SIGPIPE
     liftIO $ hFlush stdout
@@ -94,13 +97,14 @@ runCmd ::
        , CanLog m
        , HasLoggerName m
        )
-    => Maybe (Dict (MonadAuxxMode m))
+    => Maybe ProtocolMagic
+    -> Maybe (Dict (MonadAuxxMode m))
     -> Maybe (Diffusion m)
     -> PrintAction m
     -> Text
     -> m ()
-runCmd mHasAuxxMode mDiffusion printAction line = do
-    let commandProcs = createCommandProcs mHasAuxxMode printAction mDiffusion
+runCmd pm mHasAuxxMode mDiffusion printAction line = do
+    let commandProcs = createCommandProcs pm mHasAuxxMode printAction mDiffusion
         parse = withExceptT Lang.ppParseError . ExceptT . return . Lang.parse
         resolveCommandProcs =
             withExceptT Lang.ppResolveErrors . ExceptT . return .

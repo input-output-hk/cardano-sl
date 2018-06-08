@@ -76,12 +76,12 @@ data CardanoContext = CardanoContext {
     , ccHash0    :: HeaderHash
     }
 
-initCardanoContext :: HasConfiguration => CardanoContext
-initCardanoContext = CardanoContext{..}
+initCardanoContext :: HasConfiguration => ProtocolMagic -> CardanoContext
+initCardanoContext pm = CardanoContext{..}
   where
     ccLeaders  = genesisLeaders
     ccStakes   = genesisStakes
-    ccBlock0   = genesisBlock0 protocolMagic (GenesisHash genesisHash) ccLeaders
+    ccBlock0   = genesisBlock0 pm (GenesisHash genesisHash) ccLeaders
     ccData     = genesisData
     ccUtxo     = unGenesisUtxo genesisUtxo
     ccSecrets  = fromMaybe (error "initCardanoContext: secrets unavailable") $
@@ -399,10 +399,10 @@ data AddrInfo = AddrInfo {
       addrInfoMasterKey :: Maybe EncKeyPair
 
       -- | The key for this particular address
-    , addrInfoAddrKey :: SomeKeyPair
+    , addrInfoAddrKey   :: SomeKeyPair
 
       -- | The Cardano address
-    , addrInfoCardano :: Address
+    , addrInfoCardano   :: Address
     }
 
 -- | Mapping between our addresses and Cardano addresses

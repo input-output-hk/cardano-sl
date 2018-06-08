@@ -27,12 +27,12 @@ import           Pos.Block.Logic.Integrity (verifyBlocks)
 import           Pos.Block.Slog hiding (slogVerifyBlocks)
 import           Pos.Block.Types
 import           Pos.Core
+import           Pos.Core.Chrono
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Delegation (DlgUndo (..))
 import           Pos.Txp hiding (tgsVerifyBlocks)
 import           Pos.Update.Poll
 import           Pos.Util (neZipWith4)
-import           Pos.Core.Chrono
 import           Pos.Util.Lens
 import qualified Pos.Util.Modifier as MM
 import           Serokell.Util.Verify
@@ -224,13 +224,14 @@ mapVerifyErrors f (Verify ma) = Verify $ mapStateT (withExceptT f) ma
 -- so I skipped it for now.
 verifyBlocksPrefix
     :: HasConfiguration
-    => HeaderHash    -- ^ Expected tip
+    => ProtocolMagic
+    -> HeaderHash    -- ^ Expected tip
     -> Maybe SlotId  -- ^ Current slot
     -> SlotLeaders   -- ^ Slot leaders for this epoch
     -> LastBlkSlots  -- ^ Last block slots
     -> OldestFirst NE Block
     -> Verify VerifyBlocksException (OldestFirst NE Undo)
-verifyBlocksPrefix tip curSlot leaders lastSlots blocks = do
+verifyBlocksPrefix pm tip curSlot leaders lastSlots blocks = do
     when (tip /= blocks ^. _Wrapped . _neHead . prevBlockL) $
         throwError $ VerifyBlocksError "the first block isn't based on the tip"
 
@@ -238,7 +239,7 @@ verifyBlocksPrefix tip curSlot leaders lastSlots blocks = do
 
     -- Verify block envelope
     slogUndos <- mapVerifyErrors VerifyBlocksError $
-                   slogVerifyBlocks curSlot leaders lastSlots blocks
+                   slogVerifyBlocks pm curSlot leaders lastSlots blocks
 
     -- We skip SSC verification
     {-
@@ -248,7 +249,7 @@ verifyBlocksPrefix tip curSlot leaders lastSlots blocks = do
 
     -- Verify transactions
     txUndo <- mapVerifyErrors (VerifyBlocksError . pretty) $
-        tgsVerifyBlocks $ map toTxpBlock blocks
+        tgsVerifyBlocks pm $ map toTxpBlock blocks
 
     -- Skip delegation verification
     {-
@@ -293,12 +294,13 @@ verifyBlocksPrefix tip curSlot leaders lastSlots blocks = do
 -- * Use hard-coded 'dataMustBeKnown' (instead of deriving this from 'adoptedBV')
 slogVerifyBlocks
     :: HasConfiguration
-    => Maybe SlotId  -- ^ Current slot
+    => ProtocolMagic
+    -> Maybe SlotId  -- ^ Current slot
     -> SlotLeaders   -- ^ Slot leaders for this epoch
     -> LastBlkSlots  -- ^ Last block slots
     -> OldestFirst NE Block
     -> Verify Text (OldestFirst NE SlogUndo)
-slogVerifyBlocks curSlot leaders lastSlots blocks = do
+slogVerifyBlocks pm curSlot leaders lastSlots blocks = do
     adoptedBVD <- gsAdoptedBVData
 
     -- We take head here, because blocks are in oldest first order and
@@ -311,7 +313,7 @@ slogVerifyBlocks curSlot leaders lastSlots blocks = do
         _ -> pass
     let blocksList = OldestFirst (toList (getOldestFirst blocks))
     verResToMonadError formatAllErrors $
-        verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocksList
+        verifyBlocks pm curSlot dataMustBeKnown adoptedBVD leaders blocksList
 
     -- Here we need to compute 'SlogUndo'. When we add apply a block,
     -- we can remove one of the last slots stored in
@@ -352,14 +354,14 @@ slogVerifyBlocks curSlot leaders lastSlots blocks = do
 -- * Does everything in a pure monad.
 --   I don't fully grasp the consequences of this.
 tgsVerifyBlocks
-    :: HasConfiguration
-    => OldestFirst NE TxpBlock
+    :: ProtocolMagic
+    -> OldestFirst NE TxpBlock
     -> Verify ToilVerFailure (OldestFirst NE TxpUndo)
-tgsVerifyBlocks newChain = do
+tgsVerifyBlocks pm newChain = do
     bvd <- gsAdoptedBVData
     let epoch = NE.last (getOldestFirst newChain) ^. epochIndexL
     let verifyPure :: [TxAux] -> Verify ToilVerFailure TxpUndo
-        verifyPure = nat . verifyToil bvd epoch dataMustBeKnown
+        verifyPure = nat . verifyToil pm bvd epoch dataMustBeKnown
     mapM (verifyPure . convertPayload) newChain
   where
     convertPayload :: TxpBlock -> [TxAux]

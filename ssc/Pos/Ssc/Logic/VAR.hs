@@ -21,10 +21,12 @@ import           System.Wlog (WithLogger, logDebug)
 import           Universum
 
 import           Pos.Binary.Ssc ()
-import           Pos.Core (BlockVersionData, ComponentBlock (..), HasCoreConfiguration, HasGenesisData,
-                           HasProtocolConstants, HasProtocolMagic, HeaderHash, epochIndexL,
+import           Pos.Core (BlockVersionData, ComponentBlock (..), HasCoreConfiguration,
+                           HasGenesisData, HasProtocolConstants, HeaderHash, epochIndexL,
                            epochOrSlotG, headerHash)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Ssc (SscPayload (..))
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..), gsAdoptedBVData)
 import           Pos.Exception (assertionFailed)
 import           Pos.Infra.Reporting.Methods (MonadReporting, reportError)
@@ -39,7 +41,6 @@ import           Pos.Ssc.Toss (MultiRichmenStakes, PureToss, applyGenesisBlock, 
                                runPureTossWithLogger, supplyPureTossEnv, verifyAndApplySscPayload)
 import           Pos.Ssc.Types (SscBlock, SscGlobalState (..), sscGlobal)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Lens (_neHead, _neLast)
 
 ----------------------------------------------------------------------------
@@ -72,9 +73,12 @@ type SscGlobalApplyMode ctx m = SscGlobalVerifyMode ctx m
 -- corresponds to application of given blocks. If blocks are invalid,
 -- this function will return 'Left' with appropriate error.
 -- All blocks must be from the same epoch.
-sscVerifyBlocks :: SscGlobalVerifyMode ctx m => OldestFirst NE SscBlock
+sscVerifyBlocks
+    :: SscGlobalVerifyMode ctx m
+    => ProtocolMagic
+    -> OldestFirst NE SscBlock
     -> m (Either SscVerifyError SscGlobalState)
-sscVerifyBlocks blocks = do
+sscVerifyBlocks pm blocks = do
     let epoch = blocks ^. _Wrapped . _neHead . epochIndexL
     let lastEpoch = blocks ^. _Wrapped . _neLast . epochIndexL
     let differentEpochsMsg =
@@ -90,7 +94,7 @@ sscVerifyBlocks blocks = do
     gs <- atomically $ readTVar globalVar
     res <-
         runExceptT
-            (execStateT (sscVerifyAndApplyBlocks richmenSet bvd blocks) gs)
+            (execStateT (sscVerifyAndApplyBlocks pm richmenSet bvd blocks) gs)
     case res of
         Left e
             | sscIsCriticalVerifyError e ->
@@ -107,18 +111,19 @@ sscVerifyBlocks blocks = do
 -- argument (it can be calculated in advance using 'sscVerifyBlocks').
 sscApplyBlocks
     :: SscGlobalApplyMode ctx m
-    => OldestFirst NE SscBlock
+    => ProtocolMagic
+    -> OldestFirst NE SscBlock
     -> Maybe SscGlobalState
     -> m [SomeBatchOp]
-sscApplyBlocks blocks (Just newState) = do
+sscApplyBlocks pm blocks (Just newState) = do
     inAssertMode $ do
         let hashes = map headerHash blocks
-        expectedState <- sscVerifyValidBlocks blocks
+        expectedState <- sscVerifyValidBlocks pm blocks
         if | newState == expectedState -> pass
            | otherwise -> onUnexpectedVerify hashes
     sscApplyBlocksFinish newState
-sscApplyBlocks blocks Nothing =
-    sscApplyBlocksFinish =<< sscVerifyValidBlocks blocks
+sscApplyBlocks pm blocks Nothing =
+    sscApplyBlocksFinish =<< sscVerifyValidBlocks pm blocks
 
 sscApplyBlocksFinish
     :: (SscGlobalApplyMode ctx m)
@@ -132,9 +137,11 @@ sscApplyBlocksFinish gs = do
 
 sscVerifyValidBlocks
     :: SscGlobalApplyMode ctx m
-    => OldestFirst NE SscBlock -> m SscGlobalState
-sscVerifyValidBlocks blocks =
-    sscVerifyBlocks blocks >>= \case
+    => ProtocolMagic
+    -> OldestFirst NE SscBlock
+    -> m SscGlobalState
+sscVerifyValidBlocks pm blocks =
+    sscVerifyBlocks pm blocks >>= \case
         Left e -> onVerifyFailedInApply hashes e
         Right newState -> return newState
   where
@@ -168,30 +175,32 @@ onVerifyFailedInApply hashes e = assertionFailed msg
 -- | Verify SSC-related part of given blocks with respect to current GState
 -- and apply them on success. Blocks must be from the same epoch.
 sscVerifyAndApplyBlocks
-    :: (SscVerifyMode m, HasProtocolConstants, HasProtocolMagic, HasGenesisData)
-    => RichmenStakes
+    :: (SscVerifyMode m, HasProtocolConstants, HasGenesisData)
+    => ProtocolMagic
+    -> RichmenStakes
     -> BlockVersionData
     -> OldestFirst NE SscBlock
     -> m ()
-sscVerifyAndApplyBlocks richmenStake bvd blocks =
-    verifyAndApplyMultiRichmen False (richmenData, bvd) blocks
+sscVerifyAndApplyBlocks pm richmenStake bvd blocks =
+    verifyAndApplyMultiRichmen pm False (richmenData, bvd) blocks
   where
     epoch = blocks ^. _Wrapped . _neHead . epochIndexL
     richmenData = HM.fromList [(epoch, richmenStake)]
 
 verifyAndApplyMultiRichmen
-    :: (SscVerifyMode m, HasProtocolConstants, HasProtocolMagic, HasGenesisData)
-    => Bool
+    :: (SscVerifyMode m, HasProtocolConstants, HasGenesisData)
+    => ProtocolMagic
+    -> Bool
     -> (MultiRichmenStakes, BlockVersionData)
     -> OldestFirst NE SscBlock
     -> m ()
-verifyAndApplyMultiRichmen onlyCerts env =
+verifyAndApplyMultiRichmen pm onlyCerts env =
     tossToVerifier . hoist (supplyPureTossEnv env) .
     mapM_ verifyAndApplyDo
   where
     verifyAndApplyDo (ComponentBlockGenesis header) = applyGenesisBlock $ header ^. epochIndexL
     verifyAndApplyDo (ComponentBlockMain header payload) =
-        verifyAndApplySscPayload (Right header) $
+        verifyAndApplySscPayload pm (Right header) $
         filterPayload payload
     filterPayload payload
         | onlyCerts = leaveOnlyCerts payload

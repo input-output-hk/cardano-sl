@@ -31,25 +31,23 @@ import           Pos.Block.Logic.Util (calcChainQualityM)
 import           Pos.Block.Logic.VAR (verifyBlocksPrefix)
 import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.Block.Slog (HasSlogGState (..), ShouldCallBListener (..))
-import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..),
-                           HasProtocolConstants, HasProtocolMagic, HeaderHash, SlotId (..),
-                           chainQualityThreshold, epochIndexL, epochSlots, flattenSlotId,
-                           getEpochOrSlot, headerHash, protocolMagic)
+import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..), HasProtocolConstants,
+                           HeaderHash, SlotId (..), chainQualityThreshold, epochIndexL, epochSlots,
+                           flattenSlotId, getEpochOrSlot, headerHash)
 import           Pos.Core.Block (BlockHeader (..), GenesisBlock, MainBlock, MainBlockchain)
 import qualified Pos.Core.Block as BC
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux (..), mkTxPayload)
 import           Pos.Core.Update (UpdatePayload (..))
-import           Pos.Crypto (SecretKey)
+import           Pos.Crypto (ProtocolMagic, SecretKey)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Delegation (DelegationVar, DlgPayload (..), ProxySKBlockInfo, clearDlgMemPool,
                                  getDlgMempool)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportError)
-import           Pos.Infra.StateLock (Priority (..), StateLock,
-                                      StateLockMetrics, modifyStateLock)
+import           Pos.Infra.StateLock (Priority (..), StateLock, StateLockMetrics, modifyStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Lrc (HasLrcContext)
@@ -118,11 +116,12 @@ createGenesisBlockAndApply ::
        , HasLens (StateLockMetrics MemPoolModifyReason) ctx (StateLockMetrics MemPoolModifyReason)
        , HasMisbehaviorMetrics ctx
        )
-    => EpochIndex
+    => ProtocolMagic
+    -> EpochIndex
     -> m (Maybe GenesisBlock)
 -- Genesis block for 0-th epoch is hardcoded.
-createGenesisBlockAndApply 0 = pure Nothing
-createGenesisBlockAndApply epoch = do
+createGenesisBlockAndApply _ 0 = pure Nothing
+createGenesisBlockAndApply pm epoch = do
     tipHeader <- DB.getTipHeader
     -- preliminary check outside the lock,
     -- must be repeated inside the lock
@@ -131,7 +130,7 @@ createGenesisBlockAndApply epoch = do
         then modifyStateLock
                  HighPriority
                  ApplyBlock
-                 (\_ -> createGenesisBlockDo epoch)
+                 (\_ -> createGenesisBlockDo pm epoch)
         else return Nothing
 
 createGenesisBlockDo
@@ -139,9 +138,10 @@ createGenesisBlockDo
        ( MonadCreateBlock ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => EpochIndex
+    => ProtocolMagic
+    -> EpochIndex
     -> m (HeaderHash, Maybe GenesisBlock)
-createGenesisBlockDo epoch = do
+createGenesisBlockDo pm epoch = do
     tipHeader <- DB.getTipHeader
     logDebug $ sformat msgTryingFmt epoch tipHeader
     needCreateGenesisBlock epoch tipHeader >>= \case
@@ -153,17 +153,17 @@ createGenesisBlockDo epoch = do
     -- Note that it shouldn't fail, because 'shouldCreate' guarantees that we
     -- have enough blocks for LRC.
     actuallyCreate tipHeader = do
-        lrcSingleShot epoch
+        lrcSingleShot pm epoch
         leaders <- lrcActionOnEpochReason epoch "createGenesisBlockDo "
             LrcDB.getLeadersForEpoch
-        let blk = mkGenesisBlock protocolMagic (Right tipHeader) epoch leaders
+        let blk = mkGenesisBlock pm (Right tipHeader) epoch leaders
         let newTip = headerHash blk
-        verifyBlocksPrefix (one (Left blk)) >>= \case
+        verifyBlocksPrefix pm (one (Left blk)) >>= \case
             Left err -> reportFatalError $ pretty err
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
-                applyBlocksUnsafe (ShouldCallBListener True) (one (Left blk, undo)) (Just pollModifier)
-                normalizeMempool
+                applyBlocksUnsafe pm (ShouldCallBListener True) (one (Left blk, undo)) (Just pollModifier)
+                normalizeMempool pm
                 pure (newTip, Just blk)
     logShouldNot =
         logDebug
@@ -216,16 +216,17 @@ createMainBlockAndApply ::
        , HasLens' ctx StateLock
        , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
        )
-    => SlotId
+    => ProtocolMagic
+    -> SlotId
     -> ProxySKBlockInfo
     -> m (Either Text MainBlock)
-createMainBlockAndApply sId pske =
+createMainBlockAndApply pm sId pske =
     modifyStateLock HighPriority ApplyBlock createAndApply
   where
     createAndApply tip =
-        createMainBlockInternal sId pske >>= \case
+        createMainBlockInternal pm sId pske >>= \case
             Left reason -> pure (tip, Left reason)
-            Right blk -> convertRes <$> applyCreatedBlock pske blk
+            Right blk -> convertRes <$> applyCreatedBlock pm pske blk
     convertRes createdBlk = (headerHash createdBlk, Right createdBlk)
 
 ----------------------------------------------------------------------------
@@ -241,10 +242,11 @@ createMainBlockInternal ::
        forall ctx m.
        ( MonadCreateBlock ctx m
        )
-    => SlotId
+    => ProtocolMagic
+    -> SlotId
     -> ProxySKBlockInfo
     -> m (Either Text MainBlock)
-createMainBlockInternal sId pske = do
+createMainBlockInternal pm sId pske = do
     tipHeader <- DB.getTipHeader
     logInfoS $ sformat msgFmt tipHeader
     canCreateBlock sId tipHeader >>= \case
@@ -260,7 +262,7 @@ createMainBlockInternal sId pske = do
         -- overhead.  You can see that in bitcoin blocks are 1-2kB less
         -- than limit. So i guess it's fine in general.
         sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> lift UDB.getMaxBlockSize
-        block <- createMainBlockPure sizeLimit prevHeader pske sId sk rawPay
+        block <- createMainBlockPure pm sizeLimit prevHeader pske sId sk rawPay
         logInfoS $
             "Created main block of size: " <> sformat memory (biSize block)
         block <$ evaluateNF_ block
@@ -300,15 +302,16 @@ canCreateBlock sId tipHeader =
 
 createMainBlockPure
     :: forall m.
-       ( MonadError Text m, HasUpdateConfiguration, HasProtocolMagic, HasProtocolConstants )
-    => Byte                   -- ^ Block size limit (real max.value)
+       ( MonadError Text m, HasUpdateConfiguration, HasProtocolConstants )
+    => ProtocolMagic
+    -> Byte                   -- ^ Block size limit (real max.value)
     -> BlockHeader
     -> ProxySKBlockInfo
     -> SlotId
     -> SecretKey
     -> RawPayload
     -> m MainBlock
-createMainBlockPure limit prevHeader pske sId sk rawPayload = do
+createMainBlockPure pm limit prevHeader pske sId sk rawPayload = do
     bodyLimit <- execStateT computeBodyLimit limit
     body <- createMainBody bodyLimit sId rawPayload
     pure (mkMainBlock pm bv sv (Right prevHeader) sId sk pske body)
@@ -328,7 +331,6 @@ createMainBlockPure limit prevHeader pske sId sk rawPayload = do
         identity -= biSize musthaveBlock
     sv = curSoftwareVersion
     bv = lastKnownBlockVersion
-    pm = protocolMagic
 
 ----------------------------------------------------------------------------
 -- MainBlock apply
@@ -345,25 +347,27 @@ applyCreatedBlock ::
     ( MonadBlockApply ctx m
     , MonadCreateBlock ctx m
     )
-    => ProxySKBlockInfo
+    => ProtocolMagic
+    -> ProxySKBlockInfo
     -> MainBlock
     -> m MainBlock
-applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
+applyCreatedBlock pm pske createdBlock = applyCreatedBlockDo False createdBlock
   where
     slotId = createdBlock ^. BC.mainBlockSlot
     applyCreatedBlockDo :: Bool -> MainBlock -> m MainBlock
     applyCreatedBlockDo isFallback blockToApply =
-        verifyBlocksPrefix (one (Right blockToApply)) >>= \case
+        verifyBlocksPrefix pm (one (Right blockToApply)) >>= \case
             Left (pretty -> reason)
                 | isFallback -> onFailedFallback reason
                 | otherwise -> fallback reason
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
                 applyBlocksUnsafe
+                    pm
                     (ShouldCallBListener True)
                     (one (Right blockToApply, undo))
                     (Just pollModifier)
-                normalizeMempool
+                normalizeMempool pm
                 pure blockToApply
     clearMempools :: m ()
     clearMempools = do
@@ -379,7 +383,7 @@ applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
         logDebug $ "Clearing mempools"
         clearMempools
         logDebug $ "Creating empty block"
-        createMainBlockInternal slotId pske >>= \case
+        createMainBlockInternal pm slotId pske >>= \case
             Left err ->
                 assertionFailed $
                 sformat ("Couldn't create a block in fallback: "%stext) err

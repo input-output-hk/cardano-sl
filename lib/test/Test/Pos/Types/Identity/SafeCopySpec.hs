@@ -12,13 +12,13 @@ import qualified Pos.Core as Core
 import qualified Pos.Core.Txp as Txp
 import           Pos.SafeCopy ()
 
-import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Binary.Helpers (safeCopyTest)
+import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Txp.Arbitrary ()
 import           Test.Pos.Txp.Arbitrary.Network ()
 
 spec :: Spec
-spec = withDefConfiguration $ describe "Types" $ do
+spec = withDefConfiguration $ \_ -> describe "Types" $ do
     describe "SafeCopy instances" $ do
         safeCopyTest @Core.EpochIndex
         safeCopyTest @Core.LocalSlotIndex

@@ -24,6 +24,7 @@ import           Pos.Configuration (HasNodeConfiguration, pendingTxResubmitionPe
 import           Pos.Core (ChainDifficulty (..), SlotId (..), TxAux, difficultyL)
 import           Pos.Core.Chrono (getOldestFirst)
 import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
@@ -69,15 +70,16 @@ processPtxInNewestBlocks db PendingTx{..} = do
          ptxDiff + depth <= tipDiff
 
 resubmitTx :: MonadPendings ctx m
-           => WalletDB
+           => ProtocolMagic
+           -> WalletDB
            -> (TxAux -> m Bool)
            -> PendingTx
            -> m ()
-resubmitTx db submitTx ptx =
+resubmitTx pm db submitTx ptx =
     handleAny (\_ -> pass) $ do
         logInfoSP $ \sl -> sformat ("Resubmitting tx "%secretOnlyF sl build) (_ptxTxId ptx)
         let submissionH = ptxResubmissionHandler db ptx
-        submitAndSavePtx db submitTx submissionH ptx
+        submitAndSavePtx pm db submitTx submissionH ptx
         updateTiming
   where
     reportNextCheckTime time =
@@ -94,15 +96,16 @@ resubmitTx db submitTx ptx =
 -- | Distributes pending txs submition over current slot ~evenly
 resubmitPtxsDuringSlot
     :: MonadPendings ctx m
-    => WalletDB
+    => ProtocolMagic
+    -> WalletDB
     -> (TxAux -> m Bool)
     -> [PendingTx]
     -> m ()
-resubmitPtxsDuringSlot db submitTx ptxs = do
+resubmitPtxsDuringSlot pm db submitTx ptxs = do
     interval <- evalSubmitDelay (length ptxs)
     void . forConcurrently (enumerate ptxs) $ \(i, ptx) -> do
         delay (interval * i)
-        resubmitTx db submitTx ptx
+        resubmitTx pm db submitTx ptx
   where
     submitionEta = 5 :: Second
     evalSubmitDelay toResubmitNum = do
@@ -113,12 +116,13 @@ resubmitPtxsDuringSlot db submitTx ptxs = do
 
 processPtxsToResubmit
     :: MonadPendings ctx m
-    => WalletDB
+    => ProtocolMagic
+    -> WalletDB
     -> (TxAux -> m Bool)
     -> SlotId
     -> [PendingTx]
     -> m ()
-processPtxsToResubmit db submitTx _curSlot ptxs = do
+processPtxsToResubmit pm db submitTx _curSlot ptxs = do
     ptxsPerSlotLimit <- evalPtxsPerSlotLimit
     let toResubmit =
             take (min 1 ptxsPerSlotLimit) $  -- for now the limit will be 1,
@@ -131,7 +135,7 @@ processPtxsToResubmit db submitTx _curSlot ptxs = do
         logInfoSP $ \sl -> sformat (fmt sl) (map _ptxTxId toResubmit)
     when (null toResubmit) $
         logDebug "There are no transactions to resubmit"
-    resubmitPtxsDuringSlot db submitTx toResubmit
+    resubmitPtxsDuringSlot pm db submitTx toResubmit
   where
     fmt sl = "Transactions to resubmit on current slot: "%secureListF sl listJson
     evalPtxsPerSlotLimit = do
@@ -147,38 +151,41 @@ processPtxsToResubmit db submitTx _curSlot ptxs = do
 -- if needed.
 processPtxs
     :: MonadPendings ctx m
-    => WalletDB
+    => ProtocolMagic
+    -> WalletDB
     -> (TxAux -> m Bool)
     -> SlotId
     -> [PendingTx]
     -> m ()
-processPtxs db submitTx curSlot ptxs = do
+processPtxs pm db submitTx curSlot ptxs = do
     mapM_ (processPtxInNewestBlocks db) ptxs
     if walletTxCreationDisabled
     then logDebug "Transaction resubmission is disabled"
-    else processPtxsToResubmit db submitTx curSlot ptxs
+    else processPtxsToResubmit pm db submitTx curSlot ptxs
 
 processPtxsOnSlot
     :: MonadPendings ctx m
-    => WalletDB
+    => ProtocolMagic
+    -> WalletDB
     -> (TxAux -> m Bool)
     -> SlotId
     -> m ()
-processPtxsOnSlot db submitTx curSlot = do
+processPtxsOnSlot pm db submitTx curSlot = do
     ws <- getWalletSnapshot db
     let ptxs = getPendingTxs ws
     let sortedPtxs = getOldestFirst $ sortPtxsChrono ptxs
-    processPtxs db submitTx curSlot sortedPtxs
+    processPtxs pm db submitTx curSlot sortedPtxs
 
 -- | On each slot this takes several pending transactions and resubmits them if
 -- needed and possible.
 startPendingTxsResubmitter
     :: MonadPendings ctx m
-    => WalletDB
+    => ProtocolMagic
+    -> WalletDB
     -> (TxAux -> m Bool)
     -> m ()
-startPendingTxsResubmitter db submitTx =
-    setLogger $ onNewSlot onsp (processPtxsOnSlot db submitTx)
+startPendingTxsResubmitter pm db submitTx =
+    setLogger $ onNewSlot onsp (processPtxsOnSlot pm db submitTx)
   where
     setLogger = modifyLoggerName (<> "tx" <> "resubmitter")
     onsp :: OnNewSlotParams

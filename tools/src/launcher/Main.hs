@@ -64,7 +64,7 @@ import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl (version)
 import           Pos.Client.CLI (readLoggerConfig)
-import           Pos.Core (HasConfiguration, Timestamp (..), protocolMagic)
+import           Pos.Core (HasConfiguration, ProtocolMagic, Timestamp (..))
 import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
                                dbPutSerBlundsRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
@@ -300,7 +300,7 @@ main =
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.debugPlus)
     logException loggerName . Log.usingLoggerName loggerName $
-        withConfigurations loConfiguration $ \_ -> do
+        withConfigurations loConfiguration $ \_ pm -> do
 
         -- Generate TLS certificates as needed
         generateTlsCertificates loConfiguration loX509ToolPath loTlsPath
@@ -310,6 +310,7 @@ main =
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the server scenario"
                 serverScenario
+                    pm
                     (NodeDbPath loNodeDbPath)
                     loLogsPrefix
                     loNodeLogConfig
@@ -329,6 +330,7 @@ main =
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the client scenario"
                 clientScenario
+                    pm
                     (NodeDbPath loNodeDbPath)
                     loLogsPrefix
                     loNodeLogConfig
@@ -417,26 +419,27 @@ generateTlsCertificates ConfigurationOptions{..} executable tlsPath = do
 -- * If it exits with code 20, then update and restart, else quit.
 serverScenario
     :: (HasCompileInfo, HasConfigurations)
-    => NodeDbPath
+    => ProtocolMagic
+    -> NodeDbPath
     -> Maybe FilePath     -- ^ Log prefix
     -> Maybe FilePath     -- ^ Logger config
     -> NodeData           -- ^ Node, args, log path
     -> UpdaterData        -- ^ Updater, args, updater runner, archive path
     -> Maybe String       -- ^ Report server
     -> M ()
-serverScenario ndbp logPrefix logConf node updater report = do
+serverScenario pm ndbp logPrefix logConf node updater report = do
     runUpdater ndbp updater
     -- TODO: the updater, too, should create a log if it fails
     (_, nodeAsync) <- spawnNode node False
     exitCode <- wait nodeAsync
     if exitCode == ExitFailure 20 then do
         logNotice $ sformat ("The node has exited with "%shown) exitCode
-        serverScenario ndbp logPrefix logConf node updater report
+        serverScenario pm ndbp logPrefix logConf node updater report
     else do
         logWarning $ sformat ("The node has exited with "%shown) exitCode
         whenJust report $ \repServ -> do
             logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
-            reportNodeCrash exitCode logPrefix logConf repServ
+            reportNodeCrash pm exitCode logPrefix logConf repServ
 
 -- | If we are on desktop, we want the following algorithm:
 --
@@ -445,7 +448,8 @@ serverScenario ndbp logPrefix logConf node updater report = do
 -- * If the wallet exits with code 20, then update and restart, else quit.
 clientScenario
     :: (HasCompileInfo, HasConfigurations)
-    => NodeDbPath
+    => ProtocolMagic
+    -> NodeDbPath
     -> Maybe FilePath    -- ^ Log prefix
     -> Maybe FilePath    -- ^ Logger config
     -> NodeData          -- ^ Node, args, node log path
@@ -455,7 +459,7 @@ clientScenario
     -> Maybe String      -- ^ Report server
     -> Bool              -- ^ Wallet logging
     -> M ()
-clientScenario ndbp logPrefix logConf node wallet updater nodeTimeout report walletLog = do
+clientScenario pm ndbp logPrefix logConf node wallet updater nodeTimeout report walletLog = do
     runUpdater ndbp updater
     let doesWalletLogToConsole = isNothing (ndLogPath wallet) && walletLog
     (nodeHandle, nodeAsync) <- spawnNode node doesWalletLogToConsole
@@ -464,14 +468,14 @@ clientScenario ndbp logPrefix logConf node wallet updater nodeTimeout report wal
     (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
     logInfo "Wallet or node has finished!"
     let restart
-            = clientScenario ndbp logPrefix logConf node wallet updater nodeTimeout report walletLog
+            = clientScenario pm ndbp logPrefix logConf node wallet updater nodeTimeout report walletLog
     (walletExitCode, nodeExitCode) <- if
        | someAsync == nodeAsync -> do
              unless (exitCode == ExitFailure 20) $ do
                  logWarning $ sformat ("The node has exited with "%shown) exitCode
                  whenJust report $ \repServ -> do
                      logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
-                     reportNodeCrash exitCode logPrefix logConf repServ
+                     reportNodeCrash pm exitCode logPrefix logConf repServ
              logInfo "Waiting for the wallet to die"
              walletExitCode <- wait walletAsync
              logInfo $ sformat ("The wallet has exited with "%shown) walletExitCode
@@ -696,13 +700,14 @@ customLogger hndl loggerName logStr = do
 -- ...Or maybe we don't care because we don't restart anything after sending
 -- logs (and so the user never actually sees the process or waits for it).
 reportNodeCrash
-    :: (HasCompileInfo, HasConfigurations)
-    => ExitCode        -- ^ Exit code of the node
+    :: HasCompileInfo
+    => ProtocolMagic
+    -> ExitCode        -- ^ Exit code of the node
     -> Maybe FilePath  -- ^ Log prefix
     -> Maybe FilePath  -- ^ Path to the logger config
     -> String          -- ^ URL of the server
     -> M ()
-reportNodeCrash exitCode _ logConfPath reportServ = do
+reportNodeCrash pm exitCode _ logConfPath reportServ = do
     logConfig <- readLoggerConfig (toString <$> logConfPath)
     let logFileNames =
             map ((fromMaybe "" (logConfig ^. Log.lcLogsDirectory) </>) . snd) $
@@ -718,7 +723,7 @@ reportNodeCrash exitCode _ logConfPath reportServ = do
             ExitFailure n -> n
         handler = logError . sformat ("Failed to report node crash: "%build)
         sendIt logFiles = bracket (compressLogs logFiles) (liftIO . removeFile) $ \txz ->
-            liftIO $ sendReport protocolMagic compileInfo (Just txz) (RCrash ec) "cardano-node" reportServ
+            liftIO $ sendReport pm compileInfo (Just txz) (RCrash ec) "cardano-node" reportServ
     logFiles <- liftIO $ filterM doesFileExist hyptheticalLogFiles
     -- We catch synchronous exceptions and do not re-throw! This is a crash
     -- handler. It runs if some other part of the system crashed. We wouldn't

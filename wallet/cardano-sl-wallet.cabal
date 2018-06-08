@@ -247,6 +247,7 @@ test-suite cardano-wallet-test
                      , cardano-sl-client
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-crypto-test
                      , cardano-sl-db
                      , cardano-sl-delegation
                      , cardano-sl-generator

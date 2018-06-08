@@ -28,7 +28,7 @@ import           Test.Pos.Lrc.Arbitrary (GenesisMpcThd, InvalidRichmenStakes (..
 import           Test.Pos.Util.QuickCheck.Property (qcIsLeft)
 
 spec :: Spec
-spec = withDefConfiguration $ describe "computeSharesDistr" $ do
+spec = withDefConfiguration $ \_ -> describe "computeSharesDistr" $ do
     prop emptyRichmenStakesDesc emptyRichmenStakes
     modifyMaxSuccess (const 3) $
         prop invalidStakeErrorsDesc invalidStakeErrors

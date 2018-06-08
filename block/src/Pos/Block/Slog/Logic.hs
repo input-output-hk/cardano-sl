@@ -37,10 +37,12 @@ import           Pos.Block.Logic.Integrity (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import           Pos.Block.Slog.Types (HasSlogGState)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
-import           Pos.Core (BlockVersion (..), FlatSlotId, blkSecurityParam,
-                           difficultyL, epochIndexL, flattenSlotId, headerHash, headerHashG,
-                           prevBlockL)
+import           Pos.Core (BlockVersion (..), FlatSlotId, blkSecurityParam, difficultyL,
+                           epochIndexL, flattenSlotId, headerHash, headerHashG, prevBlockL)
 import           Pos.Core.Block (Block, genBlockLeaders, mainBlockSlot)
+import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst), OldestFirst (..), toOldestFirst,
+                                  _OldestFirst)
+import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Block (putBlunds)
 import qualified Pos.DB.BlockIndex as DB
@@ -56,8 +58,6 @@ import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBloc
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst), OldestFirst (..), toOldestFirst,
-                                  _OldestFirst)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -126,9 +126,10 @@ type MonadSlogVerify ctx m =
 -- 3.  Compute 'SlogUndo's and return them.
 slogVerifyBlocks
     :: MonadSlogVerify ctx m
-    => OldestFirst NE Block
+    => ProtocolMagic
+    -> OldestFirst NE Block
     -> m (Either Text (OldestFirst NE SlogUndo))
-slogVerifyBlocks blocks = runExceptT $ do
+slogVerifyBlocks pm blocks = runExceptT $ do
     curSlot <- getCurrentSlot
     (adoptedBV, adoptedBVD) <- lift GS.getAdoptedBVFull
     let dataMustBeKnown = mustDataBeKnown adoptedBV
@@ -152,7 +153,7 @@ slogVerifyBlocks blocks = runExceptT $ do
     let blocksList :: OldestFirst [] Block
         blocksList = OldestFirst (NE.toList (getOldestFirst blocks))
     verResToMonadError formatAllErrors $
-        verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocksList
+        verifyBlocks pm curSlot dataMustBeKnown adoptedBVD leaders blocksList
     -- Here we need to compute 'SlogUndo'. When we apply a block,
     -- we can remove one of the last slots stored in 'BlockExtra'.
     -- This removed slot must be put into 'SlogUndo'.

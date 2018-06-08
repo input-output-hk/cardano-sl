@@ -45,9 +45,9 @@ import           Pos.Wallet.Web.State.Storage (AddressInfo (..), wamAddress)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
 
 import           Pos.Util.Servant (encodeCType)
+
 import           Test.Pos.Configuration (withDefConfigurations)
-
-
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne, maybeStopProperty,
                                                     splitWord, stopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty, getSentTxs, submitTxTestMode,
@@ -62,7 +62,7 @@ deriving instance Eq CTx
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
 spec = withCompileInfo def $
-       withDefConfigurations $ \_ ->
+       withDefConfigurations $ \_ _ ->
        describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
     describe "newPaymentBatch" $ do
         describe "Submitting a payment when restoring" rejectPaymentIfRestoringSpec
@@ -120,12 +120,11 @@ newPaymentFixture = do
 
 -- | Assess that if we try to submit a payment when the wallet is restoring,
 -- the backend prevents us from doing that.
-rejectPaymentIfRestoringSpec :: (HasConfigurations) => Spec
+rejectPaymentIfRestoringSpec :: HasConfigurations => Spec
 rejectPaymentIfRestoringSpec = walletPropertySpec "should fail with 403" $ do
     PaymentFixture{..} <- newPaymentFixture
-    res <- lift $ try (newPaymentBatch submitTxTestMode pswd batch)
+    res <- lift $ try (newPaymentBatch dummyProtocolMagic submitTxTestMode pswd batch)
     liftIO $ shouldBe res (Left (err403 { errReasonPhrase = "Transaction creation is disabled when the wallet is restoring." }))
-
 
 -- | Test one single, successful payment.
 oneNewPaymentBatchSpec :: HasConfigurations => Spec
@@ -137,7 +136,7 @@ oneNewPaymentBatchSpec = walletPropertySpec oneNewPaymentBatchDesc $ do
     randomSyncTip <- liftIO $ generate arbitrary
     WS.setWalletSyncTip db walId randomSyncTip
 
-    void $ lift $ newPaymentBatch submitTxTestMode pswd batch
+    void $ lift $ newPaymentBatch dummyProtocolMagic submitTxTestMode pswd batch
     dstAddrs <- lift $ mapM decodeCTypeOrFail dstCAddrs
     txLinearPolicy <- lift $ (bvdTxFeePolicy <$> gsAdoptedBVData) <&> \case
         TxFeePolicyTxSizeLinear linear -> linear

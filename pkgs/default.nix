@@ -13133,6 +13133,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-core
 , cardano-sl-core-test
 , cardano-sl-crypto
+, cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-delegation
 , cardano-sl-infra
@@ -13168,6 +13169,7 @@ cardano-sl-block
 cardano-sl-core
 cardano-sl-core-test
 cardano-sl-crypto
+cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-delegation
 cardano-sl-infra
@@ -13203,6 +13205,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-block
 , cardano-sl-core
 , cardano-sl-crypto
+, cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-infra
 , cardano-sl-lrc
@@ -13278,6 +13281,7 @@ bytestring
 cardano-sl
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-ssc
 cardano-sl-txp
@@ -13703,6 +13707,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-binary
 , cardano-sl-core
 , cardano-sl-crypto
+, cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-infra
 , cardano-sl-lrc
@@ -13748,6 +13753,7 @@ base
 cardano-sl-binary
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-infra
 cardano-sl-lrc
@@ -13797,6 +13803,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-block-test
 , cardano-sl-core
 , cardano-sl-crypto
+, cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-delegation
 , cardano-sl-generator
@@ -13881,6 +13888,7 @@ cardano-sl-block
 cardano-sl-block-test
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-delegation
 cardano-sl-generator
@@ -13940,6 +13948,7 @@ aeson
 base
 bytestring
 cardano-sl
+cardano-sl-crypto
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-update
@@ -14012,6 +14021,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-client
 , cardano-sl-core
 , cardano-sl-crypto
+, cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-delegation
 , cardano-sl-infra
@@ -14066,6 +14076,7 @@ cardano-sl-block
 cardano-sl-client
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-delegation
 cardano-sl-infra
@@ -14110,6 +14121,7 @@ cardano-sl-block
 cardano-sl-block-test
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-delegation
 cardano-sl-lrc
@@ -14550,6 +14562,7 @@ license = stdenv.lib.licenses.mit;
   mkDerivation
 , base
 , cardano-sl
+, cardano-sl-crypto
 , cardano-sl-infra
 , cardano-sl-networking
 , cardano-sl-ssc
@@ -14574,6 +14587,7 @@ isExecutable = true;
 executableHaskellDepends = [
 base
 cardano-sl
+cardano-sl-crypto
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-ssc
@@ -15368,6 +15382,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-client
 , cardano-sl-core
 , cardano-sl-crypto
+, cardano-sl-crypto-test
 , cardano-sl-db
 , cardano-sl-delegation
 , cardano-sl-generator
@@ -15522,6 +15537,7 @@ cardano-sl-block
 cardano-sl-client
 cardano-sl-core
 cardano-sl-crypto
+cardano-sl-crypto-test
 cardano-sl-db
 cardano-sl-delegation
 cardano-sl-generator
@@ -15747,6 +15763,7 @@ base
 bytestring
 cardano-sl
 cardano-sl-core
+cardano-sl-crypto
 cardano-sl-infra
 cardano-sl-networking
 cardano-sl-ssc

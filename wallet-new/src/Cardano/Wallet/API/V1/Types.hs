@@ -250,21 +250,21 @@ instance ByteArray.ByteArrayAccess a => ByteArray.ByteArrayAccess (V1 a) where
    length (V1 a) = ByteArray.length a
    withByteArray (V1 a) callback = ByteArray.withByteArray a callback
 
-instance Arbitrary (V1 Mnemonic) where
+instance Arbitrary (V1 (Mnemonic 12)) where
     arbitrary =
         V1 <$> arbitrary
 
-instance ToJSON (V1 Mnemonic) where
+instance ToJSON (V1 (Mnemonic 12)) where
     toJSON =
         toJSON . unV1
 
-instance FromJSON (V1 Mnemonic) where
+instance FromJSON (V1 (Mnemonic 12)) where
     parseJSON =
         fmap V1 . parseJSON
 
-instance ToSchema (V1 Mnemonic) where
+instance ToSchema (V1 (Mnemonic 12)) where
     declareNamedSchema _ = do
-        NamedSchema _ schm <- declareNamedSchema (Proxy @Mnemonic)
+        NamedSchema _ schm <- declareNamedSchema (Proxy @(Mnemonic 12))
         return $ NamedSchema (Just "V1BackupPhrase") schm
 
 mkPassPhrase :: Text -> Either Text Core.PassPhrase
@@ -471,7 +471,7 @@ instance BuildableSafeGen WalletOperation where
 
 -- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {
-      newwalBackupPhrase     :: !(V1 Mnemonic)
+      newwalBackupPhrase     :: !(V1 (Mnemonic 12))
     , newwalSpendingPassword :: !(Maybe SpendingPassword)
     , newwalAssuranceLevel   :: !AssuranceLevel
     , newwalName             :: !WalletName

@@ -65,10 +65,10 @@ instance Example (V1 Address) where
                     , Core.SingleKeyDistr <$> arbitrary
                     ]
 
-instance Example Mnemonic where
+instance Example (Mnemonic 12)  where
     example = pure def
 
-instance Example (V1 Mnemonic) where
+instance Example (V1 (Mnemonic 12)) where
     example = V1 <$> example
 
 instance Example Address

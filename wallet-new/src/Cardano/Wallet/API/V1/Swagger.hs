@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE QuasiQuotes          #-}
@@ -844,7 +845,7 @@ api (compileInfo, curSoftwareVersion) walletAPI mkDescription = toSwagger wallet
   & host ?~ "127.0.0.1:8090"
   & info.description ?~ (mkDescription $ DescriptionEnvironment
     { deErrorExample          = decodeUtf8 $ encodePretty Errors.WalletNotFound
-    , deMnemonicExample       = decodeUtf8 $ encode (genExample @Mnemonic)
+    , deMnemonicExample       = decodeUtf8 $ encode (genExample @(Mnemonic 12))
     , deDefaultPerPage        = fromString (show defaultPerPageEntries)
     , deWalletErrorTable      = errorsDescription
     , deGitRevision           = ctiGitRevision compileInfo

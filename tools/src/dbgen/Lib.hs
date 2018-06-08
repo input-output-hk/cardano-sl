@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE GADTs               #-}
@@ -402,7 +403,7 @@ genWallet walletNum = do
     mnemonic  <- newRandomMnemonic
     newWallet mempty (walletInit mnemonic)
   where
-    walletInit :: Mnemonic -> CWalletInit
+    walletInit :: Mnemonic 12 -> CWalletInit
     walletInit backupPhrase = CWalletInit {
       cwInitMeta      = CWalletMeta
           { cwName      = "Wallet #" <> show walletNum
@@ -414,11 +415,9 @@ genWallet walletNum = do
 
 
 -- | Generates a new 'Mnemonic'.
-newRandomMnemonic :: WalletWebMode Mnemonic
-newRandomMnemonic = do
-    entropy <- liftIO $ genEntropy 16
-    let mnemonic = either (error . show) entropyToMnemonic entropy
-    pure mnemonic
+newRandomMnemonic :: WalletWebMode (Mnemonic 12)
+newRandomMnemonic =
+    liftIO $ (entropyToMnemonic <$> genEntropy)
 
 
 -- | Creates a new 'CAccount'.

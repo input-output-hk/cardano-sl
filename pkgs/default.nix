@@ -14537,6 +14537,7 @@ license = stdenv.lib.licenses.mit;
 , generic-arbitrary
 , half
 , hashable
+, hedgehog
 , hspec
 , lens
 , mtl
@@ -14610,6 +14611,7 @@ fmt
 formatting
 generic-arbitrary
 half
+hedgehog
 hspec
 lens
 mtl

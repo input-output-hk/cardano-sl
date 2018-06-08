@@ -12374,6 +12374,7 @@ license = stdenv.lib.licenses.bsd3;
 , cardano-sl-binary
 , cardano-sl-binary-test
 , cardano-sl-block
+, cardano-sl-block-test
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-crypto-test
@@ -12568,6 +12569,7 @@ cardano-crypto
 cardano-sl-binary
 cardano-sl-binary-test
 cardano-sl-block
+cardano-sl-block-test
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-crypto-test
@@ -12989,20 +12991,16 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , cardano-sl-binary
 , cardano-sl-core
-, cardano-sl-core-test
 , cardano-sl-crypto
 , cardano-sl-db
 , cardano-sl-delegation
 , cardano-sl-infra
 , cardano-sl-lrc
-, cardano-sl-lrc-test
 , cardano-sl-networking
 , cardano-sl-ssc
 , cardano-sl-txp
-, cardano-sl-txp-test
 , cardano-sl-update
 , cardano-sl-util
-, cardano-sl-util-test
 , cborg
 , conduit
 , containers
@@ -13017,11 +13015,9 @@ license = stdenv.lib.licenses.mit;
 , exceptions
 , filepath
 , formatting
-, generic-arbitrary
 , lens
 , log-warper
 , mtl
-, QuickCheck
 , random
 , reflection
 , rocksdb-haskell-ng
@@ -13052,20 +13048,16 @@ base
 bytestring
 cardano-sl-binary
 cardano-sl-core
-cardano-sl-core-test
 cardano-sl-crypto
 cardano-sl-db
 cardano-sl-delegation
 cardano-sl-infra
 cardano-sl-lrc
-cardano-sl-lrc-test
 cardano-sl-networking
 cardano-sl-ssc
 cardano-sl-txp
-cardano-sl-txp-test
 cardano-sl-update
 cardano-sl-util
-cardano-sl-util-test
 cborg
 conduit
 containers
@@ -13077,11 +13069,9 @@ ether
 exceptions
 filepath
 formatting
-generic-arbitrary
 lens
 log-warper
 mtl
-QuickCheck
 random
 reflection
 rocksdb-haskell-ng
@@ -13112,6 +13102,77 @@ universum
 ];
 doHaddock = false;
 description = "Cardano SL - block processing";
+license = stdenv.lib.licenses.mit;
+
+}) {};
+"cardano-sl-block-test" = callPackage
+({
+  mkDerivation
+, base
+, bytestring
+, cardano-sl-binary
+, cardano-sl-block
+, cardano-sl-core
+, cardano-sl-core-test
+, cardano-sl-crypto
+, cardano-sl-db
+, cardano-sl-delegation
+, cardano-sl-infra
+, cardano-sl-lrc
+, cardano-sl-lrc-test
+, cardano-sl-networking
+, cardano-sl-ssc
+, cardano-sl-txp
+, cardano-sl-txp-test
+, cardano-sl-update
+, cardano-sl-util
+, cardano-sl-util-test
+, formatting
+, generic-arbitrary
+, QuickCheck
+, quickcheck-instances
+, random
+, stdenv
+, text
+, text-format
+, universum
+}:
+mkDerivation {
+
+pname = "cardano-sl-block-test";
+version = "1.1.0";
+src = ./../block/test;
+libraryHaskellDepends = [
+base
+bytestring
+cardano-sl-binary
+cardano-sl-block
+cardano-sl-core
+cardano-sl-core-test
+cardano-sl-crypto
+cardano-sl-db
+cardano-sl-delegation
+cardano-sl-infra
+cardano-sl-lrc
+cardano-sl-lrc-test
+cardano-sl-networking
+cardano-sl-ssc
+cardano-sl-txp
+cardano-sl-txp-test
+cardano-sl-update
+cardano-sl-util
+cardano-sl-util-test
+formatting
+generic-arbitrary
+QuickCheck
+quickcheck-instances
+random
+text
+text-format
+universum
+];
+doHaddock = false;
+description = "Cardano SL - block processing (tests)";
 license = stdenv.lib.licenses.mit;
 
 }) {};
@@ -13725,6 +13786,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-binary
 , cardano-sl-binary-test
 , cardano-sl-block
+, cardano-sl-block-test
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-db
@@ -13808,6 +13870,7 @@ bytestring
 cardano-sl
 cardano-sl-binary
 cardano-sl-block
+cardano-sl-block-test
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-db
@@ -13893,6 +13956,7 @@ bytestring
 cardano-sl
 cardano-sl-binary-test
 cardano-sl-block
+cardano-sl-block-test
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-txp
@@ -13936,6 +14000,7 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl
 , cardano-sl-binary
 , cardano-sl-block
+, cardano-sl-block-test
 , cardano-sl-client
 , cardano-sl-core
 , cardano-sl-crypto
@@ -14034,6 +14099,7 @@ bytestring
 cardano-sl
 cardano-sl-binary
 cardano-sl-block
+cardano-sl-block-test
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-db

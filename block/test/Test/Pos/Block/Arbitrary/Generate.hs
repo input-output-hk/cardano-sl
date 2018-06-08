@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 -- | Utility to generate a random block using an Arbitrary instance.
 
 module Test.Pos.Block.Arbitrary.Generate

@@ -4,4 +4,7 @@ help: ## Print documentation
 lint: ## Run hlint for the project
   ./scripts/haskell/lint.sh
 
+stylish: ## Run stylish-haskell on the entire project
+  ./scripts/haskell/stylish.sh
+
 .PHONY: help

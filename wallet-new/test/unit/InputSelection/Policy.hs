@@ -11,6 +11,7 @@ module InputSelection.Policy (
     -- * UTxO constraints
   , IsUtxo(..)
   , fromUtxo
+  , convertUtxo
     -- * Transaction statistics
   , TxStats(..)
     -- * Convenience re-exports
@@ -32,7 +33,7 @@ import qualified Util.Histogram as Histogram
 import           Util.MultiSet (MultiSet)
 import qualified Util.MultiSet as MultiSet
 import           Util.StrictStateT
-import           UTxO.DSL (Hash, Input, Output, Transaction, Utxo, Value)
+import           UTxO.DSL (Hash, Output, Transaction, Utxo, Value)
 import qualified UTxO.DSL as DSL
 
 {-------------------------------------------------------------------------------
@@ -92,9 +93,16 @@ class IsUtxo utxo where
   -- We take the inputs as a UTxO so that we know what their balance is.
   utxoRemoveInputs :: Hash h a => Utxo h a -> utxo h a -> utxo h a
 
+  -- | Convert to regular utxo
+  toUtxo :: Hash h a => utxo h a -> Utxo h a
+
 -- | Convert "normal" UTxO into this policy-specific representation
 fromUtxo :: (IsUtxo utxo, Hash h a) => Utxo h a -> utxo h a
 fromUtxo = flip utxoUnion utxoEmpty
+
+-- | Convert one UTxO representation to antoher
+convertUtxo :: (IsUtxo utxo, IsUtxo utxo', Hash h a) => utxo h a -> utxo' h a
+convertUtxo = fromUtxo . toUtxo
 
 instance IsUtxo Utxo where
   utxoEmpty        = DSL.utxoEmpty
@@ -103,6 +111,7 @@ instance IsUtxo Utxo where
   utxoBalance      = DSL.utxoBalance
   utxoRemoveInputs = DSL.utxoRemoveInputs . DSL.utxoDomain
   utxoOutputs      = map (DSL.outVal . snd) . DSL.utxoToList
+  toUtxo           = identity
 
 {-------------------------------------------------------------------------------
   Transaction statistics

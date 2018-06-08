@@ -28,6 +28,7 @@ instance IsUtxo SortedUtxo where
   utxoBalance      = balance
   utxoOutputs      = outputs
   utxoRemoveInputs = removeInputs
+  toUtxo           = flatten
 
 {-------------------------------------------------------------------------------
   Basic operations
@@ -74,7 +75,7 @@ maxView (SortedUtxo u) = do
       io : elems' -> Just (io, SortedUtxo $ Map.insert val (DSL.utxoFromList elems') u')
 
 {-------------------------------------------------------------------------------
-  Internal auxiliary
+  Conversion
 -------------------------------------------------------------------------------}
 
 sortedUtxo :: forall h a. Hash h a => Utxo h a -> SortedUtxo h a
@@ -90,6 +91,14 @@ sortedUtxo = go empty . DSL.utxoToList
         insert :: Maybe (Utxo h a) -> Maybe (Utxo h a)
         insert Nothing    = Just $ DSL.utxoSingleton i o
         insert (Just old) = Just $ DSL.utxoInsert (i, o) old
+
+-- | Convert back to normal UTxO representation
+flatten :: Hash h a => SortedUtxo h a -> Utxo h a
+flatten = DSL.utxoUnions . Map.elems . sorted
+
+{-------------------------------------------------------------------------------
+  Internal auxiliary
+-------------------------------------------------------------------------------}
 
 union' :: Hash h a => SortedUtxo h a -> SortedUtxo h a -> SortedUtxo h a
 union' (SortedUtxo u) (SortedUtxo u') = SortedUtxo $

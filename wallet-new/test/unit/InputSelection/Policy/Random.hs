@@ -8,7 +8,6 @@ import           Universum
 import           Control.Lens ((%=), (.=))
 import           Control.Monad.Except (MonadError (..))
 import qualified Data.Map.Strict as Map
-import qualified Data.Set as Set
 import           Test.QuickCheck hiding (Fixed)
 
 import           InputSelection.Policy

@@ -14,7 +14,7 @@ import           Pos.Binary.Class (decodeFull, serialize')
 import           Pos.Binary.Communication (serializeMsgSerializedBlock)
 import           Pos.Block.Network.Types (MsgBlock (..), MsgSerializedBlock (..))
 import           Pos.DB.Class (Serialized (..))
-import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
+import           Pos.Util.CompileInfo (withCompileInfo)
 
 import           Test.Pos.Block.Logic.Mode (blockPropertyTestable)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock)
@@ -24,7 +24,7 @@ import           Test.Pos.Configuration (HasStaticConfigurations, withStaticConf
 -- The binary encoding of `MsgSerializedBlock` using `serializeMsgSerializedBlock`
 -- should be the same as the binary encoding of `MsgBlock`.
 serializeMsgSerializedBlockSpec
-    :: (HasStaticConfigurations, HasCompileInfo) => Spec
+    :: (HasStaticConfigurations) => Spec
 serializeMsgSerializedBlockSpec = do
     prop desc $ blockPropertyTestable $ do
         (block, _) <- bpGenBlock (EnableTxPayload True) (InplaceDB True)
@@ -45,7 +45,7 @@ serializeMsgSerializedBlockSpec = do
 -- Deserialization of a serialized `MsgSerializedBlock` (with
 -- `serializeMsgSerializedBlock`) should give back the original block.
 deserializeSerilizedMsgSerializedBlockSpec
-    :: (HasStaticConfigurations, HasCompileInfo) => Spec
+    :: (HasStaticConfigurations) => Spec
 deserializeSerilizedMsgSerializedBlockSpec = do
     prop desc $ blockPropertyTestable $ do
         (block, _) <- bpGenBlock (EnableTxPayload True) (InplaceDB True)

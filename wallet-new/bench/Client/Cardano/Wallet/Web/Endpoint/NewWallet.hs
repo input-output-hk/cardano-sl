@@ -6,7 +6,6 @@ module Client.Cardano.Wallet.Web.Endpoint.NewWallet
 
 import           Universum
 
-import           Crypto.Random.Entropy (getEntropy)
 import           Data.Time.Clock (getCurrentTime)
 
 import           Bench.Cardano.Wallet.Types (BenchEndpoint (..), CompleteConfig (..), Response,
@@ -14,7 +13,7 @@ import           Bench.Cardano.Wallet.Types (BenchEndpoint (..), CompleteConfig 
 import           Client.Cardano.Wallet.Web.Analyze (analyzeResponseIfNeeded, checkResponse)
 import           Client.Cardano.Wallet.Web.Api (newWallet)
 import           Client.Cardano.Wallet.Web.Run (runEndpointClient)
-import           Pos.Util.Mnemonic (Mnemonic, entropyToMnemonic, mkEntropy)
+import           Pos.Util.Mnemonic (Mnemonic, entropyToMnemonic, genEntropy)
 import           Pos.Wallet.Web.ClientTypes (CWallet (..), CWalletAssurance (..), CWalletInit (..),
                                              CWalletMeta (..))
 
@@ -36,8 +35,8 @@ newWalletIO conf@CompleteConfig {..} = do
 generateBackupPhrase :: IO Mnemonic
 generateBackupPhrase = do
     -- The size 16 should give us 12-words mnemonic after BIP-39 encoding.
-    bytes <- getEntropy 16
-    either (error . show) (return . entropyToMnemonic) (mkEntropy bytes)
+    genEntropy <- genEntropy 16
+    either (error . show) (return . entropyToMnemonic) entropy
 
 -- | Analyze response with new address.
 analyze

@@ -9,6 +9,7 @@ module Pos.Util.Mnemonic
        -- * Creating @Mnemonic@ (resp. @Entropy@)
        , mkEntropy
        , mkMnemonic
+       , genEntropy
 
        -- * Converting from and to @Mnemonic@ (resp. @Entropy@)
        , mnemonicToEntropy
@@ -23,7 +24,6 @@ import           Universum
 import           Crypto.Hash (Blake2b_256, Digest, SHA256, hash)
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Aeson.Types (Parser)
-import           Data.Bits (Bits, shiftL, shiftR, (.&.))
 import           Data.ByteArray (convert)
 import           Data.ByteString (ByteString)
 import           Data.Char (isAscii)
@@ -31,14 +31,14 @@ import           Data.Default (Default (def))
 import           Data.List (elemIndex, (!!))
 import           Data.Swagger (NamedSchema (..), ToSchema (..))
 import           Data.Text.Buildable (Buildable (build))
-import           Test.QuickCheck (Arbitrary (arbitrary))
-import           Test.QuickCheck.Gen (oneof, vectorOf)
 
 import           Pos.Binary (serialize')
+import           Pos.Util.Bits (Bit, Word11, fromBits, toBits)
 import           Pos.Util.LogSafe (SecureLog)
 
+
+import qualified Crypto.Random.Entropy as Crypto
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as B8
 import qualified Data.Text as Text
 
 
@@ -46,28 +46,11 @@ import qualified Data.Text as Text
 -- Constructor isn't exposed.
 data Mnemonic = Mnemonic
     { getEntropy :: Entropy
-    , getWords   :: [(Int, Text)]
+    , getWords   :: [(Word11, Text)]
     } deriving (Eq, Show, Generic)
 
 -- | Entropy as a non-empty sequence of bytes, multiple of 4 bytes
 newtype Entropy = Entropy ByteString deriving (Eq, Show, Generic)
-
--- Type Alias for readability. A bit can only be 1 or 0, but we
--- use Word8 instead of Bool to leverage some available type-classes.
-type Bit = Word8
-
--- Type Alias for readability
-type Word11 = Int
-
-
--- | Initial seed has to be vector or length multiple of 4 bytes and shorter
--- than 64 bytes. Not that this is good for testing or examples, but probably
--- not for generating truly random Mnemonic words.
---
--- See 'Crypto.Random.Entropy (getEntropy)'
-instance Arbitrary Entropy where
-    arbitrary =
-        Entropy . B8.pack <$> oneof [ vectorOf (4 * n) arbitrary | n <- [1..16] ]
 
 -- FIXME: Suggestion, we could -- when certain flags are turned on -- display
 -- a fingerprint of the Mnemonic, like a PKBDF2 over n iterations. This could be
@@ -105,11 +88,6 @@ instance Default Mnemonic where
             ]
         }
 
--- Same remark from 'Arbitrary Entropy' applies here.
-instance Arbitrary Mnemonic where
-    arbitrary =
-        entropyToMnemonic <$> arbitrary
-
 instance FromJSON Mnemonic where
     parseJSON =
         parseJSON >=> (eitherToParser . mkMnemonic)
@@ -140,6 +118,12 @@ mkEntropy bytes = do
     Right (Entropy bytes)
 
 
+-- | Generate Entropy of a given size
+genEntropy :: Int -> IO (Either Text Entropy)
+genEntropy =
+    fmap mkEntropy . Crypto.getEntropy
+
+
 -- | Smart-constructor for the Mnemonic
 mkMnemonic :: [Text] -> Either Text Mnemonic
 mkMnemonic wordsm = do
@@ -154,23 +138,23 @@ mkMnemonic wordsm = do
     when (wordsm == map snd (getWords def)) $
         Left "Forbidden Mnemonic: an example Mnemonic has been submitted. Please generate a fresh and private Mnemonic from a trusted source"
     indices <- findIndices enWordList wordsm
-    let bits = concatMap word11ToBits indices
+    let bits = toBits indices
     let (entropyBits, checksum) = splitAt ((length bits `quot` 33) * 32) bits
-    entropy <- mkEntropy (bitsToBytes entropyBits)
+    entropy <- mkEntropy =<< (BS.pack <$> fromBits entropyBits)
     when (checksum /= calcChecksum entropy) $
-        Left "mnemonic checksum failed: cannot convert mnemonic to entropy"
+        Left "Mnemonic checksum failed: cannot convert mnemonic to entropy"
     pure $ Mnemonic
         { getEntropy = entropy
         , getWords   = zip indices wordsm
         }
   where
-    findIndices :: [Text] -> [Text] -> Either Text [Int]
+    findIndices :: [Text] -> [Text] -> Either Text [Word11]
     findIndices es targets =
         case mapM (\e -> elemIndex e es) targets of
         Nothing ->
             Left "Unknown Mnemonic word(s)"
         Just is ->
-            pure is
+            pure (map fromIntegral is)
 
 
 -- | An accessor because we don't want to expose the data-type constructor
@@ -211,9 +195,10 @@ entropyToMnemonic :: Entropy -> Mnemonic
 entropyToMnemonic entropy@(Entropy bytes) =
     let
         checksum = calcChecksum entropy
-        bits     = bytesToBits bytes ++ checksum
-        indices  = map bitsToWord11 (groupOf 11 bits)
-        wordsm   = map (\i -> enWordList !! i) indices
+        bits     = toBits (BS.unpack bytes) ++ checksum
+        -- Smart-constructors maintain an invariant, fromBits _can't fail_.
+        indices  = either (error . ("Invariant failed: " <>)) identity (fromBits bits)
+        wordsm   = map (\i -> enWordList !! (fromIntegral i)) indices
     in
         Mnemonic entropy (zip indices wordsm)
 
@@ -223,8 +208,6 @@ entropyToMnemonic entropy@(Entropy bytes) =
 mnemonicToEntropy :: Mnemonic -> Entropy
 mnemonicToEntropy =
     getEntropy
-
-
 
 --
 -- INTERNALS
@@ -238,83 +221,13 @@ calcChecksum (Entropy bytes) =
         ent    = BS.length bytes `quot` 4
         sha256 = convert @(Digest SHA256) . hash $ bytes
     in
-        take ent $ bytesToBits sha256
-
-
--- | Makes groups of @size@ elements from a list. Not that it doesn't insure
--- that there are enough elements to make equal groups in the list.
-groupOf :: Int -> [a] -> [[a]]
-groupOf =
-    iter []
-  where
-    iter acc _ [] = acc
-    iter acc size xs =
-        iter (acc ++ [take size xs]) size (drop size xs)
+        take ent $ toBits $ BS.unpack sha256
 
 
 -- | Simple Blake2b 256-bit of a ByteString
 blake2b :: ByteString -> ByteString
 blake2b =
     convert @(Digest Blake2b_256) . hash
-
-
-bytesToBits :: ByteString -> [Bit]
-bytesToBits =
-    concatMap word8ToBits . BS.unpack
-
-
-bitsToBytes :: [Bit] -> ByteString
-bitsToBytes =
-    BS.pack . map bitsToWord8 . groupOf 8
-
-
-bitsToWord8 :: [Bit] -> Word8
-bitsToWord8 =
-    bitsToWordN 8
-
-
-bitsToWord11 :: [Bit] -> Word11
-bitsToWord11 =
-    bitsToWordN 11
-
-
-word8ToBits :: Word8 -> [Bit]
-word8ToBits =
-    wordNToBits 8
-
-
-word11ToBits :: Word11 -> [Bit]
-word11ToBits =
-    wordNToBits 11
-
-
-wordNToBits :: (Bits a, Integral a) => Int -> a -> [Bit]
-wordNToBits e0 =
-    iter e0 []
-  where
-    iter 0 xs _ = xs
-    iter e xs n =
-        let
-            e'  = e - 1
-            d   = 1 `shiftL` e'
-            bit = (n .&. d) `shiftR` e'
-        in
-            iter e' (xs ++ [fromIntegral bit]) (n - bit * d)
-
-
-bitsToWordN :: (Bits a, Num a) => Int -> [Bit] -> a
-bitsToWordN e0 =
-    iter e0 0
-  where
-    iter 0 wrd [] = wrd
-    iter e wrd (bit : q) =
-        let
-            e' = e - 1
-            d  = 1 `shiftL` e'
-        in
-            iter e' (wrd + fromIntegral bit * d) q
-    iter _ _ _ =
-        error $ "bitsToWord" <> show e0 <> ": wrong number of bits"
 
 
 enWordList :: [Text]

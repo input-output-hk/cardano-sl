@@ -12927,6 +12927,7 @@ license = stdenv.lib.licenses.mit;
 "cardano-sl-binary-test" = callPackage
 ({
   mkDerivation
+, aeson
 , base
 , bytestring
 , cardano-sl-binary
@@ -12936,16 +12937,23 @@ license = stdenv.lib.licenses.mit;
 , cereal
 , cpphs
 , cryptonite
+, directory
+, file-embed
+, filepath
 , formatting
 , half
+, hedgehog
 , hspec
 , mtl
+, pretty-show
 , QuickCheck
 , quickcheck-instances
 , safecopy
 , stdenv
 , tagged
+, template-haskell
 , text
+, text-format
 , universum
 }:
 mkDerivation {
@@ -12954,6 +12962,7 @@ pname = "cardano-sl-binary-test";
 version = "1.1.0";
 src = ./../binary/test;
 libraryHaskellDepends = [
+aeson
 base
 bytestring
 cardano-sl-binary
@@ -12962,15 +12971,22 @@ cardano-sl-util-test
 cborg
 cereal
 cryptonite
+directory
+file-embed
+filepath
 formatting
 half
+hedgehog
 hspec
 mtl
+pretty-show
 QuickCheck
 quickcheck-instances
 safecopy
 tagged
+template-haskell
 text
+text-format
 universum
 ];
 libraryToolDepends = [
@@ -13413,6 +13429,7 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , cardano-crypto
 , cardano-sl-binary
+, cardano-sl-binary-test
 , cardano-sl-util
 , cardano-sl-util-test
 , cborg
@@ -13420,10 +13437,7 @@ license = stdenv.lib.licenses.mit;
 , cryptonite
 , cryptonite-openssl
 , data-default
-, directory
 , ed25519
-, file-embed
-, filepath
 , formatting
 , hashable
 , hedgehog
@@ -13431,7 +13445,6 @@ license = stdenv.lib.licenses.mit;
 , lens
 , memory
 , mtl
-, pretty-show
 , pvss
 , QuickCheck
 , reflection
@@ -13487,25 +13500,18 @@ base
 bytestring
 cardano-crypto
 cardano-sl-binary
+cardano-sl-binary-test
 cardano-sl-util-test
 cryptonite
-directory
-file-embed
-filepath
 formatting
 hedgehog
 hspec
 memory
-pretty-show
 QuickCheck
 template-haskell
 text
-text-format
 universum
 unordered-containers
-];
-testToolDepends = [
-cpphs
 ];
 doHaddock = false;
 description = "Cardano SL - cryptography primitives";

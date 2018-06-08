@@ -13,7 +13,6 @@ import           Test.Hspec (Spec, describe, it)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Property, (===), (==>))
 
-import           Pos.Arbitrary.Block as T
 import           Pos.Binary (Bi)
 import qualified Pos.Block.Base as T
 import qualified Pos.Block.Logic.Integrity as T
@@ -24,6 +23,7 @@ import           Pos.Crypto (ProtocolMagic (..), ProxySecretKey (pskIssuerPk), S
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Core.Chrono (NewestFirst (..))
 
+import           Test.Pos.Block.Arbitrary as T
 import           Test.Pos.Configuration (withDefConfiguration)
 
 -- This tests are quite slow, hence max success is at most 20.

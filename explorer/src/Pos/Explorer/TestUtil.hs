@@ -30,7 +30,6 @@ import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, Testable, choose, counterexample,
                                   forAll, generate, property, suchThat)
 
-import           Pos.Arbitrary.Block ()
 import           Pos.Block.Base (mkGenesisBlock)
 import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
@@ -47,6 +46,7 @@ import           Pos.Crypto (SecretKey, toPublic)
 import           Pos.Delegation (DlgPayload, DlgUndo (..), ProxySKBlockInfo)
 import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfigurations)
 
 import           Pos.Explorer.BListener (createPagedHeaderHashesPair)

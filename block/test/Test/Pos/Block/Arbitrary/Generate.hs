@@ -1,6 +1,6 @@
 -- | Utility to generate a random block using an Arbitrary instance.
 
-module Pos.Arbitrary.Block.Generate
+module Test.Pos.Block.Arbitrary.Generate
     ( generateMainBlock
     , generateMainBlockWithConfiguration
     ) where
@@ -14,7 +14,7 @@ import qualified Test.QuickCheck.Random as QC
 import           Pos.Core (MainBlock, HasProtocolConstants, HasProtocolMagic,
                            HasGenesisHash, ProtocolConstants, ProtocolMagic)
 -- Also brings in the 'Arbitrary' instance for 'MainBlock'.
-import           Pos.Arbitrary.Block (genMainBlock)
+import           Test.Pos.Block.Arbitrary (genMainBlock)
 
 -- | Use 'Arbitrary' instances to generate a 'MainBlock'.
 -- These require magical configurations.

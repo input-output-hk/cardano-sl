@@ -5,7 +5,7 @@ module Pos.Core.Common.AddrStakeDistribution
        , MultiKeyDistrError (..)
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Exception.Safe (Exception (displayException))
 import           Control.Lens (_Left)

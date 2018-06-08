@@ -109,7 +109,6 @@ test-suite test
                        Test.Pos.Crypto.Bi
                        Test.Pos.Crypto.CryptoSpec
                        Test.Pos.Crypto.Gen
-                       Test.Pos.Crypto.TempHelpers
 
   build-depends:       QuickCheck
                      , base
@@ -117,20 +116,16 @@ test-suite test
                      , bytestring
                      , cardano-crypto
                      , cardano-sl-binary
+                     , cardano-sl-binary-test
                      , cardano-sl-crypto
                      , cardano-sl-util-test
                      , cryptonite
-                     , directory
-                     , filepath
-                     , file-embed
                      , formatting
                      , hedgehog
                      , hspec
                      , memory
-                     , pretty-show
-                     , text
-                     , text-format
                      , template-haskell
+                     , text
                      , universum >= 0.1.11
                      , unordered-containers
 
@@ -167,6 +162,3 @@ test-suite test
                         ScopedTypeVariables
                         GADTs
                         MonadFailDesugaring
-
-  build-tools: cpphs >= 1.19
-  ghc-options: -pgmP cpphs -optP --cpp

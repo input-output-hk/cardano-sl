@@ -14,10 +14,12 @@ cabal-version:       >=1.10
 library
   exposed-modules:
                        Test.Pos.Binary.Helpers
+                       Test.Pos.Binary.Helpers.GoldenRoundTrip
                        Test.Pos.Cbor.Canonicity
                        Test.Pos.Cbor.RefImpl
 
   build-depends:       QuickCheck
+                     , aeson
                      , base
                      , bytestring
                      , cardano-sl-binary
@@ -26,13 +28,20 @@ library
                      , cborg
                      , cereal
                      , cryptonite
+                     , directory
+                     , filepath
+                     , file-embed
                      , formatting
                      , half
+                     , hedgehog
                      , hspec
                      , mtl
+                     , pretty-show
                      , quickcheck-instances
                      , safecopy
+                     , template-haskell
                      , text
+                     , text-format
                      , tagged
                      , universum
 

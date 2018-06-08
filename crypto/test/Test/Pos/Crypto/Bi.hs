@@ -27,11 +27,11 @@ import           Pos.Crypto (AbstractHash, EncShare, PassPhrase, ProtocolMagic (
                              packHDAddressAttr, proxySign, redeemDeterministicKeyGen, redeemSign,
                              safeCreateProxyCert, safeCreatePsk, sign, toPublic, toVssPublicKey)
 
+import           Test.Pos.Binary.Helpers.GoldenRoundTrip (discoverGolden, discoverRoundTrip, eachOf,
+                                                          goldenTestBi, roundTripsAesonBuildable,
+                                                          roundTripsAesonShow,
+                                                          roundTripsBiBuildable, roundTripsBiShow)
 import           Test.Pos.Crypto.Gen
-import           Test.Pos.Crypto.TempHelpers (discoverGolden, discoverRoundTrip, eachOf,
-                                              goldenTestBi, roundTripsAesonBuildable,
-                                              roundTripsAesonShow, roundTripsBiBuildable,
-                                              roundTripsBiShow)
 
 --------------------------------------------------------------------------------
 -- ProtocolMagic

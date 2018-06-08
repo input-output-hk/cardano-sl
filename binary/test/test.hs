@@ -5,6 +5,7 @@ import           Test.Hspec (hspec)
 import           Spec (spec)
 
 import qualified Test.Pos.Binary.BiSerialize
+import           Test.Pos.Binary.Helpers (runTests)
 
 main :: IO ()
 main = do
@@ -12,9 +13,3 @@ main = do
     runTests
         [ Test.Pos.Binary.BiSerialize.tests
         ]
-
-runTests :: [IO Bool] -> IO ()
-runTests tests = do
-    result <- andM tests
-    unless result
-        exitFailure

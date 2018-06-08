@@ -13,7 +13,6 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
-  default-language: Haskell2010
   exposed-modules:
                         Pos.Arbitrary.Block
                         Pos.Arbitrary.Block.Message

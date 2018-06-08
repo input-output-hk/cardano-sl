@@ -32,11 +32,9 @@ newWalletIO conf@CompleteConfig {..} = do
     analyzeResponseIfNeeded NewWalletBench conf $ analyze response
 
 -- | Generate new backup phrase for new wallet.
-generateBackupPhrase :: IO Mnemonic
-generateBackupPhrase = do
-    -- The size 16 should give us 12-words mnemonic after BIP-39 encoding.
-    genEntropy <- genEntropy 16
-    either (error . show) (return . entropyToMnemonic) entropy
+generateBackupPhrase :: IO (Mnemonic 12)
+generateBackupPhrase =
+    entropyToMnemonic <$> genEntropy
 
 -- | Analyze response with new address.
 analyze

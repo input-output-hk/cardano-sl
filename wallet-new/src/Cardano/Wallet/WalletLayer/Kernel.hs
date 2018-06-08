@@ -21,7 +21,7 @@ import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), Passi
 
 import           Pos.Crypto (safeDeterministicKeyGen)
 import           Pos.Util.Chrono (mapMaybeChrono)
-import           Pos.Util.Mnemonic (mnemonicToSeed)
+import           Pos.Util.Mnemonic (Mnemonic, mnemonicToSeed)
 
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Data.Map.Strict as Map
@@ -46,7 +46,7 @@ bracketPassiveWallet logFunction f =
 
       -- TODO (temporary): build a sample wallet from a backup phrase
       _ <- liftIO $ do
-        let (_, esk) = safeDeterministicKeyGen (mnemonicToSeed def) emptyPassphrase
+        let (_, esk) = safeDeterministicKeyGen (mnemonicToSeed $ def @(Mnemonic 12)) emptyPassphrase
         Kernel.newWalletHdRnd w esk Map.empty
 
       f (passiveWalletLayer w invoke)

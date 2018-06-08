@@ -33,7 +33,7 @@ spec :: Spec
 spec = parallel $ describe "Marshalling & Unmarshalling" $ do
     parallel $ describe "Roundtrips" $ do
         -- Aeson roundrips
-        aesonRoundtripProp @(V1 Mnemonic) Proxy
+        aesonRoundtripProp @(V1 (Mnemonic 12)) Proxy
         aesonRoundtripProp @Account Proxy
         aesonRoundtripProp @AssuranceLevel Proxy
         aesonRoundtripProp @(V1 Core.SoftwareVersion) Proxy

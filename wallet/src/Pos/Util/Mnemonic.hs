@@ -1,15 +1,24 @@
 -- | Module providing restoring from backup phrase functionality
+{-# LANGUAGE DataKinds      #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TypeFamilies   #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module Pos.Util.Mnemonic
        (
        -- * Types
          Mnemonic
        , Entropy
+       , SupportedWords
 
        -- * Creating @Mnemonic@ (resp. @Entropy@)
        , mkEntropy
        , mkMnemonic
        , genEntropy
+
+       -- * Access properties of types
+       , entropyLength
+       , checksumLength
 
        -- * Converting from and to @Mnemonic@ (resp. @Entropy@)
        , mnemonicToEntropy
@@ -21,6 +30,7 @@ module Pos.Util.Mnemonic
 
 import           Universum
 
+import           Control.Lens ((?~))
 import           Crypto.Hash (Blake2b_256, Digest, SHA256, hash)
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Aeson.Types (Parser)
@@ -29,8 +39,11 @@ import           Data.ByteString (ByteString)
 import           Data.Char (isAscii)
 import           Data.Default (Default (def))
 import           Data.List (elemIndex, (!!))
-import           Data.Swagger (NamedSchema (..), ToSchema (..))
+import           Data.Swagger (NamedSchema (..), ToSchema (..), maxItems, minItems)
 import           Data.Text.Buildable (Buildable (build))
+import           GHC.TypeLits (ErrorMessage (..), TypeError)
+import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck.Gen (vectorOf)
 
 import           Pos.Binary (serialize')
 import           Pos.Crypto (AesKey (..))
@@ -40,18 +53,59 @@ import           Pos.Util.LogSafe (SecureLog)
 
 import qualified Crypto.Random.Entropy as Crypto
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as B8
 import qualified Data.Text as Text
 
 
 -- | A backup-phrase in the form of a non-empty of Mnemonic words
 -- Constructor isn't exposed.
-data Mnemonic = Mnemonic
-    { getEntropy :: Entropy
+data Mnemonic (n :: Nat) = Mnemonic
+    { getEntropy :: Entropy n
     , getWords   :: [(Word11, Text)]
     } deriving (Eq, Show, Generic)
 
 -- | Entropy as a non-empty sequence of bytes, multiple of 4 bytes
-newtype Entropy = Entropy ByteString deriving (Eq, Show, Generic)
+newtype Entropy (n :: Nat) = Entropy ByteString deriving (Eq, Show, Generic)
+
+type family SupportedWords (n :: Nat) :: Constraint where
+    SupportedWords 3  = ()
+    SupportedWords 6  = ()
+    SupportedWords 9  = ()
+    SupportedWords 12 = ()
+    SupportedWords 15 = ()
+    SupportedWords 18 = ()
+    SupportedWords 21 = ()
+    SupportedWords 24 = ()
+    SupportedWords 27 = ()
+    SupportedWords 30 = ()
+    SupportedWords 33 = ()
+    SupportedWords 36 = ()
+    SupportedWords 39 = ()
+    SupportedWords 42 = ()
+    SupportedWords 45 = ()
+    SupportedWords 48 = ()
+    SupportedWords _  = TypeError ('Text "Unsupported number of Mnemonic words")
+
+
+-- | Initial seed has to be vector or length multiple of 4 bytes and shorter
+-- than 64 bytes. Not that this is good for testing or examples, but probably
+-- not for generating truly random Mnemonic words.
+--
+-- See 'Crypto.Random.Entropy (getEntropy)'
+instance (KnownNat n, SupportedWords n) => Arbitrary (Entropy n) where
+    arbitrary =
+        let
+            size    = entropyLength (Proxy :: Proxy (Entropy n))
+            entropy = mkEntropy . B8.pack <$> vectorOf (size `quot` 8) arbitrary
+        in
+            either (error . ("Invalid Arbitrary Entropy: " <>)) identity <$> entropy
+
+
+-- Same remark from 'Arbitrary Entropy' applies here.
+instance (KnownNat n, SupportedWords n) => Arbitrary (Mnemonic n) where
+    arbitrary =
+        entropyToMnemonic <$> arbitrary
+
 
 -- FIXME: Suggestion, we could -- when certain flags are turned on -- display
 -- a fingerprint of the Mnemonic, like a PKBDF2 over n iterations. This could be
@@ -60,17 +114,17 @@ newtype Entropy = Entropy ByteString deriving (Eq, Show, Generic)
 -- to a specific identity (since mnemonic words are 'unique', they are supposed
 -- to uniquely identify users, hence the privacy issue). For debbugging only and
 -- with the user consent, that's something we could do.
-instance Buildable Mnemonic where
+instance Buildable (Mnemonic n) where
     build _ =
         "<mnemonic>"
 
-instance Buildable (SecureLog Mnemonic) where
+instance Buildable (SecureLog (Mnemonic n)) where
     build _ =
         "<mnemonic>"
 
 -- | To use everytime we need to show an example of a Mnemonic. This particular
 -- mnemonic is rejected to prevent users from using it on a real wallet.
-instance Default Mnemonic where
+instance Default (Mnemonic 12) where
     def = Mnemonic
         { getEntropy = Entropy "\211\177\US\"\245\163\233\152\169]\149\DC3\239)\234\172"
         , getWords =
@@ -89,58 +143,69 @@ instance Default Mnemonic where
             ]
         }
 
-instance FromJSON Mnemonic where
+instance (SupportedWords n, KnownNat n) => FromJSON (Mnemonic n) where
     parseJSON =
         parseJSON >=> (eitherToParser . mkMnemonic)
       where
-        eitherToParser :: Either Text Mnemonic -> Parser Mnemonic
+        eitherToParser :: Either Text (Mnemonic n) -> Parser (Mnemonic n)
         eitherToParser =
             either (fail . show) pure
 
-instance ToJSON Mnemonic where
+instance (SupportedWords n, KnownNat n) => ToJSON (Mnemonic n) where
     toJSON =
         toJSON . map snd . getWords
 
-instance ToSchema Mnemonic where
+instance (SupportedWords n, KnownNat n) => ToSchema (Mnemonic n) where
     declareNamedSchema _ = do
+        let n = natVal (Proxy :: Proxy n)
         NamedSchema _ schema <- declareNamedSchema (Proxy @[Text])
         return $ NamedSchema (Just "Mnemonic") schema
+            & minItems ?~ n
+            & maxItems ?~ n
 
 
 -- | Smart-constructor for the Entropy
-mkEntropy :: ByteString -> Either Text Entropy
+mkEntropy
+    :: forall n. (SupportedWords n, KnownNat n)
+    => ByteString
+    -> Either Text (Entropy n)
 mkEntropy bytes = do
-    when (BS.length bytes <= 0) $
-        Left "Entropy must be a non-zero sequence of bytes"
-    when (BS.length bytes > 64) $
-        Left "Maximum entropy is 64 bytes (512 bits)"
-    when (BS.length bytes `rem` 4 /= 0) $
-        Left "Entropy must be a multiple of 4 bytes"
+    let ent = entropyLength (Proxy :: Proxy (Entropy n))
+    when ((8 * BS.length bytes) /= ent) $
+        Left $ "Entropy must be a sequence of " <> show ent <> " bytes"
     Right (Entropy bytes)
 
 
 -- | Generate Entropy of a given size
-genEntropy :: Int -> IO (Either Text Entropy)
+genEntropy
+    :: forall n. (SupportedWords n, KnownNat n)
+    => IO (Entropy n)
 genEntropy =
-    fmap mkEntropy . Crypto.getEntropy
+    let
+        size =
+            fromIntegral (entropyLength (Proxy :: Proxy (Entropy n))) `quot` 8
+        invariant =
+            either (error . ("Failed to create Entropy:" <>) . show) identity
+    in
+        invariant . mkEntropy <$> Crypto.getEntropy size
 
 
 -- | Smart-constructor for the Mnemonic
-mkMnemonic :: [Text] -> Either Text Mnemonic
+mkMnemonic
+    :: forall n. (SupportedWords n, KnownNat n)
+    => [Text]
+    -> Either Text (Mnemonic n)
 mkMnemonic wordsm = do
-    when (length wordsm <= 0) $
-        Left "Mnemonic must be a non-empty list of words"
-    when (length wordsm > 48) $
-        Left "Mnemonic must have a maximum number of 48 words"
-    when (length wordsm `rem` 3 /= 0) $
-        Left "Mnemonic must be a multiple of 3 words"
+    let n = fromIntegral $ natVal (Proxy :: Proxy n)
+    when (length wordsm /= n) $
+        Left $ "Mnemonic must be a list of " <> show n <> " words"
     when (isJust $ Text.find (not . isAscii) (unwords wordsm)) $
         Left "Mnemonic must use only ASCII characters"
-    when (wordsm == map snd (getWords def)) $
+    when (wordsm == map snd (getWords (def @(Mnemonic 12)))) $
         Left "Forbidden Mnemonic: an example Mnemonic has been submitted. Please generate a fresh and private Mnemonic from a trusted source"
-    indices <- findIndices enWordList wordsm
-    let bits = toBits indices
-    let (entropyBits, checksum) = splitAt ((length bits `quot` 33) * 32) bits
+    indices <- findIndices dictionaryEN wordsm
+    let ent = entropyLength (Proxy :: Proxy (Entropy n))
+    let (entropyBits, checksum) = splitAt ent (toBits indices)
     entropy <- mkEntropy =<< (BS.pack <$> fromBits entropyBits)
     when (checksum /= calcChecksum entropy) $
         Left "Mnemonic checksum failed: cannot convert mnemonic to entropy"
@@ -159,7 +224,10 @@ mkMnemonic wordsm = do
 
 
 -- | An accessor because we don't want to expose the data-type constructor
-entropyToByteString :: Entropy -> ByteString
+entropyToByteString
+    :: forall n. (SupportedWords n, KnownNat n)
+    => Entropy n
+    -> ByteString
 entropyToByteString (Entropy e) =
     e
 
@@ -178,37 +246,71 @@ entropyToByteString (Entropy e) =
 -- an HD wallet seed, in which case, the function we use is `serialize'` from
 -- the Pos.Binary module. And, when creating an AESKey seed in which case we
 -- simply pass the `identity` function.
-mnemonicToSeed :: Mnemonic -> ByteString
+mnemonicToSeed
+    :: forall n. (SupportedWords n, KnownNat n)
+    => Mnemonic n
+    -> ByteString
 mnemonicToSeed =
     serialize' . blake2b . serialize' . entropyToByteString . mnemonicToEntropy
 
 
 -- | Convert a mnemonic to a seed AesKey. Almost identical to @MnemonictoSeed@
 -- minus the extra serialization.
-mnemonicToAESKey :: Mnemonic -> AesKey
+mnemonicToAESKey
+    :: forall n. (SupportedWords n, KnownNat n)
+    => Mnemonic n
+    -> AesKey
 mnemonicToAESKey =
     AesKey . blake2b . entropyToByteString . mnemonicToEntropy
 
 
 -- | Provide intial entropy as a 'ByteString' of length multiple of 4 bytes.
 -- Output a mnemonic sentence.
-entropyToMnemonic :: Entropy -> Mnemonic
+entropyToMnemonic
+    :: forall n. (SupportedWords n, KnownNat n)
+    => Entropy n
+    -> Mnemonic n
 entropyToMnemonic entropy@(Entropy bytes) =
     let
         checksum = calcChecksum entropy
         bits     = toBits (BS.unpack bytes) ++ checksum
         -- Smart-constructors maintain an invariant, fromBits _can't fail_.
         indices  = either (error . ("Invariant failed: " <>)) identity (fromBits bits)
-        wordsm   = map (\i -> enWordList !! (fromIntegral i)) indices
+        wordsm   = map (\i -> dictionaryEN !! (fromIntegral i)) indices
     in
         Mnemonic entropy (zip indices wordsm)
 
 
 -- | Revert 'toMnemonic'. Do not use this to generate seeds. This outputs the original entropy used to generate a
 -- mnemonic.
-mnemonicToEntropy :: Mnemonic -> Entropy
+mnemonicToEntropy
+    :: forall n. (SupportedWords n, KnownNat n)
+    => Mnemonic n
+    -> Entropy n
 mnemonicToEntropy =
     getEntropy
+
+
+-- | Get the corresponding Checksum length IN BITS
+checksumLength
+    :: forall n. (SupportedWords n, KnownNat n)
+    => Proxy (Entropy n)
+    -> Int
+checksumLength _ =
+    let
+        n = fromIntegral $ natVal (Proxy :: Proxy n)
+    in
+        (n * 11) `quot` 33
+
+
+-- | Get the corresponding Entropy's length IN BITS
+entropyLength
+    :: forall n. (SupportedWords n, KnownNat n)
+    => Proxy (Entropy n)
+    -> Int
+entropyLength =
+    (* 32) . checksumLength
+
 
 --
 -- INTERNALS
@@ -216,13 +318,16 @@ mnemonicToEntropy =
 
 -- | Compute checksum of a given Entropy. Checksum is a multiple of 4 bits,
 -- so we represent it in binary form as a list of Bit.
-calcChecksum :: Entropy -> [Bit]
+calcChecksum
+    :: forall n. (SupportedWords n, KnownNat n)
+    => Entropy n
+    -> [Bit]
 calcChecksum (Entropy bytes) =
     let
-        ent    = BS.length bytes `quot` 4
+        cs     = checksumLength (Proxy :: Proxy (Entropy n))
         sha256 = convert @(Digest SHA256) . hash $ bytes
     in
-        take ent $ toBits $ BS.unpack sha256
+        take cs $ toBits $ BS.unpack sha256
 
 
 -- | Simple Blake2b 256-bit of a ByteString
@@ -231,8 +336,8 @@ blake2b =
     convert @(Digest Blake2b_256) . hash
 
 
-enWordList :: [Text]
-enWordList =
+dictionaryEN :: [Text]
+dictionaryEN =
     [ "abandon", "ability", "able", "about", "above", "absent"
     , "absorb", "abstract", "absurd", "abuse", "access", "accident"
     , "account", "accuse", "achieve", "acid", "acoustic", "acquire"

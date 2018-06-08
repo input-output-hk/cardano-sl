@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds    #-}
 {-# LANGUAGE TypeFamilies #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -269,7 +270,7 @@ instance Default CAccountMeta where
 -- | Query data for wallet creation
 data CWalletInit = CWalletInit
     { cwInitMeta     :: !CWalletMeta
-    , cwBackupPhrase :: !Mnemonic
+    , cwBackupPhrase :: !(Mnemonic 12)
     } deriving (Eq, Show, Generic)
 
 instance Buildable CWalletInit where
@@ -296,7 +297,7 @@ instance Buildable (SecureLog CWalletRedeem) where
 data CPaperVendWalletRedeem = CPaperVendWalletRedeem
     { pvWalletId     :: !CAccountId
     , pvSeed         :: !Text -- TODO: newtype!
-    , pvBackupPhrase :: !Mnemonic
+    , pvBackupPhrase :: !(Mnemonic 9)
     } deriving (Show, Generic)
 
 instance Buildable CPaperVendWalletRedeem where

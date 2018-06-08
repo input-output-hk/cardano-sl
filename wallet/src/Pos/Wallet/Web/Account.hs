@@ -1,4 +1,5 @@
 -- | Helpers for Wallet Set, Wallet and Account.
+{-# LANGUAGE DataKinds #-}
 
 module Pos.Wallet.Web.Account
        ( myRootAddresses
@@ -96,7 +97,7 @@ getSKByAddressPure secrets scp passphrase addrMeta = do
 genSaveRootKey
     :: (AccountMode ctx m, MonadKeys m)
     => PassPhrase
-    -> Mnemonic
+    -> Mnemonic 12
     -> m EncryptedSecretKey
 genSaveRootKey passphrase mnemonic =
     let

@@ -100,6 +100,7 @@ library
                       Pos.Wallet.Web.Util
 
                       Pos.Util.Mnemonic
+                      Pos.Util.Bits
 
                       -- shared test sources needed by tests of wallet-new
                       Test.Pos.Wallet.Web.Mode
@@ -219,6 +220,7 @@ test-suite cardano-wallet-test
                        Spec
 
                        -- Basic QC checks
+                       Test.Pos.Util.BitsSpec
                        Test.Pos.Util.MnemonicSpec
                        Test.Pos.Util.MnemonicOld
                        Test.Pos.Util.BackupPhraseOld

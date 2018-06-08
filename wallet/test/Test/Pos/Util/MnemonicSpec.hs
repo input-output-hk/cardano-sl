@@ -11,7 +11,7 @@ import           Data.Set (Set)
 import           Test.Hspec (Spec, describe, it, shouldSatisfy, xit)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..), forAll, property, (===))
-import           Test.QuickCheck.Gen (vectorOf)
+import           Test.QuickCheck.Gen (oneof, vectorOf)
 
 import           Pos.Crypto (AesKey (..), EncryptedSecretKey, PassPhrase (..),
                              safeDeterministicKeyGen)
@@ -23,9 +23,11 @@ import           Pos.Wallet.Web.ClientTypes.Types (CId)
 
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Data.Aeson as Aeson
+import qualified Data.ByteString.Char8 as B8
 import qualified Data.Set as Set
 import qualified Test.Pos.Util.BackupPhraseOld as Old
 import qualified Test.Pos.Util.MnemonicOld as Old
+
 
 -- | By default, private keys aren't comparable for security reasons (timing
 -- attacks). We allow it here for testing purpose which is fine.
@@ -33,19 +35,39 @@ instance Eq CC.XPrv where
     (==) = (==) `on` CC.unXPrv
 
 
+-- | Initial seed has to be vector or length multiple of 4 bytes and shorter
+-- than 64 bytes. Not that this is good for testing or examples, but probably
+-- not for generating truly random Mnemonic words.
+--
+-- See 'Crypto.Random.Entropy (getEntropy)'
+instance Arbitrary Entropy where
+    arbitrary =
+        let
+            entropy =
+                mkEntropy . B8.pack <$> oneof [ vectorOf (4 * n) arbitrary | n <- [1..16] ]
+        in
+            either (error . ("Invalid Arbitrary Entropy: " <>)) identity <$> entropy
+
+
+-- Same remark from 'Arbitrary Entropy' applies here.
+instance Arbitrary Mnemonic where
+    arbitrary =
+        entropyToMnemonic <$> arbitrary
+
+
 spec :: Spec
 spec = do
     describe "Old and New implementation behave identically" $ do
-        modifyMaxSuccess (const 10000) $ prop "entropyToESK (no passphrase)" $
+        modifyMaxSuccess (const 100) $ prop "entropyToESK (no passphrase)" $
             \ent -> entropyToESK mempty ent === entropyToESKOld mempty ent
 
-        modifyMaxSuccess (const 10000) $ prop "entropyToESK (with passphrase)" $
+        modifyMaxSuccess (const 100) $ prop "entropyToESK (with passphrase)" $
             \ent -> entropyToESK defPwd ent === entropyToESKOld defPwd ent
 
-        modifyMaxSuccess (const 1000000) $ prop "entropyToAESKEy" $
+        modifyMaxSuccess (const 1000) $ prop "entropyToAESKEy" $
             \ent -> entropyToAESKey ent === entropyToAESKeyOld ent
 
-    modifyMaxSuccess (const 1000000) $ prop "entropyToMnemonic . mnemonicToEntropy == identity" $
+    modifyMaxSuccess (const 1000) $ prop "entropyToMnemonic . mnemonicToEntropy == identity" $
         \e -> (mnemonicToEntropy . entropyToMnemonic) e == e
 
     it "No example mnemonic" $

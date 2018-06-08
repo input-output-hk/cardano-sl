@@ -127,7 +127,6 @@ import           Pos.Core.Txp (TxAux, TxId)
 import           Pos.SafeCopy ()
 import           Pos.Txp (AddrCoinMap, Utxo, UtxoModifier, applyUtxoModToAddrCoinMap,
                           utxoToAddressCoinMap)
-import           Pos.Util.Mnemonic (Entropy, Mnemonic)
 import qualified Pos.Util.Modifier as MM
 import qualified Pos.Wallet.Web.ClientTypes as WebTypes
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition, PtxSubmitTiming (..),
@@ -857,8 +856,6 @@ deriveSafeCopySimple 0 'base ''WebTypes.CHash
 deriveSafeCopySimple 0 'base ''WebTypes.CId
 deriveSafeCopySimple 0 'base ''WebTypes.Wal
 deriveSafeCopySimple 0 'base ''WebTypes.Addr
-deriveSafeCopySimple 0 'base ''Entropy
-deriveSafeCopySimple 0 'base ''Mnemonic
 deriveSafeCopySimple 0 'base ''WebTypes.AccountId
 deriveSafeCopySimple 0 'base ''WebTypes.CWalletAssurance
 deriveSafeCopySimple 0 'base ''WebTypes.CAccountMeta

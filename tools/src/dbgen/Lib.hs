@@ -19,7 +19,6 @@ import           Data.String.Conv (toS)
 import           Data.Time (diffUTCTime, getCurrentTime)
 import           GHC.Generics (Generic)
 
-import           Crypto.Random.Entropy (getEntropy)
 import           Pos.Client.Txp (TxHistoryEntry (..))
 import           Pos.Core (Address, Coin, mkCoin)
 import           Pos.Data.Attributes (mkAttributes)
@@ -27,7 +26,7 @@ import           Pos.DB.GState.Common (getTip)
 import           Pos.StateLock (StateLock (..))
 import           Pos.Txp (Tx (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil.Types (utxoToModifier)
-import           Pos.Util.Mnemonic (Mnemonic, entropyToMnemonic, mkEntropy)
+import           Pos.Util.Mnemonic (Mnemonic, entropyToMnemonic, genEntropy)
 import           Pos.Util.Servant (decodeCType)
 import           Pos.Util.Util (lensOf)
 import           Pos.Wallet.Web.Account (GenSeed (..))
@@ -416,8 +415,8 @@ genWallet walletNum = do
 -- | Generates a new 'Mnemonic'.
 newRandomMnemonic :: UberMonad Mnemonic
 newRandomMnemonic = do
-    bytes <- liftIO $ getEntropy 16
-    let mnemonic = either (error . show) entropyToMnemonic (mkEntropy bytes)
+    entropy <- liftIO $ genEntropy 16
+    let mnemonic = either (error . show) entropyToMnemonic entropy
     pure mnemonic
 
 

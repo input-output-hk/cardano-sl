@@ -17,16 +17,18 @@ import qualified Control.Concurrent.STM as Conc
 import           Control.Exception (Exception (..), throwIO)
 import           Control.Lens (to)
 import           Control.Monad.Except (ExceptT, runExceptT, throwError)
+import qualified Data.ByteString.Lazy as BSL
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
 import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, int, sformat, shown, stext, (%))
+import           Node.Conversation (sendRaw)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Serokell.Util.Text (listJson)
 
-import           Pos.Binary.Communication ()
-import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
+import           Pos.Binary.Communication (serializeMsgSerializedBlock)
+import           Pos.Block.Network (MsgBlock (..), MsgSerializedBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
                                     MsgHeaders (..))
 import           Pos.Communication.Message ()
 import           Pos.Communication.Limits (mlMsgGetBlocks, mlMsgHeaders, mlMsgBlock,
@@ -459,8 +461,10 @@ handleGetBlocks logTrace logic recoveryHeadersMessage oq = listenerConv logTrace
                      " blocks to "%build%" one-by-one")
                     (length hashes) nodeId )
                 for_ hashes $ \hHash ->
-                    getBlock logic hHash >>= \case
-                        Just b -> send conv $ MsgBlock b
+                    getSerializedBlock logic hHash >>= \case
+                        -- TODO: we should get lazy bytestring from the db layer to
+                        -- stream the bytes to the network
+                        Just b -> sendRaw conv $ BSL.fromStrict $ serializeMsgSerializedBlock $ MsgSerializedBlock b
                         Nothing  -> do
                             send conv $ MsgNoBlock ("Couldn't retrieve block with hash " <>
                                                     pretty hHash)

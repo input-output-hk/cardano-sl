@@ -147,6 +147,7 @@ Benchmark bench-block
     type: exitcode-stdio-1.0
     main-is: Block.hs
     hs-source-dirs: bench
+    default-language: Haskell2010
     ghc-options: -O2
     build-depends:   base
                    , bytestring

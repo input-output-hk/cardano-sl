@@ -29,8 +29,8 @@ import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (hash)
 import qualified Pos.DB.Block as DB (getTipBlock)
 import qualified Pos.DB.BlockIndex as DB (getHeader, getTipHeader)
-import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..))
-import qualified Pos.DB.Class as DB (getBlock)
+import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..), SerializedBlock)
+import qualified Pos.DB.Class as DB (MonadDBRead (dbGetSerBlock))
 import           Pos.Delegation.Listeners (DlgListenerConstraint)
 import qualified Pos.Delegation.Listeners as Delegation (handlePsk)
 import           Pos.Infra.Slotting (MonadSlots)
@@ -102,8 +102,8 @@ logicFull
     -> Logic m
 logicFull ourStakeholderId securityParams jsonLogTx =
     let
-        getBlock :: HeaderHash -> m (Maybe Block)
-        getBlock = DB.getBlock
+        getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
+        getSerializedBlock = DB.dbGetSerBlock
 
         getTip :: m Block
         getTip = DB.getTipBlock

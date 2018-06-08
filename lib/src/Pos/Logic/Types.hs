@@ -21,6 +21,7 @@ import           Pos.Core (HeaderHash, ProxySKHeavy, StakeholderId)
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Core.Txp (TxId)
 import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal, UpdateVote, VoteId)
+import           Pos.DB.Class (SerializedBlock)
 import           Pos.Security.Params (SecurityParams (..))
 import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares, MCVssCertificate)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..))
@@ -30,8 +31,8 @@ import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..))
 data Logic m = Logic
     { -- | The stakeholder id of our node.
       ourStakeholderId   :: StakeholderId
-      -- | Get a block, perhaps from a database.
-    , getBlock           :: HeaderHash -> m (Maybe Block)
+      -- | Get serialized block, perhaps from a database.
+    , getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
       -- | Get a block header.
     , getBlockHeader     :: HeaderHash -> m (Maybe BlockHeader)
       -- TODO CSL-2089 use conduits in this and the following methods
@@ -97,7 +98,7 @@ data Logic m = Logic
 
 hoistLogic :: (forall x . m x -> n x) -> Logic m -> Logic n
 hoistLogic nat logic = logic
-    { getBlock = nat . getBlock logic
+    { getSerializedBlock = nat . getSerializedBlock logic
     , getBlockHeader = nat . getBlockHeader logic
     , getHashesRange = \a b c -> nat (getHashesRange logic a b c)
     , getBlockHeaders = \a b c -> nat (getBlockHeaders logic a b c)
@@ -174,7 +175,7 @@ dummyKeyVal = KeyVal
 dummyLogic :: Applicative m => Logic m
 dummyLogic = Logic
     { ourStakeholderId   = error "dummy: no stakeholder id"
-    , getBlock           = \_ -> pure (error "dummy: can't get block")
+    , getSerializedBlock = \_ -> pure (error "dummy: can't get serialized block")
     , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
     , getBlockHeaders    = \_ _ _ -> pure (error "dummy: can't get block headers")
     , getLcaMainChain    = \_ -> pure (OldestFirst [])

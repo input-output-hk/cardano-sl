@@ -16,9 +16,9 @@ import           Test.QuickCheck.Gen (vectorOf)
 
 import           Pos.Crypto (AesKey (..), EncryptedSecretKey, PassPhrase (..),
                              safeDeterministicKeyGen)
-import           Pos.Util.Mnemonic (Entropy, Mnemonic, SupportedWords, entropyLength,
-                                    entropyToByteString, entropyToMnemonic, mkEntropy, mkMnemonic,
-                                    mnemonicToAESKey, mnemonicToEntropy, mnemonicToSeed)
+import           Pos.Util.Mnemonic (Entropy, Mnemonic, entropyToByteString, entropyToMnemonic,
+                                    mkEntropy, mkMnemonic, mnemonicToAESKey, mnemonicToEntropy,
+                                    mnemonicToSeed)
 import           Pos.Wallet.Web.ClientTypes.Functions (encToCId)
 import           Pos.Wallet.Web.ClientTypes.Types (CId)
 

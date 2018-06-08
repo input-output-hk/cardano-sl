@@ -11,9 +11,13 @@ module Pos.Util.Bits
     -- * Conversions helper for list of @Word8@ or @Word11@
     , FromBits(..)
     , ToBits(..)
+
+    -- * Constructor, mostly for testing
+    , one
+    , zero
     ) where
 
-import           Universum
+import           Universum hiding (one)
 
 import           Data.Bits (Bits, shiftL, shiftR, (.&.))
 
@@ -34,6 +38,11 @@ instance Bounded Word11 where
     minBound = 0
     maxBound = 2047
 
+one :: Bit
+one = Bit 1
+
+zero :: Bit
+zero = Bit 0
 
 class (Bits a, Num a, Integral a) => FromBits a where
     fromBits :: [Bit] -> Either Text [a]

@@ -16,11 +16,11 @@ import           Formatting (build, builder, int, sformat, (%))
 import           System.Wlog (logDebug, logInfo, logNotice)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex, HeaderHash, IsMainHeader (..),
-                           SlotId (siEpoch), SoftwareVersion (..), addressHash, applyCoinPortionUp,
-                           blockVersionL, coinToInteger, difficultyL, epochIndexL, flattenSlotId,
-                           headerHashG, headerSlotL, sumCoins, unflattenSlotId, unsafeIntegerToCoin,
-                           HasProtocolConstants, HasProtocolMagic)
+import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex, HasProtocolConstants,
+                           HasProtocolMagic, HeaderHash, IsMainHeader (..), SlotId (siEpoch),
+                           SoftwareVersion (..), addressHash, applyCoinPortionUp, blockVersionL,
+                           coinToInteger, difficultyL, epochIndexL, flattenSlotId, headerHashG,
+                           headerSlotL, sumCoins, unflattenSlotId, unsafeIntegerToCoin)
 import           Pos.Core.Configuration (blkSecurityParam, protocolMagic)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..), UpId, UpdatePayload (..),
                                   UpdateProposal (..), UpdateVote (..), bvdUpdateProposalThd,

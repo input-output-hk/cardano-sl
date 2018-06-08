@@ -12,10 +12,8 @@ import           Node.Message.Class (Message (..))
 import           Pos.Block.Network (MsgBlock, MsgGetBlocks, MsgGetHeaders, MsgHeaders)
 import           Pos.Core (ProxySKHeavy)
 import           Pos.Core.Update (UpdateProposal, UpdateVote)
-import           Pos.Infra.Communication.Types.Protocol (MsgSubscribe,
-                                                         MsgSubscribe1)
-import           Pos.Infra.Communication.Types.Relay (DataMsg, InvMsg,
-                                                      InvOrData, MempoolMsg,
+import           Pos.Infra.Communication.Types.Protocol (MsgSubscribe, MsgSubscribe1)
+import           Pos.Infra.Communication.Types.Relay (DataMsg, InvMsg, InvOrData, MempoolMsg,
                                                       ReqMsg, ReqOrRes)
 import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares, MCVssCertificate)
 import           Pos.Txp.Network.Types (TxMsgContents)

@@ -25,8 +25,7 @@ import           Pos.Core (Address, BlockCount)
 import           Pos.Util.Servant (FromCType (..), OriginType)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Assurance (AssuranceLevel (HighAssurance), assuredBlockDepth)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta, CId, Wal,
-                                             cwAssurance)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta, CId, Wal, cwAssurance)
 
 
 import           Pos.Wallet.Web.Error (WalletError (..))

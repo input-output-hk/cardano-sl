@@ -1,7 +1,7 @@
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 
 module Test.Pos.Wallet.Web.Tracking.SyncSpec
        ( spec
@@ -21,9 +21,9 @@ import           Test.QuickCheck.Monadic (pick)
 import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
 import           Pos.Block.Logic (rollbackBlocks)
 import           Pos.Core (Address, BlockCount (..), blkSecurityParam)
+import           Pos.Core.Chrono (nonEmptyOldestFirst, toNewestFirst)
 import           Pos.Crypto (emptyPassphrase)
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Core.Chrono (nonEmptyOldestFirst, toNewestFirst)
 
 import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))

@@ -10,9 +10,9 @@ module Pos.Infra.Reporting
        , module Pos.Infra.Reporting.Health.Types
        ) where
 
-import           Pos.Infra.Reporting.Health.Types
 import           Pos.Infra.Reporting.Ekg
 import           Pos.Infra.Reporting.Exceptions
+import           Pos.Infra.Reporting.Health.Types
 import           Pos.Infra.Reporting.MemState
 import           Pos.Infra.Reporting.Methods
 import           Pos.Infra.Reporting.Metrics

@@ -37,10 +37,11 @@ import           Pos.Block.BListener (MonadBListener)
 import           Pos.Block.Slog (BypassSecurityCheck (..), MonadSlogApply, MonadSlogBase,
                                  ShouldCallBListener, slogApplyBlocks, slogRollbackBlocks)
 import           Pos.Block.Types (Blund, Undo (undoDlg, undoTx, undoUS))
-import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL,
-                           gbHeader, headerHash, mainBlockDlgPayload, mainBlockSscPayload,
-                           mainBlockTxPayload, mainBlockUpdatePayload)
+import           Pos.Core (ComponentBlock (..), IsGenesisHeader, epochIndexL, gbHeader, headerHash,
+                           mainBlockDlgPayload, mainBlockSscPayload, mainBlockTxPayload,
+                           mainBlockUpdatePayload)
 import           Pos.Core.Block (Block, GenesisBlock, MainBlock)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, SomeBatchOp (..))
 import qualified Pos.DB.GState.Common as GS (writeBatchGState)
 import           Pos.Delegation.Class (MonadDelegation)
@@ -61,7 +62,6 @@ import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Logic (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (Some (..), spanSafe)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Util (HasLens', lensOf)
 
 -- | Set of basic constraints used by high-level block processing.

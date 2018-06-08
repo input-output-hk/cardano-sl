@@ -21,9 +21,10 @@ import           System.Wlog (WithLogger, logDebug)
 import           Universum
 
 import           Pos.Binary.Ssc ()
-import           Pos.Core (BlockVersionData, ComponentBlock (..), HasCoreConfiguration, HasGenesisData,
-                           HasProtocolConstants, HasProtocolMagic, HeaderHash, epochIndexL,
-                           epochOrSlotG, headerHash)
+import           Pos.Core (BlockVersionData, ComponentBlock (..), HasCoreConfiguration,
+                           HasGenesisData, HasProtocolConstants, HasProtocolMagic, HeaderHash,
+                           epochIndexL, epochOrSlotG, headerHash)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Ssc (SscPayload (..))
 import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..), gsAdoptedBVData)
 import           Pos.Exception (assertionFailed)
@@ -39,7 +40,6 @@ import           Pos.Ssc.Toss (MultiRichmenStakes, PureToss, applyGenesisBlock, 
                                runPureTossWithLogger, supplyPureTossEnv, verifyAndApplySscPayload)
 import           Pos.Ssc.Types (SscBlock, SscGlobalState (..), sscGlobal)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Lens (_neHead, _neLast)
 
 ----------------------------------------------------------------------------

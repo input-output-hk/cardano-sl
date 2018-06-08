@@ -8,9 +8,9 @@ import           Universum
 import           Control.Lens.TH (makeLenses)
 import           Data.SafeCopy (SafeCopy (..))
 
-import qualified Pos.Core   as Core
+import qualified Pos.Core as Core
 import qualified Pos.Crypto as Core
-import qualified Pos.Txp    as Core
+import qualified Pos.Txp as Core
 
 {-------------------------------------------------------------------------------
   Wrap core types so that we can make independent serialization decisions

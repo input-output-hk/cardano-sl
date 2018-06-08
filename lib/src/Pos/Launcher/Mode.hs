@@ -37,11 +37,9 @@ import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefaul
                                dbWriteBatchDefault)
 import           Pos.Infra.Slotting (HasSlottingVar (..))
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
-import           Pos.Infra.Slotting.Impl (SimpleSlottingStateVar,
-                                            currentTimeSlottingSimple,
-                                            getCurrentSlotBlockingSimple,
-                                            getCurrentSlotInaccurateSimple,
-                                            getCurrentSlotSimple)
+import           Pos.Infra.Slotting.Impl (SimpleSlottingStateVar, currentTimeSlottingSimple,
+                                          getCurrentSlotBlockingSimple,
+                                          getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
 import           Pos.Infra.Slotting.MemState (MonadSlotsData)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Lrc.Context (LrcContext)
@@ -51,10 +49,10 @@ import           Pos.Util.Util (HasLens (..))
 -- The fields are lazy on purpose: this allows using them with
 -- futures.
 data InitModeContext = InitModeContext
-    { imcNodeDBs            :: NodeDBs
-    , imcSlottingVar        :: (Timestamp, TVar SlottingData)
-    , imcSlottingStateVar   :: SimpleSlottingStateVar
-    , imcLrcContext         :: LrcContext
+    { imcNodeDBs          :: NodeDBs
+    , imcSlottingVar      :: (Timestamp, TVar SlottingData)
+    , imcSlottingStateVar :: SimpleSlottingStateVar
+    , imcLrcContext       :: LrcContext
     }
 
 makeLensesWith postfixLFields ''InitModeContext

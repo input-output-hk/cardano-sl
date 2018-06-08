@@ -33,17 +33,12 @@ import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants
 import           Pos.Crypto (toPublic)
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..), diffusionLayerFull)
-import           Pos.Infra.Diffusion.Types (Diffusion (..),
-                                            DiffusionLayer (..),
-                                            hoistDiffusion)
-import           Pos.Infra.Network.Types (NetworkConfig (..),
-                                          topologyRoute53HealthCheckEnabled)
-import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..),
-                                          registerEkgMetrics, withEkgServer)
+import           Pos.Infra.Diffusion.Types (Diffusion (..), DiffusionLayer (..), hoistDiffusion)
+import           Pos.Infra.Network.Types (NetworkConfig (..), topologyRoute53HealthCheckEnabled)
+import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..), registerEkgMetrics, withEkgServer)
 import           Pos.Infra.Reporting.Statsd (withStatsd)
 import           Pos.Infra.Shutdown (ShutdownContext, waitForShutdown)
-import           Pos.Infra.Util.JsonLog.Events (JsonLogConfig (..),
-                                                jsonLogConfigFromHandle)
+import           Pos.Infra.Util.JsonLog.Events (JsonLogConfig (..), jsonLogConfigFromHandle)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
 import           Pos.Launcher.Resource (NodeResources (..))
@@ -54,9 +49,9 @@ import           Pos.Reporting.Production (ProductionReporterParams (..), produc
 import           Pos.Txp (MonadTxpLocal)
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
+import           Pos.Util.Trace (wlogTrace)
 import           Pos.Web.Server (withRoute53HealthCheckApplication)
 import           Pos.WorkMode (RealMode, RealModeContext (..))
-import           Pos.Util.Trace (wlogTrace)
 
 ----------------------------------------------------------------------------
 -- High level runners

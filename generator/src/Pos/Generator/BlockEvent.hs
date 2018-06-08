@@ -60,15 +60,14 @@ import           Serokell.Util (listJson)
 
 import           Pos.AllSecrets (AllSecrets)
 import           Pos.Block.Types (Blund)
-import           Pos.Core (GenesisWStakeholders, HeaderHash, headerHash,
-                           prevBlockL)
+import           Pos.Core (GenesisWStakeholders, HeaderHash, headerHash, prevBlockL)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
+                                  toOldestFirst, _OldestFirst)
 import           Pos.Crypto.Hashing (hashHexF)
 import           Pos.Generator.Block (BlockGenParams (..), BlockTxpGenMode, MonadBlockGen,
                                       TxGenParams (..), genBlocks)
 import           Pos.GState (withClonedGState)
 import           Pos.Txp (TxpGlobalSettings)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
-                                  toOldestFirst, _OldestFirst)
 import           Pos.Util.Util (lensOf')
 
 ----------------------------------------------------------------------------

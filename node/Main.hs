@@ -17,9 +17,9 @@ import           System.Wlog (LoggerName, logInfo)
 import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), SimpleNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
+import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher (HasConfigurations, NodeParams (..), loggerBracket, runNodeReal,
                                withConfigurations)
-import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)

@@ -17,9 +17,9 @@ import           Formatting (build, sformat, (%))
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (logInfo)
 
-import           Pos.Core (BlockVersion, Coin, EpochIndex, HeaderHash,
+import           Pos.Core (BlockVersion, Coin, EpochIndex, HasProtocolConstants, HeaderHash,
                            SlotId (..), SoftforkRule (..), StakeholderId, crucialSlot, sumCoins,
-                           unsafeIntegerToCoin, HasProtocolConstants)
+                           unsafeIntegerToCoin)
 import           Pos.Core.Update (BlockVersionData (..))
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure (PollVerFailure (..))

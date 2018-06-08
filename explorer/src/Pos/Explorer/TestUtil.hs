@@ -36,9 +36,9 @@ import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
 import qualified Pos.Communication ()
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..), EpochIndex (..),
-                           HasConfiguration, HeaderHash, LocalSlotIndex (..), SlotId (..),
-                           SlotLeaders, StakeholderId, difficultyL, headerHash,
-                           makePubKeyAddressBoot, protocolMagic, GenesisHash (..), genesisHash)
+                           GenesisHash (..), HasConfiguration, HeaderHash, LocalSlotIndex (..),
+                           SlotId (..), SlotLeaders, StakeholderId, difficultyL, genesisHash,
+                           headerHash, makePubKeyAddressBoot, protocolMagic)
 import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock, getBlockHeader)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)

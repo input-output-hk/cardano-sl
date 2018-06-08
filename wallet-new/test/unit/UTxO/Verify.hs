@@ -27,12 +27,12 @@ import           Pos.Block.Logic.Integrity (verifyBlocks)
 import           Pos.Block.Slog hiding (slogVerifyBlocks)
 import           Pos.Block.Types
 import           Pos.Core
+import           Pos.Core.Chrono
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Delegation (DlgUndo (..))
 import           Pos.Txp hiding (tgsVerifyBlocks)
 import           Pos.Update.Poll
 import           Pos.Util (neZipWith4)
-import           Pos.Core.Chrono
 import           Pos.Util.Lens
 import qualified Pos.Util.Modifier as MM
 import           Serokell.Util.Verify

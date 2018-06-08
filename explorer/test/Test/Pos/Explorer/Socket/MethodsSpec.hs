@@ -22,17 +22,16 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import           Pos.Crypto (SecretKey)
 import           Pos.Explorer.ExplorerMode (runSubTestMode)
-import           Pos.Explorer.Socket.Holder (ConnectionsState, ExplorerSocket(..),
+import           Pos.Explorer.Socket.Holder (ConnectionsState, ExplorerSocket (..),
                                              csAddressSubscribers, csBlocksPageSubscribers,
-                                             csEpochsLastPageSubscribers, csTxsSubscribers,
-                                             csClients, mkClientContext, mkConnectionsState)
-import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs,
-                                              blockPageSubParam, fromCAddressOrThrow,
-                                              spSessId, subscribeAddr, subscribeBlocksLastPage,
-                                              subscribeEpochsLastPage, subscribeTxs,
-                                              txsSubParam, unsubscribeAddr, unsubscribeBlocksLastPage,
-                                              unsubscribeEpochsLastPage, unsubscribeFully,
-                                              unsubscribeTxs)
+                                             csClients, csEpochsLastPageSubscribers,
+                                             csTxsSubscribers, mkClientContext, mkConnectionsState)
+import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs, blockPageSubParam,
+                                              fromCAddressOrThrow, spSessId, subscribeAddr,
+                                              subscribeBlocksLastPage, subscribeEpochsLastPage,
+                                              subscribeTxs, txsSubParam, unsubscribeAddr,
+                                              unsubscribeBlocksLastPage, unsubscribeEpochsLastPage,
+                                              unsubscribeFully, unsubscribeTxs)
 import           Pos.Explorer.TestUtil (secretKeyToAddress)
 import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
 

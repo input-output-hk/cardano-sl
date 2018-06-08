@@ -226,6 +226,7 @@ language_extensions:
   - DefaultSignatures
   - DeriveDataTypeable
   - DeriveGeneric
+  - ExplicitNamespaces
   - FlexibleContexts
   - FlexibleInstances
   - FunctionalDependencies

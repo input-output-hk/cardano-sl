@@ -20,7 +20,7 @@ import           Test.Pos.Block.Logic.Mode (blockPropertyTestable)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock)
 import           Test.Pos.Configuration (HasStaticConfigurations, withStaticConfigurations)
 
--- | 
+-- |
 -- The binary encoding of `MsgSerializedBlock` using `serializeMsgSerializedBlock`
 -- should be the same as the binary encoding of `MsgBlock`.
 serializeMsgSerializedBlockSpec
@@ -51,7 +51,7 @@ deserializeSerilizedMsgSerializedBlockSpec = do
         (block, _) <- bpGenBlock (EnableTxPayload True) (InplaceDB True)
         let sb = Serialized $ serialize' block
         let msg :: Either Text MsgBlock
-            msg = decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ MsgSerializedBlock sb 
+            msg = decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ MsgSerializedBlock sb
         assert $ msg == Right (MsgBlock block)
     prop descNoBlock $ blockPropertyTestable $ do
         let msg :: MsgSerializedBlock

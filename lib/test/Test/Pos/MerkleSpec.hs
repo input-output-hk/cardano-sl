@@ -7,7 +7,7 @@ module Test.Pos.MerkleSpec
 
 import           Universum
 
-import qualified Data.Foldable as Foldable (toList, length)
+import qualified Data.Foldable as Foldable (length, toList)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, (===))

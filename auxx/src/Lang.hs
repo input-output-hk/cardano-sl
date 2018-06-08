@@ -12,7 +12,6 @@ module Lang
        , module Lang.Syntax
        ) where
 
-import           Lang.Value
 import           Lang.Argument
 import           Lang.Command
 import           Lang.DisplayError
@@ -21,3 +20,4 @@ import           Lang.Lexer
 import           Lang.Name
 import           Lang.Parser
 import           Lang.Syntax
+import           Lang.Value

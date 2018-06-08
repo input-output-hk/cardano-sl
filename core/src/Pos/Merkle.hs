@@ -24,9 +24,9 @@ import           Universum
 
 import           Data.Bits (Bits (..))
 import           Data.ByteArray (ByteArrayAccess, convert)
-import qualified Data.ByteString.Lazy as LBS
 import           Data.ByteString.Builder (Builder, byteString)
 import qualified Data.ByteString.Builder.Extra as Builder
+import qualified Data.ByteString.Lazy as LBS
 import           Data.Coerce (coerce)
 import qualified Data.Foldable as Foldable
 import qualified Data.Text.Buildable as Buildable

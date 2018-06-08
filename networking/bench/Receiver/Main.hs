@@ -1,16 +1,16 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE LambdaCase            #-}
 
 module Main where
 
+import           Control.Applicative (empty)
 import           Control.Concurrent (threadDelay)
 import           Control.Exception (throwIO)
 import           Control.Exception.Safe (throwString)
-import           Control.Applicative (empty)
 import           Control.Monad (unless)
 
 import           Data.Functor.Contravariant (contramap)
@@ -25,8 +25,8 @@ import qualified Network.Transport.TCP as TCP
 import           Node (ConversationActions (..), Listener (..), NodeAction (..),
                        defaultNodeEnvironment, noReceiveDelay, node, simpleNodeEndPoint)
 import           Node.Message.Binary (binaryPacking)
+import           Pos.Util.Trace (Severity (..), Trace, wlogTrace)
 import           ReceiverOptions (Args (..), argsParser)
-import           Pos.Util.Trace (Trace, Severity (..), wlogTrace)
 
 main :: IO ()
 main = do

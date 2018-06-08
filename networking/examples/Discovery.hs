@@ -119,7 +119,7 @@ main = do
     args <- getArgs
     number <- case args of
         [arg0] | Just number <- read arg0 -> return number
-        _                                 -> error "Input argument must be a number"
+        _      -> error "Input argument must be a number"
 
     when (number > 99 || number < 1) $ error "Give a number in [1,99]"
 

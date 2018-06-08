@@ -57,6 +57,7 @@ import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..), Slo
                            StakeholderId, addressHash, unsafeMkLocalSlotIndexExplicit)
 import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants, vssMaxTTL,
                                          vssMinTTL)
+import           Pos.Core.Limits (stripHashMap)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..), pcSlotSecurityParam)
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (getCommitmentsMap), Opening (..),
                                SignedCommitment, SscPayload (..), VssCertificate (vcExpiryEpoch),
@@ -65,7 +66,6 @@ import           Pos.Crypto (ProtocolMagic, Secret, SecretKey, SignTag (SignComm
                              VssPublicKey, checkSig, genSharedSecret, getDhSecret, secretToDhSecret,
                              sign, toPublic, verifySecret)
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
-import           Pos.Core.Limits (stripHashMap)
 
 -- | Convert Secret to SharedSeed.
 secretToSharedSeed :: Secret -> SharedSeed

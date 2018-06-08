@@ -30,10 +30,10 @@ import           Universum
 import           Pos.Block.Error
 import           Pos.Block.Types
 import           Pos.Core
+import           Pos.Core.Chrono
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Txp.Toil
 import           Pos.Update
-import           Pos.Core.Chrono
 
 import           Util.Validated
 import           UTxO.Context

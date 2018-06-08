@@ -41,7 +41,7 @@ module Pos.Client.Txp.Util
        , TxWithSpendings
        ) where
 
-import           Universum hiding (tail, keys)
+import           Universum hiding (keys, tail)
 
 import           Control.Lens (makeLenses, (%=), (.=))
 import           Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)

@@ -19,18 +19,18 @@ module  Pos.Wallet.Web
         , module Pos.Wallet.Web.Account
         ) where
 
-import           Pos.Wallet.Web.Util
-import           Pos.Wallet.Web.Tracking
-import           Pos.Wallet.Web.Swagger
-import           Pos.Wallet.Web.State
-import           Pos.Wallet.Web.Sockets
-import           Pos.Wallet.Web.Server
-import           Pos.Wallet.Web.Pending
-import           Pos.Wallet.Web.Mode
-import           Pos.Wallet.Web.Methods
-import           Pos.Wallet.Web.Error
-import           Pos.Wallet.Web.ClientTypes
-import           Pos.Wallet.Web.Backup
-import           Pos.Wallet.Web.Assurance
-import           Pos.Wallet.Web.Api
 import           Pos.Wallet.Web.Account
+import           Pos.Wallet.Web.Api
+import           Pos.Wallet.Web.Assurance
+import           Pos.Wallet.Web.Backup
+import           Pos.Wallet.Web.ClientTypes
+import           Pos.Wallet.Web.Error
+import           Pos.Wallet.Web.Methods
+import           Pos.Wallet.Web.Mode
+import           Pos.Wallet.Web.Pending
+import           Pos.Wallet.Web.Server
+import           Pos.Wallet.Web.Sockets
+import           Pos.Wallet.Web.State
+import           Pos.Wallet.Web.Swagger
+import           Pos.Wallet.Web.Tracking
+import           Pos.Wallet.Web.Util

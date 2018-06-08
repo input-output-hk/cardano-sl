@@ -53,7 +53,7 @@ import           System.FileLock (FileLock, SharedExclusive (..), lockFile, unlo
 import           System.FilePath (takeDirectory, takeFileName)
 import           System.IO (hClose, openBinaryTempFile)
 #ifdef POSIX
-import           System.Wlog (WithLogger, logWarning, logInfo)
+import           System.Wlog (WithLogger, logInfo, logWarning)
 #else
 import           System.Wlog (WithLogger, logInfo)
 #endif

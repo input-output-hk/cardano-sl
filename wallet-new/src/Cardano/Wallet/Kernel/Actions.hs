@@ -12,12 +12,12 @@ module Cardano.Wallet.Kernel.Actions
     , isValidState
     ) where
 
-import           Universum
 import           Control.Concurrent.Async (async, link)
 import           Control.Concurrent.Chan
-import           Control.Lens (makeLenses, (%=), (.=), (+=), (-=))
+import           Control.Lens (makeLenses, (%=), (+=), (-=), (.=))
 import qualified Data.Text.Buildable
-import           Formatting (bprint, shown, build, (%))
+import           Formatting (bprint, build, shown, (%))
+import           Universum
 
 import           Pos.Core.Chrono
 
@@ -39,9 +39,9 @@ data WalletAction b
 --   the worker uses these to invoke changes to the
 --   underlying wallet.
 data WalletActionInterp m b = WalletActionInterp
-    { applyBlocks :: OldestFirst NE b -> m ()
+    { applyBlocks  :: OldestFirst NE b -> m ()
     , switchToFork :: Int -> OldestFirst [] b -> m ()
-    , emit :: Text -> m ()
+    , emit         :: Text -> m ()
     }
 
 -- | Internal state of the wallet worker.

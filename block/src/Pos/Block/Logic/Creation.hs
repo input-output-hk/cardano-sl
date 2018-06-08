@@ -31,10 +31,10 @@ import           Pos.Block.Logic.Util (calcChainQualityM)
 import           Pos.Block.Logic.VAR (verifyBlocksPrefix)
 import           Pos.Block.Lrc (LrcModeFull, lrcSingleShot)
 import           Pos.Block.Slog (HasSlogGState (..), ShouldCallBListener (..))
-import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..),
-                           HasProtocolConstants, HasProtocolMagic, HeaderHash, SlotId (..),
-                           chainQualityThreshold, epochIndexL, epochSlots, flattenSlotId,
-                           getEpochOrSlot, headerHash, protocolMagic)
+import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..), HasProtocolConstants,
+                           HasProtocolMagic, HeaderHash, SlotId (..), chainQualityThreshold,
+                           epochIndexL, epochSlots, flattenSlotId, getEpochOrSlot, headerHash,
+                           protocolMagic)
 import           Pos.Core.Block (BlockHeader (..), GenesisBlock, MainBlock, MainBlockchain)
 import qualified Pos.Core.Block as BC
 import           Pos.Core.Context (HasPrimaryKey, getOurSecretKey)
@@ -48,8 +48,7 @@ import           Pos.Delegation (DelegationVar, DlgPayload (..), ProxySKBlockInf
                                  getDlgMempool)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportError)
-import           Pos.Infra.StateLock (Priority (..), StateLock,
-                                      StateLockMetrics, modifyStateLock)
+import           Pos.Infra.StateLock (Priority (..), StateLock, StateLockMetrics, modifyStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Infra.Util.LogSafe (logInfoS)
 import           Pos.Lrc (HasLrcContext)

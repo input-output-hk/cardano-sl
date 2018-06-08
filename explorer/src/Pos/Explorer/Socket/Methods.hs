@@ -67,6 +67,7 @@ import qualified Pos.Block.Logic as DB
 import           Pos.Block.Types (Blund)
 import           Pos.Core (Address, HeaderHash)
 import           Pos.Core.Block (Block, mainBlockTxPayload)
+import           Pos.Core.Chrono (getOldestFirst)
 import           Pos.Core.Txp (Tx (..), TxOut (..), TxOutAux (..), txOutAddress, txpTxs)
 import           Pos.Crypto (hash, withHash)
 import           Pos.DB.Block (getBlund)
@@ -75,7 +76,6 @@ import           Pos.Explorer.Core (TxExtra (..))
 import qualified Pos.Explorer.DB as DB
 import qualified Pos.GState as DB
 import           Pos.Util (maybeThrow)
-import           Pos.Core.Chrono (getOldestFirst)
 import           System.Wlog (WithLogger, logDebug, logWarning, modifyLoggerName)
 
 import           Pos.Explorer.Aeson.ClientTypes ()

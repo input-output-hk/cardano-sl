@@ -1,6 +1,6 @@
 module Spec (spec) where
 
-import Test.Hspec
+import           Test.Hspec
 
 import qualified Test.Launcher.Environment
 

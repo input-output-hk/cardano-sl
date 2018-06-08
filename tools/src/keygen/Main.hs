@@ -19,8 +19,8 @@ import           Pos.Binary (asBinary, serialize')
 import qualified Pos.Client.CLI as CLI
 import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..), RichSecrets (..),
                            addressHash, ccGenesis, coreConfiguration, generateFakeAvvm,
-                           generateRichSecrets, mkVssCertificate, vcSigningKey, vssMaxTTL,
-                           protocolMagic)
+                           generateRichSecrets, mkVssCertificate, protocolMagic, vcSigningKey,
+                           vssMaxTTL)
 import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..), VssKeyPair, fullPublicKeyF,
                              hashHexF, noPassEncrypt, redeemPkB64F, toPublic, toVssPublicKey)
 import           Pos.Launcher (HasConfigurations, withConfigurations)

@@ -5,10 +5,10 @@ module Test.Launcher.Environment
 
 import           Test.Hspec
 
-import qualified Data.Aeson                   as AE
-import           Launcher.Environment            (substituteEnvVarsValue)
-import           System.Environment              (setEnv)
-import qualified System.Directory                 as Sys
+import qualified Data.Aeson as AE
+import           Launcher.Environment (substituteEnvVarsValue)
+import qualified System.Directory as Sys
+import           System.Environment (setEnv)
 import           System.IO.Temp
 
 spec :: Spec

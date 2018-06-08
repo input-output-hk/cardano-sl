@@ -28,8 +28,8 @@ import           Pos.Explorer.Txp (ExplorerExtraModifier, explorerTxpGlobalSetti
 import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, notifierPlugin, runExplorerProd)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
-                               NodeResources (..), bracketNodeResources,
-                               loggerBracket, runNode, runRealMode, withConfigurations)
+                               NodeResources (..), bracketNodeResources, loggerBracket, runNode,
+                               runRealMode, withConfigurations)
 import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)

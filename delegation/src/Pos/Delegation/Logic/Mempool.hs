@@ -26,8 +26,7 @@ import           Mockable (CurrentTime, Mockable, currentTime)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (ProxySKHeavy, addressHash,
-                           bvdMaxBlockSize, epochIndexL, headerHash)
+import           Pos.Core (ProxySKHeavy, addressHash, bvdMaxBlockSize, epochIndexL, headerHash)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
 import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB

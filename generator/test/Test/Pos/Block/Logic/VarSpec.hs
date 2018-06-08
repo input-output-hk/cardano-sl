@@ -25,6 +25,9 @@ import           Pos.Block.Logic (verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.Block.Types (Blund)
 import           Pos.Core (GenesisData (..), HasConfiguration, blkSecurityParam, epochSlots,
                            genesisData, headerHash)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmptyNewestFirst,
+                                  nonEmptyOldestFirst, splitAtNewestFirst, toNewestFirst,
+                                  _NewestFirst)
 import           Pos.DB.Pure (dbPureDump)
 import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..), BlockEventGenT,
                                                BlockRollbackFailure (..), BlockRollbackResult (..),
@@ -33,9 +36,6 @@ import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..), BlockEvent
                                                pathSequence, runBlockEventGenT)
 import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmptyNewestFirst,
-                                  nonEmptyOldestFirst, splitAtNewestFirst, toNewestFirst,
-                                  _NewestFirst)
 
 import           Test.Pos.Block.Logic.Event (BlockScenarioResult (..),
                                              DbNotEquivalentToSnapshot (..), runBlockScenario)

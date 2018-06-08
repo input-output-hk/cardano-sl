@@ -28,8 +28,7 @@ import           Pos.Configuration (walletProductionApi, walletTxCreationDisable
 import           Pos.Context (HasNodeContext)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
-import           Pos.Infra.Ntp.Configuration (NtpConfiguration,
-                                              ntpClientSettings)
+import           Pos.Infra.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
                                NodeResources (..), bracketNodeResources, loggerBracket, runNode,
                                withConfigurations)
@@ -38,9 +37,9 @@ import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (lensOf, logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (WalletWebMode, bracketWalletWS,
-                                 bracketWalletWebDB, getSKById, notifierPlugin, runWRealMode,
-                                 startPendingTxsResubmitter, walletServeWebFull, walletServerOuts)
+import           Pos.Wallet.Web (WalletWebMode, bracketWalletWS, bracketWalletWebDB, getSKById,
+                                 notifierPlugin, runWRealMode, startPendingTxsResubmitter,
+                                 walletServeWebFull, walletServerOuts)
 import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, cleanupAcidStatePeriodically,
                                        flushWalletStorage, getWalletAddresses)
 import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)

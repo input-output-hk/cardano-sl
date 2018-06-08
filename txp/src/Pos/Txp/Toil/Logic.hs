@@ -21,8 +21,8 @@ import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), Address,
-                           BlockVersionData (..), EpochIndex, addrAttributesUnwrapped,
-                           isBootstrapEraBVD, isRedeemAddress, HasProtocolMagic, HasGenesisData)
+                           BlockVersionData (..), EpochIndex, HasGenesisData, HasProtocolMagic,
+                           addrAttributesUnwrapped, isBootstrapEraBVD, isRedeemAddress)
 import           Pos.Core.Common (integerToCoin)
 import qualified Pos.Core.Common as Fee (TxFeePolicy (..), calculateTxSizeLinear)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo, TxpUndo, checkTxAux,

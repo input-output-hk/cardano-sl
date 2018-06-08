@@ -12,13 +12,13 @@ import           Pos.Block.Types (Undo)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Core (HasConfiguration, HeaderHash, headerHash)
 import           Pos.Core.Block (Block)
+import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.DB (closeNodeDBs, openNodeDBs)
 import           Pos.DB.Block (getUndo)
 import qualified Pos.DB.Block.Load as DB
 import           Pos.DB.Class (getBlock)
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Launcher (withConfigurations)
-import           Pos.Core.Chrono (NewestFirst (..))
 
 import           Options (CLIOptions (..), getOptions)
 import           Rendering (render, renderBlock, renderBlocks, renderHeader)

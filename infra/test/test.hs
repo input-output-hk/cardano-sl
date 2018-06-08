@@ -1,8 +1,11 @@
-import           Prelude (IO)
+import           Prelude
+    (IO)
 
-import           Test.Hspec (hspec)
+import           Test.Hspec
+    (hspec)
 
-import           Spec (spec)
+import           Spec
+    (spec)
 
 main :: IO ()
 main =

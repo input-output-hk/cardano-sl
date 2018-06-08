@@ -5,30 +5,42 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Addresses where
 
 import           Universum
 
-import           Data.Conduit (runConduit, (.|))
+import           Data.Conduit
+    (runConduit, (.|))
 import qualified Data.Conduit.List as CL
 import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List as List
 import           Servant
 
 
-import           Pos.Core (decodeTextAddress)
-import           Pos.Crypto (emptyPassphrase)
-import qualified Pos.Txp as V0 (withTxpLocalData)
+import           Pos.Core
+    (decodeTextAddress)
+import           Pos.Crypto
+    (emptyPassphrase)
+import qualified Pos.Txp as V0
+    (withTxpLocalData)
 import qualified Pos.Wallet.Web.Account as V0
 import qualified Pos.Wallet.Web.ClientTypes as V0
-import           Pos.Wallet.Web.ClientTypes.Types (CAccount (..))
+import           Pos.Wallet.Web.ClientTypes.Types
+    (CAccount (..))
 import qualified Pos.Wallet.Web.Methods as V0
-import qualified Pos.Wallet.Web.Methods.Logic as V0 (getMempoolSnapshot, getWAddress)
-import qualified Pos.Wallet.Web.State as V0 (askWalletSnapshot)
-import           Pos.Wallet.Web.State.State (WalletSnapshot, askWalletDB, getWalletSnapshot)
+import qualified Pos.Wallet.Web.Methods.Logic as V0
+    (getMempoolSnapshot, getWAddress)
+import qualified Pos.Wallet.Web.State as V0
+    (askWalletSnapshot)
+import           Pos.Wallet.Web.State.State
+    (WalletSnapshot, askWalletDB, getWalletSnapshot)
 import qualified Pos.Wallet.Web.State.State as V0State
-import           Pos.Wallet.Web.State.Storage (getWalletAddresses)
+import           Pos.Wallet.Web.State.Storage
+    (getWalletAddresses)
 import qualified Pos.Wallet.Web.State.Storage as V0
-import qualified Pos.Wallet.Web.Tracking as V0 (txMempoolToModifier)
-import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import qualified Pos.Wallet.Web.Tracking as V0
+    (txMempoolToModifier)
+import           Pos.Wallet.Web.Tracking.Decrypt
+    (eskToWalletDecrCredentials)
 
-import           Cardano.Wallet.API.Indices (IxSet')
+import           Cardano.Wallet.API.Indices
+    (IxSet')
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses

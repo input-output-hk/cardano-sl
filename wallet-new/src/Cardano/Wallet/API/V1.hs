@@ -1,7 +1,8 @@
 module Cardano.Wallet.API.V1 where
 
 
-import           Servant ((:<|>))
+import           Servant
+    ((:<|>))
 
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses

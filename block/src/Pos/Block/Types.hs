@@ -18,19 +18,30 @@ import           Universum
 
 import qualified Control.Concurrent.STM as STM
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, (%))
-import           Serokell.Util.Text (listJson)
+import           Formatting
+    (bprint, build, (%))
+import           Serokell.Util.Text
+    (listJson)
 
 -- Bi BlockHeader
-import           Pos.Binary.Core ()
-import           Pos.Block.Slog.Types (SlogUndo (..))
-import           Pos.Core (HasConfiguration, HasDifficulty (..), HasHeaderHash (..))
-import           Pos.Core.Block (Block, BlockHeader)
-import           Pos.Core.Txp (TxpUndo)
-import           Pos.Delegation.Types (DlgUndo)
-import           Pos.Infra.Communication.Protocol (NodeId)
-import           Pos.Update.Poll.Types (USUndo)
-import           Pos.Util.Util (HasLens (..))
+import           Pos.Binary.Core
+    ()
+import           Pos.Block.Slog.Types
+    (SlogUndo (..))
+import           Pos.Core
+    (HasConfiguration, HasDifficulty (..), HasHeaderHash (..))
+import           Pos.Core.Block
+    (Block, BlockHeader)
+import           Pos.Core.Txp
+    (TxpUndo)
+import           Pos.Delegation.Types
+    (DlgUndo)
+import           Pos.Infra.Communication.Protocol
+    (NodeId)
+import           Pos.Update.Poll.Types
+    (USUndo)
+import           Pos.Util.Util
+    (HasLens (..))
 
 -- | Structure for undo block during rollback
 data Undo = Undo

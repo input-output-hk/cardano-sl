@@ -8,14 +8,19 @@ module Lang.Command
 
 import           Universum
 
-import           Control.Lens (_Left)
+import           Control.Lens
+    (_Left)
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Validation as Validation
 
-import           Lang.Argument (ArgumentConsumer)
-import           Lang.Name (Name)
-import           Lang.Syntax (Arg, Expr (..), ProcCall (..))
-import           Lang.Value (Value)
+import           Lang.Argument
+    (ArgumentConsumer)
+import           Lang.Name
+    (Name)
+import           Lang.Syntax
+    (Arg, Expr (..), ProcCall (..))
+import           Lang.Value
+    (Value)
 
 data CommandProc m = forall e. CommandProc
     { cpName             :: !Name

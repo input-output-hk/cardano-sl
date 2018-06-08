@@ -10,5 +10,6 @@ module Pos.Wallet.Web.ClientTypes
        ) where
 
 import           Pos.Wallet.Web.ClientTypes.Functions
-import           Pos.Wallet.Web.ClientTypes.Instances ()
+import           Pos.Wallet.Web.ClientTypes.Instances
+    ()
 import           Pos.Wallet.Web.ClientTypes.Types

@@ -53,26 +53,36 @@ module Node (
     ) where
 
 import           Control.Concurrent.STM
-import           Control.Exception (Exception (..), SomeException, catch,
-                                    mask, throwIO)
-import           Control.Monad (unless, when)
+import           Control.Exception
+    (Exception (..), SomeException, catch, mask, throwIO)
+import           Control.Monad
+    (unless, when)
 import qualified Data.ByteString as BS
-import           Data.Map.Strict (Map)
+import           Data.Map.Strict
+    (Map)
 import qualified Data.Map.Strict as M
-import           Data.Proxy (Proxy (..))
+import           Data.Proxy
+    (Proxy (..))
 import qualified Data.Text as T
-import           Data.Typeable (Typeable)
-import           Data.Word (Word32)
-import           Formatting (sformat, shown, (%))
+import           Data.Typeable
+    (Typeable)
+import           Data.Word
+    (Word32)
+import           Formatting
+    (sformat, shown, (%))
 import qualified Network.Transport as NT
 import           Node.Conversation
-import           Node.Internal (ChannelIn, ChannelOut)
+import           Node.Internal
+    (ChannelIn, ChannelOut)
 import qualified Node.Internal as LL
-import           Node.Message.Class (Message (..), MessageCode, Packing, Serializable (..), pack,
-                                     unpack)
-import           Node.Message.Decoder (ByteOffset, Decoder (..), DecoderStep (..), continueDecoding)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
-import           System.Random (StdGen)
+import           Node.Message.Class
+    (Message (..), MessageCode, Packing, Serializable (..), pack, unpack)
+import           Node.Message.Decoder
+    (ByteOffset, Decoder (..), DecoderStep (..), continueDecoding)
+import           Pos.Util.Trace
+    (Severity (..), Trace, traceWith)
+import           System.Random
+    (StdGen)
 
 
 data Node = Node {
@@ -259,7 +269,7 @@ node logTrace mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nod
               -- Index the listeners by message name, for faster lookup.
               -- TODO: report conflicting names, or statically eliminate them using
               -- DataKinds and TypeFamilies.
-              listenerIndices :: peerData -> ListenerIndex packing peerData 
+              listenerIndices :: peerData -> ListenerIndex packing peerData
               listenerIndices = fmap (fst . makeListenerIndex) mkListeners
               converse :: Converse packing peerData
               converse = nodeConverse llnode packing

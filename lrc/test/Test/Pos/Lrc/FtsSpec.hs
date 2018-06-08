@@ -7,19 +7,29 @@ module Test.Pos.Lrc.FtsSpec
 
 import           Universum
 
-import           Data.List (scanl1)
-import qualified Data.Set as S (deleteFindMin, fromList)
-import           Test.Hspec (Spec, describe)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), Property, choose, infiniteListOf, suchThat, (===))
+import           Data.List
+    (scanl1)
+import qualified Data.Set as S
+    (deleteFindMin, fromList)
+import           Test.Hspec
+    (Spec, describe)
+import           Test.Hspec.QuickCheck
+    (modifyMaxSuccess, prop)
+import           Test.QuickCheck
+    (Arbitrary (..), Property, choose, infiniteListOf, suchThat, (===))
 
-import           Pos.Arbitrary.Core ()
-import           Pos.Core (Coin, HasConfiguration, SharedSeed, StakeholderId, StakesList,
-                           addressHash, blkSecurityParam, defaultCoreConfiguration, epochSlots,
-                           mkCoin, sumCoins, unsafeAddCoin, unsafeIntegerToCoin, withGenesisSpec)
-import           Pos.Crypto (PublicKey)
-import           Pos.Lrc.Fts (followTheSatoshi)
-import           Test.Pos.Util.QuickCheck.Property (qcNotElem)
+import           Pos.Arbitrary.Core
+    ()
+import           Pos.Core
+    (Coin, HasConfiguration, SharedSeed, StakeholderId, StakesList,
+    addressHash, blkSecurityParam, defaultCoreConfiguration, epochSlots,
+    mkCoin, sumCoins, unsafeAddCoin, unsafeIntegerToCoin, withGenesisSpec)
+import           Pos.Crypto
+    (PublicKey)
+import           Pos.Lrc.Fts
+    (followTheSatoshi)
+import           Test.Pos.Util.QuickCheck.Property
+    (qcNotElem)
 
 spec :: Spec
 spec = withGenesisSpec 0 defaultCoreConfiguration $ do

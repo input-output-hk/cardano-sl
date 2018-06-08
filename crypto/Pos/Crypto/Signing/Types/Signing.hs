@@ -37,22 +37,35 @@ module Pos.Crypto.Signing.Types.Signing
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Codec.CBOR.Decoding as D
 import qualified Codec.CBOR.Encoding as E
-import           Control.Lens (_Left)
-import           Data.Aeson (FromJSON (..), ToJSON (..))
-import           Data.Aeson.TH (defaultOptions, deriveJSON)
-import           Data.Hashable (Hashable)
+import           Control.Lens
+    (_Left)
+import           Data.Aeson
+    (FromJSON (..), ToJSON (..))
+import           Data.Aeson.TH
+    (defaultOptions, deriveJSON)
+import           Data.Hashable
+    (Hashable)
 import qualified Data.Text.Buildable as B
-import           Data.Text.Lazy.Builder (Builder)
-import           Formatting (Format, bprint, build, fitLeft, later, sformat, (%), (%.))
-import           Prelude (show)
+import           Data.Text.Lazy.Builder
+    (Builder)
+import           Formatting
+    (Format, bprint, build, fitLeft, later, sformat, (%), (%.))
+import           Prelude
+    (show)
 import qualified Serokell.Util.Base16 as B16
-import qualified Serokell.Util.Base64 as Base64 (decode, formatBase64)
-import           Universum hiding (show)
+import qualified Serokell.Util.Base64 as Base64
+    (decode, formatBase64)
+import           Universum hiding
+    (show)
 
-import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
-import           Pos.Crypto.Hashing (hash)
-import           Pos.Crypto.Orphans ()
-import           Pos.Util.Util (toAesonError, toCborError)
+import           Pos.Binary.Class
+    (Bi (..), encodeListLen, enforceSize)
+import           Pos.Crypto.Hashing
+    (hash)
+import           Pos.Crypto.Orphans
+    ()
+import           Pos.Util.Util
+    (toAesonError, toCborError)
 
 ----------------------------------------------------------------------------
 -- Utilities for From/ToJSON instances

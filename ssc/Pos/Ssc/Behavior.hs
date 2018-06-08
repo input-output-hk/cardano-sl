@@ -7,10 +7,13 @@ module Pos.Ssc.Behavior
 import           Universum
 
 import qualified Data.Aeson as A
-import           Data.Default (Default (..))
-import           Serokell.Aeson.Options (defaultOptions)
+import           Data.Default
+    (Default (..))
+import           Serokell.Aeson.Options
+    (defaultOptions)
 
-import           Pos.Util.Util (toAesonError)
+import           Pos.Util.Util
+    (toAesonError)
 
 ----------------------------------------------------------------------------
 -- Types for the behavior config

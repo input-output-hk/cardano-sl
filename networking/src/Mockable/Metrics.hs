@@ -29,7 +29,8 @@ module Mockable.Metrics (
 
     ) where
 
-import           Data.Int (Int64)
+import           Data.Int
+    (Int64)
 import           Mockable.Class
 
 type family Gauge (m :: * -> *) :: *

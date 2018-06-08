@@ -36,40 +36,66 @@ module Test.Util
 
        ) where
 
-import           Control.Concurrent (threadDelay)
-import           Control.Concurrent.Async (forConcurrently, wait, withAsync)
-import           Control.Concurrent.MVar (newEmptyMVar, putMVar, readMVar, takeMVar)
-import           Control.Concurrent.STM (STM, atomically, check, registerDelay)
-import           Control.Concurrent.STM.TVar (TVar, readTVar)
-import           Control.Exception (Exception, SomeException (..), catch, finally, throwIO)
-import           Control.Lens (makeLenses)
-import           Control.Monad (forM_, void)
-import           Control.Monad.IO.Class (MonadIO (..))
-import           Control.Monad.State.Strict (StateT)
-import           Data.Binary (Binary (..))
+import           Control.Concurrent
+    (threadDelay)
+import           Control.Concurrent.Async
+    (forConcurrently, wait, withAsync)
+import           Control.Concurrent.MVar
+    (newEmptyMVar, putMVar, readMVar, takeMVar)
+import           Control.Concurrent.STM
+    (STM, atomically, check, registerDelay)
+import           Control.Concurrent.STM.TVar
+    (TVar, readTVar)
+import           Control.Exception
+    (Exception, SomeException (..), catch, finally, throwIO)
+import           Control.Lens
+    (makeLenses)
+import           Control.Monad
+    (forM_, void)
+import           Control.Monad.IO.Class
+    (MonadIO (..))
+import           Control.Monad.State.Strict
+    (StateT)
+import           Data.Binary
+    (Binary (..))
 import qualified Data.ByteString as LBS
 import qualified Data.List as L
 import qualified Data.Set as S
-import           Data.Time.Units (Microsecond, Second, TimeUnit, toMicroseconds)
-import           Data.Word (Word32)
-import           GHC.Generics (Generic)
-import qualified Network.Transport as NT (Transport)
+import           Data.Time.Units
+    (Microsecond, Second, TimeUnit, toMicroseconds)
+import           Data.Word
+    (Word32)
+import           GHC.Generics
+    (Generic)
+import qualified Network.Transport as NT
+    (Transport)
 import qualified Network.Transport.InMemory as InMemory
 import qualified Network.Transport.TCP as TCP
-import           Serokell.Util.Concurrent (modifyTVarS)
-import           System.Random (mkStdGen)
-import           Test.QuickCheck (Property)
-import           Test.QuickCheck.Arbitrary (Arbitrary (..))
-import           Test.QuickCheck.Gen (choose)
-import           Test.QuickCheck.Modifiers (getLarge)
-import           Test.QuickCheck.Property (Testable (..), failed, reason, succeeded)
+import           Serokell.Util.Concurrent
+    (modifyTVarS)
+import           System.Random
+    (mkStdGen)
+import           Test.QuickCheck
+    (Property)
+import           Test.QuickCheck.Arbitrary
+    (Arbitrary (..))
+import           Test.QuickCheck.Gen
+    (choose)
+import           Test.QuickCheck.Modifiers
+    (getLarge)
+import           Test.QuickCheck.Property
+    (Testable (..), failed, reason, succeeded)
 
-import           Node (Conversation (..), ConversationActions (..), Listener (..), Message (..),
-                       NodeAction (..), NodeEnvironment, NodeId, converseWith, noReceiveDelay, node,
-                       nodeId, simpleNodeEndPoint)
-import           Node.Conversation (Converse)
-import           Node.Message.Binary (BinaryP, binaryPacking)
-import           Pos.Util.Trace (wlogTrace)
+import           Node
+    (Conversation (..), ConversationActions (..), Listener (..), Message (..),
+    NodeAction (..), NodeEnvironment, NodeId, converseWith, noReceiveDelay,
+    node, nodeId, simpleNodeEndPoint)
+import           Node.Conversation
+    (Converse)
+import           Node.Message.Binary
+    (BinaryP, binaryPacking)
+import           Pos.Util.Trace
+    (wlogTrace)
 
 -- | Run a computation, but kill it if it takes more than a given number of
 --   Microseconds to complete. If that happens, log using a given string

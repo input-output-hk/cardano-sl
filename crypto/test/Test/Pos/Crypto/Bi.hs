@@ -8,30 +8,35 @@ module Test.Pos.Crypto.Bi
 
 import           Universum
 
-import           Cardano.Crypto.Wallet (XPrv, unXPrv, xprv, xpub)
+import           Cardano.Crypto.Wallet
+    (XPrv, unXPrv, xprv, xpub)
 
-import           Crypto.Hash (Blake2b_256)
+import           Crypto.Hash
+    (Blake2b_256)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
-import           Data.List.NonEmpty (fromList)
+import           Data.List.NonEmpty
+    (fromList)
 
-import           Hedgehog (Gen, Property)
+import           Hedgehog
+    (Gen, Property)
 import qualified Hedgehog as H
 
-import           Pos.Crypto (AbstractHash, EncShare, PassPhrase, ProtocolMagic (..), ProxyCert,
-                             ProxySecretKey, PublicKey (..), RedeemSignature,
-                             SafeSigner (FakeSigner), Secret, SecretKey (..), SecretProof,
-                             SignTag (SignForTestingOnly), Signature, VssKeyPair, WithHash,
-                             decryptShare, deriveHDPassphrase, deterministic,
-                             deterministicVssKeyGen, genSharedSecret, hash, mkSigned, noPassEncrypt,
-                             packHDAddressAttr, proxySign, redeemDeterministicKeyGen, redeemSign,
-                             safeCreateProxyCert, safeCreatePsk, sign, toPublic, toVssPublicKey)
+import           Pos.Crypto
+    (AbstractHash, EncShare, PassPhrase, ProtocolMagic (..), ProxyCert,
+    ProxySecretKey, PublicKey (..), RedeemSignature, SafeSigner (FakeSigner),
+    Secret, SecretKey (..), SecretProof, SignTag (SignForTestingOnly),
+    Signature, VssKeyPair, WithHash, decryptShare, deriveHDPassphrase,
+    deterministic, deterministicVssKeyGen, genSharedSecret, hash, mkSigned,
+    noPassEncrypt, packHDAddressAttr, proxySign, redeemDeterministicKeyGen,
+    redeemSign, safeCreateProxyCert, safeCreatePsk, sign, toPublic,
+    toVssPublicKey)
 
 import           Test.Pos.Crypto.Gen
-import           Test.Pos.Crypto.TempHelpers (discoverGolden, discoverRoundTrip, eachOf,
-                                              goldenTestBi, roundTripsAesonBuildable,
-                                              roundTripsAesonShow, roundTripsBiBuildable,
-                                              roundTripsBiShow)
+import           Test.Pos.Crypto.TempHelpers
+    (discoverGolden, discoverRoundTrip, eachOf, goldenTestBi,
+    roundTripsAesonBuildable, roundTripsAesonShow, roundTripsBiBuildable,
+    roundTripsBiShow)
 
 --------------------------------------------------------------------------------
 -- ProtocolMagic

@@ -4,7 +4,8 @@ module Pos.Core.Ssc.OpeningsMap
 
 import           Universum
 
-import           Pos.Core.Common (StakeholderId)
+import           Pos.Core.Common
+    (StakeholderId)
 
 import           Pos.Core.Ssc.Opening
 

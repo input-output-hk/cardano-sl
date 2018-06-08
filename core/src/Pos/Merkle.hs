@@ -22,18 +22,24 @@ module Pos.Merkle
 -- what's going on.
 import           Universum
 
-import           Data.Bits (Bits (..))
-import           Data.ByteArray (ByteArrayAccess, convert)
-import qualified Data.ByteString.Lazy as LBS
-import           Data.ByteString.Builder (Builder, byteString)
+import           Data.Bits
+    (Bits (..))
+import           Data.ByteArray
+    (ByteArrayAccess, convert)
+import           Data.ByteString.Builder
+    (Builder, byteString)
 import qualified Data.ByteString.Builder.Extra as Builder
-import           Data.Coerce (coerce)
+import qualified Data.ByteString.Lazy as LBS
+import           Data.Coerce
+    (coerce)
 import qualified Data.Foldable as Foldable
 import qualified Data.Text.Buildable as Buildable
 import qualified Prelude
 
-import           Pos.Binary.Class (Bi, Raw, serializeBuilder)
-import           Pos.Crypto (AbstractHash (..), Hash, hashRaw)
+import           Pos.Binary.Class
+    (Bi, Raw, serializeBuilder)
+import           Pos.Crypto
+    (AbstractHash (..), Hash, hashRaw)
 
 {-# ANN module ("HLint : ignore Unnecessary hiding" :: Text) #-}
 

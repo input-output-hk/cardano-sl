@@ -67,26 +67,39 @@ module Pos.Wallet.Web.ClientTypes.Types
 
 import           Universum
 
-import           Control.Lens (makeLenses)
-import           Data.Default (Default, def)
-import           Data.Hashable (Hashable (..))
+import           Control.Lens
+    (makeLenses)
+import           Data.Default
+    (Default, def)
+import           Data.Hashable
+    (Hashable (..))
 import qualified Data.Text.Buildable
-import           Data.Time.Clock.POSIX (POSIXTime)
-import           Data.Typeable (Typeable)
-import           Data.Version (Version)
-import           Formatting (bprint, build, builder, later, shown, (%))
+import           Data.Time.Clock.POSIX
+    (POSIXTime)
+import           Data.Typeable
+    (Typeable)
+import           Data.Version
+    (Version)
+import           Formatting
+    (bprint, build, builder, later, shown, (%))
 import qualified Prelude
-import           Serokell.Util (listJsonIndent, mapBuilder)
-import           Servant.Multipart (FileData, Mem)
+import           Serokell.Util
+    (listJsonIndent, mapBuilder)
+import           Servant.Multipart
+    (FileData, Mem)
 
-import           Pos.Client.Txp.Util (InputSelectionPolicy)
-import           Pos.Core (BlockVersion, ChainDifficulty, Coin, ScriptVersion, SoftwareVersion,
-                           unsafeGetCoin)
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..),
-                                         buildUnsecure, deriveSafeBuildable,
-                                         secretOnlyF, secureListF)
-import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Util.Servant (HasTruncateLogPolicy, WithTruncatedLog (..))
+import           Pos.Client.Txp.Util
+    (InputSelectionPolicy)
+import           Pos.Core
+    (BlockVersion, ChainDifficulty, Coin, ScriptVersion, SoftwareVersion,
+    unsafeGetCoin)
+import           Pos.Infra.Util.LogSafe
+    (BuildableSafeGen (..), SecureLog (..), buildUnsecure, deriveSafeBuildable,
+    secretOnlyF, secureListF)
+import           Pos.Util.BackupPhrase
+    (BackupPhrase)
+import           Pos.Util.Servant
+    (HasTruncateLogPolicy, WithTruncatedLog (..))
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty

@@ -3,14 +3,18 @@ module Statistics.Focus
     , focusF
     ) where
 
-import           Control.Foldl (Fold (..))
-import           Data.Set (Set)
+import           Control.Foldl
+    (Fold (..))
+import           Data.Set
+    (Set)
 import qualified Data.Set as S
 import qualified Data.Text as T
 
 import           JSONLog
-import           Pos.Infra.Util.JsonLog.Events (JLBlock (..), JLEvent (..), JLTxR (..))
-import           Prelude (id)
+import           Pos.Infra.Util.JsonLog.Events
+    (JLBlock (..), JLEvent (..), JLTxR (..))
+import           Prelude
+    (id)
 import           Types
 import           Universum
 

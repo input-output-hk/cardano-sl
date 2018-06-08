@@ -6,14 +6,20 @@ module Cardano.Wallet.API.Development where
 
 import           Universum
 
-import           Cardano.Wallet.API.Response (ValidJSON, WalletResponse)
-import           Cardano.Wallet.API.Types (Tags)
-import           Cardano.Wallet.API.V1.Types (V1 (..))
+import           Cardano.Wallet.API.Response
+    (ValidJSON, WalletResponse)
+import           Cardano.Wallet.API.Types
+    (Tags)
+import           Cardano.Wallet.API.V1.Types
+    (V1 (..))
 import           Data.Aeson
-import           Data.Swagger (NamedSchema (..), ToSchema (..))
-import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
+import           Data.Swagger
+    (NamedSchema (..), ToSchema (..))
+import           Pos.Wallet.Web.Methods.Misc
+    (WalletStateSnapshot)
 import           Servant
-import           Servant.API.ContentTypes (OctetStream)
+import           Servant.API.ContentTypes
+    (OctetStream)
 
 -- the ToSchema instance that was being generated for this type is invalid,
 -- so we make one here an dhide it behind the WalletStateSnapshot

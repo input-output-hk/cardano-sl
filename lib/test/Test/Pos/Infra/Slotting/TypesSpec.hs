@@ -6,13 +6,17 @@ module Test.Pos.Infra.Slotting.TypesSpec
 
 import           Universum
 
-import           Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy)
+import           Test.Hspec
+    (Spec, describe, it, shouldBe, shouldSatisfy)
 
 import           Data.Map
-import           Data.Maybe (isJust, isNothing)
-import           Data.Time.Units (Millisecond, Second, convertUnit)
+import           Data.Maybe
+    (isJust, isNothing)
+import           Data.Time.Units
+    (Millisecond, Second, convertUnit)
 
-import           Pos.Core (EpochIndex (..), LocalSlotIndex (..), TimeDiff (..), Timestamp (..))
+import           Pos.Core
+    (EpochIndex (..), LocalSlotIndex (..), TimeDiff (..), Timestamp (..))
 import           Pos.Infra.Slotting.Types
 
 

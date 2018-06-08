@@ -7,20 +7,25 @@ module Pos.Arbitrary.Infra () where
 import           Universum
 
 import qualified Data.ByteString as BS
-import           Network.Kademlia.HashNodeId (HashId (..))
-import           Test.QuickCheck (Arbitrary (..), choose, oneof)
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Network.Kademlia.HashNodeId
+    (HashId (..))
+import           Test.QuickCheck
+    (Arbitrary (..), choose, oneof)
+import           Test.QuickCheck.Arbitrary.Generic
+    (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Core ()
-import           Pos.Core.Delegation (ProxySKHeavy)
-import           Pos.Crypto (HasProtocolMagic)
-import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..),
-                                                         VerInfo (..))
-import           Pos.Infra.Communication.Types.Relay (DataMsg (..),
-                                                      InvMsg (..),
-                                                      MempoolMsg (..),
-                                                      ReqMsg (..))
-import           Pos.Infra.DHT (DHTData (..), DHTKey (..))
+import           Pos.Arbitrary.Core
+    ()
+import           Pos.Core.Delegation
+    (ProxySKHeavy)
+import           Pos.Crypto
+    (HasProtocolMagic)
+import           Pos.Infra.Communication.Types.Protocol
+    (HandlerSpec (..), VerInfo (..))
+import           Pos.Infra.Communication.Types.Relay
+    (DataMsg (..), InvMsg (..), MempoolMsg (..), ReqMsg (..))
+import           Pos.Infra.DHT
+    (DHTData (..), DHTKey (..))
 
 deriving instance Arbitrary DHTData
 

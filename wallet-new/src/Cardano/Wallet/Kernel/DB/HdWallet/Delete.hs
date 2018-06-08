@@ -6,7 +6,8 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Delete (
 
 import           Universum
 
-import           Control.Lens (at, (.=))
+import           Control.Lens
+    (at, (.=))
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.Util.AcidState

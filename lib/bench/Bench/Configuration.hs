@@ -5,9 +5,12 @@ module Bench.Configuration (benchConf, giveCoreConf) where
 import           Universum
 
 import qualified Data.Aeson as J
-import           Pos.Core (HasConfiguration, withGenesisSpec)
-import           Pos.Launcher.Configuration (Configuration (..))
-import           Pos.Util.Config (embedYamlConfigCT)
+import           Pos.Core
+    (HasConfiguration, withGenesisSpec)
+import           Pos.Launcher.Configuration
+    (Configuration (..))
+import           Pos.Util.Config
+    (embedYamlConfigCT)
 
 benchConf :: Configuration
 benchConf = case J.fromJSON $ J.Object jobj of

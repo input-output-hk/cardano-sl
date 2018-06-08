@@ -24,37 +24,50 @@ module Pos.Launcher.Mode
 
 import           Universum
 
-import           Control.Lens (makeLensesWith)
+import           Control.Lens
+    (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           Mockable.Production (Production)
+import           Mockable.Production
+    (Production)
 
-import           Pos.Core (HasConfiguration, Timestamp)
-import           Pos.DB (NodeDBs)
-import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
-                               dbPutSerBlundsRealDefault)
-import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
-import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
-                               dbWriteBatchDefault)
-import           Pos.Infra.Slotting (HasSlottingVar (..))
-import           Pos.Infra.Slotting.Class (MonadSlots (..))
-import           Pos.Infra.Slotting.Impl (SimpleSlottingStateVar,
-                                            currentTimeSlottingSimple,
-                                            getCurrentSlotBlockingSimple,
-                                            getCurrentSlotInaccurateSimple,
-                                            getCurrentSlotSimple)
-import           Pos.Infra.Slotting.MemState (MonadSlotsData)
-import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Lrc.Context (LrcContext)
-import           Pos.Util.Lens (postfixLFields)
-import           Pos.Util.Util (HasLens (..))
+import           Pos.Core
+    (HasConfiguration, Timestamp)
+import           Pos.DB
+    (NodeDBs)
+import           Pos.DB.Block
+    (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
+    dbPutSerBlundsRealDefault)
+import           Pos.DB.Class
+    (MonadDB (..), MonadDBRead (..))
+import           Pos.DB.Rocks
+    (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
+    dbWriteBatchDefault)
+import           Pos.Infra.Slotting
+    (HasSlottingVar (..))
+import           Pos.Infra.Slotting.Class
+    (MonadSlots (..))
+import           Pos.Infra.Slotting.Impl
+    (SimpleSlottingStateVar, currentTimeSlottingSimple,
+    getCurrentSlotBlockingSimple, getCurrentSlotInaccurateSimple,
+    getCurrentSlotSimple)
+import           Pos.Infra.Slotting.MemState
+    (MonadSlotsData)
+import           Pos.Infra.Slotting.Types
+    (SlottingData)
+import           Pos.Lrc.Context
+    (LrcContext)
+import           Pos.Util.Lens
+    (postfixLFields)
+import           Pos.Util.Util
+    (HasLens (..))
 
 -- The fields are lazy on purpose: this allows using them with
 -- futures.
 data InitModeContext = InitModeContext
-    { imcNodeDBs            :: NodeDBs
-    , imcSlottingVar        :: (Timestamp, TVar SlottingData)
-    , imcSlottingStateVar   :: SimpleSlottingStateVar
-    , imcLrcContext         :: LrcContext
+    { imcNodeDBs          :: NodeDBs
+    , imcSlottingVar      :: (Timestamp, TVar SlottingData)
+    , imcSlottingStateVar :: SimpleSlottingStateVar
+    , imcLrcContext       :: LrcContext
     }
 
 makeLensesWith postfixLFields ''InitModeContext

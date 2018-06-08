@@ -20,46 +20,74 @@ module Pos.Launcher.Resource
 
 import           Universum
 
-import           Control.Concurrent.STM (newEmptyTMVarIO, newTBQueueIO)
-import           Data.Default (Default)
+import           Control.Concurrent.STM
+    (newEmptyTMVarIO, newTBQueueIO)
+import           Data.Default
+    (Default)
 import qualified Data.Time as Time
-import           Formatting (sformat, shown, (%))
-import           Mockable (Production (..))
-import           System.IO (BufferMode (..), Handle, hClose, hSetBuffering)
+import           Formatting
+    (sformat, shown, (%))
+import           Mockable
+    (Production (..))
+import           System.IO
+    (BufferMode (..), Handle, hClose, hSetBuffering)
 import qualified System.Metrics as Metrics
-import           System.Wlog (LoggerConfig (..), WithLogger, consoleActionB, defaultHandleAction,
-                              logDebug, logInfo, maybeLogsDirB, productionB, removeAllHandlers,
-                              setupLogging, showTidB)
+import           System.Wlog
+    (LoggerConfig (..), WithLogger, consoleActionB, defaultHandleAction,
+    logDebug, logInfo, maybeLogsDirB, productionB, removeAllHandlers,
+    setupLogging, showTidB)
 
-import           Pos.Binary ()
-import           Pos.Block.Configuration (HasBlockConfiguration)
-import           Pos.Block.Slog (mkSlogContext)
-import           Pos.Client.CLI.Util (readLoggerConfig)
+import           Pos.Binary
+    ()
+import           Pos.Block.Configuration
+    (HasBlockConfiguration)
+import           Pos.Block.Slog
+    (mkSlogContext)
+import           Pos.Client.CLI.Util
+    (readLoggerConfig)
 import           Pos.Configuration
-import           Pos.Context (ConnectedPeers (..), NodeContext (..), StartTime (..))
-import           Pos.Core (HasConfiguration, Timestamp, gdStartTime, genesisData)
-import           Pos.DB (MonadDBRead, NodeDBs)
-import           Pos.DB.Rocks (closeNodeDBs, openNodeDBs)
-import           Pos.Delegation (DelegationVar, HasDlgConfiguration, mkDelegationVar)
+import           Pos.Context
+    (ConnectedPeers (..), NodeContext (..), StartTime (..))
+import           Pos.Core
+    (HasConfiguration, Timestamp, gdStartTime, genesisData)
+import           Pos.DB
+    (MonadDBRead, NodeDBs)
+import           Pos.DB.Rocks
+    (closeNodeDBs, openNodeDBs)
+import           Pos.Delegation
+    (DelegationVar, HasDlgConfiguration, mkDelegationVar)
 import qualified Pos.GState as GS
-import           Pos.Infra.DHT.Real (KademliaParams (..))
-import           Pos.Infra.Network.Types (NetworkConfig (..))
-import           Pos.Infra.Reporting (initializeMisbehaviorMetrics)
-import           Pos.Infra.Shutdown.Types (ShutdownContext (..))
-import           Pos.Infra.Slotting (SimpleSlottingStateVar,
-                                     mkSimpleSlottingStateVar)
-import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Infra.StateLock (newStateLock)
-import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
-import           Pos.Lrc.Context (LrcContext (..), mkLrcSyncData)
-import           Pos.Ssc (SscParams, SscState, createSscContext, mkSscState)
-import           Pos.Txp (GenericTxpLocalData (..), TxpGlobalSettings, mkTxpLocalData,
-                          recordTxpMetrics)
+import           Pos.Infra.DHT.Real
+    (KademliaParams (..))
+import           Pos.Infra.Network.Types
+    (NetworkConfig (..))
+import           Pos.Infra.Reporting
+    (initializeMisbehaviorMetrics)
+import           Pos.Infra.Shutdown.Types
+    (ShutdownContext (..))
+import           Pos.Infra.Slotting
+    (SimpleSlottingStateVar, mkSimpleSlottingStateVar)
+import           Pos.Infra.Slotting.Types
+    (SlottingData)
+import           Pos.Infra.StateLock
+    (newStateLock)
+import           Pos.Launcher.Param
+    (BaseParams (..), LoggingParams (..), NodeParams (..))
+import           Pos.Lrc.Context
+    (LrcContext (..), mkLrcSyncData)
+import           Pos.Ssc
+    (SscParams, SscState, createSscContext, mkSscState)
+import           Pos.Txp
+    (GenericTxpLocalData (..), TxpGlobalSettings, mkTxpLocalData,
+    recordTxpMetrics)
 
-import           Pos.Launcher.Mode (InitMode, InitModeContext (..), runInitMode)
-import           Pos.Update.Context (mkUpdateContext)
+import           Pos.Launcher.Mode
+    (InitMode, InitModeContext (..), runInitMode)
+import           Pos.Update.Context
+    (mkUpdateContext)
 import qualified Pos.Update.DB as GState
-import           Pos.Util (bracketWithLogging, newInitFuture)
+import           Pos.Util
+    (bracketWithLogging, newInitFuture)
 
 #ifdef linux_HOST_OS
 import qualified System.Systemd.Daemon as Systemd

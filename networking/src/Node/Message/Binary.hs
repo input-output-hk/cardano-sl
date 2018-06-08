@@ -16,11 +16,15 @@ import qualified Data.Binary.Get as Bin
 import qualified Data.Binary.Put as Bin
 import qualified Data.ByteString.Builder.Extra as BS
 import qualified Data.ByteString.Lazy as LBS
-import           Data.Functor.Identity (Identity (..))
-import           Data.Proxy (Proxy (..))
+import           Data.Functor.Identity
+    (Identity (..))
+import           Data.Proxy
+    (Proxy (..))
 import qualified Data.Text as T
-import           Node.Message.Class (Packing (..), PackingType (..), Serializable (..))
-import           Node.Message.Decoder (Decoder (..), DecoderStep (..))
+import           Node.Message.Class
+    (Packing (..), PackingType (..), Serializable (..))
+import           Node.Message.Decoder
+    (Decoder (..), DecoderStep (..))
 
 data BinaryP
 

@@ -5,10 +5,13 @@ module Pos.Core.Genesis.WStakeholders
 import           Universum
 
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, (%))
-import           Serokell.Util (mapJson)
+import           Formatting
+    (bprint, (%))
+import           Serokell.Util
+    (mapJson)
 
-import           Pos.Core.Common (StakeholderId)
+import           Pos.Core.Common
+    (StakeholderId)
 
 -- | Wrapper around weighted stakeholders map to be used in genesis
 -- core data.

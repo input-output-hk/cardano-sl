@@ -11,12 +11,17 @@ module Pos.Update.Network.Listeners
 
 import           Universum
 
-import           Formatting (build, sformat, (%))
-import           System.Wlog (WithLogger, logNotice, logWarning)
+import           Formatting
+    (build, sformat, (%))
+import           System.Wlog
+    (WithLogger, logNotice, logWarning)
 
-import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
-import           Pos.Update.Logic.Local (processProposal, processVote)
-import           Pos.Update.Mode (UpdateMode)
+import           Pos.Core.Update
+    (UpdateProposal (..), UpdateVote (..))
+import           Pos.Update.Logic.Local
+    (processProposal, processVote)
+import           Pos.Update.Mode
+    (UpdateMode)
 
 handleProposal
     :: forall ctx m . UpdateMode ctx m

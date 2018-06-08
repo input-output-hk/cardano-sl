@@ -9,14 +9,20 @@ module Pos.Block.Network.Types
        ) where
 
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, (%))
-import           Serokell.Util.Text (listJson)
+import           Formatting
+    (bprint, build, (%))
+import           Serokell.Util.Text
+    (listJson)
 import           Universum
 
-import           Pos.Core (HeaderHash)
-import           Pos.Core.Block (Block, BlockHeader (..))
-import           Pos.DB.Class (SerializedBlock)
-import           Pos.Core.Chrono (NE, NewestFirst (..))
+import           Pos.Core
+    (HeaderHash)
+import           Pos.Core.Block
+    (Block, BlockHeader (..))
+import           Pos.Core.Chrono
+    (NE, NewestFirst (..))
+import           Pos.DB.Class
+    (SerializedBlock)
 
 -- | 'GetHeaders' message. Behaviour of the response depends on
 -- particular combination of 'mghFrom' and 'mghTo'.

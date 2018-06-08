@@ -7,7 +7,8 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Update (
 
 import           Universum
 
-import           Control.Lens ((.=))
+import           Control.Lens
+    ((.=))
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.Util.AcidState

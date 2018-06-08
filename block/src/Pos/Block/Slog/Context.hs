@@ -10,17 +10,25 @@ module Pos.Block.Slog.Context
 
 import           Universum
 
-import           Formatting (int, sformat, (%))
+import           Formatting
+    (int, sformat, (%))
 import qualified System.Metrics as Ekg
 
-import           Pos.Block.Configuration (HasBlockConfiguration, fixedTimeCQSec)
-import           Pos.Block.Slog.Types (HasSlogGState (..), LastBlkSlots, SlogContext (..),
-                                       SlogGState (..), sgsLastBlkSlots)
-import           Pos.Core (blkSecurityParam)
-import           Pos.DB.Class (MonadDBRead)
-import           Pos.GState.BlockExtra (getLastSlots)
-import           Pos.Infra.Reporting (MetricMonitorState, mkMetricMonitorState)
-import           Pos.System.Metrics.Constants (withCardanoNamespace)
+import           Pos.Block.Configuration
+    (HasBlockConfiguration, fixedTimeCQSec)
+import           Pos.Block.Slog.Types
+    (HasSlogGState (..), LastBlkSlots, SlogContext (..), SlogGState (..),
+    sgsLastBlkSlots)
+import           Pos.Core
+    (blkSecurityParam)
+import           Pos.DB.Class
+    (MonadDBRead)
+import           Pos.GState.BlockExtra
+    (getLastSlots)
+import           Pos.Infra.Reporting
+    (MetricMonitorState, mkMetricMonitorState)
+import           Pos.System.Metrics.Constants
+    (withCardanoNamespace)
 
 -- | Make new 'SlogGState' using data from DB.
 mkSlogGState :: (MonadIO m, MonadDBRead m) => m SlogGState

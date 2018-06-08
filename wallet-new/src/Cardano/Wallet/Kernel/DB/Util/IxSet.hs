@@ -23,13 +23,17 @@ module Cardano.Wallet.Kernel.DB.Util.IxSet (
   , otraverse
   ) where
 
-import           Universum hiding (Foldable)
+import           Universum hiding
+    (Foldable)
 
 import qualified Control.Lens as Lens
-import           Data.Coerce (coerce)
-import           Data.Foldable (Foldable (..))
+import           Data.Coerce
+    (coerce)
+import           Data.Foldable
+    (Foldable (..))
 import qualified Data.IxSet.Typed as IxSet
-import           Data.SafeCopy (SafeCopy (..))
+import           Data.SafeCopy
+    (SafeCopy (..))
 import qualified Data.Set as Set
 import qualified Data.Traversable
 

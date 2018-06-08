@@ -18,10 +18,14 @@ module Pos.Binary.Core
 import           Pos.Binary.Core.Address
 import           Pos.Binary.Core.Block
 import           Pos.Binary.Core.Blockchain
-import           Pos.Binary.Core.Common ()
-import           Pos.Binary.Core.Delegation ()
-import           Pos.Binary.Core.Fee ()
-import           Pos.Binary.Core.Script ()
+import           Pos.Binary.Core.Common
+    ()
+import           Pos.Binary.Core.Delegation
+    ()
+import           Pos.Binary.Core.Fee
+    ()
+import           Pos.Binary.Core.Script
+    ()
 import           Pos.Binary.Core.Slotting
 import           Pos.Binary.Core.Ssc
 import           Pos.Binary.Core.Txp

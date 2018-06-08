@@ -8,7 +8,8 @@ import qualified Data.Set as Set
 
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
-import           Pos.Core (Coeff (..), TxSizeLinear (..))
+import           Pos.Core
+    (Coeff (..), TxSizeLinear (..))
 
 import           Test.Infrastructure.Generator
 import           Util.Buildable.Hspec

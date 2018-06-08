@@ -26,36 +26,58 @@ module Pos.Explorer.DB
        , findEpochMaxPages
        ) where
 
-import           Universum hiding (id)
+import           Universum hiding
+    (id)
 
-import           Control.Lens (at, non)
-import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit (ConduitT, mapOutput, runConduitRes, (.|))
+import           Control.Lens
+    (at, non)
+import           Control.Monad.Trans.Resource
+    (ResourceT)
+import           Data.Conduit
+    (ConduitT, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
-import           Data.List (groupBy)
-import           Data.Map (fromList)
+import           Data.List
+    (groupBy)
+import           Data.Map
+    (fromList)
 import qualified Data.Map as M
 import qualified Database.RocksDB as Rocks
-import           Formatting (sformat, (%))
-import           Serokell.Util (Color (Red), colorize, mapJson)
-import           System.Wlog (WithLogger, logError)
-import           UnliftIO (MonadUnliftIO)
+import           Formatting
+    (sformat, (%))
+import           Serokell.Util
+    (Color (Red), colorize, mapJson)
+import           System.Wlog
+    (WithLogger, logError)
+import           UnliftIO
+    (MonadUnliftIO)
 
-import           Pos.Binary.Class (serialize')
-import           Pos.Core (Address, Coin, EpochIndex (..), HasConfiguration, HeaderHash,
-                           coinToInteger, unsafeAddCoin)
-import           Pos.Core.Txp (Tx, TxId, TxOut (..), TxOutAux (..))
-import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB), MonadDB,
-                         MonadDBRead (dbGet), RocksBatchOp (..), dbIterSource, dbSerializeValue,
-                         encodeWithKeyPrefix)
-import           Pos.DB.DB (initNodeDBs)
-import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
-import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
-import           Pos.Txp.DB (getAllPotentiallyHugeUtxo, utxoSource)
-import           Pos.Txp.GenesisUtxo (genesisUtxo)
-import           Pos.Txp.Toil (GenesisUtxo (..), utxoF, utxoToAddressCoinPairs)
-import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Util.Util (maybeThrow)
+import           Pos.Binary.Class
+    (serialize')
+import           Pos.Core
+    (Address, Coin, EpochIndex (..), HasConfiguration, HeaderHash,
+    coinToInteger, unsafeAddCoin)
+import           Pos.Core.Chrono
+    (NewestFirst (..))
+import           Pos.Core.Txp
+    (Tx, TxId, TxOut (..), TxOutAux (..))
+import           Pos.DB
+    (DBError (..), DBIteratorClass (..), DBTag (GStateDB), MonadDB,
+    MonadDBRead (dbGet), RocksBatchOp (..), dbIterSource, dbSerializeValue,
+    encodeWithKeyPrefix)
+import           Pos.DB.DB
+    (initNodeDBs)
+import           Pos.DB.GState.Common
+    (gsGetBi, gsPutBi, writeBatchGState)
+import           Pos.Explorer.Core
+    (AddrHistory, TxExtra (..))
+import           Pos.Txp.DB
+    (getAllPotentiallyHugeUtxo, utxoSource)
+import           Pos.Txp.GenesisUtxo
+    (genesisUtxo)
+import           Pos.Txp.Toil
+    (GenesisUtxo (..), utxoF, utxoToAddressCoinPairs)
+import           Pos.Util.Util
+    (maybeThrow)
 
 
 

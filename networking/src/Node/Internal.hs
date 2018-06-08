@@ -44,43 +44,62 @@ module Node.Internal (
     Timeout(..)
   ) where
 
-import           Control.Concurrent (threadDelay)
-import           Control.Concurrent.STM
+import           Control.Concurrent
+    (threadDelay)
 import           Control.Concurrent.Async
 import           Control.Concurrent.MVar
-import           Control.Exception (Exception, SomeException, SomeAsyncException,
-                                    bracket, catch, handle, finally, throwIO,
-                                    mask, uninterruptibleMask_, fromException, try)
-import           Control.Monad (forM_, mapM_, when)
+import           Control.Concurrent.STM
+import           Control.Exception
+    (Exception, SomeAsyncException, SomeException, bracket, catch, finally,
+    fromException, handle, mask, throwIO, try, uninterruptibleMask_)
+import           Control.Monad
+    (forM_, mapM_, when)
 import           Data.Binary
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as BS
 import qualified Data.ByteString.Builder.Extra as BS
 import qualified Data.ByteString.Lazy as LBS
-import           Data.Foldable (foldl', foldlM)
-import           Data.Hashable (Hashable)
-import           Data.Int (Int64)
-import           Data.Map.Strict (Map)
+import           Data.Foldable
+    (foldl', foldlM)
+import           Data.Hashable
+    (Hashable)
+import           Data.Int
+    (Int64)
+import           Data.Map.Strict
+    (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Monoid
-import           Data.NonEmptySet (NonEmptySet)
+import           Data.NonEmptySet
+    (NonEmptySet)
 import qualified Data.NonEmptySet as NESet
-import           Data.Set (Set)
+import           Data.Set
+    (Set)
 import qualified Data.Set as Set
-import           Data.Text (Text)
-import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           Data.Time.Units (Microsecond)
-import           Formatting (sformat, shown, (%))
-import           GHC.Generics (Generic)
+import           Data.Text
+    (Text)
+import           Data.Time.Clock.POSIX
+    (getPOSIXTime)
+import           Data.Time.Units
+    (Microsecond)
+import           Formatting
+    (sformat, shown, (%))
+import           GHC.Generics
+    (Generic)
 import qualified Network.Transport as NT
-import           Node.Message.Class (Packing, Serializable (..), pack, unpack)
-import           Node.Message.Decoder (Decoder (..), DecoderStep (..), continueDecoding)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
-import qualified System.Metrics.Distribution as Metrics (Distribution)
-import qualified System.Metrics.Gauge as Metrics (Gauge)
+import           Node.Message.Class
+    (Packing, Serializable (..), pack, unpack)
+import           Node.Message.Decoder
+    (Decoder (..), DecoderStep (..), continueDecoding)
+import           Pos.Util.Trace
+    (Severity (..), Trace, traceWith)
+import qualified System.Metrics.Distribution as Metrics
+    (Distribution)
 import qualified System.Metrics.Distribution as Metrics.Distribution
+import qualified System.Metrics.Gauge as Metrics
+    (Gauge)
 import qualified System.Metrics.Gauge as Metrics.Gauge
-import           System.Random (Random, StdGen, random)
+import           System.Random
+    (Random, StdGen, random)
 
 -- Copied from the old Mockable definition for Production.
 getCurrentTime :: IO Microsecond

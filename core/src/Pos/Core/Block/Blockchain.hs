@@ -32,11 +32,15 @@ module Pos.Core.Block.Blockchain
 
 import           Universum
 
-import           Control.Lens (makeLenses)
-import           Control.Monad.Except (MonadError (throwError))
-import           Formatting (build, sformat, (%))
+import           Control.Lens
+    (makeLenses)
+import           Control.Monad.Except
+    (MonadError (throwError))
+import           Formatting
+    (build, sformat, (%))
 
-import           Pos.Crypto (ProtocolMagic)
+import           Pos.Crypto
+    (ProtocolMagic)
 
 ----------------------------------------------------------------------------
 -- Blockchain class

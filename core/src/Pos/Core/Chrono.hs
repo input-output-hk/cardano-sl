@@ -20,14 +20,19 @@ module Pos.Core.Chrono
 
 import           Universum
 
-import           Control.Lens (makePrisms, makeWrapped, _Wrapped)
-import qualified Control.Lens as Lens (Each (..))
-import           Data.Coerce (coerce)
+import           Control.Lens
+    (makePrisms, makeWrapped, _Wrapped)
+import qualified Control.Lens as Lens
+    (Each (..))
+import           Data.Coerce
+    (coerce)
 import qualified Data.List.NonEmpty as NE
-import           Data.Semigroup (Semigroup)
+import           Data.Semigroup
+    (Semigroup)
 import qualified GHC.Exts as IL
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class
+    (Bi)
 
 newtype NewestFirst f a = NewestFirst {getNewestFirst :: f a}
   deriving (Eq, Ord, Show,

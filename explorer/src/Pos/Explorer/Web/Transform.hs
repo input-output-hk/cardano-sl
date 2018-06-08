@@ -1,6 +1,6 @@
-{-# LANGUAGE RankNTypes    #-}
-{-# LANGUAGE TypeFamilies  #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -17,31 +17,51 @@ module Pos.Explorer.Web.Transform
 import           Universum
 
 import qualified Control.Exception.Safe as E
-import           Control.Monad.Except (MonadError (throwError))
+import           Control.Monad.Except
+    (MonadError (throwError))
 import qualified Control.Monad.Reader as Mtl
-import           Mockable (runProduction)
-import           Servant.Server (Handler, hoistServer)
+import           Mockable
+    (runProduction)
+import           Servant.Server
+    (Handler, hoistServer)
 
-import           Pos.Block.Configuration (HasBlockConfiguration)
-import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (HasConfiguration)
-import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Infra.Reporting (MonadReporting (..))
-import           Pos.Recovery ()
-import           Pos.Ssc.Configuration (HasSscConfiguration)
-import           Pos.Txp (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..))
-import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Util.Mockable ()
-import           Pos.WorkMode (RealMode, RealModeContext (..))
+import           Pos.Block.Configuration
+    (HasBlockConfiguration)
+import           Pos.Configuration
+    (HasNodeConfiguration)
+import           Pos.Core
+    (HasConfiguration)
+import           Pos.Infra.Diffusion.Types
+    (Diffusion)
+import           Pos.Infra.Reporting
+    (MonadReporting (..))
+import           Pos.Recovery
+    ()
+import           Pos.Ssc.Configuration
+    (HasSscConfiguration)
+import           Pos.Txp
+    (HasTxpConfiguration, MempoolExt, MonadTxpLocal (..))
+import           Pos.Update.Configuration
+    (HasUpdateConfiguration)
+import           Pos.Util.CompileInfo
+    (HasCompileInfo)
+import           Pos.Util.Mockable
+    ()
+import           Pos.WorkMode
+    (RealMode, RealModeContext (..))
 
-import           Pos.Explorer.BListener (ExplorerBListener, runExplorerBListener)
-import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, makeExtraCtx,
-                                            runExtraContextT)
-import           Pos.Explorer.Socket.App (NotifierSettings, notifierApp)
-import           Pos.Explorer.Txp (ExplorerExtraModifier, eTxNormalize, eTxProcessTransaction)
-import           Pos.Explorer.Web.Api (explorerApi)
-import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers, explorerServeImpl)
+import           Pos.Explorer.BListener
+    (ExplorerBListener, runExplorerBListener)
+import           Pos.Explorer.ExtraContext
+    (ExtraContext, ExtraContextT, makeExtraCtx, runExtraContextT)
+import           Pos.Explorer.Socket.App
+    (NotifierSettings, notifierApp)
+import           Pos.Explorer.Txp
+    (ExplorerExtraModifier, eTxNormalize, eTxProcessTransaction)
+import           Pos.Explorer.Web.Api
+    (explorerApi)
+import           Pos.Explorer.Web.Server
+    (explorerApp, explorerHandlers, explorerServeImpl)
 
 -----------------------------------------------------------------
 -- Transformation to `Handler`

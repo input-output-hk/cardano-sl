@@ -49,21 +49,33 @@ module Pos.Txp.Toil.Monad
        , utxoMToGlobalToilM
        ) where
 
-import           Universum hiding (id)
+import           Universum hiding
+    (id)
 
-import           Control.Lens (at, magnify, makeLenses, zoom, (%=), (+=), (.=))
-import           Control.Monad.Free.Church (F (..), foldF)
-import           Control.Monad.Reader (mapReaderT)
-import           Control.Monad.State.Strict (mapStateT)
-import           Data.Default (def)
-import           Fmt ((+|), (|+))
-import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog)
+import           Control.Lens
+    (at, magnify, makeLenses, zoom, (%=), (+=), (.=))
+import           Control.Monad.Free.Church
+    (F (..), foldF)
+import           Control.Monad.Reader
+    (mapReaderT)
+import           Control.Monad.State.Strict
+    (mapStateT)
+import           Data.Default
+    (def)
+import           Fmt
+    ((+|), (|+))
+import           System.Wlog
+    (NamedPureLogger, WithLogger, launchNamedPureLog)
 
-import           Pos.Core.Common (Coin, StakeholderId)
-import           Pos.Core.Txp (TxAux, TxId, TxIn, TxOutAux, TxUndo)
-import           Pos.Txp.Toil.Types (MemPool, StakesView, UndoMap, UtxoLookup, UtxoModifier,
-                                     mpLocalTxs, mpSize, svStakes, svTotal)
-import           Pos.Util (type (~>))
+import           Pos.Core.Common
+    (Coin, StakeholderId)
+import           Pos.Core.Txp
+    (TxAux, TxId, TxIn, TxOutAux, TxUndo)
+import           Pos.Txp.Toil.Types
+    (MemPool, StakesView, UndoMap, UtxoLookup, UtxoModifier, mpLocalTxs,
+    mpSize, svStakes, svTotal)
+import           Pos.Util
+    (type (~>))
 import qualified Pos.Util.Modifier as MM
 
 ----------------------------------------------------------------------------

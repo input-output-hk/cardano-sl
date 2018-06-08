@@ -11,19 +11,26 @@ module Pos.Util.Filesystem
        , withMaybeFile
        ) where
 
-import           Universum hiding (last)
+import           Universum hiding
+    (last)
 
-import           Control.Concurrent (myThreadId)
+import           Control.Concurrent
+    (myThreadId)
 import qualified Control.Exception.Safe as E
-import           Data.Char (isAlphaNum)
-import           Data.List (last)
-import           Data.Time (getCurrentTime)
+import           Data.Char
+    (isAlphaNum)
+import           Data.List
+    (last)
+import           Data.Time
+    (getCurrentTime)
 import qualified Prelude
-import           System.Directory (canonicalizePath, createDirectory, doesDirectoryExist,
-                                   getTemporaryDirectory, listDirectory, removeDirectoryRecursive,
-                                   removeFile)
-import           System.FilePath (normalise, pathSeparator, takeDirectory, (</>))
-import           System.IO (hClose, openTempFile)
+import           System.Directory
+    (canonicalizePath, createDirectory, doesDirectoryExist,
+    getTemporaryDirectory, listDirectory, removeDirectoryRecursive, removeFile)
+import           System.FilePath
+    (normalise, pathSeparator, takeDirectory, (</>))
+import           System.IO
+    (hClose, openTempFile)
 
 -- | Lists all immediate children of the given directory, excluding "." and ".."
 -- Returns all the files inclusive of the initial `FilePath`.

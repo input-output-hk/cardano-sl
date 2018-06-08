@@ -17,24 +17,34 @@ module Pos.Wallet.Web.Account
        , MonadKeySearch (..)
        ) where
 
-import           Control.Monad.Except (MonadError (throwError), runExceptT)
-import           Formatting (build, sformat, (%))
-import           System.Random (randomRIO)
-import           System.Wlog (WithLogger)
+import           Control.Monad.Except
+    (MonadError (throwError), runExceptT)
+import           Formatting
+    (build, sformat, (%))
+import           System.Random
+    (randomRIO)
+import           System.Wlog
+    (WithLogger)
 import           Universum
 
-import           Pos.Client.KeyStorage (AllUserSecrets (..), MonadKeys, MonadKeysRead, addSecretKey,
-                                        getSecretKeys, getSecretKeysPlain)
-import           Pos.Core (Address (..), IsBootstrapEraAddr (..), deriveLvl2KeyPair)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..),
-                             firstHardened)
-import           Pos.Util (eitherToThrow)
-import           Pos.Util.BackupPhrase (BackupPhrase, safeKeysFromPhrase)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, Wal, encToCId)
-import           Pos.Wallet.Web.Error (WalletError (..))
-import           Pos.Wallet.Web.State (AddressLookupMode (Ever), HasWAddressMeta (..),
-                                       WAddressMeta (..), WalletSnapshot, doesWAddressExist,
-                                       getAccountMeta, wamAccount)
+import           Pos.Client.KeyStorage
+    (AllUserSecrets (..), MonadKeys, MonadKeysRead, addSecretKey,
+    getSecretKeys, getSecretKeysPlain)
+import           Pos.Core
+    (Address (..), IsBootstrapEraAddr (..), deriveLvl2KeyPair)
+import           Pos.Crypto
+    (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..), firstHardened)
+import           Pos.Util
+    (eitherToThrow)
+import           Pos.Util.BackupPhrase
+    (BackupPhrase, safeKeysFromPhrase)
+import           Pos.Wallet.Web.ClientTypes
+    (AccountId (..), CId, Wal, encToCId)
+import           Pos.Wallet.Web.Error
+    (WalletError (..))
+import           Pos.Wallet.Web.State
+    (AddressLookupMode (Ever), HasWAddressMeta (..), WAddressMeta (..),
+    WalletSnapshot, doesWAddressExist, getAccountMeta, wamAccount)
 
 type AccountMode ctx m =
     ( MonadThrow m

@@ -6,13 +6,19 @@ module Pos.Infra.Reporting.NodeInfo
 
 import           Universum
 
-import           Data.Bits (Bits (..))
-import           Formatting (sformat, stext, (%))
-import           Network.Info (IPv4 (..), getNetworkInterfaces, ipv4)
-import           Serokell.Util.Text (listBuilderJSON)
+import           Data.Bits
+    (Bits (..))
+import           Formatting
+    (sformat, stext, (%))
+import           Network.Info
+    (IPv4 (..), getNetworkInterfaces, ipv4)
+import           Serokell.Util.Text
+    (listBuilderJSON)
 
-import           Pos.Infra.Diffusion.Types (Diffusion (..))
-import           Pos.ReportServer.Report (ReportType (..))
+import           Pos.Infra.Diffusion.Types
+    (Diffusion (..))
+import           Pos.ReportServer.Report
+    (ReportType (..))
 
 extendWithNodeInfo :: MonadIO m => Diffusion m -> ReportType -> m ReportType
 extendWithNodeInfo oq rt = flip extendRTDesc rt <$> getNodeInfo oq

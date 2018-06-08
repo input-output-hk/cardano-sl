@@ -14,17 +14,27 @@ module Test.Pos.Client.Txp.Mode
 import           Universum
 
 import qualified Data.ByteString as BS
-import           Test.QuickCheck (Testable (..), ioProperty)
-import           Test.QuickCheck.Monadic (PropertyM, monadic)
+import           Test.QuickCheck
+    (Testable (..), ioProperty)
+import           Test.QuickCheck.Monadic
+    (PropertyM, monadic)
 
-import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (Address, BlockVersionData, HasConfiguration, makePubKeyAddressBoot)
-import           Pos.Core.Configuration (HasGenesisBlockVersionData, genesisBlockVersionData)
-import           Pos.Crypto (deterministicKeyGen)
-import           Pos.DB (MonadGState (..))
-import           Pos.Ssc.Configuration (HasSscConfiguration)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Pos.Client.Txp.Addresses
+    (MonadAddresses (..))
+import           Pos.Configuration
+    (HasNodeConfiguration)
+import           Pos.Core
+    (Address, BlockVersionData, HasConfiguration, makePubKeyAddressBoot)
+import           Pos.Core.Configuration
+    (HasGenesisBlockVersionData, genesisBlockVersionData)
+import           Pos.Crypto
+    (deterministicKeyGen)
+import           Pos.DB
+    (MonadGState (..))
+import           Pos.Ssc.Configuration
+    (HasSscConfiguration)
+import           Pos.Update.Configuration
+    (HasUpdateConfiguration)
 
 ----------------------------------------------------------------------------
 -- Configuration propagation

@@ -10,11 +10,14 @@ module Pos.Core.Common.CoinPortion
 
 import           Universum
 
-import           Control.Monad.Except (MonadError (throwError))
+import           Control.Monad.Except
+    (MonadError (throwError))
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, float, int, sformat, (%))
+import           Formatting
+    (bprint, float, int, sformat, (%))
 
-import           Pos.Binary.Class (Bi, decode, encode)
+import           Pos.Binary.Class
+    (Bi, decode, encode)
 
 import           Pos.Core.Common.Coin
 

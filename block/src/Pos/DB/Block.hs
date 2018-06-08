@@ -33,35 +33,61 @@ module Pos.DB.Block
 
 import           Universum
 
-import           Control.Exception.Safe (handle)
-import           Control.Lens (at)
-import qualified Data.ByteString as BS (hPut, readFile)
-import           Data.Default (Default (def))
-import           Formatting (formatToString)
-import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
-import           System.FilePath ((</>))
-import           System.IO (IOMode (WriteMode), hClose, hFlush, openBinaryFile)
-import           System.IO.Error (IOError, isDoesNotExistError)
+import           Control.Exception.Safe
+    (handle)
+import           Control.Lens
+    (at)
+import qualified Data.ByteString as BS
+    (hPut, readFile)
+import           Data.Default
+    (Default (def))
+import           Formatting
+    (formatToString)
+import           System.Directory
+    (createDirectoryIfMissing, doesFileExist, removeFile)
+import           System.FilePath
+    ((</>))
+import           System.IO
+    (IOMode (WriteMode), hClose, hFlush, openBinaryFile)
+import           System.IO.Error
+    (IOError, isDoesNotExistError)
 
-import           Pos.Binary.Block.Types ()
-import           Pos.Binary.Class (decodeFull', serialize')
-import           Pos.Binary.Core ()
-import           Pos.Block.BHelpers ()
-import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
-import           Pos.Core (HeaderHash, headerHash)
-import           Pos.Core.Block (Block, GenesisBlock)
+import           Pos.Binary.Block.Types
+    ()
+import           Pos.Binary.Class
+    (decodeFull', serialize')
+import           Pos.Binary.Core
+    ()
+import           Pos.Block.BHelpers
+    ()
+import           Pos.Block.Types
+    (Blund, SlogUndo (..), Undo (..))
+import           Pos.Core
+    (HeaderHash, headerHash)
+import           Pos.Core.Block
+    (Block, GenesisBlock)
 import qualified Pos.Core.Block as CB
-import           Pos.Crypto (hashHexF)
-import           Pos.DB.BlockIndex (deleteHeaderIndex, putHeadersIndex)
-import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), Serialized (..), SerializedBlock,
-                               SerializedUndo, SerializedBlund, getBlock, getDeserialized)
-import           Pos.DB.Error (DBError (..))
-import           Pos.DB.GState.Common (getTipSomething)
-import           Pos.DB.Pure (DBPureVar, MonadPureDB, atomicModifyIORefPure, pureBlocksStorage)
-import           Pos.DB.Rocks (MonadRealDB, blockDataDir, getNodeDBs)
-import           Pos.DB.Sum (MonadDBSum, eitherDB)
-import           Pos.Delegation.Types (DlgUndo (..))
-import           Pos.Util.Util (HasLens (..), eitherToThrow)
+import           Pos.Crypto
+    (hashHexF)
+import           Pos.DB.BlockIndex
+    (deleteHeaderIndex, putHeadersIndex)
+import           Pos.DB.Class
+    (MonadDB (..), MonadDBRead (..), Serialized (..), SerializedBlock,
+    SerializedBlund, SerializedUndo, getBlock, getDeserialized)
+import           Pos.DB.Error
+    (DBError (..))
+import           Pos.DB.GState.Common
+    (getTipSomething)
+import           Pos.DB.Pure
+    (DBPureVar, MonadPureDB, atomicModifyIORefPure, pureBlocksStorage)
+import           Pos.DB.Rocks
+    (MonadRealDB, blockDataDir, getNodeDBs)
+import           Pos.DB.Sum
+    (MonadDBSum, eitherDB)
+import           Pos.Delegation.Types
+    (DlgUndo (..))
+import           Pos.Util.Util
+    (HasLens (..), eitherToThrow)
 
 ----------------------------------------------------------------------------
 -- BlockDB related methods
@@ -316,11 +342,11 @@ deleteData fp = (liftIO $ removeFile fp) `catch` handler
 
 -- | Paths at which we store the block data.
 data BlockStoragePaths = BlockStoragePaths
-  { bspRoot :: FilePath
+  { bspRoot  :: FilePath
     -- | Block data itself.
   , bspBlock :: FilePath
     -- | Undo information for a block.
-  , bspUndo :: FilePath
+  , bspUndo  :: FilePath
     -- | Combined storage format. Either this or a combination of 'Block' and
     -- 'Undo' files will be present.
   , bspBlund :: FilePath

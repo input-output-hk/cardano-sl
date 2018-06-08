@@ -9,26 +9,39 @@ module Lang.DisplayError
     , renderAuxxDoc
     ) where
 
-import           Universum hiding (empty, (<$>))
+import           Universum hiding
+    (empty, (<$>))
 
 import qualified Data.List.NonEmpty as NE
 import qualified Text.PrettyPrint.ANSI.Leijen
 
-import           Control.Lens (matching)
-import           Data.Loc (Span, loc, locColumn, locLine, spanEnd, spanFromTo, spanStart, toNat)
-import           Data.Loc.Span (joinAsc)
-import           Data.Text.Buildable (build)
-import           Data.Text.Lazy.Builder (toLazyText)
-import           Text.Earley (Report (..))
-import           Text.PrettyPrint.ANSI.Leijen (Doc, bold, char, comma, empty, hcat, indent,
-                                               punctuate, red, squotes, vcat, yellow, (<$>), (<+>))
+import           Control.Lens
+    (matching)
+import           Data.Loc
+    (Span, loc, locColumn, locLine, spanEnd, spanFromTo, spanStart, toNat)
+import           Data.Loc.Span
+    (joinAsc)
+import           Data.Text.Buildable
+    (build)
+import           Data.Text.Lazy.Builder
+    (toLazyText)
+import           Text.Earley
+    (Report (..))
+import           Text.PrettyPrint.ANSI.Leijen
+    (Doc, bold, char, comma, empty, hcat, indent, punctuate, red, squotes,
+    vcat, yellow, (<$>), (<+>))
 
-import           Lang.Argument (ArgumentError (..), ProcError (..), TypeError (..), TypeName (..),
-                                isEmptyArgumentError)
-import           Lang.Interpreter (EvalError (..))
-import           Lang.Lexer (_TokenUnknown)
-import           Lang.Name (Name)
-import           Lang.Parser (ParseError (..))
+import           Lang.Argument
+    (ArgumentError (..), ProcError (..), TypeError (..), TypeName (..),
+    isEmptyArgumentError)
+import           Lang.Interpreter
+    (EvalError (..))
+import           Lang.Lexer
+    (_TokenUnknown)
+import           Lang.Name
+    (Name)
+import           Lang.Parser
+    (ParseError (..))
 
 {-# ANN module ("HLint: ignore Functor law" :: Text) #-}
 

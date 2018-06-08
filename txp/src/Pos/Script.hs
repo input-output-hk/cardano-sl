@@ -16,14 +16,18 @@ module Pos.Script
        , isKnownScriptVersion
        ) where
 
-import           Universum hiding (lift)
+import           Universum hiding
+    (lift)
 
-import           Control.Exception (ArithException (..), ArrayException (..), ErrorCall (..),
-                                    PatternMatchFail (..))
-import           Control.Exception.Safe (Handler (..), SomeException (..), catches,
-                                         displayException)
-import           Control.Lens (_Left)
-import           Control.Monad.Error.Class (throwError)
+import           Control.Exception
+    (ArithException (..), ArrayException (..), ErrorCall (..),
+    PatternMatchFail (..))
+import           Control.Exception.Safe
+    (Handler (..), SomeException (..), catches, displayException)
+import           Control.Lens
+    (_Left)
+import           Control.Monad.Error.Class
+    (throwError)
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Set as S
@@ -31,17 +35,23 @@ import qualified Data.Text.Buildable as Buildable
 import qualified Elaboration.Contexts as PL
 import qualified Interface.Integration as PL
 import qualified Interface.Prelude as PL
-import           Language.Haskell.TH.Syntax (Lift (..), runIO)
+import           Language.Haskell.TH.Syntax
+    (Lift (..), runIO)
 import qualified PlutusCore.EvaluatorTypes as PLCore
 import qualified PlutusCore.Program as PL
-import           System.IO.Unsafe (unsafePerformIO)
+import           System.IO.Unsafe
+    (unsafePerformIO)
 import qualified Utils.Names as PL
 
 import qualified Pos.Binary.Class as Bi
-import           Pos.Binary.Core ()
-import           Pos.Core.Common (Script (..), ScriptVersion)
-import           Pos.Core.Script ()
-import           Pos.Core.Txp (TxSigData (..))
+import           Pos.Binary.Core
+    ()
+import           Pos.Core.Common
+    (Script (..), ScriptVersion)
+import           Pos.Core.Script
+    ()
+import           Pos.Core.Txp
+    (TxSigData (..))
 
 {- NOTE
 

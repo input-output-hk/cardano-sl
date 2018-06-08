@@ -6,14 +6,21 @@ module Test.Pos.Core.SeedSpec
 
 import           Universum
 
-import           Test.Hspec (Spec, describe)
-import           Test.Hspec.QuickCheck (prop)
-import           Test.Pos.Binary.Helpers ()
-import           Test.QuickCheck (Property, (.&&.))
+import           Test.Hspec
+    (Spec, describe)
+import           Test.Hspec.QuickCheck
+    (prop)
+import           Test.Pos.Binary.Helpers
+    ()
+import           Test.QuickCheck
+    (Property, (.&&.))
 
-import           Pos.Arbitrary.Core ()
-import           Pos.Core (SharedSeed)
-import           Test.Pos.Util.QuickCheck.Property (formsCommutativeMonoid)
+import           Pos.Arbitrary.Core
+    ()
+import           Pos.Core
+    (SharedSeed)
+import           Test.Pos.Util.QuickCheck.Property
+    (formsCommutativeMonoid)
 
 spec :: Spec
 spec = describe "SharedSeed" $ do

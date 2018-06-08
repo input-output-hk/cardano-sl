@@ -27,34 +27,49 @@ module Lang.Lexer
        , tokenRender
        ) where
 
-import           Universum hiding (try)
+import           Universum hiding
+    (try)
 
 import qualified Control.Applicative.Combinators.NonEmpty as NonEmpty
-import           Control.Lens (makePrisms)
-import           Data.Char (isAlpha, isAlphaNum)
+import           Control.Lens
+    (makePrisms)
+import           Data.Char
+    (isAlpha, isAlphaNum)
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
-import           Data.Loc (Loc, Span, loc, spanFromTo)
-import           Data.Scientific (Scientific)
+import           Data.Loc
+    (Loc, Span, loc, spanFromTo)
+import           Data.Scientific
+    (Scientific)
 import qualified Data.Text as Text
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (sformat)
-import           Test.QuickCheck.Arbitrary.Generic (Arbitrary (..), genericArbitrary, genericShrink)
+import           Formatting
+    (sformat)
+import           Test.QuickCheck.Arbitrary.Generic
+    (Arbitrary (..), genericArbitrary, genericShrink)
 import qualified Test.QuickCheck.Gen as QC
-import           Test.QuickCheck.Instances ()
-import           Text.Megaparsec (Parsec, SourcePos (..), between, choice, eof, getPosition,
-                                  manyTill, notFollowedBy, parseMaybe, skipMany, takeP, takeWhile1P,
-                                  try, unPos, (<?>))
-import           Text.Megaparsec.Char (anyChar, char, satisfy, spaceChar, string)
-import           Text.Megaparsec.Char.Lexer (decimal, scientific, signed)
+import           Test.QuickCheck.Instances
+    ()
+import           Text.Megaparsec
+    (Parsec, SourcePos (..), between, choice, eof, getPosition, manyTill,
+    notFollowedBy, parseMaybe, skipMany, takeP, takeWhile1P, try, unPos, (<?>))
+import           Text.Megaparsec.Char
+    (anyChar, char, satisfy, spaceChar, string)
+import           Text.Megaparsec.Char.Lexer
+    (decimal, scientific, signed)
 
-import           Lang.Name (Letter, Name (..), unsafeMkLetter)
-import           Pos.Arbitrary.Core ()
-import           Pos.Core (Address, BlockVersion (..), SoftwareVersion (..), StakeholderId,
-                           decodeTextAddress, ApplicationName (..))
-import           Pos.Crypto (AHash (..), PublicKey, decodeAbstractHash, fullPublicKeyF, hashHexF,
-                             parseFullPublicKey, unsafeCheatingHashCoerce)
-import           Pos.Util.Util (toParsecError)
+import           Lang.Name
+    (Letter, Name (..), unsafeMkLetter)
+import           Pos.Arbitrary.Core
+    ()
+import           Pos.Core
+    (Address, ApplicationName (..), BlockVersion (..), SoftwareVersion (..),
+    StakeholderId, decodeTextAddress)
+import           Pos.Crypto
+    (AHash (..), PublicKey, decodeAbstractHash, fullPublicKeyF, hashHexF,
+    parseFullPublicKey, unsafeCheatingHashCoerce)
+import           Pos.Util.Util
+    (toParsecError)
 
 data BracketSide = BracketSideOpening | BracketSideClosing
     deriving (Eq, Ord, Show, Generic)

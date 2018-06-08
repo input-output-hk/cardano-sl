@@ -7,12 +7,15 @@ module Pos.Core.Update.SoftwareVersion
 
 import           Universum
 
-import           Control.Monad.Except (MonadError)
+import           Control.Monad.Except
+    (MonadError)
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, int, stext, (%))
+import           Formatting
+    (bprint, int, stext, (%))
 import qualified Prelude
 
-import           Pos.Util.Some (Some, liftLensSome)
+import           Pos.Util.Some
+    (Some, liftLensSome)
 
 import           Pos.Core.Update.ApplicationName
 

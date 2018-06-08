@@ -64,23 +64,37 @@ module Pos.Infra.Util.LogSafe
 -- what's going on.
 import           Universum
 
-import           Control.Monad.Trans (MonadTrans)
-import           Data.Foldable (Foldable, length, null)
-import           Data.List (isSuffixOf)
-import           Data.Reflection (Reifies (..), reify)
+import           Control.Monad.Trans
+    (MonadTrans)
+import           Data.Foldable
+    (Foldable, length, null)
+import           Data.List
+    (isSuffixOf)
+import           Data.Reflection
+    (Reifies (..), reify)
 import qualified Data.Text.Buildable
-import           Data.Text.Lazy.Builder (Builder)
-import           Formatting (bprint, build, fconst, later, mapf, (%))
-import           Formatting.Internal (Format (..))
+import           Data.Text.Lazy.Builder
+    (Builder)
+import           Formatting
+    (bprint, build, fconst, later, mapf, (%))
+import           Formatting.Internal
+    (Format (..))
 import qualified Language.Haskell.TH as TH
-import           Serokell.Util (listJson)
-import           System.Wlog (CanLog (..), HasLoggerName (..), Severity (..), logMCond)
-import           System.Wlog.LogHandler (LogHandlerTag (HandlerFilelike))
+import           Serokell.Util
+    (listJson)
+import           System.Wlog
+    (CanLog (..), HasLoggerName (..), Severity (..), logMCond)
+import           System.Wlog.LogHandler
+    (LogHandlerTag (HandlerFilelike))
 
-import           Pos.Binary.Core ()
-import           Pos.Core (Timestamp, TxId)
-import           Pos.Core.Common (Address, Coin)
-import           Pos.Crypto (PassPhrase)
+import           Pos.Binary.Core
+    ()
+import           Pos.Core
+    (Timestamp, TxId)
+import           Pos.Core.Common
+    (Address, Coin)
+import           Pos.Crypto
+    (PassPhrase)
 
 ----------------------------------------------------------------------------
 -- Logging

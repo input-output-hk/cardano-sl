@@ -12,11 +12,15 @@ module Pos.Delegation.Cede.Class
 
 import           Universum
 
-import           Control.Monad.Trans (MonadTrans)
+import           Control.Monad.Trans
+    (MonadTrans)
 
-import           Pos.Core (ProxySKHeavy, StakeholderId, addressHash)
-import           Pos.Crypto (PublicKey)
-import           Pos.Delegation.Cede.Types (DlgEdgeAction (..))
+import           Pos.Core
+    (ProxySKHeavy, StakeholderId, addressHash)
+import           Pos.Crypto
+    (PublicKey)
+import           Pos.Delegation.Cede.Types
+    (DlgEdgeAction (..))
 
 
 -- | This monad abstracts data needed for verifying headers/blocks

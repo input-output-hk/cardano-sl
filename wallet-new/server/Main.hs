@@ -8,38 +8,59 @@ module Main where
 
 import           Universum
 
-import           Control.Concurrent.STM (newTQueueIO)
-import           Data.Maybe (fromJust)
-import           Mockable (Production (..), runProduction)
-import           Ntp.Client (NtpStatus, withNtpClient)
+import           Control.Concurrent.STM
+    (newTQueueIO)
+import           Data.Maybe
+    (fromJust)
+import           Mockable
+    (Production (..), runProduction)
+import           Ntp.Client
+    (NtpStatus, withNtpClient)
 import qualified Pos.Client.CLI as CLI
-import           Pos.DB.DB (initNodeDBs)
-import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Infra.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
-import           Pos.Launcher (NodeParams (..), NodeResources (..), bpLoggingParams,
-                               bracketNodeResources, loggerBracket, lpDefaultName, runNode,
-                               withConfigurations)
-import           Pos.Launcher.Configuration (ConfigurationOptions, HasConfigurations)
-import           Pos.Ssc.Types (SscParams)
-import           Pos.Txp (txpGlobalSettings)
-import           Pos.Util (logException)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
-import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (bracketWalletWS, bracketWalletWebDB, getSKById, getWalletAddresses,
-                                 runWRealMode)
-import           Pos.Wallet.Web.Mode (WalletWebMode)
-import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, flushWalletStorage)
-import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
-import           Pos.Wallet.Web.Tracking.Sync (syncWallet)
-import           System.Wlog (LoggerName, Severity (..), logInfo, logMessage, usingLoggerName)
+import           Pos.DB.DB
+    (initNodeDBs)
+import           Pos.Infra.Diffusion.Types
+    (Diffusion)
+import           Pos.Infra.Ntp.Configuration
+    (NtpConfiguration, ntpClientSettings)
+import           Pos.Launcher
+    (NodeParams (..), NodeResources (..), bpLoggingParams,
+    bracketNodeResources, loggerBracket, lpDefaultName, runNode,
+    withConfigurations)
+import           Pos.Launcher.Configuration
+    (ConfigurationOptions, HasConfigurations)
+import           Pos.Ssc.Types
+    (SscParams)
+import           Pos.Txp
+    (txpGlobalSettings)
+import           Pos.Util
+    (logException)
+import           Pos.Util.CompileInfo
+    (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.UserSecret
+    (usVss)
+import           Pos.Wallet.Web
+    (bracketWalletWS, bracketWalletWebDB, getSKById, getWalletAddresses,
+    runWRealMode)
+import           Pos.Wallet.Web.Mode
+    (WalletWebMode)
+import           Pos.Wallet.Web.State
+    (askWalletDB, askWalletSnapshot, flushWalletStorage)
+import           Pos.Wallet.Web.Tracking.Decrypt
+    (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.Tracking.Sync
+    (syncWallet)
+import           System.Wlog
+    (LoggerName, Severity (..), logInfo, logMessage, usingLoggerName)
 
 import qualified Cardano.Wallet.Kernel.Mode as Kernel.Mode
-import           Cardano.Wallet.Server.CLI (ChooseWalletBackend (..), NewWalletBackendParams (..),
-                                            WalletBackendParams (..), WalletStartupOptions (..),
-                                            getWalletNodeOptions, walletDbPath, walletFlushDb,
-                                            walletRebuildDb)
+import           Cardano.Wallet.Server.CLI
+    (ChooseWalletBackend (..), NewWalletBackendParams (..),
+    WalletBackendParams (..), WalletStartupOptions (..), getWalletNodeOptions,
+    walletDbPath, walletFlushDb, walletRebuildDb)
 import qualified Cardano.Wallet.Server.Plugins as Plugins
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer, bracketKernelPassiveWallet)
+import           Cardano.Wallet.WalletLayer
+    (PassiveWalletLayer, bracketKernelPassiveWallet)
 
 
 -- | Default logger name when one is not provided on the command line

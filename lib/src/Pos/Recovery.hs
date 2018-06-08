@@ -5,4 +5,5 @@ module Pos.Recovery
        ) where
 
 import           Pos.Infra.Recovery.Info
-import           Pos.Recovery.Instance ()
+import           Pos.Recovery.Instance
+    ()

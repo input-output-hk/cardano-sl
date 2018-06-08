@@ -7,13 +7,17 @@ module Pos.Core.Ssc.Commitment
 
 import           Universum
 
-import           Control.Lens (each, traverseOf)
+import           Control.Lens
+    (each, traverseOf)
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Core.Slotting (EpochIndex)
+import           Pos.Core.Slotting
+    (EpochIndex)
 
-import           Pos.Binary.Class (AsBinary, fromBinary, serialize')
-import           Pos.Crypto (EncShare, PublicKey, SecretProof, Signature, VssPublicKey)
+import           Pos.Binary.Class
+    (AsBinary, fromBinary, serialize')
+import           Pos.Crypto
+    (EncShare, PublicKey, SecretProof, Signature, VssPublicKey)
 
 -- | Commitment is a message generated during the first stage of SSC.
 -- It contains encrypted shares and proof of secret.

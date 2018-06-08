@@ -14,26 +14,44 @@ module Pos.Client.Txp.Network
 
 import           Universum
 
-import           Formatting (build, sformat, (%))
-import           Mockable (MonadMockable)
-import           System.Wlog (logInfo)
+import           Formatting
+    (build, sformat, (%))
+import           Mockable
+    (MonadMockable)
+import           System.Wlog
+    (logInfo)
 
-import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Client.Txp.Balances (MonadBalances (..), getOwnUtxo, getOwnUtxoForPk)
-import           Pos.Client.Txp.History (MonadTxHistory (..))
-import           Pos.Client.Txp.Util (InputSelectionPolicy, PendingAddresses (..), TxCreateMode,
-                                      TxError (..), createMTx, createRedemptionTx, createTx)
-import           Pos.Communication.Message ()
-import           Pos.Communication.Types (InvOrDataTK)
-import           Pos.Core (Address, Coin, makeRedeemAddress, mkCoin, unsafeAddCoin)
-import           Pos.Core.Txp (TxAux (..), TxId, TxOut (..), TxOutAux (..), txaF)
-import           Pos.Crypto (RedeemSecretKey, SafeSigner, hash, redeemToPublic, safeToPublic)
-import           Pos.Infra.Communication.Protocol (OutSpecs)
-import           Pos.Infra.Communication.Specs (createOutSpecs)
-import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
-import           Pos.Txp.Network.Types (TxMsgContents (..))
-import           Pos.Util.Util (eitherToThrow)
-import           Pos.WorkMode.Class (MinWorkMode)
+import           Pos.Client.Txp.Addresses
+    (MonadAddresses (..))
+import           Pos.Client.Txp.Balances
+    (MonadBalances (..), getOwnUtxo, getOwnUtxoForPk)
+import           Pos.Client.Txp.History
+    (MonadTxHistory (..))
+import           Pos.Client.Txp.Util
+    (InputSelectionPolicy, PendingAddresses (..), TxCreateMode, TxError (..),
+    createMTx, createRedemptionTx, createTx)
+import           Pos.Communication.Message
+    ()
+import           Pos.Communication.Types
+    (InvOrDataTK)
+import           Pos.Core
+    (Address, Coin, makeRedeemAddress, mkCoin, unsafeAddCoin)
+import           Pos.Core.Txp
+    (TxAux (..), TxId, TxOut (..), TxOutAux (..), txaF)
+import           Pos.Crypto
+    (RedeemSecretKey, SafeSigner, hash, redeemToPublic, safeToPublic)
+import           Pos.Infra.Communication.Protocol
+    (OutSpecs)
+import           Pos.Infra.Communication.Specs
+    (createOutSpecs)
+import           Pos.Infra.Diffusion.Types
+    (Diffusion (sendTx))
+import           Pos.Txp.Network.Types
+    (TxMsgContents (..))
+import           Pos.Util.Util
+    (eitherToThrow)
+import           Pos.WorkMode.Class
+    (MinWorkMode)
 
 type TxMode m
     = ( MinWorkMode m

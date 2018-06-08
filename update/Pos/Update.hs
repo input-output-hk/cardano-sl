@@ -14,7 +14,8 @@ module Pos.Update
        , module Pos.Update.Poll
        ) where
 
-import           Pos.Arbitrary.Update ()
+import           Pos.Arbitrary.Update
+    ()
 import           Pos.Core.Update
 import           Pos.Update.BlockVersion
 import           Pos.Update.Configuration

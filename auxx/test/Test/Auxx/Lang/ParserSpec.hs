@@ -4,9 +4,11 @@ module Test.Auxx.Lang.ParserSpec
 
 import           Universum
 
-import           Test.Hspec (Expectation, Spec, describe, it, shouldSatisfy)
+import           Test.Hspec
+    (Expectation, Spec, describe, it, shouldSatisfy)
 
-import           Lang.Parser (parse)
+import           Lang.Parser
+    (parse)
 
 spec :: Spec
 spec = describe "Auxx.Lang.Parser" $ do

@@ -1,8 +1,10 @@
 import           Universum
 
-import           Test.Hspec (hspec)
+import           Test.Hspec
+    (hspec)
 
-import           Spec (spec)
+import           Spec
+    (spec)
 
 import qualified Test.Pos.Binary.BiSerialize
 

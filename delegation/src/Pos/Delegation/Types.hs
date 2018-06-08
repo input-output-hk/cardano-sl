@@ -15,12 +15,17 @@ module Pos.Delegation.Types
 import           Universum
 
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, (%))
-import           Serokell.Util.Text (listJson)
+import           Formatting
+    (bprint, (%))
+import           Serokell.Util.Text
+    (listJson)
 
-import           Pos.Core (ComponentBlock (..), ProxySKHeavy, StakeholderId)
-import           Pos.Core.Delegation (DlgPayload (..), checkDlgPayload)
-import           Pos.Crypto (ProxySecretKey, PublicKey, isSelfSignedPsk)
+import           Pos.Core
+    (ComponentBlock (..), ProxySKHeavy, StakeholderId)
+import           Pos.Core.Delegation
+    (DlgPayload (..), checkDlgPayload)
+import           Pos.Crypto
+    (ProxySecretKey, PublicKey, isSelfSignedPsk)
 
 -- | Undo for the delegation component.
 data DlgUndo = DlgUndo

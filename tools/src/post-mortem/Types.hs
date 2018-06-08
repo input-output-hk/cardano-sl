@@ -6,7 +6,8 @@ module Types
     , NodeId
     ) where
 
-import           Data.Time.Units (Microsecond)
+import           Data.Time.Units
+    (Microsecond)
 import           Universum
 
 type TxHash = Text

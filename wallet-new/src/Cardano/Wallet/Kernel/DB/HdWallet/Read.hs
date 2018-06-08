@@ -28,16 +28,21 @@ module Cardano.Wallet.Kernel.DB.HdWallet.Read (
   , readHdAddress
   ) where
 
-import           Universum hiding (toList)
+import           Universum hiding
+    (toList)
 
-import           Control.Lens (at)
-import           Data.Foldable (toList)
+import           Control.Lens
+    (at)
+import           Data.Foldable
+    (toList)
 
-import           Pos.Core (Coin, sumCoins)
+import           Pos.Core
+    (Coin, sumCoins)
 
 import           Cardano.Wallet.Kernel.DB.HdWallet
 import           Cardano.Wallet.Kernel.DB.Spec
-import           Cardano.Wallet.Kernel.DB.Util.IxSet (IxSet)
+import           Cardano.Wallet.Kernel.DB.Util.IxSet
+    (IxSet)
 import qualified Cardano.Wallet.Kernel.DB.Util.IxSet as IxSet
 
 {-# ANN module ("HLint: ignore Unnecessary hiding" :: Text) #-}

@@ -39,9 +39,12 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, sformat, (%))
-import           Serokell.Util (listJson, mapJson, pairF)
-import           Serokell.Util.Base16 (base16F)
+import           Formatting
+    (bprint, build, sformat, (%))
+import           Serokell.Util
+    (listJson, mapJson, pairF)
+import           Serokell.Util.Base16
+    (base16F)
 import           Universum
 
 import           Pos.Block.Base
@@ -399,10 +402,10 @@ data AddrInfo = AddrInfo {
       addrInfoMasterKey :: Maybe EncKeyPair
 
       -- | The key for this particular address
-    , addrInfoAddrKey :: SomeKeyPair
+    , addrInfoAddrKey   :: SomeKeyPair
 
       -- | The Cardano address
-    , addrInfoCardano :: Address
+    , addrInfoCardano   :: Address
     }
 
 -- | Mapping between our addresses and Cardano addresses

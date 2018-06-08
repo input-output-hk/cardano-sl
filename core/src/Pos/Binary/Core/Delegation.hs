@@ -6,9 +6,12 @@ module Pos.Binary.Core.Delegation () where
 
 import           Universum
 
-import           Pos.Binary.Class (Bi (..))
-import           Pos.Binary.Core.Slotting ()
-import           Pos.Core.Delegation (DlgPayload (..), HeavyDlgIndex (..), LightDlgIndices (..))
+import           Pos.Binary.Class
+    (Bi (..))
+import           Pos.Binary.Core.Slotting
+    ()
+import           Pos.Core.Delegation
+    (DlgPayload (..), HeavyDlgIndex (..), LightDlgIndices (..))
 
 instance Bi HeavyDlgIndex where
     encode = encode . getHeavyDlgIndex

@@ -6,8 +6,10 @@ module Test.Pos.Util.Modifier where
 
 import           Pos.Util.Modifier
 
-import           Test.QuickCheck (Arbitrary)
-import           Test.QuickCheck.Instances ()
+import           Test.QuickCheck
+    (Arbitrary)
+import           Test.QuickCheck.Instances
+    ()
 
 import           Universum
 

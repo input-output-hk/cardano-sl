@@ -11,28 +11,39 @@ module Functions
     , printT
     ) where
 
-import           Universum hiding (log, uncons, init)
+import           Universum hiding
+    (init, log, uncons)
 
-import           Control.Lens (at, each, filtered, uses, (%=), (+=), (.=), (<>=), (?=))
-import           Data.Aeson (toJSON)
-import           Data.Aeson.Diff (diff)
-import           Data.Aeson.Encode.Pretty (encodePretty)
-import           Data.Coerce (coerce)
-import           Data.List (isInfixOf, nub, uncons, (!!), (\\))
-import           Servant.Client (GenResponse (..))
+import           Control.Lens
+    (at, each, filtered, uses, (%=), (+=), (.=), (<>=), (?=))
+import           Data.Aeson
+    (toJSON)
+import           Data.Aeson.Diff
+    (diff)
+import           Data.Aeson.Encode.Pretty
+    (encodePretty)
+import           Data.Coerce
+    (coerce)
+import           Data.List
+    (isInfixOf, nub, uncons, (!!), (\\))
+import           Servant.Client
+    (GenResponse (..))
 import           Test.Hspec
 import           Test.QuickCheck
-import           Text.Show.Pretty (ppShow)
+import           Text.Show.Pretty
+    (ppShow)
 
-import           Cardano.Wallet.API.Response (WalletResponse (..))
-import           Cardano.Wallet.API.V1.Migration.Types (migrate)
+import           Cardano.Wallet.API.Response
+    (WalletResponse (..))
+import           Cardano.Wallet.API.V1.Migration.Types
+    (migrate)
 import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.Client (ClientError (..), ServantError (..),
-                                        WalletClient (..), WalletError (..), getAccounts,
-                                        getAddressIndex, getTransactionIndex, getWallets,
-                                        hoistClient)
+import           Cardano.Wallet.Client
+    (ClientError (..), ServantError (..), WalletClient (..), WalletError (..),
+    getAccounts, getAddressIndex, getTransactionIndex, getWallets, hoistClient)
 
-import           Pos.Core (getCoin, mkCoin, unsafeAddCoin, unsafeSubCoin)
+import           Pos.Core
+    (getCoin, mkCoin, unsafeAddCoin, unsafeSubCoin)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import           Error

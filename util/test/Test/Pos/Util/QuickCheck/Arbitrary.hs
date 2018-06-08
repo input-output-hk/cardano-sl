@@ -15,13 +15,20 @@ module Test.Pos.Util.QuickCheck.Arbitrary
 
 import           Universum
 
-import           Data.ByteString (pack)
-import qualified Data.ByteString.Lazy as BL (ByteString, pack)
-import           Data.List.NonEmpty (NonEmpty ((:|)))
-import           Formatting (build, sformat, (%))
-import           Test.QuickCheck (Arbitrary (..), Gen, listOf, scale, shuffle, vector)
-import           Test.QuickCheck.Gen (unGen)
-import           Test.QuickCheck.Random (mkQCGen)
+import           Data.ByteString
+    (pack)
+import qualified Data.ByteString.Lazy as BL
+    (ByteString, pack)
+import           Data.List.NonEmpty
+    (NonEmpty ((:|)))
+import           Formatting
+    (build, sformat, (%))
+import           Test.QuickCheck
+    (Arbitrary (..), Gen, listOf, scale, shuffle, vector)
+import           Test.QuickCheck.Gen
+    (unGen)
+import           Test.QuickCheck.Random
+    (mkQCGen)
 
 -- import           Pos.Crypto.Random (randomNumberInRange)
 

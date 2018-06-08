@@ -10,47 +10,76 @@ module Lib where
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON, eitherDecodeStrict, withObject, (.:))
+import           Data.Aeson
+    (FromJSON (..), ToJSON, eitherDecodeStrict, withObject, (.:))
 import qualified Data.ByteString as B
-import           Data.Function (id)
+import           Data.Function
+    (id)
 import qualified Data.List.NonEmpty as NE
-import           Data.Map (fromList, union)
-import           Data.String.Conv (toS)
-import           Data.Time (diffUTCTime, getCurrentTime)
-import           GHC.Generics (Generic)
+import           Data.Map
+    (fromList, union)
+import           Data.String.Conv
+    (toS)
+import           Data.Time
+    (diffUTCTime, getCurrentTime)
+import           GHC.Generics
+    (Generic)
 
-import           Crypto.Random.Entropy (getEntropy)
-import           Pos.Client.Txp (TxHistoryEntry (..))
-import           Pos.Core (Address, Coin, mkCoin)
-import           Pos.Data.Attributes (mkAttributes)
-import           Pos.DB.GState.Common (getTip)
-import           Pos.Infra.StateLock (StateLock (..))
-import           Pos.Txp (Tx (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
-import           Pos.Txp.Toil.Types (utxoToModifier)
-import           Pos.Util.BackupPhrase (BackupPhrase (..))
-import           Pos.Util.Mnemonics (toMnemonic)
-import           Pos.Util.Servant (decodeCType)
-import           Pos.Util.Util (lensOf)
-import           Pos.Wallet.Web.Account (GenSeed (..))
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAccountInit (..),
-                                             CAccountMeta (..), CAddress (..), CId (..),
-                                             CWallet (..), CWalletAssurance (..), CWalletInit (..),
-                                             CWalletMeta (..), Wal)
-import           Pos.Wallet.Web.ClientTypes.Instances ()
-import           Pos.Wallet.Web.Methods.Logic (getAccounts, newAccountIncludeUnready, newAddress)
-import           Pos.Wallet.Web.Methods.Restore (newWallet)
-import           Pos.Wallet.Web.Mode (WalletWebMode)
-import           Pos.Wallet.Web.State.State (askWalletDB, getWalletSnapshot, getWalletUtxo,
-                                             insertIntoHistoryCache, setWalletUtxo,
-                                             updateWalletBalancesAndUtxo)
-import           Test.QuickCheck (Gen, arbitrary, choose, frequency, generate, vectorOf)
-import           Text.Printf (printf)
+import           Crypto.Random.Entropy
+    (getEntropy)
+import           Pos.Client.Txp
+    (TxHistoryEntry (..))
+import           Pos.Core
+    (Address, Coin, mkCoin)
+import           Pos.Data.Attributes
+    (mkAttributes)
+import           Pos.DB.GState.Common
+    (getTip)
+import           Pos.Infra.StateLock
+    (StateLock (..))
+import           Pos.Txp
+    (Tx (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
+import           Pos.Txp.Toil.Types
+    (utxoToModifier)
+import           Pos.Util.BackupPhrase
+    (BackupPhrase (..))
+import           Pos.Util.Mnemonics
+    (toMnemonic)
+import           Pos.Util.Servant
+    (decodeCType)
+import           Pos.Util.Util
+    (lensOf)
+import           Pos.Wallet.Web.Account
+    (GenSeed (..))
+import           Pos.Wallet.Web.ClientTypes
+    (AccountId (..), CAccount (..), CAccountInit (..), CAccountMeta (..),
+    CAddress (..), CId (..), CWallet (..), CWalletAssurance (..),
+    CWalletInit (..), CWalletMeta (..), Wal)
+import           Pos.Wallet.Web.ClientTypes.Instances
+    ()
+import           Pos.Wallet.Web.Methods.Logic
+    (getAccounts, newAccountIncludeUnready, newAddress)
+import           Pos.Wallet.Web.Methods.Restore
+    (newWallet)
+import           Pos.Wallet.Web.Mode
+    (WalletWebMode)
+import           Pos.Wallet.Web.State.State
+    (askWalletDB, getWalletSnapshot, getWalletUtxo, insertIntoHistoryCache,
+    setWalletUtxo, updateWalletBalancesAndUtxo)
+import           Test.QuickCheck
+    (Gen, arbitrary, choose, frequency, generate, vectorOf)
+import           Text.Printf
+    (printf)
 
-import           CLI (CLI (..))
-import           Rendering (green, renderAccountId, say)
-import           Types (UberMonad)
+import           CLI
+    (CLI (..))
+import           Rendering
+    (green, renderAccountId, say)
+import           Types
+    (UberMonad)
 
-import           Test.Pos.Txp.Arbitrary ()
+import           Test.Pos.Txp.Arbitrary
+    ()
 
 --
 -- Types

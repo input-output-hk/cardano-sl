@@ -15,31 +15,46 @@ module Pos.Arbitrary.Block
 import           Universum
 
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, build, (%))
+import           Formatting
+    (bprint, build, (%))
 import qualified Prelude
-import           System.Random (Random, mkStdGen, randomR)
-import           Test.QuickCheck (Arbitrary (..), Gen, choose, suchThat, vectorOf)
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           System.Random
+    (Random, mkStdGen, randomR)
+import           Test.QuickCheck
+    (Arbitrary (..), Gen, choose, suchThat, vectorOf)
+import           Test.QuickCheck.Arbitrary.Generic
+    (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Core (genSlotId)
-import           Pos.Arbitrary.Delegation (genDlgPayload)
-import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..), genSscPayload,
-                                    genSscPayloadForSlot)
-import           Pos.Arbitrary.Update (genUpdatePayload)
-import           Pos.Binary.Class (biSize)
+import           Pos.Arbitrary.Core
+    (genSlotId)
+import           Pos.Arbitrary.Delegation
+    (genDlgPayload)
+import           Pos.Arbitrary.Ssc
+    (SscPayloadDependsOnSlot (..), genSscPayload, genSscPayloadForSlot)
+import           Pos.Arbitrary.Update
+    (genUpdatePayload)
+import           Pos.Binary.Class
+    (biSize)
 import qualified Pos.Block.Base as T
 import qualified Pos.Block.Logic.Integrity as T
-import           Pos.Block.Slog.Types (SlogUndo)
-import           Pos.Block.Types (Undo (..))
-import           Pos.Core (GenesisHash (..), HasGenesisHash, HasProtocolConstants, HeaderHash,
-                           epochSlots, genesisHash)
+import           Pos.Block.Slog.Types
+    (SlogUndo)
+import           Pos.Block.Types
+    (Undo (..))
+import           Pos.Core
+    (GenesisHash (..), HasGenesisHash, HasProtocolConstants, HeaderHash,
+    epochSlots, genesisHash)
 import qualified Pos.Core as Core
 import qualified Pos.Core.Block as T
-import           Pos.Crypto (ProtocolMagic, PublicKey, SecretKey, createPsk, hash, toPublic)
-import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
-import           Pos.Data.Attributes (areAttributesKnown)
+import           Pos.Crypto
+    (ProtocolMagic, PublicKey, SecretKey, createPsk, hash, toPublic)
+import           Pos.Crypto.Configuration
+    (HasProtocolMagic, protocolMagic)
+import           Pos.Data.Attributes
+    (areAttributesKnown)
 
-import           Test.Pos.Txp.Arbitrary (genTxPayload)
+import           Test.Pos.Txp.Arbitrary
+    (genTxPayload)
 
 newtype BodyDependsOnSlot b = BodyDependsOnSlot
     { genBodyDepsOnSlot :: Core.SlotId -> Gen (T.Body b)

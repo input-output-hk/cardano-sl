@@ -18,7 +18,8 @@ module Mockable.SharedExclusive (
 
     ) where
 
-import           Mockable.Class (MFunctor' (hoist'), Mockable (liftMockable))
+import           Mockable.Class
+    (MFunctor' (hoist'), Mockable (liftMockable))
 
 type family SharedExclusiveT (m :: * -> *) :: * -> *
 

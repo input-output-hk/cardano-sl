@@ -16,15 +16,21 @@ module Pos.Crypto.Signing.Check
 import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
-import           Control.Monad.Except (MonadError, throwError)
-import           Data.Coerce (coerce)
+import           Control.Monad.Except
+    (MonadError, throwError)
+import           Data.Coerce
+    (coerce)
 
-import           Pos.Binary.Class (Bi, Raw)
+import           Pos.Binary.Class
+    (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Crypto.Configuration (ProtocolMagic)
-import           Pos.Crypto.Signing.Tag (signTag)
-import           Pos.Crypto.Signing.Types (ProxyCert (..), ProxySecretKey (..), PublicKey (..),
-                                           SignTag (..), Signature (..), ProxySignature (..))
+import           Pos.Crypto.Configuration
+    (ProtocolMagic)
+import           Pos.Crypto.Signing.Tag
+    (signTag)
+import           Pos.Crypto.Signing.Types
+    (ProxyCert (..), ProxySecretKey (..), ProxySignature (..), PublicKey (..),
+    SignTag (..), Signature (..))
 
 -- CHECK: @checkSig
 -- | Verify a signature.

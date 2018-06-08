@@ -4,7 +4,8 @@ module Pos.Core.Common.BlockCount
 
 import           Universum
 
-import           System.Random (Random (..))
+import           System.Random
+    (Random (..))
 
 newtype BlockCount = BlockCount {getBlockCount :: Word64}
     deriving (Eq, Ord, Num, Real, Integral, Enum, Read, Show,

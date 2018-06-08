@@ -15,20 +15,31 @@ module Pos.Wallet.Web.Tracking.Types
 
 import           Universum
 
-import           Control.Concurrent.STM (TQueue, writeTQueue)
-import           System.Wlog (WithLogger)
+import           Control.Concurrent.STM
+    (TQueue, writeTQueue)
+import           System.Wlog
+    (WithLogger)
 
-import           Pos.Core (HasConfiguration)
-import           Pos.DB.Class (MonadDBRead (..))
-import           Pos.Infra.Slotting (MonadSlotsData)
-import           Pos.Infra.StateLock (StateLock)
-import           Pos.Util (HasLens (..))
+import           Pos.Core
+    (HasConfiguration)
+import           Pos.DB.Class
+    (MonadDBRead (..))
+import           Pos.Infra.Slotting
+    (MonadSlotsData)
+import           Pos.Infra.StateLock
+    (StateLock)
+import           Pos.Util
+    (HasLens (..))
 
-import           Pos.Wallet.Web.ClientTypes (CId, Wal)
-import           Pos.Wallet.Web.Error.Types (WalletError (..))
+import           Pos.Wallet.Web.ClientTypes
+    (CId, Wal)
+import           Pos.Wallet.Web.Error.Types
+    (WalletError (..))
 import qualified Pos.Wallet.Web.State as WS
-import           Pos.Wallet.Web.State.State (RestorationBlockDepth (..))
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials)
+import           Pos.Wallet.Web.State.State
+    (RestorationBlockDepth (..))
+import           Pos.Wallet.Web.Tracking.Decrypt
+    (WalletDecrCredentials)
 
 type BlockLockMode ctx m =
      ( WithLogger m

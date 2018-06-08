@@ -54,35 +54,56 @@ module Pos.Util.Servant
     , applyLoggingToHandler
     ) where
 
-import           Universum hiding (id)
+import           Universum hiding
+    (id)
 
-import           Control.Exception.Safe (handleAny)
-import           Control.Lens (Iso, iso, makePrisms)
-import           Control.Monad.Except (ExceptT (..), MonadError (..))
-import           Data.Constraint ((\\))
-import           Data.Constraint.Forall (Forall, inst)
-import           Data.Default (Default (..))
-import           Data.Reflection (Reifies (..), reflect)
+import           Control.Exception.Safe
+    (handleAny)
+import           Control.Lens
+    (Iso, iso, makePrisms)
+import           Control.Monad.Except
+    (ExceptT (..), MonadError (..))
+import           Data.Constraint
+    ((\\))
+import           Data.Constraint.Forall
+    (Forall, inst)
+import           Data.Default
+    (Default (..))
+import           Data.Reflection
+    (Reifies (..), reflect)
 import qualified Data.Text as T
 import qualified Data.Text.Buildable
-import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           Formatting (bprint, build, builder, fconst, formatToString, sformat, shown, stext,
-                             string, (%))
-import           GHC.IO.Unsafe (unsafePerformIO)
-import           GHC.TypeLits (KnownSymbol, symbolVal)
-import           Serokell.Util (listJsonIndent)
-import           Serokell.Util.ANSI (Color (..), colorizeDull)
-import           Servant.API ((:<|>) (..), (:>), Capture, Description, QueryParam,
-                              ReflectMethod (..), ReqBody, Summary, Verb)
-import           Servant.Client (Client, HasClient (..))
-import           Servant.Client.Core (RunClient)
-import           Servant.Server (Handler (..), HasServer (..), ServantErr (..), Server)
+import           Data.Time.Clock.POSIX
+    (getPOSIXTime)
+import           Formatting
+    (bprint, build, builder, fconst, formatToString, sformat, shown, stext,
+    string, (%))
+import           GHC.IO.Unsafe
+    (unsafePerformIO)
+import           GHC.TypeLits
+    (KnownSymbol, symbolVal)
+import           Serokell.Util
+    (listJsonIndent)
+import           Serokell.Util.ANSI
+    (Color (..), colorizeDull)
+import           Servant.API
+    ((:<|>) (..), (:>), Capture, Description, QueryParam, ReflectMethod (..),
+    ReqBody, Summary, Verb)
+import           Servant.Client
+    (Client, HasClient (..))
+import           Servant.Client.Core
+    (RunClient)
+import           Servant.Server
+    (Handler (..), HasServer (..), ServantErr (..), Server)
 import qualified Servant.Server.Internal as SI
-import           Servant.Swagger (HasSwagger (toSwagger))
-import           System.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
+import           Servant.Swagger
+    (HasSwagger (toSwagger))
+import           System.Wlog
+    (LoggerName, LoggerNameBox, usingLoggerName)
 
-import           Pos.Infra.Util.LogSafe (SecureLog, BuildableSafe, SecuredText, buildSafe,
-                                         logInfoSP, plainOrSecureF, secretOnlyF)
+import           Pos.Infra.Util.LogSafe
+    (BuildableSafe, SecureLog, SecuredText, buildSafe, logInfoSP,
+    plainOrSecureF, secretOnlyF)
 
 -------------------------------------------------------------------------
 -- Utility functions

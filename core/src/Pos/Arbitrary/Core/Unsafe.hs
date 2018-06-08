@@ -6,16 +6,22 @@ module Pos.Arbitrary.Core.Unsafe () where
 
 import           Universum
 
-import           Pos.Arbitrary.Core ()
-import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), AddrType (..),
-                           Address (..), Coin, EpochIndex (..), LocalSlotIndex, SharedSeed (..),
-                           SlotId (..), mkCoin)
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
-import           Pos.Data.Attributes (mkAttributes)
+import           Pos.Arbitrary.Core
+    ()
+import           Pos.Core
+    (AddrAttributes (..), AddrStakeDistribution (..), AddrType (..),
+    Address (..), Coin, EpochIndex (..), LocalSlotIndex, SharedSeed (..),
+    SlotId (..), mkCoin)
+import           Pos.Core.Configuration.Protocol
+    (HasProtocolConstants)
+import           Pos.Data.Attributes
+    (mkAttributes)
 
-import           Test.Pos.Util.QuickCheck.Arbitrary (ArbitraryUnsafe (..))
+import           Test.Pos.Util.QuickCheck.Arbitrary
+    (ArbitraryUnsafe (..))
 
-import           Test.Pos.Crypto.Arbitrary ()
+import           Test.Pos.Crypto.Arbitrary
+    ()
 
 deriving instance ArbitraryUnsafe SharedSeed
 deriving instance ArbitraryUnsafe EpochIndex

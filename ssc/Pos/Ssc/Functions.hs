@@ -14,26 +14,39 @@ module Pos.Ssc.Functions
        , getStableCertsPure
        ) where
 
-import           Universum hiding (id)
+import           Universum hiding
+    (id)
 
-import           Control.Lens (to)
-import           Control.Monad.Except (MonadError (throwError))
+import           Control.Lens
+    (to)
+import           Control.Monad.Except
+    (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
-import           Serokell.Util.Verify (isVerSuccess)
+import           Serokell.Util.Verify
+    (isVerSuccess)
 
-import           Pos.Binary.Core ()
-import           Pos.Core (EpochIndex (..), HasGenesisData, HasProtocolConstants, HasProtocolMagic,
-                           IsMainHeader, SlotId (..), StakeholderId, VssCertificatesMap,
-                           genesisVssCerts, headerSlotL)
-import           Pos.Core.Slotting (crucialSlot)
-import           Pos.Core.Ssc (CommitmentsMap (getCommitmentsMap), SscPayload (..))
-import           Pos.Ssc.Base (checkCertTTL, isCommitmentId, isOpeningId, isSharesId,
-                               verifySignedCommitment, vssThreshold)
-import           Pos.Ssc.Error (SscVerifyError (..))
-import           Pos.Ssc.Toss.Base (verifyEntriesGuardM)
-import           Pos.Ssc.Types (SscGlobalState (..))
+import           Pos.Binary.Core
+    ()
+import           Pos.Core
+    (EpochIndex (..), HasGenesisData, HasProtocolConstants, HasProtocolMagic,
+    IsMainHeader, SlotId (..), StakeholderId, VssCertificatesMap,
+    genesisVssCerts, headerSlotL)
+import           Pos.Core.Slotting
+    (crucialSlot)
+import           Pos.Core.Ssc
+    (CommitmentsMap (getCommitmentsMap), SscPayload (..))
+import           Pos.Ssc.Base
+    (checkCertTTL, isCommitmentId, isOpeningId, isSharesId,
+    verifySignedCommitment, vssThreshold)
+import           Pos.Ssc.Error
+    (SscVerifyError (..))
+import           Pos.Ssc.Toss.Base
+    (verifyEntriesGuardM)
+import           Pos.Ssc.Types
+    (SscGlobalState (..))
 import qualified Pos.Ssc.VssCertData as VCD
-import           Pos.Util.Some (Some)
+import           Pos.Util.Some
+    (Some)
 
 ----------------------------------------------------------------------------
 -- Simple predicates for SSC.Types

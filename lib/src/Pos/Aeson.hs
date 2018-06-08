@@ -6,4 +6,5 @@ module Pos.Aeson
        (
        ) where
 
-import           Pos.Aeson.Types ()
+import           Pos.Aeson.Types
+    ()

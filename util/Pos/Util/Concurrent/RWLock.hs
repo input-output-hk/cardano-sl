@@ -13,7 +13,8 @@ module Pos.Util.Concurrent.RWLock
 
 import           Universum
 
-import           Control.Concurrent.ReadWriteLock (RWLock)
+import           Control.Concurrent.ReadWriteLock
+    (RWLock)
 import qualified Control.Concurrent.ReadWriteLock as RWL
 
 -- | Create a new 'RWLock' in a free state.

@@ -5,10 +5,13 @@ module Pos.Core.Genesis.VssCertificatesMap
 import           Universum
 
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, (%))
-import           Serokell.Util (mapJson)
+import           Formatting
+    (bprint, (%))
+import           Serokell.Util
+    (mapJson)
 
-import           Pos.Core.Ssc (VssCertificatesMap, getVssCertificatesMap)
+import           Pos.Core.Ssc
+    (VssCertificatesMap, getVssCertificatesMap)
 
 -- | Predefined balances of non avvm entries.
 newtype GenesisVssCertificatesMap = GenesisVssCertificatesMap

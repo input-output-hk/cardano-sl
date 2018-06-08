@@ -12,13 +12,16 @@ module Wallet.Rollback.Basic (
   , walletEmpty
   ) where
 
-import           Universum hiding (State)
+import           Universum hiding
+    (State)
 
 import           Control.Lens.TH
 import qualified Data.Map as Map
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, (%))
-import           Serokell.Util (listJson)
+import           Formatting
+    (bprint, build, (%))
+import           Serokell.Util
+    (listJson)
 
 import           UTxO.DSL
 import           Wallet.Abstract

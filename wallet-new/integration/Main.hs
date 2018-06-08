@@ -7,22 +7,32 @@ import           Universum
 
 import           Cardano.Wallet.Client.Http
 import qualified Data.ByteString.Char8 as B8
-import           Data.Map (fromList)
-import           Data.Traversable (for)
-import           Data.X509.File (readSignedObject)
-import           Network.HTTP.Client (Manager)
-import           System.Environment (withArgs)
-import           System.IO (hSetEncoding, stdout, utf8)
+import           Data.Map
+    (fromList)
+import           Data.Traversable
+    (for)
+import           Data.X509.File
+    (readSignedObject)
+import           Network.HTTP.Client
+    (Manager)
+import           System.Environment
+    (withArgs)
+import           System.IO
+    (hSetEncoding, stdout, utf8)
 import           Test.Hspec
 
-import           AddressSpecs (addressSpecs)
+import           AddressSpecs
+    (addressSpecs)
 import           CLI
 import           Functions
 import qualified QuickCheckSpecs as QuickCheck
-import           TransactionSpecs (transactionSpecs)
+import           TransactionSpecs
+    (transactionSpecs)
 import           Types
-import           Util (WalletRef, newWalletRef)
-import           WalletSpecs (walletSpecs)
+import           Util
+    (WalletRef, newWalletRef)
+import           WalletSpecs
+    (walletSpecs)
 
 -- | Here we want to run main when the (local) nodes
 -- have started.

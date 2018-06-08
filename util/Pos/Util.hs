@@ -21,10 +21,10 @@ module Pos.Util
        , module Pos.Util.Util
        ) where
 
-import           Pos.Util.Concurrent.PriorityLock
-import           Pos.Util.Concurrent.RWLock
 import           Pos.Util.CompileInfo
 import           Pos.Util.Concurrent
+import           Pos.Util.Concurrent.PriorityLock
+import           Pos.Util.Concurrent.RWLock
 import           Pos.Util.Filesystem
 import           Pos.Util.Future
 import           Pos.Util.Justify

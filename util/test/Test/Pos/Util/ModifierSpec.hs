@@ -4,17 +4,23 @@ module Test.Pos.Util.ModifierSpec
        ( spec
        ) where
 
-import           Universum hiding (keys)
+import           Universum hiding
+    (keys)
 
 import qualified Data.HashMap.Strict as HM
-import           Test.Hspec (Spec, describe)
-import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Property, (==>))
+import           Test.Hspec
+    (Spec, describe)
+import           Test.Hspec.QuickCheck
+    (prop)
+import           Test.QuickCheck
+    (Property, (==>))
 
 import qualified Pos.Util.Modifier as Core
 
-import           Test.Pos.Util.Modifier ()
-import           Test.Pos.Util.QuickCheck.Property (formsMonoid)
+import           Test.Pos.Util.Modifier
+    ()
+import           Test.Pos.Util.QuickCheck.Property
+    (formsMonoid)
 
 spec :: Spec
 spec = describe "MapModifier" $ do

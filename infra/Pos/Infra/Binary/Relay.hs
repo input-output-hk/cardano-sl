@@ -6,12 +6,12 @@ module Pos.Infra.Binary.Relay
 
 import           Universum
 
-import           Pos.Binary.Class (Bi (..))
-import           Pos.Infra.Communication.Types.Relay (InvMsg (..),
-                                                      MempoolMsg (..),
-                                                      ReqMsg (..),
-                                                      ResMsg (..))
-import           Pos.Util.Util (cborError)
+import           Pos.Binary.Class
+    (Bi (..))
+import           Pos.Infra.Communication.Types.Relay
+    (InvMsg (..), MempoolMsg (..), ReqMsg (..), ResMsg (..))
+import           Pos.Util.Util
+    (cborError)
 
 instance Bi key => Bi (InvMsg key) where
     encode = encode . imKey

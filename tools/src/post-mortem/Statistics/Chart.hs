@@ -3,9 +3,11 @@ module Statistics.Chart
     , getData
     ) where
 
-import           Data.Map.Strict (Map)
+import           Data.Map.Strict
+    (Map)
 import qualified Data.Map.Strict as M
-import           Graphics.Rendering.Chart.Backend.Diagrams (toFile)
+import           Graphics.Rendering.Chart.Backend.Diagrams
+    (toFile)
 import           Graphics.Rendering.Chart.Easy
 
 import           Types

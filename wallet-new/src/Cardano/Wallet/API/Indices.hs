@@ -12,12 +12,15 @@ module Cardano.Wallet.API.Indices where
 import           Universum
 
 import           Cardano.Wallet.API.V1.Types
-import           Data.String.Conv (toS)
+import           Data.String.Conv
+    (toS)
 import           GHC.TypeLits
 import qualified Pos.Core as Core
-import           Pos.Crypto (decodeHash)
+import           Pos.Crypto
+    (decodeHash)
 
-import           Data.IxSet.Typed (Indexable (..), IsIndexOf, IxSet, ixFun, ixList)
+import           Data.IxSet.Typed
+    (Indexable (..), IsIndexOf, IxSet, ixFun, ixList)
 
 -- | 'ToIndex' represents the witness that we can build an index 'ix' for a resource 'a'
 -- from an input 'Text'.

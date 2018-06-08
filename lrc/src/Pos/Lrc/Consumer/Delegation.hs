@@ -17,15 +17,22 @@ module Pos.Lrc.Consumer.Delegation
 
 import           Universum
 
-import           Pos.Core (EpochIndex, HasGenesisBlockVersionData, bvdHeavyDelThd,
-                           genesisBlockVersionData)
-import           Pos.DB (MonadDB, MonadDBRead, MonadGState)
-import           Pos.Lrc.Consumer (LrcConsumer, lrcConsumerFromComponentSimple)
-import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
+import           Pos.Core
+    (EpochIndex, HasGenesisBlockVersionData, bvdHeavyDelThd,
+    genesisBlockVersionData)
+import           Pos.DB
+    (MonadDB, MonadDBRead, MonadGState)
+import           Pos.Lrc.Consumer
+    (LrcConsumer, lrcConsumerFromComponentSimple)
+import           Pos.Lrc.Context
+    (HasLrcContext, lrcActionOnEpochReason)
 import           Pos.Lrc.DB.RichmenBase
-import           Pos.Lrc.RichmenComponent (RichmenComponent (..))
-import           Pos.Lrc.Types (RichmenSet)
-import           Pos.Util.Util (getKeys)
+import           Pos.Lrc.RichmenComponent
+    (RichmenComponent (..))
+import           Pos.Lrc.Types
+    (RichmenSet)
+import           Pos.Util.Util
+    (getKeys)
 
 ----------------------------------------------------------------------------
 -- RichmenComponent

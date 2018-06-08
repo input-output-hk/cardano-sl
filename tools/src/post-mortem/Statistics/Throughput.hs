@@ -2,15 +2,19 @@ module Statistics.Throughput
     ( throughput
     ) where
 
-import           Data.Map.Strict (Map)
+import           Data.Map.Strict
+    (Map)
 import qualified Data.Map.Strict as M
-import           Data.Time.Units (Microsecond)
+import           Data.Time.Units
+    (Microsecond)
 import           Graphics.Rendering.Chart
-import           Graphics.Rendering.Chart.Backend.Diagrams (renderableToFile)
+import           Graphics.Rendering.Chart.Backend.Diagrams
+    (renderableToFile)
 import           Graphics.Rendering.Chart.Easy
 import           Graphics.Rendering.Chart.Grid
 
-import           Pos.Infra.Util.JsonLog.Events (JLMemPool (..), MemPoolModifyReason (..))
+import           Pos.Infra.Util.JsonLog.Events
+    (JLMemPool (..), MemPoolModifyReason (..))
 import           Types
 import           Universum
 
@@ -35,7 +39,7 @@ throughput f txW waitW cnt xs ys =
     wait :: (NodeId, Timestamp, JLMemPool) -> Maybe (Timestamp, Integer)
     wait (_, t, JLMemPool{..}) = case jlmReason of
         ProcessTransaction -> Just (t, jlmWait)
-        _                    -> Nothing
+        _                  -> Nothing
 
     lg :: Double -> Double -> Double
     lg m x = logBase 10 (max x m) - 6

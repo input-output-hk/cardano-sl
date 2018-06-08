@@ -3,15 +3,18 @@ module Pos.Infra.Discovery.Model.Neighbors
        , converseToNeighbors
        ) where
 
-import           Formatting (sformat, shown, (%))
-import           Mockable (MonadMockable, handleAll)
-import           Pos.Binary.Class (Bi)
-import           Pos.Infra.Communication.Protocol (ConversationActions,
-                                                   Message, NodeId (..),
-                                                   SendActions (..))
-import           Pos.Infra.Discovery.Model.Class (Discovery (..),
-                                                  withPeersConcurrently)
-import           System.Wlog (WithLogger, logDebug, logWarning)
+import           Formatting
+    (sformat, shown, (%))
+import           Mockable
+    (MonadMockable, handleAll)
+import           Pos.Binary.Class
+    (Bi)
+import           Pos.Infra.Communication.Protocol
+    (ConversationActions, Message, NodeId (..), SendActions (..))
+import           Pos.Infra.Discovery.Model.Class
+    (Discovery (..), withPeersConcurrently)
+import           System.Wlog
+    (WithLogger, logDebug, logWarning)
 import           Universum
 
 sendToNeighbors

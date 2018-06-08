@@ -11,13 +11,15 @@ module Pos.Infra.Communication.BiP
 import           Universum
 
 import           Control.Monad.ST
-import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString.Builder.Extra as Builder
+import qualified Data.ByteString.Lazy as LBS
 
-import           Node.Message.Class (Packing (..), PackingType (..), Serializable (..))
+import           Node.Message.Class
+    (Packing (..), PackingType (..), Serializable (..))
 import qualified Node.Message.Decoder as TW
 
-import           Pos.Binary.Class (Bi (..))
+import           Pos.Binary.Class
+    (Bi (..))
 import qualified Pos.Binary.Class as Bi
 
 data BiP = BiP

@@ -44,28 +44,44 @@ module Pos.Core.Block.Union.Types
        , module Pos.Core.Block.Main.Types
        ) where
 
-import           Control.Lens (Getter, LensLike', choosing, makePrisms, to)
+import           Control.Lens
+    (Getter, LensLike', choosing, makePrisms, to)
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (Format, bprint, build, (%))
+import           Formatting
+    (Format, bprint, build, (%))
 import           Universum
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Binary.Core.Delegation ()
-import           Pos.Binary.Core.Ssc ()
-import           Pos.Binary.Core.Txp ()
-import           Pos.Binary.Core.Update ()
-import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
-                                            GenericBlockHeader (..), gbHeader, gbhPrevBlock)
+import           Pos.Binary.Class
+    (Bi)
+import           Pos.Binary.Core.Delegation
+    ()
+import           Pos.Binary.Core.Ssc
+    ()
+import           Pos.Binary.Core.Txp
+    ()
+import           Pos.Binary.Core.Update
+    ()
+import           Pos.Core.Block.Blockchain
+    (Blockchain (..), GenericBlock (..), GenericBlockHeader (..), gbHeader,
+    gbhPrevBlock)
 import           Pos.Core.Block.Genesis.Types
 import           Pos.Core.Block.Main.Types
-import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..))
-import           Pos.Core.Delegation (ProxySigHeavy, ProxySigLight)
-import           Pos.Core.Slotting (HasEpochIndex (..), HasEpochOrSlot (..), SlotId (..))
-import           Pos.Core.Ssc (mkSscProof)
-import           Pos.Core.Txp (mkTxProof)
-import           Pos.Core.Update (HasBlockVersion (..), HasSoftwareVersion (..), mkUpdateProof)
-import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, Signature, hash, unsafeHash)
-import           Pos.Util.Some (Some, applySome, liftLensSome)
+import           Pos.Core.Common
+    (ChainDifficulty, HasDifficulty (..))
+import           Pos.Core.Delegation
+    (ProxySigHeavy, ProxySigLight)
+import           Pos.Core.Slotting
+    (HasEpochIndex (..), HasEpochOrSlot (..), SlotId (..))
+import           Pos.Core.Ssc
+    (mkSscProof)
+import           Pos.Core.Txp
+    (mkTxProof)
+import           Pos.Core.Update
+    (HasBlockVersion (..), HasSoftwareVersion (..), mkUpdateProof)
+import           Pos.Crypto
+    (Hash, ProtocolMagic, PublicKey, Signature, hash, unsafeHash)
+import           Pos.Util.Some
+    (Some, applySome, liftLensSome)
 
 ----------------------------------------------------------------------------
 -- GenesisBlockchain

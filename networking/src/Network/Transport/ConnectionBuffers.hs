@@ -26,10 +26,12 @@ module Network.Transport.ConnectionBuffers (
 
     ) where
 
-import           Control.Monad (forM_, unless)
+import           Control.Monad
+    (forM_, unless)
 import           Control.Monad.IO.Class
 import qualified Data.Binary.Get as Bin
-import           Data.ByteString (ByteString)
+import           Data.ByteString
+    (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map.Strict as M

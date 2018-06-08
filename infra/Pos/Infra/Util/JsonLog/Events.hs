@@ -24,29 +24,47 @@ module Pos.Infra.Util.JsonLog.Events
 
 import           Universum
 
-import           Control.Monad.Except (MonadError)
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Aeson (encode)
-import           Data.Aeson.TH (deriveJSON)
-import           Data.Aeson.Types (ToJSON)
+import           Control.Monad.Except
+    (MonadError)
+import           Control.Monad.Trans.Identity
+    (IdentityT (..))
+import           Data.Aeson
+    (encode)
+import           Data.Aeson.TH
+    (deriveJSON)
+import           Data.Aeson.Types
+    (ToJSON)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Ether
-import           Formatting (sformat)
-import           JsonLog.CanJsonLog (CanJsonLog)
-import           JsonLog.JsonLogT (JsonLogConfig (..))
+import           Formatting
+    (sformat)
+import           JsonLog.CanJsonLog
+    (CanJsonLog)
+import           JsonLog.JsonLogT
+    (JsonLogConfig (..))
 import qualified JsonLog.JsonLogT as JL
-import           Mockable (realTime)
-import           Serokell.Aeson.Options (defaultOptions)
-import           System.Wlog (WithLogger)
+import           Mockable
+    (realTime)
+import           Serokell.Aeson.Options
+    (defaultOptions)
+import           System.Wlog
+    (WithLogger)
 
-import           Pos.Core (EpochIndex (..), HasConfiguration, HeaderHash, SlotId (..), gbHeader,
-                           gbhPrevBlock, getSlotIndex, headerHash, headerHashF, mkLocalSlotIndex)
-import           Pos.Core.Block (Block, mainBlockTxPayload)
-import           Pos.Core.Block.Genesis (genBlockEpoch)
-import           Pos.Core.Block.Main (mainBlockSlot)
-import           Pos.Core.Txp (txpTxs)
-import           Pos.Crypto (hash, hashHexF)
-import           Pos.Infra.Communication.Relay.Logic (InvReqDataFlowLog)
+import           Pos.Core
+    (EpochIndex (..), HasConfiguration, HeaderHash, SlotId (..), gbHeader,
+    gbhPrevBlock, getSlotIndex, headerHash, headerHashF, mkLocalSlotIndex)
+import           Pos.Core.Block
+    (Block, mainBlockTxPayload)
+import           Pos.Core.Block.Genesis
+    (genBlockEpoch)
+import           Pos.Core.Block.Main
+    (mainBlockSlot)
+import           Pos.Core.Txp
+    (txpTxs)
+import           Pos.Crypto
+    (hash, hashHexF)
+import           Pos.Infra.Communication.Relay.Logic
+    (InvReqDataFlowLog)
 
 type BlockId = Text
 type TxId = Text

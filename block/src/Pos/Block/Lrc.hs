@@ -10,52 +10,90 @@ module Pos.Block.Lrc
        , lrcSingleShot
        ) where
 
-import           Universum hiding (id)
+import           Universum hiding
+    (id)
 
-import           Control.Exception.Safe (bracketOnError)
-import           Control.Lens (views)
-import           Control.Monad.STM (retry)
-import           Data.Coerce (coerce)
-import           Data.Conduit (ConduitT, runConduitRes, (.|))
+import           Control.Exception.Safe
+    (bracketOnError)
+import           Control.Lens
+    (views)
+import           Control.Monad.STM
+    (retry)
+import           Data.Coerce
+    (coerce)
+import           Data.Conduit
+    (ConduitT, runConduitRes, (.|))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import           Formatting (build, ords, sformat, (%))
-import           Mockable (forConcurrently)
+import           Formatting
+    (build, ords, sformat, (%))
+import           Mockable
+    (forConcurrently)
 import qualified System.Metrics.Counter as Metrics
-import           System.Wlog (logDebug, logInfo, logWarning)
-import           UnliftIO (MonadUnliftIO)
+import           System.Wlog
+    (logDebug, logInfo, logWarning)
+import           UnliftIO
+    (MonadUnliftIO)
 
-import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
-                                           applyBlocksUnsafe, rollbackBlocksUnsafe)
-import           Pos.Block.Slog.Logic (ShouldCallBListener (..))
-import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId,
-                           blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot)
-import           Pos.Core.Chrono (NE, NewestFirst (..), toOldestFirst)
+import           Pos.Block.Logic.Internal
+    (BypassSecurityCheck (..), MonadBlockApply, applyBlocksUnsafe,
+    rollbackBlocksUnsafe)
+import           Pos.Block.Slog.Logic
+    (ShouldCallBListener (..))
+import           Pos.Core
+    (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId,
+    blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot)
+import           Pos.Core.Chrono
+    (NE, NewestFirst (..), toOldestFirst)
 import qualified Pos.DB.Block.Load as DB
-import           Pos.DB.Class (MonadDBRead, MonadGState)
-import qualified Pos.DB.GState.Stakes as GS (getRealStake, getRealTotalStake)
-import           Pos.Delegation (getDelegators, isIssuerByAddressHash)
-import qualified Pos.GState.SanityCheck as DB (sanityCheckDB)
-import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
-import           Pos.Infra.Slotting (MonadSlots)
-import           Pos.Infra.Util.TimeLimit (logWarningWaitLinear)
-import           Pos.Lrc.Consumer (LrcConsumer (..))
-import           Pos.Lrc.Consumers (allLrcConsumers)
-import           Pos.Lrc.Context (LrcContext (lcLrcSync), LrcSyncData (..))
-import           Pos.Lrc.Core (findDelegationStakes, findRichmenStakes)
-import           Pos.Lrc.DB (IssuersStakes, getSeed, putEpoch, putIssuersStakes, putSeed)
-import qualified Pos.Lrc.DB as LrcDB (hasLeaders, putLeadersForEpoch)
-import           Pos.Lrc.Error (LrcError (..))
-import           Pos.Lrc.Fts (followTheSatoshiM)
-import           Pos.Lrc.Mode (LrcMode)
-import           Pos.Lrc.Types (RichmenStakes)
-import           Pos.Ssc (MonadSscMem, noReportNoSecretsForEpoch1, sscCalculateSeed)
-import           Pos.Ssc.Message (SscMessageConstraints)
-import qualified Pos.Txp.DB.Stakes as GS (stakeSource)
-import           Pos.Update.DB (getCompetingBVStates)
-import           Pos.Update.Poll.Types (BlockVersionState (..))
-import           Pos.Util (maybeThrow)
-import           Pos.Util.Util (HasLens (..))
+import           Pos.DB.Class
+    (MonadDBRead, MonadGState)
+import qualified Pos.DB.GState.Stakes as GS
+    (getRealStake, getRealTotalStake)
+import           Pos.Delegation
+    (getDelegators, isIssuerByAddressHash)
+import qualified Pos.GState.SanityCheck as DB
+    (sanityCheckDB)
+import           Pos.Infra.Reporting.MemState
+    (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
+import           Pos.Infra.Slotting
+    (MonadSlots)
+import           Pos.Infra.Util.TimeLimit
+    (logWarningWaitLinear)
+import           Pos.Lrc.Consumer
+    (LrcConsumer (..))
+import           Pos.Lrc.Consumers
+    (allLrcConsumers)
+import           Pos.Lrc.Context
+    (LrcContext (lcLrcSync), LrcSyncData (..))
+import           Pos.Lrc.Core
+    (findDelegationStakes, findRichmenStakes)
+import           Pos.Lrc.DB
+    (IssuersStakes, getSeed, putEpoch, putIssuersStakes, putSeed)
+import qualified Pos.Lrc.DB as LrcDB
+    (hasLeaders, putLeadersForEpoch)
+import           Pos.Lrc.Error
+    (LrcError (..))
+import           Pos.Lrc.Fts
+    (followTheSatoshiM)
+import           Pos.Lrc.Mode
+    (LrcMode)
+import           Pos.Lrc.Types
+    (RichmenStakes)
+import           Pos.Ssc
+    (MonadSscMem, noReportNoSecretsForEpoch1, sscCalculateSeed)
+import           Pos.Ssc.Message
+    (SscMessageConstraints)
+import qualified Pos.Txp.DB.Stakes as GS
+    (stakeSource)
+import           Pos.Update.DB
+    (getCompetingBVStates)
+import           Pos.Update.Poll.Types
+    (BlockVersionState (..))
+import           Pos.Util
+    (maybeThrow)
+import           Pos.Util.Util
+    (HasLens (..))
 
 
 ----------------------------------------------------------------------------

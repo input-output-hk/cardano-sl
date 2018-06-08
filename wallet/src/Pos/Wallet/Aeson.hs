@@ -6,5 +6,7 @@ module Pos.Wallet.Aeson
        (
        ) where
 
-import           Pos.Wallet.Aeson.ClientTypes ()
-import           Pos.Wallet.Aeson.WalletBackup ()
+import           Pos.Wallet.Aeson.ClientTypes
+    ()
+import           Pos.Wallet.Aeson.WalletBackup
+    ()

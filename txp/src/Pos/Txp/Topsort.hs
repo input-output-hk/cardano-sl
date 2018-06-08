@@ -5,16 +5,22 @@ module Pos.Txp.Topsort
        , topsortTxAuxes
        ) where
 
-import           Universum hiding (tail, uncons)
+import           Universum hiding
+    (tail, uncons)
 
-import           Control.Lens (makeLenses, to, uses, (%=), (.=))
+import           Control.Lens
+    (makeLenses, to, uses, (%=), (.=))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import           Data.List (nub, tail, uncons)
+import           Data.List
+    (nub, tail, uncons)
 
-import           Pos.Binary.Core ()
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), txInputs)
-import           Pos.Crypto (Hash, WithHash (..), withHash)
+import           Pos.Binary.Core
+    ()
+import           Pos.Core.Txp
+    (Tx (..), TxAux (..), TxIn (..), txInputs)
+import           Pos.Crypto
+    (Hash, WithHash (..), withHash)
 
 ----------------------------------------------------------------------------
 -- Topsorting

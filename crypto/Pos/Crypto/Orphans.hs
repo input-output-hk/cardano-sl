@@ -4,19 +4,26 @@ module Pos.Crypto.Orphans
        (
        ) where
 
-import           Prelude (show)
-import           Universum hiding (show)
+import           Prelude
+    (show)
+import           Universum hiding
+    (show)
 
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Crypto.SCRAPE as Scrape
-import           Crypto.Scrypt (EncryptedPass (..))
+import           Crypto.Scrypt
+    (EncryptedPass (..))
 import qualified Crypto.Sign.Ed25519 as Ed25519
-import           Data.Aeson (FromJSON (..), ToJSON (..))
-import           Data.Hashable (Hashable)
+import           Data.Aeson
+    (FromJSON (..), ToJSON (..))
+import           Data.Hashable
+    (Hashable)
 import qualified Data.Hashable as Hashable
-import           Serokell.Util.Base64 (JsonByteString (..))
+import           Serokell.Util.Base64
+    (JsonByteString (..))
 
-import           Pos.Binary.Class (Bi (..), decodeBinary, encodeBinary)
+import           Pos.Binary.Class
+    (Bi (..), decodeBinary, encodeBinary)
 
 instance Hashable Ed25519.PublicKey
 instance Hashable Ed25519.SecretKey

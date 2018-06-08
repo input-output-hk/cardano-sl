@@ -5,9 +5,11 @@ module Test.Spec.WalletWorker (
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting (bprint, shown, (%))
+import           Formatting
+    (bprint, shown, (%))
 import           Pos.Core.Chrono
-import           Test.QuickCheck (arbitrary, frequency, listOf, suchThat)
+import           Test.QuickCheck
+    (arbitrary, frequency, listOf, suchThat)
 
 import           Util.Buildable.Hspec
 import           Util.Buildable.QuickCheck
@@ -15,7 +17,8 @@ import           Util.Buildable.QuickCheck
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 
 -- declares Arbitrary instance for Text
-import           Test.QuickCheck.Instances ()
+import           Test.QuickCheck.Instances
+    ()
 
 {-------------------------------------------------------------------------------
   Wallet worker state machine tests

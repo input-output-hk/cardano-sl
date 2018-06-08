@@ -6,10 +6,12 @@ module Pos.Core.Update.BlockVersion
 import           Universum
 
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, shown)
+import           Formatting
+    (bprint, shown)
 import qualified Prelude
 
-import           Pos.Util.Some (Some, liftLensSome)
+import           Pos.Util.Some
+    (Some, liftLensSome)
 
 -- | Communication protocol version.
 data BlockVersion = BlockVersion

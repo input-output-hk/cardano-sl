@@ -17,16 +17,24 @@ module Pos.Update.Poll.Modifier
 
 import           Universum
 
-import           Control.Lens (makeLensesFor)
-import           Data.Default (Default (def))
-import           Data.Semigroup (Semigroup)
+import           Control.Lens
+    (makeLensesFor)
+import           Data.Default
+    (Default (def))
+import           Data.Semigroup
+    (Semigroup)
 
-import           Pos.Core.Common (StakeholderId)
-import           Pos.Core.Update (ApplicationName, BlockVersion, BlockVersionData,
-                                  NumSoftwareVersion, SoftwareVersion, UpId)
-import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState, ProposalState)
-import           Pos.Util.Modifier (MapModifier)
+import           Pos.Core.Common
+    (StakeholderId)
+import           Pos.Core.Update
+    (ApplicationName, BlockVersion, BlockVersionData, NumSoftwareVersion,
+    SoftwareVersion, UpId)
+import           Pos.Infra.Slotting.Types
+    (SlottingData)
+import           Pos.Update.Poll.Types
+    (BlockVersionState, ConfirmedProposalState, ProposalState)
+import           Pos.Util.Modifier
+    (MapModifier)
 
 -- | PollModifier is used in verification. It represents operation which
 -- one should apply to global state to obtain result of application of

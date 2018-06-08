@@ -16,7 +16,8 @@ module Mockable.Channel (
 
     ) where
 
-import           Mockable.Class (MFunctor' (hoist'), Mockable (liftMockable))
+import           Mockable.Class
+    (MFunctor' (hoist'), Mockable (liftMockable))
 
 type family ChannelT (m :: * -> *) :: * -> *
 

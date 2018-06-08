@@ -9,9 +9,12 @@ module Pos.DB.Misc.Common
 
 import           Universum
 
-import           Pos.Binary.Class (Bi)
-import           Pos.DB.Class (DBTag (..), MonadDB, MonadDBRead)
-import           Pos.DB.Functions (dbGetBi, dbPutBi)
+import           Pos.Binary.Class
+    (Bi)
+import           Pos.DB.Class
+    (DBTag (..), MonadDB, MonadDBRead)
+import           Pos.DB.Functions
+    (dbGetBi, dbPutBi)
 
 miscGetBi
     :: forall v m . (MonadDBRead m, Bi v)

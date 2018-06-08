@@ -14,24 +14,32 @@ module Pos.Block.Base
 
 import           Universum
 
-import           Data.Default (Default (def))
+import           Data.Default
+    (Default (def))
 
-import           Pos.Block.BHelpers ()
-import           Pos.Core (BlockVersion, ChainDifficulty, EpochIndex, GenesisHash (..),
-                           HasDifficulty (..), HasProtocolConstants, HeaderHash, LocalSlotIndex,
-                           SlotId, SlotLeaders, SoftwareVersion, headerHash)
-import           Pos.Core.Block (BlockHeader, BlockSignature (..), GenericBlock (..), GenesisBlock,
-                                 GenesisBlockHeader, GenesisBody (..), GenesisConsensusData (..),
-                                 GenesisExtraBodyData (..), GenesisExtraHeaderData (..), MainBlock,
-                                 MainBlockHeader, MainBody (..), MainConsensusData (..),
-                                 MainExtraBodyData (..), MainExtraHeaderData (..), MainToSign (..),
-                                 mkGenericHeader)
-import           Pos.Crypto (ProtocolMagic, SecretKey, SignTag (..), hash, proxySign, sign,
-                             toPublic)
-import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Delegation.Types (ProxySKBlockInfo)
-import           Pos.Ssc.Base (defaultSscPayload)
-import           Pos.Txp.Base (emptyTxPayload)
+import           Pos.Block.BHelpers
+    ()
+import           Pos.Core
+    (BlockVersion, ChainDifficulty, EpochIndex, GenesisHash (..),
+    HasDifficulty (..), HasProtocolConstants, HeaderHash, LocalSlotIndex,
+    SlotId, SlotLeaders, SoftwareVersion, headerHash)
+import           Pos.Core.Block
+    (BlockHeader, BlockSignature (..), GenericBlock (..), GenesisBlock,
+    GenesisBlockHeader, GenesisBody (..), GenesisConsensusData (..),
+    GenesisExtraBodyData (..), GenesisExtraHeaderData (..), MainBlock,
+    MainBlockHeader, MainBody (..), MainConsensusData (..),
+    MainExtraBodyData (..), MainExtraHeaderData (..), MainToSign (..),
+    mkGenericHeader)
+import           Pos.Crypto
+    (ProtocolMagic, SecretKey, SignTag (..), hash, proxySign, sign, toPublic)
+import           Pos.Data.Attributes
+    (mkAttributes)
+import           Pos.Delegation.Types
+    (ProxySKBlockInfo)
+import           Pos.Ssc.Base
+    (defaultSscPayload)
+import           Pos.Txp.Base
+    (emptyTxPayload)
 
 ----------------------------------------------------------------------------
 -- Main smart constructors

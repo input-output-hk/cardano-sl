@@ -13,24 +13,34 @@
 
 module Main where
 
-import           Control.Concurrent (ThreadId, forkIO, killThread, threadDelay)
-import           Control.Exception (finally, throwIO)
-import           Control.Monad (forM, forM_, when)
+import           Control.Concurrent
+    (ThreadId, forkIO, killThread, threadDelay)
+import           Control.Exception
+    (finally, throwIO)
+import           Control.Monad
+    (forM, forM_, when)
 import           Data.Binary
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as B8
-import           Data.Functor.Contravariant (contramap)
+import           Data.Functor.Contravariant
+    (contramap)
 import qualified Data.Set as S
-import           Data.Void (Void, absurd)
-import           GHC.Generics (Generic)
+import           Data.Void
+    (Void, absurd)
+import           GHC.Generics
+    (Generic)
 import           Network.Discovery.Abstract
 import qualified Network.Discovery.Transport.Kademlia as K
-import           Network.Transport (Transport (..))
+import           Network.Transport
+    (Transport (..))
 import qualified Network.Transport.TCP as TCP
 import           Node
-import           Node.Message.Binary (BinaryP, binaryPacking)
-import           Pos.Util.Trace (stdoutTrace)
-import           System.Environment (getArgs)
+import           Node.Message.Binary
+    (BinaryP, binaryPacking)
+import           Pos.Util.Trace
+    (stdoutTrace)
+import           System.Environment
+    (getArgs)
 import           System.Random
 
 data Pong = Pong BS.ByteString
@@ -119,7 +129,7 @@ main = do
     args <- getArgs
     number <- case args of
         [arg0] | Just number <- read arg0 -> return number
-        _                                 -> error "Input argument must be a number"
+        _      -> error "Input argument must be a number"
 
     when (number > 99 || number < 1) $ error "Give a number in [1,99]"
 

@@ -2,11 +2,15 @@ module Statistics.MemPool
     ( memPoolF
     ) where
 
-import           Control.Foldl (Fold (..))
+import           Control.Foldl
+    (Fold (..))
 
-import           JSONLog (IndexedJLTimedEvent (..))
-import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLMemPool (..))
-import           Prelude (id)
+import           JSONLog
+    (IndexedJLTimedEvent (..))
+import           Pos.Infra.Util.JsonLog.Events
+    (JLEvent (..), JLMemPool (..))
+import           Prelude
+    (id)
 import           Types
 
 memPoolF :: Fold IndexedJLTimedEvent [(NodeId, Timestamp, JLMemPool)]

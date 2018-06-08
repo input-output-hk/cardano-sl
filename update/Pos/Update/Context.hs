@@ -7,10 +7,14 @@ module Pos.Update.Context
 
 import           Universum
 
-import           Pos.DB.Class (MonadDBRead)
-import           Pos.Infra.Slotting (MonadSlots)
-import           Pos.Update.MemState.Types (MemVar, newMemVar)
-import           Pos.Update.Poll.Types (ConfirmedProposalState)
+import           Pos.DB.Class
+    (MonadDBRead)
+import           Pos.Infra.Slotting
+    (MonadSlots)
+import           Pos.Update.MemState.Types
+    (MemVar, newMemVar)
+import           Pos.Update.Poll.Types
+    (ConfirmedProposalState)
 
 data UpdateContext = UpdateContext
     {

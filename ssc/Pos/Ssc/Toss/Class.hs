@@ -8,17 +8,24 @@ module Pos.Ssc.Toss.Class
        , MonadToss (..)
        ) where
 
-import           Universum hiding (id)
+import           Universum hiding
+    (id)
 
-import           Control.Monad.Except (ExceptT)
-import           Control.Monad.Trans (MonadTrans)
-import           System.Wlog (WithLogger)
+import           Control.Monad.Except
+    (ExceptT)
+import           Control.Monad.Trans
+    (MonadTrans)
+import           System.Wlog
+    (WithLogger)
 
-import           Pos.Core (BlockVersionData, EpochIndex, EpochOrSlot, StakeholderId, VssCertificate,
-                           VssCertificatesMap)
-import           Pos.Core.Ssc (CommitmentsMap, InnerSharesMap, Opening, OpeningsMap, SharesMap,
-                               SignedCommitment)
-import           Pos.Lrc.Types (RichmenStakes)
+import           Pos.Core
+    (BlockVersionData, EpochIndex, EpochOrSlot, StakeholderId, VssCertificate,
+    VssCertificatesMap)
+import           Pos.Core.Ssc
+    (CommitmentsMap, InnerSharesMap, Opening, OpeningsMap, SharesMap,
+    SignedCommitment)
+import           Pos.Lrc.Types
+    (RichmenStakes)
 
 ----------------------------------------------------------------------------
 -- Read-only

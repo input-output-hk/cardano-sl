@@ -7,25 +7,39 @@ module Test.Pos.Txp.CoreSpec
 
 import           Universum
 
-import           Control.Lens (each)
+import           Control.Lens
+    (each)
 import qualified Data.HashMap.Strict as HM
-import           Data.List (elemIndex, (\\))
+import           Data.List
+    (elemIndex, (\\))
 import qualified Data.List.NonEmpty as NE
-import           Test.Hspec (Spec, describe)
-import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (NonNegative (..), Positive (..), Property, arbitrary, forAll,
-                                  resize, shuffle, vectorOf, (.&.), (===))
-import           Test.QuickCheck.Gen (Gen)
+import           Test.Hspec
+    (Spec, describe)
+import           Test.Hspec.QuickCheck
+    (prop)
+import           Test.QuickCheck
+    (NonNegative (..), Positive (..), Property, arbitrary, forAll, resize,
+    shuffle, vectorOf, (.&.), (===))
+import           Test.QuickCheck.Gen
+    (Gen)
 
-import           Pos.Core (mkCoin)
-import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut (..), checkTx)
-import           Pos.Crypto (hash, whData, withHash)
-import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Txp.Topsort (topsortTxs)
-import           Pos.Util (_neHead)
+import           Pos.Core
+    (mkCoin)
+import           Pos.Core.Txp
+    (Tx (..), TxIn (..), TxOut (..), checkTx)
+import           Pos.Crypto
+    (hash, whData, withHash)
+import           Pos.Data.Attributes
+    (mkAttributes)
+import           Pos.Txp.Topsort
+    (topsortTxs)
+import           Pos.Util
+    (_neHead)
 
-import           Test.Pos.Txp.Arbitrary ()
-import           Test.Pos.Util.QuickCheck.Arbitrary (sublistN)
+import           Test.Pos.Txp.Arbitrary
+    ()
+import           Test.Pos.Util.QuickCheck.Arbitrary
+    (sublistN)
 
 spec :: Spec
 spec = describe "Txp.Core" $ do

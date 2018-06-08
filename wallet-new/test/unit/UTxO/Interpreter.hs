@@ -21,27 +21,33 @@ module UTxO.Interpreter (
   , Interpret(..)
   ) where
 
-import           Universum hiding (id)
+import           Universum hiding
+    (id)
 
-import           Control.Arrow ((&&&))
-import           Data.Default (def)
+import           Control.Arrow
+    ((&&&))
+import           Data.Default
+    (def)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import qualified Data.Text.Buildable
-import           Formatting (bprint, shown)
-import           Prelude (Show (..))
+import           Formatting
+    (bprint, shown)
+import           Prelude
+    (Show (..))
 
-import           Cardano.Wallet.Kernel.Types
 import           Cardano.Wallet.Kernel.DB.Resolved
+import           Cardano.Wallet.Kernel.Types
 
 import           Pos.Block.Logic
 import           Pos.Client.Txp
 import           Pos.Core
+import           Pos.Core.Chrono
 import           Pos.Crypto
-import           Pos.Ssc (defaultSscPayload)
+import           Pos.Ssc
+    (defaultSscPayload)
 import           Pos.Txp.Toil
 import           Pos.Update
-import           Pos.Core.Chrono
 
 import           UTxO.Bootstrap
 import           UTxO.Context

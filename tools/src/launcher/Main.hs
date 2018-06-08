@@ -12,77 +12,116 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
-import qualified Prelude (show)
+import qualified Prelude
+    (show)
 import           Universum
 
-import           Control.Concurrent (modifyMVar_)
-import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait, waitAny,
-                                                       withAsync, withAsyncWithUnmask)
-import           Control.Exception.Safe (catchAny, handle, mask_, tryAny)
-import           Control.Lens (makeLensesWith)
-import           Data.Aeson (FromJSON, Value (Array, Bool, Object), fromJSON, genericParseJSON,
-                             withObject)
+import           Control.Concurrent
+    (modifyMVar_)
+import           Control.Concurrent.Async.Lifted.Safe
+    (Async, async, cancel, poll, wait, waitAny, withAsync, withAsyncWithUnmask)
+import           Control.Exception.Safe
+    (catchAny, handle, mask_, tryAny)
+import           Control.Lens
+    (makeLensesWith)
+import           Data.Aeson
+    (FromJSON, Value (Array, Bool, Object), fromJSON, genericParseJSON,
+    withObject)
 import qualified Data.Aeson as AE
 import qualified Data.ByteString.Lazy as BS.L
 import qualified Data.HashMap.Strict as HM
-import           Data.List (isSuffixOf)
-import           Data.Maybe (isNothing)
+import           Data.List
+    (isSuffixOf)
+import           Data.Maybe
+    (isNothing)
 import qualified Data.Text.IO as T
-import           Data.Time.Units (Second, convertUnit)
-import           Data.Version (showVersion)
+import           Data.Time.Units
+    (Second, convertUnit)
+import           Data.Version
+    (showVersion)
 import qualified Data.Yaml as Y
-import           Formatting (build, int, sformat, shown, stext, string, (%))
-import qualified NeatInterpolation as Q (text)
-import           Options.Applicative (Parser, ParserInfo, ParserResult (..), defaultPrefs,
-                                      execParserPure, footerDoc, fullDesc, handleParseResult,
-                                      header, help, helper, info, infoOption, long, metavar,
-                                      progDesc, renderFailure, short, strOption)
-import           Serokell.Aeson.Options (defaultOptions)
-import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
+import           Formatting
+    (build, int, sformat, shown, stext, string, (%))
+import qualified NeatInterpolation as Q
+    (text)
+import           Options.Applicative
+    (Parser, ParserInfo, ParserResult (..), defaultPrefs, execParserPure,
+    footerDoc, fullDesc, handleParseResult, header, help, helper, info,
+    infoOption, long, metavar, progDesc, renderFailure, short, strOption)
+import           Serokell.Aeson.Options
+    (defaultOptions)
+import           System.Directory
+    (createDirectoryIfMissing, doesFileExist, removeFile)
 import qualified System.Directory as Sys
-import           System.Environment (getExecutablePath, getProgName, setEnv)
-import           System.Exit (ExitCode (..))
-import           System.FilePath (takeDirectory, (</>))
+import           System.Environment
+    (getExecutablePath, getProgName, setEnv)
+import           System.Exit
+    (ExitCode (..))
+import           System.FilePath
+    (takeDirectory, (</>))
 import qualified System.Info as Sys
 import qualified System.IO as IO
 import qualified System.IO.Silently as Silently
-import           System.Process (ProcessHandle, waitForProcess)
+import           System.Process
+    (ProcessHandle, waitForProcess)
 import qualified System.Process as Process
-import           System.Timeout (timeout)
-import           System.Wlog (logError, logInfo, logNotice, logWarning)
+import           System.Timeout
+    (timeout)
+import           System.Wlog
+    (logError, logInfo, logNotice, logWarning)
 import qualified System.Wlog as Log
-import           Text.PrettyPrint.ANSI.Leijen (Doc)
+import           Text.PrettyPrint.ANSI.Leijen
+    (Doc)
 
 #ifndef mingw32_HOST_OS
-import           System.Posix.Signals (sigKILL, signalProcess)
+import           System.Posix.Signals
+    (sigKILL, signalProcess)
 import qualified System.Process.Internals as Process
 #endif
 
 -- Modules needed for system'
-import           Foreign.C.Error (Errno (..), ePIPE)
-import           GHC.IO.Exception (IOErrorType (..), IOException (..))
+import           Foreign.C.Error
+    (Errno (..), ePIPE)
+import           GHC.IO.Exception
+    (IOErrorType (..), IOException (..))
 
-import           Paths_cardano_sl (version)
-import           Pos.Client.CLI (readLoggerConfig)
-import           Pos.Core (HasConfiguration, Timestamp (..), protocolMagic)
-import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
-                               dbPutSerBlundsRealDefault)
-import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
-import           Pos.DB.Rocks (NodeDBs, closeNodeDBs, dbDeleteDefault, dbGetDefault,
-                               dbIterSourceDefault, dbPutDefault, dbWriteBatchDefault, openNodeDBs)
-import           Pos.Infra.Reporting.Http (sendReport)
-import           Pos.Infra.Reporting.Wlog (compressLogs, retrieveLogFiles)
-import           Pos.Launcher (HasConfigurations, withConfigurations)
-import           Pos.Launcher.Configuration (ConfigurationOptions (..))
-import           Pos.ReportServer.Report (ReportType (..))
-import           Pos.Update (installerHash)
-import           Pos.Update.DB.Misc (affirmUpdateInstalled)
-import           Pos.Util (HasLens (..), directory, logException, postfixLFields)
-import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo, retrieveCompileTimeInfo,
-                                       withCompileInfo)
+import           Paths_cardano_sl
+    (version)
+import           Pos.Client.CLI
+    (readLoggerConfig)
+import           Pos.Core
+    (HasConfiguration, Timestamp (..), protocolMagic)
+import           Pos.DB.Block
+    (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
+    dbPutSerBlundsRealDefault)
+import           Pos.DB.Class
+    (MonadDB (..), MonadDBRead (..))
+import           Pos.DB.Rocks
+    (NodeDBs, closeNodeDBs, dbDeleteDefault, dbGetDefault, dbIterSourceDefault,
+    dbPutDefault, dbWriteBatchDefault, openNodeDBs)
+import           Pos.Infra.Reporting.Http
+    (sendReport)
+import           Pos.Infra.Reporting.Wlog
+    (compressLogs, retrieveLogFiles)
+import           Pos.Launcher
+    (HasConfigurations, withConfigurations)
+import           Pos.Launcher.Configuration
+    (ConfigurationOptions (..))
+import           Pos.ReportServer.Report
+    (ReportType (..))
+import           Pos.Update
+    (installerHash)
+import           Pos.Update.DB.Misc
+    (affirmUpdateInstalled)
+import           Pos.Util
+    (HasLens (..), directory, logException, postfixLFields)
+import           Pos.Util.CompileInfo
+    (HasCompileInfo, compileInfo, retrieveCompileTimeInfo, withCompileInfo)
 
-import           Launcher.Environment (substituteEnvVarsValue)
-import           Launcher.Logging (reportErrorDefault)
+import           Launcher.Environment
+    (substituteEnvVarsValue)
+import           Launcher.Logging
+    (reportErrorDefault)
 
 data LauncherOptions = LO
     { loNodePath            :: !FilePath

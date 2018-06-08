@@ -5,12 +5,16 @@ module Pos.Core.Genesis.Spec
 
 import           Universum
 
-import           Control.Monad.Except (MonadError (throwError))
+import           Control.Monad.Except
+    (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
-import           Serokell.Util (allDistinct)
+import           Serokell.Util
+    (allDistinct)
 
-import           Pos.Core.Common (SharedSeed)
-import           Pos.Core.Update (BlockVersionData)
+import           Pos.Core.Common
+    (SharedSeed)
+import           Pos.Core.Update
+    (BlockVersionData)
 
 import           Pos.Core.Genesis.AvvmBalances
 import           Pos.Core.Genesis.Delegation

@@ -24,15 +24,22 @@ module Cardano.Wallet.Kernel.DB.Spec (
   , currentBlockMeta
   ) where
 
-import           Universum hiding (elems)
+import           Universum hiding
+    (elems)
 
-import           Control.Lens (to)
-import           Control.Lens.TH (makeLenses)
+import           Control.Lens
+    (to)
+import           Control.Lens.TH
+    (makeLenses)
 import qualified Data.Map.Strict as M
-import           Data.SafeCopy (base, deriveSafeCopy)
-import           Data.Text.Buildable (build)
-import           Formatting (bprint, (%))
-import           Serokell.Util.Text (listJsonIndent)
+import           Data.SafeCopy
+    (base, deriveSafeCopy)
+import           Data.Text.Buildable
+    (build)
+import           Formatting
+    (bprint, (%))
+import           Serokell.Util.Text
+    (listJsonIndent)
 
 import qualified Pos.Core as Core
 import qualified Pos.Txp as Core

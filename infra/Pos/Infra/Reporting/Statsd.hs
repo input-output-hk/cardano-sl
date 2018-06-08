@@ -6,11 +6,13 @@ module Pos.Infra.Reporting.Statsd
 
 import           Universum
 
-import           Control.Concurrent (killThread)
+import           Control.Concurrent
+    (killThread)
 
-import qualified System.Remote.Monitoring.Statsd as Monitoring
+import           Pos.Infra.Statistics
+    (StatsdParams (..))
 import qualified System.Metrics as Metrics
-import           Pos.Infra.Statistics (StatsdParams (..))
+import qualified System.Remote.Monitoring.Statsd as Monitoring
 
 withStatsd
     :: StatsdParams

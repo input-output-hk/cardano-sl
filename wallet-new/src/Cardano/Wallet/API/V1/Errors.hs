@@ -8,22 +8,27 @@ module Cardano.Wallet.API.V1.Errors where
 import           Universum
 
 import           Data.Aeson
-import           Data.List.NonEmpty (NonEmpty ((:|)))
-import           Generics.SOP.TH (deriveGeneric)
+import           Data.List.NonEmpty
+    (NonEmpty ((:|)))
+import           Generics.SOP.TH
+    (deriveGeneric)
 import qualified Network.HTTP.Types as HTTP
 import           Servant
-import           Test.QuickCheck (Arbitrary (..), oneof)
+import           Test.QuickCheck
+    (Arbitrary (..), oneof)
 
 import qualified Pos.Client.Txp.Util as TxError
 import qualified Pos.Core as Core
 import qualified Pos.Crypto.Hashing as Crypto
 import qualified Pos.Data.Attributes as Core
 
-import           Cardano.Wallet.API.Response.JSend (ResponseStatus (ErrorStatus))
-import           Cardano.Wallet.API.V1.Generic (gparseJsend, gtoJsend)
-import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..), V1 (..),
-                                              mkEstimatedCompletionTime, mkSyncPercentage,
-                                              mkSyncThroughput)
+import           Cardano.Wallet.API.Response.JSend
+    (ResponseStatus (ErrorStatus))
+import           Cardano.Wallet.API.V1.Generic
+    (gparseJsend, gtoJsend)
+import           Cardano.Wallet.API.V1.Types
+    (SyncPercentage, SyncProgress (..), V1 (..), mkEstimatedCompletionTime,
+    mkSyncPercentage, mkSyncThroughput)
 
 --
 -- Error handling

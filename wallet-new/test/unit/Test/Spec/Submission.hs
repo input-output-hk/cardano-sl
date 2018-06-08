@@ -5,34 +5,48 @@ module Test.Spec.Submission (
   , dependentTransactions
   ) where
 
-import           Universum hiding (elems)
+import           Universum hiding
+    (elems)
 
-import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending, pendingTransactions,
-                                                removePending)
+import           Cardano.Wallet.Kernel.DB.InDb
+    (fromDb)
+import           Cardano.Wallet.Kernel.DB.Spec
+    (Pending (..), emptyPending, pendingTransactions, removePending)
 import           Cardano.Wallet.Kernel.Submission
-import           Control.Exception (toException)
-import           Control.Lens (to)
+import           Control.Exception
+    (toException)
+import           Control.Lens
+    (to)
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map as M
-import           Data.Set (Set)
+import           Data.Set
+    (Set)
 import qualified Data.Set as S
-import           Data.Text.Buildable (build)
+import           Data.Text.Buildable
+    (build)
 import qualified Data.Vector as V
-import           Formatting (bprint, (%))
+import           Formatting
+    (bprint, (%))
 import qualified Formatting as F
 import qualified Pos.Core as Core
-import           Pos.Crypto.Hashing (hash)
-import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
-import           Serokell.Util.Text (listJsonIndent)
+import           Pos.Crypto.Hashing
+    (hash)
+import           Pos.Data.Attributes
+    (Attributes (..), UnparsedFields (..))
+import           Serokell.Util.Text
+    (listJsonIndent)
 import qualified Test.Pos.Txp.Arbitrary as Core
 
-import           Test.QuickCheck (Gen, Property, arbitrary, choose, conjoin, forAll, listOf,
-                                  shuffle, vectorOf, (===))
-import           Test.QuickCheck.Property (counterexample, exception, property)
-import           Util (disjoint)
-import           Util.Buildable (ShowThroughBuild (..))
+import           Test.QuickCheck
+    (Gen, Property, arbitrary, choose, conjoin, forAll, listOf, shuffle,
+    vectorOf, (===))
+import           Test.QuickCheck.Property
+    (counterexample, exception, property)
+import           Util
+    (disjoint)
+import           Util.Buildable
+    (ShowThroughBuild (..))
 import           Util.Buildable.Hspec
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}

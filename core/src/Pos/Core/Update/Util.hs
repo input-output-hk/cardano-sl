@@ -25,24 +25,32 @@ module Pos.Core.Update.Util
 
 import           Universum
 
-import           Control.Monad.Except (MonadError (throwError))
+import           Control.Monad.Except
+    (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
-import           Distribution.System (Arch (..), OS (..))
-import           Distribution.Text (display)
-import           Formatting (Format, build)
-import           Instances.TH.Lift ()
+import           Distribution.System
+    (Arch (..), OS (..))
+import           Distribution.Text
+    (display)
+import           Formatting
+    (Format, build)
+import           Instances.TH.Lift
+    ()
 
-import           Pos.Binary.Crypto ()
-import           Pos.Core.Common.Types (checkCoinPortion)
-import           Pos.Core.Slotting (EpochIndex, isBootstrapEra)
-import           Pos.Core.Update.Types (BlockVersion, BlockVersionData (..),
-                                        BlockVersionModifier (..), SoftforkRule (..),
-                                        SoftwareVersion, SystemTag, UpAttributes, UpdateData,
-                                        UpdatePayload (..), UpdateProposal (..),
-                                        UpdateProposalToSign (..), UpdateVote (..), VoteId,
-                                        checkSoftwareVersion, checkSystemTag)
-import           Pos.Crypto (ProtocolMagic, SafeSigner, SignTag (SignUSProposal, SignUSVote),
-                             checkSig, safeSign, safeToPublic)
+import           Pos.Binary.Crypto
+    ()
+import           Pos.Core.Common.Types
+    (checkCoinPortion)
+import           Pos.Core.Slotting
+    (EpochIndex, isBootstrapEra)
+import           Pos.Core.Update.Types
+    (BlockVersion, BlockVersionData (..), BlockVersionModifier (..),
+    SoftforkRule (..), SoftwareVersion, SystemTag, UpAttributes, UpdateData,
+    UpdatePayload (..), UpdateProposal (..), UpdateProposalToSign (..),
+    UpdateVote (..), VoteId, checkSoftwareVersion, checkSystemTag)
+import           Pos.Crypto
+    (ProtocolMagic, SafeSigner, SignTag (SignUSProposal, SignUSVote), checkSig,
+    safeSign, safeToPublic)
 
 checkUpdatePayload
     :: (MonadError Text m)

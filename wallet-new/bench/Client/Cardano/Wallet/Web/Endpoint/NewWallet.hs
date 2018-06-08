@@ -6,19 +6,27 @@ module Client.Cardano.Wallet.Web.Endpoint.NewWallet
 
 import           Universum
 
-import           Data.Function                     (id)
-import           Data.Time.Clock                   (getCurrentTime)
-import           Crypto.Random.Entropy             (getEntropy)
+import           Crypto.Random.Entropy
+    (getEntropy)
+import           Data.Function
+    (id)
+import           Data.Time.Clock
+    (getCurrentTime)
 
-import           Client.Cardano.Wallet.Web.Api     (newWallet)
-import           Client.Cardano.Wallet.Web.Run     (runEndpointClient)
-import           Client.Cardano.Wallet.Web.Analyze (analyzeResponseIfNeeded, checkResponse)
-import           Bench.Cardano.Wallet.Types        (BenchEndpoint (..), CompleteConfig (..),
-                                                    Response, ResponseReport (..))
-import           Pos.Wallet.Web.ClientTypes        (CWallet (..), CWalletInit (..),
-                                                    CWalletMeta (..), CWalletAssurance (..))
-import           Pos.Util.BackupPhrase             (BackupPhrase (..))
-import           Pos.Util.Mnemonics                (toMnemonic)
+import           Bench.Cardano.Wallet.Types
+    (BenchEndpoint (..), CompleteConfig (..), Response, ResponseReport (..))
+import           Client.Cardano.Wallet.Web.Analyze
+    (analyzeResponseIfNeeded, checkResponse)
+import           Client.Cardano.Wallet.Web.Api
+    (newWallet)
+import           Client.Cardano.Wallet.Web.Run
+    (runEndpointClient)
+import           Pos.Util.BackupPhrase
+    (BackupPhrase (..))
+import           Pos.Util.Mnemonics
+    (toMnemonic)
+import           Pos.Wallet.Web.ClientTypes
+    (CWallet (..), CWalletAssurance (..), CWalletInit (..), CWalletMeta (..))
 
 -- | Run 'NewWallet' client. As a result we will get a newly created wallet.
 newWalletIO :: CompleteConfig -> IO ()

@@ -7,20 +7,26 @@ module Cardano.Wallet.API.V1.Generic
        , gconsName
        ) where
 
-import           Universum hiding (All, Generic)
+import           Universum hiding
+    (All, Generic)
 
 import           Data.Aeson
-import           Data.Aeson.Types (Parser)
+import           Data.Aeson.Types
+    (Parser)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
 import           Generics.SOP
-import           Generics.SOP.JSON (JsonInfo (..), JsonOptions (..), Tag (..), defaultJsonOptions,
-                                    jsonInfo)
+import           Generics.SOP.JSON
+    (JsonInfo (..), JsonOptions (..), Tag (..), defaultJsonOptions, jsonInfo)
 
-import           Cardano.Wallet.API.Response.JSend (ResponseStatus (..))
-import           Cardano.Wallet.Util (mkJsonKey)
-import           Data.List ((!!))
-import           Pos.Util.Util (aesonError)
+import           Cardano.Wallet.API.Response.JSend
+    (ResponseStatus (..))
+import           Cardano.Wallet.Util
+    (mkJsonKey)
+import           Data.List
+    ((!!))
+import           Pos.Util.Util
+    (aesonError)
 
 --
 -- Helper proxies

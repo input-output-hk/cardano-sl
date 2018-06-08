@@ -28,33 +28,58 @@ module JsonLog.JsonLogT
     , jsonLogDefault
     ) where
 
-import           Control.Concurrent.MVar (MVar, withMVar)
-import           Control.Monad.Base (MonadBase)
-import           Control.Monad.Fix (MonadFix)
-import           Control.Monad.IO.Class (MonadIO (..))
-import           Control.Monad.Morph (MFunctor (..))
-import           Control.Monad.Trans.Class (MonadTrans)
-import           Control.Monad.Trans.Control (MonadBaseControl (..))
-import           Control.Monad.Trans.Lift.Local (LiftLocal)
-import           Control.Monad.Trans.Reader (ReaderT (..))
-import           Data.Aeson (ToJSON, encode)
-import           Data.ByteString.Lazy (hPut)
-import           Formatting (sformat, shown, (%))
-import           Serokell.Util.Lens (WrappedM (..))
-import           System.IO (Handle)
-import           System.Wlog (CanLog, HasLoggerName (..), WithLogger, logWarning)
+import           Control.Concurrent.MVar
+    (MVar, withMVar)
+import           Control.Monad.Base
+    (MonadBase)
+import           Control.Monad.Fix
+    (MonadFix)
+import           Control.Monad.IO.Class
+    (MonadIO (..))
+import           Control.Monad.Morph
+    (MFunctor (..))
+import           Control.Monad.Trans.Class
+    (MonadTrans)
+import           Control.Monad.Trans.Control
+    (MonadBaseControl (..))
+import           Control.Monad.Trans.Lift.Local
+    (LiftLocal)
+import           Control.Monad.Trans.Reader
+    (ReaderT (..))
+import           Data.Aeson
+    (ToJSON, encode)
+import           Data.ByteString.Lazy
+    (hPut)
+import           Formatting
+    (sformat, shown, (%))
+import           Serokell.Util.Lens
+    (WrappedM (..))
+import           System.IO
+    (Handle)
+import           System.Wlog
+    (CanLog, HasLoggerName (..), WithLogger, logWarning)
 import           Universum
 
-import           JsonLog.CanJsonLog (CanJsonLog (..))
-import           JsonLog.Event (JLTimedEvent, timedIO, toEvent)
-import           Mockable.Channel (Channel, ChannelT)
-import           Mockable.Class (Mockable (..))
-import           Mockable.Concurrent (Async, Concurrently, Delay, Fork, Promise, ThreadId)
-import           Mockable.CurrentTime (CurrentTime)
-import           Mockable.Instances (liftMockableWrappedM)
-import           Mockable.Metrics (Counter, Distribution, Gauge, Metrics)
-import           Mockable.SharedAtomic (SharedAtomic, SharedAtomicT)
-import           Mockable.SharedExclusive (SharedExclusive, SharedExclusiveT)
+import           JsonLog.CanJsonLog
+    (CanJsonLog (..))
+import           JsonLog.Event
+    (JLTimedEvent, timedIO, toEvent)
+import           Mockable.Channel
+    (Channel, ChannelT)
+import           Mockable.Class
+    (Mockable (..))
+import           Mockable.Concurrent
+    (Async, Concurrently, Delay, Fork, Promise, ThreadId)
+import           Mockable.CurrentTime
+    (CurrentTime)
+import           Mockable.Instances
+    (liftMockableWrappedM)
+import           Mockable.Metrics
+    (Counter, Distribution, Gauge, Metrics)
+import           Mockable.SharedAtomic
+    (SharedAtomic, SharedAtomicT)
+import           Mockable.SharedExclusive
+    (SharedExclusive, SharedExclusiveT)
 
 data JsonLogConfig
     = JsonLogDisabled

@@ -10,22 +10,34 @@ module Pos.Wallet.Web.Server.Handlers
 
 import           Universum
 
-import           Ntp.Client (NtpStatus)
-import           Pos.Wallet.Web.Swagger.Spec (swaggerSpecForWalletApi)
-import           Servant.API ((:<|>) ((:<|>)))
-import           Servant.Generic (AsServerT, GenericProduct, ToServant, toServant)
-import           Servant.Server (Handler, Server, ServerT, hoistServer)
-import           Servant.Swagger.UI (swaggerSchemaUIServer)
+import           Ntp.Client
+    (NtpStatus)
+import           Pos.Wallet.Web.Swagger.Spec
+    (swaggerSpecForWalletApi)
+import           Servant.API
+    ((:<|>) ((:<|>)))
+import           Servant.Generic
+    (AsServerT, GenericProduct, ToServant, toServant)
+import           Servant.Server
+    (Handler, Server, ServerT, hoistServer)
+import           Servant.Swagger.UI
+    (swaggerSchemaUIServer)
 
-import           Pos.Core.Txp (TxAux)
-import           Pos.Update.Configuration (curSoftwareVersion)
-import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Core.Txp
+    (TxAux)
+import           Pos.Update.Configuration
+    (curSoftwareVersion)
+import           Pos.Util.CompileInfo
+    (HasCompileInfo)
 
-import           Pos.Wallet.WalletMode (blockchainSlotDuration)
-import           Pos.Wallet.Web.Account (GenSeed (RandomSeed))
+import           Pos.Wallet.WalletMode
+    (blockchainSlotDuration)
+import           Pos.Wallet.Web.Account
+    (GenSeed (RandomSeed))
 import qualified Pos.Wallet.Web.Api as A
 import qualified Pos.Wallet.Web.Methods as M
-import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode)
+import           Pos.Wallet.Web.Mode
+    (MonadFullWalletWebMode)
 
 ----------------------------------------------------------------------------
 -- The wallet API with Swagger

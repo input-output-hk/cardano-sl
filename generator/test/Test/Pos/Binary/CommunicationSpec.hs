@@ -5,22 +5,34 @@ module Test.Pos.Binary.CommunicationSpec
 import           Universum
 
 import qualified Data.ByteString.Lazy as BSL
-import           Data.Default (def)
-import           Test.Hspec (Spec, describe)
-import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck.Monadic (assert)
+import           Data.Default
+    (def)
+import           Test.Hspec
+    (Spec, describe)
+import           Test.Hspec.QuickCheck
+    (prop)
+import           Test.QuickCheck.Monadic
+    (assert)
 
-import           Pos.Binary.Class (decodeFull, serialize')
-import           Pos.Binary.Communication (serializeMsgSerializedBlock)
-import           Pos.Block.Network.Types (MsgBlock (..), MsgSerializedBlock (..))
-import           Pos.DB.Class (Serialized (..))
-import           Pos.Util.CompileInfo (withCompileInfo)
+import           Pos.Binary.Class
+    (decodeFull, serialize')
+import           Pos.Binary.Communication
+    (serializeMsgSerializedBlock)
+import           Pos.Block.Network.Types
+    (MsgBlock (..), MsgSerializedBlock (..))
+import           Pos.DB.Class
+    (Serialized (..))
+import           Pos.Util.CompileInfo
+    (withCompileInfo)
 
-import           Test.Pos.Block.Logic.Mode (blockPropertyTestable)
-import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock)
-import           Test.Pos.Configuration (HasStaticConfigurations, withStaticConfigurations)
+import           Test.Pos.Block.Logic.Mode
+    (blockPropertyTestable)
+import           Test.Pos.Block.Logic.Util
+    (EnableTxPayload (..), InplaceDB (..), bpGenBlock)
+import           Test.Pos.Configuration
+    (HasStaticConfigurations, withStaticConfigurations)
 
--- | 
+-- |
 -- The binary encoding of `MsgSerializedBlock` using `serializeMsgSerializedBlock`
 -- should be the same as the binary encoding of `MsgBlock`.
 serializeMsgSerializedBlockSpec
@@ -51,7 +63,7 @@ deserializeSerilizedMsgSerializedBlockSpec = do
         (block, _) <- bpGenBlock (EnableTxPayload True) (InplaceDB True)
         let sb = Serialized $ serialize' block
         let msg :: Either Text MsgBlock
-            msg = decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ MsgSerializedBlock sb 
+            msg = decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ MsgSerializedBlock sb
         assert $ msg == Right (MsgBlock block)
     prop descNoBlock $ blockPropertyTestable $ do
         let msg :: MsgSerializedBlock

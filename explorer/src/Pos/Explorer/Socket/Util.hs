@@ -17,21 +17,32 @@ module Pos.Explorer.Socket.Util
     , regroupBySnd
     ) where
 
-import           Universum hiding (on)
+import           Universum hiding
+    (on)
 
-import           Control.Concurrent (threadDelay)
-import           Control.Monad.Reader (MonadReader)
-import           Control.Monad.State (MonadState)
-import           Control.Monad.Trans (MonadIO)
-import           Data.Aeson.Types (Array, FromJSON, ToJSON)
+import           Control.Concurrent
+    (threadDelay)
+import           Control.Monad.Reader
+    (MonadReader)
+import           Control.Monad.State
+    (MonadState)
+import           Control.Monad.Trans
+    (MonadIO)
+import           Data.Aeson.Types
+    (Array, FromJSON, ToJSON)
 import qualified Data.Map as M
-import           Data.Text (Text)
-import           Data.Time.Units (TimeUnit (..))
-import           Formatting (sformat, shown, (%))
-import           Network.EngineIO.Wai (WaiMonad)
+import           Data.Text
+    (Text)
+import           Data.Time.Units
+    (TimeUnit (..))
+import           Formatting
+    (sformat, shown, (%))
+import           Network.EngineIO.Wai
+    (WaiMonad)
 
 import qualified Network.SocketIO as S
-import           System.Wlog (CanLog (..), WithLogger, logWarning)
+import           System.Wlog
+    (CanLog (..), WithLogger, logWarning)
 
 -- * Provides type-safety for event names in some socket-io functions.
 

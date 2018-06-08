@@ -8,15 +8,24 @@ module Pos.Binary.Block.Types
 
 import           Universum
 
-import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Binary.Core ()
-import           Pos.Binary.Delegation ()
-import           Pos.Binary.Update ()
-import           Pos.Block.Slog.Types (SlogUndo (..))
-import           Pos.Block.Types (Undo (..))
-import           Pos.Core (FlatSlotId, TxpUndo)
-import           Pos.Delegation.Types (DlgUndo)
-import           Pos.Update.Poll.Types (USUndo)
+import           Pos.Binary.Class
+    (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Binary.Core
+    ()
+import           Pos.Binary.Delegation
+    ()
+import           Pos.Binary.Update
+    ()
+import           Pos.Block.Slog.Types
+    (SlogUndo (..))
+import           Pos.Block.Types
+    (Undo (..))
+import           Pos.Core
+    (FlatSlotId, TxpUndo)
+import           Pos.Delegation.Types
+    (DlgUndo)
+import           Pos.Update.Poll.Types
+    (USUndo)
 
 deriveSimpleBi ''SlogUndo [
     Cons 'SlogUndo [

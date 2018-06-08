@@ -5,8 +5,10 @@ module Pos.Wallet.Web.Assurance
     , assuredBlockDepth
     ) where
 
-import           Pos.Core.Common (BlockCount)
-import           Pos.Wallet.Web.ClientTypes (CWalletAssurance (..))
+import           Pos.Core.Common
+    (BlockCount)
+import           Pos.Wallet.Web.ClientTypes
+    (CWalletAssurance (..))
 
 data AssuranceLevel
     = HighAssurance

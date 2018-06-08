@@ -6,27 +6,43 @@ module Command.Rollback
 
 import           Universum
 
-import           Control.Lens (_Wrapped)
-import           Data.Aeson (encode)
+import           Control.Lens
+    (_Wrapped)
+import           Data.Aeson
+    (encode)
 import qualified Data.ByteString.Lazy as BSL
-import           Data.List (genericTake)
-import           Formatting (build, int, sformat, string, (%))
-import           System.Wlog (logInfo)
+import           Data.List
+    (genericTake)
+import           Formatting
+    (build, int, sformat, string, (%))
+import           System.Wlog
+    (logInfo)
 
-import           Pos.Block.Logic (BypassSecurityCheck (..), rollbackBlocksUnsafe)
-import           Pos.Block.Slog (ShouldCallBListener (..))
-import           Pos.Block.Types (Blund)
-import           Pos.Core (difficultyL, epochIndexL)
-import           Pos.Core.Block (mainBlockTxPayload)
-import           Pos.Core.Chrono (NewestFirst, _NewestFirst)
-import           Pos.Core.Txp (TxAux)
+import           Pos.Block.Logic
+    (BypassSecurityCheck (..), rollbackBlocksUnsafe)
+import           Pos.Block.Slog
+    (ShouldCallBListener (..))
+import           Pos.Block.Types
+    (Blund)
+import           Pos.Core
+    (difficultyL, epochIndexL)
+import           Pos.Core.Block
+    (mainBlockTxPayload)
+import           Pos.Core.Chrono
+    (NewestFirst, _NewestFirst)
+import           Pos.Core.Txp
+    (TxAux)
 import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.BlockIndex as DB
-import           Pos.Infra.StateLock (Priority (..), withStateLock)
-import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
-import           Pos.Txp (flattenTxPayload)
+import           Pos.Infra.StateLock
+    (Priority (..), withStateLock)
+import           Pos.Infra.Util.JsonLog.Events
+    (MemPoolModifyReason (..))
+import           Pos.Txp
+    (flattenTxPayload)
 
-import           Mode (MonadAuxxMode)
+import           Mode
+    (MonadAuxxMode)
 
 -- | Rollback given number of blocks from the DB and dump transactions
 -- from it to the given file.

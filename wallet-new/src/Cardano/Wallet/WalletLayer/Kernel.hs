@@ -7,23 +7,31 @@ module Cardano.Wallet.WalletLayer.Kernel
 
 import           Universum
 
-import           Data.Maybe (fromJust)
-import           System.Wlog (Severity(Debug))
+import           Data.Maybe
+    (fromJust)
+import           System.Wlog
+    (Severity (Debug))
 
-import           Pos.Block.Types (Blund, Undo (..))
+import           Pos.Block.Types
+    (Blund, Undo (..))
 
 import qualified Cardano.Wallet.Kernel as Kernel
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
-import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
-import           Cardano.Wallet.Kernel.Types (RawResolvedBlock (..), fromRawResolvedBlock)
-import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
+import           Cardano.Wallet.Kernel.DB.Resolved
+    (ResolvedBlock)
+import           Cardano.Wallet.Kernel.Diffusion
+    (WalletDiffusion (..))
+import           Cardano.Wallet.Kernel.Types
+    (RawResolvedBlock (..), fromRawResolvedBlock)
+import           Cardano.Wallet.WalletLayer.Types
+    (ActiveWalletLayer (..), PassiveWalletLayer (..))
 
-import           Pos.Core.Chrono (OldestFirst (..))
+import           Pos.Core.Chrono
+    (OldestFirst (..))
 
 import qualified Cardano.Wallet.Kernel.Actions as Actions
 import qualified Data.Map.Strict as Map
-import           Pos.Util.BackupPhrase
 import           Pos.Crypto.Signing
+import           Pos.Util.BackupPhrase
 
 -- | Initialize the passive wallet.
 -- The passive wallet cannot send new transactions.

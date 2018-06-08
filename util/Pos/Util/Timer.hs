@@ -6,8 +6,10 @@ module Pos.Util.Timer
   , startTimer
   ) where
 
-import           Data.Time.Units (TimeUnit, toMicroseconds)
-import           Control.Concurrent.STM (readTVar, registerDelay, retry)
+import           Control.Concurrent.STM
+    (readTVar, registerDelay, retry)
+import           Data.Time.Units
+    (TimeUnit, toMicroseconds)
 import           Universum
 
 newtype Timer = Timer { timerSemaphore :: TVar (TVar Bool) }

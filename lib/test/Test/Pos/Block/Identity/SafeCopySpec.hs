@@ -4,15 +4,20 @@ module Test.Pos.Block.Identity.SafeCopySpec
        ( spec
        ) where
 
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec
+    (Spec, describe)
 import           Universum
 
-import           Pos.Arbitrary.Block ()
+import           Pos.Arbitrary.Block
+    ()
 import qualified Pos.Core.Block as BT
-import           Pos.SafeCopy ()
+import           Pos.SafeCopy
+    ()
 
-import           Test.Pos.Binary.Helpers (safeCopyTest)
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Binary.Helpers
+    (safeCopyTest)
+import           Test.Pos.Configuration
+    (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Block types" $ do

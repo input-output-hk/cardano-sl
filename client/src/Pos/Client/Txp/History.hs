@@ -27,39 +27,61 @@ module Pos.Client.Txp.History
 
 import           Universum
 
-import           Control.Exception.Safe (Exception (..))
-import           Control.Lens (makeLenses)
-import           Control.Monad.Trans (MonadTrans)
-import qualified Data.Map.Strict as M (fromList, insert)
+import           Control.Exception.Safe
+    (Exception (..))
+import           Control.Lens
+    (makeLenses)
+import           Control.Monad.Trans
+    (MonadTrans)
+import qualified Data.Map.Strict as M
+    (fromList, insert)
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, (%))
-import           JsonLog (CanJsonLog (..))
-import           Mockable (CurrentTime, Mockable)
-import           Serokell.Util.Text (listJson)
-import           System.Wlog (WithLogger)
+import           Formatting
+    (bprint, build, (%))
+import           JsonLog
+    (CanJsonLog (..))
+import           Mockable
+    (CurrentTime, Mockable)
+import           Serokell.Util.Text
+    (listJson)
+import           System.Wlog
+    (WithLogger)
 
-import           Pos.Block.Base (genesisBlock0)
-import           Pos.Core (Address, ChainDifficulty, HasConfiguration, Timestamp (..), difficultyL,
-                           headerHash, protocolMagic, GenesisHash (..), genesisHash)
-import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPayload)
-import           Pos.Crypto (WithHash (..), withHash)
-import           Pos.DB (MonadDBRead, MonadGState)
-import           Pos.DB.Block (getBlock)
+import           Pos.Block.Base
+    (genesisBlock0)
+import           Pos.Core
+    (Address, ChainDifficulty, GenesisHash (..), HasConfiguration,
+    Timestamp (..), difficultyL, genesisHash, headerHash, protocolMagic)
+import           Pos.Core.Block
+    (Block, MainBlock, mainBlockSlot, mainBlockTxPayload)
+import           Pos.Crypto
+    (WithHash (..), withHash)
+import           Pos.DB
+    (MonadDBRead, MonadGState)
+import           Pos.DB.Block
+    (getBlock)
 import qualified Pos.GState as GS
-import           Pos.Infra.Network.Types (HasNodeType)
-import           Pos.Infra.Slotting (MonadSlots, getSlotStartPure,
-                                     getSystemStartM)
-import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
-import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
-import           Pos.Lrc.Genesis (genesisLeaders)
-import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure, Tx (..),
-                          TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..),
-                          UtxoLookup, UtxoM, UtxoModifier, applyTxToUtxo, buildUtxo, evalUtxoM,
-                          flattenTxPayload, genesisUtxo, getLocalTxs, runUtxoM, topsortTxs,
-                          txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet, utxoToLookup,
-                          withTxpLocalData)
-import           Pos.Util (eitherToThrow, maybeThrow)
-import           Pos.Util.Util (HasLens')
+import           Pos.Infra.Network.Types
+    (HasNodeType)
+import           Pos.Infra.Slotting
+    (MonadSlots, getSlotStartPure, getSystemStartM)
+import           Pos.Infra.StateLock
+    (StateLock, StateLockMetrics)
+import           Pos.Infra.Util.JsonLog.Events
+    (MemPoolModifyReason)
+import           Pos.Lrc.Genesis
+    (genesisLeaders)
+import           Pos.Txp
+    (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure, Tx (..),
+    TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..),
+    UtxoLookup, UtxoM, UtxoModifier, applyTxToUtxo, buildUtxo, evalUtxoM,
+    flattenTxPayload, genesisUtxo, getLocalTxs, runUtxoM, topsortTxs,
+    txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet, utxoToLookup,
+    withTxpLocalData)
+import           Pos.Util
+    (eitherToThrow, maybeThrow)
+import           Pos.Util.Util
+    (HasLens')
 
 ----------------------------------------------------------------------
 -- Deduction of history

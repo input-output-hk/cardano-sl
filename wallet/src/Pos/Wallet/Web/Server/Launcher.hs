@@ -18,34 +18,55 @@ module Pos.Wallet.Web.Server.Launcher
 
 import           Universum
 
-import           Network.Wai (Application)
-import           Network.Wai.Handler.Warp (Settings)
-import           Serokell.AcidState.ExtendedState (ExtendedState)
-import           Servant.Server (Handler, Server, serve)
-import           System.Wlog (WithLogger, logInfo)
+import           Network.Wai
+    (Application)
+import           Network.Wai.Handler.Warp
+    (Settings)
+import           Serokell.AcidState.ExtendedState
+    (ExtendedState)
+import           Servant.Server
+    (Handler, Server, serve)
+import           System.Wlog
+    (WithLogger, logInfo)
 
 import qualified Data.ByteString.Char8 as BS8
 
-import           Ntp.Client (NtpStatus)
+import           Ntp.Client
+    (NtpStatus)
 
-import           Pos.Client.Txp.Network (sendTxOuts)
-import           Pos.Communication (OutSpecs)
-import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
-import           Pos.Infra.Util.TimeWarp (NetworkAddress)
-import           Pos.Util (bracketWithLogging)
-import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Wallet.Web.Account (findKey, myRootAddresses)
-import           Pos.Wallet.Web.Api (WalletSwaggerApi, swaggerWalletApi)
-import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode, MonadWalletWebMode,
-                                      MonadWalletWebSockets)
-import           Pos.Wallet.Web.Server.Handlers (servantHandlersWithSwagger)
-import           Pos.Wallet.Web.Sockets (ConnectionsVar, closeWSConnections, getWalletWebSockets,
-                                         initWSConnections, upgradeApplicationWS)
-import           Pos.Wallet.Web.State (closeState, openState)
-import           Pos.Wallet.Web.State.Storage (WalletStorage)
-import           Pos.Wallet.Web.Tracking (syncWallet)
-import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
-import           Pos.Web (TlsParams, serveDocImpl, serveImpl)
+import           Pos.Client.Txp.Network
+    (sendTxOuts)
+import           Pos.Communication
+    (OutSpecs)
+import           Pos.Infra.Diffusion.Types
+    (Diffusion (sendTx))
+import           Pos.Infra.Util.TimeWarp
+    (NetworkAddress)
+import           Pos.Util
+    (bracketWithLogging)
+import           Pos.Util.CompileInfo
+    (HasCompileInfo)
+import           Pos.Wallet.Web.Account
+    (findKey, myRootAddresses)
+import           Pos.Wallet.Web.Api
+    (WalletSwaggerApi, swaggerWalletApi)
+import           Pos.Wallet.Web.Mode
+    (MonadFullWalletWebMode, MonadWalletWebMode, MonadWalletWebSockets)
+import           Pos.Wallet.Web.Server.Handlers
+    (servantHandlersWithSwagger)
+import           Pos.Wallet.Web.Sockets
+    (ConnectionsVar, closeWSConnections, getWalletWebSockets,
+    initWSConnections, upgradeApplicationWS)
+import           Pos.Wallet.Web.State
+    (closeState, openState)
+import           Pos.Wallet.Web.State.Storage
+    (WalletStorage)
+import           Pos.Wallet.Web.Tracking
+    (syncWallet)
+import           Pos.Wallet.Web.Tracking.Decrypt
+    (eskToWalletDecrCredentials)
+import           Pos.Web
+    (TlsParams, serveDocImpl, serveImpl)
 
 -- TODO [CSM-407]: Mixture of logic seems to be here
 

@@ -73,13 +73,16 @@ module Network.Broadcast.OutboundQueue.ConcurrentMultiQueue
     ) where
 
 import           Control.Concurrent
-import           Control.Exception (Exception, throwIO)
+import           Control.Exception
+    (Exception, throwIO)
 import           Control.Lens
 import           Control.Monad
 import           Data.IORef
-import           Data.Map.Strict (Map)
+import           Data.Map.Strict
+    (Map)
 import qualified Data.Map.Strict as Map
-import           Data.Maybe (fromMaybe, isJust)
+import           Data.Maybe
+    (fromMaybe, isJust)
 import           GHC.Stack
 
 {-------------------------------------------------------------------------------

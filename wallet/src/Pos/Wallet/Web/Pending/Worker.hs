@@ -9,38 +9,61 @@ module Pos.Wallet.Web.Pending.Worker
 
 import           Universum
 
-import           Control.Exception.Safe (handleAny)
-import           Control.Lens (has)
-import           Data.Time.Units (Microsecond, Second, convertUnit)
-import           Formatting (build, sformat, (%))
-import           Mockable (delay, forConcurrently)
-import           Serokell.Util (enumerate, listJson)
-import           System.Wlog (logDebug, logInfo, modifyLoggerName)
+import           Control.Exception.Safe
+    (handleAny)
+import           Control.Lens
+    (has)
+import           Data.Time.Units
+    (Microsecond, Second, convertUnit)
+import           Formatting
+    (build, sformat, (%))
+import           Mockable
+    (delay, forConcurrently)
+import           Serokell.Util
+    (enumerate, listJson)
+import           System.Wlog
+    (logDebug, logInfo, modifyLoggerName)
 
-import           Pos.Client.Txp.Addresses (MonadAddresses)
-import           Pos.Client.Txp.Network (TxMode)
-import           Pos.Configuration (HasNodeConfiguration, pendingTxResubmitionPeriod,
-                                    walletTxCreationDisabled)
-import           Pos.Core (ChainDifficulty (..), SlotId (..), TxAux, difficultyL)
-import           Pos.Core.Chrono (getOldestFirst)
-import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Client.Txp.Addresses
+    (MonadAddresses)
+import           Pos.Client.Txp.Network
+    (TxMode)
+import           Pos.Configuration
+    (HasNodeConfiguration, pendingTxResubmitionPeriod,
+    walletTxCreationDisabled)
+import           Pos.Core
+    (ChainDifficulty (..), SlotId (..), TxAux, difficultyL)
+import           Pos.Core.Chrono
+    (getOldestFirst)
+import           Pos.Core.Configuration
+    (HasConfiguration)
 import qualified Pos.DB.BlockIndex as DB
-import           Pos.DB.Class (MonadDBRead)
-import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
-import           Pos.Infra.Reporting (MonadReporting)
-import           Pos.Infra.Shutdown (HasShutdownContext)
-import           Pos.Infra.Slotting (MonadSlots, OnNewSlotParams (..), defaultOnNewSlotParams,
-                                     getNextEpochSlotDuration, onNewSlot)
-import           Pos.Infra.Util.LogSafe (logInfoSP, secretOnlyF, secureListF)
-import           Pos.Wallet.Web.Pending.Functions (usingPtxCoords)
-import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler, submitAndSavePtx)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), ptxNextSubmitSlot,
-                                               _PtxApplying)
-import           Pos.Wallet.Web.Pending.Util (sortPtxsChrono)
-import           Pos.Wallet.Web.State (PtxMetaUpdate (PtxIncSubmitTiming), WalletDB,
-                                       casPtxCondition, getPendingTx, getPendingTxs,
-                                       getWalletSnapshot, ptxUpdateMeta)
-import           Pos.Wallet.Web.Util (getWalletAssuredDepth)
+import           Pos.DB.Class
+    (MonadDBRead)
+import           Pos.Infra.Recovery.Info
+    (MonadRecoveryInfo)
+import           Pos.Infra.Reporting
+    (MonadReporting)
+import           Pos.Infra.Shutdown
+    (HasShutdownContext)
+import           Pos.Infra.Slotting
+    (MonadSlots, OnNewSlotParams (..), defaultOnNewSlotParams,
+    getNextEpochSlotDuration, onNewSlot)
+import           Pos.Infra.Util.LogSafe
+    (logInfoSP, secretOnlyF, secureListF)
+import           Pos.Wallet.Web.Pending.Functions
+    (usingPtxCoords)
+import           Pos.Wallet.Web.Pending.Submission
+    (ptxResubmissionHandler, submitAndSavePtx)
+import           Pos.Wallet.Web.Pending.Types
+    (PendingTx (..), PtxCondition (..), ptxNextSubmitSlot, _PtxApplying)
+import           Pos.Wallet.Web.Pending.Util
+    (sortPtxsChrono)
+import           Pos.Wallet.Web.State
+    (PtxMetaUpdate (PtxIncSubmitTiming), WalletDB, casPtxCondition,
+    getPendingTx, getPendingTxs, getWalletSnapshot, ptxUpdateMeta)
+import           Pos.Wallet.Web.Util
+    (getWalletAssuredDepth)
 
 type MonadPendings ctx m =
     ( TxMode m

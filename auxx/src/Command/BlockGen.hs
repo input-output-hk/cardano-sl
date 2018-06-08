@@ -6,23 +6,38 @@ module Command.BlockGen
 
 import           Universum
 
-import           Control.Monad.Random.Strict (evalRandT)
-import           Data.Default (def)
-import           System.Random (mkStdGen, randomIO)
-import           System.Wlog (logInfo)
+import           Control.Monad.Random.Strict
+    (evalRandT)
+import           Data.Default
+    (def)
+import           System.Random
+    (mkStdGen, randomIO)
+import           System.Wlog
+    (logInfo)
 
-import           Pos.AllSecrets (mkAllSecretsSimple)
-import           Pos.Client.KeyStorage (getSecretKeysPlain)
-import           Pos.Core (gdBootStakeholders, genesisData)
-import           Pos.Crypto (encToSecret)
-import           Pos.Generator.Block (BlockGenParams (..), genBlocks, tgpTxCountRange)
-import           Pos.Infra.StateLock (Priority (..), withStateLock)
-import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
-import           Pos.Txp (txpGlobalSettings)
-import           Pos.Util.CompileInfo (withCompileInfo)
+import           Pos.AllSecrets
+    (mkAllSecretsSimple)
+import           Pos.Client.KeyStorage
+    (getSecretKeysPlain)
+import           Pos.Core
+    (gdBootStakeholders, genesisData)
+import           Pos.Crypto
+    (encToSecret)
+import           Pos.Generator.Block
+    (BlockGenParams (..), genBlocks, tgpTxCountRange)
+import           Pos.Infra.StateLock
+    (Priority (..), withStateLock)
+import           Pos.Infra.Util.JsonLog.Events
+    (MemPoolModifyReason (..))
+import           Pos.Txp
+    (txpGlobalSettings)
+import           Pos.Util.CompileInfo
+    (withCompileInfo)
 
-import           Lang.Value (GenBlocksParams (..))
-import           Mode (MonadAuxxMode)
+import           Lang.Value
+    (GenBlocksParams (..))
+import           Mode
+    (MonadAuxxMode)
 
 
 generateBlocks :: MonadAuxxMode m => GenBlocksParams -> m ()

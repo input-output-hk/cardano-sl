@@ -6,8 +6,10 @@ module Pos.Infra.Statistics.Statsd
        ) where
 
 import qualified Options.Applicative as Opt
-import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParserNoWildcard)
-import           Pos.Util.OptParse (fromParsec)
+import           Pos.Infra.Util.TimeWarp
+    (NetworkAddress, addrParserNoWildcard)
+import           Pos.Util.OptParse
+    (fromParsec)
 import           Universum
 
 data StatsdParams = StatsdParams

@@ -6,7 +6,7 @@ module Pos.Core.Block
        , module Pos.Core.Block.Blockchain
        ) where
 
-import          Pos.Core.Block.Blockchain
-import          Pos.Core.Block.Genesis
-import          Pos.Core.Block.Main
-import          Pos.Core.Block.Union
+import           Pos.Core.Block.Blockchain
+import           Pos.Core.Block.Genesis
+import           Pos.Core.Block.Main
+import           Pos.Core.Block.Union

@@ -17,17 +17,26 @@ module Pos.Delegation.Logic.Common
 
 import           Universum
 
-import           Control.Exception.Safe (Exception (..))
+import           Control.Exception.Safe
+    (Exception (..))
 import qualified Data.Text.Buildable as B
-import           Formatting (bprint, stext, (%))
-import           UnliftIO (MonadUnliftIO)
+import           Formatting
+    (bprint, stext, (%))
+import           UnliftIO
+    (MonadUnliftIO)
 
-import           Pos.Core (ProxySKHeavy, StakeholderId)
-import           Pos.Crypto (ProxySecretKey (..), PublicKey)
-import           Pos.DB (MonadDBRead)
-import           Pos.Delegation.Cede (dlgLastPsk, getPsk, runDBCede)
-import           Pos.Delegation.Class (DelegationWrap (..), MonadDelegation, askDelegationState)
-import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
+import           Pos.Core
+    (ProxySKHeavy, StakeholderId)
+import           Pos.Crypto
+    (ProxySecretKey (..), PublicKey)
+import           Pos.DB
+    (MonadDBRead)
+import           Pos.Delegation.Cede
+    (dlgLastPsk, getPsk, runDBCede)
+import           Pos.Delegation.Class
+    (DelegationWrap (..), MonadDelegation, askDelegationState)
+import           Pos.Exception
+    (cardanoExceptionFromException, cardanoExceptionToException)
 
 ----------------------------------------------------------------------------
 -- Exceptions

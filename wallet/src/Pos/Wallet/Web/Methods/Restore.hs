@@ -16,39 +16,57 @@ module Pos.Wallet.Web.Methods.Restore
 import           Universum
 
 import qualified Control.Exception.Safe as E
-import           Control.Lens (each, ix, traversed)
-import           Data.Default (Default (def))
-import           Formatting (build, sformat, (%))
-import           System.IO.Error (isDoesNotExistError)
-import           System.Wlog (logDebug)
+import           Control.Lens
+    (each, ix, traversed)
+import           Data.Default
+    (Default (def))
+import           Formatting
+    (build, sformat, (%))
+import           System.IO.Error
+    (isDoesNotExistError)
+import           System.Wlog
+    (logDebug)
 
 import qualified Data.HashMap.Strict as HM
-import           Pos.Client.KeyStorage (addSecretKey)
-import           Pos.Core.Configuration (genesisSecretsPoor)
-import           Pos.Core.Genesis (poorSecretToEncKey)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase, firstHardened)
-import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
-import           Pos.Util (HasLens (..), maybeThrow)
-import           Pos.Util.UserSecret (UserSecretDecodingError (..), WalletUserSecret (..),
-                                      mkGenesisWalletUserSecret, readUserSecret, usWallet,
-                                      wusAccounts, wusWalletName)
-import           Pos.Wallet.Web.Account (GenSeed (..), genSaveRootKey, genUniqueAccountId)
-import           Pos.Wallet.Web.Backup (AccountMetaBackup (..), WalletBackup (..),
-                                        WalletMetaBackup (..))
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountInit (..), CAccountMeta (..),
-                                             CFilePath (..), CId, CWallet (..), CWalletInit (..),
-                                             CWalletMeta (..), Wal, encToCId)
-import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)
+import           Pos.Client.KeyStorage
+    (addSecretKey)
+import           Pos.Core.Configuration
+    (genesisSecretsPoor)
+import           Pos.Core.Genesis
+    (poorSecretToEncKey)
+import           Pos.Crypto
+    (EncryptedSecretKey, PassPhrase, emptyPassphrase, firstHardened)
+import           Pos.Infra.StateLock
+    (Priority (..), withStateLockNoMetrics)
+import           Pos.Util
+    (HasLens (..), maybeThrow)
+import           Pos.Util.UserSecret
+    (UserSecretDecodingError (..), WalletUserSecret (..),
+    mkGenesisWalletUserSecret, readUserSecret, usWallet, wusAccounts,
+    wusWalletName)
+import           Pos.Wallet.Web.Account
+    (GenSeed (..), genSaveRootKey, genUniqueAccountId)
+import           Pos.Wallet.Web.Backup
+    (AccountMetaBackup (..), WalletBackup (..), WalletMetaBackup (..))
+import           Pos.Wallet.Web.ClientTypes
+    (AccountId (..), CAccountInit (..), CAccountMeta (..), CFilePath (..), CId,
+    CWallet (..), CWalletInit (..), CWalletMeta (..), Wal, encToCId)
+import           Pos.Wallet.Web.Error
+    (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.State as WS
-import           Pos.Wallet.Web.State (AddressLookupMode (Ever), askWalletDB, askWalletSnapshot,
-                                       createAccount, getAccountWAddresses, getWalletMeta,
-                                       removeHistoryCache, setWalletSyncTip)
-import           Pos.Wallet.Web.Tracking.Decrypt (eskToWalletDecrCredentials)
+import           Pos.Wallet.Web.State
+    (AddressLookupMode (Ever), askWalletDB, askWalletSnapshot, createAccount,
+    getAccountWAddresses, getWalletMeta, removeHistoryCache, setWalletSyncTip)
+import           Pos.Wallet.Web.Tracking.Decrypt
+    (eskToWalletDecrCredentials)
 import qualified Pos.Wallet.Web.Tracking.Restore as Restore
-import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
-import           Pos.Wallet.Web.Util (getWalletAccountIds)
-import           UnliftIO (MonadUnliftIO)
+import           Pos.Wallet.Web.Tracking.Types
+    (SyncQueue)
+import           Pos.Wallet.Web.Util
+    (getWalletAccountIds)
+import           UnliftIO
+    (MonadUnliftIO)
 
 -- | Which index to use to create initial account and address on new wallet
 -- creation

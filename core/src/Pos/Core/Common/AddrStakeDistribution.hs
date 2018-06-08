@@ -5,19 +5,28 @@ module Pos.Core.Common.AddrStakeDistribution
        , MultiKeyDistrError (..)
        ) where
 
-import           Universum hiding (id)
+import           Universum hiding
+    (id)
 
-import           Control.Exception.Safe (Exception (displayException))
-import           Control.Lens (_Left)
-import           Control.Monad.Except (MonadError (throwError))
+import           Control.Exception.Safe
+    (Exception (displayException))
+import           Control.Lens
+    (_Left)
+import           Control.Monad.Except
+    (MonadError (throwError))
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, (%))
-import           Serokell.Util (mapJson)
+import           Formatting
+    (bprint, (%))
+import           Serokell.Util
+    (mapJson)
 
-import           Pos.Binary.Class (Bi, decode, encode)
+import           Pos.Binary.Class
+    (Bi, decode, encode)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Crypto.Hashing (shortHashF)
-import           Pos.Util.Util (cborError, toCborError)
+import           Pos.Crypto.Hashing
+    (shortHashF)
+import           Pos.Util.Util
+    (cborError, toCborError)
 
 import           Pos.Core.Common.CoinPortion
 import           Pos.Core.Common.StakeholderId

@@ -9,8 +9,10 @@ module Cardano.Wallet.API.V1.LegacyHandlers where
 
 import           Universum
 
-import           Ntp.Client (NtpStatus)
-import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
+import           Ntp.Client
+    (NtpStatus)
+import           Pos.Infra.Diffusion.Types
+    (Diffusion (sendTx))
 
 import qualified Cardano.Wallet.API.V1 as V1
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
@@ -27,7 +29,8 @@ import qualified Cardano.Wallet.API.V1.Transactions as Transactions
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 
 -- importing the orphan instance for ToHttpApiData Core.Coin
-import           Cardano.Wallet.API.V1.Types ()
+import           Cardano.Wallet.API.V1.Types
+    ()
 
 import           Cardano.Wallet.API.V1.Migration
 

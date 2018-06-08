@@ -15,25 +15,38 @@ module Pos.Wallet.Web.Pending.Submission
 
 import           Universum
 
-import           Control.Exception.Safe (Handler (..), catches, onException)
-import           Data.Time.Units (fromMicroseconds)
-import           Formatting (build, sformat, shown, stext, (%))
-import           System.Wlog (WithLogger, logDebug, logInfo)
+import           Control.Exception.Safe
+    (Handler (..), catches, onException)
+import           Data.Time.Units
+    (fromMicroseconds)
+import           Formatting
+    (build, sformat, shown, stext, (%))
+import           System.Wlog
+    (WithLogger, logDebug, logInfo)
 
-import           Pos.Client.Txp.History (saveTx, thTimestamp)
-import           Pos.Client.Txp.Network (TxMode)
-import           Pos.Configuration (walletTxCreationDisabled)
-import           Pos.Core (diffTimestamp, getCurrentTimestamp)
-import           Pos.Core.Txp (TxAux)
-import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF)
-import           Pos.Util.Util (maybeThrow)
-import           Pos.Wallet.Web.Error (WalletError (InternalError))
-import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure, ptxPoolInfo,
-                                                   usingPtxCoords)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), PtxPoolInfo)
-import           Pos.Wallet.Web.State (PtxMetaUpdate (PtxMarkAcknowledged), WalletDB,
-                                       addOnlyNewPendingTx, casPtxCondition, ptxUpdateMeta,
-                                       removeOnlyCreatingPtx)
+import           Pos.Client.Txp.History
+    (saveTx, thTimestamp)
+import           Pos.Client.Txp.Network
+    (TxMode)
+import           Pos.Configuration
+    (walletTxCreationDisabled)
+import           Pos.Core
+    (diffTimestamp, getCurrentTimestamp)
+import           Pos.Core.Txp
+    (TxAux)
+import           Pos.Infra.Util.LogSafe
+    (buildSafe, logInfoSP, logWarningSP, secretOnlyF)
+import           Pos.Util.Util
+    (maybeThrow)
+import           Pos.Wallet.Web.Error
+    (WalletError (InternalError))
+import           Pos.Wallet.Web.Pending.Functions
+    (isReclaimableFailure, ptxPoolInfo, usingPtxCoords)
+import           Pos.Wallet.Web.Pending.Types
+    (PendingTx (..), PtxCondition (..), PtxPoolInfo)
+import           Pos.Wallet.Web.State
+    (PtxMetaUpdate (PtxMarkAcknowledged), WalletDB, addOnlyNewPendingTx,
+    casPtxCondition, ptxUpdateMeta, removeOnlyCreatingPtx)
 
 -- | Handers used for to procees various pending transaction submission
 -- errors.

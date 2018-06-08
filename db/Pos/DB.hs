@@ -13,15 +13,15 @@ module Pos.DB
        , module Pos.DB.GState.Stakes
        ) where
 
-import           Pos.DB.Sum
-import           Pos.DB.Rocks
-import           Pos.DB.Pure
-import           Pos.DB.Functions
-import           Pos.DB.Error
-import           Pos.DB.Class
-import           Pos.DB.BlockIndex
 import           Pos.DB.BatchOp
-import           Pos.DB.Misc.Common
+import           Pos.DB.BlockIndex
+import           Pos.DB.Class
+import           Pos.DB.Error
+import           Pos.DB.Functions
 import           Pos.DB.GState.Common
 import           Pos.DB.GState.Stakes
+import           Pos.DB.Misc.Common
+import           Pos.DB.Pure
+import           Pos.DB.Rocks
+import           Pos.DB.Sum
 

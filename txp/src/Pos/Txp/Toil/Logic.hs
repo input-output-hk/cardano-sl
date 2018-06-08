@@ -14,30 +14,47 @@ module Pos.Txp.Toil.Logic
        , processTx
        ) where
 
-import           Universum hiding (id)
+import           Universum hiding
+    (id)
 
-import           Control.Monad.Except (ExceptT, mapExceptT, throwError)
-import           Serokell.Data.Memory.Units (Byte)
+import           Control.Monad.Except
+    (ExceptT, mapExceptT, throwError)
+import           Serokell.Data.Memory.Units
+    (Byte)
 
-import           Pos.Binary.Class (biSize)
-import           Pos.Core (AddrAttributes (..), AddrStakeDistribution (..), Address,
-                           BlockVersionData (..), EpochIndex, addrAttributesUnwrapped,
-                           isBootstrapEraBVD, isRedeemAddress, HasProtocolMagic, HasGenesisData)
-import           Pos.Core.Common (integerToCoin)
-import qualified Pos.Core.Common as Fee (TxFeePolicy (..), calculateTxSizeLinear)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo, TxpUndo, checkTxAux,
-                               toaOut, txOutAddress)
-import           Pos.Crypto (WithHash (..), hash)
-import           Pos.Txp.Configuration (HasTxpConfiguration, memPoolLimitTx)
-import           Pos.Txp.Toil.Failure (ToilVerFailure (..))
-import           Pos.Txp.Toil.Monad (GlobalToilM, LocalToilM, UtxoM, hasTx, memPoolSize,
-                                     putTxWithUndo, utxoMToGlobalToilM, utxoMToLocalToilM)
-import           Pos.Txp.Toil.Stakes (applyTxsToStakes, rollbackTxsStakes)
-import           Pos.Txp.Toil.Types (TxFee (..))
-import           Pos.Txp.Toil.Utxo (VerifyTxUtxoRes (..))
+import           Pos.Binary.Class
+    (biSize)
+import           Pos.Core
+    (AddrAttributes (..), AddrStakeDistribution (..), Address,
+    BlockVersionData (..), EpochIndex, HasGenesisData, HasProtocolMagic,
+    addrAttributesUnwrapped, isBootstrapEraBVD, isRedeemAddress)
+import           Pos.Core.Common
+    (integerToCoin)
+import qualified Pos.Core.Common as Fee
+    (TxFeePolicy (..), calculateTxSizeLinear)
+import           Pos.Core.Txp
+    (Tx (..), TxAux (..), TxId, TxOut (..), TxUndo, TxpUndo, checkTxAux,
+    toaOut, txOutAddress)
+import           Pos.Crypto
+    (WithHash (..), hash)
+import           Pos.Txp.Configuration
+    (HasTxpConfiguration, memPoolLimitTx)
+import           Pos.Txp.Toil.Failure
+    (ToilVerFailure (..))
+import           Pos.Txp.Toil.Monad
+    (GlobalToilM, LocalToilM, UtxoM, hasTx, memPoolSize, putTxWithUndo,
+    utxoMToGlobalToilM, utxoMToLocalToilM)
+import           Pos.Txp.Toil.Stakes
+    (applyTxsToStakes, rollbackTxsStakes)
+import           Pos.Txp.Toil.Types
+    (TxFee (..))
+import           Pos.Txp.Toil.Utxo
+    (VerifyTxUtxoRes (..))
 import qualified Pos.Txp.Toil.Utxo as Utxo
-import           Pos.Txp.Topsort (topsortTxs)
-import           Pos.Util (liftEither)
+import           Pos.Txp.Topsort
+    (topsortTxs)
+import           Pos.Util
+    (liftEither)
 
 ----------------------------------------------------------------------------
 -- Global

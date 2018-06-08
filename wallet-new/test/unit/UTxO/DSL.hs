@@ -72,22 +72,31 @@ module UTxO.DSL (
   , utxoApplyBlock
   ) where
 
-import           Control.Exception (throw)
-import           Control.Monad.Except (MonadError (..))
-import           Data.Foldable (Foldable (..), foldr, sum)
-import           Data.List (tail)
-import           Data.Map.Strict (Map)
+import           Control.Exception
+    (throw)
+import           Control.Monad.Except
+    (MonadError (..))
+import           Data.Foldable
+    (Foldable (..), foldr, sum)
+import           Data.List
+    (tail)
+import           Data.Map.Strict
+    (Map)
 import qualified Data.Map.Strict as Map
-import           Data.Set (Set)
+import           Data.Set
+    (Set)
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, sformat, (%))
+import           Formatting
+    (bprint, build, sformat, (%))
 import           Pos.Core.Chrono
-                   (NewestFirst(NewestFirst),
-                    OldestFirst(getOldestFirst))
-import           Prelude (Show (..))
-import           Serokell.Util (listJson, mapJson)
-import           Universum hiding (Foldable, tail, toList, foldr, sum)
+    (NewestFirst (NewestFirst), OldestFirst (getOldestFirst))
+import           Prelude
+    (Show (..))
+import           Serokell.Util
+    (listJson, mapJson)
+import           Universum hiding
+    (Foldable, foldr, sum, tail, toList)
 
 import           Util
 import           Util.Validated

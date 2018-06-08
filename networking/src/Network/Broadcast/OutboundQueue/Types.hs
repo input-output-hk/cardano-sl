@@ -28,7 +28,8 @@ module Network.Broadcast.OutboundQueue.Types
 
 import           Universum
 
-import           Control.Lens (makeLenses)
+import           Control.Lens
+    (makeLenses)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Formatting

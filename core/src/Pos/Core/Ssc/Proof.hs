@@ -7,11 +7,15 @@ module Pos.Core.Ssc.Proof
 import           Universum
 
 import qualified Data.Text.Buildable as Buildable
-import           Fmt (genericF)
+import           Fmt
+    (genericF)
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Core.Common (StakeholderId)
-import           Pos.Crypto (Hash, hash)
+import           Pos.Binary.Class
+    (Bi)
+import           Pos.Core.Common
+    (StakeholderId)
+import           Pos.Crypto
+    (Hash, hash)
 
 import           Pos.Core.Ssc.CommitmentsMap
 import           Pos.Core.Ssc.Opening

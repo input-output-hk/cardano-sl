@@ -2,18 +2,27 @@ module Cardano.Wallet.API.V1.Swagger.Example where
 
 import           Universum
 
-import           Test.QuickCheck (Arbitrary (..), Gen, listOf1, oneof)
+import           Test.QuickCheck
+    (Arbitrary (..), Gen, listOf1, oneof)
 
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.Orphans.Arbitrary ()
-import           Data.Default (Default (def))
-import           Node (NodeId (..))
-import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
-import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
-import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Wallet.Web.ClientTypes (CUpdateInfo)
-import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
+import           Cardano.Wallet.Orphans.Arbitrary
+    ()
+import           Data.Default
+    (Default (def))
+import           Node
+    (NodeId (..))
+import           Pos.Arbitrary.Wallet.Web.ClientTypes
+    ()
+import           Pos.Client.Txp.Util
+    (InputSelectionPolicy (..))
+import           Pos.Util.BackupPhrase
+    (BackupPhrase)
+import           Pos.Wallet.Web.ClientTypes
+    (CUpdateInfo)
+import           Pos.Wallet.Web.Methods.Misc
+    (WalletStateSnapshot (..))
 
 import qualified Data.Map.Strict as Map
 import qualified Pos.Core.Common as Core

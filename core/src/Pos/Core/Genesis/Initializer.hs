@@ -7,10 +7,13 @@ module Pos.Core.Genesis.Initializer
 import           Universum
 
 import qualified Data.Text.Buildable as Buildable
-import           Fmt (genericF)
-import           Formatting (bprint, build, fixed, int, (%))
+import           Fmt
+    (genericF)
+import           Formatting
+    (bprint, build, fixed, int, (%))
 
-import           Pos.Core.Common (CoinPortion)
+import           Pos.Core.Common
+    (CoinPortion)
 
 -- | This data type contains various options which determine genesis
 -- stakes, balanaces, heavy delegation, etc.

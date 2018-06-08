@@ -3,7 +3,8 @@ module Cardano.Wallet.TypeLits where
 
 import           Universum
 
-import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
+import           GHC.TypeLits
+    (KnownSymbol, Symbol, symbolVal)
 
 -- | Shamelessly copied from:
 -- <https://stackoverflow.com/questions/37364835/how-to-get-the-type-level-values-of-string-in-haskell>

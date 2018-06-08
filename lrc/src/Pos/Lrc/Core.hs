@@ -6,16 +6,21 @@ module Pos.Lrc.Core
        , findRichmenStakes
        ) where
 
-import           Universum hiding (id)
+import           Universum hiding
+    (id)
 
-import           Data.Conduit (ConduitT, await)
+import           Data.Conduit
+    (ConduitT, await)
 import qualified Data.Conduit.List as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 
-import           Pos.Core.Common (Coin, StakeholderId, mkCoin, unsafeAddCoin)
-import           Pos.Lrc.Types (RichmenSet, RichmenStakes)
-import           Pos.Util.Util (getKeys)
+import           Pos.Core.Common
+    (Coin, StakeholderId, mkCoin, unsafeAddCoin)
+import           Pos.Lrc.Types
+    (RichmenSet, RichmenStakes)
+import           Pos.Util.Util
+    (getKeys)
 
 
 -- | Function helper for delegated richmen. Iterates @Delegate ->

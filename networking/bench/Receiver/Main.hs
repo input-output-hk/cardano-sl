@@ -1,32 +1,46 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE LambdaCase            #-}
 
 module Main where
 
-import           Control.Concurrent (threadDelay)
-import           Control.Exception (throwIO)
-import           Control.Exception.Safe (throwString)
-import           Control.Applicative (empty)
-import           Control.Monad (unless)
+import           Control.Applicative
+    (empty)
+import           Control.Concurrent
+    (threadDelay)
+import           Control.Exception
+    (throwIO)
+import           Control.Exception.Safe
+    (throwString)
+import           Control.Monad
+    (unless)
 
-import           Data.Functor.Contravariant (contramap)
-import           Data.Text (Text)
-import           GHC.IO.Encoding (setLocaleEncoding, utf8)
-import           Options.Applicative.Simple (simpleOptions)
-import           System.Random (mkStdGen)
+import           Data.Functor.Contravariant
+    (contramap)
+import           Data.Text
+    (Text)
+import           GHC.IO.Encoding
+    (setLocaleEncoding, utf8)
+import           Options.Applicative.Simple
+    (simpleOptions)
+import           System.Random
+    (mkStdGen)
 
-import           Bench.Network.Commons (MeasureEvent (..), Ping (..), Pong (..), loadLogConfig,
-                                        logMeasure)
+import           Bench.Network.Commons
+    (MeasureEvent (..), Ping (..), Pong (..), loadLogConfig, logMeasure)
 import qualified Network.Transport.TCP as TCP
-import           Node (ConversationActions (..), Listener (..), NodeAction (..),
-                       defaultNodeEnvironment, noReceiveDelay, node, simpleNodeEndPoint)
-import           Node.Message.Binary (binaryPacking)
-import           ReceiverOptions (Args (..), argsParser)
-import           Pos.Util.Trace (Trace, Severity (..), wlogTrace)
+import           Node
+    (ConversationActions (..), Listener (..), NodeAction (..),
+    defaultNodeEnvironment, noReceiveDelay, node, simpleNodeEndPoint)
+import           Node.Message.Binary
+    (binaryPacking)
+import           Pos.Util.Trace
+    (Severity (..), Trace, wlogTrace)
+import           ReceiverOptions
+    (Args (..), argsParser)
 
 main :: IO ()
 main = do

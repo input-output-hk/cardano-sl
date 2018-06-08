@@ -13,19 +13,26 @@ import           Universum
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
-import           Formatting (bprint, (%))
-import           Serokell.Util (listJson, mapJson)
+import           Formatting
+    (bprint, (%))
+import           Serokell.Util
+    (listJson, mapJson)
 
-import           Pos.Core (Address (..))
-import           Pos.Core.Txp (TxIn (..), TxOut (..), TxOutAux (..))
-import           Pos.Crypto (EncryptedSecretKey)
-import           Pos.Txp.Toil.Types (Utxo)
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials, eskToWalletDecrCredentials,
-                                                  selectOwnAddresses)
+import           Pos.Core
+    (Address (..))
+import           Pos.Core.Txp
+    (TxIn (..), TxOut (..), TxOutAux (..))
+import           Pos.Crypto
+    (EncryptedSecretKey)
+import           Pos.Txp.Toil.Types
+    (Utxo)
+import           Pos.Wallet.Web.Tracking.Decrypt
+    (WalletDecrCredentials, eskToWalletDecrCredentials, selectOwnAddresses)
 
-import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock, ResolvedTx, rbTxs, rtxInputs,
-                                                    rtxOutputs)
+import           Cardano.Wallet.Kernel.DB.InDb
+    (fromDb)
+import           Cardano.Wallet.Kernel.DB.Resolved
+    (ResolvedBlock, ResolvedTx, rbTxs, rtxInputs, rtxOutputs)
 
 {-------------------------------------------------------------------------------
  Pre-filter Tx Inputs and Outputs to those that belong to the given Wallet.

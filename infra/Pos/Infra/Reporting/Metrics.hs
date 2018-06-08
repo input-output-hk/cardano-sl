@@ -12,15 +12,21 @@ module Pos.Infra.Reporting.Metrics
 
 import           Universum
 
-import           Data.Time.Units (Microsecond)
-import           Formatting (Format, build, sformat)
-import           Mockable (CurrentTime, Mockable, currentTime)
+import           Data.Time.Units
+    (Microsecond)
+import           Formatting
+    (Format, build, sformat)
+import           Mockable
+    (CurrentTime, Mockable, currentTime)
 import qualified System.Metrics as Metrics
-import           System.Metrics.Gauge (Gauge)
+import           System.Metrics.Gauge
+    (Gauge)
 import qualified System.Metrics.Gauge as Gauge
-import           System.Wlog (WithLogger, logDebug)
+import           System.Wlog
+    (WithLogger, logDebug)
 
-import           Pos.System.Metrics.Constants (withCardanoNamespace)
+import           Pos.System.Metrics.Constants
+    (withCardanoNamespace)
 
 -- | 'MetricMonitor' is primarily used to parameterize 'recordValue'
 -- function (see below).

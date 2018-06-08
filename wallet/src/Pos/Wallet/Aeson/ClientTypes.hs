@@ -6,26 +6,35 @@ module Pos.Wallet.Aeson.ClientTypes
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), object, withArray, withObject,
-                             (.:), (.=))
-import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
-import           Data.Aeson.Types (Parser, typeMismatch)
-import           Data.Version (showVersion)
-import           Servant.API.ContentTypes (NoContent (..))
+import           Data.Aeson
+    (FromJSON (..), ToJSON (..), Value (..), object, withArray, withObject,
+    (.:), (.=))
+import           Data.Aeson.TH
+    (defaultOptions, deriveJSON, deriveToJSON)
+import           Data.Aeson.Types
+    (Parser, typeMismatch)
+import           Data.Version
+    (showVersion)
+import           Servant.API.ContentTypes
+    (NoContent (..))
 
-import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
-import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Util.Util (aesonError)
-import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CAccountId,
-                                             CAccountInit, CAccountMeta, CAddress, CCoin,
-                                             CFilePath (..), CHash, CId, CInitialized,
-                                             CPaperVendWalletRedeem, CProfile, CPtxCondition,
-                                             CTExMeta, CTx, CTxId, CTxMeta, CUpdateInfo,
-                                             CWAddressMeta, CWallet, CWalletAssurance, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, ClientInfo (..),
-                                             NewBatchPayment (..), SyncProgress, Wal)
-import           Pos.Wallet.Web.Error (WalletError)
-import           Pos.Wallet.Web.Sockets.Types (NotifyEvent)
+import           Pos.Client.Txp.Util
+    (InputSelectionPolicy (..))
+import           Pos.Util.BackupPhrase
+    (BackupPhrase)
+import           Pos.Util.Util
+    (aesonError)
+import           Pos.Wallet.Web.ClientTypes
+    (Addr, ApiVersion (..), CAccount, CAccountId, CAccountInit, CAccountMeta,
+    CAddress, CCoin, CFilePath (..), CHash, CId, CInitialized,
+    CPaperVendWalletRedeem, CProfile, CPtxCondition, CTExMeta, CTx, CTxId,
+    CTxMeta, CUpdateInfo, CWAddressMeta, CWallet, CWalletAssurance,
+    CWalletInit, CWalletMeta, CWalletRedeem, ClientInfo (..),
+    NewBatchPayment (..), SyncProgress, Wal)
+import           Pos.Wallet.Web.Error
+    (WalletError)
+import           Pos.Wallet.Web.Sockets.Types
+    (NotifyEvent)
 
 deriveJSON defaultOptions ''CAccountId
 deriveJSON defaultOptions ''CWAddressMeta

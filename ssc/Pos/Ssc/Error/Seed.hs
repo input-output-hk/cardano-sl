@@ -6,10 +6,13 @@ module Pos.Ssc.Error.Seed
 
 import           Universum
 
-import           Data.Text.Buildable (Buildable (..))
-import           Serokell.Util (listBuilderJSON)
+import           Data.Text.Buildable
+    (Buildable (..))
+import           Serokell.Util
+    (listBuilderJSON)
 
-import           Pos.Core.Common (Coin, StakeholderId)
+import           Pos.Core.Common
+    (Coin, StakeholderId)
 
 -- | Error that can happen when calculating the seed
 data SscSeedError

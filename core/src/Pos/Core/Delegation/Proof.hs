@@ -3,8 +3,10 @@ module Pos.Core.Delegation.Proof
        , mkDlgProof
        ) where
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Crypto (Hash, hash)
+import           Pos.Binary.Class
+    (Bi)
+import           Pos.Crypto
+    (Hash, hash)
 
 import           Pos.Core.Delegation.Payload
 

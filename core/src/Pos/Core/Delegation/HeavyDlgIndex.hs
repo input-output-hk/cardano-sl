@@ -7,10 +7,13 @@ module Pos.Core.Delegation.HeavyDlgIndex
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build)
+import           Formatting
+    (bprint, build)
 
-import           Pos.Core.Slotting (EpochIndex)
-import           Pos.Crypto (ProxySecretKey (..), ProxySignature)
+import           Pos.Core.Slotting
+    (EpochIndex)
+import           Pos.Crypto
+    (ProxySecretKey (..), ProxySignature)
 
 -- | Witness for heavy delegation signature -- epoch in which
 -- certificate starts being active. It is needed for replay attack

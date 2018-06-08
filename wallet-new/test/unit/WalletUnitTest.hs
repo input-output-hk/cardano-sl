@@ -3,13 +3,19 @@ module Main (main) where
 
 import           Universum
 
-import           Formatting (build, sformat)
-import           Test.Hspec (Spec, describe, hspec)
+import           Formatting
+    (build, sformat)
+import           Test.Hspec
+    (Spec, describe, hspec)
 
-import           UTxO.Bootstrap (bootstrapTransaction)
-import           UTxO.Context (Addr, TransCtxt)
-import           UTxO.DSL (GivenHash, Transaction)
-import           UTxO.Translate (runTranslateNoErrors, withConfig)
+import           UTxO.Bootstrap
+    (bootstrapTransaction)
+import           UTxO.Context
+    (Addr, TransCtxt)
+import           UTxO.DSL
+    (GivenHash, Transaction)
+import           UTxO.Translate
+    (runTranslateNoErrors, withConfig)
 
 import qualified Test.Spec.Kernel
 import qualified Test.Spec.Models

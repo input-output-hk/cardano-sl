@@ -6,9 +6,11 @@ module Pos.Lrc.Error
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, int, stext, (%))
+import           Formatting
+    (bprint, build, int, stext, (%))
 
-import           Pos.Core.Slotting (EpochIndex)
+import           Pos.Core.Slotting
+    (EpochIndex)
 
 data LrcError
     = LrcDataUnknown !EpochIndex !Text

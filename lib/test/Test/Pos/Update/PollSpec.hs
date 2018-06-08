@@ -6,27 +6,40 @@ module Test.Pos.Update.PollSpec
 
 import           Universum
 
-import           Control.Lens (at)
+import           Control.Lens
+    (at)
 import qualified Data.HashSet as HS
-import           Test.Hspec (Spec, describe)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (..), Gen, Property, conjoin, forAll, listOf, suchThat,
-                                  (===))
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.Hspec
+    (Spec, describe)
+import           Test.Hspec.QuickCheck
+    (modifyMaxSuccess, prop)
+import           Test.QuickCheck
+    (Arbitrary (..), Gen, Property, conjoin, forAll, listOf, suchThat, (===))
+import           Test.QuickCheck.Arbitrary.Generic
+    (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Update ()
-import           Pos.Core (ApplicationName, BlockVersion (..), BlockVersionData (..),
-                           HasConfiguration, SoftwareVersion (..), StakeholderId, addressHash)
-import           Pos.Core.Update (UpId, UpdateProposal (..))
-import           Pos.Crypto (hash)
-import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Update.BlockVersion (applyBVM)
+import           Pos.Arbitrary.Update
+    ()
+import           Pos.Core
+    (ApplicationName, BlockVersion (..), BlockVersionData (..),
+    HasConfiguration, SoftwareVersion (..), StakeholderId, addressHash)
+import           Pos.Core.Update
+    (UpId, UpdateProposal (..))
+import           Pos.Crypto
+    (hash)
+import           Pos.Infra.Slotting.Types
+    (SlottingData)
+import           Pos.Update.BlockVersion
+    (applyBVM)
 import qualified Pos.Update.Poll as Poll
 import qualified Pos.Util.Modifier as MM
 
-import           Test.Pos.Configuration (withDefConfiguration)
-import           Test.Pos.Binary.Helpers ()
-import           Test.Pos.Util.QuickCheck.Property (formsMonoid)
+import           Test.Pos.Binary.Helpers
+    ()
+import           Test.Pos.Configuration
+    (withDefConfiguration)
+import           Test.Pos.Util.QuickCheck.Property
+    (formsMonoid)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Poll" $ do

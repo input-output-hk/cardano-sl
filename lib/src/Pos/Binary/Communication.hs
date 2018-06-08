@@ -13,23 +13,26 @@ import           Universum
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
-                                   decodeUnknownCborDataItem, deriveSimpleBi,
-                                   encodeKnownCborDataItem, encodeListLen,
-                                   encodeUnknownCborDataItem, enforceSize,
-                                   serialize')
-import           Pos.Binary.Core ()
-import           Pos.Block.BHelpers ()
-import           Pos.Block.Network (MsgBlock (..), MsgSerializedBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                                    MsgHeaders (..))
-import           Pos.Core (BlockVersion, HeaderHash)
-import           Pos.DB.Class (Serialized (..))
-import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..),
-                                                         HandlerSpecs,
-                                                         MsgSubscribe (..),
-                                                         MsgSubscribe1 (..),
-                                                         VerInfo (..))
-import           Pos.Util.Util (cborError)
+import           Pos.Binary.Class
+    (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
+    decodeUnknownCborDataItem, deriveSimpleBi, encodeKnownCborDataItem,
+    encodeListLen, encodeUnknownCborDataItem, enforceSize, serialize')
+import           Pos.Binary.Core
+    ()
+import           Pos.Block.BHelpers
+    ()
+import           Pos.Block.Network
+    (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..), MsgHeaders (..),
+    MsgSerializedBlock (..))
+import           Pos.Core
+    (BlockVersion, HeaderHash)
+import           Pos.DB.Class
+    (Serialized (..))
+import           Pos.Infra.Communication.Types.Protocol
+    (HandlerSpec (..), HandlerSpecs, MsgSubscribe (..), MsgSubscribe1 (..),
+    VerInfo (..))
+import           Pos.Util.Util
+    (cborError)
 
 -- TODO: move into each component
 

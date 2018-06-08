@@ -8,14 +8,20 @@ module Test.Pos.Txp.Arbitrary.Network () where
 
 import           Universum
 
-import           Test.QuickCheck (Arbitrary (..))
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck
+    (Arbitrary (..))
+import           Test.QuickCheck.Arbitrary.Generic
+    (genericArbitrary, genericShrink)
 
-import           Pos.Core (HasProtocolMagic)
-import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
-import           Pos.Txp.Network.Types (TxMsgContents (..))
+import           Pos.Core
+    (HasProtocolMagic)
+import           Pos.Infra.Communication.Types.Relay
+    (DataMsg (..))
+import           Pos.Txp.Network.Types
+    (TxMsgContents (..))
 
-import           Test.Pos.Txp.Arbitrary ()
+import           Test.Pos.Txp.Arbitrary
+    ()
 
 instance HasProtocolMagic => Arbitrary TxMsgContents where
     arbitrary = genericArbitrary

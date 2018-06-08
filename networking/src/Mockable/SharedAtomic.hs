@@ -16,7 +16,8 @@ module Mockable.SharedAtomic (
 
     ) where
 
-import           Mockable.Class (MFunctor' (hoist'), Mockable (liftMockable))
+import           Mockable.Class
+    (MFunctor' (hoist'), Mockable (liftMockable))
 
 type family SharedAtomicT (m :: * -> *) :: * -> *
 

@@ -1,0 +1,15 @@
+diff --git a/src/System/Win32File.hsc b/src/System/Win32File.hsc
+index a524c77..8e8071d 100644
+--- a/src/System/Win32File.hsc
++++ b/src/System/Win32File.hsc
+@@ -31,8 +31,8 @@ import Data.ByteString.Lazy.Internal (defaultChunkSize)
+ 
+ 
+ #include <fcntl.h>
+-#include <Share.h>
+-#include <SYS/Stat.h>
++#include <share.h>
++#include <sys/stat.h>
+ #include <errno.h>
+ 
+ newtype OFlag = OFlag CInt

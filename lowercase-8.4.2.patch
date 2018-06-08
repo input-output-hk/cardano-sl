@@ -1,0 +1,94 @@
+diff --git a/driver/utils/dynwrapper.c b/driver/utils/dynwrapper.c
+index a9250f58ba..24c6327cce 100644
+--- a/driver/utils/dynwrapper.c
++++ b/driver/utils/dynwrapper.c
+@@ -9,8 +9,8 @@ int rtsOpts;
+ 
+ #include <stdarg.h>
+ #include <stdio.h>
+-#include <Windows.h>
+-#include <Shlwapi.h>
++#include <windows.h>
++#include <shlwapi.h>
+ 
+ #include "Rts.h"
+ 
+diff --git a/rts/linker/PEi386.c b/rts/linker/PEi386.c
+index 3dcf8c4281..364f7780b2 100644
+--- a/rts/linker/PEi386.c
++++ b/rts/linker/PEi386.c
+@@ -156,7 +156,7 @@ static uint8_t* cstring_from_COFF_symbol_name(
+ #include <inttypes.h>
+ #include <dbghelp.h>
+ #include <stdlib.h>
+-#include <Psapi.h>
++#include <psapi.h>
+ 
+ #if defined(x86_64_HOST_ARCH)
+ static size_t makeSymbolExtra_PEi386(
+diff --git a/rts/package.conf.in b/rts/package.conf.in
+index 05d98a51c4..15b8ac24c8 100644
+--- a/rts/package.conf.in
++++ b/rts/package.conf.in
+@@ -45,8 +45,8 @@ extra-libraries:
+                               ,"wsock32"    /* for the linker */
+                               ,"gdi32"      /* for the linker */
+                               ,"winmm"      /* for the linker */
+-                              ,"Dbghelp"    /* for crash dump */
+-                              ,"Psapi"      /* for process information.  */
++                              ,"dbghelp"    /* for crash dump */
++                              ,"psapi"      /* for process information.  */
+ #endif
+ #if NEED_PTHREAD_LIB
+                               , "pthread"   /* for pthread_getthreadid_np, pthread_create, etc. */
+diff --git a/rts/rts.cabal.in b/rts/rts.cabal.in
+index 71aef3df0e..53b6271b10 100644
+--- a/rts/rts.cabal.in
++++ b/rts/rts.cabal.in
+@@ -58,9 +58,9 @@ library
+           -- for the linker
+           wsock32 gdi32 winmm
+           -- for crash dump
+-          Dbghelp
++          dbghelp
+           -- for process information
+-          Psapi
++          psapi
+     if flag(need-pthread)
+        -- for pthread_getthreadid_np, pthread_create, ...
+        extra-libraries: pthread
+diff --git a/rts/win32/veh_excn.c b/rts/win32/veh_excn.c
+index fd50562448..4b7d29a1a1 100644
+--- a/rts/win32/veh_excn.c
++++ b/rts/win32/veh_excn.c
+@@ -20,7 +20,7 @@
+ #include <stdio.h>
+ #include <excpt.h>
+ #include <inttypes.h>
+-#include <Dbghelp.h>
++#include <dbghelp.h>
+ 
+ /////////////////////////////////
+ // Exception / signal handlers.
+diff --git a/rules/build-prog.mk b/rules/build-prog.mk
+index 82c55a70e1..21f99e2bbf 100644
+--- a/rules/build-prog.mk
++++ b/rules/build-prog.mk
+@@ -230,7 +230,7 @@ endif
+ 
+ $1/$2/build/tmp/$$($1_$2_PROG)-inplace-wrapper.c: driver/utils/dynwrapper.c | $$$$(dir $$$$@)/.
+ 	$$(call removeFiles,$$@)
+-	echo '#include <Windows.h>' >> $$@
++	echo '#include <windows.h>' >> $$@
+ 	echo '#include "Rts.h"' >> $$@
+ 	echo 'LPTSTR path_dirs[] = {' >> $$@
+ 	$$(foreach d,$$($1_$2_DEP_LIB_REL_DIRS),$$(call make-command,echo '    TEXT("/../../$$d")$$(comma)' >> $$@))
+@@ -243,7 +243,7 @@ $1/$2/build/tmp/$$($1_$2_PROG)-inplace-wrapper.c: driver/utils/dynwrapper.c | $$
+ 
+ $1/$2/build/tmp/$$($1_$2_PROG)-wrapper.c: driver/utils/dynwrapper.c | $$$$(dir $$$$@)/.
+ 	$$(call removeFiles,$$@)
+-	echo '#include <Windows.h>' >> $$@
++	echo '#include <windows.h>' >> $$@
+ 	echo '#include "Rts.h"' >> $$@
+ 	echo 'LPTSTR path_dirs[] = {' >> $$@
+ 	$$(foreach p,$$($1_$2_TRANSITIVE_DEP_COMPONENT_IDS),$$(call make-command,echo '    TEXT("/../lib/$$p")$$(comma)' >> $$@))

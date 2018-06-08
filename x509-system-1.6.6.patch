@@ -1,0 +1,13 @@
+diff --git a/x509-system.cabal b/x509-system.cabal
+index 95a21a1..8b23b3d 100644
+--- a/x509-system.cabal
++++ b/x509-system.cabal
+@@ -32,7 +32,7 @@ Library
+   if os(windows)
+      cpp-options:     -DWINDOWS
+      Build-Depends:   Win32, asn1-encoding
+-     extra-libraries: Crypt32
++     extra-libraries: crypt32
+      Exposed-modules: System.X509.Win32
+   if os(OSX)
+      cpp-options: -DMACOSX

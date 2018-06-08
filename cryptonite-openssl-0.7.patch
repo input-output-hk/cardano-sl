@@ -1,0 +1,13 @@
+diff --git a/cryptonite-openssl.cabal b/cryptonite-openssl.cabal
+index ceb275a..96994b2 100644
+--- a/cryptonite-openssl.cabal
++++ b/cryptonite-openssl.cabal
+@@ -39,7 +39,7 @@ Library
+   ghc-options:       -Wall -fwarn-tabs -optc-O3
+   default-language:  Haskell2010
+   if os(mingw32) || os(windows)
+-    extra-libraries: eay32, ssl32
++    extra-libraries: crypto
+   else
+     if os(osx)
+       include-dirs: /usr/local/opt/openssl/include

@@ -32,7 +32,6 @@ import           Data.Typeable (Typeable)
 import           Formatting (sformat, shown, (%))
 import           Network.Socket (AddrInfo, SockAddr (..), Socket, addrAddress, addrFamily, close)
 import           Network.Socket.ByteString (recvFrom, sendTo)
-import           Serokell.Util.Concurrent (modifyTVarS)
 import           System.Wlog (LoggerNameBox)
 import qualified System.Wlog as Wlog
 

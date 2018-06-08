@@ -146,4 +146,4 @@ spec = do
 
     entropyToAESKey :: Entropy -> AesKey
     entropyToAESKey =
-        AesKey . mnemonicToAESKey . entropyToMnemonic
+        mnemonicToAESKey . entropyToMnemonic

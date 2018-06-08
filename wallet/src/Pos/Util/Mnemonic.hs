@@ -33,6 +33,7 @@ import           Data.Swagger (NamedSchema (..), ToSchema (..))
 import           Data.Text.Buildable (Buildable (build))
 
 import           Pos.Binary (serialize')
+import           Pos.Crypto (AesKey (..))
 import           Pos.Util.Bits (Bit, Word11, fromBits, toBits)
 import           Pos.Util.LogSafe (SecureLog)
 
@@ -184,9 +185,9 @@ mnemonicToSeed =
 
 -- | Convert a mnemonic to a seed AesKey. Almost identical to @MnemonictoSeed@
 -- minus the extra serialization.
-mnemonicToAESKey :: Mnemonic -> ByteString
+mnemonicToAESKey :: Mnemonic -> AesKey
 mnemonicToAESKey =
-    blake2b . entropyToByteString . mnemonicToEntropy
+    AesKey . blake2b . entropyToByteString . mnemonicToEntropy
 
 
 -- | Provide intial entropy as a 'ByteString' of length multiple of 4 bytes.

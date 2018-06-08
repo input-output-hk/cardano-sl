@@ -97,8 +97,8 @@ test_script:
   - git clone https://github.com/input-output-hk/plutus-prototype submods/plutus-prototype
   - git -C submods/plutus-prototype checkout d4aa461fc69fc6957aab46b41a670c2144aefb77
 
-  - git clone https://github.com/thoughtpolice/hs-ed25519 submods/hs-ed25518
-  - git -C submods/hs-ed25518 checkout da4247b5b3420120e20451e6a252e2a2ca15b43c
+  - git clone https://github.com/thoughtpolice/hs-ed25519 submods/hs-ed25519
+  - git -C submods/hs-ed25519 checkout da4247b5b3420120e20451e6a252e2a2ca15b43c
 
   - git clone https://github.com/input-output-hk/cardano-report-server.git submods/cardano-report-server
   - git -C submods/cardano-report-server checkout 81eea7361a75923f9402fcb7840fb36722dbf88e

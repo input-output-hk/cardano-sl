@@ -84,8 +84,10 @@ library
 test-suite test
   main-is:             test.hs
   other-modules:
+                       Spec
                        Test.Pos.Binary.Cbor.CborSpec
                        Test.Pos.Binary.Helpers
+                       Test.Pos.Binary.BiSerialize
                        Test.Pos.Cbor.RefImpl
                        Test.Pos.Cbor.Canonicity
 
@@ -108,6 +110,7 @@ test-suite test
                      , formatting
                      , generic-arbitrary
                      , half
+                     , hedgehog
                      , hspec
                      , lens
                      , mtl

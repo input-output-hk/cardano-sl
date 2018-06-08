@@ -5,16 +5,22 @@ module Pos.Infra.Diffusion.Transport.TCP
     ( bracketTransportTCP
     ) where
 
-import           Universum hiding (bracket)
+import           Universum hiding
+    (bracket)
 
-import           Control.Exception (bracket, throwIO)
-import           Data.Time.Units (Microsecond)
-import           Formatting (sformat, shown, (%))
+import           Control.Exception
+    (bracket, throwIO)
+import           Data.Time.Units
+    (Microsecond)
+import           Formatting
+    (sformat, shown, (%))
 
-import           Network.QDisc.Fair (fairQDisc)
+import           Network.QDisc.Fair
+    (fairQDisc)
 import qualified Network.Transport as NT
 import qualified Network.Transport.TCP as TCP
-import           Pos.Util.Trace (Trace, traceWith)
+import           Pos.Util.Trace
+    (Trace, traceWith)
 
 -- | Bracket a TCP transport with
 --

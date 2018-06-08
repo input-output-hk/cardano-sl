@@ -8,32 +8,49 @@ module Pos.Ssc.Toss.Logic
        , refreshToss
        ) where
 
-import           Universum hiding (id)
+import           Universum hiding
+    (id)
 
-import           Control.Lens (at)
-import           Control.Monad.Except (MonadError, throwError, runExceptT)
-import           Crypto.Random (MonadRandom)
+import           Control.Lens
+    (at)
+import           Control.Monad.Except
+    (MonadError, runExceptT, throwError)
+import           Crypto.Random
+    (MonadRandom)
 import qualified Data.HashMap.Strict as HM
-import           System.Wlog (logError)
+import           System.Wlog
+    (logError)
 
-import           Pos.Core (EpochIndex, EpochOrSlot (..), IsMainHeader, HasProtocolConstants,
-                           LocalSlotIndex, SlotCount, SlotId (siSlot), StakeholderId,
-                           VssCertificate, epochIndexL, epochOrSlot, getEpochOrSlot,
-                           getVssCertificatesMap, headerSlotL, mkCoin, HasProtocolMagic,
-                           mkVssCertificatesMapSingleton, slotSecurityParam)
-import           Pos.Core.Ssc (CommitmentsMap (..), InnerSharesMap, Opening, SignedCommitment,
-                               SscPayload (..), getCommitmentsMap, mkCommitmentsMapUnsafe, spVss,
-                               checkSscPayload)
-import           Pos.Crypto.Configuration (protocolMagic)
-import           Pos.Ssc.Error (SscVerifyError (..))
-import           Pos.Ssc.Functions (verifySscPayload)
-import           Pos.Ssc.Toss.Base (checkPayload)
-import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..))
-import           Pos.Ssc.Toss.Types (TossModifier (..))
-import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Core.Chrono (NewestFirst (..))
-import           Pos.Util.Some (Some)
-import           Pos.Util.Util (sortWithMDesc)
+import           Pos.Core
+    (EpochIndex, EpochOrSlot (..), HasProtocolConstants, HasProtocolMagic,
+    IsMainHeader, LocalSlotIndex, SlotCount, SlotId (siSlot), StakeholderId,
+    VssCertificate, epochIndexL, epochOrSlot, getEpochOrSlot,
+    getVssCertificatesMap, headerSlotL, mkCoin, mkVssCertificatesMapSingleton,
+    slotSecurityParam)
+import           Pos.Core.Chrono
+    (NewestFirst (..))
+import           Pos.Core.Ssc
+    (CommitmentsMap (..), InnerSharesMap, Opening, SignedCommitment,
+    SscPayload (..), checkSscPayload, getCommitmentsMap,
+    mkCommitmentsMapUnsafe, spVss)
+import           Pos.Crypto.Configuration
+    (protocolMagic)
+import           Pos.Ssc.Error
+    (SscVerifyError (..))
+import           Pos.Ssc.Functions
+    (verifySscPayload)
+import           Pos.Ssc.Toss.Base
+    (checkPayload)
+import           Pos.Ssc.Toss.Class
+    (MonadToss (..), MonadTossEnv (..))
+import           Pos.Ssc.Toss.Types
+    (TossModifier (..))
+import           Pos.Util.AssertMode
+    (inAssertMode)
+import           Pos.Util.Some
+    (Some)
+import           Pos.Util.Util
+    (sortWithMDesc)
 
 -- | Verify 'SscPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise

@@ -78,33 +78,49 @@ module Pos.Util.Util
 import           Universum
 
 import qualified Codec.CBOR.Decoding as CBOR
-import           Control.Concurrent (threadDelay)
+import           Control.Concurrent
+    (threadDelay)
 import qualified Control.Exception.Safe as E
-import           Control.Lens (Getting, Iso', coerced, foldMapOf, ( # ))
-import           Control.Monad.Except (MonadError, throwError)
-import           Control.Monad.Trans.Class (MonadTrans)
-import           Data.Aeson (FromJSON (..))
+import           Control.Lens
+    (Getting, Iso', coerced, foldMapOf, ( # ))
+import           Control.Monad.Except
+    (MonadError, throwError)
+import           Control.Monad.Trans.Class
+    (MonadTrans)
+import           Data.Aeson
+    (FromJSON (..))
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as A
-import           Data.HashSet (fromMap)
-import           Data.List (span, zipWith3, zipWith4)
+import           Data.HashSet
+    (fromMap)
+import           Data.List
+    (span, zipWith3, zipWith4)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
-import           Data.Ratio ((%))
+import           Data.Ratio
+    ((%))
 import qualified Data.Semigroup as Smg
 import qualified Data.Serialize as Cereal
-import           Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime, getCurrentTime)
-import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import           Data.Time.Units (Microsecond, toMicroseconds, fromMicroseconds)
+import           Data.Time.Clock
+    (NominalDiffTime, UTCTime, diffUTCTime, getCurrentTime)
+import           Data.Time.Clock.POSIX
+    (posixSecondsToUTCTime)
+import           Data.Time.Units
+    (Microsecond, fromMicroseconds, toMicroseconds)
 import qualified Ether
-import           Ether.Internal (HasLens (..))
+import           Ether.Internal
+    (HasLens (..))
 import qualified Formatting as F
-import           GHC.TypeLits (ErrorMessage (..))
+import           GHC.TypeLits
+    (ErrorMessage (..))
 import qualified Language.Haskell.TH as TH
 import qualified Prelude
-import           Serokell.Util (listJson)
-import           Serokell.Util.Exceptions ()
-import           System.Wlog (LoggerName, WithLogger, logDebug, logError, logInfo, usingLoggerName)
+import           Serokell.Util
+    (listJson)
+import           Serokell.Util.Exceptions
+    ()
+import           System.Wlog
+    (LoggerName, WithLogger, logDebug, logError, logInfo, usingLoggerName)
 import qualified Text.Megaparsec as P
 
 ----------------------------------------------------------------------------

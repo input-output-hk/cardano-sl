@@ -1,42 +1,62 @@
+{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE BangPatterns          #-}
 
 module Main where
 
-import           Control.Applicative (empty, liftA2)
-import           Control.Concurrent (threadDelay)
-import           Control.Concurrent.Async (concurrently, forConcurrently)
-import           Control.Exception (throwIO)
-import           Control.Exception.Safe (throwString)
-import           Control.Monad (forM, forM_)
+import           Control.Applicative
+    (empty, liftA2)
+import           Control.Concurrent
+    (threadDelay)
+import           Control.Concurrent.Async
+    (concurrently, forConcurrently)
+import           Control.Exception
+    (throwIO)
+import           Control.Exception.Safe
+    (throwString)
+import           Control.Monad
+    (forM, forM_)
 
-import           Data.Foldable (foldlM)
-import           Data.Functor.Contravariant (contramap)
-import           Data.Time.Units (Microsecond)
-import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           GHC.IO.Encoding (setLocaleEncoding, utf8)
+import           Data.Foldable
+    (foldlM)
+import           Data.Functor.Contravariant
+    (contramap)
+import           Data.Time.Clock.POSIX
+    (getPOSIXTime)
+import           Data.Time.Units
+    (Microsecond)
+import           GHC.IO.Encoding
+    (setLocaleEncoding, utf8)
 import qualified Network.Transport.TCP as TCP
-import qualified Network.Transport.TCP.Internal as TCP (encodeEndPointAddress)
-import           Options.Applicative.Simple (simpleOptions)
-import           System.Random (mkStdGen, randomR)
+import qualified Network.Transport.TCP.Internal as TCP
+    (encodeEndPointAddress)
+import           Options.Applicative.Simple
+    (simpleOptions)
+import           System.Random
+    (mkStdGen, randomR)
 
 import qualified Network.Transport as NT
-import           Node (Conversation (..), ConversationActions (..), Node (Node), NodeAction (..),
-                       converseWith, defaultNodeEnvironment, noReceiveDelay, node,
-                       simpleNodeEndPoint)
-import           Node.Internal (NodeId (..))
-import           Node.Message.Binary (binaryPacking)
-import           Pos.Util.Trace (Severity (..), wlogTrace)
+import           Node
+    (Conversation (..), ConversationActions (..), Node (Node), NodeAction (..),
+    converseWith, defaultNodeEnvironment, noReceiveDelay, node,
+    simpleNodeEndPoint)
+import           Node.Internal
+    (NodeId (..))
+import           Node.Message.Binary
+    (binaryPacking)
+import           Pos.Util.Trace
+    (Severity (..), wlogTrace)
 
-import           Bench.Network.Commons (MeasureEvent (..), Payload (..), Ping (..), Pong (..),
-                                        loadLogConfig, logMeasure)
-import           SenderOptions (Args (..), argsParser)
+import           Bench.Network.Commons
+    (MeasureEvent (..), Payload (..), Ping (..), Pong (..), loadLogConfig,
+    logMeasure)
+import           SenderOptions
+    (Args (..), argsParser)
 
 data PingState = PingState
     { _lastResetMcs    :: !Microsecond

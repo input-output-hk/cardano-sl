@@ -5,20 +5,29 @@ module Pos.Explorer.Txp.Common
        ( buildExplorerExtraLookup
        ) where
 
-import           Universum hiding (keys)
+import           Universum hiding
+    (keys)
 
-import           Control.Lens (at, non)
+import           Control.Lens
+    (at, non)
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Core (Address, Coin)
-import           Pos.Core.Txp (Tx (..), TxAux (..), toaOut, txOutAddress)
-import           Pos.DB.Class (MonadDBRead)
+import           Pos.Core
+    (Address, Coin)
+import           Pos.Core.Chrono
+    (NewestFirst (..))
+import           Pos.Core.Txp
+    (Tx (..), TxAux (..), toaOut, txOutAddress)
+import           Pos.DB.Class
+    (MonadDBRead)
 import qualified Pos.Explorer.DB as ExDB
-import           Pos.Txp.Toil (Utxo)
-import           Pos.Core.Chrono (NewestFirst (..))
+import           Pos.Txp.Toil
+    (Utxo)
 
-import           Pos.Explorer.Core (AddrHistory)
-import           Pos.Explorer.Txp.Toil (ExplorerExtraLookup (..))
+import           Pos.Explorer.Core
+    (AddrHistory)
+import           Pos.Explorer.Txp.Toil
+    (ExplorerExtraLookup (..))
 
 -- | Build 'ExplorerExtraLookup' for given transactions using access
 -- to DB and 'Utxo' corresponding to inputs of these transactions.

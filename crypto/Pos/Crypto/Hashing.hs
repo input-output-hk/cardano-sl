@@ -40,27 +40,38 @@ module Pos.Crypto.Hashing
 
 import           Universum
 
-import           Control.Lens (makeLensesFor)
-import           Crypto.Hash (Blake2b_256, Digest, HashAlgorithm, hashDigestSize)
+import           Control.Lens
+    (makeLensesFor)
+import           Crypto.Hash
+    (Blake2b_256, Digest, HashAlgorithm, hashDigestSize)
 import qualified Crypto.Hash as Hash
-import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..), ToJSON (..),
-                             ToJSONKey (..))
-import           Data.Aeson.Types (toJSONKeyText)
+import           Data.Aeson
+    (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..), ToJSON (..),
+    ToJSONKey (..))
+import           Data.Aeson.Types
+    (toJSONKeyText)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
-import           Data.Coerce (coerce)
-import           Data.Hashable (Hashable (hashWithSalt), hashPtrWithSalt)
-import           Data.Reflection (reifyNat)
+import           Data.Coerce
+    (coerce)
+import           Data.Hashable
+    (Hashable (hashWithSalt), hashPtrWithSalt)
+import           Data.Reflection
+    (reifyNat)
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (Format, bprint, fitLeft, later, sformat, (%.))
+import           Formatting
+    (Format, bprint, fitLeft, later, sformat, (%.))
 import qualified Prelude
 import qualified Serokell.Util.Base16 as B16
-import           System.IO.Unsafe (unsafeDupablePerformIO)
+import           System.IO.Unsafe
+    (unsafeDupablePerformIO)
 
-import           Pos.Binary.Class (Bi (..), Raw)
+import           Pos.Binary.Class
+    (Bi (..), Raw)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Util.Util (parseJSONWithRead, toAesonError, toCborError)
+import           Pos.Util.Util
+    (parseJSONWithRead, toAesonError, toCborError)
 
 ----------------------------------------------------------------------------
 -- WithHash

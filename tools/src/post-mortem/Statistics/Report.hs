@@ -2,13 +2,16 @@ module Statistics.Report
     ( reportTxFate
     ) where
 
-import           Data.Map.Strict (Map)
+import           Data.Map.Strict
+    (Map)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import qualified Data.Text as T
-import           System.IO (hPutStrLn)
+import           System.IO
+    (hPutStrLn)
 
-import           Statistics.Block (TxFate (..))
+import           Statistics.Block
+    (TxFate (..))
 import           Types
 import           Universum
 

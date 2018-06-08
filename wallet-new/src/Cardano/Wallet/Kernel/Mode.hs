@@ -8,7 +8,8 @@ module Cardano.Wallet.Kernel.Mode
     , getWallet
     ) where
 
-import           Control.Lens (makeLensesWith)
+import           Control.Lens
+    (makeLensesWith)
 import           Universum
 
 import           Mockable
@@ -21,13 +22,15 @@ import           Pos.Core.Chrono
 import           Pos.DB
 import           Pos.DB.Block
 import           Pos.DB.DB
-import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
+import           Pos.Infra.Diffusion.Types
+    (Diffusion, hoistDiffusion)
 import           Pos.Infra.Network.Types
 import           Pos.Infra.Reporting
 import           Pos.Infra.Shutdown
 import           Pos.Infra.Slotting
 import           Pos.Infra.Util.JsonLog.Events
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
+import           Pos.Infra.Util.TimeWarp
+    (CanJsonLog (..))
 import           Pos.Launcher
 import           Pos.Txp.Configuration
 import           Pos.Txp.Logic
@@ -35,7 +38,8 @@ import           Pos.Txp.MemState
 import           Pos.Util
 import           Pos.WorkMode
 
-import           Cardano.Wallet.WalletLayer (PassiveWalletLayer (..), applyBlocks, rollbackBlocks)
+import           Cardano.Wallet.WalletLayer
+    (PassiveWalletLayer (..), applyBlocks, rollbackBlocks)
 
 {-------------------------------------------------------------------------------
   The wallet context and monad

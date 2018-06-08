@@ -7,14 +7,21 @@ module SenderOptions
        , argsParser
        ) where
 
-import           Data.Int (Int64)
-import           Data.Monoid ((<>))
-import           Data.String (fromString)
-import           Data.Word (Word16)
-import           Options.Applicative.Simple (Parser, auto, help, long, metavar, option, optional,
-                                             short, showDefault, some, strOption, value, readerError)
-import           Pos.Util.OptParse (fromParsec)
-import           Serokell.Util.Parse (connection)
+import           Data.Int
+    (Int64)
+import           Data.Monoid
+    ((<>))
+import           Data.String
+    (fromString)
+import           Data.Word
+    (Word16)
+import           Options.Applicative.Simple
+    (Parser, auto, help, long, metavar, option, optional, readerError, short,
+    showDefault, some, strOption, value)
+import           Pos.Util.OptParse
+    (fromParsec)
+import           Serokell.Util.Parse
+    (connection)
 
 data Args = Args
     { logConfig    :: !(Maybe FilePath)

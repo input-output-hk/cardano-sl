@@ -30,17 +30,25 @@ module Pos.Script.Examples
        ) where
 
 import qualified Data.ByteString as BS
-import           Formatting (build, sformat, (%))
-import           NeatInterpolation (text)
-import           Serokell.Util.Base16 (base16F)
+import           Formatting
+    (build, sformat, (%))
+import           NeatInterpolation
+    (text)
+import           Serokell.Util.Base16
+    (base16F)
 import           Universum
 
-import           Pos.Binary.Core ()
-import           Pos.Core (StakeholderId, TxSigData)
-import           Pos.Crypto (SafeSigner, SignTag (SignTx), deterministicKeyGen, fullPublicKeyHexF,
-                             fullSignatureHexF, hashHexF, safeSign, safeToPublic, signRaw, signTag)
-import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
-import           Pos.Script (Script, parseRedeemer, parseValidator)
+import           Pos.Binary.Core
+    ()
+import           Pos.Core
+    (StakeholderId, TxSigData)
+import           Pos.Crypto
+    (SafeSigner, SignTag (SignTx), deterministicKeyGen, fullPublicKeyHexF,
+    fullSignatureHexF, hashHexF, safeSign, safeToPublic, signRaw, signTag)
+import           Pos.Crypto.Configuration
+    (HasProtocolMagic, protocolMagic)
+import           Pos.Script
+    (Script, parseRedeemer, parseValidator)
 
 fromE :: Either String Script -> Script
 fromE = either (error . toText) identity

@@ -13,29 +13,41 @@ import           Universum
 
 import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Archive.Tar.Entry as Tar
-import           System.Wlog (LoggerConfig (..), LoggerName, hwFilePath, lcTree, ltFiles,
-                              ltSubloggers, retrieveLogContent)
-import           Control.Lens (each, to)
+import           Control.Lens
+    (each, to)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
-import           Data.Conduit (runConduitRes, yield, (.|))
-import           Data.Conduit.List (consume)
+import           Data.Conduit
+    (runConduitRes, yield, (.|))
+import           Data.Conduit.List
+    (consume)
 import qualified Data.Conduit.Lzma as Lzma
 import qualified Data.HashMap.Strict as HM
-import           Data.List (isSuffixOf)
+import           Data.List
+    (isSuffixOf)
 import qualified Data.Text.IO as TIO
-import           Data.Time.Clock (getCurrentTime)
-import           Data.Time.Format (defaultTimeLocale, formatTime)
-import           System.Directory (canonicalizePath, doesFileExist, getTemporaryDirectory,
-                                   removeFile)
-import           System.FilePath (takeFileName)
-import           System.IO (IOMode (WriteMode), hClose, hFlush, withFile)
+import           Data.Time.Clock
+    (getCurrentTime)
+import           Data.Time.Format
+    (defaultTimeLocale, formatTime)
+import           System.Directory
+    (canonicalizePath, doesFileExist, getTemporaryDirectory, removeFile)
+import           System.FilePath
+    (takeFileName)
+import           System.IO
+    (IOMode (WriteMode), hClose, hFlush, withFile)
+import           System.Wlog
+    (LoggerConfig (..), LoggerName, hwFilePath, lcTree, ltFiles, ltSubloggers,
+    retrieveLogContent)
 
 -- FIXME we get PackingError from here, but it should defined locally, since
 -- it's log-warper specific.
-import           Pos.Infra.Reporting.Exceptions (ReportingError (..))
-import           Pos.Util.Filesystem (withSystemTempFile)
-import           Pos.Util.Util ((<//>))
+import           Pos.Infra.Reporting.Exceptions
+    (ReportingError (..))
+import           Pos.Util.Filesystem
+    (withSystemTempFile)
+import           Pos.Util.Util
+    ((<//>))
 
 
 -- | Use a 'LoggerConfig' to get logs, write them to a temporary file,
@@ -46,7 +58,7 @@ withWlogTempFile :: LoggerConfig -> (Maybe FilePath -> IO t) -> IO t
 withWlogTempFile logConfig k = do
     mRawLogs <- readWlogFile logConfig
     case mRawLogs of
-        Nothing -> k Nothing
+        Nothing      -> k Nothing
         Just rawLogs -> withTempLogFile rawLogs $ \fp -> k (Just fp)
 
 -- | Use a 'LoggerConfig' to get logs.

@@ -11,42 +11,68 @@ module Main where
 
 import           Universum
 
-import           Control.Concurrent.STM (newTQueueIO)
-import           Data.Default (def)
-import           Data.Maybe (fromJust, isJust)
-import           Data.Time.Units (fromMicroseconds)
-import           Mockable (Production, runProduction)
+import           Control.Concurrent.STM
+    (newTQueueIO)
+import           Data.Default
+    (def)
+import           Data.Maybe
+    (fromJust, isJust)
+import           Data.Time.Units
+    (fromMicroseconds)
+import           Mockable
+    (Production, runProduction)
 import qualified Network.Transport.TCP as TCP
-import           Options.Generic (getRecord)
-import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..), NodeArgs (..), getNodeParams,
-                                 gtSscParams)
-import           Pos.Core (Timestamp (..))
-import           Pos.DB.DB (initNodeDBs)
-import           Pos.DB.Rocks.Functions (openNodeDBs)
-import           Pos.DB.Rocks.Types (NodeDBs)
-import           Pos.Infra.Network.CLI (NetworkConfigOpts (..))
-import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..),
-                                          topologyDequeuePolicy,
-                                          topologyEnqueuePolicy,
-                                          topologyFailurePolicy)
-import           Pos.Infra.Reporting (noReporter)
-import           Pos.Infra.Util.JsonLog.Events (jsonLogConfigFromHandle)
-import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeResources (..),
-                               bracketNodeResources, defaultConfigurationOptions, npBehaviorConfig,
-                               npUserSecret, withConfigurations)
-import           Pos.Txp (txpGlobalSettings)
-import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
-import           Pos.Wallet.Web.State.Acidic (closeState, openState)
-import           Pos.Wallet.Web.State.State (WalletDB)
-import           Pos.WorkMode (RealModeContext (..))
-import           System.Wlog (HasLoggerName (..), LoggerName (..))
+import           Options.Generic
+    (getRecord)
+import           Pos.Client.CLI
+    (CommonArgs (..), CommonNodeArgs (..), NodeArgs (..), getNodeParams,
+    gtSscParams)
+import           Pos.Core
+    (Timestamp (..))
+import           Pos.DB.DB
+    (initNodeDBs)
+import           Pos.DB.Rocks.Functions
+    (openNodeDBs)
+import           Pos.DB.Rocks.Types
+    (NodeDBs)
+import           Pos.Infra.Network.CLI
+    (NetworkConfigOpts (..))
+import           Pos.Infra.Network.Types
+    (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
+    topologyEnqueuePolicy, topologyFailurePolicy)
+import           Pos.Infra.Reporting
+    (noReporter)
+import           Pos.Infra.Util.JsonLog.Events
+    (jsonLogConfigFromHandle)
+import           Pos.Launcher
+    (ConfigurationOptions (..), HasConfigurations, NodeResources (..),
+    bracketNodeResources, defaultConfigurationOptions, npBehaviorConfig,
+    npUserSecret, withConfigurations)
+import           Pos.Txp
+    (txpGlobalSettings)
+import           Pos.Util.UserSecret
+    (usVss)
+import           Pos.Wallet.Web.Mode
+    (WalletWebModeContext (..))
+import           Pos.Wallet.Web.State.Acidic
+    (closeState, openState)
+import           Pos.Wallet.Web.State.State
+    (WalletDB)
+import           Pos.WorkMode
+    (RealModeContext (..))
+import           System.Wlog
+    (HasLoggerName (..), LoggerName (..))
 
-import           CLI (CLI (..))
-import           Lib (generateWalletDB, loadGenSpec)
-import           Rendering (bold, say)
-import           Stats (showStatsAndExit, showStatsData)
-import           Types (UberMonad)
+import           CLI
+    (CLI (..))
+import           Lib
+    (generateWalletDB, loadGenSpec)
+import           Rendering
+    (bold, say)
+import           Stats
+    (showStatsAndExit, showStatsData)
+import           Types
+    (UberMonad)
 
 defaultNetworkConfig :: Topology kademlia -> NetworkConfig kademlia
 defaultNetworkConfig ncTopology = NetworkConfig {

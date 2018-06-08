@@ -29,31 +29,46 @@ module Test.Pos.Crypto.TempHelpers
 
 import           Universum
 
-import           Control.Monad.IO.Class (liftIO)
-import           Data.Aeson (FromJSON, ToJSON)
-import qualified Data.Aeson as JSON (decode, encode)
+import           Control.Monad.IO.Class
+    (liftIO)
+import           Data.Aeson
+    (FromJSON, ToJSON)
+import qualified Data.Aeson as JSON
+    (decode, encode)
 import qualified Data.ByteString.Lazy.Char8 as BS
-import           Data.FileEmbed (embedStringFile)
+import           Data.FileEmbed
+    (embedStringFile)
 import qualified Data.List as List
-import           Data.Text.Buildable (Buildable (..))
-import           Data.Text.Internal.Builder (fromText, toLazyText)
-import           Language.Haskell.TH (ExpQ, Q, loc_filename, runIO)
-import           Language.Haskell.TH.Syntax (qLocation)
-import           System.Directory (canonicalizePath)
-import           System.FilePath (takeDirectory, (</>))
+import           Data.Text.Buildable
+    (Buildable (..))
+import           Data.Text.Internal.Builder
+    (fromText, toLazyText)
+import           Language.Haskell.TH
+    (ExpQ, Q, loc_filename, runIO)
+import           Language.Haskell.TH.Syntax
+    (qLocation)
+import           System.Directory
+    (canonicalizePath)
+import           System.FilePath
+    (takeDirectory, (</>))
 
-import           Hedgehog (Gen, Group, MonadTest, Property, PropertyT, TestLimit, discoverPrefix,
-                           eval, forAll, property, success, tripping, withTests, (===))
-import           Hedgehog.Internal.Property (Diff (..), failWith)
-import           Hedgehog.Internal.Show (LineDiff, lineDiff, mkValue, renderLineDiff, showPretty,
-                                         valueDiff)
-import           Hedgehog.Internal.TH (TExpQ)
+import           Hedgehog
+    (Gen, Group, MonadTest, Property, PropertyT, TestLimit, discoverPrefix,
+    eval, forAll, property, success, tripping, withTests, (===))
+import           Hedgehog.Internal.Property
+    (Diff (..), failWith)
+import           Hedgehog.Internal.Show
+    (LineDiff, lineDiff, mkValue, renderLineDiff, showPretty, valueDiff)
+import           Hedgehog.Internal.TH
+    (TExpQ)
 
-import           Pos.Binary.Class (Bi (..), decodeFull, serialize)
+import           Pos.Binary.Class
+    (Bi (..), decodeFull, serialize)
 
 import qualified Prelude
 
-import           Text.Show.Pretty (Value (..), parseValue)
+import           Text.Show.Pretty
+    (Value (..), parseValue)
 
 import qualified Test.Pos.Util.Base16 as B16
 

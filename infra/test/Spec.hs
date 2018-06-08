@@ -3,8 +3,10 @@ module Spec
     ) where
 
 import           Test.Hspec
-import qualified Test.Pos.Infra.Diffusion.Subscription.StatusSpec (spec)
-import qualified Test.Pos.Infra.Diffusion.Subscription.SubscriptionSpec (spec)
+import qualified Test.Pos.Infra.Diffusion.Subscription.StatusSpec
+    (spec)
+import qualified Test.Pos.Infra.Diffusion.Subscription.SubscriptionSpec
+    (spec)
 
 spec :: Spec
 spec = describe "Subscription" $ do

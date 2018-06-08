@@ -4,7 +4,8 @@ module Pos.Communication.Server
        ( serverLoggerName
        ) where
 
-import           System.Wlog (LoggerName)
+import           System.Wlog
+    (LoggerName)
 
 -- | Logger name for server.
 serverLoggerName :: LoggerName

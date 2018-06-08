@@ -4,18 +4,26 @@ module Main (main) where
 
 import           Universum
 
-import           Data.Version (showVersion)
-import           NeatInterpolation (text)
-import           Options.Applicative (Parser, execParser, footerDoc, fullDesc, header, help, helper,
-                                      info, infoOption, long, metavar, option, optional, progDesc,
-                                      short)
-import           Options.Applicative.Types (readerAsk)
-import           Text.PrettyPrint.ANSI.Leijen (Doc)
+import           Data.Version
+    (showVersion)
+import           NeatInterpolation
+    (text)
+import           Options.Applicative
+    (Parser, execParser, footerDoc, fullDesc, header, help, helper, info,
+    infoOption, long, metavar, option, optional, progDesc, short)
+import           Options.Applicative.Types
+    (readerAsk)
+import           Text.PrettyPrint.ANSI.Leijen
+    (Doc)
 
-import           Paths_cardano_sl (version)
-import           Pos.Core (makeRedeemAddress)
-import           Pos.Crypto.Signing (fromAvvmPk)
-import           Pos.Util.Util (eitherToThrow)
+import           Paths_cardano_sl
+    (version)
+import           Pos.Core
+    (makeRedeemAddress)
+import           Pos.Crypto.Signing
+    (fromAvvmPk)
+import           Pos.Util.Util
+    (eitherToThrow)
 
 data AddrConvertOptions = AddrConvertOptions
     { address :: !(Maybe Text)

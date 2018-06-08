@@ -10,10 +10,12 @@ module Pos.Util.Trace
     , Wlog.Severity (..)
     ) where
 
-import           Universum hiding (trace)
-import           Data.Functor.Contravariant (Contravariant (..), Op (..))
+import           Data.Functor.Contravariant
+    (Contravariant (..), Op (..))
 import qualified Data.Text.IO as TIO
 import qualified System.Wlog as Wlog
+import           Universum hiding
+    (trace)
 
 -- | Abstracts logging.
 newtype Trace m s = Trace

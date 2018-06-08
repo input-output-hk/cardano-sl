@@ -16,49 +16,72 @@ module Pos.WorkMode
 
 import           Universum
 
-import           Control.Lens (makeLensesWith)
+import           Control.Lens
+    (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
-import           Mockable (Production)
-import           System.Wlog (HasLoggerName (..), LoggerName)
+import           Mockable
+    (Production)
+import           System.Wlog
+    (HasLoggerName (..), LoggerName)
 
-import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub, onRollbackBlocksStub)
-import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
-import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..), HasSscContext (..),
-                              NodeContext)
-import           Pos.Core (HasConfiguration)
-import           Pos.DB (MonadGState (..), NodeDBs)
-import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
-                               dbPutSerBlundsRealDefault)
-import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
-import           Pos.DB.DB (gsAdoptedBVDataDefault)
-import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
-                               dbWriteBatchDefault)
-import           Pos.Delegation.Class (DelegationVar)
-import           Pos.Infra.DHT.Real.Param (KademliaParams)
-import           Pos.Infra.Network.Types (HasNodeType (..), getNodeTypeDefault)
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..),
-                                      MonadReporting (..), Reporter (..))
-import           Pos.Infra.Shutdown (HasShutdownContext (..))
-import           Pos.Infra.Slotting.Class (MonadSlots (..))
-import           Pos.Infra.Slotting.Impl (currentTimeSlottingSimple,
-                                          getCurrentSlotBlockingSimple,
-                                          getCurrentSlotInaccurateSimple,
-                                          getCurrentSlotSimple)
-import           Pos.Infra.Slotting.MemState (HasSlottingVar (..),
-                                              MonadSlotsData)
-import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
-                                                JsonLogConfig, jsonLogDefault)
-import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
-import           Pos.Ssc.Mem (SscMemTag)
-import           Pos.Ssc.Types (SscState)
-import           Pos.Txp (GenericTxpLocalData, HasTxpConfiguration, MempoolExt, MonadTxpLocal (..),
-                          TxpHolderTag, txNormalize, txProcessTransaction)
-import           Pos.Util.Lens (postfixLFields)
-import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
-                                      modifyLoggerNameDefault)
-import           Pos.Util.UserSecret (HasUserSecret (..))
-import           Pos.Util.Util (HasLens (..))
-import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
+import           Pos.Block.BListener
+    (MonadBListener (..), onApplyBlocksStub, onRollbackBlocksStub)
+import           Pos.Block.Slog
+    (HasSlogContext (..), HasSlogGState (..))
+import           Pos.Context
+    (HasNodeContext (..), HasPrimaryKey (..), HasSscContext (..), NodeContext)
+import           Pos.Core
+    (HasConfiguration)
+import           Pos.DB
+    (MonadGState (..), NodeDBs)
+import           Pos.DB.Block
+    (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
+    dbPutSerBlundsRealDefault)
+import           Pos.DB.Class
+    (MonadDB (..), MonadDBRead (..))
+import           Pos.DB.DB
+    (gsAdoptedBVDataDefault)
+import           Pos.DB.Rocks
+    (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
+    dbWriteBatchDefault)
+import           Pos.Delegation.Class
+    (DelegationVar)
+import           Pos.Infra.DHT.Real.Param
+    (KademliaParams)
+import           Pos.Infra.Network.Types
+    (HasNodeType (..), getNodeTypeDefault)
+import           Pos.Infra.Reporting
+    (HasMisbehaviorMetrics (..), MonadReporting (..), Reporter (..))
+import           Pos.Infra.Shutdown
+    (HasShutdownContext (..))
+import           Pos.Infra.Slotting.Class
+    (MonadSlots (..))
+import           Pos.Infra.Slotting.Impl
+    (currentTimeSlottingSimple, getCurrentSlotBlockingSimple,
+    getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
+import           Pos.Infra.Slotting.MemState
+    (HasSlottingVar (..), MonadSlotsData)
+import           Pos.Infra.Util.JsonLog.Events
+    (HasJsonLogConfig (..), JsonLogConfig, jsonLogDefault)
+import           Pos.Infra.Util.TimeWarp
+    (CanJsonLog (..))
+import           Pos.Ssc.Mem
+    (SscMemTag)
+import           Pos.Ssc.Types
+    (SscState)
+import           Pos.Txp
+    (GenericTxpLocalData, HasTxpConfiguration, MempoolExt, MonadTxpLocal (..),
+    TxpHolderTag, txNormalize, txProcessTransaction)
+import           Pos.Util.Lens
+    (postfixLFields)
+import           Pos.Util.LoggerName
+    (HasLoggerName' (..), askLoggerNameDefault, modifyLoggerNameDefault)
+import           Pos.Util.UserSecret
+    (HasUserSecret (..))
+import           Pos.Util.Util
+    (HasLens (..))
+import           Pos.WorkMode.Class
+    (MinWorkMode, WorkMode)
 
 data RealModeContext ext = RealModeContext
     { rmcNodeDBs       :: !NodeDBs

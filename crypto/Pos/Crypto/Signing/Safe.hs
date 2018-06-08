@@ -20,18 +20,25 @@ module Pos.Crypto.Signing.Safe
 import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
-import           Crypto.Random (MonadRandom, getRandomBytes)
+import           Crypto.Random
+    (MonadRandom, getRandomBytes)
 import qualified Data.ByteString as BS
-import           Data.Coerce (coerce)
+import           Data.Coerce
+    (coerce)
 
-import           Pos.Binary.Class (Bi, Raw)
+import           Pos.Binary.Class
+    (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Crypto.Configuration (ProtocolMagic)
-import           Pos.Crypto.Hashing (hash)
+import           Pos.Crypto.Configuration
+    (ProtocolMagic)
+import           Pos.Crypto.Hashing
+    (hash)
 import qualified Pos.Crypto.Scrypt as S
-import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..), PublicKey (..),
-                                             SecretKey (..), Signature (..), sign, toPublic)
-import           Pos.Crypto.Signing.Tag (SignTag (SignProxySK), signTag)
+import           Pos.Crypto.Signing.Signing
+    (ProxyCert (..), ProxySecretKey (..), PublicKey (..), SecretKey (..),
+    Signature (..), sign, toPublic)
+import           Pos.Crypto.Signing.Tag
+    (SignTag (SignProxySK), signTag)
 import           Pos.Crypto.Signing.Types.Safe
 
 -- | Regenerates secret key with new passphrase.

@@ -25,48 +25,71 @@ module Pos.Arbitrary.Core
 
 import           Universum
 
-import qualified Data.ByteString as BS (pack)
-import           Data.List ((!!))
+import qualified Data.ByteString as BS
+    (pack)
+import           Data.List
+    ((!!))
 import qualified Data.Map as M
-import           Data.Time.Units (Second, TimeUnit (..), convertUnit)
-import           System.Random (Random)
-import           Test.QuickCheck (Arbitrary (..), Gen, choose, oneof, scale, shrinkIntegral, sized,
-                                  suchThat)
+import           Data.Time.Units
+    (Second, TimeUnit (..), convertUnit)
+import           System.Random
+    (Random)
+import           Test.QuickCheck
+    (Arbitrary (..), Gen, choose, oneof, scale, shrinkIntegral, sized,
+    suchThat)
 
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
-import           Test.QuickCheck.Instances ()
+import           Test.QuickCheck.Arbitrary.Generic
+    (genericArbitrary, genericShrink)
+import           Test.QuickCheck.Instances
+    ()
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Binary.Core ()
-import           Pos.Core.Common (AddrAttributes, AddrSpendingData (..), AddrStakeDistribution (..),
-                                  AddrType (..), Address, Address' (..), BlockCount (..),
-                                  ChainDifficulty (..), Coeff (..), Coin, CoinPortion (..), Script,
-                                  SharedSeed (..), StakeholderId, TxFeePolicy (..), TxSizeLinear,
-                                  coinPortionDenominator, coinToInteger, divCoin, makeAddress,
-                                  maxCoinVal, mkCoin, mkMultiKeyDistr, unsafeCoinPortionFromDouble,
-                                  unsafeGetCoin, unsafeSubCoin)
-import           Pos.Core.Configuration (HasGenesisBlockVersionData, HasProtocolConstants,
-                                         epochSlots, protocolConstants)
-import           Pos.Core.Constants (sharedSeedLength)
-import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
+import           Pos.Binary.Class
+    (Bi)
+import           Pos.Binary.Core
+    ()
+import           Pos.Core.Common
+    (AddrAttributes, AddrSpendingData (..), AddrStakeDistribution (..),
+    AddrType (..), Address, Address' (..), BlockCount (..),
+    ChainDifficulty (..), Coeff (..), Coin, CoinPortion (..), Script,
+    SharedSeed (..), StakeholderId, TxFeePolicy (..), TxSizeLinear,
+    coinPortionDenominator, coinToInteger, divCoin, makeAddress, maxCoinVal,
+    mkCoin, mkMultiKeyDistr, unsafeCoinPortionFromDouble, unsafeGetCoin,
+    unsafeSubCoin)
+import           Pos.Core.Configuration
+    (HasGenesisBlockVersionData, HasProtocolConstants, epochSlots,
+    protocolConstants)
+import           Pos.Core.Constants
+    (sharedSeedLength)
+import           Pos.Core.Delegation
+    (HeavyDlgIndex (..), LightDlgIndices (..))
 import qualified Pos.Core.Genesis as G
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
-import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), LocalSlotIndex (..),
-                                    SlotCount (..), SlotId (..), TimeDiff (..), Timestamp (..),
-                                    localSlotIndexMaxBound, localSlotIndexMinBound,
-                                    mkLocalSlotIndex)
-import           Pos.Core.Ssc (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
-import           Pos.Core.Update (BlockVersionData (..))
+import           Pos.Core.ProtocolConstants
+    (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
+import           Pos.Core.Slotting
+    (EpochIndex (..), EpochOrSlot (..), LocalSlotIndex (..), SlotCount (..),
+    SlotId (..), TimeDiff (..), Timestamp (..), localSlotIndexMaxBound,
+    localSlotIndexMinBound, mkLocalSlotIndex)
+import           Pos.Core.Ssc
+    (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
+import           Pos.Core.Update
+    (BlockVersionData (..))
 import qualified Pos.Core.Update as U
-import           Pos.Crypto (HasProtocolMagic, ProtocolMagic, createPsk, protocolMagic, toPublic)
-import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
+import           Pos.Crypto
+    (HasProtocolMagic, ProtocolMagic, createPsk, protocolMagic, toPublic)
+import           Pos.Data.Attributes
+    (Attributes (..), UnparsedFields (..))
 
-import           Pos.Merkle (MerkleTree, mkMerkleTree)
-import           Pos.Util.Util (leftToPanic)
+import           Pos.Merkle
+    (MerkleTree, mkMerkleTree)
+import           Pos.Util.Util
+    (leftToPanic)
 
-import           Test.Pos.Crypto.Arbitrary ()
-import           Test.Pos.Util.Orphans ()
-import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)
+import           Test.Pos.Crypto.Arbitrary
+    ()
+import           Test.Pos.Util.Orphans
+    ()
+import           Test.Pos.Util.QuickCheck.Arbitrary
+    (nonrepeating)
 
 
 {- NOTE: Deriving an 'Arbitrary' instance

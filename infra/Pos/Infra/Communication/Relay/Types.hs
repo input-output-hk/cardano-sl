@@ -5,17 +5,23 @@ module Pos.Infra.Communication.Relay.Types
        , PropagationMsg (..)
        ) where
 
-import           Prelude (Show (..))
-import           Universum hiding (Show)
+import           Prelude
+    (Show (..))
+import           Universum hiding
+    (Show)
 
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, build, (%))
-import           Node (Message)
+import           Formatting
+    (bprint, build, (%))
+import           Node
+    (Message)
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Infra.Communication.Types.Protocol (Msg)
-import           Pos.Infra.Communication.Types.Relay (DataMsg, InvOrData,
-                                                      ReqOrRes)
+import           Pos.Binary.Class
+    (Bi)
+import           Pos.Infra.Communication.Types.Protocol
+    (Msg)
+import           Pos.Infra.Communication.Types.Relay
+    (DataMsg, InvOrData, ReqOrRes)
 
 data RelayError = UnexpectedInv
                 | UnexpectedData

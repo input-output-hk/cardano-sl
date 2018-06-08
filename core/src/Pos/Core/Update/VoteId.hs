@@ -8,12 +8,16 @@ module Pos.Core.Update.VoteId
 import           Universum
 
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, build, (%))
+import           Formatting
+    (bprint, build, (%))
 
-import           Pos.Crypto (PublicKey)
+import           Pos.Crypto
+    (PublicKey)
 
-import           Pos.Core.Update.Proposal (UpId)
-import           Pos.Core.Update.Vote (UpdateVote (..))
+import           Pos.Core.Update.Proposal
+    (UpId)
+import           Pos.Core.Update.Vote
+    (UpdateVote (..))
 
 type VoteId = (UpId, PublicKey, Bool)
 

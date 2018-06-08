@@ -81,55 +81,80 @@ module Cardano.Wallet.API.V1.Types (
 
 import           Universum
 
-import           Control.Lens (At, Index, IxValue, at, ix, makePrisms, to, (?~))
+import           Control.Lens
+    (At, Index, IxValue, at, ix, makePrisms, to, (?~))
 import           Data.Aeson
 import           Data.Aeson.TH as A
-import           Data.Aeson.Types (toJSONKeyText, typeMismatch)
+import           Data.Aeson.Types
+    (toJSONKeyText, typeMismatch)
 import qualified Data.Char as C
 import           Data.Swagger as S
-import           Data.Swagger.Declare (Declare, look)
-import           Data.Swagger.Internal.Schema (GToSchema)
-import           Data.Swagger.Internal.TypeShape (GenericHasSimpleShape, GenericShape)
-import           Data.Text (Text, dropEnd, toLower)
+import           Data.Swagger.Declare
+    (Declare, look)
+import           Data.Swagger.Internal.Schema
+    (GToSchema)
+import           Data.Swagger.Internal.TypeShape
+    (GenericHasSimpleShape, GenericShape)
+import           Data.Text
+    (Text, dropEnd, toLower)
 import qualified Data.Text as T
 import qualified Data.Text.Buildable
-import           Data.Version (Version)
-import           Formatting (bprint, build, fconst, int, sformat, (%))
-import           GHC.Generics (Generic, Rep)
-import           Network.Transport (EndPointAddress (..))
-import           Node (NodeId (..))
+import           Data.Version
+    (Version)
+import           Formatting
+    (bprint, build, fconst, int, sformat, (%))
+import           GHC.Generics
+    (Generic, Rep)
+import           Network.Transport
+    (EndPointAddress (..))
+import           Node
+    (NodeId (..))
 import qualified Prelude
 import qualified Serokell.Aeson.Options as Serokell
-import           Serokell.Util (listJson)
+import           Serokell.Util
+    (listJson)
 import qualified Serokell.Util.Base16 as Base16
 import           Servant
 import           Test.QuickCheck
-import           Test.QuickCheck.Gen (Gen (..))
-import           Test.QuickCheck.Random (mkQCGen)
+import           Test.QuickCheck.Gen
+    (Gen (..))
+import           Test.QuickCheck.Random
+    (mkQCGen)
 
-import           Cardano.Wallet.API.Types.UnitOfMeasure (MeasuredIn (..), UnitOfMeasure (..))
-import           Cardano.Wallet.Orphans.Aeson ()
+import           Cardano.Wallet.API.Types.UnitOfMeasure
+    (MeasuredIn (..), UnitOfMeasure (..))
+import           Cardano.Wallet.Orphans.Aeson
+    ()
 
 -- V0 logic
-import           Pos.Util.BackupPhrase (BackupPhrase (..))
+import           Pos.Util.BackupPhrase
+    (BackupPhrase (..))
 
 -- importing for orphan instances for Coin
-import           Pos.Wallet.Web.ClientTypes.Instances ()
+import           Pos.Wallet.Web.ClientTypes.Instances
+    ()
 
-import           Cardano.Wallet.Util (showApiUtcTime)
+import           Cardano.Wallet.Util
+    (showApiUtcTime)
 import qualified Data.ByteArray as ByteArray
 import qualified Data.ByteString as BS
 import qualified Data.Map.Strict as Map
-import           Pos.Aeson.Core ()
-import           Pos.Arbitrary.Core ()
+import           Pos.Aeson.Core
+    ()
+import           Pos.Arbitrary.Core
+    ()
 import qualified Pos.Client.Txp.Util as Core
-import           Pos.Core (addressF)
+import           Pos.Core
+    (addressF)
 import qualified Pos.Core as Core
-import           Pos.Crypto (decodeHash, hashHexF)
+import           Pos.Crypto
+    (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
-import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStatus (..))
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe, buildSafeList,
-                                   buildSafeMaybe, deriveSafeBuildable, plainOrSecureF)
+import           Pos.Infra.Diffusion.Subscription.Status
+    (SubscriptionStatus (..))
+import           Pos.Infra.Util.LogSafe
+    (BuildableSafeGen (..), SecureLog (..), buildSafe, buildSafeList,
+    buildSafeMaybe, deriveSafeBuildable, plainOrSecureF)
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
 
 

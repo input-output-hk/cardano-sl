@@ -7,13 +7,18 @@ module Pos.Txp.Logic.Common
 
 import           Universum
 
-import qualified Data.Map as M (fromList)
+import qualified Data.Map as M
+    (fromList)
 
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOutAux)
-import           Pos.Crypto (hash)
-import           Pos.DB.Class (MonadDBRead)
+import           Pos.Core.Txp
+    (Tx (..), TxAux (..), TxIn (..), TxOutAux)
+import           Pos.Crypto
+    (hash)
+import           Pos.DB.Class
+    (MonadDBRead)
 import qualified Pos.Txp.DB as DB
-import           Pos.Txp.Toil (Utxo, UtxoModifier)
+import           Pos.Txp.Toil
+    (Utxo, UtxoModifier)
 import qualified Pos.Util.Modifier as MM
 
 -- | Build base 'Utxo' for given transactions considering given

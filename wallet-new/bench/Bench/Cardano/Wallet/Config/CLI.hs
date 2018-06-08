@@ -8,13 +8,12 @@ module Bench.Cardano.Wallet.Config.CLI
 
 import           Universum
 
-import           Options.Applicative        (Parser,
-                                             execParser, fullDesc, header,
-                                             help, helper, info, long,
-                                             metavar, progDesc,
-                                             strOption, switch)
+import           Options.Applicative
+    (Parser, execParser, fullDesc, header, help, helper, info, long, metavar,
+    progDesc, strOption, switch)
 
-import           Bench.Cardano.Wallet.Types (CLOptions (..))
+import           Bench.Cardano.Wallet.Types
+    (CLOptions (..))
 
 -- | Parser for command-line options.
 optionsParser :: Parser CLOptions

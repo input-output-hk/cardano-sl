@@ -47,29 +47,40 @@ module Cardano.Wallet.Kernel.Submission (
     , exponentialBackoff
     ) where
 
-import           Universum hiding (elems)
+import           Universum hiding
+    (elems)
 
-import           Control.Lens (Getter, to)
+import           Control.Lens
+    (Getter, to)
 import           Control.Lens.TH
-import           Data.IntMap.Strict (IntMap)
+import           Data.IntMap.Strict
+    (IntMap)
 import qualified Data.IntMap.Strict as IntMap
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Map.Strict as M
-import           Data.Set (Set)
+import           Data.Set
+    (Set)
 import qualified Data.Set as Set
-import           Data.Text.Buildable (build)
-import           Formatting (bprint, sformat, (%))
+import           Data.Text.Buildable
+    (build)
+import           Formatting
+    (bprint, sformat, (%))
 import qualified Formatting as F
-import           Pos.Crypto.Hashing (WithHash (..))
-import           Pos.Txp.Topsort (topsortTxs)
+import           Pos.Crypto.Hashing
+    (WithHash (..))
+import           Pos.Txp.Topsort
+    (topsortTxs)
 import qualified Prelude
-import           Serokell.Util.Text (listJsonIndent, mapBuilder, pairF)
+import           Serokell.Util.Text
+    (listJsonIndent, mapBuilder, pairF)
 import           Test.QuickCheck
 
-import           Cardano.Wallet.Kernel.DB.InDb (fromDb)
-import           Cardano.Wallet.Kernel.DB.Spec (Pending (..), emptyPending, pendingTransactions,
-                                                removePending, unionPending)
+import           Cardano.Wallet.Kernel.DB.InDb
+    (fromDb)
+import           Cardano.Wallet.Kernel.DB.Spec
+    (Pending (..), emptyPending, pendingTransactions, removePending,
+    unionPending)
 import qualified Pos.Core as Core
 
 -- | Wallet Submission Layer

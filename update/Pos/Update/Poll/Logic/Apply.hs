@@ -6,38 +6,53 @@ module Pos.Update.Poll.Logic.Apply
        , verifyAndApplyVoteDo
        ) where
 
-import           Universum hiding (id)
+import           Universum hiding
+    (id)
 
-import           Control.Monad.Except (MonadError, runExceptT, throwError)
+import           Control.Monad.Except
+    (MonadError, runExceptT, throwError)
 import qualified Data.HashSet as HS
-import           Data.List (partition)
+import           Data.List
+    (partition)
 import qualified Data.List.NonEmpty as NE
-import           Formatting (build, builder, int, sformat, (%))
-import           System.Wlog (logDebug, logInfo, logNotice)
+import           Formatting
+    (build, builder, int, sformat, (%))
+import           System.Wlog
+    (logDebug, logInfo, logNotice)
 
-import           Pos.Binary.Class (biSize)
-import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex, HeaderHash, IsMainHeader (..),
-                           SlotId (siEpoch), SoftwareVersion (..), addressHash, applyCoinPortionUp,
-                           blockVersionL, coinToInteger, difficultyL, epochIndexL, flattenSlotId,
-                           headerHashG, headerSlotL, sumCoins, unflattenSlotId, unsafeIntegerToCoin,
-                           HasProtocolConstants, HasProtocolMagic)
-import           Pos.Core.Configuration (blkSecurityParam, protocolMagic)
-import           Pos.Core.Update (BlockVersion, BlockVersionData (..), UpId, UpdatePayload (..),
-                                  UpdateProposal (..), UpdateVote (..), bvdUpdateProposalThd,
-                                  checkUpdatePayload)
-import           Pos.Crypto (hash, shortHashF)
-import           Pos.Data.Attributes (areAttributesKnown)
-import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Failure (PollVerFailure (..))
-import           Pos.Update.Poll.Logic.Base (canBeAdoptedBV, canCreateBlockBV, confirmBlockVersion,
-                                             isDecided, mkTotNegative, mkTotPositive, mkTotSum,
-                                             putNewProposal, voteToUProposalState)
-import           Pos.Update.Poll.Logic.Version (verifyAndApplyProposalBVS, verifyBlockVersion,
-                                                verifySoftwareVersion)
-import           Pos.Update.Poll.Types (ConfirmedProposalState (..), DecidedProposalState (..),
-                                        DpsExtra (..), ProposalState (..),
-                                        UndecidedProposalState (..), UpsExtra (..), psProposal)
-import           Pos.Util.Some (Some (..))
+import           Pos.Binary.Class
+    (biSize)
+import           Pos.Core
+    (ChainDifficulty (..), Coin, EpochIndex, HasProtocolConstants,
+    HasProtocolMagic, HeaderHash, IsMainHeader (..), SlotId (siEpoch),
+    SoftwareVersion (..), addressHash, applyCoinPortionUp, blockVersionL,
+    coinToInteger, difficultyL, epochIndexL, flattenSlotId, headerHashG,
+    headerSlotL, sumCoins, unflattenSlotId, unsafeIntegerToCoin)
+import           Pos.Core.Configuration
+    (blkSecurityParam, protocolMagic)
+import           Pos.Core.Update
+    (BlockVersion, BlockVersionData (..), UpId, UpdatePayload (..),
+    UpdateProposal (..), UpdateVote (..), bvdUpdateProposalThd,
+    checkUpdatePayload)
+import           Pos.Crypto
+    (hash, shortHashF)
+import           Pos.Data.Attributes
+    (areAttributesKnown)
+import           Pos.Update.Poll.Class
+    (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Failure
+    (PollVerFailure (..))
+import           Pos.Update.Poll.Logic.Base
+    (canBeAdoptedBV, canCreateBlockBV, confirmBlockVersion, isDecided,
+    mkTotNegative, mkTotPositive, mkTotSum, putNewProposal,
+    voteToUProposalState)
+import           Pos.Update.Poll.Logic.Version
+    (verifyAndApplyProposalBVS, verifyBlockVersion, verifySoftwareVersion)
+import           Pos.Update.Poll.Types
+    (ConfirmedProposalState (..), DecidedProposalState (..), DpsExtra (..),
+    ProposalState (..), UndecidedProposalState (..), UpsExtra (..), psProposal)
+import           Pos.Util.Some
+    (Some (..))
 
 type ApplyMode m =
     ( MonadError PollVerFailure m

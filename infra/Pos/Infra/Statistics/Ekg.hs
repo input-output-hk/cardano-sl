@@ -6,8 +6,10 @@ module Pos.Infra.Statistics.Ekg
        ) where
 
 import qualified Options.Applicative as Opt
-import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser)
-import           Pos.Util.OptParse (fromParsec)
+import           Pos.Infra.Util.TimeWarp
+    (NetworkAddress, addrParser)
+import           Pos.Util.OptParse
+    (fromParsec)
 import           Universum
 
 data EkgParams = EkgParams

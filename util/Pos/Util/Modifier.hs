@@ -33,17 +33,22 @@ module Pos.Util.Modifier
        , toHashMap
        ) where
 
-import           Universum hiding (filter, mapMaybe, toList, keys)
+import           Universum hiding
+    (filter, keys, mapMaybe, toList)
 import qualified Universum
 
-import           Data.Hashable (Hashable)
+import           Data.Hashable
+    (Hashable)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
 import qualified Data.Text.Buildable
-import           Formatting (bprint, (%))
-import           Serokell.Util (listJson, pairF)
+import           Formatting
+    (bprint, (%))
+import           Serokell.Util
+    (listJson, pairF)
 
-import           Pos.Util.Util (getKeys)
+import           Pos.Util.Util
+    (getKeys)
 
 -- | 'MapModifier' is a type which collects modifications (insertions
 -- and deletions) of something map-like.

@@ -17,13 +17,20 @@ module Pos.Lrc.DB.RichmenBase
 
 import           Universum
 
-import           Pos.Binary.Class (Bi, serialize')
-import           Pos.Binary.Core ()
-import           Pos.Core.Slotting (EpochIndex)
-import           Pos.DB.Class (MonadDB, MonadDBRead)
-import           Pos.Lrc.DB.Common (getBi, putBi)
-import           Pos.Lrc.RichmenComponent (RichmenComponent (..))
-import           Pos.Lrc.Types (FullRichmenData)
+import           Pos.Binary.Class
+    (Bi, serialize')
+import           Pos.Binary.Core
+    ()
+import           Pos.Core.Slotting
+    (EpochIndex)
+import           Pos.DB.Class
+    (MonadDB, MonadDBRead)
+import           Pos.Lrc.DB.Common
+    (getBi, putBi)
+import           Pos.Lrc.RichmenComponent
+    (RichmenComponent (..))
+import           Pos.Lrc.Types
+    (FullRichmenData)
 
 ----------------------------------------------------------------------------
 -- Getters

@@ -30,27 +30,39 @@ module Pos.Txp.DB.Utxo
 
 import           Universum
 
-import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit (ConduitT, mapOutput, runConduitRes, (.|))
+import           Control.Monad.Trans.Resource
+    (ResourceT)
+import           Data.Conduit
+    (ConduitT, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
 import qualified Data.HashSet as HS
 import qualified Data.Map as M
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB as Rocks
-import           Formatting (bprint, build, sformat, (%))
-import           Serokell.Util (Color (Red), colorize)
-import           System.Wlog (WithLogger, logError)
-import           UnliftIO (MonadUnliftIO)
+import           Formatting
+    (bprint, build, sformat, (%))
+import           Serokell.Util
+    (Color (Red), colorize)
+import           System.Wlog
+    (WithLogger, logError)
+import           UnliftIO
+    (MonadUnliftIO)
 
-import           Pos.Core (Address, Coin, coinF, mkCoin, sumCoins, unsafeAddCoin,
-                           unsafeIntegerToCoin, HasCoreConfiguration)
-import           Pos.Core.Txp (TxIn (..), TxOutAux (toaOut))
-import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB), IterType, MonadDB,
-                         MonadDBRead, RocksBatchOp (..), dbIterSource, dbSerializeValue,
-                         encodeWithKeyPrefix)
-import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
-import           Pos.Txp.Base (addrBelongsToSet, txOutStake)
-import           Pos.Txp.Toil.Types (GenesisUtxo (..), Utxo)
+import           Pos.Core
+    (Address, Coin, HasCoreConfiguration, coinF, mkCoin, sumCoins,
+    unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Core.Txp
+    (TxIn (..), TxOutAux (toaOut))
+import           Pos.DB
+    (DBError (..), DBIteratorClass (..), DBTag (GStateDB), IterType, MonadDB,
+    MonadDBRead, RocksBatchOp (..), dbIterSource, dbSerializeValue,
+    encodeWithKeyPrefix)
+import           Pos.DB.GState.Common
+    (gsGetBi, writeBatchGState)
+import           Pos.Txp.Base
+    (addrBelongsToSet, txOutStake)
+import           Pos.Txp.Toil.Types
+    (GenesisUtxo (..), Utxo)
 
 ----------------------------------------------------------------------------
 -- Getters

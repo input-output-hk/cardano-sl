@@ -47,28 +47,44 @@ import           Universum
 
 import qualified Control.Concurrent.Async as Async
 import qualified Control.Concurrent.STM as STM
-import           Control.Exception (throwIO)
-import           Data.Aeson (FromJSON (..), ToJSON (..), Value)
-import           Data.Aeson.Types (Parser)
-import qualified Data.ByteString.Base64 as B64 (decode, encode)
+import           Control.Exception
+    (throwIO)
+import           Data.Aeson
+    (FromJSON (..), ToJSON (..), Value)
+import           Data.Aeson.Types
+    (Parser)
+import qualified Data.ByteString.Base64 as B64
+    (decode, encode)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable as B
-import qualified Data.Text.Encoding as Text (decodeUtf8, encodeUtf8)
+import qualified Data.Text.Encoding as Text
+    (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Internal.Builder as B
-import           Formatting (bprint, build, hex, sformat, shown, (%))
+import           Formatting
+    (bprint, build, hex, sformat, shown, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
-import           Network.Transport (EndPointAddress (..))
+import           Network.Transport
+    (EndPointAddress (..))
 import qualified Node as N
-import           Node.Message.Class (Message (..), MessageCode)
-import           Serokell.Util.Base16 (base16F)
-import           Serokell.Util.Text (listJson, mapJson)
+import           Node.Message.Class
+    (Message (..), MessageCode)
+import           Serokell.Util.Base16
+    (base16F)
+import           Serokell.Util.Text
+    (listJson, mapJson)
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Binary.Limit (Limit (..))
-import           Pos.Core.Update (BlockVersion)
-import           Pos.Infra.Communication.BiP (BiP)
-import           Pos.Infra.Network.Types (MsgType (..), NodeId (..), NodeType (..), Origin (..))
-import           Pos.Util.Util (toAesonError)
+import           Pos.Binary.Class
+    (Bi)
+import           Pos.Binary.Limit
+    (Limit (..))
+import           Pos.Core.Update
+    (BlockVersion)
+import           Pos.Infra.Communication.BiP
+    (BiP)
+import           Pos.Infra.Network.Types
+    (MsgType (..), NodeId (..), NodeType (..), Origin (..))
+import           Pos.Util.Util
+    (toAesonError)
 
 type PackingType = BiP
 type PeerData = VerInfo

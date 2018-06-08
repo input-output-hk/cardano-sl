@@ -3,23 +3,32 @@ module Pos.Core.Ssc.Payload
        , checkSscPayload
        ) where
 
-import           Universum hiding (id)
+import           Universum hiding
+    (id)
 
-import           Control.Monad.Except (MonadError)
+import           Control.Monad.Except
+    (MonadError)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable as Buildable
-import           Data.Text.Lazy.Builder (Builder)
-import           Formatting (Format, bprint, int, (%))
-import           Serokell.Util (listJson)
+import           Data.Text.Lazy.Builder
+    (Builder)
+import           Formatting
+    (Format, bprint, int, (%))
+import           Serokell.Util
+    (listJson)
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Core.Slotting (EpochIndex)
-import           Pos.Crypto (ProtocolMagic, shortHashF)
+import           Pos.Binary.Class
+    (Bi)
+import           Pos.Core.Slotting
+    (EpochIndex)
+import           Pos.Crypto
+    (ProtocolMagic, shortHashF)
 
 import           Pos.Core.Ssc.CommitmentsMap
 import           Pos.Core.Ssc.OpeningsMap
 import           Pos.Core.Ssc.SharesMap
-import           Pos.Core.Ssc.VssCertificate (VssCertificate (vcExpiryEpoch))
+import           Pos.Core.Ssc.VssCertificate
+    (VssCertificate (vcExpiryEpoch))
 import           Pos.Core.Ssc.VssCertificatesMap
 
 -- | Payload included into blocks.

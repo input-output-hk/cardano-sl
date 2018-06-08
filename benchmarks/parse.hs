@@ -13,13 +13,18 @@ module ParseBlocks
 where
 
 import           Conduit
-import           Control.Monad (forM)
-import           Data.ByteString.Char8 hiding (head, map)
+import           Control.Monad
+    (forM)
+import           Data.ByteString.Char8 hiding
+    (head, map)
 import qualified Data.Conduit.Binary as CB
-import qualified Data.List as L (length, map, sortBy)
+import qualified Data.List as L
+    (length, map, sortBy)
 import qualified Data.Map as M
-import           Options.Applicative (argument, execParser, info, metavar, some, str)
-import           Prelude hiding (isPrefixOf, putStrLn)
+import           Options.Applicative
+    (argument, execParser, info, metavar, some, str)
+import           Prelude hiding
+    (isPrefixOf, putStrLn)
 
 type BlockRel = M.Map ByteString ByteString
 type BlockPair = (ByteString, ByteString)

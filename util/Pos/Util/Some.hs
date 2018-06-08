@@ -15,7 +15,8 @@ module Pos.Util.Some
 import qualified Prelude
 import           Universum
 
-import           Control.Lens (ALens', Getter, Getting, cloneLens, to)
+import           Control.Lens
+    (ALens', Getter, Getting, cloneLens, to)
 
 -- | Turn any constraint into an existential type! Example:
 --

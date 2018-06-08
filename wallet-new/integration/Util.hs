@@ -2,13 +2,16 @@
 {-# LANGUAGE TupleSections #-}
 module Util where
 
-import           Universum hiding ((^?))
+import           Universum hiding
+    ((^?))
 
 import           Cardano.Wallet.Client.Http
 import           Control.Lens
-import           System.IO.Unsafe (unsafePerformIO)
+import           System.IO.Unsafe
+    (unsafePerformIO)
 import           Test.Hspec
-import           Test.QuickCheck (arbitrary, generate)
+import           Test.QuickCheck
+    (arbitrary, generate)
 
 
 type WalletRef = MVar Wallet

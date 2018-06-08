@@ -7,15 +7,22 @@ module Pos.Core.Genesis.Delegation
 
 import           Universum
 
-import           Control.Lens (at)
-import           Control.Monad.Except (MonadError (throwError))
+import           Control.Lens
+    (at)
+import           Control.Monad.Except
+    (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
-import           Formatting (build, sformat, (%))
-import           Serokell.Util (allDistinct)
+import           Formatting
+    (build, sformat, (%))
+import           Serokell.Util
+    (allDistinct)
 
-import           Pos.Core.Common (StakeholderId, addressHash)
-import           Pos.Core.Delegation (ProxySKHeavy)
-import           Pos.Crypto.Signing (ProxySecretKey (..), isSelfSignedPsk)
+import           Pos.Core.Common
+    (StakeholderId, addressHash)
+import           Pos.Core.Delegation
+    (ProxySKHeavy)
+import           Pos.Crypto.Signing
+    (ProxySecretKey (..), isSelfSignedPsk)
 
 -- | This type contains genesis state of heavyweight delegation. It
 -- wraps a map where keys are issuers (i. e. stakeholders who

@@ -13,7 +13,8 @@ module Node.Message.Decoder
     ) where
 
 import qualified Data.ByteString as BS
-import           Data.Int (Int64)
+import           Data.Int
+    (Int64)
 import qualified Data.Text as T
 
 type ByteOffset = Int64

@@ -12,18 +12,27 @@ module Test.Pos.Core.ChronoSpec
 import           Universum
 
 import qualified Data.List.NonEmpty as NE
-import qualified GHC.Exts as IL (IsList (..))
+import qualified GHC.Exts as IL
+    (IsList (..))
 
-import           Pos.Core.Chrono (Chrono (..), NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Chrono
+    (Chrono (..), NE, NewestFirst (..), OldestFirst (..))
 
-import           Test.Hspec (Expectation, Spec, describe, shouldBe)
-import           Test.Hspec.QuickCheck (prop)
+import           Test.Hspec
+    (Expectation, Spec, describe, shouldBe)
+import           Test.Hspec.QuickCheck
+    (prop)
 
-import           Test.Pos.Binary.Helpers (U, binaryTest)
-import           Test.Pos.Core.Chrono ()
-import           Test.Pos.Util.Modifier ()
-import           Test.Pos.Util.QuickCheck.Property ((.=.))
-import           Test.QuickCheck (Arbitrary, Property)
+import           Test.Pos.Binary.Helpers
+    (U, binaryTest)
+import           Test.Pos.Core.Chrono
+    ()
+import           Test.Pos.Util.Modifier
+    ()
+import           Test.Pos.Util.QuickCheck.Property
+    ((.=.))
+import           Test.QuickCheck
+    (Arbitrary, Property)
 
 spec :: Spec
 spec = describe "Chrono" $ do

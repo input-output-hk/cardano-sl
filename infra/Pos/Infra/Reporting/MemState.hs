@@ -13,13 +13,17 @@ module Pos.Infra.Reporting.MemState
        , mmIgnoredCommitments
        ) where
 
-import           Control.Lens (makeLenses)
+import           Control.Lens
+    (makeLenses)
 import qualified System.Metrics as Metrics
-import           System.Metrics.Counter (Counter)
-import           System.Metrics.Gauge (Gauge)
+import           System.Metrics.Counter
+    (Counter)
+import           System.Metrics.Gauge
+    (Gauge)
 import           Universum
 
-import           Pos.System.Metrics.Constants (withCardanoNamespace)
+import           Pos.System.Metrics.Constants
+    (withCardanoNamespace)
 
 -- | EKG metric values for misbehaviors
 data MisbehaviorMetrics = MisbehaviorMetrics

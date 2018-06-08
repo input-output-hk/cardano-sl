@@ -2,16 +2,23 @@ module CLI where
 
 import           Universum
 
-import           Data.String.Conv (toS)
-import           Options.Applicative (auto, eitherReader, help, long, metavar, option, strOption,
-                                      switch)
-import           Options.Generic (ParseRecord (..))
-import           Pos.Util.Servant (decodeCType)
-import           Pos.Wallet.Web.ClientTypes.Instances ()
-import           Pos.Wallet.Web.ClientTypes.Types (AccountId, CAccountId (..))
-import           Text.Read (readMaybe)
+import           Data.String.Conv
+    (toS)
+import           Options.Applicative
+    (auto, eitherReader, help, long, metavar, option, strOption, switch)
+import           Options.Generic
+    (ParseRecord (..))
+import           Pos.Util.Servant
+    (decodeCType)
+import           Pos.Wallet.Web.ClientTypes.Instances
+    ()
+import           Pos.Wallet.Web.ClientTypes.Types
+    (AccountId, CAccountId (..))
+import           Text.Read
+    (readMaybe)
 
-import           Types (Method (..))
+import           Types
+    (Method (..))
 
 data CLI = CLI
     { config            :: FilePath

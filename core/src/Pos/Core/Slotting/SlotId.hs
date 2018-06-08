@@ -18,17 +18,21 @@ module Pos.Core.Slotting.SlotId
 
 import           Universum
 
-import           Control.Lens (Iso', iso, lens, makeLensesFor)
+import           Control.Lens
+    (Iso', iso, lens, makeLensesFor)
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (Format, bprint, build, ords, (%))
+import           Formatting
+    (Format, bprint, build, ords, (%))
 
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants, epochSlots,
-                                                  slotSecurityParam)
-import           Pos.Util.Util (leftToPanic)
+import           Pos.Core.Configuration.Protocol
+    (HasProtocolConstants, epochSlots, slotSecurityParam)
+import           Pos.Util.Util
+    (leftToPanic)
 
 import           Pos.Core.Slotting.EpochIndex
 import           Pos.Core.Slotting.LocalSlotIndex
-import           Pos.Core.Slotting.SlotCount (SlotCount)
+import           Pos.Core.Slotting.SlotCount
+    (SlotCount)
 
 -- | Slot is identified by index of epoch and index of slot in
 -- this epoch. This is a global index, an index to a global

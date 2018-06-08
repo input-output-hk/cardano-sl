@@ -4,38 +4,59 @@ module Main
 
 import           Universum
 
-import           Control.Exception.Safe (handle)
-import           Data.Maybe (fromMaybe)
-import           Formatting (sformat, shown, (%))
-import           Mockable (Production (..), runProduction)
-import qualified Network.Transport.TCP as TCP (TCPAddr (..))
+import           Control.Exception.Safe
+    (handle)
+import           Data.Maybe
+    (fromMaybe)
+import           Formatting
+    (sformat, shown, (%))
+import           Mockable
+    (Production (..), runProduction)
+import qualified Network.Transport.TCP as TCP
+    (TCPAddr (..))
 import qualified System.IO.Temp as Temp
-import           System.Wlog (LoggerName, logInfo)
+import           System.Wlog
+    (LoggerName, logInfo)
 
 import qualified Pos.Client.CLI as CLI
-import           Pos.Context (NodeContext (..))
-import           Pos.Core (ConfigurationError)
-import           Pos.DB.DB (initNodeDBs)
-import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
-import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..),
-                                          topologyDequeuePolicy,
-                                          topologyEnqueuePolicy,
-                                          topologyFailurePolicy)
-import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
-import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources (..),
-                               bracketNodeResources, runRealMode, loggerBracket, lpConsoleLog,
-                               runNode, withConfigurations)
-import           Pos.Txp (txpGlobalSettings)
-import           Pos.Util (logException)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
-import           Pos.Util.Config (ConfigurationException (..))
-import           Pos.Util.UserSecret (usVss)
-import           Pos.WorkMode (EmptyMempoolExt, RealMode)
+import           Pos.Context
+    (NodeContext (..))
+import           Pos.Core
+    (ConfigurationError)
+import           Pos.DB.DB
+    (initNodeDBs)
+import           Pos.Infra.Diffusion.Types
+    (Diffusion, hoistDiffusion)
+import           Pos.Infra.Network.Types
+    (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
+    topologyEnqueuePolicy, topologyFailurePolicy)
+import           Pos.Infra.Ntp.Configuration
+    (NtpConfiguration)
+import           Pos.Launcher
+    (HasConfigurations, NodeParams (..), NodeResources (..),
+    bracketNodeResources, loggerBracket, lpConsoleLog, runNode, runRealMode,
+    withConfigurations)
+import           Pos.Txp
+    (txpGlobalSettings)
+import           Pos.Util
+    (logException)
+import           Pos.Util.CompileInfo
+    (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.Config
+    (ConfigurationException (..))
+import           Pos.Util.UserSecret
+    (usVss)
+import           Pos.WorkMode
+    (EmptyMempoolExt, RealMode)
 
-import           AuxxOptions (AuxxAction (..), AuxxOptions (..), AuxxStartMode (..), getAuxxOptions)
-import           Mode (AuxxContext (..), AuxxMode, realModeToAuxx)
-import           Plugin (auxxPlugin, rawExec)
-import           Repl (PrintAction, WithCommandAction (..), withAuxxRepl)
+import           AuxxOptions
+    (AuxxAction (..), AuxxOptions (..), AuxxStartMode (..), getAuxxOptions)
+import           Mode
+    (AuxxContext (..), AuxxMode, realModeToAuxx)
+import           Plugin
+    (auxxPlugin, rawExec)
+import           Repl
+    (PrintAction, WithCommandAction (..), withAuxxRepl)
 
 loggerName :: LoggerName
 loggerName = "auxx"

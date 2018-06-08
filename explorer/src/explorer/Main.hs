@@ -11,29 +11,46 @@ module Main
 
 import           Universum
 
-import           Data.Maybe (fromJust)
-import           Mockable (Production (..), runProduction)
-import           System.Wlog (LoggerName, logInfo)
+import           Data.Maybe
+    (fromJust)
+import           Mockable
+    (Production (..), runProduction)
+import           System.Wlog
+    (LoggerName, logInfo)
 
-import           ExplorerNodeOptions (ExplorerArgs (..), ExplorerNodeArgs (..),
-                                      getExplorerNodeOptions)
-import           Pos.Binary ()
-import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
+import           ExplorerNodeOptions
+    (ExplorerArgs (..), ExplorerNodeArgs (..), getExplorerNodeOptions)
+import           Pos.Binary
+    ()
+import           Pos.Client.CLI
+    (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Context (NodeContext (..))
-import           Pos.Explorer.DB (explorerInitDB)
-import           Pos.Explorer.ExtraContext (makeExtraCtx)
-import           Pos.Explorer.Socket (NotifierSettings (..))
-import           Pos.Explorer.Txp (ExplorerExtraModifier, explorerTxpGlobalSettings)
-import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, notifierPlugin, runExplorerProd)
-import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
-import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
-                               NodeResources (..), bracketNodeResources,
-                               loggerBracket, runNode, runRealMode, withConfigurations)
-import           Pos.Update.Worker (updateTriggerWorker)
-import           Pos.Util (logException)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
-import           Pos.Util.UserSecret (usVss)
+import           Pos.Context
+    (NodeContext (..))
+import           Pos.Explorer.DB
+    (explorerInitDB)
+import           Pos.Explorer.ExtraContext
+    (makeExtraCtx)
+import           Pos.Explorer.Socket
+    (NotifierSettings (..))
+import           Pos.Explorer.Txp
+    (ExplorerExtraModifier, explorerTxpGlobalSettings)
+import           Pos.Explorer.Web
+    (ExplorerProd, explorerPlugin, notifierPlugin, runExplorerProd)
+import           Pos.Infra.Diffusion.Types
+    (Diffusion, hoistDiffusion)
+import           Pos.Launcher
+    (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
+    NodeResources (..), bracketNodeResources, loggerBracket, runNode,
+    runRealMode, withConfigurations)
+import           Pos.Update.Worker
+    (updateTriggerWorker)
+import           Pos.Util
+    (logException)
+import           Pos.Util.CompileInfo
+    (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.UserSecret
+    (usVss)
 
 loggerName :: LoggerName
 loggerName = "node"

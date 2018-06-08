@@ -10,43 +10,57 @@ module Cardano.Wallet.API.V1.Swagger where
 
 import           Universum
 
-import           Cardano.Wallet.API.Indices (ParamNames)
+import           Cardano.Wallet.API.Indices
+    (ParamNames)
 import           Cardano.Wallet.API.Request.Filter
 import           Cardano.Wallet.API.Request.Pagination
 import           Cardano.Wallet.API.Request.Sort
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1.Errors as Errors
-import           Cardano.Wallet.API.V1.Generic (gconsName)
+import           Cardano.Wallet.API.V1.Generic
+    (gconsName)
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Swagger.Example
 import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.TypeLits (KnownSymbols (..))
+import           Cardano.Wallet.TypeLits
+    (KnownSymbols (..))
 import qualified Pos.Core as Core
-import           Pos.Core.Update (SoftwareVersion)
-import           Pos.Util.CompileInfo (CompileTimeInfo, ctiGitRevision)
-import           Pos.Util.Servant (LoggingApi)
-import           Pos.Wallet.Web.Swagger.Instances.Schema ()
+import           Pos.Core.Update
+    (SoftwareVersion)
+import           Pos.Util.CompileInfo
+    (CompileTimeInfo, ctiGitRevision)
+import           Pos.Util.Servant
+    (LoggingApi)
+import           Pos.Wallet.Web.Swagger.Instances.Schema
+    ()
 
-import           Control.Lens ((?~))
-import           Data.Aeson (ToJSON (..))
+import           Control.Lens
+    ((?~))
+import           Data.Aeson
+    (ToJSON (..))
 import           Data.Aeson.Encode.Pretty
 import qualified Data.ByteString.Lazy as BL
-import           Data.Map (Map)
+import           Data.Map
+    (Map)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as Set
 import           Data.String.Conv
-import           Data.Swagger hiding (Example, Header, example)
+import           Data.Swagger hiding
+    (Example, Header, example)
 import           Data.Swagger.Declare
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import           Data.Typeable
 import           NeatInterpolation
-import           Servant (Handler, ServantErr (..), Server)
+import           Servant
+    (Handler, ServantErr (..), Server)
 import           Servant.API.Sub
 import           Servant.Swagger
-import           Servant.Swagger.UI (SwaggerSchemaUI', swaggerSchemaUIServerImpl)
-import           Servant.Swagger.UI.Internal (mkRecursiveEmbedded)
+import           Servant.Swagger.UI
+    (SwaggerSchemaUI', swaggerSchemaUIServerImpl)
+import           Servant.Swagger.UI.Internal
+    (mkRecursiveEmbedded)
 import           Test.QuickCheck
 import           Test.QuickCheck.Gen
 import           Test.QuickCheck.Random

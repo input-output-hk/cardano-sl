@@ -11,13 +11,19 @@ module Pos.Core.Update.SystemTag
 
 import           Universum
 
-import           Control.Monad.Except (MonadError (throwError))
-import           Data.Char (isAscii)
+import           Control.Monad.Except
+    (MonadError (throwError))
+import           Data.Char
+    (isAscii)
 import qualified Data.Text as T
-import           Distribution.System (Arch (..), OS (..))
-import           Distribution.Text (display)
-import           Instances.TH.Lift ()
-import           Language.Haskell.TH.Syntax (Lift)
+import           Distribution.System
+    (Arch (..), OS (..))
+import           Distribution.Text
+    (display)
+import           Instances.TH.Lift
+    ()
+import           Language.Haskell.TH.Syntax
+    (Lift)
 
 -- | Tag of system for which update data is purposed, e.g. win64, mac32
 newtype SystemTag = SystemTag { getSystemTag :: Text }

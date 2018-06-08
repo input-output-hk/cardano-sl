@@ -3,13 +3,18 @@ module Statistics.CSV
     , focusToCSV
     ) where
 
-import           Control.Monad.Random (MonadRandom (..), evalRandT)
+import           Control.Monad.Random
+    (MonadRandom (..), evalRandT)
 import qualified Data.Text as T
-import           System.IO (hPutStrLn)
-import           System.Random (mkStdGen)
+import           System.IO
+    (hPutStrLn)
+import           System.Random
+    (mkStdGen)
 
-import           Pos.Infra.Util.JsonLog.Events (JLMemPool (..), MemPoolModifyReason (..))
-import           Statistics.Focus (Focus (..))
+import           Pos.Infra.Util.JsonLog.Events
+    (JLMemPool (..), MemPoolModifyReason (..))
+import           Statistics.Focus
+    (Focus (..))
 import           Types
 import           Universum
 
@@ -37,7 +42,7 @@ txCntInChainMemPoolToCSV f sp txCnt mp =
 
     inSample :: MonadRandom m => MemPoolModifyReason -> m Bool
     inSample ProcessTransaction = draw
-    inSample _                      = return True
+    inSample _                  = return True
 
     toTxType :: String -> JLMemPool -> String
     toTxType s JLMemPool{..} =

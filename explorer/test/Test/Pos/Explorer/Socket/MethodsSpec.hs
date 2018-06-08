@@ -8,35 +8,44 @@ module Test.Pos.Explorer.Socket.MethodsSpec
 
 import           Universum
 
-import           Control.Lens (at)
+import           Control.Lens
+    (at)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
-import           Network.EngineIO (SocketId)
+import           Network.EngineIO
+    (SocketId)
 
-import           Test.Hspec (Spec, anyException, describe, it, shouldBe, shouldThrow)
-import           Test.Hspec.QuickCheck (modifyMaxSize, prop)
-import           Test.QuickCheck (Property, arbitrary, forAll)
-import           Test.QuickCheck.Monadic (assert, monadicIO, run)
+import           Test.Hspec
+    (Spec, anyException, describe, it, shouldBe, shouldThrow)
+import           Test.Hspec.QuickCheck
+    (modifyMaxSize, prop)
+import           Test.QuickCheck
+    (Property, arbitrary, forAll)
+import           Test.QuickCheck.Monadic
+    (assert, monadicIO, run)
 
-import           Pos.Crypto (SecretKey)
-import           Pos.Explorer.ExplorerMode (runSubTestMode)
-import           Pos.Explorer.Socket.Holder (ConnectionsState, ExplorerSocket(..),
-                                             csAddressSubscribers, csBlocksPageSubscribers,
-                                             csEpochsLastPageSubscribers, csTxsSubscribers,
-                                             csClients, mkClientContext, mkConnectionsState)
-import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs,
-                                              blockPageSubParam, fromCAddressOrThrow,
-                                              spSessId, subscribeAddr, subscribeBlocksLastPage,
-                                              subscribeEpochsLastPage, subscribeTxs,
-                                              txsSubParam, unsubscribeAddr, unsubscribeBlocksLastPage,
-                                              unsubscribeEpochsLastPage, unsubscribeFully,
-                                              unsubscribeTxs)
-import           Pos.Explorer.TestUtil (secretKeyToAddress)
-import           Pos.Explorer.Web.ClientTypes (CAddress (..), toCAddress)
+import           Pos.Crypto
+    (SecretKey)
+import           Pos.Explorer.ExplorerMode
+    (runSubTestMode)
+import           Pos.Explorer.Socket.Holder
+    (ConnectionsState, ExplorerSocket (..), csAddressSubscribers,
+    csBlocksPageSubscribers, csClients, csEpochsLastPageSubscribers,
+    csTxsSubscribers, mkClientContext, mkConnectionsState)
+import           Pos.Explorer.Socket.Methods
+    (addrSubParam, addressSetByTxs, blockPageSubParam, fromCAddressOrThrow,
+    spSessId, subscribeAddr, subscribeBlocksLastPage, subscribeEpochsLastPage,
+    subscribeTxs, txsSubParam, unsubscribeAddr, unsubscribeBlocksLastPage,
+    unsubscribeEpochsLastPage, unsubscribeFully, unsubscribeTxs)
+import           Pos.Explorer.TestUtil
+    (secretKeyToAddress)
+import           Pos.Explorer.Web.ClientTypes
+    (CAddress (..), toCAddress)
 
-import           Test.Pos.Explorer.MockFactory (mkTxOut)
+import           Test.Pos.Explorer.MockFactory
+    (mkTxOut)
 
 
 ----------------------------------------------------------------------------

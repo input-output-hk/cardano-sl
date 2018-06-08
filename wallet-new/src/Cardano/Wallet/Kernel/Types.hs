@@ -19,13 +19,18 @@ import           Universum
 
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
-import           Data.Word (Word32)
+import           Data.Word
+    (Word32)
 
-import           Pos.Core (MainBlock, Tx, TxAux (..), TxIn (..), TxOut, TxOutAux (..), gbBody,
-                           mbTxs, mbWitnesses, txInputs, txOutputs)
-import           Pos.Crypto.Hashing (hash)
-import           Pos.Txp (Utxo)
-import           Serokell.Util (enumerate)
+import           Pos.Core
+    (MainBlock, Tx, TxAux (..), TxIn (..), TxOut, TxOutAux (..), gbBody, mbTxs,
+    mbWitnesses, txInputs, txOutputs)
+import           Pos.Crypto.Hashing
+    (hash)
+import           Pos.Txp
+    (Utxo)
+import           Serokell.Util
+    (enumerate)
 
 import           Cardano.Wallet.Kernel.DB.InDb
 import           Cardano.Wallet.Kernel.DB.Resolved

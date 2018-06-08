@@ -13,15 +13,23 @@ module Pos.Core.Block.Main.Types
 import           Universum
 
 import qualified Data.Text.Buildable as Buildable
-import           Fmt (genericF)
-import           Formatting (bprint, build, builder, (%))
+import           Fmt
+    (genericF)
+import           Formatting
+    (bprint, build, builder, (%))
 
-import           Pos.Core.Delegation (DlgPayload)
-import           Pos.Core.Ssc (SscPayload, SscProof)
-import           Pos.Core.Txp (TxPayload, TxProof)
-import           Pos.Core.Update (BlockVersion, SoftwareVersion, UpdatePayload, UpdateProof)
-import           Pos.Crypto (Hash)
-import           Pos.Data.Attributes (Attributes, areAttributesKnown)
+import           Pos.Core.Delegation
+    (DlgPayload)
+import           Pos.Core.Ssc
+    (SscPayload, SscProof)
+import           Pos.Core.Txp
+    (TxPayload, TxProof)
+import           Pos.Core.Update
+    (BlockVersion, SoftwareVersion, UpdatePayload, UpdateProof)
+import           Pos.Crypto
+    (Hash)
+import           Pos.Data.Attributes
+    (Attributes, areAttributesKnown)
 
 -- | Proof of everything contained in the payload.
 data MainProof = MainProof

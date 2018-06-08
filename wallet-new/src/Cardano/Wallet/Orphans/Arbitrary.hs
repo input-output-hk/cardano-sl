@@ -7,12 +7,16 @@ module Cardano.Wallet.Orphans.Arbitrary where
 
 import           Universum
 
-import           Data.Default (def)
+import           Data.Default
+    (def)
 import           Pos.Wallet.Web.ClientTypes.Types
-import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot (..))
-import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
+import           Pos.Wallet.Web.Methods.Misc
+    (WalletStateSnapshot (..))
+import           Pos.Wallet.Web.State.Storage
+    (WalletStorage (..))
 import           Servant
-import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck
+    (Arbitrary (..))
 
 instance Arbitrary NoContent where
     arbitrary = pure NoContent

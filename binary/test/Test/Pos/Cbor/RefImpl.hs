@@ -33,18 +33,26 @@ import           Universum
 import           Data.Bits
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
-import           Data.List (span)
+import           Data.List
+    (span)
 import qualified Data.Text.Encoding as T
-import           Foreign (Storable (..), alloca, castPtr)
-import           GHC.Float (RealFloat (..))
-import           Numeric.Half (Half (..))
+import           Foreign
+    (Storable (..), alloca, castPtr)
+import           GHC.Float
+    (RealFloat (..))
+import           Numeric.Half
+    (Half (..))
 import qualified Numeric.Half as Half
-import           System.IO.Unsafe (unsafeDupablePerformIO)
+import           System.IO.Unsafe
+    (unsafeDupablePerformIO)
 
-import           Test.QuickCheck.Arbitrary (Arbitrary (..), arbitraryBoundedIntegral)
-import           Test.QuickCheck.Gen (Gen, choose, elements, frequency, oneof, resize, sized,
-                                      suchThat, vectorOf)
-import           Test.QuickCheck.Property (Property, conjoin, property, (.&&.), (===))
+import           Test.QuickCheck.Arbitrary
+    (Arbitrary (..), arbitraryBoundedIntegral)
+import           Test.QuickCheck.Gen
+    (Gen, choose, elements, frequency, oneof, resize, sized, suchThat,
+    vectorOf)
+import           Test.QuickCheck.Property
+    (Property, conjoin, property, (.&&.), (===))
 
 serialise :: Term -> LBS.ByteString
 serialise = LBS.pack . encodeTerm

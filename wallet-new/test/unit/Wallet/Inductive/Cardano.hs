@@ -17,16 +17,22 @@ import           Universum
 import qualified Cardano.Wallet.Kernel as Kernel
 import           Cardano.Wallet.Kernel.Types
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, (%))
-import           Pos.Core (Coin, unsafeIntegerToCoin)
-import           Pos.Crypto (EncryptedSecretKey)
-import           Pos.Txp (Utxo, formatUtxo)
+import           Formatting
+    (bprint, build, (%))
+import           Pos.Core
+    (Coin, unsafeIntegerToCoin)
 import           Pos.Core.Chrono
+import           Pos.Crypto
+    (EncryptedSecretKey)
+import           Pos.Txp
+    (Utxo, formatUtxo)
 
 import           Util
 import           Util.Validated
-import           UTxO.Context (Addr)
-import           UTxO.DSL (Hash)
+import           UTxO.Context
+    (Addr)
+import           UTxO.DSL
+    (Hash)
 import qualified UTxO.DSL as DSL
 import           UTxO.Interpreter
 import           UTxO.Translate

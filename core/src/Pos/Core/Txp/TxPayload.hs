@@ -8,8 +8,10 @@ module Pos.Core.Txp.TxPayload
 
 import           Universum
 
-import           Control.Lens (makeLenses)
-import           Control.Monad.Except (MonadError)
+import           Control.Lens
+    (makeLenses)
+import           Control.Monad.Except
+    (MonadError)
 
 import           Pos.Core.Txp.Tx
 import           Pos.Core.Txp.TxAux

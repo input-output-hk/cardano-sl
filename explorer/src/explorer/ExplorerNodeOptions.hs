@@ -12,13 +12,16 @@ module ExplorerNodeOptions
 
 import           Universum
 
-import           Data.Version (showVersion)
-import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc, header, help,
-                                      helper, info, infoOption, long, metavar, option, progDesc,
-                                      showDefault, value)
+import           Data.Version
+    (showVersion)
+import           Options.Applicative
+    (Parser, auto, execParser, footerDoc, fullDesc, header, help, helper, info,
+    infoOption, long, metavar, option, progDesc, showDefault, value)
 
-import           Paths_cardano_sl_explorer (version)
-import           Pos.Client.CLI (CommonNodeArgs (..))
+import           Paths_cardano_sl_explorer
+    (version)
+import           Pos.Client.CLI
+    (CommonNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
 
 

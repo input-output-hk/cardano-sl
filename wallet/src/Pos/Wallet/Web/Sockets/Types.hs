@@ -9,7 +9,8 @@ import           Universum
 
 import qualified Network.WebSockets as WS
 
-import           Pos.Core (ChainDifficulty)
+import           Pos.Core
+    (ChainDifficulty)
 
 -- | Shortcut for websocket connection
 type WSConnection = WS.Connection

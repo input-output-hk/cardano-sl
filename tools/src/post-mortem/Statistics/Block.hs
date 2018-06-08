@@ -10,20 +10,28 @@ module Statistics.Block
     , txFateF
     ) where
 
-import           Control.Foldl (Fold (..), fold)
+import           Control.Foldl
+    (Fold (..), fold)
 import qualified Data.Map.Lazy as ML
 import qualified Data.Map.Strict as MS
-import           Data.Maybe (fromJust, isJust)
+import           Data.Maybe
+    (fromJust, isJust)
 import qualified Data.Set as S
 import qualified Data.Text as T
-import           Data.Time.Units (Microsecond)
+import           Data.Time.Units
+    (Microsecond)
 
-import           JSONLog (IndexedJLTimedEvent (..))
-import           Pos.Infra.Util.JsonLog.Events (JLBlock (..), JLEvent (..))
-import           Prelude (id)
-import           Statistics.Tx (txFirstReceivedF)
+import           JSONLog
+    (IndexedJLTimedEvent (..))
+import           Pos.Infra.Util.JsonLog.Events
+    (JLBlock (..), JLEvent (..))
+import           Prelude
+    (id)
+import           Statistics.Tx
+    (txFirstReceivedF)
 import           Types
-import           Universum hiding (fold)
+import           Universum hiding
+    (fold)
 
 data BlockHeader = BlockHeader
     { bhNode      :: !NodeId

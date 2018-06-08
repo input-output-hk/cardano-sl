@@ -5,7 +5,8 @@ module Pos.Core.Common.TxFeePolicy
 import           Universum
 
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, build, shown, (%))
+import           Formatting
+    (bprint, build, shown, (%))
 
 import           Pos.Core.Common.TxSizeLinear
 

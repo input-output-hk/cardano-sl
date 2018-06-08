@@ -5,13 +5,16 @@ module Test.Infrastructure.Genesis (
 
 import           Universum
 
-import qualified Data.List (head)
+import qualified Data.List
+    (head)
 
 import           UTxO.Context
 import           UTxO.DSL
 
-import           Pos.Core (TxSizeLinear)
-import           Test.Infrastructure.Generator (estimateCardanoFee)
+import           Pos.Core
+    (TxSizeLinear)
+import           Test.Infrastructure.Generator
+    (estimateCardanoFee)
 
 {-------------------------------------------------------------------------------
   Convenient access to some values in the Cardano genesis block
@@ -35,7 +38,7 @@ data GenesisValues h = GenesisValues {
     , hashBoot :: h (Transaction h Addr)
 
       -- | Fee policy
-    , txFee :: Int -> [Value] -> Value
+    , txFee    :: Int -> [Value] -> Value
     }
 
 -- | Compute genesis values from the bootstrap transaction

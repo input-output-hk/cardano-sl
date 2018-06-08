@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
 
 -- | Monads used for explorer's toil.
@@ -28,21 +28,31 @@ module Pos.Explorer.Txp.Toil.Monad
 
 import           Universum
 
-import           Control.Lens (at, magnify, zoom, (%=), (.=))
-import           Control.Monad.Free.Church (F (..))
-import           Control.Monad.Morph (generalize, hoist)
-import           Control.Monad.Reader (mapReaderT)
-import           Control.Monad.State.Strict (mapStateT)
-import           System.Wlog (NamedPureLogger)
+import           Control.Lens
+    (at, magnify, zoom, (%=), (.=))
+import           Control.Monad.Free.Church
+    (F (..))
+import           Control.Monad.Morph
+    (generalize, hoist)
+import           Control.Monad.Reader
+    (mapReaderT)
+import           Control.Monad.State.Strict
+    (mapStateT)
+import           System.Wlog
+    (NamedPureLogger)
 
-import           Pos.Core (Address, Coin, TxId)
-import           Pos.Explorer.Core (AddrHistory, TxExtra)
-import           Pos.Explorer.Txp.Toil.Types (ExplorerExtraLookup (..), ExplorerExtraModifier,
-                                              eemAddrBalances, eemAddrHistories, eemLocalTxsExtra,
-                                              eemNewUtxoSum)
-import           Pos.Txp.Toil (ExtendedGlobalToilM, ExtendedLocalToilM, StakesLookupF)
+import           Pos.Core
+    (Address, Coin, TxId)
+import           Pos.Explorer.Core
+    (AddrHistory, TxExtra)
+import           Pos.Explorer.Txp.Toil.Types
+    (ExplorerExtraLookup (..), ExplorerExtraModifier, eemAddrBalances,
+    eemAddrHistories, eemLocalTxsExtra, eemNewUtxoSum)
+import           Pos.Txp.Toil
+    (ExtendedGlobalToilM, ExtendedLocalToilM, StakesLookupF)
+import           Pos.Util
+    (type (~>))
 import qualified Pos.Util.Modifier as MM
-import           Pos.Util (type (~>))
 
 ----------------------------------------------------------------------------
 -- Monadic actions with extra txp data.

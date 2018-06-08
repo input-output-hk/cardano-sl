@@ -6,12 +6,17 @@ module Test.Pos.Explorer.Identity.BinarySpec
 
 import           Universum
 
-import           Test.Hspec (Spec, describe)
+import           Test.Hspec
+    (Spec, describe)
 
-import           Pos.Arbitrary.Explorer ()
-import           Pos.Explorer.Core (TxExtra)
-import           Test.Pos.Binary.Helpers (binaryTest)
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Pos.Arbitrary.Explorer
+    ()
+import           Pos.Explorer.Core
+    (TxExtra)
+import           Test.Pos.Binary.Helpers
+    (binaryTest)
+import           Test.Pos.Configuration
+    (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Explorer types" $ do

@@ -7,24 +7,37 @@ module Pos.Update.Poll.DBPoll
        , runDBPoll
        ) where
 
-import           Universum hiding (id)
+import           Universum hiding
+    (id)
 
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce (coerce)
+import           Control.Monad.Trans.Identity
+    (IdentityT (..))
+import           Data.Coerce
+    (coerce)
 import qualified Data.HashMap.Strict as HM
 import qualified Ether
-import           System.Wlog (WithLogger)
-import           UnliftIO (MonadUnliftIO)
+import           System.Wlog
+    (WithLogger)
+import           UnliftIO
+    (MonadUnliftIO)
 
-import           Pos.Core (Coin, HasGenesisBlockVersionData)
-import           Pos.DB.Class (MonadDBRead)
-import           Pos.Lrc.Consumer.Update (tryGetUSRichmen)
-import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
-import           Pos.Lrc.DB.Issuers (getIssuersStakes)
-import           Pos.Lrc.Types (FullRichmenData)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Pos.Core
+    (Coin, HasGenesisBlockVersionData)
+import           Pos.DB.Class
+    (MonadDBRead)
+import           Pos.Lrc.Consumer.Update
+    (tryGetUSRichmen)
+import           Pos.Lrc.Context
+    (HasLrcContext, lrcActionOnEpochReason)
+import           Pos.Lrc.DB.Issuers
+    (getIssuersStakes)
+import           Pos.Lrc.Types
+    (FullRichmenData)
+import           Pos.Update.Configuration
+    (HasUpdateConfiguration)
 import qualified Pos.Update.DB as GS
-import           Pos.Update.Poll.Class (MonadPollRead (..))
+import           Pos.Update.Poll.Class
+    (MonadPollRead (..))
 
 ----------------------------------------------------------------------------
 -- Transformer

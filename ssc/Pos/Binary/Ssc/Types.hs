@@ -6,13 +6,18 @@ module Pos.Binary.Ssc.Types () where
 
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi,
-                                   deriveSimpleBiCxt, encodeListLen, enforceSize)
-import           Pos.Core.Slotting (EpochIndex)
-import           Pos.Core.Ssc (CommitmentsMap, Opening, OpeningsMap, SharesMap, SignedCommitment,
-                               VssCertificatesMap (..))
-import           Pos.Ssc.Types (SscGlobalState (..), SscSecretStorage (..))
-import           Pos.Ssc.VssCertData (VssCertData (..))
+import           Pos.Binary.Class
+    (Bi (..), Cons (..), Field (..), deriveSimpleBi, deriveSimpleBiCxt,
+    encodeListLen, enforceSize)
+import           Pos.Core.Slotting
+    (EpochIndex)
+import           Pos.Core.Ssc
+    (CommitmentsMap, Opening, OpeningsMap, SharesMap, SignedCommitment,
+    VssCertificatesMap (..))
+import           Pos.Ssc.Types
+    (SscGlobalState (..), SscSecretStorage (..))
+import           Pos.Ssc.VssCertData
+    (VssCertData (..))
 
 instance Bi VssCertData where
     encode VssCertData {..} = mconcat

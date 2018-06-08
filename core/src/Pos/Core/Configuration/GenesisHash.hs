@@ -7,11 +7,15 @@ module Pos.Core.Configuration.GenesisHash
        , genesisHash
        ) where
 
-import           Data.Coerce (coerce)
-import           Data.Reflection (Given (..), give)
+import           Data.Coerce
+    (coerce)
+import           Data.Reflection
+    (Given (..), give)
 
-import           Pos.Binary.Class (Raw)
-import           Pos.Crypto.Hashing (Hash)
+import           Pos.Binary.Class
+    (Raw)
+import           Pos.Crypto.Hashing
+    (Hash)
 
 newtype GenesisHash = GenesisHash { getGenesisHash :: forall a . Hash a }
 

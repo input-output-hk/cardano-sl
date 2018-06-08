@@ -3,15 +3,22 @@
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
-import           Control.Monad (unless)
-import           Control.Monad.IO.Class (liftIO)
-import           Data.Binary (Binary)
-import           Data.ByteString (ByteString)
+import           Control.Monad
+    (unless)
+import           Control.Monad.IO.Class
+    (liftIO)
+import           Data.Binary
+    (Binary)
+import           Data.ByteString
+    (ByteString)
 import qualified Data.ByteString as BS
-import           Data.String (fromString)
+import           Data.String
+    (fromString)
 import           Data.Time.Units
-import           GHC.Generics (Generic)
-import           Mockable.Concurrent (async, cancel, delay, wait)
+import           GHC.Generics
+    (Generic)
+import           Mockable.Concurrent
+    (async, cancel, delay, wait)
 import           Mockable.Production
 import           Mockable.SharedAtomic
 import           Network.Transport.Abstract
@@ -20,9 +27,12 @@ import qualified Network.Transport.Concrete.TCP as TCP
 import qualified Network.Transport.TCP as TCP
 import           Node
 import           Node.Message
-import           Node.Util.Monitor (startMonitor)
-import           System.Environment (getArgs)
-import           System.Random (mkStdGen)
+import           Node.Util.Monitor
+    (startMonitor)
+import           System.Environment
+    (getArgs)
+import           System.Random
+    (mkStdGen)
 
 -- |
 -- = Abuse demonstration number 1.

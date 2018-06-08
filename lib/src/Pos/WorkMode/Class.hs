@@ -12,42 +12,75 @@ module Pos.WorkMode.Class
 
 import           Universum
 
-import           Control.Monad.Trans.Control (MonadBaseControl)
+import           Control.Monad.Trans.Control
+    (MonadBaseControl)
 import qualified Crypto.Random as Rand
-import           Mockable (MonadMockable)
-import           System.Wlog (WithLogger)
-import           UnliftIO (MonadUnliftIO)
+import           Mockable
+    (MonadMockable)
+import           System.Wlog
+    (WithLogger)
+import           UnliftIO
+    (MonadUnliftIO)
 
-import           Pos.Block.BListener (MonadBListener)
-import           Pos.Block.Configuration (HasBlockConfiguration)
-import           Pos.Block.Slog (HasSlogContext, HasSlogGState)
-import           Pos.Block.Types (MonadLastKnownHeader, MonadRecoveryHeader)
-import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag, HasSscContext, StartTime,
-                              TxpGlobalSettings)
-import           Pos.Core (HasConfiguration, HasPrimaryKey)
-import           Pos.DB.Class (MonadDB, MonadGState)
-import           Pos.DB.Rocks (MonadRealDB)
-import           Pos.Delegation.Class (MonadDelegation)
-import           Pos.Delegation.Configuration (HasDlgConfiguration)
-import           Pos.Infra.DHT.Real.Param (KademliaParams)
-import           Pos.Infra.Network.Types (HasNodeType, NetworkConfig)
-import           Pos.Infra.Recovery.Info (MonadRecoveryInfo)
-import           Pos.Infra.Reporting (HasMisbehaviorMetrics, MonadReporting)
-import           Pos.Infra.Shutdown (HasShutdownContext)
-import           Pos.Infra.Slotting.Class (MonadSlots)
-import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
-import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
-import           Pos.Infra.Util.TimeWarp (CanJsonLog)
-import           Pos.Lrc.Context (HasLrcContext)
-import           Pos.Security.Params (SecurityParams)
-import           Pos.Ssc (HasSscConfiguration)
-import           Pos.Ssc.Mem (MonadSscMem)
-import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Update.Context (UpdateContext)
-import           Pos.Update.Params (UpdateParams)
-import           Pos.Util (HasLens, HasLens')
+import           Pos.Block.BListener
+    (MonadBListener)
+import           Pos.Block.Configuration
+    (HasBlockConfiguration)
+import           Pos.Block.Slog
+    (HasSlogContext, HasSlogGState)
+import           Pos.Block.Types
+    (MonadLastKnownHeader, MonadRecoveryHeader)
+import           Pos.Configuration
+    (HasNodeConfiguration)
+import           Pos.Context
+    (BlockRetrievalQueue, BlockRetrievalQueueTag, HasSscContext, StartTime,
+    TxpGlobalSettings)
+import           Pos.Core
+    (HasConfiguration, HasPrimaryKey)
+import           Pos.DB.Class
+    (MonadDB, MonadGState)
+import           Pos.DB.Rocks
+    (MonadRealDB)
+import           Pos.Delegation.Class
+    (MonadDelegation)
+import           Pos.Delegation.Configuration
+    (HasDlgConfiguration)
+import           Pos.Infra.DHT.Real.Param
+    (KademliaParams)
+import           Pos.Infra.Network.Types
+    (HasNodeType, NetworkConfig)
+import           Pos.Infra.Recovery.Info
+    (MonadRecoveryInfo)
+import           Pos.Infra.Reporting
+    (HasMisbehaviorMetrics, MonadReporting)
+import           Pos.Infra.Shutdown
+    (HasShutdownContext)
+import           Pos.Infra.Slotting.Class
+    (MonadSlots)
+import           Pos.Infra.StateLock
+    (StateLock, StateLockMetrics)
+import           Pos.Infra.Util.JsonLog.Events
+    (MemPoolModifyReason)
+import           Pos.Infra.Util.TimeWarp
+    (CanJsonLog)
+import           Pos.Lrc.Context
+    (HasLrcContext)
+import           Pos.Security.Params
+    (SecurityParams)
+import           Pos.Ssc
+    (HasSscConfiguration)
+import           Pos.Ssc.Mem
+    (MonadSscMem)
+import           Pos.Txp.MemState
+    (MempoolExt, MonadTxpLocal, MonadTxpMem)
+import           Pos.Update.Configuration
+    (HasUpdateConfiguration)
+import           Pos.Update.Context
+    (UpdateContext)
+import           Pos.Update.Params
+    (UpdateParams)
+import           Pos.Util
+    (HasLens, HasLens')
 
 -- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ctx m

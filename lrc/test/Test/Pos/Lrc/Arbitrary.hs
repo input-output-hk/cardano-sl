@@ -9,16 +9,24 @@ module Test.Pos.Lrc.Arbitrary
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
-import           Data.Reflection (Reifies (..))
-import           Test.QuickCheck (Arbitrary (..), Gen, choose, vector)
-import           Test.QuickCheck.Arbitrary.Generic (genericShrink)
+import           Data.Reflection
+    (Reifies (..))
+import           Test.QuickCheck
+    (Arbitrary (..), Gen, choose, vector)
+import           Test.QuickCheck.Arbitrary.Generic
+    (genericShrink)
 
-import           Pos.Arbitrary.Core ()
-import           Pos.Core.Common (Coin, CoinPortion, coinPortionToDouble, mkCoin, unsafeAddCoin,
-                                  unsafeGetCoin, unsafeSubCoin)
-import           Pos.Core.Configuration (HasGenesisBlockVersionData, genesisBlockVersionData)
-import           Pos.Core.Update (BlockVersionData (bvdMpcThd))
-import           Pos.Lrc.Types (RichmenStakes)
+import           Pos.Arbitrary.Core
+    ()
+import           Pos.Core.Common
+    (Coin, CoinPortion, coinPortionToDouble, mkCoin, unsafeAddCoin,
+    unsafeGetCoin, unsafeSubCoin)
+import           Pos.Core.Configuration
+    (HasGenesisBlockVersionData, genesisBlockVersionData)
+import           Pos.Core.Update
+    (BlockVersionData (bvdMpcThd))
+import           Pos.Lrc.Types
+    (RichmenStakes)
 
 -- | Wrapper over 'RichmenStakes'. Its 'Arbitrary' instance enforces that the
 -- stake distribution inside must be valid with respect to the threshold

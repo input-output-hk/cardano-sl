@@ -4,12 +4,13 @@ module Node.Util.Monitor (
       registerMetrics
     ) where
 
-import           Data.Monoid ((<>))
+import           Data.Monoid
+    ((<>))
 import qualified Data.Text as T
 import           Node
 import qualified System.Metrics as Monitoring
-import qualified System.Metrics.Gauge as Gauge
 import qualified System.Metrics.Distribution as Monitoring.Distribution
+import qualified System.Metrics.Gauge as Gauge
 
 -- | Put time-warp related metrics into an EKG store.
 --   You must indicate how to run the monad into IO, so that EKG can produce

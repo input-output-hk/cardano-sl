@@ -18,20 +18,30 @@ module Data.X509.Extra
 
 import           Universum
 
-import           Crypto.Hash.Algorithms (SHA256 (..))
-import           Crypto.PubKey.RSA (PrivateKey (..), PublicKey (..), generate)
-import           Crypto.PubKey.RSA.PKCS15 (signSafer)
-import           Crypto.Random.Types (MonadRandom)
-import           Data.ASN1.BinaryEncoding (DER (..))
-import           Data.ASN1.Encoding (encodeASN1)
-import           Data.ASN1.Types (ASN1 (..), ASN1ConstructionType (..))
-import           Data.ByteString (ByteString)
+import           Crypto.Hash.Algorithms
+    (SHA256 (..))
+import           Crypto.PubKey.RSA
+    (PrivateKey (..), PublicKey (..), generate)
+import           Crypto.PubKey.RSA.PKCS15
+    (signSafer)
+import           Crypto.Random.Types
+    (MonadRandom)
+import           Data.ASN1.BinaryEncoding
+    (DER (..))
+import           Data.ASN1.Encoding
+    (encodeASN1)
+import           Data.ASN1.Types
+    (ASN1 (..), ASN1ConstructionType (..))
+import           Data.ByteString
+    (ByteString)
 import           Data.Default.Class
-import           Data.List (intercalate)
+import           Data.List
+    (intercalate)
 import           Data.X509
-import           Data.X509.CertificateStore (makeCertificateStore)
-import           Data.X509.Validation (FailedReason, ServiceID, ValidationChecks (..), defaultHooks,
-                                       validate)
+import           Data.X509.CertificateStore
+    (makeCertificateStore)
+import           Data.X509.Validation
+    (FailedReason, ServiceID, ValidationChecks (..), defaultHooks, validate)
 
 import qualified Crypto.PubKey.RSA.Types as RSA
 import qualified Data.ByteString as BS

@@ -21,13 +21,17 @@ module Cardano.Wallet.WalletLayer.Types
 
 import           Universum
 
-import           Control.Lens (makeLenses)
+import           Control.Lens
+    (makeLenses)
 
-import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, Address,
-                                              NewAccount, NewWallet, Wallet, WalletId, WalletUpdate)
+import           Cardano.Wallet.API.V1.Types
+    (Account, AccountIndex, AccountUpdate, Address, NewAccount, NewWallet,
+    Wallet, WalletId, WalletUpdate)
 
-import           Pos.Core.Chrono (NE, OldestFirst (..), NewestFirst (..))
-import           Pos.Block.Types (Blund)
+import           Pos.Block.Types
+    (Blund)
+import           Pos.Core.Chrono
+    (NE, NewestFirst (..), OldestFirst (..))
 
 ------------------------------------------------------------
 -- Passive wallet layer

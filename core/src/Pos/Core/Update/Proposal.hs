@@ -11,17 +11,24 @@ module Pos.Core.Update.Proposal
 
 import           Universum
 
-import           Control.Monad.Except (MonadError (throwError))
+import           Control.Monad.Except
+    (MonadError (throwError))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable as Buildable
-import           Data.Text.Lazy.Builder (Builder)
-import           Formatting (bprint, build, builder, (%))
-import           Serokell.Util.Text (listJson)
+import           Data.Text.Lazy.Builder
+    (Builder)
+import           Formatting
+    (bprint, build, builder, (%))
+import           Serokell.Util.Text
+    (listJson)
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, SafeSigner, SignTag (SignUSProposal),
-                             Signature, checkSig, hash, safeSign, safeToPublic)
-import           Pos.Data.Attributes (Attributes, areAttributesKnown)
+import           Pos.Binary.Class
+    (Bi)
+import           Pos.Crypto
+    (Hash, ProtocolMagic, PublicKey, SafeSigner, SignTag (SignUSProposal),
+    Signature, checkSig, hash, safeSign, safeToPublic)
+import           Pos.Data.Attributes
+    (Attributes, areAttributesKnown)
 
 import           Pos.Core.Update.BlockVersion
 import           Pos.Core.Update.BlockVersionModifier

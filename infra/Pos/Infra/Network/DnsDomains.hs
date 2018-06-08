@@ -8,8 +8,10 @@ module Pos.Infra.Network.DnsDomains
 import           Universum
 
 import qualified Data.ByteString.Char8 as BS.C8
-import           Data.IP (IP, IPv4)
-import           Network.Broadcast.OutboundQueue.Types (AllOf, Alts)
+import           Data.IP
+    (IP, IPv4)
+import           Network.Broadcast.OutboundQueue.Types
+    (AllOf, Alts)
 
 -- | DNS domains for relay discovery
 --

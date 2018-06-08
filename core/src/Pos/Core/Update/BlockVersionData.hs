@@ -6,13 +6,19 @@ module Pos.Core.Update.BlockVersionData
 import           Universum
 
 import qualified Data.Text.Buildable as Buildable
-import           Data.Time.Units (Millisecond)
-import           Formatting (bprint, build, int, (%))
-import           Serokell.Data.Memory.Units (Byte, memory)
+import           Data.Time.Units
+    (Millisecond)
+import           Formatting
+    (bprint, build, int, (%))
+import           Serokell.Data.Memory.Units
+    (Byte, memory)
 
-import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy)
-import           Pos.Core.Slotting (EpochIndex, FlatSlotId, isBootstrapEra)
-import           Pos.Util.Orphans ()
+import           Pos.Core.Common
+    (CoinPortion, ScriptVersion, TxFeePolicy)
+import           Pos.Core.Slotting
+    (EpochIndex, FlatSlotId, isBootstrapEra)
+import           Pos.Util.Orphans
+    ()
 
 import           Pos.Core.Update.SoftforkRule
 

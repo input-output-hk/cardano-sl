@@ -18,14 +18,18 @@ module Pos.Infra.Slotting.Types
        , computeSlotStart
        ) where
 
-import           Universum hiding (keys)
+import           Universum hiding
+    (keys)
 
 import           Data.Map.Strict as M
-import           Data.Time.Units (Millisecond, toMicroseconds)
+import           Data.Time.Units
+    (Millisecond, toMicroseconds)
 
-import           Pos.Core (EpochIndex (..), LocalSlotIndex (..), TimeDiff (..), Timestamp (..),
-                           addTimeDiffToTimestamp, getSlotIndex)
-import           Pos.Util.Util ()
+import           Pos.Core
+    (EpochIndex (..), LocalSlotIndex (..), TimeDiff (..), Timestamp (..),
+    addTimeDiffToTimestamp, getSlotIndex)
+import           Pos.Util.Util
+    ()
 
 
 ----------------------------------------------------------------------------

@@ -6,20 +6,33 @@ module Pos.Delegation.Worker
 
 import           Universum
 
-import           Control.Lens ((%=))
-import           Data.Time.Clock (UTCTime, addUTCTime)
-import           Data.Time.Units (Second)
-import           Mockable (CurrentTime, Delay, Mockable, currentTime, delay)
-import           System.Wlog (WithLogger)
+import           Control.Lens
+    ((%=))
+import           Data.Time.Clock
+    (UTCTime, addUTCTime)
+import           Data.Time.Units
+    (Second)
+import           Mockable
+    (CurrentTime, Delay, Mockable, currentTime, delay)
+import           System.Wlog
+    (WithLogger)
 
-import           Pos.Delegation.Class (MonadDelegation, dwMessageCache)
-import           Pos.Delegation.Configuration (HasDlgConfiguration, dlgMessageCacheTimeout)
-import           Pos.Delegation.Logic (DelegationStateAction, runDelegationStateAction)
-import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Infra.Reporting (MonadReporting, reportOrLogE)
-import           Pos.Infra.Shutdown (HasShutdownContext)
-import           Pos.Util (microsecondsToUTC)
-import           Pos.Util.LRU (filterLRU)
+import           Pos.Delegation.Class
+    (MonadDelegation, dwMessageCache)
+import           Pos.Delegation.Configuration
+    (HasDlgConfiguration, dlgMessageCacheTimeout)
+import           Pos.Delegation.Logic
+    (DelegationStateAction, runDelegationStateAction)
+import           Pos.Infra.Diffusion.Types
+    (Diffusion)
+import           Pos.Infra.Reporting
+    (MonadReporting, reportOrLogE)
+import           Pos.Infra.Shutdown
+    (HasShutdownContext)
+import           Pos.Util
+    (microsecondsToUTC)
+import           Pos.Util.LRU
+    (filterLRU)
 
 -- | This is a subset of 'WorkMode'.
 type DlgWorkerConstraint ctx m

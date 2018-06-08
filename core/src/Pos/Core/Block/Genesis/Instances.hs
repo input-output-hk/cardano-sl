@@ -9,20 +9,28 @@ module Pos.Core.Block.Genesis.Instances
 import           Universum
 
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, build, int, sformat, stext, (%))
-import           Serokell.Util (Color (Magenta), colorize)
+import           Formatting
+    (bprint, build, int, sformat, stext, (%))
+import           Serokell.Util
+    (Color (Magenta), colorize)
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Core.Block.Blockchain (GenericBlock (..), GenericBlockHeader (..), gbHeader,
-                                            gbhConsensus)
-import           Pos.Core.Block.Genesis.Lens (gcdDifficulty, gcdEpoch)
-import           Pos.Core.Block.Genesis.Types (GenesisBody (..), GenesisConsensusData (..))
-import           Pos.Core.Block.Union.Types (BlockHeader (..), GenesisBlock, GenesisBlockHeader,
-                                             HasHeaderHash (..), HeaderHash, IsGenesisHeader,
-                                             IsHeader, blockHeaderHash)
-import           Pos.Core.Common (HasDifficulty (..), slotLeadersF)
-import           Pos.Core.Slotting (EpochOrSlot (..), HasEpochIndex (..), HasEpochOrSlot (..))
-import           Pos.Crypto (hashHexF)
+import           Pos.Binary.Class
+    (Bi)
+import           Pos.Core.Block.Blockchain
+    (GenericBlock (..), GenericBlockHeader (..), gbHeader, gbhConsensus)
+import           Pos.Core.Block.Genesis.Lens
+    (gcdDifficulty, gcdEpoch)
+import           Pos.Core.Block.Genesis.Types
+    (GenesisBody (..), GenesisConsensusData (..))
+import           Pos.Core.Block.Union.Types
+    (BlockHeader (..), GenesisBlock, GenesisBlockHeader, HasHeaderHash (..),
+    HeaderHash, IsGenesisHeader, IsHeader, blockHeaderHash)
+import           Pos.Core.Common
+    (HasDifficulty (..), slotLeadersF)
+import           Pos.Core.Slotting
+    (EpochOrSlot (..), HasEpochIndex (..), HasEpochOrSlot (..))
+import           Pos.Crypto
+    (hashHexF)
 
 instance NFData GenesisBlock
 

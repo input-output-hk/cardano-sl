@@ -8,39 +8,61 @@ module Test.Pos.Generator.Block.LrcSpec
        ( spec
        ) where
 
-import           Universum hiding (id)
+import           Universum hiding
+    (id)
 
-import           Control.Exception.Safe (try)
-import           Control.Lens (At (at), Index, _Right)
+import           Control.Exception.Safe
+    (try)
+import           Control.Lens
+    (At (at), Index, _Right)
 import qualified Data.HashMap.Strict as HM
-import           Formatting (build, int, sformat, (%))
-import           Serokell.Util (listJson)
-import           Test.Hspec (Spec, describe)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Gen, arbitrary, choose)
-import           Test.QuickCheck.Monadic (pick)
+import           Formatting
+    (build, int, sformat, (%))
+import           Serokell.Util
+    (listJson)
+import           Test.Hspec
+    (Spec, describe)
+import           Test.Hspec.QuickCheck
+    (modifyMaxSuccess, prop)
+import           Test.QuickCheck
+    (Gen, arbitrary, choose)
+import           Test.QuickCheck.Monadic
+    (pick)
 
-import           Pos.Binary.Class (serialize')
-import           Pos.Block.Logic (applyBlocksUnsafe)
+import           Pos.Binary.Class
+    (serialize')
+import           Pos.Block.Logic
+    (applyBlocksUnsafe)
 import qualified Pos.Block.Lrc as Lrc
-import           Pos.Block.Slog (ShouldCallBListener (..))
-import           Pos.Core (Coin, EpochIndex, GenesisData (..), GenesisInitializer (..),
-                           StakeholderId, TestnetBalanceOptions (..), addressHash, blkSecurityParam,
-                           coinF, genesisData, genesisSecretKeysPoor, genesisSecretKeysRich)
-import           Pos.Core.Block (mainBlockTxPayload)
-import           Pos.Core.Txp (TxAux, mkTxPayload)
-import           Pos.Crypto (SecretKey, toPublic)
+import           Pos.Block.Slog
+    (ShouldCallBListener (..))
+import           Pos.Core
+    (Coin, EpochIndex, GenesisData (..), GenesisInitializer (..),
+    StakeholderId, TestnetBalanceOptions (..), addressHash, blkSecurityParam,
+    coinF, genesisData, genesisSecretKeysPoor, genesisSecretKeysRich)
+import           Pos.Core.Block
+    (mainBlockTxPayload)
+import           Pos.Core.Txp
+    (TxAux, mkTxPayload)
+import           Pos.Crypto
+    (SecretKey, toPublic)
 import qualified Pos.GState as GS
-import           Pos.Launcher (HasConfigurations)
+import           Pos.Launcher
+    (HasConfigurations)
 import qualified Pos.Lrc as Lrc
-import           Pos.Util.Util (getKeys)
+import           Pos.Util.Util
+    (getKeys)
 
-import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..), blockPropertyToProperty)
-import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock,
-                                            bpGenBlocks)
-import           Test.Pos.Block.Property (blockPropertySpec)
-import           Test.Pos.Configuration (defaultTestBlockVersionData, withStaticConfigurations)
-import           Test.Pos.Util.QuickCheck (maybeStopProperty, stopProperty)
+import           Test.Pos.Block.Logic.Mode
+    (BlockProperty, TestParams (..), blockPropertyToProperty)
+import           Test.Pos.Block.Logic.Util
+    (EnableTxPayload (..), InplaceDB (..), bpGenBlock, bpGenBlocks)
+import           Test.Pos.Block.Property
+    (blockPropertySpec)
+import           Test.Pos.Configuration
+    (defaultTestBlockVersionData, withStaticConfigurations)
+import           Test.Pos.Util.QuickCheck
+    (maybeStopProperty, stopProperty)
 
 
 spec :: Spec

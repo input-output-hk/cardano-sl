@@ -11,26 +11,42 @@ module Plugin
 import           Universum
 
 #if !(defined(mingw32_HOST_OS))
-import           System.Exit (ExitCode (ExitSuccess))
-import           System.Posix.Process (exitImmediately)
+import           System.Exit
+    (ExitCode (ExitSuccess))
+import           System.Posix.Process
+    (exitImmediately)
 #endif
-import           Control.Monad.Except (ExceptT (..), withExceptT)
-import           Data.Constraint (Dict (..))
-import           Data.Time.Units (Second)
-import           Formatting (float, int, sformat, (%))
-import           Mockable (Delay, Mockable, delay)
-import           System.IO (hFlush, stdout)
-import           System.Wlog (CanLog, HasLoggerName, logInfo)
+import           Control.Monad.Except
+    (ExceptT (..), withExceptT)
+import           Data.Constraint
+    (Dict (..))
+import           Data.Time.Units
+    (Second)
+import           Formatting
+    (float, int, sformat, (%))
+import           Mockable
+    (Delay, Mockable, delay)
+import           System.IO
+    (hFlush, stdout)
+import           System.Wlog
+    (CanLog, HasLoggerName, logInfo)
 
-import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
-import           Pos.Infra.Diffusion.Types (Diffusion)
-import           Pos.Txp (genesisUtxo, unGenesisUtxo)
+import           Pos.Crypto
+    (AHash (..), fullPublicKeyF, hashHexF)
+import           Pos.Infra.Diffusion.Types
+    (Diffusion)
+import           Pos.Txp
+    (genesisUtxo, unGenesisUtxo)
 
-import           AuxxOptions (AuxxOptions (..))
-import           Command (createCommandProcs)
+import           AuxxOptions
+    (AuxxOptions (..))
+import           Command
+    (createCommandProcs)
 import qualified Lang
-import           Mode (MonadAuxxMode)
-import           Repl (PrintAction, WithCommandAction (..))
+import           Mode
+    (MonadAuxxMode)
+import           Repl
+    (PrintAction, WithCommandAction (..))
 
 ----------------------------------------------------------------------------
 -- Plugin implementation

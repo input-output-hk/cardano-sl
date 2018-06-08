@@ -6,32 +6,47 @@ module Test.Pos.Ssc.SeedSpec
 
 import           Universum
 
-import           Control.Lens (each, traverseOf)
-import           Crypto.Random (MonadRandom)
+import           Control.Lens
+    (each, traverseOf)
+import           Crypto.Random
+    (MonadRandom)
 import qualified Data.HashMap.Strict as HM
-import           Data.List (lookup, unzip, (\\))
+import           Data.List
+    (lookup, unzip, (\\))
 import qualified Data.List.NonEmpty as NE
-import           Formatting (build, int, sformat, shown, (%))
-import           Serokell.Util (listJson)
-import           Test.Hspec (Spec, describe, pending)
-import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess, prop)
-import           Test.QuickCheck (Property, choose, counterexample, generate, ioProperty, property,
-                                  sized, (===))
-import           Test.QuickCheck.Property (failed, succeeded)
+import           Formatting
+    (build, int, sformat, shown, (%))
+import           Serokell.Util
+    (listJson)
+import           Test.Hspec
+    (Spec, describe, pending)
+import           Test.Hspec.QuickCheck
+    (modifyMaxSize, modifyMaxSuccess, prop)
+import           Test.QuickCheck
+    (Property, choose, counterexample, generate, ioProperty, property, sized,
+    (===))
+import           Test.QuickCheck.Property
+    (failed, succeeded)
 
 import           Pos.Binary
-import           Pos.Core (AddressHash, HasConfiguration, SharedSeed (..), StakeholderId,
-                           addressHash, mkCoin)
-import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), getCommShares,
-                               getCommitmentsMap, mkCommitmentsMap)
-import           Pos.Crypto (DecShare, PublicKey, SecretKey, SignTag (SignCommitment), Threshold,
-                             VssKeyPair, VssPublicKey, decryptShare, protocolMagic, sign, toPublic,
-                             toVssPublicKey)
-import           Pos.Ssc (SscSeedError (..), calculateSeed, genCommitmentAndOpening,
-                          secretToSharedSeed, vssThreshold)
+import           Pos.Core
+    (AddressHash, HasConfiguration, SharedSeed (..), StakeholderId,
+    addressHash, mkCoin)
+import           Pos.Core.Ssc
+    (Commitment (..), CommitmentsMap, Opening (..), getCommShares,
+    getCommitmentsMap, mkCommitmentsMap)
+import           Pos.Crypto
+    (DecShare, PublicKey, SecretKey, SignTag (SignCommitment), Threshold,
+    VssKeyPair, VssPublicKey, decryptShare, protocolMagic, sign, toPublic,
+    toVssPublicKey)
+import           Pos.Ssc
+    (SscSeedError (..), calculateSeed, genCommitmentAndOpening,
+    secretToSharedSeed, vssThreshold)
 
-import           Test.Pos.Configuration (withDefConfiguration)
-import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating, sublistN)
+import           Test.Pos.Configuration
+    (withDefConfiguration)
+import           Test.Pos.Util.QuickCheck.Arbitrary
+    (nonrepeating, sublistN)
 
 
 getPubAddr :: SecretKey -> AddressHash PublicKey

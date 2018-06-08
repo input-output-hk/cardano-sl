@@ -27,11 +27,15 @@ module Lang.Argument
 import           Universum
 
 import qualified Data.Set as Set
-import           Numeric.Natural (Natural)
+import           Numeric.Natural
+    (Natural)
 
-import           Lang.Name (Name (..))
-import           Lang.Syntax (Arg (..))
-import           Lang.Value (Value)
+import           Lang.Name
+    (Name (..))
+import           Lang.Syntax
+    (Arg (..))
+import           Lang.Value
+    (Value)
 
 data ArgumentError = ArgumentError
     { aeMissingKeys    :: !(Set Name)
@@ -254,4 +258,4 @@ getParameters = \case
 typeDirectedKwAnn :: Name -> TyProjection a -> Arg Value -> Arg Value
 typeDirectedKwAnn name tp arg = case arg of
     ArgPos v | isJust (tpMatcher tp v) -> ArgKw name v
-    _ -> arg
+    _        -> arg

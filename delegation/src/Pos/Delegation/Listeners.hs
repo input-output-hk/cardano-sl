@@ -10,22 +10,37 @@ module Pos.Delegation.Listeners
 
 import           Universum
 
-import           Formatting (build, sformat, shown, (%))
-import           Mockable (CurrentTime, Delay, Mockable)
-import           System.Wlog (WithLogger, logDebug, logWarning)
-import           UnliftIO (MonadUnliftIO)
+import           Formatting
+    (build, sformat, shown, (%))
+import           Mockable
+    (CurrentTime, Delay, Mockable)
+import           System.Wlog
+    (WithLogger, logDebug, logWarning)
+import           UnliftIO
+    (MonadUnliftIO)
 
-import           Pos.Binary.Delegation ()
-import           Pos.Core (ProxySKHeavy)
-import           Pos.DB.Class (MonadBlockDBRead, MonadGState)
-import           Pos.Delegation.Class (MonadDelegation)
-import           Pos.Delegation.Configuration (HasDlgConfiguration)
-import           Pos.Delegation.Logic (PskHeavyVerdict (..), processProxySKHeavy)
-import           Pos.Infra.Communication.Protocol (Message)
-import           Pos.Infra.Communication.Relay (DataMsg)
-import           Pos.Infra.StateLock (StateLock)
-import           Pos.Lrc.Context (HasLrcContext)
-import           Pos.Util (HasLens')
+import           Pos.Binary.Delegation
+    ()
+import           Pos.Core
+    (ProxySKHeavy)
+import           Pos.DB.Class
+    (MonadBlockDBRead, MonadGState)
+import           Pos.Delegation.Class
+    (MonadDelegation)
+import           Pos.Delegation.Configuration
+    (HasDlgConfiguration)
+import           Pos.Delegation.Logic
+    (PskHeavyVerdict (..), processProxySKHeavy)
+import           Pos.Infra.Communication.Protocol
+    (Message)
+import           Pos.Infra.Communication.Relay
+    (DataMsg)
+import           Pos.Infra.StateLock
+    (StateLock)
+import           Pos.Lrc.Context
+    (HasLrcContext)
+import           Pos.Util
+    (HasLens')
 
 -- Message constraints we need to be defined.
 type DlgMessageConstraint

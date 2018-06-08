@@ -8,24 +8,34 @@ module Pos.Explorer.Web.TestServer
 
 import           Universum
 
-import           Data.Time (defaultTimeLocale, parseTimeOrError)
-import           Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
-import           Network.Wai (Application)
-import           Network.Wai.Handler.Warp (run)
-import           Servant.Generic (AsServerT, toServant)
-import           Servant.Server (Handler, Server, serve)
+import           Data.Time
+    (defaultTimeLocale, parseTimeOrError)
+import           Data.Time.Clock.POSIX
+    (POSIXTime, utcTimeToPOSIXSeconds)
+import           Network.Wai
+    (Application)
+import           Network.Wai.Handler.Warp
+    (run)
+import           Servant.Generic
+    (AsServerT, toServant)
+import           Servant.Server
+    (Handler, Server, serve)
 
-import           Pos.Core (EpochIndex (..), mkCoin)
-import           Pos.Explorer.Aeson.ClientTypes ()
-import           Pos.Explorer.Web.Api (ExplorerApi, ExplorerApiRecord (..), explorerApi)
-import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..), CAddressSummary (..),
-                                               CAddressType (..), CAddressesFilter (..),
-                                               CBlockEntry (..), CBlockSummary (..),
-                                               CGenesisAddressInfo (..), CGenesisSummary (..),
-                                               CHash (..), CTxBrief (..), CTxEntry (..), CTxId (..),
-                                               CTxSummary (..), mkCCoin)
-import           Pos.Explorer.Web.Error (ExplorerError (..))
-import           Pos.Web ()
+import           Pos.Core
+    (EpochIndex (..), mkCoin)
+import           Pos.Explorer.Aeson.ClientTypes
+    ()
+import           Pos.Explorer.Web.Api
+    (ExplorerApi, ExplorerApiRecord (..), explorerApi)
+import           Pos.Explorer.Web.ClientTypes
+    (Byte, CAda (..), CAddress (..), CAddressSummary (..), CAddressType (..),
+    CAddressesFilter (..), CBlockEntry (..), CBlockSummary (..),
+    CGenesisAddressInfo (..), CGenesisSummary (..), CHash (..), CTxBrief (..),
+    CTxEntry (..), CTxId (..), CTxSummary (..), mkCCoin)
+import           Pos.Explorer.Web.Error
+    (ExplorerError (..))
+import           Pos.Web
+    ()
 
 ----------------------------------------------------------------
 -- Top level functionality

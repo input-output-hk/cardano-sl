@@ -17,33 +17,52 @@ module Pos.Explorer.BListener
        , createPagedHeaderHashesPair
        ) where
 
-import           Universum hiding (keys)
+import           Universum hiding
+    (keys)
 
-import           Control.Lens (at, non)
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce (coerce)
-import           Data.List ((\\))
+import           Control.Lens
+    (at, non)
+import           Control.Monad.Trans.Identity
+    (IdentityT (..))
+import           Data.Coerce
+    (coerce)
+import           Data.List
+    ((\\))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import qualified Ether
-import           System.Wlog (WithLogger)
-import           UnliftIO (MonadUnliftIO)
+import           System.Wlog
+    (WithLogger)
+import           UnliftIO
+    (MonadUnliftIO)
 
-import           Pos.Block.BListener (MonadBListener (..))
-import           Pos.Block.Types (Blund)
-import           Pos.Core (HasConfiguration, HeaderHash, LocalSlotIndex (..), SlotId (..),
-                           difficultyL, epochIndexL, getChainDifficulty, headerHash, mainBlockSlot)
-import           Pos.Core.Block (Block, MainBlock, mainBlockTxPayload)
-import           Pos.Core.Txp (Tx, txpTxs)
-import           Pos.Crypto (withHash)
-import           Pos.DB.BatchOp (SomeBatchOp (..))
-import           Pos.DB.Class (MonadDBRead)
-import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page, defaultPageSize,
-                                  findEpochMaxPages, numOfLastTxs)
+import           Pos.Block.BListener
+    (MonadBListener (..))
+import           Pos.Block.Types
+    (Blund)
+import           Pos.Core
+    (HasConfiguration, HeaderHash, LocalSlotIndex (..), SlotId (..),
+    difficultyL, epochIndexL, getChainDifficulty, headerHash, mainBlockSlot)
+import           Pos.Core.Block
+    (Block, MainBlock, mainBlockTxPayload)
+import           Pos.Core.Chrono
+    (NE, NewestFirst (..), OldestFirst (..), toNewestFirst)
+import           Pos.Core.Txp
+    (Tx, txpTxs)
+import           Pos.Crypto
+    (withHash)
+import           Pos.DB.BatchOp
+    (SomeBatchOp (..))
+import           Pos.DB.Class
+    (MonadDBRead)
+import           Pos.Explorer.DB
+    (Epoch, EpochPagedBlocksKey, Page, defaultPageSize, findEpochMaxPages,
+    numOfLastTxs)
 import qualified Pos.Explorer.DB as DB
-import           Pos.Txp (topsortTxs)
-import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst)
+import           Pos.Txp
+    (topsortTxs)
+import           Pos.Util.AssertMode
+    (inAssertMode)
 
 
 ----------------------------------------------------------------------------

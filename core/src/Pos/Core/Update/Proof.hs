@@ -3,8 +3,10 @@ module Pos.Core.Update.Proof
        , mkUpdateProof
        ) where
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Crypto (Hash, hash)
+import           Pos.Binary.Class
+    (Bi)
+import           Pos.Crypto
+    (Hash, hash)
 
 import           Pos.Core.Update.Payload
 

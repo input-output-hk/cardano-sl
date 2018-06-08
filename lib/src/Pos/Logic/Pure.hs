@@ -8,36 +8,55 @@ module Pos.Logic.Pure
 import           Universum
 
 import qualified Data.ByteString as BS
-import           Data.Coerce (coerce)
-import           Data.Default (def)
+import           Data.Coerce
+    (coerce)
+import           Data.Default
+    (def)
 
-import           Pos.Binary.Class (serialize')
-import           Pos.Core (ApplicationName (..), Block, BlockHeader (..), BlockVersion (..),
-                           BlockVersionData (..), ExtraBodyData, ExtraHeaderData, GenericBlock (..),
-                           GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
-                           SoftwareVersion (..), StakeholderId, TxFeePolicy (..),
-                           unsafeCoinPortionFromDouble)
-import           Pos.Core.Block (BlockHeaderAttributes, BlockSignature (..), MainBlock,
-                                 MainBlockHeader, MainBlockchain, MainBody (..),
-                                 MainConsensusData (..), MainExtraBodyData (..),
-                                 MainExtraHeaderData (..), MainProof (..))
-import           Pos.Core.Common (BlockCount (..), ChainDifficulty (..))
-import           Pos.Core.Delegation (DlgPayload (..))
-import           Pos.Core.Slotting (EpochIndex (..), LocalSlotIndex (..), SlotId (..))
-import           Pos.Core.Ssc (SscPayload (..), SscProof (..), VssCertificatesMap (..))
-import           Pos.Core.Txp (TxProof (..))
-import           Pos.Core.Update (UpdatePayload (..), UpdateProof)
-import           Pos.Crypto.Configuration (ProtocolMagic (..))
-import           Pos.Crypto.Hashing (Hash, unsafeMkAbstractHash)
-import           Pos.Crypto.Signing (PublicKey (..), SecretKey (..), Signature (..),
-                                     deterministicKeyGen, signRaw)
-import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
-import           Pos.DB.Class (SerializedBlock, Serialized (..))
-import           Pos.Merkle (MerkleRoot (..))
-import           Pos.Txp.Base (emptyTxPayload)
-import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
+import           Pos.Binary.Class
+    (serialize')
+import           Pos.Core
+    (ApplicationName (..), Block, BlockHeader (..), BlockVersion (..),
+    BlockVersionData (..), ExtraBodyData, ExtraHeaderData, GenericBlock (..),
+    GenericBlockHeader (..), HeaderHash, SoftforkRule (..),
+    SoftwareVersion (..), StakeholderId, TxFeePolicy (..),
+    unsafeCoinPortionFromDouble)
+import           Pos.Core.Block
+    (BlockHeaderAttributes, BlockSignature (..), MainBlock, MainBlockHeader,
+    MainBlockchain, MainBody (..), MainConsensusData (..),
+    MainExtraBodyData (..), MainExtraHeaderData (..), MainProof (..))
+import           Pos.Core.Chrono
+    (NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Common
+    (BlockCount (..), ChainDifficulty (..))
+import           Pos.Core.Delegation
+    (DlgPayload (..))
+import           Pos.Core.Slotting
+    (EpochIndex (..), LocalSlotIndex (..), SlotId (..))
+import           Pos.Core.Ssc
+    (SscPayload (..), SscProof (..), VssCertificatesMap (..))
+import           Pos.Core.Txp
+    (TxProof (..))
+import           Pos.Core.Update
+    (UpdatePayload (..), UpdateProof)
+import           Pos.Crypto.Configuration
+    (ProtocolMagic (..))
+import           Pos.Crypto.Hashing
+    (Hash, unsafeMkAbstractHash)
+import           Pos.Crypto.Signing
+    (PublicKey (..), SecretKey (..), Signature (..), deterministicKeyGen,
+    signRaw)
+import           Pos.Data.Attributes
+    (Attributes (..), UnparsedFields (..))
+import           Pos.DB.Class
+    (Serialized (..), SerializedBlock)
+import           Pos.Merkle
+    (MerkleRoot (..))
+import           Pos.Txp.Base
+    (emptyTxPayload)
 
-import           Pos.Logic.Types (KeyVal (..), Logic (..))
+import           Pos.Logic.Types
+    (KeyVal (..), Logic (..))
 
 -- | Serves up a single (invalid but well-formed) block and block header for
 -- any request.

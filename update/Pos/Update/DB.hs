@@ -39,38 +39,57 @@ module Pos.Update.DB
 
 import           Universum
 
-import           Control.Lens (at)
-import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit (ConduitT, mapOutput, runConduitRes, (.|))
+import           Control.Lens
+    (at)
+import           Control.Monad.Trans.Resource
+    (ResourceT)
+import           Data.Conduit
+    (ConduitT, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List as CL
-import           Data.Time.Units (Microsecond, convertUnit)
+import           Data.Time.Units
+    (Microsecond, convertUnit)
 import qualified Database.RocksDB as Rocks
-import           Serokell.Data.Memory.Units (Byte)
-import           UnliftIO (MonadUnliftIO)
+import           Serokell.Data.Memory.Units
+    (Byte)
+import           UnliftIO
+    (MonadUnliftIO)
 
-import           Pos.Binary.Class (serialize')
-import           Pos.Binary.Update ()
-import           Pos.Core (ApplicationName, BlockVersion, ChainDifficulty, NumSoftwareVersion,
-                           SlotId, SoftwareVersion (..), StakeholderId, TimeDiff (..), epochSlots,
-                           HasCoreConfiguration)
-import           Pos.Core.Configuration (genesisBlockVersionData)
-import           Pos.Core.Update (BlockVersionData (..), UpId, UpdateProposal (..))
-import           Pos.Crypto (hash)
-import           Pos.DB (DBIteratorClass (..), DBTag (..), IterType, MonadDB, MonadDBRead (..),
-                         RocksBatchOp (..), dbSerializeValue, encodeWithKeyPrefix)
-import           Pos.DB.Error (DBError (DBMalformed))
-import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
-import           Pos.Infra.Binary ()
-import           Pos.Infra.Slotting.Types (EpochSlottingData (..),
-                                           SlottingData,
-                                           createInitSlottingData)
-import           Pos.Update.Configuration (HasUpdateConfiguration, ourAppName, ourSystemTag)
-import           Pos.Update.Constants (genesisBlockVersion, genesisSoftwareVersions)
-import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposalState (..),
-                                        DecidedProposalState (dpsDifficulty), ProposalState (..),
-                                        UndecidedProposalState (upsSlot), bvsIsConfirmed,
-                                        cpsSoftwareVersion, psProposal)
-import           Pos.Util.Util (maybeThrow)
+import           Pos.Binary.Class
+    (serialize')
+import           Pos.Binary.Update
+    ()
+import           Pos.Core
+    (ApplicationName, BlockVersion, ChainDifficulty, HasCoreConfiguration,
+    NumSoftwareVersion, SlotId, SoftwareVersion (..), StakeholderId,
+    TimeDiff (..), epochSlots)
+import           Pos.Core.Configuration
+    (genesisBlockVersionData)
+import           Pos.Core.Update
+    (BlockVersionData (..), UpId, UpdateProposal (..))
+import           Pos.Crypto
+    (hash)
+import           Pos.DB
+    (DBIteratorClass (..), DBTag (..), IterType, MonadDB, MonadDBRead (..),
+    RocksBatchOp (..), dbSerializeValue, encodeWithKeyPrefix)
+import           Pos.DB.Error
+    (DBError (DBMalformed))
+import           Pos.DB.GState.Common
+    (gsGetBi, writeBatchGState)
+import           Pos.Infra.Binary
+    ()
+import           Pos.Infra.Slotting.Types
+    (EpochSlottingData (..), SlottingData, createInitSlottingData)
+import           Pos.Update.Configuration
+    (HasUpdateConfiguration, ourAppName, ourSystemTag)
+import           Pos.Update.Constants
+    (genesisBlockVersion, genesisSoftwareVersions)
+import           Pos.Update.Poll.Types
+    (BlockVersionState (..), ConfirmedProposalState (..),
+    DecidedProposalState (dpsDifficulty), ProposalState (..),
+    UndecidedProposalState (upsSlot), bvsIsConfirmed, cpsSoftwareVersion,
+    psProposal)
+import           Pos.Util.Util
+    (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Getters

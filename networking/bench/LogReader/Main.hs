@@ -1,34 +1,53 @@
+{-# LANGUAGE BangPatterns     #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE BangPatterns #-}
 
-import           Control.Applicative (empty)
-import           Control.Exception.Safe (throwString)
-import           Control.Lens (at, (^.))
-import           Control.Monad.Trans (liftIO)
-import           Control.Monad.Trans.Resource (ResourceT, runResourceT)
-import           Data.Conduit (ConduitT, Void, runConduit, yield, (.|))
-import           Data.Conduit.Binary (sinkFile, sourceFile)
+import           Control.Applicative
+    (empty)
+import           Control.Exception.Safe
+    (throwString)
+import           Control.Lens
+    (at, (^.))
+import           Control.Monad.Trans
+    (liftIO)
+import           Control.Monad.Trans.Resource
+    (ResourceT, runResourceT)
+import           Data.Conduit
+    (ConduitT, Void, runConduit, yield, (.|))
+import           Data.Conduit.Binary
+    (sinkFile, sourceFile)
 import qualified Data.Conduit.Binary as CB
 import qualified Data.Conduit.List as CL
-import           Data.Conduit.Text (decode, encode, utf8)
-import           Data.Foldable (foldrM)
-import           Data.List (intersperse)
+import           Data.Conduit.Text
+    (decode, encode, utf8)
+import           Data.Foldable
+    (foldrM)
+import           Data.List
+    (intersperse)
 import qualified Data.Map as M
-import           Data.Text (Text)
-import           Formatting (bprint, int, right, sformat, (%))
+import           Data.Text
+    (Text)
+import           Formatting
+    (bprint, int, right, sformat, (%))
 import qualified Formatting as F
-import           System.IO (FilePath)
+import           System.IO
+    (FilePath)
 
-import           Data.Attoparsec.Text (parseOnly)
-import           Options.Applicative.Simple (simpleOptions)
+import           Data.Attoparsec.Text
+    (parseOnly)
+import           Options.Applicative.Simple
+    (simpleOptions)
 
-import           Bench.Network.Commons (LogMessage (..), MeasureEvent (..), MeasureInfo (..), MsgId,
-                                        Payload (..), Timestamp, logMessageParser,
-                                        measureInfoParser)
-import           LogReaderOptions (Args (..), argsParser)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith, wlogTrace)
-import           System.Wlog (productionB, setupLogging)
-import           System.Wlog.Formatter (centiUtcTimeF)
+import           Bench.Network.Commons
+    (LogMessage (..), MeasureEvent (..), MeasureInfo (..), MsgId, Payload (..),
+    Timestamp, logMessageParser, measureInfoParser)
+import           LogReaderOptions
+    (Args (..), argsParser)
+import           Pos.Util.Trace
+    (Severity (..), Trace, traceWith, wlogTrace)
+import           System.Wlog
+    (productionB, setupLogging)
+import           System.Wlog.Formatter
+    (centiUtcTimeF)
 
 
 type Measures = M.Map MsgId (Payload, [(MeasureEvent, Timestamp)])
@@ -37,7 +56,7 @@ type RowId = Int
 
 analyze :: Trace IO (Severity, Text) -> FilePath -> Measures -> IO Measures
 analyze logTrace file initialMeasures = runResourceT $ pipeline
-    
+
   where
 
     pipelineSource :: ConduitT () (Text, RowId) (ResourceT IO) ()

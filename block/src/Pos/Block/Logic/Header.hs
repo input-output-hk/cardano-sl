@@ -16,40 +16,63 @@ module Pos.Block.Logic.Header
        , getHashesRange
        ) where
 
-import           Universum hiding (elems)
+import           Universum hiding
+    (elems)
 
-import           Control.Lens (to)
-import           Control.Monad.Except (MonadError (throwError))
-import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
+import           Control.Lens
+    (to)
+import           Control.Monad.Except
+    (MonadError (throwError))
+import           Control.Monad.Trans.Maybe
+    (MaybeT (MaybeT), runMaybeT)
+import qualified Data.List as List
+    (last)
+import qualified Data.List.NonEmpty as NE
+    (toList)
 import qualified Data.Text as T
-import qualified Data.List as List (last)
-import qualified Data.List.NonEmpty as NE (toList)
-import           Formatting (build, int, sformat, (%))
-import           Serokell.Util.Text (listJson)
-import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess)
-import           System.Wlog (WithLogger, logDebug)
-import           UnliftIO (MonadUnliftIO)
+import           Formatting
+    (build, int, sformat, (%))
+import           Serokell.Util.Text
+    (listJson)
+import           Serokell.Util.Verify
+    (VerificationRes (..), isVerSuccess)
+import           System.Wlog
+    (WithLogger, logDebug)
+import           UnliftIO
+    (MonadUnliftIO)
 
-import           Pos.Block.Logic.Integrity (VerifyHeaderParams (..), verifyHeader, verifyHeaders)
-import           Pos.Block.Logic.Util (lcaWithMainChain)
-import           Pos.Core (BlockCount, EpochOrSlot (..), HeaderHash, SlotId (..),
-                           blkSecurityParam, bvdMaxHeaderSize, difficultyL, epochIndexL,
-                           epochOrSlotG, getChainDifficulty, getEpochOrSlot, headerHash,
-                           headerHashG, headerSlotL, prevBlockL)
-import           Pos.Core.Block (BlockHeader (..))
-import           Pos.Crypto (hash)
-import           Pos.DB (MonadDBRead)
+import           Pos.Block.Logic.Integrity
+    (VerifyHeaderParams (..), verifyHeader, verifyHeaders)
+import           Pos.Block.Logic.Util
+    (lcaWithMainChain)
+import           Pos.Core
+    (BlockCount, EpochOrSlot (..), HeaderHash, SlotId (..), blkSecurityParam,
+    bvdMaxHeaderSize, difficultyL, epochIndexL, epochOrSlotG,
+    getChainDifficulty, getEpochOrSlot, headerHash, headerHashG, headerSlotL,
+    prevBlockL)
+import           Pos.Core.Block
+    (BlockHeader (..))
+import           Pos.Core.Chrono
+    (NE, NewestFirst (..), OldestFirst (..), toNewestFirst, toOldestFirst,
+    _NewestFirst, _OldestFirst)
+import           Pos.Crypto
+    (hash)
+import           Pos.DB
+    (MonadDBRead)
 import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.BlockIndex as DB
-import qualified Pos.DB.GState.Common as GS (getTip)
-import           Pos.Delegation.Cede (dlgVerifyHeader, runDBCede)
+import qualified Pos.DB.GState.Common as GS
+    (getTip)
+import           Pos.Delegation.Cede
+    (dlgVerifyHeader, runDBCede)
 import qualified Pos.GState.BlockExtra as GS
-import           Pos.Infra.Slotting.Class (MonadSlots (getCurrentSlot))
+import           Pos.Infra.Slotting.Class
+    (MonadSlots (getCurrentSlot))
 import qualified Pos.Lrc.DB as LrcDB
-import qualified Pos.Update.DB as GS (getAdoptedBVFull)
-import           Pos.Util (buildListBounds, _neHead, _neLast)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
-                                  toOldestFirst, _NewestFirst, _OldestFirst)
+import qualified Pos.Update.DB as GS
+    (getAdoptedBVFull)
+import           Pos.Util
+    (buildListBounds, _neHead, _neLast)
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes

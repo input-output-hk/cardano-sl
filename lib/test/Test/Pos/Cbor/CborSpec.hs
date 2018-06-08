@@ -15,57 +15,90 @@ module Test.Pos.Cbor.CborSpec
 import           Universum
 
 import qualified Cardano.Crypto.Wallet as CC
-import           Crypto.Hash (Blake2b_224, Blake2b_256)
-import           Data.Tagged (Tagged)
-import           System.FileLock (FileLock)
-import           Test.Hspec (Spec, describe)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Crypto.Hash
+    (Blake2b_224, Blake2b_256)
+import           Data.Tagged
+    (Tagged)
+import           System.FileLock
+    (FileLock)
+import           Test.Hspec
+    (Spec, describe)
+import           Test.Hspec.QuickCheck
+    (modifyMaxSuccess, prop)
 import           Test.QuickCheck
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck.Arbitrary.Generic
+    (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Block ()
-import           Pos.Arbitrary.Block.Message ()
-import           Pos.Arbitrary.Core ()
-import           Pos.Arbitrary.Delegation ()
-import           Pos.Arbitrary.Infra ()
-import           Pos.Arbitrary.Slotting ()
-import           Pos.Arbitrary.Ssc ()
-import           Pos.Arbitrary.Update ()
+import           Pos.Arbitrary.Block
+    ()
+import           Pos.Arbitrary.Block.Message
+    ()
+import           Pos.Arbitrary.Core
+    ()
+import           Pos.Arbitrary.Delegation
+    ()
+import           Pos.Arbitrary.Infra
+    ()
+import           Pos.Arbitrary.Slotting
+    ()
+import           Pos.Arbitrary.Ssc
+    ()
+import           Pos.Arbitrary.Update
+    ()
 import           Pos.Binary.Class
-import           Pos.Binary.Communication ()
-import           Pos.Binary.Core ()
-import           Pos.Binary.Ssc ()
+import           Pos.Binary.Communication
+    ()
+import           Pos.Binary.Core
+    ()
+import           Pos.Binary.Ssc
+    ()
 import qualified Pos.Block.Network as BT
 import qualified Pos.Block.Types as BT
 import qualified Pos.Communication as C
-import           Pos.Communication.Limits (mlOpening, mlUpdateVote, mlVssCertificate)
+import           Pos.Communication.Limits
+    (mlOpening, mlUpdateVote, mlVssCertificate)
 import qualified Pos.Core as T
 import qualified Pos.Core.Block as BT
-import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Core.Common (ScriptVersion)
+import           Pos.Core.Chrono
+    (NE, NewestFirst, OldestFirst)
+import           Pos.Core.Common
+    (ScriptVersion)
 import qualified Pos.Core.Ssc as Ssc
 import qualified Pos.Crypto as Crypto
-import           Pos.Crypto.Signing (EncryptedSecretKey)
-import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
-import           Pos.Delegation (DlgPayload, DlgUndo)
-import           Pos.Infra.Binary ()
-import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg, mlMempoolMsg,
-                                                           mlReqMsg)
+import           Pos.Crypto.Signing
+    (EncryptedSecretKey)
+import           Pos.Data.Attributes
+    (Attributes (..), decodeAttributes, encodeAttributes)
+import           Pos.Delegation
+    (DlgPayload, DlgUndo)
+import           Pos.Infra.Binary
+    ()
+import           Pos.Infra.Communication.Limits.Instances
+    (mlDataMsg, mlInvMsg, mlMempoolMsg, mlReqMsg)
 import qualified Pos.Infra.Communication.Relay as R
-import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
+import           Pos.Infra.Communication.Types.Relay
+    (DataMsg (..))
 import qualified Pos.Infra.DHT.Model as DHT
-import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Merkle (MerkleTree)
+import           Pos.Infra.Slotting.Types
+    (SlottingData)
+import           Pos.Merkle
+    (MerkleTree)
 import qualified Pos.Ssc as Ssc
 import qualified Pos.Txp as T
 import qualified Pos.Update as U
-import           Pos.Util.UserSecret (UserSecret, WalletUserSecret)
+import           Pos.Util.UserSecret
+    (UserSecret, WalletUserSecret)
 
-import           Test.Pos.Binary.Helpers (U, binaryTest, extensionProperty, msgLenLimitedTest)
-import           Test.Pos.Configuration (withDefConfiguration)
-import           Test.Pos.Crypto.Arbitrary ()
-import           Test.Pos.Txp.Arbitrary.Network ()
-import           Test.Pos.Util.QuickCheck (SmallGenerator)
+import           Test.Pos.Binary.Helpers
+    (U, binaryTest, extensionProperty, msgLenLimitedTest)
+import           Test.Pos.Configuration
+    (withDefConfiguration)
+import           Test.Pos.Crypto.Arbitrary
+    ()
+import           Test.Pos.Txp.Arbitrary.Network
+    ()
+import           Test.Pos.Util.QuickCheck
+    (SmallGenerator)
 
 
 type VoteId' = Tagged U.UpdateVote U.VoteId

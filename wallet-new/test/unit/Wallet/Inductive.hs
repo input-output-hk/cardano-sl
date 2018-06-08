@@ -11,9 +11,11 @@ import           Universum
 
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, (%))
+import           Formatting
+    (bprint, build, (%))
 import           Pos.Core.Chrono
-import           Serokell.Util (listJson)
+import           Serokell.Util
+    (listJson)
 
 import           Util
 import           UTxO.DSL

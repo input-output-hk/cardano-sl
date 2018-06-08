@@ -15,19 +15,25 @@ import qualified Data.List as List
 import qualified Data.Text as T
 import qualified Data.Text.Buildable
 import           Data.Typeable
-import           Formatting (bprint, build, formatToString, sformat, (%))
+import           Formatting
+    (bprint, build, formatToString, sformat, (%))
 import qualified Generics.SOP as SOP
-import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
-import           Pos.Infra.Util.LogSafe (BuildableSafe, BuildableSafeGen (..),
-                                         SecureLog (..), buildSafe,
-                                         secure, unsecure)
-import           Pos.Util.Servant (ApiCanLogArg (..), ApiHasArgClass (..))
+import           GHC.TypeLits
+    (KnownSymbol, Symbol, symbolVal)
+import           Pos.Infra.Util.LogSafe
+    (BuildableSafe, BuildableSafeGen (..), SecureLog (..), buildSafe, secure,
+    unsecure)
+import           Pos.Util.Servant
+    (ApiCanLogArg (..), ApiHasArgClass (..))
 
-import           Network.HTTP.Types (parseQueryText)
-import           Network.Wai (rawQueryString)
+import           Network.HTTP.Types
+    (parseQueryText)
+import           Network.Wai
+    (rawQueryString)
 import           Servant
 import           Servant.Client
-import           Servant.Client.Core (appendToQueryString)
+import           Servant.Client.Core
+    (appendToQueryString)
 import           Servant.Server.Internal
 
 import           Cardano.Wallet.API.Indices

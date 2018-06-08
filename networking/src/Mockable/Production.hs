@@ -12,30 +12,43 @@ module Mockable.Production
 import qualified Control.Concurrent as Conc
 import qualified Control.Concurrent.Async as Conc
 import qualified Control.Concurrent.STM as Conc
-import           Control.Exception.Safe (MonadCatch, MonadMask (..), MonadThrow)
+import           Control.Exception.Safe
+    (MonadCatch, MonadMask (..), MonadThrow)
 import qualified Control.Exception.Safe as Exception
-import           Control.Monad.Fix (MonadFix)
-import           Control.Monad.IO.Class (MonadIO)
-import           Control.Monad.IO.Unlift (MonadUnliftIO (..))
+import           Control.Monad.Fix
+    (MonadFix)
+import           Control.Monad.IO.Class
+    (MonadIO)
+import           Control.Monad.IO.Unlift
+    (MonadUnliftIO (..))
 import qualified Crypto.Random as Rand
-import           Data.Time.Units (toMicroseconds)
+import           Data.Time.Units
+    (toMicroseconds)
 import qualified GHC.IO as GHC
 import qualified System.Metrics.Counter as EKG.Counter
 import qualified System.Metrics.Distribution as EKG.Distribution
 import qualified System.Metrics.Gauge as EKG.Gauge
-import           System.Wlog (CanLog (..), HasLoggerName (..))
+import           System.Wlog
+    (CanLog (..), HasLoggerName (..))
 
-import           Control.Monad.Base (MonadBase (..))
-import           Control.Monad.Trans.Control (MonadBaseControl (..))
-import           Mockable.Channel (Channel (..), ChannelT)
-import           Mockable.Class (Mockable (..))
-import           Mockable.Concurrent (Async (..), Concurrently (..), Delay (..), Fork (..),
-                                      LowLevelAsync (..), MyThreadId (..), Promise,
-                                      RunInUnboundThread (..), ThreadId)
-import           Mockable.CurrentTime (CurrentTime (..), realTime)
+import           Control.Monad.Base
+    (MonadBase (..))
+import           Control.Monad.Trans.Control
+    (MonadBaseControl (..))
+import           Mockable.Channel
+    (Channel (..), ChannelT)
+import           Mockable.Class
+    (Mockable (..))
+import           Mockable.Concurrent
+    (Async (..), Concurrently (..), Delay (..), Fork (..), LowLevelAsync (..),
+    MyThreadId (..), Promise, RunInUnboundThread (..), ThreadId)
+import           Mockable.CurrentTime
+    (CurrentTime (..), realTime)
 import qualified Mockable.Metrics as Metrics
-import           Mockable.SharedAtomic (SharedAtomic (..), SharedAtomicT)
-import           Mockable.SharedExclusive (SharedExclusive (..), SharedExclusiveT)
+import           Mockable.SharedAtomic
+    (SharedAtomic (..), SharedAtomicT)
+import           Mockable.SharedExclusive
+    (SharedExclusive (..), SharedExclusiveT)
 
 newtype Production t = Production
     { runProduction :: IO t

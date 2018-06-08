@@ -8,31 +8,42 @@ module Cardano.Wallet.API.V1.Migration.Types (
     , migrate
     ) where
 
-import           Universum hiding (elems)
+import           Universum hiding
+    (elems)
 
 import qualified Control.Lens as Lens
 import qualified Control.Monad.Catch as Catch
-import           Data.Map (elems)
-import           Data.Time.Clock.POSIX (POSIXTime)
-import           Data.Time.Units (fromMicroseconds, toMicroseconds)
-import           Data.Typeable (typeRep)
-import           Formatting (sformat)
+import           Data.Map
+    (elems)
+import           Data.Time.Clock.POSIX
+    (POSIXTime)
+import           Data.Time.Units
+    (fromMicroseconds, toMicroseconds)
+import           Data.Typeable
+    (typeRep)
+import           Formatting
+    (sformat)
 
 import           Cardano.Wallet.API.V1.Errors as Errors
-import           Cardano.Wallet.API.V1.Types (V1 (..))
+import           Cardano.Wallet.API.V1.Types
+    (V1 (..))
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Pos.Client.Txp.Util as V0
-import           Pos.Core (addressF)
+import           Pos.Core
+    (addressF)
 import qualified Pos.Core.Common as Core
 import qualified Pos.Core.Slotting as Core
 import qualified Pos.Core.Txp as Core
-import           Pos.Crypto (decodeHash)
+import           Pos.Crypto
+    (decodeHash)
 import qualified Pos.Txp.Toil.Types as V0
 import qualified Pos.Util.Servant as V0
-import qualified Pos.Wallet.Web.ClientTypes.Instances ()
+import qualified Pos.Wallet.Web.ClientTypes.Instances
+    ()
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
-import           Pos.Wallet.Web.Tracking.Sync (calculateEstimatedRemainingTime)
+import           Pos.Wallet.Web.Tracking.Sync
+    (calculateEstimatedRemainingTime)
 
 -- | 'Migrate' encapsulates migration between types, when possible.
 -- NOTE: This has @nothing@ to do with database migrations (see `safecopy`),

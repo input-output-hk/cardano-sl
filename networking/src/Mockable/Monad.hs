@@ -7,14 +7,22 @@ module Mockable.Monad
     ( MonadMockable
     ) where
 
-import           Control.Exception.Safe (MonadMask)
-import           Mockable.Channel (Channel)
-import           Mockable.Class (Mockable)
-import           Mockable.Concurrent (Async, Concurrently, Delay, MyThreadId, ThreadId)
-import           Mockable.CurrentTime (CurrentTime)
-import           Mockable.Metrics (Metrics)
-import           Mockable.SharedAtomic (SharedAtomic)
-import           Mockable.SharedExclusive (SharedExclusive)
+import           Control.Exception.Safe
+    (MonadMask)
+import           Mockable.Channel
+    (Channel)
+import           Mockable.Class
+    (Mockable)
+import           Mockable.Concurrent
+    (Async, Concurrently, Delay, MyThreadId, ThreadId)
+import           Mockable.CurrentTime
+    (CurrentTime)
+import           Mockable.Metrics
+    (Metrics)
+import           Mockable.SharedAtomic
+    (SharedAtomic)
+import           Mockable.SharedExclusive
+    (SharedExclusive)
 
 -- | Bunch of Mockable-constraints. Intentionally doesn't contain some
 -- constraints, e. g. 'Mockable Fork', because usually they should be

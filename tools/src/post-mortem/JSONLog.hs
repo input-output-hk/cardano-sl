@@ -5,19 +5,27 @@ module JSONLog
     , runParseLogs
     ) where
 
-import           Data.Attoparsec.Text (Parser, parseOnly, takeTill)
+import           Data.Attoparsec.Text
+    (Parser, parseOnly, takeTill)
 import           Pipes
-import           Pipes.ByteString (fromHandle)
-import           Pipes.Interleave (interleave)
+import           Pipes.ByteString
+    (fromHandle)
+import           Pipes.Interleave
+    (interleave)
 import qualified Pipes.Prelude as P
-import           System.Directory (listDirectory)
-import           System.FilePath ((</>))
+import           System.Directory
+    (listDirectory)
+import           System.FilePath
+    ((</>))
 
-import           Pos.Infra.Util.JsonLog.Events (JLEvent, JLTimedEvent (..))
+import           Pos.Infra.Util.JsonLog.Events
+    (JLEvent, JLTimedEvent (..))
 import           Types
 import           Universum
-import           Util.Aeson (parseJSONP)
-import           Util.Safe (runWithFiles)
+import           Util.Aeson
+    (parseJSONP)
+import           Util.Safe
+    (runWithFiles)
 
 jsonLogs :: FilePath -> IO [(Text, FilePath)]
 jsonLogs logDir = do
@@ -27,7 +35,7 @@ jsonLogs logDir = do
     f :: FilePath -> Maybe (Text, FilePath)
     f logFile = case parseOnly nodeIndexParser $ toText logFile of
         Right name -> Just (name, logFile)
-        Left _  -> Nothing
+        Left _     -> Nothing
 
 nodeIndexParser :: Parser Text
 nodeIndexParser = takeTill (== '.') <* ".json"

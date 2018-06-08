@@ -8,26 +8,43 @@ module Pos.Infra.Reporting.Http
 
 import           Universum
 
-import           Control.Exception (Exception (..))
-import           Control.Exception.Safe (catchAny, try)
-import           Data.Aeson (encode)
+import           Control.Exception
+    (Exception (..))
+import           Control.Exception.Safe
+    (catchAny, try)
+import           Data.Aeson
+    (encode)
 import qualified Data.List.NonEmpty as NE
-import           Data.Time.Clock (getCurrentTime)
-import           Formatting (sformat, shown, string, (%))
-import           Network.HTTP.Client (httpLbs, newManager, parseUrlThrow)
+import           Data.Time.Clock
+    (getCurrentTime)
+import           Formatting
+    (sformat, shown, string, (%))
+import           Network.HTTP.Client
+    (httpLbs, newManager, parseUrlThrow)
 import qualified Network.HTTP.Client.MultipartFormData as Form
-import           Network.HTTP.Client.TLS (tlsManagerSettings)
-import           Pos.ReportServer.Report (ReportInfo (..), ReportType (..))
-import           System.FilePath (takeFileName)
-import           System.Info (arch, os)
+import           Network.HTTP.Client.TLS
+    (tlsManagerSettings)
+import           Pos.ReportServer.Report
+    (ReportInfo (..), ReportType (..))
+import           System.FilePath
+    (takeFileName)
+import           System.Info
+    (arch, os)
 
-import           Paths_cardano_sl_infra (version)
-import           Pos.Crypto (ProtocolMagic (..))
-import           Pos.Infra.Reporting.Exceptions (ReportingError (..))
-import           Pos.Infra.Reporting.MemState ()
-import           Pos.Util.CompileInfo (CompileTimeInfo)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
-import           Pos.Util.Util ((<//>))
+import           Paths_cardano_sl_infra
+    (version)
+import           Pos.Crypto
+    (ProtocolMagic (..))
+import           Pos.Infra.Reporting.Exceptions
+    (ReportingError (..))
+import           Pos.Infra.Reporting.MemState
+    ()
+import           Pos.Util.CompileInfo
+    (CompileTimeInfo)
+import           Pos.Util.Trace
+    (Severity (..), Trace, traceWith)
+import           Pos.Util.Util
+    ((<//>))
 
 
 -- | Given optional log file and report type, sends reports to URI

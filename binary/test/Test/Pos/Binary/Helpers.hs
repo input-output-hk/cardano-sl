@@ -27,30 +27,42 @@ module Test.Pos.Binary.Helpers
 
 import           Universum
 
-import           Codec.CBOR.FlatTerm (toFlatTerm, validFlatTerm)
+import           Codec.CBOR.FlatTerm
+    (toFlatTerm, validFlatTerm)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
-import           Data.SafeCopy (SafeCopy, safeGet, safePut)
-import           Data.Serialize (runGet, runPut)
-import           Data.Typeable (typeRep)
-import           Formatting (formatToString, int, (%))
-import           Prelude (read)
-import           Test.Hspec (Spec, describe)
-import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess, prop)
-import           Test.QuickCheck (Arbitrary (arbitrary), Gen, Property, choose, conjoin,
-                                  counterexample, forAll, property, resize, suchThat, vectorOf,
-                                  (.&&.), (===))
-import           Test.QuickCheck.Instances ()
+import           Data.SafeCopy
+    (SafeCopy, safeGet, safePut)
+import           Data.Serialize
+    (runGet, runPut)
+import           Data.Typeable
+    (typeRep)
+import           Formatting
+    (formatToString, int, (%))
+import           Prelude
+    (read)
+import           Test.Hspec
+    (Spec, describe)
+import           Test.Hspec.QuickCheck
+    (modifyMaxSize, modifyMaxSuccess, prop)
+import           Test.QuickCheck
+    (Arbitrary (arbitrary), Gen, Property, choose, conjoin, counterexample,
+    forAll, property, resize, suchThat, vectorOf, (.&&.), (===))
+import           Test.QuickCheck.Instances
+    ()
 
-import           Pos.Binary.Class (AsBinaryClass (..), Bi (..), decodeFull,
-                                   decodeListLenCanonicalOf, decodeUnknownCborDataItem,
-                                   encodeListLen, encodeUnknownCborDataItem, serialize, serialize',
-                                   unsafeDeserialize)
-import           Pos.Binary.Limit (Limit (..))
+import           Pos.Binary.Class
+    (AsBinaryClass (..), Bi (..), decodeFull, decodeListLenCanonicalOf,
+    decodeUnknownCborDataItem, encodeListLen, encodeUnknownCborDataItem,
+    serialize, serialize', unsafeDeserialize)
+import           Pos.Binary.Limit
+    (Limit (..))
 
-import           Test.Pos.Cbor.Canonicity (perturbCanonicity)
+import           Test.Pos.Cbor.Canonicity
+    (perturbCanonicity)
 import qualified Test.Pos.Cbor.RefImpl as R
-import           Test.Pos.Util.QuickCheck.Arbitrary (SmallGenerator (..))
+import           Test.Pos.Util.QuickCheck.Arbitrary
+    (SmallGenerator (..))
 
 ----------------------------------------------------------------------------
 -- From/to tests

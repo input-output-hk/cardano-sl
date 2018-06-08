@@ -12,20 +12,28 @@ module NodeOptions
 
 import           Universum
 
-import           Data.Text (splitOn)
-import           Data.Time.Units (Minute)
-import           Data.Version (showVersion)
-import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc, header, help,
-                                      helper, info, infoOption, long, metavar, option, progDesc,
-                                      strOption, switch, value)
+import           Data.Text
+    (splitOn)
+import           Data.Time.Units
+    (Minute)
+import           Data.Version
+    (showVersion)
+import           Options.Applicative
+    (Parser, auto, execParser, footerDoc, fullDesc, header, help, helper, info,
+    infoOption, long, metavar, option, progDesc, strOption, switch, value)
 import qualified Options.Applicative as Opt
 
-import           Paths_cardano_sl (version)
-import           Pos.Client.CLI (CommonNodeArgs (..))
+import           Paths_cardano_sl
+    (version)
+import           Pos.Client.CLI
+    (CommonNodeArgs (..))
 import qualified Pos.Client.CLI as CLI
-import           Pos.Infra.Util.TimeWarp (NetworkAddress, localhost)
-import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, compileInfo)
-import           Pos.Web.Types (TlsParams (..))
+import           Pos.Infra.Util.TimeWarp
+    (NetworkAddress, localhost)
+import           Pos.Util.CompileInfo
+    (CompileTimeInfo (..), HasCompileInfo, compileInfo)
+import           Pos.Web.Types
+    (TlsParams (..))
 
 data WalletNodeArgs = WalletNodeArgs
     { wnaCommonNodeArgs :: !CommonNodeArgs

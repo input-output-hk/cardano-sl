@@ -17,7 +17,8 @@ import           Universum
 import qualified Data.ByteString.Char8 as BS8
 import           JsonLog
 import qualified Network.Transport.TCP.Internal as TCP
-import           Node (NodeId (..))
+import           Node
+    (NodeId (..))
 import qualified Serokell.Util.Parse as P
 import qualified Text.Parsec as P
 import qualified Text.Parsec.Text as P

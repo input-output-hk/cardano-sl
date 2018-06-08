@@ -5,7 +5,8 @@ module Pos.Util.Future
 
 import           Universum
 
-import           System.IO.Unsafe (unsafeInterleaveIO)
+import           System.IO.Unsafe
+    (unsafeInterleaveIO)
 
 data FutureError = FutureAlreadyFilled Text
     deriving Show

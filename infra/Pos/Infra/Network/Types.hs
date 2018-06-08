@@ -48,27 +48,39 @@ module Pos.Infra.Network.Types
 
 import           Universum
 
-import           Data.IP (IPv4)
-import qualified Data.Set as Set (null)
-import           Network.Broadcast.OutboundQueue (OutboundQ)
+import           Data.IP
+    (IPv4)
+import qualified Data.Set as Set
+    (null)
+import           Network.Broadcast.OutboundQueue
+    (OutboundQ)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types
-import           Network.DNS (DNSError)
+import           Network.DNS
+    (DNSError)
 import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
-import           Node.Internal (NodeId (..))
+import           Node.Internal
+    (NodeId (..))
 import qualified Prelude
 import qualified System.Metrics as Monitoring
-import           System.Wlog (LoggerName (..))
+import           System.Wlog
+    (LoggerName (..))
 
-import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr)
+import           Pos.Infra.Network.DnsDomains
+    (DnsDomains (..), NodeAddr)
 import qualified Pos.Infra.Network.DnsDomains as DnsDomains
 import qualified Pos.Infra.Network.Policy as Policy
-import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
-import           Pos.Infra.Util.TimeWarp (addressToNodeId)
-import           Pos.System.Metrics.Constants (cardanoNamespace)
-import           Pos.Util.Trace (wlogTrace)
-import           Pos.Util.Util (HasLens', lensOf)
+import           Pos.Infra.Reporting.Health.Types
+    (HealthStatus (..))
+import           Pos.Infra.Util.TimeWarp
+    (addressToNodeId)
+import           Pos.System.Metrics.Constants
+    (cardanoNamespace)
+import           Pos.Util.Trace
+    (wlogTrace)
+import           Pos.Util.Util
+    (HasLens', lensOf)
 
 {-------------------------------------------------------------------------------
   Network configuration

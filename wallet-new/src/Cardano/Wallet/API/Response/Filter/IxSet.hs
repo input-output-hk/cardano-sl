@@ -3,9 +3,11 @@ module Cardano.Wallet.API.Response.Filter.IxSet (
       applyFilters
       ) where
 
-import           Cardano.Wallet.API.Indices (Indexable', IsIndexOf', IxSet')
+import           Cardano.Wallet.API.Indices
+    (Indexable', IsIndexOf', IxSet')
 import qualified Cardano.Wallet.API.Request.Filter as F
-import           Data.IxSet.Typed ((@<), (@<=), (@=), (@>), (@>=), (@>=<=), (@+))
+import           Data.IxSet.Typed
+    ((@+), (@<), (@<=), (@=), (@>), (@>=), (@>=<=))
 
 -- | Applies all the input filters to the input 'IxSet''.
 applyFilters :: Indexable' a => F.FilterOperations a -> IxSet' a -> IxSet' a

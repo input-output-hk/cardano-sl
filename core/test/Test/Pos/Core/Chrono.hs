@@ -12,7 +12,8 @@ module Test.Pos.Core.Chrono
 
 import           Pos.Core.Chrono
 
-import           Test.QuickCheck (Arbitrary)
+import           Test.QuickCheck
+    (Arbitrary)
 
 deriving instance Arbitrary (f a) => Arbitrary (NewestFirst f a)
 deriving instance Arbitrary (f a) => Arbitrary (OldestFirst f a)

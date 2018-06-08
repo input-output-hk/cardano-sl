@@ -4,16 +4,23 @@ module Pos.Arbitrary.Block.Message
        (
        ) where
 
-import           Test.QuickCheck (Arbitrary (..))
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck
+    (Arbitrary (..))
+import           Test.QuickCheck.Arbitrary.Generic
+    (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Block ()
-import           Pos.Arbitrary.Ssc ()
-import           Pos.Arbitrary.Update ()
+import           Pos.Arbitrary.Block
+    ()
+import           Pos.Arbitrary.Ssc
+    ()
+import           Pos.Arbitrary.Update
+    ()
 import qualified Pos.Block.Network.Types as T
-import           Pos.Core (HasGenesisHash, HasProtocolConstants, HasProtocolMagic)
+import           Pos.Core
+    (HasGenesisHash, HasProtocolConstants, HasProtocolMagic)
 
-import           Test.Pos.Core.Chrono ()
+import           Test.Pos.Core.Chrono
+    ()
 
 ------------------------------------------------------------------------------------------
 -- Block network types

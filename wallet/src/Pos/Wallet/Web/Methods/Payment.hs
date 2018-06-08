@@ -14,47 +14,73 @@ module Pos.Wallet.Web.Methods.Payment
 
 import           Universum
 
-import           Control.Monad.Except (runExcept)
+import           Control.Monad.Except
+    (runExcept)
 import qualified Data.Map as M
-import           Data.Time.Units (Second)
-import           Mockable (Concurrently, Delay, Mockable, concurrently, delay)
-import           Servant.Server (err403, err405, errReasonPhrase)
-import           System.Wlog (logDebug)
+import           Data.Time.Units
+    (Second)
+import           Mockable
+    (Concurrently, Delay, Mockable, concurrently, delay)
+import           Servant.Server
+    (err403, err405, errReasonPhrase)
+import           System.Wlog
+    (logDebug)
 
-import           Pos.Client.KeyStorage (getSecretKeys)
-import           Pos.Client.Txp.Addresses (MonadAddresses)
-import           Pos.Client.Txp.Balances (MonadBalances (..))
-import           Pos.Client.Txp.History (TxHistoryEntry (..))
-import           Pos.Client.Txp.Network (prepareMTx)
-import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee, runTxCreator)
-import           Pos.Configuration (walletTxCreationDisabled)
-import           Pos.Core (Address, Coin, HasConfiguration, TxAux (..), TxOut (..),
-                           getCurrentTimestamp)
-import           Pos.Core.Txp (_txOutputs)
-import           Pos.Crypto (PassPhrase, SafeSigner, ShouldCheckPassphrase (..), checkPassMatches,
-                             hash, withSafeSignerUnsafe)
-import           Pos.DB (MonadGState)
-import           Pos.Txp (TxFee (..), Utxo)
-import           Pos.Util (eitherToThrow, maybeThrow)
-import           Pos.Util.Servant (encodeCType)
-import           Pos.Wallet.Aeson.ClientTypes ()
-import           Pos.Wallet.Aeson.WalletBackup ()
-import           Pos.Wallet.Web.Account (getSKByAddressPure, getSKById)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CCoin, CId, CTx (..),
-                                             NewBatchPayment (..), Wal)
-import           Pos.Wallet.Web.Error (WalletError (..))
-import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta, constructCTx,
-                                                 getCurChainDifficulty)
-import           Pos.Wallet.Web.Methods.Txp (MonadWalletTxFull, coinDistrToOutputs,
-                                             getPendingAddresses, rewrapTxError,
-                                             submitAndSaveNewPtx)
-import           Pos.Wallet.Web.Pending (mkPendingTx)
-import           Pos.Wallet.Web.State (AddressInfo (..), AddressLookupMode (Ever, Existing),
-                                       HasWAddressMeta (..), WAddressMeta (..), WalletDbReader,
-                                       WalletSnapshot, askWalletDB, askWalletSnapshot,
-                                       getWalletSnapshot, isWalletRestoring, wamAccount)
-import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                      getWalletAccountIds, getWalletAddrsDetector)
+import           Pos.Client.KeyStorage
+    (getSecretKeys)
+import           Pos.Client.Txp.Addresses
+    (MonadAddresses)
+import           Pos.Client.Txp.Balances
+    (MonadBalances (..))
+import           Pos.Client.Txp.History
+    (TxHistoryEntry (..))
+import           Pos.Client.Txp.Network
+    (prepareMTx)
+import           Pos.Client.Txp.Util
+    (InputSelectionPolicy (..), computeTxFee, runTxCreator)
+import           Pos.Configuration
+    (walletTxCreationDisabled)
+import           Pos.Core
+    (Address, Coin, HasConfiguration, TxAux (..), TxOut (..),
+    getCurrentTimestamp)
+import           Pos.Core.Txp
+    (_txOutputs)
+import           Pos.Crypto
+    (PassPhrase, SafeSigner, ShouldCheckPassphrase (..), checkPassMatches,
+    hash, withSafeSignerUnsafe)
+import           Pos.DB
+    (MonadGState)
+import           Pos.Txp
+    (TxFee (..), Utxo)
+import           Pos.Util
+    (eitherToThrow, maybeThrow)
+import           Pos.Util.Servant
+    (encodeCType)
+import           Pos.Wallet.Aeson.ClientTypes
+    ()
+import           Pos.Wallet.Aeson.WalletBackup
+    ()
+import           Pos.Wallet.Web.Account
+    (getSKByAddressPure, getSKById)
+import           Pos.Wallet.Web.ClientTypes
+    (AccountId (..), Addr, CCoin, CId, CTx (..), NewBatchPayment (..), Wal)
+import           Pos.Wallet.Web.Error
+    (WalletError (..))
+import           Pos.Wallet.Web.Methods.History
+    (addHistoryTxMeta, constructCTx, getCurChainDifficulty)
+import           Pos.Wallet.Web.Methods.Txp
+    (MonadWalletTxFull, coinDistrToOutputs, getPendingAddresses, rewrapTxError,
+    submitAndSaveNewPtx)
+import           Pos.Wallet.Web.Pending
+    (mkPendingTx)
+import           Pos.Wallet.Web.State
+    (AddressInfo (..), AddressLookupMode (Ever, Existing),
+    HasWAddressMeta (..), WAddressMeta (..), WalletDbReader, WalletSnapshot,
+    askWalletDB, askWalletSnapshot, getWalletSnapshot, isWalletRestoring,
+    wamAccount)
+import           Pos.Wallet.Web.Util
+    (decodeCTypeOrFail, getAccountAddrsOrThrow, getWalletAccountIds,
+    getWalletAddrsDetector)
 
 newPayment
     :: MonadWalletTxFull ctx m

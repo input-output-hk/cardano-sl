@@ -7,18 +7,26 @@ module Pos.Binary.Class.TH
        , Field (Field)
        ) where
 
-import           Universum hiding (Type)
+import           Universum hiding
+    (Type)
 
 import qualified Codec.CBOR.Decoding as Cbor
 import qualified Codec.CBOR.Encoding as Cbor
-import           Control.Lens (imap)
-import           Data.Function (on)
-import           Data.List (nubBy, (!!), (\\))
-import           Data.Maybe (listToMaybe)
-import           Formatting (sformat, shown, (%))
+import           Control.Lens
+    (imap)
+import           Data.Function
+    (on)
+import           Data.List
+    (nubBy, (!!), (\\))
+import           Data.Maybe
+    (listToMaybe)
+import           Formatting
+    (sformat, shown, (%))
 import           Language.Haskell.TH
-import           TH.ReifySimple (DataCon (..), DataType (..), reifyDataType)
-import           TH.Utilities (plainInstanceD)
+import           TH.ReifySimple
+    (DataCon (..), DataType (..), reifyDataType)
+import           TH.Utilities
+    (plainInstanceD)
 
 import qualified Pos.Binary.Class.Core as Bi
 

@@ -12,7 +12,8 @@ module Mockable.Class
   , MFunctor' (..)
   ) where
 
-import           Data.Kind (Constraint)
+import           Data.Kind
+    (Constraint)
 
 class MFunctor' f m n where
     hoist' :: (forall a . m a -> n a) -> f m t -> f n t

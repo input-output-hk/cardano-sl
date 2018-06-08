@@ -5,17 +5,26 @@ module Pos.Core.Update.BlockVersionModifier
 
 import           Universum
 
-import           Control.Monad.Except (MonadError)
-import           Data.Default (Default (..))
+import           Control.Monad.Except
+    (MonadError)
+import           Data.Default
+    (Default (..))
 import qualified Data.Text.Buildable as Buildable
-import           Data.Text.Lazy.Builder (Builder)
-import           Data.Time.Units (Millisecond)
-import           Formatting (Format, bprint, build, int, later, (%))
-import           Serokell.Data.Memory.Units (Byte, memory)
+import           Data.Text.Lazy.Builder
+    (Builder)
+import           Data.Time.Units
+    (Millisecond)
+import           Formatting
+    (Format, bprint, build, int, later, (%))
+import           Serokell.Data.Memory.Units
+    (Byte, memory)
 
-import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy, checkCoinPortion)
-import           Pos.Core.Slotting (EpochIndex, FlatSlotId)
-import           Pos.Util.Orphans ()
+import           Pos.Core.Common
+    (CoinPortion, ScriptVersion, TxFeePolicy, checkCoinPortion)
+import           Pos.Core.Slotting
+    (EpochIndex, FlatSlotId)
+import           Pos.Util.Orphans
+    ()
 
 import           Pos.Core.Update.SoftforkRule
 

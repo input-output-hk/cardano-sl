@@ -14,18 +14,25 @@ module Pos.Delegation.Cede.Holders
 
 import           Universum
 
-import           Control.Lens (at, (%=), (.=))
+import           Control.Lens
+    (at, (%=), (.=))
 import qualified Control.Monad.State.Strict as Mtl
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce (coerce)
+import           Control.Monad.Trans.Identity
+    (IdentityT (..))
+import           Data.Coerce
+    (coerce)
 import qualified Data.HashMap.Strict as HM
 import           Data.HashSet as HS
-import           UnliftIO (MonadUnliftIO)
+import           UnliftIO
+    (MonadUnliftIO)
 
-import           Pos.DB.Class (MonadDBRead)
-import           Pos.Delegation.Cede.Class (MonadCede (..), MonadCedeRead (..))
-import           Pos.Delegation.Cede.Types (CedeModifier, DlgEdgeAction (..), cmHasPostedThisEpoch,
-                                            cmLookupCache, cmPskMods, dlgEdgeActionIssuer)
+import           Pos.DB.Class
+    (MonadDBRead)
+import           Pos.Delegation.Cede.Class
+    (MonadCede (..), MonadCedeRead (..))
+import           Pos.Delegation.Cede.Types
+    (CedeModifier, DlgEdgeAction (..), cmHasPostedThisEpoch, cmLookupCache,
+    cmPskMods, dlgEdgeActionIssuer)
 import qualified Pos.Delegation.DB as DB
 
 ----------------------------------------------------------------------------

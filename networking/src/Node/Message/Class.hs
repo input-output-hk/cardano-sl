@@ -25,11 +25,14 @@ module Node.Message.Class
     ) where
 
 import qualified Data.ByteString.Lazy as LBS
-import           Data.Proxy (Proxy (..))
+import           Data.Proxy
+    (Proxy (..))
 import qualified Data.Text as T
-import           Data.Word (Word16)
+import           Data.Word
+    (Word16)
 import qualified Formatting as F
-import           Node.Message.Decoder (Decoder, hoistDecoder)
+import           Node.Message.Decoder
+    (Decoder, hoistDecoder)
 
 -- * Message name
 

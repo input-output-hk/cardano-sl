@@ -11,19 +11,28 @@ module Pos.Util.BackupPhrase
 import qualified Prelude
 import           Universum
 
-import           Crypto.Hash (Blake2b_256)
+import           Crypto.Hash
+    (Blake2b_256)
 import qualified Data.ByteString as BS
-import           Data.Default (Default (def))
-import           Data.Text.Buildable (Buildable (..))
-import           Test.QuickCheck (Arbitrary (..), Gen, genericShrink, vectorOf)
-import           Test.QuickCheck.Instances ()
+import           Data.Default
+    (Default (def))
+import           Data.Text.Buildable
+    (Buildable (..))
+import           Test.QuickCheck
+    (Arbitrary (..), Gen, genericShrink, vectorOf)
+import           Test.QuickCheck.Instances
+    ()
 
-import           Pos.Binary (Bi (..), serialize')
-import           Pos.Crypto (AbstractHash, EncryptedSecretKey, PassPhrase, SecretKey, VssKeyPair,
-                             deterministicKeyGen, deterministicVssKeyGen, safeDeterministicKeyGen,
-                             unsafeAbstractHash)
-import           Pos.Infra.Util.LogSafe (SecureLog)
-import           Pos.Util.Mnemonics (defMnemonic, fromMnemonic, toMnemonic)
+import           Pos.Binary
+    (Bi (..), serialize')
+import           Pos.Crypto
+    (AbstractHash, EncryptedSecretKey, PassPhrase, SecretKey, VssKeyPair,
+    deterministicKeyGen, deterministicVssKeyGen, safeDeterministicKeyGen,
+    unsafeAbstractHash)
+import           Pos.Infra.Util.LogSafe
+    (SecureLog)
+import           Pos.Util.Mnemonics
+    (defMnemonic, fromMnemonic, toMnemonic)
 
 -- | Datatype to contain a valid backup phrase
 newtype BackupPhrase = BackupPhrase

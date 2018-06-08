@@ -13,11 +13,15 @@ module Pos.Infra.Communication.Types.Relay
        , RelayLogEvent (..)
        ) where
 
-import           Control.Lens (Wrapped (..), iso)
-import           Data.Aeson.TH (defaultOptions, deriveJSON)
-import           Data.Tagged (Tagged)
+import           Control.Lens
+    (Wrapped (..), iso)
+import           Data.Aeson.TH
+    (defaultOptions, deriveJSON)
+import           Data.Tagged
+    (Tagged)
 import qualified Data.Text.Buildable as B
-import           Formatting (bprint, build, (%))
+import           Formatting
+    (bprint, build, (%))
 import           Universum
 
 -- | Inventory message. Can be used to announce the fact that you have

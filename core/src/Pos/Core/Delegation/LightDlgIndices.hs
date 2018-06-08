@@ -7,11 +7,15 @@ module Pos.Core.Delegation.LightDlgIndices
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting (bprint)
-import           Serokell.Util (pairF)
+import           Formatting
+    (bprint)
+import           Serokell.Util
+    (pairF)
 
-import           Pos.Core.Slotting (EpochIndex)
-import           Pos.Crypto (ProxySecretKey (..), ProxySignature)
+import           Pos.Core.Slotting
+    (EpochIndex)
+import           Pos.Crypto
+    (ProxySecretKey (..), ProxySignature)
 
 -- Notice: light delegation was removed as part of CSL-1856 and should
 -- be reworked later. Though some parts of it are left to support

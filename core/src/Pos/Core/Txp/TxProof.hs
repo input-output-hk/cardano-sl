@@ -6,11 +6,15 @@ module Pos.Core.Txp.TxProof
 import           Universum
 
 import qualified Data.Text.Buildable as Buildable
-import           Fmt (genericF)
+import           Fmt
+    (genericF)
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Crypto (Hash, hash)
-import           Pos.Merkle (MerkleRoot, mkMerkleTree, mtRoot)
+import           Pos.Binary.Class
+    (Bi)
+import           Pos.Crypto
+    (Hash, hash)
+import           Pos.Merkle
+    (MerkleRoot, mkMerkleTree, mtRoot)
 
 import           Pos.Core.Txp.Tx
 import           Pos.Core.Txp.TxPayload

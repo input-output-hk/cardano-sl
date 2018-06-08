@@ -1,12 +1,12 @@
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE Rank2Types   #-}
+{-# LANGUAGE RecursiveDo  #-}
 
-import Control.Monad
-import Control.Concurrent
-import Control.Concurrent.MVar
-import Control.Concurrent.Async
-import Control.Exception
+import           Control.Concurrent
+import           Control.Concurrent.Async
+import           Control.Concurrent.MVar
+import           Control.Exception
+import           Control.Monad
 
 data Logic = Logic
   { getTip :: IO Int
@@ -17,12 +17,12 @@ data Diffusion = Diffusion
   }
 
 data LogicLayer = LogicLayer
-  { logic :: Logic
+  { logic         :: Logic
   , runLogicLayer :: IO ()
   }
 
 data DiffusionLayer = DiffusionLayer
-  { diffusion :: Diffusion
+  { diffusion         :: Diffusion
   , runDiffusionLayer :: IO ()
   }
 

@@ -8,9 +8,11 @@ import           Universum
 
 import qualified Data.HashMap.Strict as HM
 
-import           Pos.Core.Common (StakeholderId, addressHash)
+import           Pos.Core.Common
+    (StakeholderId, addressHash)
 
-import           Pos.Core.Ssc.Commitment (SignedCommitment)
+import           Pos.Core.Ssc.Commitment
+    (SignedCommitment)
 
 -- | 'CommitmentsMap' is a wrapper for 'HashMap StakeholderId SignedCommitment'
 -- which ensures that keys are consistent with values, i. e. 'PublicKey'

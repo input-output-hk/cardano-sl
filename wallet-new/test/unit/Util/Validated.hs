@@ -15,8 +15,10 @@ module Util.Validated (
 
 import           Control.Monad.Except
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, (%))
-import           Serokell.Util (listJson)
+import           Formatting
+    (bprint, build, (%))
+import           Serokell.Util
+    (listJson)
 import           Universum
 
 -- | Mark a value as validated or not

@@ -6,14 +6,17 @@ import           Universum
 
 import qualified Data.Set as Set
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, shown, (%))
+import           Formatting
+    (bprint, build, shown, (%))
 import           Pos.Core.Chrono
-import           Serokell.Util (mapJson)
+import           Serokell.Util
+    (mapJson)
 import           Test.Hspec.QuickCheck
 
 import qualified Pos.Block.Error as Cardano
+import           Pos.Core
+    (Coeff (..), TxSizeLinear (..), getCoin)
 import qualified Pos.Txp.Toil as Cardano
-import           Pos.Core (Coeff (..), TxSizeLinear (..), getCoin)
 
 import           Test.Infrastructure.Generator
 import           Test.Infrastructure.Genesis

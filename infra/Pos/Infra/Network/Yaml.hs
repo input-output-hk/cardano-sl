@@ -29,20 +29,25 @@ module Pos.Infra.Network.Yaml
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), (.!=), (.:), (.:?), (.=))
+import           Data.Aeson
+    (FromJSON (..), ToJSON (..), (.!=), (.:), (.:?), (.=))
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Types as A
 import qualified Data.ByteString.Char8 as BS.C8
 import qualified Data.HashMap.Lazy as HM
-import           Data.IP (IP)
+import           Data.IP
+    (IP)
 import qualified Data.Map.Strict as M
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types
 import qualified Network.DNS as DNS
 
-import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
-import           Pos.Infra.Network.Types (Fallbacks, NodeName (..), Valency)
-import           Pos.Util.Util (aesonError, toAesonError)
+import           Pos.Infra.Network.DnsDomains
+    (DnsDomains (..), NodeAddr (..))
+import           Pos.Infra.Network.Types
+    (Fallbacks, NodeName (..), Valency)
+import           Pos.Util.Util
+    (aesonError, toAesonError)
 
 -- | Description of the network topology in a Yaml file
 --

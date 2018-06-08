@@ -4,7 +4,8 @@ module Pos.Core.Script () where
 
 import           Universum
 
-import           Data.Eq.Deriving (deriveEq1)
+import           Data.Eq.Deriving
+    (deriveEq1)
 import qualified PlutusCore.Program as PLCore
 import qualified PlutusCore.Term as PLCore
 import qualified PlutusTypes.ConSig as PLTypes

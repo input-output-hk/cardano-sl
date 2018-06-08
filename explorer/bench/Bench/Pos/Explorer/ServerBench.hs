@@ -5,22 +5,33 @@ module Bench.Pos.Explorer.ServerBench
 
 import           Universum
 
-import           Criterion.Main (bench, defaultConfig, defaultMainWith, nfIO)
-import           Criterion.Types (Config (..))
-import           Weigh (io, mainWith)
+import           Criterion.Main
+    (bench, defaultConfig, defaultMainWith, nfIO)
+import           Criterion.Types
+    (Config (..))
+import           Weigh
+    (io, mainWith)
 
-import           Test.QuickCheck (arbitrary, generate)
+import           Test.QuickCheck
+    (arbitrary, generate)
 
-import           Pos.Explorer.DB (defaultPageSize)
-import           Pos.Explorer.ExplorerMode (ExplorerTestParams, runExplorerTestMode)
-import           Pos.Explorer.ExtraContext (ExtraContext (..), makeMockExtraCtx)
-import           Pos.Explorer.TestUtil (BlockNumber, SlotsPerEpoch,
-                                        generateValidExplorerMockableMode)
-import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
-import           Pos.Explorer.Web.Server (getBlocksPage, getBlocksTotal)
+import           Pos.Explorer.DB
+    (defaultPageSize)
+import           Pos.Explorer.ExplorerMode
+    (ExplorerTestParams, runExplorerTestMode)
+import           Pos.Explorer.ExtraContext
+    (ExtraContext (..), makeMockExtraCtx)
+import           Pos.Explorer.TestUtil
+    (BlockNumber, SlotsPerEpoch, generateValidExplorerMockableMode)
+import           Pos.Explorer.Web.ClientTypes
+    (CBlockEntry)
+import           Pos.Explorer.Web.Server
+    (getBlocksPage, getBlocksTotal)
 
-import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.Pos.Txp.Arbitrary.Unsafe ()
+import           Test.Pos.Configuration
+    (withDefConfigurations)
+import           Test.Pos.Txp.Arbitrary.Unsafe
+    ()
 
 ----------------------------------------------------------------
 -- Mocked functions

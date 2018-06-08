@@ -8,12 +8,16 @@ import           Universum
 
 import qualified Data.Text as T
 
-import           Pos.Util.Justify (leftAlign)
+import           Pos.Util.Justify
+    (leftAlign)
 
-import           Lang.Argument (ArgCardinality (..), SomeArgCardinality (..), TypeName (..),
-                                getParameters)
-import           Lang.Command (CommandProc (..), UnavailableCommand (..))
-import           Lang.Name (Name)
+import           Lang.Argument
+    (ArgCardinality (..), SomeArgCardinality (..), TypeName (..),
+    getParameters)
+import           Lang.Command
+    (CommandProc (..), UnavailableCommand (..))
+import           Lang.Name
+    (Name)
 
 commandHelp :: CommandProc m -> Text
 commandHelp CommandProc{..} =

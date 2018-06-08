@@ -8,23 +8,33 @@ module Test.Pos.Types.BlockSpec
 
 import           Universum
 
-import           Serokell.Util (isVerSuccess)
-import           Test.Hspec (Spec, describe, it)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck (Property, (===), (==>))
+import           Serokell.Util
+    (isVerSuccess)
+import           Test.Hspec
+    (Spec, describe, it)
+import           Test.Hspec.QuickCheck
+    (modifyMaxSuccess, prop)
+import           Test.QuickCheck
+    (Property, (===), (==>))
 
 import           Pos.Arbitrary.Block as T
-import           Pos.Binary (Bi)
+import           Pos.Binary
+    (Bi)
 import qualified Pos.Block.Base as T
 import qualified Pos.Block.Logic.Integrity as T
-import           Pos.Core (GenesisHash (..), HasConfiguration, genesisHash)
+import           Pos.Core
+    (GenesisHash (..), HasConfiguration, genesisHash)
 import qualified Pos.Core as T
-import           Pos.Crypto (ProtocolMagic (..), ProxySecretKey (pskIssuerPk), SecretKey,
-                             SignTag (..), createPsk, protocolMagic, proxySign, sign, toPublic)
-import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Core.Chrono (NewestFirst (..))
+import           Pos.Core.Chrono
+    (NewestFirst (..))
+import           Pos.Crypto
+    (ProtocolMagic (..), ProxySecretKey (pskIssuerPk), SecretKey, SignTag (..),
+    createPsk, protocolMagic, proxySign, sign, toPublic)
+import           Pos.Data.Attributes
+    (mkAttributes)
 
-import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Configuration
+    (withDefConfiguration)
 
 -- This tests are quite slow, hence max success is at most 20.
 spec :: Spec

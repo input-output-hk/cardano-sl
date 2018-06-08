@@ -4,11 +4,14 @@ module Pos.Infra.DHT.Real.Param
        , MalformedDHTKey (..)
        ) where
 
-import qualified Data.ByteString.Base64.URL as B64 (decode)
+import qualified Data.ByteString.Base64.URL as B64
+    (decode)
 import qualified Data.ByteString.Char8 as B8
-import           Pos.Infra.DHT.Model.Types (DHTKey, bytesToDHTKey)
+import           Pos.Infra.DHT.Model.Types
+    (DHTKey, bytesToDHTKey)
 import qualified Pos.Infra.Network.Yaml as Y
-import           Pos.Infra.Util.TimeWarp (NetworkAddress)
+import           Pos.Infra.Util.TimeWarp
+    (NetworkAddress)
 import           Universum
 
 -- | Parameters for the Kademlia DHT subsystem.

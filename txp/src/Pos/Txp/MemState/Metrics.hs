@@ -6,17 +6,23 @@ module Pos.Txp.MemState.Metrics
 
 import           Universum
 
-import           Data.Aeson.Types (ToJSON (..))
-import           Formatting (sformat, shown, (%))
+import           Data.Aeson.Types
+    (ToJSON (..))
+import           Formatting
+    (sformat, shown, (%))
 import qualified System.Metrics as Metrics
 import qualified System.Metrics.Gauge as Metrics.Gauge
-import           System.Wlog (logDebug)
+import           System.Wlog
+    (logDebug)
 
-import           Pos.Infra.StateLock (StateLockMetrics (..))
-import           Pos.Infra.Util.JsonLog.Events (JLEvent (..), JLMemPool (..),
-                                                MemPoolModifyReason (..))
-import           Pos.System.Metrics.Constants (withCardanoNamespace)
-import           Pos.Txp.Toil.Types (MemPool (_mpSize))
+import           Pos.Infra.StateLock
+    (StateLockMetrics (..))
+import           Pos.Infra.Util.JsonLog.Events
+    (JLEvent (..), JLMemPool (..), MemPoolModifyReason (..))
+import           Pos.System.Metrics.Constants
+    (withCardanoNamespace)
+import           Pos.Txp.Toil.Types
+    (MemPool (_mpSize))
 
 -- | 'StateLockMetrics' to record txp MemPool metrics.
 recordTxpMetrics :: Metrics.Store -> TVar MemPool -> IO (StateLockMetrics MemPoolModifyReason)

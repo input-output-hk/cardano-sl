@@ -45,30 +45,47 @@ module Pos.Core.Update.Types
 
 import           Universum
 
-import           Control.Monad.Except (MonadError (throwError))
-import           Data.Char (isAscii)
-import           Data.Default (Default (..))
-import           Data.Hashable (Hashable)
+import           Control.Monad.Except
+    (MonadError (throwError))
+import           Data.Char
+    (isAscii)
+import           Data.Default
+    (Default (..))
+import           Data.Hashable
+    (Hashable)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified Data.Text.Buildable as Buildable
-import           Data.Text.Lazy.Builder (Builder)
-import           Data.Time.Units (Millisecond)
-import           Formatting (Format, bprint, build, builder, int, later, shown, stext, (%))
-import           Instances.TH.Lift ()
-import           Language.Haskell.TH.Syntax (Lift)
+import           Data.Text.Lazy.Builder
+    (Builder)
+import           Data.Time.Units
+    (Millisecond)
+import           Formatting
+    (Format, bprint, build, builder, int, later, shown, stext, (%))
+import           Instances.TH.Lift
+    ()
+import           Language.Haskell.TH.Syntax
+    (Lift)
 import qualified Prelude
-import           Serokell.Data.Memory.Units (Byte, memory)
-import           Serokell.Util.Text (listJson)
+import           Serokell.Data.Memory.Units
+    (Byte, memory)
+import           Serokell.Util.Text
+    (listJson)
 
-import           Pos.Binary.Class (Bi, Raw)
-import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy, addressHash)
-import           Pos.Core.Slotting.Types (EpochIndex, FlatSlotId)
-import           Pos.Crypto (Hash, ProtocolMagic, PublicKey, SafeSigner, SecretKey,
-                             SignTag (SignUSVote), Signature, hash, safeSign, safeToPublic,
-                             shortHashF, sign, toPublic)
-import           Pos.Data.Attributes (Attributes, areAttributesKnown)
-import           Pos.Util.Orphans ()
+import           Pos.Binary.Class
+    (Bi, Raw)
+import           Pos.Core.Common
+    (CoinPortion, ScriptVersion, TxFeePolicy, addressHash)
+import           Pos.Core.Slotting.Types
+    (EpochIndex, FlatSlotId)
+import           Pos.Crypto
+    (Hash, ProtocolMagic, PublicKey, SafeSigner, SecretKey,
+    SignTag (SignUSVote), Signature, hash, safeSign, safeToPublic, shortHashF,
+    sign, toPublic)
+import           Pos.Data.Attributes
+    (Attributes, areAttributesKnown)
+import           Pos.Util.Orphans
+    ()
 
 ----------------------------------------------------------------------------
 -- Version

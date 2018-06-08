@@ -20,14 +20,15 @@ stack exec ghc -- --make -O2 -threaded scripts/haskell/dependencies.hs
 module Main where
 
 import           Algebra.Graph
-import           Control.Concurrent.Async (mapConcurrently)
+import           Control.Concurrent.Async
+    (mapConcurrently)
 import           Control.Monad
 import           Data.Functor.Identity
 import           Data.List
-import qualified Data.Map.Strict          as M
+import qualified Data.Map.Strict as M
 import           Data.Monoid
-import qualified Data.Set                 as Set
-import qualified Data.Text                as T
+import qualified Data.Set as Set
+import qualified Data.Text as T
 import           Shelly
 import           System.IO
 import           Text.Printf

@@ -13,26 +13,36 @@ module UTxO.Verify
 
 import           Universum
 
-import           Control.Lens ((%=), (.=), _Wrapped)
+import           Control.Lens
+    ((%=), (.=), _Wrapped)
 import           Control.Monad.Except
-import           Control.Monad.State.Strict (mapStateT)
-import           Data.Default (def)
+import           Control.Monad.State.Strict
+    (mapStateT)
+import           Data.Default
+    (def)
 import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import           System.Wlog
 
 import           Pos.Block.Error
-import           Pos.Block.Logic hiding (verifyBlocksPrefix)
-import           Pos.Block.Logic.Integrity (verifyBlocks)
-import           Pos.Block.Slog hiding (slogVerifyBlocks)
+import           Pos.Block.Logic hiding
+    (verifyBlocksPrefix)
+import           Pos.Block.Logic.Integrity
+    (verifyBlocks)
+import           Pos.Block.Slog hiding
+    (slogVerifyBlocks)
 import           Pos.Block.Types
 import           Pos.Core
-import           Pos.DB.Class (MonadGState (..))
-import           Pos.Delegation (DlgUndo (..))
-import           Pos.Txp hiding (tgsVerifyBlocks)
-import           Pos.Update.Poll
-import           Pos.Util (neZipWith4)
 import           Pos.Core.Chrono
+import           Pos.DB.Class
+    (MonadGState (..))
+import           Pos.Delegation
+    (DlgUndo (..))
+import           Pos.Txp hiding
+    (tgsVerifyBlocks)
+import           Pos.Update.Poll
+import           Pos.Util
+    (neZipWith4)
 import           Pos.Util.Lens
 import qualified Pos.Util.Modifier as MM
 import           Serokell.Util.Verify

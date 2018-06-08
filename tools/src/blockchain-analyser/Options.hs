@@ -10,10 +10,12 @@ module Options
 import           Universum
 
 import qualified NeatInterpolation as N
-import           Options.Applicative (Parser, eitherReader, execParser, flag, flag', footerDoc,
-                                      fullDesc, header, help, helper, info, long, metavar, option,
-                                      progDesc, short, strOption, switch)
-import           Text.PrettyPrint.ANSI.Leijen (Doc)
+import           Options.Applicative
+    (Parser, eitherReader, execParser, flag, flag', footerDoc, fullDesc,
+    header, help, helper, info, long, metavar, option, progDesc, short,
+    strOption, switch)
+import           Text.PrettyPrint.ANSI.Leijen
+    (Doc)
 
 import qualified Pos.Client.CLI as CLI
 

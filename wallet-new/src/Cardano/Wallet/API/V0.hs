@@ -1,7 +1,8 @@
 module Cardano.Wallet.API.V0 where
 
 import           Cardano.Wallet.API.Types
-import           Servant ((:>))
+import           Servant
+    ((:>))
 
 import qualified Pos.Wallet.Web.Api as V0
 

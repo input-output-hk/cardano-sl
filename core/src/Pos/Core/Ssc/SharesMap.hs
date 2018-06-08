@@ -5,9 +5,12 @@ module Pos.Core.Ssc.SharesMap
 
 import           Universum
 
-import           Pos.Binary.Class (AsBinary)
-import           Pos.Core.Common (StakeholderId)
-import           Pos.Crypto (DecShare)
+import           Pos.Binary.Class
+    (AsBinary)
+import           Pos.Core.Common
+    (StakeholderId)
+import           Pos.Crypto
+    (DecShare)
 
 -- | Each node generates several 'SharedSeed's, breaks every
 -- 'SharedSeed' into 'Share's, and sends those encrypted shares to

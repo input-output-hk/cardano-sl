@@ -13,8 +13,10 @@ module Pos.Core.ProtocolConstants
 
 import           Universum
 
-import           Pos.Core.Common (BlockCount (..))
-import           Pos.Core.Slotting.SlotCount (SlotCount)
+import           Pos.Core.Common
+    (BlockCount (..))
+import           Pos.Core.Slotting.SlotCount
+    (SlotCount)
 
 -- | The 'k' parameter and TTLs for VSS certificates.
 data ProtocolConstants = ProtocolConstants

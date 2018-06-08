@@ -2,30 +2,40 @@ module MarshallingSpec (spec) where
 
 import           Universum
 
-import           Control.Lens (from, to)
+import           Control.Lens
+    (from, to)
 import           Data.Aeson
-import           Data.Time (UTCTime (..), fromGregorian)
-import           Data.Time.Clock.POSIX (POSIXTime)
-import           Data.Typeable (typeRep)
-import           Pos.Client.Txp.Util (InputSelectionPolicy)
+import           Data.Time
+    (UTCTime (..), fromGregorian)
+import           Data.Time.Clock.POSIX
+    (POSIXTime)
+import           Data.Typeable
+    (typeRep)
+import           Pos.Client.Txp.Util
+    (InputSelectionPolicy)
 import qualified Pos.Crypto as Crypto
 import qualified Pos.Txp.Toil.Types as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import           Test.Hspec
 import           Test.Hspec.QuickCheck
 import           Test.QuickCheck
-import           Test.QuickCheck.Instances ()
+import           Test.QuickCheck.Instances
+    ()
 import qualified Test.QuickCheck.Property as Property
 
-import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.BackupPhrase
+    (BackupPhrase)
 
 import qualified Pos.Core as Core
 
 import           Cardano.Wallet.API.Indices
-import           Cardano.Wallet.API.V1.Errors (WalletError)
-import           Cardano.Wallet.API.V1.Migration.Types (Migrate (..))
+import           Cardano.Wallet.API.V1.Errors
+    (WalletError)
+import           Cardano.Wallet.API.V1.Migration.Types
+    (Migrate (..))
 import           Cardano.Wallet.API.V1.Types
-import           Cardano.Wallet.Orphans ()
+import           Cardano.Wallet.Orphans
+    ()
 import qualified Cardano.Wallet.Util as Util
 
 -- | Tests whether or not some instances (JSON, Bi, etc) roundtrips.

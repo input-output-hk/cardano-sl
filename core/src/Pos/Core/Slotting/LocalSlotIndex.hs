@@ -15,16 +15,22 @@ module Pos.Core.Slotting.LocalSlotIndex
 
 import           Universum
 
-import           Control.Monad.Except (MonadError (throwError))
-import           Data.Ix (Ix)
-import           System.Random (Random (..))
+import           Control.Monad.Except
+    (MonadError (throwError))
+import           Data.Ix
+    (Ix)
+import           System.Random
+    (Random (..))
 
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants, epochSlots,
-                                                  protocolConstants)
-import           Pos.Core.ProtocolConstants (ProtocolConstants, pcEpochSlots)
-import           Pos.Util.Util (leftToPanic)
+import           Pos.Core.Configuration.Protocol
+    (HasProtocolConstants, epochSlots, protocolConstants)
+import           Pos.Core.ProtocolConstants
+    (ProtocolConstants, pcEpochSlots)
+import           Pos.Util.Util
+    (leftToPanic)
 
-import           Pos.Core.Slotting.SlotCount (SlotCount)
+import           Pos.Core.Slotting.SlotCount
+    (SlotCount)
 
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = UnsafeLocalSlotIndex

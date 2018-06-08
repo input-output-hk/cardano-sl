@@ -7,7 +7,8 @@ module Pos.Core.Common.Script
 import           Universum
 
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, int, (%))
+import           Formatting
+    (bprint, int, (%))
 import qualified PlutusCore.Program as PLCore
 
 import qualified Pos.Binary.Class as Bi

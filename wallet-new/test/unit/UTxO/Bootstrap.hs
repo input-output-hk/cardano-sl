@@ -4,7 +4,8 @@ module UTxO.Bootstrap (
   , isBootstrapTransaction
   ) where
 
-import           Data.Bifunctor (bimap)
+import           Data.Bifunctor
+    (bimap)
 import qualified Data.Set as Set
 import           Universum
 

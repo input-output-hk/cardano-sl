@@ -15,13 +15,20 @@ module Pos.DB.GState.Stakes
 
 import           Universum
 
-import           Pos.Binary.Core ()
-import           Pos.Core.Common (Coin, StakeholderId)
-import           Pos.DB.Class (DBIteratorClass (..), MonadDBRead)
-import           Pos.DB.Error (DBError (DBMalformed))
-import           Pos.DB.Functions (encodeWithKeyPrefix)
-import           Pos.DB.GState.Common (gsGetBi)
-import           Pos.Util.Util (maybeThrow)
+import           Pos.Binary.Core
+    ()
+import           Pos.Core.Common
+    (Coin, StakeholderId)
+import           Pos.DB.Class
+    (DBIteratorClass (..), MonadDBRead)
+import           Pos.DB.Error
+    (DBError (DBMalformed))
+import           Pos.DB.Functions
+    (encodeWithKeyPrefix)
+import           Pos.DB.GState.Common
+    (gsGetBi)
+import           Pos.Util.Util
+    (maybeThrow)
 
 
 data StakeIter

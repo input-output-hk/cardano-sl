@@ -5,10 +5,13 @@ module Pos.Core.Update.Data
 import           Universum
 
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, build, (%))
+import           Formatting
+    (bprint, build, (%))
 
-import           Pos.Binary.Class (Raw)
-import           Pos.Crypto (Hash)
+import           Pos.Binary.Class
+    (Raw)
+import           Pos.Crypto
+    (Hash)
 
 -- | Data which describes update. It is specific for each system.
 data UpdateData = UpdateData

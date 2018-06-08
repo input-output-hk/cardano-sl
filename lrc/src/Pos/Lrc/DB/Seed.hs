@@ -12,10 +12,14 @@ module Pos.Lrc.DB.Seed
 
 import           Universum
 
-import           Pos.Binary.Class (serialize')
-import           Pos.Core (EpochIndex (..), SharedSeed, gdFtsSeed, genesisData)
-import           Pos.DB.Class (MonadDB, MonadDBRead)
-import           Pos.Lrc.DB.Common (getBi, putBi)
+import           Pos.Binary.Class
+    (serialize')
+import           Pos.Core
+    (EpochIndex (..), SharedSeed, gdFtsSeed, genesisData)
+import           Pos.DB.Class
+    (MonadDB, MonadDBRead)
+import           Pos.Lrc.DB.Common
+    (getBi, putBi)
 
 getSeed :: MonadDBRead m => EpochIndex -> m (Maybe SharedSeed)
 getSeed epoch = getBi (seedKey epoch)

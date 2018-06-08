@@ -6,19 +6,26 @@ module Test.Pos.Crypto.Arbitrary.Unsafe () where
 
 import           Universum
 
-import           Test.QuickCheck (Arbitrary (..), choose)
-import           Test.QuickCheck.Instances ()
+import           Test.QuickCheck
+    (Arbitrary (..), choose)
+import           Test.QuickCheck.Instances
+    ()
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class
+    (Bi)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
-import           Pos.Crypto.Hashing (AbstractHash, HashAlgorithm, unsafeAbstractHash)
-import           Pos.Crypto.SecretSharing (VssKeyPair, VssPublicKey, deterministicVssKeyGen,
-                                           toVssPublicKey)
+import           Pos.Crypto.Configuration
+    (HasProtocolMagic, protocolMagic)
+import           Pos.Crypto.Hashing
+    (AbstractHash, HashAlgorithm, unsafeAbstractHash)
+import           Pos.Crypto.SecretSharing
+    (VssKeyPair, VssPublicKey, deterministicVssKeyGen, toVssPublicKey)
 
-import           Pos.Crypto.Signing (PublicKey, SecretKey, SignTag, Signed, mkSigned)
+import           Pos.Crypto.Signing
+    (PublicKey, SecretKey, SignTag, Signed, mkSigned)
 
-import           Test.Pos.Util.QuickCheck.Arbitrary (ArbitraryUnsafe (..), arbitrarySizedS)
+import           Test.Pos.Util.QuickCheck.Arbitrary
+    (ArbitraryUnsafe (..), arbitrarySizedS)
 
 instance ArbitraryUnsafe PublicKey where
     arbitraryUnsafe = Bi.unsafeDeserialize' . Bi.serialize' <$> arbitrarySizedS 64

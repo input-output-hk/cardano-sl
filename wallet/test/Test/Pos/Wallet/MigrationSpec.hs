@@ -12,26 +12,37 @@ module Test.Pos.Wallet.MigrationSpec (spec) where
 
 import           Universum
 
-import           Control.Arrow ((***))
-import           Control.DeepSeq (force)
-import           Data.Default (def)
+import           Control.Arrow
+    ((***))
+import           Control.DeepSeq
+    (force)
+import           Data.Default
+    (def)
 import qualified Data.HashMap.Strict as HM
 import           Data.SafeCopy
-import           Test.Hspec (Spec, describe, it, shouldNotBe)
-import           Test.Hspec.QuickCheck (modifyMaxSize, prop)
-import           Test.QuickCheck (Arbitrary (..), Property, oneof, (===))
+import           Test.Hspec
+    (Spec, describe, it, shouldNotBe)
+import           Test.Hspec.QuickCheck
+    (modifyMaxSize, prop)
+import           Test.QuickCheck
+    (Arbitrary (..), Property, oneof, (===))
 
-import           Pos.Arbitrary.Core ()
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccountMeta (..), CCoin (..),
-                                             CHash (..), CId (..), CProfile (..), CTxId (..),
-                                             CTxMeta (..), CUpdateInfo (..), CWAddressMeta (..),
-                                             CWalletAssurance (..), CWalletMeta (..), Wal)
-import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId)
-import           Pos.Wallet.Web.State.Acidic (openState)
-import           Pos.Wallet.Web.State.State (askWalletSnapshot)
+import           Pos.Arbitrary.Core
+    ()
+import           Pos.Wallet.Web.ClientTypes
+    (AccountId (..), Addr, CAccountMeta (..), CCoin (..), CHash (..), CId (..),
+    CProfile (..), CTxId (..), CTxMeta (..), CUpdateInfo (..),
+    CWAddressMeta (..), CWalletAssurance (..), CWalletMeta (..), Wal)
+import           Pos.Wallet.Web.ClientTypes.Functions
+    (addressToCId)
+import           Pos.Wallet.Web.State.Acidic
+    (openState)
+import           Pos.Wallet.Web.State.State
+    (askWalletSnapshot)
 import           Pos.Wallet.Web.State.Storage
 
-import           Test.Pos.Txp.Arbitrary ()
+import           Test.Pos.Txp.Arbitrary
+    ()
 
 --------------------------------------------------------------------------------
 -- Reverse migrations

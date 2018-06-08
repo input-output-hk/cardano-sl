@@ -13,9 +13,11 @@ module Wallet.Inductive.Interpreter (
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting (bprint, build, (%))
+import           Formatting
+    (bprint, build, (%))
 import           Pos.Core.Chrono
-import           Serokell.Util (listJson)
+import           Serokell.Util
+    (listJson)
 
 import           Util.Validated
 import           UTxO.DSL
@@ -34,7 +36,7 @@ data History h a = History {
       historyState :: [Text]
 
       -- | Continuation of the history (if any)
-    , historyStep :: Maybe (WalletEvent h a, History h a)
+    , historyStep  :: Maybe (WalletEvent h a, History h a)
     }
 
 -- | "Difference history"

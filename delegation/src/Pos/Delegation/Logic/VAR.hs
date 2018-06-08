@@ -13,43 +13,63 @@ module Pos.Delegation.Logic.VAR
 
 import           Universum
 
-import           Control.Lens (at, non, to, uses, (.=), (?=), _Wrapped)
-import           Control.Monad.Except (throwError)
-import           Control.Monad.Morph (hoist)
+import           Control.Lens
+    (at, non, to, uses, (.=), (?=), _Wrapped)
+import           Control.Monad.Except
+    (throwError)
+import           Control.Monad.Morph
+    (hoist)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
-import           Data.List ((\\))
+import           Data.List
+    ((\\))
 import qualified Data.Text.Buildable as B
-import           Formatting (bprint, build, sformat, (%))
-import           Mockable (CurrentTime, Mockable)
-import           Serokell.Util (listJson, mapJson)
-import           System.Wlog (WithLogger, logDebug)
-import           UnliftIO (MonadUnliftIO)
+import           Formatting
+    (bprint, build, sformat, (%))
+import           Mockable
+    (CurrentTime, Mockable)
+import           Serokell.Util
+    (listJson, mapJson)
+import           System.Wlog
+    (WithLogger, logDebug)
+import           UnliftIO
+    (MonadUnliftIO)
 
-import           Pos.Core (ComponentBlock (..), EpochIndex (..),
-                           StakeholderId, addressHash, epochIndexL, gbHeader,
-                           headerHash, prevBlockL, siEpoch)
-import           Pos.Core.Block (Block, mainBlockDlgPayload, mainBlockSlot)
-import           Pos.Crypto (ProxySecretKey (..), shortHashF)
-import           Pos.DB (DBError (DBMalformed), MonadDBRead, SomeBatchOp (..))
+import           Pos.Core
+    (ComponentBlock (..), EpochIndex (..), StakeholderId, addressHash,
+    epochIndexL, gbHeader, headerHash, prevBlockL, siEpoch)
+import           Pos.Core.Block
+    (Block, mainBlockDlgPayload, mainBlockSlot)
+import           Pos.Core.Chrono
+    (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Crypto
+    (ProxySecretKey (..), shortHashF)
+import           Pos.DB
+    (DBError (DBMalformed), MonadDBRead, SomeBatchOp (..))
 import qualified Pos.DB as DB
 import qualified Pos.DB.GState.Common as GS
-import           Pos.Delegation.Cede (CedeModifier (..), CheckForCycle (..), DlgEdgeAction (..),
-                                      MapCede, MonadCede (..), MonadCedeRead (..), cmPskMods,
-                                      detectCycleOnAddition, dlgEdgeActionIssuer, dlgVerifyHeader,
-                                      dlgVerifyPskHeavy, emptyCedeModifier, evalMapCede,
-                                      getPskChain, getPskPk, modPsk, pskToDlgEdgeAction, runDBCede)
-import           Pos.Delegation.Class (MonadDelegation, dwProxySKPool, dwTip)
+import           Pos.Delegation.Cede
+    (CedeModifier (..), CheckForCycle (..), DlgEdgeAction (..), MapCede,
+    MonadCede (..), MonadCedeRead (..), cmPskMods, detectCycleOnAddition,
+    dlgEdgeActionIssuer, dlgVerifyHeader, dlgVerifyPskHeavy, emptyCedeModifier,
+    evalMapCede, getPskChain, getPskPk, modPsk, pskToDlgEdgeAction, runDBCede)
+import           Pos.Delegation.Class
+    (MonadDelegation, dwProxySKPool, dwTip)
 import qualified Pos.Delegation.DB as GS
-import           Pos.Delegation.Logic.Common (DelegationError (..), runDelegationStateAction)
-import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction, deleteFromDlgMemPool,
-                                               processProxySKHeavyInternal)
-import           Pos.Delegation.Types (DlgBlund, DlgPayload (getDlgPayload), DlgUndo (..))
-import           Pos.Lrc.Consumer.Delegation (getDlgRichmen)
-import           Pos.Lrc.Context (HasLrcContext)
-import           Pos.Lrc.Types (RichmenSet)
-import           Pos.Util (getKeys, _neHead)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Delegation.Logic.Common
+    (DelegationError (..), runDelegationStateAction)
+import           Pos.Delegation.Logic.Mempool
+    (clearDlgMemPoolAction, deleteFromDlgMemPool, processProxySKHeavyInternal)
+import           Pos.Delegation.Types
+    (DlgBlund, DlgPayload (getDlgPayload), DlgUndo (..))
+import           Pos.Lrc.Consumer.Delegation
+    (getDlgRichmen)
+import           Pos.Lrc.Context
+    (HasLrcContext)
+import           Pos.Lrc.Types
+    (RichmenSet)
+import           Pos.Util
+    (getKeys, _neHead)
 
 
 -- Copied from 'these' library.

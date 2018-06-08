@@ -6,12 +6,16 @@ import           Universum
 
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text.Buildable as Buildable
-import           Formatting (bprint, build, builder, (%))
+import           Formatting
+    (bprint, build, builder, (%))
 
-import           Pos.Binary.Class (Bi, decode, encode)
+import           Pos.Binary.Class
+    (Bi, decode, encode)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Crypto.HD (HDAddressPayload)
-import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
+import           Pos.Crypto.HD
+    (HDAddressPayload)
+import           Pos.Data.Attributes
+    (Attributes (..), decodeAttributes, encodeAttributes)
 
 import           Pos.Core.Common.AddrStakeDistribution
 

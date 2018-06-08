@@ -13,48 +13,75 @@ module Test.Pos.Wallet.Web.Methods.PaymentSpec
 
 import           Universum
 
-import           Control.Exception.Safe (try)
-import           Data.Default (def)
-import           Data.List ((!!), (\\))
-import           Data.List.NonEmpty (fromList)
-import           Formatting (build, sformat, (%))
-import           Test.Hspec (Spec, describe, shouldBe)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import           Test.QuickCheck (arbitrary, choose, generate)
-import           Test.QuickCheck.Monadic (pick)
+import           Control.Exception.Safe
+    (try)
+import           Data.Default
+    (def)
+import           Data.List
+    ((!!), (\\))
+import           Data.List.NonEmpty
+    (fromList)
+import           Formatting
+    (build, sformat, (%))
+import           Test.Hspec
+    (Spec, describe, shouldBe)
+import           Test.Hspec.QuickCheck
+    (modifyMaxSuccess)
+import           Test.QuickCheck
+    (arbitrary, choose, generate)
+import           Test.QuickCheck.Monadic
+    (pick)
 
-import           Pos.Client.Txp.Balances (getBalance)
-import           Pos.Client.Txp.Util (InputSelectionPolicy (..), txToLinearFee)
-import           Pos.Core (Address, Coin, TxFeePolicy (..), bvdTxFeePolicy, mkCoin, sumCoins,
-                           unsafeGetCoin, unsafeSubCoin)
-import           Pos.Core.Txp (Tx (..), TxAux (..), _TxOut)
-import           Pos.Crypto (PassPhrase)
-import           Pos.DB.Class (MonadGState (..))
-import           Pos.Launcher (HasConfigurations)
-import           Pos.Txp (TxFee (..))
-import           Pos.Util.CompileInfo (withCompileInfo)
-import           Pos.Wallet.Web.Account (myRootAddresses)
-import           Pos.Wallet.Web.ClientTypes (Addr, CAccount (..), CId, CTx (..),
-                                             NewBatchPayment (..), Wal)
-import           Servant.Server (ServantErr (..), err403)
+import           Pos.Client.Txp.Balances
+    (getBalance)
+import           Pos.Client.Txp.Util
+    (InputSelectionPolicy (..), txToLinearFee)
+import           Pos.Core
+    (Address, Coin, TxFeePolicy (..), bvdTxFeePolicy, mkCoin, sumCoins,
+    unsafeGetCoin, unsafeSubCoin)
+import           Pos.Core.Txp
+    (Tx (..), TxAux (..), _TxOut)
+import           Pos.Crypto
+    (PassPhrase)
+import           Pos.DB.Class
+    (MonadGState (..))
+import           Pos.Launcher
+    (HasConfigurations)
+import           Pos.Txp
+    (TxFee (..))
+import           Pos.Util.CompileInfo
+    (withCompileInfo)
+import           Pos.Wallet.Web.Account
+    (myRootAddresses)
+import           Pos.Wallet.Web.ClientTypes
+    (Addr, CAccount (..), CId, CTx (..), NewBatchPayment (..), Wal)
+import           Servant.Server
+    (ServantErr (..), err403)
 
-import           Pos.Wallet.Web.Methods.Logic (getAccounts)
-import           Pos.Wallet.Web.Methods.Payment (newPaymentBatch)
+import           Pos.Wallet.Web.Methods.Logic
+    (getAccounts)
+import           Pos.Wallet.Web.Methods.Payment
+    (newPaymentBatch)
 import qualified Pos.Wallet.Web.State.State as WS
-import           Pos.Wallet.Web.State.Storage (AddressInfo (..), wamAddress)
-import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
+import           Pos.Wallet.Web.State.Storage
+    (AddressInfo (..), wamAddress)
+import           Pos.Wallet.Web.Util
+    (decodeCTypeOrFail, getAccountAddrsOrThrow)
 
-import           Pos.Util.Servant (encodeCType)
-import           Test.Pos.Configuration (withDefConfigurations)
+import           Pos.Util.Servant
+    (encodeCType)
+import           Test.Pos.Configuration
+    (withDefConfigurations)
 
 
-import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne, maybeStopProperty,
-                                                    splitWord, stopProperty)
-import           Test.Pos.Wallet.Web.Mode (WalletProperty, getSentTxs, submitTxTestMode,
-                                           walletPropertySpec)
+import           Test.Pos.Util.QuickCheck.Property
+    (assertProperty, expectedOne, maybeStopProperty, splitWord, stopProperty)
+import           Test.Pos.Wallet.Web.Mode
+    (WalletProperty, getSentTxs, submitTxTestMode, walletPropertySpec)
 
-import           Test.Pos.Wallet.Web.Util (deriveRandomAddress, expectedAddrBalance,
-                                           importSomeWallets, mostlyEmptyPassphrases)
+import           Test.Pos.Wallet.Web.Util
+    (deriveRandomAddress, expectedAddrBalance, importSomeWallets,
+    mostlyEmptyPassphrases)
 
 
 deriving instance Eq CTx

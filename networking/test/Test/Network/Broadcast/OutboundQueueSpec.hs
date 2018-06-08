@@ -8,20 +8,27 @@ module Test.Network.Broadcast.OutboundQueueSpec
        ) where
 
 import           Control.Monad
-import           Data.List (delete)
-import           Data.Map.Strict (Map)
+import           Data.List
+    (delete)
+import           Data.Map.Strict
+    (Map)
 import qualified Data.Map.Strict as M
-import           Data.Semigroup ((<>))
-import           Data.Set (Set)
+import           Data.Semigroup
+    ((<>))
+import           Data.Set
+    (Set)
 import qualified Data.Set as Set
 import qualified Network.Broadcast.OutboundQueue as OutQ
 import           Network.Broadcast.OutboundQueue.Demo
-import           Network.Broadcast.OutboundQueue.Types hiding (simplePeers)
+import           Network.Broadcast.OutboundQueue.Types hiding
+    (simplePeers)
 import           System.Wlog
-import           Test.Hspec (Spec, describe, it)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess)
-import           Test.QuickCheck (Gen, Property, choose, forAll, ioProperty, property,
-                                  suchThat, (===))
+import           Test.Hspec
+    (Spec, describe, it)
+import           Test.Hspec.QuickCheck
+    (modifyMaxSuccess)
+import           Test.QuickCheck
+    (Gen, Property, choose, forAll, ioProperty, property, suchThat, (===))
 import qualified Test.QuickCheck as QC
 
 arbitraryNodeType :: Gen NodeType

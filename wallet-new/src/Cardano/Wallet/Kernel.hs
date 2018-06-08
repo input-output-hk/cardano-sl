@@ -30,26 +30,38 @@ module Cardano.Wallet.Kernel (
   , hasPending
   ) where
 
-import           Universum hiding (State, init)
+import           Universum hiding
+    (State, init)
 
 import           Control.Lens.TH
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
-import           Data.Maybe (fromJust)
+import           Data.Maybe
+    (fromJust)
 import qualified Data.Set as Set
 
-import           System.Wlog (Severity (..))
+import           System.Wlog
+    (Severity (..))
 
-import           Cardano.Wallet.Kernel.DB.Resolved (ResolvedBlock)
-import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
-import           Cardano.Wallet.Kernel.PrefilterTx (PrefilteredBlock (..), ourUtxo, prefilterBlock)
-import           Cardano.Wallet.Kernel.Types (txUtxo)
+import           Cardano.Wallet.Kernel.DB.Resolved
+    (ResolvedBlock)
+import           Cardano.Wallet.Kernel.Diffusion
+    (WalletDiffusion (..))
+import           Cardano.Wallet.Kernel.PrefilterTx
+    (PrefilteredBlock (..), ourUtxo, prefilterBlock)
+import           Cardano.Wallet.Kernel.Types
+    (txUtxo)
 
-import           Pos.Core (TxAux, sumCoins)
-import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
-import           Pos.Crypto (EncryptedSecretKey, hash)
-import           Pos.Txp (Utxo)
-import           Pos.Core.Chrono (OldestFirst)
+import           Pos.Core
+    (TxAux, sumCoins)
+import           Pos.Core.Chrono
+    (OldestFirst)
+import           Pos.Core.Txp
+    (Tx (..), TxAux (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
+import           Pos.Crypto
+    (EncryptedSecretKey, hash)
+import           Pos.Txp
+    (Utxo)
 
 -- import           Cardano.Wallet.Orphans ()
 

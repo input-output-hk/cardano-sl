@@ -15,6 +15,7 @@ let
     wine.build = "wine64";
 
     packageOverrides = ps: with ps; rec {
+      rocksdb = ps.rocksdb.overrideAttrs (drv: { patches = (drv.patches or []) ++ [ ./rocksdb-5.11.patch ]; });
       haskell = lib.recursiveUpdate ps.haskell {
         lib = ps.haskell.lib // (with ps.haskell.lib; {
           # sanity
@@ -89,7 +90,36 @@ pkgs.haskellPackages.override rec {
       echo "---> Starting remote-iserv on port $PORT"
       WINEPREFIX=$TMP ${pkgs.buildPackages.winePackages.minimal}/bin/wine64 ${self.remote-iserv}/bin/remote-iserv.exe tmp $PORT &
       sleep 60 # wait for wine to fully boot up...
-      echo "---| remote-iserv should be started on $PORT"
+      echo "---| remote-iserv should have started on $PORT"
+      RISERV_PID=$!
+    '';
+    postBuild = ''
+      echo "---> killing remote-iserv..."
+      kill $RISERV_PID
+    ''; in
+    appendBuildFlags' buildFlags
+     (addBuildDepends' [ self.remote-iserv ]
+      (addExtraLibrary' pkgs.windows.mingw_w64_pthreads
+       (addBuildTools' buildTools
+        (addPreBuild' preBuild
+         (addPostBuild' postBuild pkg)))));
+
+  addGitRev = subject: subject.overrideAttrs (drv: { GITREV = "blahblahblah"; });
+  doTemplateHaskellVerbose = pkg: with pkgs.haskell.lib; let
+    buildTools = [ buildHaskellPackages.iserv-proxy pkgs.buildPackages.winePackages.minimal ];
+    buildFlags = map (opt: "--ghc-option=" + opt) [
+      "-fexternal-interpreter"
+      "-pgmi" "${buildHaskellPackages.iserv-proxy}/bin/iserv-proxy"
+      "-opti" "127.0.0.1" "-opti" "$PORT" "-opti" "-v"
+      # TODO: this should be automatically injected based on the extraLibrary.
+      "-L${pkgs.windows.mingw_w64_pthreads}/lib"
+    ];
+    preBuild = ''
+      PORT=$((5000 + $RANDOM % 5000))
+      echo "---> Starting remote-iserv on port $PORT"
+      WINEPREFIX=$TMP ${pkgs.buildPackages.winePackages.minimal}/bin/wine64 ${self.remote-iserv}/bin/remote-iserv.exe tmp $PORT -v &
+      sleep 60 # wait for wine to fully boot up...
+      echo "---| remote-iserv should have started on $PORT"
       RISERV_PID=$!
     '';
     postBuild = ''
@@ -113,19 +143,49 @@ pkgs.haskellPackages.override rec {
           cp ${pkgs.windows.mingw_w64_pthreads}/bin/libwinpthread-1.dll $out/bin/
           cp ${pkgs.gcc7-ng-libssp}/lib/libssp-0.dll $out/bin/
         '';
+        buildFlags =  [ "--ghc-option=-debug" ];
       });
     streaming-commons = pkgs.haskell.lib.appendPatch super.streaming-commons ./streaming-commons-0.2.0.0.patch;
     cryptonite-openssl = pkgs.haskell.lib.appendPatch super.cryptonite-openssl ./cryptonite-openssl-0.7.patch;
     x509-system = pkgs.haskell.lib.appendPatch super.x509-system ./x509-system-1.6.6.patch;
     conduit = pkgs.haskell.lib.appendPatch super.conduit ./conduit-1.3.0.2.patch;
-    ether = doTemplateHaskell super.ether;
-    generics-sop = doTemplateHaskell super.generics-sop;
-    th-lift-instances = doTemplateHaskell super.th-lift-instances;
-    math-functions = doTemplateHaskell super.math-functions;
-    wreq = doTemplateHaskell super.wreq;
-    swagger2 = doTemplateHaskell super.swagger2;
-    log-warper = doTemplateHaskell super.log-warper;
-    th-orphans = doTemplateHaskell super.th-orphans;
-    wai-app-static = doTemplateHaskell super.wai-app-static;
+    rocksdb-haskell-ng = pkgs.haskell.lib.appendPatch super.rocksdb-haskell-ng ./rocksdb-haskell-ng.patch;
+    file-embed-lzma = pkgs.haskell.lib.appendPatch super.file-embed-lzma ./file-embed-lzma-0.patch;
+    
+    ether                 = doTemplateHaskell super.ether;
+    generics-sop          = doTemplateHaskell super.generics-sop;
+    th-lift-instances     = doTemplateHaskell super.th-lift-instances;
+    math-functions        = doTemplateHaskell super.math-functions;
+    wreq                  = doTemplateHaskell super.wreq;
+    swagger2              = doTemplateHaskell super.swagger2;
+    log-warper            = doTemplateHaskell super.log-warper;
+    th-orphans            = doTemplateHaskell super.th-orphans;
+    wai-app-static        = doTemplateHaskell super.wai-app-static;
+
+    cardano-sl-util       = doTemplateHaskell super.cardano-sl-util;
+    cardano-sl-crypto     = doTemplateHaskellVerbose super.cardano-sl-crypto;
+    cardano-sl-networking = doTemplateHaskell super.cardano-sl-networking;
+    cardano-sl-core       = doTemplateHaskell super.cardano-sl-core;
+    cardano-sl-db         = doTemplateHaskell super.cardano-sl-db;
+    cardano-sl-lrc        = doTemplateHaskell super.cardano-sl-lrc;
+    cardano-sl-infra      = doTemplateHaskell super.cardano-sl-infra;
+    cardano-sl-txp        = doTemplateHaskell super.cardano-sl-txp;
+    cardano-sl-delegation = doTemplateHaskell super.cardano-sl-delegation;
+    cardano-sl-update     = doTemplateHaskell super.cardano-sl-update;
+    cardano-sl-ssc        = doTemplateHaskell super.cardano-sl-ssc;
+    cardano-sl-block      = doTemplateHaskell super.cardano-sl-block;
+    cardano-sl            = doTemplateHaskell super.cardano-sl;
+
+    fclabels              = doTemplateHaskell super.fclabels;
+    servant-docs          = doTemplateHaskell super.servant-docs;
+    wai-websockets        = doTemplateHaskell super.wai-websockets;
+    servant-swagger-ui    = doTemplateHaskell super.servant-swagger-ui;
+    cardano-sl-client     = doTemplateHaskell super.cardano-sl-client;
+    cardano-sl-generator  = doTemplateHaskell super.cardano-sl-generator;
+    cardano-sl-wallet     = doTemplateHaskell super.cardano-sl-wallet;
+    cardano-sl-wallet-new = doTemplateHaskell super.cardano-sl-wallet-new;
+
+    trifecta              = doTemplateHaskell super.trifecta;
+    cardano-sl-tools      = doTemplateHaskell (addGitRev super.cardano-sl-tools);
   };
 } // { pkgs-x = pkgs; }

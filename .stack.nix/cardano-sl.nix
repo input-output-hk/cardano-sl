@@ -110,6 +110,7 @@ let
           ];
           build-tools = [
             hsPkgs.buildPackages.cpphs
+            hsPkgs.buildPackages.autoexporter
           ];
         };
         tests = {
@@ -188,7 +189,7 @@ let
             ];
             build-tools = [
               hsPkgs.buildPackages.cpphs
-            ];
+              ];
           };
         };
       };

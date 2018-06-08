@@ -2,13 +2,16 @@ module Test.Pos.Core.Gen
        (
         -- Pos.Core.Block Generators
           genBlockBodyAttributes
+        , genBlockHeader
         , genBlockHeaderAttributes
         , genGenesisHash
-        , genGenesisHeader
+        , genGenesisBlockHeader
         , genMainBlockHeader
         , genMainBody
         , genMainExtraBodyData
         , genMainExtraHeaderData
+        , genMainProof
+        , genMainToSign
 
         -- Pos.Core.Common Generators
         , genAddrAttributes
@@ -16,6 +19,8 @@ module Test.Pos.Core.Gen
         , genAddrType
         , genAddrSpendingData
         , genAddrStakeDistribution
+        , genBlockCount
+        , genChainDifficulty
         , genCoeff
         , genCoin
         , genCoinPortion
@@ -44,6 +49,7 @@ module Test.Pos.Core.Gen
         , genCommitmentSignature
         , genOpening
         , genSscPayload
+        , genSscProof
         , genSignedCommitment
         , genVssCertificate
         , genVssCertificatesMap
@@ -57,12 +63,12 @@ module Test.Pos.Core.Gen
         , genTxHash
         , genTxId
         , genTxIn
-        , genTxIndex
         , genTxInList
         , genTxInWitness
         , genTxOut
         , genTxOutList
         , genTxPayload
+        , genTxProof
         , genTxSig
         , genTxSigData
         , genTxWitness
@@ -78,11 +84,16 @@ module Test.Pos.Core.Gen
         , genUpAttributes
         , genUpdateData
         , genUpdatePayload
+        , genUpdateProof
         , genUpdateProposal
         , genUpdateProposalToSign
         , genUpdateVote
         , genUpId
         , genUpsData
+
+        -- Pos.Merkle Generators
+        , genMerkleTreeTx
+        , genMerkleRootTx
        ) where
 
 import           Universum
@@ -99,35 +110,38 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import           Pos.Binary.Class (asBinary, Raw (..))
 import           Pos.Block.Base (mkMainHeader, mkGenesisHeader)
-import           Pos.Core.Block (BlockBodyAttributes, BlockHeaderAttributes,
+import           Pos.Core.Block (BlockBodyAttributes, BlockHeader (..), BlockHeaderAttributes,
                                  GenesisBlockHeader, GenesisBody (..), MainBlockHeader,
-                                 MainBody (..), MainExtraBodyData (..), MainExtraHeaderData (..))
+                                 MainBody (..), MainExtraBodyData (..), MainExtraHeaderData (..),
+                                 MainProof (..), MainToSign (..))
 import           Pos.Core.Common (Address (..), AddrAttributes (..),
                                   AddrSpendingData (..), AddrStakeDistribution (..),
-                                  AddrType (..), Coeff (..), Coin (..),
-                                  CoinPortion (..), makeAddress, Script (..),
-                                  ScriptVersion, SlotLeaders, StakeholderId,
+                                  AddrType (..), BlockCount (..), ChainDifficulty (..),
+                                  Coeff (..), Coin (..),CoinPortion (..), makeAddress,
+                                  Script (..), ScriptVersion, SlotLeaders, StakeholderId,
                                   TxFeePolicy (..), TxSizeLinear (..))
 import           Pos.Core.Configuration (GenesisHash (..))
 import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
 import           Pos.Core.Slotting (EpochIndex (..), FlatSlotId,
                                     LocalSlotIndex (..), SlotId (..))
 import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
-                               mkCommitmentsMap,mkVssCertificate, mkVssCertificatesMap, Opening,
-                               SignedCommitment, SscPayload (..), VssCertificate (..),
+                               mkCommitmentsMap, mkSscProof, mkVssCertificate,
+                               mkVssCertificatesMap, Opening, SignedCommitment,
+                               SscPayload (..), SscProof, VssCertificate (..),
                                VssCertificatesMap (..))
 import           Pos.Core.Txp (TxAttributes, Tx (..), TxId, TxIn (..),
                                TxInWitness (..), TxOut (..), TxPayload (..),
-                               TxSig, TxSigData (..), TxWitness)
+                               TxProof (..), TxSig, TxSigData (..), TxWitness)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                                   BlockVersionModifier (..), SoftforkRule(..),
                                   SoftwareVersion (..), SystemTag (..), UpAttributes,
-                                  UpdateData (..), UpdatePayload (..), UpdateProposal (..),
-                                  UpdateProposalToSign  (..), UpdateVote (..),
-                                  UpId)
+                                  UpdateData (..), UpdatePayload (..), UpdateProof,
+                                  UpdateProposal (..), UpdateProposalToSign  (..),
+                                  UpdateVote (..), UpId)
 import           Pos.Crypto (deterministic, Hash, hash, safeCreatePsk, sign)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Delegation.Types (DlgPayload (..), ProxySKBlockInfo)
+import           Pos.Merkle (mkMerkleTree, mtRoot, MerkleRoot(..), MerkleTree (..))
 import           Pos.Ssc.Base (genCommitmentAndOpening)
 import           Test.Pos.Crypto.Gen (genAbstractHash, genHDAddressPayload,
                                       genProtocolMagic, genPublicKey,
@@ -145,6 +159,12 @@ import           Serokell.Data.Memory.Units (Byte)
 genBlockBodyAttributes :: Gen BlockBodyAttributes
 genBlockBodyAttributes = pure $ mkAttributes ()
 
+genBlockHeader :: Gen BlockHeader
+genBlockHeader =
+    Gen.choice [ BlockHeaderGenesis <$> genGenesisBlockHeader
+               , BlockHeaderMain <$> genMainBlockHeader
+               ]
+
 genBlockHeaderAttributes :: Gen BlockHeaderAttributes
 genBlockHeaderAttributes = pure $ mkAttributes ()
 
@@ -153,8 +173,8 @@ genGenesisHash = do
   sampleText <- Gen.text Range.constantBounded Gen.alphaNum
   pure $ GenesisHash (coerce (hash sampleText :: Hash Text))
 
-genGenesisHeader :: Gen GenesisBlockHeader
-genGenesisHeader =
+genGenesisBlockHeader :: Gen GenesisBlockHeader
+genGenesisBlockHeader =
     mkGenesisHeader
         <$> genProtocolMagic
         <*> Gen.choice gens
@@ -162,7 +182,7 @@ genGenesisHeader =
         <*> (GenesisBody <$> genSlotLeaders)
   where
     gens = [ Left <$> genGenesisHash
-           -- , Right <$> genBlockHeader
+           , Right <$> genBlockHeader
            ]
 
 genMainBody :: Gen MainBody
@@ -172,6 +192,17 @@ genMainBody =
         <*> genSscPayload
         <*> genDlgPayload
         <*> genUpdatePayload
+
+genMainBlockHeader :: Gen MainBlockHeader
+genMainBlockHeader =
+    mkMainHeader
+        <$> genProtocolMagic
+        <*> (Left <$> genGenesisHash)
+        <*> genSlotId
+        <*> genSecretKey
+        <*> genProxySKBlockInfo
+        <*> genMainBody
+        <*> genMainExtraHeaderData
 
 genMainExtraBodyData :: Gen MainExtraBodyData
 genMainExtraBodyData = MainExtraBodyData <$> genBlockBodyAttributes
@@ -184,15 +215,21 @@ genMainExtraHeaderData =
         <*> genBlockHeaderAttributes
         <*> genAbstractHash genMainExtraBodyData
 
-genMainBlockHeader :: Gen MainBlockHeader
-genMainBlockHeader =
-    mkMainHeader
-        <$> genProtocolMagic
-        <*> (Left <$> genGenesisHash)
+genMainProof :: Gen MainProof
+genMainProof =
+    MainProof
+        <$> genTxProof
+        <*> genSscProof
+        <*> genAbstractHash genDlgPayload
+        <*> genUpdateProof
+
+genMainToSign :: Gen MainToSign
+genMainToSign =
+    MainToSign
+        <$> genAbstractHash genBlockHeader
+        <*> genMainProof
         <*> genSlotId
-        <*> genSecretKey
-        <*> genProxySKBlockInfo
-        <*> genMainBody
+        <*> genChainDifficulty
         <*> genMainExtraHeaderData
 
 ----------------------------------------------------------------------------
@@ -235,6 +272,12 @@ genAddrStakeDistribution = Gen.choice gens
       si <- genStakeholderId
       cp <- genCoinPortion
       pure (si, cp)
+
+genBlockCount :: Gen BlockCount
+genBlockCount = BlockCount <$> Gen.word64 Range.constantBounded
+
+genChainDifficulty :: Gen ChainDifficulty
+genChainDifficulty = ChainDifficulty <$> genBlockCount
 
 genCoeff :: Gen Coeff
 genCoeff = do
@@ -359,6 +402,9 @@ genSscPayload =
         , CommitmentsPayload <$> genCommitmentsMap <*> genVssCertificatesMap
         ]
 
+genSscProof :: Gen SscProof
+genSscProof = mkSscProof <$> genSscPayload
+
 genVssCertificate :: Gen VssCertificate
 genVssCertificate =
     mkVssCertificate
@@ -413,14 +459,18 @@ genTxOutList = Gen.nonEmpty (Range.constant 1 100) genTxOut
 genTxId :: Gen TxId
 genTxId = hash <$> genTx
 
-genTxIndex :: Gen Word32
-genTxIndex = Gen.word32 (Range.constant 1 10)
-
 genTxPayload :: Gen TxPayload
 genTxPayload =
     UnsafeTxPayload
         <$> Gen.list (Range.constant 1 10) genTx
         <*> Gen.list (Range.constant 1 10) genTxWitness
+
+genTxProof :: Gen TxProof
+genTxProof =
+    TxProof
+        <$> genWord32
+        <*> genMerkleRootTx
+        <*> genAbstractHash (Gen.list (Range.constant 1 20) genTxWitness)
 
 genTxSig :: Gen TxSig
 genTxSig =
@@ -463,20 +513,20 @@ genBlockVersion =
 genBlockVersionModifier :: Gen BlockVersionModifier
 genBlockVersionModifier =
     BlockVersionModifier
-        <$> (Gen.maybe genScriptVersion)
-        <*> (Gen.maybe genMillisecond)
-        <*> (Gen.maybe genByte)
-        <*> (Gen.maybe genByte)
-        <*> (Gen.maybe genByte)
-        <*> (Gen.maybe genByte)
-        <*> (Gen.maybe genCoinPortion)
-        <*> (Gen.maybe genCoinPortion)
-        <*> (Gen.maybe genCoinPortion)
-        <*> (Gen.maybe genCoinPortion)
-        <*> (Gen.maybe genFlatSlotId)
-        <*> (Gen.maybe genSoftforkRule)
-        <*> (Gen.maybe genTxFeePolicy)
-        <*> (Gen.maybe genEpochIndex)
+        <$> Gen.maybe genScriptVersion
+        <*> Gen.maybe genMillisecond
+        <*> Gen.maybe genByte
+        <*> Gen.maybe genByte
+        <*> Gen.maybe genByte
+        <*> Gen.maybe genByte
+        <*> Gen.maybe genCoinPortion
+        <*> Gen.maybe genCoinPortion
+        <*> Gen.maybe genCoinPortion
+        <*> Gen.maybe genCoinPortion
+        <*> Gen.maybe genFlatSlotId
+        <*> Gen.maybe genSoftforkRule
+        <*> Gen.maybe genTxFeePolicy
+        <*> Gen.maybe genEpochIndex
 
 
 genHashRaw :: Gen (Hash Raw)
@@ -511,6 +561,9 @@ genUpdatePayload =
     UpdatePayload
         <$> Gen.maybe genUpdateProposal
         <*> Gen.list (Range.constant 0 10) genUpdateVote
+
+genUpdateProof :: Gen UpdateProof
+genUpdateProof = genAbstractHash genUpdatePayload
 
 genUpdateProposal :: Gen UpdateProposal
 genUpdateProposal =
@@ -548,7 +601,18 @@ genUpdateVote =
         <$> genPublicKey
         <*> genUpId
         <*> Gen.bool
-        <*> (genSignature $ (,) <$> genUpId <*> Gen.bool)
+        <*> genSignature ((,) <$> genUpId <*> Gen.bool)
+
+----------------------------------------------------------------------------
+-- Pos.Merkle Generators
+----------------------------------------------------------------------------
+
+genMerkleTreeTx :: Gen (MerkleTree Tx)
+genMerkleTreeTx = mkMerkleTree <$> Gen.list (Range.constant 0 100) genTx
+
+genMerkleRootTx :: Gen (MerkleRoot Tx)
+genMerkleRootTx = mtRoot <$> genMerkleTreeTx
+
 ----------------------------------------------------------------------------
 -- Helper Generators
 ----------------------------------------------------------------------------

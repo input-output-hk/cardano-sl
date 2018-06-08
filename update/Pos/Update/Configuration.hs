@@ -100,8 +100,8 @@ currentSystemTag =
              color c s = "\n" <> colorize c s <> "\n"
          case st of Left e -> error . color Red . T.concat $
                                   ["Current system tag could not be calculated: ", e]
-                    Right () -> do runIO . putStrLn . color Blue . T.concat $
-                                       ["Current system tag is: ", show tag]
+                    Right () -> do -- runIO . putStrLn . color Blue . T.concat $
+                                   --    ["Current system tag is: ", show tag]
                                    TH.lift tag
      )
 

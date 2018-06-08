@@ -70,6 +70,7 @@ let
           ];
           build-tools = [
             hsPkgs.buildPackages.cpphs
+            hsPkgs.buildPackages.autoexporter
           ];
         };
       };

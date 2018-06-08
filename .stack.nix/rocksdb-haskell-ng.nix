@@ -26,7 +26,7 @@ let
             hsPkgs.bytestring
             hsPkgs.directory
           ];
-          libs = [ pkgs.rocksdb ];
+          libs = [ pkgs.rocksdb pkgs."stdc++" ];
         };
         tests = {
           test = {

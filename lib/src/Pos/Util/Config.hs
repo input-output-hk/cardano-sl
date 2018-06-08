@@ -38,7 +38,7 @@ embedYamlObject name marker parser = do
             Just dir -> return (dir </> name)
             Nothing  -> error $ toText $
                 "Could not find " ++ marker ++ " for path: " ++ srcFP
-    TH.qAddDependentFile path
+    -- TH.qAddDependentFile path
     TH.runIO (Y.decodeFileEither path) >>= \case
         Right x  -> parser x
         Left err -> templateHaskellError $

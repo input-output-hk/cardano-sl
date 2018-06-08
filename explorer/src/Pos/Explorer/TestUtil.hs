@@ -44,14 +44,14 @@ import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))
 import           Pos.Crypto (SecretKey, toPublic)
 import           Pos.Delegation (DlgPayload, DlgUndo (..), ProxySKBlockInfo)
-import           Pos.Ssc.Base (defaultSscPayload)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Test.Pos.Block.Arbitrary ()
-import           Test.Pos.Configuration (withDefConfigurations)
-
 import           Pos.Explorer.BListener (createPagedHeaderHashesPair)
 import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page, convertToPagedMap)
 import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..))
+import           Pos.Ssc.Base (defaultSscPayload)
+import           Pos.Update.Configuration (HasUpdateConfiguration)
+
+import           Test.Pos.Block.Arbitrary ()
+import           Test.Pos.Configuration (withDefConfigurations)
 
 
 ----------------------------------------------------------------

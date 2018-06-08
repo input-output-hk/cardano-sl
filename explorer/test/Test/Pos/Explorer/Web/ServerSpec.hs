@@ -27,6 +27,7 @@ import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (divRoundUp)
 -- Orphan mockable instances.
 import           Pos.Util.Mockable ()
+
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfigurations)
 

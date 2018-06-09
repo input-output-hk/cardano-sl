@@ -1,18 +1,21 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Pos.Arbitrary.Block.Message
+module Test.Pos.Block.Arbitrary.Message
        (
        ) where
 
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Block ()
 import           Pos.Arbitrary.Ssc ()
 import           Pos.Arbitrary.Update ()
 import qualified Pos.Block.Network.Types as T
 import           Pos.Core (HasGenesisHash, HasProtocolConstants, HasProtocolMagic)
 
+import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Core.Chrono ()
 
 ------------------------------------------------------------------------------------------

@@ -13,7 +13,6 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (arbitrary, counterexample, forAll, (==>))
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
-import           Pos.Arbitrary.Block ()
 import qualified Pos.Communication ()
 import           Pos.Core (EpochIndex (..))
 import           Pos.Explorer.ExplorerMode (runExplorerTestMode)
@@ -28,6 +27,8 @@ import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util (divRoundUp)
 -- Orphan mockable instances.
 import           Pos.Util.Mockable ()
+
+import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfigurations)
 
 

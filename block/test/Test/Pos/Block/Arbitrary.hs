@@ -1,8 +1,14 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Pos.Arbitrary.Block
+module Test.Pos.Block.Arbitrary
        ( HeaderAndParams (..)
        , BlockHeaderList (..)
 
@@ -29,7 +35,7 @@ import           Pos.Arbitrary.Update (genUpdatePayload)
 import           Pos.Binary.Class (biSize)
 import qualified Pos.Block.Base as T
 import qualified Pos.Block.Logic.Integrity as T
-import           Pos.Block.Slog.Types (SlogUndo)
+import           Pos.Block.Slog (SlogUndo)
 import           Pos.Block.Types (Undo (..))
 import           Pos.Core (GenesisHash (..), HasGenesisHash, HasProtocolConstants, HeaderHash,
                            epochSlots, genesisHash)

@@ -12,7 +12,6 @@ import qualified Data.ByteString.Lazy as LBS
 import           Formatting (build, sformat, shown)
 import           System.Environment (lookupEnv)
 
-import           Pos.Arbitrary.Block.Generate (generateMainBlock)
 import           Pos.Binary.Class (Bi, serialize, unsafeDeserialize)
 import qualified Pos.Block.BHelpers as Verify
 import           Pos.Core (Block, BlockHeader, BlockVersionData (..), Body, BodyProof,
@@ -28,6 +27,8 @@ import           Pos.Core.Common (CoinPortion, SharedSeed (..))
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Core.Genesis
 import           Pos.Crypto (ProtocolMagic (..))
+
+import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
 
 -- We need 'ProtocolMagic' and 'ProtocolConstants' in order to generate a
 -- 'MainBlock'.

@@ -22,8 +22,8 @@ import           Control.Monad.Except (MonadError (throwError))
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core ()
-import           Pos.Core.Block (Block, GenesisBlockchain, MainBlockchain,
-                                 MainConsensusData (..), MainToSign (..))
+import           Pos.Core.Block (Block, GenesisBlockchain, MainBlockchain, MainConsensusData (..),
+                                 MainToSign (..))
 import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
                                             GenericBlockHeader (..), gbExtra)
 import           Pos.Core.Block.Main (MainBody (..), MainExtraHeaderData (..), MainProof,

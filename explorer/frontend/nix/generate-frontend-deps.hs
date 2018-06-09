@@ -1,13 +1,15 @@
 #! /usr/bin/env nix-shell
 #! nix-shell shell.nix -i runhaskell
-{-# LANGUAGE OverloadedStrings, LambdaCase, NoImplicitPrelude #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
 
-import Universum hiding (FilePath, die, fold, (<>))
-import qualified Data.Text as T
-import Turtle
-import System.IO (withFile, IOMode(WriteMode))
 import qualified Control.Foldl as Fold
-import Data.Foldable (find)
+import           Data.Foldable (find)
+import qualified Data.Text as T
+import           System.IO (IOMode (WriteMode), withFile)
+import           Turtle
+import           Universum hiding (FilePath, die, fold, (<>))
 
 main :: IO ()
 main = do

@@ -52,10 +52,9 @@ import           Pos.Generator.Block.Param (BlockGenParams (..), HasBlockGenPara
                                             HasTxGenParams (..))
 import qualified Pos.GState as GS
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Infra.Reporting (MonadReporting (..),
-                                      HasMisbehaviorMetrics (..))
-import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
-                                     MonadSlotsData, currentTimeSlottingSimple)
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..), MonadReporting (..))
+import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
+                                     currentTimeSlottingSimple)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Lrc (HasLrcContext, LrcContext (..))
 import           Pos.Ssc (HasSscConfiguration, SscMemTag, SscState, mkSscState)

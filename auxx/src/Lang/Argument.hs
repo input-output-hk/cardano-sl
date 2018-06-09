@@ -254,4 +254,4 @@ getParameters = \case
 typeDirectedKwAnn :: Name -> TyProjection a -> Arg Value -> Arg Value
 typeDirectedKwAnn name tp arg = case arg of
     ArgPos v | isJust (tpMatcher tp v) -> ArgKw name v
-    _ -> arg
+    _        -> arg

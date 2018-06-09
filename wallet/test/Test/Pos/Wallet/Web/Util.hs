@@ -28,7 +28,7 @@ import           Universum
 
 import           Control.Concurrent.STM (writeTVar)
 import           Control.Monad.Random.Strict (evalRandT)
-import           Data.List ((!!), head)
+import           Data.List (head, (!!))
 import qualified Data.Map as M
 import           Formatting (build, sformat, (%))
 import           Test.QuickCheck (Arbitrary (..), choose, frequency, sublistOf, suchThat, vectorOf)
@@ -41,6 +41,7 @@ import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Core (Address, BlockCount, Coin, HasConfiguration, genesisSecretsPoor,
                            headerHashG)
 import           Pos.Core.Block (blockHeader)
+import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Common (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
 import           Pos.Core.Genesis (poorSecretToEncKey)
 import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
@@ -51,7 +52,6 @@ import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
 import           Pos.Launcher (HasConfigurations)
 import           Pos.Txp.Toil (Utxo)
 import           Pos.Util (HasLens (..), _neLast)
-import           Pos.Core.Chrono (OldestFirst (..))
 
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.UserSecret (mkGenesisWalletUserSecret)

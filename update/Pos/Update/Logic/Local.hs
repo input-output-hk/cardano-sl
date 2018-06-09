@@ -33,8 +33,7 @@ import           System.Wlog (WithLogger, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HeaderHash,
-                           SlotId (..), slotIdF)
+import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HeaderHash, SlotId (..), slotIdF)
 import           Pos.Core.Update (UpId, UpdatePayload (..), UpdateProposal, UpdateVote (..))
 import           Pos.Crypto (PublicKey, shortHashF)
 import           Pos.DB.Class (MonadDBRead)

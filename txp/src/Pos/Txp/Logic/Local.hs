@@ -35,8 +35,7 @@ import           Pos.DB.Class (MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Infra.Reporting (reportError)
 import           Pos.Infra.Slotting (MonadSlots (..))
-import           Pos.Infra.StateLock (Priority (..), StateLock,
-                                      StateLockMetrics, withStateLock)
+import           Pos.Infra.StateLock (Priority (..), StateLock, StateLockMetrics, withStateLock)
 import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..))
 import           Pos.Txp.Logic.Common (buildUtxo)
 import           Pos.Txp.MemState (GenericTxpLocalData (..), MempoolExt, MonadTxpMem,

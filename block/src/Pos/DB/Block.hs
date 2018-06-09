@@ -54,7 +54,7 @@ import qualified Pos.Core.Block as CB
 import           Pos.Crypto (hashHexF)
 import           Pos.DB.BlockIndex (deleteHeaderIndex, putHeadersIndex)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), Serialized (..), SerializedBlock,
-                               SerializedUndo, SerializedBlund, getBlock, getDeserialized)
+                               SerializedBlund, SerializedUndo, getBlock, getDeserialized)
 import           Pos.DB.Error (DBError (..))
 import           Pos.DB.GState.Common (getTipSomething)
 import           Pos.DB.Pure (DBPureVar, MonadPureDB, atomicModifyIORefPure, pureBlocksStorage)
@@ -316,11 +316,11 @@ deleteData fp = (liftIO $ removeFile fp) `catch` handler
 
 -- | Paths at which we store the block data.
 data BlockStoragePaths = BlockStoragePaths
-  { bspRoot :: FilePath
+  { bspRoot  :: FilePath
     -- | Block data itself.
   , bspBlock :: FilePath
     -- | Undo information for a block.
-  , bspUndo :: FilePath
+  , bspUndo  :: FilePath
     -- | Combined storage format. Either this or a combination of 'Block' and
     -- 'Undo' files will be present.
   , bspBlund :: FilePath

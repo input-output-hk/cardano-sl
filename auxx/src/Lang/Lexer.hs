@@ -50,8 +50,8 @@ import           Text.Megaparsec.Char.Lexer (decimal, scientific, signed)
 
 import           Lang.Name (Letter, Name (..), unsafeMkLetter)
 import           Pos.Arbitrary.Core ()
-import           Pos.Core (Address, BlockVersion (..), SoftwareVersion (..), StakeholderId,
-                           decodeTextAddress, ApplicationName (..))
+import           Pos.Core (Address, ApplicationName (..), BlockVersion (..), SoftwareVersion (..),
+                           StakeholderId, decodeTextAddress)
 import           Pos.Crypto (AHash (..), PublicKey, decodeAbstractHash, fullPublicKeyF, hashHexF,
                              parseFullPublicKey, unsafeCheatingHashCoerce)
 import           Pos.Util.Util (toParsecError)

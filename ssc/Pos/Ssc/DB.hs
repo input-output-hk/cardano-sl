@@ -13,7 +13,8 @@ import qualified Data.Text.Buildable
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, (%))
 
-import           Pos.Core (genesisVssCerts, HasCoreConfiguration)
+import           Pos.Binary.Ssc.Types ()
+import           Pos.Core (HasCoreConfiguration, genesisVssCerts)
 import           Pos.DB (MonadDB, MonadDBRead, RocksBatchOp (..))
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.DB.Functions (dbSerializeValue)
@@ -21,7 +22,6 @@ import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Ssc.Types (SscGlobalState (..))
 import qualified Pos.Ssc.VssCertData as VCD
 import           Pos.Util.Util (maybeThrow)
-import           Pos.Binary.Ssc.Types ()
 
 getSscGlobalState :: (MonadDBRead m) => m SscGlobalState
 getSscGlobalState =

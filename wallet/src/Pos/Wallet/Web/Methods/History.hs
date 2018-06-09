@@ -32,7 +32,7 @@ import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (eitherToThrow)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), getLocalHistory)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxMeta (..),
-                                             ScrollLimit, ScrollOffset, Wal, mkCTx, addressToCId)
+                                             ScrollLimit, ScrollOffset, Wal, addressToCId, mkCTx)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
 import           Pos.Wallet.Web.Pending (PendingTx (..), ptxPoolInfo, _PtxApplying)

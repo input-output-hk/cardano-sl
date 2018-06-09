@@ -16,7 +16,7 @@ import           Control.Lens (makeLenses)
 import qualified Data.Text.Buildable as Buildable
 import           Universum
 
-import           Pos.Core (LocalSlotIndex, SlotId, VssCertificatesMap, HasProtocolConstants)
+import           Pos.Core (HasProtocolConstants, LocalSlotIndex, SlotId, VssCertificatesMap)
 import           Pos.Core.Ssc (CommitmentsMap, OpeningsMap, SharesMap)
 import           Pos.Ssc.Base (isCommitmentId, isCommitmentIdx, isOpeningId, isOpeningIdx,
                                isSharesId, isSharesIdx)

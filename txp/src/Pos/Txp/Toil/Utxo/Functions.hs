@@ -28,7 +28,8 @@ import           Pos.Crypto (SignTag (SignRedeemTx, SignTx), WithHash (..), chec
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Data.Attributes (Attributes (attrRemain), areAttributesKnown)
 import           Pos.Script (Script (..), isKnownScriptVersion, txScriptCheck)
-import           Pos.Txp.Toil.Failure (ToilVerFailure (..), TxOutVerFailure (..), WitnessVerFailure (..))
+import           Pos.Txp.Toil.Failure (ToilVerFailure (..), TxOutVerFailure (..),
+                                       WitnessVerFailure (..))
 import           Pos.Txp.Toil.Monad (UtxoM, utxoDel, utxoGet, utxoPut)
 import           Pos.Txp.Toil.Types (TxFee (..))
 import           Pos.Util (liftEither)

@@ -23,44 +23,39 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
 import qualified Data.Text.Buildable as B
 import           Formatting (bprint, build, int, sformat, shown, stext, (%))
-import           Node.Conversation (sendRaw)
 import qualified Network.Broadcast.OutboundQueue as OQ
+import           Node.Conversation (sendRaw)
 import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Communication (serializeMsgSerializedBlock)
-import           Pos.Block.Network (MsgBlock (..), MsgSerializedBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
-                                    MsgHeaders (..))
+import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
+                                    MsgHeaders (..), MsgSerializedBlock (..))
+import           Pos.Communication.Limits (mlMsgBlock, mlMsgGetBlocks, mlMsgGetHeaders,
+                                           mlMsgHeaders)
 import           Pos.Communication.Message ()
-import           Pos.Communication.Limits (mlMsgGetBlocks, mlMsgHeaders, mlMsgBlock,
-                                           mlMsgGetHeaders)
-import           Pos.Core (BlockVersionData, HeaderHash, ProtocolConstants (..),
-                           headerHash, bvdSlotDuration, prevBlockL)
+import           Pos.Core (BlockVersionData, HeaderHash, ProtocolConstants (..), bvdSlotDuration,
+                           headerHash, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader (..), MainBlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB (DBError (DBMalformed))
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 import           Pos.Infra.Communication.Listener (listenerConv)
-import           Pos.Infra.Communication.Protocol (Conversation (..),
-                                                   ConversationActions (..),
-                                                   EnqueueMsg, ListenerSpec,
-                                                   MkListeners (..),
-                                                   MsgType (..), NodeId,
-                                                   Origin (..), OutSpecs,
-                                                   constantListeners,
-                                                   waitForConversations,
-                                                   waitForDequeues,
-                                                   recvLimited)
+import           Pos.Infra.Communication.Protocol (Conversation (..), ConversationActions (..),
+                                                   EnqueueMsg, ListenerSpec, MkListeners (..),
+                                                   MsgType (..), NodeId, Origin (..), OutSpecs,
+                                                   constantListeners, recvLimited,
+                                                   waitForConversations, waitForDequeues)
 import           Pos.Infra.Network.Types (Bucket)
 import           Pos.Infra.Util.TimeWarp (NetworkAddress, nodeIdToAddress)
 import           Pos.Logic.Types (Logic (..))
 -- Dubious having this security stuff in here.
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toOldestFirst,
+                                  _NewestFirst, _OldestFirst)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..), NodeAttackedError (..),
                                       SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
-                                  toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Util.Timer (Timer, startTimer)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
+import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 

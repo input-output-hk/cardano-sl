@@ -25,8 +25,8 @@ import           Pos.Core (Block, BlockHeader, BlockVersionData (..), Body, Body
                            _mbUpdatePayload)
 import           Pos.Core.Block.Main ()
 import           Pos.Core.Common (CoinPortion, SharedSeed (..))
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Core.Genesis
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..))
 import           Pos.Crypto (ProtocolMagic (..))
 
 -- We need 'ProtocolMagic' and 'ProtocolConstants' in order to generate a

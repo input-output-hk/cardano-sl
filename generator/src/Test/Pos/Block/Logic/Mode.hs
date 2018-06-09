@@ -54,15 +54,16 @@ import           Mockable (Production, currentTime, runProduction)
 import qualified Prelude
 import           System.Wlog (HasLoggerName (..), LoggerName)
 import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, ioProperty)
-import           Test.QuickCheck.Property (Testable)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
+import           Test.QuickCheck.Property (Testable)
 
 import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..), mkAllSecretsSimple)
 import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub, onRollbackBlocksStub)
 import           Pos.Block.Slog (HasSlogGState (..), mkSlogGState)
 import           Pos.Core (BlockVersionData, CoreConfiguration (..), GenesisConfiguration (..),
-                           GenesisInitializer (..), GenesisSpec (..), HasConfiguration, SlotId,
-                           Timestamp (..), genesisSecretKeys, withGenesisSpec, HasProtocolConstants)
+                           GenesisInitializer (..), GenesisSpec (..), HasConfiguration,
+                           HasProtocolConstants, SlotId, Timestamp (..), genesisSecretKeys,
+                           withGenesisSpec)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, withGenesisBlockVersionData)
 import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..), MonadGState (..))
 import qualified Pos.DB as DB
@@ -74,19 +75,13 @@ import           Pos.Generator.Block (BlockGenMode)
 import           Pos.Generator.BlockEvent (SnapshotId)
 import qualified Pos.GState as GS
 import           Pos.Infra.Network.Types (HasNodeType (..), NodeType (..))
-import           Pos.Infra.Reporting (MonadReporting (..),
-                                      HasMisbehaviorMetrics (..))
-import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
-                                     MonadSimpleSlotting, SimpleSlottingMode,
-                                     SimpleSlottingStateVar,
-                                     currentTimeSlottingSimple,
-                                     getCurrentSlotBlockingSimple,
-                                     getCurrentSlotBlockingSimple',
-                                     getCurrentSlotInaccurateSimple,
-                                     getCurrentSlotInaccurateSimple',
-                                     getCurrentSlotSimple,
-                                     getCurrentSlotSimple',
-                                     mkSimpleSlottingStateVar)
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics (..), MonadReporting (..))
+import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSimpleSlotting, MonadSlots (..),
+                                     SimpleSlottingMode, SimpleSlottingStateVar,
+                                     currentTimeSlottingSimple, getCurrentSlotBlockingSimple,
+                                     getCurrentSlotBlockingSimple', getCurrentSlotInaccurateSimple,
+                                     getCurrentSlotInaccurateSimple', getCurrentSlotSimple,
+                                     getCurrentSlotSimple', mkSimpleSlottingStateVar)
 import           Pos.Infra.Slotting.MemState (MonadSlotsData)
 import           Pos.Infra.Slotting.Types (SlottingData)
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)

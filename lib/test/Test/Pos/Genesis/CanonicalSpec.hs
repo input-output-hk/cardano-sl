@@ -11,10 +11,10 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 
 import           Pos.Arbitrary.Core ()
 import           Pos.Core.Genesis (GenesisAvvmBalances, GenesisData, GenesisDelegation,
-                                   GenesisWStakeholders, GenesisProtocolConstants)
+                                   GenesisProtocolConstants, GenesisWStakeholders)
 
-import           Test.Pos.Helpers (canonicalJsonTest)
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Helpers (canonicalJsonTest)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Genesis" $ modifyMaxSuccess (const 10) $ do

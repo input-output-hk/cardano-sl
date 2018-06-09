@@ -13,8 +13,8 @@ module Pos.Util.Lens
 
        ) where
 
-import           Universum hiding (init, last)
 import           Data.List (init, last)
+import           Universum hiding (init, last)
 
 import           Control.Lens (LensRules, lensField, lensRules, mappingNamer)
 

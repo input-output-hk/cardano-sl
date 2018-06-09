@@ -29,10 +29,9 @@ import           System.Wlog (WithLogger, launchNamedPureLog, logWarning)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Binary.Ssc ()
-import           Pos.Core (BlockVersionData (..), EpochIndex,
-                           HasGenesisData, HasProtocolConstants, HasProtocolMagic, SlotId (..),
-                           StakeholderId, VssCertificate, epochIndexL,
-                           mkVssCertificatesMapSingleton)
+import           Pos.Core (BlockVersionData (..), EpochIndex, HasGenesisData, HasProtocolConstants,
+                           HasProtocolMagic, SlotId (..), StakeholderId, VssCertificate,
+                           epochIndexL, mkVssCertificatesMapSingleton)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment, SscPayload (..),
                                mkCommitmentsMap)
 import           Pos.DB (MonadBlockDBRead, MonadDBRead, MonadGState (gsAdoptedBVData))

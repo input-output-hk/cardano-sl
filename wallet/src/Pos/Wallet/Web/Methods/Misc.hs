@@ -66,8 +66,7 @@ import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (WalletDbReader, WalletSnapshot, askWalletDB,
                                        askWalletSnapshot, cancelApplyingPtxs,
                                        cancelSpecificApplyingPtx, getNextUpdate, getProfile,
-                                       removeNextUpdate, resetFailedPtxs,
-                                       setProfile, testReset)
+                                       removeNextUpdate, resetFailedPtxs, setProfile, testReset)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, testOnlyEndpoint)
 
 ----------------------------------------------------------------------------

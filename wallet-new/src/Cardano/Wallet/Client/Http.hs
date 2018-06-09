@@ -23,8 +23,8 @@ import           Data.X509.CertificateStore (makeCertificateStore)
 import           Network.Connection (TLSSettings (..))
 import           Network.HTTP.Client (Manager, ManagerSettings, defaultManagerSettings, newManager)
 import           Network.HTTP.Client.TLS (mkManagerSettings)
-import           Network.TLS (ClientHooks (..), ClientParams (..), Credentials (..),
-                              HostName, PrivKey, Shared (..), Supported (..), credentialLoadX509,
+import           Network.TLS (ClientHooks (..), ClientParams (..), Credentials (..), HostName,
+                              PrivKey, Shared (..), Supported (..), credentialLoadX509,
                               noSessionManager)
 import           Network.TLS.Extra.Cipher (ciphersuite_default)
 import           Servant ((:<|>) (..), (:>))

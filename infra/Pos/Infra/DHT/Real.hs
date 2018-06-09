@@ -10,8 +10,8 @@ module Pos.Infra.DHT.Real
        , module Pos.Infra.DHT.Real.Types
        ) where
 
-import            Pos.Infra.DHT.Real.CLI
-import            Pos.Infra.DHT.Real.Param
-import            Pos.Infra.DHT.Real.Real
-import            Pos.Infra.DHT.Real.Types
+import           Pos.Infra.DHT.Real.CLI
+import           Pos.Infra.DHT.Real.Param
+import           Pos.Infra.DHT.Real.Real
+import           Pos.Infra.DHT.Real.Types
 

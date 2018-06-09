@@ -13,8 +13,8 @@
 
 module Main where
 
+import           Control.Concurrent (forkIO, killThread, threadDelay)
 import           Control.Concurrent.Async (forConcurrently)
-import           Control.Concurrent (threadDelay, forkIO, killThread)
 import           Control.Exception (throwIO)
 import           Data.Binary (Binary)
 import qualified Data.ByteString as BS

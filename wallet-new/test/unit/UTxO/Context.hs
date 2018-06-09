@@ -399,10 +399,10 @@ data AddrInfo = AddrInfo {
       addrInfoMasterKey :: Maybe EncKeyPair
 
       -- | The key for this particular address
-    , addrInfoAddrKey :: SomeKeyPair
+    , addrInfoAddrKey   :: SomeKeyPair
 
       -- | The Cardano address
-    , addrInfoCardano :: Address
+    , addrInfoCardano   :: Address
     }
 
 -- | Mapping between our addresses and Cardano addresses

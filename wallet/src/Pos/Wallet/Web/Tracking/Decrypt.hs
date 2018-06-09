@@ -28,7 +28,7 @@ import           Pos.Crypto (EncryptedSecretKey, HDPassphrase, WithHash (..), de
                              encToPublic, unpackHDAddressAttr)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
-import           Pos.Wallet.Web.State (WAddressMeta(..))
+import           Pos.Wallet.Web.State (WAddressMeta (..))
 
 type OwnTxInOuts = [((TxIn, TxOutAux), WAddressMeta)]
 

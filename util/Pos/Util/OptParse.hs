@@ -2,10 +2,10 @@ module Pos.Util.OptParse
        ( fromParsec
        ) where
 
-import Universum
+import           Universum
 
-import Options.Applicative (ReadM, eitherReader)
-import Text.Parsec (Parsec, parse)
+import           Options.Applicative (ReadM, eitherReader)
+import           Text.Parsec (Parsec, parse)
 
 fromParsec :: Parsec Text () a -> ReadM a
 fromParsec parser =

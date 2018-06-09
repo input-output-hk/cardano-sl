@@ -16,8 +16,8 @@ import qualified Data.HashSet as HS
 import           Formatting (build, sformat, (%))
 import           System.Wlog (logWarning)
 
-import           Pos.Core (Coin, EpochIndex, SlotId (siEpoch), addressHash,
-                           applyCoinPortionUp, mkCoin, unsafeAddCoin)
+import           Pos.Core (Coin, EpochIndex, SlotId (siEpoch), addressHash, applyCoinPortionUp,
+                           mkCoin, unsafeAddCoin)
 import           Pos.Core.Update (UpId, UpdateProposal, UpdateProposals, UpdateVote (..),
                                   bvdUpdateProposalThd)
 import           Pos.Crypto (PublicKey, hash)

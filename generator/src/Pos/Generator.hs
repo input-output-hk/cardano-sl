@@ -7,6 +7,6 @@ module Pos.Generator
        )
        where
 
+import           Pos.Generator.Block
 import           Pos.Generator.BlockEvent
 import           Pos.Generator.BlockEvent.DSL
-import           Pos.Generator.Block

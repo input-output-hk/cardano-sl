@@ -1,11 +1,11 @@
+{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeApplications      #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE BangPatterns          #-}
 
 module Main where
 
@@ -18,8 +18,8 @@ import           Control.Monad (forM, forM_)
 
 import           Data.Foldable (foldlM)
 import           Data.Functor.Contravariant (contramap)
-import           Data.Time.Units (Microsecond)
 import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Time.Units (Microsecond)
 import           GHC.IO.Encoding (setLocaleEncoding, utf8)
 import qualified Network.Transport.TCP as TCP
 import qualified Network.Transport.TCP.Internal as TCP (encodeEndPointAddress)

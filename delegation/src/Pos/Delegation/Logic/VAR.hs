@@ -26,10 +26,10 @@ import           Serokell.Util (listJson, mapJson)
 import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (ComponentBlock (..), EpochIndex (..),
-                           StakeholderId, addressHash, epochIndexL, gbHeader,
-                           headerHash, prevBlockL, siEpoch)
+import           Pos.Core (ComponentBlock (..), EpochIndex (..), StakeholderId, addressHash,
+                           epochIndexL, gbHeader, headerHash, prevBlockL, siEpoch)
 import           Pos.Core.Block (Block, mainBlockDlgPayload, mainBlockSlot)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Crypto (ProxySecretKey (..), shortHashF)
 import           Pos.DB (DBError (DBMalformed), MonadDBRead, SomeBatchOp (..))
 import qualified Pos.DB as DB
@@ -49,7 +49,6 @@ import           Pos.Lrc.Consumer.Delegation (getDlgRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenSet)
 import           Pos.Util (getKeys, _neHead)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 
 
 -- Copied from 'these' library.

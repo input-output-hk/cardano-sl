@@ -26,7 +26,7 @@ import           Pos.Crypto (ProtocolMagic (..))
 import           Pos.Infra.Reporting.Exceptions (ReportingError (..))
 import           Pos.Infra.Reporting.MemState ()
 import           Pos.Util.CompileInfo (CompileTimeInfo)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
+import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 import           Pos.Util.Util ((<//>))
 
 

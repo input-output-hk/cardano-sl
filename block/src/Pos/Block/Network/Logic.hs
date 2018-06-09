@@ -16,8 +16,8 @@ module Pos.Block.Network.Logic
 import           Universum
 
 import           Control.Concurrent.STM (isFullTBQueue, readTVar, writeTBQueue, writeTVar)
-import           Control.Exception.Safe (Exception (..))
 import           Control.Exception (IOException)
+import           Control.Exception.Safe (Exception (..))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as M
 import qualified Data.Text.Buildable as B
@@ -39,6 +39,8 @@ import           Pos.Block.Types (Blund, LastKnownHeaderTag)
 import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader, headerHashG, isMoreDifficult,
                            prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
+                                  _OldestFirst)
 import           Pos.Crypto (shortHashF)
 import qualified Pos.DB.Block.Load as DB
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
@@ -46,16 +48,12 @@ import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (announceBlockHeader, requestTip))
 import           Pos.Infra.Recovery.Info (recoveryInProgress)
-import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..),
-                                               MisbehaviorMetrics (..))
+import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
-import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..),
-                                                jlAdoptedBlock)
+import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..), jlAdoptedBlock)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
-                                  _OldestFirst)
 import           Pos.Util.Util (lensOf)
 
 ----------------------------------------------------------------------------

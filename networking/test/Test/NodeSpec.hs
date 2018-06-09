@@ -17,12 +17,12 @@ import           Control.Concurrent.MVar (newEmptyMVar, putMVar, readMVar, takeM
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO)
 import           Control.Exception (catch, throwIO)
 import           Control.Lens (sans, (%=), (&~), (.=))
-import           Control.Monad (forM_, when, unless)
+import           Control.Monad (forM_, unless, when)
 import           Control.Monad.IO.Class (liftIO)
 import qualified Data.Set as S
 import           Network.QDisc.Fair (fairQDisc)
-import qualified Network.Transport as NT (Transport, address, closeEndPoint,
-                                          closeTransport, newEndPoint, receive)
+import qualified Network.Transport as NT (Transport, address, closeEndPoint, closeTransport,
+                                          newEndPoint, receive)
 import           Network.Transport.TCP (simpleOnePlaceQDisc, simpleUnboundedQDisc)
 import           System.Random (newStdGen)
 import           Test.Hspec (Spec, afterAll_, describe, runIO)

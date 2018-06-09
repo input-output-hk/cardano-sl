@@ -9,7 +9,7 @@ module Pos.Lrc.Fts
 import           Universum
 
 import           Control.Lens (makeLenses, makePrisms, uses)
-import           Data.Conduit (ConduitT, (.|), runConduitPure, await)
+import           Data.Conduit (ConduitT, await, runConduitPure, (.|))
 import qualified Data.Conduit.List as CL
 import           Data.List.NonEmpty (fromList)
 
@@ -17,7 +17,7 @@ import           Formatting (int, sformat, (%))
 
 import           Pos.Core.Common (Coin, SharedSeed (..), SlotLeaders, StakeholderId, coinToInteger,
                                   mkCoin, sumCoins, unsafeGetCoin)
-import           Pos.Core.Configuration (epochSlots, HasProtocolConstants)
+import           Pos.Core.Configuration (HasProtocolConstants, epochSlots)
 import           Pos.Core.Slotting (LocalSlotIndex (..))
 import           Pos.Crypto (deterministic, randomNumber)
 

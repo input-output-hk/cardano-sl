@@ -17,9 +17,10 @@ import           System.Wlog (WithLogger, modifyLoggerName)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (ApplicationName, BlockVersion, ComponentBlock (..), HasCoreConfiguration,
-                           NumSoftwareVersion, SoftwareVersion (..), StakeholderId, addressHash, HasProtocolConstants,
-                           blockVersionL, epochIndexL, headerHashG, headerLeaderKeyL, headerSlotL,
-                           HasProtocolMagic)
+                           HasProtocolConstants, HasProtocolMagic, NumSoftwareVersion,
+                           SoftwareVersion (..), StakeholderId, addressHash, blockVersionL,
+                           epochIndexL, headerHashG, headerLeaderKeyL, headerSlotL)
+import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Update (BlockVersionData, UpId, UpdatePayload)
 import qualified Pos.DB.BatchOp as DB
 import qualified Pos.DB.Class as DB
@@ -36,7 +37,6 @@ import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState, DBP
                                   processGenesisBlock, recordBlockIssuance, reportUnexpectedError,
                                   rollbackUS, runDBPoll, runPollT, verifyAndApplyUSPayload)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import qualified Pos.Util.Modifier as MM
 
 ----------------------------------------------------------------------------

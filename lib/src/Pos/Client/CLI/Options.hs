@@ -30,10 +30,9 @@ import           Pos.Util.OptParse (fromParsec)
 import           Pos.Binary.Core ()
 import           Pos.Communication (NodeId)
 import           Pos.Core (Timestamp (..))
-import           Pos.Launcher.Configuration (ConfigurationOptions (..))
-import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser,
-                                          addrParserNoWildcard,
+import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser, addrParserNoWildcard,
                                           addressToNodeId)
+import           Pos.Launcher.Configuration (ConfigurationOptions (..))
 
 data CommonArgs = CommonArgs
     { logConfig            :: !(Maybe FilePath)

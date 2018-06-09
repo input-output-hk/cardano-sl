@@ -8,9 +8,9 @@ import           Universum
 
 import           Control.Concurrent (killThread)
 
-import qualified System.Remote.Monitoring.Statsd as Monitoring
-import qualified System.Metrics as Metrics
 import           Pos.Infra.Statistics (StatsdParams (..))
+import qualified System.Metrics as Metrics
+import qualified System.Remote.Monitoring.Statsd as Monitoring
 
 withStatsd
     :: StatsdParams

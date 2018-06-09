@@ -16,8 +16,8 @@ import           Universum
 
 import           Formatting (build, sformat, (%))
 
-import           Pos.Core (HasConfiguration, protocolConstants)
 import           Pos.Client.Txp.History (SaveTxException (..), TxHistoryEntry)
+import           Pos.Core (HasConfiguration, protocolConstants)
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Infra.Slotting.Class (MonadSlots (..))
 import           Pos.Txp (ToilVerFailure (..))
@@ -75,7 +75,7 @@ isReclaimableFailure (SaveTxToilFailure tvf) = case tvf of
     ToilNotUnspent{}         -> False
     ToilOutGreaterThanIn{}   -> False
     ToilInconsistentTxAux{}  -> False
-    ToilInvalidOutput{}     -> False
+    ToilInvalidOutput{}      -> False
     ToilUnknownInput{}       -> False
     ToilWitnessDoesntMatch{} -> False
     ToilInvalidWitness{}     -> False

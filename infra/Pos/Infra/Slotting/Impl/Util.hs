@@ -9,18 +9,15 @@ import           Universum
 
 import           Data.Time.Units (Microsecond, convertUnit)
 
-import           Pos.Core.Configuration (epochSlots, HasProtocolConstants)
+import           Pos.Core.Configuration (HasProtocolConstants, epochSlots)
 import           Pos.Core.Slotting (EpochIndex, LocalSlotIndex, SlotId (..), Timestamp (..),
                                     addTimeDiffToTimestamp, flattenEpochIndex, mkLocalSlotIndex,
                                     unflattenSlotId)
 import           Pos.Util.Util (leftToPanic)
 
-import           Pos.Infra.Slotting.MemState (MonadSlotsData, getSystemStartM,
-                                              withSlottingVarAtomM)
-import           Pos.Infra.Slotting.Types (EpochSlottingData (..),
-                                           SlottingData, getAllEpochIndices,
-                                           getCurrentEpochIndex,
-                                           getNextEpochSlottingData,
+import           Pos.Infra.Slotting.MemState (MonadSlotsData, getSystemStartM, withSlottingVarAtomM)
+import           Pos.Infra.Slotting.Types (EpochSlottingData (..), SlottingData, getAllEpochIndices,
+                                           getCurrentEpochIndex, getNextEpochSlottingData,
                                            lookupEpochSlottingData)
 
 -- | Approximate current slot using outdated slotting data.

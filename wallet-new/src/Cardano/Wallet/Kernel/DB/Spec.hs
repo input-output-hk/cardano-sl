@@ -24,7 +24,7 @@ module Cardano.Wallet.Kernel.DB.Spec (
   , currentBlockMeta
   ) where
 
-import           Universum
+import           Universum hiding (elems)
 
 import           Control.Lens (to)
 import           Control.Lens.TH (makeLenses)

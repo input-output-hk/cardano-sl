@@ -19,7 +19,7 @@ import           Control.Lens (makeLenses, (%=), (.=), (+=), (-=))
 import qualified Data.Text.Buildable
 import           Formatting (bprint, shown, build, (%))
 
-import           Pos.Util.Chrono
+import           Pos.Core.Chrono
 
 {-------------------------------------------------------------------------------
   Workers and helpers for performing wallet state updates
@@ -85,7 +85,8 @@ interp walletInterp action = do
       ApplyBlocks bs -> do
 
         -- Add the blocks
-        pendingBlocks %= prependNewestFirst (toNewestFirst $ toListChrono bs)
+        let bsList = toNewestFirst (OldestFirst (toList (getOldestFirst bs)))
+        pendingBlocks %= prependNewestFirst bsList
         lengthPendingBlocks += length bs
 
         -- If we have seen more blocks than rollbacks, switch to the new fork.

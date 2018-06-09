@@ -11,10 +11,10 @@ import           Universum
 
 import           Control.Lens (ix)
 import qualified Data.List.NonEmpty as NE
-import           Data.Time.Units (Microsecond)
+import           Data.Time.Units (Microsecond, Second, fromMicroseconds)
 import           Formatting (Format, bprint, build, fixed, int, now, sformat, shown, (%))
 import           Mockable (delay)
-import           Serokell.Util (enumerate, listJson, pairF, sec)
+import           Serokell.Util (enumerate, listJson, pairF)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
@@ -36,6 +36,7 @@ import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, H
                            SlotId (..), Timestamp (Timestamp), addressHash, blkSecurityParam,
                            difficultyL, epochOrSlotToSlot, epochSlots, flattenSlotId, gbHeader,
                            getEpochOrSlot, getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId)
+import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import qualified Pos.DB.BlockIndex as DB
@@ -44,24 +45,19 @@ import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (announceBlockHeader))
-import           Pos.Infra.Reporting (MetricMonitor (..), MetricMonitorState,
-                                      HasMisbehaviorMetrics, noReportMonitor,
-                                      recordValue, reportOrLogE)
-import           Pos.Infra.Recovery.Info (getSyncStatus, getSyncStatusK,
-                                          needTriggerRecovery,
+import           Pos.Infra.Recovery.Info (getSyncStatus, getSyncStatusK, needTriggerRecovery,
                                           recoveryCommGuard)
-import           Pos.Infra.Slotting (ActionTerminationPolicy (..),
-                                          OnNewSlotParams (..),
-                                          currentTimeSlotting,
-                                          defaultOnNewSlotParams,
-                                          getSlotStartEmpatically, onNewSlot)
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics, MetricMonitor (..), MetricMonitorState,
+                                      noReportMonitor, recordValue, reportOrLogE)
+import           Pos.Infra.Slotting (ActionTerminationPolicy (..), OnNewSlotParams (..),
+                                     currentTimeSlotting, defaultOnNewSlotParams,
+                                     getSlotStartEmpatically, onNewSlot)
 import           Pos.Infra.Util.JsonLog.Events (jlCreatedBlock)
 import           Pos.Infra.Util.LogSafe (logDebugS, logInfoS, logWarningS)
 import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
 import           Pos.Update.DB (getAdoptedBVData)
-import           Pos.Util.Chrono (OldestFirst (..))
 
 ----------------------------------------------------------------------------
 -- All workers
@@ -235,7 +231,8 @@ recoveryTriggerWorker
 recoveryTriggerWorker diffusion = do
     -- Initial heuristic delay is needed (the system takes some time
     -- to initialize).
-    delay $ sec 3
+    -- TBD why 3 seconds? Why delay at all? Come on, we can do better.
+    delay (3 :: Second)
 
     repeatOnInterval $ do
         doTrigger <- needTriggerRecovery <$> getSyncStatusK
@@ -264,14 +261,14 @@ recoveryTriggerWorker diffusion = do
         -- headers. Or it may happen that we will receive only
         -- useless broken tips for some reason (attack?). This
         -- will minimize risks and network load.
-        when (doTrigger || triggerSafety) $ delay $ sec 20
+        when (doTrigger || triggerSafety) $ delay (20 :: Second)
   where
     repeatOnInterval action = void $ do
-        delay $ sec 1
+        delay (1 :: Second)
         -- REPORT:ERROR 'reportOrLogE' in recovery trigger worker
         void $ action `catchAny` \e -> do
             reportOrLogE "recoveryTriggerWorker" e
-            delay $ sec 15
+            delay (15 :: Second)
         repeatOnInterval action
 
 ----------------------------------------------------------------------------
@@ -400,7 +397,7 @@ cqkMetricMonitor st isBootstrapEra =
     classifier :: Microsecond -> Maybe Double -> Double -> Maybe Bool
     classifier timePassed prevVal newVal
         -- report at most once per 400 sec, unless decreased
-        | not decreased && timePassed < sec 400 = Nothing
+        | not decreased && timePassed < fromMicroseconds 400000000 = Nothing
         | newVal < criticalThreshold = Just True
         | newVal < nonCriticalThreshold = Just False
         | otherwise = Nothing

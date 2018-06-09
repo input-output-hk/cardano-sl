@@ -67,7 +67,7 @@ import           Pos.Generator.Block (BlockGenParams (..), BlockTxpGenMode, Mona
                                       TxGenParams (..), genBlocks)
 import           Pos.GState (withClonedGState)
 import           Pos.Txp (TxpGlobalSettings)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
                                   toOldestFirst, _OldestFirst)
 import           Pos.Util.Util (lensOf')
 

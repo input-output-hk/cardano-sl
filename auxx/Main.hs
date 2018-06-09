@@ -3,9 +3,9 @@ module Main
        ) where
 
 import           Universum
-import           Unsafe (unsafeFromJust)
 
 import           Control.Exception.Safe (handle)
+import           Data.Maybe (fromMaybe)
 import           Formatting (sformat, shown, (%))
 import           Mockable (Production (..), runProduction)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
@@ -109,8 +109,8 @@ action opts@AuxxOptions {..} command = do
                         { acRealModeContext = realModeContext
                         , acTempDbUsed = tempDbUsed }
                 lift $ runReaderT auxxAction auxxContext
-
-            vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
+            vssSK = fromMaybe (error "no user secret given")
+                              (npUserSecret nodeParams ^. usVss)
             sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
 
         bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr -> Production $

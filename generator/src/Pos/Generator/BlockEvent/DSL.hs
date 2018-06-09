@@ -44,7 +44,7 @@ import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockDesc (..)
                                            SnapshotOperation (..), byChance,
                                            enrichWithSnapshotChecking, genBlocksInStructure,
                                            pathSequence)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toOldestFirst,
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toOldestFirst,
                                   _NewestFirst)
 
 data BlockEventGenState = BlockEventGenState

@@ -38,7 +38,7 @@ import           Pos.Core.Block (Block, BlockHeader (..), blockHeaderProtocolMag
                                  mebAttributes, mehAttributes)
 import           Pos.Crypto (ProtocolMagic (getProtocolMagic))
 import           Pos.Data.Attributes (areAttributesKnown)
-import           Pos.Util.Chrono (NewestFirst (..), OldestFirst)
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst)
 
 ----------------------------------------------------------------------------
 -- Header
@@ -303,16 +303,14 @@ type VerifyBlocksIter = (SlotLeaders, Maybe BlockHeader, VerificationRes)
 -- laziness of 'VerificationRes' which is good because laziness for this data
 -- type is crucial.
 verifyBlocks
-    :: ( t ~ OldestFirst f Block
-       , NontrivialContainer t
-       , HasProtocolConstants
+    :: ( HasProtocolConstants
        , HasProtocolMagic
        )
     => Maybe SlotId
     -> Bool
     -> BlockVersionData
     -> SlotLeaders
-    -> OldestFirst f Block
+    -> OldestFirst [] Block
     -> VerificationRes
 verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
   where

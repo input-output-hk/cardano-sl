@@ -56,7 +56,7 @@ import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBloc
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Chrono (NE, NewestFirst (getNewestFirst), OldestFirst (..), toOldestFirst,
+import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst), OldestFirst (..), toOldestFirst,
                                   _OldestFirst)
 
 ----------------------------------------------------------------------------
@@ -149,8 +149,10 @@ slogVerifyBlocks blocks = runExceptT $ do
             throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
     -- Do pure block verification.
+    let blocksList :: OldestFirst [] Block
+        blocksList = OldestFirst (NE.toList (getOldestFirst blocks))
     verResToMonadError formatAllErrors $
-        verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocks
+        verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocksList
     -- Here we need to compute 'SlogUndo'. When we apply a block,
     -- we can remove one of the last slots stored in 'BlockExtra'.
     -- This removed slot must be put into 'SlogUndo'.

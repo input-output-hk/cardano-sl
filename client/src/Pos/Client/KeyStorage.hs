@@ -29,7 +29,6 @@ import           Control.Lens ((<%=), (<>~))
 import           Serokell.Util (modifyTVarS)
 import           System.Wlog (WithLogger)
 
-import           Pos.Binary.Crypto ()
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SecretKey, hash, runSecureRandom,
                              safeKeyGen)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret, peekUserSecret, usKeys,
@@ -76,9 +75,7 @@ getPrimaryKey = view usPrimKey <$> getSecret
 
 newtype AllUserSecrets = AllUserSecrets
     { getAllUserSecrets :: [EncryptedSecretKey]
-    } deriving (ToList, Container)
-
-type instance Element AllUserSecrets = EncryptedSecretKey
+    } deriving (Container)
 
 getSecretKeys :: MonadKeysRead m => m AllUserSecrets
 getSecretKeys = AllUserSecrets . view usKeys <$> getSecret

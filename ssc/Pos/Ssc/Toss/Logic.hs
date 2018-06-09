@@ -8,12 +8,13 @@ module Pos.Ssc.Toss.Logic
        , refreshToss
        ) where
 
+import           Universum hiding (id)
+
 import           Control.Lens (at)
 import           Control.Monad.Except (MonadError, throwError, runExceptT)
 import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
 import           System.Wlog (logError)
-import           Universum
 
 import           Pos.Core (EpochIndex, EpochOrSlot (..), IsMainHeader, HasProtocolConstants,
                            LocalSlotIndex, SlotCount, SlotId (siSlot), StakeholderId,
@@ -30,7 +31,7 @@ import           Pos.Ssc.Toss.Base (checkPayload)
 import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..))
 import           Pos.Ssc.Toss.Types (TossModifier (..))
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Util.Some (Some)
 import           Pos.Util.Util (sortWithMDesc)
 

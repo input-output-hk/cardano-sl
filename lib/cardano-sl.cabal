@@ -127,6 +127,7 @@ library
 
   build-depends:        base
                       , QuickCheck
+                      , acid-state
                       , async
                       , aeson >= 0.11.2.1
                       , async
@@ -269,6 +270,8 @@ test-suite cardano-test
                        Test.Pos.Core.SeedSpec
                        Test.Pos.Core.SlottingSpec
 
+                       Test.Pos.Slotting.TypesSpec
+
                        -- Ssc
                        Test.Pos.Ssc.ComputeSharesSpec
                        Test.Pos.Ssc.Identity.SafeCopySpec
@@ -300,9 +303,11 @@ test-suite cardano-test
                      , cardano-sl-binary
                      , cardano-sl-binary-test
                      , cardano-sl-block
+                     , cardano-sl-block-test
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
+                     , cardano-sl-db
                      , cardano-sl-delegation
                      , cardano-sl-infra
                      , cardano-sl-lrc

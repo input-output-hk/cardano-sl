@@ -61,7 +61,7 @@ import           Pos.Update.Context (UpdateContext)
 import           Pos.Update.Logic (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll (PollModifier)
 import           Pos.Util (Some (..), spanSafe)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Util (HasLens', lensOf)
 
 -- | Set of basic constraints used by high-level block processing.

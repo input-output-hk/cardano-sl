@@ -36,7 +36,7 @@ while read -r dpk; do
       echo "Empty line on \"$DELEGATE_PUBS\""
       exit 2
   fi
-  DPKS+=( $dpk )
+  DPKS+=( "$dpk" )
 done < "$DELEGATE_PUBS"
 nLen=${#ALL_NODES[@]}
 dLen=${#DPKS[@]}

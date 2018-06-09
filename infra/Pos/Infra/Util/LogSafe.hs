@@ -56,9 +56,16 @@ module Pos.Infra.Util.LogSafe
        , deriveSafeBuildable
        ) where
 
+-- Universum has its own Rube Goldberg variant of 'Foldable' which we do not
+-- want. It would be great if we could write
+--   import           Universum hiding (toList, foldMap)
+-- but HLint insists that this is not OK because toList and foldMap are never
+-- used unqualified. The hiding in fact makes it clearer for the human reader
+-- what's going on.
 import           Universum
 
 import           Control.Monad.Trans (MonadTrans)
+import           Data.Foldable (Foldable, length, null)
 import           Data.List (isSuffixOf)
 import           Data.Reflection (Reifies (..), reify)
 import qualified Data.Text.Buildable
@@ -74,7 +81,6 @@ import           Pos.Binary.Core ()
 import           Pos.Core (Timestamp, TxId)
 import           Pos.Core.Common (Address, Coin)
 import           Pos.Crypto (PassPhrase)
-
 
 ----------------------------------------------------------------------------
 -- Logging
@@ -216,15 +222,18 @@ secretOnlyF sl fmt = plainOrSecureF sl fmt (fconst "?")
 
 -- | For public logs hides list content, showing only its size.
 -- For secret logs uses provided formatter for list.
+--
+-- TODO make it use a list not a Foldable. Simpler that way.
+-- It's also more consistent with the name.
 secureListF
-    :: NontrivialContainer l
-    => LogSecurityLevel -> Format r (l -> r) -> Format r (l -> r)
+    :: Foldable l
+    => LogSecurityLevel -> Format r (l t -> r) -> Format r (l t -> r)
 secureListF sl fmt = plainOrSecureF sl fmt lengthFmt
   where
     lengthFmt = later $ \l ->
-        if null l
+        if Data.Foldable.null l
         then "[]"
-        else bprint ("[... ("%build%" item(s))]") $ length l
+        else bprint ("[... ("%build%" item(s))]") $ Data.Foldable.length l
 
 {-
 This is helper in generating @instance Buildable a@ and

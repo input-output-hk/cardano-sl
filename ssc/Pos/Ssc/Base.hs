@@ -41,7 +41,7 @@ module Pos.Ssc.Base
        , defaultSscPayload
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import qualified Crypto.Random as Rand
 import qualified Data.HashMap.Strict as HM
@@ -53,21 +53,19 @@ import           Serokell.Util (VerificationRes, verifyGeneric)
 
 import           Pos.Binary.Class (asBinary, biSize, fromBinary)
 import           Pos.Binary.Core ()
-import           Pos.Binary.Crypto ()
 import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..), SlotCount, SlotId (..),
                            StakeholderId, addressHash, unsafeMkLocalSlotIndexExplicit)
-import           Pos.Core.Configuration (HasProtocolConstants, vssMaxTTL, vssMinTTL,
-                                         protocolConstants)
-import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
-                                             pcSlotSecurityParam)
+import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants, vssMaxTTL,
+                                         vssMinTTL)
+import           Pos.Core.ProtocolConstants (ProtocolConstants (..), pcSlotSecurityParam)
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (getCommitmentsMap), Opening (..),
                                SignedCommitment, SscPayload (..), VssCertificate (vcExpiryEpoch),
                                VssCertificatesMap (..), mkCommitmentsMapUnsafe)
-import           Pos.Crypto (ProtocolMagic, Secret, SecretKey, SignTag (SignCommitment),
-                             Threshold, VssPublicKey, checkSig, genSharedSecret,
-                             getDhSecret, secretToDhSecret, sign, toPublic, verifySecret)
+import           Pos.Crypto (ProtocolMagic, Secret, SecretKey, SignTag (SignCommitment), Threshold,
+                             VssPublicKey, checkSig, genSharedSecret, getDhSecret, secretToDhSecret,
+                             sign, toPublic, verifySecret)
 import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
-import           Pos.Util.Limits (stripHashMap)
+import           Pos.Core.Limits (stripHashMap)
 
 -- | Convert Secret to SharedSeed.
 secretToSharedSeed :: Secret -> SharedSeed

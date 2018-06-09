@@ -5,22 +5,25 @@
 -- | Communication-related serialization -- messages mostly.
 
 module Pos.Binary.Communication
-    (
+    ( serializeMsgSerializedBlock
     ) where
 
 import           Universum
 
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
                                    decodeUnknownCborDataItem, deriveSimpleBi,
                                    encodeKnownCborDataItem, encodeListLen,
-                                   encodeUnknownCborDataItem, enforceSize)
+                                   encodeUnknownCborDataItem, enforceSize,
+                                   serialize')
 import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
-import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
+import           Pos.Block.Network (MsgBlock (..), MsgSerializedBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
                                     MsgHeaders (..))
 import           Pos.Core (BlockVersion, HeaderHash)
+import           Pos.DB.Class (Serialized (..))
 import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..),
                                                          HandlerSpecs,
                                                          MsgSubscribe (..),
@@ -69,6 +72,14 @@ instance Bi MsgBlock where
             0 -> MsgBlock <$> decode
             1 -> MsgNoBlock <$> decode
             t -> cborError $ "MsgBlock wrong tag: " <> show t
+
+-- Serialize `MsgSerializedBlock` with the property
+-- ```
+-- serialize (MsgBlock b) = serializeMsgSerializedBlock (MsgSerializedBlock $ serialize b)
+-- ```
+serializeMsgSerializedBlock :: MsgSerializedBlock -> BS.ByteString
+serializeMsgSerializedBlock (MsgSerializedBlock b) = "\x82\x0" <> unSerialized b
+serializeMsgSerializedBlock (MsgNoSerializedBlock t) = serialize' (MsgNoBlock t)
 
 -- deriveSimpleBi is not happy with constructors without arguments
 -- "fake" deriving as per `MempoolMsg`.

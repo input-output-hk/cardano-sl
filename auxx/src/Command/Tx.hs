@@ -25,11 +25,10 @@ import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import           Data.Time.Units (toMicroseconds)
+import           Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
 import           Formatting (build, int, sformat, shown, stext, (%))
 import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently, currentTime, delay,
                            forConcurrently, modifySharedAtomic, newSharedAtomic)
-import           Serokell.Util (ms, sec)
 import           System.Environment (lookupEnv)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
 import           System.Wlog (logError, logInfo)
@@ -152,7 +151,7 @@ sendToAllGenesis diffusion (SendToAllGenesisParams genesisTxsPerThread txsPerThr
             -- every <slotDuration> seconds, write the number of sent transactions to a CSV file.
         let writeTPS :: m ()
             writeTPS = do
-                delay (sec genesisSlotDuration)
+                delay (fromMicroseconds . fromIntegral . (*) 1000000 $ genesisSlotDuration :: Microsecond)
                 curTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
                 finished <- modifySharedAtomic tpsMVar $ \(TxCount submitted sending) -> do
                     -- CSV is formatted like this:
@@ -177,7 +176,7 @@ sendToAllGenesis diffusion (SendToAllGenesisParams genesisTxsPerThread txsPerThr
                           logInfo $ if res
                                     then sformat ("Submitted transaction: "%txaF) tx
                                     else sformat ("Applied transaction "%txaF%", however no neighbour applied it") tx
-                          delay $ ms delay_
+                          delay $ (fromMicroseconds . fromIntegral . (*) 1000 $ delay_ :: Microsecond)
                           logInfo "Continuing to send transactions."
                           sendTxs (n - 1)
                       Nothing -> do

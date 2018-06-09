@@ -14,15 +14,12 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-                       Pos.Aeson.Crypto
-                       Pos.Binary.Crypto
-
                        Pos.Crypto
 
-                       Pos.Crypto.AsBinary
                        Pos.Crypto.Configuration
                        Pos.Crypto.Hashing
                        Pos.Crypto.HD
+                       Pos.Crypto.Orphans
                        Pos.Crypto.Random
                        Pos.Crypto.SecretSharing
                        Pos.Crypto.Signing
@@ -109,15 +106,25 @@ test-suite test
 
   other-modules:
                        Spec
+                       Test.Pos.Crypto.Bi
                        Test.Pos.Crypto.CryptoSpec
+                       Test.Pos.Crypto.Gen
 
   build-depends:       QuickCheck
                      , base
+                     , aeson
                      , bytestring
+                     , cardano-crypto
                      , cardano-sl-binary
+                     , cardano-sl-binary-test
                      , cardano-sl-crypto
+                     , cardano-sl-util-test
+                     , cryptonite
                      , formatting
+                     , hedgehog
                      , hspec
+                     , memory
+                     , template-haskell
                      , text
                      , universum >= 0.1.11
                      , unordered-containers
@@ -155,6 +162,3 @@ test-suite test
                         ScopedTypeVariables
                         GADTs
                         MonadFailDesugaring
-
-  build-tools: cpphs >= 1.19
-  ghc-options: -pgmP cpphs -optP --cpp

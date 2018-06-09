@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Cardano.Wallet.Client.Http
     ( module Cardano.Wallet.Client.Http
       -- * Abstract Client export
@@ -14,25 +16,26 @@ import           Universum
 
 import           Control.Lens (_Left)
 import           Data.Aeson (decode)
+import           Data.ByteString (ByteString)
 import           Data.Default.Class (Default (..))
 import           Data.X509 (CertificateChain, SignedCertificate)
 import           Data.X509.CertificateStore (makeCertificateStore)
 import           Network.Connection (TLSSettings (..))
 import           Network.HTTP.Client (Manager, ManagerSettings, defaultManagerSettings, newManager)
 import           Network.HTTP.Client.TLS (mkManagerSettings)
-import           Network.TLS (Bytes, ClientHooks (..), ClientParams (..), Credentials (..),
+import           Network.TLS (ClientHooks (..), ClientParams (..), Credentials (..),
                               HostName, PrivKey, Shared (..), Supported (..), credentialLoadX509,
                               noSessionManager)
 import           Network.TLS.Extra.Cipher (ciphersuite_default)
 import           Servant ((:<|>) (..), (:>))
-import           Servant.Client (BaseUrl (..), ClientEnv (..), Scheme (..), ServantError (..),
-                                 client, runClientM)
+import           Servant.Client (BaseUrl (..), ClientEnv (..), ClientM, Scheme (..),
+                                 ServantError (..), client, runClientM)
 
 import qualified Cardano.Wallet.API.V1 as V1
 import           Cardano.Wallet.Client
 
 
-type Port = Bytes
+type Port = ByteString
 
 
 mkHttpManagerSettings :: ManagerSettings
@@ -129,8 +132,14 @@ mkHttpClient baseUrl manager = WalletClient
     }
 
   where
+
+    -- Must give the type. GHC will not infer it to be polymorphic in 'a'.
+    run :: forall a . ClientM a -> IO (Either ClientError a)
+    run = fmap (over _Left parseJsendError) . (`runClientM` clientEnv)
+
     unNoContent = map void
-    clientEnv = ClientEnv manager baseUrl
+    cookieJar = Nothing
+    clientEnv = ClientEnv manager baseUrl cookieJar
     parseJsendError servantErr =
         case servantErr of
             FailureResponse resp ->
@@ -138,7 +147,6 @@ mkHttpClient baseUrl manager = WalletClient
                     Just err -> ClientWalletError err
                     Nothing  -> ClientHttpError servantErr
             _ -> ClientHttpError servantErr
-    run       = fmap (over _Left parseJsendError) . (`runClientM` clientEnv)
     getAddressIndexR
         :<|> postAddressR
         :<|> getAddressR

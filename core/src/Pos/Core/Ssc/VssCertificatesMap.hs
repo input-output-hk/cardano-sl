@@ -15,7 +15,7 @@ module Pos.Core.Ssc.VssCertificatesMap
        , deleteVss
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (makeWrapped)
 import           Control.Monad.Except (MonadError (throwError))
@@ -41,9 +41,7 @@ import           Pos.Core.Ssc.VssCertificate (VssCertificate (..), checkVssCerti
 --   * no two certs have the same 'vcVssKey'
 newtype VssCertificatesMap = UnsafeVssCertificatesMap
     { getVssCertificatesMap :: HashMap StakeholderId VssCertificate }
-    deriving (Eq, Show, Generic, NFData, ToList, Container)
-
-type instance Element VssCertificatesMap = VssCertificate
+    deriving (Eq, Show, Generic, NFData, Container)
 
 makeWrapped ''VssCertificatesMap
 

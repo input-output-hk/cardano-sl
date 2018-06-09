@@ -26,7 +26,7 @@ import           Control.Lens (makeLenses)
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, Address,
                                               NewAccount, NewWallet, Wallet, WalletId, WalletUpdate)
 
-import           Pos.Util.Chrono (NE, OldestFirst (..), NewestFirst (..))
+import           Pos.Core.Chrono (NE, OldestFirst (..), NewestFirst (..))
 import           Pos.Block.Types (Blund)
 
 ------------------------------------------------------------

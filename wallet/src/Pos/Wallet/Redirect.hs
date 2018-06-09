@@ -19,7 +19,7 @@ module Pos.Wallet.Redirect
        , txpNormalizeWebWallet
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (views)
 import qualified Data.HashMap.Strict as HM
@@ -28,8 +28,9 @@ import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Block.Types (LastKnownHeaderTag, MonadLastKnownHeader)
 import qualified Pos.Context as PC
-import           Pos.Core (ChainDifficulty, HasConfiguration, Timestamp, Tx, TxAux (..), TxId,
-                           TxUndo, difficultyL, getCurrentTimestamp)
+import           Pos.Core (ChainDifficulty, HasConfiguration,
+                           Timestamp, Tx, TxAux (..), TxId, TxUndo, difficultyL,
+                           getCurrentTimestamp)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Crypto (WithHash (..))
 import qualified Pos.DB.BlockIndex as DB

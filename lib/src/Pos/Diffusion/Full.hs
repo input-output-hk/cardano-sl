@@ -14,7 +14,6 @@ module Pos.Diffusion.Full
     ) where
 
 import           Universum
-import           Nub (ordNub)
 
 import qualified Control.Concurrent.STM as STM
 import           Control.Concurrent.Async (Concurrently (..))
@@ -73,7 +72,7 @@ import           Pos.Infra.Reporting.Ekg (EkgNodeMetrics (..),
                                           registerEkgNodeMetrics)
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Ssc.Message (MCOpening (..), MCShares (..), MCCommitment (..), MCVssCertificate (..))
-import           Pos.Util.Chrono (OldestFirst)
+import           Pos.Core.Chrono (OldestFirst)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 import           Pos.Util.Timer (Timer, newTimer)
 import           Pos.Util.Trace (Trace, Severity (Error))

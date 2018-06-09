@@ -14,9 +14,9 @@ import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import           Control.Monad.STM (retry)
 import qualified Data.List.NonEmpty as NE
+import           Data.Time.Units (Second)
 import           Formatting (build, int, sformat, (%))
 import           Mockable (delay)
-import           Serokell.Util (sec)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
@@ -32,7 +32,7 @@ import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (getBlocks))
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportOrLogE, reportOrLogW)
-import           Pos.Util.Chrono (NE, OldestFirst (..), _OldestFirst)
+import           Pos.Core.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Util.Util (HasLens (..))
 
 -- I really don't like join
@@ -256,7 +256,8 @@ dropRecoveryHeaderAndRepeat diffusion nodeId = do
   where
     attemptRestartRecovery = do
         logDebug "Attempting to restart recovery"
-        delay $ sec 2
+        -- FIXME why delay? Why 2 seconds?
+        delay (2 :: Second)
         handleAny handleRecoveryTriggerE $ triggerRecovery diffusion
         logDebug "Attempting to restart recovery over"
     handleRecoveryTriggerE =

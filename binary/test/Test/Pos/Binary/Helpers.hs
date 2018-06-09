@@ -6,6 +6,9 @@
 module Test.Pos.Binary.Helpers
        ( IdTestingRequiredClassesAlmost
 
+       -- * General helpers
+       , runTests
+
        -- * From/to
        , binaryEncodeDecode
        , binaryTest
@@ -51,6 +54,16 @@ import           Pos.Binary.Limit (Limit (..))
 import           Test.Pos.Cbor.Canonicity (perturbCanonicity)
 import qualified Test.Pos.Cbor.RefImpl as R
 import           Test.Pos.Util.QuickCheck.Arbitrary (SmallGenerator (..))
+
+----------------------------------------------------------------------------
+-- General helpers
+----------------------------------------------------------------------------
+
+runTests :: [IO Bool] -> IO ()
+runTests tests = do
+    result <- and <$> sequence tests
+    unless result
+        exitFailure
 
 ----------------------------------------------------------------------------
 -- From/to tests

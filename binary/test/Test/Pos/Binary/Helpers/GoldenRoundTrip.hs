@@ -1,11 +1,10 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Test.Pos.Crypto.TempHelpers
+module Test.Pos.Binary.Helpers.GoldenRoundTrip
        ( goldenTestBi
        , embedGoldenTest
        , discoverGolden
        , discoverRoundTrip
-       , runTests
        , roundTripsBiShow
        , roundTripsBiBuildable
        , roundTripsAesonShow
@@ -13,18 +12,6 @@ module Test.Pos.Crypto.TempHelpers
        , compareHexDump
        , eachOf
        ) where
-
--- These helpers really belong in the `binary` package and then be exported via
--- a `cardano-sl-binary-test` package, but current issues with path lengths in
--- AppVeyor CI (for Windows only) means that they can't be put there.
--- We therefore cargo cult this module to wherever we need it and when the
--- Windows build issues are fixed we then remove this module and do things
--- the right way.
-
--- When moved to the `binary` package this module should probably be called
--- something like `Test.Pos.Binary.Helpers`.
-
-
 
 
 import           Universum
@@ -56,12 +43,6 @@ import qualified Prelude
 import           Text.Show.Pretty (Value (..), parseValue)
 
 import qualified Test.Pos.Util.Base16 as B16
-
-runTests :: [IO Bool] -> IO ()
-runTests tests = do
-    result <- and <$> sequence tests
-    unless result
-        exitFailure
 
 type HexDump = LByteString
 

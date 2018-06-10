@@ -105,6 +105,33 @@ pkgs.haskellPackages.override rec {
          (addPostBuild' postBuild pkg)))));
 
   addGitRev = subject: subject.overrideAttrs (drv: { GITREV = "blahblahblah"; });
+  doSymlinkLibs = pkg: let targetPrefix = with pkgs.stdenv; lib.optionalString
+    (hostPlatform != buildPlatform)
+    "${hostPlatform.config}-";
+
+    in pkgs.haskell.lib.overrideCabal pkg (drv: {
+     preConfigure = ''
+        echo "Patching dynamic library dependencies"
+        # 1. Link all dylibs from 'dynamic-library-dirs's in package confs to $out/lib/links
+        mkdir -p $out/lib/links
+        for d in $(grep dynamic-library-dirs $packageConfDir/*|awk '{print $2}'); do
+          for l in $d/*.dylib; do
+            ln -s $l $out/lib/links/$(basename $l)
+          done
+        done
+            
+        # 2. Patch 'dynamic-library-dirs' in package confs to point to the symlink dir
+        for f in $packageConfDir/*.conf; do
+          sed -i "s,dynamic-library-dirs: .*,dynamic-library-dirs: $out/lib/links," $f
+        done
+
+        # 3. Recache package database
+        ls $out/lib/links
+        echo "Recaching..."
+        ${targetPrefix}ghc-pkg --package-db="$packageConfDir" recache
+    '' + (drv.preConfigure or"");
+#    preConfigurePhases = [ "patchDynLibs" ] ++ (drv.preConfigurePhases or []);
+  });
   doTemplateHaskellVerbose = pkg: with pkgs.haskell.lib; let
     buildTools = [ buildHaskellPackages.iserv-proxy pkgs.buildPackages.winePackages.minimal ];
     buildFlags = map (opt: "--ghc-option=" + opt) [
@@ -183,7 +210,7 @@ pkgs.haskellPackages.override rec {
     cardano-sl-client     = doTemplateHaskell super.cardano-sl-client;
     cardano-sl-generator  = doTemplateHaskell super.cardano-sl-generator;
     cardano-sl-wallet     = doTemplateHaskell super.cardano-sl-wallet;
-    cardano-sl-wallet-new = doTemplateHaskell super.cardano-sl-wallet-new;
+    cardano-sl-wallet-new = doSymlinkLibs (doTemplateHaskell (addGitRev super.cardano-sl-wallet-new));
 
     trifecta              = doTemplateHaskell super.trifecta;
     cardano-sl-tools      = doTemplateHaskell (addGitRev super.cardano-sl-tools);

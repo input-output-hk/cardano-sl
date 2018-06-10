@@ -619,7 +619,6 @@ Example:
         stagpTxsPerThread <- getArg tyInt "txsPerThread"
         stagpConc <- getArg tyInt "conc"
         stagpDelay <- getArg tyInt "delay"
-        stagpMode <- getArg tySendMode "mode"
         stagpTpsSentFile <- getArg tyFilePath "file"
         return Tx.SendToAllGenesisParams{..}
 ```

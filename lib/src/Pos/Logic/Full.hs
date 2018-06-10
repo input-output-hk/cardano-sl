@@ -34,7 +34,7 @@ import qualified Pos.DB.Class as DB (MonadDBRead (dbGetSerBlock))
 import           Pos.Delegation.Listeners (DlgListenerConstraint)
 import qualified Pos.Delegation.Listeners as Delegation (handlePsk)
 import           Pos.Infra.Slotting (MonadSlots)
-import           Pos.Infra.Util.JsonLog.Events (JLTxR)
+import           Pos.Infra.Util.JsonLog.Events (JLEvent)
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
 import           Pos.Recovery (MonadRecoveryInfo)
 import qualified Pos.Recovery as Recovery
@@ -98,7 +98,7 @@ logicFull
        ( LogicWorkMode ctx m )
     => StakeholderId
     -> SecurityParams
-    -> (JLTxR -> m ()) -- ^ JSON log callback. FIXME replace by structured logging solution
+    -> (JLEvent -> m ()) -- ^ JSON log callback. FIXME replace by structured logging solution
     -> Logic m
 logicFull ourStakeholderId securityParams jsonLogTx =
     let

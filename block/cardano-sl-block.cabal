@@ -146,6 +146,7 @@ Benchmark bench-block
                    , criterion >= 1.3.0.0
                    , cardano-sl-binary
                    , cardano-sl-block
+                   , cardano-sl-block-test
                    , cardano-sl-crypto
                    , cardano-sl-core
                    , formatting

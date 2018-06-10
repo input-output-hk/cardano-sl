@@ -3,6 +3,7 @@
 {-# LANGUAGE ViewPatterns               #-}
 module Cardano.Wallet.Kernel.CoinSelection.Policies (
       defaultPolicy
+    , utxoBalance
     ) where
 
 import           Universum
@@ -10,7 +11,6 @@ import           Universum
 import           Cardano.Wallet.Kernel.CoinSelection.Types (Addr (Treasury), CoinPolicyState (..),
                                                             CoinSelectionFailure (..),
                                                             CoinSelectionOptions (..),
-                                                            CoinSelectionPolicy,
                                                             ExpenseRegulation (..), Output (..),
                                                             RunPolicy (..), RunPolicyResult,
                                                             TotalOutput (..), cpsChangeOutputs,
@@ -70,7 +70,7 @@ instance RunPolicy m a => RunPolicy (CoinPolicyT a m) a where
 -- N.B. This function is not exported by this module as it's considered internal
 -- only. Policy writers should simply write new policy running in a 'CoinPolicyT',
 -- export the 'runner' which calls internall 'runCoinPolicyT' and call it a day.
-runCoinPolicyT :: forall a m. (Core.HasProtocolMagic, RunPolicy m a, a ~ Core.Address)
+runCoinPolicyT :: forall m. (Core.HasProtocolMagic, RunPolicy m Core.Address)
                => CoinSelectionOptions
                -> Core.Utxo
                -- ^ The original UTXO.
@@ -332,14 +332,6 @@ toCoin = Core.txOutValue . Core.toaOut
   Always find the largest UTxO possible
 -------------------------------------------------------------------------------}
 
-largestFirst :: forall a m. ( Core.HasProtocolMagic
-                            , RunPolicy m a
-                            , a ~ Core.Address
-                            )
-             => CoinSelectionPolicy a m
-largestFirst options utxo goals =
-  runCoinPolicyT options utxo goals largestFirstT
-
 -- | Always use largest UTxO possible
 --
 -- NOTE: This is a very efficient implementation. Doesn't really matter, this
@@ -391,11 +383,18 @@ largestFirstT goals = mconcat <$> mapM go (toList goals)
 
 data PrivacyMode = PrivacyModeOn | PrivacyModeOff
 
-defaultPolicy :: forall a m. (Core.HasProtocolMagic
-                             , MonadRandom m
-                             , RunPolicy m a, a ~ Core.Address
-                             )
-              => CoinSelectionPolicy a m
+defaultPolicy :: forall m. (
+                Core.HasProtocolMagic
+              , MonadRandom m
+              , RunPolicy m Core.Address
+              )
+              => CoinSelectionOptions
+              -- ^ User-provided options
+              -> Core.Utxo
+              -- ^ The initial UTXO
+              -> NonEmpty Core.TxOut
+              -- ^ The outputs we need to pay.
+              -> m (Either [CoinSelectionFailure Core.Address] Core.TxAux)
 defaultPolicy options utxo goals =
     runCoinPolicyT options utxo goals (randomT PrivacyModeOn)
 

@@ -331,6 +331,7 @@ test-suite wallet-unit-tests
                       InputSelection.Policy
                       Test.Infrastructure.Generator
                       Test.Infrastructure.Genesis
+                      Test.Spec.CoinSelection
                       Test.Spec.Kernel
                       Test.Spec.Models
                       Test.Spec.Translation
@@ -403,6 +404,7 @@ test-suite wallet-unit-tests
                     , cardano-sl-wallet-new
                     , constraints
                     , containers
+                    , cryptonite
                     , data-default
                     , formatting
                     , hspec

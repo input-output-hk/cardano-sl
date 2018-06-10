@@ -19,7 +19,6 @@ module Cardano.Wallet.Kernel.CoinSelection.Types (
     , cpsUtxo
     , cpsSelectedInputs
     , cpsChangeOutputs
-    , CoinSelectionPolicy
     , RunPolicy (..)
     , RunPolicyResult
 
@@ -38,8 +37,12 @@ module Cardano.Wallet.Kernel.CoinSelection.Types (
 import           Universum
 
 import           Control.Lens.TH (makeLenses)
+import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import qualified Data.Set as Set
+import           Data.Text.Buildable (Buildable (..))
+import           Formatting (bprint, (%))
+import qualified Formatting as F
 
 import qualified Pos.Core as Core
 import qualified Pos.Crypto as Core
@@ -57,6 +60,10 @@ data ExpenseRegulation =
     -- where users wants to transfer funds between wallets owned by them,
     -- and they wish to trasfer an @exact@ amount (or, for example, the max
     -- amount).
+
+instance Buildable ExpenseRegulation where
+    build SenderPaysFee   = bprint "SenderPaysFee"
+    build ReceiverPaysFee = bprint "ReceiverPaysFee"
 
 {-------------------------------------------------------------------------------
   Input grouping
@@ -124,6 +131,13 @@ newOptions estimateFee mkSigner = CoinSelectionOptions {
 -- (i.e. when we forge the final 'Tx') solves the problem.
 data Addr a = Addr a | Treasury deriving (Eq, Ord)
 
+instance Arbitrary a => Arbitrary (Addr a) where
+    arbitrary = oneof [pure Treasury, Addr <$> arbitrary]
+
+instance Buildable a => Buildable (Addr a) where
+    build (Addr a) = build a
+    build Treasury = bprint "Treasury"
+
 -- | An ephimeral type used to work with transaction outputs parametrised over
 -- an address 'a'.
 -- contemplate treasury addresses.
@@ -132,6 +146,11 @@ data Output a = Output {
     , outVal  :: Core.Coin
     }
     deriving (Eq, Ord)
+
+instance Buildable a => Buildable (Output a) where
+    build (Output addr val) = bprint ("Output { " %
+                                      "  addr = " % F.build %
+                                      ", val  = " % F.build) addr val
 
 -- | Converts a Cardano's 'TxOut' into an 'Output', specialised over
 -- 'Addr Core.Address'.
@@ -171,15 +190,14 @@ data CoinSelectionFailure a =
     | OutputIsReedeemAddress a
       -- ^ This output
 
-
-type CoinSelectionPolicy a m =
-      CoinSelectionOptions
-      -- ^ User-provided options
-   -> Core.Utxo
-      -- ^ The initial UTXO
-   -> NonEmpty Core.TxOut
-      -- ^ The outputs we need to pay.
-   -> m (Either [CoinSelectionFailure a] Core.TxAux)
+instance Buildable a => Buildable (CoinSelectionFailure a) where
+    build CoinSelectionFailure = bprint "CoinSelectionFailure"
+    build (InsufficientFundsToCoverFee er c o) =
+        bprint ("InsufficientFundsToCoverFee { " %
+                "  expenseRegulation = " % F.build %
+                ", coins = " % F.build %
+                ", output = " % F.build) er c o
+    build (OutputIsReedeemAddress a) = bprint ("OutputIsReedeemAddress " % F.build) a
 
 {-------------------------------------------------------------------------------
   Coin selection combinator

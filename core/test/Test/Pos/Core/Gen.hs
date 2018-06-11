@@ -55,7 +55,10 @@ module Test.Pos.Core.Gen
         , genCommitment
         , genCommitmentsMap
         , genCommitmentSignature
+        , genInnerSharesMap
+        , genSharesMap
         , genOpening
+        , genOpeningsMap
         , genSscPayload
         , genSscProof
         , genSignedCommitment
@@ -136,7 +139,8 @@ import           Pos.Core.Slotting (EpochIndex (..), FlatSlotId,
                                     TimeDiff (..), Timestamp (..))
 import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
                                mkCommitmentsMap, mkSscProof, mkVssCertificate,
-                               mkVssCertificatesMap, Opening, SignedCommitment,
+                               mkVssCertificatesMap, Opening, OpeningsMap,
+                               InnerSharesMap, SharesMap, SignedCommitment,
                                SscPayload (..), SscProof, VssCertificate (..),
                                VssCertificatesMap (..))
 import           Pos.Core.Txp (TxAttributes, Tx (..), TxId, TxIn (..),
@@ -155,12 +159,13 @@ import           Pos.Merkle (mkMerkleTree, mtRoot, MerkleRoot(..), MerkleTree (.
 import           Pos.Ssc.Base (genCommitmentAndOpening)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Test.Pos.Crypto.Gen (genAbstractHash, genHDAddressPayload,
-                                      genProtocolMagic, genProxySignature,
-                                      genPublicKey, genRedeemPublicKey,
-                                      genRedeemSignature, genSafeSigner,
-                                      genSecretKey, genSignature,
-                                      genSignTag, genVssPublicKey)
+import           Test.Pos.Crypto.Gen (genAbstractHash, genDecShare,
+                                      genHDAddressPayload,genProtocolMagic,
+                                      genProxySignature,genPublicKey,
+                                      genRedeemPublicKey, genRedeemSignature,
+                                      genSafeSigner, genSecretKey,
+                                      genSignature, genSignTag,
+                                      genVssPublicKey)
 
 
 ----------------------------------------------------------------------------
@@ -182,9 +187,12 @@ genBlockHeaderAttributes = pure $ mkAttributes ()
 genBlockSignature :: Gen BlockSignature
 genBlockSignature =
     Gen.choice
-        [ BlockSignature <$> genSignature genMainToSign
-        , BlockPSignatureLight <$> genProxySignature genMainToSign genLightDlgIndices
-        , BlockPSignatureHeavy <$> genProxySignature genMainToSign genHeavyDlgIndex
+        [ BlockSignature
+              <$> genSignature genMainToSign
+        , BlockPSignatureLight
+              <$> genProxySignature genMainToSign genLightDlgIndices
+        , BlockPSignatureHeavy
+              <$> genProxySignature genMainToSign genHeavyDlgIndex
         ]
 
 genGenesisBlockHeader :: Gen GenesisBlockHeader
@@ -435,21 +443,41 @@ genCommitmentsMap = mkCommitmentsMap <$> Gen.list range genSignedCommitment
   where
     range = Range.constant 1 100
 
+genInnerSharesMap :: Gen InnerSharesMap
+genInnerSharesMap = do
+    hMS <- Gen.int (Range.constant 0 20)
+    stakeholderId <- Gen.list (Range.singleton hMS) genStakeholderId
+    nonEmptyDS <- Gen.nonEmpty (Range.singleton hMS) (asBinary <$> genDecShare)
+    pure $ HM.fromList $ zip stakeholderId [nonEmptyDS]
+
 genOpening :: Gen Opening
 genOpening = unOpening <$> genCommitmentOpening
+
+genOpeningsMap :: Gen OpeningsMap
+genOpeningsMap = do
+    hMapSize <- Gen.int (Range.constant 0 20)
+    stakeholderId <- Gen.list (Range.singleton hMapSize) genStakeholderId
+    opening <- Gen.list (Range.singleton hMapSize) genOpening
+    pure $ HM.fromList $ zip stakeholderId opening
+
+genSharesMap :: Gen SharesMap
+genSharesMap = do
+    hMapSize <- Gen.int (Range.constant 0 20)
+    stakeholderId <- Gen.list (Range.singleton hMapSize) genStakeholderId
+    innerSharesMap <- Gen.list (Range.singleton hMapSize) genInnerSharesMap
+    pure $ HM.fromList $ zip stakeholderId innerSharesMap
 
 genSignedCommitment :: Gen SignedCommitment
 genSignedCommitment =
     (,,) <$> genPublicKey <*> genCommitment <*> genCommitmentSignature
-
--- `SscPayload` gen needs two more constructors to be complete.
--- Generators from `crypto` are needed for these constructors.
 
 genSscPayload :: Gen SscPayload
 genSscPayload =
     Gen.choice
         [ CertificatesPayload <$> genVssCertificatesMap
         , CommitmentsPayload <$> genCommitmentsMap <*> genVssCertificatesMap
+        , OpeningsPayload <$> genOpeningsMap <*> genVssCertificatesMap
+        , SharesPayload <$> genSharesMap <*> genVssCertificatesMap
         ]
 
 genSscProof :: Gen SscProof

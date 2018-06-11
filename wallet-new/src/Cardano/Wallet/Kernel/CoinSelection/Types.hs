@@ -13,6 +13,7 @@ module Cardano.Wallet.Kernel.CoinSelection.Types (
     , csoMakeSigner
     , newOptions
     , CoinSelectionFailure (..)
+    , CoinPolicyError (..)
     , CoinPolicyState
     , initCoinPolicyState
     , mergeCoinPolicyState
@@ -23,9 +24,14 @@ module Cardano.Wallet.Kernel.CoinSelection.Types (
     , RunPolicyResult
 
     -- * Helpers for transient types
-    , Addr (Treasury)
+    , Addr (..)
     , Output (..)
     , TotalOutput (..)
+
+    -- * Unsafe coercions to get rid of the 'Addr' indirection
+    , coerceState
+    , coerceError
+    , coerceOutput
 
     -- * Helper functions
     , fromTxOut
@@ -37,7 +43,6 @@ module Cardano.Wallet.Kernel.CoinSelection.Types (
 import           Universum
 
 import           Control.Lens.TH (makeLenses)
-import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import qualified Data.Set as Set
 import           Data.Text.Buildable (Buildable (..))
@@ -131,9 +136,6 @@ newOptions estimateFee mkSigner = CoinSelectionOptions {
 -- (i.e. when we forge the final 'Tx') solves the problem.
 data Addr a = Addr a | Treasury deriving (Eq, Ord)
 
-instance Arbitrary a => Arbitrary (Addr a) where
-    arbitrary = oneof [pure Treasury, Addr <$> arbitrary]
-
 instance Buildable a => Buildable (Addr a) where
     build (Addr a) = build a
     build Treasury = bprint "Treasury"
@@ -142,7 +144,7 @@ instance Buildable a => Buildable (Addr a) where
 -- an address 'a'.
 -- contemplate treasury addresses.
 data Output a = Output {
-      outAddr :: Addr a
+      outAddr :: a
     , outVal  :: Core.Coin
     }
     deriving (Eq, Ord)
@@ -155,7 +157,7 @@ instance Buildable a => Buildable (Output a) where
 -- | Converts a Cardano's 'TxOut' into an 'Output', specialised over
 -- 'Addr Core.Address'.
 fromTxOut :: Core.TxOut -> Output Core.Address
-fromTxOut txOut = Output (Addr (Core.txOutAddress txOut)) (Core.txOutValue txOut)
+fromTxOut txOut = Output (Core.txOutAddress txOut) (Core.txOutValue txOut)
 
 fromTxOutAux :: Core.TxOutAux -> Output Core.Address
 fromTxOutAux = fromTxOut . Core.toaOut
@@ -165,11 +167,7 @@ fromTxOutAux = fromTxOut . Core.toaOut
 -- not a 'Treasury' address, to prevent errors, as this function is effectively
 -- partial.
 toTxOutAux :: Output Core.Address -> Core.TxOutAux
-toTxOutAux (Output (Addr a) coin) = Core.TxOutAux (Core.TxOut a coin)
-toTxOutAux (Output Treasury _) =
-  error $ "toTxOut was called on a 'Treasury' address, which shouldn't have " <>
-          "leaked outside the coin selection policy algorithm. This indicates " <>
-          "a bug in the runCoinPolicyT function."
+toTxOutAux (Output a coin) = Core.TxOutAux (Core.TxOut a coin)
 
 {-------------------------------------------------------------------------------
   Policy
@@ -180,18 +178,36 @@ class Monad m => RunPolicy m a | m -> a where
   -- | Generate change address
   genChangeAddr :: m (Addr a)
 
+newtype TotalOutput = TotalOutput { getTotal :: Core.Coin } deriving Show
 
 -- | The possible errors encountered when performing coin selection
 data CoinSelectionFailure a =
-      CoinSelectionFailure
+      CoinSelectionFailure CoinPolicyError
       -- ^ We failed to select funds to cover the outputs to pay.
     | InsufficientFundsToCoverFee ExpenseRegulation Core.Coin (Output a)
       -- ^ We need extra funds to cover the fee.
     | OutputIsReedeemAddress a
       -- ^ This output
 
+data CoinPolicyError =
+      UtxoExhausted Core.Coin TotalOutput
+      -- ^ The Utxo (whose balance is given as the first argument)
+      -- was exhaustively searched and it failed to satisfy the
+      -- import of the payment, reported as the second argument.
+    | CouldntFindCandidates
+
+instance Buildable TotalOutput where
+    build (TotalOutput o) = bprint F.build (Core.getCoin o)
+
+instance Buildable CoinPolicyError where
+    build (UtxoExhausted utxoBal amount) =
+        bprint ("UtxoExhausted { utxo = " % F.build %
+                " , payment_amount = " % F.build) utxoBal amount
+    build CouldntFindCandidates = bprint "CouldntFindCandidates"
+
 instance Buildable a => Buildable (CoinSelectionFailure a) where
-    build CoinSelectionFailure = bprint "CoinSelectionFailure"
+    build (CoinSelectionFailure err) =
+        bprint ("CoinSelectionFailure " % F.build) err
     build (InsufficientFundsToCoverFee er c o) =
         bprint ("InsufficientFundsToCoverFee { " %
                 "  expenseRegulation = " % F.build %
@@ -222,7 +238,6 @@ initCoinPolicyState utxo = CoinPolicyState {
     , _cpsChangeOutputs = []
     }
 
-
 -- | Merges two 'CoinPolicyState' together.
 -- The final 'Utxo' is taken from the last passed as input, as we need to
 -- pick the \"most recent\" one.
@@ -234,9 +249,26 @@ mergeCoinPolicyState (CoinPolicyState _ s1 c1) (CoinPolicyState u2 s2 c2) =
 
 makeLenses ''CoinPolicyState
 
+coerceState :: CoinPolicyState (Addr a) -> CoinPolicyState a
+coerceState = over cpsChangeOutputs (map coerceOutput)
+
+coerceOutput :: Output (Addr a) -> Output a
+coerceOutput (Output (Addr a) o) = Output a o
+coerceOutput (Output Treasury _) =
+  error $ "coerceOutput failed. This likely indicate an invariant violation " <>
+          "and possibly a bug inside CoinSelection.Policies."
+
+coerceError :: CoinSelectionFailure (Addr a) -> CoinSelectionFailure a
+coerceError (CoinSelectionFailure policyErr) = CoinSelectionFailure policyErr
+coerceError (InsufficientFundsToCoverFee e c (Output (Addr a) o)) =
+    InsufficientFundsToCoverFee e c (Output a o)
+coerceError (InsufficientFundsToCoverFee _ _ (Output Treasury _)) =
+    error "coerceError: invariant violation for InsufficientFundsToCoverFee"
+coerceError (OutputIsReedeemAddress (Addr a)) = OutputIsReedeemAddress a
+coerceError (OutputIsReedeemAddress Treasury) =
+    error "coerceError: invariant violation for OutputIsReedeemAddress"
+
 -- | A top-level, specialised type alias used to handle errors at the boundaries
 -- of the policy mechanism, when dealing with concrete Cardano types.
 type RunPolicyResult a r = Either [CoinSelectionFailure a] r
-
-newtype TotalOutput = TotalOutput { getTotal :: Core.Coin }
 

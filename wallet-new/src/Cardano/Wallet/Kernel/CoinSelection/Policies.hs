@@ -1,23 +1,27 @@
 {-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE ViewPatterns               #-}
 module Cardano.Wallet.Kernel.CoinSelection.Policies (
       defaultPolicy
+    , largestFirst
     , utxoBalance
+    , paymentAmount
     ) where
 
 import           Universum
 
-import           Cardano.Wallet.Kernel.CoinSelection.Types (Addr (Treasury), CoinPolicyState (..),
+import           Cardano.Wallet.Kernel.CoinSelection.Types (Addr (..), CoinPolicyError (..),
+                                                            CoinPolicyState (..),
                                                             CoinSelectionFailure (..),
                                                             CoinSelectionOptions (..),
                                                             ExpenseRegulation (..), Output (..),
-                                                            RunPolicy (..), RunPolicyResult,
-                                                            TotalOutput (..), cpsChangeOutputs,
-                                                            cpsSelectedInputs, cpsUtxo,
-                                                            csoDustThreshold, csoEstimateFee,
-                                                            csoExpenseRegulation, csoMakeSigner,
-                                                            fromTxOut, fromTxOutAux,
+                                                            RunPolicyResult, TotalOutput (..),
+                                                            coerceError, coerceState,
+                                                            cpsChangeOutputs, cpsSelectedInputs,
+                                                            cpsUtxo, csoDustThreshold,
+                                                            csoEstimateFee, csoExpenseRegulation,
+                                                            csoMakeSigner, fromTxOut, fromTxOutAux,
                                                             initCoinPolicyState,
                                                             mergeCoinPolicyState, toTxOutAux)
 
@@ -56,10 +60,6 @@ newtype CoinPolicyT a m x = CoinPolicyT {
 instance MonadTrans (CoinPolicyT a) where
   lift = CoinPolicyT . lift . lift
 
-instance RunPolicy m a => RunPolicy (CoinPolicyT a m) a where
-  genChangeAddr = lift genChangeAddr
-
-
 
 {-------------------------------------------------------------------------------
   Running a policy
@@ -70,22 +70,24 @@ instance RunPolicy m a => RunPolicy (CoinPolicyT a m) a where
 -- N.B. This function is not exported by this module as it's considered internal
 -- only. Policy writers should simply write new policy running in a 'CoinPolicyT',
 -- export the 'runner' which calls internall 'runCoinPolicyT' and call it a day.
-runCoinPolicyT :: forall m. (Core.HasProtocolMagic, RunPolicy m Core.Address)
+runCoinPolicyT :: forall m. (Monad m, Core.HasProtocolMagic)
                => CoinSelectionOptions
+               -> m Core.Address
                -> Core.Utxo
                -- ^ The original UTXO.
                -> NonEmpty Core.TxOut
                -- ^ The original outputs we need to pay to.
-               -> (NonEmpty (Output Core.Address) -> CoinPolicyT Core.Address m ())
-               -- ^ The input policy
+               -> (forall a. m a -> NonEmpty (Output a) -> CoinPolicyT a m ())
+               -- ^ The input policy, together with a function to generate
+               -- change addresses.
                -> m (RunPolicyResult Core.Address Core.TxAux)
-runCoinPolicyT options originalUtxo goals policyT = do
+runCoinPolicyT options genChangeAddr originalUtxo goals policyT = do
     -- Fail if any of the output is a redeem address.
     let errs = validateOutputs goals
     case Data.List.null errs of
         True -> do
             let estimateFee = options ^. csoEstimateFee
-            mx <- runExceptT (execStateT (unCoinPolicyT (policyT originalOutputs)) initSt)
+            mx <- runExceptT (execStateT (unCoinPolicyT (policyT genChangeAddr originalOutputs)) initSt)
             case mx of
                 Left errs -> return $ Left errs
                 Right finalSt -> do
@@ -130,14 +132,13 @@ runCoinPolicyT options originalUtxo goals policyT = do
 
         -- | Calculates the total 'Core.Coin' from all the @original@ outputs.
         totalOriginalOutputValue :: TotalOutput
-        totalOriginalOutputValue =
-            TotalOutput (Core.unsafeIntegerToCoin . Core.sumCoins . map outVal $ originalOutputs)
+        totalOriginalOutputValue = paymentAmount originalOutputs
 
         -- | Calculates the total 'Core.Coin' from @all@ the outputs, including
         -- change addresses.
         totalChangeOutputValue :: [Output Core.Address] -> TotalOutput
-        totalChangeOutputValue changeOutputs =
-            TotalOutput (Core.unsafeIntegerToCoin . Core.sumCoins . map outVal $  changeOutputs)
+        totalChangeOutputValue []       = TotalOutput (Core.mkCoin 0)
+        totalChangeOutputValue (c : cs) = paymentAmount (c :| cs)
 
         -- | Try regulating an output using the 'ExpenseRegulation' provided as
         -- part of 'runPolicyT'.
@@ -238,12 +239,12 @@ runCoinPolicyT options originalUtxo goals policyT = do
                 True  -> return $ Right (st, fee)
                 False -> do
                     let newGoal = (Output Treasury fee) :| []
-                    mx <- runExceptT (execStateT (unCoinPolicyT (policyT newGoal)) (initCoinPolicyState (st ^. cpsUtxo)))
+                    mx <- runExceptT (execStateT (unCoinPolicyT (policyT (Addr <$> genChangeAddr) newGoal)) (initCoinPolicyState (st ^. cpsUtxo)))
                     case mx of
-                        Left errs -> return $ Left errs
+                        Left errs -> return $ Left (map coerceError errs)
                         Right st' -> do
                             let estimateFee = options ^. csoEstimateFee
-                                newState = st `mergeCoinPolicyState` st'
+                                newState = st `mergeCoinPolicyState` (coerceState st')
                                 allOutputs  = originalOutputs `appendChange` (newState ^. cpsChangeOutputs)
                                 newFee = estimateFee (length $ newState ^. cpsSelectedInputs)
                                                      (fmap outVal allOutputs)
@@ -297,6 +298,13 @@ utxoBalance = foldl' updateFn (Core.mkCoin 0) . Map.elems
 utxoRestrictToInputs :: Set Core.TxIn -> Core.Utxo -> Core.Utxo
 utxoRestrictToInputs inps utxo = utxo `restrictKeys` inps
 
+-- | Calculates the amount of a requested payment.
+paymentAmount :: NonEmpty (Output a) -> TotalOutput
+paymentAmount = TotalOutput . Core.unsafeIntegerToCoin
+                            . Core.sumCoins
+                            . map outVal
+                            . toList
+
 -- | TODO(adn): Should we worry about redemption?
 mkTx :: Core.HasProtocolMagic
      => CoinSelectionOptions
@@ -332,20 +340,41 @@ toCoin = Core.txOutValue . Core.toaOut
   Always find the largest UTxO possible
 -------------------------------------------------------------------------------}
 
+largestFirst :: forall m. (
+               Core.HasProtocolMagic
+             , Monad m
+             )
+             => CoinSelectionOptions
+             -- ^ User-provided options
+             -> m Core.Address
+             -- ^ A monadic action to generate change addresses
+             -> Core.Utxo
+             -- ^ The initial UTXO
+             -> NonEmpty Core.TxOut
+             -- ^ The outputs we need to pay.
+             -> m (Either [CoinSelectionFailure Core.Address] Core.TxAux)
+largestFirst options genChangeAddr utxo outputs =
+    runCoinPolicyT options genChangeAddr utxo outputs largestFirstT
+
 -- | Always use largest UTxO possible
 --
 -- NOTE: This is a very efficient implementation. Doesn't really matter, this
 -- is just for testing; we're not actually considering using such a policy.
-largestFirstT :: forall a m. RunPolicy m a
-              => NonEmpty (Output a)
+largestFirstT :: forall a m. Monad m
+              =>  m a
+              -- ^ A function to generate change addresses
+              -> NonEmpty (Output a)
+              -- ^ The non-empty list of outputs we need to pay.
               -> CoinPolicyT a m ()
-largestFirstT goals = mconcat <$> mapM go (toList goals)
+largestFirstT genChangeAddr goals = mconcat <$> mapM go (toList goals)
   where
     go :: Output a -> CoinPolicyT a m ()
     go (Output _a val) = do
-        sorted   <- sortBy sortKey . utxoToList <$> use cpsUtxo
+        utxo        <- use cpsUtxo
+        let sorted  = sortBy sortKey . utxoToList $ utxo
         selected <- case select sorted utxoEmpty (Core.mkCoin 0) of
-                      Nothing -> throwError [CoinSelectionFailure]
+                      Nothing ->
+                          throwError [CoinSelectionFailure $ UtxoExhausted (utxoBalance utxo) (paymentAmount goals)]
                       Just u  -> return u
 
         cpsUtxo             %= utxoRemoveInputs (utxoDomain selected)
@@ -357,7 +386,7 @@ largestFirstT goals = mconcat <$> mapM go (toList goals)
             change      = selectedSum `Core.unsafeSubCoin` val
 
         unless (Core.getCoin change == 0) $ do
-          changeAddr <- genChangeAddr
+          changeAddr <- lift genChangeAddr
           cpsChangeOutputs %= (Output changeAddr change :)
 
         return ()
@@ -386,17 +415,18 @@ data PrivacyMode = PrivacyModeOn | PrivacyModeOff
 defaultPolicy :: forall m. (
                 Core.HasProtocolMagic
               , MonadRandom m
-              , RunPolicy m Core.Address
               )
               => CoinSelectionOptions
               -- ^ User-provided options
+              -> m Core.Address
+              -- ^ A monadic action to generate change addresses
               -> Core.Utxo
               -- ^ The initial UTXO
               -> NonEmpty Core.TxOut
               -- ^ The outputs we need to pay.
               -> m (Either [CoinSelectionFailure Core.Address] Core.TxAux)
-defaultPolicy options utxo goals =
-    runCoinPolicyT options utxo goals (randomT PrivacyModeOn)
+defaultPolicy options genChangeAddr utxo goals =
+    runCoinPolicyT options genChangeAddr utxo goals (randomT PrivacyModeOn)
 
 -- | Random input selection
 --
@@ -409,11 +439,13 @@ defaultPolicy options utxo goals =
 -- benefit of introducing another self-correction: if there are frequent
 -- requests for payments around certain size, the UTxO will contain lots of
 -- available change outputs of around that size.
-randomT :: forall a m. (RunPolicy m a, MonadRandom m)
+randomT :: forall a m. MonadRandom m
         => PrivacyMode
+        -> m a
+        -- ^ A monadic action to generate change addresses
         -> NonEmpty (Output a)
         -> CoinPolicyT a m ()
-randomT privacyMode goals = mconcat <$> mapM go (toList goals)
+randomT privacyMode genChangeAddr goals = mconcat <$> mapM go (toList goals)
   where
     go :: Output a -> CoinPolicyT a m ()
     go (Output _a val) = do
@@ -434,7 +466,7 @@ randomT privacyMode goals = mconcat <$> mapM go (toList goals)
             change      = selectedSum `Core.unsafeSubCoin` val
 
         unless (Core.getCoin change == 0) $ do
-          changeAddr <- genChangeAddr
+          changeAddr <- lift genChangeAddr
           cpsChangeOutputs %= (Output changeAddr change :)
         return ()
       where
@@ -504,7 +536,8 @@ randomInRange InRange{..} = go (Core.mkCoin 0) utxoEmpty
         case mIO of
           Nothing
             | Core.getCoin acc  >= Core.getCoin targetMin -> return selected
-            | otherwise                                   -> throwError [CoinSelectionFailure]
+            | otherwise                                   ->
+                throwError [CoinSelectionFailure CouldntFindCandidates]
           Just (i, o)
             | Core.getCoin acc' >= Core.getCoin targetAim -> return selected'
             | otherwise                                   -> go acc' selected'
@@ -547,7 +580,7 @@ findRandomOutput = do
     mIO <- tryFindRandomOutput (const True)
     case mIO of
       Just io -> return io
-      Nothing -> throwError [CoinSelectionFailure]
+      Nothing -> throwError [CoinSelectionFailure CouldntFindCandidates]
 
 -- | Find a random output, and return it if it satisfies the predicate
 --

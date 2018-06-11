@@ -4,10 +4,15 @@ module Test.Pos.Core.Gen
           genBlockBodyAttributes
         , genBlockHeader
         , genBlockHeaderAttributes
-        , genGenesisHash
+        , genBlockSignature
         , genGenesisBlockHeader
+        , genGenesisBody
+        , genGenesisConsensusData
+        , genGenesisHash
+        , genGenesisProof
         , genMainBlockHeader
         , genMainBody
+        , genMainConsensusData
         , genMainExtraBodyData
         , genMainExtraHeaderData
         , genMainProof
@@ -34,6 +39,7 @@ module Test.Pos.Core.Gen
         -- Pos.Core.Delegation Generators
         , genDlgPayload
         , genHeavyDlgIndex
+        , genLightDlgIndices
         , genProxySKBlockInfo
         , genProxySKHeavy
 
@@ -42,6 +48,8 @@ module Test.Pos.Core.Gen
         , genFlatSlotId
         , genLocalSlotIndex
         , genSlotId
+        , genTimeDiff
+        , genTimestamp
 
         -- Pos.Core.Ssc Generators
         , genCommitment
@@ -103,7 +111,7 @@ import           Data.Fixed (Fixed (..))
 import qualified Data.HashMap.Strict as HM
 import           Data.List.NonEmpty (fromList)
 import           Data.Maybe
-import           Data.Time.Units (fromMicroseconds, Millisecond)
+import           Data.Time.Units (fromMicroseconds, Microsecond, Millisecond)
 import           Data.Vector (singleton)
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
@@ -111,9 +119,10 @@ import qualified Hedgehog.Range as Range
 import           Pos.Binary.Class (asBinary, Raw (..))
 import           Pos.Block.Base (mkMainHeader, mkGenesisHeader)
 import           Pos.Core.Block (BlockBodyAttributes, BlockHeader (..), BlockHeaderAttributes,
-                                 GenesisBlockHeader, GenesisBody (..), MainBlockHeader,
-                                 MainBody (..), MainExtraBodyData (..), MainExtraHeaderData (..),
-                                 MainProof (..), MainToSign (..))
+                                 BlockSignature (..), GenesisBlockHeader, GenesisBody (..),
+                                 GenesisConsensusData (..), GenesisProof (..), MainBlockHeader,
+                                 MainBody (..), MainConsensusData (..), MainExtraBodyData (..),
+                                 MainExtraHeaderData (..), MainProof (..), MainToSign (..))
 import           Pos.Core.Common (Address (..), AddrAttributes (..),
                                   AddrSpendingData (..), AddrStakeDistribution (..),
                                   AddrType (..), BlockCount (..), ChainDifficulty (..),
@@ -121,9 +130,10 @@ import           Pos.Core.Common (Address (..), AddrAttributes (..),
                                   Script (..), ScriptVersion, SlotLeaders, StakeholderId,
                                   TxFeePolicy (..), TxSizeLinear (..))
 import           Pos.Core.Configuration (GenesisHash (..))
-import           Pos.Core.Delegation (HeavyDlgIndex (..), ProxySKHeavy)
+import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..), ProxySKHeavy)
 import           Pos.Core.Slotting (EpochIndex (..), FlatSlotId,
-                                    LocalSlotIndex (..), SlotId (..))
+                                    LocalSlotIndex (..), SlotId (..),
+                                    TimeDiff (..), Timestamp (..))
 import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
                                mkCommitmentsMap, mkSscProof, mkVssCertificate,
                                mkVssCertificatesMap, Opening, SignedCommitment,
@@ -143,13 +153,14 @@ import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Delegation.Types (DlgPayload (..), ProxySKBlockInfo)
 import           Pos.Merkle (mkMerkleTree, mtRoot, MerkleRoot(..), MerkleTree (..))
 import           Pos.Ssc.Base (genCommitmentAndOpening)
-import           Test.Pos.Crypto.Gen (genAbstractHash, genHDAddressPayload,
-                                      genProtocolMagic, genPublicKey,
-                                      genRedeemPublicKey, genRedeemSignature,
-                                      genSafeSigner, genSecretKey,
-                                      genSignature, genSignTag,
-                                      genVssPublicKey)
 import           Serokell.Data.Memory.Units (Byte)
+
+import           Test.Pos.Crypto.Gen (genAbstractHash, genHDAddressPayload,
+                                      genProtocolMagic, genProxySignature,
+                                      genPublicKey, genRedeemPublicKey,
+                                      genRedeemSignature, genSafeSigner,
+                                      genSecretKey, genSignature,
+                                      genSignTag, genVssPublicKey)
 
 
 ----------------------------------------------------------------------------
@@ -168,10 +179,13 @@ genBlockHeader =
 genBlockHeaderAttributes :: Gen BlockHeaderAttributes
 genBlockHeaderAttributes = pure $ mkAttributes ()
 
-genGenesisHash :: Gen GenesisHash
-genGenesisHash = do
-  sampleText <- Gen.text Range.constantBounded Gen.alphaNum
-  pure $ GenesisHash (coerce (hash sampleText :: Hash Text))
+genBlockSignature :: Gen BlockSignature
+genBlockSignature =
+    Gen.choice
+        [ BlockSignature <$> genSignature genMainToSign
+        , BlockPSignatureLight <$> genProxySignature genMainToSign genLightDlgIndices
+        , BlockPSignatureHeavy <$> genProxySignature genMainToSign genHeavyDlgIndex
+        ]
 
 genGenesisBlockHeader :: Gen GenesisBlockHeader
 genGenesisBlockHeader =
@@ -179,11 +193,28 @@ genGenesisBlockHeader =
         <$> genProtocolMagic
         <*> Gen.choice gens
         <*> genEpochIndex
-        <*> (GenesisBody <$> genSlotLeaders)
+        <*> genGenesisBody
   where
     gens = [ Left <$> genGenesisHash
            , Right <$> genBlockHeader
            ]
+
+genGenesisBody :: Gen GenesisBody
+genGenesisBody = GenesisBody <$> genSlotLeaders
+
+genGenesisConsensusData :: Gen GenesisConsensusData
+genGenesisConsensusData =
+    GenesisConsensusData
+        <$> genEpochIndex
+        <*> genChainDifficulty
+
+genGenesisHash :: Gen GenesisHash
+genGenesisHash = do
+  sampleText <- Gen.text Range.constantBounded Gen.alphaNum
+  pure $ GenesisHash (coerce (hash sampleText :: Hash Text))
+
+genGenesisProof :: Gen GenesisProof
+genGenesisProof = GenesisProof <$> genAbstractHash genSlotLeaders
 
 genMainBody :: Gen MainBody
 genMainBody =
@@ -203,6 +234,15 @@ genMainBlockHeader =
         <*> genProxySKBlockInfo
         <*> genMainBody
         <*> genMainExtraHeaderData
+
+genMainConsensusData :: Gen MainConsensusData
+genMainConsensusData =
+    MainConsensusData
+        <$> genSlotId
+        <*> genPublicKey
+        <*> genChainDifficulty
+        <*> genBlockSignature
+
 
 genMainExtraBodyData :: Gen MainExtraBodyData
 genMainExtraBodyData = MainExtraBodyData <$> genBlockBodyAttributes
@@ -316,12 +356,16 @@ genTxSizeLinear = TxSizeLinear <$> genCoeff <*> genCoeff
 -- Pos.Core.Delegation Generators
 ----------------------------------------------------------------------------
 
-genHeavyDlgIndex :: Gen HeavyDlgIndex
-genHeavyDlgIndex = HeavyDlgIndex <$> genEpochIndex
-
 genDlgPayload :: Gen DlgPayload
 genDlgPayload =
     UnsafeDlgPayload <$> Gen.list (Range.constant 0 10) genProxySKHeavy
+
+genHeavyDlgIndex :: Gen HeavyDlgIndex
+genHeavyDlgIndex = HeavyDlgIndex <$> genEpochIndex
+
+genLightDlgIndices :: Gen LightDlgIndices
+genLightDlgIndices =
+    LightDlgIndices <$> ((,) <$> genEpochIndex <*> genEpochIndex)
 
 genProxySKBlockInfo :: Gen ProxySKBlockInfo
 genProxySKBlockInfo = do
@@ -352,6 +396,12 @@ genLocalSlotIndex = UnsafeLocalSlotIndex <$> Gen.word16 (Range.constant 0 21599)
 
 genSlotId :: Gen SlotId
 genSlotId = SlotId <$> genEpochIndex <*> genLocalSlotIndex
+
+genTimeDiff :: Gen TimeDiff
+genTimeDiff = TimeDiff <$> genMicrosecond
+
+genTimestamp :: Gen Timestamp
+genTimestamp = Timestamp <$> genMicrosecond
 
 ----------------------------------------------------------------------------
 -- Pos.Core.Ssc Generators
@@ -628,6 +678,9 @@ gen32Bytes = genBytes 32
 
 genMillisecond :: Gen Millisecond
 genMillisecond = fromMicroseconds <$> Gen.integral (Range.constant 0 1000000)
+
+genMicrosecond :: Gen Microsecond
+genMicrosecond = fromMicroseconds <$> Gen.integral (Range.constant 0 1000000)
 
 genWord32 :: Gen Word32
 genWord32 = Gen.word32 Range.constantBounded

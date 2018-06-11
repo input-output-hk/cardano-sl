@@ -13006,6 +13006,7 @@ license = stdenv.lib.licenses.mit;
 , base
 , bytestring
 , cardano-sl-binary
+, cardano-sl-block-test
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-db
@@ -13109,6 +13110,7 @@ benchmarkHaskellDepends = [
 base
 bytestring
 cardano-sl-binary
+cardano-sl-block-test
 cardano-sl-core
 cardano-sl-crypto
 criterion

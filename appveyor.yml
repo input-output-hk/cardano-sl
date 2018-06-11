@@ -60,6 +60,8 @@ before_test:
 
 # Get custom GHC
 - ps: >-
+    Echo %TEMP%
+
     mkdir C:\ghc
 
     Invoke-WebRequest "http://releases.mobilehaskell.org/ghc-8.0.2-x86_64-unknown-mingw32.tar.xz" -OutFile "C:\ghc\ghc.tar.xz" -UserAgent "Curl"

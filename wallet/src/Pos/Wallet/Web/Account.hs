@@ -31,7 +31,7 @@ import           Pos.Core (Address (..), IsBootstrapEraAddr (..), deriveLvl2KeyP
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..),
                              firstHardened, safeDeterministicKeyGen)
 import           Pos.Util (eitherToThrow)
-import           Pos.Util.Mnemonic (Mnemonic, mnemonicToSeed)
+import           Pos.Util.Mnemonic (Mnemonic, WordCount (..), mnemonicToSeed)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, Wal, encToCId)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.State (AddressLookupMode (Ever), HasWAddressMeta (..),
@@ -97,7 +97,7 @@ getSKByAddressPure secrets scp passphrase addrMeta = do
 genSaveRootKey
     :: (AccountMode ctx m, MonadKeys m)
     => PassPhrase
-    -> Mnemonic 12
+    -> Mnemonic 'TwelveWords
     -> m EncryptedSecretKey
 genSaveRootKey passphrase mnemonic =
     let

@@ -18,13 +18,15 @@ import           Universum
 import           Control.Lens (magnify, zoom)
 import           Control.Monad.Except (throwError)
 import           Data.Default (Default, def)
+import           Data.Functor.Contravariant (contramap)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, sformat, (%))
+import           Serokell.Util (listJson)
 
 import           Pos.Core.Block.Union (ComponentBlock (..))
 import           Pos.Core.Class (epochIndexL)
-import           Pos.Core (HasCoreConfiguration, HasGenesisData)
+import           Pos.Core (HasCoreConfiguration, HasGenesisData, StakeholderId)
 import           Pos.Core.Txp (TxAux, TxUndo, TxpUndo)
 import           Pos.DB (SomeBatchOp (..))
 import           Pos.DB.Class (gsAdoptedBVData)
@@ -43,6 +45,17 @@ import           Pos.Txp.Toil (ExtendedGlobalToilM, GlobalToilEnv (..), GlobalTo
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Trace (Trace)
+import           Pos.Util.Trace.Unstructured (LogItem, logDebug, publicPrivateLogItem)
+
+logCreatedStakeholderIdsAfterToil
+    :: Applicative m
+    => Trace m LogItem
+    -> [StakeholderId]
+    -> m ()
+logCreatedStakeholderIdsAfterToil logTrace createdStakes = 
+    unless (null createdStakes) $ 
+        logDebug logTrace (sformat ("Stakes for "%listJson%" will be created in StakesDB") createdStakes)
 
 ----------------------------------------------------------------------------
 -- Settings
@@ -53,8 +66,8 @@ import qualified Pos.Util.Modifier as MM
 txpGlobalSettings :: HasGenesisData => TxpGlobalSettings
 txpGlobalSettings =
     TxpGlobalSettings
-    { tgsVerifyBlocks = verifyBlocks
-    , tgsApplyBlocks = applyBlocksWith (processBlundsSettings False applyToil)
+    { tgsVerifyBlocks = \_ -> verifyBlocks
+    , tgsApplyBlocks = \logTrace -> applyBlocksWith logTrace (processBlundsSettings False ((fmap . fmap) (logCreatedStakeholderIdsAfterToil logTrace) applyToil))
     , tgsRollbackBlocks = rollbackBlocks
     }
 
@@ -99,7 +112,7 @@ verifyBlocks verifyAllIsKnown newChain = runExceptT $ do
 ----------------------------------------------------------------------------
 
 data ProcessBlundsSettings extraEnv extraState m = ProcessBlundsSettings
-    { pbsProcessSingle   :: TxpBlund -> m (ExtendedGlobalToilM extraEnv extraState ())
+    { pbsProcessSingle   :: TxpBlund -> ExtendedGlobalToilM extraEnv extraState (m ())
     , pbsCreateEnv       :: Utxo -> [TxAux] -> m extraEnv
     , pbsExtraOperations :: extraState -> SomeBatchOp
     , pbsIsRollback      :: !Bool
@@ -137,8 +150,8 @@ processBlunds ProcessBlundsSettings {..} blunds = do
             -> TxpBlund
             -> m (GlobalToilState, extraState)
         step st txpBlund = do
-            processSingle <- pbsProcessSingle txpBlund
-            let txAuxesAndUndos = blundToAuxNUndo txpBlund
+            let processSingle   = pbsProcessSingle txpBlund
+                txAuxesAndUndos = blundToAuxNUndo txpBlund
                 txAuxes = fst <$> txAuxesAndUndos
             baseUtxo <- buildBaseUtxo (st ^. _1 . gtsUtxoModifier) txAuxes
             extraEnv <- pbsCreateEnv baseUtxo txAuxes
@@ -148,9 +161,14 @@ processBlunds ProcessBlundsSettings {..} blunds = do
                         , _gteTotalStake = totalStake
                         }
             let env = (gte, extraEnv)
-            runGlobalToilMBase DB.getRealStake . flip execStateT st .
+            -- The 'processSingle' produces an 'm ()', so that it can do 
+            -- logging after it completes ('processSingle' is pure).
+            (finalAction, s) <- runGlobalToilMBase DB.getRealStake . flip runStateT st .
                 usingReaderT env $
                 processSingle
+            finalAction
+            pure s
+
     toBatchOp <$> foldM step (defGlobalToilState, def) blunds
 
 ----------------------------------------------------------------------------
@@ -160,40 +178,42 @@ processBlunds ProcessBlundsSettings {..} blunds = do
 applyBlocksWith ::
        forall extraEnv extraState ctx m.
        (TxpGlobalApplyMode ctx m, Default extraState)
-    => ProcessBlundsSettings extraEnv extraState m
+    => Trace m LogItem
+    -> ProcessBlundsSettings extraEnv extraState m
     -> OldestFirst NE TxpBlund
     -> m SomeBatchOp
-applyBlocksWith settings blunds = do
+applyBlocksWith logTrace settings blunds = do
     let blocks = map fst blunds
     inAssertMode $ do
         verdict <- verifyBlocks False blocks
         whenLeft verdict $
-            assertionFailed .
+            assertionFailed (contramap publicPrivateLogItem logTrace ) .
             sformat ("we are trying to apply txp blocks which we fail to verify: "%build)
     processBlunds settings (getOldestFirst blunds)
 
 processBlundsSettings ::
        forall m. Monad m
     => Bool
-    -> ([(TxAux, TxUndo)] -> GlobalToilM ())
+    -> ([(TxAux, TxUndo)] -> GlobalToilM (m ()))
     -> ProcessBlundsSettings () () m
 processBlundsSettings isRollback pureAction =
     ProcessBlundsSettings
-        { pbsProcessSingle = \txpBlund -> pure (processSingle txpBlund)
+        { pbsProcessSingle = processSingle
         , pbsCreateEnv = \_ _ -> pure ()
         , pbsExtraOperations = const mempty
         , pbsIsRollback = isRollback
         }
   where
-    processSingle :: TxpBlund -> ExtendedGlobalToilM () () ()
+    processSingle :: TxpBlund -> ExtendedGlobalToilM () () (m ())
     processSingle = zoom _1 . magnify _1 . pureAction . blundToAuxNUndo
 
 rollbackBlocks ::
        forall m. (TxpGlobalRollbackMode m)
-    => NewestFirst NE TxpBlund
+    => Trace m LogItem 
+    -> NewestFirst NE TxpBlund
     -> m SomeBatchOp
-rollbackBlocks (NewestFirst blunds) =
-    processBlunds (processBlundsSettings True rollbackToil) blunds
+rollbackBlocks logTrace (NewestFirst blunds) =
+    processBlunds (processBlundsSettings True ((fmap . fmap ) (logCreatedStakeholderIdsAfterToil logTrace) rollbackToil)) blunds
 
 ----------------------------------------------------------------------------
 -- Helpers

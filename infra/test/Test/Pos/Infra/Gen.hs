@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Test.Pos.Infra.Gen
         (
         -- DHT Generators
@@ -83,12 +85,6 @@ genEpochIndexDataPair = do
 ----------------------------------------------------------------------------
 -- Helper Generators
 ----------------------------------------------------------------------------
-
-genBytes :: Int -> Gen ByteString
-genBytes n = Gen.bytes (Range.singleton n)
-
-gen32Bytes :: Gen ByteString
-gen32Bytes = genBytes 32
 
 genMillisecond :: Gen Millisecond
 genMillisecond =

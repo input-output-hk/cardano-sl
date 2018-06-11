@@ -60,7 +60,7 @@ before_test:
 
 # Get custom GHC
 - ps: >-
-    Echo %TEMP%
+    echo %TEMP%
 
     mkdir C:\ghc
 

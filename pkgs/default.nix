@@ -16558,6 +16558,7 @@ license = stdenv.lib.licenses.mit;
 , bytestring
 , cardano-sl-core
 , cardano-sl-core-test
+, cardano-sl-crypto
 , cardano-sl-infra
 , hedgehog
 , kademlia
@@ -16576,6 +16577,7 @@ base
 bytestring
 cardano-sl-core
 cardano-sl-core-test
+cardano-sl-crypto
 cardano-sl-infra
 hedgehog
 kademlia

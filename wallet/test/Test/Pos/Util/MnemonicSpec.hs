@@ -16,9 +16,9 @@ import           Test.QuickCheck.Gen (vectorOf)
 
 import           Pos.Crypto (AesKey (..), EncryptedSecretKey, PassPhrase (..),
                              safeDeterministicKeyGen)
-import           Pos.Util.Mnemonic (Entropy, Mnemonic, entropyToByteString, entropyToMnemonic,
-                                    mkEntropy, mkMnemonic, mnemonicToAESKey, mnemonicToEntropy,
-                                    mnemonicToSeed)
+import           Pos.Util.Mnemonic (Entropy, Mnemonic, MnemonicErr, WordCount (..),
+                                    entropyToByteString, entropyToMnemonic, mkEntropy, mkMnemonic,
+                                    mnemonicToAESKey, mnemonicToEntropy, mnemonicToSeed)
 import           Pos.Wallet.Web.ClientTypes.Functions (encToCId)
 import           Pos.Wallet.Web.ClientTypes.Types (CId)
 
@@ -49,25 +49,33 @@ spec = do
             \ent -> entropyToAESKey ent === entropyToAESKeyOld ent
 
     modifyMaxSuccess (const 1000) $ prop "(9) entropyToMnemonic . mnemonicToEntropy == identity" $
-        \e -> (mnemonicToEntropy . (entropyToMnemonic :: Entropy 9 -> Mnemonic 9)) e == e
+        \e -> (mnemonicToEntropy . entropyToMnemonic9) e == e
 
     modifyMaxSuccess (const 1000) $ prop "(12) entropyToMnemonic . mnemonicToEntropy == identity" $
-        \e -> (mnemonicToEntropy . (entropyToMnemonic :: Entropy 12 -> Mnemonic 12)) e == e
+        \e -> (mnemonicToEntropy . entropyToMnemonic12) e == e
 
     it "No example mnemonic" $
-        (mkMnemonic defMnemonic :: Either Text (Mnemonic 12)) `shouldSatisfy` isLeft
+        (mkMnemonic defMnemonic :: Either MnemonicErr (Mnemonic 'TwelveWords)) `shouldSatisfy` isLeft
 
     it "No empty mnemonic" $
-        (mkMnemonic [] :: Either Text (Mnemonic 12)) `shouldSatisfy` isLeft
+        (mkMnemonic [] :: Either MnemonicErr (Mnemonic 'TwelveWords)) `shouldSatisfy` isLeft
 
     it "No empty entropy" $
-        (mkEntropy "" :: Either Text (Entropy 12)) `shouldSatisfy` isLeft
+        (mkEntropy "" :: Either MnemonicErr(Entropy 'TwelveWords)) `shouldSatisfy` isLeft
 
     xit "entropyToWalletId is injective (very long to run, used for investigation)"
         $ property
         $ forAll (vectorOf 1000 arbitrary)
         $ \inputs -> length (inject entropyToWalletId inputs) == length inputs
   where
+    entropyToMnemonic9 :: Entropy 'NineWords -> Mnemonic 'NineWords
+    entropyToMnemonic9 =
+        entropyToMnemonic
+
+    entropyToMnemonic12 :: Entropy 'TwelveWords -> Mnemonic 'TwelveWords
+    entropyToMnemonic12 =
+        entropyToMnemonic
+
     defPwd :: PassPhrase
     defPwd =
         PassPhrase "cardano"
@@ -76,14 +84,14 @@ spec = do
     defMnemonic = either (error . show) identity
         $ Aeson.eitherDecode
         $ Aeson.encode
-        $ def @(Mnemonic 12)
+        $ def @(Mnemonic 'TwelveWords)
 
     -- | Collect function results in a Set
     inject :: Ord b => (a -> b) -> [a] -> Set b
     inject fn =
         Set.fromList . fmap fn
 
-    entropyToWalletId :: Entropy 12 -> CId w
+    entropyToWalletId :: Entropy 'TwelveWords -> CId w
     entropyToWalletId =
         encToCId . entropyToESK mempty
 
@@ -92,7 +100,7 @@ spec = do
         convert @(Digest Blake2b_256) . hash
 
     -- | Generate an EncryptedSecretKey using the old implementation
-    entropyToESKOld :: PassPhrase -> Entropy 12 -> EncryptedSecretKey
+    entropyToESKOld :: PassPhrase -> Entropy 'TwelveWords -> EncryptedSecretKey
     entropyToESKOld passphrase ent = esk
       where
         backupPhrase = either
@@ -106,7 +114,7 @@ spec = do
             (Old.safeKeysFromPhrase passphrase backupPhrase)
 
     -- | Generate an EncryptedSecretKey using the revised implementation
-    entropyToESK :: PassPhrase -> Entropy 12 -> EncryptedSecretKey
+    entropyToESK :: PassPhrase -> Entropy 'TwelveWords -> EncryptedSecretKey
     entropyToESK passphrase ent = esk
       where
         seed =
@@ -115,7 +123,7 @@ spec = do
         esk =
             snd (safeDeterministicKeyGen seed passphrase)
 
-    entropyToAESKeyOld :: Entropy 9 -> AesKey
+    entropyToAESKeyOld :: Entropy 'NineWords -> AesKey
     entropyToAESKeyOld ent = key
       where
         backupPhrase = either
@@ -128,6 +136,6 @@ spec = do
             identity
             (AesKey . blake2b <$> Old.toSeed backupPhrase)
 
-    entropyToAESKey :: Entropy 9 -> AesKey
+    entropyToAESKey :: Entropy 'NineWords -> AesKey
     entropyToAESKey =
         mnemonicToAESKey . entropyToMnemonic

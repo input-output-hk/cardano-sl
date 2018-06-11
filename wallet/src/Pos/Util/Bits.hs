@@ -20,6 +20,9 @@ module Pos.Util.Bits
 import           Universum hiding (one)
 
 import           Data.Bits (Bits, shiftL, shiftR, (.&.))
+import           Formatting (bprint, build)
+
+import qualified Data.Text.Buildable
 
 
 -- Type Alias for readability. A bit can only be 1 or 0, but we
@@ -27,6 +30,10 @@ import           Data.Bits (Bits, shiftL, shiftR, (.&.))
 newtype Bit
     = Bit Word8
     deriving (Show, Eq)
+
+instance Buildable Bit where
+    build (Bit b) =
+        bprint build b
 
 
 -- Type Alias for readability

@@ -6,6 +6,7 @@
 
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage{mathtools}
 \usepackage{enumitem}
 \usepackage{unicode-math}
 \usepackage{newunicodechar}
@@ -769,6 +770,19 @@ Section~\ref{sec:adding-block}. Therefore this section and
 Section~\ref{sec:adding-block} are mutually recursive.
 
 \begin{description}
+\item[Last epoch index] For a valid chain, we write
+  $$
+  \epochindex{b_1,…,b_n} = \max_{\mathclap{\substack{
+      0<i<n\\
+      \epoch{b_i} < \epoch{b_n}
+  }}} i
+  $$
+  for the index in the chain (not the slot) of the last block of the
+  previous epoch (the current epoch is taken to be the epoch of $b_n$,
+  the tip of the chain).
+
+  If there is no complete epoch (in particular if the chain is empty)
+  we set $\epochindex{b_1,…,b_n} = 0$.
 \item[Stake distribution] Let us define
   $\currentdistribution{τ₁,…,τ_n}$ by induction, for a valid sequence
   of transactions\improvement{Valid sequence of transaction hasn't
@@ -833,9 +847,7 @@ Section~\ref{sec:adding-block} are mutually recursive.
   $$
   \currentdistribution{b₁,…,b_n} = \currentdistribution{\transactions{b₁},…,\transactions{b_n}}
   $$
-  Finally we define\improvement{$\epochindex{⋅}$ needs to be defined
-    precisely. It is the index of the block whose slot is in the
-    previous epoch.}
+  Finally we define
   $$
   \epochdistribution{b₁,…,b_n} = \currentdistribution{b₁,…,b_{\epochindex{b_1,…,b_n}}}
   $$

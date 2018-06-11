@@ -36,18 +36,6 @@ before_test:
       .\cache-s3 --max-size=$env:CACHE_S3_MAX_SIZE --prefix=$env:APPVEYOR_PROJECT_NAME --git-branch=$env:APPVEYOR_REPO_BRANCH --suffix=windows -v info -c restore stack work --base-branch=develop
     }
 
-# Get custom GHC
-- ps: >-
-    mkdir C:\ghc
-
-    Invoke-WebRequest "https://s3.eu-central-1.amazonaws.com/ci-static/ghc-8.2.2-x86_64-unknown-mingw32.tar.xz" -OutFile "C:\ghc\ghc.tar.xz" -UserAgent "Curl"
-
-    7z x C:\ghc\ghc.tar.xz -oC:\ghc
-
-    7z x C:\ghc\ghc.tar -oC:\ghc
-
-    $env:PATH="$env:PATH;C:\ghc\ghc-8.2.2\bin"
-
 # Install OpenSSL 1.0.2 (see https://github.com/appveyor/ci/issues/1665)
 - ps: (New-Object Net.WebClient).DownloadFile('https://slproweb.com/download/Win64OpenSSL-1_0_2o.exe', "$($env:USERPROFILE)\Win64OpenSSL.exe")
 - ps: cmd /c start /wait "$($env:USERPROFILE)\Win64OpenSSL.exe" /silent /verysilent /sp- /suppressmsgboxes /DIR=C:\OpenSSL-Win64-v102

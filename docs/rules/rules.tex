@@ -254,9 +254,9 @@ as it is.\improvement{We may want to add something about protocol
 \item[Remainder] For any $a∈ℤ$ and $b∈ℕ$, let us write $\rem{a}{b}$
   for the unique $0⩽r<b$ such that $a=qb+r$.
 
-\item[Projection] For a cartesian product $X=\bigtimes X_i$ with element $x =
+\item[Projection] For a cartesian product $X=X_1×…× X_n$ with element $x =
   (x_1, \dots, x_n)$, we define the \textit{projection onto the $i^{th}$ component}
-  $\pi_i$ as \[\pi_i(x)=x_i,\] for all $i \leq n$.
+  $\pi_i∈X⟶X_i$ as \[\pi_i(x)=x_i,\] for all $i \leq n$.
 \end{description}
 
 \section{Definitions}
@@ -375,8 +375,7 @@ as it is.\improvement{We may want to add something about protocol
   \item[issuer] The identifier of the agent who issued this block. In
     an implementation, this would be realised by a cryptographic
     signature.
-  \item[transactions] A list of transactions\improvement{Ignored:
-      secret-sharing, updates.}
+  \item[transactions] A list of transactions
   \item[delegation certificates] A list of pairs in
     $\lists{(\agentids×\agentids)}$. For a delegation certificate
     $c = (D,d)∈\agentids×\agentids$, we write
@@ -424,10 +423,7 @@ as it is.\improvement{We may want to add something about protocol
       \end{implementationhint}
     \end{description}
 
-  \end{record}\improvement{Commitment (\emph{i.e.} finite map of agent
-    ids to seeds, plus something for the proof part), or openings
-    (\emph{i.e.}, finite map from agent ids to seeds), or recovery
-    (I'm not sure what it should look like yet)}
+  \end{record}
 
 \item[Chain] A chain is a sequence of blocks $b₁,…,b_n$ such that the
   predecessor of $b₁$ is the genesis identifier $b₀$, and for every $i$, the
@@ -706,7 +702,7 @@ $b_1,…,b_n$ if all of the following hold
 
       \begin{treacherous}
         This is slightly imprecise because the bootstrap repartition
-        has two representations in Cardano's block chain: it has a
+        has two representations in Cardano's blockchain: it has a
         name (a data constructor), but it can also be represented by a
         explicit map. Only the former is actually permitted
       \end{treacherous}

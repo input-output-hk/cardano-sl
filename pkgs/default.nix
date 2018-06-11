@@ -13449,9 +13449,11 @@ license = stdenv.lib.licenses.mit;
 , cardano-sl-delegation
 , cardano-sl-ssc
 , cpphs
+, cryptonite
 , cryptonite-openssl
 , hedgehog
 , pvss
+, QuickCheck
 , serokell-util
 , stdenv
 , time-units
@@ -13478,6 +13480,7 @@ cryptonite
 cryptonite-openssl
 hedgehog
 pvss
+QuickCheck
 serokell-util
 time-units
 universum
@@ -13488,7 +13491,7 @@ libraryToolDepends = [
 cpphs
 ];
 doHaddock = false;
-description = "Cardano SL - core functionalit (tests)";
+description = "Cardano SL - core functionality (tests)";
 license = stdenv.lib.licenses.mit;
 
 }) {};

@@ -1,12 +1,12 @@
 name:                cardano-sl-core-test
 version:             1.1.0
-synopsis:            Cardano SL - core functionalit (tests)
+synopsis:            Cardano SL - core functionality (tests)
 description:         QuickCheck Arbitrary instances for the Cardano SL core
                      functionality.
 license:             MIT
 license-file:        LICENSE
-author:              Serokell
-maintainer:          hi@serokell.io
+author:              IOHK
+maintainer:          IOHK <support@iohk.io>
 copyright:           2018 IOHK
 category:            Currency
 build-type:          Simple
@@ -14,9 +14,11 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+                       Test.Pos.Core.Chrono
                        Test.Pos.Core.Gen
 
-  build-depends:       base
+  build-depends:       QuickCheck
+                     , base
                      , bytestring
                      , cardano-sl-binary
                      , cardano-sl-block

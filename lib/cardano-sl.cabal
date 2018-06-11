@@ -276,6 +276,7 @@ test-suite cardano-test
                        Test.Pos.Cbor.CborSpec
                        Test.Pos.ConstantsSpec
                        Test.Pos.CryptoSpec
+                       Test.Pos.Diffusion.BlockSpec
                        Test.Pos.Genesis.CanonicalSpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Slotting.TypesSpec
@@ -312,6 +313,7 @@ test-suite cardano-test
                      , containers
                      , cryptonite
                      , data-default
+                     , deepseq
                      , extra
                      , filelock
                      , fmt
@@ -320,11 +322,15 @@ test-suite cardano-test
                      , hspec
                      , lens
                      , mtl
+                     , network-transport
+                     , network-transport-tcp
+                     , pipes
                      , pvss
                      , random
                      , reflection
                      , safecopy
                      , serokell-util >= 0.1.3.4
+                     , stm
                      , tagged
                      , text
                      , text-format

@@ -425,10 +425,6 @@ as it is.\improvement{We may want to add something about protocol
 
   \end{record}
 
-\item[Chain] A chain is a sequence of blocks $b₁,…,b_n$ such that the
-  predecessor of $b₁$ is the genesis identifier $b₀$, and for every $i$, the
-  predecessor of $b_{i+1}$ is $b_i$.
-
 \end{description}
 
 \section{Parameters}
@@ -604,10 +600,8 @@ Section~\ref{sec:chain-selection}), and we are receiving a block. If
 the block passes the validation rules of this section, then the
 history is one block longer.
 
-A chain \improvement{We can replace ``chain'' by sequence and put the
-  predecessor condition in the validity rule. Though this opens a question: from
-  the valid extension rules, can I directly define the blockchain's forest data
-  structure?} $b₁,…,b_n$ is said to be \emph{valid} if $b₁,…,b_{n-1}$ is valid,
+A sequence $b₁,…,b_n$ is said to be a \emph{valid chain} if
+$b₁,…,b_{n-1}$ is a valid chain,
 and $b_n$ is a \emph{valid extension} of $b₁,…,b_{n-1}$.
 
 A block $b$ is said to be a valid extension of a valid chain
@@ -649,7 +643,7 @@ $b_1,…,b_n$ if all of the following hold
     are parametrised by a list of transactions $τ_1,…,τ_m$ which we will abridge
     as $\overline{τ}$.
 
-    Given a chain $b₁,…,b_n$ and $b$, the block being validated, such
+    Given a valid chain $b₁,…,b_n$ and $b$, the block being validated, such
     that $\transactions{b}=t₁,…,t_k$. Then, for the purpose of
     stateful validation of the transaction $t_i$, we set
     $\overline{τ} = \transactions{b₁},…,\transactions{b_n},t₁,…,t_{i-1}$.

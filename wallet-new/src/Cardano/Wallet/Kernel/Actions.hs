@@ -45,14 +45,20 @@ data WalletActionInterp m b = WalletActionInterp
     }
 
 -- | Internal state of the wallet worker.
-data WalletWorkerState b = WalletWorkerState
+data WalletWorkerState b
+    = Normal ()
+    | PendingFork (PendingForkState b)
+  deriving Eq
+
+-- | State during a rollback
+data PendingForkState b = PendingForkState
     { _pendingRollbacks    :: !Int
     , _pendingBlocks       :: !(NewestFirst [] b)
     , _lengthPendingBlocks :: !Int
     }
   deriving Eq
 
-makeLenses ''WalletWorkerState
+makeLenses ''PendingForkState
 
 -- A helper function for lifting a `WalletActionInterp` through a monad transformer.
 lifted :: (Monad m, MonadTrans t) => WalletActionInterp m b -> WalletActionInterp (t m) b
@@ -62,26 +68,82 @@ lifted i = WalletActionInterp
     , emit         = lift . emit i
     }
 
+-- | Sub-interpreters return a `StateChange` to indicate what state
+--   the main interpreter should transition to next.
+--   `NoTransition` is used to indicate that the currently active
+--   state machine couldn't handle the incoming action.
+data StateChange b = Same
+                   | ChangeTo (WalletWorkerState b)
+                   | NoTransition
+
 -- | `interp` is the main interpreter for converting a wallet action to a concrete
 --   transition on the wallet worker's state, perhaps combined with some effects on
 --   the concrete wallet.
-interp :: Monad m => WalletActionInterp m b -> WalletAction b -> StateT (WalletWorkerState b) m ()
+interp :: forall m b.  Monad m
+       => WalletActionInterp m b
+       -> WalletAction b
+       -> StateT (WalletWorkerState b) m ()
 interp walletInterp action = do
+    curState <- get
+    case (action, curState) of
+        (LogMessage txt, _) -> emit txt
+        (_, Normal s)       -> run Normal      s interpNormal
+        (_, PendingFork s)  -> run PendingFork s interpPendingFork
+  where
+    WalletActionInterp{..} = lifted walletInterp
+    run :: (s -> WalletWorkerState b) -> s -> (WalletActionInterp m b -> WalletAction b -> StateT s m (StateChange b)) -> StateT (WalletWorkerState b) m ()
+    run ctor s0 f = do
+      (next, s1) <- lift $ runStateT (f walletInterp action) s0
+      put $ case next of
+        Same         -> ctor s1
+        ChangeTo x   -> x
+        NoTransition -> error "Bad transition in the wallet worker!"
+        
+-- | Interpret the incoming action, from the typical state where
+--   the wallet is just expecting a new block.
+interpNormal :: Monad m
+             => WalletActionInterp m b
+             -> WalletAction b
+             -> StateT () m (StateChange b)
+interpNormal walletInterp action = do
+    -- Respond to the incoming action
+    case action of
+        --Just apply the blocks.
+        ApplyBlocks bs -> do
+            emit "applying some blocks (non-rollback)"
+            applyBlocks bs
+            return Same
 
+        -- Kick off a pending fork operation.
+        RollbackBlocks bs -> changeTo $ PendingFork $ PendingForkState
+            { _pendingRollbacks    = length bs
+            , _lengthPendingBlocks = 0
+            , _pendingBlocks       = NewestFirst []
+            }
+
+        _ -> return NoTransition
+
+  where
+    WalletActionInterp{..} = lifted walletInterp
+
+-- | Interpret the incoming action, when in the state where we
+--   are waiting for enough rollbacks and new blocks to complete
+--   a fork.
+interpPendingFork :: Monad m
+                  => WalletActionInterp m b
+                  -> WalletAction b
+                  -> StateT (PendingForkState b) m (StateChange b)
+interpPendingFork walletInterp action = do
     numPendingRollbacks <- use pendingRollbacks
     numPendingBlocks    <- use lengthPendingBlocks
 
     -- Respond to the incoming action
     case action of
 
-      -- If we are not in the midst of a rollback, just apply the blocks.
-      ApplyBlocks bs | numPendingRollbacks == 0 -> do
-                         emit "applying some blocks (non-rollback)"
-                         applyBlocks bs
-
-      -- Otherwise, add the blocks to the pending list. If the resulting
+      -- Add the blocks to the pending list. If the resulting
       -- list of pending blocks is longer than the number of pending rollbacks,
-      -- then perform a `switchToFork` operation on the wallet.
+      -- then perform a `switchToFork` operation on the wallet and switch
+      -- back to the "normal" worker state.
       ApplyBlocks bs -> do
 
         -- Add the blocks
@@ -90,36 +152,39 @@ interp walletInterp action = do
         lengthPendingBlocks += length bs
 
         -- If we have seen more blocks than rollbacks, switch to the new fork.
-        when (numPendingBlocks + length bs > numPendingRollbacks) $ do
+        if (numPendingBlocks + length bs > numPendingRollbacks)
+          then do pb <- toOldestFirst <$> use pendingBlocks
+                  switchToFork numPendingRollbacks pb
 
-          pb <- toOldestFirst <$> use pendingBlocks
-          switchToFork numPendingRollbacks pb
+                  -- Reset state to "no fork in progress"
+                  changeTo $ Normal ()
+          else return Same
 
-          -- Reset state to "no fork in progress"
-          pendingRollbacks    .= 0
-          lengthPendingBlocks .= 0
-          pendingBlocks       .= NewestFirst []
-
-      -- If we are in the midst of a fork and have seen some new blocks,
-      -- roll back some of those blocks. If there are more rollbacks requested
-      -- than the number of new blocks, see the next case below.
+      -- If we have seen some new blocks, roll back some of those blocks.
+      -- If there are more rollbacks requested than the number of new
+      -- blocks, see the next case below.
       RollbackBlocks bs | length bs <= numPendingBlocks -> do
                             lengthPendingBlocks -= length bs
                             pendingBlocks %= NewestFirst . drop (length bs) . getNewestFirst
-
-      -- If we are in the midst of a fork and are asked to rollback more than
-      -- the number of new blocks seen so far, clear out the list of new
-      -- blocks and add any excess to the number of pending rollback operations.
+                            return Same
+                            
+      -- If we are asked to rollback more than the number of new blocks
+      -- seen so far, clear out the list of new blocks and add any excess
+      -- to the number of pending rollback operations.
       RollbackBlocks bs -> do
         pendingRollbacks    += length bs - numPendingBlocks
         lengthPendingBlocks .= 0
         pendingBlocks       .= NewestFirst []
-
-      LogMessage txt -> emit txt
+        return Same
+        
+      _ -> return NoTransition
 
   where
     WalletActionInterp{..} = lifted walletInterp
     prependNewestFirst bs = \nf -> NewestFirst (getNewestFirst bs <> getNewestFirst nf)
+
+changeTo :: Monad m => WalletWorkerState b -> m (StateChange b)
+changeTo wws = return (ChangeTo wws)
 
 -- | Connect a wallet action interpreter to a channel of actions.
 walletWorker :: Chan (WalletAction b) -> WalletActionInterp IO b -> IO ()
@@ -134,11 +199,7 @@ interpList :: Monad m => WalletActionInterp m b -> [WalletAction b] -> m (Wallet
 interpList ops actions = execStateT (forM_ actions $ interp ops) initialWorkerState
 
 initialWorkerState :: WalletWorkerState b
-initialWorkerState = WalletWorkerState
-    { _pendingRollbacks    = 0
-    , _pendingBlocks       = NewestFirst []
-    , _lengthPendingBlocks = 0
-    }
+initialWorkerState = Normal ()
 
 -- | Start up a wallet worker; the worker will respond to actions issued over the
 --   returned channel.
@@ -154,26 +215,31 @@ isInitialState = (== initialWorkerState)
 
 -- | Check that the state invariants all hold.
 isValidState :: WalletWorkerState b -> Bool
-isValidState WalletWorkerState{..} =
+isValidState wws = case wws of
+  Normal _ -> True
+  PendingFork PendingForkState{..} -> 
     _pendingRollbacks >= 0 &&
     length (_pendingBlocks) == _lengthPendingBlocks &&
     _lengthPendingBlocks <= _pendingRollbacks
 
 -- | Check if this state represents a pending fork.
 hasPendingFork :: WalletWorkerState b -> Bool
-hasPendingFork WalletWorkerState{..} = _pendingRollbacks /= 0
+hasPendingFork (PendingFork _) = True
+hasPendingFork _               = False
 
 instance Show b => Buildable (WalletWorkerState b) where
-    build WalletWorkerState{..} = bprint
-      ( "WalletWorkerState "
-      % "{ _pendingRollbacks:    " % shown
-      % ", _pendingBlocks:       " % shown
-      % ", _lengthPendingBlocks: " % shown
-      % " }"
-      )
-      _pendingRollbacks
-      _pendingBlocks
-      _lengthPendingBlocks
+    build wws = case wws of
+      Normal () -> bprint "Normal ()"
+      PendingFork PendingForkState{..} -> bprint
+          ( "PendingForkState "
+          % "{ _pendingRollbacks:    " % shown
+          % ", _pendingBlocks:       " % shown
+          % ", _lengthPendingBlocks: " % shown
+          % " }"
+          )
+          _pendingRollbacks
+          _pendingBlocks
+          _lengthPendingBlocks
 
 instance Show b => Buildable (WalletAction b) where
     build wa = case wa of

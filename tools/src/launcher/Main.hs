@@ -42,6 +42,7 @@ import           System.Directory (createDirectoryIfMissing, doesFileExist, remo
 import qualified System.Directory as Sys
 import           System.Environment (getExecutablePath, getProgName, setEnv)
 import           System.Exit (ExitCode (..))
+import           System.FileLock (tryLockFile, unlockFile, SharedExclusive (Exclusive))
 import           System.FilePath (takeDirectory, (</>))
 import qualified System.Info as Sys
 import qualified System.IO as IO
@@ -87,6 +88,7 @@ import           Launcher.Logging (reportErrorDefault)
 data LauncherOptions = LO
     { loNodePath            :: !FilePath
     , loNodeArgs            :: ![Text]
+    , loStatePath           :: !FilePath
     , loNodeDbPath          :: !FilePath
     , loNodeLogConfig       :: !(Maybe FilePath)
     , loNodeLogPath         :: !(Maybe FilePath)
@@ -301,45 +303,53 @@ main =
                       set Log.ltSeverity (Just Log.debugPlus)
     logException loggerName . Log.usingLoggerName loggerName $
         withConfigurations loConfiguration $ \_ -> do
-
-        -- Generate TLS certificates as needed
-        generateTlsCertificates loConfiguration loX509ToolPath loTlsPath
-
-        case (loWalletPath, loFrontendOnlyMode) of
-            (Nothing, _) -> do
-                logNotice "LAUNCHER STARTED"
-                logInfo "Running in the server scenario"
-                serverScenario
-                    (NodeDbPath loNodeDbPath)
-                    loLogsPrefix
-                    loNodeLogConfig
-                    (NodeData loNodePath realNodeArgs loNodeLogPath)
-                    (UpdaterData
-                        loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
-                    loReportServer
-                logNotice "Finished serverScenario"
-            (Just wpath, True) -> do
-                frontendOnlyScenario
-                    (NodeDbPath loNodeDbPath)
-                    (NodeData loNodePath realNodeArgs loNodeLogPath)
-                    (NodeData wpath loWalletArgs loWalletLogPath)
-                    (UpdaterData loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
-                    loWalletLogging
-            (Just wpath, False) -> do
-                logNotice "LAUNCHER STARTED"
-                logInfo "Running in the client scenario"
-                clientScenario
-                    (NodeDbPath loNodeDbPath)
-                    loLogsPrefix
-                    loNodeLogConfig
-                    (NodeData loNodePath realNodeArgs loNodeLogPath)
-                    (NodeData wpath loWalletArgs loWalletLogPath)
-                    (UpdaterData
-                        loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
-                    loNodeTimeoutSec
-                    loReportServer
-                    loWalletLogging
-                logNotice "Finished clientScenario"
+            let lockFileName = loStatePath </> "launcher.lock"
+            maybeFileLock <- liftIO $ tryLockFile lockFileName Exclusive
+            fileLock <- case maybeFileLock of
+                Nothing -> do
+                  logError $ sformat ("CRITICAL FAILURE: Lock file "%shown%" is in use! TERMINATING!") lockFileName
+                  exitWith $ ExitFailure 1
+                Just fileLock -> do
+                  logInfo $ sformat ("Locked launcher lock file "%shown) lockFileName
+                  return fileLock
+            -- Generate TLS certificates as needed
+            generateTlsCertificates loConfiguration loX509ToolPath loTlsPath
+            case (loWalletPath, loFrontendOnlyMode) of
+                (Nothing, _) -> do
+                    logNotice "LAUNCHER STARTED"
+                    logInfo "Running in the server scenario"
+                    serverScenario
+                        (NodeDbPath loNodeDbPath)
+                        loLogsPrefix
+                        loNodeLogConfig
+                        (NodeData loNodePath realNodeArgs loNodeLogPath)
+                        (UpdaterData
+                            loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
+                        loReportServer
+                    logNotice "Finished serverScenario"
+                (Just wpath, True) -> do
+                    frontendOnlyScenario
+                        (NodeDbPath loNodeDbPath)
+                        (NodeData loNodePath realNodeArgs loNodeLogPath)
+                        (NodeData wpath loWalletArgs loWalletLogPath)
+                        (UpdaterData loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
+                        loWalletLogging
+                (Just wpath, False) -> do
+                    logNotice "LAUNCHER STARTED"
+                    logInfo "Running in the client scenario"
+                    clientScenario
+                        (NodeDbPath loNodeDbPath)
+                        loLogsPrefix
+                        loNodeLogConfig
+                        (NodeData loNodePath realNodeArgs loNodeLogPath)
+                        (NodeData wpath loWalletArgs loWalletLogPath)
+                        (UpdaterData
+                            loUpdaterPath loUpdaterArgs loUpdateWindowsRunner loUpdateArchive)
+                        loNodeTimeoutSec
+                        loReportServer
+                        loWalletLogging
+                    logNotice "Finished clientScenario"
+            liftIO $ unlockFile fileLock
   where
     -- We propagate some options to the node executable, because
     -- we almost certainly want to use the same configuration and

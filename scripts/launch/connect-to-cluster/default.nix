@@ -81,6 +81,7 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   else
     RUNTIME_ARGS=""
   fi
+  export LOCALE_ARCHIVE="${pkgs.glibcLocales}/lib/locale/locale-archive";
 
   echo "Keeping state in ${stateDir}"
   mkdir -p ${stateDir}/logs

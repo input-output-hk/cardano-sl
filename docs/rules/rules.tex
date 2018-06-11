@@ -191,12 +191,13 @@ as it is.\improvement{We may want to add something about protocol
   the list (the head of the list is $\pos{1}{l}$). We sometimes abuse notation
   and write $x∈l$ for $l = l',x,l''$.
 
-\item[Support] Let $f$ be a function $f∈X⟶R$ where $R$ is a semiring
-  (typically $ℕ$, $ℤ$, $ℚ$, $ℝ$, …), the \emph{support} of $f$ is
-  $\{ x∈X | f(x)≠0 \}$. We say that $f$ has finite support, or that
-  $f$ is a function with finite support, if the support of $f$ is
-  a finite set. If $f$ is a finite support function, we write
-  $\supportsize{f} ∈ ℕ$ for the cardinal of the support of $f$.
+\item[Support] Let $f$ be a function $f∈X⟶R$ where $R$ is a
+  commutative monoid (typically the additive monoid of $ℕ$, $ℤ$, $ℚ$,
+  $ℝ$, …), the \emph{support} of $f$ is $\{ x∈X | f(x)≠0 \}$. We say
+  that $f$ has finite support, or that $f$ is a function with finite
+  support, if the support of $f$ is a finite set. If $f$ is a finite
+  support function, we write $\supportsize{f} ∈ ℕ$ for the cardinal of
+  the support of $f$.
 
   A notable property of finite-support function, is that they can be
   summed: $∑_{x∈X}f(x)$ is well-defined. Indeed, it suffices to sum
@@ -406,13 +407,11 @@ as it is.\improvement{We may want to add something about protocol
         statement that the proof validates the shares.
       \end{implementationhint}
     \item[Opening] A finite-domain partial function $\agentids⇀\seeds$.
-    \item[Recovery] A finite-domain partial function
-      $r∈\agentids⇀\agentids⇀\seeds$, such that for all $a$ in the
-      domain, $r(a)$ has finite domain.\improvement{I think that the
-        first function shouldn't be a partial function but a
-        finite-support function. This requires extending the
-        characterisation of supports to partial commutative monoids
-        ($∅, ⊎$ here). The spec would work better this way.}
+    \item[Recovery] A finitely supported function
+      $r∈\agentids→\agentids⇀\seeds$, such that for all $a$ in the
+      domain, $r(a)$ has finite domain (partial functions are a commutative monoid
+      under $⊎$. This monoid is actually partial, but we will ensure
+      that it is only used when defined).
 
       \begin{implementationhint}
         We want to understand $r(a)(a')$ as the decryption (by agent $a$) of the
@@ -746,7 +745,7 @@ $b_1,…,b_n$ if all of the following hold
       we must have $U∩V=∅$.
     \end{description}
   \item[Recovery] If there is a recovery message $r ∈
-    \agentids⇀\seeds$ then, calling its domain $U$,
+    \agentids⟶\agentids⇀\seeds$ then, calling its support $U$,
     \begin{description}
     \item[Recovery phase] Let $s$ be the current slot, then we must
       have $\epochslot{s}∈\recoveryphase$.
@@ -881,23 +880,16 @@ Section~\ref{sec:adding-block} are mutually recursive.
     $$
   \end{itemize}
 \item[Seed] Let $U$ be the domain of the partial function
-  $\epochrecoveries{b_1,…,b_{\epochindex{b_1,…,b_n}}}$, and $V$ be the
-  domain of the partial function $\epochopens{b_1,…,b_{\epochindex{b_1,…,b_n}}}$.
+  $$
+  r = ⨄_{a∈\agentids}\epochrecoveries{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a)
+  $$
+  and $V$ be the domain of the partial function $\epochopens{b_1,…,b_{\epochindex{b_1,…,b_n}}}$.
 
-  If $U=∅$, then $\epochseed{b_1,…,b_n}=∏_{a∈V}\epochopens{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a)$
-
-  Otherwise, pick any $a_0∈U$\improvement{This is well defined because
-    $r(a_0)$ is the same, whatever the choice of $a_0$, per the
-    validity hypothesis. However, this is a bit of a hack. A more
-    realistic way to compute shares needs to perform some kind of
-    reduction along all the $r(a)$ rather than picking one. This can
-    be improved}, and let $W$ be the domain of
-  $\epochrecoveries{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a_0)$. Then
-  define
+  Then define
   $$
   \begin{array}{lcl}
     \epochseed{b_1,…,b_n}&=&∏_{a∈V}\epochopens{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a)\\
-                         &×&∏_{a∈W}\epochrecoveries{b_1,…,b_{\epochindex{b_1,…,b_n}}}(a_0)(a)
+                         &×&∏_{a∈U}r(a)
   \end{array}
   $$\improvement{Missing: when we are in the first epoch, the seed in
     the initial seed which is found in the initial state.}

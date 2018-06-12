@@ -31,6 +31,7 @@
 \newcommand{\blockids}{\idsof{\blocks}}
 \newcommand{\agentids}{\idsof{\agents}}
 \newcommand{\epochids}{\idsof{\mathcal{E}}}
+\newcommand{\slotids}{\idsof{\mathcal{S}}}
 \newcommand{\updids}{\idsof{\mathcal{UP}}}
 \newcommand{\pubkey}{\chi_{\textbf{pub}}}
 \newcommand{\signature}{\chi_{\textbf{sig}}}
@@ -45,6 +46,7 @@
 \newcommand{\txs}{\mathcal{T}}
 \newcommand{\txins}{\txs_{\textbf{in}}}
 \newcommand{\txfeepol}{\txs_{\textbf{feepol}}}
+\newcommand{\txpf}{\txs_{\textbf{proof}}}
 \newcommand{\twit}{\mathcal{TW}}
 \newcommand{\twitpk}{\twit_{\textbf{pk}}}
 \newcommand{\twitscript}{\twit_{\textbf{script}}}
@@ -54,7 +56,11 @@
 \newcommand{\sscopen}{\ssc_{\textbf{open}}}
 \newcommand{\sscshare}{\ssc_{\textbf{share}}}
 \newcommand{\ssccert}{\ssc_{\textbf{cert}}}
+\newcommand{\sscpf}{\ssc_{\textbf{proof}}}
 \newcommand{\dlg}{\mathcal{DLG}}
+\newcommand{\dlglight}{\dlg^{\textbf{l}}}
+\newcommand{\proxysig}{\dlg_{\textbf{sig}}}
+\newcommand{\proxysiglight}{\dlg^{\textbf{l}}_{\textbf{sig}}}
 \newcommand{\upd}{\mathcal{UP}}
 \newcommand{\updprop}{\upd_{\textbf{prop}}}
 \newcommand{\upddata}{\upd_{\textbf{data}}}
@@ -64,6 +70,11 @@
 \newcommand{\blockvermod}{\blocks_{\textbf{ver}\Delta}}
 \newcommand{\bbodies}{\blocks_{\textbf{body}}}
 \newcommand{\bheads}{\blocks_{\textbf{head}}}
+\newcommand{\bheadpf}{\blocks_{\textbf{proof}}}
+\newcommand{\bheadcons}{\blocks_{\textbf{cons}}}
+\newcommand{\bheadex}{\blocks_{\textbf{headex}}}
+\newcommand{\blocksig}{\blocks_{\textbf{sig}}}
+\newcommand{\blockpf}{\blocks_{\textbf{proof}}}
 
 \newcommand{\hstype}[1]{\textbf{#1}}
 \newcommand{\String}{\hstype{String}}
@@ -188,10 +199,12 @@ We also have addresses, which are represented as Blake2b-224 hashes.
 \item{Address (agent) identifiers $\agentids$}
 \end{itemize}
 
-Epochs are identified by their index as a $\Word{64}$.
+Epochs are identified by their index as a $\Word{64}$. Slots are identified as a
+pair of epoch identifier and a $\Word{16}$ index within the slot.
 
 \begin{itemize}
 \item Epoch indices $\epochids$
+\item Slot indices $\slotids$
 \end{itemize}
 
 Cardano public keys are elliptic curve DH keys on curve 25519.
@@ -245,6 +258,12 @@ We have a set of transactions $\txs$.
     <$\txs$> = \{
     \fld inputs :: $\lists{\txins}$
     \fld outputs :: $\nelists{\agentids \times \Word{64}}$
+    \}
+
+    <$\txpf$> = \{
+    \fld txCount :: $\Word{32}$
+    \fld merkleRoot :: $\hash$
+    \fld witnessHash :: $\hash$
     \}
   \end{grammar}
 \end{figure}
@@ -321,6 +340,11 @@ cryptography scheme.
    \alt Openings $\sscopen$
    \alt Shares $\sscshare$
    \alt Certificates $\agentids \rhu \ssccert$
+
+   <$\sscpf$> = CommitmentsProof $\hash \times \hash$
+   \alt OpeningsProof $\hash \times \hash$
+   \alt SharesProof $\hash \times \hash$
+   \alt CertificatesProof $\hash$
  \end{grammar}
 \end{figure}
 
@@ -336,6 +360,23 @@ other parties to issue blocks on their behalf.
     \fld issuer :: $\pubkey$
     \fld delegate :: $\pubkey$
     \fld certificate :: $\signature$
+    \}
+
+    <$\proxysig$> = \{
+    \fld psk :: $\dlg$
+    \fld sig :: $\signature$
+    \}
+
+    <$\dlglight$> = \{
+    \fld epoch :: $\epochids\times\epochids$
+    \fld issuer :: $\pubkey$
+    \fld delegate :: $\pubkey$
+    \fld certificate :: $\signature$
+    \}
+
+    <$\proxysiglight$> = \{
+    \fld psk :: $\dlglight$
+    \fld sig :: $\signature$
     \}
   \end{grammar}
   \caption{Delegation}
@@ -413,15 +454,60 @@ of verification for the various components in the block body.
   \caption{Blocks}
   \label{fig:block}
   \begin{grammar}
+    <$\blocksig$> = Signature $\signature$
+    \alt ProxySigLight $\proxysiglight$
+    \alt ProxySigHeavy $\proxysig$
+
+    <$\bheadcons$> = \{
+    \fld slotId :: $\slotids$
+    \fld leaderKey :: $\pubkey$
+    \fld difficulty :: $\Word{64}$
+    \fld signature :: $\blocksig$
+    \}
+
+    <$\bheadex$> = \{
+    \fld blockVersion :: $\blockver$
+    \fld softwareVersion :: $\String \times \Word{32}$
+    \fld extraProof :: $\hash$
+    \fld attributes :: $\String \rhu \emptyset$
+    \}
+
+    <$\blockpf$> = \{
+    \fld txProof :: $\txpf$
+    \fld sscProof :: $\sscpf$
+    \fld dlgProof :: $\hash$
+    \fld updProof :: $\hash$
+    \}
+
+    <$\bheads$> = \{
+    \fld prevBlock :: $\blockids$
+    \fld bodyProof :: $\blockpf$
+    \fld consensusData :: $\bheadcons$
+    \fld extraData :: $\bheadex$
+    \}
+
     <$\bbodies$> = \{
     \fld txPayload :: $\lists{\txs}\times\lists{\lists{\twit}}$
     \fld sscPayload :: $\ssc$
     \fld dlgPayload ::$\dlg$
     \fld updPayload :: $\upd$
     \}
+
+    <$\blocks$> = \{
+    \fld header :: $\bheads$
+    \fld body :: $\bbodies$
+    \fld extra :: $\String \rhu \emptyset$
+    \}
+
   \end{grammar}
 \end{figure}
 
+\subsection{Epoch Boundary Blocks}
+
+In addition to regular blocks, epoch boundary blocks contain a list of slot
+leaders for a given epoch. They are not conventionally distributed as part of
+the blockchain, but can be requested as part of catch-up and as such form part
+of the on-the-wire protocol.
 \section{Requirements on the binary format}
 \label{sec:reqs}
 

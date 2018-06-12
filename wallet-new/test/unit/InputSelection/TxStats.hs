@@ -42,7 +42,7 @@ data TxStats = TxStats {
 
 instance Monoid TxStats where
   mempty = TxStats {
-        txStatsNumInputs = Histogram.empty
+        txStatsNumInputs = Histogram.empty (BinSize 1)
       , txStatsRatios    = MultiSet.empty
       }
   mappend a b = TxStats {
@@ -93,7 +93,7 @@ instance Monoid PartialTxStats where
 -- | Construct transaciton statistics from partial statistics
 fromPartialTxStats :: PartialTxStats -> TxStats
 fromPartialTxStats PartialTxStats{..} = TxStats{
-      txStatsNumInputs = Histogram.singleton (BinSize 1) ptxStatsNumInputs 1
+      txStatsNumInputs = Histogram.fromList (BinSize 1) [(ptxStatsNumInputs, 1)]
     , txStatsRatios    = ptxStatsRatios
     }
 

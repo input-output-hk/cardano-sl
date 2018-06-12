@@ -11,6 +11,11 @@ module Util.Histogram (
     Bin
   , Count
   , Histogram  -- opaque
+    -- * Conversion
+  , toMap
+  , toList
+  , fromMap
+  , fromList
     -- * Output
   , writeFile
   , SplitRanges(..)
@@ -20,7 +25,8 @@ module Util.Histogram (
   , BinSize(..)
   , discretize
   , empty
-  , singleton
+  , insert
+  , insertMany
     -- * Combinators
   , max
   , add
@@ -30,7 +36,7 @@ module Util.Histogram (
   , nLargestBins
   ) where
 
-import           Universum hiding (empty, max, writeFile)
+import           Universum hiding (empty, max, writeFile, toList)
 import qualified Universum
 
 import qualified Data.IntMap.Strict as Map
@@ -44,25 +50,26 @@ import qualified Util.Range as Range
   Basic definitions
 -------------------------------------------------------------------------------}
 
-type Bin       = Int
-type Count     = Int
+type Bin   = Int
+type Count = Int
 
 data Histogram =
     -- | Non-empty histogram (known binsize)
     Histogram !BinSize !(IntMap Count)
 
-    -- | Empty histogram
-    --
-    -- We treat this case special so that we can construct a histogram without
-    -- knowing the binsize.
-  | Empty
+toMap :: Histogram -> IntMap Count
+toMap (Histogram _ m) = m
 
-histogramToMap :: Histogram -> IntMap Count
-histogramToMap (Histogram _ m) = m
-histogramToMap Empty           = Map.empty
+toList :: Histogram -> [(Bin, Count)]
+toList = Map.toList . toMap
 
-histogramToList :: Histogram -> [(Bin, Count)]
-histogramToList = Map.toList . histogramToMap
+-- | Construct a histogram from already-discretized data
+fromMap :: BinSize -> IntMap Count -> Histogram
+fromMap = Histogram
+
+-- | Convenience wrapper around 'fromMap'. See 'fromMap' for more details.
+fromList :: BinSize -> [(Bin, Count)] -> Histogram
+fromList bz = fromMap bz . Map.fromList
 
 {-------------------------------------------------------------------------------
   Output
@@ -81,7 +88,7 @@ histogramToList = Map.toList . histogramToMap
 writeFile :: FilePath -> Histogram -> IO ()
 writeFile fp hist =
     withFile fp WriteMode $ \h ->
-      forM_ (histogramToList hist) $ \(step, count) ->
+      forM_ (toList hist) $ \(step, count) ->
         IO.hPutStrLn h $ show step ++ "\t" ++ show count
 
 {-------------------------------------------------------------------------------
@@ -92,26 +99,29 @@ newtype BinSize = BinSize { binSizeToInt :: Int }
   deriving (Eq, Buildable)
 
 -- | Construct histogram by counting all the doubles per bin
+--
+-- See also 'fromMap' if the data is already discretized.
 discretize :: BinSize -> [Double] -> Histogram
-discretize (BinSize binSize) =
-    Histogram (BinSize binSize) . go Map.empty
+discretize = flip insertMany . empty
+
+-- | Empty histogram
+empty :: BinSize -> Histogram
+empty bz = Histogram bz Map.empty
+
+-- | Discretize and insert value
+insert :: Double -> Histogram -> Histogram
+insert d (Histogram (BinSize bz) h) =
+    Histogram (BinSize bz) (Map.alter incr bin h)
   where
-    go :: IntMap Count -> [Double] -> IntMap Count
-    go acc []     = acc
-    go acc (d:ds) = let bin = floor (d / fromIntegral binSize) * binSize
-                    in go (Map.alter incr bin acc) ds
+    bin :: Bin
+    bin = floor (d / fromIntegral bz) * bz
 
     incr :: Maybe Count -> Maybe Count
     incr Nothing  = Just 1
     incr (Just n) = Just (n + 1)
 
--- | Empty histogram
-empty :: Histogram
-empty = Empty
-
--- | Singleton
-singleton :: BinSize -> Bin -> Count -> Histogram
-singleton binSize bin count = Histogram binSize $ Map.singleton bin count
+insertMany :: [Double] -> Histogram -> Histogram
+insertMany ds h = foldl' (flip insert) h ds
 
 {-------------------------------------------------------------------------------
   Combinators
@@ -129,8 +139,6 @@ add = unionWith (+)
 
 -- | Like 'Map.unionWith'
 unionWith :: (Count -> Count -> Count) -> Histogram -> Histogram -> Histogram
-unionWith _ a Empty = a
-unionWith _ Empty b = b
 unionWith f (Histogram bz a) (Histogram bz' b) =
     if bz /= bz'
       then error "Cannot union two histograms with different bin sizes"
@@ -138,7 +146,6 @@ unionWith f (Histogram bz a) (Histogram bz' b) =
 
 -- | Filter bins
 filterBins :: (Bin -> Bool) -> Histogram -> Histogram
-filterBins _ Empty            = Empty
 filterBins p (Histogram bz m) = Histogram bz (aux m)
   where
     aux :: IntMap Count -> IntMap Count
@@ -146,7 +153,6 @@ filterBins p (Histogram bz m) = Histogram bz (aux m)
 
 -- | Filter counts
 filterCounts :: (Count -> Bool) -> Histogram -> Histogram
-filterCounts _ Empty            = Empty
 filterCounts p (Histogram bz m) = Histogram bz (aux m)
   where
     aux :: IntMap Count -> IntMap Count
@@ -154,7 +160,6 @@ filterCounts p (Histogram bz m) = Histogram bz (aux m)
 
 -- | Keep a percentage of the bins, prioritizing bins with more elements
 nLargestBins :: Double -> Histogram -> Histogram
-nLargestBins _ Empty            = Empty
 nLargestBins p (Histogram bz m) = Histogram bz (aux m)
   where
     allBins  = sortBy (flip (comparing snd)) $ Map.toList m
@@ -174,7 +179,6 @@ nLargestBins p (Histogram bz m) = Histogram bz (aux m)
 --
 -- We make sure that the first range starts at bin 0.
 splitRanges :: Int -> Int -> Histogram -> SplitRanges Bin Count
-splitRanges _ _ Empty           = error "splitRanges: empty histogram"
 splitRanges n m (Histogram _ h) =
     case Map.toList h of
       []           -> error "splitRanges: empty histogram"

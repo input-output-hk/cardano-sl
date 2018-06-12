@@ -131,6 +131,9 @@ module Test.Pos.Core.Gen
         , genUpsData
         , genVoteId
 
+        -- Pos.Data.Attributes Generators
+        , genAttributes
+
         -- Pos.Merkle Generators
         , genMerkleRoot
         , genMerkleTree
@@ -207,7 +210,7 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                                   UpdateProposalToSign  (..), UpdateVote (..),
                                   UpId, VoteId)
 import           Pos.Crypto (deterministic, Hash, hash, safeCreatePsk, sign)
-import           Pos.Data.Attributes (mkAttributes)
+import           Pos.Data.Attributes (Attributes (..), mkAttributes)
 import           Pos.Delegation.Types (DlgPayload (..), ProxySKBlockInfo)
 import           Pos.Merkle (mkMerkleTree, mtRoot, MerkleRoot(..),
                              MerkleTree (..))
@@ -878,6 +881,13 @@ genUpdateVote =
 
 genVoteId :: Gen VoteId
 genVoteId = (,,) <$> genUpId <*> genPublicKey <*> Gen.bool
+
+----------------------------------------------------------------------------
+-- Pos.Data.Attributes Generators
+----------------------------------------------------------------------------
+
+genAttributes :: Gen a -> Gen (Attributes a)
+genAttributes genA =  mkAttributes <$> genA
 
 ----------------------------------------------------------------------------
 -- Pos.Merkle Generators

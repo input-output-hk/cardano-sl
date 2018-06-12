@@ -33,6 +33,8 @@ module Test.Pos.Core.Gen
         , genScriptVersion
         , genSlotLeaders
         , genStakeholderId
+        , genStakesList
+        , genStakesMap
         , genTxFeePolicy
         , genTxSizeLinear
 
@@ -61,8 +63,10 @@ module Test.Pos.Core.Gen
         , genOpeningsMap
         , genSscPayload
         , genSscProof
+        , genSharesDistribution
         , genSignedCommitment
         , genVssCertificate
+        , genVssCertificatesHash
         , genVssCertificatesMap
 
         -- Pos.Core.Txp Generators
@@ -97,10 +101,12 @@ module Test.Pos.Core.Gen
         , genUpdatePayload
         , genUpdateProof
         , genUpdateProposal
+        , genUpdateProposals
         , genUpdateProposalToSign
         , genUpdateVote
         , genUpId
         , genUpsData
+        , genVoteId
 
         -- Pos.Merkle Generators
         , genMerkleTreeTx
@@ -121,41 +127,53 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import           Pos.Binary.Class (asBinary, Raw (..))
 import           Pos.Block.Base (mkMainHeader, mkGenesisHeader)
-import           Pos.Core.Block (BlockBodyAttributes, BlockHeader (..), BlockHeaderAttributes,
-                                 BlockSignature (..), GenesisBlockHeader, GenesisBody (..),
-                                 GenesisConsensusData (..), GenesisProof (..), MainBlockHeader,
-                                 MainBody (..), MainConsensusData (..), MainExtraBodyData (..),
-                                 MainExtraHeaderData (..), MainProof (..), MainToSign (..))
+import           Pos.Core.Block (BlockBodyAttributes, BlockHeader (..),
+                                 BlockHeaderAttributes, BlockSignature (..),
+                                 GenesisBlockHeader, GenesisBody (..),
+                                 GenesisConsensusData (..), GenesisProof (..),
+                                 MainBlockHeader, MainBody (..),
+                                 MainConsensusData (..),
+                                 MainExtraBodyData (..),
+                                 MainExtraHeaderData (..), MainProof (..),
+                                 MainToSign (..))
 import           Pos.Core.Common (Address (..), AddrAttributes (..),
-                                  AddrSpendingData (..), AddrStakeDistribution (..),
-                                  AddrType (..), BlockCount (..), ChainDifficulty (..),
-                                  Coeff (..), Coin (..),CoinPortion (..), makeAddress,
-                                  Script (..), ScriptVersion, SlotLeaders, StakeholderId,
-                                  TxFeePolicy (..), TxSizeLinear (..))
+                                  AddrSpendingData (..),
+                                  AddrStakeDistribution (..), AddrType (..),
+                                  BlockCount (..), ChainDifficulty (..),
+                                  Coeff (..), Coin (..), CoinPortion (..),
+                                  makeAddress, Script (..), ScriptVersion,
+                                  SlotLeaders, StakeholderId, StakesList,
+                                  StakesMap, TxFeePolicy (..),
+                                  TxSizeLinear (..))
 import           Pos.Core.Configuration (GenesisHash (..))
-import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..), ProxySKHeavy)
+import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..),
+                                      ProxySKHeavy)
 import           Pos.Core.Slotting (EpochIndex (..), FlatSlotId,
                                     LocalSlotIndex (..), SlotId (..),
                                     TimeDiff (..), Timestamp (..))
 import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
                                mkCommitmentsMap, mkSscProof, mkVssCertificate,
                                mkVssCertificatesMap, Opening, OpeningsMap,
-                               InnerSharesMap, SharesMap, SignedCommitment,
-                               SscPayload (..), SscProof, VssCertificate (..),
+                               InnerSharesMap, SharesDistribution, SharesMap,
+                               SignedCommitment, SscPayload (..), SscProof,
+                               VssCertificate (..), VssCertificatesHash,
                                VssCertificatesMap (..))
 import           Pos.Core.Txp (TxAttributes, Tx (..), TxId, TxIn (..),
                                TxInWitness (..), TxOut (..), TxPayload (..),
                                TxProof (..), TxSig, TxSigData (..), TxWitness)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                                   BlockVersionModifier (..), SoftforkRule(..),
-                                  SoftwareVersion (..), SystemTag (..), UpAttributes,
-                                  UpdateData (..), UpdatePayload (..), UpdateProof,
-                                  UpdateProposal (..), UpdateProposalToSign  (..),
-                                  UpdateVote (..), UpId)
+                                  SoftwareVersion (..), SystemTag (..),
+                                  UpAttributes, UpdateData (..),
+                                  UpdatePayload (..), UpdateProof,
+                                  UpdateProposal (..), UpdateProposals,
+                                  UpdateProposalToSign  (..), UpdateVote (..),
+                                  UpId, VoteId)
 import           Pos.Crypto (deterministic, Hash, hash, safeCreatePsk, sign)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Delegation.Types (DlgPayload (..), ProxySKBlockInfo)
-import           Pos.Merkle (mkMerkleTree, mtRoot, MerkleRoot(..), MerkleTree (..))
+import           Pos.Merkle (mkMerkleTree, mtRoot, MerkleRoot(..),
+                             MerkleTree (..))
 import           Pos.Ssc.Base (genCommitmentAndOpening)
 import           Serokell.Data.Memory.Units (Byte)
 
@@ -352,6 +370,15 @@ genSlotLeaders = do
 genStakeholderId :: Gen StakeholderId
 genStakeholderId = genAbstractHash genPublicKey
 
+genStakesList :: Gen StakesList
+genStakesList = Gen.list range gen
+  where
+    gen = (,) <$> genStakeholderId <*> genCoin
+    range = Range.constant 0 1000
+
+genStakesMap :: Gen StakesMap
+genStakesMap = genCustomHashMap genStakeholderId genCoin
+
 genTxFeePolicy :: Gen TxFeePolicy
 genTxFeePolicy =
     Gen.choice [ TxFeePolicyTxSizeLinear <$> genTxSizeLinear
@@ -360,6 +387,7 @@ genTxFeePolicy =
 
 genTxSizeLinear :: Gen TxSizeLinear
 genTxSizeLinear = TxSizeLinear <$> genCoeff <*> genCoeff
+
 ----------------------------------------------------------------------------
 -- Pos.Core.Delegation Generators
 ----------------------------------------------------------------------------
@@ -460,6 +488,11 @@ genOpeningsMap = do
     opening <- Gen.list (Range.singleton hMapSize) genOpening
     pure $ HM.fromList $ zip stakeholderId opening
 
+genSharesDistribution :: Gen SharesDistribution
+genSharesDistribution = genCustomHashMap genStakeholderId genWord16
+  where
+    genWord16 = Gen.word16 Range.constantBounded
+
 genSharesMap :: Gen SharesMap
 genSharesMap = do
     hMapSize <- Gen.int (Range.constant 0 20)
@@ -490,6 +523,10 @@ genVssCertificate =
         <*> genSecretKey
         <*> (asBinary <$> genVssPublicKey)
         <*> genEpochIndex
+
+genVssCertificatesHash :: Gen VssCertificatesHash
+genVssCertificatesHash =
+    hash <$> genCustomHashMap genStakeholderId genVssCertificate
 
 genVssCertificatesMap :: Gen VssCertificatesMap
 genVssCertificatesMap =
@@ -606,7 +643,6 @@ genBlockVersionModifier =
         <*> Gen.maybe genTxFeePolicy
         <*> Gen.maybe genEpochIndex
 
-
 genHashRaw :: Gen (Hash Raw)
 genHashRaw = genAbstractHash $ Raw <$> gen32Bytes
 
@@ -654,6 +690,9 @@ genUpdateProposal =
         <*> genPublicKey
         <*> genSignature genUpdateProposalToSign
 
+genUpdateProposals :: Gen UpdateProposals
+genUpdateProposals = genCustomHashMap genUpId genUpdateProposal
+
 genUpdateProposalToSign :: Gen UpdateProposalToSign
 genUpdateProposalToSign =
     UpdateProposalToSign
@@ -681,6 +720,9 @@ genUpdateVote =
         <*> Gen.bool
         <*> genSignature ((,) <$> genUpId <*> Gen.bool)
 
+genVoteId :: Gen VoteId
+genVoteId = (,,) <$> genUpId <*> genPublicKey <*> Gen.bool
+
 ----------------------------------------------------------------------------
 -- Pos.Merkle Generators
 ----------------------------------------------------------------------------
@@ -703,6 +745,14 @@ genByte = Gen.integral (Range.constant 0 10)
 
 gen32Bytes :: Gen ByteString
 gen32Bytes = genBytes 32
+
+genCustomHashMap
+    :: (Hashable k, Eq k)
+    => Gen k -> Gen v -> Gen (HM.HashMap k v)
+genCustomHashMap genK genV = HM.fromList <$> Gen.list range gen
+  where
+    gen = (,) <$> genK <*> genV
+    range = Range.constant 0 1000
 
 genMillisecond :: Gen Millisecond
 genMillisecond = fromMicroseconds <$> Gen.integral (Range.constant 0 1000000)

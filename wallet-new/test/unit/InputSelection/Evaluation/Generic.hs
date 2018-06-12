@@ -199,15 +199,38 @@ data OverallStats = OverallStats {
 
       -- | Transaction statistics
     , _overallTxStats        :: !TxStats
+
+      -- | Histogram of all deposits
+    , _overallDeposits       :: !Histogram
+
+      -- | Histogram of all payments
+    , _overallPayments       :: !Histogram
     }
 
 makeLenses ''OverallStats
 
-initOverallStats :: OverallStats
-initOverallStats = OverallStats {
+initOverallStats :: BinSize -> OverallStats
+initOverallStats bz = OverallStats {
       _overallFailedPayments = 0
     , _overallTxStats        = mempty
+    , _overallDeposits       = Hist.empty bz
+    , _overallPayments       = Hist.empty bz
     }
+
+recordEvent :: forall dom. (CoinSelDom dom, ValueToDouble dom)
+            => Event dom -> OverallStats -> OverallStats
+recordEvent = \case
+    Deposit d ->
+      overallDeposits %~ \h ->
+        foldl' (\h' -> (`Hist.insert` h') . outValD) h (Map.elems d)
+    Pay p ->
+      overallPayments %~ \h ->
+        foldl' (\h' -> (`Hist.insert` h') . outValD) h p
+    NextSlot ->
+      identity
+  where
+    outValD :: Output dom -> Double
+    outValD = valueToDouble . outVal
 
 {-------------------------------------------------------------------------------
   Accumulated statistics
@@ -234,9 +257,9 @@ data AccSlotStats dom = AccSlotStats {
 
 makeLenses ''AccSlotStats
 
-initAccSlotStats :: AccSlotStats dom
-initAccSlotStats = AccSlotStats {
-      _accUtxoMaxHistogram = Hist.empty
+initAccSlotStats :: BinSize -> AccSlotStats dom
+initAccSlotStats binSize = AccSlotStats {
+      _accUtxoMaxHistogram = Hist.empty binSize
     , _accUtxoSize         = TS.empty
     , _accUtxoBalance      = TS.empty
     , _accMedianRatio      = TS.empty
@@ -297,20 +320,20 @@ initIntState :: IsUtxo utxo
 initIntState PlotParams{..} utxo = IntState {
       _stUtxo       = utxoFromMap utxo
     , _stPending    = Map.empty
-    , _stStats      = initOverallStats
+    , _stStats      = initOverallStats utxoBinSize
     , _stBinSize    = utxoBinSize
     }
 
 -- | Convenience function for changing the UTxO of the state
 mapIntState :: Dom utxo ~ Dom utxo'
             => (utxo -> utxo')
-            -> (OverallStats -> OverallStats)
+            -> (BinSize -> OverallStats -> OverallStats)
             -> IntState utxo -> IntState utxo'
 mapIntState f g IntState{..} = IntState{
-      _stUtxo    = f _stUtxo
-    , _stPending =   _stPending
-    , _stStats   = g _stStats
-    , _stBinSize =   _stBinSize
+      _stUtxo    = f            _stUtxo
+    , _stPending =              _stPending
+    , _stStats   = g _stBinSize _stStats
+    , _stBinSize =              _stBinSize
     }
 
 {-------------------------------------------------------------------------------
@@ -437,35 +460,37 @@ intPolicy shouldRender =
                     loop slot' st'' policy'
 
     -- We reset the overall statistics when changing policy
-    resetStats :: OverallStats -> OverallStats
-    resetStats = const initOverallStats
+    resetStats :: BinSize -> OverallStats -> OverallStats
+    resetStats bz = const (initOverallStats bz)
 
     -- Interpret single event
     intEvent :: IsUtxo utxo'
              => CoinSelPolicy utxo' m (CoinSelSummary (Dom utxo'), utxo')
              -> Event (Dom utxo')
              -> StrictStateT (IntState utxo') m Bool
-    intEvent f = \case
-      Deposit new -> do
-        stUtxo %= utxoUnion (utxoFromMap new)
-        return False
-      NextSlot -> do
-        -- TODO: May want to commit only part of the pending transactions
-        pending <- use stPending
-        stUtxo    %= utxoUnion (utxoFromMap pending)
-        stPending .= Map.empty
-        return True
-      Pay outs -> do
-        utxo <- use stUtxo
-        mtx  <- lift $ f (NE.fromList outs) utxo
-        case mtx of
-          Right (CoinSelSummary{..}, utxo') -> do
-            stUtxo                   .= utxo'
-            stStats . overallTxStats %= mappend csSummaryStats
-            stPending                %= Map.union csSummaryOurChange
-          Left _err ->
-            stStats . overallFailedPayments += 1
-        return False
+    intEvent f event = do
+        stStats %= recordEvent event
+        case event of
+          Deposit new -> do
+            stUtxo %= utxoUnion (utxoFromMap new)
+            return False
+          NextSlot -> do
+            -- TODO: May want to commit only part of the pending transactions
+            pending <- use stPending
+            stUtxo    %= utxoUnion (utxoFromMap pending)
+            stPending .= Map.empty
+            return True
+          Pay outs -> do
+            utxo <- use stUtxo
+            mtx  <- lift $ f (NE.fromList outs) utxo
+            case mtx of
+              Right (CoinSelSummary{..}, utxo') -> do
+                stUtxo                   .= utxo'
+                stStats . overallTxStats %= mappend csSummaryStats
+                stPending                %= Map.union csSummaryOurChange
+              Left _err ->
+                stStats . overallFailedPayments += 1
+            return False
 
 {-------------------------------------------------------------------------------
   Compute bounds
@@ -676,10 +701,11 @@ writePlotInstrs PlotParams{..} script bounds is = do
 -- | Sink that writes statistics to disk
 writeStats :: forall m dom. MonadIO m
            => FilePath      -- ^ Prefix for the files to create
+           -> BinSize
            -> ConduitT (SlotNr, OverallStats, SlotStats dom) Void m
                 (AccSlotStats dom, [PlotInstr])
-writeStats prefix =
-    loop initAccSlotStats [] 0
+writeStats prefix binSize =
+    loop (initAccSlotStats binSize) [] 0
   where
     loop :: AccSlotStats dom -- ^ Accumulated slot statistics
          -> [PlotInstr]      -- ^ Accumulated plot instructions
@@ -732,7 +758,7 @@ evaluatePolicy prefix shouldRender policy initState generator =
       runConduit $
         generator                               `fuse`
         intPolicy shouldRender initState policy `fuseBoth`
-        writeStats prefix
+        writeStats prefix (initState ^. stBinSize)
 
 data NamedPolicy dom m = forall utxo. (IsUtxo utxo, Dom utxo ~ dom) =>
     NamedPolicy {
@@ -787,9 +813,11 @@ evaluateUsingEvents plotParams@PlotParams{..}
           (initIntState plotParams initUtxo)
           events
         liftIO $ do
-          TS.writeFile (prefix' </> "growth")  (accStats ^. accUtxoSize)
-          TS.writeFile (prefix' </> "balance") (accStats ^. accUtxoBalance)
-          TS.writeFile (prefix' </> "ratio")   (accStats ^. accMedianRatio)
+          TS.writeFile   (prefix' </> "growth")   (accStats     ^. accUtxoSize)
+          TS.writeFile   (prefix' </> "balance")  (accStats     ^. accUtxoBalance)
+          TS.writeFile   (prefix' </> "ratio")    (accStats     ^. accMedianRatio)
+          Hist.writeFile (prefix' </> "deposits") (overallStats ^. overallDeposits)
+          Hist.writeFile (prefix' </> "payments") (overallStats ^. overallPayments)
           writePlotInstrs
             plotParams
             (prefix' </> "mkframes.gnuplot")

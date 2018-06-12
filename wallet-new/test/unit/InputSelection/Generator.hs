@@ -48,16 +48,16 @@ data FromDistrParams fDep fPay fNumDep fNumPay =
     , Distribution fNumPay
     ) => FromDistrParams {
       -- | Distribution of deposit values
-      fromDistrDep    :: fDep Value
+      fromDistrDep    :: fDep
 
       -- | Distribution of payment values
-    , fromDistrPay    :: fPay Value
+    , fromDistrPay    :: fPay
 
       -- | Distribution of number of deposits
-    , fromDistrNumDep :: fNumDep Int
+    , fromDistrNumDep :: fNumDep
 
       -- | Distribution of number of payments
-    , fromDistrNumPay :: fNumPay Int
+    , fromDistrNumPay :: fNumPay
 
       -- | Number of cycles
     , fromDistrCycles :: Int

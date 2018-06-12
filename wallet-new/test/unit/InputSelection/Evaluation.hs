@@ -110,18 +110,45 @@ largeThenRandom changeAfter = NamedPolicy "largeThenRandom" $
     randomMaxInps  = 10
 
 {-------------------------------------------------------------------------------
+  Distributions
+-------------------------------------------------------------------------------}
+
+normal :: Int -> Normal
+normal n = Normal (1000 * fromIntegral n) (100 * fromIntegral n)
+
+erlang :: Int -> Int -> Erlang
+erlang k n = Erlang k (1 / (1000 * fromIntegral n))
+
+{-------------------------------------------------------------------------------
   Run evaluation
 -------------------------------------------------------------------------------}
 
 evaluateInputPolicies :: PlotParams -> IO ()
 evaluateInputPolicies plotParams@PlotParams{..} = do
-    go "1to1"  [largest]                   600 $ nTo1  1
-    go "1to1"  [randomOff]              100000 $ nTo1  1
-    go "1to1"  [randomOn]               100000 $ nTo1  1
-    go "3to1"  [largest]                100000 $ nTo1  3
-    go "3to1"  [randomOn]               100000 $ nTo1  3
-    go "3to1"  [largeThenRandom 100000] 115000 $ nTo1  3
-    go "10to1" [randomOn]               100000 $ nTo1 10
+    -- Our chosen policy, against different distributions of deposits/payments
+
+    go "normal-1to1"   [randomOn] 100000 $ nTo1  1 normal
+    go "normal-3to1"   [randomOn] 100000 $ nTo1  3 normal
+    go "normal-10to1"  [randomOn] 100000 $ nTo1 10 normal
+
+    go "erlang1-1to1"  [randomOn] 100000 $ nTo1  1 (erlang 1)
+    go "erlang1-3to1"  [randomOn] 100000 $ nTo1  3 (erlang 1)
+    go "erlang1-10to1" [randomOn] 100000 $ nTo1 10 (erlang 1)
+
+    go "erlang2-1to1"  [randomOn] 100000 $ nTo1  1 (erlang 2)
+    go "erlang2-3to1"  [randomOn] 100000 $ nTo1  3 (erlang 2)
+    go "erlang2-10to1" [randomOn] 100000 $ nTo1 10 (erlang 2)
+
+    go "erlang3-1to1"  [randomOn] 100000 $ nTo1  1 (erlang 3)
+    go "erlang3-3to1"  [randomOn] 100000 $ nTo1  3 (erlang 3)
+    go "erlang3-10to1" [randomOn] 100000 $ nTo1 10 (erlang 3)
+
+   -- Other policies
+
+    go "normal-1to1"  [largest]                   600 $ nTo1  1 normal
+    go "normal-1to1"  [randomOff]              100000 $ nTo1  1 normal
+    go "normal-3to1"  [largest]                100000 $ nTo1  3 normal
+    go "normal-3to1"  [largeThenRandom 100000] 115000 $ nTo1  3 normal
   where
     go :: FilePath  -- Prefix for this event stream
        -> [NamedPolicy (DSL GivenHash World) (GenHashT IO)] -- Policies to evaluate
@@ -153,16 +180,18 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
     renderEvery :: Int -> SlotNr -> Bool
     renderEvery n step = overallSlotNr step `mod` n == 0
 
-    -- Event stream with a ratio of N:1 deposits:withdrawals
-    nTo1 :: Int -> Int -> ConduitT () (Event (DSL GivenHash World)) (GenHashT IO) ()
-    nTo1 n m = Gen.fromDistr Gen.FromDistrParams {
-          Gen.fromDistrDep    = NormalDistr 1000 100
-        , Gen.fromDistrPay    = NormalDistr
-                                  (1000 * fromIntegral n)
-                                  (100  * fromIntegral n)
-        , Gen.fromDistrNumDep = ConstDistr n
-        , Gen.fromDistrNumPay = ConstDistr 1
-        , Gen.fromDistrCycles = m
+    -- Event stream
+    nTo1 :: Distribution distr
+         => Int                  -- Ratio of deposits:withdrawals (@N:1@)
+         -> (Int -> distr)       -- Distribution
+         -> Int                  -- Number of cycles
+         -> ConduitT () (Event (DSL GivenHash World)) (GenHashT IO) ()
+    nTo1 n distr numCycles = Gen.fromDistr Gen.FromDistrParams {
+          Gen.fromDistrDep    = distr 1
+        , Gen.fromDistrPay    = distr n
+        , Gen.fromDistrNumDep = Constant (fromIntegral n)
+        , Gen.fromDistrNumPay = Constant 1
+        , Gen.fromDistrCycles = numCycles
         }
 
     -- Initial UTxO for all these tests

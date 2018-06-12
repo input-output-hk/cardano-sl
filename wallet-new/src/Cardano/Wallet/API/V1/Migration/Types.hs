@@ -319,6 +319,6 @@ instance Migrate V0.CWalletMeta V1.WalletUpdate where
             , uwalAssuranceLevel    = migratedAssurance
             }
 
-instance Migrate V0.CWalletType (V1.WalletType) where
-    eitherMigrate V0.CWalletRegular  = pure (V1.WalletRegular)
-    eitherMigrate V0.CWalletExternal = pure (V1.WalletExternal)
+instance Migrate V0.CWalletType V1.WalletType where
+    eitherMigrate V0.CWalletRegular  = pure V1.WalletRegular
+    eitherMigrate V0.CWalletExternal = pure V1.WalletExternal

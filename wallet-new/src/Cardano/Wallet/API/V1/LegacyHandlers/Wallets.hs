@@ -8,7 +8,8 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Wallets (
 
 import           Universum
 import           UnliftIO (MonadUnliftIO)
-import           Formatting (build, sformat)
+import           System.Wlog (logDebug)
+import           Formatting (build, sformat, shown, (%))
 import qualified Data.Map.Strict as Map
 
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -305,14 +306,16 @@ createNewExternalWallet walletMeta encodedExtPubKey = do
     -- Add this public key in the 'public.key' file. Public key will be used during
     -- synchronization with the blockchain.
     addPublicKey publicKey
-    let walletId   = encodeCType . Core.makePubKeyAddressBoot $ publicKey
-        isReady    = True -- A brand new wallet doesn't need syncing with the blockchain.
-        walletType = V0.CWalletExternal
+    let walletId = encodeCType . Core.makePubKeyAddressBoot $ publicKey
+        isReady  = True -- A brand new wallet doesn't need syncing with the blockchain.
 
     -- Create new external wallet.
     -- This is safe: if the client will try to create an external wallet from the same
     -- extended public key - error will be thrown.
-    V0.CWallet{..} <- V0.createWalletSafe walletId walletMeta isReady walletType
+    V0.CWallet{..} <- V0.createWalletSafe walletId walletMeta isReady V0.CWalletExternal
+    let msg = sformat ("_______________AAAAAAAAAAAAAAAA, type of newly created is "%shown) cwType
+    logDebug msg
+    putText msg
 
     -- Add initial account in this external wallet.
     addInitialAccount cwId

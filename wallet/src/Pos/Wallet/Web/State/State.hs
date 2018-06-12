@@ -34,6 +34,7 @@ module Pos.Wallet.Web.State.State
        , getWalletMeta
        , getWalletMetaIncludeUnready
        , getWalletPassLU
+       , getWalletType
        , getWalletInfo
        , getWalletSyncState
        , getWalletAddresses
@@ -179,6 +180,9 @@ getWalletAddresses ws = queryValue ws S.getWalletAddresses
 
 getWalletMeta :: WalletSnapshot -> CId Wal -> Maybe CWalletMeta
 getWalletMeta ws wid = queryValue ws (S.getWalletMeta wid)
+
+getWalletType :: WalletSnapshot -> CId Wal -> Maybe CWalletType
+getWalletType ws wid = queryValue ws (S.getWalletType wid)
 
 getWalletMetaIncludeUnready
     :: WalletSnapshot -> Bool -> CId Wal -> Maybe CWalletMeta

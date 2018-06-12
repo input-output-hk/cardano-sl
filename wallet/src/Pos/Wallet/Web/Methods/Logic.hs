@@ -74,7 +74,7 @@ import           Pos.Wallet.Web.State (AddressInfo (..),
                                        createAccountWithoutAddresses, createWallet,
                                        doesAccountExist, getAccountIds, getWalletAddresses,
                                        getWalletBalancesAndUtxo, getWalletMetaIncludeUnready,
-                                       getWalletPassLU, getWalletSnapshot, isCustomAddress,
+                                       getWalletPassLU, getWalletType, getWalletSnapshot, isCustomAddress,
                                        removeAccount, removeWallet, setAccountMeta, setWalletMeta,
                                        setWalletPassLU, setWalletReady, wamAccount, wamAddress,
                                        wamWalletId)
@@ -179,7 +179,8 @@ getWalletIncludeUnready ws mps includeUnready cAddr = do
                     Nothing -> return False -- No secret key, it's external wallet, so no password.
                     Just sk -> return $ isNothing . checkPassMatches emptyPassphrase $ sk
     passLU   <- maybeThrow noSuchWallet (getWalletPassLU ws cAddr)
-    pure $ CWallet cAddr meta accountsNum balance hasPass passLU CWalletRegular
+    wType    <- maybeThrow noSuchWallet (getWalletType ws cAddr)
+    pure $ CWallet cAddr meta accountsNum balance hasPass passLU wType
   where
     computeBalance accMod = do
         let waddrIds = getWalletWAddrsWithMod ws Existing accMod cAddr

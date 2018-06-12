@@ -417,7 +417,9 @@ intPolicy ours shouldRender =
                                        , policyNr      = policyNr      + 1
                                        , policySlotNr  = 0
                                        }
-                    loop slot' (st' & stUtxo %~ changeRep) policy'
+                        st''  = st' & stUtxo  %~ changeRep
+                                    & stStats .~ initOverallStats
+                    loop slot' st'' policy'
 
     intEvent :: IsUtxo utxo'
              => InputSelectionPolicy utxo' h a
@@ -773,7 +775,7 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
     go "1to1"  [randomOn]               100000 $ nTo1  1
     go "3to1"  [largest]                100000 $ nTo1  3
     go "3to1"  [randomOn]               100000 $ nTo1  3
-    go "3to1"  [largeThenRandom 100000] 500000 $ nTo1  3
+    go "3to1"  [largeThenRandom 100000] 115000 $ nTo1  3
     go "10to1" [randomOn]               100000 $ nTo1 10
   where
     go :: FilePath                -- Prefix for this event stream

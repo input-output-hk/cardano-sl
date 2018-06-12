@@ -27,8 +27,8 @@ import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), HasConfiguration,
 import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap (..), InnerSharesMap,
                                Opening, OpeningsMap, SharesMap, SignedCommitment,
                                mkCommitmentsMapUnsafe)
-import           Pos.Crypto (DecShare, PublicKey, SecretKey, SignTag (SignCommitment),
-                             protocolMagic, sign, toPublic)
+import           Pos.Crypto (DecShare, PublicKey, SecretKey, SignTag (SignCommitment), sign,
+                             toPublic)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Ssc (MultiRichmenStakes, PureTossWithEnv, SscGlobalState (..),
                           SscVerifyError (..), VssCertData (..), checkCertificatesPayload,
@@ -41,9 +41,10 @@ import           Test.Pos.Lrc.Arbitrary (GenesisMpcThd, ValidRichmenStakes (..))
 import           Test.Pos.Util.QuickCheck.Property (qcElem, qcFail, qcIsRight)
 
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 spec :: Spec
-spec = withDefConfiguration $ describe "Ssc.Base" $ do
+spec = withDefConfiguration $ \_ -> describe "Ssc.Base" $ do
     describe "verifyCommitment" $ do
         prop description_verifiesOkComm verifiesOkComm
     describe "verifyCommitmentSignature" $ do
@@ -109,14 +110,18 @@ verifiesOkComm :: CommitmentOpening -> Bool
 verifiesOkComm CommitmentOpening{..} =
     verifyCommitment coCommitment
 
-verifiesOkCommSig :: HasConfiguration => SecretKey -> Commitment -> EpochIndex -> Bool
+verifiesOkCommSig :: SecretKey -> Commitment -> EpochIndex -> Bool
 verifiesOkCommSig sk comm epoch =
-    let commSig = (toPublic sk, comm, sign protocolMagic SignCommitment sk (epoch, comm))
-    in verifyCommitmentSignature epoch commSig
+    let commSig =
+            ( toPublic sk
+            , comm
+            , sign dummyProtocolMagic SignCommitment sk (epoch, comm)
+            )
+    in  verifyCommitmentSignature dummyProtocolMagic epoch commSig
 
-notVerifiesBadCommSig :: HasConfiguration => BadSignedCommitment -> EpochIndex -> Bool
+notVerifiesBadCommSig :: BadSignedCommitment -> EpochIndex -> Bool
 notVerifiesBadCommSig (getBadSignedC -> badSignedComm) epoch =
-    not $ verifyCommitmentSignature epoch badSignedComm
+    not $ verifyCommitmentSignature dummyProtocolMagic epoch badSignedComm
 
 verifiesOkOpening :: CommitmentOpening -> Bool
 verifiesOkOpening CommitmentOpening{..} =

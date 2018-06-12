@@ -11,13 +11,13 @@ import           Test.QuickCheck.Instances ()
 
 import           Pos.Binary.Class (Bi)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Crypto.Hashing (AbstractHash, HashAlgorithm, unsafeAbstractHash)
 import           Pos.Crypto.SecretSharing (VssKeyPair, VssPublicKey, deterministicVssKeyGen,
                                            toVssPublicKey)
 
 import           Pos.Crypto.Signing (PublicKey, SecretKey, SignTag, Signed, mkSigned)
 
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (ArbitraryUnsafe (..), arbitrarySizedS)
 
 instance ArbitraryUnsafe PublicKey where
@@ -28,9 +28,9 @@ instance ArbitraryUnsafe SecretKey where
 
 -- Generating invalid `Signed` objects doesn't make sense even in
 -- benchmarks
-instance (HasProtocolMagic, Bi a, ArbitraryUnsafe a, Arbitrary SignTag) =>
+instance (Bi a, ArbitraryUnsafe a, Arbitrary SignTag) =>
          ArbitraryUnsafe (Signed a) where
-    arbitraryUnsafe = mkSigned <$> pure protocolMagic
+    arbitraryUnsafe = mkSigned <$> pure dummyProtocolMagic
                                <*> arbitrary
                                <*> arbitraryUnsafe
                                <*> arbitraryUnsafe

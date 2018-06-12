@@ -58,13 +58,14 @@ import           Pos.Core.Slotting (EpochIndex (..), EpochOrSlot (..), LocalSlot
 import           Pos.Core.Ssc (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
 import           Pos.Core.Update (BlockVersionData (..))
 import qualified Pos.Core.Update as U
-import           Pos.Crypto (HasProtocolMagic, ProtocolMagic, createPsk, protocolMagic, toPublic)
+import           Pos.Crypto (ProtocolMagic, createPsk, toPublic)
 import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
 
 import           Pos.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Util.Util (leftToPanic)
 
 import           Test.Pos.Crypto.Arbitrary ()
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.Orphans ()
 import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating)
 
@@ -521,7 +522,7 @@ instance Arbitrary G.FakeAvvmOptions where
         faoOneBalance <- choose (5, 30)
         return G.FakeAvvmOptions {..}
 
-instance HasProtocolMagic => Arbitrary G.GenesisDelegation where
+instance Arbitrary G.GenesisDelegation where
     arbitrary =
         leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
             secretKeys <- sized (nonrepeating . min 10) -- we generate at most tens keys,
@@ -533,7 +534,7 @@ instance HasProtocolMagic => Arbitrary G.GenesisDelegation where
                     []                 -> []
                     (delegate:issuers) -> mkCert (toPublic delegate) <$> issuers
       where
-        mkCert delegatePk issuer = createPsk protocolMagic issuer delegatePk (HeavyDlgIndex 0)
+        mkCert delegatePk issuer = createPsk dummyProtocolMagic issuer delegatePk (HeavyDlgIndex 0)
 
 instance Arbitrary G.GenesisWStakeholders where
     arbitrary = G.GenesisWStakeholders <$> arbitrary
@@ -554,10 +555,10 @@ instance Arbitrary ProtocolConstants where
                                else (VssMinTTL vssA, VssMaxTTL vssB)
         ProtocolConstants <$> choose (1, 20000) <*> pure vssMin <*> pure vssMax
 
-instance HasProtocolMagic => Arbitrary G.GenesisProtocolConstants where
-    arbitrary = flip G.genesisProtocolConstantsFromProtocolConstants protocolMagic <$> arbitrary
+instance Arbitrary G.GenesisProtocolConstants where
+    arbitrary = flip G.genesisProtocolConstantsFromProtocolConstants dummyProtocolMagic <$> arbitrary
 
-instance (HasProtocolMagic, HasProtocolConstants) => Arbitrary G.GenesisData where
+instance (HasProtocolConstants) => Arbitrary G.GenesisData where
     arbitrary = G.GenesisData
         <$> arbitrary <*> arbitrary <*> arbitraryStartTime
         <*> arbitraryVssCerts <*> arbitrary <*> arbitraryBVD
@@ -602,8 +603,8 @@ genVssCertificate pm =
                         <*> arbitrary -- AsBinary VssPublicKey
                         <*> arbitrary -- EpochIndex
 
-instance HasProtocolMagic => Arbitrary VssCertificate where
-    arbitrary = genVssCertificate protocolMagic
+instance Arbitrary VssCertificate where
+    arbitrary = genVssCertificate dummyProtocolMagic
     -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.
 
 ----------------------------------------------------------------------------

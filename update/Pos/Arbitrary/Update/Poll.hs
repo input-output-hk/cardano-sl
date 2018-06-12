@@ -18,7 +18,6 @@ import           Pos.Arbitrary.Update.Core ()
 import           Pos.Binary.Core ()
 import           Pos.Binary.Update ()
 import           Pos.Core.Configuration (HasProtocolConstants)
-import           Pos.Crypto (HasProtocolMagic)
 import           Pos.Update.Poll.Modifier (PollModifier (..))
 import           Pos.Update.Poll.PollState (PollState (..), psActivePropsIdx)
 import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposalState (..),
@@ -31,7 +30,7 @@ instance Arbitrary UpsExtra where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary UndecidedProposalState where
+instance HasProtocolConstants => Arbitrary UndecidedProposalState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -39,15 +38,15 @@ instance Arbitrary DpsExtra where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary DecidedProposalState where
+instance HasProtocolConstants => Arbitrary DecidedProposalState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasProtocolMagic) => Arbitrary ConfirmedProposalState where
+instance Arbitrary ConfirmedProposalState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary ProposalState  where
+instance HasProtocolConstants => Arbitrary ProposalState  where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -55,17 +54,17 @@ instance Arbitrary BlockVersionState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary PollModifier where
+instance HasProtocolConstants => Arbitrary PollModifier where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary PollState where
+instance HasProtocolConstants => Arbitrary PollState where
     arbitrary = do
         ps <- genericArbitrary
         return (ps & psActivePropsIdx %~ HM.filter (not . null))
     shrink = genericShrink
 
-instance (HasProtocolConstants, HasProtocolMagic) => Arbitrary USUndo where
+instance HasProtocolConstants => Arbitrary USUndo where
     arbitrary = genericArbitrary
     shrink = genericShrink
 

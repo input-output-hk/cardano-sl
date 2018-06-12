@@ -22,7 +22,7 @@ import           Pos.Lrc.Fts (followTheSatoshi)
 import           Test.Pos.Util.QuickCheck.Property (qcNotElem)
 
 spec :: Spec
-spec = withGenesisSpec 0 defaultCoreConfiguration $ do
+spec = withGenesisSpec 0 defaultCoreConfiguration $ \_ -> do
   let smaller = modifyMaxSuccess (const 1)
   describe "Pos.Lrc.FtsPure" $ do
     describe "followTheSatoshi" $ do

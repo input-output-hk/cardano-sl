@@ -25,6 +25,9 @@ import           Pos.Block.Logic (verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.Block.Types (Blund)
 import           Pos.Core (GenesisData (..), HasConfiguration, blkSecurityParam, epochSlots,
                            genesisData, headerHash)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmptyNewestFirst,
+                                  nonEmptyOldestFirst, splitAtNewestFirst, toNewestFirst,
+                                  _NewestFirst)
 import           Pos.DB.Pure (dbPureDump)
 import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..), BlockEventGenT,
                                                BlockRollbackFailure (..), BlockRollbackResult (..),
@@ -33,9 +36,6 @@ import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..), BlockEvent
                                                pathSequence, runBlockEventGenT)
 import qualified Pos.GState as GS
 import           Pos.Launcher (HasConfigurations)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmptyNewestFirst,
-                                  nonEmptyOldestFirst, splitAtNewestFirst, toNewestFirst,
-                                  _NewestFirst)
 
 import           Test.Pos.Block.Logic.Event (BlockScenarioResult (..),
                                              DbNotEquivalentToSnapshot (..), runBlockScenario)
@@ -45,6 +45,7 @@ import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..)
                                             satisfySlotCheck)
 import           Test.Pos.Block.Property (blockPropertySpec)
 import           Test.Pos.Configuration (HasStaticConfigurations, withStaticConfigurations)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Property (splitIntoChunks, stopProperty)
 
 -- stack test cardano-sl --fast --test-arguments "-m Test.Pos.Block.Logic.Var"
@@ -84,49 +85,47 @@ verifyBlocksPrefixSpec = do
         "always succeeds for GState for which these blocks where generated " <>
         "as long as all these blocks are from the same epoch"
 
-verifyEmptyMainBlock
-    :: HasConfigurations => BlockProperty ()
+verifyEmptyMainBlock :: HasConfigurations => BlockProperty ()
 verifyEmptyMainBlock = do
-    emptyBlock <- fst <$> bpGenBlock (EnableTxPayload False) (InplaceDB False)
-    whenLeftM (lift $ verifyBlocksPrefix (one emptyBlock)) $
-        stopProperty . pretty
+    emptyBlock <- fst <$> bpGenBlock dummyProtocolMagic
+                                     (EnableTxPayload False)
+                                     (InplaceDB False)
+    whenLeftM (lift $ verifyBlocksPrefix dummyProtocolMagic (one emptyBlock))
+        $ stopProperty
+        . pretty
 
-verifyValidBlocks
-    :: HasConfigurations => BlockProperty ()
+verifyValidBlocks :: HasConfigurations => BlockProperty ()
 verifyValidBlocks = do
     bpGoToArbitraryState
-    blocks <-
-        map fst . toList <$>
-        bpGenBlocks Nothing (EnableTxPayload True) (InplaceDB False)
+    blocks <- map fst . toList <$> bpGenBlocks dummyProtocolMagic
+                                               Nothing
+                                               (EnableTxPayload True)
+                                               (InplaceDB False)
     pre (not $ null blocks)
-    let blocksToVerify =
-            OldestFirst $
-            case blocks of
-                -- impossible because of precondition (see 'pre' above)
-                [] -> error "verifyValidBlocks: impossible"
-                (block0:otherBlocks) ->
-                    let (otherBlocks', _) = span isRight otherBlocks
-                    in block0 :| otherBlocks'
-    verRes <-
-        lift $ satisfySlotCheck blocksToVerify $
-        verifyBlocksPrefix blocksToVerify
-    whenLeft verRes $
-        stopProperty . pretty
+    let blocksToVerify = OldestFirst $ case blocks of
+            -- impossible because of precondition (see 'pre' above)
+            [] -> error "verifyValidBlocks: impossible"
+            (block0 : otherBlocks) ->
+                let (otherBlocks', _) = span isRight otherBlocks
+                in  block0 :| otherBlocks'
+    verRes <- lift $ satisfySlotCheck blocksToVerify $ verifyBlocksPrefix
+        dummyProtocolMagic
+        blocksToVerify
+    whenLeft verRes $ stopProperty . pretty
 
 ----------------------------------------------------------------------------
 -- verifyAndApplyBlocks
 ----------------------------------------------------------------------------
 
-verifyAndApplyBlocksSpec
-    :: HasStaticConfigurations => Spec
-verifyAndApplyBlocksSpec = do
+verifyAndApplyBlocksSpec :: HasStaticConfigurations => Spec
+verifyAndApplyBlocksSpec =
     blockPropertySpec applyByOneOrAllAtOnceDesc (applyByOneOrAllAtOnce applier)
   where
     applier :: HasConfiguration => OldestFirst NE Blund -> BlockTestMode ()
     applier blunds =
         let blocks = map fst blunds
         in satisfySlotCheck blocks $
-           whenLeftM (verifyAndApplyBlocks True blocks) throwM
+           whenLeftM (verifyAndApplyBlocks dummyProtocolMagic True blocks) throwM
     applyByOneOrAllAtOnceDesc =
         "verifying and applying blocks one by one leads " <>
         "to the same GState as verifying and applying them all at once " <>
@@ -155,40 +154,39 @@ applyBlocksSpec = pass
 
 applyByOneOrAllAtOnce
     :: HasConfigurations
-       => (OldestFirst NE Blund -> BlockTestMode ())
-       -> BlockProperty ()
+    => (OldestFirst NE Blund -> BlockTestMode ())
+    -> BlockProperty ()
 applyByOneOrAllAtOnce applier = do
     bpGoToArbitraryState
-    blunds <-
-        getOldestFirst <$>
-        bpGenBlocks Nothing (EnableTxPayload True) (InplaceDB False)
+    blunds <- getOldestFirst <$> bpGenBlocks dummyProtocolMagic
+                                             Nothing
+                                             (EnableTxPayload True)
+                                             (InplaceDB False)
     pre (not $ null blunds)
     let blundsNE = OldestFirst (NE.fromList blunds)
-    stateAfter1by1 <-
-        lift $
-        GS.withClonedGState $ do
-            mapM_ (applier . one) (getOldestFirst blundsNE)
-            dbPureDump
-    chunks <- splitIntoChunks 5 (blunds)
-    stateAfterInChunks <-
-        lift $
-        GS.withClonedGState $ do
-            mapM_ (applier . OldestFirst) chunks
-            dbPureDump
-    stateAfterAllAtOnce <-
-        lift $ do
-            applier blundsNE
-            dbPureDump
+    stateAfter1by1 <- lift $ GS.withClonedGState $ do
+        mapM_ (applier . one) (getOldestFirst blundsNE)
+        dbPureDump
+    chunks             <- splitIntoChunks 5 (blunds)
+    stateAfterInChunks <- lift $ GS.withClonedGState $ do
+        mapM_ (applier . OldestFirst) chunks
+        dbPureDump
+    stateAfterAllAtOnce <- lift $ do
+        applier blundsNE
+        dbPureDump
     assert
-        (stateAfter1by1 == stateAfterInChunks &&
-         stateAfterInChunks == stateAfterAllAtOnce)
+        (  stateAfter1by1
+        == stateAfterInChunks
+        && stateAfterInChunks
+        == stateAfterAllAtOnce
+        )
 
 ----------------------------------------------------------------------------
 -- Block events
 ----------------------------------------------------------------------------
 
 blockEventSuccessSpec :: HasStaticConfigurations => Spec
-blockEventSuccessSpec = do
+blockEventSuccessSpec =
     blockPropertySpec blockEventSuccessDesc blockEventSuccessProp
   where
     blockEventSuccessDesc =
@@ -268,20 +266,24 @@ genSuccessWithForks = do
         uniform (["rekt", "kek", "mems", "peka"] :: NE Path)
 
 blockPropertyScenarioGen
-    :: HasConfigurations => BlockEventGenT QCGen BlockTestMode () -> BlockProperty BlockScenario
+    :: HasConfigurations
+    => BlockEventGenT QCGen BlockTestMode ()
+    -> BlockProperty BlockScenario
 blockPropertyScenarioGen m = do
     allSecrets <- getAllSecrets
     let genStakeholders = gdBootStakeholders genesisData
     g <- pick $ MkGen $ \qc _ -> qc
-    lift $ flip evalRandT g $ runBlockEventGenT allSecrets genStakeholders m
+    lift $ flip evalRandT g $ runBlockEventGenT dummyProtocolMagic
+                                                allSecrets
+                                                genStakeholders
+                                                m
 
 prettyScenario :: BlockScenario -> Text
 prettyScenario scenario = pretty (fmap (headerHash . fst) scenario)
 
-blockEventSuccessProp
-    :: HasConfigurations => BlockProperty ()
+blockEventSuccessProp :: HasConfigurations => BlockProperty ()
 blockEventSuccessProp = do
-    scenario <- blockPropertyScenarioGen $ genSuccessWithForks
+    scenario <- blockPropertyScenarioGen genSuccessWithForks
     let (scenario', checkCount) = enrichWithSnapshotChecking scenario
     when (checkCount <= 0) $ stopProperty $
         "No checks were generated, this is a bug in the test suite: " <>
@@ -291,8 +293,7 @@ blockEventSuccessProp = do
 runBlockScenarioAndVerify
     :: HasConfigurations => BlockScenario -> BlockProperty ()
 runBlockScenarioAndVerify bs =
-    verifyBlockScenarioResult =<<
-    lift (runBlockScenario bs)
+    verifyBlockScenarioResult =<< lift (runBlockScenario bs)
 
 verifyBlockScenarioResult :: BlockScenarioResult -> BlockProperty ()
 verifyBlockScenarioResult = \case
@@ -344,8 +345,7 @@ applyThroughEpochProp afterCross = do
 -- Forks
 ----------------------------------------------------------------------------
 
-singleForkSpec
-    :: HasStaticConfigurations => ForkDepth -> Spec
+singleForkSpec :: HasStaticConfigurations => ForkDepth -> Spec
 singleForkSpec fd = do
     blockPropertySpec singleForkDesc (singleForkProp fd)
   where

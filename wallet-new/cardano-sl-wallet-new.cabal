@@ -205,6 +205,7 @@ executable cardano-node
                        -O2
   build-depends:       base
                      , cardano-sl
+                     , cardano-sl-crypto
                      , cardano-sl-infra
                      , cardano-sl-networking
                      , cardano-sl-ssc

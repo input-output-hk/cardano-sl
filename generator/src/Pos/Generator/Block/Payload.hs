@@ -28,7 +28,7 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..), c
 import           Pos.Core (AddrSpendingData (..), Address (..), Coin, SlotId (..), addressHash,
                            coinToInteger, makePubKeyAddressBoot, unsafeIntegerToCoin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..), TxOutAux (..))
-import           Pos.Crypto (SecretKey, WithHash (..), fakeSigner, hash, toPublic)
+import           Pos.Crypto (ProtocolMagic, SecretKey, WithHash (..), fakeSigner, hash, toPublic)
 import           Pos.Generator.Block.Error (BlockGenError (..))
 import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode, MonadBlockGenBase)
 import           Pos.Generator.Block.Param (HasBlockGenParams (..), HasTxGenParams (..))
@@ -112,13 +112,12 @@ makeLenses ''GenTxData
 
 -- TODO: move to txp, think how to unite it with 'Test.Pos.Txp.Arbitrary'.
 -- | Generate valid 'TxPayload' using current global state.
-genTxPayload ::
-       forall ext g m.
-    ( RandomGen g
-    , MonadBlockGenBase m
-    , MonadTxpLocal (BlockGenMode ext m))
-    => BlockGenRandMode ext g m ()
-genTxPayload = do
+genTxPayload
+    :: forall ext g m
+     . (RandomGen g, MonadBlockGenBase m, MonadTxpLocal (BlockGenMode ext m))
+    => ProtocolMagic
+    -> BlockGenRandMode ext g m ()
+genTxPayload pm = do
     invAddrSpendingData <-
         unInvAddrSpendingData <$> view (blockGenParams . asSpendingData)
     -- We only leave outputs we have secret keys related to. Tx
@@ -207,18 +206,18 @@ genTxPayload = do
             getSigner addr =
                 note (SafeSignerNotFound addr) $
                 HM.lookup addr signers
-            makeTestTx i o = makeMPubKeyTxAddrs getSigner i o
+            makeTestTx i o = makeMPubKeyTxAddrs pm getSigner i o
             groupedInputs = OptimizeForSecurity
 
         eTx <- lift . lift $
-            createGenericTx mempty makeTestTx groupedInputs ownUtxo txOutAuxs changeAddrData
+            createGenericTx pm mempty makeTestTx groupedInputs ownUtxo txOutAuxs changeAddrData
         (txAux, _) <- either (throwM . BGFailedToCreate . pretty) pure eTx
 
         let tx = taTx txAux
         let txId = hash tx
         let txIns = _txInputs tx
         -- @txpProcessTx@ for BlockGenMode should be non-blocking
-        res <- lift . lift $ txpProcessTx (txId, txAux)
+        res <- lift . lift $ txpProcessTx pm (txId, txAux)
         case res of
             Left e  -> error $ "genTransaction@txProcessTransaction: got left: " <> pretty e
             Right _ -> do
@@ -239,11 +238,10 @@ genTxPayload = do
 -- | Generate random payload which is valid with respect to the current
 -- global state and mempool and add it to mempool.  Currently we are
 -- concerned only about tx payload, later we can add more stuff.
-genPayload ::
-       forall ext g m.
-       ( RandomGen g
-       , MonadBlockGenBase m
-       , MonadTxpLocal (BlockGenMode ext m))
-    => SlotId
+genPayload
+    :: forall ext g m
+     . (RandomGen g, MonadBlockGenBase m, MonadTxpLocal (BlockGenMode ext m))
+    => ProtocolMagic
+    -> SlotId
     -> BlockGenRandMode ext g m ()
-genPayload _ = genTxPayload
+genPayload pm _ = genTxPayload pm

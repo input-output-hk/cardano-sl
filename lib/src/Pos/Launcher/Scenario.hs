@@ -21,7 +21,7 @@ import           Pos.Context (getOurPublicKey)
 import           Pos.Core (GenesisData (gdBootStakeholders, gdHeavyDelegation),
                            GenesisDelegation (..), GenesisWStakeholders (..), addressHash,
                            gdFtsSeed, genesisData)
-import           Pos.Crypto (pskDelegatePk)
+import           Pos.Crypto (ProtocolMagic, pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
 import qualified Pos.GState as GS
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -106,12 +106,13 @@ runNode
     :: ( HasCompileInfo
        , WorkMode ctx m
        )
-    => NodeResources ext
+    => ProtocolMagic
+    -> NodeResources ext
     -> [Diffusion m -> m ()]
     -> Diffusion m -> m ()
-runNode nr plugins = runNode' nr workers' plugins
+runNode pm nr plugins = runNode' nr workers' plugins
   where
-    workers' = allWorkers nr
+    workers' = allWorkers pm nr
 
 -- | This function prints a very useful message when node is started.
 nodeStartMsg :: (HasUpdateConfiguration, WithLogger m) => m ()

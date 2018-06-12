@@ -30,15 +30,14 @@ import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.DB.DB as DB
 import qualified Pos.GState as GS
-import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
-import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..),
-                                     MonadSlotsData, SimpleSlottingStateVar,
-                                     mkSimpleSlottingStateVar)
+import           Pos.Infra.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
+                                     SimpleSlottingStateVar, mkSimpleSlottingStateVar)
 import qualified Pos.Infra.Slotting as Slot
+import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
 import           Pos.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem, TxpHolderTag,
                           mkTxpLocalData)
 import           Pos.Util (postfixLFields)
-import           Pos.Util.Mockable () -- need this for orphan instances :\
+import           Pos.Util.Mockable ()
 import           Pos.Util.Util (HasLens (..))
 
 import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, HasExplorerCSLInterface,
@@ -49,15 +48,16 @@ import           Pos.Explorer.Txp (ExplorerExtraModifier (..))
 
 -- Need Emulation because it has instance Mockable CurrentTime
 import           Mockable (Production, currentTime, runProduction)
-import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..),
-                                                jsonLogDefault)
+import           Pos.Infra.Util.JsonLog.Events (HasJsonLogConfig (..), jsonLogDefault)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
+import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import           Pos.WorkMode (MinWorkMode)
+
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (TestParams (..))
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 
 -------------------------------------------------------------------------------------
@@ -145,7 +145,7 @@ initExplorerTestContext tp@TestParams {..} = do
             { eticDBPureVar      = dbPureVar
             }
     liftIO $ runTestInitMode initCtx $ do
-        DB.initNodeDBs
+        DB.initNodeDBs dummyProtocolMagic
         lcLrcSync <- newTVarIO =<< mkLrcSyncData
         let _gscLrcContext = LrcContext {..}
         _gscSlogGState <- mkSlogGState

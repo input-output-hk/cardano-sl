@@ -36,11 +36,11 @@ import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..),
                                TxOutAux (..), TxPayload (..), TxProof (..), TxSigData (..),
                                mkTxPayload)
 import           Pos.Crypto (Hash, ProtocolMagic, SecretKey, SignTag (SignTx), hash, sign, toPublic)
-import           Pos.Crypto.Configuration (HasProtocolMagic, protocolMagic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Merkle (MerkleNode (..), MerkleRoot (..))
 
 import           Test.Pos.Crypto.Arbitrary (genRedeemSignature, genSignature)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 ----------------------------------------------------------------------------
 -- Arbitrary txp types
@@ -70,8 +70,8 @@ genTxInWitness pm = oneof
     , UnknownWitnessType <$> choose (3, 255) <*> scale (min 150) arbitrary
     ]
 
-instance HasProtocolMagic => Arbitrary TxInWitness where
-    arbitrary = genTxInWitness protocolMagic
+instance Arbitrary TxInWitness where
+    arbitrary = genTxInWitness dummyProtocolMagic
     shrink = \case
         UnknownWitnessType n a -> UnknownWitnessType n <$> shrink a
         ScriptWitness a b -> uncurry ScriptWitness <$> shrink (a, b)
@@ -164,9 +164,9 @@ goodTxToTxAux (GoodTx l) = TxAux tx witness
     tx = UnsafeTx (map (view _2) l) (map (toaOut . view _3) l) def
     witness = V.fromList $ NE.toList $ map (view _4) l
 
-instance HasProtocolMagic => Arbitrary GoodTx where
+instance Arbitrary GoodTx where
     arbitrary =
-        GoodTx <$> (buildProperTx protocolMagic <$> arbitrary <*> pure (identity, identity))
+        GoodTx <$> (buildProperTx dummyProtocolMagic <$> arbitrary <*> pure (identity, identity))
     shrink = const []  -- used to be “genericShrink”, but shrinking is broken
                        -- because naive shrinking may turn a good transaction
                        -- into a bad one (by setting one of outputs to 0, for
@@ -182,17 +182,17 @@ newtype DoubleInputTx = DoubleInputTx
     { getDoubleInputTx :: NonEmpty (Tx, TxIn, TxOutAux, TxInWitness)
     } deriving (Generic, Show)
 
-instance HasProtocolMagic => Arbitrary BadSigsTx where
+instance Arbitrary BadSigsTx where
     arbitrary = BadSigsTx <$> do
         goodTxList <- getGoodTx <$> arbitrary
         badSig <- arbitrary
         return $ map (set _4 badSig) goodTxList
     shrink = genericShrink
 
-instance HasProtocolMagic => Arbitrary DoubleInputTx where
+instance Arbitrary DoubleInputTx where
     arbitrary = DoubleInputTx <$> do
         inputs <- arbitrary
-        pure $ buildProperTx protocolMagic
+        pure $ buildProperTx dummyProtocolMagic
                              (NE.cons (NE.head inputs) inputs)
                              (identity, identity)
     shrink = const []
@@ -212,8 +212,8 @@ instance Arbitrary TxProof where
 genTxAux :: ProtocolMagic -> Gen TxAux
 genTxAux pm = TxAux <$> genTx <*> (V.fromList <$> listOf (genTxInWitness pm))
 
-instance HasProtocolMagic => Arbitrary TxAux where
-    arbitrary = genTxAux protocolMagic
+instance Arbitrary TxAux where
+    arbitrary = genTxAux dummyProtocolMagic
     shrink = genericShrink
 
 ----------------------------------------------------------------------------
@@ -232,6 +232,6 @@ genTxOutDist pm =
 genTxPayload :: ProtocolMagic -> Gen TxPayload
 genTxPayload pm = mkTxPayload <$> genTxOutDist pm
 
-instance HasProtocolMagic => Arbitrary TxPayload where
-    arbitrary = genTxPayload protocolMagic
+instance Arbitrary TxPayload where
+    arbitrary = genTxPayload dummyProtocolMagic
     shrink = genericShrink

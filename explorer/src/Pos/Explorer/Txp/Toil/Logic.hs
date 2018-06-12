@@ -21,8 +21,9 @@ import           System.Wlog (logError)
 
 import           Pos.Core (Address, BlockVersionData, Coin, EpochIndex, HasConfiguration,
                            HeaderHash, Timestamp, mkCoin, sumCoins, unsafeAddCoin, unsafeSubCoin)
+import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxOut (..), TxOutAux (..), TxUndo, _TxOut)
-import           Pos.Crypto (WithHash (..), hash)
+import           Pos.Crypto (ProtocolMagic, WithHash (..), hash)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
 import           Pos.Explorer.Txp.Toil.Monad (EGlobalToilM, ELocalToilM, ExplorerExtraM,
                                               delAddrBalance, delTxExtra,
@@ -35,7 +36,6 @@ import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Txp.Toil (ToilVerFailure (..), extendGlobalToilM, extendLocalToilM)
 import qualified Pos.Txp.Toil as Txp
 import           Pos.Txp.Topsort (topsortTxs)
-import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Util.Util (Sign (..))
 
 ----------------------------------------------------------------------------
@@ -89,15 +89,16 @@ eRollbackToil txun = do
 
 -- | Verify one transaction and also add it to mem pool and apply to utxo
 -- if transaction is valid.
-eProcessTx ::
-       (HasTxpConfiguration, HasConfiguration)
-    => BlockVersionData
+eProcessTx
+    :: HasTxpConfiguration
+    => ProtocolMagic
+    -> BlockVersionData
     -> EpochIndex
     -> (TxId, TxAux)
     -> (TxUndo -> TxExtra)
     -> ExceptT ToilVerFailure ELocalToilM ()
-eProcessTx bvd curEpoch tx@(id, aux) createExtra = do
-    undo <- mapExceptT extendLocalToilM $ Txp.processTx bvd curEpoch tx
+eProcessTx pm bvd curEpoch tx@(id, aux) createExtra = do
+    undo <- mapExceptT extendLocalToilM $ Txp.processTx pm bvd curEpoch tx
     lift $ explorerExtraMToELocalToilM $ do
         let extra = createExtra undo
         putTxExtraWithHistory id extra $ getTxRelatedAddrs aux undo
@@ -107,17 +108,18 @@ eProcessTx bvd curEpoch tx@(id, aux) createExtra = do
 
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
-eNormalizeToil ::
-       (HasTxpConfiguration, HasConfiguration)
-    => BlockVersionData
+eNormalizeToil
+    :: HasTxpConfiguration
+    => ProtocolMagic
+    -> BlockVersionData
     -> EpochIndex
     -> [(TxId, (TxAux, TxExtra))]
     -> ELocalToilM ()
-eNormalizeToil bvd curEpoch txs = mapM_ normalize ordered
+eNormalizeToil pm bvd curEpoch txs = mapM_ normalize ordered
   where
     ordered = fromMaybe txs $ topsortTxs wHash txs
     wHash (i, (txAux, _)) = WithHash (taTx txAux) i
-    normalize = runExceptT . uncurry (eProcessTx bvd curEpoch) . repair
+    normalize = runExceptT . uncurry (eProcessTx pm bvd curEpoch) . repair
     repair (i, (txAux, extra)) = ((i, txAux), const extra)
 
 ----------------------------------------------------------------------------

@@ -16,8 +16,8 @@ module Pos.Block.Network.Logic
 import           Universum
 
 import           Control.Concurrent.STM (isFullTBQueue, readTVar, writeTBQueue, writeTVar)
-import           Control.Exception.Safe (Exception (..))
 import           Control.Exception (IOException)
+import           Control.Exception.Safe (Exception (..))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as M
 import qualified Data.Text.Buildable as B
@@ -39,23 +39,21 @@ import           Pos.Block.Types (Blund, LastKnownHeaderTag)
 import           Pos.Core (HasHeaderHash (..), HeaderHash, gbHeader, headerHashG, isMoreDifficult,
                            prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader, blockHeader)
-import           Pos.Crypto (shortHashF)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
+                                  _OldestFirst)
+import           Pos.Crypto (ProtocolMagic, shortHashF)
 import qualified Pos.DB.Block.Load as DB
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 import           Pos.Infra.Communication.Protocol (NodeId)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (announceBlockHeader, requestTip))
 import           Pos.Infra.Recovery.Info (recoveryInProgress)
-import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..),
-                                               MisbehaviorMetrics (..))
+import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Infra.StateLock (Priority (..), modifyStateLock)
-import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..),
-                                                jlAdoptedBlock)
+import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason (..), jlAdoptedBlock)
 import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util (buildListBounds, multilineBounds, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
-                                  _OldestFirst)
 import           Pos.Util.Util (lensOf)
 
 ----------------------------------------------------------------------------
@@ -98,8 +96,8 @@ instance Exception BlockNetLogicException where
 triggerRecovery
     :: ( BlockWorkMode ctx m
        )
-    => Diffusion m -> m ()
-triggerRecovery diffusion = unlessM recoveryInProgress $ do
+    => ProtocolMagic -> Diffusion m -> m ()
+triggerRecovery pm diffusion = unlessM recoveryInProgress $ do
     logDebug "Recovery triggered, requesting tips from neighbors"
     -- The 'catch' here is for an exception when trying to enqueue the request.
     -- In 'requestTipsAndProcess', IO exceptions are caught, for each
@@ -122,7 +120,7 @@ triggerRecovery diffusion = unlessM recoveryInProgress $ do
         -- downloaded.
         bh <- mbh
         -- I know, it's not unsolicited. TODO rename.
-        handleUnsolicitedHeader bh nodeId
+        handleUnsolicitedHeader pm bh nodeId
 
 ----------------------------------------------------------------------------
 -- Headers processing
@@ -131,14 +129,15 @@ triggerRecovery diffusion = unlessM recoveryInProgress $ do
 handleUnsolicitedHeader
     :: ( BlockWorkMode ctx m
        )
-    => BlockHeader
+    => ProtocolMagic
+    -> BlockHeader
     -> NodeId
     -> m ()
-handleUnsolicitedHeader header nodeId = do
+handleUnsolicitedHeader pm header nodeId = do
     logDebug $ sformat
         ("handleUnsolicitedHeader: single header was propagated, processing:\n"
          %build) header
-    classificationRes <- classifyNewHeader header
+    classificationRes <- classifyNewHeader pm header
     -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
     case classificationRes of
         CHContinues -> do
@@ -222,10 +221,11 @@ handleBlocks
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => OldestFirst NE Block
+    => ProtocolMagic
+    -> OldestFirst NE Block
     -> Diffusion m
     -> m ()
-handleBlocks blocks diffusion = do
+handleBlocks pm blocks diffusion = do
     logDebug "handleBlocks: processing"
     inAssertMode $ logInfo $
         sformat ("Processing sequence of blocks: " % buildListBounds % "...") $
@@ -243,8 +243,8 @@ handleBlocks blocks diffusion = do
         logDebug $ sformat ("Handling block w/ LCA, which is "%shortHashF) lcaHash
         -- Head blund in result is the youngest one.
         toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
-        maybe (applyWithoutRollback diffusion blocks)
-              (applyWithRollback diffusion blocks lcaHash)
+        maybe (applyWithoutRollback pm diffusion blocks)
+              (applyWithRollback pm diffusion blocks lcaHash)
               (_NewestFirst nonEmpty toRollback)
 
 applyWithoutRollback
@@ -252,10 +252,11 @@ applyWithoutRollback
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => Diffusion m
+    => ProtocolMagic
+    -> Diffusion m
     -> OldestFirst NE Block
     -> m ()
-applyWithoutRollback diffusion blocks = do
+applyWithoutRollback pm diffusion blocks = do
     logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ blocks
     modifyStateLock HighPriority ApplyBlock applyWithoutRollbackDo >>= \case
@@ -284,7 +285,7 @@ applyWithoutRollback diffusion blocks = do
         :: HeaderHash -> m (HeaderHash, Either ApplyBlocksException HeaderHash)
     applyWithoutRollbackDo curTip = do
         logInfo "Verifying and applying blocks..."
-        res <- verifyAndApplyBlocks False blocks
+        res <- verifyAndApplyBlocks pm False blocks
         logInfo "Verifying and applying blocks done"
         let newTip = either (const curTip) identity res
         pure (newTip, res)
@@ -293,17 +294,18 @@ applyWithRollback
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => Diffusion m
+    => ProtocolMagic
+    -> Diffusion m
     -> OldestFirst NE Block
     -> HeaderHash
     -> NewestFirst NE Blund
     -> m ()
-applyWithRollback diffusion toApply lca toRollback = do
+applyWithRollback pm diffusion toApply lca toRollback = do
     logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ toApply
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
     res <- modifyStateLock HighPriority ApplyBlockWithRollback $ \curTip -> do
-        res <- L.applyWithRollback toRollback toApplyAfterLca
+        res <- L.applyWithRollback pm toRollback toApplyAfterLca
         pure (either (const curTip) identity res, res)
     case res of
         Left (pretty -> err) ->

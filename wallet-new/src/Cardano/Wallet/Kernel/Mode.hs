@@ -96,12 +96,13 @@ instance MonadBListener WalletMode where
 -------------------------------------------------------------------------------}
 
 runWalletMode :: forall a. (HasConfigurations, HasCompileInfo)
-              => NodeResources ()
+              => ProtocolMagic
+              -> NodeResources ()
               -> PassiveWalletLayer Production
               -> (Diffusion WalletMode -> WalletMode a)
               -> Production a
-runWalletMode nr wallet action =
-    Production $ runRealMode nr $ \diffusion ->
+runWalletMode pm nr wallet action =
+    Production $ runRealMode pm nr $ \diffusion ->
         walletModeToRealMode wallet (action (hoistDiffusion realModeToWalletMode diffusion))
 
 walletModeToRealMode :: forall a. PassiveWalletLayer Production -> WalletMode a -> RealMode () a

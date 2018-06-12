@@ -33,7 +33,7 @@ import           System.Wlog (WithLogger, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HeaderHash,
+import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HeaderHash, ProtocolMagic,
                            SlotId (..), slotIdF)
 import           Pos.Core.Update (UpId, UpdatePayload (..), UpdateProposal, UpdateVote (..))
 import           Pos.Crypto (PublicKey, shortHashF)
@@ -121,9 +121,10 @@ processSkeleton ::
        ( USLocalLogicModeWithLock ctx m
        , MonadReporting m
        )
-    => UpdatePayload
+    => ProtocolMagic
+    -> UpdatePayload
     -> m (Either PollVerFailure ())
-processSkeleton payload =
+processSkeleton pm payload =
     reportUnexpectedError $
     withUSLock $
     runExceptT $
@@ -150,7 +151,7 @@ processSkeleton payload =
         modifierOrFailure <-
             lift . runDBPoll . runExceptT . evalPollT msModifier . execPollT def $ do
                 lastAdopted <- getAdoptedBV
-                verifyAndApplyUSPayload lastAdopted True (Left msSlot) payload
+                verifyAndApplyUSPayload pm lastAdopted True (Left msSlot) payload
         case modifierOrFailure of
             Left failure -> throwError failure
             Right modifier -> do
@@ -213,8 +214,8 @@ processProposal
     :: ( USLocalLogicModeWithLock ctx m
        , MonadReporting m
        )
-    => UpdateProposal -> m (Either PollVerFailure ())
-processProposal proposal = processSkeleton $ UpdatePayload (Just proposal) []
+    => ProtocolMagic -> UpdateProposal -> m (Either PollVerFailure ())
+processProposal pm proposal = processSkeleton pm $ UpdatePayload (Just proposal) []
 
 ----------------------------------------------------------------------------
 -- Votes
@@ -264,8 +265,8 @@ processVote
     :: ( USLocalLogicModeWithLock ctx m
        , MonadReporting m
        )
-    => UpdateVote -> m (Either PollVerFailure ())
-processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
+    => ProtocolMagic -> UpdateVote -> m (Either PollVerFailure ())
+processVote pm vote = processSkeleton pm $ UpdatePayload Nothing [vote]
 
 ----------------------------------------------------------------------------
 -- Normalization and related

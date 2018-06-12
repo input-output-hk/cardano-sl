@@ -19,15 +19,16 @@ import           Pos.Util.CompileInfo (withCompileInfo)
 import           Test.Pos.Block.Logic.Mode (blockPropertyTestable)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock)
 import           Test.Pos.Configuration (HasStaticConfigurations, withStaticConfigurations)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
--- | 
+-- |
 -- The binary encoding of `MsgSerializedBlock` using `serializeMsgSerializedBlock`
 -- should be the same as the binary encoding of `MsgBlock`.
 serializeMsgSerializedBlockSpec
     :: (HasStaticConfigurations) => Spec
 serializeMsgSerializedBlockSpec = do
     prop desc $ blockPropertyTestable $ do
-        (block, _) <- bpGenBlock (EnableTxPayload True) (InplaceDB True)
+        (block, _) <- bpGenBlock dummyProtocolMagic (EnableTxPayload True) (InplaceDB True)
         let sb = Serialized $ serialize' block
         assert $ serializeMsgSerializedBlock (MsgSerializedBlock sb) == serialize' (MsgBlock block)
     prop descNoBlock $ blockPropertyTestable $ do
@@ -48,10 +49,10 @@ deserializeSerilizedMsgSerializedBlockSpec
     :: (HasStaticConfigurations) => Spec
 deserializeSerilizedMsgSerializedBlockSpec = do
     prop desc $ blockPropertyTestable $ do
-        (block, _) <- bpGenBlock (EnableTxPayload True) (InplaceDB True)
+        (block, _) <- bpGenBlock dummyProtocolMagic (EnableTxPayload True) (InplaceDB True)
         let sb = Serialized $ serialize' block
         let msg :: Either Text MsgBlock
-            msg = decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ MsgSerializedBlock sb 
+            msg = decodeFull . BSL.fromStrict . serializeMsgSerializedBlock $ MsgSerializedBlock sb
         assert $ msg == Right (MsgBlock block)
     prop descNoBlock $ blockPropertyTestable $ do
         let msg :: MsgSerializedBlock
@@ -64,5 +65,5 @@ deserializeSerilizedMsgSerializedBlockSpec = do
 spec :: Spec
 spec = withStaticConfigurations $ \_ -> withCompileInfo def $
     describe "Pos.Binary.Communication" $ do
-        describe "serializeMsgSerializedBlock" $ serializeMsgSerializedBlockSpec
-        describe "decode is left inverse of serializeMsgSerializedBlock" $ deserializeSerilizedMsgSerializedBlockSpec
+        describe "serializeMsgSerializedBlock" serializeMsgSerializedBlockSpec
+        describe "decode is left inverse of serializeMsgSerializedBlock" deserializeSerilizedMsgSerializedBlockSpec

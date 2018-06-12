@@ -211,6 +211,7 @@ extra-deps:
 - diagrams-solve-0.1.1
 - SVGFonts-1.6.0.3
 - dual-tree-0.2.1
+- pretty-show-1.6.16
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

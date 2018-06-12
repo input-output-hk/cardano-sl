@@ -26,11 +26,11 @@ import           Serokell.Util (listJson, mapJson)
 import           System.Wlog (WithLogger, logDebug)
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (ComponentBlock (..), EpochIndex (..),
-                           StakeholderId, addressHash, epochIndexL, gbHeader,
-                           headerHash, prevBlockL, siEpoch)
+import           Pos.Core (ComponentBlock (..), EpochIndex (..), StakeholderId, addressHash,
+                           epochIndexL, gbHeader, headerHash, prevBlockL, siEpoch)
 import           Pos.Core.Block (Block, mainBlockDlgPayload, mainBlockSlot)
-import           Pos.Crypto (ProxySecretKey (..), shortHashF)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), shortHashF)
 import           Pos.DB (DBError (DBMalformed), MonadDBRead, SomeBatchOp (..))
 import qualified Pos.DB as DB
 import qualified Pos.DB.GState.Common as GS
@@ -49,7 +49,6 @@ import           Pos.Lrc.Consumer.Delegation (getDlgRichmen)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenSet)
 import           Pos.Util (getKeys, _neHead)
-import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 
 
 -- Copied from 'these' library.
@@ -320,9 +319,10 @@ dlgVerifyBlocks ::
        , MonadReader ctx m
        , HasLrcContext ctx
        )
-    => OldestFirst NE Block
+    => ProtocolMagic
+    -> OldestFirst NE Block
     -> ExceptT Text m (OldestFirst NE DlgUndo)
-dlgVerifyBlocks blocks = do
+dlgVerifyBlocks pm blocks = do
     richmen <- lift $ getDlgRichmen "dlgVerifyBlocks" headEpoch
     hoist (evalMapCede emptyCedeModifier) $ mapM (verifyBlock richmen) blocks
   where
@@ -360,6 +360,7 @@ dlgVerifyBlocks blocks = do
                 -- delete/override), apply new psks.
                 toRollback <- fmap catMaybes $ forM proxySKs $ \psk ->do
                     dlgVerifyPskHeavy
+                        pm
                         richmen
                         (CheckForCycle False)
                         (blk ^. mainBlockSlot . to siEpoch)
@@ -498,12 +499,12 @@ dlgNormalizeOnRollback ::
        , HasLrcContext ctx
        , Mockable CurrentTime m
        )
-    => m ()
-dlgNormalizeOnRollback = do
+    => ProtocolMagic -> m ()
+dlgNormalizeOnRollback pm = do
     tip <- DB.getTipHeader
     oldPool <- runDelegationStateAction $ do
         pool <- uses dwProxySKPool toList
         dwProxySKPool .= mempty
         dwTip .= headerHash tip
         pure pool
-    forM_ oldPool $ processProxySKHeavyInternal
+    forM_ oldPool $ processProxySKHeavyInternal pm

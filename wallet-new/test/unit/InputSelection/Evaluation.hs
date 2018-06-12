@@ -773,14 +773,14 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
 
     largest, randomOff, randomOn :: Hash h World => NamedPolicy h
     largest   = NamedPolicy "largest"   $ simpleCompPolicy (largestFirst)
-    randomOff = NamedPolicy "randomOff" $ simpleCompPolicy (random PrivacyModeOff)
-    randomOn  = NamedPolicy "randomOn"  $ simpleCompPolicy (random PrivacyModeOn)
+    randomOff = NamedPolicy "randomOff" $ simpleCompPolicy (random 50 PrivacyModeOff)
+    randomOn  = NamedPolicy "randomOn"  $ simpleCompPolicy (random 50 PrivacyModeOn)
 
     largeThenRandom :: Hash h World => Int -> NamedPolicy h
     largeThenRandom = NamedPolicy "largeThenRandom" .
                         firstThen
                           largestFirst
-                          (random PrivacyModeOn)
+                          (random 10 PrivacyModeOn)
 
 
 

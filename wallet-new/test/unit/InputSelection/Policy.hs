@@ -4,7 +4,10 @@
 
 module InputSelection.Policy (
     InputSelectionPolicy
-  , InputSelectionFailure(..)
+    -- * Failures
+  , InputSelectionHardError(..)
+  , InputSelectionSoftError(..)
+  , InputSelectionError
     -- * Monad constriants
   , LiftQuickCheck(..)
   , RunPolicy(..)
@@ -164,10 +167,22 @@ instance Monoid TxStats where
 type InputSelectionPolicy utxo h a m =
       utxo h a
    -> [Output a]
-   -> m (Either InputSelectionFailure (Transaction h a, TxStats, Utxo h a))
+   -> m (Either InputSelectionHardError (Transaction h a, TxStats, Utxo h a))
 
 {-------------------------------------------------------------------------------
   Failures
 -------------------------------------------------------------------------------}
 
-data InputSelectionFailure = InputSelectionFailure
+-- | This input selection request is unsatisfiable
+--
+-- These are errors we cannot recover from.
+data InputSelectionHardError = InputSelectionHardError
+
+-- | The input selection request failed
+--
+-- The algorithm failed to find a solution, but that doesn't necessarily mean
+-- that there isn't one.
+data InputSelectionSoftError = InputSelectionSoftError
+
+-- | Union of the two kinds of input selection failures
+type InputSelectionError = Either InputSelectionHardError InputSelectionSoftError

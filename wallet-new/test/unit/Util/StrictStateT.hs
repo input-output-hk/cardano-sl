@@ -2,6 +2,7 @@
 module Util.StrictStateT (
     StrictStateT -- opaque
   , runStrictStateT
+  , strictStateT
     -- * Conduit support
   , strictStateC
   , execStrictStateC
@@ -30,6 +31,12 @@ instance Monad m => MonadState s (StrictStateT s m) where
 
 runStrictStateT :: StrictStateT s m a -> s -> m (a, s)
 runStrictStateT = runStateT . unStrictStateT
+
+strictStateT :: forall s m a. Monad m => (s -> m (a, s)) -> StrictStateT s m a
+strictStateT f = StrictStateT $ StateT f'
+  where
+    f' :: s -> m (a, s)
+    f' s = do (a, !s') <- f s ; return (a, s')
 
 {-------------------------------------------------------------------------------
   Conduit support

@@ -4,6 +4,8 @@
 module InputSelection.Policy.InputPolicyT (
     InputPolicyT -- opaque
   , runInputPolicyT
+  , catchSoftError
+  , mapInputPolicyErrors
     -- * State
   , ipsUtxo
   , ipsSelectedInputs
@@ -99,36 +101,61 @@ fromPartialTxStats PartialTxStats{..} = TxStats{
 -------------------------------------------------------------------------------}
 
 -- | Monad that can be uesd to define input selection policies
-newtype InputPolicyT utxo h a m x = InputPolicyT {
+newtype InputPolicyT utxo e h a m x = InputPolicyT {
       unInputPolicyT :: StrictStateT
                           (InputPolicyState utxo h a)
-                          (ExceptT InputSelectionFailure m)
+                          (ExceptT e m)
                           x
     }
   deriving ( Functor
            , Applicative
            , Monad
            , MonadState (InputPolicyState utxo h a)
-           , MonadError InputSelectionFailure
+           , MonadError e
            )
 
-instance MonadTrans (InputPolicyT utxo h a) where
+-- | Unwrap the 'InputPolicyT' stack
+--
+-- NOTE: This stack is carefully defined so that if an error occurs, we do
+-- /not/ get a final state value. This means that when we catch errors and
+-- provide error handlers, those error handlers will run with the state as it
+-- was /before/ the action they wrapped.
+unwrapInputPolicyT :: InputPolicyT utxo e h a m x
+                   -> InputPolicyState utxo h a
+                   -> m (Either e (x, InputPolicyState utxo h a))
+unwrapInputPolicyT act st = runExceptT (runStrictStateT (unInputPolicyT act) st)
+
+-- | Inverse of 'unwrapInputPolicyT'
+wrapInputPolicyT :: Monad m
+                 => (    InputPolicyState utxo h a
+                      -> m (Either e (x, InputPolicyState utxo h a)) )
+                 -> InputPolicyT utxo e h a m x
+wrapInputPolicyT f = InputPolicyT $ strictStateT $ \st -> ExceptT $ f st
+
+-- | Change errors
+mapInputPolicyErrors :: Monad m
+                     => (e -> e')
+                     -> InputPolicyT utxo e  h a m x
+                     -> InputPolicyT utxo e' h a m x
+mapInputPolicyErrors f act = wrapInputPolicyT $ \st ->
+    bimap f identity <$> unwrapInputPolicyT act st
+
+instance MonadTrans (InputPolicyT utxo e h a) where
   lift = InputPolicyT . lift . lift
 
-instance LiftQuickCheck m => LiftQuickCheck (InputPolicyT utxo h a m) where
+instance LiftQuickCheck m => LiftQuickCheck (InputPolicyT utxo e h a m) where
   liftQuickCheck = lift . liftQuickCheck
 
-instance RunPolicy m a => RunPolicy (InputPolicyT utxo h a m) a where
+instance RunPolicy m a => RunPolicy (InputPolicyT utxo e h a m) a where
   genChangeAddr = lift genChangeAddr
   genFreshHash  = lift genFreshHash
 
 runInputPolicyT :: RunPolicy m a
                 => utxo h a
-                -> InputPolicyT utxo h a m PartialTxStats
-                -> m (Either InputSelectionFailure
-                             (Transaction h a, TxStats, DSL.Utxo h a))
+                -> InputPolicyT utxo e h a m PartialTxStats
+                -> m (Either e (Transaction h a, TxStats, DSL.Utxo h a))
 runInputPolicyT utxo policy = do
-     mx <- runExceptT (runStrictStateT (unInputPolicyT policy) initSt)
+     mx <- unwrapInputPolicyT policy initSt
      case mx of
        Left err ->
          return $ Left err
@@ -148,3 +175,16 @@ runInputPolicyT utxo policy = do
            )
   where
     initSt = initInputPolicyState utxo
+
+-- | Catch only recoverable errors
+catchSoftError :: Monad m
+               => InputPolicyT utxo InputSelectionError h a m x
+               -> (InputSelectionSoftError ->
+                     InputPolicyT utxo InputSelectionHardError h a m x)
+               -> InputPolicyT utxo InputSelectionHardError h a m x
+catchSoftError act handler = wrapInputPolicyT $ \st -> do
+    ma <- unwrapInputPolicyT act st
+    case ma of
+      Left (Right err) -> unwrapInputPolicyT (handler err) st
+      Left (Left err)  -> return $ Left err
+      Right a          -> return $ Right a

@@ -28,11 +28,12 @@ largestFirst :: forall h a m. (RunPolicy m a, Hash h a)
 largestFirst utxo = \goals -> runInputPolicyT utxo $
     mconcat <$> mapM go goals
   where
-    go :: Output a -> InputPolicyT SortedUtxo h a m PartialTxStats
+    go :: Output a
+       -> InputPolicyT SortedUtxo InputSelectionHardError h a m PartialTxStats
     go goal@(Output _a val) = do
         sorted   <- use ipsUtxo
         selected <- case select sorted DSL.utxoEmpty 0 of
-                      Nothing -> throwError InputSelectionFailure
+                      Nothing -> throwError InputSelectionHardError
                       Just u  -> return u
 
         ipsUtxo             %= utxoRemoveInputs selected

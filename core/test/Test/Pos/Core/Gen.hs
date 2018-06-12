@@ -75,12 +75,14 @@ module Test.Pos.Core.Gen
         , genScriptWitness
         , genTx
         , genTxAttributes
+        , genTxAux
         , genTxHash
         , genTxId
         , genTxIn
         , genTxInList
         , genTxInWitness
         , genTxOut
+        , genTxOutAux
         , genTxOutList
         , genTxPayload
         , genTxProof
@@ -159,11 +161,12 @@ import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
                                SignedCommitment, SscPayload (..), SscProof,
                                VssCertificate (..), VssCertificatesHash,
                                VssCertificatesMap (..))
-import           Pos.Core.Txp (TxAttributes, Tx (..), TxId, TxIn (..),
-                               TxInWitness (..), TxOut (..), TxPayload (..),
-                               TxProof (..), TxSig, TxSigData (..), TxWitness)
+import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxId,
+                               TxIn (..), TxInWitness (..), TxOut (..),
+                               TxOutAux (..), TxPayload (..), TxProof (..),
+                               TxSig, TxSigData (..), TxWitness)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
-                                  BlockVersionModifier (..), SoftforkRule(..),
+                                  BlockVersionModifier (..), SoftforkRule (..),
                                   SoftwareVersion (..), SystemTag (..),
                                   UpAttributes, UpdateData (..),
                                   UpdatePayload (..), UpdateProof,
@@ -553,6 +556,9 @@ genTx = UnsafeTx <$> genTxInList <*> genTxOutList <*> genTxAttributes
 genTxAttributes :: Gen TxAttributes
 genTxAttributes = pure $ mkAttributes ()
 
+genTxAux :: Gen TxAux
+genTxAux = TxAux <$> genTx <*> genTxWitness
+
 genTxHash :: Gen (Hash Tx)
 genTxHash = hash <$> genTx
 
@@ -568,6 +574,9 @@ genTxInList = Gen.nonEmpty (Range.constant 1 100) genTxIn
 
 genTxOut :: Gen TxOut
 genTxOut = TxOut <$> genAddress <*> genCoin
+
+genTxOutAux :: Gen TxOutAux
+genTxOutAux = TxOutAux <$> genTxOut
 
 genTxOutList :: Gen (NonEmpty TxOut)
 genTxOutList = Gen.nonEmpty (Range.constant 1 100) genTxOut

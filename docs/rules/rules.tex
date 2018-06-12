@@ -528,6 +528,14 @@ specified in the initial state and can be further modified by updates.
 \item[Initial stake distribution] We assume an \emph{initial stake
     distribution} $\initialdistribution ∈ \stakedistributions$.
 
+  Addresses in the support of the initial stake distribution are
+  referred to as \emph{redeem address}. These address can't receive
+  new coins in the chain.\info{This is not entirely accurate. In the
+    Cardano data types there are Redeem address which are not in the
+    support of the initial distribution, nothing can be done with
+    them. It may be more accurate to split the type of agent ids in
+    two disjoint subsets.}
+
 \item[Initial seed] A distinguished seed $\initialseed ∈ \seeds$.
 
 \item[Minimum fee] We assume a function $\minimumfee{⋅} ∈ \txs ⟶ ℕ$,
@@ -541,8 +549,7 @@ specified in the initial state and can be further modified by updates.
   transactions are present ``in the initial state''. They represent
   the initial assets in the system. Their inputs are
   meaningless.\improvement{We may want to compute the initial
-    distribution based on $\txinit$.}\improvement{This doesn't model
-    the ATRedeem story. Does it matter?}
+    distribution based on $\txinit$.}
 
 \item[Epoch] We assume a pair or functions $\epoch{⋅}∈ℕ⟶ℕ$ and
   $\epochslot{⋅}∈ℕ⟶ℕ$, the \emph{epoch decomposition} of a slot, such
@@ -638,6 +645,8 @@ $b_1,…,b_n$ if all of the following hold
     \item[Valid outputs] All the outputs of the transaction must have
       amount $a > 0$.
     \item[No double-spending] The list of inputs contains no duplicate.
+    \item[No redeem output] For every $out∈\outputs{τ}$,
+      $\initialdistribution(\recipient{out})=0$.
     \end{description}
   \item[Stateful] Stateful transaction validation rules for a transaction $τ$
     are parametrised by a list of transactions $τ_1,…,τ_m$ which we will abridge
@@ -671,6 +680,14 @@ $b_1,…,b_n$ if all of the following hold
       the total amount of inputs. A minimum fee must be paid.
       $$
       \minimumfee{τ} + ∑_{o∈\outputs{τ}} \amount{o}⩽ ∑_{i∈\inputs{τ}} \amount{i}
+      $$
+
+      If for every $i∈\inputs{τ}$,
+      $\initialdistribution{\recipient{i}}>0$, that is all the inputs
+      are from redeem addresses, then no fee need be paid, and the
+      rules become:
+      $$
+      ∑_{o∈\outputs{τ}} \amount{o}⩽ ∑_{i∈\inputs{τ}} \amount{i}
       $$
     \item[Authorised] The list of witnesses has the same length as the
       list of inputs
@@ -1086,6 +1103,8 @@ those of the selected chain) when
     \item[Valid outputs] All the outputs of the transaction must have
       amount $a > 0$.
     \item[No double-spending] The list of inputs contains no duplicate.
+    \item[No redeem output] For every $out∈\outputs{τ}$,
+      $\initialdistribution(\recipient{out})=0$.
     \end{description}
   \item[Stateful]\hfill
     \begin{description}
@@ -1112,6 +1131,14 @@ those of the selected chain) when
       the total amount of input. A minimum fee must be paid.
       $$
       \minimumfee{τ} + ∑_{o∈\outputs{τ}} \amount{o}⩽ ∑_{i∈\inputs{τ}} \amount{i}
+      $$
+
+      If for every $i∈\inputs{τ}$,
+      $\initialdistribution{\recipient{i}}>0$, that is all the inputs
+      are from redeem addresses, then no fee need be paid, and the
+      rules become:
+      $$
+      ∑_{o∈\outputs{τ}} \amount{o}⩽ ∑_{i∈\inputs{τ}} \amount{i}
       $$
     \item[Authorised] The list of witnesses has the same length as the
       list of inputs

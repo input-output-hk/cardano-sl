@@ -63,6 +63,10 @@ library
                        Cardano.Wallet.Kernel
                        Cardano.Wallet.Kernel.Actions
                        Cardano.Wallet.Kernel.CoinSelection
+                       Cardano.Wallet.Kernel.CoinSelection.FromGeneric
+                       Cardano.Wallet.Kernel.CoinSelection.Generic
+                       Cardano.Wallet.Kernel.CoinSelection.Generic.LargestFirst
+                       Cardano.Wallet.Kernel.CoinSelection.Generic.Random
                        Cardano.Wallet.Kernel.CoinSelection.Policies
                        Cardano.Wallet.Kernel.CoinSelection.Types
                        Cardano.Wallet.Kernel.DB.AcidState
@@ -84,6 +88,7 @@ library
                        Cardano.Wallet.Kernel.PrefilterTx
                        Cardano.Wallet.Kernel.Types
                        Cardano.Wallet.Kernel.Util
+                       Cardano.Wallet.Kernel.Util.StrictStateT
                        Cardano.Wallet.LegacyServer
                        Cardano.Wallet.Orphans
                        Cardano.Wallet.Orphans.Aeson
@@ -327,12 +332,12 @@ test-suite wallet-unit-tests
   type:               exitcode-stdio-1.0
   main-is:            WalletUnitTest.hs
   other-modules:      InputSelection.Evaluation
+                      InputSelection.Evaluation.Generic
+                      InputSelection.Evaluation.TimeSeries
+                      InputSelection.FromGeneric
                       InputSelection.Generator
-                      InputSelection.Policy
-                      InputSelection.Policy.InputPolicyT
-                      InputSelection.Policy.LargestFirst
-                      InputSelection.Policy.Random
                       InputSelection.SortedUtxo
+                      InputSelection.TxStats
                       Test.Infrastructure.Generator
                       Test.Infrastructure.Genesis
                       Test.Spec.CoinSelection
@@ -344,10 +349,11 @@ test-suite wallet-unit-tests
                       Util.Buildable.Hspec
                       Util.Buildable.QuickCheck
                       Util.Distr
+                      Util.GenHash
                       Util.Histogram
                       Util.MultiSet
+                      Util.QuickCheck
                       Util.Range
-                      Util.StrictStateT
                       Util.Validated
                       UTxO.Bootstrap
                       UTxO.Context

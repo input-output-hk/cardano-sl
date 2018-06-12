@@ -8,7 +8,8 @@ import           Test.Hspec (Spec, describe, hspec)
 
 import           Pos.Core (HasConfiguration)
 
-import           InputSelection.Evaluation (defaultPlotParams, evaluateInputPolicies)
+import           InputSelection.Evaluation (evaluateInputPolicies)
+import           InputSelection.Evaluation.Generic (defaultPlotParams)
 import           UTxO.Bootstrap (bootstrapTransaction)
 import           UTxO.Context (Addr, TransCtxt)
 import           UTxO.DSL (GivenHash, Transaction)

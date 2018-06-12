@@ -1,7 +1,11 @@
+{-# LANGUAGE BangPatterns               #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-module Util.StrictStateT (
+{-# LANGUAGE RankNTypes                 #-}
+
+module Cardano.Wallet.Kernel.Util.StrictStateT (
     StrictStateT -- opaque
   , runStrictStateT
+  , evalStrictStateT
   , strictStateT
     -- * Conduit support
   , strictStateC
@@ -11,6 +15,7 @@ module Util.StrictStateT (
 import           Universum
 
 import           Control.Monad.Except (MonadError)
+import           Crypto.Random (MonadRandom(..))
 import           Data.Conduit
 import           Data.Conduit.Internal (ConduitT (..), Pipe (..))
 
@@ -23,7 +28,13 @@ newtype StrictStateT s m a = StrictStateT {
            , Monad
            , MonadTrans
            , MonadError e
+           , MonadCatch
+           , MonadThrow
+           , MonadIO
            )
+
+instance MonadRandom m => MonadRandom (StrictStateT s m) where
+  getRandomBytes = lift . getRandomBytes
 
 instance Monad m => MonadState s (StrictStateT s m) where
   get    = StrictStateT $ get
@@ -31,6 +42,9 @@ instance Monad m => MonadState s (StrictStateT s m) where
 
 runStrictStateT :: StrictStateT s m a -> s -> m (a, s)
 runStrictStateT = runStateT . unStrictStateT
+
+evalStrictStateT :: Monad m => StrictStateT s m a -> s -> m a
+evalStrictStateT = evalStateT . unStrictStateT
 
 strictStateT :: forall s m a. Monad m => (s -> m (a, s)) -> StrictStateT s m a
 strictStateT f = StrictStateT $ StateT f'

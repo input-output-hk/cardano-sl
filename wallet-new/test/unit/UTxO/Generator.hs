@@ -85,7 +85,7 @@ data RemoveUsedInputs = RemoveUsedInputs | DontRemoveUsedInputs
 genInput :: Hash h a
          => RemoveUsedInputs
          -> Set (Input h a) -- Inputs to avoid
-         -> GenInput h a (Maybe (Input h a, Output a))
+         -> GenInput h a (Maybe (Input h a, Output h a))
 genInput removeUsedInputs notThese = do
     utxo <- utxoRemoveInputs notThese <$> use gisUtxo
     if utxoNull utxo
@@ -104,10 +104,10 @@ genDistinctInputs :: forall h a. Hash h a
                   => RemoveUsedInputs
                   -> Set (Input h a) -- Inputs to avoid
                   -> Int
-                  -> GenInput h a [(Input h a, Output a)]
+                  -> GenInput h a [(Input h a, Output h a)]
 genDistinctInputs removeUsedInputs = go
   where
-    go :: Set (Input h a) -> Int -> GenInput h a [(Input h a, Output a)]
+    go :: Set (Input h a) -> Int -> GenInput h a [(Input h a, Output h a)]
     go _        0 = return []
     go notThese n = do
         mInp <- genInput removeUsedInputs notThese
@@ -155,7 +155,7 @@ type GenOutput = StateT GenOutState Gen
 -- | Try to generate transaction output
 --
 -- Returns nothing if there is no balance left.
-genOutput :: GenOutParams a -> GenOutput (Maybe (Output a))
+genOutput :: GenOutParams a -> GenOutput (Maybe (Output h a))
 genOutput GenOutParams{..} = do
     available <- use gosAvailable
     if available == 0

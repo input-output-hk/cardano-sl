@@ -3,114 +3,143 @@
 -- Intended for qualified import.
 module InputSelection.SortedUtxo (
     SortedUtxo -- opaque
+    -- * Basic operations
+  , empty
+  , union
+  , size
+  , balance
+  , outputs
+  , removeInputs
+    -- * Specialized operations
   , maxView
+    -- * Conversion
+  , fromMap
+  , toMap
   ) where
 
-import           Universum hiding (empty)
+import           Universum hiding (empty, sort)
 
 import qualified Data.Map.Strict as Map
+import qualified Data.Text.Buildable
+import           Formatting (bprint)
+import           Serokell.Util (mapJson)
 
-import           InputSelection.Policy
-import           UTxO.DSL (Utxo)
-import qualified UTxO.DSL as DSL
+import           Cardano.Wallet.Kernel.CoinSelection.Generic
+
+{-------------------------------------------------------------------------------
+  Sorted UTxO
+-------------------------------------------------------------------------------}
 
 -- | UTxO sorted by value
 --
+-- This is useful when running simulations on largest-first as the main
+-- algorithm, so that we don't have to sort at each step.
+--
 -- Invariant: none of the nested 'Utxo' should be empty.
-newtype SortedUtxo h a = SortedUtxo {
-      sorted  :: Map Value (Utxo h a)
+newtype SortedUtxo dom = SortedUtxo {
+      sorted  :: Map (Value dom) (Map (Input dom) (Output dom))
     }
 
-instance IsUtxo SortedUtxo where
-  utxoEmpty        = empty
-  utxoUnion        = union
-  utxoSize         = size
-  utxoBalance      = balance
-  utxoOutputs      = outputs
-  utxoRemoveInputs = removeInputs
-  toUtxo           = flatten
+instance CoinSelDom dom => PickFromUtxo (SortedUtxo dom) where
+  type Dom (SortedUtxo dom) = dom
+
+  pickRandom  = error "pickRandom not implemented for SortedUtxo"
+  pickLargest = nLargest
 
 {-------------------------------------------------------------------------------
   Basic operations
 -------------------------------------------------------------------------------}
 
-empty :: SortedUtxo h a
+empty :: SortedUtxo dom
 empty = SortedUtxo Map.empty
 
--- | Add in entries from a "normal" UTxO
-union :: Hash h a => Utxo h a -> SortedUtxo h a -> SortedUtxo h a
-union = union' . sortedUtxo
-
 -- | Number of entries in the UTxO
-size :: SortedUtxo h a -> Int
-size = sum . map utxoSize . Map.elems . sorted
+size :: SortedUtxo dom -> Int
+size = sum . map Map.size . Map.elems . sorted
 
 -- | Total balance
-balance :: SortedUtxo h a -> Value
-balance = sum . map utxoBalance . Map.elems . sorted
+balance :: CoinSelDom dom => SortedUtxo dom -> Value dom
+balance = foldr unsafeValueAdd valueZero . outputs
 
 -- | List of all output values
 --
--- The length of this list should be equal to 'utxoSize'
-outputs :: Hash h a => SortedUtxo h a -> [Value]
-outputs = map (outVal . snd) . concatMap DSL.utxoToList .  Map.elems . sorted
+-- The length of this list should be equal to 'size'
+outputs :: CoinSelDom dom => SortedUtxo dom -> [Value dom]
+outputs = map outVal . concatMap Map.elems . sorted
 
 -- | Remove inputs from the domain
 --
 -- We take the inputs as a UTxO so that we know what their balance is.
-removeInputs :: Hash h a => Utxo h a -> SortedUtxo h a -> SortedUtxo h a
-removeInputs toRemove u = difference u (sortedUtxo toRemove)
+removeInputs :: forall dom. CoinSelDom dom
+             => Set (Input dom) -> SortedUtxo dom -> SortedUtxo dom
+removeInputs toRemove (SortedUtxo u) = SortedUtxo $
+    Map.mapMaybe aux u
+  where
+    aux :: Map (Input dom) (Output dom) -> Maybe (Map (Input dom) (Output dom))
+    aux m = do let m' = m `withoutKeys` toRemove
+               guard $ not (Map.null m')
+               return m'
+
+union :: CoinSelDom dom
+      => SortedUtxo dom -> SortedUtxo dom -> SortedUtxo dom
+union (SortedUtxo u) (SortedUtxo u') = SortedUtxo $
+    Map.unionWith Map.union u u'
 
 {-------------------------------------------------------------------------------
   Specialized operations
 -------------------------------------------------------------------------------}
 
-maxView :: forall h a. Hash h a
-        => SortedUtxo h a -> Maybe ((Input h a, Output a), SortedUtxo h a)
+-- | Repeated application of 'maxView'
+nLargest :: CoinSelDom dom
+         => Int -> SortedUtxo dom -> [((Input dom, Output dom), SortedUtxo dom)]
+nLargest 0 _ = []
+nLargest n u = case maxView u of
+                 Nothing      -> []
+                 Just (x, u') -> (x, u') : nLargest (n - 1) u'
+
+-- | Select largest element from the UTxO
+--
+-- @O(1)@
+maxView :: CoinSelDom dom
+        => SortedUtxo dom -> Maybe ((Input dom, Output dom), SortedUtxo dom)
 maxView (SortedUtxo u) = do
     ((val, elems), u') <- Map.maxViewWithKey u
-    case DSL.utxoToList elems of
-      []          -> error "SortedUtxo: maxView: invariant violation"
-      io : []     -> Just (io, SortedUtxo $ u')
-      io : elems' -> Just (io, SortedUtxo $ Map.insert val (DSL.utxoFromList elems') u')
+    case pickOne elems of
+      (io, Nothing)     -> Just (io, SortedUtxo $ u')
+      (io, Just elems') -> Just (io, SortedUtxo $ Map.insert val elems' u')
+  where
+    pickOne :: Ord k => Map k a -> ((k, a), Maybe (Map k a))
+    pickOne m = case Map.toList m of
+                  []   -> error "SortedUtxo: maxView: invariant violation"
+                  [e]  -> (e, Nothing)
+                  e:es -> (e, Just (Map.fromList es))
 
 {-------------------------------------------------------------------------------
   Conversion
 -------------------------------------------------------------------------------}
 
-sortedUtxo :: forall h a. Hash h a => Utxo h a -> SortedUtxo h a
-sortedUtxo = go empty . DSL.utxoToList
+fromMap :: forall dom. CoinSelDom dom
+        => Map (Input dom) (Output dom) -> SortedUtxo dom
+fromMap = go empty . Map.toList
   where
-    go :: SortedUtxo h a -> [(Input h a, Output a)] -> SortedUtxo h a
+    go :: SortedUtxo dom -> [(Input dom, Output dom)] -> SortedUtxo dom
     go acc []           = acc
     go acc ((i, o):ios) = go acc' ios
       where
-        acc' :: SortedUtxo h a
+        acc' :: SortedUtxo dom
         acc' = SortedUtxo $ Map.alter insert (outVal o) (sorted acc)
 
-        insert :: Maybe (Utxo h a) -> Maybe (Utxo h a)
-        insert Nothing    = Just $ DSL.utxoSingleton i o
-        insert (Just old) = Just $ DSL.utxoInsert (i, o) old
+        insert :: Maybe (Map (Input dom) (Output (dom)))
+               -> Maybe (Map (Input dom) (Output (dom)))
+        insert Nothing    = Just $ Map.singleton i o
+        insert (Just old) = Just $ Map.insert i o old
 
--- | Convert back to normal UTxO representation
-flatten :: Hash h a => SortedUtxo h a -> Utxo h a
-flatten = DSL.utxoUnions . Map.elems . sorted
+toMap :: CoinSelDom dom => SortedUtxo dom -> Map (Input dom) (Output dom)
+toMap = Map.unions . Map.elems . sorted
 
 {-------------------------------------------------------------------------------
-  Internal auxiliary
+  Pretty-printing
 -------------------------------------------------------------------------------}
 
-union' :: Hash h a => SortedUtxo h a -> SortedUtxo h a -> SortedUtxo h a
-union' (SortedUtxo u) (SortedUtxo u') = SortedUtxo $
-    Map.unionWith DSL.utxoUnion u u'
-
--- | Return elements of the first UTxO not existing in the second
-difference :: forall h a. Hash h a
-           => SortedUtxo h a -> SortedUtxo h a -> SortedUtxo h a
-difference (SortedUtxo u) (SortedUtxo u') = SortedUtxo $
-    Map.differenceWith aux u u'
-  where
-    aux :: Utxo h a -> Utxo h a -> Maybe (Utxo h a)
-    aux v v' = let v'' = DSL.utxoRemoveInputs (DSL.utxoDomain v') v
-               in if DSL.utxoNull v'' then Nothing
-                                      else Just v''
+instance CoinSelDom dom => Buildable (SortedUtxo dom) where
+  build = bprint mapJson . toMap

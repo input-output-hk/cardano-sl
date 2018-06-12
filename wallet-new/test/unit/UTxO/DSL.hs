@@ -128,7 +128,7 @@ data Transaction h a = Transaction {
     -- implicitly comes from the treasury.
     , trIns   :: Set (Input h a)
     -- ^ The set of input transactions that feed this transaction.
-    , trOuts  :: [Output a]
+    , trOuts  :: [Output h a]
     -- ^ The list of outputs for this transaction.
     , trFee   :: Value
     -- ^ The fee charged to this transaction.
@@ -220,14 +220,14 @@ trBalance a t l = received - spent
                                          AddrGenesis -> trFresh t
                                          _otherwise  -> 0
 
-    outputsReceived, outputsSpent :: [Output a]
+    outputsReceived, outputsSpent :: [Output h a]
     outputsReceived = our $                            trOuts t
     outputsSpent    = our $ map (`inpSpentOutput'` l) (trIns' t)
 
-    our :: [Output a] -> [Output a]
+    our :: [Output h a] -> [Output h a]
     our = filter (\o -> AddrRegular (outAddr o) == a)
 
-    total :: [Output a] -> Value
+    total :: [Output h a] -> Value
     total = sum . map outVal
 
 -- | The outputs spent by this transaction
@@ -251,10 +251,12 @@ trUtxo t = utxoFromList $
 
 -- | Transaction output
 --
+-- The hash argument here is not used but we include it for consistency.
+--
 -- NOTE: In the spec, this allows for @Address a@ rather than @a@. This is not
 -- needed in Cardano, where that additional flexibility is not supported. We
 -- therefore use this more restricted version.
-data Output a = Output {
+data Output (h :: * -> *) a = Output {
       outAddr :: a
     , outVal  :: Value
     }
@@ -287,7 +289,7 @@ inpTransaction = findHash . inpTrans
 --
 -- Returns 'Nothing' if the 'Transaction' to which this 'Input' refers is
 -- missing from the 'Ledger'.
-inpSpentOutput :: Hash h a => Input h a -> Ledger h a -> Maybe (Output a)
+inpSpentOutput :: Hash h a => Input h a -> Ledger h a -> Maybe (Output h a)
 inpSpentOutput i l = do
     t <- inpTransaction i l
     trOuts t `at` fromIntegral (inpIndex i)
@@ -309,7 +311,7 @@ inpTransaction' :: (Hash h a, Buildable a)
 inpTransaction' = findHash' . inpTrans
 
 inpSpentOutput' :: (Hash h a, Buildable a, HasCallStack)
-                => Input h a -> Ledger h a -> Output a
+                => Input h a -> Ledger h a -> Output h a
 inpSpentOutput' i l = fromJust err $
       trOuts (inpTransaction' i l) `at` fromIntegral (inpIndex i)
   where
@@ -435,7 +437,7 @@ findHash' h l = fromJust err (findHash h l)
 --   total amount of the 'Input' value and the address to which it belongs.
 -- * A relation on with columns @input@, @coin@, and @address@, with
 --   a primary index on the @input@
-newtype Utxo h a = Utxo { utxoToMap :: Map (Input h a) (Output a) }
+newtype Utxo h a = Utxo { utxoToMap :: Map (Input h a) (Output h a) }
 
 deriving instance (Hash h a, Eq a) => Eq (Utxo h a)
 
@@ -458,25 +460,25 @@ utxoApply t u = utxoRemoveInputs (trSpentOutputs t) u `utxoUnion` trUtxo t
 -- | Construct a 'Utxo' from a 'Map' of 'Input's. The 'Output' that each
 -- 'Input' in the map point to should represent the total value of that
 -- 'Input' along with the address that the 'Input' currently belongs to.
-utxoFromMap :: Map (Input h a) (Output a) -> Utxo h a
+utxoFromMap :: Map (Input h a) (Output h a) -> Utxo h a
 utxoFromMap = Utxo
 
 -- | Construct a 'Utxo' from a list of 'Input's. The 'Output' that each
 -- 'Input' is paired with should represent the total value of that 'Input'
 -- along with the address that the 'Input' currently belongs to.
-utxoFromList :: Hash h a => [(Input h a, Output a)] -> Utxo h a
+utxoFromList :: Hash h a => [(Input h a, Output h a)] -> Utxo h a
 utxoFromList = utxoFromMap . Map.fromList
 
 -- | Singleton UTxO
-utxoSingleton :: Hash h a => Input h a -> Output a -> Utxo h a
+utxoSingleton :: Hash h a => Input h a -> Output h a -> Utxo h a
 utxoSingleton i o = utxoFromList [(i, o)]
 
-utxoToList :: Utxo h a -> [(Input h a, Output a)]
+utxoToList :: Utxo h a -> [(Input h a, Output h a)]
 utxoToList = Map.toList . utxoToMap
 
 -- | For a given 'Input', return the 'Output' that contains the address of
 -- the owner and value for the 'Input'.
-utxoOutputForInput :: Hash h a => Input h a -> Utxo h a -> Maybe (Output a)
+utxoOutputForInput :: Hash h a => Input h a -> Utxo h a -> Maybe (Output h a)
 utxoOutputForInput i = Map.lookup i . utxoToMap
 
 -- | Look up the 'Value' amount for an 'Input' in the 'Utxo'.
@@ -496,7 +498,7 @@ utxoDomain = Map.keysSet . utxoToMap
 -- | This returns the 'Output's that make up the unspent inputs. The
 -- 'Output's contain the total value and owning address for their
 -- respective 'Input's.
-utxoRange :: Utxo h a -> [Output a]
+utxoRange :: Utxo h a -> [Output h a]
 utxoRange = Map.elems . utxoToMap
 
 -- | Number of entries in the UTxO
@@ -512,7 +514,7 @@ utxoUnion (Utxo utxo) (Utxo utxo') = Utxo (utxo `Map.union` utxo')
 utxoUnions :: Hash h a => [Utxo h a] -> Utxo h a
 utxoUnions = Utxo . Map.unions . map utxoToMap
 
-utxoInsert :: Hash h a => (Input h a, Output a) -> Utxo h a -> Utxo h a
+utxoInsert :: Hash h a => (Input h a, Output h a) -> Utxo h a -> Utxo h a
 utxoInsert (i, o) = Utxo . Map.insert i o . utxoToMap
 
 utxoDelete :: Hash h a => Input h a -> Utxo h a -> Utxo h a
@@ -629,7 +631,7 @@ instance Buildable a => Buildable (Address a) where
   build AddrTreasury    = "AddrTreasury"
   build (AddrRegular a) = bprint ("AddrRegular " % build) a
 
-instance Buildable a => Buildable (Output a) where
+instance Buildable a => Buildable (Output h a) where
   build Output{..} = bprint
       ( "Output"
       % "{ addr: " % build

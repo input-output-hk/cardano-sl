@@ -5,7 +5,9 @@ module Util.MultiSet (
     MultiSet -- opaque
   , empty
   , union
+  , unions
   , singleton
+  , fromList
   , size
   , findMin
   , medianWithDefault
@@ -32,8 +34,14 @@ union :: Ord a => MultiSet a -> MultiSet a -> MultiSet a
 union (MultiSet sz m) (MultiSet sz' m') =
     MultiSet (sz + sz') (Map.unionWith (+) m m')
 
+unions :: Ord a => [MultiSet a] -> MultiSet a
+unions = foldr union empty
+
 singleton :: a -> MultiSet a
 singleton a = MultiSet 1 (Map.singleton a 1)
+
+fromList :: Ord a => [a] -> MultiSet a
+fromList = unions . map singleton
 
 size :: MultiSet a -> Int
 size = multiSetSize

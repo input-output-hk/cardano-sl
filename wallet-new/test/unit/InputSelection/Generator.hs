@@ -1,11 +1,6 @@
 module InputSelection.Generator (
     Event(..)
-    -- * Generators
-    -- ** Test graph output
-  , TestParams(..)
-  , defTestParams
-  , test
-    -- ** Configurable event stream
+    -- * Configurable event stream
   , World(..)
   , FromDistrParams(..)
   , fromDistr
@@ -14,69 +9,28 @@ module InputSelection.Generator (
 import           Universum
 
 import           Data.Conduit
+import qualified Data.Map.Strict as Map
+import qualified Data.Text.Buildable
+import           Formatting (bprint, (%))
+import           Serokell.Util (listJson, mapJson)
 import           Test.QuickCheck
 
-import           InputSelection.Policy (LiftQuickCheck (..))
+import qualified Cardano.Wallet.Kernel.CoinSelection.Generic as Generic
+
+import           InputSelection.FromGeneric
 import           Util.Distr
+import           Util.GenHash
+import           Util.QuickCheck
 import           UTxO.DSL
 
 {-------------------------------------------------------------------------------
   Events
 -------------------------------------------------------------------------------}
 
-data Event h a =
-    Deposit (Utxo h a)
-  | Pay [Output a]
+data Event dom =
+    Deposit (Map (Generic.Input dom) (Generic.Output dom))
+  | Pay [Generic.Output dom]
   | NextSlot
-
-{-------------------------------------------------------------------------------
-  Testing
--------------------------------------------------------------------------------}
-
--- | Parameters for 'test'
---
--- For each output value in the range
---
--- > (min, min + incr .. max)
---
--- we generate @count@ outputs. After that, we generate transactions that
--- use up those outputs in precisely the same order, generating no change.
-data TestParams = TestParams {
-      testParamsMin   :: Value
-    , testParamsMax   :: Value
-    , testParamsIncr  :: Value
-    , testParamsCount :: Int
-    }
-
-defTestParams :: TestParams
-defTestParams = TestParams {
-      testParamsMin   = 10
-    , testParamsMax   = 100
-    , testParamsIncr  = 10
-    , testParamsCount = 10
-    }
-
--- | Series of events to test the graph output
---
--- The point is that this allows us to visually see immediately if the resulting
--- graph animation makes sense. See 'TestParams' for details.
-test :: Monad m => TestParams -> ConduitT () (Event GivenHash ()) m ()
-test TestParams{..} = do
-    forM_ vals $ \n ->
-      forM_ ixs $ \m ->
-        yield $ Deposit $ utxoFromList [
-            (Input (GivenHash (fromIntegral n)) m, Output () n)
-          ]
-
-    forM_ vals $ \n ->
-      forM_ ixs $ \_m ->
-        yield $ Pay [Output () n]
-  where
-    vals :: [Value]
-    vals = [testParamsMin, testParamsMin + testParamsIncr .. testParamsMax]
-
-    ixs :: [Word32]
-    ixs = [1 .. fromIntegral testParamsCount]
 
 {-------------------------------------------------------------------------------
   Configurable event stream
@@ -94,10 +48,10 @@ data FromDistrParams fDep fPay fNumDep fNumPay =
     , Distribution fNumPay
     ) => FromDistrParams {
       -- | Distribution of deposit values
-      fromDistrDep :: fDep Value
+      fromDistrDep    :: fDep Value
 
       -- | Distribution of payment values
-    , fromDistrPay :: fPay Value
+    , fromDistrPay    :: fPay Value
 
       -- | Distribution of number of deposits
     , fromDistrNumDep :: fNumDep Int
@@ -109,37 +63,45 @@ data FromDistrParams fDep fPay fNumDep fNumPay =
     , fromDistrCycles :: Int
     }
 
--- | Like 'trivial', but with different distributions for payments and deposits,
--- and generalized to have distributions also for the /number/ of payments
--- and deposits.
-fromDistr :: LiftQuickCheck m
+-- | Generate event stream using distributions specified in 'FromDistrParams'
+fromDistr :: forall m fDep fPay fNumDep fNumPay.
+             (LiftQuickCheck m, GenHash m)
           => FromDistrParams fDep fPay fNumDep fNumPay
-          -> ConduitT () (Event GivenHash World) m ()
+          -> ConduitT () (Event (DSL GivenHash World)) m ()
 fromDistr FromDistrParams{..} = do
-    forM_ [1 .. fromDistrCycles] $ \i -> do
-      events <- lift $ liftQuickCheck $ do
-        let mkDep :: Int -> Gen (Event GivenHash World)
-            mkDep j =
-                Deposit . aux <$> drawFromDistr' fromDistrDep
-              where
-                aux :: Value -> Utxo GivenHash World
-                aux val = utxoSingleton (Input (GivenHash i) j') (Output Us val)
-
-                j' :: Word32
-                j' = fromIntegral j
-
-            mkPay :: Gen (Event GivenHash World)
-            mkPay =
-                Pay . aux <$> drawFromDistr' fromDistrPay
-              where
-                aux :: Value -> [Output World]
-                aux val = [Output Them val]
-
-        numDep <- drawFromDistr' fromDistrNumDep
-        numPay <- drawFromDistr' fromDistrNumPay
-        deps <- forM [1 .. numDep] $ mkDep
-        pays <- replicateM numPay  $ mkPay
-
-        (reverse . (NextSlot :)) <$> shuffle (deps ++ pays)
-
+    replicateM_ fromDistrCycles $ do
+      events <- lift $ do
+        numDep <- liftQuickCheck $ drawFromDistr' fromDistrNumDep
+        numPay <- liftQuickCheck $ drawFromDistr' fromDistrNumPay
+        deps   <- replicateM numDep $ mkDep
+        pays   <- replicateM numPay $ mkPay
+        liftQuickCheck $ (reverse . (NextSlot :)) <$> shuffle (deps ++ pays)
       mapM_ yield events
+  where
+    mkDep :: m (Event (DSL GivenHash World))
+    mkDep = do
+        h <- genHash
+        liftQuickCheck $ Deposit . aux h <$> drawFromDistr' fromDistrDep
+      where
+        aux :: Int -> Value -> Map (Input GivenHash World) (Output GivenHash World)
+        aux h val = Map.singleton (Input (GivenHash h) 0) (Output Us val)
+
+    mkPay :: m (Event (DSL GivenHash World))
+    mkPay =
+        liftQuickCheck $ Pay . aux <$> drawFromDistr' fromDistrPay
+      where
+        aux :: Value -> [Output GivenHash World]
+        aux val = [Output Them val]
+
+{-------------------------------------------------------------------------------
+  Pretty-printing
+-------------------------------------------------------------------------------}
+
+instance Buildable World where
+  build Us   = "Us"
+  build Them = "Them"
+
+instance Generic.CoinSelDom dom => Buildable (Event dom) where
+  build (Deposit d) = bprint ("Deposit " % mapJson) d
+  build (Pay     p) = bprint ("Pay " % listJson) p
+  build NextSlot    = "NextSlot"

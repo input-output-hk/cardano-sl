@@ -414,6 +414,7 @@ test-suite wallet-unit-tests
                     , QuickCheck
                     , quickcheck-instances
                     , serokell-util
+                    , tabl
                     , text
                     , text-format
                     , universum

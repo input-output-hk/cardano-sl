@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TypeApplications           #-}
+{-# OPTIONS_GHC -fno-warn-orphans       #-}
 module Test.Spec.CoinSelection (
     spec
   ) where
@@ -9,24 +10,22 @@ import           Universum
 
 import           Crypto.Random (MonadRandom)
 import qualified Data.Map as Map
-import           Test.Hspec (Spec, describe, hspec, it)
+import qualified Data.Text as T
+import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Gen, Property, arbitrary, choose, counterexample, suchThat,
-                                  vectorOf, (===))
-import           Test.QuickCheck.Monadic (PropertyM, assert, monadic', pick, run, stop)
+import           Test.QuickCheck (Gen, Property, arbitrary, choose, counterexample, suchThat)
+import           Test.QuickCheck.Monadic (PropertyM, monadic', pick, run, stop)
 
 import           Data.Text.Buildable (Buildable (..))
 import           Formatting (bprint, (%))
 import qualified Formatting as F
 import           Serokell.Util.Text (listJsonIndent)
+import qualified Text.Tabl as Tabl
 
 import           Pos.Core (HasConfiguration)
 import qualified Pos.Core as Core
 import qualified Pos.Txp as Core
 
-import qualified Pos.Txp.Toil.Types as Core
-import           Pos.Util.Chrono (getOldestFirst)
-import           Test.Infrastructure.Generator
 import           Util.Buildable
 
 import           Cardano.Wallet.Kernel.CoinSelection.Policies (defaultPolicy, largestFirst,
@@ -34,30 +33,88 @@ import           Cardano.Wallet.Kernel.CoinSelection.Policies (defaultPolicy, la
 import           Cardano.Wallet.Kernel.CoinSelection.Types
 import           Pos.Crypto.Signing.Safe (fakeSigner)
 
+data UtxoGenOptions = UtxoGenOptions {
+      stakeOnEachInputPercentage :: Maybe Double
+      -- ^ How much of the total stake each input should hold. For example,
+      -- passing 1.0 would mean that 100% of the stake will be allocated on a
+      -- single input, which would make running the coin selection policy harder
+      -- with multiple outputs. If not specified, the generator will pick a
+      -- random value in (0.0,1.0] for each generated output.
+    , stakeGenerationTarget      :: GenerationTarget
+    -- ^ How close we want to hit our target.
+    , stakeNeeded                :: Core.Coin
+    -- ^ How much stake we want to generate
+    , stakeMaxInputsNum          :: Maybe Int
+    -- ^ If specified, stop generating inputs if they exceed the supplied
+    -- number, to keep the Utxo size under control.
+}
+
+data GenerationTarget =
+      AtLeast
+    -- ^ Generate an 'Utxo' which has @at least@ Core.Coin stake.
+    | Exactly
+    -- ^ Generate an 'Utxo' which has @exactly@ Core.Coin stake.
+    deriving Eq
+
+genUtxo :: UtxoGenOptions -> Gen Core.Utxo
+genUtxo o = go mempty (stakeNeeded o) o
+    where
+        needToStop :: Int -> Maybe Int -> Bool
+        needToStop _ Nothing               = False
+        needToStop actual (Just requested) = actual >= requested
+
+        finalise :: Core.Utxo -> Core.Coin -> Gen Core.Utxo
+        finalise utxo amountToCover = do
+            case amountToCover `Core.subCoin` (utxoBalance utxo) of
+                 Nothing -> return utxo
+                 Just (Core.Coin 0) -> return utxo
+                 Just remaining -> do
+                     txIn <- Core.TxInUtxo <$> arbitrary <*> arbitrary
+                     addr <- arbitrary
+                     let txOutAux = Core.TxOutAux (Core.TxOut addr remaining)
+                     return $ Map.insert txIn txOutAux utxo
+
+        go :: Core.Utxo -> Core.Coin -> UtxoGenOptions -> Gen Core.Utxo
+        go utxo amountToCover opts = do
+            case needToStop (Map.size utxo) (stakeMaxInputsNum opts) of
+                 True  -> finalise utxo amountToCover
+                 False -> do
+                     stakePercentage <- case stakeOnEachInputPercentage opts of
+                                            Nothing -> choose (0.1, 1.0)
+                                            Just r  -> pure r
+                     txIn <- (Core.TxInUtxo <$> arbitrary <*> arbitrary) `suchThat` (not . flip Map.member utxo)
+                     let adjust c = ceiling $ (fromIntegral (Core.coinToInteger c)) * stakePercentage
+                     coin <- Core.mkCoin <$> choose (1, adjust (stakeNeeded opts))
+                     addr <- arbitrary
+                     let txOutAux = Core.TxOutAux (Core.TxOut addr coin)
+                     let utxo' = Map.insert txIn txOutAux utxo
+                     case utxoBalance utxo' of
+                         bal | bal >= amountToCover && (stakeGenerationTarget opts) == AtLeast -> return utxo'
+                         bal | bal >= amountToCover && (stakeGenerationTarget opts) == Exactly ->
+                                 finalise utxo (Core.mkCoin 0)
+                             | otherwise ->
+                                 case amountToCover `Core.subCoin` bal of
+                                     Nothing        -> return utxo'
+                                     Just remaining -> go utxo' remaining opts
+
 genUtxoWithAtLeast :: Word64 -> Gen Core.Utxo
-genUtxoWithAtLeast amountToCover = do
-    txIn <- Core.TxInUtxo <$> arbitrary <*> arbitrary
-    coin <- choose (1, amountToCover)
-    addr <- arbitrary
-    let txOutAux = Core.TxOutAux (Core.TxOut addr (Core.mkCoin coin))
-    let utxo = Map.singleton txIn txOutAux
-    case utxoBalance utxo of
-        bal | Core.getCoin bal >= amountToCover -> return utxo
-            | otherwise ->
-            case (Core.mkCoin amountToCover) `Core.subCoin` bal of
-                Nothing -> return utxo
-                Just remaining ->
-                    (utxo `Map.union`) <$> (genUtxoWithAtLeast (Core.getCoin remaining))
+genUtxoWithAtLeast amountToCover =
+    genUtxo $ UtxoGenOptions {
+                  stakeOnEachInputPercentage = Just 0.2
+                , stakeGenerationTarget = AtLeast
+                , stakeNeeded           = Core.mkCoin amountToCover
+                , stakeMaxInputsNum     = Just 100
+            }
 
 -- | A fee-estimation policy which doesn't calculate any fee.
 freeLunch :: Int -> NonEmpty Core.Coin -> Core.Coin
 freeLunch _ _ = Core.mkCoin 0
 
-genPayee :: Word64
+genPayees :: Word64
          -- ^ The amount of the payment
          -> Gen (NonEmpty Core.TxOut)
-genPayee 0 = error "Precondition failed: You cannot pay 0 into an output."
-genPayee amountToCover = do
+genPayees 0 = error "Precondition failed: You cannot pay 0 into an output."
+genPayees amountToCover = do
     given <- Core.mkCoin <$> choose (1, amountToCover)
     addr  <- arbitrary `suchThat` (not . Core.isRedeemAddress)
     let txOut = Core.TxOut addr given
@@ -65,7 +122,7 @@ genPayee amountToCover = do
         Nothing -> pure (txOut :| [])
         Just (Core.Coin remaining)
             | remaining == 0 -> pure (txOut :| [])
-            | otherwise      -> ((<>) (pure txOut)) <$> genPayee remaining
+            | otherwise      -> ((<>) (pure txOut)) <$> genPayees remaining
 
 newtype TestMonad a = TM { runTest :: IdentityT Gen a }
   deriving (Functor, Applicative, Monad, MonadRandom)
@@ -94,25 +151,94 @@ failIf label p a = counterexample msg (p a)
 
 paymentSucceeded :: (Buildable a, Buildable b)
                  => Core.Utxo -> NonEmpty Core.TxOut -> Either a b -> Property
-paymentSucceeded utxo payee res =
+paymentSucceeded utxo payees res =
     let msg = "Selection failed for Utxo with balance = " <> show (utxoBalance utxo) <>
-              " and payment amount of " <> show (paymentAmount payee)
+              " and payment amount of " <> show (paymentAmount payees) <> "\n." <>
+              "\n\n===  UTXO  ===\n\n" <> T.unpack (renderUtxo utxo) <>
+              "\n\n=== PAYEES ===\n\n" <> T.unpack (renderPayees payees) <> "\n\n"
     in failIf msg isRight res
+
+renderPayees :: NonEmpty Core.TxOut -> T.Text
+renderPayees outputs = Tabl.tabl env hDec vDec alignments cells
+  where
+      env :: Tabl.Environment
+      env = Tabl.EnvAscii
+
+      hDec :: Tabl.Decoration
+      hDec = Tabl.DecorAll
+
+      vDec :: Tabl.Decoration
+      vDec = Tabl.DecorAll
+
+      alignments :: [Tabl.Alignment]
+      alignments = map (const Tabl.AlignCentre) (toList outputs)
+
+      cells :: [[Text]]
+      cells = ["Payment Amount"] : map toCell (toList outputs)
+
+      toCell :: Core.TxOut -> [T.Text]
+      toCell txOut =
+        [T.pack $ show $ Core.getCoin $ Core.txOutValue $ txOut]
+
+renderUtxo :: Core.Utxo -> T.Text
+renderUtxo utxo = Tabl.tabl env hDec vDec alignments cells
+  where
+      env :: Tabl.Environment
+      env = Tabl.EnvAscii
+
+      hDec :: Tabl.Decoration
+      hDec = Tabl.DecorAll
+
+      vDec :: Tabl.Decoration
+      vDec = Tabl.DecorAll
+
+      alignments :: [Tabl.Alignment]
+      alignments = map (const Tabl.AlignCentre) (Map.toList utxo)
+
+      cells :: [[Text]]
+      cells = ["Amount"] : map toCell (Map.toList utxo)
+
+      toCell :: (Core.TxIn, Core.TxOutAux) -> [T.Text]
+      toCell (_, txOutAux) =
+        [T.pack $ show $ Core.getCoin $ Core.txOutValue . Core.toaOut $ txOutAux]
 
 spec :: HasConfiguration => Spec
 spec =
     describe "Coin selection policies unit tests" $ do
-        prop "Sending a payment with largestFirst, one payee and fee = 0 works" $ runIt $ do
-            utxo  <- pick $ genUtxoWithAtLeast 200
-            (payee :| _) <- pick $ genPayee 100
-            key   <- pick arbitrary
-            let options = newOptions freeLunch (\_ -> Right $ fakeSigner key)
-            res <- run $ largestFirst options (TM $ lift arbitrary) utxo (payee :| [])
-            stop (paymentSucceeded utxo (payee :| []) res)
-        prop "Sending a payment with defaultPolicy and fee = 0 works" $ runIt $ do
-            utxo  <- pick $ genUtxoWithAtLeast 200
-            (payee :| _) <- pick $ genPayee 100
-            key   <- pick arbitrary
-            let options = newOptions freeLunch (\_ -> Right $ fakeSigner key)
-            res <- run $ defaultPolicy options (TM $ lift arbitrary) utxo (payee :| [])
-            stop (paymentSucceeded utxo (payee :| []) res)
+        describe "largestFirst" $ do
+            prop "one payee, SenderPaysFee, fee = 0" $ runIt $ do
+                utxo  <- pick $ genUtxoWithAtLeast 200
+                (payee :| _) <- pick $ genPayees 100
+                key   <- pick arbitrary
+                let options = newOptions freeLunch (\_ -> Right $ fakeSigner key)
+                res <- run $ largestFirst options (TM $ lift arbitrary) utxo (payee :| [])
+                stop (paymentSucceeded utxo (payee :| []) res)
+            prop "multiple payees, SenderPaysFee, fee = 0" $ runIt $ do
+                utxo  <- pick $ genUtxoWithAtLeast 200
+                payees <- pick $ genPayees 100
+                key   <- pick arbitrary
+                let options = newOptions freeLunch (\_ -> Right $ fakeSigner key)
+                res <- run $ largestFirst options (TM $ lift arbitrary) utxo payees
+                stop (paymentSucceeded utxo payees res)
+            prop "multiple payees, SenderPaysFee, fee = 0" $ runIt $ do
+                utxo  <- pick $ genUtxoWithAtLeast 200
+                payees <- pick $ genPayees 100
+                key   <- pick arbitrary
+                let options = newOptions freeLunch (\_ -> Right $ fakeSigner key)
+                res <- run $ largestFirst options (TM $ lift arbitrary) utxo payees
+                stop (paymentSucceeded utxo payees res)
+        describe "defaultPolicy" $ do
+            prop "one payee, SenderPaysFee, fee = 0" $ runIt $ do
+                utxo  <- pick $ genUtxoWithAtLeast 200
+                (payee :| _) <- pick $ genPayees 100
+                key   <- pick arbitrary
+                let options = newOptions freeLunch (\_ -> Right $ fakeSigner key)
+                res <- run $ defaultPolicy options (TM $ lift arbitrary) utxo (payee :| [])
+                stop (paymentSucceeded utxo (payee :| []) res)
+            prop "multiple payees, SenderPaysFee, fee = 0" $ runIt $ do
+                utxo   <- pick $ genUtxoWithAtLeast 200
+                payees <- pick $ genPayees 100
+                key   <- pick arbitrary
+                let options = newOptions freeLunch (\_ -> Right $ fakeSigner key)
+                res <- run $ defaultPolicy options (TM $ lift arbitrary) utxo payees
+                stop (paymentSucceeded utxo payees res)

@@ -21,9 +21,9 @@ module Test.Pos.Core.Gen
         -- Pos.Core.Common Generators
         , genAddrAttributes
         , genAddress
-        , genAddrType
         , genAddrSpendingData
         , genAddrStakeDistribution
+        , genAddrType
         , genBlockCount
         , genChainDifficulty
         , genCoeff
@@ -90,6 +90,7 @@ module Test.Pos.Core.Gen
         , genUnknownWitnessType
 
         -- Pos.Core.Update Generators
+        , genApplicationName
         , genBlockVersion
         , genBlockVersionModifier
         , genHashRaw
@@ -109,8 +110,8 @@ module Test.Pos.Core.Gen
         , genVoteId
 
         -- Pos.Merkle Generators
-        , genMerkleTreeTx
-        , genMerkleRootTx
+        , genMerkleRoot
+        , genMerkleTree
        ) where
 
 import           Universum
@@ -125,7 +126,7 @@ import           Data.Vector (singleton)
 import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
-import           Pos.Binary.Class (asBinary, Raw (..))
+import           Pos.Binary.Class (asBinary, Bi, Raw (..))
 import           Pos.Block.Base (mkMainHeader, mkGenesisHeader)
 import           Pos.Core.Block (BlockBodyAttributes, BlockHeader (..),
                                  BlockHeaderAttributes, BlockSignature (..),
@@ -584,7 +585,7 @@ genTxProof :: Gen TxProof
 genTxProof =
     TxProof
         <$> genWord32
-        <*> genMerkleRootTx
+        <*> genMerkleRoot genTx
         <*> genAbstractHash (Gen.list (Range.constant 1 20) genTxWitness)
 
 genTxSig :: Gen TxSig
@@ -727,11 +728,11 @@ genVoteId = (,,) <$> genUpId <*> genPublicKey <*> Gen.bool
 -- Pos.Merkle Generators
 ----------------------------------------------------------------------------
 
-genMerkleTreeTx :: Gen (MerkleTree Tx)
-genMerkleTreeTx = mkMerkleTree <$> Gen.list (Range.constant 0 100) genTx
+genMerkleTree :: Bi a => Gen a -> Gen (MerkleTree a)
+genMerkleTree genA = mkMerkleTree <$> Gen.list (Range.constant 0 100) genA
 
-genMerkleRootTx :: Gen (MerkleRoot Tx)
-genMerkleRootTx = mtRoot <$> genMerkleTreeTx
+genMerkleRoot :: Bi a => Gen a -> Gen (MerkleRoot a)
+genMerkleRoot genA = mtRoot <$> genMerkleTree genA
 
 ----------------------------------------------------------------------------
 -- Helper Generators

@@ -94,6 +94,7 @@ module Test.Pos.Core.Gen
         -- Pos.Core.Update Generators
         , genApplicationName
         , genBlockVersion
+        , genBlockVersionData
         , genBlockVersionModifier
         , genHashRaw
         , genSoftforkRule
@@ -166,6 +167,7 @@ import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxId,
                                TxOutAux (..), TxPayload (..), TxProof (..),
                                TxSig, TxSigData (..), TxWitness)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
+                                  BlockVersionData (..),
                                   BlockVersionModifier (..), SoftforkRule (..),
                                   SoftwareVersion (..), SystemTag (..),
                                   UpAttributes, UpdateData (..),
@@ -634,6 +636,25 @@ genBlockVersion =
         <$> Gen.word16 Range.constantBounded
         <*> Gen.word16 Range.constantBounded
         <*> Gen.word8 Range.constantBounded
+
+genBlockVersionData :: Gen BlockVersionData
+genBlockVersionData =
+    BlockVersionData
+        <$> genScriptVersion
+        <*> genMillisecond
+        <*> genByte
+        <*> genByte
+        <*> genByte
+        <*> genByte
+        <*> genCoinPortion
+        <*> genCoinPortion
+        <*> genCoinPortion
+        <*> genCoinPortion
+        <*> genFlatSlotId
+        <*> genSoftforkRule
+        <*> genTxFeePolicy
+        <*> genEpochIndex
+
 
 genBlockVersionModifier :: Gen BlockVersionModifier
 genBlockVersionModifier =

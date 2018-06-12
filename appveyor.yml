@@ -140,8 +140,8 @@ test_script:
   - git -C submods/log-warper checkout b8c390357b27e7ae3b9b0c5309bf9d0bbbf09852
 
   - cabal update
-  - cabal new-configure --store-dir=c:\store --enable-tests --enable-benchmarks
-  - cabal new-build all
+  - cabal new-configure --enable-tests --enable-benchmarks
+  - cabal new-build --store-dir=c:\store all
         --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
         --extra-lib-dirs="C:\OpenSSL-Win64-v102"
         --extra-include-dirs="C:\xz_extracted\include"

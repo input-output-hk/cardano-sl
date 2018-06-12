@@ -33,9 +33,9 @@
 \newcommand{\epochids}{\idsof{\mathcal{E}}}
 \newcommand{\slotids}{\idsof{\mathcal{S}}}
 \newcommand{\updids}{\idsof{\mathcal{UP}}}
+\newcommand{\stakeholderids}{\idsof{\mathcal{K}}}
 \newcommand{\pubkey}{\chi_{\textbf{pub}}}
 \newcommand{\signature}{\chi_{\textbf{sig}}}
-
 
 \newcommand{\vsspubkey}{\mathcal{VSS}_{\chi_{\textbf{pub}}}}
 \newcommand{\vssproof}{\mathcal{VSS}_{\textbf{proof}}}
@@ -75,6 +75,9 @@
 \newcommand{\bheadex}{\blocks_{\textbf{headex}}}
 \newcommand{\blocksig}{\blocks_{\textbf{sig}}}
 \newcommand{\blockpf}{\blocks_{\textbf{proof}}}
+\newcommand{\ebb}{\mathcal{B}^\prime}
+\newcommand{\ebbhead}{\ebb_{\textbf{head}}}
+\newcommand{\ebbheadcons}{\ebb_{\textbf{cons}}}
 
 \newcommand{\hstype}[1]{\textbf{#1}}
 \newcommand{\String}{\hstype{String}}
@@ -197,6 +200,7 @@ We also have addresses, which are represented as Blake2b-224 hashes.
 
 \begin{itemize}
 \item{Address (agent) identifiers $\agentids$}
+\item Stakeholder identifiers $\stakeholderids$
 \end{itemize}
 
 Epochs are identified by their index as a $\Word{64}$. Slots are identified as a
@@ -508,6 +512,31 @@ In addition to regular blocks, epoch boundary blocks contain a list of slot
 leaders for a given epoch. They are not conventionally distributed as part of
 the blockchain, but can be requested as part of catch-up and as such form part
 of the on-the-wire protocol.
+
+\begin{figure}[H]
+  \begin{grammar}
+    <$\ebbheadcons$> = \{
+    \fld epoch :: $\epochids$
+    \fld chainDifficulty :: $\Word{64}$
+    \}
+
+    <$\ebbhead$> = \{
+    \fld prevBlock :: $\blockids$
+    \fld bodyProof :: $\hash$
+    \fld consensusData :: $\ebbheadcons$
+    \fld extraData :: $\String \rhu \emptyset$
+    \}
+
+    <$\ebb$> = \{
+    \fld header :: $\ebbhead$
+    \fld body :: $\nelists{\stakeholderids}$
+    \fld extra :: $\String \rhu \emptyset$
+    \}
+  \end{grammar}
+  \caption{Epoch Boundary Blocks}
+  \label{fig:ebb}
+\end{figure}
+
 \section{Requirements on the binary format}
 \label{sec:reqs}
 

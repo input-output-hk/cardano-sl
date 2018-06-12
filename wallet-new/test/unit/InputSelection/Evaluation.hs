@@ -111,7 +111,22 @@ utxoHistogram binSize =
   Auxiliary: time series
 -------------------------------------------------------------------------------}
 
-type SlotNr = Int
+type OverallSlotNr = Int
+type PolicyNr      = Int
+type PolicySlotNr  = Int
+
+-- | Slot number
+data SlotNr = SlotNr {
+    -- | Overall slot number (across policies)
+    overallSlotNr :: OverallSlotNr
+
+    -- \ Policy number (only relevant when evaluating multiple policies)
+  , policyNr      :: PolicyNr
+
+    -- | Slot number for this policy
+  , policySlotNr  :: PolicySlotNr
+  }
+  deriving (Eq, Ord)
 
 -- | Time series of values
 --
@@ -144,11 +159,14 @@ insertTimeSeries slotNr a (TimeSeries m) = TimeSeries (Map.insert slotNr a m)
 
 -- | Bounds for a time series
 timeSeriesRange :: forall a. (Num a, Ord a)
-                => TimeSeries a -> Ranges SlotNr a
+                => TimeSeries a -> Ranges OverallSlotNr a
 timeSeriesRange (TimeSeries m) = Ranges {
-      _x = Range 0 (fst (Map.findMax m))
+      _x = Range (minimum slots) (maximum slots)
     , _y = Range 0 (maximum (Map.elems m))
     }
+  where
+    slots :: [OverallSlotNr]
+    slots = map overallSlotNr (Map.keys m)
 
 -- | Write out a time series to disk
 --
@@ -160,7 +178,15 @@ writeTimeSeries fp =
        LBS.writeFile fp
      . LBS.pack
      . Prelude.unlines
-     . map (\(step, a) -> Prelude.show step ++ "\t" ++ Prelude.show a)
+     . map (\(SlotNr{..}, a) -> concat [
+           Prelude.show overallSlotNr
+         , "\t"
+         , Prelude.show policyNr
+         , "\t"
+         , Prelude.show policySlotNr
+         , "\t"
+         , Prelude.show a
+         ])
      . timeSeriesToList
 
 {-------------------------------------------------------------------------------
@@ -284,7 +310,7 @@ instance Monad m => RunPolicy (StrictStateT (IntState utxo h a) m) a where
   Composable policies
 -------------------------------------------------------------------------------}
 
-data CompPolicy utxo h a m = forall utxo'. IsUtxo utxo' => CompPolicy {
+data CompPolicy utxo h a m = CompPolicy {
       -- | Construct a transaction
       mkTx :: InputSelectionPolicy utxo h a
                 (StrictStateT (IntState utxo h a) m)
@@ -293,8 +319,17 @@ data CompPolicy utxo h a m = forall utxo'. IsUtxo utxo' => CompPolicy {
       --
       -- This gives the policy the change to evolve as well as change
       -- representation, if needed
-    , nextSlot :: (utxo h a -> utxo' h a, CompPolicy utxo' h a m)
+    , nextSlot :: NextSlot utxo h a m
     }
+
+data NextSlot utxo h a m =
+    -- | We stick with the same policy for now
+    SamePolicy (CompPolicy utxo h a m)
+
+    -- | We change policy (and possibly representation)
+  | forall utxo'. IsUtxo utxo' => ChangePolicy
+       (utxo h a -> utxo' h a)
+       (CompPolicy utxo' h a m)
 
 simpleCompPolicy :: forall utxo h a m. IsUtxo utxo
                  => InputSelectionPolicy utxo h a
@@ -303,7 +338,7 @@ simpleCompPolicy :: forall utxo h a m. IsUtxo utxo
 simpleCompPolicy p = go
   where
     go :: CompPolicy utxo h a m
-    go = CompPolicy p (identity, go)
+    go = CompPolicy p $ SamePolicy go
 
 firstThen :: forall utxo utxo' h a m. (IsUtxo utxo, IsUtxo utxo', Hash h a)
           => InputSelectionPolicy utxo h a
@@ -315,8 +350,9 @@ firstThen :: forall utxo utxo' h a m. (IsUtxo utxo, IsUtxo utxo', Hash h a)
 firstThen p p' = goP
   where
     goP :: Int -> CompPolicy utxo h a m
-    goP 0 = CompPolicy p (convertUtxo, simpleCompPolicy p')
-    goP n = CompPolicy p (identity, goP (n - 1))
+    goP 0 = error "firstThen: expected n > 0"
+    goP 1 = CompPolicy p $ ChangePolicy convertUtxo (simpleCompPolicy p')
+    goP n = CompPolicy p $ SamePolicy (goP (n - 1))
 
 {-------------------------------------------------------------------------------
   Interpreter proper
@@ -336,7 +372,7 @@ intPolicy :: forall utxo h a m. (IsUtxo utxo, Hash h a, Monad m)
                       m
                       OverallStats
 intPolicy ours shouldRender =
-    loop 0
+    loop (SlotNr 0 0 0)
   where
     deriveSlotStats' :: IsUtxo utxo'
                      => SlotNr
@@ -356,7 +392,7 @@ intPolicy ours shouldRender =
                      (SlotNr, OverallStats, SlotStats)
                      m
                      OverallStats
-    loop slotNr !st policy@CompPolicy{..} = do
+    loop slot@SlotNr{..} !st policy@CompPolicy{..} = do
         mEvent <- await
         case mEvent of
           Nothing ->
@@ -365,12 +401,23 @@ intPolicy ours shouldRender =
             (isEndOfSlot, st') <- lift $ flip runStrictStateT st $
                                      intEvent mkTx event
             if not isEndOfSlot
-              then loop slotNr st' policy
+              then loop slot st' policy
               else do
-                when (shouldRender slotNr) $ do
-                  yield $ deriveSlotStats' slotNr st'
-                let (changeRep, policy') = nextSlot
-                loop (slotNr + 1) (st' & stUtxo %~ changeRep) policy'
+                when (shouldRender slot) $ do
+                  yield $ deriveSlotStats' slot st'
+                case nextSlot of
+                  SamePolicy policy' -> do
+                    let slot' = SlotNr { overallSlotNr = overallSlotNr + 1
+                                       , policyNr      = policyNr
+                                       , policySlotNr  = policySlotNr  + 1
+                                       }
+                    loop slot' st' policy'
+                  ChangePolicy changeRep policy' -> do
+                    let slot' = SlotNr { overallSlotNr = overallSlotNr + 1
+                                       , policyNr      = policyNr      + 1
+                                       , policySlotNr  = 0
+                                       }
+                    loop slot' (st' & stUtxo %~ changeRep) policy'
 
     intEvent :: IsUtxo utxo'
              => InputSelectionPolicy utxo' h a
@@ -413,16 +460,16 @@ data Bounds = Bounds {
       _boundsUtxoHistogram :: SplitRanges Bin Count
 
       -- | Range of the UTxO size time series
-    , _boundsUtxoSize      :: Ranges SlotNr Int
+    , _boundsUtxoSize      :: Ranges OverallSlotNr Int
 
       -- | Range of the UTxO balance time series
-    , _boundsUtxoBalance   :: Ranges SlotNr Value
+    , _boundsUtxoBalance   :: Ranges OverallSlotNr Value
 
       -- | Range of the transaction inputs
     , _boundsTxInputs      :: Ranges Int Int
 
       -- | Range of the median change/payment time series
-    , _boundsMedianRatio   :: Ranges SlotNr Double
+    , _boundsMedianRatio   :: Ranges OverallSlotNr Double
     }
 
 makeLenses ''Bounds
@@ -467,11 +514,14 @@ deriveBounds OverallStats{..} AccSlotStats{..} = Bounds {
 -- a priori which ranges we should use for the graphs (and it is important
 -- that we use the same range for all frames).
 data PlotInstr = PlotInstr {
+      -- | Slot number
+      piSlotNr         :: SlotNr
+
       -- | File prefix for current-step data
       --
       -- I.e., this is data like the UTxO and number of transaction inputs
       -- histogram (but not time series data, see 'piStep').
-      piFilePrefix     :: FilePath
+    , piFilePrefix     :: FilePath
 
       -- | Frame counter
       --
@@ -519,8 +569,8 @@ renderPlotInstr utxoBinSize
     % "set origin 0.05,0.55\n"
     % "unset xtics\n"
     % "set y2tics autofreq\n"
-    % "plot 'growth'  using 1:2 every ::0::" % build % " notitle axes x1y1 with lines\n"
-    % "plot 'balance' using 1:2 every ::0::" % build % " notitle axes x1y2 with lines linecolor rgbcolor 'blue'\n"
+    % "plot 'growth'  using 1:4 every ::0::" % build % " notitle axes x1y1 with lines\n"
+    % "plot 'balance' using 1:4 every ::0::" % build % " notitle axes x1y2 with lines linecolor rgbcolor 'blue'\n"
     % "unset y2tics\n"
 
     -- Plot transaction number of inputs distribution
@@ -538,7 +588,7 @@ renderPlotInstr utxoBinSize
     % "set size 0.25,0.4\n"
     % "set origin 0.65,0.15\n"
     % "unset xtics\n"
-    % "plot 'ratio' using 1:2 every ::0::" % build % " notitle\n"
+    % "plot 'ratio' using 1:4 every ::0::" % build % " notitle\n"
 
     % "unset multiplot\n"
     )
@@ -616,18 +666,19 @@ writeStats prefix =
           Nothing ->
             return (accSlotStats, reverse accInstrs)
           Just (slotNr, overallStats, slotStats) -> do
-            instr <- liftIO $ go frame overallStats slotStats
+            instr <- liftIO $ go slotNr frame overallStats slotStats
             let accSlotStats' = stepAccStats slotNr overallStats slotStats accSlotStats
                 accInstrs'    = instr : accInstrs
                 frame'        = frame + 1
             loop accSlotStats' accInstrs' frame'
 
-    go :: Int -> OverallStats -> SlotStats -> IO PlotInstr
-    go frame OverallStats{..} SlotStats{..} = do
+    go :: SlotNr -> Int -> OverallStats -> SlotStats -> IO PlotInstr
+    go slotNr frame OverallStats{..} SlotStats{..} = do
         Histogram.writeFile (filepath <.> "histogram") slotUtxoHistogram
         Histogram.writeFile (filepath <.> "txinputs") (txStatsNumInputs _overallTxStats)
         return PlotInstr {
-            piFilePrefix     = filename
+            piSlotNr         = slotNr
+          , piFilePrefix     = filename
           , piFrame          = frame
           , piFailedPayments = _overallFailedPayments
           }
@@ -753,7 +804,7 @@ evaluateInputPolicies plotParams@PlotParams{..} = do
 
     -- Render every n steps
     renderEvery :: Int -> SlotNr -> Bool
-    renderEvery n step = step `mod` n == 0
+    renderEvery n step = overallSlotNr step `mod` n == 0
 
     -- Event stream with a ratio of N:1 deposits:withdrawals
     nTo1 :: Int -> Int -> ConduitT () (Event GivenHash World) IO ()

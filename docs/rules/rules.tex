@@ -125,7 +125,7 @@
 \newcommand{\epochcommitments}[1]{\mathsf{commitments}(#1)}
 \newcommand{\epochopens}[1]{\mathsf{opens}(#1)}
 \newcommand{\epochrecoveries}[1]{\mathsf{recoveries}(#1)}
-\newcommand{\richmen}[1]{\mathsf{richmen}(#1)}
+\newcommand{\richmen}[2]{\mathsf{richmen}(#1,#2)}
 
 %% /macros %%
 
@@ -746,7 +746,7 @@ $b_1,…,b_n$ if all of the following hold
 
 \item[Seed computation] This rule divides into different cases, depending on the
   content of the seed computation field of the block $b$ (the functions
-  $\richmen{⋅}$, $\epochcommitments{⋅}$, $\epochopens{⋅}$, and
+  $\richmen{⋅,⋅}$, $\epochcommitments{⋅}$, $\epochopens{⋅}$, and
   $\epochrecoveries{⋅}$ are defined in Section~\ref{sec:derived-functions}).
   \begin{description}
   \item[Nothing] If there is no message, then no further rule must be
@@ -756,7 +756,8 @@ $b_1,…,b_n$ if all of the following hold
     \begin{description}
     \item[Commitment phase] Let $s$ be the current slot, then we must
       have $\epochslot{s}∈\commitphase$.
-    \item[Richmen] We must have $U⊆\richmen{b_1,…,b_n}$.
+    \item[Richmen] We must have
+      $U⊆\richmen{\delegations{b_1,…,b_n}}{\currentdistribution{b_1,…,b_n}}$.
     \item[Valid] For every $a∈U$, let $(m,p) = f(a)$, we must have
       $m=p$.
     \item[Fresh] Let $V$ be the domain of $\epochcommitments{b_1,…,b_n}$,
@@ -879,9 +880,18 @@ Section~\ref{sec:adding-block} are mutually recursive.
   \epochdistribution{b₁,…,b_n} = \currentdistribution{b₁,…,b_{\epochindex{b_1,…,b_n}}}
   $$
 
-\item[Richmen] \improvement{TODO: define the $\richmen{⋅}$ function,
-    listing the agents allowed to participate in the shared seed
-    computation}
+\item[Richmen] For a delegation graph $g$ and a stake distribution
+  $d∈\stakedistributions$, note that $\extension{g}{d}$ is the stake
+  distribution corresponding to $d$ except that all the stake of an
+  agent $a$ has been (transitively) passed to its delegatee.
+
+\newcommand{\threshold}[1]{\mathsf{threshold}(#1)}
+  We define
+  $$
+  \richmen{g}{d} = \{ a ∈ \agentids~|~\extension{g}{d}(a) ⩾
+  \threshold{∑_{b∈\agentids} d(b)} \}
+  $$
+  \improvement{TODO: declare the threshold function as a parameter.}
 
 \item[Seed computation]\hfill
   \begin{itemize}

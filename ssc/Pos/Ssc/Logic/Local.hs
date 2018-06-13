@@ -25,7 +25,6 @@ import qualified Crypto.Random as Rand
 import qualified Data.HashMap.Strict as HM
 import           Formatting (int, sformat, (%))
 import           Serokell.Util (magnify')
-import           Pos.Util.Log (WithLogger, launchNamedPureLog, logWarning)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Binary.Ssc ()
@@ -53,15 +52,18 @@ import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT, evalPureTossWithLog
                                tmShares, verifyAndApplySscPayload)
 import           Pos.Ssc.Types (SscGlobalState, SscLocalData (..), ldEpoch, ldModifier, ldSize,
                                 sscGlobal, sscLocal)
+import           Pos.Util.Trace (Trace, natTrace)
+import           Pos.Util.Trace.Unstructured (LogItem, logWarning)
+import           Pos.Util.Trace.Writer (writerTrace)
 
 -- | Get local payload to be put into main block and for given
 -- 'SlotId'. If payload for given 'SlotId' can't be constructed,
 -- empty payload can be returned.
 sscGetLocalPayload
     :: forall ctx m.
-       (MonadIO m, MonadSscMem ctx m, WithLogger m, HasProtocolConstants)
-    => SlotId -> m SscPayload
-sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ
+       (MonadIO m, MonadSscMem ctx m, HasProtocolConstants)
+    => Trace m LogItem -> SlotId -> m SscPayload
+sscGetLocalPayload logTrace si = sscRunLocalQuery (sscGetLocalPayloadQ si logTrace)
 
 sscGetLocalPayloadQ
   :: (HasProtocolConstants)
@@ -95,12 +97,11 @@ sscNormalize
        , MonadBlockDBRead m
        , MonadSscMem ctx m
        , HasLrcContext ctx
-       , WithLogger m
        , MonadIO m
        , Rand.MonadRandom m
        )
-    => m ()
-sscNormalize = do
+    => Trace m LogItem -> m ()
+sscNormalize logTrace = do
     tipEpoch <- view epochIndexL <$> getTipHeader
     richmenData <- getSscRichmen "sscNormalize" tipEpoch
     bvd <- gsAdoptedBVData
@@ -109,9 +110,7 @@ sscNormalize = do
     gs <- atomically $ readTVar globalVar
     seed <- Rand.drgNew
 
-    launchNamedPureLog atomically $
-        syncingStateWith localVar $
-        executeMonadBaseRandom seed $
+    sscRunLocalSTM logTrace $ executeMonadBaseRandom seed $
         sscNormalizeU (tipEpoch, richmenData) bvd gs
   where
     -- (... MonadPseudoRandom) a -> (... n) a

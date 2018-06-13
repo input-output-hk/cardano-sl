@@ -15689,19 +15689,25 @@ license = stdenv.lib.licenses.mit;
   mkDerivation
 , base
 , bytestring
+, cardano-sl-binary
+, cardano-sl-block
 , cardano-sl-core
-, cardano-sl-util
+, cardano-sl-crypto
+, cardano-sl-crypto-test
+, cardano-sl-delegation
+, cardano-sl-ssc
 , cpphs
 , cryptonite
-, formatting
-, hspec
-, mtl
+, cryptonite-openssl
+, hedgehog
+, pvss
 , QuickCheck
-, quickcheck-instances
+, serokell-util
 , stdenv
-, tagged
 , time-units
 , universum
+, unordered-containers
+, vector
 }:
 mkDerivation {
 
@@ -15711,23 +15717,29 @@ src = ./../core/test;
 libraryHaskellDepends = [
 base
 bytestring
+cardano-sl-binary
+cardano-sl-block
 cardano-sl-core
-cardano-sl-util
+cardano-sl-crypto
+cardano-sl-crypto-test
+cardano-sl-delegation
+cardano-sl-ssc
 cryptonite
-formatting
-hspec
-mtl
+cryptonite-openssl
+hedgehog
+pvss
 QuickCheck
-quickcheck-instances
-tagged
+serokell-util
 time-units
 universum
+unordered-containers
+vector
 ];
 libraryToolDepends = [
 cpphs
 ];
 doHaddock = false;
-description = "Cardano SL - core functionalit (tests)";
+description = "Cardano SL - core functionality (tests)";
 license = stdenv.lib.licenses.mit;
 
 }) {};

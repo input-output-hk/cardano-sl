@@ -11,6 +11,7 @@ import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import qualified Pos.Crypto as Crypto
 import qualified Pos.Txp.Toil.Types as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
+import           Servant.API (FromHttpApiData (..), ToHttpApiData (..))
 import           Test.Hspec
 import           Test.Hspec.QuickCheck
 import           Test.QuickCheck
@@ -22,6 +23,7 @@ import           Pos.Util.Mnemonic (Mnemonic)
 import qualified Pos.Core as Core
 
 import           Cardano.Wallet.API.Indices
+import           Cardano.Wallet.API.Request.Pagination (Page, PerPage)
 import           Cardano.Wallet.API.V1.Errors (WalletError)
 import           Cardano.Wallet.API.V1.Migration.Types (Migrate (..))
 import           Cardano.Wallet.API.V1.Types
@@ -32,7 +34,6 @@ import qualified Cardano.Wallet.Util as Util
 spec :: Spec
 spec = parallel $ describe "Marshalling & Unmarshalling" $ do
     parallel $ describe "Roundtrips" $ do
-        -- Aeson roundrips
         aesonRoundtripProp @(V1 (Mnemonic 12)) Proxy
         aesonRoundtripProp @Account Proxy
         aesonRoundtripProp @AssuranceLevel Proxy
@@ -63,8 +64,19 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         aesonRoundtripProp @EstimatedCompletionTime Proxy
         aesonRoundtripProp @SyncProgress Proxy
         aesonRoundtripProp @SyncThroughput Proxy
+        aesonRoundtripProp @AccountIndex Proxy
 
-        -- Migrate roundrips
+        -- HttpApiData roundtrips
+        httpApiDataRoundtripProp @AccountIndex Proxy
+        httpApiDataRoundtripProp @(V1 Core.TxId) Proxy
+        httpApiDataRoundtripProp @WalletId Proxy
+        httpApiDataRoundtripProp @(V1 Core.Timestamp) Proxy
+        httpApiDataRoundtripProp @(V1 Core.Address) Proxy
+        httpApiDataRoundtripProp @PerPage Proxy
+        httpApiDataRoundtripProp @Page Proxy
+        httpApiDataRoundtripProp @Core.Coin Proxy
+
+        -- Migrate roundtrips
         migrateRoundtripProp @(V1 Core.Address) @(V0.CId V0.Addr) Proxy Proxy
         migrateRoundtripProp @(V1 Core.Coin) @V0.CCoin Proxy Proxy
         migrateRoundtripProp @AssuranceLevel @V0.CWalletAssurance Proxy Proxy
@@ -150,6 +162,16 @@ aesonRoundtripProp
     => proxy a -> Spec
 aesonRoundtripProp proxy =
     prop ("Aeson " <> show (typeRep proxy) <> " roundtrips") (aesonRoundtrip proxy)
+
+httpApiDataRoundtrip :: (Arbitrary a, FromHttpApiData a, ToHttpApiData a, Eq a, Show a) => proxy a -> Property
+httpApiDataRoundtrip (_ :: proxy a) = forAll arbitrary $ \(s :: a) -> do
+    parseQueryParam (toQueryParam s) === Right s
+
+httpApiDataRoundtripProp
+    :: (Arbitrary a, ToHttpApiData a, FromHttpApiData a, Eq a, Show a, Typeable a)
+    => proxy a -> Spec
+httpApiDataRoundtripProp proxy =
+    prop ("HttpApiData " <> show (typeRep proxy) <> " roundtrips") (httpApiDataRoundtrip proxy)
 
 generalRoundtrip
     :: (Arbitrary from, Eq from, Show from, Show e)

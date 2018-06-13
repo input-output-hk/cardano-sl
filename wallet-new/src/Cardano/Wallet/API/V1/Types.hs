@@ -863,11 +863,10 @@ instance Bounded AccountIndex where
 
 mkAccountIndex :: Word32 -> Either Text AccountIndex
 mkAccountIndex index | index >= getAccIndex minBound = Right $ AccountIndex index
-                     | otherwise = Left $ "mkAccountIndex: Account index should be in range ["
-                                        <> show (getAccIndex minBound)
-                                        <> ".."
-                                        <> show (getAccIndex maxBound)
-                                        <> "]"
+                     | otherwise = Left $ sformat
+                            ("mkAccountIndex: Account index should be in range ["%int%".."%int%"]")
+                            (getAccIndex minBound)
+                            (getAccIndex maxBound)
 
 instance ToJSON AccountIndex where
     toJSON = toJSON . getAccIndex

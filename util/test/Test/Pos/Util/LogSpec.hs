@@ -58,9 +58,9 @@ run_logging :: Severity -> Int -> Integer -> Integer-> IO (Microsecond, Integer)
 run_logging sev n n0 n1= do
         startTime <- getPOSIXTime
 {- -}
-        setupLogging $ defaultTestConfiguration sev
+        lh <- setupLogging $ defaultTestConfiguration sev
         forM_ [1..n0] $ \_ ->
-            usingLoggerName "test_log" $
+            usingLoggerName lh "test_log" $
                 forM_ [1..n1] $ \_ -> do
                     logDebug msg
                     logInfo msg
@@ -72,7 +72,7 @@ run_logging sev n n0 n1= do
         threadDelay 0500000
         diffTime <- return $ nominalDiffTimeToMicroseconds (endTime - startTime)
         putStrLn $ "  time for " ++ (show (n0*n1)) ++ " iterations: " ++ (show diffTime)
-        linesLogged <- getLinesLogged
+        linesLogged <- getLinesLogged lh
         putStrLn $ "  lines logged :" ++ (show linesLogged)
         return (diffTime, linesLogged)
         where msg :: Text

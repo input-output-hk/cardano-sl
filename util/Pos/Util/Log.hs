@@ -5,6 +5,7 @@ module Pos.Util.Log
          Severity(..)
        , LogContext
        , LogContextT
+       , LoggingHandler
        -- * Compatibility
        , CanLog(..)
        , HasLoggerName(..)
@@ -47,6 +48,7 @@ import           Data.Text.Lazy.Builder
 
 import qualified Pos.Util.Log.Internal as Internal
 import           Pos.Util.Log.Scribes
+import           Pos.Util.Log.Internal (LoggingHandler)
 
 import qualified Katip as K
 import qualified Katip.Core as KC
@@ -139,13 +141,15 @@ addLoggerName t f =
 
 -- | setup logging according to configuration
 --   the backends (scribes) need to be registered with the @LogEnv@
-setupLogging :: LoggerConfig -> IO ()
+setupLogging :: LoggerConfig -> IO LoggingHandler
 setupLogging lc = do
-    scribes <- meta lc
-    Internal.setConfig scribes lc
+    lh <- Internal.newConfig lc
+    scribes <- meta lh lc
+    Internal.registerBackends lh scribes
+    return lh
       where
-        meta :: LoggerConfig -> IO [(T.Text, K.Scribe)]
-        meta _lc = do
+        meta :: LoggingHandler -> LoggerConfig -> IO [(T.Text, K.Scribe)]
+        meta _lh _lc = do
             -- setup scribes according to configuration
             let --minSev = _lc ^. lcLoggerTree ^. ltMinSeverity
                 lhs = _lc ^. lcLoggerTree ^. ltHandlers ^.. each
@@ -173,7 +177,7 @@ setupLogging lc = do
                                       K.V0
                         return (lh ^. lhName, scribe)
                     DevNullBE -> do
-                        scribe <- mkDevNullScribe
+                        scribe <- mkDevNullScribe _lh
                                       (Internal.sev2klog $ fromMaybe Debug $ lh ^. lhMinSeverity)
                                       K.V0
                         return (lh ^. lhName, scribe)
@@ -181,17 +185,17 @@ setupLogging lc = do
 
 
 -- | provide logging in IO
-usingLoggerName :: LoggerName -> LogContextT IO a -> IO a
-usingLoggerName name f = do
-    mayle <- Internal.getLogEnv
+usingLoggerName :: LoggingHandler -> LoggerName -> LogContextT IO a -> IO a
+usingLoggerName lh name f = do
+    mayle <- Internal.getLogEnv lh
     case mayle of
             Nothing -> error "logging not yet initialized. Abort."
             Just le -> K.runKatipContextT le () (Internal.s2kname name) $ f
 
 -- | bracket logging
-loggerBracket :: LoggerName -> LogContextT IO a -> IO a
-loggerBracket name f = do
-    mayle <- Internal.getLogEnv
+loggerBracket :: LoggingHandler -> LoggerName -> LogContextT IO a -> IO a
+loggerBracket lh name f = do
+    mayle <- Internal.getLogEnv lh
     case mayle of
             Nothing -> error "logging not yet initialized. Abort."
             Just le -> bracket (return le) K.closeScribes $
@@ -201,7 +205,7 @@ setLogPrefix :: Maybe FilePath -> LoggerConfig -> IO (LoggerConfig)
 setLogPrefix Nothing lc     = return lc
 setLogPrefix bp@(Just _) lc = return lc{ _lcBasePath = bp }
 
-loadLogConfig :: Maybe FilePath -> Maybe FilePath -> IO ()
+loadLogConfig :: Maybe FilePath -> Maybe FilePath -> IO LoggingHandler
 loadLogConfig pre cfg = do
     lc0 <- case cfg of
               Nothing -> return (mempty :: LoggerConfig)
@@ -211,12 +215,12 @@ loadLogConfig pre cfg = do
 
 
 -- | set base path of logging in @LoggerConfig@
-setLogBasePath :: FilePath -> IO ()
-setLogBasePath fp = do
-    maycfg <- Internal.getConfig
+setLogBasePath :: LoggingHandler -> FilePath -> IO ()
+setLogBasePath lh fp = do
+    maycfg <- Internal.getConfig lh
     case maycfg of
               Nothing  -> return ()
-              Just cfg -> Internal.updateConfig cfg{ _lcBasePath = Just fp}
+              Just cfg -> Internal.updateConfig lh cfg{ _lcBasePath = Just fp}
 
 
 -- |

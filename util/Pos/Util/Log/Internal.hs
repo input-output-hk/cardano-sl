@@ -1,16 +1,18 @@
 module Pos.Util.Log.Internal
-       ( setConfig
+       ( newConfig
+       , registerBackends
        , s2kname
        , sev2klog
        , updateConfig
        , getConfig
        , getLogEnv
        , getLinesLogged
+       , incrementLinesLogged
        , modifyLinesLogged
+       , LoggingHandler
        ) where
 
 import           Control.Concurrent.MVar (modifyMVar_, newMVar, withMVar)
-import           System.IO.Unsafe (unsafePerformIO)
 
 import qualified Data.Text as T
 import           Universum hiding (newMVar)
@@ -36,46 +38,51 @@ s2kname s = K.Namespace [s]
 
 
 -- | A global MVar keeping our internal state
-data LoggingStateInternal = LoggingStateInternal
+data LoggingHandlerInternal = LoggingHandlerInternal
   { lsiConfig      :: !(Maybe LoggerConfig)
   , lsiLogEnv      :: !(Maybe K.LogEnv)
   -- | Counter for the number of lines that are logged
   , lsiLinesLogged :: !Integer
   }
 
-{-# NOINLINE makeLSI #-}
-makeLSI :: MVar LoggingStateInternal
--- note: only kick up tree if handled locally
-makeLSI = unsafePerformIO $ do
-    let lsiConfig = Nothing
-        lsiLogEnv = Nothing
-        lsiLinesLogged = 0
-    newMVar LoggingStateInternal {..}
+-- | internal data structure to be passed around
+type LoggingMVar = MVar LoggingHandlerInternal
+newtype LoggingHandler = LoggingHandler
+    {
+      getLSI :: LoggingMVar
+    }
 
-getConfig :: IO (Maybe LoggerConfig)
-getConfig = withMVar makeLSI $ \LoggingStateInternal{..} -> return lsiConfig
+getConfig :: LoggingHandler -> IO (Maybe LoggerConfig)
+getConfig lh = withMVar (getLSI lh) $ \LoggingHandlerInternal{..} -> return lsiConfig
 
-getLogEnv:: IO (Maybe K.LogEnv)
-getLogEnv = withMVar makeLSI $ \LoggingStateInternal{..} -> return lsiLogEnv
+getLogEnv:: LoggingHandler -> IO (Maybe K.LogEnv)
+getLogEnv lh = withMVar (getLSI lh) $ \LoggingHandlerInternal{..} -> return lsiLogEnv
 
-getLinesLogged :: IO Integer
-getLinesLogged = withMVar makeLSI $ \LoggingStateInternal{..} -> return lsiLinesLogged
+getLinesLogged :: LoggingHandler -> IO Integer
+getLinesLogged lh = withMVar (getLSI lh) $ \LoggingHandlerInternal{..} -> return lsiLinesLogged
 
-modifyLinesLogged :: (Integer -> Integer) -> IO ()
-modifyLinesLogged f = do
-    LoggingStateInternal cfg env counter <- takeMVar makeLSI
-    putMVar makeLSI $ LoggingStateInternal cfg env $ f counter
+incrementLinesLogged :: LoggingHandler -> IO ()
+incrementLinesLogged lh = modifyLinesLogged lh (+1)
+modifyLinesLogged :: LoggingHandler -> (Integer -> Integer) -> IO ()
+modifyLinesLogged lh f = do
+    LoggingHandlerInternal cfg env counter <- takeMVar (getLSI lh)
+    putMVar (getLSI lh) $ LoggingHandlerInternal cfg env $ f counter
 
-updateConfig :: LoggerConfig -> IO ()
-updateConfig lc = modifyMVar_ makeLSI $ \LoggingStateInternal{..} -> do
-  return $ LoggingStateInternal (Just lc) lsiLogEnv lsiLinesLogged
+updateConfig :: LoggingHandler -> LoggerConfig -> IO ()
+updateConfig lh lc = modifyMVar_ (getLSI lh) $ \LoggingHandlerInternal{..} -> do
+    return $ LoggingHandlerInternal (Just lc) lsiLogEnv lsiLinesLogged
 
-setConfig :: [(T.Text, K.Scribe)] -> LoggerConfig -> IO ()
-setConfig scribes lc = modifyMVar_ makeLSI $ \LoggingStateInternal{..} -> do
+newConfig :: LoggerConfig -> IO LoggingHandler
+newConfig lc = do
+    mv <- newMVar $ LoggingHandlerInternal (Just lc) Nothing 0
+    return $ LoggingHandler mv
+
+registerBackends :: LoggingHandler -> [(T.Text, K.Scribe)] -> IO ()
+registerBackends lh scribes = do
+    LoggingHandlerInternal cfg _ counter <- takeMVar (getLSI lh)
     le0 <- K.initLogEnv (s2kname "cardano-sl") "production"
     le <- register scribes le0
-
-    return $ LoggingStateInternal (Just lc) (Just le) 0
+    putMVar (getLSI lh) $ LoggingHandlerInternal cfg (Just le) counter
       where
         register :: [(T.Text, K.Scribe)] -> K.LogEnv -> IO K.LogEnv
         register [] le = return le

@@ -319,13 +319,13 @@ multilineBounds maxSize = F.later formatList
    remaining = maxSize' - half
 
 -- | Catch and log an exception, then rethrow it
-logException :: Log.LoggerName -> IO a -> IO a
-logException name = E.handleAsync (\e -> handler e >> E.throw e)
+logException :: Log.LoggingHandler -> Log.LoggerName -> IO a -> IO a
+logException lh name = E.handleAsync (\e -> handler e >> E.throw e)
   where
     handler :: E.SomeException -> IO ()
     handler exc = do
         let message = "logException: " <> pretty exc
-        Log.usingLoggerName name (Log.logError message) `E.catchAny` \loggingExc -> do
+        Log.usingLoggerName lh name (Log.logError message) `E.catchAny` \loggingExc -> do
             putStrLn message
             putStrLn $
                 "logException failed to use logging: " <> pretty loggingExc

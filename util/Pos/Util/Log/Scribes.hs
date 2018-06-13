@@ -19,7 +19,7 @@ import           System.IO (Handle, BufferMode (LineBuffering),
                             stdout)
 import           System.IO.Unsafe (unsafePerformIO)
 
-import qualified Pos.Util.Log.Internal as Internal --(modifyLinesLogged)
+import qualified Pos.Util.Log.Internal as Internal
 
 
 -------------------------------------------------------------------------------
@@ -66,15 +66,15 @@ mkStdoutScribe = mkFileScribe' stdout True
 -}
 
 -- |Scribe that outputs to /dev/null without locking
-mkDevNullScribe :: Severity -> Verbosity -> IO Scribe
-mkDevNullScribe s v = do
+mkDevNullScribe :: Internal.LoggingHandler -> Severity -> Verbosity -> IO Scribe
+mkDevNullScribe lh s v = do
     h <- openFile "/dev/null" WriteMode
     let colorize = False
     hSetBuffering h LineBuffering
     let logger :: forall a. LogItem a => Item a -> IO ()
         logger item = when (permitItem s item) $
-            Internal.modifyLinesLogged succ
-                >> (T.hPutStrLn h $! toLazyText $ formatItem colorize v item)
+            Internal.incrementLinesLogged lh
+              >> (T.hPutStrLn h $! toLazyText $ formatItem colorize v item)
     pure $ Scribe logger (hFlush h)
 
 

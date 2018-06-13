@@ -7,6 +7,7 @@ module Pos.Util.Trace
     , trace
     , traceWith
     , noTrace
+    , setupLogging
     -- * log messages
     , stdoutTrace
     , stdoutTraceConcurrent
@@ -39,8 +40,10 @@ natTrace :: (forall x . m x -> n x) -> Trace m s -> Trace n s
 natTrace nat (Trace (Op tr)) = Trace $ Op $ nat . tr
 
 -- | setup logging and return a Trace
-setupLogging :: Log.LoggerConfig -> TraceIO
-setupLogging _ = logTrace "from setup"
+setupLogging :: Log.LoggerConfig -> IO TraceIO
+setupLogging lc = do
+    lh <- Log.setupLogging lc
+    return $ logTrace lh "from setup"
 
 trace :: Trace m s -> s -> m ()
 trace = getOp . runTrace
@@ -67,9 +70,9 @@ stdoutTraceConcurrent = do
     pure $ Trace $ Op $ traceIt
 
 -- | A 'Trace' that uses logging
-logTrace :: Log.LoggerName -> TraceIO
-logTrace loggerName = Trace $ Op $ \(severity, txt) ->
-    Log.usingLoggerName loggerName $ Log.logMessage severity txt
+logTrace :: Log.LoggingHandler -> Log.LoggerName -> TraceIO
+logTrace lh loggerName = Trace $ Op $ \(severity, txt) ->
+    Log.usingLoggerName lh loggerName $ Log.logMessage severity txt
 
 logDebug :: TraceIO -> Trace IO Text
 logDebug lt = contramap ((,) Log.Debug) lt

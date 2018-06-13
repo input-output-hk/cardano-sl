@@ -52,7 +52,6 @@ import qualified Cardano.Wallet.Util as Util
 spec :: HasCallStack => Spec
 spec = parallel $ describe "Marshalling & Unmarshalling" $ do
     parallel $ describe "Roundtrips" $ do
-        pc <- runIO $ generate arbitrary
         aesonRoundtripProp @Account Proxy
         aesonRoundtripProp @AssuranceLevel Proxy
         aesonRoundtripProp @BackupPhrase Proxy
@@ -157,14 +156,12 @@ spec = parallel $ describe "Marshalling & Unmarshalling" $ do
         safeCopyRoundTrip @(InDb (Core.AddressHash Core.Address'))
         safeCopyRoundTrip @(InDb (Core.Attributes Core.AddrAttributes))
         safeCopyRoundTrip @(InDb (Core.AddrType))
-        describe "Needing protocol constants ... " $ do
-            Core.withProtocolConstants pc $ do
-                safeCopyRoundTrip @(InDb Core.SlotId)
-                safeCopyRoundTrip @(InDb Core.LocalSlotIndex)
-                safeCopyRoundTrip @(InDb Core.BlockHeader)
-                safeCopyRoundTrip @(InDb Core.MainBlockHeader)
-                safeCopyRoundTrip @(InDb Core.MainConsensusData)
-                safeCopyRoundTrip @(InDb Core.BlockSignature)
+        safeCopyRoundTrip @(InDb Core.SlotId)
+        safeCopyRoundTrip @(InDb Core.LocalSlotIndex)
+        safeCopyRoundTrip @(InDb Core.BlockHeader)
+        safeCopyRoundTrip @(InDb Core.MainBlockHeader)
+        safeCopyRoundTrip @(InDb Core.MainConsensusData)
+        safeCopyRoundTrip @(InDb Core.BlockSignature)
 
         -- Other roundtrips
         generalRoundtripProp "UTC time" Util.showApiUtcTime Util.parseApiUtcTime

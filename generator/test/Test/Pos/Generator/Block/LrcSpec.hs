@@ -27,8 +27,8 @@ import           Pos.Chain.Block (mainBlockTxPayload)
 import qualified Pos.Chain.Lrc as Lrc
 import           Pos.Chain.Txp (TxpConfiguration (..))
 import           Pos.Core as Core (Coin, Config (..), EpochIndex, StakeholderId,
-                     addressHash, blkSecurityParam, coinF,
-                     configGeneratedSecretsThrow, epochSlots, genesisData)
+                     addressHash, coinF, configBlkSecurityParam,
+                     configGeneratedSecretsThrow, genesisData)
 import           Pos.Core.Genesis (GeneratedSecrets, GenesisData (..),
                      GenesisInitializer (..), TestnetBalanceOptions (..),
                      gsSecretKeysPoor, gsSecretKeysRich)
@@ -49,7 +49,7 @@ import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
 import           Test.Pos.Block.Property (blockPropertySpec)
 import           Test.Pos.Configuration (defaultTestBlockVersionData,
                      withStaticConfigurations)
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Core.Dummy (dummyConfig, dummyEpochSlots, dummyK)
 import           Test.Pos.Util.QuickCheck (maybeStopProperty, stopProperty)
 
 
@@ -129,7 +129,7 @@ lrcCorrectnessProp :: HasConfigurations
                    -> Core.Config
                    -> BlockProperty ()
 lrcCorrectnessProp txpConfig coreConfig = do
-    let k = blkSecurityParam
+    let k = configBlkSecurityParam coreConfig
     -- This value is how many blocks we need to generate first. We
     -- want to generate blocks for all slots which will be considered
     -- in LRC except the last one, because we want to include some
@@ -137,8 +137,7 @@ lrcCorrectnessProp txpConfig coreConfig = do
     -- anything similar, because we don't want to rely on the code,
     -- but rather want to use our knowledge.
     let blkCount0 = 8 * k - 1
-    () <$ bpGenBlocks dummyProtocolMagic
-                      txpConfig
+    () <$ bpGenBlocks txpConfig
                       (Just blkCount0)
                       (EnableTxPayload False)
                       (InplaceDB True)
@@ -154,12 +153,11 @@ lrcCorrectnessProp txpConfig coreConfig = do
     -- sure that stable blocks are indeed stable. Note that we have
     -- already applied 1 blocks, hence 'pred'.
     blkCount1 <- pred <$> pick (choose (k, 2 * k))
-    () <$ bpGenBlocks dummyProtocolMagic
-                      txpConfig
+    () <$ bpGenBlocks txpConfig
                       (Just blkCount1)
                       (EnableTxPayload False)
                       (InplaceDB True)
-    lift $ Lrc.lrcSingleShot dummyProtocolMagic 1
+    lift $ Lrc.lrcSingleShot dummyConfig 1
     leaders1 <-
         maybeStopProperty "No leaders for epoch#1!" =<< lift (LrcDB.getLeadersForEpoch 1)
     -- Here we use 'genesisSeed' (which is the seed for the 0-th
@@ -171,7 +169,7 @@ lrcCorrectnessProp txpConfig coreConfig = do
     -- DB iteration.
     let sortedStakes = sortOn (serialize' . fst) (HM.toList stableStakes)
     let expectedLeadersStakes =
-            Lrc.followTheSatoshi epochSlots genesisSeed sortedStakes
+            Lrc.followTheSatoshi dummyEpochSlots genesisSeed sortedStakes
     when (expectedLeadersStakes /= leaders1) $
         stopProperty $ sformat ("expectedLeadersStakes /= leaders1\n"%
                                 "Stakes version: "%listJson%
@@ -254,12 +252,11 @@ genAndApplyBlockFixedTxs :: HasConfigurations
                          -> BlockProperty ()
 genAndApplyBlockFixedTxs txpConfig txs = do
     let txPayload = mkTxPayload txs
-    emptyBlund <- bpGenBlock dummyProtocolMagic
-                             txpConfig
+    emptyBlund <- bpGenBlock txpConfig
                              (EnableTxPayload False)
                              (InplaceDB False)
     let blund = emptyBlund & _1 . _Right . mainBlockTxPayload .~ txPayload
-    lift $ applyBlocksUnsafe dummyProtocolMagic
+    lift $ applyBlocksUnsafe dummyConfig
                              (ShouldCallBListener False)
                              (one blund)
                              Nothing
@@ -291,18 +288,16 @@ lessThanKAfterCrucialProp
     => TxpConfiguration
     -> BlockProperty ()
 lessThanKAfterCrucialProp txpConfig = do
-    let k = blkSecurityParam
     -- We need to generate '8 * k' blocks for first '8 * k' slots.
-    let inFirst8K = 8 * k
+    let inFirst8K = 8 * dummyK
     -- And then we need to generate random number of blocks in range
     -- '[0 .. 2 * k]'.
-    inLast2K <- pick (choose (0, 2 * k))
-    let toGenerate = inFirst8K + inLast2K
+    inLast2K <- pick (choose (0, 2 * dummyK))
+    let toGenerate    = inFirst8K + inLast2K
     -- LRC should succeed iff number of blocks in last '2 * k' slots is
     -- at least 'k'.
-    let shouldSucceed = inLast2K >= k
-    () <$ bpGenBlocks dummyProtocolMagic
-                      txpConfig
+    let shouldSucceed = inLast2K >= dummyK
+    () <$ bpGenBlocks txpConfig
                       (Just toGenerate)
                       (EnableTxPayload False)
                       (InplaceDB True)
@@ -311,7 +306,7 @@ lessThanKAfterCrucialProp txpConfig = do
              " blocks after crucial slot, but it failed")
     let unexpectedFailMsg = sformat (mkFormat "succeed") inLast2K
     let unexpectedSuccessMsg = sformat (mkFormat "fail") inLast2K
-    lift (try $ Lrc.lrcSingleShot dummyProtocolMagic 1) >>= \case
+    lift (try $ Lrc.lrcSingleShot dummyConfig 1) >>= \case
         Left Lrc.UnknownBlocksForLrc
             | shouldSucceed -> stopProperty unexpectedFailMsg
             | otherwise -> pass

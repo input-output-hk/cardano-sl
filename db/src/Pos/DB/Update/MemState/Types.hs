@@ -19,7 +19,7 @@ import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Update (LocalVotes, PollModifier)
-import           Pos.Core (SlotId (..))
+import           Pos.Core (SlotCount, SlotId (..), localSlotIndexMinBound)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Core.Update (UpdateProposals)
 import           Pos.DB.Class (MonadDBRead)
@@ -57,11 +57,10 @@ newtype MemVar = MemVar
 
 -- | Create new 'MemVar' using slotting and read-only access to DB.
 newMemVar
-    :: (MonadIO m, MonadDBRead m, MonadSlots ctx m)
-    => m MemVar
-newMemVar = do
-    let slot0 = SlotId 0 minBound
-    msSlot <- fromMaybe slot0 <$> getCurrentSlot
+    :: (MonadIO m, MonadDBRead m, MonadSlots ctx m) => SlotCount -> m MemVar
+newMemVar epochSlots = do
+    let slot0 = SlotId 0 localSlotIndexMinBound
+    msSlot <- fromMaybe slot0 <$> getCurrentSlot epochSlots
     msTip <- getTip
     let ms = MemState { msPool = def, msModifier = mempty, .. }
     liftIO $ MemVar <$> newTVarIO ms

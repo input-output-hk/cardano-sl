@@ -35,10 +35,10 @@ import qualified Data.Map as Map
 
 import           Pos.AllSecrets (AllSecrets)
 import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Core as Core (Config)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toOldestFirst, _NewestFirst)
 import           Pos.Core.Genesis (GenesisWStakeholders)
-import           Pos.Crypto (ProtocolMagic)
 import           Pos.Generator.Block (BlockTxpGenMode, MonadBlockGen)
 import           Pos.Generator.BlockEvent (BlockApplyResult (..),
                      BlockDesc (..), BlockEvent' (..), BlockEventApply' (..),
@@ -117,15 +117,15 @@ snapshotEq snapshotId = emitEvent $
 
 runBlockEventGenT
     :: BlockTxpGenMode g ctx m
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> AllSecrets
     -> GenesisWStakeholders
     -> BlockEventGenT g m ()
     -> RandT g m BlockScenario
-runBlockEventGenT pm txpConfig secrets genStakeholders m = do
+runBlockEventGenT coreConfig txpConfig secrets genStakeholders m = do
     (annotations, preBlockScenario) <- runBlockEventGenT' m
-    genBlocksInStructure pm txpConfig secrets genStakeholders annotations preBlockScenario
+    genBlocksInStructure coreConfig txpConfig secrets genStakeholders annotations preBlockScenario
 
 runBlockEventGenT' ::
     (MonadBlockGen ctx m) =>

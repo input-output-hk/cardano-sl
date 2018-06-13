@@ -32,7 +32,8 @@ import           Pos.Chain.Txp (ExtendedLocalToilM, LocalToilState (..),
                      UndoMap, Utxo, UtxoLookup, UtxoModifier, extendLocalToilM,
                      mpLocalTxs, normalizeToil, processTx, topsortTxs,
                      utxoToLookup)
-import           Pos.Core (EpochIndex, ProtocolMagic, siEpoch)
+import           Pos.Core as Core (Config (..), EpochIndex, SlotCount,
+                     configEpochSlots, siEpoch)
 import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.JsonLog.LogEvents (MemPoolModifyReason (..))
 import           Pos.Core.Reporting (reportError)
@@ -66,9 +67,9 @@ type TxpProcessTransactionMode ctx m =
 -- only.
 txProcessTransaction
     :: ( TxpProcessTransactionMode ctx m)
-    => ProtocolMagic -> TxpConfiguration -> (TxId, TxAux) -> m (Either ToilVerFailure ())
-txProcessTransaction pm txpConfig itw =
-    withStateLock LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock pm txpConfig itw
+    => Core.Config -> TxpConfiguration -> (TxId, TxAux) -> m (Either ToilVerFailure ())
+txProcessTransaction coreConfig txpConfig itw =
+    withStateLock LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock coreConfig txpConfig itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.
@@ -77,12 +78,14 @@ txProcessTransactionNoLock
        ( TxpLocalWorkMode ctx m
        , MempoolExt m ~ ()
        )
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-txProcessTransactionNoLock pm txpConfig =
-    txProcessTransactionAbstract buildContext processTxHoisted
+txProcessTransactionNoLock coreConfig txpConfig = txProcessTransactionAbstract
+    (configEpochSlots coreConfig)
+    buildContext
+    processTxHoisted
   where
     buildContext :: Utxo -> TxAux -> m ()
     buildContext _ _ = pure ()
@@ -93,16 +96,18 @@ txProcessTransactionNoLock pm txpConfig =
         -> (TxId, TxAux)
         -> ExceptT ToilVerFailure (ExtendedLocalToilM () ()) TxUndo
     processTxHoisted bvd =
-        mapExceptT extendLocalToilM ... (processTx pm txpConfig bvd)
+        mapExceptT extendLocalToilM
+            ... (processTx (configProtocolMagic coreConfig) txpConfig bvd)
 
 txProcessTransactionAbstract ::
        forall extraEnv extraState ctx m a.
        (TxpLocalWorkMode ctx m, MempoolExt m ~ extraState)
-    => (Utxo -> TxAux -> m extraEnv)
+    => SlotCount
+    -> (Utxo -> TxAux -> m extraEnv)
     -> (BlockVersionData -> EpochIndex -> (TxId, TxAux) -> ExceptT ToilVerFailure (ExtendedLocalToilM extraEnv extraState) a)
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
-txProcessTransactionAbstract buildEnv txAction itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
+txProcessTransactionAbstract epochSlots buildEnv txAction itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
     -- Note: we need to read tip from the DB and check that it's the
     -- same as the one in mempool. That's because mempool state is
     -- valid only with respect to the tip stored there. Normally tips
@@ -118,7 +123,7 @@ txProcessTransactionAbstract buildEnv txAction itw@(txId, txAux) = reportTipMism
     -- sure that GState won't change, because changing it requires
     -- 'StateLock' which we own inside this function.
     tipDB <- lift GS.getTip
-    epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
+    epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot epochSlots)
     utxoModifier <- withTxpLocalData getUtxoModifier
     utxo <- buildUtxo utxoModifier [txAux]
     extraEnv <- lift $ buildEnv utxo txAux
@@ -181,9 +186,10 @@ txNormalize
        ( TxpLocalWorkMode ctx m
        , MempoolExt m ~ ()
        )
-    => ProtocolMagic -> TxpConfiguration -> m ()
-txNormalize pm txpConfig =
-    txNormalizeAbstract buildContext $ normalizeToilHoisted
+    => Core.Config -> TxpConfiguration -> m ()
+txNormalize coreConfig txpConfig =
+    txNormalizeAbstract (configEpochSlots coreConfig) buildContext
+        $ normalizeToilHoisted
   where
     buildContext :: Utxo -> [TxAux] -> m ()
     buildContext _ _ = pure ()
@@ -194,16 +200,18 @@ txNormalize pm txpConfig =
         -> HashMap TxId TxAux
         -> ExtendedLocalToilM () () ()
     normalizeToilHoisted bvd epoch txs =
-        extendLocalToilM $
-            normalizeToil pm txpConfig bvd epoch $ HM.toList txs
+        extendLocalToilM
+            $ normalizeToil (configProtocolMagic coreConfig) txpConfig bvd epoch
+            $ HM.toList txs
 
 txNormalizeAbstract ::
        (TxpLocalWorkMode ctx m, MempoolExt m ~ extraState)
-    => (Utxo -> [TxAux] -> m extraEnv)
+    => SlotCount
+    -> (Utxo -> [TxAux] -> m extraEnv)
     -> (BlockVersionData -> EpochIndex -> HashMap TxId TxAux -> ExtendedLocalToilM extraEnv extraState ())
     -> m ()
-txNormalizeAbstract buildEnv normalizeAction =
-    getCurrentSlot >>= \case
+txNormalizeAbstract epochSlots buildEnv normalizeAction =
+    getCurrentSlot epochSlots >>= \case
         Nothing -> do
             tip <- GS.getTip
             -- Clear and update tip

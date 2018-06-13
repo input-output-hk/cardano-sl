@@ -39,7 +39,7 @@ import           Data.Aeson.Types (typeMismatch)
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.HashMap.Strict as HMS
 
-import           Pos.Core (EpochIndex (..), HasConfiguration, SlotId (..),
+import           Pos.Core (EpochIndex (..), SlotCount, SlotId (..),
                      mkLocalSlotIndex)
 import           Pos.Core.JsonLog.JsonLogT (JsonLogConfig (..))
 import qualified Pos.Core.JsonLog.JsonLogT as JL
@@ -176,12 +176,13 @@ $(deriveJSON defaultOptions ''JLTxR)
 $(deriveJSON defaultOptions ''JLMemPool)
 
 -- | Get 'SlotId' from 'JLSlotId'.
-fromJLSlotId :: (HasConfiguration, MonadError Text m) => JLSlotId -> m SlotId
-fromJLSlotId (ep, sl) = SlotId (EpochIndex ep) <$> mkLocalSlotIndex sl
+fromJLSlotId :: MonadError Text m => SlotCount -> JLSlotId -> m SlotId
+fromJLSlotId epochSlots (ep, sl) =
+    SlotId (EpochIndex ep) <$> mkLocalSlotIndex epochSlots sl
 
 -- | Get 'SlotId' from 'JLSlotId'.
-fromJLSlotIdUnsafe :: HasConfiguration => JLSlotId -> SlotId
-fromJLSlotIdUnsafe x = case fromJLSlotId x of
+fromJLSlotIdUnsafe :: SlotCount -> JLSlotId -> SlotId
+fromJLSlotIdUnsafe epochSlots x = case fromJLSlotId epochSlots x of
     Right y -> y
     Left  _ -> error "illegal slot id"
 

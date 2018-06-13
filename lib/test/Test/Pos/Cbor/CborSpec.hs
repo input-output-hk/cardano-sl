@@ -51,7 +51,6 @@ import           Test.Pos.Cbor.Arbitrary.UserSecret ()
 import           Test.Pos.Chain.Delegation.Arbitrary ()
 import           Test.Pos.Chain.Ssc.Arbitrary ()
 import           Test.Pos.Chain.Update.Arbitrary ()
-import           Test.Pos.Configuration (withDefConfiguration)
 import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.DB.Update.Arbitrary ()
@@ -68,7 +67,7 @@ type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId
 ----------------------------------------
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> do
+spec = do
     describe "Cbor.Bi instances" $ do
         modifyMaxSuccess (const 1000) $ do
             describe "Lib/core instances" $ do

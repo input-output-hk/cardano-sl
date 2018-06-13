@@ -30,6 +30,7 @@ import           Pos.Util (divRoundUp)
 
 import           Test.Pos.Chain.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Core.Dummy (dummyEpochSlots)
 
 
 ----------------------------------------------------------------
@@ -190,7 +191,7 @@ blocksPageUnitSpec =
                   let blockExecution :: IO (Integer, [CBlockEntry])
                       blockExecution =
                           runExplorerTestMode testParams extraContext
-                              $ getBlocksPage Nothing (Just 10)
+                              $ getBlocksPage dummyEpochSlots Nothing (Just 10)
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   pagesTotal    <- fst <$> run blockExecution
@@ -232,7 +233,7 @@ blocksLastPageUnitSpec =
                   -- a million instances.
                   let blocksLastPageM :: IO (Integer, [CBlockEntry])
                       blocksLastPageM =
-                          runExplorerTestMode testParams extraContext getBlocksLastPage
+                          runExplorerTestMode testParams extraContext (getBlocksLastPage dummyEpochSlots)
 
                   -- We run the function in @BlockTestMode@ so we don't need to define
                   -- a million instances.
@@ -240,7 +241,7 @@ blocksLastPageUnitSpec =
                   let blocksPageM :: IO (Integer, [CBlockEntry])
                       blocksPageM =
                           runExplorerTestMode testParams extraContext
-                              $ getBlocksPage Nothing (Just 10)
+                              $ getBlocksPage dummyEpochSlots Nothing (Just 10)
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksLastPage <- run blocksLastPageM
@@ -276,6 +277,7 @@ epochSlotUnitSpec = do
                       epochSlotM =
                           runExplorerTestMode testParams extraContext
                               $ getEpochSlot
+                                  dummyEpochSlots
                                   (EpochIndex 0)
                                   1
 
@@ -313,6 +315,7 @@ epochPageUnitSpec = do
                       epochPageM =
                           runExplorerTestMode testParams extraContext
                               $ getEpochPage
+                                  dummyEpochSlots
                                   (EpochIndex 0)
                                   Nothing
 

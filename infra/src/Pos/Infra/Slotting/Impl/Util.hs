@@ -13,22 +13,22 @@ import           Universum
 
 import           Data.Time.Units (convertUnit)
 
-import           Pos.Core.Configuration (HasProtocolConstants)
 import           Pos.Core.Slotting (EpochIndex, EpochSlottingData (..),
-                     MonadSlotsData, SlotId (..), SlottingData, Timestamp (..),
-                     addTimeDiffToTimestamp, flattenEpochIndex,
-                     getSystemStartM, slotFromTimestamp, unflattenSlotId,
-                     withSlottingVarAtomM)
+                     MonadSlotsData, SlotCount, SlotId (..), SlottingData,
+                     Timestamp (..), addTimeDiffToTimestamp, flattenEpochIndex,
+                     getSystemStartM, localSlotIndexMinBound,
+                     slotFromTimestamp, unflattenSlotId, withSlottingVarAtomM)
 import           Pos.Infra.Slotting.Types (getCurrentEpochIndex,
                      getNextEpochSlottingData)
 
 
 -- | Approximate current slot using outdated slotting data.
 approxSlotUsingOutdated
-    :: (MonadSlotsData ctx m, HasProtocolConstants)
-    => Timestamp
+    :: MonadSlotsData ctx m
+    => SlotCount
+    -> Timestamp
     -> m SlotId
-approxSlotUsingOutdated t = do
+approxSlotUsingOutdated epochSlots t = do
 
     -- This is a constant and doesn't need to be fetched atomically
     systemStart <- getSystemStartM
@@ -38,15 +38,15 @@ approxSlotUsingOutdated t = do
 
     let epochStart = esdStartDiff nextSlottingData `addTimeDiffToTimestamp` systemStart
     pure $
-        if | t < epochStart -> SlotId (currentEpochIndex + 1) minBound
+        if | t < epochStart -> SlotId (currentEpochIndex + 1) localSlotIndexMinBound
            | otherwise      -> outdatedEpoch systemStart t (currentEpochIndex + 1) nextSlottingData
   where
     outdatedEpoch systemStart (Timestamp curTime) epoch EpochSlottingData {..} =
         let duration = convertUnit esdSlotDuration
             start = getTimestamp (esdStartDiff `addTimeDiffToTimestamp` systemStart)
         in
-        unflattenSlotId $
-        flattenEpochIndex epoch + fromIntegral ((curTime - start) `div` duration)
+        unflattenSlotId epochSlots $
+        flattenEpochIndex epochSlots epoch + fromIntegral ((curTime - start) `div` duration)
 
     -- | Get both values we need in a single fetch, so we don't end up with
     -- invalid data.

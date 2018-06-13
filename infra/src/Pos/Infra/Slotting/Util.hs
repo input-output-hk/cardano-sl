@@ -34,7 +34,8 @@ import           Data.Time.Units (Millisecond, fromMicroseconds)
 import           Formatting (int, sformat, shown, stext, (%))
 import           UnliftIO (MonadUnliftIO)
 
-import           Pos.Core (LocalSlotIndex, SlotId (..), Timestamp (..), slotIdF)
+import           Pos.Core (LocalSlotIndex, SlotCount, SlotId (..),
+                     Timestamp (..), slotIdF, slotIdSucc)
 import           Pos.Core.Conc (delay, timeout)
 import           Pos.Core.Slotting (ActionTerminationPolicy (..),
                      EpochSlottingData (..), MonadSlotsData,
@@ -115,22 +116,23 @@ type MonadOnNewSlot ctx m =
 -- it.
 onNewSlot
     :: MonadOnNewSlot ctx m
-    => OnNewSlotParams -> (SlotId -> m ()) -> m ()
-onNewSlot = onNewSlotImpl False
+    => SlotCount -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
+onNewSlot epochSlots = onNewSlotImpl epochSlots False
 
 onNewSlotWithLogging
     :: MonadOnNewSlot ctx m
-    => OnNewSlotParams -> (SlotId -> m ()) -> m ()
-onNewSlotWithLogging = onNewSlotImpl True
+    => SlotCount -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
+onNewSlotWithLogging epochSlots = onNewSlotImpl epochSlots True
 
 -- TODO [CSL-198]: think about exceptions more carefully.
 onNewSlotImpl
-    :: forall ctx m. MonadOnNewSlot ctx m
-    => Bool -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
-onNewSlotImpl withLogging params action =
+    :: forall ctx m
+     . MonadOnNewSlot ctx m
+    => SlotCount -> Bool -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
+onNewSlotImpl epochSlots withLogging params action =
     impl `catch` workerHandler
   where
-    impl = onNewSlotDo withLogging Nothing params actionWithCatch
+    impl = onNewSlotDo epochSlots withLogging Nothing params actionWithCatch
     -- [CSL-198] TODO: consider removing it.
     actionWithCatch s = action s `catch` actionHandler
     actionHandler :: SomeException -> m ()
@@ -141,15 +143,15 @@ onNewSlotImpl withLogging params action =
         -- REPORT:ERROR 'reportOrLogE' in 'onNewSlotImpl'
         reportOrLogE "Error occurred in 'onNewSlot' worker itself: " e
         delay =<< getNextEpochSlotDuration
-        onNewSlotImpl withLogging params action
+        onNewSlotImpl epochSlots withLogging params action
 
 onNewSlotDo
     :: MonadOnNewSlot ctx m
-    => Bool -> Maybe SlotId -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
-onNewSlotDo withLogging expectedSlotId onsp action = do
+    => SlotCount -> Bool -> Maybe SlotId -> OnNewSlotParams -> (SlotId -> m ()) -> m ()
+onNewSlotDo epochSlots withLogging expectedSlotId onsp action = do
     curSlot <- waitUntilExpectedSlot
 
-    let nextSlot = succ curSlot
+    let nextSlot = slotIdSucc epochSlots curSlot
     Timestamp curTime <- currentTimeSlotting
     Timestamp nextSlotStart <- getSlotStartEmpatically nextSlot
     let timeToWait = nextSlotStart - curTime
@@ -168,7 +170,7 @@ onNewSlotDo withLogging expectedSlotId onsp action = do
         when withLogging $ logTTW timeToWait
         delay timeToWait
     let newParams = onsp { onspStartImmediately = True }
-    onNewSlotDo withLogging (Just nextSlot) newParams action
+    onNewSlotDo epochSlots withLogging (Just nextSlot) newParams action
   where
     waitUntilExpectedSlot = do
         -- onNewSlotWorker doesn't make sense in recovery phase. Most
@@ -176,8 +178,8 @@ onNewSlotDo withLogging expectedSlotId onsp action = do
         -- (same epoch), the only priority is to sync with the
         -- chain. So we're skipping and checking again.
         let skipRound = delay recoveryRefreshDelay >> waitUntilExpectedSlot
-        ifM recoveryInProgress skipRound $ do
-            slot <- getCurrentSlotBlocking
+        ifM (recoveryInProgress epochSlots) skipRound $ do
+            slot <- getCurrentSlotBlocking epochSlots
             if | maybe (const True) (<=) expectedSlotId slot -> return slot
             -- Here we wait for short intervals to be sure that expected slot
             -- has really started, taking into account possible inaccuracies.
@@ -190,9 +192,9 @@ onNewSlotDo withLogging expectedSlotId onsp action = do
     logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
                  sformat ("Waiting for "%shown%" before new slot") timeToWait
 
-logNewSlotWorker :: MonadOnNewSlot ctx m => m ()
-logNewSlotWorker =
-    onNewSlotWithLogging defaultOnNewSlotParams $ \slotId -> do
+logNewSlotWorker :: MonadOnNewSlot ctx m => SlotCount -> m ()
+logNewSlotWorker epochSlots =
+    onNewSlotWithLogging epochSlots defaultOnNewSlotParams $ \slotId -> do
         modifyLoggerName (<> "slotting") $
             logNotice $ sformat ("New slot has just started: " %slotIdF) slotId
 

@@ -76,6 +76,8 @@ module Test.Pos.Core.ExampleHelpers
         , feedPM
         , feedPC
         , feedPMC
+        , feedEpochSlots
+        , feedPMEpochSlots
        ) where
 
 import           Universum
@@ -115,9 +117,9 @@ import           Pos.Core.Genesis (FakeAvvmOptions (..),
                      GenesisSpec (..), TestnetBalanceOptions (..))
 import           Pos.Core.Merkle (mkMerkleTree, mtRoot)
 import           Pos.Core.ProtocolConstants (ProtocolConstants, VssMaxTTL (..),
-                     VssMinTTL (..))
+                     VssMinTTL (..), pcEpochSlots)
 import           Pos.Core.Slotting (EpochIndex (..), FlatSlotId,
-                     LocalSlotIndex (..), SlotId (..))
+                     LocalSlotIndex (..), SlotCount, SlotId (..))
 import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
                      InnerSharesMap, Opening, OpeningsMap, SharesDistribution,
                      SignedCommitment, SscPayload (..), SscProof (..),
@@ -167,6 +169,14 @@ feedPMC genA = do
     pc <- genProtocolConstants
     genA pm pc
 
+feedEpochSlots :: (SlotCount -> H.Gen a) -> H.Gen a
+feedEpochSlots genA = genA =<< pcEpochSlots <$> genProtocolConstants
+
+feedPMEpochSlots :: (ProtocolMagic -> SlotCount -> H.Gen a) -> H.Gen a
+feedPMEpochSlots genA = do
+    pm <- genProtocolMagic
+    epochSlots <- pcEpochSlots <$> genProtocolConstants
+    genA pm epochSlots
 
 --------------------------------------------------------------------------------
 -- Example golden datatypes

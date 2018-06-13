@@ -30,7 +30,8 @@ import           Pos.Chain.Block (ApplyBlocksException, Block, BlockHeader,
                      Blund, HasHeaderHash (..), HeaderHash, LastKnownHeaderTag,
                      blockHeader, gbHeader, headerHashG, prevBlockL)
 import           Pos.Chain.Txp (TxpConfiguration)
-import           Pos.Core (isMoreDifficult)
+import           Pos.Core as Core (Config, SlotCount, configEpochSlots,
+                     isMoreDifficult)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      _NewestFirst, _OldestFirst)
 import           Pos.Core.Conc (forConcurrently)
@@ -40,7 +41,7 @@ import           Pos.Core.JsonLog (CanJsonLog (..))
 import           Pos.Core.Reporting (HasMisbehaviorMetrics (..),
                      MisbehaviorMetrics (..))
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
-import           Pos.Crypto (ProtocolMagic, shortHashF)
+import           Pos.Crypto (shortHashF)
 import           Pos.DB.Block (ClassifyHeaderRes (..), classifyNewHeader,
                      lcaWithMainChain, verifyAndApplyBlocks)
 import qualified Pos.DB.Block as L
@@ -100,8 +101,8 @@ instance Exception BlockNetLogicException where
 triggerRecovery
     :: ( BlockWorkMode ctx m
        )
-    => ProtocolMagic -> Diffusion m -> m ()
-triggerRecovery pm diffusion = unlessM recoveryInProgress $ do
+    => Core.Config -> Diffusion m -> m ()
+triggerRecovery coreConfig diffusion = unlessM (recoveryInProgress $ configEpochSlots coreConfig) $ do
     logDebug "Recovery triggered, requesting tips from neighbors"
     -- The 'catch' here is for an exception when trying to enqueue the request.
     -- In 'requestTipsAndProcess', IO exceptions are caught, for each
@@ -124,24 +125,23 @@ triggerRecovery pm diffusion = unlessM recoveryInProgress $ do
         -- downloaded.
         bh <- mbh
         -- I know, it's not unsolicited. TODO rename.
-        handleUnsolicitedHeader pm bh nodeId
+        handleUnsolicitedHeader coreConfig bh nodeId
 
 ----------------------------------------------------------------------------
 -- Headers processing
 ----------------------------------------------------------------------------
 
 handleUnsolicitedHeader
-    :: ( BlockWorkMode ctx m
-       )
-    => ProtocolMagic
+    :: BlockWorkMode ctx m
+    => Core.Config
     -> BlockHeader
     -> NodeId
     -> m ()
-handleUnsolicitedHeader pm header nodeId = do
+handleUnsolicitedHeader coreConfig header nodeId = do
     logDebug $ sformat
         ("handleUnsolicitedHeader: single header was propagated, processing:\n"
          %build) header
-    classificationRes <- classifyNewHeader pm header
+    classificationRes <- classifyNewHeader coreConfig header
     -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
     case classificationRes of
         CHContinues -> do
@@ -164,7 +164,7 @@ handleUnsolicitedHeader pm header nodeId = do
         "Header " %shortHashF %
         " potentially represents good alternative chain, will process"
     uselessFormat =
-        "Header " %shortHashF % " is useless for the following reason: " %stext
+        "Header " %shortHashF%" is useless for the following reason: " %stext
 
 ----------------------------------------------------------------------------
 -- Putting things into request queue
@@ -225,12 +225,12 @@ handleBlocks
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> OldestFirst NE Block
     -> Diffusion m
     -> m ()
-handleBlocks pm txpConfig blocks diffusion = do
+handleBlocks coreConfig txpConfig blocks diffusion = do
     logDebug "handleBlocks: processing"
     inAssertMode $ logInfo $
         sformat ("Processing sequence of blocks: " % buildListBounds % "...") $
@@ -248,8 +248,8 @@ handleBlocks pm txpConfig blocks diffusion = do
         logDebug $ sformat ("Handling block w/ LCA, which is "%shortHashF) lcaHash
         -- Head blund in result is the youngest one.
         toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
-        maybe (applyWithoutRollback pm txpConfig diffusion blocks)
-              (applyWithRollback pm txpConfig diffusion blocks lcaHash)
+        maybe (applyWithoutRollback coreConfig txpConfig diffusion blocks)
+              (applyWithRollback coreConfig txpConfig diffusion blocks lcaHash)
               (_NewestFirst nonEmpty toRollback)
 
 applyWithoutRollback
@@ -257,12 +257,12 @@ applyWithoutRollback
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> Diffusion m
     -> OldestFirst NE Block
     -> m ()
-applyWithoutRollback pm txpConfig diffusion blocks = do
+applyWithoutRollback coreConfig txpConfig diffusion blocks = do
     logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ blocks
     modifyStateLock HighPriority ApplyBlock applyWithoutRollbackDo >>= \case
@@ -282,17 +282,18 @@ applyWithoutRollback pm txpConfig diffusion blocks = do
                     & map (view blockHeader)
                 applied = NE.fromList $
                     getOldestFirst prefix <> one (toRelay ^. blockHeader)
-            relayBlock diffusion toRelay
+            relayBlock epochSlots diffusion toRelay
             logInfo $ blocksAppliedMsg applied
             for_ blocks $ jsonLog . jlAdoptedBlock
   where
+    epochSlots = configEpochSlots coreConfig
     newestTip = blocks ^. _OldestFirst . _neLast . headerHashG
     applyWithoutRollbackDo
         :: HeaderHash -> m (HeaderHash, Either ApplyBlocksException HeaderHash)
     applyWithoutRollbackDo curTip = do
         logInfo "Verifying and applying blocks..."
-        curSlot <- getCurrentSlot
-        res <- fmap fst <$> verifyAndApplyBlocks pm txpConfig curSlot False blocks
+        curSlot <- getCurrentSlot epochSlots
+        res <- fmap fst <$> verifyAndApplyBlocks coreConfig txpConfig curSlot False blocks
         logInfo "Verifying and applying blocks done"
         let newTip = either (const curTip) identity res
         pure (newTip, res)
@@ -301,19 +302,19 @@ applyWithRollback
     :: ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> Diffusion m
     -> OldestFirst NE Block
     -> HeaderHash
     -> NewestFirst NE Blund
     -> m ()
-applyWithRollback pm txpConfig diffusion toApply lca toRollback = do
+applyWithRollback coreConfig txpConfig diffusion toApply lca toRollback = do
     logInfo . sformat ("Trying to apply blocks w/o rollback. " % multilineBounds 6)
        . getOldestFirst . map (view blockHeader) $ toApply
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
     res <- modifyStateLock HighPriority ApplyBlockWithRollback $ \curTip -> do
-        res <- L.applyWithRollback pm txpConfig toRollback toApplyAfterLca
+        res <- L.applyWithRollback coreConfig txpConfig toRollback toApplyAfterLca
         pure (either (const curTip) identity res, res)
     case res of
         Left (pretty -> err) ->
@@ -326,7 +327,8 @@ applyWithRollback pm txpConfig diffusion toApply lca toRollback = do
             logInfo $ blocksRolledBackMsg (getNewestFirst toRollback)
             logInfo $ blocksAppliedMsg (getOldestFirst toApply)
             for_ (getOldestFirst toApply) $ jsonLog . jlAdoptedBlock
-            relayBlock diffusion $ toApply ^. _OldestFirst . _neLast
+            relayBlock (configEpochSlots coreConfig) diffusion
+                $ toApply ^. _OldestFirst . _neLast
   where
     toRollbackHashes = fmap headerHash toRollback
     reportRollback = do
@@ -346,11 +348,11 @@ applyWithRollback pm txpConfig diffusion toApply lca toRollback = do
 relayBlock
     :: forall ctx m.
        (BlockWorkMode ctx m)
-    => Diffusion m -> Block -> m ()
-relayBlock _ (Left _)                  = logDebug "Not relaying Genesis block"
-relayBlock diffusion (Right mainBlk) = do
-    recoveryInProgress >>= \case
-        True -> logDebug "Not relaying block in recovery mode"
+    => SlotCount -> Diffusion m -> Block -> m ()
+relayBlock _ _ (Left _) = logDebug "Not relaying Genesis block"
+relayBlock epochSlots diffusion (Right mainBlk) = do
+    recoveryInProgress epochSlots >>= \case
+        True  -> logDebug "Not relaying block in recovery mode"
         False -> do
             logDebug $ sformat ("Calling announceBlock for "%shortHashF%".")
                        (mainBlk ^. gbHeader . headerHashG)
@@ -362,8 +364,8 @@ relayBlock diffusion (Right mainBlk) = do
 
 -- TODO: ban node for it!
 onFailedVerifyBlocks
-    :: forall ctx m.
-       (BlockWorkMode ctx m)
+    :: forall ctx m .
+       BlockWorkMode ctx m
     => NonEmpty Block -> Text -> m ()
 onFailedVerifyBlocks blocks err = do
     logWarning $ sformat ("Failed to verify blocks: "%stext%"\n  blocks = "%listJson)

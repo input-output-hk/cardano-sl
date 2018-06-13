@@ -52,14 +52,13 @@ import           Pos.Core (AddrAttributes (..), AddrSpendingData (..),
                      mkMultiKeyDistr, unsafeCoinPortionFromDouble,
                      unsafeGetCoin, unsafeSubCoin)
 import           Pos.Core.Attributes (Attributes (..), UnparsedFields (..))
-import           Pos.Core.Configuration (HasGenesisBlockVersionData,
-                     HasProtocolConstants, epochSlots, protocolConstants)
+import           Pos.Core.Configuration (HasGenesisBlockVersionData)
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..))
 import qualified Pos.Core.Genesis as G
 import           Pos.Core.Merkle (MerkleTree, mkMerkleTree)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
-                     VssMaxTTL (..), VssMinTTL (..))
+                     VssMaxTTL (..), VssMinTTL (..), pcEpochSlots)
 import           Pos.Core.Ssc (VssCertificate, mkVssCertificate,
                      mkVssCertificatesMapLossy)
 import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
@@ -68,6 +67,7 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
 import           Pos.Crypto (ProtocolMagic, createPsk, toPublic)
 import           Pos.Util.Util (leftToPanic)
 
+import           Test.Pos.Core.Dummy (dummyProtocolConstants)
 import           Test.Pos.Crypto.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.Orphans ()
@@ -122,24 +122,24 @@ instance Arbitrary EpochIndex where
     arbitrary = choose (0, maxReasonableEpoch)
     shrink = genericShrink
 
-genLocalSlotIndex :: ProtocolConstants -> Gen LocalSlotIndex
-genLocalSlotIndex pc = UnsafeLocalSlotIndex <$>
+genLocalSlotIndex :: SlotCount -> Gen LocalSlotIndex
+genLocalSlotIndex epochSlots = UnsafeLocalSlotIndex <$>
     choose ( getSlotIndex localSlotIndexMinBound
-           , getSlotIndex (localSlotIndexMaxBound pc)
+           , getSlotIndex $ localSlotIndexMaxBound epochSlots
            )
 
-instance HasProtocolConstants => Arbitrary LocalSlotIndex where
-    arbitrary = genLocalSlotIndex protocolConstants
+instance Arbitrary LocalSlotIndex where
+    arbitrary = genLocalSlotIndex $ pcEpochSlots dummyProtocolConstants
     shrink = genericShrink
 
-genSlotId :: ProtocolConstants -> Gen SlotId
-genSlotId pc = SlotId <$> arbitrary <*> genLocalSlotIndex pc
+genSlotId :: SlotCount -> Gen SlotId
+genSlotId epochSlots = SlotId <$> arbitrary <*> genLocalSlotIndex epochSlots
 
-instance HasProtocolConstants => Arbitrary SlotId where
+instance Arbitrary SlotId where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasProtocolConstants => Arbitrary EpochOrSlot where
+instance Arbitrary EpochOrSlot where
     arbitrary = oneof [
           EpochOrSlot . Left <$> arbitrary
         , EpochOrSlot . Right <$> arbitrary
@@ -152,16 +152,17 @@ newtype EoSToIntOverflow = EoSToIntOverflow
     { getEoS :: EpochOrSlot
     } deriving (Show, Eq, Generic)
 
-instance HasProtocolConstants => Arbitrary EoSToIntOverflow where
+instance Arbitrary EoSToIntOverflow where
     arbitrary = EoSToIntOverflow <$> do
-        let maxIntAsInteger = toInteger (maxBound :: Int)
+        let epochSlots = pcEpochSlots dummyProtocolConstants
+            maxIntAsInteger = toInteger (maxBound :: Int)
             maxW64 = toInteger (maxBound :: Word64)
             (minDiv, minMod) = maxIntAsInteger `divMod` (fromIntegral $ succ epochSlots)
             maxDiv = maxW64 `div` (1 + fromIntegral epochSlots)
         leftEpoch <- EpochIndex . fromIntegral <$> choose (minDiv + 1, maxDiv)
         localSlot <-
             leftToPanic "arbitrary@EoSToIntOverflow" .
-            mkLocalSlotIndex .
+            mkLocalSlotIndex epochSlots .
             fromIntegral <$> choose (minMod, toInteger epochSlots)
         let rightEpoch = EpochIndex . fromIntegral $ minDiv
         EpochOrSlot <$>
@@ -179,8 +180,9 @@ newtype UnreasonableEoS = Unreasonable
     { getUnreasonable :: EpochOrSlot
     } deriving (Show, Eq, Generic)
 
-instance HasProtocolConstants => Arbitrary UnreasonableEoS where
+instance Arbitrary UnreasonableEoS where
     arbitrary = Unreasonable . EpochOrSlot <$> do
+        let epochSlots = pcEpochSlots dummyProtocolConstants
         let maxI = (maxBound :: Int) `div` (1 + fromIntegral epochSlots)
         localSlot <- arbitrary
         let lsIntegral = fromIntegral . getSlotIndex $ localSlot
@@ -562,7 +564,7 @@ instance Arbitrary ProtocolConstants where
 instance Arbitrary G.GenesisProtocolConstants where
     arbitrary = flip G.genesisProtocolConstantsFromProtocolConstants dummyProtocolMagic <$> arbitrary
 
-instance (HasProtocolConstants) => Arbitrary G.GenesisData where
+instance Arbitrary G.GenesisData where
     arbitrary = G.GenesisData
         <$> arbitrary <*> arbitrary <*> arbitraryStartTime
         <*> arbitraryVssCerts <*> arbitrary <*> arbitraryBVD

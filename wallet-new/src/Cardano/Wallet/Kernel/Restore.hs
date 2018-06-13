@@ -49,8 +49,8 @@ import           Cardano.Wallet.Kernel.Wallets (createWalletHdRnd)
 import           Pos.Chain.Block (Block, Blund, HeaderHash, MainBlock, Undo,
                      headerHash, mainBlockSlot)
 import           Pos.Chain.Txp (GenesisUtxo (..), Utxo, genesisUtxo)
-import           Pos.Core (BlockCount (..), Coin, SlotId, flattenSlotIdExplicit,
-                     mkCoin, unsafeIntegerToCoin)
+import           Pos.Core (BlockCount (..), Coin, SlotId, flattenSlotId, mkCoin,
+                     unsafeIntegerToCoin)
 import           Pos.Core.Txp (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.DB.Block (getFirstGenesisBlockHash, getUndo,
@@ -93,7 +93,7 @@ restoreWallet pw spendingPass name assurance esk prefilter = do
             slotCount <- getSlotCount (pw ^. walletNode)
             let restoreInfo = WalletRestorationInfo
                   { _wriCurrentSlot = 0
-                  , _wriTargetSlot  = flattenSlotIdExplicit slotCount tgtSlot
+                  , _wriTargetSlot  = flattenSlotId slotCount tgtSlot
                   , _wriThroughput  = MeasuredIn 0
                   , _wriCancel      = return ()
                   }
@@ -235,7 +235,7 @@ restoreWalletHistoryAsync wallet rootId target tgtSlot prefilter = do
 
           -- Update our progress
           slotCount <- getSlotCount (wallet ^. walletNode)
-          let flat             = flattenSlotIdExplicit slotCount
+          let flat             = flattenSlotId slotCount
               blockPerSec      = MeasuredIn . BlockCount . perSecond <$> rate
               throughputUpdate = maybe identity (set wriThroughput) blockPerSec
               slotId           = mb ^. mainBlockSlot

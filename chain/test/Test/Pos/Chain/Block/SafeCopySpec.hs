@@ -10,14 +10,12 @@ import           Test.Hspec (Spec, describe)
 import           Universum
 
 import qualified Pos.Chain.Block as Core
-import           Pos.Core.Configuration (defaultCoreConfiguration,
-                     withGenesisSpec)
 
 import           Test.Pos.Binary.Helpers (safeCopyTest)
 import           Test.Pos.Chain.Block.Arbitrary ()
 
 spec :: Spec
-spec = withGenesisSpec 0 defaultCoreConfiguration id $ \_ -> describe "Block types" $ do
+spec = describe "Block types" $ do
     -- These types are defined in 'core' but the 'Arbitrary' instances require
     -- generator components defined in package like 'ssc' and 'update' which
     -- means these tests cannot be moved to 'core'.

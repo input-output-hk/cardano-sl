@@ -28,13 +28,12 @@ import           Pos.Chain.Ssc.Error (SscVerifyError (..))
 import           Pos.Chain.Ssc.Toss.Base (verifyEntriesGuardM)
 import           Pos.Chain.Ssc.Types (SscGlobalState (..))
 import qualified Pos.Chain.Ssc.VssCertData as VCD
-import           Pos.Core (EpochIndex (..), HasGenesisData,
-                     HasProtocolConstants, SlotId (..), StakeholderId,
-                     genesisVssCerts)
+import           Pos.Core as Core (BlockCount, Config (..), EpochIndex (..),
+                     HasGenesisData, SlotId (..), StakeholderId,
+                     genesisVssCerts, pcBlkSecurityParam)
 import           Pos.Core.Slotting (crucialSlot)
 import           Pos.Core.Ssc (CommitmentsMap (..), SscPayload (..),
                      VssCertificatesMap)
-import           Pos.Crypto (ProtocolMagic)
 import           Pos.Util.Some (Some)
 
 ----------------------------------------------------------------------------
@@ -70,9 +69,9 @@ hasVssCertificate id = VCD.member id . _sgsVssCertificates
 --
 -- We also do some general sanity checks.
 verifySscPayload
-    :: (MonadError SscVerifyError m, HasProtocolConstants)
-    => ProtocolMagic -> Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
-verifySscPayload pm eoh payload = case payload of
+    :: MonadError SscVerifyError m
+    => Core.Config -> Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
+verifySscPayload coreConfig eoh payload = case payload of
     CommitmentsPayload comms certs -> do
         whenHeader eoh isComm
         commChecks comms
@@ -91,11 +90,13 @@ verifySscPayload pm eoh payload = case payload of
     whenHeader (Right header) f = f $ header ^. headerSlotL
 
     epochId = either identity (view $ headerSlotL . to siEpoch) eoh
-    isComm  slotId = unless (isCommitmentId slotId) $ throwError $ NotCommitmentPhase slotId
-    isOpen  slotId = unless (isOpeningId slotId) $ throwError $ NotOpeningPhase slotId
-    isShare slotId = unless (isSharesId slotId) $ throwError $ NotSharesPhase slotId
+    pc = configProtocolConstants coreConfig
+    k = pcBlkSecurityParam pc
+    isComm  slotId = unless (isCommitmentId k slotId) $ throwError $ NotCommitmentPhase slotId
+    isOpen  slotId = unless (isOpeningId k slotId) $ throwError $ NotOpeningPhase slotId
+    isShare slotId = unless (isSharesId k slotId) $ throwError $ NotSharesPhase slotId
     isOther slotId = unless (all not $
-                      map ($ slotId) [isCommitmentId, isOpeningId, isSharesId]) $
+                      map ($ slotId) [isCommitmentId k, isOpeningId k, isSharesId k]) $
                       throwError $ NotIntermediatePhase slotId
 
     -- We *forbid* blocks from having commitments/openings/shares in blocks
@@ -112,7 +113,9 @@ verifySscPayload pm eoh payload = case payload of
     --
     -- #verifySignedCommitment
     commChecks commitments = do
-        let checkComm = isVerSuccess . verifySignedCommitment pm epochId
+        let checkComm = isVerSuccess . verifySignedCommitment
+                (configProtocolMagic coreConfig)
+                epochId
         verifyEntriesGuardM fst snd CommitmentInvalid
                             (pure . checkComm)
                             (HM.toList . getCommitmentsMap $ commitments)
@@ -125,15 +128,20 @@ verifySscPayload pm eoh payload = case payload of
     -- #checkCert
     certsChecks certs =
         verifyEntriesGuardM identity identity CertificateInvalidTTL
-                            (pure . checkCertTTL epochId)
+                            (pure . checkCertTTL pc epochId)
                             (toList certs)
 
 ----------------------------------------------------------------------------
 -- Modern
 ----------------------------------------------------------------------------
 
-getStableCertsPure :: (HasProtocolConstants, HasGenesisData) => EpochIndex -> VCD.VssCertData -> VssCertificatesMap
-getStableCertsPure epoch certs
+getStableCertsPure
+    :: HasGenesisData
+    => BlockCount
+    -> EpochIndex
+    -> VCD.VssCertData
+    -> VssCertificatesMap
+getStableCertsPure k epoch certs
     | epoch == 0 = genesisVssCerts
     | otherwise =
-          VCD.certs $ VCD.setLastKnownSlot (crucialSlot epoch) certs
+          VCD.certs $ VCD.setLastKnownSlot (crucialSlot k epoch) certs

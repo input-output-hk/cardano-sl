@@ -11,19 +11,18 @@ module Pos.Chain.Block.Slog.Types
        , HasSlogContext (..)
 
        , SlogUndo (..)
+       , buildSlogUndo
        ) where
 
 import           Universum
 
 import           Control.Lens (makeClassy)
-import           Formatting (bprint)
-import qualified Formatting.Buildable
+import           Formatting (Format, bprint, later)
 import           System.Metrics.Label (Label)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core (ChainDifficulty, EpochIndex, FlatSlotId,
-                     HasProtocolConstants, LocalSlotIndex, slotIdF,
-                     unflattenSlotId)
+                     LocalSlotIndex, SlotCount, slotIdF, unflattenSlotId)
 import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Core.Reporting (MetricMonitorState)
 
@@ -92,10 +91,10 @@ newtype SlogUndo = SlogUndo
     { getSlogUndo :: Maybe FlatSlotId
     } deriving (Eq, Show, NFData, Generic)
 
-instance HasProtocolConstants => Buildable SlogUndo where
-    build (SlogUndo oldSlot) =
-        "SlogUndo: " <>
-        maybe "<nothing>" (bprint slotIdF . unflattenSlotId) oldSlot
+buildSlogUndo :: SlotCount -> Format r (SlogUndo -> r)
+buildSlogUndo epochSlots = later $ \(SlogUndo oldSlot) ->
+    "SlogUndo: " <>
+    maybe "<nothing>" (bprint slotIdF . unflattenSlotId epochSlots) oldSlot
 
 -- TH derived instances at the end of the file.
 
@@ -103,4 +102,3 @@ deriveSimpleBi ''SlogUndo [
     Cons 'SlogUndo [
         Field [| getSlogUndo  :: Maybe FlatSlotId |]
     ]]
-

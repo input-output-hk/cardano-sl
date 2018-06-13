@@ -28,13 +28,13 @@ import           Pos.Chain.Txp (TxpConfiguration, Utxo, execUtxoM, utxoToLookup)
 import qualified Pos.Chain.Txp as Utxo
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..),
                      createGenericTx, makeMPubKeyTxAddrs)
-import           Pos.Core (AddrSpendingData (..), Address (..), Coin,
-                     SlotId (..), addressHash, coinToInteger,
+import           Pos.Core as Core (AddrSpendingData (..), Address (..), Coin,
+                     Config (..), SlotId (..), addressHash, coinToInteger,
                      makePubKeyAddressBoot, unsafeIntegerToCoin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..),
                      TxOutAux (..))
-import           Pos.Crypto (ProtocolMagic, SecretKey, WithHash (..),
-                     fakeSigner, hash, toPublic)
+import           Pos.Crypto (SecretKey, WithHash (..), fakeSigner, hash,
+                     toPublic)
 import           Pos.DB.Txp (MonadTxpLocal (..), getAllPotentiallyHugeUtxo)
 import           Pos.Generator.Block.Error (BlockGenError (..))
 import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode,
@@ -121,10 +121,10 @@ makeLenses ''GenTxData
 genTxPayload
     :: forall ext g m
      . (RandomGen g, MonadBlockGenBase m, MonadTxpLocal (BlockGenMode ext m))
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> BlockGenRandMode ext g m ()
-genTxPayload pm txpConfig = do
+genTxPayload coreConfig txpConfig = do
     invAddrSpendingData <-
         unInvAddrSpendingData <$> view (blockGenParams . asSpendingData)
     -- We only leave outputs we have secret keys related to. Tx
@@ -213,18 +213,21 @@ genTxPayload pm txpConfig = do
             getSigner addr =
                 note (SafeSignerNotFound addr) $
                 HM.lookup addr signers
-            makeTestTx i o = makeMPubKeyTxAddrs pm getSigner i o
+            makeTestTx i o = makeMPubKeyTxAddrs (configProtocolMagic coreConfig)
+                                                getSigner
+                                                i
+                                                o
             groupedInputs = OptimizeForSecurity
 
         eTx <- lift . lift $
-            createGenericTx pm mempty makeTestTx groupedInputs ownUtxo txOutAuxs changeAddrData
+            createGenericTx coreConfig mempty makeTestTx groupedInputs ownUtxo txOutAuxs changeAddrData
         (txAux, _) <- either (throwM . BGFailedToCreate . pretty) pure eTx
 
         let tx = taTx txAux
         let txId = hash tx
         let txIns = _txInputs tx
         -- @txpProcessTx@ for BlockGenMode should be non-blocking
-        res <- lift . lift $ txpProcessTx pm txpConfig (txId, txAux)
+        res <- lift . lift $ txpProcessTx coreConfig txpConfig (txId, txAux)
         case res of
             Left e  -> error $ "genTransaction@txProcessTransaction: got left: " <> pretty e
             Right _ -> do
@@ -248,8 +251,8 @@ genTxPayload pm txpConfig = do
 genPayload
     :: forall ext g m
      . (RandomGen g, MonadBlockGenBase m, MonadTxpLocal (BlockGenMode ext m))
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> SlotId
     -> BlockGenRandMode ext g m ()
-genPayload pm txpConfig _ = genTxPayload pm txpConfig
+genPayload coreConfig txpConfig _ = genTxPayload coreConfig txpConfig

@@ -52,7 +52,7 @@ data TossAction
     | SetEpochOrSlot EpochOrSlot
     deriving (Show, Eq, Generic)
 
-instance HasConfiguration => Arbitrary TossAction where
+instance Arbitrary TossAction where
     arbitrary = genericArbitrary
     shrink = genericShrink
 

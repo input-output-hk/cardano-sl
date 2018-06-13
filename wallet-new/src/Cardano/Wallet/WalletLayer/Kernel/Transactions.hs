@@ -9,7 +9,7 @@ import           Control.Monad.Except
 import           GHC.TypeLits (symbolVal)
 
 import           Pos.Core (Address, Coin, SlotCount, SlotId, Timestamp,
-                     decodeTextAddress, flattenSlotIdExplicit, getBlockCount)
+                     decodeTextAddress, flattenSlotId, getBlockCount)
 import           Pos.Core.Txp (TxId)
 
 import           Cardano.Wallet.API.Indices
@@ -150,8 +150,8 @@ buildDynamicTxMeta assuranceLevel slotCount mSlot currentSlot isPending = case i
         case mSlot of
         Nothing     -> (V1.WontApply, 0)
         Just confirmedIn ->
-            let currentSlot'  = flattenSlotIdExplicit slotCount currentSlot
-                confirmedIn'  = flattenSlotIdExplicit slotCount confirmedIn
+            let currentSlot'  = flattenSlotId slotCount currentSlot
+                confirmedIn'  = flattenSlotId slotCount confirmedIn
                 confirmations = currentSlot' - confirmedIn'
             in case (confirmations < getBlockCount (HD.assuredBlockDepth assuranceLevel)) of
                True  -> (V1.InNewestBlocks, confirmations)

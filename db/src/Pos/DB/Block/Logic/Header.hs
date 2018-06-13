@@ -30,13 +30,12 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Chain.Block (BlockHeader (..), HeaderHash,
                      VerifyHeaderParams (..), headerHash, headerHashG,
                      headerSlotL, prevBlockL, verifyHeader)
-import           Pos.Core (blkSecurityParam, difficultyL, epochIndexL,
-                     getEpochOrSlot)
+import           Pos.Core as Core (BlockCount, Config (..), configEpochSlots,
+                     difficultyL, epochIndexL, getEpochOrSlot)
 import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst (..),
                      toNewestFirst, toOldestFirst, _NewestFirst, _OldestFirst)
 import           Pos.Core.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Core.Update (bvdMaxHeaderSize)
-import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Block.GState.BlockExtra as GS
 import           Pos.DB.Block.Load (loadHeadersByDepth)
@@ -76,11 +75,11 @@ classifyNewHeader
     , MonadDBRead m
     , MonadUnliftIO m
     )
-    => ProtocolMagic -> BlockHeader -> m ClassifyHeaderRes
+    => Core.Config -> BlockHeader -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
 classifyNewHeader _ (BlockHeaderGenesis _) = pure $ CHUseless "genesis header is useless"
-classifyNewHeader pm (BlockHeaderMain header) = fmap (either identity identity) <$> runExceptT $ do
-    curSlot <- getCurrentSlot
+classifyNewHeader coreConfig (BlockHeaderMain header) = fmap (either identity identity) <$> runExceptT $ do
+    curSlot <- getCurrentSlot $ configEpochSlots coreConfig
     tipHeader <- lift DB.getTipHeader
     let tipEoS = getEpochOrSlot tipHeader
     let newHeaderEoS = getEpochOrSlot header
@@ -122,6 +121,7 @@ classifyNewHeader pm (BlockHeaderMain header) = fmap (either identity identity) 
                     , vhpMaxSize = Just maxBlockHeaderSize
                     , vhpVerifyNoUnknown = False
                     }
+            let pm = configProtocolMagic coreConfig
             case verifyHeader pm vhp (BlockHeaderMain header) of
                 VerFailure errors -> throwError $ mkCHRinvalid (NE.toList errors)
                 _                 -> pass
@@ -214,8 +214,10 @@ getHeadersFromManyTo mLimit checkpoints startM = runExceptT $ do
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
     :: MonadDBRead m
-    => Maybe HeaderHash -> m (OldestFirst NE HeaderHash)
-getHeadersOlderExp upto = do
+    => BlockCount
+    -> Maybe HeaderHash
+    -> m (OldestFirst NE HeaderHash)
+getHeadersOlderExp k upto = do
     tip <- GS.getTip
     let upToReal = fromMaybe tip upto
     -- Using 'blkSecurityParam + 1' because fork can happen on k+1th one.
@@ -223,7 +225,7 @@ getHeadersOlderExp upto = do
         -- loadHeadersByDepth always returns nonempty list unless you
         -- pass depth 0 (we pass k+1). It throws if upToReal is
         -- absent. So it either throws or returns nonempty.
-        loadHeadersByDepth (blkSecurityParam + 1) upToReal
+        loadHeadersByDepth (k + 1) upToReal
     let toNE = fromMaybe (error "getHeadersOlderExp: couldn't create nonempty") .
                nonEmpty
     let selectedHashes :: NewestFirst [] HeaderHash

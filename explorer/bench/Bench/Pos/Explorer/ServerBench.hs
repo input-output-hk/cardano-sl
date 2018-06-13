@@ -22,6 +22,7 @@ import           Pos.Explorer.Web.Server (getBlocksPage, getBlocksTotal)
 
 import           Test.Pos.Configuration (withDefConfigurations)
 import           Test.Pos.Core.Arbitrary.Txp.Unsafe ()
+import           Test.Pos.Core.Dummy (dummyEpochSlots)
 
 ----------------------------------------------------------------
 -- Mocked functions
@@ -41,8 +42,11 @@ getBlocksTotalBench (testParams, extraContext) =
 getBlocksPageBench :: BenchmarkTestParams -> IO (Integer, [CBlockEntry])
 getBlocksPageBench (testParams, extraContext) =
     withDefConfigurations $ \_ _ _ ->
-          runExplorerTestMode testParams extraContext
-        $ getBlocksPage       Nothing    (Just $ fromIntegral defaultPageSize)
+        runExplorerTestMode testParams extraContext
+            $ getBlocksPage
+                  dummyEpochSlots
+                  Nothing
+                  (Just $ fromIntegral defaultPageSize)
 
 -- | This is used to generate the test environment. We don't do this while benchmarking
 -- the functions since that would include the time/memory required for the generation of the

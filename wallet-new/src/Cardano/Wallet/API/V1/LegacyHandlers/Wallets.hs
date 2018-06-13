@@ -36,8 +36,8 @@ import           Servant
 
 -- | All the @Servant@ handlers for wallet-specific operations.
 handlers :: HasConfigurations
-         => ServerT Wallets.API MonadV1
-handlers = newWallet
+         => Core.BlockCount -> ServerT Wallets.API MonadV1
+handlers k = newWallet k
     :<|> listWallets
     :<|> updatePassword
     :<|> deleteWallet
@@ -55,14 +55,14 @@ handlers = newWallet
 -- or are struggling to keep up. Therefore we consider a node to be \"synced
 -- enough\" with the blockchain if we are not lagging more than @k@ slots, where
 -- @k@ comes from the 'blkSecurityParam'.
-isNodeSufficientlySynced :: Core.HasProtocolConstants => V0.SyncProgress -> Bool
-isNodeSufficientlySynced spV0 =
+isNodeSufficientlySynced :: Core.BlockCount -> V0.SyncProgress -> Bool
+isNodeSufficientlySynced k spV0 =
     let blockchainHeight = fromMaybe (Core.BlockCount maxBound)
                                      (Core.getChainDifficulty <$> V0._spNetworkCD spV0)
         localHeight = Core.getChainDifficulty . V0._spLocalCD $ spV0
         remainingBlocks = blockchainHeight - localHeight
 
-        in remainingBlocks <= Core.blkSecurityParam
+        in remainingBlocks <= k
 
 -- | Creates a new or restores an existing @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created or restored
@@ -74,16 +74,17 @@ newWallet
        , V0.MonadBlockchainInfo m
        , HasLens SyncQueue ctx SyncQueue
        )
-    => NewWallet
+    => Core.BlockCount
+    -> NewWallet
     -> m (WalletResponse Wallet)
-newWallet NewWallet{..} = do
+newWallet k NewWallet{..} = do
 
     spV0 <- V0.syncProgress
     syncPercentage <- migrate spV0
 
     -- Do not allow creation or restoration of wallets if the underlying node
     -- is still catching up.
-    unless (isNodeSufficientlySynced spV0) $ throwM (NodeIsStillSyncing syncPercentage)
+    unless (isNodeSufficientlySynced k spV0) $ throwM (NodeIsStillSyncing syncPercentage)
 
     let newWalletHandler CreateWallet  = V0.newWalletNoThrow
         newWalletHandler RestoreWallet = V0.restoreWalletFromSeedNoThrow

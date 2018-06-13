@@ -13,7 +13,7 @@ import           Cardano.Wallet.Server.CLI (RunMode (..))
 import           Ntp.Client (NtpStatus)
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Chain.Update (curSoftwareVersion)
-import           Pos.Crypto (ProtocolMagic)
+import           Pos.Core as Core (Config)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Util.CompileInfo (compileInfo)
 import           Pos.Wallet.Web.Mode (WalletWebMode)
@@ -29,20 +29,20 @@ import qualified Cardano.Wallet.API.V1.Swagger as Swagger
 -- with Servant.
 walletServer :: (HasConfigurations, HasCompileInfo)
              => (forall a. WalletWebMode a -> Handler a)
-             -> ProtocolMagic
+             -> Core.Config
              -> TxpConfiguration
              -> Diffusion WalletWebMode
              -> TVar NtpStatus
              -> RunMode
              -> Server WalletAPI
-walletServer natV0 pm txpConfig diffusion ntpStatus runMode =
+walletServer natV0 coreConfig txpConfig diffusion ntpStatus runMode =
          v0Handler
     :<|> v0Handler
     :<|> v1Handler
     :<|> internalHandler
   where
-    v0Handler       = V0.handlers natV0 pm txpConfig diffusion ntpStatus
-    v1Handler       = V1.handlers natV0 pm txpConfig diffusion ntpStatus
+    v0Handler       = V0.handlers natV0 coreConfig txpConfig diffusion ntpStatus
+    v1Handler       = V1.handlers natV0 coreConfig txpConfig diffusion ntpStatus
     internalHandler = Internal.handlers natV0 runMode
 
 

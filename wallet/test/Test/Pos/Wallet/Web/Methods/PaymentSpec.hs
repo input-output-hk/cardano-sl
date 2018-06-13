@@ -47,12 +47,11 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
 import           Pos.Util.Servant (encodeCType)
 
 import           Test.Pos.Configuration (withDefConfigurations)
-import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Core.Dummy (dummyConfig)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty, expectedOne,
                      maybeStopProperty, splitWord, stopProperty)
 import           Test.Pos.Wallet.Web.Mode (WalletProperty, getSentTxs,
                      submitTxTestMode, walletPropertySpec)
-
 import           Test.Pos.Wallet.Web.Util (deriveRandomAddress,
                      expectedAddrBalance, importSomeWallets,
                      mostlyEmptyPassphrases)
@@ -124,7 +123,7 @@ newPaymentFixture = do
 rejectPaymentIfRestoringSpec :: HasConfigurations => TxpConfiguration -> Spec
 rejectPaymentIfRestoringSpec txpConfig = walletPropertySpec "should fail with 403" $ do
     PaymentFixture{..} <- newPaymentFixture
-    res <- lift $ try (newPaymentBatch dummyProtocolMagic txpConfig submitTxTestMode pswd batch)
+    res <- lift $ try (newPaymentBatch dummyConfig txpConfig submitTxTestMode pswd batch)
     liftIO $ shouldBe res (Left (err403 { errReasonPhrase = "Transaction creation is disabled when the wallet is restoring." }))
 
 -- | Test one single, successful payment.
@@ -137,7 +136,7 @@ oneNewPaymentBatchSpec txpConfig = walletPropertySpec oneNewPaymentBatchDesc $ d
     randomSyncTip <- liftIO $ generate arbitrary
     WS.setWalletSyncTip db walId randomSyncTip
 
-    void $ lift $ newPaymentBatch dummyProtocolMagic txpConfig submitTxTestMode pswd batch
+    void $ lift $ newPaymentBatch dummyConfig txpConfig submitTxTestMode pswd batch
     dstAddrs <- lift $ mapM decodeCTypeOrFail dstCAddrs
     txLinearPolicy <- lift $ (bvdTxFeePolicy <$> gsAdoptedBVData) <&> \case
         TxFeePolicyTxSizeLinear linear -> linear

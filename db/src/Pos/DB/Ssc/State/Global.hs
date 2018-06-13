@@ -20,8 +20,8 @@ import           Universum
 import           Pos.Chain.Ssc (MonadSscMem, SscGlobalState (..),
                      getStableCertsPure, sgsVssCertificates, sscRunGlobalQuery)
 import qualified Pos.Chain.Ssc as Ssc
-import           Pos.Core (EpochIndex (..), HasGenesisData,
-                     HasProtocolConstants, SlotId (..))
+import           Pos.Core (BlockCount, EpochIndex (..), HasGenesisData,
+                     SlotId (..))
 import           Pos.Core.Ssc (VssCertificatesMap (..))
 import           Pos.DB (MonadDBRead)
 import qualified Pos.DB.Ssc.GState as DB
@@ -42,10 +42,12 @@ getGlobalCerts sl =
 
 -- | Get stable VSS certificates for given epoch.
 getStableCerts
-    :: (MonadSscMem ctx m, MonadIO m, HasGenesisData, HasProtocolConstants)
-    => EpochIndex -> m VssCertificatesMap
-getStableCerts epoch =
-    getStableCertsPure epoch <$> sscRunGlobalQuery (view sgsVssCertificates)
+    :: (MonadSscMem ctx m, MonadIO m, HasGenesisData)
+    => BlockCount
+    -> EpochIndex
+    -> m VssCertificatesMap
+getStableCerts k epoch =
+    getStableCertsPure k epoch <$> sscRunGlobalQuery (view sgsVssCertificates)
 
 ----------------------------------------------------------------------------
 -- Seed

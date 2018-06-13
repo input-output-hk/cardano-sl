@@ -61,8 +61,8 @@ import           Pos.Chain.Txp (UndoMap, flattenTxPayload, topsortTxs,
 import           Pos.Client.Txp.History (TxHistoryEntry (..),
                      txHistoryListToMap)
 import           Pos.Core (Address, BlockCount (..), ChainDifficulty (..),
-                     HasDifficulty (..), HasProtocolConstants, Timestamp (..),
-                     blkSecurityParam, genesisHash, timestampToPosix)
+                     HasDifficulty (..), ProtocolConstants, Timestamp (..),
+                     genesisHash, pcEpochSlots, timestampToPosix)
 import           Pos.Core.Chrono (getNewestFirst)
 import           Pos.Core.Txp (TxAux (..), TxId, TxUndo)
 import           Pos.Crypto (WithHash (..), shortHashF, withHash)
@@ -112,14 +112,16 @@ syncWallet credentials = submitSyncRequest (newSyncRequest credentials)
 
 -- | Asynchronously process a 'SyncRequest' by reading incoming
 -- requests from a 'SyncQueue', in an infinite loop.
-processSyncRequest :: ( WalletDbReader ctx m
-                      , BlockLockMode ctx m
-                      , MonadSlotsData ctx m
-                      ) => SyncQueue -> m ()
-processSyncRequest syncQueue = do
+processSyncRequest
+    :: (WalletDbReader ctx m, BlockLockMode ctx m, MonadSlotsData ctx m)
+    => BlockCount
+    -> SyncQueue
+    -> m ()
+processSyncRequest k syncQueue = do
     newRequest <- atomically (readTQueue syncQueue)
-    syncWalletWithBlockchain newRequest >>= either processSyncError (const (logSuccess newRequest))
-    processSyncRequest syncQueue
+    syncWalletWithBlockchain k newRequest
+        >>= either processSyncError (const (logSuccess newRequest))
+    processSyncRequest k syncQueue
 
 -- | Yields a new 'CAccModifier' using the information retrieved from the mempool, if any.
 txMempoolToModifier :: WalletTrackingEnv ctx m
@@ -227,9 +229,10 @@ syncWalletWithBlockchain
     , BlockLockMode ctx m
     , MonadSlotsData ctx m
     )
-    => SyncRequest
+    => BlockCount
+    -> SyncRequest
     -> m SyncResult
-syncWalletWithBlockchain syncRequest@SyncRequest{..} = setLogger $ do
+syncWalletWithBlockchain k syncRequest@SyncRequest{..} = setLogger $ do
     ws <- WS.askWalletSnapshot
     let (_, walletId) = srCredentials
     let onError       = pure . Left . SyncFailed walletId
@@ -323,14 +326,14 @@ syncWalletWithBlockchain syncRequest@SyncRequest{..} = setLogger $ do
         -- guaranteed (by the protocol) to not be rolled-back and which can
         -- be considered stable and fully persisted into the blockchain.
         (syncResult, wNewTip) <-
-            if (currentBlockchainDepth > fromIntegral blkSecurityParam + fromIntegral wdiff) then do
+            if (currentBlockchainDepth > fromIntegral k + fromIntegral wdiff) then do
                 -- Wallet tip is "far" from gState tip,
                 -- rollback can't occur more then @blkSecurityParam@ blocks,
                 -- so we can sync wallet and GState without the block lock
                 -- to avoid blocking of blocks verification/application.
                 stableBlockHeader <- List.last . getNewestFirst <$>
                     GS.loadHeadersByDepth
-                        (blkSecurityParam + 1)
+                        (k + 1)
                         (headerHash gstateTipH)
                 logInfo $ sformat
                     ( "Wallet's tip is far from GState tip. Syncing with the "
@@ -770,27 +773,25 @@ applyModifierToWallet db trackingOperation wid newBlockHeaderTip CAccModifier{..
       newSyncState
 
 rollbackModifierFromWallet
-    :: ( CanLog m
-       , HasLoggerName m
-       , MonadSlots ctx m
-       , HasProtocolConstants
-       )
-    => WalletDB
+    :: (CanLog m, HasLoggerName m, MonadSlots ctx m)
+    => ProtocolConstants
+    -> WalletDB
     -> TrackingOperation
     -> CId Wal
     -> HeaderHash
     -> CAccModifier
     -> m ()
-rollbackModifierFromWallet db trackingOperation wid newTip CAccModifier{..} = do
+rollbackModifierFromWallet pc db trackingOperation wid newTip CAccModifier{..} = do
 
     let newSyncState = case trackingOperation of
             SyncWallet        -> SyncedWith newTip
             RestoreWallet rbd -> RestoringFrom rbd newTip
     logDebug $ sformat ("rollbackModifierFromWallet: new SyncState = " % shown) trackingOperation
 
-    curSlot <- getCurrentSlotInaccurate
+    curSlot <- getCurrentSlotInaccurate $ pcEpochSlots pc
 
     WS.rollbackModifierFromWallet
+      pc
       db
       wid
       (indexedDeletions camAddresses)

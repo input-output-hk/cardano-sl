@@ -25,8 +25,8 @@ import           Pos.Chain.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..),
 import           Pos.Chain.Ssc.Types (SscGlobalState, sgsCommitments,
                      sgsOpenings, sgsShares, sgsVssCertificates)
 import qualified Pos.Chain.Ssc.VssCertData as VCD
-import           Pos.Core (EpochIndex, HasGenesisData, HasProtocolConstants,
-                     crucialSlot, genesisVssCerts)
+import           Pos.Core (EpochIndex, HasGenesisData, crucialSlot,
+                     genesisVssCerts)
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Util.Wlog (CanLog, HasLoggerName (..), LogEvent,
                      NamedPureLogger (..), WithLogger, dispatchEvents,
@@ -51,25 +51,25 @@ newtype PureTossWithEnv a = PureTossWithEnv
     } deriving (Functor, Applicative, Monad, Rand.MonadRandom,
                 CanLog, HasLoggerName)
 
-deriving instance (HasProtocolConstants, HasGenesisData) => MonadTossRead PureTossWithEnv
-deriving instance (HasProtocolConstants, HasGenesisData) => MonadToss PureTossWithEnv
+deriving instance HasGenesisData => MonadTossRead PureTossWithEnv
+deriving instance HasGenesisData => MonadToss PureTossWithEnv
 
-instance (HasGenesisData, HasProtocolConstants) => MonadTossRead PureToss where
+instance HasGenesisData => MonadTossRead PureToss where
     getCommitments = PureToss $ use sgsCommitments
     getOpenings = PureToss $ use sgsOpenings
     getShares = PureToss $ use sgsShares
     getVssCertificates = PureToss $ uses sgsVssCertificates VCD.certs
-    getStableCertificates epoch
+    getStableCertificates k epoch
         | epoch == 0 = pure $ genesisVssCerts
         | otherwise = PureToss $
             uses sgsVssCertificates $
-                VCD.certs . VCD.setLastKnownSlot (crucialSlot epoch)
+                VCD.certs . VCD.setLastKnownSlot (crucialSlot k epoch)
 
 instance MonadTossEnv PureTossWithEnv where
     getRichmen epoch = PureTossWithEnv $ view (_1 . at epoch)
     getAdoptedBVData = PureTossWithEnv $ view _2
 
-instance (HasProtocolConstants, HasGenesisData) => MonadToss PureToss where
+instance HasGenesisData => MonadToss PureToss where
     putCommitment signedComm =
         PureToss $ sgsCommitments %= insertSignedCommitment signedComm
     putOpening id op = PureToss $ sgsOpenings . at id .= Just op

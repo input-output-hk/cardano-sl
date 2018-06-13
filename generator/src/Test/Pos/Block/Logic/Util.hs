@@ -27,18 +27,20 @@ import           Test.QuickCheck.Monadic (PropertyM, pick)
 import           Pos.AllSecrets (AllSecrets, HasAllSecrets (..), allSecrets)
 import           Pos.Chain.Block (Block, Blund)
 import           Pos.Chain.Txp (TxpConfiguration (..))
-import           Pos.Core (BlockCount, HasGenesisData, HasProtocolConstants,
-                     SlotId (..), epochIndexL, genesisData)
+import           Pos.Core (BlockCount, HasGenesisData, SlotId (..), epochIndexL,
+                     genesisData, localSlotIndexMinBound)
 import           Pos.Core.Chrono (NE, OldestFirst (..))
 import           Pos.Core.Genesis (GenesisData (..))
-import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings,
                      txpGlobalSettings)
 import           Pos.Generator.Block (BlockGenMode, BlockGenParams (..),
                      MonadBlockGenInit, genBlocks, tgpTxCountRange)
 import           Pos.Util (HasLens', _neLast)
+
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContext,
                      btcSlotIdL)
+import           Test.Pos.Core.Dummy (dummyConfig)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 -- | Wrapper for 'bpGenBlocks' to clarify the meaning of the argument.
 newtype EnableTxPayload = EnableTxPayload Bool
@@ -55,12 +57,11 @@ genBlockGenParams
        , HasAllSecrets ctx
        , MonadReader ctx m
        )
-    => ProtocolMagic
-    -> Maybe BlockCount
+    => Maybe BlockCount
     -> EnableTxPayload
     -> InplaceDB
     -> PropertyM m BlockGenParams
-genBlockGenParams pm blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB) = do
+genBlockGenParams blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB) = do
     allSecrets_ <- lift $ getAllSecrets
     let genStakeholders = gdBootStakeholders genesisData
     let genBlockGenParamsF s =
@@ -73,7 +74,9 @@ genBlockGenParams pm blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplace
                 , _bgpInplaceDB = inplaceDB
                 , _bgpGenStakeholders = genStakeholders
                 , _bgpSkipNoKey = False
-                , _bgpTxpGlobalSettings = txpGlobalSettings pm (TxpConfiguration 200 Set.empty)
+                , _bgpTxpGlobalSettings = txpGlobalSettings
+                      dummyProtocolMagic
+                      (TxpConfiguration 200 Set.empty)
                 }
     pick $ sized genBlockGenParamsF
 
@@ -88,16 +91,15 @@ bpGenBlocks
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        , HasAllSecrets ctx
        )
-    => ProtocolMagic
-    -> TxpConfiguration
+    => TxpConfiguration
     -> Maybe BlockCount
     -> EnableTxPayload
     -> InplaceDB
     -> PropertyM m (OldestFirst [] Blund)
-bpGenBlocks pm txpConfig blkCnt enableTxPayload inplaceDB = do
-    params <- genBlockGenParams pm blkCnt enableTxPayload inplaceDB
+bpGenBlocks txpConfig blkCnt enableTxPayload inplaceDB = do
+    params <- genBlockGenParams blkCnt enableTxPayload inplaceDB
     g <- pick $ MkGen $ \qc _ -> qc
-    lift $ OldestFirst <$> evalRandT (genBlocks pm txpConfig params maybeToList) g
+    lift $ OldestFirst <$> evalRandT (genBlocks dummyConfig txpConfig params maybeToList) g
 
 -- | A version of 'bpGenBlocks' which generates exactly one
 -- block. Allows one to avoid unsafe functions sometimes.
@@ -108,13 +110,12 @@ bpGenBlock
        , HasAllSecrets ctx
        , Default (MempoolExt m)
        )
-    => ProtocolMagic
-    -> TxpConfiguration
+    => TxpConfiguration
     -> EnableTxPayload
     -> InplaceDB
     -> PropertyM m Blund
 -- 'unsafeHead' is safe because we create exactly 1 block
-bpGenBlock pm txpConfig = fmap (List.head . toList) ... bpGenBlocks pm txpConfig (Just 1)
+bpGenBlock txpConfig = fmap (List.head . toList) ... bpGenBlocks txpConfig (Just 1)
 
 getAllSecrets :: (MonadReader ctx m, HasAllSecrets ctx) => m AllSecrets
 getAllSecrets = view allSecrets
@@ -133,10 +134,10 @@ withCurrentSlot slot = local (set btcSlotIdL $ Just slot)
 -- future. This function pretends that current slot is after the last
 -- slot of the given blocks.
 satisfySlotCheck
-    :: ( HasProtocolConstants, MonadReader BlockTestContext m)
+    :: MonadReader BlockTestContext m
     => OldestFirst NE Block
     -> m a
     -> m a
 satisfySlotCheck (OldestFirst blocks) action =
     let lastEpoch = blocks ^. _neLast . epochIndexL
-    in withCurrentSlot (SlotId (lastEpoch + 1) minBound) action
+    in withCurrentSlot (SlotId (lastEpoch + 1) localSlotIndexMinBound) action

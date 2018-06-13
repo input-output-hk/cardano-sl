@@ -17,8 +17,8 @@ import           Ntp.Client (NtpConfiguration)
 import           Pos.Chain.Txp (TxpConfiguration)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
-import           Pos.Core as Core (Config (..), ConfigurationError, epochSlots)
-import           Pos.Crypto (ProtocolMagic)
+import           Pos.Core as Core (Config (..), ConfigurationError,
+                     configBlkSecurityParam)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Txp (txpGlobalSettings)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
@@ -77,13 +77,13 @@ correctNodeParams AuxxOptions {..} np = do
 
 runNodeWithSinglePlugin ::
        (HasConfigurations, HasCompileInfo)
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> NodeResources EmptyMempoolExt
     -> (Diffusion AuxxMode -> AuxxMode ())
     -> Diffusion AuxxMode -> AuxxMode ()
-runNodeWithSinglePlugin pm txpConfig nr plugin =
-    runNode pm txpConfig nr [plugin]
+runNodeWithSinglePlugin coreConfig txpConfig nr plugin =
+    runNode coreConfig txpConfig nr [plugin]
 
 action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> IO ()
 action opts@AuxxOptions {..} command = do
@@ -97,7 +97,6 @@ action opts@AuxxOptions {..} command = do
         Light
             -> runWithoutNode pa
         _   -> withConfigurations Nothing conf (runWithConfig pa)
-
   where
     runWithoutNode :: PrintAction IO -> IO ()
     runWithoutNode printAction = printAction "Mode: light" >> rawExec Nothing Nothing Nothing opts Nothing command
@@ -125,13 +124,13 @@ action opts@AuxxOptions {..} command = do
             sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
 
         let pm = configProtocolMagic coreConfig
-        bracketNodeResources nodeParams sscParams (txpGlobalSettings pm txpConfig) (initNodeDBs pm epochSlots) $ \nr ->
+        bracketNodeResources (configBlkSecurityParam coreConfig) nodeParams sscParams (txpGlobalSettings pm txpConfig) (initNodeDBs coreConfig) $ \nr ->
             let NodeContext {..} = nrContext nr
                 modifier = if aoStartMode == WithNode
-                           then runNodeWithSinglePlugin pm txpConfig nr
+                           then runNodeWithSinglePlugin coreConfig txpConfig nr
                            else identity
                 auxxModeAction = modifier (auxxPlugin coreConfig txpConfig opts command)
-             in runRealMode pm txpConfig nr $ \diffusion ->
+             in runRealMode coreConfig txpConfig nr $ \diffusion ->
                     toRealMode (auxxModeAction (hoistDiffusion realModeToAuxx toRealMode diffusion))
 
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs

@@ -21,14 +21,13 @@ import           Universum
 
 import           Data.Time.Units (Microsecond, convertUnit)
 
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants,
-                     epochSlots)
 import           Pos.Core.Slotting.Class (MonadSlots (..), MonadSlotsData)
 import           Pos.Core.Slotting.EpochIndex (EpochIndex (..))
 import           Pos.Core.Slotting.LocalSlotIndex (LocalSlotIndex (..),
                      mkLocalSlotIndex)
 import           Pos.Core.Slotting.MemState (getSystemStartM,
                      withSlottingVarAtomM)
+import           Pos.Core.Slotting.SlotCount (SlotCount)
 import           Pos.Core.Slotting.SlotId (FlatSlotId, SlotId (..),
                      flattenSlotId)
 import           Pos.Core.Slotting.TimeDiff (addTimeDiffToTimestamp)
@@ -41,8 +40,9 @@ import           Pos.Util.Util (leftToPanic)
 
 
 -- | Get flat id of current slot based on MonadSlots.
-getCurrentSlotFlat :: (MonadSlots ctx m, HasProtocolConstants) => m (Maybe FlatSlotId)
-getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
+getCurrentSlotFlat :: MonadSlots ctx m => SlotCount -> m (Maybe FlatSlotId)
+getCurrentSlotFlat epochSlots =
+    fmap (flattenSlotId epochSlots) <$> getCurrentSlot epochSlots
 
 
 -- | Parameters for `onNewSlot`.
@@ -91,10 +91,11 @@ data ActionTerminationPolicy
 -- | Compute current slot from current timestamp based on data
 -- provided by 'MonadSlotsData'.
 slotFromTimestamp
-    :: (MonadSlotsData ctx m, HasProtocolConstants)
-    => Timestamp
+    :: MonadSlotsData ctx m
+    => SlotCount
+    -> Timestamp
     -> m (Maybe SlotId)
-slotFromTimestamp approxCurTime = do
+slotFromTimestamp epochSlots approxCurTime = do
     systemStart <- getSystemStartM
     withSlottingVarAtomM (iterateBackwardsSearch systemStart)
   where
@@ -168,7 +169,7 @@ slotFromTimestamp approxCurTime = do
         localSlot :: LocalSlotIndex
         localSlot =
             leftToPanic "computeSlotUsingEpoch: " $
-            mkLocalSlotIndex localSlotNumeric
+            mkLocalSlotIndex epochSlots localSlotNumeric
 
         slotDuration :: Microsecond
         slotDuration = convertUnit esdSlotDuration

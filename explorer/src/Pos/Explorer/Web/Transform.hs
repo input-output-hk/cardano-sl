@@ -25,7 +25,7 @@ import           Pos.Chain.Block (HasBlockConfiguration)
 import           Pos.Chain.Ssc (HasSscConfiguration)
 import           Pos.Chain.Update (HasUpdateConfiguration)
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (HasConfiguration)
+import           Pos.Core (HasConfiguration, SlotCount)
 import           Pos.DB.Txp (MempoolExt, MonadTxpLocal (..))
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Infra.Reporting (MonadReporting (..))
@@ -61,7 +61,7 @@ instance HasConfiguration =>
 instance HasConfiguration =>
          MonadTxpLocal ExplorerProd where
     txpNormalize pm = lift . lift . txpNormalize pm
-    txpProcessTx pm txpConfig = lift . lift . txpProcessTx pm txpConfig
+    txpProcessTx coreConfig txpConfig = lift . lift . txpProcessTx coreConfig txpConfig
 
 -- | Use the 'RealMode' instance.
 -- FIXME instance on a type synonym.
@@ -85,26 +85,29 @@ type HasExplorerConfiguration =
 
 notifierPlugin
     :: HasExplorerConfiguration
-    => NotifierSettings
+    => SlotCount
+    -> NotifierSettings
     -> Diffusion ExplorerProd
     -> ExplorerProd ()
-notifierPlugin settings _ = notifierApp settings
+notifierPlugin epochSlots settings _ = notifierApp epochSlots settings
 
 explorerPlugin
     :: HasExplorerConfiguration
-    => Word16
+    => SlotCount
+    -> Word16
     -> Diffusion ExplorerProd
     -> ExplorerProd ()
-explorerPlugin = flip explorerServeWebReal
+explorerPlugin epochSlots = flip $ explorerServeWebReal epochSlots
 
 explorerServeWebReal
     :: HasExplorerConfiguration
-    => Diffusion ExplorerProd
+    => SlotCount
+    -> Diffusion ExplorerProd
     -> Word16
     -> ExplorerProd ()
-explorerServeWebReal diffusion port = do
+explorerServeWebReal epochSlots diffusion port = do
     rctx <- ask
-    let handlers = explorerHandlers diffusion
+    let handlers = explorerHandlers epochSlots diffusion
         server = hoistServer explorerApi (convertHandler rctx) handlers
         app = explorerApp (pure server)
     explorerServeImpl app port

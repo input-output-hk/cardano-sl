@@ -8,7 +8,7 @@ import           Universum
 
 import           Pos.Chain.Block (HeaderHash)
 import           Pos.Chain.Txp (genesisUtxo)
-import           Pos.Core (genesisData)
+import           Pos.Core (ProtocolConstants, genesisData)
 import           Pos.Core.Genesis (gdHeavyDelegation)
 import           Pos.DB.Block (initGStateBlockExtra)
 import           Pos.DB.Class (MonadDB)
@@ -25,14 +25,15 @@ prepareGStateDB ::
        ( MonadReader ctx m
        , MonadDB m
        )
-    => HeaderHash
+    => ProtocolConstants
+    -> HeaderHash
     -> m ()
-prepareGStateDB initialTip = unlessM isInitialized $ do
+prepareGStateDB pc initialTip = unlessM isInitialized $ do
     initGStateCommon initialTip
     initGStateUtxo genesisUtxo
     initSscDB
     initGStateStakes genesisUtxo
-    initGStateUS
+    initGStateUS pc
     initGStateDlg $ gdHeavyDelegation genesisData
     initGStateBlockExtra initialTip
 

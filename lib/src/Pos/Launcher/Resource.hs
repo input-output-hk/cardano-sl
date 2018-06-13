@@ -41,7 +41,8 @@ import           Pos.Client.CLI.Util (readLoggerConfig)
 import           Pos.Configuration
 import           Pos.Context (ConnectedPeers (..), NodeContext (..),
                      StartTime (..))
-import           Pos.Core (HasConfiguration, Timestamp, genesisData)
+import           Pos.Core (BlockCount, HasConfiguration, Timestamp, genesisData,
+                     kEpochSlots)
 import           Pos.Core.Genesis (gdStartTime)
 import           Pos.Core.Reporting (initializeMisbehaviorMetrics)
 import           Pos.DB (MonadDBRead, NodeDBs)
@@ -103,12 +104,13 @@ allocateNodeResources
        , HasDlgConfiguration
        , HasBlockConfiguration
        )
-    => NodeParams
+    => BlockCount
+    -> NodeParams
     -> SscParams
     -> TxpGlobalSettings
     -> InitMode ()
     -> IO (NodeResources ext)
-allocateNodeResources np@NodeParams {..} sscnp txpSettings initDB = do
+allocateNodeResources k np@NodeParams {..} sscnp txpSettings initDB = do
     logInfo "Allocating node resources..."
     npDbPath <- case npDbPathM of
         Nothing -> do
@@ -147,12 +149,12 @@ allocateNodeResources np@NodeParams {..} sscnp txpSettings initDB = do
                 , ancdEkgStore = nrEkgStore
                 , ancdTxpMemState = txpVar
                 }
-        ctx@NodeContext {..} <- allocateNodeContext ancd txpSettings nrEkgStore
+        ctx@NodeContext {..} <- allocateNodeContext k ancd txpSettings nrEkgStore
         putLrcContext ncLrcContext
         logDebug "Filled LRC Context future"
         dlgVar <- mkDelegationVar
         logDebug "Created DLG var"
-        sscState <- mkSscState
+        sscState <- mkSscState $ kEpochSlots k
         logDebug "Created SSC var"
         jsonLogHandle <-
             case npJLFile of
@@ -200,16 +202,17 @@ bracketNodeResources :: forall ext a.
       , HasDlgConfiguration
       , HasBlockConfiguration
       )
-    => NodeParams
+    => BlockCount
+    -> NodeParams
     -> SscParams
     -> TxpGlobalSettings
     -> InitMode ()
     -> (HasConfiguration => NodeResources ext -> IO a)
     -> IO a
-bracketNodeResources np sp txp initDB action = do
+bracketNodeResources k np sp txp initDB action = do
     let msg = "`NodeResources'"
     bracketWithLogging msg
-            (allocateNodeResources np sp txp initDB)
+            (allocateNodeResources k np sp txp initDB)
             releaseNodeResources $ \nodeRes ->do
         -- Notify systemd we are fully operative
         -- FIXME this is not the place to notify.
@@ -258,11 +261,13 @@ data AllocateNodeContextData ext = AllocateNodeContextData
 allocateNodeContext
     :: forall ext .
       (HasConfiguration, HasNodeConfiguration, HasBlockConfiguration)
-    => AllocateNodeContextData ext
+    => BlockCount
+    -> AllocateNodeContextData ext
     -> TxpGlobalSettings
     -> Metrics.Store
     -> InitMode NodeContext
-allocateNodeContext ancd txpSettings ekgStore = do
+allocateNodeContext k ancd txpSettings ekgStore = do
+    let epochSlots = kEpochSlots k
     let AllocateNodeContextData { ancdNodeParams = np@NodeParams {..}
                                 , ancdSscParams = sscnp
                                 , ancdPutSlotting = putSlotting
@@ -281,7 +286,7 @@ allocateNodeContext ancd txpSettings ekgStore = do
     logDebug "Created LRC sync"
     ncSlottingVar <- (gdStartTime genesisData,) <$> mkSlottingVar
     logDebug "Created slotting variable"
-    ncSlottingContext <- mkSimpleSlottingStateVar
+    ncSlottingContext <- mkSimpleSlottingStateVar epochSlots
     logDebug "Created slotting context"
     putSlotting ncSlottingVar ncSlottingContext
     logDebug "Filled slotting future"
@@ -296,11 +301,11 @@ allocateNodeContext ancd txpSettings ekgStore = do
     ncStartTime <- StartTime <$> liftIO Time.getCurrentTime
     ncLastKnownHeader <- newTVarIO Nothing
     logDebug "Created last known header and shutdown flag variables"
-    ncUpdateContext <- mkUpdateContext
+    ncUpdateContext <- mkUpdateContext epochSlots
     logDebug "Created context for update"
     ncSscContext <- createSscContext sscnp
     logDebug "Created context for ssc"
-    ncSlogContext <- mkSlogContext store
+    ncSlogContext <- mkSlogContext k store
     logDebug "Created context for slog"
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.

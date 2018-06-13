@@ -15,6 +15,7 @@ import           Universum
 import           Control.Monad.Trans (MonadTrans (..))
 
 import           Pos.Chain.Block (Blund)
+import           Pos.Core (ProtocolConstants)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.DB.BatchOp (SomeBatchOp)
 
@@ -25,14 +26,14 @@ class Monad m => MonadBListener m where
     onApplyBlocks :: OldestFirst NE Blund -> m SomeBatchOp
     -- Callback will be called before changing of GStateDB.
     -- Callback action will be performed under block lock.
-    onRollbackBlocks :: NewestFirst NE Blund -> m SomeBatchOp
+    onRollbackBlocks :: ProtocolConstants -> NewestFirst NE Blund -> m SomeBatchOp
 
 instance {-# OVERLAPPABLE #-}
     ( MonadBListener m, Monad m, MonadTrans t, Monad (t m)) =>
         MonadBListener (t m)
   where
     onApplyBlocks = lift . onApplyBlocks
-    onRollbackBlocks = lift . onRollbackBlocks
+    onRollbackBlocks pc = lift . onRollbackBlocks pc
 
 onApplyBlocksStub
     :: Monad m

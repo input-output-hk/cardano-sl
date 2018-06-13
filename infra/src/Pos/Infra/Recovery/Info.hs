@@ -10,7 +10,6 @@ module Pos.Infra.Recovery.Info
        , MonadRecoveryInfo
        , getSyncStatus
        , recoveryInProgress
-       , getSyncStatusK
        , recoveryCommGuard
        , needTriggerRecovery
        ) where
@@ -22,8 +21,9 @@ import           Control.Monad.Except (runExceptT, throwError)
 import           Formatting (bprint, build, sformat, stext, (%))
 import qualified Formatting.Buildable
 
-import           Pos.Core (SlotCount, SlotId, epochOrSlotG, epochOrSlotToSlot,
-                     flattenSlotId, slotIdF, slotSecurityParam)
+import           Pos.Core (BlockCount, SlotCount, SlotId, epochOrSlotG,
+                     epochOrSlotToSlot, flattenSlotId, kEpochSlots,
+                     kSlotSecurityParam, slotIdF)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Infra.Recovery.Types (RecoveryHeader, RecoveryHeaderTag)
@@ -92,13 +92,13 @@ type MonadRecoveryInfo ctx m =
 -- place. See 'SyncStatus' for details.
 -- Implementation must check conditions in the same order as they
 -- are enumerated in 'SyncStatus'.
-getSyncStatus :: MonadRecoveryInfo ctx m => SlotCount -> m SyncStatus
-getSyncStatus lagBehindParam =
+getSyncStatus :: MonadRecoveryInfo ctx m => SlotCount -> SlotCount -> m SyncStatus
+getSyncStatus epochSlots lagBehindParam =
     fmap convertRes . runExceptT $ do
         recoveryIsInProgress >>= \case
             False -> pass
             True -> throwError SSDoingRecovery
-        curSlotId <- note SSUnknownSlot =<< getCurrentSlot
+        curSlotId <- note SSUnknownSlot =<< getCurrentSlot epochSlots
         tipHeader <- lift DB.getTipHeader
         let curSlot = CurrentSlot curSlotId
         let tipSlot@(TipSlot tipSlotId) = TipSlot $
@@ -106,7 +106,7 @@ getSyncStatus lagBehindParam =
         unless (tipSlotId <= curSlotId) $
             throwError $
                 SSInFuture tipSlot curSlot
-        let slotDiff = flattenSlotId curSlotId - flattenSlotId tipSlotId
+        let slotDiff = flattenSlotId epochSlots curSlotId - flattenSlotId epochSlots tipSlotId
         unless (slotDiff < fromIntegral lagBehindParam) $
             throwError $
                 SSLagBehind tipSlot curSlot
@@ -120,33 +120,19 @@ getSyncStatus lagBehindParam =
 
 -- | Returns if our 'SyncStatus' is 'SSDoingRecovery' (which is
 -- equivalent to “we're doing recovery”).
-recoveryInProgress :: MonadRecoveryInfo ctx m => m Bool
-recoveryInProgress =
-    getSyncStatus 0 {- 0 doesn't matter -} <&> \case
+recoveryInProgress :: MonadRecoveryInfo ctx m => SlotCount -> m Bool
+recoveryInProgress epochSlots =
+    getSyncStatus epochSlots 0 {- 0 doesn't matter -} <&> \case
         SSDoingRecovery -> True
         _ -> False
-
--- | Get sync status using K as lagBehind param.
-getSyncStatusK
-    :: MonadRecoveryInfo ctx m
-    => m SyncStatus
-getSyncStatusK = getSyncStatus lagBehindParam
-  where
-    -- It's actually questionable which value to use here. The less it
-    -- is, the stricter is the condition to do some
-    -- work. 'slotSecurityParam' is reasonable, but maybe we should use
-    -- something smaller.
-    lagBehindParam :: SlotCount
-    lagBehindParam = slotSecurityParam
 
 -- | This is a helper function which runs given action only if we are
 -- kinda synchronized with the network.  It is useful for workers
 -- which shouldn't do anything while we are not synchronized.
 recoveryCommGuard
-    :: (MonadRecoveryInfo ctx m, WithLogger m)
-    => Text -> m () -> m ()
-recoveryCommGuard actionName action =
-    getSyncStatusK >>= \case
+    :: (MonadRecoveryInfo ctx m, WithLogger m) => BlockCount -> Text -> m () -> m ()
+recoveryCommGuard k actionName action =
+    getSyncStatus (kEpochSlots k) (kSlotSecurityParam k) >>= \case
         SSKindaSynced -> action
         status ->
             logDebug $

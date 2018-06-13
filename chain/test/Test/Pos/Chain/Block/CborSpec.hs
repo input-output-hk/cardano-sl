@@ -10,16 +10,13 @@ import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess)
 
 import qualified Pos.Chain.Block as Core
-import           Pos.Core.Configuration (defaultCoreConfiguration,
-                     withGenesisSpec)
 
 import           Test.Pos.Binary.Helpers (binaryTest)
 import           Test.Pos.Chain.Block.Arbitrary ()
 import           Test.Pos.Core.Arbitrary ()
 
 spec :: Spec
-spec = withGenesisSpec 0 defaultCoreConfiguration id $ \_ ->
-    describe "Cbor.Bi instances" $ do
+spec = describe "Cbor.Bi instances" $ do
         -- These data types are defined in the 'core' package which suggests that
         -- these tests should be there, but they depend on type in eg 'update' so
         -- that is not possible.

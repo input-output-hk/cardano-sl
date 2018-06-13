@@ -18,8 +18,9 @@ import           Node.Message.Class (Message)
 import           Universum
 
 import           Pos.Chain.Txp (TxpConfiguration)
+import           Pos.Core as Core (Config)
 import           Pos.Core.Txp (TxAux (..), TxId, TxMsgContents (..))
-import           Pos.Crypto (ProtocolMagic, hash)
+import           Pos.Crypto (hash)
 import           Pos.DB.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem,
                      txpProcessTx)
 import qualified Pos.Infra.Communication.Relay as Relay
@@ -31,27 +32,34 @@ import           Pos.Util.Wlog (WithLogger, logInfo)
 -- #txProcessTransaction
 handleTxDo
     :: TxpMode ctx m
-    => ProtocolMagic
+    => Core.Config
     -> TxpConfiguration
     -> (JLEvent -> m ())  -- ^ How to log transactions
     -> TxAux              -- ^ Incoming transaction to be processed
     -> m Bool
-handleTxDo pm txpConfig logTx txAux = do
+handleTxDo coreConfig txpConfig logTx txAux = do
     let txId = hash (taTx txAux)
-    res <- txpProcessTx pm txpConfig (txId, txAux)
+    res <- txpProcessTx coreConfig txpConfig (txId, txAux)
     let json me = logTx $ JLTxReceived $ JLTxR
-            { jlrTxId     = sformat build txId
-            , jlrError    = me
+            { jlrTxId  = sformat build txId
+            , jlrError = me
             }
     case res of
         Right _ -> do
-            logInfo $
-                sformat ("Transaction has been added to storage: "%build) txId
+            logInfo $ sformat
+                ("Transaction has been added to storage: " % build)
+                txId
             json Nothing
             pure True
         Left er -> do
-            logInfo $
-                sformat ("Transaction hasn't been added to storage: "%build%" , reason: "%build) txId er
+            logInfo $ sformat
+                ( "Transaction hasn't been added to storage: "
+                % build
+                % " , reason: "
+                % build
+                )
+                txId
+                er
             json $ Just $ sformat build er
             pure False
 

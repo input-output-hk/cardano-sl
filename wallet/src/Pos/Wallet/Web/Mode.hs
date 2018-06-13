@@ -239,9 +239,7 @@ type MonadFullWalletWebMode ctx m =
 -- Instances for WalletWebMode
 ----------------------------------------------------------------------------
 
-instance (HasConfiguration, MonadSlotsData ctx WalletWebMode)
-      => MonadSlots ctx WalletWebMode
-  where
+instance MonadSlotsData ctx WalletWebMode => MonadSlots ctx WalletWebMode where
     getCurrentSlot = getCurrentSlotSimple
     getCurrentSlotBlocking = getCurrentSlotBlockingSimple
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
@@ -361,5 +359,5 @@ instance (HasConfigurations)
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
     -- We rely on the fact that Daedalus always uses HD addresses with
     -- BootstrapEra distribution.
-    getFakeChangeAddress = pure largestHDAddressBoot
-    getNewAddress = getNewAddressWebWallet
+    getFakeChangeAddress _ = pure largestHDAddressBoot
+    getNewAddress _ = getNewAddressWebWallet

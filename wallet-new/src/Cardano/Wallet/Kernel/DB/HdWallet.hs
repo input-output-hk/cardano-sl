@@ -52,6 +52,10 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , zoomHdRootId
   , zoomHdAccountId
   , zoomHdAddressId
+    -- * Zoom variations that create on request
+  , zoomOrCreateHdRoot
+  , zoomOrCreateHdAccount
+  , zoomOrCreateHdAddress
   ) where
 
 import           Universum
@@ -314,7 +318,7 @@ instance IxSet.Indexable (HdAddressId ': HdAddressIxs)
                 (ixFun ((:[]) . view (hdAddressAddress . fromDb)))
 
 {-------------------------------------------------------------------------------
-  Zoom to parts of a HD wallet
+  Top-level HD wallet structure
 -------------------------------------------------------------------------------}
 
 -- | All wallets, accounts and addresses in the HD wallets
@@ -332,6 +336,10 @@ makeLenses ''HdWallets
 
 initHdWallets :: HdWallets
 initHdWallets = HdWallets emptyIxSet emptyIxSet emptyIxSet
+
+{-------------------------------------------------------------------------------
+  Zoom to existing parts of a HD wallet
+-------------------------------------------------------------------------------}
 
 zoomHdRootId :: forall e a.
                 (UnknownHdRoot -> e)
@@ -370,6 +378,58 @@ zoomHdAddressId embedErr addrId =
 
     embedErr' :: UnknownHdAccount -> e
     embedErr' = embedErr . embedUnknownHdAccount
+
+{-------------------------------------------------------------------------------
+  Zoom to parts of the wallet, creating them if they don't exist
+-------------------------------------------------------------------------------}
+
+-- | Variation on 'zoomHdRootId' that creates the 'HdRoot' if it doesn't exist
+--
+-- Precondition: @newRoot ^. hdRootId == rootId@
+zoomOrCreateHdRoot :: HdRoot
+                   -> HdRootId
+                   -> Update' HdRoot    e a
+                   -> Update' HdWallets e a
+zoomOrCreateHdRoot newRoot rootId upd =
+    zoomCreate newRoot (hdWalletsRoots . at rootId) $ upd
+
+zoomOrCreateHdAccount :: (HdRootId -> Update' HdWallets e ())
+                      -> HdAccount
+                      -> HdAccountId
+                      -> Update' HdAccount e a
+                      -> Update' HdWallets e a
+zoomOrCreateHdAccount checkRootExists newAccount accId upd = do
+    checkRootExists $ accId ^. hdAccountIdParent
+    zoomCreate newAccount (hdWalletsAccounts . at accId) $ upd
+
+zoomOrCreateHdAddress :: (HdAccountId -> Update' HdWallets e ())
+                      -> HdAddress
+                      -> HdAddressId
+                      -> Update' HdAddress e a
+                      -> Update' HdWallets e a
+zoomOrCreateHdAddress checkAccountExists newAddress addrId upd = do
+    checkAccountExists $ addrId ^. hdAddressIdParent
+    zoomCreate newAddress (hdWalletsAddresses . at addrId) $ upd
+
+-- | Call 'zoomOrCreateHdAccount', throwing an error if the root does not exist
+_example1 :: (UnknownHdRoot -> e)
+          -> HdAccount
+          -> HdAccountId
+          -> Update' HdAccount e a
+          -> Update' HdWallets e a
+_example1 f =
+    zoomOrCreateHdAccount $ \rootId ->
+      zoomHdRootId f rootId $ return ()
+
+-- | Call 'zoomOrCreateHdAccount', creating the root if it does not exist
+_example2 :: HdRoot
+          -> HdAccount
+          -> HdAccountId
+          -> Update' HdAccount e a
+          -> Update' HdWallets e a
+_example2 newRoot =
+    zoomOrCreateHdAccount $ \rootId ->
+      zoomOrCreateHdRoot newRoot rootId $ return ()
 
 {-------------------------------------------------------------------------------
   Pretty printing

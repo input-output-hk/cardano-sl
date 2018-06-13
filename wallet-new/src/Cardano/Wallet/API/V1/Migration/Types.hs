@@ -178,7 +178,7 @@ instance Migrate V0.CAccount V1.Account where
 -- in old API 'V0.AccountId' supposed to carry both wallet id and derivation index
 instance Migrate (V1.WalletId, V1.AccountIndex) V0.AccountId where
     eitherMigrate (walId, accIdx) =
-        V0.AccountId <$> eitherMigrate walId <*> pure accIdx
+        V0.AccountId <$> eitherMigrate walId <*> pure (V1.getAccIndex accIdx)
 
 instance Migrate V1.PaymentSource V0.AccountId where
     eitherMigrate V1.PaymentSource{..} = eitherMigrate (psWalletId, psAccountIndex)
@@ -192,7 +192,11 @@ instance Migrate V1.PaymentSource V0.CAccountId where
 
 instance Migrate V0.AccountId (V1.WalletId, V1.AccountIndex) where
     eitherMigrate accId =
-        (,) <$> eitherMigrate (V0.aiWId accId) <*> pure (V0.aiIndex accId)
+        (,)
+            <$> eitherMigrate (V0.aiWId accId)
+            <*> first
+                    Errors.MigrationFailed
+                    (V1.mkAccountIndex $ V0.aiIndex accId)
 
 instance Migrate V0.CAccountId V0.AccountId where
     eitherMigrate = first Errors.MigrationFailed . V0.decodeCType

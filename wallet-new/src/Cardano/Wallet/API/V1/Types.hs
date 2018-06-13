@@ -40,6 +40,8 @@ module Cardano.Wallet.API.V1.Types (
   , Account (..)
   , accountsHaveSameId
   , AccountIndex
+  , getAccIndex
+  , mkAccountIndex
   -- * Addresses
   , WalletAddress (..)
   , NewAddress (..)
@@ -128,8 +130,9 @@ import qualified Pos.Core as Core
 import           Pos.Crypto (decodeHash, hashHexF)
 import qualified Pos.Crypto.Signing as Core
 import           Pos.Infra.Diffusion.Subscription.Status (SubscriptionStatus (..))
-import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe, buildSafeList,
-                                   buildSafeMaybe, deriveSafeBuildable, plainOrSecureF)
+import           Pos.Infra.Util.LogSafe (BuildableSafeGen (..), SecureLog (..), buildSafe,
+                                         buildSafeList, buildSafeMaybe, deriveSafeBuildable,
+                                         plainOrSecureF)
 import qualified Pos.Wallet.Web.State.Storage as OldStorage
 
 import           Test.Pos.Core.Arbitrary ()
@@ -850,7 +853,51 @@ instance Arbitrary WalletAddress where
                               <*> arbitrary
                               <*> arbitrary
 
-type AccountIndex = Word32
+newtype AccountIndex = AccountIndex { getAccIndex :: Word32 }
+    deriving (Show, Eq, Ord, Generic)
+
+instance Bounded AccountIndex where
+    -- NOTE: minimum for hardened key. See https://iohk.myjetbrains.com/youtrack/issue/CO-309
+    minBound = AccountIndex 2147483648
+    maxBound = AccountIndex maxBound
+
+mkAccountIndex :: Word32 -> Either Text AccountIndex
+mkAccountIndex index | index >= getAccIndex minBound = Right $ AccountIndex index
+                     | otherwise = Left $ "mkAccountIndex: Account index should be in range ["
+                                        <> show (getAccIndex minBound)
+                                        <> ".."
+                                        <> show (getAccIndex maxBound)
+                                        <> "]"
+
+instance ToJSON AccountIndex where
+    toJSON = toJSON . getAccIndex
+
+instance FromJSON AccountIndex where
+    parseJSON =
+        either (fail . toString) pure . mkAccountIndex <=< parseJSON
+
+instance Arbitrary AccountIndex where
+    arbitrary = AccountIndex <$> choose (getAccIndex minBound, getAccIndex maxBound)
+
+deriveSafeBuildable ''AccountIndex
+-- Nothing secret to redact for a AccountIndex.
+instance BuildableSafeGen AccountIndex where
+    buildSafeGen _ = bprint build
+
+instance ToParamSchema AccountIndex where
+    toParamSchema _ = mempty
+        & type_ .~ SwaggerNumber
+        & minimum_ .~ Just (fromIntegral $ getAccIndex minBound)
+        & maximum_ .~ Just (fromIntegral $ getAccIndex maxBound)
+
+instance ToSchema AccountIndex where
+    declareNamedSchema = pure . paramSchemaToNamedSchema defaultSchemaOptions
+
+instance FromHttpApiData AccountIndex where
+    parseQueryParam = mkAccountIndex <=< parseQueryParam
+
+instance ToHttpApiData AccountIndex where
+    toQueryParam = fromString . show . getAccIndex
 
 -- | A wallet 'Account'.
 data Account = Account

@@ -83,6 +83,7 @@ library
                      , containers
                      , cryptonite
                      , data-default
+                     , dlist
                      , ether
                      , ekg-core
                      , exceptions

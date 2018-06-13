@@ -27,7 +27,10 @@ module Pos.Ssc.Mem
 import           Universum
 
 import           Control.Monad.Morph (hoist)
+import           Control.Monad.Trans.Writer (WriterT (..))
 import qualified Crypto.Random as Rand
+import           Data.DList (DList)
+import qualified Data.DList as DList
 
 import           Pos.Ssc.Types (SscGlobalState, SscLocalData, SscState, sscGlobal, sscLocal)
 import           Pos.Util.Trace (Trace, traceWith)
@@ -115,8 +118,7 @@ sscRunGlobalQuery action = do
 sscRunGlobalUpdate
     :: (MonadSscMem ctx m, Rand.MonadRandom m, MonadIO m)
     => Trace m LogItem
-    -> WriterT (DList LogItem)
-    -> (StateT SscGlobalState (Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
+    -> WriterT (DList LogItem) (StateT SscGlobalState (Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
     -> m a
 sscRunGlobalUpdate logTrace action = do
     globalVar <- sscGlobal <$> askSscMem

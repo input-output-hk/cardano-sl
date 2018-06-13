@@ -33,6 +33,12 @@ instance Contravariant (Trace m) where
 natTrace :: (forall x . m x -> n x) -> Trace m s -> Trace n s
 natTrace nat (Trace (Op tr)) = Trace $ Op $ nat . tr
 
+{- FIXME maybe use this function to init logging
+-- | setup logging and return a Trace
+setupLogging :: Log.LoggerConfig -> TraceIO
+setupLogging _ = logTrace "from setup"
+-}
+
 trace :: Trace m s -> s -> m ()
 trace = getOp . runTrace
 

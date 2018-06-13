@@ -9,7 +9,7 @@ import           Crypto.Hash (Blake2b_256, Digest, hash)
 import           Data.ByteArray (convert)
 import           Data.Default (def)
 import           Data.Set (Set)
-import           Test.Hspec (Spec, describe, it, shouldSatisfy, xit)
+import           Test.Hspec (Spec, describe, it, shouldBe, shouldSatisfy, xit)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Arbitrary (..), forAll, property, (===))
 import           Test.QuickCheck.Gen (vectorOf)
@@ -24,6 +24,7 @@ import           Pos.Wallet.Web.ClientTypes.Types (CId)
 
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Data.Aeson as Aeson
+import qualified Data.ByteString.Lazy as BL
 import qualified Data.Set as Set
 import qualified Test.Pos.Util.BackupPhraseOld as Old
 import qualified Test.Pos.Util.MnemonicOld as Old
@@ -38,45 +39,79 @@ instance Eq CC.XPrv where
 
 spec :: Spec
 spec = do
-    describe "Old and New implementation behave identically" $ do
-        modifyMaxSuccess (const 100) $ prop "entropyToESK (no passphrase)" $
-            \ent -> entropyToESK mempty ent === entropyToESKOld mempty ent
-
-        modifyMaxSuccess (const 100) $ prop "entropyToESK (with passphrase)" $
-            \ent -> entropyToESK defPwd ent === entropyToESKOld defPwd ent
-
-        modifyMaxSuccess (const 1000) $ prop "entropyToAesKEy" $
-            \ent -> entropyToAesKey ent === entropyToAesKeyOld ent
-
-    modifyMaxSuccess (const 1000) $ prop "(9) entropyToMnemonic . mnemonicToEntropy == identity" $
+    prop "(9) entropyToMnemonic . mnemonicToEntropy == identity" $
         \e -> (mnemonicToEntropy @9 . entropyToMnemonic @9 @(EntropySize 9)) e == e
 
-    modifyMaxSuccess (const 1000) $ prop "(12) entropyToMnemonic . mnemonicToEntropy == identity" $
+    prop "(12) entropyToMnemonic . mnemonicToEntropy == identity" $
         \e -> (mnemonicToEntropy @12 . entropyToMnemonic @12 @(EntropySize 12)) e == e
 
-    it "No example mnemonic" $
-        (mkMnemonic @12 defMnemonic) `shouldSatisfy` isLeft
+    prop "(9) parseJSON . toJSON == pure" $
+        \(mw :: Mnemonic 9) -> (Aeson.decode . Aeson.encode) mw === pure mw
 
-    it "No empty mnemonic" $
-        (mkMnemonic @12 []) `shouldSatisfy` isLeft
-
-    it "No empty entropy" $
-        (mkEntropy @(EntropySize 12) "") `shouldSatisfy` isLeft
+    prop "(9) parseJSON . toJSON == pure" $
+        \(mw :: Mnemonic 12) -> (Aeson.decode . Aeson.encode) mw === pure mw
 
     xit "entropyToWalletId is injective (very long to run, used for investigation)"
         $ property
         $ forAll (vectorOf 1000 arbitrary)
         $ \inputs -> length (inject entropyToWalletId inputs) == length inputs
+
+    describe "golden tests" $ do
+        it "No example mnemonic" $
+            (mkMnemonic @12 defMnemonic) `shouldSatisfy` isLeft
+
+        it "No empty mnemonic" $
+            (mkMnemonic @12 []) `shouldSatisfy` isLeft
+
+        it "No empty entropy" $
+            (mkEntropy @(EntropySize 12) "") `shouldSatisfy` isLeft
+
+        it "Mnemonic ToJSON" $
+            Aeson.encode goldenMnemonic `shouldBe` goldenMnemonicRaw
+
+        it "Mnemonic FromJSON" $
+            Aeson.decode goldenMnemonicRaw `shouldBe` (pure goldenMnemonic)
+
+    describe "Old and New implementation behave identically" $ do
+        modifyMaxSuccess (const 1000) $ prop "entropyToESK (no passphrase)" $
+            \ent -> entropyToESK mempty ent === entropyToESKOld mempty ent
+
+        modifyMaxSuccess (const 1000) $ prop "entropyToESK (with passphrase)" $
+            \ent -> entropyToESK defPwd ent === entropyToESKOld defPwd ent
+
+        modifyMaxSuccess (const 1000) $ prop "entropyToAesKEy" $
+            \ent -> entropyToAesKey ent === entropyToAesKeyOld ent
   where
     defPwd :: PassPhrase
     defPwd =
         PassPhrase "cardano"
 
     defMnemonic :: [Text]
-    defMnemonic = either (error . show) identity
+    defMnemonic = either (error . (<>) "Failed to encode/decode default menmonic " . show) identity
         $ Aeson.eitherDecode
         $ Aeson.encode
         $ def @(Mnemonic 12)
+
+    goldenMnemonicRaw :: BL.ByteString
+    goldenMnemonicRaw =
+        "[\"help\",\"virtual\",\"describe\",\"crash\",\"horn\",\"squeeze\",\"actor\",\"setup\",\"moral\",\"embark\",\"burst\",\"reveal\"]"
+
+    goldenMnemonic :: Mnemonic 12
+    goldenMnemonic = either (error . (<>) "Failed to create goldenMnemonic: " . show) identity
+        $ mkMnemonic
+            [ "help"
+            , "virtual"
+            , "describe"
+            , "crash"
+            , "horn"
+            , "squeeze"
+            , "actor"
+            , "setup"
+            , "moral"
+            , "embark"
+            , "burst"
+            , "reveal"
+            ]
 
     -- | Collect function results in a Set
     inject :: Ord b => (a -> b) -> [a] -> Set b

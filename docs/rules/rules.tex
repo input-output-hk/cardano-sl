@@ -69,6 +69,7 @@
 \newcommand{\length}[1]{|#1|}
 \newcommand{\rem}[2]{\mathrm{rem}_{#1}(#2)}
 \newcommand{\supportsize}[1]{|#1|}
+\newcommand{\extension}[2]{{#1}^*{#2}}
 
 \newcommand{\kronecker}[2]{[#1 = #2]}
 
@@ -203,6 +204,14 @@ as it is.\improvement{We may want to add something about protocol
   summed: $∑_{x∈X}f(x)$ is well-defined. Indeed, it suffices to sum
   over the the (finite!) support of $f$, which, as a finite sum, is
   defined.
+
+  Additionally, for $f ∈ X ⟶ R$ a finitely supported function and
+  $g ∈ X -> Y$ an arbitrary function, there is a function
+  $\extension{g}{f} ∈ Y ⟶ R$, called the extension of $f$ along $g$,
+  defined as
+  $$
+  \extension{g}{f}(y) = ∑_{g(x)=y} f(x)
+  $$
 
   \begin{implementationhint}
     Finite support function are typically implemented as finite maps

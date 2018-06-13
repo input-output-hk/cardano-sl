@@ -1,4 +1,3 @@
-
 module Cardano.Wallet.Kernel.Actions
     ( WalletAction(..)
     , WalletActionInterp(..)
@@ -13,6 +12,7 @@ module Cardano.Wallet.Kernel.Actions
     ) where
 
 import           Universum
+import           Control.Monad.Morph (MFunctor(hoist))
 import           Control.Concurrent.Async (async, link)
 import           Control.Concurrent.Chan
 import           Control.Lens (makeLenses, (%=), (.=), (+=), (-=))
@@ -46,7 +46,7 @@ data WalletActionInterp m b = WalletActionInterp
 
 -- | Internal state of the wallet worker.
 data WalletWorkerState b
-    = Normal ()
+    = Normal
     | PendingFork (PendingForkState b)
   deriving Eq
 
@@ -60,12 +60,11 @@ data PendingForkState b = PendingForkState
 
 makeLenses ''PendingForkState
 
--- A helper function for lifting a `WalletActionInterp` through a monad transformer.
-lifted :: (Monad m, MonadTrans t) => WalletActionInterp m b -> WalletActionInterp (t m) b
-lifted i = WalletActionInterp
-    { applyBlocks  = lift . applyBlocks i
-    , switchToFork = \n bs -> lift (switchToFork i n bs)
-    , emit         = lift . emit i
+instance MFunctor WalletActionInterp where
+  hoist nat i = WalletActionInterp
+    { applyBlocks  = nat . applyBlocks i
+    , switchToFork = \n bs -> nat (switchToFork i n bs)
+    , emit         = nat . emit i
     }
 
 -- | Sub-interpreters return a `StateChange` to indicate what state
@@ -86,19 +85,23 @@ interp :: forall m b.  Monad m
 interp walletInterp action = do
     curState <- get
     case (action, curState) of
-        (LogMessage txt, _) -> emit txt
-        (_, Normal s)       -> run Normal      s interpNormal
+        (LogMessage txt, _) -> lift (emit walletInterp txt)
+        (_, Normal)         -> run (const Normal) () interpNormal
         (_, PendingFork s)  -> run PendingFork s interpPendingFork
   where
-    WalletActionInterp{..} = lifted walletInterp
-    run :: (s -> WalletWorkerState b) -> s -> (WalletActionInterp m b -> WalletAction b -> StateT s m (StateChange b)) -> StateT (WalletWorkerState b) m ()
+    run :: (s -> WalletWorkerState b)
+        -> s
+        -> (WalletActionInterp m b
+            -> WalletAction b
+            -> StateT s m (StateChange b))
+        -> StateT (WalletWorkerState b) m ()
     run ctor s0 f = do
       (next, s1) <- lift $ runStateT (f walletInterp action) s0
       put $ case next of
         Same         -> ctor s1
         ChangeTo x   -> x
         NoTransition -> error "Bad transition in the wallet worker!"
-        
+
 -- | Interpret the incoming action, from the typical state where
 --   the wallet is just expecting a new block.
 interpNormal :: Monad m
@@ -109,9 +112,9 @@ interpNormal walletInterp action = do
     -- Respond to the incoming action
     case action of
         --Just apply the blocks.
-        ApplyBlocks bs -> do
-            emit "applying some blocks (non-rollback)"
-            applyBlocks bs
+        ApplyBlocks bs -> lift $ do
+            emit walletInterp "applying some blocks (non-rollback)"
+            applyBlocks walletInterp bs
             return Same
 
         -- Kick off a pending fork operation.
@@ -122,9 +125,6 @@ interpNormal walletInterp action = do
             }
 
         _ -> return NoTransition
-
-  where
-    WalletActionInterp{..} = lifted walletInterp
 
 -- | Interpret the incoming action, when in the state where we
 --   are waiting for enough rollbacks and new blocks to complete
@@ -154,10 +154,10 @@ interpPendingFork walletInterp action = do
         -- If we have seen more blocks than rollbacks, switch to the new fork.
         if (numPendingBlocks + length bs > numPendingRollbacks)
           then do pb <- toOldestFirst <$> use pendingBlocks
-                  switchToFork numPendingRollbacks pb
+                  lift (switchToFork walletInterp numPendingRollbacks pb)
 
                   -- Reset state to "no fork in progress"
-                  changeTo $ Normal ()
+                  changeTo Normal
           else return Same
 
       -- If we have seen some new blocks, roll back some of those blocks.
@@ -167,7 +167,7 @@ interpPendingFork walletInterp action = do
                             lengthPendingBlocks -= length bs
                             pendingBlocks %= NewestFirst . drop (length bs) . getNewestFirst
                             return Same
-                            
+
       -- If we are asked to rollback more than the number of new blocks
       -- seen so far, clear out the list of new blocks and add any excess
       -- to the number of pending rollback operations.
@@ -176,37 +176,38 @@ interpPendingFork walletInterp action = do
         lengthPendingBlocks .= 0
         pendingBlocks       .= NewestFirst []
         return Same
-        
+
       _ -> return NoTransition
 
   where
-    WalletActionInterp{..} = lifted walletInterp
     prependNewestFirst bs = \nf -> NewestFirst (getNewestFirst bs <> getNewestFirst nf)
 
 changeTo :: Monad m => WalletWorkerState b -> m (StateChange b)
 changeTo wws = return (ChangeTo wws)
 
--- | Connect a wallet action interpreter to a channel of actions.
-walletWorker :: Chan (WalletAction b) -> WalletActionInterp IO b -> IO ()
-walletWorker chan ops = do
+-- | Connect a wallet action interpreter to a source actions. This function
+-- never returns.
+walletWorker :: IO (WalletAction b) -> WalletActionInterp IO b -> IO Void
+walletWorker getWA ops = do
     emit ops "Starting wallet worker."
-    void $ (`evalStateT` initialWorkerState) $ forever $
-      lift (readChan chan) >>= interp ops
-    emit ops "Finishing wallet worker."
+    evalStateT (forever (interp ops =<< lift getWA)) initialWorkerState
 
 -- | Connect a wallet action interpreter to a stream of actions.
 interpList :: Monad m => WalletActionInterp m b -> [WalletAction b] -> m (WalletWorkerState b)
 interpList ops actions = execStateT (forM_ actions $ interp ops) initialWorkerState
 
 initialWorkerState :: WalletWorkerState b
-initialWorkerState = Normal ()
+initialWorkerState = Normal
 
--- | Start up a wallet worker; the worker will respond to actions issued over the
---   returned channel.
-forkWalletWorker :: (MonadIO m, MonadIO m') => WalletActionInterp IO b -> m (WalletAction b -> m' ())
+-- | Start a wallet worker, who will react to 'WalletAction's submited to the
+-- returned function.
+forkWalletWorker
+  :: (MonadIO m, MonadIO n)
+  => WalletActionInterp IO b
+  -> m (WalletAction b -> n ())
 forkWalletWorker ops = liftIO $ do
     c <- newChan
-    link =<< async (walletWorker c ops)
+    link =<< async (walletWorker (readChan c) ops)
     return (liftIO . writeChan c)
 
 -- | Check if this is the initial worker state.
@@ -216,8 +217,8 @@ isInitialState = (== initialWorkerState)
 -- | Check that the state invariants all hold.
 isValidState :: WalletWorkerState b -> Bool
 isValidState wws = case wws of
-  Normal _ -> True
-  PendingFork PendingForkState{..} -> 
+  Normal -> True
+  PendingFork PendingForkState{..} ->
     _pendingRollbacks >= 0 &&
     length (_pendingBlocks) == _lengthPendingBlocks &&
     _lengthPendingBlocks <= _pendingRollbacks
@@ -229,7 +230,7 @@ hasPendingFork _               = False
 
 instance Show b => Buildable (WalletWorkerState b) where
     build wws = case wws of
-      Normal () -> bprint "Normal ()"
+      Normal -> bprint "Normal"
       PendingFork PendingForkState{..} -> bprint
           ( "PendingForkState "
           % "{ _pendingRollbacks:    " % shown

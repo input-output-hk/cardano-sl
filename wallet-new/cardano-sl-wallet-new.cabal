@@ -142,6 +142,7 @@ library
                      , lens
                      , log-warper
                      , memory
+                     , mmorph
                      , mtl
                      , neat-interpolation
                      , network-transport

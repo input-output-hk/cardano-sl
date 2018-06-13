@@ -213,6 +213,9 @@ extra-deps:
 - dual-tree-0.2.1
 - pretty-show-1.6.16
 
+# Support for wallet's Txmeta tracking
+- sqlite-simple-errors-0.6.1.0
+
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 

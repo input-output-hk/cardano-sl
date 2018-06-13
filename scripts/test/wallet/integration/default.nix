@@ -17,7 +17,7 @@ let
     keepAlive = false;
   };
   executables =  {
-    integration-test = "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-integration-test";
+    integration-test = "${iohkPkgs.cardano-sl-wallet-new}/bin/wal-integr-test";
   };
   iohkPkgs = import ./../../../.. { inherit config system pkgs gitrev; };
 in pkgs.writeScript "integration-tests" ''

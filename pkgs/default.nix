@@ -17832,6 +17832,9 @@ license = stdenv.lib.licenses.mit;
 , aeson-pretty
 , async
 , base
+, beam-core
+, beam-migrate
+, beam-sqlite
 , bytestring
 , cardano-sl
 , cardano-sl-block
@@ -17893,6 +17896,8 @@ license = stdenv.lib.licenses.mit;
 , servant-server
 , servant-swagger
 , servant-swagger-ui
+, sqlite-simple
+, sqlite-simple-errors
 , stdenv
 , stm
 , string-conv
@@ -17933,6 +17938,9 @@ aeson
 aeson-pretty
 async
 base
+beam-core
+beam-migrate
+beam-sqlite
 bytestring
 cardano-sl
 cardano-sl-block
@@ -17980,7 +17988,8 @@ servant-client-core
 servant-server
 servant-swagger
 servant-swagger-ui
-string-conv
+sqlite-simple
+sqlite-simple-errors
 swagger2
 text
 text-format
@@ -73726,6 +73735,33 @@ doHaddock = false;
 doCheck = false;
 homepage = "http://github.com/nurpax/sqlite-simple";
 description = "Mid-Level SQLite client library";
+license = stdenv.lib.licenses.bsd3;
+
+}) {};
+"sqlite-simple-errors" = callPackage
+({
+  mkDerivation
+, base
+, parsec
+, sqlite-simple
+, stdenv
+, text
+}:
+mkDerivation {
+
+pname = "sqlite-simple-errors";
+version = "0.6.1.0";
+sha256 = "5101f84a6d74d658398cc4ef557ad3c6158d53e9c948301cc47ed0cc3eaa716f";
+libraryHaskellDepends = [
+base
+parsec
+sqlite-simple
+text
+];
+doHaddock = false;
+doCheck = false;
+homepage = "https://github.com/caneroj1/sqlite-simple-errors";
+description = "Wrapper around errors from sqlite-simple";
 license = stdenv.lib.licenses.bsd3;
 
 }) {};

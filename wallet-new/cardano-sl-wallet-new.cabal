@@ -73,7 +73,9 @@ library
                        Cardano.Wallet.Kernel.DB.Resolved
                        Cardano.Wallet.Kernel.DB.Spec
                        Cardano.Wallet.Kernel.DB.Spec.Update
+                       Cardano.Wallet.Kernel.DB.Sqlite
                        Cardano.Wallet.Kernel.DB.TxMeta
+                       Cardano.Wallet.Kernel.DB.TxMeta.Types
                        Cardano.Wallet.Kernel.DB.Util.AcidState
                        Cardano.Wallet.Kernel.DB.Util.IxSet
                        Cardano.Wallet.Kernel.Diffusion
@@ -111,6 +113,9 @@ library
                      , aeson
                      , aeson-pretty
                      , async
+                     , beam-core
+                     , beam-migrate
+                     , beam-sqlite
                      , bytestring
                      , cardano-sl
                      , cardano-sl-block
@@ -158,7 +163,8 @@ library
                      , servant-server
                      , servant-swagger
                      , servant-swagger-ui
-                     , string-conv
+                     , sqlite-simple
+                     , sqlite-simple-errors
                      , swagger2
                      , text
                      , text-format
@@ -237,7 +243,6 @@ executable cardano-node
                       UndecidableInstances
                       MonadFailDesugaring
 
-
 executable cardano-generate-swagger-file
   hs-source-dirs:      generate-swagger-file
   main-is:             Main.hs
@@ -266,7 +271,9 @@ executable cardano-generate-swagger-file
                        MonadFailDesugaring
 
 
-executable cardano-integration-test
+-- Cryptic executable name to mitigate $PATH limitation
+-- on Windows and AppVeyor.
+executable wal-integr-test
   hs-source-dirs:      integration
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts
@@ -346,6 +353,7 @@ test-suite wallet-unit-tests
                       Test.Spec.Submission
                       Test.Spec.Translation
                       Test.Spec.WalletWorker
+                      TxMetaStorageSpecs
                       Util
                       Util.Buildable
                       Util.Buildable.Hspec
@@ -419,6 +427,7 @@ test-suite wallet-unit-tests
                     , mtl
                     , QuickCheck
                     , quickcheck-instances
+                    , safe-exceptions
                     , serokell-util
                     , text
                     , text-format

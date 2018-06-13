@@ -16,12 +16,12 @@ import           Data.Coerce (coerce)
 import           Cardano.Wallet.WalletLayer.Error (WalletLayerError (..))
 import           Cardano.Wallet.WalletLayer.Types (ActiveWalletLayer (..), PassiveWalletLayer (..))
 
-import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 import           Cardano.Wallet.API.V1.Migration (migrate)
 import           Cardano.Wallet.API.V1.Migration.Types ()
 import           Cardano.Wallet.API.V1.Types (Account, AccountIndex, AccountUpdate, Address,
                                               NewAccount (..), NewWallet (..), V1 (..), Wallet,
                                               WalletId, WalletOperation (..), WalletUpdate)
+import           Cardano.Wallet.Kernel.Diffusion (WalletDiffusion (..))
 
 import           Pos.Client.KeyStorage (MonadKeys)
 import           Pos.Core (ChainDifficulty)
@@ -29,7 +29,8 @@ import           Pos.Crypto (PassPhrase)
 
 import           Pos.Util (HasLens', maybeThrow)
 import           Pos.Wallet.Web.Account (GenSeed (..))
-import           Pos.Wallet.Web.ClientTypes.Types (CWallet (..), CWalletInit (..), CWalletMeta (..))
+import           Pos.Wallet.Web.ClientTypes.Types (CBackupPhrase (..), CWallet (..),
+                                                   CWalletInit (..), CWalletMeta (..))
 import qualified Pos.Wallet.Web.Error.Types as V0
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
 import qualified Pos.Wallet.Web.Methods.Logic as V0
@@ -39,8 +40,8 @@ import           Pos.Wallet.Web.State.State (WalletDbReader, askWalletDB, askWal
 import           Pos.Wallet.Web.State.Storage (getWalletInfo)
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
 
-import           Pos.Core.Chrono (NE, OldestFirst (..), NewestFirst (..))
 import           Pos.Block.Types (Blund)
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 
 
 -- | Let's unify all the requirements for the legacy wallet.
@@ -108,7 +109,7 @@ pwlCreateWallet
 pwlCreateWallet NewWallet{..} = do
 
     let spendingPassword = fromMaybe mempty $ coerce newwalSpendingPassword
-    let backupPhrase     = coerce newwalBackupPhrase
+    let backupPhrase     = CBackupPhrase $ coerce newwalBackupPhrase
 
     initMeta    <- CWalletMeta  <$> pure newwalName
                                 <*> migrate newwalAssuranceLevel

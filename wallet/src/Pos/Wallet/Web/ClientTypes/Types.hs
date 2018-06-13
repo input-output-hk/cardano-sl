@@ -30,6 +30,7 @@ module Pos.Wallet.Web.ClientTypes.Types
       , AccountId (..)
       , CAccountMeta (..)
       , CWAddressMeta (..)
+      , CBackupPhrase(..)
 
         -- ** Requests
       , CWalletInit (..)
@@ -267,10 +268,31 @@ instance Default CAccountMeta where
 -- Wallet structure - requests
 ----------------------------------------------------------------------------
 
+-- | Backward-compatibility with V0 API, preserving the shape of requests
+--
+-- e.g.
+--    {
+--       ...
+--       "cwBackupPhrase": {
+--          "bpToList": ["...", "..."]
+--       }
+--    }
+newtype CBackupPhrase (mw :: Nat) =
+    CBackupPhrase { bpToList :: Mnemonic mw }
+    deriving (Eq, Show, Generic)
+
+instance Buildable (SecureLog (CBackupPhrase mw)) where
+    build (SecureLog (CBackupPhrase mw))=
+        bprint build (SecureLog mw)
+
+instance Buildable (CBackupPhrase mw) where
+    build (CBackupPhrase mw) =
+        bprint build mw
+
 -- | Query data for wallet creation
 data CWalletInit = CWalletInit
     { cwInitMeta     :: !CWalletMeta
-    , cwBackupPhrase :: !(Mnemonic 12)
+    , cwBackupPhrase :: !(CBackupPhrase 12)
     } deriving (Eq, Show, Generic)
 
 instance Buildable CWalletInit where
@@ -297,7 +319,7 @@ instance Buildable (SecureLog CWalletRedeem) where
 data CPaperVendWalletRedeem = CPaperVendWalletRedeem
     { pvWalletId     :: !CAccountId
     , pvSeed         :: !Text -- TODO: newtype!
-    , pvBackupPhrase :: !(Mnemonic 9)
+    , pvBackupPhrase :: !(CBackupPhrase 9)
     } deriving (Show, Generic)
 
 instance Buildable CPaperVendWalletRedeem where

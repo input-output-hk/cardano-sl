@@ -24,6 +24,7 @@ import           Servant.Multipart (FileData (..))
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..))
 import           Pos.Core (ApplicationName, BlockCount (..), BlockVersion, ChainDifficulty, Coin,
                            SlotCount (..), SoftwareVersion, mkCoin)
+import           Pos.Util.Mnemonic (Mnemonic)
 
 import qualified Pos.Wallet.Web.ClientTypes as CT
 import qualified Pos.Wallet.Web.Error.Types as ET
@@ -82,6 +83,16 @@ instance ToParamSchema CT.ScrollLimit
 instance ToSchema      CT.ApiVersion
 instance ToSchema      Version
 instance ToSchema      CT.ClientInfo
+
+instance (KnownNat mw) => ToSchema (CT.CBackupPhrase mw) where
+    declareNamedSchema _ = do
+        mnemonicSchema <- declareSchemaRef (Proxy @(Mnemonic mw))
+        return $ NamedSchema (Just "BackupPhrase") $ mempty
+            & type_ .~ SwaggerObject
+            & properties .~
+                [ ("bpToList", mnemonicSchema)
+                ]
+            & required .~ [ "bpToList" ]
 
 instance ToSchema InputSelectionPolicy where
     declareNamedSchema proxy =

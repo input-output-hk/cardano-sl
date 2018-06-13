@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 -- | Function for running a client, for @NewWallet@.
 
 module Client.Cardano.Wallet.Web.Endpoint.NewWallet
@@ -14,7 +16,8 @@ import           Client.Cardano.Wallet.Web.Analyze (analyzeResponseIfNeeded, che
 import           Client.Cardano.Wallet.Web.Api (newWallet)
 import           Client.Cardano.Wallet.Web.Run (runEndpointClient)
 import           Pos.Util.Mnemonic (Mnemonic, entropyToMnemonic, genEntropy)
-import           Pos.Wallet.Web.ClientTypes (CWallet (..), CWalletAssurance (..), CWalletInit (..),
+import           Pos.Wallet.Web.ClientTypes (CBackupPhrase (..), CWallet (..),
+                                             CWalletAssurance (..), CWalletInit (..),
                                              CWalletMeta (..))
 
 -- | Run 'NewWallet' client. As a result we will get a newly created wallet.
@@ -26,7 +29,7 @@ newWalletIO conf@CompleteConfig {..} = do
         assurance  = CWAStrict
         smallUnit  = 1 -- For Lovelaces
         initMeta   = CWalletMeta walletName assurance smallUnit
-        walletInit = CWalletInit initMeta backupPhrase
+        walletInit = CWalletInit initMeta (CBackupPhrase backupPhrase)
         passPhrase = Nothing -- Don't use passphrase, for simplicity.
     response <- runEndpointClient conf $ newWallet passPhrase walletInit
     analyzeResponseIfNeeded NewWalletBench conf $ analyze response

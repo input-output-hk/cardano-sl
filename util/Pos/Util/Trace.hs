@@ -6,16 +6,11 @@ module Pos.Util.Trace
     , natTrace
     , trace
     , traceWith
+    , logTrace
     , noTrace
     -- * log messages
     , stdoutTrace
     , stdoutTraceConcurrent
-    , logTrace
-    , logDebug
-    , logInfo
-    , logWarning
-    , logNotice
-    , logError
     , Log.Severity (..)
     ) where
 
@@ -67,6 +62,7 @@ logTrace :: Log.LoggerName -> TraceIO
 logTrace loggerName = Trace $ Op $ \(severity, txt) ->
     Log.usingLoggerName loggerName $ Log.logMessage severity txt
 
+{-
 logDebug :: TraceIO -> Trace IO Text
 logDebug lt = contramap ((,) Log.Debug) lt
 
@@ -81,3 +77,4 @@ logNotice lt = contramap ((,) Log.Notice) lt
 
 logError :: TraceIO -> Trace IO Text
 logError lt = contramap ((,) Log.Error) lt
+-}

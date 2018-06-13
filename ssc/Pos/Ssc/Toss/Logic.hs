@@ -32,6 +32,8 @@ import           Pos.Ssc.Toss.Types (TossModifier (..))
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NewestFirst (..))
 import           Pos.Util.Some (Some)
+import           Pos.Util.Trace (Trace, natTrace)
+import           Pos.Util.Trace.Unstructured (LogItem, logError)
 import           Pos.Util.Util (sortWithMDesc)
 
 -- | Verify 'SscPayload' with respect to data provided by
@@ -40,8 +42,9 @@ import           Pos.Util.Util (sortWithMDesc)
 verifyAndApplySscPayload
     :: (MonadToss m, MonadTossEnv m,
         MonadError SscVerifyError m, MonadRandom m, HasProtocolConstants, HasProtocolMagic)
-    => Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
-verifyAndApplySscPayload eoh payload = do
+    => Trace m LogItem
+    Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
+verifyAndApplySscPayload logTrace eoh payload = do
     -- Check the payload for internal consistency.
     either (throwError . SscInvalidPayload) pure (checkSscPayload protocolMagic payload)
     -- We can't trust payload from mempool, so we must call
@@ -54,7 +57,7 @@ verifyAndApplySscPayload eoh payload = do
     let blockCerts = spVss payload
         curEpoch = either identity (^. epochIndexL) eoh
         tr = logTrace "verifyAndApplySscPayload"
-    checkPayload tr curEpoch payload
+    checkPayload logTrace tr curEpoch payload
 
     -- Apply
     case eoh of
@@ -160,7 +163,7 @@ type TossModifierLists
 
 normalizeTossDo
     :: forall m.
-       (MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants, HasProtocolMagic)
+       (MonadIO m, MonadToss m, MonadTossEnv m, MonadRandom m, HasProtocolConstants, HasProtocolMagic)
     => EpochIndex -> TossModifierLists -> m ()
 normalizeTossDo epoch (comms, opens, shares, certs) = do
     putsUseful $

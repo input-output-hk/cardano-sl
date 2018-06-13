@@ -41,7 +41,7 @@ import           Data.ByteArray (convert)
 import           Data.ByteString (ByteString)
 import           Data.Default (Default (def))
 import           Data.Swagger (NamedSchema (..), ToSchema (..), maxItems, minItems)
-import           Formatting (bprint, build, (%))
+import           Formatting (bprint, build, formatToString, (%))
 import           Pos.Binary (serialize')
 import           Pos.Crypto (AesKey (..))
 import           Pos.Util.LogSafe (SecureLog)
@@ -336,7 +336,7 @@ instance
       where
         eitherToParser :: Either MnemonicErr (Mnemonic mw) -> Parser (Mnemonic mw)
         eitherToParser =
-            either (fail . show) pure
+            either (fail . formatToString build) pure
 
 
 instance ToJSON (Mnemonic mw) where

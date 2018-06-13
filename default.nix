@@ -78,8 +78,8 @@ let
       });
 
       cardano-sl-networking = buildWithBenchmarks super.cardano-sl-networking;
-      cardano-sl-block = buildWithBenchmarks super.cardano-sl-block;
-      cardano-sl-explorer = buildWithBenchmarks super.cardano-sl-expolorer;
+      cardano-sl-block-bench = buildWithBenchmarks super.cardano-sl-block-bench;
+      cardano-sl-explorer = buildWithBenchmarks super.cardano-sl-explorer;
       cardano-sl-wallet-static = justStaticExecutables super.cardano-sl-wallet;
       cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
       cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;

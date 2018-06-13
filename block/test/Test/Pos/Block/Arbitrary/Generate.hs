@@ -7,8 +7,6 @@ module Test.Pos.Block.Arbitrary.Generate
     , generateMainBlockWithConfiguration
     ) where
 
-import           Universum
-
 import           Test.QuickCheck (arbitrary)
 import qualified Test.QuickCheck.Gen as QC
 import qualified Test.QuickCheck.Random as QC

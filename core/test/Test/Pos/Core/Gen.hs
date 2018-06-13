@@ -577,15 +577,10 @@ genTimestamp = Timestamp <$> genMicrosecond
 genGenesisAvvmBalances :: Gen GenesisAvvmBalances
 genGenesisAvvmBalances = GenesisAvvmBalances <$> customHashMapGen genRedeemPublicKey genCoin
 
-data CommitmentOpening = CommitmentOpening
-    { unCommitment :: !Commitment
-    , unOpening :: !Opening
-    }
-
 genCommitment :: Gen Commitment
-genCommitment = unCommitment <$> genCommitmentOpening
+genCommitment = fst <$> genCommitmentOpening
 
-genCommitmentOpening :: Gen CommitmentOpening
+genCommitmentOpening :: Gen (Commitment, Opening)
 genCommitmentOpening = do
     let numKeys = 128 :: Int
     parties <-
@@ -593,7 +588,6 @@ genCommitmentOpening = do
     threshold <- Gen.integral (Range.constant 2 (parties - 2)) :: Gen Integer
     vssKeys <- replicateM numKeys genVssPublicKey
     pure
-        $ uncurry CommitmentOpening
         $ deterministic "commitmentOpening"
         $ genCommitmentAndOpening threshold (fromList vssKeys)
 
@@ -613,7 +607,7 @@ genInnerSharesMap = do
     pure $ HM.fromList $ zip stakeholderId [nonEmptyDS]
 
 genOpening :: Gen Opening
-genOpening = unOpening <$> genCommitmentOpening
+genOpening = snd <$> genCommitmentOpening
 
 genOpeningsMap :: Gen OpeningsMap
 genOpeningsMap = do

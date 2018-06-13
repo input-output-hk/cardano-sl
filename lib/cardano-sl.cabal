@@ -157,7 +157,7 @@ library
                       , constraints
                       , containers
                       , contravariant
-                      , cryptonite >= 0.23 && <= 0.24
+                      , cryptonite >= 0.23
                       , data-default
                       , directory
                       , ed25519

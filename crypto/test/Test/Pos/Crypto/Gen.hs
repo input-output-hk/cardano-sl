@@ -52,9 +52,6 @@ module Test.Pos.Crypto.Gen
         -- HD Generators
         , genHDPassphrase
         , genHDAddressPayload
-
-        -- Helper Generators
-        , genSafeSigner
         ) where
 
 import           Universum

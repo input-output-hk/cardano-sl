@@ -37,6 +37,7 @@ import           Cardano.Wallet.Kernel.Util (paymentAmount, utxoBalance,
 import           Pos.Crypto.Signing.Safe (fakeSigner)
 import           Test.Infrastructure.Generator (estimateCardanoFee)
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Spec.CoinSelection.Generators (InitialBalance (..),
                      Pay (..), genFiddlyPayees, genFiddlyUtxo, genGroupedUtxo,
                      genPayee, genPayees, genRedeemPayee,
@@ -416,7 +417,7 @@ payRestrictInputsTo :: Word64
                     -> Policy
                     -> Gen RunResult
 payRestrictInputsTo maxInputs genU genP feeFunction adjustOptions bal amount policy =
-    withDefConfiguration $ \pm -> do
+    withDefConfiguration $ do
         utxo  <- genU bal
         payee <- genP amount
         key   <- arbitrary
@@ -425,7 +426,7 @@ payRestrictInputsTo maxInputs genU genP feeFunction adjustOptions bal amount pol
                  policy
                    options
                    (genUniqueChangeAddress utxo payee)
-                   (mkTx pm key)
+                   (mkTx dummyProtocolMagic key)
                    maxInputs
                    (fmap Core.TxOutAux payee)
                    utxo

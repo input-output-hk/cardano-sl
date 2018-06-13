@@ -20,7 +20,7 @@ import           Test.QuickCheck.Monadic (pick)
 
 import           Pos.Arbitrary.Wallet.Web.ClientTypes ()
 import           Pos.Block.Logic (rollbackBlocks)
-import           Pos.Core (Address, BlockCount (..), blkSecurityParam)
+import           Pos.Core (Address, BlockCount (..))
 import           Pos.Core.Chrono (nonEmptyOldestFirst, toNewestFirst)
 import           Pos.Crypto (emptyPassphrase)
 import           Pos.Launcher (HasConfigurations)
@@ -41,13 +41,14 @@ import           Pos.Wallet.Web.Tracking.Types (newSyncRequest)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..),
                      InplaceDB (..))
 import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Core.Dummy (dummyK, dummyProtocolConstants)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Property (assertProperty)
 import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
 
 spec :: Spec
-spec = withDefConfigurations $ \_ _ -> do
+spec = withDefConfigurations $ \_ -> do
     describe "Pos.Wallet.Web.Tracking.BListener" $ modifyMaxSuccess (const 10) $ do
         describe "Two applications and rollbacks" twoApplyTwoRollbacksSpec
     xdescribe "Pos.Wallet.Web.Tracking.evalChange (pending, CSL-2473)" $ do
@@ -61,12 +62,12 @@ spec = withDefConfigurations $ \_ _ -> do
 
 twoApplyTwoRollbacksSpec :: HasConfigurations => Spec
 twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
-    let k = fromIntegral blkSecurityParam :: Word64
+    let k = fromIntegral dummyK :: Word64
     -- During these tests we need to manually switch back to the old synchronous
     -- way of restoring.
     void $ importSomeWallets (pure emptyPassphrase)
     sks <- lift getSecretKeysPlain
-    lift $ forM_ sks $ \s -> syncWalletWithBlockchain (newSyncRequest (eskToWalletDecrCredentials s))
+    lift $ forM_ sks $ \s -> syncWalletWithBlockchain dummyK (newSyncRequest (eskToWalletDecrCredentials s))
 
     -- Testing starts here
     genesisWalletDB <- lift WS.askWalletSnapshot
@@ -85,9 +86,9 @@ twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     let toNE = fromMaybe (error "sequence of blocks are empty") . nonEmptyOldestFirst
     let to1Rollback = toNewestFirst $ toNE blunds2
     let to2Rollback = toNewestFirst $ toNE blunds1
-    lift $ rollbackBlocks dummyProtocolMagic to1Rollback
+    lift $ rollbackBlocks dummyProtocolMagic dummyProtocolConstants to1Rollback
     after1RollbackDB <- lift WS.askWalletSnapshot
-    lift $ rollbackBlocks dummyProtocolMagic to2Rollback
+    lift $ rollbackBlocks dummyProtocolMagic dummyProtocolConstants to2Rollback
     after2RollbackDB <- lift WS.askWalletSnapshot
     assertProperty (after1RollbackDB == after1ApplyDB)
         "wallet-db after first apply doesn't equal to wallet-db after first rollback"

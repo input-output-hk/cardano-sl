@@ -25,7 +25,7 @@ import           Pos.AllSecrets (asSecretKeys, asSpendingData,
                      unInvAddrSpendingData, unInvSecretsMap)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..),
                      createGenericTx, makeMPubKeyTxAddrs)
-import           Pos.Core (AddrSpendingData (..), Address (..), Coin,
+import           Pos.Core (AddrSpendingData (..), Address (..), Coin, SlotCount,
                      SlotId (..), addressHash, coinToInteger,
                      makePubKeyAddressBoot, unsafeIntegerToCoin)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..),
@@ -121,8 +121,9 @@ genTxPayload
     :: forall ext g m
      . (RandomGen g, MonadBlockGenBase m, MonadTxpLocal (BlockGenMode ext m))
     => ProtocolMagic
+    -> SlotCount
     -> BlockGenRandMode ext g m ()
-genTxPayload pm = do
+genTxPayload pm epochSlots = do
     invAddrSpendingData <-
         unInvAddrSpendingData <$> view (blockGenParams . asSpendingData)
     -- We only leave outputs we have secret keys related to. Tx
@@ -215,14 +216,14 @@ genTxPayload pm = do
             groupedInputs = OptimizeForSecurity
 
         eTx <- lift . lift $
-            createGenericTx pm mempty makeTestTx groupedInputs ownUtxo txOutAuxs changeAddrData
+            createGenericTx pm epochSlots mempty makeTestTx groupedInputs ownUtxo txOutAuxs changeAddrData
         (txAux, _) <- either (throwM . BGFailedToCreate . pretty) pure eTx
 
         let tx = taTx txAux
         let txId = hash tx
         let txIns = _txInputs tx
         -- @txpProcessTx@ for BlockGenMode should be non-blocking
-        res <- lift . lift $ txpProcessTx pm (txId, txAux)
+        res <- lift . lift $ txpProcessTx pm epochSlots (txId, txAux)
         case res of
             Left e  -> error $ "genTransaction@txProcessTransaction: got left: " <> pretty e
             Right _ -> do
@@ -247,6 +248,7 @@ genPayload
     :: forall ext g m
      . (RandomGen g, MonadBlockGenBase m, MonadTxpLocal (BlockGenMode ext m))
     => ProtocolMagic
+    -> SlotCount
     -> SlotId
     -> BlockGenRandMode ext g m ()
-genPayload pm _ = genTxPayload pm
+genPayload pm epochSlots _ = genTxPayload pm epochSlots

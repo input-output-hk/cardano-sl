@@ -16,17 +16,14 @@ import           Pos.Txp.Toil (GenesisUtxo (..), Utxo, utxoToStakes)
 
 
 -- | Compute leaders of the 0-th epoch from initial shared seed and stake distribution.
-genesisLeaders :: (HasGenesisData) => SlotCount -> SlotLeaders
-genesisLeaders epochSlots = followTheSatoshiUtxo epochSlots (gdFtsSeed genesisData) utxo
+genesisLeaders :: HasGenesisData => SlotCount -> SlotLeaders
+genesisLeaders epochSlots =
+    followTheSatoshiUtxo epochSlots (gdFtsSeed genesisData) utxo
   where
     GenesisUtxo utxo = genesisUtxo
 
 -- This should not be exported unless it is *needed* elsewhere
-followTheSatoshiUtxo ::
-       (HasGenesisData)
-    => SlotCount
-    -> SharedSeed
-    -> Utxo
-    -> SlotLeaders
+followTheSatoshiUtxo
+    :: HasGenesisData => SlotCount -> SharedSeed -> Utxo -> SlotLeaders
 followTheSatoshiUtxo epochSlots seed utxo =
     followTheSatoshi epochSlots seed $ HM.toList $ utxoToStakes utxo

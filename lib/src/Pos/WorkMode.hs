@@ -147,9 +147,7 @@ instance {-# OVERLAPPING #-} HasLoggerName (RealMode ext) where
 instance {-# OVERLAPPING #-} CanJsonLog (RealMode ext) where
     jsonLog = jsonLogDefault
 
-instance (HasConfiguration, MonadSlotsData ctx (RealMode ext))
-      => MonadSlots ctx (RealMode ext)
-  where
+instance MonadSlotsData ctx (RealMode ext) => MonadSlots ctx (RealMode ext) where
     getCurrentSlot = getCurrentSlotSimple
     getCurrentSlotBlocking = getCurrentSlotBlockingSimple
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
@@ -172,7 +170,7 @@ instance HasConfiguration => MonadDB (RealMode ext) where
 
 instance MonadBListener (RealMode ext) where
     onApplyBlocks = onApplyBlocksStub
-    onRollbackBlocks = onRollbackBlocksStub
+    onRollbackBlocks _ = onRollbackBlocksStub
 
 type instance MempoolExt (RealMode ext) = ext
 

@@ -21,7 +21,7 @@ import qualified Data.Text as T
 import           Pos.Block.Logic.VAR (BlockLrcMode, rollbackBlocks,
                      verifyAndApplyBlocks)
 import           Pos.Block.Types (Blund)
-import           Pos.Core (HasConfiguration, HeaderHash)
+import           Pos.Core (HeaderHash)
 import           Pos.Core.Chrono (NE, OldestFirst)
 import           Pos.DB.Pure (DBPureDiff, MonadPureDB, dbPureDiff, dbPureDump,
                      dbPureReset)
@@ -37,6 +37,7 @@ import           Pos.Util.Util (eitherToThrow, lensOf)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext,
                      PureDBSnapshotsVar (..))
 import           Test.Pos.Block.Logic.Util (satisfySlotCheck)
+import           Test.Pos.Core.Dummy (dummyProtocolConstants)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 data SnapshotMissingEx = SnapshotMissingEx SnapshotId
@@ -56,20 +57,20 @@ data BlockEventResult
     | BlockEventFailure IsExpected SomeException
     | BlockEventDbChanged DbNotEquivalentToSnapshot
 
-verifyAndApplyBlocks' ::
-       ( HasConfiguration
-       , BlockLrcMode BlockTestContext m
-       , MonadTxpLocal m
-       )
+verifyAndApplyBlocks'
+    :: (BlockLrcMode BlockTestContext m, MonadTxpLocal m)
     => OldestFirst NE Blund
     -> m ()
 verifyAndApplyBlocks' blunds = do
     satisfySlotCheck blocks $ do
-        (_ :: HeaderHash) <- eitherToThrow =<<
-            verifyAndApplyBlocks dummyProtocolMagic True blocks
+        (_ :: HeaderHash) <-
+            eitherToThrow
+                =<< verifyAndApplyBlocks dummyProtocolMagic
+                                         dummyProtocolConstants
+                                         True
+                                         blocks
         return ()
-  where
-    blocks = fst <$> blunds
+    where blocks = fst <$> blunds
 
 -- | Execute a single block event.
 runBlockEvent ::
@@ -91,7 +92,7 @@ runBlockEvent (BlkEvApply ev) =
         BlockApplyFailure -> BlockEventFailure (IsExpected True) e
 
 runBlockEvent (BlkEvRollback ev) =
-    (onSuccess <$ rollbackBlocks dummyProtocolMagic (ev ^. berInput))
+    (onSuccess <$ rollbackBlocks dummyProtocolMagic dummyProtocolConstants (ev ^. berInput))
        `catch` (return . onFailure)
   where
     onSuccess = case ev ^. berOutValid of

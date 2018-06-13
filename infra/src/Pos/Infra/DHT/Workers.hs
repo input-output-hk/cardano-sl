@@ -14,7 +14,7 @@ import           Network.Kademlia (takeSnapshot)
 import           System.Wlog (WithLogger, logNotice)
 
 import           Pos.Binary.Class (serialize)
-import           Pos.Core (HasProtocolConstants)
+import           Pos.Core (BlockCount, kEpochSlots)
 import           Pos.Core.Slotting (flattenSlotId, slotIdF)
 import           Pos.Infra.Binary.DHTModel ()
 import           Pos.Infra.DHT.Constants (kademliaDumpInterval)
@@ -40,22 +40,20 @@ type DhtWorkMode ctx m =
     )
 
 dhtWorkers
-    :: ( DhtWorkMode ctx m
-       , HasProtocolConstants
-       )
-    => KademliaDHTInstance -> [Diffusion m -> m ()]
-dhtWorkers kademliaInst@KademliaDHTInstance {..} =
-    [ dumpKademliaStateWorker kademliaInst ]
+    :: DhtWorkMode ctx m
+    => BlockCount
+    -> KademliaDHTInstance -> [Diffusion m -> m ()]
+dhtWorkers k kademliaInst@KademliaDHTInstance {..} =
+    [ dumpKademliaStateWorker k kademliaInst ]
 
 dumpKademliaStateWorker
-    :: ( DhtWorkMode ctx m
-       , HasProtocolConstants
-       )
-    => KademliaDHTInstance
+    :: DhtWorkMode ctx m
+    => BlockCount
+    -> KademliaDHTInstance
     -> Diffusion m
     -> m ()
-dumpKademliaStateWorker kademliaInst = \_ -> onNewSlot onsp $ \slotId ->
-    when (isTimeToDump slotId) $ recoveryCommGuard "dump kademlia state" $ do
+dumpKademliaStateWorker k kademliaInst _ = onNewSlot epochSlots onsp $ \slotId ->
+    when (isTimeToDump slotId) $ recoveryCommGuard k "dump kademlia state" $ do
         let dumpFile = kdiDumpPath kademliaInst
         logNotice $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
         let inst = kdiHandle kademliaInst
@@ -64,5 +62,6 @@ dumpKademliaStateWorker kademliaInst = \_ -> onNewSlot onsp $ \slotId ->
             Just fp -> liftIO . BSL.writeFile fp . serialize $ snapshot
             Nothing -> return ()
   where
+    epochSlots = kEpochSlots k
     onsp = defaultOnNewSlotParams
-    isTimeToDump slotId = flattenSlotId slotId `mod` kademliaDumpInterval == 0
+    isTimeToDump slotId = flattenSlotId epochSlots slotId `mod` kademliaDumpInterval == 0

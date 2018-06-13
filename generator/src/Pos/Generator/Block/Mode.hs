@@ -37,7 +37,7 @@ import           Pos.Block.Slog (HasSlogGState (..))
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (Address, GenesisWStakeholders (..), HasConfiguration,
-                     HasPrimaryKey (..), SlotId (..), Timestamp,
+                     HasPrimaryKey (..), SlotCount, SlotId (..), Timestamp,
                      epochOrSlotToSlot, getEpochOrSlot,
                      largestPubKeyAddressBoot)
 import           Pos.Crypto (SecretKey)
@@ -156,13 +156,12 @@ instance MonadThrow m => MonadThrow (RandT g m) where
 -- context. Persistent data (DB) is cloned. Other mutable data is
 -- recreated.
 mkBlockGenContext
-    :: forall ext ctx m.
-       ( MonadBlockGenInit ctx m
-       , Default ext
-       )
-    => BlockGenParams
+    :: forall ext ctx m
+     . (MonadBlockGenInit ctx m, Default ext)
+    => SlotCount
+    -> BlockGenParams
     -> m (BlockGenContext ext)
-mkBlockGenContext bgcParams@BlockGenParams{..} = do
+mkBlockGenContext epochSlots bgcParams@BlockGenParams{..} = do
     let bgcPrimaryKey = error "bgcPrimaryKey was forced before being set"
     bgcGState <- if _bgpInplaceDB
                  then view GS.gStateContext
@@ -182,8 +181,8 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
     usingReaderT initCtx $ do
         tipEOS <- getEpochOrSlot <$> DB.getTipHeader
         putInitSlot (epochOrSlotToSlot tipEOS)
-        bgcSscState <- mkSscState
-        bgcUpdateContext <- mkUpdateContext
+        bgcSscState <- mkSscState epochSlots
+        bgcUpdateContext <- mkUpdateContext epochSlots
         bgcTxpMem <- mkTxpLocalData
         bgcDelegation <- mkDelegationVar
         return BlockGenContext {..}
@@ -227,10 +226,10 @@ instance MonadBlockGenBase m => MonadDB (InitBlockGenMode ext m) where
 instance (MonadBlockGenBase m, MonadSlotsData ctx (InitBlockGenMode ext m))
       => MonadSlots ctx (InitBlockGenMode ext m)
   where
-    getCurrentSlot           = Just <$> view ibgcSlot_L
-    getCurrentSlotBlocking   = view ibgcSlot_L
-    getCurrentSlotInaccurate = view ibgcSlot_L
-    currentTimeSlotting      = do
+    getCurrentSlot _           = Just <$> view ibgcSlot_L
+    getCurrentSlotBlocking _   = view ibgcSlot_L
+    getCurrentSlotInaccurate _ = view ibgcSlot_L
+    currentTimeSlotting        = do
         logWarning "currentTimeSlotting is used in initialization"
         currentTimeSlottingSimple
 
@@ -317,14 +316,14 @@ instance MonadBlockGenBase m => MonadDB (BlockGenMode ext m) where
 instance (MonadBlockGenBase m, MonadSlotsData ctx (BlockGenMode ext m))
       => MonadSlots ctx (BlockGenMode ext m)
   where
-    getCurrentSlot = view bgcSlotId_L
-    getCurrentSlotBlocking =
+    getCurrentSlot _ = view bgcSlotId_L
+    getCurrentSlotBlocking _ =
         view bgcSlotId_L >>= \case
             Nothing ->
                 reportFatalError
                     "getCurrentSlotBlocking is used in generator when slot is unknown"
             Just slot -> pure slot
-    getCurrentSlotInaccurate =
+    getCurrentSlotInaccurate _ =
         reportFatalError
             "It hardly makes sense to use 'getCurrentSlotInaccurate' during block generation"
     currentTimeSlotting = currentTimeSlottingSimple
@@ -334,18 +333,18 @@ instance MonadBlockGenBase m => DB.MonadGState (BlockGenMode ext m) where
 
 instance MonadBListener m => MonadBListener (BlockGenMode ext m) where
     onApplyBlocks = lift . onApplyBlocks
-    onRollbackBlocks = lift . onRollbackBlocks
+    onRollbackBlocks pc = lift . onRollbackBlocks pc
 
 
 instance Monad m => MonadAddresses (BlockGenMode ext m) where
     type AddrData (BlockGenMode ext m) = Address
-    getNewAddress = pure
+    getNewAddress _ = pure
     -- It must be consistent with the way we construct address in
     -- block-gen. If it's changed, tests will fail, so we will notice
     -- it.
     -- N.B. Currently block-gen uses only PubKey addresses with BootstrapEra
     -- distribution.
-    getFakeChangeAddress = pure largestPubKeyAddressBoot
+    getFakeChangeAddress _ = pure largestPubKeyAddressBoot
 
 type instance MempoolExt (BlockGenMode ext m) = ext
 

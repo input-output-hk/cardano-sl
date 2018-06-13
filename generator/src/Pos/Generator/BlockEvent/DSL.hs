@@ -34,7 +34,7 @@ import           Control.Monad.Random.Strict (RandT, mapRandT)
 import qualified Data.Map as Map
 
 import           Pos.AllSecrets (AllSecrets)
-import           Pos.Core (GenesisWStakeholders)
+import           Pos.Core (GenesisWStakeholders, ProtocolConstants)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..),
                      toOldestFirst, _NewestFirst)
 import           Pos.Crypto (ProtocolMagic)
@@ -118,13 +118,19 @@ snapshotEq snapshotId = emitEvent $
 runBlockEventGenT
     :: (HasTxpConfiguration, BlockTxpGenMode g ctx m)
     => ProtocolMagic
+    -> ProtocolConstants
     -> AllSecrets
     -> GenesisWStakeholders
     -> BlockEventGenT g m ()
     -> RandT g m BlockScenario
-runBlockEventGenT pm secrets genStakeholders m = do
+runBlockEventGenT pm pc secrets genStakeholders m = do
     (annotations, preBlockScenario) <- runBlockEventGenT' m
-    genBlocksInStructure pm secrets genStakeholders annotations preBlockScenario
+    genBlocksInStructure pm
+                         pc
+                         secrets
+                         genStakeholders
+                         annotations
+                         preBlockScenario
 
 runBlockEventGenT' ::
     (MonadBlockGen ctx m) =>

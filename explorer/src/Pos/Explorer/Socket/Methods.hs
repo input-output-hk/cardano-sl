@@ -65,7 +65,7 @@ import           Network.EngineIO (SocketId)
 import           Network.SocketIO (Socket, socketId)
 import qualified Pos.Block.Logic as DB
 import           Pos.Block.Types (Blund)
-import           Pos.Core (Address, HeaderHash)
+import           Pos.Core (Address, HeaderHash, SlotCount)
 import           Pos.Core.Block (Block, mainBlockTxPayload)
 import           Pos.Core.Chrono (getOldestFirst)
 import           Pos.Core.Txp (Tx (..), TxOut (..), TxOutAux (..), txOutAddress,
@@ -330,11 +330,10 @@ notifyAddrSubscribers addr cTxEntries = do
     whenJust mRecipients $ broadcast @ctx AddrUpdated cTxEntries
 
 notifyBlocksLastPageSubscribers
-    :: forall ctx m . ExplorerMode ctx m
-    => ExplorerSockets m ()
-notifyBlocksLastPageSubscribers = do
+    :: forall ctx m . ExplorerMode ctx m => SlotCount -> ExplorerSockets m ()
+notifyBlocksLastPageSubscribers epochSlots = do
     recipients <- view csBlocksPageSubscribers
-    blocks     <- lift $ getBlocksLastPage @ctx
+    blocks     <- lift $ getBlocksLastPage @ctx epochSlots
     broadcast @ctx BlocksLastPageUpdated blocks recipients
 
 notifyTxsSubscribers
@@ -344,15 +343,18 @@ notifyTxsSubscribers cTxEntries =
     view csTxsSubscribers >>= broadcast @ctx TxsUpdated cTxEntries
 
 notifyEpochsLastPageSubscribers
-    :: forall ctx m . ExplorerMode ctx m
-    => EpochIndex -> ExplorerSockets m ()
-notifyEpochsLastPageSubscribers currentEpoch = do
+    :: forall ctx m
+     . ExplorerMode ctx m
+    => SlotCount
+    -> EpochIndex
+    -> ExplorerSockets m ()
+notifyEpochsLastPageSubscribers epochSlots currentEpoch = do
     -- subscriber
     recipients <- view $ csEpochsLastPageSubscribers
     -- last epoch page
     lastPage <- lift $ getEpochPagesOrThrow currentEpoch
     -- epochs of last page
-    epochs <- lift $ getEpochPage @ctx currentEpoch $ Just lastPage
+    epochs <- lift $ getEpochPage @ctx epochSlots currentEpoch $ Just lastPage
     broadcast @ctx EpochsLastPageUpdated epochs recipients
 
 -- * Helpers

@@ -28,10 +28,9 @@ import           Pos.Binary.Update ()
 import qualified Pos.Block.BHelpers as BHelpers
 import           Pos.Core (BlockVersionData (..), ChainDifficulty, EpochOrSlot,
                      HasDifficulty (..), HasEpochIndex (..),
-                     HasEpochOrSlot (..), HasHeaderHash (..),
-                     HasProtocolConstants, HeaderHash, SlotId (..),
-                     SlotLeaders, addressHash, gbExtra, gbhExtra, getSlotIndex,
-                     headerSlotL, prevBlockL)
+                     HasEpochOrSlot (..), HasHeaderHash (..), HeaderHash,
+                     ProtocolConstants, SlotId (..), SlotLeaders, addressHash,
+                     gbExtra, gbhExtra, getSlotIndex, headerSlotL, prevBlockL)
 import           Pos.Core.Block (Block, BlockHeader (..),
                      blockHeaderProtocolMagic, gebAttributes, gehAttributes,
                      genBlockLeaders, getBlockHeader, mainHeaderLeaderKey,
@@ -254,13 +253,13 @@ data VerifyBlockParams = VerifyBlockParams
 -- 2.  The size of each block does not exceed `bvdMaxBlockSize`.
 -- 3.  (Optional) No block has any unknown attributes.
 verifyBlock
-    :: HasProtocolConstants
-    => ProtocolMagic
+    :: ProtocolMagic
+    -> ProtocolConstants
     -> VerifyBlockParams
     -> Block
     -> VerificationRes
-verifyBlock pm VerifyBlockParams {..} blk = mconcat
-    [ verifyFromEither "internal block consistency" (BHelpers.verifyBlock pm blk)
+verifyBlock pm pc VerifyBlockParams {..} blk = mconcat
+    [ verifyFromEither "internal block consistency" (BHelpers.verifyBlock pm pc blk)
     , verifyHeader pm vbpVerifyHeader (getBlockHeader blk)
     , checkSize vbpMaxSize
     , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
@@ -303,15 +302,15 @@ type VerifyBlocksIter = (SlotLeaders, Maybe BlockHeader, VerificationRes)
 -- laziness of 'VerificationRes' which is good because laziness for this data
 -- type is crucial.
 verifyBlocks
-    :: HasProtocolConstants
-    => ProtocolMagic
+    :: ProtocolMagic
+    -> ProtocolConstants
     -> Maybe SlotId
     -> Bool
     -> BlockVersionData
     -> SlotLeaders
     -> OldestFirst [] Block
     -> VerificationRes
-verifyBlocks pm curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
+verifyBlocks pm pc curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
   where
     start :: VerifyBlocksIter
     -- Note that here we never know previous header before this
@@ -340,4 +339,4 @@ verifyBlocks pm curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' ste
                 , vbpMaxSize = bvdMaxBlockSize bvd
                 , vbpVerifyNoUnknown = verifyNoUnknown
                 }
-        in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock pm vbp blk)
+        in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock pm pc vbp blk)

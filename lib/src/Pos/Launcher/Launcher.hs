@@ -14,7 +14,7 @@ import           Universum
 -- Get rid of production and use a 'Trace IO' instead.
 import           Mockable.Production (Production (..))
 
-import           Pos.Core.Configuration (epochSlots)
+import           Pos.Core (ProtocolConstants, pcBlkSecurityParam)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -35,16 +35,23 @@ import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
 -- | Run full node in real mode.
 runNodeReal
-    :: ( HasConfigurations
-       , HasCompileInfo
-       )
+    :: (HasConfigurations, HasCompileInfo)
     => ProtocolMagic
+    -> ProtocolConstants
     -> NodeParams
     -> SscParams
-    -> [Diffusion (RealMode EmptyMempoolExt) -> RealMode EmptyMempoolExt ()]
+    -> [  Diffusion (RealMode EmptyMempoolExt)
+       -> RealMode EmptyMempoolExt ()
+       ]
     -> IO ()
-runNodeReal pm np sscnp plugins = runProduction $
-    bracketNodeResources np sscnp (txpGlobalSettings pm) (initNodeDBs pm epochSlots) (Production . action)
+runNodeReal pm pc np sscnp plugins = runProduction $ bracketNodeResources
+    (pcBlkSecurityParam pc)
+    np
+    sscnp
+    (txpGlobalSettings pm)
+    (initNodeDBs pm pc)
+    (Production . action)
   where
     action :: NodeResources EmptyMempoolExt -> IO ()
-    action nr@NodeResources {..} = runRealMode pm nr (runNode pm nr plugins)
+    action nr@NodeResources {..} =
+        runRealMode pm pc nr (runNode pm pc nr plugins)

@@ -355,6 +355,7 @@ test-suite cardano-explorer-test
                      , cardano-sl-block
                      , cardano-sl-block-test
                      , cardano-sl-core
+                     , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-explorer
                      , cardano-sl-txp
@@ -413,6 +414,7 @@ benchmark cardano-explorer-bench
   build-depends:       QuickCheck
                      , base
                      , cardano-sl
+                     , cardano-sl-core-test
                      , cardano-sl-explorer
                      , cardano-sl-txp
                      , cardano-sl-txp-test

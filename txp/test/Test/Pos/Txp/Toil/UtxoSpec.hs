@@ -19,7 +19,7 @@ import           Test.Hspec (Expectation, Spec, describe, expectationFailure,
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, arbitrary, counterexample, (==>))
 
-import           Pos.Core (HasConfiguration, addressHash, checkPubKeyAddress,
+import           Pos.Core (addressHash, checkPubKeyAddress,
                      defaultCoreConfiguration, makePubKeyAddressBoot,
                      makeScriptAddress, mkCoin, sumCoins, withGenesisSpec)
 import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..),
@@ -52,7 +52,7 @@ import           Test.Pos.Util.QuickCheck.Property (qcIsLeft, qcIsRight)
 spec :: Spec
 spec =
     withGenesisSpec 0 defaultCoreConfiguration
-        $ \pm -> describe "Txp.Toil.Utxo" $ do
+        $ \pm _ -> describe "Txp.Toil.Utxo" $ do
               describe "utxoGet (no modifier)" $ do
                   it "returns Nothing when given empty Utxo"
                       $ isNothing (utxoGetSimple mempty myTxIn)

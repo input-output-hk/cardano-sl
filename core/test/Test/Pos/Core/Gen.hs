@@ -229,17 +229,17 @@ import           Test.Pos.Crypto.Gen (genAbstractHash, genDecShare,
 genBlockBodyAttributes :: Gen BlockBodyAttributes
 genBlockBodyAttributes = pure $ mkAttributes ()
 
-genBlockHeader :: ProtocolMagic -> ProtocolConstants -> Gen BlockHeader
-genBlockHeader pm pc =
+genBlockHeader :: ProtocolMagic -> SlotCount -> Gen BlockHeader
+genBlockHeader pm epochSlots =
     Gen.choice [ BlockHeaderGenesis <$> genGenesisBlockHeader pm
-               , BlockHeaderMain <$> genMainBlockHeader pm pc
+               , BlockHeaderMain <$> genMainBlockHeader pm epochSlots
                ]
 
 genBlockHeaderAttributes :: Gen BlockHeaderAttributes
 genBlockHeaderAttributes = pure $ mkAttributes ()
 
-genBlockSignature :: ProtocolMagic -> ProtocolConstants -> Gen BlockSignature
-genBlockSignature pm pc = do
+genBlockSignature :: ProtocolMagic -> SlotCount -> Gen BlockSignature
+genBlockSignature pm epochSlots = do
     Gen.choice
         [ BlockSignature
               <$> genSignature pm mts
@@ -249,7 +249,7 @@ genBlockSignature pm pc = do
               <$> genProxySignature pm mts genHeavyDlgIndex
         ]
   where
-    mts = genMainToSign pm pc
+    mts = genMainToSign pm epochSlots
 
 genGenesisBlockHeader :: ProtocolMagic -> Gen GenesisBlockHeader
 genGenesisBlockHeader pm = do
@@ -292,24 +292,24 @@ genMainBody pm =
 
 -- We use `Nothing` as the ProxySKBlockInfo to avoid clashing key errors
 -- (since we use example keys which aren't related to each other)
-genMainBlockHeader :: ProtocolMagic -> ProtocolConstants -> Gen MainBlockHeader
-genMainBlockHeader pm pc =
+genMainBlockHeader :: ProtocolMagic -> SlotCount -> Gen MainBlockHeader
+genMainBlockHeader pm epochSlots =
     mkMainHeaderExplicit pm
         <$> genHeaderHash
         <*> genChainDifficulty
-        <*> genSlotId pc
+        <*> genSlotId epochSlots
         <*> genSecretKey
         <*> pure Nothing
         <*> genMainBody pm
         <*> genMainExtraHeaderData
 
-genMainConsensusData :: ProtocolMagic -> ProtocolConstants -> Gen MainConsensusData
-genMainConsensusData pm pc =
+genMainConsensusData :: ProtocolMagic -> SlotCount -> Gen MainConsensusData
+genMainConsensusData pm epochSlots =
     MainConsensusData
-        <$> genSlotId pc
+        <$> genSlotId epochSlots
         <*> genPublicKey
         <*> genChainDifficulty
-        <*> genBlockSignature pm pc
+        <*> genBlockSignature pm epochSlots
 
 
 genMainExtraBodyData :: Gen MainExtraBodyData
@@ -331,12 +331,12 @@ genMainProof pm =
         <*> genAbstractHash (genDlgPayload pm)
         <*> genUpdateProof pm
 
-genMainToSign :: ProtocolMagic -> ProtocolConstants -> Gen MainToSign
-genMainToSign pm pc =
+genMainToSign :: ProtocolMagic -> SlotCount -> Gen MainToSign
+genMainToSign pm epochSlots =
     MainToSign
-        <$> genAbstractHash (genBlockHeader pm pc)
+        <$> genAbstractHash (genBlockHeader pm epochSlots)
         <*> genMainProof pm
-        <*> genSlotId pc
+        <*> genSlotId epochSlots
         <*> genChainDifficulty
         <*> genMainExtraHeaderData
 
@@ -601,26 +601,27 @@ genVssMinTTL = VssMinTTL <$> genWord32
 genEpochIndex :: Gen EpochIndex
 genEpochIndex = EpochIndex <$> Gen.word64 Range.constantBounded
 
-genEpochOrSlot :: ProtocolConstants -> Gen EpochOrSlot
-genEpochOrSlot pc =
+genEpochOrSlot :: SlotCount -> Gen EpochOrSlot
+genEpochOrSlot epochSlots =
     Gen.choice [ EpochOrSlot . Left <$> genEpochIndex
-               , EpochOrSlot . Right <$> genSlotId pc
+               , EpochOrSlot . Right <$> genSlotId epochSlots
                ]
 
 genFlatSlotId :: Gen FlatSlotId
 genFlatSlotId = Gen.word64 Range.constantBounded
 
-genLocalSlotIndex :: ProtocolConstants -> Gen LocalSlotIndex
-genLocalSlotIndex pc = UnsafeLocalSlotIndex <$> Gen.word16 (Range.constant lb ub)
+genLocalSlotIndex :: SlotCount -> Gen LocalSlotIndex
+genLocalSlotIndex epochSlots =
+    UnsafeLocalSlotIndex <$> Gen.word16 (Range.constant lb ub)
   where
     lb = getSlotIndex (localSlotIndexMinBound)
-    ub = getSlotIndex (localSlotIndexMaxBound pc)
+    ub = getSlotIndex (localSlotIndexMaxBound epochSlots)
 
 genSlotCount :: Gen SlotCount
 genSlotCount = SlotCount <$> Gen.word64 Range.constantBounded
 
-genSlotId :: ProtocolConstants -> Gen SlotId
-genSlotId pc = SlotId <$> genEpochIndex <*> genLocalSlotIndex pc
+genSlotId :: SlotCount -> Gen SlotId
+genSlotId epochSlots = SlotId <$> genEpochIndex <*> genLocalSlotIndex epochSlots
 
 genTimeDiff :: Gen TimeDiff
 genTimeDiff = TimeDiff <$> genMicrosecond

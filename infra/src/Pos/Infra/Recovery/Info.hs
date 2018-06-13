@@ -5,7 +5,6 @@ module Pos.Infra.Recovery.Info
        ( SyncStatus (..)
        , MonadRecoveryInfo(..)
        , recoveryInProgress
-       , getSyncStatusK
        , recoveryCommGuard
        , needTriggerRecovery
        ) where
@@ -16,8 +15,8 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, build, sformat, stext, (%))
 import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Core (HasProtocolConstants, SlotCount, SlotId, slotIdF,
-                     slotSecurityParam)
+import           Pos.Core (BlockCount, SlotCount, SlotId, kEpochSlots,
+                     kSlotSecurityParam, slotIdF)
 
 -- | An algebraic data type which represents how well we are
 -- synchronized with the network.
@@ -63,40 +62,28 @@ instance Buildable SyncStatus where
             SSKindaSynced -> "we are moderately synchronized"
 
 class Monad m => MonadRecoveryInfo m where
-    -- | Returns our sycnrhonization status. The argument determines
+    -- | Returns our synchronization status. The argument determines
     -- how much we should lag behind for 'SSLagBehind' status to take
     -- place. See 'SyncStatus' for details.
     -- Implementation must check conditions in the same order as they
     -- are enumerated in 'SyncStatus'.
-    getSyncStatus :: SlotCount -> m SyncStatus
+    getSyncStatus :: SlotCount -> SlotCount -> m SyncStatus
 
 -- | Returns if our 'SyncStatus' is 'SSDoingRecovery' (which is
 -- equivalent to “we're doing recovery”).
-recoveryInProgress :: MonadRecoveryInfo m => m Bool
-recoveryInProgress =
-    getSyncStatus 0 {- 0 doesn't matter -} <&> \case
+recoveryInProgress :: MonadRecoveryInfo m => SlotCount -> m Bool
+recoveryInProgress epochSlots =
+    getSyncStatus epochSlots 0 {- 0 doesn't matter -} <&> \case
         SSDoingRecovery -> True
         _ -> False
-
--- | Get sync status using K as lagBehind param.
-getSyncStatusK :: (MonadRecoveryInfo m, HasProtocolConstants) => m SyncStatus
-getSyncStatusK = getSyncStatus lagBehindParam
-  where
-    -- It's actually questionable which value to use here. The less it
-    -- is, the stricter is the condition to do some
-    -- work. 'slotSecurityParam' is reasonable, but maybe we should use
-    -- something smaller.
-    lagBehindParam :: SlotCount
-    lagBehindParam = slotSecurityParam
 
 -- | This is a helper function which runs given action only if we are
 -- kinda synchronized with the network.  It is useful for workers
 -- which shouldn't do anything while we are not synchronized.
 recoveryCommGuard
-    :: (MonadRecoveryInfo m, WithLogger m, HasProtocolConstants)
-    => Text -> m () -> m ()
-recoveryCommGuard actionName action =
-    getSyncStatusK >>= \case
+    :: (MonadRecoveryInfo m, WithLogger m) => BlockCount -> Text -> m () -> m ()
+recoveryCommGuard k actionName action =
+    getSyncStatus (kEpochSlots k) (kSlotSecurityParam k) >>= \case
         SSKindaSynced -> action
         status ->
             logDebug $

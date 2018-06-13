@@ -39,7 +39,7 @@ import           Serokell.Util.Text (listJson)
 import           System.Wlog (WithLogger)
 
 import           Pos.Core (Address, ChainDifficulty, GenesisHash (..),
-                     HasConfiguration, Timestamp (..), difficultyL, epochSlots,
+                     HasConfiguration, SlotCount, Timestamp (..), difficultyL,
                      genesisHash, headerHash)
 import           Pos.Core.Block (Block, MainBlock, mainBlockSlot,
                      mainBlockTxPayload)
@@ -169,17 +169,17 @@ genesisUtxoLookup = utxoToLookup . unGenesisUtxo $ genesisUtxo
 ----------------------------------------------------------------------------
 
 -- | A class which have methods to get transaction history
-class (Monad m, HasConfiguration) => MonadTxHistory m where
+class Monad m => MonadTxHistory m where
     getBlockHistory
-        :: ProtocolMagic -> [Address] -> m (Map TxId TxHistoryEntry)
+        :: ProtocolMagic -> SlotCount -> [Address] -> m (Map TxId TxHistoryEntry)
     getLocalHistory
         :: [Address] -> m (Map TxId TxHistoryEntry)
-    saveTx :: ProtocolMagic -> (TxId, TxAux) -> m ()
+    saveTx :: ProtocolMagic -> SlotCount -> (TxId, TxAux) -> m ()
 
     default getBlockHistory
         :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
-        => ProtocolMagic -> [Address] -> m (Map TxId TxHistoryEntry)
-    getBlockHistory pm = lift . getBlockHistory pm
+        => ProtocolMagic -> SlotCount -> [Address] -> m (Map TxId TxHistoryEntry)
+    getBlockHistory pm epochSlots = lift . getBlockHistory pm epochSlots
 
     default getLocalHistory
         :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
@@ -189,9 +189,10 @@ class (Monad m, HasConfiguration) => MonadTxHistory m where
     default saveTx
         :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
         => ProtocolMagic
+        -> SlotCount
         -> (TxId, TxAux)
         -> m ()
-    saveTx pm = lift . saveTx pm
+    saveTx pm epochSlots = lift . saveTx pm epochSlots
 
 instance {-# OVERLAPPABLE #-}
     (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
@@ -217,9 +218,10 @@ getBlockHistoryDefault
     :: forall ctx m
      . (HasConfiguration, TxHistoryEnv ctx m)
     => ProtocolMagic
+    -> SlotCount
     -> [Address]
     -> m (Map TxId TxHistoryEntry)
-getBlockHistoryDefault pm addrs = do
+getBlockHistoryDefault pm epochSlots addrs = do
     let bot      = headerHash (genesisBlock0 pm (GenesisHash genesisHash) (genesisLeaders epochSlots))
     sd          <- GS.getSlottingData
     systemStart <- getSystemStartM
@@ -267,9 +269,10 @@ instance Exception SaveTxException where
         \case
             SaveTxToilFailure x -> toString (pretty x)
 
-saveTxDefault :: TxHistoryEnv ctx m => ProtocolMagic -> (TxId, TxAux) -> m ()
-saveTxDefault pm txw = do
-    res <- txpProcessTx pm txw
+saveTxDefault
+    :: TxHistoryEnv ctx m => ProtocolMagic -> SlotCount -> (TxId, TxAux) -> m ()
+saveTxDefault pm epochSlots txw = do
+    res <- txpProcessTx pm epochSlots txw
     eitherToThrow (first SaveTxToilFailure res)
 
 txHistoryListToMap :: [TxHistoryEntry] -> Map TxId TxHistoryEntry

@@ -16,14 +16,13 @@ import           Formatting (build, builder, int, sformat, (%))
 import           System.Wlog (logDebug, logInfo, logNotice)
 
 import           Pos.Binary.Class (biSize)
-import           Pos.Core (ChainDifficulty (..), Coin, EpochIndex,
-                     HasProtocolConstants, HeaderHash, IsMainHeader (..),
-                     ProtocolMagic, SlotId (siEpoch), SoftwareVersion (..),
-                     addressHash, applyCoinPortionUp, blockVersionL,
-                     coinToInteger, difficultyL, epochIndexL, flattenSlotId,
-                     headerHashG, headerSlotL, sumCoins, unflattenSlotId,
+import           Pos.Core (BlockCount, ChainDifficulty (..), Coin, EpochIndex,
+                     HeaderHash, IsMainHeader (..), ProtocolMagic, SlotCount,
+                     SlotId (siEpoch), SoftwareVersion (..), addressHash,
+                     applyCoinPortionUp, blockVersionL, coinToInteger,
+                     difficultyL, epochIndexL, flattenSlotId, headerHashG,
+                     headerSlotL, kEpochSlots, sumCoins, unflattenSlotId,
                      unsafeIntegerToCoin)
-import           Pos.Core.Configuration (blkSecurityParam)
 import           Pos.Core.Update (BlockVersion, BlockVersionData (..), UpId,
                      UpdatePayload (..), UpdateProposal (..), UpdateVote (..),
                      bvdUpdateProposalThd, checkUpdatePayload)
@@ -62,15 +61,16 @@ type ApplyMode m =
 -- When it is 'Right header', it means that payload from block with
 -- given header is applied and in this case threshold for update proposal is
 -- checked.
-verifyAndApplyUSPayload ::
-       (ApplyMode m, HasProtocolConstants)
+verifyAndApplyUSPayload
+    :: ApplyMode m
     => ProtocolMagic
+    -> BlockCount
     -> BlockVersion
     -> Bool
     -> Either SlotId (Some IsMainHeader)
     -> UpdatePayload
     -> m ()
-verifyAndApplyUSPayload pm lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
+verifyAndApplyUSPayload pm k lastAdopted verifyAllIsKnown slotOrHeader upp@UpdatePayload {..} = do
     -- First of all, we verify data.
     either (throwError . PollInvalidUpdatePayload) pure =<< runExceptT (checkUpdatePayload pm upp)
     whenRight slotOrHeader $ verifyHeader lastAdopted
@@ -100,10 +100,12 @@ verifyAndApplyUSPayload pm lastAdopted verifyAllIsKnown slotOrHeader upp@UpdateP
         Left _           -> pass
         Right mainHeader -> do
             applyImplicitAgreement
+                (kEpochSlots k)
                 (mainHeader ^. headerSlotL)
                 (mainHeader ^. difficultyL)
                 (mainHeader ^. headerHashG)
             applyDepthCheck
+                k
                 (mainHeader ^. epochIndexL)
                 (mainHeader ^. headerHashG)
                 (mainHeader ^. difficultyL)
@@ -287,11 +289,11 @@ verifyAndApplyVoteDo cd ups vote = do
 -- If proposal's total positive stake is bigger than negative, it's
 -- approved. Otherwise it's rejected.
 applyImplicitAgreement
-    :: (MonadPoll m, HasProtocolConstants)
-    => SlotId -> ChainDifficulty -> HeaderHash -> m ()
-applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
+    :: MonadPoll m
+    => SlotCount-> SlotId -> ChainDifficulty -> HeaderHash-> m ()
+applyImplicitAgreement epochSlots (flattenSlotId epochSlots -> slotId) cd hh = do
     BlockVersionData {..} <- getAdoptedBVData
-    let oldSlot = unflattenSlotId $ slotId - bvdUpdateImplicit
+    let oldSlot = unflattenSlotId epochSlots $ slotId - bvdUpdateImplicit
     -- There is no one implicit agreed proposal
     -- when slot of block is less than @bvdUpdateImplicit@
     unless (slotId < bvdUpdateImplicit) $
@@ -318,12 +320,12 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
 -- confirmed or discarded (approved become confirmed, rejected become
 -- discarded).
 applyDepthCheck
-    :: forall m . (ApplyMode m, HasProtocolConstants)
-    => EpochIndex -> HeaderHash -> ChainDifficulty -> m ()
-applyDepthCheck epoch hh (ChainDifficulty cd)
-    | cd <= blkSecurityParam = pass
+    :: forall m . ApplyMode m
+    => BlockCount -> EpochIndex -> HeaderHash -> ChainDifficulty -> m ()
+applyDepthCheck k epoch hh (ChainDifficulty cd)
+    | cd <= k = pass
     | otherwise = do
-        deepProposals <- getDeepProposals (ChainDifficulty (cd - blkSecurityParam))
+        deepProposals <- getDeepProposals (ChainDifficulty (cd - k))
         -- 1. Group proposals by application name
         -- 2. Sort proposals in each group by tuple
         --     (decision, whether decision is implicit, positive stake, slot when it has been proposed)

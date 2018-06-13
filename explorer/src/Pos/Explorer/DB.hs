@@ -43,7 +43,8 @@ import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')
 import           Pos.Core (Address, Coin, EpochIndex (..), HasConfiguration,
-                     HeaderHash, SlotCount, coinToInteger, unsafeAddCoin)
+                     HeaderHash, ProtocolConstants, coinToInteger,
+                     unsafeAddCoin)
 import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Core.Txp (Tx, TxId, TxOut (..), TxOutAux (..))
 import           Pos.Crypto (ProtocolMagic)
@@ -58,16 +59,13 @@ import           Pos.Txp.GenesisUtxo (genesisUtxo)
 import           Pos.Txp.Toil (GenesisUtxo (..), utxoF, utxoToAddressCoinPairs)
 import           Pos.Util.Util (maybeThrow)
 
-
-
 explorerInitDB
-    :: forall ctx m.
-       ( MonadReader ctx m
-       , MonadUnliftIO m
-       , MonadDB m
-       )
-    => ProtocolMagic -> SlotCount -> m ()
-explorerInitDB pm epochSlots = initNodeDBs pm epochSlots >> prepareExplorerDB
+    :: forall ctx m
+     . (MonadReader ctx m, MonadUnliftIO m, MonadDB m)
+    => ProtocolMagic
+    -> ProtocolConstants
+    -> m ()
+explorerInitDB pm pc = initNodeDBs pm pc >> prepareExplorerDB
 
 ----------------------------------------------------------------------------
 -- Types

@@ -40,7 +40,7 @@ import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
 import           Pos.Client.Txp.Network (prepareMTx, submitTxRaw)
 import           Pos.Client.Txp.Util (createTx)
 import           Pos.Core (BlockVersionData (bvdSlotDuration),
-                     IsBootstrapEraAddr (..), Timestamp (..),
+                     IsBootstrapEraAddr (..), SlotCount, Timestamp (..),
                      deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Configuration (genesisBlockVersionData,
                      genesisSecretKeys)
@@ -84,12 +84,14 @@ addTxSubmit =
              pure (TxCount (submitted + 1) sending, ()))
 
 sendToAllGenesis
-    :: forall m. MonadAuxxMode m
+    :: forall m
+     . MonadAuxxMode m
     => ProtocolMagic
+    -> SlotCount
     -> Diffusion m
     -> SendToAllGenesisParams
     -> m ()
-sendToAllGenesis pm diffusion (SendToAllGenesisParams genesisTxsPerThread txsPerThread conc delay_ tpsSentFile) = do
+sendToAllGenesis pm epochSlots diffusion (SendToAllGenesisParams genesisTxsPerThread txsPerThread conc delay_ tpsSentFile) = do
     let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration genesisBlockVersionData) `div` 1000000 :: Int
         keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
     tpsMVar <- newSharedAtomic $ TxCount 0 conc
@@ -114,14 +116,14 @@ sendToAllGenesis pm diffusion (SendToAllGenesisParams genesisTxsPerThread txsPer
                 let signer = fakeSigner secretKey
                     publicKey = toPublic secretKey
                 -- construct transaction output
-                outAddr <- makePubKeyAddressAuxx publicKey
+                outAddr <- makePubKeyAddressAuxx epochSlots publicKey
                 let txOut1 = TxOut {
                     txOutAddress = outAddr,
                     txOutValue = mkCoin 1
                     }
                     txOuts = TxOutAux txOut1 :| []
                 utxo <- getOwnUtxoForPk $ safeToPublic signer
-                etx <- createTx pm mempty utxo signer txOuts publicKey
+                etx <- createTx pm epochSlots mempty utxo signer txOuts publicKey
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
                     Right (tx, _) -> do
@@ -143,7 +145,7 @@ sendToAllGenesis pm diffusion (SendToAllGenesisParams genesisTxsPerThread txsPer
                             txOuts2 = TxOutAux txOut1' :| []
                         -- It is expected that the output from the previously sent transaction is
                         -- included in the UTxO by the time this transaction will actually be sent.
-                        etx' <- createTx pm mempty utxo' (fakeSigner senderKey) txOuts2 (toPublic senderKey)
+                        etx' <- createTx pm epochSlots mempty utxo' (fakeSigner senderKey) txOuts2 (toPublic senderKey)
                         case etx' of
                             Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
                             Right (tx', _) -> do
@@ -218,13 +220,15 @@ newtype AuxxException = AuxxException Text
 instance Exception AuxxException
 
 send
-    :: forall m. MonadAuxxMode m
+    :: forall m
+     . MonadAuxxMode m
     => ProtocolMagic
+    -> SlotCount
     -> Diffusion m
     -> Int
     -> NonEmpty TxOut
     -> m ()
-send pm diffusion idx outputs = do
+send pm epochSlots diffusion idx outputs = do
     skey <- takeSecret
     let curPk = encToPublic skey
     let plainAddresses = map (flip makePubKeyAddress curPk . IsBootstrapEraAddr) [False, True]
@@ -237,7 +241,7 @@ send pm diffusion idx outputs = do
         let addrSig = HM.fromList $ zip allAddresses signers
         let getSigner addr = HM.lookup addr addrSig
         -- BE CAREFUL: We create remain address using our pk, wallet doesn't show such addresses
-        (txAux,_) <- lift $ prepareMTx pm getSigner mempty def (NE.fromList allAddresses) (map TxOutAux outputs) curPk
+        (txAux,_) <- lift $ prepareMTx pm epochSlots getSigner mempty def (NE.fromList allAddresses) (map TxOutAux outputs) curPk
         txAux <$ (ExceptT $ try $ submitTxRaw diffusion txAux)
     case etx of
         Left err -> logError $ sformat ("Error: "%stext) (toText $ displayException err)

@@ -18,9 +18,9 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
-import           Pos.Core (AddrStakeDistribution (..), Address,
-                     HeavyDlgIndex (..), SoftwareVersion (..), StakeholderId,
-                     addressHash, mkMultiKeyDistr, unsafeGetCoin)
+import           Pos.Core (AddrStakeDistribution (..), HeavyDlgIndex (..),
+                     ProtocolConstants, SoftwareVersion (..), StakeholderId,
+                     addressHash, mkMultiKeyDistr, pcEpochSlots, unsafeGetCoin)
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
                      makeAddress)
 import           Pos.Core.Configuration (genesisSecretKeys)
@@ -59,14 +59,16 @@ import           Mode (MonadAuxxMode, deriveHDAddressAuxx,
                      makePubKeyAddressAuxx)
 import           Repl (PrintAction)
 
-createCommandProcs ::
-       forall m. (MonadIO m, CanLog m, HasLoggerName m)
+createCommandProcs
+    :: forall m
+     . (MonadIO m, CanLog m, HasLoggerName m)
     => Maybe ProtocolMagic
+    -> Maybe ProtocolConstants
     -> Maybe (Dict (MonadAuxxMode m))
     -> PrintAction m
     -> Maybe (Diffusion m)
     -> [CommandProc m]
-createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \commands -> [
+createCommandProcs mpm mpc hasAuxxMode printAction mDiffusion = rights . fix $ \commands -> [
 
     return CommandProc
     { cpName = "L"
@@ -97,6 +99,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     },
 
     let name = "addr" in
+    needsProtocolConstants name >>= \pc ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
@@ -108,7 +111,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     , cpExec = \(pk', mDistr) -> do
         pk <- toLeft pk'
         addr <- case mDistr of
-            Nothing -> makePubKeyAddressAuxx pk
+            Nothing -> makePubKeyAddressAuxx (pcEpochSlots pc) pk
             Just distr -> return $
                 makeAddress (PubKeyASD pk) (AddrAttributes Nothing distr)
         return $ ValueAddress addr
@@ -118,6 +121,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     },
 
     let name = "addr-hd" in
+    needsProtocolConstants name >>= \pc ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
@@ -128,7 +132,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
         sk <- evaluateWHNF (sks !! i) -- WHNF is sufficient to force possible errors
                                       -- from using (!!). I'd use NF but there's no
                                       -- NFData instance for secret keys.
-        addrHD <- deriveHDAddressAuxx sk
+        addrHD <- deriveHDAddressAuxx (pcEpochSlots pc) sk
         return $ ValueAddress addrHD
     , cpHelp = "address of the HD wallet for the specified public key"
     },
@@ -185,13 +189,16 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     return . procConst "false" $ ValueBool False,
 
     let name = "balance" in
+    needsProtocolConstants name >>= \pc ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArg (tyAddress `tyEither` tyPublicKey `tyEither` tyInt) "addr"
     , cpExec = \addr' -> do
-        addr <- toLeft addr'
+        addr <-
+          either return (makePubKeyAddressAuxx $ pcEpochSlots pc) <=<
+          traverse (either return getPublicKeyFromIndex) $ addr'
         balance <- getBalance addr
         return $ ValueNumber (fromIntegral . unsafeGetCoin $ balance)
     , cpHelp = "check the amount of coins on the specified address"
@@ -209,6 +216,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
 
     let name = "send-to-all-genesis" in
     needsProtocolMagic name >>= \pm ->
+    needsProtocolConstants name >>= \pc ->
     needsDiffusion name >>= \diffusion ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
@@ -222,7 +230,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
         stagpTpsSentFile <- getArg tyFilePath "file"
         return Tx.SendToAllGenesisParams{..}
     , cpExec = \stagp -> do
-        Tx.sendToAllGenesis pm diffusion stagp
+        Tx.sendToAllGenesis pm (pcEpochSlots pc) diffusion stagp
         return ValueUnit
     , cpHelp = "create and send transactions from all genesis addresses \
                \ for <duration> seconds, <delay> in ms. <conc> is the \
@@ -244,6 +252,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
 
     let name = "send" in
     needsProtocolMagic name >>= \pm ->
+    needsProtocolConstants name >>= \pc ->
     needsDiffusion name >>= \diffusion ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
@@ -253,7 +262,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
         (,) <$> getArg tyInt "i"
             <*> getArgSome tyTxOut "out"
     , cpExec = \(i, outputs) -> do
-        Tx.send pm diffusion i outputs
+        Tx.send pm (pcEpochSlots pc) diffusion i outputs
         return ValueUnit
     , cpHelp = "send from #i to specified transaction outputs \
                \ (use 'tx-out' to build them)"
@@ -400,6 +409,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
 
     let name = "generate-blocks" in
     needsProtocolMagic name >>= \pm ->
+    needsProtocolConstants name >>= \pc ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
@@ -409,7 +419,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
         bgoSeed <- getArgOpt tyInt "seed"
         return GenBlocksParams{..}
     , cpExec = \params -> do
-        generateBlocks pm params
+        generateBlocks pm pc params
         return ValueUnit
     , cpHelp = "generate <n> blocks"
     },
@@ -454,6 +464,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
 
     let name = "rollback" in
     needsProtocolMagic name >>= \pm ->
+    needsProtocolConstants name >>= \pc ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
@@ -463,24 +474,26 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
         rpDumpPath <- getArg tyFilePath "dump-file"
         pure RollbackParams{..}
     , cpExec = \RollbackParams{..} -> do
-        Rollback.rollbackAndDump pm rpNum rpDumpPath
+        Rollback.rollbackAndDump pm pc rpNum rpDumpPath
         return ValueUnit
     , cpHelp = ""
     },
 
     let name = "listaddr" in
+    needsProtocolConstants name >>= \pc ->
     needsAuxxMode name >>= \Dict ->
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
     , cpArgumentConsumer = do pure ()
     , cpExec = \() -> do
+        let epochSlots = pcEpochSlots pc
         sks <- getSecretKeysPlain
         printAction "Available addresses:"
         for_ (zip [0 :: Int ..] sks) $ \(i, sk) -> do
             let pk = encToPublic sk
-            addr <- makePubKeyAddressAuxx pk
-            addrHD <- deriveHDAddressAuxx sk
+            addr <- makePubKeyAddressAuxx epochSlots pk
+            addrHD <- deriveHDAddressAuxx epochSlots sk
             printAction $
                 sformat ("    #"%int%":   addr:      "%build%"\n"%
                          "          pk:        "%fullPublicKeyF%"\n"%
@@ -489,7 +502,7 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
                     i addr pk (addressHash pk) addrHD
         walletMB <- (^. usWallet) <$> (view userSecret >>= atomically . readTVar)
         whenJust walletMB $ \wallet -> do
-            addrHD <- deriveHDAddressAuxx (_wusRootKey wallet)
+            addrHD <- deriveHDAddressAuxx epochSlots (_wusRootKey wallet)
             printAction $
                 sformat ("    Wallet address:\n"%
                          "          HD addr:   "%build)
@@ -517,6 +530,9 @@ createCommandProcs mpm hasAuxxMode printAction mDiffusion = rights . fix $ \comm
     needsProtocolMagic :: Name -> Either UnavailableCommand ProtocolMagic
     needsProtocolMagic name =
         maybe (Left $ UnavailableCommand name "ProtocolMagic is not available") Right mpm
+    needsProtocolConstants :: Name -> Either UnavailableCommand ProtocolConstants
+    needsProtocolConstants name =
+        maybe (Left $ UnavailableCommand name "ProtocolConstants are not available") Right mpc
 
 procConst :: Applicative m => Name -> Value -> CommandProc m
 procConst name value =
@@ -539,9 +555,6 @@ instance MonadAuxxMode m => ToLeft m PublicKey Int where
 
 instance MonadAuxxMode m => ToLeft m StakeholderId PublicKey where
     toLeft = return . either identity addressHash
-
-instance MonadAuxxMode m => ToLeft m Address PublicKey where
-    toLeft = either return makePubKeyAddressAuxx
 
 getPublicKeyFromIndex :: MonadAuxxMode m => Int -> m PublicKey
 getPublicKeyFromIndex i = do

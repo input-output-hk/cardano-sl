@@ -42,6 +42,9 @@ import           UTxO.Context
 import           UTxO.Verify (Verify)
 import qualified UTxO.Verify as Verify
 
+import           Test.Pos.Core.Dummy (dummyEpochSlots)
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+
 {-------------------------------------------------------------------------------
   Testing infrastructure from cardano-sl-core
 
@@ -98,12 +101,12 @@ instance Monad m => MonadGState (TranslateT e m) where
 -- pure exceptions.
 runTranslateT :: Monad m => Exception e => TranslateT e m a -> m a
 runTranslateT (TranslateT ta) =
-    withDefConfiguration $ \pm ->
+    withDefConfiguration $
     withDefUpdateConfiguration $
       let env :: TranslateEnv
           env = TranslateEnv {
-                    teContext       = initContext (initCardanoContext pm)
-                  , teProtocolMagic = pm
+                    teContext       = initContext (initCardanoContext dummyProtocolMagic)
+                  , teProtocolMagic = dummyProtocolMagic
                   , teConfig        = Dict
                   , teUpdate        = Dict
                   }
@@ -162,16 +165,16 @@ catchSomeTranslateErrors act = do
 -- | Slot ID of the first block
 translateFirstSlot :: Monad m => TranslateT Text m SlotId
 translateFirstSlot = withConfig $ do
-    SlotId 0 <$> mkLocalSlotIndex 0
+    SlotId 0 <$> mkLocalSlotIndex dummyEpochSlots 0
 
 -- | Increment slot ID
 --
 -- TODO: Surely a function like this must already exist somewhere?
 translateNextSlot :: Monad m => SlotId -> TranslateT Text m SlotId
 translateNextSlot (SlotId epoch lsi) = withConfig $
-    case addLocalSlotIndex 1 lsi of
+    case addLocalSlotIndex dummyEpochSlots 1 lsi of
       Just lsi' -> return $ SlotId epoch lsi'
-      Nothing   -> SlotId (epoch + 1) <$> mkLocalSlotIndex 0
+      Nothing   -> SlotId (epoch + 1) <$> mkLocalSlotIndex dummyEpochSlots 0
 
 -- | Genesis block header
 translateGenesisHeader :: Monad m => TranslateT e m GenesisBlockHeader

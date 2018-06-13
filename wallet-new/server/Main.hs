@@ -13,7 +13,7 @@ import           Data.Maybe (fromJust)
 import           Mockable (Production (..), runProduction)
 import           Ntp.Client (NtpStatus, withNtpClient)
 import qualified Pos.Client.CLI as CLI
-import           Pos.Core (epochSlots)
+import           Pos.Core (ProtocolConstants, pcBlkSecurityParam)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -63,20 +63,21 @@ defaultLoggerName = "node"
 -- | The "workhorse" responsible for starting a Cardano edge node plus a number of extra plugins.
 actionWithWallet :: (HasConfigurations, HasCompileInfo)
                  => ProtocolMagic
+                 -> ProtocolConstants
                  -> SscParams
                  -> NodeParams
                  -> NtpConfiguration
                  -> WalletBackendParams
                  -> Production ()
-actionWithWallet pm sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
+actionWithWallet pm pc sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..} =
     bracketWalletWebDB (walletDbPath walletDbOptions) (walletRebuildDb walletDbOptions) $ \db ->
         bracketWalletWS $ \conn ->
-            bracketNodeResources nodeParams sscParams
+            bracketNodeResources (pcBlkSecurityParam pc) nodeParams sscParams
                 (txpGlobalSettings pm)
-                (initNodeDBs pm epochSlots) $ \nr@NodeResources {..} -> do
+                (initNodeDBs pm pc) $ \nr@NodeResources {..} -> do
                     syncQueue <- liftIO newTQueueIO
                     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
-                    runWRealMode pm db conn syncQueue nr (mainAction ntpStatus nr)
+                    runWRealMode pm pc db conn syncQueue nr (mainAction ntpStatus nr)
   where
     mainAction ntpStatus = runNodeWithInit ntpStatus $ do
         when (walletFlushDb walletDbOptions) $ do
@@ -91,7 +92,7 @@ actionWithWallet pm sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..
 
     runNodeWithInit ntpStatus init' nr diffusion = do
         _ <- init'
-        runNode pm nr (plugins ntpStatus) diffusion
+        runNode pm pc nr (plugins ntpStatus) diffusion
 
     syncWallets :: WalletWebMode ()
     syncWallets = do
@@ -102,26 +103,28 @@ actionWithWallet pm sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..
     plugins :: TVar NtpStatus -> Plugins.Plugin WalletWebMode
     plugins ntpStatus =
         mconcat [ Plugins.conversation wArgs
-                , Plugins.legacyWalletBackend pm wArgs ntpStatus
+                , Plugins.legacyWalletBackend pm pc wArgs ntpStatus
                 , Plugins.walletDocumentation wArgs
                 , Plugins.acidCleanupWorker wArgs
-                , Plugins.syncWalletWorker
-                , Plugins.resubmitterPlugin pm
+                , Plugins.syncWalletWorker (pcBlkSecurityParam pc)
+                , Plugins.resubmitterPlugin pm pc
                 , Plugins.notifierPlugin
                 ]
 
 actionWithNewWallet :: (HasConfigurations, HasCompileInfo)
                     => ProtocolMagic
+                    -> ProtocolConstants
                     -> SscParams
                     -> NodeParams
                     -> NewWalletBackendParams
                     -> Production ()
-actionWithNewWallet pm sscParams nodeParams params =
+actionWithNewWallet pm pc sscParams nodeParams params =
     bracketNodeResources
+        (pcBlkSecurityParam pc)
         nodeParams
         sscParams
         (txpGlobalSettings pm)
-        (initNodeDBs pm epochSlots) $ \nr -> do
+        (initNodeDBs pm pc) $ \nr -> do
       -- TODO: Will probably want to extract some parameters from the
       -- 'NewWalletBackendParams' to construct or initialize the wallet
 
@@ -129,6 +132,7 @@ actionWithNewWallet pm sscParams nodeParams params =
       bracketKernelPassiveWallet logMessage' $ \walletLayer passiveWallet -> do
         liftIO $ logMessage' Info "Wallet kernel initialized"
         Kernel.Mode.runWalletMode pm
+                                  pc
                                   nr
                                   walletLayer
                                   (mainAction (walletLayer, passiveWallet) nr)
@@ -143,7 +147,7 @@ actionWithNewWallet pm sscParams nodeParams params =
         :: (PassiveWalletLayer Production, PassiveWallet)
         -> NodeResources ext
         -> (Diffusion Kernel.Mode.WalletMode -> Kernel.Mode.WalletMode ())
-    runNodeWithInit w nr = runNode pm nr (plugins w)
+    runNodeWithInit w nr = runNode pm pc nr (plugins w)
 
     -- TODO: Don't know if we need any of the other plugins that are used
     -- in the legacy wallet (see 'actionWithWallet').
@@ -167,13 +171,13 @@ startEdgeNode :: HasCompileInfo
               => WalletStartupOptions
               -> Production ()
 startEdgeNode wso =
-  withConfigurations blPath conf $ \ntpConfig pm -> do
+  withConfigurations blPath conf $ \ntpConfig pm pc -> do
       (sscParams, nodeParams) <- getParameters ntpConfig
       case wsoWalletBackendParams wso of
         WalletLegacy legacyParams ->
-          actionWithWallet pm sscParams nodeParams ntpConfig legacyParams
+          actionWithWallet pm pc sscParams nodeParams ntpConfig legacyParams
         WalletNew newParams ->
-          actionWithNewWallet pm sscParams nodeParams newParams
+          actionWithNewWallet pm pc sscParams nodeParams newParams
   where
     getParameters :: HasConfigurations => NtpConfiguration -> Production (SscParams, NodeParams)
     getParameters ntpConfig = do

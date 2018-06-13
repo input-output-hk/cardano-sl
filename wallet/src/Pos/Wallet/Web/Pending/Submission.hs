@@ -23,7 +23,8 @@ import           System.Wlog (WithLogger, logDebug, logInfo)
 import           Pos.Client.Txp.History (saveTx, thTimestamp)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (walletTxCreationDisabled)
-import           Pos.Core (diffTimestamp, getCurrentTimestamp)
+import           Pos.Core (ProtocolConstants, diffTimestamp,
+                     getCurrentTimestamp, pcEpochSlots)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP,
@@ -109,12 +110,13 @@ type TxSubmissionMode ctx m = ( TxMode m )
 submitAndSavePtx
     :: TxSubmissionMode ctx m
     => ProtocolMagic
+    -> ProtocolConstants
     -> WalletDB
     -> (TxAux -> m Bool)
     -> PtxSubmissionHandlers m
     -> PendingTx
     -> m ()
-submitAndSavePtx pm db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
+submitAndSavePtx pm pc db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
     -- this should've been checked before, but just in case
     when walletTxCreationDisabled $
         throwM $ InternalError "Transaction creation is disabled by configuration!"
@@ -132,7 +134,7 @@ submitAndSavePtx pm db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
                       _ptxTxId
        | otherwise -> do
            addOnlyNewPendingTx db ptx
-           (saveTx pm (_ptxTxId, _ptxTxAux)
+           (saveTx pm (pcEpochSlots pc) (_ptxTxId, _ptxTxAux)
                `catches` handlers)
                `onException` creationFailedHandler
            ack <- submitTx _ptxTxAux
@@ -140,7 +142,7 @@ submitAndSavePtx pm db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
 
            poolInfo <- badInitPtxCondition `maybeThrow` ptxPoolInfo _ptxCond
            _ <- usingPtxCoords (casPtxCondition db) ptx _ptxCond (PtxApplying poolInfo)
-           when ack $ ptxUpdateMeta db _ptxWallet _ptxTxId PtxMarkAcknowledged
+           when ack $ ptxUpdateMeta pc db _ptxWallet _ptxTxId PtxMarkAcknowledged
   where
     handlers =
         [ Handler $ \e ->

@@ -19,6 +19,7 @@ import           System.Wlog (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Binary.Txp ()
+import           Pos.Core (SlotCount)
 import           Pos.Core.Txp (TxAux (..), TxId)
 import           Pos.Crypto (ProtocolMagic, hash)
 import qualified Pos.Infra.Communication.Relay as Relay
@@ -33,25 +34,33 @@ import           Pos.Txp.Network.Types (TxMsgContents (..))
 handleTxDo
     :: TxpMode ctx m
     => ProtocolMagic
+    -> SlotCount
     -> (JLEvent -> m ())  -- ^ How to log transactions
     -> TxAux              -- ^ Incoming transaction to be processed
     -> m Bool
-handleTxDo pm logTx txAux = do
+handleTxDo pm epochSlots logTx txAux = do
     let txId = hash (taTx txAux)
-    res <- txpProcessTx pm (txId, txAux)
+    res <- txpProcessTx pm epochSlots (txId, txAux)
     let json me = logTx $ JLTxReceived $ JLTxR
-            { jlrTxId     = sformat build txId
-            , jlrError    = me
+            { jlrTxId  = sformat build txId
+            , jlrError = me
             }
     case res of
         Right _ -> do
-            logInfo $
-                sformat ("Transaction has been added to storage: "%build) txId
+            logInfo $ sformat
+                ("Transaction has been added to storage: " % build)
+                txId
             json Nothing
             pure True
         Left er -> do
-            logInfo $
-                sformat ("Transaction hasn't been added to storage: "%build%" , reason: "%build) txId er
+            logInfo $ sformat
+                ( "Transaction hasn't been added to storage: "
+                % build
+                % " , reason: "
+                % build
+                )
+                txId
+                er
             json $ Just $ sformat build er
             pure False
 

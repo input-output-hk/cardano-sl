@@ -8,7 +8,7 @@ import           Servant
 
 import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
 import qualified Pos.Client.Txp.Util as V0
-import           Pos.Core (TxAux)
+import           Pos.Core (ProtocolConstants, TxAux)
 import qualified Pos.Core as Core
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.Util.Servant as V0
@@ -32,21 +32,23 @@ import           Cardano.Wallet.API.V1.Types
 handlers
     :: HasConfigurations
     => ProtocolMagic
+    -> ProtocolConstants
     -> (TxAux -> MonadV1 Bool)
     -> ServerT Transactions.API MonadV1
-handlers pm submitTx =
-             newTransaction pm submitTx
+handlers pm pc submitTx =
+             newTransaction pm pc submitTx
         :<|> allTransactions
-        :<|> estimateFees pm
+        :<|> estimateFees pm (Core.pcEpochSlots pc)
 
 newTransaction
     :: forall ctx m
      . (V0.MonadWalletTxFull ctx m)
     => ProtocolMagic
+    -> ProtocolConstants
     -> (TxAux -> m Bool)
     -> Payment
     -> m (WalletResponse Transaction)
-newTransaction pm submitTx Payment {..} = do
+newTransaction pm pc submitTx Payment {..} = do
     ws <- V0.askWalletSnapshot
     sourceWallet <- migrate (psWalletId pmtSource)
 
@@ -69,7 +71,7 @@ newTransaction pm submitTx Payment {..} = do
     addrCoinList <- migrate $ NE.toList pmtDestinations
     let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) pmtGroupingPolicy
     let batchPayment = V0.NewBatchPayment cAccountId addrCoinList policy
-    cTx <- V0.newPaymentBatch pm submitTx spendingPw batchPayment
+    cTx <- V0.newPaymentBatch pm pc submitTx spendingPw batchPayment
     single <$> migrate cTx
 
 
@@ -117,16 +119,17 @@ allTransactions mwalletId mAccIdx mAddr requestParams fops sops  =
 estimateFees
     :: (MonadThrow m, V0.MonadFees ctx m)
     => ProtocolMagic
+    -> Core.SlotCount
     -> Payment
     -> m (WalletResponse EstimatedFees)
-estimateFees pm Payment{..} = do
+estimateFees pm epochSlots Payment{..} = do
     ws <- V0.askWalletSnapshot
     let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) pmtGroupingPolicy
         pendingAddrs = V0.getPendingAddresses ws policy
     cAccountId <- migrate pmtSource
     utxo <- V0.getMoneySourceUtxo ws (V0.AccountMoneySource cAccountId)
     outputs <- V0.coinDistrToOutputs =<< mapM migrate pmtDestinations
-    efee <- V0.runTxCreator policy (V0.computeTxFee pm pendingAddrs utxo outputs)
+    efee <- V0.runTxCreator policy (V0.computeTxFee pm epochSlots pendingAddrs utxo outputs)
     case efee of
         Right fee ->
             single <$> migrate fee

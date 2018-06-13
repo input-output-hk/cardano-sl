@@ -20,10 +20,9 @@ import           Pos.Arbitrary.Ssc (commitmentMapEpochGen,
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
 import qualified Pos.Communication ()
-import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HasConfiguration,
-                     SlotId (..), blkSecurityParam, genesisBlockVersionData,
-                     mkVssCertificatesMapLossy, protocolConstants,
-                     unsafeMkLocalSlotIndex)
+import           Pos.Core (BlockVersionData (bvdMaxBlockSize), SlotId (..),
+                     genesisBlockVersionData, localSlotIndexMinBound,
+                     mkVssCertificatesMapLossy, unsafeMkLocalSlotIndex)
 import           Pos.Core.Block (BlockHeader, MainBlock)
 import           Pos.Core.Ssc (SscPayload (..))
 import           Pos.Core.Txp (TxAux)
@@ -36,13 +35,15 @@ import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfiguration,
                      withDefUpdateConfiguration)
+import           Test.Pos.Core.Dummy (dummyEpochSlots, dummyK,
+                     dummyProtocolConstants)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Delegation.Arbitrary (genDlgPayload)
 import           Test.Pos.Txp.Arbitrary (GoodTx, goodTxToTxAux)
 import           Test.Pos.Util.QuickCheck (SmallGenerator (..), makeSmall)
 
 spec :: Spec
-spec = withDefConfiguration $ \_ -> withDefUpdateConfiguration $
+spec = withDefConfiguration $ withDefUpdateConfiguration $
   describe "Block.Logic.Creation" $ do
 
     -- Sampling the minimum empty block size
@@ -107,8 +108,8 @@ spec = withDefConfiguration $ \_ -> withDefUpdateConfiguration $
                 in counterexample ("Tested with block size limit: " <> show s) $
                    leftToCounter blk2 (const True)
   where
-    defSscPld :: HasConfiguration => SlotId -> SscPayload
-    defSscPld sId = defaultSscPayload $ siSlot sId
+    defSscPld :: SlotId -> SscPayload
+    defSscPld sId = defaultSscPayload dummyK $ siSlot sId
 
     infLimit = convertUnit @Gigabyte @Byte 1
 
@@ -116,7 +117,7 @@ spec = withDefConfiguration $ \_ -> withDefUpdateConfiguration $
     leftToCounter x c = either (\t -> counterexample (toString t) False) (property . c) x
 
     emptyBlk
-        :: (HasConfiguration, HasUpdateConfiguration, Testable p)
+        :: (HasUpdateConfiguration, Testable p)
         => (Either Text MainBlock -> p)
         -> Property
     emptyBlk foo =
@@ -128,7 +129,7 @@ spec = withDefConfiguration $ \_ -> withDefUpdateConfiguration $
         goodTxToTxAux . getSmallGenerator <$> (arbitrary :: Gen (SmallGenerator GoodTx))
 
     noSscBlock
-        :: (HasConfiguration, HasUpdateConfiguration)
+        :: HasUpdateConfiguration
         => Byte
         -> BlockHeader
         -> [TxAux]
@@ -137,12 +138,12 @@ spec = withDefConfiguration $ \_ -> withDefUpdateConfiguration $
         -> SecretKey
         -> Either Text MainBlock
     noSscBlock limit prevHeader txs proxyCerts updatePayload sk =
-        let neutralSId = SlotId 0 (unsafeMkLocalSlotIndex $ fromIntegral $ blkSecurityParam * 2)
+        let neutralSId = SlotId 0 (unsafeMkLocalSlotIndex dummyEpochSlots $ fromIntegral $ dummyK * 2)
         in producePureBlock
              limit prevHeader txs Nothing neutralSId proxyCerts (defSscPld neutralSId) updatePayload sk
 
     producePureBlock
-        :: (HasConfiguration, HasUpdateConfiguration)
+        :: HasUpdateConfiguration
         => Byte
         -> BlockHeader
         -> [TxAux]
@@ -154,19 +155,19 @@ spec = withDefConfiguration $ \_ -> withDefUpdateConfiguration $
         -> SecretKey
         -> Either Text MainBlock
     producePureBlock limit prev txs psk slot dlgPay sscPay usPay sk =
-        createMainBlockPure dummyProtocolMagic limit prev psk slot sk $
+        createMainBlockPure dummyProtocolMagic dummyK limit prev psk slot sk $
         RawPayload txs sscPay dlgPay usPay
 
-validSscPayloadGen :: HasConfiguration => Gen (SscPayload, SlotId)
+validSscPayloadGen :: Gen (SscPayload, SlotId)
 validSscPayloadGen = do
     vssCerts <- makeSmall $ fmap mkVssCertificatesMapLossy $ listOf $
-        vssCertificateEpochGen dummyProtocolMagic protocolConstants 0
-    let mkSlot i = SlotId 0 (unsafeMkLocalSlotIndex (fromIntegral i))
+        vssCertificateEpochGen dummyProtocolMagic dummyProtocolConstants 0
+    let mkSlot i = SlotId 0 (unsafeMkLocalSlotIndex dummyEpochSlots (fromIntegral i))
     oneof [ do commMap <- makeSmall $ commitmentMapEpochGen dummyProtocolMagic 0
-               pure (CommitmentsPayload commMap vssCerts, SlotId 0 minBound)
+               pure (CommitmentsPayload commMap vssCerts , SlotId 0 localSlotIndexMinBound)
           , do openingsMap <- makeSmall arbitrary
-               pure (OpeningsPayload openingsMap vssCerts, mkSlot (4 * blkSecurityParam + 1))
+               pure (OpeningsPayload openingsMap vssCerts, mkSlot (4 * dummyK + 1))
           , do sharesMap <- makeSmall arbitrary
-               pure (SharesPayload sharesMap vssCerts, mkSlot (8 * blkSecurityParam))
-          , pure (CertificatesPayload vssCerts, mkSlot (7 * blkSecurityParam))
+               pure (SharesPayload sharesMap vssCerts, mkSlot (8 * dummyK))
+          , pure (CertificatesPayload vssCerts, mkSlot (7 * dummyK))
           ]

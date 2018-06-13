@@ -5,17 +5,11 @@
 module Pos.Ssc.Base
        (
          -- * Helpers
-         isCommitmentIdExplicit
-       , isCommitmentId
-       , isCommitmentIdxExplicit
+         isCommitmentId
        , isCommitmentIdx
-       , isOpeningIdExplicit
        , isOpeningId
-       , isOpeningIdxExplicit
        , isOpeningIdx
-       , isSharesIdExplicit
        , isSharesId
-       , isSharesIdxExplicit
        , isSharesIdx
        , mkSignedCommitment
        , secretToSharedSeed
@@ -48,14 +42,12 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (VerificationRes, verifyGeneric)
 
 import           Pos.Binary.Class (biSize, fromBinary)
-import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..),
-                     SlotCount, SlotId (..), StakeholderId, addressHash,
-                     unsafeMkLocalSlotIndexExplicit)
-import           Pos.Core.Configuration (HasProtocolConstants,
-                     protocolConstants, vssMaxTTL, vssMinTTL)
+import           Pos.Core (BlockCount, EpochIndex (..), LocalSlotIndex,
+                     SharedSeed (..), SlotCount, SlotId (..), StakeholderId,
+                     addressHash, unsafeMkLocalSlotIndex, vssMaxTTL, vssMinTTL)
 import           Pos.Core.Limits (stripHashMap)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..),
-                     pcSlotSecurityParam)
+                     kEpochSlots, kSlotSecurityParam)
 import           Pos.Core.Ssc (Commitment (..),
                      CommitmentsMap (getCommitmentsMap), Opening (..),
                      SignedCommitment, SscPayload (..),
@@ -83,50 +75,36 @@ mkSignedCommitment
     :: ProtocolMagic -> SecretKey -> EpochIndex -> Commitment -> SignedCommitment
 mkSignedCommitment pm sk i c = (toPublic sk, c, sign pm SignCommitment sk (i, c))
 
-toLocalSlotIndex :: ProtocolConstants -> SlotCount -> LocalSlotIndex
-toLocalSlotIndex pc = unsafeMkLocalSlotIndexExplicit pc . fromIntegral
+toLocalSlotIndex :: SlotCount -> SlotCount -> LocalSlotIndex
+toLocalSlotIndex epochSlots = unsafeMkLocalSlotIndex epochSlots . fromIntegral
 
-isCommitmentIdxExplicit :: ProtocolConstants -> LocalSlotIndex -> Bool
-isCommitmentIdxExplicit pc =
-    inRange (toLocalSlotIndex pc 0,
-             toLocalSlotIndex pc (pcSlotSecurityParam pc - 1))
+inLocalSlotIndexRange
+    :: SlotCount -> (SlotCount, SlotCount) -> LocalSlotIndex -> Bool
+inLocalSlotIndexRange epochSlots (lo, hi) =
+    inRange (toLocalSlotIndex epochSlots lo, toLocalSlotIndex epochSlots hi)
 
-isCommitmentIdx :: HasProtocolConstants => LocalSlotIndex -> Bool
-isCommitmentIdx = isCommitmentIdxExplicit protocolConstants
+isCommitmentIdx :: BlockCount -> LocalSlotIndex -> Bool
+isCommitmentIdx k =
+    inLocalSlotIndexRange (kEpochSlots k) (0, kSlotSecurityParam k - 1)
 
-isOpeningIdxExplicit :: ProtocolConstants -> LocalSlotIndex -> Bool
-isOpeningIdxExplicit pc =
-    inRange (toLocalSlotIndex pc (2 * pcSlotSecurityParam pc),
-             toLocalSlotIndex pc (3 * pcSlotSecurityParam pc - 1))
+isOpeningIdx :: BlockCount -> LocalSlotIndex -> Bool
+isOpeningIdx k = inLocalSlotIndexRange
+    (kEpochSlots k)
+    (2 * kSlotSecurityParam k, 3 * kSlotSecurityParam k - 1)
 
-isOpeningIdx :: HasProtocolConstants => LocalSlotIndex -> Bool
-isOpeningIdx = isOpeningIdxExplicit protocolConstants
+isSharesIdx :: BlockCount -> LocalSlotIndex -> Bool
+isSharesIdx k = inLocalSlotIndexRange
+    (kEpochSlots k)
+    (4 * kSlotSecurityParam k, 5 * kSlotSecurityParam k - 1)
 
-isSharesIdxExplicit :: ProtocolConstants -> LocalSlotIndex -> Bool
-isSharesIdxExplicit pc =
-    inRange (toLocalSlotIndex pc (4 * pcSlotSecurityParam pc),
-             toLocalSlotIndex pc (5 * pcSlotSecurityParam pc - 1))
+isCommitmentId :: BlockCount -> SlotId -> Bool
+isCommitmentId k = isCommitmentIdx k . siSlot
 
-isSharesIdx :: HasProtocolConstants => LocalSlotIndex -> Bool
-isSharesIdx = isSharesIdxExplicit protocolConstants
+isOpeningId :: BlockCount -> SlotId -> Bool
+isOpeningId k = isOpeningIdx k . siSlot
 
-isCommitmentIdExplicit :: ProtocolConstants -> SlotId -> Bool
-isCommitmentIdExplicit pc = isCommitmentIdxExplicit pc . siSlot
-
-isCommitmentId :: HasProtocolConstants => SlotId -> Bool
-isCommitmentId = isCommitmentIdExplicit protocolConstants
-
-isOpeningIdExplicit :: ProtocolConstants -> SlotId -> Bool
-isOpeningIdExplicit pc = isOpeningIdxExplicit pc . siSlot
-
-isOpeningId :: HasProtocolConstants => SlotId -> Bool
-isOpeningId = isOpeningIdExplicit protocolConstants
-
-isSharesIdExplicit :: ProtocolConstants -> SlotId -> Bool
-isSharesIdExplicit pc = isSharesIdxExplicit pc . siSlot
-
-isSharesId :: HasProtocolConstants => SlotId -> Bool
-isSharesId = isSharesIdExplicit protocolConstants
+isSharesId :: BlockCount -> SlotId -> Bool
+isSharesId k = isSharesIdx k . siSlot
 
 ----------------------------------------------------------------------------
 -- CommitmentsMap
@@ -225,10 +203,10 @@ verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
 -- CHECK: @checkCertTTL
 -- | Check that the VSS certificate has valid TTL: i. e. it is in
 -- '[vssMinTTL, vssMaxTTL]'.
-checkCertTTL :: HasProtocolConstants => EpochIndex -> VssCertificate -> Bool
-checkCertTTL curEpochIndex vc =
-    expiryEpoch + 1 >= vssMinTTL + curEpochIndex &&
-    expiryEpoch < vssMaxTTL + curEpochIndex
+checkCertTTL :: ProtocolConstants -> EpochIndex -> VssCertificate -> Bool
+checkCertTTL pc curEpochIndex vc =
+    expiryEpoch + 1 >= vssMinTTL pc + curEpochIndex &&
+    expiryEpoch < vssMaxTTL pc + curEpochIndex
   where
     expiryEpoch = vcExpiryEpoch vc
 
@@ -266,9 +244,9 @@ stripSscPayload lim payload = case payload of
                  getVssCertificatesMap
 
 -- | Default SSC payload depending on local slot index.
-defaultSscPayload :: HasProtocolConstants => LocalSlotIndex -> SscPayload
-defaultSscPayload lsi
-    | isCommitmentIdx lsi = CommitmentsPayload mempty mempty
-    | isOpeningIdx lsi = OpeningsPayload mempty mempty
-    | isSharesIdx lsi = SharesPayload mempty mempty
+defaultSscPayload :: BlockCount -> LocalSlotIndex -> SscPayload
+defaultSscPayload k lsi
+    | isCommitmentIdx k lsi = CommitmentsPayload mempty mempty
+    | isOpeningIdx k lsi = OpeningsPayload mempty mempty
+    | isSharesIdx k lsi = SharesPayload mempty mempty
     | otherwise = CertificatesPayload mempty

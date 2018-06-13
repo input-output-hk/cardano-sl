@@ -37,13 +37,6 @@ import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
 pm :: ProtocolMagic
 pm = ProtocolMagic 0
 
-pc :: ProtocolConstants
-pc = ProtocolConstants
-    { pcK = 7
-    , pcVssMaxTTL = maxBound
-    , pcVssMinTTL = minBound
-    }
-
 -- | A test subject: a MainBlock, and its various components, each paired with
 -- its serialization.
 data TestSubject = TestSubject
@@ -101,13 +94,12 @@ withSerialized a = (a, serialize a)
 
 -- | Make a TestSubject using a seed for a PRNG and size.
 testSubject
-    :: ( )
-    => Int -- ^ Seed
+    :: Int -- ^ Seed
     -> Int -- ^ Size
     -> TestSubject
 testSubject seed size =
   let block :: MainBlock
-      block = generateMainBlock pm pc seed size
+      block = generateMainBlock pm seed size
 
       tsBlock = withSerialized block
       tsHeader = withSerialized (_gbHeader $ block)

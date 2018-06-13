@@ -18,7 +18,7 @@ import           Universum
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi,
                      deriveSimpleBiCxt)
-import           Pos.Core (HasProtocolConstants, LocalSlotIndex, SlotId,
+import           Pos.Core (BlockCount, LocalSlotIndex, SlotId,
                      VssCertificatesMap)
 import           Pos.Core.Ssc (CommitmentsMap, OpeningsMap, SharesMap)
 import           Pos.Ssc.Base (isCommitmentId, isCommitmentIdx, isOpeningId,
@@ -45,17 +45,19 @@ deriveSimpleBi ''SscTag [
     Cons 'SharesMsg [],
     Cons 'VssCertificateMsg []]
 
-isGoodSlotForTag :: HasProtocolConstants => SscTag -> LocalSlotIndex -> Bool
-isGoodSlotForTag CommitmentMsg     = isCommitmentIdx
-isGoodSlotForTag OpeningMsg        = isOpeningIdx
-isGoodSlotForTag SharesMsg         = isSharesIdx
-isGoodSlotForTag VssCertificateMsg = const True
+isGoodSlotIdForTag :: BlockCount -> SscTag -> SlotId -> Bool
+isGoodSlotIdForTag k = \case
+    CommitmentMsg     -> isCommitmentId k
+    OpeningMsg        -> isOpeningId k
+    SharesMsg         -> isSharesId k
+    VssCertificateMsg -> const True
 
-isGoodSlotIdForTag :: HasProtocolConstants => SscTag -> SlotId -> Bool
-isGoodSlotIdForTag CommitmentMsg     = isCommitmentId
-isGoodSlotIdForTag OpeningMsg        = isOpeningId
-isGoodSlotIdForTag SharesMsg         = isSharesId
-isGoodSlotIdForTag VssCertificateMsg = const True
+isGoodSlotForTag :: BlockCount -> SscTag -> LocalSlotIndex -> Bool
+isGoodSlotForTag k = \case
+    CommitmentMsg     -> isCommitmentIdx k
+    OpeningMsg        -> isOpeningIdx k
+    SharesMsg         -> isSharesIdx k
+    VssCertificateMsg -> const True
 
 data TossModifier = TossModifier
     { _tmCommitments  :: !CommitmentsMap

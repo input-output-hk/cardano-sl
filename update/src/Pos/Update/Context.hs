@@ -7,6 +7,7 @@ module Pos.Update.Context
 
 import           Universum
 
+import           Pos.Core (SlotCount)
 import           Pos.DB.Class (MonadDBRead)
 import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Update.MemState.Types (MemVar, newMemVar)
@@ -27,10 +28,9 @@ data UpdateContext = UpdateContext
 
 -- | Create initial 'UpdateContext'.
 mkUpdateContext
-    :: forall ctx m.
-    ( MonadIO m
-    , MonadDBRead m
-    , MonadSlots ctx m
-    )
-    => m UpdateContext
-mkUpdateContext = UpdateContext <$> newEmptyMVar <*> newMVar () <*> newMemVar
+    :: forall ctx m
+     . (MonadIO m, MonadDBRead m, MonadSlots ctx m)
+    => SlotCount
+    -> m UpdateContext
+mkUpdateContext epochSlots =
+    UpdateContext <$> newEmptyMVar <*> newMVar () <*> newMemVar epochSlots

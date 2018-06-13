@@ -47,7 +47,7 @@ import           Formatting (ords, sformat, (%))
 import           System.Wlog (logWarning)
 
 import           Pos.Binary.Class (AsBinary, fromBinary)
-import           Pos.Core (CoinPortion, EpochIndex, StakeholderId,
+import           Pos.Core (BlockCount, CoinPortion, EpochIndex, StakeholderId,
                      VssCertificatesMap (..), addressHash, bvdMpcThd,
                      coinPortionDenominator, getCoinPortion, lookupVss,
                      memberVss, unsafeGetCoin, vcSigningKey, vcVssKey)
@@ -94,11 +94,13 @@ hasCertificateToss id = memberVss id <$> getVssCertificates
 
 -- | Get 'VssCertificatesMap' containing 'StakeholderId's and
 -- 'VssPublicKey's of participating nodes for given epoch.
-getParticipants :: (MonadError SscVerifyError m, MonadToss m, MonadTossEnv m)
-                => EpochIndex
-                -> m VssCertificatesMap
-getParticipants epoch = do
-    stableCerts <- getStableCertificates epoch
+getParticipants
+    :: (MonadError SscVerifyError m, MonadToss m, MonadTossEnv m)
+    => BlockCount
+    -> EpochIndex
+    -> m VssCertificatesMap
+getParticipants k epoch = do
+    stableCerts <- getStableCertificates k epoch
     richmen <- note (NoRichmen epoch) =<< getRichmen epoch
     pure $ computeParticipants (getKeys richmen) stableCerts
 
@@ -115,9 +117,12 @@ matchCommitment op = flip matchCommitmentPure op <$> getCommitments
 
 checkShares
     :: (MonadTossRead m, MonadTossEnv m)
-    => EpochIndex -> (StakeholderId, InnerSharesMap) -> m Bool
-checkShares epoch (id, sh) = do
-    certs <- getStableCertificates epoch
+    => BlockCount
+    -> EpochIndex
+    -> (StakeholderId, InnerSharesMap)
+    -> m Bool
+checkShares k epoch (id, sh) = do
+    certs <- getStableCertificates k epoch
     let warnFmt = ("checkShares: no richmen for "%ords%" epoch")
     getRichmen epoch >>= \case
         Nothing -> False <$ logWarning (sformat warnFmt epoch)
@@ -396,18 +401,18 @@ computeSharesDistr richmen =
 --     proportions (according to 'computeSharesDistr')
 --   * shares in the commitment are valid
 checkCommitmentsPayload
-    :: (MonadToss m, MonadTossEnv m, MonadError SscVerifyError m,
-        MonadRandom m)
-    => EpochIndex
+    :: (MonadToss m, MonadTossEnv m, MonadError SscVerifyError m, MonadRandom m)
+    => BlockCount
+    -> EpochIndex
     -> CommitmentsMap
     -> m ()
-checkCommitmentsPayload epoch (getCommitmentsMap -> comms) =
+checkCommitmentsPayload k epoch (getCommitmentsMap -> comms) =
     -- We don't verify an empty commitments map, because an empty commitments
     -- map is always valid. Moreover, the commitments check requires us to
     -- compute 'SharesDistribution', which might be expensive.
     unless (null comms) $ do
         richmen <- note (NoRichmen epoch) =<< getRichmen epoch
-        participants <- getParticipants epoch
+        participants <- getParticipants k epoch
         distr <- computeSharesDistr richmen
         exceptGuard CommittingNoParticipants
             (`memberVss` participants) (HM.keys comms)
@@ -443,14 +448,15 @@ checkOpeningsPayload opens = do
 --     decrypted shares
 checkSharesPayload
     :: (MonadToss m, MonadTossEnv m, MonadError SscVerifyError m)
-    => EpochIndex
+    => BlockCount
+    -> EpochIndex
     -> SharesMap
     -> m ()
-checkSharesPayload epoch shares = do
+checkSharesPayload k epoch shares = do
     -- We intentionally don't check that nodes which decrypted shares sent
     -- its commitments. If a node decrypted shares correctly, such node is
     -- useful for us, despite that it didn't send its commitment.
-    part <- getParticipants epoch
+    part <- getParticipants k epoch
     exceptGuard SharesNotRichmen
         (`memberVss` part) (HM.keys shares)
     exceptGuardM InternalShareWithoutCommitment
@@ -458,7 +464,7 @@ checkSharesPayload epoch shares = do
     exceptGuardM SharesAlreadySent
         (notM hasSharesToss) (HM.keys shares)
     exceptGuardEntryM DecrSharesNotMatchCommitment
-        (checkShares epoch) (HM.toList shares)
+        (checkShares k epoch) (HM.toList shares)
 
 -- For certificates we check that
 --   * certificate hasn't been sent already
@@ -487,17 +493,17 @@ checkCertificatesPayload epoch certs = do
         (HM.toList (getVssCertificatesMap certs))
 
 checkPayload
-    :: (MonadToss m, MonadTossEnv m, MonadError SscVerifyError m,
-        MonadRandom m)
-    => EpochIndex
+    :: (MonadToss m, MonadTossEnv m, MonadError SscVerifyError m, MonadRandom m)
+    => BlockCount
+    -> EpochIndex
     -> SscPayload
     -> m ()
-checkPayload epoch payload = do
+checkPayload k epoch payload = do
     let payloadCerts = spVss payload
     case payload of
-        CommitmentsPayload comms _ -> checkCommitmentsPayload epoch comms
+        CommitmentsPayload comms _ -> checkCommitmentsPayload k epoch comms
         OpeningsPayload opens _    -> checkOpeningsPayload opens
-        SharesPayload shares _     -> checkSharesPayload epoch shares
+        SharesPayload shares _     -> checkSharesPayload k epoch shares
         CertificatesPayload _      -> pass
     checkCertificatesPayload epoch payloadCerts
 

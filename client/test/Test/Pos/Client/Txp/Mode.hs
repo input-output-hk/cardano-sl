@@ -55,8 +55,8 @@ instance MonadGState TxpTestMode where
 
 instance MonadAddresses TxpTestMode where
     type AddrData TxpTestMode = ()
-    getNewAddress _ = pure fakeAddressForMonadAddresses
-    getFakeChangeAddress = pure fakeAddressForMonadAddresses
+    getNewAddress _ _ = pure fakeAddressForMonadAddresses
+    getFakeChangeAddress _ = pure fakeAddressForMonadAddresses
 
 fakeAddressForMonadAddresses :: Address
 fakeAddressForMonadAddresses = address
@@ -83,8 +83,8 @@ type TxpTestProperty = PropertyM TxpTestMode
 -- type families cannot be OVERLAPPABLE.
 instance MonadAddresses TxpTestProperty where
     type AddrData TxpTestProperty = AddrData TxpTestMode
-    getNewAddress = lift . getNewAddress
-    getFakeChangeAddress = lift getFakeChangeAddress
+    getNewAddress epochSlots = lift . getNewAddress epochSlots
+    getFakeChangeAddress = lift . getFakeChangeAddress
 
 instance (HasTxpConfigurations, Testable a) => Testable (TxpTestProperty a) where
     property = monadic (ioProperty . flip runReaderT genesisBlockVersionData)

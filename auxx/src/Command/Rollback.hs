@@ -17,7 +17,7 @@ import           Pos.Block.Logic (BypassSecurityCheck (..),
                      rollbackBlocksUnsafe)
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
-import           Pos.Core (difficultyL, epochIndexL)
+import           Pos.Core (ProtocolConstants, difficultyL, epochIndexL)
 import           Pos.Core.Block (mainBlockTxPayload)
 import           Pos.Core.Chrono (NewestFirst, _NewestFirst)
 import           Pos.Core.Txp (TxAux)
@@ -35,10 +35,11 @@ import           Mode (MonadAuxxMode)
 rollbackAndDump
     :: MonadAuxxMode m
     => ProtocolMagic
+    -> ProtocolConstants
     -> Word
     -> FilePath
     -> m ()
-rollbackAndDump pm numToRollback outFile = withStateLock HighPriority ApplyBlockWithRollback $ \_ -> do
+rollbackAndDump pm pc numToRollback outFile = withStateLock HighPriority ApplyBlockWithRollback $ \_ -> do
     printTipDifficulty
     blundsMaybeEmpty <- modifyBlunds <$>
         DB.loadBlundsFromTipByDepth (fromIntegral numToRollback)
@@ -55,7 +56,7 @@ rollbackAndDump pm numToRollback outFile = withStateLock HighPriority ApplyBlock
             liftIO $ BSL.writeFile outFile (encode allTxs)
             logInfo $ sformat ("Dumped "%int%" transactions to "%string)
                       (length allTxs) (outFile)
-            rollbackBlocksUnsafe pm (BypassSecurityCheck True) (ShouldCallBListener True) blunds
+            rollbackBlocksUnsafe pm pc (BypassSecurityCheck True) (ShouldCallBListener True) blunds
             logInfo $ sformat ("Rolled back "%int%" blocks") (length blunds)
             printTipDifficulty
   where

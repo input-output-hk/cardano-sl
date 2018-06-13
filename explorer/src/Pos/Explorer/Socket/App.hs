@@ -40,7 +40,7 @@ import           System.Wlog (CanLog, HasLoggerName, LoggerName,
                      logInfo, logWarning, modifyLoggerName, usingLoggerName)
 
 import           Pos.Block.Types (Blund)
-import           Pos.Core (addressF, siEpoch)
+import           Pos.Core (SlotCount, addressF, siEpoch)
 import qualified Pos.GState as DB
 import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 
@@ -161,10 +161,8 @@ notifierServer notifierSettings connVar = do
         "404 - Not Found"
 
 periodicPollChanges
-    :: forall ctx m.
-       (ExplorerMode ctx m)
-    => ConnectionsVar -> m ()
-periodicPollChanges connVar =
+    :: forall ctx m . ExplorerMode ctx m => SlotCount -> ConnectionsVar -> m ()
+periodicPollChanges epochSlots connVar =
     -- Runs every 5 seconds.
     runPeriodically (5000 :: Millisecond) (Nothing, mempty) $ do
         curBlock   <- DB.getTip
@@ -189,10 +187,10 @@ periodicPollChanges connVar =
             -- notify changes depending on new blocks
             unless (null newBlunds) $ do
                 -- 1. last page of blocks
-                notifyBlocksLastPageSubscribers
+                notifyBlocksLastPageSubscribers epochSlots
                 -- 2. last page of epochs
-                mSlotId <- lift $ getCurrentSlot @ctx
-                whenJust mSlotId $ notifyEpochsLastPageSubscribers . siEpoch
+                mSlotId <- lift $ getCurrentSlot @ctx epochSlots
+                whenJust mSlotId $ notifyEpochsLastPageSubscribers epochSlots . siEpoch
                 logDebug $ sformat ("Blockchain updated ("%int%" blocks)")
                     (length newBlunds)
 
@@ -217,11 +215,14 @@ periodicPollChanges connVar =
 
 -- | Starts notification server. Kill current thread to stop it.
 notifierApp
-    :: forall ctx m.
-       (ExplorerMode ctx m)
-    => NotifierSettings -> m ()
-notifierApp settings = modifyLoggerName (<> "notifier.socket-io") $ do
-    logInfo "Starting"
-    connVar <- liftIO $ STM.newTVarIO mkConnectionsState
-    withAsync (periodicPollChanges connVar)
-              (\_async -> notifierServer settings connVar)
+    :: forall ctx m
+     . ExplorerMode ctx m
+    => SlotCount
+    -> NotifierSettings
+    -> m ()
+notifierApp epochSlots settings =
+    modifyLoggerName (<> "notifier.socket-io") $ do
+        logInfo "Starting"
+        connVar <- liftIO $ STM.newTVarIO mkConnectionsState
+        withAsync (periodicPollChanges epochSlots connVar)
+                  (\_async -> notifierServer settings connVar)

@@ -13,7 +13,7 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
 
 import           Pos.Arbitrary.Ssc ()
 import qualified Pos.Block.Network.Types as T
-import           Pos.Core (HasGenesisHash, HasProtocolConstants)
+import           Pos.Core (HasGenesisHash)
 
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Core.Chrono ()
@@ -31,11 +31,11 @@ instance Arbitrary T.MsgGetBlocks where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasProtocolConstants => Arbitrary T.MsgHeaders where
+instance Arbitrary T.MsgHeaders where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (HasProtocolConstants, HasGenesisHash) => Arbitrary T.MsgBlock where
+instance HasGenesisHash => Arbitrary T.MsgBlock where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -51,9 +51,6 @@ instance Arbitrary T.MsgStreamUpdate where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance ( HasProtocolConstants
-         , HasGenesisHash
-         ) =>
-         Arbitrary T.MsgStreamBlock where
+instance HasGenesisHash => Arbitrary T.MsgStreamBlock where
     arbitrary = genericArbitrary
     shrink = genericShrink

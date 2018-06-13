@@ -45,7 +45,7 @@ import           Pos.Core.Block.Constructors (mkGenesisBlock)
 import           Pos.Core.Ssc (SscPayload)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdatePayload (..))
-import           Pos.Crypto (ProtocolMagic, SecretKey, toPublic)
+import           Pos.Crypto (SecretKey, toPublic)
 import           Pos.Delegation (DlgPayload, DlgUndo (..), ProxySKBlockInfo)
 import           Pos.Explorer.BListener (createPagedHeaderHashesPair)
 import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page,
@@ -56,6 +56,7 @@ import           Pos.Update.Configuration (HasUpdateConfiguration)
 
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfigurations)
+import           Test.Pos.Core.Dummy (dummyK)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 
@@ -85,7 +86,7 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
     slotLeaders   <- produceSlotLeaders blocksNumber
     secretKeys    <- produceSecretKeys blocksNumber
 
-    blocks <- withDefConfigurations $ \_ _ ->
+    blocks <- withDefConfigurations $ \_ ->
         produceBlocksByBlockNumberAndSlots blocksNumber slotsPerEpoch slotLeaders secretKeys
 
     let tipBlock         = Prelude.last blocks
@@ -105,12 +106,12 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
         }
 
   where
-    createMapPageHHs :: [Block] -> ProtocolMagic -> Map Page [HeaderHash]
-    createMapPageHHs blocks _ =
+    createMapPageHHs :: [Block] -> Map Page [HeaderHash]
+    createMapPageHHs blocks =
         fromListWith (++) [ (page, [hHash]) | (page, hHash) <- createPagedHeaderHashesPair blocks]
 
-    createMapHHsBlund :: [Block] -> ProtocolMagic -> Map HeaderHash Blund
-    createMapHHsBlund blocks _ = fromList $ map blockHH blocks
+    createMapHHsBlund :: [Block] -> Map HeaderHash Blund
+    createMapHHsBlund blocks = fromList $ map blockHH blocks
       where
         blockHH :: Block -> (HeaderHash, Blund)
         blockHH block = (headerHash block, (block, createEmptyUndo))
@@ -119,9 +120,8 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
     createMapEpochPageHHs
         :: [Block]
         -> SlotsPerEpoch
-        -> ProtocolMagic
         -> Map EpochPagedBlocksKey [HeaderHash]
-    createMapEpochPageHHs blocks slotsPerEpoch' _ =
+    createMapEpochPageHHs blocks slotsPerEpoch' =
         unions $ map convertToPagedMap epochBlock
       where
         epochBlock :: [(EpochIndex, [HeaderHash])]
@@ -141,9 +141,8 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
 
     createMapEpochMaxPages
         :: [EpochPagedBlocksKey]
-        -> ProtocolMagic
         -> Map Epoch Page
-    createMapEpochMaxPages epochPages _ = do
+    createMapEpochMaxPages epochPages = do
         let groupedEpochPages :: [[(Epoch, Page)]]
             groupedEpochPages = groupBy ((==) `on` fst) epochPages
 
@@ -178,17 +177,14 @@ generateValidBlocksSlotsNumber = do
 ----------------------------------------------------------------
 
 basicBlockGenericUnsafe
-    :: (HasConfiguration, HasUpdateConfiguration)
-    => BlockHeader
-    -> SecretKey
-    -> SlotId
-    -> Block
-basicBlockGenericUnsafe prevHeader sk slotId = case (basicBlock prevHeader sk slotId) of
-    Left e      -> error e
-    Right block -> Right block
+    :: HasUpdateConfiguration => BlockHeader -> SecretKey -> SlotId -> Block
+basicBlockGenericUnsafe prevHeader sk slotId =
+    case (basicBlock prevHeader sk slotId) of
+        Left  e     -> error e
+        Right block -> Right block
 
 basicBlock
-    :: (HasConfiguration, HasUpdateConfiguration)
+    :: HasUpdateConfiguration
     => BlockHeader
     -> SecretKey
     -> SlotId
@@ -204,7 +200,7 @@ basicBlock prevHeader sk slotId = producePureBlock infLimit
                                                    sk
 
 emptyBlk
-    :: (HasConfiguration, HasUpdateConfiguration, Testable p)
+    :: (HasUpdateConfiguration, Testable p)
     => (Either Text MainBlock -> p)
     -> Property
 emptyBlk testableBlock =
@@ -220,14 +216,14 @@ emptyBlk testableBlock =
               def
               sk
 
-defGTP :: HasConfiguration => SlotId -> SscPayload
-defGTP sId = defaultSscPayload $ siSlot sId
+defGTP :: SlotId -> SscPayload
+defGTP sId = defaultSscPayload dummyK $ siSlot sId
 
 infLimit :: Byte
 infLimit = convertUnit @Gigabyte @Byte 1
 
 producePureBlock
-    :: (HasConfiguration, HasUpdateConfiguration)
+    :: HasUpdateConfiguration
     => Byte
     -> BlockHeader
     -> [TxAux]
@@ -239,7 +235,7 @@ producePureBlock
     -> SecretKey
     -> Either Text MainBlock
 producePureBlock limit prev txs psk slot dlgPay sscPay usPay sk =
-    createMainBlockPure dummyProtocolMagic limit prev psk slot sk $
+    createMainBlockPure dummyProtocolMagic dummyK limit prev psk slot sk $
     RawPayload txs sscPay dlgPay usPay
 
 leftToCounter :: (ToString s, Testable p) => Either s a -> (a -> p) -> Property

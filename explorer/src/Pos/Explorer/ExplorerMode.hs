@@ -24,7 +24,7 @@ import           Test.QuickCheck (Gen, Property, Testable (..), arbitrary,
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.Block.Slog (mkSlogGState)
-import           Pos.Core (SlotId, Timestamp (..), epochSlots)
+import           Pos.Core (SlotId, Timestamp (..))
 import           Pos.DB (MonadGState (..))
 import qualified Pos.DB as DB
 import qualified Pos.DB.Block as DB
@@ -60,6 +60,7 @@ import           Pos.WorkMode (MinWorkMode)
 
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (TestParams (..))
+import           Test.Pos.Core.Dummy (dummyEpochSlots, dummyProtocolConstants)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 
@@ -148,13 +149,13 @@ initExplorerTestContext tp@TestParams {..} = do
             { eticDBPureVar      = dbPureVar
             }
     liftIO $ runTestInitMode initCtx $ do
-        DB.initNodeDBs dummyProtocolMagic epochSlots
+        DB.initNodeDBs dummyProtocolMagic dummyProtocolConstants
         lcLrcSync <- newTVarIO =<< mkLrcSyncData
         let _gscLrcContext = LrcContext {..}
         _gscSlogGState <- mkSlogGState
         _gscSlottingVar <- newTVarIO =<< GS.getSlottingData
         let etcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
-        etcSSlottingVar <- mkSimpleSlottingStateVar
+        etcSSlottingVar <- mkSimpleSlottingStateVar dummyEpochSlots
         etcSystemStart <- Timestamp <$> currentTime
         etcTxpLocalData <- mkTxpLocalData
 
@@ -241,20 +242,20 @@ instance HasJsonLogConfig ExplorerTestContext where
 instance HasConfigurations => MonadGState ExplorerTestMode where
     gsAdoptedBVData = DB.gsAdoptedBVDataDefault
 
-instance (HasConfigurations, MonadSlotsData ctx ExplorerTestMode)
+instance MonadSlotsData ctx ExplorerTestMode
       => MonadSlots ctx ExplorerTestMode
   where
-    getCurrentSlot = do
+    getCurrentSlot epochSlots = do
         view etcSlotId_L >>= \case
-            Nothing -> Slot.getCurrentSlotSimple
+            Nothing -> Slot.getCurrentSlotSimple epochSlots
             Just slot -> pure (Just slot)
-    getCurrentSlotBlocking =
+    getCurrentSlotBlocking epochSlots =
         view etcSlotId_L >>= \case
-            Nothing -> Slot.getCurrentSlotBlockingSimple
+            Nothing -> Slot.getCurrentSlotBlockingSimple epochSlots
             Just slot -> pure slot
-    getCurrentSlotInaccurate = do
+    getCurrentSlotInaccurate epochSlots = do
         view etcSlotId_L >>= \case
-            Nothing -> Slot.getCurrentSlotInaccurateSimple
+            Nothing -> Slot.getCurrentSlotInaccurateSimple epochSlots
             Just slot -> pure slot
     currentTimeSlotting = Slot.currentTimeSlottingSimple
 

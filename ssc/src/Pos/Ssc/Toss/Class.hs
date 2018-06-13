@@ -14,8 +14,9 @@ import           Control.Monad.Except (ExceptT)
 import           Control.Monad.Trans (MonadTrans)
 import           System.Wlog (WithLogger)
 
-import           Pos.Core (BlockVersionData, EpochIndex, EpochOrSlot,
-                     StakeholderId, VssCertificate, VssCertificatesMap)
+import           Pos.Core (BlockCount, BlockVersionData, EpochIndex,
+                     EpochOrSlot, StakeholderId, VssCertificate,
+                     VssCertificatesMap)
 import           Pos.Core.Ssc (CommitmentsMap, InnerSharesMap, Opening,
                      OpeningsMap, SharesMap, SignedCommitment)
 import           Pos.Lrc.Types (RichmenStakes)
@@ -41,7 +42,7 @@ class (Monad m, WithLogger m) =>
     getVssCertificates :: m VssCertificatesMap
 
     -- | Retrieve all stable 'VssCertificate's for given epoch.
-    getStableCertificates :: EpochIndex -> m VssCertificatesMap
+    getStableCertificates :: BlockCount -> EpochIndex -> m VssCertificatesMap
 
     -- | Default implementations for 'MonadTrans'.
     default getCommitments :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
@@ -61,8 +62,8 @@ class (Monad m, WithLogger m) =>
     getVssCertificates = lift getVssCertificates
 
     default getStableCertificates :: (MonadTrans t, MonadTossRead m', t m' ~ m) =>
-        EpochIndex -> m VssCertificatesMap
-    getStableCertificates = lift . getStableCertificates
+        BlockCount -> EpochIndex -> m VssCertificatesMap
+    getStableCertificates k = lift . getStableCertificates k
 
 instance MonadTossRead m => MonadTossRead (ReaderT s m)
 instance MonadTossRead m => MonadTossRead (StateT s m)

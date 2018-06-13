@@ -29,8 +29,9 @@ import           Pos.Client.Txp.Network (prepareMTx)
 import           Pos.Client.Txp.Util (InputSelectionPolicy (..), computeTxFee,
                      runTxCreator)
 import           Pos.Configuration (walletTxCreationDisabled)
-import           Pos.Core (Address, Coin, HasConfiguration, TxAux (..),
-                     TxOut (..), getCurrentTimestamp)
+import           Pos.Core (Address, Coin, HasConfiguration, ProtocolConstants,
+                     SlotCount, TxAux (..), TxOut (..), getCurrentTimestamp,
+                     pcEpochSlots)
 import           Pos.Core.Txp (_txOutputs)
 import           Pos.Crypto (PassPhrase, ProtocolMagic, SafeSigner,
                      ShouldCheckPassphrase (..), checkPassMatches, hash,
@@ -62,6 +63,7 @@ import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
 newPayment
     :: MonadWalletTxFull ctx m
     => ProtocolMagic
+    -> ProtocolConstants
     -> (TxAux -> m Bool)
     -> PassPhrase
     -> AccountId
@@ -69,7 +71,7 @@ newPayment
     -> Coin
     -> InputSelectionPolicy
     -> m CTx
-newPayment pm submitTx passphrase srcAccount dstAddress coin policy =
+newPayment pm pc submitTx passphrase srcAccount dstAddress coin policy =
     -- This is done for two reasons:
     -- 1. In order not to overflow relay.
     -- 2. To let other things (e. g. block processing) happen if
@@ -77,6 +79,7 @@ newPayment pm submitTx passphrase srcAccount dstAddress coin policy =
     notFasterThan (6 :: Second) $ do
       sendMoney
           pm
+          pc
           submitTx
           passphrase
           (AccountMoneySource srcAccount)
@@ -86,15 +89,17 @@ newPayment pm submitTx passphrase srcAccount dstAddress coin policy =
 newPaymentBatch
     :: MonadWalletTxFull ctx m
     => ProtocolMagic
+    -> ProtocolConstants
     -> (TxAux -> m Bool)
     -> PassPhrase
     -> NewBatchPayment
     -> m CTx
-newPaymentBatch pm submitTx passphrase NewBatchPayment {..} = do
+newPaymentBatch pm pc submitTx passphrase NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
     notFasterThan (6 :: Second) $ do
       sendMoney
           pm
+          pc
           submitTx
           passphrase
           (AccountMoneySource src)
@@ -114,18 +119,19 @@ type MonadFees ctx m =
 getTxFee
      :: MonadFees ctx m
      => ProtocolMagic
+     -> SlotCount
      -> AccountId
      -> CId Addr
      -> Coin
      -> InputSelectionPolicy
      -> m CCoin
-getTxFee pm srcAccount dstAccount coin policy = do
+getTxFee pm epochSlots srcAccount dstAccount coin policy = do
     ws <- askWalletSnapshot
     let pendingAddrs = getPendingAddresses ws policy
     utxo <- getMoneySourceUtxo ws (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
     TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
-        eitherToThrow =<< runTxCreator policy (computeTxFee pm pendingAddrs utxo outputs)
+        eitherToThrow =<< runTxCreator policy (computeTxFee pm epochSlots pendingAddrs utxo outputs)
     pure $ encodeCType fee
 
 data MoneySource
@@ -173,13 +179,14 @@ getMoneySourceUtxo ws =
 sendMoney
     :: (MonadWalletTxFull ctx m)
     => ProtocolMagic
+    -> ProtocolConstants
     -> (TxAux -> m Bool)
     -> PassPhrase
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> InputSelectionPolicy
     -> m CTx
-sendMoney pm submitTx passphrase moneySource dstDistr policy = do
+sendMoney pm pc submitTx passphrase moneySource dstDistr policy = do
     db <- askWalletDB
     ws <- getWalletSnapshot db
     when walletTxCreationDisabled $
@@ -219,7 +226,7 @@ sendMoney pm submitTx passphrase moneySource dstDistr policy = do
     let pendingAddrs = getPendingAddresses ws policy
     th <- rewrapTxError "Cannot send transaction" $ do
         (txAux, inpTxOuts') <-
-            prepareMTx pm getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
+            prepareMTx pm (pcEpochSlots pc) getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
 
         ts <- Just <$> getCurrentTimestamp
         let tx = taTx txAux
@@ -228,9 +235,9 @@ sendMoney pm submitTx passphrase moneySource dstDistr policy = do
             dstAddrs  = map txOutAddress . toList $
                         _txOutputs tx
             th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
-        ptx <- mkPendingTx ws srcWallet txHash txAux th
+        ptx <- mkPendingTx pc ws srcWallet txHash txAux th
 
-        th <$ submitAndSaveNewPtx pm db submitTx ptx
+        th <$ submitAndSaveNewPtx pm pc db submitTx ptx
 
     -- We add TxHistoryEntry's meta created by us in advance
     -- to make TxHistoryEntry in CTx consistent with entry in history.

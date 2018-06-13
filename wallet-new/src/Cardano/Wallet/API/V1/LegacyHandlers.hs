@@ -10,6 +10,7 @@ module Cardano.Wallet.API.V1.LegacyHandlers where
 import           Universum
 
 import           Ntp.Client (NtpStatus)
+import           Pos.Core (ProtocolConstants, pcBlkSecurityParam)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Infra.Diffusion.Types (Diffusion (sendTx))
 
@@ -41,13 +42,14 @@ handlers :: ( HasConfigurations
             )
             => (forall a. MonadV1 a -> Handler a)
             -> ProtocolMagic
+            -> ProtocolConstants
             -> Diffusion MonadV1
             -> TVar NtpStatus
             -> Server V1.API
-handlers naturalTransformation pm diffusion ntpStatus =
+handlers naturalTransformation pm pc diffusion ntpStatus =
          hoistServer (Proxy @Addresses.API) naturalTransformation Addresses.handlers
-    :<|> hoistServer (Proxy @Wallets.API) naturalTransformation Wallets.handlers
+    :<|> hoistServer (Proxy @Wallets.API) naturalTransformation (Wallets.handlers $ pcBlkSecurityParam pc)
     :<|> hoistServer (Proxy @Accounts.API) naturalTransformation Accounts.handlers
-    :<|> hoistServer (Proxy @Transactions.API) naturalTransformation (Transactions.handlers pm (sendTx diffusion))
+    :<|> hoistServer (Proxy @Transactions.API) naturalTransformation (Transactions.handlers pm pc (sendTx diffusion))
     :<|> hoistServer (Proxy @Settings.API) naturalTransformation Settings.handlers
     :<|> hoistServer (Proxy @Info.API) naturalTransformation (Info.handlers diffusion ntpStatus)

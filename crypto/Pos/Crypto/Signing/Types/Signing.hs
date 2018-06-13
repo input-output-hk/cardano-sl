@@ -44,22 +44,6 @@ import           Pos.Binary.Class (Bi)
 import           Pos.Crypto.Hashing (hash)
 
 ----------------------------------------------------------------------------
--- Orphan instances
-----------------------------------------------------------------------------
-
-instance Eq CC.XPub where
-    a == b = CC.unXPub a == CC.unXPub b
-
-instance Ord CC.XPub where
-    compare = comparing CC.unXPub
-
-instance Show CC.XPub where
-    show = show . CC.unXPub
-
-instance Hashable CC.XPub where
-    hashWithSalt n = Hashable.hashWithSalt n . CC.unXPub
-
-----------------------------------------------------------------------------
 -- Keys, key generation & printing & decoding
 ----------------------------------------------------------------------------
 

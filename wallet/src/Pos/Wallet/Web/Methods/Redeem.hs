@@ -17,7 +17,7 @@ import           Pos.Client.Txp.Network (prepareRedemptionTx)
 import           Pos.Core (TxAux (..), TxOut (..), getCurrentTimestamp)
 import           Pos.Crypto (PassPhrase, aesDecrypt, hash, redeemDeterministicKeyGen)
 import           Pos.Util (maybeThrow)
-import           Pos.Util.Mnemonic (mnemonicToAESKey)
+import           Pos.Util.Mnemonic (mnemonicToAesKey)
 import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountId (..), CAddress (..),
                                              CPaperVendWalletRedeem (..), CTx (..),
@@ -55,7 +55,7 @@ redeemAdaPaperVend
 redeemAdaPaperVend submitTx passphrase CPaperVendWalletRedeem {..} = do
     seedEncBs <- maybe invalidBase58 pure
         $ decodeBase58 bitcoinAlphabet $ encodeUtf8 pvSeed
-    let aesKey = mnemonicToAESKey pvBackupPhrase
+    let aesKey = mnemonicToAesKey pvBackupPhrase
     seedDecBs <- either decryptionFailed pure
         $ aesDecrypt seedEncBs aesKey
     redeemAdaInternal submitTx passphrase pvWalletId seedDecBs

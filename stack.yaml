@@ -88,7 +88,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 287cc575fafe86af9d24af9d012c47f9d3f04da0
+    commit: 33c7ecc6e4bd71c3ea0195e9d796eeace7be22cf
   extra-dep: true
 - location:
     git: https://github.com/haskell-crypto/cryptonite

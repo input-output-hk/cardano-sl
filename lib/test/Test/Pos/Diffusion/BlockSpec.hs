@@ -19,11 +19,10 @@ import           Test.Hspec (Spec, describe, it, shouldBe)
 import           Data.Bits
 import           Data.List.NonEmpty (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty as NE
-import           Data.Time.Units (Microsecond)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Network.Broadcast.OutboundQueue.Types as OQ
-import           Network.Transport (Transport)
-import qualified Network.Transport.TCP as TCP
+import           Network.Transport (Transport, closeTransport)
+import qualified Network.Transport.InMemory as InMemory
 import           Node (NodeId)
 import qualified Node
 import           Pipes (each)
@@ -38,7 +37,6 @@ import           Pos.DB.Class (SerializedBlock, Serialized (..))
 import           Pos.Diffusion.Full (FullDiffusionConfiguration (..), FullDiffusionInternals (..),
                                      RunFullDiffusionInternals (..),
                                      diffusionLayerFullExposeInternals)
-import qualified Pos.Infra.Diffusion.Transport.TCP as Diffusion (bracketTransportTCP)
 import           Pos.Infra.Diffusion.Types as Diffusion (Diffusion (..), StreamEntry (..))
 import           Pos.Logic.Pure (pureLogic)
 import           Pos.Logic.Types as Logic (Logic (..))
@@ -47,7 +45,7 @@ import           Pos.Infra.Network.Types (Bucket (..))
 import           Pos.Infra.Reporting.Health.Types (HealthStatus (..))
 
 import           Pos.Core.Chrono (NewestFirst (..), OldestFirst (..))
-import           Pos.Util.Trace (noTrace, wlogTrace)
+import           Pos.Util.Trace (wlogTrace)
 import           Test.Pos.Block.Arbitrary.Generate (generateMainBlock)
 
 -- HLint warning disabled since I ran into https://ghc.haskell.org/trac/ghc/ticket/13106
@@ -81,21 +79,8 @@ someHash' x r =
         x' = x `shiftR` 8 in
     someHash' x' (v:r)
 
--- | Grab a TCP transport at 127.0.0.1:0 with 15s timeout.
--- Uses the stock parameters from 'Pos.Diffusion.Transport.bracketTransportTCP'
--- which are also used in production (fair QDisc etc.).
 withTransport :: (Transport -> IO t) -> IO t
-withTransport k =
-    Diffusion.bracketTransportTCP noTrace connectionTimeout tcpAddr k
-  where
-    connectionTimeout :: Microsecond
-    connectionTimeout = 15000000
-    tcpAddr :: TCP.TCPAddr
-    tcpAddr = TCP.Addressable $ TCP.TCPAddrInfo
-        { TCP.tcpBindHost = "127.0.0.1"
-        , TCP.tcpBindPort = "0"
-        , TCP.tcpExternalAddress = (,) "127.0.0.1"
-        }
+withTransport k = bracket InMemory.createTransport closeTransport k
 
 serverLogic
     :: IORef [Block] -- ^ For streaming, so we can control how many are given.
@@ -116,9 +101,7 @@ serverLogic streamIORef arbitraryBlock arbitraryHashes arbitraryHeaders = pureLo
     }
 
 serializedBlock :: Block -> SerializedBlock
-serializedBlock (Right b) = Serialized $ serialize' b
-serializedBlock (Left  _) = error "*sigh*"
-
+serializedBlock = Serialized . serialize'
 
 -- Modify a pure logic layer so that the LCA computation (suffix not in the
 -- chain) always gives the entire thing. This makes the batch block requester

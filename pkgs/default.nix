@@ -14667,6 +14667,7 @@ license = stdenv.lib.licenses.bsd3;
 , neat-interpolation
 , network
 , network-transport
+, network-transport-inmemory
 , network-transport-tcp
 , optparse-applicative
 , parsec
@@ -14849,6 +14850,7 @@ hspec
 lens
 mtl
 network-transport
+network-transport-inmemory
 network-transport-tcp
 pipes
 pvss

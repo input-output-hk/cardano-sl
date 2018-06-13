@@ -337,6 +337,7 @@ test-suite cardano-test
                      , mtl
                      , network-transport
                      , network-transport-tcp
+                     , network-transport-inmemory
                      , pipes
                      , pvss
                      , random

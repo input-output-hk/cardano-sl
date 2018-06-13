@@ -6,6 +6,7 @@
 
 module Pos.Binary.Communication
     ( serializeMsgSerializedBlock
+    , serializeMsgStreamBlock
     ) where
 
 import           Universum
@@ -18,7 +19,7 @@ import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCb
                                    decodeUnknownCborDataItem, deriveSimpleBi,
                                    encodeKnownCborDataItem, encodeListLen,
                                    encodeUnknownCborDataItem, enforceSize,
-                                   serialize')
+                                   serialize, serialize')
 import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Network (MsgBlock (..), MsgSerializedBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
@@ -82,6 +83,10 @@ instance Bi MsgBlock where
 serializeMsgSerializedBlock :: MsgSerializedBlock -> BS.ByteString
 serializeMsgSerializedBlock (MsgSerializedBlock b) = "\x82\x0" <> unSerialized b
 serializeMsgSerializedBlock (MsgNoSerializedBlock t) = serialize' (MsgNoBlock t)
+
+serializeMsgStreamBlock :: MsgSerializedBlock -> LBS.ByteString
+serializeMsgStreamBlock (MsgSerializedBlock b)   = "\x82\x0" <> LBS.fromStrict (unSerialized b)
+serializeMsgStreamBlock (MsgNoSerializedBlock t) = serialize (MsgStreamNoBlock t)
 
 deriveSimpleBi ''MsgStreamStart [
     Cons 'MsgStreamStart [

@@ -13,7 +13,6 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Gen, Property, Testable, arbitrary, choose, counterexample,
                                   elements, forAll, generate, listOf, listOf1, oneof, property)
 
-import           Pos.Arbitrary.Delegation (genDlgPayload)
 import           Pos.Arbitrary.Ssc (commitmentMapEpochGen, vssCertificateEpochGen)
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
@@ -33,6 +32,7 @@ import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfiguration, withDefUpdateConfiguration)
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
+import           Test.Pos.Delegation.Arbitrary (genDlgPayload)
 import           Test.Pos.Txp.Arbitrary (GoodTx, goodTxToTxAux)
 import           Test.Pos.Util.QuickCheck (SmallGenerator (..), makeSmall)
 

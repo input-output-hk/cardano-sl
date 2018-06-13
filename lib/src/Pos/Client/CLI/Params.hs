@@ -12,7 +12,6 @@ import           Universum
 
 import           Data.Default (def)
 import qualified Data.Yaml as Yaml
---import           System.Wlog (LoggerName, WithLogger)
 
 import           Pos.Behavior (BehaviorConfig (..))
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))

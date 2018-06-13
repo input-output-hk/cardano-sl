@@ -10,7 +10,6 @@ module Pos.Client.Update.Network
 import           Universum
 
 import           Formatting (sformat, (%))
-import           System.Wlog (logInfo)
 
 import           Pos.Communication.Message ()
 import           Pos.Core (protocolMagic)
@@ -18,6 +17,7 @@ import           Pos.Crypto (SafeSigner, hash, hashHexF)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (sendUpdateProposal, sendVote))
 import           Pos.Update (UpId, UpdateProposal, UpdateVote (..), mkUpdateVoteSafe)
+import           Pos.Util.Log (logInfo)
 import           Pos.WorkMode.Class (MinWorkMode)
 
 -- | Send UpdateVote to given addresses
@@ -29,7 +29,7 @@ submitVote diffusion = Diffusion.sendVote diffusion
 
 -- | Send UpdateProposal with one positive vote to given addresses
 submitUpdateProposal
-    :: (MinWorkMode m)
+    :: MinWorkMode m
     => Diffusion m
     -> [SafeSigner]
     -> UpdateProposal
@@ -41,7 +41,7 @@ submitUpdateProposal diffusion ss prop = do
 
 -- Send UpdateProposal to given address.
 sendUpdateProposal
-    :: (MinWorkMode m)
+    :: MinWorkMode m
     => Diffusion m
     -> UpId
     -> UpdateProposal

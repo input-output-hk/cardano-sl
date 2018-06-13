@@ -13,7 +13,6 @@ import           Universum
 
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default (Default (def))
-import           Pos.Util.Log (WithLogger, modifyLoggerName)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Core (ApplicationName, BlockVersion, ComponentBlock (..), HasCoreConfiguration,
@@ -37,6 +36,7 @@ import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState, DBP
                                   rollbackUS, runDBPoll, runPollT, verifyAndApplyUSPayload)
 import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
+import           Pos.Util.Log (WithLogger, modifyLoggerName)
 import qualified Pos.Util.Modifier as MM
 
 ----------------------------------------------------------------------------
@@ -50,8 +50,8 @@ type UpdateBlock = ComponentBlock UpdatePayload
 ----------------------------------------------------------------------------
 
 type USGlobalVerifyMode ctx m =
-    ( WithLogger m
-    , MonadIO m
+    ( --WithLogger m
+      MonadIO m
     , MonadReader ctx m
     , HasLrcContext ctx
     , HasUpdateConfiguration
@@ -90,6 +90,7 @@ withUSLogger = modifyLoggerName (<> "us")
 usApplyBlocks
     :: ( MonadThrow m
        , USGlobalApplyMode ctx m
+       , WithLogger m
        )
     => OldestFirst NE UpdateBlock
     -> Maybe PollModifier
@@ -109,6 +110,7 @@ usApplyBlocks blocks modifierMaybe =
                 whenLeft verdict $ \v -> onFailure v
             return modifier
   where
+    onFailure :: (WithLogger m', MonadThrow m') => PollVerFailure -> m' a
     onFailure failure = do
         let msg = "usVerifyBlocks failed in 'apply': " <> pretty failure
         reportFatalError msg
@@ -117,12 +119,14 @@ usApplyBlocks blocks modifierMaybe =
 -- data. The caller must ensure that the tip stored in DB is 'headerHash' of
 -- head.
 usRollbackBlocks
-    :: USGlobalApplyMode ctx m
+    :: ( USGlobalApplyMode ctx m
+       , WithLogger m
+       )
     => NewestFirst NE (UpdateBlock, USUndo) -> m [DB.SomeBatchOp]
 usRollbackBlocks blunds =
     withUSLogger $
     processModifier =<<
-    (runDBPoll . execPollT def $ mapM_ (rollbackUS . snd) blunds)
+        (runDBPoll . execPollT def $ mapM_ (rollbackUS . snd) blunds)
 
 -- This function takes a 'PollModifier' corresponding to a sequence of
 -- blocks, updates in-memory slotting data and converts this modifier
@@ -154,6 +158,7 @@ usVerifyBlocks ::
        , DB.MonadDBRead m
        , MonadUnliftIO m
        , MonadReporting m
+       , WithLogger m
        )
     => Bool
     -> OldestFirst NE UpdateBlock
@@ -174,8 +179,14 @@ usVerifyBlocks verifyAllIsKnown blocks =
     processRes (Left failure, _)       = Left failure
     processRes (Right undos, modifier) = Right (modifier, undos)
 
-verifyBlock
-    :: (USGlobalVerifyMode ctx m, MonadPoll m, MonadError PollVerFailure m, HasProtocolMagic, HasProtocolConstants)
+verifyBlock ::
+    ( USGlobalVerifyMode ctx m
+    , MonadPoll m
+    , MonadError PollVerFailure m
+    , HasProtocolMagic
+    , HasProtocolConstants
+    , WithLogger m
+    )
     => BlockVersion -> Bool -> UpdateBlock -> m USUndo
 verifyBlock _ _ (ComponentBlockGenesis genBlk) =
     execRollT $ processGenesisBlock (genBlk ^. epochIndexL)
@@ -200,12 +211,12 @@ verifyBlock lastAdopted verifyAllIsKnown (ComponentBlockMain header payload) =
 -- | Checks whether our software can create block according to current
 -- global state.
 usCanCreateBlock ::
-       ( WithLogger m
-       , MonadUnliftIO m
+       ( MonadUnliftIO m
        , DB.MonadDBRead m
        , MonadReader ctx m
        , HasLrcContext ctx
        , HasUpdateConfiguration
+       , WithLogger m
        )
     => m Bool
 usCanCreateBlock =

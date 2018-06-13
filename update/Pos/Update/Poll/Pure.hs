@@ -2,9 +2,9 @@
 
 module Pos.Update.Poll.Pure
        ( PurePoll (..)
-       --, evalPurePollWithLogger
+       --, evalPurePollWithLogger   -- not used
        , execPurePollWithLogger
-       --, runPurePollWithLogger
+       --, runPurePollWithLogger    -- not used
        ) where
 
 import           Universum
@@ -12,9 +12,6 @@ import           Universum
 import           Control.Lens (at, mapped, to, uses, (%=), (.=))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
---import           Pos.Util.Log (CanLog, HasLoggerName (..), LogEvent, NamedPureLogger, logDebug,
---                               logWarning, runNamedPureLog)
-import qualified Pos.Util.Log as Log
 
 import           Pos.Core (SoftwareVersion (..))
 import           Pos.Core.Update (UpdateProposal (..))
@@ -25,15 +22,18 @@ import qualified Pos.Update.Poll.PollState as Poll
 import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalState (..),
                                         UndecidedProposalState (..), cpsSoftwareVersion,
                                         propStateToEither, psProposal)
+--import qualified Pos.Util.Log as Log
+--import           Pos.Util.Trace (TraceIO, traceWith, logDebug, logWarning)
+
 
 newtype PurePoll a = PurePoll
-    { getPurePoll :: StateT Poll.PollState (NamedPureLogger Identity) a
-    } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName, MonadState Poll.PollState)
+    { getPurePoll :: StateT Poll.PollState Identity a
+    } deriving (Functor, Applicative, Monad, MonadState Poll.PollState)
 
-runPurePollWithLogger :: Poll.PollState -> PurePoll a -> (a, Poll.PollState, [LogEvent])
+runPurePollWithLogger :: Poll.PollState -> PurePoll a -> (a, Poll.PollState)
 runPurePollWithLogger ps pp =
     let innerMonad = usingStateT ps . getPurePoll $ pp
-    in  (\((a, finalState), logs) -> (a, finalState, logs)) . runIdentity . {-runNamedPureLog-}Log.usingLoggerName $ innerMonad
+    in  (\((a, finalState){-, logs-}) -> (a, finalState{-, logs-})) . runIdentity $ innerMonad
 
 {-
 evalPurePollWithLogger :: Poll.PollState -> PurePoll a -> a
@@ -59,15 +59,15 @@ instance MonadPollRead PurePoll where
         propGetByApp appHashmap upIdHashmap =
             case HM.lookup an appHashmap of
                 Nothing -> do
-                    logDebug $
-                        "getProposalsByApp: unknown application name " <> pretty an
+                    {-liftIO $ traceWith (logDebug trace) $
+                        "getProposalsByApp: unknown application name " <> pretty an-}
                     pure []
                 Just hashset -> do
                     let uidList = toList hashset
                         propStateList = map (\u -> (u, HM.lookup u upIdHashmap)) uidList
                     fromMaybe [] . traverse snd <$> filterM filterFun propStateList
-        filterFun (uid, Nothing) = do
-            logWarning $ "getProposalsByApp: unknown update id " <> pretty uid
+        filterFun ({-uid-}_, Nothing) = do
+            {-liftIO $ traceWith (logWarning trace) $ "getProposalsByApp: unknown update id " <> pretty uid-}
             pure False
         filterFun (_, Just _) = pure True
     getConfirmedProposals = PurePoll $ use $ Poll.psConfirmedProposals . to HM.elems
@@ -97,8 +97,9 @@ instance MonadPoll PurePoll where
         bvs <- getBVState bv
         case bvs of
             Nothing ->
-                logWarning $
-                    "setAdoptedBV: unknown version " <> pretty bv -- can't happen actually
+                return ()
+                --Log.logWarning $
+                --    "setAdoptedBV: unknown version " <> pretty bv -- can't happen actually
             Just (bvsModifier -> bvm) -> PurePoll $ do
                 Poll.psAdoptedBV . _1 .= bv
                 Poll.psAdoptedBV . _2 %= applyBVM bvm

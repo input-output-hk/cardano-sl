@@ -18,7 +18,6 @@ import           Control.Monad.State (MonadState (..))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Ether
-import           Pos.Util.Log (logWarning)
 
 import           Pos.Binary.Update ()
 import           Pos.Core (SoftwareVersion (..), addressHash)
@@ -33,6 +32,7 @@ import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalS
                                         ProposalState (..), UndecidedProposalState (..),
                                         bvsIsConfirmed, cpsSoftwareVersion, psProposal)
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Log (WithLogger, logWarning)
 import           Pos.Util.Util (ether)
 
 ----------------------------------------------------------------------------
@@ -121,7 +121,7 @@ instance (MonadPollRead m) =>
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
-instance (MonadPollRead m) =>
+instance (MonadPollRead m, WithLogger m) =>
          MonadPoll (PollT m) where
     putBVState bv st = ether $ pmBVsL %= MM.insert bv st
     delBVState bv = ether $ pmBVsL %= MM.delete bv

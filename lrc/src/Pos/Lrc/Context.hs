@@ -35,7 +35,7 @@ type HasLrcContext ctx = HasLens' ctx LrcContext
 -- | Create a new 'LrcContext' with the same contents as the given
 -- context has.
 cloneLrcContext ::
-       (WithLogger m, MonadIO m, MonadThrow m) => LrcContext -> m LrcContext
+       (WithLogger m, MonadThrow m) => LrcContext -> m LrcContext
 cloneLrcContext LrcContext {..} = do
     readTVarIO lcLrcSync >>= \case
         lsd@LrcSyncData {..}

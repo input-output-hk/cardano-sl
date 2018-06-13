@@ -1,31 +1,33 @@
 
 module Pos.Util.Log
-       ( Severity(..)
+       (
+       -- * Logging
+         Severity(..)
        , LogContext
        , LogContextT
-       ---
+       -- * Compatibility
        , CanLog(..)
        , HasLoggerName(..)
        , WithLogger
        , LoggerNameBox(..)
-       ---
+       -- * Configuration
        , LoggerConfig(..)
        , loadLogConfig
        , parseLoggerConfig
        , retrieveLogFiles
        , setLogBasePath
-       ---
+       -- * Startup
        , setupLogging
        , loggerBracket
-       ---
+       -- * Functions
        , logDebug
        , logInfo
        , logNotice
        , logWarning
        , logError
        , logMessage
-       ---
-       , LoggerName 
+       -- * Naming/Context
+       , LoggerName
        , addLoggerName
        , usingLoggerName
        ) where
@@ -125,31 +127,20 @@ logError msg = K.logItemM Nothing K.ErrorS $ K.logStr msg
 
 
 -- | get current stack of logger names
-askLoggerName0 :: (LogContext m) => m LoggerName
+askLoggerName0 :: LogContext m => m LoggerName
 askLoggerName0 = do
     ns <- K.getKatipNamespace
     return $ toStrict $ toLazyText $ mconcat $ map fromText $ KC.intercalateNs ns
 
 -- | push a local name
-addLoggerName :: (LogContext m) => LoggerName -> m a -> m a
+addLoggerName :: LogContext m => LoggerName -> m a -> m a
 addLoggerName t f =
     K.katipAddNamespace (KC.Namespace [t]) $ f
-
--- | WIP -- do not use
--- type NamedPureLogger m a = LogContextT m a
-{-
-newtype NamedPureLogger m a = NamedPureLogger
-    { runNamedPureLogger :: LogContextT m a }
-    deriving (Functor, Applicative, Monad,
-              MonadThrow, LogContext)
--}
---instance (MonadIO m) => KC.Katip (NamedPureLogger m)
 
 -- | setup logging according to configuration
 --   the backends (scribes) need to be registered with the @LogEnv@
 setupLogging :: LoggerConfig -> IO ()
 setupLogging lc = do
-
     scribes <- meta lc
     Internal.setConfig scribes lc
       where
@@ -228,30 +219,18 @@ setLogBasePath fp = do
               Just cfg -> Internal.updateConfig cfg{ _lcBasePath = Just fp}
 
 
--- | WIP: tests to run interactively in GHCi
+-- |
+-- * interactive tests
 --
-{-
-test1 :: IO ()
-test1 = do
-    loggerBracket Info "testtest" $ do
-        logInfo "This is a message"
+-- >>> setupLogging $ defaultInteractiveConfiguration Info
+-- >>> loggerBracket "testtest" $ do { logInfo "This is a message" }
+--
+-- >>> setupLogging $ defaultInteractiveConfiguration Info
+-- >>> loggerBracket "testtest" $ do { logDebug "You won't see this message" }
+--
+-- >>> setupLogging $ defaultInteractiveConfiguration Info
+-- >>> loggerBracket "testtest" $ do { logWarning "Attention!"; addLoggerName "levelUp" $ do { logError "..now it happened" } }
+--
+-- >>> setupLogging $ defaultInteractiveConfiguration Info
+-- >>> usingLoggerName "testmore" $ do { logInfo "hello..." }
 
-test2 :: IO ()
-test2 = do
-    loggerBracket Info "testtest" $ do
-        logDebug "This is a DEBUG message"
-
-test3 :: IO ()
-test3 = do
-    loggerBracket Info "testtest" $ do
-        logWarning "This is a warning!"
-        addLoggerName "onTop" $ do
-            ns <- askLoggerName
-            logWarning "This is a last warning!"
-            putStrLn $ "loggerName = " ++ (unpack ns)
-
-test4 :: IO ()
-test4 = do
-    usingLoggerName Info "testtest" $ do
-        logWarning "This is a warning!"
--}

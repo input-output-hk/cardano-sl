@@ -27,7 +27,6 @@ import           Universum
 import qualified Control.Concurrent.STM as STM
 import           Control.Lens ((<%=), (<>~))
 import           Serokell.Util (modifyTVarS)
---import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Crypto ()
 import           Pos.Crypto (EncryptedSecretKey, PassPhrase, SecretKey, hash, runSecureRandom,

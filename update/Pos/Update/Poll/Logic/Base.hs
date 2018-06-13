@@ -35,8 +35,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Set as S
 import           Data.Tagged (Tagged, untag)
 import           Data.Time.Units (convertUnit)
-import           Formatting (build, int, sformat, (%))
-import           Pos.Util.Log (WithLogger, logDebug, logNotice)
+import           Formatting ({-build,-} int, sformat, (%))
 
 import           Pos.Binary.Update ()
 import           Pos.Core (BlockVersion (..), Coin, EpochIndex, HeaderHash, HasProtocolConstants,
@@ -46,7 +45,7 @@ import           Pos.Core (BlockVersion (..), Coin, EpochIndex, HeaderHash, HasP
                            sumCoins, unsafeAddCoin, unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Update (BlockVersionData (..), BlockVersionModifier (..), UpId,
                                   UpdateProposal (..), UpdateVote (..))
-import           Pos.Crypto (PublicKey, hash, shortHashF)
+import           Pos.Crypto (PublicKey, hash, {-shortHashF-})
 import           Pos.Infra.Slotting.Types (EpochSlottingData (..),
                                            SlottingData, addEpochSlottingData,
                                            getCurrentEpochIndex,
@@ -58,6 +57,8 @@ import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposa
                                         ProposalState (..), UndecidedProposalState (..),
                                         UpsExtra (..), bvsIsConfirmed, combineVotes,
                                         cpsBlockVersion, isPositiveVote, newVoteState)
+--import           Pos.Util.Log (WithLogger, logDebug, logNotice)
+--import           Pos.Util.Trace (TraceIO, traceWith, logDebug, logNotice)
 
 
 
@@ -183,13 +184,13 @@ adoptBlockVersion
     => HeaderHash -> BlockVersion -> m ()
 adoptBlockVersion winningBlk bv = do
     setAdoptedBV bv
-    logNotice $ sformat logFmt bv winningBlk
+    -- TODO: logNotice $ sformat logFmt bv winningBlk
     mapM_ processConfirmed =<< getConfirmedProposals
   where
     processConfirmed cps
         | cpsBlockVersion cps /= bv = pass
         | otherwise = addConfirmedProposal cps {cpsAdopted = Just winningBlk}
-    logFmt = "BlockVersion is adopted: "%build%"; winning block was "%shortHashF
+    --logFmt = "BlockVersion is adopted: "%build%"; winning block was "%shortHashF
 
 -- | Update slotting data stored in poll. First argument is epoch for
 -- which currently adopted 'BlockVersion' can be applied. Here we update the
@@ -368,7 +369,7 @@ isDecided (TotalPositive totalPositive) (TotalNegative totalNegative) (TotalSum 
 -- | Apply vote to UndecidedProposalState, thus modifing mutable data,
 -- i. e. votes and stakes.
 voteToUProposalState
-    :: (MonadError PollVerFailure m, WithLogger m)
+    :: (MonadError PollVerFailure m)
     => PublicKey
     -> Coin
     -> Bool
@@ -381,12 +382,12 @@ voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
     let oldPositive = maybe False isPositiveVote oldVote
     let oldNegative = maybe False (not . isPositiveVote) oldVote
     let combinedMaybe = decision `combineVotes` oldVote
-    logDebug $ sformat (
+{-TODO    logDebug $ sformat (
         "New vote: upId = "%build%",\
         \voter = "%build%",\
         \vote = "%build%",\
         \voter stake = "%build)
-        upId voter combinedMaybe stake
+        upId voter combinedMaybe stake -}
     combined <-
         note
             (PollExtraRevote
@@ -412,11 +413,11 @@ voteToUProposalState voter stake decision ups@UndecidedProposalState {..} = do
             | otherwise = negStakeAfterRemove `unsafeAddCoin` stake
     -- We add a new vote with update state to set of votes.
     let newVotes = HM.insert voter combined upsVotes
-    logDebug $
+{-TODO    logDebug $
         sformat ("Stakes of proposal "%build%" after vote: \
                  \positive "%build%",\
                  \negative: "%build)
-                upId posStakeFinal negStakeFinal
+                upId posStakeFinal negStakeFinal -}
     return
         ups
         { upsVotes = newVotes

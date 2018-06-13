@@ -18,8 +18,6 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Yaml as Yaml
 import           Formatting (sformat, shown, (%))
 import           Mockable (CurrentTime, Mockable, currentTime)
-import           System.Wlog (LoggerConfig (..), WithLogger, logInfo, parseLoggerConfig,
-                              productionB)
 import           Text.Parsec (parserFail, try)
 import qualified Text.Parsec.Char as P
 import qualified Text.Parsec.Text as P
@@ -43,6 +41,10 @@ import           Pos.Ssc.Configuration (sscConfiguration)
 import           Pos.Txp.Configuration (txpConfiguration)
 import           Pos.Update.Configuration (updateConfiguration)
 import           Pos.Util.AssertMode (inAssertMode)
+import           Pos.Util.Log (WithLogger, logInfo)
+import           Pos.Util.LoggerConfig (LoggerConfig (..), parseLoggerConfig)
+
+
 
 printFlags :: WithLogger m => m ()
 printFlags = do
@@ -84,7 +86,8 @@ attackTargetParser =
 -- | Default logger config. Will be used if `--log-config` argument is
 -- not passed.
 defaultLoggerConfig :: LoggerConfig
-defaultLoggerConfig = productionB
+defaultLoggerConfig = --productionB
+    mempty :: LoggerConfig
 
 -- | Reads logger config from given path. By default returns
 -- 'defaultLoggerConfig'.

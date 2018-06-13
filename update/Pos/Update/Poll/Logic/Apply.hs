@@ -11,7 +11,6 @@ import qualified Data.HashSet as HS
 import           Data.List (partition)
 import qualified Data.List.NonEmpty as NE
 import           Formatting (build, builder, int, sformat, (%))
-import           Pos.Util.Log (logDebug, logInfo, logNotice)
 import           Universum
 
 import           Pos.Binary.Class (biSize)
@@ -36,6 +35,7 @@ import           Pos.Update.Poll.Logic.Version (verifyAndApplyProposalBVS, verif
 import           Pos.Update.Poll.Types (ConfirmedProposalState (..), DecidedProposalState (..),
                                         DpsExtra (..), ProposalState (..),
                                         UndecidedProposalState (..), UpsExtra (..), psProposal)
+import           Pos.Util.Log (WithLogger, logDebug, logInfo, logNotice)
 import           Pos.Util.Some (Some (..))
 
 type ApplyMode m =
@@ -58,7 +58,7 @@ type ApplyMode m =
 -- given header is applied and in this case threshold for update proposal is
 -- checked.
 verifyAndApplyUSPayload ::
-       (ApplyMode m, HasProtocolConstants, HasProtocolMagic)
+       (ApplyMode m, HasProtocolConstants, HasProtocolMagic, WithLogger m)
     => BlockVersion
     -> Bool
     -> Either SlotId (Some IsMainHeader)
@@ -151,7 +151,7 @@ resolveVoteStake epoch totalStake vote = do
 -- If all checks pass, proposal is added. It can be in undecided or decided
 -- state (if it has enough voted stake at once).
 verifyAndApplyProposal
-    :: (MonadError PollVerFailure m, MonadPoll m)
+    :: (MonadError PollVerFailure m, MonadPoll m, WithLogger m)
     => Bool
     -> Either SlotId (Some IsMainHeader)
     -> [UpdateVote]
@@ -203,7 +203,7 @@ verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
 -- Here we check that proposal has at least 'bvdUpdateProposalThd' stake of
 -- total stake in all positive votes for it.
 verifyProposalStake
-    :: (MonadPollRead m, MonadError PollVerFailure m)
+    :: (MonadPollRead m, MonadError PollVerFailure m, WithLogger m)
     => Coin -> [(UpdateVote, Coin)] -> UpId -> m ()
 verifyProposalStake totalStake votesAndStakes upId = do
     thresholdPortion <- bvdUpdateProposalThd <$> getAdoptedBVData
@@ -281,7 +281,7 @@ verifyAndApplyVoteDo cd ups vote = do
 -- If proposal's total positive stake is bigger than negative, it's
 -- approved. Otherwise it's rejected.
 applyImplicitAgreement
-    :: (MonadPoll m, HasProtocolConstants)
+    :: (MonadPoll m, HasProtocolConstants, WithLogger m)
     => SlotId -> ChainDifficulty -> HeaderHash -> m ()
 applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
     BlockVersionData {..} <- getAdoptedBVData
@@ -312,7 +312,7 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
 -- confirmed or discarded (approved become confirmed, rejected become
 -- discarded).
 applyDepthCheck
-    :: forall m . (ApplyMode m, HasProtocolConstants)
+    :: forall m . (ApplyMode m, HasProtocolConstants, WithLogger m)
     => EpochIndex -> HeaderHash -> ChainDifficulty -> m ()
 applyDepthCheck epoch hh (ChainDifficulty cd)
     | cd <= blkSecurityParam = pass

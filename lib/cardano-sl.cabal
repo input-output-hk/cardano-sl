@@ -170,7 +170,7 @@ library
                       , hashable
                       , hspec
                       , lens
-                      , log-warper >= 1.1.1
+                      --, log-warper >= 1.1.1
                       , mmorph
                       , monad-control
                       , mtl

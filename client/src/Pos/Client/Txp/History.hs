@@ -36,7 +36,6 @@ import           Formatting (bprint, build, (%))
 import           JsonLog (CanJsonLog (..))
 import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util.Text (listJson)
-import           System.Wlog (WithLogger)
 
 import           Pos.Block.Base (genesisBlock0)
 import           Pos.Core (Address, ChainDifficulty, HasConfiguration, Timestamp (..), difficultyL,
@@ -59,6 +58,7 @@ import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure
                           txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet, utxoToLookup,
                           withTxpLocalData)
 import           Pos.Util (eitherToThrow, maybeThrow)
+import           Pos.Util.Log (WithLogger)
 import           Pos.Util.Util (HasLens')
 
 ----------------------------------------------------------------------

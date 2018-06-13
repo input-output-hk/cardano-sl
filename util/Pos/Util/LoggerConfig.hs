@@ -8,6 +8,7 @@ module Pos.Util.LoggerConfig
        , LoggerTree (..)
        , BackendKind (..)
        , defaultTestConfiguration
+       , defaultInteractiveConfiguration
        -- * access
        , lcLoggerTree
        , lcRotation
@@ -114,7 +115,7 @@ instance Monoid LoggerTree where
                    , _ltHandlers = [LogHandler { _lhName="node", _lhFpath=Just "node.log"
                                                , _lhBackend=FileTextBE, _lhMinSeverity=Just Debug}]
                    }
-        -- ^ default value
+        --  default values
     mappend = (<>)
 
 makeLenses ''LoggerTree
@@ -143,7 +144,7 @@ instance Monoid LoggerConfig where
                      , _lcLoggerTree = mempty
                      , _lcBasePath = Nothing
                      }
-        -- ^ default value
+        --  default values
     mappend = (<>)
 
 makeLenses ''LoggerConfig
@@ -168,6 +169,23 @@ retrieveLogFiles lc =
     where
         lhs = lc ^. lcLoggerTree ^. ltHandlers ^.. each
 
+
+-- | @LoggerConfig@ used interactively
+-- output to console and minimum Debug severity
+defaultInteractiveConfiguration :: Severity -> LoggerConfig
+defaultInteractiveConfiguration minSeverity =
+    let _lcRotation = Nothing
+        _lcBasePath = Nothing
+        _lcLoggerTree = LoggerTree {
+            _ltMinSeverity = Debug,
+            _ltHandlers = [ LogHandler {
+                _lhBackend = StdoutBE,
+                _lhName = "console",
+                _lhFpath = Nothing,
+                _lhMinSeverity = Just minSeverity } ]
+          }
+    in
+    LoggerConfig{..}
 
 -- | @LoggerConfig@ used in testing
 -- no output and minimum Debug severity

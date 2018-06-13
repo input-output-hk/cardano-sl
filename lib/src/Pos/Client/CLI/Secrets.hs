@@ -11,7 +11,6 @@ import           Universum
 
 import           Control.Lens (ix)
 import           Crypto.Random (MonadRandom)
---import           System.Wlog (WithLogger, logInfo)
 
 import           Pos.Core (HasConfiguration, RichSecrets (..), genesisSecretsRich)
 import           Pos.Crypto (SecretKey, VssKeyPair, keyGen, runSecureRandom, vssKeyGen)

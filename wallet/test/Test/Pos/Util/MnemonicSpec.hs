@@ -19,8 +19,9 @@ import           Pos.Crypto (AesKey (..), EncryptedSecretKey, PassPhrase (..),
 import           Pos.Util.Mnemonic (Entropy, EntropySize, Mnemonic, entropyToByteString,
                                     entropyToMnemonic, mkEntropy, mkMnemonic, mnemonicToAesKey,
                                     mnemonicToEntropy, mnemonicToSeed)
+import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Web.ClientTypes.Functions (encToCId)
-import           Pos.Wallet.Web.ClientTypes.Types (CId)
+import           Pos.Wallet.Web.ClientTypes.Types (CBackupPhrase (..), CId)
 
 import qualified Cardano.Crypto.Wallet as CC
 import qualified Data.Aeson as Aeson
@@ -72,6 +73,12 @@ spec = do
         it "Mnemonic FromJSON" $
             Aeson.decode goldenMnemonicRaw `shouldBe` (pure goldenMnemonic)
 
+        it "CBackupPhrase ToJSON" $
+            Aeson.encode goldenBackupPhrase `shouldBe` goldenBackupPhraseRaw
+
+        it "CBackupPhrase FromJSON" $
+            Aeson.decode goldenBackupPhraseRaw `shouldBe` (pure goldenBackupPhrase)
+
     describe "Old and New implementation behave identically" $ do
         modifyMaxSuccess (const 1000) $ prop "entropyToESK (no passphrase)" $
             \ent -> entropyToESK mempty ent === entropyToESKOld mempty ent
@@ -112,6 +119,15 @@ spec = do
             , "burst"
             , "reveal"
             ]
+
+    -- | V0 Compat
+    goldenBackupPhraseRaw :: BL.ByteString
+    goldenBackupPhraseRaw =
+        "{\"bpToList\":" <> goldenMnemonicRaw <> "}"
+
+    goldenBackupPhrase :: CBackupPhrase 12
+    goldenBackupPhrase =
+        CBackupPhrase goldenMnemonic
 
     -- | Collect function results in a Set
     inject :: Ord b => (a -> b) -> [a] -> Set b

@@ -36,8 +36,8 @@ import           Pos.Wallet.Web.Account (GenSeed (..), genSaveRootKey, genUnique
 import           Pos.Wallet.Web.Backup (AccountMetaBackup (..), WalletBackup (..),
                                         WalletMetaBackup (..))
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountInit (..), CAccountMeta (..),
-                                             CFilePath (..), CId, CWallet (..), CWalletInit (..),
-                                             CWalletMeta (..), Wal, encToCId)
+                                             CBackupPhrase (..), CFilePath (..), CId, CWallet (..),
+                                             CWalletInit (..), CWalletMeta (..), Wal, encToCId)
 import           Pos.Wallet.Web.Error (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.State as WS
@@ -61,7 +61,7 @@ mkWallet
 mkWallet passphrase CWalletInit {..} isReady = do
     let CWalletMeta {..} = cwInitMeta
 
-    skey <- genSaveRootKey passphrase cwBackupPhrase
+    skey <- genSaveRootKey passphrase (bpToList cwBackupPhrase)
     let cAddr = encToCId skey
 
     CWallet{..} <- L.createWalletSafe cAddr cwInitMeta isReady

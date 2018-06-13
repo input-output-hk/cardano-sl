@@ -20,8 +20,8 @@ import           Pos.Util (maybeThrow)
 import           Pos.Util.Mnemonic (mnemonicToAesKey)
 import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountId (..), CAddress (..),
-                                             CPaperVendWalletRedeem (..), CTx (..),
-                                             CWalletRedeem (..))
+                                             CBackupPhrase (..), CPaperVendWalletRedeem (..),
+                                             CTx (..), CWalletRedeem (..))
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta, constructCTx,
                                                  getCurChainDifficulty)
@@ -55,7 +55,7 @@ redeemAdaPaperVend
 redeemAdaPaperVend submitTx passphrase CPaperVendWalletRedeem {..} = do
     seedEncBs <- maybe invalidBase58 pure
         $ decodeBase58 bitcoinAlphabet $ encodeUtf8 pvSeed
-    let aesKey = mnemonicToAesKey pvBackupPhrase
+    let aesKey = mnemonicToAesKey (bpToList pvBackupPhrase)
     seedDecBs <- either decryptionFailed pure
         $ aesDecrypt seedEncBs aesKey
     redeemAdaInternal submitTx passphrase pvWalletId seedDecBs

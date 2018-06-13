@@ -32,9 +32,9 @@ import           Pos.Util.Servant (decodeCType)
 import           Pos.Util.Util (lensOf)
 import           Pos.Wallet.Web.Account (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAccountInit (..),
-                                             CAccountMeta (..), CAddress (..), CId (..),
-                                             CWallet (..), CWalletAssurance (..), CWalletInit (..),
-                                             CWalletMeta (..), Wal)
+                                             CAccountMeta (..), CAddress (..), CBackupPhrase (..),
+                                             CId (..), CWallet (..), CWalletAssurance (..),
+                                             CWalletInit (..), CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Pos.Wallet.Web.Methods.Logic (getAccounts, newAccountIncludeUnready, newAddress)
 import           Pos.Wallet.Web.Methods.Restore (newWallet)
@@ -409,7 +409,7 @@ genWallet walletNum = do
           , cwAssurance = CWANormal
           , cwUnit      = 0
         }
-      , cwBackupPhrase  = backupPhrase
+      , cwBackupPhrase  = CBackupPhrase backupPhrase
       }
 
 

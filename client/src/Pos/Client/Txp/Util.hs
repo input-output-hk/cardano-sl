@@ -41,7 +41,7 @@ module Pos.Client.Txp.Util
        , TxWithSpendings
        ) where
 
-import           Universum
+import           Universum hiding (tail, keys)
 
 import           Control.Lens (makeLenses, (%=), (.=))
 import           Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
@@ -346,7 +346,7 @@ plainInputPicker (PendingAddresses pendingAddrs) utxo _outputs moneyToSpent =
         if moneyLeft == mkCoin 0
             then return inps
             else do
-            mNextOut <- head <$> use ipsAvailableOutputs
+            mNextOut <- fmap fst . uncons <$> use ipsAvailableOutputs
             case mNextOut of
                 Nothing -> throwError $ NotEnoughMoney moneyLeft
                 Just inp@(_, (TxOutAux (TxOut {..}))) -> do
@@ -407,7 +407,7 @@ groupedInputPicker utxo outputs moneyToSpent =
         if moneyLeft == mkCoin 0
             then return inps
             else do
-                mNextOutGroup <- head <$> use gipsAvailableOutputGroups
+                mNextOutGroup <- fmap fst . uncons <$> use gipsAvailableOutputGroups
                 case mNextOutGroup of
                     Nothing -> if disallowedMoney >= coinToInteger moneyLeft
                         then throwError $ NotEnoughAllowedMoney moneyLeft
@@ -557,7 +557,7 @@ createTx
     -> m (Either TxError TxWithSpendings)
 createTx pendingTx utxo ss outputs addrData =
     createGenericTxSingle pendingTx (\i o -> Right $ makePubKeyTx ss i o)
-    OptimizeForSecurity utxo outputs addrData
+    OptimizeForHighThroughput utxo outputs addrData
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx

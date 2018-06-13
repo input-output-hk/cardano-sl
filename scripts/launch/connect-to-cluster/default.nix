@@ -14,6 +14,8 @@
 , additionalNodeArgs ? ""
 , confKey ? null
 , relays ? null
+, debug ? false
+, disableClientAuth ? false
 , extraParams ? ""
 }:
 
@@ -24,6 +26,8 @@ with localLib;
 # TODO: DEVOPS-462: exchanges should use a different topology
 
 let
+  ifDebug = localLib.optionalString (debug);
+  ifDisableClientAuth = localLib.optionalString (disableClientAuth);
   environments = {
     mainnet = {
       relays = "relays.cardano-mainnet.iohk.io";
@@ -35,6 +39,7 @@ let
     };
     demo = {
       confKey = "dev";
+      relays = "127.0.0.1";
     };
     override = {
       inherit relays confKey;
@@ -59,7 +64,7 @@ let
     cp -vi ${iohkPkgs.cardano-sl.src + "/configuration.yaml"} configuration.yaml
     cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis-dryrun-with-stakeholders.json"} mainnet-genesis-dryrun-with-stakeholders.json
     cp -vi ${iohkPkgs.cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
-    cp -vi ${iohkPkgs.cardano-sl.src + "/../log-configs/connect-to-cluster.yaml"} log-config-connect-to-cluster.yaml
+    cp -vi ${iohkPkgs.srcroot + "/log-configs/connect-to-cluster.yaml"} log-config-connect-to-cluster.yaml
     cp -vi ${if topologyFile != null then topologyFile else topologyFileDefault } topology.yaml
   '';
 in pkgs.writeScript "${executable}-connect-to-${environment}" ''
@@ -68,9 +73,11 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
   if [[ "$1" == "--delete-state" ]]; then
     echo "Deleting ${stateDir} ... "
     rm -Rf ${stateDir}
+    shift
   fi
-  if [[ "$2" == "--runtime-args" ]]; then
-    RUNTIME_ARGS=$3
+  if [[ "$1" == "--runtime-args" ]]; then
+    RUNTIME_ARGS=$2
+    shift 2
   else
     RUNTIME_ARGS=""
   fi
@@ -103,6 +110,8 @@ in pkgs.writeScript "${executable}-connect-to-${environment}" ''
     --logs-prefix "${stateDir}/logs"                               \
     --db-path "${stateDir}/db"   ${extraParams}                    \
     ${ ifWallet "--wallet-db-path '${stateDir}/wallet-db'"}        \
+    ${ ifDebug "--wallet-debug"}                                   \
+    ${ ifDisableClientAuth "--no-client-auth"}                     \
     --keyfile ${stateDir}/secret.key                               \
     ${ ifWallet "--wallet-address ${walletListen}" }               \
     ${ ifWallet "--wallet-doc-address ${walletDocListen}" }        \

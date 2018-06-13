@@ -6,10 +6,9 @@ import           Universum
 
 import qualified Data.Set as Set
 
-import           Pos.Core (HasConfiguration)
-
 import qualified Cardano.Wallet.Kernel as Kernel
 import qualified Cardano.Wallet.Kernel.Diffusion as Kernel
+import           Pos.Core (Coeff (..), TxSizeLinear (..))
 
 import           Test.Infrastructure.Generator
 import           Util.Buildable.Hspec
@@ -29,7 +28,7 @@ import qualified Wallet.Basic as Base
   Compare the wallet kernel with the pure model
 -------------------------------------------------------------------------------}
 
-spec :: HasConfiguration => Spec
+spec :: Spec
 spec =
     it "Compare wallet kernel to pure model" $
       forAll (genInductiveUsingModel model) $ \ind -> do
@@ -40,10 +39,11 @@ spec =
   where
     transCtxt = runTranslateNoErrors ask
     boot      = bootstrapTransaction transCtxt
-    model     = (cardanoModel boot) {
+    model     = (cardanoModel linearFeePolicy boot) {
                     gmMaxNumOurs    = 1
                   , gmPotentialOurs = isPoorAddr
                   }
+    linearFeePolicy = TxSizeLinear (Coeff 155381) (Coeff 43.946)
 
     checkEquivalent :: forall h. Hash h Addr
                     => Kernel.ActiveWallet

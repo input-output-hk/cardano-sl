@@ -1,9 +1,11 @@
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE ViewPatterns               #-}
 
 module Ntp.Packet
     ( NtpPacket (..)
     , ntpPacketSize
     , mkCliNtpPacket
+    , NtpOffset (..)
     , evalClockOffset
     ) where
 
@@ -14,7 +16,7 @@ import           Control.Monad.Trans (MonadIO (..))
 import           Data.Binary (Binary (..))
 import           Data.Binary.Get (getInt8, getWord32be, getWord8)
 import           Data.Binary.Put (putWord32be, putWord8)
-import           Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
+import           Data.Time.Units (Microsecond, TimeUnit, fromMicroseconds, toMicroseconds)
 import           Data.Word (Word32, Word8)
 
 import           Ntp.Util (getCurrentTime)
@@ -80,8 +82,13 @@ mkCliNtpPacket = do
     ntpTransmitTime    <- getCurrentTime
     return NtpPacket{..}
 
-evalClockOffset :: MonadIO m => NtpPacket -> m Microsecond
+-- |
+-- NtpOffset is the difference between ntp time and localtime
+newtype NtpOffset = NtpOffset { getNtpOffset :: Microsecond }
+    deriving (Enum, Eq, Integral, Num, Ord, Real, Show, TimeUnit)
+
+evalClockOffset :: MonadIO m => NtpPacket -> m NtpOffset
 evalClockOffset NtpPacket{..} = do
     localTime <- getCurrentTime
     -- use formula of clock offset
-    return $ (ntpReceivedTime - ntpOriginTime + ntpTransmitTime - localTime) `div` 2
+    return $ NtpOffset $ (ntpReceivedTime - ntpOriginTime + ntpTransmitTime - localTime) `div` 2

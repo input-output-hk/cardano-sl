@@ -165,7 +165,6 @@ library
                      , servant-swagger-ui
                      , sqlite-simple
                      , sqlite-simple-errors
-                     , string-conv
                      , swagger2
                      , text
                      , text-format
@@ -309,6 +308,7 @@ executable wal-integr-test
                      , optparse-applicative
                      , pretty-show
                      , servant
+                     , servant-client
                      , servant-quickcheck
                      , servant-server
                      , text
@@ -475,6 +475,7 @@ test-suite wallet-new-specs
                       MonadFailDesugaring
 
   build-depends:      base
+                    , acid-state
                     , aeson
                     , bytestring
                     , cardano-sl

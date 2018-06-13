@@ -11,7 +11,7 @@ import           Pos.Arbitrary.Ssc ()
 import qualified Pos.Core.Ssc as Ssc
 import           Pos.SafeCopy ()
 
-import           Test.Pos.Helpers (safeCopyTest)
+import           Test.Pos.Binary.Helpers (safeCopyTest)
 import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec

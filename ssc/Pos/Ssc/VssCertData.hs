@@ -25,7 +25,7 @@ module Pos.Ssc.VssCertData
        , filter
        ) where
 
-import           Universum hiding (empty, filter)
+import           Universum hiding (empty, filter, id, keys)
 
 import           Control.Lens (makeLensesFor)
 import qualified Data.HashMap.Strict as HM

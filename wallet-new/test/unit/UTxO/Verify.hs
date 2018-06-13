@@ -32,7 +32,7 @@ import           Pos.Delegation (DlgUndo (..))
 import           Pos.Txp hiding (tgsVerifyBlocks)
 import           Pos.Update.Poll
 import           Pos.Util (neZipWith4)
-import           Pos.Util.Chrono
+import           Pos.Core.Chrono
 import           Pos.Util.Lens
 import qualified Pos.Util.Modifier as MM
 import           Serokell.Util.Verify
@@ -309,8 +309,9 @@ slogVerifyBlocks curSlot leaders lastSlots blocks = do
             when (block ^. genBlockLeaders /= leaders) $
             throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
+    let blocksList = OldestFirst (toList (getOldestFirst blocks))
     verResToMonadError formatAllErrors $
-        verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocks
+        verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocksList
 
     -- Here we need to compute 'SlogUndo'. When we add apply a block,
     -- we can remove one of the last slots stored in

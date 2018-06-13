@@ -160,9 +160,9 @@ By default the wallet's local state goes in
 `./state-wallet-mainnet`.
 
 Build the wallet and generate the shell script to connect to
-mainnet (use `connectScripts.stagingWallet` for testnet)
+mainnet (use `connectScripts.staging.wallet` for testnet)
 
-    nix-build -A connectScripts.mainnetWallet -o "./launch_$(date -I)_$(git rev-parse --short HEAD)"
+    nix-build -A connectScripts.mainnet.wallet -o "./launch_$(date -I)_$(git rev-parse --short HEAD)"
 
 After the build finishes the generated connection script is
 available as a symlink called `./launch_2018-01-30_0d4f79eea`, or
@@ -172,9 +172,9 @@ similar. Run that symlink as a script to start the wallet.
 
 Follow the above instructions for customization and dependencies. To build a docker
 container and import the image run
-(use `connectScripts.stagingWallet` for testnet):
+(use `connectScripts.staging.wallet` for testnet):
 
-    docker load < $(nix-build --no-out-link -A dockerImages.mainnetWallet)
+    docker load < $(nix-build --no-out-link -A dockerImages.mainnet.wallet)
 
 This will create an image `cardano-container-mainnet:latest`
 (or `cardano-container-staging:latest` for testnet)

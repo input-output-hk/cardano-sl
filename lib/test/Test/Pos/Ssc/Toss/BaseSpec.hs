@@ -598,9 +598,9 @@ checksBadCertsPayload (GoodPayload epoch sgs certsMap mrs) pk cert =
         -- We take the VSS key of some cert from 'sgs' and replace a key of
         -- some cert in 'certsMap' with it
         res4 = fromMaybe (property True) $ do
-            c1 <- head (certs (sgs ^. sgsVssCertificates))
+            c1 <- (fmap fst . uncons . toList) (certs (sgs ^. sgsVssCertificates))
             let c1id = addressHash . vcSigningKey $ c1
-            c2id <- head (HM.keys (getVssCertificatesMap certsMap))
+            c2id <- (fmap fst . uncons) (HM.keys (getVssCertificatesMap certsMap))
             let certsMap4 = certsMap
                     & _Wrapped . ix c2id . _vcVssKey .~ vcVssKey c1
                 certDuplicateVss =

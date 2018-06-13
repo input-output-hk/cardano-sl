@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 -- | Signing done with public/private keys.
 
 module Pos.Crypto.Signing.Types.Signing
@@ -9,6 +7,8 @@ module Pos.Crypto.Signing.Types.Signing
        , SecretKey (..)
 
        , toPublic
+       , encodeXPrv
+       , decodeXPrv
 
        , formatFullPublicKey
        , fullPublicKeyF
@@ -18,11 +18,16 @@ module Pos.Crypto.Signing.Types.Signing
 
        -- * Signing and verification
        , Signature (..)
+       , fullSignatureHexF
+       , parseFullSignature
 
        , Signed (..)
 
        -- * Proxy signature scheme
        , ProxyCert (..)
+       , fullProxyCertHexF
+       , parseFullProxyCert
+
        , ProxySecretKey (..)
        , ProxySignature (..)
 
@@ -30,34 +35,32 @@ module Pos.Crypto.Signing.Types.Signing
        ) where
 
 import qualified Cardano.Crypto.Wallet as CC
+import qualified Codec.CBOR.Decoding as D
+import qualified Codec.CBOR.Encoding as E
+import           Control.Lens (_Left)
+import           Data.Aeson (FromJSON (..), ToJSON (..))
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Hashable (Hashable)
-import qualified Data.Hashable as Hashable
 import qualified Data.Text.Buildable as B
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting (Format, bprint, build, fitLeft, later, (%), (%.))
+import           Formatting (Format, bprint, build, fitLeft, later, sformat, (%), (%.))
 import           Prelude (show)
 import qualified Serokell.Util.Base16 as B16
 import qualified Serokell.Util.Base64 as Base64 (decode, formatBase64)
 import           Universum hiding (show)
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
 import           Pos.Crypto.Hashing (hash)
+import           Pos.Crypto.Orphans ()
+import           Pos.Util.Util (toAesonError, toCborError)
 
 ----------------------------------------------------------------------------
--- Orphan instances
+-- Utilities for From/ToJSON instances
 ----------------------------------------------------------------------------
 
-instance Eq CC.XPub where
-    a == b = CC.unXPub a == CC.unXPub b
-
-instance Ord CC.XPub where
-    compare = comparing CC.unXPub
-
-instance Show CC.XPub where
-    show = show . CC.unXPub
-
-instance Hashable CC.XPub where
-    hashWithSalt n = Hashable.hashWithSalt n . CC.unXPub
+fmsg :: ToText s => Text -> Either s a -> Either Text a
+fmsg msg = over _Left $ \e ->
+    ("Unable to parse json " <> msg <> " reason: ") <> toText e
 
 ----------------------------------------------------------------------------
 -- Keys, key generation & printing & decoding
@@ -66,6 +69,22 @@ instance Hashable CC.XPub where
 -- | Wrapper around 'CC.XPub'.
 newtype PublicKey = PublicKey CC.XPub
     deriving (Eq, Ord, Show, Generic, NFData, Hashable, Typeable)
+
+instance ToJSON PublicKey where
+    toJSON = toJSON . sformat fullPublicKeyF
+
+instance FromJSON PublicKey where
+    parseJSON v = parseJSON v >>= toAesonError . fmsg "PublicKey" . parseFullPublicKey
+
+encodeXPub :: CC.XPub -> E.Encoding
+encodeXPub a = encode $ CC.unXPub a
+
+decodeXPub :: D.Decoder s CC.XPub
+decodeXPub = toCborError . over _Left fromString . CC.xpub =<< decode
+
+instance Bi PublicKey where
+    encode (PublicKey a) = encodeXPub a
+    decode = fmap PublicKey decodeXPub
 
 -- | Wrapper around 'CC.XPrv'.
 newtype SecretKey = SecretKey CC.XPrv
@@ -86,8 +105,18 @@ instance Show SecretKey where
 instance Bi PublicKey => B.Buildable PublicKey where
     build = bprint ("pub:"%shortPublicKeyHexF)
 
-instance Bi PublicKey => B.Buildable SecretKey where
+instance B.Buildable SecretKey where
     build = bprint ("sec:"%shortPublicKeyHexF) . toPublic
+
+encodeXPrv :: CC.XPrv -> E.Encoding
+encodeXPrv a = encode $ CC.unXPrv a
+
+decodeXPrv :: D.Decoder s CC.XPrv
+decodeXPrv = toCborError . over _Left fromString . CC.xprv =<< decode @ByteString
+
+instance Bi SecretKey where
+    encode (SecretKey a) = encodeXPrv a
+    decode = fmap SecretKey decodeXPrv
 
 -- | 'Builder' for 'PublicKey' to show it in base64 encoded form.
 formatFullPublicKey :: PublicKey -> Builder
@@ -123,11 +152,47 @@ newtype Signature a = Signature CC.XSignature
 instance B.Buildable (Signature a) where
     build _ = "<signature>"
 
+instance FromJSON (Signature w) where
+    parseJSON v = parseJSON v >>= toAesonError . fmsg "Signature" . parseFullSignature
+
+instance ToJSON (Signature w) where
+    toJSON = toJSON . sformat fullSignatureHexF
+
+-- | Formatter for 'Signature' to show it in hex.
+fullSignatureHexF :: Format r (Signature a -> r)
+fullSignatureHexF = later $ \(Signature x) ->
+    B16.formatBase16 . CC.unXSignature $ x
+
+-- | Parse 'Signature' from base16 encoded string.
+parseFullSignature :: Text -> Either Text (Signature a)
+parseFullSignature s = do
+    b <- B16.decode s
+    Signature <$> first fromString (CC.xsignature b)
+
+encodeXSignature :: CC.XSignature -> E.Encoding
+encodeXSignature a = encode $ CC.unXSignature a
+
+decodeXSignature :: D.Decoder s CC.XSignature
+decodeXSignature = toCborError . over _Left fromString . CC.xsignature =<< decode
+
+instance Typeable a => Bi (Signature a) where
+    encode (Signature a) = encodeXSignature a
+    decode = fmap Signature decodeXSignature
+
 -- | Value and signature for this value.
 data Signed a = Signed
     { signedValue :: !a              -- ^ Value to be signed
     , signedSig   :: !(Signature a)  -- ^ 'Signature' of 'signedValue'
     } deriving (Show, Eq, Ord, Generic)
+
+instance Bi a => Bi (Signed a) where
+    encode (Signed v s) = encodeListLen 2
+                       <> encode v
+                       <> encode s
+    decode = Signed
+         <$  enforceSize "Signed" 2
+         <*> decode
+         <*> decode
 
 ----------------------------------------------------------------------------
 -- Proxy signing
@@ -139,6 +204,27 @@ newtype ProxyCert w = ProxyCert { unProxyCert :: CC.XSignature }
 
 instance B.Buildable (ProxyCert w) where
     build _ = "<proxy_cert>"
+
+instance ToJSON (ProxyCert w) where
+    toJSON = toJSON . sformat fullProxyCertHexF
+
+instance FromJSON (ProxyCert w) where
+    parseJSON v = parseJSON v >>= toAesonError . fmsg "Signature" . parseFullProxyCert
+
+instance Typeable w => Bi (ProxyCert w) where
+    encode (ProxyCert a) = encodeXSignature a
+    decode = fmap ProxyCert decodeXSignature
+
+-- | Formatter for 'ProxyCert' to show it in hex.
+fullProxyCertHexF :: Format r (ProxyCert a -> r)
+fullProxyCertHexF = later $ \(ProxyCert x) ->
+    B16.formatBase16 . CC.unXSignature $ x
+
+-- | Parse 'ProxyCert' from base16 encoded string.
+parseFullProxyCert :: Text -> Either Text (ProxyCert a)
+parseFullProxyCert s = do
+    b <- B16.decode s
+    ProxyCert <$> first fromString (CC.xsignature b)
 
 -- | Convenient wrapper for secret key, that's basically ω plus
 -- certificate.
@@ -152,9 +238,26 @@ data ProxySecretKey w = UnsafeProxySecretKey
 instance NFData w => NFData (ProxySecretKey w)
 instance Hashable w => Hashable (ProxySecretKey w)
 
-instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey w) where
+instance (B.Buildable w) => B.Buildable (ProxySecretKey w) where
     build (UnsafeProxySecretKey w iPk dPk _) =
         bprint ("ProxySk { w = "%build%", iPk = "%build%", dPk = "%build%" }") w iPk dPk
+
+deriveJSON defaultOptions ''ProxySecretKey
+
+instance Bi w => Bi (ProxySecretKey w) where
+    encode UnsafeProxySecretKey{..} =
+        encodeListLen 4
+        <> encode pskOmega
+        <> encode pskIssuerPk
+        <> encode pskDelegatePk
+        <> encode pskCert
+    decode = do
+        enforceSize "ProxySecretKey" 4
+        pskOmega      <- decode
+        pskIssuerPk   <- decode
+        pskDelegatePk <- decode
+        pskCert       <- decode
+        pure UnsafeProxySecretKey {..}
 
 -- | Delegate signature made with certificate-based permission. @w@
 -- stays for message type used in proxy (ω in the implementation
@@ -171,8 +274,18 @@ data ProxySignature w a = ProxySignature
 instance NFData w => NFData (ProxySignature w a)
 instance Hashable w => Hashable (ProxySignature w a)
 
-instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature w a) where
+instance (B.Buildable w) => B.Buildable (ProxySignature w a) where
     build ProxySignature{..} = bprint ("Proxy signature { psk = "%build%" }") psigPsk
+
+instance (Typeable a, Bi w) =>
+         Bi (ProxySignature w a) where
+    encode ProxySignature{..} = encodeListLen 2
+                             <> encode psigPsk
+                             <> encodeXSignature psigSig
+    decode = ProxySignature
+          <$  enforceSize "ProxySignature" 2
+          <*> decode
+          <*> decodeXSignature
 
 -- | Checks if delegate and issuer fields of proxy secret key are
 -- equal.

@@ -26,7 +26,7 @@ module Pos.Explorer.DB
        , findEpochMaxPages
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, non)
 import           Control.Monad.Trans.Resource (ResourceT)
@@ -54,7 +54,7 @@ import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
 import           Pos.Txp.DB (getAllPotentiallyHugeUtxo, utxoSource)
 import           Pos.Txp.GenesisUtxo (genesisUtxo)
 import           Pos.Txp.Toil (GenesisUtxo (..), utxoF, utxoToAddressCoinPairs)
-import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Util.Util (maybeThrow)
 
 

@@ -1,5 +1,4 @@
 {-# LANGUAGE Rank2Types      #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 -- | Propagation of runtime configuration.
 
@@ -13,6 +12,8 @@ module Pos.Update.Configuration
        , ourSystemTag
        , lastKnownBlockVersion
        , curSoftwareVersion
+
+       , currentSystemTag
        ) where
 
 import           Universum
@@ -20,18 +21,14 @@ import           Universum
 import           Data.Aeson (FromJSON (..), ToJSON (..), genericToJSON, withObject, (.:), (.:?))
 import           Data.Maybe (fromMaybe)
 import           Data.Reflection (Given (..), give)
-import qualified Data.Text as T
 import           Distribution.System (buildArch, buildOS)
-import           Language.Haskell.TH (runIO)
-import qualified Language.Haskell.TH.Syntax as TH (lift)
 import           Serokell.Aeson.Options (defaultOptions)
-import           Serokell.Util.ANSI (Color (Blue, Red), colorize)
 
 -- For FromJSON instances.
 import           Pos.Aeson.Core ()
 import           Pos.Aeson.Update ()
 import           Pos.Core (ApplicationName, BlockVersion (..), SoftwareVersion (..))
-import           Pos.Core.Update (SystemTag (..), archHelper, osHelper, checkSystemTag)
+import           Pos.Core.Update (SystemTag (..), archHelper, osHelper)
 
 ----------------------------------------------------------------------------
 -- Config itself
@@ -92,18 +89,7 @@ curSoftwareVersion = SoftwareVersion ourAppName (ccApplicationVersion updateConf
 -- from @Cabal@ was used to access to a build's host machine @OS@ and @Arch@itecture
 -- information.
 currentSystemTag :: SystemTag
-currentSystemTag =
-    $(do let tag :: SystemTag
-             tag = SystemTag (toText (osHelper buildOS ++ archHelper buildArch))
-             st :: Either Text ()
-             st = checkSystemTag tag
-             color c s = "\n" <> colorize c s <> "\n"
-         case st of Left e -> error . color Red . T.concat $
-                                  ["Current system tag could not be calculated: ", e]
-                    Right () -> do runIO . putStrLn . color Blue . T.concat $
-                                       ["Current system tag is: ", show tag]
-                                   TH.lift tag
-     )
+currentSystemTag = SystemTag (toText (osHelper buildOS ++ archHelper buildArch))
 
 ourSystemTag :: HasUpdateConfiguration => SystemTag
 ourSystemTag = ccSystemTag updateConfiguration

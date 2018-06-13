@@ -31,6 +31,8 @@ library
                        Pos.Binary.Merkle
 
                        Pos.Core
+                       Pos.Core.Chrono
+                       Pos.Core.Limits
 
                        Pos.Core.ProtocolConstants
 
@@ -121,8 +123,15 @@ library
                        -- Genesis
                        Pos.Core.Genesis.Canonical
                        Pos.Core.Genesis.Generate
-                       Pos.Core.Genesis.Helpers
-                       Pos.Core.Genesis.Types
+                       Pos.Core.Genesis.AvvmBalances
+                       Pos.Core.Genesis.Data
+                       Pos.Core.Genesis.Delegation
+                       Pos.Core.Genesis.Initializer
+                       Pos.Core.Genesis.NonAvvmBalances
+                       Pos.Core.Genesis.ProtocolConstants
+                       Pos.Core.Genesis.Spec
+                       Pos.Core.Genesis.VssCertificatesMap
+                       Pos.Core.Genesis.WStakeholders
 
                        -- Slotting
                        Pos.Core.Slotting.EpochIndex
@@ -144,6 +153,15 @@ library
                        Pos.Core.Ssc.SharesMap
                        Pos.Core.Ssc.VssCertificate
                        Pos.Core.Ssc.VssCertificatesMap
+
+                       -- Txp
+                       Pos.Core.Txp.Tx
+                       Pos.Core.Txp.TxAux
+                       Pos.Core.Txp.TxOutAux
+                       Pos.Core.Txp.TxPayload
+                       Pos.Core.Txp.TxProof
+                       Pos.Core.Txp.TxWitness
+                       Pos.Core.Txp.Undo
 
                        -- Update
                        Pos.Core.Update.ApplicationName
@@ -252,11 +270,15 @@ test-suite test
   other-modules:
                        Spec
                        Test.Pos.Core.AddressSpec
+                       Test.Pos.Core.Chrono
+                       Test.Pos.Core.ChronoSpec
                        Test.Pos.Core.CoinSpec
+                       Test.Pos.Core.LimitsSpec
 
   build-depends:       base
                      , bytestring
                      , cardano-sl-binary
+                     , cardano-sl-binary-test
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-util-test
@@ -266,6 +288,7 @@ test-suite test
                      , serokell-util >= 0.1.3.4
                      , text
                      , universum >= 0.1.11
+                     , unordered-containers
 
   ghc-options:         -threaded
                        -rtsopts

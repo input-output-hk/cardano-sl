@@ -4,7 +4,7 @@ module Test.Pos.Util.ModifierSpec
        ( spec
        ) where
 
-import           Universum
+import           Universum hiding (keys)
 
 import qualified Data.HashMap.Strict as HM
 import           Test.Hspec (Spec, describe)

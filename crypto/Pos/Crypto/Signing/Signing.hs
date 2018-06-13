@@ -11,8 +11,6 @@ module Pos.Crypto.Signing.Signing
        , sign
        , signEncoded
        , checkSig                      -- reexport
-       , fullSignatureHexF
-       , parseFullSignature
        , mkSigned
 
        -- * Versions for raw bytestrings
@@ -21,8 +19,6 @@ module Pos.Crypto.Signing.Signing
 
        -- * Proxy signature scheme
        , verifyProxyCert               -- reexport
-       , fullProxyCertHexF
-       , parseFullProxyCert
        , validateProxySecretKey        -- reexport
        , proxySign
        , proxyVerify
@@ -37,12 +33,10 @@ import           Crypto.Random (MonadRandom, getRandomBytes)
 import           Data.ByteArray (ScrubbedBytes)
 import qualified Data.ByteString as BS
 import           Data.Coerce (coerce)
-import           Formatting (Format, build, later, sformat, (%))
-import qualified Serokell.Util.Base16 as B16
+import           Formatting (build, sformat, (%))
 
 import           Pos.Binary.Class (Bi, Raw)
 import qualified Pos.Binary.Class as Bi
-import           Pos.Binary.Crypto ()
 import           Pos.Crypto.Configuration (ProtocolMagic)
 import           Pos.Crypto.Signing.Check (checkSig, checkSigRaw, validateProxySecretKey,
                                            verifyProxyCert)
@@ -81,17 +75,6 @@ deterministicKeyGen seed =
 ----------------------------------------------------------------------------
 -- Signatures
 ----------------------------------------------------------------------------
-
--- | Formatter for 'Signature' to show it in hex.
-fullSignatureHexF :: Format r (Signature a -> r)
-fullSignatureHexF = later $ \(Signature x) ->
-    B16.formatBase16 . CC.unXSignature $ x
-
--- | Parse 'Signature' from base16 encoded string.
-parseFullSignature :: Text -> Either Text (Signature a)
-parseFullSignature s = do
-    b <- B16.decode s
-    Signature <$> first fromString (CC.xsignature b)
 
 -- | Encode something with 'Binary' and sign it.
 sign
@@ -132,17 +115,6 @@ mkSigned pm t sk x = Signed x (sign pm t sk x)
 ----------------------------------------------------------------------------
 -- Proxy signing
 ----------------------------------------------------------------------------
-
--- | Formatter for 'ProxyCert' to show it in hex.
-fullProxyCertHexF :: Format r (ProxyCert a -> r)
-fullProxyCertHexF = later $ \(ProxyCert x) ->
-    B16.formatBase16 . CC.unXSignature $ x
-
--- | Parse 'ProxyCert' from base16 encoded string.
-parseFullProxyCert :: Text -> Either Text (ProxyCert a)
-parseFullProxyCert s = do
-    b <- B16.decode s
-    ProxyCert <$> first fromString (CC.xsignature b)
 
 -- | Make a proxy delegate signature with help of certificate. If the
 -- delegate secret key passed doesn't pair with delegate public key in

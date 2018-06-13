@@ -36,6 +36,8 @@ module Pos.Util.UserSecret
        , ensureModeIs600
        ) where
 
+import           Universum hiding (keys)
+
 import           Control.Exception.Safe (onException, throwString)
 import           Control.Lens (makeLenses, to)
 import qualified Data.ByteString as BS
@@ -57,11 +59,9 @@ import           System.Wlog (WithLogger, logInfo)
 #endif
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
-import           Universum
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull', deriveSimpleBi,
                                    encodeListLen, enforceSize, serialize')
-import           Pos.Binary.Crypto ()
 import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
                            wAddressGenesisIndex)
 import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)

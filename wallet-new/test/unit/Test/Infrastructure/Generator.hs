@@ -23,9 +23,7 @@ import           UTxO.Generator
 import           Wallet.Inductive
 import           Wallet.Inductive.Generator
 
-import           Pos.Core ( HasGenesisBlockVersionData
-                          , bvdTxFeePolicy, genesisBlockVersionData
-                          , TxFeePolicy(..), calculateTxSizeLinear )
+import           Pos.Core ( TxSizeLinear, calculateTxSizeLinear )
 import           Serokell.Data.Memory.Units (Byte, fromBytes)
 
 {-------------------------------------------------------------------------------
@@ -121,13 +119,13 @@ simpleModel = GeneratorModel {
 -- but since it deals with the " real world " it has all kinds of different
 -- actors, large values, etc., and so is a bit difficult to debug when
 -- looking at values manually.
-cardanoModel :: HasGenesisBlockVersionData
-             => Transaction GivenHash Addr -> GeneratorModel GivenHash Addr
-cardanoModel boot = GeneratorModel {
+cardanoModel :: TxSizeLinear
+             -> Transaction GivenHash Addr -> GeneratorModel GivenHash Addr
+cardanoModel linearFeePolicy boot = GeneratorModel {
       gmBoot          = boot
     , gmAllAddresses  = filter (not . isAvvmAddr) $ addrsInBoot boot
     , gmPotentialOurs = \_ -> True
-    , gmEstimateFee   = estimateCardanoFee
+    , gmEstimateFee   = estimateCardanoFee linearFeePolicy
     , gmMaxNumOurs    = 5
     }
 
@@ -178,13 +176,9 @@ estimateSize saa sta ins outs
 --   NOTE: The average size of @Attributes AddrAttributes@ and
 --         the transaction attributes @Attributes ()@ are both hard-coded
 --         here with some (hopefully) realistic values.
-estimateCardanoFee :: HasGenesisBlockVersionData => Int -> [Value] -> Value
-estimateCardanoFee ins outs
+estimateCardanoFee :: TxSizeLinear -> Int -> [Value] -> Value
+estimateCardanoFee linearFeePolicy ins outs
     = round (calculateTxSizeLinear linearFeePolicy (estimateSize 128 16 ins outs))
-  where
-    linearFeePolicy = case bvdTxFeePolicy genesisBlockVersionData of
-      TxFeePolicyTxSizeLinear lp -> lp
-      _ -> error "non-linear fee policy"
 
 {-------------------------------------------------------------------------------
   Auxiliary

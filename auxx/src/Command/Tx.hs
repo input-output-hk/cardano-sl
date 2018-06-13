@@ -14,6 +14,7 @@ import           Universum
 
 import           Control.Concurrent.STM.TQueue (newTQueue, tryReadTQueue, writeTQueue)
 import           Control.Exception.Safe (Exception (..), try)
+import           Control.Monad (when)
 import           Control.Monad.Except (runExceptT)
 import           Data.Aeson (eitherDecodeStrict)
 import qualified Data.ByteString as BS
@@ -21,13 +22,13 @@ import           Data.Default (def)
 import qualified Data.HashMap.Strict as HM
 import           Data.List ((!!))
 import qualified Data.List.NonEmpty as NE
+import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
-import           Data.Time.Units (toMicroseconds)
+import           Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
 import           Formatting (build, int, sformat, shown, stext, (%))
 import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently, currentTime, delay,
                            forConcurrently, modifySharedAtomic, newSharedAtomic)
-import           Serokell.Util (ms, sec)
 import           System.Environment (lookupEnv)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
 import           System.Wlog (logError, logInfo)
@@ -39,8 +40,8 @@ import           Pos.Client.Txp.Util (createTx)
 import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAddr (..),
                            Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
 import           Pos.Core.Configuration (genesisBlockVersionData, genesisSecretKeys)
-import           Pos.Core.Txp (TxAux, TxOut (..), TxOutAux (..), txaF)
-import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase, encToPublic, fakeSigner,
+import           Pos.Core.Txp (TxAux (..), TxIn (TxInUtxo), TxOut (..), TxOutAux (..), txaF)
+import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase, encToPublic, fakeSigner, hash,
                              safeToPublic, toPublic, withSafeSigners)
 import           Pos.Infra.Diffusion.Types (Diffusion (..))
 import           Pos.Txp (topsortTxAuxes)
@@ -55,10 +56,11 @@ import           Mode (MonadAuxxMode, makePubKeyAddressAuxx)
 
 -- | Parameters for 'SendToAllGenesis' command.
 data SendToAllGenesisParams = SendToAllGenesisParams
-    { stagpTxsPerThread :: !Int
-    , stagpConc         :: !Int
-    , stagpDelay        :: !Int
-    , stagpTpsSentFile  :: !FilePath
+    { stagpGenesisTxsPerThread :: !Int
+    , stagpTxsPerThread        :: !Int
+    , stagpConc                :: !Int
+    , stagpDelay               :: !Int
+    , stagpTpsSentFile         :: !FilePath
     } deriving (Show)
 
 -- | Count submitted transactions.
@@ -80,7 +82,7 @@ sendToAllGenesis
     => Diffusion m
     -> SendToAllGenesisParams
     -> m ()
-sendToAllGenesis diffusion (SendToAllGenesisParams txsPerThread conc delay_ tpsSentFile) = do
+sendToAllGenesis diffusion (SendToAllGenesisParams genesisTxsPerThread txsPerThread conc delay_ tpsSentFile) = do
     let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration genesisBlockVersionData) `div` 1000000 :: Int
         keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
     tpsMVar <- newSharedAtomic $ TxCount 0 conc
@@ -92,32 +94,64 @@ sendToAllGenesis diffusion (SendToAllGenesisParams txsPerThread conc delay_ tpsS
                                                    , "startTime=" <> startTime
                                                    , "delay=" <> show delay_ ]
         liftIO $ T.hPutStrLn h "time,txCount,txType"
-        txQueue <- atomically $ newTQueue
-        -- prepare a queue with all transactions
+        -- prepare a queue for the transactions to be send
+        -- and a queue with necessary data for the creation of txs whose inputs
+        -- don't belong in genesis block
+        txQueue            <- atomically $ newTQueue
+        txPreparationQueue <- atomically $ newTQueue
         logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
         startAtTxt <- liftIO $ lookupEnv "AUXX_START_AT"
         let startAt = fromMaybe 0 . readMaybe . fromMaybe "" $ startAtTxt :: Int
-        -- construct transaction output
-        outAddr <- makePubKeyAddressAuxx (toPublic (fromMaybe (error "sendToAllGenesis: no keys") $ head keysToSend))
-        let txOut1 = TxOut {
-                txOutAddress = outAddr,
-                txOutValue = mkCoin 1
-                }
-            txOuts = TxOutAux txOut1 :| []
         -- construct a transaction, and add it to the queue
         let addTx secretKey = do
-                utxo <- getOwnUtxoForPk $ safeToPublic (fakeSigner secretKey)
-                etx <- createTx mempty utxo (fakeSigner secretKey) txOuts (toPublic secretKey)
+                let signer = fakeSigner secretKey
+                    publicKey = toPublic secretKey
+                -- construct transaction output
+                outAddr <- makePubKeyAddressAuxx publicKey
+                let txOut1 = TxOut {
+                    txOutAddress = outAddr,
+                    txOutValue = mkCoin 1
+                    }
+                    txOuts = TxOutAux txOut1 :| []
+                utxo <- getOwnUtxoForPk $ safeToPublic signer
+                etx <- createTx mempty utxo signer txOuts publicKey
                 case etx of
                     Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
-                    Right (tx, _) -> atomically $ writeTQueue txQueue (tx, txOuts)
-        let nTrans = conc * txsPerThread
-            allTrans = take nTrans (drop startAt keysToSend)
-            (firstBatch, secondBatch) = splitAt ((2 * nTrans) `div` 3) allTrans
+                    Right (tx, _) -> do
+                        atomically $ writeTQueue txQueue tx
+                        atomically $ writeTQueue txPreparationQueue (tx, txOut1, secretKey)
+        let genesisTxs  = conc * genesisTxsPerThread
+            nTxs        = conc * txsPerThread
+            genesisKeys = take genesisTxs (drop startAt keysToSend)
+            -- Construct transactions whose inputs does not belong in genesis
+            -- block. Send as many coins as were received in the previous round
+            -- back to yourself.
+            prepareTxs :: Int -> m ()
+            prepareTxs n
+                | n <= 0 = return ()
+                | otherwise = (atomically $ tryReadTQueue txPreparationQueue) >>= \case
+                    Just (tx, txOut1', senderKey) -> do
+                        let txInp = TxInUtxo (hash (taTx tx)) 0
+                            utxo' = M.fromList [(txInp, TxOutAux txOut1')]
+                            txOuts2 = TxOutAux txOut1' :| []
+                        -- It is expected that the output from the previously sent transaction is
+                        -- included in the UTxO by the time this transaction will actually be sent.
+                        etx' <- createTx mempty utxo' (fakeSigner senderKey) txOuts2 (toPublic senderKey)
+                        case etx' of
+                            Left err -> logError (sformat ("Error: "%build%" while trying to contruct tx") err)
+                            Right (tx', _) -> do
+                                atomically $ writeTQueue txQueue tx'
+                                -- add to preparation queue one more time data
+                                -- necessary to construct one more transaction
+                                -- with the same sender
+                                when (n > genesisTxs) $
+                                    atomically $ writeTQueue txPreparationQueue (tx', txOut1', senderKey)
+                        prepareTxs $ n - 1
+                    Nothing -> logInfo "No more txOuts in the queue."
             -- every <slotDuration> seconds, write the number of sent transactions to a CSV file.
         let writeTPS :: m ()
             writeTPS = do
-                delay (sec genesisSlotDuration)
+                delay (fromMicroseconds . fromIntegral . (*) 1000000 $ genesisSlotDuration :: Microsecond)
                 curTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
                 finished <- modifySharedAtomic tpsMVar $ \(TxCount submitted sending) -> do
                     -- CSV is formatted like this:
@@ -136,13 +170,13 @@ sendToAllGenesis diffusion (SendToAllGenesisParams txsPerThread conc delay_ tpsS
                       modifySharedAtomic tpsMVar $ \(TxCount submitted sending) ->
                           return (TxCount submitted (sending - 1), ())
                 | otherwise = (atomically $ tryReadTQueue txQueue) >>= \case
-                      Just (tx, _) -> do
+                      Just tx -> do
                           res <- submitTxRaw diffusion tx
                           addTxSubmit tpsMVar
                           logInfo $ if res
                                     then sformat ("Submitted transaction: "%txaF) tx
                                     else sformat ("Applied transaction "%txaF%", however no neighbour applied it") tx
-                          delay $ ms delay_
+                          delay $ (fromMicroseconds . fromIntegral . (*) 1000 $ delay_ :: Microsecond)
                           logInfo "Continuing to send transactions."
                           sendTxs (n - 1)
                       Nothing -> do
@@ -150,20 +184,21 @@ sendToAllGenesis diffusion (SendToAllGenesisParams txsPerThread conc delay_ tpsS
                           sendTxs 0
 
             sendTxsConcurrently n = void $ forConcurrently [1..conc] (const (sendTxs n))
-        -- pre construct the first batch of transactions. Otherwise,
-        -- we'll be CPU bound and will not achieve high transaction
+        -- pre construct the transactions that send funds from genesis.
+        -- Otherwise, we'll be CPU bound and will not achieve high transaction
         -- rates. If we pre construct all the transactions, the
         -- startup time will be quite long.
-        forM_  firstBatch addTx
+        forM_ genesisKeys addTx
         -- Send transactions while concurrently writing the TPS numbers every
         -- slot duration. The 'writeTPS' action takes care to *always* write
         -- after every slot duration, even if it is killed, so as to
         -- guarantee that we don't miss any numbers.
         --
-        -- While we're sending, we're constructing the second batch of
-        -- transactions.
+        -- While we're sending, we're constructing the transactions
+        -- that don't send coins from genesis and send 1 coin back to
+        -- themselves over and over.
         void $
-            concurrently (forM_ secondBatch addTx) $
+            concurrently (prepareTxs $ nTxs - genesisTxs) $
             concurrently writeTPS (sendTxsConcurrently txsPerThread)
 
 ----------------------------------------------------------------------------

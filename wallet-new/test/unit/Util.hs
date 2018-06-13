@@ -14,7 +14,7 @@ import           Universum
 
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import           Pos.Util.Chrono
+import           Pos.Core.Chrono
 
 {-------------------------------------------------------------------------------
   Lists

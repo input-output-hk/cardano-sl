@@ -10,7 +10,7 @@ module Pos.Block.Lrc
        , lrcSingleShot
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Exception.Safe (bracketOnError)
 import           Control.Lens (views)
@@ -28,17 +28,15 @@ import           UnliftIO (MonadUnliftIO)
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Block.Slog.Logic (ShouldCallBListener (..))
-import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), HasGeneratedSecrets,
-                           HasGenesisBlockVersionData, HasGenesisData, HasGenesisHash,
-                           HasProtocolConstants, HasProtocolMagic, SharedSeed, StakeholderId,
+import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId,
                            blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot)
+import           Pos.Core.Chrono (NE, NewestFirst (..), toOldestFirst)
 import qualified Pos.DB.Block.Load as DB
 import           Pos.DB.Class (MonadDBRead, MonadGState)
 import qualified Pos.DB.GState.Stakes as GS (getRealStake, getRealTotalStake)
 import           Pos.Delegation (getDelegators, isIssuerByAddressHash)
 import qualified Pos.GState.SanityCheck as DB (sanityCheckDB)
-import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..),
-                                               MisbehaviorMetrics (..))
+import           Pos.Infra.Reporting.MemState (HasMisbehaviorMetrics (..), MisbehaviorMetrics (..))
 import           Pos.Infra.Slotting (MonadSlots)
 import           Pos.Infra.Util.TimeLimit (logWarningWaitLinear)
 import           Pos.Lrc.Consumer (LrcConsumer (..))
@@ -57,7 +55,6 @@ import qualified Pos.Txp.DB.Stakes as GS (stakeSource)
 import           Pos.Update.DB (getCompetingBVStates)
 import           Pos.Update.Poll.Types (BlockVersionState (..))
 import           Pos.Util (maybeThrow)
-import           Pos.Util.Chrono (NE, NewestFirst (..), toOldestFirst)
 import           Pos.Util.Util (HasLens (..))
 
 
@@ -136,12 +133,6 @@ tryAcquireExclusiveLock epoch lock action =
 lrcDo
     :: forall ctx m.
        ( LrcModeFull ctx m
-       , HasGeneratedSecrets
-       , HasGenesisBlockVersionData
-       , HasProtocolConstants
-       , HasProtocolMagic
-       , HasGenesisData
-       , HasGenesisHash
        , HasMisbehaviorMetrics ctx
        )
     => EpochIndex -> [LrcConsumer m] -> m ()

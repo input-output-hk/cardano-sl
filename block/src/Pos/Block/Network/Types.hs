@@ -5,6 +5,7 @@ module Pos.Block.Network.Types
        , MsgGetBlocks (..)
        , MsgHeaders (..)
        , MsgBlock (..)
+       , MsgSerializedBlock (..)
        ) where
 
 import qualified Data.Text.Buildable
@@ -14,7 +15,8 @@ import           Universum
 
 import           Pos.Core (HeaderHash)
 import           Pos.Core.Block (Block, BlockHeader (..))
-import           Pos.Util.Chrono (NE, NewestFirst (..))
+import           Pos.DB.Class (SerializedBlock)
+import           Pos.Core.Chrono (NE, NewestFirst (..))
 
 -- | 'GetHeaders' message. Behaviour of the response depends on
 -- particular combination of 'mghFrom' and 'mghTo'.
@@ -71,3 +73,9 @@ data MsgBlock
     = MsgBlock Block
     | MsgNoBlock Text
     deriving (Eq, Show, Generic)
+
+-- | 'SerializedBlock' message
+data MsgSerializedBlock
+    = MsgSerializedBlock SerializedBlock
+    | MsgNoSerializedBlock Text
+    deriving (Generic)

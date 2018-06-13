@@ -7,11 +7,11 @@ module Test.Pos.Block.Identity.SafeCopySpec
 import           Test.Hspec (Spec, describe)
 import           Universum
 
-import           Pos.Arbitrary.Block ()
 import qualified Pos.Core.Block as BT
 import           Pos.SafeCopy ()
 
-import           Test.Pos.Helpers (safeCopyTest)
+import           Test.Pos.Binary.Helpers (safeCopyTest)
+import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfiguration)
 
 spec :: Spec

@@ -3,9 +3,9 @@ module Main
        ) where
 
 import           Universum
-import           Unsafe (unsafeFromJust)
 
 import           Control.Exception.Safe (handle)
+import           Data.Maybe (fromMaybe)
 import           Formatting (sformat, shown, (%))
 import           Mockable (Production (..), runProduction)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
@@ -17,14 +17,12 @@ import           Pos.Context (NodeContext (..))
 import           Pos.Core (ConfigurationError)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
-import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..),
-                                          topologyDequeuePolicy,
-                                          topologyEnqueuePolicy,
-                                          topologyFailurePolicy)
+import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
+                                          topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources (..),
-                               bracketNodeResources, runRealMode, loggerBracket, lpConsoleLog,
-                               runNode, withConfigurations)
+                               bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
+                               runRealMode, withConfigurations)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
@@ -111,8 +109,8 @@ action opts@AuxxOptions {..} command = do
                         { acRealModeContext = realModeContext
                         , acTempDbUsed = tempDbUsed }
                 lift $ runReaderT auxxAction auxxContext
-
-            vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
+            vssSK = fromMaybe (error "no user secret given")
+                              (npUserSecret nodeParams ^. usVss)
             sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
 
         bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr -> Production $

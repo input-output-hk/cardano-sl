@@ -6,7 +6,7 @@ module AddressSpecs (addressSpecs) where
 import           Universum
 
 import           Cardano.Wallet.Client.Http
-import           Control.Lens hiding ((^..), (^?))
+import           Control.Lens
 import           Test.Hspec
 
 import           Util

@@ -6,7 +6,7 @@ module Pos.Logic.Full
     , logicFull
     ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (at, to)
 import qualified Data.HashMap.Strict as HM
@@ -23,17 +23,18 @@ import           Pos.Communication (NodeId)
 import           Pos.Core (Block, BlockHeader, BlockVersionData, HasConfiguration, HeaderHash,
                            ProxySKHeavy, StakeholderId, TxAux (..), addressHash, getCertId,
                            lookupVss)
+import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Core.Ssc (getCommitmentsMap)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (hash)
 import qualified Pos.DB.Block as DB (getTipBlock)
 import qualified Pos.DB.BlockIndex as DB (getHeader, getTipHeader)
-import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..))
-import qualified Pos.DB.Class as DB (getBlock)
+import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, MonadGState (..), SerializedBlock)
+import qualified Pos.DB.Class as DB (MonadDBRead (dbGetSerBlock))
 import           Pos.Delegation.Listeners (DlgListenerConstraint)
 import qualified Pos.Delegation.Listeners as Delegation (handlePsk)
 import           Pos.Infra.Slotting (MonadSlots)
-import           Pos.Infra.Util.JsonLog.Events (JLTxR)
+import           Pos.Infra.Util.JsonLog.Events (JLEvent)
 import           Pos.Logic.Types (KeyVal (..), Logic (..))
 import           Pos.Recovery (MonadRecoveryInfo)
 import qualified Pos.Recovery as Recovery
@@ -56,7 +57,6 @@ import qualified Pos.Update.Logic.Local as Update (getLocalProposalNVotes, getLo
                                                    isProposalNeeded, isVoteNeeded)
 import           Pos.Update.Mode (UpdateMode)
 import qualified Pos.Update.Network.Listeners as Update (handleProposal, handleVote)
-import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 import           Pos.Util.Util (HasLens (..))
 
 -- The full logic layer uses existing pieces from the former monolithic
@@ -98,12 +98,12 @@ logicFull
        ( LogicWorkMode ctx m )
     => StakeholderId
     -> SecurityParams
-    -> (JLTxR -> m ()) -- ^ JSON log callback. FIXME replace by structured logging solution
+    -> (JLEvent -> m ()) -- ^ JSON log callback. FIXME replace by structured logging solution
     -> Logic m
 logicFull ourStakeholderId securityParams jsonLogTx =
     let
-        getBlock :: HeaderHash -> m (Maybe Block)
-        getBlock = DB.getBlock
+        getSerializedBlock :: HeaderHash -> m (Maybe SerializedBlock)
+        getSerializedBlock = DB.dbGetSerBlock
 
         getTip :: m Block
         getTip = DB.getTipBlock

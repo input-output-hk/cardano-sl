@@ -9,7 +9,7 @@ module Pos.Explorer.Txp.Toil.Logic
        , eProcessTx
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Monad.Except (mapExceptT)
 import qualified Data.HashMap.Strict as HM
@@ -35,7 +35,7 @@ import           Pos.Txp.Configuration (HasTxpConfiguration)
 import           Pos.Txp.Toil (ToilVerFailure (..), extendGlobalToilM, extendLocalToilM)
 import qualified Pos.Txp.Toil as Txp
 import           Pos.Txp.Topsort (topsortTxs)
-import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.Core.Chrono (NewestFirst (..))
 import           Pos.Util.Util (Sign (..))
 
 ----------------------------------------------------------------------------

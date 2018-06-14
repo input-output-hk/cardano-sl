@@ -44,7 +44,6 @@ import           Serokell.Util (listJson, mapJson, pairF)
 import           Serokell.Util.Base16 (base16F)
 import           Universum
 
-import           Pos.Block.Base
 import           Pos.Core
 import           Pos.Crypto
 import           Pos.Lrc.Genesis

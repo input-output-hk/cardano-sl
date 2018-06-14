@@ -10,8 +10,8 @@ module Pos.DB.DB
 
 import           Universum
 
-import           Pos.Block.Base (genesisBlock0)
 import           Pos.Core (BlockVersionData, GenesisHash (..), genesisHash, headerHash)
+import           Pos.Core.Block.Constructors (genesisBlock0)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.Block (prepareBlockDB)
 import           Pos.DB.Class (MonadDB, MonadDBRead (..))

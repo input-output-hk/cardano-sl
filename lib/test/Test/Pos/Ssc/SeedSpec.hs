@@ -22,11 +22,10 @@ import           Test.QuickCheck.Property (failed, succeeded)
 import           Pos.Binary
 import           Pos.Core (AddressHash, SharedSeed (..), StakeholderId, addressHash, mkCoin)
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), getCommShares,
-                               getCommitmentsMap, mkCommitmentsMap)
+                               getCommitmentsMap, mkCommitmentsMap, randCommitmentAndOpening)
 import           Pos.Crypto (DecShare, PublicKey, SecretKey, SignTag (SignCommitment), Threshold,
                              VssKeyPair, VssPublicKey, decryptShare, sign, toPublic, toVssPublicKey)
-import           Pos.Ssc (SscSeedError (..), calculateSeed, genCommitmentAndOpening,
-                          secretToSharedSeed, vssThreshold)
+import           Pos.Ssc (SscSeedError (..), calculateSeed, secretToSharedSeed, vssThreshold)
 
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 import           Test.Pos.Util.QuickCheck.Arbitrary (nonrepeating, sublistN)
@@ -208,7 +207,7 @@ generateKeysAndMpc threshold n = do
     vssKeys        <- sortWith toVssPublicKey <$> generate (nonrepeating n)
     let lvssPubKeys = NE.fromList $ map toVssPublicKey vssKeys
     (comms, opens) <-
-        unzip <$> replicateM n (genCommitmentAndOpening threshold lvssPubKeys)
+        unzip <$> replicateM n (randCommitmentAndOpening threshold lvssPubKeys)
     return (keys', NE.fromList vssKeys, comms, opens)
 
 mkCommitmentsMap' :: [SecretKey] -> [Commitment] -> CommitmentsMap

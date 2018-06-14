@@ -31,12 +31,13 @@ import           Pos.Core (EpochIndex, SlotId (..), VssCertificate (..), VssCert
 import           Pos.Core.Configuration (HasProtocolConstants, protocolConstants)
 import           Pos.Core.ProtocolConstants (ProtocolConstants (..), VssMaxTTL (..), VssMinTTL (..))
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SignedCommitment,
-                               SscPayload (..), SscProof (..), mkCommitmentsMap)
+                               SscPayload (..), SscProof (..), mkCommitmentsMap,
+                               randCommitmentAndOpening)
 import           Pos.Crypto (ProtocolMagic, SecretKey, deterministic, randomNumberInRange,
                              toVssPublicKey, vssKeyGen)
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
-import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentIdExplicit, isOpeningIdExplicit,
-                               isSharesIdExplicit, mkSignedCommitment)
+import           Pos.Ssc.Base (isCommitmentIdExplicit, isOpeningIdExplicit, isSharesIdExplicit,
+                               mkSignedCommitment)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
                                   MCVssCertificate (..), SscTag (..))
 import           Pos.Ssc.Toss.Types (TossModifier (..))
@@ -100,7 +101,7 @@ commitmentsAndOpenings =
       t <- randomNumberInRange 3 10
       n <- randomNumberInRange (t*2-1) (t*2)
       vssKeys <- replicateM (fromInteger n) $ toVssPublicKey <$> vssKeyGen
-      genCommitmentAndOpening (fromIntegral t) (NE.fromList vssKeys)
+      randCommitmentAndOpening (fromIntegral t) (NE.fromList vssKeys)
 
 instance Arbitrary CommitmentOpening where
     arbitrary = elements commitmentsAndOpenings

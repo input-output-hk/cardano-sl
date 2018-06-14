@@ -42,15 +42,12 @@ module Pos.Ssc.Base
 
 import           Universum hiding (id)
 
-import qualified Crypto.Random as Rand
 import qualified Data.HashMap.Strict as HM
 import           Data.Ix (inRange)
-import qualified Data.List.NonEmpty as NE
-import           Formatting (build, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (VerificationRes, verifyGeneric)
 
-import           Pos.Binary.Class (asBinary, biSize, fromBinary)
+import           Pos.Binary.Class (biSize, fromBinary)
 import           Pos.Binary.Core ()
 import           Pos.Core (EpochIndex (..), LocalSlotIndex, SharedSeed (..), SlotCount, SlotId (..),
                            StakeholderId, addressHash, unsafeMkLocalSlotIndexExplicit)
@@ -62,8 +59,7 @@ import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (getCommitmentsMa
                                SignedCommitment, SscPayload (..), VssCertificate (vcExpiryEpoch),
                                VssCertificatesMap (..), mkCommitmentsMapUnsafe)
 import           Pos.Crypto (ProtocolMagic, Secret, SecretKey, SignTag (SignCommitment), Threshold,
-                             VssPublicKey, checkSig, genSharedSecret, getDhSecret, secretToDhSecret,
-                             sign, toPublic, verifySecret)
+                             checkSig, getDhSecret, secretToDhSecret, sign, toPublic, verifySecret)
 
 -- | Convert Secret to SharedSeed.
 secretToSharedSeed :: Secret -> SharedSeed

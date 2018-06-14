@@ -27,7 +27,8 @@ import           Pos.Core (EpochIndex, SlotId (..), StakeholderId, Timestamp (..
                            bvdMpcThd, getOurSecretKey, getOurStakeholderId, getSlotIndex, lookupVss,
                            memberVss, mkLocalSlotIndex, mkVssCertificate, slotSecurityParam,
                            vssMaxTTL)
-import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment, getCommitmentsMap)
+import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment, getCommitmentsMap,
+                               randCommitmentAndOpening)
 import           Pos.Crypto (ProtocolMagic, SecretKey, VssKeyPair, VssPublicKey, randomNumber,
                              runSecureRandom)
 import           Pos.Crypto.SecretSharing (toVssPublicKey)
@@ -41,8 +42,7 @@ import           Pos.Infra.Slotting (defaultOnNewSlotParams, getCurrentSlot,
 import           Pos.Infra.Util.LogSafe (logDebugS, logErrorS, logInfoS, logWarningS)
 import           Pos.Lrc.Consumer.Ssc (getSscRichmen)
 import           Pos.Lrc.Types (RichmenStakes)
-import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentIdx, isOpeningIdx, isSharesIdx,
-                               mkSignedCommitment)
+import           Pos.Ssc.Base (isCommitmentIdx, isOpeningIdx, isSharesIdx, mkSignedCommitment)
 import           Pos.Ssc.Behavior (SscBehavior (..), SscOpeningParams (..), SscSharesParams (..))
 import           Pos.Ssc.Configuration (mpcSendInterval)
 import           Pos.Ssc.Functions (hasCommitment, hasOpening, hasShares, vssThreshold)
@@ -347,7 +347,7 @@ generateAndSetNewSecret pm sk SlotId {..} = do
                         logErrorS (here ("Couldn't deserialize keys: " <> err))
                     Right keys -> do
                         (comm, open) <- liftIO $ runSecureRandom $
-                            genCommitmentAndOpening threshold keys
+                            randCommitmentAndOpening threshold keys
                         let signedComm = mkSignedCommitment pm sk siEpoch comm
                         SS.putOurSecret signedComm open siEpoch
                         pure (Just signedComm)

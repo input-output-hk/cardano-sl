@@ -183,13 +183,15 @@ data MonitorEvent
 
 -- | Monitor for changes to the static config
 monitorStaticConfig ::
-    (MonadCatch m, Log.WithLogger m) =>
+    (MonadCatch m, MonadIO m) =>
        NetworkConfigOpts
+    -> Log.LoggingHandler
     -> NodeMetadata -- ^ Original metadata (at startup)
     -> Peers NodeId -- ^ Initial value
     -> m T.StaticPeers
-monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
-    lname <- Log.askLoggerName
+monitorStaticConfig cfg@NetworkConfigOpts{..} lh origMetadata initPeers = do
+    --lname <- Log.askLoggerName' lh
+    let lname = "monitor"
     events :: Chan MonitorEvent <- liftIO newChan
 
 #ifdef POSIX
@@ -198,7 +200,7 @@ monitorStaticConfig cfg@NetworkConfigOpts{..} origMetadata initPeers = do
 
     return T.StaticPeers {
         T.staticPeersOnChange = writeChan events . MonitorRegister
-      , T.staticPeersMonitoring = Log.usingLoggerName lname $ loop events initPeers []
+      , T.staticPeersMonitoring = Log.usingLoggerName lh lname $ loop events initPeers []
       }
   where
     loop :: (MonadCatch m, Log.WithLogger m) =>
@@ -274,12 +276,13 @@ launchStaticConfigMonitoring topology = liftIO action
 -- | Interpreter for the network config opts
 intNetworkConfigOpts ::
        forall m.
-       ( Log.WithLogger m
-       , MonadCatch m
+       ( MonadCatch m
+       , MonadIO m
        )
     => NetworkConfigOpts
+    -> Log.LoggingHandler
     -> m (T.NetworkConfig DHT.KademliaParams)
-intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
+intNetworkConfigOpts cfg@NetworkConfigOpts{..} lh = do
     parsedTopology <-
         case ncoTopology of
             Nothing -> pure defaultTopology
@@ -288,10 +291,10 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
         Y.TopologyStatic{..} -> do
             (md@NodeMetadata{..}, initPeers, kademliaPeers) <-
                 liftIO $ fromPovOf cfg topologyAllPeers
-            loggerName <- Log.askLoggerName
+            --loggerName <- Log.askLoggerName
             topologyStaticPeers <-
-                liftIO . Log.usingLoggerName loggerName $
-                monitorStaticConfig cfg md initPeers
+                --liftIO . Log.usingLoggerName loggerName $
+                  monitorStaticConfig cfg lh md initPeers
             -- If kademlia is enabled here then we'll try to read the configuration
             -- file. However it's not necessary that the file exists. If it doesn't,
             -- we can fill in some sensible defaults using the static routing and

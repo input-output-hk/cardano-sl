@@ -1,4 +1,4 @@
-
+-- | Logging implemented with library `katip`
 module Pos.Util.Log
        (
        -- * Logging
@@ -19,7 +19,9 @@ module Pos.Util.Log
        , setLogBasePath
        -- * Startup
        , setupLogging
+       -- * Do logging
        , loggerBracket
+       , usingLoggerName
        -- * Functions
        , logDebug
        , logInfo
@@ -29,8 +31,8 @@ module Pos.Util.Log
        , logMessage
        -- * Naming/Context
        , LoggerName
+       , askLoggerName
        , addLoggerName
-       , usingLoggerName
        ) where
 
 import           Universum
@@ -68,38 +70,31 @@ class (MonadIO m, LogContext m) => CanLog m where
     dispatchMessage _ s t = K.logItemM Nothing (Internal.sev2klog s) $ K.logStr t
 
 class (MonadIO m, LogContext m) => HasLoggerName m where
-    askLoggerName :: m LoggerName
-    askLoggerName = askLoggerName0
-    setLoggerName :: LoggerName -> m a -> m a
-    setLoggerName = modifyLoggerName . const
-    modifyLoggerName :: (LoggerName -> LoggerName) -> m a -> m a
-    modifyLoggerName f a = addLoggerName (f "cardano-sl")$ a
+    askLoggerName' :: m LoggerName
+    askLoggerName' = askLoggerName
+    setLoggerName' :: LoggerName -> m a -> m a
+    setLoggerName' = modifyLoggerName' . const
+    modifyLoggerName' :: (LoggerName -> LoggerName) -> m a -> m a
+    modifyLoggerName' f a = addLoggerName (f "cardano-sl")$ a
 instance (Monad m, HasLoggerName m) => HasLoggerName (ReaderT a m) where
 instance (Monad m, HasLoggerName m) => HasLoggerName (StateT a m) where
 instance (Monoid w, Monad m, HasLoggerName m) => HasLoggerName (WriterT w m) where
 instance (Monad m, HasLoggerName m) => HasLoggerName (ExceptT e m) where
-    askLoggerName    = lift askLoggerName
+    askLoggerName'    = lift askLoggerName'
 
 newtype LoggerNameBox m a = LoggerNameBox
     { loggerNameBoxEntry :: ReaderT LoggerName m a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadBase b, MonadState s)
 instance MFunctor LoggerNameBox where
     hoist f = LoggerNameBox . hoist f . loggerNameBoxEntry
-{-
-instance (MonadIO m, MonadReader r m) => MonadReader r (LoggerNameBox m) where
-    ask = lift ask
-    reader = lift . reader
-    local f (LoggerNameBox m) = askLoggerName >>= lift . local f . runReaderT m
-instance (Monad m, MonadIO m) => HasLoggerName (LoggerNameBox m) where
-    askLoggerName = LoggerNameBox ask
-    modifyLoggerName how = LoggerNameBox . local how . loggerNameBoxEntry
--}
+
 instance CanLog (LogContextT IO)
 instance CanLog m => CanLog (ReaderT s m)
 instance CanLog m => CanLog (StateT s m)
 instance CanLog m => CanLog (ExceptT s m)
 
 instance HasLoggerName (LogContextT IO)
+
 
 -- | log a Text with severity
 logMessage :: (LogContext m {-, HasCallStack -}) => Severity -> Text -> m ()
@@ -129,8 +124,8 @@ logError msg = K.logItemM Nothing K.ErrorS $ K.logStr msg
 
 
 -- | get current stack of logger names
-askLoggerName0 :: LogContext m => m LoggerName
-askLoggerName0 = do
+askLoggerName :: LogContext m => m LoggerName
+askLoggerName = do
     ns <- K.getKatipNamespace
     return $ toStrict $ toLazyText $ mconcat $ map fromText $ KC.intercalateNs ns
 
@@ -139,8 +134,8 @@ addLoggerName :: LogContext m => LoggerName -> m a -> m a
 addLoggerName t f =
     K.katipAddNamespace (KC.Namespace [t]) $ f
 
--- | setup logging according to configuration
---   the backends (scribes) need to be registered with the @LogEnv@
+-- | setup logging according to configuration @LoggerConfig@
+--   the backends (scribes) will be registered with katip
 setupLogging :: LoggerConfig -> IO LoggingHandler
 setupLogging lc = do
     lh <- Internal.newConfig lc
@@ -184,7 +179,23 @@ setupLogging lc = do
                  )
 
 
--- | provide logging in IO
+{-| provide logging in IO
+
+* example
+
+    @
+      lh <- setupLogging logconf
+      usingLoggerName lh "processXYZ" $
+          logInfo "entering"
+          complexWork "42"
+          logInfo "done."
+
+      where
+          complexWork :: WithLogger m => String -> m ()
+          complexWork m = do
+              logDebug $ "let's see: " `append` m
+    @
+-}
 usingLoggerName :: LoggingHandler -> LoggerName -> LogContextT IO a -> IO a
 usingLoggerName lh name f = do
     mayle <- Internal.getLogEnv lh
@@ -192,7 +203,28 @@ usingLoggerName lh name f = do
             Nothing -> error "logging not yet initialized. Abort."
             Just le -> K.runKatipContextT le () (Internal.s2kname name) $ f
 
--- | bracket logging
+{-| bracket logging
+
+!! this will close the backends at the end of the action !!
+
+
+* example
+
+    @
+      lh <- setupLogging logconf
+      loggerBracket lh "processXYZ" $
+          logInfo "entering"
+          complexWork "42"
+          logInfo "done."
+
+      where
+          complexWork :: WithLogger m => String -> m ()
+          complexWork m =
+              addLoggerName "in_complex" $ do
+                  logDebug $ "let's see: " `append` m
+    @
+
+-}
 loggerBracket :: LoggingHandler -> LoggerName -> LogContextT IO a -> IO a
 loggerBracket lh name f = do
     mayle <- Internal.getLogEnv lh
@@ -205,6 +237,7 @@ setLogPrefix :: Maybe FilePath -> LoggerConfig -> IO (LoggerConfig)
 setLogPrefix Nothing lc     = return lc
 setLogPrefix bp@(Just _) lc = return lc{ _lcBasePath = bp }
 
+-- | for compatibility (TODO check if still referenced)
 loadLogConfig :: Maybe FilePath -> Maybe FilePath -> IO LoggingHandler
 loadLogConfig pre cfg = do
     lc0 <- case cfg of
@@ -223,18 +256,19 @@ setLogBasePath lh fp = do
               Just cfg -> Internal.updateConfig lh cfg{ _lcBasePath = Just fp}
 
 
--- |
--- * interactive tests
---
--- >>> setupLogging $ defaultInteractiveConfiguration Info
--- >>> loggerBracket "testtest" $ do { logInfo "This is a message" }
---
--- >>> setupLogging $ defaultInteractiveConfiguration Info
--- >>> loggerBracket "testtest" $ do { logDebug "You won't see this message" }
---
--- >>> setupLogging $ defaultInteractiveConfiguration Info
--- >>> loggerBracket "testtest" $ do { logWarning "Attention!"; addLoggerName "levelUp" $ do { logError "..now it happened" } }
---
--- >>> setupLogging $ defaultInteractiveConfiguration Info
--- >>> usingLoggerName "testmore" $ do { logInfo "hello..." }
+{- |
+   * interactive tests
+
+   >>> lh <- setupLogging $ defaultInteractiveConfiguration Info
+   >>> loggerBracket lh "testtest" $ do { logInfo "This is a message" }
+
+   >>> lh <- setupLogging $ defaultInteractiveConfiguration Info
+   >>> loggerBracket lh "testtest" $ do { logDebug "You won't see this message" }
+
+   >>> lh <- setupLogging $ defaultInteractiveConfiguration Info
+   >>> loggerBracket lh "testtest" $ do { logWarning "Attention!"; addLoggerName "levelUp" $ do { logError "..now it happened" } }
+
+   >>> lh <- setupLogging $ defaultInteractiveConfiguration Info
+   >>> usingLoggerName lh "testmore" $ do { logInfo "hello..." }
+-}
 

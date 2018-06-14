@@ -33,6 +33,8 @@ import           Test.QuickCheck.Modifiers (NonEmptyList (..), getNonEmpty)
 
 import           Node
 import           Node.Message.Binary (binaryPacking)
+import           Pos.Util.Log (setupLogging, Severity(Debug))
+import           Pos.Util.LoggerConfig (defaultTestConfiguration)
 import           Pos.Util.Trace (logTrace)
 import           Test.Util (HeavyParcel (..), Parcel (..), Payload (..), TestState, deliveryTest,
                             expected, makeInMemoryTransport, makeTCPTransport, mkTestState,
@@ -69,6 +71,8 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
             ]
         nodeEnv = defaultNodeEnvironment { nodeMtu = mtu }
 
+    lh <- runIO $ setupLogging $ defaultTestConfiguration Debug
+
     forM_ transports $ \(name, mkTransport) -> do
 
         transport <- mkTransport
@@ -92,13 +96,13 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                                 _ <- timeout "server sending response" 30000000 (send cactions (Parcel i (Payload 32)))
                                 return ()
 
-                let server = node (logTrace "peer/server") (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) serverGen binaryPacking ("server" :: String, 42 :: Int) nodeEnv $ \_node ->
+                let server = node (logTrace lh "peer/server") (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) serverGen binaryPacking ("server" :: String, 42 :: Int) nodeEnv $ \_node ->
                         NodeAction (const [listener]) $ \_converse -> do
                             putMVar serverAddressVar (nodeId _node)
                             takeMVar clientFinished
                             putMVar serverFinished ()
 
-                let client = node (logTrace "peer/client") (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) clientGen binaryPacking ("client" :: String, 24 :: Int) nodeEnv $ \_node ->
+                let client = node (logTrace lh "peer/client") (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) clientGen binaryPacking ("client" :: String, 24 :: Int) nodeEnv $ \_node ->
                         NodeAction (const [listener]) $ \converse -> do
                             serverAddress <- readMVar serverAddressVar
                             forM_ [1..attempts] $ \i -> converseWith converse serverAddress $ \peerData -> Conversation $ \cactions -> do
@@ -137,7 +141,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                                 _ <- send cactions (Parcel i (Payload 32))
                                 return ()
 
-                node (logTrace "self") (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) gen binaryPacking ("some string" :: String, 42 :: Int) nodeEnv $ \_node ->
+                node (logTrace lh "self") (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) gen binaryPacking ("some string" :: String, 42 :: Int) nodeEnv $ \_node ->
                     NodeAction (const [listener]) $ \converse -> do
                         forM_ [1..attempts] $ \i -> converseWith converse (nodeId _node) $ \peerData -> Conversation $ \cactions -> do
                             unless (peerData == ("some string", 42)) (error "bad peer data")
@@ -171,7 +175,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 50) $ do
                         handleThreadKilled Timeout = do
                             --liftIO . putStrLn $ "Thread killed successfully!"
                             return ()
-                    node (logTrace "ack") (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) gen binaryPacking () env $ \_node ->
+                    node (logTrace lh "ack") (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) gen binaryPacking () env $ \_node ->
                         NodeAction (const []) $ \converse -> do
                             timeout "client waiting for ACK" 5000000 $
                                 flip catch handleThreadKilled $ converseWith converse peerAddr $ \_peerData -> Conversation $ \cactions -> do

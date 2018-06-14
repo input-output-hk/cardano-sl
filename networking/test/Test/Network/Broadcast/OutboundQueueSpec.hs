@@ -24,6 +24,7 @@ import           Test.QuickCheck (Gen, Property, choose, forAll, ioProperty, pro
                                   suchThat, (===))
 import qualified Test.QuickCheck as QC
 import qualified Pos.Util.Log as Log
+import           Pos.Util.LoggerConfig (defaultTestConfiguration)
 
 arbitraryNodeType :: Gen NodeType
 arbitraryNodeType = QC.elements [minBound .. maxBound]
@@ -80,19 +81,19 @@ arbitraryPeers genNid genNodeType = do
 testInFlight :: IO Bool
 testInFlight = do
 
-    Log.setupLogging (mempty :: Log.LoggerConfig)
+    lh <- Log.setupLogging $ defaultTestConfiguration Log.Debug
     -- removeAllHandlers   -- TODO
 
     -- Set up some test nodes
     allNodes <- do
-      ns <- forM [1..4] $ \nodeIdx -> newNode (C nodeIdx) NodeCore (CommsDelay 0)
+      ns <- forM [1..4] $ \nodeIdx -> newNode lh (C nodeIdx) NodeCore (CommsDelay 0)
       forM_ ns $ \theNode -> setPeers theNode (delete theNode ns)
       return ns
 
     runEnqueue $ do
       -- Send messages asynchronously
       forM_ [1..1000] $ \n -> do
-        send Asynchronous (allNodes !! 0) (MsgTransaction OriginSender) (MsgId n)
+        send lh Asynchronous (allNodes !! 0) (MsgTransaction OriginSender) (MsgId n)
       -- Abruptly unsubscribe whilst messages are getting delivered
       forM_ allNodes $ \theNode -> setPeers theNode []
 

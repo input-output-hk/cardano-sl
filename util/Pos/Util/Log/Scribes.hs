@@ -1,3 +1,4 @@
+-- | provide backends for `katip`
 module Pos.Util.Log.Scribes
     ( mkStdoutScribe
     , mkDevNullScribe
@@ -26,14 +27,14 @@ import qualified Pos.Util.Log.Internal as Internal
 
 
 
--- | global lock for stdout Scribe
+-- | global lock for file Scribe
 {-# NOINLINE lock #-}
 lock :: MVar ()
 lock = unsafePerformIO $ newMVar ()
 
 
--- | create a katip scribe for logging
---   (following default scribe in katip source code)
+-- | create a katip scribe for logging to a file
+-- calls '_mkFileScribe'
 mkFileScribe :: FilePath -> FilePath -> Bool -> Severity -> Verbosity -> IO Scribe
 mkFileScribe bp fp colorize s v = do
     h <- catchIO (openFile (bp </> fp) WriteMode) $
@@ -41,10 +42,13 @@ mkFileScribe bp fp colorize s v = do
                 putStrLn $ "error while opening log @ " ++ (bp </> fp)
                 putStrLn $ "exception: " ++ show e
                 return stdout    -- fallback to standard output in case of exception
-    mkFileScribe' h colorize s v
+    _mkFileScribe h colorize s v
 
-mkFileScribe' :: Handle -> Bool -> Severity -> Verbosity -> IO Scribe
-mkFileScribe' h colorize s v = do
+-- | internal: return scribe on file handle
+-- thread safe by MVar
+-- formatting done with 'formatItem'
+_mkFileScribe :: Handle -> Bool -> Severity -> Verbosity -> IO Scribe
+_mkFileScribe h colorize s v = do
     hSetBuffering h LineBuffering
     let logger :: forall a. LogItem a => Item a -> IO ()
         logger item = when (permitItem s item) $
@@ -52,20 +56,12 @@ mkFileScribe' h colorize s v = do
                 T.hPutStrLn h $! toLazyText $ formatItem colorize v item
     pure $ Scribe logger (hFlush h)
 
+-- | create a katip scribe for logging to the console
+-- calls '_mkFileScribe'
 mkStdoutScribe :: Severity -> Verbosity -> IO Scribe
-mkStdoutScribe = mkFileScribe' stdout True
-{- mkStdoutScribe s v = do
-    let h = stdout
-        colorize = True
-    hSetBuffering h LineBuffering
-    let logger :: forall a. LogItem a => Item a -> IO ()
-        logger item = do
-          when (permitItem s item) $ bracket_ (takeMVar lock) (putMVar lock ()) $
-            T.hPutStrLn h $! toLazyText $ formatItem colorize v item
-    pure $ Scribe logger (hFlush h)
--}
+mkStdoutScribe = _mkFileScribe stdout True
 
--- |Scribe that outputs to /dev/null without locking
+-- | @Scribe@ that outputs to '/dev/null' without locking
 mkDevNullScribe :: Internal.LoggingHandler -> Severity -> Verbosity -> IO Scribe
 mkDevNullScribe lh s v = do
     h <- openFile "/dev/null" WriteMode
@@ -78,7 +74,7 @@ mkDevNullScribe lh s v = do
     pure $ Scribe logger (hFlush h)
 
 
--- | format a log item with subsecond precision (ISO 8601)
+-- | format a @LogItem@ with subsecond precision (ISO 8601)
 formatItem :: LogItem a => Bool -> Verbosity -> Item a -> Builder
 formatItem withColor verb Item{..} =
     brackets nowStr <>

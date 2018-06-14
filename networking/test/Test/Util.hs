@@ -69,6 +69,8 @@ import           Node (Conversation (..), ConversationActions (..), Listener (..
                        nodeId, simpleNodeEndPoint)
 import           Node.Conversation (Converse)
 import           Node.Message.Binary (BinaryP, binaryPacking)
+import           Pos.Util.Log (setupLogging, Severity(Debug))
+import           Pos.Util.LoggerConfig (defaultTestConfiguration)
 import           Pos.Util.Trace (logTrace)
 
 -- | Run a computation, but kill it if it takes more than a given number of
@@ -245,7 +247,8 @@ deliveryTest :: NT.Transport
              -> IO Property
 deliveryTest transport nodeEnv testState workers listeners = do
 
-    let logTrace' = logTrace ""
+    lh <- setupLogging $ defaultTestConfiguration Debug
+    let logTrace' = logTrace lh ""
 
     let prng1 = mkStdGen 0
     let prng2 = mkStdGen 1

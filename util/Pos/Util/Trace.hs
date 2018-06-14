@@ -8,10 +8,11 @@ module Pos.Util.Trace
     , traceWith
     , noTrace
     , setupLogging
-    -- * log messages
-    , stdoutTrace
-    , stdoutTraceConcurrent
+    -- * trace setup
+    --, stdoutTrace
+    --, stdoutTraceConcurrent
     , logTrace
+    -- * log messages
     , logDebug
     , logInfo
     , logWarning
@@ -21,9 +22,9 @@ module Pos.Util.Trace
     ) where
 
 import           Universum hiding (trace, newEmptyMVar)
-import           Control.Concurrent.MVar (newEmptyMVar, withMVar)
+--import           Control.Concurrent.MVar (newEmptyMVar, withMVar)
 import           Data.Functor.Contravariant (Contravariant (..), Op (..))
-import qualified Data.Text.IO as TIO
+--import qualified Data.Text.IO as TIO
 import qualified Pos.Util.Log as Log
 
 -- | Abstracts logging.
@@ -40,10 +41,10 @@ natTrace :: (forall x . m x -> n x) -> Trace m s -> Trace n s
 natTrace nat (Trace (Op tr)) = Trace $ Op $ nat . tr
 
 -- | setup logging and return a Trace
-setupLogging :: Log.LoggerConfig -> IO TraceIO
-setupLogging lc = do
+setupLogging :: Log.LoggerConfig -> Log.LoggerName -> IO TraceIO
+setupLogging lc ln = do
     lh <- Log.setupLogging lc
-    return $ logTrace lh "from setup"
+    return $ logTrace lh ln
 
 trace :: Trace m s -> s -> m ()
 trace = getOp . runTrace
@@ -58,6 +59,7 @@ traceWith = trace
 noTrace :: Applicative m => Trace m a
 noTrace = Trace $ Op $ const (pure ())
 
+{-
 -- | Trace lines to stdout, without concurrency control.
 stdoutTrace :: Trace IO Text
 stdoutTrace = Trace $ Op $ TIO.putStrLn
@@ -68,8 +70,9 @@ stdoutTraceConcurrent = do
     mv <- newEmptyMVar :: IO (MVar ())
     let traceIt = \txt -> withMVar mv $ \_ -> TIO.putStrLn txt
     pure $ Trace $ Op $ traceIt
+-}
 
--- | A 'Trace' that uses logging
+-- | A 'Trace' that uses logging from @Pos.Util.Log@
 logTrace :: Log.LoggingHandler -> Log.LoggerName -> TraceIO
 logTrace lh loggerName = Trace $ Op $ \(severity, txt) ->
     Log.usingLoggerName lh loggerName $ Log.logMessage severity txt

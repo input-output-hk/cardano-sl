@@ -59,7 +59,7 @@ import qualified Network.Transport.TCP as TCP
 import           Node.Internal (NodeId (..))
 import qualified Prelude
 import qualified System.Metrics as Monitoring
-import           Pos.Util.Log (LoggerName)
+import           Pos.Util.Log (LoggerName, LoggingHandler)
 import qualified Data.Text as T
 
 import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr)
@@ -436,12 +436,13 @@ data Bucket =
 -- You can choose what name to give it.
 initQueue :: (MonadIO m, FormatMsg msg)
           => NetworkConfig kademlia
+          -> LoggingHandler
           -> LoggerName
           -> Maybe Monitoring.Store -- ^ EKG store (if used)
           -> m (OutboundQ msg NodeId Bucket)
-initQueue NetworkConfig{..} loggerName mStore = liftIO $ do
+initQueue NetworkConfig{..} lh loggerName mStore = liftIO $ do
     let NodeName selfName = fromMaybe (NodeName "self") ncSelfName
-        oqTrace           = logTrace (loggerName `T.append` selfName)
+        oqTrace           = logTrace lh (loggerName `T.append` selfName)
     oq <- OQ.new oqTrace
                  ncEnqueuePolicy
                  ncDequeuePolicy

@@ -71,7 +71,7 @@ import qualified Node.Internal as LL
 import           Node.Message.Class (Message (..), MessageCode, Packing, Serializable (..), pack,
                                      unpack)
 import           Node.Message.Decoder (ByteOffset, Decoder (..), DecoderStep (..), continueDecoding)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
+import           Pos.Util.Trace (TraceIO, Severity (..), traceWith)
 import           System.Random (StdGen)
 
 
@@ -239,7 +239,7 @@ node
        ( Serializable packing MessageCode
        , Serializable packing peerData
        )
-    => Trace IO (Severity, T.Text)
+    => TraceIO -- (Severity, T.Text)
     -> (IO LL.Statistics -> LL.NodeEndPoint)
     -> (IO LL.Statistics -> LL.ReceiveDelay)
        -- ^ delay on receiving input events.
@@ -259,7 +259,7 @@ node logTrace mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nod
               -- Index the listeners by message name, for faster lookup.
               -- TODO: report conflicting names, or statically eliminate them using
               -- DataKinds and TypeFamilies.
-              listenerIndices :: peerData -> ListenerIndex packing peerData 
+              listenerIndices :: peerData -> ListenerIndex packing peerData
               listenerIndices = fmap (fst . makeListenerIndex) mkListeners
               converse :: Converse packing peerData
               converse = nodeConverse llnode packing

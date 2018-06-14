@@ -1,4 +1,4 @@
-module Test.Pos.Util.LogSpec
+module Test.Pos.Util.TraceSpec
     ( spec)
 where
 
@@ -14,10 +14,11 @@ import           Test.Hspec.Core.QuickCheck (modifyMaxSize, modifyMaxSuccess)
 import           Test.QuickCheck (Property, property)
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
-import           Pos.Util.Log
+import qualified Pos.Util.Log as Log
 import           Pos.Util.Log.Internal (getLinesLogged)
-import           Pos.Util.Log.Severity (Severity (..))
 import           Pos.Util.LoggerConfig (defaultTestConfiguration)
+import           Pos.Util.Trace
+--import           Pos.Util.Trace.Unstructured (logDebug, logInfo, logWarning, logError)
 
 nominalDiffTimeToMicroseconds :: POSIXTime -> Microsecond
 nominalDiffTimeToMicroseconds = fromMicroseconds . round . (* 1000000)
@@ -54,61 +55,45 @@ prop_sev =
         -- multiply by 2 because Debug, Info and Notice messages must not be logged
         assert (linesLogged == n0 * n1 * 2)
 
-run_logging :: Severity -> Int -> Integer -> Integer -> IO (Microsecond, Integer)
+run_logging :: Log.Severity -> Int -> Integer -> Integer -> IO (Microsecond, Integer)
 run_logging sev n n0 n1= do
-        startTime <- getPOSIXTime
+    startTime <- getPOSIXTime
 {- -}
-        lh <- setupLogging $ defaultTestConfiguration sev
-        forM_ [1..n0] $ \_ ->
-            usingLoggerName lh "test_log" $
-                forM_ [1..n1] $ \_ -> do
-                    logDebug msg
-                    logInfo msg
-                    logNotice msg
-                    logWarning msg
-                    logError msg
+    lh <- Log.setupLogging (defaultTestConfiguration sev)
+    let logTrace' = logTrace lh "processXYZ"
+    forM_ [1..n0] $ \_ ->
+        forM_ [1..n1] $ \_ -> do
+            traceWith (logDebug logTrace') msg
+            traceWith (logInfo logTrace') msg
+            traceWith (logNotice logTrace') msg
+            traceWith (logWarning logTrace') msg
+            traceWith (logError logTrace') msg
 {- -}
-        endTime <- getPOSIXTime
-        threadDelay $ fromIntegral (5000 * n0)
-        diffTime <- return $ nominalDiffTimeToMicroseconds (endTime - startTime)
-        putStrLn $ "  time for " ++ (show (n0*n1)) ++ " iterations: " ++ (show diffTime)
-        linesLogged <- getLinesLogged lh
-        putStrLn $ "  lines logged :" ++ (show linesLogged)
-        return (diffTime, linesLogged)
-        where msg :: Text
-              msg = replicate n "abcdefghijklmnopqrstuvwxyz"
+    endTime <- getPOSIXTime
+    threadDelay $ fromIntegral (5000 * n0)
+    diffTime <- return $ nominalDiffTimeToMicroseconds (endTime - startTime)
+    putStrLn $ "  time for " ++ (show (n0*n1)) ++ " iterations: " ++ (show diffTime)
+    linesLogged <- getLinesLogged lh
+    putStrLn $ "  lines logged :" ++ (show linesLogged)
+    return (diffTime, linesLogged)
+    where msg :: Text
+          msg = replicate n "abcdefghijklmnopqrstuvwxyz"
 
--- | example: setup logging
+-- | example: setup trace
 example_setup :: IO ()
 example_setup = do
-    lh <- setupLogging (defaultTestConfiguration Debug)
-    usingLoggerName lh "processXYZ" $ do
-        logInfo "entering"
-        complexWork "42"
-        logInfo "done."
-
+    logTrace' <- setupLogging (defaultTestConfiguration Log.Debug) "example"
+    traceWith logTrace' (Info, "entering")
+    complexWork logTrace' "42"
+    traceWith logTrace' (Info, "done.")
     where
-        complexWork :: WithLogger m => Text -> m ()
-        complexWork m = do
-            logDebug $ "let's see: " `append` m
+        --complexWork :: MonadIO m => TraceIO -> Text -> m ()
+        complexWork tr msg = do
+            traceWith tr (Debug, "let's see: " `append` msg)
 
--- | example: bracket logging
-example_bracket :: IO ()
-example_bracket = do
-    lh <- setupLogging (defaultTestConfiguration Debug)
-    loggerBracket lh "processXYZ" $ do
-        logInfo "entering"
-        complexWork "42"
-        logInfo "done."
-
-    where
-        complexWork :: WithLogger m => Text -> m ()
-        complexWork m =
-            addLoggerName "in_complex" $ do
-                logDebug $ "let's see: " `append` m
 
 spec :: Spec
-spec = describe "Logging" $ do
+spec = describe "Trace" $ do
     modifyMaxSuccess (const 2) $ modifyMaxSize (const 2) $
       it "measure time for logging small messages" $
         property prop_small
@@ -128,5 +113,3 @@ spec = describe "Logging" $ do
     it "demonstrating setup and initialisation of logging" $
         example_setup
 
-    it "demonstrating bracket logging" $
-        example_bracket

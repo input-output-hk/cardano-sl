@@ -29,7 +29,8 @@ import           Network.Transport (Transport (..))
 import qualified Network.Transport.TCP as TCP
 import           Node
 import           Node.Message.Binary (BinaryP, binaryPacking)
-import           Pos.Util.Trace (stdoutTrace)
+import           Pos.Util.LoggerConfig (defaultInteractiveConfiguration)
+import           Pos.Util.Trace (TraceIO, setupLogging, Severity (..))
 import           System.Environment (getArgs)
 import           System.Random
 
@@ -84,10 +85,11 @@ listeners anId peerData = [pongListener]
         putStrLn $ show anId ++  " heard PING from " ++ show peerId ++ " with peer data " ++ B8.unpack peerData
         send cactions (Pong "")
 
-makeNode :: Transport
+makeNode :: TraceIO
+         -> Transport
          -> Int
          -> IO ThreadId
-makeNode transport i = do
+makeNode tr transport i = do
     let port = 3000 + i
         host = "127.0.0.1"
         addr = (host, fromIntegral port)
@@ -102,7 +104,7 @@ makeNode transport i = do
         prng1 = mkStdGen (2 * i)
         prng2 = mkStdGen ((2 * i) + 1)
     putStrLn $ "Starting node " ++ show i
-    forkIO $ node (contramap snd stdoutTrace) (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
+    forkIO $ node tr (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
                 prng1 binaryPacking (B8.pack "my peer data!") defaultNodeEnvironment $ \node' ->
         NodeAction (listeners . nodeId $ node') $ \converse -> do
             putStrLn $ "Making discovery for node " ++ show i
@@ -123,6 +125,8 @@ main = do
 
     when (number > 99 || number < 1) $ error "Give a number in [1,99]"
 
+    traceIO <- setupLogging (defaultInteractiveConfiguration Debug) "Discovery"
+
     let params = TCP.defaultTCPParameters { TCP.tcpCheckPeerHost = True }
     transport <- do
         transportOrError <-
@@ -130,7 +134,7 @@ main = do
         either throwIO return transportOrError
 
     putStrLn $ "Spawning " ++ show number ++ " nodes"
-    nodeThreads <- forM [0..number] (makeNode transport)
+    nodeThreads <- forM [0..number] (makeNode traceIO transport)
 
     putStrLn "Hit return to stop"
     _ <- getChar

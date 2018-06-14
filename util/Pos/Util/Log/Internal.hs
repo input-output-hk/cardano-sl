@@ -1,3 +1,4 @@
+-- | internal definitions for "Pos.Util.Log"
 module Pos.Util.Log.Internal
        ( newConfig
        , registerBackends
@@ -9,7 +10,7 @@ module Pos.Util.Log.Internal
        , getLinesLogged
        , incrementLinesLogged
        , modifyLinesLogged
-       , LoggingHandler
+       , LoggingHandler      --  only export name
        ) where
 
 import           Control.Concurrent.MVar (modifyMVar_, newMVar, withMVar)
@@ -23,7 +24,7 @@ import           Pos.Util.Log.Severity
 import           Pos.Util.LoggerConfig (LoggerConfig)
 
 
--- | translate Severity to Katip.Severity
+-- | translate Severity to @Katip.Severity@
 sev2klog :: Severity -> K.Severity
 sev2klog = \case
     Debug   -> K.DebugS
@@ -32,12 +33,12 @@ sev2klog = \case
     Warning -> K.WarningS
     Error   -> K.ErrorS
 
--- | translate
+-- | translate Name to @Katip.Namespace@
 s2kname :: Text -> K.Namespace
 s2kname s = K.Namespace [s]
 
 
--- | A global MVar keeping our internal state
+-- | Our internal state
 data LoggingHandlerInternal = LoggingHandlerInternal
   { lsiConfig      :: !(Maybe LoggerConfig)
   , lsiLogEnv      :: !(Maybe K.LogEnv)
@@ -61,6 +62,7 @@ getLogEnv lh = withMVar (getLSI lh) $ \LoggingHandlerInternal{..} -> return lsiL
 getLinesLogged :: LoggingHandler -> IO Integer
 getLinesLogged lh = withMVar (getLSI lh) $ \LoggingHandlerInternal{..} -> return lsiLinesLogged
 
+-- | from tests, we want to count the numbe of lines logged
 incrementLinesLogged :: LoggingHandler -> IO ()
 incrementLinesLogged lh = modifyLinesLogged lh (+1)
 modifyLinesLogged :: LoggingHandler -> (Integer -> Integer) -> IO ()
@@ -72,11 +74,13 @@ updateConfig :: LoggingHandler -> LoggerConfig -> IO ()
 updateConfig lh lc = modifyMVar_ (getLSI lh) $ \LoggingHandlerInternal{..} -> do
     return $ LoggingHandlerInternal (Just lc) lsiLogEnv lsiLinesLogged
 
+-- | create internal state given a configuration @LoggerConfig@
 newConfig :: LoggerConfig -> IO LoggingHandler
 newConfig lc = do
     mv <- newMVar $ LoggingHandlerInternal (Just lc) Nothing 0
     return $ LoggingHandler mv
 
+-- | register scribes in `katip`
 registerBackends :: LoggingHandler -> [(T.Text, K.Scribe)] -> IO ()
 registerBackends lh scribes = do
     LoggingHandlerInternal cfg _ counter <- takeMVar (getLSI lh)

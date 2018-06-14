@@ -157,12 +157,12 @@ createWalletHdRnd :: PassiveWallet
                   -> AssuranceLevel
                   -> (AddressHash PublicKey, EncryptedSecretKey)
                   -> Utxo
-                  -> IO (Either HD.CreateHdWalletError [HdAccountId])
+                  -> IO (Either HD.CreateHdRootError [HdAccountId])
 createWalletHdRnd pw@PassiveWallet{..} name spendingPassword assuranceLevel (pk,esk) utxo = do
     created <- InDb <$> getCurrentTimestamp
-    res <- update' _wallets
-               $ CreateHdWallet rootId name spendingPassword assuranceLevel created utxoByAccount
+    let newRoot = HD.initHdRoot rootId name spendingPassword assuranceLevel created
 
+    res <- update' _wallets $ CreateHdWallet newRoot utxoByAccount
     either (return . Left) insertESK res
     where
         utxoByAccount = prefilterUtxo rootId esk utxo

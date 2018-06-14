@@ -126,12 +126,12 @@ newPending accountId tx = runUpdate' . zoom dbHdWallets $
 -- TODO: Move BlockMeta inside PrefilteredBlock
 applyBlock :: (Map HdAccountId PrefilteredBlock, BlockMeta) -> Update DB ()
 applyBlock (blocksByAccount,meta) = runUpdateNoErrors $ zoom dbHdWallets $
-   createPrefiltered
-     (\_ -> return ()) -- assume root exists (postcondition of prefiltering)
-     initUtxoAndAddrs
-     (\prefBlock -> zoom hdAccountCheckpoints $
-                      modify $ Spec.applyBlock (prefBlock,meta))
-     blocksByAccount
+    createPrefiltered
+        (\_ -> return ()) -- assume root exists (postcondition of prefiltering)
+        initUtxoAndAddrs
+        (\prefBlock -> zoom hdAccountCheckpoints $
+                           modify $ Spec.applyBlock (prefBlock,meta))
+        blocksByAccount
   where
     -- Accounts are discovered during wallet creation (if the account was given
     -- a balance in the genesis block) or otherwise, during ApplyBlock. For
@@ -178,51 +178,51 @@ createHdWallet newRoot utxoByAccount = runUpdate' . zoom dbHdWallets $ do
 -- | For each of the specified accounts, create them if they do not exist,
 -- and apply the specified function.
 createPrefiltered :: forall p e.
-                    (HdRootId -> Update' HdWallets e ())
+                     (HdRootId -> Update' HdWallets e ())
                       -- ^ Check that the root exists (or create it)
-                 -> (p -> PrefilteredUtxo)
+                  -> (p -> PrefilteredUtxo)
                       -- ^ Initial UTxO (when we are creating the account),
                       -- as well as set of addresses the account should have
-                 -> (p -> Update' HdAccount e ())
+                  -> (p -> Update' HdAccount e ())
                       -- ^ Function to apply to the account
-                 -> Map HdAccountId p -> Update' HdWallets e ()
+                  -> Map HdAccountId p -> Update' HdWallets e ()
 createPrefiltered checkRootExists prefUtxo applyP accs = do
       forM_ (Map.toList accs) $ \(accId, p) -> do
-
         let utxo  :: Utxo
             addrs :: [AddrWithId]
             (utxo, addrs) = prefUtxo p
 
-            firstCheckpoint :: Checkpoint
-            firstCheckpoint = Checkpoint {
-                _checkpointUtxo        = InDb utxo
-              , _checkpointUtxoBalance = InDb $ Spec.balance utxo
-              , _checkpointExpected    = InDb Map.empty
-              , _checkpointPending     = Pending . InDb $ Map.empty
-              -- TODO proper BlockMeta initialisation
-              , _checkpointBlockMeta   = BlockMeta . InDb $ Map.empty
-              }
+        -- apply the update to the account
+        zoomOrCreateHdAccount
+            checkRootExists
+            (newAccount accId utxo)
+            accId
+            (applyP p)
 
-            newAccount :: HdAccount
-            newAccount = HD.initHdAccount accId firstCheckpoint
-
-            createAccount :: HdAccountId -> Update' HdWallets e ()
-            createAccount _ =
-                zoomOrCreateHdAccount
-                  checkRootExists
-                  newAccount
-                  accId
-                  (applyP p)
-
+        -- create addresses (if they don't exist)
         forM_ addrs $ \(addressId, address) -> do
-          let newAddress :: HdAddress
-              newAddress = HD.initHdAddress addressId (InDb address)
-          zoomOrCreateHdAddress
-            createAccount
-            newAddress
-            addressId
-            (return ())
+            let newAddress :: HdAddress
+                newAddress = HD.initHdAddress addressId (InDb address)
 
+            zoomOrCreateHdAddress
+                (\_ -> return ())
+                newAddress
+                addressId
+                (return ())
+
+        where
+            newAccount :: HdAccountId -> Utxo -> HdAccount
+            newAccount accId' utxo' = HD.initHdAccount accId' (firstCheckpoint utxo')
+
+            firstCheckpoint :: Utxo -> Checkpoint
+            firstCheckpoint utxo' = Checkpoint {
+                  _checkpointUtxo        = InDb utxo'
+                , _checkpointUtxoBalance = InDb $ Spec.balance utxo'
+                , _checkpointExpected    = InDb Map.empty
+                , _checkpointPending     = Pending . InDb $ Map.empty
+                -- TODO proper BlockMeta initialisation
+                , _checkpointBlockMeta   = BlockMeta . InDb $ Map.empty
+                }
 
 {-------------------------------------------------------------------------------
   Wrap HD C(R)UD operations

@@ -131,35 +131,6 @@ mkMainBlockExplicit pm bv sv prevHash difficulty slotId sk pske body =
             (mkAttributes ())
             (hash extraB)
 
-
-{-
-
-# mhueschen: this is not used anywhere in the codebase
-
-# removed from exports
---        , emptyMainBody
-
-# removed from imports
--- import           Data.Default (Default (def))
--- import           Pos.Ssc.Base (defaultSscPayload)
--- import           Pos.Txp.Base (emptyTxPayload)
--- import           Pos.Core.Slotting (LocalSlotIndex)
--- import           Pos.Core.Configuration (HasProtocolConstants)
-
--- | Empty (i. e. no payload) body of main block for given local slot index.
-emptyMainBody
-    :: HasProtocolConstants
-    => LocalSlotIndex
-    -> MainBody
-emptyMainBody slot =
-    MainBody
-    { _mbTxPayload = emptyTxPayload
-    , _mbSscPayload = defaultSscPayload slot
-    , _mbDlgPayload = def
-    , _mbUpdatePayload = def
-    }
--}
-
 ----------------------------------------------------------------------------
 -- Genesis smart constructors
 ----------------------------------------------------------------------------

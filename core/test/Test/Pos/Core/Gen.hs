@@ -153,7 +153,6 @@ import           Hedgehog
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import           Pos.Binary.Class (asBinary, Bi, Raw (..))
-import           Pos.Block.Base (mkMainHeader, mkGenesisHeader)
 import           Pos.Core.Block (BlockBodyAttributes, BlockHeader (..),
                                  BlockHeaderAttributes, BlockSignature (..),
                                  GenesisBlockHeader, GenesisBody (..),
@@ -162,7 +161,7 @@ import           Pos.Core.Block (BlockBodyAttributes, BlockHeader (..),
                                  MainConsensusData (..),
                                  MainExtraBodyData (..),
                                  MainExtraHeaderData (..), MainProof (..),
-                                 MainToSign (..))
+                                 MainToSign (..), mkMainHeader, mkGenesisHeader)
 import           Pos.Core.Common (Address (..), AddrAttributes (..),
                                   AddrSpendingData (..),
                                   AddrStakeDistribution (..), AddrType (..),
@@ -176,7 +175,7 @@ import           Pos.Core.Configuration (CoreConfiguration (..),
                                          GenesisConfiguration (..),
                                          GenesisHash (..))
 import           Pos.Core.Delegation (HeavyDlgIndex (..), LightDlgIndices (..),
-                                      ProxySKHeavy)
+                                      ProxySKHeavy, DlgPayload (..), ProxySKBlockInfo)
 import           Pos.Core.Genesis (FakeAvvmOptions (..),
                                    GenesisAvvmBalances (..),
                                    GenesisDelegation (..),
@@ -195,7 +194,7 @@ import           Pos.Core.Ssc (Commitment, CommitmentSignature, CommitmentsMap,
                                InnerSharesMap, SharesDistribution, SharesMap,
                                SignedCommitment, SscPayload (..), SscProof,
                                VssCertificate (..), VssCertificatesHash,
-                               VssCertificatesMap (..))
+                               VssCertificatesMap (..), randCommitmentAndOpening)
 import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxId,
                                TxIn (..), TxInWitness (..), TxOut (..),
                                TxOutAux (..), TxPayload (..), TxProof (..),
@@ -211,10 +210,8 @@ import           Pos.Core.Update (ApplicationName (..), BlockVersion (..),
                                   UpId, VoteId)
 import           Pos.Crypto (deterministic, Hash, hash, safeCreatePsk, sign)
 import           Pos.Data.Attributes (Attributes (..), mkAttributes)
-import           Pos.Delegation.Types (DlgPayload (..), ProxySKBlockInfo)
 import           Pos.Merkle (mkMerkleTree, mtRoot, MerkleRoot(..),
                              MerkleTree (..))
-import           Pos.Ssc.Base (genCommitmentAndOpening)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Test.Pos.Crypto.Gen (genAbstractHash, genDecShare,
@@ -589,7 +586,7 @@ genCommitmentOpening = do
     vssKeys <- replicateM numKeys genVssPublicKey
     pure
         $ deterministic "commitmentOpening"
-        $ genCommitmentAndOpening threshold (fromList vssKeys)
+        $ randCommitmentAndOpening threshold (fromList vssKeys)
 
 genCommitmentSignature :: Gen CommitmentSignature
 genCommitmentSignature = genSignature $ (,) <$> genEpochIndex <*> genCommitment

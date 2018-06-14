@@ -5,8 +5,7 @@
 module Pos.Ssc.Base
        (
          -- * Helpers
-         genCommitmentAndOpening
-       , isCommitmentIdExplicit
+         isCommitmentIdExplicit
        , isCommitmentId
        , isCommitmentIdxExplicit
        , isCommitmentIdx
@@ -77,27 +76,6 @@ secretToSharedSeed = SharedSeed . getDhSecret . secretToDhSecret
 -- shares, when verifying shares, and when recovering the secret.
 vssThreshold :: Integral a => a -> Threshold
 vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
-
--- | Generate random SharedSeed.
-genCommitmentAndOpening
-    :: Rand.MonadRandom m
-    => Threshold -> NonEmpty VssPublicKey -> m (Commitment, Opening)
-genCommitmentAndOpening t pks
-    | t <= 1 = error $ sformat
-        ("genCommitmentAndOpening: threshold ("%build%") must be > 1") t
-    | t >= n - 1 = error $ sformat
-        ("genCommitmentAndOpening: threshold ("%build%") must be < n-1"%
-         " (n = "%build%")") t n
-    | otherwise = convertRes <$> genSharedSecret t pks
-  where
-    n = fromIntegral (length pks)
-    convertRes (secret, proof, shares) =
-        ( Commitment
-          { commProof = proof
-          , commShares = HM.fromList $ map toPair $ NE.groupWith fst shares
-          }
-        , Opening $ asBinary secret)
-    toPair ne@(x:|_) = (asBinary (fst x), NE.map (asBinary . snd) ne)
 
 -- | Make signed commitment from commitment and epoch index using secret key.
 mkSignedCommitment

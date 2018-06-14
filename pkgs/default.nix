@@ -15690,12 +15690,9 @@ license = stdenv.lib.licenses.mit;
 , base
 , bytestring
 , cardano-sl-binary
-, cardano-sl-block
 , cardano-sl-core
 , cardano-sl-crypto
 , cardano-sl-crypto-test
-, cardano-sl-delegation
-, cardano-sl-ssc
 , cpphs
 , cryptonite
 , cryptonite-openssl
@@ -15718,12 +15715,9 @@ libraryHaskellDepends = [
 base
 bytestring
 cardano-sl-binary
-cardano-sl-block
 cardano-sl-core
 cardano-sl-crypto
 cardano-sl-crypto-test
-cardano-sl-delegation
-cardano-sl-ssc
 cryptonite
 cryptonite-openssl
 hedgehog

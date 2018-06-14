@@ -127,7 +127,6 @@ newPending accountId tx = runUpdate' . zoom dbHdWallets $
 applyBlock :: (Map HdAccountId PrefilteredBlock, BlockMeta) -> Update DB ()
 applyBlock (blocksByAccount,meta) = runUpdateNoErrors $ zoom dbHdWallets $
     createPrefiltered
-        (\_ -> return ()) -- assume root exists (postcondition of prefiltering)
         initUtxoAndAddrs
         (\prefBlock -> zoom hdAccountCheckpoints $
                            modify $ Spec.applyBlock (prefBlock,meta))
@@ -137,7 +136,7 @@ applyBlock (blocksByAccount,meta) = runUpdateNoErrors $ zoom dbHdWallets $
     -- a balance in the genesis block) or otherwise, during ApplyBlock. For
     -- accounts discovered during ApplyBlock, we can assume that there was no
     -- genesis utxo, hence we use empty initial utxo for such new accounts.
-    initUtxoAndAddrs :: PrefilteredBlock -> PrefilteredUtxo
+    initUtxoAndAddrs :: PrefilteredBlock -> (Utxo, [AddrWithId])
     initUtxoAndAddrs pb = (Map.empty, pfbAddrs pb)
 
 -- | Switch to a fork
@@ -165,10 +164,10 @@ createHdWallet :: HdRoot
                -> Map HdAccountId PrefilteredUtxo
                -> Update DB (Either HD.CreateHdRootError ())
 createHdWallet newRoot utxoByAccount = runUpdate' . zoom dbHdWallets $ do
+      HD.createHdRoot newRoot
       createPrefiltered
-        (\_rootId -> HD.createHdRoot newRoot)
         identity
-        (\_ -> return ())
+        (\_ -> return ()) -- we just want to create the accounts
         utxoByAccount
 
 {-------------------------------------------------------------------------------
@@ -178,23 +177,21 @@ createHdWallet newRoot utxoByAccount = runUpdate' . zoom dbHdWallets $ do
 -- | For each of the specified accounts, create them if they do not exist,
 -- and apply the specified function.
 createPrefiltered :: forall p e.
-                     (HdRootId -> Update' HdWallets e ())
-                      -- ^ Check that the root exists (or create it)
-                  -> (p -> PrefilteredUtxo)
+                     (p -> (Utxo, [AddrWithId]))
                       -- ^ Initial UTxO (when we are creating the account),
                       -- as well as set of addresses the account should have
                   -> (p -> Update' HdAccount e ())
                       -- ^ Function to apply to the account
                   -> Map HdAccountId p -> Update' HdWallets e ()
-createPrefiltered checkRootExists prefUtxo applyP accs = do
+createPrefiltered initUtxoAndAddrs applyP accs = do
       forM_ (Map.toList accs) $ \(accId, p) -> do
         let utxo  :: Utxo
             addrs :: [AddrWithId]
-            (utxo, addrs) = prefUtxo p
+            (utxo, addrs) = initUtxoAndAddrs p
 
         -- apply the update to the account
         zoomOrCreateHdAccount
-            checkRootExists
+            assumeHdRootExists
             (newAccount accId utxo)
             accId
             (applyP p)
@@ -205,7 +202,7 @@ createPrefiltered checkRootExists prefUtxo applyP accs = do
                 newAddress = HD.initHdAddress addressId (InDb address)
 
             zoomOrCreateHdAddress
-                (\_ -> return ())
+                assumeHdAccountExists -- we created it above
                 newAddress
                 addressId
                 (return ())

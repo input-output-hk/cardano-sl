@@ -56,6 +56,8 @@ module Cardano.Wallet.Kernel.DB.HdWallet (
   , zoomOrCreateHdRoot
   , zoomOrCreateHdAccount
   , zoomOrCreateHdAddress
+  , assumeHdRootExists
+  , assumeHdAccountExists
   ) where
 
 import           Universum
@@ -416,6 +418,18 @@ zoomOrCreateHdAddress :: (HdAccountId -> Update' HdWallets e ())
 zoomOrCreateHdAddress checkAccountExists newAddress addrId upd = do
     checkAccountExists $ addrId ^. hdAddressIdParent
     zoomCreate newAddress (hdWalletsAddresses . at addrId) $ upd
+
+-- | Assume that the given HdRoot exists
+--
+-- Helper function which can be used as an argument to 'zoomOrCreateHdAccount'
+assumeHdRootExists :: HdRootId -> Update' HdWallets e ()
+assumeHdRootExists _id = return ()
+
+-- | Assume that the given HdAccount exists
+--
+-- Helper function which can be used as an argument to 'zoomOrCreateHdAddress'
+assumeHdAccountExists :: HdAccountId -> Update' HdWallets e ()
+assumeHdAccountExists _id = return ()
 
 {-------------------------------------------------------------------------------
   Pretty printing

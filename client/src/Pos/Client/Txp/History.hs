@@ -40,7 +40,7 @@ import           System.Wlog (WithLogger)
 
 import           Pos.Block.Base (genesisBlock0)
 import           Pos.Core (Address, ChainDifficulty, GenesisHash (..), HasConfiguration,
-                           Timestamp (..), difficultyL, genesisHash, headerHash)
+                           Timestamp (..), difficultyL, epochSlots, genesisHash, headerHash)
 import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPayload)
 import           Pos.Crypto (ProtocolMagic, WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
@@ -216,7 +216,7 @@ getBlockHistoryDefault
     -> [Address]
     -> m (Map TxId TxHistoryEntry)
 getBlockHistoryDefault pm addrs = do
-    let bot      = headerHash (genesisBlock0 pm (GenesisHash genesisHash) genesisLeaders)
+    let bot      = headerHash (genesisBlock0 pm (GenesisHash genesisHash) (genesisLeaders epochSlots))
     sd          <- GS.getSlottingData
     systemStart <- getSystemStartM
 

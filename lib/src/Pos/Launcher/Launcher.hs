@@ -15,6 +15,7 @@ import           Universum
 import           Mockable.Production (Production (..))
 
 import           Pos.Crypto (ProtocolMagic)
+import           Pos.Core.Configuration (epochSlots)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion)
 import           Pos.Launcher.Configuration (HasConfigurations)
@@ -42,7 +43,7 @@ runNodeReal
     -> [Diffusion (RealMode EmptyMempoolExt) -> RealMode EmptyMempoolExt ()]
     -> IO ()
 runNodeReal pm np sscnp plugins = runProduction $
-    bracketNodeResources np sscnp (txpGlobalSettings pm) (initNodeDBs pm) (Production . action)
+    bracketNodeResources np sscnp (txpGlobalSettings pm) (initNodeDBs pm epochSlots) (Production . action)
   where
     action :: NodeResources EmptyMempoolExt -> IO ()
     action nr@NodeResources {..} = runRealMode pm nr (runNode pm nr plugins)

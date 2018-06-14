@@ -26,7 +26,8 @@ import qualified Pos.Block.Lrc as Lrc
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Core (Coin, EpochIndex, GenesisData (..), GenesisInitializer (..),
                            StakeholderId, TestnetBalanceOptions (..), addressHash, blkSecurityParam,
-                           coinF, genesisData, genesisSecretKeysPoor, genesisSecretKeysRich)
+                           coinF, epochSlots, genesisData, genesisSecretKeysPoor,
+                           genesisSecretKeysRich)
 import           Pos.Core.Block (mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux, mkTxPayload)
 import           Pos.Crypto (SecretKey, toPublic)
@@ -156,7 +157,7 @@ lrcCorrectnessProp = do
     -- DB iteration.
     let sortedStakes = sortOn (serialize' . fst) (HM.toList stableStakes)
     let expectedLeadersStakes =
-            Lrc.followTheSatoshi genesisSeed sortedStakes
+            Lrc.followTheSatoshi epochSlots genesisSeed sortedStakes
     when (expectedLeadersStakes /= leaders1) $
         stopProperty $ sformat ("expectedLeadersStakes /= leaders1\n"%
                                 "Stakes version: "%listJson%

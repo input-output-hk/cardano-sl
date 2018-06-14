@@ -16204,6 +16204,7 @@ aeson
 base
 bytestring
 cardano-sl
+cardano-sl-core
 cardano-sl-crypto
 cardano-sl-infra
 cardano-sl-networking

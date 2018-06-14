@@ -23,7 +23,7 @@ import           Test.QuickCheck (Gen, Property, Testable (..), arbitrary, forAl
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.Block.Slog (mkSlogGState)
-import           Pos.Core (SlotId, Timestamp (..))
+import           Pos.Core (SlotId, Timestamp (..), epochSlots)
 import           Pos.DB (MonadGState (..))
 import qualified Pos.DB as DB
 import qualified Pos.DB.Block as DB
@@ -145,7 +145,7 @@ initExplorerTestContext tp@TestParams {..} = do
             { eticDBPureVar      = dbPureVar
             }
     liftIO $ runTestInitMode initCtx $ do
-        DB.initNodeDBs dummyProtocolMagic
+        DB.initNodeDBs dummyProtocolMagic epochSlots
         lcLrcSync <- newTVarIO =<< mkLrcSyncData
         let _gscLrcContext = LrcContext {..}
         _gscSlogGState <- mkSlogGState

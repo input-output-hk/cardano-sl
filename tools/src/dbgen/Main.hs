@@ -20,7 +20,7 @@ import qualified Network.Transport.TCP as TCP
 import           Options.Generic (getRecord)
 import           Pos.Client.CLI (CommonArgs (..), CommonNodeArgs (..), NodeArgs (..), getNodeParams,
                                  gtSscParams)
-import           Pos.Core (ProtocolMagic, Timestamp (..))
+import           Pos.Core (ProtocolMagic, Timestamp (..), epochSlots)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Rocks.Functions (openNodeDBs)
 import           Pos.DB.Rocks.Types (NodeDBs)
@@ -104,7 +104,7 @@ newRealModeContext pm dbs confOpts secretKeyPath = do
     nodeParams <- getNodeParams loggerName cArgs nodeArgs
     let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
     let gtParams = gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-    bracketNodeResources @() nodeParams gtParams (txpGlobalSettings pm) (initNodeDBs pm) $ \NodeResources{..} ->
+    bracketNodeResources @() nodeParams gtParams (txpGlobalSettings pm) (initNodeDBs pm epochSlots) $ \NodeResources{..} ->
         RealModeContext <$> pure dbs
                         <*> pure nrSscState
                         <*> pure nrTxpState

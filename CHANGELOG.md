@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## Cardano SL 1.2.1 (Mainnet)
+
+Bug fix release.
+
+- The wallet launcher now uses a lock file. This prevents problems on
+  Windows if upgrading Daedalus while the old version is still
+  running. (DEVOPS-872)
+
+- Fix character encoding error in the connect script of the Docker
+  image. (DEVOPS-877)
+
+
 ## Cardano SL 1.2.0 (Mainnet)
 
 These are the most important code changes which were included in release 1.2.0.

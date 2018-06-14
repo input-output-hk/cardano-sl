@@ -7,24 +7,23 @@ import           Criterion.Types (Config (..))
 import           Test.QuickCheck (generate)
 import           Universum
 
-import           Pos.Core (HasConfiguration)
-import           Pos.Crypto (SecretKey, SignTag (SignTx), protocolMagic, sign)
+import           Pos.Crypto (SecretKey, SignTag (SignTx), sign)
 import           Pos.Ssc ()
 import           Pos.Txp (TxId, TxSig, TxSigData (..))
 
 import           Test.Pos.Txp.Arbitrary.Unsafe ()
 import           Test.Pos.Util.QuickCheck.Arbitrary (arbitraryUnsafe)
 
-import           Bench.Configuration (giveCoreConf)
+import           Bench.Configuration (benchProtocolMagic)
 
-signTx :: HasConfiguration => (SecretKey, TxId) -> TxSig
-signTx (sk, thash) = sign protocolMagic SignTx sk txSigData
+signTx :: (SecretKey, TxId) -> TxSig
+signTx (sk, thash) = sign benchProtocolMagic SignTx sk txSigData
   where
     txSigData = TxSigData
         { txSigTxHash = thash
         }
 
-txSignBench :: HasConfiguration => Benchmark
+txSignBench :: Benchmark
 txSignBench = env genArgs $ bench "Transactions signing" . whnf signTx
   where genArgs = generate $ (,)
                   <$> arbitraryUnsafe
@@ -36,4 +35,4 @@ txSignConfig = defaultConfig
     }
 
 runBenchmark :: IO ()
-runBenchmark = giveCoreConf $ defaultMainWith txSignConfig [txSignBench]
+runBenchmark = defaultMainWith txSignConfig [txSignBench]

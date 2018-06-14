@@ -13,6 +13,7 @@ import           Data.Maybe (fromJust)
 import           Mockable (Production (..), runProduction)
 import           Ntp.Client (NtpStatus, withNtpClient)
 import qualified Pos.Client.CLI as CLI
+import           Pos.Core (epochSlots)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion)
@@ -66,7 +67,7 @@ actionWithWallet pm sscParams nodeParams ntpConfig wArgs@WalletBackendParams {..
         bracketWalletWS $ \conn ->
             bracketNodeResources nodeParams sscParams
                 (txpGlobalSettings pm)
-                (initNodeDBs pm) $ \nr@NodeResources {..} -> do
+                (initNodeDBs pm epochSlots) $ \nr@NodeResources {..} -> do
                     syncQueue <- liftIO newTQueueIO
                     ntpStatus <- withNtpClient (ntpClientSettings ntpConfig)
                     runWRealMode pm db conn syncQueue nr (mainAction ntpStatus nr)
@@ -114,7 +115,7 @@ actionWithNewWallet pm sscParams nodeParams params =
         nodeParams
         sscParams
         (txpGlobalSettings pm)
-        (initNodeDBs pm) $ \nr -> do
+        (initNodeDBs pm epochSlots) $ \nr -> do
       -- TODO: Will probably want to extract some parameters from the
       -- 'NewWalletBackendParams' to construct or initialize the wallet
 

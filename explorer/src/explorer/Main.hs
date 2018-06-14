@@ -21,6 +21,7 @@ import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
+import           Pos.Core (epochSlots)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
@@ -70,7 +71,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
                 ]
         bracketNodeResources currentParams sscParams
             (explorerTxpGlobalSettings pm)
-            (explorerInitDB pm) $ \nr@NodeResources {..} ->
+            (explorerInitDB pm epochSlots) $ \nr@NodeResources {..} ->
                 Production (runExplorerRealMode pm nr (runNode pm nr plugins))
   where
 

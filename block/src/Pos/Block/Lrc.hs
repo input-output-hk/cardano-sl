@@ -29,7 +29,7 @@ import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockA
                                            applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Block.Slog.Logic (ShouldCallBListener (..))
 import           Pos.Core (Coin, EpochIndex, EpochOrSlot (..), SharedSeed, StakeholderId,
-                           blkSecurityParam, crucialSlot, epochIndexL, getEpochOrSlot)
+                           blkSecurityParam, crucialSlot, epochIndexL, epochSlots, getEpochOrSlot)
 import           Pos.Core.Chrono (NE, NewestFirst (..), toOldestFirst)
 import           Pos.Crypto (ProtocolMagic)
 import qualified Pos.DB.Block.Load as DB
@@ -223,7 +223,7 @@ leadersComputationDo epochId seed =
     unlessM (LrcDB.hasLeaders epochId) $ do
         totalStake <- GS.getRealTotalStake
         leaders <-
-            runConduitRes $ GS.stakeSource .| followTheSatoshiM seed totalStake
+            runConduitRes $ GS.stakeSource .| followTheSatoshiM epochSlots seed totalStake
         LrcDB.putLeadersForEpoch epochId leaders
 
 --------------------------------------------------------------------------------

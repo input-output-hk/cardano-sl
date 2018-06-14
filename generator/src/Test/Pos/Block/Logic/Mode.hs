@@ -63,7 +63,7 @@ import           Pos.Block.Slog (HasSlogGState (..), mkSlogGState)
 import           Pos.Core (BlockVersionData, CoreConfiguration (..), GenesisConfiguration (..),
                            GenesisInitializer (..), GenesisSpec (..), HasConfiguration,
                            HasProtocolConstants, SlotId, Timestamp (..), genesisSecretKeys,
-                           withGenesisSpec)
+                           epochSlots, withGenesisSpec)
 import           Pos.Core.Configuration (HasGenesisBlockVersionData, withGenesisBlockVersionData)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB (DBPure, MonadDB (..), MonadDBRead (..), MonadGState (..))
@@ -250,7 +250,7 @@ initBlockTestContext tp@TestParams {..} callback = do
                 systemStart
                 futureLrcCtx
         initBlockTestContextDo = do
-            initNodeDBs dummyProtocolMagic
+            initNodeDBs dummyProtocolMagic epochSlots
             _gscSlottingVar <- newTVarIO =<< GS.getSlottingData
             putSlottingVar _gscSlottingVar
             let btcLoggerName = "testing"

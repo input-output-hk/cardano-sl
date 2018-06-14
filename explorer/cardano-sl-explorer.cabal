@@ -166,6 +166,7 @@ executable cardano-explorer
                        Paths_cardano_sl_explorer
   build-depends:       base
                      , cardano-sl
+                     , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-infra
                      , cardano-sl-explorer

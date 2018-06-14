@@ -178,7 +178,7 @@ class Monad m => RunPolicy m a | m -> a where
   -- | Generate change address
   genChangeAddr :: m (Addr a)
 
-newtype TotalOutput = TotalOutput { getTotal :: Core.Coin } deriving Show
+newtype TotalOutput = TotalOutput { getTotal :: Core.Coin } deriving (Show, Eq, Ord)
 
 -- | The possible errors encountered when performing coin selection
 data CoinSelectionFailure a =

@@ -56,6 +56,7 @@ import           Pos.Txp (GenericTxpLocalData, HasTxpConfiguration, MempoolExt, 
 import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                                       modifyLoggerNameDefault)
+import           Pos.Util.UserPublic (HasUserPublic (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
@@ -113,6 +114,9 @@ instance HasPrimaryKey (RealModeContext ext) where
 
 instance HasMisbehaviorMetrics (RealModeContext ext) where
     misbehaviorMetrics = rmcNodeContext_L . misbehaviorMetrics
+
+instance HasUserPublic (RealModeContext ext) where
+    userPublic = rmcNodeContext_L . userPublic
 
 instance HasUserSecret (RealModeContext ext) where
     userSecret = rmcNodeContext_L . userSecret

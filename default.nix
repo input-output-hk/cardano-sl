@@ -196,21 +196,26 @@ let
       testnet.wallet = mkDocker { environment = "testnet"; };
     };
 
+    cardano-sl-config = pkgs.runCommand "cardano-sl-config" {} ''
+      mkdir -p $out/lib
+      cp -R ${./log-configs} $out/log-configs
+      cp ${./lib}/configuration.yaml $out/lib
+      cp ${./lib}/*genesis*.json $out/lib
+    '';
     daedalus-bridge = let
       inherit (cardanoPkgs.cardano-sl-node) version;
     in pkgs.runCommand "cardano-daedalus-bridge-${version}" {
-      inherit version;
+      inherit version gitrev buildId;
     } ''
       # Generate daedalus-bridge
-      mkdir -p $out/bin $out/config
+      mkdir -p $out/bin
       cd $out
       ${optionalString (buildId != null) "echo ${buildId} > build-id"}
       echo ${gitrev} > commit-id
       echo ${version} > version
 
-      cp ${./log-configs + "/daedalus.yaml"} config/log-config-prod.yaml
-      cp ${./lib}/configuration.yaml config
-      cp ${./lib}/*genesis*.json config
+      cp --no-preserve=mode -R ${cardano-sl-config}/lib config
+      cp ${cardano-sl-config}/log-configs/daedalus.yaml $out/config/log-config-prod.yaml
       cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-launcher bin
       cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-x509-certificates bin
       cp ${cardanoPkgs.cardano-sl-wallet-new}/bin/cardano-node bin

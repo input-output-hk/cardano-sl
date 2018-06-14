@@ -18009,6 +18009,7 @@ x509
 x509-store
 ];
 executableHaskellDepends = [
+acid-state
 aeson
 aeson-diff
 aeson-pretty
@@ -18023,6 +18024,7 @@ cardano-sl-ssc
 cardano-sl-txp
 cardano-sl-util
 cardano-sl-wallet
+conduit
 containers
 exceptions
 formatting

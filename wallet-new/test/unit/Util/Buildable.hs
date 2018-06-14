@@ -3,12 +3,17 @@ module Util.Buildable (
     ShowThroughBuild(..)
   ) where
 
-import           Formatting (build, sformat)
+import           Formatting (sformat, bprint)
+import qualified Formatting as F
+import Data.Text.Buildable (Buildable(..))
 import           Prelude (Show (..))
 import           Universum
 
 newtype ShowThroughBuild a = STB { unSTB :: a }
   deriving (Eq)
 
+instance Buildable a => Buildable (ShowThroughBuild a) where
+  build = bprint F.build . unSTB
+
 instance Buildable a => Show (ShowThroughBuild a) where
-  show = toString . sformat build . unSTB
+  show = toString . sformat F.build . unSTB

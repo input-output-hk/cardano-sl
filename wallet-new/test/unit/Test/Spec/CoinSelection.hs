@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveFunctor              #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TypeApplications           #-}
 {-# OPTIONS_GHC -fno-warn-orphans       #-}
 module Test.Spec.CoinSelection (
     spec
@@ -8,14 +5,12 @@ module Test.Spec.CoinSelection (
 
 import           Universum
 
-import           Crypto.Random (MonadRandom)
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import           Data.List.NonEmpty (cons)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Gen, Property, arbitrary, choose, counterexample, suchThat)
-import           Test.QuickCheck.Monadic (PropertyM, monadic', pick, run, stop)
+import           Test.QuickCheck (Gen, Property, forAll, arbitrary, choose, counterexample, suchThat)
 
 import           Data.Text.Buildable (Buildable (..))
 import           Formatting (bprint, (%))
@@ -173,12 +168,6 @@ genPayee amountToCover =
             , stakeMaxInputsNum     = Just 1
             }
 
-newtype TestMonad a = TM { runTest :: IdentityT Gen a }
-  deriving (Functor, Applicative, Monad, MonadRandom)
-
-runIt :: PropertyM TestMonad a -> Gen Property
-runIt m = monadic' m >>= runIdentityT . runTest
-
 instance (Buildable a, Buildable b) => Buildable (Either a b) where
     build (Right r) = bprint ("Right " % F.build) r
     build (Left l)  = bprint ("Left "  % F.build) l
@@ -259,12 +248,15 @@ renderUtxoAndPayees utxo outputs = Tabl.tabl env hDec vDec alignments cells
           [T.pack . show . Core.getCoin . Core.txOutValue . Core.toaOut $ txOutAux]
 
 type Policy =  CoinSelectionOptions
-            -> TestMonad Core.Address
+            -> Gen Core.Address
             -> Core.Utxo
             -> NonEmpty Core.TxOut
-            -> TestMonad (Either [CoinSelectionFailure Core.Address] Core.TxAux)
+            -> Gen (Either [CoinSelectionFailure Core.Address] Core.TxAux)
 
-type RunResult = (Core.Utxo, NonEmpty Core.TxOut, Either [CoinSelectionFailure Core.Address] Core.TxAux)
+type RunResult = ( Core.Utxo
+                 , NonEmpty Core.TxOut
+                 , Either (ShowThroughBuild [CoinSelectionFailure Core.Address]) Core.TxAux
+                 )
 
 newtype InitialBalance = InitialBalance Word64
 newtype Pay = Pay Word64
@@ -276,13 +268,13 @@ pay :: (Word64 -> Gen Core.Utxo)
     -> InitialBalance
     -> Pay
     -> Policy
-    -> PropertyM TestMonad RunResult
+    -> Gen RunResult
 pay genU genP feeFunction adjustOptions (InitialBalance bal) (Pay amount) policy = do
-    utxo  <- pick $ genU bal
-    payee <- pick $ genP amount
-    key   <- pick arbitrary
+    utxo  <- genU bal
+    payee <- genP amount
+    key   <- arbitrary
     let options = adjustOptions (newOptions feeFunction (\_ -> Right $ fakeSigner key))
-    res <- run $ policy options (TM $ lift arbitrary) utxo payee
+    res <- bimap STB identity <$> policy options arbitrary utxo payee
     return (utxo, payee, res)
 
 payOne :: (Int -> NonEmpty Core.Coin -> Core.Coin)
@@ -290,7 +282,7 @@ payOne :: (Int -> NonEmpty Core.Coin -> Core.Coin)
        -> InitialBalance
        -> Pay
        -> Policy
-       -> PropertyM TestMonad RunResult
+       -> Gen RunResult
 payOne = pay genUtxoWithAtLeast genPayee
 
 payBatch :: (Int -> NonEmpty Core.Coin -> Core.Coin)
@@ -298,31 +290,31 @@ payBatch :: (Int -> NonEmpty Core.Coin -> Core.Coin)
          -> InitialBalance
          -> Pay
          -> Policy
-         -> PropertyM TestMonad RunResult
+         -> Gen RunResult
 payBatch = pay genUtxoWithAtLeast genPayees
 
 spec :: HasConfiguration => Spec
 spec =
     describe "Coin selection policies unit tests" $ do
         describe "largestFirst" $ do
-            prop "one payee, SenderPaysFee, fee = 0" $ runIt $ do
-                (utxo, payee, res) <- payOne freeLunch identity (InitialBalance 1000) (Pay 100) largestFirst
-                stop (paymentSucceeded utxo payee res)
-            prop "one payee, ReceiverPaysFee, fee = 0" $ runIt $ do
+            prop "one payee, SenderPaysFee, fee = 0" $ forAll (
+                payOne freeLunch identity (InitialBalance 1000) (Pay 100) largestFirst
+                ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
+            prop "one payee, ReceiverPaysFee, fee = 0" $ forAll (do
                 let modOpt o = o & csoExpenseRegulation .~ ReceiverPaysFee
-                (utxo, payee, res) <- payOne freeLunch modOpt (InitialBalance 1000) (Pay 100) largestFirst
-                stop (paymentSucceeded utxo payee res)
-            prop "multiple payees, SenderPaysFee, fee = 0" $ runIt $ do
-                (utxo, payee, res) <- payBatch freeLunch identity (InitialBalance 1000) (Pay 100) largestFirst
-                stop (paymentSucceeded utxo payee res)
-            prop "multiple payees, ReceiverPaysFee, fee = 0" $ runIt $ do
+                payOne freeLunch modOpt (InitialBalance 1000) (Pay 100) largestFirst
+                ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
+            prop "multiple payees, SenderPaysFee, fee = 0" $ forAll (
+                payBatch freeLunch identity (InitialBalance 1000) (Pay 100) largestFirst
+                ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
+            prop "multiple payees, ReceiverPaysFee, fee = 0" $ forAll (do
                 let modOpt o = o & csoExpenseRegulation .~ ReceiverPaysFee
-                (utxo, payee, res) <- payBatch freeLunch modOpt (InitialBalance 1000) (Pay 100) largestFirst
-                stop (paymentSucceeded utxo payee res)
+                payBatch freeLunch modOpt (InitialBalance 1000) (Pay 100) largestFirst
+                ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
         describe "defaultPolicy" $ do
-            prop "one payee, SenderPaysFee, fee = 0" $ runIt $ do
-                (utxo, payee, res) <- payOne freeLunch identity (InitialBalance 1000) (Pay 100) defaultPolicy
-                stop (paymentSucceeded utxo payee res)
-            prop "multiple payees, SenderPaysFee, fee = 0" $ runIt $ do
-                (utxo, payee, res) <- payBatch freeLunch identity (InitialBalance 1000) (Pay 100) defaultPolicy
-                stop (paymentSucceeded utxo payee res)
+            prop "one payee, SenderPaysFee, fee = 0" $ forAll (
+                payOne freeLunch identity (InitialBalance 1000) (Pay 100) defaultPolicy
+                ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res
+            prop "multiple payees, SenderPaysFee, fee = 0" $ forAll (
+                payBatch freeLunch identity (InitialBalance 1000) (Pay 100) defaultPolicy
+                ) $ \(utxo, payee, res) -> paymentSucceeded utxo payee res

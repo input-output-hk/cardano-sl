@@ -14,7 +14,7 @@ import           System.Wlog (LoggerName, logInfo)
 
 import qualified Pos.Client.CLI as CLI
 import           Pos.Context (NodeContext (..))
-import           Pos.Core (ConfigurationError)
+import           Pos.Core (ConfigurationError, epochSlots)
 import           Pos.Crypto (ProtocolMagic)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Infra.Diffusion.Types (Diffusion, hoistDiffusion)
@@ -115,7 +115,7 @@ action opts@AuxxOptions {..} command = do
                               (npUserSecret nodeParams ^. usVss)
             sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
 
-        bracketNodeResources nodeParams sscParams (txpGlobalSettings pm) (initNodeDBs pm) $ \nr -> Production $
+        bracketNodeResources nodeParams sscParams (txpGlobalSettings pm) (initNodeDBs pm epochSlots) $ \nr -> Production $
             let NodeContext {..} = nrContext nr
                 modifier = if aoStartMode == WithNode
                            then runNodeWithSinglePlugin pm nr

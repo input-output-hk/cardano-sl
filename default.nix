@@ -65,7 +65,7 @@ let
         ];
       });
 
-      cardano-sl = overrideCabal super.cardano-sl (drv: {
+      cardano-sl = overrideCabal (buildWithBenchmarks super.cardano-sl) (drv: {
         # production full nodes shouldn't use wallet as it means different constants
         configureFlags = (drv.configureFlags or []) ++ [
           "-f-asserts"
@@ -77,6 +77,9 @@ let
         };
       });
 
+      cardano-sl-networking = buildWithBenchmarks super.cardano-sl-networking;
+      cardano-sl-block-bench = buildWithBenchmarks super.cardano-sl-block-bench;
+      cardano-sl-explorer = buildWithBenchmarks super.cardano-sl-explorer;
       cardano-sl-wallet-static = justStaticExecutables super.cardano-sl-wallet;
       cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
       cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;

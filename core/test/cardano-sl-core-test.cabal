@@ -21,12 +21,9 @@ library
                      , base
                      , bytestring
                      , cardano-sl-binary
-                     , cardano-sl-block
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
-                     , cardano-sl-delegation
-                     , cardano-sl-ssc
                      , cryptonite
                      , cryptonite-openssl >= 0.5
                      , hedgehog

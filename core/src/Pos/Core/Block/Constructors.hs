@@ -1,11 +1,10 @@
 -- | Block constructors and basic functions.
 
-module Pos.Block.Base
+module Pos.Core.Block.Constructors
        ( mkMainBlockExplicit
        , mkMainBlock
        , mkMainHeaderExplicit
        , mkMainHeader
-       , emptyMainBody
 
        , mkGenesisHeader
        , mkGenesisBlock
@@ -14,24 +13,24 @@ module Pos.Block.Base
 
 import           Universum
 
-import           Data.Default (Default (def))
-
-import           Pos.Block.BHelpers ()
-import           Pos.Core (BlockVersion, ChainDifficulty, EpochIndex, GenesisHash (..),
-                           HasDifficulty (..), HasProtocolConstants, HeaderHash, LocalSlotIndex,
-                           SlotId, SlotLeaders, SoftwareVersion, headerHash)
-import           Pos.Core.Block (BlockHeader, BlockSignature (..), GenericBlock (..), GenesisBlock,
-                                 GenesisBlockHeader, GenesisBody (..), GenesisConsensusData (..),
-                                 GenesisExtraBodyData (..), GenesisExtraHeaderData (..), MainBlock,
-                                 MainBlockHeader, MainBody (..), MainConsensusData (..),
-                                 MainExtraBodyData (..), MainExtraHeaderData (..), MainToSign (..),
-                                 mkGenericHeader)
+import           Pos.Binary.Core.Blockchain () -- Bi instances
+import           Pos.Core.Block.Blockchain (GenericBlock (..), mkGenericHeader)
+import           Pos.Core.Block.Genesis (GenesisBody (..), GenesisConsensusData (..),
+                                         GenesisExtraBodyData (..), GenesisExtraHeaderData (..))
+import           Pos.Core.Block.Main (MainBody (..), MainExtraBodyData (..),
+                                      MainExtraHeaderData (..))
+import           Pos.Core.Block.Union (BlockHeader, BlockSignature (..), GenesisBlock,
+                                       GenesisBlockHeader, HeaderHash, MainBlock,
+                                       MainBlockHeader, MainConsensusData (..), MainToSign (..),
+                                       headerHash)
+import           Pos.Core.Common (ChainDifficulty, HasDifficulty (..), SlotLeaders)
+import           Pos.Core.Configuration (GenesisHash (..))
+import           Pos.Core.Delegation.HeavyDlgIndex (ProxySKBlockInfo)
+import           Pos.Core.Slotting (EpochIndex, SlotId)
+import           Pos.Core.Update (BlockVersion, SoftwareVersion)
 import           Pos.Crypto (ProtocolMagic, SecretKey, SignTag (..), hash, proxySign, sign,
                              toPublic)
 import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Delegation.Types (ProxySKBlockInfo)
-import           Pos.Ssc.Base (defaultSscPayload)
-import           Pos.Txp.Base (emptyTxPayload)
 
 ----------------------------------------------------------------------------
 -- Main smart constructors
@@ -131,19 +130,6 @@ mkMainBlockExplicit pm bv sv prevHash difficulty slotId sk pske body =
             sv
             (mkAttributes ())
             (hash extraB)
-
--- | Empty (i. e. no payload) body of main block for given local slot index.
-emptyMainBody
-    :: HasProtocolConstants
-    => LocalSlotIndex
-    -> MainBody
-emptyMainBody slot =
-    MainBody
-    { _mbTxPayload = emptyTxPayload
-    , _mbSscPayload = defaultSscPayload slot
-    , _mbDlgPayload = def
-    , _mbUpdatePayload = def
-    }
 
 ----------------------------------------------------------------------------
 -- Genesis smart constructors

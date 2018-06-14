@@ -38,10 +38,10 @@ import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (WithLogger)
 
-import           Pos.Block.Base (genesisBlock0)
 import           Pos.Core (Address, ChainDifficulty, GenesisHash (..), HasConfiguration,
                            Timestamp (..), difficultyL, epochSlots, genesisHash, headerHash)
 import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPayload)
+import           Pos.Core.Block.Constructors (genesisBlock0)
 import           Pos.Crypto (ProtocolMagic, WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
 import           Pos.DB.Block (getBlock)

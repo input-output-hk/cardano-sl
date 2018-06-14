@@ -41,6 +41,7 @@ library
                        Pos.Core.Block.Genesis
                        Pos.Core.Block.Main
                        Pos.Core.Block.Union
+                       Pos.Core.Block.Constructors
 
                        Pos.Core.Common
                        Pos.Core.Configuration
@@ -147,6 +148,7 @@ library
                        Pos.Core.Ssc.CommitmentsMap
                        Pos.Core.Ssc.Opening
                        Pos.Core.Ssc.OpeningsMap
+                       Pos.Core.Ssc.CommitmentAndOpening
                        Pos.Core.Ssc.Payload
                        Pos.Core.Ssc.Proof
                        Pos.Core.Ssc.SharesDistribution

@@ -36,7 +36,8 @@ import           Pos.Chain.Ssc (HasSscContext (..))
 import           Pos.Chain.Txp (Utxo, addrBelongsToSet,
                      applyUtxoModToAddrCoinMap)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
-                     getSecretDefault, modifySecretDefault)
+                     getSecretDefault, getPublicDefault,
+                     modifySecretDefault, modifyPublicDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (MonadTxHistory (..),
@@ -76,6 +77,7 @@ import           Pos.Util (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), askLoggerNameDefault,
                      modifyLoggerNameDefault)
 import qualified Pos.Util.Modifier as MM
+import           Pos.Util.UserPublic (HasUserPublic (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.Util.Util (HasLens (..))
 import           Pos.Wallet.Web.Tracking.Types (SyncQueue)
@@ -145,6 +147,9 @@ instance MonadReporting WalletWebMode where
 
 instance HasMisbehaviorMetrics WalletWebModeContext where
   misbehaviorMetrics = wwmcRealModeContext_L . misbehaviorMetrics
+
+instance HasUserPublic WalletWebModeContext where
+    userPublic = wwmcRealModeContext_L . userPublic
 
 instance HasUserSecret WalletWebModeContext where
     userSecret = wwmcRealModeContext_L . userSecret
@@ -334,9 +339,11 @@ instance HasConfiguration =>
     txpProcessTx = txpProcessTxWebWallet
 
 instance MonadKeysRead WalletWebMode where
+    getPublic = getPublicDefault
     getSecret = getSecretDefault
 
 instance MonadKeys WalletWebMode where
+    modifyPublic = modifyPublicDefault
     modifySecret = modifySecretDefault
 
 getNewAddressWebWallet

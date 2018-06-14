@@ -31,7 +31,8 @@ import           System.Wlog (HasLoggerName (..))
 import           Pos.Chain.Block (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Chain.Ssc (HasSscContext (..))
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..),
-                     getSecretDefault, modifySecretDefault)
+                     getSecretDefault, getPublicDefault,
+                     modifySecretDefault, modifyPublicDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..),
                      getBalanceFromUtxo, getOwnUtxosGenesis)
@@ -65,6 +66,7 @@ import           Pos.Launcher (HasConfigurations)
 import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.LoggerName (HasLoggerName' (..))
+import           Pos.Util.UserPublic (HasUserPublic (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
 import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext (..))
 
@@ -123,6 +125,9 @@ instance MonadReporting AuxxMode where
 -- FIXME it's a bad sign that we even need this instance.
 instance HasMisbehaviorMetrics AuxxContext where
     misbehaviorMetrics = lens (const Nothing) const
+
+instance HasUserPublic AuxxContext where
+    userPublic = acRealModeContext_L . userPublic
 
 instance HasUserSecret AuxxContext where
     userSecret = acRealModeContext_L . userSecret
@@ -218,9 +223,11 @@ instance (HasConfigurations, HasCompileInfo) =>
             True -> largestPubKeyAddressSingleKey
 
 instance MonadKeysRead AuxxMode where
+    getPublic = getPublicDefault
     getSecret = getSecretDefault
 
 instance MonadKeys AuxxMode where
+    modifyPublic = modifyPublicDefault
     modifySecret = modifySecretDefault
 
 type instance MempoolExt AuxxMode = EmptyMempoolExt

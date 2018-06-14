@@ -85,6 +85,8 @@ library
                         -- Utilities/helpers
                         Pos.Util.Config
                         Pos.Util.OutboundQueue
+                        Pos.Util.UserKeyError
+                        Pos.Util.UserPublic
                         Pos.Util.UserSecret
 
                         Pos.Web

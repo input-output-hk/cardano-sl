@@ -30,6 +30,7 @@ keys
 tmp-secrets/
 
 # Node runtime data
+*.log
 logs
 run
 

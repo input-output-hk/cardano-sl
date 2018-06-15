@@ -115,6 +115,19 @@ minFee _ _ = Core.mkCoin 1
 linearFee :: Int -> NonEmpty Core.Coin -> Core.Coin
 linearFee inputsLen outputs = Core.mkCoin (fromIntegral $ inputsLen + length outputs)
 
+genUniqueChangeAddress :: Core.Utxo
+                       -> NonEmpty Core.TxOut
+                       -> Gen Core.Address
+genUniqueChangeAddress (map (Core.txOutAddress . Core.toaOut . snd) . Map.toList -> utxo)
+                       (map Core.txOutAddress . toList -> outputs) =
+    arbitrary `suchThat` (\a -> not (inUtxo utxo a) &&
+                                not (a `Data.List.elem` outputs) &&
+                                not (Core.isRedeemAddress a)
+                         )
+    where
+        inUtxo :: [Core.Address] -> Core.Address -> Bool
+        inUtxo addrs a = a `Data.List.elem` addrs
+
 genTxOut :: StakeGenOptions
          -> Gen (NonEmpty Core.TxOut)
 genTxOut opts =
@@ -364,7 +377,7 @@ pay genU genP feeFunction adjustOptions (InitialBalance bal) (Pay amount) policy
     payee <- genP amount
     key   <- arbitrary
     let options = adjustOptions (newOptions feeFunction (\_ -> Right $ fakeSigner key))
-    res <- bimap STB identity <$> policy options arbitrary utxo payee
+    res <- bimap STB identity <$> policy options (genUniqueChangeAddress utxo payee) utxo payee
     return (utxo, payee, res)
 
 payOne :: (Int -> NonEmpty Core.Coin -> Core.Coin)

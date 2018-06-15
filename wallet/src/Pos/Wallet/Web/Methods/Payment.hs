@@ -9,6 +9,8 @@ module Pos.Wallet.Web.Methods.Payment
        , getMoneySourceUtxo
        , newPayment
        , newPaymentBatch
+       , newUnsignedTransaction
+       , submitSignedTransaction
        , getTxFee
        ) where
 
@@ -16,10 +18,12 @@ import           Universum
 
 import           Control.Monad.Except (runExcept)
 import qualified Data.Map as M
+import qualified Data.Vector as V
 import           Data.Time.Units (Second)
 import           Servant.Server (err403, err405, errReasonPhrase)
 import           System.Wlog (logDebug)
 import           UnliftIO (MonadUnliftIO)
+import           Formatting (sformat, build, (%))
 
 import           Pos.Chain.Txp (TxFee (..), TxpConfiguration, Utxo)
 import           Pos.Client.KeyStorage (getSecretKeys)
@@ -33,8 +37,8 @@ import           Pos.Configuration (walletTxCreationDisabled)
 import           Pos.Core (Address, Coin, HasConfiguration, getCurrentTimestamp)
 import           Pos.Core.Conc (concurrently, delay)
 import           Pos.Core.Txp (TxAux (..), TxOut (..), _txOutputs)
-import           Pos.Crypto (PassPhrase, ProtocolMagic, SafeSigner,
-                     ShouldCheckPassphrase (..), checkPassMatches, hash,
+import           Pos.Crypto (PassPhrase, PublicKey (..), ProtocolMagic, SafeSigner,
+                     Signature (..), ShouldCheckPassphrase (..), checkPassMatches, hash,
                      withSafeSignerUnsafe)
 import           Pos.DB (MonadGState)
 import           Pos.Util (eitherToThrow, maybeThrow)
@@ -104,6 +108,21 @@ newPaymentBatch pm txpConfig submitTx passphrase NewBatchPayment {..} = do
           (AccountMoneySource src)
           npbTo
           npbInputSelectionPolicy
+
+newUnsignedTransaction
+    :: MonadWalletTxFull ctx m
+    => ProtocolMagic
+    -> NewBatchPayment
+    -> m Tx
+newUnsignedTransaction pm NewBatchPayment {..} = do
+    src <- decodeCTypeOrFail npbFrom
+    notFasterThan (6 :: Second) $ do
+      createNewUnsignedTransaction
+          pm
+          (AccountMoneySource src)
+          npbTo
+          npbInputSelectionPolicy
+
 
 type MonadFees ctx m =
     ( MonadCatch m
@@ -196,7 +215,10 @@ sendMoney pm txpConfig submitTx passphrase moneySource dstDistr policy = do
         throwM err403
         { errReasonPhrase = "Transaction creation is disabled when the wallet is restoring."
         }
-    rootSk <- getSKById srcWallet
+    rootSk <- maybe (throwM (RequestError $ sformat ("No source wallet with address "%build%" found") srcWallet))
+                    pure
+                    =<< getSKById srcWallet
+
     checkPassMatches passphrase rootSk `whenNothing`
         throwM (RequestError "Passphrase doesn't match")
 
@@ -227,12 +249,11 @@ sendMoney pm txpConfig submitTx passphrase moneySource dstDistr policy = do
             prepareMTx pm getSigner pendingAddrs policy srcAddrs outputs (relatedAccount, passphrase)
 
         ts <- Just <$> getCurrentTimestamp
-        let tx = taTx txAux
-            txHash = hash tx
+        let tx        = taTx txAux
+            txHash    = hash tx
             inpTxOuts = toList inpTxOuts'
-            dstAddrs  = map txOutAddress . toList $
-                        _txOutputs tx
-            th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
+            dstAddrs  = map txOutAddress . toList $ _txOutputs tx
+            th        = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
         ptx <- mkPendingTx ws srcWallet txHash txAux th
 
         th <$ submitAndSaveNewPtx pm txpConfig db submitTx ptx
@@ -246,6 +267,96 @@ sendMoney pm txpConfig submitTx passphrase moneySource dstDistr policy = do
 
     logDebug "sendMoney: constructing response"
     fst <$> constructCTx ws' srcWallet srcWalletAddrsDetector diff th
+
+-- | Create new raw transaction which will be signed externally (for example, by Ledger device).
+createNewUnsignedTransaction
+    :: (MonadWalletTxFull ctx m)
+    => ProtocolMagic
+    -> MoneySource
+    -> NonEmpty (CId Addr, Coin)
+    -> InputSelectionPolicy
+    -> m Tx
+createNewUnsignedTransaction pm moneySource dstDistr policy = do
+    when walletTxCreationDisabled $
+        throwM err405
+        { errReasonPhrase = "Transaction creation (including unsigned ones) is disabled by configuration!"
+        }
+
+    db <- askWalletDB
+    ws <- getWalletSnapshot db
+
+    addrMetas' <- getMoneySourceAddresses ws moneySource
+    addrMetas <- nonEmpty addrMetas' `whenNothing`
+        throwM (RequestError "Unsigned transaction: Given money source has no addresses!")
+
+    let srcAddrs = map (view wamAddress) addrMetas
+
+    logDebug "createNewUnsignedTransaction: processed addrs"
+
+    _ <- getSomeMoneySourceAccount ws moneySource
+    outputs <- coinDistrToOutputs dstDistr
+    let pendingAddrs = getPendingAddresses ws policy
+    rewrapTxError "Cannot create unsigned transaction" $
+        prepareUnsignedTx pm pendingAddrs policy srcAddrs outputs >>= \case
+            Left txError ->
+                throwM (RequestError $ show txError)
+            Right (tx, _) ->
+                return tx
+
+-- | Submit externally-signed transaction to the blockchain.
+submitSignedTransaction
+    :: MonadWalletTxFull ctx m
+    => ProtocolMagic
+    -> (TxAux -> m Bool)
+    -> PublicKey
+    -> CId Wal
+    -> Tx
+    -> Signature TxSigData
+    -> m CTx
+submitSignedTransaction pm submitTx publicKey srcWalletId tx signature = do
+    when walletTxCreationDisabled $
+        throwM err405
+        { errReasonPhrase = "Transaction creation (including externally-signed one) is disabled by configuration!"
+        }
+
+    db <- askWalletDB
+    ws <- getWalletSnapshot db
+
+    when (isWalletRestoring ws srcWalletId) $
+        throwM err403
+        { errReasonPhrase = "Transaction creation is disabled when the wallet is restoring."
+        }
+
+    let moneySource = WalletMoneySource srcWalletId
+    addrMetas' <- getMoneySourceAddresses ws moneySource
+    _ <- nonEmpty addrMetas' `whenNothing`
+        throwM (RequestError "Given money source has no addresses!")
+
+    th <- rewrapTxError "Cannot send externally-signed transaction" $ do
+        let outputs = toList $ _txOutputs tx
+            inputs  = toList $ _txInputs tx
+            witness = V.fromList $ map (\_ -> PkWitness publicKey signature) inputs
+            txAux   = TxAux tx witness
+
+        ts <- Just <$> getCurrentTimestamp
+        let dstAddrs = map txOutAddress outputs
+            -- Technically, we don't need a hash because we already have
+            -- a signature (from external wallet), but 'THEntry' requires a hash.
+            txHash   = hash tx
+            th       = THEntry txHash tx Nothing outputs dstAddrs ts
+
+        ptx <- mkPendingTx ws srcWalletId txHash txAux th
+
+        th <$ submitAndSaveNewPtx pm db submitTx ptx
+
+    -- We add TxHistoryEntry's meta created by us in advance
+    -- to make TxHistoryEntry in CTx consistent with entry in history.
+    _ <- addHistoryTxMeta db srcWalletId th
+    ws' <- getWalletSnapshot db
+    let srcWalletAddrsDetector = getWalletAddrsDetector ws' Ever srcWalletId
+
+    diff <- getCurChainDifficulty
+    fst <$> constructCTx ws' srcWalletId srcWalletAddrsDetector diff th
 
 ----------------------------------------------------------------------------
 -- Utilities

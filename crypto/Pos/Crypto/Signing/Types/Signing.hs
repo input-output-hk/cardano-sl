@@ -15,6 +15,9 @@ module Pos.Crypto.Signing.Types.Signing
        , fullPublicKeyHexF
        , shortPublicKeyHexF
        , parseFullPublicKey
+       , decodeBase58PublicKey
+       , encodeBase58PublicKey
+       , Base58PublicKeyError (..)
 
        -- * Signing and verification
        , Signature (..)
@@ -42,6 +45,7 @@ import qualified Codec.CBOR.Encoding as E
 import           Control.Lens (_Left)
 import           Data.Aeson (FromJSON (..), ToJSON (..))
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
+import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58, encodeBase58)
 import           Data.Hashable (Hashable)
 import           Data.SafeCopy (SafeCopy (..), base, contain,
                      deriveSafeCopySimple, safeGet, safePut)
@@ -49,6 +53,7 @@ import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (Format, bprint, build, fitLeft, formatToString,
                      later, sformat, (%), (%.))
 import qualified Formatting.Buildable as B
+import           Data.Maybe (fromJust)
 import           Prelude (show)
 import qualified Serokell.Util.Base16 as B16
 import qualified Serokell.Util.Base64 as Base64 (decode, formatBase64)
@@ -155,6 +160,37 @@ parseFullPublicKey :: Text -> Either Text PublicKey
 parseFullPublicKey s = do
     b <- Base64.decode s
     PublicKey <$> first fromString (CC.xpub b)
+
+-- | Possible problems with Base58-encoded extended public key.
+data Base58PublicKeyError
+    = PublicKeyNotBase58Form
+    | InvalidPublicKey !Text
+    deriving Show
+
+instance Buildable Base58PublicKeyError where
+    build PublicKeyNotBase58Form =
+        "Extended public key is not in Base58-format."
+    build (InvalidPublicKey msg) =
+        bprint ("Extended public key is invalid: "%stext) msg
+
+-- | Decode extended public key from Base58-encoded form.
+decodeBase58PublicKey :: Text -> Either Base58PublicKeyError PublicKey
+decodeBase58PublicKey encodedXPub = do
+    let rawExtPubKey = decodeBase58 bitcoinAlphabet . encodeUtf8 $ encodedXPub
+    when (isNothing rawExtPubKey) $
+        Left PublicKeyNotBase58Form
+
+    let extPubKey = CC.xpub $ fromJust rawExtPubKey
+    case extPubKey of
+        Left problem -> Left $ InvalidPublicKey (toText problem)
+        Right xPub -> Right $ PublicKey xPub
+
+-- | Encode 'PublicKey' in Base58-encoded form. We use it for integration tests.
+encodeBase58PublicKey :: PublicKey -> Text
+encodeBase58PublicKey (PublicKey xPub) = encodedXPub
+  where
+    encodedXPub  = decodeUtf8 $ encodeBase58 bitcoinAlphabet rawExtPubKey
+    rawExtPubKey = CC.unXPub xPub
 
 ----------------------------------------------------------------------------
 -- Signatures

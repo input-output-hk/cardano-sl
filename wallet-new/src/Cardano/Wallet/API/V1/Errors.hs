@@ -6,6 +6,7 @@
 module Cardano.Wallet.API.V1.Errors where
 
 import           Universum
+import           Formatting (build, sformat)
 
 import           Cardano.Wallet.API.V1.Types (SyncPercentage, SyncProgress (..),
                      V1 (..), mkEstimatedCompletionTime, mkSyncPercentage,
@@ -75,11 +76,15 @@ data WalletError =
     | WalletAlreadyExists
     | AddressNotFound
     | TxFailedToStabilize
+    | InvalidPublicKey { weProblem :: !Text }
+    | UnsignedTxCreationError
+    | SignedTxSubmitError { weProblem :: !Text }
     | TxRedemptionDepleted
     -- | TxSafeSignerNotFound weAddress
     | TxSafeSignerNotFound !(V1 Core.Address)
     -- | MissingRequiredParams requiredParams
     | MissingRequiredParams !(NonEmpty (Text, Text))
+    | CannotCreateAddress { weProblem :: !Text }
     -- | WalletIsNotReadyToProcessPayments weStillRestoring
     | WalletIsNotReadyToProcessPayments !SyncProgress
     -- ^ The @Wallet@ where a @Payment@ is being originated is not fully
@@ -105,6 +110,16 @@ convertTxError err = case err of
         TxRedemptionDepleted
     TxError.SafeSignerNotFound addr ->
         TxSafeSignerNotFound (V1 addr)
+    TxError.RemainingMoneyError ->
+        UnsignedTxCreationError
+    TxError.SignedTxNotBase16Format ->
+        SignedTxSubmitError $ sformat build TxError.SignedTxNotBase16Format
+    TxError.SignedTxUnableToDecode txt ->
+        SignedTxSubmitError $ sformat build (TxError.SignedTxUnableToDecode txt)
+    TxError.SignedTxSignatureNotBase16Format ->
+        SignedTxSubmitError $ sformat build TxError.SignedTxSignatureNotBase16Format
+    TxError.SignedTxInvalidSignature txt ->
+        SignedTxSubmitError $ sformat build (TxError.SignedTxInvalidSignature txt)
     TxError.GeneralTxError txt ->
         UnknownError txt
 
@@ -277,6 +292,7 @@ sample =
   , WalletAlreadyExists
   , AddressNotFound
   , MissingRequiredParams (("wallet_id", "walletId") :| [])
+  , CannotCreateAddress "Cannot create derivation path for new address in external wallet"
   , WalletIsNotReadyToProcessPayments sampleSyncProgress
   , NodeIsStillSyncing (mkSyncPercentage 42)
   ]
@@ -286,29 +302,37 @@ sample =
 describe :: WalletError -> String
 describe = \case
     NotEnoughMoney _ ->
-         "Not enough available coins to proceed."
+        "Not enough available coins to proceed."
     OutputIsRedeem _ ->
-         "One of the TX outputs is a redemption address."
+        "One of the TX outputs is a redemption address."
     MigrationFailed _ ->
-         "Error while migrating a legacy type into the current version."
+        "Error while migrating a legacy type into the current version."
     JSONValidationFailed _ ->
-         "Couldn't decode a JSON input."
+        "Couldn't decode a JSON input."
     UnknownError _ ->
-         "Unexpected internal error."
+        "Unexpected internal error."
     InvalidAddressFormat _ ->
-         "Provided address format is not valid."
+        "Provided address format is not valid."
     WalletNotFound ->
-         "Reference to an unexisting wallet was given."
+        "Reference to an unexisting wallet was given."
     WalletAlreadyExists ->
-         "Can't create or restore a wallet. The wallet already exists."
+        "Can't create or restore a wallet. The wallet already exists."
     AddressNotFound ->
-         "Reference to an unexisting address was given."
+        "Reference to an unexisting address was given."
     MissingRequiredParams _ ->
-         "Missing required parameters in the request payload."
+        "Missing required parameters in the request payload."
+    CannotCreateAddress _ ->
+        "Cannot create derivation path for new address in external wallet."
     WalletIsNotReadyToProcessPayments _ ->
-         "This wallet is restoring, and it cannot send new transactions until restoration completes."
+        "This wallet is restoring, and it cannot send new transactions until restoration completes."
     NodeIsStillSyncing _ ->
-         "The node is still syncing with the blockchain, and cannot process the request yet."
+        "The node is still syncing with the blockchain, and cannot process the request yet."
+    InvalidPublicKey _ ->
+        "Extended public key (for external wallet) is invalid."
+    UnsignedTxCreationError ->
+        "Unable to create unsigned transaction for an external wallet."
+    SignedTxSubmitError _ ->
+        "Unable to submit externally-signed transaction."
     TxRedemptionDepleted ->
         "The redemption address was already used."
     TxSafeSignerNotFound _ ->
@@ -341,11 +365,19 @@ toServantError err =
             err404
         MissingRequiredParams{} ->
             err400
+        CannotCreateAddress{} ->
+            err403
         WalletIsNotReadyToProcessPayments{} ->
             err403
         NodeIsStillSyncing{} ->
             err412 -- Precondition failed
         TxFailedToStabilize{} ->
+            err500
+        InvalidPublicKey{} ->
+            err403
+        UnsignedTxCreationError{} ->
+            err500
+        SignedTxSubmitError{} ->
             err500
         TxRedemptionDepleted{} ->
             err400

@@ -29,7 +29,7 @@ import           Pos.Core.Txp (TxId, TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Wallet.Web.State.Storage (WAddressMeta (..))
 import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials,
-                     eskToWalletDecrCredentials, selectOwnAddresses)
+                     keyToWalletDecrCredentials, selectOwnAddresses)
 
 import           Cardano.Wallet.Kernel.ChainState (ChainBrief (..))
 import           Cardano.Wallet.Kernel.DB.BlockMeta

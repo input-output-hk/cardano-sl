@@ -42,6 +42,7 @@ library
 
   build-depends:       aeson
                      , base
+                     , base58-bytestring
                      , binary
                      , bytestring
                      , canonical-json

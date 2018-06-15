@@ -2,16 +2,20 @@ module Cardano.Wallet.API.V1.LegacyHandlers.Transactions where
 
 import           Universum
 
+import qualified Serokell.Util.Base16 as B16
+import           Formatting (build, sformat)
 import qualified Data.IxSet.Typed as IxSet
 import qualified Data.List.NonEmpty as NE
 import           Servant
 
+import           Pos.Binary.Class (decodeFull', serialize')
 import           Pos.Chain.Txp (TxpConfiguration)
 import           Pos.Client.Txp.Util (defaultInputSelectionPolicy)
 import qualified Pos.Client.Txp.Util as V0
+import           Pos.Core (Tx, TxAux, TxSigData)
 import qualified Pos.Core as Core
 import           Pos.Core.Txp (TxAux)
-import           Pos.Crypto (ProtocolMagic)
+import           Pos.Crypto (ProtocolMagic, Signature (..), decodeBase58PublicKey)
 import qualified Pos.Util.Servant as V0
 import qualified Pos.Wallet.WalletMode as V0
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
@@ -22,6 +26,7 @@ import qualified Pos.Wallet.Web.State as V0
 import           Pos.Wallet.Web.State.Storage (WalletInfo (_wiSyncStatistics))
 import qualified Pos.Wallet.Web.Util as V0
 
+import           Cardano.Crypto.Wallet (xsignature)
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.V1.Errors
@@ -40,6 +45,8 @@ handlers pm txpConfig submitTx =
              newTransaction pm txpConfig submitTx
         :<|> allTransactions
         :<|> estimateFees pm
+        :<|> newUnsignedTransaction pm
+        :<|> newSignedTransaction pm submitTx
 
 newTransaction
     :: forall ctx m
@@ -49,7 +56,7 @@ newTransaction
     -> (TxAux -> m Bool)
     -> Payment
     -> m (WalletResponse Transaction)
-newTransaction pm txpConfig submitTx Payment {..} = do
+newTransaction pm txpConfig submitTx pmt@Payment {..} = do
     ws <- V0.askWalletSnapshot
     sourceWallet <- migrate (psWalletId pmtSource)
 
@@ -68,13 +75,9 @@ newTransaction pm txpConfig submitTx Payment {..} = do
         throwM $ WalletIsNotReadyToProcessPayments progress
 
     let (V1 spendingPw) = fromMaybe (V1 mempty) pmtSpendingPassword
-    cAccountId <- migrate pmtSource
-    addrCoinList <- migrate $ NE.toList pmtDestinations
-    let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) pmtGroupingPolicy
-    let batchPayment = V0.NewBatchPayment cAccountId addrCoinList policy
+    batchPayment <- createBatchPayment pmt
     cTx <- V0.newPaymentBatch pm txpConfig submitTx spendingPw batchPayment
     single <$> migrate cTx
-
 
 allTransactions
     :: forall ctx m. (V0.MonadWalletHistory ctx m)
@@ -133,3 +136,68 @@ estimateFees pm Payment{..} = do
             single <$> migrate fee
         Left err ->
             throwM (convertTxError err)
+
+newUnsignedTransaction
+    :: forall ctx m . (V0.MonadWalletTxFull ctx m)
+    => ProtocolMagic
+    -> Payment
+    -> m (WalletResponse RawTransaction)
+newUnsignedTransaction pm pmt@Payment {..} = do
+    -- We're creating new transaction as usually, but we mustn't sign/publish it.
+    -- This transaction will be signed on the client-side (mobile client or
+    -- hardware wallet), and after that transaction (with its signature) will be
+    -- sent to backend.
+    batchPayment <- createBatchPayment pmt
+    tx <- V0.newUnsignedTransaction pm batchPayment
+    let txInHexFormat = B16.encode $ serialize' tx
+        rawTx = RawTransaction txInHexFormat
+    pure $ single rawTx
+
+-- | It is assumed that we received a transaction which was signed
+-- on the client side (mobile client or hardware wallet).
+-- Now we have to submit this transaction as usually.
+newSignedTransaction
+    :: forall ctx m . (V0.MonadWalletTxFull ctx m)
+    => ProtocolMagic
+    -> (TxAux -> m Bool)
+    -> SignedTransaction
+    -> m (WalletResponse Transaction)
+newSignedTransaction pm submitTx (SignedTransaction encodedExtPubKey txAsHex signatureAsHex) = do
+    publicKey <- case decodeBase58PublicKey encodedExtPubKey of
+        Left problem -> throwM (InvalidPublicKey $ sformat build problem)
+        Right publicKey -> return publicKey
+
+    let walletId = V0.encodeCType . Core.makePubKeyAddressBoot $ publicKey
+
+    txRaw <- case B16.decode txAsHex of
+        Left _ -> throwM . convertTxError $ V0.SignedTxNotBase16Format
+        Right txRaw -> return txRaw
+
+    tx <- case decodeFull' txRaw of
+        Left problem -> throwM . convertTxError $ (V0.SignedTxUnableToDecode $ toText problem)
+        Right (tx :: Tx) -> return tx
+
+    signature <- case B16.decode signatureAsHex of
+        Left _ -> throwM . convertTxError $ V0.SignedTxSignatureNotBase16Format
+        Right signatureItself ->
+            case xsignature signatureItself of
+                Left problem -> throwM . convertTxError $ (V0.SignedTxInvalidSignature $ toText problem)
+                Right realSignature -> do
+                    let signature :: Signature TxSigData
+                        signature = Signature realSignature
+                    return signature
+
+    -- Submit signed transaction as pending one.
+    cTx <- V0.submitSignedTransaction pm submitTx publicKey walletId tx signature
+    single <$> migrate cTx
+
+-- | helper function to reduce code duplication
+createBatchPayment
+    :: forall ctx m . (V0.MonadWalletTxFull ctx m)
+    => Payment
+    -> m (V0.NewBatchPayment)
+createBatchPayment Payment {..} = do
+    cAccountId <- migrate pmtSource
+    addrCoinList <- migrate $ NE.toList pmtDestinations
+    let (V1 policy) = fromMaybe (V1 defaultInputSelectionPolicy) pmtGroupingPolicy
+    return $ V0.NewBatchPayment cAccountId addrCoinList policy

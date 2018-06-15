@@ -115,6 +115,10 @@ data WalletClient m
          -> Resp m [Transaction]
     , getTransactionFee
          :: Payment -> Resp m EstimatedFees
+    , postUnsignedTransaction
+         :: Payment -> Resp m RawTransaction
+    , postSignedTransaction
+         :: SignedTransaction -> Resp m Transaction
     -- settings
     , getNodeSettings
          :: Resp m NodeSettings
@@ -221,6 +225,10 @@ hoistClient phi wc = WalletClient
             phi . getTransactionIndexFilterSorts wc wid maid maddr mp mpp f
     , getTransactionFee =
         phi . getTransactionFee wc
+    , postUnsignedTransaction =
+        phi . postUnsignedTransaction wc
+    , postSignedTransaction =
+        phi . postSignedTransaction wc
     , getNodeSettings =
         phi (getNodeSettings wc)
     , getNodeInfo =

@@ -305,12 +305,12 @@ testScrape t = do
     let thr :: Scrape.Threshold
         thr = fromIntegral t
     -- Generate t*2 keys.
-    keys <- sortWith toVssPublicKey <$> replicateM (t*2) vssKeyGen
-    let pks = map toVssPublicKey keys
+    keys' <- sortWith toVssPublicKey <$> replicateM (t*2) vssKeyGen
+    let pks = map toVssPublicKey keys'
     -- Generate and share a secret.
     (secret, proof, encShares) <- genSharedSecret thr (NE.fromList pks)
     -- Decrypt the shares.
-    decShares <- zipWithM decryptShare keys (map snd encShares)
+    decShares <- zipWithM decryptShare keys' (map snd encShares)
     -- Recover the secret.
     let recovered = recoverSecret thr
             (map (,1) pks)

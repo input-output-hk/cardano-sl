@@ -51,6 +51,8 @@ module Cardano.Wallet.API.V1.Types (
   , TransactionDirection (..)
   , TransactionStatus(..)
   , EstimatedFees (..)
+  , RawTransaction (..)
+  , SignedTransaction (..)
   -- * Updates
   , WalletSoftwareUpdate (..)
   -- * Settings
@@ -1396,6 +1398,64 @@ instance BuildableSafeGen Transaction where
 instance Buildable [Transaction] where
     build = bprint listJson
 
+-- | A 'Wallet''s 'RawTransaction'. It contains a raw transaction
+-- in hex (Base16) format.
+data RawTransaction = RawTransaction
+  { rtxHex :: !Text  -- ^ Encoded transaction CBOR binary blob.
+  } deriving (Show, Ord, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''RawTransaction
+
+instance ToSchema RawTransaction where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "rtx" (\(--^) props -> props
+      & ("hex" --^ "New raw transaction in hex (Base16) format.")
+    )
+
+instance Arbitrary RawTransaction where
+    arbitrary = RawTransaction <$> arbitrary
+
+deriveSafeBuildable ''RawTransaction
+instance BuildableSafeGen RawTransaction where
+    buildSafeGen sl RawTransaction{..} = bprint ("{"
+        %" hex="%buildSafe sl
+        %" }")
+        rtxHex
+
+-- | A 'Wallet''s 'SignedTransaction'. It is assumed
+-- that this transaction was signed on the client-side
+-- (mobile client or hardware wallet).
+data SignedTransaction = SignedTransaction
+    { stxExtPubKey   :: !Text  -- ^ Base58-encoded extended public key of the source wallet.
+    , stxTransaction :: !Text  -- ^ Hex-encoded transaction CBOR binary blob.
+    , stxSignature   :: !Text  -- ^ Hex-encoded signature of this transaction (XSignature).
+    } deriving (Show, Ord, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''SignedTransaction
+
+instance ToSchema SignedTransaction where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "stx" (\(--^) props -> props
+            & ("extPubKey"   --^ "Extended public key of the wallet we'll send money from.")
+            & ("transaction" --^ "New transaction that wasn't published yet.")
+            & ("signature"   --^ "Signature of this transaction.")
+        )
+
+instance Arbitrary SignedTransaction where
+  arbitrary = SignedTransaction <$> arbitrary
+                                <*> arbitrary
+                                <*> arbitrary
+
+deriveSafeBuildable ''SignedTransaction
+instance BuildableSafeGen SignedTransaction where
+    buildSafeGen sl SignedTransaction{..} = bprint ("{"
+        %" extPubKey="%buildSafe sl
+        %" transaction="%buildSafe sl
+        %" signature="%buildSafe sl
+        %" }")
+        stxExtPubKey
+        stxTransaction
+        stxSignature
 
 -- | A type representing an upcoming wallet update.
 data WalletSoftwareUpdate = WalletSoftwareUpdate

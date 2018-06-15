@@ -6,6 +6,7 @@
 module Pos.Client.Txp.Network
        ( TxMode
        , prepareMTx
+       , prepareUnsignedTx
        , prepareRedemptionTx
        , submitTxRaw
        , sendTxOuts
@@ -21,11 +22,11 @@ import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..), getOwnUtxo)
 import           Pos.Client.Txp.History (MonadTxHistory (..))
 import           Pos.Client.Txp.Util (InputSelectionPolicy, PendingAddresses (..), TxCreateMode,
-                                      TxError (..), createMTx, createRedemptionTx)
+                                      TxError (..), createMTx, createUnsignedTx, createRedemptionTx)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Types (InvOrDataTK)
 import           Pos.Core (Address, Coin, makeRedeemAddress, mkCoin, unsafeAddCoin)
-import           Pos.Core.Txp (TxAux (..), TxId, TxOut (..), TxOutAux (..), txaF)
+import           Pos.Core.Txp (TxAux (..), Tx (..), TxId, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto (ProtocolMagic, RedeemSecretKey, SafeSigner, hash, redeemToPublic)
 import           Pos.Infra.Communication.Protocol (OutSpecs)
 import           Pos.Infra.Communication.Specs (createOutSpecs)
@@ -58,6 +59,19 @@ prepareMTx
 prepareMTx pm hdwSigners pendingAddrs inputSelectionPolicy addrs outputs addrData = do
     utxo <- getOwnUtxos (toList addrs)
     eitherToThrow =<< createMTx pm pendingAddrs inputSelectionPolicy utxo hdwSigners outputs addrData
+
+-- | Construct unsigned Tx
+prepareUnsignedTx
+    :: TxMode m
+    => ProtocolMagic
+    -> PendingAddresses
+    -> InputSelectionPolicy
+    -> NonEmpty Address
+    -> NonEmpty TxOutAux
+    -> m (Either TxError (Tx, NonEmpty TxOut))
+prepareUnsignedTx pm pendingAddrs inputSelectionPolicy addrs outputs = do
+    utxo <- getOwnUtxos (toList addrs)
+    createUnsignedTx pm pendingAddrs inputSelectionPolicy utxo outputs
 
 -- | Construct redemption Tx using redemption secret key and a output address
 prepareRedemptionTx

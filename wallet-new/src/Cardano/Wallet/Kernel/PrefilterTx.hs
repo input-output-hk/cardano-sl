@@ -24,7 +24,7 @@ import           Pos.Core (Address (..))
 import           Pos.Core.Txp (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto (EncryptedSecretKey)
 import           Pos.Txp.Toil.Types (Utxo)
-import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials, eskToWalletDecrCredentials,
+import           Pos.Wallet.Web.Tracking.Decrypt (WalletDecrCredentials, keyToWalletDecrCredentials,
                                                   selectOwnAddresses)
 import           Pos.Wallet.Web.State.Storage (WAddressMeta (..))
 
@@ -97,7 +97,7 @@ prefilterBlock wid esk block
             (outs', addrs') = toPrefilteredUtxo (byAccountId accId' Map.empty outAll)
 
     wdc :: WalletDecrCredentials
-    wdc = eskToWalletDecrCredentials esk
+    wdc = keyToWalletDecrCredentials $ Right esk
     wKey = (wid, wdc)
 
     inps :: [Map HdAccountId (Set TxIn)]

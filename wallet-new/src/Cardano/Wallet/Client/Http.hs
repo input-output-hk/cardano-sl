@@ -123,6 +123,10 @@ mkHttpClient baseUrl manager = WalletClient
              run . getTransactionIndexFilterSortsR walletId mAccountIndex mAddress mPage mpp filters
     , getTransactionFee
         = run . getTransactionFeeR
+    , postUnsignedTransaction
+        = run . postUnsignedTransactionR
+    , postSignedTransaction
+        = run . postSignedTransactionR
     -- settings
     , getNodeSettings
         = run getNodeSettingsR
@@ -170,6 +174,8 @@ mkHttpClient baseUrl manager = WalletClient
     postTransactionR
         :<|> getTransactionIndexFilterSortsR
         :<|> getTransactionFeeR
+        :<|> postUnsignedTransactionR
+        :<|> postSignedTransactionR
         = transactionsAPI
 
     addressesAPI

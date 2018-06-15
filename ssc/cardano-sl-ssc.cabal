@@ -81,6 +81,7 @@ library
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , containers
+                     , contravariant
                      , cryptonite
                      , data-default
                      , dlist

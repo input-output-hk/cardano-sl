@@ -22,6 +22,8 @@ import           Control.Lens ((+=), (.=))
 import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Control.Monad.Morph (hoist)
 import qualified Crypto.Random as Rand
+import           Data.DList as DList (singleton)
+import           Data.Functor.Contravariant (contramap)
 import qualified Data.HashMap.Strict as HM
 import           Formatting (int, sformat, (%))
 import           Serokell.Util (magnify')
@@ -49,9 +51,10 @@ import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT, evalPureTossWithLog
                                execTossT, hasCertificateToss, hasCommitmentToss, hasOpeningToss,
                                hasSharesToss, isGoodSlotForTag, normalizeToss, refreshToss,
                                supplyPureTossEnv, tmCertificates, tmCommitments, tmOpenings,
-                               tmShares, verifyAndApplySscPayload)
+                               tmShares, verifyAndApplySscPayload, pureTossWithEnvTrace)
 import           Pos.Ssc.Types (SscGlobalState, SscLocalData (..), ldEpoch, ldModifier, ldSize,
                                 sscGlobal, sscLocal)
+import           Pos.Util.Log (WithLogger)
 import           Pos.Util.Trace (Trace, natTrace)
 import           Pos.Util.Trace.Unstructured (LogItem, logWarning)
 import           Pos.Util.Trace.Writer (writerTrace)
@@ -67,13 +70,13 @@ sscGetLocalPayload logTrace si = sscRunLocalQuery (sscGetLocalPayloadQ si logTra
 
 sscGetLocalPayloadQ
   :: (HasProtocolConstants)
-  => SlotId -> SscLocalQuery SscPayload
-sscGetLocalPayloadQ SlotId {..} = do
+  => SlotId -> Trace m LogItem-> SscLocalQuery SscPayload
+sscGetLocalPayloadQ SlotId {..} logTrace= do
     expectedEpoch <- view ldEpoch
     let warningMsg = sformat warningFmt siEpoch expectedEpoch
-    isExpected <-
+    isExpected <- 
         if expectedEpoch == siEpoch then pure True
-        else False <$ logWarning warningMsg
+        else False <$ lift (logWarning logTrace warningMsg)
     magnify' ldModifier $
         getPayload isExpected <*> getCertificates isExpected
   where
@@ -125,9 +128,12 @@ sscNormalizeU
 sscNormalizeU (epoch, stake) bvd gs = do
     oldModifier <- use ldModifier
     let multiRichmen = HM.fromList [(epoch, stake)]
+        logTrace = contramap DList.singleton writerTrace
     newModifier <-
-        evalPureTossWithLogger gs $ supplyPureTossEnv (multiRichmen, bvd) $
-        execTossT mempty $ normalizeToss epoch oldModifier
+        evalPureTossWithLogger gs logTrace $ supplyPureTossEnv (multiRichmen, bvd) $
+        execTossT mempty $ normalizeToss 
+        (natTrace lift pureTossWithEnvTrace)
+        epoch oldModifier
     ldModifier .= newModifier
     ldEpoch .= epoch
     ldSize .= biSize newModifier
@@ -139,15 +145,16 @@ sscNormalizeU (epoch, stake) bvd gs = do
 -- | Check whether SSC data with given tag and public key can be added
 -- to current local data.
 sscIsDataUseful
-    :: ( WithLogger m
+    :: forall ctx m. 
+       ( MonadIO m
        , MonadSlots ctx m
        , MonadSscMem ctx m
        , Rand.MonadRandom m
        , HasGenesisData
        , HasProtocolConstants
        )
-    => SscTag -> StakeholderId -> m Bool
-sscIsDataUseful tag id =
+    => Trace m LogItem -> SscTag -> StakeholderId -> m Bool
+sscIsDataUseful logTrace tag id =
     ifM
         (maybe False (isGoodSlotForTag tag . siSlot) <$> getCurrentSlot)
         (evalTossInMem $ sscIsDataUsefulDo tag)
@@ -157,26 +164,19 @@ sscIsDataUseful tag id =
     sscIsDataUsefulDo OpeningMsg        = not <$> hasOpeningToss id
     sscIsDataUsefulDo SharesMsg         = not <$> hasSharesToss id
     sscIsDataUsefulDo VssCertificateMsg = not <$> hasCertificateToss id
-    evalTossInMem
-        :: ( WithLogger m
-           , MonadIO m
-           , MonadSscMem ctx m
-           , Rand.MonadRandom m
-           )
-        => TossT PureToss a -> m a
+    evalTossInMem :: TossT PureToss a -> m a
     evalTossInMem action = do
         gs <- sscRunGlobalQuery ask
         ld <- sscRunLocalQuery ask
         let modifier = ld ^. ldModifier
-        evalPureTossWithLogger gs $ evalTossT modifier action
+        evalPureTossWithLogger gs logTrace $ evalTossT modifier action
 
 ----------------------------------------------------------------------------
 ---- Data processing
 ----------------------------------------------------------------------------
 
 type SscDataProcessingMode ctx m =
-    ( WithLogger m
-    , MonadIO m           -- STM at least
+    ( MonadIO m           -- STM at least
     , Rand.MonadRandom m  -- for crypto
     , MonadDBRead m       -- to get richmen
     , MonadGState m       -- to get block size limit
@@ -187,33 +187,49 @@ type SscDataProcessingMode ctx m =
 
 -- | Process 'SignedCommitment' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
-sscProcessCommitment :: SscDataProcessingMode ctx m => SignedCommitment -> m (Either SscVerifyError ())
-sscProcessCommitment comm =
-    sscProcessData CommitmentMsg $
+sscProcessCommitment 
+    :: SscDataProcessingMode ctx m 
+    => Trace m LogItem 
+    -> SignedCommitment
+    -> m (Either SscVerifyError ())
+sscProcessCommitment logTrace comm =
+    sscProcessData logTrace CommitmentMsg $
     CommitmentsPayload (mkCommitmentsMap [comm]) mempty
 
 -- | Process 'Opening' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
-sscProcessOpening :: SscDataProcessingMode ctx m => StakeholderId -> Opening -> m (Either SscVerifyError ())
-sscProcessOpening id opening =
-    sscProcessData OpeningMsg $
+sscProcessOpening 
+    :: SscDataProcessingMode ctx m
+    => Trace m LogItem 
+    -> StakeholderId -> Opening -> m (Either SscVerifyError ())
+sscProcessOpening logTrace id opening =
+    sscProcessData logTrace OpeningMsg $
     OpeningsPayload (HM.fromList [(id, opening)]) mempty
 
 -- | Process 'InnerSharesMap' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
-sscProcessShares :: SscDataProcessingMode ctx m => StakeholderId -> InnerSharesMap -> m (Either SscVerifyError ())
-sscProcessShares id shares =
-    sscProcessData SharesMsg $ SharesPayload (HM.fromList [(id, shares)]) mempty
+sscProcessShares 
+    :: SscDataProcessingMode ctx m
+    => Trace m LogItem 
+    -> StakeholderId -> InnerSharesMap -> m (Either SscVerifyError ())
+sscProcessShares logTrace id shares =
+    sscProcessData logTrace SharesMsg $ SharesPayload (HM.fromList [(id, shares)]) mempty
 
 -- | Process 'VssCertificate' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
-sscProcessCertificate :: SscDataProcessingMode ctx m => VssCertificate -> m (Either SscVerifyError ())
-sscProcessCertificate cert =
-    sscProcessData VssCertificateMsg $
+sscProcessCertificate 
+    :: SscDataProcessingMode ctx m
+    => Trace m LogItem 
+    -> VssCertificate -> m (Either SscVerifyError ())
+sscProcessCertificate logTrace cert =
+    sscProcessData logTrace VssCertificateMsg $
     CertificatesPayload (mkVssCertificatesMapSingleton cert)
 
-sscProcessData :: SscDataProcessingMode ctx m => SscTag -> SscPayload -> m (Either SscVerifyError ())
-sscProcessData tag payload =
+sscProcessData 
+    :: SscDataProcessingMode ctx m
+    => Trace m LogItem ->
+    SscTag -> SscPayload -> m (Either SscVerifyError ())
+sscProcessData logTrace tag payload =
     runExceptT $ do
         getCurrentSlot >>= checkSlot
         ld <- sscRunLocalQuery ask
@@ -223,11 +239,12 @@ sscProcessData tag payload =
         lift (tryGetSscRichmen epoch) >>= \case
             Nothing -> throwError $ TossUnknownRichmen epoch
             Just richmen -> do
+                let logTrace' = contramap DList.singleton writerTrace
                 gs <- sscRunGlobalQuery ask
                 ExceptT $
-                    sscRunLocalSTM $
+                    sscRunLocalSTM logTrace $
                     executeMonadBaseRandom seed $
-                    sscProcessDataDo (epoch, richmen) bvd gs payload
+                    sscProcessDataDo logTrace' (epoch, richmen) bvd gs payload
   where
     checkSlot Nothing = throwError CurrentSlotUnknown
     checkSlot (Just si@SlotId {..})
@@ -241,14 +258,15 @@ sscProcessData tag payload =
 
 sscProcessDataDo
     :: (MonadState SscLocalData m, HasGenesisData
-      , WithLogger m, Rand.MonadRandom m, HasProtocolConstants
+      , Rand.MonadRandom m, HasProtocolConstants
       , HasProtocolMagic)
-    => (EpochIndex, RichmenStakes)
+    => Trace m LogItem 
+    -> (EpochIndex, RichmenStakes)
     -> BlockVersionData
     -> SscGlobalState
     -> SscPayload
     -> m (Either SscVerifyError ())
-sscProcessDataDo richmenData bvd gs payload =
+sscProcessDataDo logTrace richmenData bvd gs payload =
     runExceptT $ do
         storedEpoch <- use ldEpoch
         let givenEpoch = fst richmenData
@@ -263,16 +281,20 @@ sscProcessDataDo richmenData bvd gs payload =
         oldTM <-
             if | not exhausted -> use ldModifier
                | otherwise ->
-                   evalPureTossWithLogger gs .
+                   evalPureTossWithLogger gs (natTrace lift logTrace) .
                    supplyPureTossEnv (multiRichmen, bvd) .
-                   execTossT mempty . refreshToss givenEpoch =<<
+                   execTossT mempty . refreshToss (natTrace lift pureTossWithEnvTrace) givenEpoch =<<
                    use ldModifier
         newTM <-
             ExceptT $
-            evalPureTossWithLogger gs $
+            evalPureTossWithLogger gs logTrace $
             supplyPureTossEnv (multiRichmen, bvd) $
             runExceptT $
-            execTossT oldTM $ verifyAndApplySscPayload (Left storedEpoch) payload
+            execTossT oldTM $ 
+            verifyAndApplySscPayload
+                (natTrace (lift .lift) pureTossWithEnvTrace) 
+                (Left storedEpoch)
+                 payload
         ldModifier .= newTM
         -- If mempool was exhausted, it's easier to recompute total size.
         -- Otherwise (most common case) we don't want to spend time on it and

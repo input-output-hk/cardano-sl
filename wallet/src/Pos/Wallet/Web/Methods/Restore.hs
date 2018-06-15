@@ -7,6 +7,7 @@ module Pos.Wallet.Web.Methods.Restore
        , importWallet
        , restoreWalletFromSeed
        , restoreWalletFromBackup
+       , restoreExternalWallet
        , addInitialRichAccount
 
        -- For testing
@@ -26,8 +27,8 @@ import qualified Data.HashMap.Strict as HM
 import           Pos.Client.KeyStorage (addSecretKey)
 import           Pos.Core.Configuration (genesisSecretsPoor)
 import           Pos.Core.Genesis (poorSecretToEncKey)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase,
-                     firstHardened)
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, PublicKey,
+                     emptyPassphrase, firstHardened)
 import           Pos.Infra.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Util (HasLens (..), maybeThrow)
 import           Pos.Util.UserSecret (UserSecretDecodingError (..),
@@ -104,10 +105,23 @@ restoreWallet :: ( L.MonadWalletLogic ctx m
                  , MonadUnliftIO m
                  , HasLens SyncQueue ctx SyncQueue
                  ) => EncryptedSecretKey -> m CWallet
-restoreWallet sk = do
-    db <- WS.askWalletDB
-    let credentials@(_, wId) = keyToWalletDecrCredentials $ Right sk
+restoreWallet secretKey = restoreUsing $ Right secretKey
+
+-- | Restore a history related to given external wallet, using 'extPublicKey'.
+restoreExternalWallet :: ( L.MonadWalletLogic ctx m
+                         , MonadUnliftIO m
+                         , HasLens SyncQueue ctx SyncQueue
+                         ) => PublicKey -> m CWallet
+restoreExternalWallet publicKey = restoreUsing $ Left publicKey
+
+restoreUsing :: ( L.MonadWalletLogic ctx m
+                , MonadUnliftIO m
+                , HasLens SyncQueue ctx SyncQueue
+                ) => Either PublicKey EncryptedSecretKey -> m CWallet
+restoreUsing key = do
+    let credentials@(_, wId) = keyToWalletDecrCredentials key
     Restore.restoreWallet credentials
+    db <- WS.askWalletDB
     WS.setWalletReady db wId True
     L.getWallet wId
 

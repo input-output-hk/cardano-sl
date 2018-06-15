@@ -54,7 +54,6 @@ import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT, evalPureTossWithLog
                                tmShares, verifyAndApplySscPayload, pureTossWithEnvTrace)
 import           Pos.Ssc.Types (SscGlobalState, SscLocalData (..), ldEpoch, ldModifier, ldSize,
                                 sscGlobal, sscLocal)
-import           Pos.Util.Log (WithLogger)
 import           Pos.Util.Trace (Trace, natTrace)
 import           Pos.Util.Trace.Unstructured (LogItem, logWarning)
 import           Pos.Util.Trace.Writer (writerTrace)

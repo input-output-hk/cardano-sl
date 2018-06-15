@@ -10,13 +10,13 @@ import           Universum hiding (id)
 
 import           Test.QuickCheck (Arbitrary (..), listOf)
 
-import           Pos.Arbitrary.Core ()
 import           Pos.Arbitrary.Update.Core ()
 import           Pos.Binary.Update ()
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..), mkUpdateVote)
 import           Pos.Crypto (hash)
 import           Pos.Infra.Communication.Relay (DataMsg (..))
 
+import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 instance Arbitrary (DataMsg UpdateVote) where

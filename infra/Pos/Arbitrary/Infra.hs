@@ -11,12 +11,13 @@ import           Network.Kademlia.HashNodeId (HashId (..))
 import           Test.QuickCheck (Arbitrary (..), choose, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Core ()
 import           Pos.Core.Delegation (ProxySKHeavy)
 import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..), VerInfo (..))
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..), InvMsg (..), MempoolMsg (..),
                                                       ReqMsg (..))
 import           Pos.Infra.DHT (DHTData (..), DHTKey (..))
+
+import           Test.Pos.Core.Arbitrary ()
 
 deriving instance Arbitrary DHTData
 

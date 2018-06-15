@@ -16,6 +16,8 @@ library
   exposed-modules:
                        Test.Pos.Core.Chrono
                        Test.Pos.Core.Gen
+                       Test.Pos.Core.Arbitrary
+                       Test.Pos.Core.Arbitrary.Unsafe
 
   build-depends:       QuickCheck
                      , base
@@ -24,11 +26,22 @@ library
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
+                     , cardano-sl-util
+                     , cardano-sl-util-test
+                     , containers
                      , cryptonite
                      , cryptonite-openssl >= 0.5
+                     , data-default
+                     , formatting
+                     , generic-arbitrary
                      , hedgehog
+                     , hspec
+                     , mtl
                      , pvss
+                     , quickcheck-instances
+                     , random
                      , serokell-util
+                     , tagged
                      , time-units
                      , universum
                      , unordered-containers
@@ -66,6 +79,3 @@ library
 
   ghc-options:         -Wall
                        -O2
-
-  build-tools: cpphs >= 1.19
-  ghc-options: -pgmP cpphs -optP --cpp

@@ -9,9 +9,10 @@ import           Universum
 import           Test.QuickCheck (Arbitrary (..), arbitrary, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Core ()
 import           Pos.Infra.Slotting.Types (EpochSlottingData (..), SlottingData,
                                            createInitSlottingData)
+
+import           Test.Pos.Core.Arbitrary ()
 
 instance Arbitrary EpochSlottingData where
     arbitrary = genericArbitrary

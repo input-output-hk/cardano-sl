@@ -6,6 +6,7 @@ module Cardano.Wallet.Kernel.CoinSelection.Policies (
       defaultPolicy
     , largestFirst
     , utxoBalance
+    , utxoRestrictToInputs
     , paymentAmount
     ) where
 
@@ -128,7 +129,7 @@ runCoinPolicyT options genChangeAddr originalUtxo goals policyT = do
                      -- Overflowing here shouldn't be possible as the result
                      -- of the division will be < 1.0, and thus the result will
                      -- always be < of the original tf.
-                     in Core.mkCoin (floor $ tf * weight)
+                     in Core.mkCoin (ceiling $ tf * weight)
 
         -- | Calculates the total 'Core.Coin' from all the @original@ outputs.
         totalOriginalOutputValue :: TotalOutput

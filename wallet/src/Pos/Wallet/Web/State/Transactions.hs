@@ -5,6 +5,7 @@
 --   guarantees for them.
 module Pos.Wallet.Web.State.Transactions
     ( createAccountWithAddress
+    , createAccountWithoutAddresses
     , removeWallet2
     , applyModifierToWallet
     , applyModifierToWallet2
@@ -36,6 +37,14 @@ createAccountWithAddress
 createAccountWithAddress accId accMeta addrMeta = do
     WS.createAccount accId accMeta
     WS.addWAddress addrMeta
+
+-- | Create an account without addresses (this is for external wallet).
+createAccountWithoutAddresses
+    :: AccountId
+    -> CAccountMeta
+    -> Update ()
+createAccountWithoutAddresses accId accMeta = do
+    WS.createAccount accId accMeta
 
 -- | Delete a wallet (and all associated data).
 --   Compared to the low-level 'removeWallet', this function:

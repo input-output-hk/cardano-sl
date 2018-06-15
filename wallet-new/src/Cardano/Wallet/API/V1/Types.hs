@@ -33,6 +33,9 @@ module Cardano.Wallet.API.V1.Types (
   , WalletId (..)
   , WalletOperation (..)
   , SpendingPassword
+  , ExternalWallet (..)
+  , NewExternalWallet (..)
+  , WalletAndTxHistory (..)
   -- * Addresses
   , AddressValidity (..)
   -- * Accounts
@@ -499,7 +502,6 @@ instance ToSchema NewWallet where
       & ("operation"        --^ "Create a new wallet or Restore an existing one.")
     )
 
-
 deriveSafeBuildable ''NewWallet
 instance BuildableSafeGen NewWallet where
     buildSafeGen sl NewWallet{..} = bprint ("{"
@@ -514,6 +516,45 @@ instance BuildableSafeGen NewWallet where
         newwalAssuranceLevel
         newwalName
         newwalOperation
+
+-- | A type modelling the request for a new 'ExternalWallet',
+-- on the mobile client or hardware wallet.
+data NewExternalWallet = NewExternalWallet
+    { newewalExtPubKey      :: !Text            -- ^ Base58-encoded extended public key.
+    , newewalAssuranceLevel :: !AssuranceLevel
+    , newewalName           :: !WalletName
+    , newewalOperation      :: !WalletOperation
+    } deriving (Eq, Show, Generic)
+
+deriveJSON Serokell.defaultOptions ''NewExternalWallet
+
+instance Arbitrary NewExternalWallet where
+  arbitrary = NewExternalWallet <$> arbitrary
+                                <*> arbitrary
+                                <*> pure "My external Wallet"
+                                <*> arbitrary
+
+instance ToSchema NewExternalWallet where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "newewal" (\(--^) props -> props
+      & ("extPubKey"      --^ "Base58-encoded extended public key used as external Wallet's id")
+      & ("assuranceLevel" --^ "Desired assurance level based on the number of confirmations counter of each transaction.")
+      & ("name"           --^ "External Wallet's name")
+      & ("operation"      --^ "Create a new external wallet or Restore an existing one")
+    )
+
+deriveSafeBuildable ''NewExternalWallet
+instance BuildableSafeGen NewExternalWallet where
+    buildSafeGen sl NewExternalWallet{..} = bprint ("{"
+        %" extPubKey="%buildSafe sl
+        %" assuranceLevel="%buildSafe sl
+        %" name="%buildSafe sl
+        %" operation"%buildSafe sl
+        %" }")
+        newewalExtPubKey
+        newewalAssuranceLevel
+        newewalName
+        newewalOperation
 
 
 -- | A type modelling the update of an existing wallet.
@@ -802,6 +843,28 @@ instance BuildableSafeGen Wallet where
 
 instance Buildable [Wallet] where
     build = bprint listJson
+
+-- | An external wallet (mobile client or hardware wallet).
+data ExternalWallet = ExternalWallet
+    { ewalId      :: !WalletId
+    , ewalName    :: !WalletName
+    , ewalBalance :: !(V1 Core.Coin)
+    } deriving (Eq, Ord, Show, Generic)
+
+deriveJSON Serokell.defaultOptions ''ExternalWallet
+
+instance ToSchema ExternalWallet where
+  declareNamedSchema =
+    genericSchemaDroppingPrefix "ewal" (\(--^) props -> props
+      & ("id"      --^ "Unique wallet identifier")
+      & ("name"    --^ "Wallet's name")
+      & ("balance" --^ "Current balance, in ADA")
+    )
+
+instance Arbitrary ExternalWallet where
+  arbitrary = ExternalWallet <$> arbitrary
+                             <*> pure "My external wallet"
+                             <*> arbitrary
 
 --------------------------------------------------------------------------------
 -- Addresses
@@ -1457,6 +1520,39 @@ instance BuildableSafeGen SignedTransaction where
         stxTransaction
         stxSignature
 
+-- | We use it for external wallets: if it's already presented in wallet db,
+-- we return a wallet info and complete transactions history as well.
+data WalletAndTxHistory = WalletAndTxHistory
+    { waltxsWallet       :: !Wallet
+    , waltxsTransactions :: ![Transaction]
+    } deriving (Eq, Ord, Show, Generic)
+
+deriveJSON Serokell.defaultOptions ''WalletAndTxHistory
+
+instance ToSchema WalletAndTxHistory where
+    declareNamedSchema =
+        genericSchemaDroppingPrefix "waltxs" (\(--^) props -> props
+            & "wallet"
+            --^ "Wallet information."
+            & "transactions"
+            --^ "List of transactions related to this wallet (including all accounts and addresses)."
+        )
+
+instance Arbitrary WalletAndTxHistory where
+  arbitrary = WalletAndTxHistory <$> arbitrary
+                                 <*> arbitrary
+
+deriveSafeBuildable ''WalletAndTxHistory
+instance BuildableSafeGen WalletAndTxHistory where
+  buildSafeGen sl WalletAndTxHistory{..} = bprint ("{"
+    %" wallet="%buildSafe sl
+    %" transactions="%buildSafe sl
+    %" }")
+    waltxsWallet
+    waltxsTransactions
+
+
+
 -- | A type representing an upcoming wallet update.
 data WalletSoftwareUpdate = WalletSoftwareUpdate
   { updSoftwareVersion   :: !Text
@@ -1824,14 +1920,22 @@ instance BuildableSafeGen NodeInfo where
 --
 
 type family Update (original :: *) :: * where
-  Update Wallet        = WalletUpdate
-  Update Account       = AccountUpdate
-  Update WalletAddress = () -- read-only
+    Update Wallet =
+        WalletUpdate
+    Update Account =
+        AccountUpdate
+    Update WalletAddress =
+        () -- read-only
 
 type family New (original :: *) :: * where
-  New Wallet  = NewWallet
-  New Account = NewAccount
-  New WalletAddress = NewAddress
+    New Wallet =
+        NewWallet
+    New Account =
+        NewAccount
+    New WalletAddress =
+        NewAddress
+    New ExternalWallet =
+        NewExternalWallet
 
 type CaptureWalletId = Capture "walletId" WalletId
 

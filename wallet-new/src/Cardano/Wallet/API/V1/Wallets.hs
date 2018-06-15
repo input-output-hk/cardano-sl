@@ -1,5 +1,7 @@
 module Cardano.Wallet.API.V1.Wallets where
 
+import           Universum (Text)
+
 import           Cardano.Wallet.API.Request
 import           Cardano.Wallet.API.Response
 import           Cardano.Wallet.API.Types
@@ -37,4 +39,16 @@ type API = Tags '["Wallets"] :>
                    :> Summary "Update the Wallet identified by the given walletId."
                    :> ReqBody '[ValidJSON] (Update Wallet)
                    :> Put '[ValidJSON] (WalletResponse Wallet)
+    :<|> "external-wallets"
+                   :> Capture "extPublicKey" Text
+                   :> Summary "Check if this external wallet is presented in the node."
+                   :> PostCreated '[ValidJSON] (WalletResponse WalletAndTxHistory)
+    :<|> "external-wallets"
+                   :> Summary "Creates a new or restores an existing external wallet (mobile client or hardware wallet)."
+                   :> ReqBody '[ValidJSON] (New ExternalWallet)
+                   :> PostCreated '[ValidJSON] (WalletResponse Wallet)
+    :<|> "external-wallets"
+                   :> Capture "extPublicKey" Text
+                   :> Summary "Deletes the given external wallet and all its accounts."
+                   :> DeleteNoContent '[ValidJSON] NoContent
     )
